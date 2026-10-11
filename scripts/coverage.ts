@@ -61,7 +61,8 @@ export interface Marker {
 
 export function markers(): Marker[] {
   const out: Marker[] = [];
-  const re = /\/\/ rustc: (\S+):(\d+) (\S+)/g;
+  // `// rustc-skip: <path>:<line> <name> <reason>` marks a fn deliberately not ported; it counts as covered.
+  const re = /\/\/ rustc(?:-skip)?: (\S+):(\d+) (\S+)/g;
   for (const f of walk(join(REPO, "src"), ".ts")) {
     const text = readFileSync(f, "utf8");
     for (const m of text.matchAll(re)) out.push({ file: relative(REPO, f).replaceAll("\\", "/"), path: m[1]!, line: Number(m[2]), name: m[3]! });

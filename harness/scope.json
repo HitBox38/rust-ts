@@ -20,6 +20,7 @@
   },
   "vendor": {
     "unicode-ident": "=1.0.24",
-    "unicode-properties": "=0.1.4"
+    "unicode-properties": "=0.1.4",
+    "rustc-literal-escaper": "=0.0.8"
   }
 }

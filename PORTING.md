@@ -31,6 +31,10 @@ The upstream checkout is at `$RUST_TS_DATA/rust` (see `.env.local`; `bun scripts
   `// rustc: compiler/<crate>/src/<path>.rs:<line> <fn_name>`
   `<line>` is the line of the `fn` keyword at the pin. `bun scripts/coverage.ts --check`
   rejects markers that point at no upstream fn; `--missing <path>` lists what is left.
+- Impls of `Encodable`, `Decodable`, `HashStable`, `ToStableHashKey`, `StableOrd`, rustc's
+  `Lift`, and anything behind `#[cfg(test)]`-only helpers you don't port are **skipped** with
+  `// rustc-skip: <path>:<line> <name> <reason>` (counts as covered; metadata/incremental are out of
+  scope until M5). Do not skip anything else without a recorded root decision.
 - Cannot port something yet? Call `unported("crate::path::what")` from `src/std/panic.ts`.
   **Never return a guessed value.** Unported code exits 70, which the harness reports as
   UNPORTED, not as a mismatch.
@@ -65,6 +69,8 @@ The upstream checkout is at `$RUST_TS_DATA/rust` (see `.env.local`; `bun scripts
 | `Option<T>` | `T \| undefined`. `Option<Option<T>>` or `Option<undefined-able T>` → `{ $: "Some", _0 } \| undefined` + `// PORT:` |
 | `Result<T, E>` | `Result<T, E>` from `src/std/result.ts`; `Ok(x)`, `Err(e)`; `?` → `if (r.$ === "Err") return r;` |
 | `Vec<T>`, `&[T]`, `[T; N]`, `SmallVec`, `ThinVec` | `T[]` (readonly where upstream is `&[T]`) |
+| `IndexVec<I, T>`, `IndexSlice<I, T>` | `T[]` indexed by the handle number |
+| `Lrc`, `Lock`, `RwLock`, `MTLock`, `AppendOnlyVec`, `FreezeLock` (rustc_data_structures::sync) | the inner value / `T[]` |
 | `Box<T>`, `P<T>`, `Rc<T>`, `Arc<T>`, `&T`, `&mut T` | `T` |
 | `Cell<T>`, `RefCell<T>`, `Lock<T>` | the field itself (mutable) |
 | `FxHashMap<K,V>`/`HashMap` | `Map<K, V>` (key must be a primitive or interned handle) |
@@ -90,13 +96,47 @@ The upstream checkout is at `$RUST_TS_DATA/rust` (see `.env.local`; `bun scripts
 - Structs with inherent methods → `class`; constructor takes **all fields in declaration
   order**; `Type::new(..)` → `static new(..)`. Methods keep Rust names; `self` → `this`.
 - Data-only structs → `interface` + object literals (`{ n_hashes, terminated, token_len }`).
-- Methods defined in another file (`impl Parser` split over many files): module augmentation
-  + prototype assignment in the file that defines them. (Pattern lands with rustc_parse.)
+- Associated consts → `static readonly`. Trait impls on a class (e.g. `impl Pos for BytePos`)
+  → methods on the class; generic code over the trait takes the needed functions as parameters.
+
+### Methods defined in another file
+rustc splits `impl Parser<'a>` over many files. In the TS file mirroring each such file:
+
+```ts
+import { Parser } from "./mod.ts";
+declare module "./mod.ts" {
+  interface Parser {
+    parse_expr(): P<Expr>;
+  }
+}
+// rustc: compiler/rustc_parse/src/parser/expr.rs:63 parse_expr
+Parser.prototype.parse_expr = function (this: Parser): P<Expr> { ... };
+```
+
+The defining module must **not** import its extension files (ESM evaluates imports first, so
+`Parser` would not exist yet). The crate root (`lib.ts`) imports extension files for their side
+effects, after the defining module: `import "./parser/mod.ts"; import "./parser/expr.ts";`.
+Ordinary `mod x;` declarations otherwise become `export * from`/`import` in the declaring module.
+
+### Global state
+`scoped_tls`/`thread_local!` globals (e.g. `SESSION_GLOBALS`) → a module-level `let` in the
+defining module, with the upstream accessor functions ported (`with_session_globals(f)`,
+`create_session_globals_then(edition, ..., f)` sets the global, runs `f`, restores it in `finally`).
 
 ### Interned handles
-`Ty<'tcx>`, `Symbol`, `DefId`, `LocalDefId`, `HirId`, `NodeId`, `Span`, `newtype_index!` types →
-branded numbers (`type Symbol = number & { readonly __brand: "Symbol" }`) indexing interners
-owned by the session/`TyCtxt`. Equality is `===`. (Lands with rustc_span / rustc_middle.)
+`Symbol`, `NodeId`, `DefIndex`, `CrateNum`, `LocalDefId`, `ItemLocalId`, `newtype_index!` types,
+`Ty<'tcx>`, and `Span` → branded numbers (`type Symbol = number & { readonly __brand: "Symbol" }`)
+indexing interners owned by the session globals / `TyCtxt`. Equality is `===`, maps key on them
+directly. Multi-field ids (`DefId { krate, index }`, `HirId`) stay small immutable classes until a
+lane proves interning them pays off. `newtype_index!` types get `from_u32`/`as_u32`/`as_usize`/
+`MAX`/`ZERO` helpers on a companion const; the generated Debug output must match upstream's
+(often a custom format, e.g. `NodeId(4294967040)`).
+
+## 5b. External crates
+External crates used by in-scope compiler crates are ported to `src/vendor/<crate>/` at the
+version in upstream's `Cargo.lock` (record it in `harness/scope.json` → `vendor`). Get the source with
+`bun scripts/crate-src.ts <crate>` (prints the path of the unpacked crate). Port its unit tests too.
+Markers for vendor code: `// crate: <crate>-<version>/<path>:<line> <name>`.
 
 ### Traits
 - `#[derive(Debug)]` → `export const debug_<Type>: Debug<Type> = (v, f) => ...` using
