@@ -84,6 +84,17 @@ export const SUITES: Suite[] = [
     oracle: ([c]) => oracleRustcCmd(c!.args),
     subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
   },
+  {
+    name: "escape",
+    milestone: "M1",
+    description:
+      "rustc-literal-escaper results (probe built from the locked crate + upstream rustc_lexer) for every quoted literal in every .rs in tests/ui, library, compiler",
+    mode: "batch",
+    timeoutMs: 120_000,
+    cases: () => corpus("tests/ui", "library", "compiler").map((f) => ({ id: f, file: f, args: [] })),
+    oracle: (cs) => [probePath("escapes"), ...cs.map((c) => c.file)],
+    subject: (cs) => [...bunCmd("src/rust_ts/escapedump.ts"), ...cs.map((c) => c.file)],
+  },
 ];
 
 export function suite(name: string): Suite {
