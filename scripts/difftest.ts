@@ -85,14 +85,25 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
   }
   if (todo.length === 0) return out;
   if (s.mode === "batch") {
-    const r = await run(s.oracle(todo), { cwd: UPSTREAM, timeoutMs: s.timeoutMs });
-    if (r.code !== 0 || r.timedOut) throw new Error(`oracle batch failed (exit ${r.code}): ${r.stderr.slice(0, 2000)}`);
-    const parts = splitBatch(r.stdout);
-    for (const c of todo) {
-      const o: Output = { text: parts.get(c.file) ?? "", code: 0, timedOut: false };
-      out.set(c.id, o);
-      writeFileSync(paths.get(c.id)!, JSON.stringify(o));
-    }
+    // A batch can time out under load; split it in halves until it succeeds, and only
+    // fail when a single file cannot be run by the oracle.
+    const runBatch = async (batch: Case[]): Promise<void> => {
+      const r = await run(s.oracle(batch), { cwd: UPSTREAM, timeoutMs: s.timeoutMs });
+      if (r.code !== 0 || r.timedOut) {
+        if (batch.length === 1) throw new Error(`oracle failed on ${batch[0]!.file} (exit ${r.code}${r.timedOut ? ", timeout" : ""}): ${r.stderr.slice(0, 2000)}`);
+        const mid = batch.length >> 1;
+        await runBatch(batch.slice(0, mid));
+        await runBatch(batch.slice(mid));
+        return;
+      }
+      const parts = splitBatch(r.stdout);
+      for (const c of batch) {
+        const o: Output = { text: parts.get(c.file) ?? "", code: 0, timedOut: false };
+        out.set(c.id, o);
+        writeFileSync(paths.get(c.id)!, JSON.stringify(o));
+      }
+    };
+    await runBatch(todo);
   } else {
     for (const c of todo) {
       const r = await run(s.oracle([c]), { cwd: UPSTREAM, timeoutMs: s.timeoutMs });
@@ -108,14 +119,25 @@ async function runSubject(s: Suite, cases: Case[], impl: string): Promise<Map<st
   const env = { RUST_TS_IMPL: impl };
   const out = new Map<string, Output>();
   if (s.mode === "batch") {
-    const r = await run(s.subject(cases), { cwd: UPSTREAM, timeoutMs: s.timeoutMs, env });
-    const parts = splitBatch(r.stdout);
-    const failed = r.code !== 0 || r.timedOut;
-    cases.forEach((c, i) => {
-      // On failure the last section printed may be incomplete; treat it as missing.
-      const complete = parts.has(c.file) && (!failed || (i + 1 < cases.length && parts.has(cases[i + 1]!.file)));
-      out.set(c.id, complete ? { text: parts.get(c.file)!, code: 0, timedOut: false } : { text: r.stderr, code: r.code, timedOut: r.timedOut });
-    });
+    const runBatch = async (batch: Case[]): Promise<void> => {
+      const r = await run(s.subject(batch), { cwd: UPSTREAM, timeoutMs: s.timeoutMs, env });
+      // A timed-out batch says nothing about individual files (load, one huge file): retry in halves,
+      // so TIMEOUT is only ever reported for a single file that is slow on its own.
+      if (r.timedOut && batch.length > 1) {
+        const mid = batch.length >> 1;
+        await runBatch(batch.slice(0, mid));
+        await runBatch(batch.slice(mid));
+        return;
+      }
+      const parts = splitBatch(r.stdout);
+      const failed = r.code !== 0 || r.timedOut;
+      batch.forEach((c, i) => {
+        // On failure the last section printed may be incomplete; treat it as missing.
+        const complete = parts.has(c.file) && (!failed || (i + 1 < batch.length && parts.has(batch[i + 1]!.file)));
+        out.set(c.id, complete ? { text: parts.get(c.file)!, code: 0, timedOut: false } : { text: r.stderr, code: r.code, timedOut: r.timedOut });
+      });
+    };
+    await runBatch(cases);
   } else {
     for (const c of cases) {
       const r = await run(s.subject([c]), { cwd: UPSTREAM, timeoutMs: s.timeoutMs, env });
