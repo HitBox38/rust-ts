@@ -1,0 +1,19 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@ and builds this in $RUST_TS_DATA/probes.
+# Dependency versions are pinned to upstream's Cargo.lock at the pinned commit.
+[package]
+name = "lexdump"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "lexdump"
+path = "@SRC@/main.rs"
+
+[dependencies]
+rustc_lexer = { path = "@UPSTREAM@/compiler/rustc_lexer" }
+memchr = "=2.8.0"
+unicode-ident = "=1.0.24"
+unicode-properties = { version = "=0.1.4", default-features = false, features = ["emoji"] }
+
+[workspace]

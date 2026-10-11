@@ -1,0 +1,13 @@
+{
+  "milestone": "M0",
+  "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
+  "protected": {
+    "lex": 25780
+  },
+  "updated": "2026-10-11T19:19:05.379Z",
+  "open_stops": [],
+  "coverage": {
+    "ported": 61,
+    "total": 25517
+  }
+}

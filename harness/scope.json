@@ -1,0 +1,25 @@
+{
+  "comment": "Which upstream compiler crates are ported. Changing this file needs the owner's approval (see AGENTS.md).",
+  "excluded": {
+    "rustc_codegen_llvm": "LLVM backend; replaced by our own text-LLVM-IR backend (M7)",
+    "rustc_codegen_gcc": "GCC backend",
+    "rustc_codegen_cranelift": "Cranelift backend",
+    "rustc_llvm": "C++ LLVM bindings",
+    "rustc_public": "stable MIR API for external tools",
+    "rustc_public_bridge": "stable MIR API for external tools",
+    "rustc_macros": "proc macros; replaced by tools/codegen",
+    "rustc_index_macros": "proc macros; replaced by tools/codegen",
+    "rustc_type_ir_macros": "proc macros; replaced by tools/codegen",
+    "rustc_incremental": "incremental compilation is out of scope",
+    "rustc_thread_pool": "parallel frontend is out of scope",
+    "rustc_windows_rc": "Windows resource compiler glue",
+    "rustc_log": "tracing setup",
+    "rustc_baked_icu_data": "baked ICU data for list formatting; port as data if needed",
+    "rustc_sanitizers": "sanitizer instrumentation (later, if ever)",
+    "rustc": "binary wrapper around rustc_driver"
+  },
+  "vendor": {
+    "unicode-ident": "=1.0.24",
+    "unicode-properties": "=0.1.4"
+  }
+}

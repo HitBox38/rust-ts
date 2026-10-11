@@ -1,0 +1,31 @@
+# Work queue
+
+Top = next. Root keeps this current. Claim items via `docs/claims/<id>.md` (see AGENTS.md).
+
+## M1 — lexer, parser, AST, diagnostics  (gate: `parse` suite = `-Zunpretty=ast-tree` parity on tests/ui)
+
+Infrastructure first (root):
+1. **probe-typedefs** — `tools/probes/typedefs`: a Rust probe using `syn` that dumps every
+   struct/enum definition of a given upstream crate (fields, variants, derives, generics) as JSON.
+2. **codegen-types** — `tools/codegen/types.ts`: from typedefs JSON, emit TS type declarations,
+   enum companions and `debug_<Type>` impls following PORTING.md §5. Validate on rustc_lexer
+   (generated output must be equivalent to the hand port) before using it on rustc_ast.
+3. **codegen-symbols** — `symbols!` (rustc_span/src/symbol.rs) → generated interner prefill.
+4. **suite-errors** — add a suite that runs the `ui/parser`, `ui/lexer` tests with their
+   compiletest flags (`-Zui-testing` etc.) and compares diagnostics.
+
+Porting lanes (in dependency order; each wave starts after the previous one integrates):
+- Wave A: `rustc_data_structures` (subset used by span/ast), `rustc_index`, `rustc_hashes`,
+  vendor `rustc_literal_escaper`.
+- Wave B: `rustc_span` (BytePos, Span, SourceMap, SourceFile, hygiene stubs, Symbol interner,
+  Span Debug = `file:1:1: 1:33 (#0)`), `rustc_ast_ir`, `rustc_ast` (types via codegen),
+  `rustc_feature` (tables), `rustc_error_messages`.
+- Wave C: `rustc_errors` (DiagCtxt, human emitter, annotate-snippets renderer),
+  `rustc_session` (only option parsing + ParseSess needed by the parser).
+- Wave D: `rustc_parse::lexer` (StringReader, tokentrees, unicode_chars, diagnostics),
+  `rustc_ast_pretty` (needed by parser diagnostics).
+- Wave E: `rustc_parse::parser` (mod, item, expr, pat, ty, stmt, path, generics, attr, diagnostics, ...).
+- Wave F: driver: `rustc_driver_impl`/`rustc_interface` subset: CLI → parse → `-Zunpretty=ast-tree`.
+
+## Later milestones
+See `PLAN.md` §5.

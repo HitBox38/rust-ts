@@ -1,0 +1,11 @@
+{
+  "rust": {
+    "repo": "https://github.com/rust-lang/rust.git",
+    "commit": "6f5da406b56c2db6607202b63daee73aa8c61297",
+    "commitDate": "2026-10-10",
+    "release": "1.101.0-nightly",
+    "toolchain": "nightly",
+    "nightlyName": "nightly-2026-10-11",
+    "sparse": ["compiler", "library", "tests/ui", "src/tools/compiletest", "src/tools/miri/src"]
+  }
+}

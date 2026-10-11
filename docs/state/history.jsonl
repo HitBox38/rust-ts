@@ -1,0 +1,2 @@
+{"ts":"2026-10-11T19:19:05.320Z","kind":"accept","msg":"accepted gate run gate-20261011-191820","data":{"runId":"gate-20261011-191820","suites":{"lex":{"protected":25780,"total":25780}}}}
+{"ts":"2026-10-11T19:19:05.379Z","kind":"milestone","msg":"M0 harness validated (shim 100%, stub 0%); rustc_lexer pilot at 100% lex parity"}

@@ -1,0 +1,24 @@
+{
+  "name": "rust-ts",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "rustc-ts": "./bin/rustc-ts"
+  },
+  "scripts": {
+    "rustc-ts": "bun src/driver/main.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test src",
+    "upstream": "bun scripts/upstream.ts",
+    "oracle": "bun scripts/oracle.ts",
+    "difftest": "bun scripts/difftest.ts",
+    "phase-diff": "bun scripts/phase-diff.ts",
+    "coverage": "bun scripts/coverage.ts",
+    "gate": "bun scripts/gate.ts",
+    "state": "bun scripts/state.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "7"
+  }
+}
