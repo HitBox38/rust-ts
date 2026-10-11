@@ -1,0 +1,52 @@
+{
+  "//": [
+    "Type map for tools/codegen/types.ts (PORTING.md section 5).",
+    "types[].paths: resolved Rust paths this entry maps. Paths without '::' match only prelude/std/core/alloc names.",
+    "types[].ts: TS type template; $0..$n are the mapped type arguments (lifetimes and consts are skipped).",
+    "types[].debug: Debug expression template; $v = value, $f = Fmt, $d0..$dn = Debug fns of the type arguments.",
+    "  'transparent' = Debug of $0 (Box, &T, ...). null = no TS Debug available yet (reported when used).",
+    "types[].import: repo-relative module providing types[].types (type-only) and types[].values.",
+    "types[].option: Option<T> (Option<Option<T>> rule). types[].nullable: the TS type can be undefined.",
+    "cfg: predicates rustc is built with (true) / without (false). Anything else is reported.",
+    "helpers: functions that debug templates may call, by module; imported when used."
+  ],
+  "cfg": {
+    "true": ["feature = \"nightly\""],
+    "false": ["debug_assertions", "test", "bootstrap", "doc", "miri", "feature = \"rustc_randomized_layouts\""]
+  },
+  "helpers": {
+    "src/std/fmt.ts": ["debug_struct", "debug_tuple", "debug_list", "debug_set", "debug_map", "debug_option", "debug_vec", "debug_bool", "debug_int", "debug_str", "debug_char"],
+    "src/std/result.ts": ["debug_result"]
+  },
+  "types": [
+    { "paths": ["u8", "u16", "u32", "usize", "i8", "i16", "i32", "isize"], "ts": "number", "debug": "debug_int($v, $f)" },
+    { "paths": ["u64", "i64"], "ts": "number", "debug": "debug_int($v, $f)", "note": "PORT: u64/i64 as number (values < 2^53); switch to bigint per field if not" },
+    { "paths": ["u128", "i128", "rustc_data_structures::packed::Pu128"], "ts": "bigint", "debug": "debug_int($v, $f)" },
+    { "paths": ["f32", "f64"], "ts": "number", "debug": null, "note": "needs a float Debug helper in src/std/fmt.ts" },
+    { "paths": ["bool"], "ts": "boolean", "debug": "debug_bool($v, $f)" },
+    { "paths": ["char"], "ts": "number", "debug": "debug_char($v)" },
+    { "paths": ["str", "String"], "ts": "string", "debug": "debug_str($v)" },
+    { "paths": ["Option"], "ts": "$0 | undefined", "debug": "debug_option($v, $f, $d0)", "option": true, "nullable": true },
+    { "paths": ["Result"], "ts": "Result<$0, $1>", "import": "src/std/result.ts", "types": ["Result"], "debug": "debug_result($v, $f, $d0, $d1)" },
+    { "paths": ["Vec", "VecDeque", "thin_vec::ThinVec", "smallvec::SmallVec"], "ts": "$0[]", "debug": "debug_vec($v, $f, $d0)" },
+    { "paths": ["Box", "Rc", "Arc", "std::sync::Arc", "std::rc::Rc", "rustc_data_structures::sync::Lrc", "Cell", "RefCell", "std::cell::Cell", "std::cell::RefCell", "Cow", "std::borrow::Cow"], "ts": "$0", "debug": "transparent" },
+    { "paths": ["std::sync::atomic::AtomicU32", "std::sync::atomic::AtomicUsize"], "ts": "number", "debug": "debug_int($v, $f)" },
+    { "paths": ["PhantomData", "std::marker::PhantomData"], "ts": "undefined", "debug": null, "note": "PhantomData<T> Debug prints the Rust type name" },
+    { "paths": ["std::ops::Range", "Range"], "ts": "{ start: $0; end: $0 }", "debug": "$d0($v.start, $f) + \"..\" + $d0($v.end, $f)" },
+    { "paths": ["rustc_data_structures::fx::FxHashMap", "std::collections::HashMap", "HashMap"], "ts": "Map<$0, $1>", "debug": null, "note": "HashMap Debug iterates in hash order" },
+    { "paths": ["rustc_data_structures::fx::FxIndexMap", "indexmap::IndexMap"], "ts": "Map<$0, $1>", "debug": "debug_map($f, [...$v].map(([k, x]) => [$d0(k, $f), $d1(x, $f)]))" },
+    { "paths": ["std::str::Chars"], "ts": "Chars", "import": "src/std/str.ts", "types": ["Chars"], "debug": null },
+
+    { "paths": ["rustc_span::Span", "rustc_span::span_encoding::Span"], "ts": "Span", "import": "src/rustc_span/span_encoding.ts", "types": ["Span"], "values": ["debug_Span"], "debug": "debug_Span($v, $f)" },
+    { "paths": ["rustc_span::Symbol", "rustc_span::symbol::Symbol"], "ts": "Symbol", "import": "src/rustc_span/symbol.ts", "types": ["Symbol"], "values": ["debug_Symbol"], "debug": "debug_Symbol($v, $f)" },
+    { "paths": ["rustc_span::ByteSymbol", "rustc_span::symbol::ByteSymbol"], "ts": "ByteSymbol", "import": "src/rustc_span/symbol.ts", "types": ["ByteSymbol"], "values": ["debug_ByteSymbol"], "debug": "debug_ByteSymbol($v, $f)" },
+    { "paths": ["rustc_span::Ident", "rustc_span::symbol::Ident"], "ts": "Ident", "import": "src/rustc_span/symbol.ts", "types": ["Ident"], "values": ["debug_Ident"], "debug": "debug_Ident($v, $f)" },
+    { "paths": ["rustc_span::BytePos"], "ts": "BytePos", "import": "src/rustc_span/lib.ts", "types": ["BytePos"], "values": ["debug_BytePos"], "debug": "debug_BytePos($v, $f)" },
+    { "paths": ["rustc_span::AttrId"], "ts": "AttrId", "import": "src/rustc_span/lib.ts", "types": ["AttrId"], "values": ["debug_AttrId"], "debug": "debug_AttrId($v, $f)" },
+    { "paths": ["rustc_span::ErrorGuaranteed"], "ts": "ErrorGuaranteed", "import": "src/rustc_span/lib.ts", "types": ["ErrorGuaranteed"], "values": ["debug_ErrorGuaranteed"], "debug": "debug_ErrorGuaranteed($v, $f)" },
+    { "paths": ["rustc_span::source_map::Spanned", "rustc_span::Spanned"], "ts": "Spanned<$0>", "import": "src/rustc_span/lib.ts", "types": ["Spanned"], "values": ["debug_Spanned"], "debug": "debug_Spanned($v, $f, $d0)" },
+    { "paths": ["rustc_span::hygiene::LocalExpnId", "rustc_span::LocalExpnId"], "ts": "LocalExpnId", "import": "src/rustc_span/hygiene.ts", "types": ["LocalExpnId"], "values": ["debug_LocalExpnId"], "debug": "debug_LocalExpnId($v, $f)" },
+    { "paths": ["rustc_span::edition::Edition", "rustc_span::Edition"], "ts": "Edition", "import": "src/rustc_span/edition.ts", "types": ["Edition"], "values": ["debug_Edition"], "debug": "debug_Edition($v, $f)" },
+    { "paths": ["rustc_ast::node_id::NodeId"], "ts": "NodeId", "import": "src/rustc_ast/node_id.ts", "types": ["NodeId"], "values": ["debug_NodeId"], "debug": "debug_NodeId($v, $f)", "note": "newtype_index! (debug_format \"NodeId({})\")" }
+  ]
+}

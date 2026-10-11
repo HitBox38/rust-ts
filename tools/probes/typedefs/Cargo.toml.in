@@ -1,0 +1,25 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@/@SRC@ and builds this in $RUST_TS_DATA/probes.
+# Dependency versions are pinned to upstream's Cargo.lock at the pinned commit (syn 2.x line).
+# Transitive deps are listed too so resolution is deterministic.
+[package]
+name = "typedefs"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "typedefs"
+path = "@SRC@/main.rs"
+
+[dependencies]
+syn = { version = "=2.0.117", default-features = false, features = ["full", "extra-traits", "parsing", "printing", "clone-impls"] }
+proc-macro2 = { version = "=1.0.106", features = ["span-locations"] }
+quote = "=1.0.45"
+unicode-ident = "=1.0.24"
+serde_json = "=1.0.145"
+serde_core = "=1.0.228"
+itoa = "=1.0.15"
+ryu = "=1.0.20"
+memchr = "=2.8.0"
+
+[workspace]

@@ -1,0 +1,2280 @@
+{
+ "files": [
+  {
+   "attrs": [
+    {
+     "inner": true,
+     "path": "deny",
+     "text": "deny (unstable_features)"
+    }
+   ],
+   "docs": [
+    " Low-level Rust lexer.",
+    "",
+    " The idea with `rustc_lexer` is to make a reusable library,",
+    " by separating out pure lexing and rustc-specific concerns, like spans,",
+    " error reporting, and interning. So, rustc_lexer operates directly on `&str`,",
+    " produces simple tokens which are a pair of type-tag and a bit of original text,",
+    " and does not report errors, instead storing them as flags on the token.",
+    "",
+    " Tokens produced by this lexer are not yet ready for parsing the Rust syntax.",
+    " For that see [`rustc_parse::lexer`], which converts this basic token stream",
+    " into wide tokens used by actual parser.",
+    "",
+    " The purpose of this crate is to convert raw sources into a labeled sequence",
+    " of well-known token types, so building an actual Rust token stream will",
+    " be easier.",
+    "",
+    " The main entity of this crate is the [`TokenKind`] enum which represents common",
+    " lexeme types.",
+    "",
+    " [`rustc_parse::lexer`]: ../rustc_parse/lexer/index.html"
+   ],
+   "impls": [
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 65,
+       "name": "new"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 64,
+     "module": [],
+     "negative": false,
+     "self_name": "Token",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "Token"
+        }
+       ]
+      },
+      "text": "Token"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 433,
+       "name": "new"
+      },
+      {
+       "line": 443,
+       "name": "as_str"
+      },
+      {
+       "line": 449,
+       "name": "prev"
+      },
+      {
+       "line": 465,
+       "name": "first"
+      },
+      {
+       "line": 471,
+       "name": "second"
+      },
+      {
+       "line": 479,
+       "name": "third"
+      },
+      {
+       "line": 488,
+       "name": "is_eof"
+      },
+      {
+       "line": 493,
+       "name": "pos_within_token"
+      },
+      {
+       "line": 498,
+       "name": "reset_pos_within_token"
+      },
+      {
+       "line": 503,
+       "name": "bump"
+      },
+      {
+       "line": 515,
+       "name": "bump_bytes"
+      },
+      {
+       "line": 520,
+       "name": "eat_while"
+      },
+      {
+       "line": 528,
+       "name": "eat_until"
+      },
+      {
+       "line": 536,
+       "name": "advance_token"
+      },
+      {
+       "line": 696,
+       "name": "frontmatter"
+      },
+      {
+       "line": 784,
+       "name": "line_comment"
+      },
+      {
+       "line": 800,
+       "name": "block_comment"
+      },
+      {
+       "line": 837,
+       "name": "whitespace"
+      },
+      {
+       "line": 843,
+       "name": "ident_or_unknown_prefix"
+      },
+      {
+       "line": 856,
+       "name": "invalid_ident"
+      },
+      {
+       "line": 869,
+       "name": "c_or_byte_string"
+      },
+      {
+       "line": 910,
+       "name": "number"
+      },
+      {
+       "line": 983,
+       "name": "lifetime_or_char"
+      },
+      {
+       "line": 1039,
+       "name": "single_quoted_string"
+      },
+      {
+       "line": 1082,
+       "name": "double_quoted_string"
+      },
+      {
+       "line": 1108,
+       "name": "guarded_double_quoted_string"
+      },
+      {
+       "line": 1155,
+       "name": "raw_double_quoted_string"
+      },
+      {
+       "line": 1166,
+       "name": "raw_string_unvalidated"
+      },
+      {
+       "line": 1228,
+       "name": "eat_decimal_digits"
+      },
+      {
+       "line": 1245,
+       "name": "eat_hexadecimal_digits"
+      },
+      {
+       "line": 1264,
+       "name": "eat_float_exponent"
+      },
+      {
+       "line": 1273,
+       "name": "eat_literal_suffix"
+      },
+      {
+       "line": 1279,
+       "name": "eat_identifier"
+      }
+     ],
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "a"
+       }
+      ],
+      "where": []
+     },
+     "line": 432,
+     "module": [],
+     "negative": false,
+     "self_name": "Cursor",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [
+          {
+           "kind": "lifetime",
+           "name": "a"
+          }
+         ],
+         "name": "Cursor"
+        }
+       ]
+      },
+      "text": "Cursor < 'a >"
+     },
+     "trait": null
+    }
+   ],
+   "items": [
+    {
+     "attrs": [
+      {
+       "derives": [
+        "Debug"
+       ],
+       "path": "derive",
+       "text": "derive (Debug)"
+      }
+     ],
+     "docs": [
+      " Parsed token.",
+      " It doesn't contain information about data that has been parsed,",
+      " only the type of the token and its size."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 60,
+        "name": "kind",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "TokenKind"
+           }
+          ]
+         },
+         "text": "TokenKind"
+        },
+        "vis": "pub"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 1,
+        "line": 61,
+        "name": "len",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u32"
+           }
+          ]
+         },
+         "text": "u32"
+        },
+        "vis": "pub"
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 59,
+     "module": [],
+     "name": "Token",
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "derives": [
+        "Clone",
+        "Copy",
+        "Debug",
+        "PartialEq",
+        "Eq"
+       ],
+       "path": "derive",
+       "text": "derive (Clone , Copy , Debug , PartialEq , Eq)"
+      }
+     ],
+     "docs": [
+      " Enum representing common lexeme types."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 72,
+     "module": [],
+     "name": "TokenKind",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " A line comment, e.g. `// comment`."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 75,
+          "name": "doc_style",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [
+               {
+                "kind": "type",
+                "ty": {
+                 "kind": "path",
+                 "path": {
+                  "global": false,
+                  "segments": [
+                   {
+                    "args": [],
+                    "name": "DocStyle"
+                   }
+                  ]
+                 },
+                 "text": "DocStyle"
+                }
+               }
+              ],
+              "name": "Option"
+             }
+            ]
+           },
+           "text": "Option < DocStyle >"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 74,
+       "name": "LineComment"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " A block comment, e.g. `/* block comment */`.",
+        "",
+        " Block comments can be recursive, so a sequence like `/* /* */`",
+        " will not be considered terminated and will result in a parsing error."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 83,
+          "name": "doc_style",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [
+               {
+                "kind": "type",
+                "ty": {
+                 "kind": "path",
+                 "path": {
+                  "global": false,
+                  "segments": [
+                   {
+                    "args": [],
+                    "name": "DocStyle"
+                   }
+                  ]
+                 },
+                 "text": "DocStyle"
+                }
+               }
+              ],
+              "name": "Option"
+             }
+            ]
+           },
+           "text": "Option < DocStyle >"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 1,
+          "line": 84,
+          "name": "terminated",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 82,
+       "name": "BlockComment"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Any whitespace character sequence."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 88,
+       "name": "Whitespace"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 91,
+          "name": "has_invalid_preceding_whitespace",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 1,
+          "line": 92,
+          "name": "invalid_infostring",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 90,
+       "name": "Frontmatter"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " An identifier or keyword, e.g. `ident` or `continue`."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 96,
+       "name": "Ident"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " An identifier that is invalid because it contains emoji."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 99,
+       "name": "InvalidIdent"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " A raw identifier, e.g. \"r#ident\"."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 102,
+       "name": "RawIdent"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " A forced keyword like `k#fn`."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 105,
+       "name": "ForcedKeywordIdent"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " An unknown literal prefix, like `foo#`, `foo'`, `foo\"`. Excludes",
+        " literal prefixes that contain emoji, which are considered \"invalid\".",
+        "",
+        " Note that only the",
+        " prefix (`foo`) is included in the token, not the separator (which is",
+        " lexed as its own distinct token). In Rust 2021 and later, reserved",
+        " prefixes are reported as errors; in earlier editions, they result in a",
+        " (allowed by default) lint, and are treated as regular identifier",
+        " tokens."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 116,
+       "name": "UnknownPrefix"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " An unknown prefix in a lifetime, like `'foo#`.",
+        "",
+        " Like `UnknownPrefix`, only the `'` and prefix are included in the token",
+        " and not the separator."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 122,
+       "name": "UnknownPrefixLifetime"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " A raw lifetime, e.g. `'r#foo`. In edition < 2021 it will be split into",
+        " several tokens: `'r` and `#` and `foo`."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 126,
+       "name": "RawLifetime"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Guarded string literal prefix: `#\"` or `##`.",
+        "",
+        " Used for reserving \"guarded strings\" (RFC 3598) in edition 2024.",
+        " Split into the component tokens on older editions."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 132,
+       "name": "GuardedStrPrefix"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Literals, e.g. `12u8`, `1.0e-40`, `b\"123\"`. Note that `_` is an invalid",
+        " suffix, but may be present here on string and float literals. Users of",
+        " this type will need to check for and reject that case.",
+        "",
+        " See [LiteralKind] for more details."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 140,
+          "name": "kind",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "LiteralKind"
+             }
+            ]
+           },
+           "text": "LiteralKind"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 1,
+          "line": 141,
+          "name": "suffix_start",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "u32"
+             }
+            ]
+           },
+           "text": "u32"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 139,
+       "name": "Literal"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " A lifetime, e.g. `'a`."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 146,
+          "name": "starts_with_number",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 145,
+       "name": "Lifetime"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `;`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 150,
+       "name": "Semi"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `,`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 152,
+       "name": "Comma"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `.`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 154,
+       "name": "Dot"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `(`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 156,
+       "name": "OpenParen"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `)`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 158,
+       "name": "CloseParen"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `{`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 160,
+       "name": "OpenBrace"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `}`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 162,
+       "name": "CloseBrace"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `[`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 164,
+       "name": "OpenBracket"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `]`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 166,
+       "name": "CloseBracket"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `@`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 168,
+       "name": "At"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `#`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 170,
+       "name": "Pound"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `~`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 172,
+       "name": "Tilde"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `?`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 174,
+       "name": "Question"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `:`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 176,
+       "name": "Colon"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `$`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 178,
+       "name": "Dollar"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `=`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 180,
+       "name": "Eq"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `!`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 182,
+       "name": "Bang"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `<`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 184,
+       "name": "Lt"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `>`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 186,
+       "name": "Gt"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `-`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 188,
+       "name": "Minus"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `&`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 190,
+       "name": "And"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `|`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 192,
+       "name": "Or"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `+`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 194,
+       "name": "Plus"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `*`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 196,
+       "name": "Star"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `/`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 198,
+       "name": "Slash"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `^`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 200,
+       "name": "Caret"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `%`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 202,
+       "name": "Percent"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Unknown token, not expected by the lexer, e.g. \"№\""
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 205,
+       "name": "Unknown"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " End of input."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 208,
+       "name": "Eof"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "derives": [
+        "Clone",
+        "Copy",
+        "Debug",
+        "PartialEq",
+        "Eq"
+       ],
+       "path": "derive",
+       "text": "derive (Clone , Copy , Debug , PartialEq , Eq)"
+      }
+     ],
+     "docs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 212,
+     "module": [],
+     "name": "DocStyle",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 213,
+       "name": "Outer"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 214,
+       "name": "Inner"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "derives": [
+        "Clone",
+        "Copy",
+        "Debug",
+        "PartialEq",
+        "Eq",
+        "PartialOrd",
+        "Ord"
+       ],
+       "path": "derive",
+       "text": "derive (Clone , Copy , Debug , PartialEq , Eq , PartialOrd , Ord)"
+      }
+     ],
+     "docs": [
+      " Enum representing the literal types supported by the lexer.",
+      "",
+      " Note that the suffix is *not* considered when deciding the `LiteralKind` in",
+      " this type. This means that float literals like `1f32` are classified by this",
+      " type as `Int`. (Compare against `rustc_ast::token::LitKind` and",
+      " `rustc_ast::ast::LitKind`)."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 224,
+     "module": [],
+     "name": "LiteralKind",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `12_u8`, `0o100`, `0b120i99`, `1f32`."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 226,
+          "name": "base",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "Base"
+             }
+            ]
+           },
+           "text": "Base"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 1,
+          "line": 226,
+          "name": "empty_int",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 226,
+       "name": "Int"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `12.34f32`, `1e3`, but not `1f32`."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 228,
+          "name": "base",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "Base"
+             }
+            ]
+           },
+           "text": "Base"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 1,
+          "line": 228,
+          "name": "empty_exponent",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 228,
+       "name": "Float"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `'a'`, `'\\\\'`, `'''`, `';`"
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 230,
+          "name": "terminated",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 230,
+       "name": "Char"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `b'a'`, `b'\\\\'`, `b'''`, `b';`"
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 232,
+          "name": "terminated",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 232,
+       "name": "Byte"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `\"abc\"`, `\"abc`"
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 234,
+          "name": "terminated",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 234,
+       "name": "Str"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `b\"abc\"`, `b\"abc`"
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 236,
+          "name": "terminated",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 236,
+       "name": "ByteStr"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `c\"abc\"`, `c\"abc`"
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 238,
+          "name": "terminated",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 238,
+       "name": "CStr"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `r\"abc\"`, `r#\"abc\"#`, `r####\"ab\"###\"c\"####`, `r#\"a`. `None` indicates",
+        " an invalid literal."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 241,
+          "name": "n_hashes",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [
+               {
+                "kind": "type",
+                "ty": {
+                 "kind": "path",
+                 "path": {
+                  "global": false,
+                  "segments": [
+                   {
+                    "args": [],
+                    "name": "u8"
+                   }
+                  ]
+                 },
+                 "text": "u8"
+                }
+               }
+              ],
+              "name": "Option"
+             }
+            ]
+           },
+           "text": "Option < u8 >"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 241,
+       "name": "RawStr"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `br\"abc\"`, `br#\"abc\"#`, `br####\"ab\"###\"c\"####`, `br#\"a`. `None`",
+        " indicates an invalid literal."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 244,
+          "name": "n_hashes",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [
+               {
+                "kind": "type",
+                "ty": {
+                 "kind": "path",
+                 "path": {
+                  "global": false,
+                  "segments": [
+                   {
+                    "args": [],
+                    "name": "u8"
+                   }
+                  ]
+                 },
+                 "text": "u8"
+                }
+               }
+              ],
+              "name": "Option"
+             }
+            ]
+           },
+           "text": "Option < u8 >"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 244,
+       "name": "RawByteStr"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `cr\"abc\"`, \"cr#\"abc\"#\", `cr#\"a`. `None` indicates an invalid literal."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 246,
+          "name": "n_hashes",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [
+               {
+                "kind": "type",
+                "ty": {
+                 "kind": "path",
+                 "path": {
+                  "global": false,
+                  "segments": [
+                   {
+                    "args": [],
+                    "name": "u8"
+                   }
+                  ]
+                 },
+                 "text": "u8"
+                }
+               }
+              ],
+              "name": "Option"
+             }
+            ]
+           },
+           "text": "Option < u8 >"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 246,
+       "name": "RawCStr"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "derives": [
+        "Clone",
+        "Copy",
+        "Debug",
+        "PartialEq",
+        "Eq",
+        "PartialOrd",
+        "Ord"
+       ],
+       "path": "derive",
+       "text": "derive (Clone , Copy , Debug , PartialEq , Eq , PartialOrd , Ord)"
+      }
+     ],
+     "docs": [
+      " `#\"abc\"#`, `##\"a\"` (fewer closing), or even `#\"a` (unterminated).",
+      "",
+      " Can capture fewer closing hashes than starting hashes,",
+      " for more efficient lexing and better backwards diagnostics."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 255,
+        "name": "n_hashes",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u32"
+           }
+          ]
+         },
+         "text": "u32"
+        },
+        "vis": "pub"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 1,
+        "line": 256,
+        "name": "terminated",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "bool"
+           }
+          ]
+         },
+         "text": "bool"
+        },
+        "vis": "pub"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 2,
+        "line": 257,
+        "name": "token_len",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u32"
+           }
+          ]
+         },
+         "text": "u32"
+        },
+        "vis": "pub"
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 254,
+     "module": [],
+     "name": "GuardedStr",
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "derives": [
+        "Clone",
+        "Copy",
+        "Debug",
+        "PartialEq",
+        "Eq",
+        "PartialOrd",
+        "Ord"
+       ],
+       "path": "derive",
+       "text": "derive (Clone , Copy , Debug , PartialEq , Eq , PartialOrd , Ord)"
+      }
+     ],
+     "docs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 261,
+     "module": [],
+     "name": "RawStrError",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Non `#` characters exist between `r` and `\"`, e.g. `r##~\"abcde\"##`"
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 263,
+          "name": "bad_char",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "char"
+             }
+            ]
+           },
+           "text": "char"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 263,
+       "name": "InvalidStarter"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " The string was not terminated, e.g. `r###\"abcde\"##`.",
+        " `possible_terminator_offset` is the number of characters after `r` or",
+        " `br` where they may have intended to terminate it."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 267,
+          "name": "expected",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "u32"
+             }
+            ]
+           },
+           "text": "u32"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 1,
+          "line": 267,
+          "name": "found",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "u32"
+             }
+            ]
+           },
+           "text": "u32"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 2,
+          "line": 267,
+          "name": "possible_terminator_offset",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [
+               {
+                "kind": "type",
+                "ty": {
+                 "kind": "path",
+                 "path": {
+                  "global": false,
+                  "segments": [
+                   {
+                    "args": [],
+                    "name": "u32"
+                   }
+                  ]
+                 },
+                 "text": "u32"
+                }
+               }
+              ],
+              "name": "Option"
+             }
+            ]
+           },
+           "text": "Option < u32 >"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 267,
+       "name": "NoTerminator"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " More than 255 `#`s exist."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 269,
+          "name": "found",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "u32"
+             }
+            ]
+           },
+           "text": "u32"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 269,
+       "name": "TooManyDelimiters"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "derives": [
+        "Clone",
+        "Copy",
+        "Debug",
+        "PartialEq",
+        "Eq",
+        "PartialOrd",
+        "Ord"
+       ],
+       "path": "derive",
+       "text": "derive (Clone , Copy , Debug , PartialEq , Eq , PartialOrd , Ord)"
+      }
+     ],
+     "docs": [
+      " Base of numeric literal encoding according to its prefix."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 274,
+     "module": [],
+     "name": "Base",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": "2",
+       "docs": [
+        " Literal starts with \"0b\"."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 276,
+       "name": "Binary"
+      },
+      {
+       "attrs": [],
+       "discriminant": "8",
+       "docs": [
+        " Literal starts with \"0o\"."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 278,
+       "name": "Octal"
+      },
+      {
+       "attrs": [],
+       "discriminant": "10",
+       "docs": [
+        " Literal doesn't contain a prefix."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 280,
+       "name": "Decimal"
+      },
+      {
+       "attrs": [],
+       "discriminant": "16",
+       "docs": [
+        " Literal starts with \"0x\"."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 282,
+       "name": "Hexadecimal"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [],
+     "docs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 412,
+     "module": [],
+     "name": "FrontmatterAllowed",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 413,
+       "name": "Yes"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 414,
+       "name": "No"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [],
+     "docs": [
+      " Peekable iterator over a char sequence.",
+      "",
+      " Next characters can be peeked via `first` method,",
+      " and position can be shifted forward via `bump` method."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 422,
+        "name": "len_remaining",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [
+         " Iterator over chars. Slightly faster than a &str."
+        ],
+        "index": 1,
+        "line": 424,
+        "name": "chars",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [
+             {
+              "kind": "lifetime",
+              "name": "a"
+             }
+            ],
+            "name": "Chars"
+           }
+          ]
+         },
+         "text": "Chars < 'a >"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 2,
+        "line": 425,
+        "name": "frontmatter_allowed",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "FrontmatterAllowed"
+           }
+          ]
+         },
+         "text": "FrontmatterAllowed"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [
+         {
+          "cfg": {
+           "name": "debug_assertions"
+          },
+          "path": "cfg",
+          "text": "cfg (debug_assertions)"
+         }
+        ],
+        "docs": [],
+        "index": 3,
+        "line": 427,
+        "name": "prev",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "char"
+           }
+          ]
+         },
+         "text": "char"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "a"
+       }
+      ],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 421,
+     "module": [],
+     "name": "Cursor",
+     "vis": "pub"
+    }
+   ],
+   "macros": [],
+   "mods": [
+    {
+     "attrs": [
+      {
+       "cfg": {
+        "name": "test"
+       },
+       "path": "cfg",
+       "text": "cfg (test)"
+      }
+     ],
+     "inline": false,
+     "line": 29,
+     "module": [],
+     "name": "tests",
+     "vis": ""
+    }
+   ],
+   "path": "compiler/rustc_lexer/src/lib.rs",
+   "uses": [
+    {
+     "alias": "Chars",
+     "glob": false,
+     "line": 31,
+     "module": [],
+     "path": [
+      "std",
+      "str",
+      "Chars"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": null,
+     "glob": true,
+     "line": 33,
+     "module": [],
+     "path": [
+      "LiteralKind"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": null,
+     "glob": true,
+     "line": 34,
+     "module": [],
+     "path": [
+      "TokenKind"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "UNICODE_VERSION",
+     "glob": false,
+     "line": 35,
+     "module": [],
+     "path": [
+      "unicode_ident",
+      "UNICODE_VERSION"
+     ],
+     "vis": "pub"
+    },
+    {
+     "alias": "UnicodeEmoji",
+     "glob": false,
+     "line": 36,
+     "module": [],
+     "path": [
+      "unicode_properties",
+      "UnicodeEmoji"
+     ],
+     "vis": ""
+    }
+   ]
+  }
+ ],
+ "probe": "typedefs",
+ "syn": "2.0.117"
+}

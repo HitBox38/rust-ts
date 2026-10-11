@@ -1,0 +1,51 @@
+{
+  "//": [
+    "Generation sets for tools/codegen/types.ts. One set = upstream files generated (and resolved) together.",
+    "class: structs emitted as `class` (constructor takes all fields in declaration order); methods are added",
+    "  by the hand port via `declare module` + prototype assignment (PORTING.md section 5).",
+    "hand: types whose definition is hand-written in the mirrored hand-port module; only re-exported (+ Debug if derived).",
+    "discriminant: fieldless enums that also get `<Enum>_discriminant` without explicit discriminants.",
+    "skip: types not generated at all (reported).",
+    "Names may be bare (`Token`) or module-qualified (`rustc_lexer::Token`)."
+  ],
+  "rustc_lexer": {
+    "files": ["compiler/rustc_lexer/src/lib.rs"],
+    "class": ["rustc_lexer::Token", "rustc_lexer::Cursor"],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  },
+  "rustc_ast": {
+    "files": [
+      "compiler/rustc_ast_ir/src/lib.rs",
+      "compiler/rustc_ast_ir/src/visit.rs",
+      "compiler/rustc_ast/src/lib.rs",
+      "compiler/rustc_ast/src/ast.rs",
+      "compiler/rustc_ast/src/ast_traits.rs",
+      "compiler/rustc_ast/src/attr/mod.rs",
+      "compiler/rustc_ast/src/attr/data_structures.rs",
+      "compiler/rustc_ast/src/attr/version.rs",
+      "compiler/rustc_ast/src/entry.rs",
+      "compiler/rustc_ast/src/expand/mod.rs",
+      "compiler/rustc_ast/src/expand/allocator.rs",
+      "compiler/rustc_ast/src/expand/autodiff_attrs.rs",
+      "compiler/rustc_ast/src/expand/typetree.rs",
+      "compiler/rustc_ast/src/format.rs",
+      "compiler/rustc_ast/src/mut_visit.rs",
+      "compiler/rustc_ast/src/node_id.rs",
+      "compiler/rustc_ast/src/token.rs",
+      "compiler/rustc_ast/src/tokenstream.rs",
+      "compiler/rustc_ast/src/util/case.rs",
+      "compiler/rustc_ast/src/util/classify.rs",
+      "compiler/rustc_ast/src/util/comments.rs",
+      "compiler/rustc_ast/src/util/literal.rs",
+      "compiler/rustc_ast/src/util/parser.rs",
+      "compiler/rustc_ast/src/util/unicode.rs",
+      "compiler/rustc_ast/src/visit.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  }
+}
