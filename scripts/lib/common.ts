@@ -18,8 +18,19 @@ export interface UpstreamPin {
 
 export const PIN: UpstreamPin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust;
 
+// Bun only auto-loads .env.local from the cwd; scripts may run from anywhere (e.g. the upstream checkout).
+const envLocal = join(REPO, ".env.local");
+if (existsSync(envLocal)) {
+  for (const line of readFileSync(envLocal, "utf8").split(/\r?\n/)) {
+    const m = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
+    if (m && process.env[m[1]!] === undefined) process.env[m[1]!] = m[2]!;
+  }
+}
+
 /** Large, regenerable data (upstream checkout, oracle cache, run outputs). Never committed. */
 export const DATA = resolve(process.env.RUST_TS_DATA ?? join(REPO, ".data"));
+/** Where `scripts/lane.ts` creates per-agent git worktrees. */
+export const LANES = resolve(process.env.RUST_TS_LANES ?? join(DATA, "lanes"));
 export const UPSTREAM = join(DATA, "rust");
 export const ORACLE_CACHE = join(DATA, "oracle-cache");
 export const RUNS = join(DATA, "runs");
@@ -102,6 +113,9 @@ export function parseArgs(argv: string[]): { _: string[]; [k: string]: string | 
   return out;
 }
 
+/** Run id: timestamp + agent/lane + random suffix, so concurrent agents never collide. */
 export function nowId(): string {
-  return new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "").replace("T", "-");
+  const ts = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "").replace("T", "-");
+  const who = (process.env.RUST_TS_AGENT ?? "root").replace(/[^\w-]/g, "");
+  return `${ts}-${who}-${Math.random().toString(36).slice(2, 6)}`;
 }
