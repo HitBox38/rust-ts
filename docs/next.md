@@ -29,3 +29,14 @@ Porting lanes (in dependency order; each wave starts after the previous one inte
 
 ## Later milestones
 See `PLAN.md` §5.
+
+## In flight (wave 1, started 2026-10-11)
+| lane | scope | status |
+|---|---|---|
+| typedefs | syn probe + tools/codegen/types.ts (+ rustc_lexer validation, rustc_ast dry run) | running |
+| escaper | vendor rustc-literal-escaper 0.0.8 + `escape` suite | running |
+| span-core | rustc_span lib.rs, span_encoding, analyze_source_file, edition, fatal_error | running |
+| span-symbol | rustc_span symbol.rs (+ symbols! codegen), edit_distance | running |
+| span-hygiene | rustc_span hygiene.rs, def_id.rs | running |
+
+Next after integration: wave 2 = span-map (source_map.rs, caching_source_map_view.rs), rustc_ast types via codegen, rustc_errors start; plus reviewer + regression auditor over wave 1.

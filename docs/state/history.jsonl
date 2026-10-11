@@ -1,2 +1,4 @@
 {"ts":"2026-10-11T19:19:05.320Z","kind":"accept","msg":"accepted gate run gate-20261011-191820","data":{"runId":"gate-20261011-191820","suites":{"lex":{"protected":25780,"total":25780}}}}
 {"ts":"2026-10-11T19:19:05.379Z","kind":"milestone","msg":"M0 harness validated (shim 100%, stub 0%); rustc_lexer pilot at 100% lex parity"}
+{"ts":"2026-10-11T19:45:44.500Z","kind":"decision","msg":"Project home moved to D:/rust-ts/root (branch rust-ts/main); lanes under D:/rust-ts/lanes; C: T3 worktree is fast-forwarded at milestones"}
+{"ts":"2026-10-11T19:45:44.560Z","kind":"note","msg":"Wave 1 started: lanes typedefs, escaper, span-core, span-symbol, span-hygiene"}
