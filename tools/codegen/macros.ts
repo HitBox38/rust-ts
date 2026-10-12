@@ -111,7 +111,20 @@ function leading(s: string): { docs: string[]; attrs: MacroAttr[]; rest: string 
 
 function parseConsts(body: string): MacroConst[] {
   const out: MacroConst[] = [];
-  for (const chunk of body.split(";")) {
+  // Split at `;` outside `///` doc lines (docs may contain `;`).
+  const chunks: string[] = [];
+  let st = 0;
+  for (let k = 0; k < body.length; k++) {
+    if (body.startsWith("///", k)) {
+      const e = body.indexOf("\n", k);
+      k = e < 0 ? body.length : e;
+    } else if (body[k] === ";") {
+      chunks.push(body.slice(st, k));
+      st = k + 1;
+    }
+  }
+  chunks.push(body.slice(st));
+  for (const chunk of chunks) {
     if (!chunk.trim()) continue;
     const { docs, attrs, rest } = leading(chunk);
     const m = /^const\s+(\w+)\s*=\s*([\s\S]+)$/.exec(rest.trim());
@@ -133,10 +146,19 @@ export function parseBitflags(body: string): BitflagsType[] {
   let s = stripComments(body);
   while (s.trim()) {
     const { docs, attrs, rest } = leading(s);
-    const m = /^(?:(?:pub(?:\s*\([^)]*\))?\s+)?struct|impl)\s+(\w+)\s*:\s*([\w:]+)\s*\{([^{}]*)\}/.exec(rest);
+    const m = /^(?:(?:pub(?:\s*\([^)]*\))?\s+)?struct|impl)\s+(\w+)\s*:\s*([\w:]+)\s*\{/.exec(rest);
     if (!m) throw new Error(`unexpected bitflags! body \`${rest.trim().slice(0, 60)}\``);
-    out.push({ form: rest.startsWith("impl") ? "impl" : "struct", docs, attrs, name: m[1]!, bits: m[2]!, flags: parseConsts(m[3]!) });
-    s = rest.slice(m[0].length);
+    // The flag list ends at the first `}` outside `///` doc lines (docs may contain braces).
+    let k = m[0].length;
+    for (; k < rest.length && rest[k] !== "}"; k++) {
+      if (rest.startsWith("///", k)) {
+        const e = rest.indexOf("\n", k);
+        k = e < 0 ? rest.length : e;
+      } else if (rest[k] === "{") throw new Error(`unexpected bitflags! body \`${rest.trim().slice(0, 60)}\``);
+    }
+    if (k >= rest.length) throw new Error(`unterminated bitflags! body \`${rest.trim().slice(0, 60)}\``);
+    out.push({ form: rest.startsWith("impl") ? "impl" : "struct", docs, attrs, name: m[1]!, bits: m[2]!, flags: parseConsts(rest.slice(m[0].length, k)) });
+    s = rest.slice(k + 1);
   }
   return out;
 }

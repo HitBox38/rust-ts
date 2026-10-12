@@ -10,7 +10,8 @@
     "auto_class: structs with an inherent impl (with fns) anywhere in the set are emitted as class too.",
     "skip_notes: reason per skip entry; required for entries that name no item the probe sees (e.g. types defined inside macro_rules!).",
     "derive_clone: emit clone_<T> for #[derive(Clone)] types (Copy types: identity; manual impl Clone: hand clone_<T>).",
-    "derive(Walkable) types of a crate get <crate>/walkable.gen.ts and <crate>/mut_walkable.gen.ts (always)."
+    "derive(Walkable) types of a crate get <crate>/walkable.gen.ts and <crate>/mut_walkable.gen.ts (always).",
+    "hand_notes: reason per hand entry (documentation only, not read by the generator)."
   ],
   "rustc_lexer": {
     "files": [
@@ -105,12 +106,48 @@
   },
   "rustc_parse": {
     "files": [
-      "compiler/rustc_parse/src/diagnostics.rs"
+      "compiler/rustc_parse/src/diagnostics.rs",
+      "compiler/rustc_parse/src/parser/mod.rs",
+      "compiler/rustc_parse/src/parser/token_type.rs",
+      "compiler/rustc_parse/src/parser/attr.rs",
+      "compiler/rustc_parse/src/parser/attr_wrapper.rs",
+      "compiler/rustc_parse/src/parser/nonterminal.rs",
+      "compiler/rustc_parse/src/parser/diagnostics.rs",
+      "compiler/rustc_parse/src/parser/expr.rs",
+      "compiler/rustc_parse/src/parser/expr/diagnostics.rs",
+      "compiler/rustc_parse/src/parser/pat.rs",
+      "compiler/rustc_parse/src/parser/path.rs",
+      "compiler/rustc_parse/src/parser/ty.rs",
+      "compiler/rustc_parse/src/parser/generics.rs",
+      "compiler/rustc_parse/src/parser/stmt.rs",
+      "compiler/rustc_parse/src/parser/item.rs",
+      "compiler/rustc_parse/src/parser/function.rs",
+      "compiler/rustc_parse/src/parser/asm.rs",
+      "compiler/rustc_parse/src/parser/cfg_select.rs"
     ],
-    "class": [],
-    "hand": [],
-    "discriminant": [],
-    "skip": []
+    "class": [
+      "rustc_parse::parser::SeqSep",
+      "rustc_parse::parser::attr_wrapper::AttrWrapper",
+      "rustc_parse::parser::asm::AsmAttrVec",
+      "rustc_parse::parser::expr::CondChecker"
+    ],
+    "hand": [
+      "rustc_parse::parser::Parser",
+      "rustc_parse::parser::token_type::TokenTypeSet",
+      "rustc_parse::parser::token_type::TokenTypeSetIter",
+      "rustc_parse::parser::function::ReqName"
+    ],
+    "discriminant": [
+      "rustc_parse::parser::token_type::TokenType"
+    ],
+    "skip": [],
+    "derive_clone": true,
+    "hand_notes": {
+      "rustc_parse::parser::Parser": "impl Parser is spread over the parser files: the class is declared in parser/mod.ts so `declare module \"./mod.ts\"` (parser/decls.ts) can augment it; Clone hand-written (clone_Parser)",
+      "rustc_parse::parser::token_type::TokenTypeSet": "u128 bitset: hand-written (PORT: four u32 words, hot path)",
+      "rustc_parse::parser::token_type::TokenTypeSetIter": "iterator over the hand TokenTypeSet",
+      "rustc_parse::parser::function::ReqName": "type alias of a bare fn type `fn(Edition, IsDotDotDot) -> bool` (the probe does not describe fn types)"
+    }
   },
   "rustc_session": {
     "files": [
