@@ -1,0 +1,35 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@ and builds this in $RUST_TS_DATA/probes.
+# Oracle probe for the `StrListSepByAnd` path of rustc_error_messages: icu_list's and-list
+# formatter over rustc_baked_icu_data's BakedDataProvider (path dependency on the pinned upstream
+# crate; it builds on stable, no RUSTC_BOOTSTRAP needed). Versions are pinned to upstream's
+# Cargo.lock at the pinned commit.
+[package]
+name = "listfmt"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "listfmt"
+path = "@SRC@/main.rs"
+
+[dependencies]
+rustc_baked_icu_data = { path = "@UPSTREAM@/compiler/rustc_baked_icu_data" }
+icu_list = { version = "=2.3.0", default-features = false, features = ["alloc"] }
+icu_locale_core = { version = "=2.3.0", default-features = false, features = ["alloc"] }
+icu_provider = { version = "=2.3.0", default-features = false, features = ["alloc"] }
+icu_locale_fallback = { version = "=2.3.0", default-features = false, features = ["compiled_data"] }
+unic-langid = "=0.9.6"
+writeable = "=0.6.4"
+zerovec = "=0.11.7"
+zerotrie = "=0.2.5"
+potential_utf = "=0.1.4"
+tinystr = "=0.8.4"
+# transitive deps pinned to upstream Cargo.lock as well
+litemap = "=0.8.1"
+zerofrom = "=0.1.6"
+yoke = "=0.8.3"
+displaydoc = "=0.2.5"
+regex-automata = { version = "=0.4.13", default-features = false }
+
+[workspace]
