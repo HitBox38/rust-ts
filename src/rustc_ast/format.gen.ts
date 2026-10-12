@@ -3,7 +3,7 @@
 import { debug_HashMap } from "../rust_ts/hash_map.ts";
 import { debug_Expr, type Expr } from "./ast.ts";
 import { debug_LitKind, type LitKind } from "./token.ts";
-import { debug_Span, type Span } from "../rustc_span/span_encoding.ts";
+import { debug_Span, type Span } from "../rustc_span/lib.ts";
 import { debug_Ident, debug_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_char, debug_int, debug_option, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { debug_result, type Result } from "../std/result.ts";

@@ -3,7 +3,7 @@
 import { type Attribute, type AttrVec, debug_Attribute } from "./ast.ts";
 import { debug_Delimiter, debug_Token, type Delimiter, type Token } from "./token.ts";
 import { debug_LazyAttrTokenStream } from "./tokenstream.ts";
-import { debug_Span, type Span } from "../rustc_span/span_encoding.ts";
+import { debug_Span, type Span } from "../rustc_span/lib.ts";
 import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
 
 // rustc-type: compiler/rustc_ast/src/tokenstream.rs:30 TokenTree

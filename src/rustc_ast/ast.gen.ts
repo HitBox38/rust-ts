@@ -8,8 +8,7 @@ import { type CommentKind, debug_CommentKind, debug_Delimiter, debug_Lit, type D
 import { debug_DelimSpan, debug_LazyAttrTokenStream, debug_TokenStream, type DelimSpan, type LazyAttrTokenStream, type TokenStream } from "./tokenstream.ts";
 import { debug_FloatTy, debug_IntTy, debug_Movability, debug_Mutability, debug_Pinnedness, debug_UintTy, type FloatTy, type IntTy, type Movability, type Mutability, type Pinnedness, type UintTy } from "../rustc_ast_ir/lib.ts";
 import { debug_LocalExpnId, type LocalExpnId } from "../rustc_span/hygiene.ts";
-import { type AttrId, debug_AttrId, debug_ErrorGuaranteed, debug_Spanned, type ErrorGuaranteed, type Spanned } from "../rustc_span/lib.ts";
-import { debug_Span, type Span } from "../rustc_span/span_encoding.ts";
+import { type AttrId, debug_AttrId, debug_ErrorGuaranteed, debug_Span, debug_Spanned, type ErrorGuaranteed, type Span, type Spanned } from "../rustc_span/lib.ts";
 import { type ByteSymbol, debug_ByteSymbol, debug_Ident, debug_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_char, debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
 import { debug_result, type Result } from "../std/result.ts";

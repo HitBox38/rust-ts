@@ -5,7 +5,7 @@
   ],
   "cfg": { "true": [], "false": [] },
   "helpers": {
-    "src/rustc_span/def_id.ts": ["newtype_index"],
+    "src/rustc_index/newtype_index.ts": ["newtype_index"],
     "src/vendor/bitflags/traits.ts": ["flags_companion"]
   },
   "types": [
