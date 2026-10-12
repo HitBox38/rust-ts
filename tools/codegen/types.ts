@@ -861,7 +861,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         body.push(...docLines(def.docs, ""));
         body.push(`// PORT: \`newtype_index!\` (${r.mac.at}) -> branded number + \`newtype_index\` companion (PORTING §5).`);
         body.push(`export type ${name} = number & { readonly __brand: "${name}" };`);
-        body.push(`export const ${name} = newtype_index<${name}>((n) => ${template}${max !== undefined ? `, 0x${max.toString(16)}` : ""});`);
+        body.push(`export const ${name} = newtype_index<${name}>((n) => ${template}${max !== undefined ? `, 0x${max.toString(16)}, ${JSON.stringify(maxAttr!.value)}` : ""});`);
         body.push(`export const debug_${name}: Debug<${name}> = ${name}.debug;`);
         fileDebug++;
         for (const c of def.consts) {

@@ -14,3 +14,4 @@
 {"ts":"2026-10-12T15:45:10.862Z","kind":"accept","msg":"accepted gate run gate-20261012-105941-root-hf6n","data":{"runId":"gate-20261012-105941-root-hf6n","suites":{"lex":{"protected":25780,"total":25780},"escape":{"protected":25780,"total":25780},"symbols":{"protected":10,"total":10},"escape-synthetic":{"protected":11,"total":11}}}}
 {"ts":"2026-10-12T15:50:38.665Z","kind":"note","msg":"span-map merged (+hygiene is_imported wiring, vendor unicode-width); gate PASS gate-20261012-154702-root-tr7a"}
 {"ts":"2026-10-12T15:55:18.347Z","kind":"decision","msg":"Audit-1 F1/F4 fixed in harness batch (gate provenance, rustc_driver cache key); needs independent review before next accept"}
+{"ts":"2026-10-12T19:03:24.501Z","kind":"note","msg":"ast-token merged; gate PASS gate-20261012-185308-root-a805 (first run with provenance)"}

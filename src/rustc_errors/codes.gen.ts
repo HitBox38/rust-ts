@@ -6,7 +6,7 @@ import { type Debug } from "../std/fmt.ts";
 // rustc-type: compiler/rustc_errors/src/codes.rs:12 ErrCode
 // PORT: `newtype_index!` (compiler/rustc_errors/src/codes.rs:12) -> branded number + `newtype_index` companion (PORTING §5).
 export type ErrCode = number & { readonly __brand: "ErrCode" };
-export const ErrCode = newtype_index<ErrCode>((n) => `ErrCode(${n})`, 0x270f);
+export const ErrCode = newtype_index<ErrCode>((n) => `ErrCode(${n})`, 0x270f, "9999");
 export const debug_ErrCode: Debug<ErrCode> = ErrCode.debug;
 
 // rustc-type: compiler/rustc_errors/src/codes.rs:52 InvalidErrorCode
