@@ -5,7 +5,7 @@
 // `width_cjk`); only U+17D8 (width 3) uses code 3. Upstream also marks ligature/emoji chars
 // with code 3 for string widths, which this data does not carry.
 
-// crate: unicode-width-0.2.2/src/tables.rs:165 UNICODE_VERSION
+// const from unicode-width-0.2.2/src/tables.rs:165 UNICODE_VERSION (not a fn; no crate: marker)
 /// The version of [Unicode](http://www.unicode.org/)
 /// that this version of unicode-width is based on.
 export const UNICODE_VERSION: readonly [number, number, number] = [17, 0, 0];
