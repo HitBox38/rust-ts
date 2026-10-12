@@ -4,7 +4,9 @@
 import { type ast } from "../../rustc_ast/lib.ts";
 import type { Token, TokenKind } from "../../rustc_ast/token.ts";
 import type { TokenStream, TokenTree } from "../../rustc_ast/tokenstream.ts";
+import type { Ident } from "../../rustc_span/symbol.ts";
 import { unported } from "../../std/panic.ts";
+import type { BoxMarker } from "../pp.ts";
 
 // PORT: pending pprust-state. Upstream:
 //
@@ -45,6 +47,12 @@ export interface State {
   attribute_to_string(attr: ast.Attribute): string;
   print_inner_attributes(attrs: readonly ast.Attribute[]): boolean;
   print_item(item: ast.Item): void;
+  // Used by `pprust/tests.rs`.
+  head(w: string): [BoxMarker, BoxMarker];
+  end(b: BoxMarker): void;
+  print_fn(decl: ast.FnDecl, header: ast.FnHeader, ident: Ident | undefined, generics: ast.Generics): void;
+  print_variant(v: ast.Variant): void;
+  print_type(ty: ast.Ty): void;
 }
 export const State = {
   new(): State {

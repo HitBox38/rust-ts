@@ -722,6 +722,6 @@ export class Printer {
 
 /** `usize::try_from(x: isize).unwrap()`. */
 function usize_try_from_unwrap(x: number): number {
-  if (x < 0) panic("called `Result::unwrap()` on an `Err` value: TryFromIntError(())");
+  if (x < 0) panic("called `Result::unwrap()` on an `Err` value: TryFromIntError(NegOverflow)");
   return x;
 }
