@@ -17,8 +17,11 @@
 //
 // PORT: source_map.rs (wave 2): `SourceMap`/`SourceMapInputs` are opaque placeholders defined
 // below and every call into them is `unported("rustc_span::source_map::...")`.
+import { FreezeLock } from "../rustc_data_structures/sync/freeze.ts";
+import { debug_Hash64, Hash64, type Hash128 } from "../rustc_hashes/lib.ts";
+import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { analyze_source_file } from "./analyze_source_file.ts";
-import { type CrateNum, debug_Hash64, type Hash64, type LocalDefId, LOCAL_CRATE, newtype_index, type StableCrateId } from "./def_id.ts";
+import { type CrateNum, type LocalDefId, LOCAL_CRATE, type StableCrateId } from "./def_id.ts";
 import { DEFAULT_EDITION, Edition } from "./edition.ts";
 import { FatalError } from "./fatal_error.ts";
 import {
@@ -49,48 +52,6 @@ export interface SourceMap {
 }
 export interface SourceMapInputs {
   readonly __wave2_source_map_inputs: never;
-}
-
-/** PORT: `rustc_hashes::Hash128` (u128) as bigint until rustc_hashes is ported (`Hash64`: def_id.ts). */
-export type Hash128 = bigint;
-
-/**
- * PORT: subset of `rustc_data_structures::sync::FreezeLock` (single-threaded): the value plus the
- * frozen bit, which `SourceFile` and `MetavarSpansMap` observe. Root: move to
- * rustc_data_structures when that crate lands.
- */
-class FreezeLock<T> {
-  constructor(
-    public value: T,
-    public frozen: boolean,
-  ) {}
-  static new<T>(value: T): FreezeLock<T> {
-    return new FreezeLock(value, false);
-  }
-  static frozen<T>(value: T): FreezeLock<T> {
-    return new FreezeLock(value, true);
-  }
-  is_frozen(): boolean {
-    return this.frozen;
-  }
-  /** `get`: the value, only once frozen. */
-  get(): T | undefined {
-    return this.frozen ? this.value : undefined;
-  }
-  read(): T {
-    return this.value;
-  }
-  /** `try_write`: write access unless frozen. */
-  try_write(): FreezeLock<T> | undefined {
-    return this.frozen ? undefined : this;
-  }
-  write(): FreezeLock<T> {
-    return unwrap(this.try_write(), "still mutable");
-  }
-  freeze(): T {
-    this.frozen = true;
-    return this.value;
-  }
 }
 
 // _____________________________________________________________________________
@@ -1524,7 +1485,7 @@ Span.normalize_to_macro_rules = function (self: Span): Span {
 };
 
 // PORT: `rustc_index::newtype_index! { #[orderable] #[debug_format = "AttrId({})"] pub struct AttrId {} }`
-// expanded with the `newtype_index` stand-in from def_id.ts (until tools/codegen generates it).
+// expanded with the `newtype_index` stand-in (src/rustc_index/newtype_index.ts) (until tools/codegen generates it).
 export type AttrId = number & { readonly __brand: "AttrId" };
 export const AttrId = newtype_index<AttrId>((n) => `AttrId(${n})`);
 export const debug_AttrId: Debug<AttrId> = AttrId.debug;
@@ -1944,11 +1905,11 @@ export class SourceFile {
       this.src,
       this.src_hash,
       this.checksum_hash,
-      new FreezeLock(this.external_src.value, this.external_src.frozen),
+      this.external_src.clone((v) => v),
       this.start_pos,
       this.normalized_source_len,
       this.unnormalized_source_len,
-      new FreezeLock(this.lines_.value, this.lines_.frozen),
+      this.lines_.clone((v) => v),
       this.multibyte_chars.slice(),
       this.normalized_pos.slice(),
       this.stable_id,

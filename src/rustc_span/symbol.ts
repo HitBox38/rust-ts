@@ -2,8 +2,9 @@
 //! allows bidirectional lookup; i.e., given a value, one can easily find the
 //! type, and vice versa.
 import { debug_int, debug_list, debug_str, debug_vec, PLAIN, type Debug, type Fmt } from "../std/fmt.ts";
-import { assert, panic, unwrap } from "../std/panic.ts";
+import { panic, unwrap } from "../std/panic.ts";
 import { utf8 } from "../std/str.ts";
+import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { find_best_match_for_name } from "./edit_distance.ts";
 import { Edition, Edition_discriminant } from "./edition.ts";
 import { debug_SyntaxContext, SyntaxContext } from "./hygiene.ts";
@@ -372,16 +373,16 @@ export type Symbol = number & { readonly __brand: "Symbol" };
 
 // Used within both `Symbol` and `ByteSymbol`.
 // rustc_index::newtype_index! { #[orderable] struct SymbolIndex {} }
-// PORT: `SymbolIndex::from_u32` is inlined into `Symbol::new`/`ByteSymbol::new`.
-const SymbolIndex_MAX_AS_U32 = 0xffff_ff00;
+// PORT: `Symbol`/`ByteSymbol` are the `SymbolIndex` number itself (branded).
+type SymbolIndex = number & { readonly __brand: "SymbolIndex" };
+const SymbolIndex = newtype_index<SymbolIndex>((n) => `${n}`);
 
 export const Symbol = {
   /// Avoid this except for things like deserialization of previously
   /// serialized symbols, and testing. Use `intern` instead.
   // rustc: compiler/rustc_span/src/symbol.rs:2740 new
   new(n: number): Symbol {
-    assert(n <= SymbolIndex_MAX_AS_U32, "assertion failed: value <= 0xFFFF_FF00");
-    return n as Symbol;
+    return SymbolIndex.from_u32(n) as number as Symbol;
   },
 
   /// Maps a string to its interned representation.
@@ -481,7 +482,7 @@ export const Symbol = {
 
   // rustc: compiler/rustc_span/src/symbol.rs:3064 is_used_keyword_conditional
   is_used_keyword_conditional(self: Symbol, edition: () => Edition): boolean {
-    return self >= kw.Async && self <= kw.Dyn && Edition_discriminant(edition()) >= Edition_discriminant(Edition.Edition2018);
+    return self >= kw.Async && self <= kw.Dyn && Edition_discriminant[edition()] >= Edition_discriminant[Edition.Edition2018];
   },
 
   // rustc: compiler/rustc_span/src/symbol.rs:3068 is_unused_keyword_conditional
@@ -578,8 +579,7 @@ export const ByteSymbol = {
   /// serialized symbols, and testing. Use `intern` instead.
   // rustc: compiler/rustc_span/src/symbol.rs:2840 new
   new(n: number): ByteSymbol {
-    assert(n <= SymbolIndex_MAX_AS_U32, "assertion failed: value <= 0xFFFF_FF00");
-    return n as ByteSymbol;
+    return SymbolIndex.from_u32(n) as number as ByteSymbol;
   },
 
   /// Maps a string to its interned representation.

@@ -13,16 +13,13 @@ import {
   debug_EscapeError,
   debug_Mode,
   debug_MixedUnit,
-  EscapeError_is_fatal,
+  EscapeError,
   Mode,
-  Mode_in_double_quotes,
-  Mode_prefix_noraw,
   unescape_byte,
   unescape_byte_str,
   unescape_c_str,
   unescape_char,
   unescape_str,
-  type EscapeError,
 } from "../vendor/rustc_literal_escaper/lib.ts";
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -33,7 +30,7 @@ function res<T>(r: Result<T, EscapeError>, ok: Debug<T>): string {
 }
 
 function dump(start: number, mode: Mode, content: Str): string {
-  let out = `L ${start} ${debug_Mode(mode, PLAIN)} ${debug_str(Mode_prefix_noraw(mode))} ${debug_bool(Mode_in_double_quotes(mode), PLAIN)}\nU`;
+  let out = `L ${start} ${debug_Mode(mode, PLAIN)} ${debug_str(Mode.prefix_noraw(mode))} ${debug_bool(Mode.in_double_quotes(mode), PLAIN)}\nU`;
   const item =
     <T>(ok: Debug<T>) =>
     (lo: number, hi: number, r: Result<T, EscapeError>) => {
@@ -67,7 +64,7 @@ function dump(start: number, mode: Mode, content: Str): string {
   }
   out += "\n";
   check_for_errors(content, mode, (lo, hi, err) => {
-    out += `E ${lo}..${hi} ${debug_EscapeError(err, PLAIN)} ${debug_bool(EscapeError_is_fatal(err), PLAIN)}\n`;
+    out += `E ${lo}..${hi} ${debug_EscapeError(err, PLAIN)} ${debug_bool(EscapeError.is_fatal(err), PLAIN)}\n`;
   });
   return out;
 }

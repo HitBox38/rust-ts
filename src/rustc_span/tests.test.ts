@@ -1,10 +1,17 @@
 // Port of compiler/rustc_span/src/tests.rs
 import { expect, test } from "bun:test";
-import { PLAIN } from "../std/fmt.ts";
+import { debug_int, PLAIN, PRETTY } from "../std/fmt.ts";
 import { unwrap_result } from "../std/result.ts";
 import { Str } from "../std/str.ts";
 import {
+  AttrId,
   BytePos,
+  debug_AttrId,
+  debug_BytePos,
+  debug_ErrorGuaranteed,
+  debug_Spanned,
+  dummy_spanned,
+  ErrorGuaranteed,
   debug_Span,
   DUMMY_SP,
   create_default_session_globals_then,
@@ -14,8 +21,10 @@ import {
   Span,
   type NormalizedPos,
 } from "./lib.ts";
-import { Hash64 } from "./def_id.ts";
-import { SyntaxContext } from "./hygiene.ts";
+import { Hash64 } from "../rustc_hashes/lib.ts";
+import { debug_LocalExpnId, LocalExpnId, SyntaxContext } from "./hygiene.ts";
+import { debug_Edition, Edition } from "./edition.ts";
+import { ByteSymbol, debug_ByteSymbol, debug_Ident, debug_Symbol, Ident, Symbol } from "./symbol.ts";
 
 // rustc: compiler/rustc_span/src/tests.rs:4 test_lookup_line
 test("test_lookup_line", () => {
@@ -140,3 +149,21 @@ test("rust-ts: dummy span and span equality", () => {
     expect(debug_Span(a, PLAIN)).toBe("Span { lo: BytePos(4), hi: BytePos(9), ctxt: #0 }");
   });
 });
+
+// rust-ts only: the Debug functions tools/codegen/typemap.json maps rustc_span types to. Expected
+// strings follow the upstream impls (derives, `newtype_index!` debug_format, symbol.rs Debug impls).
+test("rust-ts: typemap Debug exports", () =>
+  create_default_session_globals_then(() => {
+    expect(debug_Symbol(Symbol.intern("main"), PLAIN)).toBe('"main"');
+    expect(debug_ByteSymbol(ByteSymbol.intern(new TextEncoder().encode("hi")), PLAIN)).toBe("[104, 105]");
+    expect(debug_Ident(Ident.from_str("main"), PLAIN)).toBe("main#0");
+    expect(debug_BytePos(BytePos(7), PLAIN)).toBe("BytePos(7)");
+    expect(debug_AttrId(AttrId.from_u32(3), PLAIN)).toBe("AttrId(3)");
+    expect(debug_ErrorGuaranteed(ErrorGuaranteed.unchecked_error_guaranteed(), PLAIN)).toBe("ErrorGuaranteed(())");
+    expect(debug_ErrorGuaranteed(ErrorGuaranteed.unchecked_error_guaranteed(), PRETTY)).toBe("ErrorGuaranteed(\n    (),\n)");
+    expect(debug_Spanned(dummy_spanned(1), PLAIN, debug_int)).toBe(
+      "Spanned { node: 1, span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }",
+    );
+    expect(debug_LocalExpnId(LocalExpnId.ROOT, PLAIN)).toBe("expn0");
+    expect(debug_Edition(Edition.Edition2021, PLAIN)).toBe("Edition2021");
+  }));

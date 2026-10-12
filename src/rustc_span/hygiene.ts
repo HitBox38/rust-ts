@@ -26,20 +26,19 @@
 
 import { debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Debug, type Fmt, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
+import { debug_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
+import type { Hash64 } from "../rustc_hashes/lib.ts";
+import { newtype_index } from "../rustc_index/newtype_index.ts";
 import {
   CRATE_DEF_ID,
   CrateNum,
   type DefId,
   debug_CrateNum,
   debug_DefId,
-  debug_Fingerprint,
   debug_ModId,
-  Fingerprint,
-  type Hash64,
   LOCAL_CRATE,
   LocalDefId,
   type ModId,
-  newtype_index,
   StableCrateId,
 } from "./def_id.ts";
 import { debug_Edition, type Edition } from "./edition.ts";
@@ -290,6 +289,9 @@ export const LocalExpnId = {
 
   // rustc: compiler/rustc_span/src/hygiene.rs:213 fresh
   fresh(expn_data: ExpnData, hcx: StableHashCtxt): LocalExpnId {
+    // PORT: `mut expn_data: ExpnData` is by value; copy so the caller's (possibly shared) instance
+    // is not mutated by `update_disambiguator`.
+    expn_data = expn_data.clone();
     // debug_assert_eq!(expn_data.parent.krate, LOCAL_CRATE);
     const expn_hash = update_disambiguator(expn_data, hcx);
     return HygieneData.with((data) => {
@@ -320,6 +322,8 @@ export const LocalExpnId = {
 
   // rustc: compiler/rustc_span/src/hygiene.rs:237 set_expn_data
   set_expn_data(self: LocalExpnId, expn_data: ExpnData, hcx: StableHashCtxt): void {
+    // PORT: by-value `mut expn_data`; copy before `update_disambiguator` mutates it (see `fresh`).
+    expn_data = expn_data.clone();
     // debug_assert_eq!(expn_data.parent.krate, LOCAL_CRATE);
     const expn_hash = update_disambiguator(expn_data, hcx);
     HygieneData.with((data) => {
@@ -1071,7 +1075,8 @@ Span.mark_with_reason = function (
 /// A subset of properties from both macro definition and macro call available through global data.
 /// Avoid using this if you have access to the original definition or call structures.
 // PORT: fields readonly except `disambiguator` (private upstream, set by `update_disambiguator`);
-// this makes the derived `Clone` unobservable, so instances are shared instead of cloned.
+// `expn_data()` returns the stored instance instead of a clone; the by-value takers that mutate
+// (`LocalExpnId::fresh`/`set_expn_data`, via `update_disambiguator`) `clone()` first.
 export class ExpnData {
   constructor(
     // --- The part unique to each expansion.
@@ -1131,6 +1136,25 @@ export class ExpnData {
     /// display the note telling people to use the `-Zmacro-backtrace` flag.
     readonly diagnostic_opaque: boolean,
   ) {}
+
+  /** `#[derive(Clone)]` (shallow: every field but `disambiguator` is immutable). */
+  clone(): ExpnData {
+    return new ExpnData(
+      this.kind,
+      this.parent,
+      this.call_site,
+      this.disambiguator,
+      this.def_site,
+      this.allow_internal_unstable,
+      this.edition,
+      this.macro_def_id,
+      this.parent_module,
+      this.allow_internal_unsafe,
+      this.local_inner_macros,
+      this.collapse_debuginfo,
+      this.diagnostic_opaque,
+    );
+  }
 
   // rustc: compiler/rustc_span/src/hygiene.rs:1046 new
   static new(

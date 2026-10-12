@@ -100,15 +100,15 @@ export const EscapeError = {
   NulInCStr: "NulInCStr",
   UnskippedWhitespaceWarning: "UnskippedWhitespaceWarning",
   MultipleSkippedLinesWarning: "MultipleSkippedLinesWarning",
+
+  /// Returns true for actual errors, as opposed to warnings.
+  // crate: rustc-literal-escaper-0.0.8/src/lib.rs:74 is_fatal
+  is_fatal(self: EscapeError): boolean {
+    return !(self === "UnskippedWhitespaceWarning" || self === "MultipleSkippedLinesWarning");
+  },
 } as const;
 
 export const debug_EscapeError: Debug<EscapeError> = (v) => v;
-
-/// Returns true for actual errors, as opposed to warnings.
-// crate: rustc-literal-escaper-0.0.8/src/lib.rs:74 is_fatal
-export function EscapeError_is_fatal(self: EscapeError): boolean {
-  return !(self === "UnskippedWhitespaceWarning" || self === "MultipleSkippedLinesWarning");
-}
 
 /// Check a raw string literal for validity
 ///
@@ -701,42 +701,42 @@ export const Mode = {
   RawByteStr: "RawByteStr",
   CStr: "CStr",
   RawCStr: "RawCStr",
+
+  // crate: rustc-literal-escaper-0.0.8/src/lib.rs:610 in_double_quotes
+  in_double_quotes(self: Mode): boolean {
+    switch (self) {
+      case "Str":
+      case "RawStr":
+      case "ByteStr":
+      case "RawByteStr":
+      case "CStr":
+      case "RawCStr":
+        return true;
+      case "Char":
+      case "Byte":
+        return false;
+    }
+  },
+
+  // crate: rustc-literal-escaper-0.0.8/src/lib.rs:622 prefix_noraw
+  prefix_noraw(self: Mode): string {
+    switch (self) {
+      case "Char":
+      case "Str":
+      case "RawStr":
+        return "";
+      case "Byte":
+      case "ByteStr":
+      case "RawByteStr":
+        return "b";
+      case "CStr":
+      case "RawCStr":
+        return "c";
+    }
+  },
 } as const;
 
 export const debug_Mode: Debug<Mode> = (v) => v;
-
-// crate: rustc-literal-escaper-0.0.8/src/lib.rs:610 in_double_quotes
-export function Mode_in_double_quotes(self: Mode): boolean {
-  switch (self) {
-    case "Str":
-    case "RawStr":
-    case "ByteStr":
-    case "RawByteStr":
-    case "CStr":
-    case "RawCStr":
-      return true;
-    case "Char":
-    case "Byte":
-      return false;
-  }
-}
-
-// crate: rustc-literal-escaper-0.0.8/src/lib.rs:622 prefix_noraw
-export function Mode_prefix_noraw(self: Mode): string {
-  switch (self) {
-    case "Char":
-    case "Str":
-    case "RawStr":
-      return "";
-    case "Byte":
-    case "ByteStr":
-    case "RawByteStr":
-      return "b";
-    case "CStr":
-    case "RawCStr":
-      return "c";
-  }
-}
 
 /// Check a literal only for errors
 ///
