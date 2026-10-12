@@ -77,7 +77,7 @@ rustc_span is 658/658. Total 1,196 / 25,517 fns.
 
 Compiler fns 1527/25517; vendor 1773/6132 (26 crates). Final gate: gate-20261012-211129-root-ws8a.
 
-## Wave 5 (next)
+## Wave 5 (started 2026-10-13) — lanes: emitter, codegen-diag, lint-defs, feature, ast-attr, harness-w5
 1. **emitter**: rustc_errors annotate_snippet_emitter_writer.rs + emitter.rs (replaces the `Emitter` stand-in in rustc_errors/lib.ts),
    timings.rs; json.rs later. Uses annotate-b's contract.
 2. **codegen-diag**: `#[derive(Diagnostic/Subdiagnostic/LintDiagnostic)]` via tools/codegen, porting rustc_macros/src/diagnostics.
