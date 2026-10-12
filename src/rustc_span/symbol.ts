@@ -2,13 +2,14 @@
 //! allows bidirectional lookup; i.e., given a value, one can easily find the
 //! type, and vice versa.
 import { debug_int, debug_list, debug_str, debug_vec, PLAIN, type Debug, type Fmt } from "../std/fmt.ts";
-import { assert, panic, unported, unwrap } from "../std/panic.ts";
+import { panic, unwrap } from "../std/panic.ts";
 import { utf8 } from "../std/str.ts";
+import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { find_best_match_for_name } from "./edit_distance.ts";
-import type { Edition } from "./edition.ts";
-import type { SyntaxContext } from "./hygiene.ts";
+import { Edition, Edition_discriminant } from "./edition.ts";
+import { debug_SyntaxContext, SyntaxContext } from "./hygiene.ts";
 import { with_session_globals } from "./lib.ts";
-import type { Span } from "./span_encoding.ts";
+import { DUMMY_SP, Span } from "./span_encoding.ts";
 import {
   kw_generated,
   PREDEFINED_SYMBOLS_COUNT,
@@ -20,62 +21,6 @@ import {
 } from "./symbol.gen.ts";
 
 export { PREDEFINED_SYMBOLS_COUNT };
-
-// ---- Cross-lane calls ----------------------------------------------------------------------
-// PORT: the upstream methods below belong to lane span-core (`Span`, `DUMMY_SP`, `Edition`) or
-// lane span-hygiene (`SyntaxContext`) and are not exported by the wave-1 contract stubs. Each
-// shim stands for exactly the upstream call named in its `unported(...)`; root rewires them to
-// the real exports at integration. Unverified until then.
-
-/** `DUMMY_SP` (span_encoding.rs) */
-function DUMMY_SP(): Span {
-  return unported("rustc_span::DUMMY_SP");
-}
-/** `Span::ctxt` (span_encoding.rs) */
-function Span_ctxt(_span: Span): SyntaxContext {
-  return unported("rustc_span::Span::ctxt");
-}
-/** `Span::eq_ctxt` (span_encoding.rs) */
-function Span_eq_ctxt(_span: Span, _other: Span): boolean {
-  return unported("rustc_span::Span::eq_ctxt");
-}
-/** `Span::with_ctxt` (lib.rs) */
-function Span_with_ctxt(_span: Span, _ctxt: SyntaxContext): Span {
-  return unported("rustc_span::Span::with_ctxt");
-}
-/** `Span::edition` (lib.rs) */
-function Span_edition(_span: Span): Edition {
-  return unported("rustc_span::Span::edition");
-}
-/** `Span::normalize_to_macros_2_0` (lib.rs) */
-function Span_normalize_to_macros_2_0(_span: Span): Span {
-  return unported("rustc_span::Span::normalize_to_macros_2_0");
-}
-/** `Span::normalize_to_macro_rules` (lib.rs) */
-function Span_normalize_to_macro_rules(_span: Span): Span {
-  return unported("rustc_span::Span::normalize_to_macro_rules");
-}
-/** `SyntaxContext::dollar_crate_name` (hygiene.rs) */
-function SyntaxContext_dollar_crate_name(_ctxt: SyntaxContext): Symbol {
-  return unported("rustc_span::hygiene::SyntaxContext::dollar_crate_name");
-}
-/** `impl fmt::Debug for SyntaxContext` (hygiene.rs): `#<n>` */
-function debug_SyntaxContext(_ctxt: SyntaxContext, _f: Fmt): string {
-  return unported("rustc_span::hygiene::SyntaxContext: Debug");
-}
-/** `Edition: PartialOrd` (`a >= b`, edition.rs) */
-function Edition_ge(_a: Edition, _b: Edition): boolean {
-  return unported("rustc_span::edition::Edition: PartialOrd");
-}
-/** `Edition::at_least_rust_2018` (edition.rs) */
-function Edition_at_least_rust_2018(_e: Edition): boolean {
-  return unported("rustc_span::edition::Edition::at_least_rust_2018");
-}
-/** `Edition::at_least_rust_2024` (edition.rs) */
-function Edition_at_least_rust_2024(_e: Edition): boolean {
-  return unported("rustc_span::edition::Edition::at_least_rust_2024");
-}
-// ---------------------------------------------------------------------------------------------
 
 // The proc macro code for this is in `compiler/rustc_macros/src/symbols.rs`.
 // PORT: the `symbols! { Keywords { .. } Symbols { .. } }` invocation is expanded by
@@ -108,7 +53,7 @@ export class Ident {
   /// Constructs a new identifier with a dummy span.
   // rustc: compiler/rustc_span/src/symbol.rs:2506 with_dummy_span
   static with_dummy_span(name: Symbol): Ident {
-    return Ident.new(name, DUMMY_SP());
+    return Ident.new(name, DUMMY_SP);
   }
 
   // For dummy identifiers that are never used and absolutely must be
@@ -135,7 +80,7 @@ export class Ident {
   /// Replaces `lo` and `hi` with those from `span`, but keep hygiene context.
   // rustc: compiler/rustc_span/src/symbol.rs:2531 with_span_pos
   with_span_pos(span: Span): Ident {
-    return Ident.new(this.name, Span_with_ctxt(span, Span_ctxt(this.span)));
+    return Ident.new(this.name, Span.with_ctxt(span, Span.ctxt(this.span)));
   }
 
   /// Creates a new ident with the same span and name with leading quote removed, if any.
@@ -153,7 +98,7 @@ export class Ident {
   /// Technically, this operation strips all non-opaque marks from ident's syntactic context.
   // rustc: compiler/rustc_span/src/symbol.rs:2548 normalize_to_macros_2_0
   normalize_to_macros_2_0(): Ident {
-    return Ident.new(this.name, Span_normalize_to_macros_2_0(this.span));
+    return Ident.new(this.name, Span.normalize_to_macros_2_0(this.span));
   }
 
   /// "Normalize" ident for use in comparisons using "local variable hygiene".
@@ -163,7 +108,7 @@ export class Ident {
   /// Technically, this operation strips all transparent marks from ident's syntactic context.
   // rustc: compiler/rustc_span/src/symbol.rs:2558 normalize_to_macro_rules
   normalize_to_macro_rules(): Ident {
-    return Ident.new(this.name, Span_normalize_to_macro_rules(this.span));
+    return Ident.new(this.name, Span.normalize_to_macro_rules(this.span));
   }
 
   /// Access the underlying string. This is a slowish operation because it
@@ -179,7 +124,7 @@ export class Ident {
   // impl PartialEq for Ident
   // rustc: compiler/rustc_span/src/symbol.rs:2574 eq
   eq(rhs: Ident): boolean {
-    return this.name === rhs.name && Span_eq_ctxt(this.span, rhs.span);
+    return this.name === rhs.name && Span.eq_ctxt(this.span, rhs.span);
   }
 
   // impl Hash for Ident
@@ -188,7 +133,7 @@ export class Ident {
   // rustc: compiler/rustc_span/src/symbol.rs:2580 hash
   hash(state: (v: number) => void): void {
     state(this.name);
-    state(Span_ctxt(this.span));
+    state(Span.ctxt(this.span));
   }
 
   // ---- impl Ident (predicates, defined further down upstream) ----
@@ -206,7 +151,7 @@ export class Ident {
     // Note: `span.edition()` is relatively expensive, don't call it unless necessary.
     return (
       Symbol.is_used_keyword_always(this.name) ||
-      Symbol.is_used_keyword_conditional(this.name, () => Span_edition(this.span))
+      Symbol.is_used_keyword_conditional(this.name, () => Span.edition(this.span))
     );
   }
 
@@ -216,7 +161,7 @@ export class Ident {
     // Note: `span.edition()` is relatively expensive, don't call it unless necessary.
     return (
       Symbol.is_unused_keyword_always(this.name) ||
-      Symbol.is_unused_keyword_conditional(this.name, () => Span_edition(this.span))
+      Symbol.is_unused_keyword_conditional(this.name, () => Span.edition(this.span))
     );
   }
 
@@ -224,7 +169,7 @@ export class Ident {
   // rustc: compiler/rustc_span/src/symbol.rs:3135 is_reserved
   is_reserved(): boolean {
     // Note: `span.edition()` is relatively expensive, don't call it unless necessary.
-    return Symbol.is_reserved(this.name, () => Span_edition(this.span));
+    return Symbol.is_reserved(this.name, () => Span.edition(this.span));
   }
 
   /// A keyword or reserved identifier that can be used as a path segment.
@@ -289,7 +234,7 @@ export class Ident {
 // impl fmt::Debug for Ident
 // rustc: compiler/rustc_span/src/symbol.rs:2587 fmt
 export const debug_Ident: Debug<Ident> = (v, f) => {
-  return display_Ident(v) + debug_SyntaxContext(Span_ctxt(v.span), f);
+  return display_Ident(v) + debug_SyntaxContext(Span.ctxt(v.span), f);
 };
 
 /// This implementation is supposed to be used in error messages, so it's expected to be identical
@@ -353,7 +298,7 @@ export function display_IdentPrinter(v: IdentPrinter): string {
   let s: Symbol;
   if (v.mode === IdentPrintMode.Normal && v.symbol === kw.DollarCrate && v.convert_dollar_crate !== undefined) {
     const span = v.convert_dollar_crate;
-    const converted = SyntaxContext_dollar_crate_name(Span_ctxt(span));
+    const converted = SyntaxContext.dollar_crate_name(Span.ctxt(span));
     if (!Symbol.is_path_segment_keyword(converted)) {
       f += "::";
     }
@@ -428,16 +373,16 @@ export type Symbol = number & { readonly __brand: "Symbol" };
 
 // Used within both `Symbol` and `ByteSymbol`.
 // rustc_index::newtype_index! { #[orderable] struct SymbolIndex {} }
-// PORT: `SymbolIndex::from_u32` is inlined into `Symbol::new`/`ByteSymbol::new`.
-const SymbolIndex_MAX_AS_U32 = 0xffff_ff00;
+// PORT: `Symbol`/`ByteSymbol` are the `SymbolIndex` number itself (branded).
+type SymbolIndex = number & { readonly __brand: "SymbolIndex" };
+const SymbolIndex = newtype_index<SymbolIndex>((n) => `${n}`);
 
 export const Symbol = {
   /// Avoid this except for things like deserialization of previously
   /// serialized symbols, and testing. Use `intern` instead.
   // rustc: compiler/rustc_span/src/symbol.rs:2740 new
   new(n: number): Symbol {
-    assert(n <= SymbolIndex_MAX_AS_U32, "assertion failed: value <= 0xFFFF_FF00");
-    return n as Symbol;
+    return SymbolIndex.from_u32(n) as number as Symbol;
   },
 
   /// Maps a string to its interned representation.
@@ -537,14 +482,14 @@ export const Symbol = {
 
   // rustc: compiler/rustc_span/src/symbol.rs:3064 is_used_keyword_conditional
   is_used_keyword_conditional(self: Symbol, edition: () => Edition): boolean {
-    return self >= kw.Async && self <= kw.Dyn && Edition_ge(edition(), "Edition2018");
+    return self >= kw.Async && self <= kw.Dyn && Edition_discriminant[edition()] >= Edition_discriminant[Edition.Edition2018];
   },
 
   // rustc: compiler/rustc_span/src/symbol.rs:3068 is_unused_keyword_conditional
   is_unused_keyword_conditional(self: Symbol, edition: () => Edition): boolean {
     return (
-      (self === kw.Gen && Edition_at_least_rust_2024(edition())) ||
-      (self === kw.Try && Edition_at_least_rust_2018(edition()))
+      (self === kw.Gen && Edition.at_least_rust_2024(edition())) ||
+      (self === kw.Try && Edition.at_least_rust_2018(edition()))
     );
   },
 
@@ -634,8 +579,7 @@ export const ByteSymbol = {
   /// serialized symbols, and testing. Use `intern` instead.
   // rustc: compiler/rustc_span/src/symbol.rs:2840 new
   new(n: number): ByteSymbol {
-    assert(n <= SymbolIndex_MAX_AS_U32, "assertion failed: value <= 0xFFFF_FF00");
-    return n as ByteSymbol;
+    return SymbolIndex.from_u32(n) as number as ByteSymbol;
   },
 
   /// Maps a string to its interned representation.

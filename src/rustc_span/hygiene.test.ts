@@ -16,13 +16,13 @@ import {
   debug_LocalDefId,
   debug_LocalModId,
   display_CrateNum,
-  Fingerprint,
-  Hash64,
   LOCAL_CRATE,
   LocalDefId,
   LocalModId,
   StableCrateId,
 } from "./def_id.ts";
+import { Fingerprint } from "../rustc_data_structures/fingerprint.ts";
+import { Hash64 } from "../rustc_hashes/lib.ts";
 import { DUMMY_SP } from "./span_encoding.ts";
 import { kw } from "./symbol.ts";
 import {

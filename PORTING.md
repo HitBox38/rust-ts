@@ -163,3 +163,11 @@ match the Unicode version of the pinned upstream deps.
 - No new npm dependencies.
 - Hot paths: no closures allocated per char/token where upstream would inline; prefer
   numeric char codes; avoid `bigint` outside const-eval/layout.
+
+## 8. Recorded clarifications
+- Methods from a later upstream `impl` block may be placed inside the TS class body (out of
+  file order) when the class must declare them; markers keep the upstream line.
+- `&mut T` out-parameters of single-value handles: use a `{ value: T }` wrapper (`MutRef<T>`),
+  not tuple returns, unless upstream returns a value too. (Normalisation target for span-wire.)
+- Enum methods live on the companion const (`EscapeError.is_fatal(e)`), not as free
+  `Type_method` functions. Debug fns are always `debug_<Type>: Debug<Type>` taking `(v, f)`.
