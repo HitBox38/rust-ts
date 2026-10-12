@@ -1,0 +1,59 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@/@SRC@ and builds this in $RUST_TS_DATA/probes.
+# Every registry dependency (direct, and the transitive ones listed below so cargo cannot pick
+# another version) is pinned to the version in upstream's Cargo.lock at the pinned commit.
+# rustc_baked_icu_data (the ICU list-format data rustc ships) is a path dep on the pinned checkout.
+[package]
+name = "fluentdump"
+version = "0.0.0"
+edition = "2024"
+publish = false
+build = "@SRC@/build.rs"
+
+# Read by build.rs (checks the `// BEGIN verbatim` blocks of main.rs against upstream).
+[package.metadata.rust-ts]
+upstream = "@UPSTREAM@"
+main-rs = "@SRC@/main.rs"
+
+[[bin]]
+name = "fluentdump"
+path = "@SRC@/main.rs"
+
+[dependencies]
+# Direct dependencies of compiler/rustc_error_messages (same features).
+fluent-bundle = "=0.16.0"
+icu_list = { version = "=2.3.0", default-features = false, features = ["alloc"] }
+icu_locale_core = { version = "=2.3.0", default-features = false }
+intl-memoizer = "=0.5.3"
+rustc_baked_icu_data = { path = "@UPSTREAM@/compiler/rustc_baked_icu_data" }
+unic-langid = { version = "=0.9.6", features = ["macros"] }
+# Used directly by the probe.
+fluent-syntax = "=0.12.0"
+indexmap = "=2.14.0"
+# Transitive dependencies, pinned to upstream's Cargo.lock (cargo would otherwise pick newer ones).
+displaydoc = "=0.2.5"
+icu_provider = "=2.3.0"
+litemap = "=0.8.1"
+memchr = "=2.8.0"
+potential_utf = "=0.1.4"
+proc-macro2 = "=1.0.106"
+quote = "=1.0.45"
+regex-automata = { version = "=0.4.13", default-features = false }
+rustc-hash = "=2.1.1"
+self_cell = "=1.2.1"
+serde = { version = "=1.0.228", default-features = false }
+serde_core = { version = "=1.0.228", default-features = false }
+serde_derive = "=1.0.228"
+smallvec = "=1.15.1"
+syn = { version = "=2.0.117", default-features = false }
+syn3 = { package = "syn", version = "=3.0.3", default-features = false }
+synstructure = { version = "=0.13.2", default-features = false }
+thiserror = "=2.0.17"
+thiserror-impl = "=2.0.17"
+unicode-ident = "=1.0.24"
+yoke-derive = "=0.8.2"
+zerofrom = { version = "=0.1.6", default-features = false }
+zerofrom-derive = "=0.1.6"
+zerovec = { version = "=0.11.7", default-features = false }
+zerovec-derive = "=0.11.5"
+
+[workspace]
