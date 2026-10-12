@@ -2,10 +2,12 @@
   "milestone": "M0",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
+    "escape-synthetic": 11,
     "escape": 25780,
-    "lex": 25780
+    "lex": 25780,
+    "symbols": 10
   },
-  "updated": "2026-10-12T10:58:22.454Z",
+  "updated": "2026-10-12T15:45:10.862Z",
   "open_stops": [],
   "coverage": {
     "ported": 7,

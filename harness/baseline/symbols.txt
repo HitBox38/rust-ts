@@ -1,0 +1,10 @@
+symbols/character
+symbols/count
+symbols/editions
+symbols/ident
+symbols/integer
+symbols/kw
+symbols/letters
+symbols/predefined
+symbols/predicates
+symbols/sym

@@ -111,14 +111,8 @@ function repoCorpus(dir: string): string[] {
     .map((f) => `${dir}/${f}`);
 }
 
-/**
- * Sections of the `symbols` suite. symdump.ts can't run the others on main yet (they need
- * SessionGlobals / the Symbol interner, or Edition ordering, all still `unported` in
- * rustc_span); append them here once they are wired, in this order:
- *   "predefined", "integer", "character", "editions", "ident"
- * (see tools/probes/symdump/main.rs for every section's format).
- */
-const SYMBOL_SECTIONS = ["count", "kw", "sym", "letters", "predicates"];
+/** Sections of the `symbols` suite, one case each (see tools/probes/symdump/main.rs for formats). */
+const SYMBOL_SECTIONS = ["count", "kw", "sym", "letters", "predicates", "predefined", "integer", "character", "editions", "ident"];
 
 SUITES.push(
   {
@@ -127,7 +121,7 @@ SUITES.push(
     description: "rustc_span symbol table (probe linking upstream rustc_span): predefined symbols, kw/sym constants, sym:: helpers, predicates",
     mode: "single",
     timeoutMs: 60_000,
-    cases: () => [{ id: "symbols", file: "", args: SYMBOL_SECTIONS }],
+    cases: () => SYMBOL_SECTIONS.map((sec) => ({ id: `symbols/${sec}`, file: "", args: [sec] })),
     oracle: ([c]) => [probePath("symdump"), ...c!.args],
     subject: ([c]) => [...bunCmd("src/rust_ts/symdump.ts"), ...c!.args],
   },

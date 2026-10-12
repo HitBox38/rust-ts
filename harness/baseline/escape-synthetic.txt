@@ -1,0 +1,11 @@
+harness/corpus/escape-synthetic/bom.rs
+harness/corpus/escape-synthetic/byte.rs
+harness/corpus/escape-synthetic/byte_str.rs
+harness/corpus/escape-synthetic/c_str.rs
+harness/corpus/escape-synthetic/char.rs
+harness/corpus/escape-synthetic/continuation.rs
+harness/corpus/escape-synthetic/crlf.rs
+harness/corpus/escape-synthetic/mixed.rs
+harness/corpus/escape-synthetic/raw.rs
+harness/corpus/escape-synthetic/shebang.rs
+harness/corpus/escape-synthetic/str.rs
