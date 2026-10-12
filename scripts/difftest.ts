@@ -59,14 +59,23 @@ function splitBatch(stdout: string): Map<string, string> {
   return out;
 }
 
-let oracleVersionCache: string | undefined;
+// Per suite: gate.ts runs several suites (with different probes) in one process.
+const oracleVersionCache = new Map<string, string>();
 function oracleVersion(s: Suite): string {
   // Probe-based suites are keyed by the probe binary too, so rebuilding a probe invalidates the cache.
-  if (oracleVersionCache) return oracleVersionCache;
+  let v = oracleVersionCache.get(s.name);
+  if (v) return v;
   const cmd0 = s.oracle([{ id: "", file: "", args: [] }])[0]!;
-  oracleVersionCache = existsSync(cmd0) ? hash(readFileSync(cmd0)) : PIN.commit;
-  return oracleVersionCache;
+  v = existsSync(cmd0) ? hash(readFileSync(cmd0)) : PIN.commit;
+  oracleVersionCache.set(s.name, v);
+  return v;
 }
+
+/** Working directory of every command of a suite (and base of `Case.file`). */
+const cwdOf = (s: Suite): string => s.cwd ?? UPSTREAM;
+
+/** Hash of a case's input file; synthetic cases (`file: ""`) have no input. */
+const fileHash = (s: Suite, c: Case): string => (c.file === "" ? "" : hash(readFileSync(join(cwdOf(s), c.file))));
 
 function cachePath(s: Suite, c: Case, fileHash: string): string {
   const key = hash(JSON.stringify([PIN.commit, oracleVersion(s), s.name, c.id, c.args, fileHash]));
@@ -78,7 +87,7 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
   const todo: Case[] = [];
   const paths = new Map<string, string>();
   for (const c of cases) {
-    const p = cachePath(s, c, hash(readFileSync(join(UPSTREAM, c.file))));
+    const p = cachePath(s, c, fileHash(s, c));
     paths.set(c.id, p);
     if (existsSync(p)) out.set(c.id, JSON.parse(readFileSync(p, "utf8")));
     else todo.push(c);
@@ -88,7 +97,7 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
     // A batch can time out under load; split it in halves until it succeeds, and only
     // fail when a single file cannot be run by the oracle.
     const runBatch = async (batch: Case[]): Promise<void> => {
-      const r = await run(s.oracle(batch), { cwd: UPSTREAM, timeoutMs: s.timeoutMs });
+      const r = await run(s.oracle(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs });
       if (r.code !== 0 || r.timedOut) {
         if (batch.length === 1) throw new Error(`oracle failed on ${batch[0]!.file} (exit ${r.code}${r.timedOut ? ", timeout" : ""}): ${r.stderr.slice(0, 2000)}`);
         const mid = batch.length >> 1;
@@ -106,7 +115,7 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
     await runBatch(todo);
   } else {
     for (const c of todo) {
-      const r = await run(s.oracle([c]), { cwd: UPSTREAM, timeoutMs: s.timeoutMs });
+      const r = await run(s.oracle([c]), { cwd: cwdOf(s), timeoutMs: s.timeoutMs });
       const o: Output = { text: render(r), code: r.code, timedOut: r.timedOut };
       out.set(c.id, o);
       if (!r.timedOut) writeFileSync(paths.get(c.id)!, JSON.stringify(o));
@@ -120,7 +129,7 @@ async function runSubject(s: Suite, cases: Case[], impl: string): Promise<Map<st
   const out = new Map<string, Output>();
   if (s.mode === "batch") {
     const runBatch = async (batch: Case[]): Promise<void> => {
-      const r = await run(s.subject(batch), { cwd: UPSTREAM, timeoutMs: s.timeoutMs, env });
+      const r = await run(s.subject(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env });
       // A timed-out batch says nothing about individual files (load, one huge file): retry in halves,
       // so TIMEOUT is only ever reported for a single file that is slow on its own.
       if (r.timedOut && batch.length > 1) {
@@ -140,7 +149,7 @@ async function runSubject(s: Suite, cases: Case[], impl: string): Promise<Map<st
     await runBatch(cases);
   } else {
     for (const c of cases) {
-      const r = await run(s.subject([c]), { cwd: UPSTREAM, timeoutMs: s.timeoutMs, env });
+      const r = await run(s.subject([c]), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env });
       out.set(c.id, { text: render(r), code: r.code, timedOut: r.timedOut });
     }
   }
