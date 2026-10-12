@@ -40,7 +40,7 @@ import { BytePos, debug_Span, Span } from "../../rustc_span/lib.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { len_utf8, to_digit } from "../../std/char.ts";
 import { debug_char, debug_option, debug_struct, type Debug } from "../../std/fmt.ts";
-import { assert, panic, unported, unreachable } from "../../std/panic.ts";
+import { assert, panic, unreachable } from "../../std/panic.ts";
 import { type Result, Err, Ok } from "../../std/result.ts";
 import { Str, str_chars_count, str_find_char, str_rfind_char } from "../../std/str.ts";
 import type { ParseSess } from "../../rustc_session/parse.ts";
@@ -54,65 +54,11 @@ type TokenStream = tokenstream.TokenStream;
 const { Token } = token;
 
 // ---------------------------------------------------------------------------------------------
-// PORT: pending lexer-aux. `mod unicode_chars;` / `mod unescape_error_reporting;` and the
-// `unicode-normalization` crate are ported by the lexer-aux lane. Until then these local shims
-// stand in for them (same names and signatures); remove them and import the real modules:
-//   import * as unicode_chars from "./unicode_chars.ts";
-//   import { emit_unescape_error, escaped_char } from "./unescape_error_reporting.ts";
-//   nfc_normalize: unicode_normalization `is_nfc_quick` / `IsNormalized` / `.nfc()`.
-/** PORT: `std::ops::Range<usize>` of `emit_unescape_error`. */
-export interface Range {
-  start: number;
-  end: number;
-}
-const unicode_chars = {
-  // PORT: pending lexer-aux
-  get UNICODE_ARRAY(): readonly (readonly [number, string, string])[] {
-    return unported("rustc_parse::lexer::unicode_chars::UNICODE_ARRAY (pending lexer-aux)");
-  },
-  // PORT: pending lexer-aux
-  check_for_substitution(
-    _lexer: Lexer,
-    _pos: BytePos,
-    _ch: number,
-    _count: number,
-  ): [TokenKind | undefined, diagnostics.TokenSubstitution | undefined] {
-    return unported("rustc_parse::lexer::unicode_chars::check_for_substitution (pending lexer-aux)");
-  },
-};
-// PORT: pending lexer-aux
-function emit_unescape_error(
-  _dcx: DiagCtxtHandle,
-  _lit: Str,
-  _full_lit_span: Span,
-  _err_span: Span,
-  _mode: Mode,
-  _range: Range,
-  _error: EscapeError,
-): ErrorGuaranteed | undefined {
-  return unported("rustc_parse::lexer::unescape_error_reporting::emit_unescape_error (pending lexer-aux)");
-}
-// PORT: pending lexer-aux
-function escaped_char(_c: number): string {
-  return unported("rustc_parse::lexer::unescape_error_reporting::escaped_char (pending lexer-aux)");
-}
-// PORT: pending lexer-aux. `unicode_normalization::IsNormalized` and `is_nfc_quick`: the crate's
-// `quick_check` (unicode-normalization-0.1.25/src/quick_check.rs:24) skips ASCII chars ("For ASCII
-// we know it's always allowed and a starter"), so an all-ASCII input is exactly `Yes`; any
-// other char needs the crate's tables.
-type IsNormalized = "Yes" | "No" | "Maybe";
-function is_nfc_quick(s: string): IsNormalized {
-  let result: IsNormalized = "Yes";
-  for (let i = 0; i < s.length; i++) {
-    if (s.charCodeAt(i) <= 0x7f) continue;
-    return unported("unicode_normalization::is_nfc_quick (non-ASCII; pending lexer-aux)");
-  }
-  return result;
-}
-// PORT: pending lexer-aux
-function nfc(_s: string): string {
-  return unported("unicode_normalization::UnicodeNormalization::nfc (pending lexer-aux)");
-}
+// mod unescape_error_reporting;
+// mod unicode_chars;
+import * as unicode_chars from "./unicode_chars.ts";
+import { emit_unescape_error, escaped_char } from "./unescape_error_reporting.ts";
+import { IsNormalized, is_nfc_quick, UnicodeNormalization_iter } from "../../vendor/unicode_normalization/lib.ts";
 
 // This type is used a lot. Make sure it doesn't unintentionally get bigger.
 //
@@ -1411,11 +1357,16 @@ export class Lexer {
 // rustc: compiler/rustc_parse/src/lexer/mod.rs:1278 nfc_normalize
 export function nfc_normalize(string: string): Symbol {
   // use unicode_normalization::{IsNormalized, UnicodeNormalization, is_nfc_quick};
-  switch (is_nfc_quick(string)) {
-    case "Yes":
+  // PORT: `string.chars()` over the UTF-8 bytes of the JS string.
+  const s = Str.from(string);
+  switch (is_nfc_quick(s.chars())) {
+    case IsNormalized.Yes:
       return Symbol.intern(string);
     default: {
-      const normalized_str: string = nfc(string);
+      // `string.chars().nfc().collect::<String>()`
+      const it = UnicodeNormalization_iter.nfc(s.chars());
+      let normalized_str = "";
+      for (let c = it.next(); c !== undefined; c = it.next()) normalized_str += String.fromCodePoint(c);
       return Symbol.intern(normalized_str);
     }
   }
