@@ -1,0 +1,128 @@
+import { mock, test, expect } from "bun:test";
+import { readFileSync, writeFileSync } from "node:fs";
+import { UnicodeWidthChar } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/unicode_width/lib.ts";
+import { debug_struct, debug_tuple, debug_option, debug_bool, debug_str, debug_vec, PLAIN, type Debug } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/std/fmt.ts";
+import { unported, Panic } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/std/panic.ts";
+
+// Scratch-only stand-ins for render.rs items (straight ports) so source_map/styled_buffer can run.
+class LineAnnotation {
+  constructor(public start: any, public end: any, public kind: any, public label: any, public annotation_type: any, public highlight_source: boolean) {}
+}
+const unit = ($: string) => Object.freeze({ $ });
+const ElementStyle: any = {
+  MainHeaderMsg: unit("MainHeaderMsg"), HeaderMsg: unit("HeaderMsg"), LineAndColumn: unit("LineAndColumn"), LineNumber: unit("LineNumber"),
+  Quotation: unit("Quotation"), UnderlinePrimary: unit("UnderlinePrimary"), UnderlineSecondary: unit("UnderlineSecondary"),
+  LabelPrimary: unit("LabelPrimary"), LabelSecondary: unit("LabelSecondary"), NoStyle: unit("NoStyle"), Addition: unit("Addition"), Removal: unit("Removal"),
+  color_spec(self: any, level: any, ss: any) {
+    switch (self.$) {
+      case "Addition": return ss.addition; case "Removal": return ss.removal; case "LineAndColumn": return ss.none; case "LineNumber": return ss.line_num;
+      case "Quotation": return ss.none; case "MainHeaderMsg": return ss.emphasis; case "UnderlinePrimary": case "LabelPrimary": return level.style(ss);
+      case "UnderlineSecondary": case "LabelSecondary": return ss.context; case "HeaderMsg": case "NoStyle": return ss.none; case "Level": throw new Error("x");
+    }
+  },
+};
+const CTRL = new Set([0,1,2,3,4,5,6,7,8,0xb,0xc,0xd,0xe,0xf,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f,0x7f,0x202a,0x202b,0x202d,0x202e,0x2066,0x2067,0x2068,0x202c,0x2069]);
+const debug_Loc = (v: any, f: any) => debug_struct(f, "Loc", [["line", String(v.line)], ["char", String(v.char)], ["display", String(v.display)], ["byte", String(v.byte)]]);
+const debug_LAT = (v: any, f: any) => (v.$ === "Singleline" ? "Singleline" : debug_tuple(f, v.$, [String(v._0)]));
+mock.module("/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/renderer/render.ts", () => ({
+  render: () => unported("x"), normalize_whitespace: () => unported("x"),
+  char_width: (ch: number) => (ch === 9 ? 4 : CTRL.has(ch) ? 1 : (UnicodeWidthChar.width(ch) ?? 1)),
+  num_overlap: (a_start: number, a_end: number, b_start: number, b_end: number, inclusive: boolean) => {
+    const extra = inclusive ? 1 : 0;
+    return (b_start <= a_start && a_start < b_end + extra) || (a_start <= b_start && b_start < a_end + extra);
+  },
+  LineAnnotationType: { Singleline: Object.freeze({ $: "Singleline" }) },
+  debug_LineAnnotationType: debug_LAT,
+  LineAnnotation,
+  debug_LineAnnotation: (v: any, f: any) => debug_struct(f, "LineAnnotation", [["start", debug_Loc(v.start, f)], ["end", debug_Loc(v.end, f)], ["kind", v.kind], ["label", debug_option(v.label, f, (s: string) => debug_str(s))], ["annotation_type", debug_LAT(v.annotation_type, f)], ["highlight_source", debug_bool(v.highlight_source, f)]]),
+  ElementStyle,
+  debug_ElementStyle: (v: any, f: any) => (v.$ === "Level" ? debug_tuple(f, "Level", [v._0]) : v.$),
+  debug_UnderlineParts: () => unported("x"),
+}));
+
+test("mirror", async () => {
+  const sm_ = await import("/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/renderer/source_map.ts");
+  const { Margin, debug_Margin } = await import("/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/renderer/margin.ts");
+  const { StyledBuffer, debug_StyledBuffer } = await import("/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/renderer/styled_buffer.ts");
+  const { AnnotationKind, Annotation, Patch, debug_TrimmedPatch_ } = await import("/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/snippet.ts") as any;
+  const { Renderer } = await import("/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/renderer/mod.ts");
+  const { Level } = await import("/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/level.ts");
+  const { Str } = await import("/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/std/str.ts");
+  const { debug_Str } = await import("/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/std_ext.ts");
+  const unhex = (s: string) => (s === "-" ? "" : Buffer.from(s, "hex").toString("utf8"));
+  const pm = (e: unknown) => { if (e instanceof Panic) return e.message; throw e; };
+  const style = (n: string) => ElementStyle[n];
+  const tup = (xs: string[]) => debug_tuple(PLAIN, "", xs);
+  const out: string[] = [];
+  let source = Str.from(""), line_start = 1; let anns: any[] = []; let patches: any[] = []; let spans: [number, number][] = [];
+  let sb = StyledBuffer.new();
+  const dbgSH = (v: any, f: any) => sm_.debug_SubstitutionHighlight(v, f);
+  for (const l of readFileSync("/Users/tomernorman/Documents/personal/rust-ts/.data/tmp/annotate-a/cases.txt", "utf8").split("\n")) {
+    if (l === "") continue;
+    const f = l.split(" ");
+    switch (f[0]) {
+      case "source": source = Str.from(unhex(f[1]!)); line_start = +f[2]!; anns = []; patches = []; spans = []; break;
+      case "ann": {
+        const kind = f[1] === "P" ? "Primary" : f[1] === "C" ? "Context" : "Visible";
+        const label = f[4] === "~" ? undefined : unhex(f[4]!);
+        anns.push(Annotation.highlight_source(Annotation.label(AnnotationKind.span(kind, { start: +f[2]!, end: +f[3]! }), label), f[5] === "1"));
+        break;
+      }
+      case "patch": patches.push(Patch.new({ start: +f[1]!, end: +f[2]! }, Str.from(unhex(f[3]!)))); break;
+      case "span": spans.push([+f[1]!, +f[2]!]); break;
+      case "run": {
+        const fold = f[1] === "1";
+        const sm = sm_.SourceMap.new(source, line_start);
+        out.push("sm " + sm_.debug_SourceMap(sm, PLAIN));
+        for (const [a, b] of spans) {
+          let s: string;
+          try {
+            const sp = { start: a, end: b };
+            const [x, y] = sm.span_to_locations(sp);
+            s = tup([sm_.debug_Loc(x, PLAIN), sm_.debug_Loc(y, PLAIN)]) + " " + debug_option(sm.span_to_snippet(sp), PLAIN, debug_Str) + " " + debug_vec(sm.span_to_lines(sp), PLAIN, sm_.debug_LineInfo);
+          } catch (e) { s = "PANIC " + pm(e); }
+          out.push(`span ${a} ${b} ${s}`);
+        }
+        let s: string;
+        try { const [d, ls] = sm.annotated_lines(anns, fold); s = tup([String(d), debug_vec(ls, PLAIN, sm_.debug_AnnotatedLineInfo)]); } catch (e) { s = "PANIC " + pm(e); }
+        out.push("annotated " + s);
+        try {
+          const sl = sm.splice_lines(patches, fold);
+          s = debug_option(sl, PLAIN, (v: any, f: any) => tup([debug_Str(v[0], f), debug_vec(v[1], f, sm_.debug_TrimmedPatch), debug_vec(v[2], f, (x: any, f: any) => debug_vec(x, f, dbgSH)), debug_vec(v[3], f, (x: any, f: any) => debug_vec(x, f, dbgSH))]));
+          if (sl) for (const p of sl[1]) s += ` | ${p.is_addition(sm)} ${p.is_deletion(sm)} ${p.is_replacement(sm)} ${p.is_destructive_replacement(sm)}`;
+        } catch (e) { s = "PANIC " + pm(e); }
+        out.push("splice " + s);
+        for (const p of patches) {
+          try { s = sm_.debug_TrimmedPatch(Patch.trim_trivial_replacements(p, source), PLAIN); } catch (e) { s = "PANIC " + pm(e); }
+          out.push("trim " + s);
+        }
+        break;
+      }
+      case "substr": {
+        const r = sm_.as_substr(Str.from(unhex(f[1]!)), Str.from(unhex(f[2]!)));
+        out.push("substr " + debug_option(r, PLAIN, (v: any, f: any) => tup([String(v[0]), debug_Str(v[1], f), String(v[2])])));
+        break;
+      }
+      case "margin": {
+        const v = f.slice(1, 8).map(Number) as number[];
+        const m = Margin.new(v[0]!, v[1]!, v[2]!, v[3]!, v[4]!, v[5]!);
+        out.push(`margin ${debug_Margin(m, PLAIN)} ${m.was_cut_left()} ${m.left(v[6]!)} ${m.right(v[6]!)} ${m.left(0)} ${m.right(1000)}`);
+        break;
+      }
+      case "sbnew": sb = StyledBuffer.new(); break;
+      case "putc": sb.putc(+f[1]!, +f[2]!, unhex(f[3]!).codePointAt(0)!, style(f[4]!)); break;
+      case "puts": sb.puts(+f[1]!, +f[2]!, unhex(f[3]!), style(f[4]!)); break;
+      case "append": sb.append(+f[1]!, unhex(f[2]!), style(f[3]!)); break;
+      case "prepend": sb.prepend(+f[1]!, unhex(f[2]!), style(f[3]!)); break;
+      case "replace": try { sb.replace(+f[1]!, +f[2]!, +f[3]!, unhex(f[4]!)); } catch (e) { out.push("sbpanic " + pm(e)); } break;
+      case "setstyle": sb.set_style_range(+f[1]!, +f[2]!, +f[3]!, style(f[4]!), f[5] === "1"); break;
+      case "sbdump": {
+        const s = { value: "" }; sb.render(Level.WARNING, Renderer.styled().stylesheet, s);
+        const p = { value: "" }; sb.render(Level.ERROR, Renderer.plain().stylesheet, p);
+        out.push(`sb ${sb.num_lines()} ${debug_StyledBuffer(sb, PLAIN)} ${debug_str(s.value)} ${debug_str(p.value)}`);
+        break;
+      }
+    }
+  }
+  writeFileSync("/Users/tomernorman/Documents/personal/rust-ts/.data/tmp/annotate-a/mirror2.txt", out.join("\n") + "\n");
+});
