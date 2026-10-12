@@ -1,7 +1,7 @@
 // tools/codegen item-macro expansion (newtype_index!, bitflags!) and the rustc_ast golden.
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { UPSTREAM } from "../../scripts/lib/common.ts";
 import { debugFormatTemplate, evalFlagExpr, macroBody, parseBitflags, parseNewtypeIndex } from "./macros.ts";
 import { generate, loadSet, loadTypeMap, REPO } from "./types.ts";
@@ -33,7 +33,24 @@ test("bitflags! bodies and flag expressions", () => {
   expect(() => evalFlagExpr("foo()", known, 8)).toThrow();
 });
 
-test.skipIf(!existsSync(join(UPSTREAM, "compiler/rustc_ast/src/node_id.rs")))("golden: generator reproduces src/rustc_ast + src/rustc_ast_ir", () => {
+// Missing upstream checkout: a visible skip, or a failure under RUST_TS_REQUIRE_PROBES=1.
+const HAVE_UPSTREAM = existsSync(join(UPSTREAM, "compiler/rustc_ast/src/node_id.rs"));
+const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
+if (!HAVE_UPSTREAM && !REQUIRE_PROBES) console.log("SKIP: rustc_ast golden needs the upstream checkout; RUST_TS_REQUIRE_PROBES=1 makes this a failure");
+
+/** Generated files of the rustc_ast set on disk (`*.gen.ts` under src/rustc_ast and src/rustc_ast_ir). */
+function genFilesOnDisk(src: string): string[] {
+  const out: string[] = [];
+  for (const dir of ["rustc_ast", "rustc_ast_ir"]) {
+    for (const f of readdirSync(join(src, dir), { recursive: true }) as string[]) {
+      if (f.endsWith(".gen.ts")) out.push(resolve(src, dir, f));
+    }
+  }
+  return out.sort();
+}
+
+test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: generator reproduces src/rustc_ast + src/rustc_ast_ir", () => {
+  if (!HAVE_UPSTREAM) throw new Error(`ERROR: upstream checkout missing (${UPSTREAM}) and RUST_TS_REQUIRE_PROBES=1`);
   const probe = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "rustc_ast.typedefs.json"), "utf8"));
   const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust.commit.slice(0, 12);
   const src = join(REPO, "src");
@@ -42,4 +59,6 @@ test.skipIf(!existsSync(join(UPSTREAM, "compiler/rustc_ast/src/node_id.rs")))("g
   expect(res.report.unknown_types).toEqual({});
   expect(res.files.size).toBe(22); // 20 type modules + walkable.gen.ts + mut_walkable.gen.ts
   for (const [file, content] of res.files) expect(content).toBe(readFileSync(file, "utf8"));
+  // no stale generated file left on disk
+  expect(genFilesOnDisk(src)).toEqual([...res.files.keys()].map((f) => resolve(f)).sort());
 });

@@ -14,7 +14,9 @@ import {
   DUMMY_SP,
   ExternalSource,
 } from "../lib.ts";
-import { FilePathMapping, FileName_eq, path_eq, RealFileName_eq, SourceMap } from "../source_map.ts";
+import { readFileSync, statSync } from "node:fs";
+import { FilePathMapping, FileName_eq, RealFileLoader, RealFileName_eq, SourceMap } from "../source_map.ts";
+import { path_eq } from "../../std/path.ts";
 import { FreezeLock } from "../../rustc_data_structures/sync/freeze.ts";
 import { Str } from "../../std/str.ts";
 import { unwrap_result } from "../../std/result.ts";
@@ -644,4 +646,29 @@ test_("test_span_followed_by_skips_whitespace", () => {
   expect(unwrap_result(sm.span_to_snippet(span)).toString()).toBe("yz");
 });
 
-// rustc-skip: compiler/rustc_span/src/source_map/tests.rs:776 read_binary_file_handles_lying_stat #[cfg(target_os = "linux")] test of the lying-stat fallback; RealFileLoader::read_binary_file reads to EOF with readFileSync (see PORT note)
+// PORT: `#[cfg(target_os = "linux")]` -> skipped (visibly) on other hosts.
+// rustc: compiler/rustc_span/src/source_map/tests.rs:776 read_binary_file_handles_lying_stat
+test.skipIf(process.platform !== "linux")("read_binary_file_handles_lying_stat", () => {
+  // read_binary_file tries to read the contents of a file into an Arc<[u8]> while
+  // never having two copies of the data in memory at once. This is an optimization
+  // to support include_bytes! with large files. But since Rust allocators are
+  // sensitive to alignment, our implementation can't be bootstrapped off calling
+  // std::fs::read. So we test that we have the same behavior even on files where
+  // fs::metadata lies.
+
+  // stat always says that /proc/self/cmdline is length 0, but it isn't.
+  const cmdline = "/proc/self/cmdline";
+  let len = statSync(cmdline).size;
+  let real = new Uint8Array(readFileSync(cmdline));
+  expect(len < real.length).toBe(true);
+  let bin = unwrap_result(new RealFileLoader().read_binary_file(cmdline));
+  expect(bin).toEqual(real);
+
+  // stat always says that /sys/devices/system/cpu/kernel_max is the size of a block.
+  const kernel_max = "/sys/devices/system/cpu/kernel_max";
+  len = statSync(kernel_max).size;
+  real = new Uint8Array(readFileSync(kernel_max));
+  expect(len > real.length).toBe(true);
+  bin = unwrap_result(new RealFileLoader().read_binary_file(kernel_max));
+  expect(bin).toEqual(real);
+});

@@ -50,11 +50,31 @@ import {
 } from "./lib.ts";
 import { Span } from "./span_encoding.ts";
 import { is_whitespace, len_utf8, to_string as char_to_string } from "../std/char.ts";
-import { debug_list, debug_str, debug_struct, debug_tuple, debug_vec, type Debug } from "../std/fmt.ts";
+import { debug_list, debug_str, debug_struct, debug_tuple, debug_vec, PLAIN, type Debug } from "../std/fmt.ts";
+import { debug_IoError, INVALID_UTF8, io_error_from_node, io_error_other, type IoResult } from "../std/io.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
+import { type Hasher, path_components, path_eq, path_hash, path_is_absolute, path_join, path_strip_prefix } from "../std/path.ts";
 import { Err, Ok, ok, type Result } from "../std/result.ts";
 import { partition_point } from "../std/slice.ts";
-import { Str, utf8_len } from "../std/str.ts";
+import {
+  is_valid_utf8,
+  Str,
+  str_ceil_char_boundary,
+  str_chars_count,
+  str_chars_nth,
+  str_contains_char,
+  str_find_char,
+  str_find_pred,
+  str_floor_char_boundary,
+  str_get,
+  str_rfind_pred,
+  str_rfind_char,
+  str_rsplit_first,
+  str_split_first,
+  str_trim_end,
+  str_trim_start,
+  utf8_len,
+} from "../std/str.ts";
 
 // mod tests; (source_map/tests.test.ts)
 
@@ -108,24 +128,6 @@ export class MonotonicVec<T> {
 // SourceFile, MultiByteChar, FileName, FileLines
 //
 
-// PORT: `std::io::Error` stand-in (src/std has no io module yet). OS errors keep Node's error
-// code; their `Display` (the OS message text, e.g. `... (os error 2)`) is unported.
-export type IoError =
-  | { readonly $: "Os"; readonly code: string; readonly message: string }
-  | { readonly $: "Custom"; readonly kind: "Other" | "InvalidData"; readonly error: string };
-export type IoResult<T> = Result<T, IoError>;
-
-/** `impl Display for io::Error` */
-export function display_IoError(e: IoError): string {
-  if (e.$ === "Custom") return e.error;
-  return unported(`std::io::Error Display (os error ${e.code})`);
-}
-
-function io_error_from_node(e: unknown): IoError {
-  const err = e as { code?: string; message?: string };
-  return { $: "Os", code: err.code ?? "UNKNOWN", message: err.message ?? String(e) };
-}
-
 /// An abstraction over the fs operations used by the Parser.
 export interface FileLoader {
   /// Query the existence of a file.
@@ -146,18 +148,6 @@ export interface FileLoader {
   /// Current working directory
   // rustc: compiler/rustc_span/src/source_map.rs:95 current_directory
   current_directory(): IoResult<PathBuf>;
-}
-
-const utf8_validator = new TextDecoder("utf-8", { fatal: true });
-
-/** `std::str::from_utf8(bytes).is_ok()` */
-function is_valid_utf8(bytes: Uint8Array): boolean {
-  try {
-    utf8_validator.decode(bytes);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /// A FileLoader that uses std::fs to load real files.
@@ -184,7 +174,7 @@ export class RealFileLoader implements FileLoader {
       }
 
       if (size > SourceFile.MAX_FILE_SIZE) {
-        return Err({ $: "Custom", kind: "Other", error: `text files larger than ${SourceFile.MAX_FILE_SIZE} bytes are unsupported` });
+        return Err(io_error_other(`text files larger than ${SourceFile.MAX_FILE_SIZE} bytes are unsupported`));
       }
       // `file.read_to_string(&mut contents)?`
       let contents: Uint8Array;
@@ -194,7 +184,7 @@ export class RealFileLoader implements FileLoader {
         return Err(io_error_from_node(e));
       }
       if (!is_valid_utf8(contents)) {
-        return Err({ $: "Custom", kind: "InvalidData", error: "stream did not contain valid UTF-8" });
+        return Err(INVALID_UTF8);
       }
       return Ok(Str.of_bytes(contents));
     } finally {
@@ -260,6 +250,25 @@ export interface SourceMapInputs {
   checksum_hash_kind: SourceFileHashAlgorithm | undefined;
 }
 
+// rustc: compiler/rustc_span/src/source_map.rs:219 fmt
+/** `impl fmt::Debug for SourceMap` */
+export const debug_SourceMap: Debug<SourceMap> = (self, f) => {
+  const { files_: files, path_mapping_: path_mapping, working_dir_: working_dir, hash_kind, checksum_hash_kind } = self;
+
+  return debug_struct(f, "SourceMap", [
+    // PORT: `files: RwLock<SourceMapFiles>`: rustc_data_structures' `#[derive(Debug)] struct
+    // RwLock<T>(parking_lot::RwLock<T>)` around lock_api 0.4.14's `RwLock` Debug (rwlock.rs:1235;
+    // never `<locked>`: nothing holds the lock while formatting).
+    ["files", debug_tuple(f, "RwLock", [debug_struct(f, "RwLock", [["data", debug_SourceMapFiles(files, f)]])])],
+    // PORT: `<file_loader@{file_loader:p}>` prints a heap address.
+    ["file_loader", unported("rustc_span::source_map::SourceMap Debug (pointer formatting `{:p}`)")],
+    ["path_mapping", debug_FilePathMapping(path_mapping, f)],
+    ["working_dir", debug_RealFileName(working_dir, f)],
+    ["hash_kind", hash_kind],
+    ["checksum_hash_kind", checksum_hash_kind === undefined ? "None" : debug_tuple(f, "Some", [checksum_hash_kind])],
+  ]);
+};
+
 // PORT: the fields `files`, `path_mapping` and `working_dir` are renamed `files_`,
 // `path_mapping_` and `working_dir_`: JS classes cannot have a field and a method with the same name.
 export class SourceMap {
@@ -298,7 +307,7 @@ export class SourceMap {
   static with_inputs({ file_loader, path_mapping, hash_kind, checksum_hash_kind }: SourceMapInputs): SourceMap {
     const cwd_r = file_loader.current_directory();
     if (cwd_r.$ === "Err") {
-      return panic(`expecting a current working directory to exist: ${debug_IoError(cwd_r._0)}`);
+      return panic(`expecting a current working directory to exist: ${debug_IoError(cwd_r._0, PLAIN)}`);
     }
     const cwd = cwd_r._0;
     const working_dir = path_mapping.to_real_filename(RealFileName.empty(), cwd);
@@ -472,6 +481,9 @@ export class SourceMap {
       case "DocTest": {
         const offset = file._1;
         if (offset < 0) {
+          // PORT: `orig - (-offset) as usize` wraps in release rustc when the offset exceeds
+          // `orig`; per the recorded decision on usize values that wrap negative, the wrapped
+          // value is kept as the exact signed number (callers print it via a usize helper).
           return orig - -offset;
         } else {
           return orig + offset;
@@ -772,7 +784,9 @@ export class SourceMap {
     if (r.$ === "Ok") {
       const prev_source = str_rsplit_first(r._0, c);
       if (accept_newlines || !str_contains_char(prev_source, 0x0a)) {
-        return Span.with_lo(sp, BytePos(Span.lo(sp) - prev_source.len() - 1));
+        // PORT: `sp.lo().0 - prev_source.len() as u32 - 1_u32` is u32 arithmetic that wraps in
+        // release rustc (no overflow checks); `>>> 0` mirrors the wrap.
+        return Span.with_lo(sp, BytePos((Span.lo(sp) - prev_source.len() - 1) >>> 0));
       }
     }
 
@@ -1255,22 +1269,6 @@ export class SourceMap {
   }
 }
 
-// rustc: compiler/rustc_span/src/source_map.rs:219 fmt
-/** `impl fmt::Debug for SourceMap` */
-export const debug_SourceMap: Debug<SourceMap> = (self, f) => {
-  const { files_: files, path_mapping_: path_mapping, working_dir_: working_dir, hash_kind, checksum_hash_kind } = self;
-
-  return debug_struct(f, "SourceMap", [
-    ["files", debug_SourceMapFiles(files, f)],
-    // PORT: `<file_loader@{file_loader:p}>` prints a heap address.
-    ["file_loader", unported("rustc_span::source_map::SourceMap Debug (pointer formatting `{:p}`)")],
-    ["path_mapping", debug_FilePathMapping(path_mapping, f)],
-    ["working_dir", debug_RealFileName(working_dir, f)],
-    ["hash_kind", hash_kind],
-    ["checksum_hash_kind", checksum_hash_kind === undefined ? "None" : debug_tuple(f, "Some", [checksum_hash_kind])],
-  ]);
-};
-
 // rustc: compiler/rustc_span/src/source_map.rs:1154 get_source_map
 export function get_source_map(): SourceMap | undefined {
   return with_session_globals((session_globals) => session_globals.source_map);
@@ -1305,6 +1303,38 @@ export class FilePathMapping {
     }
 
     return remap_path_prefix(this.mapping, path);
+
+    // PORT: nested fn after the `return`, as upstream (a function declaration is hoisted like the item).
+    // #[instrument(level = "debug", skip(mapping), ret)]
+    // rustc: compiler/rustc_span/src/source_map.rs:1190 remap_path_prefix
+    function remap_path_prefix(mapping: readonly [PathBuf, PathBuf][], path: PathBuf): [PathBuf, boolean] {
+      // NOTE: We are iterating over the mapping entries from last to first
+      //       because entries specified later on the command line should
+      //       take precedence.
+      for (let i = mapping.length - 1; i >= 0; i--) {
+        const [from, to] = mapping[i]!;
+        // debug!("Trying to apply {from:?} => {to:?}");
+
+        const rest = path_strip_prefix(path, from);
+        if (rest !== undefined) {
+          // This is subtle, joining an empty path onto e.g. `foo/bar` will
+          // result in `foo/bar/`, that is, there'll be an additional directory
+          // separator at the end. This can lead to duplicated directory separators
+          // in remapped paths down the line.
+          // So, if we have an exact match, we just return that without a call
+          // to `Path::join()`.
+          const remapped = rest === "" ? to : path_join(to, rest);
+          // debug!("Match - remapped");
+
+          return [remapped, true];
+        } else {
+          // debug!("No match - prefix {from:?} does not match");
+        }
+      }
+
+      // debug!("not remapped");
+      return [path, false];
+    }
   }
 
   /// Applies any path prefix substitution as defined by the mapping.
@@ -1401,37 +1431,6 @@ export class FilePathMapping {
   }
 }
 
-// #[instrument(level = "debug", skip(mapping), ret)]
-// rustc: compiler/rustc_span/src/source_map.rs:1190 remap_path_prefix
-function remap_path_prefix(mapping: readonly [PathBuf, PathBuf][], path: PathBuf): [PathBuf, boolean] {
-  // NOTE: We are iterating over the mapping entries from last to first
-  //       because entries specified later on the command line should
-  //       take precedence.
-  for (let i = mapping.length - 1; i >= 0; i--) {
-    const [from, to] = mapping[i]!;
-    // debug!("Trying to apply {from:?} => {to:?}");
-
-    const rest = path_strip_prefix(path, from);
-    if (rest !== undefined) {
-      // This is subtle, joining an empty path onto e.g. `foo/bar` will
-      // result in `foo/bar/`, that is, there'll be an additional directory
-      // separator at the end. This can lead to duplicated directory separators
-      // in remapped paths down the line.
-      // So, if we have an exact match, we just return that without a call
-      // to `Path::join()`.
-      const remapped = rest === "" ? to : path_join(to, rest);
-      // debug!("Match - remapped");
-
-      return [remapped, true];
-    } else {
-      // debug!("No match - prefix {from:?} does not match");
-    }
-  }
-
-  // debug!("not remapped");
-  return [path, false];
-}
-
 /** `#[derive(Debug)]` */
 export const debug_FilePathMapping: Debug<FilePathMapping> = (v, f) =>
   debug_struct(f, "FilePathMapping", [
@@ -1439,15 +1438,10 @@ export const debug_FilePathMapping: Debug<FilePathMapping> = (v, f) =>
     ["filename_remapping_scopes", debug_RemapPathScopeComponents(v.filename_remapping_scopes, f)],
   ]);
 
-function debug_IoError(e: IoError): string {
-  // PORT: `{:?}` of `io::Error` (only used in the `expect` message above).
-  return e.$ === "Custom" ? `Custom { kind: ${e.kind}, error: ${debug_str(e.error)} }` : unported(`std::io::Error Debug (os error ${e.code})`);
-}
-
 // _____________________________________________________________________________
 // PORT: shims for derives / std functionality that live outside this file upstream.
-// Root: `FileName_eq` and `stable_source_file_id_key` belong next to `FileName` in lib.ts;
-// the std::path, str and slice helpers belong in src/std.
+// Root: `FileName_eq` and `stable_source_file_id_key` belong next to `FileName` in lib.ts.
+// The std::path, str and io shims moved to src/std/{path,str,io}.ts (review w23a).
 //
 
 const USIZE_MAX = Number.MAX_SAFE_INTEGER;
@@ -1493,15 +1487,53 @@ export function RealFileName_eq(a: RealFileName, b: RealFileName): boolean {
   );
 }
 
+// PORT: records the byte stream a `StableHasher` (rustc-stable-hash 0.1.2, stable_hasher.rs) is fed,
+// as a latin1 string: two inputs get the same key exactly when upstream hashes the same bytes.
+class StableHasherBytes implements Hasher {
+  s = "";
+
+  write(bytes: Uint8Array): void {
+    for (const b of bytes) this.s += String.fromCharCode(b);
+  }
+
+  write_u8(i: number): void {
+    this.s += String.fromCharCode(i & 0xff);
+  }
+
+  /** `write_u64(i.to_le())` */
+  private write_u64(i: bigint): void {
+    for (let k = 0n; k < 64n; k += 8n) this.write_u8(Number((i >> k) & 0xffn));
+  }
+
+  write_usize(i: bigint): void {
+    this.write_u64(i);
+  }
+
+  /** Small values hash as one byte; others as `0xFF` + the 8 bytes. */
+  write_isize(i: number): void {
+    const value = BigInt.asUintN(64, BigInt(i));
+    if (value < 0xffn) {
+      this.write_u8(Number(value));
+    } else {
+      this.write_u8(0xff);
+      this.write_u64(value);
+    }
+  }
+
+  write_length_prefix(len: number): void {
+    this.write_usize(BigInt(len));
+  }
+}
+
 /** Key standing in for `StableSourceFileId`'s hash: built from the same inputs, in the same way as
- *  `impl Hash for RealFileName` (the local part is skipped when fully remapped) and `Path`'s
- *  component-wise `Hash`. */
+ *  `impl Hash for RealFileName` (the local part is skipped when fully remapped). Paths contribute
+ *  the exact bytes `impl Hash for Path` feeds the hasher (no root, `.` after a separator skipped,
+ *  `chunk_bits` tail), so e.g. `/x.rs` and `x.rs` share a key, as they share a hash upstream. */
 export function stable_source_file_id_key(id: StableSourceFileId): string {
   const path_key = (p: PathBuf): string => {
-    const parts: string[] = [];
-    const comps = path_components(p);
-    for (let c = comps.next(); c !== undefined; c = comps.next()) parts.push(component_as_os_str(c));
-    return JSON.stringify(parts);
+    const h = new StableHasherBytes();
+    path_hash(p, h);
+    return JSON.stringify(h.s);
   };
   const inner_key = (i: InnerRealFileName): string => `${path_key(i.name)},${path_key(i.working_directory)},${path_key(i.embeddable_name)}`;
   const real_key = (r: RealFileName): string =>
@@ -1522,596 +1554,5 @@ export function stable_source_file_id_key(id: StableSourceFileId): string {
       key = `${name.$}(${String(name._0)})`;
   }
   return `${key}|${id.stable_crate_id === undefined ? "None" : String(id.stable_crate_id)}`;
-}
-
-// --- `str` helpers (byte-indexed, over `Str`) ---
-
-function str_is_char_boundary(s: Str, i: number): boolean {
-  if (i === 0) return true;
-  if (i < s.len()) return (s.byte(i) & 0xc0) !== 0x80;
-  return i === s.len();
-}
-
-/** `str::get(a..b)` */
-function str_get(s: Str, a: number, b: number): Str | undefined {
-  if (a <= b && str_is_char_boundary(s, a) && str_is_char_boundary(s, b)) return s.slice(a, b);
-  return undefined;
-}
-
-/** `str::ceil_char_boundary` */
-function str_ceil_char_boundary(s: Str, index: number): number {
-  if (index > s.len()) return s.len();
-  let i = index;
-  while (!str_is_char_boundary(s, i)) i++;
-  return i;
-}
-
-/** `str::floor_char_boundary` */
-function str_floor_char_boundary(s: Str, index: number): number {
-  if (index >= s.len()) return s.len();
-  let i = index;
-  while (!str_is_char_boundary(s, i)) i--;
-  return i;
-}
-
-function str_find_char(s: Str, c: number): number | undefined {
-  return s.find(char_to_string(c));
-}
-
-function str_rfind_char(s: Str, c: number): number | undefined {
-  return s.rfind(char_to_string(c));
-}
-
-function str_contains_char(s: Str, c: number): boolean {
-  return str_find_char(s, c) !== undefined;
-}
-
-/** `s.split(c).next().unwrap_or("")` */
-function str_split_first(s: Str, c: number): Str {
-  const i = str_find_char(s, c);
-  return i === undefined ? s : s.slice(0, i);
-}
-
-/** `s.rsplit(c).next().unwrap_or("")` */
-function str_rsplit_first(s: Str, c: number): Str {
-  const i = str_rfind_char(s, c);
-  return i === undefined ? s : s.slice(i + len_utf8(c));
-}
-
-/** `s.char_indices().find(|&(_, c)| pred(c)).map(|(i, _)| i)` */
-function str_find_pred(s: Str, pred: (c: number) => boolean): number | undefined {
-  const chars = s.chars();
-  for (let pos = chars.pos, c = chars.next(); c !== undefined; pos = chars.pos, c = chars.next()) {
-    if (pred(c)) return pos - s.lo;
-  }
-  return undefined;
-}
-
-/** `s.char_indices().rfind(|&(_, c)| pred(c))` */
-function str_rfind_pred(s: Str, pred: (c: number) => boolean): [number, number] | undefined {
-  let found: [number, number] | undefined = undefined;
-  const chars = s.chars();
-  for (let pos = chars.pos, c = chars.next(); c !== undefined; pos = chars.pos, c = chars.next()) {
-    if (pred(c)) found = [pos - s.lo, c];
-  }
-  return found;
-}
-
-/** `str::trim_start` */
-function str_trim_start(s: Str): Str {
-  const i = str_find_pred(s, (c) => !is_whitespace(c));
-  return i === undefined ? s.slice(s.len()) : s.slice(i);
-}
-
-/** `str::trim_end` */
-function str_trim_end(s: Str): Str {
-  const found = str_rfind_pred(s, (c) => !is_whitespace(c));
-  return found === undefined ? s.slice(0, 0) : s.slice(0, found[0] + len_utf8(found[1]));
-}
-
-/** `s.chars().count()` */
-function str_chars_count(s: Str): number {
-  let n = 0;
-  const chars = s.chars();
-  while (chars.next() !== undefined) n++;
-  return n;
-}
-
-/** `s.chars().nth(n)` */
-function str_chars_nth(s: Str, n: number): number | undefined {
-  return s.chars().peek(n);
-}
-
-// --- `std::path` (library/std/src/path.rs, sys/path/{windows,windows_prefix,unix}.rs) ---
-// PORT: `Path`/`PathBuf` are strings; the host platform's path rules apply (rustc on the host
-// does the same). Strings are indexed by UTF-16 unit; every separator/prefix byte is ASCII, so
-// splits land in the same places as upstream's byte indices.
-
-const HAS_PREFIXES = process.platform === "win32";
-const MAIN_SEPARATOR_STR = HAS_PREFIXES ? "\\" : "/";
-
-// std: library/std/src/sys/path/mod.rs is_sep_byte
-function is_sep_byte(b: string): boolean {
-  return HAS_PREFIXES ? b === "\\" || b === "/" : b === "/";
-}
-
-// std: library/std/src/sys/path/windows.rs is_verbatim_sep (unix.rs: is_sep_byte)
-function is_verbatim_sep(b: string): boolean {
-  return HAS_PREFIXES ? b === "\\" : b === "/";
-}
-
-/** `std::path::Prefix` */
-type Prefix =
-  | { readonly $: "Verbatim"; readonly _0: string }
-  | { readonly $: "VerbatimUNC"; readonly _0: string; readonly _1: string }
-  | { readonly $: "VerbatimDisk"; readonly _0: string }
-  | { readonly $: "DeviceNS"; readonly _0: string }
-  | { readonly $: "UNC"; readonly _0: string; readonly _1: string }
-  | { readonly $: "Disk"; readonly _0: string };
-
-// std: library/std/src/path.rs Prefix::len
-function prefix_len(p: Prefix): number {
-  switch (p.$) {
-    case "Verbatim":
-      return 4 + p._0.length;
-    case "VerbatimUNC":
-      return 8 + p._0.length + (p._1.length > 0 ? 1 + p._1.length : 0);
-    case "VerbatimDisk":
-      return 6;
-    case "UNC":
-      return 2 + p._0.length + (p._1.length > 0 ? 1 + p._1.length : 0);
-    case "DeviceNS":
-      return 4 + p._0.length;
-    case "Disk":
-      return 2;
-  }
-}
-
-function prefix_is_verbatim(p: Prefix): boolean {
-  return p.$ === "Verbatim" || p.$ === "VerbatimDisk" || p.$ === "VerbatimUNC";
-}
-
-function prefix_is_drive(p: Prefix): boolean {
-  return p.$ === "Disk";
-}
-
-function prefix_has_implicit_root(p: Prefix): boolean {
-  return !prefix_is_drive(p);
-}
-
-function prefix_eq(a: Prefix, b: Prefix): boolean {
-  return a.$ === b.$ && a._0 === b._0 && ("_1" in a ? a._1 === (b as { _1: string })._1 : true);
-}
-
-// std: library/std/src/sys/path/windows_prefix.rs parse_prefix
-function parse_prefix(path: string): Prefix | undefined {
-  if (!HAS_PREFIXES) return undefined;
-  const prefix = path.slice(0, 8).replaceAll("/", "\\");
-  let index = 0;
-  const strip = (p: string): boolean => {
-    if (prefix.slice(index).startsWith(p)) {
-      index += p.length;
-      return true;
-    }
-    return false;
-  };
-  if (strip("\\\\")) {
-    // \\
-    const save = index;
-    if (strip("?\\") && !path.slice(0, index).includes("/")) {
-      // \\?\
-      if (strip("UNC\\")) {
-        // \\?\UNC\server\share
-        const p = path.slice(index);
-        const [server, rest] = parse_next_component(p, true);
-        const [share] = parse_next_component(rest, true);
-        return { $: "VerbatimUNC", _0: server, _1: share };
-      } else {
-        const p = path.slice(index);
-
-        // \\?\C:\path
-        const drive = parse_drive_exact(p);
-        if (drive !== undefined) {
-          return { $: "VerbatimDisk", _0: drive };
-        } else {
-          // \\?\prefix
-          const [pfx] = parse_next_component(p, true);
-          return { $: "Verbatim", _0: pfx };
-        }
-      }
-    }
-    index = save;
-    if (strip(".\\")) {
-      // \\.\COM42
-      const p = path.slice(index);
-      const [pfx] = parse_next_component(p, false);
-      return { $: "DeviceNS", _0: pfx };
-    } else {
-      const p = path.slice(index);
-      const [server, rest] = parse_next_component(p, false);
-      const [share] = parse_next_component(rest, false);
-
-      if (server !== "" && share !== "") {
-        // \\server\share
-        return { $: "UNC", _0: server, _1: share };
-      } else {
-        // no valid prefix beginning with "\\" recognized
-        return undefined;
-      }
-    }
-  } else {
-    // If it has a drive like `C:` then it's a disk.
-    // Otherwise there is no prefix.
-    const drive = parse_drive(path);
-    return drive === undefined ? undefined : { $: "Disk", _0: drive };
-  }
-}
-
-// std: library/std/src/sys/path/windows_prefix.rs parse_drive
-function parse_drive(path: string): string | undefined {
-  // In most DOS systems, it is not possible to have more than 26 drive letters.
-  // See <https://en.wikipedia.org/wiki/Drive_letter_assignment#Common_assignments>.
-  if (path.length >= 2 && /^[A-Za-z]$/.test(path[0]!) && path[1] === ":") return path[0]!.toUpperCase();
-  return undefined;
-}
-
-// std: library/std/src/sys/path/windows_prefix.rs parse_drive_exact
-function parse_drive_exact(path: string): string | undefined {
-  // only parse two bytes: the drive letter and the drive separator
-  if (path.length <= 2 || is_verbatim_sep(path[2]!)) {
-    return parse_drive(path);
-  } else {
-    return undefined;
-  }
-}
-
-// std: library/std/src/sys/path/windows_prefix.rs parse_next_component
-function parse_next_component(path: string, verbatim: boolean): [string, string] {
-  const separator = verbatim ? is_verbatim_sep : is_sep_byte;
-  for (let i = 0; i < path.length; i++) {
-    if (separator(path[i]!)) return [path.slice(0, i), path.slice(i + 1)];
-  }
-  return [path, ""];
-}
-
-/** `std::path::Component` */
-type Component =
-  | { readonly $: "Prefix"; readonly raw: string; readonly parsed: Prefix }
-  | { readonly $: "RootDir" }
-  | { readonly $: "CurDir" }
-  | { readonly $: "ParentDir" }
-  | { readonly $: "Normal"; readonly _0: string };
-
-function component_eq(a: Component, b: Component): boolean {
-  if (a.$ !== b.$) return false;
-  if (a.$ === "Prefix") return prefix_eq(a.parsed, (b as { parsed: Prefix }).parsed);
-  if (a.$ === "Normal") return a._0 === (b as { _0: string })._0;
-  return true;
-}
-
-// std: library/std/src/path.rs Component::as_os_str
-function component_as_os_str(c: Component): string {
-  switch (c.$) {
-    case "Prefix":
-      return c.raw;
-    case "RootDir":
-      return MAIN_SEPARATOR_STR;
-    case "CurDir":
-      return ".";
-    case "ParentDir":
-      return "..";
-    case "Normal":
-      return c._0;
-  }
-}
-
-const enum State {
-  Prefix = 0, // c:
-  StartDir = 1, // / or . or nothing
-  Body = 2, // foo/bar/baz
-  Done = 3,
-}
-
-/** `std::path::Components` */
-class Components {
-  constructor(
-    public path: string,
-    readonly prefix: Prefix | undefined,
-    readonly has_physical_root: boolean,
-    public front: State,
-    public back: State,
-  ) {}
-
-  clone(): Components {
-    return new Components(this.path, this.prefix, this.has_physical_root, this.front, this.back);
-  }
-
-  prefix_len(): number {
-    if (!HAS_PREFIXES) return 0;
-    return this.prefix === undefined ? 0 : prefix_len(this.prefix);
-  }
-
-  prefix_verbatim(): boolean {
-    if (!HAS_PREFIXES) return false;
-    return this.prefix === undefined ? false : prefix_is_verbatim(this.prefix);
-  }
-
-  prefix_remaining(): number {
-    if (!HAS_PREFIXES) return 0;
-    return this.front === State.Prefix ? this.prefix_len() : 0;
-  }
-
-  len_before_body(): number {
-    const root = this.front <= State.StartDir && this.has_physical_root ? 1 : 0;
-    const cur_dir = this.front <= State.StartDir && this.include_cur_dir() ? 1 : 0;
-    return this.prefix_remaining() + root + cur_dir;
-  }
-
-  finished(): boolean {
-    return this.front === State.Done || this.back === State.Done || this.front > this.back;
-  }
-
-  is_sep_byte(b: string): boolean {
-    return this.prefix_verbatim() ? is_verbatim_sep(b) : is_sep_byte(b);
-  }
-
-  as_path(): string {
-    const comps = this.clone();
-    if (comps.front === State.Body) comps.trim_left();
-    if (comps.back === State.Body) comps.trim_right();
-    return comps.path;
-  }
-
-  has_root(): boolean {
-    if (this.has_physical_root) return true;
-    if (HAS_PREFIXES && this.prefix !== undefined) {
-      if (prefix_has_implicit_root(this.prefix)) return true;
-    }
-    return false;
-  }
-
-  include_cur_dir(): boolean {
-    if (this.has_root()) return false;
-    const slice = this.path.slice(this.prefix_remaining());
-    if (slice === ".") return true;
-    if (slice.length >= 2 && slice[0] === ".") return this.is_sep_byte(slice[1]!);
-    return false;
-  }
-
-  parse_single_component(comp: string): Component | undefined {
-    if (comp === "." && HAS_PREFIXES && this.prefix_verbatim()) return { $: "CurDir" };
-    if (comp === ".") return undefined; // . components are normalized away, except at the beginning
-    if (comp === "..") return { $: "ParentDir" };
-    if (comp === "") return undefined;
-    return { $: "Normal", _0: comp };
-  }
-
-  parse_next_component(): [number, Component | undefined] {
-    let extra = 0;
-    let comp = this.path;
-    for (let i = 0; i < this.path.length; i++) {
-      if (this.is_sep_byte(this.path[i]!)) {
-        extra = 1;
-        comp = this.path.slice(0, i);
-        break;
-      }
-    }
-    return [comp.length + extra, this.parse_single_component(comp)];
-  }
-
-  parse_next_component_back(): [number, Component | undefined] {
-    const start = this.len_before_body();
-    let extra = 0;
-    let comp = this.path.slice(start);
-    for (let i = this.path.length - 1; i >= start; i--) {
-      if (this.is_sep_byte(this.path[i]!)) {
-        extra = 1;
-        comp = this.path.slice(i + 1);
-        break;
-      }
-    }
-    return [comp.length + extra, this.parse_single_component(comp)];
-  }
-
-  trim_left(): void {
-    while (this.path !== "") {
-      const [size, comp] = this.parse_next_component();
-      if (comp !== undefined) return;
-      this.path = this.path.slice(size);
-    }
-  }
-
-  trim_right(): void {
-    while (this.path.length > this.len_before_body()) {
-      const [size, comp] = this.parse_next_component_back();
-      if (comp !== undefined) return;
-      this.path = this.path.slice(0, this.path.length - size);
-    }
-  }
-
-  next(): Component | undefined {
-    while (!this.finished()) {
-      switch (this.front) {
-        case State.Body:
-          if (this.path !== "") {
-            const [size, comp] = this.parse_next_component();
-            this.path = this.path.slice(size);
-            if (comp !== undefined) return comp;
-          } else {
-            this.front = State.Done;
-          }
-          break;
-        case State.StartDir:
-          this.front = State.Body;
-          if (this.has_physical_root) {
-            this.path = this.path.slice(1);
-            return { $: "RootDir" };
-          } else if (HAS_PREFIXES && this.prefix !== undefined) {
-            if (prefix_has_implicit_root(this.prefix) && !prefix_is_verbatim(this.prefix)) {
-              return { $: "RootDir" };
-            }
-          } else if (this.include_cur_dir()) {
-            this.path = this.path.slice(1);
-            return { $: "CurDir" };
-          }
-          break;
-        case State.Prefix:
-          if (this.prefix_len() === 0) {
-            this.front = State.StartDir;
-          } else {
-            this.front = State.StartDir;
-            const raw = this.path.slice(0, this.prefix_len());
-            this.path = this.path.slice(this.prefix_len());
-            return { $: "Prefix", raw, parsed: this.prefix! };
-          }
-          break;
-        case State.Done:
-          return panic("internal error: entered unreachable code");
-      }
-    }
-    return undefined;
-  }
-
-  // PORT: upstream compares `self.clone().rev()` with `other.clone().rev()`; comparing the forward
-  // sequences gives the same answer (both iterate the same components) without porting `next_back`.
-  eq(other: Components): boolean {
-    if (
-      this.path.length === other.path.length &&
-      this.front === other.front &&
-      this.back === State.Body &&
-      other.back === State.Body &&
-      this.prefix_verbatim() === other.prefix_verbatim()
-    ) {
-      // possible future improvement: this could bail out earlier if there were a
-      // reverse memcmp/bcmp comparing back to front
-      if (this.path === other.path) return true;
-    }
-    const a = this.clone();
-    const b = other.clone();
-    for (;;) {
-      const x = a.next();
-      const y = b.next();
-      if (x === undefined || y === undefined) return x === y;
-      if (!component_eq(x, y)) return false;
-    }
-  }
-}
-
-// std: library/std/src/path.rs Path::components
-export function path_components(p: string): Components {
-  const prefix = parse_prefix(p);
-  return new Components(p, prefix, has_physical_root(p, prefix), HAS_PREFIXES ? State.Prefix : State.StartDir, State.Body);
-}
-
-// std: library/std/src/path.rs has_physical_root
-function has_physical_root(s: string, prefix: Prefix | undefined): boolean {
-  const path = prefix !== undefined ? s.slice(prefix_len(prefix)) : s;
-  return path !== "" && is_sep_byte(path[0]!);
-}
-
-// std: library/std/src/path.rs iter_after
-function iter_after(iter: Components, prefix: Components): Components | undefined {
-  for (;;) {
-    const iter_next = iter.clone();
-    const x = iter_next.next();
-    const y = prefix.next();
-    if (x !== undefined && y !== undefined) {
-      if (!component_eq(x, y)) return undefined;
-    } else if (x !== undefined && y === undefined) {
-      return iter;
-    } else if (x === undefined && y === undefined) {
-      return iter;
-    } else {
-      return undefined;
-    }
-    iter = iter_next;
-  }
-}
-
-/** `Path::strip_prefix` */
-export function path_strip_prefix(path: string, base: string): string | undefined {
-  return iter_after(path_components(path), path_components(base))?.as_path();
-}
-
-/** `Path::has_root` */
-function path_has_root(p: string): boolean {
-  return path_components(p).has_root();
-}
-
-/** `Path::is_absolute` (sys::path::is_absolute) */
-export function path_is_absolute(p: string): boolean {
-  if (!HAS_PREFIXES) return path_has_root(p);
-  return path_has_root(p) && path_components(p).prefix !== undefined;
-}
-
-/** `Path::eq` */
-export function path_eq(a: string, b: string): boolean {
-  return path_components(a).eq(path_components(b));
-}
-
-/** `Path::join` = `to_path_buf()` + `PathBuf::_push` */
-export function path_join(self_: string, path: string): string {
-  let inner = self_;
-  // in general, a separator is needed if the rightmost byte is not a separator
-  let need_sep = inner.length > 0 ? !is_sep_byte(inner[inner.length - 1]!) : false;
-
-  // in the special case of `C:` on Windows, do *not* add a separator
-  const comps = path_components(inner);
-
-  if (comps.prefix_len() > 0 && comps.prefix_len() === comps.path.length && prefix_is_drive(comps.prefix!)) {
-    need_sep = false;
-  }
-
-  // On Unix: prefix is always None.
-  const need_clear = path_is_absolute(path) || path_components(path).prefix !== undefined;
-
-  // absolute `path` replaces `self`
-  if (need_clear) {
-    inner = "";
-
-    // verbatim paths need . and .. removed
-  } else if (comps.prefix_verbatim() && path !== "") {
-    const buf: Component[] = [];
-    for (let c = comps.next(); c !== undefined; c = comps.next()) buf.push(c);
-    const pcomps = path_components(path);
-    for (let c = pcomps.next(); c !== undefined; c = pcomps.next()) {
-      switch (c.$) {
-        case "RootDir":
-          buf.length = Math.min(buf.length, 1);
-          buf.push(c);
-          break;
-        case "CurDir":
-          break;
-        case "ParentDir":
-          if (buf.length > 0 && buf[buf.length - 1]!.$ === "Normal") buf.pop();
-          break;
-        default:
-          buf.push(c);
-      }
-    }
-
-    let res = "";
-    let need_sep = false;
-
-    for (const c of buf) {
-      if (need_sep && c.$ !== "RootDir") res += MAIN_SEPARATOR_STR;
-      res += component_as_os_str(c);
-
-      need_sep = c.$ === "RootDir" ? false : c.$ === "Prefix" ? !prefix_is_drive(c.parsed) && prefix_len(c.parsed) > 0 : true;
-    }
-
-    return res;
-
-    // `path` has a root but no prefix, e.g., `\windows` (Windows only)
-  } else if (path_has_root(path)) {
-    const prefix_len = path_components(inner).prefix_remaining();
-    inner = inner.slice(0, prefix_len);
-
-    // `path` is a pure relative path
-  } else if (need_sep) {
-    inner += MAIN_SEPARATOR_STR;
-  }
-
-  return inner + path;
 }
 

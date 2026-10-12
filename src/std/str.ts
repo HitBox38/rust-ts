@@ -1,6 +1,7 @@
 // `&str` for byte-indexed text. Rust strings are UTF-8 and every offset the compiler
 // stores (token lengths, BytePos, ...) is a UTF-8 byte offset, so source text is kept
 // as a view over UTF-8 bytes. Plain JS strings are fine where no byte offsets leak out.
+import { is_whitespace, len_utf8, to_string as char_to_string } from "./char.ts";
 import { Panic } from "./panic.ts";
 
 const encoder = new TextEncoder();
@@ -185,5 +186,115 @@ export class Chars {
 
   clone(): Chars {
     return new Chars(this.b, this.pos, this.end);
+  }
+}
+
+// --- `str` helpers (byte-indexed, over `Str`); moved from rustc_span/source_map.ts (review w23a) ---
+export function str_is_char_boundary(s: Str, i: number): boolean {
+  if (i === 0) return true;
+  if (i < s.len()) return (s.byte(i) & 0xc0) !== 0x80;
+  return i === s.len();
+}
+
+/** `str::get(a..b)` */
+export function str_get(s: Str, a: number, b: number): Str | undefined {
+  if (a <= b && str_is_char_boundary(s, a) && str_is_char_boundary(s, b)) return s.slice(a, b);
+  return undefined;
+}
+
+/** `str::ceil_char_boundary` */
+export function str_ceil_char_boundary(s: Str, index: number): number {
+  if (index > s.len()) return s.len();
+  let i = index;
+  while (!str_is_char_boundary(s, i)) i++;
+  return i;
+}
+
+/** `str::floor_char_boundary` */
+export function str_floor_char_boundary(s: Str, index: number): number {
+  if (index >= s.len()) return s.len();
+  let i = index;
+  while (!str_is_char_boundary(s, i)) i--;
+  return i;
+}
+
+export function str_find_char(s: Str, c: number): number | undefined {
+  return s.find(char_to_string(c));
+}
+
+export function str_rfind_char(s: Str, c: number): number | undefined {
+  return s.rfind(char_to_string(c));
+}
+
+export function str_contains_char(s: Str, c: number): boolean {
+  return str_find_char(s, c) !== undefined;
+}
+
+/** `s.split(c).next().unwrap_or("")` */
+export function str_split_first(s: Str, c: number): Str {
+  const i = str_find_char(s, c);
+  return i === undefined ? s : s.slice(0, i);
+}
+
+/** `s.rsplit(c).next().unwrap_or("")` */
+export function str_rsplit_first(s: Str, c: number): Str {
+  const i = str_rfind_char(s, c);
+  return i === undefined ? s : s.slice(i + len_utf8(c));
+}
+
+/** `s.char_indices().find(|&(_, c)| pred(c)).map(|(i, _)| i)` */
+export function str_find_pred(s: Str, pred: (c: number) => boolean): number | undefined {
+  const chars = s.chars();
+  for (let pos = chars.pos, c = chars.next(); c !== undefined; pos = chars.pos, c = chars.next()) {
+    if (pred(c)) return pos - s.lo;
+  }
+  return undefined;
+}
+
+/** `s.char_indices().rfind(|&(_, c)| pred(c))` */
+export function str_rfind_pred(s: Str, pred: (c: number) => boolean): [number, number] | undefined {
+  let found: [number, number] | undefined = undefined;
+  const chars = s.chars();
+  for (let pos = chars.pos, c = chars.next(); c !== undefined; pos = chars.pos, c = chars.next()) {
+    if (pred(c)) found = [pos - s.lo, c];
+  }
+  return found;
+}
+
+/** `str::trim_start` */
+export function str_trim_start(s: Str): Str {
+  const i = str_find_pred(s, (c) => !is_whitespace(c));
+  return i === undefined ? s.slice(s.len()) : s.slice(i);
+}
+
+/** `str::trim_end` */
+export function str_trim_end(s: Str): Str {
+  const found = str_rfind_pred(s, (c) => !is_whitespace(c));
+  return found === undefined ? s.slice(0, 0) : s.slice(0, found[0] + len_utf8(found[1]));
+}
+
+/** `s.chars().count()` */
+export function str_chars_count(s: Str): number {
+  let n = 0;
+  const chars = s.chars();
+  while (chars.next() !== undefined) n++;
+  return n;
+}
+
+/** `s.chars().nth(n)` */
+export function str_chars_nth(s: Str, n: number): number | undefined {
+  return s.chars().peek(n);
+}
+
+
+const utf8_validator = new TextDecoder("utf-8", { fatal: true });
+
+/** `std::str::from_utf8(bytes).is_ok()` */
+export function is_valid_utf8(bytes: Uint8Array): boolean {
+  try {
+    utf8_validator.decode(bytes);
+    return true;
+  } catch {
+    return false;
   }
 }

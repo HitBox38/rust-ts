@@ -231,6 +231,8 @@ export class Ident {
   }
 }
 
+// PORT: `impl Debug for Ident` sits between upstream `impl Ident` blocks that PORTING §8 merges into
+// one class, so no position keeps the markers monotonic.
 // impl fmt::Debug for Ident
 // rustc: compiler/rustc_span/src/symbol.rs:2587 fmt
 export const debug_Ident: Debug<Ident> = (v, f) => {
@@ -558,6 +560,8 @@ function str_cmp(a: string, b: string): -1 | 0 | 1 {
   }
 }
 
+// PORT: `impl Debug for Symbol` sits between upstream `impl Symbol` blocks that PORTING §8 merges into
+// one companion, so no position keeps the markers monotonic.
 // impl fmt::Debug for Symbol
 // rustc: compiler/rustc_span/src/symbol.rs:2806 fmt
 export const debug_Symbol: Debug<Symbol> = (v) => {

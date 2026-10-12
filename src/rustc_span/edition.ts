@@ -30,6 +30,16 @@ export type Edition =
   /// This edition will be permanently unstable and any features associated with this edition
   /// must also be behind a feature gate.
   | "EditionFuture";
+
+// PORT: `impl Display` (edition.rs:57) precedes `impl Edition`; it sits before the companion so
+// the markers keep upstream order (it only reads `Edition.as_str` at call time).
+// rustc: compiler/rustc_span/src/edition.rs:58 fmt
+/** `impl fmt::Display for Edition` */
+export function display_Edition(self: Edition): string {
+  const s = Edition.as_str(self);
+  return `${s}`;
+}
+
 export const Edition = {
   Edition2015: "Edition2015",
   Edition2018: "Edition2018",
@@ -167,10 +177,3 @@ export const EDITION_NAME_LIST_STABLE = "<2015|2018|2021|2024>";
 export const DEFAULT_EDITION: Edition = Edition.Edition2015;
 
 export const LATEST_STABLE_EDITION: Edition = Edition.Edition2024;
-
-// rustc: compiler/rustc_span/src/edition.rs:58 fmt
-/** `impl fmt::Display for Edition` */
-export function display_Edition(self: Edition): string {
-  const s = Edition.as_str(self);
-  return `${s}`;
-}

@@ -3,7 +3,7 @@
 // tools/probes/annotate/corpus.ts is fed to the probe as JSON on stdin; the probe prints the
 // `Renderer::plain()` and `Renderer::styled()` output of every case (null = panicked). Every
 // case is rendered again with the TS port and compared byte for byte.
-// Skips if the probe isn't built (bun scripts/probes.ts build annotate).
+// Skips (visibly) if the probe isn't built, fails instead under RUST_TS_REQUIRE_PROBES=1 (bun scripts/probes.ts build annotate).
 //
 // ANNOTATE_DUMP=1 writes each mismatch (want/got) to $RUST_TS_DATA/tmp/annotate-oracle/.
 import { expect, test } from "bun:test";
@@ -18,6 +18,10 @@ import { Renderer } from "./renderer/mod.ts";
 import { Annotation, AnnotationKind, Element, Group, Origin, Padding, Patch, Snippet, Title, type Report } from "./snippet.ts";
 
 const PROBE = join(DATA, "target", "probes", "release", "annotate" + (process.platform === "win32" ? ".exe" : ""));
+// Missing probe: a visible skip, or a failure under RUST_TS_REQUIRE_PROBES=1 (gate hosts build the probes).
+const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
+const SKIP = !existsSync(PROBE) && !REQUIRE_PROBES;
+if (SKIP) console.log("SKIP: annotate probe not built (bun scripts/probes.ts build annotate); RUST_TS_REQUIRE_PROBES=1 makes this a failure");
 
 function level(v: LevelJ): Level {
   const base = Level[v.l];
@@ -98,10 +102,9 @@ function render(c: Case, base: Renderer): string | null {
   }
 }
 
-test("annotate-snippets rendering matches the oracle", () => {
+test.skipIf(SKIP)("annotate-snippets rendering matches the oracle", () => {
   if (!existsSync(PROBE)) {
-    console.log("SKIP: annotate probe not built (bun scripts/probes.ts build annotate)");
-    return;
+    throw new Error(`ERROR: annotate probe not built (${PROBE}) and RUST_TS_REQUIRE_PROBES=1`);
   }
   const cases = corpus();
   const r = Bun.spawnSync([PROBE], { stdin: Buffer.from(JSON.stringify(cases)), stdout: "pipe" });

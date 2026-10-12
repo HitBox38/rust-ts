@@ -3,7 +3,7 @@
 // from the TS port and compared: plural operands, the category of every input for every locale in
 // PRS_CARDINAL / PRS_ORDINAL, and LanguageIdentifier parse / Display / Debug / canonicalize /
 // maximize / minimize / character_direction / PluralRules::create / matches / Ord.
-// Skips if the probe isn't built (bun scripts/probes.ts build plurals).
+// Skips (visibly) if the probe isn't built, fails instead under RUST_TS_REQUIRE_PROBES=1 (bun scripts/probes.ts build plurals).
 //
 // f64 operands: `TryFrom<f64>` is `try_from(&f64.to_string())`; `<f64 as Display>` belongs to
 // src/std (not part of these crates), so the test feeds the probe's own `to_string` to
@@ -30,6 +30,10 @@ import { CLDR_VERSION, type PluralCategory, PluralRules, PluralRuleType } from "
 import { debug_PluralOperands, PluralOperands } from "./operands.ts";
 
 const PROBE = join(DATA, "target", "probes", "release", "plurals" + (process.platform === "win32" ? ".exe" : ""));
+// Missing probe: a visible skip, or a failure under RUST_TS_REQUIRE_PROBES=1 (gate hosts build the probes).
+const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
+const SKIP = !existsSync(PROBE) && !REQUIRE_PROBES;
+if (SKIP) console.log("SKIP: plurals probe not built (bun scripts/probes.ts build plurals); RUST_TS_REQUIRE_PROBES=1 makes this a failure");
 
 type Input = { kind: "u64" | "i64"; v: bigint } | { kind: "f64"; v: number; s: string } | { kind: "str"; v: string };
 
@@ -60,10 +64,9 @@ function operands(i: Input): Result<PluralOperands, string> {
 
 const CAT_CHAR: Record<PluralCategory, string> = { ZERO: "Z", ONE: "O", TWO: "T", FEW: "F", MANY: "M", OTHER: "X" };
 
-test("plural rules and language identifiers match the oracle", () => {
+test.skipIf(SKIP)("plural rules and language identifiers match the oracle", () => {
   if (!existsSync(PROBE)) {
-    console.log("SKIP: plurals probe not built (bun scripts/probes.ts build plurals)");
-    return;
+    throw new Error(`ERROR: plurals probe not built (${PROBE}) and RUST_TS_REQUIRE_PROBES=1`);
   }
   const r = Bun.spawnSync([PROBE], { stdout: "pipe" });
   expect(r.exitCode).toBe(0);
