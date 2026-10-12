@@ -1,0 +1,379 @@
+// rust-ts scenario tests for rustc_errors (no upstream `#[cfg(test)]` tests exist in
+// compiler/rustc_errors/src/{lib,diagnostic,...}.rs or rustc_error_messages). Every assertion cites
+// the upstream line whose behaviour it checks.
+import { expect, test } from "bun:test";
+import { BytePos, create_default_session_globals_then, Span } from "../rustc_span/lib.ts";
+import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
+import { Panic, Unported } from "../std/panic.ts";
+import {
+  a_or_an,
+  as_substr,
+  DiagCtxt,
+  DiagCtxtFlags_default,
+  DiagInner,
+  DiagStyledString,
+  display_ErrCode,
+  E0001,
+  E0308,
+  type Emitter,
+  IntoDiagArg,
+  Level,
+  MultiSpan,
+  try_find_description,
+  ErrCode,
+} from "./lib.ts";
+import { format_diag_messages } from "./formatting.ts";
+import { number_into_diag_arg as numberArg } from "../rustc_error_messages/lib.ts";
+
+interface Recorded {
+  level: string;
+  msg: string;
+  children: string[];
+  code: string | undefined;
+}
+
+class RecordingEmitter implements Emitter {
+  readonly out: Recorded[] = [];
+  emit_diagnostic(diag: DiagInner): void {
+    this.out.push({
+      level: Level.to_str(diag.level),
+      msg: format_diag_messages(diag.messages, diag.args),
+      children: diag.children.map((c) => `${c.level}: ${format_diag_messages(c.messages, diag.args)}`),
+      code: diag.code === undefined ? undefined : display_ErrCode(diag.code),
+    });
+  }
+  emit_artifact_notification(): void {}
+  emit_timing_section(): void {}
+  emit_future_breakage_report(): void {}
+  emit_unused_externs(): void {}
+  should_show_explain(): boolean {
+    return true;
+  }
+  supports_color(): boolean {
+    return false;
+  }
+  source_map(): undefined {
+    return undefined;
+  }
+}
+
+const test_ = (name: string, f: () => void): void => {
+  test(name, () => create_default_session_globals_then(f));
+};
+
+const sp = (lo: number, hi: number): Span => Span.with_root_ctxt(BytePos(lo), BytePos(hi));
+
+function setup(dedup = true): { em: RecordingEmitter; dcx: DiagCtxt } {
+  const em = new RecordingEmitter();
+  const dcx = DiagCtxt.new(em).with_flags({ ...DiagCtxtFlags_default(), can_emit_warnings: true, deduplicate_diagnostics: dedup });
+  return { em, dcx };
+}
+
+test_("errors and warnings are counted", () => {
+  const { em, dcx } = setup();
+  const h = dcx.handle();
+  // lib.rs:754 has_errors: no errors yet.
+  expect(h.has_errors()).toBeUndefined();
+  h.struct_span_err(sp(0, 3), "first").emit();
+  h.struct_span_err(sp(4, 7), "second").with_code(E0308).emit();
+  h.struct_span_warn(sp(8, 9), "careful").emit();
+  // lib.rs:1348 every non-duplicate diagnostic reaches the emitter.
+  expect(em.out.map((r) => `${r.level}: ${r.msg}`)).toEqual(["error: first", "error: second", "warning: careful"]);
+  // lib.rs:716 err_count = err_guars + lint_err_guars + stashed errors; warnings are not counted.
+  expect(h.err_count()).toBe(2);
+  // lib.rs:1411 has_errors returns the first error's guarantee.
+  expect(h.has_errors()).toBeDefined();
+  // lib.rs:1341-1344 deduplicated counts.
+  expect(dcx.inner.deduplicated_err_count).toBe(2);
+  expect(dcx.inner.deduplicated_warn_count).toBe(1);
+  // lib.rs:1300-1301 codes are recorded for `--explain`.
+  expect([...dcx.inner.emitted_diagnostic_codes]).toEqual([E0308]);
+});
+
+test_("print_error_count summary and --explain notes", () => {
+  const { em, dcx } = setup();
+  const h = dcx.handle();
+  h.struct_span_err(sp(0, 1), "a").with_code(E0308).emit();
+  h.struct_span_err(sp(1, 2), "b").emit();
+  h.struct_warn("w").emit();
+  em.out.length = 0;
+  h.print_error_count();
+  // lib.rs:780-804 errors and warnings are combined into one error; lib.rs:837-841 a single code.
+  expect(em.out.map((r) => `${r.level}: ${r.msg}`)).toEqual([
+    "error: aborting due to 2 previous errors; 1 warning emitted",
+    "failure-note: For more information about this error, try `rustc --explain E0308`.",
+  ]);
+});
+
+test_("print_error_count with several codes and only warnings", () => {
+  const { em, dcx } = setup();
+  const h = dcx.handle();
+  h.struct_err("x").with_code(E0308).emit();
+  h.struct_err("y").with_code(E0001).emit();
+  em.out.length = 0;
+  h.print_error_count();
+  // lib.rs:822-835 codes sorted, "Some errors have detailed explanations".
+  expect(em.out.map((r) => r.msg)).toEqual([
+    "aborting due to 2 previous errors",
+    "Some errors have detailed explanations: E0001, E0308.",
+    "For more information about an error, try `rustc --explain E0001`.",
+  ]);
+
+  const w = setup();
+  w.dcx.handle().struct_warn("only").emit();
+  w.dcx.handle().struct_warn("only 2").emit();
+  w.em.out.length = 0;
+  w.dcx.handle().print_error_count();
+  // lib.rs:788-795 warnings only: a forced warning.
+  expect(w.em.out.map((r) => `${r.level}: ${r.msg}`)).toEqual(["warning: 2 warnings emitted"]);
+});
+
+test_("identical diagnostics are deduplicated", () => {
+  const { em, dcx } = setup(true);
+  const h = dcx.handle();
+  h.struct_span_err(sp(0, 3), "same").emit();
+  h.struct_span_err(sp(0, 3), "same").emit();
+  h.struct_span_err(sp(0, 4), "same").emit();
+  // lib.rs:1304 + 1318-1319 the second identical error is not printed; a different span is.
+  expect(em.out.length).toBe(2);
+  // lib.rs:1351-1373 but every error still gets an ErrorGuaranteed.
+  expect(h.err_count()).toBe(3);
+  // lib.rs:1342 only printed errors count towards the summary.
+  expect(dcx.inner.deduplicated_err_count).toBe(2);
+});
+
+test_("deduplication disabled adds a note", () => {
+  const { em, dcx } = setup(false);
+  const h = dcx.handle();
+  h.struct_span_err(sp(0, 3), "same").emit();
+  h.struct_span_err(sp(0, 3), "same").emit();
+  // lib.rs:1336-1339 the duplicate is printed with an extra note.
+  expect(em.out.length).toBe(2);
+  expect(em.out[0]!.children).toEqual([]);
+  expect(em.out[1]!.children).toEqual(["Note: duplicate diagnostic emitted due to `-Z deduplicate-diagnostics=no`"]);
+});
+
+test_("once-notes are emitted once", () => {
+  const { em, dcx } = setup();
+  const h = dcx.handle();
+  h.struct_span_err(sp(0, 1), "one").with_note("plain").note_once("only once").emit();
+  h.struct_span_err(sp(1, 2), "two").with_note("plain").note_once("only once").emit();
+  // lib.rs:1326-1335 OnceNote children are kept only the first time their hash is seen.
+  expect(em.out[0]!.children).toEqual(["Note: plain", "OnceNote: only once"]);
+  expect(em.out[1]!.children).toEqual(["Note: plain"]);
+});
+
+test_("warnings can be disabled", () => {
+  const em = new RecordingEmitter();
+  const dcx = DiagCtxt.new(em).disable_warnings();
+  dcx.handle().struct_warn("hidden").emit();
+  // lib.rs:1263-1270 warnings without an override are dropped when `can_emit_warnings` is false.
+  expect(em.out.length).toBe(0);
+  expect(dcx.inner.deduplicated_warn_count).toBe(0);
+});
+
+test_("stash and steal an error", () => {
+  const { em, dcx } = setup();
+  const h = dcx.handle();
+  const span = sp(10, 12);
+  const guar = h.struct_span_err(span, "stashed error").stash(span, "ItemNoType");
+  // lib.rs:610 stashing an error returns a guarantee (via a delayed bug).
+  expect(guar).toBeDefined();
+  expect(dcx.inner.delayed_bugs.length).toBe(1);
+  // lib.rs:720-724 stashed errors count; lib.rs:1416-1419 and has_errors sees them.
+  expect(h.err_count()).toBe(1);
+  expect(h.has_errors()).toBeDefined();
+  // lib.rs:698-706
+  expect(h.has_stashed_diagnostic(span, "ItemNoType")).toBe(true);
+  expect(h.has_stashed_diagnostic(span, "ExprInPat")).toBe(false);
+  expect(em.out.length).toBe(0);
+
+  // lib.rs:649-670 steal, modify, emit.
+  const g2 = h.try_steal_modify_and_emit_err(span, "ItemNoType", (err) => {
+    err.note("improved");
+  });
+  expect(g2).toBeDefined();
+  expect(em.out.map((r) => [r.msg, r.children])).toEqual([["stashed error", ["Note: improved"]]]);
+  expect(h.has_stashed_diagnostic(span, "ItemNoType")).toBe(false);
+  // lib.rs:1356-1359 emitting an error discards recorded delayed bugs.
+  expect(dcx.inner.delayed_bugs.length).toBe(0);
+  expect(h.err_count()).toBe(1);
+  // lib.rs:649 nothing left to steal.
+  expect(h.try_steal_modify_and_emit_err(span, "ItemNoType", () => {})).toBeUndefined();
+});
+
+test_("stash and steal a warning", () => {
+  const { em, dcx } = setup();
+  const h = dcx.handle();
+  const span = sp(3, 4);
+  // lib.rs:614 non-errors stash without a guarantee.
+  expect(h.struct_span_warn(span, "w").stash(span, "EarlySyntaxWarning")).toBeUndefined();
+  expect(h.err_count()).toBe(0);
+  // lib.rs:634-643 steal_non_err returns the diagnostic.
+  const d = h.steal_non_err(span, "EarlySyntaxWarning");
+  expect(d).toBeDefined();
+  d!.cancel();
+  expect(em.out.length).toBe(0);
+  expect(h.steal_non_err(span, "EarlySyntaxWarning")).toBeUndefined();
+});
+
+test_("emit_stashed_diagnostics skips unforced warnings once there are errors", () => {
+  const { em, dcx } = setup();
+  const h = dcx.handle();
+  h.struct_span_warn(sp(0, 1), "stashed warning").stash(sp(0, 1), "EarlySyntaxWarning");
+  h.struct_span_err(sp(2, 3), "real error").emit();
+  em.out.length = 0;
+  // lib.rs:1190-1195 stashed unforced warnings are skipped when errors exist.
+  expect(h.emit_stashed_diagnostics()).toBeUndefined();
+  expect(em.out.length).toBe(0);
+  expect(dcx.inner.stashed_diagnostics.size).toBe(0);
+
+  const w = setup();
+  w.dcx.handle().struct_span_warn(sp(0, 1), "stashed warning").stash(sp(0, 1), "EarlySyntaxWarning");
+  w.dcx.handle().emit_stashed_diagnostics();
+  // lib.rs:1196 otherwise they are emitted.
+  expect(w.em.out.map((r) => r.msg)).toEqual(["stashed warning"]);
+});
+
+test_("delayed bugs", () => {
+  const { dcx } = setup();
+  const h = dcx.handle();
+  const g = h.delayed_bug("later");
+  // lib.rs:1242-1257 a delayed bug is recorded when no error exists.
+  expect(g).toBeDefined();
+  expect(h.has_errors()).toBeUndefined();
+  expect(h.has_errors_or_delayed_bugs()).toBeDefined();
+  h.err("real");
+  // lib.rs:1433-1436 flush_delayed does nothing once an error was emitted.
+  h.flush_delayed();
+  expect(dcx.inner.delayed_bugs.length).toBe(0);
+  // lib.rs:1242-1243 with an error present, a new delayed bug just returns it.
+  h.delayed_bug("again");
+  expect(dcx.inner.delayed_bugs.length).toBe(0);
+});
+
+test_("flushing delayed bugs needs Fluent (unported)", () => {
+  const { em, dcx } = setup();
+  dcx.handle().span_delayed_bug(sp(0, 1), "oops");
+  // lib.rs:1456-1459 the two notes are emitted, then lib.rs:1475 `decorate` formats an inline
+  // message, which needs the Fluent bundle (unported).
+  expect(() => dcx.handle().flush_delayed()).toThrow(Unported);
+  expect(em.out.map((r) => r.msg)).toEqual([
+    "no errors encountered even though delayed bugs were created",
+    "those delayed bugs will now be shown as internal compiler errors",
+  ]);
+});
+
+test_("fatal, bug and treat-err-as-bug", () => {
+  const { em, dcx } = setup();
+  // diagnostic.rs:1188 Fatal emits then raises FatalError.
+  expect(() => dcx.handle().fatal("stop")).toThrow(FatalErrorMarker);
+  expect(em.out.at(-1)!.level).toBe("error");
+  // diagnostic.rs:1187 Bug emits then panics with ExplicitBug.
+  expect(() => dcx.handle().bug("ice")).toThrow(Panic);
+  expect(em.out.at(-1)!.level).toBe("error: internal compiler error");
+
+  const t = setup();
+  t.dcx.inner.flags.treat_err_as_bug = 1;
+  // lib.rs:1222-1225 the error is promoted to Bug; lib.rs:1503-1504 then the panic.
+  expect(() => t.dcx.handle().err("e")).toThrow("aborting due to `-Z treat-err-as-bug=1`");
+  expect(t.em.out[0]!.level).toBe("error: internal compiler error");
+});
+
+test_("drop bomb and cancel", () => {
+  const { em, dcx } = setup();
+  const d = dcx.handle().struct_err("forgotten");
+  // diagnostic.rs:1283-1292 dropping an unemitted Diag emits a bug and panics.
+  expect(() => d.drop()).toThrow("error was constructed but not emitted");
+  expect(em.out.map((r) => r.msg)).toEqual(["the following error was constructed but not emitted", "forgotten"]);
+  // diagnostic.rs:1245-1248 cancel defuses it.
+  const c = dcx.handle().struct_err("cancelled");
+  c.cancel();
+  // diagnostic.rs:1251-1255
+  expect(dcx.handle().struct_err("m").cancel_into_message()).toBe("m");
+});
+
+test_("taint is set on error", () => {
+  const { dcx } = setup();
+  const cell = { value: undefined as unknown };
+  const h = dcx.handle().into_taintable(cell as never);
+  h.struct_warn("w").emit();
+  expect(cell.value).toBeUndefined();
+  // lib.rs:1370-1372
+  h.err("e");
+  expect(cell.value).toBeDefined();
+});
+
+test_("suggestions and args", () => {
+  const { dcx } = setup();
+  const d = dcx.handle().struct_span_err(sp(0, 5), "msg");
+  d.span_suggestion(sp(0, 5), "try", "x", "MachineApplicable");
+  // diagnostic.rs:787-788 duplicate parts are dropped.
+  d.multipart_suggestion("both", [[sp(0, 1), "a"], [sp(0, 1), "a"], [sp(2, 3), "b"]], "MaybeIncorrect");
+  d.arg("n", IntoDiagArg.String("v"));
+  const inner = d.deref();
+  expect(inner.suggestions.$).toBe("Enabled");
+  const s = inner.suggestions.$ === "Enabled" ? inner.suggestions._0 : [];
+  expect(s.length).toBe(2);
+  expect(s[1]!.substitutions[0]!.parts.length).toBe(2);
+  expect(s[0]!.style).toBe("ShowCode");
+  // diagnostic.rs:724-726 disabled suggestions ignore new ones.
+  d.disable_suggestions().span_suggestion(sp(0, 1), "no", "y", "Unspecified");
+  expect(d.deref().suggestions.$).toBe("Disabled");
+  expect(d.deref().args.get("n")).toEqual({ $: "Str", _0: "v" });
+  d.cancel();
+});
+
+test_("MultiSpan labels", () => {
+  const a = sp(0, 1);
+  const b = sp(5, 6);
+  const ms = MultiSpan.from_spans([b, a]);
+  // lib.rs(rustc_error_messages):103-105 from_spans sorts by (lo, hi).
+  expect(ms.primary_spans_()).toEqual([a, b]);
+  ms.push_span_label(b, "label b");
+  ms.push_span_label(sp(9, 9), "secondary");
+  // lib.rs(rustc_error_messages):168-188 labels first, then unlabelled primary spans.
+  const labels = ms.span_labels_().map((l) => [l.span, l.is_primary, l.label?._0]);
+  expect(labels).toEqual([
+    [b, true, "label b"],
+    [sp(9, 9), false, "secondary"],
+    [a, true, undefined],
+  ]);
+  // :146-161 replace
+  expect(ms.replace(a, sp(1, 2))).toBe(true);
+  expect(ms.primary_span()).toBe(sp(1, 2));
+});
+
+test("small helpers", () => {
+  // lib.rs:1717-1733 a_or_an
+  expect(a_or_an("error")).toBe("an");
+  expect(a_or_an("`impl`")).toBe("an");
+  expect(a_or_an("type")).toBe("a");
+  expect(a_or_an("")).toBe("a");
+  // lib.rs:239-242 doc example: `AACC` vs `AABBCC`.
+  expect(as_substr("AACC", "AABBCC")).toEqual([2, "BB", 2]);
+  expect(as_substr("abc", "abx")).toBeUndefined();
+  // codes.rs:21-23 E{:04}
+  expect(display_ErrCode(E0001)).toBe("E0001");
+  expect(display_ErrCode(E0308)).toBe("E0308");
+  // codes.rs:55-57
+  expect(try_find_description(E0308).$).toBe("Ok");
+  expect(try_find_description(ErrCode.from_u32(9999)).$).toBe("Err");
+  // lib.rs:1629-1638
+  expect(Level.to_str({ $: "DelayedBug" })).toBe("error: internal compiler error");
+  expect(Level.to_str({ $: "Warning", _0: undefined })).toBe("warning");
+  // diagnostic.rs:145-163 shorten keeps 6 chars on each side.
+  const s = DiagStyledString.normal("abcdefghijklmnopqrstuvwxyz");
+  s.shorten();
+  expect(s.content()).toBe("abcdef...uvwxyz");
+  const short = DiagStyledString.normal("abcdefghijklmnopqr");
+  short.shorten();
+  expect(short.content()).toBe("abcdefghijklmnopqr");
+  // diagnostic_impls.rs(rustc_error_messages):55-62 numbers that do not fit an i32 become strings.
+  expect(IntoDiagArg.of(3, (n: number, p) => numberArg(n, p)).into_diag_arg({ value: undefined })).toEqual({ $: "Number", _0: 3 });
+  expect(IntoDiagArg.of(2 ** 31, (n: number, p) => numberArg(n, p)).into_diag_arg({ value: undefined })).toEqual({
+    $: "Str",
+    _0: "2147483648",
+  });
+});
+
