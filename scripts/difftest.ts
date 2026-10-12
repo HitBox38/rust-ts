@@ -67,7 +67,7 @@ function oracleVersion(s: Suite): string {
   let v = oracleVersionCache.get(s.name);
   if (v) return v;
   const cmd0 = s.oracle([{ id: "", file: "", args: [] }])[0]!;
-  v = existsSync(cmd0) ? hash(readFileSync(cmd0)) : cmd0 === "rustc" ? rustcDriverHash() : PIN.commit;
+  v = cmd0 === "rustc" ? rustcDriverHash() : existsSync(cmd0) ? hash(readFileSync(cmd0)) : PIN.commit;
   oracleVersionCache.set(s.name, v);
   return v;
 }

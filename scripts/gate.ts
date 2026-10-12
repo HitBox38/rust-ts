@@ -8,6 +8,7 @@
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, or HEAD has moved since.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { suite as getSuite } from "../harness/suites.ts";
 import { difftest } from "./difftest.ts";
 import { REPO, RUNS, die, nowId, parseArgs, run } from "./lib/common.ts";
 import { record } from "./state.ts";
@@ -50,9 +51,12 @@ async function staticChecks(): Promise<boolean> {
 
 /** Commit and cleanliness of the tree under test, recorded so an accepted run names exactly what it tested. */
 async function provenance(): Promise<{ head: string; dirty: string[] }> {
-  const head = (await run(["git", "rev-parse", "HEAD"])).stdout.trim();
-  const dirty = (await run(["git", "status", "--porcelain"])).stdout.split("\n").filter(Boolean);
-  return { head, dirty };
+  const h = await run(["git", "rev-parse", "HEAD"]);
+  const head = h.stdout.trim();
+  if (h.code !== 0 || !/^[0-9a-f]{40}$/.test(head)) die(`git rev-parse HEAD failed: ${(h.stderr || h.stdout).trim()}`);
+  const st = await run(["git", "status", "--porcelain"]);
+  if (st.code !== 0) die(`git status failed: ${st.stderr.trim()}`);
+  return { head, dirty: st.stdout.split("\n").filter(Boolean) };
 }
 
 function protectedSuites(): string[] {
@@ -62,6 +66,7 @@ function protectedSuites(): string[] {
 }
 
 async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
+  for (const name of suites) getSuite(name); // unknown suite names fail here
   const runId = `gate-${nowId()}`;
   const prov = await provenance();
   if (prov.dirty.length) console.log(`note: tree is dirty (${prov.dirty.length} paths); this run cannot be accepted`);
@@ -77,10 +82,27 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
     for (const id of lost.slice(0, 20)) console.log(`  lost: ${id}`);
   }
-  const pass = staticOk && out.every((s) => s.lost.length === 0);
+  // The tree must be the same at the end as at the start, or the run tested a moving target.
+  const after = await provenance();
+  const unchanged = after.head === prov.head && after.dirty.join("\n") === prov.dirty.join("\n");
+  if (!unchanged) console.log("ERROR: the tree changed while the gate was running");
+  const pass = staticOk && unchanged && out.every((s) => s.lost.length === 0);
   writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, head: prov.head, dirty: prov.dirty, suites: out }, null, 1));
   console.log(`gate ${pass ? "PASS" : "FAIL"} run=${runId}`);
   if (!pass) process.exit(1);
+}
+
+/** MATCH ids of one suite, re-read from the run's own per-case results (not from gate.json). */
+function matchesOfRun(runId: string, suite: string): Set<string> {
+  const p = join(RUNS, runId, `${suite}.jsonl`);
+  if (!existsSync(p)) die(`gate run ${runId} has no results for ${suite}`);
+  const ids = new Set<string>();
+  for (const line of readFileSync(p, "utf8").split("\n")) {
+    if (!line) continue;
+    const r = JSON.parse(line) as { id: string; status: string };
+    if (r.status === "MATCH") ids.add(r.id);
+  }
+  return ids;
 }
 
 async function gateAccept(runId: string): Promise<void> {
@@ -93,15 +115,23 @@ async function gateAccept(runId: string): Promise<void> {
   if (g.dirty.length) die(`gate run ${runId} ran on a dirty tree (${g.dirty.length} paths); commit, then re-run the gate`);
   const now = await provenance();
   if (now.head !== g.head) die(`gate run ${runId} tested ${g.head.slice(0, 10)} but HEAD is ${now.head.slice(0, 10)}; re-run the gate`);
+  // Only state records (docs/state/) may be pending; anything else would be committed untested.
+  const stray = now.dirty.filter((l) => !l.slice(3).startsWith("docs/state/"));
+  if (stray.length) die(`tree is dirty outside docs/state/ (${stray.slice(0, 3).join("; ")}); commit or stash, then re-run the gate`);
   const missing = protectedSuites().filter((name) => !g.suites.some((x) => x.suite === name));
   if (missing.length) die(`gate run ${runId} did not run protected suite(s) ${missing.join(", ")}; nothing accepted`);
   const summary: Record<string, { protected: number; total: number }> = {};
   for (const s of g.suites) {
+    getSuite(s.suite); // registered suite names only (also keeps the baseline path inside harness/baseline)
     const base = readBaseline(s.suite);
-    for (const id of s.gained) base.add(id);
+    const before = base.size;
+    const match = matchesOfRun(runId, s.suite);
+    const lost = [...base].filter((id) => !match.has(id));
+    if (lost.length) die(`gate run ${runId}: ${s.suite} results lose ${lost.length} protected case(s) (e.g. ${lost[0]})`);
+    for (const id of match) base.add(id);
     writeFileSync(join(BASELINE, `${s.suite}.txt`), [...base].sort().join("\n") + "\n");
     summary[s.suite] = { protected: base.size, total: s.total };
-    console.log(`${s.suite}: protected set ${s.baseline} -> ${base.size}`);
+    console.log(`${s.suite}: protected set ${before} -> ${base.size}`);
   }
   record("accept", `accepted gate run ${runId} (tested ${g.head})`, { runId, head: g.head, suites: summary });
 }

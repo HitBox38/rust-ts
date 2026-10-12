@@ -1,6 +1,6 @@
 // The oracle is the pinned nightly rustc (plus small probe binaries built from the
 // pinned upstream sources, see tools/probes). Oracle results are deterministic, so
-// difftest caches them, keyed by the oracle's identity (see oracleIdentity).
+// difftest caches them, keyed by the probe binary or the rustc build (see rustcDriverHash).
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PIN, die, hash, run } from "./common.ts";
