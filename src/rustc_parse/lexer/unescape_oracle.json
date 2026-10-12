@@ -1,0 +1,213 @@
+{
+ "_how": "stderr of `rustc +nightly -Zui-testing -Zparse-crate-root-only --edition 2024 t.rs` (rustc 1.101.0-nightly (6f5da406b 2026-10-10)), one file per case, `t.rs` = `src`; run by $RUST_TS_DATA/tmp/lexer-aux/run.sh. Inputs are chosen so that only the lexer (unescape errors, confusable characters) reports diagnostics.",
+ "cases": {
+  "str_unknown_escape": {
+   "src": "fn main() {\n    let _ = \"a\\qb\";\n}\n",
+   "stderr": "error: unknown character escape: `q`\n  --> t.rs:2:16\n   |\nLL |     let _ = \"a\\qb\";\n   |                ^ unknown character escape\n   |\n   = help: for more information, visit <https://doc.rust-lang.org/reference/tokens.html#literals>\nhelp: if you meant to write a literal backslash (perhaps escaping in a regular expression), consider a raw string literal\n   |\nLL |     let _ = r\"a\\qb\";\n   |             +\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "char_unknown_escape_curly": {
+   "src": "fn main() {\n    let _ = '\\{';\n}\n",
+   "stderr": "error: unknown character escape: `{`\n  --> t.rs:2:15\n   |\nLL |     let _ = '\\{';\n   |               ^ unknown character escape\n   |\n   = help: if used in a formatting string, curly braces are escaped with `{{` and `}}`\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "str_unknown_escape_close_curly": {
+   "src": "fn main() {\n    let _ = \"a\\}\";\n}\n",
+   "stderr": "error: unknown character escape: `}`\n  --> t.rs:2:16\n   |\nLL |     let _ = \"a\\}\";\n   |                ^ unknown character escape\n   |\n   = help: if used in a formatting string, curly braces are escaped with `{{` and `}}`\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "byte_str_unknown_escape": {
+   "src": "fn main() {\n    let _ = b\"\\q\";\n}\n",
+   "stderr": "error: unknown byte escape: `q`\n  --> t.rs:2:16\n   |\nLL |     let _ = b\"\\q\";\n   |                ^ unknown byte escape\n   |\n   = help: for more information, visit <https://doc.rust-lang.org/reference/tokens.html#literals>\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "str_escape_question": {
+   "src": "fn main() {\n    let _ = \"\\?\";\n}\n",
+   "stderr": "error: unknown character escape: `?`\n  --> t.rs:2:15\n   |\nLL |     let _ = \"\\?\";\n   |               ^ unknown character escape\n   |\n   = help: for more information, visit <https://doc.rust-lang.org/reference/tokens.html#literals>\nhelp: if you meant to write a literal backslash (perhaps escaping in a regular expression), consider a raw string literal\n   |\nLL |     let _ = r\"\\?\";\n   |             +\nhelp: if you meant to write a literal question mark, don't escape the character\n   |\nLL -     let _ = \"\\?\";\nLL +     let _ = \"?\";\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "str_escape_octal": {
+   "src": "fn main() {\n    let _ = \"\\1\";\n}\n",
+   "stderr": "error: unknown character escape: `1`\n  --> t.rs:2:15\n   |\nLL |     let _ = \"\\1\";\n   |               ^ unknown character escape\n   |\n   = help: for more information, visit <https://doc.rust-lang.org/reference/tokens.html#literals>\n   = help: if you meant to write an ASCII control code, use a `\\xNN` hex escape\nhelp: if you meant to write a literal backslash (perhaps escaping in a regular expression), consider a raw string literal\n   |\nLL |     let _ = r\"\\1\";\n   |             +\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "str_escape_bell_and_esc": {
+   "src": "fn main() {\n    let _ = \"\\a\\e\";\n}\n",
+   "stderr": "error: unknown character escape: `a`\n  --> t.rs:2:15\n   |\nLL |     let _ = \"\\a\\e\";\n   |               ^ unknown character escape\n   |\n   = help: for more information, visit <https://doc.rust-lang.org/reference/tokens.html#literals>\nhelp: if you meant to write a literal backslash (perhaps escaping in a regular expression), consider a raw string literal\n   |\nLL |     let _ = r\"\\a\\e\";\n   |             +\nhelp: if you meant to write an audible bell, use a hex escape\n   |\nLL -     let _ = \"\\a\\e\";\nLL +     let _ = \"\\x07\\e\";\n   |\n\nerror: unknown character escape: `e`\n  --> t.rs:2:17\n   |\nLL |     let _ = \"\\a\\e\";\n   |                 ^ unknown character escape\n   |\n   = help: for more information, visit <https://doc.rust-lang.org/reference/tokens.html#literals>\nhelp: if you meant to write a literal backslash (perhaps escaping in a regular expression), consider a raw string literal\n   |\nLL |     let _ = r\"\\a\\e\";\n   |             +\nhelp: if you meant to write an ANSI escape sequence, use a hex escape\n   |\nLL -     let _ = \"\\a\\e\";\nLL +     let _ = \"\\a\\x1B\";\n   |\n\nerror: aborting due to 2 previous errors\n\n"
+  },
+  "str_escape_cr": {
+   "src": "fn main() {\n    let _ = \"a\\\rb\";\n}\n",
+   "stderr": "error: unknown character escape: `\\r`\n  --> t.rs:2:16\n   |\nLL |     let _ = \"a\\␍b\";\n   |                ^ unknown character escape\n   |\n   = help: this is an isolated carriage return; consider checking your editor and version control settings\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "too_short_hex": {
+   "src": "fn main() {\n    let _ = \"\\x1\";\n}\n",
+   "stderr": "error: numeric character escape is too short\n  --> t.rs:2:14\n   |\nLL |     let _ = \"\\x1\";\n   |              ^^^\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "invalid_char_in_hex": {
+   "src": "fn main() {\n    let _ = '\\xZZ';\n}\n",
+   "stderr": "error: invalid character in numeric character escape: `Z`\n  --> t.rs:2:16\n   |\nLL |     let _ = '\\xZZ';\n   |                ^ invalid character in numeric character escape\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "out_of_range_hex_char": {
+   "src": "fn main() {\n    let _ = '\\x80';\n}\n",
+   "stderr": "error: out of range hex escape\n  --> t.rs:2:14\n   |\nLL |     let _ = '\\x80';\n   |              ^^^^ must be a character in the range [\\x00-\\x7f]\n   |\n   = help: if you want to write a byte literal, use `b'\\x80'`\n   = help: if you want to write a Unicode character, use `'\\u{80}'`\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "out_of_range_hex_str": {
+   "src": "fn main() {\n    let _ = \"\\xFF\";\n}\n",
+   "stderr": "error: out of range hex escape\n  --> t.rs:2:14\n   |\nLL |     let _ = \"\\xFF\";\n   |              ^^^^ must be a character in the range [\\x00-\\x7f]\n   |\n   = help: if you want to write a byte literal, use `b'\\xFF'`\n   = help: if you want to write a Unicode character, use `'\\u{FF}'`\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "out_of_range_hex_long_str": {
+   "src": "fn main() {\n    let _ = \"ab\\xFF\";\n}\n",
+   "stderr": "error: out of range hex escape\n  --> t.rs:2:16\n   |\nLL |     let _ = \"ab\\xFF\";\n   |                ^^^^ must be a character in the range [\\x00-\\x7f]\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "byte_non_ascii": {
+   "src": "fn main() {\n    let _ = b'é';\n}\n",
+   "stderr": "error: non-ASCII character in byte literal\n  --> t.rs:2:15\n   |\nLL |     let _ = b'é';\n   |               ^ must be ASCII\n   |\nhelp: if you meant to use the unicode code point for 'é', use a \\xHH escape\n   |\nLL -     let _ = b'é';\nLL +     let _ = b'\\xE9';\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "byte_non_ascii_multibyte": {
+   "src": "fn main() {\n    let _ = b'字';\n}\n",
+   "stderr": "error: non-ASCII character in byte literal\n  --> t.rs:2:15\n   |\nLL |     let _ = b'字';\n   |               ^^\n   |               |\n   |               must be ASCII\n   |               this multibyte character does not fit into a single byte\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "byte_str_non_ascii": {
+   "src": "fn main() {\n    let _ = b\"a字é\";\n}\n",
+   "stderr": "error: non-ASCII character in byte string literal\n  --> t.rs:2:16\n   |\nLL |     let _ = b\"a字é\";\n   |                ^^ must be ASCII\n   |\nhelp: if you meant to use the UTF-8 encoding of '字', use \\xHH escapes\n   |\nLL -     let _ = b\"a字é\";\nLL +     let _ = b\"a\\xE5\\xAD\\x97é\";\n   |\n\nerror: non-ASCII character in byte string literal\n  --> t.rs:2:17\n   |\nLL |     let _ = b\"a字é\";\n   |                  ^ must be ASCII\n   |\nhelp: if you meant to use the unicode code point for 'é', use a \\xHH escape\n   |\nLL -     let _ = b\"a字é\";\nLL +     let _ = b\"a字\\xE9\";\n   |\n\nerror: aborting due to 2 previous errors\n\n"
+  },
+  "raw_byte_str_non_ascii": {
+   "src": "fn main() {\n    let _ = br\"é\";\n}\n",
+   "stderr": "error: non-ASCII character in raw byte string literal\n  --> t.rs:2:16\n   |\nLL |     let _ = br\"é\";\n   |                ^ must be ASCII\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "byte_zero_width": {
+   "src": "fn main() {\n    let _ = b'​';\n}\n",
+   "stderr": "error: non-ASCII character in byte literal\n  --> t.rs:2:15\n   |\nLL |     let _ = b'​';\n   |               ^\n   |               |\n   |               must be ASCII but is '\\u{200b}'\n   |               this multibyte character does not fit into a single byte\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_in_byte": {
+   "src": "fn main() {\n    let _ = b'\\u{41}';\n}\n",
+   "stderr": "error: unicode escape in byte string\n  --> t.rs:2:15\n   |\nLL |     let _ = b'\\u{41}';\n   |               ^^^^^^ unicode escape in byte string\n   |\n   = help: unicode escape sequences cannot be used as a byte or in a byte string\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_empty": {
+   "src": "fn main() {\n    let _ = '\\u{}';\n}\n",
+   "stderr": "error: empty unicode escape\n  --> t.rs:2:14\n   |\nLL |     let _ = '\\u{}';\n   |              ^^^^ this escape must have at least 1 hex digit\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_leading_underscore": {
+   "src": "fn main() {\n    let _ = '\\u{_41}';\n}\n",
+   "stderr": "error: invalid start of unicode escape: `_`\n  --> t.rs:2:17\n   |\nLL |     let _ = '\\u{_41}';\n   |                 ^ invalid start of unicode escape\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_overlong": {
+   "src": "fn main() {\n    let _ = '\\u{1234567}';\n}\n",
+   "stderr": "error: overlong unicode escape\n  --> t.rs:2:14\n   |\nLL |     let _ = '\\u{1234567}';\n   |              ^^^^^^^^^^^ must have at most 6 hex digits\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_unclosed": {
+   "src": "fn main() {\n    let _ = '\\u{41';\n}\n",
+   "stderr": "error: unterminated unicode escape\n  --> t.rs:2:14\n   |\nLL |     let _ = '\\u{41';\n   |              ^^^^^ missing a closing `}`\n   |\nhelp: terminate the unicode escape\n   |\nLL |     let _ = '\\u{41}';\n   |                   +\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_no_brace": {
+   "src": "fn main() {\n    let _ = '\\u41';\n}\n",
+   "stderr": "error: incorrect unicode escape sequence\n  --> t.rs:2:14\n   |\nLL |     let _ = '\\u41';\n   |              ^^^\n   |\nhelp: format of unicode escape sequences uses braces\n   |\nLL -     let _ = '\\u41';\nLL +     let _ = '\\u{41}';\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_no_brace_no_digits": {
+   "src": "fn main() {\n    let _ = \"\\uZ\";\n}\n",
+   "stderr": "error: incorrect unicode escape sequence\n  --> t.rs:2:14\n   |\nLL |     let _ = \"\\uZ\";\n   |              ^^^ incorrect unicode escape sequence\n   |\n   = help: format of unicode escape sequences is `\\u{...}`\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_surrogate": {
+   "src": "fn main() {\n    let _ = '\\u{D800}';\n}\n",
+   "stderr": "error: invalid unicode character escape\n  --> t.rs:2:14\n   |\nLL |     let _ = '\\u{D800}';\n   |              ^^^^^^^^ invalid escape\n   |\n   = help: unicode escape must not be a surrogate\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_out_of_range": {
+   "src": "fn main() {\n    let _ = '\\u{110000}';\n}\n",
+   "stderr": "error: invalid unicode character escape\n  --> t.rs:2:14\n   |\nLL |     let _ = '\\u{110000}';\n   |              ^^^^^^^^^^ invalid escape\n   |\n   = help: unicode escape must be at most 10FFFF\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unicode_escape_invalid_char": {
+   "src": "fn main() {\n    let _ = '\\u{4g}';\n}\n",
+   "stderr": "error: invalid character in unicode escape: `g`\n  --> t.rs:2:18\n   |\nLL |     let _ = '\\u{4g}';\n   |                  ^ invalid character in unicode escape\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "bare_cr_str": {
+   "src": "fn main() {\n    let _ = \"a\rb\";\n}\n",
+   "stderr": "error: bare CR not allowed in string, use `\\r` instead\n  --> t.rs:2:15\n   |\nLL |     let _ = \"a␍b\";\n   |               ^\n   |\nhelp: escape the character\n   |\nLL |     let _ = \"a\\rb\";\n   |               ++\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "bare_cr_raw_str": {
+   "src": "fn main() {\n    let _ = r\"a\rb\";\n}\n",
+   "stderr": "error: bare CR not allowed in raw string\n  --> t.rs:2:16\n   |\nLL |     let _ = r\"a␍b\";\n   |                ^\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "bare_cr_char": {
+   "src": "fn main() {\n    let _ = '\r';\n}\n",
+   "stderr": "error: character constant must be escaped: `\\r`\n  --> t.rs:2:14\n   |\nLL |     let _ = '␍';\n   |              ^\n   |\nhelp: escape the character\n   |\nLL |     let _ = '\\r';\n   |              ++\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "escape_only_char_tab": {
+   "src": "fn main() {\n    let _ = '\t';\n}\n",
+   "stderr": "error: character constant must be escaped: `\\t`\n  --> t.rs:2:14\n   |\nLL |     let _ = '    ';\n   |              ^^^^\n   |\nhelp: escape the character\n   |\nLL |     let _ = '\\t';\n   |              ++\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "escape_only_byte_tab": {
+   "src": "fn main() {\n    let _ = b'\t';\n}\n",
+   "stderr": "error: byte constant must be escaped: `\\t`\n  --> t.rs:2:15\n   |\nLL |     let _ = b'    ';\n   |               ^^^^\n   |\nhelp: escape the character\n   |\nLL |     let _ = b'\\t';\n   |               ++\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "zero_chars": {
+   "src": "fn main() {\n    let _ = '';\n}\n",
+   "stderr": "error: empty character literal\n  --> t.rs:2:14\n   |\nLL |     let _ = '';\n   |              ^ empty character literal\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "more_than_one_char": {
+   "src": "fn main() {\n    let _ = 'ab';\n}\n",
+   "stderr": "error: character literal may only contain one codepoint\n  --> t.rs:2:13\n   |\nLL |     let _ = 'ab';\n   |             ^^^^\n   |\nhelp: if you meant to write a string literal, use double quotes\n   |\nLL -     let _ = 'ab';\nLL +     let _ = \"ab\";\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "lifetime_then_unterminated_str": {
+   "src": "fn main() {\n    let _ = 'a\"b';\n}\n",
+   "stderr": "error[E0765]: unterminated double quote string\n  --> t.rs:2:15\n   |\nLL |       let _ = 'a\"b';\n   |  _______________^\nLL | | }\n   | |__^\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0765`.\n"
+  },
+  "more_than_one_byte": {
+   "src": "fn main() {\n    let _ = b'ab';\n}\n",
+   "stderr": "error: character literal may only contain one codepoint\n  --> t.rs:2:13\n   |\nLL |     let _ = b'ab';\n   |             ^^^^^\n   |\nhelp: if you meant to write a byte string literal, use double quotes\n   |\nLL -     let _ = b'ab';\nLL +     let _ = b\"ab\";\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "more_than_one_char_combining": {
+   "src": "fn main() {\n    let _ = 'é';\n}\n",
+   "stderr": "error: character literal may only contain one codepoint\n  --> t.rs:2:13\n   |\nLL |     let _ = 'é';\n   |             ^^^\n   |\nnote: this `e` is followed by the combining mark `\\u{301}`\n  --> t.rs:2:14\n   |\nLL |     let _ = 'é';\n   |              ^\nhelp: consider using the normalized form `\\u{e9}` of this character\n   |\nLL -     let _ = 'é';\nLL +     let _ = 'é';\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "more_than_one_char_combining_no_nfc": {
+   "src": "fn main() {\n    let _ = 'x́̂';\n}\n",
+   "stderr": "error: character literal may only contain one codepoint\n  --> t.rs:2:13\n   |\nLL |     let _ = 'x́̂';\n   |             ^^^\n   |\nnote: this `x` is followed by the combining marks `\\u{301}\\u{302}`\n  --> t.rs:2:14\n   |\nLL |     let _ = 'x́̂';\n   |              ^\nhelp: if you meant to write a string literal, use double quotes\n   |\nLL -     let _ = 'x́̂';\nLL +     let _ = \"x́̂\";\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "lifetime_then_zwsp": {
+   "src": "fn main() {\n    let _ = 'a​';\n}\n",
+   "stderr": "error: unknown start of token: \\u{200b}\n  --> t.rs:2:15\n   |\nLL |     let _ = 'a​';\n   |               ^\n   |\n   = help: invisible characters like '\\u{200b}' are not usually visible in text editors\n\nerror[E0762]: unterminated character literal\n  --> t.rs:2:16\n   |\nLL |     let _ = 'a​';\n   |               ^^\n   |\nhelp: if you meant to write a string literal, use double quotes\n   |\nLL -     let _ = 'a​';\nLL +     let _ = \"a​\";\n   |\n\nerror: aborting due to 2 previous errors\n\nFor more information about this error, try `rustc --explain E0762`.\n"
+  },
+  "more_than_one_char_dquote": {
+   "src": "fn main() {\n    let _ = '\"ab';\n}\n",
+   "stderr": "error: character literal may only contain one codepoint\n  --> t.rs:2:13\n   |\nLL |     let _ = '\"ab';\n   |             ^^^^^\n   |\nhelp: if you meant to write a string literal, use double quotes\n   |\nLL -     let _ = '\"ab';\nLL +     let _ = \"\\\"ab\";\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "more_than_one_char_non_printing": {
+   "src": "fn main() {\n    let _ = '​a';\n}\n",
+   "stderr": "error: character literal may only contain one codepoint\n  --> t.rs:2:13\n   |\nLL |     let _ = '​a';\n   |             ^^^\n   |\nnote: there are non-printing characters, the full sequence is `\\u{200b}a`\n  --> t.rs:2:14\n   |\nLL |     let _ = '​a';\n   |              ^\nhelp: consider removing the non-printing characters\n   |\nLL -     let _ = '​a';\nLL +     let _ = 'a';\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "raw_lifetime_as_char": {
+   "src": "fn main() {\n    let _ = 'r#ab';\n}\n",
+   "stderr": "error: character literal may only contain one codepoint\n  --> t.rs:2:13\n   |\nLL |     let _ = 'r#ab';\n   |             ^^^^^^\n   |\nhelp: if you meant to write a string literal, use double quotes\n   |\nLL -     let _ = 'r#ab';\nLL +     let _ = \"r#ab\";\n   |\n\nerror[E0762]: unterminated character literal\n  --> t.rs:2:18\n   |\nLL |     let _ = 'r#ab';\n   |                  ^^\n   |\nhelp: if you meant to write a string literal, use double quotes\n   |\nLL -     let _ = 'r#ab';\nLL +     let _ = \"r#ab\";\n   |\n\nerror: aborting due to 2 previous errors\n\nFor more information about this error, try `rustc --explain E0762`.\n"
+  },
+  "nul_in_c_str": {
+   "src": "fn main() {\n    let _ = c\"a\\0b\";\n}\n",
+   "stderr": "error: null characters in C string literals are not supported\n  --> t.rs:2:16\n   |\nLL |     let _ = c\"a\\0b\";\n   |                ^^\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "unskipped_whitespace": {
+   "src": "fn main() {\n    let _ = \"a\\\n     b\";\n}\n",
+   "stderr": "warning: whitespace symbol '\\u{a0}' is not skipped\n  --> t.rs:2:15\n   |\nLL |       let _ = \"a\\\n   |  _______________^\nLL | |      b\";\n   | |     ^ whitespace symbol '\\u{a0}' is not skipped\n   | |_____|\n   |\n\nwarning: 1 warning emitted\n\n"
+  },
+  "multiple_skipped_lines": {
+   "src": "fn main() {\n    let _ = \"a\\\n\n    b\";\n}\n",
+   "stderr": "warning: multiple lines skipped by escaped newline\n  --> t.rs:2:15\n   |\nLL |       let _ = \"a\\\n   |  _______________^\nLL | |\nLL | |     b\";\n   | |____^ skipping everything up to and including this point\n\nwarning: 1 warning emitted\n\n"
+  },
+  "confusable_semicolon": {
+   "src": "fn main() {\n    let _x = 1；\n}\n",
+   "stderr": "error: unknown start of token: \\u{ff1b}\n  --> t.rs:2:15\n   |\nLL |     let _x = 1；\n   |               ^^\n   |\nhelp: Unicode character '；' (Fullwidth Semicolon) looks like ';' (Semicolon), but it is not\n   |\nLL -     let _x = 1；\nLL +     let _x = 1;\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "confusable_greek_question_mark": {
+   "src": "fn main() {\n    let _x = 1;\n}\n",
+   "stderr": "error: unknown start of token: \\u{37e}\n  --> t.rs:2:15\n   |\nLL |     let _x = 1;\n   |               ^\n   |\nhelp: Unicode character ';' (Greek Question Mark) looks like ';' (Semicolon), but it is not\n   |\nLL -     let _x = 1;\nLL +     let _x = 1;\n   |\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "confusable_directed_quotes": {
+   "src": "fn main() {\n    let _ = “hello”;\n}\n",
+   "stderr": "error: unknown start of token: \\u{201c}\n  --> t.rs:2:13\n   |\nLL |     let _ = “hello”;\n   |             ^\n   |\nhelp: Unicode characters '“' (Left Double Quotation Mark) and '”' (Right Double Quotation Mark) look like '\"' (Quotation Mark), but are not\n   |\nLL -     let _ = “hello”;\nLL +     let _ = \"hello\";\n   |\n\nerror: unknown start of token: \\u{201d}\n  --> t.rs:2:19\n   |\nLL |     let _ = “hello”;\n   |                   ^\n   |\nhelp: Unicode character '”' (Right Double Quotation Mark) looks like '\"' (Quotation Mark), but it is not\n   |\nLL -     let _ = “hello”;\nLL +     let _ = “hello\";\n   |\n\nerror: aborting due to 2 previous errors\n\n"
+  },
+  "confusable_repeated_minus": {
+   "src": "fn main() {\n    let _ = 1 −− 2;\n}\n",
+   "stderr": "error: unknown start of token: \\u{2212}\n  --> t.rs:2:15\n   |\nLL |     let _ = 1 −− 2;\n   |               ^^\n   |\n   = note: character appears once more\nhelp: Unicode character '−' (Minus Sign) looks like '-' (Minus/Hyphen), but it is not\n   |\nLL -     let _ = 1 −− 2;\nLL +     let _ = 1 -- 2;\n   |\n\nerror: unknown start of token: \\u{2212}\n  --> t.rs:2:16\n   |\nLL |     let _ = 1 −− 2;\n   |                ^\n   |\nhelp: Unicode character '−' (Minus Sign) looks like '-' (Minus/Hyphen), but it is not\n   |\nLL -     let _ = 1 −− 2;\nLL +     let _ = 1 −- 2;\n   |\n\nerror: aborting due to 2 previous errors\n\n"
+  },
+  "confusable_em_space": {
+   "src": "fn main() {\n    let _ = 1;\n}\n",
+   "stderr": "error: unknown start of token: \\u{2003}\n  --> t.rs:2:8\n   |\nLL |     let _ = 1;\n   |        ^\n   |\nhelp: Unicode character ' ' (Em Space) looks like ' ' (Space), but it is not\n   |\nLL |     let _ = 1;\n   |        +\n\nerror: aborting due to 1 previous error\n\n"
+  },
+  "non_ascii_ident_nfc": {
+   "src": "fn main() {\n    let é = 1;\n}\n",
+   "stderr": ""
+  }
+ }
+}
