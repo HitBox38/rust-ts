@@ -1,0 +1,22 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@ / @SRC@ and builds this in $RUST_TS_DATA/probes.
+# Dependency versions are pinned to upstream's Cargo.lock at the pinned commit, with the features
+# compiler/rustc_errors enables (annotate-snippets: default `std` + `simd`). serde_json only reads
+# the corpus.
+[package]
+name = "annotate"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "annotate"
+path = "@SRC@/main.rs"
+
+[dependencies]
+annotate-snippets = { version = "=0.12.16", features = ["simd"] }
+anstyle = "=1.0.13"
+memchr = "=2.8.0"
+unicode-width = "=0.2.2"
+serde_json = "=1.0.145"
+
+[workspace]
