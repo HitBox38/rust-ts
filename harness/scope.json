@@ -23,6 +23,7 @@
     "unicode-properties": "=0.1.4",
     "rustc-literal-escaper": "=0.0.8",
     "bitflags": "=2.10.0",
-    "unicode-width": "=0.2.2"
+    "unicode-width": "=0.2.2",
+    "fluent-syntax": "=0.12.0"
   }
 }
