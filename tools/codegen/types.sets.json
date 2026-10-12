@@ -90,5 +90,17 @@
     "discriminant": [],
     "skip": [],
     "auto_class": true
+  },
+  "rustc_lint_defs": {
+    "files": [
+      "compiler/rustc_lint_defs/src/lib.rs",
+      "compiler/rustc_lint_defs/src/builtin.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_lint_defs::LintExpectationId"
+    ],
+    "discriminant": [],
+    "skip": []
   }
 }

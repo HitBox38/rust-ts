@@ -3,10 +3,8 @@
 import { debug_NodeId, type NodeId } from "../rustc_ast/node_id.ts";
 import { debug_MultiSpan, type MultiSpan } from "../rustc_error_messages/lib.ts";
 import { debug_DecorateDiagCompat, type DecorateDiagCompat } from "./decorate_diag.ts";
-import { type LintId } from "./lib.ts";
+import { debug_LintId, type LintId } from "../rustc_lint_defs/lib.ts";
 import { type Debug, debug_map, debug_option, debug_struct, debug_vec } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_errors/src/decorate_diag.rs:12 DecorateDiagCompat
 export type { DecorateDiagCompat } from "./decorate_diag.ts";
@@ -29,7 +27,7 @@ export const debug_BufferedEarlyLint: Debug<BufferedEarlyLint> = (v, f) =>
   debug_struct(f, "BufferedEarlyLint", [
     ["span", debug_option(v.span, f, debug_MultiSpan)],
     ["node_id", debug_NodeId(v.node_id, f)],
-    ["lint_id", unported_debug(v.lint_id)],
+    ["lint_id", debug_LintId(v.lint_id, f)],
     ["diagnostic", debug_DecorateDiagCompat(v.diagnostic, f)],
   ]);
 
