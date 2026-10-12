@@ -130,14 +130,15 @@ export class Str {
     return new Chars(this.b, this.lo, this.hi);
   }
 
-  /** `str::lines` (splits on `\n`, strips a trailing `\r`). */
+  /** `str::lines`: `split_inclusive('\n')` then `LinesMap` (strip `\n`, then `\r` only if a `\n` was stripped). */
   *lines(): Generator<Str> {
     let start = this.lo;
     while (start < this.hi) {
       let nl = this.b.indexOf(0x0a, start);
-      if (nl < 0 || nl >= this.hi) nl = this.hi;
+      const has_nl = nl >= 0 && nl < this.hi;
+      if (!has_nl) nl = this.hi;
       let end = nl;
-      if (end > start && this.b[end - 1] === 0x0d) end--;
+      if (has_nl && end > start && this.b[end - 1] === 0x0d) end--;
       yield new Str(this.b, start, end);
       start = nl + 1;
     }
