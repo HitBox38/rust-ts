@@ -140,9 +140,10 @@ export function Backtrace_into_diag_arg(self: Backtrace, _: MutRef<PathBuf | und
 export type BacktraceStatus = "Unsupported" | "Disabled" | "Captured";
 
 /**
- * PORT: shim for `std::backtrace::Backtrace` (move to src/std when root adds it). Only the
- * disabled case is modelled: `capture()` follows std's `RUST_LIB_BACKTRACE` / `RUST_BACKTRACE`
- * check and calls `unported` when backtraces are enabled (frame capture has no JS equivalent).
+ * PORT: shim for `std::backtrace::Backtrace` (move to src/std when root adds it). `capture()`
+ * follows std's `RUST_LIB_BACKTRACE` / `RUST_BACKTRACE` check and records only the status; the
+ * frames are never captured (no JS equivalent), so printing a `Captured` backtrace
+ * (`to_string`) is the one `unported` path.
  */
 export class Backtrace {
   private constructor(private readonly status_: BacktraceStatus) {}
@@ -151,8 +152,7 @@ export class Backtrace {
   static capture(): Backtrace {
     const lib = process.env["RUST_LIB_BACKTRACE"];
     const enabled = lib !== undefined ? lib !== "0" : (process.env["RUST_BACKTRACE"] ?? "0") !== "0";
-    if (enabled) return unported("std::backtrace::Backtrace::capture (backtraces enabled)");
-    return new Backtrace("Disabled");
+    return new Backtrace(enabled ? "Captured" : "Disabled");
   }
 
   /** `Backtrace::status` */

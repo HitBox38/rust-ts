@@ -2,12 +2,15 @@
 // compiler/rustc_errors/src/{lib,diagnostic,...}.rs or rustc_error_messages). Every assertion cites
 // the upstream line whose behaviour it checks.
 import { expect, test } from "bun:test";
-import { BytePos, create_default_session_globals_then, Span } from "../rustc_span/lib.ts";
+import { BytePos, create_default_session_globals_then, ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
+import { DefIndex } from "../rustc_span/def_id.ts";
+import { drop_compiler_dcx } from "../rust_ts/driver.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
-import { Panic, Unported } from "../std/panic.ts";
+import { Panic, panicking, Unported } from "../std/panic.ts";
 import {
   a_or_an,
   as_substr,
+  Diag,
   DiagCtxt,
   DiagCtxtFlags_default,
   DiagInner,
@@ -244,12 +247,25 @@ test_("delayed bugs", () => {
   expect(h.has_errors()).toBeUndefined();
   expect(h.has_errors_or_delayed_bugs()).toBeDefined();
   h.err("real");
-  // lib.rs:1433-1436 flush_delayed does nothing once an error was emitted.
-  h.flush_delayed();
+  // lib.rs:1356-1359 emitting the error discarded the delayed bug.
   expect(dcx.inner.delayed_bugs.length).toBe(0);
   // lib.rs:1242-1243 with an error present, a new delayed bug just returns it.
   h.delayed_bug("again");
   expect(dcx.inner.delayed_bugs.length).toBe(0);
+});
+
+test_("flush_delayed does nothing once an error exists", () => {
+  const { em, dcx } = setup();
+  const h = dcx.handle();
+  h.delayed_bug("later");
+  expect(dcx.inner.delayed_bugs.length).toBe(1);
+  // Emitting an error would clear `delayed_bugs` (lib.rs:1356-1359), so record the error's
+  // guarantee directly: the state is then "delayed bugs present, errors present".
+  dcx.inner.err_guars.push([ErrorGuaranteed.unchecked_error_guaranteed(), 1]);
+  // lib.rs:1433-1436 early return: nothing emitted, nothing taken, no panic.
+  h.flush_delayed();
+  expect(em.out.length).toBe(0);
+  expect(dcx.inner.delayed_bugs.length).toBe(1);
 });
 
 test_("flushing delayed bugs needs Fluent (unported)", () => {
@@ -291,6 +307,66 @@ test_("drop bomb and cancel", () => {
   c.cancel();
   // diagnostic.rs:1251-1255
   expect(dcx.handle().struct_err("m").cancel_into_message()).toBe("m");
+  // diagnostic.rs:1252 the `?` on `messages.get(0)` drops `self` with `diag` still `Some`: bomb.
+  const e = setup();
+  const empty = DiagInner.new(Level.Error, "no messages");
+  empty.messages.length = 0;
+  expect(() => Diag.new_diagnostic(e.dcx.handle(), empty).cancel_into_message()).toThrow(
+    "error was constructed but not emitted",
+  );
+  expect(e.em.out.map((r) => r.msg)).toEqual(["the following error was constructed but not emitted", ""]);
+  expect(e.dcx.inner.live_diags?.size).toBe(0);
+});
+
+test_("DiagCtxtInner::drop drops surviving Diags (drop bomb registry)", () => {
+  const { em, dcx } = setup();
+  const h = dcx.handle();
+  // Consumed diagnostics leave the registry (emit -> take_diag, cancel, stash, with_dcx).
+  h.struct_err("emitted").emit();
+  h.struct_err("cancelled").cancel();
+  const s = h.struct_span_warn(sp(0, 1), "stashed");
+  s.stash(sp(0, 1), "EarlySyntaxWarning");
+  const other = setup();
+  const moved = h.struct_err("moved").with_dcx(other.dcx.handle());
+  expect([...dcx.inner.live_diags!]).toEqual([]);
+  expect([...other.dcx.inner.live_diags!]).toEqual([moved]);
+  moved.cancel();
+  // Two forgotten diagnostics: the first one created is dropped first and fires the bomb
+  // (diagnostic.rs:1283-1292); lib.rs:427 runs after every `Diag` borrowing the context is gone.
+  h.struct_err("forgotten 1");
+  h.struct_err("forgotten 2");
+  em.out.length = 0;
+  expect(() => dcx.inner.drop()).toThrow("error was constructed but not emitted");
+  expect(em.out.map((r) => r.msg)).toEqual(["the following error was constructed but not emitted", "forgotten 1"]);
+});
+
+test_("drop while unwinding: no bomb (std::thread::panicking)", () => {
+  const { em, dcx } = setup();
+  dcx.handle().struct_err("forgotten");
+  // diagnostic.rs:1285 `Some(diag) if !panicking()`; driver hook for the unwinding path.
+  drop_compiler_dcx(dcx, true);
+  expect(em.out.length).toBe(0);
+  expect(dcx.inner.live_diags?.size).toBe(0);
+  expect(panicking()).toBe(false);
+  // Normal path: same drop, bomb armed.
+  const n = setup();
+  n.dcx.handle().struct_err("forgotten");
+  expect(() => drop_compiler_dcx(n.dcx, false)).toThrow("error was constructed but not emitted");
+});
+
+test_("assert_eq! texts (core panicking.rs assert_failed_inner)", () => {
+  const { dcx } = setup();
+  const h = dcx.handle();
+  // diagnostic.rs:1197 `assert_eq!(self.level, Level::Bug)` on an error.
+  const d = h.struct_err("not a bug");
+  expect(() => d.emit_bug()).toThrow("assertion `left == right` failed\n  left: Error\n right: Bug");
+  d.cancel();
+  // lib.rs:663 `assert_eq!(err.level, Error)` on a stolen warning.
+  const span = sp(3, 4);
+  h.struct_span_warn(span, "w").stash(span, "EarlySyntaxWarning");
+  expect(() => h.try_steal_modify_and_emit_err(span, "EarlySyntaxWarning", () => {})).toThrow(
+    "assertion `left == right` failed\n  left: Warning(None)\n right: Error",
+  );
 });
 
 test_("taint is set on error", () => {
@@ -356,6 +432,14 @@ test("small helpers", () => {
   // codes.rs:21-23 E{:04}
   expect(display_ErrCode(E0001)).toBe("E0001");
   expect(display_ErrCode(E0308)).toBe("E0308");
+  // codes.rs:12 `#[max = 9999]`; newtype.rs:226/240 `assert!(value <= (#max as usize))` /
+  // `assert!(value <= #max)`. Texts checked against the pinned nightly with the same `assert!`s.
+  expect(() => ErrCode.from_u32(10000)).toThrow("assertion failed: value <= 9999");
+  expect(() => ErrCode.from_usize(10000)).toThrow("assertion failed: value <= (9999 as usize)");
+  expect(ErrCode.from_u32(9999)).toBe(ErrCode.MAX);
+  // newtype.rs:98 default max `0xFFFF_FF00` (DefIndex has no `#[max]`).
+  expect(() => DefIndex.from_u32(0xffff_ff01)).toThrow("assertion failed: value <= 0xFFFF_FF00");
+  expect(() => DefIndex.from_usize(0xffff_ff01)).toThrow("assertion failed: value <= (0xFFFF_FF00 as usize)");
   // codes.rs:55-57
   expect(try_find_description(E0308).$).toBe("Ok");
   expect(try_find_description(ErrCode.from_u32(9999)).$).toBe("Err");

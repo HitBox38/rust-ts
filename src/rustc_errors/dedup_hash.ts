@@ -2,11 +2,12 @@
 //
 // PORT: `StableHasher` (SipHasher128) and the `#[derive(Encodable)]` impls are not ported. The
 // dedup hash is only ever compared for equality (`FxHashSet<Hash128>` in `DiagCtxtInner`), so the
-// encoder records the same traversal as a token sequence and `finish()` interns it: equal
-// encodings get the same `Hash128`, different ones different values. This is upstream's behaviour
-// minus 128-bit hash collisions. The `encode_*` helpers below follow the field order of the
+// encoder records the same traversal as a token sequence and `finish()` hashes it to 128 bits:
+// equal encodings get the same `Hash128`, different ones (up to 128-bit collisions, as upstream)
+// different values. The `encode_*` helpers below follow the field order of the
 // upstream `derive(Encodable)`s (enums: variant index, then fields; `Vec`/maps: length, then items;
 // `Option`: 0 / 1 + value) and are used only for this hash.
+import { createHash } from "node:crypto";
 import type { RustcVersion } from "../rustc_ast/attr/version.ts";
 import type { DiagArgMap, DiagArgValue, DiagMessage, MultiSpan } from "../rustc_error_messages/lib.ts";
 import type { Hash128 } from "../rustc_hashes/lib.ts";
@@ -24,6 +25,11 @@ export class DedupHashEncoder {
   constructor(public _0: DedupHasher) {}
 
   // encoder_methods! { emit_usize(usize); ... emit_raw_bytes(&[u8]); }: `value.hash(&mut self.0)`
+  // PORT: only the methods something hashed here reaches are ported. Left out because no field of
+  // `DiagInner` encodes through them: `emit_u128`, `emit_u64`, `emit_isize`, `emit_i128`,
+  // `emit_i64`, `emit_i16`, `emit_raw_bytes`, and the `SpanEncoder` methods `encode_symbol`,
+  // `encode_byte_symbol`, `encode_expn_id`, `encode_syntax_context`, `encode_crate_num`,
+  // `encode_def_index`, `encode_def_id`. `emit_bool`/`emit_str` stand for the `Encoder` defaults.
   emit_usize(value: number): void {
     this._0.write(value);
   }
@@ -70,32 +76,20 @@ export class DedupHasher {
     this.tokens.push(s);
   }
 
+  // PORT: the first 128 bits of SHA-256 over the recorded token sequence, not SipHasher128: the
+  // values differ from upstream's, but only their equality is observable (`emitted_diagnostics`),
+  // and like upstream no table of past encodings is kept (collisions as unlikely as upstream's).
   finish(): Hash128 {
-    const key = JSON.stringify(this.tokens);
-    let h = INTERNED.get(key);
-    if (h === undefined) {
-      h = BigInt(INTERNED.size + 1) as Hash128;
-      INTERNED.set(key, h);
-    }
-    return h;
+    const digest = createHash("sha256").update(JSON.stringify(this.tokens)).digest("hex");
+    return BigInt("0x" + digest.slice(0, 32)) as Hash128;
   }
 }
-
-const INTERNED = new Map<string, Hash128>();
 
 // ---- `derive(Encodable)` traversals used by `dedup_hash` (PORT, see top) ----
 
 export function encode_DiagMessage(e: DedupHashEncoder, m: DiagMessage): void {
   e.emit_usize(m.$ === "Str" ? 0 : 1);
   e.emit_str(m._0);
-}
-
-export function encode_messages(e: DedupHashEncoder, messages: readonly [DiagMessage, string][], style_index: (s: string) => number): void {
-  e.emit_usize(messages.length);
-  for (const [m, s] of messages) {
-    encode_DiagMessage(e, m);
-    e.emit_usize(style_index(s));
-  }
 }
 
 export function encode_MultiSpan(e: DedupHashEncoder, ms: MultiSpan): void {

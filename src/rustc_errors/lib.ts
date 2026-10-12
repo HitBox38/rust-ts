@@ -21,7 +21,7 @@ import { DUMMY_SP, ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import type { SourceMap } from "../rustc_span/source_map.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
 import { is_whitespace } from "../std/char.ts";
-import { assert, Panic, panic, unported, unwrap } from "../std/panic.ts";
+import { assert, assert_eq, assert_matches, Panic, panic, panicking, unported, unwrap } from "../std/panic.ts";
 import { utf8_len } from "../std/str.ts";
 import { type ErrCode, display_ErrCode, try_find_description } from "./codes.ts";
 import { Diag, type Diagnostic, DiagInner } from "./diagnostic.ts";
@@ -321,6 +321,153 @@ export function as_substr(original_: string, suggestion_: string): [number, stri
 
 // ---- DiagCtxt -----------------------------------------------------------------------------------
 
+// rustc: compiler/rustc_errors/src/lib.rs:396 default_track_diagnostic
+function default_track_diagnostic<R>(diag: DiagInner, f: (diag: DiagInner) => R): R {
+  return f(diag);
+}
+
+/// Diagnostics emitted by `DiagCtxtInner::emit_diagnostic` are passed through this function. Used
+/// for tracking by incremental, to replay diagnostics as necessary.
+export const TRACK_DIAGNOSTIC: AtomicRef<
+  (diag: DiagInner, f: (diag: DiagInner) => ErrorGuaranteed | undefined) => ErrorGuaranteed | undefined
+> = AtomicRef.new(default_track_diagnostic);
+
+/** `#[derive(Default)]` for `DiagCtxtFlags`. */
+export function DiagCtxtFlags_default(): DiagCtxtFlags {
+  return {
+    can_emit_warnings: false,
+    treat_err_as_bug: undefined,
+    eagerly_emit_delayed_bugs: false,
+    macro_backtrace: false,
+    deduplicate_diagnostics: false,
+    track_diagnostics: false,
+  };
+}
+
+declare module "./lib.gen.ts" {
+  interface DiagCtxt {
+    disable_warnings(): DiagCtxt;
+    with_flags(flags: DiagCtxtFlags): DiagCtxt;
+    with_ice_file(ice_file: PathBuf): DiagCtxt;
+    with_msrv(msrv: RustcVersion): DiagCtxt;
+    handle(): DiagCtxtHandle;
+  }
+  namespace DiagCtxt {
+    function new_(emitter: Emitter): DiagCtxt;
+    export { new_ as new };
+  }
+  interface DiagCtxtInner {
+    /// PORT: drop-bomb registry, no upstream field. Every `Diag` that still holds its
+    /// `DiagInner`, in creation order (see `Diag` in diagnostic.ts). Created lazily.
+    live_diags?: Set<Diag>;
+    drop(): void;
+    emit_stashed_diagnostics(): ErrorGuaranteed | undefined;
+    emit_diagnostic(diagnostic: DiagInner, taint: MutRef<ErrorGuaranteed | undefined> | undefined): ErrorGuaranteed | undefined;
+    treat_err_as_bug(): boolean;
+    treat_next_err_as_bug(): boolean;
+    has_errors_excluding_lint_errors(): ErrorGuaranteed | undefined;
+    has_errors(): ErrorGuaranteed | undefined;
+    has_errors_or_delayed_bugs(): ErrorGuaranteed | undefined;
+    flush_delayed(): void;
+    panic_if_treat_err_as_bug(): void;
+  }
+  namespace DiagCtxtInner {
+    function new_(emitter: Emitter): DiagCtxtInner;
+    export { new_ as new };
+  }
+  interface DelayedDiagInner {
+    decorate(): DiagInner;
+  }
+  namespace DelayedDiagInner {
+    export let with_backtrace: (diagnostic: DiagInner, backtrace: Backtrace) => DelayedDiagInner;
+  }
+}
+
+// PORT: `impl Drop for DiagCtxtInner`. JS has no destructors: the driver calls this where
+// upstream drops the `Session` (`drop_compiler_dcx` in src/rust_ts/driver.ts; inside
+// `while_unwinding` on the panic path, so `std::thread::panicking()` is true there as upstream).
+// Upstream every `Diag` borrows the `DiagCtxt` and is dropped before it; JS cannot run those
+// drops at scope end, so the `Diag`s still alive (`live_diags`) are dropped first, in creation
+// order. An unconsumed one fires its bomb here (outside `while_unwinding`).
+// rustc: compiler/rustc_errors/src/lib.rs:427 drop
+DiagCtxtInner.prototype.drop = function (this: DiagCtxtInner): void {
+  if (this.live_diags !== undefined) {
+    for (const diag of [...this.live_diags]) diag.drop();
+  }
+
+  // For tools using `interface::run_compiler` (e.g. rustc, rustdoc)
+  // stashed diagnostics will have already been emitted. But for others
+  // that don't use `interface::run_compiler` (e.g. rustfmt, some clippy
+  // lints) this fallback is necessary.
+  //
+  // Important: it is sound to produce an `ErrorGuaranteed` when stashing
+  // errors because they are guaranteed to be emitted here or earlier.
+  this.emit_stashed_diagnostics();
+
+  // Important: it is sound to produce an `ErrorGuaranteed` when emitting
+  // delayed bugs because they are guaranteed to be emitted here if
+  // necessary.
+  this.flush_delayed();
+
+  // Sanity check: did we use some of the expensive `trimmed_def_paths` functions
+  // unexpectedly, that is, without producing diagnostics? If so, for debugging purposes, we
+  // suggest where this happened and how to avoid it.
+  if (!this.has_printed && !this.suppressed_expected_diag && !panicking()) {
+    const backtrace = this.must_produce_diag;
+    if (backtrace !== undefined) {
+      let suggestion: string;
+      switch (backtrace.status()) {
+        case "Disabled":
+          suggestion =
+            "Backtraces are currently disabled: set `RUST_BACKTRACE=1` and re-run to see where it happened.";
+          break;
+        case "Captured":
+          suggestion = `This happened in the following \`must_produce_diag\` call's backtrace:\n${backtrace.to_string()}`;
+          break;
+        default:
+          suggestion = "(impossible to capture backtrace where this happened)";
+      }
+      panic(
+        `\`trimmed_def_paths\` called, diagnostics were expected but none were emitted. Use \`with_no_trimmed_paths\` for debugging. ${suggestion}`,
+      );
+    }
+  }
+};
+
+// rustc: compiler/rustc_errors/src/lib.rs:468 disable_warnings
+DiagCtxt.prototype.disable_warnings = function (this: DiagCtxt): DiagCtxt {
+  this.inner.flags.can_emit_warnings = false;
+  return this;
+};
+
+// rustc: compiler/rustc_errors/src/lib.rs:473 with_flags
+DiagCtxt.prototype.with_flags = function (this: DiagCtxt, flags: DiagCtxtFlags): DiagCtxt {
+  this.inner.flags = flags;
+  return this;
+};
+
+// rustc: compiler/rustc_errors/src/lib.rs:478 with_ice_file
+DiagCtxt.prototype.with_ice_file = function (this: DiagCtxt, ice_file: PathBuf): DiagCtxt {
+  this.inner.ice_file = ice_file;
+  return this;
+};
+
+// rustc: compiler/rustc_errors/src/lib.rs:483 with_msrv
+DiagCtxt.prototype.with_msrv = function (this: DiagCtxt, msrv: RustcVersion): DiagCtxt {
+  this.inner.msrv = msrv;
+  return this;
+};
+
+// rustc: compiler/rustc_errors/src/lib.rs:488 new
+(DiagCtxt as unknown as { new: (emitter: Emitter) => DiagCtxt }).new = function (emitter: Emitter): DiagCtxt {
+  return new DiagCtxt(DiagCtxtInner.new(emitter));
+};
+
+// rustc: compiler/rustc_errors/src/lib.rs:492 handle
+DiagCtxt.prototype.handle = function (this: DiagCtxt): DiagCtxtHandle {
+  return new DiagCtxtHandle(this, undefined);
+};
+
 /** `#[derive(Copy, Clone)] pub struct DiagCtxtHandle<'a>` */
 // PORT: hand-written: `tainted_with_errors: Option<&'a Cell<Option<ErrorGuaranteed>>>` is a shared
 // mutable cell, modelled as a `MutRef`.
@@ -475,11 +622,11 @@ export class DiagCtxtHandle {
         : index_map_swap_remove(stashed_diagnostics, Span.with_parent(span, undefined));
     if (err === undefined) return undefined;
     const [err_inner, guar, _] = err;
-    assert(err_inner.level.$ === "Error", "assertion `left == right` failed");
+    assert_eq(err_inner.level, Level.Error, debug_level, Level_eq);
     assert(guar !== undefined, "assertion failed: guar.is_some()");
     const diag = Diag.new_diagnostic(this, err_inner);
     modify_err(diag);
-    assert(diag.deref().level.$ === "Error", "assertion `left == right` failed");
+    assert_eq(diag.deref().level, Level.Error, debug_level, Level_eq);
     return diag.emit_err();
   }
 
@@ -496,7 +643,7 @@ export class DiagCtxtHandle {
         : index_map_swap_remove(stashed_diagnostics, Span.with_parent(span, undefined));
     if (old_err !== undefined) {
       const [old, guar, _] = old_err;
-      assert(old.level.$ === "Error", "assertion `left == right` failed");
+      assert_eq(old.level, Level.Error, debug_level, Level_eq);
       assert(guar !== undefined, "assertion failed: guar.is_some()");
       // Because `old_err` has already been counted, it can only be
       // safely cancelled because the `new_err` supplants it.
@@ -928,147 +1075,6 @@ export class DiagCtxtHandle {
   }
 }
 
-// rustc: compiler/rustc_errors/src/lib.rs:396 default_track_diagnostic
-function default_track_diagnostic<R>(diag: DiagInner, f: (diag: DiagInner) => R): R {
-  return f(diag);
-}
-
-/// Diagnostics emitted by `DiagCtxtInner::emit_diagnostic` are passed through this function. Used
-/// for tracking by incremental, to replay diagnostics as necessary.
-export const TRACK_DIAGNOSTIC: AtomicRef<
-  (diag: DiagInner, f: (diag: DiagInner) => ErrorGuaranteed | undefined) => ErrorGuaranteed | undefined
-> = AtomicRef.new(default_track_diagnostic);
-
-/** `#[derive(Default)]` for `DiagCtxtFlags`. */
-export function DiagCtxtFlags_default(): DiagCtxtFlags {
-  return {
-    can_emit_warnings: false,
-    treat_err_as_bug: undefined,
-    eagerly_emit_delayed_bugs: false,
-    macro_backtrace: false,
-    deduplicate_diagnostics: false,
-    track_diagnostics: false,
-  };
-}
-
-/** PORT: `std::thread::panicking()`; an unwinding `Panic` never reaches code that asks. */
-function panicking(): boolean {
-  return false;
-}
-
-declare module "./lib.gen.ts" {
-  interface DiagCtxt {
-    disable_warnings(): DiagCtxt;
-    with_flags(flags: DiagCtxtFlags): DiagCtxt;
-    with_ice_file(ice_file: PathBuf): DiagCtxt;
-    with_msrv(msrv: RustcVersion): DiagCtxt;
-    handle(): DiagCtxtHandle;
-  }
-  namespace DiagCtxt {
-    function new_(emitter: Emitter): DiagCtxt;
-    export { new_ as new };
-  }
-  interface DiagCtxtInner {
-    drop(): void;
-    emit_stashed_diagnostics(): ErrorGuaranteed | undefined;
-    emit_diagnostic(diagnostic: DiagInner, taint: MutRef<ErrorGuaranteed | undefined> | undefined): ErrorGuaranteed | undefined;
-    treat_err_as_bug(): boolean;
-    treat_next_err_as_bug(): boolean;
-    has_errors_excluding_lint_errors(): ErrorGuaranteed | undefined;
-    has_errors(): ErrorGuaranteed | undefined;
-    has_errors_or_delayed_bugs(): ErrorGuaranteed | undefined;
-    flush_delayed(): void;
-    panic_if_treat_err_as_bug(): void;
-  }
-  namespace DiagCtxtInner {
-    function new_(emitter: Emitter): DiagCtxtInner;
-    export { new_ as new };
-  }
-  interface DelayedDiagInner {
-    decorate(): DiagInner;
-  }
-  namespace DelayedDiagInner {
-    export let with_backtrace: (diagnostic: DiagInner, backtrace: Backtrace) => DelayedDiagInner;
-  }
-}
-
-// PORT: `impl Drop for DiagCtxtInner`. JS has no destructors: whoever owns the `DiagCtxt` (the
-// session / driver) must call `dcx.inner.drop()` where upstream drops it.
-// rustc: compiler/rustc_errors/src/lib.rs:427 drop
-DiagCtxtInner.prototype.drop = function (this: DiagCtxtInner): void {
-  // For tools using `interface::run_compiler` (e.g. rustc, rustdoc)
-  // stashed diagnostics will have already been emitted. But for others
-  // that don't use `interface::run_compiler` (e.g. rustfmt, some clippy
-  // lints) this fallback is necessary.
-  //
-  // Important: it is sound to produce an `ErrorGuaranteed` when stashing
-  // errors because they are guaranteed to be emitted here or earlier.
-  this.emit_stashed_diagnostics();
-
-  // Important: it is sound to produce an `ErrorGuaranteed` when emitting
-  // delayed bugs because they are guaranteed to be emitted here if
-  // necessary.
-  this.flush_delayed();
-
-  // Sanity check: did we use some of the expensive `trimmed_def_paths` functions
-  // unexpectedly, that is, without producing diagnostics? If so, for debugging purposes, we
-  // suggest where this happened and how to avoid it.
-  if (!this.has_printed && !this.suppressed_expected_diag && !panicking()) {
-    const backtrace = this.must_produce_diag;
-    if (backtrace !== undefined) {
-      let suggestion: string;
-      switch (backtrace.status()) {
-        case "Disabled":
-          suggestion =
-            "Backtraces are currently disabled: set `RUST_BACKTRACE=1` and re-run to see where it happened.";
-          break;
-        case "Captured":
-          suggestion = `This happened in the following \`must_produce_diag\` call's backtrace:\n${backtrace.to_string()}`;
-          break;
-        default:
-          suggestion = "(impossible to capture backtrace where this happened)";
-      }
-      panic(
-        `\`trimmed_def_paths\` called, diagnostics were expected but none were emitted. Use \`with_no_trimmed_paths\` for debugging. ${suggestion}`,
-      );
-    }
-  }
-};
-
-// rustc: compiler/rustc_errors/src/lib.rs:468 disable_warnings
-DiagCtxt.prototype.disable_warnings = function (this: DiagCtxt): DiagCtxt {
-  this.inner.flags.can_emit_warnings = false;
-  return this;
-};
-
-// rustc: compiler/rustc_errors/src/lib.rs:473 with_flags
-DiagCtxt.prototype.with_flags = function (this: DiagCtxt, flags: DiagCtxtFlags): DiagCtxt {
-  this.inner.flags = flags;
-  return this;
-};
-
-// rustc: compiler/rustc_errors/src/lib.rs:478 with_ice_file
-DiagCtxt.prototype.with_ice_file = function (this: DiagCtxt, ice_file: PathBuf): DiagCtxt {
-  this.inner.ice_file = ice_file;
-  return this;
-};
-
-// rustc: compiler/rustc_errors/src/lib.rs:483 with_msrv
-DiagCtxt.prototype.with_msrv = function (this: DiagCtxt, msrv: RustcVersion): DiagCtxt {
-  this.inner.msrv = msrv;
-  return this;
-};
-
-// rustc: compiler/rustc_errors/src/lib.rs:488 new
-(DiagCtxt as unknown as { new: (emitter: Emitter) => DiagCtxt }).new = function (emitter: Emitter): DiagCtxt {
-  return new DiagCtxt(DiagCtxtInner.new(emitter));
-};
-
-// rustc: compiler/rustc_errors/src/lib.rs:492 handle
-DiagCtxt.prototype.handle = function (this: DiagCtxt): DiagCtxtHandle {
-  return new DiagCtxtHandle(this, undefined);
-};
-
 // rustc: compiler/rustc_errors/src/lib.rs:1158 new
 (DiagCtxtInner as unknown as { new: (emitter: Emitter) => DiagCtxtInner }).new = function (
   emitter: Emitter,
@@ -1131,7 +1137,12 @@ DiagCtxtInner.prototype.emit_diagnostic = function (
     // About the `allow`/`expect` lint sub-cases of `Warning`: future breakages aren't
     // emitted for them, but they still need to be handled below so they'll trigger the
     // `must_produce_diag` check.
-    assert(diagnostic.level.$ === "Error" || diagnostic.level.$ === "Warning", "assertion failed: assert_matches!(diagnostic.level, Error | Warning(_))");
+    assert_matches(
+      diagnostic.level,
+      diagnostic.level.$ === "Error" || diagnostic.level.$ === "Warning",
+      "Error | Warning(_)",
+      debug_level,
+    );
     this.future_breakage_diagnostics.push(diagnostic.clone());
   }
 
@@ -1285,7 +1296,7 @@ DiagCtxtInner.prototype.emit_diagnostic = function (
       // have been no errors previously emitted, because we don't add
       // new delayed bugs once the first error is emitted.)
       if (this.delayed_bugs.length !== 0) {
-        assert(this.lint_err_guars.length + this.err_guars.length === 0, "assertion `left == right` failed");
+        assert_eq(this.lint_err_guars.length + this.err_guars.length, 0, String);
         this.delayed_bugs = [];
       }
 
@@ -1451,7 +1462,7 @@ function DiagMessageAsStr(m: DiagMessage): string | undefined {
 DiagCtxtInner.prototype.panic_if_treat_err_as_bug = function (this: DiagCtxtInner): void {
   if (this.treat_err_as_bug()) {
     const n = unwrap(this.flags.treat_err_as_bug);
-    assert(n === this.err_guars.length + this.lint_err_guars.length, "assertion `left == right` failed");
+    assert_eq(n, this.err_guars.length + this.lint_err_guars.length, String);
     if (n === 1) {
       panic("aborting due to `-Z treat-err-as-bug=1`");
     } else {
@@ -1485,7 +1496,6 @@ DelayedDiagInner.prototype.decorate = function (this: DelayedDiagInner): DiagInn
   return diag;
 };
 
-
 // ---- Level / Sublevel ---------------------------------------------------------------------------
 
 /// | Level        | is_error | usable emit fns  | Top-level | Used in lints?
@@ -1499,6 +1509,13 @@ DelayedDiagInner.prototype.decorate = function (this: DelayedDiagInner): DiagInn
 /// | Help         | -        | emit             | don't use | -
 /// | FailureNote  | -        | emit             | rare      | -
 export type Level = Level_;
+
+/** `impl fmt::Display for Level` */
+// rustc: compiler/rustc_errors/src/lib.rs:1623 fmt
+export function display_Level(self: Level): string {
+  return Level.to_str(self);
+}
+
 export const Level = {
   ...LevelGen,
 
@@ -1534,10 +1551,9 @@ export const Level = {
   },
 };
 
-/** `impl fmt::Display for Level` */
-// rustc: compiler/rustc_errors/src/lib.rs:1623 fmt
-export function display_Level(self: Level): string {
-  return Level.to_str(self);
+/** `{:?}` of a `Level` inside assertion messages. */
+function debug_level(level: Level): string {
+  return debug_Level(level, PLAIN);
 }
 
 /** `#[derive(PartialEq)]` on `Level` (PORT: `LintExpectationId`s compare by identity). */
