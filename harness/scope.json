@@ -28,6 +28,8 @@
     "tinystr": "=0.8.4",
     "unic-langid-impl": "=0.9.6",
     "unic-langid": "=0.9.6",
-    "intl_pluralrules": "=7.0.2"
+    "intl_pluralrules": "=7.0.2",
+    "annotate-snippets": "=0.12.16",
+    "anstyle": "=1.0.13"
   }
 }
