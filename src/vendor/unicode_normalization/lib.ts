@@ -110,18 +110,22 @@ export const char = {
 export interface UnicodeNormalization<S, I extends CharIterator> {
   /// Returns an iterator over the string in Unicode Normalization Form D
   /// (canonical decomposition).
+  // crate: unicode-normalization-0.1.25/src/lib.rs:102 nfd
   nfd(self: S): Decompositions<I>;
 
   /// Returns an iterator over the string in Unicode Normalization Form KD
   /// (compatibility decomposition).
+  // crate: unicode-normalization-0.1.25/src/lib.rs:106 nfkd
   nfkd(self: S): Decompositions<I>;
 
   /// An Iterator over the string in Unicode Normalization Form C
   /// (canonical decomposition followed by canonical composition).
+  // crate: unicode-normalization-0.1.25/src/lib.rs:110 nfc
   nfc(self: S): Recompositions<I>;
 
   /// An Iterator over the string in Unicode Normalization Form KC
   /// (compatibility decomposition followed by canonical composition).
+  // crate: unicode-normalization-0.1.25/src/lib.rs:114 nfkc
   nfkc(self: S): Recompositions<I>;
 
   /// A transformation which replaces [CJK Compatibility Ideograph] codepoints
@@ -137,12 +141,14 @@ export interface UnicodeNormalization<S, I extends CharIterator> {
   ///
   /// [CJK Compatibility Ideograph]: https://www.unicode.org/glossary/#compatibility_ideograph
   /// [Standardized Variation Sequences]: https://www.unicode.org/glossary/#standardized_variation_sequence
+  // crate: unicode-normalization-0.1.25/src/lib.rs:129 cjk_compat_variants
   cjk_compat_variants(self: S): Replacements<I>;
 
   /// An Iterator over the string with Conjoining Grapheme Joiner characters
   /// inserted according to the Stream-Safe Text Process ([UAX15-D4]).
   ///
   /// [UAX15-D4]: https://www.unicode.org/reports/tr15/#UAX15-D4
+  // crate: unicode-normalization-0.1.25/src/lib.rs:135 stream_safe
   stream_safe(self: S): StreamSafe<I>;
 }
 

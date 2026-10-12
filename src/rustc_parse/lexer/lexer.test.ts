@@ -12,8 +12,8 @@
 // against the pinned nightly's rustc-dev (`rustc_parse::source_str_to_stream`, source in the
 // fixture's `_probe` field; `_how` says how it was run).
 //
-// Cases listed in PENDING reach code that is still an `unported(...)` shim (pprust-state:
-// `State`; the lexer-aux shims are replaced by the real modules). They
+// Cases listed in PENDING reach code that is still an `unported(...)` shim (none at present:
+// the lexer-aux and pprust-state shims are replaced by the real modules). They
 // must either throw that `Unported` or, once the dependency lands, match the oracle exactly; root
 // should then drop them from PENDING.
 import { expect, test } from "bun:test";
@@ -45,11 +45,7 @@ const oracle = JSON.parse(readFileSync(new URL("./lexer_oracle.json", import.met
 };
 
 /** Cases that hit a pending `unported(...)` dependency, with the shim each one reaches. */
-const PENDING: Record<string, string> = {
-  close_unexpected: "pending pprust-state", // pprust::token_to_string
-  missing_open: "pending pprust-state",
-  mismatched: "pending pprust-state", // pprust::token_kind_to_string
-};
+const PENDING: Record<string, string> = {};
 
 const EDITIONS: Record<string, Edition> = {
   "2015": "Edition2015",
