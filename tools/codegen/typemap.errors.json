@@ -108,7 +108,7 @@
         "Emitter"
       ],
       "debug": null,
-      "note": "PORT: Emitter interface declared in lib.ts until the emitter lane ports emitter.rs"
+      "note": "Emitter (abstract class, emitter.ts) re-exported by lib.ts"
     },
     {
       "paths": [
