@@ -77,20 +77,37 @@ rustc_span is 658/658. Total 1,196 / 25,517 fns.
 
 Compiler fns 1527/25517; vendor 1773/6132 (26 crates). Final gate: gate-20261012-211129-root-ws8a.
 
-## Wave 5 (started 2026-10-13) — lanes: emitter, codegen-diag, lint-defs, feature, ast-attr, harness-w5
-1. **emitter**: rustc_errors annotate_snippet_emitter_writer.rs + emitter.rs (replaces the `Emitter` stand-in in rustc_errors/lib.ts),
-   timings.rs; json.rs later. Uses annotate-b's contract.
-2. **codegen-diag**: `#[derive(Diagnostic/Subdiagnostic/LintDiagnostic)]` via tools/codegen, porting rustc_macros/src/diagnostics.
-3. **lint-defs**: rustc_lint_defs lib.rs + `declare_lint!` codegen for builtin.rs, replacing errors-core stand-ins.
-   `LintExpectationId` must compare by value (interned handle or canonical key), incl. `Level_eq` and `fulfilled_expectations`
-   (review w23b errors-core F2). rustc_feature tables.
-4. **ast-attr**: rustc_ast attr/mod.rs.
-5. **harness follow-up**: harness-w4b review LOW F2–F4; gate runs unit tests with `RUST_TS_REQUIRE_PROBES=1`; std `Result::unwrap`
-   panic text (harness-fluent INFO); w23b F10 marker order in rustc_error_messages/lib.ts.
+## Wave 5 (2026-10-13) — done
+| lane | scope | status |
+|---|---|---|
+| emitter | emitter.rs, annotate_snippet_emitter_writer.rs, timings.rs; vendor anstream/anstyle-parse/utf8parse/colorchoice/anstyle-query/termize | **merged** |
+| codegen-diag | `#[derive(Diagnostic/Subdiagnostic)]` codegen (token-checked vs real expansion, 394 impls); rustc_parse diagnostics generated | **merged** |
+| lint-defs | rustc_lint_defs lib + generated builtin lints (oracle `-W help`); LintExpectationId interned | **merged** |
+| feature | rustc_feature tables generated, oracle-checked | **merged** |
+| ast-attr | attr/mod.rs, rustc_ast_ir fns, single LitKind companion | **merged** |
+| harness-w5 | `emit` suite (1466 cases, emitdump probe linking upstream rustc_errors), difftest split fixes, gate requires probes, Result::unwrap text | **merged, protected**, reviewed x2 |
 
-## Queued (after wave 5, in order)
-1. rustc_session subset (parse.rs ParseSess + options the parser reads); the driver must call `dcx.inner.drop()`
-   where upstream drops the DiagCtxt (emits stashed diags, flushes delayed bugs).
-2. rustc_parse lexer (StringReader, tokentrees, unicode_chars, unescape_error_reporting), then the parser.
-3. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
+## Wave 6a (2026-10-13) — done
+| lane | scope | status |
+|---|---|---|
+| lexer | rustc_parse lexer/mod.rs, diagnostics.rs, tokentrees.rs (oracle token streams via rustc-dev) | **merged** |
+| lexer-aux | vendor unicode-normalization 0.1.25 (nfc probe), unicode_chars.rs, unescape_error_reporting.rs | **merged** |
+| session-parse | rustc_session parse.rs (ParseSess), diagnostics.rs (generated), utils.rs; Session stand-in | **merged** |
+| session-options | `options!` codegen (`-Z/-C help` byte-exact), options.rs parse fns, config.rs subset | **merged** |
+| pp / pprust-state / pprust-ei | rustc_ast_pretty complete (pp engine 715/715, State, expr/item; oracle fixtures via rustc-dev) | **merged** |
+
+Compiler fns 2284/25518; vendor 2172/6531. Final gate: gate-20261012-222820-root-ezdj (emit protected 1466).
+
+## Wave 6b (next)
+1. **parser** (rustc_parse/src/parser/*, ~25k lines incl. diagnostics.rs 3k, expr.rs 4.3k, item.rs 3k): split into chained lanes:
+   parser-core (mod.rs, token_type.rs, attr.rs, attr_wrapper.rs, nonterminal.rs), parser-path-ty-generics (path.rs, ty.rs, generics.rs),
+   parser-pat-stmt (pat.rs, stmt.rs), parser-expr (expr.rs, expr/diagnostics.rs), parser-item (item.rs, function.rs, asm.rs),
+   parser-diag (diagnostics.rs), then rustc_parse lib.rs + parser/tests.rs.
+2. **driver**: rustc_driver_impl/rustc_interface subset: CLI (getopts vendor) → Session (session.rs subset) → parse → `-Zunpretty=ast-tree`;
+   `drop_compiler_dcx` at upstream's drop point. Turns on the `parse` suite.
+3. **harness**: `tokens` suite (rustc-dev probe: lex_token_trees TokenStream Debug + diagnostics on tests/ui, library, compiler);
+   harness-w5-2 G1 bisect, gate F5 (skips), and a `pretty` suite (`-Zunpretty=normal`) once the parser lands.
+
+## Queued (later)
+1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
    `LoneSlash` escape coverage (raw-input mode, harness batch); hash std libs into the oracle key once suites compile against std.
