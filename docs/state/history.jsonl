@@ -8,3 +8,6 @@
 {"ts":"2026-10-12T04:24:15.294Z","kind":"decision","msg":"Single-field ids (LocalDefId, SyntaxContext, ...) are branded numbers with companion-const methods taking self first; Span/BytePos companions are hoisted functions to survive import cycles"}
 {"ts":"2026-10-12T04:41:09.862Z","kind":"decision","msg":"Ratified (review-w1 #5): skips of compact span formats, analyze_source_file SIMD paths, metadata SpanEncoder/SpanDecoder/BlobDecoder methods, Hash for RealFileName, profiling fns, HygieneEncodeContext + decode_expn_id/decode_syntax_context"}
 {"ts":"2026-10-12T04:41:09.906Z","kind":"decision","msg":"PORTING: methods from a later upstream impl block may live inside the TS class body (out of upstream order) when the class must declare them; the marker keeps the upstream line"}
+{"ts":"2026-10-12T10:57:08.725Z","kind":"note","msg":"span-wire merged; gate PASS gate-20261012-104747-root-9uvz (no protected-set change)"}
+{"ts":"2026-10-12T10:58:22.406Z","kind":"decision","msg":"Vendor bitflags =2.10.0 (rustc_ast). Codegen report default moved to $RUST_TS_DATA/codegen (was written into src/)."}
+{"ts":"2026-10-12T10:58:22.455Z","kind":"note","msg":"ast-types merged; gate PASS gate-20261012-105724-root-lfad"}

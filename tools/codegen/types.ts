@@ -17,7 +17,7 @@
 // output can be type-checked in isolation.
 //
 // Every unresolved type, missing Debug, manual Debug impl, unknown cfg and macro-generated type
-// is written to the report (default <out>/<set>.types-report.json) and summarised on stdout.
+// is written to the report (default $RUST_TS_DATA/codegen/<set>.types-report.json) and summarised on stdout.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
@@ -1205,14 +1205,15 @@ if (import.meta.main) {
   const probe: ProbeJson = jsonIn ? JSON.parse(readFileSync(jsonIn, "utf8")) : await runProbe(set.files);
   if (saveJson) writeFileSync(saveJson, JSON.stringify(probe, null, 1) + "\n");
   const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust.commit.slice(0, 12);
-  const { UPSTREAM } = await import("../../scripts/lib/common.ts");
+  const { UPSTREAM, DATA } = await import("../../scripts/lib/common.ts");
   const opts: GenOptions = { set: setName, out, srcRoot, pin, upstream: UPSTREAM };
   const res = generate(probe, set, tm, opts);
   for (const [f, c] of res.files) {
     mkdirSync(dirname(f), { recursive: true });
     writeFileSync(f, c);
   }
-  const rp = resolve(reportPath ?? join(out, `${setName}.types-report.json`));
+  const rp = resolve(reportPath ?? join(DATA, "codegen", `${setName}.types-report.json`));
+  mkdirSync(dirname(rp), { recursive: true });
   writeFileSync(rp, JSON.stringify(res.report, null, 2) + "\n");
   const r = res.report;
   const nTypes = r.files.reduce((a, f) => a + f.types, 0);
