@@ -1,0 +1,15 @@
+{
+  "//": [
+    "Type-map additions of lane ast-types, merged after typemap.json by tools/codegen/types.ts (loadTypeMap).",
+    "Root may fold these into typemap.json."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {
+    "src/rustc_span/def_id.ts": ["newtype_index"],
+    "src/vendor/bitflags/traits.ts": ["flags_companion"]
+  },
+  "types": [
+    { "paths": ["rustc_data_structures::fx::FxHashMap", "std::collections::HashMap", "HashMap"], "ts": "Map<$0, $1>", "import": "src/rust_ts/hash_map.ts", "values": ["debug_HashMap"], "debug": "debug_HashMap($v, $f, $d0, $d1)", "note": "PORT: Debug is exact for <= 1 entry; more entries need hashbrown iteration order (unported)" },
+    { "paths": ["rustc_index::bit_set::GrowableBitSet"], "ts": "Set<$0>", "debug": null, "note": "PORT: index bit set as Set<index>; BitSet Debug (sorted indices) not wired yet" }
+  ]
+}

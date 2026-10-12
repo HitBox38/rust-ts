@@ -6,11 +6,17 @@
     "hand: types whose definition is hand-written in the mirrored hand-port module; only re-exported (+ Debug if derived).",
     "discriminant: fieldless enums that also get `<Enum>_discriminant` without explicit discriminants.",
     "skip: types not generated at all (reported).",
-    "Names may be bare (`Token`) or module-qualified (`rustc_lexer::Token`)."
+    "Names may be bare (`Token`) or module-qualified (`rustc_lexer::Token`).",
+    "auto_class: structs with an inherent impl (with fns) anywhere in the set are emitted as class too."
   ],
   "rustc_lexer": {
-    "files": ["compiler/rustc_lexer/src/lib.rs"],
-    "class": ["rustc_lexer::Token", "rustc_lexer::Cursor"],
+    "files": [
+      "compiler/rustc_lexer/src/lib.rs"
+    ],
+    "class": [
+      "rustc_lexer::Token",
+      "rustc_lexer::Cursor"
+    ],
     "hand": [],
     "discriminant": [],
     "skip": []
@@ -46,6 +52,9 @@
     "class": [],
     "hand": [],
     "discriminant": [],
-    "skip": []
+    "skip": [
+      "rustc_ast::tokenstream::TokenStreamIter"
+    ],
+    "auto_class": true
   }
 }

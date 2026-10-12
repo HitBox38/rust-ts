@@ -18,8 +18,10 @@
 //
 // Every unresolved type, missing Debug, manual Debug impl, unknown cfg and macro-generated type
 // is written to the report (default <out>/<set>.types-report.json) and summarised on stdout.
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+
+import { type BitflagsType, debugFormatTemplate, evalFlagExpr, macroBody, type NewtypeIndex, parseBitflags, parseNewtypeIndex } from "./macros.ts";
 
 const HERE = import.meta.dir;
 export const REPO = resolve(HERE, "..", "..");
@@ -173,10 +175,26 @@ export interface SetConfig {
   hand: string[];
   discriminant: string[];
   skip: string[];
+  /** Structs with an inherent `impl` (with fns) anywhere in the set are emitted as `class` too. */
+  auto_class?: boolean;
 }
 
+/**
+ * `typemap.json` merged with every `typemap.<name>.json` next to it (in name order): types are
+ * appended (a later entry for the same path wins), helpers and cfg lists are merged.
+ */
 export function loadTypeMap(): TypeMap {
-  return JSON.parse(readFileSync(join(HERE, "typemap.json"), "utf8"));
+  const tm: TypeMap = JSON.parse(readFileSync(join(HERE, "typemap.json"), "utf8"));
+  for (const name of readdirSync(HERE).filter((n) => /^typemap\.[\w-]+\.json$/.test(n)).sort()) {
+    const extra: Partial<TypeMap> = JSON.parse(readFileSync(join(HERE, name), "utf8"));
+    tm.types.push(...(extra.types ?? []));
+    for (const [m, hs] of Object.entries(extra.helpers ?? {})) tm.helpers[m] = [...new Set([...(tm.helpers[m] ?? []), ...hs])];
+    if (extra.cfg) {
+      tm.cfg.true.push(...extra.cfg.true);
+      tm.cfg.false.push(...extra.cfg.false);
+    }
+  }
+  return tm;
 }
 export function loadSet(name: string): SetConfig {
   const sets = JSON.parse(readFileSync(join(HERE, "types.sets.json"), "utf8"));
@@ -214,6 +232,8 @@ interface ItemRef {
   mf: ModFile;
   mod: string[]; // full module path (file module + inline modules)
   key: string; // `mod::Name`
+  /** set for types produced by an item macro the generator expands (`newtype_index!`, `bitflags!`) */
+  mac?: { kind: "newtype"; at: string; def: NewtypeIndex } | { kind: "bitflags"; at: string; def: BitflagsType };
 }
 
 function fileModule(upstream: string): { crate: string; mod: string[]; rel: string } {
@@ -228,6 +248,10 @@ function fileModule(upstream: string): { crate: string; mod: string[]; rel: stri
 }
 
 const RESERVED = new Set(["Self"]);
+/** Names that cannot be (strict-mode) parameter names: PORTING §4 list plus `arguments`/`eval`. */
+const PARAM_RESERVED = new Set(
+  "default new delete this in function var class enum export import super switch case with yield void null typeof instanceof package interface private protected public static let const catch finally throw try do debugger arguments eval".split(" "),
+);
 const PRELUDE_ROOTS = new Set(["std", "core", "alloc"]);
 
 function unraw(s: string): string {
@@ -245,6 +269,8 @@ export interface GenOptions {
   out: string; // absolute dir standing for src/ (generated files)
   srcRoot: string; // absolute dir for non-generated imports
   pin?: string;
+  /** upstream checkout root (macro bodies of `newtype_index!` / `bitflags!` are read from it) */
+  upstream?: string;
 }
 
 export interface GenResult {
@@ -292,6 +318,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     if (cfgTrue.has(k)) return true;
     if (cfgFalse.has(k)) return false;
     push(report.unknown_cfg, k, at);
+    report.errors.push(`${at}: unknown cfg \`${k}\` (add it to the cfg truth table of the type map)`);
     return false;
   };
   /** Attributes in effect: cfg_attr expanded where its predicate holds. */
@@ -339,6 +366,50 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const imod = [...mod, ...item.module];
       const key = [...imod, item.name].join("::");
       items.set(key, { item, mf, mod: imod, key });
+    }
+  }
+  // item macros expanded here: `newtype_index!` (new types) and `bitflags!` (flags of a struct)
+  const srcCache = new Map<string, string>();
+  const upstreamSrc = (path: string): string => {
+    if (!opts.upstream) throw new Error("item macro bodies need the upstream checkout (opts.upstream)");
+    if (!srcCache.has(path)) srcCache.set(path, readFileSync(join(opts.upstream, path), "utf8"));
+    return srcCache.get(path)!;
+  };
+  const synth = (name: string, line: number): PItem => ({
+    kind: "struct",
+    name,
+    line,
+    vis: "pub",
+    module: [],
+    attrs: [],
+    generics: { params: [], where: [] },
+    fields: { style: "unit", fields: [] },
+  });
+  for (const mf of mfs) {
+    for (const m of mf.file.macros) {
+      const last = m.macro.split("::").pop();
+      if (m.kind !== "call" || (last !== "newtype_index" && last !== "bitflags")) continue;
+      const at = `${mf.file.path}:${m.line}`;
+      try {
+        const body = macroBody(upstreamSrc(mf.file.path), m.line);
+        if (body === undefined) throw new Error("cannot find the macro body");
+        if (last === "newtype_index") {
+          const def = parseNewtypeIndex(body);
+          const key = [...mf.mod, def.name].join("::");
+          items.set(key, { item: synth(def.name, m.line), mf, mod: mf.mod, key, mac: { kind: "newtype", at, def } });
+        } else {
+          for (const def of parseBitflags(body)) {
+            const key = [...mf.mod, def.name].join("::");
+            const existing = items.get(key);
+            if (def.form === "impl") {
+              if (!existing || existing.item.kind !== "struct") throw new Error(`bitflags impl for unknown struct ${def.name}`);
+              existing.mac = { kind: "bitflags", at, def };
+            } else items.set(key, { item: synth(def.name, m.line), mf, mod: mf.mod, key, mac: { kind: "bitflags", at, def } });
+          }
+        }
+      } catch (e) {
+        report.errors.push(`${at}: ${m.macro}!: ${(e as Error).message}`);
+      }
     }
   }
   const matches = (list: string[], r: ItemRef) => list.includes(r.item.name) || list.includes(r.key);
@@ -455,6 +526,20 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     }
   }
 
+  // `newtype_index!` always generates `impl Debug` (rustc_index_macros/src/newtype.rs)
+  for (const r of items.values()) if (r.mac?.kind === "newtype") deriveDebug.add(r.key);
+  // auto_class: structs with an inherent impl that has fns (PORTING §5 "Structs")
+  const autoClass = new Set<string>();
+  if (set.auto_class)
+    for (const mf of mfs)
+      for (const im of mf.file.impls) {
+        if (im.trait || im.fns.length === 0 || im.self_ty.kind !== "path") continue;
+        if (!enabled(im.attrs, `${mf.file.path}:${im.line}`)) continue;
+        const r = resolvePath(im.self_ty.path!, { mf, mod: [...mf.mod, ...im.module], params: new Set() });
+        if (r.k === "item" && r.ref.item.kind === "struct" && !r.ref.mac) autoClass.add(r.ref.key);
+      }
+  const isClass = (r: ItemRef) => !r.mac && (matches(set.class, r) || autoClass.has(r.key));
+
   // ---- per-file emission ----
   const files = new Map<string, string>();
   const stubs = new Map<string, Map<string, string>>();
@@ -476,6 +561,17 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     let fileTypes = 0;
     let fileDebug = 0;
 
+    /**
+     * Module an item of another file is imported from: always its hand-port module (which re-exports
+     * the generated one), never another `.gen.ts`. Then every `.gen.ts` is entered from its own hand
+     * module only, so hand modules may extend generated companions at module init (PORTING §8: enum
+     * methods live on the companion const) without hitting an ESM cycle in its temporal dead zone.
+     */
+    const viaHand = (r: ItemRef): string => {
+      if (r.mf === mf) return `gen:${r.mf.gen}`;
+      addStub(r.mf.hand, "*", `export * from "./${r.mf.gen.split("/").pop()}";`);
+      return `src:${r.mf.hand}`;
+    };
     /** The TS name of a generated item as seen from this file (imports it if needed). */
     const refName = (r: ItemRef): string => {
       if (r.mf === mf && r.mod.length === mf.mod.length) return r.item.name;
@@ -483,7 +579,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const taken = aliasOwner.get(alias);
       if (local.has(alias) || (taken !== undefined && taken !== r.key)) alias = `${r.mod[r.mod.length - 1]}_${r.item.name}`;
       aliasOwner.set(alias, r.key);
-      const target = matches(set.hand, r) ? `src:${r.mf.hand}` : `gen:${r.mf.gen}`;
+      const target = viaHand(r);
       imp(target, "types", r.item.name, alias);
       return alias;
     };
@@ -492,7 +588,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const name = `debug_${r.item.name}`;
       const alias = `debug_${tname}`;
       if (deriveDebug.has(r.key)) {
-        if (!(r.mf === mf && r.mod.length === mf.mod.length)) imp(`gen:${r.mf.gen}`, "values", name, alias);
+        if (!(r.mf === mf && r.mod.length === mf.mod.length)) imp(viaHand(r), "values", name, alias);
       } else if (manualDebug.has(r.key)) {
         imp(`src:${r.mf.hand}`, "values", name, alias);
         addStub(r.mf.hand, name, `export declare function ${name}(v: any, f: Fmt, ...d: Debug<any>[]): string;`);
@@ -711,7 +807,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     const liveFields = (fs: PFields, at: string) => fs.fields.filter((fl) => enabled(fl.attrs, `${at}:${fl.line}`));
 
     const body: string[] = [];
-    const itemList = [...items.values()].filter((r) => r.mf === mf);
+    const itemList = [...items.values()].filter((r) => r.mf === mf).sort((a, b) => a.item.line - b.item.line);
     for (const r of itemList) {
       const it = r.item;
       const at = `${mf.file.path}:${it.line}`;
@@ -745,6 +841,77 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const debugTail = gparams.length ? ";\n}" : ";";
       const selfType = `${name}${gparams.length ? `<${gparams.join(", ")}>` : ""}`;
 
+      if (r.mac?.kind === "newtype") {
+        // rustc_index_macros/src/newtype.rs: struct + module-level consts + `impl Debug`
+        const def = r.mac.def;
+        const attr = (n: string) => def.attrs.find((a) => a.name === n);
+        const fmtAttr = attr("debug_format");
+        const maxAttr = attr("max");
+        let template = "`${n}`";
+        let max: bigint | undefined;
+        try {
+          if (fmtAttr) template = debugFormatTemplate(fmtAttr.value ?? "");
+          if (maxAttr) {
+            max = parseIntLit(maxAttr.value ?? "");
+            if (max === undefined) throw new Error(`cannot evaluate #[max = ${maxAttr.value}]`);
+          }
+        } catch (e) {
+          report.errors.push(`${r.mac.at}: ${(e as Error).message}`);
+        }
+        body.push(...docLines(def.docs, ""));
+        body.push(`// PORT: \`newtype_index!\` (${r.mac.at}) -> branded number + \`newtype_index\` companion (PORTING §5).`);
+        body.push(`export type ${name} = number & { readonly __brand: "${name}" };`);
+        body.push(`export const ${name} = newtype_index<${name}>((n) => ${template}${max !== undefined ? `, 0x${max.toString(16)}` : ""});`);
+        body.push(`export const debug_${name}: Debug<${name}> = ${name}.debug;`);
+        fileDebug++;
+        for (const c of def.consts) {
+          const v = parseIntLit(c.expr);
+          if (v === undefined) report.errors.push(`${r.mac.at}: cannot evaluate const ${c.name} = ${c.expr}`);
+          body.push(...docLines(c.docs, ""));
+          body.push(`export const ${c.name}: ${name} = ${name}.from_u32(${v ?? "NaN"});`);
+        }
+        continue;
+      }
+      if (r.mac?.kind === "bitflags") {
+        // bitflags-2.10.0 `bitflags!`: a branded number; the flags and the `Flags` API on the companion
+        const def = r.mac.def;
+        const width = { u8: 8, u16: 16, u32: 32 }[def.bits];
+        const known = new Map<string, bigint>();
+        const flags: [string, string, string[]][] = [];
+        if (width === undefined) report.errors.push(`${r.mac.at}: bitflags over ${def.bits} not supported (number-backed flags are at most u32)`);
+        else
+          for (const c of def.flags) {
+            try {
+              const v = evalFlagExpr(c.expr, known, width);
+              known.set(c.name, v);
+              flags.push([c.name === "_" ? "" : c.name, `0x${v.toString(16)}`, c.docs]);
+            } catch (e) {
+              report.errors.push(`${r.mac.at}: ${(e as Error).message}`);
+            }
+          }
+        if (def.form === "struct") body.push(...docLines(def.docs, ""));
+        else body.push(...docLines(it.docs, ""));
+        body.push(`// PORT: \`bitflags!\` (${r.mac.at}, \`${def.form} ${name}: ${def.bits}\`) -> branded number; flags + \`Flags\` API on the companion.`);
+        body.push(`export type ${name} = number & { readonly __brand: "${name}" };`);
+        body.push(`export const ${name} = flags_companion<${name}, {`);
+        for (const [n] of flags) if (n) body.push(`  ${n}: ${name};`);
+        body.push(`}>(`);
+        body.push(`  ${width ?? 32},`);
+        body.push("  {");
+        for (const [n, v, docs] of flags) {
+          if (!n) continue;
+          body.push(...docLines(docs, "    "));
+          body.push(`    ${n}: ${v} as ${name},`);
+        }
+        body.push("  },");
+        body.push(`  [${flags.map(([n, v]) => `[${JSON.stringify(n)}, ${v} as ${name}]`).join(", ")}],`);
+        body.push(");");
+        if (def.form === "struct" && def.attrs.some((a) => /^derive\s*\(.*\bDebug\b/s.test(a.name)))
+          report.notes.push(`${r.key}: derive(Debug) inside bitflags! is not generated yet`);
+        if (hasDebug) report.errors.push(`${at}: derive(Debug) on a bitflags struct is not supported`);
+        continue;
+      }
+
       if (it.kind === "type") {
         body.push(...docLines(it.docs, ""));
         body.push(`export type ${name}${gdecl} = ${tsType(it.ty!, sc, at)};`);
@@ -758,9 +925,20 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         const live = liveFields(fs, mf.file.path);
         if (!matches(set.hand, r)) {
           body.push(...docLines(it.docs, ""));
-          if (matches(set.class, r)) {
+          if (isClass(r)) {
             body.push(`export class ${name}${gdecl} {`);
-            if (live.length) {
+            if (live.length && live.some((fl) => PARAM_RESERVED.has(fieldName(fl)))) {
+              // a field named like a JS reserved word cannot be a parameter property: declare the
+              // fields and take `<name>_` parameters (PORTING §4)
+              const pn = (fl: PField) => (PARAM_RESERVED.has(fieldName(fl)) ? `${fieldName(fl)}_` : fieldName(fl));
+              for (const fl of live) {
+                body.push(...docLines(fl.docs, "  "));
+                body.push(`  ${fieldName(fl)}: ${tsType(fl.ty, sc, at)};`);
+              }
+              body.push(`  constructor(${live.map((fl) => `${pn(fl)}: ${tsType(fl.ty, sc, at)}`).join(", ")}) {`);
+              for (const fl of live) body.push(`    this.${fieldName(fl)} = ${pn(fl)};`);
+              body.push("  }");
+            } else if (live.length) {
               body.push("  constructor(");
               for (const fl of live) {
                 body.push(...docLines(fl.docs, "    "));
@@ -908,6 +1086,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (/\bunported_discriminant\(/.test(text)) extra.push(`const unported_discriminant = (e: string): number => unported(\`discriminant \${e}\`);`);
       importLines.push(...extra);
     }
+    if (fileTypes === 0) {
+      report.notes.push(`${mf.file.path}: no types; ${mf.gen} not written`);
+      continue;
+    }
     files.set(outFile, [...header, ...importLines, text, ""].join("\n"));
     report.files.push({ upstream: mf.file.path, out: mf.gen, types: fileTypes, debug_fns: fileDebug });
   }
@@ -1023,7 +1205,8 @@ if (import.meta.main) {
   const probe: ProbeJson = jsonIn ? JSON.parse(readFileSync(jsonIn, "utf8")) : await runProbe(set.files);
   if (saveJson) writeFileSync(saveJson, JSON.stringify(probe, null, 1) + "\n");
   const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust.commit.slice(0, 12);
-  const opts: GenOptions = { set: setName, out, srcRoot, pin };
+  const { UPSTREAM } = await import("../../scripts/lib/common.ts");
+  const opts: GenOptions = { set: setName, out, srcRoot, pin, upstream: UPSTREAM };
   const res = generate(probe, set, tm, opts);
   for (const [f, c] of res.files) {
     mkdirSync(dirname(f), { recursive: true });
