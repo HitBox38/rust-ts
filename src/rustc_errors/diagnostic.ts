@@ -20,7 +20,7 @@ import { type ErrorGuaranteed, Span, type Spanned } from "../rustc_span/lib.ts";
 import { FatalError } from "../rustc_span/fatal_error.ts";
 import { ExplicitBug, type Location } from "../rustc_span/macros.ts";
 import { debug_option, PLAIN, type Debug, type Fmt } from "../std/fmt.ts";
-import { assert, panic, unported, unwrap } from "../std/panic.ts";
+import { assert, assert_eq, panic, panicking, unported, unwrap } from "../std/panic.ts";
 import { utf8_len } from "../std/str.ts";
 import type { ErrCode } from "./codes.ts";
 import { index_map_swap_remove } from "./decorate_diag.ts";
@@ -42,7 +42,7 @@ import {
   Subdiag,
   debug_DiagInner,
 } from "./diagnostic.gen.ts";
-import { debug_Level } from "./lib.gen.ts";
+import { debug_Level, Level as LevelC } from "./lib.gen.ts";
 import type { Applicability, CodeSuggestion, DiagCtxtHandle, Level, StashKey, Style, Sublevel, SuggestionStyle, Suggestions } from "./lib.ts";
 
 export * from "./diagnostic.gen.ts";
@@ -457,7 +457,9 @@ function clone_Suggestions(s: Suggestions): Suggestions {
 // PORT: hand-written (not generated): `Deref<Target = DiagInner>` becomes explicit `deref()` /
 // `deref_mut()` calls (field names such as `span`, `code`, `is_lint` clash with `Diag` methods);
 // the `with_fn!` `with_*` variants are methods returning `this`; JS has no destructors, so the
-// `Drop` bomb is the explicit `drop()` method (never run implicitly).
+// `Drop` bomb is the explicit `drop()` method. A `Diag` holding a `DiagInner` is recorded in its
+// `DiagCtxtInner.live_diags` (constructor) until the inner is taken (`forget_live`), and
+// `DiagCtxtInner.drop()` drops whatever is still recorded.
 export class Diag {
   constructor(
     public dcx: DiagCtxtHandle,
@@ -471,7 +473,20 @@ export class Diag {
     /// theory, return value optimization (RVO) should avoid unnecessary
     /// copying. In practice, it does not (at the time of writing).
     public diag: DiagInner | undefined,
-  ) {}
+  ) {
+    if (diag !== undefined) {
+      const inner = dcx.dcx.inner;
+      (inner.live_diags ??= new Set()).add(this);
+    }
+  }
+
+  /** PORT: no upstream counterpart. `self.diag.take()`: also leaves the drop-bomb registry. */
+  private take_inner(): DiagInner | undefined {
+    const diag = this.diag;
+    this.diag = undefined;
+    this.dcx.dcx.inner.live_diags?.delete(this);
+    return diag;
+  }
 
   // rustc: compiler/rustc_errors/src/diagnostic.rs:378 deref
   deref(): DiagInner {
@@ -491,8 +506,7 @@ export class Diag {
   /// Allow moving diagnostics between different error tainting contexts
   // rustc: compiler/rustc_errors/src/diagnostic.rs:445 with_dcx
   with_dcx(dcx: DiagCtxtHandle): Diag {
-    const diag = this.diag;
-    this.diag = undefined;
+    const diag = this.take_inner();
     return new Diag(dcx, diag);
   }
 
@@ -532,8 +546,7 @@ export class Diag {
 
     // Take is okay since we immediately rewrap it in another diagnostic.
     // i.e. we do emit it despite defusing the original diagnostic's drop bomb.
-    const diag = this.diag;
-    this.diag = undefined;
+    const diag = this.take_inner();
     return new Diag(this.dcx, diag);
   }
 
@@ -1131,9 +1144,7 @@ export class Diag {
       this.note(`the full name for the type has been written to '${path}'`);
       this.note("consider using `--verbose` to print the full type name to the console");
     }
-    const diag = unwrap(this.diag);
-    this.diag = undefined;
-    return diag;
+    return unwrap(this.take_inner());
   }
 
   /// This method allows us to access the path of the file where "long types" are written to.
@@ -1195,7 +1206,7 @@ export class Diag {
   /// Aborts if used on a non-`Bug` diagnostic.
   // rustc: compiler/rustc_errors/src/diagnostic.rs:1196 emit_bug
   emit_bug(): never {
-    assert(this.deref().level.$ === "Bug", "assertion `left == right` failed");
+    assert_eq(this.deref().level, LevelC.Bug, debug_level, level_eq_fieldless);
     this.emit();
     return panic("internal error: entered unreachable code"); // `emit` will have aborted
   }
@@ -1204,7 +1215,7 @@ export class Diag {
   /// suffices. Aborts if used on a non-`Fatal` diagnostic.
   // rustc: compiler/rustc_errors/src/diagnostic.rs:1205 emit_fatal
   emit_fatal(): never {
-    assert(this.deref().level.$ === "Fatal", "assertion `left == right` failed");
+    assert_eq(this.deref().level, LevelC.Fatal, debug_level, level_eq_fieldless);
     this.emit();
     return panic("internal error: entered unreachable code"); // `emit` will have aborted
   }
@@ -1244,16 +1255,23 @@ export class Diag {
   /// cancelled or it will panic when dropped).
   // rustc: compiler/rustc_errors/src/diagnostic.rs:1245 cancel
   cancel(): void {
-    this.diag = undefined;
+    this.take_inner();
     this.drop();
   }
 
   /// Cancels this diagnostic and returns its first message, if it exists.
   // rustc: compiler/rustc_errors/src/diagnostic.rs:1251 cancel_into_message
   cancel_into_message(): string | undefined {
-    if (this.diag === undefined) return undefined;
+    // PORT: each `?` early return drops `self` (the second one with `diag` still `Some`).
+    if (this.diag === undefined) {
+      this.drop();
+      return undefined;
+    }
     const first = this.diag.messages[0];
-    if (first === undefined) return undefined;
+    if (first === undefined) {
+      this.drop();
+      return undefined;
+    }
     const s = DiagMessageC.as_str(first[0]);
     this.cancel();
     return s;
@@ -1284,13 +1302,12 @@ export class Diag {
 
   /// Destructor bomb: every `Diag` must be consumed (emitted, cancelled, etc.)
   /// or we emit a bug.
-  // PORT: `impl Drop for Diag`; JS has no destructors, so this only runs when called explicitly
-  // (`cancel` does). `std::thread::panicking()` is always false here.
+  // PORT: `impl Drop for Diag`; JS has no destructors, so this runs when called explicitly
+  // (`cancel` does) and from `DiagCtxtInner.drop()` for every `Diag` still in `live_diags`.
   // rustc: compiler/rustc_errors/src/diagnostic.rs:1283 drop
   drop(): void {
-    const diag = this.diag;
-    this.diag = undefined;
-    if (diag !== undefined) {
+    const diag = this.take_inner();
+    if (diag !== undefined && !panicking()) {
       this.dcx.emit_diagnostic(
         DiagInner.new({ $: "Bug" }, DiagMessageC.from_str("the following error was constructed but not emitted")),
       );
@@ -1307,6 +1324,11 @@ export const debug_Diag: Debug<Diag> = (v: Diag, f: Fmt) => debug_option(v.diag,
 /** `{:?}` of a `Level` inside assertion messages (uses the generated Debug). */
 function debug_level(level: Level): string {
   return debug_Level(level, PLAIN);
+}
+
+/** `Level: PartialEq` against a fieldless variant (`Bug`, `Fatal`): only the variant matters. */
+function level_eq_fieldless(a: Level, b: Level): boolean {
+  return a.$ === b.$;
 }
 
 /** `struct_span_code_err!($dcx, $span, $code, $($message)*)` (PORT: the message is pre-formatted). */
