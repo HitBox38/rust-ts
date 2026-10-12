@@ -7,10 +7,10 @@
     "lex": 25780,
     "symbols": 10
   },
-  "updated": "2026-10-12T15:50:38.665Z",
+  "updated": "2026-10-12T15:55:18.346Z",
   "open_stops": [],
   "coverage": {
-    "ported": 7,
-    "total": 609
+    "ported": 751,
+    "total": 25517
   }
 }
