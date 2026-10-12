@@ -111,52 +111,14 @@ export * as timings from "./timings.ts";
 
 // ---- Stand-ins for crates that are not ported yet (PORT) ----------------------------------------
 
-/// Indicates the confidence in the correctness of a suggestion.
-// PORT: stand-in for `rustc_lint_defs::Applicability` (re-exported upstream by `pub use
-// rustc_lint_defs::Applicability`) until rustc_lint_defs is ported. Variants and derive(Debug) as upstream.
-export type Applicability = "MachineApplicable" | "MaybeIncorrect" | "HasPlaceholders" | "Unspecified";
-export const Applicability = {
-  MachineApplicable: "MachineApplicable",
-  MaybeIncorrect: "MaybeIncorrect",
-  HasPlaceholders: "HasPlaceholders",
-  Unspecified: "Unspecified",
-} as const;
-export const debug_Applicability: Debug<Applicability> = (v) => v;
-
-/** PORT: stand-in for `rustc_lint_defs::Lint` (only the `name` the errors crate reads). */
-export interface Lint {
-  readonly name: string;
-}
-/** PORT: stand-in for `rustc_lint_defs::LintId` (identity is the `&'static Lint`). */
-export interface LintId {
-  readonly lint: Lint;
-}
-export const LintId = {
-  /** `LintId::of` */
-  of(lint: Lint): LintId {
-    return { lint };
-  },
-};
-/** PORT: opaque stand-in for `rustc_lint_defs::LintExpectationId` (compared by identity). */
-export interface LintExpectationId {
-  readonly __lint_expectation_id: never;
-}
-/** PORT: stand-in for `rustc_lint_defs::Level` (the lint level), with its `is_error`. */
-export type LintLevel = "Allow" | "Expect" | "Warn" | "ForceWarn" | "Deny" | "Forbid";
-export function LintLevel_is_error(self: LintLevel): boolean {
-  switch (self) {
-    case "Allow":
-    case "Expect":
-    case "Warn":
-    case "ForceWarn":
-      return false;
-    case "Deny":
-    case "Forbid":
-      return true;
-  }
-}
-/** PORT: `rustc_lint_defs::builtin::RECURSION_DEPTH_EXCEEDING_LIMIT.name` (`declare_lint!` uses `stringify!($NAME)`). */
-const RECURSION_DEPTH_EXCEEDING_LIMIT_name = "RECURSION_DEPTH_EXCEEDING_LIMIT";
+// rustc_lint_defs: `use rustc_lint_defs::LintExpectationId; pub use rustc_lint_defs::{Applicability, listify,
+// pluralize};` and `rustc_lint_defs::{Level, builtin::RECURSION_DEPTH_EXCEEDING_LIMIT}` by path.
+// PORT: `Lint`, `LintId`, `LintExpectationId` and `LintLevel` (= `rustc_lint_defs::Level`) are also re-exported
+// here because decorate_diag.ts and the emitter port import them from this module.
+import { type LintExpectationId, Level as LintLevel, type Lint, LintId } from "../rustc_lint_defs/lib.ts";
+import { RECURSION_DEPTH_EXCEEDING_LIMIT } from "../rustc_lint_defs/builtin.ts";
+export { Applicability, debug_Applicability, listify, pluralize } from "../rustc_lint_defs/lib.ts";
+export { type Lint, LintId, type LintExpectationId, LintLevel };
 
 /** PORT: `std::thread::ThreadId`; rust-ts is single-threaded, so every id is the main thread's. */
 export type ThreadId = number;
@@ -846,7 +808,7 @@ export class DiagCtxtHandle {
     // of `loud` (which comes from "unused-externs" or
     // "unused-externs-silent"), also affects whether it's treated like a
     // hard error or not.
-    if (loud && LintLevel_is_error(lint_level)) {
+    if (loud && LintLevel.is_error(lint_level)) {
       // This `unchecked_error_guaranteed` is valid. It is where the
       // `ErrorGuaranteed` for unused_extern errors originates.
       const guar = ErrorGuaranteed.unchecked_error_guaranteed();
@@ -1236,7 +1198,7 @@ DiagCtxtInner.prototype.emit_diagnostic = function (
     const is_lint = diagnostic.is_lint !== undefined;
     // We only emit the first occurrence of `recursion_depth_exceeding_limit`.
     let silence_recursion_depth_exceeded_limit = false;
-    if (diagnostic.is_lint !== undefined && eq_ignore_ascii_case(diagnostic.is_lint.name, RECURSION_DEPTH_EXCEEDING_LIMIT_name)) {
+    if (diagnostic.is_lint !== undefined && eq_ignore_ascii_case(diagnostic.is_lint.name, RECURSION_DEPTH_EXCEEDING_LIMIT.name)) {
       silence_recursion_depth_exceeded_limit = this.emitted_recursion_depth_exceeding_limit;
       this.emitted_recursion_depth_exceeding_limit = true;
     }
@@ -1546,7 +1508,7 @@ function debug_level(level: Level): string {
   return debug_Level(level, PLAIN);
 }
 
-/** `#[derive(PartialEq)]` on `Level` (PORT: `LintExpectationId`s compare by identity). */
+/** `#[derive(PartialEq)]` on `Level` (`LintExpectationId`s are interned, so `===` compares them by value). */
 export function Level_eq(a: Level, b: Level): boolean {
   if (a.$ !== b.$) return false;
   if (a.$ !== "Warning") return true;
