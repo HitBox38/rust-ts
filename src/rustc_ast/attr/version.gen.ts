@@ -16,3 +16,6 @@ export const debug_RustcVersion: Debug<RustcVersion> = (v, f) =>
     ["minor", debug_int(v.minor, f)],
     ["patch", debug_int(v.patch, f)],
   ]);
+export function clone_RustcVersion(v: RustcVersion): RustcVersion {
+  return new RustcVersion(v.major, v.minor, v.patch);
+}

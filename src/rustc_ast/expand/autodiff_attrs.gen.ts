@@ -23,6 +23,9 @@ export type DiffMode =
   | "Reverse";
 export const DiffMode = { Error: "Error", Source: "Source", Forward: "Forward", Reverse: "Reverse" } as const;
 export const debug_DiffMode: Debug<DiffMode> = (v) => v;
+export function clone_DiffMode(v: DiffMode): DiffMode {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast/src/expand/autodiff_attrs.rs:46 DiffActivity
 /// Dual and Duplicated (and their Only variants) are getting lowered to the same Enzyme Activity.
@@ -92,3 +95,20 @@ export const debug_DiffActivity: Debug<DiffActivity> = (v, f) => {
       return v.$;
   }
 };
+export function clone_DiffActivity(v: DiffActivity): DiffActivity {
+  switch (v.$) {
+    case "FakeActivitySize":
+      return { $: "FakeActivitySize", _0: v._0 };
+    case "None":
+    case "Const":
+    case "Active":
+    case "ActiveOnly":
+    case "Dual":
+    case "Dualv":
+    case "DualOnly":
+    case "DualvOnly":
+    case "Duplicated":
+    case "DuplicatedOnly":
+      return v;
+  }
+}

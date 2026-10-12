@@ -15,6 +15,9 @@ export type Kind =
   | "Unknown";
 export const Kind = { Anything: "Anything", Integer: "Integer", Pointer: "Pointer", RustSlice: "RustSlice", Half: "Half", Float: "Float", Double: "Double", F128: "F128", Unknown: "Unknown" } as const;
 export const debug_Kind: Debug<Kind> = (v) => v;
+export function clone_Kind(v: Kind): Kind {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast/src/expand/typetree.rs:42 TypeTree
 export class TypeTree {
@@ -24,6 +27,9 @@ export class TypeTree {
 }
 export const debug_TypeTree: Debug<TypeTree> = (v, f) =>
   debug_tuple(f, "TypeTree", [debug_vec(v._0, f, debug_Type)]);
+export function clone_TypeTree(v: TypeTree): TypeTree {
+  return new TypeTree(v._0.map(clone_Type));
+}
 
 // rustc-type: compiler/rustc_ast/src/expand/typetree.rs:69 FncTree
 export interface FncTree {
@@ -35,6 +41,12 @@ export const debug_FncTree: Debug<FncTree> = (v, f) =>
     ["args", debug_vec(v.args, f, debug_TypeTree)],
     ["ret", debug_TypeTree(v.ret, f)],
   ]);
+export function clone_FncTree(v: FncTree): FncTree {
+  return {
+    args: v.args.map(clone_TypeTree),
+    ret: clone_TypeTree(v.ret),
+  };
+}
 
 // rustc-type: compiler/rustc_ast/src/expand/typetree.rs:75 Type
 export class Type {
@@ -52,3 +64,6 @@ export const debug_Type: Debug<Type> = (v, f) =>
     ["kind", debug_Kind(v.kind, f)],
     ["child", debug_TypeTree(v.child, f)],
   ]);
+export function clone_Type(v: Type): Type {
+  return new Type(v.offset, v.size, v.kind, clone_TypeTree(v.child));
+}

@@ -155,25 +155,6 @@ export const AssocOp = {
 export type ExprPrecedence = ExprPrecedenceT;
 export const ExprPrecedence = gen.ExprPrecedence;
 
-/// `#[derive(PartialOrd)]`: the variant order.
-export const ExprPrecedence_discriminant: Record<ExprPrecedence, number> = {
-  Jump: 0,
-  Assign: 1,
-  Range: 2,
-  LOr: 3,
-  LAnd: 4,
-  Compare: 5,
-  BitOr: 6,
-  BitXor: 7,
-  BitAnd: 8,
-  Shift: 9,
-  Sum: 10,
-  Product: 11,
-  Cast: 12,
-  Prefix: 13,
-  Unambiguous: 14,
-};
-
 /// In `let p = e`, operators with precedence `<=` this one requires parentheses in `e`.
 // rustc: compiler/rustc_ast/src/util/parser.rs:150 prec_let_scrutinee_needs_par
 export function prec_let_scrutinee_needs_par(): ExprPrecedence {
@@ -187,7 +168,8 @@ export function prec_let_scrutinee_needs_par(): ExprPrecedence {
 /// Can we print this as `let _ = a OP b`?
 // rustc: compiler/rustc_ast/src/util/parser.rs:159 needs_par_as_let_scrutinee
 export function needs_par_as_let_scrutinee(order: ExprPrecedence): boolean {
-  return ExprPrecedence_discriminant[order] <= ExprPrecedence_discriminant[prec_let_scrutinee_needs_par()];
+  // PORT: `#[derive(PartialOrd)]` compares the variants by discriminant (generated `ExprPrecedence_discriminant`).
+  return gen.ExprPrecedence_discriminant[order] <= gen.ExprPrecedence_discriminant[prec_let_scrutinee_needs_par()];
 }
 
 /// Expressions that syntactically contain an "exterior" struct literal i.e., not surrounded by any

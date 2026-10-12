@@ -20,6 +20,14 @@ export const debug_DocFragmentKind: Debug<DocFragmentKind> = (v, f) => {
       return debug_tuple(f, "Raw", [debug_Span(v._0, f)]);
   }
 };
+export function clone_DocFragmentKind(v: DocFragmentKind): DocFragmentKind {
+  switch (v.$) {
+    case "Sugared":
+      return { $: "Sugared", _0: v._0 };
+    case "Raw":
+      return { $: "Raw", _0: v._0 };
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:41 CommentKind
 export type CommentKind =
@@ -27,6 +35,9 @@ export type CommentKind =
   | "Block";
 export const CommentKind = { Line: "Line", Block: "Block" } as const;
 export const debug_CommentKind: Debug<CommentKind> = (v) => v;
+export function clone_CommentKind(v: CommentKind): CommentKind {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:47 InvisibleOrigin
 export type InvisibleOrigin =
@@ -44,6 +55,14 @@ export const debug_InvisibleOrigin: Debug<InvisibleOrigin> = (v, f) => {
       return v.$;
   }
 };
+export function clone_InvisibleOrigin(v: InvisibleOrigin): InvisibleOrigin {
+  switch (v.$) {
+    case "MetaVar":
+      return { $: "MetaVar", _0: clone_MetaVarKind(v._0) };
+    case "ProcMacro":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:70 MetaVarKind
 /// Annoyingly similar to `NonterminalKind`, but the slight differences are important.
@@ -106,6 +125,29 @@ export const debug_MetaVarKind: Debug<MetaVarKind> = (v, f) => {
       return v.$;
   }
 };
+export function clone_MetaVarKind(v: MetaVarKind): MetaVarKind {
+  switch (v.$) {
+    case "Pat":
+      return { $: "Pat", _0: clone_NtPatKind(v._0) };
+    case "Expr":
+      return { $: "Expr", kind: clone_NtExprKind(v.kind), can_begin_literal_maybe_minus: v.can_begin_literal_maybe_minus, can_begin_string_literal: v.can_begin_string_literal };
+    case "Ty":
+      return { $: "Ty", is_path: v.is_path };
+    case "Meta":
+      return { $: "Meta", has_meta_form: v.has_meta_form };
+    case "Item":
+    case "Block":
+    case "Stmt":
+    case "Ident":
+    case "Lifetime":
+    case "Literal":
+    case "Path":
+    case "Vis":
+    case "Guard":
+    case "TT":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:126 Delimiter
 /// Describes how a sequence of token trees is delimited.
@@ -140,6 +182,16 @@ export const debug_Delimiter: Debug<Delimiter> = (v, f) => {
       return v.$;
   }
 };
+export function clone_Delimiter(v: Delimiter): Delimiter {
+  switch (v.$) {
+    case "Invisible":
+      return { $: "Invisible", _0: clone_InvisibleOrigin(v._0) };
+    case "Parenthesis":
+    case "Brace":
+    case "Bracket":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:189 LitKind
 export type LitKind =
@@ -187,6 +239,27 @@ export const debug_LitKind: Debug<LitKind> = (v, f) => {
       return v.$;
   }
 };
+export function clone_LitKind(v: LitKind): LitKind {
+  switch (v.$) {
+    case "StrRaw":
+      return { $: "StrRaw", _0: v._0 };
+    case "ByteStrRaw":
+      return { $: "ByteStrRaw", _0: v._0 };
+    case "CStrRaw":
+      return { $: "CStrRaw", _0: v._0 };
+    case "Err":
+      return { $: "Err", _0: v._0 };
+    case "Bool":
+    case "Byte":
+    case "Char":
+    case "Integer":
+    case "Float":
+    case "Str":
+    case "ByteStr":
+    case "CStr":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:206 Lit
 /// A literal token.
@@ -203,6 +276,9 @@ export const debug_Lit: Debug<Lit> = (v, f) =>
     ["symbol", debug_Symbol(v.symbol, f)],
     ["suffix", debug_option(v.suffix, f, debug_Symbol)],
   ]);
+export function clone_Lit(v: Lit): Lit {
+  return new Lit(clone_LitKind(v.kind), v.symbol, v.suffix);
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:362 IdentKind
 export type IdentKind =
@@ -211,6 +287,9 @@ export type IdentKind =
   | "ForcedKeyword";
 export const IdentKind = { Normal: "Normal", Raw: "Raw", ForcedKeyword: "ForcedKeyword" } as const;
 export const debug_IdentKind: Debug<IdentKind> = (v) => v;
+export function clone_IdentKind(v: IdentKind): IdentKind {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:387 TokenKind
 export type TokenKind =
@@ -463,6 +542,81 @@ export const debug_TokenKind: Debug<TokenKind> = (v, f) => {
       return v.$;
   }
 };
+export function clone_TokenKind(v: TokenKind): TokenKind {
+  switch (v.$) {
+    case "OpenInvisible":
+      return { $: "OpenInvisible", _0: clone_InvisibleOrigin(v._0) };
+    case "CloseInvisible":
+      return { $: "CloseInvisible", _0: clone_InvisibleOrigin(v._0) };
+    case "Literal":
+      return { $: "Literal", _0: clone_Lit(v._0) };
+    case "Ident":
+      return { $: "Ident", _0: v._0, _1: v._1 };
+    case "NtIdent":
+      return { $: "NtIdent", _0: v._0, _1: v._1 };
+    case "Lifetime":
+      return { $: "Lifetime", _0: v._0, _1: v._1 };
+    case "NtLifetime":
+      return { $: "NtLifetime", _0: v._0, _1: v._1 };
+    case "DocComment":
+      return { $: "DocComment", _0: v._0, _1: v._1, _2: v._2 };
+    case "Eq":
+    case "Lt":
+    case "Le":
+    case "EqEq":
+    case "Ne":
+    case "Ge":
+    case "Gt":
+    case "AndAnd":
+    case "OrOr":
+    case "Bang":
+    case "Tilde":
+    case "Plus":
+    case "Minus":
+    case "Star":
+    case "Slash":
+    case "Percent":
+    case "Caret":
+    case "And":
+    case "Or":
+    case "Shl":
+    case "Shr":
+    case "PlusEq":
+    case "MinusEq":
+    case "StarEq":
+    case "SlashEq":
+    case "PercentEq":
+    case "CaretEq":
+    case "AndEq":
+    case "OrEq":
+    case "ShlEq":
+    case "ShrEq":
+    case "At":
+    case "Dot":
+    case "DotDot":
+    case "DotDotDot":
+    case "DotDotEq":
+    case "Comma":
+    case "Semi":
+    case "Colon":
+    case "PathSep":
+    case "RArrow":
+    case "LArrow":
+    case "FatArrow":
+    case "Pound":
+    case "Dollar":
+    case "Question":
+    case "SingleQuote":
+    case "OpenParen":
+    case "CloseParen":
+    case "OpenBrace":
+    case "CloseBrace":
+    case "OpenBracket":
+    case "CloseBracket":
+    case "Eof":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:537 Token
 export class Token {
@@ -476,6 +630,9 @@ export const debug_Token: Debug<Token> = (v, f) =>
     ["kind", debug_TokenKind(v.kind, f)],
     ["span", debug_Span(v.span, f)],
   ]);
+export function clone_Token(v: Token): Token {
+  return new Token(clone_TokenKind(v.kind), v.span);
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:1119 NtPatKind
 export type NtPatKind =
@@ -495,6 +652,14 @@ export const debug_NtPatKind: Debug<NtPatKind> = (v, f) => {
       return v.$;
   }
 };
+export function clone_NtPatKind(v: NtPatKind): NtPatKind {
+  switch (v.$) {
+    case "PatParam":
+      return { $: "PatParam", inferred: v.inferred };
+    case "PatWithOr":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:1129 NtExprKind
 export type NtExprKind =
@@ -514,6 +679,14 @@ export const debug_NtExprKind: Debug<NtExprKind> = (v, f) => {
       return v.$;
   }
 };
+export function clone_NtExprKind(v: NtExprKind): NtExprKind {
+  switch (v.$) {
+    case "Expr2021":
+      return { $: "Expr2021", inferred: v.inferred };
+    case "Expr":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/token.rs:1141 NonterminalKind
 /// A macro nonterminal, known in documentation as a fragment specifier.
@@ -568,3 +741,24 @@ export const debug_NonterminalKind: Debug<NonterminalKind> = (v, f) => {
       return v.$;
   }
 };
+export function clone_NonterminalKind(v: NonterminalKind): NonterminalKind {
+  switch (v.$) {
+    case "Pat":
+      return { $: "Pat", _0: clone_NtPatKind(v._0) };
+    case "Expr":
+      return { $: "Expr", _0: clone_NtExprKind(v._0) };
+    case "Item":
+    case "Block":
+    case "Stmt":
+    case "Ty":
+    case "Ident":
+    case "Lifetime":
+    case "Literal":
+    case "Meta":
+    case "Path":
+    case "Vis":
+    case "Guard":
+    case "TT":
+      return v;
+  }
+}

@@ -7,7 +7,10 @@
     "discriminant: fieldless enums that also get `<Enum>_discriminant` without explicit discriminants.",
     "skip: types not generated at all (reported).",
     "Names may be bare (`Token`) or module-qualified (`rustc_lexer::Token`).",
-    "auto_class: structs with an inherent impl (with fns) anywhere in the set are emitted as class too."
+    "auto_class: structs with an inherent impl (with fns) anywhere in the set are emitted as class too.",
+    "skip_notes: reason per skip entry; required for entries that name no item the probe sees (e.g. types defined inside macro_rules!).",
+    "derive_clone: emit clone_<T> for #[derive(Clone)] types (Copy types: identity; manual impl Clone: hand clone_<T>).",
+    "derive(Walkable) types of a crate get <crate>/walkable.gen.ts and <crate>/mut_walkable.gen.ts (always)."
   ],
   "rustc_lexer": {
     "files": [
@@ -53,9 +56,14 @@
     "hand": [],
     "discriminant": [],
     "skip": [
-      "rustc_ast::tokenstream::TokenStreamIter"
+      "rustc_ast::tokenstream::TokenStreamIter",
+      "rustc_ast::visit::FnKind"
     ],
-    "auto_class": true
+    "skip_notes": {
+      "rustc_ast::visit::FnKind": "defined inside macro_rules! common_visitor_and_walkers (visit.rs), which the probe does not expand; hand-written in visit.ts / mut_visit.ts (one per expansion)"
+    },
+    "auto_class": true,
+    "derive_clone": true
   },
   "rustc_errors": {
     "files": [

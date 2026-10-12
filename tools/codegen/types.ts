@@ -1,4 +1,7 @@
-// Type-definition generator (PORTING.md §5): upstream structs/enums/aliases -> TS types + derive(Debug).
+// Type-definition generator (PORTING.md §5): upstream structs/enums/aliases -> TS types + derive(Debug),
+// derive(Clone) (`clone_<T>`, sets with `derive_clone`), `<Enum>_discriminant` (explicit discriminants or
+// derive(PartialOrd/Ord)), and derive(Walkable) (`<crate>/walkable.gen.ts` + `<crate>/mut_walkable.gen.ts`,
+// the `Walkable::walk_ref` / `MutWalkable::walk_mut` tables that visit.ts / mut_visit.ts spread in).
 //
 //   bun tools/codegen/types.ts <set> [--out <dir>] [--src-root <dir>] [--json <probe.json>]
 //                                    [--report <file>] [--stubs] [--save-json <file>]
@@ -162,6 +165,8 @@ export interface TypeMapEntry {
   values?: string[];
   option?: boolean;
   nullable?: boolean;
+  /** derive(Clone): "copy" | "share" | "transparent" | "option" | template (`$v`, `$c0`..); null = none */
+  clone?: string | null;
   note?: string;
 }
 export interface TypeMap {
@@ -177,6 +182,10 @@ export interface SetConfig {
   skip: string[];
   /** Structs with an inherent `impl` (with fns) anywhere in the set are emitted as `class` too. */
   auto_class?: boolean;
+  /** Emit `clone_<T>` for `#[derive(Clone)]` types (and use hand `clone_<T>` for manual `impl Clone`). */
+  derive_clone?: boolean;
+  /** Why a `skip` entry is skipped (reported); entries for types the probe cannot see need one. */
+  skip_notes?: Record<string, string>;
 }
 
 /**
@@ -207,10 +216,12 @@ export function loadSet(name: string): SetConfig {
 
 export interface Report {
   set: string;
-  files: { upstream: string; out: string; types: number; debug_fns: number }[];
+  files: { upstream: string; out: string; types: number; debug_fns: number; clone_fns: number; walkable: number }[];
   unknown_types: Record<string, string[]>;
   missing_debug: Record<string, string[]>;
   manual_debug: { type: string; impl_at: string; defined_at: string; provide_in: string; generic_params: string[] }[];
+  missing_clone: Record<string, string[]>;
+  manual_clone: { type: string; impl_at: string; defined_at: string; provide_in: string; generic_params: string[] }[];
   unknown_cfg: Record<string, string[]>;
   macro_types: { at: string; macro: string; types: string[]; debug_formats: string[] }[];
   notes: string[];
@@ -297,6 +308,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     unknown_types: {},
     missing_debug: {},
     manual_debug: [],
+    missing_clone: {},
+    manual_clone: [],
     unknown_cfg: {},
     macro_types: [],
     notes: [],
@@ -495,6 +508,18 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   const typeArgs = (p: PPath): PType[] =>
     p.segments[p.segments.length - 1]!.args.filter((a) => a.kind === "type").map((a) => a.ty!);
   const tsParams = (it: PItem) => it.generics.params.filter((g) => g.kind === "type");
+  /** Scope of a type alias' definition with its parameters bound to `args` (or their defaults). */
+  const aliasScope = (ref: ItemRef, args: PType[], sc: Scope): Scope => {
+    const subst = new Map<string, { ty: PType; scope: Scope }>();
+    tsParams(ref.item).forEach((p, i) => {
+      const a = args[i] ?? p.default ?? undefined;
+      if (a) subst.set(p.name, { ty: a, scope: sc });
+    });
+    return { ...itemScope(ref), subst };
+  };
+  const fieldlessEnum = (r: ItemRef) =>
+    r.item.kind === "enum" &&
+    r.item.variants!.filter((v) => enabled(v.attrs, `${r.mf.file.path}:${v.line}`)).every((v) => v.fields.style === "unit");
 
   // Debug availability
   const deriveDebug = new Set<string>();
@@ -526,6 +551,46 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     }
   }
 
+  // derive(Clone) / derive(PartialOrd, Ord) / derive(Walkable); manual `impl Clone`
+  const hasDerive = (r: ItemRef, name: string) =>
+    derives(r.item.attrs, `${r.mf.file.path}:${r.item.line}`).some((d) => d === name || d.endsWith(`::${name}`));
+  const deriveClone = new Set<string>();
+  const deriveOrd = new Set<string>();
+  const deriveWalkable: ItemRef[] = [];
+  for (const r of items.values()) {
+    if (hasDerive(r, "Clone")) deriveClone.add(r.key);
+    if (hasDerive(r, "PartialOrd") || hasDerive(r, "Ord")) deriveOrd.add(r.key);
+    if (hasDerive(r, "Walkable")) deriveWalkable.push(r);
+  }
+  const manualClone = new Map<string, ItemRef>();
+  if (set.derive_clone)
+    for (const mf of mfs)
+      for (const im of mf.file.impls) {
+        if (!im.trait || !(im.trait === "Clone" || im.trait.endsWith("::Clone"))) continue;
+        const at = `${mf.file.path}:${im.line}`;
+        if (!enabled(im.attrs, at) || im.self_ty.kind !== "path") continue;
+        const r = resolvePath(im.self_ty.path!, { mf, mod: [...mf.mod, ...im.module], params: new Set() });
+        if (r.k === "item") {
+          manualClone.set(r.ref.key, r.ref);
+          report.manual_clone.push({
+            type: r.ref.key,
+            impl_at: at,
+            defined_at: `${r.ref.mf.file.path}:${r.ref.item.line}`,
+            provide_in: `src/${r.ref.mf.hand}`,
+            generic_params: tsParams(r.ref.item).map((g) => g.name),
+          });
+        } else report.notes.push(`manual Clone impl for non-generated type ${im.self_ty.text} at ${at}`);
+      }
+  // skip entries naming no item of the set (e.g. a type defined inside a `macro_rules!`)
+  for (const k of set.skip) {
+    if ([...items.values()].some((r) => matches([k], r))) continue;
+    const name = k.split("::").pop()!;
+    const inMacro = mfs.flatMap((mf) => mf.file.macros.filter((m) => m.kind === "macro_rules" && m.types.includes(name)).map((m) => `${mf.file.path}:${m.line} macro_rules! ${m.name}`));
+    const why = set.skip_notes?.[k];
+    if (!why) report.errors.push(`skip entry ${k} matches no item of the set${inMacro.length ? ` (named inside ${inMacro.join(", ")})` : ""}; add a skip_notes reason`);
+    else report.notes.push(`${k}: skipped by config, not an item the probe sees${inMacro.length ? ` (inside ${inMacro.join(", ")})` : ""}: ${why}`);
+  }
+
   // `newtype_index!` always generates `impl Debug` (rustc_index_macros/src/newtype.rs)
   for (const r of items.values()) if (r.mac?.kind === "newtype") deriveDebug.add(r.key);
   // auto_class: structs with an inherent impl that has fns (PORTING §5 "Structs")
@@ -548,7 +613,18 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     stubs.get(mod)!.set(name, decl);
   };
 
-  for (const mf of mfs) {
+  // `#[derive(Walkable)]` impls go into one generated module per crate and visitor (they implement
+  // `crate::visit::Walkable` / `crate::mut_visit::MutWalkable`, see visit.ts / mut_visit.ts).
+  const walkMfs: (ModFile & { walk: "ref" | "mut" })[] = [];
+  for (const crate of [...new Set(deriveWalkable.map((r) => r.mf.crate))])
+    for (const walk of ["ref", "mut"] as const) {
+      const file: PFile = { path: `compiler/${crate}/src/visit.rs`, attrs: [], items: [], uses: [], impls: [], macros: [], mods: [] };
+      const base = walk === "ref" ? "visit" : "mut_visit";
+      walkMfs.push({ file, crate, mod: [crate, base], gen: `${crate}/${walk === "ref" ? "walkable" : "mut_walkable"}.gen.ts`, hand: `${crate}/${base}.ts`, walk });
+    }
+
+  for (const mf of [...mfs, ...walkMfs]) {
+    const walk = (mf as { walk?: "ref" | "mut" }).walk;
     const outFile = join(opts.out, mf.gen);
     const local = new Set(mf.file.items.map((i) => i.name));
     // module specifier -> { types, values } ; key: "gen:<out-rel>" or "src:<src-rel>"
@@ -560,6 +636,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     };
     let fileTypes = 0;
     let fileDebug = 0;
+    let fileClone = 0;
+    let fileWalk = 0;
 
     /**
      * Module an item of another file is imported from: always its hand-port module (which re-exports
@@ -796,6 +874,303 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       }
     };
 
+    // ---- derive(Clone) ----
+    /** `clone_<T>` of a generated item as seen from this file (imported if needed). */
+    const cloneName = (r: ItemRef, at: string): string => {
+      const tname = refName(r);
+      const name = `clone_${r.item.name}`;
+      const alias = `clone_${tname}`;
+      if (deriveClone.has(r.key) && !matches(set.hand, r)) {
+        if (!(r.mf === mf && r.mod.length === mf.mod.length)) imp(viaHand(r), "values", name, alias);
+      } else {
+        if (!manualClone.has(r.key)) push(report.missing_clone, r.key, at);
+        imp(`src:${r.mf.hand}`, "values", name, alias);
+        addStub(r.mf.hand, name, `export declare function ${name}(v: any, ...c: ((v: any) => any)[]): any;`);
+      }
+      return alias;
+    };
+    /** Clone is the identity: value-like TS representations (numbers, strings, interned handles), Rc/Arc, refs. */
+    const isCopy = (ty: PType, sc: Scope): boolean => {
+      switch (ty.kind) {
+        case "path": {
+          if (ty.qself) return false;
+          const r = resolvePath(ty.path!, sc);
+          const args = typeArgs(ty.path!);
+          if (r.k === "param") {
+            const s = sc.subst?.get(r.name);
+            return s ? isCopy(s.ty, s.scope) : false;
+          }
+          if (r.k === "item") {
+            if (r.ref.item.kind === "type") return isCopy(r.ref.item.ty!, aliasScope(r.ref, args, sc));
+            // PORT: branded numbers and string-literal enums are values. Copy *objects* (`Lifetime`,
+            // `FnHeader`, ...) are copied structurally: generated `MutWalkable` impls edit them in place.
+            if (r.ref.mac) return true;
+            return fieldlessEnum(r.ref) && !matches(set.hand, r.ref);
+          }
+          const e = tmLookup(r.keys);
+          if (!e) return false;
+          if (e.clone === "copy" || e.clone === "share") return true;
+          if (e.clone === "transparent" || e.clone === "option") return args[0] ? isCopy(args[0], sc) : false;
+          return false;
+        }
+        case "ref":
+        case "ptr":
+        case "never":
+          return true;
+        case "tuple":
+          return ty.elems!.every((e) => isCopy(e, sc));
+        default:
+          return false;
+      }
+    };
+    const IDENT_FN = "(x) => x";
+    /** Clone fn expression (`(v: T) => T`) for a type. */
+    const clFn = (ty: PType, sc: Scope, at: string): string => {
+      if (isCopy(ty, sc)) return IDENT_FN;
+      if (ty.kind === "path" && !ty.qself) {
+        const r = resolvePath(ty.path!, sc);
+        if (r.k === "param" && !sc.subst?.has(r.name)) return `clone_${r.name}`;
+        if (r.k === "item" && r.ref.item.kind !== "type" && tsParams(r.ref.item).length === 0) return cloneName(r.ref, at);
+      }
+      return `(x) => ${cl(ty, "x", sc, at)}`;
+    };
+    /** Clone expression for value `v` of type `ty`. */
+    const cl = (ty: PType, v: string, sc: Scope, at: string): string => {
+      if (isCopy(ty, sc)) return v;
+      switch (ty.kind) {
+        case "path": {
+          if (ty.qself) {
+            push(report.missing_clone, ty.text, at);
+            return `unported_clone(${v})`;
+          }
+          const r = resolvePath(ty.path!, sc);
+          const args = typeArgs(ty.path!);
+          if (r.k === "param") {
+            const s = sc.subst?.get(r.name);
+            return s ? cl(s.ty, v, s.scope, at) : `clone_${r.name}(${v})`;
+          }
+          if (r.k === "item") {
+            const it = r.ref.item;
+            if (it.kind === "type") return cl(it.ty!, v, aliasScope(r.ref, args, sc), at);
+            const fn = cloneName(r.ref, at);
+            const cfns = tsParams(it).map((p, i) => {
+              const a = args[i];
+              if (a) return clFn(a, sc, at);
+              if (p.default) return clFn(p.default, itemScope(r.ref), at);
+              report.errors.push(`${at}: missing type argument ${p.name} for ${r.ref.key}`);
+              return "unported_clone";
+            });
+            return cfns.length ? `${fn}(${v}, ${cfns.join(", ")})` : `${fn}(${v})`;
+          }
+          const e = tmLookup(r.keys);
+          if (!e || e.clone == null) {
+            push(report.missing_clone, e ? `${r.display} (${e.note ?? "no Clone in typemap"})` : r.display, at);
+            return `unported_clone(${v})`;
+          }
+          useEntry(e, false);
+          if (e.clone === "transparent") return cl(args[0]!, v, sc, at);
+          if (e.clone === "option") {
+            if (nullable(args[0]!, sc)) return `(${v} === undefined ? undefined : { $: "Some" as const, _0: ${cl(args[0]!, `${v}._0`, sc, at)} })`;
+            return `(${v} === undefined ? undefined : ${cl(args[0]!, v, sc, at)})`;
+          }
+          let out = e.clone.replaceAll("$v", v);
+          for (const n of new Set(e.clone.match(/\$c\d/g) ?? [])) {
+            const fn = clFn(args[Number(n.slice(2))]!, sc, at);
+            if (fn === IDENT_FN) out = stripCalls(out, n).replaceAll(`.map(${n})`, ".slice()");
+            out = out.replaceAll(`${n}(`, `${fn.startsWith("(x)") ? `(${fn})` : fn}(`).replaceAll(n, fn);
+          }
+          return out;
+        }
+        case "tuple":
+          return `[${ty.elems!.map((e, i) => cl(e, `${v}[${i}]`, sc, at)).join(", ")}] as ${tsType(ty, sc, at)}`;
+        case "slice":
+        case "array": {
+          const fn = clFn(ty.elem!, sc, at);
+          return fn === IDENT_FN ? `${v}.slice()` : `${v}.map(${fn})`;
+        }
+        default:
+          push(report.missing_clone, `${ty.kind}: ${ty.text}`, at);
+          return `unported_clone(${v})`;
+      }
+    };
+
+    // ---- derive(Walkable) (rustc_macros/src/visitable.rs) ----
+    type WalkShape = { k: "key"; key: string } | { k: "generic"; impl: string; arg: PType; sc: Scope } | { k: "tuple"; elems: PType[]; sc: Scope };
+    /** `Visitable::<impl>` key text of a type as written upstream: last path segments, no lifetimes. */
+    const renderKey = (ty: PType): string => {
+      switch (ty.kind) {
+        case "path": {
+          const segs = ty.path!.segments;
+          const last = segs[segs.length - 1]!;
+          const args = last.args.filter((a) => a.kind === "type").map((a) => renderKey(a.ty!));
+          return `${unraw(last.name)}${args.length ? `<${args.join(", ")}>` : ""}`;
+        }
+        case "tuple":
+          return `(${ty.elems!.map(renderKey).join(", ")})`;
+        case "slice":
+          return `[${renderKey(ty.elem!)}]`;
+        case "ref":
+          return renderKey(ty.elem!);
+        default:
+          return ty.text;
+      }
+    };
+    const walkShape = (ty: PType, sc: Scope, at: string): WalkShape => {
+      switch (ty.kind) {
+        case "ref":
+          return walkShape(ty.elem!, sc, at);
+        case "slice":
+          return { k: "generic", impl: "[T]", arg: ty.elem!, sc };
+        case "tuple":
+          if (ty.elems!.length >= 2 && ty.elems!.length <= 4) return { k: "tuple", elems: ty.elems!, sc };
+          return { k: "key", key: renderKey(ty) };
+        case "path": {
+          if (ty.qself) break;
+          const r = resolvePath(ty.path!, sc);
+          const args = typeArgs(ty.path!);
+          if (r.k === "param") {
+            report.errors.push(`${at}: derive(Walkable) over a type parameter is not supported`);
+            break;
+          }
+          if (r.k === "item") {
+            const it = r.ref.item;
+            // a type alias of a std/external type (`AttrVec`, `GenericBounds`, `BinOp`) is that type
+            if (it.kind === "type" && !(it.ty!.kind === "path" && resolvePath(it.ty!.path!, itemScope(r.ref)).k === "item"))
+              return walkShape(it.ty!, aliasScope(r.ref, args, sc), at);
+            return { k: "key", key: renderKey(ty) };
+          }
+          const last = r.display.split("::").pop()!;
+          if (last === "Box" || last === "P") return walkShape(args[0]!, sc, at);
+          if (last === "Option" || last === "Vec" || last === "Spanned") return { k: "generic", impl: last, arg: args[0]!, sc };
+          return { k: "key", key: renderKey(ty) };
+        }
+      }
+      unknown(`derive(Walkable) field: ${ty.text}`, at);
+      return { k: "key", key: ty.text };
+    };
+    const keyExpr = (V: string, key: string) => (/^[A-Za-z_]\w*$/.test(key) ? `${V}.${key}` : `${V}[${JSON.stringify(key)}]`);
+    /** `Visitable::visit(place, vis, extra)` (ref) / `MutVisitable::visit_mut(place, vis, extra)` (mut, place = `o, k`). */
+    // `extraTy` is the TS type of `extra` (`Self::Extra`), used to annotate the mutable-side closures.
+    const wcall = (kind: "ref" | "mut", ty: PType, place: string, vis: string, extra: string, extraTy: string, sc: Scope, at: string): string => {
+      const V = kind === "ref" ? "Visitable" : "MutVisitable";
+      const sh = walkShape(ty, sc, at);
+      const head = `${place}, ${vis}, ${extra}`;
+      if (sh.k === "key") return `${keyExpr(V, sh.key)}(${head})`;
+      if (sh.k === "generic") return `${keyExpr(V, sh.impl)}(${head}, ${wfn(kind, sh.arg, extraTy, sh.sc, at)})`;
+      // tuples: `type Extra = ()`
+      const tys = sh.elems.map((_, i) => `T${i + 1}`).join(", ");
+      return `${V}[${JSON.stringify(`(${tys})`)}](${head}, ${sh.elems.map((e) => wfn(kind, e, "undefined", sh.sc, at)).join(", ")})`;
+    };
+    /** The impl of a type as a value (`Visitable<T, E>` / `MutVisitable<T, E>`). */
+    const wfn = (kind: "ref" | "mut", ty: PType, extraTy: string, sc: Scope, at: string): string => {
+      const sh = walkShape(ty, sc, at);
+      if (sh.k === "key") return keyExpr(kind === "ref" ? "Visitable" : "MutVisitable", sh.key);
+      if (kind === "ref") return `(x, v, e) => ${wcall(kind, ty, "x", "v", "e", extraTy, sc, at)}`;
+      // PORT: TS cannot infer the slot type of an unannotated closure here, so it is spelled out
+      imp(`src:${mf.crate}/mut_visit.ts`, "types", "Place", "Place");
+      return `<K extends PropertyKey>(o: Place<${tsType(ty, sc, at)}, K>, k: K, v: MutVisitor, e: ${extraTy}) => ${wcall(kind, ty, "o, k", "v", "e", extraTy, sc, at)}`;
+    };
+    /** `#[visitable(ignore)]` / `#[visitable(extra = Path::Variant)]` of a field (last one wins, like the derive). */
+    const visitableAttr = (fl: PField, sc: Scope, at: string): { ignore: boolean; extra: string; extraTy: string } => {
+      let ignore = false;
+      let extra = "undefined";
+      let extraTy = "undefined";
+      for (const a of effAttrs(fl.attrs, at)) {
+        if (a.path !== "visitable") continue;
+        const m = /^visitable\s*\((.*)\)$/s.exec(a.text);
+        if (!m) {
+          report.errors.push(`${at}: cannot parse #[${a.text}]`);
+          continue;
+        }
+        for (const part of m[1]!.split(",").map((p) => p.trim())) {
+          if (part === "ignore") ignore = true;
+          else if (part.startsWith("extra")) {
+            const segs = part.replace(/^extra\s*=\s*/, "").split("::").map((p) => p.trim());
+            const r = resolvePath({ global: false, segments: segs.slice(0, -1).map((name) => ({ name, args: [] })) }, sc);
+            if (r.k !== "item" || segs.length !== 2) {
+              report.errors.push(`${at}: cannot resolve #[${a.text}]`);
+              continue;
+            }
+            const alias = refName(r.ref);
+            imp(viaHand(r.ref), "values", r.ref.item.name, alias);
+            extra = `${alias}.${segs[1]}`;
+            extraTy = alias;
+          } else report.errors.push(`${at}: unknown visitable option \`${part}\``);
+        }
+      }
+      return { ignore, extra, extraTy };
+    };
+    const walkBody = (kind: "ref" | "mut"): string[] => {
+      const out: string[] = [];
+      const visMod = `src:${mf.crate}/${kind === "ref" ? "visit" : "mut_visit"}.ts`;
+      const V = kind === "ref" ? "Visitable" : "MutVisitable";
+      const Vis = kind === "ref" ? "Visitor" : "MutVisitor";
+      imp(visMod, "values", V, V);
+      imp(visMod, "types", Vis, Vis);
+      if (kind === "ref") imp("src:rustc_ast_ir/visit.ts", "values", "try_visit", "try_visit");
+      const fileOrder = new Map(mfs.map((m, i) => [m, i]));
+      const list = deriveWalkable
+        .filter((r) => r.mf.crate === mf.crate && !matches(set.skip, r))
+        .sort((a, b) => fileOrder.get(a.mf)! - fileOrder.get(b.mf)! || a.item.line - b.item.line);
+      out.push(`export const ${kind === "ref" ? "walkable_derived" : "mut_walkable_derived"} = {`);
+      for (const r of list) {
+        const it = r.item;
+        const at = `${r.mf.file.path}:${it.line}`;
+        const sc = itemScope(r);
+        if (tsParams(it).length) report.errors.push(`${at}: derive(Walkable) on a generic type is not supported`);
+        if (it.kind !== "struct" && it.kind !== "enum") {
+          report.errors.push(`${at}: derive(Walkable) on a ${it.kind}`);
+          continue;
+        }
+        const tname = refName(r);
+        // arms: [variant name | undefined (struct), statements]
+        const arms: [string | undefined, string[]][] = [];
+        const armOf = (fs: PFields, owner: string): string[] => {
+          const stmts: string[] = [];
+          for (const fl of liveFields(fs, r.mf.file.path)) {
+            const fat = `${r.mf.file.path}:${fl.line}`;
+            const { ignore, extra, extraTy } = visitableAttr(fl, sc, fat);
+            if (ignore) continue;
+            const fname = fieldName(fl);
+            if (kind === "ref")
+              stmts.push(`if ((r = try_visit(__visitor.Result, ${wcall(kind, fl.ty, `${owner}.${fname}`, "__visitor", extra, extraTy, sc, fat)})) !== undefined) return r;`);
+            else stmts.push(`${wcall(kind, fl.ty, `${owner}, ${JSON.stringify(fname)}`, "__visitor", extra, extraTy, sc, fat)};`);
+          }
+          return stmts;
+        };
+        if (it.kind === "struct") arms.push([undefined, armOf(it.fields!, "self")]);
+        else
+          for (const v of it.variants!.filter((v) => enabled(v.attrs, `${r.mf.file.path}:${v.line}`))) {
+            const stmts = armOf(v.fields, "self");
+            if (stmts.length) arms.push([unraw(v.name), stmts]);
+          }
+        const nstmts = arms.reduce((n, [, s]) => n + s.length, 0);
+        out.push(`  // rustc-derive: ${at} Walkable for ${it.name}`);
+        const selfName = nstmts ? "self" : "_self";
+        if (kind === "ref") out.push(`  ${it.name}: <R>(${selfName}: ${tname}, __visitor: Visitor<R>): R => {`);
+        else out.push(`  ${it.name}: (${selfName}: ${tname}, __visitor: MutVisitor): void => {`);
+        if (kind === "ref" && nstmts) out.push("    let r: R | undefined;");
+        for (const [vn, stmts] of arms) {
+          if (vn === undefined) out.push(...stmts.map((s) => `    ${s}`));
+        }
+        const varms = arms.filter(([vn]) => vn !== undefined);
+        if (varms.length) {
+          out.push("    switch (self.$) {");
+          for (const [vn, stmts] of varms) {
+            out.push(`      case ${JSON.stringify(vn)}:`);
+            out.push(...stmts.map((s) => `        ${s}`));
+            out.push("        break;");
+          }
+          out.push("    }");
+        }
+        if (kind === "ref") out.push("    return __visitor.Result.output();");
+        out.push("  },");
+        fileWalk++;
+      }
+      out.push("};");
+      return out;
+    };
+
     const docLines = (docs: string[] | undefined, indent: string) =>
       (docs ?? []).flatMap((d) => d.split("\n")).map((l) => `${indent}///${l.replace(/\r$/, "")}`.trimEnd());
     const genericDecl = (it: PItem, sc: Scope) => {
@@ -807,7 +1182,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     const liveFields = (fs: PFields, at: string) => fs.fields.filter((fl) => enabled(fl.attrs, `${at}:${fl.line}`));
 
     const body: string[] = [];
-    const itemList = [...items.values()].filter((r) => r.mf === mf).sort((a, b) => a.item.line - b.item.line);
+    const itemList = walk ? [] : [...items.values()].filter((r) => r.mf === mf).sort((a, b) => a.item.line - b.item.line);
     for (const r of itemList) {
       const it = r.item;
       const at = `${mf.file.path}:${it.line}`;
@@ -840,6 +1215,13 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           : `export const debug_${name}: Debug<${valueType}> = (v, f) =>\n  `;
       const debugTail = gparams.length ? ";\n}" : ";";
       const selfType = `${name}${gparams.length ? `<${gparams.join(", ")}>` : ""}`;
+      // derive(Clone) -> `clone_<T>(v[, clone_<P>...])`
+      const wantClone = !!set.derive_clone && deriveClone.has(r.key) && (it.kind === "struct" || it.kind === "enum");
+      if (wantClone && matches(set.hand, r)) report.notes.push(`${r.key}: derive(Clone) of a hand type is not generated (provide clone_${name} in ${mf.hand})`);
+      const emitClone = wantClone && !matches(set.hand, r) && !r.mac;
+      const cloneHead = gparams.length
+        ? `export function clone_${name}<${gparams.join(", ")}>(v: ${selfType}, ${gparams.map((g) => `clone_${g}: (v: ${g}) => ${g}`).join(", ")}): ${selfType} {`
+        : `export function clone_${name}(v: ${name}): ${name} {`;
 
       if (r.mac?.kind === "newtype") {
         // rustc_index_macros/src/newtype.rs: struct + module-level consts + `impl Debug`
@@ -967,6 +1349,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           else expr = `"${name}"`;
           body.push(debugHead(selfType) + expr + debugTail);
         }
+        if (emitClone) {
+          fileClone++;
+          body.push(cloneHead);
+          if (isClass(r)) body.push(`  return new ${name}(${live.map((fl) => cl(fl.ty, `v.${fieldName(fl)}`, sc, at)).join(", ")});`);
+          else if (live.length) body.push(`  return {\n${live.map((fl) => `    ${fieldName(fl)}: ${cl(fl.ty, `v.${fieldName(fl)}`, sc, at)},`).join("\n")}\n  };`);
+          else body.push("  return {};");
+          body.push("}");
+        }
         continue;
       }
 
@@ -985,7 +1375,9 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             });
           }
           body.push(`export const ${name} = { ${variants.map((v) => `${unraw(v.name)}: "${unraw(v.name)}"`).join(", ")} } as const;`);
-          if (variants.some((v) => v.discriminant !== null) || matches(set.discriminant, r)) {
+          // `<Enum>_discriminant` (`as isize`): explicit discriminants, the set's list, or a derived
+          // `PartialOrd`/`Ord` (which compares fieldless variants by discriminant)
+          if (variants.some((v) => v.discriminant !== null) || matches(set.discriminant, r) || deriveOrd.has(r.key)) {
             let next = 0n;
             const vals: string[] = [];
             for (const v of variants) {
@@ -1009,6 +1401,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         if (hasDebug) {
           fileDebug++;
           body.push(`export const debug_${name}: Debug<${name}> = (v) => v;`);
+        }
+        if (emitClone) {
+          fileClone++;
+          body.push(`${cloneHead}\n  return v;\n}`);
         }
         continue;
       }
@@ -1052,7 +1448,28 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           );
         else body.push(`export const debug_${name}: Debug<${name}> = (v, f) => ${sw};`);
       }
+      if (emitClone) {
+        fileClone++;
+        body.push(cloneHead);
+        {
+          const cases: string[] = [];
+          const unitNames: string[] = [];
+          for (const v of variants) {
+            const vn = unraw(v.name);
+            const live = liveFields(v.fields, mf.file.path);
+            if (v.fields.style === "unit") unitNames.push(vn);
+            else
+              cases.push(
+                `    case "${vn}":\n      return { $: "${vn}"${live.map((fl) => `, ${fieldName(fl)}: ${cl(fl.ty, `v.${fieldName(fl)}`, sc, at)}`).join("")} };`,
+              );
+          }
+          if (unitNames.length) cases.push(`${unitNames.map((n) => `    case "${n}":`).join("\n")}\n      return v;`);
+          body.push(`  switch (v.$) {\n${cases.join("\n")}\n  }`);
+        }
+        body.push("}");
+      }
     }
+    if (walk) body.push("", ...walkBody(walk));
 
     // helpers used by the body
     const text = body.join("\n");
@@ -1061,10 +1478,19 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (/\bDebug</.test(text)) imp("src:std/fmt.ts", "types", "Debug", "Debug");
       if (/\bFmt\b/.test(text)) imp("src:std/fmt.ts", "types", "Fmt", "Fmt");
     }
-    const header = [
-      `// GENERATED by tools/codegen/types.ts from ${mf.file.path}${opts.pin ? ` @ ${opts.pin}` : ""}. Do not edit.`,
-      `// Hand-written additions (methods, manual Debug impls) go in ${mf.hand.split("/").pop()} next to this file.`,
-    ];
+    const header = walk
+      ? [
+          `// GENERATED by tools/codegen/types.ts: #[derive(Walkable)] (compiler/rustc_macros/src/visitable.rs) of the ${mf.crate} types${opts.pin ? ` @ ${opts.pin}` : ""}. Do not edit.`,
+          walk === "ref"
+            ? `// The \`Walkable::walk_ref\` impls; ${mf.hand.split("/").pop()} spreads \`walkable_derived\` into its \`Walkable\` table.`
+            : `// The \`MutWalkable::walk_mut\` impls; ${mf.hand.split("/").pop()} spreads \`mut_walkable_derived\` into its \`MutWalkable\` table.`,
+          `// Per field in declaration order, unless #[visitable(ignore)]: ${walk === "ref" ? "try_visit!(Visitable::visit(field, __visitor, extra))" : "MutVisitable::visit_mut(field, __visitor, extra)"},`,
+          "// extra = #[visitable(extra = ..)] or `()` (undefined).",
+        ]
+      : [
+          `// GENERATED by tools/codegen/types.ts from ${mf.file.path}${opts.pin ? ` @ ${opts.pin}` : ""}. Do not edit.`,
+          `// Hand-written additions (methods, manual Debug impls) go in ${mf.hand.split("/").pop()} next to this file.`,
+        ];
     const importLines: string[] = [];
     const sortedTargets = [...imports.keys()].sort();
     for (const t of sortedTargets) {
@@ -1073,30 +1499,56 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const abs = t.startsWith("gen:") ? join(opts.out, t.slice(4)) : join(opts.srcRoot, t.slice(4));
       const spec = relImport(outFile, abs);
       const parts = [
-        ...[...types].map(([n, a]) => `type ${n === a ? n : `${n} as ${a}`}`),
+        ...[...types].filter(([n, a]) => values.get(n) !== a).map(([n, a]) => `type ${n === a ? n : `${n} as ${a}`}`),
         ...[...values].map(([n, a]) => (n === a ? n : `${n} as ${a}`)),
       ].sort((a, b) => a.replace(/^type /, "").localeCompare(b.replace(/^type /, "")));
       if (parts.length) importLines.push(`import { ${parts.join(", ")} } from "${spec}";`);
     }
-    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(/.test(text)) {
+    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(|\bunported_clone\b/.test(text)) {
       importLines.push(`import { unported } from "${relImport(outFile, join(opts.srcRoot, "std/panic.ts"))}";`);
       const extra: string[] = [];
       if (/\bunported_debug\(/.test(text)) extra.push(`const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");`);
       if (/\bunknown_debug\(/.test(text)) extra.push(`const unknown_debug = (_v: unknown): string => unported("Debug of an unknown type (see types report)");`);
       if (/\bunported_discriminant\(/.test(text)) extra.push(`const unported_discriminant = (e: string): number => unported(\`discriminant \${e}\`);`);
+      if (/\bunported_clone\b/.test(text)) extra.push(`const unported_clone = <T>(_v: T): T => unported("Clone without a TS impl (see types report)");`);
       importLines.push(...extra);
     }
-    if (fileTypes === 0) {
+    if (fileTypes === 0 && !walk) {
       report.notes.push(`${mf.file.path}: no types; ${mf.gen} not written`);
       continue;
     }
     files.set(outFile, [...header, ...importLines, text, ""].join("\n"));
-    report.files.push({ upstream: mf.file.path, out: mf.gen, types: fileTypes, debug_fns: fileDebug });
+    report.files.push({
+      upstream: walk ? `derive(Walkable) of ${mf.crate}` : mf.file.path,
+      out: mf.gen,
+      types: fileTypes,
+      debug_fns: fileDebug,
+      clone_fns: fileClone,
+      walkable: fileWalk,
+    });
   }
   return { files, report, stubs };
 
   function itemScope(r: ItemRef): Scope {
     return { mf: r.mf, mod: r.mod, params: new Set(r.item.generics.params.filter((p) => p.kind === "type").map((p) => p.name)), self: r };
+  }
+}
+
+/** `$cN(expr)` -> `expr` (the clone fn of argument N is the identity). */
+function stripCalls(text: string, n: string): string {
+  let out = "";
+  let i = 0;
+  for (;;) {
+    const j = text.indexOf(`${n}(`, i);
+    if (j < 0) return out + text.slice(i);
+    let depth = 0;
+    let k = j + n.length;
+    for (; k < text.length; k++) {
+      if (text[k] === "(") depth++;
+      else if (text[k] === ")" && --depth === 0) break;
+    }
+    out += text.slice(i, j) + text.slice(j + n.length + 1, k);
+    i = k + 1;
   }
 }
 
@@ -1218,9 +1670,11 @@ if (import.meta.main) {
   const r = res.report;
   const nTypes = r.files.reduce((a, f) => a + f.types, 0);
   const nDebug = r.files.reduce((a, f) => a + f.debug_fns, 0);
-  console.log(`${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns -> ${out}`);
+  const nClone = r.files.reduce((a, f) => a + f.clone_fns, 0);
+  const nWalk = r.files.reduce((a, f) => a + f.walkable, 0);
+  console.log(`${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns, ${nClone} clone fns, ${nWalk} walkable impls -> ${out}`);
   console.log(
-    `unknown types: ${Object.keys(r.unknown_types).length}, missing debug: ${Object.keys(r.missing_debug).length}, manual Debug impls: ${r.manual_debug.length}, unknown cfg: ${Object.keys(r.unknown_cfg).length}, macro types: ${r.macro_types.length}`,
+    `unknown types: ${Object.keys(r.unknown_types).length}, missing debug: ${Object.keys(r.missing_debug).length}, manual Debug impls: ${r.manual_debug.length}, missing clone: ${Object.keys(r.missing_clone).length}, manual Clone impls: ${r.manual_clone.length}, unknown cfg: ${Object.keys(r.unknown_cfg).length}, macro types: ${r.macro_types.length}`,
   );
   console.log(`report: ${rp}`);
   if (stubs) console.log(`stubs: ${writeStubs(res, opts)} modules under ${srcRoot}`);

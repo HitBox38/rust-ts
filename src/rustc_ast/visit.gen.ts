@@ -20,6 +20,14 @@ export const debug_AssocCtxt: Debug<AssocCtxt> = (v, f) => {
       return v.$;
   }
 };
+export function clone_AssocCtxt(v: AssocCtxt): AssocCtxt {
+  switch (v.$) {
+    case "Impl":
+      return { $: "Impl", of_trait: v.of_trait };
+    case "Trait":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/visit.rs:32 FnCtxt
 export type FnCtxt =
@@ -40,6 +48,15 @@ export const debug_FnCtxt: Debug<FnCtxt> = (v, f) => {
       return v.$;
   }
 };
+export function clone_FnCtxt(v: FnCtxt): FnCtxt {
+  switch (v.$) {
+    case "Assoc":
+      return { $: "Assoc", _0: clone_AssocCtxt(v._0) };
+    case "Free":
+    case "Foreign":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/visit.rs:39 BoundKind
 export type BoundKind =
@@ -57,6 +74,9 @@ export type BoundKind =
   | "SuperTraits";
 export const BoundKind = { Bound: "Bound", Impl: "Impl", TraitObject: "TraitObject", SuperTraits: "SuperTraits" } as const;
 export const debug_BoundKind: Debug<BoundKind> = (v) => v;
+export function clone_BoundKind(v: BoundKind): BoundKind {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast/src/visit.rs:68 LifetimeCtxt
 export type LifetimeCtxt =
@@ -68,3 +88,6 @@ export type LifetimeCtxt =
   | "GenericArg";
 export const LifetimeCtxt = { Ref: "Ref", Bound: "Bound", GenericArg: "GenericArg" } as const;
 export const debug_LifetimeCtxt: Debug<LifetimeCtxt> = (v) => v;
+export function clone_LifetimeCtxt(v: LifetimeCtxt): LifetimeCtxt {
+  return v;
+}

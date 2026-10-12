@@ -15,10 +15,20 @@ export type CommentStyle =
   | "BlankLine";
 export const CommentStyle = { Isolated: "Isolated", Trailing: "Trailing", Mixed: "Mixed", BlankLine: "BlankLine" } as const;
 export const debug_CommentStyle: Debug<CommentStyle> = (v) => v;
+export function clone_CommentStyle(v: CommentStyle): CommentStyle {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast/src/util/comments.rs:21 Comment
 export interface Comment {
   style: CommentStyle;
   lines: string[];
   pos: BytePos;
+}
+export function clone_Comment(v: Comment): Comment {
+  return {
+    style: v.style,
+    lines: v.lines.slice(),
+    pos: v.pos,
+  };
 }

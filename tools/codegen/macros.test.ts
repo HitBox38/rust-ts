@@ -40,6 +40,6 @@ test.skipIf(!existsSync(join(UPSTREAM, "compiler/rustc_ast/src/node_id.rs")))("g
   const res = generate(probe, loadSet("rustc_ast"), loadTypeMap(), { set: "rustc_ast", out: src, srcRoot: src, pin, upstream: UPSTREAM });
   expect(res.report.errors).toEqual([]);
   expect(res.report.unknown_types).toEqual({});
-  expect(res.files.size).toBe(20);
+  expect(res.files.size).toBe(22); // 20 type modules + walkable.gen.ts + mut_walkable.gen.ts
   for (const [file, content] of res.files) expect(content).toBe(readFileSync(file, "utf8"));
 });

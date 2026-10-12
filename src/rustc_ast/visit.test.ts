@@ -6,12 +6,13 @@ import { describe, expect, test } from "bun:test";
 import { ControlFlow, VisitorResult } from "../rustc_ast_ir/visit.ts";
 import type { Span } from "../rustc_span/span_encoding.ts";
 import { Ident, type Symbol } from "../rustc_span/symbol.ts";
-import { Panic, Unported } from "../std/panic.ts";
+import { Panic } from "../std/panic.ts";
 import { Err, type Result } from "../std/result.ts";
 import {
   type Arm,
   type AssocItemKind,
   Attribute,
+  BindingMode,
   type Block,
   Expr,
   type ExprKind,
@@ -22,6 +23,8 @@ import {
   type Lifetime,
   type MacCall,
   type MacCallStmt,
+  Pat,
+  Path,
   PathSegment,
   Stmt,
   type StmtKind,
@@ -38,11 +41,17 @@ import {
   BoundKind,
   type FnKind,
   FnCtxt,
+  type LifetimeCtxt,
   Visitor,
   walk_block,
   walk_expr,
   walk_item,
+  walk_lifetime,
+  walk_pat,
+  walk_path,
+  walk_path_segment,
   walk_stmt,
+  walk_ty,
   WalkItemKind,
 } from "./visit.ts";
 
@@ -113,6 +122,44 @@ class Recorder extends Visitor {
   }
 }
 
+/** A Recorder that walks into types, patterns, paths and lifetimes. */
+class Deep extends Recorder {
+  override visit_ty(t: Ty): undefined {
+    this.log.push(`ty ${t.id}`);
+    return walk_ty(this, t);
+  }
+  override visit_pat(p: Pat): undefined {
+    this.log.push(`pat ${p.id}`);
+    return walk_pat(this, p);
+  }
+  override visit_path(p: Path): undefined {
+    this.log.push(`path ${p.segments.length}`);
+    return walk_path(this, p);
+  }
+  override visit_path_segment(s: PathSegment): undefined {
+    this.log.push(`seg ${s.ident.name}`);
+    return walk_path_segment(this, s);
+  }
+  override visit_lifetime(l: Lifetime, ctxt: LifetimeCtxt): undefined {
+    this.log.push(`lifetime ${l.id} ${ctxt}`);
+    return walk_lifetime(this, l);
+  }
+}
+
+/** `&'a x` as a `Ty` (ids 1, 5, 2, 3; spans 50..54). */
+function refTy(): Ty {
+  const path = new Path(sp(53), [new PathSegment(new Ident(sym(9), sp(54)), nid(3), undefined)]);
+  const inner = new Ty(nid(2), { $: "Path", _0: undefined, _1: path }, sp(52));
+  return new Ty(nid(1), { $: "Ref", _0: { id: nid(5), ident: new Ident(sym(8), sp(51)) }, _1: inner, _2: "Not" }, sp(50));
+}
+
+/** `(y @ _, ..)` as a `Pat` (ids 1..4). */
+function tuplePat(): Pat {
+  const sub = new Pat(nid(3), { $: "Wild" }, sp(0));
+  const ident = new Pat(nid(2), { $: "Ident", _0: BindingMode.NONE, _1: new Ident(sym(7), sp(0)), _2: sub }, sp(0));
+  return new Pat(nid(1), { $: "Tuple", _0: [ident, new Pat(nid(4), { $: "Rest" }, sp(0))] }, sp(0));
+}
+
 describe("Visitor (visit.rs)", () => {
   test("walk_expr visits id, attrs, the kind's fields in order, then span (visit.rs:1009-1121)", () => {
     // Call(Paren(Lit 3), [Tup([Lit 5, Field(Lit 7, x)])]) with #[attr 9] on the root
@@ -145,13 +192,13 @@ describe("Visitor (visit.rs)", () => {
     expect(v.log).toEqual(["expr 1", "id 1", "receiver 2", "expr 2", "id 2", "seg 8", "expr 3", "id 3"]);
   });
 
-  test("closures visit constness first, a derived Walkable impl (visit.rs:1058), so unported for now", () => {
+  test("closures: constness, movability, capture_clause, visit_fn, then the spans (visit.rs:1058-1061)", () => {
     const closure = expr(1, {
       $: "Closure",
       _0: {
         binder: { $: "NotPresent" },
-        capture_clause: opaque("capture"),
-        constness: opaque("const"),
+        capture_clause: { $: "Ref" },
+        constness: { $: "Yes", _0: sp(9) },
         coroutine_marker: undefined,
         movability: "Movable",
         fn_decl: opaque("decl"),
@@ -166,9 +213,9 @@ describe("Visitor (visit.rs)", () => {
         return undefined;
       }
     })();
-    // `Const` is walked by its derived `Walkable` impl, which is generated code (unported for now).
-    expect(() => v.visit_expr(closure)).toThrow(Unported);
-    expect(v.log).toEqual(["expr 1", "id 1"]);
+    // `Const` is walked by its derived `Walkable` impl (tools/codegen walkable.gen.ts).
+    v.visit_expr(closure);
+    expect(v.log).toEqual(["expr 1", "id 1", "capture", "fn 1 Closure null"]);
   });
 
   test("walk_item: id, attrs, vis, kind, span (visit.rs:813-817); ExternCrate visits the ident (853)", () => {
@@ -239,8 +286,39 @@ describe("Visitor (visit.rs)", () => {
     expect(new Fail().visit_expr(lit(3))).toEqual({ $: "Ok", _0: undefined });
   });
 
-  test("derived Walkable impls are unported until tools/codegen generates them", () => {
-    expect(() => walk_block(new Visitor(), opaque<Block>("block"))).toThrow(Unported);
+  // Derived `Walkable` impls (rustc_macros/src/visitable.rs, generated into walkable.gen.ts): each
+  // field in declaration order, with the field's `#[visitable(extra = ..)]`.
+  test("derived Walkable: Block visits stmts, id, rules, span (ast.rs:624 field order)", () => {
+    const v = new Recorder();
+    const block: Block = { stmts: [new Stmt(nid(20), { $: "Expr", _0: lit(2) }, sp(1))], id: nid(10), rules: { $: "Default" }, span: sp(2) };
+    walk_block(v, block);
+    expect(v.log).toEqual(["id 20", "expr 2", "id 2", "id 10"]);
+  });
+
+  test("derived Walkable: Ty / TyKind::Ref (lifetime with LifetimeCtxt::Ref) / Path / PathSegment", () => {
+    const v = new Deep();
+    v.visit_ty(refTy());
+    expect(v.log).toEqual(["ty 1", "id 1", "lifetime 5 Ref", "id 5", "ident 8", "ty 2", "id 2", "path 1", "seg 9", "ident 9", "id 3"]);
+  });
+
+  test("derived Walkable: Pat / PatKind::Tuple / PatKind::Ident (BindingMode, Ident, Option<Box<Pat>>)", () => {
+    const v = new Deep();
+    v.visit_pat(tuplePat());
+    expect(v.log).toEqual(["pat 1", "id 1", "pat 2", "id 2", "ident 7", "pat 3", "id 3", "pat 4", "id 4"]);
+  });
+
+  test("derived Walkable: try_visit! stops the walk at a Break inside a derived impl", () => {
+    class FindId extends Visitor<ControlFlow<NodeId>> {
+      override Result = VisitorResult.ControlFlow<NodeId>();
+      seen: number[] = [];
+      override visit_id(id: NodeId): ControlFlow<NodeId> {
+        this.seen.push(id);
+        return id === 3 ? ControlFlow.Break(id) : ControlFlow.CONTINUE;
+      }
+    }
+    const v = new FindId();
+    expect(walk_pat(v, tuplePat())).toEqual({ $: "Break", _0: nid(3) });
+    expect(v.seen).toEqual([1, 2, 3]); // pat 4 is never reached
   });
 
   test("visit_lifetime takes its LifetimeCtxt extra (visit.rs:345)", () => {
@@ -275,6 +353,25 @@ describe("MutVisitor (mut_visit.rs)", () => {
       this.spans.push(s.value);
     }
   }
+
+  test("derived MutWalkable: Ty is renumbered in walk order; the lifetime gets LifetimeCtxt::Ref (mut_visit.rs)", () => {
+    const ctxts: string[] = [];
+    class R2 extends Renumber {
+      override visit_lifetime(l: Lifetime, ctxt: LifetimeCtxt): void {
+        ctxts.push(ctxt);
+        super.visit_lifetime(l, ctxt);
+      }
+    }
+    const t = refTy();
+    const v = new R2();
+    v.visit_ty(t);
+    const k = t.kind as { _0: Lifetime; _1: Ty };
+    const p = (k._1.kind as { _1: Path })._1;
+    expect([t.id, k._0.id, k._1.id, p.segments[0]!.id]).toEqual([nid(100), nid(101), nid(102), nid(103)]);
+    expect(ctxts).toEqual(["Ref"]);
+    // Spans: lifetime ident, path span, segment ident, inner Ty span, outer Ty span.
+    expect(v.spans).toEqual([51, 53, 54, 52, 50]);
+  });
 
   test("visit_id gets a writable place; ids are renumbered in walk order (visit.rs:1010-1011)", () => {
     const inner = lit(3);
