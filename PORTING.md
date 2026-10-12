@@ -171,3 +171,5 @@ match the Unicode version of the pinned upstream deps.
   not tuple returns, unless upstream returns a value too. (Normalisation target for span-wire.)
 - Enum methods live on the companion const (`EscapeError.is_fatal(e)`), not as free
   `Type_method` functions. Debug fns are always `debug_<Type>: Debug<Type>` taking `(v, f)`.
+- Zero-sized types with derived `PartialEq` (`ErrorGuaranteed`, `()`, unit structs) compare **always equal**: `_eq`
+  helpers (hand-written or generated) never compare such fields by object identity.
