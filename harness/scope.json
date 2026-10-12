@@ -30,6 +30,10 @@
     "unic-langid": "=0.9.6",
     "intl_pluralrules": "=7.0.2",
     "annotate-snippets": "=0.12.16",
-    "anstyle": "=1.0.13"
+    "anstyle": "=1.0.13",
+    "fluent-bundle": "=0.16.0",
+    "intl-memoizer": "=0.5.3",
+    "type-map": "=0.5.1",
+    "fluent-langneg": "=0.13.1"
   }
 }
