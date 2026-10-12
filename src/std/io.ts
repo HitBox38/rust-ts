@@ -8,7 +8,7 @@ import { unported } from "./panic.ts";
 import type { Result } from "./result.ts";
 
 /** `std::io::ErrorKind` (the variants rust-ts produces). */
-export type ErrorKind = "Other" | "InvalidData";
+export type ErrorKind = "Other" | "InvalidData" | "WriteZero" | "Interrupted";
 
 /** `std::io::Error` */
 export type IoError =
