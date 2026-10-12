@@ -1,0 +1,61 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0601",
+   "labels": [
+    [
+     [
+      0,
+      54,
+      56
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      77,
+      78
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      39,
+      49
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      44,
+      54
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      53,
+      58
+     ],
+     "🦀"
+    ]
+   ]
+  }
+ ]
+}

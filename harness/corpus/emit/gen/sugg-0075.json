@@ -1,0 +1,80 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     15,
+     26
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      31,
+      47
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      71,
+      77
+     ],
+     "code": "名前"
+    },
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "",
+     "applicability": "MaybeIncorrect",
+     "parts": [
+      [
+       [
+        0,
+        79,
+        80
+       ],
+       ""
+      ],
+      [
+       [
+        0,
+        5,
+        5
+       ],
+       "let y = 1;\nlet z = 2;"
+      ],
+      [
+       [
+        0,
+        66,
+        67
+       ],
+       "&x"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

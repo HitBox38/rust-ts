@@ -1,0 +1,68 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     0,
+     12
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      14,
+      18
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      14,
+      23
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      3,
+      12
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      22,
+      23
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

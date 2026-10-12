@@ -1,0 +1,68 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0277",
+   "span": [
+    [
+     0,
+     249,
+     249
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      145,
+      291
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      68,
+      73
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      32,
+      58
+     ],
+     "code": ""
+    },
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      197,
+      215
+     ],
+     "code": "x.clone()"
+    }
+   ]
+  }
+ ]
+}

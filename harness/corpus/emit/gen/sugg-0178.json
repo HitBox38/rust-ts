@@ -1,0 +1,52 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "mismatched types",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     247,
+     250
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        0,
+        3
+       ],
+       "42"
+      ],
+      [
+       [
+        0,
+        88,
+        108
+       ],
+       "x.clone()"
+      ]
+     ],
+     "style": "HideCodeInline"
+    }
+   ]
+  }
+ ]
+}

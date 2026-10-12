@@ -1,0 +1,94 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "always",
+  "short_message": true,
+  "diagnostic_width": 40,
+  "source_map": false,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     249,
+     250
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     193,
+     194
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      185,
+      196
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      155,
+      166
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      191,
+      193
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

@@ -1,0 +1,106 @@
+{
+ "files": [
+  {
+   "name": "src/long.rs",
+   "src": "fn long() {\n    let result = some_function_with_a_long_name(first_argument_value, second_argument_value, third_argument_value, fourth_argument_value, fifth_argument_value, sixth_argument_value);\n    let s = \"a string literal that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on\";\n    short();\n    let v = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 200
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     279,
+     307
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      396,
+      397
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      287,
+      298
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      459,
+      522
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      269,
+      311
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       " found ",
+       false
+      ]
+     ],
+     "span": {
+      "primary": [
+       [
+        0,
+        373,
+        485
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         9,
+         322
+        ],
+        "first borrow occurs here"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      510,
+      511
+     ],
+     "codes": [
+      "\tindented"
+     ],
+     "style": "ShowAlways"
+    }
+   ]
+  }
+ ]
+}

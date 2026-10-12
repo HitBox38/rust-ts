@@ -1,0 +1,86 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     71,
+     102
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      101,
+      102
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      71,
+      109
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      3,
+      10
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      19,
+      48
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      217,
+      242
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      124,
+      154
+     ],
+     ""
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

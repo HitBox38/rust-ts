@@ -1,0 +1,64 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     66,
+     82
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": {
+      "primary": [
+       [
+        0,
+        24,
+        37
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         8,
+         9
+        ],
+        ""
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "remove this",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      43,
+      55
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    }
+   ]
+  }
+ ]
+}

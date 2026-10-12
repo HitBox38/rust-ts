@@ -1,0 +1,140 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "unicode in message: 名前 → 🦀",
+   "labels": [
+    [
+     [
+      0,
+      82,
+      99
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       105,
+       106
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "unused variable: `x`",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     68,
+     69
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      73,
+      79
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     101,
+     104
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "unused variable: `x`",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     68,
+     69
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      73,
+      79
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0001"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ],
+ "flags": {
+  "deduplicate_diagnostics": false
+ }
+}

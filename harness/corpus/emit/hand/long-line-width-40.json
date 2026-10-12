@@ -1,0 +1,40 @@
+{
+ "files": [
+  {
+   "name": "src/long.rs",
+   "src": "fn long() {\n    let result = some_function_with_a_long_name(first_argument_value, second_argument_value, third_argument_value, fourth_argument_value, fifth_argument_value, sixth_argument_value);\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 40
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "far apart labels",
+   "span": [
+    {
+     "file": 0,
+     "find": "sixth_argument_value"
+    }
+   ],
+   "labels": [
+    [
+     {
+      "file": 0,
+      "find": "some_function_with_a_long_name"
+     },
+     "callee"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "third_argument_value"
+     },
+     "middle"
+    ]
+   ]
+  }
+ ]
+}

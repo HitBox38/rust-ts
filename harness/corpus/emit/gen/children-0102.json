@@ -1,0 +1,78 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     149,
+     150
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      153,
+      159
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      154,
+      162
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "String",
+       true
+      ],
+      [
+       "Option<",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "i32",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

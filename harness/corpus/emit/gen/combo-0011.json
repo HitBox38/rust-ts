@@ -1,0 +1,66 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "diagnostic_width": 200,
+  "short_message": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     98,
+     115
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      201,
+      238
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      222,
+      225
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      162,
+      168
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      252,
+      253
+     ],
+     "code": "x.clone()"
+    }
+   ]
+  }
+ ]
+}

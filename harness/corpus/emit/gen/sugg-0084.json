@@ -1,0 +1,52 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     3,
+     7
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      35,
+      36
+     ],
+     "code": "42"
+    },
+    {
+     "kind": "span_suggestions",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      64,
+      65
+     ],
+     "codes": [
+      "名前",
+      "x.clone()_1"
+     ]
+    }
+   ]
+  }
+ ]
+}

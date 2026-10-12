@@ -1,0 +1,52 @@
+{
+ "files": [
+  {
+   "name": "src/long.rs",
+   "src": "fn long() {\n    let result = some_function_with_a_long_name(first_argument_value, second_argument_value, third_argument_value, fourth_argument_value, fifth_argument_value, sixth_argument_value);\n    let s = \"a string literal that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on\";\n    short();\n    let v = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     533,
+     533
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      528,
+      535
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        480,
+        482
+       ],
+       "foo::bar::<T>()"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

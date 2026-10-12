@@ -1,0 +1,49 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     243,
+     288
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      186,
+      186
+     ],
+     ""
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      32,
+      58
+     ],
+     "code": "&x"
+    }
+   ]
+  }
+ ]
+}

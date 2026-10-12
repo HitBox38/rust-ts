@@ -1,0 +1,46 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0277",
+   "span": [
+    [
+     0,
+     45,
+     45
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      43,
+      50
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "help_once",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ]
+  }
+ ]
+}

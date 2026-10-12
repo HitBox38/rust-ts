@@ -1,0 +1,101 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     1,
+     0,
+     14
+    ],
+    [
+     0,
+     235,
+     235
+    ],
+    [
+     0,
+     156,
+     157
+    ]
+   ],
+   "labels": [
+    [
+     [
+      1,
+      13,
+      14
+     ],
+     "this"
+    ],
+    [
+     [
+      1,
+      14,
+      19
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      1,
+      14,
+      21
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      1,
+      9,
+      10
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      44,
+      69
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      233,
+      236
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

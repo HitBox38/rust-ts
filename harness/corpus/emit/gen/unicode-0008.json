@@ -1,0 +1,73 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "span": [
+    [
+     0,
+     99,
+     99
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "i32",
+       true
+      ],
+      [
+       "i32",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "&'static str",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      160,
+      180
+     ],
+     "code": "名前"
+    }
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,60 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     28,
+     41
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      13,
+      16
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      16,
+      22
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      32,
+      33
+     ],
+     ""
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

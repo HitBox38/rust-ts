@@ -1,0 +1,175 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     232,
+     255
+    ]
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Note",
+     "msg": ""
+    }
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     82,
+     87
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      96,
+      97
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       1,
+       12,
+       13
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     232,
+     255
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "fatal",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     236,
+     237
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      98,
+      152
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     257,
+     257
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      250,
+      255
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     0,
+     32
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

@@ -1,0 +1,180 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     251,
+     251
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     65,
+     65
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     22,
+     29
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      169,
+      170
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "i32",
+       true
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "String",
+       false
+      ],
+      [
+       ">",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "must_teach",
+   "code": "E0277"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     233,
+     236
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     31,
+     31
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       220,
+       221
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     29,
+     31
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      24,
+      42
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Warning",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       31,
+       31
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "abort_if_errors"
+  }
+ ]
+}

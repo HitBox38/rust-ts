@@ -1,0 +1,82 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 40,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     203,
+     255
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     8,
+     9
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": ""
+    },
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "",
+     "span": {
+      "primary": [
+       [
+        0,
+        193,
+        194
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         150,
+         151
+        ],
+        "a label that is fairly long and will need to be placed below the line it points at"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

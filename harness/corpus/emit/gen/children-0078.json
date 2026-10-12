@@ -1,0 +1,131 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "span": [
+    [
+     1,
+     46,
+     58
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "",
+       false
+      ],
+      [
+       "",
+       true
+      ]
+     ],
+     "span": [
+      [
+       0,
+       162,
+       164
+      ]
+     ]
+    },
+    {
+     "kind": "help",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": {
+      "primary": [
+       [
+        0,
+        110,
+        111
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         139,
+         140
+        ],
+        "a label that is fairly long and will need to be placed below the line it points at"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "`Vec<",
+       false
+      ],
+      [
+       "expected ",
+       true
+      ],
+      [
+       "`Vec<",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       ">`",
+       false
+      ],
+      [
+       "",
+       true
+      ]
+     ],
+     "span": [
+      [
+       0,
+       218,
+       218
+      ]
+     ]
+    },
+    {
+     "kind": "note_once",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ]
+  }
+ ]
+}

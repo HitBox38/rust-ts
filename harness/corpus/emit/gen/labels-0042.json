@@ -1,0 +1,67 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     63,
+     64
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      31,
+      46
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      3,
+      4
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      58,
+      63
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      78,
+      82
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      54,
+      64
+     ],
+     "🦀"
+    ]
+   ]
+  }
+ ]
+}

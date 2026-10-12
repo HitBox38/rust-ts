@@ -1,0 +1,144 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     53,
+     55
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Help",
+     "msg": ""
+    },
+    {
+     "kind": "note",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       ">",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "String",
+       true
+      ],
+      [
+       "Option<",
+       true
+      ],
+      [
+       "Vec<",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       ">",
+       false
+      ],
+      [
+       ">",
+       true
+      ],
+      [
+       "&'static str",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "Option<",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "span": [
+    [
+     0,
+     21,
+     22
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    },
+    {
+     "kind": "note_once",
+     "msg": "required by a bound in `Point::<T>::new`",
+     "span": [
+      [
+       0,
+       10,
+       24
+      ]
+     ]
+    },
+    {
+     "kind": "warn",
+     "msg": "required by a bound in `Point::<T>::new`",
+     "span": [
+      [
+       0,
+       41,
+       42
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ]
+  }
+ ]
+}

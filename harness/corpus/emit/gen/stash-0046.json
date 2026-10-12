@@ -1,0 +1,166 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     307,
+     311
+    ]
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     307,
+     311
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     254,
+     255
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      250,
+      251
+     ],
+     ""
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     58,
+     59
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      21,
+      21
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     58,
+     59
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     284,
+     285
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "i32",
+       true
+      ],
+      [
+       "&str",
+       true
+      ],
+      [
+       " found ",
+       false
+      ],
+      [
+       "",
+       true
+      ]
+     ],
+     "span": [
+      [
+       0,
+       178,
+       205
+      ]
+     ]
+    }
+   ],
+   "then": {
+    "stash": "EarlySyntaxWarning",
+    "span": [
+     0,
+     284,
+     285
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     36,
+     36
+    ]
+   ]
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    284,
+    285
+   ],
+   "key": "EarlySyntaxWarning",
+   "note": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

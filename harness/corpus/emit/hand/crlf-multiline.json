@@ -1,0 +1,41 @@
+{
+ "files": [
+  {
+   "name": "src/crlf.rs",
+   "src": "fn crlf() {\r\n    let a = 1;\r\n    let b =\r\n        2;\r\n}\r\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "across CRLF lines",
+   "span": [
+    {
+     "file": 0,
+     "find": "let b"
+    }
+   ],
+   "labels": [
+    [
+     {
+      "file": 0,
+      "find": "b =",
+      "len": 15
+     },
+     "this spans a normalized newline"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "a = 1"
+     },
+     "here"
+    ]
+   ]
+  }
+ ]
+}

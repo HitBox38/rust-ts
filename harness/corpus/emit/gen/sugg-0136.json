@@ -1,0 +1,72 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "tab\tin message",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     146,
+     147
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      139,
+      151
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      251,
+      252
+     ],
+     "code": "foo::bar::<T>()"
+    },
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        111,
+        112
+       ],
+       ""
+      ],
+      [
+       [
+        0,
+        201,
+        256
+       ],
+       "42"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

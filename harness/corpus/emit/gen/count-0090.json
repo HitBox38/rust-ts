@@ -1,0 +1,133 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     94,
+     95
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0277",
+   "span": [
+    [
+     0,
+     31,
+     31
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      36,
+      41
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "expected ",
+       true
+      ],
+      [
+       "i32",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     91,
+     92
+    ]
+   ]
+  },
+  {
+   "op": "must_teach",
+   "code": "E9999"
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     91,
+     92
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "mismatched types",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     199,
+     202
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "abort_if_errors"
+  }
+ ]
+}

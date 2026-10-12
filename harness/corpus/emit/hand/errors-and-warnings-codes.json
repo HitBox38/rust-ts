@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "e1",
+   "code": "E0425",
+   "span": [
+    {
+     "file": 0,
+     "find": "v[0]"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "w1",
+   "span": [
+    {
+     "file": 0,
+     "find": "for"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "e2",
+   "code": "E0308",
+   "span": [
+    {
+     "file": 0,
+     "find": "10"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "w2",
+   "code": "E0599",
+   "span": [
+    {
+     "file": 0,
+     "find": "println"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "e3 (no long explanation)",
+   "code": "E9999",
+   "span": [
+    {
+     "file": 0,
+     "find": "fn"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

@@ -1,0 +1,139 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     353,
+     354
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     196,
+     205
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      355,
+      356
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     122,
+     153
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       ">`",
+       false
+      ],
+      [
+       "&str",
+       false
+      ],
+      [
+       "&str",
+       true
+      ],
+      [
+       " found ",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       22,
+       23
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     337,
+     338
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "abort_if_errors"
+  },
+  {
+   "op": "query"
+  }
+ ],
+ "flags": {
+  "eagerly_emit_delayed_bugs": true
+ }
+}

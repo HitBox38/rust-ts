@@ -1,0 +1,154 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     0,
+     23
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      181,
+      182
+     ],
+     "🦀"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     128,
+     129
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     185,
+     189
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      196,
+      259
+     ],
+     "🦀"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "tab\tin message",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     153,
+     216
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      148,
+      204
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    }
+   ]
+  },
+  {
+   "op": "must_teach",
+   "code": "E0277"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     197,
+     226
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      277,
+      309
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      199,
+      214
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      205,
+      238
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "query"
+  }
+ ]
+}

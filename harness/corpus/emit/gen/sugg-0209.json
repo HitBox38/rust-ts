@@ -1,0 +1,49 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "span": [
+    [
+     0,
+     24,
+     35
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      17,
+      18
+     ],
+     "code": "&x",
+     "style": "ShowCode"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,46 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "cannot find value `foo` in this scope",
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      61,
+      62
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    },
+    {
+     "kind": "span_suggestions",
+     "msg": "consider borrowing here",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      21,
+      35
+     ],
+     "codes": [
+      "42",
+      "名前_1",
+      "\tindented_2"
+     ]
+    }
+   ]
+  }
+ ]
+}

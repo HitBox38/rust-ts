@@ -1,0 +1,93 @@
+{
+ "files": [
+  {
+   "name": "src/bom.rs",
+   "src": "﻿fn bom() {\n    let a = 1;\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "tab\tin message",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     9,
+     10
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      1,
+      9
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      7,
+      8
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "required by a bound in `Point::<T>::new`",
+     "span": {
+      "primary": [
+       [
+        0,
+        7,
+        8
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         3,
+         6
+        ],
+        "first borrow occurs here"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      26,
+      27
+     ],
+     "code": "名前"
+    },
+    {
+     "kind": "span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      7,
+      8
+     ],
+     "code": "\tindented"
+    }
+   ]
+  }
+ ]
+}

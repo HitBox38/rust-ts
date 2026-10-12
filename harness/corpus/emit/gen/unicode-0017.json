@@ -1,0 +1,88 @@
+{
+ "files": [
+  {
+   "name": "src/crlf.rs",
+   "src": "fn crlf() {\r\n    let a = 1;\r\n    let b = 2;\r\n    a + b\r\n}\r\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     0,
+     2
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      11,
+      14
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      8,
+      8
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      50,
+      52
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       " found ",
+       false
+      ],
+      [
+       ">`",
+       false
+      ],
+      [
+       ">`",
+       true
+      ]
+     ],
+     "span": [
+      [
+       0,
+       0,
+       11
+      ]
+     ]
+    },
+    {
+     "kind": "help",
+     "msg": "",
+     "span": [
+      [
+       0,
+       10,
+       11
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,86 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     118,
+     151
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": {
+      "primary": [
+       [
+        0,
+        31,
+        44
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         70,
+         97
+        ],
+        "expected `i32`, found `&str`"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      255,
+      256
+     ],
+     "codes": [
+      "x.clone()",
+      "42_1",
+      "let y = 1;\nlet z = 2;_2",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_3",
+      "42_4"
+     ],
+     "style": "HideCodeInline"
+    },
+    {
+     "kind": "span_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      88,
+      89
+     ],
+     "codes": [
+      "x.clone()",
+      "foo::bar::<T>()_1"
+     ]
+    }
+   ]
+  }
+ ]
+}

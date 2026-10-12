@@ -1,0 +1,44 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     186,
+     207
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      200,
+      212
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      191,
+      196
+     ],
+     "not found in this scope"
+    ]
+   ]
+  }
+ ]
+}

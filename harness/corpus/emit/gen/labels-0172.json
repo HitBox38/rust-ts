@@ -1,0 +1,48 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     339,
+     343
+    ],
+    [
+     0,
+     138,
+     140
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      328,
+      339
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      331,
+      332
+     ],
+     "label with\nnewline"
+    ]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,65 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "mismatched types",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     32,
+     33
+    ],
+    [
+     0,
+     60,
+     81
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      24,
+      33
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      30,
+      31
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      34,
+      35
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

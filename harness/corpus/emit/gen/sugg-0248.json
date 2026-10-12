@@ -1,0 +1,77 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     293,
+     294
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "&'static str",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "String",
+       true
+      ],
+      [
+       ">",
+       true
+      ],
+      [
+       "String",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        356,
+        356
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ],
+      [
+       [
+        0,
+        145,
+        146
+       ],
+       "\tindented"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

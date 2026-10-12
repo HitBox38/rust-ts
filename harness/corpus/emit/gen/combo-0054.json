@@ -1,0 +1,76 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "diagnostic_width": 80,
+  "theme": "unicode",
+  "color": "always",
+  "macro_backtrace": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     116,
+     143
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      114,
+      139
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      115,
+      145
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "",
+     "span": {
+      "primary": [
+       [
+        0,
+        206,
+        206
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         3,
+         10
+        ],
+        "help: consider borrowing here"
+       ]
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "flags": {
+  "macro_backtrace": true
+ }
+}

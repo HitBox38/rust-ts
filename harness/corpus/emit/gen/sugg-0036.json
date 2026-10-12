@@ -1,0 +1,94 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     190,
+     191
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      221,
+      222
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Warning",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       72,
+       82
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      107,
+      109
+     ],
+     "code": "名前"
+    },
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        3,
+        25
+       ],
+       "\tindented"
+      ],
+      [
+       [
+        0,
+        61,
+        68
+       ],
+       "\tindented"
+      ],
+      [
+       [
+        0,
+        86,
+        87
+       ],
+       ""
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,77 @@
+{
+ "files": [
+  {
+   "name": "src/nonl.rs",
+   "src": "fn f() { let x = 1; }"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     4,
+     17
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": {
+      "primary": [
+       [
+        0,
+        15,
+        17
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         0,
+         0
+        ],
+        "help: consider borrowing here"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "i32",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       ">",
+       true
+      ],
+      [
+       "i32",
+       false
+      ],
+      [
+       ">",
+       false
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

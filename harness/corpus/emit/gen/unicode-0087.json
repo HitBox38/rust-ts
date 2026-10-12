@@ -1,0 +1,122 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     68,
+     73
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      19,
+      22
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      67,
+      81
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      13,
+      14
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      289,
+      290
+     ],
+     "code": "let y = 1;\nlet z = 2;"
+    },
+    {
+     "kind": "span_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      88,
+      204
+     ],
+     "code": "&x"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     195,
+     211
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      184,
+      189
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      291,
+      291
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  }
+ ]
+}

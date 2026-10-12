@@ -1,0 +1,76 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     145,
+     146
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      286,
+      286
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     145,
+     146
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     220,
+     221
+    ]
+   ],
+   "then": {
+    "stash": "MaybeFruTypo",
+    "span": [
+     0,
+     220,
+     221
+    ]
+   }
+  }
+ ]
+}

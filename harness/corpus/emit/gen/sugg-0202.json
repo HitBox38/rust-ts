@@ -1,0 +1,55 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     8,
+     9
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      26,
+      68
+     ],
+     ""
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        7,
+        8
+       ],
+       "let y = 1;\nlet z = 2;"
+      ]
+     ],
+     "style": "ShowCode"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,191 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     96,
+     97
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      275,
+      280
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     96,
+     97
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     284,
+     285
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": ""
+    }
+   ],
+   "then": {
+    "stash": "EarlySyntaxWarning",
+    "span": [
+     0,
+     284,
+     285
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     126,
+     127
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      253,
+      258
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     126,
+     127
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     2,
+     8
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      58,
+      59
+     ],
+     "🦀"
+    ]
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     2,
+     8
+    ]
+   }
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    96,
+    97
+   ],
+   "key": "ItemNoType",
+   "then": "emit"
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    284,
+    285
+   ],
+   "key": "EarlySyntaxWarning",
+   "note": "required by a bound in `Point::<T>::new`"
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    126,
+    127
+   ],
+   "key": "ExprInPat",
+   "note": "required by a bound in `Point::<T>::new`"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    2,
+    8
+   ],
+   "key": "CallIntoMethod",
+   "then": "emit"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

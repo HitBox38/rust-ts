@@ -1,0 +1,163 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     208,
+     211
+    ]
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     208,
+     211
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "span": [
+    [
+     0,
+     41,
+     42
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     41,
+     42
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     277,
+     279
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     28,
+     34
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     28,
+     34
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     1,
+     2
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      113,
+      114
+     ],
+     "🦀"
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     1,
+     2
+    ]
+   }
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    208,
+    211
+   ],
+   "key": "ItemNoType",
+   "note": "`#[warn(unused_variables)]` on by default"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    286,
+    290
+   ],
+   "key": "MaybeFruTypo"
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    125,
+    126
+   ],
+   "key": "MaybeFruTypo",
+   "note": "never shown"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

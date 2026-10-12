@@ -1,0 +1,68 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "mismatched types",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     46,
+     47
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      43,
+      52
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      41,
+      53
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      44,
+      83
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      81,
+      81
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     41,
+     41
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      57,
+      81
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      83,
+      83
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      24,
+      29
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      6,
+      11
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      30,
+      31
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      40,
+      65
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  }
+ ]
+}

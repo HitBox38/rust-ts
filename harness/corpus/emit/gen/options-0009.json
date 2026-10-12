@@ -1,0 +1,126 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 20,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0001",
+   "labels": [
+    [
+     [
+      0,
+      198,
+      199
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": ""
+    },
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": {
+      "primary": [
+       [
+        0,
+        153,
+        157
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         143,
+         144
+        ],
+        "not found in this scope"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      71,
+      71
+     ],
+     "codes": [
+      "\tindented",
+      "x.clone()_1",
+      "42_2",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_3",
+      "名前_4"
+     ],
+     "style": "ShowAlways"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "span": [
+    [
+     0,
+     184,
+     210
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      19,
+      22
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      176,
+      220
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

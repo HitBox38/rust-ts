@@ -1,0 +1,43 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     70,
+     83
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      7,
+      8
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      74,
+      82
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  }
+ ]
+}

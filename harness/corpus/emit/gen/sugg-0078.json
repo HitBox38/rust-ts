@@ -1,0 +1,52 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      59,
+      59
+     ],
+     "codes": [
+      "let y = 1;\nlet z = 2;",
+      "名前_1",
+      "foo::bar::<T>()_2"
+     ]
+    },
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      2,
+      8
+     ],
+     "code": "42"
+    }
+   ]
+  }
+ ]
+}

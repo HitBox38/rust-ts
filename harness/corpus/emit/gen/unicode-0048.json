@@ -1,0 +1,206 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     82,
+     85
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      120
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      79,
+      96
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      0,
+      11
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MaybeIncorrect",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         109,
+         110
+        ],
+        ""
+       ],
+       [
+        [
+         0,
+         67,
+         68
+        ],
+        "foo::bar::<T>()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         82,
+         85
+        ],
+        ""
+       ],
+       [
+        [
+         0,
+         78,
+         81
+        ],
+        "&x"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         43,
+         44
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         33,
+         38
+        ],
+        "名前"
+       ],
+       [
+        [
+         0,
+         91,
+         92
+        ],
+        "foo::bar::<T>()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         63,
+         65
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         30,
+         90
+        ],
+        "x.clone()"
+       ]
+      ]
+     ]
+    },
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "consider borrowing here",
+     "applicability": "MaybeIncorrect",
+     "parts": [
+      [
+       [
+        0,
+        84,
+        84
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ],
+      [
+       [
+        0,
+        6,
+        19
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ],
+      [
+       [
+        0,
+        32,
+        34
+       ],
+       "\tindented"
+      ]
+     ],
+     "style": "HideCodeAlways"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     31,
+     88
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      103,
+      119
+     ],
+     "code": "foo::bar::<T>()"
+    }
+   ]
+  }
+ ]
+}

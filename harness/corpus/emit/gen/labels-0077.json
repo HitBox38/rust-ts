@@ -1,0 +1,43 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     35,
+     35
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      30,
+      35
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      23,
+      46
+     ],
+     "this"
+    ]
+   ]
+  }
+ ]
+}

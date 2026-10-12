@@ -1,0 +1,86 @@
+{
+ "files": [
+  {
+   "custom": "anon",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     139,
+     140
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    },
+    {
+     "kind": "note",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      3,
+      24
+     ],
+     "code": "\tindented"
+    },
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      243,
+      244
+     ],
+     "code": "&x"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     146,
+     147
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      146,
+      148
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  }
+ ]
+}

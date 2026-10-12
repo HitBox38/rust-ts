@@ -1,0 +1,58 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "styled suggestion",
+   "span": [
+    {
+     "file": 0,
+     "find": "10"
+    }
+   ],
+   "labels": [
+    [
+     {
+      "file": 0,
+      "find": "10"
+     },
+     "here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "use a bigger number",
+     "span": {
+      "file": 0,
+      "find": "10"
+     },
+     "code": "100",
+     "applicability": "MachineApplicable",
+     "style": "ShowCode"
+    },
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "insert",
+     "span": {
+      "file": 0,
+      "find": "0..",
+      "len": 0
+     },
+     "code": "1 + ",
+     "applicability": "Unspecified",
+     "style": "ShowCode"
+    }
+   ]
+  }
+ ]
+}

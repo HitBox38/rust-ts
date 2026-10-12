@@ -1,0 +1,139 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "always",
+  "short_message": false,
+  "diagnostic_width": 200,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     247,
+     250
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      69,
+      112
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      160,
+      180
+     ],
+     "first borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "code": "E0277",
+   "span": [
+    [
+     0,
+     107,
+     112
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      119,
+      122
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      64,
+      67
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "",
+     "span": {
+      "primary": [
+       [
+        0,
+        251,
+        257
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         11,
+         12
+        ],
+        "this"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines",
+     "span": {
+      "primary": [
+       [
+        0,
+        215,
+        216
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         68,
+         91
+        ],
+        "label with\nnewline"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

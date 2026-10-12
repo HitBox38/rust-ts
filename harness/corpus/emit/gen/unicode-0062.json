@@ -1,0 +1,95 @@
+{
+ "files": [
+  {
+   "name": "src/crlf.rs",
+   "src": "fn crlf() {\r\n    let a = 1;\r\n    let b = 2;\r\n    a + b\r\n}\r\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     6,
+     23
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      11,
+      32
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      16,
+      19
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       11,
+       18
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     20,
+     21
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      27,
+      30
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      52,
+      53
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      20,
+      21
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  }
+ ]
+}

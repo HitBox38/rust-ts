@@ -1,0 +1,52 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E9999",
+   "children": [
+    {
+     "kind": "note",
+     "msg": "a note\nspanning lines",
+     "span": {
+      "primary": [
+       [
+        0,
+        63,
+        66
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         53,
+         54
+        ],
+        "not found in this scope"
+       ]
+      ]
+     }
+    }
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ]
+  }
+ ]
+}

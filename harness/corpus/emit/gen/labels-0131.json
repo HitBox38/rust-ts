@@ -1,0 +1,44 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     50,
+     55
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      51,
+      63
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      48,
+      67
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  }
+ ]
+}

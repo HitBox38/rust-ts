@@ -1,0 +1,66 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     26,
+     29
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "Option<",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "Vec<",
+       false
+      ],
+      [
+       "Vec<",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      28,
+      33
+     ],
+     "codes": [
+      "let y = 1;\nlet z = 2;",
+      "let y = 1;\nlet z = 2;_1",
+      "\tindented_2"
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,77 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "code": "E0601",
+   "labels": [
+    [
+     [
+      0,
+      169,
+      187
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "",
+     "span": [
+      [
+       0,
+       252,
+       253
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      136,
+      136
+     ],
+     "codes": [
+      "\tindented"
+     ]
+    },
+    {
+     "kind": "span_suggestion_short",
+     "msg": "try using a conversion method",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      191,
+      194
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    }
+   ]
+  }
+ ]
+}

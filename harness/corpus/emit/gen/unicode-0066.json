@@ -1,0 +1,114 @@
+{
+ "files": [
+  {
+   "name": "src/empty.rs",
+   "src": ""
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": ""
+    },
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         0,
+         0
+        ],
+        "x.clone()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         0,
+         0
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         0,
+         0
+        ],
+        "\tindented"
+       ]
+      ]
+     ]
+    },
+    {
+     "kind": "span_suggestions",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      0,
+      0
+     ],
+     "codes": [
+      "\tindented"
+     ]
+    }
+   ]
+  }
+ ]
+}

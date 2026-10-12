@@ -1,0 +1,59 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     95,
+     104
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "remove this",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      108,
+      116
+     ],
+     "code": "x.clone()"
+    },
+    {
+     "kind": "span_suggestions",
+     "msg": "remove this",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      91,
+      92
+     ],
+     "codes": [
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close",
+      "\tindented_1",
+      "foo::bar::<T>()_2",
+      "名前_3",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_4",
+      "名前_5",
+      "x.clone()_6"
+     ]
+    }
+   ]
+  }
+ ]
+}

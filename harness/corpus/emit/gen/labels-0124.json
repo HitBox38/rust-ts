@@ -1,0 +1,93 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "span": [
+    [
+     0,
+     0,
+     1
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      238,
+      239
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      149,
+      151
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      9,
+      11
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      252,
+      254
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      6,
+      7
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      105,
+      106
+     ],
+     "this"
+    ]
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,192 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "never",
+  "short_message": true,
+  "diagnostic_width": 20,
+  "source_map": false,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     241,
+     241
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      232,
+      239
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      235,
+      245
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "",
+       false
+      ],
+      [
+       "",
+       true
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "&'static str",
+       true
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         72,
+         72
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         84,
+         84
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         190,
+         194
+        ],
+        "名前"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         0,
+         57
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         180,
+         191
+        ],
+        "42"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         1,
+         124
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         287,
+         288
+        ],
+        "&x"
+       ],
+       [
+        [
+         0,
+         247,
+         250
+        ],
+        "名前"
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     180,
+     181
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      143,
+      144
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      187,
+      190
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

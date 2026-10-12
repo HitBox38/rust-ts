@@ -1,0 +1,70 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "code": "E0277",
+   "span": [
+    [
+     0,
+     9,
+     26
+    ],
+    [
+     0,
+     3,
+     7
+    ],
+    [
+     0,
+     3,
+     59
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      32,
+      33
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      0,
+      9
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      71,
+      77
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      10,
+      27
+     ],
+     "this"
+    ]
+   ]
+  }
+ ]
+}

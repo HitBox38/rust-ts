@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "custom": "anon",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     0,
+     257
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      7,
+      10
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    },
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "consider borrowing here",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      29,
+      30
+     ],
+     "code": "名前"
+    },
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      239,
+      250
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close",
+     "style": "HideCodeAlways"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,110 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     32,
+     33
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      21,
+      30
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      30,
+      30
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      44,
+      45
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    },
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "`Vec<",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "String",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "Vec<",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       ">`",
+       false
+      ],
+      [
+       "i32",
+       true
+      ],
+      [
+       " found ",
+       true
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

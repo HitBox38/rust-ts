@@ -1,0 +1,62 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     67,
+     70
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      62,
+      72
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      5,
+      15
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      24,
+      37
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines"
+    }
+   ]
+  }
+ ]
+}

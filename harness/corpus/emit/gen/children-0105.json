@@ -1,0 +1,149 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     72,
+     73
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      45,
+      58
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      68,
+      82
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      16,
+      19
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "a note\nspanning lines"
+    },
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": {
+      "primary": [
+       [
+        0,
+        26,
+        29
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         13,
+         16
+        ],
+        "help: consider borrowing here"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "i32",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "String",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "help",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    },
+    {
+     "kind": "sub",
+     "level": "Note",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "span": [
+    [
+     0,
+     54,
+     55
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "note_once",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       12,
+       12
+      ]
+     ]
+    },
+    {
+     "kind": "warn",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ]
+  }
+ ]
+}

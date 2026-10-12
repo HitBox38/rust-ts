@@ -1,0 +1,65 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     1,
+     40
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      36,
+      40
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      83,
+      83
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      12,
+      12
+     ],
+     ""
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  }
+ ]
+}

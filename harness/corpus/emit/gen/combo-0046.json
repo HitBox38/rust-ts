@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "diagnostic_width": 80,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     94,
+     153
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      116,
+      155
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      152,
+      157
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": ""
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      163,
+      163
+     ],
+     "code": "let y = 1;\nlet z = 2;"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

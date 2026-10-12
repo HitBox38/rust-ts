@@ -1,0 +1,135 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     128,
+     129
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      124,
+      131
+     ],
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     355,
+     356
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      60,
+      73
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     217,
+     217
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": {
+      "primary": [
+       [
+        0,
+        271,
+        272
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         75,
+         76
+        ],
+        "not found in this scope"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "",
+   "span": [
+    [
+     0,
+     320,
+     320
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      325,
+      328
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     251,
+     255
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

@@ -1,0 +1,104 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     193,
+     194
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      180,
+      198
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     193,
+     194
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     133,
+     134
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     133,
+     134
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     165,
+     166
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     68,
+     69
+    ]
+   ],
+   "then": {
+    "stash": "EarlySyntaxWarning",
+    "span": [
+     0,
+     68,
+     69
+    ]
+   }
+  }
+ ]
+}

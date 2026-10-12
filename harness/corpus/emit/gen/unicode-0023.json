@@ -1,0 +1,35 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     0,
+     83
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      59,
+      60
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  }
+ ]
+}

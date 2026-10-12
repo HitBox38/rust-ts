@@ -1,0 +1,208 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "fatal",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     63,
+     102
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     71,
+     72
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     280,
+     284
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     105,
+     132
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     90,
+     91
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      94,
+      96
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "i32",
+       true
+      ],
+      [
+       " found ",
+       true
+      ],
+      [
+       "",
+       false
+      ],
+      [
+       "expected ",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       102,
+       105
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "tab\tin message",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     99,
+     99
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      184,
+      185
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       83,
+       84
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     253,
+     255
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      167,
+      186
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      290,
+      291
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "abort_if_errors"
+  },
+  {
+   "op": "query"
+  }
+ ],
+ "flags": {
+  "deduplicate_diagnostics": false,
+  "can_emit_warnings": false
+ }
+}

@@ -1,0 +1,136 @@
+{
+ "files": [
+  {
+   "name": "src/empty.rs",
+   "src": ""
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       0,
+       0
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      0,
+      0
+     ],
+     "code": "\tindented",
+     "style": "ShowCode"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "&'static str",
+       true
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      0,
+      0
+     ],
+     "code": "名前"
+    }
+   ]
+  }
+ ]
+}

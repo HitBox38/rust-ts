@@ -1,0 +1,165 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "span": [
+    [
+     0,
+     229,
+     255
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      229,
+      234
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "String",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "&'static str",
+       false
+      ],
+      [
+       ">",
+       false
+      ],
+      [
+       "String",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "help_once",
+     "msg": ""
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       ">",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "i32",
+       false
+      ],
+      [
+       "&'static str",
+       true
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "`Vec<",
+       false
+      ],
+      [
+       "i32",
+       false
+      ],
+      [
+       "expected ",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       20,
+       21
+      ]
+     ]
+    },
+    {
+     "kind": "warn",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     139,
+     140
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "`Vec<",
+       false
+      ],
+      [
+       "",
+       true
+      ],
+      [
+       "&str",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

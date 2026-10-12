@@ -1,0 +1,67 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     80,
+     81
+    ]
+   ],
+   "labels": [
+    [
+     [
+      2,
+      5,
+      5
+     ],
+     ""
+    ],
+    [
+     [
+      2,
+      11,
+      13
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      241,
+      241
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      0,
+      257
+     ],
+     ""
+    ]
+   ]
+  }
+ ]
+}

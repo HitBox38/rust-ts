@@ -1,0 +1,48 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     42,
+     44
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      55,
+      56
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  }
+ ]
+}

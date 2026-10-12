@@ -1,0 +1,79 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     6,
+     8
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      2,
+      7
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      1,
+      11
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "a note\nspanning lines"
+    },
+    {
+     "kind": "sub",
+     "level": "Note",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    },
+    {
+     "kind": "sub",
+     "level": "Note",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": {
+      "primary": [
+       [
+        0,
+        28,
+        29
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         50,
+         51
+        ],
+        "🦀"
+       ]
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

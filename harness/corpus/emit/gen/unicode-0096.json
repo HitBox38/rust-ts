@@ -1,0 +1,70 @@
+{
+ "files": [
+  {
+   "name": "src/nonl.rs",
+   "src": "fn f() { let x = 1; }"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     4,
+     8
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       ">`",
+       false
+      ],
+      [
+       "`Vec<",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      17,
+      18
+     ],
+     "code": ""
+    },
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "consider borrowing here",
+     "applicability": "MaybeIncorrect",
+     "parts": [
+      [
+       [
+        0,
+        4,
+        11
+       ],
+       "foo::bar::<T>()"
+      ]
+     ],
+     "style": "HideCodeInline"
+    }
+   ]
+  }
+ ]
+}

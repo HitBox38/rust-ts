@@ -1,0 +1,66 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     40,
+     41
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      22,
+      29
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       ">",
+       true
+      ],
+      [
+       "Option<",
+       true
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "i32",
+       false
+      ],
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "Vec<",
+       false
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

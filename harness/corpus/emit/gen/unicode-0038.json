@@ -1,0 +1,175 @@
+{
+ "files": [
+  {
+   "name": "src/crlf.rs",
+   "src": "fn crlf() {\r\n    let a = 1;\r\n    let b = 2;\r\n    a + b\r\n}\r\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     35,
+     45
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      2,
+      8
+     ],
+     ""
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      45,
+      50
+     ],
+     "code": "\tindented",
+     "style": "HideCodeAlways"
+    },
+    {
+     "kind": "multipart_suggestions",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         31,
+         34
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         0,
+         2
+        ],
+        "&x"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         3,
+         7
+        ],
+        "&x"
+       ],
+       [
+        [
+         0,
+         52,
+         53
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         10,
+         11
+        ],
+        "42"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         35,
+         36
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         0,
+         23
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         33,
+         33
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "span": [
+    [
+     0,
+     46,
+     47
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      48,
+      49
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      45,
+      46
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      38,
+      49
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ]
+  }
+ ]
+}

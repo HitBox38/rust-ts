@@ -1,0 +1,128 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80,
+  "macro_backtrace": true,
+  "ignored_directories": [
+   "src/very"
+  ]
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     42,
+     59
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      18,
+      18
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      66,
+      70
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": ""
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "",
+       true
+      ],
+      [
+       " found ",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       190,
+       194
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     289,
+     290
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      258,
+      259
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      287,
+      288
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      288,
+      288
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ],
+ "flags": {
+  "macro_backtrace": true
+ }
+}

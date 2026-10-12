@@ -1,0 +1,59 @@
+{
+ "files": [
+  {
+   "name": "src/crlf.rs",
+   "src": "fn crlf() {\r\n    let a = 1;\r\n    let b = 2;\r\n    a + b\r\n}\r\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     47,
+     53
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      37,
+      54
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": ""
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "",
+       false
+      ],
+      [
+       "`Vec<",
+       false
+      ],
+      [
+       "i32",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

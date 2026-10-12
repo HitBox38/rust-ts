@@ -1,0 +1,68 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     101,
+     101
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      331,
+      337
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      94,
+      102
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      253,
+      254
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      93,
+      106
+     ],
+     "🦀"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

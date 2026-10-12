@@ -1,0 +1,124 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     162,
+     164
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      218,
+      257
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": [
+      [
+       0,
+       156,
+       157
+      ]
+     ]
+    }
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     162,
+     164
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     225,
+     226
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      204,
+      207
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "Option<",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "Option<",
+       true
+      ],
+      [
+       "Option<",
+       true
+      ],
+      [
+       "Vec<",
+       false
+      ]
+     ]
+    }
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     225,
+     226
+    ]
+   }
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

@@ -1,0 +1,194 @@
+{
+ "files": [
+  {
+   "name": "src/crlf.rs",
+   "src": "fn crlf() {\r\n    let a = 1;\r\n    let b = 2;\r\n    a + b\r\n}\r\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     31,
+     34
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      54
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      27,
+      41
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      27,
+      36
+     ],
+     "this"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         44,
+         51
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         7,
+         8
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         20,
+         21
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         10,
+         11
+        ],
+        ""
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         35,
+         36
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         43,
+         54
+        ],
+        "foo::bar::<T>()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         40,
+         41
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         52,
+         53
+        ],
+        "foo::bar::<T>()"
+       ]
+      ]
+     ]
+    },
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      10,
+      11
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     40,
+     41
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": {
+      "primary": [
+       [
+        0,
+        25,
+        26
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         24,
+         25
+        ],
+        "first borrow occurs here"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "note_once",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": [
+      [
+       0,
+       7,
+       8
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

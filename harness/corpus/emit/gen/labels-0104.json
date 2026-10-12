@@ -1,0 +1,77 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     0,
+     291
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      157,
+      287
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      131,
+      236
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      26,
+      198
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      115,
+      144
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      117,
+      222
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

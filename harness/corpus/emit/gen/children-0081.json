@@ -1,0 +1,95 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     42,
+     56
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      11
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      44,
+      60
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "i32",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "i32",
+       true
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     19,
+     20
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      66,
+      79
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ]
+  }
+ ]
+}

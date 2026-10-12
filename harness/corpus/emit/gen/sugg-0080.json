@@ -1,0 +1,59 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     81,
+     81
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion",
+     "msg": "consider borrowing here",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        12,
+        18
+       ],
+       "x.clone()"
+      ],
+      [
+       [
+        0,
+        3,
+        7
+       ],
+       "&x"
+      ],
+      [
+       [
+        0,
+        68,
+        69
+       ],
+       "foo::bar::<T>()"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

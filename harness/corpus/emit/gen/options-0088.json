@@ -1,0 +1,107 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 20,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     70,
+     114
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      75,
+      101
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "a note\nspanning lines",
+     "span": {
+      "primary": [
+       [
+        0,
+        10,
+        11
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         222,
+         289
+        ],
+        "help: consider borrowing here"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     159,
+     291
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      122,
+      140
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      189,
+      214
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      249,
+      276
+     ],
+     "help: consider borrowing here"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

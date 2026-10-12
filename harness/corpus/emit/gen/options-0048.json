@@ -1,0 +1,126 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 20,
+  "source_map": false,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "mismatched types",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     155,
+     157
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "expected ",
+       true
+      ],
+      [
+       " found ",
+       false
+      ],
+      [
+       ">`",
+       true
+      ],
+      [
+       "i32",
+       true
+      ]
+     ],
+     "span": {
+      "primary": [],
+      "labels": [
+       [
+        [
+         0,
+         150,
+         151
+        ],
+        ""
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "help_once",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     187,
+     188
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Warning",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": {
+      "primary": [
+       [
+        0,
+        40,
+        41
+       ]
+      ],
+      "labels": [
+       [
+        [
+         2,
+         46,
+         46
+        ],
+        "first borrow occurs here"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "sub",
+     "level": "Note",
+     "msg": ""
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

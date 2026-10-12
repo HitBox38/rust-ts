@@ -1,0 +1,15 @@
+{
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "no files at all"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

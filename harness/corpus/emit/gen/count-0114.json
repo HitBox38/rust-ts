@@ -1,0 +1,132 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     149,
+     150
+    ]
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     201,
+     204
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     65,
+     71
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "required by a bound in `Point::<T>::new`",
+     "span": {
+      "primary": [
+       [
+        0,
+        196,
+        197
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         1,
+         2
+        ],
+        "label with\nnewline"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     238,
+     239
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": {
+      "primary": [
+       [
+        0,
+        271,
+        272
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         61,
+         68
+        ],
+        "expected `i32`, found `&str`"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     55,
+     56
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

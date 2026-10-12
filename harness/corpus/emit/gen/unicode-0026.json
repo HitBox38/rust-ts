@@ -1,0 +1,128 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     120,
+     120
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": ""
+    },
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       46,
+       53
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "MaybeIncorrect",
+     "parts": [
+      [
+       [
+        0,
+        58,
+        70
+       ],
+       "名前"
+      ]
+     ]
+    },
+    {
+     "kind": "span_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      86,
+      87
+     ],
+     "code": "\tindented"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "span": [
+    [
+     0,
+     118,
+     119
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": {
+      "primary": [
+       [
+        0,
+        78,
+        81
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         20,
+         24
+        ],
+        "🦀"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "note",
+     "msg": "",
+     "span": [
+      [
+       0,
+       4,
+       6
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ]
+  }
+ ]
+}

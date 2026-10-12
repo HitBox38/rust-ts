@@ -1,0 +1,65 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     78,
+     81
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       " found ",
+       true
+      ],
+      [
+       "&str",
+       false
+      ],
+      [
+       " found ",
+       false
+      ],
+      [
+       "i32",
+       true
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      120,
+      120
+     ],
+     "code": "foo::bar::<T>()"
+    }
+   ]
+  }
+ ]
+}

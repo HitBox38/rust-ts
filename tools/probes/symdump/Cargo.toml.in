@@ -1,6 +1,7 @@
-# Template: scripts/probes.ts substitutes @UPSTREAM@/@SRC@ and builds this in $RUST_TS_DATA/probes.
+# Template: scripts/probes.ts substitutes @UPSTREAM@/@SRC@/@RELEASE@ and builds this in $RUST_TS_DATA/probes.
 # rustc_span is a path dep on the pinned upstream checkout. Its `symbols!` macro needs
-# CFG_RELEASE at build time (scripts/probes.ts sets it from UPSTREAM.json `release`).
+# CFG_RELEASE at build time (`env` below; @RELEASE@ is UPSTREAM.json `release`), and rustc_macros'
+# build script refuses to run without RUSTC_BOOTSTRAP.
 # Transitive registry deps of rustc_span are resolved by cargo (no lockfile is shipped); they do not
 # influence the symbol table.
 [package]
@@ -10,9 +11,11 @@ edition = "2024"
 publish = false
 build = "@SRC@/build.rs"
 
-# Read by build.rs (it parses the `symbols!` invocation for the kw/sym constant names).
+# `symbol-rs` is read by build.rs (it parses the `symbols!` invocation for the kw/sym constant
+# names); `env` by scripts/probes.ts (build environment).
 [package.metadata.rust-ts]
 symbol-rs = "@UPSTREAM@/compiler/rustc_span/src/symbol.rs"
+env = { RUSTC_BOOTSTRAP = "1", CFG_RELEASE = "@RELEASE@" }
 
 [[bin]]
 name = "symdump"

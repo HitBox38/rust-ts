@@ -1,0 +1,158 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     124,
+     125
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      85,
+      87
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     124,
+     125
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     126,
+     127
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      46,
+      47
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "then": {
+    "stash": "MaybeFruTypo",
+    "span": [
+     0,
+     126,
+     127
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     271,
+     272
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      301,
+      306
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "then": {
+    "stash": "MaybeFruTypo",
+    "span": [
+     0,
+     271,
+     272
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     69,
+     70
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      257,
+      261
+     ],
+     "🦀"
+    ]
+   ]
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    124,
+    125
+   ],
+   "key": "ItemNoType",
+   "then": "cancel"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    126,
+    127
+   ],
+   "key": "MaybeFruTypo",
+   "then": "emit"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    271,
+    272
+   ],
+   "key": "MaybeFruTypo",
+   "then": "emit"
+  }
+ ]
+}

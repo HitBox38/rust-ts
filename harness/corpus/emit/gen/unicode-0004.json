@@ -1,0 +1,65 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     118,
+     118
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      107,
+      113
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      10,
+      11
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      109,
+      110
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      58,
+      63
+     ],
+     "code": "&x"
+    }
+   ]
+  }
+ ]
+}

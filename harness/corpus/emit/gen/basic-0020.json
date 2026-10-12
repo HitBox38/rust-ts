@@ -1,0 +1,74 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     218,
+     230
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      217,
+      227
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      290,
+      290
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      223,
+      241
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines"
+    },
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      132,
+      143
+     ],
+     "code": ""
+    }
+   ]
+  }
+ ]
+}

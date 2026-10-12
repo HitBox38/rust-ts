@@ -1,0 +1,112 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "code": "E0308",
+   "span": [
+    {
+     "file": 0,
+     "find": "\"hello\""
+    }
+   ],
+   "labels": [
+    [
+     {
+      "file": 0,
+      "find": "\"hello\""
+     },
+     "expected `i32`, found `&str`"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "i32"
+     },
+     "expected due to this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "code": "E0308",
+   "span": [
+    {
+     "file": 0,
+     "find": "x",
+     "nth": 1
+    }
+   ],
+   "labels": [
+    [
+     {
+      "file": 0,
+      "find": "x",
+      "nth": 1
+     },
+     "expected `&i32`, found `i32`"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "takes_ref"
+     },
+     "arguments to this function are incorrect"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "function defined here",
+     "span": {
+      "primary": [
+       {
+        "file": 0,
+        "find": "takes_ref",
+        "nth": 1
+       }
+      ],
+      "labels": [
+       [
+        {
+         "file": 0,
+         "find": "r: &i32"
+        },
+        ""
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "consider borrowing here",
+     "span": {
+      "file": 0,
+      "find": "x",
+      "nth": 1,
+      "len": 0
+     },
+     "code": "&",
+     "applicability": "MachineApplicable"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

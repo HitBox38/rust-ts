@@ -1,0 +1,102 @@
+{
+ "files": [
+  {
+   "name": "src/bom.rs",
+   "src": "﻿fn bom() {\n    let a = 1;\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     26,
+     26
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      19,
+      20
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "&str",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       24,
+       25
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     1,
+     1
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      10
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      9,
+      10
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      19,
+      20
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

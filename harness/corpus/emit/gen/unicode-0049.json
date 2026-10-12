@@ -1,0 +1,50 @@
+{
+ "files": [
+  {
+   "name": "src/empty.rs",
+   "src": ""
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      0,
+      0
+     ],
+     "code": "&x"
+    },
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "remove this",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      0,
+      0
+     ],
+     "code": "名前"
+    }
+   ]
+  }
+ ]
+}

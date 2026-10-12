@@ -1,0 +1,44 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "labels": [
+    [
+     [
+      0,
+      12,
+      24
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      80,
+      83
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      11,
+      17
+     ],
+     "help: consider borrowing here"
+    ]
+   ]
+  }
+ ]
+}

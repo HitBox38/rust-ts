@@ -1,0 +1,62 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     5,
+     9
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      3
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "i32",
+       true
+      ],
+      [
+       "String",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines"
+    }
+   ]
+  }
+ ]
+}

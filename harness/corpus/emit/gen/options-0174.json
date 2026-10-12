@@ -1,0 +1,43 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80,
+  "macro_backtrace": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     241,
+     242
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      15,
+      15
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ],
+ "flags": {
+  "macro_backtrace": true
+ }
+}

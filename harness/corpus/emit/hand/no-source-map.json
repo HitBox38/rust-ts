@@ -1,0 +1,66 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "source_map": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "no source map",
+   "code": "E0308",
+   "span": [
+    {
+     "file": 0,
+     "find": "x"
+    }
+   ],
+   "labels": [
+    [
+     {
+      "file": 0,
+      "find": "x"
+     },
+     "label"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "note",
+     "span": [
+      {
+       "file": 0,
+       "find": "v"
+      }
+     ]
+    },
+    {
+     "kind": "help",
+     "msg": "help"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "sugg",
+     "span": {
+      "file": 0,
+      "find": "x"
+     },
+     "code": "y",
+     "applicability": "MachineApplicable"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

@@ -1,0 +1,53 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     16,
+     21
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      12,
+      31
+     ],
+     "this"
+    ]
+   ],
+   "then": {
+    "stash": "MaybeFruTypo",
+    "span": [
+     0,
+     16,
+     21
+    ]
+   }
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    16,
+    21
+   ],
+   "key": "MaybeFruTypo",
+   "then": "emit"
+  }
+ ]
+}

@@ -1,0 +1,76 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     223,
+     240
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      21,
+      31
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      247,
+      250
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        145,
+        164
+       ],
+       "let y = 1;\nlet z = 2;"
+      ],
+      [
+       [
+        0,
+        278,
+        284
+       ],
+       "\tindented"
+      ],
+      [
+       [
+        0,
+        123,
+        129
+       ],
+       "42"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

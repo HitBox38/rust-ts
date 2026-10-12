@@ -1,0 +1,98 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     145,
+     146
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      139,
+      158
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": {
+      "primary": [
+       [
+        0,
+        224,
+        251
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         237,
+         237
+        ],
+        ""
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      83,
+      163
+     ],
+     "codes": [
+      "名前",
+      "foo::bar::<T>()_1",
+      "42_2"
+     ],
+     "style": "ShowAlways"
+    },
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      248,
+      249
+     ],
+     "codes": [
+      "x.clone()",
+      "let y = 1;\nlet z = 2;_1",
+      "42_2",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_3",
+      "foo::bar::<T>()_4",
+      "42_5",
+      "let y = 1;\nlet z = 2;_6"
+     ],
+     "style": "HideCodeAlways"
+    }
+   ]
+  }
+ ]
+}

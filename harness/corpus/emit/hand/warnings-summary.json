@@ -1,0 +1,68 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `i`",
+   "span": [
+    {
+     "file": 0,
+     "find": "i "
+    }
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "if this is intentional, prefix it with an underscore",
+     "span": {
+      "file": 0,
+      "find": "i "
+     },
+     "code": "_i",
+     "applicability": "MachineApplicable"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `r`",
+   "span": [
+    {
+     "file": 0,
+     "find": "r:"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "function `takes_ref` is never used",
+   "span": [
+    {
+     "file": 0,
+     "find": "takes_ref",
+     "nth": 1
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

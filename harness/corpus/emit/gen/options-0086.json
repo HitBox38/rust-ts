@@ -1,0 +1,122 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": true,
+  "ui_testing": true,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     192,
+     192
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      195,
+      195
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": ""
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     180,
+     181
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      173,
+      175
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      170,
+      183
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "a note\nspanning lines"
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "",
+       true
+      ]
+     ],
+     "span": {
+      "primary": [
+       [
+        2,
+        37,
+        45
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         214,
+         252
+        ],
+        ""
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

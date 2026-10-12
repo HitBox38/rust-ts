@@ -1,0 +1,86 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     243,
+     244
+    ],
+    [
+     0,
+     27,
+     32
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      229,
+      254
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      74,
+      77
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      235,
+      255
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      242,
+      244
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      113,
+      115
+     ],
+     "this"
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

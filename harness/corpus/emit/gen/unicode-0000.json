@@ -1,0 +1,69 @@
+{
+ "files": [
+  {
+   "name": "src/nonl.rs",
+   "src": "fn f() { let x = 1; }"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "labels": [
+    [
+     [
+      0,
+      10,
+      20
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      0,
+      21
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      5,
+      7
+     ],
+     "codes": [
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close",
+      "42_1",
+      "foo::bar::<T>()_2",
+      "\tindented_3",
+      "foo::bar::<T>()_4",
+      "let y = 1;\nlet z = 2;_5",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_6"
+     ]
+    },
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      3,
+      4
+     ],
+     "code": "\tindented",
+     "style": "ShowAlways"
+    }
+   ]
+  }
+ ]
+}

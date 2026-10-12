@@ -1,0 +1,280 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     149,
+     150
+    ]
+   ]
+  },
+  {
+   "op": "must_teach",
+   "code": "E0308"
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     180,
+     223
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      182,
+      217
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     162,
+     170
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      42,
+      48
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       60,
+       62
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     162,
+     170
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      42,
+      48
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       60,
+       62
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     180,
+     223
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      182,
+      217
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     31,
+     42
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      31,
+      45
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       " found ",
+       true
+      ],
+      [
+       "i32",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     139,
+     140
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "i32",
+       false
+      ],
+      [
+       " found ",
+       false
+      ],
+      [
+       "i32",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       107,
+       109
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "span": [
+    [
+     0,
+     203,
+     206
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      257,
+      257
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      31,
+      31
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      257,
+      257
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ],
+ "flags": {
+  "deduplicate_diagnostics": false
+ }
+}

@@ -1,0 +1,126 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     38,
+     93
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      48,
+      61
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Help",
+     "msg": ""
+    },
+    {
+     "kind": "note",
+     "msg": "",
+     "span": {
+      "primary": [
+       [
+        0,
+        69,
+        72
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         118,
+         119
+        ],
+        "this"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        116,
+        117
+       ],
+       ""
+      ],
+      [
+       [
+        0,
+        59,
+        65
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ],
+      [
+       [
+        0,
+        95,
+        101
+       ],
+       "名前"
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "span": [
+    [
+     0,
+     32,
+     54
+    ]
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ]
+  }
+ ]
+}

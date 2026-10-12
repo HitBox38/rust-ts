@@ -1,0 +1,82 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "span": [
+    [
+     0,
+     126,
+     133
+    ]
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      72,
+      83
+     ],
+     "code": "let y = 1;\nlet z = 2;",
+     "style": "HideCodeInline"
+    },
+    {
+     "kind": "multipart_suggestions",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         213,
+         220
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         149,
+         150
+        ],
+        "&x"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         203,
+         206
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

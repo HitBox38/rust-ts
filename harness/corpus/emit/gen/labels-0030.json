@@ -1,0 +1,87 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     151,
+     152
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      152,
+      163
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      304,
+      306
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      141,
+      155
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      14,
+      15
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      98,
+      106
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      47,
+      47
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

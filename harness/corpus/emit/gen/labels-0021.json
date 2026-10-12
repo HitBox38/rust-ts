@@ -1,0 +1,70 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     11,
+     32
+    ],
+    [
+     0,
+     103,
+     103
+    ],
+    [
+     0,
+     78,
+     126
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      13,
+      21
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      10,
+      31
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      167,
+      168
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      52,
+      53
+     ],
+     "label with\nnewline"
+    ]
+   ]
+  }
+ ]
+}

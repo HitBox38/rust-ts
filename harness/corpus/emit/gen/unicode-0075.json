@@ -1,0 +1,122 @@
+{
+ "files": [
+  {
+   "name": "src/nonl.rs",
+   "src": "fn f() { let x = 1; }"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     7,
+     8
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      18,
+      19
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      17,
+      20
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      21,
+      21
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "a note\nspanning lines"
+    },
+    {
+     "kind": "sub",
+     "level": "Warning",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        5,
+        6
+       ],
+       "名前"
+      ],
+      [
+       [
+        0,
+        0,
+        2
+       ],
+       "x.clone()"
+      ]
+     ],
+     "style": "ShowAlways"
+    },
+    {
+     "kind": "multipart_suggestion",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        18,
+        19
+       ],
+       "&x"
+      ],
+      [
+       [
+        0,
+        15,
+        16
+       ],
+       "&x"
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ]
+  }
+ ]
+}

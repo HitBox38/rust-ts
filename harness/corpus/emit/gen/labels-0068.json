@@ -1,0 +1,80 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     13,
+     16
+    ],
+    [
+     0,
+     66,
+     67
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      3,
+      24
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      12,
+      13
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      2,
+      4
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      16,
+      22
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      2,
+      24
+     ],
+     "🦀"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

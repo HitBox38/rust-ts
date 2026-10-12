@@ -1,0 +1,109 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": false,
+  "diagnostic_width": 200,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     78,
+     79
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      72,
+      87
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      80,
+      81
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    },
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       167,
+       168
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        225,
+        226
+       ],
+       "名前"
+      ],
+      [
+       [
+        0,
+        167,
+        168
+       ],
+       "x.clone()"
+      ],
+      [
+       [
+        0,
+        84,
+        84
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ]
+     ],
+     "style": "HideCodeAlways"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0000"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

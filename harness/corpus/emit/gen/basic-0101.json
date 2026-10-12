@@ -1,0 +1,115 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     1,
+     14,
+     14
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      35,
+      54
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      86,
+      96
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      1,
+      15,
+      28
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "expected ",
+       false
+      ],
+      [
+       " found ",
+       false
+      ]
+     ],
+     "span": {
+      "primary": [
+       [
+        0,
+        149,
+        150
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         31,
+         31
+        ],
+        "🦀"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      162,
+      164
+     ],
+     "codes": [
+      "let y = 1;\nlet z = 2;",
+      "名前_1",
+      "x.clone()_2",
+      "\tindented_3",
+      "x.clone()_4",
+      "let y = 1;\nlet z = 2;_5",
+      "&x_6"
+     ]
+    }
+   ]
+  }
+ ]
+}

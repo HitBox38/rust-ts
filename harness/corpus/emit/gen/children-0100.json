@@ -1,0 +1,83 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "span": [
+    [
+     0,
+     68,
+     69
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      76,
+      81
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Error",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "",
+       false
+      ]
+     ],
+     "span": {
+      "primary": [
+       [
+        0,
+        28,
+        33
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         81,
+         82
+        ],
+        ""
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "sub",
+     "level": "Note",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ]
+  }
+ ]
+}

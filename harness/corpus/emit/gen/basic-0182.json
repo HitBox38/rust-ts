@@ -1,0 +1,44 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     55,
+     56
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      58,
+      61
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      58,
+      60
+     ],
+     "help: consider borrowing here"
+    ]
+   ]
+  }
+ ]
+}

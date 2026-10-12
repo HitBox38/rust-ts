@@ -1,0 +1,61 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     47,
+     82
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      31,
+      67
+     ],
+     "code": "\tindented"
+    },
+    {
+     "kind": "multipart_suggestion",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        58,
+        60
+       ],
+       "\tindented"
+      ],
+      [
+       [
+        0,
+        35,
+        36
+       ],
+       "x.clone()"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

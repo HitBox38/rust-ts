@@ -125,36 +125,139 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
   return out;
 }
 
-export async function runSubject(s: Suite, cases: Case[], impl: string): Promise<Map<string, Output>> {
+/** Counters a subject run reports besides per-case statuses (written to `<suite>.summary.json`). */
+export interface SubjectStats {
+  /** Subject processes started. */
+  processes: number;
+  /**
+   * Batch-only failures: failed (non-zero exit) multi-case batch processes none of whose cases fails
+   * on its own, counting only the smallest such batches (a failing batch that contains another
+   * counted one is not counted again). That is state leaking from earlier files of the same
+   * process. Every status still comes from runs that pass or from the isolated run (= `--batch-size
+   * 1`), so these failures leave no other trace; a non-zero count is a bug in the dump driver (or
+   * the port's global state) to look at.
+   */
+  batchOnlyFailures: number;
+  /** Same, for batch processes that timed out (usually load, not a state leak). */
+  batchOnlyTimeouts: number;
+}
+
+export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: SubjectStats): Promise<Map<string, Output>> {
   const env = { RUST_TS_IMPL: impl };
   const out = new Map<string, Output>();
+  /** Every failed multi-case batch process: its case ids and whether it timed out. */
+  const failedBatches: { ids: Set<string>; timedOut: boolean }[] = [];
+  const exec = async (batch: Case[]) => {
+    if (stats) stats.processes++;
+    const r = await run(s.subject(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env });
+    if (batch.length > 1 && (r.code !== 0 || r.timedOut)) failedBatches.push({ ids: new Set(batch.map((c) => c.id)), timedOut: r.timedOut });
+    return r;
+  };
+  /** A single-case process: its own status, whatever it printed. */
+  const runOne = async (c: Case): Promise<boolean> => {
+    const r = await exec([c]);
+    const failed = r.code !== 0 || r.timedOut;
+    const parts = splitBatch(r.stdout);
+    // On failure the section printed may be incomplete; treat it as missing.
+    out.set(c.id, !failed && parts.has(c.file) ? { text: parts.get(c.file)!, code: 0, timedOut: false } : { text: r.stderr, code: r.code, timedOut: r.timedOut });
+    return !failed;
+  };
+  /** Statuses of every case of an exit-0 batch process. */
+  const attribute = (batch: Case[], r: Awaited<ReturnType<typeof run>>) => {
+    const parts = splitBatch(r.stdout);
+    // (A case whose header is missing from an exit-0 batch scores the process's stderr, as before.)
+    for (const c of batch) out.set(c.id, parts.has(c.file) ? { text: parts.get(c.file)!, code: 0, timedOut: false } : { text: r.stderr, code: r.code, timedOut: r.timedOut });
+  };
+  const ok = (r: Awaited<ReturnType<typeof run>>) => r.code === 0 && !r.timedOut;
   if (s.mode === "batch") {
+    // A failed batch process (timeout, UNPORTED exit 70, ICE, any non-zero exit) says nothing about
+    // the other files in it: the process stopped at one file, or was slow under load. Its output is
+    // never attributed to any case; it is only used to choose a suspect: `k`, the first case without
+    // a complete section (its header and the next one printed). The suspect runs alone.
+    // - It fails alone: the header pinpointed the culprit. `[0, k)` is re-run as a batch, and the
+    //   rest `(k, n)` continues in this loop: after a case fails alone the next cases run alone in a
+    //   doubling streak (1, 2, 4, ...) until one passes, then the rest is tried as a batch again, so a
+    //   batch where every case fails costs about one process per case.
+    // - It passes alone: the split point carried no information (e.g. a subject that buffers its
+    //   output lost it when it died or was killed). `[0, k]` is re-run as one batch (k > 0; if that
+    //   fails too, it is a batch-only failure and `[0, k)` is resolved recursively), and the rest
+    //   `(k, n)` is bisected in halves. So an uninformative failure costs O(log n) batch runs.
+    // Every part is strictly smaller than the batch, so this terminates, and a wrong or lying header
+    // can only make the split worse, never change a status: every status from a failed process
+    // (TIMEOUT, UNPORTED, CRASH, ...) is only ever reported for a file that fails on its own.
     const runBatch = async (batch: Case[]): Promise<void> => {
-      const r = await run(s.subject(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env });
-      const failed = r.code !== 0 || r.timedOut;
-      // A failed batch (timeout, UNPORTED exit 70, ICE, any non-zero exit) says nothing about the
-      // other files in it: the process stopped at one file, or was slow under load. Retry in halves
-      // and discard this run's output entirely, so every status that comes from a failed process
-      // (TIMEOUT, UNPORTED, CRASH, ...) is only ever reported for a file that fails on its own, and
-      // partial output of a dying batch is never attributed to any case.
-      if (failed && batch.length > 1) {
-        const mid = batch.length >> 1;
-        await runBatch(batch.slice(0, mid));
-        await runBatch(batch.slice(mid));
+      let i = 0;
+      let streak = 0;
+      while (i < batch.length) {
+        if (streak > 0) {
+          let allFailed = true;
+          for (let j = 0; j < streak && i < batch.length; j++) {
+            if (await runOne(batch[i++]!)) {
+              allFailed = false;
+              break;
+            }
+          }
+          streak = allFailed ? streak * 2 : 0;
+          continue;
+        }
+        const rest = batch.slice(i);
+        if (rest.length === 1) {
+          if (!(await runOne(rest[0]!))) streak = 1;
+          i++;
+          continue;
+        }
+        const r = await exec(rest);
+        if (ok(r)) {
+          attribute(rest, r);
+          return;
+        }
+        const parts = splitBatch(r.stdout);
+        let k = 0;
+        while (k + 1 < rest.length && parts.has(rest[k]!.file) && parts.has(rest[k + 1]!.file)) k++;
+        const suspectFails = !(await runOne(rest[k]!));
+        i += k + 1;
+        if (suspectFails) {
+          if (k > 0) await runBatch(rest.slice(0, k));
+          streak = 1;
+          continue;
+        }
+        if (k > 0) {
+          const prefix = rest.slice(0, k + 1);
+          const rp = await exec(prefix);
+          if (ok(rp)) attribute(prefix, rp);
+          else await runBatch(rest.slice(0, k)); // `prefix` is recorded as a failed batch; the suspect already has its status
+        }
+        const tail = batch.slice(i);
+        if (tail.length > 1) {
+          const mid = tail.length >> 1;
+          await runBatch(tail.slice(0, mid));
+          await runBatch(tail.slice(mid));
+        } else if (tail.length === 1) await runBatch(tail);
         return;
       }
-      const parts = splitBatch(r.stdout);
-      batch.forEach((c, i) => {
-        // On failure (only possible for a single-file batch here) the last section printed may be
-        // incomplete; treat it as missing.
-        const complete = parts.has(c.file) && (!failed || (i + 1 < batch.length && parts.has(batch[i + 1]!.file)));
-        out.set(c.id, complete ? { text: parts.get(c.file)!, code: 0, timedOut: false } : { text: r.stderr, code: r.code, timedOut: r.timedOut });
-      });
     };
     await runBatch(cases);
+    if (stats) {
+      const fails = (id: string) => {
+        const o = out.get(id)!;
+        return o.code !== 0 || o.timedOut;
+      };
+      const only = failedBatches.filter((b) => ![...b.ids].some(fails));
+      // Keep the smallest: drop a batch that strictly contains another batch-only failure.
+      const minimal = only.filter((b) => !only.some((o) => o !== b && o.ids.size < b.ids.size && [...o.ids].every((id) => b.ids.has(id))));
+      // Identical id sets (the same batch failing twice) count once.
+      const seen = new Set<string>();
+      for (const b of minimal) {
+        const key = [...b.ids].sort().join("\0");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (b.timedOut) stats.batchOnlyTimeouts++;
+        else stats.batchOnlyFailures++;
+      }
+    }
   } else {
     for (const c of cases) {
-      const r = await run(s.subject([c]), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env });
+      const r = await exec([c]);
       out.set(c.id, { text: render(r), code: r.code, timedOut: r.timedOut });
     }
   }
@@ -199,7 +302,7 @@ export interface RunOptions {
   quiet?: boolean;
 }
 
-export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[]; dir: string; counts: Record<Status, number> }> {
+export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[]; dir: string; counts: Record<Status, number>; stats: SubjectStats }> {
   requireUpstream();
   await verifyOraclePin();
   const s = getSuite(opts.suite);
@@ -215,13 +318,14 @@ export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[
   for (let i = 0; i < cases.length; i += batchSize) chunks.push(cases.slice(i, i + batchSize));
 
   const results: CaseResult[] = [];
+  const stats: SubjectStats = { processes: 0, batchOnlyFailures: 0, batchOnlyTimeouts: 0 };
   let diffsWritten = 0;
   const started = performance.now();
   await pool(
     chunks,
     opts.jobs ?? availableParallelism(),
     async (chunk) => {
-      const [o, sub] = await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl)]);
+      const [o, sub] = await Promise.all([runOracle(s, chunk), runSubject(s, chunk, impl, stats)]);
       for (const c of chunk) {
         const oc = o.get(c.id)!;
         const sc = sub.get(c.id)!;
@@ -248,9 +352,18 @@ export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[
   const counts = Object.fromEntries(STATUSES.map((st) => [st, 0])) as Record<Status, number>;
   for (const r of results) counts[r.status]++;
   writeFileSync(join(dir, `${s.name}.jsonl`), results.map((r) => JSON.stringify(r)).join("\n") + "\n");
-  const summary = { suite: s.name, impl, total: results.length, ...counts, sample: opts.sample ?? null, filter: opts.filter ?? null, seconds: Math.round((performance.now() - started) / 1000) };
+  const summary = {
+    suite: s.name,
+    impl,
+    total: results.length,
+    ...counts,
+    sample: opts.sample ?? null,
+    filter: opts.filter ?? null,
+    seconds: Math.round((performance.now() - started) / 1000),
+    ...stats,
+  };
   writeFileSync(join(dir, `${s.name}.summary.json`), JSON.stringify(summary, null, 2));
-  return { results, dir, counts };
+  return { results, dir, counts, stats };
 }
 
 if (import.meta.main) {
@@ -261,7 +374,7 @@ if (import.meta.main) {
     process.exit(0);
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
-  const { dir, counts, results } = await difftest({
+  const { dir, counts, results, stats } = await difftest({
     suite: String(a.suite),
     sample: num("sample"),
     seed: typeof a.seed === "string" ? a.seed : undefined,
@@ -273,5 +386,8 @@ if (import.meta.main) {
   });
   const pct = results.length ? ((100 * counts.MATCH) / results.length).toFixed(2) : "0";
   console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}`);
+  if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
+    console.log(`note: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s): a batch process failed at a case that passes alone (see ${a.suite}.summary.json)`);
+  }
   console.log(`details: ${dir}`);
 }

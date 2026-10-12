@@ -1,0 +1,81 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     68,
+     69
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      77,
+      78
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "expected ",
+       true
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        58,
+        58
+       ],
+       "\tindented"
+      ],
+      [
+       [
+        0,
+        3,
+        7
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ],
+      [
+       [
+        0,
+        32,
+        33
+       ],
+       ""
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

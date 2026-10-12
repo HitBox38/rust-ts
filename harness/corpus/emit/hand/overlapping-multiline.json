@@ -1,0 +1,60 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "overlapping multi-line spans",
+   "span": [
+    {
+     "file": 0,
+     "find": "for i",
+     "len": 60
+    }
+   ],
+   "labels": [
+    [
+     {
+      "file": 0,
+      "find": "let v",
+      "len": 40
+     },
+     "starts above"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "println",
+      "len": 45
+     },
+     "ends below"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "for i",
+      "len": 60
+     },
+     "primary"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "{",
+      "nth": 1,
+      "len": 20
+     },
+     "nested start"
+    ]
+   ]
+  }
+ ]
+}

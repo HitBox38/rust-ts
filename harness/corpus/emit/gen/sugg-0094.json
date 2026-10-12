@@ -1,0 +1,54 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "labels": [
+    [
+     [
+      0,
+      4,
+      9
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        3,
+        7
+       ],
+       "42"
+      ],
+      [
+       [
+        0,
+        81,
+        82
+       ],
+       "let y = 1;\nlet z = 2;"
+      ]
+     ],
+     "style": "HideCodeAlways"
+    }
+   ]
+  }
+ ]
+}

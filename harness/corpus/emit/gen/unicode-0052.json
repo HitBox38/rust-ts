@@ -1,0 +1,192 @@
+{
+ "files": [
+  {
+   "name": "src/crlf.rs",
+   "src": "fn crlf() {\r\n    let a = 1;\r\n    let b = 2;\r\n    a + b\r\n}\r\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     52,
+     53
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      45,
+      47
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      31,
+      34
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      50,
+      53
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "sub",
+     "level": "Warning",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       39,
+       40
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      30,
+      41
+     ],
+     "code": "&x"
+    },
+    {
+     "kind": "multipart_suggestions",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         22,
+         38
+        ],
+        "\tindented"
+       ],
+       [
+        [
+         0,
+         5,
+         10
+        ],
+        "42"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         5,
+         9
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         50,
+         51
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         47,
+         47
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         30,
+         32
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     53,
+     53
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       52,
+       52
+      ]
+     ]
+    },
+    {
+     "kind": "help",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ]
+  }
+ ]
+}

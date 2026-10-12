@@ -1,0 +1,86 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 40,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     102,
+     102
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      289,
+      290
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      97,
+      100
+     ],
+     "🦀"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        113,
+        114
+       ],
+       "\tindented"
+      ],
+      [
+       [
+        0,
+        74,
+        75
+       ],
+       "let y = 1;\nlet z = 2;"
+      ],
+      [
+       [
+        0,
+        19,
+        22
+       ],
+       ""
+      ]
+     ],
+     "style": "ShowAlways"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

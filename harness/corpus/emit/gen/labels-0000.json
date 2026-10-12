@@ -1,0 +1,83 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     13,
+     16
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      7,
+      14
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      50,
+      51
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      16,
+      23
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      71,
+      83
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      64,
+      65
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      4,
+      11
+     ],
+     "🦀"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

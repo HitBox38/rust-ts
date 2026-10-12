@@ -1,0 +1,74 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "span": [
+    [
+     0,
+     61,
+     68
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      156,
+      157
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       ">",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "String",
+       true
+      ],
+      [
+       "",
+       false
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ]
+  }
+ ]
+}

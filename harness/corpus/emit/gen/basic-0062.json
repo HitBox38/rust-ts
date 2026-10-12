@@ -1,0 +1,43 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     34,
+     35
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      28,
+      44
+     ],
+     ""
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  }
+ ]
+}

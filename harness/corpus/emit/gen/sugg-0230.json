@@ -1,0 +1,65 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     94,
+     95
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      85,
+      96
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      154,
+      187
+     ],
+     "code": "名前"
+    }
+   ]
+  }
+ ]
+}

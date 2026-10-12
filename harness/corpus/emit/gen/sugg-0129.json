@@ -1,0 +1,85 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     149,
+     152
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      60,
+      114
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        2,
+        30
+       ],
+       "foo::bar::<T>()"
+      ]
+     ]
+    },
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "remove this",
+     "applicability": "MaybeIncorrect",
+     "parts": [
+      [
+       [
+        0,
+        258,
+        259
+       ],
+       "42"
+      ],
+      [
+       [
+        0,
+        197,
+        218
+       ],
+       "名前"
+      ],
+      [
+       [
+        0,
+        23,
+        29
+       ],
+       "42"
+      ]
+     ],
+     "style": "HideCodeInline"
+    }
+   ]
+  }
+ ]
+}

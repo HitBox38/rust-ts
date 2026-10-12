@@ -1,0 +1,105 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "always",
+  "short_message": false,
+  "diagnostic_width": 40,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     96,
+     98
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       " found ",
+       true
+      ]
+     ],
+     "span": {
+      "primary": [
+       [
+        0,
+        162,
+        169
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         107,
+         109
+        ],
+        "expected `i32`, found `&str`"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "warn",
+     "msg": "a note\nspanning lines",
+     "span": {
+      "primary": [
+       [
+        0,
+        152,
+        255
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         187,
+         188
+        ],
+        "🦀"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "consider borrowing here",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        112,
+        113
+       ],
+       "x.clone()"
+      ]
+     ],
+     "style": "HideCodeInline"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

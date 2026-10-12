@@ -1,0 +1,133 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "diagnostic_width": 200,
+  "short_message": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     243,
+     289
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      91,
+      102
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       ">",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       ">",
+       false
+      ],
+      [
+       "Vec<",
+       true
+      ],
+      [
+       ">",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "i32",
+       true
+      ],
+      [
+       "",
+       true
+      ],
+      [
+       "Option<",
+       true
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        140,
+        152
+       ],
+       "x.clone()"
+      ],
+      [
+       [
+        0,
+        243,
+        252
+       ],
+       "foo::bar::<T>()"
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

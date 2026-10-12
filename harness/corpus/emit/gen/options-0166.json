@@ -1,0 +1,53 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "macro_backtrace": true,
+  "ignored_directories": [
+   "src/very/deep/path"
+  ],
+  "short_message": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "mismatched types",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     92,
+     118
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      85,
+      86
+     ],
+     "codes": [
+      "&x",
+      "foo::bar::<T>()_1"
+     ]
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ],
+ "flags": {
+  "macro_backtrace": true
+ }
+}

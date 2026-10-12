@@ -1,0 +1,221 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "tab\tin message",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     8,
+     9
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      221,
+      222
+     ],
+     "not found in this scope"
+    ]
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     80,
+     81
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      73,
+      85
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "String",
+       true
+      ],
+      [
+       "String",
+       true
+      ],
+      [
+       "&'static str",
+       true
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "&'static str",
+       false
+      ],
+      [
+       "&'static str",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     13,
+     45
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      1,
+      34
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       ">`",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       235,
+       256
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     181,
+     187
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "",
+     "span": {
+      "primary": [
+       [
+        0,
+        31,
+        31
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         0,
+         257
+        ],
+        ""
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     13,
+     45
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      1,
+      34
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       ">`",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       235,
+       256
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

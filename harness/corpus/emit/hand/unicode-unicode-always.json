@@ -1,0 +1,113 @@
+{
+ "files": [
+  {
+   "name": "src/uni.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀\";\n    let bidi = \"abc‮def‬\";\n    let ctrl = \"\u0007\u001b\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode",
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "wide and combining characters",
+   "code": "E0308",
+   "span": [
+    {
+     "file": 0,
+     "find": "日本語"
+    }
+   ],
+   "labels": [
+    [
+     {
+      "file": 0,
+      "find": "名前"
+     },
+     "wide ident"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "🦀"
+     },
+     "crab"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "👨‍👩‍👧"
+     },
+     "zwj family"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "def"
+     },
+     "bidi"
+    ],
+    [
+     {
+      "file": 0,
+      "find": "\u0007\u001b"
+     },
+     "control chars"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "expected ",
+       false
+      ],
+      [
+       "`i32`",
+       true
+      ],
+      [
+       ", found ",
+       false
+      ],
+      [
+       "`&str`",
+       true
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "use ascii",
+     "span": {
+      "file": 0,
+      "find": "名前"
+     },
+     "code": "name",
+     "applicability": "MachineApplicable"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "a warning",
+   "span": [
+    {
+     "file": 0,
+     "find": "emoji"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

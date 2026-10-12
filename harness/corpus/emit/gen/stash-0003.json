@@ -1,0 +1,143 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     96,
+     97
+    ]
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     96,
+     97
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0425"
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     339,
+     343
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     339,
+     343
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     165,
+     166
+    ]
+   ],
+   "then": {
+    "stash": "MaybeFruTypo",
+    "span": [
+     0,
+     165,
+     166
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     188,
+     189
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "required by a bound in `Point::<T>::new`",
+     "span": {
+      "primary": [
+       [
+        0,
+        124,
+        124
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         36,
+         59
+        ],
+        "label with\nnewline"
+       ]
+      ]
+     }
+    }
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     188,
+     189
+    ]
+   }
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    344,
+    351
+   ],
+   "key": "EarlySyntaxWarning"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    165,
+    166
+   ],
+   "key": "MaybeFruTypo",
+   "then": "cancel"
+  }
+ ]
+}

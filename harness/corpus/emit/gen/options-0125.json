@@ -1,0 +1,127 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "never",
+  "short_message": true,
+  "ui_testing": true,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     29,
+     30
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": ""
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "&str",
+       false
+      ],
+      [
+       "&str",
+       true
+      ],
+      [
+       " found ",
+       true
+      ],
+      [
+       ">`",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       222,
+       225
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        0,
+        3
+       ],
+       "&x"
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     32,
+     34
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      72,
+      96
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

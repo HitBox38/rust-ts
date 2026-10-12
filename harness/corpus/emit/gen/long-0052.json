@@ -1,0 +1,77 @@
+{
+ "files": [
+  {
+   "name": "src/long.rs",
+   "src": "fn long() {\n    let result = some_function_with_a_long_name(first_argument_value, second_argument_value, third_argument_value, fourth_argument_value, fifth_argument_value, sixth_argument_value);\n    let s = \"a string literal that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on\";\n    short();\n    let v = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 100
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "tab\tin message",
+   "code": "E0000",
+   "labels": [
+    [
+     [
+      0,
+      143,
+      161
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      533,
+      534
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      146,
+      153
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      514,
+      515
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      284,
+      284
+     ],
+     "codes": [
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close",
+      "foo::bar::<T>()_1",
+      "42_2",
+      "名前_3"
+     ]
+    }
+   ]
+  }
+ ]
+}
