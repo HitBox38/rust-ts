@@ -441,3 +441,5 @@ export const debug_f64: Debug<number> = (v) => float_to_general_debug(F64_SPEC, 
 
 /** `<f32 as Debug>::fmt`. `v` must hold an `f32` value (`Math.fround(v) === v`). */
 export const debug_f32: Debug<number> = (v) => float_to_general_debug(F32_SPEC, v);
+/** `<f64 as Display>::fmt` without precision (`float_to_decimal_display` -> `float_to_decimal_common_shortest(.., 0)`). */
+export const display_f64 = (v: number): string => to_shortest_str(F64_SPEC, v, 0);
