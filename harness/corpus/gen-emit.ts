@@ -21,6 +21,10 @@
 // - long:     long lines and labels far apart under widths 20..200
 // - unicode:  wide (CJK), combining, ZWJ, bidi controls, tabs, CRLF, BOM, control characters,
 //             no trailing newline, empty files
+// - combo:    ui_testing together with diagnostic_width (rustc allows both; the width wins), and
+//             macro_backtrace set on the emitter and the DiagCtxt flags together (as rustc's
+//             -Zmacro-backtrace does). All spans are root-context, so this is not macro-backtrace
+//             rendering coverage; that needs expansion spans (later, with rustc_expand).
 //
 // Invariants the generator keeps (the probe panics otherwise, or upstream would ICE): every case
 // sets ui_testing or diagnostic_width; spans are on char boundaries of the normalized source (BOM
@@ -620,14 +624,16 @@ const families: [string, number, Family][] = [
         e.terminal_url = Math.floor(i / 80) % 2 === 1;
       } else {
         Object.assign(e, emitterDefault(r));
-        if (r.chance(0.5)) e.macro_backtrace = true;
+        if (r.chance(0.5)) e.macro_backtrace = true; // with flags.macro_backtrace below, as rustc's -Zmacro-backtrace sets both
         if (r.chance(0.6)) e.ignored_directories = [r.pick(["src/very", "src", "src/very/deep/path", "other"])];
         if (r.chance(0.3)) e.short_message = true;
       }
       const ops = [diag(r, sp, { code: true, labels: r.int(0, 2), children: r.int(0, 2), suggestions: r.int(0, 1) })];
       if (r.chance(0.5)) ops.push(diag(r, sp, { level: "warning" }));
       ops.push({ op: "print_error_count" });
-      return { files, emitter: e, ops };
+      const c: Case = { files, emitter: e, ops };
+      if (e.macro_backtrace) c.flags = { macro_backtrace: true };
+      return c;
     },
   ],
   [
@@ -730,6 +736,26 @@ const families: [string, number, Family][] = [
     },
   ],
 ];
+
+families.push([
+  "combo",
+  60,
+  (r, i) => {
+    const files = SOURCES[r.pick(["long", "main", "unicode", "multi"])]!;
+    const sp = new Spans(r, files);
+    const e: { [k: string]: Json } = { ui_testing: true, diagnostic_width: [20, 40, 80, 200][i % 4]! };
+    if (r.chance(0.4)) e.theme = "unicode";
+    if (r.chance(0.2)) e.color = "always";
+    if (r.chance(0.2)) e.short_message = true;
+    const c: Case = { files, emitter: e, ops: [diag(r, sp, { labels: r.int(1, 3), children: r.int(0, 2), suggestions: r.int(0, 1) })] };
+    if (i % 3 === 0) {
+      e.macro_backtrace = true;
+      c.flags = { macro_backtrace: true };
+    }
+    if (r.chance(0.5)) c.ops.push({ op: "print_error_count" });
+    return c;
+  },
+]);
 
 // ---------------------------------------------------------------------------------------------
 

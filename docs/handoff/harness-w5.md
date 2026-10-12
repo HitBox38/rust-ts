@@ -294,3 +294,85 @@ Branch `lane/harness-w5`, based on bd00147.
   `--suites ...,emit`, and accept, so the baseline is created. The gate host needs `bun scripts/probes.ts build emitdump`;
   the gate's probe check reports it if it is missing.
 - After merge, the next symbols oracle run recomputes 10 outputs, because the symdump binary was rebuilt.
+
+## Review fixes (review-hw5: ACCEPT-WITH-FIXES)
+- main was merged again (71559cd), with a real merge.
+- F3 (rebuild the shared probes from main) is root's. F5 is noted for later.
+
+### F1: the split no longer degrades when the subject buffers its output (`scripts/difftest.ts` `runSubject`)
+- The suspect `k` runs alone first. What happens next depends on the result:
+  - **It fails alone**: the header was informative. `[0,k)` is re-run as a batch, and the rest continues with the
+    streak logic, as before.
+  - **It passes alone**: the split point was uninformative. Then:
+    - `[0,k]` is re-run as one batch (only when k > 0). If that passes, its statuses come from that exit-0 run. If
+      it fails, it is a confirmed batch-only failure, and `[0,k)` is resolved recursively.
+    - The remainder `(k,n)` is **bisected in halves**.
+  - So an uninformative failure costs O(log n) batch runs, and k failing cases cost about O(k log n).
+- Measured on the reviewer's scenario:
+  - setup: runtime-injected suites through `difftest()` on a scratch `RUST_TS_DATA`, `timeoutMs` 3000,
+    `--batch-size 100`, `jobs` 1;
+  - the fake subject is either "buffered" (prints only at a clean exit, like lexdump/escapedump/emitdump) or
+    header-first;
+  - "main" is main's difftest (w4b halving).
+
+  | scenario | this lane | main | `--batch-size 1` |
+  |---|---|---|---|
+  | buffered, 100 cases, hang at #60 | **18 processes, 21 s** (reviewer saw 124 / 187 s on cc4447d) | 24 s | 100 / 4 s |
+  | buffered, crash at #60 and #61 | 20 processes | | 100 |
+  | buffered, 200 cases, 2 sparse crashes | 23 processes | | 200 |
+  | buffered, 200 all-fail | 202 processes | | 200 |
+  | header-first, hang at #60 | 5 processes, 6 s | 24 s | |
+  | header-first, crash at #60 and #61 | 6 processes | | |
+  | header-first, 200 cases, 2 sparse crashes | 10 processes | | |
+  | header-first, 200 all-fail | 202 processes | | |
+
+- The mixed set:
+  - cases: ok, poison/victim, fail70, crash, crashafter, wrong, prefail (dies before its header), liar (prints every
+    header, then exits 101);
+  - it takes 27 processes (19 at `--batch-size 1`).
+- In every set, buffered and header-first, the per-case statuses are identical between this lane, main and
+  `--batch-size 1`.
+
+### F2: batch-only counting is per failed batch process
+- Every failed multi-case batch process is recorded with its case ids.
+- After `runSubject` resolves all statuses, a failed batch counts as batch-only only if none of its cases ends with
+  a failing output (non-zero or timed out).
+- Only the smallest such batches count: one that strictly contains another counted batch, or an identical id set
+  seen twice, is skipped.
+- Timeouts are counted separately.
+- Results:
+
+  | set | count | true value |
+  |---|---|---|
+  | mixed (buffered and header-first): the poison→victim leak, plus liar/prefail/crash noise | 1 | 1 |
+  | every other set | 0 | 0 |
+
+### F4: the one-argument `unwrap_result` guard (`src/std/result.test.ts`)
+- The new `unwrapResultViolations(text)` blanks out comments and strings first.
+- Outside `*.test.ts`, `tests/` and result.ts, every mention of `unwrap_result` in src, tools, scripts or harness
+  must be one of:
+  - an import/export specifier without `as`;
+  - a direct call with ≥ 2 top-level arguments, where a trailing comma is not an argument.
+- Rejected: aliases (`as`, assignment, passing it as a value), `unwrap_result(r,)`, and `R.unwrap_result(r)`.
+- 11 self-tests cover the reviewer's holes. Today it finds 0 violations.
+
+### F6: corpus
+- `options` cases that set the emitter's `macro_backtrace` now also set `flags.macro_backtrace`, as rustc's
+  `-Zmacro-backtrace` does. Those are the same 24 cases.
+- New generated family `combo` (60 cases):
+  - `ui_testing` together with `diagnostic_width` (20/40/80/200);
+  - every third case sets `macro_backtrace` on both the emitter and the flags.
+- The generator header states that spans are root-context, so this is not macro-backtrace rendering coverage.
+- The probe header now has the note that the delayed-bug flush is unreachable, and why.
+- The corpus is now 1466 cases (1414 generated + 52 hand), hash 1bf53fe82cb7084a. The generator is still
+  deterministic.
+- **Full `emit`** (run `hw5-emit-r2`): MATCH=1466, DIFF=0, UNPORTED=0, CRASH=0, TIMEOUT=0.
+- The probe was rebuilt from the lane, for the comment change; see F3.
+
+### Checks after this round
+- `bunx tsc --noEmit -p .`: clean.
+- `RUST_TS_REQUIRE_PROBES=1 bun test src tools`: 588 pass, 3 skip, 0 fail. The 2 new skips are main's
+  `rustc_ast_pretty/pprust/tests.test.ts` pending tests.
+- `coverage.ts --check --offline`: `markers ok (2509; vendor 2048)`.
+- `fluent-format`: 4210/4210. `lex --sample 300`: 300/300.
+- The existing suites' case-list hashes are unchanged (table above). emit: 1466, 1bf53fe82cb7084a.

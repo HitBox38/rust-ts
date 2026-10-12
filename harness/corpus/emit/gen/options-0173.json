@@ -72,5 +72,8 @@
   {
    "op": "print_error_count"
   }
- ]
+ ],
+ "flags": {
+  "macro_backtrace": true
+ }
 }

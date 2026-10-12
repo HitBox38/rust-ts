@@ -32,8 +32,9 @@ function unwrap_failed<E>(msg: string, error: E, debug_err: Debug<E>): never {
  *
  * PORT: Rust's bound `E: Debug` becomes the `debug_err` parameter (the error's `debug_<Type>`).
  * The one-argument overload exists for unit tests only (their panic text never reaches compiler
- * output) and panics without the `: {e:?}` suffix; src/std/result.test.ts fails if a non-test file
- * calls it. Ported code always passes `debug_err`.
+ * output) and panics without the `: {e:?}` suffix. src/std/result.test.ts fails if a non-test file
+ * calls it, aliases it (`as`, assignment, passing it as a value) or calls it with one argument plus
+ * a trailing comma. Ported code always passes `debug_err`.
  */
 export function unwrap_result<T, E>(r: Result<T, E>, debug_err: Debug<E>): T;
 export function unwrap_result<T, E>(r: Result<T, E>): T;

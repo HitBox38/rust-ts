@@ -22,6 +22,9 @@
 //!   `ignored_directories` (`ignored_directories_in_source_blocks`). A case must set `ui_testing`
 //!   or `diagnostic_width`: otherwise the width comes from `termize` (host-dependent).
 //!   `track_diagnostics` is never set (its output names this probe's source locations).
+//!   Corpus rule: a delayed bug only appears next to an emitted error, so the delayed-bug flush is
+//!   unreachable. Reaching it would print host-dependent text (`emitted_at`, a `RUST_BACKTRACE`-
+//!   dependent backtrace) and `DelayedBugPanic` would abort the probe.
 //! - `flags` (all optional; defaults are rustc's normal session: warnings on, dedup on):
 //!   `can_emit_warnings` (true), `deduplicate_diagnostics` (true), `macro_backtrace` (false),
 //!   `eagerly_emit_delayed_bugs` (false). Passed with `DiagCtxt::with_flags`.
