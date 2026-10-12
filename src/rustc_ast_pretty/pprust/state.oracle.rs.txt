@@ -1,0 +1,345 @@
+// Oracle for rust-ts src/rustc_ast_pretty/pprust/state.test.ts.
+// Lexes/parses small inputs with the pinned nightly's rustc_parse and records the token trees /
+// AST (structure) together with rustc_ast_pretty's printed output.
+// Build: rustc +nightly-2026-10-11 --edition 2024 main.rs -o oracle ; run with DYLD_LIBRARY_PATH=$(rustc +nightly-2026-10-11 --print sysroot)/lib
+#![feature(rustc_private)]
+extern crate rustc_driver;
+extern crate rustc_ast;
+extern crate rustc_ast_pretty;
+extern crate rustc_parse;
+extern crate rustc_session;
+extern crate rustc_span;
+
+use rustc_ast::token::{self, Delimiter, LitKind, TokenKind};
+use rustc_ast::tokenstream::{Spacing, TokenStream, TokenTree};
+use rustc_ast::{self as ast};
+use rustc_ast_pretty::pprust;
+use rustc_parse::lexer::StripTokens;
+use rustc_session::parse::ParseSess;
+use rustc_span::edition::Edition;
+use rustc_span::FileName;
+
+fn js(s: &str) -> String {
+    let mut o = String::from("\"");
+    for c in s.chars() {
+        match c {
+            '"' => o.push_str("\\\""),
+            '\\' => o.push_str("\\\\"),
+            '\n' => o.push_str("\\n"),
+            '\r' => o.push_str("\\r"),
+            '\t' => o.push_str("\\t"),
+            c if (c as u32) < 0x20 => o.push_str(&format!("\\u{:04x}", c as u32)),
+            c => o.push(c),
+        }
+    }
+    o.push('"');
+    o
+}
+
+fn spacing(s: Spacing) -> &'static str {
+    match s {
+        Spacing::Alone => "Alone",
+        Spacing::Joint => "Joint",
+        Spacing::JointHidden => "JointHidden",
+    }
+}
+
+fn delim(d: Delimiter) -> &'static str {
+    match d {
+        Delimiter::Parenthesis => "Parenthesis",
+        Delimiter::Brace => "Brace",
+        Delimiter::Bracket => "Bracket",
+        Delimiter::Invisible(_) => panic!("invisible"),
+    }
+}
+
+fn ident_kind(k: token::IdentKind) -> &'static str {
+    match k {
+        token::IdentKind::Normal => "Normal",
+        token::IdentKind::Raw => "Raw",
+        token::IdentKind::ForcedKeyword => "ForcedKeyword",
+    }
+}
+
+fn kind_json(k: &TokenKind) -> String {
+    match k {
+        TokenKind::Ident(s, kind) => format!("{{\"$\":\"Ident\",\"sym\":{},\"kind\":\"{}\"}}", js(s.as_str()), ident_kind(*kind)),
+        TokenKind::Lifetime(s, kind) => format!("{{\"$\":\"Lifetime\",\"sym\":{},\"kind\":\"{}\"}}", js(s.as_str()), ident_kind(*kind)),
+        TokenKind::Literal(lit) => {
+            let (k, n) = match lit.kind {
+                LitKind::Bool => ("Bool", 0),
+                LitKind::Byte => ("Byte", 0),
+                LitKind::Char => ("Char", 0),
+                LitKind::Integer => ("Integer", 0),
+                LitKind::Float => ("Float", 0),
+                LitKind::Str => ("Str", 0),
+                LitKind::StrRaw(n) => ("StrRaw", n),
+                LitKind::ByteStr => ("ByteStr", 0),
+                LitKind::ByteStrRaw(n) => ("ByteStrRaw", n),
+                LitKind::CStr => ("CStr", 0),
+                LitKind::CStrRaw(n) => ("CStrRaw", n),
+                LitKind::Err(_) => ("Err", 0),
+            };
+            let suffix = match lit.suffix {
+                Some(s) => js(s.as_str()),
+                None => "null".into(),
+            };
+            format!("{{\"$\":\"Literal\",\"kind\":\"{k}\",\"n\":{n},\"sym\":{},\"suffix\":{suffix}}}", js(lit.symbol.as_str()))
+        }
+        TokenKind::DocComment(ck, style, s) => format!(
+            "{{\"$\":\"DocComment\",\"comment_kind\":\"{:?}\",\"style\":\"{:?}\",\"sym\":{}}}",
+            ck,
+            style,
+            js(s.as_str())
+        ),
+        TokenKind::NtIdent(..) | TokenKind::NtLifetime(..) | TokenKind::OpenInvisible(_) | TokenKind::CloseInvisible(_) => panic!("unexpected"),
+        other => format!("{{\"$\":\"{:?}\"}}", other),
+    }
+}
+
+fn tt_json(tt: &TokenTree) -> String {
+    match tt {
+        TokenTree::Token(t, sp) => format!("{{\"$\":\"Token\",\"kind\":{},\"spacing\":\"{}\"}}", kind_json(&t.kind), spacing(*sp)),
+        TokenTree::Delimited(_, ds, d, tts) => format!(
+            "{{\"$\":\"Delimited\",\"open\":\"{}\",\"close\":\"{}\",\"delim\":\"{}\",\"tts\":{}}}",
+            spacing(ds.open),
+            spacing(ds.close),
+            delim(*d),
+            ts_json(tts)
+        ),
+    }
+}
+
+fn ts_json(ts: &TokenStream) -> String {
+    let v: Vec<String> = ts.iter().map(tt_json).collect();
+    format!("[{}]", v.join(","))
+}
+
+fn path_json(p: &ast::Path) -> String {
+    let segs: Vec<String> = p
+        .segments
+        .iter()
+        .map(|s| {
+            let args = match &s.args {
+                None => "null".to_string(),
+                Some(a) => match &**a {
+                    ast::GenericArgs::AngleBracketed(d) => {
+                        let v: Vec<String> = d
+                            .args
+                            .iter()
+                            .map(|a| match a {
+                                ast::AngleBracketedArg::Arg(ast::GenericArg::Type(t)) => format!("{{\"$\":\"Type\",\"ty\":{}}}", ty_json(t)),
+                                ast::AngleBracketedArg::Arg(ast::GenericArg::Lifetime(l)) => format!("{{\"$\":\"Lifetime\",\"name\":{}}}", js(l.ident.name.as_str())),
+                                _ => panic!("unsupported generic arg"),
+                            })
+                            .collect();
+                        format!("[{}]", v.join(","))
+                    }
+                    _ => panic!("unsupported generic args"),
+                },
+            };
+            format!("{{\"name\":{},\"args\":{}}}", js(s.ident.name.as_str()), args)
+        })
+        .collect();
+    format!("[{}]", segs.join(","))
+}
+
+fn mutbl(m: ast::Mutability) -> &'static str {
+    match m {
+        ast::Mutability::Mut => "Mut",
+        ast::Mutability::Not => "Not",
+    }
+}
+
+fn bounds_json(bounds: &[ast::GenericBound]) -> String {
+    let v: Vec<String> = bounds
+        .iter()
+        .map(|b| match b {
+            ast::GenericBound::Trait(p) => {
+                assert!(p.bound_generic_params.is_empty());
+                let pol = match p.modifiers.polarity {
+                    ast::BoundPolarity::Positive => "Positive",
+                    ast::BoundPolarity::Negative(_) => "Negative",
+                    ast::BoundPolarity::Maybe(_) => "Maybe",
+                };
+                let parens = matches!(p.parens, ast::Parens::Yes);
+                format!("{{\"$\":\"Trait\",\"path\":{},\"polarity\":\"{pol}\",\"parens\":{parens}}}", path_json(&p.trait_ref.path))
+            }
+            ast::GenericBound::Outlives(l) => format!("{{\"$\":\"Outlives\",\"name\":{}}}", js(l.ident.name.as_str())),
+            _ => panic!("unsupported bound"),
+        })
+        .collect();
+    format!("[{}]", v.join(","))
+}
+
+fn ty_json(t: &ast::Ty) -> String {
+    match &t.kind {
+        ast::TyKind::Path(None, p) => format!("{{\"$\":\"Path\",\"path\":{}}}", path_json(p)),
+        ast::TyKind::Ref(lt, ty, m) => format!(
+            "{{\"$\":\"Ref\",\"lifetime\":{},\"mutbl\":\"{}\",\"ty\":{}}}",
+            lt.map(|l| js(l.ident.name.as_str())).unwrap_or("null".into()),
+            mutbl(*m),
+            ty_json(ty)
+        ),
+        ast::TyKind::Ptr(ty, m) => format!("{{\"$\":\"Ptr\",\"mutbl\":\"{}\",\"ty\":{}}}", mutbl(*m), ty_json(ty)),
+        ast::TyKind::Slice(t) => format!("{{\"$\":\"Slice\",\"ty\":{}}}", ty_json(t)),
+        ast::TyKind::Paren(t) => format!("{{\"$\":\"Paren\",\"ty\":{}}}", ty_json(t)),
+        ast::TyKind::Tup(ts) => {
+            let v: Vec<String> = ts.iter().map(|t| ty_json(t)).collect();
+            format!("{{\"$\":\"Tup\",\"tys\":[{}]}}", v.join(","))
+        }
+        ast::TyKind::Never => "{\"$\":\"Never\"}".into(),
+        ast::TyKind::Infer => "{\"$\":\"Infer\"}".into(),
+        ast::TyKind::TraitObject(b, syn) => format!(
+            "{{\"$\":\"TraitObject\",\"dyn\":{},\"bounds\":{}}}",
+            matches!(syn, ast::TraitObjectSyntax::Dyn),
+            bounds_json(b)
+        ),
+        ast::TyKind::ImplTrait(_, b) => format!("{{\"$\":\"ImplTrait\",\"bounds\":{}}}", bounds_json(b)),
+        _ => panic!("unsupported ty {:?}", t),
+    }
+}
+
+fn attr_json(a: &ast::Attribute) -> String {
+    let style = format!("{:?}", a.style);
+    match &a.kind {
+        ast::AttrKind::Normal(n) => {
+            let unsafety = matches!(n.item.unsafety, ast::Safety::Unsafe(_));
+            let args = match &n.item.args {
+                ast::AttrArgs::Empty => "{\"$\":\"Empty\"}".to_string(),
+                ast::AttrArgs::Delimited(d) => format!("{{\"$\":\"Delimited\",\"delim\":\"{}\",\"tts\":{}}}", delim(d.delim), ts_json(&d.tokens)),
+                ast::AttrArgs::Eq { .. } => panic!("Eq attr unsupported"),
+            };
+            format!("{{\"$\":\"Normal\",\"style\":\"{style}\",\"unsafe\":{unsafety},\"path\":{},\"args\":{args}}}", path_json(&n.item.path))
+        }
+        ast::AttrKind::DocComment(ck, s) => format!("{{\"$\":\"DocComment\",\"style\":\"{style}\",\"comment_kind\":\"{:?}\",\"sym\":{}}}", ck, js(s.as_str())),
+        _ => panic!("synthetic"),
+    }
+}
+
+const TTS: &[&str] = &[
+    "x + y",
+    "x+y",
+    "a :: b",
+    "a::b",
+    "foo(1, 2) , bar",
+    "println!(\"hi {}\", x);",
+    "if !x { y } else { z }",
+    "let (a, b) = (1, 2);",
+    "fn(x: u8) -> Self () pub(crate)",
+    "#[allow(unused)] #![no_std] # [x]",
+    "$e $crate::foo $ x",
+    "r#fn r#match k#auto",
+    "'a 'static 'r#b",
+    "tup.0 . 1 x.y",
+    "b'a' 'c' \"s\\n\" r#\"raw\"# b\"bs\" br##\"bs\"## c\"cs\" cr\"cs\"",
+    "1u8 2.5f32 0x1F 1e10 true false 7_usize",
+    "=> -> <- :: ; , . .. ... ..= # $ ? ~ @ != == <= >= && || << >> += -= *= /= %= ^= &= |= <<= >>=",
+    "x [T; 3] {}",
+    "{ a } { } {a}",
+    "m!{ x } m! { x }",
+    "/// outer doc\nfn f() {}",
+    "//! inner doc\n/** block */ x /*! iblock */",
+    "a where b",
+    "async move || {} dyn Trait try gen",
+    "(a,b) [c ,d] {e;f}",
+];
+
+const TYS: &[&str] = &[
+    "u8",
+    "&'a mut Vec<u8>",
+    "*const T",
+    "*mut [u8]",
+    "(u8,)",
+    "(u8, i32, String)",
+    "()",
+    "!",
+    "_",
+    "std::collections::HashMap<String, Vec<&'static str>>",
+    "dyn Trait + 'a",
+    "Box<dyn Fn + Send + ?Sized>",
+    "impl Iterator<Item>",
+    "&(dyn A + B)",
+    "::std::Option<T>",
+];
+
+const CRATES: &[&str] = &[
+    "#![allow(unused, dead_code)]\n#![feature(rustc_private)]\n#[cfg(test)]\n#[derive(Debug, Clone)]\n#[inline]\n#[unsafe(no_mangle)]\n#[doc(alias = \"x\")]\n/// Doc line\n/** Doc block */\nfn f() {}",
+    "//! Inner doc\n/*! Inner block */\n#[path::to::attr {a b}]\n#[a[b]]\nstruct S;",
+];
+
+const COMMENT_SRCS: &[&str] = &[
+    "#!/bin/sh\n// a\n\n\n/* c\n     d */\n// e\n",
+    "/* a */ /* b */\n\n// c\n",
+    "// only\n",
+    "",
+    "/*\n   * x\n   */\n",
+];
+
+struct Ann;
+impl pprust::PpAnn for Ann {}
+
+fn main() {
+    rustc_span::create_session_globals_then(Edition::Edition2021, &[], None, || {
+        let psess = ParseSess::new();
+        let mut out = Vec::new();
+        for (i, src) in TTS.iter().enumerate() {
+            let ts = rustc_parse::source_str_to_stream(&psess, FileName::Custom(format!("tts{i}")), src.to_string(), None)
+                .unwrap_or_else(|_| panic!("lex"));
+            let mut toks = Vec::new();
+            fn flat(ts: &TokenStream, toks: &mut Vec<String>) {
+                for tt in ts.iter() {
+                    match tt {
+                        TokenTree::Token(t, _) => toks.push(format!("[{},{}]", kind_json(&t.kind), js(&pprust::token_to_string(t)))),
+                        TokenTree::Delimited(_, _, _, inner) => flat(inner, toks),
+                    }
+                }
+            }
+            flat(&ts, &mut toks);
+            let tt_strs: Vec<String> = ts.iter().map(|tt| js(&pprust::tt_to_string(tt))).collect();
+            out.push(format!(
+                "{{\"src\":{},\"tts\":{},\"expected\":{},\"tt_strings\":[{}],\"tokens\":[{}]}}",
+                js(src),
+                ts_json(&ts),
+                js(&pprust::tts_to_string(&ts)),
+                tt_strs.join(","),
+                toks.join(",")
+            ));
+        }
+        let mut tys = Vec::new();
+        for (i, src) in TYS.iter().enumerate() {
+            let mut p = rustc_parse::new_parser_from_source_str(&psess, FileName::Custom(format!("ty{i}")), src.to_string(), StripTokens::Nothing)
+                .unwrap_or_else(|_| panic!("parser"));
+            let ty = p.parse_ty().unwrap_or_else(|e| { e.cancel(); panic!("ty") });
+            tys.push(format!("{{\"src\":{},\"ty\":{},\"expected\":{}}}", js(src), ty_json(&ty), js(&pprust::ty_to_string(&ty))));
+        }
+        let mut attrs = Vec::new();
+        for (i, src) in CRATES.iter().enumerate() {
+            let mut p = rustc_parse::new_parser_from_source_str(&psess, FileName::Custom(format!("krate{i}")), src.to_string(), StripTokens::Nothing)
+                .unwrap_or_else(|_| panic!("parser"));
+            let krate = p.parse_crate_mod().unwrap_or_else(|e| { e.cancel(); panic!("crate") });
+            let all = krate.attrs.iter().chain(krate.items.iter().flat_map(|it| it.attrs.iter()));
+            for a in all {
+                attrs.push(format!("{{\"attr\":{},\"expected\":{}}}", attr_json(a), js(&pprust::attribute_to_string(a))));
+            }
+        }
+        let mut cmts = Vec::new();
+        for (i, src) in COMMENT_SRCS.iter().enumerate() {
+            let name = FileName::Custom(format!("c{i}"));
+            let mut p = rustc_parse::new_parser_from_source_str(&psess, name.clone(), src.to_string(), StripTokens::ShebangAndFrontmatter)
+                .unwrap_or_else(|_| panic!("parser"));
+            let krate = p.parse_crate_mod().unwrap_or_else(|e| { e.cancel(); panic!("crate") });
+            assert!(krate.items.is_empty() && krate.attrs.is_empty());
+            let g = rustc_ast::attr::AttrIdGenerator::new();
+            let printed = pprust::print_crate(psess.source_map(), &krate, name, src.to_string(), &Ann, false, Edition::Edition2021, &g);
+            cmts.push(format!("{{\"src\":{},\"expected\":{}}}", js(src), js(&printed)));
+        }
+        println!(
+            "{{\"_source\":\"rustc +nightly-2026-10-11 (rustc-dev) scratch oracle $RUST_TS_DATA/tmp/pprust-state/oracle/main.rs; edition 2021; pprust::{{tts_to_string,tt_to_string,token_to_string,ty_to_string,attribute_to_string}}\",\n\"tts\":[\n{}\n],\n\"tys\":[\n{}\n],\n\"attrs\":[\n{}\n],\n\"print_crate_comments\":[\n{}\n]}}",
+            out.join(",\n"),
+            tys.join(",\n"),
+            attrs.join(",\n"),
+            cmts.join(",\n")
+        );
+    });
+}

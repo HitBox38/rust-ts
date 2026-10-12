@@ -1,8 +1,9 @@
 // Port of compiler/rustc_ast_pretty/src/pprust/tests.rs
 //
-// Every test here drives `State` (pprust/state.rs), which lane pprust-state is porting; until it
-// lands, `State` in `./mod.ts` is a shim whose entry points call `unported(...)`, so the tests are
-// skipped. Un-skip them (`test.skip` -> `test`) when `./state.ts` replaces the shim.
+// `test_fun_to_string` and `test_variant_to_string` call `print_fn`/`print_variant` from
+// `pprust/state/item.rs`, which is not ported yet (placeholders in state.ts call `unported`), so they
+// stay skipped. Un-skip them (`test.skip` -> `test`) when the expr/item lane lands.
+// PORT: `s.end(..)` through `Deref<Target = Printer>` is `s.s.end(..)` (see state.ts header).
 import { expect, test } from "bun:test";
 import { ast } from "../../rustc_ast/lib.ts";
 import { DUMMY_SP } from "../../rustc_span/span_encoding.ts";
@@ -10,7 +11,7 @@ import { create_default_session_globals_then } from "../../rustc_span/lib.ts";
 import { Ident } from "../../rustc_span/symbol.ts";
 import { to_string } from "./mod.ts";
 
-const PENDING = "pending pprust-state: State (pprust/state.rs) is not ported yet";
+const PENDING = "pending expr/item lane: print_fn/print_variant (pprust/state/item.rs) are not ported yet";
 
 // PORT: `ast::Generics::default()` (derived `Default`): no params, a default `WhereClause`,
 // `DUMMY_SP`.
@@ -23,8 +24,8 @@ function fun_to_string(decl: ast.FnDecl, header: ast.FnHeader, ident: Ident, gen
   return to_string((s) => {
     const [cb, ib] = s.head("");
     s.print_fn(decl, header, ident, generics);
-    s.end(ib);
-    s.end(cb);
+    s.s.end(ib);
+    s.s.end(cb);
   });
 }
 
@@ -73,7 +74,7 @@ test.skip(`test_variant_to_string (${PENDING})`, () => {
 });
 
 // rustc: compiler/rustc_ast_pretty/src/pprust/tests.rs:67 test_field_view
-test.skip(`test_field_view (${PENDING})`, () => {
+test("test_field_view", () => {
   create_default_session_globals_then(() => {
     const ty = new ast.Ty(
       ast.DUMMY_NODE_ID,

@@ -4,64 +4,11 @@
 import { type ast } from "../../rustc_ast/lib.ts";
 import type { Token, TokenKind } from "../../rustc_ast/token.ts";
 import type { TokenStream, TokenTree } from "../../rustc_ast/tokenstream.ts";
-import type { Ident } from "../../rustc_span/symbol.ts";
-import { unported } from "../../std/panic.ts";
-import type { BoxMarker } from "../pp.ts";
 
-// PORT: pending pprust-state. Upstream:
-//
-//   pub mod state;
-//   pub use state::{
-//       AnnNode, Comments, PpAnn, PrintState, State, print_crate, print_crate_as_interface,
-//   };
-//
-// `pprust/state.rs` is ported by lane pprust-state and does not exist on this branch yet. Until
-// it lands, `State` below is a local shim (type + companion const) whose entry points call
-// `unported(...)`. When `./state.ts` exists, delete the shim and replace it with:
-//
-//   export * as state from "./state.ts";
-//   import { State } from "./state.ts";
-//   export { AnnNode, Comments, PpAnn, PrintState, State, print_crate, print_crate_as_interface } from "./state.ts";
-//
-// The method names below are upstream's; `Cow<'static, str>` / `String` returns are JS strings.
-export interface State {
-  token_kind_to_string(tok: TokenKind): string;
-  token_to_string(token: Token): string;
-  ty_to_string(ty: ast.Ty): string;
-  bounds_to_string(bounds: readonly ast.GenericBound[]): string;
-  where_bound_predicate_to_string(where_bound_predicate: ast.WhereBoundPredicate): string;
-  pat_to_string(pat: ast.Pat): string;
-  expr_to_string(e: ast.Expr): string;
-  tt_to_string(tt: TokenTree): string;
-  tts_to_string(tokens: TokenStream): string;
-  item_to_string(i: ast.Item): string;
-  assoc_item_to_string(i: ast.AssocItem): string;
-  foreign_item_to_string(i: ast.ForeignItem): string;
-  stmt_to_string(s: ast.Stmt): string;
-  path_to_string(p: ast.Path): string;
-  path_segment_to_string(p: ast.PathSegment): string;
-  vis_to_string(v: ast.Visibility): string;
-  impl_restriction_to_string(r: ast.ImplRestriction): string;
-  mut_restriction_to_string(r: ast.MutRestriction): string;
-  meta_list_item_to_string(li: ast.MetaItemInner): string;
-  attribute_to_string(attr: ast.Attribute): string;
-  print_inner_attributes(attrs: readonly ast.Attribute[]): boolean;
-  print_item(item: ast.Item): void;
-  // Used by `pprust/tests.rs`.
-  head(w: string): [BoxMarker, BoxMarker];
-  end(b: BoxMarker): void;
-  print_fn(decl: ast.FnDecl, header: ast.FnHeader, ident: Ident | undefined, generics: ast.Generics): void;
-  print_variant(v: ast.Variant): void;
-  print_type(ty: ast.Ty): void;
-}
-export const State = {
-  new(): State {
-    return unported("rustc_ast_pretty::pprust::state::State::new (pending pprust-state)");
-  },
-  to_string(_f: (s: State) => void): string {
-    return unported("rustc_ast_pretty::pprust::state::State::to_string (pending pprust-state)");
-  },
-} as const;
+export * as state from "./state.ts";
+import { State } from "./state.ts";
+// pub use state::{AnnNode, Comments, PpAnn, PrintState, State, print_crate, print_crate_as_interface};
+export { type AnnNode, Comments, PpAnn, PrintState, State, print_crate, print_crate_as_interface } from "./state.ts";
 
 /// Print the token kind precisely, without converting `$crate` into its respective crate name.
 // rustc: compiler/rustc_ast_pretty/src/pprust/mod.rs:15 token_kind_to_string

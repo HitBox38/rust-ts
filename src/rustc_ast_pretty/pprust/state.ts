@@ -488,14 +488,12 @@ function literal_to_string(lit: tk.Lit): string {
   return out;
 }
 
-// PORT: `str::escape_debug` (library/core/src/str/mod.rs): the first char is escaped with
-// `EscapeDebugExtArgs::ESCAPE_ALL`, the rest with grapheme-extended escaping turned off; both quote
-// kinds are escaped. `DEBUG_ESCAPE_UNICODE` (src/std) is `char::escape_debug`'s `\u{..}` set, i.e.
-// grapheme-extended OR non-printable, so for a non-first non-ASCII char in it we cannot tell
-// whether upstream escapes it: that case is `unported` (needs a grapheme-extend table).
+// PORT: `str::escape_debug` (library/core/src/str/mod.rs:3149 at the pin) is
+// `self.chars().flat_map(CharEscapeDebug)`, i.e. `char::escape_debug` (`EscapeDebugExtArgs::ESCAPE_ALL`:
+// both quote kinds and grapheme-extended chars escaped) on every char. `DEBUG_ESCAPE_UNICODE`
+// (src/std, generated from the oracle) is exactly `char::escape_debug`'s `\u{..}` set.
 function str_escape_debug(s: string): string {
   let out = "";
-  let first = true;
   for (const c_ of s) {
     const c = c_.codePointAt(0)!;
     switch (c) {
@@ -524,15 +522,11 @@ function str_escape_debug(s: string): string {
         if (c >= 0x20 && c < 0x7f) {
           out += c_;
         } else if (in_table(DEBUG_ESCAPE_UNICODE, c)) {
-          if (!first && c >= 0x80) {
-            unported("core::str::escape_debug: non-first grapheme-extended/non-printable char (no Grapheme_Extend table)");
-          }
           out += "\\u{" + c.toString(16) + "}";
         } else {
           out += c_;
         }
     }
-    first = false;
   }
   return out;
 }
@@ -3013,6 +3007,8 @@ export interface State {
   print_assoc_item(item: ast.AssocItem): void;
   print_fn(decl: ast.FnDecl, header: ast.FnHeader, ident: Ident | undefined, generics: ast.Generics): void;
   print_where_bound_predicate(where_bound_predicate: ast.WhereBoundPredicate): void;
+  // Not called from state.rs; used by `pprust/tests.rs`.
+  print_variant(v: ast.Variant): void;
 }
 
 State.prototype.print_expr_cond_paren = function (): void {
@@ -3050,4 +3046,7 @@ State.prototype.print_fn = function (): void {
 };
 State.prototype.print_where_bound_predicate = function (): void {
   unported("rustc_ast_pretty::pprust::state::item::print_where_bound_predicate");
+};
+State.prototype.print_variant = function (): void {
+  unported("rustc_ast_pretty::pprust::state::item::print_variant");
 };
