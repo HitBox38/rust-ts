@@ -24,6 +24,7 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
+import { type DiagTsCtx, diagDerives, diagnostic_derive, renderTs, subdiagnostic_derive, type Tok } from "./diagnostics.ts";
 import { type BitflagsType, debugFormatTemplate, evalFlagExpr, macroBody, type NewtypeIndex, parseBitflags, parseNewtypeIndex } from "./macros.ts";
 
 const HERE = import.meta.dir;
@@ -71,6 +72,11 @@ export interface PAttr {
   repr?: string[];
   value?: string;
   inner?: boolean;
+  /** token trees of `path(...)` (list attributes), for attribute-driven derives (diagnostics.ts) */
+  tokens?: Tok[];
+  /** start of the attribute (`#`), 1-based line and 0-based column */
+  line?: number;
+  col?: number;
 }
 export interface PGenerics {
   params: { kind: string; name: string; default?: PType | null }[];
@@ -205,6 +211,20 @@ export function loadTypeMap(): TypeMap {
   }
   return tm;
 }
+/** `IntoDiagArg` impls / `Display` of Rust types used by generated diagnostic derives (diag_args.json). */
+export interface DiagArgEntry {
+  paths: string[];
+  /** expression of a `(self: T, path) => DiagArgValue` function */
+  into_diag_arg?: string;
+  /** Display expression template (`$v` = value) */
+  display?: string;
+  /** repo-relative module -> names used by the two expressions */
+  imports?: Record<string, string[]>;
+  note?: string;
+}
+export function loadDiagArgs(): DiagArgEntry[] {
+  return JSON.parse(readFileSync(join(HERE, "diag_args.json"), "utf8")).types;
+}
 export function loadSet(name: string): SetConfig {
   const sets = JSON.parse(readFileSync(join(HERE, "types.sets.json"), "utf8"));
   const s = sets[name];
@@ -216,7 +236,7 @@ export function loadSet(name: string): SetConfig {
 
 export interface Report {
   set: string;
-  files: { upstream: string; out: string; types: number; debug_fns: number; clone_fns: number; walkable: number }[];
+  files: { upstream: string; out: string; types: number; debug_fns: number; clone_fns: number; walkable: number; diag_impls: number }[];
   unknown_types: Record<string, string[]>;
   missing_debug: Record<string, string[]>;
   manual_debug: { type: string; impl_at: string; defined_at: string; provide_in: string; generic_params: string[] }[];
@@ -224,6 +244,8 @@ export interface Report {
   manual_clone: { type: string; impl_at: string; defined_at: string; provide_in: string; generic_params: string[] }[];
   unknown_cfg: Record<string, string[]>;
   macro_types: { at: string; macro: string; types: string[]; debug_formats: string[] }[];
+  /** `IntoDiagArg` / `Display` of a diagnostic field type without an entry in diag_args.json (emitted as `unported`) */
+  missing_diag_arg: Record<string, string[]>;
   notes: string[];
   errors: string[];
 }
@@ -312,6 +334,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     manual_clone: [],
     unknown_cfg: {},
     macro_types: [],
+    missing_diag_arg: {},
     notes: [],
     errors: [],
   };
@@ -581,6 +604,23 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           });
         } else report.notes.push(`manual Clone impl for non-generated type ${im.self_ty.text} at ${at}`);
       }
+  // manual `impl Diagnostic` / `impl Subdiagnostic` / `impl IntoDiagArg` (hand-written `<T>_into_diag`,
+  // `<T>_add_to_diag`, `<T>_into_diag_arg` in the hand module)
+  const manualDiagTrait = new Map<string, Set<string>>(); // trait -> item keys
+  for (const mf of mfs)
+    for (const im of mf.file.impls) {
+      const tr = im.trait?.split("::").pop();
+      if (!tr || !["Diagnostic", "Subdiagnostic", "IntoDiagArg"].includes(tr) || im.self_ty.kind !== "path") continue;
+      if (!enabled(im.attrs, `${mf.file.path}:${im.line}`)) continue;
+      const r = resolvePath(im.self_ty.path!, { mf, mod: [...mf.mod, ...im.module], params: new Set() });
+      if (r.k !== "item") continue;
+      if (!manualDiagTrait.has(tr)) manualDiagTrait.set(tr, new Set());
+      manualDiagTrait.get(tr)!.add(r.ref.key);
+    }
+  const diagArgs = loadDiagArgs();
+  const daIndex = new Map<string, DiagArgEntry>();
+  for (const e of diagArgs) for (const p of e.paths) daIndex.set(p, e);
+
   // skip entries naming no item of the set (e.g. a type defined inside a `macro_rules!`)
   for (const k of set.skip) {
     if ([...items.values()].some((r) => matches([k], r))) continue;
@@ -638,6 +678,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     let fileDebug = 0;
     let fileClone = 0;
     let fileWalk = 0;
+    let fileDiag = 0;
 
     /**
      * Module an item of another file is imported from: always its hand-port module (which re-exports
@@ -1182,6 +1223,99 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     const liveFields = (fs: PFields, at: string) => fs.fields.filter((fl) => enabled(fl.attrs, `${at}:${fl.line}`));
 
     const body: string[] = [];
+
+    // ---- derive(Diagnostic) / derive(Subdiagnostic) (rustc_macros/src/diagnostics, see diagnostics.ts) ----
+    const diagCodeState = { code_ident_count: 0 };
+    const diagArgOf = (ty: PType, sc: Scope, at: string, which: "into_diag_arg" | "display"): string | undefined => {
+      let t = ty;
+      while (t.kind === "ref") t = t.elem!;
+      if (t.kind !== "path" || t.qself) return undefined;
+      const r = resolvePath(t.path!, sc);
+      if (r.k === "item") {
+        if (which === "into_diag_arg" && manualDiagTrait.get("IntoDiagArg")?.has(r.ref.key)) {
+          const name = `${r.ref.item.name}_into_diag_arg`;
+          imp(`src:${r.ref.mf.hand}`, "values", name, name);
+          addStub(r.ref.mf.hand, name, `export declare function ${name}(v: any, path: any): any;`);
+          return name;
+        }
+        return undefined;
+      }
+      if (r.k !== "ext") return undefined;
+      for (const k of r.keys) {
+        const e = daIndex.get(k);
+        if (!e || e[which] === undefined) continue;
+        for (const [m, names] of Object.entries(e.imports ?? {})) for (const n of names) imp(`src:${m.replace(/^src\//, "")}`, "values", n, n);
+        return e[which];
+      }
+      return undefined;
+    };
+    const diagCtx = (sc: Scope): DiagTsCtx => ({
+      use: (module, name, kind) => {
+        imp(`src:${module.replace(/^src\//, "")}`, kind === "type" ? "types" : "values", name, name);
+        return name;
+      },
+      intoDiagArg: (ty, at) => {
+        const f = diagArgOf(ty, sc, at, "into_diag_arg");
+        if (f !== undefined) return f;
+        push(report.missing_diag_arg, `IntoDiagArg for ${ty.text}`, at);
+        return "unported_into_diag_arg";
+      },
+      display: (ty, v, at) => {
+        const f = diagArgOf(ty, sc, at, "display");
+        if (f !== undefined) return f.replaceAll("$v", v);
+        push(report.missing_diag_arg, `Display for ${ty.text}`, at);
+        return `unported_display(${v})`;
+      },
+      subdiagnosticFns: (ty, at) => {
+        let t = ty;
+        while (t.kind === "ref") t = t.elem!;
+        const r = t.kind === "path" && !t.qself ? resolvePath(t.path!, sc) : undefined;
+        if (r?.k === "item") {
+          const n = r.ref.item.name;
+          const names = { add_to_diag: `${n}_add_to_diag`, subdiagnostic: `${n}_subdiagnostic` };
+          if (hasDerive(r.ref, "Subdiagnostic")) {
+            if (!(r.ref.mf === mf && r.ref.mod.length === mf.mod.length)) for (const v of Object.values(names)) imp(viaHand(r.ref), "values", v, v);
+            return names;
+          }
+          if (manualDiagTrait.get("Subdiagnostic")?.has(r.ref.key)) {
+            for (const v of Object.values(names)) {
+              imp(`src:${r.ref.mf.hand}`, "values", v, v);
+              addStub(r.ref.mf.hand, v, `export declare function ${v}(v: any, ...a: any[]): any;`);
+            }
+            return names;
+          }
+        }
+        report.errors.push(`${at}: #[subdiagnostic] field of type ${ty.text}: no Subdiagnostic impl found`);
+        return { add_to_diag: "unported_add_to_diag", subdiagnostic: "unported_subdiagnostic" };
+      },
+      errCode: (toks, at) => {
+        const t = toks.length === 1 ? toks[0]! : undefined;
+        if (t?.t === "ident" && /^E\d{4}$/.test(t.v!)) {
+          imp("src:rustc_errors/lib.ts", "values", t.v!, t.v!);
+          return t.v!;
+        }
+        report.errors.push(`${at}: unsupported error code expression \`${toks.map((x) => x.v).join("")}\``);
+        return "unported_err_code";
+      },
+      nullable: (ty) => nullable(ty, sc),
+      tsType: (ty, at) => tsType(ty, sc, at),
+      error: (m) => report.errors.push(m),
+    });
+    const emitDiag = (r: ItemRef, sc: Scope, selfType: string, repr: "struct" | "data" | "fieldless") => {
+      const at = `${mf.file.path}:${r.item.line}`;
+      const ds = diagDerives(derives(r.item.attrs, at));
+      if (!ds.length) return;
+      if (tsParams(r.item).length) {
+        report.errors.push(`${at}: derive(${ds.join(", ")}) on a type with type parameters is not supported`);
+        return;
+      }
+      const errs = { error: (m: string) => report.errors.push(m) };
+      for (const d of ds) {
+        const impl = d === "Diagnostic" ? diagnostic_derive(r.item, mf.file.path, errs, diagCodeState) : subdiagnostic_derive(r.item, mf.file.path, errs, diagCodeState);
+        body.push(...renderTs(impl, diagCtx(sc), mf.file.path, selfType, repr));
+        fileDiag++;
+      }
+    };
     const itemList = walk ? [] : [...items.values()].filter((r) => r.mf === mf).sort((a, b) => a.item.line - b.item.line);
     for (const r of itemList) {
       const it = r.item;
@@ -1357,6 +1491,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           else body.push("  return {};");
           body.push("}");
         }
+        emitDiag(r, sc, selfType, "struct");
         continue;
       }
 
@@ -1406,6 +1541,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           fileClone++;
           body.push(`${cloneHead}\n  return v;\n}`);
         }
+        emitDiag(r, sc, selfType, "fieldless");
         continue;
       }
       if (variants.some((v) => v.discriminant !== null)) report.errors.push(`${at}: data enum ${r.key} has explicit discriminants (not emitted)`);
@@ -1468,6 +1604,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         }
         body.push("}");
       }
+      emitDiag(r, sc, selfType, "data");
     }
     if (walk) body.push("", ...walkBody(walk));
 
@@ -1504,13 +1641,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       ].sort((a, b) => a.replace(/^type /, "").localeCompare(b.replace(/^type /, "")));
       if (parts.length) importLines.push(`import { ${parts.join(", ")} } from "${spec}";`);
     }
-    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(|\bunported_clone\b/.test(text)) {
+    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(|\bunported_clone\b|\bunported_into_diag_arg\b|\bunported_display\(/.test(text)) {
       importLines.push(`import { unported } from "${relImport(outFile, join(opts.srcRoot, "std/panic.ts"))}";`);
       const extra: string[] = [];
       if (/\bunported_debug\(/.test(text)) extra.push(`const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");`);
       if (/\bunknown_debug\(/.test(text)) extra.push(`const unknown_debug = (_v: unknown): string => unported("Debug of an unknown type (see types report)");`);
       if (/\bunported_discriminant\(/.test(text)) extra.push(`const unported_discriminant = (e: string): number => unported(\`discriminant \${e}\`);`);
       if (/\bunported_clone\b/.test(text)) extra.push(`const unported_clone = <T>(_v: T): T => unported("Clone without a TS impl (see types report)");`);
+      if (/\bunported_into_diag_arg\b/.test(text))
+        extra.push(`const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported("IntoDiagArg without a TS impl (see types report)");`);
+      if (/\bunported_display\(/.test(text)) extra.push(`const unported_display = (_v: unknown): string => unported("Display without a TS impl (see types report)");`);
       importLines.push(...extra);
     }
     if (fileTypes === 0 && !walk) {
@@ -1525,6 +1665,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       debug_fns: fileDebug,
       clone_fns: fileClone,
       walkable: fileWalk,
+      diag_impls: fileDiag,
     });
   }
   return { files, report, stubs };
@@ -1672,9 +1813,10 @@ if (import.meta.main) {
   const nDebug = r.files.reduce((a, f) => a + f.debug_fns, 0);
   const nClone = r.files.reduce((a, f) => a + f.clone_fns, 0);
   const nWalk = r.files.reduce((a, f) => a + f.walkable, 0);
-  console.log(`${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns, ${nClone} clone fns, ${nWalk} walkable impls -> ${out}`);
+  const nDiag = r.files.reduce((a, f) => a + f.diag_impls, 0);
+  console.log(`${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns, ${nClone} clone fns, ${nWalk} walkable impls, ${nDiag} diagnostic derives -> ${out}`);
   console.log(
-    `unknown types: ${Object.keys(r.unknown_types).length}, missing debug: ${Object.keys(r.missing_debug).length}, manual Debug impls: ${r.manual_debug.length}, missing clone: ${Object.keys(r.missing_clone).length}, manual Clone impls: ${r.manual_clone.length}, unknown cfg: ${Object.keys(r.unknown_cfg).length}, macro types: ${r.macro_types.length}`,
+    `unknown types: ${Object.keys(r.unknown_types).length}, missing debug: ${Object.keys(r.missing_debug).length}, manual Debug impls: ${r.manual_debug.length}, missing clone: ${Object.keys(r.missing_clone).length}, manual Clone impls: ${r.manual_clone.length}, unknown cfg: ${Object.keys(r.unknown_cfg).length}, macro types: ${r.macro_types.length}, missing IntoDiagArg/Display: ${Object.keys(r.missing_diag_arg).length}`,
   );
   console.log(`report: ${rp}`);
   if (stubs) console.log(`stubs: ${writeStubs(res, opts)} modules under ${srcRoot}`);

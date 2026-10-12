@@ -47,7 +47,7 @@ import {
 import { BytePos, DUMMY_SP, Span, debug_Span } from "../rustc_span/lib.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
-import { assert, panic, unported, unwrap } from "../std/panic.ts";
+import { assert, panic, unwrap } from "../std/panic.ts";
 import { extend, partition_point, splice } from "../std/slice.ts";
 
 export * from "./tokenstream.gen.ts";
@@ -493,11 +493,6 @@ gen.AttrTokenStream.prototype.to_token_trees = function (this: AttrTokenStream):
   return res;
 };
 
-/** `Attribute::token_trees` (attr/mod.rs, not ported yet). */
-function attr_token_trees(_attr: Attribute): TokenTree[] {
-  return unported("rustc_ast::attr::Attribute::token_trees");
-}
-
 // Converts multiple attributes and the tokens for a target AST node into token trees, and appends
 // them to `res`.
 //
@@ -518,7 +513,8 @@ function attrs_and_tokens_to_token_trees(
 
   // Add outer attribute tokens.
   for (const attr of outer_attrs) {
-    extend(res, attr_token_trees(attr));
+    // PORT: `Attribute::token_trees` is defined in attr/mod.ts (an extension module loaded by lib.ts).
+    extend(res, attr.token_trees());
   }
 
   // Add target AST node tokens.
@@ -554,7 +550,7 @@ function attrs_and_tokens_to_token_trees(
         // Found it: the rightmost, outermost braced group.
         const tts_: TokenTree[] = [];
         for (const inner_attr of inner_attrs) {
-          extend(tts_, attr_token_trees(inner_attr));
+          extend(tts_, inner_attr.token_trees());
         }
         extend(tts_, stream._0);
         const stream_ = TokenStream.new(tts_);

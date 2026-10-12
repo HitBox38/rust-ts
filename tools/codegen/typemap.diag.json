@@ -1,0 +1,16 @@
+{
+  "//": [
+    "Type-map additions of lane codegen-diag (rustc_parse / rustc_session diagnostics.rs), merged by",
+    "tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_ast::token::Token"], "ts": "Token", "import": "src/rustc_ast/token.ts", "types": ["Token"], "values": ["debug_Token"], "debug": "debug_Token($v, $f)" },
+    { "paths": ["rustc_ast::token::MetaVarKind"], "ts": "MetaVarKind", "import": "src/rustc_ast/token.ts", "types": ["MetaVarKind"], "values": ["debug_MetaVarKind"], "debug": "debug_MetaVarKind($v, $f)" },
+    { "paths": ["rustc_errors::Applicability"], "ts": "Applicability", "import": "src/rustc_lint_defs/lib.ts", "types": ["Applicability"], "values": ["debug_Applicability"], "debug": "debug_Applicability($v, $f)", "note": "rustc_errors re-exports rustc_lint_defs::Applicability" },
+    { "paths": ["rustc_errors::MultiSpan"], "ts": "MultiSpan", "import": "src/rustc_error_messages/lib.ts", "types": ["MultiSpan"], "values": ["debug_MultiSpan"], "debug": "debug_MultiSpan($v, $f)", "note": "rustc_errors re-exports rustc_error_messages::MultiSpan" },
+    { "paths": ["rustc_errors::DiagMessage"], "ts": "DiagMessage", "import": "src/rustc_error_messages/lib.ts", "types": ["DiagMessage"], "values": ["debug_DiagMessage"], "debug": "debug_DiagMessage($v, $f)", "note": "rustc_errors re-exports rustc_error_messages::DiagMessage" },
+    { "paths": ["std::path::Path"], "ts": "string", "debug": "debug_str($v)", "note": "PORT: Path as a UTF-8 string (like PathBuf in typemap.errors.json)" }
+  ]
+}

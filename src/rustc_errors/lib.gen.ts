@@ -4,13 +4,12 @@ import { type RustcVersion } from "../rustc_ast/attr/version.ts";
 import { debug_DiagMessage, type DiagMessage } from "../rustc_error_messages/lib.ts";
 import { type ErrCode } from "./codes.ts";
 import { type Diag, type DiagInner } from "./diagnostic.ts";
-import { type Applicability, type Backtrace, debug_Applicability, type DelayedBugPanic, type DiagCtxtHandle, type Emitter, type LintExpectationId, type ThreadId } from "./lib.ts";
+import { type Backtrace, type DelayedBugPanic, type DiagCtxtHandle, type Emitter, type ThreadId } from "./lib.ts";
 import { type Hash128 } from "../rustc_hashes/lib.ts";
+import { type Applicability, debug_Applicability, debug_LintExpectationId, type LintExpectationId } from "../rustc_lint_defs/lib.ts";
 import { debug_Span, type ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
 import { type Debug, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { type Result } from "../std/result.ts";
-import { unported } from "../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_errors/src/lib.rs:82 PResult
 export type PResult<T> = Result<T, Diag>;
@@ -323,11 +322,11 @@ export const debug_EmissionOverride: Debug<EmissionOverride> = (v, f) => {
   switch (v.$) {
     case "Forced":
       return debug_struct(f, "Forced", [
-        ["lint_id", debug_option(v.lint_id, f, ((x, f) => unported_debug(x)))],
+        ["lint_id", debug_option(v.lint_id, f, debug_LintExpectationId)],
       ]);
     case "Expected":
       return debug_struct(f, "Expected", [
-        ["lint_id", unported_debug(v.lint_id)],
+        ["lint_id", debug_LintExpectationId(v.lint_id, f)],
       ]);
     case "Allowed":
       return v.$;

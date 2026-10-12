@@ -43,6 +43,12 @@
     "writeable": "=0.6.4",
     "litemap": "=0.8.1",
     "zerovec": "=0.11.7",
-    "regex-automata": "=0.4.13"
+    "regex-automata": "=0.4.13",
+    "anstream": "=0.6.21",
+    "anstyle-parse": "=0.2.7",
+    "utf8parse": "=0.2.2",
+    "colorchoice": "=1.0.4",
+    "anstyle-query": "=1.1.5",
+    "termize": "=0.2.1"
   }
 }

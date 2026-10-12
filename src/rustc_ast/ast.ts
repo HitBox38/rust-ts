@@ -42,12 +42,12 @@
 //   (deep for owned data, shared for `Lrc`/`Arc`, identity for Copy types); manual `impl Clone for Ty` ->
 //   `ty.clone()` / `clone_Ty(ty)`.
 // - `&mut T` results are `MutRef<T>` views onto the field (rustc_span hygiene.ts).
-import type { Mutability, Pinnedness } from "../rustc_ast_ir/lib.ts";
+import { Mutability, Mutability_cmp, Pinnedness } from "../rustc_ast_ir/lib.ts";
 import type { MutRef } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, respan, Span, type Spanned } from "../rustc_span/lib.ts";
 import { debug_Ident, display_Ident, display_Symbol, Ident, kw, Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_str, PLAIN } from "../std/fmt.ts";
-import { panic, unported, unreachable, unwrap } from "../std/panic.ts";
+import { panic, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { to_writer } from "../vendor/bitflags/parser.ts";
 import * as gen from "./ast.gen.ts";
@@ -69,6 +69,7 @@ import type {
   TraitBoundModifiers as TraitBoundModifiersT,
   TyKind as TyKindT,
 } from "./ast.gen.ts";
+import { HasAttrs, HasTokens } from "./ast_traits.ts";
 import { DUMMY_NODE_ID, type NodeId } from "./node_id.ts";
 import * as token from "./token.ts";
 import { TokenStream } from "./tokenstream.ts";
@@ -202,25 +203,6 @@ declare module "./ast.gen.ts" {
   }
 }
 
-
-// PORT: rustc_ast_ir fns that rustc_ast_ir/lib.ts does not port yet.
-function Mutability_prefix_str(_self: Mutability): string {
-  return unported("rustc_ast_ir::Mutability::prefix_str");
-}
-function Mutability_ref_prefix_str(_self: Mutability): string {
-  return unported("rustc_ast_ir::Mutability::ref_prefix_str");
-}
-function Mutability_ptr_str(_self: Mutability): string {
-  return unported("rustc_ast_ir::Mutability::ptr_str");
-}
-function Pinnedness_prefix_str(_self: Pinnedness, _mutbl: Mutability): string {
-  return unported("rustc_ast_ir::Pinnedness::prefix_str");
-}
-// PORT: `cmp::min` over `Mutability`'s derived `Ord` (declaration order: `Not < Mut`).
-function Mutability_min(a: Mutability, b: Mutability): Mutability {
-  const d = (m: Mutability): number => (m === "Not" ? 0 : 1);
-  return d(b) < d(a) ? b : a;
-}
 
 // PORT: `write!(f, ..)` formats its arguments with a fresh `Formatter` (no `{:#?}` flag), hence `PLAIN`.
 
@@ -522,6 +504,17 @@ gen.WhereClause.prototype.is_empty = function (this: gen.WhereClause): boolean {
   return !this.has_where_token && this.predicates.length === 0;
 };
 
+// PORT: `impl MetaItemKind` and `impl MetaItemInner` live in attr/mod.rs. attr/mod.ts (an extension
+// module, loaded by lib.ts) declares them in these `*Ext` interfaces and attaches them onto the
+// companions here, so one companion value carries all methods (`MetaItemKind.list_from_tokens(..)`).
+export interface MetaItemKindExt {}
+export type MetaItemKind = gen.MetaItemKind;
+export const MetaItemKind = gen.MetaItemKind as typeof gen.MetaItemKind & MetaItemKindExt;
+
+export interface MetaItemInnerExt {}
+export type MetaItemInner = gen.MetaItemInner;
+export const MetaItemInner = {} as MetaItemInnerExt;
+
 export type Pat = gen.Pat;
 // PORT: statics of the generated class, attached below in upstream order.
 export const Pat = gen.Pat as typeof gen.Pat & {
@@ -703,7 +696,7 @@ gen.Pat.prototype.descr = function (this: Pat): string | undefined {
   } else if (kind.$ === "Ref") {
     const [pat, pinned, mutbl] = [kind._0, kind._1, kind._2];
     const d = pat.descr();
-    return d === undefined ? undefined : `&${Pinnedness_prefix_str(pinned, mutbl)}${d}`;
+    return d === undefined ? undefined : `&${Pinnedness.prefix_str(pinned, mutbl)}${d}`;
   } else {
     return undefined;
   }
@@ -724,7 +717,8 @@ export const ByRef = {
     // PORT: `mut self` is a copy: build the updated value instead of mutating the argument.
     if (self.$ === "Yes") {
       const old_mutbl = self._1;
-      return { $: "Yes", _0: self._0, _1: Mutability_min(old_mutbl, mutbl) };
+      // cmp::min(old_mutbl, mutbl) (derived `Ord`)
+      return { $: "Yes", _0: self._0, _1: Mutability_cmp(mutbl, old_mutbl) < 0 ? mutbl : old_mutbl };
     }
     return self;
   },
@@ -1531,10 +1525,10 @@ export const AttrArgs = {
         // PORT: `TokenStream::clone` (an `Arc` clone), see tokenstream.ts.
         return new TokenStream(self._0.tokens._0);
       case "Eq":
-        // PORT: `HasTokens`/`HasAttrs` for `Expr` (ast_traits.rs) read the `tokens`/`attrs` fields.
+        // PORT: `Expr: HasTokens + HasAttrs + Debug`: the ast_traits impls and the derived Debug.
         return TokenStream.from_ast(self.expr, {
-          tokens: (e: Expr) => e.tokens,
-          attrs: (e: Expr) => e.attrs,
+          tokens: HasTokens.Expr.tokens,
+          attrs: HasAttrs.Expr.attrs,
           debug: gen.debug_Expr,
         });
     }
@@ -1627,8 +1621,11 @@ gen.StrLit.prototype.as_token_lit = function (this: gen.StrLit): token.Lit {
 /// deciding the `LitKind`. This means that float literals like `1f32` are
 /// classified by this type as `Float`. This is different to `token::LitKind`
 /// which does *not* consider the suffix.
+// PORT: `impl LitKind` in util/literal.rs (`from_token_lit`) is attached onto this companion by
+// util/literal.ts (an extension module, loaded by lib.ts) and declared in `LitKindExt`.
+export interface LitKindExt {}
 export type LitKind = gen.LitKind;
-export const LitKind = {
+const LitKind_ = {
   // rustc: compiler/rustc_ast/src/ast.rs:2296 str
   str(self: LitKind): Symbol | undefined {
     switch (self.$) {
@@ -1685,6 +1682,7 @@ export const LitKind = {
     }
   },
 };
+export const LitKind = LitKind_ as typeof LitKind_ & LitKindExt;
 
 /// Return a span encompassing the header, or where to insert it if empty.
 // rustc: compiler/rustc_ast/src/ast.rs:2355 header_span
@@ -2074,15 +2072,15 @@ export const SelfKind = {
     switch (self.$) {
       case "Region":
         if (self._0 === undefined) {
-          return Mutability_ref_prefix_str(self._1);
+          return Mutability.ref_prefix_str(self._1);
         } else {
-          return `&${display_Lifetime(self._0)} ${Mutability_prefix_str(self._1)}`;
+          return `&${display_Lifetime(self._0)} ${Mutability.prefix_str(self._1)}`;
         }
       case "Pinned":
         if (self._0 === undefined) {
-          return `&pin ${Mutability_ptr_str(self._1)}`;
+          return `&pin ${Mutability.ptr_str(self._1)}`;
         } else {
-          return `&${display_Lifetime(self._0)} pin ${Mutability_ptr_str(self._1)}`;
+          return `&${display_Lifetime(self._0)} pin ${Mutability.ptr_str(self._1)}`;
         }
       case "Value":
       case "Explicit":
@@ -2203,8 +2201,8 @@ gen.FnDecl.prototype.splatted = function (this: FnDecl): number | undefined {
       // ignore invalid indexes here.
       continue;
     } else {
-      // PORT: `Attribute::has_name` is in attr/mod.rs (not ported yet).
-      if (arg.attrs.some((_attr) => unported("rustc_ast::attr::Attribute::has_name") as boolean)) {
+      // PORT: `Attribute::has_name` is defined in attr/mod.ts (an extension module loaded by lib.ts).
+      if (arg.attrs.some((attr) => attr.has_name(sym.rustc_splat))) {
         return index;
       }
     }

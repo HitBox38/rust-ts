@@ -20,9 +20,10 @@ export * as tokenstream from "./tokenstream.ts";
 export * as visit from "./visit.ts";
 
 export * from "./ast.ts";
-// PORT: `pub use self::ast_traits::{AstNodeWrapper, HasAttrs, HasNodeId, HasTokens}`: the traits are not ported yet.
-export { AstNodeWrapper, debug_AstNodeWrapper } from "./ast_traits.ts";
+// pub use self::ast_traits::{AstNodeWrapper, HasAttrs, HasNodeId, HasTokens};
+export { AstNodeWrapper, debug_AstNodeWrapper, HasAttrs, HasNodeId, HasTokens } from "./ast_traits.ts";
 
 // Extension modules (methods defined on types from other files, PORTING §5): load after the
 // defining modules so the prototypes/companions exist.
 import "./util/literal.ts";
+import "./attr/mod.ts";

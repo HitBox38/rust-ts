@@ -4,8 +4,8 @@
 // Types and derived Debug impls are generated into literal.gen.ts (tools/codegen/types.ts).
 //
 // PORT: `impl ast::LitKind` and `impl MetaItemLit` live in this file upstream.
-// - `ast::LitKind` has no companion value in ast.ts, so this module exports one:
-//   `LitKind.from_token_lit(..)` (import `LitKind` from here for the methods).
+// - `LitKind::from_token_lit` is attached onto the `ast::LitKind` companion in ast.ts (declared in
+//   its `LitKindExt`), so `ast.LitKind.from_token_lit(..)` works once this module is loaded (lib.ts).
 // - `MetaItemLit` is a generated class: its statics are assigned onto the class and the class is
 //   re-exported here with the extended type; `as_token_lit` goes on the prototype.
 // - `debug!` (tracing) calls are kept as comments.
@@ -146,126 +146,134 @@ function ascii_escape_default(b: number): string {
   }
 }
 
+declare module "../ast.ts" {
+  interface LitKindExt {
+    from_token_lit(lit: TokenLit): Result<ast.LitKind, LitError>;
+  }
+}
+
 export type LitKind = ast.LitKind;
-export const LitKind = {
-  /// Converts literal token into a semantic literal.
-  // rustc: compiler/rustc_ast/src/util/literal.rs:80 from_token_lit
-  from_token_lit(lit: TokenLit): Result<LitKind, LitError> {
-    const { kind, symbol, suffix } = lit;
-    if (suffix !== undefined && !TokenLitKind.may_have_suffix(kind)) {
-      return Err({ $: "InvalidSuffix", _0: suffix });
+// PORT: `impl LitKind` is attached onto the one `ast::LitKind` companion (ast.ts); it is re-exported
+// here for existing importers.
+export const LitKind = ast.LitKind;
+
+/// Converts literal token into a semantic literal.
+// rustc: compiler/rustc_ast/src/util/literal.rs:80 from_token_lit
+LitKind.from_token_lit = function (lit: TokenLit): Result<LitKind, LitError> {
+  const { kind, symbol, suffix } = lit;
+  if (suffix !== undefined && !TokenLitKind.may_have_suffix(kind)) {
+    return Err({ $: "InvalidSuffix", _0: suffix });
+  }
+
+  // For byte/char/string literals, chars and escapes have already been
+  // checked in the lexer (in `cook_lexer_literal`). So we can assume all
+  // chars and escapes are valid here.
+  let r: LitKind;
+  switch (kind.$) {
+    case "Bool":
+      assert(Symbol.is_bool_lit(symbol), "assertion failed: symbol.is_bool_lit()");
+      r = { $: "Bool", _0: symbol === kw.True };
+      break;
+    case "Byte": {
+      const res = unescape_byte(Str.from(Symbol.as_str(symbol)));
+      if (res.$ === "Err") panic("failed to unescape byte literal");
+      return Ok<LitKind>({ $: "Byte", _0: res._0 });
+    }
+    case "Char": {
+      const res = unescape_char(Str.from(Symbol.as_str(symbol)));
+      if (res.$ === "Err") panic("failed to unescape char literal");
+      return Ok<LitKind>({ $: "Char", _0: res._0 });
     }
 
-    // For byte/char/string literals, chars and escapes have already been
-    // checked in the lexer (in `cook_lexer_literal`). So we can assume all
-    // chars and escapes are valid here.
-    let r: LitKind;
-    switch (kind.$) {
-      case "Bool":
-        assert(Symbol.is_bool_lit(symbol), "assertion failed: symbol.is_bool_lit()");
-        r = { $: "Bool", _0: symbol === kw.True };
-        break;
-      case "Byte": {
-        const res = unescape_byte(Str.from(Symbol.as_str(symbol)));
-        if (res.$ === "Err") panic("failed to unescape byte literal");
-        return Ok<LitKind>({ $: "Byte", _0: res._0 });
-      }
-      case "Char": {
-        const res = unescape_char(Str.from(Symbol.as_str(symbol)));
-        if (res.$ === "Err") panic("failed to unescape char literal");
-        return Ok<LitKind>({ $: "Char", _0: res._0 });
-      }
+    // There are some valid suffixes for integer and float literals,
+    // so all the handling is done internally.
+    case "Integer":
+      return integer_lit(symbol, suffix);
+    case "Float":
+      return float_lit(symbol, suffix);
 
-      // There are some valid suffixes for integer and float literals,
-      // so all the handling is done internally.
-      case "Integer":
-        return integer_lit(symbol, suffix);
-      case "Float":
-        return float_lit(symbol, suffix);
-
-      case "Str": {
-        // If there are no characters requiring special treatment we can
-        // reuse the symbol from the token. Otherwise, we must generate a
-        // new symbol because the string in the LitKind is different to the
-        // string in the token.
-        const s = Symbol.as_str(symbol);
-        // Vanilla strings are so common we optimize for the common case where no chars
-        // requiring special behaviour are present.
-        let symbol_: Symbol;
-        if (s.includes("\\")) {
-          let buf = "";
-          // Force-inlining here is aggressive but the closure is
-          // called on every char in the string, so it can be hot in
-          // programs with many long strings containing escapes.
-          unescape_str(Str.from(s), (_start, _end, res) => {
-            if (res.$ === "Ok") {
-              buf += String.fromCodePoint(res._0);
-            } else {
-              assert(!EscapeError.is_fatal(res._0), "failed to unescape string literal");
-            }
-          });
-          symbol_ = Symbol.intern(buf);
-        } else {
-          symbol_ = symbol;
-        }
-        r = { $: "Str", _0: symbol_, _1: ast.StrStyle.Cooked };
-        break;
-      }
-      case "StrRaw":
-        // Raw strings have no escapes so no work is needed here.
-        r = { $: "Str", _0: symbol, _1: { $: "Raw", _0: kind._0 } };
-        break;
-      case "ByteStr": {
-        const s = Symbol.as_str(symbol);
-        const buf: number[] = [];
-        unescape_byte_str(Str.from(s), (_start, _end, res) => {
+    case "Str": {
+      // If there are no characters requiring special treatment we can
+      // reuse the symbol from the token. Otherwise, we must generate a
+      // new symbol because the string in the LitKind is different to the
+      // string in the token.
+      const s = Symbol.as_str(symbol);
+      // Vanilla strings are so common we optimize for the common case where no chars
+      // requiring special behaviour are present.
+      let symbol_: Symbol;
+      if (s.includes("\\")) {
+        let buf = "";
+        // Force-inlining here is aggressive but the closure is
+        // called on every char in the string, so it can be hot in
+        // programs with many long strings containing escapes.
+        unescape_str(Str.from(s), (_start, _end, res) => {
           if (res.$ === "Ok") {
-            buf.push(res._0);
+            buf += String.fromCodePoint(res._0);
           } else {
             assert(!EscapeError.is_fatal(res._0), "failed to unescape string literal");
           }
         });
-        r = { $: "ByteStr", _0: ByteSymbol.intern(Uint8Array.from(buf)), _1: ast.StrStyle.Cooked };
-        break;
+        symbol_ = Symbol.intern(buf);
+      } else {
+        symbol_ = symbol;
       }
-      case "ByteStrRaw": {
-        // Raw byte strings have no escapes so no work is needed here.
-        const buf = utf8(Symbol.as_str(symbol));
-        r = { $: "ByteStr", _0: ByteSymbol.intern(buf), _1: { $: "Raw", _0: kind._0 } };
-        break;
-      }
-      case "CStr": {
-        const s = Symbol.as_str(symbol);
-        const buf: number[] = [];
-        unescape_c_str(Str.from(s), (_span_start, _span_end, res) => {
-          if (res.$ === "Ok" && res._0.$ === "Char") {
-            const c = res._0._0;
-            push_utf8(buf, c);
-          } else if (res.$ === "Ok" && res._0.$ === "HighByte") {
-            buf.push(res._0._0);
-          } else if (res.$ === "Err") {
-            assert(!EscapeError.is_fatal(res._0), "failed to unescape C string literal");
-          }
-        });
-        buf.push(0);
-        r = { $: "CStr", _0: ByteSymbol.intern(Uint8Array.from(buf)), _1: ast.StrStyle.Cooked };
-        break;
-      }
-      case "CStrRaw": {
-        // Raw strings have no escapes so we can convert the symbol
-        // directly to a `Arc<u8>` after appending the terminating NUL
-        // char.
-        const buf = Array.from(utf8(Symbol.as_str(symbol)));
-        buf.push(0);
-        r = { $: "CStr", _0: ByteSymbol.intern(Uint8Array.from(buf)), _1: { $: "Raw", _0: kind._0 } };
-        break;
-      }
-      case "Err":
-        r = { $: "Err", _0: kind._0 };
-        break;
+      r = { $: "Str", _0: symbol_, _1: ast.StrStyle.Cooked };
+      break;
     }
-    return Ok(r);
-  },
+    case "StrRaw":
+      // Raw strings have no escapes so no work is needed here.
+      r = { $: "Str", _0: symbol, _1: { $: "Raw", _0: kind._0 } };
+      break;
+    case "ByteStr": {
+      const s = Symbol.as_str(symbol);
+      const buf: number[] = [];
+      unescape_byte_str(Str.from(s), (_start, _end, res) => {
+        if (res.$ === "Ok") {
+          buf.push(res._0);
+        } else {
+          assert(!EscapeError.is_fatal(res._0), "failed to unescape string literal");
+        }
+      });
+      r = { $: "ByteStr", _0: ByteSymbol.intern(Uint8Array.from(buf)), _1: ast.StrStyle.Cooked };
+      break;
+    }
+    case "ByteStrRaw": {
+      // Raw byte strings have no escapes so no work is needed here.
+      const buf = utf8(Symbol.as_str(symbol));
+      r = { $: "ByteStr", _0: ByteSymbol.intern(buf), _1: { $: "Raw", _0: kind._0 } };
+      break;
+    }
+    case "CStr": {
+      const s = Symbol.as_str(symbol);
+      const buf: number[] = [];
+      unescape_c_str(Str.from(s), (_span_start, _span_end, res) => {
+        if (res.$ === "Ok" && res._0.$ === "Char") {
+          const c = res._0._0;
+          push_utf8(buf, c);
+        } else if (res.$ === "Ok" && res._0.$ === "HighByte") {
+          buf.push(res._0._0);
+        } else if (res.$ === "Err") {
+          assert(!EscapeError.is_fatal(res._0), "failed to unescape C string literal");
+        }
+      });
+      buf.push(0);
+      r = { $: "CStr", _0: ByteSymbol.intern(Uint8Array.from(buf)), _1: ast.StrStyle.Cooked };
+      break;
+    }
+    case "CStrRaw": {
+      // Raw strings have no escapes so we can convert the symbol
+      // directly to a `Arc<u8>` after appending the terminating NUL
+      // char.
+      const buf = Array.from(utf8(Symbol.as_str(symbol)));
+      buf.push(0);
+      r = { $: "CStr", _0: ByteSymbol.intern(Uint8Array.from(buf)), _1: { $: "Raw", _0: kind._0 } };
+      break;
+    }
+    case "Err":
+      r = { $: "Err", _0: kind._0 };
+      break;
+  }
+  return Ok(r);
 };
 
 /** `char::encode_utf8` appended to a byte buffer. */

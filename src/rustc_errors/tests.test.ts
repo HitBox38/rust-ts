@@ -18,7 +18,6 @@ import {
   display_ErrCode,
   E0001,
   E0308,
-  type Emitter,
   IntoDiagArg,
   Level,
   MultiSpan,
@@ -26,6 +25,7 @@ import {
   ErrCode,
 } from "./lib.ts";
 import { format_diag_messages } from "./formatting.ts";
+import { Emitter } from "./emitter.ts";
 import { number_into_diag_arg as numberArg } from "../rustc_error_messages/lib.ts";
 
 interface Recorded {
@@ -35,7 +35,7 @@ interface Recorded {
   code: string | undefined;
 }
 
-class RecordingEmitter implements Emitter {
+class RecordingEmitter extends Emitter {
   readonly out: Recorded[] = [];
   emit_diagnostic(diag: DiagInner): void {
     this.out.push({
@@ -44,16 +44,6 @@ class RecordingEmitter implements Emitter {
       children: diag.children.map((c) => `${c.level}: ${format_diag_messages(c.messages, diag.args)}`),
       code: diag.code === undefined ? undefined : display_ErrCode(diag.code),
     });
-  }
-  emit_artifact_notification(): void {}
-  emit_timing_section(): void {}
-  emit_future_breakage_report(): void {}
-  emit_unused_externs(): void {}
-  should_show_explain(): boolean {
-    return true;
-  }
-  supports_color(): boolean {
-    return false;
   }
   source_map(): undefined {
     return undefined;

@@ -1,0 +1,669 @@
+Crate {
+    id: NodeId(4294967040),
+    attrs: [
+        Attribute {
+            kind: Normal(
+                NormalAttr {
+                    item: AttrItem {
+                        unsafety: Default,
+                        path: Path {
+                            span: attrs.rs:1:4: 1:9 (#0),
+                            segments: [
+                                PathSegment {
+                                    ident: allow#0,
+                                    id: NodeId(4294967040),
+                                    args: None,
+                                },
+                            ],
+                        },
+                        args: Delimited(
+                            DelimArgs {
+                                dspan: DelimSpan {
+                                    open: attrs.rs:1:9: 1:10 (#0),
+                                    close: attrs.rs:1:16: 1:17 (#0),
+                                },
+                                delim: Parenthesis,
+                                tokens: TokenStream(
+                                    [
+                                        Token(
+                                            Token {
+                                                kind: Ident(
+                                                    "unused",
+                                                    Normal,
+                                                ),
+                                                span: attrs.rs:1:10: 1:16 (#0),
+                                            },
+                                            JointHidden,
+                                        ),
+                                    ],
+                                ),
+                            },
+                        ),
+                        span: attrs.rs:1:4: 1:17 (#0),
+                    },
+                    tokens: Some(
+                        LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Pound, span: attrs.rs:1:1: 1:2 (#0) }, Joint), Token(Token { kind: Bang, span: attrs.rs:1:2: 1:3 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:1:3: 1:4 (#0), close: attrs.rs:1:17: 1:18 (#0) }, DelimSpacing { open: JointHidden, close: Alone }, Bracket, AttrTokenStream([Token(Token { kind: Ident("allow", Normal), span: attrs.rs:1:4: 1:9 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:1:9: 1:10 (#0), close: attrs.rs:1:16: 1:17 (#0) }, DelimSpacing { open: JointHidden, close: JointHidden }, Parenthesis, AttrTokenStream([Token(Token { kind: Ident("unused", Normal), span: attrs.rs:1:10: 1:16 (#0) }, JointHidden)]))]))])),
+                    ),
+                },
+            ),
+            id: AttrId(0),
+            style: Inner,
+            span: attrs.rs:1:1: 1:18 (#0),
+        },
+    ],
+    items: [
+        Item {
+            attrs: [
+                Attribute {
+                    kind: Normal(
+                        NormalAttr {
+                            item: AttrItem {
+                                unsafety: Default,
+                                path: Path {
+                                    span: attrs.rs:2:3: 2:6 (#0),
+                                    segments: [
+                                        PathSegment {
+                                            ident: doc#0,
+                                            id: NodeId(4294967040),
+                                            args: None,
+                                        },
+                                    ],
+                                },
+                                args: Delimited(
+                                    DelimArgs {
+                                        dspan: DelimSpan {
+                                            open: attrs.rs:2:6: 2:7 (#0),
+                                            close: attrs.rs:2:28: 2:29 (#0),
+                                        },
+                                        delim: Parenthesis,
+                                        tokens: TokenStream(
+                                            [
+                                                Token(
+                                                    Token {
+                                                        kind: Ident(
+                                                            "alias",
+                                                            Normal,
+                                                        ),
+                                                        span: attrs.rs:2:7: 2:12 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Eq,
+                                                        span: attrs.rs:2:13: 2:14 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Literal(
+                                                            Lit {
+                                                                kind: Str,
+                                                                symbol: "foo",
+                                                                suffix: None,
+                                                            },
+                                                        ),
+                                                        span: attrs.rs:2:15: 2:20 (#0),
+                                                    },
+                                                    Joint,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Comma,
+                                                        span: attrs.rs:2:20: 2:21 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Ident(
+                                                            "hidden",
+                                                            Normal,
+                                                        ),
+                                                        span: attrs.rs:2:22: 2:28 (#0),
+                                                    },
+                                                    JointHidden,
+                                                ),
+                                            ],
+                                        ),
+                                    },
+                                ),
+                                span: attrs.rs:2:3: 2:29 (#0),
+                            },
+                            tokens: Some(
+                                LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Pound, span: attrs.rs:2:1: 2:2 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:2:2: 2:3 (#0), close: attrs.rs:2:29: 2:30 (#0) }, DelimSpacing { open: JointHidden, close: Alone }, Bracket, AttrTokenStream([Token(Token { kind: Ident("doc", Normal), span: attrs.rs:2:3: 2:6 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:2:6: 2:7 (#0), close: attrs.rs:2:28: 2:29 (#0) }, DelimSpacing { open: JointHidden, close: JointHidden }, Parenthesis, AttrTokenStream([Token(Token { kind: Ident("alias", Normal), span: attrs.rs:2:7: 2:12 (#0) }, Alone), Token(Token { kind: Eq, span: attrs.rs:2:13: 2:14 (#0) }, Alone), Token(Token { kind: Literal(Lit { kind: Str, symbol: "foo", suffix: None }), span: attrs.rs:2:15: 2:20 (#0) }, Joint), Token(Token { kind: Comma, span: attrs.rs:2:20: 2:21 (#0) }, Alone), Token(Token { kind: Ident("hidden", Normal), span: attrs.rs:2:22: 2:28 (#0) }, JointHidden)]))]))])),
+                            ),
+                        },
+                    ),
+                    id: AttrId(1),
+                    style: Outer,
+                    span: attrs.rs:2:1: 2:30 (#0),
+                },
+                Attribute {
+                    kind: Normal(
+                        NormalAttr {
+                            item: AttrItem {
+                                unsafety: Default,
+                                path: Path {
+                                    span: attrs.rs:3:3: 3:7 (#0),
+                                    segments: [
+                                        PathSegment {
+                                            ident: a#0,
+                                            id: NodeId(4294967040),
+                                            args: None,
+                                        },
+                                        PathSegment {
+                                            ident: b#0,
+                                            id: NodeId(4294967040),
+                                            args: None,
+                                        },
+                                    ],
+                                },
+                                args: Eq {
+                                    eq_span: attrs.rs:3:8: 3:9 (#0),
+                                    expr: Expr {
+                                        id: NodeId(4294967040),
+                                        kind: Lit(
+                                            Lit {
+                                                kind: Str,
+                                                symbol: "v",
+                                                suffix: None,
+                                            },
+                                        ),
+                                        span: attrs.rs:3:10: 3:13 (#0),
+                                        attrs: [],
+                                        tokens: Some(
+                                            LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Literal(Lit { kind: Str, symbol: "v", suffix: None }), span: attrs.rs:3:10: 3:13 (#0) }, JointHidden)])),
+                                        ),
+                                    },
+                                },
+                                span: attrs.rs:3:3: 3:13 (#0),
+                            },
+                            tokens: Some(
+                                LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Pound, span: attrs.rs:3:1: 3:2 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:3:2: 3:3 (#0), close: attrs.rs:3:13: 3:14 (#0) }, DelimSpacing { open: JointHidden, close: Alone }, Bracket, AttrTokenStream([Token(Token { kind: Ident("a", Normal), span: attrs.rs:3:3: 3:4 (#0) }, Joint), Token(Token { kind: PathSep, span: attrs.rs:3:4: 3:6 (#0) }, JointHidden), Token(Token { kind: Ident("b", Normal), span: attrs.rs:3:6: 3:7 (#0) }, Alone), Token(Token { kind: Eq, span: attrs.rs:3:8: 3:9 (#0) }, Alone), Token(Token { kind: Literal(Lit { kind: Str, symbol: "v", suffix: None }), span: attrs.rs:3:10: 3:13 (#0) }, JointHidden)]))])),
+                            ),
+                        },
+                    ),
+                    id: AttrId(2),
+                    style: Outer,
+                    span: attrs.rs:3:1: 3:14 (#0),
+                },
+                Attribute {
+                    kind: Normal(
+                        NormalAttr {
+                            item: AttrItem {
+                                unsafety: Default,
+                                path: Path {
+                                    span: attrs.rs:4:3: 4:13 (#0),
+                                    segments: [
+                                        PathSegment {
+                                            ident: deprecated#0,
+                                            id: NodeId(4294967040),
+                                            args: None,
+                                        },
+                                    ],
+                                },
+                                args: Delimited(
+                                    DelimArgs {
+                                        dspan: DelimSpan {
+                                            open: attrs.rs:4:13: 4:14 (#0),
+                                            close: attrs.rs:4:39: 4:40 (#0),
+                                        },
+                                        delim: Parenthesis,
+                                        tokens: TokenStream(
+                                            [
+                                                Token(
+                                                    Token {
+                                                        kind: Ident(
+                                                            "note",
+                                                            Normal,
+                                                        ),
+                                                        span: attrs.rs:4:14: 4:18 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Eq,
+                                                        span: attrs.rs:4:19: 4:20 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Literal(
+                                                            Lit {
+                                                                kind: Str,
+                                                                symbol: "n",
+                                                                suffix: None,
+                                                            },
+                                                        ),
+                                                        span: attrs.rs:4:21: 4:24 (#0),
+                                                    },
+                                                    Joint,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Comma,
+                                                        span: attrs.rs:4:24: 4:25 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Ident(
+                                                            "since",
+                                                            Normal,
+                                                        ),
+                                                        span: attrs.rs:4:26: 4:31 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Eq,
+                                                        span: attrs.rs:4:32: 4:33 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Literal(
+                                                            Lit {
+                                                                kind: Str,
+                                                                symbol: "1.0",
+                                                                suffix: None,
+                                                            },
+                                                        ),
+                                                        span: attrs.rs:4:34: 4:39 (#0),
+                                                    },
+                                                    JointHidden,
+                                                ),
+                                            ],
+                                        ),
+                                    },
+                                ),
+                                span: attrs.rs:4:3: 4:40 (#0),
+                            },
+                            tokens: Some(
+                                LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Pound, span: attrs.rs:4:1: 4:2 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:4:2: 4:3 (#0), close: attrs.rs:4:40: 4:41 (#0) }, DelimSpacing { open: JointHidden, close: Alone }, Bracket, AttrTokenStream([Token(Token { kind: Ident("deprecated", Normal), span: attrs.rs:4:3: 4:13 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:4:13: 4:14 (#0), close: attrs.rs:4:39: 4:40 (#0) }, DelimSpacing { open: JointHidden, close: JointHidden }, Parenthesis, AttrTokenStream([Token(Token { kind: Ident("note", Normal), span: attrs.rs:4:14: 4:18 (#0) }, Alone), Token(Token { kind: Eq, span: attrs.rs:4:19: 4:20 (#0) }, Alone), Token(Token { kind: Literal(Lit { kind: Str, symbol: "n", suffix: None }), span: attrs.rs:4:21: 4:24 (#0) }, Joint), Token(Token { kind: Comma, span: attrs.rs:4:24: 4:25 (#0) }, Alone), Token(Token { kind: Ident("since", Normal), span: attrs.rs:4:26: 4:31 (#0) }, Alone), Token(Token { kind: Eq, span: attrs.rs:4:32: 4:33 (#0) }, Alone), Token(Token { kind: Literal(Lit { kind: Str, symbol: "1.0", suffix: None }), span: attrs.rs:4:34: 4:39 (#0) }, JointHidden)]))]))])),
+                            ),
+                        },
+                    ),
+                    id: AttrId(3),
+                    style: Outer,
+                    span: attrs.rs:4:1: 4:41 (#0),
+                },
+                Attribute {
+                    kind: Normal(
+                        NormalAttr {
+                            item: AttrItem {
+                                unsafety: Default,
+                                path: Path {
+                                    span: attrs.rs:5:3: 5:4 (#0),
+                                    segments: [
+                                        PathSegment {
+                                            ident: x#0,
+                                            id: NodeId(4294967040),
+                                            args: None,
+                                        },
+                                    ],
+                                },
+                                args: Delimited(
+                                    DelimArgs {
+                                        dspan: DelimSpan {
+                                            open: attrs.rs:5:4: 5:5 (#0),
+                                            close: attrs.rs:5:32: 5:33 (#0),
+                                        },
+                                        delim: Parenthesis,
+                                        tokens: TokenStream(
+                                            [
+                                                Token(
+                                                    Token {
+                                                        kind: Literal(
+                                                            Lit {
+                                                                kind: Integer,
+                                                                symbol: "1",
+                                                                suffix: None,
+                                                            },
+                                                        ),
+                                                        span: attrs.rs:5:5: 5:6 (#0),
+                                                    },
+                                                    Joint,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Comma,
+                                                        span: attrs.rs:5:6: 5:7 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Ident(
+                                                            "true",
+                                                            Normal,
+                                                        ),
+                                                        span: attrs.rs:5:8: 5:12 (#0),
+                                                    },
+                                                    Joint,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Comma,
+                                                        span: attrs.rs:5:12: 5:13 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: PathSep,
+                                                        span: attrs.rs:5:14: 5:16 (#0),
+                                                    },
+                                                    JointHidden,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Ident(
+                                                            "p",
+                                                            Normal,
+                                                        ),
+                                                        span: attrs.rs:5:16: 5:17 (#0),
+                                                    },
+                                                    Joint,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: PathSep,
+                                                        span: attrs.rs:5:17: 5:19 (#0),
+                                                    },
+                                                    JointHidden,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Ident(
+                                                            "q",
+                                                            Normal,
+                                                        ),
+                                                        span: attrs.rs:5:19: 5:20 (#0),
+                                                    },
+                                                    JointHidden,
+                                                ),
+                                                Delimited(
+                                                    DelimSpan {
+                                                        open: attrs.rs:5:20: 5:21 (#0),
+                                                        close: attrs.rs:5:22: 5:23 (#0),
+                                                    },
+                                                    DelimSpacing {
+                                                        open: JointHidden,
+                                                        close: Joint,
+                                                    },
+                                                    Parenthesis,
+                                                    TokenStream(
+                                                        [
+                                                            Token(
+                                                                Token {
+                                                                    kind: Ident(
+                                                                        "r",
+                                                                        Normal,
+                                                                    ),
+                                                                    span: attrs.rs:5:21: 5:22 (#0),
+                                                                },
+                                                                JointHidden,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Comma,
+                                                        span: attrs.rs:5:23: 5:24 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Ident(
+                                                            "s",
+                                                            Normal,
+                                                        ),
+                                                        span: attrs.rs:5:25: 5:26 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Eq,
+                                                        span: attrs.rs:5:27: 5:28 (#0),
+                                                    },
+                                                    Alone,
+                                                ),
+                                                Token(
+                                                    Token {
+                                                        kind: Literal(
+                                                            Lit {
+                                                                kind: Integer,
+                                                                symbol: "2",
+                                                                suffix: Some(
+                                                                    "u8",
+                                                                ),
+                                                            },
+                                                        ),
+                                                        span: attrs.rs:5:29: 5:32 (#0),
+                                                    },
+                                                    JointHidden,
+                                                ),
+                                            ],
+                                        ),
+                                    },
+                                ),
+                                span: attrs.rs:5:3: 5:33 (#0),
+                            },
+                            tokens: Some(
+                                LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Pound, span: attrs.rs:5:1: 5:2 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:5:2: 5:3 (#0), close: attrs.rs:5:33: 5:34 (#0) }, DelimSpacing { open: JointHidden, close: Alone }, Bracket, AttrTokenStream([Token(Token { kind: Ident("x", Normal), span: attrs.rs:5:3: 5:4 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:5:4: 5:5 (#0), close: attrs.rs:5:32: 5:33 (#0) }, DelimSpacing { open: JointHidden, close: JointHidden }, Parenthesis, AttrTokenStream([Token(Token { kind: Literal(Lit { kind: Integer, symbol: "1", suffix: None }), span: attrs.rs:5:5: 5:6 (#0) }, Joint), Token(Token { kind: Comma, span: attrs.rs:5:6: 5:7 (#0) }, Alone), Token(Token { kind: Ident("true", Normal), span: attrs.rs:5:8: 5:12 (#0) }, Joint), Token(Token { kind: Comma, span: attrs.rs:5:12: 5:13 (#0) }, Alone), Token(Token { kind: PathSep, span: attrs.rs:5:14: 5:16 (#0) }, JointHidden), Token(Token { kind: Ident("p", Normal), span: attrs.rs:5:16: 5:17 (#0) }, Joint), Token(Token { kind: PathSep, span: attrs.rs:5:17: 5:19 (#0) }, JointHidden), Token(Token { kind: Ident("q", Normal), span: attrs.rs:5:19: 5:20 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:5:20: 5:21 (#0), close: attrs.rs:5:22: 5:23 (#0) }, DelimSpacing { open: JointHidden, close: Joint }, Parenthesis, AttrTokenStream([Token(Token { kind: Ident("r", Normal), span: attrs.rs:5:21: 5:22 (#0) }, JointHidden)])), Token(Token { kind: Comma, span: attrs.rs:5:23: 5:24 (#0) }, Alone), Token(Token { kind: Ident("s", Normal), span: attrs.rs:5:25: 5:26 (#0) }, Alone), Token(Token { kind: Eq, span: attrs.rs:5:27: 5:28 (#0) }, Alone), Token(Token { kind: Literal(Lit { kind: Integer, symbol: "2", suffix: Some("u8") }), span: attrs.rs:5:29: 5:32 (#0) }, JointHidden)]))]))])),
+                            ),
+                        },
+                    ),
+                    id: AttrId(4),
+                    style: Outer,
+                    span: attrs.rs:5:1: 5:34 (#0),
+                },
+                Attribute {
+                    kind: DocComment(
+                        Line,
+                        " line doc",
+                    ),
+                    id: AttrId(5),
+                    style: Outer,
+                    span: attrs.rs:6:1: 6:13 (#0),
+                },
+                Attribute {
+                    kind: DocComment(
+                        Block,
+                        " block doc ",
+                    ),
+                    id: AttrId(6),
+                    style: Outer,
+                    span: attrs.rs:7:1: 7:17 (#0),
+                },
+                Attribute {
+                    kind: Normal(
+                        NormalAttr {
+                            item: AttrItem {
+                                unsafety: Default,
+                                path: Path {
+                                    span: attrs.rs:8:3: 8:6 (#0),
+                                    segments: [
+                                        PathSegment {
+                                            ident: doc#0,
+                                            id: NodeId(4294967040),
+                                            args: None,
+                                        },
+                                    ],
+                                },
+                                args: Eq {
+                                    eq_span: attrs.rs:8:7: 8:8 (#0),
+                                    expr: Expr {
+                                        id: NodeId(4294967040),
+                                        kind: Lit(
+                                            Lit {
+                                                kind: Str,
+                                                symbol: "raw doc",
+                                                suffix: None,
+                                            },
+                                        ),
+                                        span: attrs.rs:8:9: 8:18 (#0),
+                                        attrs: [],
+                                        tokens: Some(
+                                            LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Literal(Lit { kind: Str, symbol: "raw doc", suffix: None }), span: attrs.rs:8:9: 8:18 (#0) }, JointHidden)])),
+                                        ),
+                                    },
+                                },
+                                span: attrs.rs:8:3: 8:18 (#0),
+                            },
+                            tokens: Some(
+                                LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Pound, span: attrs.rs:8:1: 8:2 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:8:2: 8:3 (#0), close: attrs.rs:8:18: 8:19 (#0) }, DelimSpacing { open: JointHidden, close: Alone }, Bracket, AttrTokenStream([Token(Token { kind: Ident("doc", Normal), span: attrs.rs:8:3: 8:6 (#0) }, Alone), Token(Token { kind: Eq, span: attrs.rs:8:7: 8:8 (#0) }, Alone), Token(Token { kind: Literal(Lit { kind: Str, symbol: "raw doc", suffix: None }), span: attrs.rs:8:9: 8:18 (#0) }, JointHidden)]))])),
+                            ),
+                        },
+                    ),
+                    id: AttrId(7),
+                    style: Outer,
+                    span: attrs.rs:8:1: 8:19 (#0),
+                },
+                Attribute {
+                    kind: Normal(
+                        NormalAttr {
+                            item: AttrItem {
+                                unsafety: Default,
+                                path: Path {
+                                    span: attrs.rs:9:3: 9:4 (#0),
+                                    segments: [
+                                        PathSegment {
+                                            ident: w#0,
+                                            id: NodeId(4294967040),
+                                            args: None,
+                                        },
+                                    ],
+                                },
+                                args: Delimited(
+                                    DelimArgs {
+                                        dspan: DelimSpan {
+                                            open: attrs.rs:9:4: 9:5 (#0),
+                                            close: attrs.rs:9:11: 9:12 (#0),
+                                        },
+                                        delim: Parenthesis,
+                                        tokens: TokenStream(
+                                            [
+                                                Token(
+                                                    Token {
+                                                        kind: Ident(
+                                                            "y",
+                                                            Normal,
+                                                        ),
+                                                        span: attrs.rs:9:5: 9:6 (#0),
+                                                    },
+                                                    JointHidden,
+                                                ),
+                                                Delimited(
+                                                    DelimSpan {
+                                                        open: attrs.rs:9:6: 9:7 (#0),
+                                                        close: attrs.rs:9:10: 9:11 (#0),
+                                                    },
+                                                    DelimSpacing {
+                                                        open: JointHidden,
+                                                        close: JointHidden,
+                                                    },
+                                                    Parenthesis,
+                                                    TokenStream(
+                                                        [
+                                                            Token(
+                                                                Token {
+                                                                    kind: Literal(
+                                                                        Lit {
+                                                                            kind: Str,
+                                                                            symbol: "z",
+                                                                            suffix: None,
+                                                                        },
+                                                                    ),
+                                                                    span: attrs.rs:9:7: 9:10 (#0),
+                                                                },
+                                                                JointHidden,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                ),
+                                            ],
+                                        ),
+                                    },
+                                ),
+                                span: attrs.rs:9:3: 9:12 (#0),
+                            },
+                            tokens: Some(
+                                LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Pound, span: attrs.rs:9:1: 9:2 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:9:2: 9:3 (#0), close: attrs.rs:9:12: 9:13 (#0) }, DelimSpacing { open: JointHidden, close: Alone }, Bracket, AttrTokenStream([Token(Token { kind: Ident("w", Normal), span: attrs.rs:9:3: 9:4 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:9:4: 9:5 (#0), close: attrs.rs:9:11: 9:12 (#0) }, DelimSpacing { open: JointHidden, close: JointHidden }, Parenthesis, AttrTokenStream([Token(Token { kind: Ident("y", Normal), span: attrs.rs:9:5: 9:6 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:9:6: 9:7 (#0), close: attrs.rs:9:10: 9:11 (#0) }, DelimSpacing { open: JointHidden, close: JointHidden }, Parenthesis, AttrTokenStream([Token(Token { kind: Literal(Lit { kind: Str, symbol: "z", suffix: None }), span: attrs.rs:9:7: 9:10 (#0) }, JointHidden)]))]))]))])),
+                            ),
+                        },
+                    ),
+                    id: AttrId(8),
+                    style: Outer,
+                    span: attrs.rs:9:1: 9:13 (#0),
+                },
+            ],
+            id: NodeId(4294967040),
+            span: attrs.rs:10:1: 10:10 (#0),
+            vis: Visibility {
+                kind: Inherited,
+                span: attrs.rs:10:1: 10:1 (#0),
+            },
+            kind: Fn(
+                Fn {
+                    defaultness: Implicit,
+                    ident: f#0,
+                    generics: Generics {
+                        params: [],
+                        where_clause: WhereClause {
+                            has_where_token: false,
+                            predicates: [],
+                            span: attrs.rs:10:7: 10:7 (#0),
+                        },
+                        span: attrs.rs:10:5: 10:5 (#0),
+                    },
+                    sig: FnSig {
+                        header: FnHeader {
+                            constness: No,
+                            coroutine_marker: None,
+                            safety: Default,
+                            ext: None,
+                        },
+                        decl: FnDecl {
+                            inputs: [],
+                            output: Default(
+                                attrs.rs:10:7: 10:7 (#0),
+                            ),
+                        },
+                        span: attrs.rs:10:1: 10:7 (#0),
+                    },
+                    contract: None,
+                    define_opaque: None,
+                    body: Some(
+                        Block {
+                            stmts: [],
+                            id: NodeId(4294967040),
+                            rules: Default,
+                            span: attrs.rs:10:8: 10:10 (#0),
+                        },
+                    ),
+                    eii_impl: None,
+                },
+            ),
+            tokens: Some(
+                LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Ident("fn", Normal), span: attrs.rs:10:1: 10:3 (#0) }, Alone), Token(Token { kind: Ident("f", Normal), span: attrs.rs:10:4: 10:5 (#0) }, JointHidden), Delimited(DelimSpan { open: attrs.rs:10:5: 10:6 (#0), close: attrs.rs:10:6: 10:7 (#0) }, DelimSpacing { open: JointHidden, close: Alone }, Parenthesis, AttrTokenStream([])), Delimited(DelimSpan { open: attrs.rs:10:8: 10:9 (#0), close: attrs.rs:10:9: 10:10 (#0) }, DelimSpacing { open: JointHidden, close: Alone }, Brace, AttrTokenStream([]))])),
+            ),
+        },
+    ],
+    spans: ModSpans {
+        inner_span: attrs.rs:1:1: 10:10 (#0),
+        inject_use_span: attrs.rs:2:1: 2:1 (#0),
+    },
+    is_placeholder: false,
+}
