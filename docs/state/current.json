@@ -5,10 +5,10 @@
     "escape": 25780,
     "lex": 25780
   },
-  "updated": "2026-10-11T23:38:22.921Z",
+  "updated": "2026-10-12T04:41:09.906Z",
   "open_stops": [],
   "coverage": {
-    "ported": 301,
-    "total": 658
+    "ported": 599,
+    "total": 25517
   }
 }
