@@ -184,7 +184,7 @@ test_("multi-line span label", () => {
   const { h, sp, range, out } = setup([["t3.rs", SRC_T3]], { ui_testing: true });
   const ms = MultiSpan.from_span(sp(`"two"`));
   ms.push_span_label(sp(`"two"`), "expected `i32`, found `&str`");
-  ms.push_span_label(sp("1,"), "this is found to be of type `i32`");
+  ms.push_span_label(Span.with_hi(sp("1,"), BytePos(Span.lo(sp("1,")) + 1)), "this is found to be of type `i32`");
   ms.push_span_label(range("match", "}"), "`match` arms have incompatible types");
   h.struct_span_err(ms, "`match` arms have incompatible types").with_code(E0308).emit();
   h.print_error_count();
@@ -217,15 +217,15 @@ const SRC_T4_M = `pub fn takes_one(a: u8) -> u8 {
 }
 `;
 
-function emit_t4(h: DiagCtxtHandle, sp: (n: string, file?: number) => Span): void {
+function emit_t4(h: DiagCtxtHandle, sp: (n: string, file?: number, nth?: number) => Span): void {
   const ms = MultiSpan.from_span(sp("m::takes_one"));
-  ms.push_span_label(sp("()"), "argument #1 of type `u8` is missing");
+  ms.push_span_label(sp("()", 0, 1), "argument #1 of type `u8` is missing");
   const note = MultiSpan.from_span(sp("takes_one", 1));
   note.push_span_label(sp("a: u8", 1), "");
   h.struct_span_err(ms, "this function takes 1 argument but 0 arguments were supplied")
     .with_code(E0061)
     .with_span_note(note, "function defined here")
-    .with_span_suggestion_verbose(sp("()"), "provide the argument", "(/* u8 */)", Applicability.HasPlaceholders)
+    .with_span_suggestion_verbose(sp("()", 0, 1), "provide the argument", "(/* u8 */)", Applicability.HasPlaceholders)
     .emit();
 }
 

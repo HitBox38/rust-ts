@@ -56,6 +56,7 @@ import {
   should_show_source_code,
 } from "./emitter.ts";
 import { format_diag_message, format_diag_messages } from "./formatting.ts";
+import { pluralize } from "../rustc_lint_defs/lib.ts";
 import * as lock from "./lock.ts";
 import type { CodeSuggestion, DiagInner, ErrCode, Style, Subdiag, Sublevel, Substitution, SubstitutionPart, TerminalUrl } from "./lib.ts";
 import { Level, Suggestions, debug_TerminalUrl, display_ErrCode, str_trim } from "./lib.ts";
@@ -486,8 +487,7 @@ export class AnnotateSnippetEmitter extends Emitter {
                 group,
                 Element.from_Message(
                   annotate_snippets.Level.NOTE.no_name().message(
-                    // pluralize!(other_suggestions)
-                    `and ${other_suggestions} other candidate${other_suggestions === 1 ? "" : "s"}`,
+                    `and ${other_suggestions} other candidate${pluralize(other_suggestions)}`,
                   ),
                 ),
               );

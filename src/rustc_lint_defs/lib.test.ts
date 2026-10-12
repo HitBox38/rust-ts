@@ -6,7 +6,8 @@ import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN } from "../../scripts/lib/common.ts";
-import { Diag, DiagCtxt, DiagCtxtFlags_default, type DiagInner, type Emitter, Level as ErrLevel, Level_eq } from "../rustc_errors/lib.ts";
+import { Diag, DiagCtxt, DiagCtxtFlags_default, type DiagInner, Level as ErrLevel, Level_eq } from "../rustc_errors/lib.ts";
+import { Emitter } from "../rustc_errors/emitter.ts";
 import { AttrId, create_default_session_globals_then } from "../rustc_span/lib.ts";
 import { sym } from "../rustc_span/symbol.ts";
 import { PLAIN, PRETTY } from "../std/fmt.ts";
@@ -132,20 +133,10 @@ test("LintExpectationId compares by value (derived PartialEq/Hash, lib.rs:102)",
   );
 });
 
-class NullEmitter implements Emitter {
+class NullEmitter extends Emitter {
   readonly emitted: string[] = [];
   emit_diagnostic(diag: DiagInner): void {
     this.emitted.push(ErrLevel.to_str(diag.level));
-  }
-  emit_artifact_notification(): void {}
-  emit_timing_section(): void {}
-  emit_future_breakage_report(): void {}
-  emit_unused_externs(): void {}
-  should_show_explain(): boolean {
-    return true;
-  }
-  supports_color(): boolean {
-    return false;
   }
   source_map(): undefined {
     return undefined;
