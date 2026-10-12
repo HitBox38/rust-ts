@@ -4,12 +4,13 @@
   "protected": {
     "lex": 25780,
     "symbols": 10,
+    "emit": 1466,
     "escape-synthetic": 11,
     "fluent-format": 4210,
     "fluent-parse": 4210,
     "escape": 25780
   },
-  "updated": "2026-10-12T22:28:19.929Z",
+  "updated": "2026-10-12T22:28:52.454Z",
   "open_stops": [],
   "coverage": {
     "ported": 1787,
