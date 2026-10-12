@@ -34,6 +34,19 @@ export const debug_AssocOp: Debug<AssocOp> = (v, f) => {
       return v.$;
   }
 };
+export function clone_AssocOp(v: AssocOp): AssocOp {
+  switch (v.$) {
+    case "Binary":
+      return { $: "Binary", _0: v._0 };
+    case "AssignOp":
+      return { $: "AssignOp", _0: v._0 };
+    case "Range":
+      return { $: "Range", _0: v._0 };
+    case "Assign":
+    case "Cast":
+      return v;
+  }
+}
 
 // rustc-type: compiler/rustc_ast/src/util/parser.rs:22 Fixity
 export type Fixity =
@@ -64,3 +77,8 @@ export type ExprPrecedence =
   | "Prefix"
   | "Unambiguous";
 export const ExprPrecedence = { Jump: "Jump", Assign: "Assign", Range: "Range", LOr: "LOr", LAnd: "LAnd", Compare: "Compare", BitOr: "BitOr", BitXor: "BitXor", BitAnd: "BitAnd", Shift: "Shift", Sum: "Sum", Product: "Product", Cast: "Cast", Prefix: "Prefix", Unambiguous: "Unambiguous" } as const;
+/** `ExprPrecedence as isize` */
+export const ExprPrecedence_discriminant: Record<ExprPrecedence, number> = { Jump: 0, Assign: 1, Range: 2, LOr: 3, LAnd: 4, Compare: 5, BitOr: 6, BitXor: 7, BitAnd: 8, Shift: 9, Sum: 10, Product: 11, Cast: 12, Prefix: 13, Unambiguous: 14 };
+export function clone_ExprPrecedence(v: ExprPrecedence): ExprPrecedence {
+  return v;
+}

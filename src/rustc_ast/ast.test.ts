@@ -242,9 +242,13 @@ tg("Expr: peel_parens / peel_parens_and_refs / maybe_unwrap_block / precedence",
     expect(new Expr(DUMMY_NODE_ID, { $: "Yield", _0: { $: "Postfix", _0: inner } }, DUMMY_SP, [], undefined).precedence()).toBe("Unambiguous"); // ast.rs:1630
     expect(Expr.dummy().kind.$).toBe("Dummy"); // ast.rs:1658
     expect(paren(inner).is_approximately_pattern()).toBe(true); // ast.rs:1640, 1647
-    // Underscore reparses as `_` (ast.rs:1541); a path needs the derived Clone (unported)
+    // Underscore reparses as `_` (ast.rs:1541); a path is cloned into `TyKind::Path` (ast.rs:1509)
     expect(new Expr(DUMMY_NODE_ID, { $: "Underscore" }, DUMMY_SP, [], undefined).to_ty()!.kind.$).toBe("Infer");
-    expect(() => inner.to_ty()).toThrow(Unported);
+    const tk = inner.to_ty()!.kind;
+    const ek = inner.kind as { _1: InstanceType<typeof Path> };
+    expect(tk.$).toBe("Path");
+    expect((tk as { _1: unknown })._1).toEqual(ek._1);
+    expect((tk as { _1: unknown })._1).not.toBe(ek._1);
   }));
 
 tg("Pat: walk / could_be_never_pattern / contains_never_pattern / to_ty / descr", () =>

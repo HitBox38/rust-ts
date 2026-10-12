@@ -9,7 +9,7 @@
     "src/vendor/bitflags/traits.ts": ["flags_companion"]
   },
   "types": [
-    { "paths": ["rustc_data_structures::fx::FxHashMap", "std::collections::HashMap", "HashMap"], "ts": "Map<$0, $1>", "import": "src/rust_ts/hash_map.ts", "values": ["debug_HashMap"], "debug": "debug_HashMap($v, $f, $d0, $d1)", "note": "PORT: Debug is exact for <= 1 entry; more entries need hashbrown iteration order (unported)" },
-    { "paths": ["rustc_index::bit_set::GrowableBitSet"], "ts": "Set<$0>", "debug": null, "note": "PORT: index bit set as Set<index>; BitSet Debug (sorted indices) not wired yet" }
+    { "paths": ["rustc_data_structures::fx::FxHashMap", "std::collections::HashMap", "HashMap"], "ts": "Map<$0, $1>", "import": "src/rust_ts/hash_map.ts", "values": ["debug_HashMap"], "debug": "debug_HashMap($v, $f, $d0, $d1)", "clone": "new Map([...$v].map(([k, x]) => [$c0(k), $c1(x)]))", "note": "PORT: Debug is exact for <= 1 entry; more entries need hashbrown iteration order (unported)" },
+    { "paths": ["rustc_index::bit_set::GrowableBitSet"], "ts": "Set<$0>", "debug": null, "clone": "new Set($v)", "note": "PORT: index bit set as Set<index>; BitSet Debug (sorted indices) not wired yet" }
   ]
 }

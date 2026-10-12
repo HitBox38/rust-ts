@@ -9,3 +9,6 @@ export type Case =
   | "Insensitive";
 export const Case = { Sensitive: "Sensitive", Insensitive: "Insensitive" } as const;
 export const debug_Case: Debug<Case> = (v) => v;
+export function clone_Case(v: Case): Case {
+  return v;
+}

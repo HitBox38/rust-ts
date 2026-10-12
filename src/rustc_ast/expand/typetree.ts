@@ -5,7 +5,6 @@
 // and re-exported with the extended type, `self`-consuming methods go on the prototype (the
 // token.ts pattern). `self` by value: the TS method builds a new value and leaves `this` alone.
 import { type Fmt, PLAIN } from "../../std/fmt.ts";
-import { unported } from "../../std/panic.ts";
 import * as gen from "./typetree.gen.ts";
 
 export * from "./typetree.gen.ts";
@@ -59,9 +58,7 @@ export const Type = gen.Type as typeof gen.Type & {
 
 // rustc: compiler/rustc_ast/src/expand/typetree.rs:82 from_ty
 Type.from_ty = function (offset: number, other: Type): Type {
-  // PORT: `other.child.clone()` is the derived `Clone` of `TypeTree` (a deep `Vec<Type>` copy),
-  // which tools/codegen does not generate yet.
-  return new gen.Type(offset, other.size, other.kind, unported("derive(Clone) for rustc_ast::expand::typetree::TypeTree"));
+  return new gen.Type(offset, other.size, other.kind, gen.clone_TypeTree(other.child));
 };
 
 // rustc: compiler/rustc_ast/src/expand/typetree.rs:88 add_offset

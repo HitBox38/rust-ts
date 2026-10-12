@@ -11,6 +11,9 @@ export type AllocatorKind =
   | "Default";
 export const AllocatorKind = { Global: "Global", Default: "Default" } as const;
 export const debug_AllocatorKind: Debug<AllocatorKind> = (v) => v;
+export function clone_AllocatorKind(v: AllocatorKind): AllocatorKind {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast/src/expand/allocator.rs:25 AllocatorTy
 /// Argument or return type for methods in the allocator shim
@@ -22,6 +25,9 @@ export type AllocatorTy =
   | "Unit"
   | "Usize";
 export const AllocatorTy = { Layout: "Layout", Never: "Never", Ptr: "Ptr", ResultPtr: "ResultPtr", Unit: "Unit", Usize: "Usize" } as const;
+export function clone_AllocatorTy(v: AllocatorTy): AllocatorTy {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast/src/expand/allocator.rs:39 SpecialAllocatorMethod
 /// Some allocator methods are known to the compiler: they act more like
@@ -35,6 +41,9 @@ export type SpecialAllocatorMethod =
   | "Realloc";
 export const SpecialAllocatorMethod = { Alloc: "Alloc", AllocZeroed: "AllocZeroed", Dealloc: "Dealloc", Realloc: "Realloc" } as const;
 export const debug_SpecialAllocatorMethod: Debug<SpecialAllocatorMethod> = (v) => v;
+export function clone_SpecialAllocatorMethod(v: SpecialAllocatorMethod): SpecialAllocatorMethod {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast/src/expand/allocator.rs:48 AllocatorMethod
 /// A method that will be codegened in the allocator shim.
@@ -43,6 +52,14 @@ export interface AllocatorMethod {
   special: SpecialAllocatorMethod | undefined;
   inputs: readonly AllocatorMethodInput[];
   output: AllocatorTy;
+}
+export function clone_AllocatorMethod(v: AllocatorMethod): AllocatorMethod {
+  return {
+    name: v.name,
+    special: v.special,
+    inputs: v.inputs,
+    output: v.output,
+  };
 }
 
 // rustc-type: compiler/rustc_ast/src/expand/allocator.rs:55 AllocatorMethodInput

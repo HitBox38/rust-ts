@@ -11,6 +11,11 @@ export type IntTy =
   | "I64"
   | "I128";
 export const IntTy = { Isize: "Isize", I8: "I8", I16: "I16", I32: "I32", I64: "I64", I128: "I128" } as const;
+/** `IntTy as isize` */
+export const IntTy_discriminant: Record<IntTy, number> = { Isize: 0, I8: 1, I16: 2, I32: 3, I64: 4, I128: 5 };
+export function clone_IntTy(v: IntTy): IntTy {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast_ir/src/lib.rs:100 UintTy
 export type UintTy =
@@ -21,6 +26,11 @@ export type UintTy =
   | "U64"
   | "U128";
 export const UintTy = { Usize: "Usize", U8: "U8", U16: "U16", U32: "U32", U64: "U64", U128: "U128" } as const;
+/** `UintTy as isize` */
+export const UintTy_discriminant: Record<UintTy, number> = { Usize: 0, U8: 1, U16: 2, U32: 3, U64: 4, U128: 5 };
+export function clone_UintTy(v: UintTy): UintTy {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast_ir/src/lib.rs:176 FloatTy
 export type FloatTy =
@@ -29,6 +39,11 @@ export type FloatTy =
   | "F64"
   | "F128";
 export const FloatTy = { F16: "F16", F32: "F32", F64: "F64", F128: "F128" } as const;
+/** `FloatTy as isize` */
+export const FloatTy_discriminant: Record<FloatTy, number> = { F16: 0, F32: 1, F64: 2, F128: 3 };
+export function clone_FloatTy(v: FloatTy): FloatTy {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast_ir/src/lib.rs:223 Movability
 /// The movability of a coroutine / closure literal:
@@ -39,18 +54,33 @@ export type Movability =
   /// Must not contain self-references, `Unpin`.
   | "Movable";
 export const Movability = { Static: "Static", Movable: "Movable" } as const;
+/** `Movability as isize` */
+export const Movability_discriminant: Record<Movability, number> = { Static: 0, Movable: 1 };
 export const debug_Movability: Debug<Movability> = (v) => v;
+export function clone_Movability(v: Movability): Movability {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast_ir/src/lib.rs:232 Mutability
 export type Mutability =
   | "Not"
   | "Mut";
 export const Mutability = { Not: "Not", Mut: "Mut" } as const;
+/** `Mutability as isize` */
+export const Mutability_discriminant: Record<Mutability, number> = { Not: 0, Mut: 1 };
 export const debug_Mutability: Debug<Mutability> = (v) => v;
+export function clone_Mutability(v: Mutability): Mutability {
+  return v;
+}
 
 // rustc-type: compiler/rustc_ast_ir/src/lib.rs:291 Pinnedness
 export type Pinnedness =
   | "Not"
   | "Pinned";
 export const Pinnedness = { Not: "Not", Pinned: "Pinned" } as const;
+/** `Pinnedness as isize` */
+export const Pinnedness_discriminant: Record<Pinnedness, number> = { Not: 0, Pinned: 1 };
 export const debug_Pinnedness: Debug<Pinnedness> = (v) => v;
+export function clone_Pinnedness(v: Pinnedness): Pinnedness {
+  return v;
+}
