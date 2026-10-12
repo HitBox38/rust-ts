@@ -46,7 +46,6 @@ import type { Movability, Mutability, Pinnedness } from "../rustc_ast_ir/lib.ts"
 import type { AttrId, ErrorGuaranteed, Span, Spanned } from "../rustc_span/lib.ts";
 import type { ByteSymbol, Ident, Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_option, debug_tuple } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
 import type { Result } from "../std/result.ts";
 import {
   type AngleBracketedArg,

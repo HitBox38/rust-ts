@@ -52,11 +52,9 @@ export interface StableHashCtxt {
   assert_default_stable_hash_controls(msg: string): void;
 }
 
-/// PORT: `&mut T` for a primitive/handle `T` (e.g. `&mut SyntaxContext`): callers pass `{ value }`
-/// and read the updated `value` back.
-export interface MutRef<T> {
-  value: T;
-}
+// PORT: `MutRef` (`&mut T` of a primitive/handle) lives in src/std/mut_ref.ts; re-exported here.
+import type { MutRef } from "../std/mut_ref.ts";
+export type { MutRef };
 
 /// PORT: an `FxHashMap` whose key is not a primitive. JS `Map` compares object keys by identity,
 /// so entries are stored under a canonical string key; the original key is kept for iteration.

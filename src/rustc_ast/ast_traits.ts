@@ -17,7 +17,7 @@
 // PORT: `&mut T` results: `node_id_mut() -> &mut NodeId` and `tokens_mut() -> Option<&mut Option<..>>`
 // return a `MutRef` view onto the field. `visit_attrs(f: FnOnce(&mut AttrVec))` passes the `AttrVec`
 // array itself; `f` mutates it in place (upstream callers only `insert`/`flat_map_in_place`).
-import type { MutRef } from "../rustc_span/hygiene.ts";
+import { field_mut, type MutRef, replace_in_place } from "../std/mut_ref.ts";
 import { type Debug, debug_struct, type Fmt } from "../std/fmt.ts";
 import { unported, unreachable } from "../std/panic.ts";
 import type {
@@ -50,18 +50,6 @@ import type { NodeId } from "./node_id.ts";
 import type { LazyAttrTokenStream, WithTokens } from "./tokenstream.ts";
 
 export * from "./ast_traits.gen.ts";
-
-// PORT: `&mut self.<field>` -> a `MutRef` view onto the field.
-function field_mut<O, K extends keyof O>(o: O, k: K): MutRef<O[K]> {
-  return {
-    get value(): O[K] {
-      return o[k];
-    },
-    set value(v: O[K]) {
-      o[k] = v;
-    },
-  };
-}
 
 /** `&[]` */
 const EMPTY_ATTRS: readonly Attribute[] = Object.freeze([]);
@@ -476,13 +464,27 @@ export const AstNodeWrapper = Object.assign(gen.AstNodeWrapper, {
     return new gen.AstNodeWrapper<Wrapped, Tag>(wrapped, undefined);
   },
 
+  // PORT: the `repr(transparent)` cast `&mut Wrapped -> &mut AstNodeWrapper<Wrapped, Tag>` (review w456a
+  // ast-visit M2). `&mut Node` is the node object itself (rustc_ast/mut_visit.ts), so the returned
+  // wrapper's `wrapped` is an accessor onto the caller's node: reading gives that same object, and
+  // storing a node (`w.wrapped = n`, or `*w = new_wrapper` written `Object.assign(w, new_wrapper)` /
+  // `replace_in_place(w, new_wrapper)`) replaces the caller's node in place (`replace_in_place`), so
+  // `*node = self.collect_*(..)` through the wrapper (rustc_expand expand.rs:2468-2480, :2607) reaches
+  // the caller. Never rebind a local holding the wrapper instead. Only object nodes can be wrapped.
   // rustc: compiler/rustc_ast/src/ast_traits.rs:332 from_mut
-  from_mut<Wrapped, Tag>(wrapped: Wrapped, _tag: Tag): AstNodeWrapper<Wrapped, Tag> {
+  from_mut<Wrapped extends object, Tag>(wrapped: Wrapped, _tag: Tag): AstNodeWrapper<Wrapped, Tag> {
     // SAFETY: `AstNodeWrapper` is `repr(transparent)` w.r.t `Wrapped`
-    // PORT: the `repr(transparent)` cast -> a wrapper sharing the same node object. Mutations of the
-    // node are seen by the caller; storing a different object into `.wrapped` is not (replace the node
-    // in place instead).
-    return new gen.AstNodeWrapper<Wrapped, Tag>(wrapped, undefined);
+    const w = new gen.AstNodeWrapper<Wrapped, Tag>(wrapped, undefined);
+    Object.defineProperty(w, "wrapped", {
+      enumerable: true,
+      get(): Wrapped {
+        return wrapped;
+      },
+      set(v: Wrapped): void {
+        replace_in_place(wrapped, v);
+      },
+    });
+    return w;
   },
 
   // FIXME: remove after `stmt_expr_attributes` is stabilized.

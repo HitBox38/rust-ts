@@ -26,11 +26,11 @@
 // PORT: `MutVisitor: MutVisitorResult<Result = ()>` (the sealed trait below), so every `try_visit!` of
 // the shared macro body is a no-op here and `V::Result::output()` is `()`; the expansion drops both.
 import type { Movability, Mutability, Pinnedness } from "../rustc_ast_ir/lib.ts";
-import { type MutRef } from "../rustc_span/hygiene.ts";
+import { field_mut, type MutRef } from "../std/mut_ref.ts";
 import type { AttrId, ErrorGuaranteed, Span, Spanned } from "../rustc_span/lib.ts";
 import { type ByteSymbol, Ident, type Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_option, debug_tuple } from "../std/fmt.ts";
-import { panic, unported } from "../std/panic.ts";
+import { panic } from "../std/panic.ts";
 import type { Result } from "../std/result.ts";
 import {
   type AngleBracketedArg,
@@ -217,18 +217,6 @@ import { mut_walkable_derived } from "./mut_walkable.gen.ts";
 /** A slot holding a `T`: `o[k]`. */
 export type Place<T, K extends PropertyKey> = { [P in K]: T };
 
-// PORT: `&mut <slot>` of a Copy handle -> a `MutRef` view: reads and writes go to `o[k]`.
-export function field_ref<O, K extends keyof O>(o: O, k: K): MutRef<O[K]> {
-  return {
-    get value(): O[K] {
-      return o[k];
-    },
-    set value(v: O[K]) {
-      o[k] = v;
-    },
-  };
-}
-
 // rustc-trait: compiler/rustc_ast/src/mut_visit.rs:37 MutVisitable
 // PORT: `trait MutVisitable<V: MutVisitor> { type Extra: Copy; fn visit_mut(&mut self, visitor: &mut V,
 // extra: Self::Extra); }` -> the signature of one impl, taking the slot of `self`; `E` is `Self::Extra`.
@@ -357,7 +345,7 @@ export const FnKind = {
   ident(self: FnKind): MutRef<Ident> | undefined {
     switch (self.$) {
       case "Fn":
-        return field_ref(self._2, "ident");
+        return field_mut(self._2, "ident");
       default:
         return undefined;
     }
@@ -1307,17 +1295,17 @@ const mut_visitable_visit = {
 const mut_visitable_misc = {
   // rustc: compiler/rustc_ast/src/mut_visit.rs:165 visit_mut
   Ident: <K extends PropertyKey>(o: Place<Ident, K>, k: K, visitor: MutVisitor, _extra: undefined): void => {
-    visitor.visit_ident(field_ref(o, k));
+    visitor.visit_ident(field_mut(o, k));
   },
 
   // rustc: compiler/rustc_ast/src/mut_visit.rs:165 visit_mut
   NodeId: <K extends PropertyKey>(o: Place<NodeId, K>, k: K, visitor: MutVisitor, _extra: undefined): void => {
-    visitor.visit_id(field_ref(o, k));
+    visitor.visit_id(field_mut(o, k));
   },
 
   // rustc: compiler/rustc_ast/src/mut_visit.rs:165 visit_mut
   Span: <K extends PropertyKey>(o: Place<Span, K>, k: K, visitor: MutVisitor, _extra: undefined): void => {
-    visitor.visit_span(field_ref(o, k));
+    visitor.visit_span(field_mut(o, k));
   },
 
   // rustc: compiler/rustc_ast/src/mut_visit.rs:165 visit_mut
@@ -1695,7 +1683,7 @@ const mut_walkable_hand = {
         MutVisitable.Const(c, "constness", vis, undefined);
         MutVisitable.Movability(c, "movability", vis, undefined);
         MutVisitable.CaptureBy(c, "capture_clause", vis, undefined);
-        const kind_: FnKind = { $: "Closure", _0: c.binder, _1: field_ref(c, "coroutine_marker"), _2: c.fn_decl, _3: c.body };
+        const kind_: FnKind = { $: "Closure", _0: c.binder, _1: field_mut(c, "coroutine_marker"), _2: c.fn_decl, _3: c.body };
         vis.visit_fn(kind_, self.attrs, self.span, self.id);
         MutVisitable.Span(c, "fn_decl_span", vis, undefined);
         MutVisitable.Span(c, "fn_arg_span", vis, undefined);
@@ -2136,7 +2124,7 @@ export function walk_flat_map_stmt(vis: MutVisitor, stmt: Stmt): Stmt[] {
     case 0:
       break;
     case 1:
-      vis.visit_span(field_ref(stmts[0]!, "span"));
+      vis.visit_span(field_mut(stmts[0]!, "span"));
       break;
     default:
       panic(

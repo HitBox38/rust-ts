@@ -405,6 +405,34 @@ describe("MutVisitor (mut_visit.rs)", () => {
     expect(v.spans).toEqual([51, 53, 54, 52, 50]);
   });
 
+  // Review w456a ast-visit M2: rustc_expand's `visit_method_receiver_expr` does
+  // `self.visit_node(AstNodeWrapper::from_mut(node, MethodReceiverTag))` and `visit_node` stores the
+  // expansion with `*node = ..` (expand.rs:2468-2480, :2607). The store must reach the receiver slot.
+  test("AstNodeWrapper::from_mut writes a replacement through to the caller's node (ast_traits.rs:332)", () => {
+    class Expand extends MutVisitor {
+      override visit_method_receiver_expr(ex: Expr): void {
+        const node = AstNodeWrapper.from_mut(ex, "MethodReceiverTag");
+        if (node.wrapped.kind.$ === "Underscore") node.wrapped = lit(42); // `*node = self.collect_bang(..)`
+      }
+    }
+    const receiver = expr(2, { $: "Underscore" });
+    const call = { seg: new PathSegment(new Ident(sym(5), sp(0)), nid(6), undefined), receiver, args: [], span: sp(7) };
+    const tree = expr(1, { $: "MethodCall", _0: call } as ExprKind);
+    mut_walk_expr(new Expand(), tree);
+    expect(call.receiver).toBe(receiver); // the slot keeps its object; its contents are replaced
+    expect(receiver.id).toBe(nid(42));
+    expect(receiver.kind.$).toBe("Lit");
+    expect(receiver).toBeInstanceOf(Expr);
+
+    // `*w = new_wrapper` written `Object.assign(w, new_wrapper)` also writes through.
+    const e = expr(3, { $: "Underscore" });
+    const w = AstNodeWrapper.from_mut(e, "MethodReceiverTag");
+    Object.assign(w, AstNodeWrapper.new(expr(9, { $: "Paren", _0: lit(10) }), "MethodReceiverTag"));
+    expect(w.wrapped).toBe(e);
+    expect(e.id).toBe(nid(9));
+    expect(e.kind.$).toBe("Paren");
+  });
+
   test("visit_id gets a writable place; ids are renumbered in walk order (visit.rs:1010-1011)", () => {
     const inner = lit(3);
     const tree = expr(1, { $: "Assign", _0: expr(2, { $: "Paren", _0: inner }), _1: lit(4), _2: sp(77) });
