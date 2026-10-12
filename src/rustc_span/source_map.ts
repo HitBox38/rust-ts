@@ -53,6 +53,7 @@ import { is_whitespace, len_utf8, to_string as char_to_string } from "../std/cha
 import { debug_list, debug_str, debug_struct, debug_tuple, debug_vec, type Debug } from "../std/fmt.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
 import { Err, Ok, ok, type Result } from "../std/result.ts";
+import { partition_point } from "../std/slice.ts";
 import { Str, utf8_len } from "../std/str.ts";
 
 // mod tests; (source_map/tests.test.ts)
@@ -1457,18 +1458,6 @@ function index<T>(v: readonly T[], i: number): T {
     return panic(`index out of bounds: the len is ${v.length} but the index is ${i < 0 ? "18446744073709551615" : i}`);
   }
   return v[i]!;
-}
-
-/** `slice::partition_point` */
-function partition_point<T>(v: readonly T[], pred: (x: T) => boolean): number {
-  let lo = 0;
-  let hi = v.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (pred(v[mid]!)) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
 }
 
 function saturating_sub(a: number, b: number): number {

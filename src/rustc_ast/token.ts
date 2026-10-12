@@ -1575,7 +1575,8 @@ export function LitKind_eq(a: LitKind, b: LitKind): boolean {
     case "CStrRaw":
       return b.$ === a.$ && a._0 === b._0;
     case "Err":
-      return b.$ === "Err" && a._0 === b._0;
+      // PORT: `ErrorGuaranteed(())` is a ZST with derived `PartialEq`: any two are equal.
+      return b.$ === "Err";
     default:
       return a.$ === b.$;
   }

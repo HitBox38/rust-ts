@@ -48,6 +48,7 @@ import { BytePos, DUMMY_SP, Span, debug_Span } from "../rustc_span/lib.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
+import { extend, partition_point, splice } from "../std/slice.ts";
 
 export * from "./tokenstream.gen.ts";
 
@@ -344,7 +345,7 @@ export const LazyAttrTokenStreamInner = {
             if (target !== undefined) replacement.push({ $: "AttrsTarget", _0: target });
             const len = node_range._0.end - node_range._0.start;
             for (let i = 0; i < len - target_len; i++) replacement.push(gen.FlatToken.Empty);
-            tokens_.splice(node_range._0.start, len, ...replacement);
+            splice(tokens_, node_range._0.start, len, replacement);
           }
           return make_attr_token_stream(tokens_[globalThis.Symbol.iterator](), break_last_token);
         }
@@ -511,20 +512,17 @@ function attrs_and_tokens_to_token_trees(
   target_tokens: LazyAttrTokenStream,
   res: TokenTree[],
 ): void {
-  // PORT: `partition_point` is a binary search; this linear scan gives the same index whenever
-  // `attrs` is partitioned (outer attributes first), which is what the parser produces.
-  let idx = 0;
-  while (idx < attrs.length && attrs[idx]!.style === "Outer") idx++;
+  const idx = partition_point(attrs, (attr) => attr.style === "Outer");
   const outer_attrs = attrs.slice(0, idx);
   const inner_attrs = attrs.slice(idx);
 
   // Add outer attribute tokens.
   for (const attr of outer_attrs) {
-    res.push(...attr_token_trees(attr));
+    extend(res, attr_token_trees(attr));
   }
 
   // Add target AST node tokens.
-  res.push(...target_tokens.to_attr_token_stream().to_token_trees());
+  extend(res, target_tokens.to_attr_token_stream().to_token_trees());
 
   // Insert inner attribute tokens.
   if (inner_attrs.length !== 0) {
@@ -556,9 +554,9 @@ function attrs_and_tokens_to_token_trees(
         // Found it: the rightmost, outermost braced group.
         const tts_: TokenTree[] = [];
         for (const inner_attr of inner_attrs) {
-          tts_.push(...attr_token_trees(inner_attr));
+          extend(tts_, attr_token_trees(inner_attr));
         }
-        tts_.push(...stream._0);
+        extend(tts_, stream._0);
         const stream_ = TokenStream.new(tts_);
         tts[k] = { $: "Delimited", _0: span, _1: spacing, _2: DelimiterC.Brace, _3: stream_ };
         return true;
@@ -747,7 +745,7 @@ gen.TokenStream.prototype.desugar_doc_comments = function (this: TokenStream): v
         const desugared = desugared_tts(attr_style, data, span);
         const desugared_len = desugared.length;
         // PORT: `Arc::make_mut`: the first call copies the shared array, later calls find it unique.
-        (modified ? stream._0 : make_mut(stream)).splice(i, 1, ...desugared);
+        splice(modified ? stream._0 : make_mut(stream), i, 1, desugared);
         modified = true;
         i += desugared_len;
       } else if (tt.$ === "Token") {
@@ -786,15 +784,14 @@ gen.TokenStream.prototype.desugar_doc_comments = function (this: TokenStream): v
       if (ch === '"') {
         count = 1;
       } else if (ch === "#" && count > 0) {
-        count = count + 1;
+        // PORT: `count`/`num_of_hashes` are `u8` (inferred from `StrRaw(u8)`); `u8`
+        // arithmetic wraps because rustc ships without overflow checks.
+        count = (count + 1) & 0xff;
       } else {
         count = 0;
       }
       num_of_hashes = Math.max(num_of_hashes, count);
     }
-    // PORT: `num_of_hashes` is a `u8` (the `StrRaw` payload); upstream truncates it with
-    // wrapping arithmetic in release builds, which needs over 255 consecutive `#`s.
-    num_of_hashes &= 0xff;
 
     // `/// foo` becomes `[doc = r"foo"]`.
     const delim_span = DelimSpan.from_single(span);
@@ -853,9 +850,9 @@ gen.TokenStream.prototype.add_comma = function (this: TokenStream): [TokenStream
   if (suggestion !== undefined) {
     const [pos, comma, sp] = suggestion;
     const new_stream: TokenTree[] = [];
-    new_stream.push(...v.slice(0, pos + 1));
+    extend(new_stream, v.slice(0, pos + 1));
     new_stream.push(comma);
-    new_stream.push(...v.slice(pos + 1));
+    extend(new_stream, v.slice(pos + 1));
     return [TokenStream.new(new_stream), sp];
   }
   return undefined;
