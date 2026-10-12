@@ -3,13 +3,8 @@
 //   bun src/rust_ts/fluentdump.ts parse|format <file>...
 //
 // Wiring:
-// - parse: `parse` from src/vendor/fluent_syntax/parser/mod.ts and `debug_Resource` (+ the Debug of
-//   `ParserError`) from src/vendor/fluent_syntax/ast/mod.ts once fluent-syntax 0.12.0 is vendored.
-//   Replace the body of `parse_and_dump` with the equivalent of
-//   `format!("{:#?}", fluent_syntax::parser::parse(source.as_str()))`, i.e.
-//     const r = parse(source);
-//     return debug_result(r, PRETTY, debug_Resource, (e, f) => debug_tuple(f, "", [debug_Resource(e[0], f), debug_list(f, e[1].map((x) => debug_ParserError(x, f)))]));
-//   (`{:#?}` of `Result<Resource<&str>, (Resource<&str>, Vec<ParserError>)>`).
+// - parse: the vendored fluent-syntax 0.12.0 (src/vendor/fluent_syntax/parser/mod.ts):
+//   `{:#?}` of `parse_runtime` (what rustc's `FluentResource::try_new` runs) and of `parse`.
 // - format: already calls the ported `rustc_errors::formatting::format_diag_message` with
 //   `DiagMessage::Inline`, i.e. the real `format_fluent_str`; it reaches `unported(...)` until
 //   fluent-bundle 0.16.0 is vendored and wired into src/rustc_errors/formatting.ts and
@@ -18,8 +13,10 @@
 import { readFileSync } from "node:fs";
 import { debug_DiagArgValue, type DiagArgMap, type DiagArgValue } from "../rustc_error_messages/lib.ts";
 import { format_diag_message } from "../rustc_errors/formatting.ts";
-import { debug_str, PLAIN } from "../std/fmt.ts";
-import { Panic, Unported, unported } from "../std/panic.ts";
+import { debug_str, PLAIN, PRETTY } from "../std/fmt.ts";
+import { Str } from "../std/str.ts";
+import { debug_Result, parse, parse_runtime } from "../vendor/fluent_syntax/parser/mod.ts";
+import { Panic, Unported } from "../std/panic.ts";
 
 interface Record {
   provenance: string[];
@@ -149,9 +146,9 @@ function format_record(msg: string, bytes: Uint8Array): string {
   return out;
 }
 
-/** `format!("{:#?}", fluent_syntax::parser::parse(source.as_str()))` — see the wiring note above. */
-function parse_and_dump(_source: string): string {
-  return unported("fluent_syntax::parser::parse");
+/** `parse` mode of the probe: `{:#?}` of `parser::parse_runtime(source)`, then of `parser::parse(source)`. */
+function parse_and_dump(source: string): string {
+  return `parse_runtime:\n${debug_Result(parse_runtime(Str.from(source)), PRETTY)}\nparse:\n${debug_Result(parse(Str.from(source)), PRETTY)}\n`;
 }
 
 const [mode, ...files] = process.argv.slice(2);
@@ -164,7 +161,7 @@ try {
     read_records(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)).forEach((rec, i) => {
       out += `msg ${i} ${rec.provenance[0]}\ntext ${debug_str(rec.message)}\n`;
       if (mode === "format") out += format_record(rec.message, new TextEncoder().encode(rec.message));
-      else out += parse_and_dump(`generated_msg = ${rec.message}\n`) + "\n";
+      else out += parse_and_dump(`generated_msg = ${rec.message}\n`);
     });
     if (out.length > 1 << 20) {
       process.stdout.write(out);

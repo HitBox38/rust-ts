@@ -1,5 +1,7 @@
 //! Oracle probe for inline Fluent diagnostic messages (fluent-syntax 0.12.0, fluent-bundle 0.16.0).
-//!   fluentdump parse  <file>...   `{:#?}` of `fluent_syntax::parser::parse("generated_msg = {msg}\n")`
+//!   fluentdump parse  <file>...   `{:#?}` of `fluent_syntax::parser::parse_runtime` (what rustc runs:
+//!                                 `FluentResource::try_new`) and of `parser::parse` (full AST,
+//!                                 comments kept) on `"generated_msg = {msg}\n"`
 //!   fluentdump format <file>...   `format_fluent_str(msg, args)` (rustc_errors/src/formatting.rs)
 //!                                 for a fixed matrix of synthetic argument sets
 //!
@@ -9,7 +11,12 @@
 //! Output, per file `file: <path>`; per record (index `i` from 0 within the file):
 //!   msg <i> <first provenance>
 //!   text <message:?>
-//! then in `parse` mode the pretty Debug of the parse result (Ok or Err tuple), and in `format` mode
+//! then in `parse` mode
+//!   parse_runtime:
+//!   <pretty Debug of the parse_runtime result (Ok or Err tuple)>
+//!   parse:
+//!   <pretty Debug of the parse result>
+//! and in `format` mode
 //!   vars [<name:?>, ...]          `$name` references, by a text scan (see `scan_vars`)
 //!   keys [<key:?>, ...]           `[key]` variant-key-like text, by a text scan (see `scan_keys`)
 //!   args {<name>=<DiagArgValue:?>, ...}
@@ -26,8 +33,8 @@
 //! message lookup, and panics on any formatting error (e.g. an unbound variable in row 0).
 //!
 //! The functions between `// BEGIN verbatim <path>:<line>` and `// END verbatim` are copied
-//! byte-for-byte from the pinned upstream (build.rs checks that each block occurs in that file at
-//! that line). They are copied instead of linking `rustc_error_messages`/`rustc_errors` because
+//! byte-for-byte from the pinned upstream (build.rs checks that exactly the expected blocks exist
+//! and that each occurs in that file at that line). They are copied instead of linking `rustc_error_messages`/`rustc_errors` because
 //! those need `RUSTC_BOOTSTRAP`/`CFG_RELEASE` in the build env (rustc_macros, rustc_span) and
 //! scripts/probes.ts only sets that for symdump. The ICU data is the real thing: a path dependency
 //! on the pinned `compiler/rustc_baked_icu_data`.
@@ -355,7 +362,13 @@ fn format_record(out: &mut String, msg: &str) {
     for args in arg_rows(&vars, &keys) {
         let shown: Vec<String> = args.iter().map(|(k, v)| format!("{k}={v:?}")).collect();
         writeln!(out, "args {{{}}}", shown.join(", ")).unwrap();
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| format_fluent_str(msg, &args))) {
+        // Panics inside format_fluent_str are the expected output of a row: silence the hook only
+        // around this call, so any other panic of the probe still reports its message.
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| format_fluent_str(msg, &args)));
+        std::panic::set_hook(hook);
+        match r {
             Ok(s) => writeln!(out, "=> Ok({s:?})").unwrap(),
             Err(p) => writeln!(out, "=> panic {:?}", panic_message(&*p)).unwrap(),
         }
@@ -370,8 +383,6 @@ fn main() {
         "format" => true,
         _ => panic!("unknown mode {mode:?}"),
     };
-    // Panics inside format_fluent_str are caught and printed; keep stderr quiet.
-    std::panic::set_hook(Box::new(|_| {}));
     let stdout = std::io::stdout();
     let mut lock = stdout.lock();
     for path in files {
@@ -384,7 +395,8 @@ fn main() {
                 format_record(&mut out, &rec.message);
             } else {
                 let source = format!("generated_msg = {}\n", rec.message);
-                writeln!(out, "{:#?}", fluent_syntax::parser::parse(source.as_str())).unwrap();
+                writeln!(out, "parse_runtime:\n{:#?}", fluent_syntax::parser::parse_runtime(source.as_str())).unwrap();
+                writeln!(out, "parse:\n{:#?}", fluent_syntax::parser::parse(source.as_str())).unwrap();
             }
         }
         lock.write_all(out.as_bytes()).unwrap();

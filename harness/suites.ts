@@ -162,7 +162,7 @@ SUITES.push(
     name: "fluent-parse",
     milestone: "M1",
     description:
-      "fluent-syntax 0.12.0 `parser::parse` ({:#?}) of `generated_msg = <msg>\\n` for every inline Fluent message in upstream compiler/ (probe: tools/probes/fluentdump)",
+      "fluent-syntax 0.12.0 `parser::parse_runtime` (what rustc's FluentResource::try_new runs) and `parser::parse` ({:#?} of each) of `generated_msg = <msg>\\n` for every inline Fluent message in upstream compiler/ plus synthetic ones (probe: tools/probes/fluentdump)",
     mode: "batch",
     timeoutMs: 120_000,
     cwd: REPO,
@@ -174,7 +174,7 @@ SUITES.push(
     name: "fluent-format",
     milestone: "M1",
     description:
-      "rustc_errors `format_fluent_str` (fluent-bundle 0.16.0, en-US, no isolation, STREQ, ICU list data) of every inline Fluent message over a fixed synthetic argument matrix (probe: tools/probes/fluentdump)",
+      "rustc_errors `format_fluent_str` (fluent-bundle 0.16.0, en-US, no isolation, STREQ, ICU list data) of every inline Fluent message over a fixed synthetic argument matrix (probe: tools/probes/fluentdump); ~60% of cases reference no variable and format to their own text",
     mode: "batch",
     timeoutMs: 120_000,
     cwd: REPO,

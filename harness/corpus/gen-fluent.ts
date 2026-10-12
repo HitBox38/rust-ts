@@ -22,9 +22,11 @@
 // and literals that are not plain/raw `str` literals or carry a suffix.
 //
 // Layout: one corpus file (= one suite case) per unique message, at
-// `harness/corpus/fluent/<crate>/<path>/L<line>.msgs` for the upstream file/line of its first
-// occurrence (files in sorted path order, then source order). Identical messages are deduplicated:
-// every occurrence is listed as provenance. The file format allows several records per file (the
+// `harness/corpus/fluent/<crate>/<id>.msgs`, where <crate> is the crate of its first occurrence
+// (files in sorted path order, then source order) and <id> = the first 12 hex digits of the
+// SHA-256 of the message. Content-addressed ids keep a case's id stable when upstream lines move
+// or files are renamed at a repin, so ordinary churn is not reported as protected-case losses.
+// Identical messages are deduplicated: every occurrence is listed as provenance. The file format allows several records per file (the
 // probe and subject loop over them), but the generator writes one. Format (read by
 // tools/probes/fluentdump/main.rs and src/rust_ts/fluentdump.ts):
 //
@@ -35,8 +37,9 @@
 //
 // Blank lines and `//` lines between records are ignored.
 //
-// Plus `harness/corpus/fluent/synthetic/S<n>.msgs`: hand-written messages (list below) for the
+// Plus `harness/corpus/fluent/synthetic/<id>.msgs`: hand-written messages (list below) for the
 // syntax and error paths no upstream message reaches (upstream messages all parse).
+import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PIN, REPO, UPSTREAM } from "../../scripts/lib/common.ts";
@@ -205,6 +208,16 @@ for (const [msg, file] of firstFile) {
 rmSync(OUT, { recursive: true, force: true });
 let corpusFiles = 0;
 
+const usedIds = new Map<string, string>(); // path -> message
+/** Content-addressed case name: first 12 hex digits of SHA-256 of the message's UTF-8 bytes. */
+function contentId(dir: string, msg: string): string {
+  const id = createHash("sha256").update(encoder.encode(msg)).digest("hex").slice(0, 12);
+  const prev = usedIds.get(join(dir, id));
+  if (prev !== undefined && prev !== msg) throw new Error(`ERROR: content id collision ${id} in ${dir}`);
+  usedIds.set(join(dir, id), msg);
+  return id;
+}
+
 function writeRecord(dir: string, name: string, provenance: string[], msg: string): void {
   mkdirSync(dir, { recursive: true });
   const parts: Uint8Array[] = [];
@@ -220,20 +233,13 @@ function writeRecord(dir: string, name: string, provenance: string[], msg: strin
 }
 
 for (const [file, msgs] of byFile) {
-  // compiler/rustc_parse/src/diagnostics.rs -> harness/corpus/fluent/rustc_parse/src/diagnostics/
-  const dir = join(OUT, ...file.replace(/^compiler\//, "").replace(/\.rs$/, "").split("/"));
-  const used = new Set<string>();
+  // compiler/rustc_parse/src/diagnostics.rs -> harness/corpus/fluent/rustc_parse/
+  const dir = join(OUT, file.split("/")[1]!);
   for (const msg of msgs) {
     const occs = messages.get(msg)!;
-    // One case per message, named after the line of its first occurrence (`-2`, `-3`, ... when
-    // several new messages start on the same line).
-    const stem = `L${String(occs[0]!.line).padStart(5, "0")}`;
-    let name = stem;
-    for (let k = 2; used.has(name); k++) name = `${stem}-${k}`;
-    used.add(name);
     writeRecord(
       dir,
-      name,
+      contentId(dir, msg),
       occs.map((o) => `${o.file}:${o.line} ${o.form}`),
       msg,
     );
@@ -344,8 +350,7 @@ const SYNTHETIC: [string, string][] = [
 {
   const dir = join(OUT, "synthetic");
   SYNTHETIC.forEach(([what, msg], i) => {
-    const n = String(i + 1).padStart(3, "0");
-    writeRecord(dir, `S${n}`, [`synthetic:${i + 1} ${what}`], msg);
+    writeRecord(dir, contentId(dir, msg), [`synthetic:${i + 1} ${what}`], msg);
   });
   // Records are length-framed and synthetic messages contain CR, CRLF and NUL on purpose: never
   // let git normalize line endings (core.autocrlf) anywhere in the corpus.
