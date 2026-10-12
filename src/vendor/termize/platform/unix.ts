@@ -3,8 +3,9 @@
 // PORT: `ioctl(fd, TIOCGWINSZ, &mut window)` → `ioctl_tiocgwinsz(fd, window)`: `tty.isatty(fd)`
 // false (not a terminal: the ioctl fails with ENOTTY) → -1; otherwise the size comes from
 // `new tty.WriteStream(fd).getWindowSize()` (`[columns, rows]`, the TIOCGWINSZ values), any throw
-// → -1. Opening `/dev/tty` uses `fs.openSync("/dev/tty", "r")` in try/catch (the
-// `File::options().read(true).open` failure arm) and closes the fd afterwards (the `File` drop).
+// → -1 (fd ownership: see `ioctl_tiocgwinsz`). Opening `/dev/tty` uses `fs.openSync("/dev/tty", "r")`
+// in try/catch (the `File::options().read(true).open` failure arm) and closes the fd afterwards
+// (the `File` drop).
 // `winsize` keeps its four fields; the pixel fields are left 0 (nothing reads them).
 // The upstream test spawns `stty` against the real terminal; it is not ported:
 // crate-skip: termize-0.2.1/src/platform/unix.rs:197 stty_size test helper spawning stty on the real terminal
@@ -32,15 +33,28 @@ function zeroed(): winsize {
 }
 
 /** `libc::ioctl(fd, TIOCGWINSZ, window)`: 0 on success, -1 on failure. */
+// PORT: the ioctl opens nothing, so the `WriteStream` used to read the size must not change the
+// process's fd table (review w456b E1). Bun's tty `WriteStream` behaves differently per fd:
+// - for stdio fds (0..=2) it opens a writer fd of its own, closed synchronously by `destroy()`;
+//   without `destroy()` every call leaks one fd;
+// - for any other fd (the `/dev/tty` fd of `get_dimensions_any`) it borrows the caller's fd and
+//   `destroy()` closes *that* fd asynchronously (next tick), after the caller's own `closeSync`
+//   has run, so the deferred close would hit whatever reused the number. Such a stream is not
+//   destroyed (it holds no fd of its own and is not closed on GC); the caller keeps ownership.
+// Do not cache one stream per fd: Bun caches the size at construction, so resizes would be missed.
 function ioctl_tiocgwinsz(fd: number, window: winsize): number {
   if (!isatty(fd)) return -1;
+  let ws: WriteStream | undefined;
   try {
-    const [cols, rows] = new WriteStream(fd).getWindowSize();
+    ws = new WriteStream(fd);
+    const [cols, rows] = ws.getWindowSize();
     window.ws_col = cols & 0xffff;
     window.ws_row = rows & 0xffff;
     return 0;
   } catch {
     return -1;
+  } finally {
+    if (ws !== undefined && fd <= STDERR_FILENO) ws.destroy();
   }
 }
 
