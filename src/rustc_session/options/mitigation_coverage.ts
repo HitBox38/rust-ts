@@ -1,0 +1,171 @@
+// Port of compiler/rustc_session/src/options/mitigation_coverage.rs.
+//
+// The `denied_partial_mitigations!` expansion (`DeniedPartialMitigationKind`, its Display/FromStr,
+// `KINDS`, `allowed_by_default_at`, `Options::all_denied_partial_mitigations`,
+// `Session::gather_enabled_denied_partial_mitigations`) is generated into
+// mitigation_coverage.gen.ts by tools/codegen/options.ts.
+//
+// PORT: `impl Options` methods are attached to `Options.prototype` here (PORTING.md section 5,
+// "Methods defined in another file"); `Options` is imported through options.ts (never options.gen.ts
+// directly, see options.ts).
+import type { Edition } from "../../rustc_span/edition.ts";
+import { type Debug, debug_bool, debug_struct, debug_tuple } from "../../std/fmt.ts";
+import { type StackProtector, debug_StackProtector } from "../stand_ins.ts";
+import { Options } from "../options.ts";
+import {
+  DeniedPartialMitigationKind,
+  DeniedPartialMitigationKind_discriminant,
+  all_denied_partial_mitigations,
+  debug_DeniedPartialMitigationKind,
+} from "./mitigation_coverage.gen.ts";
+
+export * from "./mitigation_coverage.gen.ts";
+
+export type DeniedPartialMitigationLevel =
+  // Enabled(false) should be the bottom of the Ord hierarchy
+  { readonly $: "Enabled"; readonly _0: boolean } | { readonly $: "StackProtector"; readonly _0: StackProtector };
+
+export const DeniedPartialMitigationLevel = {
+  // rustc: compiler/rustc_session/src/options/mitigation_coverage.rs:20 level_str
+  level_str(self: DeniedPartialMitigationLevel): string {
+    if (self.$ === "StackProtector" && self._0 === "All") return "=all";
+    if (self.$ === "StackProtector" && self._0 === "Basic") return "=basic";
+    if (self.$ === "StackProtector" && self._0 === "Strong") return "=strong";
+    // currently `=disabled` should not appear
+    if (self.$ === "Enabled" && self._0 === false) return "=disabled";
+    // DeniedPartialMitigationLevel::StackProtector(StackProtector::None)
+    // | DeniedPartialMitigationLevel::Enabled(true)
+    return "";
+  },
+
+  /** `impl From<bool> for DeniedPartialMitigationLevel` */
+  // rustc: compiler/rustc_session/src/options/mitigation_coverage.rs:57 from
+  from_bool(value: boolean): DeniedPartialMitigationLevel {
+    return { $: "Enabled", _0: value };
+  },
+
+  /** `impl From<StackProtector> for DeniedPartialMitigationLevel` */
+  // rustc: compiler/rustc_session/src/options/mitigation_coverage.rs:63 from
+  from_stack_protector(value: StackProtector): DeniedPartialMitigationLevel {
+    return { $: "StackProtector", _0: value };
+  },
+} as const;
+
+/** `impl std::fmt::Display for DeniedPartialMitigationLevel` */
+// rustc: compiler/rustc_session/src/options/mitigation_coverage.rs:34 fmt
+export function display_DeniedPartialMitigationLevel(self: DeniedPartialMitigationLevel): string {
+  if (self.$ === "StackProtector" && self._0 === "All") return "all";
+  if (self.$ === "StackProtector" && self._0 === "Basic") return "basic";
+  if (self.$ === "StackProtector" && self._0 === "Strong") return "strong";
+  if (self.$ === "Enabled" && self._0 === true) return "enabled";
+  // DeniedPartialMitigationLevel::StackProtector(StackProtector::None)
+  // | DeniedPartialMitigationLevel::Enabled(false)
+  return "disabled";
+}
+
+/** `#[derive(Debug)]` */
+export const debug_DeniedPartialMitigationLevel: Debug<DeniedPartialMitigationLevel> = (v, f) =>
+  v.$ === "Enabled" ? debug_tuple(f, "Enabled", [debug_bool(v._0, f)]) : debug_tuple(f, "StackProtector", [debug_StackProtector(v._0, f)]);
+
+interface MitigationStatus {
+  // This is the index of the option in the command line. This is needed because
+  // re-enabling a mitigation resets the partial mitigation status if it's later in the command
+  // line, and this works across `-C` and `-Z` args.
+  //
+  // e.g. `-Z stack-protector=strong` resets `-C allow-partial-mitigations=stack-protector`.
+  index: number;
+  allowed: boolean | undefined;
+}
+
+// PORT: `BTreeMap<DeniedPartialMitigationKind, MitigationStatus>` -> `Map`; the only reader
+// (`allowed_partial_mitigations`) builds a set and returns it in key order.
+export class MitigationCoverageMap {
+  constructor(public map: Map<DeniedPartialMitigationKind, MitigationStatus>) {}
+
+  /** `#[derive(Default)]` */
+  static default(): MitigationCoverageMap {
+    return new MitigationCoverageMap(new Map());
+  }
+
+  // rustc: compiler/rustc_session/src/options/mitigation_coverage.rs:85 apply_mitigation
+  apply_mitigation(kind: DeniedPartialMitigationKind, index: number, allowed: boolean | undefined): void {
+    const e = this.map.get(kind);
+    if (e !== undefined) {
+      if (index >= e.index) {
+        this.map.set(kind, { index, allowed });
+      }
+    } else {
+      this.map.set(kind, { index, allowed });
+    }
+  }
+
+  // rustc: compiler/rustc_session/src/options/mitigation_coverage.rs:101 handle_allowdeny_mitigation_option
+  handle_allowdeny_mitigation_option(v: string | undefined, index: number, allowed: boolean): boolean {
+    if (v !== undefined) {
+      for (const sub of v.split(",")) {
+        const kind = DeniedPartialMitigationKind.from_str(sub);
+        if (kind.$ === "Ok") this.apply_mitigation(kind._0, index, allowed);
+        else return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // rustc: compiler/rustc_session/src/options/mitigation_coverage.rs:121 reset_mitigation
+  reset_mitigation(kind: DeniedPartialMitigationKind, index: number): void {
+    this.apply_mitigation(kind, index, undefined);
+  }
+}
+
+// PORT: the unit struct `DeniedPartialMitigationKindParseError` -> `undefined`.
+export type DeniedPartialMitigationKindParseError = undefined;
+
+/// A mitigation that cannot be partially enabled (see
+/// [RFC 3855](https://github.com/rust-lang/rfcs/pull/3855)), but are currently enabled for this
+/// crate.
+export interface DeniedPartialMitigation {
+  kind: DeniedPartialMitigationKind;
+  level: DeniedPartialMitigationLevel;
+}
+/** `#[derive(Debug)]` */
+export const debug_DeniedPartialMitigation: Debug<DeniedPartialMitigation> = (v, f) =>
+  debug_struct(f, "DeniedPartialMitigation", [
+    ["kind", debug_DeniedPartialMitigationKind(v.kind, f)],
+    ["level", debug_DeniedPartialMitigationLevel(v.level, f)],
+  ]);
+
+declare module "../options.gen.ts" {
+  interface Options {
+    all_denied_partial_mitigations(): DeniedPartialMitigationKind[];
+    allowed_partial_mitigations(edition: Edition): DeniedPartialMitigationKind[];
+  }
+}
+
+// PORT: the `impl Options` fn of the macro expansion is generated (marker in mitigation_coverage.gen.ts).
+Options.prototype.all_denied_partial_mitigations = function (this: Options): DeniedPartialMitigationKind[] {
+  return all_denied_partial_mitigations(this);
+};
+
+// Return the list of mitigations that are allowed to be partial
+// rustc: compiler/rustc_session/src/options/mitigation_coverage.rs:224 allowed_partial_mitigations
+Options.prototype.allowed_partial_mitigations = function (this: Options, edition: Edition): DeniedPartialMitigationKind[] {
+  // PORT: `BTreeSet<DeniedPartialMitigationKind>` -> `Set`, returned sorted by the derived `Ord`.
+  const result = new Set(this.all_denied_partial_mitigations().filter((mitigation) => DeniedPartialMitigationKind.allowed_by_default_at(mitigation, edition)));
+  for (const [kind, { allowed }] of this.mitigation_coverage_map.map) {
+    switch (allowed) {
+      case true: {
+        result.add(kind);
+        break;
+      }
+      case false: {
+        result.delete(kind);
+        break;
+      }
+      case undefined:
+        break;
+    }
+  }
+  return [...result].sort((a, b) => DeniedPartialMitigationKind_discriminant[a] - DeniedPartialMitigationKind_discriminant[b]);
+};
+
