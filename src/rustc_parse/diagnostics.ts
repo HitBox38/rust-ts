@@ -29,7 +29,8 @@ import type { MutRef } from "../rustc_span/hygiene.ts";
 import { Span } from "../rustc_span/lib.ts";
 import { display_Ident } from "../rustc_span/symbol.ts";
 import { debug_char } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
+import { token_to_string as pprust_token_to_string } from "../rustc_ast_pretty/pprust/mod.ts";
+import { was_invoked_from_cargo } from "../rustc_session/utils.ts";
 import * as gen from "./diagnostics.gen.ts";
 import {
   type Case,
@@ -48,16 +49,6 @@ import {
 
 export * from "./diagnostics.gen.ts";
 
-// PORT: rustc_ast_pretty and rustc_session::utils are not ported yet; the calls below go through
-// these leaves so that the hand-written logic around them is complete.
-/** `rustc_ast_pretty::pprust::token_to_string` */
-function pprust_token_to_string(_token: Token): string {
-  return unported("rustc_ast_pretty::pprust::token_to_string");
-}
-/** `rustc_session::utils::was_invoked_from_cargo` */
-function was_invoked_from_cargo(): boolean {
-  return unported("rustc_session::utils::was_invoked_from_cargo");
-}
 
 /** `msg!("...")`: `DiagMessage::Inline(Cow::Borrowed("..."))` */
 const msg = (s: string): DiagMessage => ({ $: "Inline", _0: s });
