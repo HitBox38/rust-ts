@@ -1,0 +1,161 @@
+{
+  "//": [
+    "Type-map additions of lane errors-core (rustc_error_messages, rustc_errors), merged after typemap.json",
+    "by tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json.",
+    "rustc_lint_defs stand-ins (Applicability, LintId, LintExpectationId) live in src/rustc_errors/lib.ts until",
+    "rustc_lint_defs is ported; repoint these entries then."
+  ],
+  "cfg": {
+    "true": [],
+    "false": []
+  },
+  "helpers": {},
+  "types": [
+    {
+      "paths": [
+        "rustc_ast::attr::version::RustcVersion",
+        "rustc_ast::attr::RustcVersion"
+      ],
+      "ts": "RustcVersion",
+      "import": "src/rustc_ast/attr/version.ts",
+      "types": [
+        "RustcVersion"
+      ],
+      "values": [
+        "debug_RustcVersion"
+      ],
+      "debug": "debug_RustcVersion($v, $f)"
+    },
+    {
+      "paths": [
+        "std::path::PathBuf",
+        "PathBuf"
+      ],
+      "ts": "string",
+      "debug": "debug_str($v)",
+      "note": "PORT: PathBuf as a UTF-8 string; Debug = OsStr Debug (same escapes as str for valid UTF-8)"
+    },
+    {
+      "paths": [
+        "rustc_lint_defs::Applicability"
+      ],
+      "ts": "Applicability",
+      "import": "src/rustc_errors/lib.ts",
+      "types": [
+        "Applicability"
+      ],
+      "values": [
+        "debug_Applicability"
+      ],
+      "debug": "debug_Applicability($v, $f)",
+      "note": "PORT: stand-in until rustc_lint_defs is ported"
+    },
+    {
+      "paths": [
+        "rustc_lint_defs::LintId"
+      ],
+      "ts": "LintId",
+      "import": "src/rustc_errors/lib.ts",
+      "types": [
+        "LintId"
+      ],
+      "debug": null,
+      "note": "PORT: stand-in until rustc_lint_defs is ported"
+    },
+    {
+      "paths": [
+        "rustc_lint_defs::LintExpectationId"
+      ],
+      "ts": "LintExpectationId",
+      "import": "src/rustc_errors/lib.ts",
+      "types": [
+        "LintExpectationId"
+      ],
+      "debug": null,
+      "note": "PORT: stand-in until rustc_lint_defs is ported"
+    },
+    {
+      "paths": [
+        "rustc_data_structures::sync::Lock",
+        "Lock"
+      ],
+      "ts": "$0",
+      "debug": "transparent",
+      "note": "PORTING §5: Lock<T> -> the inner value"
+    },
+    {
+      "paths": [
+        "std::thread::ThreadId"
+      ],
+      "ts": "ThreadId",
+      "import": "src/rustc_errors/lib.ts",
+      "types": [
+        "ThreadId"
+      ],
+      "debug": null,
+      "note": "PORT: single-threaded; ThreadId is a number"
+    },
+    {
+      "paths": [
+        "rustc_errors::emitter::DynEmitter"
+      ],
+      "ts": "Emitter",
+      "import": "src/rustc_errors/lib.ts",
+      "types": [
+        "Emitter"
+      ],
+      "debug": null,
+      "note": "PORT: Emitter interface declared in lib.ts until the emitter lane ports emitter.rs"
+    },
+    {
+      "paths": [
+        "std::backtrace::Backtrace"
+      ],
+      "ts": "Backtrace",
+      "import": "src/rustc_errors/lib.ts",
+      "types": [
+        "Backtrace"
+      ],
+      "debug": null,
+      "note": "PORT: std::backtrace shim in lib.ts"
+    },
+    {
+      "paths": [
+        "rustc_data_structures::fx::FxHashSet",
+        "std::collections::HashSet"
+      ],
+      "ts": "Set<$0>",
+      "debug": null,
+      "note": "HashSet Debug iterates in hash order"
+    },
+    {
+      "paths": [
+        "rustc_data_structures::fx::FxIndexSet",
+        "indexmap::IndexSet"
+      ],
+      "ts": "Set<$0>",
+      "debug": "debug_set($f, [...$v].map((x) => $d0(x, $f)))"
+    },
+    {
+      "paths": [
+        "std::num::NonZero",
+        "NonZero"
+      ],
+      "ts": "$0",
+      "debug": "transparent",
+      "note": "NonZero<T> Debug prints the inner value"
+    },
+    {
+      "paths": [
+        "rustc_hashes::Hash128"
+      ],
+      "ts": "Hash128",
+      "import": "src/rustc_hashes/lib.ts",
+      "types": [
+        "Hash128"
+      ],
+      "debug": null,
+      "note": "no Debug in rustc_hashes port yet (only used inside FxHashSet, which has no Debug)"
+    }
+  ]
+}

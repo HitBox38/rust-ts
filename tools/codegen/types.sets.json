@@ -56,5 +56,31 @@
       "rustc_ast::tokenstream::TokenStreamIter"
     ],
     "auto_class": true
+  },
+  "rustc_errors": {
+    "files": [
+      "compiler/rustc_error_messages/src/lib.rs",
+      "compiler/rustc_error_messages/src/diagnostic_impls.rs",
+      "compiler/rustc_errors/src/codes.rs",
+      "compiler/rustc_errors/src/diagnostic.rs",
+      "compiler/rustc_errors/src/diagnostic_impls.rs",
+      "compiler/rustc_errors/src/formatting.rs",
+      "compiler/rustc_errors/src/decorate_diag.rs",
+      "compiler/rustc_errors/src/dedup_hash.rs",
+      "compiler/rustc_errors/src/lock.rs",
+      "compiler/rustc_errors/src/lib.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_errors::diagnostic::Diag",
+      "rustc_errors::DiagCtxtHandle",
+      "rustc_errors::decorate_diag::DecorateDiagCompat",
+      "rustc_error_messages::diagnostic_impls::DiagArgFromDisplay",
+      "rustc_errors::dedup_hash::DedupHashEncoder",
+      "rustc_errors::DelayedBugPanic"
+    ],
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true
   }
 }
