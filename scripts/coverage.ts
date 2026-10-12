@@ -1,15 +1,18 @@
 // Port coverage: every upstream `fn` in in-scope crates vs `// rustc: <path>:<line> <name>`
-// markers in src/. Upstream functions are found with our own rustc_lexer port, so `fn`
-// inside comments/strings is never counted.
+// markers in src/, and every `fn` in the vendored external crates (`harness/scope.json` `vendor`,
+// sources from scripts/crate-src.ts) vs `// crate: <crate>-<ver>/<path>:<line> <name>` markers.
+// Functions are found with our own rustc_lexer port, so `fn` inside comments/strings is never
+// counted. `// rustc-skip:` / `// crate-skip:` markers count as covered.
 //
-//   bun scripts/coverage.ts                 per-crate table (+ writes $RUST_TS_DATA/coverage.json)
-//   bun scripts/coverage.ts --crate C       per-file table for one crate
-//   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file
-//   bun scripts/coverage.ts --check         ERROR on markers that point at no upstream fn
+//   bun scripts/coverage.ts                 per-crate table, compiler then vendor (+ writes $RUST_TS_DATA/coverage.json)
+//   bun scripts/coverage.ts --crate C       per-file table for one crate (compiler crate, or vendor `<crate>` / `<crate>-<ver>`)
+//   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file (`compiler/...` or `<crate>-<ver>/<path>`)
+//   bun scripts/coverage.ts --check         ERROR on markers that point at no upstream / crate fn
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { FrontmatterAllowed, strip_shebang, tokenize } from "../src/rustc_lexer/lib.ts";
 import { Str } from "../src/std/str.ts";
+import { crateSrc } from "./crate-src.ts";
 import { DATA, REPO, UPSTREAM, die, parseArgs, requireUpstream } from "./lib/common.ts";
 
 export interface UpstreamFn {
@@ -27,8 +30,9 @@ function walk(dir: string, ext: string, out: string[] = []): string[] {
   return out;
 }
 
-export function upstreamFns(relPath: string): UpstreamFn[] {
-  const bytes = readFileSync(join(UPSTREAM, relPath));
+/** Every `fn <name>` in `<root>/<relPath>`; `path` of each result is `relPath`. */
+export function upstreamFns(relPath: string, root: string = UPSTREAM): UpstreamFn[] {
+  const bytes = readFileSync(join(root, relPath));
   const src = Str.of_bytes(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength));
   const fns: UpstreamFn[] = [];
   let pos = strip_shebang(src) ?? 0;
@@ -70,6 +74,47 @@ export function markers(): Marker[] {
   return out;
 }
 
+/** `// crate: <crate>-<ver>/<path>:<line> <name>` and `// crate-skip: ... <reason>` markers; `path` is `<crate>-<ver>/<path>`. */
+export function vendorMarkers(): (Marker & { skip: boolean })[] {
+  const out: (Marker & { skip: boolean })[] = [];
+  const re = /\/\/ crate(-skip)?: (\S+):(\d+) (\S+)/g;
+  for (const f of walk(join(REPO, "src"), ".ts")) {
+    const text = readFileSync(f, "utf8");
+    for (const m of text.matchAll(re)) {
+      out.push({ file: relative(REPO, f).replaceAll("\\", "/"), path: m[2]!, line: Number(m[3]), name: m[4]!, skip: m[1] !== undefined });
+    }
+  }
+  return out;
+}
+
+export interface VendorCrate {
+  name: string;
+  version: string;
+  /** `<name>-<version>`: the first path segment of its markers. */
+  id: string;
+  /** The unpacked crate source (`<registry>/<id>`). */
+  dir: string;
+}
+
+/** The vendored crates of `harness/scope.json` `vendor` (exact `=` versions), with their sources. */
+export async function vendorCrates(): Promise<VendorCrate[]> {
+  const scope = JSON.parse(readFileSync(join(REPO, "harness", "scope.json"), "utf8"));
+  const out: VendorCrate[] = [];
+  for (const [name, spec] of Object.entries((scope.vendor ?? {}) as Record<string, string>)) {
+    if (!/^=[^=]+$/.test(spec)) die(`harness/scope.json vendor ${name}: version ${JSON.stringify(spec)} is not an exact \`=\` version`);
+    const version = spec.slice(1);
+    out.push({ name, version, id: `${name}-${version}`, dir: await crateSrc(name, version) });
+  }
+  return out;
+}
+
+/** Every `.rs` file of a vendored crate, as sorted `<crate>-<ver>/<path>` marker paths. */
+function vendorFiles(v: VendorCrate): string[] {
+  return walk(v.dir, ".rs")
+    .map((f) => relative(dirname(v.dir), f).replaceAll("\\", "/"))
+    .sort();
+}
+
 export function inScopeCrates(): string[] {
   const scope = JSON.parse(readFileSync(join(REPO, "harness", "scope.json"), "utf8"));
   return readdirSync(join(UPSTREAM, "compiler")).filter((c) => !(c in scope.excluded));
@@ -79,18 +124,25 @@ if (import.meta.main) {
   requireUpstream();
   const a = parseArgs(process.argv.slice(2));
   const ms = markers();
+  const vms = vendorMarkers();
   const key = (p: string, l: number) => `${p}:${l}`;
   const marked = new Map(ms.map((m) => [key(m.path, m.line), m]));
+  const vmarked = new Map(vms.map((m) => [key(m.path, m.line), m]));
+  const vendor = await vendorCrates();
+  const vendorOf = (path: string) => vendor.find((v) => path.startsWith(`${v.id}/`));
 
   if (typeof a.missing === "string") {
-    const fns = upstreamFns(a.missing);
-    const miss = fns.filter((f) => !marked.has(key(f.path, f.line)));
+    const v = vendorOf(a.missing);
+    const fns = v ? upstreamFns(a.missing, dirname(v.dir)) : upstreamFns(a.missing);
+    const miss = fns.filter((f) => !(v ? vmarked : marked).has(key(f.path, f.line)));
     for (const f of miss) console.log(`${f.path}:${f.line} ${f.name}`);
     console.log(`${fns.length - miss.length}/${fns.length} ported`);
     process.exit(0);
   }
 
-  const crates = typeof a.crate === "string" ? [a.crate] : inScopeCrates();
+  // `--crate` names either a compiler crate or a vendored one (`<crate>` or `<crate>-<ver>`).
+  const vsel = typeof a.crate === "string" ? vendor.filter((v) => v.id === a.crate || v.name === a.crate) : vendor;
+  const crates = typeof a.crate === "string" ? (vsel.length ? [] : [a.crate]) : inScopeCrates();
   const all = new Map<string, UpstreamFn>();
   const rows: { crate: string; total: number; ported: number; files: { path: string; total: number; ported: number }[] }[] = [];
   for (const c of crates) {
@@ -106,6 +158,23 @@ if (import.meta.main) {
     }
     rows.push(row);
   }
+  // Vendor crates: every `.rs` of the published package (src/, tests/, benches/, examples/, build.rs).
+  // `ported` counts every covered fn (crate: or crate-skip:); `skipped` the crate-skip: ones among them.
+  const vall = new Map<string, UpstreamFn>();
+  const vrows: { crate: string; total: number; ported: number; skipped: number; files: { path: string; total: number; ported: number }[] }[] = [];
+  for (const v of vsel) {
+    const row = { crate: v.id, total: 0, ported: 0, skipped: 0, files: [] as { path: string; total: number; ported: number }[] };
+    for (const f of vendorFiles(v)) {
+      const fns = upstreamFns(f, dirname(v.dir));
+      for (const fn of fns) vall.set(key(fn.path, fn.line), fn);
+      const covered = fns.map((fn) => vmarked.get(key(fn.path, fn.line))).filter((m) => m !== undefined);
+      row.total += fns.length;
+      row.ported += covered.length;
+      row.skipped += covered.filter((m) => m.skip).length;
+      row.files.push({ path: f, total: fns.length, ported: covered.length });
+    }
+    vrows.push(row);
+  }
 
   if (a.check) {
     const bad = ms.filter((m) => {
@@ -113,20 +182,48 @@ if (import.meta.main) {
       return m.path.startsWith("compiler/") && crates.some((c) => m.path.startsWith(`compiler/${c}/`)) && (!fn || fn.name !== m.name);
     });
     for (const m of bad) console.log(`ERROR: ${m.file}: marker ${m.path}:${m.line} ${m.name} matches no upstream fn`);
-    if (bad.length) process.exit(1);
-    console.log(`markers ok (${ms.length})`);
+    // Vendor markers: the crate must be a scope.json vendor entry at that exact version, and the
+    // marker must name a fn of that name at that line of that file of the crate source.
+    const vbad = vms.filter((m) => {
+      const v = vendorOf(m.path);
+      if (!v) return typeof a.crate !== "string";
+      if (!vsel.includes(v)) return false;
+      const fn = vall.get(key(m.path, m.line));
+      return !fn || fn.name !== m.name;
+    });
+    for (const m of vbad) {
+      const why = vendorOf(m.path) ? "matches no fn in the crate source" : "names no harness/scope.json vendor crate at that version";
+      console.log(`ERROR: ${m.file}: marker ${m.path}:${m.line} ${m.name} ${why}`);
+    }
+    if (bad.length || vbad.length) process.exit(1);
+    console.log(`markers ok (${ms.length}; vendor ${vms.length})`);
     process.exit(0);
   }
 
   const total = rows.reduce((s, r) => s + r.total, 0);
   const ported = rows.reduce((s, r) => s + r.ported, 0);
+  const pct = (n: number, d: number) => `${d ? ((100 * n) / d).toFixed(1) : "0.0"}%`;
   if (typeof a.crate === "string") {
-    for (const f of rows[0]!.files) console.log(`${String(f.ported).padStart(5)}/${String(f.total).padEnd(5)} ${f.path}`);
-  } else {
-    for (const r of rows.filter((r) => r.ported > 0).sort((x, y) => y.ported - x.ported)) {
-      console.log(`${r.crate.padEnd(28)} ${String(r.ported).padStart(6)}/${String(r.total).padEnd(6)} ${((100 * r.ported) / r.total).toFixed(1)}%`);
-    }
+    // Per-file table of the one crate. coverage.json is only written by the full run, so state.ts
+    // never reports a single crate's numbers as the overall coverage.
+    const r = (rows[0] ?? vrows[0])!;
+    for (const f of r.files) console.log(`${String(f.ported).padStart(5)}/${String(f.total).padEnd(5)} ${f.path}`);
+    console.log(`TOTAL ${r.ported}/${r.total} fns ported (${r.total ? ((100 * r.ported) / r.total).toFixed(2) : "0.00"}%) in ${r.crate}`);
+    process.exit(0);
+  }
+  for (const r of rows.filter((r) => r.ported > 0).sort((x, y) => y.ported - x.ported)) {
+    console.log(`${r.crate.padEnd(28)} ${String(r.ported).padStart(6)}/${String(r.total).padEnd(6)} ${((100 * r.ported) / r.total).toFixed(1)}%`);
   }
   console.log(`TOTAL ${ported}/${total} fns ported (${((100 * ported) / total).toFixed(2)}%) across ${rows.length} crates`);
-  writeFileSync(join(DATA, "coverage.json"), JSON.stringify({ ported, total, crates: rows.map(({ files, ...r }) => r) }, null, 1));
+  console.log(`vendor (all .rs of each published crate; covered = crate: + crate-skip:)`);
+  for (const r of vrows) {
+    console.log(`${r.crate.padEnd(28)} ${String(r.ported).padStart(6)}/${String(r.total).padEnd(6)} ${pct(r.ported, r.total).padStart(6)}  (${r.skipped} skipped)`);
+  }
+  const vtotal = vrows.reduce((s, r) => s + r.total, 0);
+  const vported = vrows.reduce((s, r) => s + r.ported, 0);
+  console.log(`VENDOR ${vported}/${vtotal} fns covered (${vtotal ? ((100 * vported) / vtotal).toFixed(2) : "0.00"}%) across ${vrows.length} crates`);
+  writeFileSync(
+    join(DATA, "coverage.json"),
+    JSON.stringify({ ported, total, crates: rows.map(({ files, ...r }) => r), vendor: { ported: vported, total: vtotal, crates: vrows.map(({ files, ...r }) => r) } }, null, 1),
+  );
 }
