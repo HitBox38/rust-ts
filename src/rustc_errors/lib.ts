@@ -29,6 +29,8 @@ import { type ElidedLifetimeInPathSubdiag, DiagLocation_into_diag_arg as DiagLoc
 import { Backtrace_into_diag_arg as Backtrace_into_diag_arg_lazy } from "../rustc_error_messages/lib.ts";
 import { index_map_swap_remove } from "./decorate_diag.ts";
 import { DiagMessage_arg } from "./formatting.ts";
+import { type DynEmitter, type Emitter, SilentEmitter, Style_anstyle, TimingEvent } from "./emitter.ts";
+import type { TimingRecord } from "./timings.ts";
 import {
   DelayedDiagInner,
   DiagCtxt,
@@ -40,6 +42,8 @@ import {
   type StashKey,
   Sublevel as SublevelGen,
   type Sublevel as Sublevel_,
+  Style as StyleGen,
+  type Style as Style_,
   SuggestionStyle as SuggestionStyleGen,
   type SuggestionStyle as SuggestionStyle_,
   Suggestions as SuggestionsGen,
@@ -90,6 +94,20 @@ export { ExplicitBug } from "../rustc_span/macros.ts";
 export { format_diag_message } from "./formatting.ts";
 export * as formatting from "./formatting.ts";
 export * as lock from "./lock.ts";
+// Used by external projects such as `rust-gpu`.
+// See https://github.com/rust-lang/rust/pull/115393.
+export { AutoStream, ColorChoice } from "../vendor/anstream/lib.ts";
+export { Ansi256Color, AnsiColor, Color, EffectIter, Effects, Reset, RgbColor, Style as Anstyle } from "../vendor/anstyle/lib.ts";
+export { ColorConfig } from "./emitter.ts";
+// PORT: `use emitter::{DynEmitter, Emitter}` is a private `use` upstream; the types are re-exported
+// because lib.gen.ts (DiagCtxtInner.emitter) imports them from this module.
+export type { DynEmitter, Emitter } from "./emitter.ts";
+// `pub mod emitter; pub mod timings;`
+// PORT: `pub mod annotate_snippet_emitter_writer;` is not re-exported here: its class extends
+// `emitter::Emitter`, so loading it from this module would hit the class before emitter.ts finished
+// evaluating whenever emitter.ts is the entry point (ESM cycle). Import it directly.
+export * as emitter from "./emitter.ts";
+export * as timings from "./timings.ts";
 
 // ---- Stand-ins for crates that are not ported yet (PORT) ----------------------------------------
 
@@ -146,34 +164,6 @@ function current_thread_id(): ThreadId {
   return 1;
 }
 
-/** PORT: opaque stand-ins for `crate::timings::TimingRecord` and `crate::emitter::TimingEvent` (timings.rs / emitter.rs, later lane). */
-export interface TimingRecord {
-  readonly __timing_record: never;
-}
-export type TimingEvent = "Start" | "End";
-
-/// Emitter trait for emitting errors and other structured information.
-// PORT: interface of `crate::emitter::Emitter` as used by this crate (emitter.rs is the emitter
-// lane's). Upstream default methods must be implemented by every emitter: `emit_artifact_notification`,
-// `emit_timing_section`, `emit_future_breakage_report` and `emit_unused_externs` default to no-ops,
-// `should_show_explain` to `true`, `supports_color` to `false`. `DynEmitter = dyn Emitter + DynSend`.
-export interface Emitter {
-  /// Emit a structured diagnostic.
-  emit_diagnostic(diag: DiagInner): void;
-  /// Emit a notification that an artifact has been output.
-  emit_artifact_notification(path: string, artifact_type: string): void;
-  /// Emit a timestamp with start/end of a timing section.
-  emit_timing_section(record: TimingRecord, event: TimingEvent): void;
-  /// Emit a report about future breakage.
-  emit_future_breakage_report(diags: DiagInner[]): void;
-  /// Emit list of unused externs.
-  emit_unused_externs(lint_level: LintLevel, unused_externs: readonly string[]): void;
-  /// Checks if should show explanations about "rustc --explain"
-  should_show_explain(): boolean;
-  /// Checks if we can use colors in the current output stream.
-  supports_color(): boolean;
-  source_map(): SourceMap | undefined;
-}
 
 /** `rustc_macros::msg!("..")` expands to `DiagMessage::Inline(Cow::Borrowed(".."))` (rustc_macros/src/diagnostics/message.rs:72). */
 export function msg(s: string): DiagMessage {
@@ -288,7 +278,7 @@ TrimmedSubstitutionPart.prototype.replaces_meaningful_content = function (
 };
 
 /** PORT: `str::trim` (Unicode `White_Space`, unlike JS `trim`, which also strips U+FEFF). Belongs in src/std/str.ts. */
-function str_trim(s: string): string {
+export function str_trim(s: string): string {
   const cps = Array.from(s);
   let a = 0;
   let b = cps.length;
@@ -481,8 +471,8 @@ export class DiagCtxtHandle {
 
   // rustc: compiler/rustc_errors/src/lib.rs:498 make_silent
   make_silent(): void {
-    // inner.emitter = Box::new(emitter::SilentEmitter {});
-    unported("rustc_errors::emitter::SilentEmitter (DiagCtxtHandle::make_silent)");
+    const inner = this.dcx.inner;
+    inner.emitter = new SilentEmitter();
   }
 
   // rustc: compiler/rustc_errors/src/lib.rs:503 set_emitter
@@ -824,12 +814,12 @@ export class DiagCtxtHandle {
 
   // rustc: compiler/rustc_errors/src/lib.rs:874 emit_timing_section_start
   emit_timing_section_start(record: TimingRecord): void {
-    this.dcx.inner.emitter.emit_timing_section(record, "Start");
+    this.dcx.inner.emitter.emit_timing_section(record, TimingEvent.Start);
   }
 
   // rustc: compiler/rustc_errors/src/lib.rs:878 emit_timing_section_end
   emit_timing_section_end(record: TimingRecord): void {
-    this.dcx.inner.emitter.emit_timing_section(record, "End");
+    this.dcx.inner.emitter.emit_timing_section(record, TimingEvent.End);
   }
 
   // rustc: compiler/rustc_errors/src/lib.rs:882 emit_future_breakage_report
@@ -1588,6 +1578,14 @@ export const Sublevel = {
         return "help";
     }
   },
+};
+
+export type Style = Style_;
+// PORT: `impl Style { fn anstyle }` is defined in emitter.rs; it is ported there as
+// `Style_anstyle` and attached to the companion const here.
+export const Style = {
+  ...StyleGen,
+  anstyle: Style_anstyle,
 };
 
 // FIXME(eddyb) this doesn't belong here AFAICT, should be moved to callsite.
