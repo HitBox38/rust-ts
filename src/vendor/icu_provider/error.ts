@@ -228,6 +228,7 @@ export function debug_DataError(v: DataError, f: Fmt = PLAIN): string {
 // crate-skip: icu_provider-2.3.0/src/error.rs:260 from `From<std::io::Error>`: unused on rustc's path
 
 /// Extension trait for `Result<T, DataError>`.
+// crate-skip: icu_provider-2.3.0/src/error.rs:269 allow_identifier_not_found trait method declaration (the impl below)
 // crate: icu_provider-2.3.0/src/error.rs:273 allow_identifier_not_found
 export function allow_identifier_not_found<T>(self: Result<T, DataError>): Result<T | undefined, DataError> {
   if (self.$ === "Ok") return Ok(self._0);

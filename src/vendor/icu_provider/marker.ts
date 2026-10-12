@@ -29,6 +29,7 @@ export interface DataMarker<DataStruct> {
 }
 
 /// Extension trait for methods on [`DataMarker`]
+// crate-skip: icu_provider-2.3.0/src/marker.rs:87 make_locale trait method declaration (the impl below)
 // crate-skip: icu_provider-2.3.0/src/marker.rs:83 bind `DataProviderWithMarker` is not ported; unused on rustc's path
 
 // impl<M: DataMarker + Sized> DataMarkerExt for M

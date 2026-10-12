@@ -18,6 +18,7 @@
 // (subset), request (subset), response (subset). Not ported: buf, constructors (doc macros),
 // dynutil, export, hello_world, serde_borrow_de_utils, varule_traits (unused on rustc's path).
 // `log` is a no-op module in rustc's build (see error.ts).
+// crate-skip: icu_provider-2.3.0/src/lib.rs:223 test_logging tests that `log::info!` compiles; `log` is a no-op here
 export * as baked from "./baked.ts";
 export * as fallback from "./fallback.ts";
 export type { DataProvider } from "./data_provider.ts";
