@@ -1,12 +1,23 @@
 // Port of compiler/rustc_error_messages/src/lib.rs.
 // Types (DiagMessage, SpanLabel, MultiSpan, DiagArgValue, DiagArgMap, ...) are generated into lib.gen.ts.
 //
-// PORT: the Fluent pieces (`fluent_bundle`, `unic_langid`, `icu_list`, `intl_memoizer`,
-// `rustc_baked_icu_data`) are external crates that are not vendored yet. Their entry points are
-// declared here and call `unported(...)`.
+// PORT: Fluent comes from the vendored crates (src/vendor/fluent_bundle, unic_langid,
+// intl_memoizer). `icu_list`, `icu_locale_core` and `rustc_baked_icu_data` are not vendored yet:
+// `icu_locale_from_unic_langid` and the `ListFormatter` uses inside
+// `fluent_value_from_str_list_sep_by_and` call `unported(...)`.
 import { Span } from "../rustc_span/lib.ts";
 import type { MutRef } from "../rustc_span/hygiene.ts";
-import { unported } from "../std/panic.ts";
+import { debug_str, debug_tuple, debug_vec, PLAIN, type Fmt } from "../std/fmt.ts";
+import { panic, unported } from "../std/panic.ts";
+import { Ok, type Result } from "../std/result.ts";
+import type { FluentBundle } from "../vendor/fluent_bundle/bundle.ts";
+import { debug_FluentError, FluentValue } from "../vendor/fluent_bundle/lib.ts";
+import type { MemoizerKind } from "../vendor/fluent_bundle/memoizer.ts";
+import { AnyEq_blanket, FluentValue_from_num, type FluentType } from "../vendor/fluent_bundle/types/mod.ts";
+import type { IntlLangMemoizer, Memoizable } from "../vendor/intl_memoizer/lib.ts";
+import type { IntlLangMemoizer as ConcurrentIntlLangMemoizer } from "../vendor/intl_memoizer/concurrent.ts";
+import { TypeId } from "../vendor/type_map/lib.ts";
+import { display_LanguageIdentifier, type LanguageIdentifier } from "../vendor/unic_langid/lib.ts";
 import {
   MultiSpan,
   type DiagArgValue as DiagArgValue_,
@@ -18,31 +29,29 @@ import { String_into_diag_arg } from "./diagnostic_impls.ts";
 export * from "./lib.gen.ts";
 export * from "./diagnostic_impls.ts";
 
+// pub use fluent_bundle::types::FluentType;
+// pub use fluent_bundle::{self, FluentArgs, FluentError, FluentValue};
+// pub use unic_langid::{LanguageIdentifier, langid};
+export type { FluentType } from "../vendor/fluent_bundle/types/mod.ts";
+export * as fluent_bundle from "../vendor/fluent_bundle/lib.ts";
+export { FluentArgs, FluentError, FluentValue } from "../vendor/fluent_bundle/lib.ts";
+export { LanguageIdentifier, langid } from "../vendor/unic_langid/lib.ts";
+
 /** `std::path::PathBuf` (PORT: a UTF-8 string, see tools/codegen/typemap.errors.json). */
 export type PathBuf = string;
 
-/** PORT: opaque stand-in for `fluent_bundle::bundle::FluentBundle<R, M>` (crate not vendored). */
-export interface FluentBundle {
-  readonly __fluent_bundle: never;
-}
-/** PORT: opaque stand-in for `fluent_bundle::FluentValue<'_>` (crate not vendored). */
-export interface FluentValue {
-  readonly __fluent_value: never;
-}
-/** PORT: opaque stand-in for `unic_langid::LanguageIdentifier` (crate not vendored). */
-export interface LanguageIdentifier {
-  readonly __language_identifier: never;
-}
-
 // rustc: compiler/rustc_error_messages/src/lib.rs:13 register_functions
-export function register_functions(_bundle: FluentBundle): void {
-  // bundle
-  //     .add_function("STREQ", |positional, _named| match positional {
-  //         [FluentValue::String(a), FluentValue::String(b)] => format!("{}", (a == b)).into(),
-  //         _ => FluentValue::Error,
-  //     })
-  //     .expect("Failed to add a function to the bundle.");
-  unported("fluent_bundle::FluentBundle::add_function (rustc_error_messages::register_functions)");
+export function register_functions<M extends MemoizerKind>(bundle: FluentBundle<M>): void {
+  const r = bundle.add_function("STREQ", (positional, _named) => {
+    const [a, b] = positional;
+    if (positional.length === 2 && a!.$ === "String" && b!.$ === "String") {
+      return FluentValue.from_String(`${a!._0 === b!._0}`); // `format!("{}", (a == b)).into()`
+    }
+    return FluentValue.Error;
+  });
+  if (r.$ === "Err") {
+    panic(`Failed to add a function to the bundle.: ${debug_FluentError(r._0, PLAIN)}`); // `.expect(..)`
+  }
 }
 
 /// Abstraction over a message in a diagnostic to support both translatable and non-translatable
@@ -317,44 +326,118 @@ export function into_MultiSpan(sp: IntoMultiSpan): MultiSpan {
   return MultiSpan.from_Span(sp);
 }
 
-// rustc: compiler/rustc_error_messages/src/lib.rs:231 icu_locale_from_unic_langid
-function icu_locale_from_unic_langid(_lang: LanguageIdentifier): never {
-  // icu_locale_core::Locale::try_from_str(&lang.to_string()).ok()
-  unported("icu_locale_core::Locale::try_from_str (rustc_error_messages::icu_locale_from_unic_langid)");
+/** PORT: stand-in for `icu_locale_core::Locale` (icu_locale_core is not vendored yet). */
+export interface IcuLocale {
+  readonly __icu_locale: never;
 }
 
-// PORT: the nested `FluentStrListSepByAnd` / `MemoizableListFormatter` impls are kept as
-// functions on a local object so each keeps its marker; all need `icu_list` / `intl_memoizer`.
-// rustc: compiler/rustc_error_messages/src/lib.rs:235 fluent_value_from_str_list_sep_by_and
-export function fluent_value_from_str_list_sep_by_and(_l: string[]): FluentValue {
-  const FluentStrListSepByAnd = {
-    // rustc: compiler/rustc_error_messages/src/lib.rs:241 duplicate
-    duplicate(): never {
-      unported("fluent_bundle::types::FluentType::duplicate (FluentStrListSepByAnd)");
-    },
-    // rustc: compiler/rustc_error_messages/src/lib.rs:245 as_string
-    as_string(): never {
-      unported("icu_list::ListFormatter::format_to_string (FluentStrListSepByAnd::as_string)");
-    },
-    // rustc: compiler/rustc_error_messages/src/lib.rs:254 as_string_threadsafe
-    as_string_threadsafe(): never {
-      unported("icu_list::ListFormatter::format_to_string (FluentStrListSepByAnd::as_string_threadsafe)");
-    },
-  };
-  const MemoizableListFormatter = {
-    // rustc: compiler/rustc_error_messages/src/lib.rs:271 deref
-    deref(): never {
-      unported("icu_list::ListFormatter (MemoizableListFormatter::deref)");
-    },
-    // rustc: compiler/rustc_error_messages/src/lib.rs:280 construct
-    construct(lang: LanguageIdentifier): never {
-      icu_locale_from_unic_langid(lang);
-    },
-  };
-  void FluentStrListSepByAnd;
-  void MemoizableListFormatter;
-  unported("fluent_bundle::FluentValue::Custom (rustc_error_messages::fluent_value_from_str_list_sep_by_and)");
+// rustc: compiler/rustc_error_messages/src/lib.rs:231 icu_locale_from_unic_langid
+function icu_locale_from_unic_langid(lang: LanguageIdentifier): IcuLocale | undefined {
+  void display_LanguageIdentifier(lang); // `&lang.to_string()`
+  return unported("icu_locale_core::Locale::try_from_str");
 }
+
+/** PORT: stand-in for `icu_list::ListFormatter` (icu_list is not vendored yet). */
+export interface ListFormatter {
+  format_to_string(values: Iterable<string>): string;
+}
+
+// rustc: compiler/rustc_error_messages/src/lib.rs:235 fluent_value_from_str_list_sep_by_and
+export function fluent_value_from_str_list_sep_by_and(l: string[]): FluentValue {
+  // Fluent requires 'static value here for its AnyEq usages.
+  // PORT: the fn-local items `FluentStrListSepByAnd` and `MemoizableListFormatter` are the
+  // module-level classes below (one class per Rust type, so `AnyEq`'s downcast works across calls).
+
+  const l_ = l.map((x) => x); // `.into_iter().map(|x| x.into_owned()).collect()`
+
+  return { $: "Custom", _0: new FluentStrListSepByAnd(l_) };
+}
+
+// #[derive(Clone, PartialEq, Debug)]
+class FluentStrListSepByAnd implements FluentType {
+  constructor(public _0: string[]) {}
+
+  /** `#[derive(Clone)]` */
+  clone(): FluentStrListSepByAnd {
+    return new FluentStrListSepByAnd([...this._0]);
+  }
+
+  /** `#[derive(PartialEq)]` */
+  eq(other: FluentStrListSepByAnd): boolean {
+    return this._0.length === other._0.length && this._0.every((s, i) => s === other._0[i]);
+  }
+
+  /** `#[derive(Debug)]` */
+  fmt(f: Fmt): string {
+    return debug_tuple(f, "FluentStrListSepByAnd", [debug_vec(this._0, f, (s) => debug_str(s))]);
+  }
+
+  /** `AnyEq` (blanket impl for `T: Any + PartialEq`) */
+  equals(other: unknown): boolean {
+    return AnyEq_blanket.equals(this, other, (a, b) => a.eq(b));
+  }
+  as_any(): unknown {
+    return AnyEq_blanket.as_any(this);
+  }
+
+  // rustc: compiler/rustc_error_messages/src/lib.rs:241 duplicate
+  duplicate(): FluentType {
+    return this.clone();
+  }
+
+  // rustc: compiler/rustc_error_messages/src/lib.rs:245 as_string
+  as_string(intls: IntlLangMemoizer): string {
+    const result = intls.with_try_get(MemoizableListFormatter_Memoizable, [], (list_formatter) =>
+      list_formatter.deref().format_to_string(this._0),
+    );
+    if (result.$ === "Err") return panic("called `Result::unwrap()` on an `Err` value: ()");
+    return result._0;
+  }
+
+  // rustc: compiler/rustc_error_messages/src/lib.rs:254 as_string_threadsafe
+  as_string_threadsafe(intls: ConcurrentIntlLangMemoizer): string {
+    const result = intls.with_try_get(MemoizableListFormatter_Memoizable, [], (list_formatter) =>
+      list_formatter.deref().format_to_string(this._0),
+    );
+    if (result.$ === "Err") return panic("called `Result::unwrap()` on an `Err` value: ()");
+    return result._0;
+  }
+}
+
+class MemoizableListFormatter {
+  constructor(public _0: ListFormatter) {}
+
+  /** `impl std::ops::Deref for MemoizableListFormatter` */
+  // rustc: compiler/rustc_error_messages/src/lib.rs:271 deref
+  deref(): ListFormatter {
+    return this._0;
+  }
+}
+
+/** `impl intl_memoizer::Memoizable for MemoizableListFormatter` (`type Args = (); type Error = ();`) */
+const MemoizableListFormatter_Memoizable: Memoizable<MemoizableListFormatter, [], null> = {
+  args_key: () => "",
+  memoizer_cache: TypeId.new<Map<string, MemoizableListFormatter>>(
+    "HashMap<(), rustc_error_messages::fluent_value_from_str_list_sep_by_and::MemoizableListFormatter>",
+  ),
+
+  // rustc: compiler/rustc_error_messages/src/lib.rs:280 construct
+  construct(lang: LanguageIdentifier, _args: []): Result<MemoizableListFormatter, null> {
+    const locale =
+      icu_locale_from_unic_langid(lang) ?? unported("rustc_baked_icu_data::supported_locales::EN");
+    void locale;
+    // icu_list::ListFormatter::try_new_and_unstable(
+    //     &rustc_baked_icu_data::BakedDataProvider,
+    //     locale.into(),
+    //     icu_list::options::ListFormatterOptions::default()
+    //         .with_length(icu_list::options::ListLength::Wide),
+    // )
+    // .expect("Failed to create list formatter");
+    const list_formatter: ListFormatter = unported("icu_list::ListFormatter::try_new_and_unstable");
+
+    return Ok(new MemoizableListFormatter(list_formatter));
+  },
+};
 
 /// Simplified version of `FluentValue` that can implement `Encodable` and `Decodable`. Converted
 /// to a `FluentValue` by the emitter to be used in diagnostic translation.
@@ -371,9 +454,9 @@ export const DiagArgValue = {
   into_FluentValue(val: DiagArgValue): FluentValue {
     switch (val.$) {
       case "Str":
-        return unported("fluent_bundle::FluentValue::from(Cow<str>)");
+        return FluentValue.from_Cow(val._0);
       case "Number":
-        return unported("fluent_bundle::FluentValue::from(i32)");
+        return FluentValue_from_num(val._0);
       case "StrListSepByAnd":
         return fluent_value_from_str_list_sep_by_and(val._0);
     }

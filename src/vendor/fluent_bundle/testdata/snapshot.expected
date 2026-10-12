@@ -1,0 +1,1920 @@
+#2 N
+"0" | PluralOperands { n: 0.0, i: 0, v: 0, w: 0, f: 0, t: 0 }
+#3 N
+"0." | PluralOperands { n: 0.0, i: 0, v: 0, w: 0, f: 0, t: 0 }
+#4 N
+"0.0" | PluralOperands { n: 0.0, i: 0, v: 1, w: 0, f: 0, t: 0 }
+#5 N
+"0.00" | PluralOperands { n: 0.0, i: 0, v: 2, w: 0, f: 0, t: 0 }
+#6 N
+"0.000" | PluralOperands { n: 0.0, i: 0, v: 3, w: 0, f: 0, t: 0 }
+#7 N
+"0.000000" | PluralOperands { n: 0.0, i: 0, v: 6, w: 0, f: 0, t: 0 }
+#8 N
+"0.0000000000000000000" | PluralOperands { n: 0.0, i: 0, v: 19, w: 0, f: 0, t: 0 }
+#9 N
+"0.00000000000000000000" | PluralOperands { n: 0.0, i: 0, v: 20, w: 0, f: 0, t: 0 }
+#10 N
+"0.000000000000000000000" | PluralOperands { n: 0.0, i: 0, v: 21, w: 0, f: 0, t: 0 }
+#11 N
+"0.0000000000000000000000000" | PluralOperands { n: 0.0, i: 0, v: 25, w: 0, f: 0, t: 0 }
+#12 N
+"1" | PluralOperands { n: 1.0, i: 1, v: 0, w: 0, f: 0, t: 0 }
+#13 N
+"1." | PluralOperands { n: 1.0, i: 1, v: 0, w: 0, f: 0, t: 0 }
+#14 N
+"1.0" | PluralOperands { n: 1.0, i: 1, v: 1, w: 0, f: 0, t: 0 }
+#15 N
+"1.00" | PluralOperands { n: 1.0, i: 1, v: 2, w: 0, f: 0, t: 0 }
+#16 N
+"1.000" | PluralOperands { n: 1.0, i: 1, v: 3, w: 0, f: 0, t: 0 }
+#17 N
+"1.000000" | PluralOperands { n: 1.0, i: 1, v: 6, w: 0, f: 0, t: 0 }
+#18 N
+"1.0000000000000000000" | PluralOperands { n: 1.0, i: 1, v: 19, w: 0, f: 0, t: 0 }
+#19 N
+"1.00000000000000000000" | PluralOperands { n: 1.0, i: 1, v: 20, w: 0, f: 0, t: 0 }
+#20 N
+"1.000000000000000000000" | PluralOperands { n: 1.0, i: 1, v: 21, w: 0, f: 0, t: 0 }
+#21 N
+"1.0000000000000000000000000" | PluralOperands { n: 1.0, i: 1, v: 25, w: 0, f: 0, t: 0 }
+#22 N
+"1.5" | PluralOperands { n: 1.5, i: 1, v: 1, w: 1, f: 5, t: 5 }
+#23 N
+"1.5" | PluralOperands { n: 1.5, i: 1, v: 1, w: 1, f: 5, t: 5 }
+#24 N
+"1.5" | PluralOperands { n: 1.5, i: 1, v: 1, w: 1, f: 5, t: 5 }
+#25 N
+"1.50" | PluralOperands { n: 1.5, i: 1, v: 2, w: 1, f: 50, t: 5 }
+#26 N
+"1.500" | PluralOperands { n: 1.5, i: 1, v: 3, w: 1, f: 500, t: 5 }
+#27 N
+"1.500000" | PluralOperands { n: 1.5, i: 1, v: 6, w: 1, f: 500000, t: 5 }
+#28 N
+"1.5000000000000000000" | PluralOperands { n: 1.5, i: 1, v: 19, w: 1, f: 5000000000000000000, t: 5 }
+#29 N
+"1.50000000000000000000" | PluralOperands { n: 1.5, i: 1, v: 20, w: 1, f: 13106511852580896768, t: 5 }
+#30 N
+"1.500000000000000000000" | PluralOperands { n: 1.5, i: 1, v: 21, w: 1, f: 1937910009842106368, t: 5 }
+#31 N
+"1.5000000000000000000000000" | PluralOperands { n: 1.5, i: 1, v: 25, w: 1, f: 10018821026034483200, t: 5 }
+#32 N
+"0.1" | PluralOperands { n: 0.1, i: 0, v: 1, w: 1, f: 1, t: 1 }
+#33 N
+"0.1" | PluralOperands { n: 0.1, i: 0, v: 1, w: 1, f: 1, t: 1 }
+#34 N
+"0.1" | PluralOperands { n: 0.1, i: 0, v: 1, w: 1, f: 1, t: 1 }
+#35 N
+"0.10" | PluralOperands { n: 0.1, i: 0, v: 2, w: 1, f: 10, t: 1 }
+#36 N
+"0.100" | PluralOperands { n: 0.1, i: 0, v: 3, w: 1, f: 100, t: 1 }
+#37 N
+"0.100000" | PluralOperands { n: 0.1, i: 0, v: 6, w: 1, f: 100000, t: 1 }
+#38 N
+"0.1000000000000000000" | PluralOperands { n: 0.1, i: 0, v: 19, w: 1, f: 1000000000000000000, t: 1 }
+#39 N
+"0.10000000000000000000" | PluralOperands { n: 0.1, i: 0, v: 20, w: 1, f: 10000000000000000000, t: 1 }
+#40 N
+"0.100000000000000000000" | PluralOperands { n: 0.1, i: 0, v: 21, w: 1, f: 7766279631452241920, t: 1 }
+#41 N
+"0.1000000000000000000000000" | PluralOperands { n: 0.1, i: 0, v: 25, w: 1, f: 2003764205206896640, t: 1 }
+#42 N
+"2.25" | PluralOperands { n: 2.25, i: 2, v: 2, w: 2, f: 25, t: 25 }
+#43 N
+"2.25" | PluralOperands { n: 2.25, i: 2, v: 2, w: 2, f: 25, t: 25 }
+#44 N
+"2.25" | PluralOperands { n: 2.25, i: 2, v: 2, w: 2, f: 25, t: 25 }
+#45 N
+"2.25" | PluralOperands { n: 2.25, i: 2, v: 2, w: 2, f: 25, t: 25 }
+#46 N
+"2.250" | PluralOperands { n: 2.25, i: 2, v: 3, w: 2, f: 250, t: 25 }
+#47 N
+"2.250000" | PluralOperands { n: 2.25, i: 2, v: 6, w: 2, f: 250000, t: 25 }
+#48 N
+"2.2500000000000000000" | PluralOperands { n: 2.25, i: 2, v: 19, w: 2, f: 2500000000000000000, t: 25 }
+#49 N
+"2.25000000000000000000" | PluralOperands { n: 2.25, i: 2, v: 20, w: 2, f: 6553255926290448384, t: 25 }
+#50 N
+"2.250000000000000000000" | PluralOperands { n: 2.25, i: 2, v: 21, w: 2, f: 10192327041775828992, t: 25 }
+#51 N
+"2.2500000000000000000000000" | PluralOperands { n: 2.25, i: 2, v: 25, w: 2, f: 5009410513017241600, t: 25 }
+#52 N
+"-0" | PluralOperands { n: 0.0, i: 0, v: 0, w: 0, f: 0, t: 0 }
+#53 N
+"-0." | PluralOperands { n: 0.0, i: 0, v: 0, w: 0, f: 0, t: 0 }
+#54 N
+"-0.0" | PluralOperands { n: 0.0, i: 0, v: 1, w: 0, f: 0, t: 0 }
+#55 N
+"-0.00" | PluralOperands { n: 0.0, i: 0, v: 2, w: 0, f: 0, t: 0 }
+#56 N
+"-0.000" | PluralOperands { n: 0.0, i: 0, v: 3, w: 0, f: 0, t: 0 }
+#57 N
+"-0.000000" | PluralOperands { n: 0.0, i: 0, v: 6, w: 0, f: 0, t: 0 }
+#58 N
+"-0.0000000000000000000" | PluralOperands { n: 0.0, i: 0, v: 19, w: 0, f: 0, t: 0 }
+#59 N
+"-0.00000000000000000000" | PluralOperands { n: 0.0, i: 0, v: 20, w: 0, f: 0, t: 0 }
+#60 N
+"-0.000000000000000000000" | PluralOperands { n: 0.0, i: 0, v: 21, w: 0, f: 0, t: 0 }
+#61 N
+"-0.0000000000000000000000000" | PluralOperands { n: 0.0, i: 0, v: 25, w: 0, f: 0, t: 0 }
+#62 N
+"-1.5" | PluralOperands { n: 1.5, i: 1, v: 1, w: 1, f: 5, t: 5 }
+#63 N
+"-1.5" | PluralOperands { n: 1.5, i: 1, v: 1, w: 1, f: 5, t: 5 }
+#64 N
+"-1.5" | PluralOperands { n: 1.5, i: 1, v: 1, w: 1, f: 5, t: 5 }
+#65 N
+"-1.50" | PluralOperands { n: 1.5, i: 1, v: 2, w: 1, f: 50, t: 5 }
+#66 N
+"-1.500" | PluralOperands { n: 1.5, i: 1, v: 3, w: 1, f: 500, t: 5 }
+#67 N
+"-1.500000" | PluralOperands { n: 1.5, i: 1, v: 6, w: 1, f: 500000, t: 5 }
+#68 N
+"-1.5000000000000000000" | PluralOperands { n: 1.5, i: 1, v: 19, w: 1, f: 5000000000000000000, t: 5 }
+#69 N
+"-1.50000000000000000000" | PluralOperands { n: 1.5, i: 1, v: 20, w: 1, f: 13106511852580896768, t: 5 }
+#70 N
+"-1.500000000000000000000" | PluralOperands { n: 1.5, i: 1, v: 21, w: 1, f: 1937910009842106368, t: 5 }
+#71 N
+"-1.5000000000000000000000000" | PluralOperands { n: 1.5, i: 1, v: 25, w: 1, f: 10018821026034483200, t: 5 }
+#72 N
+"1000000000000000000000" | PluralOperands { n: 1e21, i: 18446744073709551615, v: 0, w: 0, f: 0, t: 0 }
+#73 N
+"1000000000000000000000." | PluralOperands { n: 1e21, i: 18446744073709551615, v: 0, w: 0, f: 0, t: 0 }
+#74 N
+"1000000000000000000000.0" | PluralOperands { n: 1e21, i: 18446744073709551615, v: 1, w: 0, f: 0, t: 0 }
+#75 N
+"1000000000000000000000.00" | PluralOperands { n: 1e21, i: 18446744073709551615, v: 2, w: 0, f: 0, t: 0 }
+#76 N
+"1000000000000000000000.000" | PluralOperands { n: 1e21, i: 18446744073709551615, v: 3, w: 0, f: 0, t: 0 }
+#77 N
+"1000000000000000000000.000000" | PluralOperands { n: 1e21, i: 18446744073709551615, v: 6, w: 0, f: 0, t: 0 }
+#78 N
+"1000000000000000000000.0000000000000000000" | PluralOperands { n: 1e21, i: 18446744073709551615, v: 19, w: 0, f: 0, t: 0 }
+#79 N
+"1000000000000000000000.00000000000000000000" | PluralOperands { n: 1e21, i: 18446744073709551615, v: 20, w: 0, f: 0, t: 0 }
+#80 N
+"1000000000000000000000.000000000000000000000" | PluralOperands { n: 1e21, i: 18446744073709551615, v: 21, w: 0, f: 0, t: 0 }
+#81 N
+"1000000000000000000000.0000000000000000000000000" | PluralOperands { n: 1e21, i: 18446744073709551615, v: 25, w: 0, f: 0, t: 0 }
+#82 N
+"0.0000001" | PluralOperands { n: 1e-7, i: 0, v: 7, w: 7, f: 1, t: 1 }
+#83 N
+"0.0000001" | PluralOperands { n: 1e-7, i: 0, v: 7, w: 7, f: 1, t: 1 }
+#84 N
+"0.0000001" | PluralOperands { n: 1e-7, i: 0, v: 7, w: 7, f: 1, t: 1 }
+#85 N
+"0.0000001" | PluralOperands { n: 1e-7, i: 0, v: 7, w: 7, f: 1, t: 1 }
+#86 N
+"0.0000001" | PluralOperands { n: 1e-7, i: 0, v: 7, w: 7, f: 1, t: 1 }
+#87 N
+"0.0000001" | PluralOperands { n: 1e-7, i: 0, v: 7, w: 7, f: 1, t: 1 }
+#88 N
+"0.0000001000000000000" | PluralOperands { n: 1e-7, i: 0, v: 19, w: 7, f: 1000000000000, t: 1 }
+#89 N
+"0.00000010000000000000" | PluralOperands { n: 1e-7, i: 0, v: 20, w: 7, f: 10000000000000, t: 1 }
+#90 N
+"0.000000100000000000000" | PluralOperands { n: 1e-7, i: 0, v: 21, w: 7, f: 100000000000000, t: 1 }
+#91 N
+"0.0000001000000000000000000" | PluralOperands { n: 1e-7, i: 0, v: 25, w: 7, f: 1000000000000000000, t: 1 }
+#92 N
+"NaN" | PluralOperands { n: NaN, i: 0, v: 0, w: 0, f: 0, t: 0 }
+#93 N
+"NaN." | PluralOperands { n: NaN, i: 0, v: 0, w: 0, f: 0, t: 0 }
+#94 N
+"NaN.0" | PluralOperands { n: NaN, i: 0, v: 1, w: 0, f: 0, t: 0 }
+#95 N
+"NaN.00" | PluralOperands { n: NaN, i: 0, v: 2, w: 0, f: 0, t: 0 }
+#96 N
+"NaN.000" | PluralOperands { n: NaN, i: 0, v: 3, w: 0, f: 0, t: 0 }
+#97 N
+"NaN.000000" | PluralOperands { n: NaN, i: 0, v: 6, w: 0, f: 0, t: 0 }
+#98 N
+"NaN.0000000000000000000" | PluralOperands { n: NaN, i: 0, v: 19, w: 0, f: 0, t: 0 }
+#99 N
+"NaN.00000000000000000000" | PluralOperands { n: NaN, i: 0, v: 20, w: 0, f: 0, t: 0 }
+#100 N
+"NaN.000000000000000000000" | PluralOperands { n: NaN, i: 0, v: 21, w: 0, f: 0, t: 0 }
+#101 N
+"NaN.0000000000000000000000000" | PluralOperands { n: NaN, i: 0, v: 25, w: 0, f: 0, t: 0 }
+#102 N
+"inf" | PluralOperands { n: inf, i: 18446744073709551615, v: 0, w: 0, f: 0, t: 0 }
+#103 N
+"inf." | PluralOperands { n: inf, i: 18446744073709551615, v: 0, w: 0, f: 0, t: 0 }
+#104 N
+"inf.0" | PluralOperands { n: inf, i: 18446744073709551615, v: 1, w: 0, f: 0, t: 0 }
+#105 N
+"inf.00" | PluralOperands { n: inf, i: 18446744073709551615, v: 2, w: 0, f: 0, t: 0 }
+#106 N
+"inf.000" | PluralOperands { n: inf, i: 18446744073709551615, v: 3, w: 0, f: 0, t: 0 }
+#107 N
+"inf.000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 6, w: 0, f: 0, t: 0 }
+#108 N
+"inf.0000000000000000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 19, w: 0, f: 0, t: 0 }
+#109 N
+"inf.00000000000000000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 20, w: 0, f: 0, t: 0 }
+#110 N
+"inf.000000000000000000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 21, w: 0, f: 0, t: 0 }
+#111 N
+"inf.0000000000000000000000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 25, w: 0, f: 0, t: 0 }
+#112 N
+"-inf" | PluralOperands { n: inf, i: 18446744073709551615, v: 0, w: 0, f: 0, t: 0 }
+#113 N
+"-inf." | PluralOperands { n: inf, i: 18446744073709551615, v: 0, w: 0, f: 0, t: 0 }
+#114 N
+"-inf.0" | PluralOperands { n: inf, i: 18446744073709551615, v: 1, w: 0, f: 0, t: 0 }
+#115 N
+"-inf.00" | PluralOperands { n: inf, i: 18446744073709551615, v: 2, w: 0, f: 0, t: 0 }
+#116 N
+"-inf.000" | PluralOperands { n: inf, i: 18446744073709551615, v: 3, w: 0, f: 0, t: 0 }
+#117 N
+"-inf.000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 6, w: 0, f: 0, t: 0 }
+#118 N
+"-inf.0000000000000000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 19, w: 0, f: 0, t: 0 }
+#119 N
+"-inf.00000000000000000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 20, w: 0, f: 0, t: 0 }
+#120 N
+"-inf.000000000000000000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 21, w: 0, f: 0, t: 0 }
+#121 N
+"-inf.0000000000000000000000000" | PluralOperands { n: inf, i: 18446744073709551615, v: 25, w: 0, f: 0, t: 0 }
+#122 N
+"100" | PluralOperands { n: 100.0, i: 100, v: 0, w: 0, f: 0, t: 0 }
+#123 N
+"100." | PluralOperands { n: 100.0, i: 100, v: 0, w: 0, f: 0, t: 0 }
+#124 N
+"100.0" | PluralOperands { n: 100.0, i: 100, v: 1, w: 0, f: 0, t: 0 }
+#125 N
+"100.00" | PluralOperands { n: 100.0, i: 100, v: 2, w: 0, f: 0, t: 0 }
+#126 N
+"100.000" | PluralOperands { n: 100.0, i: 100, v: 3, w: 0, f: 0, t: 0 }
+#127 N
+"100.000000" | PluralOperands { n: 100.0, i: 100, v: 6, w: 0, f: 0, t: 0 }
+#128 N
+"100.0000000000000000000" | PluralOperands { n: 100.0, i: 100, v: 19, w: 0, f: 0, t: 0 }
+#129 N
+"100.00000000000000000000" | PluralOperands { n: 100.0, i: 100, v: 20, w: 0, f: 0, t: 0 }
+#130 N
+"100.000000000000000000000" | PluralOperands { n: 100.0, i: 100, v: 21, w: 0, f: 0, t: 0 }
+#131 N
+"100.0000000000000000000000000" | PluralOperands { n: 100.0, i: 100, v: 25, w: 0, f: 0, t: 0 }
+#132 N
+"0.30000000000000004" | PluralOperands { n: 0.30000000000000004, i: 0, v: 17, w: 17, f: 30000000000000004, t: 30000000000000004 }
+#133 N
+"0.30000000000000004" | PluralOperands { n: 0.30000000000000004, i: 0, v: 17, w: 17, f: 30000000000000004, t: 30000000000000004 }
+#134 N
+"0.30000000000000004" | PluralOperands { n: 0.30000000000000004, i: 0, v: 17, w: 17, f: 30000000000000004, t: 30000000000000004 }
+#135 N
+"0.30000000000000004" | PluralOperands { n: 0.30000000000000004, i: 0, v: 17, w: 17, f: 30000000000000004, t: 30000000000000004 }
+#136 N
+"0.30000000000000004" | PluralOperands { n: 0.30000000000000004, i: 0, v: 17, w: 17, f: 30000000000000004, t: 30000000000000004 }
+#137 N
+"0.30000000000000004" | PluralOperands { n: 0.30000000000000004, i: 0, v: 17, w: 17, f: 30000000000000004, t: 30000000000000004 }
+#138 N
+"0.3000000000000000400" | PluralOperands { n: 0.30000000000000004, i: 0, v: 19, w: 17, f: 3000000000000000400, t: 30000000000000004 }
+#139 N
+"0.30000000000000004000" | PluralOperands { n: 0.30000000000000004, i: 0, v: 20, w: 17, f: 11553255926290452384, t: 30000000000000004 }
+#140 N
+"0.300000000000000040000" | PluralOperands { n: 0.30000000000000004, i: 0, v: 21, w: 17, f: 4852094820647214144, t: 30000000000000004 }
+#141 N
+"0.3000000000000000400000000" | PluralOperands { n: 0.30000000000000004, i: 0, v: 25, w: 17, f: 6011292616020689920, t: 30000000000000004 }
+#142 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#143 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#144 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#145 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#146 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#147 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#148 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#149 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#150 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#151 N
+"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005" | PluralOperands { n: 5e-324, i: 0, v: 324, w: 324, f: 5, t: 5 }
+#152 N
+"123456.789" | PluralOperands { n: 123456.789, i: 123456, v: 3, w: 3, f: 789, t: 789 }
+#153 N
+"123456.789" | PluralOperands { n: 123456.789, i: 123456, v: 3, w: 3, f: 789, t: 789 }
+#154 N
+"123456.789" | PluralOperands { n: 123456.789, i: 123456, v: 3, w: 3, f: 789, t: 789 }
+#155 N
+"123456.789" | PluralOperands { n: 123456.789, i: 123456, v: 3, w: 3, f: 789, t: 789 }
+#156 N
+"123456.789" | PluralOperands { n: 123456.789, i: 123456, v: 3, w: 3, f: 789, t: 789 }
+#157 N
+"123456.789000" | PluralOperands { n: 123456.789, i: 123456, v: 6, w: 3, f: 789000, t: 789 }
+#158 N
+"123456.7890000000000000000" | PluralOperands { n: 123456.789, i: 123456, v: 19, w: 3, f: 7890000000000000000, t: 789 }
+#159 N
+"123456.78900000000000000000" | PluralOperands { n: 123456.789, i: 123456, v: 20, w: 3, f: 5113023705161793536, t: 789 }
+#160 N
+"123456.789000000000000000000" | PluralOperands { n: 123456.789, i: 123456, v: 21, w: 3, f: 14236748904198832128, t: 789 }
+#161 N
+"123456.7890000000000000000000000" | PluralOperands { n: 123456.789, i: 123456, v: 25, w: 3, f: 13965025171711459328, t: 789 }
+#162 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 0, w: 0, f: 0, t: 0 }
+#163 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000." | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 0, w: 0, f: 0, t: 0 }
+#164 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0" | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 1, w: 0, f: 0, t: 0 }
+#165 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.00" | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 2, w: 0, f: 0, t: 0 }
+#166 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.000" | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 3, w: 0, f: 0, t: 0 }
+#167 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.000000" | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 6, w: 0, f: 0, t: 0 }
+#168 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000" | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 19, w: 0, f: 0, t: 0 }
+#169 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.00000000000000000000" | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 20, w: 0, f: 0, t: 0 }
+#170 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.000000000000000000000" | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 21, w: 0, f: 0, t: 0 }
+#171 N
+"179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000" | PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 25, w: 0, f: 0, t: 0 }
+#172 N
+"12345678901234567000" | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 0, w: 0, f: 0, t: 0 }
+#173 N
+"12345678901234567000." | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 0, w: 0, f: 0, t: 0 }
+#174 N
+"12345678901234567000.0" | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 1, w: 0, f: 0, t: 0 }
+#175 N
+"12345678901234567000.00" | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 2, w: 0, f: 0, t: 0 }
+#176 N
+"12345678901234567000.000" | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 3, w: 0, f: 0, t: 0 }
+#177 N
+"12345678901234567000.000000" | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 6, w: 0, f: 0, t: 0 }
+#178 N
+"12345678901234567000.0000000000000000000" | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 19, w: 0, f: 0, t: 0 }
+#179 N
+"12345678901234567000.00000000000000000000" | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 20, w: 0, f: 0, t: 0 }
+#180 N
+"12345678901234567000.000000000000000000000" | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 21, w: 0, f: 0, t: 0 }
+#181 N
+"12345678901234567000.0000000000000000000000000" | PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 25, w: 0, f: 0, t: 0 }
+#182 N
+"0.5" | PluralOperands { n: 0.5, i: 0, v: 1, w: 1, f: 5, t: 5 }
+#183 N
+"0.5" | PluralOperands { n: 0.5, i: 0, v: 1, w: 1, f: 5, t: 5 }
+#184 N
+"0.5" | PluralOperands { n: 0.5, i: 0, v: 1, w: 1, f: 5, t: 5 }
+#185 N
+"0.50" | PluralOperands { n: 0.5, i: 0, v: 2, w: 1, f: 50, t: 5 }
+#186 N
+"0.500" | PluralOperands { n: 0.5, i: 0, v: 3, w: 1, f: 500, t: 5 }
+#187 N
+"0.500000" | PluralOperands { n: 0.5, i: 0, v: 6, w: 1, f: 500000, t: 5 }
+#188 N
+"0.5000000000000000000" | PluralOperands { n: 0.5, i: 0, v: 19, w: 1, f: 5000000000000000000, t: 5 }
+#189 N
+"0.50000000000000000000" | PluralOperands { n: 0.5, i: 0, v: 20, w: 1, f: 13106511852580896768, t: 5 }
+#190 N
+"0.500000000000000000000" | PluralOperands { n: 0.5, i: 0, v: 21, w: 1, f: 1937910009842106368, t: 5 }
+#191 N
+"0.5000000000000000000000000" | PluralOperands { n: 0.5, i: 0, v: 25, w: 1, f: 10018821026034483200, t: 5 }
+#192 N
+"10" | PluralOperands { n: 10.0, i: 10, v: 0, w: 0, f: 0, t: 0 }
+#193 N
+"10." | PluralOperands { n: 10.0, i: 10, v: 0, w: 0, f: 0, t: 0 }
+#194 N
+"10.0" | PluralOperands { n: 10.0, i: 10, v: 1, w: 0, f: 0, t: 0 }
+#195 N
+"10.00" | PluralOperands { n: 10.0, i: 10, v: 2, w: 0, f: 0, t: 0 }
+#196 N
+"10.000" | PluralOperands { n: 10.0, i: 10, v: 3, w: 0, f: 0, t: 0 }
+#197 N
+"10.000000" | PluralOperands { n: 10.0, i: 10, v: 6, w: 0, f: 0, t: 0 }
+#198 N
+"10.0000000000000000000" | PluralOperands { n: 10.0, i: 10, v: 19, w: 0, f: 0, t: 0 }
+#199 N
+"10.00000000000000000000" | PluralOperands { n: 10.0, i: 10, v: 20, w: 0, f: 0, t: 0 }
+#200 N
+"10.000000000000000000000" | PluralOperands { n: 10.0, i: 10, v: 21, w: 0, f: 0, t: 0 }
+#201 N
+"10.0000000000000000000000000" | PluralOperands { n: 10.0, i: 10, v: 25, w: 0, f: 0, t: 0 }
+#202 N
+"1.25" | PluralOperands { n: 1.25, i: 1, v: 2, w: 2, f: 25, t: 25 }
+#203 N
+"1.25" | PluralOperands { n: 1.25, i: 1, v: 2, w: 2, f: 25, t: 25 }
+#204 N
+"1.25" | PluralOperands { n: 1.25, i: 1, v: 2, w: 2, f: 25, t: 25 }
+#205 N
+"1.25" | PluralOperands { n: 1.25, i: 1, v: 2, w: 2, f: 25, t: 25 }
+#206 N
+"1.250" | PluralOperands { n: 1.25, i: 1, v: 3, w: 2, f: 250, t: 25 }
+#207 N
+"1.250000" | PluralOperands { n: 1.25, i: 1, v: 6, w: 2, f: 250000, t: 25 }
+#208 N
+"1.2500000000000000000" | PluralOperands { n: 1.25, i: 1, v: 19, w: 2, f: 2500000000000000000, t: 25 }
+#209 N
+"1.25000000000000000000" | PluralOperands { n: 1.25, i: 1, v: 20, w: 2, f: 6553255926290448384, t: 25 }
+#210 N
+"1.250000000000000000000" | PluralOperands { n: 1.25, i: 1, v: 21, w: 2, f: 10192327041775828992, t: 25 }
+#211 N
+"1.2500000000000000000000000" | PluralOperands { n: 1.25, i: 1, v: 25, w: 2, f: 5009410513017241600, t: 25 }
+#212 N
+PluralOperands { n: 0.0, i: 0, v: 4294967296, w: 0, f: 0, t: 0 }
+#213 N
+PluralOperands { n: 0.0, i: 0, v: 4294967297, w: 0, f: 0, t: 0 }
+#214 N
+PluralOperands { n: 0.0, i: 0, v: 4294967298, w: 0, f: 0, t: 0 }
+#215 N
+PluralOperands { n: 0.0, i: 0, v: 4294967295, w: 0, f: 0, t: 0 }
+#216 N
+PluralOperands { n: 1.0, i: 1, v: 4294967296, w: 0, f: 0, t: 0 }
+#217 N
+PluralOperands { n: 1.0, i: 1, v: 4294967297, w: 0, f: 0, t: 0 }
+#218 N
+PluralOperands { n: 1.0, i: 1, v: 4294967298, w: 0, f: 0, t: 0 }
+#219 N
+PluralOperands { n: 1.0, i: 1, v: 4294967295, w: 0, f: 0, t: 0 }
+#220 N
+PluralOperands { n: 1.5, i: 1, v: 4294967296, w: 1, f: 0, t: 5 }
+#221 N
+PluralOperands { n: 1.5, i: 1, v: 4294967297, w: 1, f: 5, t: 5 }
+#222 N
+PluralOperands { n: 1.5, i: 1, v: 4294967298, w: 1, f: 50, t: 5 }
+#223 N
+PluralOperands { n: 1.5, i: 1, v: 4294967295, w: 1, f: 0, t: 5 }
+#224 N
+PluralOperands { n: 0.1, i: 0, v: 4294967296, w: 1, f: 0, t: 1 }
+#225 N
+PluralOperands { n: 0.1, i: 0, v: 4294967297, w: 1, f: 1, t: 1 }
+#226 N
+PluralOperands { n: 0.1, i: 0, v: 4294967298, w: 1, f: 10, t: 1 }
+#227 N
+PluralOperands { n: 0.1, i: 0, v: 4294967295, w: 1, f: 0, t: 1 }
+#228 N
+PluralOperands { n: 2.25, i: 2, v: 4294967296, w: 2, f: 0, t: 25 }
+#229 N
+PluralOperands { n: 2.25, i: 2, v: 4294967297, w: 2, f: 0, t: 25 }
+#230 N
+PluralOperands { n: 2.25, i: 2, v: 4294967298, w: 2, f: 25, t: 25 }
+#231 N
+PluralOperands { n: 2.25, i: 2, v: 4294967295, w: 2, f: 0, t: 25 }
+#232 N
+PluralOperands { n: 0.0, i: 0, v: 4294967296, w: 0, f: 0, t: 0 }
+#233 N
+PluralOperands { n: 0.0, i: 0, v: 4294967297, w: 0, f: 0, t: 0 }
+#234 N
+PluralOperands { n: 0.0, i: 0, v: 4294967298, w: 0, f: 0, t: 0 }
+#235 N
+PluralOperands { n: 0.0, i: 0, v: 4294967295, w: 0, f: 0, t: 0 }
+#236 N
+PluralOperands { n: 1.5, i: 1, v: 4294967296, w: 1, f: 0, t: 5 }
+#237 N
+PluralOperands { n: 1.5, i: 1, v: 4294967297, w: 1, f: 5, t: 5 }
+#238 N
+PluralOperands { n: 1.5, i: 1, v: 4294967298, w: 1, f: 50, t: 5 }
+#239 N
+PluralOperands { n: 1.5, i: 1, v: 4294967295, w: 1, f: 0, t: 5 }
+#240 N
+PluralOperands { n: 1e21, i: 18446744073709551615, v: 4294967296, w: 0, f: 0, t: 0 }
+#241 N
+PluralOperands { n: 1e21, i: 18446744073709551615, v: 4294967297, w: 0, f: 0, t: 0 }
+#242 N
+PluralOperands { n: 1e21, i: 18446744073709551615, v: 4294967298, w: 0, f: 0, t: 0 }
+#243 N
+PluralOperands { n: 1e21, i: 18446744073709551615, v: 4294967295, w: 0, f: 0, t: 0 }
+#244 N
+PluralOperands { n: 1e-7, i: 0, v: 4294967296, w: 7, f: 0, t: 1 }
+#245 N
+PluralOperands { n: 1e-7, i: 0, v: 4294967297, w: 7, f: 0, t: 1 }
+#246 N
+PluralOperands { n: 1e-7, i: 0, v: 4294967298, w: 7, f: 0, t: 1 }
+#247 N
+PluralOperands { n: 1e-7, i: 0, v: 4294967295, w: 7, f: 0, t: 1 }
+#248 N
+PluralOperands { n: NaN, i: 0, v: 4294967296, w: 0, f: 0, t: 0 }
+#249 N
+PluralOperands { n: NaN, i: 0, v: 4294967297, w: 0, f: 0, t: 0 }
+#250 N
+PluralOperands { n: NaN, i: 0, v: 4294967298, w: 0, f: 0, t: 0 }
+#251 N
+PluralOperands { n: NaN, i: 0, v: 4294967295, w: 0, f: 0, t: 0 }
+#252 N
+PluralOperands { n: inf, i: 18446744073709551615, v: 4294967296, w: 0, f: 0, t: 0 }
+#253 N
+PluralOperands { n: inf, i: 18446744073709551615, v: 4294967297, w: 0, f: 0, t: 0 }
+#254 N
+PluralOperands { n: inf, i: 18446744073709551615, v: 4294967298, w: 0, f: 0, t: 0 }
+#255 N
+PluralOperands { n: inf, i: 18446744073709551615, v: 4294967295, w: 0, f: 0, t: 0 }
+#256 N
+PluralOperands { n: inf, i: 18446744073709551615, v: 4294967296, w: 0, f: 0, t: 0 }
+#257 N
+PluralOperands { n: inf, i: 18446744073709551615, v: 4294967297, w: 0, f: 0, t: 0 }
+#258 N
+PluralOperands { n: inf, i: 18446744073709551615, v: 4294967298, w: 0, f: 0, t: 0 }
+#259 N
+PluralOperands { n: inf, i: 18446744073709551615, v: 4294967295, w: 0, f: 0, t: 0 }
+#260 N
+PluralOperands { n: 100.0, i: 100, v: 4294967296, w: 0, f: 0, t: 0 }
+#261 N
+PluralOperands { n: 100.0, i: 100, v: 4294967297, w: 0, f: 0, t: 0 }
+#262 N
+PluralOperands { n: 100.0, i: 100, v: 4294967298, w: 0, f: 0, t: 0 }
+#263 N
+PluralOperands { n: 100.0, i: 100, v: 4294967295, w: 0, f: 0, t: 0 }
+#264 N
+PluralOperands { n: 0.30000000000000004, i: 0, v: 4294967296, w: 17, f: 0, t: 30000000000000004 }
+#265 N
+PluralOperands { n: 0.30000000000000004, i: 0, v: 4294967297, w: 17, f: 0, t: 30000000000000004 }
+#266 N
+PluralOperands { n: 0.30000000000000004, i: 0, v: 4294967298, w: 17, f: 0, t: 30000000000000004 }
+#267 N
+PluralOperands { n: 0.30000000000000004, i: 0, v: 4294967295, w: 17, f: 0, t: 30000000000000004 }
+#268 N
+PluralOperands { n: 5e-324, i: 0, v: 4294967296, w: 324, f: 0, t: 5 }
+#269 N
+PluralOperands { n: 5e-324, i: 0, v: 4294967297, w: 324, f: 0, t: 5 }
+#270 N
+PluralOperands { n: 5e-324, i: 0, v: 4294967298, w: 324, f: 0, t: 5 }
+#271 N
+PluralOperands { n: 5e-324, i: 0, v: 4294967295, w: 324, f: 0, t: 5 }
+#272 N
+PluralOperands { n: 123456.789, i: 123456, v: 4294967296, w: 3, f: 0, t: 789 }
+#273 N
+PluralOperands { n: 123456.789, i: 123456, v: 4294967297, w: 3, f: 0, t: 789 }
+#274 N
+PluralOperands { n: 123456.789, i: 123456, v: 4294967298, w: 3, f: 0, t: 789 }
+#275 N
+PluralOperands { n: 123456.789, i: 123456, v: 4294967295, w: 3, f: 0, t: 789 }
+#276 N
+PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 4294967296, w: 0, f: 0, t: 0 }
+#277 N
+PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 4294967297, w: 0, f: 0, t: 0 }
+#278 N
+PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 4294967298, w: 0, f: 0, t: 0 }
+#279 N
+PluralOperands { n: 1.7976931348623157e308, i: 18446744073709551615, v: 4294967295, w: 0, f: 0, t: 0 }
+#280 N
+PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 4294967296, w: 0, f: 0, t: 0 }
+#281 N
+PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 4294967297, w: 0, f: 0, t: 0 }
+#282 N
+PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 4294967298, w: 0, f: 0, t: 0 }
+#283 N
+PluralOperands { n: 1.2345678901234567e19, i: 12345678901234567168, v: 4294967295, w: 0, f: 0, t: 0 }
+#284 N
+PluralOperands { n: 0.5, i: 0, v: 4294967296, w: 1, f: 0, t: 5 }
+#285 N
+PluralOperands { n: 0.5, i: 0, v: 4294967297, w: 1, f: 5, t: 5 }
+#286 N
+PluralOperands { n: 0.5, i: 0, v: 4294967298, w: 1, f: 50, t: 5 }
+#287 N
+PluralOperands { n: 0.5, i: 0, v: 4294967295, w: 1, f: 0, t: 5 }
+#288 N
+PluralOperands { n: 10.0, i: 10, v: 4294967296, w: 0, f: 0, t: 0 }
+#289 N
+PluralOperands { n: 10.0, i: 10, v: 4294967297, w: 0, f: 0, t: 0 }
+#290 N
+PluralOperands { n: 10.0, i: 10, v: 4294967298, w: 0, f: 0, t: 0 }
+#291 N
+PluralOperands { n: 10.0, i: 10, v: 4294967295, w: 0, f: 0, t: 0 }
+#292 N
+PluralOperands { n: 1.25, i: 1, v: 4294967296, w: 2, f: 0, t: 25 }
+#293 N
+PluralOperands { n: 1.25, i: 1, v: 4294967297, w: 2, f: 0, t: 25 }
+#294 N
+PluralOperands { n: 1.25, i: 1, v: 4294967298, w: 2, f: 25, t: 25 }
+#295 N
+PluralOperands { n: 1.25, i: 1, v: 4294967295, w: 2, f: 0, t: 25 }
+#296 T
+Number(FluentNumber { value: 0.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#297 T
+Number(FluentNumber { value: 1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#298 T
+Number(FluentNumber { value: 2.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#299 T
+Number(FluentNumber { value: 3.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#300 T
+Number(FluentNumber { value: 4.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#301 T
+Number(FluentNumber { value: 5.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#302 T
+Number(FluentNumber { value: 11.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#303 T
+Number(FluentNumber { value: 12.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#304 T
+Number(FluentNumber { value: 21.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#305 T
+Number(FluentNumber { value: 22.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#306 T
+Number(FluentNumber { value: 100.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#307 T
+Number(FluentNumber { value: 101.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#308 T
+Number(FluentNumber { value: -1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#309 T
+Number(FluentNumber { value: -0.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#310 T
+Number(FluentNumber { value: 0.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(1), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#311 T
+Number(FluentNumber { value: 1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(1), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#312 T
+Number(FluentNumber { value: 1.5, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(1), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#313 T
+Number(FluentNumber { value: 0.1, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(1), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#314 T
+Number(FluentNumber { value: 2.5, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(2), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#315 T
+Number(FluentNumber { value: 1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(2), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#316 T
+Number(FluentNumber { value: 1000.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#317 T
+Number(FluentNumber { value: 1e21, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#318 T
+Number(FluentNumber { value: 1e22, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#319 T
+Number(FluentNumber { value: 1.2345678901234569e23, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#320 T
+Number(FluentNumber { value: 1e-6, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(6), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#321 T
+Number(FluentNumber { value: 1e-7, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#322 T
+Number(FluentNumber { value: 5e-324, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#323 T
+Number(FluentNumber { value: 1.7976931348623157e308, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(20), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#324 T
+Number(FluentNumber { value: inf, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#325 T
+Number(FluentNumber { value: -inf, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#326 T
+Number(FluentNumber { value: NaN, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#327 T
+Number(FluentNumber { value: 3.141569, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(6), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#328 T
+Number(FluentNumber { value: 7.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#329 T
+Number(FluentNumber { value: 5.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#330 T
+Number(FluentNumber { value: 1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(0), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#331 T
+Number(FluentNumber { value: 0.5, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(1), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#332 T
+Number(FluentNumber { value: -1.5, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: Some(1), maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })
+#333 T
+String("1_000")
+#334 T
+String("abc")
+#335 T
+String("")
+#336 T
+String("-")
+#337 L
+zh-GB
+#338 L
+es-MX,pt
+#339 L
+de-DE,und
+#340 L
+en-GB
+#341 L
+en,und,pl
+#342 L
+und
+#343 L
+ja-JP-macos
+#344 L
+en,en-GB,zh-GB,pt-BR
+#345 L
+pt-BR
+#346 L
+und,it,pt
+#347 L
+fr-CA,de-DE,ja-JP-windows,zh-Hant
+#348 L
+de-AT,de-DE,ja-JP-windows,ja-JP-macos
+#349 L
+en-GB,en-US,fr-CA,fr,sr,zh-Hant,es-MX
+#350 L
+en
+#351 L
+und,en-US,sr-RU,pt-BR,pt
+#352 L
+fr-FR
+#353 L
+sr,sr-RU,pt
+#354 L
+en-US,de-AT,pt
+#355 L
+und
+#356 L
+de-DE,fr-FR
+#357 L
+und
+#358 L
+ja-JP-macos
+#359 L
+fr-CA,ja-JP-windows,sr-Latn,zh-Hant,ru
+#360 L
+fr
+#361 L
+und
+#362 L
+zh-GB,ja-JP-macos
+#363 L
+ca-ES-valencia,sr,und
+#364 L
+sr-RU
+#365 L
+pl,en
+#366 L
+en
+#367 L
+fr-FR,fr-CA
+#368 L
+de,zh-US,zh-GB
+#369 L
+sr,pl,sr-Latn
+#370 L
+fr
+#371 L
+sr,und
+#372 L
+und
+#373 L
+en-GB
+#374 L
+en,ja-JP-macos
+#375 L
+zh-GB
+#376 L
+en-GB,en-US,sr-RU,zh-US,pt,de
+#377 L
+sr-Latn
+#378 L
+fr-FR
+#379 L
+es-MX
+#380 L
+sr-Latn
+#381 L
+fr-CA,fr,fr-FR
+#382 L
+es-MX,sr
+#383 L
+pl,es-MX,pt-BR,pt,sr-RU
+#384 L
+zh-US
+#385 L
+en-US,und,zh-Hant,pt-BR
+#386 L
+zh-US
+#387 L
+fr
+#388 L
+de-DE,zh-Hant
+#389 L
+fr-FR,ja-JP-windows,ca-ES-valencia,sr-RU,es-MX
+#390 L
+sr-Latn
+#391 L
+en-US,en-GB,fr,fr-CA,pl,pt-BR
+#392 L
+fr-CA
+#393 L
+sr,sr-RU
+#394 L
+und,de-DE,it
+#395 L
+zh-Hant,sr
+#396 L
+sr,zh-GB
+#397 L
+en,und,en-GB,fr-CA,fr,fr-FR,sr
+#398 L
+fr,fr-CA,ru
+#399 L
+und,en-GB
+#400 L
+en-GB
+#401 L
+ru,es-MX
+#402 L
+und,ca-ES-valencia,sr,ja-JP-macos
+#403 L
+und
+#404 L
+sr
+#405 L
+en-GB,de-DE,ja-JP-macos,zh-GB,sr
+#406 L
+en-US,de-AT,pt
+#407 L
+en,en-US,de,zh-Hant
+#408 L
+pt
+#409 L
+en,zh-US,de
+#410 L
+en-GB
+#411 L
+ca-ES-valencia,sr
+#412 L
+zh-US,en
+#413 L
+
+#414 L
+fr-CA
+#415 L
+sr-Latn
+#416 L
+en,und,en-US,en-GB,fr-FR,pt-BR
+#417 L
+fr-CA
+#418 L
+zh-US,az-IR
+#419 L
+fr-CA,de-DE,it
+#420 L
+fr-CA,de,de-DE,sr-Latn,sr-RU
+#421 L
+de-DE,sr-Latn,und,ja-JP-windows
+#422 L
+und
+#423 L
+und,de-DE,sr-RU,sr-Latn,en
+#424 L
+az-IR,de
+#425 L
+fr,pt-BR
+#426 L
+pt
+#427 L
+en-GB
+#428 L
+
+#429 L
+en,en-GB,pt-BR
+#430 L
+de
+#431 L
+fr-FR,fr,und,de-DE,de,de-AT,sr,sr-RU,zh-GB
+#432 L
+de,ca-ES-valencia,sr,sr-RU,und
+#433 L
+und,sr,az-IR
+#434 L
+sr,sr-Latn,zh-Hant,zh-GB
+#435 L
+fr-CA,zh-US
+#436 L
+sr-Latn,zh-Hant
+#437 L
+
+#438 L
+en
+#439 L
+
+#440 L
+fr-FR,sr,fr
+#441 L
+fr-CA,de-DE,ja-JP-macos,ja-JP-windows
+#442 L
+en,und,sr-Latn,az-IR,pt-BR,fr-FR
+#443 L
+sr,pl
+#444 L
+ru,de-DE
+#445 L
+en,de,und,pt,ru
+#446 L
+und,pt-BR
+#447 L
+zh-US
+#448 L
+es-MX
+#449 L
+fr,sr,pl
+#450 L
+en-GB,und
+#451 L
+und,en-GB,fr-CA,fr,de
+#452 L
+und
+#453 L
+fr
+#454 L
+en-GB
+#455 L
+und
+#456 L
+en-GB,de-DE,de-AT,zh-Hant,zh-GB,pt-BR
+#457 A
+de-AT,de-DE,de
+#458 A
+en,fr,pl
+#459 A
+
+#460 A
+
+#461 A
+en-US
+#462 A
+en
+#463 A
+en
+#464 A
+ja
+#465 R
+Ok(FluentResource(InnerFluentResource { owner: "hello = Hi", dependent: Resource { body: [Message(Message { id: Identifier { name: "hello" }, value: Some(Pattern { elements: [TextElement { value: "Hi" }] }), attributes: [], comment: None })] } }))
+#466 R
+Err((FluentResource(InnerFluentResource { owner: "hello = { $x", dependent: Resource { body: [Junk { content: "hello = { $x" }] } }), [ParserError { pos: 12..13, slice: Some(0..12), kind: ExpectedToken('}') }]))
+#467 R
+Err((FluentResource(InnerFluentResource { owner: "-t = \n", dependent: Resource { body: [Junk { content: "-t = \n" }] } }), [ParserError { pos: 0..6, slice: Some(0..6), kind: ExpectedTermField { entry_id: "t" } }]))
+#468 R
+Err((FluentResource(InnerFluentResource { owner: "a = b\nb = { a", dependent: Resource { body: [Message(Message { id: Identifier { name: "a" }, value: Some(Pattern { elements: [TextElement { value: "b" }] }), attributes: [], comment: None }), Junk { content: "b = { a" }] } }), [ParserError { pos: 13..14, slice: Some(6..13), kind: ExpectedToken('}') }]))
+#469 R
+Err((FluentResource(InnerFluentResource { owner: "x = { \"\\u00\" }", dependent: Resource { body: [Junk { content: "x = { \"\\u00\" }" }] } }), [ParserError { pos: 11..12, slice: Some(0..14), kind: InvalidUnicodeEscapeSequence("00\"") }]))
+#470 V
+Some(FluentArgs([("foo", String("two")), ("n", Number(FluentNumber { value: 2.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("t", String("x😀")), ("x", Number(FluentNumber { value: -9.223372036854776e18, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#471 V
+Some(FluentArgs([("a", Number(FluentNumber { value: 9007199254740992.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("foo", Number(FluentNumber { value: 2.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("n", Number(FluentNumber { value: 0.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("x", String("one"))]))
+#472 V
+Some(FluentArgs([("t", Number(FluentNumber { value: -1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#473 V
+Some(FluentArgs([("a", String("John")), ("n", Number(FluentNumber { value: 5.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("x", Number(FluentNumber { value: 1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#474 V
+Some(FluentArgs([("Name", Number(FluentNumber { value: 1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("b", Number(FluentNumber { value: 1e21, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("foo", Number(FluentNumber { value: 1.8446744073709552e19, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("x", Number(FluentNumber { value: 0.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#475 V
+None
+#476 V
+Some(FluentArgs([("a", String("one")), ("x", Number(FluentNumber { value: 4.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#477 V
+Some(FluentArgs([("Name", Number(FluentNumber { value: 4.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("a", String("false"))]))
+#478 V
+Some(FluentArgs([("a", Number(FluentNumber { value: 1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("b", Error), ("t", String("many")), ("x", Number(FluentNumber { value: 7.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#479 V
+Some(FluentArgs([("Name", Number(FluentNumber { value: 1e-7, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("foo", String("John")), ("n", Number(FluentNumber { value: 0.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#480 V
+Some(FluentArgs([("Name", String("one")), ("a", String("many")), ("b", Number(FluentNumber { value: 0.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("foo", String("John")), ("n", Number(FluentNumber { value: 4.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("t", String("two"))]))
+#481 V
+Some(FluentArgs([("Name", Number(FluentNumber { value: 100.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("a", Number(FluentNumber { value: 100.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("b", String("")), ("n", Error), ("t", String("few")), ("x", None)]))
+#482 V
+Some(FluentArgs([("b", Number(FluentNumber { value: 3.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("n", Number(FluentNumber { value: 1.8446744073709552e19, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("x", String("true"))]))
+#483 V
+Some(FluentArgs([("a", Number(FluentNumber { value: 1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("t", Number(FluentNumber { value: 0.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#484 V
+None
+#485 V
+Some(FluentArgs([("Name", Number(FluentNumber { value: -9.223372036854776e18, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("a", Number(FluentNumber { value: -1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("b", Number(FluentNumber { value: 4.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("n", Number(FluentNumber { value: 1.2345678901234569e23, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("t", String("other"))]))
+#486 V
+Some(FluentArgs([("a", Number(FluentNumber { value: 1e22, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("b", Number(FluentNumber { value: 0.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("t", Number(FluentNumber { value: 1.8446744073709552e19, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("x", Number(FluentNumber { value: 4.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#487 V
+Some(FluentArgs([("Name", Number(FluentNumber { value: -9.223372036854776e18, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("b", Number(FluentNumber { value: 1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("foo", String("ordinal")), ("t", Error), ("x", Number(FluentNumber { value: 1.5, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#488 V
+Some(FluentArgs([("Name", Number(FluentNumber { value: 100.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("a", Number(FluentNumber { value: 3.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("b", String("John")), ("foo", String(""))]))
+#489 V
+Some(FluentArgs([("Name", String("John")), ("a", String("")), ("b", Number(FluentNumber { value: -1.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("foo", Number(FluentNumber { value: 2.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } })), ("n", String("other")), ("x", Number(FluentNumber { value: 5.0, options: FluentNumberOptions { type: Cardinal, style: Decimal, currency: None, currency_display: Symbol, use_grouping: true, minimum_integer_digits: None, minimum_fraction_digits: None, maximum_fraction_digits: None, minimum_significant_digits: None, maximum_significant_digits: None } }))]))
+#490 F
+parse_errs [ParserError { pos: 86..87, slice: Some(69..166), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+=> "ÜnïcödéSTREQ()STREQ()" [ResolverError(Reference(Message { id: "c", attribute: Some("foo") })), ResolverError(Reference(Message { id: "Name", attribute: Some("bar-baz") }))]
+  Resolver error: Unknown attribute: c.foo
+  Resolver error: Unknown attribute: Name.bar-baz
+#491 F
+parse_errs [ParserError { pos: 54..55, slice: Some(24..56), kind: TermAttributeAsPlaceable }]
+streq Ok(())
+=> "{x_1}xx" [ResolverError(Reference(Message { id: "x_1", attribute: None }))]
+  Resolver error: Unknown message: x_1
+#492 F
+builtins Ok(())
+streq Ok(())
+=> "world� world{-t}Hello" [ResolverError(Reference(Term { id: "t", attribute: None }))]
+  Resolver error: Unknown term: -t
+#493 F
+parse_errs [ParserError { pos: 354..355, slice: Some(354..448), kind: ExpectedCharRange { range: "a-zA-Z" } }, ParserError { pos: 657..658, slice: Some(635..732), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+=> "😀\u{2068}{$Name}\u{2069}\u{2068}1.5\u{2069}" [ResolverError(Reference(Variable { id: "Name" }))]
+  Resolver error: Unknown variable: $Name
+#494 F
+parse_errs [ParserError { pos: 174..175, slice: Some(0..268), kind: TermAttributeAsPlaceable }]
+=> "dup" []
+#495 F
+parse_errs [ParserError { pos: 62..63, slice: Some(46..177), kind: InvalidUnicodeEscapeSequence("00\"") }]
+builtins Ok(())
+=> "\u{2068}NUMBER()\u{2069}x" []
+#496 F
+parse_errs [ParserError { pos: 55..56, slice: Some(0..63), kind: ExpectedLiteral }]
+builtins Ok(())
+no message
+#497 F
+builtins Ok(())
+streq Ok(())
+=> "{$n}" [ResolverError(Reference(Variable { id: "n" }))]
+  Resolver error: Unknown variable: $n
+#498 F
+parse_errs [ParserError { pos: 70..71, slice: Some(0..279), kind: TermAttributeAsPlaceable }, ParserError { pos: 553..554, slice: Some(437..555), kind: TermAttributeAsPlaceable }, ParserError { pos: 694..695, slice: Some(581..728), kind: InvalidUnicodeEscapeSequence("00\"") }]
+streq Ok(())
+no message
+#499 F
+parse_errs [ParserError { pos: 207..208, slice: Some(45..285), kind: ExpectedLiteral }, ParserError { pos: 340..341, slice: Some(307..379), kind: InvalidUnicodeEscapeSequence("00\"") }, ParserError { pos: 472..473, slice: Some(467..475), kind: ExpectedToken('=') }]
+=> "😀\\" []
+#500 F
+parse_errs [ParserError { pos: 346..347, slice: Some(191..352), kind: ExpectedLiteral }]
+builtins Ok(())
+streq Ok(())
+=> "NUMBER()" [ResolverError(Reference(Term { id: "brand", attribute: Some("attr") }))]
+  Resolver error: Unknown attribute: -brand.attr
+#501 F
+parse_errs [ParserError { pos: 59..60, slice: Some(54..62), kind: ExpectedToken('=') }]
+builtins Ok(())
+streq Ok(())
+=> "x" []
+#502 F
+parse_errs [ParserError { pos: 120..121, slice: Some(67..219), kind: TermAttributeAsPlaceable }]
+streq Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "\u{2068}\\\u{2069}😀" []
+#503 F
+builtins Ok(())
+streq Ok(())
+=> "NUMBER()" []
+#504 F
+parse_errs [ParserError { pos: 190..191, slice: Some(185..193), kind: ExpectedToken('=') }]
+builtins Ok(())
+streq Ok(())
+=> "\u{2068}😀 world😀\u{2069}\u{2068}NUMBER()\u{2069}" [ResolverError(Reference(Term { id: "t", attribute: Some("attr") }))]
+  Resolver error: Unknown attribute: -t.attr
+#505 F
+parse_errs [ParserError { pos: 417..418, slice: Some(336..527), kind: ExpectedLiteral }]
+builtins Ok(())
+streq Ok(())
+=> "{-brand}\u{2068}\"\u{2069}Ünïcödé" [ResolverError(Reference(Term { id: "brand", attribute: None }))]
+  Resolver error: Unknown term: -brand
+#506 F
+parse_errs [ParserError { pos: 22..23, slice: Some(0..43), kind: ExpectedLiteral }]
+builtins Ok(())
+no message
+#507 F
+builtins Ok(())
+streq Ok(())
+no pattern
+#508 F
+parse_errs [ParserError { pos: 13..14, slice: Some(0..17), kind: InvalidUnicodeEscapeSequence("00\"") }, ParserError { pos: 30..31, slice: Some(30..60), kind: ExpectedCharRange { range: "a-zA-Z" } }]
+builtins Ok(())
+no message
+#509 F
+builtins Ok(())
+streq Ok(())
+=> "\u{2068}{$c}\u{2069}x" [ResolverError(Reference(Variable { id: "c" }))]
+  Resolver error: Unknown variable: $c
+#510 F
+builtins Ok(())
+streq Ok(())
+=> "{foo}world" [ResolverError(Reference(Message { id: "foo", attribute: None }))]
+  Resolver error: Unknown message: foo
+#511 F
+parse_errs [ParserError { pos: 425..426, slice: Some(393..508), kind: TermAttributeAsPlaceable }]
+streq Ok(())
+=> "worldHello2" []
+#512 F
+builtins Ok(())
+streq Ok(())
+=> "😀-1" []
+#513 F
+builtins Ok(())
+=> "HelloNUMBER()world{a.x_1}" [ResolverError(Reference(Variable { id: "bar-baz" })), ResolverError(Reference(Variable { id: "bar-baz" })), ResolverError(Reference(Message { id: "a", attribute: Some("x_1") }))]
+  Resolver error: Unknown variable: $bar-baz
+  Resolver error: Unknown variable: $bar-baz
+  Resolver error: Unknown attribute: a.x_1
+#514 F
+builtins Ok(())
+streq Ok(())
+=> "text" []
+#515 F
+parse_errs [ParserError { pos: 143..144, slice: Some(74..185), kind: ExpectedLiteral }, ParserError { pos: 372..373, slice: Some(303..516), kind: InvalidUnicodeEscapeSequence("00\"") }]
+streq Ok(())
+=> "worldHello" [ResolverError(Reference(Variable { id: "b" }))]
+  Resolver error: Unknown variable: $b
+#516 F
+parse_errs [ParserError { pos: 152..153, slice: Some(44..232), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+no pattern
+#517 F
+parse_errs [ParserError { pos: 121..122, slice: Some(63..138), kind: ExpectedLiteral }]
+builtins Ok(())
+=> "Hellox😀" []
+#518 F
+builtins Ok(())
+=> "Ünïcödéx" []
+#519 F
+builtins Ok(())
+streq Ok(())
+=> "{$b}{x_1.Name}" [ResolverError(Reference(Variable { id: "b" })), ResolverError(Reference(Term { id: "t", attribute: Some("attr") })), ResolverError(Reference(Message { id: "x_1", attribute: Some("Name") }))]
+  Resolver error: Unknown variable: $b
+  Resolver error: Unknown attribute: -t.attr
+  Resolver error: Unknown attribute: x_1.Name
+#520 F
+parse_errs [ParserError { pos: 13..14, slice: Some(0..36), kind: InvalidUnicodeEscapeSequence("00\"") }, ParserError { pos: 149..150, slice: Some(36..256), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+no message
+#521 F
+builtins Ok(())
+streq Ok(())
+=> "0 worldworld1{$c}" [ResolverError(Reference(Term { id: "t", attribute: Some("attr") })), ResolverError(Reference(Variable { id: "c" }))]
+  Resolver error: Unknown attribute: -t.attr
+  Resolver error: Unknown variable: $c
+#522 F
+builtins Ok(())
+streq Ok(())
+=> "{$c}Hello" [ResolverError(Reference(Variable { id: "c" }))]
+  Resolver error: Unknown variable: $c
+#523 F
+parse_errs [ParserError { pos: 117..118, slice: Some(117..271), kind: ExpectedCharRange { range: "a-zA-Z" } }, ParserError { pos: 411..412, slice: Some(346..466), kind: TermAttributeAsPlaceable }]
+streq Ok(())
+=> "Hello worldÜnïcödéx" []
+#524 F
+builtins Ok(())
+=> "world  world" []
+#525 F
+parse_errs [ParserError { pos: 132..133, slice: Some(127..135), kind: ExpectedToken('=') }]
+builtins Ok(())
+streq Ok(())
+=> "9007199254740992" []
+#526 F
+parse_errs [ParserError { pos: 8..9, slice: Some(8..37), kind: ExpectedCharRange { range: "a-zA-Z" } }, ParserError { pos: 105..106, slice: Some(37..107), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+no pattern
+#527 F
+builtins Ok(())
+streq Ok(())
+no pattern
+#528 F
+streq Ok(())
+=> "Ünïcödé" []
+#529 F
+builtins Ok(())
+=> "😀{$bar-baz}Ünïcödé" [ResolverError(Reference(Variable { id: "bar-baz" }))]
+  Resolver error: Unknown variable: $bar-baz
+#530 F
+parse_errs [ParserError { pos: 54..55, slice: Some(0..154), kind: InvalidUnicodeEscapeSequence("00\"") }]
+streq Ok(())
+no message
+#531 F
+streq Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "world world{$x_1}" [ResolverError(Reference(Variable { id: "x_1" }))]
+  Resolver error: Unknown variable: $x_1
+#532 F
+parse_errs [ParserError { pos: 119..120, slice: Some(24..121), kind: TermAttributeAsPlaceable }, ParserError { pos: 167..168, slice: Some(138..285), kind: ExpectedLiteral }]
+builtins Ok(())
+streq Ok(())
+=> "{$bar-baz}{$a}😀 world�xxÜnïcödé" []
+#533 F
+builtins Ok(())
+streq Ok(())
+=> "Ünïcödé" []
+#534 F
+parse_errs [ParserError { pos: 131..132, slice: Some(131..252), kind: ExpectedCharRange { range: "a-zA-Z" } }, ParserError { pos: 269..270, slice: Some(252..365), kind: ExpectedLiteral }]
+builtins Ok(())
+streq Ok(())
+=> "😀" [ResolverError(Reference(Variable { id: "n" }))]
+  Resolver error: Unknown variable: $n
+#535 F
+streq Ok(())
+=> "Ünïcödé" []
+#536 F
+builtins Ok(())
+streq Ok(())
+=> "Hello{$n}Ünïcödé world" [ResolverError(Reference(Variable { id: "n" }))]
+  Resolver error: Unknown variable: $n
+#537 F
+builtins Ok(())
+streq Ok(())
+=> "{$a} world world" [ResolverError(Reference(Variable { id: "a" }))]
+  Resolver error: Unknown variable: $a
+#538 F
+builtins Ok(())
+=> "{$a}Hello" [ResolverError(Reference(Variable { id: "a" }))]
+  Resolver error: Unknown variable: $a
+#539 F
+builtins Ok(())
+streq Ok(())
+=> "{$foo}" [ResolverError(Reference(Variable { id: "foo" }))]
+  Resolver error: Unknown variable: $foo
+#540 F
+streq Ok(())
+no pattern
+#541 F
+builtins Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "{bar-baz.c}" [ResolverError(Reference(Message { id: "bar-baz", attribute: Some("c") }))]
+  Resolver error: Unknown attribute: bar-baz.c
+#542 F
+builtins Ok(())
+streq Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "worldSTREQ()" [ResolverError(Reference(Variable { id: "Name" })), ResolverError(Reference(Variable { id: "c" }))]
+  Resolver error: Unknown variable: $Name
+  Resolver error: Unknown variable: $c
+#543 F
+parse_errs [ParserError { pos: 201..202, slice: Some(146..276), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+=> "worldÜnïcödéHello" []
+#544 F
+streq Ok(())
+no pattern
+#545 F
+parse_errs [ParserError { pos: 181..182, slice: Some(23..186), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+=> "3 {$Name}" [ResolverError(Reference(Variable { id: "Name" }))]
+  Resolver error: Unknown variable: $Name
+#546 F
+builtins Ok(())
+streq Ok(())
+=> "x\u{2068}NUMBER()\u{2069}\u{2068}{a}\u{2069}" [ResolverError(Reference(Variable { id: "x_1" })), ResolverError(Reference(Message { id: "a", attribute: None }))]
+  Resolver error: Unknown variable: $x_1
+  Resolver error: Unknown message: a
+#547 F
+builtins Ok(())
+streq Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "Hello😀{foo}" [ResolverError(Reference(Message { id: "foo", attribute: None }))]
+  Resolver error: Unknown message: foo
+#548 F
+builtins Ok(())
+streq Ok(())
+=> "\u{2068}{$bar-baz}\u{2069}{-brand}" [ResolverError(Reference(Variable { id: "bar-baz" })), ResolverError(Reference(Term { id: "brand", attribute: None }))]
+  Resolver error: Unknown variable: $bar-baz
+  Resolver error: Unknown term: -brand
+#549 F
+parse_errs [ParserError { pos: 24..25, slice: Some(0..28), kind: InvalidUnicodeEscapeSequence("00\"") }]
+builtins Ok(())
+no message
+#550 F
+builtins Ok(())
+streq Ok(())
+=> "{$Name}" [ResolverError(Reference(Variable { id: "Name" }))]
+  Resolver error: Unknown variable: $Name
+#551 F
+streq Ok(())
+=> "{foo}{NUMBER()}Ünïcödé" [ResolverError(Reference(Message { id: "foo", attribute: None })), ResolverError(Reference(Function { id: "NUMBER" }))]
+  Resolver error: Unknown message: foo
+  Resolver error: Unknown function: NUMBER()
+#552 F
+parse_errs [ParserError { pos: 63..64, slice: Some(34..65), kind: TermAttributeAsPlaceable }]
+streq Ok(())
+=> "😀" []
+#553 F
+parse_errs [ParserError { pos: 49..50, slice: Some(0..240), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+no message
+#554 F
+parse_errs [ParserError { pos: 72..73, slice: Some(67..75), kind: ExpectedToken('=') }]
+streq Ok(())
+=> "\u{2068}\u{2068}0\u{2069}str\u{2069}😀\u{2068}1\u{2069}" []
+#555 F
+parse_errs [ParserError { pos: 33..34, slice: Some(0..39), kind: ExpectedLiteral }, ParserError { pos: 204..205, slice: Some(199..207), kind: ExpectedToken('=') }]
+builtins Ok(())
+no message
+#556 F
+builtins Ok(())
+streq Ok(())
+=> "{$c}Hello😀" [ResolverError(Reference(Variable { id: "c" }))]
+  Resolver error: Unknown variable: $c
+#557 F
+parse_errs [ParserError { pos: 88..89, slice: Some(88..172), kind: ExpectedCharRange { range: "a-zA-Z" } }]
+builtins Ok(())
+=> "xHello" [ResolverError(Reference(Term { id: "t", attribute: Some("attr") }))]
+  Resolver error: Unknown attribute: -t.attr
+#558 F
+parse_errs [ParserError { pos: 374..375, slice: Some(319..385), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+no pattern
+#559 F
+parse_errs [ParserError { pos: 54..55, slice: Some(0..153), kind: ExpectedLiteral }]
+builtins Ok(())
+no message
+#560 F
+parse_errs [ParserError { pos: 225..226, slice: Some(103..332), kind: TermAttributeAsPlaceable }, ParserError { pos: 367..368, slice: Some(344..390), kind: TermAttributeAsPlaceable }]
+streq Ok(())
+=> "a𑀀0😀{$x_1}" [ResolverError(Reference(Variable { id: "x_1" }))]
+  Resolver error: Unknown variable: $x_1
+#561 F
+builtins Ok(())
+streq Ok(())
+=> "NUMBER()Ünïcödéx" []
+#562 F
+=> "Ünïcödé world" [ResolverError(Reference(Variable { id: "n" }))]
+  Resolver error: Unknown variable: $n
+#563 F
+builtins Ok(())
+streq Ok(())
+=> "{$c}" [ResolverError(Reference(Variable { id: "c" }))]
+  Resolver error: Unknown variable: $c
+#564 F
+parse_errs [ParserError { pos: 100..101, slice: Some(58..207), kind: InvalidUnicodeEscapeSequence("00\"") }]
+builtins Ok(())
+streq Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "world" []
+#565 F
+parse_errs [ParserError { pos: 78..79, slice: Some(60..81), kind: TermAttributeAsPlaceable }, ParserError { pos: 94..95, slice: Some(81..155), kind: InvalidUnicodeEscapeSequence("00\"") }]
+builtins Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "world" []
+#566 F
+builtins Ok(())
+=> "{$b}😀{$Name} world" [ResolverError(Reference(Variable { id: "b" })), ResolverError(Reference(Variable { id: "Name" }))]
+  Resolver error: Unknown variable: $b
+  Resolver error: Unknown variable: $Name
+#567 F
+=> "{STREQ()}Hello" [ResolverError(Reference(Term { id: "t", attribute: Some("attr") })), ResolverError(Reference(Function { id: "STREQ" })), ResolverError(Reference(Variable { id: "n" }))]
+  Resolver error: Unknown attribute: -t.attr
+  Resolver error: Unknown function: STREQ()
+  Resolver error: Unknown variable: $n
+#568 F
+builtins Ok(())
+streq Ok(())
+=> "Ünïcödéx{n}x world" [ResolverError(Reference(Message { id: "n", attribute: None }))]
+  Resolver error: Unknown message: n
+#569 F
+parse_errs [ParserError { pos: 104..105, slice: Some(87..226), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+=> "Hello" []
+#570 F
+parse_errs [ParserError { pos: 30..31, slice: Some(0..36), kind: ExpectedLiteral }, ParserError { pos: 186..187, slice: Some(94..224), kind: ExpectedLiteral }]
+builtins Ok(())
+no message
+#571 F
+parse_errs [ParserError { pos: 201..202, slice: Some(47..299), kind: InvalidUnicodeEscapeSequence("00\"") }]
+builtins Ok(())
+=> "{n}" [ResolverError(Reference(Message { id: "n", attribute: None }))]
+  Resolver error: Unknown message: n
+#572 F
+parse_errs [ParserError { pos: 194..195, slice: Some(111..228), kind: TermAttributeAsPlaceable }, ParserError { pos: 375..376, slice: Some(352..407), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+=> "Ünïcödéstr" []
+#573 F
+parse_errs [ParserError { pos: 160..161, slice: Some(0..353), kind: ExpectedLiteral }]
+builtins Ok(())
+no message
+#574 F
+builtins Ok(())
+streq Ok(())
+no pattern
+#575 F
+parse_errs [ParserError { pos: 292..293, slice: Some(180..325), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+=> "Hello😀" [ResolverError(Reference(Variable { id: "n" }))]
+  Resolver error: Unknown variable: $n
+#576 F
+builtins Ok(())
+=> "😀x" []
+#577 F
+builtins Ok(())
+=> "5Ünïcödé😀Ünïcödé" []
+#578 F
+parse_errs [ParserError { pos: 172..173, slice: Some(0..272), kind: InvalidUnicodeEscapeSequence("00\"") }]
+builtins Ok(())
+streq Ok(())
+=> "dup" []
+#579 F
+builtins Ok(())
+streq Ok(())
+no pattern
+#580 F
+builtins Ok(())
+streq Ok(())
+=> "STREQ()" []
+#581 F
+parse_errs [ParserError { pos: 483..484, slice: Some(483..766), kind: ExpectedCharRange { range: "a-zA-Z" } }, ParserError { pos: 888..889, slice: Some(883..891), kind: ExpectedToken('=') }]
+builtins Ok(())
+streq Ok(())
+=> "Hello\u{2068}😀 world\u{2069}x" [ResolverError(Reference(Variable { id: "n" }))]
+  Resolver error: Unknown variable: $n
+#582 F
+builtins Ok(())
+streq Ok(())
+=> "AÜnïcödé" []
+#583 F
+builtins Ok(())
+streq Ok(())
+=> "x" []
+#584 F
+builtins Ok(())
+streq Ok(())
+=> "Hello" []
+#585 F
+streq Ok(())
+no pattern
+#586 F
+parse_errs [ParserError { pos: 89..90, slice: Some(26..94), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+=> "NUMBER()" [ResolverError(Reference(Message { id: "a", attribute: Some("a") }))]
+  Resolver error: Unknown attribute: a.a
+#587 F
+parse_errs [ParserError { pos: 100..101, slice: Some(95..103), kind: ExpectedToken('=') }]
+builtins Ok(())
+no pattern
+#588 F
+builtins Ok(())
+=> "text" []
+#589 F
+parse_errs [ParserError { pos: 241..242, slice: Some(72..255), kind: ExpectedLiteral }]
+builtins Ok(())
+=> "world" []
+#590 F
+streq Ok(())
+=> "\u{2068}{NUMBER()}\u{2069}xÜnïcödé" [ResolverError(Reference(Function { id: "NUMBER" }))]
+  Resolver error: Unknown function: NUMBER()
+#591 F
+parse_errs [ParserError { pos: 144..145, slice: Some(24..168), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "xx{$a}" [ResolverError(Reference(Variable { id: "a" }))]
+  Resolver error: Unknown variable: $a
+#592 F
+parse_errs [ParserError { pos: 173..174, slice: Some(101..305), kind: ExpectedLiteral }]
+builtins Ok(())
+=> "Hello" []
+#593 F
+parse_errs [ParserError { pos: 111..112, slice: Some(65..212), kind: TermAttributeAsPlaceable }]
+streq Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "Ünïcödé" []
+#594 F
+parse_errs [ParserError { pos: 181..182, slice: Some(181..328), kind: ExpectedCharRange { range: "a-zA-Z" } }, ParserError { pos: 469..470, slice: Some(353..607), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+=> "{-brand}" [ResolverError(Reference(Term { id: "brand", attribute: None }))]
+  Resolver error: Unknown term: -brand
+#595 F
+parse_errs [ParserError { pos: 32..33, slice: Some(32..88), kind: ExpectedCharRange { range: "a-zA-Z" } }]
+streq Ok(())
+=> "world😀\u{2068}{$n}\u{2069}" [ResolverError(Reference(Variable { id: "n" }))]
+  Resolver error: Unknown variable: $n
+#596 F
+parse_errs [ParserError { pos: 144..145, slice: Some(45..203), kind: ExpectedLiteral }]
+builtins Ok(())
+streq Ok(())
+=> "\u{2068}{$x_1}\u{2069}\u{2068}{$x_1}\u{2069}Hello" [ResolverError(Reference(Variable { id: "x_1" })), ResolverError(Reference(Variable { id: "x_1" }))]
+  Resolver error: Unknown variable: $x_1
+  Resolver error: Unknown variable: $x_1
+#597 F
+parse_errs [ParserError { pos: 296..297, slice: Some(265..298), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+=> "world" []
+#598 F
+builtins Ok(())
+streq Ok(())
+=> "{-term}�😀" [ResolverError(Reference(Term { id: "term", attribute: None }))]
+  Resolver error: Unknown term: -term
+#599 F
+parse_errs [ParserError { pos: 358..359, slice: Some(306..437), kind: ExpectedLiteral }]
+streq Ok(())
+=> "😀2.501" []
+#600 F
+parse_errs [ParserError { pos: 19..20, slice: Some(0..137), kind: TermAttributeAsPlaceable }, ParserError { pos: 148..149, slice: Some(137..152), kind: InvalidUnicodeEscapeSequence("00\"") }]
+builtins Ok(())
+streq Ok(())
+no message
+#601 F
+streq Ok(())
+=> "x" []
+#602 F
+parse_errs [ParserError { pos: 70..71, slice: Some(54..78), kind: InvalidUnicodeEscapeSequence("00\"") }]
+builtins Ok(())
+=> "Hello" []
+#603 F
+parse_errs [ParserError { pos: 277..278, slice: Some(167..400), kind: ExpectedLiteral }]
+builtins Ok(())
+streq Ok(())
+no pattern
+#604 F
+parse_errs [ParserError { pos: 205..206, slice: Some(87..218), kind: TermAttributeAsPlaceable }]
+=> "1.000" []
+#605 F
+parse_errs [ParserError { pos: 103..104, slice: Some(30..166), kind: ExpectedLiteral }]
+builtins Ok(())
+streq Ok(())
+=> "x😀" []
+#606 F
+parse_errs [ParserError { pos: 196..197, slice: Some(130..243), kind: TermAttributeAsPlaceable }]
+builtins Ok(())
+streq Ok(())
+=> "{$a} world" [ResolverError(Reference(Variable { id: "a" }))]
+  Resolver error: Unknown variable: $a
+#607 F
+builtins Ok(())
+=> "x Ünïcödé" []
+#608 F
+builtins Ok(())
+streq Ok(())
+add [Overriding { kind: Message, id: "msg" }]
+  Attempt to override an existing message: "msg".
+=> "x😀" []
+#609 F
+parse_errs [ParserError { pos: 13..14, slice: Some(0..41), kind: InvalidUnicodeEscapeSequence("00\"") }]
+builtins Ok(())
+no message
+#610 F
+builtins Ok(())
+=> "X 19.000" []
+#611 F
+builtins Ok(())
+=> "O 1.5" []
+#612 F
+builtins Ok(())
+=> "X NUMBER()" []
+#613 F
+builtins Ok(())
+=> "X 12.0" []
+#614 F
+builtins Ok(())
+=> "X 0.5" []
+#615 F
+builtins Ok(())
+=> "O 21.1" []
+#616 F
+builtins Ok(())
+=> "X 7" []
+#617 F
+builtins Ok(())
+=> "O -1" []
+#618 F
+builtins Ok(())
+=> "X 0.000" []
+#619 F
+builtins Ok(())
+=> "X 6.0" []
+#620 F
+builtins Ok(())
+=> "X 102.0" []
+#621 F
+builtins Ok(())
+=> "X 2.0" []
+#622 F
+builtins Ok(())
+=> "X 4" []
+#623 F
+builtins Ok(())
+=> "M 100" []
+#624 F
+builtins Ok(())
+=> "X 1.000" []
+#625 F
+builtins Ok(())
+=> "X 2.000" []
+#626 F
+builtins Ok(())
+=> "M 23" []
+#627 F
+builtins Ok(())
+=> "X 0.0" []
+#628 F
+builtins Ok(())
+=> "O 1" []
+#629 F
+builtins Ok(())
+=> "X 21" []
+#630 F
+builtins Ok(())
+=> "X 2.1" []
+#631 F
+builtins Ok(())
+=> "X NUMBER()" []
+#632 F
+builtins Ok(())
+=> "X 13.000" []
+#633 F
+builtins Ok(())
+=> "X 1.5" []
+#634 F
+builtins Ok(())
+=> "X -0.0" []
+#635 F
+builtins Ok(())
+=> "X 12" []
+#636 F
+builtins Ok(())
+=> "T -2" []
+#637 F
+builtins Ok(())
+=> "X 1.50" []
+#638 F
+builtins Ok(())
+=> "M 7" []
+#639 F
+builtins Ok(())
+=> "X 1000000.000" []
+#640 F
+builtins Ok(())
+=> "X 0.0" []
+#641 F
+builtins Ok(())
+=> "X 5.0" []
+#642 F
+builtins Ok(())
+=> "X 102" []
+#643 F
+builtins Ok(())
+=> "O 1.00" []
+#644 F
+builtins Ok(())
+=> "F 3" []
+#645 F
+builtins Ok(())
+=> "F 100" []
+#646 F
+builtins Ok(())
+=> "X 1000000000000000000000.000" []
+#647 F
+builtins Ok(())
+=> "F 2" []
+#648 F
+builtins Ok(())
+=> "X 22.0" []
+#649 F
+builtins Ok(())
+=> "X 0" []
+#650 F
+builtins Ok(())
+=> "X 0" []
+#651 F
+builtins Ok(())
+=> "Z 19" []
+#652 F
+builtins Ok(())
+=> "X 2.100" []
+#653 F
+builtins Ok(())
+=> "X NUMBER()" []
+#654 F
+builtins Ok(())
+=> "M 13" []
+#655 F
+builtins Ok(())
+=> "X 0.5" []
+#656 F
+builtins Ok(())
+=> "X -0" []
+#657 F
+builtins Ok(())
+=> "X 11" []
+#658 F
+builtins Ok(())
+=> "O -1" []
+#659 F
+builtins Ok(())
+=> "M 1.50" []
+#660 F
+builtins Ok(())
+=> "X 6.000" []
+#661 F
+builtins Ok(())
+=> "X 1000000.0" []
+#662 F
+builtins Ok(())
+=> "X 2.0" []
+#663 F
+builtins Ok(())
+=> "X 5" []
+#664 F
+builtins Ok(())
+=> "X 101" []
+#665 F
+builtins Ok(())
+=> "X 1.0" []
+#666 F
+builtins Ok(())
+=> "X 3.000" []
+#667 F
+builtins Ok(())
+=> "X 23.000" []
+#668 F
+builtins Ok(())
+=> "X 1000000000000000000000.0" []
+#669 F
+builtins Ok(())
+=> "X 1.0" []
+#670 F
+builtins Ok(())
+=> "X 22" []
+#671 F
+builtins Ok(())
+=> "X 1.1" []
+#672 F
+builtins Ok(())
+=> "X NUMBER()" []
+#673 F
+builtins Ok(())
+=> "X 19.000" []
+#674 F
+builtins Ok(())
+=> "X 1.500" []
+#675 F
+builtins Ok(())
+=> "X NUMBER()" []
+#676 F
+builtins Ok(())
+=> "X 12.0" []
+#677 F
+builtins Ok(())
+=> "M 0.5" []
+#678 F
+builtins Ok(())
+=> "O 21.1" []
+#679 F
+builtins Ok(())
+=> "F 7" []
+#680 F
+builtins Ok(())
+=> "O -1" []
+#681 F
+builtins Ok(())
+=> "X 0.000" []
+#682 F
+builtins Ok(())
+=> "X 6.0" []
+#683 F
+builtins Ok(())
+=> "X 102.0" []
+#684 F
+builtins Ok(())
+=> "X 2.0" []
+#685 F
+builtins Ok(())
+=> "X 4" []
+#686 F
+builtins Ok(())
+=> "X 100" []
+#687 F
+builtins Ok(())
+=> "X 1.000" []
+#688 F
+builtins Ok(())
+=> "X 2.000" []
+#689 F
+builtins Ok(())
+=> "F 23" []
+#690 F
+builtins Ok(())
+=> "X 0.0" []
+#691 F
+builtins Ok(())
+=> "O 1" []
+#692 F
+builtins Ok(())
+=> "X 21" []
+#693 F
+builtins Ok(())
+=> "X 2.1" []
+#694 F
+builtins Ok(())
+=> "X NUMBER()" []
+#695 F
+builtins Ok(())
+=> "X 13.000" []
+#696 F
+builtins Ok(())
+=> "X 1.5" []
+#697 F
+builtins Ok(())
+=> "X -0.0" []
+#698 F
+builtins Ok(())
+=> "X 12" []
+#699 F
+builtins Ok(())
+=> "O -2" []
+#700 F
+builtins Ok(())
+=> "X 1.50" []
+#701 F
+builtins Ok(())
+=> "X 7.000" []
+#702 F
+builtins Ok(())
+=> "X 1000000.000" []
+#703 F
+builtins Ok(())
+=> "Z 0.0" []
+#704 F
+builtins Ok(())
+=> "X 5.0" []
+#705 F
+builtins Ok(())
+=> "X 102" []
+#706 F
+builtins Ok(())
+=> "O 1.00" []
+#707 F
+builtins Ok(())
+=> "X 3" []
+#708 F
+builtins Ok(())
+=> "X 100.000" []
+#709 F
+builtins Ok(())
+=> "X 1000000000000000000000.000" []
+#710 F
+builtins Ok(())
+=> "X 2.0" []
+#711 F
+builtins Ok(())
+=> "X 22.0" []
+#712 F
+builtins Ok(())
+=> "X 0" []
+#713 F
+builtins Ok(())
+=> "X 0" []
+#714 F
+builtins Ok(())
+=> "X 19" []
+#715 F
+builtins Ok(())
+=> "X 2.100" []
+#716 F
+builtins Ok(())
+=> "X NUMBER()" []
+#717 F
+builtins Ok(())
+=> "X 13.0" []
+#718 F
+builtins Ok(())
+=> "X 0.5" []
+#719 F
+builtins Ok(())
+=> "Z -0" []
+#720 F
+builtins Ok(())
+=> "X 11" []
+#721 F
+builtins Ok(())
+=> "O -1" []
+#722 F
+builtins Ok(())
+=> "O 1.50" []
+#723 F
+builtins Ok(())
+=> "X 6.000" []
+#724 F
+builtins Ok(())
+=> "X 1000000.0" []
+#725 F
+builtins Ok(())
+=> "T 2.0" []
+#726 F
+builtins Ok(())
+=> "O 5" []
+#727 F
+builtins Ok(())
+=> "X 101" []
+#728 F
+builtins Ok(())
+=> "O 1.0" []
+#729 F
+builtins Ok(())
+=> "X 3.000" []
+#730 F
+builtins Ok(())
+=> "X 23.000" []
+#731 F
+builtins Ok(())
+=> "X 1000000000000000000000.0" []
+#732 F
+builtins Ok(())
+=> "O 1" []
+#733 F
+builtins Ok(())
+=> "X 22" []
+#734 F
+builtins Ok(())
+=> "X 1.1" []
+#735 F
+builtins Ok(())
+=> "X NUMBER()" []
+#736 F
+=> "T\u{2068}7\u{2069} \u{2068}few\u{2069}" []

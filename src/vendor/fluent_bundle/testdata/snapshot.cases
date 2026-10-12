@@ -1,0 +1,736 @@
+# fluent-bundle oracle snapshot cases: sampled from a scratch generator; snapshot.expected is the output of the pinned crates (fluent-bundle 0.16.0 etc.), see docs/handoff/fluent-bundle.md
+N	0	-
+N	0	0
+N	0	1
+N	0	2
+N	0	3
+N	0	6
+N	0	19
+N	0	20
+N	0	21
+N	0	25
+N	1	-
+N	1	0
+N	1	1
+N	1	2
+N	1	3
+N	1	6
+N	1	19
+N	1	20
+N	1	21
+N	1	25
+N	1.5	-
+N	1.5	0
+N	1.5	1
+N	1.5	2
+N	1.5	3
+N	1.5	6
+N	1.5	19
+N	1.5	20
+N	1.5	21
+N	1.5	25
+N	0.1	-
+N	0.1	0
+N	0.1	1
+N	0.1	2
+N	0.1	3
+N	0.1	6
+N	0.1	19
+N	0.1	20
+N	0.1	21
+N	0.1	25
+N	2.25	-
+N	2.25	0
+N	2.25	1
+N	2.25	2
+N	2.25	3
+N	2.25	6
+N	2.25	19
+N	2.25	20
+N	2.25	21
+N	2.25	25
+N	-0	-
+N	-0	0
+N	-0	1
+N	-0	2
+N	-0	3
+N	-0	6
+N	-0	19
+N	-0	20
+N	-0	21
+N	-0	25
+N	-1.5	-
+N	-1.5	0
+N	-1.5	1
+N	-1.5	2
+N	-1.5	3
+N	-1.5	6
+N	-1.5	19
+N	-1.5	20
+N	-1.5	21
+N	-1.5	25
+N	1e21	-
+N	1e21	0
+N	1e21	1
+N	1e21	2
+N	1e21	3
+N	1e21	6
+N	1e21	19
+N	1e21	20
+N	1e21	21
+N	1e21	25
+N	1e-7	-
+N	1e-7	0
+N	1e-7	1
+N	1e-7	2
+N	1e-7	3
+N	1e-7	6
+N	1e-7	19
+N	1e-7	20
+N	1e-7	21
+N	1e-7	25
+N	NaN	-
+N	NaN	0
+N	NaN	1
+N	NaN	2
+N	NaN	3
+N	NaN	6
+N	NaN	19
+N	NaN	20
+N	NaN	21
+N	NaN	25
+N	inf	-
+N	inf	0
+N	inf	1
+N	inf	2
+N	inf	3
+N	inf	6
+N	inf	19
+N	inf	20
+N	inf	21
+N	inf	25
+N	-inf	-
+N	-inf	0
+N	-inf	1
+N	-inf	2
+N	-inf	3
+N	-inf	6
+N	-inf	19
+N	-inf	20
+N	-inf	21
+N	-inf	25
+N	100	-
+N	100	0
+N	100	1
+N	100	2
+N	100	3
+N	100	6
+N	100	19
+N	100	20
+N	100	21
+N	100	25
+N	0.30000000000000004	-
+N	0.30000000000000004	0
+N	0.30000000000000004	1
+N	0.30000000000000004	2
+N	0.30000000000000004	3
+N	0.30000000000000004	6
+N	0.30000000000000004	19
+N	0.30000000000000004	20
+N	0.30000000000000004	21
+N	0.30000000000000004	25
+N	5e-324	-
+N	5e-324	0
+N	5e-324	1
+N	5e-324	2
+N	5e-324	3
+N	5e-324	6
+N	5e-324	19
+N	5e-324	20
+N	5e-324	21
+N	5e-324	25
+N	123456.789	-
+N	123456.789	0
+N	123456.789	1
+N	123456.789	2
+N	123456.789	3
+N	123456.789	6
+N	123456.789	19
+N	123456.789	20
+N	123456.789	21
+N	123456.789	25
+N	1.7976931348623157e308	-
+N	1.7976931348623157e308	0
+N	1.7976931348623157e308	1
+N	1.7976931348623157e308	2
+N	1.7976931348623157e308	3
+N	1.7976931348623157e308	6
+N	1.7976931348623157e308	19
+N	1.7976931348623157e308	20
+N	1.7976931348623157e308	21
+N	1.7976931348623157e308	25
+N	12345678901234567890	-
+N	12345678901234567890	0
+N	12345678901234567890	1
+N	12345678901234567890	2
+N	12345678901234567890	3
+N	12345678901234567890	6
+N	12345678901234567890	19
+N	12345678901234567890	20
+N	12345678901234567890	21
+N	12345678901234567890	25
+N	0.5	-
+N	0.5	0
+N	0.5	1
+N	0.5	2
+N	0.5	3
+N	0.5	6
+N	0.5	19
+N	0.5	20
+N	0.5	21
+N	0.5	25
+N	10	-
+N	10	0
+N	10	1
+N	10	2
+N	10	3
+N	10	6
+N	10	19
+N	10	20
+N	10	21
+N	10	25
+N	1.25	-
+N	1.25	0
+N	1.25	1
+N	1.25	2
+N	1.25	3
+N	1.25	6
+N	1.25	19
+N	1.25	20
+N	1.25	21
+N	1.25	25
+N	0	4294967296	o
+N	0	4294967297	o
+N	0	4294967298	o
+N	0	4294967295	o
+N	1	4294967296	o
+N	1	4294967297	o
+N	1	4294967298	o
+N	1	4294967295	o
+N	1.5	4294967296	o
+N	1.5	4294967297	o
+N	1.5	4294967298	o
+N	1.5	4294967295	o
+N	0.1	4294967296	o
+N	0.1	4294967297	o
+N	0.1	4294967298	o
+N	0.1	4294967295	o
+N	2.25	4294967296	o
+N	2.25	4294967297	o
+N	2.25	4294967298	o
+N	2.25	4294967295	o
+N	-0	4294967296	o
+N	-0	4294967297	o
+N	-0	4294967298	o
+N	-0	4294967295	o
+N	-1.5	4294967296	o
+N	-1.5	4294967297	o
+N	-1.5	4294967298	o
+N	-1.5	4294967295	o
+N	1e21	4294967296	o
+N	1e21	4294967297	o
+N	1e21	4294967298	o
+N	1e21	4294967295	o
+N	1e-7	4294967296	o
+N	1e-7	4294967297	o
+N	1e-7	4294967298	o
+N	1e-7	4294967295	o
+N	NaN	4294967296	o
+N	NaN	4294967297	o
+N	NaN	4294967298	o
+N	NaN	4294967295	o
+N	inf	4294967296	o
+N	inf	4294967297	o
+N	inf	4294967298	o
+N	inf	4294967295	o
+N	-inf	4294967296	o
+N	-inf	4294967297	o
+N	-inf	4294967298	o
+N	-inf	4294967295	o
+N	100	4294967296	o
+N	100	4294967297	o
+N	100	4294967298	o
+N	100	4294967295	o
+N	0.30000000000000004	4294967296	o
+N	0.30000000000000004	4294967297	o
+N	0.30000000000000004	4294967298	o
+N	0.30000000000000004	4294967295	o
+N	5e-324	4294967296	o
+N	5e-324	4294967297	o
+N	5e-324	4294967298	o
+N	5e-324	4294967295	o
+N	123456.789	4294967296	o
+N	123456.789	4294967297	o
+N	123456.789	4294967298	o
+N	123456.789	4294967295	o
+N	1.7976931348623157e308	4294967296	o
+N	1.7976931348623157e308	4294967297	o
+N	1.7976931348623157e308	4294967298	o
+N	1.7976931348623157e308	4294967295	o
+N	12345678901234567890	4294967296	o
+N	12345678901234567890	4294967297	o
+N	12345678901234567890	4294967298	o
+N	12345678901234567890	4294967295	o
+N	0.5	4294967296	o
+N	0.5	4294967297	o
+N	0.5	4294967298	o
+N	0.5	4294967295	o
+N	10	4294967296	o
+N	10	4294967297	o
+N	10	4294967298	o
+N	10	4294967295	o
+N	1.25	4294967296	o
+N	1.25	4294967297	o
+N	1.25	4294967298	o
+N	1.25	4294967295	o
+T	0
+T	1
+T	2
+T	3
+T	4
+T	5
+T	11
+T	12
+T	21
+T	22
+T	100
+T	101
+T	-1
+T	-0
+T	0.0
+T	1.0
+T	1.5
+T	0.1
+T	2.50
+T	1.00
+T	1e3
+T	1e21
+T	1e22
+T	123456789012345678901234
+T	0.000001
+T	1e-7
+T	5e-324
+T	1.7976931348623157e308
+T	inf
+T	-inf
+T	NaN
+T	3.141569
+T	007
+T	+5
+T	1.
+T	.5
+T	-1.5
+T	1_000
+T	abc
+T	
+T	-
+L	L	fr-FR,zh-GB	en-GB,de,de-DE,sr-RU,zh-GB,zh-Hant,it	pt
+L	M	und,es-MX,pt-BR	de,sr-Latn,az-IR,zh-Hant,ru,es-MX,pt	-
+L	F	de-DE,de-AT,sr-Latn,az-IR	en,en-US,fr-FR,de-DE,ja-JP-windows,zh-US,zh-Hant,pl,ru,und	-
+L	L	en-GB,ja-JP-macos	en,en-US,en-GB,fr,de,de-AT,ja-JP-windows,sr,sr-Latn,pl,ru,und,pt-BR	-
+L	M	en,fr,sr,sr-RU,sr-Latn,pl	en,en-US,fr-FR,de,de-DE,pl,it,und	-
+L	L	en,fr,zh-Hant,pt-BR	en-US,fr-FR,de-DE,ja-JP-windows,sr,sr-Latn,zh-GB,pl,ru,und,pt-BR	-
+L	L	ja-JP-macos,ca-ES-valencia,ru,pt-BR	en,en-US,en-GB,fr-CA,fr-FR,de,ja-JP-macos,sr-RU,zh-US,es-MX,pt-BR,pt	it
+L	F	en,en-US,en-GB,zh-GB	en,en-GB,fr-FR,de,sr,zh-GB,it,ru,es-MX	pt-BR
+L	M		fr,fr-CA,ja-JP-macos,ja-JP-windows,ca-ES-valencia,sr-RU,ru,es-MX	pt-BR
+L	F	ca-ES-valencia,sr-Latn,zh-US,it	en,en-GB,fr,fr-CA,fr-FR,ja-JP-macos,it,und,es-MX	pt
+L	M	fr-CA,de-DE,ja-JP-windows,zh-US	fr-CA,de,de-DE,de-AT,ja-JP-windows,ca-ES-valencia,sr-RU,zh-GB,zh-Hant,ru,pt-BR	-
+L	F	de-AT,ja-JP-windows	en-GB,fr-CA,de-DE,de-AT,ja-JP-macos,ja-JP-windows,ca-ES-valencia,sr	-
+L	F	en-GB,fr-CA,de,de-AT,sr-RU,zh-US,es-MX	en-US,en-GB,fr,fr-CA,sr,zh-Hant,pl,it,ru,es-MX,pt-BR,pt	-
+L	L	en,pl,es-MX	en,de,ca-ES-valencia,sr,sr-RU,zh-GB,und,pt	-
+L	F	en-GB,ja-JP-windows,ca-ES-valencia,sr-RU,zh-GB,pt-BR	en-US,fr,fr-FR,de-DE,sr-RU,und,es-MX,pt-BR,pt	pt
+L	L	fr,fr-CA,de-DE	fr-FR,de,ja-JP-windows,sr-RU,zh-US,zh-Hant,pl,it,es-MX,pt-BR,pt	-
+L	F	sr-Latn,und,pt-BR	en-US,fr,de,de-AT,sr,sr-RU,az-IR,zh-US,pl,it,pt	-
+L	M	en,de-AT,it,und,es-MX,pt-BR	en-US,fr,fr-CA,de,de-AT,sr,sr-Latn,zh-GB,zh-Hant,pt	-
+L	M	sr,sr-RU	en-US,fr-FR,de-AT,zh-US,it,ru,und	-
+L	F	fr-CA,de,ca-ES-valencia,sr-RU	en-US,de-DE,ja-JP-macos,zh-GB,pl,it,es-MX,pt-BR,pt	fr-FR
+L	L	en,fr,sr,az-IR,zh-US	en-GB,de-DE,de-AT,ja-JP-windows,ca-ES-valencia,sr-RU,zh-Hant,und,pt	-
+L	L	de,ja-JP-macos,sr	en-US,fr-CA,ja-JP-macos,ca-ES-valencia,sr-Latn,az-IR,zh-Hant,es-MX,pt-BR	ja-JP-windows
+L	M	fr,fr-FR,ja-JP-macos,sr-Latn,az-IR,zh-GB	en,fr-CA,ja-JP-windows,sr-Latn,zh-US,zh-Hant,ru,pt-BR,pt	ru
+L	L	fr-CA,sr-Latn,az-IR	en-US,en-GB,fr,de,de-AT,ja-JP-macos,ca-ES-valencia,sr-RU,pl,und,pt-BR	-
+L	L	en,ja-JP-macos,ru	en-GB,fr,fr-CA,de-AT,zh-GB,zh-US,zh-Hant,ru,und	es-MX
+L	M	zh-Hant	en-GB,ja-JP-windows,ca-ES-valencia,sr,zh-GB,zh-US,pl,it,pt	ja-JP-macos
+L	M	ca-ES-valencia,sr-Latn,az-IR	fr-FR,de,de-AT,ca-ES-valencia,sr,sr-RU,und,pt-BR,pt	-
+L	L	fr,de-AT,sr-RU,es-MX	en,en-US,sr-RU,it,ru,pt	-
+L	M	de-AT,az-IR,pl	en,fr,fr-FR,sr-Latn,zh-GB,pl,pt	en
+L	L	en,sr-RU,az-IR	en,de-AT,ca-ES-valencia,az-IR,zh-GB,zh-US,zh-Hant,und	es-MX
+L	F	en-US,fr	fr-CA,fr-FR,de,de-DE,de-AT,sr-Latn,az-IR,zh-US,pl,it,ru,pt-BR	-
+L	M	en,de,zh-GB	fr-CA,de,ca-ES-valencia,sr,sr-Latn,zh-US,pl,ru,es-MX,pt	zh-GB
+L	F	en,en-US,sr-Latn,az-IR,pl,und	fr-CA,sr,zh-GB,pl	sr-Latn
+L	F	fr-FR,ja-JP-windows,es-MX	en-US,fr,de-AT,sr-RU,az-IR,pt	-
+L	M	sr	en,fr-CA,de-DE,de-AT,sr,sr-Latn,az-IR,zh-GB,und	und
+L	F	zh-GB,es-MX	en,en-US,fr-CA,de-AT,az-IR,ru,und,pt-BR	-
+L	L	en-GB,de,ja-JP-macos,az-IR,zh-GB	en,en-GB,fr,fr-CA,de-DE,de-AT,sr-Latn,az-IR,zh-GB,und	es-MX
+L	M	en,fr-FR,ja-JP-macos,ru	en,de,de-DE,ja-JP-macos,ca-ES-valencia,sr-RU,sr-Latn,zh-Hant,pl,it	-
+L	L	en-US,de,de-AT,zh-GB,zh-Hant	fr,fr-FR,sr,az-IR,zh-GB,pl,es-MX	-
+L	F	en-GB,fr,fr-FR,sr,zh-US,pt-BR	en-US,en-GB,de,ca-ES-valencia,sr-RU,az-IR,zh-US,pl,it,ru,es-MX,pt	de
+L	L	sr-Latn,und	en,en-GB,fr-CA,de,de-DE,de-AT,sr-RU,sr-Latn,pl,ru,pt-BR,pt	-
+L	L	fr-FR,sr-Latn	en,en-US,en-GB,fr-FR,ja-JP-macos,zh-GB,zh-Hant,it,pt-BR	-
+L	F	en,es-MX	de,de-AT,sr-Latn,az-IR,zh-US,zh-Hant,pl,ru,es-MX,pt	-
+L	M	en-GB,fr,sr-RU,und	de-DE,ja-JP-macos,ca-ES-valencia,sr-Latn,az-IR,zh-Hant	-
+L	F	fr-CA,pl	en,fr,fr-CA,fr-FR,de,ca-ES-valencia,zh-GB,zh-US,it,pt-BR	-
+L	F	de,es-MX,pt-BR	fr,sr-Latn,az-IR,zh-GB,pl,it,es-MX	sr
+L	F	pl,es-MX,pt-BR	en-GB,fr,fr-FR,de,de-AT,ja-JP-macos,ja-JP-windows,zh-Hant,pl,it,ru,es-MX,pt-BR,pt	sr-RU
+L	M	de	en-US,fr,ca-ES-valencia,az-IR,it,ru,pt	zh-US
+L	M	en-US,de-DE,zh-GB,pt	en-US,en-GB,ja-JP-macos,az-IR,zh-US,zh-Hant,ru,und,pt-BR	-
+L	M		fr-CA,de-DE,sr,sr-RU,az-IR,pl,ru	zh-US
+L	L	fr,de,pl	fr,de-DE,ja-JP-macos,sr-Latn,zh-GB,it,und,pt	-
+L	F	en,de-DE,zh-US,zh-Hant	fr,de-DE,sr,sr-Latn,zh-Hant,pt-BR	-
+L	F	fr,ja-JP-windows,ca-ES-valencia,sr-RU	en-GB,fr-FR,de-DE,de-AT,ja-JP-windows,ca-ES-valencia,sr-RU,pl,pt	es-MX
+L	L	de-DE,sr-RU,und	fr-CA,ja-JP-macos,ja-JP-windows,sr-Latn,ru,pt	fr-FR
+L	F	en,fr,fr-CA,pl,pt-BR	en-US,en-GB,fr,fr-CA,de-AT,ja-JP-macos,ja-JP-windows,sr-RU,az-IR,zh-GB,zh-Hant,pl,it,es-MX,pt-BR	fr
+L	M	fr-CA,und	en,en-GB,fr-CA,de,de-DE,ja-JP-macos,ca-ES-valencia,zh-GB,pl,it,ru,pt	fr-CA
+L	F	sr,und	en,en-US,fr-CA,de-AT,ja-JP-windows,ca-ES-valencia,sr,sr-RU,pl,pt-BR,pt	-
+L	F	de,it	en,fr-CA,de-DE,ja-JP-macos,it,und,es-MX	it
+L	F	sr,zh-US,ru	en-US,ja-JP-macos,zh-Hant,it,es-MX,pt	sr
+L	M	sr-Latn,zh-GB	en,en-US,en-GB,fr,fr-CA,ja-JP-macos,ja-JP-windows,ca-ES-valencia,sr,zh-GB,zh-US,pl,und	-
+L	F	en-US,fr-CA,fr-FR	en,en-GB,fr,fr-CA,fr-FR,de-DE,de-AT,ja-JP-windows,sr,zh-GB,zh-Hant,und,es-MX	sr
+L	M	fr,fr-FR,de-AT,ca-ES-valencia,pt-BR	en,en-GB,fr,fr-CA,ja-JP-windows,sr,sr-RU,sr-Latn,az-IR,zh-US,pl	ru
+L	M	en-US,ca-ES-valencia,zh-Hant	en-GB,fr-FR,de-AT,ja-JP-macos,sr-Latn,ru,und	en-GB
+L	L	en-GB,de,und,pt-BR	en-GB,fr-FR,ja-JP-macos,sr,sr-RU,zh-US,zh-Hant,und,es-MX	zh-GB
+L	F	de-DE,de-AT,pl,ru	en-US,en-GB,ca-ES-valencia,zh-US,ru	es-MX
+L	F	fr-FR,ca-ES-valencia,sr,ru,es-MX	de-DE,ja-JP-windows,ca-ES-valencia,sr,und,pt	ja-JP-macos
+L	F	de-AT,zh-GB,it,es-MX,pt	en,fr,fr-FR,sr-Latn,und	-
+L	M	en-US,sr-Latn	fr,de-DE,de-AT,ja-JP-windows,sr,ru,pt-BR,pt	-
+L	F	en-US,en-GB,de-AT,ja-JP-macos,sr,zh-GB,ru	en-GB,fr-FR,de-DE,ja-JP-macos,ca-ES-valencia,sr-Latn,az-IR,zh-GB,pl,it,pt	sr
+L	M	en-US,fr-CA,de-AT,ja-JP-macos,it,und,pt-BR	en-US,en-GB,de-DE,de-AT,sr,sr-Latn,az-IR,zh-Hant,pl	pt
+L	M	en,en-GB,de,sr,sr-RU,zh-US	en,en-US,fr,fr-FR,de,ca-ES-valencia,az-IR,zh-Hant,pl,pt-BR,pt	-
+L	F	pt	en-GB,fr,fr-CA,fr-FR,de-AT,sr,az-IR,zh-GB,it,pt	-
+L	M	en-GB,fr,sr-RU,az-IR,zh-GB,pt	en,de-AT,ca-ES-valencia,zh-US	de
+L	L	en-GB,ja-JP-macos,sr-Latn,ru	en,en-US,en-GB,fr,de,ca-ES-valencia,sr,az-IR,it	-
+L	M	ca-ES-valencia,sr-RU,es-MX	en-GB,fr-CA,fr-FR,ca-ES-valencia,sr,zh-GB,zh-Hant,ru,pt-BR	-
+L	F	en,en-GB,zh-US,pt	fr,de-DE,ja-JP-windows,sr,sr-RU,az-IR,zh-US,it,es-MX	en
+L	M	ja-JP-macos,ca-ES-valencia,pt	en,fr,fr-CA,de-AT,sr,sr-RU,az-IR,zh-GB,it,ru	-
+L	L	fr-FR,sr,sr-Latn,pl,es-MX	en,fr-CA,de,de-DE,ja-JP-macos,sr,sr-Latn,az-IR,pt-BR	und
+L	L	fr,sr-Latn,pt	en,en-GB,de-DE,ja-JP-windows,sr,sr-Latn,az-IR,pl,it,pt-BR	-
+L	F	en,fr-CA,az-IR,pt-BR	en,en-US,en-GB,fr-FR,de-AT,ja-JP-windows,sr,pl,und,pt-BR	-
+L	L	fr-CA,ja-JP-macos,ja-JP-windows,sr	fr-CA,ja-JP-macos,ja-JP-windows,sr-Latn,zh-US,und,es-MX	-
+L	M	fr,de-AT,zh-GB,zh-US,und	en,az-IR,zh-US,ru	az-IR
+L	F	fr,de-AT	fr-CA,de-DE,ja-JP-macos,ja-JP-windows,ca-ES-valencia,sr,sr-RU,az-IR,pl,it,ru	it
+L	F	fr,de,ca-ES-valencia,sr-Latn,zh-GB,zh-US,pl	en,fr-CA,de,de-DE,ja-JP-windows,sr-RU,sr-Latn,it,pt-BR,pt	-
+L	M	de-DE,sr-Latn,zh-GB	en,en-GB,de-DE,sr,sr-RU,sr-Latn,zh-Hant,pl,ru,und,es-MX,pt	ja-JP-windows
+L	L	en-US,de,ja-JP-macos,zh-US	ja-JP-macos,sr,sr-Latn,az-IR,pl,ru,und,es-MX,pt	ja-JP-windows
+L	F	de,sr-RU,zh-GB	fr-CA,de-DE,ja-JP-macos,ca-ES-valencia,sr-RU,sr-Latn,it,und	en
+L	F	fr-CA,az-IR	de-AT,ja-JP-windows,ca-ES-valencia,sr,az-IR,zh-US,pl,ru,pt-BR	de
+L	M	fr-CA,az-IR	en-US,en-GB,fr,de,de-DE,ja-JP-windows,zh-Hant,pl,es-MX	pt-BR
+L	L	fr-CA,fr-FR,sr-RU,pt	en,en-US,az-IR,zh-GB,es-MX,pt-BR,pt	-
+L	L	en-GB,fr,de,de-AT,ja-JP-macos,ja-JP-windows,ca-ES-valencia,az-IR,ru,pt	en-GB,fr-CA,de,ja-JP-macos,ca-ES-valencia,pl,und	-
+L	L	ja-JP-macos,ja-JP-windows,pt-BR	fr,fr-FR,de,de-AT,sr,sr-Latn,zh-GB,it,ru,es-MX	-
+L	M	en,en-US,pt	en,en-GB,de-DE,ja-JP-windows,ca-ES-valencia,sr,zh-GB,pt-BR	-
+L	L	de,sr,sr-RU,pt	en,fr,fr-CA,fr-FR,de,de-AT,ca-ES-valencia,sr,az-IR,zh-GB,zh-Hant,es-MX,pt-BR,pt	-
+L	F	fr-FR,de-DE,de-AT,sr,zh-Hant	fr,fr-FR,de,de-DE,de-AT,ja-JP-macos,ja-JP-windows,sr,sr-RU,az-IR,zh-GB,ru,und	-
+L	M	de-DE,ca-ES-valencia,sr,sr-RU,und	en,en-GB,fr,de,de-AT,ja-JP-windows,ca-ES-valencia,sr,sr-RU,az-IR,zh-GB,zh-US,pl,it,und,pt	-
+L	F	en,en-US,ca-ES-valencia,sr,az-IR	de,ja-JP-windows,sr,sr-Latn,az-IR,zh-GB,zh-US,it,ru,und,es-MX,pt	-
+L	F	sr,sr-Latn,zh-GB,zh-US	fr,fr-CA,de-DE,de-AT,sr,sr-Latn,zh-Hant,it,pt	zh-GB
+L	F	fr,sr	en,fr-CA,de-DE,sr-Latn,pl,ru,es-MX	zh-US
+L	F	sr-RU,zh-US,zh-Hant	en-US,fr,de,de-DE,ja-JP-windows,ca-ES-valencia,sr-Latn,az-IR,zh-Hant,ru,es-MX,pt-BR,pt	-
+L	M	ja-JP-macos	en-US,en-GB,fr,fr-CA,sr-RU,zh-US,zh-Hant,pl,it	-
+L	F	en-US,sr,zh-US	en,fr,ja-JP-macos,ja-JP-windows,az-IR,pl,es-MX,pt-BR	-
+L	M	fr-CA,ja-JP-windows,ru,pt	de,de-AT,ca-ES-valencia,sr,sr-RU,az-IR,zh-US,es-MX	-
+L	F	fr-FR,sr-Latn,zh-GB,ru	fr-FR,ja-JP-macos,sr,az-IR,pl,it,pt	fr
+L	M	fr-CA,de-DE,ja-JP-macos,und,pt-BR	en,fr,fr-CA,de-DE,de-AT,ja-JP-macos,sr,az-IR,zh-Hant,it	ja-JP-windows
+L	F	en-GB,sr-RU,sr-Latn,az-IR,zh-GB,pt	en,fr-FR,de,de-AT,sr-Latn,az-IR,it,ru,und,es-MX,pt-BR	fr-FR
+L	F	de,de-DE,sr,pl	en-US,fr,fr-FR,ja-JP-macos,sr,zh-GB,pl,it,ru	-
+L	M	de-AT,ca-ES-valencia,pl,ru,und,es-MX	en-GB,fr-CA,ja-JP-macos,sr,sr-RU,sr-Latn,zh-GB,it,ru	de-DE
+L	M	en,de,de-DE,ca-ES-valencia,sr,sr-RU,und,pt-BR,pt	en,en-US,en-GB,fr-CA,fr-FR,de,ja-JP-macos,it,ru,und,pt	ru
+L	M	en-GB,de,pt	en-US,fr-CA,fr-FR,ja-JP-macos,sr,sr-Latn,zh-US,pl,und,pt-BR	-
+L	L	en-GB,zh-US	fr-FR,de,de-DE,de-AT,ja-JP-macos,sr-Latn,az-IR,zh-US,zh-Hant,it,ru,es-MX,pt-BR	-
+L	L	de-AT,az-IR,zh-GB,pt	fr-CA,fr-FR,sr-RU,pl,it	es-MX
+L	M	fr-FR,sr,sr-Latn,pl,ru,es-MX,pt-BR	en,fr,de-AT,ca-ES-valencia,sr,az-IR,zh-Hant,pl	-
+L	M	en-GB,de,ja-JP-windows,zh-US	en-US,en-GB,fr-CA,sr,az-IR,ru,und,es-MX	-
+L	F	en-US,fr-CA,fr-FR,de-DE,ja-JP-macos,sr-Latn	en-GB,fr,fr-CA,de,zh-Hant,it,und,pt	-
+L	L	sr,sr-RU,sr-Latn,und,pt	fr-FR,de-DE,de-AT,ja-JP-macos,sr-RU,zh-US,zh-Hant,und	-
+L	M	en-US,fr-FR	fr,fr-CA,de-AT,ja-JP-macos,sr,sr-Latn,zh-GB,ru	-
+L	L	en,fr,de,ja-JP-windows,pt	en-GB,fr-FR,de,de-AT,zh-GB,it,ru,pt-BR	fr
+L	L	ja-JP-macos	fr,fr-FR,de-AT,ca-ES-valencia,sr-RU,pl,it,und,pt	en
+L	F	en-GB,de,zh-Hant,und,pt	en-GB,fr-CA,fr-FR,de-DE,de-AT,ca-ES-valencia,sr-RU,sr-Latn,zh-GB,zh-Hant,pl,pt-BR	-
+A	de-AT;0.9,de-DE;0.8,de;0.7;en-US;0.5
+A	 en , fr , pl,﻿de
+A	
+A	,,
+A	en-US;q=0.5
+A	x-ÁÁ,en
+A	  \t en\n
+A	　ja　
+R	hello = Hi
+R	hello = { $x
+R	-t = \n
+R	a = b\nb = { a
+R	x = { "\\u00" }
+V	n=i:2;t=s:x😀;foo=s:two;x=i:-9223372036854775808
+V	n=i:0;a=i:9007199254740993;foo=i:2;x=s:one
+V	t=i:-1
+V	n=i:5;a=s:John;x=i:1
+V	foo=u:18446744073709551615;x=u:0;Name=u:1;b=f:1e21
+V	-
+V	a=s:one;x=u:4
+V	a=s:false;Name=u:4
+V	t=s:many;a=f:1;x=t:007;b=E:
+V	n=f:0;foo=s:John;Name=f:1e-7
+V	n=u:4;t=s:two;a=s:many;foo=s:John;Name=s:one;b=i:0
+V	n=E:;t=s:few;a=i:100;x=N:;Name=i:100;b=s:
+V	n=u:18446744073709551615;x=s:true;b=i:3
+V	t=i:0;a=i:1
+V	-
+V	n=t:123456789012345678901234;t=s:other;a=i:-1;Name=i:-9223372036854775808;b=u:4
+V	t=u:18446744073709551615;a=t:1e22;x=t:4;b=t:0
+V	t=E:;foo=s:ordinal;x=f:1.5;Name=i:-9223372036854775808;b=i:1
+V	a=i:3;foo=s:;Name=i:100;b=s:John
+V	n=s:other;a=s:;foo=i:2;x=t:5;Name=s:John;b=i:-1
+F	xx	msg = Ünïcödé{ STREQ(NUMBER($a, c.foo)) }{ STREQ(Name.bar-baz) }\nb = { -term.attr }\n    .a = { $a ->\n    [false] world{ $foo }Ünïcödé\n   *[1.0] 😀{ $a }\n }\n-term = 😀\n	msg	-	n=u:0;a=s:x😀	bs
+F	ru	msg = { x_1 }{ -brand }\nb = { $bar-baz }{ -brand.attr }\nfoo = { UNKNOWN() }😀\nbar-baz = 😀\n-brand = xx\n	msg	-	n=s:few;x=s:few	cs
+F	sr-Latn	msg = { -term }{ -t }Hello\nb = { 1.5 }{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[1] xHelloÜnïcödé\n    [cardinal] { $b }\n    [2] Ünïcödé\n    [few] world{ $c }{ a }\n }\n    .bar-baz = { $a }\n-term = world{ $n ->\n   *[1.0] { "\\{" }\n } world\n	msg	-	t=s:x😀;a=s:many	bs
+F	ru	msg = { -t.attr ->\n   *[other] { -1 }\n    [1.0] { NUMBER(1.5, "a\\U0110000") }{ { -brand } }{ "\\u0041" }\n }{ { $a } }\n    .attr = 😀{ "one" ->\n   *[true] { $Name }\n }{ 1.5 }\na = { NUMBER("\\u0041", $x_1, minimumIntegerDigits: 3, style: "percent") }😀{ { $b } }\n    .a = 😀HelloÜnïcödé\nc = Hello\nfoo = { $c }Hello\nbar-baz = { STREQ($b) }{ 0 }😀\n    .b = Ünïcödé{ "one" ->\n   *[true] Hello😀{ STREQ(NUMBER($a), "\\u00", type: $t) }\n }\n-t = { NUMBER($n, minimumFractionDigits: 1) ->\n    [one] { foo }\n    [2] { b.Name }\n   *[1.50] 😀\n }Hello{ -1 }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = { -term.attr }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	attr	n=s:two;t=s:true;x=t:0	ibs
+F	ar	msg = { $n ->\n   *[1.50] world{ "one" ->\n   *[zero] Ünïcödé\n }\n    [one] { { $b } }{ $x_1 }x\n    [1] x{ NUMBER($n, type: "ordinal") ->\n   *[-1] { $x_1 }Hello{ -term.attr }\n }\n    [true] world{ $n }{ NUMBER(NUMBER(0, $Name, type: "cardinal"), currency: "EUR") }\n }\nfoo = { NUMBER($n, minimumFractionDigits: 1) ->\n    [cardinal] Ünïcödé😀😀\n   *[true] { "\\"" }Ünïcödé\n }😀\nbar-baz = { NUMBER() } world😀\n-t = Hello{ "a\\U0110000" }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = 😀😀\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\nmsg = dup\n	msg	-	x=E:;b=t:0.0	x
+F	en-US,fr	msg = { NUMBER("\\u0041") }x\n    .attr = world\n-brand = { "\\u00" }{ $foo ->\n    [0] 😀😀{ -t.attr(style: "percent") }\n    [zero] world { 007 }\n   *[1.50] { NUMBER($foo) }\n }\n	msg	-	t=i:2;a=s:John;Name=i:9007199254740993	ib
+F	en	msg = world{ { NUMBER($c, minimumFractionDigits: 0, x: $n) } }\nfoo = x\n-t = 😀{ Name } \n-brand = { -t.attr ->\n   *[many] 😀Ünïcödé\n }Hello\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	-	ib
+F	pt-BR	msg = { $n }\n    .attr = { NUMBER($n, minimumFractionDigits: 1) ->\n    [John] { NUMBER(NUMBER(STREQ(foo.bar-baz))) }Ünïcödé\n    [other] { 1 }Hello \n   *[zero] { NUMBER(useGrouping: "false") }\n }Ünïcödé\na = { 1 ->\n    [other] Ünïcödé \n   *[many] { $a }\n }\n    .n = HelloHello😀\nfoo = { $n ->\n    [two] { $x_1 }\n   *[0] { 007 }{ $x_1 }😀\n }\n    .b = Ünïcödé world\n-t = worldÜnïcödé\n-brand = Hello\n	msg	-	x=i:2;Name=s:few;b=i:21	bs
+F	fr	msg = { 1.0 ->\n    [zero] x{ -term() }{ 1 ->\n   *[John] { -brand.attr }😀{ STREQ($Name, 1.000) }\n    [one] world\n    [many] { $b }\n    [0] Ünïcödé{ -brand.attr }{ UNKNOWN($n, $b) }\n }\n    [few] x{ $b }\n    [one] { n } \n   *[other] { 1.0 ->\n   *[2] { c.c }\n }{ c }\n }{ $n }\na = Ünïcödé{ NUMBER($n, minimumFractionDigits: 1) ->\n    [true] { $x_1 }{ $b } world\n   *[other] { $n }\n    [few] world\n }\nb = { -brand }Hello{ -term() }\nc = 😀{ "one" ->\n    [one] x world\n    [1.50] world\n   *[two] { n }Hello\n }{ -term.attr(minimumFractionDigits: 0) }\nbar-baz = Hello{ { a } } \n-term = { $a } { NUMBER($n, type: "ordinal") ->\n   *[cardinal] 😀{ "\\u0041" }\n    [0] { $Name }\n    [1] { "\\u00" }{ $Name }\n    [true] { $a }\n }\n-brand = 😀{ -t }{ $bar-baz }\n	msg	-	n=i:1;t=s:other;foo=u:18446744073709551615;x=s:few;b=i:100	is
+F	ga	msg = 😀{ "\\\\" }\n    .attr = { foo }Hello \nc = { NUMBER(type: "ordinal", minimumIntegerDigits: 3) }{ "one" ->\n   *[2] world\n    [false] world{ STREQ($bar-baz, $a) }{ a }\n    [two] { STREQ($Name, 1.000, x: $n) }{ $c }😀\n    [cardinal] Ünïcödéx\n }\n    .b = Hello{ 0 }Ünïcödé\nfoo = { n.b }{ "\\"" }\nbar-baz = HelloHello{ STREQ("\\u00", $Name, minimumFractionDigits: 30) }\n-term = { "one" ->\n   *[true] 😀\n    [-1] { $a }\n }{ $b }\n-brand = { $foo }{ { $b } }\njunk { \n	msg	-	-	i
+F	ksh	msg = { NUMBER(-brand.attr) }\nb = { NUMBER($n, type: "ordinal") ->\n   *[few] Ünïcödé{ $Name } \n }{ $Name ->\n    [2] x{ $n } \n   *[many] Ünïcödé{ $n }{ NUMBER(1, type: "ordinal") }\n }\nc = { NUMBER($n, minimumFractionDigits: 1) ->\n   *[cardinal] Hello\n    [0] { UNKNOWN("\\"", "\\"", maximumFractionDigits: 1) }\n }{ NUMBER("\\{", 1.000, type: $t) }\nbar-baz = HelloHello\n    .n = { -t.attr ->\n   *[-1] Ünïcödé\n }{ "\\\\" }\n-brand = Ünïcödé\n	msg	-	n=i:9007199254740993;a=t:22;x=s:	bs
+F	ru	msg = x\na = text\nb = xx\nfoo = text\n-term = HelloHello\njunk { \n	msg	-	-	ibs
+F	de-CH	msg = { { "\\\\" } }😀\n    .attr = Ünïcödé\na = 😀 worldHello\nb = Hello{ "one" ->\n    [few] x\n   *[2] { -term.attr }\n    [0] { -brand(type: "ordinal") }HelloÜnïcödé\n    [false] { 2.50 }HelloHello\n }Ünïcödé\nc = { UNKNOWN($c, STREQ(style: "percent", currency: "EUR"), minimumFractionDigits: 2) }\nfoo = { $c }\n-t = Ünïcödé{ { c } }\nmsg = dup\n	msg	-	n=t:12;t=u:18446744073709551615;a=i:1;foo=s:cardinal;x=f:0.1;b=u:4	is
+F	pt-BR	msg = { NUMBER() }\nb = { $a } world😀\nfoo = x{ NUMBER($n, type: "ordinal") ->\n   *[zero] Hello{ "\\"" } world\n }\n-term = Ünïcödé😀\n	msg	-	t=s:false;a=f:inf;x=s:false	ibs
+F	pt-BR	msg = { -t.attr ->\n    [few] { 1.5 }Hello\n    [John] { "\\\\" }\n   *[2] 😀 world{ "\\U01F600" }\n }{ NUMBER(minimumIntegerDigits: 3) }\na = world{ $x_1 }\n    .n = { NUMBER() } \nb = x{ 1 }\njunk { \n	msg	-	t=s:false;a=f:1;Name=i:0	ibs
+F	pt-BR	msg = { -brand }{ { "\\"" } }Ünïcödé\n    .attr = { $bar-baz }{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[two] { c } worldÜnïcödé\n }\nc = { x_1 }x\nfoo = { NUMBER($n, type: "ordinal") ->\n    [few] text\n   *[2] { $a }Ünïcödé{ -brand }\n    [false] { $b }{ $c }{ NUMBER(-brand, a.x_1) }\n    [1.0] { "\\U01F600" }{ $foo }\n }Hello\n-t = { UNKNOWN(-brand.attr(minimumFractionDigits: 2, type: "ordinal"), $Name, x: $n, useGrouping: "false") }{ 1.000 }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=f:1.5;foo=i:3;Name=f:2.25;b=u:4	ibcs
+F	en	msg = { UNKNOWN(type: $t) } world{ -term }\na = Ünïcödé{ { $Name } }\nb = { "\\{" }{ { $b } }Ünïcödé\n-brand = Ünïcödé{ { $Name } } world\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=u:18446744073709551615;t=s:x😀;a=t:0;foo=u:18446744073709551615;x=f:1e-7	ib
+F		msg = worldxÜnïcödé\nb = { NUMBER($n, type: "ordinal") ->\n    [1] { $bar-baz }\n   *[-1] 😀{ NUMBER($b, useGrouping: "false") }\n    [many] { "\\"" }\n }\n    .c = 😀\nc = { 1 ->\n    [1.0] { $foo }\n    [-1] text\n   *[1.50] world{ $Name }\n    [many] { foo }Hello\n }\n	msg	attr	t=f:1e21;a=s:false;x=i:2;Name=u:1	ibcs
+F	lt	msg = { "\\u00" }\nb = { $foo }\n    .bar-baz = 😀{ "\\u00" }\nc = x\n-t = { -t }{ -brand }{ -t(type: "ordinal", maximumFractionDigits: 1) }\n	msg	-	n=t:2;foo=s:few;Name=s:zero;b=i:9007199254740993	ib
+F	ja	msg = { $c }x\na = world{ -brand() }{ 2.50 }\nfoo = { NUMBER(minimumIntegerDigits: 3) }Hello\n    .Name = text\n-t = text\n	msg	-	n=t:101;a=i:11;foo=i:2	ibs
+F	ja	msg = { foo }{ 1.0 ->\n    [1] { 1 }x world\n    [false] x\n   *[cardinal] { 1.0 ->\n   *[1] world\n    [one] { 1.000 }\n }\n }\n    .attr = Hello world\na = { c }\nb = Hello{ -t() }😀\nc = worldHello\n    .b = Hello\n-term = world\n-brand = text\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=N:;x=t:5e-324;Name=s:false	bs
+F	zh-GB	msg = { NUMBER($n, type: "ordinal") ->\n   *[1.50] worldHello\n    [two] Hello\n    [-1] { 1 ->\n   *[two] Ünïcödé\n }\n    [1] { NUMBER($n, type: "ordinal") ->\n    [zero] 😀\n    [other] world\n   *[true] { Name }Ünïcödé\n    [1.50] x\n }\n }{ $n }\nc = x \nfoo = text\n    .c = { NUMBER($n, minimumFractionDigits: 1) ->\n   *[John] { NUMBER() } { "\\u0041" }\n    [other] { $x_1 }{ 1 }{ c.foo }\n }\n-t = { -t.attr(currency: "EUR") }{ $foo }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=i:2;x=f:-inf;b=s:ordinal	s
+F	az-IR	msg = { "\\U01F600" }{ -1 }\n    .attr = Ünïcödé{ "one" ->\n   *[-1] { Name } \n    [true] world \n    [cardinal] { $x_1 }\n }\na = world\nb = 😀{ $c }\nc = ÜnïcödéÜnïcödéx\n    .c = 😀Ünïcödé😀\n-t = Ünïcödé\n-brand = worldÜnïcödé{ NUMBER($n, type: "ordinal") ->\n   *[few] 😀😀\n    [0] { $a } { $bar-baz }\n }\n	msg	-	n=s:other;t=i:2;a=i:2	bs
+F	ksh	msg = Hello{ NUMBER(NUMBER($bar-baz), $bar-baz) }{ 1.0 ->\n    [true] Ünïcödé\n   *[few] world{ a.x_1 }\n }\nb = Ünïcödé{ { "\\u0041" } }Ünïcödé\n    .n = { { 1.000 } } world\nc = Hello{ { $foo } }Ünïcödé\n    .foo = Ünïcödé{ c }Ünïcödé\n-term = { -t.attr ->\n   *[2] Hello world\n    [other] world\n }{ $bar-baz }{ 1 ->\n   *[false] world😀\n }\n	msg	-	t=u:4;foo=s:ordinal;x=s:two	b
+F	cy	msg = text\na = { { c.x_1 } }Ünïcödé{ { "\\u0041" } }\nb = xÜnïcödé\nc = Ünïcödé{ 0 }{ "one" ->\n    [John] Hellox\n   *[many] world\n }\n-term = 😀{ { "\\"" } }\n-brand = 😀\n	msg	-	n=s:false;a=E:;foo=i:21;x=i:3;Name=u:18446744073709551615;b=s:x😀	ibs
+F	sr-Latn	msg = world{ $b ->\n   *[0] Hello\n    [cardinal] { UNKNOWN($a) }x world\n }\nc = world{ $x_1 ->\n   *[false] { -term(minimumFractionDigits: 30, x: $n) }{ $c }x\n    [0] { 1.000 }{ Name }\n }\nbar-baz = { $n ->\n    [1.50] 😀{ $Name }\n    [1] { NUMBER($c) }{ $x_1 }Ünïcödé\n   *[one] world \n    [zero] x\n }\n-t = { -brand }{ $n ->\n    [1.50] { $b }{ 1 }{ $n }\n    [few] { "\\u00" }{ $Name }\n    [cardinal] { $x_1 }\n   *[other] x { "a\\U0110000" }\n }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-term = { $b }{ { c } }\n-brand = 😀{ NUMBER("\\u0041", type: "cardinal") }\n	msg	-	n=s:zero;t=i:-9223372036854775808;a=N:;Name=i:5	s
+F	ru	msg = xx\na = 😀Ünïcödé world\nc = 😀\nfoo = { UNKNOWN(Name.x_1, NUMBER(), maximumFractionDigits: 1) }{ 1.0 ->\n    [John] { -term() } { -term.attr }\n   *[two] { 1.5 }\n    [true] { "a\\U0110000" }{ -brand }{ $x_1 }\n }Ünïcödé\nbar-baz = { -t.attr ->\n    [two] { $x_1 }\n    [-1] { $x_1 }😀Ünïcödé\n   *[John] { n }{ $Name }\n    [0] { $a }\n }{ $bar-baz }\n-t = x 😀\nmsg = dup\n	msg	attr	n=s:ordinal;t=u:1;a=s:many;foo=s:John	ibcs
+F	br	msg = Hellox😀\nb = Ünïcödé 😀\n    .b = Hello\n-t = 😀\n-term = { NUMBER(NUMBER($foo, 1.000, style: "percent", x: $n), $x_1) }😀\n-brand = { NUMBER(Name) }\n	msg	-	a=u:1;x=i:0;Name=u:18446744073709551615	ib
+F	zh-GB	msg = { 1 ->\n   *[-1] Ünïcödé\n    [1.50] world\n }{ $a ->\n   *[true] { "one" ->\n   *[true] x \n    [false] 😀Ünïcödé\n    [few] world world\n } \n }\n    .attr = world{ { c } }\na = Ünïcödé \nc = Hello\nfoo = world\n    .foo = { $b }\n-term = { UNKNOWN($foo, useGrouping: "false", type: "cardinal") }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = 😀\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=f:1.5;a=s:cardinal;foo=s:two	b
+F	ja	msg = Ünïcödé\n    .attr = { $b }{ -t.attr ->\n   *[-1] { x_1.Name }\n }\nb = text\n    .Name = { 1 ->\n   *[-1] Hello\n    [few] { "\\\\" } \n    [1.50] 😀 \n    [John] { 1.5 }\n }{ 1 ->\n    [1] 😀😀Ünïcödé\n   *[one] x{ $x_1 }\n }\nc = { $n ->\n    [true] { $a }\n    [John] x{ 2.50 } \n   *[-1] { $a }\n }\nbar-baz = worldÜnïcödé\n	msg	attr	t=f:-0;x=f:1e21	bs
+F	cy	msg = { "\\u00" }x\n    .attr = Hello\na = { $x_1 }{ $n ->\n    [zero] { $a }{ 1.000 }\n    [-1] { -term.attr(maximumFractionDigits: 1, style: "percent") }Hello\n    [false] Ünïcödé\n   *[one] { $foo }{ UNKNOWN(minimumIntegerDigits: 3, type: "cardinal") }\n }\nbar-baz = { 1.0 ->\n   *[cardinal] 😀{ STREQ() } world\n }\n-t = ÜnïcödéÜnïcödé \n-term = { Name.n } \n	msg	attr	-	ibs
+F	zh-Hant-TW	msg = { $n ->\n   *[two] { 1 ->\n    [cardinal] x{ -brand(useGrouping: "false") }x\n    [other] { 0 }\n   *[few] { 1.000 }\n }\n } world{ -t.attr ->\n   *[1] world{ $foo }{ { $c } }\n    [few] Ünïcödé \n }\nc = 😀{ NUMBER(maximumFractionDigits: 1) }Ünïcödé\n-term = 😀{ 1 ->\n   *[-1] x\n    [1.0] worldÜnïcödé\n    [two] ÜnïcödéHello{ $c }\n }{ $n }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = x{ x_1 }{ $x_1 }\n	msg	-	n=s:zero;t=s:true;foo=f:1;x=i:9007199254740993;Name=s:two;b=s:false	bs
+F	lv	msg = { $c }Hello\nb = Ünïcödéx\nfoo = x😀\n    .a = 😀{ -t(useGrouping: "false") }{ $b }\n-t = 😀 Hello\n-brand = ÜnïcödéHello\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=f:100.0;b=i:0	bs
+F	ru	msg = { "one" ->\n   *[two] Hello worldÜnïcödé\n    [-1] { STREQ() }Hello world\n }{ -t(minimumFractionDigits: 0) }\n    .attr = Hello{ 1.000 }{ NUMBER($n, type: "ordinal") ->\n    [0] x\n    [1.50] { -term.attr }\n   *[false] 😀{ -term }\n    [1.0] Hello{ -brand }😀\n }\nb = Hello{ $bar-baz }\nfoo = { b }\n    .Name = { $Name }{ { $foo } }\n-t = x\n-term = { 1.0 ->\n   *[cardinal] x{ $a }\n    [few] { -term.attr() }😀 world\n    [zero] { $Name } { $foo }\n } { 1.000 }\n-brand = HelloHellox\n	msg	-	n=s:John;Name=f:2.25;b=i:5	s
+F	ja	msg = world  world\na = worldHello\nbar-baz = { $foo }{ c }{ { -1 } }\n-t = { n }{ NUMBER($n, minimumFractionDigits: 1) ->\n    [1.50] { $b }{ $x_1 }\n   *[1] { "\\\\" }\n    [two] world😀{ a }\n }😀\n	msg	-	t=f:1.5;x=i:2;Name=f:2.25;b=u:18446744073709551615	ibc
+F	ksh	msg = { $n }\n    .attr = world\nfoo = world{ $n }\nbar-baz = { $Name } \n-t = { $n ->\n   *[1] 😀\n    [false] 😀\n }Hello world\njunk { \n	msg	-	n=i:9007199254740993;t=i:5;a=u:0;foo=N:	bcs
+F	br	msg = x\n    .attr = { n }{ -t.attr }\na = { 1 } { -t.attr(maximumFractionDigits: 1, useGrouping: "false") }\nb = text\n    .foo = { UNKNOWN("str") }Hello\nfoo = Ünïcödé\n-t = { $bar-baz }\n	msg	attr	n=s:false;a=i:5;x=i:1;b=s:true	bs
+F	br	msg = Hello{ { { $x_1 } } }😀\nb = Hellox{ "a\\U0110000" }\n-brand = { bar-baz.n }{ 1.5 }{ x_1 }\n	msg	attr	n=u:18446744073709551615;t=f:100.0;a=i:11;x=i:5;Name=f:0.30000000000000004	ibs
+F	zh-GB	msg = { NUMBER($n, type: "ordinal") ->\n    [zero] Ünïcödé \n   *[other] Ünïcödé\n } \nb = { { "\\\\" } }\n    .a = 😀\nc = { $x_1 }{ 2.50 } world\n    .b = 😀😀\nbar-baz = { { -t } }{ $bar-baz }\n-t = 😀{ { $foo } }{ NUMBER(UNKNOWN($foo, type: "cardinal", minimumFractionDigits: 2)) }\n	msg	-	n=i:0;a=u:0;foo=i:5;x=t:1e22;b=u:0	cs
+F	sr-RU	msg = 😀{ $bar-baz }Ünïcödé\nb = 😀Hello\nc = world{ UNKNOWN() }\n-brand = { -1 }\n	msg	-	n=i:-1;a=s:one;foo=u:4;x=s:many;Name=i:3;b=s:few	b
+F	ru	msg = { 1.0 ->\n    [cardinal] 😀\n    [false] { "\\u00" }😀\n   *[John] { foo }{ -term.attr(x: $n, type: "ordinal") }😀\n }HelloHello\n    .attr = { n }\nb = Ünïcödé world\n    .a = { $c }{ 1 ->\n   *[other] { bar-baz }x\n }😀\n-t = { c }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=i:5;foo=s:false;Name=f:1;b=s:cardinal	s
+F		msg = world world{ $x_1 }\na = { 1 ->\n   *[true] { NUMBER($c, -term.attr) }{ $a } world\n }x\n    .b = HelloHello{ 1.5 }\nc = world\n    .b = { NUMBER($n, type: "ordinal") ->\n   *[-1] { $a }Hello{ NUMBER() }\n }{ $c }x\nfoo = world\n    .Name = { 1.000 }\n-t = text\n-brand = { foo.b } world\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\nmsg = dup\n	msg	-	t=t:NaN;x=i:5	s
+F	sl	msg = { -t }Ünïcödé\nc = { NUMBER($n, minimumFractionDigits: 1) ->\n   *[John] 😀\n }😀{ -t.attr(currency: "EUR") }\nfoo = { "\\{" }xx\nbar-baz = { { -brand.attr(x: $n, type: "cardinal") } }{ 1.0 ->\n    [-1] world\n   *[two] { $a }\n    [cardinal] { $Name }😀\n    [false] { foo }\n }\n-t = { $bar-baz }{ $a }{ "one" ->\n    [few] { $a }\n   *[1.50] 😀 world{ foo }\n }\n-term = 😀{ "\\"" }x\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=i:9007199254740993;foo=s:one;x=u:0	bs
+F	en-US,fr	msg = { 007 }{ "a\\U0110000" }Ünïcödé\n    .attr = Ünïcödé\nbar-baz = { NUMBER($n, type: "ordinal") ->\n    [true] { NUMBER($Name, "\\\\", minimumIntegerDigits: 3, minimumFractionDigits: 2) } \n    [two] world😀 \n   *[1] { $x_1 } \n }{ -t }\n-t = { -1 }\n-term = Ünïcödé{ $foo }\n	msg	attr	Name=i:5	bs
+F	br	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   *[other] 😀\n    [true] { { $bar-baz } }x\n }\n    .attr = { $Name }\nc = { 007 }\n    .a = { NUMBER() }{ $n ->\n    [false] { -brand.attr() }{ $foo }x\n   *[2] { NUMBER($x_1, $foo, type: $t) }{ c }\n }😀\nfoo = { -term(x: $n, minimumFractionDigits: 30) }{ { "\\U01F600" } }\n    .b = { "\\u0041" }{ { $x_1 } }Ünïcödé\n-t = Hello world\n-brand = { $n }{ 1.0 ->\n   *[two] 😀{ $x_1 }{ b }\n }\n	msg	-	foo=s:ordinal	bs
+F	ga	msg = Ünïcödé\nb = 😀😀\nc = { $a } world{ $b }\n    .a = HelloHello\nbar-baz = { { $c } }\n-brand = worldÜnïcödéHello\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=s:few;a=t:22;foo=f:5e-324;Name=s:few;b=f:-0	ics
+F	az-IR	msg = { 1.0 ->\n   *[1.0] Hello{ $n }Ünïcödé\n    [true] { n }x{ NUMBER(NUMBER($Name), $Name) }\n } world\n    .attr = text\nb = Hello\nc = { -t.attr ->\n   *[false] 😀\n    [2] Hello{ $foo }\n }{ 1 ->\n   *[false] { n.b }{ -term(minimumIntegerDigits: 3) }\n    [cardinal] { $x_1 }\n    [two] text\n    [John] Hello😀{ -brand }\n }{ $Name }\n    .x_1 = world\n	msg	-	t=i:-9223372036854775808;a=i:2;Name=i:2	bs
+F	zh-Hant-TW	msg = { $a } world world\n    .attr = { 1.0 ->\n   *[zero] { 1.000 }\n }\nb = { 1.5 }Hello\n    .c = { "\\"" } Ünïcödé\n	msg	-	n=i:21;t=i:9007199254740993;x=i:5;Name=i:-1;b=s:true	bs
+F	pl	msg = { { $a } }Hello\nb = { UNKNOWN(0, STREQ(b.c, $a)) }{ { $c } }\nbar-baz = { a }\n-term = { 1 ->\n   *[1] { -t(minimumFractionDigits: 30, type: "ordinal") }\n    [one] x\n    [2] { NUMBER() }\n }Hello😀\n	msg	-	t=i:21;x=s:zero;b=f:100.0	b
+F	de-CH	msg = { -1 }{ NUMBER($n, minimumFractionDigits: 1) ->\n    [many] x{ -t.attr ->\n    [true] { "\\U01F600" }x\n    [two] { $Name }Ünïcödé\n   *[-1] Ünïcödé\n }{ -1 }\n   *[-1] world\n    [2] { 1 ->\n   *[zero] { $foo }\n }\n }{ -1 }\n    .attr = { $foo }\na = 😀{ $b ->\n    [John] 😀x{ 0 }\n   *[1] Ünïcödé\n }{ n }\nc = Hello\n-t = { -t() }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-term = Ünïcödé\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	attr	t=u:0;x=f:inf;Name=E:;b=f:2.25	bs
+F	zh-GB	msg = Ünïcödé\nb = { { $bar-baz } }Hello{ b }\n    .a = { bar-baz }Hellox\nc = { b }\nfoo = xx{ $n ->\n    [few] 😀{ "\\U01F600" }Ünïcödé\n    [true] { UNKNOWN($n, $n) }{ "\\U01F600" }\n   *[1] { $c }Hello{ b.c }\n }\n-t = xHello\n-term = Ünïcödé😀\n-brand = { { -term } } world{ NUMBER($n, type: "ordinal") ->\n   *[many] text\n    [2] { NUMBER(useGrouping: "false", minimumFractionDigits: 0) }{ $Name }\n }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	attr	n=s:;a=u:18446744073709551615;foo=s:many;Name=s:two	s
+F	zh-GB	msg = { bar-baz.c }\n    .attr = { -term(type: "cardinal") }\nb = { 2.50 }{ $foo }\nmsg = dup\n	msg	-	t=f:NaN;a=E:;foo=i:5;b=u:1	b
+F		msg = { NUMBER(1.5, "str") }x\n    .attr = world{ STREQ(NUMBER($Name, $c), "\\U01F600") }\na = world😀\nb = { $x_1 }{ $bar-baz }{ "one" ->\n    [1.50] { $c }\n    [0] { NUMBER($n, $foo, minimumFractionDigits: 2, style: "percent") }{ -t() }{ -brand() }\n   *[-1] 😀\n }\nc = Hello\n    .foo = { -t.attr ->\n   *[1.50] Hello{ "\\u0041" }Ünïcödé\n }\nfoo = { NUMBER(-brand, minimumFractionDigits: 30) }ÜnïcödéHello\nbar-baz = { 1 ->\n    [false] { 2.50 }{ NUMBER(1.000, currency: "EUR", minimumIntegerDigits: 3) }\n   *[John] Ünïcödé\n }\n-t = world\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\nmsg = dup\n	msg	attr	a=i:21;x=i:9007199254740993;b=i:11	bs
+F	pl	msg = worldÜnïcödéHello\nb = Ünïcödé\nbar-baz = { NUMBER($n, type: "ordinal") ->\n    [false] { $c }{ $Name }Hello\n   *[two] { $bar-baz }\n }\n-t = 😀 { -t.attr(currency: "EUR", style: "percent") }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = world\n	msg	-	n=i:-9223372036854775808;a=s:x😀;x=u:1;b=i:5	bs
+F	ar	msg = x\na = { $foo ->\n    [zero] text\n   *[1.50] world{ $n }\n } { NUMBER($bar-baz, $n) }\nb = Ünïcödé{ 1.0 ->\n   *[many] Hello\n    [0] Hello\n    [2] { $Name }x\n }Ünïcödé\n-term = x\n	msg	attr	n=i:3;foo=s:one;x=i:3;Name=s:many	is
+F	ga	msg = { $n } { $Name }\nb = { NUMBER($n, minimumFractionDigits: 1) ->\n    [cardinal] { $a } world\n    [one] { -1 }\n    [1.0] Hello{ UNKNOWN() }{ $c }\n   *[0] Ünïcödé{ -term.attr }\n }\nbar-baz = text\n-t = Hello😀{ $b }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=i:3;t=s:two;foo=E:	bc
+F	ar	msg = x{ { NUMBER($x_1, "a\\U0110000") } }{ { a } }\nc = { -t }{ 1.0 ->\n   *[other] { Name.c }HelloHello\n    [one] { -1 }Ünïcödé{ $bar-baz }\n    [John] { $n }\n }Hello\n-term = Ünïcödé\n	msg	-	x=s:false	ibs
+F	sr-RU	msg = Hello😀{ foo }\nbar-baz = { x_1 }\nmsg = dup\n	msg	-	n=f:inf;t=s:true;Name=s:one	bcs
+F	ga	msg = { $bar-baz }{ -brand } \nb = { $a }😀\n	msg	-	-	ibs
+F	lt	msg = Hello world{ "\\u00" }\na = world😀 world\nb = world{ 1.0 ->\n   *[John] Ünïcödé{ STREQ($c, -t, minimumIntegerDigits: 3) }\n    [false] Hello😀{ $foo }\n }😀\nc = { -term(useGrouping: "false", maximumFractionDigits: 1) }\nfoo = { -t.attr ->\n    [true] Ünïcödé\n   *[-1] Hello\n    [1.50] Hello\n    [0] Hellox\n }{ 1 ->\n   *[2] 😀{ "\\{" }\n } world\nbar-baz = x world\n-term = HelloÜnïcödé\n	msg	-	n=s:	ibc
+F	az-IR	msg = { $Name } \na = Hello world\nc = Ünïcödé\nfoo = Hello\n    .a = { NUMBER(UNKNOWN(), x_1.bar-baz, type: "ordinal") }\n-brand = { bar-baz }{ $foo }\n	msg	-	-	ibs
+F	ar	msg = { foo }{ NUMBER("\\{", minimumFractionDigits: 2) }Ünïcödé\na = { STREQ($a) }\nb = { NUMBER(UNKNOWN(a), -1) }{ $Name }\nbar-baz = world😀\n-brand = world\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=N:;foo=s:false;x=s:x😀;b=s:ordinal	s
+F	ga	msg = 😀\na = 😀\nc = { $Name }\n-term = { $n }{ -term.attr() }\n-brand = Ünïcödé 😀\n	msg	-	t=s:x😀;a=s:x😀;foo=f:-inf;x=E:;Name=s:John;b=i:-1	is
+F	zh-Hant-TW	msg = { $bar-baz }{ -term.attr(type: "cardinal") } \n    .attr = Hello{ 1 ->\n    [2] { NUMBER(bar-baz.Name, useGrouping: "false", style: "percent") }\n    [-1] { $foo }{ 1 }Hello\n   *[two] Ünïcödé\n }{ NUMBER($n, type: "ordinal", x: $n) }\nc = world\nbar-baz = { -t.attr ->\n   *[two] Ünïcödé\n    [true] { 1.000 }{ $n }\n }Ünïcödé\n-t = { STREQ($foo, useGrouping: "false") }\n	msg	-	t=t:101;a=s:John;x=f:NaN	ib
+F	zh-GB	msg = { 1.0 ->\n   *[0] { 0 }{ "str" } \n }😀{ 1 }\n-brand = Hello \njunk { \n	msg	-	a=t:1.00;b=i:1	is
+F	xx	msg = { -brand }{ -brand.attr(x: $n) }\nc = world{ -brand(type: "ordinal") }x\n-t = Hello\n-term = 😀x{ NUMBER($n, minimumFractionDigits: 1) ->\n    [true] x\n   *[cardinal] x\n    [0] 😀{ c.Name }\n }\njunk { \n	msg	-	n=s:ordinal;a=s:one;foo=s:;x=s:few	b
+F	lt	msg = { $c }Hello😀\nb = { 0 }\n    .bar-baz = world\nc = Ünïcödé\nfoo = { { x_1 } }\n-t = { 007 }{ $foo }Ünïcödé\n-term = world{ NUMBER($n, type: "ordinal") ->\n   *[many] 😀{ b.a }\n }\n	msg	-	n=i:0;x=s:John	bs
+F	sl	msg = x{ -t.attr ->\n   *[-1] Hello\n }\n    .attr = x{ b.Name }Hello\na = ÜnïcödéHello\n    .Name = { { NUMBER(2.50, NUMBER($c, x: $n, minimumFractionDigits: 2)) } } world\n-term = Hello\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	a=f:1;Name=N:	b
+F	az-IR	msg = HelloHello{ NUMBER("\\\\", minimumFractionDigits: 2) }\nb = { $n }{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[true] { Name.foo }\n }\nc = { Name }\n    .bar-baz = { -t.attr ->\n   *[1.0] x\n    [cardinal] 😀\n    [one] Hello\n }{ NUMBER($n, type: "ordinal") ->\n    [2] { $n }\n   *[false] x{ NUMBER($bar-baz) }{ 0 }\n }\nfoo = { -brand.attr(type: "ordinal", style: "percent") }x{ $x_1 }\nbar-baz = { b }Ünïcödé\n-t = { -t(currency: "EUR") }\n	msg	attr	n=f:1.5;t=t:1e21;foo=u:4;x=s:cardinal	ib
+F	cy	msg = { $c }{ UNKNOWN(NUMBER(Name, $foo), -term(type: $t)) }\n    .attr = { $n ->\n   *[true] { NUMBER($foo, bar-baz, minimumFractionDigits: 0) }{ $n }\n }\na = 😀\nfoo = { b }\n	msg	-	t=f:1e21;a=t:inf;foo=i:5;x=s:few;Name=i:11	ibc
+F	zh-Hant-TW	msg = { "a\\U0110000" }{ "\\U01F600" }{ $x_1 }\na = Hello\n    .Name = { -term(maximumFractionDigits: 1) }\nb = { -t.attr ->\n   *[0] text\n    [2] { NUMBER(foo.n, $b) } \n    [false] { -brand.attr(type: "cardinal", currency: "EUR") }{ NUMBER(2.50, minimumFractionDigits: 0) }{ NUMBER($b, $x_1, x: $n) }\n    [-1] { $Name }{ "\\U01F600" }\n }\nfoo = x😀\nbar-baz = { -term.attr }😀\n    .x_1 = x😀\n	msg	-	-	cs
+F	lv	msg = { NUMBER(useGrouping: "false", maximumFractionDigits: 1) }Ünïcödéx\nb = 😀\nfoo = 😀\n-t = { $b }\n-term = Hello world{ 1.5 }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = text\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=s:few;b=i:2	bcs
+F	zh-Hant-TW	msg = { NUMBER($n, type: "ordinal") ->\n   *[true] Ünïcödé world\n }\nb = { -1 }\nc = { NUMBER($n, type: "ordinal") ->\n   *[0] { 0 }Hello\n    [other] { $foo }😀{ 2.50 }\n }{ c.foo }{ NUMBER(NUMBER(), bar-baz.x_1) }\nfoo = 😀{ { $b } }{ NUMBER($b) }\nbar-baz = { $x_1 }Hello\n    .b = { NUMBER($b, "\\U01F600", minimumIntegerDigits: 3) }{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[cardinal] { NUMBER(n.n, minimumFractionDigits: 2) }{ $c }\n    [one] Hello\n } \n-term = { foo }{ $bar-baz }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = { "\\{" }x\n	msg	-	t=u:0;Name=f:1e-7;b=t:007	x
+F	br	msg = { { $c } }\nfoo = Hello { STREQ(-t(), $c) }\n    .c = { "one" ->\n   *[1.50] { $foo }\n }😀\nbar-baz = { $n ->\n   *[false] { -brand }Hello\n }\n-t = { $foo }{ "\\\\" }{ $bar-baz ->\n    [1.50] world\n    [true] text\n   *[0] { $foo }\n }\n-term = world\n	msg	-	n=i:11;t=s:true;b=f:0.30000000000000004	ibs
+F	sr-Latn	msg = world\n    .attr = world\na = Ünïcödé\nb = { 007 }\n-t = { foo.c }{ -t.attr ->\n    [2] { "\\u00" }\n   *[0] world{ "\\\\" }\n }Hello\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-term = { STREQ("\\u0041", minimumFractionDigits: 2) }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\nmsg = dup\n	msg	-	-	bs
+F	und	msg = world\nb = world world{ 1.0 ->\n   *[cardinal] 😀 \n }\nc = { -brand.attr } \nfoo = { "\\u00" }{ $b ->\n   *[1.0] x { $c }\n }\n    .Name = Hellox{ $Name }\nbar-baz = { $b }\nmsg = dup\n	msg	-	n=t:0.0;t=u:18446744073709551615;foo=i:-1;Name=s:zero;b=s:zero	b
+F	sr-RU	msg = { a } world\n    .attr = { $b }{ NUMBER($n, type: "ordinal") ->\n   *[one] Hello😀x\n }Ünïcödé\na = { $b }😀{ $Name }\nc = { { $n } }{ $n }\n    .Name = { "\\U01F600" }x\nbar-baz = Hello\n    .foo = { NUMBER($n, type: "ordinal") ->\n   *[John] { $a } world world\n    [few] 😀\n    [1] world  world\n }\n-t = { 1 ->\n   *[few] { $b }\n }xÜnïcödé\n-term = { 1.0 ->\n    [2] { $n }\n    [0] { STREQ("str", $x_1) }x\n   *[many] Hello \n }Ünïcödé{ $a ->\n   *[1] Ünïcödé\n }\n-brand = world world{ "\\U01F600" }\n	msg	-	a=u:4;foo=i:11	b
+F	ksh	msg = { -t.attr ->\n   *[true] { STREQ() }\n    [0] 😀 world😀\n    [false] { "one" ->\n    [2] Ünïcödé{ UNKNOWN(-1, $b) } world\n   *[1.0] { "\\"" }Hello{ $n }\n    [true] { $foo }Ünïcödé{ $foo }\n    [1.50] { "str" }Ünïcödé\n }{ $bar-baz }\n    [one] { b.bar-baz }Ünïcödé\n }{ $n ->\n    [1] { $Name }{ $b ->\n    [0] { $c }{ $b }\n   *[-1] { $bar-baz }{ $Name }\n } \n   *[other] Hello\n    [false] { NUMBER(minimumIntegerDigits: 3, maximumFractionDigits: 1) } { -t }\n    [1.0] worldx\n } \nc = x{ 1 }\nfoo = { NUMBER($n, minimumFractionDigits: 1) ->\n    [two] { -1 }Hello\n   *[cardinal] world{ $c }{ "\\\\" }\n    [other] { NUMBER(-brand.attr(), useGrouping: "false") }Ünïcödé\n    [few] { UNKNOWN(-1, -t()) }{ $x_1 }x\n } world\nbar-baz = { $Name }\n-term = { STREQ($a, $a, minimumFractionDigits: 0) }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = { 1 ->\n    [cardinal] { $n }{ 007 }{ $x_1 }\n   *[many] Hello \n    [one] { UNKNOWN($Name, useGrouping: "false", minimumFractionDigits: 30) }x{ $a }\n }{ 1.5 }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	a=f:1e21;foo=i:5	x
+F		msg = { -term() }x world\nc = Hello\n-t = { STREQ($Name, UNKNOWN("\\u0041")) }Hello{ NUMBER(currency: "EUR") }\n-term = { 1.0 ->\n    [few] 😀\n    [1.0] Ünïcödéx\n   *[0] { 1.5 }\n    [John] { bar-baz }😀{ 1 }\n }{ n }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=s:two;t=i:9007199254740993;a=u:18446744073709551615;Name=s:zero;b=f:0.30000000000000004	bs
+F	cy	msg = Hello\n    .attr = 😀{ $n }😀\na = { NUMBER("str") } world \n    .foo = { 1.5 }\nb = { -term.attr }\n    .x_1 = { NUMBER($n, minimumFractionDigits: 1) ->\n   *[few] x\n    [-1] text\n    [2] { $bar-baz }{ $bar-baz }\n }{ n }\nbar-baz = HelloHello😀\n-t = { $a }{ STREQ($b) }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = text\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	foo=u:1;x=f:2.25	ib
+F	pl	msg = { $bar-baz }{ -brand(x: $n) }\nbar-baz = Ünïcödé\n    .Name = { { "\\"" } }Ünïcödé\n-t = 😀Ünïcödé{ -t.attr ->\n   *[John] { -1 }{ -t.attr(minimumFractionDigits: 0, type: $t) }\n    [zero] { "\\\\" }{ $Name }\n }\n	msg	-	t=i:1;foo=f:2.25;x=s:many;Name=t:4;b=E:	ib
+F	pl	msg = { n }\nc = world world{ { 1.5 } }\nfoo = x\nbar-baz = { NUMBER($n, type: "ordinal") ->\n   *[two] { NUMBER($a, minimumFractionDigits: 0) } { $a }\n    [John] { -t(type: "cardinal") }Ünïcödé{ "\\u00" }\n    [-1] { -t }Hello\n    [few] { -t }Hello\n }\n    .c = { UNKNOWN($bar-baz) }{ "\\u0041" }Hello\n-t = { 2.50 }\n-brand = { 1 ->\n    [two] { $Name }\n    [1.50] { $Name } worldx\n   *[few] { 0 }\n    [false] { -term }😀{ -term() }\n }{ $a }😀\n	msg	-	-	ib
+F	und	msg = Ünïcödé{ "str" }\na = Ünïcödé world\nfoo = { -brand(minimumIntegerDigits: 3) }{ $bar-baz }{ "\\{" }\nbar-baz = { STREQ() }{ -t.attr ->\n   *[John] 😀\n }{ -brand.attr(currency: "EUR") }\n    .foo = worldÜnïcödé😀\n-t = { 1 ->\n    [John] Ünïcödé😀{ $bar-baz }\n   *[true] { UNKNOWN("\\\\") }Ünïcödé\n    [-1] { $bar-baz }\n }{ $foo }\n-term = { -term.attr() } world{ { NUMBER($bar-baz) } }\n	msg	-	t=i:5;a=i:5	bs
+F	ar	msg = Ünïcödé{ NUMBER($n, type: "ordinal") ->\n   *[cardinal] { NUMBER($n, minimumFractionDigits: 1) ->\n   *[other] { $b } world\n    [many] x{ -term.attr(x: $n) }\n    [two] Hello{ NUMBER(a.Name) }\n    [1.50] { $x_1 }{ $n }{ -t }\n }Hello\n }{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[one] { -term(minimumIntegerDigits: 3) }\n }\n    .attr = { foo } \nfoo = { foo }\nbar-baz = text\n-t = Hello\n-term = world\n-brand = { { STREQ(STREQ($n, NUMBER($n)), "\\u0041", type: "cardinal", style: "percent") } }Hello{ $n }\n	msg	-	foo=s:true;x=s:ordinal;Name=f:5e-324;b=s:true	b
+F	sr-Latn	msg = { "\\\\" }\na = 😀\nb = { $foo }x\nc = { NUMBER($n, type: "ordinal") ->\n   *[1.50] text\n }\nfoo = world\nbar-baz = Hello{ -t.attr ->\n    [1.50] { -term(useGrouping: "false", type: "cardinal") }Ünïcödé\n   *[other] { a }\n }\n-term = { NUMBER($bar-baz) }{ NUMBER($n, minimumFractionDigits: 1) ->\n    [false] 😀{ STREQ($bar-baz, minimumFractionDigits: 2) }\n   *[1.50] world\n }{ "\\u0041" }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = Ünïcödé😀\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	attr	a=s:two;foo=u:0;x=f:2.25;b=u:1	ibcs
+F	az-IR	msg = Hello{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[0] 😀\n    [few] Ünïcödé{ "\\{" }\n }\n    .attr = text\na = { $a }{ "a\\U0110000" }x\n    .c = Hello\nc = worldÜnïcödé\nfoo = { $a }{ $bar-baz }{ 1 ->\n   *[zero] { $a }{ -term.attr(maximumFractionDigits: 1, minimumIntegerDigits: 3) } world\n    [cardinal] { $b }\n }\n-t = { 2.50 }\n-brand = world\n	msg	-	a=t:1.5;foo=s:;x=s:cardinal;Name=s:cardinal;b=t:NaN	bs
+F	en-US	msg = 😀x\nb = worldHello{ $n ->\n    [true] { $n } world\n   *[1.0] { "\\"" }{ $c }\n }\nc = 😀 world{ 1.0 ->\n    [false] { STREQ($n, $Name) }{ NUMBER($a, foo) }Hello\n   *[1] { STREQ(-brand, $a) }{ 1 }\n    [1.50] { 007 }\n }\n-t = { x_1 }x\n-term = Hello😀😀\n-brand = world{ { UNKNOWN() } }\n	msg	-	n=s:few;foo=t:1.7976931348623157e308;x=i:100;Name=t:1.	b
+F	sr-Latn	msg = { $b }{ "one" ->\n    [few] x{ $Name }Ünïcödé\n   *[-1] Ünïcödé😀Ünïcödé\n    [1.50] { $x_1 }😀\n }\nfoo = x{ b.n }\nbar-baz = { c }😀\n-term = world\n	msg	-	a=i:-1;Name=s:cardinal;b=i:5	b
+F	sr-RU	msg = { 1 ->\n    [cardinal] { 1 }\n    [few] { STREQ() }\n   *[other] HelloHelloÜnïcödé\n }{ -t.attr ->\n   *[cardinal] { NUMBER($n, type: "ordinal") ->\n   *[false] { "\\u00" }{ $n }\n    [John] world{ STREQ("a\\U0110000") }\n }{ 0 }\n    [one] HelloxÜnïcödé\n }Ünïcödé\nfoo = 😀 { $bar-baz }\nbar-baz = 😀\n-t = { $n ->\n    [one] worldHello😀\n   *[1.50] { $a }{ UNKNOWN($bar-baz, 2.50) }{ $x_1 }\n }\n-term = Ünïcödé{ "\\U01F600" }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\nmsg = dup\n	msg	-	n=s:zero;foo=u:0;x=i:1	bs
+F	en	msg = 😀{ { { -brand } } }\na = Ünïcödé{ { $a } }\nbar-baz = { $x_1 }\n    .n = { 1.0 ->\n    [true] HelloHello{ 1 }\n    [two] worldÜnïcödé{ NUMBER($Name, -t()) }\n    [other] { "a\\U0110000" }{ $c }\n   *[zero] 😀{ "a\\U0110000" }😀\n }{ NUMBER($n, type: "ordinal") ->\n   *[true] Hello{ $n }Ünïcödé\n    [many] text\n    [one] world\n }\n-brand = Hellox\n	msg	attr	n=s:;t=s:x😀;a=N:;Name=f:1.5;b=i:-9223372036854775808	ibs
+F	pt-BR	msg = { 1 ->\n    [cardinal] { "one" ->\n    [many] world\n    [1] { 1 }\n   *[2] x\n }😀{ 2.50 }\n   *[0] { STREQ(1.5) }\n }\n    .attr = { "str" }\na = { NUMBER($n, minimumFractionDigits: 1) ->\n   *[many] world{ 1 }{ $foo }\n    [1.0] Ünïcödéx{ NUMBER() }\n }\n    .a = { 1.5 }{ NUMBER($n, type: "ordinal") ->\n   *[-1] { $n }\n }{ $Name }\n-term = { 1.0 ->\n   *[few] { "\\U01F600" } { $x_1 }\n }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=s:;a=s:ordinal;x=f:100.0;Name=t:1;b=t:1e-7	ibs
+F	cy	msg = Hello{ NUMBER($n, minimumFractionDigits: 1) ->\n    [1.50] { 1.0 ->\n    [-1] HelloÜnïcödé{ $Name }\n   *[1.0] 😀😀x\n    [false] xx{ bar-baz }\n }{ { NUMBER(UNKNOWN(), type: "ordinal") } }\n    [0] { NUMBER($n, type: "ordinal") ->\n   *[1.50] { NUMBER() }{ 1 }Hello\n }{ $foo ->\n   *[zero] { "str" }\n    [two] 😀😀\n }\n   *[true] 😀 world\n }x\n    .attr = Hello{ { -t(maximumFractionDigits: 1) } }\nb = world😀\n    .x_1 = Ünïcödé\nfoo = { $n ->\n   *[zero] { $foo }\n }\n    .Name = { $n ->\n    [0] { $Name }\n    [many] { a }{ $n }{ -t.attr(type: "ordinal") }\n   *[-1] Ünïcödé{ $a }\n    [2] { $foo }xHello\n }{ { NUMBER(1.000, NUMBER(NUMBER(bar-baz, 2.50, minimumFractionDigits: 2), type: $t, maximumFractionDigits: 1), minimumFractionDigits: 30) } }\nbar-baz = { 1.0 ->\n    [true] { 007 }{ $bar-baz }\n   *[zero] { $c }Ünïcödé\n    [2] world😀{ $c }\n }{ 1.5 }😀\njunk { \n	msg	-	t=f:0;x=s:two;Name=f:5e-324;b=i:21	ibs
+F	en-US	msg = { "\\u0041" }Ünïcödé\na = { { $x_1 } }Hello\nbar-baz = Ünïcödé{ "one" ->\n   *[one] { UNKNOWN(1.000, $b) }x\n }\n    .n = text\n-brand = { $n } \n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=s:many;a=u:0;foo=E:;Name=t:3;b=i:5	bs
+F	en	msg = { NUMBER($n, type: "ordinal") ->\n   *[many] x\n    [true] 😀\n }\nc = { 1.0 ->\n   *[1.50] world{ "\\"" }{ $bar-baz }\n    [many] { "\\"" }{ -brand(style: "percent") }Hello\n }{ 1.0 ->\n   *[0] { $n }{ c.c }Ünïcödé\n    [John] { $n }\n }{ 1 }\nbar-baz = 😀x😀\n-term = Ünïcödé\n	msg	-	n=s:ordinal;a=f:5e-324;x=f:inf;b=f:-inf	ibs
+F	sr-RU	msg = Hello\n    .attr = text\na = x\nb = { NUMBER() } \nfoo = x{ "one" ->\n   *[one] { 007 }\n    [0] { $foo }\n }{ { 1 } }\n    .bar-baz = { "\\"" }\n-t = Ünïcödé{ "str" }{ -term }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-term = text\n	msg	-	n=s:1;foo=i:-9223372036854775808;Name=i:11	bs
+F		msg = 😀{ $x_1 }\nb = { $foo }\n-t = { NUMBER(0) }\n-term = x\n	msg	attr	n=i:1;a=i:-1;foo=u:1;x=i:2;Name=s:false;b=f:1e21	s
+F	ja	msg = { NUMBER({ a.a }) }\nc = { 1.0 ->\n   *[-1] 😀\n    [John] Ünïcödé{ -brand.attr }\n }\n-brand = { $b }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=s:cardinal;a=u:1;foo=u:18446744073709551615;Name=s:cardinal;b=i:3	ibs
+F	de-CH	msg = world\na = Ünïcödé\nfoo = Ünïcödé{ $foo } \n    .Name = x\nbar-baz = Hello\n-t = 😀\njunk { \n	msg	attr	n=i:9007199254740993;Name=f:100.0;b=s:false	ibc
+F	ja	msg = text\na = { $n }\nb = x world{ $b }\n-brand = 😀 \n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	a=f:0;foo=s:many;x=u:1;Name=s:cardinal	b
+F	az-IR	msg = world\na = Hello { { $bar-baz } }\nc = Hello\n-t = x{ "a\\U0110000" }\n-brand = { { -t } }{ $bar-baz ->\n    [false] { bar-baz.Name }{ 2.50 }\n   *[-1] { -brand(minimumFractionDigits: 2, currency: "EUR") }\n    [2] { STREQ(STREQ($foo), $c, x: $n) }Hello\n }\n	msg	-	a=s:zero;x=f:0.30000000000000004;Name=i:1	ib
+F	en-US,fr	msg = { NUMBER() }xÜnïcödé\n    .attr = { 2.50 }😀 world\na = Ünïcödé{ "\\"" }\n    .n = { NUMBER($n, minimumFractionDigits: 1) ->\n    [cardinal] x\n    [other] { "\\{" }{ 0 }\n   *[one] { bar-baz }\n    [many] x\n }😀😀\n-term = { 1 ->\n    [other] { 1 }{ -term() }Hello\n   *[0] Hellox{ $Name }\n    [zero] HelloHello\n }{ -t() }\n-brand = { $n ->\n   *[two] Ünïcödé{ $a }😀\n }\n	msg	-	a=u:0;foo=i:3	is
+F	pl	msg = xx{ $a }\na = 😀\nb = { $n ->\n    [1] Hello\n    [true] Ünïcödé{ NUMBER(-1, $bar-baz) }\n   *[1.50] { $bar-baz }😀\n }{ { -term.attr() } }{ -1 }\n    .a = 😀\nc = 😀 world \n    .Name = Hello { -t.attr ->\n    [John] { $x_1 }{ $a }{ -t(type: "ordinal") }\n   *[one] Ünïcödé\n }\nfoo = { { b } }\n    .a = { $c ->\n   *[John] x{ foo.a }\n    [1.50] { 0 }\n }😀\nbar-baz = { 1.000 } world{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[false] 😀 world\n }\n-t = Ünïcödé\n-term = { -t.attr ->\n   *[John] Ünïcödé{ NUMBER($Name, $foo) }Hello\n    [false] { -t }😀{ $b }\n    [two] 😀x\n }{ NUMBER($b, Name) }😀\nmsg = dup\n	msg	-	n=f:100.0;foo=s:true;x=f:-inf	bc
+F	sr-RU	msg = Hello\n    .attr = { $x_1 }\na = { 1 ->\n    [cardinal] ÜnïcödéHelloHello\n   *[-1] { x_1 }\n }\n-t = { $n ->\n   *[true] { $n }{ 1.5 }{ UNKNOWN(useGrouping: "false", x: $n) }\n    [2] { NUMBER() }x\n    [cardinal] Ünïcödé\n }x\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=i:5;foo=t:11;x=f:100.0	bc
+F	ru	msg = Ünïcödé\nc = { STREQ() }\nfoo = world{ "\\{" }Ünïcödé\nbar-baz = { $foo ->\n   *[one] { -brand.attr() }Hello\n    [false] { NUMBER($b, n.c) }{ 007 }\n    [true] { 1.000 }\n }Ünïcödé\n    .Name = xHello \n-t = Hello\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-term = 😀{ STREQ() }{ $n ->\n   *[two] { $n }\n    [-1] { NUMBER($Name, $x_1) }Hello\n    [John] { $Name }\n }\nmsg = dup\n	msg	-	n=f:2.25;x=f:1	s
+F	ja	msg = { -brand }\na = ÜnïcödéÜnïcödé\n    .Name = { $n ->\n   *[1] { c }\n    [-1] HelloHello\n    [one] Ünïcödé\n } \nb = { NUMBER($n, type: "ordinal") ->\n   *[John] Hello\n }\n    .x_1 = { $bar-baz ->\n   *[other] { $n }\n    [few] Ünïcödé\n    [1] { -t.attr() }{ $bar-baz }\n    [true] { -t(type: $t) }{ $foo } world\n }  \nbar-baz = 😀HelloHello\n-term = Ünïcödé{ c }{ -t.attr ->\n    [1] Hello{ -brand.attr(minimumFractionDigits: 30, minimumIntegerDigits: 3) }x\n   *[1.0] x{ "\\u0041" }\n    [2] Hello{ $bar-baz }{ $Name }\n }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=s:cardinal;Name=s:zero	ibs
+F		msg = world{ "\\U01F600" }{ $n }\n    .attr = { -brand.attr(style: "percent", type: $t) }\na = world{ 1 ->\n    [1.50] Ünïcödé{ NUMBER($x_1) } world\n    [2] { NUMBER(b) }{ -t } world\n   *[other] x\n    [1.0] 😀 world\n }{ -brand }\nc = Ünïcödé\n    .bar-baz = x worldÜnïcödé\nfoo = { { $a } }\n	msg	-	a=i:1;x=s:one;Name=f:inf	is
+F	fr	msg = { $x_1 }{ $x_1 }Hello\na = { "\\u0041" }\nb = world😀{ 1 ->\n   *[1] { NUMBER(type: "ordinal", style: "percent") }Hello{ STREQ("\\{", $a, x: $n) }\n    [1.50] { "\\U01F600" }{ $x_1 }\n }\n    .foo = text\nc = 😀\n    .n = { NUMBER(NUMBER("\\{", $a), UNKNOWN()) }{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[cardinal] { $c }\n }\nfoo = x{ "one" ->\n   *[other] { -t(minimumFractionDigits: 30) }\n    [many] ÜnïcödéHello\n    [0] x{ NUMBER(x_1, -term) }\n    [false] world😀{ a }\n }😀\n-t = 😀{ $x_1 }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-term = 😀\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = x{ $x_1 }Ünïcödé\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=i:5;t=f:0;a=i:1;foo=f:2.25;x=t:1.	ibcs
+F	br	msg = { 1 ->\n    [-1] { { STREQ($b, $b) } }\n   *[1.0] text\n    [false] Hello \n    [few] { $bar-baz }{ $a }{ "\\{" }\n }{ -term }\n    .attr = world\na = Ünïcödé{ NUMBER(bar-baz, $foo, minimumFractionDigits: 30, useGrouping: "false") }\n    .foo = world{ STREQ(a) }x\nc = { 1.000 }Hello{ -term.attr }\nbar-baz = world😀\n	msg	attr	t=f:2.25;a=t:101	ibs
+F	ru	msg = { -term }{ "\\{" }😀\n    .attr = { $Name ->\n   *[few] { $b }😀{ -term }\n }\na = { NUMBER($n, type: "ordinal") ->\n    [true] { "\\\\" }xHello\n   *[1] x\n } world\n    .a = { c }{ $c ->\n    [John] text\n   *[2] Ünïcödé\n    [one] Ünïcödé\n }\nc = world world{ 1 ->\n    [many] { $Name }Hello{ $c }\n    [cardinal] { $a }\n   *[John] { $n }{ $b }\n }\nbar-baz = { $b }😀\n    .c = { "\\{" }  \n	msg	-	n=s:other;a=i:3;x=s:ordinal;b=t:4	bs
+F	sl	msg = 😀{ 1 ->\n   *[one] { 2.50 }\n    [many] { 2.50 }\n    [false] Ünïcödé{ STREQ(NUMBER(), $n, maximumFractionDigits: 1, type: "ordinal") }\n }{ 1 }\nc = { { $x_1 } } world{ $x_1 ->\n   *[two] x world\n    [zero] Hello{ STREQ(x_1, STREQ()) }\n }\nfoo = text\nbar-baz = { bar-baz }\n-t = { { $bar-baz } }😀\n-term = { NUMBER($foo, minimumFractionDigits: 0, x: $n) }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n-brand = text\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	a=s:cardinal	s
+F	zh-GB	msg = { -term.attr }{ NUMBER($n, type: "ordinal") ->\n   *[other] { $bar-baz }\n    [one] 😀\n    [0] { "str" } world\n }\n    .attr = text\na = { "\\u00" }\nfoo = ÜnïcödéxÜnïcödé\n-term = { $a }{ $Name }\n	msg	-	n=i:21;a=s:zero;foo=f:1e21;Name=s:true;b=f:1	bs
+F	en-US,fr	msg = x\n    .attr = { { -brand() } }{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[false] 😀\n }{ 1 ->\n    [1] { STREQ() }{ 1 }\n   *[one] { "\\U01F600" }{ NUMBER($foo) }\n }\nb = { $Name }{ 1 }😀\n    .bar-baz = Hello\nc = { NUMBER(minimumFractionDigits: 30, currency: "EUR") }{ "a\\U0110000" } world\nfoo = { $n ->\n    [2] 😀Ünïcödé\n   *[1.0] world{ $Name }\n    [many] { -term }\n }😀\n    .x_1 = { NUMBER($n, minimumFractionDigits: 1) ->\n    [true] { STREQ() }\n   *[false] xx\n    [1] Hello\n }\n-term = text\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	n=s:true;t=i:21;foo=f:-inf;b=u:18446744073709551615	ics
+F	az-IR	msg = Hello\n    .attr = { { $Name } }Hello{ bar-baz }\na = world{ "\\u00" }😀\nb = { $c }\nfoo = Ünïcödé{ { NUMBER(1, type: "ordinal", minimumFractionDigits: 30) } }\n-t = 😀\n-term = 😀{ $c }\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	t=u:4;a=u:1;foo=u:4	bc
+F	ja	msg = { NUMBER() }{ -t() }\na = Hello{ $x_1 }Hello\nb = world\nc = { $n ->\n    [two] { $a }{ $bar-baz }😀\n   *[1.0] 😀{ NUMBER(useGrouping: "false") }Ünïcödé\n } \nfoo = { "one" ->\n    [1] { "\\{" }\n   *[other] Ünïcödé{ NUMBER(-term.attr(minimumFractionDigits: 30, type: $t), -brand(minimumFractionDigits: 0), minimumFractionDigits: 2) }\n    [0] { NUMBER($Name) }\n } world\n    .x_1 = 😀x😀\nbar-baz = world{ 1 ->\n   *[one] x{ $foo }Ünïcödé\n    [zero] 😀{ "\\{" }\n }\n    .foo = { -term }{ $n }\n-term = { $Name ->\n   *[true] { $x_1 }\n }\n	msg	attr	a=f:2.25;x=s:ordinal;b=f:5e-324	bs
+F	sr-RU	msg = { { 1.000 } }\n    .attr = 😀{ { $b } }{ foo }\nb = { 0 }\n    .b = { 1 }{ "\\{" }\nc = { UNKNOWN(type: "ordinal", useGrouping: "false") } world{ "one" ->\n   *[two] 😀{ $x_1 }\n    [few] { -brand.attr }{ 007 } \n }\n	msg	-	n=i:11;t=f:1;a=i:100;foo=u:1;x=u:18446744073709551615;b=u:18446744073709551615	i
+F	sr-Latn	msg = x😀\n    .attr = { 0 }\nb = { NUMBER($n, type: "ordinal") ->\n    [0] text\n   *[-1] { -term(type: $t, minimumFractionDigits: 0) }\n    [1] { $a } world\n }  world\nfoo = { 2.50 }\nbar-baz = world\n-t = { 1.0 ->\n   *[one] { "\\"" } world\n    [1.0] { $foo }\n    [many] { x_1 }\n    [cardinal] { 1.000 }\n }Hello\n-brand = { a.Name }x😀\n	msg	-	foo=f:0.30000000000000004;b=f:1e-7	ibs
+F	ja	msg = { $a } world\nbar-baz = { $bar-baz }{ { -t(maximumFractionDigits: 1) } }\n    .Name = { 1 ->\n   *[true] Hello\n    [0] 😀\n }\n-term = x{ $n ->\n   *[0] { "a\\U0110000" }\n    [two] { -brand.attr }{ -t(style: "percent", x: $n) }\n }Ünïcödé\n	msg	-	t=E:;Name=E:	bs
+F	de-CH	msg = x Ünïcödé\n    .attr = { -t.attr ->\n    [-1] { $c }{ $n }x\n   *[2] { 0 }{ $b }{ UNKNOWN($x_1) }\n    [other] { -term }HelloÜnïcödé\n }Ünïcödé\na = HelloÜnïcödé\nb = Ünïcödé{ NUMBER($n, minimumFractionDigits: 1) ->\n   *[0] Ünïcödé{ STREQ($c, $b, minimumFractionDigits: 30, type: "cardinal") }x\n } world\nc = Ünïcödé😀\n	msg	-	n=s:one;t=u:0;foo=s:false;x=s:x😀	ib
+F	sl	msg = x😀\n    .attr = { NUMBER($n, type: "ordinal") ->\n   *[true] world\n    [other] Ünïcödéx\n    [zero] { $c }{ n }\n    [-1] 😀 { $n }\n }\na = Ünïcödé world\nb = { $n ->\n    [two] Ünïcödé{ $x_1 } world\n    [zero] x{ -brand() }\n   *[0] { 0 }{ STREQ($bar-baz, $bar-baz) } world\n }😀{ { $a } }\nc = Hello\n    .b = { $c }Ünïcödé\nfoo = { NUMBER($c) }Ünïcödé\n-t = 😀\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\nmsg = dup\n	msg	-	foo=i:21;x=t:-1.5	ibs
+F	ar	msg = { "\\u00" }\n    .attr = { bar-baz }\nc = 😀Ünïcödé😀\nfoo = { $a ->\n   *[few] { -term() }\n    [0] { $a }\n    [false] 😀\n }\nbar-baz = { $bar-baz }\n-term = { -brand() }Hello\n    .attr = { $n ->\n        [one] One\n       *[other] Other { $n }\n    }\n	msg	-	-	ib
+F	en	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:19	b
+F	en	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=f:1.5	b
+F	en	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=s:1	b
+F	en-US	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:12	b
+F	en-US	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=f:0.5	b
+F	en-US	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:21.1	b
+F	fr	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:7	b
+F	fr	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:-1	b
+F	fr	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=t:0.0	b
+F	fr-CA	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:6	b
+F	fr-CA	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:102	b
+F	fr-CA	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:2.0	b
+F	pl	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:4	b
+F	pl	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:100	b
+F	pl	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=t:1.0	b
+F	ar	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:2	b
+F	ar	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:23	b
+F	ar	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=f:0.0	b
+F	ru	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:1	b
+F	ru	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:21	b
+F	ru	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=f:2.1	b
+F	ru	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=s:one	b
+F	uk	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:13	b
+F	uk	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=f:1.5	b
+F	uk	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=t:-0	b
+F	cy	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:12	b
+F	cy	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:-2	b
+F	cy	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:1.50	b
+F	ga	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:7	b
+F	ga	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:1000000	b
+F	ga	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=t:0.0	b
+F	gd	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:5	b
+F	gd	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:102	b
+F	gd	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:1.00	b
+F	sl	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:3	b
+F	sl	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:100	b
+F	sl	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=f:1e21	b
+F	lt	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:2	b
+F	lt	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:22	b
+F	lt	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=f:0.0	b
+F	lv	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:0	b
+F	lv	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:19	b
+F	lv	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=f:2.1	b
+F	lv	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=s:1	b
+F	cs	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:13	b
+F	cs	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=f:0.5	b
+F	cs	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:-0	b
+F	sk	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:11	b
+F	sk	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:-1	b
+F	sk	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=t:1.50	b
+F	he	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:6	b
+F	he	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:1000000	b
+F	he	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=t:2.0	b
+F	ja	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:5	b
+F	ja	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:101	b
+F	ja	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:1.0	b
+F	zh	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:3	b
+F	zh	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:23	b
+F	zh	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=f:1e21	b
+F	pt	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:1	b
+F	pt	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:22	b
+F	pt	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=f:1.1	b
+F	pt	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=s:one	b
+F	pt-PT	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:19	b
+F	pt-PT	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=f:1.5	b
+F	pt-PT	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=s:1	b
+F	br	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:12	b
+F	br	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=f:0.5	b
+F	br	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:21.1	b
+F	mt	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:7	b
+F	mt	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:-1	b
+F	mt	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=t:0.0	b
+F	is	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:6	b
+F	is	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:102	b
+F	is	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:2.0	b
+F	mk	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:4	b
+F	mk	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:100	b
+F	mk	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=t:1.0	b
+F	ro	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:2	b
+F	ro	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:23	b
+F	ro	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=f:0.0	b
+F	it	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:1	b
+F	it	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:21	b
+F	it	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=f:2.1	b
+F	it	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=s:one	b
+F	ca	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:13	b
+F	ca	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=f:1.5	b
+F	ca	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=t:-0	b
+F	sv	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:12	b
+F	sv	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:-2	b
+F	sv	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:1.50	b
+F	kw	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:7	b
+F	kw	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:1000000	b
+F	kw	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=t:0.0	b
+F	xx	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:5	b
+F	xx	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:102	b
+F	xx	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:1.00	b
+F	und	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:3	b
+F	und	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:100	b
+F	und	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=f:1e21	b
+F	es-419	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:2	b
+F	es-419	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:22	b
+F	es-419	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=f:0.0	b
+F	sr-Latn-RS	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:0	b
+F	sr-Latn-RS	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:19	b
+F	sr-Latn-RS	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=f:2.1	b
+F	sr-Latn-RS	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=s:1	b
+F	ksh	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:13	b
+F	ksh	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=f:0.5	b
+F	ksh	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:-0	b
+F	lag	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:11	b
+F	lag	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:-1	b
+F	lag	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=t:1.50	b
+F	shi	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:6	b
+F	shi	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:1000000	b
+F	shi	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=t:2.0	b
+F	fil	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:5	b
+F	fil	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:101	b
+F	fil	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=t:1.0	b
+F	hi	msg = { NUMBER($n, minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:3	b
+F	hi	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 3) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 3) }\n}\n	msg	-	n=i:23	b
+F	hi	msg = { NUMBER($n, minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=f:1e21	b
+F	bn	msg = { NUMBER($n, type: "ordinal", minimumFractionDigits: 1) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n, minimumFractionDigits: 1) }\n}\n	msg	-	n=i:1	b
+F	bn	msg = { NUMBER($n) ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=i:22	b
+F	bn	msg = { NUMBER($n, type: "ordinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=f:1.1	b
+F	bn	msg = { NUMBER($n, type: "cardinal") ->\n   [zero] Z {$n}\n   [one] O {$n}\n   [two] T {$n}\n   [few] F {$n}\n   [many] M {$n}\n   [1] exact1\n  *[other] X { NUMBER($n) }\n}\n	msg	-	n=s:one	b
+F	ar	msg = { -t(n: 7) } { $n ->\n [one] one\n [few] few\n *[other] other\n}\n-t = { $n ->\n [one] T1\n *[other] T{$n}\n}\n	msg	-	n=i:7	i
