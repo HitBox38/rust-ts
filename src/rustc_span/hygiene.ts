@@ -42,14 +42,10 @@ import {
   StableCrateId,
 } from "./def_id.ts";
 import { debug_Edition, type Edition } from "./edition.ts";
-import { debug_Span, type SourceMap, with_session_globals } from "./lib.ts";
+import { debug_Span, with_session_globals } from "./lib.ts";
+import type { SourceMap } from "./source_map.ts";
 import { DUMMY_SP, Span } from "./span_encoding.ts";
 import { debug_Symbol, display_Symbol, kw, sym, type Symbol } from "./symbol.ts";
-
-/// `SourceMap::is_imported` (source_map.rs, wave 2)
-function sm_is_imported(_sm: SourceMap, _sp: Span): boolean {
-  unported("rustc_span::source_map::SourceMap::is_imported");
-}
 
 /// PORT: stand-in for `rustc_data_structures::stable_hash::StableHashCtxt` (only what this file calls).
 export interface StableHashCtxt {
@@ -1019,7 +1015,7 @@ export const SyntaxContext = {
       return true; // well, it's "external"
     } else if (kind.$ === "Macro" && kind._0 === MacroKind.Bang) {
       // Dummy span for the `def_site` means it's an external macro.
-      return Span.is_dummy(expn_data.def_site) || sm_is_imported(sm, expn_data.def_site);
+      return Span.is_dummy(expn_data.def_site) || sm.is_imported(expn_data.def_site);
     } else {
       return true; // definitely a plugin
     }
