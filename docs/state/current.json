@@ -5,11 +5,11 @@
     "lex": 25780,
     "symbols": 10,
     "escape-synthetic": 11,
-    "fluent-format": 2739,
+    "fluent-format": 4210,
     "fluent-parse": 4210,
     "escape": 25780
   },
-  "updated": "2026-10-12T21:11:29.707Z",
+  "updated": "2026-10-12T21:11:46.172Z",
   "open_stops": [],
   "coverage": {
     "ported": 1527,
