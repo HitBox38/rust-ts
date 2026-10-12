@@ -12,3 +12,4 @@
 {"ts":"2026-10-12T10:58:22.406Z","kind":"decision","msg":"Vendor bitflags =2.10.0 (rustc_ast). Codegen report default moved to $RUST_TS_DATA/codegen (was written into src/)."}
 {"ts":"2026-10-12T10:58:22.455Z","kind":"note","msg":"ast-types merged; gate PASS gate-20261012-105724-root-lfad"}
 {"ts":"2026-10-12T15:45:10.862Z","kind":"accept","msg":"accepted gate run gate-20261012-105941-root-hf6n","data":{"runId":"gate-20261012-105941-root-hf6n","suites":{"lex":{"protected":25780,"total":25780},"escape":{"protected":25780,"total":25780},"symbols":{"protected":10,"total":10},"escape-synthetic":{"protected":11,"total":11}}}}
+{"ts":"2026-10-12T15:50:38.665Z","kind":"note","msg":"span-map merged (+hygiene is_imported wiring, vendor unicode-width); gate PASS gate-20261012-154702-root-tr7a"}
