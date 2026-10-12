@@ -2,16 +2,11 @@
 //! Routines the parser and pretty-printer use to classify AST nodes.
 //
 // Types are generated into classify.gen.ts (tools/codegen/types.ts).
-import type { Expr, MacCall, Path, Ty, YieldKind } from "../ast.ts";
-import { unported } from "../../std/panic.ts";
+import { YieldKind } from "../ast.ts";
+import type { Expr, MacCall, Path, Ty } from "../ast.ts";
 import type { TrailingBrace } from "./classify.gen.ts";
 
 export * from "./classify.gen.ts";
-
-/** `YieldKind::expr` (ast.rs, not ported yet). */
-function YieldKind_expr(_kind: YieldKind): Expr | undefined {
-  return unported("rustc_ast::ast::YieldKind::expr");
-}
 
 /// This classification determines whether various syntactic positions break out
 /// of parsing the current expression (true) or continue parsing more of the
@@ -246,7 +241,7 @@ export function expr_trailing_brace(expr: Expr): TrailingBrace | undefined {
         expr = kind._0;
         break;
       case "Yield": {
-        const e = YieldKind_expr(kind._0);
+        const e = YieldKind.expr(kind._0);
         if (e !== undefined) {
           expr = e;
           break;

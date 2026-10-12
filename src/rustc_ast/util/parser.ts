@@ -1,26 +1,14 @@
 // Port of compiler/rustc_ast/src/util/parser.rs
 // Types and derived Debug impls are generated into parser.gen.ts (tools/codegen/types.ts).
-import type { BinOpKind, Expr } from "../ast.ts";
+import { BinOpKind } from "../ast.ts";
+import type { Expr } from "../ast.ts";
 import type { Token } from "../token.ts";
 import { kw } from "../../rustc_span/symbol.ts";
-import { unported } from "../../std/panic.ts";
 import * as gen from "./parser.gen.ts";
 import type { ExprPrecedence as ExprPrecedenceT, Fixity } from "./parser.gen.ts";
 
 export * from "./parser.gen.ts";
 
-/** `BinOpKind::precedence` (ast.rs, not ported yet). */
-function BinOpKind_precedence(_op: BinOpKind): ExprPrecedence {
-  return unported("rustc_ast::ast::BinOpKind::precedence");
-}
-/** `BinOpKind::fixity` (ast.rs, not ported yet). */
-function BinOpKind_fixity(_op: BinOpKind): Fixity {
-  return unported("rustc_ast::ast::BinOpKind::fixity");
-}
-/** `BinOpKind::is_comparison` (ast.rs, not ported yet). */
-function BinOpKind_is_comparison(_op: BinOpKind): boolean {
-  return unported("rustc_ast::ast::BinOpKind::is_comparison");
-}
 
 /// Associative operator.
 export type AssocOp = gen.AssocOp;
@@ -111,7 +99,7 @@ export const AssocOp = {
       case "Cast":
         return "Cast";
       case "Binary":
-        return BinOpKind_precedence(self._0);
+        return BinOpKind.precedence(self._0);
       case "Range":
         return "Range";
       case "Assign":
@@ -129,7 +117,7 @@ export const AssocOp = {
       case "AssignOp":
         return "Right";
       case "Binary":
-        return BinOpKind_fixity(self._0);
+        return BinOpKind.fixity(self._0);
       case "Cast":
         return "Left";
       case "Range":
@@ -141,7 +129,7 @@ export const AssocOp = {
   is_comparison(self: AssocOp): boolean {
     switch (self.$) {
       case "Binary":
-        return BinOpKind_is_comparison(self._0);
+        return BinOpKind.is_comparison(self._0);
       case "Assign":
       case "AssignOp":
       case "Cast":
@@ -165,6 +153,7 @@ export const AssocOp = {
 };
 
 export type ExprPrecedence = ExprPrecedenceT;
+export const ExprPrecedence = gen.ExprPrecedence;
 
 /// `#[derive(PartialOrd)]`: the variant order.
 export const ExprPrecedence_discriminant: Record<ExprPrecedence, number> = {

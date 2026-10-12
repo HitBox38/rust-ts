@@ -1,0 +1,22 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@ and builds this in $RUST_TS_DATA/probes.
+# Dependency versions are pinned to upstream's Cargo.lock at the pinned commit (the versions
+# rustc_error_messages / fluent-bundle use). unic-langid's `likelysubtags` feature is enabled here
+# (it is off in rustc's build) so that maximize/minimize and the feature-on `character_direction`
+# can be checked; the TS port models the feature as `FEATURES.likelysubtags`.
+[package]
+name = "plurals"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "plurals"
+path = "@SRC@/main.rs"
+
+[dependencies]
+intl_pluralrules = "=7.0.2"
+unic-langid = { version = "=0.9.6", features = ["likelysubtags"] }
+unic-langid-impl = "=0.9.6"
+tinystr = "=0.8.4"
+
+[workspace]

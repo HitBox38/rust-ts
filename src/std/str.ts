@@ -4,7 +4,8 @@
 import { Panic } from "./panic.ts";
 
 const encoder = new TextEncoder();
-const decoder = new TextDecoder("utf-8", { fatal: false });
+// ignoreBOM: a Rust `&str` keeps a leading U+FEFF; TextDecoder strips it by default.
+const decoder = new TextDecoder("utf-8", { fatal: false, ignoreBOM: true });
 
 export function utf8(s: string): Uint8Array {
   return encoder.encode(s);

@@ -1,0 +1,49 @@
+import { AnsiColor, Ansi256Color, RgbColor, Color, Effects, Reset, Style, debug_Style, debug_Effects, debug_Color, debug_AnsiColor, debug_Reset } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/anstyle/lib.ts";
+import * as r from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/renderer/mod.ts";
+import { Level, debug_Level } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/level.ts";
+import { Title, Group, Element, Snippet, AnnotationKind, Annotation, Origin, Padding, Patch, debug_Group } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/snippet.ts";
+import { normalize_untrusted_str } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/vendor/annotate_snippets/lib.ts";
+import { debug_str, debug_option, debug_vec, PLAIN, PRETTY } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/std/fmt.ts";
+import { Str, utf8 } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/std/str.ts";
+import { Ok } from "/Users/tomernorman/Documents/personal/rust-ts/.data/lanes/annotate-a/src/std/result.ts";
+const q = debug_str;
+const out: string[] = [];
+const styles: [string, Style][] = [["error", r.DEFAULT_ERROR_STYLE], ["warning", r.DEFAULT_WARNING_STYLE], ["info", r.DEFAULT_INFO_STYLE], ["note", r.DEFAULT_NOTE_STYLE], ["help", r.DEFAULT_HELP_STYLE], ["line_num", r.DEFAULT_LINE_NUM_STYLE], ["emphasis", r.DEFAULT_EMPHASIS_STYLE], ["none", r.DEFAULT_NONE_STYLE], ["context", r.DEFAULT_CONTEXT_STYLE], ["addition", r.DEFAULT_ADDITION_STYLE], ["removal", r.DEFAULT_REMOVAL_STYLE]];
+for (const [n, s] of styles) out.push([n, q(Style.fmt(s, PLAIN)), q(Style.fmt(s, PRETTY)), q(Style.render(s)), debug_Style(s, PLAIN), debug_Style(s, PRETTY)].join("\t"));
+const E = Effects;
+const extra: Style[] = [
+  Style.new(),
+  Style.underline_color(Style.bg_color(Style.fg_color(Style.underline(Style.italic(Style.bold(Style.new()))), { $: "Ansi256", _0: new Ansi256Color(7) }), { $: "Rgb", _0: new RgbColor(255, 0, 9) }), Color.from_AnsiColor("Red")),
+  Style.effects(Style.new(), [E.DOUBLE_UNDERLINE, E.CURLY_UNDERLINE, E.DOTTED_UNDERLINE, E.DASHED_UNDERLINE, E.BLINK, E.INVERT, E.HIDDEN, E.STRIKETHROUGH, E.DIMMED].reduce((a, b) => E.bitor(a, b), E.new())),
+  new Ansi256Color(123).on(Color.from_RgbColor(new RgbColor(1, 22, 100))),
+  Style.sub(AnsiColor.on("BrightMagenta", Color.from_AnsiColor("Black")), E.BOLD),
+  Style.sub(Style.underline(Style.bold(Style.new())), E.BOLD),
+  Style.bitor(Style.new(), E.HIDDEN),
+  Style.underline_color(Color.on_default({ $: "Ansi", _0: "Cyan" }), { $: "Ansi", _0: "BrightWhite" }),
+];
+for (const s of extra) out.push(["extra", q(Style.fmt(s, PLAIN)), q(Style.fmt(s, PRETTY)), debug_Style(s, PLAIN), String(Style.is_plain(s))].join("\t"));
+for (const c of ["Black", "White", "BrightBlack", "BrightWhite"] as AnsiColor[]) out.push(["ansi", q(AnsiColor.render_fg(c)), q(AnsiColor.render_bg(c)), q(Color.render_bg(Color.from_AnsiColor(c))), AnsiColor.bright(c, true), AnsiColor.bright(c, false), String(AnsiColor.is_bright(c))].join("\t"));
+for (const i of [0, 9, 10, 99, 100, 255]) { const c = new Ansi256Color(i); out.push(["a256", q(c.render_fg()), q(c.render_bg()), debug_option(c.into_ansi(), PLAIN, debug_AnsiColor), debug_Color(Color.from_u8(i), PLAIN)].join("\t")); }
+out.push(["rgb", q(new RgbColor(0, 10, 255).render_fg()), debug_Color(Color.from_tuple([1, 2, 3]), PLAIN)].join("\t"));
+const e = E.bitor(E.BOLD, E.UNDERLINE);
+const it = E.iter(e); const items: Effects[] = []; for (let x = it.next(); x !== undefined; x = it.next()) items.push(x);
+out.push(["eff", debug_Effects(e, PLAIN), debug_Effects(E.new(), PLAIN), debug_vec(items, PLAIN, debug_Effects), q(E.render(e))].join("\t"));
+out.push(["reset", q(new Reset().render()), debug_Reset(new Reset(), PLAIN)].join("\t"));
+let w = "";
+const W = { write_all(b: Uint8Array) { w += new TextDecoder().decode(b); return Ok(undefined); } };
+Style.write_to(Style.underline_color(Style.bold(new Ansi256Color(5).on(Color.from_RgbColor(new RgbColor(1, 2, 3)))), Color.from_AnsiColor("Red")), W);
+Style.write_reset_to(Style.bold(Style.new()), W);
+Style.write_reset_to(Style.new(), W);
+out.push(["write", q(w)].join("\t"));
+out.push(["level", debug_Level(Level.ERROR, PLAIN), debug_Level(Level.NOTE.no_name(), PLAIN), debug_Level(Level.ERROR.with_name("error: internal compiler error"), PLAIN)].join("\t"));
+const t = Title.id_url(Title.id(Level.ERROR.primary_title("mismatched types"), "E0308"), "http://x");
+let g = Title.element(t, Element.from_Snippet_Annotation(Snippet.annotation(Snippet.line_start(Snippet.path(Snippet.source<Annotation>(Str.from("fn main() {}\n")), "a.rs"), 3), Annotation.label(AnnotationKind.span("Primary", { start: 3, end: 7 }), "lbl"))));
+g = Group.element(g, Element.from_Message(Level.NOTE.message("m")));
+g = Group.element(g, Element.from_Origin(Origin.char_column(Origin.line(Origin.path("p.rs"), 2), 5)));
+g = Group.element(g, Element.from_Padding(new Padding()));
+g = Group.element(g, Element.from_Snippet_Patch(Snippet.patch(Snippet.source<Patch>(Str.from("abc")), Patch.new({ start: 0, end: 1 }, Str.from("x")))));
+out.push(["group", debug_Group(g, PLAIN)].join("\t"));
+out.push(["groupp", debug_Group(Group.with_level(Level.HELP), PRETTY)].join("\t"));
+out.push(["renderer", r.debug_Renderer(r.Renderer.anonymized_line_numbers(r.Renderer.short_message(r.Renderer.decor_style(r.Renderer.term_width(r.Renderer.plain(), 80), "Unicode"), true), true), PLAIN)].join("\t"));
+out.push(["renderer2", r.debug_Renderer(r.Renderer.error(r.Renderer.styled(), Style.new()), PLAIN)].join("\t"));
+console.log(out.join("\n"));
