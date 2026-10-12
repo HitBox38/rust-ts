@@ -60,17 +60,29 @@ Next after integration: wave 2 = span-map (source_map.rs, caching_source_map_vie
 
 rustc_span is 658/658. Total 1,196 / 25,517 fns.
 
-## Queued (wave 4, in order)
-1. **vendor-fluent**: fluent-syntax 0.12 + fluent-bundle 0.16 (+ intl_pluralrules, icu_list subset). Every inline
-   `#[diag("..")]` / `msg!` message is formatted through Fluent at this pin; `DiagMessage::Inline` is `unported` until then.
-2. **vendor-annotate**: annotate-snippets 0.12.16 (+ anstyle subset). rustc's default human emitter at this pin is
-   `AnnotateSnippetEmitter`; then annotate_snippet_emitter_writer.rs + emitter.rs (replaces the `Emitter` stand-in in
-   rustc_errors/lib.ts). Needs a renderer probe suite.
-3. **codegen-diag**: `#[derive(Diagnostic/Subdiagnostic)]` (52 upstream files) via tools/codegen, porting rustc_macros/src/diagnostics.
-4. **ast-core**: ast.rs fns (160), attr/mod.rs, ast_traits, visit/mut_visit; rustc_feature tables.
-5. **lint-defs**: rustc_lint_defs subset (Applicability, Lint, LintId, levels) replacing errors-core stand-ins.
-6. rustc_session subset (parse.rs ParseSess + options the parser reads); the driver must call `dcx.inner.drop()`
+## Wave 4 (started 2026-10-12, root host now macOS; see decision in history)
+Wave 4a (parallel):
+| lane | scope | status |
+|---|---|---|
+| fluent-syntax | vendor fluent-syntax 0.12.0 (ast, parser, serializer, unicode; tests) | in flight |
+| langid-plural | vendor tinystr 0.8.4 (subset), unic-langid-impl/unic-langid 0.9.6, intl_pluralrules 7.0.2; generated tables | in flight |
+| annotate-a | vendor annotate-snippets 0.12.16 (all but renderer/render.rs) + anstyle 1.0.13 | in flight |
+| ast-core | rustc_ast ast.rs fns, node_id, entry, format, attr/{data_structures,version}, expand/* | in flight |
+| ast-visit | rustc_ast ast_traits.rs, visit.rs, mut_visit.rs | in flight |
+| harness-fluent | `fluentdump` probe, inline-message corpus, `fluent-parse`/`fluent-format` suites (subject wired after fluent-syntax) | in flight |
+| review-w23a | independent review: span-wire, ast-types, span-map | in flight |
+| review-w23b | independent review: ast-token, errors-core | in flight |
+
+Wave 4b (after 4a integrates): fluent-bundle 0.16 (+ fluent-langneg, intl-memoizer, type-map, icu_list subset +
+rustc_baked_icu_data as data) and wire `rustc_errors::formatting`; annotate-b (renderer/render.rs + crate tests) and a
+renderer probe suite; ast-attr (attr/mod.rs); review fixes.
+
+## Queued (after wave 4, in order)
+1. **emitter**: annotate_snippet_emitter_writer.rs + emitter.rs (replaces the `Emitter` stand-in in rustc_errors/lib.ts).
+2. **codegen-diag**: `#[derive(Diagnostic/Subdiagnostic)]` (52 upstream files) via tools/codegen, porting rustc_macros/src/diagnostics.
+3. **lint-defs**: rustc_lint_defs subset (Applicability, Lint, LintId, levels) replacing errors-core stand-ins; rustc_feature tables.
+4. rustc_session subset (parse.rs ParseSess + options the parser reads); the driver must call `dcx.inner.drop()`
    where upstream drops the DiagCtxt (emits stashed diags, flushes delayed bugs).
-7. rustc_parse lexer (StringReader, tokentrees, unicode_chars, unescape_error_reporting), then the parser.
-8. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
+5. rustc_parse lexer (StringReader, tokentrees, unicode_chars, unescape_error_reporting), then the parser.
+6. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
    `LoneSlash` escape coverage (raw-input mode, harness batch); hash std libs into the oracle key once suites compile against std.

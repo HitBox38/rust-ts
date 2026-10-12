@@ -16,3 +16,4 @@
 {"ts":"2026-10-12T15:55:18.347Z","kind":"decision","msg":"Audit-1 F1/F4 fixed in harness batch (gate provenance, rustc_driver cache key); needs independent review before next accept"}
 {"ts":"2026-10-12T19:03:24.501Z","kind":"note","msg":"ast-token merged; gate PASS gate-20261012-185308-root-a805 (first run with provenance)"}
 {"ts":"2026-10-12T19:09:26.827Z","kind":"milestone","msg":"Wave 3 complete: span-map, ast-token, errors-core, harness-w2, gate-provenance merged; gate PASS gate-20261012-190832-root-9vgp; 1196/25517 fns; 51581 protected cases"}
+{"ts":"2026-10-12T19:49:50.171Z","kind":"decision","msg":"Root host is now macOS (aarch64): RUST_TS_DATA defaults to <repo>/.data (gitignored); pinned nightly-2026-10-11 installed and exposed as +nightly via a ~/.rustup/toolchains symlink (rustup refuses a custom toolchain named 'nightly'). AGENTS.md §5 Windows notes are historical."}
