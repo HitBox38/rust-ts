@@ -5,8 +5,8 @@
 //
 // PORT: `mod expr; mod fixup; mod item;` -- `fixup` is imported below. `expr.rs` and `item.rs`
 // extend `State` (PORTING §5 "Methods defined in another file"); this module must not import them.
-// Their methods that this file calls are declared on the `State` interface below and get
-// `unported(...)` placeholders until the expr/item lane assigns the real `State.prototype` methods.
+// They declare their methods on `State` (`declare module "../state.ts"`) and are loaded for their
+// side effects by `pprust/mod.ts`, after this module.
 //
 // PORT: `trait PrintState<'a>: Deref<Target = pp::Printer> + DerefMut` -> the abstract class
 // `PrintState`. Provided (default) methods are its methods; required methods are `abstract`.
@@ -28,7 +28,7 @@ import { BytePos, CharPos, DUMMY_SP, type FileName, Span } from "../../rustc_spa
 import { Ident, IdentPrinter, Symbol, display_IdentPrinter, kw, sym } from "../../rustc_span/symbol.ts";
 import { is_whitespace, len_utf8 } from "../../std/char.ts";
 import { debug_str } from "../../std/fmt.ts";
-import { panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Str, str_chars_count } from "../../std/str.ts";
 import { in_table } from "../../std/unicode/mod.ts";
 import { DEBUG_ESCAPE_UNICODE } from "../../std/unicode/tables.ts";
@@ -2990,63 +2990,3 @@ export class State extends PrintState {
     return State.to_string((s) => s.print_attribute(attr));
   }
 }
-
-// PORT: methods of `impl State` in `state/expr.rs` and `state/item.rs` (a later lane) that this
-// file calls. Declared here so the calls type-check; the placeholders below call `unported` until
-// expr.ts/item.ts assign the real `State.prototype` methods (they are loaded after this module).
-export interface State {
-  print_expr_cond_paren(expr: ast.Expr, needs_par: boolean, fixup: FixupContext): void;
-  print_expr_anon_const(expr: ast.AnonConst, attrs: readonly ast.Attribute[]): void;
-  print_expr(expr: ast.Expr, fixup: FixupContext): void;
-  print_expr_outer_attr_style(expr: ast.Expr, is_inline: boolean, fixup: FixupContext): void;
-  print_foreign_item(item: ast.ForeignItem): void;
-  print_item(item: ast.Item): void;
-  print_visibility(vis: ast.Visibility): void;
-  print_impl_restriction(impl_restriction: ast.ImplRestriction): void;
-  print_mut_restriction(mut_restriction: ast.MutRestriction): void;
-  print_assoc_item(item: ast.AssocItem): void;
-  print_fn(decl: ast.FnDecl, header: ast.FnHeader, ident: Ident | undefined, generics: ast.Generics): void;
-  print_where_bound_predicate(where_bound_predicate: ast.WhereBoundPredicate): void;
-  // Not called from state.rs; used by `pprust/tests.rs`.
-  print_variant(v: ast.Variant): void;
-}
-
-State.prototype.print_expr_cond_paren = function (): void {
-  unported("rustc_ast_pretty::pprust::state::expr::print_expr_cond_paren");
-};
-State.prototype.print_expr_anon_const = function (): void {
-  unported("rustc_ast_pretty::pprust::state::expr::print_expr_anon_const");
-};
-State.prototype.print_expr = function (): void {
-  unported("rustc_ast_pretty::pprust::state::expr::print_expr");
-};
-State.prototype.print_expr_outer_attr_style = function (): void {
-  unported("rustc_ast_pretty::pprust::state::expr::print_expr_outer_attr_style");
-};
-State.prototype.print_foreign_item = function (): void {
-  unported("rustc_ast_pretty::pprust::state::item::print_foreign_item");
-};
-State.prototype.print_item = function (): void {
-  unported("rustc_ast_pretty::pprust::state::item::print_item");
-};
-State.prototype.print_visibility = function (): void {
-  unported("rustc_ast_pretty::pprust::state::item::print_visibility");
-};
-State.prototype.print_impl_restriction = function (): void {
-  unported("rustc_ast_pretty::pprust::state::item::print_impl_restriction");
-};
-State.prototype.print_mut_restriction = function (): void {
-  unported("rustc_ast_pretty::pprust::state::item::print_mut_restriction");
-};
-State.prototype.print_assoc_item = function (): void {
-  unported("rustc_ast_pretty::pprust::state::item::print_assoc_item");
-};
-State.prototype.print_fn = function (): void {
-  unported("rustc_ast_pretty::pprust::state::item::print_fn");
-};
-State.prototype.print_where_bound_predicate = function (): void {
-  unported("rustc_ast_pretty::pprust::state::item::print_where_bound_predicate");
-};
-State.prototype.print_variant = function (): void {
-  unported("rustc_ast_pretty::pprust::state::item::print_variant");
-};

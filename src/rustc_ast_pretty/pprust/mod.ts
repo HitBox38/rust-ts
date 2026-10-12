@@ -7,6 +7,10 @@ import type { TokenStream, TokenTree } from "../../rustc_ast/tokenstream.ts";
 
 export * as state from "./state.ts";
 import { State } from "./state.ts";
+// PORT: `state/expr.rs` and `state/item.rs` extend `State` (PORTING §5); loaded for their side
+// effects after `state.ts`.
+import "./state/expr.ts";
+import "./state/item.ts";
 // pub use state::{AnnNode, Comments, PpAnn, PrintState, State, print_crate, print_crate_as_interface};
 export { type AnnNode, Comments, PpAnn, PrintState, State, print_crate, print_crate_as_interface } from "./state.ts";
 

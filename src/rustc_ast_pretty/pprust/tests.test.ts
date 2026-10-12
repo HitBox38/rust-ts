@@ -1,8 +1,5 @@
 // Port of compiler/rustc_ast_pretty/src/pprust/tests.rs
 //
-// `test_fun_to_string` and `test_variant_to_string` call `print_fn`/`print_variant` from
-// `pprust/state/item.rs`, which is not ported yet (placeholders in state.ts call `unported`), so they
-// stay skipped. Un-skip them (`test.skip` -> `test`) when the expr/item lane lands.
 // PORT: `s.end(..)` through `Deref<Target = Printer>` is `s.s.end(..)` (see state.ts header).
 import { expect, test } from "bun:test";
 import { ast } from "../../rustc_ast/lib.ts";
@@ -10,8 +7,6 @@ import { DUMMY_SP } from "../../rustc_span/span_encoding.ts";
 import { create_default_session_globals_then } from "../../rustc_span/lib.ts";
 import { Ident } from "../../rustc_span/symbol.ts";
 import { to_string } from "./mod.ts";
-
-const PENDING = "pending expr/item lane: print_fn/print_variant (pprust/state/item.rs) are not ported yet";
 
 // PORT: `ast::Generics::default()` (derived `Default`): no params, a default `WhereClause`,
 // `DUMMY_SP`.
@@ -42,7 +37,7 @@ function ty_to_string(ty: ast.Ty): string {
 }
 
 // rustc: compiler/rustc_ast_pretty/src/pprust/tests.rs:32 test_fun_to_string
-test.skip(`test_fun_to_string (${PENDING})`, () => {
+test("test_fun_to_string", () => {
   create_default_session_globals_then(() => {
     const abba_ident = Ident.from_str("abba");
 
@@ -53,7 +48,7 @@ test.skip(`test_fun_to_string (${PENDING})`, () => {
 });
 
 // rustc: compiler/rustc_ast_pretty/src/pprust/tests.rs:46 test_variant_to_string
-test.skip(`test_variant_to_string (${PENDING})`, () => {
+test("test_variant_to_string", () => {
   create_default_session_globals_then(() => {
     const ident = Ident.from_str("principal_skinner");
 

@@ -1,0 +1,1548 @@
+// Oracle for rust-ts src/rustc_ast_pretty/pprust/state/expr_item.test.ts.
+// Parses small Rust snippets with the pinned nightly's rustc_parse (rustc-dev component) and records
+// (a) the parsed AST as JSON in the *TypeScript* AST shape (rust-ts mirrors rustc_ast field-for-field:
+//     struct -> {"#":"<Struct>", field..}, enum variant -> {"$":"<Variant>", _0.. | field..},
+//     fieldless enum -> "<Variant>", Option -> null|value, Box -> inline, Vec/ThinVec -> array,
+//     tuple -> array, Symbol -> {"#sym":..}, Ident -> {"#ident":..}, Span -> "§SP", NodeId -> "§ID",
+//     AttrId -> "§AT", `tokens: Option<LazyAttrTokenStream>` -> null)
+// (b) rustc_ast_pretty's output: pprust::{expr_to_string, item_to_string, crate_to_string_for_macros}.
+// Any AST node outside the supported subset panics, so the fixture can't silently drift.
+// Cases marked `unparen` have every ExprKind::Paren removed before printing/serializing, which
+// exercises the FixupContext parenthesization logic.
+// Build: rustc +nightly-2026-10-11 --edition 2024 main.rs -o oracle
+// Run:   DYLD_LIBRARY_PATH=$(rustc +nightly-2026-10-11 --print sysroot)/lib ./oracle > expr_item.oracle.json
+#![feature(rustc_private)]
+extern crate rustc_ast;
+extern crate rustc_ast_pretty;
+extern crate rustc_driver;
+extern crate rustc_parse;
+extern crate rustc_session;
+extern crate rustc_span;
+extern crate thin_vec;
+
+use rustc_ast::mut_visit::{self, MutVisitor};
+use rustc_ast::token::{self, Delimiter, TokenKind};
+use rustc_ast::tokenstream::{Spacing, TokenStream, TokenTree};
+use rustc_ast::{self as ast, *};
+use rustc_ast_pretty::pprust;
+use rustc_parse::lexer::StripTokens;
+use rustc_session::parse::ParseSess;
+use rustc_span::edition::Edition;
+use rustc_span::{FileName, Ident, Symbol};
+
+fn js(s: &str) -> String {
+    let mut o = String::from("\"");
+    for c in s.chars() {
+        match c {
+            '"' => o.push_str("\\\""),
+            '\\' => o.push_str("\\\\"),
+            '\n' => o.push_str("\\n"),
+            '\r' => o.push_str("\\r"),
+            '\t' => o.push_str("\\t"),
+            c if (c as u32) < 0x20 => o.push_str(&format!("\\u{:04x}", c as u32)),
+            c => o.push(c),
+        }
+    }
+    o.push('"');
+    o
+}
+
+// ---- JSON builders ----
+struct J {
+    s: String,
+}
+fn st(class: &str) -> J {
+    J { s: format!("{{\"#\":{}", js(class)) }
+}
+fn en(tag: &str) -> J {
+    J { s: format!("{{\"$\":{}", js(tag)) }
+}
+fn unit(tag: &str) -> String {
+    en(tag).e()
+}
+impl J {
+    fn f(mut self, k: &str, v: String) -> J {
+        self.s.push(',');
+        self.s.push_str(&js(k));
+        self.s.push(':');
+        self.s.push_str(&v);
+        self
+    }
+    fn e(mut self) -> String {
+        self.s.push('}');
+        self.s
+    }
+}
+fn arr<T>(xs: impl IntoIterator<Item = T>, f: impl std::ops::Fn(T) -> String) -> String {
+    let v: Vec<String> = xs.into_iter().map(f).collect();
+    format!("[{}]", v.join(","))
+}
+fn opt<T>(x: Option<T>, f: impl FnOnce(T) -> String) -> String {
+    match x {
+        Some(x) => f(x),
+        None => "null".to_string(),
+    }
+}
+fn b(x: bool) -> String {
+    x.to_string()
+}
+fn dbg<T: std::fmt::Debug>(x: T) -> String {
+    // Only for fieldless enums with derived Debug (prints the variant name).
+    js(&format!("{x:?}"))
+}
+const SP: &str = "\"§SP\"";
+const ID: &str = "\"§ID\"";
+const NULL: &str = "null";
+fn sp() -> String {
+    SP.to_string()
+}
+fn id() -> String {
+    ID.to_string()
+}
+fn null() -> String {
+    NULL.to_string()
+}
+fn sym(s: Symbol) -> String {
+    format!("{{\"#sym\":{}}}", js(s.as_str()))
+}
+fn ident(i: Ident) -> String {
+    format!("{{\"#ident\":{}}}", js(i.name.as_str()))
+}
+
+// ---- tokens ----
+fn token_lit(l: &token::Lit) -> String {
+    let kind = match l.kind {
+        token::LitKind::StrRaw(n) => en("StrRaw").f("_0", n.to_string()).e(),
+        token::LitKind::ByteStrRaw(n) => en("ByteStrRaw").f("_0", n.to_string()).e(),
+        token::LitKind::CStrRaw(n) => en("CStrRaw").f("_0", n.to_string()).e(),
+        token::LitKind::Err(_) => panic!("lit err"),
+        k => unit(&format!("{k:?}")),
+    };
+    st("Lit").f("kind", kind).f("symbol", sym(l.symbol)).f("suffix", opt(l.suffix, sym)).e()
+}
+fn delimiter(d: Delimiter) -> String {
+    match d {
+        Delimiter::Parenthesis => unit("Parenthesis"),
+        Delimiter::Brace => unit("Brace"),
+        Delimiter::Bracket => unit("Bracket"),
+        Delimiter::Invisible(_) => panic!("invisible"),
+    }
+}
+fn spacing(s: Spacing) -> String {
+    dbg(s)
+}
+fn token_kind(k: &TokenKind) -> String {
+    match k {
+        TokenKind::Ident(s, kind) => en("Ident").f("_0", sym(*s)).f("_1", dbg(kind)).e(),
+        TokenKind::Lifetime(s, kind) => en("Lifetime").f("_0", sym(*s)).f("_1", dbg(kind)).e(),
+        TokenKind::Literal(lit) => en("Literal").f("_0", token_lit(lit)).e(),
+        TokenKind::DocComment(ck, st_, s) => {
+            en("DocComment").f("_0", dbg(ck)).f("_1", dbg(st_)).f("_2", sym(*s)).e()
+        }
+        TokenKind::NtIdent(..)
+        | TokenKind::NtLifetime(..)
+        | TokenKind::OpenInvisible(_)
+        | TokenKind::CloseInvisible(_) => panic!("unsupported token {k:?}"),
+        k => unit(&format!("{k:?}")),
+    }
+}
+fn token_stream(ts: &TokenStream) -> String {
+    st("TokenStream").f("_0", arr(ts.iter(), token_tree)).e()
+}
+fn token_tree(tt: &TokenTree) -> String {
+    match tt {
+        TokenTree::Token(t, s) => en("Token")
+            .f("_0", st("Token").f("kind", token_kind(&t.kind)).f("span", sp()).e())
+            .f("_1", spacing(*s))
+            .e(),
+        TokenTree::Delimited(_, ds, d, inner) => en("Delimited")
+            .f("_0", st("DelimSpan").f("open", sp()).f("close", sp()).e())
+            .f("_1", st("DelimSpacing").f("open", spacing(ds.open)).f("close", spacing(ds.close)).e())
+            .f("_2", delimiter(*d))
+            .f("_3", token_stream(inner))
+            .e(),
+    }
+}
+fn delim_args(d: &DelimArgs) -> String {
+    st("DelimArgs")
+        .f("dspan", st("DelimSpan").f("open", sp()).f("close", sp()).e())
+        .f("delim", delimiter(d.delim))
+        .f("tokens", token_stream(&d.tokens))
+        .e()
+}
+fn mac_call(m: &MacCall) -> String {
+    st("MacCall").f("path", path(&m.path)).f("args", delim_args(&m.args)).e()
+}
+
+// ---- attributes ----
+fn attrs(a: &[Attribute]) -> String {
+    arr(a.iter(), attribute)
+}
+fn attribute(a: &Attribute) -> String {
+    let kind = match &a.kind {
+        AttrKind::Normal(n) => {
+            let args = match &n.item.args {
+                AttrArgs::Empty => unit("Empty"),
+                AttrArgs::Delimited(d) => en("Delimited").f("_0", delim_args(d)).e(),
+                AttrArgs::Eq { expr: e, .. } => en("Eq").f("eq_span", sp()).f("expr", expr(e)).e(),
+            };
+            let item = st("AttrItem")
+                .f("unsafety", safety(n.item.unsafety))
+                .f("path", path(&n.item.path))
+                .f("args", args)
+                .f("span", sp())
+                .e();
+            en("Normal").f("_0", st("NormalAttr").f("item", item).f("tokens", null()).e()).e()
+        }
+        AttrKind::DocComment(ck, s) => en("DocComment").f("_0", dbg(ck)).f("_1", sym(*s)).e(),
+        _ => panic!("unsupported attr kind"),
+    };
+    st("Attribute").f("kind", kind).f("id", "\"§AT\"".into()).f("style", dbg(a.style)).f("span", sp()).e()
+}
+
+// ---- small enums ----
+fn safety(s: Safety) -> String {
+    match s {
+        Safety::Unsafe(_) => en("Unsafe").f("_0", sp()).e(),
+        Safety::Safe(_) => en("Safe").f("_0", sp()).e(),
+        Safety::Default => unit("Default"),
+    }
+}
+fn constness(c: Const) -> String {
+    match c {
+        Const::Yes(_) => en("Yes").f("_0", sp()).e(),
+        Const::No => unit("No"),
+    }
+}
+fn defaultness(d: Defaultness) -> String {
+    match d {
+        Defaultness::Implicit => unit("Implicit"),
+        Defaultness::Default(_) => en("Default").f("_0", sp()).e(),
+        Defaultness::Final(_) => en("Final").f("_0", sp()).e(),
+    }
+}
+fn str_style(s: StrStyle) -> String {
+    match s {
+        StrStyle::Cooked => unit("Cooked"),
+        StrStyle::Raw(n) => en("Raw").f("_0", n.to_string()).e(),
+    }
+}
+fn str_lit(l: &StrLit) -> String {
+    st("StrLit")
+        .f("symbol", sym(l.symbol))
+        .f("suffix", opt(l.suffix, sym))
+        .f("symbol_unescaped", sym(l.symbol_unescaped))
+        .f("style", str_style(l.style))
+        .f("span", sp())
+        .e()
+}
+fn ext(e: &Extern) -> String {
+    match e {
+        Extern::None => unit("None"),
+        Extern::Implicit(_) => en("Implicit").f("_0", sp()).e(),
+        Extern::Explicit(l, _) => en("Explicit").f("_0", str_lit(l)).f("_1", sp()).e(),
+    }
+}
+fn vis(v: &Visibility) -> String {
+    let kind = match &v.kind {
+        VisibilityKind::Public => unit("Public"),
+        VisibilityKind::Restricted { path: p, shorthand, .. } => {
+            en("Restricted").f("path", path(p)).f("id", id()).f("shorthand", b(*shorthand)).e()
+        }
+        VisibilityKind::Inherited => unit("Inherited"),
+    };
+    st("Visibility").f("kind", kind).f("span", sp()).e()
+}
+fn restriction(kind: &RestrictionKind) -> String {
+    match kind {
+        RestrictionKind::Unrestricted => unit("Unrestricted"),
+        RestrictionKind::Restricted { path: p, shorthand, .. } => {
+            en("Restricted").f("path", path(p)).f("id", id()).f("shorthand", b(*shorthand)).e()
+        }
+    }
+}
+fn label(l: &Label) -> String {
+    st("Label").f("ident", ident(l.ident)).e()
+}
+fn lifetime(l: &Lifetime) -> String {
+    st("Lifetime").f("id", id()).f("ident", ident(l.ident)).e()
+}
+fn coroutine_marker(c: &CoroutineMarker) -> String {
+    st("CoroutineMarker")
+        .f("kind", dbg(c.kind))
+        .f("span", sp())
+        .f("closure_id", id())
+        .f("return_impl_trait_id", id())
+        .e()
+}
+
+// ---- paths ----
+fn path(p: &Path) -> String {
+    st("Path").f("span", sp()).f("segments", arr(p.segments.iter(), path_segment)).e()
+}
+fn path_segment(s: &PathSegment) -> String {
+    st("PathSegment")
+        .f("ident", ident(s.ident))
+        .f("id", id())
+        .f("args", opt(s.args.as_deref(), generic_args))
+        .e()
+}
+fn qself(q: &Option<Box<QSelf>>) -> String {
+    opt(q.as_deref(), |q| {
+        st("QSelf").f("ty", ty(&q.ty)).f("path_span", sp()).f("position", q.position.to_string()).e()
+    })
+}
+fn generic_args(g: &GenericArgs) -> String {
+    match g {
+        GenericArgs::AngleBracketed(a) => en("AngleBracketed")
+            .f(
+                "_0",
+                st("AngleBracketedArgs")
+                    .f("span", sp())
+                    .f(
+                        "args",
+                        arr(a.args.iter(), |a| match a {
+                            AngleBracketedArg::Arg(g) => en("Arg").f("_0", generic_arg(g)).e(),
+                            AngleBracketedArg::Constraint(c) => {
+                                en("Constraint").f("_0", assoc_item_constraint(c)).e()
+                            }
+                        }),
+                    )
+                    .e(),
+            )
+            .e(),
+        GenericArgs::Parenthesized(p) => en("Parenthesized")
+            .f(
+                "_0",
+                st("ParenthesizedArgs")
+                    .f("span", sp())
+                    .f("inputs", arr(p.inputs.iter(), param))
+                    .f("inputs_span", sp())
+                    .f("output", fn_ret_ty(&p.output))
+                    .e(),
+            )
+            .e(),
+        GenericArgs::ParenthesizedElided(_) => en("ParenthesizedElided").f("_0", sp()).e(),
+    }
+}
+fn generic_arg(g: &GenericArg) -> String {
+    match g {
+        GenericArg::Lifetime(l) => en("Lifetime").f("_0", lifetime(l)).e(),
+        GenericArg::Type(t) => en("Type").f("_0", ty(t)).e(),
+        GenericArg::Const(c) => en("Const").f("_0", anon_const(c)).e(),
+    }
+}
+fn assoc_item_constraint(c: &AssocItemConstraint) -> String {
+    let kind = match &c.kind {
+        AssocItemConstraintKind::Equality { term } => en("Equality")
+            .f(
+                "term",
+                match term {
+                    Term::Ty(t) => en("Ty").f("_0", ty(t)).e(),
+                    Term::Const(c) => en("Const").f("_0", anon_const(c)).e(),
+                },
+            )
+            .e(),
+        AssocItemConstraintKind::Bound { bounds } => en("Bound").f("bounds", generic_bounds(bounds)).e(),
+    };
+    st("AssocItemConstraint")
+        .f("id", id())
+        .f("ident", ident(c.ident))
+        .f("gen_args", opt(c.gen_args.as_ref(), generic_args))
+        .f("kind", kind)
+        .f("span", sp())
+        .e()
+}
+fn anon_const(c: &AnonConst) -> String {
+    st("AnonConst").f("id", id()).f("value", expr(&c.value)).e()
+}
+
+// ---- generics ----
+fn generic_bounds(bs: &[GenericBound]) -> String {
+    arr(bs.iter(), generic_bound)
+}
+fn generic_bound(g: &GenericBound) -> String {
+    match g {
+        GenericBound::Trait(p) => en("Trait").f("_0", poly_trait_ref(p)).e(),
+        GenericBound::Outlives(l) => en("Outlives").f("_0", lifetime(l)).e(),
+        GenericBound::Use(..) => panic!("unsupported use<> bound"),
+    }
+}
+fn poly_trait_ref(p: &PolyTraitRef) -> String {
+    let m = &p.modifiers;
+    let constness = match m.constness {
+        BoundConstness::Never => unit("Never"),
+        BoundConstness::Always(_) => en("Always").f("_0", sp()).e(),
+        BoundConstness::Maybe(_) => en("Maybe").f("_0", sp()).e(),
+    };
+    let asyncness = match m.asyncness {
+        BoundAsyncness::Normal => unit("Normal"),
+        BoundAsyncness::Async(_) => en("Async").f("_0", sp()).e(),
+    };
+    let polarity = match m.polarity {
+        BoundPolarity::Positive => unit("Positive"),
+        BoundPolarity::Negative(_) => en("Negative").f("_0", sp()).e(),
+        BoundPolarity::Maybe(_) => en("Maybe").f("_0", sp()).e(),
+    };
+    st("PolyTraitRef")
+        .f("bound_generic_params", generic_params(&p.bound_generic_params))
+        .f(
+            "modifiers",
+            st("TraitBoundModifiers")
+                .f("constness", constness)
+                .f("asyncness", asyncness)
+                .f("polarity", polarity)
+                .e(),
+        )
+        .f("trait_ref", trait_ref(&p.trait_ref))
+        .f("span", sp())
+        .f("parens", dbg(&p.parens))
+        .e()
+}
+fn trait_ref(t: &TraitRef) -> String {
+    st("TraitRef").f("path", path(&t.path)).f("ref_id", id()).e()
+}
+fn generic_params(ps: &[GenericParam]) -> String {
+    arr(ps.iter(), |p| {
+        let kind = match &p.kind {
+            GenericParamKind::Lifetime => unit("Lifetime"),
+            GenericParamKind::Type { default } => {
+                en("Type").f("default", opt(default.as_deref(), ty)).e()
+            }
+            GenericParamKind::Const { ty: t, default, .. } => en("Const")
+                .f("ty", ty(t))
+                .f("span", sp())
+                .f("default", opt(default.as_ref(), anon_const))
+                .e(),
+        };
+        st("GenericParam")
+            .f("id", id())
+            .f("ident", ident(p.ident))
+            .f("attrs", attrs(&p.attrs))
+            .f("bounds", generic_bounds(&p.bounds))
+            .f("is_placeholder", b(p.is_placeholder))
+            .f("kind", kind)
+            .f("colon_span", opt(p.colon_span, |_| sp()))
+            .e()
+    })
+}
+fn where_clause(w: &WhereClause) -> String {
+    st("WhereClause")
+        .f("has_where_token", b(w.has_where_token))
+        .f(
+            "predicates",
+            arr(w.predicates.iter(), |p| {
+                let kind = match &p.kind {
+                    WherePredicateKind::BoundPredicate(bp) => en("BoundPredicate")
+                        .f(
+                            "_0",
+                            st("WhereBoundPredicate")
+                                .f("bound_generic_params", generic_params(&bp.bound_generic_params))
+                                .f("bounded_ty", ty(&bp.bounded_ty))
+                                .f("bounds", generic_bounds(&bp.bounds))
+                                .e(),
+                        )
+                        .e(),
+                    WherePredicateKind::RegionPredicate(rp) => en("RegionPredicate")
+                        .f(
+                            "_0",
+                            st("WhereRegionPredicate")
+                                .f("lifetime", lifetime(&rp.lifetime))
+                                .f("bounds", generic_bounds(&rp.bounds))
+                                .e(),
+                        )
+                        .e(),
+                    #[allow(unreachable_patterns)]
+                    _ => panic!("unsupported where predicate"),
+                };
+                st("WherePredicate")
+                    .f("attrs", attrs(&p.attrs))
+                    .f("kind", kind)
+                    .f("id", id())
+                    .f("span", sp())
+                    .f("is_placeholder", b(p.is_placeholder))
+                    .e()
+            }),
+        )
+        .f("span", sp())
+        .e()
+}
+fn generics(g: &Generics) -> String {
+    st("Generics")
+        .f("params", generic_params(&g.params))
+        .f("where_clause", where_clause(&g.where_clause))
+        .f("span", sp())
+        .e()
+}
+
+// ---- types ----
+fn ty(t: &Ty) -> String {
+    let kind = match &t.kind {
+        TyKind::Slice(t) => en("Slice").f("_0", ty(t)).e(),
+        TyKind::Array(t, c) => en("Array").f("_0", ty(t)).f("_1", anon_const(c)).e(),
+        TyKind::Ptr(t, m) => en("Ptr").f("_0", ty(t)).f("_1", dbg(m)).e(),
+        TyKind::Ref(l, t, m) => en("Ref").f("_0", opt(l.as_ref(), lifetime)).f("_1", ty(t)).f("_2", dbg(m)).e(),
+        TyKind::FnPtr(f) => en("FnPtr")
+            .f(
+                "_0",
+                st("FnPtrTy")
+                    .f("safety", safety(f.safety))
+                    .f("ext", ext(&f.ext))
+                    .f("generic_params", generic_params(&f.generic_params))
+                    .f("decl", fn_decl(&f.decl))
+                    .f("decl_span", sp())
+                    .e(),
+            )
+            .e(),
+        TyKind::Never => unit("Never"),
+        TyKind::Tup(ts) => en("Tup").f("_0", arr(ts.iter(), |t| ty(t))).e(),
+        TyKind::Path(q, p) => en("Path").f("_0", qself(q)).f("_1", path(p)).e(),
+        TyKind::TraitObject(bs, syn) => en("TraitObject").f("_0", generic_bounds(bs)).f("_1", dbg(syn)).e(),
+        TyKind::ImplTrait(_, bs) => en("ImplTrait").f("_0", id()).f("_1", generic_bounds(bs)).e(),
+        TyKind::Paren(t) => en("Paren").f("_0", ty(t)).e(),
+        TyKind::Infer => unit("Infer"),
+        TyKind::ImplicitSelf => unit("ImplicitSelf"),
+        TyKind::CVarArgs => unit("CVarArgs"),
+        k => panic!("unsupported ty {k:?}"),
+    };
+    st("Ty").f("id", id()).f("kind", kind).f("span", sp()).e()
+}
+
+// ---- patterns ----
+fn pat(p: &Pat) -> String {
+    let kind = match &p.kind {
+        PatKind::Missing => unit("Missing"),
+        PatKind::Wild => unit("Wild"),
+        PatKind::Rest => unit("Rest"),
+        PatKind::Never => unit("Never"),
+        PatKind::Ident(BindingMode(by_ref, m), i, sub) => {
+            let by_ref = match by_ref {
+                ByRef::No => unit("No"),
+                ByRef::Yes(pin, m) => en("Yes").f("_0", dbg(pin)).f("_1", dbg(m)).e(),
+            };
+            en("Ident")
+                .f("_0", st("BindingMode").f("_0", by_ref).f("_1", dbg(m)).e())
+                .f("_1", ident(*i))
+                .f("_2", opt(sub.as_deref(), pat))
+                .e()
+        }
+        PatKind::Struct(q, p, fields, rest) => {
+            let rest = match rest {
+                PatFieldsRest::Rest(_) => en("Rest").f("_0", sp()).e(),
+                PatFieldsRest::None => unit("None"),
+                PatFieldsRest::Recovered(_) => panic!("recovered"),
+            };
+            en("Struct")
+                .f("_0", qself(q))
+                .f("_1", path(p))
+                .f(
+                    "_2",
+                    arr(fields.iter(), |f| {
+                        st("PatField")
+                            .f("ident", ident(f.ident))
+                            .f("pat", pat(&f.pat))
+                            .f("is_shorthand", b(f.is_shorthand))
+                            .f("attrs", attrs(&f.attrs))
+                            .f("id", id())
+                            .f("span", sp())
+                            .f("is_placeholder", b(f.is_placeholder))
+                            .e()
+                    }),
+                )
+                .f("_3", rest)
+                .e()
+        }
+        PatKind::TupleStruct(q, p, ps) => {
+            en("TupleStruct").f("_0", qself(q)).f("_1", path(p)).f("_2", arr(ps.iter(), pat)).e()
+        }
+        PatKind::Or(ps) => en("Or").f("_0", arr(ps.iter(), pat)).e(),
+        PatKind::Path(q, p) => en("Path").f("_0", qself(q)).f("_1", path(p)).e(),
+        PatKind::Tuple(ps) => en("Tuple").f("_0", arr(ps.iter(), pat)).e(),
+        PatKind::Ref(p, pin, m) => en("Ref").f("_0", pat(p)).f("_1", dbg(pin)).f("_2", dbg(m)).e(),
+        PatKind::Expr(e) => en("Expr").f("_0", expr(e)).e(),
+        PatKind::Range(s, e, end) => {
+            let end = match &end.node {
+                RangeEnd::Included(syn) => en("Included").f("_0", dbg(syn)).e(),
+                RangeEnd::Excluded => unit("Excluded"),
+            };
+            en("Range")
+                .f("_0", opt(s.as_deref(), expr))
+                .f("_1", opt(e.as_deref(), expr))
+                .f("_2", st("Spanned").f("node", end).f("span", sp()).e())
+                .e()
+        }
+        PatKind::Slice(ps) => en("Slice").f("_0", arr(ps.iter(), pat)).e(),
+        PatKind::Paren(p) => en("Paren").f("_0", pat(p)).e(),
+        k => panic!("unsupported pat {k:?}"),
+    };
+    st("Pat").f("id", id()).f("kind", kind).f("span", sp()).e()
+}
+
+// ---- fn signatures ----
+fn param(p: &Param) -> String {
+    st("Param")
+        .f("attrs", attrs(&p.attrs))
+        .f("ty", ty(&p.ty))
+        .f("pat", pat(&p.pat))
+        .f("id", id())
+        .f("span", sp())
+        .f("is_placeholder", b(p.is_placeholder))
+        .e()
+}
+fn fn_ret_ty(r: &FnRetTy) -> String {
+    match r {
+        FnRetTy::Default(_) => en("Default").f("_0", sp()).e(),
+        FnRetTy::Ty(t) => en("Ty").f("_0", ty(t)).e(),
+    }
+}
+fn fn_decl(d: &FnDecl) -> String {
+    st("FnDecl").f("inputs", arr(d.inputs.iter(), param)).f("output", fn_ret_ty(&d.output)).e()
+}
+fn fn_header(h: &FnHeader) -> String {
+    st("FnHeader")
+        .f("constness", constness(h.constness))
+        .f("coroutine_marker", opt(h.coroutine_marker.as_ref(), coroutine_marker))
+        .f("safety", safety(h.safety))
+        .f("ext", ext(&h.ext))
+        .e()
+}
+fn func(f: &Fn) -> String {
+    assert!(f.contract.is_none() && f.define_opaque.is_none() && f.eii_impl.is_none());
+    st("Fn")
+        .f("defaultness", defaultness(f.defaultness))
+        .f("ident", ident(f.ident))
+        .f("generics", generics(&f.generics))
+        .f(
+            "sig",
+            st("FnSig").f("header", fn_header(&f.sig.header)).f("decl", fn_decl(&f.sig.decl)).f("span", sp()).e(),
+        )
+        .f("contract", null())
+        .f("define_opaque", null())
+        .f("body", opt(f.body.as_deref(), block))
+        .f("eii_impl", null())
+        .e()
+}
+
+// ---- statements / blocks ----
+fn block(bl: &Block) -> String {
+    let rules = match bl.rules {
+        BlockCheckMode::Default => unit("Default"),
+        BlockCheckMode::Unsafe(src) => en("Unsafe").f("_0", dbg(src)).e(),
+    };
+    st("Block").f("stmts", arr(bl.stmts.iter(), stmt)).f("id", id()).f("rules", rules).f("span", sp()).e()
+}
+fn stmt(s: &Stmt) -> String {
+    let kind = match &s.kind {
+        StmtKind::Let(l) => {
+            let kind = match &l.kind {
+                LocalKind::Decl => unit("Decl"),
+                LocalKind::Init(e) => en("Init").f("_0", expr(e)).e(),
+                LocalKind::InitElse(e, bl) => en("InitElse").f("_0", expr(e)).f("_1", block(bl)).e(),
+            };
+            en("Let")
+                .f(
+                    "_0",
+                    st("Local")
+                        .f("id", id())
+                        .f("super_", opt(l.super_, |_| sp()))
+                        .f("pat", pat(&l.pat))
+                        .f("ty", opt(l.ty.as_deref(), ty))
+                        .f("kind", kind)
+                        .f("span", sp())
+                        .f("colon_sp", opt(l.colon_sp, |_| sp()))
+                        .f("attrs", attrs(&l.attrs))
+                        .f("tokens", null())
+                        .e(),
+                )
+                .e()
+        }
+        StmtKind::Item(i) => en("Item").f("_0", item(i)).e(),
+        StmtKind::Expr(e) => en("Expr").f("_0", expr(e)).e(),
+        StmtKind::Semi(e) => en("Semi").f("_0", expr(e)).e(),
+        StmtKind::Empty => unit("Empty"),
+        StmtKind::MacCall(m) => en("MacCall")
+            .f(
+                "_0",
+                st("MacCallStmt")
+                    .f("mac", mac_call(&m.mac))
+                    .f("style", dbg(m.style))
+                    .f("attrs", attrs(&m.attrs))
+                    .f("tokens", null())
+                    .e(),
+            )
+            .e(),
+    };
+    st("Stmt").f("id", id()).f("kind", kind).f("span", sp()).e()
+}
+
+// ---- expressions ----
+fn exprs(es: &[Box<Expr>]) -> String {
+    arr(es.iter(), |e| expr(e))
+}
+fn opt_label(l: &Option<Label>) -> String {
+    opt(l.as_ref(), label)
+}
+fn capture_by(c: &CaptureBy) -> String {
+    match c {
+        CaptureBy::Value { .. } => en("Value").f("move_kw", sp()).e(),
+        CaptureBy::Use { .. } => en("Use").f("use_kw", sp()).e(),
+        CaptureBy::Ref => unit("Ref"),
+    }
+}
+fn expr(e: &Expr) -> String {
+    let kind = match &e.kind {
+        ExprKind::Array(es) => en("Array").f("_0", exprs(es)).e(),
+        ExprKind::ConstBlock(c) => en("ConstBlock").f("_0", anon_const(c)).e(),
+        ExprKind::Call(f, args) => en("Call").f("_0", expr(f)).f("_1", exprs(args)).e(),
+        ExprKind::MethodCall(m) => en("MethodCall")
+            .f(
+                "_0",
+                st("MethodCall")
+                    .f("seg", path_segment(&m.seg))
+                    .f("receiver", expr(&m.receiver))
+                    .f("args", exprs(&m.args))
+                    .f("span", sp())
+                    .e(),
+            )
+            .e(),
+        ExprKind::Tup(es) => en("Tup").f("_0", exprs(es)).e(),
+        ExprKind::Binary(op, l, r) => en("Binary")
+            .f("_0", st("Spanned").f("node", dbg(op.node)).f("span", sp()).e())
+            .f("_1", expr(l))
+            .f("_2", expr(r))
+            .e(),
+        ExprKind::Unary(op, x) => en("Unary").f("_0", dbg(op)).f("_1", expr(x)).e(),
+        ExprKind::Lit(l) => en("Lit").f("_0", token_lit(l)).e(),
+        ExprKind::Cast(x, t) => en("Cast").f("_0", expr(x)).f("_1", ty(t)).e(),
+        ExprKind::Let(p, x, _, _) => {
+            en("Let").f("_0", pat(p)).f("_1", expr(x)).f("_2", sp()).f("_3", unit("No")).e()
+        }
+        ExprKind::If(c, bl, els) => {
+            en("If").f("_0", expr(c)).f("_1", block(bl)).f("_2", opt(els.as_deref(), expr)).e()
+        }
+        ExprKind::While(c, bl, l) => en("While").f("_0", expr(c)).f("_1", block(bl)).f("_2", opt_label(l)).e(),
+        ExprKind::ForLoop(fl) => { let ast::ForLoop { pat: p, iter, body, label: l, kind } = &**fl; en("ForLoop")
+            .f(
+                "_0",
+                st("ForLoop")
+                    .f("pat", pat(p))
+                    .f("iter", expr(iter))
+                    .f("body", block(body))
+                    .f("label", opt_label(l))
+                    .f("kind", dbg(kind))
+                    .e(),
+            )
+            .e() }
+        ExprKind::Loop(bl, l, _) => en("Loop").f("_0", block(bl)).f("_1", opt_label(l)).f("_2", sp()).e(),
+        ExprKind::Match(x, arms, kind) => en("Match")
+            .f("_0", expr(x))
+            .f(
+                "_1",
+                arr(arms.iter(), |a| {
+                    st("Arm")
+                        .f("attrs", attrs(&a.attrs))
+                        .f("pat", pat(&a.pat))
+                        .f(
+                            "guard",
+                            opt(a.guard.as_deref(), |g| st("Guard").f("cond", expr(&g.cond)).f("span_with_leading_if", sp()).e()),
+                        )
+                        .f("body", opt(a.body.as_deref(), expr))
+                        .f("span", sp())
+                        .f("id", id())
+                        .f("is_placeholder", b(a.is_placeholder))
+                        .e()
+                }),
+            )
+            .f("_2", dbg(kind))
+            .e(),
+        ExprKind::Closure(c) => {
+            let binder = match &c.binder {
+                ClosureBinder::NotPresent => unit("NotPresent"),
+                ClosureBinder::For { generic_params: gp, .. } => {
+                    en("For").f("span", sp()).f("generic_params", generic_params(gp)).e()
+                }
+            };
+            en("Closure")
+                .f(
+                    "_0",
+                    st("Closure")
+                        .f("binder", binder)
+                        .f("capture_clause", capture_by(&c.capture_clause))
+                        .f("constness", constness(c.constness))
+                        .f("coroutine_marker", opt(c.coroutine_marker.as_ref(), coroutine_marker))
+                        .f("movability", dbg(c.movability))
+                        .f("fn_decl", fn_decl(&c.fn_decl))
+                        .f("body", expr(&c.body))
+                        .f("fn_decl_span", sp())
+                        .f("fn_arg_span", sp())
+                        .e(),
+                )
+                .e()
+        }
+        ExprKind::Block(bl, l) => en("Block").f("_0", block(bl)).f("_1", opt_label(l)).e(),
+        ExprKind::Gen(c, bl, k, _) => {
+            en("Gen").f("_0", capture_by(c)).f("_1", block(bl)).f("_2", dbg(k)).f("_3", sp()).e()
+        }
+        ExprKind::Await(x, _) => en("Await").f("_0", expr(x)).f("_1", sp()).e(),
+        ExprKind::Assign(l, r, _) => en("Assign").f("_0", expr(l)).f("_1", expr(r)).f("_2", sp()).e(),
+        ExprKind::AssignOp(op, l, r) => en("AssignOp")
+            .f("_0", st("Spanned").f("node", dbg(op.node)).f("span", sp()).e())
+            .f("_1", expr(l))
+            .f("_2", expr(r))
+            .e(),
+        ExprKind::Field(x, i) => en("Field").f("_0", expr(x)).f("_1", ident(*i)).e(),
+        ExprKind::Index(x, i, _) => en("Index").f("_0", expr(x)).f("_1", expr(i)).f("_2", sp()).e(),
+        ExprKind::Range(s, e2, lim) => en("Range")
+            .f("_0", opt(s.as_deref(), expr))
+            .f("_1", opt(e2.as_deref(), expr))
+            .f("_2", dbg(lim))
+            .e(),
+        ExprKind::Underscore => unit("Underscore"),
+        ExprKind::Path(q, p) => en("Path").f("_0", qself(q)).f("_1", path(p)).e(),
+        ExprKind::AddrOf(k, m, x) => en("AddrOf").f("_0", dbg(k)).f("_1", dbg(m)).f("_2", expr(x)).e(),
+        ExprKind::Break(l, x) => en("Break").f("_0", opt_label(l)).f("_1", opt(x.as_deref(), expr)).e(),
+        ExprKind::Continue(l) => en("Continue").f("_0", opt_label(l)).e(),
+        ExprKind::Ret(x) => en("Ret").f("_0", opt(x.as_deref(), expr)).e(),
+        ExprKind::MacCall(m) => en("MacCall").f("_0", mac_call(m)).e(),
+        ExprKind::Struct(se) => {
+            let rest = match &se.rest {
+                StructRest::Base(x) => en("Base").f("_0", expr(x)).e(),
+                StructRest::Rest(_) => en("Rest").f("_0", sp()).e(),
+                StructRest::None => unit("None"),
+                StructRest::NoneWithError(_) => panic!("struct error"),
+            };
+            en("Struct")
+                .f(
+                    "_0",
+                    st("StructExpr")
+                        .f("qself", qself(&se.qself))
+                        .f("path", path(&se.path))
+                        .f(
+                            "fields",
+                            arr(se.fields.iter(), |f| {
+                                st("ExprField")
+                                    .f("attrs", attrs(&f.attrs))
+                                    .f("id", id())
+                                    .f("span", sp())
+                                    .f("ident", ident(f.ident))
+                                    .f("expr", expr(&f.expr))
+                                    .f("is_shorthand", b(f.is_shorthand))
+                                    .f("is_placeholder", b(f.is_placeholder))
+                                    .e()
+                            }),
+                        )
+                        .f("rest", rest)
+                        .e(),
+                )
+                .e()
+        }
+        ExprKind::Repeat(x, c) => en("Repeat").f("_0", expr(x)).f("_1", anon_const(c)).e(),
+        ExprKind::Paren(x) => en("Paren").f("_0", expr(x)).e(),
+        ExprKind::Try(x) => en("Try").f("_0", expr(x)).e(),
+        ExprKind::Yield(YieldKind::Prefix(x)) => {
+            en("Yield").f("_0", en("Prefix").f("_0", opt(x.as_deref(), expr)).e()).e()
+        }
+        ExprKind::Yield(YieldKind::Postfix(x)) => {
+            en("Yield").f("_0", en("Postfix").f("_0", expr(x)).e()).e()
+        }
+        ExprKind::Become(x) => en("Become").f("_0", expr(x)).e(),
+        ExprKind::Yeet(x) => en("Yeet").f("_0", opt(x.as_deref(), expr)).e(),
+        ExprKind::TryBlock(bl, t) => en("TryBlock").f("_0", block(bl)).f("_1", opt(t.as_deref(), ty)).e(),
+        ExprKind::Type(x, t) => en("Type").f("_0", expr(x)).f("_1", ty(t)).e(),
+        ExprKind::OffsetOf(t, fields) => en("OffsetOf").f("_0", ty(t)).f("_1", arr(fields.iter(), |i| ident(*i))).e(),
+        ExprKind::UnsafeBinderCast(k, x, t) => {
+            en("UnsafeBinderCast").f("_0", dbg(k)).f("_1", expr(x)).f("_2", opt(t.as_deref(), ty)).e()
+        }
+        ExprKind::Use(x, _) => en("Use").f("_0", expr(x)).f("_1", sp()).e(),
+        ExprKind::IncludedBytes(bs) => en("IncludedBytes").f("_0", format!("{{\"#bytes\":{:?}}}", bs.as_byte_str())).e(),
+        ExprKind::FormatArgs(fa) => en("FormatArgs").f("_0", format_args(fa)).e(),
+        k => panic!("unsupported expr {k:?}"),
+    };
+    st("Expr").f("id", id()).f("kind", kind).f("span", sp()).f("attrs", attrs(&e.attrs)).f("tokens", null()).e()
+}
+
+// ---- format_args ----
+fn format_arg_position(p: &FormatArgPosition) -> String {
+    let index = match p.index {
+        Ok(n) => format!("{{\"$\":\"Ok\",\"_0\":{n}}}"),
+        Err(n) => format!("{{\"$\":\"Err\",\"_0\":{n}}}"),
+    };
+    st("FormatArgPosition").f("index", index).f("kind", dbg(p.kind)).f("span", opt(p.span, |_| sp())).e()
+}
+fn format_count(c: &FormatCount) -> String {
+    match c {
+        FormatCount::Literal(n) => en("Literal").f("_0", n.to_string()).e(),
+        FormatCount::Argument(p) => en("Argument").f("_0", format_arg_position(p)).e(),
+    }
+}
+fn format_args(fa: &FormatArgs) -> String {
+    let template = arr(fa.template.iter(), |p| match p {
+        FormatArgsPiece::Literal(s) => en("Literal").f("_0", sym(*s)).e(),
+        FormatArgsPiece::Placeholder(p) => {
+            let o = &p.format_options;
+            let options = st("FormatOptions")
+                .f("width", opt(o.width.as_ref(), format_count))
+                .f("precision", opt(o.precision.as_ref(), format_count))
+                .f("alignment", opt(o.alignment.as_ref(), |a| dbg(a)))
+                .f("fill", opt(o.fill, |c| (c as u32).to_string()))
+                .f("sign", opt(o.sign.as_ref(), |a| dbg(a)))
+                .f("alternate", b(o.alternate))
+                .f("zero_pad", b(o.zero_pad))
+                .f("debug_hex", opt(o.debug_hex.as_ref(), |a| dbg(a)))
+                .e();
+            en("Placeholder")
+                .f(
+                    "_0",
+                    st("FormatPlaceholder")
+                        .f("argument", format_arg_position(&p.argument))
+                        .f("span", opt(p.span, |_| sp()))
+                        .f("format_trait", dbg(p.format_trait))
+                        .f("format_options", options)
+                        .e(),
+                )
+                .e()
+        }
+    });
+    let args = &fa.arguments;
+    let arguments = st("FormatArguments")
+        .f(
+            "arguments",
+            arr(args.all_args().iter(), |a| {
+                assert!(matches!(a.kind, FormatArgumentKind::Normal));
+                st("FormatArgument").f("original_span", sp()).f("kind", unit("Normal")).f("expr", expr(&a.expr)).e()
+            }),
+        )
+        .f("num_unnamed_args", args.unnamed_args().len().to_string())
+        .f("num_explicit_args", args.explicit_args().len().to_string())
+        .f("names", "{\"#map\":[]}".to_string())
+        .e();
+    st("FormatArgs")
+        .f("span", sp())
+        .f("template", template)
+        .f("arguments", arguments)
+        .f("uncooked_fmt_str", format!("[{},{}]", unit("Str"), sym(fa.uncooked_fmt_str.1)))
+        .f("is_source_literal", b(fa.is_source_literal))
+        .e()
+}
+
+// ---- items ----
+fn ty_alias(t: &TyAlias) -> String {
+    st("TyAlias")
+        .f("defaultness", defaultness(t.defaultness))
+        .f("ident", ident(t.ident))
+        .f("generics", generics(&t.generics))
+        .f("after_where_clause", where_clause(&t.after_where_clause))
+        .f("bounds", generic_bounds(&t.bounds))
+        .f("ty", opt(t.ty.as_deref(), ty))
+        .e()
+}
+fn const_item(c: &ConstItem) -> String {
+    assert!(c.define_opaque.is_none());
+    st("ConstItem")
+        .f("defaultness", defaultness(c.defaultness))
+        .f("ident", ident(c.ident))
+        .f("generics", generics(&c.generics))
+        .f("ty", ty(&c.ty))
+        .f("body", opt(c.body.as_deref(), expr))
+        .f("define_opaque", null())
+        .e()
+}
+fn static_item(s: &StaticItem) -> String {
+    assert!(s.define_opaque.is_none() && s.eii_impl.is_none());
+    st("StaticItem")
+        .f("ident", ident(s.ident))
+        .f("ty", ty(&s.ty))
+        .f("safety", safety(s.safety))
+        .f("mutability", dbg(s.mutability))
+        .f("expr", opt(s.expr.as_deref(), expr))
+        .f("define_opaque", null())
+        .f("eii_impl", null())
+        .e()
+}
+fn field_def(f: &FieldDef) -> String {
+    assert!(f.extras.is_none());
+    st("FieldDef")
+        .f("attrs", attrs(&f.attrs))
+        .f("id", id())
+        .f("span", sp())
+        .f("vis", vis(&f.vis))
+        .f("extras", null())
+        .f("ident", opt(f.ident, ident))
+        .f("ty", ty(&f.ty))
+        .f("is_placeholder", b(f.is_placeholder))
+        .e()
+}
+fn variant_data(v: &VariantData) -> String {
+    match v {
+        VariantData::Struct { fields, .. } => {
+            en("Struct").f("fields", arr(fields.iter(), field_def)).f("recovered", unit("No")).e()
+        }
+        VariantData::Tuple(fields, _) => en("Tuple").f("_0", arr(fields.iter(), field_def)).f("_1", id()).e(),
+        VariantData::Unit(_) => en("Unit").f("_0", id()).e(),
+    }
+}
+fn use_tree(u: &UseTree) -> String {
+    let kind = match &u.kind {
+        UseTreeKind::Simple(r) => en("Simple").f("_0", opt(*r, ident)).e(),
+        UseTreeKind::Nested { items, .. } => en("Nested")
+            .f(
+                "items",
+                arr(items.iter(), |i| st("UseTreeAndId").f("inner", use_tree(&i.inner)).f("id", id()).e()),
+            )
+            .f("span", sp())
+            .e(),
+        UseTreeKind::Glob(_) => en("Glob").f("_0", sp()).e(),
+    };
+    st("UseTree").f("prefix", path(&u.prefix)).f("kind", kind).e()
+}
+fn item_common<K>(i: &Item<K>, kind: String) -> String {
+    st("Item")
+        .f("attrs", attrs(&i.attrs))
+        .f("id", id())
+        .f("span", sp())
+        .f("vis", vis(&i.vis))
+        .f("kind", kind)
+        .f("tokens", null())
+        .e()
+}
+fn assoc_item(i: &AssocItem) -> String {
+    let kind = match &i.kind {
+        AssocItemKind::Const(c) => en("Const").f("_0", const_item(c)).e(),
+        AssocItemKind::Fn(f) => en("Fn").f("_0", func(f)).e(),
+        AssocItemKind::Type(t) => en("Type").f("_0", ty_alias(t)).e(),
+        AssocItemKind::MacCall(m) => en("MacCall").f("_0", mac_call(m)).e(),
+        AssocItemKind::Delegation(d) => en("Delegation").f("_0", delegation(d)).e(),
+        AssocItemKind::DelegationMac(d) => en("DelegationMac").f("_0", delegation_mac(d)).e(),
+    };
+    item_common(i, kind)
+}
+fn foreign_item(i: &ForeignItem) -> String {
+    let kind = match &i.kind {
+        ForeignItemKind::Static(s) => en("Static").f("_0", static_item(s)).e(),
+        ForeignItemKind::Fn(f) => en("Fn").f("_0", func(f)).e(),
+        ForeignItemKind::TyAlias(t) => en("TyAlias").f("_0", ty_alias(t)).e(),
+        ForeignItemKind::MacCall(m) => en("MacCall").f("_0", mac_call(m)).e(),
+    };
+    item_common(i, kind)
+}
+fn item(i: &Item) -> String {
+    let kind = match &i.kind {
+        ItemKind::ExternCrate(orig, id_) => en("ExternCrate").f("_0", opt(*orig, sym)).f("_1", ident(*id_)).e(),
+        ItemKind::Use(u) => en("Use").f("_0", use_tree(u)).e(),
+        ItemKind::Static(s) => en("Static").f("_0", static_item(s)).e(),
+        ItemKind::Const(c) => en("Const").f("_0", const_item(c)).e(),
+        ItemKind::Fn(f) => en("Fn").f("_0", func(f)).e(),
+        ItemKind::Mod(s, id_, mk) => {
+            let mk = match mk {
+                ModKind::Loaded(items, inline, _) => en("Loaded")
+                    .f("_0", arr(items.iter(), |i| item(i)))
+                    .f(
+                        "_1",
+                        match inline {
+                            Inline::Yes => unit("Yes"),
+                            Inline::No { .. } => panic!("outlined mod"),
+                        },
+                    )
+                    .f("_2", st("ModSpans").f("inner_span", sp()).f("inject_use_span", sp()).e())
+                    .e(),
+                ModKind::Unloaded => unit("Unloaded"),
+            };
+            en("Mod").f("_0", safety(*s)).f("_1", ident(*id_)).f("_2", mk).e()
+        }
+        ItemKind::ForeignMod(fm) => en("ForeignMod")
+            .f(
+                "_0",
+                st("ForeignMod")
+                    .f("extern_span", sp())
+                    .f("safety", safety(fm.safety))
+                    .f("abi", opt(fm.abi.as_ref(), str_lit))
+                    .f("items", arr(fm.items.iter(), |i| foreign_item(i)))
+                    .e(),
+            )
+            .e(),
+        ItemKind::TyAlias(t) => en("TyAlias").f("_0", ty_alias(t)).e(),
+        ItemKind::Enum(id_, g, def) => en("Enum")
+            .f("_0", ident(*id_))
+            .f("_1", generics(g))
+            .f(
+                "_2",
+                st("EnumDef")
+                    .f(
+                        "variants",
+                        arr(def.variants.iter(), |v| {
+                            st("Variant")
+                                .f("attrs", attrs(&v.attrs))
+                                .f("id", id())
+                                .f("span", sp())
+                                .f("vis", vis(&v.vis))
+                                .f("ident", ident(v.ident))
+                                .f("data", variant_data(&v.data))
+                                .f("disr_expr", opt(v.disr_expr.as_ref(), anon_const))
+                                .f("is_placeholder", b(v.is_placeholder))
+                                .e()
+                        }),
+                    )
+                    .e(),
+            )
+            .e(),
+        ItemKind::Struct(id_, g, vd) => {
+            en("Struct").f("_0", ident(*id_)).f("_1", generics(g)).f("_2", variant_data(vd)).e()
+        }
+        ItemKind::Union(id_, g, vd) => {
+            en("Union").f("_0", ident(*id_)).f("_1", generics(g)).f("_2", variant_data(vd)).e()
+        }
+        ItemKind::Trait(t) => en("Trait")
+            .f(
+                "_0",
+                st("Trait")
+                    .f(
+                        "impl_restriction",
+                        st("ImplRestriction").f("kind", restriction(&t.impl_restriction.kind)).f("span", sp()).e(),
+                    )
+                    .f("constness", constness(t.constness))
+                    .f("safety", safety(t.safety))
+                    .f("is_auto", dbg(t.is_auto))
+                    .f("ident", ident(t.ident))
+                    .f("generics", generics(&t.generics))
+                    .f("bounds", generic_bounds(&t.bounds))
+                    .f("items", arr(t.items.iter(), |i| assoc_item(i)))
+                    .e(),
+            )
+            .e(),
+        ItemKind::TraitAlias(t) => en("TraitAlias")
+            .f(
+                "_0",
+                st("TraitAlias")
+                    .f("constness", constness(t.constness))
+                    .f("ident", ident(t.ident))
+                    .f("generics", generics(&t.generics))
+                    .f("bounds", generic_bounds(&t.bounds))
+                    .e(),
+            )
+            .e(),
+        ItemKind::Impl(im) => en("Impl")
+            .f(
+                "_0",
+                st("Impl")
+                    .f("generics", generics(&im.generics))
+                    .f("constness", constness(im.constness))
+                    .f(
+                        "of_trait",
+                        opt(im.of_trait.as_deref(), |h| {
+                            st("TraitImplHeader")
+                                .f("defaultness", defaultness(h.defaultness))
+                                .f("safety", safety(h.safety))
+                                .f(
+                                    "polarity",
+                                    match h.polarity {
+                                        ImplPolarity::Positive => unit("Positive"),
+                                        ImplPolarity::Negative(_) => en("Negative").f("_0", sp()).e(),
+                                    },
+                                )
+                                .f("trait_ref", trait_ref(&h.trait_ref))
+                                .e()
+                        }),
+                    )
+                    .f("self_ty", ty(&im.self_ty))
+                    .f("items", arr(im.items.iter(), |i| assoc_item(i)))
+                    .e(),
+            )
+            .e(),
+        ItemKind::MacCall(m) => en("MacCall").f("_0", mac_call(m)).e(),
+        ItemKind::MacroDef(id_, md) => {
+            assert!(md.eii_declaration.is_none());
+            en("MacroDef")
+                .f("_0", ident(*id_))
+                .f(
+                    "_1",
+                    st("MacroDef")
+                        .f("body", delim_args(&md.body))
+                        .f("macro_rules", b(md.macro_rules))
+                        .f("eii_declaration", null())
+                        .e(),
+                )
+                .e()
+        }
+        ItemKind::ConstBlock(cb) => en("ConstBlock")
+            .f("_0", st("ConstBlockItem").f("id", id()).f("span", sp()).f("block", block(&cb.block)).e())
+            .e(),
+        ItemKind::Delegation(d) => en("Delegation").f("_0", delegation(d)).e(),
+        ItemKind::DelegationMac(d) => en("DelegationMac").f("_0", delegation_mac(d)).e(),
+        _ => panic!("unsupported item"),
+    };
+    item_common(i, kind)
+}
+fn delegation(d: &Delegation) -> String {
+    st("Delegation")
+        .f("id", id())
+        .f("qself", qself(&d.qself))
+        .f("path", path(&d.path))
+        .f("ident", ident(d.ident))
+        .f("rename", opt(d.rename, ident))
+        .f("body", opt(d.body.as_deref(), block))
+        .f(
+            "source",
+            match d.source {
+                DelegationSource::Single => unit("Single"),
+                DelegationSource::Glob => unit("Glob"),
+                DelegationSource::List(_) => panic!("list source"),
+            },
+        )
+        .e()
+}
+fn delegation_mac(d: &DelegationMac) -> String {
+    let suffixes = match &d.suffixes {
+        DelegationSuffixes::List(l) => en("List")
+            .f("_0", arr(l.iter(), |(i, r)| format!("[{},{}]", ident(*i), opt(*r, ident))))
+            .e(),
+        DelegationSuffixes::Glob(_) => en("Glob").f("_0", sp()).e(),
+    };
+    st("DelegationMac")
+        .f("qself", qself(&d.qself))
+        .f("prefix", path(&d.prefix))
+        .f("suffixes", suffixes)
+        .f("body", opt(d.body.as_deref(), block))
+        .e()
+}
+
+// ---- Paren stripping (exercise FixupContext) ----
+struct Unparen;
+impl MutVisitor for Unparen {
+    fn visit_expr(&mut self, e: &mut Expr) {
+        while let ExprKind::Paren(inner) = &mut e.kind {
+            let mut inner = std::mem::replace(&mut **inner, Expr::dummy());
+            // Keep the outer attributes (`#[attr] (1 + 1)` -> `#[attr] 1 + 1` in the AST).
+            let mut attrs = std::mem::take(&mut e.attrs);
+            attrs.extend(inner.attrs.drain(..));
+            inner.attrs = attrs;
+            *e = inner;
+        }
+        mut_visit::walk_expr(self, e);
+    }
+}
+
+// (source, unparen)
+const EXPRS: &[(&str, bool)] = &[
+    ("a + b * c - d / e % f", false),
+    ("(a + b) * (c - d)", true),
+    ("a - (b - c) - (d + e)", true),
+    ("(a = b) = (c = d)", true),
+    ("(a as i32) < b && (c as u8) << 2 > d", true),
+    ("-(x + 1) * !(a && b) + *(&y)", true),
+    ("(a || b) && (c || d) == (e != f)", true),
+    ("&mut *x as *const u8 as usize", false),
+    ("&raw const x.field", false),
+    ("|x, y| x + y", false),
+    ("move |x: u8| -> u8 { x * 2 }", false),
+    ("async move { f().await }", false),
+    ("(|| 1)()", true),
+    ("(return) + 1", true),
+    ("match x { 0 => a, 1 | 2 if y => { b } Some(ref mut z) => unsafe { c } _ => {} }", false),
+    ("match (x, y) { (Foo { a, b: 1, .. }, [first, .., last]) => a, (_, _) => return }", false),
+    ("if a { b } else if let Some(x) = y && z { c } else { d }", false),
+    ("if let Some(x) = a && let Ok(y) = b && c > 0 { x + y } else { 0 }", false),
+    ("if (S { a: 1 }) == s { 1 } else { 2 }", true),
+    ("if x == (S {}) {}", true),
+    ("{ #![allow(unused)] let x = 1; x }", false),
+    ("#[attr] (1 + 1)", true),
+    ("a.b::<T>(c).d().await?.0.e", false),
+    ("a..b", false),
+    ("..=c", false),
+    ("x..", false),
+    ("(0. ..1.).contains(&0.)", false),
+    ("((a..b))", true),
+    ("x as u8 as u16", false),
+    ("'outer: loop { while x { continue 'outer; } break 'outer 1; }", false),
+    ("'a: { if c { break 'a 2; } 3 }", false),
+    ("for x in v.iter() { total += x; }", false),
+    ("S { a, b: 1, ..Default::default() }", false),
+    ("T { ..x }", false),
+    ("(1,)", false),
+    ("[1, 2, 3][i]", false),
+    ("[0u8; 4]", false),
+    ("x.0.1.y", false),
+    ("vec![1, 2, 3]", false),
+    ("println!(\"{} {}\", x, y)", false),
+    ("<T as Trait>::f(x, y)", false),
+    ("**x", false),
+    ("\"str\" == r#\"raw\"# && b'a' != 1u8 && 1.5e3 > 'c' as f64 || true", false),
+    ("f(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, cccccccccccccccccccccccccccccccc, dddddddddddddddddddddd)", false),
+    ("(match x {}) + 1", true),
+    ("(loop { break 1 }).method()", true),
+    ("(*x)[0]", true),
+    ("x = y += 1", false),
+    ("(a.b)()", false),
+    ("break 'l (loop { break 'l 1 } + 1)", false),
+    ("const { 1 + 2 }", false),
+    ("builtin # offset_of(Foo, a.b.0)", false),
+    ("builtin # type_ascribe(x, u8)", false),
+    ("builtin # wrap_binder(x)", false),
+    ("builtin # unwrap_binder(x, u8)", false),
+    ("x.match { _ => 1 }", false),
+    ("(a + b).match { _ => 1 }", true),
+    ("async || {}", false),
+    ("static move || yield 1", false),
+    ("for<'a> |x: &'a u8| -> &'a u8 { x }", false),
+    ("gen { yield 1; }", false),
+    ("async gen move {}", false),
+    ("try { x? }", false),
+    ("do yeet 1", false),
+    ("become f(x)", false),
+    ("x.use", false),
+    ("&pin mut x", false),
+    ("&pin const x", false),
+    ("yield", false),
+    ("return", false),
+    ("break", false),
+    ("|| -> u8 { 1 }", false),
+    ("!x.y()?", false),
+    ("(-1i32).abs()", false),
+    ("(-1i32).abs()", true),
+    ("x?.y", false),
+    ("a < (b as u8)", true),
+    ("(x as u8) << 1", true),
+    ("((a, b) = (1, 2))", true),
+    ("(a..b).len() + (..c).len()", true),
+    ("[a, b] = [c, d]", false),
+    ("unsafe { f() }", false),
+    ("loop { if x { break 'a; } else { continue; } }", false),
+    ("while let Some(x) = it.next() { s += x; }", false),
+    ("match x { y if let Some(z) = y => z, _ => 0 }", false),
+    ("f(|x| x, move || 1, async move || 2)", false),
+    ("Foo::<u8> { a: 1 }.b", false),
+    ("<Vec<u8>>::new()", false),
+    ("S::<'static, T, 3, { N + 1 }> {}", false),
+];
+
+const ITEMS: &[&str] = &[
+    "fn f<'a, T: Clone + 'a, const N: usize>(x: &'a T, mut y: [u8; N]) -> Option<T> where T: Default, for<'b> &'b T: Debug { let z = 1; z }",
+    "pub(crate) struct S<T> { pub a: T, b: u8 }",
+    "struct U(pub u8, String);",
+    "struct E;",
+    "enum E { A, B(u8), C { x: i32 }, D = 5 }",
+    "union U { a: u32, b: f32 }",
+    "pub trait T: Sized + 'static { type A: Clone; const C: u8 = 1; fn f(&self) -> u8; fn g(&mut self) {} }",
+    "unsafe impl<T> Send for S<T> where T: Send {}",
+    "impl<T> !Sync for S<T> {}",
+    "impl S { pub fn new() -> Self { S } pub(super) const X: u8 = 1; }",
+    "use std::{collections::{HashMap, HashSet}, io::{self, Read}, fmt};",
+    "use a::b as c;",
+    "pub use a::*;",
+    "use x::{y};",
+    "use x::{self};",
+    "use x::{};",
+    "mod m { fn f() {} }",
+    "mod n;",
+    "extern \"C\" { fn puts(s: *const u8) -> i32; static X: u8; }",
+    "unsafe extern \"C\" { pub safe fn f(); }",
+    "macro_rules! m { ($x:expr) => { $x + 1 }; }",
+    "static mut X: u8 = 0;",
+    "const C: &str = \"x\";",
+    "pub static S: [u8; 2] = [1, 2];",
+    "type A<T> = Vec<T>;",
+    "extern crate alloc as a;",
+    "async unsafe fn g() {}",
+    "const fn h() {}",
+    "extern \"C\" fn k() {}",
+    "trait A = B + C;",
+    "#[derive(Debug)] #[repr(C)] struct R { #[doc = \"x\"] f: u8 }",
+    "fn p((a, b): (u8, u8), S { x, .. }: S, &mut c: &mut u8, _: fn(u8) -> u8) {}",
+    "fn s() { let x: u8; let y = 1 else { return }; fn inner() {} m! {} m!(); ; x }",
+    "fn st() { (match x {}) - 1; (if a { b } else { c }).d(); { 1 } - 1; }",
+    "pub(in crate::a) fn v() {}",
+    "impl<T: Iterator<Item = u8>> Tr for W<T> where T: Clone { type Out = Box<dyn Fn(u8) -> u8 + Send>; }",
+    "fn ret() -> impl Iterator<Item = &'static str> { [].into_iter() }",
+    "struct G<T: ?Sized, const N: usize = 3>(T) where T: Copy;",
+    "reuse a::b;",
+    "reuse <S as Tr>::f { self.0 }",
+    "reuse a::{b, c as d} { x }",
+    "reuse a::*;",
+    "impl T for S { reuse x::y; reuse z::{a, b}; default fn f() {} }",
+    "pub auto trait Au {}",
+    "unsafe trait Un {}",
+    "const trait Ct {}",
+    "const impl Ct for S {}",
+    "trait Ga { type T<'a> where Self: 'a; type U<'a>: Copy where Self: 'a = u8; }",
+    "unsafe extern \"C\" { pub unsafe static X: u8; safe static Y: u8; type Opaque; m!(); }",
+    "extern { fn f(...); }",
+    "const { assert!(true) }",
+    "fn gen_params<'a: 'b + 'c, 'b, T>() where 'a:, T: 'a + ?Sized, for<'x> fn(&'x u8): Copy {}",
+    "fn r#type(r#match: u8) {}",
+    "fn h() -> ! { loop {} }",
+    "fn c() { let _ = || {}; let a = &[1, 2]; let S { a, .. } = s; let (ref x, mut y @ 1..=5) = t; }",
+    "fn m() { match x { 1..5 | 6..=7 => {} ..=0 | 10.. => {} [a, b @ .., c] => {} &(ref d,) => {} E::V(e) | E::W { e } => {} } }",
+    "mod wrapper { #![allow(x)] use y; }",
+    "struct Long { pub field_number_one_has_a_long_name: std::collections::HashMap<String, Vec<u8>>, pub(crate) second: (u8, u16, u32, u64, u128, i8, i16, i32, i64) }",
+    "fn long_signature_function_name(first_argument: u8, second_argument: String, third_argument: Vec<Option<Box<dyn Fn(u8) -> u8>>>) -> Result<(), Box<dyn std::error::Error>> {}",
+    "fn closures() { let f = |a: u8, b: u8| -> u8 { a + b }; f(1, 2); }",
+    "type Ptr = for<'a> unsafe extern \"C\" fn(&'a u8, ...) -> u8;",
+];
+
+const CRATES: &[&str] = &[
+    "#![allow(dead_code)]\n#![no_std]\n//! Crate doc\nuse core::fmt;\n/// Doc\npub struct P { x: i32 }\nimpl fmt::Debug for P {\n    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, \"P\") }\n}\n",
+];
+
+// ---- hand-built expressions (kinds the parser never produces) ----
+fn mk_expr(kind: ExprKind) -> Box<Expr> {
+    Box::new(Expr { id: DUMMY_NODE_ID, kind, span: rustc_span::DUMMY_SP, attrs: AttrVec::new(), tokens: None })
+}
+fn path_expr(name: &str) -> Box<Expr> {
+    mk_expr(ExprKind::Path(None, Path::from_ident(Ident::from_str(name))))
+}
+fn fmt_args(template: Vec<FormatArgsPiece>, args: &[&str]) -> Box<Expr> {
+    let mut arguments = FormatArguments::new();
+    for a in args {
+        arguments.add(FormatArgument { original_span: rustc_span::DUMMY_SP, kind: FormatArgumentKind::Normal, expr: path_expr(a) });
+    }
+    mk_expr(ExprKind::FormatArgs(Box::new(FormatArgs {
+        span: rustc_span::DUMMY_SP,
+        template,
+        arguments,
+        uncooked_fmt_str: (token::LitKind::Str, Symbol::intern("unused")),
+        is_source_literal: true,
+    })))
+}
+fn pos(index: Result<usize, usize>) -> FormatArgPosition {
+    FormatArgPosition { index, kind: FormatArgPositionKind::Number, span: None }
+}
+fn ph(index: Result<usize, usize>, format_trait: FormatTrait, format_options: FormatOptions) -> FormatArgsPiece {
+    FormatArgsPiece::Placeholder(FormatPlaceholder { argument: pos(index), span: None, format_trait, format_options })
+}
+fn lit(s: &str) -> FormatArgsPiece {
+    FormatArgsPiece::Literal(Symbol::intern(s))
+}
+fn hand_built() -> Vec<(&'static str, Box<Expr>)> {
+    let d = FormatOptions::default;
+    vec![
+        (
+            "<hand-built FormatArgs: literals with escapes/braces, default Display>",
+            fmt_args(vec![lit("a{b}\n\t\"q\" '\\ \u{0}\u{301}e\u{301}é😀 "), ph(Ok(0), FormatTrait::Display, d()), lit("}")], &["x"]),
+        ),
+        (
+            "<hand-built FormatArgs: every option>",
+            fmt_args(
+                vec![ph(
+                    Ok(1),
+                    FormatTrait::Debug,
+                    FormatOptions {
+                        width: Some(FormatCount::Literal(5)),
+                        precision: Some(FormatCount::Argument(pos(Ok(2)))),
+                        alignment: Some(FormatAlignment::Center),
+                        fill: Some('*'),
+                        sign: Some(FormatSign::Plus),
+                        alternate: true,
+                        zero_pad: true,
+                        debug_hex: Some(FormatDebugHex::Lower),
+                    },
+                )],
+                &["a", "b", "c"],
+            ),
+        ),
+        (
+            "<hand-built FormatArgs: Err indices, width argument, alignments, signs>",
+            fmt_args(
+                vec![
+                    ph(Err(0), FormatTrait::LowerHex, FormatOptions { width: Some(FormatCount::Argument(pos(Err(1)))), alignment: Some(FormatAlignment::Left), ..d() }),
+                    ph(Ok(0), FormatTrait::Display, FormatOptions { alignment: Some(FormatAlignment::Right), sign: Some(FormatSign::Minus), ..d() }),
+                    ph(Ok(0), FormatTrait::Display, FormatOptions { precision: Some(FormatCount::Literal(3)), debug_hex: Some(FormatDebugHex::Upper), ..d() }),
+                ],
+                &["n", "w"],
+            ),
+        ),
+        (
+            "<hand-built FormatArgs: every trait>",
+            fmt_args(
+                vec![
+                    ph(Ok(0), FormatTrait::Display, d()),
+                    ph(Ok(0), FormatTrait::Debug, d()),
+                    ph(Ok(0), FormatTrait::LowerExp, d()),
+                    ph(Ok(0), FormatTrait::UpperExp, d()),
+                    ph(Ok(0), FormatTrait::Octal, d()),
+                    ph(Ok(0), FormatTrait::Pointer, d()),
+                    ph(Ok(0), FormatTrait::Binary, d()),
+                    ph(Ok(0), FormatTrait::LowerHex, d()),
+                    ph(Ok(0), FormatTrait::UpperHex, d()),
+                ],
+                &["v"],
+            ),
+        ),
+        ("<hand-built FormatArgs: no arguments>", fmt_args(vec![lit("plain")], &[])),
+        ("<hand-built IncludedBytes>", mk_expr(ExprKind::IncludedBytes(rustc_span::ByteSymbol::intern(b"ab\x00\xff\"\\\n")))),
+    ]
+}
+
+fn parse_expr(psess: &ParseSess, i: usize, src: &str) -> Box<Expr> {
+    let mut p = rustc_parse::new_parser_from_source_str(psess, FileName::Custom(format!("e{i}")), src.to_string(), StripTokens::Nothing)
+        .unwrap_or_else(|_| panic!("parser"));
+    p.parse_expr().unwrap_or_else(|e| {
+        e.cancel();
+        panic!("expr {src}")
+    })
+}
+
+fn parse_crate(psess: &ParseSess, name: String, src: &str) -> ast::Crate {
+    let mut p = rustc_parse::new_parser_from_source_str(psess, FileName::Custom(name), src.to_string(), StripTokens::Nothing)
+        .unwrap_or_else(|_| panic!("parser"));
+    p.parse_crate_mod().unwrap_or_else(|e| {
+        e.cancel();
+        panic!("crate {src}")
+    })
+}
+
+fn main() {
+    rustc_span::create_session_globals_then(Edition::Edition2024, &[], None, || {
+        let psess = ParseSess::new();
+        let mut es = Vec::new();
+        for (i, (src, unparen)) in EXPRS.iter().enumerate() {
+            let mut e = parse_expr(&psess, i, src);
+            if *unparen {
+                Unparen.visit_expr(&mut e);
+            }
+            es.push(format!(
+                "{{\"src\":{},\"unparen\":{},\"expected\":{},\"ast\":{}}}",
+                js(src),
+                unparen,
+                js(&pprust::expr_to_string(&e)),
+                expr(&e)
+            ));
+        }
+        for (src, e) in hand_built() {
+            es.push(format!(
+                "{{\"src\":{},\"unparen\":false,\"expected\":{},\"ast\":{}}}",
+                js(src),
+                js(&pprust::expr_to_string(&e)),
+                expr(&e)
+            ));
+        }
+        let mut is = Vec::new();
+        for (i, src) in ITEMS.iter().enumerate() {
+            let mut krate = parse_crate(&psess, format!("i{i}"), src);
+            Unparen.visit_crate(&mut krate);
+            assert!(krate.attrs.is_empty() && krate.items.len() == 1, "{src}");
+            let it = &krate.items[0];
+            is.push(format!(
+                "{{\"src\":{},\"expected\":{},\"ast\":{}}}",
+                js(src),
+                js(&pprust::item_to_string(it)),
+                item(it)
+            ));
+        }
+        let mut cs = Vec::new();
+        for (i, src) in CRATES.iter().enumerate() {
+            let krate = parse_crate(&psess, format!("c{i}"), src);
+            cs.push(format!(
+                "{{\"src\":{},\"expected\":{},\"attrs\":{},\"items\":{}}}",
+                js(src),
+                js(&pprust::crate_to_string_for_macros(&krate)),
+                attrs(&krate.attrs),
+                arr(krate.items.iter(), |i| item(i))
+            ));
+        }
+        println!(
+            "{{\"_source\":\"rustc +nightly-2026-10-11 (rustc-dev) scratch oracle expr_item.oracle.rs.txt; edition 2024; pprust::{{expr_to_string,item_to_string,crate_to_string_for_macros}}\",\n\"exprs\":[\n{}\n],\n\"items\":[\n{}\n],\n\"crates\":[\n{}\n]}}",
+            es.join(",\n"),
+            is.join(",\n"),
+            cs.join(",\n")
+        );
+    });
+}
