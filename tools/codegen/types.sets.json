@@ -102,5 +102,14 @@
     ],
     "discriminant": [],
     "skip": []
+  },
+  "rustc_parse": {
+    "files": [
+      "compiler/rustc_parse/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
   }
 }

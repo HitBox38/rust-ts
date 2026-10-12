@@ -109,9 +109,51 @@ fn meta_json(meta: &Meta) -> Value {
         (_, Meta::NameValue(nv)) => {
             o.insert("value".into(), lit_value(&nv.value));
         }
+        (_, Meta::List(l)) => {
+            // token trees of `path(...)`, for attribute-driven derives (tools/codegen/diagnostics.ts)
+            o.insert("tokens".into(), tokens_json(l.tokens.clone()));
+        }
         _ => {}
     }
     Value::Object(o)
+}
+
+/// Token trees as JSON: `{t: "ident"|"punct"|"lit"|"group", ...}` with string literal values
+/// (`str`, plus `suffix`) decoded by syn, and the start line/column (0-based) of each token.
+fn tokens_json(ts: TokenStream) -> Value {
+    Value::Array(
+        ts.into_iter()
+            .map(|t| {
+                let start = t.span().start();
+                let mut v = match &t {
+                    TokenTree::Ident(i) => json!({ "t": "ident", "v": i.to_string() }),
+                    TokenTree::Punct(p) => {
+                        json!({ "t": "punct", "v": p.as_char().to_string(), "joint": p.spacing() == proc_macro2::Spacing::Joint })
+                    }
+                    TokenTree::Literal(l) => {
+                        let mut v = json!({ "t": "lit", "v": l.to_string() });
+                        if let Ok(Lit::Str(s)) = syn::parse2::<Lit>(TokenTree::Literal(l.clone()).into()) {
+                            v["str"] = Value::String(s.value());
+                            v["suffix"] = Value::String(s.suffix().to_string());
+                        }
+                        v
+                    }
+                    TokenTree::Group(g) => {
+                        let delim = match g.delimiter() {
+                            proc_macro2::Delimiter::Parenthesis => "(",
+                            proc_macro2::Delimiter::Brace => "{",
+                            proc_macro2::Delimiter::Bracket => "[",
+                            proc_macro2::Delimiter::None => "",
+                        };
+                        json!({ "t": "group", "delim": delim, "tokens": tokens_json(g.stream()) })
+                    }
+                };
+                v["line"] = json!(start.line);
+                v["col"] = json!(start.column);
+                v
+            })
+            .collect(),
+    )
 }
 
 /// (non-doc attributes, doc comment lines)
@@ -126,6 +168,9 @@ fn attrs_json(attrs: &[Attribute]) -> (Value, Value) {
             }
         }
         let mut m = meta_json(&a.meta);
+        let start = a.pound_token.span.start();
+        m["line"] = json!(start.line);
+        m["col"] = json!(start.column);
         if let syn::AttrStyle::Inner(_) = a.style {
             m["inner"] = Value::Bool(true);
         }
