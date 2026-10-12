@@ -13,7 +13,7 @@ import {
   type DiagMessage as DiagMessage_,
   type SpanLabel,
 } from "./lib.gen.ts";
-import { DiagArgValue_into_diag_arg_ref, String_into_diag_arg } from "./diagnostic_impls.ts";
+import { String_into_diag_arg } from "./diagnostic_impls.ts";
 
 export * from "./lib.gen.ts";
 export * from "./diagnostic_impls.ts";
@@ -405,6 +405,7 @@ export interface IntoDiagArg {
   /// for displaying on the terminal. This path comes from the `Diag` itself. When rendering
   /// values that come from `TyCtxt`, like `Ty<'_>`, they can use `TyCtxt::short_string`. If a
   /// value has no shortening logic that could be used, the argument can be safely ignored.
+  // rustc: compiler/rustc_error_messages/src/lib.rs:335 into_diag_arg
   into_diag_arg(path: MutRef<PathBuf | undefined>): DiagArgValue;
 }
 
@@ -414,7 +415,7 @@ export const IntoDiagArg = {
     return { into_diag_arg: (path) => f(value, path) };
   },
   DiagArgValue(v: DiagArgValue): IntoDiagArg {
-    return { into_diag_arg: (path) => DiagArgValue_into_diag_arg_ref(v, path) };
+    return { into_diag_arg: (path) => DiagArgValue.into_diag_arg(v, path) };
   },
   String(s: string): IntoDiagArg {
     return { into_diag_arg: (path) => String_into_diag_arg(s, path) };

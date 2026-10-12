@@ -76,7 +76,8 @@
       "rustc_errors::DiagCtxtHandle",
       "rustc_errors::decorate_diag::DecorateDiagCompat",
       "rustc_error_messages::diagnostic_impls::DiagArgFromDisplay",
-      "rustc_errors::dedup_hash::DedupHashEncoder"
+      "rustc_errors::dedup_hash::DedupHashEncoder",
+      "rustc_errors::DelayedBugPanic"
     ],
     "discriminant": [],
     "skip": [],

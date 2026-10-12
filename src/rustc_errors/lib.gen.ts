@@ -4,7 +4,7 @@ import { type RustcVersion } from "../rustc_ast/attr/version.ts";
 import { debug_DiagMessage, type DiagMessage } from "../rustc_error_messages/lib.ts";
 import { type ErrCode } from "./codes.ts";
 import { type Diag, type DiagInner } from "./diagnostic.ts";
-import { type Applicability, type Backtrace, debug_Applicability, type DiagCtxtHandle, type Emitter, type LintExpectationId, type ThreadId } from "./lib.ts";
+import { type Applicability, type Backtrace, debug_Applicability, type DelayedBugPanic, type DiagCtxtHandle, type Emitter, type LintExpectationId, type ThreadId } from "./lib.ts";
 import { type Hash128 } from "../rustc_hashes/lib.ts";
 import { debug_Span, type ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
 import { type Debug, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
@@ -142,10 +142,7 @@ export const debug_TrimmedSubstitutionPart: Debug<TrimmedSubstitutionPart> = (v,
   ]);
 
 // rustc-type: compiler/rustc_errors/src/lib.rs:262 DelayedBugPanic
-/// Signifies that the compiler died due to a delayed bug rather than a failed
-/// assertion, etc.
-export interface DelayedBugPanic {
-}
+export type { DelayedBugPanic } from "./lib.ts";
 
 // rustc-type: compiler/rustc_errors/src/lib.rs:270 DiagCtxt
 /// A `DiagCtxt` deals with errors and other compiler output.
