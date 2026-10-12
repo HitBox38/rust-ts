@@ -7,7 +7,8 @@ import { token, tokenstream } from "../../rustc_ast/lib.ts";
 import type { Diag } from "../../rustc_errors/lib.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { assert_eq, unported, unwrap } from "../../std/panic.ts";
+import { assert_eq, unwrap } from "../../std/panic.ts";
+import { token_to_string } from "../../rustc_ast_pretty/pprust/mod.ts";
 import { type Result, Err, Ok } from "../../std/result.ts";
 import { report_missing_open_delim, report_suspicious_mismatch_block, same_indentation_level } from "./diagnostics.ts";
 import { Lexer, type UnmatchedDelim } from "./mod.ts";
@@ -18,13 +19,6 @@ type Spacing = tokenstream.Spacing;
 type TokenStream = tokenstream.TokenStream;
 type TokenTree = tokenstream.TokenTree;
 const { DelimSpacing, DelimSpan, Spacing, TokenStream } = tokenstream;
-
-// PORT: pending rustc_ast_pretty (pprust-state lane). `use rustc_ast_pretty::pprust::token_to_string;`
-// Replace with the real import once it lands.
-// PORT: pending rustc_ast_pretty
-function token_to_string(_token: Token): string {
-  return unported("rustc_ast_pretty::pprust::token_to_string (pending pprust-state)");
-}
 
 declare module "./mod.ts" {
   interface Lexer {

@@ -9,15 +9,12 @@
 //
 // PORT: `debug!` (tracing) calls are dropped: rustc ships with them compiled out of release builds'
 // default log level and they have no observable effect.
-import { ast, node_id, token, tokenstream } from "../../rustc_ast/lib.ts";
+import { ast, token, type tokenstream } from "../../rustc_ast/lib.ts";
 import { TEXT_FLOW_CONTROL_CHARS, contains_text_flow_control_chars } from "../../rustc_ast/util/unicode.ts";
-import type { NodeId } from "../../rustc_ast/node_id.ts";
 import {
   Applicability,
-  DecorateDiagCompat,
   type Diag,
   type DiagCtxtHandle,
-  type Diagnostic,
   E0748,
   E0758,
   E0762,
@@ -26,9 +23,6 @@ import {
   E0766,
   E0767,
   type ErrorGuaranteed,
-  type IntoMultiSpan,
-  type Level,
-  type Lint,
   StashKey,
 } from "../../rustc_errors/lib.ts";
 import * as rustc_lexer from "../../rustc_lexer/lib.ts";
@@ -43,13 +37,13 @@ import { EscapeError, Mode, check_for_errors } from "../../vendor/rustc_literal_
 import { Edition } from "../../rustc_span/edition.ts";
 import { SyntaxContext } from "../../rustc_span/hygiene.ts";
 import { BytePos, debug_Span, Span } from "../../rustc_span/lib.ts";
-import type { SourceMap } from "../../rustc_span/source_map.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { len_utf8, to_digit } from "../../std/char.ts";
 import { debug_char, debug_option, debug_struct, type Debug } from "../../std/fmt.ts";
 import { assert, panic, unported, unreachable } from "../../std/panic.ts";
 import { type Result, Err, Ok } from "../../std/result.ts";
 import { Str, str_chars_count, str_find_char, str_rfind_char } from "../../std/str.ts";
+import type { ParseSess } from "../../rustc_session/parse.ts";
 import * as diagnostics from "../diagnostics.ts";
 import { TokenTreeDiagInfo, make_errors_for_mismatched_closing_delims } from "./diagnostics.ts";
 
@@ -57,26 +51,7 @@ type TokenKind = token.TokenKind;
 type Token = token.Token;
 type Delimiter = token.Delimiter;
 type TokenStream = tokenstream.TokenStream;
-type Spacing = tokenstream.Spacing;
 const { Token } = token;
-
-// ---------------------------------------------------------------------------------------------
-// PORT: pending session-parse. Minimal view of `rustc_session::parse::ParseSess` with exactly the
-// members the lexer uses (names and argument order as upstream). Replace with
-// `import type { ParseSess } from "../../rustc_session/parse.ts"` once that lands.
-export interface ParseSess {
-  dcx(): DiagCtxtHandle;
-  source_map(): SourceMap;
-  /** `AppendOnlyVec<Span>` */
-  raw_identifier_spans: Span[];
-  /** `Lock<FxIndexMap<Symbol, Vec<Span>>>` */
-  bad_unicode_identifiers: Map<Symbol, Span[]>;
-  gated_spans: { gate(feature: Symbol, span: Span): void };
-  symbol_gallery: { insert(symbol: Symbol, span: Span): void };
-  /** `diagnostic: impl Into<DecorateDiagCompat>` */
-  buffer_lint(lint: Lint, span: IntoMultiSpan, node_id: NodeId, diagnostic: DecorateDiagCompat | Diagnostic): void;
-  dyn_buffer_lint(lint: Lint, span: IntoMultiSpan, node_id: NodeId, callback: (dcx: DiagCtxtHandle, level: Level) => Diag): void;
-}
 
 // ---------------------------------------------------------------------------------------------
 // PORT: pending lexer-aux. `mod unicode_chars;` / `mod unescape_error_reporting;` and the

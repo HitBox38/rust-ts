@@ -3,22 +3,14 @@ import { token } from "../../rustc_ast/lib.ts";
 import type { Diag } from "../../rustc_errors/lib.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import type { SourceMap } from "../../rustc_span/source_map.ts";
-import { unported, unreachable } from "../../std/panic.ts";
+import { unreachable } from "../../std/panic.ts";
+import * as pprust from "../../rustc_ast_pretty/pprust/mod.ts";
 import { MismatchedClosingDelimiter_diagnostic } from "../diagnostics.ts";
-import type { ParseSess, UnmatchedDelim } from "./mod.ts";
+import type { ParseSess } from "../../rustc_session/parse.ts";
+import type { UnmatchedDelim } from "./mod.ts";
 
 type Delimiter = token.Delimiter;
 type TokenKind = token.TokenKind;
-
-// PORT: pending rustc_ast_pretty (pprust-state lane). `use crate::pprust;` is
-// `rustc_ast_pretty::pprust`; replace this shim with
-// `import * as pprust from "../../rustc_ast_pretty/pprust/mod.ts"` once it lands.
-const pprust = {
-  // PORT: pending rustc_ast_pretty
-  token_kind_to_string(_tok: TokenKind): string {
-    return unported("rustc_ast_pretty::pprust::token_kind_to_string (pending pprust-state)");
-  },
-};
 
 /** `#[derive(Default)]` */
 export class TokenTreeDiagInfo {
