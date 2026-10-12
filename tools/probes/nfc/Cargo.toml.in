@@ -1,0 +1,17 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@ and builds this in $RUST_TS_DATA/probes.
+# Dependency versions are pinned to upstream's Cargo.lock at the pinned commit
+# (unicode-normalization 0.1.25 is the version rustc_parse depends on; default features).
+[package]
+name = "nfc"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "nfc"
+path = "@SRC@/main.rs"
+
+[dependencies]
+unicode-normalization = "=0.1.25"
+
+[workspace]
