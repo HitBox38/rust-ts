@@ -9,10 +9,10 @@
     "fluent-parse": 4210,
     "escape": 25780
   },
-  "updated": "2026-10-12T21:38:42.450Z",
+  "updated": "2026-10-12T22:02:43.546Z",
   "open_stops": [],
   "coverage": {
-    "ported": 1562,
+    "ported": 1787,
     "total": 25518
   }
 }

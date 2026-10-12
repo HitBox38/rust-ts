@@ -1,0 +1,16 @@
+{
+  "//": [
+    "Type-map additions of lane session-parse (rustc_session diagnostics.rs), merged after typemap.json by",
+    "tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json.",
+    "std::num::ParseIntError and the rustc_target::spec types are not ported: opaque PORT stand-ins declared in",
+    "src/rustc_session/diagnostics.ts (type only); their IntoDiagArg is unported (diag_args.json). Repoint once ported."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["std::num::ParseIntError", "core::num::ParseIntError", "ParseIntError"], "ts": "ParseIntError", "import": "src/rustc_session/diagnostics.ts", "types": ["ParseIntError"], "debug": null, "note": "PORT: opaque stand-in until std::num is ported (src/std)" },
+    { "paths": ["rustc_target::spec::StackProtector"], "ts": "StackProtector", "import": "src/rustc_session/diagnostics.ts", "types": ["StackProtector"], "debug": null, "note": "PORT: opaque stand-in until rustc_target is ported" },
+    { "paths": ["rustc_target::spec::TargetTuple"], "ts": "TargetTuple", "import": "src/rustc_session/diagnostics.ts", "types": ["TargetTuple"], "debug": null, "note": "PORT: opaque stand-in until rustc_target is ported" },
+    { "paths": ["rustc_target::spec::SplitDebuginfo"], "ts": "SplitDebuginfo", "import": "src/rustc_session/diagnostics.ts", "types": ["SplitDebuginfo"], "debug": null, "note": "PORT: opaque stand-in until rustc_target is ported" }
+  ]
+}
