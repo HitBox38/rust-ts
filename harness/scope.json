@@ -14,7 +14,6 @@
     "rustc_thread_pool": "parallel frontend is out of scope",
     "rustc_windows_rc": "Windows resource compiler glue",
     "rustc_log": "tracing setup",
-    "rustc_baked_icu_data": "baked ICU data for list formatting; port as data if needed",
     "rustc_sanitizers": "sanitizer instrumentation (later, if ever)",
     "rustc": "binary wrapper around rustc_driver"
   },
@@ -34,6 +33,16 @@
     "fluent-bundle": "=0.16.0",
     "intl-memoizer": "=0.5.3",
     "type-map": "=0.5.1",
-    "fluent-langneg": "=0.13.1"
+    "fluent-langneg": "=0.13.1",
+    "icu_list": "=2.3.0",
+    "icu_locale_core": "=2.3.0",
+    "icu_provider": "=2.3.0",
+    "icu_locale_fallback": "=2.3.0",
+    "icu_locale_fallback_data": "=2.3.0",
+    "zerotrie": "=0.2.5",
+    "writeable": "=0.6.4",
+    "litemap": "=0.8.1",
+    "zerovec": "=0.11.7",
+    "regex-automata": "=0.4.13"
   }
 }

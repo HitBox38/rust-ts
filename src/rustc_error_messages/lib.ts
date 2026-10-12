@@ -1,14 +1,17 @@
 // Port of compiler/rustc_error_messages/src/lib.rs.
 // Types (DiagMessage, SpanLabel, MultiSpan, DiagArgValue, DiagArgMap, ...) are generated into lib.gen.ts.
 //
-// PORT: Fluent comes from the vendored crates (src/vendor/fluent_bundle, unic_langid,
-// intl_memoizer). `icu_list`, `icu_locale_core` and `rustc_baked_icu_data` are not vendored yet:
-// `icu_locale_from_unic_langid` and the `ListFormatter` uses inside
-// `fluent_value_from_str_list_sep_by_and` call `unported(...)`.
+// Fluent comes from the vendored crates (src/vendor/fluent_bundle, unic_langid, intl_memoizer);
+// list formatting from src/vendor/icu_list, icu_locale_core and src/rustc_baked_icu_data.
 import { Span } from "../rustc_span/lib.ts";
+import { BakedDataProvider, supported_locales } from "../rustc_baked_icu_data/lib.ts";
+import { ListFormatter, ListFormatterPreferences } from "../vendor/icu_list/list_formatter.ts";
+import { ListFormatterOptions } from "../vendor/icu_list/options.ts";
+import { Locale } from "../vendor/icu_locale_core/locale.ts";
+import { debug_DataError } from "../vendor/icu_provider/error.ts";
 import type { MutRef } from "../rustc_span/hygiene.ts";
 import { debug_str, debug_tuple, debug_vec, PLAIN, type Fmt } from "../std/fmt.ts";
-import { panic, unported } from "../std/panic.ts";
+import { panic } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
 import type { FluentBundle } from "../vendor/fluent_bundle/bundle.ts";
 import { debug_FluentError, FluentValue } from "../vendor/fluent_bundle/lib.ts";
@@ -326,20 +329,10 @@ export function into_MultiSpan(sp: IntoMultiSpan): MultiSpan {
   return MultiSpan.from_Span(sp);
 }
 
-/** PORT: stand-in for `icu_locale_core::Locale` (icu_locale_core is not vendored yet). */
-export interface IcuLocale {
-  readonly __icu_locale: never;
-}
-
 // rustc: compiler/rustc_error_messages/src/lib.rs:231 icu_locale_from_unic_langid
-function icu_locale_from_unic_langid(lang: LanguageIdentifier): IcuLocale | undefined {
-  void display_LanguageIdentifier(lang); // `&lang.to_string()`
-  return unported("icu_locale_core::Locale::try_from_str");
-}
-
-/** PORT: stand-in for `icu_list::ListFormatter` (icu_list is not vendored yet). */
-export interface ListFormatter {
-  format_to_string(values: Iterable<string>): string;
+function icu_locale_from_unic_langid(lang: LanguageIdentifier): Locale | undefined {
+  const r = Locale.try_from_str(display_LanguageIdentifier(lang));
+  return r.$ === "Ok" ? r._0 : undefined; // `.ok()`
 }
 
 // rustc: compiler/rustc_error_messages/src/lib.rs:235 fluent_value_from_str_list_sep_by_and
@@ -423,17 +416,14 @@ const MemoizableListFormatter_Memoizable: Memoizable<MemoizableListFormatter, []
 
   // rustc: compiler/rustc_error_messages/src/lib.rs:280 construct
   construct(lang: LanguageIdentifier, _args: []): Result<MemoizableListFormatter, null> {
-    const locale =
-      icu_locale_from_unic_langid(lang) ?? unported("rustc_baked_icu_data::supported_locales::EN");
-    void locale;
-    // icu_list::ListFormatter::try_new_and_unstable(
-    //     &rustc_baked_icu_data::BakedDataProvider,
-    //     locale.into(),
-    //     icu_list::options::ListFormatterOptions::default()
-    //         .with_length(icu_list::options::ListLength::Wide),
-    // )
-    // .expect("Failed to create list formatter");
-    const list_formatter: ListFormatter = unported("icu_list::ListFormatter::try_new_and_unstable");
+    const locale = icu_locale_from_unic_langid(lang) ?? supported_locales.EN;
+    const r = ListFormatter.try_new_and_unstable(
+      new BakedDataProvider(),
+      ListFormatterPreferences.from_locale_owned(locale),
+      ListFormatterOptions.default().with_length("Wide"),
+    );
+    if (r.$ === "Err") return panic(`Failed to create list formatter: ${debug_DataError(r._0)}`);
+    const list_formatter = r._0;
 
     return Ok(new MemoizableListFormatter(list_formatter));
   },
