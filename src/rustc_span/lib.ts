@@ -14,9 +14,6 @@
 //! ## Note
 //!
 //! This API is completely unstable and subject to change.
-//
-// PORT: source_map.rs (wave 2): `SourceMap`/`SourceMapInputs` are opaque placeholders defined
-// below and every call into them is `unported("rustc_span::source_map::...")`.
 import { FreezeLock } from "../rustc_data_structures/sync/freeze.ts";
 import { debug_Hash64, Hash64, type Hash128 } from "../rustc_hashes/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
@@ -41,18 +38,19 @@ import { debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_ve
 import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { Str } from "../std/str.ts";
+import { UnicodeWidthChar } from "../vendor/unicode_width/lib.ts";
+export { UNICODE_VERSION } from "../vendor/unicode_width/lib.ts";
+
+// mod caching_source_map_view;
+// pub mod source_map;
+import { SourceMap, type SourceMapInputs } from "./source_map.ts";
+// PORT: transitional re-export; hygiene.ts imports `SourceMap` from here (upstream: crate::source_map).
+export type { SourceMap, SourceMapInputs } from "./source_map.ts";
+
+export { CachingSourceMapView } from "./caching_source_map_view.ts";
 
 export { DUMMY_SP, OrdSpan, Span } from "./span_encoding.ts";
 export { bug, span_bug } from "./macros.ts";
-// PORT: `pub use unicode_width::UNICODE_VERSION;` waits for vendor `unicode-width` (not ported).
-
-/** source_map.rs (wave 2). */
-export interface SourceMap {
-  readonly __wave2_source_map: never;
-}
-export interface SourceMapInputs {
-  readonly __wave2_source_map_inputs: never;
-}
 
 // _____________________________________________________________________________
 // Spanned
@@ -105,7 +103,7 @@ export class SessionGlobals {
       SpanInterner.default(),
       MetavarSpansMap.default(),
       HygieneData.new(edition),
-      sm_inputs === undefined ? undefined : unported("rustc_span::source_map::SourceMap::with_inputs"),
+      sm_inputs === undefined ? undefined : SourceMap.with_inputs(sm_inputs),
     );
   }
 }
@@ -880,8 +878,8 @@ Span.lo_hi = function (self: Span): [BytePos, BytePos] {
 };
 
 // rustc: compiler/rustc_span/src/lib.rs:772 is_visible
-Span.is_visible = function (self: Span, _sm: SourceMap): boolean {
-  return !Span.is_dummy(self) && unported("rustc_span::source_map::SourceMap::is_span_accessible");
+Span.is_visible = function (self: Span, sm: SourceMap): boolean {
+  return !Span.is_dummy(self) && sm.is_span_accessible(self);
 };
 
 /// Returns whether this span originates in a foreign crate's external macro.
@@ -1367,7 +1365,7 @@ Span.until = function (self: Span, end: Span): Span {
 /// If "self" is the span of the outer_ident, and "within" is the span of the `($ident,)`
 /// expr, then this will return the span of the `$ident` macro variable.
 // rustc: compiler/rustc_span/src/lib.rs:1229 within_macro
-Span.within_macro = function (self: Span, within: Span, _sm: SourceMap): Span | undefined {
+Span.within_macro = function (self: Span, within: Span, sm: SourceMap): Span | undefined {
   const r = Span_prepare_to_combine(self, within);
   if (r.$ === "Err") return undefined;
   const [self_, , parent] = r._0;
@@ -1378,7 +1376,7 @@ Span.within_macro = function (self: Span, within: Span, _sm: SourceMap): Span | 
   // from a foreign crate; we could also take into account `-Zmacro-backtrace`,
   // which doesn't redact this span (but that would mean passing in even more
   // args to this function, lol).
-  if (Span.data(self).contains(self_) || unported("rustc_span::source_map::SourceMap::is_imported")) {
+  if (Span.data(self).contains(self_) || sm.is_imported(within)) {
     return undefined;
   }
 
@@ -1574,8 +1572,9 @@ export function debug_Span(self: Span, f: Fmt): string {
 
   if (SESSION_GLOBALS.is_set()) {
     return with_session_globals((session_globals) => {
-      if (session_globals.source_map !== undefined) {
-        return unported("rustc_span::source_map::SourceMap::span_to_diagnostic_string");
+      const source_map = session_globals.source_map;
+      if (source_map !== undefined) {
+        return `${source_map.span_to_diagnostic_string(self)} (${debug_SyntaxContext(Span.ctxt(self), f)})`;
       } else {
         return fallback(self, f);
       }
@@ -2397,18 +2396,8 @@ export function char_width(ch: number): number {
     case 0x2067: case 0x2068: case 0x202c: case 0x2069:
       return 1;
     default:
-      return UnicodeWidthChar_width(ch) ?? 1;
+      return UnicodeWidthChar.width(ch) ?? 1;
   }
-}
-
-/**
- * PORT: `unicode_width::UnicodeWidthChar::width` (vendor crate unicode-width 0.2.2, not ported).
- * Printable ASCII is width 1 (the crate's own fast path, `0x20 <= c < 0x7F`); everything else
- * waits for the vendor port.
- */
-function UnicodeWidthChar_width(ch: number): number | undefined {
-  if (ch >= 0x20 && ch < 0x7f) return 1;
-  return unported("unicode_width::UnicodeWidthChar::width");
 }
 
 // rustc: compiler/rustc_span/src/lib.rs:2559 str_width

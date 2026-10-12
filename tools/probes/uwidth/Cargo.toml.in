@@ -1,0 +1,17 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@ and builds this in $RUST_TS_DATA/probes.
+# Dependency versions are pinned to upstream's Cargo.lock at the pinned commit
+# (unicode-width 0.2.2 is the version rustc_span depends on; default features include `cjk`).
+[package]
+name = "uwidth"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "uwidth"
+path = "@SRC@/main.rs"
+
+[dependencies]
+unicode-width = "=0.2.2"
+
+[workspace]

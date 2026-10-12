@@ -1,0 +1,2128 @@
+//! Types for tracking pieces of source code within a crate.
+//!
+//! The [`SourceMap`] tracks all the source code used within a single crate, mapping
+//! from integer byte positions to the original source code location. Each bit
+//! of source parsed during crate parsing (typically files, in-memory strings,
+//! or various bits of macro expansion) cover a continuous range of bytes in the
+//! `SourceMap` and are represented by [`SourceFile`]s. Byte positions are stored in
+//! [`Span`] and used pervasively in the compiler. They are absolute positions
+//! within the `SourceMap`, which upon request can be converted to line and column
+//! information, source code snippets, etc.
+//
+// PORT: module-level code here must not touch lib.ts bindings at evaluation time (lib.ts imports
+// this module, so either may be evaluated first).
+import { closeSync, existsSync, fstatSync, openSync, readFileSync } from "node:fs";
+import { FreezeLock } from "../rustc_data_structures/sync/freeze.ts";
+import type { CrateNum } from "./def_id.ts";
+import { FatalError } from "./fatal_error.ts";
+import { SyntaxContext } from "./hygiene.ts";
+import {
+  BytePos,
+  CharPos,
+  debug_RealFileName,
+  debug_RemapPathScopeComponents,
+  type DistinctSources,
+  FileName,
+  type FileLines,
+  type FileLinesResult,
+  type FileNameDisplay,
+  type LineInfo,
+  type Loc,
+  type MultiByteChar,
+  type NormalizedPos,
+  OffsetOverflowError,
+  type PathBuf,
+  RealFileName,
+  RelativeBytePos,
+  RemapPathScopeComponents,
+  SourceFile,
+  type SourceFileAndBytePos,
+  type SourceFileAndLine,
+  type SourceFileHash,
+  type SourceFileHashAlgorithm,
+  type SourceFileLines,
+  type SpanData,
+  type SpanLinesError,
+  type SpanSnippetError,
+  StableSourceFileId,
+  ExternalSource,
+  with_session_globals,
+} from "./lib.ts";
+import { Span } from "./span_encoding.ts";
+import { is_whitespace, len_utf8, to_string as char_to_string } from "../std/char.ts";
+import { debug_list, debug_str, debug_struct, debug_tuple, debug_vec, type Debug } from "../std/fmt.ts";
+import { assert, panic, unported, unwrap } from "../std/panic.ts";
+import { Err, Ok, ok, type Result } from "../std/result.ts";
+import { Str, utf8_len } from "../std/str.ts";
+
+// mod tests; (source_map/tests.test.ts)
+
+/// Returns the span itself if it doesn't come from a macro expansion,
+/// otherwise return the call site span up to the `enclosing_sp` by
+/// following the `expn_data` chain.
+// rustc: compiler/rustc_span/src/source_map.rs:28 original_sp
+export function original_sp(sp: Span, enclosing_sp: Span): Span {
+  const ctxt = Span.ctxt(sp);
+  if (SyntaxContext.is_root(ctxt)) {
+    return sp;
+  }
+
+  const enclosing_ctxt = Span.ctxt(enclosing_sp);
+  const expn_data1 = SyntaxContext.outer_expn_data(ctxt);
+  if (!SyntaxContext.is_root(enclosing_ctxt) && expn_data1.call_site === SyntaxContext.outer_expn_data(enclosing_ctxt).call_site) {
+    return sp;
+  } else {
+    return original_sp(expn_data1.call_site, enclosing_sp);
+  }
+}
+
+// mod monotonic
+
+/// A `MonotonicVec` is a `Vec` which can only be grown.
+/// Once inserted, an element can never be removed or swapped,
+/// guaranteeing that any indices into a `MonotonicVec` are stable
+// This is declared in its own module to ensure that the private
+// field is inaccessible
+export class MonotonicVec<T> {
+  constructor(private readonly _0: T[]) {}
+
+  // rustc: compiler/rustc_span/src/source_map.rs:55 push
+  push(val: T): void {
+    this._0.push(val);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:61 default
+  static default<T>(): MonotonicVec<T> {
+    return new MonotonicVec<T>([]);
+  }
+
+  /** `impl Deref for MonotonicVec<T> { type Target = Vec<T>; }` (and `impl !DerefMut`). */
+  // rustc: compiler/rustc_span/src/source_map.rs:68 deref
+  deref(): readonly T[] {
+    return this._0;
+  }
+}
+
+// _____________________________________________________________________________
+// SourceFile, MultiByteChar, FileName, FileLines
+//
+
+// PORT: `std::io::Error` stand-in (src/std has no io module yet). OS errors keep Node's error
+// code; their `Display` (the OS message text, e.g. `... (os error 2)`) is unported.
+export type IoError =
+  | { readonly $: "Os"; readonly code: string; readonly message: string }
+  | { readonly $: "Custom"; readonly kind: "Other" | "InvalidData"; readonly error: string };
+export type IoResult<T> = Result<T, IoError>;
+
+/** `impl Display for io::Error` */
+export function display_IoError(e: IoError): string {
+  if (e.$ === "Custom") return e.error;
+  return unported(`std::io::Error Display (os error ${e.code})`);
+}
+
+function io_error_from_node(e: unknown): IoError {
+  const err = e as { code?: string; message?: string };
+  return { $: "Os", code: err.code ?? "UNKNOWN", message: err.message ?? String(e) };
+}
+
+/// An abstraction over the fs operations used by the Parser.
+export interface FileLoader {
+  /// Query the existence of a file.
+  // rustc: compiler/rustc_span/src/source_map.rs:83 file_exists
+  file_exists(path: PathBuf): boolean;
+
+  /// Read the contents of a UTF-8 file into memory.
+  /// This function must return a String because we normalize
+  /// source files, which may require resizing.
+  // rustc: compiler/rustc_span/src/source_map.rs:88 read_file
+  read_file(path: PathBuf): IoResult<Str>;
+
+  /// Read the contents of a potentially non-UTF-8 file into memory.
+  /// We don't normalize binary files, so we can start in an Arc.
+  // rustc: compiler/rustc_span/src/source_map.rs:92 read_binary_file
+  read_binary_file(path: PathBuf): IoResult<Uint8Array>;
+
+  /// Current working directory
+  // rustc: compiler/rustc_span/src/source_map.rs:95 current_directory
+  current_directory(): IoResult<PathBuf>;
+}
+
+const utf8_validator = new TextDecoder("utf-8", { fatal: true });
+
+/** `std::str::from_utf8(bytes).is_ok()` */
+function is_valid_utf8(bytes: Uint8Array): boolean {
+  try {
+    utf8_validator.decode(bytes);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/// A FileLoader that uses std::fs to load real files.
+export class RealFileLoader implements FileLoader {
+  // rustc: compiler/rustc_span/src/source_map.rs:102 file_exists
+  file_exists(path: PathBuf): boolean {
+    return existsSync(path);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:106 read_file
+  read_file(path: PathBuf): IoResult<Str> {
+    let file: number;
+    try {
+      file = openSync(path, "r");
+    } catch (e) {
+      return Err(io_error_from_node(e));
+    }
+    try {
+      let size: number;
+      try {
+        size = fstatSync(file).size;
+      } catch {
+        size = 0;
+      }
+
+      if (size > SourceFile.MAX_FILE_SIZE) {
+        return Err({ $: "Custom", kind: "Other", error: `text files larger than ${SourceFile.MAX_FILE_SIZE} bytes are unsupported` });
+      }
+      // `file.read_to_string(&mut contents)?`
+      let contents: Uint8Array;
+      try {
+        contents = readFileSync(file);
+      } catch (e) {
+        return Err(io_error_from_node(e));
+      }
+      if (!is_valid_utf8(contents)) {
+        return Err({ $: "Custom", kind: "InvalidData", error: "stream did not contain valid UTF-8" });
+      }
+      return Ok(Str.of_bytes(contents));
+    } finally {
+      closeSync(file);
+    }
+  }
+
+  // PORT: upstream reads `metadata.len()` bytes into an `Arc<[u8]>` and falls back to reading to
+  // EOF when the reported size lies; `readFileSync` always reads to EOF, which is the same result.
+  // rustc: compiler/rustc_span/src/source_map.rs:121 read_binary_file
+  read_binary_file(path: PathBuf): IoResult<Uint8Array> {
+    try {
+      return Ok(new Uint8Array(readFileSync(path)));
+    } catch (e) {
+      return Err(io_error_from_node(e));
+    }
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:162 current_directory
+  current_directory(): IoResult<PathBuf> {
+    try {
+      return Ok(process.cwd());
+    } catch (e) {
+      return Err(io_error_from_node(e));
+    }
+  }
+}
+
+// _____________________________________________________________________________
+// SourceMap
+//
+
+// PORT: `UnhashMap<StableSourceFileId, Arc<SourceFile>>` is keyed by the id's hash. The hash
+// (StableHasher) is unported and `StableSourceFileId` keeps the hash inputs, so the map is keyed
+// by `stable_source_file_id_key`, a string built from exactly the inputs upstream hashes.
+class SourceMapFiles {
+  constructor(
+    readonly source_files: MonotonicVec<SourceFile>,
+    readonly stable_id_to_source_file: Map<string, SourceFile>,
+  ) {}
+
+  /** `#[derive(Default)]` */
+  static default(): SourceMapFiles {
+    return new SourceMapFiles(MonotonicVec.default(), new Map());
+  }
+}
+
+// rustc: compiler/rustc_span/src/source_map.rs:178 fmt
+const debug_SourceMapFiles: Debug<SourceMapFiles> = (self, f) => {
+  const { source_files } = self;
+
+  return debug_list(
+    f,
+    source_files.deref().map((f) => debug_str(FileName.prefer_remapped_unconditionally(f.name).to_string())),
+  );
+};
+
+/// Used to construct a `SourceMap` with `SourceMap::with_inputs`.
+export interface SourceMapInputs {
+  file_loader: FileLoader;
+  path_mapping: FilePathMapping;
+  hash_kind: SourceFileHashAlgorithm;
+  checksum_hash_kind: SourceFileHashAlgorithm | undefined;
+}
+
+// PORT: the fields `files`, `path_mapping` and `working_dir` are renamed `files_`,
+// `path_mapping_` and `working_dir_`: JS classes cannot have a field and a method with the same name.
+export class SourceMap {
+  constructor(
+    readonly files_: SourceMapFiles,
+    readonly file_loader: FileLoader,
+
+    // This is used to apply the file path remapping as specified via
+    // `--remap-path-prefix` to all `SourceFile`s allocated within this `SourceMap`.
+    readonly path_mapping_: FilePathMapping,
+
+    /// Current working directory
+    readonly working_dir_: RealFileName,
+
+    /// The algorithm used for hashing the contents of each source file.
+    readonly hash_kind: SourceFileHashAlgorithm,
+
+    /// Similar to `hash_kind`, however this algorithm is used for checksums to determine if a crate is fresh.
+    /// `cargo` is the primary user of these.
+    ///
+    /// If this is equal to `hash_kind` then the checksum won't be computed twice.
+    readonly checksum_hash_kind: SourceFileHashAlgorithm | undefined,
+  ) {}
+
+  // rustc: compiler/rustc_span/src/source_map.rs:241 new
+  static new(path_mapping: FilePathMapping): SourceMap {
+    return SourceMap.with_inputs({
+      file_loader: new RealFileLoader(),
+      path_mapping,
+      hash_kind: "Md5",
+      checksum_hash_kind: undefined,
+    });
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:250 with_inputs
+  static with_inputs({ file_loader, path_mapping, hash_kind, checksum_hash_kind }: SourceMapInputs): SourceMap {
+    const cwd_r = file_loader.current_directory();
+    if (cwd_r.$ === "Err") {
+      return panic(`expecting a current working directory to exist: ${debug_IoError(cwd_r._0)}`);
+    }
+    const cwd = cwd_r._0;
+    const working_dir = path_mapping.to_real_filename(RealFileName.empty(), cwd);
+    // debug!(?working_dir);
+    return new SourceMap(SourceMapFiles.default(), file_loader, path_mapping, working_dir, hash_kind, checksum_hash_kind);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:268 path_mapping
+  path_mapping(): FilePathMapping {
+    return this.path_mapping_;
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:272 working_dir
+  working_dir(): RealFileName {
+    return this.working_dir_;
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:276 file_exists
+  file_exists(path: PathBuf): boolean {
+    return this.file_loader.file_exists(path);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:280 load_file
+  load_file(path: PathBuf): IoResult<SourceFile> {
+    const src = this.file_loader.read_file(path);
+    if (src.$ === "Err") return src;
+    const filename: FileName = { $: "Real", _0: this.path_mapping_.to_real_filename(this.working_dir_, path) };
+    return Ok(this.new_source_file(filename, src._0));
+  }
+
+  /// Loads source file as a binary blob.
+  ///
+  /// Unlike `load_file`, guarantees that no normalization like BOM-removal
+  /// takes place.
+  // rustc: compiler/rustc_span/src/source_map.rs:290 load_binary_file
+  load_binary_file(path: PathBuf): IoResult<[Uint8Array, Span]> {
+    const bytes_r = this.file_loader.read_binary_file(path);
+    if (bytes_r.$ === "Err") return bytes_r;
+    const bytes = bytes_r._0;
+
+    // We need to add file to the `SourceMap`, so that it is present
+    // in dep-info. There's also an edge case that file might be both
+    // loaded as a binary via `include_bytes!` and as proper `SourceFile`
+    // via `mod`, so we try to use real file contents and not just an
+    // empty string.
+    const text = is_valid_utf8(bytes) ? Str.of_bytes(bytes.slice()) : Str.from("");
+    const filename: FileName = { $: "Real", _0: this.path_mapping_.to_real_filename(this.working_dir_, path) };
+    const file = this.new_source_file(filename, text);
+    return Ok([
+      bytes,
+      Span.new(file.start_pos, BytePos(file.start_pos + file.normalized_source_len), SyntaxContext.root(), undefined),
+    ]);
+  }
+
+  // By returning a `MonotonicVec`, we ensure that consumers cannot invalidate
+  // any existing indices pointing into `files`.
+  // rustc: compiler/rustc_span/src/source_map.rs:314 files
+  files(): MonotonicVec<SourceFile> {
+    return this.files_.source_files;
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:318 source_file_by_stable_id
+  source_file_by_stable_id(stable_id: StableSourceFileId): SourceFile | undefined {
+    return this.files_.stable_id_to_source_file.get(stable_source_file_id_key(stable_id));
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:325 register_source_file
+  register_source_file(file_id: StableSourceFileId, file: SourceFile): Result<SourceFile, OffsetOverflowError> {
+    const files = this.files_;
+
+    const last_file = files.source_files.deref().at(-1);
+    if (last_file !== undefined) {
+      // Add one so there is some space between files. This lets us distinguish
+      // positions in the `SourceMap`, even in the presence of zero-length files.
+      const next = last_file.end_position() + 1;
+      if (next > 0xffff_ffff) return Err(new OffsetOverflowError());
+      file.start_pos = BytePos(next);
+    } else {
+      file.start_pos = BytePos(0);
+    }
+
+    files.source_files.push(file);
+    files.stable_id_to_source_file.set(stable_source_file_id_key(file_id), file);
+
+    return Ok(file);
+  }
+
+  /// Creates a new `SourceFile`.
+  /// If a file already exists in the `SourceMap` with the same ID, that file is returned
+  /// unmodified.
+  // rustc: compiler/rustc_span/src/source_map.rs:350 new_source_file
+  new_source_file(filename: FileName, src: Str): SourceFile {
+    const r = this.try_new_source_file(filename, src);
+    if (r.$ === "Ok") return r._0;
+    process.stderr.write(`fatal error: rustc does not support text files larger than ${SourceFile.MAX_FILE_SIZE} bytes\n`);
+    return new FatalError().raise();
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:360 try_new_source_file
+  try_new_source_file(filename: FileName, src: Str): Result<SourceFile, OffsetOverflowError> {
+    // Note that filename may not be a valid path, eg it may be `<anon>` etc,
+    // but this is okay because the directory determined by `path.pop()` will
+    // be empty, so the working directory will be used.
+
+    const stable_id = StableSourceFileId.from_filename_in_current_crate(filename);
+    const lrc_sf = this.source_file_by_stable_id(stable_id);
+    if (lrc_sf !== undefined) {
+      return Ok(lrc_sf);
+    } else {
+      const r = SourceFile.new(filename, src, this.hash_kind, this.checksum_hash_kind);
+      if (r.$ === "Err") return r;
+      const source_file = r._0;
+
+      // Let's make sure the file_id we generated above actually matches
+      // the ID we generate for the SourceFile we just created.
+      // debug_assert_eq!(source_file.stable_id, stable_id);
+
+      return this.register_source_file(stable_id, source_file);
+    }
+  }
+
+  /// Allocates a new `SourceFile` representing a source file from an external
+  /// crate. The source code of such an "imported `SourceFile`" is not available,
+  /// but we still know enough to generate accurate debuginfo location
+  /// information for things inlined from other crates.
+  // rustc: compiler/rustc_span/src/source_map.rs:389 new_imported_source_file
+  new_imported_source_file(
+    filename: FileName,
+    src_hash: SourceFileHash,
+    checksum_hash: SourceFileHash | undefined,
+    stable_id: StableSourceFileId,
+    normalized_source_len_: number,
+    unnormalized_source_len: number,
+    cnum: CrateNum,
+    file_local_lines: FreezeLock<SourceFileLines>,
+    multibyte_chars: MultiByteChar[],
+    normalized_pos: NormalizedPos[],
+    metadata_index: number,
+  ): SourceFile {
+    const normalized_source_len = RelativeBytePos.from_u32(normalized_source_len_);
+
+    const source_file = new SourceFile(
+      filename,
+      undefined,
+      src_hash,
+      checksum_hash,
+      FreezeLock.new<ExternalSource>({
+        $: "Foreign",
+        kind: { $: "AbsentOk" },
+        metadata_index,
+      }),
+      BytePos(0),
+      normalized_source_len,
+      unnormalized_source_len,
+      file_local_lines,
+      multibyte_chars,
+      normalized_pos,
+      stable_id,
+      cnum,
+    );
+
+    const r = this.register_source_file(stable_id, source_file);
+    if (r.$ === "Err") return panic("not enough address space for imported source file: OffsetOverflowError");
+    return r._0;
+  }
+
+  /// If there is a doctest offset, applies it to the line.
+  // rustc: compiler/rustc_span/src/source_map.rs:429 doctest_offset_line
+  doctest_offset_line(file: FileName, orig: number): number {
+    switch (file.$) {
+      case "DocTest": {
+        const offset = file._1;
+        if (offset < 0) {
+          return orig - -offset;
+        } else {
+          return orig + offset;
+        }
+      }
+      default:
+        return orig;
+    }
+  }
+
+  /// Return the SourceFile that contains the given `BytePos`
+  // rustc: compiler/rustc_span/src/source_map.rs:443 lookup_source_file
+  lookup_source_file(pos: BytePos): SourceFile {
+    const idx = this.lookup_source_file_idx(pos);
+    return index(this.files_.source_files.deref(), idx);
+  }
+
+  /// Looks up source information about a `BytePos`.
+  // rustc: compiler/rustc_span/src/source_map.rs:449 lookup_char_pos
+  lookup_char_pos(pos: BytePos): Loc {
+    const sf = this.lookup_source_file(pos);
+    const [line, col, col_display] = sf.lookup_file_pos_with_col_display(pos);
+    return { file: sf, line, col, col_display };
+  }
+
+  /// If the corresponding `SourceFile` is empty, does not return a line number.
+  // rustc: compiler/rustc_span/src/source_map.rs:456 lookup_line
+  lookup_line(pos_: BytePos): Result<SourceFileAndLine, SourceFile> {
+    const f = this.lookup_source_file(pos_);
+
+    const pos = f.relative_position(pos_);
+    const line = f.lookup_line(pos);
+    if (line !== undefined) {
+      return Ok({ sf: f, line });
+    } else {
+      return Err(f);
+    }
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:466 span_to_string
+  span_to_string(sp: Span, display_scope: RemapPathScopeComponents): string {
+    return this.span_to_string_ext(sp, display_scope, false);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:470 span_to_short_string
+  span_to_short_string(sp: Span, display_scope: RemapPathScopeComponents): string {
+    return this.span_to_string_ext(sp, display_scope, true);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:478 span_to_string_ext
+  span_to_string_ext(sp: Span, display_scope: RemapPathScopeComponents, short: boolean): string {
+    const [source_file, lo_line, lo_col, hi_line, hi_col] = this.span_to_location_info(sp);
+
+    let file_name: string;
+    if (source_file !== undefined) {
+      const sf = source_file;
+      file_name = (short ? FileName.short(sf.name) : FileName.display(sf.name, display_scope)).to_string();
+    } else {
+      return "no-location";
+    }
+
+    return `${file_name}:${lo_line}:${lo_col}${short ? "" : `: ${hi_line}:${hi_col}`}`;
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:499 span_to_location_info
+  span_to_location_info(sp: Span): [SourceFile | undefined, number, number, number, number] {
+    if (this.files_.source_files.deref().length === 0 || Span.is_dummy(sp)) {
+      return [undefined, 0, 0, 0, 0];
+    }
+
+    const lo = this.lookup_char_pos(Span.lo(sp));
+    const hi = this.lookup_char_pos(Span.hi(sp));
+    return [lo.file, lo.line, CharPos.to_usize(lo.col) + 1, hi.line, CharPos.to_usize(hi.col) + 1];
+  }
+
+  /// Format the span location to be printed in diagnostics. Must not be emitted
+  /// to build artifacts as this may leak local file paths. Use span_to_embeddable_string
+  /// for string suitable for embedding.
+  // rustc: compiler/rustc_span/src/source_map.rs:515 span_to_diagnostic_string
+  span_to_diagnostic_string(sp: Span): string {
+    return this.span_to_string(sp, RemapPathScopeComponents.DIAGNOSTICS);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:519 span_to_filename
+  span_to_filename(sp: Span): FileName {
+    return this.lookup_char_pos(Span.lo(sp)).file.name;
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:523 filename_for_diagnostics
+  filename_for_diagnostics(filename: FileName): FileNameDisplay {
+    return FileName.display(filename, RemapPathScopeComponents.DIAGNOSTICS);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:527 is_multiline
+  is_multiline(sp: Span): boolean {
+    const lo_idx = this.lookup_source_file_idx(Span.lo(sp));
+    const hi_idx = this.lookup_source_file_idx(Span.hi(sp));
+    if (lo_idx !== hi_idx) {
+      return true;
+    }
+    const f = index(this.files_.source_files.deref(), lo_idx);
+    const lo = f.relative_position(Span.lo(sp));
+    const hi = f.relative_position(Span.hi(sp));
+    return f.lookup_line(lo) !== f.lookup_line(hi);
+  }
+
+  // #[instrument(skip(self), level = "trace")]
+  // rustc: compiler/rustc_span/src/source_map.rs:540 is_valid_span
+  is_valid_span(sp: Span): Result<[Loc, Loc], SpanLinesError> {
+    const lo = this.lookup_char_pos(Span.lo(sp));
+    // trace!(?lo);
+    const hi = this.lookup_char_pos(Span.hi(sp));
+    // trace!(?hi);
+    if (lo.file.start_pos !== hi.file.start_pos) {
+      return Err({
+        $: "DistinctSources",
+        _0: {
+          begin: [lo.file.name, lo.file.start_pos],
+          end: [hi.file.name, hi.file.start_pos],
+        } satisfies DistinctSources,
+      });
+    }
+    return Ok([lo, hi]);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:554 is_line_before_span_empty
+  is_line_before_span_empty(sp: Span): boolean {
+    const r = this.span_to_prev_source(sp);
+    switch (r.$) {
+      case "Ok": {
+        const s = r._0;
+        const nl = str_rfind_char(s, 0x0a);
+        const last = nl !== undefined ? s.slice(nl + 1) : s;
+        return str_trim_start(last).is_empty();
+      }
+      case "Err":
+        return false;
+    }
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:561 span_to_lines
+  span_to_lines(sp: Span): FileLinesResult {
+    // debug!("span_to_lines(sp={:?})", sp);
+    const r = this.is_valid_span(sp);
+    if (r.$ === "Err") return r;
+    const [lo, hi] = r._0;
+    assert(hi.line >= lo.line, "assertion failed: hi.line >= lo.line");
+
+    if (Span.is_dummy(sp)) {
+      return Ok({ file: lo.file, lines: [] });
+    }
+
+    const lines: LineInfo[] = [];
+
+    // The span starts partway through the first line,
+    // but after that it starts from offset 0.
+    let start_col = lo.col;
+
+    // For every line but the last, it extends from `start_col`
+    // and to the end of the line. Be careful because the line
+    // numbers in Loc are 1-based, so we subtract 1 to get 0-based
+    // lines.
+    //
+    // FIXME: now that we handle DUMMY_SP up above, we should consider
+    // asserting that the line numbers here are all indeed 1-based.
+    const hi_line = saturating_sub(hi.line, 1);
+    for (let line_index = saturating_sub(lo.line, 1); line_index < hi_line; line_index++) {
+      const s = lo.file.get_line(line_index);
+      const line_len = s === undefined ? 0 : str_chars_count(s);
+      lines.push({ line_index, start_col, end_col: CharPos.from_usize(line_len) });
+      start_col = CharPos.from_usize(0);
+    }
+
+    // For the last line, it extends from `start_col` to `hi.col`:
+    lines.push({ line_index: hi_line, start_col, end_col: hi.col });
+
+    return Ok({ file: lo.file, lines } satisfies FileLines);
+  }
+
+  /// Extracts the source surrounding the given `Span` using the `extract_source` function. The
+  /// extract function takes three arguments: a string slice containing the source, an index in
+  /// the slice for the beginning of the span and an index in the slice for the end of the span.
+  // rustc: compiler/rustc_span/src/source_map.rs:599 span_to_source
+  span_to_source<T>(
+    sp: Span,
+    extract_source: (src: Str, start_index: number, end_index: number) => Result<T, SpanSnippetError>,
+  ): Result<T, SpanSnippetError> {
+    const local_begin = this.lookup_byte_offset(Span.lo(sp));
+    const local_end = this.lookup_byte_offset(Span.hi(sp));
+
+    if (local_begin.sf.start_pos !== local_end.sf.start_pos) {
+      return Err({
+        $: "DistinctSources",
+        _0: {
+          begin: [local_begin.sf.name, local_begin.sf.start_pos],
+          end: [local_end.sf.name, local_end.sf.start_pos],
+        } satisfies DistinctSources,
+      });
+    } else {
+      this.ensure_source_file_source_present(local_begin.sf);
+
+      const start_index = BytePos.to_usize(local_begin.pos);
+      const end_index = BytePos.to_usize(local_end.pos);
+      const source_len = RelativeBytePos.to_usize(local_begin.sf.normalized_source_len);
+
+      if (start_index > end_index || end_index > source_len) {
+        return Err({
+          $: "MalformedForSourcemap",
+          _0: {
+            name: local_begin.sf.name,
+            source_len,
+            begin_pos: local_begin.pos,
+            end_pos: local_end.pos,
+          },
+        });
+      }
+
+      const src = local_begin.sf.src;
+      if (src !== undefined) {
+        return extract_source(src, start_index, end_index);
+      } else {
+        const ext = ExternalSource.get_source(local_begin.sf.external_src.read());
+        if (ext !== undefined) {
+          return extract_source(ext, start_index, end_index);
+        } else {
+          return Err({ $: "SourceNotAvailable", filename: local_begin.sf.name });
+        }
+      }
+    }
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:641 is_span_accessible
+  is_span_accessible(sp: Span): boolean {
+    const r = this.span_to_source(sp, (src, start_index, end_index) => {
+      return Ok(str_get(src, start_index, end_index) !== undefined);
+    });
+    return r.$ === "Ok" && r._0;
+  }
+
+  /// Returns the source snippet as `String` corresponding to the given `Span`.
+  // rustc: compiler/rustc_span/src/source_map.rs:649 span_to_snippet
+  span_to_snippet(sp: Span): Result<Str, SpanSnippetError> {
+    return this.span_to_source(sp, (src, start_index, end_index) => {
+      const s = str_get(src, start_index, end_index);
+      return s !== undefined ? Ok(s) : Err({ $: "IllFormedSpan", _0: sp });
+    });
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:657 span_to_margin
+  span_to_margin(sp: Span): number | undefined {
+    const indent = this.indentation_before(sp);
+    if (indent === undefined) return undefined;
+    return indent.len();
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:661 indentation_before
+  indentation_before(sp: Span): Str | undefined {
+    return ok(
+      this.span_to_source(sp, (src, start_index, _) => {
+        const before = src.slice(0, start_index);
+        const nl = str_rfind_char(before, 0x0a);
+        const last_line = nl === undefined ? before : before.slice(nl + 1);
+        const i = str_find_pred(last_line, (c) => !is_whitespace(c));
+        return Ok(i === undefined ? last_line : last_line.slice(0, i));
+      }),
+    );
+  }
+
+  /// Returns the source snippet as `String` before the given `Span`.
+  // rustc: compiler/rustc_span/src/source_map.rs:674 span_to_prev_source
+  span_to_prev_source(sp: Span): Result<Str, SpanSnippetError> {
+    return this.span_to_source(sp, (src, start_index, _) => {
+      const s = str_get(src, 0, start_index);
+      return s !== undefined ? Ok(s) : Err({ $: "IllFormedSpan", _0: sp });
+    });
+  }
+
+  /// Extends the given `Span` to just after the previous occurrence of `c`. Return the same span
+  /// if no character could be found or if an error occurred while retrieving the code snippet.
+  // rustc: compiler/rustc_span/src/source_map.rs:682 span_extend_to_prev_char
+  span_extend_to_prev_char(sp: Span, c: number, accept_newlines: boolean): Span {
+    const r = this.span_to_prev_source(sp);
+    if (r.$ === "Ok") {
+      const prev_source = str_rsplit_first(r._0, c);
+      if (!prev_source.is_empty() && (accept_newlines || !str_contains_char(prev_source, 0x0a))) {
+        return Span.with_lo(sp, BytePos(Span.lo(sp) - prev_source.len()));
+      }
+    }
+
+    return sp;
+  }
+
+  /// Extends the given `Span` to just before the previous occurrence of `c`. Return the same span
+  /// if an error occurred while retrieving the code snippet.
+  // rustc: compiler/rustc_span/src/source_map.rs:695 span_extend_to_prev_char_before
+  span_extend_to_prev_char_before(sp: Span, c: number, accept_newlines: boolean): Span {
+    const r = this.span_to_prev_source(sp);
+    if (r.$ === "Ok") {
+      const prev_source = str_rsplit_first(r._0, c);
+      if (accept_newlines || !str_contains_char(prev_source, 0x0a)) {
+        return Span.with_lo(sp, BytePos(Span.lo(sp) - prev_source.len() - 1));
+      }
+    }
+
+    return sp;
+  }
+
+  /// Extends the given `Span` to just after the previous occurrence of `pat` when surrounded by
+  /// whitespace. Returns None if the pattern could not be found or if an error occurred while
+  /// retrieving the code snippet.
+  // rustc: compiler/rustc_span/src/source_map.rs:714 span_extend_to_prev_str
+  span_extend_to_prev_str(sp: Span, pat_: string, accept_newlines: boolean, include_whitespace: boolean): Span | undefined {
+    // assure that the pattern is delimited, to avoid the following
+    //     fn my_fn()
+    //           ^^^^ returned span without the check
+    //     ---------- correct span
+    const prev_source_r = this.span_to_prev_source(sp);
+    if (prev_source_r.$ === "Err") return undefined;
+    const prev_source = prev_source_r._0;
+    for (const ws of [" ", "\t", "\n"]) {
+      const pat = pat_ + ws;
+      const pat_pos = prev_source.rfind(pat);
+      if (pat_pos !== undefined) {
+        const just_after_pat_pos = pat_pos + utf8_len(pat) - 1;
+        const just_after_pat_plus_ws = include_whitespace
+          ? just_after_pat_pos + (str_find_pred(prev_source.slice(just_after_pat_pos), (c) => !is_whitespace(c)) ?? 0)
+          : just_after_pat_pos;
+        const len = prev_source.len() - just_after_pat_plus_ws;
+        const prev_source_ = prev_source.slice(just_after_pat_plus_ws);
+        if (accept_newlines || !str_contains_char(str_trim_start(prev_source_), 0x0a)) {
+          return Span.with_lo(sp, BytePos(Span.lo(sp) - len));
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  /// Returns the source snippet as `String` after the given `Span`.
+  // rustc: compiler/rustc_span/src/source_map.rs:750 span_to_next_source
+  span_to_next_source(sp: Span): Result<Str, SpanSnippetError> {
+    return this.span_to_source(sp, (src, _, end_index) => {
+      const s = str_get(src, end_index, src.len());
+      return s !== undefined ? Ok(s) : Err({ $: "IllFormedSpan", _0: sp });
+    });
+  }
+
+  /// Extends the given `Span` while the next character matches the predicate
+  // rustc: compiler/rustc_span/src/source_map.rs:757 span_extend_while
+  span_extend_while(span: Span, f: (c: number) => boolean): Result<Span, SpanSnippetError> {
+    return this.span_to_source(span, (s, _start, end) => {
+      const i = str_find_pred(s.slice(end), (c) => !f(c));
+      const n = i === undefined ? s.len() - end : i;
+      return Ok(Span.with_hi(span, BytePos.add(Span.hi(span), BytePos(n))));
+    });
+  }
+
+  /// Extends the span to include any trailing whitespace, or returns the original
+  /// span if a `SpanSnippetError` was encountered.
+  // rustc: compiler/rustc_span/src/source_map.rs:770 span_extend_while_whitespace
+  span_extend_while_whitespace(span: Span): Span {
+    const r = this.span_extend_while(span, is_whitespace);
+    return r.$ === "Ok" ? r._0 : span;
+  }
+
+  /// Extends the given `Span` to previous character while the previous character matches the predicate
+  // rustc: compiler/rustc_span/src/source_map.rs:775 span_extend_prev_while
+  span_extend_prev_while(span: Span, f: (c: number) => boolean): Result<Span, SpanSnippetError> {
+    return this.span_to_source(span, (s, start, _end) => {
+      const found = str_rfind_pred(s.slice(0, start), (c) => !f(c));
+      const n = found === undefined ? start : start - found[0] - len_utf8(found[1]);
+      return Ok(Span.with_lo(span, BytePos.sub(Span.lo(span), BytePos(n))));
+    });
+  }
+
+  /// Extends the given `Span` to just before the next occurrence of `c`.
+  // rustc: compiler/rustc_span/src/source_map.rs:790 span_extend_to_next_char
+  span_extend_to_next_char(sp: Span, c: number, accept_newlines: boolean): Span {
+    const r = this.span_to_next_source(sp);
+    if (r.$ === "Ok") {
+      const next_source = str_split_first(r._0, c);
+      if (!next_source.is_empty() && (accept_newlines || !str_contains_char(next_source, 0x0a))) {
+        return Span.with_hi(sp, BytePos(Span.hi(sp) + next_source.len()));
+      }
+    }
+
+    return sp;
+  }
+
+  /// Extends the given `Span` to contain the entire line it is on.
+  // rustc: compiler/rustc_span/src/source_map.rs:802 span_extend_to_line
+  span_extend_to_line(sp: Span): Span {
+    return this.span_extend_to_prev_char(this.span_extend_to_next_char(sp, 0x0a, true), 0x0a, true);
+  }
+
+  /// Given a `Span`, tries to get a shorter span ending before the first occurrence of `char`
+  /// `c`.
+  // rustc: compiler/rustc_span/src/source_map.rs:808 span_until_char
+  span_until_char(sp: Span, c: number): Span {
+    const r = this.span_to_snippet(sp);
+    switch (r.$) {
+      case "Ok": {
+        const snippet = str_trim_end(str_split_first(r._0, c));
+        if (!snippet.is_empty() && !str_contains_char(snippet, 0x0a)) {
+          return Span.with_hi(sp, BytePos(Span.lo(sp) + snippet.len()));
+        } else {
+          return sp;
+        }
+      }
+      default:
+        return sp;
+    }
+  }
+
+  /// Given a 'Span', tries to tell if it's wrapped by "<>" or "()"
+  /// the algorithm searches if the next character is '>' or ')' after skipping white space
+  /// then searches the previous character to match '<' or '(' after skipping white space
+  /// return true if wrapped by '<>' or '()'
+  // rustc: compiler/rustc_span/src/source_map.rs:826 span_wrapped_by_angle_or_parentheses
+  span_wrapped_by_angle_or_parentheses(span: Span): boolean {
+    const r = this.span_to_source(span, (src, start_index, end_index) => {
+      if (str_get(src, start_index, end_index) === undefined) {
+        return Ok(false);
+      }
+      // test the right side to match '>' after skipping white space
+      const end_src = src.slice(end_index);
+      let i = 0;
+      let found_right_parentheses = false;
+      let found_right_angle = false;
+      for (let cc = str_chars_nth(end_src, i); cc !== undefined; cc = str_chars_nth(end_src, i)) {
+        if (cc === 0x20 /* ' ' */) {
+          i = i + 1;
+        } else if (cc === 0x3e /* '>' */) {
+          // found > in the right;
+          found_right_angle = true;
+          break;
+        } else if (cc === 0x29 /* ')' */) {
+          found_right_parentheses = true;
+          break;
+        } else {
+          // failed to find '>' return false immediately
+          return Ok(false);
+        }
+      }
+      // test the left side to match '<' after skipping white space
+      i = start_index;
+      const start_src = src.slice(0, start_index);
+      for (let cc = str_chars_nth(start_src, i); cc !== undefined; cc = str_chars_nth(start_src, i)) {
+        if (cc === 0x20 /* ' ' */) {
+          if (i === 0) {
+            return Ok(false);
+          }
+          i = i - 1;
+        } else if (cc === 0x3c /* '<' */) {
+          // found < in the left
+          if (!found_right_angle) {
+            // skip something like "(< )>"
+            return Ok(false);
+          }
+          break;
+        } else if (cc === 0x28 /* '(' */) {
+          if (!found_right_parentheses) {
+            // skip something like "<(>)"
+            return Ok(false);
+          }
+          break;
+        } else {
+          // failed to find '<' return false immediately
+          return Ok(false);
+        }
+      }
+      return Ok(true);
+    });
+    return r.$ === "Ok" && r._0;
+  }
+
+  /// Given a `Span`, tries to get a shorter span ending just after the first occurrence of `char`
+  /// `c`.
+  // rustc: compiler/rustc_span/src/source_map.rs:885 span_through_char
+  span_through_char(sp: Span, c: number): Span {
+    const r = this.span_to_snippet(sp);
+    if (r.$ === "Ok") {
+      const offset = r._0.find(char_to_string(c));
+      if (offset !== undefined) {
+        return Span.with_hi(sp, BytePos(Span.lo(sp) + (offset + len_utf8(c))));
+      }
+    }
+    return sp;
+  }
+
+  /// Given a `Span`, gets a new `Span` covering the first token and all its trailing whitespace
+  /// or the original `Span`.
+  ///
+  /// If `sp` points to `"let mut x"`, then a span pointing at `"let "` will be returned.
+  // rustc: compiler/rustc_span/src/source_map.rs:898 span_until_non_whitespace
+  span_until_non_whitespace(sp: Span): Span {
+    let whitespace_found = false;
+
+    return this.span_take_while(sp, (c) => {
+      if (!whitespace_found && is_whitespace(c)) {
+        whitespace_found = true;
+      }
+
+      return !whitespace_found || is_whitespace(c);
+    });
+  }
+
+  /// Given a `Span`, gets a new `Span` covering the first token without its trailing whitespace
+  /// or the original `Span` in case of error.
+  ///
+  /// If `sp` points to `"let mut x"`, then a span pointing at `"let"` will be returned.
+  // rustc: compiler/rustc_span/src/source_map.rs:914 span_until_whitespace
+  span_until_whitespace(sp: Span): Span {
+    return this.span_take_while(sp, (c) => !is_whitespace(c));
+  }
+
+  /// Given a `Span`, gets a shorter one until `predicate` yields `false`.
+  // rustc: compiler/rustc_span/src/source_map.rs:919 span_take_while
+  span_take_while(sp: Span, predicate: (c: number) => boolean): Span {
+    const r = this.span_to_snippet(sp);
+    if (r.$ === "Ok") {
+      let offset = 0;
+      const chars = r._0.chars();
+      for (let c = chars.next(); c !== undefined && predicate(c); c = chars.next()) offset += len_utf8(c);
+
+      return Span.with_hi(sp, BytePos(Span.lo(sp) + offset));
+    } else {
+      return sp;
+    }
+  }
+
+  /// Given a `Span`, return a span ending in the closest `{`. This is useful when you have a
+  /// `Span` enclosing a whole item but we need to point at only the head (usually the first
+  /// line) of that item.
+  ///
+  /// *Only suitable for diagnostics.*
+  // rustc: compiler/rustc_span/src/source_map.rs:937 guess_head_span
+  guess_head_span(sp: Span): Span {
+    // FIXME: extend the AST items to have a head span, or replace callers with pointing at
+    // the item's ident when appropriate.
+    return this.span_until_char(sp, 0x7b /* '{' */);
+  }
+
+  /// Returns a new span representing just the first character of the given span.
+  // rustc: compiler/rustc_span/src/source_map.rs:944 start_point
+  start_point(sp: Span): Span {
+    let width: number;
+    {
+      const sp_ = Span.data(sp);
+      const local_begin = this.lookup_byte_offset(sp_.lo);
+      const start_index = BytePos.to_usize(local_begin.pos);
+      const src = local_begin.sf.external_src.read();
+
+      let snippet: Str | undefined;
+      if (local_begin.sf.src !== undefined) {
+        snippet = local_begin.sf.src.slice(start_index);
+      } else {
+        const s = ExternalSource.get_source(src);
+        snippet = s === undefined ? undefined : s.slice(start_index);
+      }
+
+      if (snippet === undefined) {
+        width = 1;
+      } else {
+        const c = snippet.chars().next();
+        width = c === undefined ? 1 : len_utf8(c);
+      }
+    }
+
+    return Span.with_hi(sp, BytePos(Span.lo(sp) + width));
+  }
+
+  /// Returns a new span representing just the last character of this span.
+  // rustc: compiler/rustc_span/src/source_map.rs:970 end_point
+  end_point(sp_: Span): Span {
+    const sp = Span.data(sp_);
+    const pos = sp.hi;
+
+    const width = this.find_width_of_character_at_span(sp, false);
+    const corrected_end_position = pos - width >= 0 ? pos - width : pos;
+
+    const end_point = BytePos(Math.max(corrected_end_position, sp.lo));
+    return sp.with_lo(end_point);
+  }
+
+  /// Returns a new span representing the next character after the end-point of this span.
+  /// Special cases:
+  /// - if span is a dummy one, returns the same span
+  /// - if next_point reached the end of source, return a span exceeding the end of source,
+  ///   which means sm.span_to_snippet(next_point) will get `Err`
+  /// - respect multi-byte characters
+  // rustc: compiler/rustc_span/src/source_map.rs:987 next_point
+  next_point(sp_: Span): Span {
+    if (Span.is_dummy(sp_)) {
+      return sp_;
+    }
+
+    const sp = Span.data(sp_);
+    const start_of_next_point = sp.hi;
+    const width = this.find_width_of_character_at_span(sp, true);
+    // If the width is 1, then the next span should only contain the next char besides current ending.
+    // However, in the case of a multibyte character, where the width != 1, the next span should
+    // span multiple bytes to include the whole character.
+    const end_of_next_point_ =
+      start_of_next_point + width <= 0xffff_ffff ? start_of_next_point + width : start_of_next_point;
+
+    const end_of_next_point = BytePos(Math.max(start_of_next_point + 1, end_of_next_point_));
+    return Span.new(BytePos(start_of_next_point), end_of_next_point, sp.ctxt, undefined);
+  }
+
+  /// Check whether span is followed by some specified target string, ignoring whitespace.
+  /// *Only suitable for diagnostics.*
+  // rustc: compiler/rustc_span/src/source_map.rs:1007 span_followed_by
+  span_followed_by(span_: Span, target: string): Span | undefined {
+    const span = this.span_extend_while_whitespace(span_);
+    const next = this.span_to_next_source(span);
+    if (next.$ === "Err") return undefined;
+    if (!next._0.starts_with(target)) return undefined;
+    return Span.new(Span.hi(span), BytePos.add(Span.hi(span), BytePos(utf8_len(target))), Span.ctxt(span), undefined);
+  }
+
+  /// Finds the width of the character, either before or after the end of provided span,
+  /// depending on the `forwards` parameter.
+  // #[instrument(skip(self, sp))]
+  // rustc: compiler/rustc_span/src/source_map.rs:1017 find_width_of_character_at_span
+  find_width_of_character_at_span(sp: SpanData, forwards: boolean): number {
+    if (sp.lo === sp.hi && !forwards) {
+      // debug!("early return empty span");
+      return 1;
+    }
+
+    const local_begin = this.lookup_byte_offset(sp.lo);
+    const local_end = this.lookup_byte_offset(sp.hi);
+    // debug!("local_begin=`{:?}`, local_end=`{:?}`", local_begin, local_end);
+
+    if (local_begin.sf.start_pos !== local_end.sf.start_pos) {
+      // debug!("begin and end are in different files");
+      return 1;
+    }
+
+    const start_index = BytePos.to_usize(local_begin.pos);
+    const end_index = BytePos.to_usize(local_end.pos);
+    // debug!("start_index=`{:?}`, end_index=`{:?}`", start_index, end_index);
+
+    // Disregard indexes that are at the start or end of their spans, they can't fit bigger
+    // characters.
+    if ((!forwards && end_index === 0) || (forwards && start_index === USIZE_MAX)) {
+      // debug!("start or end of span, cannot be multibyte");
+      return 1;
+    }
+
+    const source_len = RelativeBytePos.to_usize(local_begin.sf.normalized_source_len);
+    // debug!("source_len=`{:?}`", source_len);
+    // Ensure indexes are also not malformed.
+    // PORT: `source_len - 1` wraps to usize::MAX for an empty file (rustc ships without
+    // overflow checks).
+    if (start_index > end_index || end_index > (source_len === 0 ? USIZE_MAX : source_len - 1)) {
+      // debug!("source indexes are malformed");
+      return 1;
+    }
+
+    const src = local_begin.sf.external_src.read();
+
+    let snippet: Str;
+    if (local_begin.sf.src !== undefined) {
+      snippet = local_begin.sf.src;
+    } else {
+      const s = ExternalSource.get_source(src);
+      if (s !== undefined) {
+        snippet = s;
+      } else {
+        return 1;
+      }
+    }
+
+    if (forwards) {
+      return str_ceil_char_boundary(snippet, end_index + 1) - end_index;
+    } else {
+      return end_index - str_floor_char_boundary(snippet, end_index - 1);
+    }
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:1068 get_source_file
+  get_source_file(filename: FileName): SourceFile | undefined {
+    for (const sf of this.files_.source_files.deref()) {
+      if (FileName_eq(filename, sf.name)) {
+        return sf;
+      }
+    }
+    return undefined;
+  }
+
+  /// For a global `BytePos`, computes the local offset within the containing `SourceFile`.
+  // rustc: compiler/rustc_span/src/source_map.rs:1078 lookup_byte_offset
+  lookup_byte_offset(bpos: BytePos): SourceFileAndBytePos {
+    const idx = this.lookup_source_file_idx(bpos);
+    const sf = index(this.files_.source_files.deref(), idx);
+    const offset = BytePos.sub(bpos, sf.start_pos);
+    return { sf, pos: offset };
+  }
+
+  /// Returns the index of the [`SourceFile`] (in `self.files`) that contains `pos`.
+  /// This index is guaranteed to be valid for the lifetime of this `SourceMap`,
+  /// since `source_files` is a `MonotonicVec`
+  // rustc: compiler/rustc_span/src/source_map.rs:1088 lookup_source_file_idx
+  lookup_source_file_idx(pos: BytePos): number {
+    return partition_point(this.files_.source_files.deref(), (x) => x.start_pos <= pos) - 1;
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:1092 count_lines
+  count_lines(): number {
+    return this.files()
+      .deref()
+      .reduce((a, f) => a + f.count_lines(), 0);
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:1096 ensure_source_file_source_present
+  ensure_source_file_source_present(source_file: SourceFile): boolean {
+    return source_file.add_external_src(() => {
+      if (source_file.name.$ !== "Real") {
+        return undefined;
+      }
+      const name = source_file.name._0;
+
+      let local_path: PathBuf;
+      const local = name.local_path();
+      if (local !== undefined) {
+        local_path = local;
+      } else {
+        // The compiler produces better error messages if the sources of dependencies
+        // are available. Attempt to undo any path mapping so we can find remapped
+        // dependencies.
+        //
+        // We can only use the heuristic because `add_external_src` checks the file
+        // content hash.
+        const maybe_remapped_path = name.path(RemapPathScopeComponents.DIAGNOSTICS);
+        local_path = this.path_mapping_.reverse_map_prefix_heuristically(maybe_remapped_path) ?? maybe_remapped_path;
+      }
+
+      return ok(this.file_loader.read_file(local_path));
+    });
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:1123 is_imported
+  is_imported(sp: Span): boolean {
+    const source_file_index = this.lookup_source_file_idx(Span.lo(sp));
+    const source_file = index(this.files().deref(), source_file_index);
+    return source_file.is_imported();
+  }
+
+  /// Gets the span of a statement. If the statement is a macro expansion, the
+  /// span in the context of the block span is found. The trailing semicolon is included
+  /// on a best-effort basis.
+  // rustc: compiler/rustc_span/src/source_map.rs:1132 stmt_span
+  stmt_span(stmt_span: Span, block_span: Span): Span {
+    if (!Span.from_expansion(stmt_span)) {
+      return stmt_span;
+    }
+    const mac_call = original_sp(stmt_span, block_span);
+    const s = this.mac_call_stmt_semi_span(mac_call);
+    return s === undefined ? mac_call : Span.with_hi(mac_call, Span.hi(s));
+  }
+
+  /// Tries to find the span of the semicolon of a macro call statement.
+  /// The input must be the *call site* span of a statement from macro expansion.
+  /// ```ignore (illustrative)
+  /// //       v output
+  ///    mac!();
+  /// // ^^^^^^ input
+  /// ```
+  // rustc: compiler/rustc_span/src/source_map.rs:1147 mac_call_stmt_semi_span
+  mac_call_stmt_semi_span(mac_call: Span): Span | undefined {
+    const span_ = this.span_extend_while_whitespace(mac_call);
+    const span = this.next_point(span_);
+    const r = this.span_to_snippet(span);
+    if (r.$ === "Ok" && r._0.len() === 1 && r._0.byte(0) === 0x3b /* ';' */) {
+      return span;
+    } else {
+      return undefined;
+    }
+  }
+}
+
+// rustc: compiler/rustc_span/src/source_map.rs:219 fmt
+/** `impl fmt::Debug for SourceMap` */
+export const debug_SourceMap: Debug<SourceMap> = (self, f) => {
+  const { files_: files, path_mapping_: path_mapping, working_dir_: working_dir, hash_kind, checksum_hash_kind } = self;
+
+  return debug_struct(f, "SourceMap", [
+    ["files", debug_SourceMapFiles(files, f)],
+    // PORT: `<file_loader@{file_loader:p}>` prints a heap address.
+    ["file_loader", unported("rustc_span::source_map::SourceMap Debug (pointer formatting `{:p}`)")],
+    ["path_mapping", debug_FilePathMapping(path_mapping, f)],
+    ["working_dir", debug_RealFileName(working_dir, f)],
+    ["hash_kind", hash_kind],
+    ["checksum_hash_kind", checksum_hash_kind === undefined ? "None" : debug_tuple(f, "Some", [checksum_hash_kind])],
+  ]);
+};
+
+// rustc: compiler/rustc_span/src/source_map.rs:1154 get_source_map
+export function get_source_map(): SourceMap | undefined {
+  return with_session_globals((session_globals) => session_globals.source_map);
+}
+
+/** `#[derive(Clone, Debug)]` */
+export class FilePathMapping {
+  constructor(
+    readonly mapping: [PathBuf, PathBuf][],
+    readonly filename_remapping_scopes: RemapPathScopeComponents,
+  ) {}
+
+  // rustc: compiler/rustc_span/src/source_map.rs:1165 empty
+  static empty(): FilePathMapping {
+    return FilePathMapping.new([], RemapPathScopeComponents.empty());
+  }
+
+  // rustc: compiler/rustc_span/src/source_map.rs:1169 new
+  static new(mapping: [PathBuf, PathBuf][], filename_remapping_scopes: RemapPathScopeComponents): FilePathMapping {
+    return new FilePathMapping(mapping, filename_remapping_scopes);
+  }
+
+  /// Applies any path prefix substitution as defined by the mapping.
+  /// The return value is the remapped path and a boolean indicating whether
+  /// the path was affected by the mapping.
+  // rustc: compiler/rustc_span/src/source_map.rs:1179 map_prefix
+  map_prefix(path: PathBuf): [PathBuf, boolean] {
+    if (path === "") {
+      // Exit early if the path is empty and therefore there's nothing to remap.
+      // This is mostly to reduce spam for `RUSTC_LOG=[remap_path_prefix]`.
+      return [path, false];
+    }
+
+    return remap_path_prefix(this.mapping, path);
+  }
+
+  /// Applies any path prefix substitution as defined by the mapping.
+  ///
+  /// The returned filename contains the a remapped path representing the remapped
+  /// part if any remapping was performed.
+  // rustc: compiler/rustc_span/src/source_map.rs:1229 to_real_filename
+  to_real_filename(working_directory: RealFileName, local_path: PathBuf): RealFileName {
+    let [remapped_path, was_remapped] = this.map_prefix(local_path);
+    // debug!(?local_path, ?remapped_path, ?was_remapped, ?self.filename_remapping_scopes);
+
+    // Always populate the local part, even if we just remapped it and the scopes are
+    // total, so that places that load the file from disk still have access to it.
+    const local = {
+      name: local_path,
+      working_directory: unwrap(working_directory.local_path(), "working directory should be local"),
+      embeddable_name: path_is_absolute(local_path)
+        ? local_path
+        : path_join(unwrap(working_directory.local_path(), "working directory should be local"), local_path),
+    };
+
+    let embeddable_name: PathBuf;
+    if (path_is_absolute(remapped_path) || was_remapped) {
+      // The current directory may have been remapped so we take that
+      // into account, otherwise we'll forget to include the scopes
+      was_remapped = was_remapped || working_directory.was_remapped();
+
+      embeddable_name = remapped_path;
+    } else {
+      // Create an absolute path and remap it as well.
+      const [abs_path, abs_was_remapped] = this.map_prefix(path_join(working_directory.maybe_remapped.name, remapped_path));
+
+      // If either the embeddable name or the working directory was
+      // remapped, then the filename was remapped
+      was_remapped = abs_was_remapped || working_directory.was_remapped();
+
+      embeddable_name = abs_path;
+    }
+
+    return new RealFileName(
+      local,
+      {
+        working_directory: working_directory.maybe_remapped.name,
+        embeddable_name,
+        name: remapped_path,
+      },
+      was_remapped ? this.filename_remapping_scopes : RemapPathScopeComponents.empty(),
+    );
+  }
+
+  /// Attempts to (heuristically) reverse a prefix mapping.
+  ///
+  /// Returns [`Some`] if there is exactly one mapping where the "to" part is
+  /// a prefix of `path` and has at least one non-empty
+  /// [`Normal`](path::Component::Normal) component. The component
+  /// restriction exists to avoid reverse mapping overly generic paths like
+  /// `/` or `.`).
+  ///
+  /// This is a heuristic and not guaranteed to return the actual original
+  /// path! Do not rely on the result unless you have other means to verify
+  /// that the mapping is correct (e.g. by checking the file content hash).
+  // #[instrument(level = "debug", skip(self), ret)]
+  // rustc: compiler/rustc_span/src/source_map.rs:1302 reverse_map_prefix_heuristically
+  reverse_map_prefix_heuristically(path: PathBuf): PathBuf | undefined {
+    let found: PathBuf | undefined = undefined;
+
+    for (const [from, to] of this.mapping) {
+      let has_normal_component = false;
+      const comps = path_components(to);
+      for (let c = comps.next(); c !== undefined; c = comps.next()) {
+        if (c.$ === "Normal" ? c._0 !== "" : false) {
+          has_normal_component = true;
+          break;
+        }
+      }
+
+      if (!has_normal_component) {
+        continue;
+      }
+
+      const rest = path_strip_prefix(path, to);
+      if (rest === undefined) {
+        continue;
+      }
+
+      if (found !== undefined) {
+        return undefined;
+      }
+
+      found = path_join(from, rest);
+    }
+
+    return found;
+  }
+}
+
+// #[instrument(level = "debug", skip(mapping), ret)]
+// rustc: compiler/rustc_span/src/source_map.rs:1190 remap_path_prefix
+function remap_path_prefix(mapping: readonly [PathBuf, PathBuf][], path: PathBuf): [PathBuf, boolean] {
+  // NOTE: We are iterating over the mapping entries from last to first
+  //       because entries specified later on the command line should
+  //       take precedence.
+  for (let i = mapping.length - 1; i >= 0; i--) {
+    const [from, to] = mapping[i]!;
+    // debug!("Trying to apply {from:?} => {to:?}");
+
+    const rest = path_strip_prefix(path, from);
+    if (rest !== undefined) {
+      // This is subtle, joining an empty path onto e.g. `foo/bar` will
+      // result in `foo/bar/`, that is, there'll be an additional directory
+      // separator at the end. This can lead to duplicated directory separators
+      // in remapped paths down the line.
+      // So, if we have an exact match, we just return that without a call
+      // to `Path::join()`.
+      const remapped = rest === "" ? to : path_join(to, rest);
+      // debug!("Match - remapped");
+
+      return [remapped, true];
+    } else {
+      // debug!("No match - prefix {from:?} does not match");
+    }
+  }
+
+  // debug!("not remapped");
+  return [path, false];
+}
+
+/** `#[derive(Debug)]` */
+export const debug_FilePathMapping: Debug<FilePathMapping> = (v, f) =>
+  debug_struct(f, "FilePathMapping", [
+    ["mapping", debug_vec(v.mapping, f, ([a, b], f) => debug_tuple(f, "", [debug_str(a), debug_str(b)]))],
+    ["filename_remapping_scopes", debug_RemapPathScopeComponents(v.filename_remapping_scopes, f)],
+  ]);
+
+function debug_IoError(e: IoError): string {
+  // PORT: `{:?}` of `io::Error` (only used in the `expect` message above).
+  return e.$ === "Custom" ? `Custom { kind: ${e.kind}, error: ${debug_str(e.error)} }` : unported(`std::io::Error Debug (os error ${e.code})`);
+}
+
+// _____________________________________________________________________________
+// PORT: shims for derives / std functionality that live outside this file upstream.
+// Root: `FileName_eq` and `stable_source_file_id_key` belong next to `FileName` in lib.ts;
+// the std::path, str and slice helpers belong in src/std.
+//
+
+const USIZE_MAX = Number.MAX_SAFE_INTEGER;
+
+/** `slice[i]` (panics like Rust on out-of-bounds; a wrapped `0 - 1` index is usize::MAX). */
+function index<T>(v: readonly T[], i: number): T {
+  if (i < 0 || i >= v.length) {
+    return panic(`index out of bounds: the len is ${v.length} but the index is ${i < 0 ? "18446744073709551615" : i}`);
+  }
+  return v[i]!;
+}
+
+/** `slice::partition_point` */
+function partition_point<T>(v: readonly T[], pred: (x: T) => boolean): number {
+  let lo = 0;
+  let hi = v.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (pred(v[mid]!)) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+function saturating_sub(a: number, b: number): number {
+  return a > b ? a - b : 0;
+}
+
+/** `#[derive(PartialEq)]` for `FileName` (paths compare by components, like `Path`'s `PartialEq`). */
+export function FileName_eq(a: FileName, b: FileName): boolean {
+  switch (a.$) {
+    case "Real":
+      return b.$ === "Real" && RealFileName_eq(a._0, b._0);
+    case "Custom":
+      return b.$ === "Custom" && a._0 === b._0;
+    case "DocTest":
+      return b.$ === "DocTest" && RealFileName_eq(a._0, b._0) && a._1 === b._1;
+    default:
+      return b.$ === a.$ && (b as { _0: unknown })._0 === a._0;
+  }
+}
+
+type InnerRealFileName = RealFileName["maybe_remapped"];
+
+function InnerRealFileName_eq(a: InnerRealFileName, b: InnerRealFileName): boolean {
+  return path_eq(a.name, b.name) && path_eq(a.working_directory, b.working_directory) && path_eq(a.embeddable_name, b.embeddable_name);
+}
+
+/** `#[derive(PartialEq)]` for `RealFileName`. */
+export function RealFileName_eq(a: RealFileName, b: RealFileName): boolean {
+  return (
+    (a.local === undefined ? b.local === undefined : b.local !== undefined && InnerRealFileName_eq(a.local, b.local)) &&
+    InnerRealFileName_eq(a.maybe_remapped, b.maybe_remapped) &&
+    a.scopes === b.scopes
+  );
+}
+
+/** Key standing in for `StableSourceFileId`'s hash: built from the same inputs, in the same way as
+ *  `impl Hash for RealFileName` (the local part is skipped when fully remapped) and `Path`'s
+ *  component-wise `Hash`. */
+export function stable_source_file_id_key(id: StableSourceFileId): string {
+  const path_key = (p: PathBuf): string => {
+    const parts: string[] = [];
+    const comps = path_components(p);
+    for (let c = comps.next(); c !== undefined; c = comps.next()) parts.push(component_as_os_str(c));
+    return JSON.stringify(parts);
+  };
+  const inner_key = (i: InnerRealFileName): string => `${path_key(i.name)},${path_key(i.working_directory)},${path_key(i.embeddable_name)}`;
+  const real_key = (r: RealFileName): string =>
+    `${r.was_fully_remapped() ? "" : r.local === undefined ? "None" : `Some(${inner_key(r.local)})`};${inner_key(r.maybe_remapped)};${r.scopes}`;
+  const name = id.filename;
+  let key: string;
+  switch (name.$) {
+    case "Real":
+      key = `Real(${real_key(name._0)})`;
+      break;
+    case "Custom":
+      key = `Custom(${JSON.stringify(name._0)})`;
+      break;
+    case "DocTest":
+      key = `DocTest(${real_key(name._0)},${name._1})`;
+      break;
+    default:
+      key = `${name.$}(${String(name._0)})`;
+  }
+  return `${key}|${id.stable_crate_id === undefined ? "None" : String(id.stable_crate_id)}`;
+}
+
+// --- `str` helpers (byte-indexed, over `Str`) ---
+
+function str_is_char_boundary(s: Str, i: number): boolean {
+  if (i === 0) return true;
+  if (i < s.len()) return (s.byte(i) & 0xc0) !== 0x80;
+  return i === s.len();
+}
+
+/** `str::get(a..b)` */
+function str_get(s: Str, a: number, b: number): Str | undefined {
+  if (a <= b && str_is_char_boundary(s, a) && str_is_char_boundary(s, b)) return s.slice(a, b);
+  return undefined;
+}
+
+/** `str::ceil_char_boundary` */
+function str_ceil_char_boundary(s: Str, index: number): number {
+  if (index > s.len()) return s.len();
+  let i = index;
+  while (!str_is_char_boundary(s, i)) i++;
+  return i;
+}
+
+/** `str::floor_char_boundary` */
+function str_floor_char_boundary(s: Str, index: number): number {
+  if (index >= s.len()) return s.len();
+  let i = index;
+  while (!str_is_char_boundary(s, i)) i--;
+  return i;
+}
+
+function str_find_char(s: Str, c: number): number | undefined {
+  return s.find(char_to_string(c));
+}
+
+function str_rfind_char(s: Str, c: number): number | undefined {
+  return s.rfind(char_to_string(c));
+}
+
+function str_contains_char(s: Str, c: number): boolean {
+  return str_find_char(s, c) !== undefined;
+}
+
+/** `s.split(c).next().unwrap_or("")` */
+function str_split_first(s: Str, c: number): Str {
+  const i = str_find_char(s, c);
+  return i === undefined ? s : s.slice(0, i);
+}
+
+/** `s.rsplit(c).next().unwrap_or("")` */
+function str_rsplit_first(s: Str, c: number): Str {
+  const i = str_rfind_char(s, c);
+  return i === undefined ? s : s.slice(i + len_utf8(c));
+}
+
+/** `s.char_indices().find(|&(_, c)| pred(c)).map(|(i, _)| i)` */
+function str_find_pred(s: Str, pred: (c: number) => boolean): number | undefined {
+  const chars = s.chars();
+  for (let pos = chars.pos, c = chars.next(); c !== undefined; pos = chars.pos, c = chars.next()) {
+    if (pred(c)) return pos - s.lo;
+  }
+  return undefined;
+}
+
+/** `s.char_indices().rfind(|&(_, c)| pred(c))` */
+function str_rfind_pred(s: Str, pred: (c: number) => boolean): [number, number] | undefined {
+  let found: [number, number] | undefined = undefined;
+  const chars = s.chars();
+  for (let pos = chars.pos, c = chars.next(); c !== undefined; pos = chars.pos, c = chars.next()) {
+    if (pred(c)) found = [pos - s.lo, c];
+  }
+  return found;
+}
+
+/** `str::trim_start` */
+function str_trim_start(s: Str): Str {
+  const i = str_find_pred(s, (c) => !is_whitespace(c));
+  return i === undefined ? s.slice(s.len()) : s.slice(i);
+}
+
+/** `str::trim_end` */
+function str_trim_end(s: Str): Str {
+  const found = str_rfind_pred(s, (c) => !is_whitespace(c));
+  return found === undefined ? s.slice(0, 0) : s.slice(0, found[0] + len_utf8(found[1]));
+}
+
+/** `s.chars().count()` */
+function str_chars_count(s: Str): number {
+  let n = 0;
+  const chars = s.chars();
+  while (chars.next() !== undefined) n++;
+  return n;
+}
+
+/** `s.chars().nth(n)` */
+function str_chars_nth(s: Str, n: number): number | undefined {
+  return s.chars().peek(n);
+}
+
+// --- `std::path` (library/std/src/path.rs, sys/path/{windows,windows_prefix,unix}.rs) ---
+// PORT: `Path`/`PathBuf` are strings; the host platform's path rules apply (rustc on the host
+// does the same). Strings are indexed by UTF-16 unit; every separator/prefix byte is ASCII, so
+// splits land in the same places as upstream's byte indices.
+
+const HAS_PREFIXES = process.platform === "win32";
+const MAIN_SEPARATOR_STR = HAS_PREFIXES ? "\\" : "/";
+
+// std: library/std/src/sys/path/mod.rs is_sep_byte
+function is_sep_byte(b: string): boolean {
+  return HAS_PREFIXES ? b === "\\" || b === "/" : b === "/";
+}
+
+// std: library/std/src/sys/path/windows.rs is_verbatim_sep (unix.rs: is_sep_byte)
+function is_verbatim_sep(b: string): boolean {
+  return HAS_PREFIXES ? b === "\\" : b === "/";
+}
+
+/** `std::path::Prefix` */
+type Prefix =
+  | { readonly $: "Verbatim"; readonly _0: string }
+  | { readonly $: "VerbatimUNC"; readonly _0: string; readonly _1: string }
+  | { readonly $: "VerbatimDisk"; readonly _0: string }
+  | { readonly $: "DeviceNS"; readonly _0: string }
+  | { readonly $: "UNC"; readonly _0: string; readonly _1: string }
+  | { readonly $: "Disk"; readonly _0: string };
+
+// std: library/std/src/path.rs Prefix::len
+function prefix_len(p: Prefix): number {
+  switch (p.$) {
+    case "Verbatim":
+      return 4 + p._0.length;
+    case "VerbatimUNC":
+      return 8 + p._0.length + (p._1.length > 0 ? 1 + p._1.length : 0);
+    case "VerbatimDisk":
+      return 6;
+    case "UNC":
+      return 2 + p._0.length + (p._1.length > 0 ? 1 + p._1.length : 0);
+    case "DeviceNS":
+      return 4 + p._0.length;
+    case "Disk":
+      return 2;
+  }
+}
+
+function prefix_is_verbatim(p: Prefix): boolean {
+  return p.$ === "Verbatim" || p.$ === "VerbatimDisk" || p.$ === "VerbatimUNC";
+}
+
+function prefix_is_drive(p: Prefix): boolean {
+  return p.$ === "Disk";
+}
+
+function prefix_has_implicit_root(p: Prefix): boolean {
+  return !prefix_is_drive(p);
+}
+
+function prefix_eq(a: Prefix, b: Prefix): boolean {
+  return a.$ === b.$ && a._0 === b._0 && ("_1" in a ? a._1 === (b as { _1: string })._1 : true);
+}
+
+// std: library/std/src/sys/path/windows_prefix.rs parse_prefix
+function parse_prefix(path: string): Prefix | undefined {
+  if (!HAS_PREFIXES) return undefined;
+  const prefix = path.slice(0, 8).replaceAll("/", "\\");
+  let index = 0;
+  const strip = (p: string): boolean => {
+    if (prefix.slice(index).startsWith(p)) {
+      index += p.length;
+      return true;
+    }
+    return false;
+  };
+  if (strip("\\\\")) {
+    // \\
+    const save = index;
+    if (strip("?\\") && !path.slice(0, index).includes("/")) {
+      // \\?\
+      if (strip("UNC\\")) {
+        // \\?\UNC\server\share
+        const p = path.slice(index);
+        const [server, rest] = parse_next_component(p, true);
+        const [share] = parse_next_component(rest, true);
+        return { $: "VerbatimUNC", _0: server, _1: share };
+      } else {
+        const p = path.slice(index);
+
+        // \\?\C:\path
+        const drive = parse_drive_exact(p);
+        if (drive !== undefined) {
+          return { $: "VerbatimDisk", _0: drive };
+        } else {
+          // \\?\prefix
+          const [pfx] = parse_next_component(p, true);
+          return { $: "Verbatim", _0: pfx };
+        }
+      }
+    }
+    index = save;
+    if (strip(".\\")) {
+      // \\.\COM42
+      const p = path.slice(index);
+      const [pfx] = parse_next_component(p, false);
+      return { $: "DeviceNS", _0: pfx };
+    } else {
+      const p = path.slice(index);
+      const [server, rest] = parse_next_component(p, false);
+      const [share] = parse_next_component(rest, false);
+
+      if (server !== "" && share !== "") {
+        // \\server\share
+        return { $: "UNC", _0: server, _1: share };
+      } else {
+        // no valid prefix beginning with "\\" recognized
+        return undefined;
+      }
+    }
+  } else {
+    // If it has a drive like `C:` then it's a disk.
+    // Otherwise there is no prefix.
+    const drive = parse_drive(path);
+    return drive === undefined ? undefined : { $: "Disk", _0: drive };
+  }
+}
+
+// std: library/std/src/sys/path/windows_prefix.rs parse_drive
+function parse_drive(path: string): string | undefined {
+  // In most DOS systems, it is not possible to have more than 26 drive letters.
+  // See <https://en.wikipedia.org/wiki/Drive_letter_assignment#Common_assignments>.
+  if (path.length >= 2 && /^[A-Za-z]$/.test(path[0]!) && path[1] === ":") return path[0]!.toUpperCase();
+  return undefined;
+}
+
+// std: library/std/src/sys/path/windows_prefix.rs parse_drive_exact
+function parse_drive_exact(path: string): string | undefined {
+  // only parse two bytes: the drive letter and the drive separator
+  if (path.length <= 2 || is_verbatim_sep(path[2]!)) {
+    return parse_drive(path);
+  } else {
+    return undefined;
+  }
+}
+
+// std: library/std/src/sys/path/windows_prefix.rs parse_next_component
+function parse_next_component(path: string, verbatim: boolean): [string, string] {
+  const separator = verbatim ? is_verbatim_sep : is_sep_byte;
+  for (let i = 0; i < path.length; i++) {
+    if (separator(path[i]!)) return [path.slice(0, i), path.slice(i + 1)];
+  }
+  return [path, ""];
+}
+
+/** `std::path::Component` */
+type Component =
+  | { readonly $: "Prefix"; readonly raw: string; readonly parsed: Prefix }
+  | { readonly $: "RootDir" }
+  | { readonly $: "CurDir" }
+  | { readonly $: "ParentDir" }
+  | { readonly $: "Normal"; readonly _0: string };
+
+function component_eq(a: Component, b: Component): boolean {
+  if (a.$ !== b.$) return false;
+  if (a.$ === "Prefix") return prefix_eq(a.parsed, (b as { parsed: Prefix }).parsed);
+  if (a.$ === "Normal") return a._0 === (b as { _0: string })._0;
+  return true;
+}
+
+// std: library/std/src/path.rs Component::as_os_str
+function component_as_os_str(c: Component): string {
+  switch (c.$) {
+    case "Prefix":
+      return c.raw;
+    case "RootDir":
+      return MAIN_SEPARATOR_STR;
+    case "CurDir":
+      return ".";
+    case "ParentDir":
+      return "..";
+    case "Normal":
+      return c._0;
+  }
+}
+
+const enum State {
+  Prefix = 0, // c:
+  StartDir = 1, // / or . or nothing
+  Body = 2, // foo/bar/baz
+  Done = 3,
+}
+
+/** `std::path::Components` */
+class Components {
+  constructor(
+    public path: string,
+    readonly prefix: Prefix | undefined,
+    readonly has_physical_root: boolean,
+    public front: State,
+    public back: State,
+  ) {}
+
+  clone(): Components {
+    return new Components(this.path, this.prefix, this.has_physical_root, this.front, this.back);
+  }
+
+  prefix_len(): number {
+    if (!HAS_PREFIXES) return 0;
+    return this.prefix === undefined ? 0 : prefix_len(this.prefix);
+  }
+
+  prefix_verbatim(): boolean {
+    if (!HAS_PREFIXES) return false;
+    return this.prefix === undefined ? false : prefix_is_verbatim(this.prefix);
+  }
+
+  prefix_remaining(): number {
+    if (!HAS_PREFIXES) return 0;
+    return this.front === State.Prefix ? this.prefix_len() : 0;
+  }
+
+  len_before_body(): number {
+    const root = this.front <= State.StartDir && this.has_physical_root ? 1 : 0;
+    const cur_dir = this.front <= State.StartDir && this.include_cur_dir() ? 1 : 0;
+    return this.prefix_remaining() + root + cur_dir;
+  }
+
+  finished(): boolean {
+    return this.front === State.Done || this.back === State.Done || this.front > this.back;
+  }
+
+  is_sep_byte(b: string): boolean {
+    return this.prefix_verbatim() ? is_verbatim_sep(b) : is_sep_byte(b);
+  }
+
+  as_path(): string {
+    const comps = this.clone();
+    if (comps.front === State.Body) comps.trim_left();
+    if (comps.back === State.Body) comps.trim_right();
+    return comps.path;
+  }
+
+  has_root(): boolean {
+    if (this.has_physical_root) return true;
+    if (HAS_PREFIXES && this.prefix !== undefined) {
+      if (prefix_has_implicit_root(this.prefix)) return true;
+    }
+    return false;
+  }
+
+  include_cur_dir(): boolean {
+    if (this.has_root()) return false;
+    const slice = this.path.slice(this.prefix_remaining());
+    if (slice === ".") return true;
+    if (slice.length >= 2 && slice[0] === ".") return this.is_sep_byte(slice[1]!);
+    return false;
+  }
+
+  parse_single_component(comp: string): Component | undefined {
+    if (comp === "." && HAS_PREFIXES && this.prefix_verbatim()) return { $: "CurDir" };
+    if (comp === ".") return undefined; // . components are normalized away, except at the beginning
+    if (comp === "..") return { $: "ParentDir" };
+    if (comp === "") return undefined;
+    return { $: "Normal", _0: comp };
+  }
+
+  parse_next_component(): [number, Component | undefined] {
+    let extra = 0;
+    let comp = this.path;
+    for (let i = 0; i < this.path.length; i++) {
+      if (this.is_sep_byte(this.path[i]!)) {
+        extra = 1;
+        comp = this.path.slice(0, i);
+        break;
+      }
+    }
+    return [comp.length + extra, this.parse_single_component(comp)];
+  }
+
+  parse_next_component_back(): [number, Component | undefined] {
+    const start = this.len_before_body();
+    let extra = 0;
+    let comp = this.path.slice(start);
+    for (let i = this.path.length - 1; i >= start; i--) {
+      if (this.is_sep_byte(this.path[i]!)) {
+        extra = 1;
+        comp = this.path.slice(i + 1);
+        break;
+      }
+    }
+    return [comp.length + extra, this.parse_single_component(comp)];
+  }
+
+  trim_left(): void {
+    while (this.path !== "") {
+      const [size, comp] = this.parse_next_component();
+      if (comp !== undefined) return;
+      this.path = this.path.slice(size);
+    }
+  }
+
+  trim_right(): void {
+    while (this.path.length > this.len_before_body()) {
+      const [size, comp] = this.parse_next_component_back();
+      if (comp !== undefined) return;
+      this.path = this.path.slice(0, this.path.length - size);
+    }
+  }
+
+  next(): Component | undefined {
+    while (!this.finished()) {
+      switch (this.front) {
+        case State.Body:
+          if (this.path !== "") {
+            const [size, comp] = this.parse_next_component();
+            this.path = this.path.slice(size);
+            if (comp !== undefined) return comp;
+          } else {
+            this.front = State.Done;
+          }
+          break;
+        case State.StartDir:
+          this.front = State.Body;
+          if (this.has_physical_root) {
+            this.path = this.path.slice(1);
+            return { $: "RootDir" };
+          } else if (HAS_PREFIXES && this.prefix !== undefined) {
+            if (prefix_has_implicit_root(this.prefix) && !prefix_is_verbatim(this.prefix)) {
+              return { $: "RootDir" };
+            }
+          } else if (this.include_cur_dir()) {
+            this.path = this.path.slice(1);
+            return { $: "CurDir" };
+          }
+          break;
+        case State.Prefix:
+          if (this.prefix_len() === 0) {
+            this.front = State.StartDir;
+          } else {
+            this.front = State.StartDir;
+            const raw = this.path.slice(0, this.prefix_len());
+            this.path = this.path.slice(this.prefix_len());
+            return { $: "Prefix", raw, parsed: this.prefix! };
+          }
+          break;
+        case State.Done:
+          return panic("internal error: entered unreachable code");
+      }
+    }
+    return undefined;
+  }
+
+  // PORT: upstream compares `self.clone().rev()` with `other.clone().rev()`; comparing the forward
+  // sequences gives the same answer (both iterate the same components) without porting `next_back`.
+  eq(other: Components): boolean {
+    if (
+      this.path.length === other.path.length &&
+      this.front === other.front &&
+      this.back === State.Body &&
+      other.back === State.Body &&
+      this.prefix_verbatim() === other.prefix_verbatim()
+    ) {
+      // possible future improvement: this could bail out earlier if there were a
+      // reverse memcmp/bcmp comparing back to front
+      if (this.path === other.path) return true;
+    }
+    const a = this.clone();
+    const b = other.clone();
+    for (;;) {
+      const x = a.next();
+      const y = b.next();
+      if (x === undefined || y === undefined) return x === y;
+      if (!component_eq(x, y)) return false;
+    }
+  }
+}
+
+// std: library/std/src/path.rs Path::components
+export function path_components(p: string): Components {
+  const prefix = parse_prefix(p);
+  return new Components(p, prefix, has_physical_root(p, prefix), HAS_PREFIXES ? State.Prefix : State.StartDir, State.Body);
+}
+
+// std: library/std/src/path.rs has_physical_root
+function has_physical_root(s: string, prefix: Prefix | undefined): boolean {
+  const path = prefix !== undefined ? s.slice(prefix_len(prefix)) : s;
+  return path !== "" && is_sep_byte(path[0]!);
+}
+
+// std: library/std/src/path.rs iter_after
+function iter_after(iter: Components, prefix: Components): Components | undefined {
+  for (;;) {
+    const iter_next = iter.clone();
+    const x = iter_next.next();
+    const y = prefix.next();
+    if (x !== undefined && y !== undefined) {
+      if (!component_eq(x, y)) return undefined;
+    } else if (x !== undefined && y === undefined) {
+      return iter;
+    } else if (x === undefined && y === undefined) {
+      return iter;
+    } else {
+      return undefined;
+    }
+    iter = iter_next;
+  }
+}
+
+/** `Path::strip_prefix` */
+export function path_strip_prefix(path: string, base: string): string | undefined {
+  return iter_after(path_components(path), path_components(base))?.as_path();
+}
+
+/** `Path::has_root` */
+function path_has_root(p: string): boolean {
+  return path_components(p).has_root();
+}
+
+/** `Path::is_absolute` (sys::path::is_absolute) */
+export function path_is_absolute(p: string): boolean {
+  if (!HAS_PREFIXES) return path_has_root(p);
+  return path_has_root(p) && path_components(p).prefix !== undefined;
+}
+
+/** `Path::eq` */
+export function path_eq(a: string, b: string): boolean {
+  return path_components(a).eq(path_components(b));
+}
+
+/** `Path::join` = `to_path_buf()` + `PathBuf::_push` */
+export function path_join(self_: string, path: string): string {
+  let inner = self_;
+  // in general, a separator is needed if the rightmost byte is not a separator
+  let need_sep = inner.length > 0 ? !is_sep_byte(inner[inner.length - 1]!) : false;
+
+  // in the special case of `C:` on Windows, do *not* add a separator
+  const comps = path_components(inner);
+
+  if (comps.prefix_len() > 0 && comps.prefix_len() === comps.path.length && prefix_is_drive(comps.prefix!)) {
+    need_sep = false;
+  }
+
+  // On Unix: prefix is always None.
+  const need_clear = path_is_absolute(path) || path_components(path).prefix !== undefined;
+
+  // absolute `path` replaces `self`
+  if (need_clear) {
+    inner = "";
+
+    // verbatim paths need . and .. removed
+  } else if (comps.prefix_verbatim() && path !== "") {
+    const buf: Component[] = [];
+    for (let c = comps.next(); c !== undefined; c = comps.next()) buf.push(c);
+    const pcomps = path_components(path);
+    for (let c = pcomps.next(); c !== undefined; c = pcomps.next()) {
+      switch (c.$) {
+        case "RootDir":
+          buf.length = Math.min(buf.length, 1);
+          buf.push(c);
+          break;
+        case "CurDir":
+          break;
+        case "ParentDir":
+          if (buf.length > 0 && buf[buf.length - 1]!.$ === "Normal") buf.pop();
+          break;
+        default:
+          buf.push(c);
+      }
+    }
+
+    let res = "";
+    let need_sep = false;
+
+    for (const c of buf) {
+      if (need_sep && c.$ !== "RootDir") res += MAIN_SEPARATOR_STR;
+      res += component_as_os_str(c);
+
+      need_sep = c.$ === "RootDir" ? false : c.$ === "Prefix" ? !prefix_is_drive(c.parsed) && prefix_len(c.parsed) > 0 : true;
+    }
+
+    return res;
+
+    // `path` has a root but no prefix, e.g., `\windows` (Windows only)
+  } else if (path_has_root(path)) {
+    const prefix_len = path_components(inner).prefix_remaining();
+    inner = inner.slice(0, prefix_len);
+
+    // `path` is a pure relative path
+  } else if (need_sep) {
+    inner += MAIN_SEPARATOR_STR;
+  }
+
+  return inner + path;
+}
+
