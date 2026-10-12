@@ -100,7 +100,7 @@ Fix (preferred before the first accept): name cases by content, e.g. `<crate>/<s
 If a suite's oracle argv changes but the probe binary does not, stale cached outputs are served. Example: a new probe mode string that is selected only in `suites.ts`. This does not affect this batch as written: modes are fixed per suite name. It would matter if fix 3 were done as `suites.ts`-only argv changes on an existing binary. Suggest adding `JSON.stringify(s.oracle([c]))` to the key in a future harness batch.
 
 ### 8. INFO (for the porter wiring fluent-bundle, outside this batch): panic payloads need the Rust `unwrap` text
-Of the 153 synthetic panic rows, 115 are `called \`Result::unwrap()\` on an \`Err\` value: (FluentResource(InnerFluentResource { owner: .., dependent: Resource { .. } }), [ParserError { .. }])` or `Fluent errors while formatting message: [..]`.
+Of the 153 synthetic panic rows, 115 are `called \`Result::unwrap()\` on an \`Err\` value: (FluentResource(InnerFluentResource { owner: .., dependent: Resource { .. } }), [ParserError { .. }])` and 37 are `Fluent errors while formatting message: [..]` (plus 1 `Option::unwrap()`).
 `src/std/result.ts:22` throws `called \`Result::unwrap()\` on an \`Err\` value` **without** `: {e:?}`. A TS `format_fluent_str` that uses it can therefore never match those rows. The port needs an unwrap that appends the Debug of the error, plus self_cell-shaped Debug for `FluentResource`.
 The framing itself is meaningful: rustc ICEs with exactly this payload, the probe records just the payload, and the subject prints `Panic.message` the same way (`src/rust_ts/fluentdump.ts:139-146`). `Unported` is not a `Panic`, so it is not swallowed.
 
