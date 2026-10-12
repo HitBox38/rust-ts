@@ -1,0 +1,2 @@
+# Synthetic corpora contain bare CR, CRLF and NUL on purpose: never normalize them.
+escape-synthetic/** -text
