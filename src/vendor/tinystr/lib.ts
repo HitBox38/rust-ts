@@ -18,13 +18,14 @@
 
 // mod macros;  (macros.ts: the `tinystr!` macro as a function)
 // mod ascii; mod asciibyte; mod error; mod int_ops;
-// mod unvalidated;  (not ported: unused by unic-langid-impl)
+// mod unvalidated;  (unvalidated.ts: the subset icu_locale_fallback uses, added by the icu-list lane)
 // #[cfg(feature = "serde")] mod serde;  #[cfg(feature = "databake")] mod databake;
 // #[cfg(feature = "zerovec")] mod ule;  (features off in rustc's build; not ported)
 
 export { TinyAsciiStr } from "./ascii.ts";
 export { ParseError } from "./error.ts";
 export { tinystr } from "./macros.ts";
+export { to_unvalidated, UnvalidatedTinyAsciiStr } from "./unvalidated.ts";
 
 // PORT: the type aliases `TinyStr4 = TinyAsciiStr<4>`, `TinyStr8 = TinyAsciiStr<8>` and
 // `TinyStr16 = TinyAsciiStr<16>` erase `N`; constructors take `N` explicitly (`TinyAsciiStr.try_from_utf8(8, ..)`).
@@ -53,14 +54,6 @@ export type { TinyAsciiStr as TinyStr4, TinyAsciiStr as TinyStr8, TinyAsciiStr a
 // crate-skip: tinystr-0.8.4/src/databake.rs:46 borrows_size feature "databake" off
 // crate-skip: tinystr-0.8.4/src/databake.rs:52 test feature "databake" off
 // crate-skip: tinystr-0.8.4/src/databake.rs:62 test_unvalidated feature "databake" off
-// crate-skip: tinystr-0.8.4/src/unvalidated.rs:20 fmt UnvalidatedTinyAsciiStr unused by unic-langid-impl
-// crate-skip: tinystr-0.8.4/src/unvalidated.rs:32 try_into_tinystr UnvalidatedTinyAsciiStr unused by unic-langid-impl
-// crate-skip: tinystr-0.8.4/src/unvalidated.rs:39 try_from_utf8 UnvalidatedTinyAsciiStr unused by unic-langid-impl
-// crate-skip: tinystr-0.8.4/src/unvalidated.rs:53 from_utf8_unchecked UnvalidatedTinyAsciiStr unused by unic-langid-impl
-// crate-skip: tinystr-0.8.4/src/unvalidated.rs:59 default UnvalidatedTinyAsciiStr unused by unic-langid-impl
-// crate-skip: tinystr-0.8.4/src/unvalidated.rs:65 default UnvalidatedTinyAsciiStr unused by unic-langid-impl
-// crate-skip: tinystr-0.8.4/src/unvalidated.rs:73 to_unvalidated UnvalidatedTinyAsciiStr unused by unic-langid-impl
-// crate-skip: tinystr-0.8.4/src/unvalidated.rs:79 from UnvalidatedTinyAsciiStr unused by unic-langid-impl
 // crate-skip: tinystr-0.8.4/src/unvalidated.rs:86 serialize feature "serde" off
 // crate-skip: tinystr-0.8.4/src/unvalidated.rs:104 deserialize feature "serde" off
 

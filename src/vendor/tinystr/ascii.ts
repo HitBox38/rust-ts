@@ -189,8 +189,45 @@ export class TinyAsciiStr {
     return this.bytes;
   }
 
-  // crate-skip: tinystr-0.8.4/src/ascii.rs:357 resize unused by unic-langid-impl
-  // crate-skip: tinystr-0.8.4/src/ascii.rs:397 concat unused by unic-langid-impl
+  /// Resizes a `TinyAsciiStr<N>` to a `TinyAsciiStr<M>`.
+  ///
+  /// If `M < len()` the string gets truncated, otherwise only the
+  /// memory representation changes.
+  // (added by the icu-list lane: icu_locale_core uses it)
+  // crate: tinystr-0.8.4/src/ascii.rs:357 resize
+  resize(M: number): TinyAsciiStr {
+    const N = this.bytes.length;
+    const bytes = new Uint8Array(M);
+    let i = 0;
+    // Indexing is protected by the loop guard
+    while (i < M && i < N) {
+      bytes[i] = this.bytes[i]!;
+      i += 1;
+    }
+    // `self.bytes` only contains ASCII bytes, with no null bytes between
+    // ASCII characters, so this also holds for `bytes`.
+    return TinyAsciiStr.from_utf8_unchecked(bytes);
+  }
+
+  /// Returns a `TinyAsciiStr<Q>` with the concatenation of this string,
+  /// `TinyAsciiStr<N>`, and another string, `TinyAsciiStr<M>`.
+  ///
+  /// If `Q < N + M`, the string gets truncated.
+  // (added by the icu-list lane: icu_locale_core uses it)
+  // crate: tinystr-0.8.4/src/ascii.rs:397 concat
+  concat(other: TinyAsciiStr, Q: number): TinyAsciiStr {
+    const M = other.bytes.length;
+    const result = this.resize(Q);
+    let i = this.len();
+    let j = 0;
+    // Indexing is protected by the loop guard
+    while (i < Q && j < M) {
+      result.bytes[i] = other.bytes[j]!;
+      i += 1;
+      j += 1;
+    }
+    return result;
+  }
 
   /// # Safety
   /// Must be called with a bytes array made of valid ASCII bytes, with no null bytes
