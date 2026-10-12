@@ -44,9 +44,26 @@ export function usize_wrapping_sub(a: number, b: number): number {
   return a >= b ? a - b : a - b + 2 ** 64;
 }
 
-/** `x as usize` for an `isize` (two's complement reinterpretation). */
+/**
+ * `x as usize` for an `isize`, kept in its *signed view*: the returned number is `x` itself and
+ * stands for the usize `x mod 2^64` (a negative number means a value >= 2^63). Unlike `x + 2^64`
+ * this stays exact, so later wrapping additions (`usize + k`) are plain `+`, and the value prints
+ * exactly with `usize_display`. Compare such values with `usize_lt`, never with `<` directly.
+ * (annotate-b: replaces `x + 2 ** 64`, which lost precision and mis-rendered overlapping patches.)
+ */
 export function isize_as_usize(x: number): number {
-  return x >= 0 ? x : x + 2 ** 64;
+  return x;
+}
+
+/** `a < b` on two usizes in signed view (see `isize_as_usize`). */
+export function usize_lt(a: number, b: number): boolean {
+  if (a < 0 !== b < 0) return a >= 0;
+  return a < b;
+}
+
+/** `<usize as Display>` for a usize in signed view (see `isize_as_usize`). */
+export function usize_display(x: number): string {
+  return x < 0 ? (BigInt(x) + 2n ** 64n).toString() : String(x);
 }
 
 /** `v[i]` with Rust's bounds-check panic. */
@@ -168,4 +185,58 @@ export function str_count_byte(s: Str, b: number): number {
   let n = 0;
   for (let i = 0; i < s.len(); i++) if (s.byte(i) === b) n++;
   return n;
+}
+
+/**
+ * `core::str::Lines` (`str::lines`): splits on `\n`; a `\r` is stripped only when it precedes the
+ * `\n` (a final line without `\n` keeps a trailing `\r`). `clone()` copies the cursor.
+ * PORT: `Str.lines()` in src/std/str.ts strips a `\r` at EOF too, which `str::lines` does not.
+ */
+export class Lines {
+  constructor(
+    readonly s: Str,
+    public pos: number,
+  ) {}
+
+  static new(s: Str): Lines {
+    return new Lines(s, 0);
+  }
+
+  next(): Str | undefined {
+    const s = this.s;
+    const n = s.len();
+    if (this.pos >= n) return undefined;
+    const start = this.pos;
+    let nl = start;
+    while (nl < n && s.byte(nl) !== 0x0a) nl++;
+    if (nl === n) {
+      this.pos = n;
+      return s.slice(start, n);
+    }
+    this.pos = nl + 1;
+    let end = nl;
+    if (end > start && s.byte(end - 1) === 0x0d) end--;
+    return s.slice(start, end);
+  }
+
+  clone(): Lines {
+    return new Lines(this.s, this.pos);
+  }
+
+  /** `.count()` (consumes the iterator). */
+  count(): number {
+    let k = 0;
+    while (this.next() !== undefined) k++;
+    return k;
+  }
+}
+
+/** `str::trim` (`char::is_whitespace`) for a JS string. */
+export function string_trim(s: string): string {
+  const cps = Array.from(s);
+  let i = 0;
+  let j = cps.length;
+  while (i < j && is_whitespace(cps[i]!.codePointAt(0)!)) i++;
+  while (j > i && is_whitespace(cps[j - 1]!.codePointAt(0)!)) j--;
+  return cps.slice(i, j).join("");
 }

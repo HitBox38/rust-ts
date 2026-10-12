@@ -20,6 +20,7 @@ import {
   debug_string,
   index,
   isize_as_usize,
+  usize_display,
   range_is_empty,
   saturating_sub,
   str_char_count,
@@ -780,6 +781,8 @@ export type SplicedLines = [
 
 /// Used to translate between `Span`s and byte positions within a single output line in highlighted
 /// code of structured suggestions.
+// PORT: `start`/`end` are `usize`s that `splice_lines` may produce from a negative `isize`
+// (overlapping patches); they are kept in signed view (see `isize_as_usize` in std_ext.ts).
 export interface SubstitutionHighlight {
   readonly start: number;
   readonly end: number;
@@ -787,8 +790,8 @@ export interface SubstitutionHighlight {
 
 export const debug_SubstitutionHighlight: Debug<SubstitutionHighlight> = (v, f) =>
   debug_struct(f, "SubstitutionHighlight", [
-    ["start", String(v.start)],
-    ["end", String(v.end)],
+    ["start", usize_display(v.start)],
+    ["end", usize_display(v.end)],
   ]);
 
 export class TrimmedPatch {
