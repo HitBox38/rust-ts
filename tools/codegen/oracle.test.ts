@@ -1,6 +1,6 @@
 // derive(Debug) fidelity of tools/codegen/types.ts against the oracle: fixtures/mini.rs is run through
 // the typedefs probe + generator, and also compiled with the pinned nightly; the generated Debug fns
-// must print the same `{:?}` / `{:#?}` text for the same values. Skips if the probe isn't built.
+// must print the same `{:?}` / `{:#?}` text for the same values. Skips (visibly) if the probe isn't built, fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,13 +10,16 @@ import { generate, loadTypeMap, writeStubs, type ProbeJson } from "./types.ts";
 
 const MINI = join(import.meta.dir, "fixtures", "mini.rs");
 const PROBE = join(DATA, "target", "probes", "release", "typedefs" + (process.platform === "win32" ? ".exe" : ""));
+// Missing probe: a visible skip, or a failure under RUST_TS_REQUIRE_PROBES=1 (gate hosts build the probes).
+const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
+const SKIP = !existsSync(PROBE) && !REQUIRE_PROBES;
+if (SKIP) console.log("SKIP: typedefs probe not built (bun scripts/probes.ts build typedefs); RUST_TS_REQUIRE_PROBES=1 makes this a failure");
 
-test(
+test.skipIf(SKIP)(
   "generated derive(Debug) matches rustc on fixtures/mini.rs",
   async () => {
     if (!existsSync(PROBE)) {
-      console.log("SKIP: typedefs probe not built (bun scripts/probes.ts build typedefs)");
-      return;
+      throw new Error(`ERROR: typedefs probe not built (${PROBE}) and RUST_TS_REQUIRE_PROBES=1`);
     }
     const work = join(DATA, "tmp", "codegen-oracle", process.env.RUST_TS_AGENT ?? "default");
     rmSync(work, { recursive: true, force: true });

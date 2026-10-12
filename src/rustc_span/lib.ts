@@ -1661,6 +1661,22 @@ export class OffsetOverflowError {}
 export const debug_OffsetOverflowError = (_v: OffsetOverflowError): string => "OffsetOverflowError";
 
 export type SourceFileHashAlgorithm = "Md5" | "Sha1" | "Sha256" | "Blake3";
+
+// rustc: compiler/rustc_span/src/lib.rs:1734 fmt
+/** `impl Display for SourceFileHashAlgorithm` */
+export function display_SourceFileHashAlgorithm(self: SourceFileHashAlgorithm): string {
+  switch (self) {
+    case "Md5":
+      return "md5";
+    case "Sha1":
+      return "sha1";
+    case "Sha256":
+      return "sha256";
+    case "Blake3":
+      return "blake3";
+  }
+}
+
 export const SourceFileHashAlgorithm = {
   Md5: "Md5",
   Sha1: "Sha1",
@@ -1684,21 +1700,6 @@ export const SourceFileHashAlgorithm = {
   },
 } as const;
 
-// rustc: compiler/rustc_span/src/lib.rs:1734 fmt
-/** `impl Display for SourceFileHashAlgorithm` */
-export function display_SourceFileHashAlgorithm(self: SourceFileHashAlgorithm): string {
-  switch (self) {
-    case "Md5":
-      return "md5";
-    case "Sha1":
-      return "sha1";
-    case "Sha256":
-      return "sha256";
-    case "Blake3":
-      return "blake3";
-  }
-}
-
 /** PORT: io::Read source for `SourceFileHash::new`; `io::Error` is opaque. */
 export interface Read {
   read(buf: Uint8Array): Result<number, unknown>;
@@ -1716,6 +1717,16 @@ function crypto_hasher(kind: SourceFileHashAlgorithm): Bun.CryptoHasher {
     case "Blake3":
       return unported("blake3::hash");
   }
+}
+
+// rustc: compiler/rustc_span/src/lib.rs:1767 fmt
+/** `impl Display for SourceFileHash` */
+export function display_SourceFileHash(self: SourceFileHash): string {
+  let s = `${display_SourceFileHashAlgorithm(self.kind)}=`;
+  for (const byte of self.value.subarray(0, self.hash_len())) {
+    s += byte.toString(16).padStart(2, "0");
+  }
+  return s;
 }
 
 /// The hash of the on-disk source file used for debug info and cargo freshness checks.
@@ -1800,16 +1811,6 @@ export function SourceFileHash_eq(a: SourceFileHash, b: SourceFileHash): boolean
   if (a.kind !== b.kind) return false;
   for (let i = 0; i < 32; i++) if (a.value[i] !== b.value[i]) return false;
   return true;
-}
-
-// rustc: compiler/rustc_span/src/lib.rs:1767 fmt
-/** `impl Display for SourceFileHash` */
-export function display_SourceFileHash(self: SourceFileHash): string {
-  let s = `${display_SourceFileHashAlgorithm(self.kind)}=`;
-  for (const byte of self.value.subarray(0, self.hash_len())) {
-    s += byte.toString(16).padStart(2, "0");
-  }
-  return s;
 }
 
 export const debug_SourceFileHash: Debug<SourceFileHash> = (v, f) =>
@@ -1908,6 +1909,8 @@ export class SourceFile {
       this.start_pos,
       this.normalized_source_len,
       this.unnormalized_source_len,
+      // PORT: upstream clones the `SourceFileLines` vector; it is shared here, which is
+      // unobservable while frozen lines are never mutated (review w23a, batch 1 #3).
       this.lines_.clone((v) => v),
       this.multibyte_chars.slice(),
       this.normalized_pos.slice(),
@@ -2297,6 +2300,8 @@ export class SourceFile {
   }
 }
 
+// PORT: `impl Debug for SourceFile` sits between upstream impl blocks that PORTING §8 merges into
+// the `SourceFile` class (lib.rs:1976.. and 2147..2516), so no position keeps the markers monotonic.
 // rustc: compiler/rustc_span/src/lib.rs:2116 fmt
 /** `impl fmt::Debug for SourceFile` */
 export function debug_SourceFile(self: SourceFile, _f: Fmt): string {

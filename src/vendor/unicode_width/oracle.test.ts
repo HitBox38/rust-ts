@@ -1,5 +1,5 @@
 // rust-ts: `UnicodeWidthChar::width`/`width_cjk` for every scalar value against the oracle
-// (the `uwidth` probe, unicode-width =0.2.2). Skips if the probe isn't built.
+// (the `uwidth` probe, unicode-width =0.2.2). Skips (visibly) if the probe isn't built, fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -7,11 +7,14 @@ import { DATA } from "../../../scripts/lib/common.ts";
 import { UNICODE_VERSION, UnicodeWidthChar } from "./lib.ts";
 
 const PROBE = join(DATA, "target", "probes", "release", "uwidth" + (process.platform === "win32" ? ".exe" : ""));
+// Missing probe: a visible skip, or a failure under RUST_TS_REQUIRE_PROBES=1 (gate hosts build the probes).
+const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
+const SKIP = !existsSync(PROBE) && !REQUIRE_PROBES;
+if (SKIP) console.log("SKIP: uwidth probe not built (bun scripts/probes.ts build uwidth); RUST_TS_REQUIRE_PROBES=1 makes this a failure");
 
-test("width/width_cjk match the oracle for all scalars", () => {
+test.skipIf(SKIP)("width/width_cjk match the oracle for all scalars", () => {
   if (!existsSync(PROBE)) {
-    console.log("SKIP: uwidth probe not built (bun scripts/probes.ts build uwidth)");
-    return;
+    throw new Error(`ERROR: uwidth probe not built (${PROBE}) and RUST_TS_REQUIRE_PROBES=1`);
   }
   const r = Bun.spawnSync([PROBE], { stdout: "pipe" });
   expect(r.exitCode).toBe(0);
