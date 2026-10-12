@@ -1,13 +1,9 @@
 // Port of compiler/rustc_errors/src/diagnostic_impls.rs.
 import type { DiagArgValue, PathBuf } from "../rustc_error_messages/lib.ts";
 import type { MutRef } from "../rustc_span/hygiene.ts";
-import { unported } from "../std/panic.ts";
 import { type DiagLocation, type Subdiagnostic, type Diag, display_DiagLocation } from "./diagnostic.ts";
 import type {
   DiagSymbolList,
-  ElidedLifetimeInPathSubdiag,
-  ExpectedLifetimeParameter,
-  IndicateAnonymousLifetime,
   SingleLabelManySpans,
 } from "./diagnostic_impls.gen.ts";
 
@@ -52,20 +48,5 @@ export function SingleLabelManySpans_subdiagnostic(self: SingleLabelManySpans): 
   return { add_to_diag: (diag) => SingleLabelManySpans_add_to_diag(self, diag) };
 }
 
-// PORT: `#[derive(Subdiagnostic)]` (rustc_macros) is not generated yet (PORTING §5 "Macros inside
-// rustc"), so these `add_to_diag` impls are `unported`.
-
-/** `#[derive(Subdiagnostic)] #[label("expected lifetime {$count -> ...}")] ExpectedLifetimeParameter` */
-export function ExpectedLifetimeParameter_subdiagnostic(_self: ExpectedLifetimeParameter): Subdiagnostic {
-  return { add_to_diag: () => unported("#[derive(Subdiagnostic)] ExpectedLifetimeParameter") };
-}
-
-/** `#[derive(Subdiagnostic)] #[suggestion("indicate the anonymous ...")] IndicateAnonymousLifetime` */
-export function IndicateAnonymousLifetime_subdiagnostic(_self: IndicateAnonymousLifetime): Subdiagnostic {
-  return { add_to_diag: () => unported("#[derive(Subdiagnostic)] IndicateAnonymousLifetime") };
-}
-
-/** `#[derive(Subdiagnostic)] ElidedLifetimeInPathSubdiag` */
-export function ElidedLifetimeInPathSubdiag_subdiagnostic(_self: ElidedLifetimeInPathSubdiag): Subdiagnostic {
-  return { add_to_diag: () => unported("#[derive(Subdiagnostic)] ElidedLifetimeInPathSubdiag") };
-}
+// The `#[derive(Subdiagnostic)]` impls of `ExpectedLifetimeParameter`, `IndicateAnonymousLifetime` and
+// `ElidedLifetimeInPathSubdiag` are generated into diagnostic_impls.gen.ts.

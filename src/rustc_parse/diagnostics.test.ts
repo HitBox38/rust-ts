@@ -8,7 +8,8 @@
 // taken from its `spans` (inputs quoted per case).
 import { expect, test } from "bun:test";
 import { format_diag_message } from "../rustc_errors/formatting.ts";
-import { DiagCtxt, DiagCtxtFlags_default, type DiagInner, type Emitter, display_ErrCode, Level } from "../rustc_errors/lib.ts";
+import { DiagCtxt, DiagCtxtFlags_default, type DiagInner, display_ErrCode, Level } from "../rustc_errors/lib.ts";
+import { Emitter } from "../rustc_errors/emitter.ts";
 import { BytePos, create_default_session_globals_then, Span } from "../rustc_span/lib.ts";
 import {
   AmbiguousPlus_into_diag,
@@ -32,7 +33,7 @@ interface Recorded {
 
 const lohi = (s: Span): SpanT => [Span.lo(s) as number, Span.hi(s) as number];
 
-class RecordingEmitter implements Emitter {
+class RecordingEmitter extends Emitter {
   readonly out: Recorded[] = [];
   emit_diagnostic(diag: DiagInner): void {
     const fmt = (m: Parameters<typeof format_diag_message>[0]) => format_diag_message(m, diag.args);
@@ -54,16 +55,6 @@ class RecordingEmitter implements Emitter {
             })),
       args: [...diag.args.keys()],
     });
-  }
-  emit_artifact_notification(): void {}
-  emit_timing_section(): void {}
-  emit_future_breakage_report(): void {}
-  emit_unused_externs(): void {}
-  should_show_explain(): boolean {
-    return true;
-  }
-  supports_color(): boolean {
-    return false;
   }
   source_map(): undefined {
     return undefined;
