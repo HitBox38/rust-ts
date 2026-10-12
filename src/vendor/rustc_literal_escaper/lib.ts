@@ -11,7 +11,7 @@
 // items; their provided (default) methods become functions taking the impl table as `Self`.
 // Methods of fieldless enums become free functions `<Enum>_<method>(self)`.
 
-import { from_u32, is_ascii, len_utf8 } from "../../std/char.ts";
+import { from_u32, is_ascii, is_whitespace, len_utf8, to_digit } from "../../std/char.ts";
 import { debug_char, debug_int, debug_tuple, type Debug } from "../../std/fmt.ts";
 import { unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
@@ -582,7 +582,7 @@ function skip_ascii_whitespace(chars: Chars, start: number, callback: (start: nu
   chars.pos = rest_.lo;
   const c = chars.clone().next();
   if (c !== undefined) {
-    if (char_is_whitespace(c)) {
+    if (is_whitespace(c)) {
       // for error reporting, include the character that was not skipped in the span
       callback(start, end + len_utf8(c), EscapeError.UnskippedWhitespaceWarning);
     }
@@ -807,37 +807,4 @@ export function check_for_errors(src: Str, mode: Mode, error_callback: (start: n
       });
       break;
   }
-}
-
-// PORT: core helpers this crate calls that src/std does not provide yet (src/std is root-owned;
-// see docs/handoff/escaper.md). Both are exact ports of core's behavior.
-
-/// `char::to_digit(self, radix)` (library/core/src/char/methods.rs:409 at the pin).
-function to_digit(c: number, radix: number): number | undefined {
-  // assert!(radix >= 2 && radix <= 36): every caller here passes 16.
-  // check radix to remove letter handling code when radix is a known constant
-  const value =
-    c > 0x39 /* '9' */ && radix > 10
-      ? // mask to convert ASCII letters to uppercase (!0b0010_0000), wrapping u32 arithmetic
-        (((c - 0x41) /* 'A' */ & ~0x20) >>> 0) + 10
-      : // convert digit to value, non-digits wrap to values > 36
-        (c - 0x30) /* '0' */ >>> 0;
-  return value < radix ? value : undefined;
-}
-
-/// `char::is_whitespace` (Unicode `White_Space`; table checked against the pinned oracle).
-function char_is_whitespace(c: number): boolean {
-  if (c === 0x20 || (c >= 0x09 && c <= 0x0d)) return true;
-  if (c <= 0x7f) return false;
-  return (
-    c === 0x85 ||
-    c === 0xa0 ||
-    c === 0x1680 ||
-    (c >= 0x2000 && c <= 0x200a) ||
-    c === 0x2028 ||
-    c === 0x2029 ||
-    c === 0x202f ||
-    c === 0x205f ||
-    c === 0x3000
-  );
 }

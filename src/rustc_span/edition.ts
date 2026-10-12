@@ -1,4 +1,5 @@
 import { Err, Ok, type Result } from "../std/result.ts";
+import type { Fmt } from "../std/fmt.ts";
 
 /// The edition of the compiler. (See [RFC 2052](https://rust-lang.github.io/rfcs/2052-epochs.html).)
 export type Edition =
@@ -64,7 +65,7 @@ export function Edition_discriminant(e: Edition): number {
 }
 
 /** `#[derive(Debug)]`: the variant name. */
-export function debug_Edition(e: Edition): string {
+export function debug_Edition(e: Edition, _f?: Fmt): string {
   return e;
 }
 

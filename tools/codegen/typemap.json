@@ -15,14 +15,15 @@
     "false": ["debug_assertions", "test", "bootstrap", "doc", "miri", "feature = \"rustc_randomized_layouts\""]
   },
   "helpers": {
-    "src/std/fmt.ts": ["debug_struct", "debug_tuple", "debug_list", "debug_set", "debug_map", "debug_option", "debug_vec", "debug_bool", "debug_int", "debug_str", "debug_char"],
+    "src/std/fmt.ts": ["debug_struct", "debug_tuple", "debug_list", "debug_set", "debug_map", "debug_option", "debug_vec", "debug_bool", "debug_int", "debug_str", "debug_char", "debug_f64", "debug_f32"],
     "src/std/result.ts": ["debug_result"]
   },
   "types": [
     { "paths": ["u8", "u16", "u32", "usize", "i8", "i16", "i32", "isize"], "ts": "number", "debug": "debug_int($v, $f)" },
     { "paths": ["u64", "i64"], "ts": "number", "debug": "debug_int($v, $f)", "note": "PORT: u64/i64 as number (values < 2^53); switch to bigint per field if not" },
     { "paths": ["u128", "i128", "rustc_data_structures::packed::Pu128"], "ts": "bigint", "debug": "debug_int($v, $f)" },
-    { "paths": ["f32", "f64"], "ts": "number", "debug": null, "note": "needs a float Debug helper in src/std/fmt.ts" },
+    { "paths": ["f64"], "ts": "number", "debug": "debug_f64($v, $f)" },
+    { "paths": ["f32"], "ts": "number", "debug": "debug_f32($v, $f)" },
     { "paths": ["bool"], "ts": "boolean", "debug": "debug_bool($v, $f)" },
     { "paths": ["char"], "ts": "number", "debug": "debug_char($v)" },
     { "paths": ["str", "String"], "ts": "string", "debug": "debug_str($v)" },
@@ -37,7 +38,7 @@
     { "paths": ["rustc_data_structures::fx::FxIndexMap", "indexmap::IndexMap"], "ts": "Map<$0, $1>", "debug": "debug_map($f, [...$v].map(([k, x]) => [$d0(k, $f), $d1(x, $f)]))" },
     { "paths": ["std::str::Chars"], "ts": "Chars", "import": "src/std/str.ts", "types": ["Chars"], "debug": null },
 
-    { "paths": ["rustc_span::Span", "rustc_span::span_encoding::Span"], "ts": "Span", "import": "src/rustc_span/span_encoding.ts", "types": ["Span"], "values": ["debug_Span"], "debug": "debug_Span($v, $f)" },
+    { "paths": ["rustc_span::Span", "rustc_span::span_encoding::Span"], "ts": "Span", "import": "src/rustc_span/lib.ts", "types": ["Span"], "values": ["debug_Span"], "debug": "debug_Span($v, $f)" },
     { "paths": ["rustc_span::Symbol", "rustc_span::symbol::Symbol"], "ts": "Symbol", "import": "src/rustc_span/symbol.ts", "types": ["Symbol"], "values": ["debug_Symbol"], "debug": "debug_Symbol($v, $f)" },
     { "paths": ["rustc_span::ByteSymbol", "rustc_span::symbol::ByteSymbol"], "ts": "ByteSymbol", "import": "src/rustc_span/symbol.ts", "types": ["ByteSymbol"], "values": ["debug_ByteSymbol"], "debug": "debug_ByteSymbol($v, $f)" },
     { "paths": ["rustc_span::Ident", "rustc_span::symbol::Ident"], "ts": "Ident", "import": "src/rustc_span/symbol.ts", "types": ["Ident"], "values": ["debug_Ident"], "debug": "debug_Ident($v, $f)" },

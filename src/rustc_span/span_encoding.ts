@@ -32,7 +32,7 @@ import { debug_tuple, type Fmt } from "../std/fmt.ts";
 import { Err, type Result } from "../std/result.ts";
 import { unreachable } from "../std/panic.ts";
 import type { LocalDefId } from "./def_id.ts";
-import type { SyntaxContext } from "./hygiene.ts";
+import { SyntaxContext } from "./hygiene.ts";
 import { debug_Span, SPAN_TRACK, SpanData, with_session_globals, type BytePos } from "./lib.ts";
 
 /// A compressed span.
@@ -65,15 +65,6 @@ export declare namespace Span {
   export let parent: (self: Span) => LocalDefId | undefined;
 }
 
-// PORT: wave-1 stand-ins for `SyntaxContext` helpers owned by lane span-hygiene (hygiene.ts is a
-// type-only stub while the lanes run in parallel). Upstream `SyntaxContext` is `struct
-// SyntaxContext(u32)`; these are its trivial newtype ops (hygiene.rs `root`, `from_u32`,
-// `from_u16`, `as_u32`, `is_root`). Root: replace with the hygiene.ts exports at integration.
-export const SyntaxContext_root = (): SyntaxContext => 0 as SyntaxContext;
-export const SyntaxContext_from_u32 = (n: number): SyntaxContext => n as SyntaxContext;
-export const SyntaxContext_as_u32 = (c: SyntaxContext): number => c;
-export const SyntaxContext_is_root = (c: SyntaxContext): boolean => c === SyntaxContext_root();
-
 // `SyntaxContext` (`SpanData::ctxt`) and `LocalDefId` (within `SpanData::parent`) aren't orderable.
 // If you want to order spans just on `lo`/`hi`, use explicit comparisons involving `Span::lo_hi`.
 // Or you can wrap your span within `OrdSpan` which impls `PartialOrd`/`Ord` via `Span::lo_hi`.
@@ -91,7 +82,7 @@ export const SyntaxContext_is_root = (c: SyntaxContext): boolean => c === Syntax
 let DUMMY_SPAN_DATA: SpanData | undefined;
 /** The `SpanData` of `DUMMY_SP` (created lazily: `SpanData` lives in lib.ts, an import cycle). */
 function dummy_span_data(): SpanData {
-  return (DUMMY_SPAN_DATA ??= new SpanData(0 as BytePos, 0 as BytePos, SyntaxContext_root(), undefined));
+  return (DUMMY_SPAN_DATA ??= new SpanData(0 as BytePos, 0 as BytePos, SyntaxContext.root(), undefined));
 }
 
 class Interned {
@@ -133,7 +124,7 @@ export const DUMMY_SP = 0 as Span;
 
   // PORT: the inline formats are not used (see top); every span is interned, except the dummy
   // span, which (like upstream's inline encoding) needs no session globals.
-  if (lo === 0 && hi === 0 && ctxt === SyntaxContext_root() && parent === undefined) {
+  if (lo === 0 && hi === 0 && ctxt === SyntaxContext.root() && parent === undefined) {
     return DUMMY_SP;
   }
   const index = with_span_interner((interner) => interner.intern(new SpanData(lo, hi, ctxt, parent)));
@@ -160,7 +151,7 @@ Span.data_untracked = function (self: Span): SpanData {
 // rustc: compiler/rustc_span/src/span_encoding.rs:330 from_expansion
 Span.from_expansion = function (self: Span): boolean {
   const ctxt = Interned.from_span(self).data().ctxt;
-  return !SyntaxContext_is_root(ctxt);
+  return !SyntaxContext.is_root(ctxt);
 };
 
 /// Returns `true` if this is a dummy span with any hygienic context.
@@ -283,7 +274,7 @@ export class SpanInterner {
     for (;;) {
       const entry = this.table[slot]!;
       if (entry === 0) break;
-      if (span_data_eq(this.spans[entry - 1]!, span_data)) return entry - 1;
+      if (SpanData_eq(this.spans[entry - 1]!, span_data)) return entry - 1;
       slot = (slot + 1) & mask;
     }
     const index = this.spans.length;
@@ -319,7 +310,7 @@ function hash_span_data(d: SpanData): number {
 }
 
 /** `#[derive(PartialEq)] for SpanData`. */
-export function span_data_eq(a: SpanData, b: SpanData): boolean {
+export function SpanData_eq(a: SpanData, b: SpanData): boolean {
   return a.lo === b.lo && a.hi === b.hi && a.ctxt === b.ctxt && parent_index(a.parent) === parent_index(b.parent);
 }
 

@@ -42,50 +42,15 @@ import {
   newtype_index,
   StableCrateId,
 } from "./def_id.ts";
-import type { Edition } from "./edition.ts";
-import { with_session_globals } from "./lib.ts";
-import { DUMMY_SP, type Span } from "./span_encoding.ts";
-import { kw, sym, type Symbol } from "./symbol.ts";
+import { debug_Edition, type Edition } from "./edition.ts";
+import { debug_Span, type SourceMap, with_session_globals } from "./lib.ts";
+import { DUMMY_SP, Span } from "./span_encoding.ts";
+import { debug_Symbol, display_Symbol, kw, sym, type Symbol } from "./symbol.ts";
 
-// ---------------------------------------------------------------------------------------------
-// PORT: contract seams. These upstream items live in files owned by other lanes and are not
-// (yet) part of docs/contracts/rustc_span.md, so their TS shape is unknown here. Each seam is
-// the single place root wires to the real export after the wave merges.
-// ---------------------------------------------------------------------------------------------
-
-/// `Span::ctxt` (span_encoding.rs)
-function span_ctxt(_span: Span): SyntaxContext {
-  unported("rustc_span::Span::ctxt (contract seam in hygiene.ts)");
-}
-/// `Span::from_expansion` (span_encoding.rs)
-function span_from_expansion(_span: Span): boolean {
-  unported("rustc_span::Span::from_expansion (contract seam in hygiene.ts)");
-}
-/// `Span::is_dummy` (span_encoding.rs)
-function span_is_dummy(_span: Span): boolean {
-  unported("rustc_span::Span::is_dummy (contract seam in hygiene.ts)");
-}
-/// `Span::apply_mark` (lib.rs)
-function span_apply_mark(_span: Span, _expn_id: ExpnId, _transparency: Transparency): Span {
-  unported("rustc_span::Span::apply_mark (contract seam in hygiene.ts)");
-}
-/// `<Span as Debug>::fmt` (lib.rs)
-const debug_Span: Debug<Span> = () => unported("rustc_span::Span as Debug (contract seam in hygiene.ts)");
-/// `<Symbol as Display>::fmt` (symbol.rs)
-function symbol_to_string(_sym: Symbol): string {
-  unported("rustc_span::Symbol as Display (contract seam in hygiene.ts)");
-}
-/// `<Symbol as Debug>::fmt` (symbol.rs)
-const debug_Symbol: Debug<Symbol> = () => unported("rustc_span::Symbol as Debug (contract seam in hygiene.ts)");
-/// `SourceMap` (source_map.rs, wave 2)
-export type SourceMap = unknown;
 /// `SourceMap::is_imported` (source_map.rs, wave 2)
 function sm_is_imported(_sm: SourceMap, _sp: Span): boolean {
   unported("rustc_span::source_map::SourceMap::is_imported");
 }
-/// `<Edition as Debug>::fmt`: derived on a fieldless enum, i.e. the variant name, which is the
-/// string-union value itself (PORTING §5 enums).
-const debug_Edition: Debug<Edition> = (v) => v;
 
 /// PORT: stand-in for `rustc_data_structures::stable_hash::StableHashCtxt` (only what this file calls).
 export interface StableHashCtxt {
@@ -465,7 +430,7 @@ export class ExpnId {
       if (ExpnKind_eq(expn_data.kind, { $: "Macro", _0: MacroKind.Bang, _1: sym.include })) {
         break;
       }
-      self_ = SyntaxContext.outer_expn(span_ctxt(expn_data.call_site));
+      self_ = SyntaxContext.outer_expn(Span.ctxt(expn_data.call_site));
       last_macro = expn_data.call_site;
     }
     return last_macro;
@@ -619,8 +584,8 @@ export class HygieneData {
   walk_chain(span: Span, to: SyntaxContext): Span {
     // debug!("walk_chain({:?}, {:?})", span, to);
     // debug!("walk_chain: span ctxt = {:?}", span.ctxt());
-    while (span_ctxt(span) !== to && span_from_expansion(span)) {
-      const outer_expn = this.outer_expn(span_ctxt(span));
+    while (Span.ctxt(span) !== to && Span.from_expansion(span)) {
+      const outer_expn = this.outer_expn(Span.ctxt(span));
       // debug!("walk_chain({:?}): outer_expn={:?}", span, outer_expn);
       const expn_data = this.expn_data(outer_expn);
       // debug!("walk_chain({:?}): expn_data={:?}", span, expn_data);
@@ -636,8 +601,8 @@ export class HygieneData {
     // debug!("walk_chain_collapsed({:?}, {:?})", span, to);
     // debug!("walk_chain_collapsed: span ctxt = {:?}", span.ctxt());
     for (;;) {
-      const ctxt = span_ctxt(span);
-      if (!(!SyntaxContext.is_root(ctxt) && ctxt !== span_ctxt(to))) break;
+      const ctxt = Span.ctxt(span);
+      if (!(!SyntaxContext.is_root(ctxt) && ctxt !== Span.ctxt(to))) break;
       const outer_expn = this.outer_expn(ctxt);
       // debug!("walk_chain_collapsed({:?}): outer_expn={:?}", span, outer_expn);
       const expn_data = this.expn_data(outer_expn);
@@ -667,7 +632,7 @@ export class HygieneData {
       return this.alloc_ctxt(ctxt, expn_id, transparency);
     }
 
-    const call_site_ctxt0 = span_ctxt(this.expn_data(expn_id).call_site);
+    const call_site_ctxt0 = Span.ctxt(this.expn_data(expn_id).call_site);
     let call_site_ctxt =
       transparency === Transparency.SemiOpaque
         ? this.normalize_to_macros_2_0(call_site_ctxt0)
@@ -811,8 +776,8 @@ export function debug_hygiene_data(verbose: boolean): string {
       const debug_expn_data = ([id, expn_data]: readonly [ExpnId, ExpnData]): void => {
         s +=
           `\n${debug_ExpnId(id, PLAIN)}: parent: ${debug_ExpnId(expn_data.parent, PLAIN)}` +
-          `, call_site_ctxt: ${debug_SyntaxContext(span_ctxt(expn_data.call_site), PLAIN)}` +
-          `, def_site_ctxt: ${debug_SyntaxContext(span_ctxt(expn_data.def_site), PLAIN)}` +
+          `, call_site_ctxt: ${debug_SyntaxContext(Span.ctxt(expn_data.call_site), PLAIN)}` +
+          `, def_site_ctxt: ${debug_SyntaxContext(Span.ctxt(expn_data.def_site), PLAIN)}` +
           `, kind: ${debug_ExpnKind(expn_data.kind, PLAIN)}`;
       };
       data.local_expn_data.forEach((expn_data, id) => {
@@ -929,7 +894,7 @@ export const SyntaxContext = {
   glob_adjust(self: MutRef<SyntaxContext>, expn_id: ExpnId, glob_span: Span): { $: "Some"; _0: ExpnId | undefined } | undefined {
     return HygieneData.with((data) => {
       let scope: ExpnId | undefined = undefined;
-      const glob_ctxt = { value: data.normalize_to_macros_2_0(span_ctxt(glob_span)) };
+      const glob_ctxt = { value: data.normalize_to_macros_2_0(Span.ctxt(glob_span)) };
       while (!data.is_descendant_of(expn_id, data.outer_expn(glob_ctxt.value))) {
         scope = data.remove_mark(glob_ctxt)[0];
         if (!ExpnId_eq(data.remove_mark(self)[0], unwrap(scope))) {
@@ -957,7 +922,7 @@ export const SyntaxContext = {
         return undefined;
       }
 
-      const glob_ctxt = { value: data.normalize_to_macros_2_0(span_ctxt(glob_span)) };
+      const glob_ctxt = { value: data.normalize_to_macros_2_0(Span.ctxt(glob_span)) };
       const marks: [ExpnId, Transparency][] = [];
       while (!data.is_descendant_of(expn_id, data.outer_expn(glob_ctxt.value))) {
         marks.push(data.remove_mark(glob_ctxt));
@@ -1050,7 +1015,7 @@ export const SyntaxContext = {
       return true; // well, it's "external"
     } else if (kind.$ === "Macro" && kind._0 === MacroKind.Bang) {
       // Dummy span for the `def_site` means it's an external macro.
-      return span_is_dummy(expn_data.def_site) || sm_is_imported(sm, expn_data.def_site);
+      return Span.is_dummy(expn_data.def_site) || sm_is_imported(sm, expn_data.def_site);
     } else {
       return true; // definitely a plugin
     }
@@ -1062,10 +1027,21 @@ export const debug_SyntaxContext: Debug<SyntaxContext> = (v) => `#${v}`;
 
 /// Reuses the span but adds information like the kind of the desugaring and features that are
 /// allowed inside this span.
-// PORT: inherent method of `Span` defined in this file; Span is a branded number owned by
-// span-core, so it is a free function taking the span first.
+// PORT: `impl Span` in this file: attached to the hoisted `Span` companion (span_encoding.ts PORT
+// block), like lib.rs's `impl Span`.
+declare module "./span_encoding.ts" {
+  namespace Span {
+    export let mark_with_reason: (
+      self: Span,
+      allow_internal_unstable: readonly Symbol[] | undefined,
+      reason: DesugaringKind,
+      edition: Edition,
+      hcx: StableHashCtxt,
+    ) => Span;
+  }
+}
 // rustc: compiler/rustc_span/src/hygiene.rs:964 mark_with_reason
-export function mark_with_reason(
+Span.mark_with_reason = function (
   self: Span,
   allow_internal_unstable: readonly Symbol[] | undefined,
   reason: DesugaringKind,
@@ -1089,8 +1065,8 @@ export function mark_with_reason(
     d.diagnostic_opaque,
   );
   const expn_id = LocalExpnId.fresh(expn_data, hcx);
-  return span_apply_mark(self, LocalExpnId.to_expn_id(expn_id), Transparency.Transparent);
-}
+  return Span.apply_mark(self, LocalExpnId.to_expn_id(expn_id), Transparency.Transparent);
+};
 
 /// A subset of properties from both macro definition and macro call available through global data.
 /// Avoid using this if you have access to the original definition or call structures.
@@ -1288,13 +1264,13 @@ export const ExpnKind = {
   descr(self: ExpnKind): string {
     switch (self.$) {
       case "Root":
-        return symbol_to_string(kw.PathRoot);
+        return display_Symbol(kw.PathRoot);
       case "Macro": {
         const macro_kind = self._0;
         const name = self._1;
-        if (macro_kind === "Bang") return `${symbol_to_string(name)}!`;
-        if (macro_kind === "Attr") return `#[${symbol_to_string(name)}]`;
-        return `#[derive(${symbol_to_string(name)})]`;
+        if (macro_kind === "Bang") return `${display_Symbol(name)}!`;
+        if (macro_kind === "Attr") return `#[${display_Symbol(name)}]`;
+        return `#[derive(${display_Symbol(name)})]`;
       }
       case "AstPass":
         return AstPass.descr(self._0);

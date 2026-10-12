@@ -1,22 +1,9 @@
 // Port of compiler/rustc_span/src/edit_distance/tests.rs
 import { expect, test } from "bun:test";
 import { from_u32 } from "../../std/char.ts";
-import { Unported } from "../../std/panic.ts";
 import { create_default_session_globals_then } from "../lib.ts";
 import { Symbol } from "../symbol.ts";
 import { edit_distance, edit_distance_with_substrings, find_best_match_for_name, usize_MAX } from "../edit_distance.ts";
-
-// PORT: tests that need session globals (lane span-core) are skipped while
-// `create_default_session_globals_then` is still unported; they run automatically afterwards.
-const globals_unported = (() => {
-  try {
-    create_default_session_globals_then(() => {});
-    return false;
-  } catch (e) {
-    if (e instanceof Unported) return true;
-    throw e;
-  }
-})();
 
 // rustc: compiler/rustc_span/src/edit_distance/tests.rs:6 test_edit_distance
 test("test_edit_distance", () => {
@@ -59,7 +46,7 @@ test("test_method_name_similarity_score", () => {
 });
 
 // rustc: compiler/rustc_span/src/edit_distance/tests.rs:43 test_find_best_match_for_name
-test.skipIf(globals_unported)("test_find_best_match_for_name", () => {
+test("test_find_best_match_for_name", () => {
   create_default_session_globals_then(() => {
     let input = [Symbol.intern("aaab"), Symbol.intern("aaabc")];
     expect(find_best_match_for_name(input, Symbol.intern("aaaa"), undefined)).toBe(Symbol.intern("aaab"));
