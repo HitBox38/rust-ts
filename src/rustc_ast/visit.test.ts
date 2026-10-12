@@ -3,7 +3,7 @@
 // ASTs are built by hand; the parts a test never walks are opaque stand-ins (`opaque<T>()`), and the
 // hooks that would reach them are overridden. Comments cite the upstream lines each assertion follows.
 import { describe, expect, test } from "bun:test";
-import { ControlFlow, VisitorResult } from "../rustc_ast_ir/visit.ts";
+import { ControlFlow, UNIT_RESULT_MISMATCH, VisitorResult } from "../rustc_ast_ir/visit.ts";
 import type { Span } from "../rustc_span/span_encoding.ts";
 import { Ident, type Symbol } from "../rustc_span/symbol.ts";
 import { Panic } from "../std/panic.ts";
@@ -272,6 +272,38 @@ describe("Visitor (visit.rs)", () => {
     expect(v.seen).toEqual([1, 2, 4, 5]); // lit 6 is never reached
     const w = new FindId();
     expect(w.visit_expr(lit(9))).toBe(ControlFlow.CONTINUE); // `V::Result::output()`
+  });
+
+  test("ControlFlow<()> Break with an `undefined` payload still stops the walk (try_visit returns from_residual)", () => {
+    class FindUnit extends Visitor<ControlFlow<undefined>> {
+      override Result = VisitorResult.ControlFlow<undefined>();
+      seen: number[] = [];
+      override visit_id(id: NodeId): ControlFlow<undefined> {
+        this.seen.push(id);
+        return id === 4 ? ControlFlow.Break(undefined) : ControlFlow.CONTINUE;
+      }
+    }
+    const v = new FindUnit();
+    const tree = expr(1, { $: "Tup", _0: [lit(2), lit(4), lit(6)] });
+    expect(v.visit_expr(tree)).toEqual({ $: "Break", _0: undefined });
+    expect(v.seen).toEqual([1, 2, 4]); // lit 6 is never reached
+  });
+
+  // Review w456a ast-visit M1 (reviewer's tmp/review-w456a/ast-visit/footgun.ts): rustc rejects a
+  // visitor whose hooks return `ControlFlow` while `type Result` is `()`; the port panics instead of
+  // silently turning the Break into Continue.
+  test("a ControlFlow visitor that forgot `override Result` panics instead of dropping the Break", () => {
+    class Find extends Visitor<ControlFlow<NodeId>> {
+      override visit_id(id: NodeId): ControlFlow<NodeId> {
+        return ControlFlow.Break(id);
+      }
+    }
+    const e = expr(1, { $: "Paren", _0: expr(2, { $: "Underscore" }) });
+    expect(() => walk_expr(new Find(), e)).toThrow(new Panic(UNIT_RESULT_MISMATCH));
+    // A `()` visitor returning `Continue` objects is caught too, and `from_branch` rejects a Break.
+    expect(() => VisitorResult.unit.branch(ControlFlow.CONTINUE as never)).toThrow(new Panic(UNIT_RESULT_MISMATCH));
+    expect(() => VisitorResult.unit.from_branch(ControlFlow.Break(0) as never)).toThrow(new Panic(UNIT_RESULT_MISMATCH));
+    expect(VisitorResult.unit.from_branch(ControlFlow.CONTINUE as never)).toBeUndefined();
   });
 
   test("Result<(), E> result maps Break to Err (rustc_ast_ir visit.rs:44-65)", () => {

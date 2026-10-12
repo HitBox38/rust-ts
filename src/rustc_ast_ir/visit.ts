@@ -5,6 +5,7 @@
 // A visitor names its `type Result` by carrying the impl object in its `Result` property (see
 // rustc_ast/visit.ts `Visitor`), so `V::Result::output()` is `visitor.Result.output()`.
 // `()` is `undefined`.
+import { panic } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 
 // PORT: `core::ops::ControlFlow<B, C = ()>`, encoded like every ported enum. Pending a home in src/std
@@ -35,6 +36,13 @@ export interface VisitorResult<Self, Residual> {
 }
 
 // PORT: `impl VisitorResult for ()`: `type Residual = !` -> `never`.
+// PORT: rustc rejects at compile time a visitor whose hooks return `ControlFlow`/`Result` while its
+// `type Result` is still the `()` default. TS cannot: a visitor that forgot `override Result = ...`
+// would inherit this impl, whose `branch` turns every `Break`/`Err` into `Continue`, silently
+// dropping it (review w456a ast-visit M1). So `branch` and `from_branch` panic (ICE) on anything but
+// `()` (`undefined`) / `Continue`, which upstream makes unrepresentable.
+export const UNIT_RESULT_MISMATCH =
+  "visitor returned a value but its `Result` is `()`: set `override Result = VisitorResult.ControlFlow<T>()` (or `.Result<E>()`)";
 const VisitorResult_unit: VisitorResult<undefined, never> = {
   // rustc: compiler/rustc_ast_ir/src/visit.rs:19 output
   output(): undefined {
@@ -45,11 +53,13 @@ const VisitorResult_unit: VisitorResult<undefined, never> = {
     return undefined;
   },
   // rustc: compiler/rustc_ast_ir/src/visit.rs:21 from_branch
-  from_branch(_: ControlFlow<never>): undefined {
+  from_branch(b: ControlFlow<never>): undefined {
+    if (b.$ !== "Continue") panic(UNIT_RESULT_MISMATCH);
     return undefined;
   },
   // rustc: compiler/rustc_ast_ir/src/visit.rs:22 branch
-  branch(_self: undefined): ControlFlow<never> {
+  branch(self: undefined): ControlFlow<never> {
+    if (self !== undefined) panic(UNIT_RESULT_MISMATCH);
     return ControlFlow.CONTINUE;
   },
 };
