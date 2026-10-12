@@ -23,3 +23,4 @@
 {"ts":"2026-10-12T20:19:32.500Z","kind":"decision","msg":"cfg!(windows)/cfg(target_os) in ported code reads process.platform; the oracle host is macOS."}
 {"ts":"2026-10-12T20:19:32.509Z","kind":"decision","msg":"rustc_ast_ir/visit.ts (VisitorResult, try_visit) ported by ast-visit is accepted as part of that lane; ControlFlow moves to src/std/ops.ts in the std-helpers follow-up."}
 {"ts":"2026-10-12T20:19:32.518Z","kind":"decision","msg":"Vendor markers: '// crate-skip: <crate>-<ver>/<path>:<line> <name> <reason>' is the vendor analogue of rustc-skip. coverage.ts does not count vendor markers yet (queued harness item)."}
+{"ts":"2026-10-12T20:31:15.144Z","kind":"decision","msg":"harness-fluent accepted after review (harness-fluent.md, harness-fluent-2.md); residual LOW (verbatim END-marker can shrink a guarded block, build.rs) queued as a harness follow-up."}
