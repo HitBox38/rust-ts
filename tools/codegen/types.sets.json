@@ -111,14 +111,5 @@
     "hand": [],
     "discriminant": [],
     "skip": []
-  },
-  "rustc_session": {
-    "files": [
-      "compiler/rustc_session/src/diagnostics.rs"
-    ],
-    "class": [],
-    "hand": [],
-    "discriminant": [],
-    "skip": []
   }
 }

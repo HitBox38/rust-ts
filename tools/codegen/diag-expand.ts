@@ -1,9 +1,9 @@
 // Checks tools/codegen/diagnostics.ts against the real `#[derive(Diagnostic)]` /
 // `#[derive(Subdiagnostic)]` expansion of the pinned rustc_macros.
 //
-//   bun tools/codegen/diag-expand.ts <set>... [--write-fixture]
+//   bun tools/codegen/diag-expand.ts <set | compiler/..../file.rs>... [--write-fixture]
 //
-// For each upstream file of the sets (types.sets.json), a scratch crate under
+// For each upstream file (given directly or as a set of types.sets.json), a scratch crate under
 // $RUST_TS_DATA/tmp/diag-expand includes the file as a module and depends on upstream
 // `compiler/rustc_macros`; `cargo +nightly rustc -- -Zunpretty=expanded` prints the expansion
 // (name-resolution errors of the other imports do not stop it). Every `match self` arm of every
@@ -445,10 +445,10 @@ if (import.meta.main) {
   const write = argv.includes("--write-fixture");
   const sets = argv.filter((a) => !a.startsWith("--"));
   if (!sets.length) {
-    console.log("usage: bun tools/codegen/diag-expand.ts <set>... [--write-fixture]");
+    console.log("usage: bun tools/codegen/diag-expand.ts <set | compiler/..../file.rs>... [--write-fixture]");
     process.exit(2);
   }
-  const files = sets.flatMap((s) => loadSet(s).files);
+  const files = sets.flatMap((s) => (s.endsWith(".rs") ? [s] : loadSet(s).files));
   const expanded = extractImpls(await expand(files));
   const probe: ProbeJson = await runProbe(files);
   const fixture: Record<string, ExpandedImpl[]> = {};

@@ -1945,7 +1945,8 @@ export interface DiagTsCtx {
 const ERRORS = "src/rustc_errors/lib.ts";
 
 /** TS of one derive: the impl function(s) for `item` (generated into the item's .gen.ts). */
-export function renderTs(d: DeriveImpl, ctx: DiagTsCtx, file: string, selfType: string, isEnum: boolean): string[] {
+export function renderTs(d: DeriveImpl, ctx: DiagTsCtx, file: string, selfType: string, repr: "struct" | "data" | "fieldless"): string[] {
+  const isEnum = repr !== "struct";
   const at = `${file}:${d.line}`;
   const name = d.item;
   const out: string[] = [];
@@ -1963,7 +1964,7 @@ export function renderTs(d: DeriveImpl, ctx: DiagTsCtx, file: string, selfType: 
     return body;
   };
   const switchArms = (ind: string): string[] => {
-    const o: string[] = [`${ind}switch (self.$) {`];
+    const o: string[] = [`${ind}switch (${repr === "fieldless" ? "self" : "self.$"}) {`];
     for (const arm of d.arms) {
       o.push(`${ind}  case ${JSON.stringify(unraw(arm.variant!))}: {`, ...lines(arm, ind + "    "));
       if (d.kind === "Subdiagnostic") o.push(`${ind}    return;`);
