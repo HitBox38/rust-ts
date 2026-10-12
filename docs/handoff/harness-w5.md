@@ -1,6 +1,9 @@
 # Handoff: harness-w5 (harness/scripts batch, needs independent review)
 
-Branch `lane/harness-w5`, based on bd00147. This is one commit.
+Branch `lane/harness-w5`, based on bd00147.
+- First commit: 3c0f63a.
+- Then root asked for two follow-ups: main 4e5f5ca (the emitter lane) is merged in with a real merge, and `make_emitter` is wired to the
+  real `AnnotateSnippetEmitter`.
 
 ## Files touched
 - New `emit` suite:
@@ -64,21 +67,20 @@ Branch `lane/harness-w5`, based on bd00147. This is one commit.
   - A case with neither `ui_testing` nor `diagnostic_width`: the width would then come from `termize`, which
     depends on the host. The probe and the subject both reject such a case.
 
-### Subject (`src/rust_ts/emitdump.ts`): wiring instructions
+### Subject (`src/rust_ts/emitdump.ts`): wired
 - It mirrors the probe function by function, against the TS API: `DiagCtxt`, `Diag`, `SourceMap`, `MultiSpan`,
   `DiagStyledString`/`StringPart`, `FatalErrorMarker`/`ExplicitBug`, and `dcx.inner.drop()` for the drop.
-- `make_emitter` is the only unported step:
-  `unported("rustc_errors::annotate_snippet_emitter_writer::AnnotateSnippetEmitter::new")`.
-- Its header comment holds the exact wiring. When `src/rustc_errors/annotate_snippet_emitter_writer.ts` lands:
-  - replace the body of `make_emitter` with `AnnotateSnippetEmitter.new(dst)` plus the same setters;
-  - build `dst` over `sink`: `AutoStream::never` for "never", or `AlwaysAnsi` for "always";
-  - nothing else changes.
-- Until then every case is UNPORTED (exit 70), right after its source map is built.
-- I checked the driver beyond the emitter with a scratch fake emitter (not committed):
-  - all 1406 cases ran with exit 0;
-  - every case's sequence of `= ...` lines (stash and steal results, queries, err counts, FatalError/ExplicitBug,
-    must_teach) is identical to the oracle's.
-  - So the DiagCtxt side of the TS port already matches on this corpus. Only the emitter's bytes remain.
+- `make_emitter` follows `docs/handoff/emitter.md`:
+  - `AnnotateSnippetEmitter.new(dst)`, imported directly from `src/rustc_errors/annotate_snippet_emitter_writer.ts`
+    (lib.ts does not re-export it, because of an import cycle);
+  - then the static setters, in the probe's order: `sm`, `short_message`, `ui_testing`,
+    `ignored_directories_in_source_blocks`, `diagnostic_width`, `macro_backtrace`, `terminal_url`, `theme`.
+  - `dst` is `AutoStream.never(dyn_write(vec))` for color "never", or `AutoStream.new(dyn_write(vec),
+    ColorChoice.AlwaysAnsi)` for "always".
+  - The sink is one vendored `VecU8`. The `= ...` query lines are written into that same buffer, which keeps the
+    order of events (the probe's `Shared`).
+- Before wiring, I checked the driver with a scratch fake emitter (not committed): every case's `= ...` line
+  sequence was identical to the oracle's.
 
 ### Corpus
 1406 cases: 1354 generated plus 52 hand-written.
@@ -151,8 +153,14 @@ Branch `lane/harness-w5`, based on bd00147. This is one commit.
 ### Results
 | run | result |
 |---|---|
-| `difftest --suite emit` (full, `hw5-emit-full`) | total=1406 UNPORTED=1406, MATCH/DIFF/CRASH/TIMEOUT=0; 1421 subject processes, 12 s |
-| `difftest --suite emit --sample 50` | UNPORTED=50 |
+| before wiring, full (`hw5-emit-full`) | UNPORTED=1406, MATCH/DIFF/CRASH/TIMEOUT=0; 1421 subject processes, 12 s |
+| **after wiring, full** (`RUST_TS_AGENT=harness-w5 bun scripts/difftest.ts --suite emit`, run `hw5-emit-wired`) | **MATCH=1406, DIFF=0, UNPORTED=0, CRASH=0, TIMEOUT=0**; 15 subject processes, 1 s |
+| after wiring, `--sample 50` | MATCH=50 |
+
+- Cross-check: the subject's and the probe's output for the whole corpus (`emitdump.ts` vs the probe, all 1406
+  files in one process) are byte-identical: 881,659 bytes, including 2770 ANSI-styled lines.
+- No DIFF buckets: nothing goes to a fixer lane.
+- Gaps the corpus does not reach are listed under "Not covered" above.
 
 ## 2. Review LOWs from harness-w4b
 
@@ -241,9 +249,10 @@ Branch `lane/harness-w5`, based on bd00147. This is one commit.
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test src tools`: 409 pass, 1 skip, 0 fail. The skip is `read_binary_file_handles_lying_stat`, which
-  is Linux-only.
-- `bun scripts/coverage.ts --check --offline`: `markers ok (1951; vendor 1774)`.
+- `RUST_TS_REQUIRE_PROBES=1 bun test src tools`, after the merge: 502 pass, 1 skip, 0 fail. The skip is
+  `read_binary_file_handles_lying_stat`, which is Linux-only.
+- `bun scripts/coverage.ts --check --offline`, after the merge: `markers ok (2210; vendor 2048)`.
+- `fluent-format`, after the merge: 4210/4210 MATCH (run `hw5-ff2`).
 - Case-list hashes (`sha256(JSON.stringify(cases()))[:16]`) are identical on main f68dc9c and on this lane:
 
   | suite | cases | hash |
@@ -256,7 +265,7 @@ Branch `lane/harness-w5`, based on bd00147. This is one commit.
   | fluent-parse / fluent-format | 4210 | 696bc26b11376778 |
   | emit (new) | 1406 | d8583fbc254273e2 |
 
-- `unported(...)` left: only the intended `AnnotateSnippetEmitter::new` in `src/rust_ts/emitdump.ts`.
+- `unported(...)` left: none.
 - `// PORT:` decisions: `unwrap_result`'s Debug parameter, in result.ts.
 
 ## For the reviewer
@@ -281,6 +290,7 @@ Branch `lane/harness-w5`, based on bd00147. This is one commit.
   - `unwrap_result`'s Debug parameter, with its test-only overload;
   - the gate now runs `bun test src tools` with `RUST_TS_REQUIRE_PROBES=1` and checks probes first;
   - the `emit` case format.
-- `emit` is not protected yet. It needs the emitter port wired into `make_emitter`. After that, the gate needs
-  `emitdump` built: `bun scripts/probes.ts build emitdump`.
+- `emit` is ready to protect, at 1406/1406 MATCH. Run the gate with the suite included, e.g.
+  `--suites ...,emit`, and accept, so the baseline is created. The gate host needs `bun scripts/probes.ts build emitdump`;
+  the gate's probe check reports it if it is missing.
 - After merge, the next symbols oracle run recomputes 10 outputs, because the symdump binary was rebuilt.

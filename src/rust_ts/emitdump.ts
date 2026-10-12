@@ -4,25 +4,10 @@
 // Script semantics, op order and output framing must match tools/probes/emitdump/main.rs (its
 // header documents the case format); this file mirrors it function by function.
 //
-// Wiring (TODO for the lane that lands src/rustc_errors/annotate_snippet_emitter_writer.ts):
-// `make_emitter` below is the only unported step. Replace its body with the port of
-//
-//     AnnotateSnippetEmitter::new(dst)
-//         .sm(o.source_map ? Some(sm) : None)
-//         .short_message(o.short_message)
-//         .ui_testing(o.ui_testing)
-//         .ignored_directories_in_source_blocks(o.ignored_directories)
-//         .diagnostic_width(o.diagnostic_width)
-//         .macro_backtrace(o.macro_backtrace)
-//         .terminal_url(o.terminal_url ? TerminalUrl::Yes : TerminalUrl::No)
-//         .theme(o.theme)
-//
-// where `dst` is the port's `Destination` (`AutoStream<Box<dyn Write + Send>>`) over `sink`:
-// `AutoStream::never(sink)` for color "never" (ANSI escapes stripped, `current_choice()` =
-// `Never`) and `AutoStream::new(sink, ColorChoice::AlwaysAnsi)` for color "always" (passed
-// through, `current_choice()` = `AlwaysAnsi`). Every byte the emitter writes must go to
-// `sink.write(bytes)` in order. Nothing else in this file changes; until then every case is
-// UNPORTED (exit 70) right after its source map is built.
+// Emitter: `AnnotateSnippetEmitter::new(dst)` plus every setter (`make_emitter`), where `dst` is
+// `AutoStream::never(sink)` for color "never" (ANSI stripped, `current_choice()` = `Never`) or
+// `AutoStream::new(sink, ColorChoice::AlwaysAnsi)` for "always". `sink` is one byte buffer that both
+// the emitter and the query ops' `= ...` lines write to, in order (the probe's `Shared`).
 import { readFileSync } from "node:fs";
 import { DiagArgValue, IntoDiagArg, MultiSpan, type DiagMessage } from "../rustc_error_messages/lib.ts";
 import { DiagStyledString, StringPart } from "../rustc_errors/diagnostic.ts";
@@ -46,7 +31,12 @@ import {
 import { BytePos, type FileName, Span, type SourceFile, create_default_session_globals_then } from "../rustc_span/lib.ts";
 import { FilePathMapping, SourceMap } from "../rustc_span/source_map.ts";
 import { DUMMY_SP } from "../rustc_span/span_encoding.ts";
-import { Panic, Unported, unported } from "../std/panic.ts";
+import { AnnotateSnippetEmitter } from "../rustc_errors/annotate_snippet_emitter_writer.ts";
+import { OutputTheme } from "../rustc_errors/emitter.ts";
+import { AutoStream } from "../vendor/anstream/lib.ts";
+import { VecU8, dyn_write } from "../vendor/anstream/stream.ts";
+import { ColorChoice } from "../vendor/colorchoice/lib.ts";
+import { Panic, Unported } from "../std/panic.ts";
 import { Str } from "../std/str.ts";
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
@@ -54,12 +44,13 @@ type Obj = { [k: string]: Json };
 
 /** The emitter's `Destination` target: emitter writes and query lines land in one ordered buffer. */
 class Shared {
-  chunks: Uint8Array[] = [];
+  readonly vec = new VecU8();
   write(buf: Uint8Array): void {
-    this.chunks.push(buf.slice());
+    const r = this.vec.write_all(buf);
+    if (r.$ === "Err") throw new Panic("write to the case buffer failed");
   }
   bytes(): Uint8Array {
-    return Buffer.concat(this.chunks);
+    return this.vec.bytes().slice();
   }
 }
 
@@ -75,9 +66,20 @@ interface EmitterOptions {
   color: "never" | "always";
 }
 
-/** `AnnotateSnippetEmitter::new(dst).sm(..)...theme(..)`; see the wiring note at the top. */
-function make_emitter(_sink: Shared, _o: EmitterOptions, _sm: SourceMap): Emitter {
-  return unported("rustc_errors::annotate_snippet_emitter_writer::AnnotateSnippetEmitter::new");
+/** `AnnotateSnippetEmitter::new(dst).sm(..)...theme(..)` (the probe's order of setters). */
+function make_emitter(sink: Shared, o: EmitterOptions, sm: SourceMap): Emitter {
+  const raw = dyn_write(sink.vec);
+  const dst = o.color === "never" ? AutoStream.never(raw) : AutoStream.new(raw, ColorChoice.AlwaysAnsi);
+  let em = AnnotateSnippetEmitter.new(dst);
+  em = AnnotateSnippetEmitter.sm(em, o.source_map ? sm : undefined);
+  em = AnnotateSnippetEmitter.short_message(em, o.short_message);
+  em = AnnotateSnippetEmitter.ui_testing(em, o.ui_testing);
+  em = AnnotateSnippetEmitter.ignored_directories_in_source_blocks(em, o.ignored_directories);
+  em = AnnotateSnippetEmitter.diagnostic_width(em, o.diagnostic_width);
+  em = AnnotateSnippetEmitter.macro_backtrace(em, o.macro_backtrace);
+  em = AnnotateSnippetEmitter.terminal_url(em, o.terminal_url ? "Yes" : "No");
+  em = AnnotateSnippetEmitter.theme(em, OutputTheme[o.theme]);
+  return em;
 }
 
 const encoder = new TextEncoder();
