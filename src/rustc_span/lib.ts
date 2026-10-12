@@ -118,7 +118,7 @@ function Interner_with_extra_symbols(_extra_symbols: readonly string[]): Interne
 }
 /** `Option<LocalDefId> == Option<LocalDefId>` */
 function local_def_id_opt_eq(a: LocalDefId | undefined, b: LocalDefId | undefined): boolean {
-  return a === undefined || b === undefined ? a === b : a.local_def_index === b.local_def_index;
+  return a === b;
 }
 
 /** source_map.rs (wave 2). */

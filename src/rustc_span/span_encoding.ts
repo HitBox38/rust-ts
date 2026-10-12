@@ -307,7 +307,7 @@ export class SpanInterner {
 
 function parent_index(parent: LocalDefId | undefined): number {
   // `DefIndex` values stay below 0xFFFF_FF00, so -1 cannot collide.
-  return parent === undefined ? -1 : parent.local_def_index;
+  return parent === undefined ? -1 : (parent as number);
 }
 
 function hash_span_data(d: SpanData): number {
