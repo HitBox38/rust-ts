@@ -1,112 +1,15 @@
 // Port of compiler/rustc_span/src/def_id.rs
+import { AtomicRef } from "../rustc_data_structures/atomic_ref.ts";
+import { debug_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
+import { debug_Hash64, Hash64 } from "../rustc_hashes/lib.ts";
+import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { debug_struct, debug_tuple, type Debug, type Fmt, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported } from "../std/panic.ts";
 import type { Symbol } from "./symbol.ts";
 
 // ---------------------------------------------------------------------------------------------
-// PORT: stand-ins for not-yet-ported crates (rustc_index_macros, rustc_hashes,
-// rustc_data_structures::{fingerprint, atomic_ref}, std::hash::Hasher). They mirror the upstream
-// names and semantics; root should move them to their mirrored files when those crates land.
+// PORT: stand-ins for not-yet-ported items (std::hash::Hasher, RawDefId).
 // ---------------------------------------------------------------------------------------------
-
-/// PORT: expansion of `rustc_index::newtype_index!` (compiler/rustc_index_macros/src/newtype.rs)
-/// for branded-number handles (PORTING §5). `debug_format` renders `write!(f, FMT, self.as_u32())`.
-export function newtype_index<I extends number>(debug_format: (n: number) => string, max: number = 0xffff_ff00) {
-  return {
-    /// Maximum value the index can take, as a `u32`.
-    MAX_AS_U32: max,
-    /// Maximum value the index can take.
-    MAX: max as I,
-    /// Zero value of the index.
-    ZERO: 0 as I,
-    /// Creates a new index from a given `usize`.
-    from_usize(value: number): I {
-      assert(value <= max, "assertion failed: value <= (0xFFFF_FF00 as usize)");
-      return value as I;
-    },
-    /// Creates a new index from a given `u32`.
-    from_u32(value: number): I {
-      assert(value <= max, "assertion failed: value <= 0xFFFF_FF00");
-      return value as I;
-    },
-    /// Creates a new index from a given `u16`.
-    from_u16(value: number): I {
-      assert(value <= max, "assertion failed: value <= 0xFFFF_FF00");
-      return value as I;
-    },
-    /// `Idx::new`
-    new(idx: number): I {
-      assert(idx <= max, "assertion failed: value <= (0xFFFF_FF00 as usize)");
-      return idx as I;
-    },
-    /// Extracts the value of this index as a `usize`.
-    index(self: I): number {
-      return self;
-    },
-    /// Extracts the value of this index as a `u32`.
-    as_u32(self: I): number {
-      return self;
-    },
-    /// Extracts the value of this index as a `usize`.
-    as_usize(self: I): number {
-      return self;
-    },
-    /// `impl Debug`
-    debug(self: I, _f: Fmt): string {
-      return debug_format(self);
-    },
-  };
-}
-
-/// PORT: stand-in for `rustc_hashes::Hash64` (a `u64`).
-export type Hash64 = bigint & { readonly __brand: "Hash64" };
-export const Hash64 = {
-  ZERO: 0n as Hash64,
-  new(n: bigint): Hash64 {
-    return n as Hash64;
-  },
-  as_u64(self: Hash64): bigint {
-    return self;
-  },
-};
-/// `impl Debug for Hash64`: prints the inner `u64`.
-export const debug_Hash64: Debug<Hash64> = (v) => String(v);
-
-const U64_MASK = (1n << 64n) - 1n;
-
-/// PORT: stand-in for `rustc_data_structures::fingerprint::Fingerprint(u64, u64)`, packed into one
-/// u128 bigint `(_0 << 64) | _1` so it can be compared with `===` and used as a `Map` key.
-export type Fingerprint = bigint & { readonly __brand: "Fingerprint" };
-export const Fingerprint = {
-  ZERO: 0n as Fingerprint,
-  new(_0: Hash64, _1: Hash64): Fingerprint {
-    return ((_0 << 64n) | _1) as Fingerprint;
-  },
-  split(self: Fingerprint): [Hash64, Hash64] {
-    return [Hash64.new(self >> 64n), Hash64.new(self & U64_MASK)];
-  },
-};
-/// `#[derive(Debug)]` on `Fingerprint(u64, u64)`.
-export const debug_Fingerprint: Debug<Fingerprint> = (v, f) => {
-  const [a, b] = Fingerprint.split(v);
-  return debug_tuple(f, "Fingerprint", [String(a), String(b)]);
-};
-
-/// PORT: stand-in for `rustc_data_structures::AtomicRef` (new / swap / deref).
-export class AtomicRef<T> {
-  private constructor(private value: T) {}
-  static new<T>(initial: T): AtomicRef<T> {
-    return new AtomicRef(initial);
-  }
-  swap(new_: T): T {
-    const old = this.value;
-    this.value = new_;
-    return old;
-  }
-  deref(): T {
-    return this.value;
-  }
-}
 
 /// PORT: stand-in for `std::hash::Hasher` (only what this file's `Hash` impls call).
 export interface Hasher {

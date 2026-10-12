@@ -1,20 +1,7 @@
 // Port of compiler/rustc_span/src/symbol/tests.rs
 import { expect, test } from "bun:test";
-import { Unported } from "../../std/panic.ts";
 import { create_default_session_globals_then } from "../lib.ts";
 import { ByteSymbol, Ident, Interner, kw, Symbol } from "../symbol.ts";
-
-// PORT: tests that need session globals (lane span-core) are skipped while
-// `create_default_session_globals_then` is still unported; they run automatically afterwards.
-const globals_unported = (() => {
-  try {
-    create_default_session_globals_then(() => {});
-    return false;
-  } catch (e) {
-    if (e instanceof Unported) return true;
-    throw e;
-  }
-})();
 
 const b = (s: string) => new TextEncoder().encode(s);
 
@@ -44,7 +31,7 @@ test("interner_get", () => {
 });
 
 // rustc: compiler/rustc_span/src/symbol/tests.rs:30 without_first_quote_test
-test.skipIf(globals_unported)("without_first_quote_test", () => {
+test("without_first_quote_test", () => {
   create_default_session_globals_then(() => {
     const i = Ident.from_str("'break");
     expect(i.without_first_quote().name).toBe(kw.Break);

@@ -15,30 +15,28 @@
 //!
 //! This API is completely unstable and subject to change.
 //
-// PORT: wave-1 boundaries (lane span-core). Sibling lanes (symbol.ts, hygiene.ts, def_id.ts) are
-// type-only stubs while the lanes run in parallel, and a value import from a stub fails at link
-// time. So:
-// - sibling *values* listed in the contract stub are reached through namespace imports
-//   (`hygiene.HygieneData.new`), mirroring upstream's `hygiene::HygieneData::new`;
-// - everything else from siblings goes through the "stand-ins" section below, each either the
-//   exact upstream newtype value or `unported(...)`. Root: replace stand-ins at integration.
-// - source_map.rs (wave 2): `SourceMap`/`SourceMapInputs` are opaque placeholders and every call
-//   into them is `unported("rustc_span::source_map::...")`.
+// PORT: source_map.rs (wave 2): `SourceMap`/`SourceMapInputs` are opaque placeholders defined
+// below and every call into them is `unported("rustc_span::source_map::...")`.
+import { FreezeLock } from "../rustc_data_structures/sync/freeze.ts";
+import { debug_Hash64, Hash64, type Hash128 } from "../rustc_hashes/lib.ts";
+import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { analyze_source_file } from "./analyze_source_file.ts";
-import type { CrateNum, LocalDefId } from "./def_id.ts";
+import { type CrateNum, type LocalDefId, LOCAL_CRATE, type StableCrateId } from "./def_id.ts";
 import { DEFAULT_EDITION, Edition } from "./edition.ts";
 import { FatalError } from "./fatal_error.ts";
-import * as hygiene from "./hygiene.ts";
-import type { ExpnId, HygieneData, SyntaxContext } from "./hygiene.ts";
 import {
-  DUMMY_SP,
-  Span,
-  SpanInterner,
-  span_data_eq,
-  SyntaxContext_is_root,
-  SyntaxContext_root,
-} from "./span_encoding.ts";
-import type { Interner, Symbol } from "./symbol.ts";
+  debug_SyntaxContext,
+  DesugaringKind_eq,
+  type DesugaringKind,
+  type ExpnData,
+  ExpnId,
+  HygieneData,
+  type MutRef,
+  SyntaxContext,
+  type Transparency,
+} from "./hygiene.ts";
+import { DUMMY_SP, Span, SpanInterner } from "./span_encoding.ts";
+import { Interner, type Symbol } from "./symbol.ts";
 import { debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_vec, type Debug, type Fmt } from "../std/fmt.ts";
 import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
@@ -48,130 +46,12 @@ export { DUMMY_SP, OrdSpan, Span } from "./span_encoding.ts";
 export { bug, span_bug } from "./macros.ts";
 // PORT: `pub use unicode_width::UNICODE_VERSION;` waits for vendor `unicode-width` (not ported).
 
-// _____________________________________________________________________________
-// Wave-1 stand-ins (see the PORT block at the top). Root: replace with sibling exports.
-//
-
-/** Field subset of hygiene.rs `ExpnData` read here (the hygiene.ts stub has no `ExpnData`). */
-interface ExpnData {
-  readonly kind: ExpnKind;
-  readonly call_site: Span;
-  readonly allow_internal_unstable: readonly Symbol[] | undefined;
-  readonly allow_internal_unsafe: boolean;
-  readonly diagnostic_opaque: boolean;
-}
-/** hygiene.rs `ExpnKind` (`AstPass` payload left opaque). */
-type ExpnKind =
-  | { readonly $: "Root" }
-  | { readonly $: "Macro"; readonly _0: MacroKind; readonly _1: Symbol }
-  | { readonly $: "AstPass"; readonly _0: unknown }
-  | { readonly $: "Desugaring"; readonly _0: DesugaringKind };
-/** hygiene.rs `MacroKind` (fieldless). */
-type MacroKind = "Bang" | "Attr" | "Derive";
-/** hygiene.rs `DesugaringKind` (variant names only compared here). */
-type DesugaringKind = string;
-/** hygiene.rs `enum Transparency { Transparent, SemiOpaque, Opaque }` (fieldless). */
-type Transparency = "Transparent" | "SemiOpaque" | "Opaque";
-/** def_id.rs `StableCrateId`: not in the def_id.ts stub. */
-type StableCrateId = unknown;
-/** def_id.rs:`pub const LOCAL_CRATE: CrateNum = CrateNum::ZERO;` */
-const LOCAL_CRATE = 0 as CrateNum;
-
-function SyntaxContext_outer_expn_data(_ctxt: SyntaxContext): ExpnData {
-  return unported("rustc_span::hygiene::SyntaxContext::outer_expn_data");
-}
-function SyntaxContext_in_external_macro(_ctxt: SyntaxContext, _sm: SourceMap): boolean {
-  return unported("rustc_span::hygiene::SyntaxContext::in_external_macro");
-}
-function SyntaxContext_edition(_ctxt: SyntaxContext): Edition {
-  return unported("rustc_span::hygiene::SyntaxContext::edition");
-}
-function SyntaxContext_apply_mark(_ctxt: SyntaxContext, _expn_id: ExpnId, _transparency: Transparency): SyntaxContext {
-  return unported("rustc_span::hygiene::SyntaxContext::apply_mark");
-}
-/** `&mut self` method: returns `[new ctxt, result]`. */
-function SyntaxContext_remove_mark(_ctxt: SyntaxContext): [SyntaxContext, ExpnId] {
-  return unported("rustc_span::hygiene::SyntaxContext::remove_mark");
-}
-function SyntaxContext_adjust(_ctxt: SyntaxContext, _expn_id: ExpnId): [SyntaxContext, ExpnId | undefined] {
-  return unported("rustc_span::hygiene::SyntaxContext::adjust");
-}
-function SyntaxContext_normalize_to_macros_2_0_and_adjust(_ctxt: SyntaxContext, _expn_id: ExpnId): [SyntaxContext, ExpnId | undefined] {
-  return unported("rustc_span::hygiene::SyntaxContext::normalize_to_macros_2_0_and_adjust");
-}
-function SyntaxContext_normalize_to_macros_2_0(_ctxt: SyntaxContext): SyntaxContext {
-  return unported("rustc_span::hygiene::SyntaxContext::normalize_to_macros_2_0");
-}
-function SyntaxContext_normalize_to_macro_rules(_ctxt: SyntaxContext): SyntaxContext {
-  return unported("rustc_span::hygiene::SyntaxContext::normalize_to_macro_rules");
-}
-function ExpnId_root(): ExpnId {
-  return unported("rustc_span::hygiene::ExpnId::root");
-}
-/** hygiene.rs `impl fmt::Debug for SyntaxContext`: `write!(f, "#{}", self.0)`. */
-function debug_SyntaxContext(ctxt: SyntaxContext): string {
-  return `#${ctxt}`;
-}
-function Interner_with_extra_symbols(_extra_symbols: readonly string[]): Interner {
-  // Generated by the `symbols!` macro (span-symbol lane / tools/codegen/symbols.ts).
-  return unported("rustc_span::symbol::Interner::with_extra_symbols");
-}
-/** `Option<LocalDefId> == Option<LocalDefId>` */
-function local_def_id_opt_eq(a: LocalDefId | undefined, b: LocalDefId | undefined): boolean {
-  return a === b;
-}
-
 /** source_map.rs (wave 2). */
-interface SourceMap {
+export interface SourceMap {
   readonly __wave2_source_map: never;
 }
-interface SourceMapInputs {
+export interface SourceMapInputs {
   readonly __wave2_source_map_inputs: never;
-}
-
-/** PORT: `rustc_hashes::Hash64` (u64) / `Hash128` (u128) as bigint until rustc_hashes is ported. */
-export type Hash64 = bigint;
-export type Hash128 = bigint;
-/** `impl Debug for Hash64`: the inner integer. */
-const debug_Hash64: Debug<Hash64> = (v) => String(v);
-
-/**
- * PORT: subset of `rustc_data_structures::sync::FreezeLock` (single-threaded): the value plus the
- * frozen bit, which `SourceFile` and `MetavarSpansMap` observe. Root: move to
- * rustc_data_structures when that crate lands.
- */
-class FreezeLock<T> {
-  constructor(
-    public value: T,
-    public frozen: boolean,
-  ) {}
-  static new<T>(value: T): FreezeLock<T> {
-    return new FreezeLock(value, false);
-  }
-  static frozen<T>(value: T): FreezeLock<T> {
-    return new FreezeLock(value, true);
-  }
-  is_frozen(): boolean {
-    return this.frozen;
-  }
-  /** `get`: the value, only once frozen. */
-  get(): T | undefined {
-    return this.frozen ? this.value : undefined;
-  }
-  read(): T {
-    return this.value;
-  }
-  /** `try_write`: write access unless frozen. */
-  try_write(): FreezeLock<T> | undefined {
-    return this.frozen ? undefined : this;
-  }
-  write(): FreezeLock<T> {
-    return unwrap(this.try_write(), "still mutable");
-  }
-  freeze(): T {
-    this.frozen = true;
-    return this.value;
-  }
 }
 
 // _____________________________________________________________________________
@@ -221,10 +101,10 @@ export class SessionGlobals {
   // rustc: compiler/rustc_span/src/lib.rs:130 new
   static new(edition: Edition, extra_symbols: readonly string[], sm_inputs: SourceMapInputs | undefined): SessionGlobals {
     return new SessionGlobals(
-      Interner_with_extra_symbols(extra_symbols),
+      Interner.with_extra_symbols(extra_symbols),
       SpanInterner.default(),
       MetavarSpansMap.default(),
-      hygiene.HygieneData.new(edition),
+      HygieneData.new(edition),
       sm_inputs === undefined ? undefined : unported("rustc_span::source_map::SourceMap::with_inputs"),
     );
   }
@@ -898,12 +778,12 @@ export class SpanData {
 
   // rustc: compiler/rustc_span/src/lib.rs:734 default
   static default(): SpanData {
-    return new SpanData(BytePos(0), BytePos(0), SyntaxContext_root(), undefined);
+    return new SpanData(BytePos(0), BytePos(0), SyntaxContext.root(), undefined);
   }
 }
 
 /** `#[derive(PartialEq)]` */
-export const SpanData_eq = span_data_eq;
+export { SpanData_eq } from "./span_encoding.ts";
 
 declare module "./span_encoding.ts" {
   namespace Span {
@@ -957,10 +837,10 @@ declare module "./span_encoding.ts" {
     export let with_call_site_ctxt: (self: Span, expn_id: ExpnId) => Span;
     export let with_mixed_site_ctxt: (self: Span, expn_id: ExpnId) => Span;
     export let apply_mark: (self: Span, expn_id: ExpnId, transparency: Transparency) => Span;
-    /** PORT: `&mut self` methods return `[updated span, result]`. */
-    export let remove_mark: (self: Span) => [Span, ExpnId];
-    export let adjust: (self: Span, expn_id: ExpnId) => [Span, ExpnId | undefined];
-    export let normalize_to_macros_2_0_and_adjust: (self: Span, expn_id: ExpnId) => [Span, ExpnId | undefined];
+    /** PORT: `&mut self` methods take `MutRef<Span>` (hygiene.ts) and write the updated span back. */
+    export let remove_mark: (self: MutRef<Span>) => ExpnId;
+    export let adjust: (self: MutRef<Span>, expn_id: ExpnId) => ExpnId | undefined;
+    export let normalize_to_macros_2_0_and_adjust: (self: MutRef<Span>, expn_id: ExpnId) => ExpnId | undefined;
     export let normalize_to_macros_2_0: (self: Span) => Span;
     export let normalize_to_macro_rules: (self: Span) => Span;
     let default_: () => Span;
@@ -1010,21 +890,21 @@ Span.is_visible = function (self: Span, _sm: SourceMap): boolean {
 /// be reported on the current node.
 // rustc: compiler/rustc_span/src/lib.rs:781 in_external_macro
 Span.in_external_macro = function (self: Span, sm: SourceMap): boolean {
-  return SyntaxContext_in_external_macro(Span.ctxt(self), sm);
+  return SyntaxContext.in_external_macro(Span.ctxt(self), sm);
 };
 
 /// Returns `true` if `span` originates in a derive-macro's expansion.
 // rustc: compiler/rustc_span/src/lib.rs:786 in_derive_expansion
 Span.in_derive_expansion = function (self: Span): boolean {
-  const kind = SyntaxContext_outer_expn_data(Span.ctxt(self)).kind;
+  const kind = SyntaxContext.outer_expn_data(Span.ctxt(self)).kind;
   return kind.$ === "Macro" && kind._0 === "Derive";
 };
 
 /// Return whether `span` is generated by `async` or `await`.
 // rustc: compiler/rustc_span/src/lib.rs:791 is_from_async_await
 Span.is_from_async_await = function (self: Span): boolean {
-  const kind = SyntaxContext_outer_expn_data(Span.ctxt(self)).kind;
-  return kind.$ === "Desugaring" && (kind._0 === "Async" || kind._0 === "Await");
+  const kind = SyntaxContext.outer_expn_data(Span.ctxt(self)).kind;
+  return kind.$ === "Desugaring" && (kind._0.$ === "Async" || kind._0.$ === "Await");
 };
 
 /// Gate suggestions that would not be appropriate in a context the user didn't write.
@@ -1041,7 +921,7 @@ Span.can_be_used_for_suggestions = function (self: Span): boolean {
 
 // rustc: compiler/rustc_span/src/lib.rs:809 with_root_ctxt
 Span.with_root_ctxt = function (lo: BytePos, hi: BytePos): Span {
-  return Span.new(lo, hi, SyntaxContext_root(), undefined);
+  return Span.new(lo, hi, SyntaxContext.root(), undefined);
 };
 
 /// Returns a new span representing an empty span at the beginning of this span.
@@ -1115,7 +995,7 @@ Span.trim_end = function (self: Span, other: Span): Span | undefined {
 // rustc: compiler/rustc_span/src/lib.rs:875 source_callsite
 Span.source_callsite = function (self: Span): Span {
   const ctxt = Span.ctxt(self);
-  return !SyntaxContext_is_root(ctxt) ? Span.source_callsite(SyntaxContext_outer_expn_data(ctxt).call_site) : self;
+  return !SyntaxContext.is_root(ctxt) ? Span.source_callsite(SyntaxContext.outer_expn_data(ctxt).call_site) : self;
 };
 
 /// Returns the call-site span of the last macro expansion which produced this `Span`.
@@ -1123,7 +1003,7 @@ Span.source_callsite = function (self: Span): Span {
 // rustc: compiler/rustc_span/src/lib.rs:882 parent_callsite
 Span.parent_callsite = function (self: Span): Span | undefined {
   const ctxt = Span.ctxt(self);
-  return !SyntaxContext_is_root(ctxt) ? SyntaxContext_outer_expn_data(ctxt).call_site : undefined;
+  return !SyntaxContext.is_root(ctxt) ? SyntaxContext.outer_expn_data(ctxt).call_site : undefined;
 };
 
 /// Find the first ancestor span that's contained within `outer`.
@@ -1240,7 +1120,7 @@ Span.find_ancestor_not_from_macro = function (self: Span): Span | undefined {
 /// Edition of the crate from which this span came.
 // rustc: compiler/rustc_span/src/lib.rs:984 edition
 Span.edition = function (self: Span): Edition {
-  return SyntaxContext_edition(Span.ctxt(self));
+  return SyntaxContext.edition(Span.ctxt(self));
 };
 
 /// Is this edition 2015?
@@ -1276,8 +1156,8 @@ Span.at_least_rust_2024 = function (self: Span): boolean {
 Span.source_callee = function (self: Span): ExpnData | undefined {
   let ctxt = Span.ctxt(self);
   let opt_expn_data: ExpnData | undefined = undefined;
-  while (!SyntaxContext_is_root(ctxt)) {
-    const expn_data = SyntaxContext_outer_expn_data(ctxt);
+  while (!SyntaxContext.is_root(ctxt)) {
+    const expn_data = SyntaxContext.outer_expn_data(ctxt);
     ctxt = Span.ctxt(expn_data.call_site);
     opt_expn_data = expn_data;
   }
@@ -1289,22 +1169,22 @@ Span.source_callee = function (self: Span): ExpnData | undefined {
 /// `#[allow_internal_unstable]`).
 // rustc: compiler/rustc_span/src/lib.rs:1031 allows_unstable
 Span.allows_unstable = function (self: Span, feature: Symbol): boolean {
-  const features = SyntaxContext_outer_expn_data(Span.ctxt(self)).allow_internal_unstable;
+  const features = SyntaxContext.outer_expn_data(Span.ctxt(self)).allow_internal_unstable;
   return features !== undefined && features.includes(feature);
 };
 
 /// Checks if this span arises from a compiler desugaring of kind `kind`.
 // rustc: compiler/rustc_span/src/lib.rs:1039 is_desugaring
 Span.is_desugaring = function (self: Span, kind: DesugaringKind): boolean {
-  const k = SyntaxContext_outer_expn_data(Span.ctxt(self)).kind;
-  return k.$ === "Desugaring" ? k._0 === kind : false;
+  const k = SyntaxContext.outer_expn_data(Span.ctxt(self)).kind;
+  return k.$ === "Desugaring" ? DesugaringKind_eq(k._0, kind) : false;
 };
 
 /// Returns the compiler desugaring that created this span, or `None`
 /// if this span is not from a desugaring.
 // rustc: compiler/rustc_span/src/lib.rs:1048 desugaring_kind
 Span.desugaring_kind = function (self: Span): DesugaringKind | undefined {
-  const k = SyntaxContext_outer_expn_data(Span.ctxt(self)).kind;
+  const k = SyntaxContext.outer_expn_data(Span.ctxt(self)).kind;
   return k.$ === "Desugaring" ? k._0 : undefined;
 };
 
@@ -1313,7 +1193,7 @@ Span.desugaring_kind = function (self: Span): DesugaringKind | undefined {
 /// (that is, a macro marked with `#[allow_internal_unsafe]`).
 // rustc: compiler/rustc_span/src/lib.rs:1058 allows_unsafe
 Span.allows_unsafe = function (self: Span): boolean {
-  return SyntaxContext_outer_expn_data(Span.ctxt(self)).allow_internal_unsafe;
+  return SyntaxContext.outer_expn_data(Span.ctxt(self)).allow_internal_unsafe;
 };
 
 // rustc: compiler/rustc_span/src/lib.rs:1062 macro_backtrace
@@ -1321,11 +1201,11 @@ Span.macro_backtrace = function* (self: Span): Generator<ExpnData, void, undefin
   let prev_span = DUMMY_SP;
   for (;;) {
     const ctxt = Span.ctxt(self);
-    if (SyntaxContext_is_root(ctxt)) {
+    if (SyntaxContext.is_root(ctxt)) {
       return;
     }
 
-    const expn_data = SyntaxContext_outer_expn_data(ctxt);
+    const expn_data = SyntaxContext.outer_expn_data(ctxt);
     const [a_lo, a_hi] = Span.lo_hi(expn_data.call_site);
     const [b_lo, b_hi] = Span.lo_hi(prev_span);
     const is_recursive = a_lo === b_lo && a_hi === b_hi;
@@ -1392,12 +1272,12 @@ function Span_prepare_to_combine(a_orig: Span, b_orig: Span): Result<[SpanData, 
   let a = Span.data(a_orig);
   let b = Span.data(b_orig);
   if (a.ctxt === b.ctxt) {
-    return Ok([a, b, local_def_id_opt_eq(a.parent, b.parent) ? a.parent : undefined]);
+    return Ok([a, b, a.parent === b.parent ? a.parent : undefined]);
   }
 
   [a, b] = Span_try_metavars(a, b, a_orig, b_orig);
   if (a.ctxt === b.ctxt) {
-    return Ok([a, b, local_def_id_opt_eq(a.parent, b.parent) ? a.parent : undefined]);
+    return Ok([a, b, a.parent === b.parent ? a.parent : undefined]);
   }
 
   // Context mismatches usually happen when procedural macros combine spans copied from
@@ -1407,7 +1287,7 @@ function Span_prepare_to_combine(a_orig: Span, b_orig: Span): Result<[SpanData, 
   // Otherwise we just fall back to returning the first span.
   // Combining locations typically doesn't make sense in case of context mismatches.
   // `is_root` here is a fast path optimization.
-  const a_is_callsite = SyntaxContext_is_root(a.ctxt) || a.ctxt === Span.ctxt(Span.source_callsite(b.span()));
+  const a_is_callsite = SyntaxContext.is_root(a.ctxt) || a.ctxt === Span.ctxt(Span.source_callsite(b.span()));
   return Err(a_is_callsite ? b_orig : a_orig);
 }
 
@@ -1504,7 +1384,7 @@ Span.within_macro = function (self: Span, within: Span, _sm: SourceMap): Span | 
 
   // Don't return something if it's marked with `#[diagnostic::opaque]`.
   // This already accounts for `-Zmacro-backtrace`.
-  if (SyntaxContext_outer_expn_data(Span.data(within).ctxt).diagnostic_opaque) {
+  if (SyntaxContext.outer_expn_data(Span.data(within).ctxt).diagnostic_opaque) {
     return undefined;
   }
 
@@ -1548,52 +1428,55 @@ Span.with_mixed_site_ctxt = function (self: Span, expn_id: ExpnId): Span {
 /// some other macro (which is the case for built-in and procedural macros).
 // rustc: compiler/rustc_span/src/lib.rs:1282 with_ctxt_from_mark
 function Span_with_ctxt_from_mark(self: Span, expn_id: ExpnId, transparency: Transparency): Span {
-  return Span.with_ctxt(self, SyntaxContext_apply_mark(SyntaxContext_root(), expn_id, transparency));
+  return Span.with_ctxt(self, SyntaxContext.apply_mark(SyntaxContext.root(), expn_id, transparency));
 }
 
 // rustc: compiler/rustc_span/src/lib.rs:1287 apply_mark
 Span.apply_mark = function (self: Span, expn_id: ExpnId, transparency: Transparency): Span {
-  return Span.map_ctxt(self, (ctxt) => SyntaxContext_apply_mark(ctxt, expn_id, transparency));
+  return Span.map_ctxt(self, (ctxt) => SyntaxContext.apply_mark(ctxt, expn_id, transparency));
 };
 
 // rustc: compiler/rustc_span/src/lib.rs:1292 remove_mark
-Span.remove_mark = function (self: Span): [Span, ExpnId] {
-  let mark = ExpnId_root();
-  self = Span.map_ctxt(self, (ctxt) => {
-    [ctxt, mark] = SyntaxContext_remove_mark(ctxt);
-    return ctxt;
+Span.remove_mark = function (self: MutRef<Span>): ExpnId {
+  let mark = ExpnId.root();
+  self.value = Span.map_ctxt(self.value, (ctxt) => {
+    const ctxt_ = { value: ctxt };
+    mark = SyntaxContext.remove_mark(ctxt_);
+    return ctxt_.value;
   });
-  return [self, mark];
+  return mark;
 };
 
 // rustc: compiler/rustc_span/src/lib.rs:1302 adjust
-Span.adjust = function (self: Span, expn_id: ExpnId): [Span, ExpnId | undefined] {
+Span.adjust = function (self: MutRef<Span>, expn_id: ExpnId): ExpnId | undefined {
   let mark: ExpnId | undefined = undefined;
-  self = Span.map_ctxt(self, (ctxt) => {
-    [ctxt, mark] = SyntaxContext_adjust(ctxt, expn_id);
-    return ctxt;
+  self.value = Span.map_ctxt(self.value, (ctxt) => {
+    const ctxt_ = { value: ctxt };
+    mark = SyntaxContext.adjust(ctxt_, expn_id);
+    return ctxt_.value;
   });
-  return [self, mark];
+  return mark;
 };
 
 // rustc: compiler/rustc_span/src/lib.rs:1312 normalize_to_macros_2_0_and_adjust
-Span.normalize_to_macros_2_0_and_adjust = function (self: Span, expn_id: ExpnId): [Span, ExpnId | undefined] {
+Span.normalize_to_macros_2_0_and_adjust = function (self: MutRef<Span>, expn_id: ExpnId): ExpnId | undefined {
   let mark: ExpnId | undefined = undefined;
-  self = Span.map_ctxt(self, (ctxt) => {
-    [ctxt, mark] = SyntaxContext_normalize_to_macros_2_0_and_adjust(ctxt, expn_id);
-    return ctxt;
+  self.value = Span.map_ctxt(self.value, (ctxt) => {
+    const ctxt_ = { value: ctxt };
+    mark = SyntaxContext.normalize_to_macros_2_0_and_adjust(ctxt_, expn_id);
+    return ctxt_.value;
   });
-  return [self, mark];
+  return mark;
 };
 
 // rustc: compiler/rustc_span/src/lib.rs:1322 normalize_to_macros_2_0
 Span.normalize_to_macros_2_0 = function (self: Span): Span {
-  return Span.map_ctxt(self, (ctxt) => SyntaxContext_normalize_to_macros_2_0(ctxt));
+  return Span.map_ctxt(self, (ctxt) => SyntaxContext.normalize_to_macros_2_0(ctxt));
 };
 
 // rustc: compiler/rustc_span/src/lib.rs:1327 normalize_to_macro_rules
 Span.normalize_to_macro_rules = function (self: Span): Span {
-  return Span.map_ctxt(self, (ctxt) => SyntaxContext_normalize_to_macro_rules(ctxt));
+  return Span.map_ctxt(self, (ctxt) => SyntaxContext.normalize_to_macro_rules(ctxt));
 };
 
 // rustc: compiler/rustc_span/src/lib.rs:1333 default
@@ -1602,8 +1485,10 @@ Span.normalize_to_macro_rules = function (self: Span): Span {
 };
 
 // PORT: `rustc_index::newtype_index! { #[orderable] #[debug_format = "AttrId({})"] pub struct AttrId {} }`
-// is generated by tools/codegen (PORTING §5 "Macros inside rustc"); only the handle type is declared.
+// expanded with the `newtype_index` stand-in (src/rustc_index/newtype_index.ts) (until tools/codegen generates it).
 export type AttrId = number & { readonly __brand: "AttrId" };
+export const AttrId = newtype_index<AttrId>((n) => `AttrId(${n})`);
+export const debug_AttrId: Debug<AttrId> = AttrId.debug;
 
 // The `SpanEncoder`/`SpanDecoder`/`BlobDecoder` traits and their impls, and the `Encodable`/
 // `Decodable` impls built on them, only serve metadata/incremental (out of scope until M5).
@@ -1683,7 +1568,7 @@ export function debug_Span(self: Span, f: Fmt): string {
     return debug_struct(f, "Span", [
       ["lo", debug_BytePos(Span.lo(span), f)],
       ["hi", debug_BytePos(Span.hi(span), f)],
-      ["ctxt", debug_SyntaxContext(Span.ctxt(span))],
+      ["ctxt", debug_SyntaxContext(Span.ctxt(span), f)],
     ]);
   }
 
@@ -1887,7 +1772,7 @@ export class SourceFileHash {
   /// Check if the stored hash matches the hash of the string.
   // rustc: compiler/rustc_span/src/lib.rs:1878 matches
   matches(src: Str): boolean {
-    return source_file_hash_eq(SourceFileHash.new_in_memory(this.kind, src.b.subarray(src.lo, src.hi)), this);
+    return SourceFileHash_eq(SourceFileHash.new_in_memory(this.kind, src.b.subarray(src.lo, src.hi)), this);
   }
 
   /// The bytes of the hash.
@@ -1912,7 +1797,7 @@ export class SourceFileHash {
 }
 
 /** `#[derive(PartialEq)] for SourceFileHash` */
-export function source_file_hash_eq(a: SourceFileHash, b: SourceFileHash): boolean {
+export function SourceFileHash_eq(a: SourceFileHash, b: SourceFileHash): boolean {
   if (a.kind !== b.kind) return false;
   for (let i = 0; i < 32; i++) if (a.value[i] !== b.value[i]) return false;
   return true;
@@ -2020,11 +1905,11 @@ export class SourceFile {
       this.src,
       this.src_hash,
       this.checksum_hash,
-      new FreezeLock(this.external_src.value, this.external_src.frozen),
+      this.external_src.clone((v) => v),
       this.start_pos,
       this.normalized_source_len,
       this.unnormalized_source_len,
-      new FreezeLock(this.lines_.value, this.lines_.frozen),
+      this.lines_.clone((v) => v),
       this.multibyte_chars.slice(),
       this.normalized_pos.slice(),
       this.stable_id,

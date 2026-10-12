@@ -1,27 +1,35 @@
 // Port of compiler/rustc_span/src/tests.rs
 import { expect, test } from "bun:test";
-import { PLAIN } from "../std/fmt.ts";
+import { debug_int, PLAIN, PRETTY } from "../std/fmt.ts";
 import { unwrap_result } from "../std/result.ts";
 import { Str } from "../std/str.ts";
 import {
+  AttrId,
   BytePos,
+  debug_AttrId,
+  debug_BytePos,
+  debug_ErrorGuaranteed,
+  debug_Spanned,
+  dummy_spanned,
+  ErrorGuaranteed,
   debug_Span,
   DUMMY_SP,
-  MetavarSpansMap,
+  create_default_session_globals_then,
   normalize_newlines,
   RelativeBytePos,
-  SessionGlobals,
-  set_session_globals_then,
   SourceFile,
   Span,
   type NormalizedPos,
 } from "./lib.ts";
-import { SpanInterner, SyntaxContext_from_u32, SyntaxContext_root } from "./span_encoding.ts";
+import { Hash64 } from "../rustc_hashes/lib.ts";
+import { debug_LocalExpnId, LocalExpnId, SyntaxContext } from "./hygiene.ts";
+import { debug_Edition, Edition } from "./edition.ts";
+import { ByteSymbol, debug_ByteSymbol, debug_Ident, debug_Symbol, Ident, Symbol } from "./symbol.ts";
 
 // rustc: compiler/rustc_span/src/tests.rs:4 test_lookup_line
 test("test_lookup_line", () => {
   const source = Str.from("abcdefghijklm\nabcdefghij\n...");
-  const sf = unwrap_result(SourceFile.new({ $: "Anon", _0: 0n }, source, "Sha256", "Sha256"));
+  const sf = unwrap_result(SourceFile.new({ $: "Anon", _0: Hash64.ZERO }, source, "Sha256", "Sha256"));
   sf.start_pos = BytePos(3);
   expect(sf.lines()).toEqual([RelativeBytePos(0), RelativeBytePos(14), RelativeBytePos(25)]);
 
@@ -61,18 +69,11 @@ test("test_normalize_newlines", () => {
 
 // PORT: upstream runs `test_trim` without session globals because its spans are inline-encoded.
 // rust-ts interns every non-dummy span (span_encoding.ts), so the test installs session globals.
-// They are built field by field with `set_session_globals_then` because the symbol interner and
-// hygiene data belong to sibling lanes (type-only stubs during wave 1); the span interner is the
-// only part `Span` uses. Root: switch to `create_default_session_globals_then` after integration.
-function with_span_globals(f: () => void): void {
-  const globals = new SessionGlobals(undefined as never, SpanInterner.default(), MetavarSpansMap.default(), undefined as never, undefined);
-  set_session_globals_then(globals, f);
-}
 
 // rustc: compiler/rustc_span/src/tests.rs:51 test_trim
 test("test_trim", () =>
-  with_span_globals(() => {
-    const span = (lo: number, hi: number): Span => Span.new(BytePos.from_usize(lo), BytePos.from_usize(hi), SyntaxContext_root(), undefined);
+  create_default_session_globals_then(() => {
+    const span = (lo: number, hi: number): Span => Span.new(BytePos.from_usize(lo), BytePos.from_usize(hi), SyntaxContext.root(), undefined);
 
     // Various positions, named for their relation to `start` and `end`.
     const well_before = 1;
@@ -84,7 +85,7 @@ test("test_trim", () =>
     const well_after = 13;
 
     // The resulting span's context should be that of `self`, not `other`.
-    const other = Span.with_ctxt(span(start, end), SyntaxContext_from_u32(999));
+    const other = Span.with_ctxt(span(start, end), SyntaxContext.from_u32(999));
 
     // Test cases for `trim_end`.
 
@@ -128,7 +129,7 @@ test("test_trim", () =>
 // rustc: compiler/rustc_span/src/tests.rs:108 test_unnormalized_source_length
 test("test_unnormalized_source_length", () => {
   const source = Str.from("\u{feff}hello\r\nferries\r\n");
-  const sf = unwrap_result(SourceFile.new({ $: "Anon", _0: 0n }, source, "Sha256", "Sha256"));
+  const sf = unwrap_result(SourceFile.new({ $: "Anon", _0: Hash64.ZERO }, source, "Sha256", "Sha256"));
   expect(sf.unnormalized_source_len).toBe(19);
   expect(sf.normalized_source_len as number).toBe(14);
 });
@@ -137,14 +138,32 @@ test("test_unnormalized_source_length", () => {
 test("rust-ts: dummy span and span equality", () => {
   // Upstream's inline `DUMMY_SP` works without session globals; so does ours.
   expect(Span.is_dummy(DUMMY_SP)).toBe(true);
-  expect(Span.new(BytePos(0), BytePos(0), SyntaxContext_root(), undefined)).toBe(DUMMY_SP);
+  expect(Span.new(BytePos(0), BytePos(0), SyntaxContext.root(), undefined)).toBe(DUMMY_SP);
   expect(debug_Span(DUMMY_SP, PLAIN)).toBe("Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }");
-  with_span_globals(() => {
-    const a = Span.new(BytePos(9), BytePos(4), SyntaxContext_root(), undefined);
+  create_default_session_globals_then(() => {
+    const a = Span.new(BytePos(9), BytePos(4), SyntaxContext.root(), undefined);
     expect(Span.lo_hi(a)).toEqual([BytePos(4), BytePos(9)]);
     expect(Span.with_root_ctxt(BytePos(4), BytePos(9))).toBe(a);
     expect(Span.to(a, Span.with_root_ctxt(BytePos(12), BytePos(20)))).toBe(Span.with_root_ctxt(BytePos(4), BytePos(20)));
-    expect(Span.ctxt(Span.with_ctxt(a, SyntaxContext_from_u32(7)))).toBe(SyntaxContext_from_u32(7));
+    expect(Span.ctxt(Span.with_ctxt(a, SyntaxContext.from_u32(7)))).toBe(SyntaxContext.from_u32(7));
     expect(debug_Span(a, PLAIN)).toBe("Span { lo: BytePos(4), hi: BytePos(9), ctxt: #0 }");
   });
 });
+
+// rust-ts only: the Debug functions tools/codegen/typemap.json maps rustc_span types to. Expected
+// strings follow the upstream impls (derives, `newtype_index!` debug_format, symbol.rs Debug impls).
+test("rust-ts: typemap Debug exports", () =>
+  create_default_session_globals_then(() => {
+    expect(debug_Symbol(Symbol.intern("main"), PLAIN)).toBe('"main"');
+    expect(debug_ByteSymbol(ByteSymbol.intern(new TextEncoder().encode("hi")), PLAIN)).toBe("[104, 105]");
+    expect(debug_Ident(Ident.from_str("main"), PLAIN)).toBe("main#0");
+    expect(debug_BytePos(BytePos(7), PLAIN)).toBe("BytePos(7)");
+    expect(debug_AttrId(AttrId.from_u32(3), PLAIN)).toBe("AttrId(3)");
+    expect(debug_ErrorGuaranteed(ErrorGuaranteed.unchecked_error_guaranteed(), PLAIN)).toBe("ErrorGuaranteed(())");
+    expect(debug_ErrorGuaranteed(ErrorGuaranteed.unchecked_error_guaranteed(), PRETTY)).toBe("ErrorGuaranteed(\n    (),\n)");
+    expect(debug_Spanned(dummy_spanned(1), PLAIN, debug_int)).toBe(
+      "Spanned { node: 1, span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }",
+    );
+    expect(debug_LocalExpnId(LocalExpnId.ROOT, PLAIN)).toBe("expn0");
+    expect(debug_Edition(Edition.Edition2021, PLAIN)).toBe("Edition2021");
+  }));
