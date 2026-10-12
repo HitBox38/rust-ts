@@ -41,15 +41,25 @@ See `PLAN.md` §5.
 
 Next after integration: wave 2 = span-map (source_map.rs, caching_source_map_view.rs), rustc_ast types via codegen, rustc_errors start; plus reviewer + regression auditor over wave 1.
 
-## In flight (wave 2, started 2026-10-12)
+## Wave 2 (started 2026-10-12)
 | lane | scope | status |
 |---|---|---|
-| span-wire | replace cross-lane stand-ins in rustc_span; session globals end-to-end; Debug exports for codegen; std char/float helpers | running |
-| ast-types | rustc_ast + rustc_ast_ir types and Debug via codegen; manual Debug impls; newtype_index/bitflags | running |
-| review-w1 | independent review of wave 1 (read-only) | running |
+| span-wire | rustc_span stand-ins → real exports; session globals; float Debug; std char helpers; review-w1 fixes | **merged** (gate-20261012-104747-root-9uvz) |
+| ast-types | rustc_ast + rustc_ast_ir types/Debug via codegen (20 .gen.ts, 252 types); newtype_index/bitflags; unknown cfg → ERROR | **merged** (gate-20261012-105724-root-lfad) |
+| review-w1 | independent review of wave 1 | **merged** |
+| harness-w2 | symdump probe + `symbols` suite; synthetic escape corpus + `escape-synthetic` suite | done, under independent review |
 
-Queued: span-map (source_map.rs, caching_source_map_view.rs, vendor unicode-width 0.2.2) after span-wire; then rustc_errors + rustc_session subset; regression auditor at next protected-set change.
+## In flight (wave 3)
+| lane | scope | status |
+|---|---|---|
+| span-map | source_map.rs, caching_source_map_view.rs, vendor unicode-width 0.2.2 (oracle tables) | running |
+| ast-token | rustc_ast token.rs, tokenstream.rs, util/* (hand-ported fns) | running |
 
-Review follow-ups (review-w1, all medium/low): symdump probe + gate check for symbol table (harness batch);
-synthetic literal corpus to cover the 6 escape-error variants the real corpus misses (harness batch);
-typemap Cell/RefCell Debug (span-wire); unknown-cfg → ERROR (ast-types); ExpnData copy-before-mutate (span-wire).
+Queued (in order):
+1. **errors-core** (after span-map): rustc_error_messages (inline messages; no Fluent at this pin), rustc_errors diagnostic.rs, codes.rs, lib.rs (DiagCtxt).
+2. **vendor-annotate** (after span-map): annotate-snippets 0.12.16 (+ anstyle subset). rustc's default human emitter at this pin is `AnnotateSnippetEmitter`; then annotate_snippet_emitter_writer.rs + emitter.rs. Needs a renderer probe suite.
+3. **codegen-diag**: `#[derive(Diagnostic/Subdiagnostic)]` (52 upstream files) via tools/codegen, porting rustc_macros/src/diagnostics.
+4. **ast-core**: ast.rs fns (160), attr/mod.rs, ast_traits, visit/mut_visit; rustc_feature tables.
+5. rustc_session subset (parse.rs ParseSess + options the parser reads), then rustc_parse lexer.
+6. Regression auditor at the next protected-set change (symbols / escape-synthetic baselines).
+7. Follow-ups: enable the 5 deferred `symbols` sections now that span-wire is merged; `LoneSlash` escape coverage (raw-input mode, harness batch).
