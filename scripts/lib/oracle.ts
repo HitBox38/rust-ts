@@ -22,6 +22,24 @@ export function oracleRustcCmd(args: string[]): string[] {
   return ["rustc", `+${PIN.toolchain}`, ...args];
 }
 
+let sysrootPath: string | undefined;
+
+/** `rustc +<toolchain> --print sysroot` of the oracle toolchain. */
+export function oracleSysroot(): string {
+  if (sysrootPath) return sysrootPath;
+  const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--print", "sysroot"]);
+  if (r.exitCode !== 0) die(`cannot run oracle rustc +${PIN.toolchain} --print sysroot`);
+  return (sysrootPath = r.stdout.toString().trim());
+}
+
+/** Host triple of the oracle toolchain (`rustc -vV`). */
+export function oracleHost(): string {
+  const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "-vV"]);
+  const m = /^host: (\S+)$/m.exec(r.stdout.toString());
+  if (r.exitCode !== 0 || !m) die(`cannot run oracle rustc +${PIN.toolchain} -vV`);
+  return m[1]!;
+}
+
 let driverHash: string | undefined;
 
 /**
@@ -31,9 +49,7 @@ let driverHash: string | undefined;
  */
 export function rustcDriverHash(): string {
   if (driverHash) return driverHash;
-  const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--print", "sysroot"]);
-  if (r.exitCode !== 0) die(`cannot run oracle rustc +${PIN.toolchain} --print sysroot`);
-  const sysroot = r.stdout.toString().trim();
+  const sysroot = oracleSysroot();
   for (const dir of [join(sysroot, "bin"), join(sysroot, "lib")]) {
     let names: string[];
     try {

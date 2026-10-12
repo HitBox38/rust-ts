@@ -1,0 +1,33 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (`rustc_dev = true` below): it links the pinned nightly's own compiler crates
+# (rustc_driver, rustc_parse, rustc_session, rustc_span, rustc_errors) through
+# `#![feature(rustc_private)]` + `extern crate`, not through path dependencies on the upstream
+# checkout. That needs the toolchain's rustc-dev component (and llvm-tools for libLLVM), which
+# installs the crates' .rmeta files under `<sysroot>/lib/rustlib/<host>/lib` (rustc's default
+# sysroot search path, so no `-L` is needed) and `librustc_driver-*` next to them and in
+# `<sysroot>/lib`. For such probes scripts/probes.ts:
+#   - refuses `[dependencies]` of any kind (path deps would link a second, different copy of the
+#     rustc_* crates; nothing else is needed),
+#   - checks the component is installed (an `rustc_driver` .rmeta/.rlib in the sysroot's rustlib
+#     dir; the error names the `rustup component add` command),
+#   - builds with `cargo +<toolchain>` and RUSTC_BOOTSTRAP=1 (harmless on nightly; needed if the
+#     pin ever moves to a beta/stable-named toolchain), and on unix adds an rpath to
+#     `<sysroot>/lib` (RUSTFLAGS) so the binary finds librustc_driver/libLLVM without
+#     DYLD_LIBRARY_PATH/LD_LIBRARY_PATH. On Windows the binary needs `<sysroot>/bin` on PATH.
+# The probe's behavior depends on the sysroot's rustc_driver build, so difftest keys the oracle
+# cache of suites using it on rustcDriverHash() as well as on the probe binary.
+[package]
+name = "tokdump"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "tokdump"
+path = "@SRC@/main.rs"
+
+[workspace]

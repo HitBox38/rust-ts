@@ -209,6 +209,23 @@ SUITES.push({
   subject: (cs) => [...bunCmd("src/rust_ts/emitdump.ts"), ...cs.map((c) => c.file)],
 });
 
+// Token trees (`rustc_parse::lexer::lex_token_trees`) with the pinned nightly's own rustc_parse
+// (rustc-dev probe tools/probes/tokdump; its header documents the setup and output format). Each
+// file is lexed in its own session with its compiletest edition (`edition()`), passed as an
+// `--edition=` argument before the file (so it is also part of the oracle cache key).
+SUITES.push({
+  name: "tokens",
+  milestone: "M1",
+  description:
+    "rustc_parse token trees ({:?} of the TokenStream from source_str_to_stream, buffered lints, gated and raw-identifier spans) plus the -Zui-testing diagnostics they emit (rustc-dev probe: tools/probes/tokdump) on every .rs in tests/ui, library, compiler, each with its edition",
+  mode: "batch",
+  timeoutMs: 120_000,
+  probes: ["tokdump"],
+  cases: () => corpus("tests/ui", "library", "compiler").map((f) => ({ id: f, file: f, args: [`--edition=${edition(f)}`] })),
+  oracle: (cs) => [probePath("tokdump"), ...cs.flatMap((c) => [...c.args, c.file])],
+  subject: (cs) => [...bunCmd("src/rust_ts/tokdump.ts"), ...cs.flatMap((c) => [...c.args, c.file])],
+});
+
 export function suite(name: string): Suite {
   const s = SUITES.find((s) => s.name === name);
   if (!s) throw new Error(`unknown suite '${name}' (have: ${SUITES.map((s) => s.name).join(", ")})`);
