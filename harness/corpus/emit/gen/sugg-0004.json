@@ -1,0 +1,59 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     153,
+     157
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      217,
+      236
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      72,
+      173
+     ],
+     "code": ""
+    }
+   ]
+  }
+ ]
+}

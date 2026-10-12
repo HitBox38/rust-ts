@@ -1,0 +1,73 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "always",
+  "short_message": true,
+  "diagnostic_width": 40,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     255,
+     256
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "required by a bound in `Point::<T>::new`",
+     "span": [
+      [
+       0,
+       0,
+       3
+      ]
+     ]
+    },
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      145,
+      146
+     ],
+     "code": "let y = 1;\nlet z = 2;"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

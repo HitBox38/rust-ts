@@ -1,0 +1,119 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": true,
+  "diagnostic_width": 20,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     251,
+     257
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      143,
+      144
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      241,
+      242
+     ],
+     "codes": [
+      "foo::bar::<T>()",
+      "let y = 1;\nlet z = 2;_1",
+      "42_2",
+      "42_3",
+      "x.clone()_4",
+      "let y = 1;\nlet z = 2;_5",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_6"
+     ],
+     "style": "ShowAlways"
+    }
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     289,
+     290
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      119,
+      151
+     ],
+     ""
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

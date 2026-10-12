@@ -1,0 +1,90 @@
+{
+ "files": [
+  {
+   "name": "src/bom.rs",
+   "src": "﻿fn bom() {\n    let a = 1;\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     13,
+     14
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      15,
+      18
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      27,
+      27
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": ""
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        15,
+        22
+       ],
+       "名前"
+      ],
+      [
+       [
+        0,
+        23,
+        23
+       ],
+       "名前"
+      ]
+     ]
+    },
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      7,
+      8
+     ],
+     "codes": [
+      "let y = 1;\nlet z = 2;",
+      "let y = 1;\nlet z = 2;_1",
+      "\tindented_2"
+     ],
+     "style": "ShowAlways"
+    }
+   ]
+  }
+ ]
+}

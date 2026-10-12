@@ -1,0 +1,149 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     155,
+     155
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      187,
+      188
+     ],
+     "🦀"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "MaybeIncorrect",
+     "parts": [
+      [
+       [
+        0,
+        52,
+        52
+       ],
+       "42"
+      ],
+      [
+       [
+        0,
+        20,
+        21
+       ],
+       "名前"
+      ]
+     ]
+    },
+    {
+     "kind": "multipart_suggestions",
+     "msg": "",
+     "applicability": "Unspecified",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         213,
+         220
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         211,
+         212
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         84,
+         84
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         103,
+         103
+        ],
+        "名前"
+       ],
+       [
+        [
+         0,
+         150,
+         151
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         35,
+         41
+        ],
+        "42"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         181,
+         181
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         162,
+         164
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         93,
+         158
+        ],
+        "\tindented"
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

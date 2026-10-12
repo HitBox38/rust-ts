@@ -1,0 +1,115 @@
+{
+ "files": [
+  {
+   "name": "src/bom.rs",
+   "src": "﻿fn bom() {\n    let a = 1;\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     15,
+     18
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      21,
+      28
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      4,
+      6
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      0,
+      2
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Warning",
+     "msg": "required by a bound in `Point::<T>::new`",
+     "span": {
+      "primary": [
+       [
+        0,
+        1,
+        6
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         0,
+         2
+        ],
+        "this"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "note_once",
+     "msg": ""
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        12,
+        13
+       ],
+       "42"
+      ],
+      [
+       [
+        0,
+        0,
+        2
+       ],
+       "x.clone()"
+      ],
+      [
+       [
+        0,
+        23,
+        24
+       ],
+       "&x"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

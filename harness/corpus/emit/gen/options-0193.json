@@ -1,0 +1,121 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     83,
+     83
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Help",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       135,
+       139
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      152,
+      156
+     ],
+     "code": "let y = 1;\nlet z = 2;",
+     "style": "HideCodeAlways"
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "span": [
+    [
+     0,
+     199,
+     202
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      207,
+      210
+     ],
+     "🦀"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      130,
+      130
+     ],
+     "code": "let y = 1;\nlet z = 2;"
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

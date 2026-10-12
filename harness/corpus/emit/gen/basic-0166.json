@@ -1,0 +1,35 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     22,
+     23
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      10,
+      15
+     ],
+     "this"
+    ]
+   ]
+  }
+ ]
+}

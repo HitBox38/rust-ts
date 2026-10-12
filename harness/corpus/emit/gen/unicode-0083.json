@@ -1,0 +1,86 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     225,
+     227
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      247,
+      250
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       241,
+       242
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      11,
+      12
+     ],
+     "code": "&x"
+    },
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        289,
+        290
+       ],
+       "x.clone()"
+      ],
+      [
+       [
+        0,
+        154,
+        180
+       ],
+       ""
+      ]
+     ],
+     "style": "ShowCode"
+    }
+   ]
+  }
+ ]
+}

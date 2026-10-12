@@ -1,0 +1,69 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "span": [
+    [
+     0,
+     0,
+     3
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      230,
+      241
+     ],
+     "🦀"
+    ]
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        258,
+        259
+       ],
+       "foo::bar::<T>()"
+      ],
+      [
+       [
+        0,
+        244,
+        244
+       ],
+       "foo::bar::<T>()"
+      ]
+     ],
+     "style": "ShowAlways"
+    }
+   ]
+  }
+ ]
+}

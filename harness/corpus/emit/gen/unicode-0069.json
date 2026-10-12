@@ -1,0 +1,72 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "code": "E0277",
+   "span": [
+    [
+     0,
+     34,
+     35
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      31,
+      47
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      24,
+      30
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "&'static str",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "String",
+       true
+      ],
+      [
+       ">",
+       false
+      ],
+      [
+       "Vec<",
+       false
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

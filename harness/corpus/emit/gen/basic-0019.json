@@ -1,0 +1,83 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     129,
+     222
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      143,
+      150
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      133,
+      151
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      201,
+      228
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       ">",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       ">",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

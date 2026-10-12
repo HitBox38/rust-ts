@@ -1,0 +1,71 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "span": [
+    [
+     0,
+     58,
+     59
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       160,
+       180
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        23,
+        29
+       ],
+       "foo::bar::<T>()"
+      ],
+      [
+       [
+        0,
+        138,
+        138
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ]
+  }
+ ]
+}

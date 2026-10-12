@@ -1,0 +1,40 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     52,
+     53
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "consider borrowing here",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      20,
+      20
+     ],
+     "code": "42",
+     "style": "HideCodeAlways"
+    }
+   ]
+  }
+ ]
+}

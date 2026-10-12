@@ -1,0 +1,48 @@
+{
+ "files": [
+  {
+   "name": "src/empty.rs",
+   "src": ""
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "in an empty file",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "add a main",
+     "span": [
+      0,
+      0,
+      0
+     ],
+     "code": "fn main() {}\n",
+     "applicability": "HasPlaceholders"
+    }
+   ]
+  }
+ ]
+}

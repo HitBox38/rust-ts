@@ -1,0 +1,64 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "",
+   "span": [
+    [
+     0,
+     35,
+     36
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      3,
+      11
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       " found ",
+       true
+      ],
+      [
+       "&str",
+       true
+      ],
+      [
+       "&str",
+       false
+      ],
+      [
+       "",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

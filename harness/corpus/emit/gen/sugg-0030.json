@@ -1,0 +1,45 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "mismatched types",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     145,
+     150
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      245,
+      284
+     ],
+     "codes": [
+      "foo::bar::<T>()",
+      "x.clone()_1",
+      "42_2",
+      "名前_3"
+     ]
+    }
+   ]
+  }
+ ]
+}

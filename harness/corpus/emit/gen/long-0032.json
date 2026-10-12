@@ -1,0 +1,159 @@
+{
+ "files": [
+  {
+   "name": "src/long.rs",
+   "src": "fn long() {\n    let result = some_function_with_a_long_name(first_argument_value, second_argument_value, third_argument_value, fourth_argument_value, fifth_argument_value, sixth_argument_value);\n    let s = \"a string literal that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on\";\n    short();\n    let v = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 30
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "unused variable: `x`",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     498,
+     499
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      378,
+      379
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "&'static str",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       ">",
+       true
+      ],
+      [
+       "i32",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "sub",
+     "level": "Error",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "consider borrowing here",
+     "applicability": "MaybeIncorrect",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         492,
+         494
+        ],
+        "名前"
+       ],
+       [
+        [
+         0,
+         450,
+         451
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         396,
+         397
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         522,
+         523
+        ],
+        "42"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         407,
+         525
+        ],
+        "&x"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         125,
+         126
+        ],
+        "&x"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         520,
+         522
+        ],
+        "let y = 1;\nlet z = 2;"
+       ],
+       [
+        [
+         0,
+         82,
+         103
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         10,
+         11
+        ],
+        "名前"
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

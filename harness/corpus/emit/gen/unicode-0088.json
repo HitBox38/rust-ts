@@ -1,0 +1,84 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     0,
+     2
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     44,
+     45
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      20,
+      24
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      10,
+      11
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

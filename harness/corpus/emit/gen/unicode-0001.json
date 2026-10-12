@@ -1,0 +1,54 @@
+{
+ "files": [
+  {
+   "name": "src/empty.rs",
+   "src": ""
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,163 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     72,
+     97
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      72,
+      79
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     35,
+     43
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      34,
+      54
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     48,
+     51
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      52,
+      63
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     115,
+     117
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      108,
+      114
+     ],
+     "not found in this scope"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     49,
+     57
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      49,
+      56
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     152,
+     157
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": ""
+    }
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "abort_if_errors"
+  }
+ ],
+ "flags": {
+  "eagerly_emit_delayed_bugs": true
+ }
+}

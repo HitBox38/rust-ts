@@ -1,0 +1,61 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     195,
+     206
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      210,
+      215
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      205,
+      213
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      86,
+      98
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,64 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "always",
+  "short_message": true,
+  "diagnostic_width": 200,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     31,
+     31
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "i32",
+       false
+      ],
+      [
+       "i32",
+       true
+      ],
+      [
+       "",
+       false
+      ],
+      [
+       " found ",
+       true
+      ]
+     ],
+     "span": [
+      [
+       0,
+       253,
+       254
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

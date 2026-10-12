@@ -1,0 +1,102 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": true,
+  "diagnostic_width": 40,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     118,
+     152
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "i32",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "note_once",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         105,
+         105
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         31,
+         31
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         4,
+         7
+        ],
+        "&x"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         35,
+         37
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         19,
+         19
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

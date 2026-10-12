@@ -1,0 +1,155 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 40,
+  "source_map": false,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     211,
+     212
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      105,
+      106
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       150,
+       151
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     181,
+     187
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      176,
+      176
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "Option<",
+       true
+      ],
+      [
+       "Option<",
+       true
+      ],
+      [
+       "i32",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       ">",
+       true
+      ],
+      [
+       ">",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       ">`",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "consider borrowing here",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      231,
+      231
+     ],
+     "codes": [
+      "let y = 1;\nlet z = 2;",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_1",
+      "let y = 1;\nlet z = 2;_2",
+      "let y = 1;\nlet z = 2;_3",
+      "42_4"
+     ]
+    }
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

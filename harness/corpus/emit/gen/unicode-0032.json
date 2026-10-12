@@ -1,0 +1,48 @@
+{
+ "files": [
+  {
+   "name": "src/empty.rs",
+   "src": ""
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "🦀"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      0,
+      0
+     ],
+     "code": "\tindented"
+    }
+   ]
+  }
+ ]
+}

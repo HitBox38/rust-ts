@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     4,
+     8
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      11,
+      18
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      26,
+      29
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "expected ",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      30,
+      31
+     ],
+     "codes": [
+      "&x",
+      "x.clone()_1",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_2",
+      "foo::bar::<T>()_3",
+      "42_4",
+      "42_5",
+      "x.clone()_6"
+     ]
+    }
+   ]
+  }
+ ]
+}

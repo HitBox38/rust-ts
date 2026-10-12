@@ -1,0 +1,61 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "macro_backtrace": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     58,
+     59
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      143,
+      144
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      60,
+      62
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      228,
+      228
+     ],
+     "code": "\tindented"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

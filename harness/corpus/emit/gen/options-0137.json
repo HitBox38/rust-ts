@@ -1,0 +1,159 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 40,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     255,
+     256
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      251,
+      252
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         143,
+         144
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         212,
+         237
+        ],
+        "x.clone()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         150,
+         151
+        ],
+        "&x"
+       ],
+       [
+        [
+         0,
+         25,
+         27
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         189,
+         193
+        ],
+        ""
+       ],
+       [
+        [
+         0,
+         204,
+         214
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         252,
+         253
+        ],
+        ""
+       ],
+       [
+        [
+         0,
+         167,
+         168
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         105,
+         106
+        ],
+        "42"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         149,
+         150
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         201,
+         202
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

@@ -1,0 +1,85 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     21,
+     23
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      146,
+      147
+     ],
+     "codes": [
+      "&x",
+      "x.clone()_1"
+     ],
+     "style": "ShowCode"
+    },
+    {
+     "kind": "multipart_suggestion",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        212,
+        219
+       ],
+       "&x"
+      ],
+      [
+       [
+        0,
+        292,
+        293
+       ],
+       "名前"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

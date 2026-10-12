@@ -1,0 +1,78 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "ui_testing": true,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     44,
+     70
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      167,
+      168
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      73,
+      73
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      160,
+      167
+     ],
+     "code": "x.clone()"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     169,
+     170
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

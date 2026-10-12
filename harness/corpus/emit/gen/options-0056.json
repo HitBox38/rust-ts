@@ -1,0 +1,117 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 40,
+  "source_map": false,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0001",
+   "span": [
+    [
+     2,
+     9,
+     9
+    ]
+   ],
+   "labels": [
+    [
+     [
+      2,
+      0,
+      1
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      173,
+      189
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       ">",
+       false
+      ],
+      [
+       "Option<",
+       false
+      ],
+      [
+       "i32",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "&'static str",
+       true
+      ],
+      [
+       ">",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "help",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      34,
+      34
+     ],
+     "codes": [
+      "42",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_1",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_2",
+      "\tindented_3",
+      "foo::bar::<T>()_4",
+      "\tindented_5",
+      "let y = 1;\nlet z = 2;_6"
+     ],
+     "style": "ShowCode"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

@@ -1,0 +1,142 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     112,
+     113
+    ]
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     112,
+     113
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     167,
+     168
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      162,
+      164
+     ],
+     "not found in this scope"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     145,
+     146
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      118,
+      152
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "String",
+       false
+      ],
+      [
+       "&'static str",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "",
+       true
+      ],
+      [
+       "String",
+       true
+      ]
+     ]
+    }
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     145,
+     146
+    ]
+   }
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    145,
+    146
+   ],
+   "key": "CallIntoMethod",
+   "note": "required by a bound in `Point::<T>::new`"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

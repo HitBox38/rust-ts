@@ -1,0 +1,85 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     241,
+     248
+    ],
+    [
+     0,
+     119,
+     195
+    ],
+    [
+     0,
+     97,
+     118
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      89,
+      89
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      234,
+      234
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      250,
+      256
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      156,
+      157
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      242,
+      252
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      145,
+      146
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  }
+ ]
+}

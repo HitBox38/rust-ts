@@ -1,0 +1,85 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     149,
+     150
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "&'static str",
+       false
+      ],
+      [
+       "i32",
+       true
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "String",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     149,
+     150
+    ]
+   }
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    149,
+    150
+   ],
+   "key": "CallIntoMethod",
+   "then": "cancel"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

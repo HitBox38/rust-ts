@@ -1,0 +1,66 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     64,
+     65
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      83,
+      83
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      12,
+      21
+     ],
+     "code": "42"
+    },
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      19,
+      19
+     ],
+     "code": "\tindented"
+    }
+   ]
+  }
+ ]
+}

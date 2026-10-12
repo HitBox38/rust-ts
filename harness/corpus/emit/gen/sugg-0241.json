@@ -1,0 +1,52 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     8,
+     185
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      15,
+      36
+     ],
+     "code": "名前"
+    },
+    {
+     "kind": "span_suggestions",
+     "msg": "",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      241,
+      242
+     ],
+     "codes": [
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close",
+      "foo::bar::<T>()_1"
+     ]
+    }
+   ]
+  }
+ ]
+}

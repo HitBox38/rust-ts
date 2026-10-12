@@ -1,0 +1,85 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     133,
+     134
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Help",
+     "msg": "a note\nspanning lines",
+     "span": {
+      "primary": [
+       [
+        0,
+        82,
+        85
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         31,
+         31
+        ],
+        "second mutable borrow occurs here"
+       ]
+      ]
+     }
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      190,
+      256
+     ],
+     "code": "&x"
+    },
+    {
+     "kind": "span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      126,
+      133
+     ],
+     "code": "42"
+    }
+   ]
+  }
+ ]
+}

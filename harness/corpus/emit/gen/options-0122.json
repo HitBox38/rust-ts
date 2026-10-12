@@ -1,0 +1,107 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": false,
+  "ui_testing": true,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "unused variable: `x`",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     257,
+     289
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "i32",
+       false
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "&'static str",
+       false
+      ],
+      [
+       "Vec<",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "i32",
+       false
+      ],
+      [
+       "&'static str",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "i32",
+       true
+      ],
+      [
+       "&'static str",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      76,
+      113
+     ],
+     "codes": [
+      "42",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_1"
+     ],
+     "style": "HideCodeInline"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

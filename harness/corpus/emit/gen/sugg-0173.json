@@ -1,0 +1,65 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "span": [
+    [
+     0,
+     37,
+     42
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      64,
+      65
+     ],
+     "code": "x.clone()",
+     "style": "ShowAlways"
+    },
+    {
+     "kind": "span_suggestion_short",
+     "msg": "consider borrowing here",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      79,
+      80
+     ],
+     "code": "&x"
+    }
+   ]
+  }
+ ]
+}

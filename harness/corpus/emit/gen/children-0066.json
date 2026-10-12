@@ -1,0 +1,84 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0382",
+   "labels": [
+    [
+     [
+      0,
+      0,
+      11
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": [
+      [
+       0,
+       22,
+       23
+      ]
+     ]
+    },
+    {
+     "kind": "warn",
+     "msg": "required by a bound in `Point::<T>::new`"
+    },
+    {
+     "kind": "warn",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     32,
+     33
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ]
+  }
+ ]
+}

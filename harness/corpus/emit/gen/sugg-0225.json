@@ -1,0 +1,44 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        21,
+        22
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ],
+      [
+       [
+        0,
+        41,
+        70
+       ],
+       "x.clone()"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

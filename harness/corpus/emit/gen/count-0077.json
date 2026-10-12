@@ -1,0 +1,139 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     61,
+     68
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      186,
+      187
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     273,
+     299
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "fatal",
+   "msg": "",
+   "span": [
+    [
+     0,
+     196,
+     208
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      208,
+      211
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "required by a bound in `Point::<T>::new`",
+     "span": {
+      "primary": [
+       [
+        0,
+        337,
+        356
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         1,
+         5
+        ],
+        "label with\nnewline"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     258,
+     258
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      266,
+      269
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

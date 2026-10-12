@@ -1,0 +1,133 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "never",
+  "short_message": true,
+  "diagnostic_width": 40,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     241,
+     242
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      127,
+      152
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": {
+      "primary": [
+       [
+        0,
+        223,
+        280
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         121,
+         232
+        ],
+        "first borrow occurs here"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        289,
+        290
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     156,
+     164
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      10,
+      11
+     ],
+     "🦀"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "consider borrowing here",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      2,
+      11
+     ],
+     "code": ""
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

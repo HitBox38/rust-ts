@@ -1,0 +1,70 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     1,
+     2
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": [
+      [
+       0,
+       66,
+       66
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      61,
+      62
+     ],
+     "code": "x.clone()"
+    },
+    {
+     "kind": "span_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      4,
+      7
+     ],
+     "codes": [
+      "x.clone()",
+      "let y = 1;\nlet z = 2;_1",
+      "\tindented_2",
+      "42_3",
+      "x.clone()_4"
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,285 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     161,
+     256
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      216,
+      241
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "String",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "&'static str",
+       false
+      ],
+      [
+       "i32",
+       false
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     69,
+     70
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      74,
+      75
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     161,
+     256
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      216,
+      241
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "String",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "&'static str",
+       false
+      ],
+      [
+       "i32",
+       false
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     106,
+     106
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       " found ",
+       true
+      ],
+      [
+       "&str",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "must_teach",
+   "code": "E0425"
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "tab\tin message",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     72,
+     73
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      63,
+      67
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "",
+       true
+      ],
+      [
+       ">",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "Vec<",
+       true
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "span": [
+    [
+     0,
+     338,
+     339
+    ]
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     239,
+     240
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      227,
+      231
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      256,
+      257
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      236,
+      244
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "query"
+  }
+ ]
+}

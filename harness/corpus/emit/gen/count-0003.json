@@ -1,0 +1,113 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "span": [
+    [
+     0,
+     53,
+     65
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "span": [
+    [
+     0,
+     53,
+     65
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "fatal",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     259,
+     264
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      255,
+      276
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": ""
+    }
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0425",
+   "children": [
+    {
+     "kind": "help",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

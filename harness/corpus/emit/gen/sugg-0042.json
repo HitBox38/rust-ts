@@ -1,0 +1,87 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     22,
+     32
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      10,
+      28
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       ">`",
+       false
+      ],
+      [
+       "expected ",
+       false
+      ],
+      [
+       "",
+       false
+      ],
+      [
+       "i32",
+       true
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      49,
+      49
+     ],
+     "codes": [
+      "foo::bar::<T>()",
+      "42_1"
+     ]
+    },
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      265,
+      287
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    }
+   ]
+  }
+ ]
+}

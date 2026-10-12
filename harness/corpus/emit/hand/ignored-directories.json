@@ -1,0 +1,47 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  },
+  {
+   "name": "src/very/deep/mod.rs",
+   "src": "pub fn deep() {}\n"
+  },
+  {
+   "custom": "anon",
+   "src": "custom source\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "ignored_directories": [
+   "src/very"
+  ]
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "in ignored dir",
+   "span": [
+    {
+     "file": 1,
+     "find": "deep"
+    }
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "shown file",
+     "span": [
+      {
+       "file": 0,
+       "find": "main"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

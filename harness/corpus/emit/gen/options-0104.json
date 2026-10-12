@@ -1,0 +1,68 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 80,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     193,
+     255
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      91,
+      92
+     ],
+     "code": "let y = 1;\nlet z = 2;",
+     "style": "HideCodeInline"
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     82,
+     85
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

@@ -1,0 +1,154 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 200,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "code": "E0599",
+   "span": [
+    [
+     1,
+     14,
+     14
+    ]
+   ],
+   "labels": [
+    [
+     [
+      1,
+      8,
+      16
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "i32",
+       true
+      ],
+      [
+       " found ",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     229,
+     254
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      78,
+      79
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      175,
+      221
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      236,
+      249
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      32,
+      34
+     ],
+     "codes": [
+      "\tindented",
+      "\tindented_1",
+      "&x_2"
+     ],
+     "style": "HideCodeInline"
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

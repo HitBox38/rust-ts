@@ -1,0 +1,61 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     124,
+     125
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      134,
+      134
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      122,
+      125
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      125,
+      132
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      122,
+      123
+     ],
+     "not found in this scope"
+    ]
+   ]
+  }
+ ]
+}

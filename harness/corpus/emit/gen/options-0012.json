@@ -1,0 +1,115 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": true,
+  "diagnostic_width": 20,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     180,
+     181
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         76,
+         113
+        ],
+        ""
+       ],
+       [
+        [
+         0,
+         151,
+         158
+        ],
+        "\tindented"
+       ],
+       [
+        [
+         0,
+         186,
+         189
+        ],
+        "x.clone()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         113,
+         114
+        ],
+        "foo::bar::<T>()"
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     130,
+     131
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      137,
+      142
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       185,
+       185
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

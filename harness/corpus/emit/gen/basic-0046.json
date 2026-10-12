@@ -1,0 +1,69 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     55,
+     56
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      55,
+      61
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      61,
+      62
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       21,
+       22
+      ]
+     ]
+    },
+    {
+     "kind": "warn",
+     "msg": ""
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  }
+ ]
+}

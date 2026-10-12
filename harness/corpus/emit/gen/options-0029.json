@@ -1,0 +1,90 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "never",
+  "short_message": true,
+  "diagnostic_width": 80,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     160,
+     174
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      4,
+      7
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      151,
+      180
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       195,
+       229
+      ]
+     ]
+    },
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      191,
+      193
+     ],
+     "code": "&x"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

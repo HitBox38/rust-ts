@@ -1,0 +1,168 @@
+{
+ "files": [
+  {
+   "name": "src/long.rs",
+   "src": "fn long() {\n    let result = some_function_with_a_long_name(first_argument_value, second_argument_value, third_argument_value, fourth_argument_value, fifth_argument_value, sixth_argument_value);\n    let s = \"a string literal that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on\";\n    short();\n    let v = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     350,
+     350
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      508,
+      510
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Note",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       360,
+       534
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      266,
+      533
+     ],
+     "code": "x.clone()"
+    },
+    {
+     "kind": "multipart_suggestions",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         242,
+         271
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         516,
+         518
+        ],
+        ""
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         418,
+         419
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         59,
+         60
+        ],
+        "名前"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         99,
+         360
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         520,
+         522
+        ],
+        "名前"
+       ],
+       [
+        [
+         0,
+         412,
+         414
+        ],
+        ""
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         464,
+         466
+        ],
+        "\tindented"
+       ],
+       [
+        [
+         0,
+         375,
+         376
+        ],
+        "\tindented"
+       ],
+       [
+        [
+         0,
+         402,
+         403
+        ],
+        "\tindented"
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

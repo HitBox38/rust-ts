@@ -1,0 +1,65 @@
+{
+ "files": [
+  {
+   "name": "src/long.rs",
+   "src": "fn long() {\n    let result = some_function_with_a_long_name(first_argument_value, second_argument_value, third_argument_value, fourth_argument_value, fifth_argument_value, sixth_argument_value);\n    let s = \"a string literal that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on\";\n    short();\n    let v = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 100
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "tab\tin message",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     408,
+     410
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      407,
+      419
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      414,
+      420
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      2,
+      2
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      442,
+      443
+     ],
+     "code": "x.clone()"
+    }
+   ]
+  }
+ ]
+}

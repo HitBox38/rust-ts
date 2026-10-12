@@ -1,0 +1,104 @@
+{
+ "files": [
+  {
+   "name": "src/bom.rs",
+   "src": "﻿fn bom() {\n    let a = 1;\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     13,
+     27
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": {
+      "primary": [
+       [
+        0,
+        15,
+        18
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         15,
+         26
+        ],
+        "first borrow occurs here"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "note_once",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        21,
+        24
+       ],
+       ""
+      ],
+      [
+       [
+        0,
+        0,
+        2
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ]
+     ]
+    },
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        3,
+        6
+       ],
+       "x.clone()"
+      ],
+      [
+       [
+        0,
+        24,
+        25
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

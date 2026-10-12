@@ -1,0 +1,71 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": true,
+  "ui_testing": true,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     76,
+     113
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "",
+     "span": [
+      [
+       0,
+       217,
+       242
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "span": [
+    [
+     0,
+     230,
+     241
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

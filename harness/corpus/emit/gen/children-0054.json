@@ -1,0 +1,125 @@
+{
+ "files": [
+  {
+   "name": "src/long.rs",
+   "src": "fn long() {\n    let result = some_function_with_a_long_name(first_argument_value, second_argument_value, third_argument_value, fourth_argument_value, fifth_argument_value, sixth_argument_value);\n    let s = \"a string literal that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on\";\n    short();\n    let v = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     533,
+     534
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      528,
+      535
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      474,
+      475
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "",
+     "span": [
+      [
+       0,
+       385,
+       386
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       ">`",
+       false
+      ],
+      [
+       " found ",
+       true
+      ],
+      [
+       "i32",
+       false
+      ],
+      [
+       ">`",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     29,
+     59
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "String",
+       true
+      ],
+      [
+       "",
+       true
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "Vec<",
+       false
+      ],
+      [
+       ">",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    }
+   ]
+  }
+ ]
+}

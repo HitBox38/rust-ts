@@ -1,0 +1,103 @@
+{
+ "files": [
+  {
+   "name": "src/bom.rs",
+   "src": "﻿fn bom() {\n    let a = 1;\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     0,
+     2
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      6,
+      8
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      2,
+      28
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      26,
+      27
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      15,
+      18
+     ],
+     "code": "\tindented"
+    },
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        0,
+        10
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ],
+      [
+       [
+        0,
+        26,
+        27
+       ],
+       "&x"
+      ]
+     ],
+     "style": "ShowAlways"
+    }
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

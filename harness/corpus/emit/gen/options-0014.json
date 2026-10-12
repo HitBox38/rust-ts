@@ -1,0 +1,106 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": true,
+  "diagnostic_width": 20,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     94,
+     95
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      82,
+      93
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      82,
+      85
+     ],
+     "🦀"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      65,
+      89
+     ],
+     "code": "42"
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     1,
+     44,
+     45
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      167,
+      168
+     ],
+     "code": "&x"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

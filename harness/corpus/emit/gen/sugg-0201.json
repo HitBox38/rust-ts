@@ -1,0 +1,58 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "unused variable: `x`",
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        126,
+        137
+       ],
+       "名前"
+      ],
+      [
+       [
+        0,
+        19,
+        22
+       ],
+       "&x"
+      ],
+      [
+       [
+        0,
+        30,
+        31
+       ],
+       "名前"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

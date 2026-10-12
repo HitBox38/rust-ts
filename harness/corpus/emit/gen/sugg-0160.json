@@ -1,0 +1,40 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "mismatched types",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     77,
+     78
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      3,
+      7
+     ],
+     "code": "&x"
+    }
+   ]
+  }
+ ]
+}

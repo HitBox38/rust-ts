@@ -1,0 +1,175 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     1,
+     6,
+     6
+    ]
+   ],
+   "labels": [
+    [
+     [
+      1,
+      4,
+      16
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         156,
+         157
+        ],
+        "let y = 1;\nlet z = 2;"
+       ],
+       [
+        [
+         0,
+         163,
+         163
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         241,
+         255
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         176,
+         181
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         42,
+         43
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         90,
+         91
+        ],
+        "&x"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         9,
+         20
+        ],
+        ""
+       ],
+       [
+        [
+         0,
+         105,
+         106
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         145,
+         146
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         141,
+         142
+        ],
+        "let y = 1;\nlet z = 2;"
+       ],
+       [
+        [
+         0,
+         178,
+         185
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         159,
+         166
+        ],
+        "foo::bar::<T>()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         150,
+         151
+        ],
+        "42"
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,60 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     118,
+     226
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      122,
+      143
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      132,
+      199
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      10,
+      11
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      123,
+      129
+     ],
+     "first borrow occurs here"
+    ]
+   ]
+  }
+ ]
+}

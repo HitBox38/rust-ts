@@ -1,0 +1,113 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     193,
+     229
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": ""
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     190,
+     192
+    ]
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     255,
+     256
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       111,
+       112
+      ]
+     ]
+    }
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     193,
+     229
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": ""
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     193,
+     229
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": ""
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

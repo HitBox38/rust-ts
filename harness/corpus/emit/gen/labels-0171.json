@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     1,
+     2
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      144,
+      145
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      0,
+      10
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      102,
+      105
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      0,
+      6
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      175,
+      180
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

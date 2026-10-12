@@ -1,0 +1,80 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": true,
+  "diagnostic_width": 40,
+  "source_map": false,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "tab\tin message",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     82,
+     85
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      190,
+      190
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      249,
+      250
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": ""
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     143,
+     144
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      32,
+      34
+     ],
+     "help: consider borrowing here"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

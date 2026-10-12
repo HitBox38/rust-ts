@@ -1,0 +1,45 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     54,
+     55
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      48,
+      49
+     ],
+     "codes": [
+      "let y = 1;\nlet z = 2;",
+      "x.clone()_1",
+      "42_2",
+      "名前_3",
+      "x.clone()_4"
+     ]
+    }
+   ]
+  }
+ ]
+}

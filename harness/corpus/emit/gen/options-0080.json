@@ -1,0 +1,81 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "ui_testing": true,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     190,
+     194
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     82,
+     85
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      256,
+      256
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      93,
+      94
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      81,
+      86
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

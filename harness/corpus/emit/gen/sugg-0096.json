@@ -1,0 +1,61 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     98,
+     108
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      99,
+      116
+     ],
+     ""
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      165,
+      166
+     ],
+     "code": "名前"
+    },
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "remove this",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      8,
+      9
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    }
+   ]
+  }
+ ]
+}

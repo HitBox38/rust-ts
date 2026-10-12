@@ -1,0 +1,66 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "mismatched types",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     81,
+     82
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": ""
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        46,
+        47
+       ],
+       "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+      ],
+      [
+       [
+        0,
+        67,
+        67
+       ],
+       "\tindented"
+      ],
+      [
+       [
+        0,
+        48,
+        49
+       ],
+       "x.clone()"
+      ]
+     ],
+     "style": "HideCodeInline"
+    }
+   ]
+  }
+ ]
+}

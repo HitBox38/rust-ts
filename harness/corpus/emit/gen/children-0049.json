@@ -1,0 +1,108 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     113,
+     114
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      217,
+      242
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      116,
+      121
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "",
+     "span": [
+      [
+       0,
+       20,
+       20
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "",
+       true
+      ],
+      [
+       "",
+       true
+      ],
+      [
+       " found ",
+       true
+      ]
+     ],
+     "span": [
+      [
+       0,
+       215,
+       216
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       " found ",
+       true
+      ],
+      [
+       " found ",
+       true
+      ],
+      [
+       " found ",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       60,
+       60
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

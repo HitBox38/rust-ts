@@ -1,0 +1,189 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     97,
+     100
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      9,
+      9
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     97,
+     100
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line"
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     141,
+     144
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      119,
+      124
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ],
+   "then": {
+    "stash": "EarlySyntaxWarning",
+    "span": [
+     0,
+     141,
+     144
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     74,
+     75
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "span": [
+    [
+     0,
+     304,
+     306
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      60,
+      73
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     304,
+     306
+    ]
+   }
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    8,
+    9
+   ],
+   "key": "EarlySyntaxWarning"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    141,
+    144
+   ],
+   "key": "EarlySyntaxWarning",
+   "then": "emit"
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    304,
+    306
+   ],
+   "key": "ExprInPat",
+   "note": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

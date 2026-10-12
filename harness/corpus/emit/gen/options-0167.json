@@ -1,0 +1,51 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "ignored_directories": [
+   "src/very"
+  ],
+  "short_message": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "unused variable: `x`",
+   "code": "E0308",
+   "labels": [
+    [
+     [
+      0,
+      211,
+      217
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      10,
+      11
+     ],
+     "codes": [
+      "名前"
+     ]
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

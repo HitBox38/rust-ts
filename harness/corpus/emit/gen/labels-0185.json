@@ -1,0 +1,59 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     2,
+     11
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      7,
+      9
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      48,
+      49
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      20,
+      36
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

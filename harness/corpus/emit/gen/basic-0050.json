@@ -1,0 +1,105 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     27,
+     39
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      25,
+      30
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      26,
+      33
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      34,
+      44
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "required by a bound in `Point::<T>::new`",
+     "span": {
+      "primary": [
+       [
+        0,
+        63,
+        83
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         0,
+         83
+        ],
+        "second mutable borrow occurs here"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "Option<",
+       false
+      ],
+      [
+       ">",
+       false
+      ],
+      [
+       "String",
+       true
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "Vec<",
+       false
+      ],
+      [
+       "Vec<",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

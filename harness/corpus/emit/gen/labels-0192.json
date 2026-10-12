@@ -1,0 +1,67 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     1,
+     9
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      10
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      6,
+      13
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      80,
+      80
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      65,
+      74
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      2,
+      17
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  }
+ ]
+}

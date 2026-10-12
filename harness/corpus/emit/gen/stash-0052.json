@@ -1,0 +1,77 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     96,
+     97
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      192,
+      247
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "String",
+       false
+      ],
+      [
+       "Option<",
+       true
+      ],
+      [
+       "Vec<",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "Vec<",
+       false
+      ],
+      [
+       "i32",
+       false
+      ]
+     ]
+    }
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     96,
+     97
+    ]
+   }
+  },
+  {
+   "op": "query"
+  }
+ ]
+}

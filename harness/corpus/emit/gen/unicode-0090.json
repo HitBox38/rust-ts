@@ -1,0 +1,150 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     291,
+     291
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      280,
+      282
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       1,
+       4
+      ]
+     ]
+    },
+    {
+     "kind": "note_once",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      164,
+      179
+     ],
+     "codes": [
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close",
+      "&x_1",
+      "&x_2",
+      "x.clone()_3",
+      "\tindented_4",
+      "foo::bar::<T>()_5",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_6"
+     ],
+     "style": "HideCodeAlways"
+    },
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "consider borrowing here",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      3,
+      10
+     ],
+     "code": "\tindented",
+     "style": "CompletelyHidden"
+    }
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "span": [
+    [
+     0,
+     10,
+     11
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      6,
+      12
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "a note\nspanning lines"
+    },
+    {
+     "kind": "help",
+     "msg": ""
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      30,
+      31
+     ],
+     "codes": [
+      "foo::bar::<T>()"
+     ],
+     "style": "CompletelyHidden"
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ]
+  }
+ ]
+}

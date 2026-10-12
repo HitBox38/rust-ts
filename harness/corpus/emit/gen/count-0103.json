@@ -1,0 +1,199 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "span": [
+    [
+     0,
+     31,
+     64
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      110,
+      111
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       ">",
+       true
+      ],
+      [
+       "Vec<",
+       false
+      ],
+      [
+       "",
+       true
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "Option<",
+       true
+      ],
+      [
+       "&'static str",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "span": [
+    [
+     0,
+     31,
+     64
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      110,
+      111
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       ">",
+       true
+      ],
+      [
+       "Vec<",
+       false
+      ],
+      [
+       "",
+       true
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "Option<",
+       true
+      ],
+      [
+       "&'static str",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "fatal",
+   "msg": "tab\tin message",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     191,
+     193
+    ]
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     152,
+     154
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      158,
+      159
+     ],
+     "help: consider borrowing here"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "abort_if_errors"
+  }
+ ],
+ "flags": {
+  "can_emit_warnings": false
+ }
+}

@@ -1,0 +1,100 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "always",
+  "short_message": false,
+  "ui_testing": true,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0425",
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        162,
+        164
+       ],
+       "x.clone()"
+      ],
+      [
+       [
+        0,
+        161,
+        161
+       ],
+       "名前"
+      ],
+      [
+       [
+        0,
+        114,
+        156
+       ],
+       "x.clone()"
+      ]
+     ],
+     "style": "HideCodeAlways"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "mismatched types",
+   "code": "E0277",
+   "span": [
+    [
+     0,
+     240,
+     240
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      230,
+      231
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      239,
+      249
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      253,
+      254
+     ],
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

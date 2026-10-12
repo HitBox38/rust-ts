@@ -1,0 +1,97 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multipart",
+   "span": [
+    {
+     "file": 0,
+     "find": "v[0]"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion",
+     "msg": "borrow and clone",
+     "parts": [
+      [
+       {
+        "file": 0,
+        "find": "v[0]",
+        "len": 0
+       },
+       "&"
+      ],
+      [
+       {
+        "file": 0,
+        "find": "v[0]",
+        "len": 4
+       },
+       "v.clone()[0]"
+      ]
+     ],
+     "applicability": "MachineApplicable"
+    },
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "hidden inline",
+     "parts": [
+      [
+       {
+        "file": 0,
+        "find": "let v",
+        "len": 4
+       },
+       "let mut "
+      ]
+     ],
+     "applicability": "MaybeIncorrect",
+     "style": "HideCodeInline"
+    },
+    {
+     "kind": "multipart_suggestions",
+     "msg": "alternatives",
+     "alternatives": [
+      [
+       [
+        {
+         "file": 0,
+         "find": "i32"
+        },
+        "u32"
+       ]
+      ],
+      [
+       [
+        {
+         "file": 0,
+         "find": "i32"
+        },
+        "i64"
+       ],
+       [
+        {
+         "file": 0,
+         "find": "\"hello\""
+        },
+        "5"
+       ]
+      ]
+     ],
+     "applicability": "MaybeIncorrect"
+    }
+   ]
+  }
+ ]
+}

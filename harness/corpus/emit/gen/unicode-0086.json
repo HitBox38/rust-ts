@@ -1,0 +1,33 @@
+{
+ "files": [
+  {
+   "name": "src/empty.rs",
+   "src": ""
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "a note\nspanning lines"
+    }
+   ]
+  }
+ ]
+}

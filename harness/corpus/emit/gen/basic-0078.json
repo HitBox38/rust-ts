@@ -1,0 +1,44 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     79,
+     80
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      69,
+      75
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,128 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "macro_backtrace": true,
+  "ignored_directories": [
+   "src/very"
+  ]
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     171,
+     172
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      94,
+      95
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       41,
+       43
+      ]
+     ]
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       ">",
+       false
+      ],
+      [
+       "i32",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       ">",
+       false
+      ],
+      [
+       "Option<",
+       true
+      ],
+      [
+       "Vec<",
+       true
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     39,
+     40
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      7,
+      8
+     ],
+     "🦀"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

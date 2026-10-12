@@ -1,0 +1,83 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     215,
+     216
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      214,
+      223
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      32,
+      39
+     ],
+     "code": "foo::bar::<T>()"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "span": [
+    [
+     0,
+     186,
+     189
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      184,
+      194
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  }
+ ]
+}

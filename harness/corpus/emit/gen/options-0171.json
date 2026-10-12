@@ -1,0 +1,71 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80,
+  "macro_backtrace": true,
+  "short_message": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     13,
+     31
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    },
+    {
+     "kind": "note",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     131,
+     143
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       182,
+       216
+      ]
+     ]
+    },
+    {
+     "kind": "note_once",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

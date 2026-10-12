@@ -1,0 +1,77 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     222,
+     225
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      220,
+      231
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      116,
+      117
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      218,
+      222
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      170,
+      172
+     ],
+     "this"
+    ]
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ]
+  }
+ ]
+}

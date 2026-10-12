@@ -1,0 +1,102 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     35,
+     39
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       257,
+       257
+      ]
+     ]
+    }
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     35,
+     39
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     112,
+     113
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     112,
+     113
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     227,
+     228
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      101,
+      105
+     ],
+     "🦀"
+    ]
+   ],
+   "then": {
+    "stash": "EarlySyntaxWarning",
+    "span": [
+     0,
+     227,
+     228
+    ]
+   }
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

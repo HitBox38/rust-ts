@@ -1,0 +1,104 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     0,
+     11
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      2,
+      8
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      65,
+      65
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      25,
+      26
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines",
+     "span": {
+      "primary": [
+       [
+        0,
+        107,
+        107
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         118,
+         118
+        ],
+        ""
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      40,
+      69
+     ],
+     "code": "&x"
+    },
+    {
+     "kind": "span_suggestion_short",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      81,
+      84
+     ],
+     "code": ""
+    }
+   ]
+  }
+ ]
+}

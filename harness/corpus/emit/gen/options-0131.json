@@ -1,0 +1,73 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "always",
+  "short_message": false,
+  "diagnostic_width": 20,
+  "source_map": false,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     31,
+     31
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      20,
+      26
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      19,
+      26
+     ],
+     "🦀"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      88,
+      89
+     ],
+     "code": "x.clone()"
+    }
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

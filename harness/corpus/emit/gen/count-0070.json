@@ -1,0 +1,110 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "span": [
+    [
+     0,
+     156,
+     157
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      255,
+      256
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       ">",
+       false
+      ],
+      [
+       ">",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "&'static str",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     173,
+     188
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     75,
+     75
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     173,
+     188
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "abort_if_errors"
+  }
+ ]
+}

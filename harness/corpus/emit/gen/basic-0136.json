@@ -1,0 +1,47 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     55,
+     56
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      28,
+      29
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Warning",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    },
+    {
+     "kind": "sub",
+     "level": "Warning",
+     "msg": ""
+    }
+   ]
+  }
+ ]
+}

@@ -8,6 +8,9 @@
 //   bun scripts/coverage.ts --crate C       per-file table for one crate (compiler crate, or vendor `<crate>` / `<crate>-<ver>`)
 //   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file (`compiler/...` or `<crate>-<ver>/<path>`)
 //   bun scripts/coverage.ts --check         ERROR on markers that point at no upstream / crate fn
+//   --offline                               fetch missing vendor crate sources only from cargo's local cache
+// Vendor crate sources are resolved lazily: only the crates a mode actually reads (none for a
+// compiler `--missing` / `--crate`; for `--check`, only crates that have markers).
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { FrontmatterAllowed, strip_shebang, tokenize } from "../src/rustc_lexer/lib.ts";
@@ -87,24 +90,39 @@ export function vendorMarkers(): (Marker & { skip: boolean })[] {
   return out;
 }
 
-export interface VendorCrate {
+export interface VendorEntry {
   name: string;
   version: string;
   /** `<name>-<version>`: the first path segment of its markers. */
   id: string;
+}
+
+export interface VendorCrate extends VendorEntry {
   /** The unpacked crate source (`<registry>/<id>`). */
   dir: string;
 }
 
-/** The vendored crates of `harness/scope.json` `vendor` (exact `=` versions), with their sources. */
-export async function vendorCrates(): Promise<VendorCrate[]> {
+/** The vendored crates of `harness/scope.json` `vendor` (exact `=` versions), without resolving sources. */
+export function vendorEntries(): VendorEntry[] {
   const scope = JSON.parse(readFileSync(join(REPO, "harness", "scope.json"), "utf8"));
-  const out: VendorCrate[] = [];
+  const out: VendorEntry[] = [];
   for (const [name, spec] of Object.entries((scope.vendor ?? {}) as Record<string, string>)) {
     if (!/^=[^=]+$/.test(spec)) die(`harness/scope.json vendor ${name}: version ${JSON.stringify(spec)} is not an exact \`=\` version`);
     const version = spec.slice(1);
-    out.push({ name, version, id: `${name}-${version}`, dir: await crateSrc(name, version) });
+    out.push({ name, version, id: `${name}-${version}` });
   }
+  return out;
+}
+
+/** One vendored crate with its source directory (fetched with cargo if it is not unpacked yet). */
+export async function resolveVendor(v: VendorEntry, opts: { offline?: boolean } = {}): Promise<VendorCrate> {
+  return { ...v, dir: await crateSrc(v.name, v.version, opts) };
+}
+
+/** The vendored crates of `harness/scope.json` `vendor` (exact `=` versions), with their sources. */
+export async function vendorCrates(opts: { offline?: boolean } = {}): Promise<VendorCrate[]> {
+  const out: VendorCrate[] = [];
+  for (const v of vendorEntries()) out.push(await resolveVendor(v, opts));
   return out;
 }
 
@@ -128,11 +146,13 @@ if (import.meta.main) {
   const key = (p: string, l: number) => `${p}:${l}`;
   const marked = new Map(ms.map((m) => [key(m.path, m.line), m]));
   const vmarked = new Map(vms.map((m) => [key(m.path, m.line), m]));
-  const vendor = await vendorCrates();
+  const offline = a.offline === true;
+  const vendor = vendorEntries();
   const vendorOf = (path: string) => vendor.find((v) => path.startsWith(`${v.id}/`));
 
   if (typeof a.missing === "string") {
-    const v = vendorOf(a.missing);
+    const ve = vendorOf(a.missing);
+    const v = ve ? await resolveVendor(ve, { offline }) : undefined;
     const fns = v ? upstreamFns(a.missing, dirname(v.dir)) : upstreamFns(a.missing);
     const miss = fns.filter((f) => !(v ? vmarked : marked).has(key(f.path, f.line)));
     for (const f of miss) console.log(`${f.path}:${f.line} ${f.name}`);
@@ -141,7 +161,11 @@ if (import.meta.main) {
   }
 
   // `--crate` names either a compiler crate or a vendored one (`<crate>` or `<crate>-<ver>`).
-  const vsel = typeof a.crate === "string" ? vendor.filter((v) => v.id === a.crate || v.name === a.crate) : vendor;
+  const vselEntries = typeof a.crate === "string" ? vendor.filter((v) => v.id === a.crate || v.name === a.crate) : vendor;
+  // `--check` only needs the sources of crates that have markers; the tables need all selected ones.
+  const vneeded = a.check ? vselEntries.filter((v) => vms.some((m) => m.path.startsWith(`${v.id}/`))) : vselEntries;
+  const vsel: VendorCrate[] = [];
+  for (const v of vneeded) vsel.push(await resolveVendor(v, { offline }));
   const crates = typeof a.crate === "string" ? (vsel.length ? [] : [a.crate]) : inScopeCrates();
   const all = new Map<string, UpstreamFn>();
   const rows: { crate: string; total: number; ported: number; files: { path: string; total: number; ported: number }[] }[] = [];
@@ -187,7 +211,7 @@ if (import.meta.main) {
     const vbad = vms.filter((m) => {
       const v = vendorOf(m.path);
       if (!v) return typeof a.crate !== "string";
-      if (!vsel.includes(v)) return false;
+      if (!vsel.some((x) => x.id === v.id)) return false;
       const fn = vall.get(key(m.path, m.line));
       return !fn || fn.name !== m.name;
     });

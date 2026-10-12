@@ -1,0 +1,72 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     314,
+     327
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "Option<",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "String",
+       true
+      ],
+      [
+       "",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      277,
+      279
+     ],
+     "code": "x.clone()"
+    },
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      126,
+      127
+     ],
+     "code": "x.clone()"
+    }
+   ]
+  }
+ ]
+}

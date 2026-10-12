@@ -1,0 +1,127 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     13,
+     16
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      24,
+      30
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "HasPlaceholders",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         26,
+         58
+        ],
+        "42"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         17,
+         18
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         10,
+         11
+        ],
+        "let y = 1;\nlet z = 2;"
+       ],
+       [
+        [
+         0,
+         77,
+         82
+        ],
+        "let y = 1;\nlet z = 2;"
+       ],
+       [
+        [
+         0,
+         2,
+         2
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         42,
+         42
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         12,
+         12
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         7,
+         7
+        ],
+        "let y = 1;\nlet z = 2;"
+       ],
+       [
+        [
+         0,
+         8,
+         9
+        ],
+        "x.clone()"
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

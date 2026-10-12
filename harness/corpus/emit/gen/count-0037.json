@@ -1,0 +1,120 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0308",
+   "args": [
+    [
+     "n",
+     7
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     307,
+     311
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      26,
+      31
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "",
+       true
+      ],
+      [
+       "",
+       false
+      ],
+      [
+       "`Vec<",
+       true
+      ],
+      [
+       ">`",
+       false
+      ]
+     ],
+     "span": {
+      "primary": [
+       [
+        0,
+        196,
+        196
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         213,
+         217
+        ],
+        "help: consider borrowing here"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     344,
+     351
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      339,
+      354
+     ],
+     "help: consider borrowing here"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "query"
+  }
+ ]
+}

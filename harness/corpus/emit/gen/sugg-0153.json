@@ -1,0 +1,92 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     115,
+     115
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      180,
+      181
+     ],
+     ""
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        225,
+        227
+       ],
+       "let y = 1;\nlet z = 2;"
+      ],
+      [
+       [
+        0,
+        190,
+        194
+       ],
+       "foo::bar::<T>()"
+      ],
+      [
+       [
+        0,
+        100,
+        116
+       ],
+       ""
+      ]
+     ]
+    },
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        32,
+        58
+       ],
+       "foo::bar::<T>()"
+      ],
+      [
+       [
+        0,
+        289,
+        290
+       ],
+       "\tindented"
+      ]
+     ],
+     "style": "HideCodeInline"
+    }
+   ]
+  }
+ ]
+}

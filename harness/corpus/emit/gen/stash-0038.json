@@ -1,0 +1,259 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     234,
+     238
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": {
+      "primary": [
+       [
+        0,
+        169,
+        188
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         356,
+         356
+        ],
+        "second mutable borrow occurs here"
+       ]
+      ]
+     }
+    }
+   ],
+   "then": {
+    "stash": "EarlySyntaxWarning",
+    "span": [
+     0,
+     234,
+     238
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     205,
+     207
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      75,
+      88
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "&'static str",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "i32",
+       false
+      ],
+      [
+       "String",
+       false
+      ],
+      [
+       "",
+       true
+      ]
+     ]
+    }
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     205,
+     207
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "span": [
+    [
+     0,
+     42,
+     43
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      249,
+      260
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "expected ",
+       true
+      ],
+      [
+       "&str",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       258,
+       283
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     42,
+     43
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     331,
+     337
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     331,
+     337
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     312,
+     313
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      309,
+      316
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    205,
+    207
+   ],
+   "key": "ItemNoType",
+   "note": "`#[warn(unused_variables)]` on by default"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    42,
+    43
+   ],
+   "key": "ExprInPat",
+   "then": "cancel"
+  }
+ ]
+}

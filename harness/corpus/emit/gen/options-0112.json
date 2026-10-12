@@ -1,0 +1,120 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 200,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     93,
+     94
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      100,
+      106
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      152,
+      163
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "`Vec<",
+       true
+      ],
+      [
+       ">`",
+       true
+      ],
+      [
+       " found ",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "note_once",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "labels": [
+    [
+     [
+      0,
+      138,
+      143
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      152,
+      154
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      129,
+      148
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     7
+    ],
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

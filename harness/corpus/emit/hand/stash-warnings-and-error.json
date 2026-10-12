@@ -1,0 +1,73 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unforced stashed warning (kept: the stashed error is not in err_guars yet)",
+   "span": [
+    {
+     "file": 0,
+     "find": "for"
+    }
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": {
+     "file": 0,
+     "find": "for"
+    }
+   }
+  },
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "forced stashed warning (kept)",
+   "span": [
+    {
+     "file": 0,
+     "find": "for"
+    }
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": {
+     "file": 0,
+     "find": "for"
+    }
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "stashed error",
+   "span": [
+    {
+     "file": 0,
+     "find": "0..10"
+    }
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": {
+     "file": 0,
+     "find": "0..10"
+    }
+   }
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

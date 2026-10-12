@@ -1,0 +1,88 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0001",
+   "code": "E0001"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0004",
+   "code": "E0004"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0005",
+   "code": "E0005"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0010",
+   "code": "E0010"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0015",
+   "code": "E0015"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0023",
+   "code": "E0023"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0025",
+   "code": "E0025"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0026",
+   "code": "E0026"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0027",
+   "code": "E0027"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0029",
+   "code": "E0029"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0030",
+   "code": "E0030"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "error E0033",
+   "code": "E0033"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

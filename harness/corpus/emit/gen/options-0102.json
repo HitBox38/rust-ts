@@ -1,0 +1,59 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": true,
+  "diagnostic_width": 40,
+  "source_map": true,
+  "terminal_url": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "mismatched types",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     130,
+     131
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0277",
+   "span": [
+    [
+     0,
+     145,
+     182
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": ""
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

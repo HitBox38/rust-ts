@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     192,
+     192
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      64,
+      65
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      257,
+      259
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      181,
+      202
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      44,
+      45
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      22,
+      23
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      259,
+      272
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  }
+ ]
+}

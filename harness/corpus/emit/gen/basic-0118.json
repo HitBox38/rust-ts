@@ -1,0 +1,67 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     35,
+     35
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      27,
+      42
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       ">`",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "sub",
+     "level": "Help",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      29,
+      33
+     ],
+     "codes": [
+      "let y = 1;\nlet z = 2;"
+     ],
+     "style": "HideCodeInline"
+    }
+   ]
+  }
+ ]
+}

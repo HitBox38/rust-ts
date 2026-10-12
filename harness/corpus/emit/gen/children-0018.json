@@ -1,0 +1,165 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     79,
+     80
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      70,
+      75
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected type",
+     "expected": [
+      [
+       ">",
+       true
+      ],
+      [
+       ">",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "&'static str",
+       false
+      ],
+      [
+       ">",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "help",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": {
+      "primary": [
+       [
+        0,
+        32,
+        33
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         50,
+         51
+        ],
+        "help: consider borrowing here"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "String",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "",
+       false
+      ],
+      [
+       ">",
+       false
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "&str",
+       false
+      ],
+      [
+       "expected ",
+       true
+      ],
+      [
+       "",
+       false
+      ],
+      [
+       ">`",
+       true
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "children": [
+    {
+     "kind": "help",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    },
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "",
+       false
+      ],
+      [
+       " found ",
+       false
+      ],
+      [
+       "&str",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

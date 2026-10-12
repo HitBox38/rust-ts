@@ -1,0 +1,67 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": false,
+  "diagnostic_width": 40,
+  "source_map": false,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     208,
+     208
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>",
+     "span": {
+      "primary": [],
+      "labels": [
+       [
+        [
+         0,
+         252,
+         253
+        ],
+        "second mutable borrow occurs here"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      213,
+      234
+     ],
+     "code": "&x",
+     "style": "ShowCode"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

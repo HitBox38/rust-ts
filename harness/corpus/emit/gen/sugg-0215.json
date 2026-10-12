@@ -1,0 +1,134 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "expected {$expected}, found {$found}"
+   },
+   "span": [
+    [
+     0,
+     21,
+     22
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      37,
+      56
+     ],
+     "this"
+    ]
+   ],
+   "args": [
+    [
+     "expected",
+     "`i32`"
+    ],
+    [
+     "found",
+     "`&str`"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "MaybeIncorrect",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         68,
+         69
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         71,
+         77
+        ],
+        "\tindented"
+       ],
+       [
+        [
+         0,
+         19,
+         20
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         54,
+         55
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         52,
+         53
+        ],
+        "\tindented"
+       ],
+       [
+        [
+         0,
+         76,
+         81
+        ],
+        "&x"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         39,
+         39
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         39,
+         45
+        ],
+        "&x"
+       ],
+       [
+        [
+         0,
+         17,
+         18
+        ],
+        "foo::bar::<T>()"
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,164 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     212,
+     213
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      146,
+      147
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "",
+     "span": [
+      [
+       0,
+       2,
+       37
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "consider borrowing here",
+     "applicability": "MaybeIncorrect",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         338,
+         338
+        ],
+        "名前"
+       ],
+       [
+        [
+         0,
+         90,
+         90
+        ],
+        "&x"
+       ],
+       [
+        [
+         0,
+         100,
+         101
+        ],
+        "x.clone()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         0,
+         1
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         49,
+         58
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         148,
+         149
+        ],
+        "foo::bar::<T>()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         77,
+         77
+        ],
+        "名前"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         34,
+         37
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         285,
+         286
+        ],
+        ""
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         326,
+         350
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         8,
+         9
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         61,
+         70
+        ],
+        "名前"
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

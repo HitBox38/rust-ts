@@ -1,0 +1,80 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     132,
+     143
+    ],
+    [
+     0,
+     58,
+     59
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      131,
+      153
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      145,
+      160
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      132,
+      143
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      137,
+      142
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      136,
+      142
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      124,
+      146
+     ],
+     ""
+    ]
+   ]
+  }
+ ]
+}

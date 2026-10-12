@@ -1,0 +1,188 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     128,
+     168
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      121,
+      122
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     128,
+     168
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      121,
+      122
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     31,
+     37
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      27,
+      41
+     ],
+     "not found in this scope"
+    ]
+   ]
+  },
+  {
+   "op": "must_teach",
+   "code": "E0277"
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     173,
+     182
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      165,
+      185
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     41,
+     208
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      68,
+      189
+     ],
+     "🦀"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "span": [
+    [
+     0,
+     251,
+     252
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      254,
+      255
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ],
+   "then": "cancel"
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "query"
+  }
+ ]
+}

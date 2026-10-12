@@ -1,0 +1,52 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "unicode in message: 名前 → 🦀",
+   "span": [
+    [
+     0,
+     234,
+     258
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_verbose",
+     "msg": "",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      16,
+      21
+     ],
+     "code": "名前"
+    },
+    {
+     "kind": "span_suggestions",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      231,
+      248
+     ],
+     "codes": [
+      "&x"
+     ]
+    }
+   ]
+  }
+ ]
+}

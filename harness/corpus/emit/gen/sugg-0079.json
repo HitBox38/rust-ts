@@ -1,0 +1,98 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     30,
+     34
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      142,
+      142
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      251,
+      256
+     ],
+     "codes": [
+      "foo::bar::<T>()",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_1",
+      "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close_2",
+      "\tindented_3",
+      "foo::bar::<T>()_4"
+     ],
+     "style": "ShowCode"
+    },
+    {
+     "kind": "multipart_suggestions",
+     "msg": "consider borrowing here",
+     "applicability": "HasPlaceholders",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         96,
+         97
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         355,
+         356
+        ],
+        "let y = 1;\nlet z = 2;"
+       ],
+       [
+        [
+         0,
+         122,
+         122
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         224,
+         225
+        ],
+        ""
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

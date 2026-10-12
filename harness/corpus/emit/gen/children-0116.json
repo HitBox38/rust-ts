@@ -1,0 +1,79 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     7,
+     8
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": ""
+    },
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "a note\nspanning lines"
+    },
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines"
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       " found ",
+       true
+      ],
+      [
+       "",
+       true
+      ],
+      [
+       "&str",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "`Vec<",
+       true
+      ],
+      [
+       "i32",
+       false
+      ],
+      [
+       "",
+       false
+      ],
+      [
+       "&str",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

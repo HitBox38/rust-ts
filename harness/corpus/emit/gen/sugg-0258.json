@@ -1,0 +1,49 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     37,
+     56
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      30,
+      31
+     ],
+     "codes": [
+      "名前",
+      "名前_1"
+     ]
+    }
+   ]
+  }
+ ]
+}

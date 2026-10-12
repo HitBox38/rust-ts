@@ -1,0 +1,67 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     0,
+     83
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      33,
+      57
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "expected ",
+       false
+      ],
+      [
+       "expected ",
+       true
+      ],
+      [
+       "expected ",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      10,
+      11
+     ],
+     "code": "x.clone()"
+    }
+   ]
+  }
+ ]
+}

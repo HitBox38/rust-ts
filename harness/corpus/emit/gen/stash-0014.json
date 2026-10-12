@@ -1,0 +1,229 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "span": [
+    [
+     0,
+     248,
+     249
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     248,
+     249
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     58,
+     59
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     58,
+     59
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     254,
+     255
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     254,
+     255
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     55,
+     56
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      106,
+      112
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      290,
+      291
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      238,
+      253
+     ],
+     "first borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     115,
+     116
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     115,
+     116
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     34,
+     67
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      47,
+      51
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    248,
+    249
+   ],
+   "key": "ExprInPat",
+   "then": "emit"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    58,
+    59
+   ],
+   "key": "CallIntoMethod",
+   "then": "cancel"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    254,
+    255
+   ],
+   "key": "ExprInPat",
+   "then": "emit"
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    115,
+    116
+   ],
+   "key": "ExprInPat",
+   "note": "required by a bound in `Point::<T>::new`"
+  }
+ ]
+}

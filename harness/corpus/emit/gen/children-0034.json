@@ -1,0 +1,50 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     35,
+     36
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      24,
+      25
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "`Vec<",
+       false
+      ],
+      [
+       ">`",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

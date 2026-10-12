@@ -1,0 +1,28 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@/@SRC@/@RELEASE@ and builds this in $RUST_TS_DATA/probes.
+# rustc_errors and rustc_span are path deps on the pinned upstream checkout. Their registry deps
+# (annotate-snippets, anstream, anstyle, serde_json, ...) are resolved from upstream's own
+# Cargo.lock: scripts/probes.ts copies it next to the generated manifest before every build
+# (`lockfile = "upstream"`), so cargo keeps every locked version and only prunes unused entries.
+[package]
+name = "emitdump"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Read by scripts/probes.ts. `env`: build environment bootstrap would provide (the rustc_* crates
+# use #![feature]; rustc_span's `symbols!` reads CFG_RELEASE).
+[package.metadata.rust-ts]
+lockfile = "upstream"
+env = { RUSTC_BOOTSTRAP = "1", CFG_RELEASE = "@RELEASE@" }
+
+[[bin]]
+name = "emitdump"
+path = "@SRC@/main.rs"
+
+[dependencies]
+rustc_errors = { path = "@UPSTREAM@/compiler/rustc_errors" }
+rustc_span = { path = "@UPSTREAM@/compiler/rustc_span" }
+# Reads the corpus (same version rustc_errors uses, via the upstream lockfile).
+serde_json = "1"
+
+[workspace]

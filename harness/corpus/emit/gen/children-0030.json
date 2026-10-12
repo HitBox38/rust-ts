@@ -1,0 +1,88 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     119,
+     122
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      115,
+      122
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      119,
+      125
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      122,
+      126
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       289,
+       290
+      ]
+     ]
+    },
+    {
+     "kind": "note_once",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       143,
+       144
+      ]
+     ]
+    },
+    {
+     "kind": "note",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

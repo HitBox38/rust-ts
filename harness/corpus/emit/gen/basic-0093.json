@@ -1,0 +1,78 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     57,
+     80
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      52,
+      82
+     ],
+     ""
+    ],
+    [
+     [
+      0,
+      47,
+      68
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      47,
+      81
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "",
+     "span": [
+      [
+       0,
+       40,
+       48
+      ]
+     ]
+    },
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "required by a bound in `Point::<T>::new`"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,77 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     17,
+     18
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      22,
+      23
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       81,
+       83
+      ]
+     ]
+    },
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "`Vec<",
+       false
+      ],
+      [
+       "&str",
+       false
+      ],
+      [
+       "`Vec<",
+       true
+      ],
+      [
+       "expected ",
+       true
+      ]
+     ],
+     "span": [
+      [
+       0,
+       17,
+       18
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

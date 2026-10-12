@@ -1,0 +1,114 @@
+{
+ "files": [
+  {
+   "name": "src/empty.rs",
+   "src": ""
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "mismatched types",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      0,
+      0
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    },
+    {
+     "kind": "tool_only_multipart_suggestion",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        0,
+        0
+       ],
+       "x.clone()"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "String",
+       false
+      ],
+      [
+       "Option<",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       ">",
+       false
+      ],
+      [
+       "&'static str",
+       false
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

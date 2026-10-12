@@ -1,0 +1,81 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "unicode",
+  "color": "always",
+  "short_message": true,
+  "ui_testing": true,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0063",
+   "labels": [
+    [
+     [
+      0,
+      68,
+      69
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      162,
+      164
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      86,
+      87
+     ],
+     "code": "foo::bar::<T>()"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     125,
+     125
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      130,
+      149
+     ],
+     ""
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

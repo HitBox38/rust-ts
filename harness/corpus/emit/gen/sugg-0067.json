@@ -1,0 +1,53 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     52,
+     53
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      33,
+      45
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      55,
+      56
+     ],
+     "codes": [
+      "&x",
+      "&x_1"
+     ],
+     "style": "ShowAlways"
+    }
+   ]
+  }
+ ]
+}

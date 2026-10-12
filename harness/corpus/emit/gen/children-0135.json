@@ -1,0 +1,55 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     58,
+     60
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": {
+      "primary": [
+       [
+        0,
+        27,
+        28
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         77,
+         78
+        ],
+        "expected `i32`, found `&str`"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,70 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     230,
+     235
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        239,
+        243
+       ],
+       "&x"
+      ],
+      [
+       [
+        0,
+        97,
+        145
+       ],
+       "x.clone()"
+      ],
+      [
+       [
+        0,
+        192,
+        192
+       ],
+       "foo::bar::<T>()"
+      ]
+     ]
+    },
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      139,
+      140
+     ],
+     "code": "名前"
+    }
+   ]
+  }
+ ]
+}

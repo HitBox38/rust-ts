@@ -1,0 +1,50 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "tab\tin message",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     102,
+     112
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      94,
+      98
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      130,
+      255
+     ],
+     "code": ""
+    }
+   ]
+  }
+ ]
+}

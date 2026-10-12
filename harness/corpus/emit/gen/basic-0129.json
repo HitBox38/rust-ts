@@ -1,0 +1,64 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     0,
+     2
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      217,
+      243
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      10,
+      13
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      5,
+      13
+     ],
+     "🦀"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      211,
+      289
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    }
+   ]
+  }
+ ]
+}

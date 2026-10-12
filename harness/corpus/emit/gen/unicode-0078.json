@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "name": "src/empty.rs",
+   "src": ""
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "🦀"
+    ],
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      0,
+      0
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      0,
+      0
+     ],
+     "codes": [
+      "x.clone()",
+      "let y = 1;\nlet z = 2;_1",
+      "&x_2",
+      "let y = 1;\nlet z = 2;_3"
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": ""
+  }
+ ]
+}

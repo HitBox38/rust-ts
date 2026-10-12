@@ -1,0 +1,264 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     220,
+     221
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      90,
+      91
+     ],
+     "not found in this scope"
+    ]
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     220,
+     221
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "labels": [
+    [
+     [
+      0,
+      102,
+      105
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "`Vec<",
+       false
+      ],
+      [
+       "i32",
+       false
+      ]
+     ],
+     "span": {
+      "primary": [],
+      "labels": [
+       [
+        [
+         0,
+         2,
+         2
+        ],
+        "second mutable borrow occurs here"
+       ]
+      ]
+     }
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ],
+   "span": [
+    [
+     0,
+     149,
+     150
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     149,
+     150
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "code": "E0499",
+   "span": [
+    [
+     0,
+     69,
+     70
+    ]
+   ],
+   "then": {
+    "stash": "ExprInPat",
+    "span": [
+     0,
+     69,
+     70
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     322,
+     328
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      79,
+      101
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      130,
+      166
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      318,
+      336
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     284,
+     285
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       203,
+       203
+      ]
+     ]
+    }
+   ],
+   "then": {
+    "stash": "EarlySyntaxWarning",
+    "span": [
+     0,
+     284,
+     285
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0000",
+   "span": [
+    [
+     0,
+     219,
+     220
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      239,
+      240
+     ],
+     "first borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    149,
+    150
+   ],
+   "key": "ExprInPat",
+   "note": "required by a bound in `Point::<T>::new`"
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    205,
+    207
+   ],
+   "key": "ExprInPat",
+   "note": "never shown"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

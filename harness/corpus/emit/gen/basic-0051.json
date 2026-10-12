@@ -1,0 +1,68 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "code": "E0382",
+   "span": [
+    [
+     0,
+     3,
+     3
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      7,
+      7
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      44,
+      44
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      68,
+      69
+     ],
+     "codes": [
+      "let y = 1;\nlet z = 2;",
+      "\tindented_1"
+     ],
+     "style": "CompletelyHidden"
+    }
+   ]
+  }
+ ]
+}

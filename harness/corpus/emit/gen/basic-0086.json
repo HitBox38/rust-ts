@@ -1,0 +1,69 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     350,
+     356
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      311,
+      312
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      234,
+      245
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "parts": [
+      [
+       [
+        0,
+        152,
+        153
+       ],
+       "&x"
+      ]
+     ],
+     "style": "CompletelyHidden"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

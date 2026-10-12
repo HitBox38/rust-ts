@@ -1,0 +1,130 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     169,
+     170
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      31,
+      31
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     25,
+     25
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      9,
+      20
+     ],
+     "not found in this scope"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": {
+    "inline": "the name `{$name}` is defined multiple times"
+   },
+   "code": "E9999",
+   "span": [
+    [
+     0,
+     162,
+     164
+    ]
+   ],
+   "args": [
+    [
+     "name",
+     "Foo"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     233,
+     236
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     0,
+     257
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ],
+ "flags": {
+  "eagerly_emit_delayed_bugs": true
+ }
+}

@@ -1,0 +1,119 @@
+{
+ "files": [
+  {
+   "custom": "anon",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     171,
+     179
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      176,
+      183
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    },
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "i32",
+       false
+      ],
+      [
+       ">`",
+       false
+      ],
+      [
+       "",
+       false
+      ],
+      [
+       "i32",
+       false
+      ]
+     ],
+     "span": [
+      [
+       0,
+       85,
+       86
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     134,
+     137
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "`Vec<",
+       true
+      ],
+      [
+       "expected ",
+       true
+      ],
+      [
+       " found ",
+       true
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      241,
+      247
+     ],
+     "code": "\tindented",
+     "style": "ShowCode"
+    }
+   ]
+  }
+ ]
+}

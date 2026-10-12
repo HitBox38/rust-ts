@@ -1,0 +1,192 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     145,
+     146
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "failure_note",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     54,
+     249
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       92,
+       95
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     145,
+     146
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "span": [
+    [
+     0,
+     71,
+     72
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      63,
+      73
+     ],
+     "🦀"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     311,
+     312
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      316,
+      319
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "for more information, see issue #12345 <https://github.com/rust-lang/rust/issues/12345>"
+    }
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "span": [
+    [
+     0,
+     71,
+     72
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      63,
+      73
+     ],
+     "🦀"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "code": "E0277",
+   "span": [
+    [
+     0,
+     130,
+     130
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      118,
+      138
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

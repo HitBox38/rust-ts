@@ -1,0 +1,84 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "tab\tin message",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     227,
+     228
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      21,
+      22
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      220,
+      227
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      233,
+      236
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      233,
+      239
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      171,
+      172
+     ],
+     "first borrow occurs here"
+    ],
+    [
+     [
+      0,
+      111,
+      112
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  }
+ ]
+}

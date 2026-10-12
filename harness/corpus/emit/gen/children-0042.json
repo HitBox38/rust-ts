@@ -1,0 +1,83 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "mismatched types",
+   "span": [
+    [
+     0,
+     148,
+     149
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       "expected ",
+       true
+      ],
+      [
+       "",
+       false
+      ]
+     ]
+    },
+    {
+     "kind": "note",
+     "msg": "required by a bound in `Point::<T>::new`"
+    },
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "sub",
+     "level": "Error",
+     "msg": "",
+     "span": {
+      "primary": [
+       [
+        0,
+        76,
+        76
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         210,
+         222
+        ],
+        "expected `i32`, found `&str`"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": [
+      [
+       0,
+       212,
+       213
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

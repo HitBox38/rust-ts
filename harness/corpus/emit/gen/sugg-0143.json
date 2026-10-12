@@ -1,0 +1,173 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "span": [
+    [
+     0,
+     70,
+     96
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         253,
+         254
+        ],
+        "&x"
+       ],
+       [
+        [
+         0,
+         7,
+         8
+        ],
+        "名前"
+       ],
+       [
+        [
+         0,
+         108,
+         108
+        ],
+        "名前"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         169,
+         170
+        ],
+        "&x"
+       ],
+       [
+        [
+         0,
+         105,
+         106
+        ],
+        "x.clone()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         35,
+         215
+        ],
+        "42"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         74,
+         77
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         187,
+         187
+        ],
+        "\tindented"
+       ],
+       [
+        [
+         0,
+         156,
+         157
+        ],
+        "x.clone()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         7,
+         8
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         141,
+         145
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         132,
+         138
+        ],
+        "42"
+       ]
+      ]
+     ]
+    },
+    {
+     "kind": "multipart_suggestion",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        111,
+        112
+       ],
+       "&x"
+      ],
+      [
+       [
+        0,
+        95,
+        96
+       ],
+       "\tindented"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

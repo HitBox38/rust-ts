@@ -1,0 +1,84 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "macro_backtrace": true,
+  "ignored_directories": [
+   "src/very"
+  ],
+  "short_message": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     184,
+     206
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      190,
+      211
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "remove this",
+     "applicability": "MachineApplicable",
+     "parts": [
+      [
+       [
+        0,
+        215,
+        216
+       ],
+       "let y = 1;\nlet z = 2;"
+      ],
+      [
+       [
+        0,
+        230,
+        241
+       ],
+       "42"
+      ],
+      [
+       [
+        0,
+        13,
+        158
+       ],
+       "\tindented"
+      ]
+     ],
+     "style": "CompletelyHidden"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

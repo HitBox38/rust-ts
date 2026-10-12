@@ -1,0 +1,52 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "flags": {
+  "can_emit_warnings": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "suppressed",
+   "span": [
+    {
+     "file": 0,
+     "find": "main"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "forced through",
+   "span": [
+    {
+     "file": 0,
+     "find": "main"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "an error",
+   "span": [
+    {
+     "file": 0,
+     "find": "main"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

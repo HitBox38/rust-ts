@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "message with `code` and `more code` and a trailing period.",
+   "span": [
+    [
+     0,
+     290,
+     291
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      280,
+      293
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": {
+      "primary": [],
+      "labels": [
+       [
+        [
+         0,
+         75,
+         75
+        ],
+        "this"
+       ]
+      ]
+     }
+    },
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "",
+       true
+      ],
+      [
+       "i32",
+       true
+      ],
+      [
+       " found ",
+       false
+      ],
+      [
+       " found ",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

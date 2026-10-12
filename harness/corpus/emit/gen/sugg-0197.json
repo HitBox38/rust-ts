@@ -1,0 +1,88 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": {
+    "inline": "unused imports: {$names}"
+   },
+   "span": [
+    [
+     0,
+     251,
+     257
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      258,
+      260
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "String",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "",
+       false
+      ]
+     ]
+    }
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`",
+      "`b`",
+      "`c`"
+     ]
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_with_style",
+     "msg": "consider borrowing here",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      170,
+      230
+     ],
+     "code": "名前",
+     "style": "CompletelyHidden"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,107 @@
+{
+ "files": [
+  {
+   "name": "src/nonl.rs",
+   "src": "fn f() { let x = 1; }"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     14,
+     14
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      3,
+      4
+     ],
+     "second mutable borrow occurs here"
+    ],
+    [
+     [
+      0,
+      0,
+      21
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "",
+       false
+      ],
+      [
+       ">",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "Option<",
+       false
+      ],
+      [
+       "i32",
+       true
+      ],
+      [
+       "Option<",
+       true
+      ]
+     ]
+    },
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "",
+       true
+      ],
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "Vec<",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "",
+       true
+      ],
+      [
+       ">",
+       false
+      ],
+      [
+       "Vec<",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

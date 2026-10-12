@@ -1,0 +1,91 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     13,
+     16
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      66,
+      81
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      57,
+      80
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      6,
+      17
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default",
+     "span": [
+      [
+       0,
+       0,
+       83
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      66,
+      67
+     ],
+     "code": "\tindented"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

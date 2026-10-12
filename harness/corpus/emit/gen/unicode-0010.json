@@ -1,0 +1,75 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     0,
+     11
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      41,
+      48
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      68,
+      69
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      37,
+      56
+     ],
+     "help: consider borrowing here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "remove this",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      52,
+      53
+     ],
+     "code": "x.clone()"
+    },
+    {
+     "kind": "tool_only_span_suggestion",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      21,
+      22
+     ],
+     "code": "名前"
+    }
+   ]
+  }
+ ]
+}

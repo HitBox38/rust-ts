@@ -1,0 +1,158 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "{$n ->\n    [one] one item\n    *[other] {$n} items\n} were moved"
+   },
+   "span": [
+    [
+     0,
+     85,
+     86
+    ]
+   ],
+   "children": [
+    {
+     "kind": "highlighted_help",
+     "parts": [
+      [
+       "expected ",
+       false
+      ],
+      [
+       "&str",
+       true
+      ],
+      [
+       "i32",
+       true
+      ],
+      [
+       "i32",
+       false
+      ]
+     ],
+     "span": {
+      "primary": [
+       [
+        0,
+        180,
+        193
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         44,
+         69
+        ],
+        "label with\nnewline"
+       ]
+      ]
+     }
+    }
+   ],
+   "args": [
+    [
+     "n",
+     1
+    ]
+   ],
+   "then": {
+    "stash": "MaybeFruTypo",
+    "span": [
+     0,
+     85,
+     86
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     171,
+     172
+    ]
+   ],
+   "children": [
+    {
+     "kind": "warn",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     171,
+     172
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     0,
+     30
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      11,
+      24
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  },
+  {
+   "op": "try_steal_modify_and_emit_err",
+   "span": [
+    0,
+    85,
+    86
+   ],
+   "key": "MaybeFruTypo",
+   "note": "a note\nspanning lines"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    171,
+    172
+   ],
+   "key": "CallIntoMethod",
+   "then": "emit"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

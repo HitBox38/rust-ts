@@ -1,0 +1,53 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "force_warning",
+   "msg": {
+    "inline": "unused import: {$names}"
+   },
+   "span": [
+    [
+     0,
+     0,
+     1
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      81,
+      82
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      6,
+      8
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "args": [
+    [
+     "names",
+     [
+      "`a`"
+     ]
+    ]
+   ]
+  }
+ ]
+}

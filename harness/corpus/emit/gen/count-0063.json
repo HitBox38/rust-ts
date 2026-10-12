@@ -1,0 +1,63 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "",
+   "span": [
+    [
+     0,
+     107,
+     109
+    ]
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0308",
+   "span": [
+    [
+     0,
+     141,
+     142
+    ]
+   ]
+  },
+  {
+   "op": "must_teach",
+   "code": "E0425"
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "abort_if_errors"
+  }
+ ],
+ "flags": {
+  "deduplicate_diagnostics": false
+ }
+}

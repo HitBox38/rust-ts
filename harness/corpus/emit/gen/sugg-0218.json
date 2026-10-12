@@ -1,0 +1,63 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     11,
+     16
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       42,
+       43
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "consider borrowing here",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      149,
+      150
+     ],
+     "code": "let y = 1;\nlet z = 2;"
+    },
+    {
+     "kind": "span_suggestion_short",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      181,
+      187
+     ],
+     "code": "x.clone()"
+    }
+   ]
+  }
+ ]
+}

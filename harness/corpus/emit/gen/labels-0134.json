@@ -1,0 +1,59 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     54,
+     182
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      287,
+      288
+     ],
+     "this"
+    ],
+    [
+     [
+      0,
+      118,
+      120
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      76,
+      190
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      120,
+      161
+     ],
+     ""
+    ]
+   ]
+  }
+ ]
+}

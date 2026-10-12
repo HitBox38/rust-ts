@@ -1,0 +1,77 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     167,
+     167
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "expected",
+     "expected": [
+      [
+       "Option<",
+       false
+      ]
+     ],
+     "found_label": "found type",
+     "found": [
+      [
+       "Vec<",
+       true
+      ],
+      [
+       "Option<",
+       false
+      ],
+      [
+       "Vec<",
+       false
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "consider borrowing here",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      221,
+      230
+     ],
+     "code": "\tindented"
+    },
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "consider borrowing here",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      102,
+      102
+     ],
+     "code": "&x"
+    }
+   ]
+  }
+ ]
+}

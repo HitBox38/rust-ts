@@ -1,0 +1,73 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "code": "E0425",
+   "span": [
+    [
+     0,
+     9,
+     12
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      5,
+      24
+     ],
+     "label with\nnewline"
+    ],
+    [
+     [
+      0,
+      7,
+      22
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ],
+    [
+     [
+      0,
+      7,
+      22
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      14,
+      27
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    }
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  }
+ ]
+}

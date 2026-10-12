@@ -1,0 +1,132 @@
+{
+ "files": [
+  {
+   "name": "src/nonl.rs",
+   "src": "fn f() { let x = 1; }"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "labels": [
+    [
+     [
+      0,
+      0,
+      21
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      8,
+      14
+     ],
+     "not found in this scope"
+    ],
+    [
+     [
+      0,
+      2,
+      7
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": ""
+    },
+    {
+     "kind": "sub",
+     "level": "Note",
+     "msg": "a note\nspanning lines",
+     "span": {
+      "primary": [
+       [
+        0,
+        17,
+        18
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         17,
+         18
+        ],
+        "help: consider borrowing here"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestion_with_style",
+     "msg": "remove this",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        15,
+        16
+       ],
+       "let y = 1;\nlet z = 2;"
+      ],
+      [
+       [
+        0,
+        5,
+        6
+       ],
+       "名前"
+      ]
+     ],
+     "style": "HideCodeInline"
+    },
+    {
+     "kind": "multipart_suggestion",
+     "msg": "try using a conversion method",
+     "applicability": "HasPlaceholders",
+     "parts": [
+      [
+       [
+        0,
+        0,
+        2
+       ],
+       ""
+      ],
+      [
+       [
+        0,
+        13,
+        14
+       ],
+       ""
+      ],
+      [
+       [
+        0,
+        4,
+        5
+       ],
+       "&x"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,47 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "code": "E0601",
+   "span": [
+    [
+     0,
+     111,
+     116
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      101,
+      119
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    }
+   ]
+  }
+ ]
+}

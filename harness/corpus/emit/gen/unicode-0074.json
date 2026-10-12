@@ -1,0 +1,35 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     19,
+     101
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      34,
+      95
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  }
+ ]
+}

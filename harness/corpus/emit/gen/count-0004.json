@@ -1,0 +1,141 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 80
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0063",
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       " found ",
+       true
+      ],
+      [
+       "i32",
+       false
+      ],
+      [
+       "expected ",
+       false
+      ],
+      [
+       "",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0063",
+   "children": [
+    {
+     "kind": "highlighted_note",
+     "parts": [
+      [
+       " found ",
+       true
+      ],
+      [
+       "i32",
+       false
+      ],
+      [
+       "expected ",
+       false
+      ],
+      [
+       "",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     101,
+     104
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      90,
+      106
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "multi-line message\nsecond line of the message\n  indented third line",
+   "span": [
+    [
+     0,
+     86,
+     87
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      88,
+      89
+     ],
+     "label with\nnewline"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     137,
+     137
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "abort_if_errors"
+  }
+ ]
+}

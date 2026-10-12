@@ -1,0 +1,200 @@
+{
+ "files": [
+  {
+   "name": "src/ctrl.rs",
+   "src": "fn ctrl() {\n    let bell = \"\u0007\";\n    let esc = \"\u001b[31m\";\n    let del = \"\";\n    let nul = \"\u0000\";\n    let lone_cr = \"a\rb\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "cannot find value `foo` in this scope",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     101,
+     108
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      21,
+      27
+     ],
+     "help: consider borrowing here"
+    ],
+    [
+     [
+      0,
+      78,
+      81
+     ],
+     "expected `i32`, found `&str`"
+    ],
+    [
+     [
+      0,
+      96,
+      99
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "a note\nspanning lines",
+     "span": [
+      [
+       0,
+       8,
+       9
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "HasPlaceholders",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         55,
+         65
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         46,
+         53
+        ],
+        "名前"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         17,
+         17
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         46,
+         53
+        ],
+        "&x"
+       ],
+       [
+        [
+         0,
+         12,
+         15
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         109,
+         110
+        ],
+        "x.clone()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         7,
+         8
+        ],
+        "x.clone()"
+       ],
+       [
+        [
+         0,
+         65,
+         65
+        ],
+        "foo::bar::<T>()"
+       ],
+       [
+        [
+         0,
+         36,
+         39
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         46,
+         53
+        ],
+        "\tindented"
+       ]
+      ]
+     ]
+    },
+    {
+     "kind": "span_suggestions",
+     "msg": "remove this",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      53,
+      54
+     ],
+     "codes": [
+      "x.clone()",
+      "let y = 1;\nlet z = 2;_1",
+      "名前_2",
+      "\tindented_3",
+      "&x_4",
+      "let y = 1;\nlet z = 2;_5",
+      "&x_6"
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "children": [
+    {
+     "kind": "sub",
+     "level": "OnceHelp",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    },
+    {
+     "kind": "sub",
+     "level": "OnceNote",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ]
+  }
+ ]
+}

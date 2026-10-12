@@ -1,0 +1,166 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "unicode in message: 名前 → 🦀",
+   "code": "E0601",
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": {
+      "primary": [
+       [
+        0,
+        0,
+        1
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         76,
+         76
+        ],
+        "🦀"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "fatal",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     258,
+     357
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      314,
+      351
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "`#[warn(unused_variables)]` on by default"
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "bug",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     288,
+     344
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      315,
+      324
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     76,
+     77
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     199,
+     217
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      241,
+      242
+     ],
+     "first borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ]
+  },
+  {
+   "op": "query"
+  },
+  {
+   "op": "diag",
+   "level": "fatal",
+   "msg": "cannot find value `foo` in this scope",
+   "span": [
+    [
+     0,
+     259,
+     264
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      95,
+      96
+     ],
+     "expected `i32`, found `&str`"
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  },
+  {
+   "op": "query"
+  }
+ ]
+}

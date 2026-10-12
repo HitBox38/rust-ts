@@ -1,0 +1,56 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "never",
+  "short_message": false,
+  "diagnostic_width": 20,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     106,
+     114
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      193,
+      194
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "",
+   "span": [
+    [
+     0,
+     152,
+     157
+    ]
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

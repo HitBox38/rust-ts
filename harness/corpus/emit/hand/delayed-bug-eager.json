@@ -1,0 +1,30 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "fn main() {\n    let x: i32 = \"hello\";\n    let v = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + v[0]);\n    }\n    takes_ref(x);\n}\n\nfn takes_ref(r: &i32) {}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "flags": {
+  "eagerly_emit_delayed_bugs": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "delayed_bug",
+   "msg": "eagerly emitted delayed bug",
+   "span": [
+    {
+     "file": 0,
+     "find": "x"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

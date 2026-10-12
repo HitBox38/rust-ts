@@ -1,0 +1,91 @@
+{
+ "files": [
+  {
+   "name": "src/unicode.rs",
+   "src": "fn unicode() {\n    let 名前 = \"日本語のテキスト\";\n    let emoji = \"👨‍👩‍👧 family 🦀 crab\";\n    let accent = \"é and é\";\n    let wide = \"ＡＢＣ　全角\";\n    let bidi = \"abc‮def‬ ghi\";\n    let zw = \"a​b‍c\";\n    let arabic = \"مرحبا بالعالم\";\n}\n"
+  }
+ ],
+ "emitter": {
+  "theme": "ascii",
+  "color": "always",
+  "short_message": false,
+  "diagnostic_width": 200,
+  "source_map": true,
+  "terminal_url": false
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "mismatched types",
+   "code": "E0001",
+   "span": [
+    [
+     0,
+     91,
+     115
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      291,
+      291
+     ],
+     "a label that is fairly long and will need to be placed below the line it points at"
+    ],
+    [
+     [
+      0,
+      130,
+      131
+     ],
+     ""
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     65,
+     99
+    ]
+   ],
+   "children": [
+    {
+     "kind": "sub",
+     "level": "Help",
+     "msg": "the trait `Copy` is not implemented for `String`",
+     "span": {
+      "primary": [
+       [
+        0,
+        191,
+        211
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         289,
+         289
+        ],
+        "help: consider borrowing here"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

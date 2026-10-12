@@ -1,0 +1,127 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "this is a very long message that keeps going so that it is wider than most terminals and the renderer has to deal with it somehow without any special treatment of its own",
+   "span": [
+    [
+     0,
+     213,
+     217
+    ]
+   ],
+   "then": {
+    "stash": "CallIntoMethod",
+    "span": [
+     0,
+     213,
+     217
+    ]
+   }
+  },
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "span": [
+    [
+     0,
+     205,
+     239
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      205,
+      238
+     ],
+     "label with\nnewline"
+    ]
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "unused variable: `x`",
+   "span": [
+    [
+     0,
+     134,
+     137
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "String",
+       false
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "i32",
+       true
+      ]
+     ]
+    }
+   ],
+   "then": {
+    "stash": "ItemNoType",
+    "span": [
+     0,
+     134,
+     137
+    ]
+   }
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    254,
+    255
+   ],
+   "key": "CallIntoMethod"
+  },
+  {
+   "op": "steal_non_err",
+   "span": [
+    0,
+    134,
+    137
+   ],
+   "key": "ItemNoType",
+   "then": "emit"
+  },
+  {
+   "op": "emit_stashed"
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

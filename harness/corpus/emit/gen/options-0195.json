@@ -1,0 +1,113 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  },
+  {
+   "name": "src/lib.rs",
+   "src": "pub mod util;\n\npub fn helper(a: u32) -> u32 {\n    a * 2\n}\n"
+  },
+  {
+   "name": "src/very/deep/path/module_name.rs",
+   "src": "pub(crate) fn deep() -> Option<u8> {\n    None\n}\n"
+  }
+ ],
+ "emitter": {
+  "diagnostic_width": 140,
+  "color": "always",
+  "ignored_directories": [
+   "src/very"
+  ]
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": {
+    "inline": "consider using `{$suggestion}`"
+   },
+   "code": "E0599",
+   "span": [
+    [
+     0,
+     220,
+     221
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      208,
+      222
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help",
+     "msg": "",
+     "span": [
+      [
+       0,
+       207,
+       210
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion_short",
+     "msg": "",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      36,
+      36
+     ],
+     "code": "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+    }
+   ],
+   "args": [
+    [
+     "suggestion",
+     "x.clone()"
+    ]
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "warning",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     85,
+     86
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      150,
+      151
+     ],
+     "second mutable borrow occurs here"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note_once",
+     "msg": "the trait `Copy` is not implemented for `String`"
+    }
+   ]
+  },
+  {
+   "op": "print_error_count"
+  }
+ ]
+}

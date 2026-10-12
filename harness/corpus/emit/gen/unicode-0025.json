@@ -1,0 +1,173 @@
+{
+ "files": [
+  {
+   "name": "src/nonl.rs",
+   "src": "fn f() { let x = 1; }"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "",
+   "span": [
+    [
+     0,
+     4,
+     5
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      1,
+      8
+     ],
+     "this"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "help_once",
+     "msg": "a note\nspanning lines"
+    },
+    {
+     "kind": "help",
+     "msg": "",
+     "span": {
+      "primary": [
+       [
+        0,
+        0,
+        2
+       ]
+      ],
+      "labels": [
+       [
+        [
+         0,
+         21,
+         21
+        ],
+        "label with\nnewline"
+       ]
+      ]
+     }
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestion",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "HasPlaceholders",
+     "span": [
+      0,
+      18,
+      19
+     ],
+     "code": "名前"
+    },
+    {
+     "kind": "multipart_suggestions",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         7,
+         9
+        ],
+        "x.clone()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         2,
+         17
+        ],
+        "\tindented"
+       ],
+       [
+        [
+         0,
+         18,
+         19
+        ],
+        "&x"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         17,
+         17
+        ],
+        "名前"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         15,
+         16
+        ],
+        "x.clone()"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         6,
+         11
+        ],
+        "42"
+       ],
+       [
+        [
+         0,
+         3,
+         3
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "op": "diag",
+   "level": "help",
+   "msg": "tab\tin message",
+   "code": "E0063",
+   "span": [
+    [
+     0,
+     4,
+     5
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      16,
+      18
+     ],
+     ""
+    ]
+   ]
+  }
+ ]
+}

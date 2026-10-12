@@ -1,0 +1,71 @@
+{
+ "files": [
+  {
+   "name": "src/tabs.rs",
+   "src": "fn tabs() {\n\tlet a = 1;\n\t\tlet b =\t2;\n    \tlet c = a +\tb;\n\tif a == b {\t\treturn; }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "note",
+   "msg": "tab\tin message",
+   "span": [
+    [
+     0,
+     7,
+     8
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      13,
+      18
+     ],
+     ""
+    ]
+   ],
+   "children": [
+    {
+     "kind": "note",
+     "msg": "a note\nspanning lines"
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "span_suggestions",
+     "msg": "",
+     "applicability": "MaybeIncorrect",
+     "span": [
+      0,
+      35,
+      53
+     ],
+     "codes": [
+      "let y = 1;\nlet z = 2;",
+      "名前_1",
+      "let y = 1;\nlet z = 2;_2",
+      "名前_3",
+      "let y = 1;\nlet z = 2;_4"
+     ]
+    },
+    {
+     "kind": "span_suggestion_hidden",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "Unspecified",
+     "span": [
+      0,
+      77,
+      78
+     ],
+     "code": "42"
+    }
+   ]
+  }
+ ]
+}

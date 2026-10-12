@@ -1,0 +1,104 @@
+{
+ "files": [
+  {
+   "name": "src/shapes.rs",
+   "src": "#[derive(Debug, Clone)]\npub struct Point<T> {\n    pub x: T,\n    pub y: T,\n}\n\nimpl<T: Copy + std::ops::Add<Output = T>> Point<T> {\n    pub fn new(x: T, y: T) -> Self {\n        Point { x, y }\n    }\n\n    pub fn sum(&self) -> T {\n        self.x + self.y\n    }\n}\n\ntrait Shape {\n    fn area(&self) -> f64;\n    fn name(&self) -> String { String::from(\"shape\") }\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true,
+  "theme": "unicode"
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "",
+   "span": [
+    [
+     0,
+     329,
+     330
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      2,
+      8
+     ],
+     {
+      "inline": "expected due to {$what}"
+     }
+    ]
+   ],
+   "args": [
+    [
+     "what",
+     "this"
+    ]
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "use the suggestion\nwhich spans two lines",
+     "applicability": "MachineApplicable",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         141,
+         144
+        ],
+        "let y = 1;\nlet z = 2;"
+       ],
+       [
+        [
+         0,
+         47,
+         50
+        ],
+        "let y = 1;\nlet z = 2;"
+       ],
+       [
+        [
+         0,
+         231,
+         238
+        ],
+        "\tindented"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         255,
+         255
+        ],
+        "let y = 1;\nlet z = 2;"
+       ]
+      ]
+     ]
+    },
+    {
+     "kind": "span_suggestions_with_style",
+     "msg": "try using a conversion method",
+     "applicability": "MachineApplicable",
+     "span": [
+      0,
+      353,
+      354
+     ],
+     "codes": [
+      "42",
+      "foo::bar::<T>()_1"
+     ],
+     "style": "CompletelyHidden"
+    }
+   ]
+  }
+ ]
+}

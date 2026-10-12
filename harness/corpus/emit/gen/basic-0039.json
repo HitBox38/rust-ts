@@ -1,0 +1,95 @@
+{
+ "files": [
+  {
+   "name": "src/main.rs",
+   "src": "use std::collections::HashMap;\n\nfn main() {\n    let x: i32 = \"hello\";\n    let y = vec![1, 2, 3];\n    for i in 0..10 {\n        println!(\"{}\", i + y[0]);\n    }\n    if x > 5 {\n        return;\n    }\n    let mut map = HashMap::new();\n    map.insert(\"key\", x);\n}\n"
+  }
+ ],
+ "emitter": {
+  "ui_testing": true
+ },
+ "ops": [
+  {
+   "op": "diag",
+   "level": "error",
+   "msg": "expected one of `,`, `:`, or `}`, found `{`",
+   "span": [
+    [
+     0,
+     31,
+     31
+    ]
+   ],
+   "labels": [
+    [
+     [
+      0,
+      20,
+      42
+     ],
+     "🦀"
+    ]
+   ],
+   "children": [
+    {
+     "kind": "expected_found",
+     "expected_label": "",
+     "expected": [
+      [
+       "&'static str",
+       true
+      ]
+     ],
+     "found_label": "found",
+     "found": [
+      [
+       "&'static str",
+       false
+      ],
+      [
+       "i32",
+       true
+      ]
+     ]
+    }
+   ],
+   "suggestions": [
+    {
+     "kind": "multipart_suggestions",
+     "msg": "remove this",
+     "applicability": "Unspecified",
+     "alternatives": [
+      [
+       [
+        [
+         0,
+         173,
+         181
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ]
+      ],
+      [
+       [
+        [
+         0,
+         35,
+         39
+        ],
+        "a very long replacement snippet that does not fit on a single line of the terminal at all, not even close"
+       ],
+       [
+        [
+         0,
+         86,
+         87
+        ],
+        ""
+       ]
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}
