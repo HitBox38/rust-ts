@@ -60,29 +60,37 @@ Next after integration: wave 2 = span-map (source_map.rs, caching_source_map_vie
 
 rustc_span is 658/658. Total 1,196 / 25,517 fns.
 
-## Wave 4 (started 2026-10-12, root host now macOS; see decision in history)
-Wave 4a (parallel):
+## Wave 4 (2026-10-12) — done (root host now macOS)
 | lane | scope | status |
 |---|---|---|
-| fluent-syntax | vendor fluent-syntax 0.12.0 (ast, parser, serializer, unicode; tests) | in flight |
-| langid-plural | vendor tinystr 0.8.4 (subset), unic-langid-impl/unic-langid 0.9.6, intl_pluralrules 7.0.2; generated tables | in flight |
-| annotate-a | vendor annotate-snippets 0.12.16 (all but renderer/render.rs) + anstyle 1.0.13 | in flight |
-| ast-core | rustc_ast ast.rs fns, node_id, entry, format, attr/{data_structures,version}, expand/* | in flight |
-| ast-visit | rustc_ast ast_traits.rs, visit.rs, mut_visit.rs | in flight |
-| harness-fluent | `fluentdump` probe, inline-message corpus, `fluent-parse`/`fluent-format` suites (subject wired after fluent-syntax) | in flight |
-| review-w23a | independent review: span-wire, ast-types, span-map | in flight |
-| review-w23b | independent review: ast-token, errors-core | in flight |
+| fluent-syntax | vendor fluent-syntax 0.12.0 | **merged** |
+| langid-plural | vendor tinystr, unic-langid(-impl), intl_pluralrules (+ `plurals` probe) | **merged** |
+| fluent-bundle | vendor fluent-bundle 0.16, intl-memoizer, type-map, fluent-langneg; rustc_errors formatting wired | **merged** |
+| icu-list | vendor icu_list/icu_locale_core/icu_provider/fallback/zerotrie/regex-automata(sparse DFA)/writeable subsets; rustc_baked_icu_data as data (+ `listfmt` probe) | **merged** |
+| annotate-a / annotate-b | vendor annotate-snippets 0.12.16 + anstyle 1.0.13 (+ `annotate` probe, 1754/1754 renders) | **merged** |
+| ast-core | rustc_ast ast.rs fns, node_id, entry, format, attr/{data_structures,version}, expand/* | **merged** |
+| ast-visit | ast_traits.rs, visit.rs, mut_visit.rs | **merged** |
+| codegen-derive | generated Walkable/MutWalkable (147x2), clone_<T> (231), Pu128 Debug, Ord discriminants | **merged** |
+| harness-fluent | `fluentdump` probe, `fluent-parse`/`fluent-format` suites | **merged, protected** (4210 + 4210), reviewed x2 |
+| harness-w4b | difftest batch bisection on failure, vendor markers in coverage.ts, fluentdump line-range guard | **merged**, reviewed |
+| review-w23a/b + fix-w23a/b | independent review of waves 2–3 and fixes (Path hash stable ids, desugared_tts u8 wrap, Diag drop bomb, exact assert texts, std path/io/slice) | **merged** |
 
-Wave 4b (after 4a integrates): fluent-bundle 0.16 (+ fluent-langneg, intl-memoizer, type-map, icu_list subset +
-rustc_baked_icu_data as data) and wire `rustc_errors::formatting`; annotate-b (renderer/render.rs + crate tests) and a
-renderer probe suite; ast-attr (attr/mod.rs); review fixes.
+Compiler fns 1527/25517; vendor 1773/6132 (26 crates). Final gate: gate-20261012-211129-root-ws8a.
 
-## Queued (after wave 4, in order)
-1. **emitter**: annotate_snippet_emitter_writer.rs + emitter.rs (replaces the `Emitter` stand-in in rustc_errors/lib.ts).
-2. **codegen-diag**: `#[derive(Diagnostic/Subdiagnostic)]` (52 upstream files) via tools/codegen, porting rustc_macros/src/diagnostics.
-3. **lint-defs**: rustc_lint_defs subset (Applicability, Lint, LintId, levels) replacing errors-core stand-ins; rustc_feature tables.
-4. rustc_session subset (parse.rs ParseSess + options the parser reads); the driver must call `dcx.inner.drop()`
+## Wave 5 (next)
+1. **emitter**: rustc_errors annotate_snippet_emitter_writer.rs + emitter.rs (replaces the `Emitter` stand-in in rustc_errors/lib.ts),
+   timings.rs; json.rs later. Uses annotate-b's contract.
+2. **codegen-diag**: `#[derive(Diagnostic/Subdiagnostic/LintDiagnostic)]` via tools/codegen, porting rustc_macros/src/diagnostics.
+3. **lint-defs**: rustc_lint_defs lib.rs + `declare_lint!` codegen for builtin.rs, replacing errors-core stand-ins.
+   `LintExpectationId` must compare by value (interned handle or canonical key), incl. `Level_eq` and `fulfilled_expectations`
+   (review w23b errors-core F2). rustc_feature tables.
+4. **ast-attr**: rustc_ast attr/mod.rs.
+5. **harness follow-up**: harness-w4b review LOW F2–F4; gate runs unit tests with `RUST_TS_REQUIRE_PROBES=1`; std `Result::unwrap`
+   panic text (harness-fluent INFO); w23b F10 marker order in rustc_error_messages/lib.ts.
+
+## Queued (after wave 5, in order)
+1. rustc_session subset (parse.rs ParseSess + options the parser reads); the driver must call `dcx.inner.drop()`
    where upstream drops the DiagCtxt (emits stashed diags, flushes delayed bugs).
-5. rustc_parse lexer (StringReader, tokentrees, unicode_chars, unescape_error_reporting), then the parser.
-6. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
+2. rustc_parse lexer (StringReader, tokentrees, unicode_chars, unescape_error_reporting), then the parser.
+3. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
    `LoneSlash` escape coverage (raw-input mode, harness batch); hash std libs into the oracle key once suites compile against std.
