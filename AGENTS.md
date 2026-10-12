@@ -28,7 +28,9 @@ Every agent prompt begins with the text of `docs/agent-brief.md`.
   protected case is not accepted. New passes never offset a loss.
 - `bun scripts/gate.ts run` = typecheck + unit tests + marker check + full difftest of every
   protected suite. `bun scripts/gate.ts accept --run <id>` grows the protected set and records
-  it in `docs/state/history.jsonl`.
+  it in `docs/state/history.jsonl`. Accept only takes a full, clean run: commit first, run the
+  gate on the clean tree, accept (HEAD must not have moved), then commit the baseline growth
+  naming the run id.
 - Never edit oracle outputs, baselines, suite definitions or runner scripts to make a result
   pass. Changes to `harness/` or `scripts/` need their own reviewed batch.
 - A **STOP** (`bun scripts/state.ts record stop <reason>`) blocks new features until resolved:

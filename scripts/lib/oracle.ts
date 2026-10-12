@@ -1,9 +1,9 @@
 // The oracle is the pinned nightly rustc (plus small probe binaries built from the
 // pinned upstream sources, see tools/probes). Oracle results are deterministic, so
-// they are cached by (command, input bytes, pin).
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+// difftest caches them, keyed by the oracle's identity (see oracleIdentity).
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ORACLE_CACHE, PIN, die, ensureDir, hash, run, type ProcResult } from "./common.ts";
+import { PIN, die, hash, run } from "./common.ts";
 
 let verified = false;
 
@@ -22,20 +22,27 @@ export function oracleRustcCmd(args: string[]): string[] {
   return ["rustc", `+${PIN.toolchain}`, ...args];
 }
 
-export interface Outcome {
-  stdout: string;
-  stderr: string;
-  code: number;
-  timedOut: boolean;
-}
+let driverHash: string | undefined;
 
-/** Run an oracle command; `inputs` are files whose bytes key the cache. */
-export async function oracle(cmd: string[], cwd: string, inputs: string[], timeoutMs = 60_000): Promise<Outcome & { cached: boolean }> {
-  const key = hash(JSON.stringify([PIN.commit, cmd, inputs.map((f) => hash(readFileSync(join(cwd, f))))]));
-  const path = join(ensureDir(join(ORACLE_CACHE, key.slice(0, 2))), key + ".json");
-  if (existsSync(path)) return { ...JSON.parse(readFileSync(path, "utf8")), cached: true };
-  const r: ProcResult = await run(cmd, { cwd, timeoutMs });
-  const out: Outcome = { stdout: r.stdout, stderr: r.stderr, code: r.code, timedOut: r.timedOut };
-  if (!r.timedOut) writeFileSync(path, JSON.stringify(out));
-  return { ...out, cached: false };
+/**
+ * Identity of the oracle rustc build: hash of the toolchain's rustc_driver library. The commit
+ * pin alone does not distinguish two builds of the same commit (e.g. a reinstalled toolchain),
+ * so rustc-based suites key their cache on this too.
+ */
+export function rustcDriverHash(): string {
+  if (driverHash) return driverHash;
+  const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--print", "sysroot"]);
+  if (r.exitCode !== 0) die(`cannot run oracle rustc +${PIN.toolchain} --print sysroot`);
+  const sysroot = r.stdout.toString().trim();
+  for (const dir of [join(sysroot, "bin"), join(sysroot, "lib")]) {
+    let names: string[];
+    try {
+      names = readdirSync(dir);
+    } catch {
+      continue;
+    }
+    const lib = names.find((n) => /^(lib)?rustc_driver-[0-9a-f]+\.(dll|so|dylib)$/.test(n));
+    if (lib) return (driverHash = hash(readFileSync(join(dir, lib))));
+  }
+  die(`no rustc_driver library under ${sysroot}`);
 }

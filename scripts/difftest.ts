@@ -16,7 +16,7 @@ import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
 import { ORACLE_CACHE, PIN, RUNS, UPSTREAM, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run } from "./lib/common.ts";
-import { verifyOraclePin } from "./lib/oracle.ts";
+import { rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
 
 export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT";
 export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT"];
@@ -62,11 +62,12 @@ function splitBatch(stdout: string): Map<string, string> {
 // Per suite: gate.ts runs several suites (with different probes) in one process.
 const oracleVersionCache = new Map<string, string>();
 function oracleVersion(s: Suite): string {
-  // Probe-based suites are keyed by the probe binary too, so rebuilding a probe invalidates the cache.
+  // Probe-based suites are keyed by the probe binary, rustc-based ones by the oracle rustc_driver
+  // build, so rebuilding a probe or reinstalling the toolchain invalidates the cache.
   let v = oracleVersionCache.get(s.name);
   if (v) return v;
   const cmd0 = s.oracle([{ id: "", file: "", args: [] }])[0]!;
-  v = existsSync(cmd0) ? hash(readFileSync(cmd0)) : PIN.commit;
+  v = existsSync(cmd0) ? hash(readFileSync(cmd0)) : cmd0 === "rustc" ? rustcDriverHash() : PIN.commit;
   oracleVersionCache.set(s.name, v);
   return v;
 }
