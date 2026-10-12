@@ -1,19 +1,22 @@
 //! Build-time guards, so the oracle cannot silently drift from the pinned rustc:
 //! 1. main.rs contains exactly the `// BEGIN verbatim <path>:<line>` ... `// END verbatim` blocks
-//!    listed in `BLOCKS` (no more, no fewer, no stray `// END verbatim`), and each is a
-//!    byte-for-byte copy of the pinned upstream file `<path>` starting at line `<line>`.
+//!    listed in `BLOCKS` (no more, no fewer, in that order, no stray `// END verbatim`), and each
+//!    is a byte-for-byte copy of exactly the upstream lines `BLOCKS` records for it (`<line>`
+//!    through the recorded last line) of the pinned upstream file `<path>`, so a block can be
+//!    neither moved, shortened (or emptied) nor lengthened without failing the build.
 //! 2. Every registry package of the probe's resolved Cargo.lock appears in the pinned upstream
 //!    Cargo.lock with the same name, version, source and checksum.
 
-/// The upstream code main.rs copies (see its header for why it is copied, not linked).
-const BLOCKS: &[&str] = &[
-    "compiler/rustc_error_messages/src/lib.rs:13",  // register_functions
-    "compiler/rustc_error_messages/src/lib.rs:231", // icu_locale_from_unic_langid, fluent_value_from_str_list_sep_by_and
-    "compiler/rustc_error_messages/src/lib.rs:300", // DiagArg, DiagArgName
-    "compiler/rustc_error_messages/src/lib.rs:311", // DiagArgValue
-    "compiler/rustc_error_messages/src/lib.rs:344", // From<DiagArgValue> for FluentValue
-    "compiler/rustc_errors/src/formatting.rs:10",   // to_fluent_args
-    "compiler/rustc_errors/src/formatting.rs:39",   // format_fluent_str
+/// The upstream code main.rs copies (see its header for why it is copied, not linked):
+/// `(path, first line, last line)`, 1-based and inclusive, at the pinned commit.
+const BLOCKS: &[(&str, usize, usize)] = &[
+    ("compiler/rustc_error_messages/src/lib.rs", 13, 21),   // register_functions
+    ("compiler/rustc_error_messages/src/lib.rs", 231, 298), // icu_locale_from_unic_langid, fluent_value_from_str_list_sep_by_and
+    ("compiler/rustc_error_messages/src/lib.rs", 300, 309), // DiagArg, DiagArgName
+    ("compiler/rustc_error_messages/src/lib.rs", 311, 321), // DiagArgValue
+    ("compiler/rustc_error_messages/src/lib.rs", 344, 352), // From<DiagArgValue> for FluentValue
+    ("compiler/rustc_errors/src/formatting.rs", 10, 24),     // to_fluent_args
+    ("compiler/rustc_errors/src/formatting.rs", 39, 59),     // format_fluent_str
 ];
 
 fn main() {
@@ -35,7 +38,7 @@ fn main() {
 fn check_verbatim(upstream: &str, main_rs: &str) {
     println!("cargo::rerun-if-changed={main_rs}");
     let src = std::fs::read_to_string(main_rs).unwrap();
-    let mut seen: Vec<String> = vec![];
+    let mut seen: Vec<(String, usize, usize)> = vec![];
     let mut lines = src.lines();
     while let Some(line) = lines.next() {
         assert!(line != "// END verbatim", "`// END verbatim` without a matching `// BEGIN verbatim`");
@@ -51,15 +54,27 @@ fn check_verbatim(upstream: &str, main_rs: &str) {
             assert!(!l.starts_with("// BEGIN verbatim"), "nested verbatim block in {spec}");
             block.push(l);
         }
+        // The block's extent comes from BLOCKS, not from where `// END verbatim` happens to be.
+        let &(_, _, end) = BLOCKS
+            .iter()
+            .find(|&&(p, s, _)| p == path && s == start)
+            .unwrap_or_else(|| panic!("verbatim block {spec} is not one of the expected {BLOCKS:?}"));
+        assert!(
+            block.len() == end + 1 - start,
+            "verbatim block {spec} has {} lines, expected upstream lines {start}-{end} ({} lines)",
+            block.len(),
+            end + 1 - start
+        );
         let file = format!("{upstream}/{path}");
         println!("cargo::rerun-if-changed={file}");
         let up = std::fs::read_to_string(&file).unwrap();
         let up: Vec<&str> = up.lines().collect();
-        let got = up.get(start - 1..start - 1 + block.len());
-        assert!(got == Some(&block[..]), "verbatim block {spec} differs from upstream");
-        seen.push(spec.to_string());
+        let got = up.get(start - 1..end);
+        assert!(got == Some(&block[..]), "verbatim block {spec} differs from upstream lines {start}-{end}");
+        seen.push((path.to_string(), start, end));
     }
-    assert!(seen == BLOCKS, "verbatim blocks {seen:?} are not exactly the expected {BLOCKS:?}");
+    let expected: Vec<(String, usize, usize)> = BLOCKS.iter().map(|&(p, s, e)| (p.to_string(), s, e)).collect();
+    assert!(seen == expected, "verbatim blocks {seen:?} are not exactly the expected {BLOCKS:?}");
 }
 
 /// `(name, version, source, checksum)` of every `[[package]]` with a `source` (registry packages).

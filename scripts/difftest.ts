@@ -125,24 +125,28 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
   return out;
 }
 
-async function runSubject(s: Suite, cases: Case[], impl: string): Promise<Map<string, Output>> {
+export async function runSubject(s: Suite, cases: Case[], impl: string): Promise<Map<string, Output>> {
   const env = { RUST_TS_IMPL: impl };
   const out = new Map<string, Output>();
   if (s.mode === "batch") {
     const runBatch = async (batch: Case[]): Promise<void> => {
       const r = await run(s.subject(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env });
-      // A timed-out batch says nothing about individual files (load, one huge file): retry in halves,
-      // so TIMEOUT is only ever reported for a single file that is slow on its own.
-      if (r.timedOut && batch.length > 1) {
+      const failed = r.code !== 0 || r.timedOut;
+      // A failed batch (timeout, UNPORTED exit 70, ICE, any non-zero exit) says nothing about the
+      // other files in it: the process stopped at one file, or was slow under load. Retry in halves
+      // and discard this run's output entirely, so every status that comes from a failed process
+      // (TIMEOUT, UNPORTED, CRASH, ...) is only ever reported for a file that fails on its own, and
+      // partial output of a dying batch is never attributed to any case.
+      if (failed && batch.length > 1) {
         const mid = batch.length >> 1;
         await runBatch(batch.slice(0, mid));
         await runBatch(batch.slice(mid));
         return;
       }
       const parts = splitBatch(r.stdout);
-      const failed = r.code !== 0 || r.timedOut;
       batch.forEach((c, i) => {
-        // On failure the last section printed may be incomplete; treat it as missing.
+        // On failure (only possible for a single-file batch here) the last section printed may be
+        // incomplete; treat it as missing.
         const complete = parts.has(c.file) && (!failed || (i + 1 < batch.length && parts.has(batch[i + 1]!.file)));
         out.set(c.id, complete ? { text: parts.get(c.file)!, code: 0, timedOut: false } : { text: r.stderr, code: r.code, timedOut: r.timedOut });
       });
@@ -157,7 +161,7 @@ async function runSubject(s: Suite, cases: Case[], impl: string): Promise<Map<st
   return out;
 }
 
-function classify(o: Output, sub: Output): Status {
+export function classify(o: Output, sub: Output): Status {
   if (sub.timedOut) return "TIMEOUT";
   if (sub.text === o.text && sub.code === o.code) return "MATCH";
   if (sub.code === EXIT_UNPORTED) return "UNPORTED";
