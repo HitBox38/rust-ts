@@ -1,0 +1,79 @@
+# Template: scripts/probes.ts substitutes @UPSTREAM@/@SRC@ and builds this in $RUST_TS_DATA/probes.
+# Every registry package of the resolved graph (direct, and every transitive one below so cargo
+# cannot pick another version) is pinned with `=` to the version in upstream's Cargo.lock at the
+# pinned commit; build.rs also fails unless every registry package of the probe's resolved
+# Cargo.lock appears in upstream's Cargo.lock with the same version and checksum.
+# rustc_baked_icu_data (the ICU list-format data rustc ships) is a path dep on the pinned checkout.
+[package]
+name = "fluentdump"
+version = "0.0.0"
+edition = "2024"
+publish = false
+build = "@SRC@/build.rs"
+
+# Read by build.rs (checks the `// BEGIN verbatim` blocks of main.rs and the resolved Cargo.lock
+# against upstream).
+[package.metadata.rust-ts]
+upstream = "@UPSTREAM@"
+main-rs = "@SRC@/main.rs"
+
+[[bin]]
+name = "fluentdump"
+path = "@SRC@/main.rs"
+
+[dependencies]
+# Direct dependencies of compiler/rustc_error_messages (same features).
+fluent-bundle = "=0.16.0"
+icu_list = { version = "=2.3.0", default-features = false, features = ["alloc"] }
+icu_locale_core = { version = "=2.3.0", default-features = false }
+intl-memoizer = "=0.5.3"
+rustc_baked_icu_data = { path = "@UPSTREAM@/compiler/rustc_baked_icu_data" }
+unic-langid = { version = "=0.9.6", features = ["macros"] }
+# Used directly by the probe.
+fluent-syntax = "=0.12.0"
+indexmap = "=2.14.0"
+# Transitive dependencies, pinned to upstream's Cargo.lock (cargo would otherwise pick newer ones).
+# `default-features = false`: a pin must not enable features the real dependents do not ask for.
+displaydoc = { version = "=0.2.5", default-features = false }
+equivalent = { version = "=1.0.2", default-features = false }
+fluent-langneg = { version = "=0.13.1", default-features = false }
+hashbrown = { version = "=0.17.1", default-features = false }
+icu_locale_fallback = { version = "=2.3.0", default-features = false }
+icu_locale_fallback_data = { version = "=2.3.0", default-features = false }
+icu_provider = { version = "=2.3.0", default-features = false }
+intl_pluralrules = { version = "=7.0.2", default-features = false }
+litemap = { version = "=0.8.1", default-features = false }
+memchr = { version = "=2.8.0", default-features = false }
+potential_utf = { version = "=0.1.4", default-features = false }
+proc-macro-hack = { version = "=0.5.20", default-features = false }
+proc-macro2 = { version = "=1.0.106", default-features = false }
+quote = { version = "=1.0.45", default-features = false }
+regex-automata = { version = "=0.4.13", default-features = false }
+rustc-hash = { version = "=2.1.1", default-features = false }
+self_cell = { version = "=1.2.1", default-features = false }
+serde = { version = "=1.0.228", default-features = false }
+serde_core = { version = "=1.0.228", default-features = false }
+serde_derive = { version = "=1.0.228", default-features = false }
+smallvec = { version = "=1.15.1", default-features = false }
+stable_deref_trait = { version = "=1.2.1", default-features = false }
+syn = { version = "=2.0.117", default-features = false }
+synstructure = { version = "=0.13.2", default-features = false }
+thiserror = { version = "=2.0.17", default-features = false }
+thiserror-impl = { version = "=2.0.17", default-features = false }
+tinystr = { version = "=0.8.4", default-features = false }
+type-map = { version = "=0.5.1", default-features = false }
+unic-langid-impl = { version = "=0.9.6", default-features = false }
+unic-langid-macros = { version = "=0.9.6", default-features = false }
+unic-langid-macros-impl = { version = "=0.9.6", default-features = false }
+unicode-ident = { version = "=1.0.24", default-features = false }
+writeable = { version = "=0.6.4", default-features = false }
+yoke = { version = "=0.8.3", default-features = false }
+yoke-derive = { version = "=0.8.2", default-features = false }
+zerofrom = { version = "=0.1.6", default-features = false }
+zerofrom-derive = { version = "=0.1.6", default-features = false }
+zerotrie = { version = "=0.2.5", default-features = false }
+zerovec = { version = "=0.11.7", default-features = false }
+zerovec-derive = { version = "=0.11.5", default-features = false }
+syn3 = { package = "syn", version = "=3.0.3", default-features = false }
+
+[workspace]
