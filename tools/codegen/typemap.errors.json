@@ -2,8 +2,7 @@
   "//": [
     "Type-map additions of lane errors-core (rustc_error_messages, rustc_errors), merged after typemap.json",
     "by tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json.",
-    "rustc_lint_defs stand-ins (Applicability, LintId, LintExpectationId) live in src/rustc_errors/lib.ts until",
-    "rustc_lint_defs is ported; repoint these entries then."
+    "rustc_lint_defs types (Applicability, LintId, LintExpectationId) come from src/rustc_lint_defs/lib.ts (lane lint-defs)."
   ],
   "cfg": {
     "true": [],
@@ -40,39 +39,43 @@
         "rustc_lint_defs::Applicability"
       ],
       "ts": "Applicability",
-      "import": "src/rustc_errors/lib.ts",
+      "import": "src/rustc_lint_defs/lib.ts",
       "types": [
         "Applicability"
       ],
       "values": [
         "debug_Applicability"
       ],
-      "debug": "debug_Applicability($v, $f)",
-      "note": "PORT: stand-in until rustc_lint_defs is ported"
+      "debug": "debug_Applicability($v, $f)"
     },
     {
       "paths": [
         "rustc_lint_defs::LintId"
       ],
       "ts": "LintId",
-      "import": "src/rustc_errors/lib.ts",
+      "import": "src/rustc_lint_defs/lib.ts",
       "types": [
         "LintId"
       ],
-      "debug": null,
-      "note": "PORT: stand-in until rustc_lint_defs is ported"
+      "values": [
+        "debug_LintId"
+      ],
+      "debug": "debug_LintId($v, $f)"
     },
     {
       "paths": [
         "rustc_lint_defs::LintExpectationId"
       ],
       "ts": "LintExpectationId",
-      "import": "src/rustc_errors/lib.ts",
+      "import": "src/rustc_lint_defs/lib.ts",
       "types": [
         "LintExpectationId"
       ],
-      "debug": null,
-      "note": "PORT: stand-in until rustc_lint_defs is ported"
+      "values": [
+        "debug_LintExpectationId"
+      ],
+      "debug": "debug_LintExpectationId($v, $f)",
+      "note": "PORT: interned (canonical frozen objects), so === and Set membership compare by value"
     },
     {
       "paths": [

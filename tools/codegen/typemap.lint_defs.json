@@ -1,0 +1,31 @@
+{
+  "//": [
+    "Type-map additions of lane lint-defs (rustc_lint_defs), merged after typemap.json by tools/codegen/types.ts",
+    "(loadTypeMap). Root may fold these into typemap.json.",
+    "rustc_hir_id is not ported: HirId/OwnerId are stand-ins in src/rustc_lint_defs/lib.ts; repoint once it is."
+  ],
+  "cfg": {
+    "true": [],
+    "false": []
+  },
+  "helpers": {},
+  "types": [
+    {
+      "paths": [
+        "rustc_hir_id::HirId",
+        "rustc_hir::HirId",
+        "rustc_hir::hir_id::HirId"
+      ],
+      "ts": "HirId",
+      "import": "src/rustc_lint_defs/lib.ts",
+      "types": [
+        "HirId"
+      ],
+      "values": [
+        "debug_HirId"
+      ],
+      "debug": "debug_HirId($v, $f)",
+      "note": "PORT: stand-in until rustc_hir_id is ported (Debug needs the DefId pretty-printer: unported)"
+    }
+  ]
+}
