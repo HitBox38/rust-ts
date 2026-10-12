@@ -49,3 +49,7 @@ Next after integration: wave 2 = span-map (source_map.rs, caching_source_map_vie
 | review-w1 | independent review of wave 1 (read-only) | running |
 
 Queued: span-map (source_map.rs, caching_source_map_view.rs, vendor unicode-width 0.2.2) after span-wire; then rustc_errors + rustc_session subset; regression auditor at next protected-set change.
+
+Review follow-ups (review-w1, all medium/low): symdump probe + gate check for symbol table (harness batch);
+synthetic literal corpus to cover the 6 escape-error variants the real corpus misses (harness batch);
+typemap Cell/RefCell Debug (span-wire); unknown-cfg → ERROR (ast-types); ExpnData copy-before-mutate (span-wire).
