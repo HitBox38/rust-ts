@@ -1,5 +1,5 @@
 {
-  "milestone": "M0",
+  "milestone": "Wave",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
     "escape-synthetic": 11,
@@ -7,10 +7,10 @@
     "lex": 25780,
     "symbols": 10
   },
-  "updated": "2026-10-12T19:03:24.500Z",
+  "updated": "2026-10-12T19:09:26.826Z",
   "open_stops": [],
   "coverage": {
-    "ported": 751,
+    "ported": 1196,
     "total": 25517
   }
 }

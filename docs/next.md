@@ -49,17 +49,28 @@ Next after integration: wave 2 = span-map (source_map.rs, caching_source_map_vie
 | review-w1 | independent review of wave 1 | **merged** |
 | harness-w2 | symdump probe + `symbols` suite; synthetic escape corpus + `escape-synthetic` suite | done, under independent review |
 
-## In flight (wave 3)
+## Wave 3 (2026-10-12) — done
 | lane | scope | status |
 |---|---|---|
-| span-map | source_map.rs, caching_source_map_view.rs, vendor unicode-width 0.2.2 (oracle tables) | running |
-| ast-token | rustc_ast token.rs, tokenstream.rs, util/* (hand-ported fns) | running |
+| span-map | source_map.rs, caching_source_map_view.rs, vendor unicode-width 0.2.2 (oracle tables) | **merged** (gate-20261012-154702-root-tr7a) |
+| ast-token | rustc_ast token.rs, tokenstream.rs, util/* | **merged** (gate-20261012-185308-root-a805) |
+| errors-core | rustc_error_messages (100%), rustc_errors core: DiagCtxt, Diag, codes (518 error codes generated) | **merged** |
+| harness-w2 | `symbols` (10) + `escape-synthetic` (11) suites | **merged, protected** (gate-20261012-105941-root-hf6n) |
+| audit-1 / gate-provenance | regression audit (CLEAN-WITH-NOTES) → gate records HEAD/dirty, accept refuses partial/dirty/moved runs; oracle cache keyed on rustc_driver build | **merged, reviewed** |
 
-Queued (in order):
-1. **errors-core** (after span-map): rustc_error_messages (inline messages; no Fluent at this pin), rustc_errors diagnostic.rs, codes.rs, lib.rs (DiagCtxt).
-2. **vendor-annotate** (after span-map): annotate-snippets 0.12.16 (+ anstyle subset). rustc's default human emitter at this pin is `AnnotateSnippetEmitter`; then annotate_snippet_emitter_writer.rs + emitter.rs. Needs a renderer probe suite.
+rustc_span is 658/658. Total 1,196 / 25,517 fns.
+
+## Queued (wave 4, in order)
+1. **vendor-fluent**: fluent-syntax 0.12 + fluent-bundle 0.16 (+ intl_pluralrules, icu_list subset). Every inline
+   `#[diag("..")]` / `msg!` message is formatted through Fluent at this pin; `DiagMessage::Inline` is `unported` until then.
+2. **vendor-annotate**: annotate-snippets 0.12.16 (+ anstyle subset). rustc's default human emitter at this pin is
+   `AnnotateSnippetEmitter`; then annotate_snippet_emitter_writer.rs + emitter.rs (replaces the `Emitter` stand-in in
+   rustc_errors/lib.ts). Needs a renderer probe suite.
 3. **codegen-diag**: `#[derive(Diagnostic/Subdiagnostic)]` (52 upstream files) via tools/codegen, porting rustc_macros/src/diagnostics.
 4. **ast-core**: ast.rs fns (160), attr/mod.rs, ast_traits, visit/mut_visit; rustc_feature tables.
-5. rustc_session subset (parse.rs ParseSess + options the parser reads), then rustc_parse lexer.
-6. Regression auditor at the next protected-set change (symbols / escape-synthetic baselines).
-7. Follow-ups: enable the 5 deferred `symbols` sections now that span-wire is merged; `LoneSlash` escape coverage (raw-input mode, harness batch).
+5. **lint-defs**: rustc_lint_defs subset (Applicability, Lint, LintId, levels) replacing errors-core stand-ins.
+6. rustc_session subset (parse.rs ParseSess + options the parser reads); the driver must call `dcx.inner.drop()`
+   where upstream drops the DiagCtxt (emits stashed diags, flushes delayed bugs).
+7. rustc_parse lexer (StringReader, tokentrees, unicode_chars, unescape_error_reporting), then the parser.
+8. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
+   `LoneSlash` escape coverage (raw-input mode, harness batch); hash std libs into the oracle key once suites compile against std.
