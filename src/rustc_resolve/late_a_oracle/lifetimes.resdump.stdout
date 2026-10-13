@@ -1,0 +1,264 @@
+== visibilities_for_hashing (22)
+DefId(0:0 ~ lifetimes[4b8c]) Public
+DefId(0:1 ~ lifetimes[4b8c]::S) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:1 ~ lifetimes[4b8c]::S) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:3 ~ lifetimes[4b8c]::S::x) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:4 ~ lifetimes[4b8c]::T) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:4 ~ lifetimes[4b8c]::T) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:5 ~ lifetimes[4b8c]::T::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:8 ~ lifetimes[4b8c]::T::0) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:9 ~ lifetimes[4b8c]::T::1) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:10 ~ lifetimes[4b8c]::elided) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:11 ~ lifetimes[4b8c]::named) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:13 ~ lifetimes[4b8c]::underscore) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:14 ~ lifetimes[4b8c]::in_path) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:15 ~ lifetimes[4b8c]::two) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:16 ~ lifetimes[4b8c]::fn_ptr) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:18 ~ lifetimes[4b8c]::with_closure) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:20 ~ lifetimes[4b8c]::W) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:20 ~ lifetimes[4b8c]::W) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:21 ~ lifetimes[4b8c]::W::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:22 ~ lifetimes[4b8c]::{impl#0}) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:23 ~ lifetimes[4b8c]::{impl#0}::by_ref) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+DefId(0:24 ~ lifetimes[4b8c]::{impl#0}::by_self) Restricted(LocalModId(DefId(0:0 ~ lifetimes[4b8c])))
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ lifetimes[4b8c]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (1)
+DefId(0:0 ~ lifetimes[4b8c])
+  ModChild { ident: S#0, res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: T#0, res: Def(Struct, DefId(0:4 ~ lifetimes[4b8c]::T)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: T#0, res: Def(Ctor(Struct, Fn), DefId(0:5 ~ lifetimes[4b8c]::T::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: elided#0, res: Def(Fn, DefId(0:10 ~ lifetimes[4b8c]::elided)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: named#0, res: Def(Fn, DefId(0:11 ~ lifetimes[4b8c]::named)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: underscore#0, res: Def(Fn, DefId(0:13 ~ lifetimes[4b8c]::underscore)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: in_path#0, res: Def(Fn, DefId(0:14 ~ lifetimes[4b8c]::in_path)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: two#0, res: Def(Fn, DefId(0:15 ~ lifetimes[4b8c]::two)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: fn_ptr#0, res: Def(Fn, DefId(0:16 ~ lifetimes[4b8c]::fn_ptr)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: with_closure#0, res: Def(Fn, DefId(0:18 ~ lifetimes[4b8c]::with_closure)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: W#0, res: Def(Struct, DefId(0:20 ~ lifetimes[4b8c]::W)), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+  ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:21 ~ lifetimes[4b8c]::W::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ lifetimes[4b8c]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (1)
+DefId(0:20 ~ lifetimes[4b8c]::W)
+  by_ref#0 Single(DefId(0:23 ~ lifetimes[4b8c]::{impl#0}::by_ref))
+  by_self#0 Single(DefId(0:24 ~ lifetimes[4b8c]::{impl#0}::by_self))
+== next_node_id
+NodeId(194)
+== partial_res_map (75)
+NodeId(9) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(10) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(17) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(18) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(22) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(23) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(28) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(29) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(30) PartialRes { base_res: Local(NodeId(30)), unresolved_segments: 0 }
+NodeId(32) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(35) PartialRes { base_res: Local(NodeId(30)), unresolved_segments: 0 }
+NodeId(36) PartialRes { base_res: Local(NodeId(30)), unresolved_segments: 0 }
+NodeId(41) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(42) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: Local(NodeId(44)), unresolved_segments: 0 }
+NodeId(48) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(50) PartialRes { base_res: Local(NodeId(50)), unresolved_segments: 0 }
+NodeId(51) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(52) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(55) PartialRes { base_res: Local(NodeId(44)), unresolved_segments: 0 }
+NodeId(56) PartialRes { base_res: Local(NodeId(44)), unresolved_segments: 0 }
+NodeId(60) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(61) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(63) PartialRes { base_res: Local(NodeId(63)), unresolved_segments: 0 }
+NodeId(67) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(68) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(69) PartialRes { base_res: Local(NodeId(69)), unresolved_segments: 0 }
+NodeId(70) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(71) PartialRes { base_res: Def(Struct, DefId(0:1 ~ lifetimes[4b8c]::S)), unresolved_segments: 0 }
+NodeId(73) PartialRes { base_res: Local(NodeId(69)), unresolved_segments: 0 }
+NodeId(74) PartialRes { base_res: Local(NodeId(69)), unresolved_segments: 0 }
+NodeId(79) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(80) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(81) PartialRes { base_res: Local(NodeId(81)), unresolved_segments: 0 }
+NodeId(84) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(85) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(86) PartialRes { base_res: Local(NodeId(86)), unresolved_segments: 0 }
+NodeId(95) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(96) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(100) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(101) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(102) PartialRes { base_res: Local(NodeId(102)), unresolved_segments: 0 }
+NodeId(107) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(108) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(111) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(112) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(113) PartialRes { base_res: Local(NodeId(113)), unresolved_segments: 0 }
+NodeId(118) PartialRes { base_res: Local(NodeId(118)), unresolved_segments: 0 }
+NodeId(122) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(123) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(124) PartialRes { base_res: Local(NodeId(124)), unresolved_segments: 0 }
+NodeId(126) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(127) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(130) PartialRes { base_res: Local(NodeId(124)), unresolved_segments: 0 }
+NodeId(131) PartialRes { base_res: Local(NodeId(124)), unresolved_segments: 0 }
+NodeId(137) PartialRes { base_res: Def(Struct, DefId(0:20 ~ lifetimes[4b8c]::W)), unresolved_segments: 0 }
+NodeId(138) PartialRes { base_res: Def(Struct, DefId(0:20 ~ lifetimes[4b8c]::W)), unresolved_segments: 0 }
+NodeId(142) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:22 ~ lifetimes[4b8c]::{impl#0}), is_trait_impl: false }, unresolved_segments: 0 }
+NodeId(143) PartialRes { base_res: Local(NodeId(143)), unresolved_segments: 0 }
+NodeId(146) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(147) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(148) PartialRes { base_res: Local(NodeId(148)), unresolved_segments: 0 }
+NodeId(150) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(151) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(153) PartialRes { base_res: Local(NodeId(148)), unresolved_segments: 0 }
+NodeId(154) PartialRes { base_res: Local(NodeId(148)), unresolved_segments: 0 }
+NodeId(161) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:22 ~ lifetimes[4b8c]::{impl#0}), is_trait_impl: false }, unresolved_segments: 0 }
+NodeId(162) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:22 ~ lifetimes[4b8c]::{impl#0}), is_trait_impl: false }, unresolved_segments: 0 }
+NodeId(163) PartialRes { base_res: Local(NodeId(163)), unresolved_segments: 0 }
+NodeId(166) PartialRes { base_res: Def(Struct, DefId(0:20 ~ lifetimes[4b8c]::W)), unresolved_segments: 0 }
+NodeId(167) PartialRes { base_res: Def(Struct, DefId(0:20 ~ lifetimes[4b8c]::W)), unresolved_segments: 0 }
+NodeId(169) PartialRes { base_res: Local(NodeId(163)), unresolved_segments: 0 }
+NodeId(170) PartialRes { base_res: Local(NodeId(163)), unresolved_segments: 0 }
+== owners (14)
+NodeId(0) def_id=DefId(0:0 ~ lifetimes[4b8c]) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:1 ~ lifetimes[4b8c]::S) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(5) DefId(0:2 ~ lifetimes[4b8c]::S::'a)
+  node_id_to_def_id NodeId(6) DefId(0:3 ~ lifetimes[4b8c]::S::x)
+  lifetime_res NodeId(5) Param { param: DefId(0:2 ~ lifetimes[4b8c]::S::'a), binder: NodeId(4) }
+  lifetime_res NodeId(8) Param { param: DefId(0:2 ~ lifetimes[4b8c]::S::'a), binder: NodeId(4) }
+NodeId(11) def_id=DefId(0:4 ~ lifetimes[4b8c]::T) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(12) DefId(0:6 ~ lifetimes[4b8c]::T::'a)
+  node_id_to_def_id NodeId(13) DefId(0:7 ~ lifetimes[4b8c]::T::'b)
+  node_id_to_def_id NodeId(14) DefId(0:8 ~ lifetimes[4b8c]::T::0)
+  node_id_to_def_id NodeId(19) DefId(0:9 ~ lifetimes[4b8c]::T::1)
+  node_id_to_def_id NodeId(24) DefId(0:5 ~ lifetimes[4b8c]::T::{constructor#0})
+  lifetime_res NodeId(12) Param { param: DefId(0:6 ~ lifetimes[4b8c]::T::'a), binder: NodeId(11) }
+  lifetime_res NodeId(13) Param { param: DefId(0:7 ~ lifetimes[4b8c]::T::'b), binder: NodeId(11) }
+  lifetime_res NodeId(16) Param { param: DefId(0:6 ~ lifetimes[4b8c]::T::'a), binder: NodeId(11) }
+  lifetime_res NodeId(21) Param { param: DefId(0:7 ~ lifetimes[4b8c]::T::'b), binder: NodeId(11) }
+NodeId(25) def_id=DefId(0:10 ~ lifetimes[4b8c]::elided) lifetime_elision_allowed=true
+  lifetime_res NodeId(27) ElidedAnchor { start: NodeId(172), end: NodeId(173) }
+  lifetime_res NodeId(31) ElidedAnchor { start: NodeId(174), end: NodeId(175) }
+  lifetime_res NodeId(172) Fresh { param: NodeId(173), kind: Ampersand }
+  lifetime_res NodeId(173) Fresh { param: NodeId(173), kind: Ampersand }
+  lifetime_res NodeId(174) Fresh { param: NodeId(173), kind: Ampersand }
+  extra_lifetime_params NodeId(25) [('_#0, NodeId(173), Ampersand)]
+NodeId(38) def_id=DefId(0:11 ~ lifetimes[4b8c]::named) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(39) DefId(0:12 ~ lifetimes[4b8c]::named::'a)
+  lifetime_res NodeId(39) Param { param: DefId(0:12 ~ lifetimes[4b8c]::named::'a), binder: NodeId(38) }
+  lifetime_res NodeId(43) Param { param: DefId(0:12 ~ lifetimes[4b8c]::named::'a), binder: NodeId(38) }
+  lifetime_res NodeId(47) Static
+  lifetime_res NodeId(53) Param { param: DefId(0:12 ~ lifetimes[4b8c]::named::'a), binder: NodeId(38) }
+NodeId(58) def_id=DefId(0:13 ~ lifetimes[4b8c]::underscore) lifetime_elision_allowed=true
+  lifetime_res NodeId(62) Fresh { param: NodeId(175), kind: Underscore }
+  lifetime_res NodeId(175) Fresh { param: NodeId(175), kind: Underscore }
+  extra_lifetime_params NodeId(58) [('_#0, NodeId(175), Underscore)]
+NodeId(65) def_id=DefId(0:14 ~ lifetimes[4b8c]::in_path) lifetime_elision_allowed=true
+  lifetime_res NodeId(68) ElidedAnchor { start: NodeId(176), end: NodeId(177) }
+  lifetime_res NodeId(71) ElidedAnchor { start: NodeId(178), end: NodeId(179) }
+  lifetime_res NodeId(176) Fresh { param: NodeId(177), kind: Brackets }
+  lifetime_res NodeId(177) Fresh { param: NodeId(177), kind: Brackets }
+  lifetime_res NodeId(178) Fresh { param: NodeId(177), kind: Brackets }
+  extra_lifetime_params NodeId(65) [('_#0, NodeId(177), Brackets)]
+NodeId(76) def_id=DefId(0:15 ~ lifetimes[4b8c]::two) lifetime_elision_allowed=false
+  lifetime_res NodeId(78) ElidedAnchor { start: NodeId(179), end: NodeId(180) }
+  lifetime_res NodeId(83) ElidedAnchor { start: NodeId(181), end: NodeId(182) }
+  lifetime_res NodeId(179) Fresh { param: NodeId(180), kind: Ampersand }
+  lifetime_res NodeId(180) Fresh { param: NodeId(180), kind: Ampersand }
+  lifetime_res NodeId(181) Fresh { param: NodeId(182), kind: Ampersand }
+  lifetime_res NodeId(182) Fresh { param: NodeId(182), kind: Ampersand }
+  extra_lifetime_params NodeId(76) [('_#0, NodeId(180), Ampersand), ('_#0, NodeId(182), Ampersand)]
+NodeId(88) def_id=DefId(0:16 ~ lifetimes[4b8c]::fn_ptr) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(91) DefId(0:17 ~ lifetimes[4b8c]::fn_ptr::'a)
+  lifetime_res NodeId(91) Param { param: DefId(0:17 ~ lifetimes[4b8c]::fn_ptr::'a), binder: NodeId(90) }
+  lifetime_res NodeId(94) Param { param: DefId(0:17 ~ lifetimes[4b8c]::fn_ptr::'a), binder: NodeId(90) }
+  lifetime_res NodeId(99) Param { param: DefId(0:17 ~ lifetimes[4b8c]::fn_ptr::'a), binder: NodeId(90) }
+  lifetime_res NodeId(106) ElidedAnchor { start: NodeId(183), end: NodeId(184) }
+  lifetime_res NodeId(110) ElidedAnchor { start: NodeId(185), end: NodeId(186) }
+  lifetime_res NodeId(183) Fresh { param: NodeId(184), kind: Ampersand }
+  lifetime_res NodeId(184) Fresh { param: NodeId(184), kind: Ampersand }
+  lifetime_res NodeId(185) Fresh { param: NodeId(184), kind: Ampersand }
+  extra_lifetime_params NodeId(104) [('_#0, NodeId(184), Ampersand)]
+NodeId(115) def_id=DefId(0:18 ~ lifetimes[4b8c]::with_closure) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(119) DefId(0:19 ~ lifetimes[4b8c]::with_closure::{closure#0})
+  lifetime_res NodeId(121) ElidedAnchor { start: NodeId(186), end: NodeId(187) }
+  lifetime_res NodeId(125) ElidedAnchor { start: NodeId(188), end: NodeId(189) }
+  lifetime_res NodeId(186) Fresh { param: NodeId(187), kind: Ampersand }
+  lifetime_res NodeId(187) Fresh { param: NodeId(187), kind: Ampersand }
+  lifetime_res NodeId(188) Infer
+  extra_lifetime_params NodeId(119) [('_#0, NodeId(187), Ampersand)]
+NodeId(134) def_id=DefId(0:20 ~ lifetimes[4b8c]::W) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(135) DefId(0:21 ~ lifetimes[4b8c]::W::{constructor#0})
+NodeId(136) def_id=DefId(0:22 ~ lifetimes[4b8c]::{impl#0}) lifetime_elision_allowed=false
+NodeId(139) def_id=DefId(0:23 ~ lifetimes[4b8c]::{impl#0}::by_ref) lifetime_elision_allowed=true
+  lifetime_res NodeId(141) ElidedAnchor { start: NodeId(189), end: NodeId(190) }
+  lifetime_res NodeId(145) ElidedAnchor { start: NodeId(191), end: NodeId(192) }
+  lifetime_res NodeId(149) ElidedAnchor { start: NodeId(193), end: NodeId(194) }
+  lifetime_res NodeId(189) Fresh { param: NodeId(190), kind: Ampersand }
+  lifetime_res NodeId(190) Fresh { param: NodeId(190), kind: Ampersand }
+  lifetime_res NodeId(191) Fresh { param: NodeId(192), kind: Ampersand }
+  lifetime_res NodeId(192) Fresh { param: NodeId(192), kind: Ampersand }
+  lifetime_res NodeId(193) Fresh { param: NodeId(190), kind: Ampersand }
+  extra_lifetime_params NodeId(139) [('_#0, NodeId(190), Ampersand), ('_#0, NodeId(192), Ampersand)]
+NodeId(156) def_id=DefId(0:24 ~ lifetimes[4b8c]::{impl#0}::by_self) lifetime_elision_allowed=true
+  node_id_to_def_id NodeId(157) DefId(0:25 ~ lifetimes[4b8c]::{impl#0}::by_self::'a)
+  lifetime_res NodeId(157) Param { param: DefId(0:25 ~ lifetimes[4b8c]::{impl#0}::by_self::'a), binder: NodeId(156) }
+  lifetime_res NodeId(160) Param { param: DefId(0:25 ~ lifetimes[4b8c]::{impl#0}::by_self::'a), binder: NodeId(156) }
+  lifetime_res NodeId(165) Param { param: DefId(0:25 ~ lifetimes[4b8c]::{impl#0}::by_self::'a), binder: NodeId(156) }
+== lint_buffer (2)
+NodeId(68) ELIDED_LIFETIMES_IN_PATHS [lifetimes.rs:16:15: 16:16 (#0)]
+NodeId(71) ELIDED_LIFETIMES_IN_PATHS [lifetimes.rs:16:21: 16:22 (#0)]
+== disambiguators (9)
+DefId(0:0 ~ lifetimes[4b8c])
+DefId(0:1 ~ lifetimes[4b8c]::S)
+DefId(0:4 ~ lifetimes[4b8c]::T)
+DefId(0:11 ~ lifetimes[4b8c]::named)
+DefId(0:16 ~ lifetimes[4b8c]::fn_ptr)
+DefId(0:18 ~ lifetimes[4b8c]::with_closure)
+DefId(0:20 ~ lifetimes[4b8c]::W)
+DefId(0:22 ~ lifetimes[4b8c]::{impl#0})
+DefId(0:24 ~ lifetimes[4b8c]::{impl#0}::by_self)
+== definitions (26)
+DefId(0:0 ~ lifetimes[4b8c]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 5443916486935989281))
+DefId(0:1 ~ lifetimes[4b8c]::S) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("S"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 4115640095276978357))
+DefId(0:2 ~ lifetimes[4b8c]::S::'a) LifetimeParam DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 2599862374049787666))
+DefId(0:3 ~ lifetimes[4b8c]::S::x) Field DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("x"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 8173215708143022200))
+DefId(0:4 ~ lifetimes[4b8c]::T) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 1496095198073090805))
+DefId(0:5 ~ lifetimes[4b8c]::T::{constructor#0}) Ctor(Struct, Fn) DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 6506412937356617436))
+DefId(0:6 ~ lifetimes[4b8c]::T::'a) LifetimeParam DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 8475657714639043415))
+DefId(0:7 ~ lifetimes[4b8c]::T::'b) LifetimeParam DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'b"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 1469066505309444308))
+DefId(0:8 ~ lifetimes[4b8c]::T::0) Field DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 1301214647121225488))
+DefId(0:9 ~ lifetimes[4b8c]::T::1) Field DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("1"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 16267517270409070987))
+DefId(0:10 ~ lifetimes[4b8c]::elided) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("elided"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 17336834611337253605))
+DefId(0:11 ~ lifetimes[4b8c]::named) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("named"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 2590087218349549235))
+DefId(0:12 ~ lifetimes[4b8c]::named::'a) LifetimeParam DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 18333113258541480818))
+DefId(0:13 ~ lifetimes[4b8c]::underscore) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("underscore"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 2538958845435699003))
+DefId(0:14 ~ lifetimes[4b8c]::in_path) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("in_path"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 13480163923900136133))
+DefId(0:15 ~ lifetimes[4b8c]::two) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("two"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 908579240518765547))
+DefId(0:16 ~ lifetimes[4b8c]::fn_ptr) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("fn_ptr"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 12083963440820264014))
+DefId(0:17 ~ lifetimes[4b8c]::fn_ptr::'a) LifetimeParam DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 17418469536961371362))
+DefId(0:18 ~ lifetimes[4b8c]::with_closure) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("with_closure"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 15046225850417811409))
+DefId(0:19 ~ lifetimes[4b8c]::with_closure::{closure#0}) Closure DefKey { parent: Some(DefIndex(18)), disambiguated_data: DisambiguatedDefPathData { data: Closure, disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 4480342607358154448))
+DefId(0:20 ~ lifetimes[4b8c]::W) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("W"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 679772890351719673))
+DefId(0:21 ~ lifetimes[4b8c]::W::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(20)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 6988610545830218569))
+DefId(0:22 ~ lifetimes[4b8c]::{impl#0}) Impl { of_trait: false } DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Impl, disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 14713178865589148693))
+DefId(0:23 ~ lifetimes[4b8c]::{impl#0}::by_ref) AssocFn DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("by_ref"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 13507689911271742877))
+DefId(0:24 ~ lifetimes[4b8c]::{impl#0}::by_self) AssocFn DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("by_self"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 15928409592091692940))
+DefId(0:25 ~ lifetimes[4b8c]::{impl#0}::by_self::'a) LifetimeParam DefKey { parent: Some(DefIndex(24)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 0 } } DefPathHash(Fingerprint(5443916486935989281, 18142312270087970444))

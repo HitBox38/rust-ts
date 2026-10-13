@@ -21,7 +21,7 @@ const expected = JSON.parse(readFileSync(join(HERE, "macros_oracle", "expected.j
 const STOPS: Record<string, string> = {
   builtin_macros: "rustc_resolve::diagnostics::impls::Resolver::dcx",
   derive_unresolved: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  effective_vis: "rustc_resolve::late::PathSource::is_expected",
+  effective_vis: "rustc_resolve::diagnostics::impls::Resolver::lint_if_path_starts_with_module",
   expand_errors: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
   expand_positions: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
   macro_errors: "rustc_resolve::diagnostics::impls::Resolver::dcx",

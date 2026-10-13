@@ -1,0 +1,54 @@
+== visibilities_for_hashing (4)
+DefId(0:0 ~ labels[6e9f]) Public
+DefId(0:1 ~ labels[6e9f]::labels) Restricted(LocalModId(DefId(0:0 ~ labels[6e9f])))
+DefId(0:2 ~ labels[6e9f]::unreachable_label) Restricted(LocalModId(DefId(0:0 ~ labels[6e9f])))
+DefId(0:4 ~ labels[6e9f]::undeclared) Restricted(LocalModId(DefId(0:0 ~ labels[6e9f])))
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ labels[6e9f]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (1)
+DefId(0:0 ~ labels[6e9f])
+  ModChild { ident: labels#0, res: Def(Fn, DefId(0:1 ~ labels[6e9f]::labels)), vis: Restricted(ModId(DefId(0:0 ~ labels[6e9f]))), reexport_chain: [] }
+  ModChild { ident: unreachable_label#0, res: Def(Fn, DefId(0:2 ~ labels[6e9f]::unreachable_label)), vis: Restricted(ModId(DefId(0:0 ~ labels[6e9f]))), reexport_chain: [] }
+  ModChild { ident: undeclared#0, res: Def(Fn, DefId(0:4 ~ labels[6e9f]::undeclared)), vis: Restricted(ModId(DefId(0:0 ~ labels[6e9f]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(39)
+== partial_res_map (1)
+NodeId(24) PartialRes { base_res: Local(NodeId(24)), unresolved_segments: 0 }
+== owners (4)
+NodeId(0) def_id=DefId(0:0 ~ labels[6e9f]) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:1 ~ labels[6e9f]::labels) lifetime_elision_allowed=false
+  label_res NodeId(10) NodeId(6)
+  label_res NodeId(16) NodeId(17)
+NodeId(19) def_id=DefId(0:2 ~ labels[6e9f]::unreachable_label) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(25) DefId(0:3 ~ labels[6e9f]::unreachable_label::{closure#0})
+NodeId(32) def_id=DefId(0:4 ~ labels[6e9f]::undeclared) lifetime_elision_allowed=false
+== lint_buffer (2)
+NodeId(8) UNUSED_LABELS [labels.rs:5:9: 5:15 (#0)]
+NodeId(21) UNUSED_LABELS [labels.rs:14:5: 14:7 (#0)]
+== disambiguators (2)
+DefId(0:0 ~ labels[6e9f])
+DefId(0:2 ~ labels[6e9f]::unreachable_label)
+== definitions (5)
+DefId(0:0 ~ labels[6e9f]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(7971294956449746237, 7971294956449746237))
+DefId(0:1 ~ labels[6e9f]::labels) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("labels"), disambiguator: 0 } } DefPathHash(Fingerprint(7971294956449746237, 16847546510999573489))
+DefId(0:2 ~ labels[6e9f]::unreachable_label) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("unreachable_label"), disambiguator: 0 } } DefPathHash(Fingerprint(7971294956449746237, 12653506678685890734))
+DefId(0:3 ~ labels[6e9f]::unreachable_label::{closure#0}) Closure DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: Closure, disambiguator: 0 } } DefPathHash(Fingerprint(7971294956449746237, 727037383274346448))
+DefId(0:4 ~ labels[6e9f]::undeclared) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("undeclared"), disambiguator: 0 } } DefPathHash(Fingerprint(7971294956449746237, 7115422328974347701))

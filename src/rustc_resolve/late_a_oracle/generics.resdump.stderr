@@ -1,0 +1,50 @@
+error[E0128]: generic parameter defaults cannot reference parameters before they are declared
+ --> generics.rs:4:16
+  |
+4 | struct Fwd<T = U, U = u8>(T, U);
+  |                ^ cannot reference `U` before it is declared
+
+error[E0735]: generic parameters cannot use `Self` in their defaults
+ --> generics.rs:5:24
+  |
+5 | struct SelfDefault<T = Self>(T);
+  |                        ^^^^
+
+error[E0637]: `'_` cannot be used here
+  --> generics.rs:13:24
+   |
+13 | fn anon_in_bound<T: Tr<'_>>(t: T) {}
+   |                        ^^ `'_` is a reserved lifetime name
+
+error[E0261]: use of undeclared lifetime name `'b`
+  --> generics.rs:14:22
+   |
+14 | fn undeclared_lt(x: &'b u8) {}
+   |                      ^^ undeclared lifetime
+   |
+help: consider introducing lifetime `'b` here
+   |
+14 | fn undeclared_lt<'b>(x: &'b u8) {}
+   |                 ++++
+
+error[E0106]: missing lifetime specifier
+  --> generics.rs:15:17
+   |
+15 | fn missing() -> &u8 {
+   |                 ^ expected named lifetime parameter
+   |
+   = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`
+   |
+15 | fn missing() -> &'static u8 {
+   |                  +++++++
+help: instead, you are more likely to want to return an owned value
+   |
+15 - fn missing() -> &u8 {
+15 + fn missing() -> u8 {
+   |
+
+error: aborting due to 5 previous errors
+
+Some errors have detailed explanations: E0106, E0128, E0261, E0637, E0735.
+For more information about an error, try `rustc --explain E0106`.
