@@ -21,7 +21,7 @@ error: aborting due to 1 previous error
 
 `;
 
-function run(env: Record<string, string>): { code: number; stderr: string } {
+function run(env: Record<string, string | undefined>): { code: number; stderr: string } {
   const dir = mkdtempSync(join(tmpdir(), "rust-ts-track-caller-"));
   try {
     writeFileSync(join(dir, "p.rs"), SRC);
@@ -48,6 +48,8 @@ test("without tail calls the location is the upstream call site, as the oracle p
 test("with tail calls a dropped frame makes the location unported, never a guess", () => {
   const r = run({ BUN_JSC_useTailCalls: "1" });
   expect(r.code).toBe(70);
-  expect(r.stderr).toContain("rust-ts: unported: std::panic::Location::caller (DiagLocation Display: ");
+  expect(r.stderr).toEndWith("rust-ts: unported: std::panic::Location::caller (DiagLocation Display)\n");
+  const d = run({ BUN_JSC_useTailCalls: "1", RUST_TS_TRACK_CALLER_DEBUG: "1" });
+  expect(d.stderr).toContain("rust-ts: unported: std::panic::Location::caller (DiagLocation Display: ");
   expect(r.stderr).not.toContain("created at");
 });

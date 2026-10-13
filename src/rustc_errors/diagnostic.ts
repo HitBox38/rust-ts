@@ -111,7 +111,11 @@ DiagLocation.caller_ = function (): DiagLocation {
 export function display_DiagLocation(self: DiagLocation): string {
   if (self.file.startsWith(track_caller.CAPTURE_PREFIX)) {
     const loc = track_caller.resolve(self.file);
-    if (!loc.ok) return unported(`std::panic::Location::caller (DiagLocation Display: ${loc.why})`);
+    // PORT: `RUST_TS_TRACK_CALLER_DEBUG` appends why the location could not be resolved.
+    if (!loc.ok) {
+      const why = process.env.RUST_TS_TRACK_CALLER_DEBUG === undefined ? "" : `: ${loc.why}`;
+      return unported(`std::panic::Location::caller (DiagLocation Display${why})`);
+    }
     return `${loc.file}:${loc.line}:${loc.col}`;
   }
   return `${self.file}:${self.line}:${self.col}`;
