@@ -20,6 +20,7 @@ import { type ItemLocalId, type OwnerId, debug_ItemLocalId } from "../rustc_hir_
 import { type HirId, type LintId, type StableLintExpectationId, debug_HirId } from "../rustc_lint_defs/lib.ts";
 import { type EffectiveVisibilities, debug_EffectiveVisibilities, stable_hash_EffectiveVisibilities } from "./middle/privacy.ts";
 import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLowering, type ResolverGlobalCtxt, debug_DocLinkResMap, debug_ModChild, debug_ResolverAstLowering, debug_ResolverGlobalCtxt } from "./middle/resolve.ts";
+import { type DeprecationEntry, debug_DeprecationEntry } from "./middle/stability.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
 import { KEY_CrateNum, KEY_CrateNum_DefId, KEY_DefId, KEY_DefId_DefId, KEY_LocalDefId, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OwnerId, KEY_Symbol, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
@@ -954,8 +955,7 @@ export interface QueryTypes {
   lookup_default_body_stability: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   should_inherit_track_caller: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: boolean; ProvidedValue: boolean };
   inherited_align: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: Align | undefined; ProvidedValue: Align | undefined };
-  // PORT: value `Option<DeprecationEntry>` not ported (`unknown`)
-  lookup_deprecation_entry: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  lookup_deprecation_entry: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: DeprecationEntry | undefined; ProvidedValue: DeprecationEntry | undefined };
   /**
    * Determines whether an item is annotated with `#[doc(hidden)]`.
    */
@@ -4568,7 +4568,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `checking whether \`${__0}\` is deprecated`; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_DeprecationEntry(x, f))),
     stable_hash_value: undefined,
   },
   is_doc_hidden: {
