@@ -162,6 +162,10 @@ resdump-dump (write src/rust_ts/resdump.ts `dump` to the probe's format); locato
 cstore-impl (rest of cstore_impl.rs + provide); object-read (vendor object 0.39.1 archive/ELF read; DefaultMetadataLoader).
 Follow-ups: char::to_titlecase -> src/std (generated table); late_b.test.ts loads .env.local itself; std-unicode
 switches; harness L1 env filtering; skip the 3 parse ORACLE_TIMEOUT files.
+Wave 11 progress (2026-10-13): gate-20261013-144410 protected expanded-nocore/unpretty-expanded-nocore (19668) and
+resdump-nocore (19677). Merged: resdump-dump, locator, serialize, object-read (+wasmparser), span-decode, rmeta-contract,
+rmeta-decoder-a/-b, cstore-impl, odht (+odht-wire fixer). decoder.rs 156/156. Remaining extern-crate cases stop at
+`Decodable for SimplifiedType` -> lane decode-elems running. Then M2a gate (>=95%) and M2b (`expanded` with std).
 
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
