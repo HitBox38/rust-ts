@@ -85,7 +85,6 @@ interface Case {
 }
 
 const RMETA_DECODER = "rustc_metadata::rmeta::decoder::MetadataBlob::new (wave 11 rmeta-decoder)";
-const OBJECT_READ = "rustc_codegen_ssa::back::metadata::DefaultMetadataLoader";
 
 const CASES: Case[] = [
   // A missing target sysroot (no std/core for the target).
@@ -128,7 +127,7 @@ const CASES: Case[] = [
   { name: "extern crate nonexistent, real sysroot (probes core: decoder)", args: ["extern_nonexistent.rs"], sysroot: "real", stop: RMETA_DECODER, expect: ["error[E0463]: can't find crate for `nonexistent`"] },
   { name: "std crate, real sysroot (decoder)", args: ["std_crate.rs"], sysroot: "real", stop: RMETA_DECODER, expect: [] },
   { name: "-L with a non-empty rmeta that is not metadata (decoder)", args: ["extern_foo.rs", "-L", "d_garbage"], stop: RMETA_DECODER, expect: ["error[E0786]: found invalid metadata files for crate `foo`"] },
-  { name: "--extern path to a dylib (object reader)", args: ["extern_foo.rs", "--extern", "foo=libfoo.so"], stop: OBJECT_READ, expect: ["error[E0786]: found invalid metadata files for crate `foo`"] },
+  { name: "--extern path to a dylib (object reader)", args: ["extern_foo.rs", "--extern", "foo=libfoo.so"], expect: ["error[E0786]: found invalid metadata files for crate `foo`"] },
 ];
 
 /** Our stderr up to the stop: without the `rust-ts: unported: ..` line. */
