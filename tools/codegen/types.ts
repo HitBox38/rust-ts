@@ -1881,7 +1881,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     /** Whether this set generates the derive of `r` (hand types of per-file sets bring their own). */
     const serGenerated = (kind: "decode" | "encode", r: ItemRef): boolean =>
       (kind === "decode" ? deriveDecodable : deriveEncodable).has(r.key) &&
-      (set.derive_only === true || (!matches(set.hand, r) && (!r.mac || r.mac.kind === "newtype" || (r.mac.kind === "bitflags" && r.mac.def.form === "impl"))));
+      (set.derive_only === true || (!matches(set.hand, r) && (!r.mac || r.mac.kind === "newtype" || r.mac.kind === "lang_items" || (r.mac.kind === "bitflags" && r.mac.def.form === "impl"))));
     /** `decode_<T>` / `encode_<T>` of an item as seen from this file (imported if needed). */
     const serItemName = (kind: "decode" | "encode", r: ItemRef, at: string): string => {
       const name = `${kind}_${r.item.name}`;
@@ -2130,7 +2130,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const decName = `decode_${it.name}`;
       const encName = `encode_${it.name}`;
       const flagsStruct = r.mac?.kind === "bitflags" && r.mac.def.form === "impl" && it.kind === "struct" && it.fields!.style === "unnamed" && it.fields!.fields.length === 1;
-      if (r.mac && r.mac.kind !== "newtype" && !flagsStruct) {
+      // `language_item_table!`'s `#[derive(.., Encodable, BlobDecodable, ..)] pub enum LangItem` is a synthesized enum item.
+      if (r.mac && r.mac.kind !== "newtype" && r.mac.kind !== "lang_items" && !flagsStruct) {
         report.errors.push(`${at}: derive(Decodable/Encodable) on a ${r.mac.kind} type`);
         return out;
       }

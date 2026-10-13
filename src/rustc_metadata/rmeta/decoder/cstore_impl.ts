@@ -45,6 +45,8 @@ import { assert, panic, unported } from "../../../std/panic.ts";
 import { Ok } from "../../../std/result.ts";
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
+import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
+import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
   type FixedSizeEncoding,
@@ -434,10 +436,10 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   promoted_mir: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("IndexVec<mir::Promoted, mir::Body<'static>>", decode_unported("IndexVec<mir::Promoted, mir::Body<'static>>")), ProcessQueryValue_Option_ref_T)],
   def_span: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Span", decode_Span), ProcessQueryValue_Option_T)],
   def_ident_span: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Span", decode_Span), ProcessQueryValue_T)],
-  lookup_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Stability", decode_unported("Stability")), ProcessQueryValue_T)],
-  lookup_const_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ConstStability", decode_unported("ConstStability")), ProcessQueryValue_T)],
-  lookup_default_body_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DefaultBodyStability", decode_unported("DefaultBodyStability")), ProcessQueryValue_T)],
-  lookup_deprecation_entry: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Deprecation", decode_unported("Deprecation")), ProcessQueryValue_Deprecation)],
+  lookup_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Stability", decode_Stability), ProcessQueryValue_T)],
+  lookup_const_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ConstStability", decode_ConstStability), ProcessQueryValue_T)],
+  lookup_default_body_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DefaultBodyStability", decode_DefaultBodyStability), ProcessQueryValue_T)],
+  lookup_deprecation_entry: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Deprecation", decode_Deprecation), ProcessQueryValue_Deprecation)],
   params_in_repr: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DenseBitSet<u32>", decode_unported("DenseBitSet<u32>")), ProcessQueryValue_Option_T)],
   def_kind: [IntoArgs_DefId, (_tcx, def_id, _other, cdata) => cdata.def_kind(def_id.index)],
   impl_parent: [IntoArgs_DefId, table(fse_Option_RawDefId, raw_def_id, ProcessQueryValue_T)],

@@ -44,7 +44,7 @@ import {
   Spacing,
   type TokenTree as TokenTreeT,
 } from "./tokenstream.gen.ts";
-import { BytePos, DUMMY_SP, Span, debug_Span } from "../rustc_span/lib.ts";
+import { BytePos, DUMMY_SP, Span, type SpanDecoder, debug_Span } from "../rustc_span/lib.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unwrap } from "../std/panic.ts";
@@ -241,7 +241,10 @@ export const debug_LazyAttrTokenStream: Debug<LazyAttrTokenStream> = (v, _f) =>
   `LazyAttrTokenStream(${gen.debug_AttrTokenStream(v.to_attr_token_stream(), PLAIN)})`;
 
 // rustc-skip: compiler/rustc_ast/src/tokenstream.rs:149 encode Encodable (metadata, out of scope until M5)
-// rustc-skip: compiler/rustc_ast/src/tokenstream.rs:155 decode Decodable (metadata, out of scope until M5)
+// rustc: compiler/rustc_ast/src/tokenstream.rs:155 decode
+export function decode_LazyAttrTokenStream(_d: SpanDecoder): LazyAttrTokenStream {
+  return panic("Attempted to decode LazyAttrTokenStream");
+}
 // rustc-skip: compiler/rustc_ast/src/tokenstream.rs:161 stable_hash StableHash (incremental, out of scope until M5)
 
 // PORT: statics of the generated `NodeRange` class.

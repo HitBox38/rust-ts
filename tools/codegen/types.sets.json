@@ -73,14 +73,7 @@
       "rustc_ast_ir::FloatTy",
       "rustc_ast_ir::Mutability"
     ],
-    "derive_decodable": true,
-    "derive_encodable": true,
-    "decodable_types": [
-      "rustc_ast_ir::IntTy",
-      "rustc_ast_ir::UintTy",
-      "rustc_ast_ir::FloatTy",
-      "rustc_ast_ir::Mutability"
-    ]
+    "derive_decodable": true
   },
   "rustc_errors": {
     "files": [
@@ -215,7 +208,8 @@
     "discriminant": [],
     "skip": [],
     "auto_class": true,
-    "derive_clone": true
+    "derive_clone": true,
+    "derive_decodable": true
   },
   "rustc_hir": {
     "files": [
@@ -296,7 +290,8 @@
     "skip": [],
     "auto_class": true,
     "derive_clone": true,
-    "derive_default": true
+    "derive_default": true,
+    "derive_decodable": true
   },
   "rustc_span": {
     "files": [
@@ -380,7 +375,6 @@
     "derive_clone": true,
     "derive_stable_hash": true,
     "derive_decodable": true,
-    "derive_encodable": true,
     "hand_notes": {
       "*": "rustc_type_ir::fast_reject::SimplifiedType<DefId>: the keys of crate metadata's incoherent_impls / trait_impls (rmeta decoder.rs `CrateMetadata::new`, lane decode-elems); simplify_type itself is M3"
     }

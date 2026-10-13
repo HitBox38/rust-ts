@@ -135,6 +135,10 @@ import { RawDefId_key, type VariantData } from "./mod.ts";
 import { type SimplifiedType, SimplifiedType_key } from "../../rustc_middle/ty/fast_reject.ts";
 import { decode_SimplifiedType as decode_SimplifiedType_ } from "../../rustc_type_ir/fast_reject.ts";
 import { decode_AmbigModChild, decode_ModChild } from "../../rustc_middle/decodable.gen.ts";
+import { decode_DelimArgs } from "../../rustc_ast/lib.ts";
+import { decode_Attribute } from "../../rustc_attr_ir/attr.ts";
+import { decode_StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
+import { decode_LangItem } from "../../rustc_attr_ir/lang_items.ts";
 // end decode-elems imports
 
 // pub(super) use cstore_impl::provide;  (../lib.ts exports it; mod cstore_impl; is loaded by ../lib.ts)
@@ -1668,14 +1672,14 @@ CrateMetadata.prototype.get_stability_implications = function (this: CrateMetada
 CrateMetadata.prototype.get_lang_items = function (this: CrateMetadata, tcx: TyCtxt): [DefId, LangItem][] {
   return [
     ...(this.root.lang_items as LazyArray<[LocalDefId, LangItem]>).decode([this, tcx], (d) =>
-      decode_tuple_(d, (d) => d.decode_local_def_id(), decode_unported("rustc_hir::lang_items::LangItem (derive(BlobDecodable) inside language_item_table!)")),
+      decode_tuple_(d, (d) => d.decode_local_def_id(), decode_LangItem),
     ),
   ].map(([id, index]): [DefId, LangItem] => [this.local_def_id(LocalDefId.local_def_index(id)), index]);
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1290 get_stripped_cfg_items
 CrateMetadata.prototype.get_stripped_cfg_items = function (this: CrateMetadata, tcx: TyCtxt, cnum: CrateNum): unknown[] {
-  const item_names = [...(this.root.stripped_cfg_items as LazyArray<StrippedCfgItem<LocalDefId>>).decode([this, tcx], decode_unported<StrippedCfgItem<LocalDefId>>("rustc_attr_ir::StrippedCfgItem<LocalDefId> (no codegen opt-in)"))].map(
+  const item_names = [...(this.root.stripped_cfg_items as LazyArray<StrippedCfgItem<LocalDefId>>).decode([this, tcx], (d) => decode_StrippedCfgItem(d, (d) => d.decode_local_def_id()))].map(
     (item) => item.map_scope_id((id) => new DefId(LocalDefId.local_def_index(id), cnum)),
   );
 
@@ -1733,10 +1737,6 @@ CrateMetadata.prototype.get_fake_doc_items = function (this: CrateMetadata, tcx:
 function decode_VariantData(_d: MetadataDecodeContext): VariantData {
   return unported("Decodable for rustc_metadata::rmeta::VariantData (ty::VariantDiscr, M3)");
 }
-/** `#[derive(Decodable)]` of `rustc_attr_ir::Attribute`. */
-function decode_Attribute(_d: MetadataDecodeContext): Attribute {
-  return unported("Decodable for rustc_attr_ir::Attribute (derive(Decodable) not generated)");
-}
 /** `<SimplifiedType<DefId> as Decodable<DecodeContext>>::decode`: the generated derive(Decodable_NoContext) at `DefId`. */
 function decode_SimplifiedType(d: MetadataDecodeContext): SimplifiedType {
   return decode_SimplifiedType_(d, decode_DefId);
@@ -1753,17 +1753,9 @@ function decode_ForeignModule(_d: MetadataDecodeContext): ForeignModule {
 function decode_EiiMapEncodedKeyValue(_d: MetadataDecodeContext): unknown {
   return unported("Decodable for rustc_metadata::rmeta::EiiMapEncodedKeyValue (rustc_attr_ir EiiDecl/EiiImpl, derive(Decodable) not generated)");
 }
-/** `BlobDecodable` of `rustc_attr_ir::lang_items::LangItem` (`language_item_table!`). */
-function decode_LangItem(_d: MetadataDecodeContext): LangItem {
-  return unported("Decodable for rustc_attr_ir::lang_items::LangItem (derive(BlobDecodable) not generated)");
-}
 /** `Decodable` of `(ExportedSymbol<'tcx>, SymbolExportInfo)` (rustc_middle middle/exported_symbols.rs, M3). */
 function decode_ExportedSymbol_SymbolExportInfo(_d: MetadataDecodeContext): unknown {
   return unported("Decodable for (rustc_middle::middle::exported_symbols::ExportedSymbol, SymbolExportInfo) (M3)");
-}
-/** `#[derive(Decodable)]` of `rustc_ast::DelimArgs`. */
-function decode_DelimArgs(_d: MetadataDecodeContext): DelimArgs {
-  return unported("Decodable for rustc_ast::ast::DelimArgs (derive(Decodable) not generated)");
 }
 /** `Decodable` of `rustc_middle::ty::IntrinsicDef` (M3). */
 function decode_IntrinsicDef(_d: MetadataDecodeContext): unknown {
