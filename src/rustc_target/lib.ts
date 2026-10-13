@@ -16,12 +16,13 @@ import type { Json } from "./json.ts";
 
 // pub mod asm;      (not ported)
 // pub mod callconv; (not ported)
-// pub mod json;
-// pub mod spec;
-// pub mod target_features;
-// PORT: the modules are imported directly (`./spec/mod.ts`, `./json.ts`, `./target_features.ts`);
-// re-exporting them here would make this file (which the spec imports for `target_spec_enum!`)
-// evaluate them first.
+// PORT: import rustc_target through this file only: `target_features.ts` attaches `impl Target` methods
+// to the class defined in `spec/mod.ts`, so the spec must be evaluated first (see PORTING §8).
+// `spec/mod.ts` imports this file back for `target_spec_enum!` (a function declaration, so usable
+// before this module body runs).
+export * as json from "./json.ts";
+export * as spec from "./spec/mod.ts";
+export * as target_features from "./target_features.ts";
 
 /// The name of rustc's own place to organize libraries.
 ///

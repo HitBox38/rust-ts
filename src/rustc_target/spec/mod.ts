@@ -66,7 +66,7 @@ import {
 import type { DiagArgValue } from "../../rustc_error_messages/lib.ts";
 import type { PathBuf } from "../../rustc_span/lib.ts";
 import { kw, Symbol, sym } from "../../rustc_span/symbol.ts";
-import { SanitizerSet } from "../../rustc_session/stand_ins.ts";
+import { SanitizerSet } from "../stand_ins.ts";
 import { type Debug, debug_str } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
