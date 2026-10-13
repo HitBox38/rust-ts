@@ -26,7 +26,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join, relative } from "node:path";
 import { DATA, PIN, REPO, UPSTREAM, die, hash, requireUpstream } from "../../scripts/lib/common.ts";
 import { lex, type Tok } from "./lints.ts";
-import { loadTypeMap, type TypeMap, type TypeMapEntry } from "./types.ts";
+import { loadStableHashMap, loadTypeMap, type StableHashMapEntry, type TypeMap, type TypeMapEntry } from "./types.ts";
 
 export const SRC_PATH = "compiler/rustc_middle/src/queries.rs";
 const MACROS_PATH = "compiler/rustc_macros/src/query.rs";
@@ -475,6 +475,8 @@ export interface Report {
   unported_desc: Record<string, string>;
   unported_keys: Record<string, string[]>;
   missing_debug: Record<string, string[]>;
+  /** value types of hashed (not `no_hash`) queries with no `StableHash` impl (`hash_result` is unported for them) */
+  missing_stable_hash: Record<string, string[]>;
 }
 
 /** Collected imports: module (repo-relative) -> names (`type X` for type-only). */
@@ -523,6 +525,11 @@ interface Mapped {
   ts: string;
   /** Debug expression of a value `$v` with formatter `$f`, or undefined */
   debug: ((v: string, f: string) => string) | undefined;
+  /**
+   * `StableHash` impl of the type as a TS expression of type `StableHash<T>` (`stable_hash_<T>` or a closure
+   * passing the type arguments' impls), or undefined. Imports are added when it is called.
+   */
+  sh: (() => string) | undefined;
   /** canonical Rust text (resolved paths), for keys / display / reports */
   canon: string;
   /** resolved absolute path for paths */
@@ -542,6 +549,63 @@ class TypeMapper {
     readonly report: Report,
   ) {
     for (const e of tm.types) for (const p of e.paths) this.entries.set(p, e);
+    this.shMap = loadStableHashMap();
+    for (const e of this.shMap.types) for (const p of e.paths) this.shEntries.set(p, e);
+  }
+
+  // ---- StableHash of query values (`hash_result`, dep_graph/graph.rs) ----
+  private shMap: { module: string; types: StableHashMapEntry[] };
+  private shEntries = new Map<string, StableHashMapEntry>();
+  private exportsCache = new Map<string, string>();
+
+  /** A `stable_hash_*` helper of tools/codegen/stable_hash.json's module (rustc_data_structures/stable_hash.ts). */
+  private shHelper(name: string, module = this.shMap.module): () => string {
+    return () => this.imports.add(module, name);
+  }
+
+  /** Whether `module` (repo-relative) exports a value `name`. */
+  private exportsValue(module: string, name: string): boolean {
+    let text = this.exportsCache.get(module);
+    if (text === undefined) {
+      text = existsSync(join(REPO, module)) ? readFileSync(join(REPO, module), "utf8") : "";
+      this.exportsCache.set(module, text);
+    }
+    return new RegExp(`^export (?:function|const) ${name}\\b`, "m").test(text);
+  }
+
+  /**
+   * `StableHash` of the type at `path` with type arguments `args`: an external impl from stable_hash.json, or the
+   * `stable_hash_<Name>` of a ported type (derived: `<crate>/stable_hash.gen.ts`; manual: the type's module).
+   */
+  private stableHash(path: string, typeModule: string | undefined, args: Mapped[]): (() => string) | undefined {
+    const e = this.shEntries.get(path);
+    if (e !== undefined) {
+      if (e.transparent) return args[0]?.sh;
+      if (e.stable_hash === undefined) return undefined;
+      if (args.some((a) => a.sh === undefined)) return undefined;
+      // `Option<T>` with an undefined-able `T` is `{ $: "Some", _0 } | undefined` (PORTING §5): not mapped here.
+      if (e.stable_hash_nullable !== undefined && args[0] !== undefined && /\bundefined\b/.test(args[0].ts)) return undefined;
+      if (e.u8_seq && args[0]?.canon === "u8") return this.shHelper("stable_hash_bytes");
+      const tpl = e.stable_hash;
+      const module = e.import ?? this.shMap.module;
+      return () => {
+        let out = tpl;
+        for (const m of tpl.matchAll(/\b(stable_hash_\w+)\(/g)) out = this.imports.rename(out, module, [m[1]!], false);
+        const simple = /^(\w+)\(\$v, \$hcx, \$h\)$/.exec(out);
+        if (simple) return simple[1]!;
+        out = out.replaceAll("$v", "v").replaceAll("$hcx", "hcx").replaceAll("$h", "h");
+        for (let i = args.length - 1; i >= 0; i--) out = out.replaceAll(`$s${i}`, args[i]!.sh!());
+        return `(v, hcx, h) => ${out}`;
+      };
+    }
+    const name = `stable_hash_${path.split("::").pop()!}`;
+    const derived = `src/${path.split("::")[0]}/stable_hash.gen.ts`;
+    const module = this.exportsValue(derived, name) ? derived : typeModule !== undefined && this.exportsValue(typeModule, name) ? typeModule : undefined;
+    if (module === undefined || args.some((a) => a.sh === undefined)) return undefined;
+    return () => {
+      const local = this.imports.add(module, name);
+      return args.length === 0 ? local : `(v, hcx, h) => ${local}(v, hcx, h, ${args.map((a) => a.sh!()).join(", ")})`;
+    };
   }
 
   /** Resolves a path's segments to an absolute Rust path through queries.rs's `use`s and the aliases. */
@@ -559,14 +623,14 @@ class TypeMapper {
   map(t: RType, at: string): Mapped {
     switch (t.k) {
       case "never":
-        return { ts: "never", debug: undefined, canon: "!", known: true };
+        return { ts: "never", debug: undefined, sh: this.shHelper("stable_hash_never"), canon: "!", known: true };
       case "ref": {
         const e = this.map(t.elem, at);
         // PORTING §5: `&T` -> `T`
         return { ...e, canon: e.canon };
       }
       case "tuple": {
-        if (t.elems.length === 0) return { ts: "null", debug: () => `"()"`, canon: "()", known: true };
+        if (t.elems.length === 0) return { ts: "null", debug: () => `"()"`, sh: this.shHelper("stable_hash_unit"), canon: "()", known: true };
         const es = t.elems.map((e) => this.map(e, at));
         const dbgs = es.map((e) => e.debug);
         const debug = dbgs.every((d) => d !== undefined)
@@ -575,7 +639,14 @@ class TypeMapper {
               return `debug_tuple(${f}, "", [${dbgs.map((d, i) => d!(`${v}[${i}]`, f)).join(", ")}])`;
             }
           : undefined;
-        return { ts: `[${es.map((e) => e.ts).join(", ")}]`, debug, canon: `(${es.map((e) => e.canon).join(", ")})`, known: es.every((e) => e.known), args: es };
+        const sh =
+          es.length <= 4 && es.every((e) => e.sh !== undefined)
+            ? () => {
+                const tup = this.shHelper(`stable_hash_tuple${es.length}`)!();
+                return `(v, hcx, h) => ${tup}(v, hcx, h, ${es.map((e) => e.sh!()).join(", ")})`;
+              }
+            : undefined;
+        return { ts: `[${es.map((e) => e.ts).join(", ")}]`, debug, sh, canon: `(${es.map((e) => e.canon).join(", ")})`, known: es.every((e) => e.known), args: es };
       }
       case "slice":
       case "array": {
@@ -586,7 +657,14 @@ class TypeMapper {
               return `debug_vec(${v}, ${f}, (x, f) => ${e.debug!("x", "f")})`;
             }
           : undefined;
-        return { ts: `readonly ${wrapUnion(e.ts)}[]`, debug, canon: `[${e.canon}]`, known: e.known, args: [e] };
+        // stable_hash.rs: `[T]` hashes its length then the elements; `[u8]` hashes the bytes (`stable_hash_bytes`).
+        const sh =
+          e.canon === "u8"
+            ? this.shHelper("stable_hash_bytes")
+            : e.sh !== undefined
+              ? () => `(v, hcx, h) => ${this.shHelper("stable_hash_slice")!()}(v, hcx, h, ${e.sh!()})`
+              : undefined;
+        return { ts: `readonly ${wrapUnion(e.ts)}[]`, debug, sh, canon: `[${e.canon}]`, known: e.known, args: [e] };
       }
       case "path": {
         const path = this.resolve(
@@ -601,7 +679,7 @@ class TypeMapper {
           if ([...needs(entry.ts, "$"), ...(entry.debug ? needs(entry.debug, "$d") : [])].some((i) => args[i] === undefined)) {
             // A defaulted type argument (`Visibility<Id = LocalModId>`) the template cannot express.
             (this.report.unknown_types[`${canon} (missing type argument)`] ??= []).push(at);
-            return { ts: "unknown", debug: undefined, canon, path, args, known: false };
+            return { ts: "unknown", debug: undefined, sh: undefined, canon, path, args, known: false };
           }
           const sub = (tpl: string, which: "ts" | "debug", v = "", f = ""): string => {
             let out = tpl.replaceAll("$v", v).replaceAll("$f", f);
@@ -626,7 +704,7 @@ class TypeMapper {
               : dbgTpl === "transparent"
                 ? args[0]?.debug
                 : undefined;
-          return { ts, debug, canon, path, args, known: args.every((a) => a.known) && !/\bunknown\b/.test(ts) };
+          return { ts, debug, sh: this.stableHash(path, entry.import, args), canon, path, args, known: args.every((a) => a.known) && !/\bunknown\b/.test(ts) };
         }
         const g = this.gen.get(path);
         if (g !== undefined && g.arity === args.length) {
@@ -639,10 +717,10 @@ class TypeMapper {
                   return `${dlocal}(${[v, f, ...args.map((a) => `(x, f) => ${a.debug!("x", "f")}`)].join(", ")})`;
                 }
               : undefined;
-          return { ts, debug, canon, path, args, known: args.every((a) => a.known) };
+          return { ts, debug, sh: this.stableHash(path, g.module, args), canon, path, args, known: args.every((a) => a.known) };
         }
         (this.report.unknown_types[canon] ??= []).push(at);
-        return { ts: "unknown", debug: undefined, canon, path, args, known: false };
+        return { ts: "unknown", debug: undefined, sh: undefined, canon, path, args, known: false };
       }
     }
   }
@@ -963,7 +1041,7 @@ export function generate(src: string, macros: string, queryApi: string, srcRoot 
   }
   const cfg: Config = JSON.parse(readFileSync(join(import.meta.dir, "queries.config.json"), "utf8"));
   const { queries, nonQueries, scope } = parseQueries(src);
-  const report: Report = { unknown_types: {}, unported_desc: {}, unported_keys: {}, missing_debug: {} };
+  const report: Report = { unknown_types: {}, unported_desc: {}, unported_keys: {}, missing_debug: {}, missing_stable_hash: {} };
   const imports = new Imports();
   const mapper = new TypeMapper(loadTypeMap(), genTypeIndex(srcRoot), cfg, scope, imports, report);
   const byName = new Map(queries.map((q) => [q.name, q]));
@@ -1038,6 +1116,9 @@ export function generate(src: string, macros: string, queryApi: string, srcRoot 
 
     const debugValue = val.debug ? `(v, f) => ${val.debug("v", "f")}` : "undefined";
     if (!val.debug) (report.missing_debug[val.canon] ??= []).push(q.name);
+    // `hash_value_fn` (query_vtables.rs): `hash_result(hcx, &value)` over the value's `StableHash` (not for `no_hash`).
+    const stableHashValue = q.modifiers.no_hash ? "undefined" : val.sh !== undefined ? val.sh() : "undefined";
+    if (!q.modifiers.no_hash && val.sh === undefined) (report.missing_stable_hash[val.canon] ??= []).push(q.name);
     decls.push(
       `  ${q.name}: {`,
       `    name: "${q.name}",`,
@@ -1047,6 +1128,7 @@ export function generate(src: string, macros: string, queryApi: string, srcRoot 
       `    returns_error_guaranteed: ${q.returns_error_guaranteed},`,
       `    desc: ${descTs},`,
       `    debug_value: ${debugValue},`,
+      `    stable_hash_value: ${stableHashValue},`,
       `  },`,
     );
     if (intoKey === undefined) imports.add(local("query/into_query_key.ts"), "into_query_key_identity");
@@ -1137,7 +1219,7 @@ function main(): void {
   const reportPath = join(DATA, "codegen", "queries.report.json");
   mkdirSync(dirname(reportPath), { recursive: true });
   writeFileSync(reportPath, JSON.stringify(g.report, null, 1));
-  const summary = `${g.queries.length} queries, ${g.nonQueries.length} non-queries; unknown types: ${Object.keys(g.report.unknown_types).length}, unported desc: ${Object.keys(g.report.unported_desc).length}, unported key impls: ${Object.keys(g.report.unported_keys).length}, values without Debug: ${Object.keys(g.report.missing_debug).length}`;
+  const summary = `${g.queries.length} queries, ${g.nonQueries.length} non-queries; unknown types: ${Object.keys(g.report.unknown_types).length}, unported desc: ${Object.keys(g.report.unported_desc).length}, unported key impls: ${Object.keys(g.report.unported_keys).length}, values without Debug: ${Object.keys(g.report.missing_debug).length}, hashed values without StableHash: ${Object.keys(g.report.missing_stable_hash).length}`;
   if (process.argv.includes("--check")) {
     let cur = "";
     try {

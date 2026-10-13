@@ -9,6 +9,7 @@ import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { DUMMY_SP, type Span } from "../../rustc_span/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { panic, unported, unwrap } from "../../std/panic.ts";
+import type { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { LocalDefId } from "../../rustc_span/def_id.ts";
 import type { TyCtxt } from "../ty/context.ts";
@@ -216,12 +217,18 @@ export function query_feed<K, V>(tcx: TyCtxt, query: QueryVTable<K, V>, key: K, 
     // The query already has a cached value for this key.
     // That's OK if both values are the same, i.e. they have the same hash,
     // so now we check their hashes.
-    if (query.hash_value_fn !== undefined) {
-      // PORT: comparing the stable hashes of `old` and `value` needs stable hashing of query values
-      // (`hash_result` over the value's `StableHash` impl: not generated for query values yet; D3); on a
-      // mismatch upstream delays the bug
-      // "Trying to feed an already recorded value for query {query:?} key={key:?}: ...".
-      unported(`rustc_middle::query::calls::query_feed: re-feeding query \`${query.name}\` (stable hashing of query values)`);
+    const hash_value_fn = query.hash_value_fn;
+    if (hash_value_fn !== undefined) {
+      const [old_hash, value_hash] = tcx.with_stable_hashing_context((hcx): [Fingerprint, Fingerprint] => [hash_value_fn(hcx, old), hash_value_fn(hcx, value)]);
+      if (old_hash !== value_hash) {
+        // We have an inconsistency. This can happen if one of the two
+        // results is tainted by errors. In this case, delay a bug to
+        // ensure compilation is doomed, and keep the `old` value.
+        tcx.dcx().delayed_bug(
+          `Trying to feed an already recorded value for query ${query.name} key=${query.key_impl.debug(key, PLAIN)}:\n` +
+            `old value: ${format_value(old)}\nnew value: ${format_value(value)}`,
+        );
+      }
     } else {
       // The query is `no_hash`, so we have no way to perform a sanity check.
       // If feeding the same value multiple times needs to be supported,
