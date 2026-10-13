@@ -13,8 +13,8 @@
 //    made by `REGEN=1 bun test src/rustc_resolve/imports.test.ts` (needs the resdump probe and the pinned
 //    toolchain; with them present the fixtures are re-checked on every run). The subject is
 //    src/rust_ts/resdump.ts / src/rust_ts/main.ts on the same arguments.
-//    PENDING: every case, until the pipeline reaches name resolution (see PENDING below); a pending
-//    case must still stop at unported code (exit 70), so it has to leave PENDING once it runs through.
+//    PENDING (empty since lane resdump-dump): a pending case must still stop at unported code (exit 70),
+//    so it has to leave PENDING once it runs through.
 // 2. Unit checks of the pieces that do not need the rest of the resolver (expectations follow the
 //    upstream code they test, cited per case).
 import { expect, test } from "bun:test";
@@ -52,13 +52,7 @@ const CASES = ["use_forms", "glob_conflict", "unresolved", "reexport", "unused"]
 type Case = (typeof CASES)[number];
 
 /** Cases whose subject run stops at unported code; the reason is the first missing piece. */
-const PENDING: Partial<Record<Case, string>> = {
-  use_forms: "resdump mode: rust_ts::resdump::dump is not written yet (the expanded run is compared in full)",
-  glob_conflict: "as use_forms",
-  unresolved: "as use_forms",
-  reexport: "as use_forms",
-  unused: "as use_forms",
-};
+const PENDING: Partial<Record<Case, string>> = {};
 
 const nocore_args = (sysroot: string, file: string): string[] => [
   "--target",

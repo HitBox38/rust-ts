@@ -9,7 +9,7 @@
 //    output are repo-relative) and exit_codes.json, made by
 //    `REGEN=1 bun test src/rustc_resolve/late/diagnostics.test.ts`; with the probe and the pinned
 //    toolchain present they are re-checked on every run. The subject is src/rust_ts/resdump.ts.
-//    PENDING: every case (the driver stops before name resolution, and late resolution needs late.rs).
+//    PENDING: none (the resdump dump runs through since lane resdump-dump).
 // 2. In-process checks on a real `Resolver` (built as resolver_new.test.ts's `with_tcx`) and a
 //    hand-made `LateResolutionVisitor`:
 //    - rendered: a diagnostic assembled the way `smart_resolve_report_errors` does it, emitted through
@@ -73,13 +73,7 @@ const CASES = ["cannot_find", "self_kw", "helpers"] as const;
 type Case = (typeof CASES)[number];
 
 /** Cases whose subject run stops at unported code: the exact `unported` it stops at today. */
-const PENDING: Partial<Record<Case, string>> = {
-  // Then: late.rs (res-late-a/-b), late/diagnostics.rs from 2267 (res-late-diag-b), diagnostics.rs
-  // (res-diag-a/-b: lookup_import_candidates, add_typo_suggestion, find_cfg_stripped, ...).
-  cannot_find: "rust_ts::resdump::dump (ResolverGlobalCtxt / ResolverAstLowering / definitions: rustc_middle::ty::TyCtxt and rustc_resolve are not ported)",
-  self_kw: "rust_ts::resdump::dump (ResolverGlobalCtxt / ResolverAstLowering / definitions: rustc_middle::ty::TyCtxt and rustc_resolve are not ported)",
-  helpers: "rust_ts::resdump::dump (ResolverGlobalCtxt / ResolverAstLowering / definitions: rustc_middle::ty::TyCtxt and rustc_resolve are not ported)",
-};
+const PENDING: Partial<Record<Case, string>> = {};
 
 const nocore_args = (sysroot: string, file: string): string[] => [
   "--target",
