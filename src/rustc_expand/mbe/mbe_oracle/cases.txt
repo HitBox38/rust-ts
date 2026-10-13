@@ -1,0 +1,5 @@
+### star_idents
+ops: lhs:0 rhs:2 check locs count match:3 match:4
+($($x:ident),*) => { $($x)* }
+(a, b, c)
+()
