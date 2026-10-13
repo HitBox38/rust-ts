@@ -9,13 +9,19 @@
 //                             LinkerFeatures, TargetTuple
 //   rustc_structures          SanitizerSet, CollapseMacroDebuginfo, CrateType
 //   rustc_abi                 Align
-//   rustc_data_structures     TimePassesFormat (profiling.rs)
-//   rustc_session::session    EarlyDiagCtxt (session.rs)
-//   getopts                   Matches
-import type { Diag } from "../rustc_errors/diagnostic.ts";
+//   rustc_data_structures     TimePassesFormat, SelfProfilerRef (profiling.rs)
+//   rustc_target::spec        Target (driver stand-in: a few fields per built-in host target, see below)
+//   rustc_session::filesearch default_sysroot
+//   rustc_session::config     externs::split_extern_opt, native_libs::parse_native_lib
+//
+// `EarlyDiagCtxt` (session.rs) and `getopts::Matches` are the real types now; the aliases below keep the
+// structural subsets that `build_options` (options.ts) uses, so tests can pass small fakes.
+import type { PathBuf } from "../rustc_error_messages/lib.ts";
+import type { EarlyDiagCtxt as EarlyDiagCtxtReal } from "./session.ts";
+import type { Matches as MatchesReal } from "../vendor/getopts/lib.ts";
 import { type Debug } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
-import type { Result } from "../std/result.ts";
+import { Ok, type Result } from "../std/result.ts";
 
 /** An opaque stand-in for a type that is not ported yet (named by its upstream path). */
 export interface Unported<N extends string> {
@@ -176,10 +182,66 @@ export const LinkerFeatures = {
   CC: 1 << 0,
   LLD: 1 << 1,
   empty: (): LinkerFeatures => 0,
+  /** rustc_target/src/spec/mod.rs:799 `as_str` (verbatim) */
+  as_str(self: LinkerFeatures): string | undefined {
+    switch (self) {
+      case 1 << 0:
+        return "cc";
+      case 1 << 1:
+        return "lld";
+      default:
+        return undefined;
+    }
+  },
+  /** rustc_target/src/spec/mod.rs:808 `is_lld_enabled` (verbatim: `self.contains(LinkerFeatures::LLD)`) */
+  is_lld_enabled(self: LinkerFeatures): boolean {
+    return (self & (1 << 1)) === 1 << 1;
+  },
+  /** bitflags `iter()`: each defined flag contained in `self`, in definition order. */
+  iter(self: LinkerFeatures): LinkerFeatures[] {
+    return [1 << 0, 1 << 1].filter((f) => (self & f) === f);
+  },
 } as const;
 
-/** rustc_target `TargetTuple` (opaque). */
-export type TargetTuple = Unported<"rustc_target::spec::TargetTuple">;
+/**
+ * rustc_target/src/spec/tuple.rs:11 `TargetTuple` (variants copied).
+ * PORT: `TargetJson` (a `--target <path>.json`) is never constructed: `from_path` is unported.
+ */
+export type TargetTuple =
+  | { readonly $: "TargetTuple"; readonly _0: string }
+  | { readonly $: "TargetJson"; readonly path_for_rustdoc: PathBuf; readonly tuple: string; readonly contents: string };
+export const TargetTuple = {
+  /** rustc_target/src/spec/tuple.rs:88 `from_tuple` (verbatim: `TargetTuple::TargetTuple(tuple.into())`) */
+  from_tuple(tuple: string): TargetTuple {
+    return { $: "TargetTuple", _0: tuple };
+  },
+  /** rustc_target/src/spec/tuple.rs:93 `from_path` */
+  from_path(_path: PathBuf): Result<TargetTuple, unknown> {
+    unported("rustc_target::spec::TargetTuple::from_path");
+  },
+  /** rustc_target/src/spec/tuple.rs:113 `tuple` (verbatim) */
+  tuple(self: TargetTuple): string {
+    switch (self.$) {
+      case "TargetTuple":
+        return self._0;
+      case "TargetJson":
+        return self.tuple;
+    }
+  },
+  /** rustc_target/src/spec/tuple.rs:125 `debug_tuple` (the `TargetJson` arm hashes the contents: unported) */
+  debug_tuple(self: TargetTuple): string {
+    switch (self.$) {
+      case "TargetTuple":
+        return self._0;
+      case "TargetJson":
+        return unported("rustc_target::spec::TargetTuple::debug_tuple (TargetJson)");
+    }
+  },
+  /** rustc_target/src/spec/tuple.rs:140 `impl Display` (`self.debug_tuple()`) */
+  display(self: TargetTuple): string {
+    return TargetTuple.debug_tuple(self);
+  },
+} as const;
 
 // ---- rustc_structures ----
 
@@ -211,8 +273,20 @@ export const debug_SanitizerSet: Debug<SanitizerSet> = () => unported("rustc_str
 export type CollapseMacroDebuginfo = "No" | "Unspecified" | "External" | "Yes";
 export const CollapseMacroDebuginfo = { No: "No", Unspecified: "Unspecified", External: "External", Yes: "Yes" } as const;
 
-/** rustc_structures/src/crate_type.rs:10 (opaque until rustc_structures is ported) */
-export type CrateType = Unported<"rustc_structures::CrateType">;
+/** rustc_structures/src/crate_type.rs:10 `CrateType` (variants copied; `#[default] Rlib`). */
+export type CrateType = "Executable" | "Dylib" | "Rlib" | "StaticLib" | "Cdylib" | "ProcMacro" | "Sdylib";
+export const CrateType = {
+  Executable: "Executable",
+  Dylib: "Dylib",
+  Rlib: "Rlib",
+  StaticLib: "StaticLib",
+  Cdylib: "Cdylib",
+  ProcMacro: "ProcMacro",
+  Sdylib: "Sdylib",
+  /** `#[derive(Default)]` with `#[default] Rlib` */
+  default: (): CrateType => "Rlib",
+} as const;
+export const debug_CrateType: Debug<CrateType> = (v) => v;
 
 // ---- rustc_abi ----
 
@@ -230,37 +304,156 @@ export const Align = {
 export type TimePassesFormat = "Text" | "Json";
 export const TimePassesFormat = { Text: "Text", Json: "Json" } as const;
 
-// ---- rustc_session::session (session.rs, not ported yet) ----
+/**
+ * rustc_data_structures/src/profiling.rs `SelfProfilerRef` (stand-in).
+ * PORT: only the "no self-profiler, no `-Z time-passes`" behaviour is kept, as upstream computes it:
+ * with `profiler: None` the event filter mask is empty, so every `exec` returns `TimingGuard::none()`,
+ * and with `print_verbose_generic_activities: None` a `VerboseTimingGuard` prints nothing on drop.
+ * A self-profiler (`-Z self-profile`) or time-passes printing is unported.
+ */
+export class SelfProfilerRef {
+  constructor(
+    readonly profiler: undefined,
+    readonly print_verbose_generic_activities: TimePassesFormat | undefined,
+  ) {}
 
-/** The parts of `EarlyDiagCtxt` (session.rs) that `build_options` uses. */
-export interface EarlyDiagCtxt {
-  early_warn(msg: string): void;
-  early_fatal(msg: string): never;
-  early_struct_fatal(msg: string): Diag;
+  /** profiling.rs `SelfProfilerRef::new` */
+  static new(profiler: unknown, print_verbose_generic_activities: TimePassesFormat | undefined): SelfProfilerRef {
+    if (profiler !== undefined) unported("rustc_data_structures::profiling::SelfProfiler (-Z self-profile)");
+    return new SelfProfilerRef(undefined, print_verbose_generic_activities);
+  }
+
+  /** profiling.rs `SelfProfilerRef::verbose_generic_activity` */
+  verbose_generic_activity(_event_label: string): VerboseTimingGuard {
+    if (this.print_verbose_generic_activities !== undefined) {
+      unported("rustc_data_structures::profiling::VerboseTimingGuard (-Z time-passes)");
+    }
+    return VERBOSE_TIMING_GUARD_NONE;
+  }
+
+  /** profiling.rs `SelfProfilerRef::generic_activity` (empty event filter mask: `TimingGuard::none()`) */
+  generic_activity(_event_label: string): VerboseTimingGuard {
+    return VERBOSE_TIMING_GUARD_NONE;
+  }
+
+  /** profiling.rs `SelfProfilerRef::is_args_recording_enabled` (empty event filter mask: false) */
+  is_args_recording_enabled(): boolean {
+    return false;
+  }
 }
+
+/** profiling.rs `VerboseTimingGuard` / `TimingGuard` without a message or profiler: `run` just calls `f`. */
+export interface VerboseTimingGuard {
+  run<R>(f: () => R): R;
+}
+const VERBOSE_TIMING_GUARD_NONE: VerboseTimingGuard = { run: (f) => f() };
+
+// ---- rustc_session::session ----
+
+/** The parts of `EarlyDiagCtxt` (session.rs) that `build_options` uses (structural subset of the real type). */
+export type EarlyDiagCtxt = Pick<EarlyDiagCtxtReal, "early_warn" | "early_fatal" | "early_struct_fatal">;
 
 // ---- getopts ----
 
-/** The part of `getopts::Matches` that `build_options` uses. */
-export interface Matches {
-  /// Returns a vector of all values of `nm` and their positions on the command line.
-  opt_strs_pos(nm: string): [number, string][];
+/** The part of `getopts::Matches` that `build_options` uses (structural subset of the real type). */
+export type Matches = Pick<MatchesReal, "opt_strs_pos">;
+
+// ---- rustc_session types named by `Options` ----
+
+export type { Externs, Jobs, OutputTypes, PpMode, Sysroot } from "./config.ts";
+export type { PrintRequest } from "./config/print_request.ts";
+/** search_paths.rs `SearchPath` (opaque: search_paths.rs is not ported; only `-L` creates one) */
+export type SearchPath = Unported<"rustc_session::search_paths::SearchPath">;
+
+// ---- rustc_session::filesearch ----
+
+/**
+ * PORT: rust-ts has no sysroot of its own yet. Upstream `filesearch::default_sysroot()` derives it from the
+ * path of the loaded `librustc_driver` (`current_dll_path`), which has no TS counterpart. The stand-in
+ * returns this marker path, which names no directory: every filesystem probe below it fails (as for a
+ * sysroot without the `rust-src`/`rustc-dev` components). Nothing on the `-Zunpretty=ast-tree` path reads
+ * files from the sysroot; the target and codegen backend that would are stand-ins.
+ */
+export const DEFAULT_SYSROOT_STANDIN: PathBuf = "<rust-ts: default sysroot unported>";
+/** rustc_session/src/filesearch.rs:279 `default_sysroot` (stand-in, see `DEFAULT_SYSROOT_STANDIN`). */
+export function default_sysroot(): PathBuf {
+  return DEFAULT_SYSROOT_STANDIN;
 }
 
-// ---- rustc_session types named by `Options` that are not ported yet ----
-// PORT: opaque until the driver lane ports them (config.rs, search_paths.rs, config/print_request.rs).
+// ---- rustc_target::spec::Target ----
 
-/** config.rs `OutputTypes(BTreeMap<OutputType, Option<OutFileName>>)` */
-export type OutputTypes = Unported<"rustc_session::config::OutputTypes">;
-/** search_paths.rs `SearchPath` */
-export type SearchPath = Unported<"rustc_session::search_paths::SearchPath">;
-/** config.rs `Sysroot` */
-export type Sysroot = Unported<"rustc_session::config::Sysroot">;
-/** config/print_request.rs `PrintRequest` */
-export type PrintRequest = Unported<"rustc_session::config::PrintRequest">;
-/** config.rs `Externs(BTreeMap<String, ExternEntry>)` */
-export type Externs = Unported<"rustc_session::config::Externs">;
-/** config.rs `PpMode` */
-export type PpMode = Unported<"rustc_session::config::PpMode">;
-/** config.rs `Jobs` */
-export type Jobs = Unported<"rustc_session::config::Jobs">;
+/**
+ * rustc_target `Target` stand-in. PORT: `rustc_target` is not ported. A built-in target spec is a fixed
+ * table; the stand-in carries only the fields the driver path reads before parsing, with the values of the
+ * pinned upstream specs (checked against `rustc --print target-spec-json` in
+ * src/rustc_driver_impl/driver.oracle.test.ts). Reading any other field calls `unported`.
+ */
+export interface Target {
+  /** The tuple the spec was loaded for (not an upstream field: identifies the built-in spec). */
+  readonly __tuple: string;
+  /** `Target::pointer_width` */
+  readonly pointer_width: number;
+  /** `TargetOptions::is_like_msvc` */
+  readonly is_like_msvc: boolean;
+  /** `TargetOptions::default_codegen_backend` */
+  readonly default_codegen_backend: string | undefined;
+}
+
+/** The built-in specs the stand-in knows (hosts rust-ts runs on, plus the wasm proc-macro target). */
+export const TARGET_STANDIN_SPECS: ReadonlyMap<string, Omit<Target, "__tuple">> = new Map([
+  ["aarch64-apple-darwin", { pointer_width: 64, is_like_msvc: false, default_codegen_backend: undefined }],
+  ["x86_64-apple-darwin", { pointer_width: 64, is_like_msvc: false, default_codegen_backend: undefined }],
+  ["x86_64-unknown-linux-gnu", { pointer_width: 64, is_like_msvc: false, default_codegen_backend: undefined }],
+  ["aarch64-unknown-linux-gnu", { pointer_width: 64, is_like_msvc: false, default_codegen_backend: undefined }],
+  ["x86_64-pc-windows-msvc", { pointer_width: 64, is_like_msvc: true, default_codegen_backend: undefined }],
+  ["wasm32-wasip2", { pointer_width: 32, is_like_msvc: false, default_codegen_backend: undefined }],
+]);
+
+/** rustc_target `TargetWarnings`: built-in specs load with `TargetWarnings::empty()`. */
+export interface TargetWarnings {
+  warning_messages(): string[];
+}
+
+export const Target = {
+  /**
+   * rustc_target/src/spec/mod.rs `Target::search` (stand-in): a built-in tuple from `TARGET_STANDIN_SPECS`
+   * loads with no warnings, like upstream's `load_builtin`. Anything else (other built-ins, JSON specs,
+   * `RUST_TARGET_PATH`, errors) is unported.
+   */
+  search(target_tuple: TargetTuple, _sysroot: PathBuf, _unstable_options: boolean): Result<[Target, TargetWarnings], string> {
+    if (target_tuple.$ === "TargetTuple") {
+      const spec = TARGET_STANDIN_SPECS.get(target_tuple._0);
+      if (spec !== undefined) {
+        const target = new Proxy({ __tuple: target_tuple._0, ...spec } as Target, {
+          get(t, p, r) {
+            if (typeof p !== "string" || p in t) return Reflect.get(t, p, r);
+            return unported(`rustc_target::spec::Target::${p} (target stand-in, ${t.__tuple})`);
+          },
+        });
+        return Ok([target, { warning_messages: () => [] }]);
+      }
+    }
+    return unported(`rustc_target::spec::Target::search (${TargetTuple.tuple(target_tuple)})`);
+  },
+  /** `impl PartialEq for Target`: two stand-ins are equal when they are the same built-in spec. */
+  eq(a: Target, b: Target): boolean {
+    return a.__tuple === b.__tuple;
+  },
+} as const;
+
+// ---- deferred values ----
+
+/**
+ * PORT: a field whose upstream value is computed by crates that are not ported (rustc_target,
+ * rustc_codegen_*, rustc_lint, filesearch, ...) and that nothing on the ported path reads. The field becomes
+ * a getter that calls `unported(what)` when it is read (or written), so a later use fails loudly instead of
+ * seeing a made-up value.
+ */
+export function defer_field<T extends object>(obj: T, key: keyof T & string, what: string): void {
+  Object.defineProperty(obj, key, {
+    configurable: true,
+    enumerable: true,
+    get: () => unported(what),
+    set: () => unported(what),
+  });
+}

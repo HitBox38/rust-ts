@@ -46,11 +46,12 @@ function setup(path: string, src: string, ui_testing: boolean) {
   const dcx = DiagCtxt.new(em).with_flags({ ...DiagCtxtFlags_default(), can_emit_warnings: true });
   const psess = ParseSess.with_dcx(dcx, sm);
   // PORT: pending session.rs: the nightly oracle has `UnstableFeatures::Allow`.
-  const sess: Session = {
+  // PORT: the surface of `Session` that diagnostics.rs reads; `Session` is the real class now.
+  const sess = {
     dcx: () => psess.dcx(),
     unstable_features: UnstableFeatures.Allow,
     opts: { unstable_opts: { ui_testing } },
-  };
+  } as unknown as Session;
   /** Span of the first occurrence of `needle`. */
   const sp = (needle: string): Span => {
     const at = src.indexOf(needle);

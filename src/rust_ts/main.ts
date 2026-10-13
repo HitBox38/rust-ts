@@ -19,8 +19,10 @@ async function main(args: string[]): Promise<number> {
     return await proc.exited;
   }
   if (impl === "stub") throw new Unported("stub implementation");
-  const { run_compiler } = await import("./driver.ts");
-  return run_compiler(args);
+  // `fn main() -> ExitCode { rustc_driver::main() }` (compiler/rustc/src/main.rs). `env::args_os()`:
+  // argv[0] is the program name; here the script path stands for it.
+  const { main: rustc_driver_main } = await import("../rustc_driver_impl/lib.ts");
+  return rustc_driver_main([process.argv[1] ?? "rustc", ...args]);
 }
 
 try {

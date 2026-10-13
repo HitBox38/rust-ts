@@ -1,11 +1,13 @@
-// Placeholder for the rustc_driver_impl port. Until the parser lands, every
-// invocation is unported; the harness records this as UNPORTED, not as a failure.
+// rust-ts driver glue (not an upstream mirror): `run_compiler(args)` runs the rustc_driver_impl port
+// (`rustc_driver::main`, the `rustc` binary's `main`) on `args` (without the program name), and the
+// `DiagCtxt` drop hook the ported `rustc_interface::interface::run_compiler` calls.
 import type { DiagCtxt } from "../rustc_errors/lib.ts";
-import { unported, while_unwinding } from "../std/panic.ts";
+import { while_unwinding } from "../std/panic.ts";
+import { main } from "../rustc_driver_impl/lib.ts";
 
+/** `rustc <args>`: returns the process exit code. */
 export function run_compiler(args: string[]): number {
-  const unpretty = args.find((a) => a.startsWith("-Zunpretty="));
-  unported(unpretty ? `rustc_driver ${unpretty}` : "rustc_driver");
+  return main(["rustc", ...args]);
 }
 
 /**
@@ -19,8 +21,7 @@ export function run_compiler(args: string[]): number {
  * - `f` panicked (a `Panic`/`FatalError` was thrown): `resume_unwind(err)` drops the compiler
  *   while unwinding → `drop_compiler_dcx(dcx, true)`, then rethrow. `std::thread::panicking()`
  *   is true during that drop, which skips the `must_produce_diag` check and the `Diag` bombs.
- * The driver port (rustc_driver_impl / rustc_interface lane) owns the call; until it lands the
- * driver is unported and nothing calls this.
+ * Called by src/rustc_interface/interface.ts `run_compiler`.
  */
 export function drop_compiler_dcx(dcx: DiagCtxt, unwinding: boolean): void {
   if (unwinding) {
