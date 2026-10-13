@@ -20,14 +20,14 @@ const expected = JSON.parse(readFileSync(join(HERE, "macros_oracle", "expected.j
 // Where the port stops today, per case (both modes stop at the same point). Root advances these as lanes land.
 const STOPS: Record<string, string> = {
   builtin_macros: "rustc_resolve::diagnostics::impls::Resolver::dcx",
-  derive_unresolved: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
-  effective_vis: "rustc_middle::query::calls::query_feed: re-feeding query `visibility` (stable hashing of query values)",
-  expand_errors: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
-  expand_positions: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
-  macro_errors: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
-  macro_rules_basic: "rustc_index::bit_set::DenseBitSet::new_filled(3) (lib.ts DenseBitSet is a type-only stand-in)",
-  macro_rules_scopes: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
-  out_of_scope: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
+  derive_unresolved: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
+  effective_vis: "rustc_resolve::late::PathSource::is_expected",
+  expand_errors: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
+  expand_positions: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
+  macro_errors: "rustc_resolve::diagnostics::impls::Resolver::dcx",
+  macro_rules_basic: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
+  macro_rules_scopes: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
+  out_of_scope: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
   tool_attrs: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
 };
 const PENDING: Record<string, string> = Object.fromEntries(
