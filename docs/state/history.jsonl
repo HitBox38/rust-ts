@@ -96,3 +96,5 @@
 {"ts":"2026-10-13T10:44:34.299Z","kind":"decision","msg":"hashbrown-order: vendor rustc-hash 2.1.1 + hashbrown 0.17.1 (order subset) for faithful FxHashMap/FxHashSet iteration; scope.json vendor entries added by root at integration"}
 {"ts":"2026-10-13T10:44:34.311Z","kind":"decision","msg":"expand-pm-types: proc_macro bridge subset lives in src/proc_macro (mirrors library/proc_macro, // std: markers); proc-macro dylib execution (Client::run*) unported until M6"}
 {"ts":"2026-10-13T10:44:34.325Z","kind":"decision","msg":"bm-rest: asm!/global_asm!/naked_asm! stop at unported session target arch until rustc_target::asm is ported (queued)"}
+{"ts":"2026-10-13T10:59:48.912Z","kind":"decision","msg":"fx-maps: mbe NamedMatches is an FxHashMap keyed by packed (name, ctxt) hashing like Ident::hash; codegen Fx clones/debug go through clone_HashMap/debug_HashSet; env_depinfo stores strings"}
+{"ts":"2026-10-13T12:44:58.301Z","kind":"decision","msg":"res-ident: Rib.bindings is a KeyedMap(Ident_key); decls is_accessible_from accepts Visibility<ModId>|Visibility<LocalModId>"}

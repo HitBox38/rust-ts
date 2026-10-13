@@ -573,7 +573,7 @@ export interface Resolver {
   // lib.rs:2437
   record_pat_span(node: NodeId, span: Span): void;
   // lib.rs:2442
-  is_accessible_from(vis: Visibility<ModId>, module: Module): boolean;
+  is_accessible_from(vis: Visibility<ModId> | Visibility<LocalModId>, module: Module): boolean;
   // lib.rs:2446
   disambiguate_macro_rules_vs_modularized(macro_rules: Decl, modularized: Decl): boolean;
   // lib.rs:2464

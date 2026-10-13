@@ -73,15 +73,6 @@ import { type MacroRulesDecl, type MacroRulesScope, sub_namespace_match } from "
 
 export * from "./ident.gen.ts";
 
-// PORT(decls): pending root. `Resolver::is_accessible_from(vis: Visibility<impl Into<ModId>>, ..)`
-// (lib.rs:2442) also takes the `Visibility<LocalModId>` of imports (`ImportData::vis`); decls.ts
-// declares only `Visibility<ModId>` (lib.ts's implementation accepts both).
-declare module "./decls.ts" {
-  interface Resolver {
-    is_accessible_from(vis: Visibility<LocalModId>, module: Module): boolean;
-  }
-}
-
 export type UsePrelude = gen.UsePrelude;
 export const UsePrelude = {
   ...gen.UsePrelude,
