@@ -9,10 +9,11 @@
     "tokens": 25780,
     "fluent-format": 4210,
     "fluent-parse": 4210,
+    "parse": 21522,
     "tokens-str": 39,
     "escape": 25780
   },
-  "updated": "2026-10-13T01:06:54.360Z",
+  "updated": "2026-10-13T01:43:34.922Z",
   "open_stops": [],
   "coverage": {
     "ported": 2650,
