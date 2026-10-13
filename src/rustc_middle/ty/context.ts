@@ -33,14 +33,36 @@ import { Err, Ok, type Result } from "../../std/result.ts";
 import type { Steal } from "../../rustc_data_structures/steal.ts";
 import type { DepGraph } from "../dep_graph/graph.ts";
 import { DepNodeIndex } from "../dep_graph/graph.ts";
+import { StableHashState } from "../ich.ts";
 import type { Providers as HookProviders } from "../hooks.ts";
 import type { ModChild, ResolverAstLowering } from "../middle/resolve.ts";
 import type { QueryTypes } from "../queries.gen.ts";
 import { type IntoQueryKey, into_query_key_DefId } from "../query/into_query_key.ts";
 import type { QuerySystem } from "../query/system.ts";
-import { TyCtxtAt } from "../query/calls.ts";
+import * as calls from "../query/calls.ts";
+import type { TyCtxtAt, TyCtxtEnsureDone, TyCtxtEnsureOk, TyCtxtEnsureResult } from "../query/calls.ts";
+import * as hir_mod from "../hir/mod.ts";
+import * as ty_mod from "./mod.ts";
 import { enter_context, ImplicitCtxt } from "./context/tls.ts";
 import { Visibility } from "./mod.ts";
+import type { Ordering } from "./mod.ts";
+
+/**
+ * PORT: `rustc_session::Limits` (session.rs:62; `#[derive(Copy, Clone, Debug, ..)]`) is not ported; this is its
+ * shape, as returned by the `limits` query (rustc_interface/src/limits.rs, pending).
+ */
+export interface Limits {
+  /// The maximum recursion limit for potentially infinitely recursive
+  /// operations such as auto-dereference and monomorphization.
+  recursion_limit: Limit;
+  /// The size at which the `large_assignments` lint starts
+  /// being emitted.
+  move_size_limit: Limit;
+  /// The maximum length of types during monomorphization.
+  type_length_limit: Limit;
+  /// The maximum pattern complexity allowed (internal only).
+  pattern_complexity_limit: Limit;
+}
 
 /// This struct should only be created by `create_def`.
 export class TyCtxtFeed<K> {
@@ -109,6 +131,58 @@ export class TyCtxt {
   }
   get query_system(): QuerySystem {
     return this.gcx.query_system;
+  }
+
+  // ---- methods ported in other files (PORTING §8: declared here, bodies there) ----
+  // query/calls.rs
+  typeck(def_id: IntoQueryKey<LocalDefId>): unknown {
+    return calls.TyCtxt_typeck(this, def_id);
+  }
+  at(span: Span): TyCtxtAt {
+    return calls.TyCtxt_at(this, span);
+  }
+  ensure_ok(): TyCtxtEnsureOk {
+    return calls.TyCtxt_ensure_ok(this);
+  }
+  ensure_result(): TyCtxtEnsureResult {
+    return calls.TyCtxt_ensure_result(this);
+  }
+  ensure_done(): TyCtxtEnsureDone {
+    return calls.TyCtxt_ensure_done(this);
+  }
+  // ty/mod.rs
+  opt_parent(id: DefId): DefId | undefined {
+    return ty_mod.TyCtxt_opt_parent(this, id);
+  }
+  parent(id: DefId): DefId {
+    return ty_mod.TyCtxt_parent(this, id);
+  }
+  opt_local_parent(id: LocalDefId): LocalDefId | undefined {
+    return ty_mod.TyCtxt_opt_local_parent(this, id);
+  }
+  local_parent(id: LocalDefId | LocalModId): LocalDefId {
+    return ty_mod.TyCtxt_local_parent(this, id);
+  }
+  def_id_partial_cmp(lhs: DefId, rhs: DefId): Ordering | undefined {
+    return ty_mod.TyCtxt_def_id_partial_cmp(this, lhs, rhs);
+  }
+  is_descendant_of(descendant: IntoQueryKey<DefId>, ancestor: IntoQueryKey<DefId>): boolean {
+    return ty_mod.TyCtxt_is_descendant_of(this, descendant, ancestor);
+  }
+  opt_item_name(def_id: IntoQueryKey<DefId>): Symbol | undefined {
+    return ty_mod.TyCtxt_opt_item_name(this, def_id);
+  }
+  item_name(id: IntoQueryKey<DefId>): Symbol {
+    return ty_mod.TyCtxt_item_name(this, id);
+  }
+  // hir/mod.rs
+  parent_module_from_def_id(id: LocalDefId): LocalModId {
+    return hir_mod.TyCtxt_parent_module_from_def_id(this, id);
+  }
+  // ty/print/pretty.rs
+  def_path_str(def_id: IntoQueryKey<DefId>): string {
+    void def_id;
+    return unported("rustc_middle::ty::print::pretty::TyCtxt::def_path_str (ty::print, M3)");
   }
 
   /// Can only be fed before queries are run, and is thus exempt from any
@@ -365,6 +439,11 @@ export class TyCtxt {
     return this.gcx.untracked.definitions;
   }
 
+  // rustc: compiler/rustc_middle/src/ty/context.rs:1431 with_stable_hashing_context
+  with_stable_hashing_context<R>(f: (hcx: StableHashState) => R): R {
+    return f(StableHashState.new(this.sess, this.gcx.untracked));
+  }
+
   // rustc: compiler/rustc_middle/src/ty/context.rs:1436 local_crate_exports_generics
   local_crate_exports_generics(): boolean {
     // compiler-builtins has some special treatment in codegen, which can result in confusing
@@ -462,33 +541,22 @@ export class TyCtxt {
   }
 }
 
-declare module "../query/calls.ts" {
-  interface TyCtxtAt {
-    create_def(
-      parent: LocalDefId,
-      name: Symbol | undefined,
-      def_kind: DefKind,
-      override_def_path_data: DefPathData | undefined,
-      disambiguator: PerParentDisambiguatorState,
-    ): TyCtxtFeed<LocalDefId>;
-  }
-}
 
 /// Create a new definition within the incr. comp. engine.
 // rustc: compiler/rustc_middle/src/ty/context.rs:1302 create_def
-TyCtxtAt.prototype.create_def = function (
-  this: TyCtxtAt,
+export function TyCtxtAt_create_def(
+  self: TyCtxtAt,
   parent: LocalDefId,
   name: Symbol | undefined,
   def_kind: DefKind,
   override_def_path_data: DefPathData | undefined,
   disambiguator: PerParentDisambiguatorState,
 ): TyCtxtFeed<LocalDefId> {
-  const feed = this.tcx.create_def(parent, name, def_kind, override_def_path_data, disambiguator);
+  const feed = self.tcx.create_def(parent, name, def_kind, override_def_path_data, disambiguator);
 
-  feed.def_span(this.span);
+  feed.def_span(self.span);
   return feed;
-};
+}
 
 /// See [TyCtxt] for details about this type.
 export class GlobalCtxt {

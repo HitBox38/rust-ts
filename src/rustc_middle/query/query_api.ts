@@ -10,7 +10,9 @@ import { DUMMY_SP, Span } from "../../rustc_span/lib.ts";
 import { catch_fatal_errors } from "../../rustc_span/fatal_error.ts";
 import { type Debug, debug_str, debug_tuple, PLAIN } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
-import type { ExternProviders, ExternQuery, Providers, QueryName, QueryTypes, TaggedQueryKey } from "../queries.gen.ts";
+import type { Result } from "../../std/result.ts";
+import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
+import type { ExternProviders, ExternQuery, Providers, QueryName, QueryTypes, TaggedQueryKey as TaggedQueryKeyT } from "../queries.gen.ts";
 import { QUERY_DECLS, QUERY_NAMES } from "../queries.gen.ts";
 import { TyCtxt, TyCtxtFeed } from "../ty/context.ts";
 import type { TyCtxtEnsureQueries, TyCtxtEnsureResultQueries, TyCtxtFeedQueries, TyCtxtQueries } from "../queries.gen.ts";
@@ -60,6 +62,8 @@ export function provided_to_erased<V>(_tcx: TyCtxt, provided_value: V): V {
 }
 
 // ---- impl TaggedQueryKey ----------------------------------------------------------------------
+
+export type TaggedQueryKey = TaggedQueryKeyT;
 
 export const TaggedQueryKey = {
   /// Returns the name of the query this key is tagged with.
@@ -205,7 +209,7 @@ export function define_query_api(): void {
     // Only defined when the `returns_error_guaranteed` modifier is present.
     if (d.returns_error_guaranteed) {
       install(TyCtxtEnsureResult.prototype, name, function (this: TyCtxtEnsureResult, key: unknown): unknown {
-        return query_ensure_result(this.tcx, vtable(this.tcx) as QueryVTable<unknown, never>, into_key(d, key));
+        return query_ensure_result(this.tcx, vtable(this.tcx) as unknown as QueryVTable<unknown, Result<unknown, ErrorGuaranteed>>, into_key(d, key));
       });
     }
 

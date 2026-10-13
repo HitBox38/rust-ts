@@ -479,23 +479,40 @@ export interface Report {
 
 /** Collected imports: module (repo-relative) -> names (`type X` for type-only). */
 class Imports {
-  m = new Map<string, Set<string>>();
-  add(module: string, name: string, typeOnly = false): void {
-    const s = this.m.get(module) ?? new Set();
-    if (typeOnly) {
-      if (!s.has(name)) s.add(`type ${name}`);
-    } else {
-      s.delete(`type ${name}`);
-      s.add(name);
-    }
+  m = new Map<string, Map<string, { local: string; typeOnly: boolean }>>();
+  /** local name -> module that owns it */
+  private owner = new Map<string, string>();
+  /** Adds an import and returns the local name (aliased `<name>_<n>` when another module already uses `name`). */
+  add(module: string, name: string, typeOnly = false): string {
+    const s = this.m.get(module) ?? new Map<string, { local: string; typeOnly: boolean }>();
     this.m.set(module, s);
+    const cur = s.get(name);
+    if (cur !== undefined) {
+      if (!typeOnly) cur.typeOnly = false;
+      return cur.local;
+    }
+    let local = name;
+    for (let n = 1; this.owner.has(local) && this.owner.get(local) !== module; n++) local = `${name}_${n}`;
+    this.owner.set(local, module);
+    s.set(name, { local, typeOnly });
+    return local;
+  }
+  /** `tpl` with each of `names` (imported from `module`) replaced by its local name. */
+  rename(tpl: string, module: string, names: readonly string[], typeOnly: boolean): string {
+    for (const n of names) {
+      const local = this.add(module, n, typeOnly);
+      if (local !== n) tpl = tpl.replace(new RegExp(`(?<![\\w$])${n}(?![\\w$])`, "g"), local);
+    }
+    return tpl;
   }
   render(fromFile: string): string[] {
     const out: string[] = [];
     for (const [mod, names] of [...this.m].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
       let rel = relative(dirname(fromFile), mod).replaceAll("\\", "/");
       if (!rel.startsWith(".")) rel = `./${rel}`;
-      const list = [...names].sort((a, b) => (a.replace(/^type /, "") < b.replace(/^type /, "") ? -1 : 1));
+      const list = [...names]
+        .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+        .map(([n, { local, typeOnly }]) => `${typeOnly ? "type " : ""}${n}${local !== n ? ` as ${local}` : ""}`);
       out.push(`import { ${list.join(", ")} } from "${rel}";`);
     }
     return out;
@@ -580,24 +597,31 @@ class TypeMapper {
         const canon = args.length ? `${path}<${args.map((a) => a.canon).join(", ")}>` : path;
         const entry = this.entries.get(path);
         if (entry !== undefined) {
+          const needs = (tpl: string, prefix: string): number[] => [...tpl.matchAll(new RegExp(`\\${prefix}(\\d)`, "g"))].map((m) => Number(m[1]));
+          if ([...needs(entry.ts, "$"), ...(entry.debug ? needs(entry.debug, "$d") : [])].some((i) => args[i] === undefined)) {
+            // A defaulted type argument (`Visibility<Id = LocalModId>`) the template cannot express.
+            (this.report.unknown_types[`${canon} (missing type argument)`] ??= []).push(at);
+            return { ts: "unknown", debug: undefined, canon, path, args, known: false };
+          }
           const sub = (tpl: string, which: "ts" | "debug", v = "", f = ""): string => {
             let out = tpl.replaceAll("$v", v).replaceAll("$f", f);
             for (let i = args.length - 1; i >= 0; i--) {
-              out = out.replaceAll(`$d${i}`, `((x, f) => ${args[i]!.debug ? args[i]!.debug!("x", "f") : "unported_debug(x)"})`);
+              if (which === "debug") out = out.replaceAll(`$d${i}`, `((x, f) => ${args[i]!.debug!("x", "f")})`);
               out = out.replaceAll(`$${i}`, which === "ts" ? args[i]!.ts : "");
             }
             return out;
           };
-          if (entry.import !== undefined) for (const ty of entry.types ?? []) this.imports.add(entry.import, ty, true);
-          const ts = sub(entry.ts, "ts");
-          const dbgTpl = entry.debug;
+          const tsTpl = entry.import !== undefined ? this.imports.rename(entry.ts, entry.import, entry.types ?? [], true) : entry.ts;
+          const ts = sub(tsTpl, "ts");
+          const dbgTpl = entry.debug === null || /\bunported_debug\b/.test(entry.debug) ? null : entry.debug;
           const argsDebuggable = !dbgTpl || !/\$d\d/.test(dbgTpl) || args.every((a) => a.debug !== undefined);
           const debug =
             dbgTpl && dbgTpl !== "transparent" && argsDebuggable
               ? (v: string, f: string): string => {
-                  if (entry.import !== undefined) for (const val of entry.values ?? []) this.imports.add(entry.import, val);
-                  for (const [mod, hs] of Object.entries(this.tm.helpers)) for (const h of hs) if (new RegExp(`\\b${h}\\(`).test(dbgTpl)) this.imports.add(mod, h);
-                  return sub(dbgTpl, "debug", v, f);
+                  let tpl = dbgTpl;
+                  if (entry.import !== undefined) tpl = this.imports.rename(tpl, entry.import, entry.values ?? [], false);
+                  for (const [mod, hs] of Object.entries(this.tm.helpers)) for (const h of hs) if (new RegExp(`\\b${h}\\(`).test(dbgTpl)) tpl = this.imports.rename(tpl, mod, [h], false);
+                  return sub(tpl, "debug", v, f);
                 }
               : dbgTpl === "transparent"
                 ? args[0]?.debug
@@ -606,13 +630,13 @@ class TypeMapper {
         }
         const g = this.gen.get(path);
         if (g !== undefined && g.arity === args.length) {
-          this.imports.add(g.module, g.ts, true);
-          const ts = args.length ? `${g.ts}<${args.map((a) => a.ts).join(", ")}>` : g.ts;
+          const local = this.imports.add(g.module, g.ts, true);
+          const ts = args.length ? `${local}<${args.map((a) => a.ts).join(", ")}>` : local;
           const debug =
             g.debug && args.every((a) => a.debug)
               ? (v: string, f: string): string => {
-                  this.imports.add(g.module, g.debug!);
-                  return `${g.debug}(${[v, f, ...args.map((a) => `(x, f) => ${a.debug!("x", "f")}`)].join(", ")})`;
+                  const dlocal = this.imports.add(g.module, g.debug!);
+                  return `${dlocal}(${[v, f, ...args.map((a) => `(x, f) => ${a.debug!("x", "f")}`)].join(", ")})`;
                 }
               : undefined;
           return { ts, debug, canon, path, args, known: args.every((a) => a.known) };

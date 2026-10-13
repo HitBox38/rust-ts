@@ -11,7 +11,11 @@ import { PLAIN } from "../../std/fmt.ts";
 import { panic, unported, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { LocalDefId } from "../../rustc_span/def_id.ts";
-import { TyCtxt } from "../ty/context.ts";
+import type { TyCtxt } from "../ty/context.ts";
+import { TyCtxtAt_create_def, type TyCtxtFeed } from "../ty/context.ts";
+import type { DefKind } from "../../rustc_hir/def.ts";
+import type { DefPathData, PerParentDisambiguatorState } from "../../rustc_hir_id/definitions.ts";
+import type { Symbol } from "../../rustc_span/symbol.ts";
 import type { CacheEntry, QueryCache } from "./caches.ts";
 import { into_query_key_LocalDefId, type IntoQueryKey } from "./into_query_key.ts";
 import { QueryMode, type QueryVTable } from "./system.ts";
@@ -27,6 +31,17 @@ export class TyCtxtAt {
   // rustc: compiler/rustc_middle/src/query/calls.rs:24 deref
   deref(): TyCtxt {
     return this.tcx;
+  }
+
+  /** `TyCtxtAt::create_def` (context.rs:1302, ported in context.ts). */
+  create_def(
+    parent: LocalDefId,
+    name: Symbol | undefined,
+    def_kind: DefKind,
+    override_def_path_data: DefPathData | undefined,
+    disambiguator: PerParentDisambiguatorState,
+  ): TyCtxtFeed<LocalDefId> {
+    return TyCtxtAt_create_def(this, parent, name, def_kind, override_def_path_data, disambiguator);
   }
 }
 
@@ -49,29 +64,20 @@ export class TyCtxtEnsureDone {
   constructor(public tcx: TyCtxt) {}
 }
 
-declare module "../ty/context.ts" {
-  interface TyCtxt {
-    typeck(def_id: IntoQueryKey<LocalDefId>): unknown;
-    at(span: Span): TyCtxtAt;
-    ensure_ok(): TyCtxtEnsureOk;
-    ensure_result(): TyCtxtEnsureResult;
-    ensure_done(): TyCtxtEnsureDone;
-  }
-}
 
 // rustc: compiler/rustc_middle/src/query/calls.rs:56 typeck
-TyCtxt.prototype.typeck = function (this: TyCtxt, def_id: IntoQueryKey<LocalDefId>): unknown {
+export function TyCtxt_typeck(tcx: TyCtxt, def_id: IntoQueryKey<LocalDefId>): unknown {
   void into_query_key_LocalDefId(def_id);
   // `self.typeck_root(self.typeck_root_def_id(def_id.into_query_key().to_def_id()).expect_local())`
   return unported("rustc_middle::ty::util::TyCtxt::typeck_root_def_id (TyCtxt::typeck)");
-};
+}
 
 /// Returns a transparent wrapper for `TyCtxt` which uses
 /// `span` as the location of queries performed through it.
 // rustc: compiler/rustc_middle/src/query/calls.rs:65 at
-TyCtxt.prototype.at = function (this: TyCtxt, span: Span): TyCtxtAt {
-  return new TyCtxtAt(this, span);
-};
+export function TyCtxt_at(tcx: TyCtxt, span: Span): TyCtxtAt {
+  return new TyCtxtAt(tcx, span);
+}
 
 /// FIXME: `ensure_ok`'s effects are subtle. Is this comment fully accurate?
 ///
@@ -96,9 +102,9 @@ TyCtxt.prototype.at = function (this: TyCtxt, span: Span): TyCtxtAt {
 /// Therefore, this call mode is not appropriate for callers that want to
 /// ensure that the query is _never_ executed in the future.
 // rustc: compiler/rustc_middle/src/query/calls.rs:92 ensure_ok
-TyCtxt.prototype.ensure_ok = function (this: TyCtxt): TyCtxtEnsureOk {
-  return new TyCtxtEnsureOk(this);
-};
+export function TyCtxt_ensure_ok(tcx: TyCtxt): TyCtxtEnsureOk {
+  return new TyCtxtEnsureOk(tcx);
+}
 
 /// This is a variant of `ensure_ok` only usable with queries that return
 /// `Result<_, ErrorGuaranteed>`. Queries calls through this function will
@@ -106,9 +112,9 @@ TyCtxt.prototype.ensure_ok = function (this: TyCtxt): TyCtxtEnsureOk {
 /// but nothing else. As with `ensure_ok`, this can be more efficient than
 /// a normal query call.
 // rustc: compiler/rustc_middle/src/query/calls.rs:102 ensure_result
-TyCtxt.prototype.ensure_result = function (this: TyCtxt): TyCtxtEnsureResult {
-  return new TyCtxtEnsureResult(this);
-};
+export function TyCtxt_ensure_result(tcx: TyCtxt): TyCtxtEnsureResult {
+  return new TyCtxtEnsureResult(tcx);
+}
 
 /// Wrapper that calls queries where callers don't need the return value and
 /// just want to guarantee that the query won't be executed in the future.
@@ -120,9 +126,9 @@ TyCtxt.prototype.ensure_result = function (this: TyCtxt): TyCtxtEnsureResult {
 ///
 /// [`Steal`]: rustc_data_structures::steal::Steal
 // rustc: compiler/rustc_middle/src/query/calls.rs:116 ensure_done
-TyCtxt.prototype.ensure_done = function (this: TyCtxt): TyCtxtEnsureDone {
-  return new TyCtxtEnsureDone(this);
-};
+export function TyCtxt_ensure_done(tcx: TyCtxt): TyCtxtEnsureDone {
+  return new TyCtxtEnsureDone(tcx);
+}
 
 /// Checks whether there is already a value for this key in the in-memory
 /// query cache, returning that value if present.

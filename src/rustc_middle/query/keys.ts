@@ -22,7 +22,7 @@ import {
 } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP, type Span } from "../../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
-import { type Debug, debug_option, debug_tuple } from "../../std/fmt.ts";
+import { type Debug, debug_option, debug_tuple, type Fmt } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import { DefaultCache, DefId_hash_key, DefIdCache, type QueryCache, SingleCache, VecCache } from "./caches.ts";
@@ -57,9 +57,10 @@ export interface QueryKey<K, LocalK = never> {
   as_local_key(self: K): LocalK | undefined;
 
   /** `QueryKeyBounds: Debug` */
-  debug: Debug<K>;
-  /** PORT: Debug of `LocalQueryKey` (`default_query` prints the local provider's key). */
-  debug_local: Debug<LocalK>;
+  debug(v: K, f: Fmt): string;
+  /** PORT: Debug of `LocalQueryKey` (`default_query` prints the local provider's key). Method syntax: a
+   * `QueryKey<K, L>` is usable as a `QueryKey<K, unknown>` (the engine only passes back what `as_local_key` gave). */
+  debug_local(v: LocalK, f: Fmt): string;
   /** PORT: `QueryKeyBounds: Eq + Hash`, as a JS map key (see the module comment). */
   hash_key(self: K): string | number | bigint;
 }

@@ -6,6 +6,7 @@
 // `"rustc_middle::middle::resolve::ResolverAstLowering"`.
 import { type Debug, debug_option, debug_struct, debug_tuple } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
+import type { StableHashCtxt, StableHasher } from "./stable_hash.ts";
 
 /// The `Steal` struct is intended to used as the value for a query.
 /// Specifically, we sometimes have queries (*cough* MIR *cough*)
@@ -86,7 +87,15 @@ export class Steal<T> {
   }
 }
 
-// rustc-skip: compiler/rustc_data_structures/src/steal.rs:75 stable_hash StableHash impl (pending stable-hash; no dep graph, D3)
+// rustc: compiler/rustc_data_structures/src/steal.rs:75 stable_hash
+export function stable_hash_Steal<T>(
+  self: Steal<T>,
+  hcx: StableHashCtxt,
+  hasher: StableHasher,
+  stable_hash_T: (v: T, hcx: StableHashCtxt, hasher: StableHasher) => void,
+): void {
+  stable_hash_T(self.borrow(), hcx, hasher);
+}
 
 /**
  * `#[derive(Debug)] struct Steal<T> { value: RwLock<Option<T>> }`, where `rustc_data_structures::sync::RwLock<T>`
