@@ -557,8 +557,23 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   const matches = (list: string[], r: ItemRef) => list.includes(r.item.name) || list.includes(r.key);
 
   // path resolution (2018-edition rules, approximated: uses, local items, child modules, globs)
+  // `active`: the (path, module) pairs being resolved further up the stack. Re-entering one is a
+  // cycle through glob imports (`use rustc_ast::*;` + `use rustc_errors::codes::*;` + ...), which
+  // can only fail like the depth cutoff below; without the guard the glob loops branch
+  // exponentially until that cutoff (minutes for a module with 3 globs).
+  const active = new Set<string>();
   const absolutize = (segs: string[], mod: string[], depth: number): string[] | undefined => {
     if (depth > 12 || segs.length === 0) return undefined;
+    const key = `a ${segs.join("::")} @ ${mod.join("::")}`;
+    if (active.has(key)) return undefined;
+    active.add(key);
+    try {
+      return absolutizeInner(segs, mod, depth);
+    } finally {
+      active.delete(key);
+    }
+  };
+  const absolutizeInner = (segs: string[], mod: string[], depth: number): string[] | undefined => {
     const [first, ...rest] = segs as [string, ...string[]];
     if (first === "") return rest;
     if (first === "crate") return [mod[0]!, ...rest];
@@ -590,6 +605,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   // follow `use` re-exports to a generated item
   const lookup = (abs: string[], depth = 0): ItemRef | undefined => {
     if (depth > 12) return undefined;
+    const key = `l ${abs.join("::")}`;
+    if (active.has(key)) return undefined;
+    active.add(key);
+    try {
+      return lookupInner(abs, depth);
+    } finally {
+      active.delete(key);
+    }
+  };
+  const lookupInner = (abs: string[], depth: number): ItemRef | undefined => {
     const hit = items.get(abs.join("::"));
     if (hit) return hit;
     const mod = abs.slice(0, -1);
@@ -627,8 +652,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const e = extAbs(abs);
       const keys = [e.join("::"), abs.join("::")];
       if (PRELUDE_ROOTS.has(e[0]!)) keys.push(e[e.length - 1]!);
-      // a bare name may also come from a glob import of an external crate
-      if (segs.length === 1 && abs.length === 1)
+      // a bare name may also come from a glob import of an external crate; so may the first
+      // segment of an unresolved path (`ast::Visibility` under `use rustc_ast::*;`, which imports
+      // the module `rustc_ast::ast`)
+      if ((segs.length === 1 && abs.length === 1) || (segs.length > 1 && abs.length === segs.length && abs.every((x, i) => x === segs[i])))
         for (const g of (usesByMod.get(sc.mod.join("::")) ?? []).filter((u) => u.glob)) {
           keys.push([...g.path, ...segs].join("::"));
           // `use super::*;` in an inline module: the name may be a `use` of the parent module
@@ -856,9 +883,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       while (i < rel.length && i < curRel.length && rel[i] === curRel[i]) i++;
       return [...rel.slice(i), name].join(".");
     };
+    /**
+     * A `hand` item inside an inline module: nothing is emitted for it (a namespace cannot re-export);
+     * the hand module defines it at top level together with its `debug_<T>` / `clone_<T>`.
+     */
+    const handInline = (r: ItemRef): boolean => matches(set.hand, r) && r.mod.length > r.mf.mod.length;
     /** The TS name of a generated item as seen from this file (imports it if needed). */
     const refName = (r: ItemRef): string => {
-      if (r.mf === mf) return localName(r, r.item.name);
+      if (r.mf === mf) return handInline(r) ? r.item.name : localName(r, r.item.name);
       let alias = r.item.name;
       const taken = aliasOwner.get(alias);
       if (local.has(alias) || (taken !== undefined && taken !== r.key)) alias = `${r.mod[r.mod.length - 1]}_${r.item.name}`;
@@ -870,8 +902,11 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     const debugName = (r: ItemRef, at: string): string => {
       const tname = refName(r);
       const name = `debug_${r.item.name}`;
-      const alias = deriveDebug.has(r.key) && r.mf === mf ? localName(r, name) : `debug_${tname}`;
-      if (deriveDebug.has(r.key)) {
+      const alias = deriveDebug.has(r.key) && r.mf === mf && !handInline(r) ? localName(r, name) : `debug_${tname}`;
+      if (handInline(r)) {
+        imp(`src:${r.mf.hand}`, "values", name, alias);
+        addStub(r.mf.hand, name, `export declare function ${name}(v: any, f: Fmt, ...d: Debug<any>[]): string;`);
+      } else if (deriveDebug.has(r.key)) {
         if (r.mf !== mf) imp(viaHand(r), "values", name, alias);
       } else if (manualDebug.has(r.key)) {
         imp(`src:${r.mf.hand}`, "values", name, alias);
@@ -1062,7 +1097,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           }
           useEntry(e, true);
           let out = e.debug.replaceAll("$v", v).replaceAll("$f", "f");
-          for (const n of new Set(e.debug.match(/\$d\d/g) ?? [])) out = out.replaceAll(n, paren(dbgFn(args[Number(n.slice(2))]!, sc, at)));
+          for (const n of new Set(e.debug.match(/\$d\d/g) ?? [])) {
+            const a = args[Number(n.slice(2))] ?? e.default_args?.[Number(n.slice(2))];
+            if (!a) {
+              report.errors.push(`${at}: ${r.display} needs type arg ${n.slice(2)} (Debug)`);
+              return `unknown_debug(${v})`;
+            }
+            out = out.replaceAll(n, paren(dbgFn(a, sc, at)));
+          }
           return out;
         }
         case "ref":
@@ -1961,6 +2003,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           addStub(r.ref.mf.hand, name, `export declare function ${name}(v: any, path: any): any;`);
           return name;
         }
+        // a local type alias (`type Res = def::Res<NodeId>;`): the impl of the aliased type
+        if (r.ref.item.kind === "type" && r.ref.item.ty) return diagArgOf(r.ref.item.ty, itemScope(r.ref), at, which);
         return undefined;
       }
       if (r.k !== "ext") return undefined;
@@ -2064,6 +2108,11 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (it.kind === "trait") continue;
       if (matches(set.skip, r)) {
         report.notes.push(`${r.key}: skipped by config`);
+        continue;
+      }
+      if (handInline(r)) {
+        report.notes.push(`${r.key}: hand type inside inline module ${r.mod.join("::")}; defined (with its Debug/Clone) in ${mf.hand}`);
+        imp(`src:${mf.hand}`, "types", it.name, it.name);
         continue;
       }
       const rel = relMod(r);
@@ -2420,9 +2469,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         ];
     const importLines: string[] = [];
     const sortedTargets = [...imports.keys()].sort();
+    // A type name imported both from this crate (an item, e.g. a hand alias `type Res = def::Res<NodeId>`)
+    // and from another crate (a type-map entry pulled in by a Debug/Clone of the alias' target): the
+    // file's references mean the crate's own item; the other import is dropped.
+    const ownCrate = `src:${mf.crate}/`;
+    const ownTypes = new Set<string>();
+    for (const [t, { types }] of imports) if (t.startsWith(ownCrate) || t.startsWith("gen:")) for (const a of types.values()) ownTypes.add(a);
     for (const t of sortedTargets) {
       const { types, values } = imports.get(t)!;
       if (t === `gen:${mf.gen}`) continue;
+      if (!t.startsWith(ownCrate) && !t.startsWith("gen:")) for (const [n, a] of [...types]) if (ownTypes.has(a) && values.get(n) !== a) types.delete(n);
       const abs = t.startsWith("gen:") ? join(opts.out, t.slice(4)) : join(opts.srcRoot, t.slice(4));
       const spec = relImport(outFile, abs);
       const parts = [
