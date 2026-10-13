@@ -11,6 +11,16 @@ import { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { TARGET_CONFIGS } from "../rust_ts/target_config.gen.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { unported } from "../std/panic.ts";
+import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
+
+/**
+ * `rustc_codegen_ssa::back::metadata::DefaultMetadataLoader` (the unit struct). PORT: stand-in until the
+ * object-read lane (wave 11) ports back/metadata.rs; its methods read rlib/dylib files.
+ */
+const DefaultMetadataLoader: MetadataLoaderDyn = {
+  get_rlib_metadata: () => unported("rustc_codegen_ssa::back::metadata::DefaultMetadataLoader::get_rlib_metadata (wave 11 object-read)"),
+  get_dylib_metadata: () => unported("rustc_codegen_ssa::back::metadata::DefaultMetadataLoader::get_dylib_metadata (wave 11 object-read)"),
+};
 
 /// `rustc_codegen_ssa::TargetConfig` (rustc_codegen_ssa/src/lib.rs:309)
 export interface TargetConfig {
@@ -64,7 +74,7 @@ export interface CodegenBackend {
   target_config(sess: EarlySession): TargetConfig;
   print_version(): void;
   print_passes(): void;
-  metadata_loader(): never;
+  metadata_loader(): MetadataLoaderDyn;
   supported_crate_types(sess: Session): CrateType[];
 }
 
@@ -161,8 +171,10 @@ export class LlvmCodegenBackend implements CodegenBackend {
   print_passes(): void {
     unported("rustc_codegen_llvm::LlvmCodegenBackend::print_passes (-C passes=list)");
   }
-  metadata_loader(): never {
-    return unported("rustc_codegen_llvm::LlvmCodegenBackend::metadata_loader");
+  // PORT: the LLVM backend does not override the provided trait method.
+  // rustc: compiler/rustc_codegen_ssa/src/traits/backend.rs:97 metadata_loader
+  metadata_loader(): MetadataLoaderDyn {
+    return DefaultMetadataLoader;
   }
   // PORT: the LLVM backend does not override the provided trait method.
   // rustc: compiler/rustc_codegen_ssa/src/traits/backend.rs:61 supported_crate_types

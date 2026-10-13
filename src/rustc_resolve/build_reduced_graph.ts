@@ -1020,8 +1020,7 @@ DefCollector.prototype.build_reduced_graph_for_extern_crate = function (
     opt_module = this.r.graph_root.to_module();
   } else {
     const tcx = this.r.tcx_;
-    // PORT: lib.ts's `CStore` stand-in (rustc_metadata, wave 11) has no `tcx` parameter.
-    const crate_id = this.r.cstore_mut().process_extern_crate(item, local_def_id, tcx.definitions_untracked());
+    const crate_id = this.r.cstore_mut().process_extern_crate(this.r.tcx_, item, local_def_id, tcx.definitions_untracked());
     if (crate_id !== undefined) {
       this.r.extern_crate_map.set(local_def_id, crate_id);
       opt_module = this.r.expect_module(CrateNum.as_def_id(crate_id));

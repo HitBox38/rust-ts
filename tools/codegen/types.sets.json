@@ -435,5 +435,12 @@
     "hand": [],
     "discriminant": [],
     "skip": []
+  },
+  "rustc_metadata": {
+    "files": ["compiler/rustc_metadata/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
   }
 }

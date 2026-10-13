@@ -82,6 +82,7 @@ import { DefCollector, LateResolutionVisitor, Resolver } from "./decls.ts";
 import * as diagnostics from "./diagnostics/mod.ts";
 import { OnUnknownData } from "./diagnostics/impls.ts";
 import { EffectiveVisibilitiesVisitor } from "./effective_visibilities.ts";
+import { creader } from "../rustc_metadata/lib.ts";
 import * as gen from "./lib.gen.ts";
 import {
   type AmbiguityError,
@@ -117,33 +118,9 @@ export * as rustdoc from "./rustdoc.ts";
 
 // ---- stand-ins for types of crates that are not ported yet ---------------------------------------
 
-/**
- * PORT: stand-in for `rustc_metadata::creader::CStore` (wave 11): the methods rustc_resolve calls.
- * `CStore.from_tcx` / `from_tcx_mut` are unported until then.
- */
-export interface CStore {
-  def_kind_untracked(def_id: DefId): DefKind;
-  expn_that_defined_untracked(tcx: TyCtxt, def_id: DefId): ExpnId;
-  load_macro_untracked(tcx: TyCtxt, def_id: DefId): SyntaxExtension;
-  all_proc_macro_def_ids(tcx: TyCtxt): Iterable<DefId>;
-  ambig_module_children_untracked(tcx: TyCtxt, def_id: DefId): Iterable<unknown>;
-  process_extern_crate(item: unknown, def_id: LocalDefId, definitions: unknown): CrateNum | undefined;
-  had_extern_crate_load_failure(): boolean;
-  get_proc_macro_quoted_span_untracked(tcx: TyCtxt, krate: CrateNum, id: number): Span;
-  postprocess(tcx: TyCtxt, krate: Crate): void;
-  process_path_extern(tcx: TyCtxt, name: Symbol, span: Span): CrateNum | undefined;
-  maybe_process_path_extern(tcx: TyCtxt, name: Symbol): CrateNum | undefined;
-  def_span_untracked(tcx: TyCtxt, def_id: DefId): Span;
-  ctor_untracked(tcx: TyCtxt, def_id: DefId): [unknown, DefId] | undefined;
-}
-export const CStore = {
-  from_tcx(_tcx: TyCtxt): CStore {
-    return unported("rustc_metadata::creader::CStore::from_tcx (wave 11)");
-  },
-  from_tcx_mut(_tcx: TyCtxt): CStore {
-    return unported("rustc_metadata::creader::CStore::from_tcx_mut (wave 11)");
-  },
-};
+/** `rustc_metadata::creader::CStore` (src/rustc_metadata/creader.ts, lane creader). */
+export type CStore = creader.CStore;
+export const CStore = creader.CStore;
 
 /** `rustc_index::bit_set::DenseBitSet<T>` (src/rustc_index/bit_set.ts, ported by lane res-macros). */
 export { DenseBitSet } from "../rustc_index/bit_set.ts";
