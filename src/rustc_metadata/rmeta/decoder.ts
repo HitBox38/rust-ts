@@ -33,6 +33,10 @@
 // - `rustc_span::{BlobDecoder, SpanDecoder}` (lib.rs:1501 / 1528) belong to lane span-decode: declared here
 //   structurally (no markers) so the contract type-checks; replace them with rustc_span's when it lands.
 // - `Svh` (rustc_data_structures svh.rs, not ported) stays the creader stand-in: the hash's `Display` text.
+// PORT: crate roots first, for their load order (decodable.gen.ts reaches rustc_target/spec/mod.ts and
+// rustc_session/config.ts, which must be evaluated through their lib.ts).
+import "../../rustc_session/lib.ts";
+import "../../rustc_target/lib.ts";
 import type { MacroDef } from "../../rustc_ast/lib.ts";
 import type { Attribute } from "../../rustc_attr_ir/attr.ts";
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
@@ -607,6 +611,7 @@ export type MetaDecoder = MetadataBlob | [CrateMetadata, TyCtxt];
 /** The decode context of a `MetaDecoder`. */
 export type MetaDecoderContext<M extends MetaDecoder> = M extends MetadataBlob ? BlobDecodeContext : MetadataDecodeContext;
 /** `MetaDecoder::decoder` dispatch (the two impls below). */
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:260 decoder
 export function MetaDecoder_decoder<M extends MetaDecoder>(self: M, pos: number): MetaDecoderContext<M> {
   if (self instanceof MetadataBlob) return self.decoder(pos) as MetaDecoderContext<M>;
   return CrateMetadata_tcx_decoder(self as [CrateMetadata, TyCtxt], pos) as MetaDecoderContext<M>;
