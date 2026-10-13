@@ -229,8 +229,8 @@ export function stable_hash_i128(self: bigint, _: StableHashCtxt, hasher: Stable
 export function stable_hash_char(self: number, _: StableHashCtxt, hasher: StableHasher): void {
   hasher.write_u32(self);
 }
-/** `impl Hash for ()`: hashes nothing. PORT: `()` is `null`. */
-export function stable_hash_unit(_self: null, _: StableHashCtxt, _hasher: StableHasher): void {}
+/** `impl Hash for ()`: hashes nothing. PORT: `()` is `null` (generated types) or `undefined` (some hand types). */
+export function stable_hash_unit(_self: null | undefined, _: StableHashCtxt, _hasher: StableHasher): void {}
 
 /** `#[derive(Hash)]` of `Hash64 { inner: u64 }`: `write_u64`. */
 export function stable_hash_Hash64(self: Hash64, _: StableHashCtxt, hasher: StableHasher): void {

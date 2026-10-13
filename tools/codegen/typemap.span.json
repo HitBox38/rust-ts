@@ -1,0 +1,9 @@
+{
+  "//": [
+    "Type-map additions of lane stable-hash (rustc_span set: derive(StableHash) only), merged after typemap.json by",
+    "tools/codegen/types.ts (loadTypeMap). The host (and every rustc the oracle runs) is a 64-bit little-endian target."
+  ],
+  "cfg": { "true": ["target_pointer_width = \"64\""], "false": [] },
+  "helpers": {},
+  "types": []
+}

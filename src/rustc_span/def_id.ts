@@ -4,10 +4,11 @@ import { debug_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerp
 import { debug_Hash64, Hash64 } from "../rustc_hashes/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { debug_struct, debug_tuple, type Debug, type Fmt, PLAIN } from "../std/fmt.ts";
-import { assert, panic, unported } from "../std/panic.ts";
+import { assert, panic } from "../std/panic.ts";
 import { utf8 } from "../std/str.ts";
-import { type RawDefId, StableHasher, StableOrd_String } from "../rustc_data_structures/stable_hash.ts";
+import { type RawDefId, type StableHashCtxt, StableHasher, StableOrd_String, stable_hash_Hash64 } from "../rustc_data_structures/stable_hash.ts";
 import type { Hasher } from "../vendor/rustc_stable_hash/lib.ts";
+import { stable_hash_DefPathHash, stable_hash_StableCrateId } from "./stable_hash.gen.ts";
 import { Symbol } from "./symbol.ts";
 
 export type { RawDefId };
@@ -345,11 +346,37 @@ export const debug_LocalDefId: Debug<LocalDefId> = (v, f) => debug_DefId(LocalDe
 // PORT: `define_id_collections!(LocalDefIdMap, LocalDefIdSet, ..)` → use `Map<LocalDefId, _>` /
 // `Set<LocalDefId>` directly (LocalDefId is a primitive).
 
-// rustc-skip: compiler/rustc_span/src/def_id.rs:422 stable_hash StableHash impl (incremental, M5)
-// rustc-skip: compiler/rustc_span/src/def_id.rs:429 stable_hash StableHash impl (incremental, M5)
-// rustc-skip: compiler/rustc_span/src/def_id.rs:436 stable_hash StableHash impl (incremental, M5)
-// rustc-skip: compiler/rustc_span/src/def_id.rs:445 to_stable_hash_key ToStableHashKey impl (incremental, M5)
-// rustc-skip: compiler/rustc_span/src/def_id.rs:454 to_stable_hash_key ToStableHashKey impl (incremental, M5)
+// rustc: compiler/rustc_span/src/def_id.rs:422 stable_hash
+/** `impl StableHash for DefId`: its `DefPathHash`. */
+export function stable_hash_DefId(self: DefId, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_DefPathHash(DefId_to_stable_hash_key(self, hcx), hcx, hasher);
+}
+
+// rustc: compiler/rustc_span/src/def_id.rs:429 stable_hash
+/** `impl StableHash for LocalDefId`: the local half of its `DefPathHash`. */
+export function stable_hash_LocalDefId(self: LocalDefId, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_Hash64(DefPathHash.local_hash(LocalDefId_to_stable_hash_key(self, hcx)), hcx, hasher);
+}
+
+// rustc: compiler/rustc_span/src/def_id.rs:436 stable_hash
+/** `impl StableHash for CrateNum`: its `StableCrateId`. */
+export function stable_hash_CrateNum(self: CrateNum, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_StableCrateId(DefPathHash.stable_crate_id(DefId_to_stable_hash_key(CrateNum.as_def_id(self), hcx)), hcx, hasher);
+}
+
+// PORT: `ToStableHashKey` impls of `DefId` / `LocalDefId` are ported (not skipped): `DefId`'s
+// `StableHash` and `hygiene::update_disambiguator` (the `ExpnHash`'s crate half) go through them.
+// rustc: compiler/rustc_span/src/def_id.rs:445 to_stable_hash_key
+/** `impl ToStableHashKey for DefId { type KeyType = DefPathHash; }` */
+export function DefId_to_stable_hash_key(self: DefId, hcx: StableHashCtxt): DefPathHash {
+  return DefPathHash.of(hcx.def_path_hash(self.to_raw_def_id()));
+}
+
+// rustc: compiler/rustc_span/src/def_id.rs:454 to_stable_hash_key
+/** `impl ToStableHashKey for LocalDefId { type KeyType = DefPathHash; }` */
+export function LocalDefId_to_stable_hash_key(self: LocalDefId, hcx: StableHashCtxt): DefPathHash {
+  return DefId_to_stable_hash_key(LocalDefId.to_def_id(self), hcx);
+}
 
 // PORT: single-field tuple struct over a class → small immutable class; equality `ModId_eq`.
 export class ModId {

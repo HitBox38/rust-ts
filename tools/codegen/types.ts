@@ -1,7 +1,10 @@
 // Type-definition generator (PORTING.md §5): upstream structs/enums/aliases -> TS types + derive(Debug),
 // derive(Clone) (`clone_<T>`, sets with `derive_clone`), `<Enum>_discriminant` (explicit discriminants or
-// derive(PartialOrd/Ord)), and derive(Walkable) (`<crate>/walkable.gen.ts` + `<crate>/mut_walkable.gen.ts`,
-// the `Walkable::walk_ref` / `MutWalkable::walk_mut` tables that visit.ts / mut_visit.ts spread in).
+// derive(PartialOrd/Ord)), derive(Walkable) (`<crate>/walkable.gen.ts` + `<crate>/mut_walkable.gen.ts`,
+// the `Walkable::walk_ref` / `MutWalkable::walk_mut` tables that visit.ts / mut_visit.ts spread in), and
+// derive(StableHash) / derive(StableHash_NoContext) (`<crate>/stable_hash.gen.ts`, sets with `derive_stable_hash`:
+// one `stable_hash_<T>` per type, rustc_macros/src/stable_hash.rs; the external-type impls come from
+// tools/codegen/stable_hash.json).
 //
 //   bun tools/codegen/types.ts <set> [--out <dir>] [--src-root <dir>] [--json <probe.json>]
 //                                    [--report <file>] [--stubs] [--save-json <file>]
@@ -192,6 +195,39 @@ export interface SetConfig {
   derive_clone?: boolean;
   /** Why a `skip` entry is skipped (reported); entries for types the probe cannot see need one. */
   skip_notes?: Record<string, string>;
+  /** Emit `<crate>/stable_hash.gen.ts`: `stable_hash_<T>` for `#[derive(StableHash)]` / `StableHash_NoContext` types. */
+  derive_stable_hash?: boolean;
+  /** Write only the per-crate derive modules (walkable / stable_hash), not the per-file type modules (the types are hand-written). */
+  derive_only?: boolean;
+  /**
+   * derive(StableHash) field reads of hand types whose TS value is not a `{ field }` object, keyed
+   * `<type key>::<field name or index>`: `expr` with `$v` = the value, `import` = values it needs from
+   * the type's hand module (e.g. a branded newtype `ExpnHash(Fingerprint)`: `ExpnHash._0($v)`).
+   */
+  stable_hash_access?: Record<string, { expr: string; import?: string[] }>;
+}
+
+/** tools/codegen/stable_hash.json: `StableHash` impls of external (non-generated) types. */
+export interface StableHashMapEntry {
+  paths: string[];
+  /** call template: `$v` value, `$hcx` / `$h` context and hasher, `$s0..$sn` StableHash fns of the type arguments */
+  stable_hash?: string;
+  /** `Option`: template for an undefined-able argument (`{ $: "Some", _0 } | undefined`, PORTING §5) */
+  stable_hash_nullable?: string;
+  /** `Box`, `Rc`, `Arc`, `&T`: the impl of the type argument */
+  transparent?: boolean;
+  /** `Vec<u8>`-like: a `u8` element uses the `[u8]` impl (`stable_hash_bytes`) */
+  u8_seq?: boolean;
+  /** module of the `stable_hash_*` names the template uses (default: the map's `module`) */
+  import?: string;
+  note?: string;
+}
+export interface StableHashMap {
+  module: string;
+  types: StableHashMapEntry[];
+}
+export function loadStableHashMap(): StableHashMap {
+  return JSON.parse(readFileSync(join(HERE, "stable_hash.json"), "utf8"));
 }
 
 /**
@@ -236,7 +272,7 @@ export function loadSet(name: string): SetConfig {
 
 export interface Report {
   set: string;
-  files: { upstream: string; out: string; types: number; debug_fns: number; clone_fns: number; walkable: number; diag_impls: number }[];
+  files: { upstream: string; out: string; types: number; debug_fns: number; clone_fns: number; walkable: number; diag_impls: number; stable_hash: number }[];
   unknown_types: Record<string, string[]>;
   missing_debug: Record<string, string[]>;
   manual_debug: { type: string; impl_at: string; defined_at: string; provide_in: string; generic_params: string[] }[];
@@ -246,6 +282,8 @@ export interface Report {
   macro_types: { at: string; macro: string; types: string[]; debug_formats: string[] }[];
   /** `IntoDiagArg` / `Display` of a diagnostic field type without an entry in diag_args.json (emitted as `unported`) */
   missing_diag_arg: Record<string, string[]>;
+  /** derive(StableHash) field types with no StableHash impl (generated, manual or stable_hash.json): emitted as `unported` */
+  missing_stable_hash: Record<string, string[]>;
   notes: string[];
   errors: string[];
 }
@@ -335,6 +373,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     unknown_cfg: {},
     macro_types: [],
     missing_diag_arg: {},
+    missing_stable_hash: {},
     notes: [],
     errors: [],
   };
@@ -604,6 +643,26 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           });
         } else report.notes.push(`manual Clone impl for non-generated type ${im.self_ty.text} at ${at}`);
       }
+  // derive(StableHash) / derive(StableHash_NoContext); manual `impl StableHash` (hand-written
+  // `stable_hash_<T>` in the hand module of the file with the impl); `newtype_index!` with `#[stable_hash]`
+  const deriveStableHash = new Set<string>();
+  for (const r of items.values()) {
+    if (hasDerive(r, "StableHash") || hasDerive(r, "StableHash_NoContext")) deriveStableHash.add(r.key);
+    if (r.mac?.kind === "newtype" && r.mac.def.attrs.some((a) => a.name === "stable_hash")) deriveStableHash.add(r.key);
+  }
+  const manualStableHash = new Map<string, ModFile>(); // item key -> file with the impl
+  if (set.derive_stable_hash)
+    for (const mf of mfs)
+      for (const im of mf.file.impls) {
+        if (!im.trait || !(im.trait === "StableHash" || im.trait.endsWith("::StableHash")) || im.self_ty.kind !== "path") continue;
+        if (!enabled(im.attrs, `${mf.file.path}:${im.line}`)) continue;
+        const r = resolvePath(im.self_ty.path!, { mf, mod: [...mf.mod, ...im.module], params: new Set() });
+        if (r.k === "item") manualStableHash.set(r.ref.key, mf);
+        else report.notes.push(`manual StableHash impl for non-generated type ${im.self_ty.text} at ${mf.file.path}:${im.line}`);
+      }
+  const shMap = set.derive_stable_hash ? loadStableHashMap() : { module: "", types: [] };
+  const shIndex = new Map<string, StableHashMapEntry>();
+  for (const e of shMap.types) for (const p of e.paths) shIndex.set(p, e);
   // manual `impl Diagnostic` / `impl Subdiagnostic` / `impl IntoDiagArg` (hand-written `<T>_into_diag`,
   // `<T>_add_to_diag`, `<T>_into_diag_arg` in the hand module)
   const manualDiagTrait = new Map<string, Set<string>>(); // trait -> item keys
@@ -663,8 +722,17 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       walkMfs.push({ file, crate, mod: [crate, base], gen: `${crate}/${walk === "ref" ? "walkable" : "mut_walkable"}.gen.ts`, hand: `${crate}/${base}.ts`, walk });
     }
 
-  for (const mf of [...mfs, ...walkMfs]) {
+  // `#[derive(StableHash)]` impls: one generated module per crate, `<crate>/stable_hash.gen.ts`.
+  const shMfs: (ModFile & { sh: true })[] = [];
+  if (set.derive_stable_hash)
+    for (const crate of [...new Set([...items.values()].filter((r) => deriveStableHash.has(r.key)).map((r) => r.mf.crate))]) {
+      const file: PFile = { path: `compiler/${crate}/src/lib.rs`, attrs: [], items: [], uses: [], impls: [], macros: [], mods: [] };
+      shMfs.push({ file, crate, mod: [crate, "stable_hash"], gen: `${crate}/stable_hash.gen.ts`, hand: `${crate}/lib.ts`, sh: true });
+    }
+
+  for (const mf of [...mfs, ...walkMfs, ...shMfs]) {
     const walk = (mf as { walk?: "ref" | "mut" }).walk;
+    const sh = (mf as { sh?: true }).sh === true;
     const outFile = join(opts.out, mf.gen);
     const local = new Set(mf.file.items.map((i) => i.name));
     // module specifier -> { types, values } ; key: "gen:<out-rel>" or "src:<src-rel>"
@@ -679,6 +747,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     let fileClone = 0;
     let fileWalk = 0;
     let fileDiag = 0;
+    let fileStableHash = 0;
 
     /**
      * Module an item of another file is imported from: always its hand-port module (which re-exports
@@ -1219,6 +1288,270 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       return out;
     };
 
+    // ---- derive(StableHash) (rustc_macros/src/stable_hash.rs) ----
+    const shModule = `src:${shMap.module.replace(/^src\//, "")}`;
+    /** A `stable_hash_*` helper of rustc_data_structures/stable_hash.ts (or `module`), imported. */
+    const shUse = (name: string, module: string = shModule): string => {
+      imp(module, "values", name, name);
+      return name;
+    };
+    const shAliasOwner = new Map<string, string>();
+    /** `stable_hash_<T>` of an item as seen from this file. */
+    const shItemName = (r: ItemRef, at: string): string => {
+      let alias = `stable_hash_${r.item.name}`;
+      const taken = shAliasOwner.get(alias);
+      if (taken !== undefined && taken !== r.key) alias = `stable_hash_${r.mod[r.mod.length - 1]}_${r.item.name}`;
+      shAliasOwner.set(alias, r.key);
+      const name = `stable_hash_${r.item.name}`;
+      if (deriveStableHash.has(r.key)) {
+        if (r.mf.crate !== mf.crate) imp(`gen:${r.mf.crate}/stable_hash.gen.ts`, "values", name, alias);
+        else if (alias !== name) report.errors.push(`${at}: two derive(StableHash) types named ${r.item.name} in ${mf.crate}`);
+        return alias;
+      }
+      const implMf = manualStableHash.get(r.key);
+      if (implMf) {
+        imp(`src:${implMf.hand}`, "values", name, alias);
+        addStub(implMf.hand, name, `export declare function ${name}(v: any, hcx: any, hasher: any, ...s: any[]): void;`);
+        return alias;
+      }
+      push(report.missing_stable_hash, r.key, at);
+      return "unported_stable_hash";
+    };
+    const isU8 = (ty: PType, sc: Scope): boolean => {
+      if (ty.kind !== "path" || ty.qself) return false;
+      const r = resolvePath(ty.path!, sc);
+      return r.k === "ext" && r.keys.includes("u8");
+    };
+    const H = "__hcx, __hasher";
+    /** `StableHash::stable_hash(v, __hcx, __hasher)` for a value of type `ty`. */
+    const shExpr = (ty: PType, v: string, sc: Scope, at: string): string => {
+      switch (ty.kind) {
+        case "ref":
+        case "ptr":
+          // `impl<T: StableHash> StableHash for &T`: the referent
+          return shExpr(ty.elem!, v, sc, at);
+        case "slice":
+        case "array":
+          // an array hashes as its slice (method autoref + unsizing); `[u8]` has its own impl
+          if (isU8(ty.elem!, sc)) return `${shUse("stable_hash_bytes")}(${v}, ${H})`;
+          return `${shUse("stable_hash_slice")}(${v}, ${H}, ${shFn(ty.elem!, sc, at)})`;
+        case "tuple": {
+          const n = ty.elems!.length;
+          if (n === 0) return `${shUse("stable_hash_unit")}(${v}, ${H})`;
+          if (n > 4) {
+            report.errors.push(`${at}: StableHash of a ${n}-tuple (impls exist up to 4)`);
+            return `unported_stable_hash(${v})`;
+          }
+          return `${shUse(`stable_hash_tuple${n}`)}(${v}, ${H}, ${ty.elems!.map((e) => shFn(e, sc, at)).join(", ")})`;
+        }
+        case "never":
+          return `${shUse("stable_hash_never")}(${v}, ${H})`;
+        case "path": {
+          if (ty.qself) break;
+          const r = resolvePath(ty.path!, sc);
+          const args = typeArgs(ty.path!);
+          if (r.k === "param") {
+            const s = sc.subst?.get(r.name);
+            return s ? shExpr(s.ty, v, s.scope, at) : `stable_hash_${r.name}(${v}, ${H})`;
+          }
+          if (r.k === "item") {
+            const it = r.ref.item;
+            if (it.kind === "type") return shExpr(it.ty!, v, aliasScope(r.ref, args, sc), at);
+            const fn = shItemName(r.ref, at);
+            const fns = tsParams(it).map((p, i) => {
+              const a = args[i];
+              if (a) return shFn(a, sc, at);
+              if (p.default) return shFn(p.default, itemScope(r.ref), at);
+              report.errors.push(`${at}: missing type argument ${p.name} for ${r.ref.key}`);
+              return "unported_stable_hash";
+            });
+            return `${fn}(${v}, ${H}${fns.map((f) => `, ${f}`).join("")})`;
+          }
+          let e: StableHashMapEntry | undefined;
+          for (const k of r.keys) if ((e = shIndex.get(k))) break;
+          if (!e) {
+            push(report.missing_stable_hash, r.display, at);
+            return `unported_stable_hash(${v})`;
+          }
+          if (e.transparent) return shExpr(args[0]!, v, sc, at);
+          if (e.u8_seq && args[0] && isU8(args[0], sc)) return `${shUse("stable_hash_bytes")}(${v}, ${H})`;
+          const tmpl = e.stable_hash_nullable !== undefined && args[0] && nullable(args[0], sc) ? e.stable_hash_nullable : e.stable_hash;
+          if (tmpl === undefined) {
+            push(report.missing_stable_hash, `${r.display} (${e.note ?? "no StableHash in stable_hash.json"})`, at);
+            return `unported_stable_hash(${v})`;
+          }
+          const mod = e.import ? `src:${e.import.replace(/^src\//, "")}` : shModule;
+          for (const m of tmpl.matchAll(/\b(stable_hash_\w+)\(/g)) shUse(m[1]!, mod);
+          let out = tmpl.replaceAll("$hcx", "__hcx").replaceAll("$h", "__hasher").replaceAll("$v", v);
+          for (const n of new Set(tmpl.match(/\$s\d/g) ?? [])) {
+            const a = args[Number(n.slice(2))];
+            if (!a) {
+              report.errors.push(`${at}: ${r.display} needs type arg ${n.slice(2)} for StableHash`);
+              return `unported_stable_hash(${v})`;
+            }
+            out = out.replaceAll(n, shFn(a, sc, at));
+          }
+          return out;
+        }
+      }
+      push(report.missing_stable_hash, `${ty.kind}: ${ty.text}`, at);
+      return `unported_stable_hash(${v})`;
+    };
+    /** The StableHash impl of a type as a value (`StableHash<T>`). */
+    const shFn = (ty: PType, sc: Scope, at: string): string => {
+      if (ty.kind === "path" && !ty.qself) {
+        const r = resolvePath(ty.path!, sc);
+        if (r.k === "param" && !sc.subst?.has(r.name)) return `stable_hash_${r.name}`;
+        if (r.k === "item" && r.ref.item.kind !== "type" && tsParams(r.ref.item).length === 0) return shItemName(r.ref, at);
+        if (r.k === "ext") {
+          let e: StableHashMapEntry | undefined;
+          for (const k of r.keys) if ((e = shIndex.get(k))) break;
+          const m = e?.stable_hash && /^(stable_hash_\w+)\(\$v, \$hcx, \$h\)$/.exec(e.stable_hash);
+          if (m && !e!.transparent) return shUse(m[1]!, e!.import ? `src:${e!.import.replace(/^src\//, "")}` : shModule);
+        }
+      }
+      return `(__v, __hcx, __hasher) => ${shExpr(ty, "__v", sc, at)}`;
+    };
+    /** `#[stable_hash(ignore)]` / `#[stable_hash(project(name))]` of a field (stable_hash.rs `parse_attributes`). */
+    const shAttrs = (fl: PField, at: string): { ignore: boolean; project?: string } => {
+      const attrs: { ignore: boolean; project?: string } = { ignore: false };
+      for (const a of effAttrs(fl.attrs, at)) {
+        if (a.path !== "stable_hash") continue;
+        const m = /^stable_hash\s*\((.*)\)$/s.exec(a.text);
+        let any_attr = false;
+        for (const part of (m?.[1] ?? "").split(",").map((p) => p.trim())) {
+          if (part === "ignore") {
+            attrs.ignore = true;
+            any_attr = true;
+          }
+          const pm = /^project\s*\(\s*(\w+)\s*\)$/.exec(part);
+          if (pm) {
+            if (attrs.project === undefined) attrs.project = pm[1]!;
+            any_attr = true;
+          }
+        }
+        // `panic!("error parsing stable_hash")`
+        if (!any_attr) report.errors.push(`${at}: error parsing stable_hash (#[${a.text}])`);
+      }
+      return attrs;
+    };
+    /** Read of field `fl` of a value `owner` of item `r` (respecting `stable_hash_access`). */
+    const shField = (r: ItemRef, fl: PField, owner: string): string => {
+      const acc = set.stable_hash_access?.[`${r.key}::${fl.name === null ? fl.index : unraw(fl.name)}`];
+      if (!acc) return `${owner}.${fieldName(fl)}`;
+      for (const n of acc.import ?? []) imp(`src:${r.mf.hand}`, "values", n, n);
+      return acc.expr.replaceAll("$v", owner);
+    };
+    const shBody = (): string[] => {
+      const out: string[] = [];
+      imp(shModule, "types", "StableHash", "StableHash");
+      imp(shModule, "types", "StableHashCtxt", "StableHashCtxt");
+      imp(shModule, "types", "StableHasher", "StableHasher");
+      const fileOrder = new Map(mfs.map((m, i) => [m, i]));
+      const list = [...items.values()]
+        .filter((r) => r.mf.crate === mf.crate && deriveStableHash.has(r.key) && !matches(set.skip, r))
+        .sort((a, b) => fileOrder.get(a.mf)! - fileOrder.get(b.mf)! || a.item.line - b.item.line);
+      for (const r of list) {
+        const it = r.item;
+        const at = r.mac ? r.mac.at : `${r.mf.file.path}:${it.line}`;
+        const sc = itemScope(r);
+        const tname = refName(r);
+        const ps = tsParams(it).map((p) => p.name);
+        const gen = ps.length ? `<${ps.join(", ")}>` : "";
+        const self = `${tname}${gen}`;
+        const extra = ps.map((p) => `, stable_hash_${p}: StableHash<${p}>`).join("");
+        out.push("");
+        if (r.mac?.kind === "newtype") {
+          // rustc_index_macros/src/newtype.rs `#[stable_hash]`: `self.as_u32().stable_hash(hcx, hasher)`
+          out.push(`// rustc-derive: ${at} newtype_index! #[stable_hash] for ${it.name}`);
+          out.push(`export function stable_hash_${it.name}(self: ${tname}, __hcx: StableHashCtxt, __hasher: StableHasher): void {`);
+          out.push(`  ${shUse("stable_hash_u32")}(self, ${H});`);
+          out.push("}");
+          fileStableHash++;
+          continue;
+        }
+        if (r.mac) {
+          report.errors.push(`${at}: derive(StableHash) on a ${r.mac.kind} type`);
+          continue;
+        }
+        if (it.kind !== "struct" && it.kind !== "enum") {
+          // `panic!("cannot derive on union")`
+          report.errors.push(`${at}: derive(StableHash) on a ${it.kind}`);
+          continue;
+        }
+        const fieldStmts = (fs: PFields, owner: string, fat0: string): string[] => {
+          const stmts: string[] = [];
+          for (const fl of liveFields(fs, r.mf.file.path)) {
+            const fat = `${r.mf.file.path}:${fl.line}`;
+            const a = shAttrs(fl, fat);
+            if (a.ignore) continue;
+            const v = it.kind === "struct" ? shField(r, fl, owner) : `${owner}.${fieldName(fl)}`;
+            if (a.project !== undefined) {
+              // `(&#bi.#project).stable_hash(__hcx, __hasher)`: a field of the field's (struct) type
+              const ft = fl.ty.kind === "ref" ? fl.ty.elem! : fl.ty;
+              const fr = ft.kind === "path" && !ft.qself ? resolvePath(ft.path!, sc) : undefined;
+              const inner = fr?.k === "item" && fr.ref.item.kind === "struct" ? fr.ref.item.fields!.fields.find((f) => f.name !== null && unraw(f.name) === a.project) : undefined;
+              if (!inner || fr?.k !== "item") {
+                report.errors.push(`${fat}: #[stable_hash(project(${a.project}))]: cannot resolve the projected field of ${ft.text}`);
+                stmts.push(`unported_stable_hash(${v});`);
+                continue;
+              }
+              stmts.push(`${shExpr(inner.ty, shField(fr.ref, inner, v), itemScope(fr.ref), fat)};`);
+            } else stmts.push(`${shExpr(fl.ty, v, sc, fat)};`);
+          }
+          void fat0;
+          return stmts;
+        };
+        out.push(`// rustc-derive: ${at} StableHash for ${it.name}`);
+        if (it.kind === "struct") {
+          const stmts = fieldStmts(it.fields!, "self", at);
+          const selfName = stmts.length ? "self" : "_self";
+          out.push(`export function stable_hash_${it.name}${gen}(${selfName}: ${self}, __hcx: StableHashCtxt, __hasher: StableHasher${extra}): void {`);
+          out.push(...stmts.map((st) => `  ${st}`));
+          out.push("}");
+          fileStableHash++;
+          continue;
+        }
+        // enums: `::std::mem::discriminant(self).stable_hash(__hcx, __hasher);` then `match *self { .. }`
+        const variants = it.variants!.filter((v) => enabled(v.attrs, `${r.mf.file.path}:${v.line}`));
+        const fieldless = fieldlessEnum(r);
+        const reprs = effAttrs(it.attrs, at).flatMap((a) => a.repr ?? []).filter((x) => /^[iu](8|16|32|64|128|size)$/.test(x));
+        const repr = reprs[0];
+        if (repr && !["i8", "i16", "i32", "isize", "u8", "u16", "u32", "usize"].includes(repr)) report.errors.push(`${at}: #[repr(${repr})] discriminant hashing not supported`);
+        // discriminant values: explicit `= n`, else previous + 1 (from 0)
+        let next = 0n;
+        const discr: string[] = [];
+        for (const v of variants) {
+          if (v.discriminant !== null) {
+            const n = parseIntLit(v.discriminant);
+            if (n === undefined) report.errors.push(`${r.mf.file.path}:${v.line}: cannot evaluate discriminant \`${v.discriminant}\` of ${r.key}::${v.name}`);
+            else next = n;
+          }
+          discr.push(`${unraw(v.name)}: ${next}`);
+          next++;
+        }
+        const table = `${it.name}__discriminant`;
+        out.push(`const ${table} = { ${discr.join(", ")} } as const;`);
+        const tag = fieldless ? "self" : "self.$";
+        const arms: [string, string[]][] = [];
+        if (!fieldless) for (const v of variants) arms.push([unraw(v.name), fieldStmts(v.fields, "self", at)]);
+        out.push(`export function stable_hash_${it.name}${gen}(self: ${self}, __hcx: StableHashCtxt, __hasher: StableHasher${extra}): void {`);
+        out.push(`  ${shUse("stable_hash_Discriminant")}(${table}[${tag}], ${H}${repr ? `, ${JSON.stringify(repr)}` : ""});`);
+        if (arms.some(([, st]) => st.length)) {
+          out.push("  switch (self.$) {");
+          for (const [vn, st] of arms) {
+            out.push(`    case ${JSON.stringify(vn)}:`);
+            out.push(...st.map((x) => `      ${x}`));
+            out.push("      break;");
+          }
+          out.push("  }");
+        }
+        out.push("}");
+        fileStableHash++;
+      }
+      return out;
+    };
+
     const docLines = (docs: string[] | undefined, indent: string) =>
       (docs ?? []).flatMap((d) => d.split("\n")).map((l) => `${indent}///${l.replace(/\r$/, "")}`.trimEnd());
     const genericDecl = (it: PItem, sc: Scope) => {
@@ -1323,7 +1656,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         fileDiag++;
       }
     };
-    const itemList = walk ? [] : [...items.values()].filter((r) => r.mf === mf).sort((a, b) => a.item.line - b.item.line);
+    const itemList = walk || sh || set.derive_only ? [] : [...items.values()].filter((r) => r.mf === mf).sort((a, b) => a.item.line - b.item.line);
     for (const r of itemList) {
       const it = r.item;
       const at = `${mf.file.path}:${it.line}`;
@@ -1616,6 +1949,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       emitDiag(r, sc, selfType, "data");
     }
     if (walk) body.push("", ...walkBody(walk));
+    if (sh) body.push(...shBody());
 
     // helpers used by the body
     const text = body.join("\n");
@@ -1624,7 +1958,15 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (/\bDebug</.test(text)) imp("src:std/fmt.ts", "types", "Debug", "Debug");
       if (/\bFmt\b/.test(text)) imp("src:std/fmt.ts", "types", "Fmt", "Fmt");
     }
-    const header = walk
+    const header = sh
+      ? [
+          `// GENERATED by tools/codegen/types.ts: #[derive(StableHash)] / #[derive(StableHash_NoContext)] (compiler/rustc_macros/src/stable_hash.rs) of the ${mf.crate} types${opts.pin ? ` @ ${opts.pin}` : ""}. Do not edit.`,
+          "// One `stable_hash_<T>(self, __hcx, __hasher[, stable_hash_<P>...])` per type: enums first hash `mem::discriminant(self)`",
+          "// (the `isize` discriminant, or the `#[repr]` integer), then the fields of the variant / struct in declaration order,",
+          "// skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.",
+          "// Only `export function` declarations: hand modules may import from here inside an import cycle.",
+        ]
+      : walk
       ? [
           `// GENERATED by tools/codegen/types.ts: #[derive(Walkable)] (compiler/rustc_macros/src/visitable.rs) of the ${mf.crate} types${opts.pin ? ` @ ${opts.pin}` : ""}. Do not edit.`,
           walk === "ref"
@@ -1652,7 +1994,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       ].sort((a, b) => a.replace(/^type /, "").localeCompare(b.replace(/^type /, "")));
       if (parts.length) importLines.push(`import { ${parts.join(", ")} } from "${spec}";`);
     }
-    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(|\bunported_clone\b|\bunported_into_diag_arg\b|\bunported_display\(/.test(text)) {
+    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(|\bunported_clone\b|\bunported_into_diag_arg\b|\bunported_display\(|\bunported_stable_hash\b/.test(text)) {
       importLines.push(`import { unported } from "${relImport(outFile, join(opts.srcRoot, "std/panic.ts"))}";`);
       const extra: string[] = [];
       if (/\bunported_debug\(/.test(text)) extra.push(`const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");`);
@@ -1662,21 +2004,24 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (/\bunported_into_diag_arg\b/.test(text))
         extra.push(`const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported("IntoDiagArg without a TS impl (see types report)");`);
       if (/\bunported_display\(/.test(text)) extra.push(`const unported_display = (_v: unknown): string => unported("Display without a TS impl (see types report)");`);
+      if (/\bunported_stable_hash\b/.test(text))
+        extra.push(`function unported_stable_hash(..._a: unknown[]): void {\n  unported("StableHash without a TS impl (see types report)");\n}`);
       importLines.push(...extra);
     }
-    if (fileTypes === 0 && !walk) {
+    if (fileTypes === 0 && !walk && !sh) {
       report.notes.push(`${mf.file.path}: no types; ${mf.gen} not written`);
       continue;
     }
     files.set(outFile, [...header, ...importLines, text, ""].join("\n"));
     report.files.push({
-      upstream: walk ? `derive(Walkable) of ${mf.crate}` : mf.file.path,
+      upstream: sh ? `derive(StableHash) of ${mf.crate}` : walk ? `derive(Walkable) of ${mf.crate}` : mf.file.path,
       out: mf.gen,
       types: fileTypes,
       debug_fns: fileDebug,
       clone_fns: fileClone,
       walkable: fileWalk,
       diag_impls: fileDiag,
+      stable_hash: fileStableHash,
     });
   }
   return { files, report, stubs };
@@ -1825,9 +2170,10 @@ if (import.meta.main) {
   const nClone = r.files.reduce((a, f) => a + f.clone_fns, 0);
   const nWalk = r.files.reduce((a, f) => a + f.walkable, 0);
   const nDiag = r.files.reduce((a, f) => a + f.diag_impls, 0);
-  console.log(`${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns, ${nClone} clone fns, ${nWalk} walkable impls, ${nDiag} diagnostic derives -> ${out}`);
+  const nSh = r.files.reduce((a, f) => a + f.stable_hash, 0);
+  console.log(`${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns, ${nClone} clone fns, ${nWalk} walkable impls, ${nDiag} diagnostic derives, ${nSh} stable_hash impls -> ${out}`);
   console.log(
-    `unknown types: ${Object.keys(r.unknown_types).length}, missing debug: ${Object.keys(r.missing_debug).length}, manual Debug impls: ${r.manual_debug.length}, missing clone: ${Object.keys(r.missing_clone).length}, manual Clone impls: ${r.manual_clone.length}, unknown cfg: ${Object.keys(r.unknown_cfg).length}, macro types: ${r.macro_types.length}, missing IntoDiagArg/Display: ${Object.keys(r.missing_diag_arg).length}`,
+    `unknown types: ${Object.keys(r.unknown_types).length}, missing debug: ${Object.keys(r.missing_debug).length}, manual Debug impls: ${r.manual_debug.length}, missing clone: ${Object.keys(r.missing_clone).length}, manual Clone impls: ${r.manual_clone.length}, unknown cfg: ${Object.keys(r.unknown_cfg).length}, macro types: ${r.macro_types.length}, missing IntoDiagArg/Display: ${Object.keys(r.missing_diag_arg).length}, missing StableHash: ${Object.keys(r.missing_stable_hash).length}`,
   );
   console.log(`report: ${rp}`);
   if (stubs) console.log(`stubs: ${writeStubs(res, opts)} modules under ${srcRoot}`);

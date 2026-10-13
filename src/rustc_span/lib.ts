@@ -15,6 +15,7 @@
 //!
 //! This API is completely unstable and subject to change.
 import { FreezeLock } from "../rustc_data_structures/sync/freeze.ts";
+import type { RawSpan, StableHashCtxt, StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { debug_Hash64, Hash64, type Hash128 } from "../rustc_hashes/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { analyze_source_file } from "./analyze_source_file.ts";
@@ -2758,7 +2759,15 @@ export const debug_InnerSpan: Debug<InnerSpan> = (v, f) =>
     ["end", debug_int(v.end, f)],
   ]);
 
-// rustc-skip: compiler/rustc_span/src/lib.rs:2845 stable_hash StableHash impl (HashStable)
+// rustc: compiler/rustc_span/src/lib.rs:2845 stable_hash
+/**
+ * `impl StableHash for Span`. PORT: `self.to_raw_span()` is the `Span` handle number itself
+ * (`RawSpan`, see rustc_data_structures/stable_hash.ts; span_encoding.ts's `to_raw_span` is a cast).
+ */
+export function stable_hash_Span(self: Span, hcx: StableHashCtxt, hasher: StableHasher): void {
+  // `stable_hash_span` does all the work.
+  hcx.stable_hash_span(self as number as RawSpan, hasher);
+}
 
 /// Useful type to use with `Result<>` indicate that an error has already
 /// been reported to the user, so no need to continue checking.
