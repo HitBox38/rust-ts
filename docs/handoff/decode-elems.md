@@ -178,4 +178,4 @@ then `generics_of`.
   - rustc_target spec/mod.ts, rustc_session mitigation_coverage.ts, rustc_ast tokenstream.ts and rustc_hir def.ts:
     decode fns only.
 - Probes used: `rmetadecode`, `rmetadefs`, `rmetaroot`. They were already scheduled; no new probe was added.
-- Delete `docs/claims/` for decode-elems on integration.
+- Delete `docs/claims/wave11-decode-elems.md` on integration.
