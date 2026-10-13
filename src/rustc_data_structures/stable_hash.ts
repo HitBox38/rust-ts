@@ -12,6 +12,7 @@ import type { Debug } from "../std/fmt.ts";
 import { debug_bool, debug_struct } from "../std/fmt.ts";
 import { unported, unreachable } from "../std/panic.ts";
 import type { Result } from "../std/result.ts";
+import { type Hasher as PathHasher, path_hash } from "../std/path.ts";
 import { utf8 } from "../std/str.ts";
 import type { Hash128, Hash64 } from "../rustc_hashes/lib.ts";
 import type { Fingerprint } from "./fingerprint.ts";
@@ -666,12 +667,25 @@ export function stable_hash_OsStr(self: Uint8Array, _: StableHashCtxt, hasher: S
 }
 
 // `impl_stable_traits_for_trivial_type!(::std::path::Path)` / `(::std::path::PathBuf)`: std's
-// `impl Hash for Path` (component-wise, separator-normalizing) is not ported.
-export function stable_hash_Path(_self: unknown, _: StableHashCtxt, _hasher: StableHasher): void {
-  unported("std::path::Path (Hash)");
+// `impl Hash for Path` (src/std/path.ts `path_hash`). PORT: paths are strings (src/std/path.ts).
+export function stable_hash_Path(self: string, _: StableHashCtxt, hasher: StableHasher): void {
+  path_hash(self, path_hasher(hasher));
 }
-export function stable_hash_PathBuf(_self: unknown, _: StableHashCtxt, _hasher: StableHasher): void {
-  unported("std::path::PathBuf (Hash)");
+export function stable_hash_PathBuf(self: string, hcx: StableHashCtxt, hasher: StableHasher): void {
+  // `impl Hash for PathBuf`: `self.as_path().hash(h)`
+  stable_hash_Path(self, hcx, hasher);
+}
+
+/** src/std/path.ts's `Hasher` view of a `StableHasher` (its `write_usize` takes a 64-bit `bigint`). */
+export function path_hasher(hasher: StableHasher): PathHasher {
+  return {
+    write: (bytes) => hasher.write(bytes),
+    write_u8: (i) => hasher.write_u8(i),
+    // `write_usize` widens to a u64: the same bytes as `write_u64`.
+    write_usize: (i) => hasher.write_u64(i),
+    write_isize: (i) => hasher.write_isize(i),
+    write_length_prefix: (len) => hasher.write_length_prefix(len),
+  };
 }
 
 // It is not safe to implement StableHash for HashSet, HashMap or any other collection type

@@ -5,21 +5,12 @@ import { debug_Hash64, Hash64 } from "../rustc_hashes/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { debug_struct, debug_tuple, type Debug, type Fmt, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported } from "../std/panic.ts";
-import type { Symbol } from "./symbol.ts";
+import { utf8 } from "../std/str.ts";
+import { type RawDefId, StableHasher, StableOrd_String } from "../rustc_data_structures/stable_hash.ts";
+import type { Hasher } from "../vendor/rustc_stable_hash/lib.ts";
+import { Symbol } from "./symbol.ts";
 
-// ---------------------------------------------------------------------------------------------
-// PORT: stand-ins for not-yet-ported items (std::hash::Hasher, RawDefId).
-// ---------------------------------------------------------------------------------------------
-
-/// PORT: stand-in for `std::hash::Hasher` (only what this file's `Hash` impls call).
-export interface Hasher {
-  write_u64(i: bigint): void;
-}
-
-/// PORT: stand-in for `rustc_data_structures::stable_hash::RawDefId(u32, u32)`.
-export type RawDefId = readonly [number, number];
-
-// ---------------------------------------------------------------------------------------------
+export type { RawDefId };
 
 export type StableCrateIdMap = Map<StableCrateId, CrateNum>;
 
@@ -127,9 +118,51 @@ export const StableCrateId = {
   /// Computes the stable ID for a crate with the given name and
   /// `-Cmetadata` arguments.
   // rustc: compiler/rustc_span/src/def_id.rs:152 new
-  new(_crate_name: Symbol, _is_exe: boolean, _metadata: string[], _cfg_version: string): StableCrateId {
-    // PORT: needs rustc_data_structures::StableHasher (SipHasher128), not ported yet.
-    unported("rustc_span::def_id::StableCrateId::new (StableHasher)");
+  new(crate_name: Symbol, is_exe: boolean, metadata_: readonly string[], cfg_version: string): StableCrateId {
+    const hasher = StableHasher.new();
+    // We must hash the string text of the crate name, not the id, as the id is not stable
+    // across builds.
+    // `str::hash` -> `Hasher::write_str`
+    hasher.write_str(utf8(Symbol.as_str(crate_name)));
+
+    // PORT: `mut metadata: Vec<String>` is taken by value: sort a copy.
+    let metadata = metadata_.slice();
+    // We don't want the stable crate ID to depend on the order of
+    // -C metadata arguments, so sort them:
+    // (`String`'s `Ord` is byte-wise: `StableOrd_String.cmp`)
+    metadata.sort(StableOrd_String.cmp);
+    // Every distinct -C metadata value is only incorporated once:
+    metadata = metadata.filter((s, i) => i === 0 || s !== metadata[i - 1]);
+
+    hasher.write(utf8("metadata"));
+    for (const s of metadata) {
+      // Also incorporate the length of a metadata string, so that we generate
+      // different values for `-Cmetadata=ab -Cmetadata=c` and
+      // `-Cmetadata=a -Cmetadata=bc`
+      const bytes = utf8(s);
+      hasher.write_usize(bytes.length);
+      hasher.write(bytes);
+    }
+
+    // Also incorporate crate type, so that we don't get symbol conflicts when
+    // linking against a library of the same name, if this is an executable.
+    hasher.write(utf8(is_exe ? "exe" : "lib"));
+
+    // Also incorporate the rustc version. Otherwise, with -Zsymbol-mangling-version=v0
+    // and no -Cmetadata, symbols from the same crate compiled with different versions of
+    // rustc are named the same.
+    //
+    // RUSTC_FORCE_RUSTC_VERSION is used to inject rustc version information
+    // during testing.
+    const val = process.env.RUSTC_FORCE_RUSTC_VERSION;
+    if (val !== undefined) {
+      // `val.to_string_lossy()`: JS environment strings are already (lossily) decoded.
+      hasher.write(utf8(val));
+    } else {
+      hasher.write(utf8(cfg_version));
+    }
+
+    return StableCrateId.of(hasher.finish(Hash64));
   },
 
   // rustc: compiler/rustc_span/src/def_id.rs:198 as_u64

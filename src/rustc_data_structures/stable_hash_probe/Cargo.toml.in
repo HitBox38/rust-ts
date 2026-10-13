@@ -1,0 +1,21 @@
+# The stable-hash lane's rustc-dev probe (tools/probes template format, so root can move it to
+# tools/probes/hashprobe unchanged). Built by hand in the lane:
+#   RUSTC_BOOTSTRAP=1 CARGO_ENCODED_RUSTFLAGS=-C<US>link-arg=-Wl,-rpath,<sysroot>/lib \
+#   cargo +nightly-2026-10-11 build --release
+# Its outputs are committed as fixtures (src/rustc_data_structures/stable_hash_oracle.json,
+# src/rustc_span/stable_crate_id_oracle.json, src/rustc_span/expn_hash_oracle.json); the tests
+# replay them and do not need the probe.
+[package]
+name = "hashprobe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "hashprobe"
+path = "@SRC@/main.rs"
+
+[workspace]
