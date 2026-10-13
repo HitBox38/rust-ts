@@ -6,7 +6,7 @@
 //   - argfiles (UTF-8 BOM, final `\r`, missing / directory argfile);
 //   - non-UTF-8 command-line arguments (`args_os`), with `RUST_BACKTRACE` set (an error) and unset
 //     (std's `env::args()` panics in `install_ice_hook`: exit code only, the panic text is std's);
-//   - stdin input `-` (invalid UTF-8);
+//   - stdin input `-` (valid and invalid UTF-8);
 //   - deep nesting within rustc's stack (must parse), and far beyond it (both die by the same signal).
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
@@ -118,12 +118,23 @@ test.skipIf(SKIP)("driver input paths match the oracle", () => {
   expect(bad).toEqual([]);
 }, 300_000);
 
-test.skipIf(SKIP)("stdin input: invalid UTF-8 matches the oracle", () => {
+test.skipIf(SKIP)("stdin input `-` matches the oracle", () => {
   setup();
-  const input = Uint8Array.from([...new TextEncoder().encode("fn main() { "), 0xff, ...new TextEncoder().encode(" }")]);
-  const o = run([...ORACLE(), "-Zunpretty=ast-tree", "-"], {}, input);
-  const t = run([...OURS(), "-Zunpretty=ast-tree", "-"], {}, input);
-  expect(t).toEqual(o);
+  const enc = (x: string): number[] => Array.from(new TextEncoder().encode(x));
+  const inputs: Uint8Array[] = [
+    Uint8Array.from([...enc("fn main() { "), 0xff, ...enc(" }")]),
+    Uint8Array.from(enc("fn main() {}\n")),
+    Uint8Array.from(enc("fn main() { let x = ; }\n")),
+    Uint8Array.from([0xef, 0xbb, 0xbf, ...enc("fn f(")]),
+    Uint8Array.from([]),
+  ];
+  for (const input of inputs) {
+    for (const extra of [[], ["--error-format=short"]]) {
+      const o = run([...ORACLE(), "-Zunpretty=ast-tree", ...extra, "-"], {}, input);
+      const t = run([...OURS(), "-Zunpretty=ast-tree", ...extra, "-"], {}, input);
+      expect(t).toEqual(o);
+    }
+  }
 }, 120_000);
 
 // Arguments are raw bytes: pass them through `sh` with printf escapes.
