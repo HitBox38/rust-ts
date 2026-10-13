@@ -17,6 +17,8 @@ import { FixupContext } from "./fixup.ts";
 // use crate::pp::Breaks::Inconsistent;
 const Inconsistent: Breaks = Breaks.Inconsistent;
 
+// PORT: the file-private `enum DelegationKind<'a>` (item.rs:10) -> a local `$`-tagged union; the
+// borrowed slice `&'a [(Ident, Option<Ident>)]` is a readonly array.
 type DelegationKind =
   | { readonly $: "Single" }
   | { readonly $: "List"; _0: readonly [Ident, Ident | undefined][] }

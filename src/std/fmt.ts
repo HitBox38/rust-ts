@@ -84,8 +84,12 @@ export function debug_vec<T>(v: readonly T[], f: Fmt, inner: Debug<T>): string {
 export const debug_bool: Debug<boolean> = (v) => (v ? "true" : "false");
 export const debug_int: Debug<number | bigint> = (v) => String(v);
 
-/** `char::escape_debug_ext` */
-function escape_char(c: number, single_quote: boolean, double_quote: boolean): string {
+/**
+ * `char::escape_debug_ext` with `escape_grapheme_extended: true` (`DEBUG_ESCAPE_UNICODE`, generated from
+ * the oracle, is exactly the `\u{..}` set of that mode). `char::escape_debug` (`ESCAPE_ALL`) is
+ * `escape_char(c, true, true)`; `str::escape_debug` applies that to every char.
+ */
+export function escape_char(c: number, single_quote: boolean, double_quote: boolean): string {
   switch (c) {
     case 0x00:
       return "\\0";
