@@ -113,8 +113,10 @@ interface UnusedDelimLint {
   readonly LINT_EXPR_IN_PATTERN_MATCHING_CTX: boolean;
 
   // this cannot be a constant is it refers to a static.
+  // rustc: compiler/rustc_lint/src/unused.rs:125 lint
   lint(): Lint;
 
+  // rustc: compiler/rustc_lint/src/unused.rs:127 check_unused_delims_expr
   check_unused_delims_expr(
     cx: EarlyContext,
     value: ast.Expr,
