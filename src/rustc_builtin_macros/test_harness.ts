@@ -99,6 +99,7 @@ class TestHarnessGenerator extends MutVisitor {
       const expn_id = this.cx.ext_cx.resolver.expansion_for_ast_pass(span, "TestHarness", [], node_id);
       for (const test of tests) {
         // See the comment on `add_main` for why we're using `apply_mark` directly.
+        // PORT: `test.ident.span = ..`: `Test.ident` shares the item's `Ident` object, so the field gets a new `Ident`.
         test.ident = Ident.new(test.ident.name, Span.apply_mark(test.ident.span, LocalExpnId.to_expn_id(expn_id), Transparency.Opaque));
       }
       this.cx.test_cases.push(...tests);
