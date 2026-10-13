@@ -1,16 +1,24 @@
-// Partial port of compiler/rustc_interface/src/interface.rs: `Compiler`, `Config`, `run_compiler`.
-// `parse_cfg`/`parse_check_cfg` need the parser and config/cfg.rs (unported, see below);
-// `try_print_query_stack` needs rustc_middle (not ported).
+// Partial port of compiler/rustc_interface/src/interface.rs: `Compiler`, `parse_cfg`, `parse_check_cfg`,
+// `Config`, `run_compiler`. `try_print_query_stack` needs rustc_middle (not ported).
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import type { Level, LintId } from "../rustc_lint_defs/lib.ts";
-import { type Cfg, type Input, LinkerJobs, type OutFileName, Options_impl, UnstableOptions_impl, build_configuration, build_target_config } from "../rustc_session/config.ts";
-import type { Options } from "../rustc_session/options.ts";
+import { type Input, LinkerJobs, type OutFileName, Options_impl, UnstableOptions_impl, build_configuration, build_target_config } from "../rustc_session/config.ts";
+import { type Options, str_cmp } from "../rustc_session/options.ts";
 import { EarlyDiagCtxt, type Session, build_early_session, build_session } from "../rustc_session/session.ts";
 import { defer_field } from "../rustc_session/stand_ins.ts";
 import { drop_compiler_dcx } from "../rust_ts/driver.ts";
+import { ast, token } from "../rustc_ast/lib.ts";
+import { meta_list_item_to_string } from "../rustc_ast_pretty/pprust/mod.ts";
+import { new_parser_from_source_str } from "../rustc_parse/lib.ts";
+import { StripTokens } from "../rustc_parse/lexer/mod.ts";
+import { type Parser, Recovery } from "../rustc_parse/parser/mod.ts";
+import { Cfg, CheckCfg } from "../rustc_session/config/cfg.ts";
+import { ParseSess } from "../rustc_session/parse.ts";
+import { FileName } from "../rustc_span/lib.ts";
+import { Ident, kw, Symbol, sym } from "../rustc_span/symbol.ts";
 import { RealFileLoader } from "../rustc_span/source_map.ts";
-import { Panic, unported } from "../std/panic.ts";
+import { Panic, unported, unwrap } from "../std/panic.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { type CodegenBackend, CurrentGcx, jobserver_initialize } from "./stand_ins.ts";
 import * as util from "./util.ts";
@@ -35,23 +43,260 @@ export class Compiler {
 }
 
 /// Converts strings provided as `--cfg [cfgspec]` into a `Cfg`.
-// PORT: not ported (no marker): each `--cfg` spec is parsed with the parser (`new_parser_from_source_str`,
-// `parse_meta_item`), and the result goes through `config::build_configuration` (config/cfg.rs,
-// rustc_target). Reaching it with any `--cfg` calls `unported`.
-export function parse_cfg(_sess: Session, cfgs: string[]): Cfg {
+// rustc: compiler/rustc_interface/src/interface.rs:47 parse_cfg
+export function parse_cfg(sess: Session, cfgs: string[]): Cfg {
+  const cfg = Cfg.default();
   for (const s of cfgs) {
-    unported(`rustc_interface::interface::parse_cfg (--cfg=${s})`);
+    cfg.insert(
+      ((): readonly [Symbol, Symbol | undefined] => {
+        const psess = ParseSess.emitter_with_note(`this occurred on the command line: \`--cfg=${s}\``);
+        const filename = FileName.cfg_spec_source_code(s);
+
+        // macro_rules! error
+        const error = (reason: string): never => {
+          return sess.dcx().fatal(`invalid \`--cfg\` argument: \`${s}\` (${reason})`);
+        };
+
+        const r = new_parser_from_source_str(psess, filename, s, StripTokens.Nothing);
+        switch (r.$) {
+          case "Ok": {
+            let parser = r._0;
+            parser = parser.recovery(Recovery.Forbidden);
+            const m = parser.parse_meta_item();
+            if (m.$ === "Ok" && parser.token.kind.$ === "Eof" && parser.dcx().has_errors() === undefined) {
+              const meta_item = m._0;
+              if (meta_item.path.segments.length !== 1) {
+                error("argument key must be an identifier");
+              }
+              const kind = meta_item.kind;
+              if (kind.$ === "List") {
+                // {}
+              } else if (kind.$ === "NameValue" && !ast.LitKind.is_str(kind._0.kind)) {
+                error("argument value must be a string");
+              } else {
+                // MetaItemKind::NameValue(..) | MetaItemKind::Word
+                const ident = unwrap(meta_item.ident(), "multi-segment cfg key");
+
+                if (ident.is_path_segment_keyword()) {
+                  error("malformed `cfg` input, expected a valid identifier");
+                }
+
+                return [ident.name, meta_item.value_str()];
+              }
+            } else if (m.$ === "Ok") {
+              // Ok(..) => {}
+            } else {
+              m._0.cancel();
+            }
+            break;
+          }
+          case "Err":
+            for (const err of r._0) err.cancel();
+            break;
+        }
+
+        // If the user tried to use a key="value" flag, but is missing the quotes, provide
+        // a hint about how to resolve this.
+        if (s.includes("=") && !s.includes('="') && !s.endsWith('"')) {
+          return error(
+            'expected `key` or `key="value"`, ensure escaping is appropriate' + ` for your shell, try 'key="value"' or key=\\"value\\"`,
+          );
+        } else {
+          return error('expected `key` or `key="value"`');
+        }
+      })(),
+    );
   }
-  return build_configuration(_sess, new Set());
+
+  return build_configuration(sess, cfg);
 }
 
 /// Converts strings provided as `--check-cfg [specs]` into a `CheckCfg`.
-// PORT: not ported (no marker): needs config/cfg.rs `CheckCfg` (+ `fill_well_known(&sess.target)`).
-export function parse_check_cfg(_sess: Session, specs: string[]): unknown {
+// rustc: compiler/rustc_interface/src/interface.rs:116 parse_check_cfg
+export function parse_check_cfg(sess: Session, specs: string[]): CheckCfg {
+  // If any --check-cfg is passed then exhaustive_values and exhaustive_names
+  // are enabled by default.
+  const exhaustive_names = specs.length !== 0;
+  const exhaustive_values = specs.length !== 0;
+  const check_cfg = CheckCfg.default();
+  check_cfg.exhaustive_names = exhaustive_names;
+  check_cfg.exhaustive_values = exhaustive_values;
+
   for (const s of specs) {
-    unported(`rustc_interface::interface::parse_check_cfg (--check-cfg=${s})`);
+    const psess = ParseSess.emitter_with_note(`this occurred on the command line: \`--check-cfg=${s}\``);
+    const filename = FileName.cfg_spec_source_code(s);
+
+    const VISIT = "visit <https://doc.rust-lang.org/nightly/rustc/check-cfg.html> for more details";
+
+    // macro_rules! error
+    const error = (reason: string): never => {
+      const diag = sess.dcx().struct_fatal(`invalid \`--check-cfg\` argument: \`${s}\``);
+      diag.note(reason);
+      diag.note(VISIT);
+      return diag.emit_fatal();
+    };
+    const error_in = (arg: ast.MetaItemInner, reason: string): never => {
+      const diag = sess.dcx().struct_fatal(`invalid \`--check-cfg\` argument: \`${s}\``);
+
+      const pparg = meta_list_item_to_string(arg);
+      const lit = ast.MetaItemInner.lit(arg);
+      if (lit !== undefined) {
+        const lit_kind = lit.as_token_lit().kind;
+        const [lit_kind_article, lit_kind_descr] = [token.LitKind.article(lit_kind), token.LitKind.descr(lit_kind)];
+        diag.note(`\`${pparg}\` is ${lit_kind_article} ${lit_kind_descr} literal`);
+      } else {
+        diag.note(`\`${pparg}\` is invalid`);
+      }
+
+      diag.note(reason);
+      diag.note(VISIT);
+      return diag.emit_fatal();
+    };
+
+    const expected_error = (): never => {
+      return error('expected `cfg(name, values("value1", "value2", ... "valueN"))`');
+    };
+
+    const pr = new_parser_from_source_str(psess, filename, s, StripTokens.Nothing);
+    let parser: Parser;
+    switch (pr.$) {
+      case "Ok":
+        parser = pr._0.recovery(Recovery.Forbidden);
+        break;
+      case "Err":
+        for (const err of pr._0) err.cancel();
+        return expected_error();
+    }
+
+    const m = parser.parse_meta_item();
+    let meta_item: ast.MetaItem;
+    if (m.$ === "Ok" && parser.token.kind.$ === "Eof" && parser.dcx().has_errors() === undefined) {
+      meta_item = m._0;
+    } else if (m.$ === "Ok") {
+      return expected_error();
+    } else {
+      m._0.cancel();
+      return expected_error();
+    }
+
+    const args = meta_item.meta_item_list();
+    if (args === undefined) {
+      return expected_error();
+    }
+
+    if (!meta_item.has_name(sym.cfg)) {
+      expected_error();
+    }
+
+    const names: Ident[] = [];
+    const values = new Set<Symbol | undefined>();
+
+    let any_specified = false;
+    let values_specified = false;
+    let values_any_specified = false;
+
+    for (const arg of args) {
+      let ident: Ident | undefined;
+      let boolean: boolean | undefined;
+      let list: readonly ast.MetaItemInner[] | undefined;
+      if (ast.MetaItemInner.is_word(arg) && (ident = ast.MetaItemInner.ident(arg)) !== undefined) {
+        if (values_specified) {
+          error("`cfg()` names cannot be after values");
+        }
+
+        if (ident.is_path_segment_keyword()) {
+          error("malformed `cfg` input, expected a valid identifier");
+        }
+
+        names.push(ident);
+      } else if ((boolean = ast.MetaItemInner.boolean_literal(arg)) !== undefined) {
+        if (values_specified) {
+          error("`cfg()` names cannot be after values");
+        }
+        names.push(Ident.new(boolean ? kw.True : kw.False, ast.MetaItemInner.span(arg)));
+      } else if (ast.MetaItemInner.has_name(arg, sym.any) && (list = ast.MetaItemInner.meta_item_list(arg)) !== undefined) {
+        const args = list;
+        if (any_specified) {
+          error("`any()` cannot be specified multiple times");
+        }
+        any_specified = true;
+        if (args.length !== 0) {
+          error_in(arg, "`any()` takes no argument");
+        }
+      } else if (ast.MetaItemInner.has_name(arg, sym.values) && (list = ast.MetaItemInner.meta_item_list(arg)) !== undefined) {
+        const args = list;
+        if (names.length === 0) {
+          error("`values()` cannot be specified before the names");
+        } else if (values_specified) {
+          error("`values()` cannot be specified multiple times");
+        }
+        values_specified = true;
+
+        for (const arg of args) {
+          const lit = ast.MetaItemInner.lit(arg);
+          let inner: readonly ast.MetaItemInner[] | undefined;
+          if (lit !== undefined && lit.kind.$ === "Str") {
+            values.add(lit.kind._0);
+          } else if (ast.MetaItemInner.has_name(arg, sym.any) && (inner = ast.MetaItemInner.meta_item_list(arg)) !== undefined) {
+            if (values_any_specified) {
+              error_in(arg, "`any()` in `values()` cannot be specified multiple times");
+            }
+            values_any_specified = true;
+            if (inner.length !== 0) {
+              error_in(arg, "`any()` in `values()` takes no argument");
+            }
+          } else if (ast.MetaItemInner.has_name(arg, sym.none) && (inner = ast.MetaItemInner.meta_item_list(arg)) !== undefined) {
+            values.add(undefined);
+            if (inner.length !== 0) {
+              error_in(arg, "`none()` in `values()` takes no argument");
+            }
+          } else {
+            error_in(arg, "`values()` arguments must be string literals, `none()` or `any()`");
+          }
+        }
+      } else {
+        error_in(arg, "`cfg()` arguments must be simple identifiers, `any()` or `values(...)`");
+      }
+    }
+
+    if (!values_specified && !any_specified) {
+      // `cfg(name)` is equivalent to `cfg(name, values(none()))` so add
+      // an implicit `none()`
+      values.add(undefined);
+    } else if (values.size !== 0 && values_any_specified) {
+      error("`values()` arguments cannot specify string literals and `any()` at the same time");
+    }
+
+    if (any_specified) {
+      if (names.length === 0 && values.size === 0 && !values_specified && !values_any_specified) {
+        check_cfg.exhaustive_names = false;
+      } else {
+        error("`cfg(any())` can only be provided in isolation");
+      }
+    } else {
+      for (const name of names) {
+        const v = check_cfg.expecteds.get(name.name);
+        if (v !== undefined) {
+          // `.and_modify(..)`
+          if (v.$ === "Some" && !values_any_specified) {
+            // #[allow(rustc::potential_query_instability)]
+            for (const x of values) v._0.add(x);
+          } else if (v.$ === "Some") {
+            check_cfg.expecteds.set(name.name, { $: "Any" });
+          } else {
+            // ExpectedValues::Any => {}
+          }
+        } else {
+          // `.or_insert_with(..)`
+          check_cfg.expecteds.set(name.name, values_any_specified ? { $: "Any" } : { $: "Some", _0: new Set(values) });
+        }
+      }
+    }
   }
-  return unported("rustc_session::config::cfg::CheckCfg::fill_well_known (rustc_target)");
+
+  check_cfg.fill_well_known(sess.target);
+
+  return check_cfg;
 }
 
 /// The compiler configuration
@@ -197,23 +442,20 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
       // STACK_SIZE is setup in run_in_thread_pool_with_globals, before arriving here.
       sess.opts.recommended_stack_size = util.STACK_SIZE.value!;
 
-      // PORT: the next steps need the codegen backend's `TargetConfig` (LLVM), config/cfg.rs, the target
-      // spec and rustc_lint, none of which is ported. They report nothing for the default
-      // configuration; what they compute is deferred (reading it calls `unported`):
-      //   let target_config = codegen_backend.target_config(&sess);
-      //   sess.internal_target_features.extend(target_config.internal_target_features..);
-      defer_field(sess, "internal_target_features", "rustc_codegen_ssa::TargetConfig::internal_target_features (Session::internal_target_features)");
-      //   sess.config = parse_cfg(&sess, config.crate_cfg);
-      //   util::add_configuration(&mut sess.config, &target_config, &sess.early_sess.target, ..);
-      if (config.crate_cfg.length !== 0) {
-        sess.config = parse_cfg(sess, config.crate_cfg);
+      const target_config = codegen_backend.target_config(sess.early_sess);
+
+      // Store all of the target features in the session.
+      // Needs to be done before `parse_cfg` because it checks this list.
+      for (const f of [...target_config.internal_target_features].sort((a, b) => str_cmp(Symbol.as_str(a), Symbol.as_str(b)))) {
+        sess.internal_target_features.add(f);
       }
-      defer_field(sess, "config", "rustc_session::config::build_configuration / rustc_interface::util::add_configuration (Session::config)");
-      //   sess.check_config = parse_check_cfg(&sess, config.crate_check_cfg);
-      if (config.crate_check_cfg.length !== 0) {
-        sess.check_config = parse_check_cfg(sess, config.crate_check_cfg);
-      }
-      defer_field(sess, "check_config", "rustc_interface::interface::parse_check_cfg (Session::check_config)");
+
+      sess.config = parse_cfg(sess, config.crate_cfg);
+      const is_nightly_build = sess.is_nightly_build();
+      const is_crt_static = sess.crt_static(undefined);
+      util.add_configuration(sess.config, target_config, sess.target, is_nightly_build, is_crt_static);
+
+      sess.check_config = parse_check_cfg(sess, config.crate_check_cfg);
 
       // `psess_created` / `track_state` are `None` (driver).
 
@@ -222,9 +464,10 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
       // so that `register_lints` sees the fully initialized session.
       //   let mut lint_store = rustc_lint::new_lint_store(sess.enable_internal_lints());
       //   sess.lint_store = Some(Arc::new(lint_store));
+      // PORT: rustc_lint is not ported; reading the lint store calls `unported`.
       defer_field(sess, "lint_store", "rustc_lint::new_lint_store (Session::lint_store)");
 
-      //   util::check_abi_required_features(&sess);  (target spec + internal_target_features)
+      util.check_abi_required_features(sess);
 
       const compiler = new Compiler(sess, codegen_backend, config.override_queries, current_gcx);
 
