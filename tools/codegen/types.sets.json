@@ -135,7 +135,8 @@
       "rustc_parse::parser::Parser",
       "rustc_parse::parser::token_type::TokenTypeSet",
       "rustc_parse::parser::token_type::TokenTypeSetIter",
-      "rustc_parse::parser::function::ReqName"
+      "rustc_parse::parser::function::ReqName",
+      "rustc_parse::parser::expr::CondChecker"
     ],
     "discriminant": [
       "rustc_parse::parser::token_type::TokenType"
@@ -146,7 +147,8 @@
       "rustc_parse::parser::Parser": "impl Parser is spread over the parser files: the class is declared in parser/mod.ts so `declare module \"./mod.ts\"` (parser/decls.ts) can augment it; Clone hand-written (clone_Parser)",
       "rustc_parse::parser::token_type::TokenTypeSet": "u128 bitset: hand-written (PORT: four u32 words, hot path)",
       "rustc_parse::parser::token_type::TokenTypeSetIter": "iterator over the hand TokenTypeSet",
-      "rustc_parse::parser::function::ReqName": "type alias of a bare fn type `fn(Edition, IsDotDotDot) -> bool` (the probe does not describe fn types)"
+      "rustc_parse::parser::function::ReqName": "type alias of a bare fn type `fn(Edition, IsDotDotDot) -> bool` (the probe does not describe fn types)",
+      "rustc_parse::parser::expr::CondChecker": "MutVisitor impl: hand-written class extending rustc_ast mut_visit MutVisitor (expr.ts)"
     }
   },
   "rustc_session": {
