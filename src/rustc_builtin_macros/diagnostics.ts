@@ -12,8 +12,37 @@ import { Diag, type DiagCtxtHandle, type Diagnostic, IntoDiagArg, type Level, ty
 import { DiagMessage_arg } from "../rustc_errors/formatting.ts";
 import { display_Symbol } from "../rustc_span/symbol.ts";
 import type * as gen from "./diagnostics.gen.ts";
+import { autodiff as gen_autodiff } from "./diagnostics.gen.ts";
 
 export * from "./diagnostics.gen.ts";
+
+// `pub(crate) use autodiff::*;` (diagnostics.rs:172): the inline module is a generated namespace.
+export type AutoDiffMissingConfig = gen.autodiff.AutoDiffMissingConfig;
+export type AutoDiffUnknownActivity = gen.autodiff.AutoDiffUnknownActivity;
+export type AutoDiffInvalidTypeForActivity = gen.autodiff.AutoDiffInvalidTypeForActivity;
+export type AutoDiffInvalidNumberActivities = gen.autodiff.AutoDiffInvalidNumberActivities;
+export type AutoDiffInvalidApplicationModeAct = gen.autodiff.AutoDiffInvalidApplicationModeAct;
+export type AutoDiffInvalidRetAct = gen.autodiff.AutoDiffInvalidRetAct;
+export type AutoDiffInvalidWidth = gen.autodiff.AutoDiffInvalidWidth;
+export type AutoDiffInvalidApplication = gen.autodiff.AutoDiffInvalidApplication;
+export const {
+  AutoDiffMissingConfig_into_diag,
+  AutoDiffMissingConfig_diagnostic,
+  AutoDiffUnknownActivity_into_diag,
+  AutoDiffUnknownActivity_diagnostic,
+  AutoDiffInvalidTypeForActivity_into_diag,
+  AutoDiffInvalidTypeForActivity_diagnostic,
+  AutoDiffInvalidNumberActivities_into_diag,
+  AutoDiffInvalidNumberActivities_diagnostic,
+  AutoDiffInvalidApplicationModeAct_into_diag,
+  AutoDiffInvalidApplicationModeAct_diagnostic,
+  AutoDiffInvalidRetAct_into_diag,
+  AutoDiffInvalidRetAct_diagnostic,
+  AutoDiffInvalidWidth_into_diag,
+  AutoDiffInvalidWidth_diagnostic,
+  AutoDiffInvalidApplication_into_diag,
+  AutoDiffInvalidApplication_diagnostic,
+} = gen_autodiff;
 
 // Hand-written implementation to support custom user messages.
 /** `impl<'a> Diagnostic<'a> for EnvNotDefinedWithUserMessage` */
