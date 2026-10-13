@@ -27,7 +27,8 @@ import { DiagCtxt, FatalErrorMarker } from "../../rustc_errors/lib.ts";
 import { Features, UnstableFeatures } from "../../rustc_feature/lib.ts";
 import { MACRO_ARGUMENTS, parser as rustc_parse_parser, source_str_to_stream } from "../../rustc_parse/lib.ts";
 import type { Recovery } from "../../rustc_parse/parser/mod.ts";
-import { Options_default } from "../../rustc_session/config.ts";
+import { Options_default, UnstableOptions_impl } from "../../rustc_session/config.ts";
+import type { Options } from "../../rustc_session/options.gen.ts";
 import { EarlySession, Session } from "../../rustc_session/lib.ts";
 import { ParseSess } from "../../rustc_session/parse.ts";
 import type { Edition } from "../../rustc_span/edition.ts";
@@ -68,7 +69,43 @@ interface Case {
 const oracle = JSON.parse(readFileSync(join(import.meta.dir, "mbe_oracle", "out.json"), "utf8")) as Case[];
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
-const PENDING: Record<string, string> = {};
+// Every pending case reaches a generated diagnostic of compiler/rustc_expand/src/diagnostics.rs (lane
+// expand-core), stubbed in quoted.ts / macro_check.ts / metavar_expr.ts until it lands. Value: the type
+// name; the expected `Unported` is `rustc_expand::diagnostics::<value>`. (All of them were checked
+// against the oracle with a scratch codegen of diagnostics.rs: 118/118 matched; see docs/handoff/mbe-a.md.)
+const PENDING_DIAG: Record<string, string> = {
+  frag_invalid: "InvalidFragmentSpecifier",
+  frag_missing: "MissingFragmentSpecifier",
+  frag_missing_colon_end: "MissingFragmentSpecifier",
+  frag_missing_colon_delim: "MissingFragmentSpecifier",
+  frag_dollar_dollar_end: "MissingFragmentSpecifier",
+  dollar_number: "MissingFragmentSpecifier",
+  rhs_seq_brace_is_mve_error: "ExpectedParenOrBrace",
+  mve_count: "MetaVarStillRepeatingLint",
+  mve_err_unknown: "MveUnrecognizedExpr",
+  mve_err_missing_paren: "MveMissingParen",
+  mve_err_bracket_paren: "MveMissingParen",
+  mve_err_not_delim: "MveMissingParen",
+  mve_err_extra_outer: "MveExtraTokens",
+  mve_err_extra_args_ignore: "MveExtraTokens",
+  mve_err_extra_args_index: "MveExtraTokens",
+  mve_err_extra_args_count: "MveExtraTokens",
+  check_free_var: "UnknownMacroVariable",
+  check_free_var_dummy: "UnknownMacroVariable",
+  check_duplicate_binder: "DuplicateMatcherBinding",
+  check_still_repeating: "MetaVarStillRepeatingLint",
+  check_wrong_operator: "MetaVariableWrongOperator",
+  check_nested_macro_rules_free: "UnknownMacroVariable",
+  check_nested_macro_rules_dup: "DuplicateMatcherBindingLint",
+  check_nested_decl_macro_name_var: "UnknownMacroVariable",
+  check_nested_macro_outer_rep_missing: "MetaVarStillRepeatingLint",
+  check_nested_rest_after_macro: "UnknownMacroVariable",
+  check_mve_occurrence: "MetaVarStillRepeatingLint",
+  check_mve_still_repeating: "MetaVarStillRepeatingLint",
+};
+const PENDING: Record<string, string> = Object.fromEntries(
+  Object.entries(PENDING_DIAG).map(([k, v]) => [k, `rustc_expand::diagnostics::${v}`]),
+);
 
 /** `parser_from_cx` (macro_rules.rs, lane mbe-b), as copied into the probe. */
 function parser_from_cx(psess: ParseSess, tts: TokenStream, recovery: Recovery): rustc_parse_parser.Parser {
@@ -132,13 +169,11 @@ function result_str(res: NamedParseResult, locs: readonly MatcherLoc[]): string 
   }
 }
 
-function test_session(psess: ParseSess, edition: Edition): Session {
+function test_session(psess: ParseSess, opts: Options): Session {
   const sess = Object.create(Session.prototype) as Session;
   // PORT(test): `feature_err` reads `sess.opts` (`ui_testing`, `unstable_features`) and
   // `sess.unstable_features`: the probe's `Options::default()` with the case's edition, and
   // `UnstableFeatures::from_environment(None)` as in `build_session`.
-  const opts = Options_default();
-  opts.edition = edition;
   sess.early_sess = new EarlySession(undefined as never, undefined as never, opts, psess);
   sess.unstable_features = UnstableFeatures.from_environment(undefined);
   return sess;
@@ -169,8 +204,13 @@ function run_case(c: Case): { events: string[]; fatal: boolean; stderr: string }
     let em = AnnotateSnippetEmitter.new(AutoStream.new(dyn_write(buf), ColorChoice.Never));
     em = AnnotateSnippetEmitter.sm(em, sm);
     em = AnnotateSnippetEmitter.ui_testing(em, true);
-    const psess = ParseSess.with_dcx(DiagCtxt.new(em), sm);
-    const sess = test_session(psess, edition);
+    // `build_session`: the `DiagCtxt` takes its flags from the options (`can_emit_warnings`: no
+    // `-A warnings` / `--cap-lints allow`), e.g. `deduplicate_diagnostics`.
+    const opts = Options_default();
+    opts.edition = edition;
+    const dcx = DiagCtxt.new(em).with_flags(UnstableOptions_impl.dcx_flags(opts.unstable_opts, true));
+    const psess = ParseSess.with_dcx(dcx, sm);
+    const sess = test_session(psess, opts);
     const fname: FileName = { $: "Real", _0: sm.path_mapping().to_real_filename(sm.working_dir(), "t.rs") };
     const features = Features.default();
     for (const f of feats) {

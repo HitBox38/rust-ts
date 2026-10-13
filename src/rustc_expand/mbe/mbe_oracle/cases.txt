@@ -3,3 +3,451 @@ ops: lhs:0 rhs:2 check locs count match:3 match:4
 ($($x:ident),*) => { $($x)* }
 (a, b, c)
 ()
+### star_trailing_sep_fails
+ops: lhs:0 match:3 match:4
+($($x:ident),*) => {}
+(a, b,)
+(a b)
+### plus_needs_one
+ops: lhs:0 rhs:2 check locs match:3 match:4 match:5
+($($x:tt)+) => { $($x)+ }
+()
+(a)
+(a b c)
+### question_zero_one_two
+ops: lhs:0 rhs:2 check locs match:3 match:4 match:5
+(x $($y:ident)? z) => { $($y)? }
+(x z)
+(x a z)
+(x a b z)
+### sep_semi_and_fat_arrow
+ops: lhs:0 locs match:3 match:4
+($($k:ident => $v:literal);+ $(;)?) => {}
+(a => 1; b => "two"; c => 'c';)
+(a => 1)
+### sep_multi_token
+ops: lhs:0 locs match:3 match:4
+($($x:ident)<<*) => {}
+(a << b << c)
+(a < b)
+### nested_reps
+ops: lhs:0 rhs:2 check locs count match:3 match:4 match:5
+($($($x:ident),+);+) => { $($($x)+)+ }
+(a, b, c, d; a, b, c, d, e)
+(a; b)
+(a,; b)
+### nested_reps_mixed
+ops: lhs:0 rhs:2 check locs count match:3 match:4
+($($n:ident: [$($v:expr),*])*) => { $($n $($v)*)* }
+(x: [1, 2] y: [] z: [3])
+()
+### literal_tokens
+ops: lhs:0 locs match:3 match:4 match:5 match:6
+(a + b => c) => {}
+(a + b => c)
+(a + b = > c)
+(a + b)
+(a - b => c)
+### delimited_matcher
+ops: lhs:0 locs count match:3 match:4 match:5
+([$x:expr] {$y:ty} ($($z:tt)*)) => {}
+([1 + 2] {Vec<u8>} (a b c))
+([1] {u8} ())
+([1] (u8) ())
+### doc_comment_in_matcher_ignored
+ops: lhs:0 locs match:3 match:4
+(
+/// doc
+$x:ident) => {}
+(foo)
+(/// doc
+ foo)
+### doc_comment_in_input
+ops: lhs:0 match:3 match:4
+($($t:tt)*) => {}
+(/// hello
+x)
+(/** block */ y)
+### lifetime_and_raw_tokens
+ops: lhs:0 locs match:3 match:4 match:5 match:6
+('a r#foo $l:lifetime) => {}
+('a r#foo 'b)
+('a foo 'b)
+('a r#foo 'static)
+('b r#foo 'a)
+### ident_vs_keyword
+ops: lhs:0 match:3 match:4 match:5 match:6
+($i:ident) => {}
+(foo)
+(fn)
+(r#fn)
+(_)
+### frag_ident_lifetime_tt
+ops: lhs:0 locs match:3 match:4
+($i:ident $l:lifetime $t:tt $u:tt) => {}
+(x 'y {a b} ;)
+(x y z w)
+### frag_block_stmt
+ops: lhs:0 locs match:3 match:4
+($b:block $s:stmt) => {}
+({ 1 } let x = 2)
+({ } 3)
+### frag_item
+ops: lhs:0 match:3 match:4
+($i:item) => {}
+(fn f() {})
+(pub struct S;)
+### frag_ty_path
+ops: lhs:0 match:3 match:4
+($t:ty, $p:path) => {}
+(Vec<u8>, std::vec::Vec<u8>)
+(&'a mut [T; 3], a::b::<c>)
+### frag_meta_vis
+ops: lhs:0 match:3 match:4 match:5
+($v:vis $m:meta) => {}
+(pub(crate) foo = "bar")
+(cfg(x))
+(pub derive(Debug))
+### frag_literal
+ops: lhs:0 match:3 match:4 match:5 match:6
+($l:literal) => {}
+(1)
+(-2.5)
+("s")
+(x)
+### frag_expr_2024
+ops: lhs:0 rhs:2 match:3 match:4 match:5
+($e:expr) => { $e }
+(1 + 2 * 3)
+(_)
+(const { 1 })
+### frag_expr_2021 edition=2021
+ops: lhs:0 rhs:2 match:3 match:4 match:5
+($e:expr) => { $e }
+(1 + 2 * 3)
+(_)
+(const { 1 })
+### frag_expr_2021_explicit
+ops: lhs:0 match:3 match:4
+($e:expr_2021) => {}
+(_)
+(a.b())
+### frag_pat_2021 edition=2021
+ops: lhs:0 match:3 match:4
+($p:pat) => {}
+(Some(x) | None)
+(_)
+### frag_pat_2018 edition=2018
+ops: lhs:0 match:3 match:4
+($p:pat) => {}
+(Some(x) | None)
+(_)
+### frag_pat_param
+ops: lhs:0 match:3 match:4
+($p:pat_param | $q:pat_param) => {}
+(a | b)
+(1..=2 | _)
+### frag_pat_2015 edition=2015
+ops: lhs:0 rhs:2 check match:3
+($p:pat) => { $p }
+(x)
+### frag_all_2015 edition=2015
+ops: lhs:0
+($a:ident $b:block $c:stmt $d:expr $e:pat $f:ty $g:lifetime $h:literal $i:path $j:meta $k:tt $l:item $m:vis $n:expr_2021 $o:pat_param)
+### frag_all_2024
+ops: lhs:0 count
+($a:ident $b:block $c:stmt $d:expr $e:pat $f:ty $g:lifetime $h:literal $i:path $j:meta $k:tt $l:item $m:vis $n:expr_2021 $o:pat_param)
+### frag_invalid
+ops: lhs:0
+($x:foo)
+### frag_missing
+ops: lhs:0
+($x)
+### frag_missing_colon_end
+ops: lhs:0
+($x:)
+### frag_missing_colon_delim
+ops: lhs:0
+($x:(y))
+### frag_dollar_prefixed
+ops: lhs:0
+($x:$ident)
+### frag_dollar_dollar_end
+ops: lhs:0
+($x:$)
+### lhs_dollar_dollar
+ops: lhs:0
+($$ a)
+### lhs_metavar_expr
+ops: lhs:0
+(${len()})
+### lhs_bracket_seq
+ops: lhs:0
+($[a]*)
+### dollar_number
+ops: lhs:0 rhs:1
+($1) { $2 }
+### dollar_at_end
+ops: lhs:0 rhs:1
+(a $) { b $ }
+### dollar_crate
+ops: rhs:0
+{ $crate::foo; $crate; crate }
+### rhs_dollar_dollar_unstable
+ops: rhs:0
+{ $$ x }
+### rhs_dollar_dollar_feature features=macro_metavar_expr
+ops: rhs:0
+{ $$ x }
+### kleene_missing
+ops: lhs:0
+($(a))
+### kleene_sep_then_missing
+ops: lhs:0
+($(a) x y)
+### kleene_question_with_sep
+ops: lhs:0
+($(a),?)
+### kleene_non_token_after
+ops: lhs:0
+($(a) (b))
+### kleene_sep_non_token
+ops: lhs:0
+($(a), (b))
+### rhs_seq_brace_is_mve_error
+ops: rhs:0
+{ $[a]* }
+### mve_count features=macro_metavar_expr
+ops: lhs:0 rhs:2 check
+($($x:ident)*) => { ${count($x)} ${count($x, 0)} ${ignore($x)} $(${index()} ${index(0)} ${len()} ${len(1)})* }
+### mve_unstable
+ops: rhs:0
+{ ${count($x)} ${index()} }
+### mve_concat_unstable
+ops: rhs:0
+{ ${concat(a, $x)} ${concat_str("a", b)} }
+### mve_concat_feature features=macro_metavar_expr_concat
+ops: lhs:0 rhs:2 check
+($x:ident) => { ${concat(a, $x, "s", _b)} ${concat_str("a", b)} }
+### mve_direct features=macro_metavar_expr
+ops: mve:0 mve:1 mve:2 mve:3 mve:4 mve:5
+{count($a, 3)}
+{ignore($a)}
+{index(2)}
+{len()}
+{concat($a, b)}
+{concat_str("x", $y)}
+### mve_err_no_dollar
+ops: mve:0
+{count(x)}
+### mve_err_ignore_no_dollar
+ops: mve:0
+{ignore(x)}
+### mve_err_count_comma
+ops: mve:0
+{count($x,)}
+### mve_err_depth_not_literal
+ops: mve:0
+{index(a)}
+### mve_err_depth_suffixed
+ops: mve:0
+{len(1u8)}
+### mve_err_depth_float
+ops: mve:0
+{index(1.0)}
+### mve_err_depth_huge
+ops: mve:0
+{index(99999999999999999999999)}
+### mve_err_concat_one
+ops: mve:0
+{concat(a)}
+### mve_err_concat_no_comma
+ops: mve:0
+{concat(a b)}
+### mve_err_concat_raw_var
+ops: mve:0
+{concat($r#a, b)}
+### mve_err_concat_raw_ident
+ops: mve:0
+{concat(r#a, b)}
+### mve_err_concat_int
+ops: mve:0
+{concat(1, b)}
+### mve_err_concat_suffixed_str
+ops: mve:0
+{concat("a"x, b)}
+### mve_err_concat_trailing_comma
+ops: mve:0
+{concat(a, b,)}
+### mve_err_concat_delim
+ops: mve:0
+{concat((a), b)}
+### mve_err_concat_empty
+ops: mve:0
+{concat()}
+### mve_err_count_ident_literal
+ops: mve:0
+{count($1)}
+### mve_err_not_ident
+ops: mve:0
+{1()}
+### mve_err_empty
+ops: mve:0
+{}
+### mve_err_unknown
+ops: mve:0
+{foo()}
+### mve_err_missing_paren
+ops: mve:0
+{count}
+### mve_err_bracket_paren
+ops: mve:0
+{count[$x]}
+### mve_err_not_delim
+ops: mve:0
+{count $x}
+### mve_err_extra_outer
+ops: mve:0
+{count($x) extra tokens}
+### mve_err_extra_args_ignore
+ops: mve:0
+{ignore($x, y)}
+### mve_err_extra_args_index
+ops: mve:0
+{index(1, 2)}
+### mve_err_extra_args_count
+ops: mve:0
+{count($x, 1, 2)}
+### rhs_mve_error_returns_dollar features=macro_metavar_expr
+ops: rhs:0
+{ a ${count(x)} b }
+### check_free_var
+ops: lhs:0 rhs:2 check lints
+() => { $x }
+### check_free_var_dummy
+ops: lhs:0 rhs:2 checkd lints
+() => { $x }
+### check_duplicate_binder
+ops: lhs:0 rhs:2 check lints
+($x:tt $x:tt) => { $x }
+### check_still_repeating
+ops: lhs:0 rhs:2 check lints
+($($x:tt)*) => { $x }
+### check_wrong_operator
+ops: lhs:0 rhs:2 check lints
+($($x:tt)+) => { $($x)* }
+### check_ok_prefix
+ops: lhs:0 rhs:2 check lints
+($($i:ident = $($j:ident),+);*) => { $($($i += $j;)+)* }
+### check_ok_more_reps
+ops: lhs:0 rhs:2 check lints
+($x:ident $($y:ident)*) => { $($x $y)* $x }
+### check_nested_macro_rules_ok
+ops: lhs:0 rhs:2 check lints
+($d:tt) => { macro_rules! bar { ($y:tt) => { $y $d z }; (a) => {} } }
+### check_nested_macro_rules_free
+ops: lhs:0 rhs:2 check lints
+() => { macro_rules! bar { ($y:tt) => { $z }; } }
+### check_nested_macro_rules_dup
+ops: lhs:0 rhs:2 check lints
+() => { macro_rules! bar { ($y:tt $y:tt) => {} } }
+### check_nested_macro_name_var
+ops: lhs:0 rhs:2 check lints
+($n:ident) => { macro_rules! $n { () => { $n } } }
+### check_nested_decl_macro
+ops: lhs:0 rhs:2 check lints
+($a:tt) => { macro m($b:tt) { $a $b } }
+### check_nested_decl_macro_name_var
+ops: lhs:0 rhs:2 check lints
+($n:ident) => { macro $n($b:tt) { $b $c } }
+### check_nested_macro_outer_rep
+ops: lhs:0 rhs:2 check lints
+($($x:ident)*) => { $(macro_rules! m { () => { $x } })* }
+### check_nested_macro_outer_rep_missing
+ops: lhs:0 rhs:2 check lints
+($($x:ident)*) => { macro_rules! m { () => { $x } } }
+### check_nested_rest_after_macro
+ops: lhs:0 rhs:2 check lints
+() => { macro_rules! m { () => {}; garbage $q } }
+### check_mve_occurrence features=macro_metavar_expr
+ops: lhs:0 rhs:2 check lints
+($($x:ident)*) => { ${count($x)} ${ignore($y)} }
+### check_mve_still_repeating features=macro_metavar_expr
+ops: lhs:0 rhs:2 check lints
+($($($x:ident)*)*) => { $(${ignore($x)})* }
+### ambiguity_star_then_ident
+ops: lhs:0 match:3 match:4
+($($i:ident)* $j:ident) => {}
+(a b)
+()
+### ambiguity_two_stars
+ops: lhs:0 match:3
+($($a:ident)* $($b:ident)*) => {}
+(a)
+### ambiguity_question_tt
+ops: lhs:0 match:3 match:4
+($($a:tt)? $b:tt) => {}
+(x)
+(x y)
+### no_ambiguity_token_vs_nt
+ops: lhs:0 match:3 match:4
+($($a:ident)* ; $b:ident) => {}
+(a b ; c)
+(; c)
+### ambiguity_ident_vs_token
+ops: lhs:0 match:3
+($($a:ident)* x) => {}
+(a x)
+### nt_parse_error_expr
+ops: lhs:0 match:3 match:4
+($e:expr) => {}
+(1 +)
+(let)
+### nt_parse_error_recovery
+ops: lhs:0 matchr:3 match:3
+($e:expr, $f:ty) => {}
+(1 +, u8)
+### nt_parse_error_item
+ops: lhs:0 match:3
+($i:item) => {}
+(fn)
+### nt_expr_then_tokens
+ops: lhs:0 match:3 match:4
+($e:expr => $f:expr) => {}
+(a => b)
+(a + b => c)
+### failure_end_of_input
+ops: lhs:0 match:3
+($a:ident $b:ident) => {}
+(x)
+### failure_extra_input
+ops: lhs:0 match:3
+($a:ident) => {}
+(x y)
+### empty_matcher
+ops: lhs:0 locs count match:3 match:4
+() => {}
+()
+(a)
+### seq_in_delim_in_seq
+ops: lhs:0 locs count match:3
+($( ( $($x:ident),* ) )*) => {}
+((a, b) () (c))
+### separator_ident_token
+ops: lhs:0 match:3 match:4
+($($x:literal)and*) => {}
+(1 and 2 and 3)
+(1 and)
+### separator_lifetime_raw
+ops: lhs:0 match:3
+($($x:ident)r#and+) => {}
+(a r#and b and c)
+### invisible_open_in_source
+ops: lhs:0 match:3
+($x:tt $y:ident) => {}
+({} y)
+### edition_2015_dyn_keyword edition=2015
+ops: lhs:0 match:3 match:4
+($t:ty) => {}
+(dyn Trait)
+(Box<dyn Trait>)
