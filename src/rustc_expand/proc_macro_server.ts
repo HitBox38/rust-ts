@@ -213,7 +213,7 @@ const IdentKind_ToInternal: ToInternal<IdentKind, tk.IdentKind> = {
 };
 
 /** `impl FromInternal<TokenStream> for Vec<TokenTree<TokenStream, Span, Symbol>>` */
-export const TokenTrees_FromInternal: FromInternal<TokenStream, PmTokenTree[]> = {
+const TokenTrees_FromInternal: FromInternal<TokenStream, PmTokenTree[]> = {
   // rustc: compiler/rustc_expand/src/proc_macro_server.rs:128 from_internal
   from_internal(stream: TokenStream): PmTokenTree[] {
     // Estimate the capacity as `stream.len()` rounded up to the next power
@@ -579,7 +579,7 @@ function is_ascii(s: string): boolean {
 
 // We use a `SmallVec` because the output size is always one or two `TokenTree`s.
 /** `impl ToInternal<SmallVec<[tokenstream::TokenTree; 2]>> for (TokenTree<TokenStream, Span, Symbol>, &mut Rustc<'_, '_>)` */
-export const TokenTree_ToInternal: ToInternal<[PmTokenTree, Rustc], AstTokenTree[]> = {
+const TokenTree_ToInternal: ToInternal<[PmTokenTree, Rustc], AstTokenTree[]> = {
   // rustc: compiler/rustc_expand/src/proc_macro_server.rs:335 to_internal
   to_internal(self: [PmTokenTree, Rustc]): AstTokenTree[] {
     // The code below is conservative, using `token_alone`/`Spacing::Alone`
