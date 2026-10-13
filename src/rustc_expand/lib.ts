@@ -24,4 +24,4 @@ export * as base from "./base.ts";
 export * as config from "./config.ts";
 export * as expand from "./expand.ts";
 export * as module from "./module.ts";
-// pub mod proc_macro; (PORT(pending expand-pm-types): proc_macro.rs is not ported yet)
+export * as proc_macro from "./proc_macro.ts";

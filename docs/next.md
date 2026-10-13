@@ -139,6 +139,10 @@ target-cfg, attr-ir-gen, hir-def, stable-hash, tyctxt-min, attr-parse-a/-b/-c/-d
 expand-base, expand-core, mbe-a, mbe-b, bm-a (incl. cmdline_attrs::inject, the current stop point of every nocore case) now;
 then bm-format, bm-derive-a/-b, bm-rest, expand-pm-types. Then wave 10 (resolve, ast-passes, lint-early, driver-m2).
 Queued: lane std-unicode (oracle-generated char property tables replacing JS \p{} regexes); lane hashbrown-order (HashMap/HashSet iteration order for the oracle host; unblocks format named-arg Debug, doc(auto_cfg), mbe candidates); harness L1 env filtering; skip the 3 parse ORACLE_TIMEOUT files; error-code explanation texts for json.
+**Wave 9 done**: all lanes merged (hashbrown-order, expand-pm-types, bm-rest last). Follow-ups from them:
+lane target-asm (rustc_target::asm; asm! stops there); typemap FxHashMap/FxHashSet clone+debug via clone_HashMap/debug_HashSet
+(codegen batch); switch remaining plain-Map Fx maps (NamedMatches etc.) to FxHashMap; check env_depinfo Symbol-vs-string
+mismatch between rustc_builtin_macros/env.ts and passes.ts.
 
 ## Wave 10 (started 2026-10-13) — resolution, passes, lints
 lint-early-a, res-graph, res-ident, res-macros, res-imports, ast-passes (against res-lib's contract, docs/handoff/res-lib.md);
