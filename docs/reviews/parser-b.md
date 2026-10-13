@@ -3,16 +3,15 @@
 Reviewed at main `5659298` against upstream at the pin `6f5da406b56c`, oracle `rustc 1.101.0-nightly (6f5da406b 2026-10-10)`
 (aarch64-apple-darwin). Handoffs: `docs/handoff/{parser-expr,parser-item,parser-diag,parser-tests,driver-session,unicode-width-str}.md`.
 
-STATUS: work in progress (batches 1 and 2 pending).
-
 Method:
 - `coverage.ts --check`: markers ok (3642; vendor 2323). `--missing`: expr.rs 143/143, expr/diagnostics.rs 12/12,
   item.rs 81/81, diagnostics.rs 88/88, tests.rs 75/75.
 - `RUST_TS_REQUIRE_PROBES=1 bun test src tools` (quiet host): 1999 pass, 1 skip (pre-existing), 0 fail, 0 todo.
 - Marker-order scan (upstream line must not decrease per upstream path within a TS file): no descent in expr.ts,
-  expr/diagnostics.ts, item.ts, diagnostics.ts, tests.test.ts. Driver descents: see batch 5.
+  expr/diagnostics.ts, item.ts, diagnostics.ts, tests.test.ts. Driver descents: batch 5 finding 12.
 - Line-by-line comparison by five sub-reviewers (one per batch; tests and unicode-width shared one). I re-ran every
-  high/med repro myself (scratch `$RUST_TS_DATA/tmp/review-parser-b/`).
+  high/med repro myself (scratch `$RUST_TS_DATA/tmp/review-parser-b/`, deleted after the review per lane rules;
+  every repro below is self-contained).
 - **Fuzzing beyond tests/ui** (my own, `tmp/review-parser-b/{fuzz.ts,soup.ts}`): oracle vs `bun src/rust_ts/main.ts`,
   comparing stdout, stderr and exit code byte for byte, random edition 2015/2018/2021/2024:
   - 4,000 mutated tests/ui files (1-5 token deletions/insertions/replacements/duplications from 18 directories:
@@ -56,7 +55,8 @@ Checked line by line (every fn in both files), all matching upstream:
      101 with `rust-ts: internal compiler error: RangeError: Maximum call stack size exceeded.`
    - Sub-reviewer's limits (parse-only): parens fail at 3,000-3,500 (rustc fine at 6,000, crashes at 10,000); nested
      closures fail at 4,000 (rustc fine at 4,000); repeated unary `-` fails at 6,000 (rustc fine). 1,000-deep parens with
-     `-Zunpretty=ast-tree` still match.
+     `-Zunpretty=ast-tree` still match. Items hit the same limit: `python3 -c "n=5000; print('mod a {'*n + '}'*n)"`
+     with `-Zparse-crate-root-only` exits 0 in rustc and 101 in rust-ts (4,500 still matches); 1,500 nested `if` is fine.
    - Upstream has no stack guard in rustc_parse either; rustc simply runs the compiler on a large thread stack. So this
      is a driver/runtime gap, and it will surface as soon as fmt-perf removes the 3 parse TIMEOUTs (deep-nesting cases).
    - **Fix (root):** run the compiler body with a larger JS stack (e.g. `bun --stack-size`/a Worker with
@@ -74,9 +74,41 @@ Checked line by line (every fn in both files), all matching upstream:
    `forbid_let_reason`/`missing_let`/`comparison`): faithful. **Fix:** list the remaining kinds and end with an
    exhaustiveness assertion (`k satisfies never` pattern), as other hand-written visitors do.
 
-## Batch 2: parser-item (item.rs)
+## Batch 2: parser-item (item.rs): **ACCEPT** (low follow-up; deep nesting is batch 1 finding 1)
 
-PENDING (sub-reviewer still running).
+Checked line by line, all 81 fns, matching upstream: `parse_crate_mod`/`parse_item_mod`/`parse_mod` (inject_use_span,
+the `let`/`let mut` help), `parse_item_`/`parse_item_common` (the metavar path still panics "an actual item" on
+`Some(None)`), `parse_item_kind` (branch order identical, the `def_` `mem::replace` closure, the case-insensitive
+recursion), `recover_import_as_use` (cancel + restore), `parse_item_macro` (edit-distance suggestion), `parse_item_impl`
+(all span computations, gating and error order), impl restrictions, delegation (`reuse`) fns, `parse_item_list`
+(`A || B && C && D` precedence kept), `check_trait_front_matter` (the expected-token side effects of `check_keyword`
+are preserved by the short-circuit order), use-tree fns + `emit_error_attr_in_use_tree`, extern crate (dashes),
+foreign mods, static/const items (non-short-circuit `|` checks, where-clause merge), enum/struct/union bodies,
+`field_def_extras` and default field values, decl macros / `macro_rules!`, `recover_nested_adt_item`,
+`check_impl_frontmatter`, `try_recover_const_missing_semi`. The 8 PORT decisions do not change behaviour.
+item.test.ts `PENDING` is empty.
+
+- **Out-of-line `mod foo;`.** Under `-Zunpretty=ast-tree` and `=normal` rustc does **not** load module files: module
+  loading happens during expansion, after the pretty-print point. Missing `foo.rs`, a `foo.rs` with syntax errors,
+  `foo/mod.rs`, `#[path = "..."]`, nested `mod a { mod b; }` and `mod foo;` inside a fn body all print the same AST
+  with no diagnostics in both rustc and rust-ts (rc 0/0, identical output). `-Zunpretty=expanded` is an honest 70
+  (expansion unported). So file loading is untested until M2; the expand lane must port `parse_external_mod`.
+- **Oracle:** ~590 crafted inputs (sub-reviewer, `tmp/review-parser-b/item/c1..c11`), editions 2015/2021 (parts on all
+  four), c1-c8 again with `-Zunpretty=normal`: zero divergences. They cover `macro_rules!` in every delimiter form with
+  and without `;`, `= {}`, missing `!`, misspellings; macros 2.0; impl headers (`impl<T> for X`, `impl !T for`,
+  `impl const`, missing self type, `default impl`, `impl impl Tr for`, `impl ?Sized for`); `impl(crate|self|in path|foo)`
+  restrictions; `auto`/`const`/`unsafe` trait combos; trait aliases; extern blocks (`unsafe extern`,
+  `extern "C" unsafe {}`, `safe` items, `static mut`, `const` in extern, fn bodies); extern crate (rename, `self`,
+  dashes); use trees (nested, glob, `self`, `::{}`, `{}`, `a::;`, single colon, attributes in the tree, `import`/
+  `using`/`require` recovery); default field values (named, tuple, enum variants, garbage exprs); `const _`; missing
+  types; generic consts + where clauses in both positions; 25 fn-qualifier-order variants; `pub(in path)`/`pub(foo)`;
+  misplaced `default`; enums with discriminants / missing commas; struct-body recovery; attributes with no item;
+  inner-attribute placement; `reuse`; wrong-case keywords; VCS conflict markers in item lists.
+
+### Findings
+1. **low**: item.ts:2770 `encountered_colon ||= ...` short-circuits where item.rs:2224 uses `|=`. The RHS
+   (`is_ident`, `look_ahead`) has no side effects, so it is unobservable; the lane gave the analogous `|` cases a
+   PORT note (decision 4) but not this one. **Fix:** `encountered_colon = (rhs) || encountered_colon`, or a PORT note.
 
 ## Batch 3: parser-diag (parser/diagnostics.rs): **ACCEPT** (low follow-ups)
 
@@ -140,6 +172,99 @@ Checked line by line, all 88 fns, matching upstream:
    (e.g. on a pin bump). **Fix:** a `--check` regenerator like `tools/gen-unicode-width.ts --check`.
 5. **low**: the upstream debug `println!`s in `test_harness` are dropped (stdout only; documented decision 7).
 
+## Batch 5: driver-session (getopts, config/session subset, rustc_interface, rustc_driver_impl): **ACCEPT-WITH-FIXES**
+
+Checked and matching (about 250 CLI comparisons, stdout + stderr + exit code; sub-reviewer `tmp/review-parser-b/driver/`):
+- **getopts 0.2.24** line by line (`parse`, `usage_items`, `long_to_short`, `find_opt`, `format_option`,
+  `each_split_within`, `Fail` Display, `Matches`); edge cases through rustc: trailing `-Z`/`-C`/`-o`/`--crate-name`/
+  `-L`/`-W`/`--cap-lints`/`--edition`/`--extern`/`--print` with no value, `--`, `---foo`, `--=x`, `-ZZ`, `-vv`,
+  `-gO`, non-ASCII options, `--version=foo`. `bun test src/vendor/getopts src/rustc_driver_impl`: 108 pass, 0 todo.
+- **`-Z`/`-C`**: `-Zunpretty` forms (repeated: last wins; no value; empty; bogus), `-Zui-testing=yes|no|...`,
+  `-Zparse-crate-root-only`, `-Ztreat-err-as-bug` (101, prefix ok), `-Zdeduplicate-diagnostics=no`, `-Zteach`,
+  `-Zmacro-backtrace`, ~50 more value/validation errors in `build_session_options`.
+- **Lints / names / formats**: `-W/-A/-D/-F/--force-warn` incl. unknown names, `-Dwarnings`, `--cap-lints`, `-Wall`;
+  `--crate-name` valid/`a-b`/empty/`é` and vs `#![crate_name]`; `--error-format=short|human|human-unicode|
+  human-annotate-rs|bogus`, `--json=*`, `--color=always|never|auto|x`, `CLICOLOR_FORCE`/`NO_COLOR`/`TERM=dumb`.
+- **Exit codes and dcx drops**: 0/1 everywhere tested, 101 on ICE, 70 only after a correct output prefix (~20 cases).
+  `run_compiler` (interface.ts:233-284) follows interface.rs:500-536 in order: `catch_unwind` → `finish_diagnostics`
+  → `abort_if_errors` (drop on unwind) → `flush_delayed` → `resume_unwind` (drop) / `drop_compiler_dcx`; I re-read
+  both. Warning/error totals (`1 warning emitted`, `aborting due to 2 previous errors; 2 warnings emitted`) and stashed
+  parser diagnostics flushed at finish match; buffered lints are dropped silently in both.
+- **`--version`/`-vV`**: `-V`, `-vV`, `-V -v`, `-v -V`, `--version --verbose`, `RUSTC_OVERRIDE_VERSION_STRING`, with
+  `--target`/`--sysroot`; `-v` alone. Help ordering (`-Zhelp`/`-Chelp`/`--help` combinations).
+- **Inputs**: `@argfile` (plain, no final newline, CRLF, blank line, nested `@` literal, non-UTF-8 → `UTF-8 error`,
+  empty, `@shell:` without `-Zshell-argfiles`), `-o`, `-o -`, `--out-dir`, `--emit=...=-`, editions incl. `future`,
+  `RUSTC_BOOTSTRAP`, `--extern` forms, empty / BOM-only / shebang files, `RUST_MIN_STACK` errors.
+- **Session stand-ins**: values match upstream defaults; target-derived fields are deferred (`defer_field`/Proxy),
+  not guessed.
+
+### Findings
+1. **high**: session.ts:876 `validate_commandline_args_with_session_available` is an empty stub, so flags rustc rejects
+   are accepted silently. Its PORT note admits it. Upstream session.rs:1545.
+   - **Repro:** `echo 'fn main() {}' > ok.rs; rustc +nightly -Zunpretty=ast-tree -Cdwarf-version=7 ok.rs` → rc 1,
+     `error: requested DWARF version 7 is not supported`; rust-ts → rc 0, no error. Same for `-Zregparm=5` (I re-ran
+     both), and per the sub-reviewer `-Cprofile-use=/nonexistent.profdata`, `-Cprofile-sample-use=...`,
+     `-Zsanitizer=memory|kcfi`, `-Zsanitizer-cfi-canonical-jump-tables=no`, `-Zvirtual-function-elimination`,
+     `-Zreg-struct-return`, `-Zpacked-stack`, `-Zfunction-return=thunk-extern`; `-Zembed-source` and
+     `-Zsmall-data-threshold=4` lose a warning.
+   - **Fix:** port the checks that read only `opts` (profile paths `exists()`, dwarf_version, regparm > 3); for every
+     other check, `unported(...)` when the flag it reads is non-default. The `split_debuginfo()` check also runs with
+     default flags: cover it for the stand-in tuples or call `unported`.
+2. **high**: the codegen-backend steps are skipped silently for non-default flags: interface.ts:204-227
+   (`target_config`, `check_abi_required_features` as comments) and stand_ins.ts `LlvmCodegenBackend.init`. Upstream
+   interface.rs:451-489, util.rs:95.
+   - **Repro:** `-Zunpretty=ast-tree -Cllvm-args=-bogus ok.rs`: rustc rc 1 (LLVM `Unknown command line argument`, no
+     AST); rust-ts rc 0 and prints the AST (re-ran). `-Ctarget-feature=+bogus` (re-ran), `-Ctarget-feature=-neon`,
+     `-Ctarget-cpu=bogus`, `-Zretpoline`: rustc warns, rust-ts is silent.
+   - **Fix:** `unported(...)` when `cg.target_feature`, `cg.target_cpu`, `cg.llvm_args`, `unstable_opts.llvm_plugins`
+     or any other LLVM-init input is non-default.
+3. **high**: args.ts:113 decodes argfiles with `new TextDecoder()`, which strips a UTF-8 BOM, and args.ts:118
+   `str_lines` strips a final `\r` with no `\n` after it. Rust's `read_to_string` keeps U+FEFF and `str::lines` strips
+   `\r` only before `\n`. Upstream args.rs:83, :26.
+   - **Repro:** `printf '\xef\xbb\xbf-Zunpretty=ast-tree\nok.rs\n' > bom.txt`, then `@bom.txt`: rustc rc 1
+     (`multiple input filenames provided (first two filenames are `\u{feff}-Zunpretty=ast-tree` and `ok.rs`)`);
+     rust-ts rc 0 + AST. `printf -- '-Zunpretty=ast-tree\nok.rs\r' > cr.txt`, `@cr.txt`: rustc rc 1 (`couldn't find
+     file`), rust-ts rc 0. Both re-ran.
+   - **Fix:** `new TextDecoder("utf-8", { ignoreBOM: true })`; a std `str_lines` with Rust's exact semantics.
+     (src/rustc_parse/lib.ts:240 has the same BOM-stripping decoder on a path unreachable today.)
+4. **high**: non-UTF-8 argv. Bun decodes invalid bytes to U+FFFD, so args.ts:153 `raw_args` carries on with a
+   different file name (its PORT note says decoded argv never holds invalid Unicode). Upstream args.rs:119, lib.rs:1468.
+   - **Repro:** `cp ok.rs $'\xef\xbf\xbd.rs'; rustc +nightly -Zunpretty=ast-tree $'\xff.rs'`: rustc rc 101 (panic in
+     `std::env::args`; rc 1 `argument 2 is not valid Unicode` with `RUST_BACKTRACE` set); rust-ts rc 0 + AST of the
+     U+FFFD file (re-ran).
+   - **Fix:** JS cannot recover the bytes: `unported("non-UTF-8 argv")` when an argument contains U+FFFD; fix the note.
+5. **med (process; root cause of 1-2)**: handoff decision 4 ("steps not run" because they report nothing with
+   default flags) should be rejected as written: every skipped step must call `unported` when any input it reads is
+   non-default.
+6. **med**: config.ts:1436 `CFG_COMPILER_HOST_TRIPLE` is derived from `process.platform/arch` (a guess: x64 Bun under
+   Rosetta, musl, windows-gnu all differ), and an unlisted host is an ICE (101) via `unwrap`, not `unported`.
+   **Fix:** read the host from the pinned oracle (record `rustc -vV` host in UPSTREAM.json or `.env.local`).
+7. **med (queue)**: `--cfg`/`--check-cfg` are still unported (`-Zunpretty=ast-tree --cfg foo ok.rs`: rc 0/70, re-ran),
+   but their blocker, the parser, has landed. compiletest passes `--cfg <revision>` for every revisioned test, so the
+   harness-w7 `parse-ui` suite needs it. `parse_cfg` only needs `new_parser_from_source_str` + `parse_meta_item`.
+8. **med (queue)**: the most common user error paths end in honest `unported` inside `std::io::Error`: a missing
+   input file (`nonexist.rs`: rc 1/70, re-ran), a missing argfile, `-o` write errors, a directory or unreadable input.
+   src/std/io.ts needs ENOENT/EACCES/EISDIR kinds and the strerror texts.
+9. **med (queue)**: `--error-format=json`/`pretty-json` (session.ts:710, :946, `JsonEmitter`) and stdin `-`
+   (lib.ts:266) are honest `unported`; compiletest drives ui tests with JSON, so no ui-style comparison can run
+   through rust-ts until `JsonEmitter` lands.
+10. **med (latent)**: the placeholder sysroot gives `None` for `real_rustc_dev_source_base_dir`; the oracle toolchain
+    has rustc-dev, so rustc has `Some(..)`. Not visible at parse. Make `Sysroot::default` the oracle's or `unported`.
+11. **low**: broken pipe: `rustc -Zhelp | head -1` exits 141 (rustc uses `-Zon-broken-pipe=kill`); rust-ts exits 1
+    (print.ts:18, config.ts:80 `write_fd` turn EPIPE into `FatalError`). **Fix:** exit via SIGPIPE/141 on EPIPE.
+12. **low**: marker order: config.ts:3272 `is_nightly_build` (config.rs:3211) after `check_nightly_options` (3215);
+    session.ts:652 `as_usize` (session.rs:590) after `sanitizers` (1263).
+13. **low (latent)**: the `EarlyDiagCtxt` drops of `main`, `compiler_entrypoint`'s early returns and the two inside
+    `run_compiler` are not modelled. Nothing is pending on them today.
+14. **low**: non-unwind JS errors (`TypeError`, `RangeError`; see batch 1 finding 1) inside `run_compiler`'s `f` skip
+    `finish_diagnostics` and the dcx drop, where rustc's `catch_unwind` would print `aborting due to N previous
+    errors` before the ICE. The ICE text (`install_ice_hook`/`report_ice`, `rustc-ice-*.txt`) is not ported and
+    has no `unported` call; acceptable because 101 is compared by code, but root should record it.
+15. **low**: `RUSTC_LOG=` (set but empty) exits 70, where upstream installs an empty filter (lib.ts:778). Honest.
+16. **low**: `-Zcodegen-backend=dummy` is unported (util.ts); `DummyCodegenBackend` is ~10 lines.
+17. **low**: the handoff is stale (`pending_parser.ts`, "every sampled case stops at the parser shim", 9 todos, the
+    "35 exact matches" list). Root should mark it historical or refresh it.
+
 ## Batch 6: unicode-width-str (vendor unicode-width 0.2.2): **ACCEPT** (one med test-timeout fix)
 
 - **Version.** upstream Cargo.lock has unicode-width 0.1.14 and 0.2.2. 0.1.14 is used only by rustfmt, papergrid and
@@ -170,3 +295,28 @@ Checked line by line, all 88 fns, matching upstream:
 3. **low (decision)**: the tables are generated from the crate's own tables.rs (validated by the probe), not "from the
    oracle" as PORTING §6 says. Reasonable; root should record it.
 
+## Summary for root
+
+| Batch | Verdict | Blocking fixes |
+|---|---|---|
+| parser-expr | ACCEPT | none in expr.rs logic; high 1 (JS stack depth) is a runtime/driver item, see below |
+| parser-item | ACCEPT | none (1 low) |
+| parser-diag | ACCEPT | none (2 low) |
+| parser-tests | ACCEPT | none (5 low) |
+| driver-session | ACCEPT-WITH-FIXES | high 1-4 (unported guards for skipped validation/LLVM-init steps, argfile BOM/`\r`, non-UTF-8 argv), med 5 (reject decision 4 as written), med 6 (host tuple) |
+| unicode-width-str | ACCEPT | med 1 (test timeouts) before the next gate on a loaded host |
+
+No `unported(...)` path in these six batches is replaced by a guessed value, except the driver stubs named in
+batch 5 findings 1, 2 and 6. The parser itself held up to everything thrown at it beyond tests/ui (≈8,000 fuzzed and
+≈1,100 hand-written inputs, all editions, five diagnostic-format variants): the only parser-side divergence is the JS
+stack depth.
+
+Suggested queue / decision records:
+1. **Stack depth** (batch 1 finding 1): run the compiler on a larger JS stack, sized to reach rustc's depth (parens
+   >= 6,000, nested `mod` >= 5,000), before or with fmt-perf (whose deep-nesting cases will hit it next); or record a
+   depth limit and make the harness report `RangeError: Maximum call stack` as its own class.
+2. `--cfg`/`--check-cfg`, io::Error kinds (missing input file) and `JsonEmitter` ahead of the harness-w7 `parse-ui`
+   suite (batch 5 findings 7-9).
+3. PORTING §8: never use a `SnapshotParser` after `restore_snapshot` (batch 3 finding 1).
+4. Record: unicode tables are generated from the crate's tables.rs and validated by the probe (batch 6 finding 3).
+5. A `--check` regenerator for the parser oracle fixtures (batch 4 finding 4).
