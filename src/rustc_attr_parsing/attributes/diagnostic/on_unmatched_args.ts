@@ -1,7 +1,57 @@
-// STUB for compiler/rustc_attr_parsing/src/attributes/diagnostic/on_unmatched_args.rs (owned by lane attr-parse-b).
-// Created by lane attr-parse-a: the parser types that `ATTRIBUTE_PARSERS` (context.rs) names, as
-// `unported_impl` trait tables (any use reaches `Unported`); no markers. attr-parse-b replaces each
-// one with the real trait table under the same name (docs/handoff/attr-parse-a.md).
-import { type ErasedAttributeParser, unported_impl } from "../mod.ts";
+// Port of compiler/rustc_attr_parsing/src/attributes/diagnostic/on_unmatched_args.rs
+import type { diagnostic } from "../../../rustc_attr_ir/lib.ts";
+import { AttributeStability } from "../../../rustc_feature/lib.ts";
+import { field_mut } from "../../../std/mut_ref.ts";
+import { AttributeParser_provided } from "../mod.ts";
+import { Allow, type AttributeParser, type Span, sym, Target, template } from "../prelude.ts";
+import { gate_diagnostic_attr, merge_directives, Mode, parse_directive_items, parse_list } from "./mod.ts";
 
-export const OnUnmatchedArgsParser: ErasedAttributeParser = unported_impl("rustc_attr_parsing::attributes::diagnostic::on_unmatched_args::OnUnmatchedArgsParser");
+type Directive = diagnostic.Directive;
+
+/** `#[derive(Default)] pub(crate) struct OnUnmatchedArgsParser` */
+export interface OnUnmatchedArgsParser {
+  span: Span | undefined;
+  directive: [Span, Directive] | undefined;
+}
+
+export const OnUnmatchedArgsParser: AttributeParser<OnUnmatchedArgsParser> = {
+  ...AttributeParser_provided,
+  default: () => ({ span: undefined, directive: undefined }),
+  ATTRIBUTES: [
+    [
+      [sym.diagnostic, sym.on_unmatched_args],
+      template({ List: [`/*opt*/ message = "...", /*opt*/ label = "...", /*opt*/ note = "..."`] }),
+      AttributeStability.Stable, // Unstable, stability checked manually below
+      (this_, cx, args) => {
+        if (gate_diagnostic_attr(cx, args, "diagnostic_on_unmatched_args")) return;
+
+        const span = cx.attr_span;
+        this_.span = span;
+
+        const mode = Mode.DiagnosticOnUnmatchedArgs;
+        const items = parse_list(cx, args, mode);
+        if (items === undefined) return;
+
+        const directive = parse_directive_items(cx, mode, items.mixed(), true);
+        if (directive === undefined) {
+          return;
+        }
+        merge_directives(cx, field_mut(this_, "directive"), [span, directive]);
+      },
+    ],
+  ],
+
+  ALLOWED_TARGETS: { $: "AllowListWarnRest", _0: [Allow(Target.MacroDef)] },
+
+  // rustc: compiler/rustc_attr_parsing/src/attributes/diagnostic/on_unmatched_args.rs:37 finalize
+  finalize(self, _cx) {
+    if (self.span !== undefined) {
+      return {
+        $: "OnUnmatchedArgs",
+        directive: self.directive === undefined ? undefined : self.directive[1],
+      };
+    } else {
+      return undefined;
+    }
+  },
+};
