@@ -1,0 +1,20 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (lane rmeta-decoder-a): runs the pinned nightly's own `rustc_driver` up to
+# `after_expansion` and prints, through the oracle's queries (which call its `CrateMetadata` decoder),
+# per-DefIndex data of a few sysroot crates (`def_kind`, `visibility`, `def_span`, `expn_that_defined`,
+# item names / def paths, `default_field`) and some crate-level arrays.
+[package]
+name = "rmetadefs"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "rmetadefs"
+path = "@SRC@/main.rs"
+
+[workspace]
