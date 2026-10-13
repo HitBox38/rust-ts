@@ -2,7 +2,7 @@
 // `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
-import { decode_Res } from "../rustc_hir/def.gen.ts";
+import { decode_Res } from "../rustc_hir/def.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
 import { Visibility } from "./ty/mod.ts";

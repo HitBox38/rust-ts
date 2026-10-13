@@ -7,8 +7,7 @@ import { clone_DiffActivity, debug_DiffActivity, debug_DiffMode, decode_DiffActi
 import { clone_TypeTree, debug_TypeTree, decode_TypeTree, type TypeTree } from "../rustc_ast/expand/typetree.ts";
 import { type AttrStyle, clone_Path, debug_AttrStyle, debug_Path, decode_AttrStyle, decode_Path, type Path } from "../rustc_ast/lib.ts";
 import { clone_DocFragmentKind, debug_DocFragmentKind, decode_DocFragmentKind, type DocFragmentKind } from "../rustc_ast/token.ts";
-import { decode_IntTy, decode_UintTy } from "../rustc_ast_ir/lib.gen.ts";
-import { debug_IntTy, debug_UintTy, type IntTy, type UintTy } from "../rustc_ast_ir/lib.ts";
+import { debug_IntTy, debug_UintTy, decode_IntTy, decode_UintTy, type IntTy, type UintTy } from "../rustc_ast_ir/lib.ts";
 import { type Printer } from "../rustc_ast_pretty/pp.ts";
 import { clone_Directive, debug_Directive, decode_Directive, type Directive, print_attribute_Directive } from "./diagnostic.ts";
 import { debug_LangItem, decode_LangItem, type LangItem, print_attribute_LangItem } from "./lang_items.ts";
