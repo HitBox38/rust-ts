@@ -129,7 +129,7 @@ import type {
   NameResolutionRef,
   UnresolvedImportError,
 } from "./imports.gen.ts";
-import type { ItemInfoCollector } from "./late.ts";
+import type { ItemInfoCollector, PatternBindings } from "./late.ts";
 import type {
   AnonConstKind,
   BindingInfo,
@@ -146,7 +146,6 @@ import type {
   MaybeExported,
   NoConstantGenericsReason,
   PathSource,
-  PatternBindings,
   PatternSource,
   RecordPartialRes,
   Rib,
@@ -1064,6 +1063,9 @@ export class LateResolutionVisitor extends visit.Visitor {
   ) {
     super();
   }
+
+  // late.rs:1581 new (assigned in late.ts)
+  declare static new: (resolver: Resolver) => LateResolutionVisitor;
 }
 export interface LateResolutionVisitor {
   // ---- compiler/rustc_resolve/src/late.rs ----
