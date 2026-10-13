@@ -4,10 +4,13 @@
 import type { DiagCtxt } from "../rustc_errors/lib.ts";
 import { while_unwinding } from "../std/panic.ts";
 import { main } from "../rustc_driver_impl/lib.ts";
+import { set_args_os } from "../std/env.ts";
 
 /** `rustc <args>`: returns the process exit code. */
 export function run_compiler(args: string[]): number {
-  return main(["rustc", ...args]);
+  const enc = new TextEncoder();
+  set_args_os(["rustc", ...args].map((a) => enc.encode(a)));
+  return main();
 }
 
 /**

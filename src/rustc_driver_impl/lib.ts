@@ -35,10 +35,15 @@ import { EarlyDiagCtxt, type Session } from "../rustc_session/session.ts";
 import type { TimePassesFormat } from "../rustc_session/stand_ins.ts";
 import { UnstableFeatures } from "../rustc_feature/lib.ts";
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
-import { unported } from "../std/panic.ts";
+import * as env from "../std/env.ts";
+import { panic, unported } from "../std/panic.ts";
+import { from_utf8 } from "../std/str.ts";
+import { FileName } from "../rustc_span/lib.ts";
+import { readFileSync } from "node:fs";
 import * as getopts from "../vendor/getopts/lib.ts";
 import { arg_expand_all, raw_args } from "./args.ts";
 import * as pretty from "./pretty.ts";
+import * as signal_handler from "./signal_handler.ts";
 import { safe_println } from "./print.ts";
 
 export * as args from "./args.ts";
@@ -262,8 +267,26 @@ function make_input(early_dcx: EarlyDiagCtxt, free_matches: readonly string[]): 
     return undefined; // no input: we will exit early,
   } else if (free_matches.length === 1 && free_matches[0] === "-") {
     // read from stdin as `Input::Str`
-    // `io::stdin().read_to_string(&mut input)`, `UNSTABLE_RUSTDOC_TEST_PATH`, `FileName::anon_source_code`
-    return unported("rustc_driver_impl::make_input (reading the crate from stdin)");
+    const input = stdin_read_to_string();
+    if (input === undefined) {
+      // Immediately stop compilation if there was an issue reading
+      // the input (for example if the input stream is not UTF-8).
+      early_dcx.early_fatal("couldn't read from stdin, as it did not contain valid UTF-8");
+    }
+
+    const path = env_var("UNSTABLE_RUSTDOC_TEST_PATH");
+    if (path.$ === "Ok") {
+      const line_r = env_var("UNSTABLE_RUSTDOC_TEST_LINE");
+      if (line_r.$ === "Err") {
+        panic(`when UNSTABLE_RUSTDOC_TEST_PATH is set UNSTABLE_RUSTDOC_TEST_LINE also needs to be set: ${line_r._0}`);
+      }
+      const line = parse_isize(line_r._0);
+      if (line.$ === "Err") panic(`UNSTABLE_RUSTDOC_TEST_LINE needs to be a number: ParseIntError { kind: ${line._0} }`);
+      return { $: "DocTestStr", file: path._0, line: line._0, input };
+    } else {
+      const name = FileName.anon_source_code(input);
+      return { $: "Str", name, input };
+    }
   } else if (free_matches.length === 1) {
     return { $: "File", _0: free_matches[0]! };
   } else {
@@ -271,6 +294,45 @@ function make_input(early_dcx: EarlyDiagCtxt, free_matches: readonly string[]): 
       `multiple input filenames provided (first two filenames are \`${free_matches[0]}\` and \`${free_matches[1]}\`)`,
     );
   }
+}
+
+/** `io::stdin().read_to_string(&mut input)`: `undefined` when it is an `Err` (invalid UTF-8 or a
+ *  read error). PORT: a closed stdin (EBADF) reads as empty, as std's `handle_ebadf` does. */
+function stdin_read_to_string(): string | undefined {
+  let bytes: Uint8Array;
+  try {
+    bytes = readFileSync(0);
+  } catch (e) {
+    if ((e as { code?: string }).code === "EBADF") return "";
+    return undefined;
+  }
+  const r = from_utf8(bytes);
+  return r.$ === "Ok" ? r._0 : undefined;
+}
+
+/** `env::var(key)`: `Err` carries the `VarError` Debug (`NotPresent`; `NotUnicode(..)` cannot be
+ *  told apart in JS, see src/std/env.ts). */
+function env_var(key: string): { $: "Ok"; _0: string } | { $: "Err"; _0: string } {
+  const v = process.env[key];
+  return v === undefined ? { $: "Err", _0: "NotPresent" } : { $: "Ok", _0: v };
+}
+
+/** `str::parse::<isize>()` (64-bit): the value, or the `IntErrorKind` name. */
+function parse_isize(s: string): { $: "Ok"; _0: number } | { $: "Err"; _0: string } {
+  if (s === "") return { $: "Err", _0: "Empty" };
+  let digits = s;
+  let neg = false;
+  if (s[0] === "+" || s[0] === "-") {
+    neg = s[0] === "-";
+    digits = s.slice(1);
+    if (digits === "") return { $: "Err", _0: "InvalidDigit" };
+  }
+  if (!/^[0-9]+$/.test(digits)) return { $: "Err", _0: "InvalidDigit" };
+  const v = neg ? -BigInt(digits) : BigInt(digits);
+  if (v > 0x7fff_ffff_ffff_ffffn) return { $: "Err", _0: "PosOverflow" };
+  if (v < -0x8000_0000_0000_0000n) return { $: "Err", _0: "NegOverflow" };
+  // PORT: `isize` line numbers beyond 2^53 lose precision (a doctest line number never gets there).
+  return { $: "Ok", _0: Number(v) };
 }
 
 /// Whether to stop or continue compilation.
@@ -764,9 +826,42 @@ function path_push(base: PathBuf, name: string): PathBuf {
 /** `pub static USING_INTERNAL_FEATURES: AtomicBool` */
 export const USING_INTERNAL_FEATURES: { value: boolean } = { value: false };
 
-// `install_ice_hook` (lib.rs:1459), `report_ice` (lib.rs:1538): not ported. PORT: an ICE (uncaught
-// `Panic`) is reported by src/rust_ts/main.ts (exit 101); the upstream report embeds the Rust panic
-// location and backtrace, which rust-ts cannot reproduce.
+/// Installs a panic hook that will print the ICE message on unexpected panics.
+///
+/// The hook is intended to be useable even by external tools. You can pass a custom
+/// `bug_report_url`, or report arbitrary info in `extra_info`. Note that `extra_info` is called in
+/// a context where *the thread is currently panicking*, so it must not panic or the process will
+/// abort.
+///
+/// If you have no extra info to report, pass the empty closure `|_| ()` as the argument to
+/// extra_info.
+///
+/// A custom rustc driver can skip calling this to set up a custom ICE hook.
+// rustc: compiler/rustc_driver_impl/src/lib.rs:1459 install_ice_hook
+export function install_ice_hook(_bug_report_url: string, _extra_info: unknown): void {
+  // If the user has not explicitly overridden "RUST_BACKTRACE", then produce
+  // full backtraces. When a compiler ICE happens, we want to gather
+  // as much information as possible to present in the issue opened
+  // by the user. Compiler developers and other rustc users can
+  // opt in to less-verbose backtraces by manually setting "RUST_BACKTRACE"
+  // (e.g. `RUST_BACKTRACE=1`)
+  if (process.env.RUST_BACKTRACE === undefined) {
+    // HACK: this check is extremely dumb, but we don't really need it to be smarter since this should only happen in the test suite anyway.
+    // PORT: `std::env::args()` panics on a non-Unicode argument (before the hook below exists), which
+    // is how rustc reacts to one when `RUST_BACKTRACE` is unset.
+    const ui_testing = env.args().some((arg) => arg === "-Zui-testing");
+    // PORT: `panic::set_backtrace_style(Short | Full)` has no observable counterpart: rust-ts prints
+    // no Rust backtraces.
+    void (CFG_RELEASE_CHANNEL === "dev" && !ui_testing);
+  }
+
+  // `panic::update_hook(..)` with `report_ice` (lib.rs:1538): PORT: not ported. An ICE (uncaught
+  // `Panic`) is reported by src/rust_ts/main.ts (exit 101); the upstream report embeds the Rust panic
+  // location and backtrace, which rust-ts cannot reproduce.
+}
+
+/** `env!("CFG_RELEASE_CHANNEL")` of the oracle toolchain. */
+const CFG_RELEASE_CHANNEL: string = "nightly";
 
 /// This allows tools to enable rust logging without having to magically match rustc's
 /// tracing crate version.
@@ -787,19 +882,19 @@ export function init_rustc_env_logger(_early_dcx: EarlyDiagCtxt): void {
 // PORT: not ported (no marker): `ctrlc` + rustc_const_eval; the default SIGINT behaviour applies.
 
 // rustc: compiler/rustc_driver_impl/src/lib.rs:1677 main
-export function main(args_os: readonly string[]): number {
+export function main(): number {
   // let start_time = Instant::now();
   // let start_rss = get_resident_set_size();
 
   const early_dcx = EarlyDiagCtxt.new(ErrorOutputType.default());
 
   init_rustc_env_logger(early_dcx);
-  // `signal_handler::install()`: PORT: not ported (prints a backtrace on stack overflow; Unix only).
+  signal_handler.install();
   const callbacks = TimePassesCallbacks.default();
-  // `install_ice_hook(DEFAULT_BUG_REPORT_URL, |_| ())`: see above.
+  install_ice_hook(DEFAULT_BUG_REPORT_URL, () => {});
   // `install_ctrlc_handler()`: see above.
 
-  const exit_code = catch_with_exit_code(() => compiler_entrypoint(raw_args(early_dcx, args_os), callbacks));
+  const exit_code = catch_with_exit_code(() => compiler_entrypoint(raw_args(early_dcx), callbacks));
 
   if (callbacks.time_passes !== undefined) {
     // `print_time_passes_entry("total", start_time.elapsed(), start_rss, end_rss, format)`
