@@ -791,6 +791,15 @@ export class Session {
     return this.opts.cg.dwarf_version ?? this.opts.unstable_opts.dwarf_version ?? this.target.default_dwarf_version;
   }
 
+  // rustc: compiler/rustc_session/src/session.rs:1112 stack_protector
+  stack_protector(): target_spec.StackProtector {
+    if (this.target.options.supports_stack_protector) {
+      return this.opts.unstable_opts.stack_protector;
+    } else {
+      return "None";
+    }
+  }
+
   /// Returns the number of codegen units that should be used for this
   /// compilation
   // rustc: compiler/rustc_session/src/session.rs:1183 codegen_units

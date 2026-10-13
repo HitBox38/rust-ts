@@ -40,6 +40,7 @@ import type { Features } from "../rustc_feature/unstable.ts";
 import { Definitions } from "../rustc_hir_id/definitions.ts";
 import type { RegisteredTools } from "../rustc_lint_defs/lib.ts";
 import * as rustc_lint from "../rustc_lint/lib.ts";
+import { creader } from "../rustc_metadata/lib.ts";
 import type { EarlyCheckNode, LintStore } from "../rustc_lint/lib.ts";
 import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
 import { clone_Providers as clone_HookProviders, Providers_default as HookProviders_default } from "../rustc_middle/hooks.ts";
@@ -303,7 +304,7 @@ function configure_and_expand(krate: Crate, pre_configured_attrs: readonly Attri
 
   resolver.resolve_crate(krate);
 
-  CStore_from_tcx(tcx).report_session_incompatibilities(tcx, krate);
+  creader.CStore.from_tcx(tcx).report_session_incompatibilities(tcx, krate);
   return krate;
 }
 
@@ -883,9 +884,8 @@ export function write_interface(tcx: TyCtxt): void {
 // ---- create_and_enter_global_ctxt (passes.rs:894-1074) and its helpers ------------------------------------
 //
 // PORT: steps whose crates are not ported yet are local stand-ins that call `unported` unless their input
-// makes them trivially empty: `rustc_metadata::CStore::new` (wave 11), `rustc_incremental::{setup_dep_graph,
-// load_query_result_cache, provide}` (no incremental, D3), and the providers of the crates listed in
-// `DEFAULT_QUERY_PROVIDERS`.
+// makes them trivially empty: `rustc_incremental::{setup_dep_graph, load_query_result_cache,
+// provide}` (no incremental, D3), and the providers of the crates listed in `DEFAULT_QUERY_PROVIDERS`.
 
 /** `rustc_incremental::setup_dep_graph` (persist/load.rs:180): no incremental compilation (D3). */
 function setup_dep_graph(sess: Session, _crate_name: Symbol, _stable_crate_id: StableCrateId): [DepGraph, undefined] {
@@ -893,12 +893,6 @@ function setup_dep_graph(sess: Session, _crate_name: Symbol, _stable_crate_id: S
     return [DepGraph.new_disabled(), undefined];
   }
   return unported("rustc_incremental::setup_dep_graph (-C incremental; D3)");
-}
-
-/** `rustc_metadata::CStore::new(metadata_loader)` (cstore_impl): pending wave 11 (cstore). */
-function cstore_new(): CrateStore {
-  const no = (): never => unported("rustc_metadata::creader::CStore (wave 11)");
-  return { debug: no, as_any: no, untracked_as_any: no, def_key: no, def_path: no, def_path_hash: no, crate_name: no, stable_crate_id: no };
 }
 
 /**
@@ -965,7 +959,7 @@ export function create_and_enter_global_ctxt<T>(compiler: Compiler, krate: Crate
   const [dep_graph, incr_comp_session] = setup_dep_graph(sess, crate_name, stable_crate_id);
 
   // PORT: `FreezeLock`s are their inner values (PORTING §5).
-  const cstore = cstore_new();
+  const cstore: CrateStore = creader.CStore.new(compiler.codegen_backend.metadata_loader());
   const definitions = Definitions.new(stable_crate_id);
 
   const stable_crate_ids: StableCrateIdMap = new Map();
@@ -1205,11 +1199,6 @@ function clone_MiddleProviders(p: MiddleProviders): MiddleProviders {
  */
 function rustc_passes_provide(providers: QueryProviders): void {
   providers.debugger_visualizers = () => unported("rustc_passes::debugger_visualizer::debugger_visualizers (HIR, M3)");
-}
-
-/** `rustc_metadata::creader::CStore::from_tcx` + `report_session_incompatibilities` (creader.rs:200, :452). PORT: pending wave 11 (cstore/creader). */
-function CStore_from_tcx(_tcx: TyCtxt): { report_session_incompatibilities(tcx: TyCtxt, krate: Crate): void } {
-  return unported("rustc_metadata::creader::CStore::from_tcx (report_session_incompatibilities; pending wave 11 creader)");
 }
 
 /** `rustc_passes::input_stats::print_ast_stats` (input_stats.rs:71). PORT: no lane yet (-Zinput-stats). */

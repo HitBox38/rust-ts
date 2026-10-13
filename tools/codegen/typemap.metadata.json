@@ -1,0 +1,12 @@
+{
+  "//": [
+    "Type-map additions of lane creader (set rustc_metadata: diagnostics.rs), merged after typemap.json by",
+    "tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_target::spec::PanicStrategy"], "ts": "PanicStrategy", "import": "src/rustc_target/spec/mod.ts", "types": ["PanicStrategy"], "debug": "$v", "clone": "copy", "note": "fieldless enum (string union); Debug is the variant name" },
+    { "paths": ["rustc_metadata::locator::CrateFlavor"], "ts": "CrateFlavor", "import": "src/rustc_metadata/locator.ts", "types": ["CrateFlavor"], "debug": "$v", "clone": "copy", "note": "fieldless enum (string union) in the locator stub; Debug is the variant name" }
+  ]
+}

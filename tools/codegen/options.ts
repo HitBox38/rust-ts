@@ -1427,7 +1427,11 @@ function genMitigation(): Map<string, string> {
   const l = header(path, "denied_partial_mitigations! expansion");
   l.push('import { type Edition, Edition_discriminant } from "../../rustc_span/edition.ts";');
   l.push('import type { Debug } from "../../std/fmt.ts";');
-  l.push('import { unported } from "../../std/panic.ts";');
+  // `$code` of each mitigation -> [`From::from` impl, TS expression] (MITIGATION_LEVEL_CODE); any other
+  // expression keeps the `unported` body.
+  const levels = ms.map((m) => MITIGATION_LEVEL_CODE[m.code.replace(/\s+/g, "")]);
+  const allLevels = levels.every((x) => x !== undefined);
+  if (!allLevels) l.push('import { unported } from "../../std/panic.ts";');
   l.push('import { Err, Ok, type Result } from "../../std/result.ts";');
   l.push('import type { Session } from "../lib.ts";');
   l.push('import type { Options } from "../options.gen.ts";');
@@ -1498,13 +1502,41 @@ function genMitigation(): Map<string, string> {
   l.push("");
   l.push("/** `impl Session` */");
   l.push(marker(path, line("gather_enabled_denied_partial_mitigations"), "gather_enabled_denied_partial_mitigations"));
-  l.push("export function gather_enabled_denied_partial_mitigations(_self: Session): DeniedPartialMitigation[] {");
-  l.push("  // PORT: the levels are Session expressions (session.rs is not ported):");
-  for (const m of ms) l.push(`  //   ${m.name}: ${m.code}`);
-  l.push('  return unported("rustc_session::Session::gather_enabled_denied_partial_mitigations");');
-  l.push("}");
+  if (allLevels) {
+    l.push("export function gather_enabled_denied_partial_mitigations(self: Session): DeniedPartialMitigation[] {");
+    l.push("  const mitigations: DeniedPartialMitigation[] = [");
+    ms.forEach((m, i) => {
+      const [variant, expr] = levels[i]!;
+      l.push("    {");
+      l.push(`      kind: ${lit(m.name)},`);
+      l.push(`      level: { $: ${lit(variant)}, _0: ${expr} },`);
+      l.push("    },");
+    });
+    l.push("  ];");
+    l.push("  // PORT: derived `Ord` of `DeniedPartialMitigation` (kind, then level); every kind occurs once here.");
+    l.push(`  mitigations.sort((a, b) => ${kind}_discriminant[a.kind] - ${kind}_discriminant[b.kind]);`);
+    l.push("  return mitigations;");
+    l.push("}");
+  } else {
+    l.push("export function gather_enabled_denied_partial_mitigations(_self: Session): DeniedPartialMitigation[] {");
+    l.push("  // PORT: the levels are Session expressions without a translation in MITIGATION_LEVEL_CODE:");
+    for (const m of ms) l.push(`  //   ${m.name}: ${m.code}`);
+    l.push('  return unported("rustc_session::Session::gather_enabled_denied_partial_mitigations");');
+    l.push("}");
+  }
   return new Map([[OUT_MITIGATION, l.join("\n") + "\n"]]);
 }
+
+/**
+ * `denied_partial_mitigations!` `$code` expressions (whitespace removed) -> [the `DeniedPartialMitigationLevel`
+ * variant its `From::from` impl builds (`From<StackProtector>` / `From<bool>`, mitigation_coverage.rs), the TS
+ * expression]. The variant is written as an object literal: importing mitigation_coverage.ts here would evaluate
+ * it before options.ts (load order, see options.ts).
+ */
+const MITIGATION_LEVEL_CODE: Record<string, [string, string]> = {
+  "self.stack_protector()": ["StackProtector", "self.stack_protector()"],
+  "self.opts.cg.control_flow_guard==CFGuard::Checks": ["Enabled", 'self.opts.cg.control_flow_guard === "Checks"'],
+};
 
 /** Output path (relative to the repo) -> text. Throws `GenError` on malformed input. */
 export function generate(): Map<string, string> {

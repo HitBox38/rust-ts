@@ -104,8 +104,8 @@ const MATCH: string[][] = [
   ]),
 ];
 
-/** Continue into name resolution: the port stops at crate metadata (CStore, wave 11). */
-const PENDING_AT = "rustc_metadata::creader::CStore::from_tcx (wave 11)";
+/** Continue into name resolution: the port stops at late resolution (lanes res-late-a/-b). */
+const PENDING_AT = "rustc_resolve::late::Resolver::late_resolve_crate";
 const PENDING: string[][] = [
   ["--crate-name", "héllo", ...NOCORE, U, "a.rs"],
   ["--crate-name", "٣x", ...NOCORE, U, "a.rs"],
