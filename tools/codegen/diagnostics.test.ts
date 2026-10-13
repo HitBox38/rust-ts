@@ -16,10 +16,10 @@ import { generate, loadSet, loadTypeMap, type PFile, type PItem, type ProbeJson,
 const fixture = (name: string): ProbeJson => JSON.parse(readFileSync(join(import.meta.dir, "fixtures", name), "utf8"));
 const haveUpstream = existsSync(join(UPSTREAM, "compiler/rustc_span/src/edition.rs"));
 
-test("generated derive impls equal the rustc_macros expansion (rustc_parse, rustc_session)", () => {
+test("generated derive impls equal the rustc_macros expansion (rustc_parse, rustc_session, rustc_attr_parsing)", () => {
   const expansion: Record<string, ExpandedImpl[]> = JSON.parse(readFileSync(FIXTURE, "utf8"));
   const counts: Record<string, number> = {};
-  for (const name of ["rustc_parse.typedefs.json", "rustc_session.typedefs.json"]) {
+  for (const name of ["rustc_parse.typedefs.json", "rustc_session.typedefs.json", "rustc_attr_parsing.typedefs.json"]) {
     for (const file of fixture(name).files) {
       const errors: string[] = [];
       const r = compare(expansion[file.path]!, generatedImpls(file, errors), file.path);
@@ -28,7 +28,11 @@ test("generated derive impls equal the rustc_macros expansion (rustc_parse, rust
       counts[file.path] = r.same;
     }
   }
-  expect(counts).toEqual({ "compiler/rustc_parse/src/diagnostics.rs": 325, "compiler/rustc_session/src/diagnostics.rs": 69 });
+  expect(counts).toEqual({
+    "compiler/rustc_parse/src/diagnostics.rs": 325,
+    "compiler/rustc_session/src/diagnostics.rs": 69,
+    "compiler/rustc_attr_parsing/src/diagnostics.rs": 167,
+  });
 });
 
 test.skipIf(!haveUpstream)("rustc_parse set regenerates src/rustc_parse/diagnostics.gen.ts byte for byte", () => {
@@ -46,6 +50,25 @@ test.skipIf(!haveUpstream)("rustc_parse set regenerates src/rustc_parse/diagnost
   expect(res.report.files.map((f) => f.diag_impls)).toEqual([325]);
   const path = join(src, "rustc_parse", "diagnostics.gen.ts");
   expect(res.files.get(path)).toBe(readFileSync(path, "utf8"));
+});
+
+test.skipIf(!haveUpstream)("rustc_attr_parsing set regenerates src/rustc_attr_parsing/diagnostics.gen.ts byte for byte", () => {
+  const src = join(REPO, "src");
+  const res = generate(fixture("rustc_attr_parsing.typedefs.json"), loadSet("rustc_attr_parsing"), loadTypeMap(), {
+    set: "rustc_attr_parsing",
+    out: src,
+    srcRoot: src,
+    pin: JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust.commit.slice(0, 12),
+    upstream: UPSTREAM,
+  });
+  expect(res.report.errors).toEqual([]);
+  expect(res.report.missing_diag_arg).toEqual({});
+  expect(res.report.unknown_types).toEqual({});
+  expect(res.report.files.map((f) => f.diag_impls)).toEqual([167]);
+  const path = join(src, "rustc_attr_parsing", "diagnostics.gen.ts");
+  expect(res.files.get(path)).toBe(readFileSync(path, "utf8"));
+  // the inline modules `unexpected_cfg_name` / `unexpected_cfg_value` are namespaces (their item names overlap)
+  expect(res.files.get(path)!.match(/^export namespace \w+ \{$/gm)).toEqual(["export namespace unexpected_cfg_name {", "export namespace unexpected_cfg_value {"]);
 });
 
 // ---- synthetic items -------------------------------------------------------------------------------
