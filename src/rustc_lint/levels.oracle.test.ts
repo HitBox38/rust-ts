@@ -6,8 +6,10 @@
 //     (`--emit=metadata`), whose only diagnostics are the lint level ones, emitted by the same two passes.
 //   - DRIVER cases run src/rust_ts/main.ts (`-Zunpretty=expanded`), which now gets through the pre-expansion lint
 //     pass (KeywordIdents) to the next unported step.
-// Both must print a non-empty prefix of the oracle's stderr, then stop at `rust-ts: unported: <what>` (exit 70):
-// the early passes themselves are stubs until lane lint-early-b.
+// Both must print a non-empty prefix of the oracle's stderr. DRIVER cases then stop at `rust-ts: unported: <what>`
+// (exit 70). EARLY cases run all early passes (lane lint-early-b) and stop after them, so their stderr minus the
+// final summary (`N warnings emitted` / `aborting due to ..`) must be a prefix of the oracle's (which goes on to the
+// later phases).
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -60,6 +62,8 @@ interface Case {
   flags?: string[];
   /** Text our output must contain (the diagnostics under test were really emitted). */
   expect: string[];
+  /** Set for the EARLY cases: the test driver stops after the early lint passes (see `check`). */
+  stops_after_early_lints?: boolean;
 }
 
 const EARLY: Case[] = [
@@ -150,10 +154,28 @@ function check(c: Case, ours: Out, oracle: Out): void {
     const prefix = ours.stderr.slice(0, i);
     expect(oracle.stderr.startsWith(prefix)).toBe(true);
     for (const e of c.expect) expect(prefix).toContain(e);
+  } else if (c.stops_after_early_lints) {
+    // lane lint-early-b: the test driver stops after the early lint passes; rustc goes on to later phases.
+    expect(ours.stderr).not.toContain("rust-ts: ");
+    const prefix = strip_summary(ours.stderr);
+    expect(oracle.stderr.startsWith(prefix)).toBe(true);
+    for (const e of c.expect) expect(prefix).toContain(e);
   } else {
     expect(ours.stderr).toBe(oracle.stderr);
     expect(ours.code).toBe(oracle.code);
   }
+}
+
+/** Drops the final summary lines (`warning: N warnings emitted`, `error: aborting due to ..`, `For more information ..`). */
+function strip_summary(s: string): string {
+  const lines = s.split("\n");
+  let end = lines.length;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i]!;
+    if (l === "" || /^warning: \d+ warnings? emitted$/.test(l) || /^error: aborting due to/.test(l) || /^(For more information|Some errors have detailed)/.test(l)) end = i;
+    else break;
+  }
+  return lines.slice(0, end).join("\n");
 }
 
 for (const [i, c] of EARLY.entries()) {
@@ -163,7 +185,7 @@ for (const [i, c] of EARLY.entries()) {
     const args = [...nocore(c.edition ?? "2021"), "--crate-type=lib", "--emit=metadata", "-o", "/dev/null", ...(c.flags ?? []), file];
     const oracle = run([...RUSTC, ...args]);
     const ours = run([process.execPath, join(REPO, "src/rust_ts/lintlevels.ts"), ...args]);
-    check(c, ours, oracle);
+    check({ ...c, stops_after_early_lints: true }, ours, oracle);
   });
 }
 
