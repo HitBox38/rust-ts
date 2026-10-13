@@ -139,6 +139,7 @@ import { decode_DelimArgs } from "../../rustc_ast/lib.ts";
 import { decode_Attribute } from "../../rustc_attr_ir/attr.ts";
 import { decode_StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import { decode_LangItem } from "../../rustc_attr_ir/lang_items.ts";
+import { decode_DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 // end decode-elems imports
 
 // pub(super) use cstore_impl::provide;  (../lib.ts exports it; mod cstore_impl; is loaded by ../lib.ts)
@@ -1426,10 +1427,6 @@ CrateRoot.prototype.decode_denied_partial_mitigations = function (this: CrateRoo
 /** `TargetModifier`'s derive(BlobDecodable) (rustc_session options.rs): not generated yet. */
 function decode_TargetModifier(_d: BlobDecoder): TargetModifier {
   return unported("Decodable for rustc_session::config::TargetModifier (derive(BlobDecodable) not generated)");
-}
-/** `DeniedPartialMitigation`'s derive(BlobDecodable) (rustc_session mitigation_coverage.rs): not generated yet. */
-function decode_DeniedPartialMitigation(_d: BlobDecoder): DeniedPartialMitigation {
-  return unported("Decodable for rustc_session::config::mitigation_coverage::DeniedPartialMitigation (derive(BlobDecodable) not generated)");
 }
 
 // ---- impl CrateMetadata (decoder.rs:1027) ----
