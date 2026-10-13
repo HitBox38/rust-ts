@@ -12,7 +12,7 @@
 // rendered as Rust (`renderRust`). `--write-fixture` stores the canonical expansion in
 // tools/codegen/fixtures/diag-expansion.json so that `diagnostics.test.ts` can repeat the
 // comparison without cargo.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { type DeriveImpl, diagDerives, diagnostic_derive, parseFormatString, renderRust, subdiagnostic_derive } from "./diagnostics.ts";
@@ -330,12 +330,27 @@ export function extractImpls(expanded: string): Map<string, ExpandedImpl[]> {
   return out;
 }
 
-/** Build the scratch crate and return the expansion text of `files` (cached per pin + file list). */
+/**
+ * Build the scratch crate and return the expansion text of `files`. Cached under `$RUST_TS_DATA/tmp`
+ * (build dir too), keyed on the pin, the file list, the toolchain (`rustc -vV`) and the contents of the
+ * input files and of every rustc_macros source (review w456b D2).
+ */
 export async function expand(files: string[]): Promise<string> {
   const { DATA, UPSTREAM, PIN } = await import("../../scripts/lib/common.ts");
   const dir = join(DATA, "tmp", "diag-expand");
   mkdirSync(join(dir, "src"), { recursive: true });
-  const key = JSON.stringify({ pin: PIN.commit, files });
+  const toolchain = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "-vV"], { stdout: "pipe", stderr: "pipe" }).stdout.toString();
+  const hasher = new Bun.CryptoHasher("sha256");
+  const macros = join("compiler", "rustc_macros");
+  const macroSources = readdirSync(join(UPSTREAM, macros), { recursive: true, encoding: "utf8" })
+    .filter((f) => f.endsWith(".rs") || f === "Cargo.toml")
+    .map((f) => join(macros, f))
+    .sort();
+  for (const f of [...files, ...macroSources]) {
+    hasher.update(f);
+    hasher.update(readFileSync(join(UPSTREAM, f)));
+  }
+  const key = JSON.stringify({ pin: PIN.commit, files, toolchain, sources: hasher.digest("hex") });
   const cache = join(dir, "expanded.rs");
   const keyFile = join(dir, "expanded.key");
   if (existsSync(cache) && existsSync(keyFile) && readFileSync(keyFile, "utf8") === key) return readFileSync(cache, "utf8");
@@ -362,7 +377,7 @@ export async function expand(files: string[]): Promise<string> {
   });
   writeFileSync(join(dir, "src", "lib.rs"), lib.join("\n") + "\n");
   const r = Bun.spawnSync(["cargo", `+${PIN.toolchain}`, "rustc", "--quiet", "--manifest-path", join(dir, "Cargo.toml"), "--", "-Zunpretty=expanded"], {
-    env: { ...process.env, RUSTC_BOOTSTRAP: "1", CARGO_TARGET_DIR: join(DATA, "target", "diag-expand") },
+    env: { ...process.env, RUSTC_BOOTSTRAP: "1", CARGO_TARGET_DIR: join(dir, "target") },
     stdout: "pipe",
     stderr: "pipe",
   });

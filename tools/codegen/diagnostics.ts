@@ -373,7 +373,8 @@ const ALLOWED_CAPITALIZED_WORDS = ["ABI", "ABIs", "ADT", "C-variadic", "CGU-reus
 // rustc_macros: diagnostics/message.rs:148 verify_message_style
 function verify_message_style(errs: DiagErrors, msg_span: Span, message: string): void {
   // Verify that message starts with lowercase char
-  const first_word = message.split(/[\s\u0085]+/).find((w) => w !== ""); // PORT: `split_whitespace` (Unicode White_Space; U+FEFF is not)
+  // PORT: `split_whitespace` splits on Unicode `White_Space` (`\p{White_Space}`; JS `\s` also matches U+FEFF).
+  const first_word = message.split(/\p{White_Space}+/u).find((w) => w !== "");
   if (first_word === undefined) {
     span_err(errs, msg_span, "message must not be empty");
     return;
