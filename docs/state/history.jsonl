@@ -59,3 +59,4 @@
 {"ts":"2026-10-13T00:40:18.902Z","kind":"decision","msg":"parser-fn-asm PORT decisions ratified as listed in docs/handoff/parser-fn-asm.md (12 items; asm parse_options exported for tests)."}
 {"ts":"2026-10-13T00:55:38.867Z","kind":"decision","msg":"parser-ptg PORT decisions ratified as listed in docs/handoff/parser-ptg.md (10 items: inlined qpath-recovery macro, mem::replace via Object.assign, local TraitBoundModifiers_eq, ...). Root maintains cross-lane PENDING maps as lanes land (entries advance to the next unported stop point or are removed when they match)."}
 {"ts":"2026-10-13T01:00:15.306Z","kind":"decision","msg":"parser-diag PORT decisions ratified as listed in docs/handoff/parser-diag.md (10 items). diagnostics.rs complete (88/88)."}
+{"ts":"2026-10-13T01:03:05.209Z","kind":"decision","msg":"parser-expr PORT decisions ratified as listed in docs/handoff/parser-expr.md (9 items). expr.rs 143/143, expr/diagnostics.rs 12/12."}

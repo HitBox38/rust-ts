@@ -49,8 +49,6 @@ const oracle = JSON.parse(readFileSync(new URL("./parser_core_oracle.json", impo
 const PENDING: Record<string, string> = {
   // `prev_token` is the initial `Token::dummy()` (`?`), so `expected_one_of_not_found` (expected `;`)
   // tries `maybe_recover_from_ternary_operator`, which parses an expression (expr lane).
-  expect_one_of: "rustc_parse::parser::expr::Parser::parse_expr",
-  attr_eq: "rustc_parse::parser::expr::Parser::parse_expr_force_collect",
   outer_attrs_doc: "rustc_parse::parser::item::Parser::parse_item",
   outer_attrs_inner_doc_misplaced: "rustc_parse::parser::item::Parser::parse_item",
 };

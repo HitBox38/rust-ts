@@ -32,35 +32,7 @@ const PREFIX = "path_";
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
 const PENDING: Record<string, string> = {
-  path_expr_turbofish: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_type_args: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_type_turbofish: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_nested_args: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_lifetime_args: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_assoc_eq: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_assoc_bound: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_assoc_gat: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_assoc_const_eq: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_const_args: "rustc_parse::parser::expr::Parser::parse_expr_res",
-  path_paren_args: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_paren_args_sep: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_rtn_output: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_unterminated: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_unterminated_constraint: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_for_on_assoc: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_missing_type_eq: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_missing_type_eq_other: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_lifetime_eq: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_lifetime_eq_gat: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_semi_sep: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_shl: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_expr_call_sep: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_lifetime_before_type: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_invalid_const_expr: "rustc_parse::parser::expr::Parser::parse_expr_res",
-  path_raw_ident_missing_eq: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_extra_leading_angles: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_extra_leading_angles_gap: "rustc_parse::parser::expr::Parser::is_builtin",
-  path_deep_unclosed: "rustc_parse::parser::expr::Parser::is_builtin",
+  path_const_args: "rustc_parse::parser::item::Parser::is_path_start_item",
 };
 
 interface Case {

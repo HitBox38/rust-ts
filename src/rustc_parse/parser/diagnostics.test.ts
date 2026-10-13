@@ -86,7 +86,6 @@ const probe = JSON.parse(readFileSync(new URL("./diagnostics_oracle.json", impor
 /** probe case -> the `Unported` it must reach until the owning lane lands. */
 const PENDING_PROBE: Record<string, string> = {
   // `prev_token` is `?`: expected `;` tries `maybe_recover_from_ternary_operator` (parse_expr).
-  expect_one_of_question_prev: "rustc_parse::parser::expr::Parser::parse_expr",
 };
 
 const tok = (s: string): ExpTokenPair => {

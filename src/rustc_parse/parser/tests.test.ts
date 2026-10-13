@@ -295,14 +295,11 @@ function make_pos(file_text: string, pos: Position): number {
 
 /** test -> the `Unported` it must reach until the owning lane lands. */
 const PENDING: Record<string, string> = {
-  bad_path_expr_1: "rustc_parse::parser::path::Parser::parse_path",
   parse_use: "rustc_parse::parser::item::Parser::parse_item",
   parse_extern_crate: "rustc_parse::parser::item::Parser::parse_item",
   span_of_self_arg_pat_idents_are_correct: "rustc_parse::parser::item::Parser::parse_item",
-  parse_exprs: "rustc_parse::parser::diagnostics::Parser::maybe_recover_from_bad_qpath",
   attrs_fix_bug: "rustc_parse::parser::item::Parser::parse_item",
   crlf_doc_comments: "rustc_parse::parser::item::Parser::parse_item",
-  ttdelim_span: "rustc_parse::parser::path::Parser::parse_path",
   out_of_line_mod: "rustc_parse::parser::item::Parser::parse_item",
 };
 

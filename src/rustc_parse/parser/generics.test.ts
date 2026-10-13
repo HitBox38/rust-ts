@@ -33,14 +33,7 @@ const PREFIX = "gen_";
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
 const PENDING: Record<string, string> = {
-  gen_bounds: "rustc_parse::parser::expr::Parser::is_builtin",
-  gen_const: "rustc_parse::parser::expr::Parser::is_builtin",
-  gen_where: "rustc_parse::parser::expr::Parser::is_builtin",
-  gen_mistyped_const: "rustc_parse::parser::expr::Parser::is_builtin",
-  gen_impl_trait_bound: "rustc_parse::parser::expr::Parser::is_builtin",
-  gen_assoc_bound: "rustc_parse::parser::expr::Parser::is_builtin",
-  gen_where_eq: "rustc_parse::parser::expr::Parser::is_builtin",
-  gen_where_eq_qpath: "rustc_parse::parser::expr::Parser::is_builtin",
+  gen_const: "rustc_parse::parser::item::Parser::parse_item_common",
 };
 
 interface Case {
