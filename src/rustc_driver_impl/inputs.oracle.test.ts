@@ -45,7 +45,7 @@ interface Out {
 }
 function run(cmd: string[], env: Record<string, string> = {}, stdin?: Uint8Array): Out {
   const r = Bun.spawnSync(cmd, { cwd: WORK, env: { ...ENV, ...env }, stdin: stdin ?? "ignore", stdout: "pipe", stderr: "pipe" });
-  return { stdout: r.stdout.toString(), stderr: r.stderr.toString(), code: r.exitCode, signal: r.signalCode ?? null };
+  return { stdout: r.stdout.toString(), stderr: r.stderr.toString(), code: r.exitCode, signal: r.signalCode == null ? null : String(r.signalCode) };
 }
 const ORACLE = (): string[] => RUSTC;
 const OURS = (): string[] => [process.execPath, join(REPO, "src/rust_ts/main.ts")];

@@ -40,9 +40,9 @@ async function main(args: string[]): Promise<number> {
   // The probe's `main`: `EarlyDiagCtxt::new(ErrorOutputType::default())`,
   // `install_ice_hook(DEFAULT_BUG_REPORT_URL, |_| ())` (not ported, as in rustc_driver_impl/lib.ts),
   // `catch_with_exit_code(|| compiler_entrypoint(&raw_args(&early_dcx), &mut callbacks))`.
-  // argv[0] is the program name; here the script path stands for it.
+  // `raw_args` reads `env::args_os()` (= process.argv[1..]: this script's path stands for argv[0]).
   const early_dcx = EarlyDiagCtxt.new(ErrorOutputType.default());
-  return catch_with_exit_code(() => compiler_entrypoint(raw_args(early_dcx, [process.argv[1] ?? "resdump", ...args]), callbacks));
+  return catch_with_exit_code(() => compiler_entrypoint(raw_args(early_dcx), callbacks));
 }
 
 try {
