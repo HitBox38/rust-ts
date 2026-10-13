@@ -328,9 +328,6 @@ fn f() {}
 trait T { type A; }
 struct S;
 impl T for S { default type A = u8; }
-=== soft_gate_cfg_auto_trait
-#[cfg(any())]
-auto trait A {}
 === incompatible_features
 #![feature(ref_pat_eat_one_layer_2024, ref_pat_eat_one_layer_2024_structural)]
 #![allow(incomplete_features)]
@@ -433,3 +430,39 @@ trait T { type A: Copy; }
 #![feature(auto_traits)]
 auto trait A where u8: B {}
 trait B {}
+=== x86_interrupt_abi_x86_64 --target x86_64-unknown-linux-gnu
+#![feature(abi_x86_interrupt)]
+extern "x86-interrupt" fn f() {}
+extern "x86-interrupt" fn g(a: u8, b: u8, c: u8) -> u8 { loop {} }
+unsafe extern "x86-interrupt" fn h(a: u8) -> ! { loop {} }
+=== gpu_kernel_and_custom_x86_64 --target x86_64-unknown-linux-gnu
+#![feature(abi_custom, abi_gpu_kernel)]
+unsafe extern "custom" fn f(a: u8) {}
+extern "gpu-kernel" fn g() {}
+=== scalable_vector_x86_64 --target x86_64-unknown-linux-gnu
+#![feature(rustc_attrs)]
+#![allow(internal_features)]
+#[rustc_scalable_vector(4)]
+struct S { x: u8 }
+=== scalable_vector_aarch64 --target aarch64-unknown-linux-gnu
+#![feature(rustc_attrs)]
+#![allow(internal_features)]
+#[rustc_scalable_vector(4)]
+struct S { x: u8 }
+=== cvariadic_x86_64 --target x86_64-unknown-linux-gnu
+#![allow(varargs_without_pattern)]
+unsafe extern "sysv64" fn a(x: u8, ap: ...) {}
+unsafe extern "win64" fn b(x: u8, ap: ...) {}
+#[naked]
+unsafe extern "sysv64" fn c(x: u8, ap: ...) {}
+#[naked]
+unsafe extern "vectorcall" fn d(x: u8, ap: ...) {}
+=== cvariadic_wasm --target wasm32-wasip2
+unsafe extern "C" fn a(x: u8, ap: ...) {}
+=== swift_abi_on_linux --target x86_64-unknown-linux-gnu
+extern "Swift" fn f() {}
+=== track_caller_naked_custom
+#![feature(abi_custom)]
+#[cold]
+#[unsafe(naked)]
+unsafe extern "custom" fn f() { loop {} }
