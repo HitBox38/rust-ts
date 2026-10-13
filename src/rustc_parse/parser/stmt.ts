@@ -17,7 +17,6 @@ import type {
   StmtKind,
   Ty,
 } from "../../rustc_ast/lib.ts";
-import type { AssocOp } from "../../rustc_ast/util/parser.ts";
 import type { TokenTree } from "../../rustc_ast/tokenstream.ts";
 import { expr_requires_semi_to_be_stmt, expr_trailing_brace } from "../../rustc_ast/util/classify.ts";
 import type { Diag, PResult } from "../../rustc_errors/lib.ts";
@@ -1226,9 +1225,7 @@ Parser.prototype.parse_full_stmt = function (this: Parser, recover: AttemptLocal
               suggest_eq = true;
             } else if (
               (op = this.check_assoc_op()) !== undefined &&
-              // PORT(contract): the expr/diagnostics.ts stub declares this fn over `Token`; upstream
-              // (expr/diagnostics.rs:301) takes `op: AssocOp`. Called through the upstream signature.
-              (op_can_continue_stmt_expr_unambiguously as unknown as (op: AssocOp) => boolean)(op.node)
+              op_can_continue_stmt_expr_unambiguously(op.node)
             ) {
               suggest_eq = true;
             } else {

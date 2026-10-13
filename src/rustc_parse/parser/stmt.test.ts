@@ -62,9 +62,9 @@ const PENDING: Record<string, string> = {
   s_assign_else: "rustc_parse::parser::diagnostics::Parser::maybe_recover_unexpected_block_label",
   s_expr_missing_semi: "rustc_parse::parser::diagnostics::Parser::maybe_recover_unexpected_block_label",
   s_label_typo: "rustc_parse::parser::diagnostics::Parser::maybe_recover_unexpected_block_label",
-  st_let_decl: "rustc_parse::parser::expr::Parser::is_builtin",
+  st_let_decl: "rustc_parse::parser::diagnostics::Parser::maybe_recover_from_bad_qpath",
   st_let_mut_mut: "rustc_parse::parser::diagnostics::Parser::dcx",
-  st_let_init: "rustc_parse::parser::expr::Parser::is_builtin",
+  st_let_init: "rustc_parse::parser::diagnostics::Parser::maybe_recover_from_bad_qpath",
   st_mac: "rustc_parse::parser::item::Parser::is_path_start_item",
   st_empty: "rustc_parse::parser::item::Parser::parse_item_common",
 };

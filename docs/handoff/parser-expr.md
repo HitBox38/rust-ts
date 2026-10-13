@@ -1,12 +1,22 @@
 # Handoff: parser-expr (wave 6c parser porter): parser/expr.rs, parser/expr/diagnostics.rs
 
-Branch `lane/parser-expr` (based on main b9444b5; not merged with later main).
+Branch `lane/parser-expr`. Main merged at 00a839a (`git merge main`, no conflicts: parser-fn-asm, parser-tests,
+parser-pat-stmt integrated).
 
 ## Files touched
 - `src/rustc_parse/parser/expr.ts`: all of expr.rs (stub replaced; no `unported_methods` left).
 - `src/rustc_parse/parser/expr/diagnostics.ts`: all of expr/diagnostics.rs (stub replaced).
 - New `src/rustc_parse/parser/expr.test.ts` and its fixture `src/rustc_parse/parser/expr_oracle.json`.
-- Nothing else (no decls.ts, generator, std, scripts or harness edits).
+- After merging main (root's instructions):
+  - `src/rustc_parse/parser/stmt.ts`: the `PORT(contract)` cast at the `op_can_continue_stmt_expr_unambiguously`
+    call site is removed (the fn now has the upstream `AssocOp` signature), plus its now-unused `AssocOp` import.
+  - `src/rustc_parse/parser/testdata/pat_stmt_harness.ts`: the test-only shims of expr.rs (`is_builtin`,
+    `mk_expr_with_attrs`, `mk_expr`, `mk_expr_err`, `parse_literal_maybe_minus`) are removed; the real port
+    runs. All shimmed-mode cases still match.
+  - PENDING renames (each case now stops at a later `unported`; no case started matching on this branch):
+    pat.test.ts 54, expr.test.ts 26, function.test.ts 4 (`cfgsel_expr*`), tests.test.ts 3 (`bad_path_expr_1`,
+    `parse_exprs`, `ttdelim_span`), stmt.test.ts 2 (`st_let_decl`, `st_let_init`).
+- No decls.ts, generator, std, scripts or harness edits.
 
 ## Coverage (`bun scripts/coverage.ts --missing <file>`)
 | file | fns ported |
@@ -17,11 +27,12 @@ Branch `lane/parser-expr` (based on main b9444b5; not merged with later main).
 `bun scripts/coverage.ts --check`: `markers ok (3234; vendor 2278)`.
 
 ## Checks
-- `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test src tools`: 1192 pass, 0 fail, 1 skip (pre-existing `test.skipIf(SKIP)` in
-  rustc_lint_defs, also on main), 0 todo.
+- After the merge of main: `bunx tsc --noEmit -p .` clean; `coverage --check` `markers ok (3387; vendor 2323)`.
+- `RUST_TS_REQUIRE_PROBES=1 bun test src tools`: 1654 pass, 0 fail, 1 skip (pre-existing `test.skipIf(SKIP)` in
+  rustc_lint_defs), 0 todo. Two unrelated timing flakes were seen once each and passed on re-run:
+  `rustc_session/options.oracle.test.ts` "option values" (5 s timeout) and `vendor/termize` "no fd leak under a pty".
 - `RUST_TS_AGENT=parser-expr bun scripts/difftest.ts --suite tokens --sample 200`: 200/200 MATCH
-  (run `20261013-004603-parser-expr-b7tr`).
+  (run `20261013-005848-parser-expr-41zw`; before the merge `20261013-004603-parser-expr-b7tr`).
 - **Scratch integration** (not committed; worktree `$RUST_TS_DATA/tmp/parser-expr/integ`, branch
   `scratch/parser-expr-integ` = main@0349d96 + lane/parser-expr + lane/parser-diag + lane/parser-ptg +
   lane/parser-pat-stmt + lane/parser-item as of 00:45, merged without conflicts, tsc clean):
@@ -87,9 +98,8 @@ None in expr.ts / expr/diagnostics.ts. Indirectly the parser paths reach other l
 
 ## Contract issues for root
 1. **`op_can_continue_stmt_expr_unambiguously`**: the parser-core stub declared `(token: Token)`; upstream
-   (expr/diagnostics.rs:301) takes `op: AssocOp`. Ported with the upstream signature. lane/parser-pat-stmt's
-   stmt.ts already calls it with an `AssocOp` through an `as unknown as` cast (its `PORT(contract)` note), which
-   can now be dropped.
+   (expr/diagnostics.rs:301) takes `op: AssocOp`. Ported with the upstream signature; the stmt.ts cast is
+   removed (see Files touched).
 2. decls.ts: no changes needed; every expr.rs / expr/diagnostics.rs method uses the declared signature.
 
 ## For root
