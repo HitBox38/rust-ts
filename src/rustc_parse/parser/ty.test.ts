@@ -101,6 +101,11 @@ const PENDING: Record<string, string> = {
   ty_maybe_const_bound: "rustc_parse::parser::expr::Parser::is_builtin",
   ty_ref_lifetime_after_mut_space: "rustc_parse::parser::diagnostics::Parser::span_to_snippet",
   ty_ref_lifetime_after_mut_plus: "rustc_parse::parser::expr::Parser::is_builtin",
+  ty_ref_mut_dyn: "rustc_parse::parser::expr::Parser::is_builtin",
+  ty_fn_ptr_extern_noabi: "rustc_parse::parser::expr::Parser::is_builtin",
+  ty_fn_ptr_for_generics: "rustc_parse::parser::expr::Parser::is_builtin",
+  ty_question_in_generic: "rustc_parse::parser::expr::Parser::is_builtin",
+  ty_impl_paren_trait: "rustc_parse::parser::expr::Parser::is_builtin",
 };
 
 interface Case {

@@ -61,6 +61,10 @@ const PENDING: Record<string, string> = {
   path_expr_call_sep: "rustc_parse::parser::diagnostics::Parser::create_snapshot_for_diagnostic",
   path_lifetime_before_type: "rustc_parse::parser::diagnostics::Parser::handle_lifetime_arg_preceding_type",
   path_invalid_const_expr: "rustc_parse::parser::expr::Parser::parse_expr_res",
+  path_raw_ident_missing_eq: "rustc_parse::parser::diagnostics::Parser::create_snapshot_for_diagnostic",
+  path_extra_leading_angles: "rustc_parse::parser::diagnostics::Parser::create_snapshot_for_diagnostic",
+  path_extra_leading_angles_gap: "rustc_parse::parser::diagnostics::Parser::create_snapshot_for_diagnostic",
+  path_deep_unclosed: "rustc_parse::parser::diagnostics::Parser::create_snapshot_for_diagnostic",
 };
 
 interface Case {

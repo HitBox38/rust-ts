@@ -607,6 +607,33 @@
   "### ty_ref_lifetime_after_mut_plus",
   "ops: ty tok",
   "&mut 'a + T",
+  "### path_raw_ident_missing_eq",
+  "ops: path:Type tok",
+  "Iterator<r#type = >",
+  "### path_extra_leading_angles",
+  "ops: path:Expr tok",
+  "bar::<<<<T as Foo>::Output>",
+  "### path_extra_leading_angles_gap",
+  "ops: path:Expr tok",
+  "bar::<<x<<T as Foo>::Output>",
+  "### path_deep_unclosed",
+  "ops: path:Expr tok",
+  "f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<x",
+  "### ty_ref_mut_dyn",
+  "ops: ty tok",
+  "&mut dyn Trait",
+  "### ty_fn_ptr_extern_noabi",
+  "ops: ty tok",
+  "extern fn()",
+  "### ty_fn_ptr_for_generics",
+  "ops: ty tok",
+  "for<'a> fn<'b>(&'a u8, &'b u8)",
+  "### ty_question_in_generic",
+  "ops: ty tok",
+  "Vec<u8?>",
+  "### ty_impl_paren_trait",
+  "ops: ty tok",
+  "impl (Trait) + Send",
   ""
  ],
  "cases": [
@@ -2236,6 +2263,120 @@
    ],
    "fatal": false,
    "stderr": "error[E0178]: expected a path on the left-hand side of `+`\n  --> t.rs:1:1\n   |\nLL | &mut 'a + T\n   | ^^^^^^^\n   |\nhelp: try adding parentheses\n   |\nLL | &mut ('a + T)\n   |      +      +\n\n"
+  },
+  {
+   "name": "path_raw_ident_missing_eq",
+   "ops": "path:Type tok",
+   "ts": "",
+   "edition": "2024",
+   "src": "Iterator<r#type = >",
+   "events": [
+    "path:Type => Err",
+    "tok => Token { kind: Gt, span: t.rs:1:19: 1:20 (#0) }"
+   ],
+   "fatal": false,
+   "stderr": "error: missing type to the right of `=`\n  --> t.rs:1:18\n   |\nLL | Iterator<r#type = >\n   |                  ^\n   |\nhelp: to constrain the associated type, add a type after `=`\n   |\nLL | Iterator<r#type = TheType>\n   |                   +++++++\nhelp: remove the `=` if `r#type` is a type\n   |\nLL - Iterator<r#type = >\nLL + Iterator<r#type>\n   |\n\n"
+  },
+  {
+   "name": "path_extra_leading_angles",
+   "ops": "path:Expr tok",
+   "ts": "",
+   "edition": "2024",
+   "src": "bar::<<<<T as Foo>::Output>",
+   "events": [
+    "path:Expr => Ok(Path {\n    span: t.rs:1:1: 1:28 (#0),\n    segments: [\n        PathSegment {\n            ident: bar#0,\n            id: NodeId(4294967040),\n            args: Some(\n                AngleBracketed(\n                    AngleBracketedArgs {\n                        span: t.rs:1:6: 1:28 (#0),\n                        args: [\n                            Arg(\n                                Type(\n                                    Ty {\n                                        id: NodeId(4294967040),\n                                        kind: Path(\n                                            Some(\n                                                QSelf {\n                                                    ty: Ty {\n                                                        id: NodeId(4294967040),\n                                                        kind: Path(\n                                                            None,\n                                                            Path {\n                                                                span: t.rs:1:10: 1:11 (#0),\n                                                                segments: [\n                                                                    PathSegment {\n                                                                        ident: T#0,\n                                                                        id: NodeId(4294967040),\n                                                                        args: None,\n                                                                    },\n                                                                ],\n                                                            },\n                                                        ),\n                                                        span: t.rs:1:10: 1:11 (#0),\n                                                    },\n                                                    path_span: t.rs:1:15: 1:18 (#0),\n                                                    position: 1,\n                                                },\n                                            ),\n                                            Path {\n                                                span: t.rs:1:9: 1:27 (#0),\n                                                segments: [\n                                                    PathSegment {\n                                                        ident: Foo#0,\n                                                        id: NodeId(4294967040),\n                                                        args: None,\n                                                    },\n                                                    PathSegment {\n                                                        ident: Output#0,\n                                                        id: NodeId(4294967040),\n                                                        args: None,\n                                                    },\n                                                ],\n                                            },\n                                        ),\n                                        span: t.rs:1:9: 1:27 (#0),\n                                    },\n                                ),\n                            ),\n                        ],\n                    },\n                ),\n            ),\n        },\n    ],\n})",
+    "tok => Token { kind: Eof, span: t.rs:1:27: 1:28 (#0) }"
+   ],
+   "fatal": false,
+   "stderr": "error: unmatched angle brackets\n  --> t.rs:1:6\n   |\nLL | bar::<<<<T as Foo>::Output>\n   |      ^^\n   |\nhelp: remove extra angle brackets\n   |\nLL - bar::<<<<T as Foo>::Output>\nLL + bar::<<T as Foo>::Output>\n   |\n\n"
+  },
+  {
+   "name": "path_extra_leading_angles_gap",
+   "ops": "path:Expr tok",
+   "ts": "",
+   "edition": "2024",
+   "src": "bar::<<x<<T as Foo>::Output>",
+   "events": [
+    "path:Expr => Err",
+    "tok => Token { kind: Eof, span: t.rs:1:28: 1:29 (#0) }"
+   ],
+   "fatal": false,
+   "stderr": "error: expected one of `!`, `+`, `::`, `>`, or `as`, found `<eof>`\n  --> t.rs:1:28\n   |\nLL | bar::<<x<<T as Foo>::Output>\n   |                            ^ expected one of `!`, `+`, `::`, `>`, or `as`\n\n"
+  },
+  {
+   "name": "path_deep_unclosed",
+   "ops": "path:Expr tok",
+   "ts": "",
+   "edition": "2024",
+   "src": "f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<x",
+   "events": [],
+   "fatal": true,
+   "stderr": "error: expected one of `!`, `(`, `+`, `,`, `::`, `<`, or `>`, found `<eof>`\n  --> t.rs:1:49\n   |\nLL | f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<x\n   |                                                 ^ expected one of 7 possible tokens\n   |\nhelp: you might have meant to end the type parameters here\n   |\nLL | f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<f::<x>\n   |                                                  +\n\n"
+  },
+  {
+   "name": "ty_ref_mut_dyn",
+   "ops": "ty tok",
+   "ts": "",
+   "edition": "2024",
+   "src": "&mut dyn Trait",
+   "events": [
+    "ty => Ok(Ty {\n    id: NodeId(4294967040),\n    kind: Ref(\n        None,\n        Ty {\n            id: NodeId(4294967040),\n            kind: TraitObject(\n                [\n                    Trait(\n                        PolyTraitRef {\n                            bound_generic_params: [],\n                            modifiers: TraitBoundModifiers {\n                                constness: Never,\n                                asyncness: Normal,\n                                polarity: Positive,\n                            },\n                            trait_ref: TraitRef {\n                                path: Path {\n                                    span: t.rs:1:10: 1:15 (#0),\n                                    segments: [\n                                        PathSegment {\n                                            ident: Trait#0,\n                                            id: NodeId(4294967040),\n                                            args: None,\n                                        },\n                                    ],\n                                },\n                                ref_id: NodeId(4294967040),\n                            },\n                            span: t.rs:1:10: 1:15 (#0),\n                            parens: No,\n                        },\n                    ),\n                ],\n                Dyn,\n            ),\n            span: t.rs:1:6: 1:15 (#0),\n        },\n        Mut,\n    ),\n    span: t.rs:1:1: 1:15 (#0),\n})",
+    "tok => Token { kind: Eof, span: t.rs:1:10: 1:15 (#0) }"
+   ],
+   "fatal": false,
+   "stderr": ""
+  },
+  {
+   "name": "ty_fn_ptr_extern_noabi",
+   "ops": "ty tok",
+   "ts": "",
+   "edition": "2024",
+   "src": "extern fn()",
+   "events": [
+    "ty => Ok(Ty {\n    id: NodeId(4294967040),\n    kind: FnPtr(\n        FnPtrTy {\n            safety: Default,\n            ext: Implicit(\n                t.rs:1:1: 1:7 (#0),\n            ),\n            generic_params: [],\n            decl: FnDecl {\n                inputs: [],\n                output: Default(\n                    t.rs:1:12: 1:12 (#0),\n                ),\n            },\n            decl_span: t.rs:1:1: 1:12 (#0),\n        },\n    ),\n    span: t.rs:1:1: 1:12 (#0),\n})",
+    "tok => Token { kind: Eof, span: t.rs:1:11: 1:12 (#0) }"
+   ],
+   "fatal": false,
+   "stderr": ""
+  },
+  {
+   "name": "ty_fn_ptr_for_generics",
+   "ops": "ty tok",
+   "ts": "",
+   "edition": "2024",
+   "src": "for<'a> fn<'b>(&'a u8, &'b u8)",
+   "events": [
+    "ty => Ok(Ty {\n    id: NodeId(4294967040),\n    kind: FnPtr(\n        FnPtrTy {\n            safety: Default,\n            ext: None,\n            generic_params: [\n                GenericParam {\n                    id: NodeId(4294967040),\n                    ident: 'a#0,\n                    attrs: [],\n                    bounds: [],\n                    is_placeholder: false,\n                    kind: Lifetime,\n                    colon_span: None,\n                },\n                GenericParam {\n                    id: NodeId(4294967040),\n                    ident: 'b#0,\n                    attrs: [],\n                    bounds: [],\n                    is_placeholder: false,\n                    kind: Lifetime,\n                    colon_span: None,\n                },\n            ],\n            decl: FnDecl {\n                inputs: [\n                    Param {\n                        attrs: [],\n                        ty: Ty {\n                            id: NodeId(4294967040),\n                            kind: Ref(\n                                Some(\n                                    lifetime(4294967040: 'a),\n                                ),\n                                Ty {\n                                    id: NodeId(4294967040),\n                                    kind: Path(\n                                        None,\n                                        Path {\n                                            span: t.rs:1:20: 1:22 (#0),\n                                            segments: [\n                                                PathSegment {\n                                                    ident: u8#0,\n                                                    id: NodeId(4294967040),\n                                                    args: None,\n                                                },\n                                            ],\n                                        },\n                                    ),\n                                    span: t.rs:1:20: 1:22 (#0),\n                                },\n                                Not,\n                            ),\n                            span: t.rs:1:16: 1:22 (#0),\n                        },\n                        pat: Pat {\n                            id: NodeId(4294967040),\n                            kind: Missing,\n                            span: t.rs:1:16: 1:22 (#0),\n                        },\n                        id: NodeId(4294967040),\n                        span: t.rs:1:16: 1:22 (#0),\n                        is_placeholder: false,\n                    },\n                    Param {\n                        attrs: [],\n                        ty: Ty {\n                            id: NodeId(4294967040),\n                            kind: Ref(\n                                Some(\n                                    lifetime(4294967040: 'b),\n                                ),\n                                Ty {\n                                    id: NodeId(4294967040),\n                                    kind: Path(\n                                        None,\n                                        Path {\n                                            span: t.rs:1:28: 1:30 (#0),\n                                            segments: [\n                                                PathSegment {\n                                                    ident: u8#0,\n                                                    id: NodeId(4294967040),\n                                                    args: None,\n                                                },\n                                            ],\n                                        },\n                                    ),\n                                    span: t.rs:1:28: 1:30 (#0),\n                                },\n                                Not,\n                            ),\n                            span: t.rs:1:24: 1:30 (#0),\n                        },\n                        pat: Pat {\n                            id: NodeId(4294967040),\n                            kind: Missing,\n                            span: t.rs:1:24: 1:30 (#0),\n                        },\n                        id: NodeId(4294967040),\n                        span: t.rs:1:24: 1:30 (#0),\n                        is_placeholder: false,\n                    },\n                ],\n                output: Default(\n                    t.rs:1:31: 1:31 (#0),\n                ),\n            },\n            decl_span: t.rs:1:9: 1:31 (#0),\n        },\n    ),\n    span: t.rs:1:1: 1:31 (#0),\n})",
+    "tok => Token { kind: Eof, span: t.rs:1:30: 1:31 (#0) }"
+   ],
+   "fatal": false,
+   "stderr": "error: function pointer types may not have generic parameters\n  --> t.rs:1:11\n   |\nLL | for<'a> fn<'b>(&'a u8, &'b u8)\n   |           ^^^^\n   |\nhelp: consider moving the lifetime parameter to the `for` parameter list\n   |\nLL - for<'a> fn<'b>(&'a u8, &'b u8)\nLL + for<'a, 'b> fn(&'a u8, &'b u8)\n   |\n\n"
+  },
+  {
+   "name": "ty_question_in_generic",
+   "ops": "ty tok",
+   "ts": "",
+   "edition": "2024",
+   "src": "Vec<u8?>",
+   "events": [
+    "ty => Ok(Ty {\n    id: NodeId(4294967040),\n    kind: Path(\n        None,\n        Path {\n            span: t.rs:1:1: 1:9 (#0),\n            segments: [\n                PathSegment {\n                    ident: Vec#0,\n                    id: NodeId(4294967040),\n                    args: Some(\n                        AngleBracketed(\n                            AngleBracketedArgs {\n                                span: t.rs:1:4: 1:9 (#0),\n                                args: [\n                                    Arg(\n                                        Type(\n                                            Ty {\n                                                id: NodeId(4294967040),\n                                                kind: Err(\n                                                    ErrorGuaranteed(\n                                                        (),\n                                                    ),\n                                                ),\n                                                span: t.rs:1:5: 1:8 (#0),\n                                            },\n                                        ),\n                                    ),\n                                ],\n                            },\n                        ),\n                    ),\n                },\n            ],\n        },\n    ),\n    span: t.rs:1:1: 1:9 (#0),\n})",
+    "tok => Token { kind: Eof, span: t.rs:1:8: 1:9 (#0) }"
+   ],
+   "fatal": false,
+   "stderr": "error: invalid `?` in type\n  --> t.rs:1:7\n   |\nLL | Vec<u8?>\n   |       ^ `?` is only allowed on expressions, not types\n   |\nhelp: if you meant to express that the type might not contain a value, use the `Option` wrapper type\n   |\nLL - Vec<u8?>\nLL + Vec<Option<u8>>\n   |\n\n"
+  },
+  {
+   "name": "ty_impl_paren_trait",
+   "ops": "ty tok",
+   "ts": "",
+   "edition": "2024",
+   "src": "impl (Trait) + Send",
+   "events": [
+    "ty => Ok(Ty {\n    id: NodeId(4294967040),\n    kind: ImplTrait(\n        NodeId(4294967040),\n        [\n            Trait(\n                PolyTraitRef {\n                    bound_generic_params: [],\n                    modifiers: TraitBoundModifiers {\n                        constness: Never,\n                        asyncness: Normal,\n                        polarity: Positive,\n                    },\n                    trait_ref: TraitRef {\n                        path: Path {\n                            span: t.rs:1:7: 1:12 (#0),\n                            segments: [\n                                PathSegment {\n                                    ident: Trait#0,\n                                    id: NodeId(4294967040),\n                                    args: None,\n                                },\n                            ],\n                        },\n                        ref_id: NodeId(4294967040),\n                    },\n                    span: t.rs:1:6: 1:13 (#0),\n                    parens: Yes,\n                },\n            ),\n            Trait(\n                PolyTraitRef {\n                    bound_generic_params: [],\n                    modifiers: TraitBoundModifiers {\n                        constness: Never,\n                        asyncness: Normal,\n                        polarity: Positive,\n                    },\n                    trait_ref: TraitRef {\n                        path: Path {\n                            span: t.rs:1:16: 1:20 (#0),\n                            segments: [\n                                PathSegment {\n                                    ident: Send#0,\n                                    id: NodeId(4294967040),\n                                    args: None,\n                                },\n                            ],\n                        },\n                        ref_id: NodeId(4294967040),\n                    },\n                    span: t.rs:1:16: 1:20 (#0),\n                    parens: No,\n                },\n            ),\n        ],\n    ),\n    span: t.rs:1:1: 1:20 (#0),\n})",
+    "tok => Token { kind: Eof, span: t.rs:1:16: 1:20 (#0) }"
+   ],
+   "fatal": false,
+   "stderr": ""
   }
  ]
 }
