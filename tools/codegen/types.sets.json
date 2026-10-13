@@ -252,5 +252,31 @@
     "auto_class": true,
     "derive_clone": true,
     "derive_default": true
+  },
+  "rustc_span": {
+    "files": [
+      "compiler/rustc_span/src/lib.rs",
+      "compiler/rustc_span/src/span_encoding.rs",
+      "compiler/rustc_span/src/hygiene.rs",
+      "compiler/rustc_span/src/def_id.rs",
+      "compiler/rustc_span/src/edition.rs",
+      "compiler/rustc_span/src/symbol.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_stable_hash": true,
+    "stable_hash_access": {
+      "rustc_span::hygiene::ExpnHash::0": { "expr": "ExpnHash._0($v)", "import": ["ExpnHash"] },
+      "rustc_span::def_id::DefPathHash::0": { "expr": "DefPathHash._0($v)", "import": ["DefPathHash"] },
+      "rustc_span::def_id::StableCrateId::0": { "expr": "StableCrateId._0($v)", "import": ["StableCrateId"] },
+      "rustc_span::def_id::LocalModId::0": { "expr": "LocalModId.to_local_def_id($v)", "import": ["LocalModId"] },
+      "rustc_span::StableSourceFileId::0": { "expr": "$v.hash()" }
+    },
+    "hand_notes": {
+      "*": "rustc_span's types are hand-written (src/rustc_span/*.ts); this set only generates rustc_span/stable_hash.gen.ts (derive(StableHash)). stable_hash_access: branded newtypes (the TS value is the field) and StableSourceFileId (keeps its hash inputs; hash() computes the Hash128)."
+    }
   }
 }

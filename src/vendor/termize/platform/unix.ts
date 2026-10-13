@@ -2,8 +2,8 @@
 //
 // PORT: `ioctl(fd, TIOCGWINSZ, &mut window)` → `ioctl_tiocgwinsz(fd, window)`: `tty.isatty(fd)`
 // false (not a terminal: the ioctl fails with ENOTTY) → -1; otherwise the size comes from
-// `new tty.WriteStream(fd).getWindowSize()` (`[columns, rows]`, the TIOCGWINSZ values), any throw
-// → -1 (fd ownership: see `ioctl_tiocgwinsz`). Opening `/dev/tty` uses `fs.openSync("/dev/tty", "r")`
+// a tty `WriteStream`'s `getWindowSize()` (`[columns, rows]`, the TIOCGWINSZ values), any throw
+// → -1 (which stream, and fd ownership: see `ioctl_tiocgwinsz`). Opening `/dev/tty` uses `fs.openSync("/dev/tty", "r")`
 // in try/catch (the `File::options().read(true).open` failure arm) and closes the fd afterwards
 // (the `File` drop).
 // `winsize` keeps its four fields; the pixel fields are left 0 (nothing reads them).
@@ -33,28 +33,36 @@ function zeroed(): winsize {
 }
 
 /** `libc::ioctl(fd, TIOCGWINSZ, window)`: 0 on success, -1 on failure. */
-// PORT: the ioctl opens nothing, so the `WriteStream` used to read the size must not change the
-// process's fd table (review w456b E1). Bun's tty `WriteStream` behaves differently per fd:
-// - for stdio fds (0..=2) it opens a writer fd of its own, closed synchronously by `destroy()`;
-//   without `destroy()` every call leaks one fd;
-// - for any other fd (the `/dev/tty` fd of `get_dimensions_any`) it borrows the caller's fd and
-//   `destroy()` closes *that* fd asynchronously (next tick), after the caller's own `closeSync`
-//   has run, so the deferred close would hit whatever reused the number. Such a stream is not
-//   destroyed (it holds no fd of its own and is not closed on GC); the caller keeps ownership.
-// Do not cache one stream per fd: Bun caches the size at construction, so resizes would be missed.
+// PORT: the ioctl opens nothing, so reading the size must not change the process's fd table
+// (review w456b E1). Bun has no ioctl binding (and `ioctl` is variadic, which bun:ffi cannot call
+// portably on Apple arm64), so the size comes from a tty `WriteStream`:
+// - fds 1 and 2 use the process-wide `process.stdout` / `process.stderr` streams, created once by
+//   the runtime: no fd is opened per call. Their size is refreshed on SIGWINCH, i.e. one event-loop
+//   tick after a resize (a terminal resized in the middle of one synchronous compilation keeps the
+//   old width; upstream would see the new one).
+// - fd 0 and other fds (the `/dev/tty` fd of `get_dimensions_any`) get a `WriteStream` that is never
+//   destroyed: for fd 0 Bun opens a writer fd of its own whose close is asynchronous (it would pile up
+//   during a synchronous run), so one stream per fd is cached (size fixed at construction: stale after
+//   a resize; only reached when neither stdout nor stderr is a terminal); for a borrowed fd `destroy()`
+//   would close the caller's fd a second time, asynchronously.
+const cached_streams = new Map<number, WriteStream>();
 function ioctl_tiocgwinsz(fd: number, window: winsize): number {
   if (!isatty(fd)) return -1;
-  let ws: WriteStream | undefined;
   try {
-    ws = new WriteStream(fd);
+    let ws: { getWindowSize(): [number, number] };
+    if (fd === STDOUT_FILENO && process.stdout instanceof WriteStream) ws = process.stdout;
+    else if (fd === STDERR_FILENO && process.stderr instanceof WriteStream) ws = process.stderr;
+    else if (fd === STDIN_FILENO) {
+      let c = cached_streams.get(fd);
+      if (c === undefined) cached_streams.set(fd, (c = new WriteStream(fd)));
+      ws = c;
+    } else ws = new WriteStream(fd);
     const [cols, rows] = ws.getWindowSize();
     window.ws_col = cols & 0xffff;
     window.ws_row = rows & 0xffff;
     return 0;
   } catch {
     return -1;
-  } finally {
-    if (ws !== undefined && fd <= STDERR_FILENO) ws.destroy();
   }
 }
 

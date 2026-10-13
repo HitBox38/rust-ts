@@ -15,7 +15,9 @@
 //!
 //! This API is completely unstable and subject to change.
 import { FreezeLock } from "../rustc_data_structures/sync/freeze.ts";
-import { debug_Hash64, Hash64, type Hash128 } from "../rustc_hashes/lib.ts";
+import { path_hasher, type RawSpan, type StableHashCtxt, StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import type { Hasher } from "../vendor/rustc_stable_hash/lib.ts";
+import { debug_Hash64, Hash64, Hash128 } from "../rustc_hashes/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { analyze_source_file } from "./analyze_source_file.ts";
 import { type CrateNum, type LocalDefId, LOCAL_CRATE, type StableCrateId } from "./def_id.ts";
@@ -37,7 +39,8 @@ import { Interner, type Symbol } from "./symbol.ts";
 import { debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_vec, type Debug, type Fmt } from "../std/fmt.ts";
 import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
-import { Str } from "../std/str.ts";
+import { Str, utf8 } from "../std/str.ts";
+import { path_hash } from "../std/path.ts";
 import { UnicodeWidthChar } from "../vendor/unicode_width/lib.ts";
 export { UNICODE_VERSION } from "../vendor/unicode_width/lib.ts";
 
@@ -319,6 +322,25 @@ interface InnerRealFileName {
   embeddable_name: PathBuf;
 }
 
+/**
+ * `#[derive(Hash)]` of `InnerRealFileName`: each `PathBuf` (std `impl Hash for Path`).
+ * PORT: there is no derive(Hash) codegen; the derived impls the stable hashes need are spelled out.
+ */
+function hash_InnerRealFileName(v: InnerRealFileName, state: Hasher): void {
+  path_hash(v.name, path_hasher(state));
+  path_hash(v.working_directory, path_hasher(state));
+  path_hash(v.embeddable_name, path_hasher(state));
+}
+
+/** `#[derive(Hash)]` of `Option<T>`: the `isize` discriminant (`None` 0, `Some` 1), then the value. */
+function hash_Option<T>(v: T | undefined, state: Hasher, hash_T: (v: T, state: Hasher) => void): void {
+  if (v === undefined) state.write_isize(0);
+  else {
+    state.write_isize(1);
+    hash_T(v, state);
+  }
+}
+
 const debug_InnerRealFileName: Debug<InnerRealFileName> = (v, f) =>
   debug_struct(f, "InnerRealFileName", [
     ["name", debug_str(v.name)],
@@ -367,7 +389,21 @@ export class RealFileName {
     public scopes: RemapPathScopeComponents,
   ) {}
 
-  // rustc-skip: compiler/rustc_span/src/lib.rs:330 hash std Hash impl only feeds StableHasher (FileName hashing, see StableSourceFileId PORT)
+  // rustc: compiler/rustc_span/src/lib.rs:330 hash
+  /** `impl Hash for RealFileName` */
+  hash(state: Hasher): void {
+    // To prevent #70924 from happening again we should only hash the
+    // remapped path if that exists. This is because remapped paths to
+    // sysroot crates (/rust/$hash or /rust/$version) remain stable even
+    // if the corresponding local path changes.
+    if (!this.was_fully_remapped()) {
+      // `self.local.hash(state)`: `Option<InnerRealFileName>`
+      hash_Option(this.local, state, hash_InnerRealFileName);
+    }
+    hash_InnerRealFileName(this.maybe_remapped, state);
+    // `self.scopes.bits().hash(state)`: a `u8`
+    state.write_u8(this.scopes);
+  }
 
   /// Returns the associated path for the given remapping scope.
   ///
@@ -549,6 +585,35 @@ export type FileName =
   /// Post-substitution inline assembly from LLVM.
   | { readonly $: "InlineAsm"; readonly _0: Hash64 };
 
+/** `FileName`'s variants in declaration order (`#[derive(Hash)]` hashes the index as an `isize`). */
+const FileName_discriminant = { Real: 0, CfgSpec: 1, Anon: 2, MacroExpansion: 3, ProcMacroSourceCode: 4, CliCrateAttr: 5, Custom: 6, DocTest: 7, InlineAsm: 8 } as const;
+
+/** `#[derive(Hash)]` of `FileName` (PORT: spelled out, see `hash_InnerRealFileName`). */
+export function hash_FileName(v: FileName, state: Hasher): void {
+  state.write_isize(FileName_discriminant[v.$]);
+  switch (v.$) {
+    case "Real":
+      v._0.hash(state);
+      break;
+    case "CfgSpec":
+    case "Anon":
+    case "MacroExpansion":
+    case "ProcMacroSourceCode":
+    case "CliCrateAttr":
+    case "InlineAsm":
+      // `Hash64`'s derived Hash: its `u64`
+      state.write_u64(v._0);
+      break;
+    case "Custom":
+      state.write_str(utf8(v._0));
+      break;
+    case "DocTest":
+      v._0.hash(state);
+      state.write_isize(v._1);
+      break;
+  }
+}
+
 export const debug_FileName: Debug<FileName> = (v, f) => {
   switch (v.$) {
     case "Real":
@@ -664,28 +729,43 @@ export const FileName = {
   },
 
   // rustc: compiler/rustc_span/src/lib.rs:616 macro_expansion_source_code
-  macro_expansion_source_code(_src: string): FileName {
-    return unported("rustc_data_structures::stable_hasher::StableHasher");
+  macro_expansion_source_code(src: string): FileName {
+    const hasher = StableHasher.new();
+    // `str::hash` -> `Hasher::write_str`
+    hasher.write_str(utf8(src));
+    return { $: "MacroExpansion", _0: hasher.finish(Hash64) };
   },
 
   // rustc: compiler/rustc_span/src/lib.rs:622 anon_source_code
-  anon_source_code(_src: string): FileName {
-    return unported("rustc_data_structures::stable_hasher::StableHasher");
+  anon_source_code(src: string): FileName {
+    const hasher = StableHasher.new();
+    // `str::hash` -> `Hasher::write_str`
+    hasher.write_str(utf8(src));
+    return { $: "Anon", _0: hasher.finish(Hash64) };
   },
 
   // rustc: compiler/rustc_span/src/lib.rs:628 proc_macro_source_code
-  proc_macro_source_code(_src: string): FileName {
-    return unported("rustc_data_structures::stable_hasher::StableHasher");
+  proc_macro_source_code(src: string): FileName {
+    const hasher = StableHasher.new();
+    // `str::hash` -> `Hasher::write_str`
+    hasher.write_str(utf8(src));
+    return { $: "ProcMacroSourceCode", _0: hasher.finish(Hash64) };
   },
 
   // rustc: compiler/rustc_span/src/lib.rs:634 cfg_spec_source_code
-  cfg_spec_source_code(_src: string): FileName {
-    return unported("rustc_data_structures::stable_hasher::StableHasher");
+  cfg_spec_source_code(src: string): FileName {
+    const hasher = StableHasher.new();
+    // `str::hash` -> `Hasher::write_str`
+    hasher.write_str(utf8(src));
+    return { $: "CfgSpec", _0: hasher.finish(Hash64) };
   },
 
   // rustc: compiler/rustc_span/src/lib.rs:640 cli_crate_attr_source_code
-  cli_crate_attr_source_code(_src: string): FileName {
-    return unported("rustc_data_structures::stable_hasher::StableHasher");
+  cli_crate_attr_source_code(src: string): FileName {
+    const hasher = StableHasher.new();
+    // `str::hash` -> `Hasher::write_str`
+    hasher.write_str(utf8(src));
+    return { $: "CliCrateAttr", _0: hasher.finish(Hash64) };
   },
 
   // rustc: compiler/rustc_span/src/lib.rs:646 doc_test_source_code
@@ -694,8 +774,11 @@ export const FileName = {
   },
 
   // rustc: compiler/rustc_span/src/lib.rs:650 inline_asm_source_code
-  inline_asm_source_code(_src: string): FileName {
-    return unported("rustc_data_structures::stable_hasher::StableHasher");
+  inline_asm_source_code(src: string): FileName {
+    const hasher = StableHasher.new();
+    // `str::hash` -> `Hasher::write_str`
+    hasher.write_str(utf8(src));
+    return { $: "InlineAsm", _0: hasher.finish(Hash64) };
   },
 
   /// Returns the path suitable for reading from the file system on the local host,
@@ -2350,18 +2433,26 @@ function cmp_u32(a: number, b: number): -1 | 0 | 1 {
 ///
 /// When `SourceFile`s are exported in crate metadata, the `StableSourceFileId`
 /// is updated to incorporate the `StableCrateId` of the exporting crate.
-// PORT: upstream stores `Hash128` = StableHasher((filename, stable_crate_id)). That hash is never
-// printed and only feeds incremental/metadata (M5); `StableHasher` (SipHasher128) and the derived
-// `Hash` of `FileName` are not ported. rust-ts keeps the hash *inputs* instead; `hash()` is
-// unported until a consumer needs the value.
+// PORT: upstream stores the `Hash128` = StableHasher((filename, stable_crate_id)). rust-ts keeps the
+// hash *inputs* (source_map.ts keys files on them, `stable_source_file_id_key`); `hash()` computes
+// (and caches) upstream's `Hash128`, i.e. the tuple field `.0`.
 export class StableSourceFileId {
+  private hash_?: Hash128;
   constructor(
     readonly filename: FileName,
     readonly stable_crate_id: StableCrateId | undefined,
   ) {}
 
+  /** `self.0`: `StableHasher` over `filename.hash(..)` then `stable_crate_id.hash(..)`, as a `Hash128`. */
   hash(): Hash128 {
-    return unported("rustc_data_structures::stable_hasher::StableHasher");
+    if (this.hash_ === undefined) {
+      const hasher = StableHasher.new();
+      hash_FileName(this.filename, hasher);
+      // `Option<StableCrateId>`'s derived Hash; `StableCrateId(Hash64)` hashes its `u64`
+      hash_Option(this.stable_crate_id, hasher, (id, state) => state.write_u64(id));
+      this.hash_ = hasher.finish(Hash128);
+    }
+    return this.hash_;
   }
 
   // rustc: compiler/rustc_span/src/lib.rs:2147 from_filename_in_current_crate
@@ -2758,7 +2849,15 @@ export const debug_InnerSpan: Debug<InnerSpan> = (v, f) =>
     ["end", debug_int(v.end, f)],
   ]);
 
-// rustc-skip: compiler/rustc_span/src/lib.rs:2845 stable_hash StableHash impl (HashStable)
+// rustc: compiler/rustc_span/src/lib.rs:2845 stable_hash
+/**
+ * `impl StableHash for Span`. PORT: `self.to_raw_span()` is the `Span` handle number itself
+ * (`RawSpan`, see rustc_data_structures/stable_hash.ts; span_encoding.ts's `to_raw_span` is a cast).
+ */
+export function stable_hash_Span(self: Span, hcx: StableHashCtxt, hasher: StableHasher): void {
+  // `stable_hash_span` does all the work.
+  hcx.stable_hash_span(self as number as RawSpan, hasher);
+}
 
 /// Useful type to use with `Result<>` indicate that an error has already
 /// been reported to the user, so no need to continue checking.

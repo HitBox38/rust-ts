@@ -1,0 +1,2369 @@
+{
+"//": "hashprobe crate-ids (direct StableCrateId::new calls) and hashprobe compile <args> (stable_crate_id of a real rustc session, after expansion)",
+"direct": [
+{
+"name": "main",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "6779621981941956722"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "unknown version",
+"id": "12485796111847704376"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "",
+"id": "5175030983262549580"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "11555243921654477274"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "unknown version",
+"id": "4218073021423881237"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "",
+"id": "11916047145499198790"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "1113200461906572712"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "14142706497710635494"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "",
+"id": "12823127381378101602"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "17137423895007169642"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "7670443219677994766"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "",
+"id": "11170857847003613328"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "4052231545755510126"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "unknown version",
+"id": "7864448585195631365"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "12598151760517106345"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "13281685559607984653"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "unknown version",
+"id": "11440708038816908782"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "1524061768232302983"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "1475626504706871849"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "1174332778959884722"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "",
+"id": "2971104468887393103"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "2920429670319638793"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "6413245279076324382"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "",
+"id": "5517025942450340348"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "1248833986530481884"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "unknown version",
+"id": "4539693868436810911"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "15772747721837607121"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "16712669939963284364"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "unknown version",
+"id": "14110493486278567387"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "6218679087010171988"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "11523990312188151982"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "1352842341061448286"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "",
+"id": "1960819719511114036"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "8198672552738800053"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "18386999843146247171"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "",
+"id": "4944471157983719415"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "6295326063938360962"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "unknown version",
+"id": "17823374528786307565"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "7535688130443992007"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "15428718924978662837"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "unknown version",
+"id": "8247154725500208532"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "13077898536259377444"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "904727532488989040"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "10456228326141088689"
+},
+{
+"name": "main",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "",
+"id": "72700512417682313"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "17031752766210033171"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "17164869114278568933"
+},
+{
+"name": "main",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "",
+"id": "2125772016794920305"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "9256220339238593539"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "unknown version",
+"id": "3957076182840494337"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "",
+"id": "4679805372082967962"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "5630638418599418508"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "unknown version",
+"id": "126538589087026380"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "",
+"id": "11499682569568311999"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "17318557097828417323"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "15389126447043699968"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "",
+"id": "847387498716469076"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "5833506304286680344"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "15322824240231122020"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "",
+"id": "11295481316200651220"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "914045028684564166"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "unknown version",
+"id": "13956814045787232866"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "4820526506763414803"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "4787956569821167137"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "unknown version",
+"id": "8890280049312693435"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "16460939877017665217"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "9962215529382550634"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "2436981877873089278"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "",
+"id": "8497491794413971882"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "16359745963776522691"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "13353820999718576737"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "",
+"id": "446403005143045643"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "12724742417561353563"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "unknown version",
+"id": "10725800992707844667"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "17341291644276186128"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "5386862304007750998"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "unknown version",
+"id": "6672241494882220655"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "8983154876863093076"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "876389993080315682"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "11015509944540574640"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "",
+"id": "11369778564059980103"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "221341755342596182"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "7294705443160574421"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "",
+"id": "6740104453377990718"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "10345740305221912457"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "unknown version",
+"id": "12794567968996202146"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "5871855967160531885"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "16807713986084578084"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "unknown version",
+"id": "4373045890525458792"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "5754937691073772779"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "1155422774456102777"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "255952274361787358"
+},
+{
+"name": "foo",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "",
+"id": "6453475219335557081"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "12646577657003866025"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "1603172832109725456"
+},
+{
+"name": "foo",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "",
+"id": "1048010928564261081"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "13408876052129304023"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "",
+"id": "14968489540597352270"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "9749542382069830714"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "",
+"id": "17779946252349679196"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "9792474010505667213"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "9449136643213169669"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "1059370200852662569"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "15800402263049007612"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "10824492647970095908"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "12095670090653584451"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "12007576827849791018"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "14573141177452423623"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "17435430806527564063"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "504751505231911237"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "1589204351554498957"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "1367963931381459233"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "8921643323995986822"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "11373086014857518558"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "2334857596274162506"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "7363739965379585603"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "5698058949393082612"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "4843652623355543548"
+},
+{
+"name": "rust_out",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "17706862369373558468"
+},
+{
+"name": "rust_out",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "13236765656812606504"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "7970602881738150623"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "",
+"id": "12516070041014784911"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "17277019416742634832"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "",
+"id": "4714129455949866034"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "1146279804846543140"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "12832748022153451180"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "8804575196936717392"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "9882017840881962074"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "14846892562210286926"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "11473983113578793473"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "510182156063153089"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "1668502195577511601"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "17194058410773221432"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "13185789496434560101"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "2311423295383807450"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "9045072089704550345"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "17417337508276722577"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "9351042343098680330"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "14186189169741188180"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "7232467724998764287"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "11204535178497060374"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "11979622774450773196"
+},
+{
+"name": "a",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "4718439990923294215"
+},
+{
+"name": "a",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "12138924884031579269"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "9366847255502894704"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "",
+"id": "4104381589075540274"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "12512180838977463083"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "",
+"id": "6781504885112813829"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "14995764557467823336"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "9552840287494452514"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "11270089535235741760"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "3717843901747622481"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "15916149274180367956"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "3130777030693093899"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "1867669318852148023"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "5964923360027238173"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "3606264399254563063"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "13655813069340678260"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "16834074704388903552"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "6101044754808767743"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "714504001306691426"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "5588774984975198231"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "4874585303071315622"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "16147290803532294009"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "542506109083530077"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "3268994238702174831"
+},
+{
+"name": "my_crate",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "653714234119684732"
+},
+{
+"name": "my_crate",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "15122635573009841665"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "3593190628872657727"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "",
+"id": "15642675857261072815"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "11693344954442647378"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "",
+"id": "18108291692119966736"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "1157184569276195314"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "4911726147331890421"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "6698453878254668150"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "16433799512635298037"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "105111557899652389"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "12433928512235340683"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "16292126432497696087"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "16317746824510385307"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "10985152096265766496"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "16433133731090245619"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "12889510789231922658"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "2848260302899510922"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "9414736480451520157"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "16031879165671512668"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "6403938111931087691"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "6379265628145181228"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "11847253883897873682"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "7322618891601323650"
+},
+{
+"name": "std",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "13573098121289085642"
+},
+{
+"name": "std",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "12192505847243998647"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "9297023145247495499"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "",
+"id": "5740174588072208134"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "4705986246352519529"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "",
+"id": "16380839842037007393"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "811303258576564561"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "14729775239426336418"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "10001304091518425920"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "10584498947305433920"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "2733068691785185625"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "92546979993583506"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "9595092212407730723"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "16916173186282419710"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "13921078818815463147"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "2850087610884466148"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "2227961533409342818"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "431665289551362565"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "1113987575075066755"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "2769057128667299449"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "925678929481470122"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "13631736563786429225"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "16988639848529193828"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "8705642917981356281"
+},
+{
+"name": "core",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "3142112392985242901"
+},
+{
+"name": "core",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "2677092099288193834"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "6301479361130015772"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "",
+"id": "7431778986085070624"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "5930728037752059672"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "",
+"id": "11309457123133642743"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "16577463560209400877"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"abc"
+],
+"cfg_version": "unknown version",
+"id": "9323820226305138523"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "15792692186778064595"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "2372666123040554496"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "15640376368295949870"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"ab",
+"c"
+],
+"cfg_version": "",
+"id": "3931717535111390057"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "11788792986522911902"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"a",
+"bc"
+],
+"cfg_version": "unknown version",
+"id": "12961500013578486194"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "8054573118326483161"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "5897751855108185666"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "14676475329248172824"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"x",
+"x",
+"y"
+],
+"cfg_version": "",
+"id": "13635317484244587134"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "16918345360476701472"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "unknown version",
+"id": "14437075908111493873"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "10569234475262064732"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "3583516861382032126"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "3353923696939416221"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"",
+"z"
+],
+"cfg_version": "",
+"id": "7818451002119657774"
+},
+{
+"name": "x2",
+"is_exe": false,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "1293691286545968947"
+},
+{
+"name": "x2",
+"is_exe": true,
+"metadata": [
+"é",
+"long-metadata-value-0123456789"
+],
+"cfg_version": "unknown version",
+"id": "7872878205129637398"
+}
+],
+"driver": [
+{
+"args": "crates/main.rs",
+"crate_name": "main",
+"is_exe": true,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "11555243921654477274"
+},
+{
+"args": "crates/lib.rs --crate-type lib",
+"crate_name": "lib",
+"is_exe": false,
+"metadata": [],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "7699789406764498176"
+},
+{
+"args": "crates/lib.rs --crate-type lib -C metadata=abc",
+"crate_name": "lib",
+"is_exe": false,
+"metadata": [
+"abc"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "9065510965800991006"
+},
+{
+"args": "crates/lib.rs --crate-type rlib --crate-name foo -C metadata=b -C metadata=a",
+"crate_name": "foo",
+"is_exe": false,
+"metadata": [
+"b",
+"a"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "876389993080315682"
+},
+{
+"args": "crates/main.rs --crate-name my_crate -C metadata=x -C metadata=x",
+"crate_name": "my_crate",
+"is_exe": true,
+"metadata": [
+"x",
+"x"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "4842885386467891078"
+},
+{
+"args": "crates/lib.rs --crate-type staticlib --crate-name st -C metadata=é",
+"crate_name": "st",
+"is_exe": false,
+"metadata": [
+"é"
+],
+"cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+"id": "15381424208232162202"
+}
+]
+}

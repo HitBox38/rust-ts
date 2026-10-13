@@ -5,13 +5,12 @@
 //     byte for byte, or stop with `rust-ts: unported: <expected what>` (exit 70) after printing a
 //     prefix of the oracle's stdout/stderr. Once the parser (lane parser-core) lands, they turn into
 //     exact matches without changes here.
-//   - The target-spec stand-in (rustc_session/stand_ins.ts) against `--print target-spec-json`.
+//   - `--print` requests (cfg, target-spec-json, ...) are in src/rustc_driver_impl/print.oracle.test.ts.
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO } from "../../scripts/lib/common.ts";
-import { TARGET_STANDIN_SPECS } from "../rustc_session/stand_ins.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
@@ -133,18 +132,3 @@ for (const [args, pending] of PENDING) {
     }
   });
 }
-
-test.skipIf(SKIP)("target-spec stand-in fields match `--print target-spec-json`", () => {
-  requireRustc();
-  for (const [tuple, spec] of TARGET_STANDIN_SPECS) {
-    const r = run([...RUSTC, "-Zunstable-options", "--print", "target-spec-json", "--target", tuple]);
-    expect(r.code).toBe(0);
-    const json = JSON.parse(r.stdout) as Record<string, unknown>;
-    expect({ tuple, pointer_width: spec.pointer_width, is_like_msvc: spec.is_like_msvc, default_codegen_backend: spec.default_codegen_backend }).toEqual({
-      tuple,
-      pointer_width: Number(json["target-pointer-width"]),
-      is_like_msvc: (json["is-like-msvc"] as boolean | undefined) ?? false,
-      default_codegen_backend: json["default-codegen-backend"] as string | undefined,
-    });
-  }
-});
