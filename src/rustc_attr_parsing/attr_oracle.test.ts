@@ -29,10 +29,11 @@ import { debug_MultiSpan } from "../rustc_error_messages/lib.gen.ts";
 import { AnnotateSnippetEmitter } from "../rustc_errors/annotate_snippet_emitter_writer.ts";
 import { DiagCtxt, FatalErrorMarker } from "../rustc_errors/lib.ts";
 import { new_parser_from_source_str, parser as rustc_parse_parser, unwrap_or_emit_fatal } from "../rustc_parse/lib.ts";
-import { Features } from "../rustc_feature/lib.ts";
+import { Features, UnstableFeatures } from "../rustc_feature/lib.ts";
+import { Options_default } from "../rustc_session/config.ts";
 import { EarlySession, Session } from "../rustc_session/lib.ts";
 import { ParseSess } from "../rustc_session/parse.ts";
-import { create_session_globals_then, debug_Span, type FileName, type Span } from "../rustc_span/lib.ts";
+import { create_session_globals_then, DUMMY_SP, debug_Span, type FileName, type Span } from "../rustc_span/lib.ts";
 import { FilePathMapping, get_source_map, RealFileLoader } from "../rustc_span/source_map.ts";
 import { debug_Ident, debug_Symbol, Symbol } from "../rustc_span/symbol.ts";
 import { debug_list, debug_option, debug_str, PLAIN } from "../std/fmt.ts";
@@ -57,27 +58,14 @@ interface Case {
 }
 const oracle = JSON.parse(readFileSync(join(import.meta.dir, "attr_oracle", "out.json"), "utf8")) as Case[];
 
-const D = "rustc_attr_parsing::diagnostics";
+/** The first stub parser (lane attr-parse-c) that building `ATTRIBUTE_PARSERS` reaches. */
+const PARSERS_PENDING = "rustc_attr_parsing::attributes::codegen_attrs::ForceTargetFeatureParser::PATH";
 /** case -> the `Unported` it must reach until the owning lane (attr-parse-b) lands. */
 const PENDING: Record<string, string> = {
-  args_bad_delim: `${D}::MetaBadDelim`,
-  args_bad_delim_nothing: `${D}::MetaBadDelim`,
-  args_suffixed_list: `${D}::SuffixedLiteralInAttribute`,
-  args_suffixed_list_forbid: `${D}::SuffixedLiteralInAttribute`,
-  args_suffixed_nv: `${D}::SuffixedLiteralInAttribute`,
-  args_missing_comma: `${D}::ExpectedComma`,
-  args_missing_comma_many: `${D}::ExpectedComma`,
-  args_neg_literal: `${D}::InvalidMetaItem`,
-  args_quote_ident: `${D}::InvalidMetaItem`,
-  args_macro_call: `${D}::InvalidMetaItem`,
-  args_eq_alone: `${D}::InvalidMetaItem`,
-  args_diagnostic_namespace: `${D}::InvalidMetaItem`,
-  single_error: `${D}::InvalidMetaItem`,
-  meta_bad_delim: `${D}::MetaBadDelim`,
-  builtin_unsafe: `${D}::InvalidAttrUnsafe`,
   // `check_attr` on a builtin attribute asks `AttributeParser::is_parsed_attribute`, which builds
-  // `ATTRIBUTE_PARSERS` from the attribute parsers (stubs until attr-parse-b).
-  check_builtin: "rustc_attr_parsing::attributes::Combine",
+  // `ATTRIBUTE_PARSERS` from the attribute parsers (stubs of lane attr-parse-c until it lands;
+  // the first one the registry build reaches is `ForceTargetFeatureParser`).
+  check_builtin: PARSERS_PENDING,
 };
 
 function leak_syms(s: string[]): Symbol[] {
@@ -358,26 +346,51 @@ const list_oracle = JSON.parse(readFileSync(join(import.meta.dir, "attr_oracle",
 /** list case -> the `Unported` it must reach until attr-parse-b lands. Every non-doc-comment
  *  attribute looks up `ATTRIBUTE_PARSERS`, whose list starts with the `Combine<..>` stub. */
 const LIST_PENDING: Record<string, string> = {
-  doc_raw: "rustc_attr_parsing::attributes::Combine",
-  unparsed: "rustc_attr_parsing::attributes::Combine",
-  parsed_basic: "rustc_attr_parsing::attributes::Combine",
-  parsed_nothing: "rustc_attr_parsing::attributes::Combine",
-  duplicates: "rustc_attr_parsing::attributes::Combine",
-  safety: "rustc_attr_parsing::attributes::Combine",
-  malformed: "rustc_attr_parsing::attributes::Combine",
-  unstable: "rustc_attr_parsing::attributes::Combine",
-  wrong_target: "rustc_attr_parsing::attributes::Combine",
-  diagnostic_namespace: "rustc_attr_parsing::attributes::Combine",
+  doc_raw: PARSERS_PENDING,
+  unparsed: PARSERS_PENDING,
+  parsed_basic: PARSERS_PENDING,
+  parsed_nothing: PARSERS_PENDING,
+  duplicates: PARSERS_PENDING,
+  safety: PARSERS_PENDING,
+  malformed: PARSERS_PENDING,
+  unstable: PARSERS_PENDING,
+  wrong_target: PARSERS_PENDING,
+  diagnostic_namespace: PARSERS_PENDING,
+  // lane attr-parse-d (verified against the oracle with the attr-parse-c parsers left out of the registry,
+  // see docs/handoff/attr-parse-d.md)
+  must_use_forms: PARSERS_PENDING,
+  non_exhaustive_forms: PARSERS_PENDING,
+  on_unimplemented_forms: PARSERS_PENDING,
+  do_not_recommend_forms: PARSERS_PENDING,
+  test_attr_forms: PARSERS_PENDING,
+  rustc_attrs_internal: PARSERS_PENDING,
+  rustc_attrs_ungated: PARSERS_PENDING,
+  confusables: PARSERS_PENDING,
+  allow_internal_unstable_forms: PARSERS_PENDING,
+  allow_internal_unstable_ungated: PARSERS_PENDING,
+  path_forms: PARSERS_PENDING,
+  no_implicit_prelude_forms: PARSERS_PENDING,
+  unroll_forms: PARSERS_PENDING,
+  debugger_visualizer_forms: PARSERS_PENDING,
+  misc_small: PARSERS_PENDING,
+  rustc_on_unimplemented_forms: PARSERS_PENDING,
+  diagnostic_feature_gated: PARSERS_PENDING,
 };
 
 /**
- * PORT(test): a `Session` that holds only `psess` (through `EarlySession`); the target, options and
- * the rest of the session are not reached by these scenarios (`parse_limited_all` uses `sess.psess`,
- * `sess.dcx()` and `sess.source_map()`).
+ * PORT(test): a `Session` that holds only `psess` and `opts` (through `EarlySession`) and
+ * `unstable_features`; the target and the rest of the session are not reached by these scenarios
+ * (`parse_limited_all` uses `sess.psess`, `sess.dcx()`, `sess.source_map()`, and feature gates).
  */
 function test_session(psess: ParseSess): Session {
   const sess = Object.create(Session.prototype) as Session;
-  sess.early_sess = new EarlySession(undefined as never, undefined as never, undefined as never, psess);
+  // PORT(test, lane attr-parse-d): feature-gate errors (`feature_err`) read `sess.opts` (`ui_testing`,
+  // `unstable_features`) and `sess.unstable_features`: the probe's `Options::default()` with edition
+  // 2024, and `UnstableFeatures::from_environment(None)` as in `build_session`.
+  const opts = Options_default();
+  opts.edition = "Edition2024";
+  sess.early_sess = new EarlySession(undefined as never, undefined as never, opts, psess);
+  sess.unstable_features = UnstableFeatures.from_environment(undefined);
   return sess;
 }
 
@@ -411,12 +424,19 @@ function run_list_case(c: Case): { events: string[]; fatal: boolean; stderr: str
         const krate = kr._0;
         const lists: [readonly ast.Attribute[], target.Target, Span][] = [[krate.attrs, target.Target.Crate, krate.spans.inner_span]];
         for (const item of krate.items) lists.push([item.attrs, target.Target.from_ast_item(item), item.span]);
-        const features = Features.default();
         lists.forEach(([attrs, t, target_span], idx) => {
-          for (const op of ops) {
+          for (const op of ops.filter((op) => op !== "lints")) {
             const i = op.indexOf(":");
             const name = i < 0 ? op : op.slice(0, i);
-            const arg = i < 0 ? "" : op.slice(i + 1);
+            const arg0 = i < 0 ? "" : op.slice(i + 1);
+            // `M+f1,f2`: the features enabled for this op (list_gen.rs, lane attr-parse-d)
+            const j = arg0.indexOf("+");
+            const arg = j < 0 ? arg0 : arg0.slice(0, j);
+            const feats = j < 0 ? "" : arg0.slice(j + 1);
+            const features = Features.default();
+            for (const f of feats.split(",").filter((f) => f !== "")) {
+              features.set_enabled_lang_feature({ gate_name: Symbol.intern(f), attr_sp: DUMMY_SP, stable_since: undefined });
+            }
             if (name !== "limited") throw new Error(`op ${op}`);
             const r = AttributeParser.parse_limited_all(sess, attrs, undefined, t, target_span, CRATE_NODE_ID, features, mode(arg), undefined);
             events.push(`#${idx} ${op} => ${debug_vec(r, PLAIN, debug_hir_Attribute)}`);
@@ -424,6 +444,17 @@ function run_list_case(c: Case): { events: string[]; fatal: boolean; stderr: str
         });
         for (const l of psess.buffered_lints) {
           events.push(`buffered ${l.lint_id.lint.name} ${debug_option(l.span, PLAIN, debug_MultiSpan)}`);
+        }
+        // `lints`: render every buffered early lint (list_gen.rs, lane attr-parse-d)
+        if (ops.includes("lints")) {
+          const lints = psess.buffered_lints.splice(0);
+          for (const l of lints) {
+            const diag = l.diagnostic._0(psess.dcx(), { $: "Warning", _0: undefined }, sess);
+            if (l.span !== undefined) {
+              diag.span(l.span);
+            }
+            diag.emit();
+          }
         }
       }
     } catch (e) {

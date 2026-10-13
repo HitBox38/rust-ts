@@ -14,7 +14,7 @@
     { "paths": ["String"], "into_diag_arg": "String_into_diag_arg", "display": "$v", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["String_into_diag_arg"] } },
     { "paths": ["str"], "into_diag_arg": "str_into_diag_arg", "display": "$v", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["str_into_diag_arg"] } },
     { "paths": ["std::borrow::Cow", "Cow"], "into_diag_arg": "Cow_into_diag_arg", "display": "$v", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["Cow_into_diag_arg"] }, "note": "Cow<'_, str> only" },
-    { "paths": ["bool"], "into_diag_arg": "bool_into_diag_arg", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["bool_into_diag_arg"] } },
+    { "paths": ["bool"], "into_diag_arg": "bool_into_diag_arg", "display": "String($v)", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["bool_into_diag_arg"] } },
     { "paths": ["char"], "into_diag_arg": "char_into_diag_arg", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["char_into_diag_arg"] } },
     { "paths": ["i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "i128", "u128", "isize", "usize"], "into_diag_arg": "number_into_diag_arg", "display": "String($v)", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["number_into_diag_arg"] } },
     { "paths": ["rustc_span::Symbol", "rustc_span::symbol::Symbol"], "into_diag_arg": "Symbol_into_diag_arg", "display": "display_Symbol($v)", "imports": { "src/rustc_error_messages/diagnostic_impls.ts": ["Symbol_into_diag_arg"], "src/rustc_span/symbol.ts": ["display_Symbol"] } },
@@ -31,6 +31,8 @@
     { "paths": ["rustc_attr_ir::target::Target", "rustc_attr_ir::Target"], "into_diag_arg": "Target_into_diag_arg", "display": "display_Target($v)", "imports": { "src/rustc_attr_ir/target.ts": ["Target_into_diag_arg", "display_Target"] }, "note": "into_diag_arg_using_display!(Target) (attr-ir-gen)" },
     { "paths": ["rustc_attr_ir::AttrPath", "rustc_attr_ir::attr::AttrPath"], "into_diag_arg": "AttrPath_into_diag_arg", "display": "display_AttrPath($v)", "imports": { "src/rustc_attr_ir/attr.ts": ["AttrPath_into_diag_arg", "display_AttrPath"] }, "note": "attr-ir-gen" },
     { "paths": ["rustc_attr_ir::MirDialect", "rustc_attr_ir::data_structures::MirDialect"], "into_diag_arg": "MirDialect_into_diag_arg", "imports": { "src/rustc_attr_ir/data_structures.ts": ["MirDialect_into_diag_arg"] }, "note": "attr-ir-gen" },
+    { "paths": ["rustc_errors::DiagArgValue", "rustc_error_messages::DiagArgValue"], "into_diag_arg": "DiagArgValue.into_diag_arg", "imports": { "src/rustc_error_messages/lib.ts": ["DiagArgValue"] }, "note": "impl IntoDiagArg for DiagArgValue (identity) (attr-parse-b)" },
+    { "paths": ["rustc_errors::DiagSymbolList", "rustc_errors::diagnostic_impls::DiagSymbolList"], "into_diag_arg": "DiagSymbolList_into_diag_arg_with($display0)", "default_args": [{ "kind": "path", "path": { "global": false, "segments": [{ "name": "rustc_span", "args": [] }, { "name": "Symbol", "args": [] }] }, "text": "rustc_span::Symbol" }], "imports": { "src/rustc_attr_parsing/diagnostics.ts": ["DiagSymbolList_into_diag_arg_with"] }, "note": "impl<S: Display> IntoDiagArg for DiagSymbolList<S>; $display0 = Display fn of S (attr-parse-b; helper in the first set that needed it)" },
     { "paths": ["rustc_attr_ir::MirPhase", "rustc_attr_ir::data_structures::MirPhase"], "into_diag_arg": "MirPhase_into_diag_arg", "imports": { "src/rustc_attr_ir/data_structures.ts": ["MirPhase_into_diag_arg"] }, "note": "attr-ir-gen" }
   ]
 }

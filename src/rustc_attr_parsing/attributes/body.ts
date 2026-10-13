@@ -1,7 +1,11 @@
-// STUB for compiler/rustc_attr_parsing/src/attributes/body.rs (owned by lane attr-parse-b).
-// Created by lane attr-parse-a: the parser types that `ATTRIBUTE_PARSERS` (context.rs) names, as
-// `unported_impl` trait tables (any use reaches `Unported`); no markers. attr-parse-b replaces each
-// one with the real trait table under the same name (docs/handoff/attr-parse-a.md).
-import { type NoArgsAttributeParser, unported_impl } from "./mod.ts";
+//! Attributes that can be found in function body.
+// Port of compiler/rustc_attr_parsing/src/attributes/body.rs
+import { NoArgsAttributeParser_provided } from "./mod.ts";
+import { Allow, AttributeKind, type NoArgsAttributeParser, sym, Target, unstable } from "./prelude.ts";
 
-export const CoroutineParser: NoArgsAttributeParser = unported_impl("rustc_attr_parsing::attributes::body::CoroutineParser");
+export const CoroutineParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
+  PATH: [sym.coroutine],
+  ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Closure)] },
+  STABILITY: unstable(sym.coroutines),
+  CREATE: (_) => AttributeKind.Coroutine,
+});

@@ -1,7 +1,23 @@
-// STUB for compiler/rustc_attr_parsing/src/attributes/dummy.rs (owned by lane attr-parse-b).
-// Created by lane attr-parse-a: the parser types that `ATTRIBUTE_PARSERS` (context.rs) names, as
-// `unported_impl` trait tables (any use reaches `Unported`); no markers. attr-parse-b replaces each
-// one with the real trait table under the same name (docs/handoff/attr-parse-a.md).
-import { type SingleAttributeParser, unported_impl } from "./mod.ts";
+// Port of compiler/rustc_attr_parsing/src/attributes/dummy.rs
+import { AttributeKind } from "../../rustc_attr_ir/lib.ts";
+import { sym } from "../../rustc_span/symbol.ts";
+import { ArgParser } from "../parser.ts";
+import { unstable } from "../stability.ts";
+import { template } from "../template.ts";
+import { OnDuplicate, type SingleAttributeParser, SingleAttributeParser_provided } from "./mod.ts";
 
-export const RustcDummyParser: SingleAttributeParser = unported_impl("rustc_attr_parsing::attributes::dummy::RustcDummyParser");
+export const RustcDummyParser: SingleAttributeParser = SingleAttributeParser_provided({
+  PATH: [sym.rustc_dummy],
+  ON_DUPLICATE: OnDuplicate.Ignore,
+  // `AllowedTargets::ManuallyChecked` (a literal: see prelude.ts on target_checking.ts and load order)
+  ALLOWED_TARGETS: { $: "ManuallyChecked" },
+  TEMPLATE: template({ Word: true }), // Anything, really
+  STABILITY: unstable(sym.rustc_attrs, "the `rustc_dummy` attribute is used for rustc unit tests"),
+
+  // rustc: compiler/rustc_attr_parsing/src/attributes/dummy.rs:20 convert
+  convert(cx, args) {
+    ArgParser.ignore_args(args);
+    cx.ignore_target_checks();
+    return AttributeKind.RustcDummy;
+  },
+});

@@ -1,8 +1,17 @@
-// STUB for compiler/rustc_attr_parsing/src/attributes/loop_match.rs (owned by lane attr-parse-b).
-// Created by lane attr-parse-a: the parser types that `ATTRIBUTE_PARSERS` (context.rs) names, as
-// `unported_impl` trait tables (any use reaches `Unported`); no markers. attr-parse-b replaces each
-// one with the real trait table under the same name (docs/handoff/attr-parse-a.md).
-import { type NoArgsAttributeParser, unported_impl } from "./mod.ts";
+// Port of compiler/rustc_attr_parsing/src/attributes/loop_match.rs
+import { NoArgsAttributeParser_provided } from "./mod.ts";
+import { Allow, type NoArgsAttributeParser, sym, Target, unstable } from "./prelude.ts";
 
-export const ConstContinueParser: NoArgsAttributeParser = unported_impl("rustc_attr_parsing::attributes::loop_match::ConstContinueParser");
-export const LoopMatchParser: NoArgsAttributeParser = unported_impl("rustc_attr_parsing::attributes::loop_match::LoopMatchParser");
+export const LoopMatchParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
+  PATH: [sym.loop_match],
+  ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Loop)] },
+  STABILITY: unstable(sym.loop_match),
+  CREATE: (span) => ({ $: "LoopMatch", _0: span }),
+});
+
+export const ConstContinueParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
+  PATH: [sym.const_continue],
+  ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Break)] },
+  STABILITY: unstable(sym.loop_match),
+  CREATE: (span) => ({ $: "ConstContinue", _0: span }),
+});
