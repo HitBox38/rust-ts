@@ -22,6 +22,7 @@ import { ExplicitBug, type Location } from "../rustc_span/macros.ts";
 import { debug_option, PLAIN, type Debug, type Fmt } from "../std/fmt.ts";
 import { assert, assert_eq, panic, panicking, unported, unwrap } from "../std/panic.ts";
 import { utf8_len } from "../std/str.ts";
+import * as track_caller from "../rust_ts/track_caller.ts";
 import type { ErrCode } from "./codes.ts";
 import { index_map_swap_remove } from "./decorate_diag.ts";
 import {
@@ -83,10 +84,9 @@ export interface Subdiagnostic {
 }
 
 // PORT: `#[track_caller]` / `panic::Location::caller()` has no JS equivalent. `DiagLocation::caller()`
-// returns this sentinel; displaying it (only `-Ztrack-diagnostics` and delayed-bug notes do) is
-// `unported`. `dedup_hash` ignores `emitted_at`, as upstream does.
-const CALLER_UNKNOWN = "<rust-ts: #[track_caller] location unported>";
-
+// records the JS stack (src/rust_ts/track_caller.ts) under a placeholder `file`; displaying it (only
+// `-Ztrack-diagnostics` and delayed-bug notes do) maps the stack back to the upstream call site, or is
+// `unported` when that cannot be done exactly. `dedup_hash` ignores `emitted_at`, as upstream does.
 declare module "./diagnostic.gen.ts" {
   namespace DiagLocation {
     export let from_location: (loc: Location) => DiagLocation;
@@ -103,13 +103,21 @@ DiagLocation.from_location = function (loc: Location): DiagLocation {
 // PORT: `Function.caller` is a restricted property in JS, so the static is `caller_`.
 DiagLocation.caller_ = function (): DiagLocation {
   // Self::from_location(panic::Location::caller())
-  return new DiagLocation(CALLER_UNKNOWN, 0, 0);
+  return new DiagLocation(track_caller.capture(), 0, 0);
 };
 
 /** `impl fmt::Display for DiagLocation` */
 // rustc: compiler/rustc_errors/src/diagnostic.rs:81 fmt
 export function display_DiagLocation(self: DiagLocation): string {
-  if (self.file === CALLER_UNKNOWN) return unported("std::panic::Location::caller (DiagLocation Display)");
+  if (self.file.startsWith(track_caller.CAPTURE_PREFIX)) {
+    const loc = track_caller.resolve(self.file);
+    // PORT: `RUST_TS_TRACK_CALLER_DEBUG` appends why the location could not be resolved.
+    if (!loc.ok) {
+      const why = process.env.RUST_TS_TRACK_CALLER_DEBUG === undefined ? "" : `: ${loc.why}`;
+      return unported(`std::panic::Location::caller (DiagLocation Display${why})`);
+    }
+    return `${loc.file}:${loc.line}:${loc.col}`;
+  }
   return `${self.file}:${self.line}:${self.col}`;
 }
 
@@ -1332,6 +1340,7 @@ function level_eq_fieldless(a: Level, b: Level): boolean {
 }
 
 /** `struct_span_code_err!($dcx, $span, $code, $($message)*)` (PORT: the message is pre-formatted). */
+// rustc-macro: compiler/rustc_errors/src/diagnostic.rs:1299 struct_span_code_err!
 export function struct_span_code_err(dcx: DiagCtxtHandle, span: IntoMultiSpan, code: ErrCode, message: string): Diag {
   return dcx.struct_span_err(span, message).with_code(code);
 }

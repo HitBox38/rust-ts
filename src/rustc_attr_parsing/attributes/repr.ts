@@ -95,6 +95,7 @@ function parse_repr(cx: AcceptContext, param: MetaItemParser): ReprAttr | undefi
   // use ReprAttr::*;
 
   // macro_rules! repr_int
+  // rustc-macro: compiler/rustc_attr_parsing/src/attributes/repr.rs:75 repr_int!
   const repr_int = (arg: string, constructor: ReprAttr): ReprAttr | undefined => {
     cx.check_target(`(${arg})`, {
       $: "AllowList",

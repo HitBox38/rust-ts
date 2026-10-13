@@ -11,15 +11,12 @@ import { StripTokens } from "../rustc_parse/lexer/mod.ts";
 import { AllowConstBlockItems, ForceCollect } from "../rustc_parse/parser/mod.gen.ts";
 import { new_parser_from_file, unwrap_or_emit_fatal, utf8_error } from "../rustc_parse/lib.ts";
 import type { ParseSess } from "../rustc_session/parse.ts";
-import type { Session } from "../rustc_session/session.ts";
 import type { SourceMap } from "../rustc_span/source_map.ts";
 import { FileName, RemapPathScopeComponents, Span } from "../rustc_span/lib.ts";
 import { ByteSymbol, Symbol } from "../rustc_span/symbol.ts";
 import type { NodeId } from "../rustc_ast/lib.ts";
-import type { Diag } from "../rustc_errors/lib.ts";
 import { escape_char } from "../std/fmt.ts";
 import { display_IoError } from "../std/io.ts";
-import { unported } from "../std/panic.ts";
 import { type Component, path_components, path_file_name, path_is_absolute, path_join, path_parent } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { from_utf8 } from "../std/str.ts";
@@ -102,7 +99,7 @@ export function expand_include(cx: ExtCtxt, sp_: Span, tts: TokenStream): MacroE
   if (mac.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp, mac._0) };
   const path_ = mac._0;
   // The file will be added to the code map by the parser
-  const pr = session_resolve_path(cx.sess, Symbol.as_str(path_), sp);
+  const pr = cx.sess.resolve_path(Symbol.as_str(path_), sp);
   if (pr.$ === "Err") {
     const guar = pr._0.emit_err();
     return { $: "Ready", _0: DummyResult.any(sp, guar) };
@@ -237,7 +234,7 @@ function load_binary_file(
   macro_span: Span,
   path_span: Span,
 ): Result<[Uint8Array, Span], MacResult> {
-  const pr = session_resolve_path(cx.sess, original_path, macro_span);
+  const pr = cx.sess.resolve_path(original_path, macro_span);
   if (pr.$ === "Err") {
     const guar = pr._0.emit_err();
     return Err(DummyResult.any(macro_span, guar));
@@ -352,12 +349,4 @@ function str_escape_debug(s: string): string {
   let out = "";
   for (const c of s) out += escape_char(c.codePointAt(0)!, true, true);
   return out;
-}
-
-/** `Session::resolve_path` (rustc_session/src/session.rs:934): not ported in session.ts yet. */
-function session_resolve_path(sess: Session, path: string, span: Span): Result<string, Diag> {
-  void sess;
-  void path;
-  void span;
-  return unported("rustc_session::Session::resolve_path (session.rs:934)");
 }

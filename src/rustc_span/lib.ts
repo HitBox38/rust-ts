@@ -65,7 +65,7 @@ import { debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_ve
 import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { Str, utf8 } from "../std/str.ts";
-import { path_hash } from "../std/path.ts";
+import { path_file_name, path_hash } from "../std/path.ts";
 import { UnicodeWidthChar } from "../vendor/unicode_width/lib.ts";
 export { UNICODE_VERSION } from "../vendor/unicode_width/lib.ts";
 
@@ -587,7 +587,8 @@ export class RealFileName {
       case "Local":
         return (this.local ?? this.maybe_remapped).name;
       case "Short":
-        return unported("std::path::Path::file_name");
+        // `.file_name().map_or_else(|| "".into(), |f| f.to_string_lossy())`
+        return path_file_name(this.maybe_remapped.name) ?? "";
       case "Scope":
         return this.path(display_pref._0);
     }
