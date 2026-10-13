@@ -48,7 +48,7 @@ import type { Token } from "../../rustc_ast/token.ts";
 import type { TokenTree } from "../../rustc_ast/tokenstream.ts";
 import { Case } from "../../rustc_ast/util/case.ts";
 import * as pprust from "../../rustc_ast_pretty/pprust/mod.ts";
-import { type Diag, E0197, E0584, msg, type PResult, StashKey, struct_span_code_err } from "../../rustc_errors/lib.ts";
+import { type Diag, debug_Diag, E0197, E0584, msg, type PResult, StashKey, struct_span_code_err } from "../../rustc_errors/lib.ts";
 import { Applicability } from "../../rustc_lint_defs/lib.ts";
 import { edit_distance } from "../../rustc_span/edit_distance.ts";
 import { Edition, Edition_discriminant } from "../../rustc_span/edition.ts";
@@ -703,7 +703,7 @@ Parser.prototype.recover_missing_kw_before_item = function (this: Parser): PResu
     (!is_const || this.look_ahead(1, (t) => t.eq(TokenKind.OpenParen))) &&
     this.look_ahead(1, (t) => t.kind.$ === "Lt" || t.kind.$ === "OpenBrace" || t.kind.$ === "OpenParen")
   ) {
-    ident = unwrap_result(this.parse_ident_common(true));
+    ident = unwrap_result(this.parse_ident_common(true), debug_Diag);
   } else {
     return Ok(undefined);
   }
