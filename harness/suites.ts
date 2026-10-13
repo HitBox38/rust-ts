@@ -371,6 +371,61 @@ SUITES.push(
   },
 );
 
+// M2b (plan-m2 wave 11, gate M2b): the three nocore suites' compilations with std, i.e. the same argv
+// without `-Zcrate-attr=feature(no_core) -Zcrate-attr=no_core`. Every crate then gets the standard
+// library injection (`extern crate std;` + the edition's `std::prelude` glob import; `#![no_std]` files get
+// `core` instead), so its metadata, and that of the crates it reaches (core, alloc, ...), is loaded from
+// the `lib/rustlib/x86_64-unknown-linux-gnu/lib` crates of the oracle sysroot given by `--sysroot` (the
+// subject decodes those same files). Target, sysroot, edition, env (`NOCORE_ENV`: RUSTC_ICE=0,
+// RUST_BACKTRACE=0) and timeouts as the nocore suites, one process per file. The same 3 files are left out,
+// for the same reason (see `STD_SKIPPED`).
+const stdArgs = (f: string): string[] => ["--target", COMPILETEST_TARGET, "--sysroot", oracleSysroot(), `--edition=${edition(f)}`];
+// Left out of all three std suites, as in the nocore ones (measured with std, lane harness-w12): the
+// oracle's -Zunpretty=ast-tree,expanded printed nothing in 1560 s on any of the 3 and was killed;
+// -Zunpretty=expanded and resdump finish on them in < 0.2 s, but they are left out there too so that the
+// three suites keep one case list. tests/ui/try-trait/deep-try-chain-issue-153583.rs stays in: 353 s with
+// std (350 s without), within the oracle's retry, and cached once per oracle build.
+const STD_SKIPPED: SkippedCase[] = NOCORE_SKIPPED.map((k) => ({ id: k.id, reason: `${k.reason} (with std too)` }));
+const stdCorpus = (): string[] => {
+  const skip = new Set(STD_SKIPPED.map((k) => k.id));
+  return corpus("tests/ui").filter((f) => !skip.has(f));
+};
+const stdSuite = (name: string, unpretty: string, description: string): Suite => ({
+  name,
+  milestone: "M2",
+  description,
+  mode: "single",
+  timeoutMs: 60_000,
+  oracleTimeoutMs: 300_000,
+  cases: () => stdCorpus().map((f) => ({ id: f, file: f, args: [...stdArgs(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV })),
+  skipped: () => STD_SKIPPED,
+  oracle: ([c]) => oracleRustcCmd(c!.args),
+  subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+});
+SUITES.push(
+  stdSuite(
+    "expanded",
+    "ast-tree,expanded",
+    "rustc -Zunpretty=ast-tree,expanded ({:#?} of the expanded AST after name resolution + expansion/resolution/early-lint diagnostics) on every .rs in tests/ui with std injected (metadata of std/core/alloc/... loaded from the oracle sysroot's target libs), --target x86_64-unknown-linux-gnu --sysroot <oracle sysroot>, edition from directives",
+  ),
+  stdSuite("unpretty-expanded", "expanded", "expanded with -Zunpretty=expanded (the pretty-printed expanded source instead of the AST tree)"),
+  {
+    // tools/probes/resdump, as resdump-nocore: expanded's argv without -Zunpretty.
+    name: "resdump",
+    milestone: "M2",
+    description:
+      "name resolution results (rustc-dev probe tools/probes/resdump: ResolverGlobalCtxt + ResolverAstLowering + definitions, sorted, plus the diagnostics up to resolution) on every .rs in tests/ui with std injected, args as expanded",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: 300_000,
+    probes: ["resdump"],
+    cases: () => stdCorpus().map((f) => ({ id: f, file: f, args: [...stdArgs(f), f], env: NOCORE_ENV })),
+    skipped: () => STD_SKIPPED,
+    oracle: ([c]) => [probePath("resdump"), ...c!.args],
+    subject: ([c]) => [...bunCmd("src/rust_ts/resdump.ts"), ...c!.args],
+  },
+);
+
 export function suite(name: string): Suite {
   const s = SUITES.find((s) => s.name === name);
   if (!s) throw new Error(`unknown suite '${name}' (have: ${SUITES.map((s) => s.name).join(", ")})`);
