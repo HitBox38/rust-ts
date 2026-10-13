@@ -77,8 +77,8 @@ import { HasAttrs, HasTokens } from "./ast_traits.ts";
 import { DUMMY_NODE_ID, type NodeId } from "./node_id.ts";
 import * as token from "./token.ts";
 import { TokenStream } from "./tokenstream.ts";
-// PORT: util/parser.ts re-exports `ExprPrecedence` as a type only (its `export type` shadows the
-// generated companion), so variants are written as their string values (PORTING §5 fieldless enums).
+// PORT: `ExprPrecedence` is a fieldless enum (a string-literal union, PORTING §5); its variants are
+// written as their string values here (`"Prefix"`), which the union type-checks.
 import { type ExprPrecedence, Fixity } from "./util/parser.ts";
 
 export * from "./ast.gen.ts";
@@ -1054,8 +1054,8 @@ gen.Stmt.prototype.has_trailing_semicolon = function (this: gen.Stmt): boolean {
 /// `LazyAttrTokenStream`. The parser is responsible for calling
 /// `ToAttrTokenStream::add_trailing_semi` when there is actually
 /// a semicolon in the tokenstream.
-// rustc: compiler/rustc_ast/src/ast.rs:1225 add_trailing_semicolon
 // PORT: `mut self` takes ownership, so updating `this` in place is unobservable; returns `this`.
+// rustc: compiler/rustc_ast/src/ast.rs:1225 add_trailing_semicolon
 gen.Stmt.prototype.add_trailing_semicolon = function (this: gen.Stmt): gen.Stmt {
   const kind = this.kind;
   switch (kind.$) {
@@ -1461,6 +1461,12 @@ export const RangeLimits = {
   },
 };
 
+// impl fmt::Display for CoroutineKind
+// rustc: compiler/rustc_ast/src/ast.rs:1953 fmt
+export function display_CoroutineKind(self: CoroutineKind): string {
+  return CoroutineKind.as_str(self);
+}
+
 export type CoroutineKind = gen.CoroutineKind;
 export const CoroutineKind = {
   ...gen.CoroutineKind,
@@ -1489,12 +1495,6 @@ export const CoroutineKind = {
     }
   },
 };
-
-// impl fmt::Display for CoroutineKind
-// rustc: compiler/rustc_ast/src/ast.rs:1953 fmt
-export function display_CoroutineKind(self: CoroutineKind): string {
-  return CoroutineKind.as_str(self);
-}
 
 // rustc: compiler/rustc_ast/src/ast.rs:2067 span
 gen.MacCall.prototype.span = function (this: gen.MacCall): Span {
@@ -1691,7 +1691,10 @@ export const LitKind = LitKind_ as typeof LitKind_ & LitKindExt;
 /// Return a span encompassing the header, or where to insert it if empty.
 // rustc: compiler/rustc_ast/src/ast.rs:2355 header_span
 gen.FnSig.prototype.header_span = function (this: gen.FnSig): Span {
-  return this.header.span() ?? Span.shrink_to_lo(this.span);
+  // PORT: `unwrap_or` evaluates its argument eagerly, after the receiver (span interning order).
+  const s = this.header.span();
+  const default_ = Span.shrink_to_lo(this.span);
+  return s ?? default_;
 };
 
 /// The span of the header's safety, or where to insert it if empty.
@@ -1718,9 +1721,10 @@ gen.FnSig.prototype.safety_span = function (this: gen.FnSig): Span {
 /// The span of the header's extern, or where to insert it if empty.
 // rustc: compiler/rustc_ast/src/ast.rs:2376 extern_span
 gen.FnSig.prototype.extern_span = function (this: gen.FnSig): Span {
-  // PORT: `unwrap_or` evaluates its argument eagerly; `safety_span` has no side effects.
+  // PORT: `unwrap_or` evaluates its argument eagerly, after the receiver (span interning order).
+  const s = Extern.span(this.header.ext);
   const default_ = Span.shrink_to_hi(this.safety_span());
-  return Extern.span(this.header.ext) ?? default_;
+  return s ?? default_;
 };
 
 // rustc: compiler/rustc_ast/src/ast.rs:2380 as_borrowed
@@ -1960,19 +1964,6 @@ export const InlineAsmOptions = {
 // rustc: compiler/rustc_ast/src/ast.rs:2768 fmt
 export const debug_InlineAsmOptions: Debug<InlineAsmOptions> = (v, _f) => to_writer(gen.InlineAsmOptions.FLAGS_DESC, v);
 
-export type InlineAsmTemplatePiece = gen.InlineAsmTemplatePiece;
-export const InlineAsmTemplatePiece = {
-  /// Rebuilds the asm template string from its pieces.
-  // rustc: compiler/rustc_ast/src/ast.rs:2804 to_string
-  to_string(s: readonly InlineAsmTemplatePiece[]): string {
-    let out = "";
-    for (const p of s) {
-      out += display_InlineAsmTemplatePiece(p);
-    }
-    return out;
-  },
-};
-
 // impl fmt::Display for InlineAsmTemplatePiece
 // rustc: compiler/rustc_ast/src/ast.rs:2780 fmt
 export function display_InlineAsmTemplatePiece(self: InlineAsmTemplatePiece): string {
@@ -2003,6 +1994,19 @@ export function display_InlineAsmTemplatePiece(self: InlineAsmTemplatePiece): st
     }
   }
 }
+
+export type InlineAsmTemplatePiece = gen.InlineAsmTemplatePiece;
+export const InlineAsmTemplatePiece = {
+  /// Rebuilds the asm template string from its pieces.
+  // rustc: compiler/rustc_ast/src/ast.rs:2804 to_string
+  to_string(s: readonly InlineAsmTemplatePiece[]): string {
+    let out = "";
+    for (const p of s) {
+      out += display_InlineAsmTemplatePiece(p);
+    }
+    return out;
+  },
+};
 
 /// Inline assembly operand.
 ///

@@ -28,6 +28,7 @@ import {
 import { FilePathMapping, RealFileLoader } from "../../rustc_span/source_map.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { PLAIN, PRETTY } from "../../std/fmt.ts";
+import { Panic } from "../../std/panic.ts";
 import { Str } from "../../std/str.ts";
 import {
   type AttrArgs,
@@ -658,5 +659,5 @@ test("Attribute::convert_normal_to_synthetic keeps id, style and span", () =>
     expect(syn.name()).toBeUndefined();
     expect(syn.meta()).toBeUndefined();
     expect(syn.token_trees()).toEqual([]);
-    expect(() => syn.get_normal_item()).toThrow();
+    expect(() => syn.get_normal_item()).toThrow(new Panic("internal error: entered unreachable code")); // attr/mod.rs:65
   }));

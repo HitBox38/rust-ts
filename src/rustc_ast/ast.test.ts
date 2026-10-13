@@ -5,7 +5,7 @@ import { create_default_session_globals_then } from "../rustc_span/lib.ts";
 import { DUMMY_SP } from "../rustc_span/span_encoding.ts";
 import { debug_Ident, Ident, Symbol } from "../rustc_span/symbol.ts";
 import { type Fmt, PLAIN, PRETTY } from "../std/fmt.ts";
-import { Unported } from "../std/panic.ts";
+import { Panic, Unported } from "../std/panic.ts";
 import { CRATE_NODE_ID, debug_NodeId, NodeId } from "./node_id.ts";
 
 // PORT: the generated modules import `debug_Span` (span_encoding.ts) and `debug_AttrId` (lib.ts),
@@ -210,7 +210,7 @@ tg("Path: from_ident / is_global / is_single_argless_ident / eq", () =>
     // join_path_syms: a leading kw::PathRoot prints as empty (ast.rs:180-182)
     expect(A!.join_path_syms([kw.PathRoot, foo, Symbol.intern("bar")])).toBe("::foo::bar");
     expect(A!.join_path_syms([foo])).toBe("foo");
-    expect(() => A!.join_path_syms([])).toThrow(); // ast.rs:179 `unwrap()` on an empty path
+    expect(() => A!.join_path_syms([])).toThrow(new Panic("called `Option::unwrap()` on a `None` value")); // ast.rs:179 `unwrap()` on an empty path
   }));
 
 tg("Expr: peel_parens / peel_parens_and_refs / maybe_unwrap_block / precedence", () =>
@@ -329,7 +329,7 @@ t("TraitObjectSyntax Tag; CoroutineKind; RangeLimits; Bound*::as_str; AttrStyle"
   const { TraitObjectSyntax, CoroutineKind, RangeLimits, BoundConstness, BoundPolarity, AttrStyle } = A!;
   expect(TraitObjectSyntax.into_usize("None")).toBe(1); // ast.rs:2671, 2681
   expect(TraitObjectSyntax.from_usize(0)).toBe("Dyn"); // ast.rs:2686
-  expect(() => TraitObjectSyntax.from_usize(2)).toThrow(); // ast.rs:2688
+  expect(() => TraitObjectSyntax.from_usize(2)).toThrow(new Panic("internal error: entered unreachable code")); // ast.rs:2688
   expect(A!.display_CoroutineKind("AsyncGen")).toBe("async gen"); // ast.rs:1954, 1971
   expect(CoroutineKind.is_gen("Async")).toBe(false); // ast.rs:1962
   expect(RangeLimits.as_str("Closed")).toBe("..="); // ast.rs:1709

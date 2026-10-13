@@ -118,8 +118,8 @@ export const DiffActivity = {
 };
 
 // impl Display for DiffMode
-// rustc: compiler/rustc_ast/src/expand/autodiff_attrs.rs:113 fmt
 // PORT: `Display` impls are `display_<Type>(v): string` (as in rustc_span).
+// rustc: compiler/rustc_ast/src/expand/autodiff_attrs.rs:113 fmt
 export function display_DiffMode(self: DiffMode): string {
   switch (self) {
     case "Error":
