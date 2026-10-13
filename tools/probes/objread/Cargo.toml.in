@@ -1,0 +1,19 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (lane object-read): links the oracle toolchain's own
+# `rustc_codegen_ssa::back::metadata::DefaultMetadataLoader` and the `object` crate it uses
+# (0.39.1, through `#![feature(rustc_private)]` + `extern crate`).
+[package]
+name = "objread"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "objread"
+path = "@SRC@/main.rs"
+
+[workspace]
