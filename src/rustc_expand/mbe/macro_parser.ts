@@ -280,7 +280,7 @@ export function compute_locs(matcher: readonly TokenTree[]): MatcherLoc[] {
           const open_token = token.Token.new(token.Delimiter.as_open_token_kind(delimited.delim), span.open);
           const close_token = token.Token.new(token.Delimiter.as_close_token_kind(delimited.delim), span.close);
 
-          locs.push(MatcherLoc.Delimited);
+          locs.push({ $: "Delimited" });
           locs.push({ $: "Token", token: open_token });
           inner(delimited.tts, locs, next_metavar, seq_depth);
           locs.push({ $: "Token", token: close_token });
