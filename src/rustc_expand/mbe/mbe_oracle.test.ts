@@ -69,46 +69,7 @@ interface Case {
 const oracle = JSON.parse(readFileSync(join(import.meta.dir, "mbe_oracle", "out.json"), "utf8")) as Case[];
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
-// Every pending case reaches a generated diagnostic of compiler/rustc_expand/src/diagnostics.rs (lane
-// expand-core), stubbed in quoted.ts / macro_check.ts / metavar_expr.ts until it lands. Value: the type
-// name; the expected `Unported` is `rustc_expand::diagnostics::<value>`. (All of them were checked
-// against the oracle with a scratch codegen of diagnostics.rs: 145/145 cases matched; see docs/handoff/mbe-a.md.)
-const PENDING_DIAG: Record<string, string> = {
-  frag_invalid: "InvalidFragmentSpecifier",
-  frag_missing: "MissingFragmentSpecifier",
-  frag_missing_colon_end: "MissingFragmentSpecifier",
-  frag_missing_colon_delim: "MissingFragmentSpecifier",
-  frag_dollar_dollar_end: "MissingFragmentSpecifier",
-  dollar_number: "MissingFragmentSpecifier",
-  rhs_seq_brace_is_mve_error: "ExpectedParenOrBrace",
-  mve_count: "MetaVarStillRepeatingLint",
-  mve_err_unknown: "MveUnrecognizedExpr",
-  mve_err_missing_paren: "MveMissingParen",
-  mve_err_bracket_paren: "MveMissingParen",
-  mve_err_not_delim: "MveMissingParen",
-  mve_err_extra_outer: "MveExtraTokens",
-  mve_err_extra_args_ignore: "MveExtraTokens",
-  mve_err_extra_args_index: "MveExtraTokens",
-  mve_err_extra_args_count: "MveExtraTokens",
-  check_free_var: "UnknownMacroVariable",
-  check_free_var_dummy: "UnknownMacroVariable",
-  check_duplicate_binder: "DuplicateMatcherBinding",
-  check_still_repeating: "MetaVarStillRepeatingLint",
-  check_wrong_operator: "MetaVariableWrongOperator",
-  check_nested_macro_rules_free: "UnknownMacroVariable",
-  check_nested_macro_rules_dup: "DuplicateMatcherBindingLint",
-  check_nested_decl_macro_name_var: "UnknownMacroVariable",
-  check_nested_macro_outer_rep_missing: "MetaVarStillRepeatingLint",
-  check_nested_rest_after_macro: "UnknownMacroVariable",
-  check_mve_occurrence: "MetaVarStillRepeatingLint",
-  check_mve_still_repeating: "MetaVarStillRepeatingLint",
-  check_args_dup: "DuplicateMatcherBinding",
-  check_concat_unbound: "UnknownMacroVariable",
-  check_count_in_seq: "MetaVarStillRepeatingLint",
-};
-const PENDING: Record<string, string> = Object.fromEntries(
-  Object.entries(PENDING_DIAG).map(([k, v]) => [k, `rustc_expand::diagnostics::${v}`]),
-);
+const PENDING: Record<string, string> = {};
 
 /** `parser_from_cx` (macro_rules.rs, lane mbe-b), as copied into the probe. */
 function parser_from_cx(psess: ParseSess, tts: TokenStream, recovery: Recovery): rustc_parse_parser.Parser {

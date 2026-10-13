@@ -13,40 +13,12 @@ import type { Session } from "../../rustc_session/session.ts";
 import type { Edition } from "../../rustc_span/edition.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { display_Symbol, Ident, kw, sym, type Symbol } from "../../rustc_span/symbol.ts";
-import { unported, unwrap } from "../../std/panic.ts";
+import { unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { type Delimited, KleeneOp, KleeneToken, MetaVarExpr, type SequenceRepetition, TokenTree } from "../mbe.ts";
 import { count_metavar_decls } from "./macro_parser.ts";
+import { type ExpectedParenOrBrace, ExpectedParenOrBrace_diagnostic, type InvalidFragmentSpecifier, InvalidFragmentSpecifier_diagnostic, type MissingFragmentSpecifier, MissingFragmentSpecifier_diagnostic } from "../diagnostics.ts";
 
-// ---------------------------------------------------------------------------------------------
-// PORT: pending expand-core: `crate::diagnostics` (compiler/rustc_expand/src/diagnostics.rs, generated
-// into src/rustc_expand/diagnostics.gen.ts). Until it lands, these stand-ins have the generated shapes
-// (field interfaces + `<T>_diagnostic`) and stop with `unported`. Replace this block with
-// `import { ExpectedParenOrBrace_diagnostic, InvalidFragmentSpecifier_diagnostic, MissingFragmentSpecifier_diagnostic } from "../diagnostics.ts";`
-interface MissingFragmentSpecifier {
-  span: Span;
-  add_span: Span;
-  valid: string;
-}
-function MissingFragmentSpecifier_diagnostic(_self: MissingFragmentSpecifier): Diagnostic {
-  return unported("rustc_expand::diagnostics::MissingFragmentSpecifier");
-}
-interface InvalidFragmentSpecifier {
-  span: Span;
-  fragment: Ident;
-  help: string;
-}
-function InvalidFragmentSpecifier_diagnostic(_self: InvalidFragmentSpecifier): Diagnostic {
-  return unported("rustc_expand::diagnostics::InvalidFragmentSpecifier");
-}
-interface ExpectedParenOrBrace {
-  span: Span;
-  token: string;
-}
-function ExpectedParenOrBrace_diagnostic(_self: ExpectedParenOrBrace): Diagnostic {
-  return unported("rustc_expand::diagnostics::ExpectedParenOrBrace");
-}
-// ---------------------------------------------------------------------------------------------
 
 const { Delimiter, NonterminalKind, Token: TokenC, TokenKind, TokenKind_eq, clone_Token } = token_mod;
 
