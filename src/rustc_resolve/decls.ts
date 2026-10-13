@@ -312,7 +312,7 @@ export class Resolver {
     /// Visibility path resolution failures are delayed until all modules are collected.
     public delayed_vis_resolution_errors: DelayedVisResolutionError[],
     /// Crate-local macro expanded `macro_export` referred to by a module-relative path.
-    /** PORT: `BTreeSet<(OrdSpan, OrdSpan)>`: a `KeyedSet` (`${lo}:${hi}` pairs, OrdSpan_pair_key); iterate it sorted by `OrdSpan` order (`sorted_ord_span_pairs`, lib.ts). */
+    /** PORT: `BTreeSet<(OrdSpan, OrdSpan)>`: a `KeyedSet` (`${lo}:${hi}` pairs, OrdSpan_pair_key); its users iterate it sorted by `OrdSpan` order (BTreeSet order). */
     public macro_expanded_macro_export_errors: Set<[Span, Span]>,
 
     public arenas: ResolverArenas,
