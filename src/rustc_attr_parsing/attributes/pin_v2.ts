@@ -1,7 +1,14 @@
-// STUB for compiler/rustc_attr_parsing/src/attributes/pin_v2.rs (owned by lane attr-parse-b).
-// Created by lane attr-parse-a: the parser types that `ATTRIBUTE_PARSERS` (context.rs) names, as
-// `unported_impl` trait tables (any use reaches `Unported`); no markers. attr-parse-b replaces each
-// one with the real trait table under the same name (docs/handoff/attr-parse-a.md).
-import { type NoArgsAttributeParser, unported_impl } from "./mod.ts";
+// Port of compiler/rustc_attr_parsing/src/attributes/pin_v2.rs
+import { Target } from "../../rustc_attr_ir/target.ts";
+import { sym } from "../../rustc_span/symbol.ts";
+import { unstable } from "../stability.ts";
+import { type NoArgsAttributeParser, NoArgsAttributeParser_provided } from "./mod.ts";
+import { Allow } from "./prelude.ts";
 
-export const PinV2Parser: NoArgsAttributeParser = unported_impl("rustc_attr_parsing::attributes::pin_v2::PinV2Parser");
+export const PinV2Parser: NoArgsAttributeParser = {
+  ...NoArgsAttributeParser_provided,
+  PATH: [sym.pin_v2],
+  ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Enum), Allow(Target.Struct), Allow(Target.Union)] },
+  STABILITY: unstable(sym.pin_ergonomics),
+  CREATE: (span) => ({ $: "PinV2", _0: span }),
+};
