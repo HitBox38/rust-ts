@@ -11,7 +11,7 @@ import { get_single_str_from_tts } from "./util.ts";
 export function expand_compile_error(cx: ExtCtxt, sp: Span, tts: TokenStream): MacroExpanderResult {
   const r = get_single_str_from_tts(cx, sp, tts, "compile_error!");
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac = r._0;
   if (mac.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp, mac._0) };

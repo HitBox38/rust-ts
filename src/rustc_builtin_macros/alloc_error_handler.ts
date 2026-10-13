@@ -1,7 +1,7 @@
 // Port of compiler/rustc_builtin_macros/src/alloc_error_handler.rs
 import { ALLOC_ERROR_HANDLER, global_fn_name } from "../rustc_ast/expand/allocator.ts";
 import { ast, clone_Ty } from "../rustc_ast/lib.ts";
-import { type Annotatable, clone_Annotatable, type ExtCtxt } from "../rustc_expand/base.ts";
+import { Annotatable, clone_Annotatable, type ExtCtxt } from "../rustc_expand/base.ts";
 import { DUMMY_SP, type Span } from "../rustc_span/lib.ts";
 import { Ident, kw, sym } from "../rustc_span/symbol.ts";
 import * as diagnostics from "./diagnostics.ts";
@@ -26,7 +26,7 @@ export function expand(ecx: ExtCtxt, _span: Span, meta_item: ast.MetaItem, item_
     const fn_kind = item_._0.kind._0.kind._0;
     [item, ident, is_stmt, sig_span] = [item_._0.kind._0, fn_kind.ident, true, ecx.with_def_site_ctxt(fn_kind.sig.span)];
   } else {
-    ecx.dcx().emit_err(diagnostics.AllocErrorMustBeFn_diagnostic({ span: item_.span() }));
+    ecx.dcx().emit_err(diagnostics.AllocErrorMustBeFn_diagnostic({ span: Annotatable.span(item_) }));
     return [orig_item];
   }
 

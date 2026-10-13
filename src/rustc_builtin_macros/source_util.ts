@@ -4,7 +4,7 @@
 import type { TokenStream } from "../rustc_ast/tokenstream.ts";
 import { ast, join_path_idents, token } from "../rustc_ast/lib.ts";
 import * as pprust from "../rustc_ast_pretty/pprust/mod.ts";
-import { DummyResult, type ExtCtxt, MacEager, MacResult, type MacroExpanderResult } from "../rustc_expand/base.ts";
+import { DummyResult, type ExtCtxt, MacEager, type MacResult, MacResult_provided, type MacroExpanderResult } from "../rustc_expand/base.ts";
 import { Applicability } from "../rustc_lint_defs/lib.ts";
 import { INCOMPLETE_INCLUDE } from "../rustc_lint_defs/builtin.ts";
 import { StripTokens } from "../rustc_parse/lexer/mod.ts";
@@ -96,7 +96,7 @@ export function expand_include(cx: ExtCtxt, sp_: Span, tts: TokenStream): MacroE
   const sp = cx.with_def_site_ctxt(sp_);
   const r = get_single_str_from_tts(cx, sp, tts, "include!");
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac = r._0;
   if (mac.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp, mac._0) };
@@ -122,7 +122,7 @@ export function expand_include(cx: ExtCtxt, sp_: Span, tts: TokenStream): MacroE
 
 // PORT: the fn-local `struct ExpandInclude` + `impl MacResult for ExpandInclude` of `expand_include`,
 // hoisted to module level (a subclass of the `MacResult` base class).
-class ExpandInclude extends MacResult {
+class ExpandInclude extends MacResult_provided {
   constructor(
     public psess: ParseSess,
     public path: string,
@@ -175,7 +175,7 @@ export function expand_include_str(cx: ExtCtxt, sp_: Span, tts: TokenStream): Ma
   const sp = cx.with_def_site_ctxt(sp_);
   const r = get_single_str_spanned_from_tts(cx, sp, tts, "include_str!");
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac = r._0;
   if (mac.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp, mac._0) };
@@ -210,7 +210,7 @@ export function expand_include_bytes(cx: ExtCtxt, sp_: Span, tts: TokenStream): 
   const sp = cx.with_def_site_ctxt(sp_);
   const r = get_single_str_spanned_from_tts(cx, sp, tts, "include_bytes!");
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac = r._0;
   if (mac.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp, mac._0) };

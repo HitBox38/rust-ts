@@ -13,7 +13,7 @@ import { get_exprs_from_tts } from "./util.ts";
 export function expand_concat(cx: ExtCtxt, sp: Span, tts: TokenStream): MacroExpanderResult {
   const r = get_exprs_from_tts(cx, tts);
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac = r._0;
   if (mac.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp, mac._0) };

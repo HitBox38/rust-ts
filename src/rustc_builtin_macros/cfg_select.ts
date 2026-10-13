@@ -5,11 +5,10 @@ import type { TokenStream } from "../rustc_ast/tokenstream.ts";
 import { ast } from "../rustc_ast/lib.ts";
 import { eval_config_entry } from "../rustc_attr_parsing/lib.ts";
 import { type CfgSelectBranches, parse_cfg_select } from "../rustc_attr_parsing/attributes/cfg_select.ts";
-import { DummyResult, ExpandResult, type ExtCtxt, MacResult, type MacroExpanderResult } from "../rustc_expand/base.ts";
-import { DeclaredIdents } from "../rustc_expand/expand.ts";
+import { DummyResult, type ExtCtxt, type MacResult, MacResult_provided, MacroExpanderResult } from "../rustc_expand/base.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { Ident, sym } from "../rustc_span/symbol.ts";
-import { unreachable } from "../std/panic.ts";
+import { unported, unreachable } from "../std/panic.ts";
 import { CfgSelectNoMatches_diagnostic } from "./diagnostics.ts";
 
 /// This intermediate structure is used to emit parse errors for the branches that are not chosen.
@@ -18,7 +17,7 @@ import { CfgSelectNoMatches_diagnostic } from "./diagnostics.ts";
 // PORT: `impl MacResult for CfgSelectResult` -> a subclass of the `MacResult` base class (its provided
 // methods); the `forward_to_parser_any_macro!` arms are expanded below (one method each, in the
 // upstream invocation order).
-class CfgSelectResult extends MacResult {
+class CfgSelectResult extends MacResult_provided {
   constructor(
     public ecx: ExtCtxt,
     public site_span: Span,
@@ -48,7 +47,7 @@ class CfgSelectResult extends MacResult {
           // Register item names that were not selected for error reporting. We do this
           // for `#[cfg]` too.
           for (const item of items) {
-            for (const name of DeclaredIdents.Item.declared_idents(item)) {
+            for (const name of Item_declared_idents(item)) {
               ecx.resolver.append_stripped_cfg_item(
                 ecx.current_expansion.lint_node_id,
                 name,
@@ -96,7 +95,7 @@ class CfgSelectResult extends MacResult {
 
 // rustc: compiler/rustc_builtin_macros/src/cfg_select.rs:26 tts_to_mac_result
 function tts_to_mac_result(ecx: ExtCtxt, site_span: Span, tts: TokenStream, span: Span): MacResult {
-  const r = ExpandResult.from_tts(ecx, tts, site_span, span, Ident.with_dummy_span(sym.cfg_select));
+  const r = MacroExpanderResult.from_tts(ecx, tts, site_span, span, Ident.with_dummy_span(sym.cfg_select));
   if (r.$ === "Ready") {
     return r._0;
   }
@@ -123,6 +122,13 @@ function forward_to_parser_any_macro<R>(
 
   const elements = method(tts_to_mac_result(ecx, site_span, selected_tts, selected_span));
   return elements === undefined ? undefined : selected(ecx, cfg_entry, elements);
+}
+/**
+ * `<Box<ast::Item> as DeclaredIdents>::declared_idents` (rustc_expand/src/expand.rs:1459). PORT: lane
+ * expand-core ports it as a module-private fn of expand.ts; until expand.ts exports it, this stops here.
+ */
+function Item_declared_idents(_item: ast.Item): Ident[] {
+  return unported("rustc_expand::expand::DeclaredIdents for Box<Item> (not exported by expand.ts yet)");
 }
 function noop_other(_ecx: ExtCtxt, _cfg_entry: CfgEntry, _span: Span, _result: unknown): void {}
 function keep_selected<R>(_ecx: ExtCtxt, _cfg_entry: CfgEntry, elements: R): R {

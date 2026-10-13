@@ -1,6 +1,6 @@
 // Port of compiler/rustc_builtin_macros/src/offload.rs
 import { ast, token, tokenstream } from "../rustc_ast/lib.ts";
-import type { Annotatable, ExtCtxt } from "../rustc_expand/base.ts";
+import { Annotatable, type ExtCtxt } from "../rustc_expand/base.ts";
 import { DUMMY_SP, type Span } from "../rustc_span/lib.ts";
 import { Ident, sym } from "../rustc_span/symbol.ts";
 import * as diagnostics from "./diagnostics.ts";
@@ -69,7 +69,7 @@ export function expand_kernel(ecx: ExtCtxt, expand_span: Span, _meta_item: ast.M
 
   const extracted = extract_fn(item);
   if (extracted === undefined) {
-    dcx.emit_err(diagnostics.AutoDiffInvalidApplication_diagnostic({ span: item.span() }));
+    dcx.emit_err(diagnostics.AutoDiffInvalidApplication_diagnostic({ span: Annotatable.span(item) }));
     return [item];
   }
   const [vis, sig, ident, generics, body] = extracted;

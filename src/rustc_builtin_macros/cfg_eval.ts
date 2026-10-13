@@ -5,7 +5,7 @@ import { HasAttrs, HasTokens } from "../rustc_ast/lib.ts";
 import type { Attribute, NodeId } from "../rustc_ast/lib.ts";
 import type { AssocCtxt } from "../rustc_ast/visit.gen.ts";
 import type { PResult } from "../rustc_errors/lib.ts";
-import type { Annotatable, ExtCtxt } from "../rustc_expand/base.ts";
+import { Annotatable, type ExtCtxt } from "../rustc_expand/base.ts";
 import { StripUnconfigured } from "../rustc_expand/config.ts";
 import type { Features } from "../rustc_feature/unstable.ts";
 import { parser as rustc_parse_parser } from "../rustc_parse/lib.ts";
@@ -78,8 +78,9 @@ class CfgEval extends mut_visit.MutVisitor {
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:70 configure
-  configure<T>(node: T, T_: HasAttrs<T> & HasTokens<T>): T | undefined {
-    return this._0.configure(node, T_);
+  // PORT: `T: HasTokens` (and `StripUnconfigured::configure`'s `HasAttrs`) as impl tables.
+  configure<T>(node: T, T_HasTokens: HasTokens<T>, T_HasAttrs: HasAttrs<T>): T | undefined {
+    return this._0.configure(node, T_HasTokens, T_HasAttrs);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:74 configure_annotatable
@@ -109,7 +110,7 @@ class CfgEval extends mut_visit.MutVisitor {
     // where `$item` is `#[cfg_attr] struct Foo {}`. We want to make
     // sure to evaluate *all* `#[cfg]` and `#[cfg_attr]` attributes - the simplest
     // way to do this is to do a single parse of the token stream.
-    const orig_tokens = annotatable.to_tokens();
+    const orig_tokens = Annotatable.to_tokens(annotatable);
 
     // Re-parse the tokens, setting the `capture_cfg` flag to save extra information
     // to the captured `AttrTokenStream` (specifically, we capture
@@ -198,7 +199,7 @@ class CfgEval extends mut_visit.MutVisitor {
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:167 filter_map_expr
   override filter_map_expr(expr_: ast.Expr): ast.Expr | undefined {
     // `configure!(self, expr)`
-    const expr = this.configure(expr_, { ...HasAttrs.Expr, ...HasTokens.Expr });
+    const expr = this.configure(expr_, HasTokens.Expr, HasAttrs.Expr);
     if (expr === undefined) return undefined;
     mut_visit.walk_expr(this, expr);
     return expr;
@@ -206,77 +207,77 @@ class CfgEval extends mut_visit.MutVisitor {
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:173 flat_map_generic_param
   override flat_map_generic_param(param_: ast.GenericParam): ast.GenericParam[] {
-    const param = this.configure(param_, { ...HasAttrs.GenericParam, ...HasTokens.GenericParam });
+    const param = this.configure(param_, HasTokens.GenericParam, HasAttrs.GenericParam);
     if (param === undefined) return [];
     return mut_visit.walk_flat_map_generic_param(this, param);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:181 flat_map_stmt
   override flat_map_stmt(stmt_: ast.Stmt): ast.Stmt[] {
-    const stmt = this.configure(stmt_, { ...HasAttrs.Stmt, ...HasTokens.Stmt });
+    const stmt = this.configure(stmt_, HasTokens.Stmt, HasAttrs.Stmt);
     if (stmt === undefined) return [];
     return mut_visit.walk_flat_map_stmt(this, stmt);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:186 flat_map_item
   override flat_map_item(item_: ast.Item): ast.Item[] {
-    const item = this.configure(item_, { ...HasAttrs.Item, ...HasTokens.Item });
+    const item = this.configure(item_, HasTokens.Item, HasAttrs.Item);
     if (item === undefined) return [];
     return mut_visit.walk_flat_map_item(this, item);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:191 flat_map_assoc_item
   override flat_map_assoc_item(item_: ast.AssocItem, ctxt: AssocCtxt): ast.AssocItem[] {
-    const item = this.configure(item_, { ...HasAttrs.AssocItem, ...HasTokens.AssocItem });
+    const item = this.configure(item_, HasTokens.AssocItem, HasAttrs.AssocItem);
     if (item === undefined) return [];
     return mut_visit.walk_flat_map_assoc_item(this, item, ctxt);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:200 flat_map_foreign_item
   override flat_map_foreign_item(foreign_item_: ast.ForeignItem): ast.ForeignItem[] {
-    const foreign_item = this.configure(foreign_item_, { ...HasAttrs.ForeignItem, ...HasTokens.ForeignItem });
+    const foreign_item = this.configure(foreign_item_, HasTokens.ForeignItem, HasAttrs.ForeignItem);
     if (foreign_item === undefined) return [];
     return mut_visit.walk_flat_map_foreign_item(this, foreign_item);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:208 flat_map_arm
   override flat_map_arm(arm_: ast.Arm): ast.Arm[] {
-    const arm = this.configure(arm_, { ...HasAttrs.Arm, ...HasTokens.Arm });
+    const arm = this.configure(arm_, HasTokens.Arm, HasAttrs.Arm);
     if (arm === undefined) return [];
     return mut_visit.walk_flat_map_arm(this, arm);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:213 flat_map_expr_field
   override flat_map_expr_field(field_: ast.ExprField): ast.ExprField[] {
-    const field = this.configure(field_, { ...HasAttrs.ExprField, ...HasTokens.ExprField });
+    const field = this.configure(field_, HasTokens.ExprField, HasAttrs.ExprField);
     if (field === undefined) return [];
     return mut_visit.walk_flat_map_expr_field(this, field);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:218 flat_map_pat_field
   override flat_map_pat_field(fp_: ast.PatField): ast.PatField[] {
-    const fp = this.configure(fp_, { ...HasAttrs.PatField, ...HasTokens.PatField });
+    const fp = this.configure(fp_, HasTokens.PatField, HasAttrs.PatField);
     if (fp === undefined) return [];
     return mut_visit.walk_flat_map_pat_field(this, fp);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:223 flat_map_param
   override flat_map_param(p_: ast.Param): ast.Param[] {
-    const p = this.configure(p_, { ...HasAttrs.Param, ...HasTokens.Param });
+    const p = this.configure(p_, HasTokens.Param, HasAttrs.Param);
     if (p === undefined) return [];
     return mut_visit.walk_flat_map_param(this, p);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:228 flat_map_field_def
   override flat_map_field_def(sf_: ast.FieldDef): ast.FieldDef[] {
-    const sf = this.configure(sf_, { ...HasAttrs.FieldDef, ...HasTokens.FieldDef });
+    const sf = this.configure(sf_, HasTokens.FieldDef, HasAttrs.FieldDef);
     if (sf === undefined) return [];
     return mut_visit.walk_flat_map_field_def(this, sf);
   }
 
   // rustc: compiler/rustc_builtin_macros/src/cfg_eval.rs:233 flat_map_variant
   override flat_map_variant(variant_: ast.Variant): ast.Variant[] {
-    const variant = this.configure(variant_, { ...HasAttrs.Variant, ...HasTokens.Variant });
+    const variant = this.configure(variant_, HasTokens.Variant, HasAttrs.Variant);
     if (variant === undefined) return [];
     return mut_visit.walk_flat_map_variant(this, variant);
   }

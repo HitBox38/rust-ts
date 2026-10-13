@@ -35,14 +35,14 @@ function lookup_env(var_: Symbol): Result<Symbol, VarError> {
 export function expand_option_env(cx: ExtCtxt, sp_: Span, tts: TokenStream): MacroExpanderResult {
   const r = get_single_expr_from_tts(cx, sp_, tts, "option_env!");
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac_expr = r._0;
   if (mac_expr.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp_, mac_expr._0) };
   const var_expr = mac_expr._0;
   const r2 = expr_to_string(cx, var_expr, "argument must be a string literal");
   if (r2.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac = r2._0;
   if (mac.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp_, mac._0) };
@@ -73,7 +73,7 @@ export function expand_option_env(cx: ExtCtxt, sp_: Span, tts: TokenStream): Mac
 export function expand_env(cx: ExtCtxt, sp: Span, tts: TokenStream): MacroExpanderResult {
   const r = get_exprs_from_tts(cx, tts);
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac = r._0;
   if (mac.$ === "Ok" && (mac._0.length === 0 || mac._0.length > 2)) {
@@ -88,7 +88,7 @@ export function expand_env(cx: ExtCtxt, sp: Span, tts: TokenStream): MacroExpand
   // FIXME: `get_exprs_from_tts()` already performed macro expansion...
   const r2 = expr_to_string(cx, ast.clone_Expr(var_expr), "expected string literal");
   if (r2.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac2 = r2._0;
   if (mac2.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp, mac2._0) };
@@ -101,7 +101,7 @@ export function expand_env(cx: ExtCtxt, sp: Span, tts: TokenStream): MacroExpand
   } else {
     const r3 = expr_to_string(cx, second.value, "expected string literal");
     if (r3.$ !== "Ready") {
-      return { $: "Retry", _0: null };
+      return { $: "Retry", _0: undefined };
     }
     const mac3 = r3._0;
     if (mac3.$ === "Ok") {

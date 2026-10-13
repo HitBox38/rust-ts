@@ -140,7 +140,7 @@ function handle_array_element(
 export function expand_concat_bytes(cx: ExtCtxt, sp: Span, tts: TokenStream): MacroExpanderResult {
   const r = get_exprs_from_tts(cx, tts);
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const mac = r._0;
   if (mac.$ === "Err") return { $: "Ready", _0: DummyResult.any(sp, mac._0) };
@@ -211,7 +211,7 @@ export function expand_concat_bytes(cx: ExtCtxt, sp: Span, tts: TokenStream): Ma
     res = MacEager.expr(DummyResult.raw_expr(sp, guar.value));
   } else {
     const sp_ = cx.with_def_site_ctxt(sp);
-    res = MacEager.expr(cx.expr_byte_str(sp_, accumulator));
+    res = MacEager.expr(cx.expr_byte_str(sp_, new Uint8Array(accumulator)));
   }
   return { $: "Ready", _0: res };
 }

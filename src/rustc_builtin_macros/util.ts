@@ -8,6 +8,15 @@ import { Applicability } from "../rustc_lint_defs/lib.ts";
 import { DUPLICATE_MACRO_ATTRIBUTES } from "../rustc_lint_defs/builtin.ts";
 import { type Annotatable, ExpandResult, type ExtCtxt } from "../rustc_expand/base.ts";
 import { AstFragment } from "../rustc_expand/expand.ts";
+
+// PORT: lane expand-core ports `MacroExpander::fully_expand_fragment` (expand.rs:471) into expand.ts; the
+// expand-base stub of `MacroExpander` this lane builds against does not declare it yet. Remove this
+// augmentation once expand-core is merged (its class method has this signature).
+declare module "../rustc_expand/expand.ts" {
+  interface MacroExpander {
+    fully_expand_fragment(input_fragment: AstFragment): AstFragment;
+  }
+}
 import type { parser } from "../rustc_parse/lib.ts";
 import { exp } from "../rustc_parse/parser/token_type.ts";
 import { report_lit_error } from "../rustc_session/diagnostics.ts";
@@ -108,11 +117,11 @@ export function expr_to_spanned_string(
   cx: ExtCtxt,
   expr_: ast.Expr,
   err_msg: string,
-): ExpandResult<ExprToSpannedStringResult, null> {
+): ExpandResult<ExprToSpannedStringResult, undefined> {
   if (!cx.force_mode) {
     const k = expr_.kind;
     if (k.$ === "MacCall" && cx.resolver.macro_accessible(cx.current_expansion.id, k._0.path).$ === "Err") {
-      return { $: "Retry", _0: null };
+      return { $: "Retry", _0: undefined };
     }
   }
 
@@ -175,7 +184,7 @@ export function expr_to_string(
   cx: ExtCtxt,
   expr: ast.Expr,
   err_msg: string,
-): ExpandResult<Result<[Symbol, ast.StrStyle], ErrorGuaranteed>, null> {
+): ExpandResult<Result<[Symbol, ast.StrStyle], ErrorGuaranteed>, undefined> {
   return ExpandResult.map(expr_to_spanned_string(cx, expr, err_msg), (res): Result<[Symbol, ast.StrStyle], ErrorGuaranteed> => {
     if (res.$ === "Err") {
       const err = res._0;
@@ -217,7 +226,7 @@ export function get_single_str_from_tts(
   span: Span,
   tts: TokenStream,
   name: string,
-): ExpandResult<Result<Symbol, ErrorGuaranteed>, null> {
+): ExpandResult<Result<Symbol, ErrorGuaranteed>, undefined> {
   return ExpandResult.map(get_single_str_spanned_from_tts(cx, span, tts, name), (res): Result<Symbol, ErrorGuaranteed> =>
     res.$ === "Ok" ? Ok(res._0[0]) : res,
   );
@@ -229,10 +238,10 @@ export function get_single_str_spanned_from_tts(
   span: Span,
   tts: TokenStream,
   name: string,
-): ExpandResult<Result<[Symbol, Span], ErrorGuaranteed>, null> {
+): ExpandResult<Result<[Symbol, Span], ErrorGuaranteed>, undefined> {
   const r = get_single_expr_from_tts(cx, span, tts, name);
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const ret_ = r._0;
   if (ret_.$ === "Err") return { $: "Ready", _0: Err(ret_._0) };
@@ -258,7 +267,7 @@ export function get_single_expr_from_tts(
   span: Span,
   tts: TokenStream,
   name: string,
-): ExpandResult<Result<ast.Expr, ErrorGuaranteed>, null> {
+): ExpandResult<Result<ast.Expr, ErrorGuaranteed>, undefined> {
   const p = cx.new_parser_from_tts(tts);
   if (p.token.eq(token.TokenKind.Eof)) {
     const guar = cx.dcx().emit_err(diagnostics.OnlyOneArgument_diagnostic({ span, name }));
@@ -278,7 +287,7 @@ export function get_single_expr_from_tts(
 /// Extracts comma-separated expressions from `tts`.
 /// On error, emit it, and return `Err`.
 // rustc: compiler/rustc_builtin_macros/src/util.rs:228 get_exprs_from_tts
-export function get_exprs_from_tts(cx: ExtCtxt, tts: TokenStream): ExpandResult<Result<ast.Expr[], ErrorGuaranteed>, null> {
+export function get_exprs_from_tts(cx: ExtCtxt, tts: TokenStream): ExpandResult<Result<ast.Expr[], ErrorGuaranteed>, undefined> {
   const p = cx.new_parser_from_tts(tts);
   const es: ast.Expr[] = [];
   while (!p.token.eq(token.TokenKind.Eof)) {
@@ -288,7 +297,7 @@ export function get_exprs_from_tts(cx: ExtCtxt, tts: TokenStream): ExpandResult<
     if (!cx.force_mode) {
       const k = expr_.kind;
       if (k.$ === "MacCall" && cx.resolver.macro_accessible(cx.current_expansion.id, k._0.path).$ === "Err") {
-        return { $: "Retry", _0: null };
+        return { $: "Retry", _0: undefined };
       }
     }
 

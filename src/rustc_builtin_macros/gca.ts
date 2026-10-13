@@ -9,7 +9,7 @@ import { get_single_expr_from_tts } from "./util.ts";
 export function expand(cx: ExtCtxt, span: Span, tts: TokenStream): MacroExpanderResult {
   const r = get_single_expr_from_tts(cx, span, tts, "gca!");
   if (r.$ !== "Ready") {
-    return { $: "Retry", _0: null };
+    return { $: "Retry", _0: undefined };
   }
   const er = r._0;
   if (er.$ === "Err") return { $: "Ready", _0: DummyResult.any(span, er._0) };
