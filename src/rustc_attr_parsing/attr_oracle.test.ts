@@ -57,12 +57,14 @@ interface Case {
 }
 const oracle = JSON.parse(readFileSync(join(import.meta.dir, "attr_oracle", "out.json"), "utf8")) as Case[];
 
-const D = "rustc_attr_parsing::diagnostics";
+/** The first stub parser (lanes attr-parse-c/d) that building `ATTRIBUTE_PARSERS` reaches. */
+const PARSERS_PENDING = "rustc_attr_parsing::attributes::allow_unstable::AllowInternalUnstableParser::PATH";
 /** case -> the `Unported` it must reach until the owning lane (attr-parse-b) lands. */
 const PENDING: Record<string, string> = {
   // `check_attr` on a builtin attribute asks `AttributeParser::is_parsed_attribute`, which builds
-  // `ATTRIBUTE_PARSERS` from the attribute parsers (stubs until attr-parse-b).
-  check_builtin: "rustc_attr_parsing::attributes::Combine",
+  // `ATTRIBUTE_PARSERS` from the attribute parsers (stubs of lanes attr-parse-c/d until they land;
+  // the first one the registry build reaches is `Combine(AllowInternalUnstableParser)`).
+  check_builtin: PARSERS_PENDING,
 };
 
 function leak_syms(s: string[]): Symbol[] {
@@ -343,16 +345,16 @@ const list_oracle = JSON.parse(readFileSync(join(import.meta.dir, "attr_oracle",
 /** list case -> the `Unported` it must reach until attr-parse-b lands. Every non-doc-comment
  *  attribute looks up `ATTRIBUTE_PARSERS`, whose list starts with the `Combine<..>` stub. */
 const LIST_PENDING: Record<string, string> = {
-  doc_raw: "rustc_attr_parsing::attributes::Combine",
-  unparsed: "rustc_attr_parsing::attributes::Combine",
-  parsed_basic: "rustc_attr_parsing::attributes::Combine",
-  parsed_nothing: "rustc_attr_parsing::attributes::Combine",
-  duplicates: "rustc_attr_parsing::attributes::Combine",
-  safety: "rustc_attr_parsing::attributes::Combine",
-  malformed: "rustc_attr_parsing::attributes::Combine",
-  unstable: "rustc_attr_parsing::attributes::Combine",
-  wrong_target: "rustc_attr_parsing::attributes::Combine",
-  diagnostic_namespace: "rustc_attr_parsing::attributes::Combine",
+  doc_raw: PARSERS_PENDING,
+  unparsed: PARSERS_PENDING,
+  parsed_basic: PARSERS_PENDING,
+  parsed_nothing: PARSERS_PENDING,
+  duplicates: PARSERS_PENDING,
+  safety: PARSERS_PENDING,
+  malformed: PARSERS_PENDING,
+  unstable: PARSERS_PENDING,
+  wrong_target: PARSERS_PENDING,
+  diagnostic_namespace: PARSERS_PENDING,
 };
 
 /**
