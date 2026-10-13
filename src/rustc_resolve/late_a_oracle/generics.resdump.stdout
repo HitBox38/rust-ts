@@ -1,0 +1,169 @@
+== visibilities_for_hashing (20)
+DefId(0:0 ~ generics[0d98]) Public
+DefId(0:1 ~ generics[0d98]::Fwd) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:1 ~ generics[0d98]::Fwd) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:2 ~ generics[0d98]::Fwd::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:5 ~ generics[0d98]::Fwd::0) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:6 ~ generics[0d98]::Fwd::1) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:7 ~ generics[0d98]::SelfDefault) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:7 ~ generics[0d98]::SelfDefault) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:8 ~ generics[0d98]::SelfDefault::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:10 ~ generics[0d98]::SelfDefault::0) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:11 ~ generics[0d98]::Ok) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:11 ~ generics[0d98]::Ok) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:12 ~ generics[0d98]::Ok::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:15 ~ generics[0d98]::Ok::0) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:16 ~ generics[0d98]::Ok::1) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:17 ~ generics[0d98]::Tr) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:19 ~ generics[0d98]::hrtb) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:22 ~ generics[0d98]::anon_in_bound) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:24 ~ generics[0d98]::undeclared_lt) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+DefId(0:25 ~ generics[0d98]::missing) Restricted(LocalModId(DefId(0:0 ~ generics[0d98])))
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ generics[0d98]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (1)
+DefId(0:0 ~ generics[0d98])
+  ModChild { ident: Fwd#0, res: Def(Struct, DefId(0:1 ~ generics[0d98]::Fwd)), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: Fwd#0, res: Def(Ctor(Struct, Fn), DefId(0:2 ~ generics[0d98]::Fwd::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: SelfDefault#0, res: Def(Struct, DefId(0:7 ~ generics[0d98]::SelfDefault)), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: SelfDefault#0, res: Def(Ctor(Struct, Fn), DefId(0:8 ~ generics[0d98]::SelfDefault::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: Ok#0, res: Def(Struct, DefId(0:11 ~ generics[0d98]::Ok)), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: Ok#0, res: Def(Ctor(Struct, Fn), DefId(0:12 ~ generics[0d98]::Ok::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: Tr#0, res: Def(Trait, DefId(0:17 ~ generics[0d98]::Tr)), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: hrtb#0, res: Def(Fn, DefId(0:19 ~ generics[0d98]::hrtb)), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: anon_in_bound#0, res: Def(Fn, DefId(0:22 ~ generics[0d98]::anon_in_bound)), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: undeclared_lt#0, res: Def(Fn, DefId(0:24 ~ generics[0d98]::undeclared_lt)), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+  ModChild { ident: missing#0, res: Def(Fn, DefId(0:25 ~ generics[0d98]::missing)), vis: Restricted(ModId(DefId(0:0 ~ generics[0d98]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(81)
+== partial_res_map (42)
+NodeId(5) PartialRes { base_res: Def(TyParam, DefId(0:3 ~ generics[0d98]::Fwd::T)), unresolved_segments: 0 }
+NodeId(6) PartialRes { base_res: Err, unresolved_segments: 0 }
+NodeId(7) PartialRes { base_res: Err, unresolved_segments: 0 }
+NodeId(8) PartialRes { base_res: Def(TyParam, DefId(0:4 ~ generics[0d98]::Fwd::U)), unresolved_segments: 0 }
+NodeId(9) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(10) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(12) PartialRes { base_res: Def(TyParam, DefId(0:3 ~ generics[0d98]::Fwd::T)), unresolved_segments: 0 }
+NodeId(13) PartialRes { base_res: Def(TyParam, DefId(0:3 ~ generics[0d98]::Fwd::T)), unresolved_segments: 0 }
+NodeId(15) PartialRes { base_res: Def(TyParam, DefId(0:4 ~ generics[0d98]::Fwd::U)), unresolved_segments: 0 }
+NodeId(16) PartialRes { base_res: Def(TyParam, DefId(0:4 ~ generics[0d98]::Fwd::U)), unresolved_segments: 0 }
+NodeId(19) PartialRes { base_res: Def(TyParam, DefId(0:9 ~ generics[0d98]::SelfDefault::T)), unresolved_segments: 0 }
+NodeId(20) PartialRes { base_res: Err, unresolved_segments: 0 }
+NodeId(21) PartialRes { base_res: Err, unresolved_segments: 0 }
+NodeId(23) PartialRes { base_res: Def(TyParam, DefId(0:9 ~ generics[0d98]::SelfDefault::T)), unresolved_segments: 0 }
+NodeId(24) PartialRes { base_res: Def(TyParam, DefId(0:9 ~ generics[0d98]::SelfDefault::T)), unresolved_segments: 0 }
+NodeId(27) PartialRes { base_res: Def(TyParam, DefId(0:13 ~ generics[0d98]::Ok::T)), unresolved_segments: 0 }
+NodeId(28) PartialRes { base_res: Def(TyParam, DefId(0:14 ~ generics[0d98]::Ok::U)), unresolved_segments: 0 }
+NodeId(29) PartialRes { base_res: Def(TyParam, DefId(0:13 ~ generics[0d98]::Ok::T)), unresolved_segments: 0 }
+NodeId(30) PartialRes { base_res: Def(TyParam, DefId(0:13 ~ generics[0d98]::Ok::T)), unresolved_segments: 0 }
+NodeId(32) PartialRes { base_res: Def(TyParam, DefId(0:13 ~ generics[0d98]::Ok::T)), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: Def(TyParam, DefId(0:13 ~ generics[0d98]::Ok::T)), unresolved_segments: 0 }
+NodeId(35) PartialRes { base_res: Def(TyParam, DefId(0:14 ~ generics[0d98]::Ok::U)), unresolved_segments: 0 }
+NodeId(36) PartialRes { base_res: Def(TyParam, DefId(0:14 ~ generics[0d98]::Ok::U)), unresolved_segments: 0 }
+NodeId(41) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ generics[0d98]::hrtb::F)), unresolved_segments: 0 }
+NodeId(43) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ generics[0d98]::hrtb::F)), unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ generics[0d98]::hrtb::F)), unresolved_segments: 0 }
+NodeId(46) PartialRes { base_res: Def(Trait, DefId(0:17 ~ generics[0d98]::Tr)), unresolved_segments: 0 }
+NodeId(48) PartialRes { base_res: Def(Trait, DefId(0:17 ~ generics[0d98]::Tr)), unresolved_segments: 0 }
+NodeId(50) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ generics[0d98]::hrtb::F)), unresolved_segments: 0 }
+NodeId(51) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ generics[0d98]::hrtb::F)), unresolved_segments: 0 }
+NodeId(52) PartialRes { base_res: Local(NodeId(52)), unresolved_segments: 0 }
+NodeId(55) PartialRes { base_res: Def(TyParam, DefId(0:23 ~ generics[0d98]::anon_in_bound::T)), unresolved_segments: 0 }
+NodeId(56) PartialRes { base_res: Def(Trait, DefId(0:17 ~ generics[0d98]::Tr)), unresolved_segments: 0 }
+NodeId(58) PartialRes { base_res: Def(Trait, DefId(0:17 ~ generics[0d98]::Tr)), unresolved_segments: 0 }
+NodeId(60) PartialRes { base_res: Def(TyParam, DefId(0:23 ~ generics[0d98]::anon_in_bound::T)), unresolved_segments: 0 }
+NodeId(61) PartialRes { base_res: Def(TyParam, DefId(0:23 ~ generics[0d98]::anon_in_bound::T)), unresolved_segments: 0 }
+NodeId(62) PartialRes { base_res: Local(NodeId(62)), unresolved_segments: 0 }
+NodeId(68) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(69) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(70) PartialRes { base_res: Local(NodeId(70)), unresolved_segments: 0 }
+NodeId(74) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(75) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+== owners (9)
+NodeId(0) def_id=DefId(0:0 ~ generics[0d98]) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:1 ~ generics[0d98]::Fwd) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(5) DefId(0:3 ~ generics[0d98]::Fwd::T)
+  node_id_to_def_id NodeId(8) DefId(0:4 ~ generics[0d98]::Fwd::U)
+  node_id_to_def_id NodeId(11) DefId(0:5 ~ generics[0d98]::Fwd::0)
+  node_id_to_def_id NodeId(14) DefId(0:6 ~ generics[0d98]::Fwd::1)
+  node_id_to_def_id NodeId(17) DefId(0:2 ~ generics[0d98]::Fwd::{constructor#0})
+NodeId(18) def_id=DefId(0:7 ~ generics[0d98]::SelfDefault) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(19) DefId(0:9 ~ generics[0d98]::SelfDefault::T)
+  node_id_to_def_id NodeId(22) DefId(0:10 ~ generics[0d98]::SelfDefault::0)
+  node_id_to_def_id NodeId(25) DefId(0:8 ~ generics[0d98]::SelfDefault::{constructor#0})
+NodeId(26) def_id=DefId(0:11 ~ generics[0d98]::Ok) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(27) DefId(0:13 ~ generics[0d98]::Ok::T)
+  node_id_to_def_id NodeId(28) DefId(0:14 ~ generics[0d98]::Ok::U)
+  node_id_to_def_id NodeId(31) DefId(0:15 ~ generics[0d98]::Ok::0)
+  node_id_to_def_id NodeId(34) DefId(0:16 ~ generics[0d98]::Ok::1)
+  node_id_to_def_id NodeId(37) DefId(0:12 ~ generics[0d98]::Ok::{constructor#0})
+NodeId(38) def_id=DefId(0:17 ~ generics[0d98]::Tr) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(39) DefId(0:18 ~ generics[0d98]::Tr::'a)
+  lifetime_res NodeId(39) Param { param: DefId(0:18 ~ generics[0d98]::Tr::'a), binder: NodeId(38) }
+NodeId(40) def_id=DefId(0:19 ~ generics[0d98]::hrtb) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(41) DefId(0:20 ~ generics[0d98]::hrtb::F)
+  node_id_to_def_id NodeId(45) DefId(0:21 ~ generics[0d98]::hrtb::'a)
+  lifetime_res NodeId(45) Param { param: DefId(0:21 ~ generics[0d98]::hrtb::'a), binder: NodeId(48) }
+  lifetime_res NodeId(47) Param { param: DefId(0:21 ~ generics[0d98]::hrtb::'a), binder: NodeId(48) }
+NodeId(54) def_id=DefId(0:22 ~ generics[0d98]::anon_in_bound) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(55) DefId(0:23 ~ generics[0d98]::anon_in_bound::T)
+  lifetime_res NodeId(57) Error(ErrorGuaranteed(()))
+NodeId(64) def_id=DefId(0:24 ~ generics[0d98]::undeclared_lt) lifetime_elision_allowed=false
+  lifetime_res NodeId(67) Error(ErrorGuaranteed(()))
+NodeId(72) def_id=DefId(0:25 ~ generics[0d98]::missing) lifetime_elision_allowed=false
+  lifetime_res NodeId(73) ElidedAnchor { start: NodeId(80), end: NodeId(81) }
+  lifetime_res NodeId(80) Error(ErrorGuaranteed(()))
+== lint_buffer (0)
+== disambiguators (7)
+DefId(0:0 ~ generics[0d98])
+DefId(0:1 ~ generics[0d98]::Fwd)
+DefId(0:7 ~ generics[0d98]::SelfDefault)
+DefId(0:11 ~ generics[0d98]::Ok)
+DefId(0:17 ~ generics[0d98]::Tr)
+DefId(0:19 ~ generics[0d98]::hrtb)
+DefId(0:22 ~ generics[0d98]::anon_in_bound)
+== definitions (26)
+DefId(0:0 ~ generics[0d98]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 979762590141878458))
+DefId(0:1 ~ generics[0d98]::Fwd) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Fwd"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 18216511947922756730))
+DefId(0:2 ~ generics[0d98]::Fwd::{constructor#0}) Ctor(Struct, Fn) DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 7042016027908474086))
+DefId(0:3 ~ generics[0d98]::Fwd::T) TyParam DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 15121455877996432985))
+DefId(0:4 ~ generics[0d98]::Fwd::U) TyParam DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("U"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 11364397647253258772))
+DefId(0:5 ~ generics[0d98]::Fwd::0) Field DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 1942532127332991702))
+DefId(0:6 ~ generics[0d98]::Fwd::1) Field DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("1"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 5571906016538704310))
+DefId(0:7 ~ generics[0d98]::SelfDefault) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("SelfDefault"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 6481255834457056570))
+DefId(0:8 ~ generics[0d98]::SelfDefault::{constructor#0}) Ctor(Struct, Fn) DefKey { parent: Some(DefIndex(7)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 12632295433850786052))
+DefId(0:9 ~ generics[0d98]::SelfDefault::T) TyParam DefKey { parent: Some(DefIndex(7)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 5997806884641355707))
+DefId(0:10 ~ generics[0d98]::SelfDefault::0) Field DefKey { parent: Some(DefIndex(7)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 9681313549112875495))
+DefId(0:11 ~ generics[0d98]::Ok) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Ok"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 10319332819500784922))
+DefId(0:12 ~ generics[0d98]::Ok::{constructor#0}) Ctor(Struct, Fn) DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 4562610351884781367))
+DefId(0:13 ~ generics[0d98]::Ok::T) TyParam DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 15584202265403726373))
+DefId(0:14 ~ generics[0d98]::Ok::U) TyParam DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("U"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 2397520242637666386))
+DefId(0:15 ~ generics[0d98]::Ok::0) Field DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 6215224971111397852))
+DefId(0:16 ~ generics[0d98]::Ok::1) Field DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("1"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 15779016649265433129))
+DefId(0:17 ~ generics[0d98]::Tr) Trait DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Tr"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 12581367504743401750))
+DefId(0:18 ~ generics[0d98]::Tr::'a) LifetimeParam DefKey { parent: Some(DefIndex(17)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 2244636342004592193))
+DefId(0:19 ~ generics[0d98]::hrtb) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("hrtb"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 3270866474233477665))
+DefId(0:20 ~ generics[0d98]::hrtb::F) TyParam DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("F"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 2559056123477869031))
+DefId(0:21 ~ generics[0d98]::hrtb::'a) LifetimeParam DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 12312121547059325109))
+DefId(0:22 ~ generics[0d98]::anon_in_bound) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("anon_in_bound"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 1984257087202074594))
+DefId(0:23 ~ generics[0d98]::anon_in_bound::T) TyParam DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 11285859929541514264))
+DefId(0:24 ~ generics[0d98]::undeclared_lt) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("undeclared_lt"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 14513402973307829336))
+DefId(0:25 ~ generics[0d98]::missing) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("missing"), disambiguator: 0 } } DefPathHash(Fingerprint(979762590141878458, 12031945581565166314))

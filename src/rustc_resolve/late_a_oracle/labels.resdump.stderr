@@ -1,0 +1,21 @@
+error[E0767]: use of unreachable label `'a`
+  --> labels.rs:16:19
+   |
+14 |     'a: loop {
+   |     -- unreachable label defined here
+15 |         let c = || {
+16 |             break 'a;
+   |                   ^^ unreachable label `'a`
+   |
+   = note: labels are unreachable through functions, closures, async blocks and modules
+
+error[E0426]: use of undeclared label `'nope`
+  --> labels.rs:22:15
+   |
+22 |         break 'nope;
+   |               ^^^^^ undeclared label `'nope`
+
+error: aborting due to 2 previous errors
+
+Some errors have detailed explanations: E0426, E0767.
+For more information about an error, try `rustc --explain E0426`.
