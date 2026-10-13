@@ -10248,3 +10248,10 @@ Wasm(local): {}
 "fastcall": Err([])
 "aapcs": Err([])
 "foo": Err([])
+== session
+x86_64-unknown-linux-gnu: Some(X86_64)
+aarch64-unknown-linux-gnu: Some(AArch64)
+aarch64-apple-darwin: Some(AArch64)
+x86_64-apple-darwin: Some(X86_64)
+x86_64-pc-windows-msvc: Some(X86_64)
+wasm32-wasip2: Some(Wasm32)

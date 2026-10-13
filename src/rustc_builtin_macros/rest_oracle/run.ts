@@ -34,9 +34,10 @@ import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
 import { debug_LocalExpnId, ExpnData, LocalExpnId, MacroKind } from "../../rustc_span/hygiene.ts";
 import { debug_Span, DUMMY_SP } from "../../rustc_span/lib.ts";
 import { debug_Symbol, display_Symbol, Ident, Symbol, sym } from "../../rustc_span/symbol.ts";
+import { debug_InlineAsmArch } from "../../rustc_target/asm/mod.ts";
 import { TargetTuple } from "../../rustc_target/spec/tuple.ts";
 import { type Debug, debug_option, debug_vec, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
-import { panic, Unported, unwrap } from "../../std/panic.ts";
+import { assert_eq, panic, Unported, unwrap } from "../../std/panic.ts";
 import { register_builtin_macros } from "../lib.ts";
 import * as proc_macro_harness from "../proc_macro_harness.ts";
 import * as test_harness from "../test_harness.ts";
@@ -177,10 +178,8 @@ function run_case(c: Case): void {
     const sess = compiler.sess;
     const a = c.opts.get("asm_arch");
     if (a !== undefined) {
-      // PORT(test): `Session::asm_arch` is deferred (rustc_target::asm is not ported); the probe asserts the
-      // oracle session's value, stored here as the fieldless variant's name.
-      const m = /^Some\((\w+)\)$/.exec(a);
-      Object.defineProperty(sess, "asm_arch", { value: m === null ? undefined : m[1], writable: true, configurable: true });
+      // As the probe: `assert_eq!(format!("{:?}", sess.asm_arch), a, "@asm_arch")`.
+      assert_eq(debug_option(sess.asm_arch, PLAIN, debug_InlineAsmArch), a, (v) => v);
     }
     try {
       run_in_session(c, sess);

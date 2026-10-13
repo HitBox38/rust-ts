@@ -4,7 +4,9 @@
 // session's `asm_arch` (`InlineAsmArch::from_arch` when `allow_asm`), register class and register
 // parsing, every class's modifiers / supported types / suggestions, every register's validation,
 // emission and overlaps, `allocatable_registers` (FxHashMap order), `InlineAsmClobberAbi` parsing and
-// `clobbered_regs`, and `InlineAsmType` Display / size. asm_oracle/run.ts prints the same lines from
+// `clobbered_regs`, and `InlineAsmType` Display / size. The last section (`== session`) runs
+// `rustc_interface::run_compiler` with `--target` for each target and prints the real session's
+// `Session::asm_arch` (set by `build_session`). asm_oracle/run.ts prints the same lines from
 // the port; asm.oracle.test.ts compares them section by section with out.stdout.
 //
 // Regenerate (the toolchain is UPSTREAM.json `nightlyName`, with the rustc-dev component):
@@ -14,10 +16,16 @@
 #![feature(rustc_private)]
 extern crate rustc_data_structures;
 extern crate rustc_driver;
+extern crate rustc_interface;
+extern crate rustc_session;
 extern crate rustc_span;
 extern crate rustc_target;
 
+use std::sync::atomic::AtomicBool;
+
 use rustc_data_structures::fx::FxIndexSet;
+use rustc_session::config::{Input, Options};
+use rustc_span::FileName;
 use rustc_span::{Symbol, create_default_session_globals_then};
 use rustc_target::asm::{
     InlineAsmArch, InlineAsmClobberAbi, InlineAsmReg, InlineAsmRegClass, InlineAsmRegOrRegClass,
@@ -178,6 +186,35 @@ fn dump(target: &Target, arch: InlineAsmArch) {
     }
 }
 
+static USING_INTERNAL_FEATURES: AtomicBool = AtomicBool::new(false);
+
+/// `Session::asm_arch` of a real session for `--target <tuple>`.
+fn session_asm_arch(tuple: &str) {
+    let mut opts = Options::default();
+    opts.target_triple = TargetTuple::from_tuple(tuple);
+    let config = rustc_interface::Config {
+        opts,
+        crate_cfg: vec![],
+        crate_check_cfg: vec![],
+        input: Input::Str { name: FileName::Custom("unused".into()), input: String::new() },
+        output_dir: None,
+        output_file: None,
+        ice_file: None,
+        file_loader: None,
+        lint_caps: Default::default(),
+        psess_created: None,
+        track_state: None,
+        register_lints: None,
+        override_queries: None,
+        extra_symbols: vec![],
+        make_codegen_backend: None,
+        using_internal_features: &USING_INTERNAL_FEATURES,
+    };
+    rustc_interface::run_compiler(config, |compiler| {
+        println!("{tuple}: {:?}", compiler.sess.asm_arch);
+    });
+}
+
 fn main() {
     create_default_session_globals_then(|| {
         println!("== types");
@@ -205,4 +242,8 @@ fn main() {
             dump(&target, *arch);
         }
     });
+    println!("== session");
+    for tuple in TARGETS {
+        session_asm_arch(tuple);
+    }
 }
