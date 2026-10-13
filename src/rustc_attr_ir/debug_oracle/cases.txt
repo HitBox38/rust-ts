@@ -1,0 +1,1474 @@
+== Repr
+Repr { reprs: [(ReprC, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), (ReprInt(UnsignedInt(u8)), Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), (ReprTransparent, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })], first_span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }
+Repr {
+    reprs: [
+        (
+            ReprC,
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        ),
+        (
+            ReprInt(
+                UnsignedInt(
+                    u8,
+                ),
+            ),
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        ),
+        (
+            ReprTransparent,
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        ),
+    ],
+    first_span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+}
+-- print_attribute (should_render: true)
+Repr {reprs: [ReprC, ReprInt(UnsignedInt(u8)), ReprTransparent]}
+-- encode_cross_crate: No, is_extern_indicator: false
+== Inline
+Inline(Force { attr_span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, reason: Some("why") }, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })
+Inline(
+    Force {
+        attr_span: Span {
+            lo: BytePos(
+                0,
+            ),
+            hi: BytePos(
+                0,
+            ),
+            ctxt: #0,
+        },
+        reason: Some(
+            "why",
+        ),
+    },
+    Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+)
+-- print_attribute (should_render: true)
+Inline(Force {reason: "why"})
+-- encode_cross_crate: No, is_extern_indicator: false
+== InlineHint
+Inline(Hint, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })
+Inline(
+    Hint,
+    Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+)
+-- print_attribute (should_render: true)
+Inline(Hint)
+-- encode_cross_crate: No, is_extern_indicator: false
+== Deprecated
+Deprecated { deprecation: Deprecation { since: NonStandard("1.0"), note: Some(use bar#0), suggestion: None }, span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }
+Deprecated {
+    deprecation: Deprecation {
+        since: NonStandard(
+            "1.0",
+        ),
+        note: Some(
+            use bar#0,
+        ),
+        suggestion: None,
+    },
+    span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+}
+-- print_attribute (should_render: true)
+Deprecated {deprecation: Deprecation {since: NonStandard("1.0"),
+note: use bar#0}}
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== DeprecatedVersion
+Deprecated { deprecation: Deprecation { since: RustcVersion(RustcVersion { major: 1, minor: 2, patch: 3 }), note: None, suggestion: Some("bar") }, span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }
+Deprecated {
+    deprecation: Deprecation {
+        since: RustcVersion(
+            RustcVersion {
+                major: 1,
+                minor: 2,
+                patch: 3,
+            },
+        ),
+        note: None,
+        suggestion: Some(
+            "bar",
+        ),
+    },
+    span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+}
+-- print_attribute (should_render: true)
+Deprecated {deprecation: Deprecation {since: RustcVersion(RustcVersion { major: 1, minor: 2, patch: 3 }),
+suggestion: "bar"}}
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== Stability
+Stability { stability: Stability { level: Unstable { reason: Some("not yet"), issue: Some(123), implied_by: None, old_name: Some("old") }, feature: "my_feature" }, span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }
+Stability {
+    stability: Stability {
+        level: Unstable {
+            reason: Some(
+                "not yet",
+            ),
+            issue: Some(
+                123,
+            ),
+            implied_by: None,
+            old_name: Some(
+                "old",
+            ),
+        },
+        feature: "my_feature",
+    },
+    span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+}
+-- print_attribute (should_render: true)
+Stability {stability: Stability {level: Unstable {reason: Some("not yet"),
+issue: 123, old_name: "old"}, feature: "my_feature"}}
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== RustcConstStability
+RustcConstStability { stability: PartialConstStability { level: Stable { since: Version(RustcVersion { major: 1, minor: 80, patch: 0 }), allowed_through_unstable_modules: Some(("msg", "path::to")) }, feature: "const_feature", promotable: false }, span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }
+RustcConstStability {
+    stability: PartialConstStability {
+        level: Stable {
+            since: Version(
+                RustcVersion {
+                    major: 1,
+                    minor: 80,
+                    patch: 0,
+                },
+            ),
+            allowed_through_unstable_modules: Some(
+                (
+                    "msg",
+                    "path::to",
+                ),
+            ),
+        },
+        feature: "const_feature",
+        promotable: false,
+    },
+    span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+}
+-- print_attribute (should_render: true)
+RustcConstStability {stability: PartialConstStability {level: Stable {since: Version(RustcVersion { major: 1, minor: 80, patch: 0 }),
+allowed_through_unstable_modules: ("msg", "path::to")},
+feature: "const_feature", promotable: false}}
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== MacroUse
+MacroUse { span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, arguments: UseSpecific([a#0, b#0]) }
+MacroUse {
+    span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+    arguments: UseSpecific(
+        [
+            a#0,
+            b#0,
+        ],
+    ),
+}
+-- print_attribute (should_render: true)
+MacroUse {arguments: UseSpecific([a#0, b#0])}
+-- encode_cross_crate: No, is_extern_indicator: false
+== MacroUseAll
+MacroUse { span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, arguments: UseAll }
+MacroUse {
+    span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+    arguments: UseAll,
+}
+-- print_attribute (should_render: true)
+MacroUse {arguments: UseAll}
+-- encode_cross_crate: No, is_extern_indicator: false
+== DocComment
+DocComment { style: Outer, kind: Sugared(Line), span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, comment: " hello" }
+DocComment {
+    style: Outer,
+    kind: Sugared(
+        Line,
+    ),
+    span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+    comment: " hello",
+}
+-- print_attribute (should_render: true)
+DocComment {style: Outer, kind: Sugared(Line), comment: " hello"}
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== DocCommentRaw
+DocComment { style: Inner, kind: Raw(Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, comment: "x" }
+DocComment {
+    style: Inner,
+    kind: Raw(
+        Span {
+            lo: BytePos(
+                0,
+            ),
+            hi: BytePos(
+                0,
+            ),
+            ctxt: #0,
+        },
+    ),
+    span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+    comment: "x",
+}
+-- print_attribute (should_render: true)
+DocComment {style: Inner,
+kind: Raw(Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), comment: "x"}
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== LangPartialEq
+Lang(PartialEq)
+Lang(
+    PartialEq,
+)
+-- print_attribute (should_render: true)
+Lang(PartialEq)
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== LangPanicImpl
+Lang(PanicImpl)
+Lang(
+    PanicImpl,
+)
+-- print_attribute (should_render: true)
+Lang(PanicImpl)
+-- encode_cross_crate: Yes, is_extern_indicator: true
+== Doc
+Doc(DocAttribute { first_span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, aliases: {"alias1": Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }}, hidden: Some(Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), inline: Some((NoInline, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })), cfg: [], auto_cfg: [], auto_cfg_change: [(true, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })], fake_variadic: None, keyword: Some(("kw", Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })), attribute: None, masked: None, notable_trait: None, search_unbox: None, html_favicon_url: None, html_logo_url: None, html_playground_url: None, html_root_url: None, html_no_source: None, issue_tracker_base_url: None, rust_logo: None, test_attrs: [], no_crate_inject: None })
+Doc(
+    DocAttribute {
+        first_span: Span {
+            lo: BytePos(
+                0,
+            ),
+            hi: BytePos(
+                0,
+            ),
+            ctxt: #0,
+        },
+        aliases: {
+            "alias1": Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        },
+        hidden: Some(
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        ),
+        inline: Some(
+            (
+                NoInline,
+                Span {
+                    lo: BytePos(
+                        0,
+                    ),
+                    hi: BytePos(
+                        0,
+                    ),
+                    ctxt: #0,
+                },
+            ),
+        ),
+        cfg: [],
+        auto_cfg: [],
+        auto_cfg_change: [
+            (
+                true,
+                Span {
+                    lo: BytePos(
+                        0,
+                    ),
+                    hi: BytePos(
+                        0,
+                    ),
+                    ctxt: #0,
+                },
+            ),
+        ],
+        fake_variadic: None,
+        keyword: Some(
+            (
+                "kw",
+                Span {
+                    lo: BytePos(
+                        0,
+                    ),
+                    hi: BytePos(
+                        0,
+                    ),
+                    ctxt: #0,
+                },
+            ),
+        ),
+        attribute: None,
+        masked: None,
+        notable_trait: None,
+        search_unbox: None,
+        html_favicon_url: None,
+        html_logo_url: None,
+        html_playground_url: None,
+        html_root_url: None,
+        html_no_source: None,
+        issue_tracker_base_url: None,
+        rust_logo: None,
+        test_attrs: [],
+        no_crate_inject: None,
+    },
+)
+-- print_attribute (should_render: true)
+Doc(DocAttribute {["alias1"]inline: NoInline, cfg: [], auto_cfg: [],
+auto_cfg_change: [true], keyword: "kw", test_attrs: []})
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== DocDefault
+Doc(DocAttribute { first_span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, aliases: {}, hidden: None, inline: None, cfg: [], auto_cfg: [], auto_cfg_change: [], fake_variadic: None, keyword: None, attribute: None, masked: None, notable_trait: None, search_unbox: None, html_favicon_url: None, html_logo_url: None, html_playground_url: None, html_root_url: None, html_no_source: None, issue_tracker_base_url: None, rust_logo: None, test_attrs: [], no_crate_inject: None })
+Doc(
+    DocAttribute {
+        first_span: Span {
+            lo: BytePos(
+                0,
+            ),
+            hi: BytePos(
+                0,
+            ),
+            ctxt: #0,
+        },
+        aliases: {},
+        hidden: None,
+        inline: None,
+        cfg: [],
+        auto_cfg: [],
+        auto_cfg_change: [],
+        fake_variadic: None,
+        keyword: None,
+        attribute: None,
+        masked: None,
+        notable_trait: None,
+        search_unbox: None,
+        html_favicon_url: None,
+        html_logo_url: None,
+        html_playground_url: None,
+        html_root_url: None,
+        html_no_source: None,
+        issue_tracker_base_url: None,
+        rust_logo: None,
+        test_attrs: [],
+        no_crate_inject: None,
+    },
+)
+-- print_attribute (should_render: true)
+Doc(DocAttribute {aliases: [], cfg: [], auto_cfg: [], auto_cfg_change: [],
+test_attrs: []})
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== OnUnimplemented
+OnUnimplemented { directive: Some(Directive { is_rustc_attr: true, filters: [(Filter { span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, pred: All([Flag(CrateLocal), Not(Match(NameValue { name: GenericArg("T"), value: FilterFormatString { pieces: [Lit("&["), Arg("A")] } })), Any([Match(NameValue { name: SelfUpper, value: FilterFormatString { pieces: [] } })])]) }, Directive { is_rustc_attr: false, filters: [], message: None, label: None, notes: [], parent_label: None })], message: Some((Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, FormatString { input: "the {T} for {This}", span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, pieces: [Lit("the "), Arg(GenericParam { generic_param: "T", span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }), Lit(" for "), Arg(This), Arg(AsIs("x"))] })), label: None, notes: [FormatString { input: "n", span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, pieces: [Arg(SelfUpper)] }], parent_label: None }) }
+OnUnimplemented {
+    directive: Some(
+        Directive {
+            is_rustc_attr: true,
+            filters: [
+                (
+                    Filter {
+                        span: Span {
+                            lo: BytePos(
+                                0,
+                            ),
+                            hi: BytePos(
+                                0,
+                            ),
+                            ctxt: #0,
+                        },
+                        pred: All(
+                            [
+                                Flag(
+                                    CrateLocal,
+                                ),
+                                Not(
+                                    Match(
+                                        NameValue {
+                                            name: GenericArg(
+                                                "T",
+                                            ),
+                                            value: FilterFormatString {
+                                                pieces: [
+                                                    Lit(
+                                                        "&[",
+                                                    ),
+                                                    Arg(
+                                                        "A",
+                                                    ),
+                                                ],
+                                            },
+                                        },
+                                    ),
+                                ),
+                                Any(
+                                    [
+                                        Match(
+                                            NameValue {
+                                                name: SelfUpper,
+                                                value: FilterFormatString {
+                                                    pieces: [],
+                                                },
+                                            },
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    },
+                    Directive {
+                        is_rustc_attr: false,
+                        filters: [],
+                        message: None,
+                        label: None,
+                        notes: [],
+                        parent_label: None,
+                    },
+                ),
+            ],
+            message: Some(
+                (
+                    Span {
+                        lo: BytePos(
+                            0,
+                        ),
+                        hi: BytePos(
+                            0,
+                        ),
+                        ctxt: #0,
+                    },
+                    FormatString {
+                        input: "the {T} for {This}",
+                        span: Span {
+                            lo: BytePos(
+                                0,
+                            ),
+                            hi: BytePos(
+                                0,
+                            ),
+                            ctxt: #0,
+                        },
+                        pieces: [
+                            Lit(
+                                "the ",
+                            ),
+                            Arg(
+                                GenericParam {
+                                    generic_param: "T",
+                                    span: Span {
+                                        lo: BytePos(
+                                            0,
+                                        ),
+                                        hi: BytePos(
+                                            0,
+                                        ),
+                                        ctxt: #0,
+                                    },
+                                },
+                            ),
+                            Lit(
+                                " for ",
+                            ),
+                            Arg(
+                                This,
+                            ),
+                            Arg(
+                                AsIs(
+                                    "x",
+                                ),
+                            ),
+                        ],
+                    },
+                ),
+            ),
+            label: None,
+            notes: [
+                FormatString {
+                    input: "n",
+                    span: Span {
+                        lo: BytePos(
+                            0,
+                        ),
+                        hi: BytePos(
+                            0,
+                        ),
+                        ctxt: #0,
+                    },
+                    pieces: [
+                        Arg(
+                            SelfUpper,
+                        ),
+                    ],
+                },
+            ],
+            parent_label: None,
+        },
+    ),
+}
+-- print_attribute (should_render: true)
+OnUnimplemented {directive: Directive {is_rustc_attr: true,
+filters: [(Filter {pred: All([Flag(CrateLocal),
+Not(Match(NameValue {name: GenericArg("T"),
+value: FilterFormatString {pieces: [Lit("&["), Arg("A")]}})),
+Any([Match(NameValue {name: SelfUpper,
+value: FilterFormatString {pieces: []}})])])},
+Directive {is_rustc_attr: false, filters: [], notes: []})],
+message: FormatString {input: "the {T} for {This}", pieces: [Lit("the "),
+Arg(GenericParam {generic_param: "T"}), Lit(" for "), Arg(This),
+Arg(AsIs("x"))]}, notes: [FormatString {input: "n",
+pieces: [Arg(SelfUpper)]}]}}
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== OnUnknownNone
+OnUnknown { directive: None }
+OnUnknown {
+    directive: None,
+}
+-- print_attribute (should_render: true)
+OnUnknown
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== CfgTrace
+CfgTrace([(Bool(true, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), (All([NameValue { name: "feature", value: Some("x"), span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }, Not(Version(Some(RustcVersion { major: 1, minor: 70, patch: 0 }), Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })], Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })])
+CfgTrace(
+    [
+        (
+            Bool(
+                true,
+                Span {
+                    lo: BytePos(
+                        0,
+                    ),
+                    hi: BytePos(
+                        0,
+                    ),
+                    ctxt: #0,
+                },
+            ),
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        ),
+        (
+            All(
+                [
+                    NameValue {
+                        name: "feature",
+                        value: Some(
+                            "x",
+                        ),
+                        span: Span {
+                            lo: BytePos(
+                                0,
+                            ),
+                            hi: BytePos(
+                                0,
+                            ),
+                            ctxt: #0,
+                        },
+                    },
+                    Not(
+                        Version(
+                            Some(
+                                RustcVersion {
+                                    major: 1,
+                                    minor: 70,
+                                    patch: 0,
+                                },
+                            ),
+                            Span {
+                                lo: BytePos(
+                                    0,
+                                ),
+                                hi: BytePos(
+                                    0,
+                                ),
+                                ctxt: #0,
+                            },
+                        ),
+                        Span {
+                            lo: BytePos(
+                                0,
+                            ),
+                            hi: BytePos(
+                                0,
+                            ),
+                            ctxt: #0,
+                        },
+                    ),
+                ],
+                Span {
+                    lo: BytePos(
+                        0,
+                    ),
+                    hi: BytePos(
+                        0,
+                    ),
+                    ctxt: #0,
+                },
+            ),
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        ),
+    ],
+)
+-- print_attribute (should_render: true)
+CfgTrace([Bool(true, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }),
+All([NameValue { name: "feature", value: Some("x"), span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }, Not(Version(Some(RustcVersion { major: 1, minor: 70, patch: 0 }), Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })], Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })])
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== RustcMir
+RustcMir([BorrowckGraphvizPostflow { path: "a/b.dot" }, PeekLiveness, BorrowckGraphvizFormat { format: TwoPhase }])
+RustcMir(
+    [
+        BorrowckGraphvizPostflow {
+            path: "a/b.dot",
+        },
+        PeekLiveness,
+        BorrowckGraphvizFormat {
+            format: TwoPhase,
+        },
+    ],
+)
+-- print_attribute (should_render: true)
+RustcMir([BorrowckGraphvizPostflow {path: a/b.dot}, PeekLiveness,
+BorrowckGraphvizFormat {format: TwoPhase}])
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== CustomMir
+CustomMir(Some((Built, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })), None)
+CustomMir(
+    Some(
+        (
+            Built,
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        ),
+    ),
+    None,
+)
+-- print_attribute (should_render: true)
+CustomMir(Built)
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== Coverage
+Coverage(Off)
+Coverage(
+    Off,
+)
+-- print_attribute (should_render: true)
+Coverage(Off)
+-- encode_cross_crate: No, is_extern_indicator: false
+== Optimize
+Optimize(Speed, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })
+Optimize(
+    Speed,
+    Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+)
+-- print_attribute (should_render: true)
+Optimize(Speed)
+-- encode_cross_crate: No, is_extern_indicator: false
+== ProcMacroDerive
+ProcMacroDerive { trait_name: "Foo", helper_attrs: ["foo", "bar"] }
+ProcMacroDerive {
+    trait_name: "Foo",
+    helper_attrs: [
+        "foo",
+        "bar",
+    ],
+}
+-- print_attribute (should_render: true)
+ProcMacroDerive {trait_name: "Foo", helper_attrs: ["foo", "bar"]}
+-- encode_cross_crate: No, is_extern_indicator: false
+== LinkOrdinal
+LinkOrdinal { ordinal: 7, span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }
+LinkOrdinal {
+    ordinal: 7,
+    span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+}
+-- print_attribute (should_render: true)
+LinkOrdinal {ordinal: 7}
+-- encode_cross_crate: No, is_extern_indicator: false
+== PatchableFunctionEntry
+PatchableFunctionEntry { prefix: Some(1), entry: None, section: Some(".text") }
+PatchableFunctionEntry {
+    prefix: Some(
+        1,
+    ),
+    entry: None,
+    section: Some(
+        ".text",
+    ),
+}
+-- print_attribute (should_render: true)
+PatchableFunctionEntry {prefix: 1, section: ".text"}
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== RustcLegacyConstGenerics
+RustcLegacyConstGenerics { fn_indexes: [(0, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }), (2, Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })], attr_span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }
+RustcLegacyConstGenerics {
+    fn_indexes: [
+        (
+            0,
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        ),
+        (
+            2,
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        ),
+    ],
+    attr_span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+}
+-- print_attribute (should_render: true)
+RustcLegacyConstGenerics {fn_indexes: [0, 2]}
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== RustcSkipDuringMethodDispatch
+RustcSkipDuringMethodDispatch { array: true, boxed_slice: false }
+RustcSkipDuringMethodDispatch {
+    array: true,
+    boxed_slice: false,
+}
+-- print_attribute (should_render: true)
+RustcSkipDuringMethodDispatch {array: true, boxed_slice: false}
+-- encode_cross_crate: No, is_extern_indicator: false
+== Cold
+Cold
+Cold
+-- print_attribute (should_render: true)
+Cold
+-- encode_cross_crate: No, is_extern_indicator: false
+== NoMangle
+NoMangle(Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })
+NoMangle(
+    Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+)
+-- print_attribute (should_render: true)
+NoMangle
+-- encode_cross_crate: Yes, is_extern_indicator: true
+== Feature
+Feature([f1#0], Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 })
+Feature(
+    [
+        f1#0,
+    ],
+    Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+)
+-- print_attribute (should_render: true)
+Feature([f1#0])
+-- encode_cross_crate: No, is_extern_indicator: false
+== RustcAutodiff
+RustcAutodiff(Some(RustcAutodiff { mode: Reverse, width: 1, input_activity: [Active, FakeActivitySize(Some(3))], ret_activity: None }))
+RustcAutodiff(
+    Some(
+        RustcAutodiff {
+            mode: Reverse,
+            width: 1,
+            input_activity: [
+                Active,
+                FakeActivitySize(
+                    Some(
+                        3,
+                    ),
+                ),
+            ],
+            ret_activity: None,
+        },
+    ),
+)
+-- print_attribute (should_render: true)
+RustcAutodiff(RustcAutodiff {mode: Reverse, width: 1, input_activity: [Active,
+FakeActivitySize(Some(3))], ret_activity: None})
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== UnstableRemoved
+UnstableRemoved([UnstableRemovedFeature { feature: "gone", reason: "removed", link: "https://example.com", since: RustcVersion { major: 1, minor: 0, patch: 0 } }])
+UnstableRemoved(
+    [
+        UnstableRemovedFeature {
+            feature: "gone",
+            reason: "removed",
+            link: "https://example.com",
+            since: RustcVersion {
+                major: 1,
+                minor: 0,
+                patch: 0,
+            },
+        },
+    ],
+)
+-- print_attribute (should_render: true)
+UnstableRemoved([UnstableRemovedFeature {feature: "gone", reason: "removed",
+link: "https://example.com",
+since: RustcVersion { major: 1, minor: 0, patch: 0 }}])
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== RustcCguTestAttr
+RustcCguTestAttr([(Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, ExpectedCguReuse { cfg: "cfail1", module: "m", kind: PreDashLto })])
+RustcCguTestAttr(
+    [
+        (
+            Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+            ExpectedCguReuse {
+                cfg: "cfail1",
+                module: "m",
+                kind: PreDashLto,
+            },
+        ),
+    ],
+)
+-- print_attribute (should_render: true)
+RustcCguTestAttr([ExpectedCguReuse {cfg: "cfail1", module: "m",
+kind: PreDashLto}])
+-- encode_cross_crate: No, is_extern_indicator: false
+== EiiDeclaration
+EiiDeclaration(EiiDecl { foreign_item: DefId { krate: crate0, index: DefIndex(5) }, impl_unsafe: false, name: eii#0 })
+EiiDeclaration(
+    EiiDecl {
+        foreign_item: DefId {
+            krate: crate0,
+            index: DefIndex(5),
+        },
+        impl_unsafe: false,
+        name: eii#0,
+    },
+)
+-- print_attribute (should_render: true)
+EiiDeclaration(EiiDecl {foreign_item: DefId { krate: crate0, index: DefIndex(5) },
+impl_unsafe: false, name: eii#0})
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== RustcMacroTransparency
+RustcMacroTransparency(SemiOpaque)
+RustcMacroTransparency(
+    SemiOpaque,
+)
+-- print_attribute (should_render: true)
+RustcMacroTransparency(SemiOpaque)
+-- encode_cross_crate: Yes, is_extern_indicator: false
+== Used
+Used { used_by: Linker }
+Used {
+    used_by: Linker,
+}
+-- print_attribute (should_render: true)
+Used {used_by: Linker}
+-- encode_cross_crate: No, is_extern_indicator: false
+== CrateName
+CrateName { name: "krate", name_span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, attr_span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }
+CrateName {
+    name: "krate",
+    name_span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+    attr_span: Span {
+        lo: BytePos(
+            0,
+        ),
+        hi: BytePos(
+            0,
+        ),
+        ctxt: #0,
+    },
+}
+-- print_attribute (should_render: true)
+CrateName {name: "krate"}
+-- encode_cross_crate: No, is_extern_indicator: false
+== RustcDumpLayout
+RustcDumpLayout([Align, Size])
+RustcDumpLayout(
+    [
+        Align,
+        Size,
+    ],
+)
+-- print_attribute (should_render: true)
+RustcDumpLayout([Align, Size])
+-- encode_cross_crate: No, is_extern_indicator: false
+== RustcClean
+RustcClean([RustcCleanAttribute { span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, cfg: "rpass2", except: Some(RustcCleanQueries { entries: ["hir_owner", "typeck"], span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }), loaded_from_disk: None }])
+RustcClean(
+    [
+        RustcCleanAttribute {
+            span: Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+            cfg: "rpass2",
+            except: Some(
+                RustcCleanQueries {
+                    entries: [
+                        "hir_owner",
+                        "typeck",
+                    ],
+                    span: Span {
+                        lo: BytePos(
+                            0,
+                        ),
+                        hi: BytePos(
+                            0,
+                        ),
+                        ctxt: #0,
+                    },
+                },
+            ),
+            loaded_from_disk: None,
+        },
+    ],
+)
+-- print_attribute (should_render: true)
+RustcClean([RustcCleanAttribute {cfg: "rpass2",
+except: RustcCleanQueries {entries: ["hir_owner", "typeck"]}}])
+-- encode_cross_crate: No, is_extern_indicator: false
+== RegisterTool
+RegisterTool { attr_tools: [], lint_tools: [clippy#0] }
+RegisterTool {
+    attr_tools: [],
+    lint_tools: [
+        clippy#0,
+    ],
+}
+-- print_attribute (should_render: true)
+RegisterTool {attr_tools: [], lint_tools: [clippy#0]}
+-- encode_cross_crate: No, is_extern_indicator: false
+== Attribute Unparsed
+Unparsed(AttrItem { path: AttrPath { segments: ["rustfmt", "skip"], span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }, args: Eq { eq_span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 }, expr: MetaItemLit { symbol: "v", suffix: None, kind: Str("v", Cooked), span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } } }, id: HashIgnoredAttrId { attr_id: AttrId(5) }, style: Inner, span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } })
+Unparsed(
+    AttrItem {
+        path: AttrPath {
+            segments: [
+                "rustfmt",
+                "skip",
+            ],
+            span: Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        },
+        args: Eq {
+            eq_span: Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+            expr: MetaItemLit {
+                symbol: "v",
+                suffix: None,
+                kind: Str(
+                    "v",
+                    Cooked,
+                ),
+                span: Span {
+                    lo: BytePos(
+                        0,
+                    ),
+                    hi: BytePos(
+                        0,
+                    ),
+                    ctxt: #0,
+                },
+            },
+        },
+        id: HashIgnoredAttrId {
+            attr_id: AttrId(5),
+        },
+        style: Inner,
+        span: Span {
+            lo: BytePos(
+                0,
+            ),
+            hi: BytePos(
+                0,
+            ),
+            ctxt: #0,
+        },
+    },
+)
+-- is_parsed_attr false name None path ["rustfmt", "skip"] is_word false value_str Some("v") doc_str None is_proc_macro_attr false is_automatically_derived_attr false
+== Attribute UnparsedWord
+Unparsed(AttrItem { path: AttrPath { segments: ["my_tool"], span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } }, args: Empty, id: HashIgnoredAttrId { attr_id: AttrId(0) }, style: Outer, span: Span { lo: BytePos(0), hi: BytePos(0), ctxt: #0 } })
+Unparsed(
+    AttrItem {
+        path: AttrPath {
+            segments: [
+                "my_tool",
+            ],
+            span: Span {
+                lo: BytePos(
+                    0,
+                ),
+                hi: BytePos(
+                    0,
+                ),
+                ctxt: #0,
+            },
+        },
+        args: Empty,
+        id: HashIgnoredAttrId {
+            attr_id: AttrId(0),
+        },
+        style: Outer,
+        span: Span {
+            lo: BytePos(
+                0,
+            ),
+            hi: BytePos(
+                0,
+            ),
+            ctxt: #0,
+        },
+    },
+)
+-- is_parsed_attr false name Some("my_tool") path ["my_tool"] is_word true value_str None doc_str None is_proc_macro_attr false is_automatically_derived_attr false
+== Attribute Parsed
+Parsed(AutomaticallyDerived)
+Parsed(
+    AutomaticallyDerived,
+)
+-- is_parsed_attr true name None path ["doc"] is_word false value_str None doc_str None is_proc_macro_attr false is_automatically_derived_attr true
+== AttrPath Display
+rustfmt::skip
+== LangItem table (from_name over the predefined symbols)
+variant_count 226
+12	Fn	"fn"	Fn	Trait	Exact(1)	false	None	Fn
+64	Pin	"pin"	Pin	Struct	None	false	None	Pin
+85	AsyncGenFinished	"AsyncGenFinished"	AsyncGenFinished	AssocConst(Impl { of_trait: false })	Exact(1)	false	None	AsyncGenFinished
+86	AsyncGenPending	"AsyncGenPending"	AsyncGenPending	AssocConst(Impl { of_trait: false })	Exact(1)	false	None	AsyncGenPending
+87	AsyncGenReady	"AsyncGenReady"	AsyncGenReady	Method(Inherent)	Exact(1)	false	None	AsyncGenReady
+94	ControlFlowBreak	"Break"	ControlFlowBreak	Variant	None	false	None	ControlFlowBreak
+96	CStr	"CStr"	CStr	Struct	None	false	None	CStr
+113	Context	"Context"	Context	Struct	None	false	None	Context
+114	ControlFlowContinue	"Continue"	ControlFlowContinue	Variant	None	false	None	ControlFlowContinue
+133	ResultErr	"Err"	ResultErr	Variant	None	false	None	ResultErr
+145	FnPtr	"FnPtr"	FnPtr	Struct	None	false	None	FnPtr
+150	From	"From"	From	Trait	Exact(1)	false	None	From
+186	OptionNone	"None"	OptionNone	Variant	None	false	None	OptionNone
+188	ResultOk	"Ok"	ResultOk	Variant	None	false	None	ResultOk
+189	Option	"Option"	Option	Enum	None	false	None	Option
+191	OrderingEnum	"Ordering"	OrderingEnum	Enum	Exact(0)	false	None	OrderingEnum
+197	PollPending	"Pending"	PollPending	Variant	None	false	None	PollPending
+204	Poll	"Poll"	Poll	Enum	None	false	None	Poll
+206	Range	"Range"	Range	Struct	None	false	None	Range
+207	RangeCopy	"RangeCopy"	RangeCopy	Struct	None	false	None	RangeCopy
+208	RangeFrom	"RangeFrom"	RangeFrom	Struct	None	false	None	RangeFrom
+209	RangeFromCopy	"RangeFromCopy"	RangeFromCopy	Struct	None	false	None	RangeFromCopy
+210	RangeFull	"RangeFull"	RangeFull	Struct	None	false	None	RangeFull
+211	RangeInclusiveStruct	"RangeInclusive"	RangeInclusiveStruct	Struct	None	false	None	RangeInclusiveStruct
+212	RangeInclusiveCopy	"RangeInclusiveCopy"	RangeInclusiveCopy	Struct	None	false	None	RangeInclusiveCopy
+213	RangeMax	"RangeMax"	RangeMax	AssocConst(Trait)	Exact(0)	false	None	RangeMax
+214	RangeMin	"RangeMin"	RangeMin	AssocConst(Trait)	Exact(0)	false	None	RangeMin
+215	RangeSub	"RangeSub"	RangeSub	Method(Trait { body: false })	Exact(0)	false	None	RangeSub
+216	RangeTo	"RangeTo"	RangeTo	Struct	None	false	None	RangeTo
+217	RangeToInclusive	"RangeToInclusive"	RangeToInclusive	Struct	None	false	None	RangeToInclusive
+218	RangeToInclusiveCopy	"RangeToInclusiveCopy"	RangeToInclusiveCopy	Struct	None	false	None	RangeToInclusiveCopy
+221	PollReady	"Ready"	PollReady	Variant	None	false	None	PollReady
+229	ResumeTy	"ResumeTy"	ResumeTy	Struct	None	false	None	ResumeTy
+246	OptionSome	"Some"	OptionSome	Variant	None	false	None	OptionSome
+251	String	"String"	String	Struct	None	false	None	String
+264	Try	"Try"	Try	Trait	None	false	None	Try
+316	Add	"add"	Add	Trait	Exact(1)	false	None	Add
+317	AddAssign	"add_assign"	AddAssign	Trait	Exact(1)	false	None	AddAssign
+333	AllocLayout	"alloc_layout"	AllocLayout	Struct	None	false	None	AllocLayout
+403	AsyncDrop	"async_drop"	AsyncDrop	Trait	None	false	None	AsyncDrop
+404	AsyncDropInPlace	"async_drop_in_place"	AsyncDropInPlace	Fn	Exact(1)	false	None	AsyncDropInPlace
+405	AsyncFn	"async_fn"	AsyncFn	Trait	Exact(1)	false	None	AsyncFn
+408	AsyncFnKindHelper	"async_fn_kind_helper"	AsyncFnKindHelper	Trait	Exact(1)	false	None	AsyncFnKindHelper
+409	AsyncFnKindUpvars	"async_fn_kind_upvars"	AsyncFnKindUpvars	AssocTy(Trait)	Exact(5)	false	None	AsyncFnKindUpvars
+410	AsyncFnMut	"async_fn_mut"	AsyncFnMut	Trait	Exact(1)	false	None	AsyncFnMut
+411	AsyncFnOnce	"async_fn_once"	AsyncFnOnce	Trait	Exact(1)	false	None	AsyncFnOnce
+412	AsyncFnOnceOutput	"async_fn_once_output"	AsyncFnOnceOutput	AssocTy(Trait)	Exact(1)	false	None	AsyncFnOnceOutput
+417	AsyncIterator	"async_iterator"	AsyncIterator	Trait	Exact(0)	false	None	AsyncIterator
+418	AsyncIteratorPollNext	"async_iterator_poll_next"	AsyncIteratorPollNext	Method(Trait { body: false })	Exact(0)	false	None	AsyncIteratorPollNext
+463	BeginPanic	"begin_panic"	BeginPanic	Fn	None	false	None	BeginPanic
+467	BikeshedGuaranteedNoDrop	"bikeshed_guaranteed_no_drop"	BikeshedGuaranteedNoDrop	Trait	Exact(0)	false	None	BikeshedGuaranteedNoDrop
+471	BitAnd	"bitand"	BitAnd	Trait	Exact(1)	false	None	BitAnd
+472	BitAndAssign	"bitand_assign"	BitAndAssign	Trait	Exact(1)	false	None	BitAndAssign
+473	BitOr	"bitor"	BitOr	Trait	Exact(1)	false	None	BitOr
+474	BitOrAssign	"bitor_assign"	BitOrAssign	Trait	Exact(1)	false	None	BitOrAssign
+477	BitXor	"bitxor"	BitXor	Trait	Exact(1)	false	None	BitXor
+478	BitXorAssign	"bitxor_assign"	BitXorAssign	Trait	Exact(1)	false	None	BitXorAssign
+492	TryTraitBranch	"branch"	TryTraitBranch	Method(Trait { body: false })	None	false	None	TryTraitBranch
+506	CVoid	"c_void"	CVoid	Enum	None	false	None	CVoid
+510	CallOnceFuture	"call_once_future"	CallOnceFuture	AssocTy(Trait)	Exact(1)	false	None	CallOnceFuture
+511	CallRefFuture	"call_ref_future"	CallRefFuture	AssocTy(Trait)	Exact(2)	false	None	CallRefFuture
+559	Clone	"clone"	Clone	Trait	None	false	None	Clone
+561	CloneFn	"clone_fn"	CloneFn	Method(Trait { body: false })	None	false	None	CloneFn
+580	Code	"code"	Code	ForeignTy	None	false	None	Code
+581	CoercePointeeValidated	"coerce_pointee_validated"	CoercePointeeValidated	Trait	Exact(0)	false	None	CoercePointeeValidated
+582	CoerceShared	"coerce_shared"	CoerceShared	Trait	Exact(1)	false	None	CoerceShared
+584	CoerceUnsized	"coerce_unsized"	CoerceUnsized	Trait	Minimum(1)	false	None	CoerceUnsized
+596	CompilerCopy	"compiler_copy"	CompilerCopy	Fn	Exact(2)	false	None	CompilerCopy
+598	CompilerMove	"compiler_move"	CompilerMove	Fn	Exact(2)	false	None	CompilerMove
+599	Complex	"complex"	Complex	Struct	Exact(1)	false	None	Complex
+639	ConstPanicFmt	"const_panic_fmt"	ConstPanicFmt	Fn	None	false	None	ConstPanicFmt
+640	ConstParamTy	"const_param_ty"	ConstParamTy	Trait	Exact(0)	false	None	ConstParamTy
+654	ContractBuildCheckEnsures	"contract_build_check_ensures"	ContractBuildCheckEnsures	Fn	None	false	None	ContractBuildCheckEnsures
+655	ContractCheckEnsures	"contract_check_ensures"	ContractCheckEnsures	Fn	None	false	None	ContractCheckEnsures
+656	ContractCheckRequires	"contract_check_requires"	ContractCheckRequires	Fn	None	false	None	ContractCheckRequires
+664	Copy	"copy"	Copy	Trait	Exact(0)	false	None	Copy
+675	Coroutine	"coroutine"	Coroutine	Trait	Exact(1)	false	None	Coroutine
+677	CoroutineResume	"coroutine_resume"	CoroutineResume	Method(Trait { body: false })	None	false	None	CoroutineResume
+678	CoroutineReturn	"coroutine_return"	CoroutineReturn	AssocTy(Trait)	Exact(1)	false	None	CoroutineReturn
+679	CoroutineState	"coroutine_state"	CoroutineState	Enum	None	false	None	CoroutineState
+680	CoroutineYield	"coroutine_yield"	CoroutineYield	AssocTy(Trait)	Exact(1)	false	None	CoroutineYield
+684	CovariantUnsafeCell	"covariant_unsafe_cell"	CovariantUnsafeCell	Struct	Exact(1)	false	None	CovariantUnsafeCell
+729	DefaultTrait1	"default_trait1"	DefaultTrait1	Trait	None	false	None	DefaultTrait1
+730	DefaultTrait2	"default_trait2"	DefaultTrait2	Trait	None	false	None	DefaultTrait2
+731	DefaultTrait3	"default_trait3"	DefaultTrait3	Trait	None	false	None	DefaultTrait3
+732	DefaultTrait4	"default_trait4"	DefaultTrait4	Trait	None	false	None	DefaultTrait4
+740	Deref	"deref"	Deref	Trait	Exact(0)	false	None	Deref
+742	DerefMut	"deref_mut"	DerefMut	Trait	Exact(0)	false	None	DerefMut
+744	DerefPure	"deref_pure"	DerefPure	Trait	Exact(0)	false	None	DerefPure
+745	DerefTarget	"deref_target"	DerefTarget	AssocTy(Trait)	None	false	None	DerefTarget
+752	Destruct	"destruct"	Destruct	Trait	None	false	None	Destruct
+765	DiscriminantKind	"discriminant_kind"	DiscriminantKind	Trait	None	false	None	DiscriminantKind
+766	Discriminant	"discriminant_type"	Discriminant	AssocTy(Trait)	None	false	None	Discriminant
+769	DispatchFromDyn	"dispatch_from_dyn"	DispatchFromDyn	Trait	Minimum(1)	false	None	DispatchFromDyn
+770	Div	"div"	Div	Trait	Exact(1)	false	None	Div
+771	DivAssign	"div_assign"	DivAssign	Trait	Exact(1)	false	None	DivAssign
+791	Drop	"drop"	Drop	Trait	None	false	None	Drop
+792	DropGlue	"drop_glue"	DropGlue	Fn	Exact(1)	false	None	DropGlue
+801	DynMetadata	"dyn_metadata"	DynMetadata	Struct	None	false	None	DynMetadata
+808	EhPersonality	"eh_personality"	EhPersonality	Fn	None	true	Some("rust_eh_personality")	EhPersonality
+825	PartialEq	"eq"	PartialEq	Trait	Exact(1)	false	None	PartialEq
+868	F16B	"f16b"	F16B	Struct	Exact(0)	false	None	F16B
+891	Field	"field"	Field	Trait	Exact(0)	false	None	Field
+892	FieldBase	"field_base"	FieldBase	AssocTy(Trait)	Exact(0)	false	None	FieldBase
+895	FieldOffset	"field_offset"	FieldOffset	AssocConst(Trait)	Exact(0)	false	None	FieldOffset
+897	FieldRepresentingType	"field_representing_type"	FieldRepresentingType	Struct	Exact(3)	false	None	FieldRepresentingType
+902	FieldType	"field_type"	FieldType	AssocTy(Trait)	Exact(0)	false	None	FieldType
+929	FnMut	"fn_mut"	FnMut	Trait	Exact(1)	false	None	FnMut
+930	FnOnce	"fn_once"	FnOnce	Trait	Exact(1)	false	None	FnOnce
+931	FnOnceOutput	"fn_once_output"	FnOnceOutput	AssocTy(Trait)	None	false	None	FnOnceOutput
+932	FnPtrAsPtr	"fn_ptr_as_ptr"	FnPtrAsPtr	Method(Trait { body: false })	None	false	None	FnPtrAsPtr
+933	FnPtrFromPtr	"fn_ptr_from_ptr"	FnPtrFromPtr	Method(Trait { body: false })	None	false	None	FnPtrFromPtr
+934	FnPtrTrait	"fn_ptr_trait"	FnPtrTrait	Trait	Exact(0)	false	None	FnPtrTrait
+935	FnStatic	"fn_static"	FnStatic	Trait	Exact(1)	false	None	FnStatic
+945	FormatArgument	"format_argument"	FormatArgument	Struct	None	false	None	FormatArgument
+946	FormatArguments	"format_arguments"	FormatArguments	Struct	None	false	None	FormatArguments
+953	Freeze	"freeze"	Freeze	Trait	Exact(0)	false	None	Freeze
+958	FromFn	"from"	FromFn	Method(Trait { body: false })	None	false	None	FromFn
+961	TryTraitFromOutput	"from_output"	TryTraitFromOutput	Method(Trait { body: false })	None	false	None	TryTraitFromOutput
+962	TryTraitFromResidual	"from_residual"	TryTraitFromResidual	Method(Trait { body: false })	None	false	None	TryTraitFromResidual
+968	TryTraitFromYeet	"from_yeet"	TryTraitFromYeet	Fn	None	false	None	TryTraitFromYeet
+974	FusedIterator	"fused_iterator"	FusedIterator	Trait	Exact(0)	false	None	FusedIterator
+975	FutureOutput	"future_output"	FutureOutput	AssocTy(Trait)	Exact(0)	false	None	FutureOutput
+976	Future	"future_trait"	Future	Trait	Exact(0)	false	None	Future
+1001	GetContext	"get_context"	GetContext	Fn	None	false	None	GetContext
+1002	GlobalAlloc	"global_alloc_ty"	GlobalAlloc	Struct	None	false	None	GlobalAlloc
+1064	Index	"index"	Index	Trait	Exact(1)	false	None	Index
+1065	IndexMut	"index_mut"	IndexMut	Trait	Exact(1)	false	None	IndexMut
+1085	IntoAsyncIterIntoIter	"into_async_iter_into_iter"	IntoAsyncIterIntoIter	Method(Trait { body: false })	Exact(0)	false	None	IntoAsyncIterIntoIter
+1086	IntoFutureIntoFuture	"into_future"	IntoFutureIntoFuture	Method(Trait { body: false })	None	false	None	IntoFutureIntoFuture
+1087	IntoIterIntoIter	"into_iter"	IntoIterIntoIter	Method(Trait { body: false })	None	false	None	IntoIterIntoIter
+1088	ResidualIntoTryType	"into_try_type"	ResidualIntoTryType	Fn	None	false	None	ResidualIntoTryType
+1106	Iterator	"iterator"	Iterator	Trait	Exact(0)	false	None	Iterator
+1130	LegacyReceiver	"legacy_receiver"	LegacyReceiver	Trait	None	false	None	LegacyReceiver
+1201	ManuallyDrop	"manually_drop"	ManuallyDrop	Struct	Exact(1)	false	None	ManuallyDrop
+1219	MaybeDangling	"maybe_dangling"	MaybeDangling	Struct	Exact(1)	false	None	MaybeDangling
+1220	MaybeUninit	"maybe_uninit"	MaybeUninit	Union	None	false	None	MaybeUninit
+1224	AlignOf	"mem_align_const"	AlignOf	AssocConst(Trait)	Exact(0)	false	None	AlignOf
+1228	SizeOf	"mem_size_const"	SizeOf	AssocConst(Trait)	Exact(0)	false	None	SizeOf
+1238	MetaSized	"meta_sized"	MetaSized	Trait	Exact(0)	false	None	MetaSized
+1239	Metadata	"metadata_type"	Metadata	AssocTy(Trait)	None	false	None	Metadata
+1316	Mul	"mul"	Mul	Trait	Exact(1)	false	None	Mul
+1317	MulAssign	"mul_assign"	MulAssign	Trait	Exact(1)	false	None	MulAssign
+1344	Neg	"neg"	Neg	Trait	Exact(0)	false	None	Neg
+1364	PinNewUnchecked	"new_unchecked"	PinNewUnchecked	Method(Inherent)	None	false	None	PinNewUnchecked
+1367	IteratorNext	"next"	IteratorNext	Method(Trait { body: false })	None	false	None	IteratorNext
+1391	NonNull	"non_null"	NonNull	Struct	Exact(1)	false	None	NonNull
+1401	Not	"not"	Not	Trait	Exact(0)	false	None	Not
+1414	OffsetOf	"offset_of"	OffsetOf	Fn	Exact(1)	false	None	OffsetOf
+1447	OwnedBox	"owned_box"	OwnedBox	Struct	Minimum(1)	false	None	OwnedBox
+1450	Panic	"panic"	Panic	Fn	Exact(0)	false	None	Panic
+1454	PanicBoundsCheck	"panic_bounds_check"	PanicBoundsCheck	Fn	Exact(0)	false	None	PanicBoundsCheck
+1455	PanicCannotUnwind	"panic_cannot_unwind"	PanicCannotUnwind	Fn	Exact(0)	false	None	PanicCannotUnwind
+1456	PanicAddOverflow	"panic_const_add_overflow"	PanicAddOverflow	Fn	None	false	None	PanicAddOverflow
+1457	PanicAsyncFnResumed	"panic_const_async_fn_resumed"	PanicAsyncFnResumed	Fn	None	false	None	PanicAsyncFnResumed
+1458	PanicAsyncFnResumedDrop	"panic_const_async_fn_resumed_drop"	PanicAsyncFnResumedDrop	Fn	None	false	None	PanicAsyncFnResumedDrop
+1459	PanicAsyncFnResumedPanic	"panic_const_async_fn_resumed_panic"	PanicAsyncFnResumedPanic	Fn	None	false	None	PanicAsyncFnResumedPanic
+1460	PanicAsyncGenFnResumed	"panic_const_async_gen_fn_resumed"	PanicAsyncGenFnResumed	Fn	None	false	None	PanicAsyncGenFnResumed
+1461	PanicAsyncGenFnResumedDrop	"panic_const_async_gen_fn_resumed_drop"	PanicAsyncGenFnResumedDrop	Fn	None	false	None	PanicAsyncGenFnResumedDrop
+1462	PanicAsyncGenFnResumedPanic	"panic_const_async_gen_fn_resumed_panic"	PanicAsyncGenFnResumedPanic	Fn	None	false	None	PanicAsyncGenFnResumedPanic
+1463	PanicCoroutineResumed	"panic_const_coroutine_resumed"	PanicCoroutineResumed	Fn	None	false	None	PanicCoroutineResumed
+1464	PanicCoroutineResumedDrop	"panic_const_coroutine_resumed_drop"	PanicCoroutineResumedDrop	Fn	None	false	None	PanicCoroutineResumedDrop
+1465	PanicCoroutineResumedPanic	"panic_const_coroutine_resumed_panic"	PanicCoroutineResumedPanic	Fn	None	false	None	PanicCoroutineResumedPanic
+1466	PanicDivZero	"panic_const_div_by_zero"	PanicDivZero	Fn	None	false	None	PanicDivZero
+1467	PanicDivOverflow	"panic_const_div_overflow"	PanicDivOverflow	Fn	None	false	None	PanicDivOverflow
+1468	PanicGenFnNone	"panic_const_gen_fn_none"	PanicGenFnNone	Fn	None	false	None	PanicGenFnNone
+1469	PanicGenFnNoneDrop	"panic_const_gen_fn_none_drop"	PanicGenFnNoneDrop	Fn	None	false	None	PanicGenFnNoneDrop
+1470	PanicGenFnNonePanic	"panic_const_gen_fn_none_panic"	PanicGenFnNonePanic	Fn	None	false	None	PanicGenFnNonePanic
+1471	PanicMulOverflow	"panic_const_mul_overflow"	PanicMulOverflow	Fn	None	false	None	PanicMulOverflow
+1472	PanicNegOverflow	"panic_const_neg_overflow"	PanicNegOverflow	Fn	None	false	None	PanicNegOverflow
+1473	PanicRemZero	"panic_const_rem_by_zero"	PanicRemZero	Fn	None	false	None	PanicRemZero
+1474	PanicRemOverflow	"panic_const_rem_overflow"	PanicRemOverflow	Fn	None	false	None	PanicRemOverflow
+1475	PanicShlOverflow	"panic_const_shl_overflow"	PanicShlOverflow	Fn	None	false	None	PanicShlOverflow
+1476	PanicShrOverflow	"panic_const_shr_overflow"	PanicShrOverflow	Fn	None	false	None	PanicShrOverflow
+1477	PanicSubOverflow	"panic_const_sub_overflow"	PanicSubOverflow	Fn	None	false	None	PanicSubOverflow
+1478	PanicDisplay	"panic_display"	PanicDisplay	Fn	None	false	None	PanicDisplay
+1479	PanicFmt	"panic_fmt"	PanicFmt	Fn	None	false	None	PanicFmt
+1481	PanicImpl	"panic_impl"	PanicImpl	ForeignFn	None	true	Some("rust_begin_unwind")	PanicImpl
+1483	PanicInCleanup	"panic_in_cleanup"	PanicInCleanup	Fn	Exact(0)	false	None	PanicInCleanup
+1484	PanicInfo	"panic_info"	PanicInfo	Struct	None	false	None	PanicInfo
+1485	PanicInvalidEnumConstruction	"panic_invalid_enum_construction"	PanicInvalidEnumConstruction	Fn	None	false	None	PanicInvalidEnumConstruction
+1486	PanicLocation	"panic_location"	PanicLocation	Struct	None	false	None	PanicLocation
+1487	PanicMisalignedPointerDereference	"panic_misaligned_pointer_dereference"	PanicMisalignedPointerDereference	Fn	Exact(0)	false	None	PanicMisalignedPointerDereference
+1488	PanicNounwind	"panic_nounwind"	PanicNounwind	Fn	Exact(0)	false	None	PanicNounwind
+1489	PanicNullPointerDereference	"panic_null_pointer_dereference"	PanicNullPointerDereference	Fn	None	false	None	PanicNullPointerDereference
+1490	PanicNullReferenceConstructed	"panic_null_reference_constructed"	PanicNullReferenceConstructed	Fn	None	false	None	PanicNullReferenceConstructed
+1498	PartialOrd	"partial_ord"	PartialOrd	Trait	Exact(1)	false	None	PartialOrd
+1509	PhantomData	"phantom_data"	PhantomData	Struct	Exact(1)	false	None	PhantomData
+1521	PointeeSized	"pointee_sized"	PointeeSized	Trait	Exact(0)	false	None	PointeeSized
+1522	PointeeTrait	"pointee_trait"	PointeeTrait	Trait	None	false	None	PointeeTrait
+1524	FuturePoll	"poll"	FuturePoll	Method(Trait { body: false })	None	false	None	FuturePoll
+1539	PpcF128	"ppcf128"	PpcF128	Struct	None	false	None	PpcF128
+1610	RangeInclusiveNew	"range_inclusive_new"	RangeInclusiveNew	Method(Inherent)	None	false	None	RangeInclusiveNew
+1623	Reborrow	"reborrow"	Reborrow	Trait	Exact(0)	false	None	Reborrow
+1624	Receiver	"receiver"	Receiver	Trait	None	false	None	Receiver
+1625	ReceiverTarget	"receiver_target"	ReceiverTarget	AssocTy(Trait)	None	false	None	ReceiverTarget
+1654	Rem	"rem"	Rem	Trait	Exact(1)	false	None	Rem
+1655	RemAssign	"rem_assign"	RemAssign	Trait	Exact(1)	false	None	RemAssign
+1862	Shl	"shl"	Shl	Trait	Exact(1)	false	None	Shl
+1863	ShlAssign	"shl_assign"	ShlAssign	Trait	Exact(1)	false	None	ShlAssign
+1867	Shr	"shr"	Shr	Trait	Exact(1)	false	None	Shr
+1868	ShrAssign	"shr_assign"	ShrAssign	Trait	Exact(1)	false	None	ShrAssign
+1954	Sized	"sized"	Sized	Trait	Exact(0)	false	None	Sized
+1960	SliceLen	"slice_len_fn"	SliceLen	Method(Inherent)	None	false	None	SliceLen
+1985	Start	"start"	Start	Fn	Exact(1)	false	None	Start
+2017	StructuralPeq	"structural_peq"	StructuralPeq	Trait	None	false	None	StructuralPeq
+2018	Sub	"sub"	Sub	Trait	Exact(1)	false	None	Sub
+2019	SubAssign	"sub_assign"	SubAssign	Trait	Exact(1)	false	None	SubAssign
+2032	Sync	"sync"	Sync	Trait	Exact(0)	false	None	Sync
+2059	Termination	"termination"	Termination	Trait	None	false	None	Termination
+2092	TransmuteOpts	"transmute_opts"	TransmuteOpts	Struct	Exact(0)	false	None	TransmuteOpts
+2093	TransmuteTrait	"transmute_trait"	TransmuteTrait	Trait	Exact(2)	false	None	TransmuteTrait
+2099	TrivialClone	"trivial_clone"	TrivialClone	Trait	None	false	None	TrivialClone
+2104	TryAsDyn	"try_as_dyn"	TryAsDyn	Trait	Exact(1)	false	None	TryAsDyn
+2116	Tuple	"tuple_trait"	Tuple	Trait	Exact(0)	false	None	Tuple
+2124	TypeId	"type_id"	TypeId	Struct	None	false	None	TypeId
+2142	Type	"type_info"	Type	Struct	None	false	None	Type
+2143	TypeGeneric	"type_info_generic"	TypeGeneric	Enum	None	false	None	TypeGeneric
+2210	Unpin	"unpin"	Unpin	Trait	None	false	None	Unpin
+2223	UnsafeCell	"unsafe_cell"	UnsafeCell	Struct	None	false	None	UnsafeCell
+2229	UnsafePinned	"unsafe_pinned"	UnsafePinned	Struct	None	false	None	UnsafePinned
+2230	UnsafeUnpin	"unsafe_unpin"	UnsafeUnpin	Trait	Exact(0)	false	None	UnsafeUnpin
+2231	Unsize	"unsize"	Unsize	Trait	Minimum(1)	false	None	Unsize
+2250	UseCloned	"use_cloned"	UseCloned	Trait	None	false	None	UseCloned
+2266	VaArgSafe	"va_arg_safe"	VaArgSafe	Trait	None	false	None	VaArgSafe
+2269	VaList	"va_list"	VaList	Struct	None	false	None	VaList
+== Target
+Fn	function	functions	false
+Impl { of_trait: true }	implementation block	trait impl blocks	false
+Impl { of_trait: false }	implementation block	inherent impl blocks	false
+Method(Trait { body: true })	provided trait method	provided trait methods	true
+Method(TraitImpl)	trait method in an impl block	trait methods in impl blocks	true
+AssocTy(Trait)	associated type	associated types	true
+Delegation { mac: true }	delegation	delegations	false

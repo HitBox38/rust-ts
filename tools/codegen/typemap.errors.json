@@ -23,7 +23,11 @@
       "values": [
         "debug_RustcVersion"
       ],
-      "debug": "debug_RustcVersion($v, $f)"
+      "debug": "debug_RustcVersion($v, $f)",
+      "clone": "clone_RustcVersion($v)",
+      "clone_values": [
+        "clone_RustcVersion"
+      ]
     },
     {
       "paths": [
@@ -32,6 +36,7 @@
       ],
       "ts": "string",
       "debug": "debug_str($v)",
+      "clone": "copy",
       "note": "PORT: PathBuf as a UTF-8 string; Debug = OsStr Debug (same escapes as str for valid UTF-8)"
     },
     {
@@ -146,6 +151,7 @@
       ],
       "ts": "$0",
       "debug": "transparent",
+      "clone": "transparent",
       "note": "NonZero<T> Debug prints the inner value"
     },
     {

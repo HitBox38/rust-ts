@@ -163,6 +163,66 @@ export function parseBitflags(body: string): BitflagsType[] {
   return out;
 }
 
+/** Split `s` at top-level `sep` (outside (), [], {}, strings and `///` doc lines). */
+function splitTop(s: string, sep: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let st = 0;
+  for (let k = 0; k < s.length; k++) {
+    const c = s[k]!;
+    if (s.startsWith("///", k)) {
+      const e = s.indexOf("\n", k);
+      k = e < 0 ? s.length : e;
+    } else if (c === '"') {
+      for (k++; k < s.length && s[k] !== '"'; k++) if (s[k] === "\\") k++;
+    } else if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (c === sep && depth === 0) {
+      out.push(s.slice(st, k));
+      st = k + 1;
+    }
+  }
+  out.push(s.slice(st));
+  return out;
+}
+
+/**
+ * One row of `language_item_table!` (rustc_attr_ir/src/lang_items.rs):
+ * `$(#[$attr])* $variant, $module::$name, $method, $target, $generics;`
+ */
+export interface LangItemRow {
+  docs: string[];
+  attrs: MacroAttr[];
+  variant: string;
+  /** `$module::$name`, e.g. `sym::sized` */
+  name: string;
+  method: string;
+  target: string;
+  generics: string;
+}
+export function parseLanguageItemTable(body: string): LangItemRow[] {
+  const out: LangItemRow[] = [];
+  for (const chunk of splitTop(stripComments(body), ";")) {
+    if (!chunk.trim()) continue;
+    const { docs, attrs, rest } = leading(chunk);
+    const parts = splitTop(rest, ",").map((p) => p.trim().replace(/\s+/g, " "));
+    if (parts.length !== 5 || !/^\w+$/.test(parts[0]!) || !/^\w+::(?:r#)?\w+$/.test(parts[1]!) || !/^\w+$/.test(parts[2]!))
+      throw new Error(`unexpected language_item_table! row \`${rest.trim().slice(0, 80)}\``);
+    out.push({ docs, attrs, variant: parts[0]!, name: parts[1]!, method: parts[2]!, target: parts[3]!, generics: parts[4]! });
+  }
+  return out;
+}
+/** The enum `language_item_table!`'s `macro_rules!` definition declares: its docs, derives and name. */
+export function parseLanguageItemTableDef(def: string): { docs: string[]; derives: string[]; name: string } {
+  const m = /((?:[ \t]*\/\/\/[^\n]*\n)*)[ \t]*#\[derive\(([^)]*)\)\]\s*pub\s+enum\s+(\w+)\s*\{/.exec(def);
+  if (!m) throw new Error("cannot find the `#[derive(..)] pub enum` of the macro_rules! definition");
+  const docs = m[1]!
+    .split("\n")
+    .filter((l) => l.trim())
+    .map((l) => l.trim().slice(3));
+  return { docs, derives: m[2]!.split(",").map((d) => d.trim()).filter(Boolean), name: m[3]! };
+}
+
 /** `#[debug_format = "..."]` (a Rust string literal with one `{}`) -> JS template literal over `n`. */
 export function debugFormatTemplate(lit: string): string {
   const m = /^"([^"\\]*)"$/.exec(lit.trim());
