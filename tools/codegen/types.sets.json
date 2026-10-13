@@ -338,6 +338,7 @@
   "rustc_middle": {
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_middle/src/ty/generics.rs",
       "compiler/rustc_middle/src/middle/resolve.rs"
     ],
     "class": [],
@@ -354,11 +355,17 @@
       "rustc_middle::ty::Visibility",
       "rustc_middle::middle::resolve::Reexport",
       "rustc_middle::middle::resolve::ModChild",
-      "rustc_middle::middle::resolve::AmbigModChild"
+      "rustc_middle::middle::resolve::AmbigModChild",
+      "rustc_middle::ty::generics::GenericParamDefKind",
+      "rustc_middle::ty::generics::GenericParamDef",
+      "rustc_middle::ty::generics::Generics"
     ],
+    "decodable_construct": {
+      "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] }
+    },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a) and module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`, lane decode-elems); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a) module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_type_ir": {

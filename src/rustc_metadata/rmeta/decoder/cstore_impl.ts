@@ -46,6 +46,7 @@ import { Ok } from "../../../std/result.ts";
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
 import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
+import { decode_Generics } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
@@ -410,7 +411,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   explicit_item_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
   explicit_item_self_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
   explicit_clauses_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::GenericClauses<'static>", decode_unported("ty::GenericClauses<'static>")), ProcessQueryValue_Option_T)],
-  generics_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Generics", decode_unported("ty::Generics")), ProcessQueryValue_Option_T)],
+  generics_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Generics", decode_Generics), ProcessQueryValue_Option_T)],
   inferred_outlives_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_T)],
   explicit_super_clauses_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
   explicit_implied_clauses_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],

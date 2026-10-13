@@ -4,8 +4,9 @@
 // Only function declarations: hand modules may import from here inside an import cycle.
 import { decode_Res } from "../rustc_hir/def.gen.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
+import { type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
 import { Visibility } from "./ty/mod.ts";
-import { type Decodable, decode_never, decode_SmallVec } from "../rustc_serialize/serialize.ts";
+import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_u32, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
 import { decode_Ident, decode_ModId } from "../rustc_span/decodable.gen.ts";
 import { type BlobDecoder, type SpanDecoder } from "../rustc_span/lib.ts";
 import { panic } from "../std/panic.ts";
@@ -21,6 +22,43 @@ export function decode_Visibility<Id, __D extends BlobDecoder = BlobDecoder>(__d
     default:
       return panic(`invalid enum variant tag while decoding \`Visibility\`, expected 0..2, actual ${__tag}`);
   }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:15 TyDecodable for GenericParamDefKind
+export function decode_GenericParamDefKind(__decoder: SpanDecoder): GenericParamDefKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return GenericParamDefKind.Lifetime;
+    case 1:
+      return { $: "Type", has_default: decode_bool(__decoder), synthetic: decode_bool(__decoder) };
+    case 2:
+      return { $: "Const", has_default: decode_bool(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`GenericParamDefKind\`, expected 0..3, actual ${__tag}`);
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:54 TyDecodable for GenericParamDef
+export function decode_GenericParamDef(__decoder: SpanDecoder): GenericParamDef {
+  return {
+    name: __decoder.decode_symbol(),
+    def_id: __decoder.decode_def_id(),
+    index: decode_u32(__decoder),
+    pure_wrt_drop: decode_bool(__decoder),
+    kind: decode_GenericParamDefKind(__decoder),
+  };
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:120 TyDecodable for Generics
+export function decode_Generics(__decoder: SpanDecoder): Generics {
+  const __0 = decode_Option(__decoder, (__decoder) => __decoder.decode_def_id());
+  const __1 = decode_usize(__decoder);
+  const __2 = decode_Vec(__decoder, decode_GenericParamDef);
+  const __3 = decode_HashMap(__decoder, (__decoder) => __decoder.decode_def_id(), decode_u32);
+  const __4 = decode_bool(__decoder);
+  const __5 = decode_Option(__decoder, (__decoder) => __decoder.decode_span());
+  return Generics.from_decoded(__0, __1, __2, __3, __4, __5);
 }
 
 // rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:120 TyDecodable for Reexport
