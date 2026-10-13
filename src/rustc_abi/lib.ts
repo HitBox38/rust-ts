@@ -3,6 +3,7 @@
 // `Endian`, `Size`, `Align`/`AbiAlign`, `Integer::from_size` and `AddressSpace`. Everything else in the
 // crate (layout, reprs, scalars, ...) is not ported yet (`bun scripts/coverage.ts --missing`).
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
+import { is_alphabetic } from "../std/char.ts";
 import type { Debug } from "../std/fmt.ts";
 import { panic, unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
@@ -449,10 +450,10 @@ export class TargetDataLayout {
   }
 }
 
-/** `p.starts_with(char::is_alphabetic)` (PORT: ASCII letters; data layout strings are ASCII). */
+/** `p.starts_with(char::is_alphabetic)` */
 function starts_with_alphabetic(p: string): boolean {
-  const c = p.charCodeAt(0);
-  return (c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a) || (c >= 0x80 && /^\p{Alphabetic}/u.test(p));
+  const c = p.codePointAt(0);
+  return c !== undefined && is_alphabetic(c);
 }
 
 export type TargetDataLayoutError =
