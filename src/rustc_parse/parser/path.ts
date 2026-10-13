@@ -22,7 +22,7 @@ import type { Token } from "../../rustc_ast/token.ts";
 import { type Diag, type PResult } from "../../rustc_errors/lib.ts";
 import { Applicability } from "../../rustc_lint_defs/lib.ts";
 import { BytePos, Span } from "../../rustc_span/lib.ts";
-import { type Ident, kw, sym } from "../../rustc_span/symbol.ts";
+import { display_Ident, type Ident, kw, sym } from "../../rustc_span/symbol.ts";
 import { panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import * as diagnostics from "../diagnostics.ts";
@@ -842,7 +842,7 @@ Parser.prototype.parse_assoc_equality_term = function (
       );
       err.span_suggestion_verbose(
         Span.to(Span.shrink_to_hi(prev_token_span), before_next),
-        `remove the \`=\` if \`${ident.as_str()}\` is a type`,
+        `remove the \`=\` if \`${display_Ident(ident)}\` is a type`,
         "",
         Applicability.MaybeIncorrect,
       );
