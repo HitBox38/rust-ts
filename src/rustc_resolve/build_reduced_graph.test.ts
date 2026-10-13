@@ -458,7 +458,7 @@ describe("def collector + reduced graph vs the resdump probe", () => {
       if (EXPANSION_ERRORS.has(name)) {
         last_dump = undefined;
         expect(() => run_case(join(CASES, `${name}.rs`), skip)).toThrow();
-        got = unwrap(last_dump);
+        got = unwrap(last_dump as Map<string, string[]> | undefined);
       } else {
         got = run_case(join(CASES, `${name}.rs`), skip);
       }

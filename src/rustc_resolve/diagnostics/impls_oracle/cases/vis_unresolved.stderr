@@ -1,0 +1,16 @@
+exit 1
+error[E0433]: cannot find `missing` in `outer`
+ --> vis_unresolved.rs:5:26
+  |
+5 |     pub(in crate::outer::missing) struct A;
+  |                          ^^^^^^^ could not find `missing` in `outer`
+
+error[E0433]: cannot find module `S` in `outer`
+ --> vis_unresolved.rs:6:26
+  |
+6 |     pub(in crate::outer::S) struct C;
+  |                          ^ `S` is a struct, not a module
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0433`.

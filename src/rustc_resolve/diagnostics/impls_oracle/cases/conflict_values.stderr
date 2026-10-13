@@ -1,0 +1,25 @@
+exit 1
+error[E0428]: the name `x` is defined multiple times
+ --> conflict_values.rs:5:5
+  |
+4 |     fn x();
+  |     ------- previous definition of the value `x` here
+5 |     fn x();
+  |     ^^^^^^^ `x` redefined here
+  |
+  = note: `x` must be defined only once in the value namespace of this module
+
+error[E0428]: the name `U` is defined multiple times
+ --> conflict_values.rs:9:5
+  |
+7 | struct U;
+  | --------- previous definition of the value `U` here
+8 | extern "C" {
+9 |     fn U();
+  |     ^^^^^^^ `U` redefined here
+  |
+  = note: `U` must be defined only once in the value namespace of this module
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0428`.

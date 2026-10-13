@@ -1,0 +1,16 @@
+exit 1
+error[E0603]: struct `P` is private
+ --> private_import.rs:7:8
+  |
+7 | use a::P;
+  |        ^ private struct
+  |
+note: the struct `P` is defined here
+ --> private_import.rs:5:5
+  |
+5 |     struct P;
+  |     ^^^^^^^^^
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0603`.

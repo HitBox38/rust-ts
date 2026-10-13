@@ -1,0 +1,14 @@
+exit 1
+error[E0252]: the name `F` is defined multiple times
+ --> conflict_same_import.rs:8:5
+  |
+7 | use a::F;
+  |     ---- previous import of the type `F` here
+8 | use a::F;
+  |     ^^^^ `F` reimported here
+  |
+  = note: `F` must be defined only once in the type namespace of this module
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0252`.
