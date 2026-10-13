@@ -138,7 +138,7 @@ target-cfg, attr-ir-gen, hir-def, stable-hash, tyctxt-min, attr-parse-a/-b/-c/-d
 ## Wave 9 (started 2026-10-13) — expansion + builtins (docs/plan-m2.md §3)
 expand-base, expand-core, mbe-a, mbe-b, bm-a (incl. cmdline_attrs::inject, the current stop point of every nocore case) now;
 then bm-format, bm-derive-a/-b, bm-rest, expand-pm-types. Then wave 10 (resolve, ast-passes, lint-early, driver-m2).
-Queued harness: L1 env filtering; skip the 3 parse ORACLE_TIMEOUT files; error-code explanation texts for json.
+Queued: lane hashbrown-order (HashMap/HashSet iteration order for the oracle host; unblocks format named-arg Debug, doc(auto_cfg), mbe candidates); harness L1 env filtering; skip the 3 parse ORACLE_TIMEOUT files; error-code explanation texts for json.
 
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
