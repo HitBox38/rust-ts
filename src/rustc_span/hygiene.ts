@@ -24,10 +24,14 @@
 // because getting it wrong can lead to nested `HygieneData::with` calls that
 // trigger runtime aborts. (Fortunately these are obvious and easy to fix.)
 
-import { debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Debug, type Fmt, PLAIN } from "../std/fmt.ts";
+import { debug_bool, debug_int, debug_map, debug_option, debug_struct, debug_tuple, debug_vec, type Debug, type Fmt, format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
-import { debug_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
-import { Hash64 } from "../rustc_hashes/lib.ts";
+import { debug_Fingerprint, Fingerprint, write_fingerprint_unhasher } from "../rustc_data_structures/fingerprint.ts";
+import { HashMap } from "../vendor/hashbrown/map.ts";
+import { TableLayout } from "../vendor/hashbrown/raw.ts";
+import { type BuildHasher, FxBuildHasher, type HashFn } from "../vendor/rustc_hash/lib.ts";
+import type { Hasher } from "../vendor/rustc_stable_hash/stable_hasher.ts";
+import { debug_Hash64, Hash64 } from "../rustc_hashes/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import {
   CRATE_DEF_ID,
@@ -44,7 +48,8 @@ import {
   StableCrateId,
 } from "./def_id.ts";
 import { debug_Edition, type Edition } from "./edition.ts";
-import { debug_Span, with_session_globals } from "./lib.ts";
+import { debug_Span, decode_ExpnId, encode_ExpnId, type SpanDecoder, with_session_globals } from "./lib.ts";
+import { decode_u32, type Decoder, type Encoder } from "../rustc_serialize/serialize.ts";
 import type { SourceMap } from "./source_map.ts";
 import { DUMMY_SP, Span } from "./span_encoding.ts";
 import { debug_Symbol, display_Symbol, kw, sym, type Symbol } from "./symbol.ts";
@@ -160,7 +165,6 @@ const debug_SyntaxContextData: Debug<SyntaxContextData> = (v, f) =>
     ["opaque_and_semiopaque", debug_SyntaxContext(v.opaque_and_semiopaque, f)],
     ["dollar_crate_name", debug_Symbol(v.dollar_crate_name, f)],
   ]);
-void debug_SyntaxContextData; // PORT: used by the derived `HygieneData` Debug (verbose dump, unported).
 
 /// A unique ID associated with a macro invocation and expansion.
 export type ExpnIndex = number & { readonly __brand: "ExpnIndex" };
@@ -727,6 +731,139 @@ export class HygieneData {
   }
 }
 
+// PORT: `#[derive(Debug)] struct HygieneData` (the verbose `debug_hygiene_data`). Its hash maps print in
+// rustc's bucket order: the TS maps keep insertion order and never remove, so replaying the inserts
+// into the vendored hashbrown table (same hasher, same creation: `default()` or `iter::once(..).collect()`)
+// rebuilds rustc's table and its iteration order.
+/** `#[derive(Debug)]` for `HygieneData` */
+const debug_HygieneData: Debug<HygieneData> = (v, f) =>
+  debug_struct(f, "HygieneData", [
+    ["local_expn_data", debug_vec(v.local_expn_data, f, (x, f) => debug_option(x, f, debug_ExpnData))],
+    ["local_expn_hashes", debug_vec(v.local_expn_hashes, f, debug_ExpnHash)],
+    ["foreign_expn_data", debug_bucket_map(v.foreign_expn_data.iter(), false, FxBuildHasher, hash_ExpnId, LAYOUT_EXPN_ID_EXPN_DATA, f, debug_ExpnId, debug_ExpnData)],
+    ["foreign_expn_hashes", debug_bucket_map(v.foreign_expn_hashes.iter(), false, FxBuildHasher, hash_ExpnId, LAYOUT_EXPN_ID_EXPN_HASH, f, debug_ExpnId, debug_ExpnHash)],
+    ["expn_hash_to_expn_id", debug_bucket_map(v.expn_hash_to_expn_id.entries(), true, UnhasherBuildHasher, hash_ExpnHash_unhash, LAYOUT_EXPN_HASH_EXPN_ID, f, debug_ExpnHash, debug_ExpnId)],
+    ["syntax_context_data", debug_vec(v.syntax_context_data, f, debug_SyntaxContextData)],
+    ["syntax_context_map", debug_bucket_map(v.syntax_context_map.iter(), true, FxBuildHasher, hash_SyntaxContextKey, LAYOUT_SYNTAX_CONTEXT_KEY_SYNTAX_CONTEXT, f, debug_SyntaxContextKey, debug_SyntaxContext)],
+    ["expn_data_disambiguators", debug_bucket_map(v.expn_data_disambiguators.entries(), false, UnhasherBuildHasher, hash_Hash64_unhash, LAYOUT_HASH64_U32, f, debug_Hash64, debug_int)],
+  ]);
+
+/** `<HashMap<K, V, S> as Debug>::fmt` of a map whose inserts were `entries` (first-insertion order, no
+ *  removals); `collected`: created by `iter::once(first).collect()` (reserves 1) instead of `default()`. */
+function debug_bucket_map<K, V>(
+  entries: Iterable<readonly [K, V]>,
+  collected: boolean,
+  hash_builder: BuildHasher<Hasher>,
+  hash_K: HashFn<K>,
+  layout: readonly [number, number],
+  f: Fmt,
+  debug_K: Debug<K>,
+  debug_V: Debug<V>,
+): string {
+  const table = HashMap.with_capacity_and_hasher<K, V>(0, hash_builder, hash_K, TableLayout.new(layout[0], layout[1]));
+  let first = collected;
+  for (const [k, v] of entries) {
+    if (first) table.extend([[k, v]], 1);
+    else table.insert(k, v);
+    first = false;
+  }
+  return debug_map(
+    f,
+    [...table.iter()].map(([k, x]) => [debug_K(k, f), debug_V(x, f)]),
+  );
+}
+
+/** `#[derive(Hash)]` of `ExpnId { krate: CrateNum, local_id: ExpnIndex }`: two `u32`s. */
+function hash_ExpnId(v: ExpnId, state: Hasher): void {
+  state.write_u32(v.krate);
+  state.write_u32(v.local_id);
+}
+
+/** `Hash` of `SyntaxContextKey = (SyntaxContext, ExpnId, Transparency)`; the fieldless enum hashes its
+ *  `isize` discriminant. */
+function hash_SyntaxContextKey([ctxt, expn_id, transparency]: SyntaxContextKey, state: Hasher): void {
+  state.write_u32(ctxt);
+  hash_ExpnId(expn_id, state);
+  state.write_isize(Transparency_discriminant[transparency]);
+}
+
+/** `ExpnHash(Fingerprint)` hashed by an `Unhasher` (`write_fingerprint` specialization). */
+function hash_ExpnHash_unhash(v: ExpnHash, state: Hasher): void {
+  write_fingerprint_unhasher(state, ExpnHash._0(v));
+}
+
+/** `Hash64 { inner: u64 }` (derived `Hash`) hashed by an `Unhasher`. */
+function hash_Hash64_unhash(v: Hash64, state: Hasher): void {
+  state.write_u64(v);
+}
+
+const debug_SyntaxContextKey: Debug<SyntaxContextKey> = ([ctxt, expn_id, transparency], f) =>
+  debug_tuple(f, "", [debug_SyntaxContext(ctxt, f), debug_ExpnId(expn_id, f), debug_Transparency(transparency, f)]);
+
+// `Layout::new::<(K, V)>()` of each map's buckets (`[size, align]`). Only the size class matters for the
+// bucket order (hashbrown's minimum capacity for tiny buckets); the sizes are the 64-bit layouts.
+const LAYOUT_EXPN_ID_EXPN_DATA: readonly [number, number] = [80, 8];
+const LAYOUT_EXPN_ID_EXPN_HASH: readonly [number, number] = [24, 8];
+const LAYOUT_EXPN_HASH_EXPN_ID: readonly [number, number] = [24, 8];
+const LAYOUT_SYNTAX_CONTEXT_KEY_SYNTAX_CONTEXT: readonly [number, number] = [20, 4];
+const LAYOUT_HASH64_U32: readonly [number, number] = [16, 8];
+
+// PORT: `rustc_data_structures::unhash::Unhasher` / `BuildHasherDefault<Unhasher>` (unhash.rs is not
+// ported): the hash is the single `write_u64` value.
+class Unhasher implements Hasher {
+  value = 0n;
+  finish_u64(): bigint {
+    return this.value;
+  }
+  write_u64(value: bigint): void {
+    // debug_assert_eq!(0, self.value, "Unhasher doesn't mix values!");
+    this.value = value;
+  }
+  write(_bytes: Uint8Array): void {
+    panic("not implemented: use write_u64");
+  }
+  write_u8(_i: number): void {
+    panic("not implemented: use write_u64");
+  }
+  write_u16(_i: number): void {
+    panic("not implemented: use write_u64");
+  }
+  write_u32(_i: number): void {
+    panic("not implemented: use write_u64");
+  }
+  write_u128(_i: bigint): void {
+    panic("not implemented: use write_u64");
+  }
+  write_usize(_i: number): void {
+    panic("not implemented: use write_u64");
+  }
+  write_i8(_i: number): void {
+    panic("not implemented: use write_u64");
+  }
+  write_i16(_i: number): void {
+    panic("not implemented: use write_u64");
+  }
+  write_i32(_i: number): void {
+    panic("not implemented: use write_u64");
+  }
+  write_i64(_i: bigint): void {
+    panic("not implemented: use write_u64");
+  }
+  write_i128(_i: bigint): void {
+    panic("not implemented: use write_u64");
+  }
+  write_isize(_i: number): void {
+    panic("not implemented: use write_u64");
+  }
+  write_length_prefix(_len: number): void {
+    panic("not implemented: use write_u64");
+  }
+  write_str(_s: Uint8Array): void {
+    panic("not implemented: use write_u64");
+  }
+}
+const UnhasherBuildHasher: BuildHasher<Hasher> = { build_hasher: () => new Unhasher() };
+
 // rustc: compiler/rustc_span/src/hygiene.rs:623 walk_chain
 export function walk_chain(span: Span, to: SyntaxContext): Span {
   return HygieneData.with((data) => data.walk_chain(span, to));
@@ -772,9 +909,7 @@ export function update_dollar_crate_names(get_name: (ctxt: SyntaxContext) => Sym
 export function debug_hygiene_data(verbose: boolean): string {
   return HygieneData.with((data) => {
     if (verbose) {
-      // PORT: `format!("{data:#?}")` prints the FxHashMaps in hashbrown iteration order, which
-      // depends on FxHash; not reproducible until rustc_hash/hashbrown order is modelled.
-      unported("rustc_span::hygiene::debug_hygiene_data(verbose = true)");
+      return format_debug(data, debug_HygieneData, PRETTY);
     } else {
       let s = "Expansions:";
       const debug_expn_data = ([id, expn_data]: readonly [ExpnId, ExpnData]): void => {
@@ -1533,13 +1668,166 @@ export function DesugaringKind_eq(a: DesugaringKind, b: DesugaringKind): boolean
 export const debug_DesugaringKind: Debug<DesugaringKind> = (v, f) =>
   v.$ === "FormatLiteral" ? debug_struct(f, "FormatLiteral", [["source", debug_bool(v.source, f)]]) : v.$;
 
-// PORT: `HygieneEncodeContext` / `HygieneDecodeContext` (crate metadata and the incremental
-// on-disk cache) are out of scope until M5; their functions are skipped below.
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1332 default HygieneEncodeContext (metadata, M5)
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1346 get_encoding_index HygieneEncodeContext (metadata, M5)
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1354 schedule_expn_data_for_encoding HygieneEncodeContext (metadata, M5)
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1360 encode HygieneEncodeContext (metadata, M5)
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1410 get_syntax_ctxt_encoding_index HygieneEncodeContext (metadata, M5)
+export class HygieneEncodeContext {
+  constructor(
+    /// All `SyntaxContexts` for which we have written `SyntaxContextData` into crate metadata.
+    public serialized_ctxts: Set<SyntaxContext>,
+    /// The `SyntaxContexts` that we have serialized (e.g. as a result of encoding `Spans`)
+    /// in the most recent 'round' of serializing. Serializing `SyntaxContextData`
+    /// may cause us to serialize more `SyntaxContext`s, so serialize in a loop
+    /// until we reach a fixed point.
+    public latest_ctxts: [number /* Encoding index */, SyntaxContext][],
+
+    // PORT: `FxHashSet<ExpnId>`: keyed by `expn_id_key` (ExpnId is an object); only membership is read.
+    public serialized_expns: Set<string>,
+    public latest_expns: ExpnId[],
+
+    /// Maps every `SyntaxContext` into its encoding index.
+    /// Earlier the `ctxt.0` was used when writing metadata, however,
+    /// this results into non-deterministic metadata (see #129094).
+    /// The non-determinism is encountered when decoding syntax contexts
+    /// in `decode_syntax_context` function below. The syntax contexts from
+    /// other crate metadata can be decoded in different order, which results
+    /// into different ids assigned to decoded syntax contexts.
+    /// First invocation:
+    /// (ALLOC - syntax context id, ORIG - original id of decoded syntax context:
+    /// `raw_id` in `decode_syntax_context`)
+    /// ALLOC: #3, ORIG: 1
+    /// ALLOC: #9, ORIG: 18769
+    /// ALLOC: #10, ORIG: 25868
+    /// ALLOC: #11, ORIG: 18822
+    /// ALLOC: #12, ORIG: 23092
+    ///
+    /// Second invocation:
+    /// ALLOC: #3, ORIG: 1
+    /// ALLOC: #9, ORIG: 25868
+    /// ALLOC: #10, ORIG: 18769
+    /// ALLOC: #11, ORIG: 18822
+    /// ALLOC: #12, ORIG: 23092
+    ///
+    /// We see that `18769` and `25868` assigned different syntax context ids,
+    /// however, the order of encoding is deterministic, so we can remap allocated
+    /// syntax context ids into encoding indices and use them, thus outputting
+    /// same metadata.
+    public encoding_indices: Map<SyntaxContext, number>,
+  ) {}
+
+  // rustc: compiler/rustc_span/src/hygiene.rs:1332 default
+  static default(): HygieneEncodeContext {
+    return new HygieneEncodeContext(
+      new Set(),
+      [],
+      new Set(),
+      [],
+      // Zero is taken by root syntax context.
+      new Map([[SyntaxContext.root(), 0]]),
+    );
+  }
+
+  // rustc: compiler/rustc_span/src/hygiene.rs:1346 get_encoding_index
+  private get_encoding_index(ctxt: SyntaxContext): number {
+    const map = this.encoding_indices;
+    const len = map.size;
+    // `*map.entry(ctxt).or_insert(len as u32)`
+    let index = map.get(ctxt);
+    if (index === undefined) {
+      index = len;
+      map.set(ctxt, index);
+    }
+    return index;
+  }
+
+  /// Record the fact that we need to serialize the corresponding `ExpnData`.
+  // rustc: compiler/rustc_span/src/hygiene.rs:1354 schedule_expn_data_for_encoding
+  schedule_expn_data_for_encoding(expn: ExpnId): void {
+    const key = expn_id_key(expn);
+    if (!this.serialized_expns.has(key)) {
+      this.serialized_expns.add(key);
+      this.latest_expns.push(expn);
+    }
+  }
+
+  // PORT: `h_ctxt: &RefCell<HygieneEncodeContext>` -> the context itself (the borrows are scoped
+  // reads/takes of its fields).
+  // rustc: compiler/rustc_span/src/hygiene.rs:1360 encode
+  static encode<T>(
+    h_ctxt: HygieneEncodeContext,
+    encoder: T,
+    encode_ctxt: (encoder: T, index: number, key: SyntaxContextKey) => void,
+    encode_expn: (encoder: T, expn: ExpnId, data: ExpnData | undefined, hash: ExpnHash) => void,
+  ): void {
+    // When we serialize a `SyntaxContextData`, we may end up serializing
+    // a `SyntaxContext` that we haven't seen before
+    while (h_ctxt.latest_ctxts.length !== 0 || h_ctxt.latest_expns.length !== 0) {
+      // debug!(
+      //     "encode_hygiene: Serializing a round of {:?} SyntaxContextData: {:?}",
+      //     h_ctxt.borrow().latest_ctxts.len(),
+      //     h_ctxt.borrow().latest_ctxts
+      // );
+
+      // Consume the current round of syntax contexts.
+      // It's fine to iterate over a HashSet, because the serialization of the table
+      // that we insert data into doesn't depend on insertion order.
+      const latest_contexts = h_ctxt.latest_ctxts;
+      h_ctxt.latest_ctxts = [];
+
+      for (const [idx, ctxt] of latest_contexts) {
+        const key = HygieneData.with((data) => data.syntax_context_data[ctxt]!.key());
+        encode_ctxt(encoder, idx, key);
+      }
+
+      // Same as above, but for expansions instead of syntax contexts.
+      const latest_expns = h_ctxt.latest_expns;
+      h_ctxt.latest_expns = [];
+
+      for (const expn of latest_expns) {
+        const [data, hash] = HygieneData.with((data): [ExpnData | undefined, ExpnHash] => {
+          // We need `data` only for local expansions, so don't clone `data` for non-local
+          // expansions.
+          // FIXME: completely remove this clone
+          const id = expn.as_local();
+          const expn_data = id === undefined ? undefined : data.local_expn_data_(id);
+          return [expn_data, data.expn_hash(expn)];
+        });
+
+        encode_expn(encoder, expn, data, hash);
+      }
+    }
+
+    // debug!("encode_hygiene: Done serializing SyntaxContextData");
+  }
+
+  // rustc: compiler/rustc_span/src/hygiene.rs:1410 get_syntax_ctxt_encoding_index
+  get_syntax_ctxt_encoding_index(ctxt: SyntaxContext): number {
+    const index = this.get_encoding_index(ctxt);
+    if (!this.serialized_ctxts.has(ctxt)) {
+      this.serialized_ctxts.add(ctxt);
+      // If we created new encoding index then it is greater
+      // than any previous index, so this vector is in ascending order.
+      // We can't push existing, possibly out-of-order, index
+      // as we check if we already saw this syntax context above.
+      // This property is important for deterministic output (see #129094).
+      this.latest_ctxts.push([index, ctxt]);
+    }
+
+    return index;
+  }
+}
+
+/// Additional information used to assist in decoding hygiene data
+export class HygieneDecodeContext {
+  constructor(
+    // A cache mapping raw serialized per-crate syntax context ids to corresponding decoded
+    // `SyntaxContext`s in the current global `HygieneData`.
+    // PORT: `Lock<IndexVec<u32, Option<SyntaxContext>>>` -> a (possibly holey) array.
+    public remapped_ctxts: (SyntaxContext | undefined)[],
+  ) {}
+
+  /** `#[derive(Default)]` */
+  static default(): HygieneDecodeContext {
+    return new HygieneDecodeContext([]);
+  }
+}
 
 /// Register an expansion which has been decoded from the on-disk-cache for the local crate.
 // rustc: compiler/rustc_span/src/hygiene.rs:1434 register_local_expn_id
@@ -1577,10 +1865,80 @@ export function register_expn_id(krate: CrateNum, local_id: ExpnIndex, data: Exp
   return expn_id;
 }
 
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1469 decode_expn_id metadata decoding (M5)
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1501 decode_syntax_context metadata decoding (M5)
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1532 encode Encodable impl (metadata, M5)
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1538 decode Decodable impl (metadata, M5)
+/// Decode an expansion from the metadata of a foreign crate.
+// rustc: compiler/rustc_span/src/hygiene.rs:1469 decode_expn_id
+export function decode_expn_id(krate: CrateNum, index_: number, decode_data: (expn_id: ExpnId) => [ExpnData, ExpnHash]): ExpnId {
+  if (index_ === 0) {
+    // trace!("decode_expn_id: deserialized root");
+    return ExpnId.root();
+  }
+
+  const index = ExpnIndex.from_u32(index_);
+
+  // This function is used to decode metadata, so it cannot decode information about LOCAL_CRATE.
+  // debug_assert_ne!(krate, LOCAL_CRATE);
+  const expn_id = new ExpnId(krate, index);
+
+  // Fast path if the expansion has already been decoded.
+  if (HygieneData.with((hygiene_data) => hygiene_data.foreign_expn_data.contains_key(expn_id))) {
+    return expn_id;
+  }
+
+  // Don't decode the data inside `HygieneData::with`, since we need to recursively decode
+  // other ExpnIds
+  const [expn_data, hash] = decode_data(expn_id);
+
+  return register_expn_id(krate, index, expn_data, hash);
+}
+
+// Decodes `SyntaxContext`, using the provided `HygieneDecodeContext`
+// to track which `SyntaxContext`s we have already decoded.
+// The provided closure will be invoked to deserialize a `SyntaxContextData`
+// if we haven't already seen the id of the `SyntaxContext` we are deserializing.
+// rustc: compiler/rustc_span/src/hygiene.rs:1501 decode_syntax_context
+export function decode_syntax_context<D extends Decoder>(
+  d: D,
+  context: HygieneDecodeContext,
+  decode_data: (d: D, raw_id: number) => SyntaxContextKey,
+): SyntaxContext {
+  const raw_id: number = decode_u32(d);
+  if (raw_id === 0) {
+    // trace!("decode_syntax_context: deserialized root");
+    // The root is special
+    return SyntaxContext.root();
+  }
+
+  // Look into the cache first.
+  // Reminder: `HygieneDecodeContext` is per-crate, so there are no collisions between
+  // raw ids from different crate metadatas.
+  const cached = context.remapped_ctxts[raw_id];
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  // Don't try to decode data while holding the lock, since we need to
+  // be able to recursively decode a SyntaxContext
+  const [parent, expn_id, transparency] = decode_data(d, raw_id);
+  const ctxt = HygieneData.with((hygiene_data) => hygiene_data.alloc_ctxt(parent, expn_id, transparency));
+
+  // `IndexVec::insert`: grows the vector with `None`s up to `raw_id`.
+  context.remapped_ctxts[raw_id] = ctxt;
+
+  return ctxt;
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for LocalExpnId` */
+// PORT: takes an `Encoder` (see `span_encoder` in lib.ts).
+// rustc: compiler/rustc_span/src/hygiene.rs:1532 encode
+export function encode_LocalExpnId(self: LocalExpnId, e: Encoder): void {
+  encode_ExpnId(LocalExpnId.to_expn_id(self), e);
+}
+
+/** `impl<D: SpanDecoder> Decodable<D> for LocalExpnId` */
+// rustc: compiler/rustc_span/src/hygiene.rs:1538 decode
+export function decode_LocalExpnId(d: SpanDecoder): LocalExpnId {
+  return decode_ExpnId(d).expect_local();
+}
 
 /// Updates the `disambiguator` field of the corresponding `ExpnData`
 /// such that the `Fingerprint` of the `ExpnData` does not collide with
