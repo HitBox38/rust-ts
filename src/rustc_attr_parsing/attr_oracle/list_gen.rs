@@ -17,6 +17,10 @@
 // M = emit | forbid | nothing | fatal (as in gen.rs), optionally followed by `+f1,f2,..`: the
 // features enabled in `features` (`Features::default()` + `set_enabled_lang_feature` for each, with
 // `attr_sp: DUMMY_SP`, `stable_since: None`; added by lane attr-parse-d).
+//   full:M      (lane attr-parse-b) `AttributeParser::new(sess, &Features::default(), &RegisteredTools::default(),
+//               M).parse_attribute_list(attrs, target_span, target, <the item, None for the crate>,
+//               identity, <buffer the lint like parse_limited_all>)`, `{:?}` of the result: unlike
+//               `limited`, the parsers' `finalize_check`s see the target item
 //   lints       (not per list) after the `buffered` events, render every buffered early lint into
 //               the captured stderr: its `DecorateDiagCompat` closure is called with `sess.dcx()`,
 //               `Level::Warning(None)` and the `Session`, the lint's span is set with `Diag::span`,
@@ -37,6 +41,7 @@ extern crate rustc_driver;
 extern crate rustc_errors;
 extern crate rustc_feature;
 extern crate rustc_interface;
+extern crate rustc_lint_defs;
 extern crate rustc_parse;
 extern crate rustc_session;
 extern crate rustc_span;
@@ -154,12 +159,13 @@ fn main() {
                         return;
                     }
                 };
-                let mut lists: Vec<(&[Attribute], Target, Span)> =
-                    vec![(&krate.attrs[..], Target::Crate, krate.spans.inner_span)];
+                let mut lists: Vec<(&[Attribute], Target, Span, Option<&rustc_ast::Item>)> =
+                    vec![(&krate.attrs[..], Target::Crate, krate.spans.inner_span, None)];
                 for item in &krate.items {
-                    lists.push((&item.attrs[..], Target::from_ast_item(item), item.span));
+                    lists.push((&item.attrs[..], Target::from_ast_item(item), item.span, Some(&**item)));
                 }
-                for (idx, (attrs, target, target_span)) in lists.iter().enumerate() {
+                let tools = rustc_lint_defs::RegisteredTools::default();
+                for (idx, (attrs, target, target_span, item)) in lists.iter().enumerate() {
                     for op in ops.iter().filter(|op| **op != "lints") {
                         let (name, arg) = op.split_once(':').unwrap_or((op, ""));
                         let (arg, feats) = arg.split_once('+').unwrap_or((arg, ""));
@@ -184,6 +190,19 @@ fn main() {
                                     Some(&features),
                                     mode(arg),
                                     None,
+                                )
+                            ),
+                            "full" => format!(
+                                "{:?}",
+                                AttributeParser::new(sess, &features, &tools, mode(arg)).parse_attribute_list(
+                                    attrs,
+                                    *target_span,
+                                    *target,
+                                    *item,
+                                    std::convert::identity,
+                                    |lint_id, span, kind| {
+                                        sess.psess.dyn_buffer_lint_sess(lint_id.lint, span, CRATE_NODE_ID, kind.0)
+                                    },
                                 )
                             ),
                             o => panic!("op {o}"),
