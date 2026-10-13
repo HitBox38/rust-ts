@@ -12,6 +12,7 @@ import { VARARGS_WITHOUT_PATTERN } from "../../rustc_lint_defs/builtin.gen.ts";
 import type { Edition } from "../../rustc_span/edition.ts";
 import { debug_SpanSnippetError, type ErrorGuaranteed, respan, Span } from "../../rustc_span/lib.ts";
 import { Ident, kw, sym, Symbol } from "../../rustc_span/symbol.ts";
+import { is_whitespace } from "../../std/char.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, expect_result, Ok, unwrap_result } from "../../std/result.ts";
@@ -641,9 +642,12 @@ Parser.prototype.parse_fn_front_matter = function (
   return Ok(new ast.FnHeader(constness, coroutine_marker, safety, ext));
 };
 
-// PORT: `str::trim_end` (Unicode `White_Space`, as `char::is_whitespace`).
+// PORT: `str::trim_end` (`char::is_whitespace`) on a `string`; src/std/str.ts `str_trim_end` takes a `Str`.
 function trim_end(s: string): string {
-  return s.replace(/\p{White_Space}+$/u, "");
+  const cs = Array.from(s);
+  let end = cs.length;
+  while (end > 0 && is_whitespace(cs[end - 1]!.codePointAt(0)!)) end--;
+  return cs.slice(0, end).join("");
 }
 
 /// Parses the parameter list and result type of a function declaration.

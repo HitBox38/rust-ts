@@ -31,6 +31,7 @@ import { Applicability } from "../../rustc_lint_defs/lib.ts";
 import type { ParseSess } from "../../rustc_session/parse.ts";
 import { type ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { Ident, kw, sym, Symbol } from "../../rustc_span/symbol.ts";
+import { is_lowercase, is_uppercase } from "../../std/char.ts";
 import { debug_list, debug_str, type Fmt } from "../../std/fmt.ts";
 import { assert, unreachable } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
@@ -485,8 +486,8 @@ Parser.prototype.eat_keyword_case = function (this: Parser, exp_: ExpKeywordPair
     eq_ignore_ascii_case(ident.as_str(), Symbol.as_str(exp_.kw))
   ) {
     const kw_ = Symbol.as_str(exp_.kw);
-    const is_upper = [...kw_].every(char_is_uppercase);
-    const is_lower = [...kw_].every(char_is_lowercase);
+    const is_upper = [...kw_].every((c) => is_uppercase(c.codePointAt(0)!));
+    const is_lower = [...kw_].every((c) => is_lowercase(c.codePointAt(0)!));
 
     let case__: DiagCase;
     if (is_upper && is_lower) {
@@ -1825,15 +1826,6 @@ function eq_ignore_ascii_case(a: string, b: string): boolean {
     if (x !== y) return false;
   }
   return true;
-}
-
-/// PORT: `char::is_uppercase` / `char::is_lowercase` (Unicode `Uppercase` / `Lowercase` properties;
-/// only ever applied to ASCII keyword text here).
-function char_is_uppercase(c: string): boolean {
-  return /^\p{Uppercase}$/u.test(c);
-}
-function char_is_lowercase(c: string): boolean {
-  return /^\p{Lowercase}$/u.test(c);
 }
 
 /// PORT: `DebugStruct::finish_non_exhaustive` (core::fmt::builders), not in src/std/fmt.ts yet.

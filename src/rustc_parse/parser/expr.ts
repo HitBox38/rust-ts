@@ -52,7 +52,7 @@ import { Applicability } from "../../rustc_lint_defs/lib.ts";
 import type { MutRef } from "../../rustc_span/hygiene.ts";
 import { BytePos, type ErrorGuaranteed, Span, type SpanSnippetError, type Spanned, respan } from "../../rustc_span/lib.ts";
 import { display_Ident, display_Symbol, Ident, kw, sym, Symbol } from "../../rustc_span/symbol.ts";
-import { is_ascii_alphanumeric } from "../../std/char.ts";
+import { is_ascii_alphanumeric, is_numeric } from "../../std/char.ts";
 import { debug_char, debug_str, debug_tuple, debug_vec, PLAIN, type Fmt } from "../../std/fmt.ts";
 import { assert, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
@@ -2426,9 +2426,6 @@ Parser.prototype.parse_meta_item_lit = function (this: Parser): PResult<MetaItem
   return this.handle_missing_lit(mk_meta_item_lit_char);
 };
 
-/// PORT: `char::is_numeric` (general categories Nd, Nl, No), via the JS Unicode property `N`.
-const IS_NUMERIC = /^\p{N}$/u;
-
 // rustc: compiler/rustc_parse/src/parser/expr.rs:2003 recover_after_dot
 Parser.prototype.recover_after_dot = function (this: Parser): void {
   if (this.token.kind.$ === "Dot") {
@@ -2446,7 +2443,7 @@ Parser.prototype.recover_after_dot = function (this: Parser): void {
         k.$ === "Literal" &&
         k._0.kind.$ === "Integer" &&
         (k._0.suffix === undefined || k._0.suffix === sym.f32 || k._0.suffix === sym.f64) &&
-        [...Symbol.as_str(k._0.symbol)].every((c) => IS_NUMERIC.test(c) || c === "_") &&
+        [...Symbol.as_str(k._0.symbol)].every((c) => is_numeric(c.codePointAt(0)!) || c === "_") &&
         Span.hi(this.token.span) === Span.lo(next_token.span)
       ) {
         const { symbol, suffix } = k._0;

@@ -7,6 +7,7 @@ import type { Span } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
 import { TargetTuple } from "../rustc_target/spec/tuple.ts";
+import { is_alphanumeric } from "../std/char.ts";
 import { path_join } from "../std/path.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import type { Session } from "./session.ts";
@@ -50,19 +51,6 @@ function is_writeable(p: PathBuf): boolean {
   return !((m.mode & 0o222) === 0);
 }
 
-/**
- * `char::is_alphanumeric` (`is_alphabetic() || is_numeric()`: Unicode `Alphabetic` or general category
- * `Nd`/`Nl`/`No`). PORT (driver-m2): src/std has no generated `Alphabetic`/`N` tables yet; non-ASCII chars use
- * the JS engine's Unicode property tables, whose Unicode version may differ from the oracle's. Move to
- * src/std/char.ts with tables from tools/gen-unicode.ts.
- */
-function char_is_alphanumeric(c: number): boolean {
-  if (c < 0x80) {
-    return (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a);
-  }
-  return /^[\p{Alphabetic}\p{N}]$/u.test(String.fromCodePoint(c));
-}
-
 /// Validate the given crate name.
 ///
 /// Note that this validation is more permissive than identifier parsing. It considers
@@ -81,7 +69,7 @@ export function validate_crate_name(sess: Session, crate_name: Symbol, span: Spa
 
   for (const ch of Symbol.as_str(crate_name)) {
     const c = ch.codePointAt(0)!;
-    if (char_is_alphanumeric(c) || ch === "_") {
+    if (is_alphanumeric(c) || ch === "_") {
       continue;
     }
     guar = sess.dcx().emit_err(
@@ -93,7 +81,7 @@ export function validate_crate_name(sess: Session, crate_name: Symbol, span: Spa
           span === undefined
             ? {
                 suggested_name: Array.from(Symbol.as_str(crate_name), (c) =>
-                  c !== "_" && !char_is_alphanumeric(c.codePointAt(0)!) ? "_" : c,
+                  c !== "_" && !is_alphanumeric(c.codePointAt(0)!) ? "_" : c,
                 ).join(""),
               }
             : undefined,

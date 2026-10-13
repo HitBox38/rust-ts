@@ -23,6 +23,7 @@ import type { Diag, PResult } from "../../rustc_errors/lib.ts";
 import { Applicability } from "../../rustc_lint_defs/lib.ts";
 import { DUMMY_SP, type ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { Ident, display_Ident, kw, sym } from "../../rustc_span/symbol.ts";
+import { is_uppercase } from "../../std/char.ts";
 import { field_mut, replace_in_place } from "../../std/mut_ref.ts";
 import { assert_eq, unwrap } from "../../std/panic.ts";
 import { Err, Ok } from "../../std/result.ts";
@@ -988,7 +989,7 @@ Parser.prototype.recover_missing_dot = function (this: Parser, err: Diag): void 
   }
   const [ident] = id;
   const c = [...ident.as_str()][0];
-  if (c !== undefined && char_is_uppercase(c)) {
+  if (c !== undefined && is_uppercase(c.codePointAt(0)!)) {
     return;
   }
   if (this.token.is_reserved_ident() && !this.token.is_ident_named(kw.Await)) {
@@ -1300,10 +1301,4 @@ function suggest_eq_dot_suffix(this_: Parser, colon_sp: Span): boolean {
     return false;
   }
   return true;
-}
-
-/// PORT: `char::is_uppercase` (Unicode `Uppercase` property; same helper as parser/mod.ts, candidate
-/// for src/std).
-function char_is_uppercase(c: string): boolean {
-  return /^\p{Uppercase}$/u.test(c);
 }
