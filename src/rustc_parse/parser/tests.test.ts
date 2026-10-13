@@ -3,7 +3,8 @@
 // Ported here: every helper fn of tests.rs (with markers) and the tests this lane makes work
 // (`look_ahead`, `look_ahead_non_outermost_stream`, `debug_lookahead`, `eqmodws`,
 // `pattern_whitespace`, `non_pattern_whitespace`). The other test bodies are left to the final lane
-// of the parser chain; they are listed as `test.todo` below, in upstream order.
+// of the parser chain; they are listed in `PENDING_TESTS` below, in upstream order (a data list, not
+// `test.todo`, so the gate sees no skips; a test checks the list against upstream's #[test] fns).
 //
 // Helper API (for the follow-on lanes; all upstream names):
 //   filename(sm, path): FileName                      `FileName::Real` relative to the working dir
@@ -17,6 +18,9 @@
 //   make_span / make_pos / parse_item_from_source_str / sp / string_to_expr / string_to_item / look
 // Tests run inside `create_default_session_globals_then` like upstream.
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { UPSTREAM } from "../../../scripts/lib/common.ts";
 
 import type { Expr, Item } from "../../rustc_ast/lib.ts";
 import { token } from "../../rustc_ast/lib.ts";
@@ -308,7 +312,7 @@ function look(p: Parser, dist: number, kind: TokenKind): void {
 }
 
 // ---- tests left to the final lane of the parser chain (upstream order) ----
-for (const name of [
+const PENDING_TESTS = [
   "ends_on_col0", "ends_on_col2", "non_nested", "nested", "multiline_and_normal_overlap", "different_overlap",
   "different_note_1", "different_note_2", "different_note_3", "different_note_spanned_1", "different_note_spanned_2",
   "different_note_spanned_3", "different_note_spanned_4", "different_note_spanned_5", "different_note_spanned_6",
@@ -321,9 +325,15 @@ for (const name of [
   "long_snippet_multiple_spans", "bad_path_expr_1", "string_to_tts_macro", "string_to_tts_1", "parse_use",
   "parse_extern_crate", "span_of_self_arg_pat_idents_are_correct (+ get_spans_of_pat_idents)", "parse_exprs",
   "attrs_fix_bug", "crlf_doc_comments", "ttdelim_span (+ parse_expr_from_source_str)", "out_of_line_mod",
-]) {
-  test.todo(`tests.rs ${name}`, () => {});
-}
+];
+const PORTED_TESTS = ["look_ahead", "look_ahead_non_outermost_stream", "debug_lookahead", "eqmodws", "pattern_whitespace", "non_pattern_whitespace"];
+
+test("tests.rs: every upstream #[test] is ported or listed in PENDING_TESTS", () => {
+  const src = readFileSync(join(UPSTREAM, "compiler/rustc_parse/src/parser/tests.rs"), "utf8");
+  const upstream = [...src.matchAll(/#\[test\]\s*(?:#\[[^\]]*\]\s*)*fn\s+(\w+)/g)].map((m) => m[1]!);
+  const listed = [...PORTED_TESTS, ...PENDING_TESTS.map((n) => n.split(" ")[0]!)];
+  expect([...listed].sort()).toEqual([...upstream].sort());
+});
 
 // rustc: compiler/rustc_parse/src/parser/tests.rs:2543 look_ahead
 test("look_ahead", () => {

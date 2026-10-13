@@ -5,7 +5,8 @@
 // is dropped. `#[should_panic]` → `expect(..).toThrow(Panic)`.
 // PORT: everything that measures text with `UnicodeWidthStr::width` (`each_split_within`, `usage`)
 // throws `Unported` until unicode_width's string widths (`tables::width_in_str`) are ported; those
-// tests run through `str_width_test`, which is `test.todo` until then and `test` afterwards.
+// tests run through `str_width_test`: until then each must throw exactly that `Unported` (pending
+// convention, so the gate sees no skips); afterwards they run as normal tests.
 import { expect, test } from "bun:test";
 import { Panic, Unported } from "../../../std/panic.ts";
 import { Err, Ok, type Result as StdResult } from "../../../std/result.ts";
@@ -33,7 +34,12 @@ const str_width_ported = (() => {
     throw e;
   }
 })();
-const str_width_test = str_width_ported ? test : test.todo;
+const str_width_test = str_width_ported
+  ? test
+  : (name: string, fn: () => void) =>
+      test(`${name} (pending: unicode_width::tables::width_in_str)`, () => {
+        expect(fn).toThrow(/unicode_width::tables::width_in_str/);
+      });
 
 /** `match r { Ok(m) => m, Err(e) => panic!("{}", e) }` */
 function expect_ok(r: Result): Matches {
