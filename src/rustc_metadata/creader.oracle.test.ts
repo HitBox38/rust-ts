@@ -7,9 +7,9 @@
 // The oracle compiles the same file with `-Zunpretty=expanded` (which runs resolution, hence `postprocess`).
 // Compared:
 //   1. the crates creader tries to load: the probe prints `resolving crate `x`` for every `maybe_resolve_crate`;
-//      the oracle's `RUSTC_LOG=rustc_metadata::creader=info` prints the same line. Ours (which stops where the
-//      first found crate's metadata must be decoded: the rmeta decoder stub, wave 11) must be a prefix of the
-//      oracle's list; when ours completes, the lists must be equal.
+//      the oracle's `RUSTC_LOG=rustc_metadata::creader=info` prints the same line. If ours stops as UNPORTED it
+//      must be a prefix of the oracle's list (no case does since lane decode-elems); when ours completes, the
+//      lists must be equal.
 //   2. diagnostics: our stderr, up to `rust-ts: unported` / the final `error: aborting` summary, must be a prefix
 //      of the oracle's stderr and contain the expected text.
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
@@ -60,7 +60,7 @@ interface Case {
   src: string;
   flags?: string[];
   env?: Record<string, string>;
-  /** The crates our probe must try to load (in order; it stops at the first one that is found, the decoder is a stub). */
+  /** The crates our probe tries to load (in order: `maybe_resolve_crate` calls, the dependencies of each loaded crate included). */
   crates: string[];
   /** Text our stderr must contain. */
   expect?: string[];
@@ -69,27 +69,26 @@ interface Case {
 }
 
 /**
- * The first stop inside `CrateMetadata::new` (decoder.rs:1977) for crates with incoherent impls (core, std, ...):
- * `incoherent_impls.decode((&cdata, tcx))` reaches `Decodable for SimplifiedType` (M3).
+ * No case stops any more: since lane decode-elems every crate load (`CrateMetadata::new`, the incoherent impls, the
+ * session-incompatibility checks) completes, so each case's crate list must equal the oracle's. A run that exits 70
+ * fails on this text.
  */
-const STOP = "Decodable for rustc_middle::ty::fast_reject::SimplifiedType (M3)";
-/** profiler_builtins has no incoherent impls: `new` finishes and the load stops later, on its mitigations. */
-const STOP_MITIGATION = "Decodable for rustc_session::config::mitigation_coverage::DeniedPartialMitigation (derive(BlobDecodable) not generated)";
+const STOP = "(none: every case runs to completion)";
 
 const CASES: Case[] = [
   // inject_panic_runtime
-  { name: "needs_panic_runtime, bin, -Cpanic=unwind (target default)", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", crates: ["panic_unwind", "rustc_std_workspace_core", "core"] },
-  { name: "needs_panic_runtime, -Cpanic=abort", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["-Cpanic=abort"], crates: ["panic_abort", "rustc_std_workspace_core", "core"] },
-  { name: "needs_panic_runtime, rlib (is_std overrides only_rlib)", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["--crate-type=rlib"], crates: ["panic_unwind", "rustc_std_workspace_core", "core"] },
+  { name: "needs_panic_runtime, bin, -Cpanic=unwind (target default)", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", crates: ["panic_unwind", "rustc_std_workspace_core", "core", "compiler_builtins", "core", "core", "compiler_builtins", "alloc", "core", "compiler_builtins", "unwind", "rustc_std_workspace_core", "core", "compiler_builtins", "libc", "rustc_std_workspace_core", "core", "compiler_builtins", "libc"] },
+  { name: "needs_panic_runtime, -Cpanic=abort", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["-Cpanic=abort"], crates: ["panic_abort", "rustc_std_workspace_core", "core", "compiler_builtins", "core", "core", "compiler_builtins", "alloc", "core", "compiler_builtins"] },
+  { name: "needs_panic_runtime, rlib (is_std overrides only_rlib)", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["--crate-type=rlib"], crates: ["panic_unwind", "rustc_std_workspace_core", "core", "compiler_builtins", "core", "core", "compiler_builtins", "alloc", "core", "compiler_builtins", "unwind", "rustc_std_workspace_core", "core", "compiler_builtins", "libc", "rustc_std_workspace_core", "core", "compiler_builtins", "libc"] },
   { name: "needs_panic_runtime, -Cpanic=immediate-abort: no runtime", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["-Zunstable-options", "-Cpanic=immediate-abort"], crates: [] },
   { name: "no_core bin: no runtime needed", mode: "postprocess", src: NO_CORE, crates: [] },
   { name: "no_core bin, -Cpanic=abort: no runtime needed", mode: "postprocess", src: NO_CORE, flags: ["-Cpanic=abort"], crates: [] },
   { name: "no_core rlib", mode: "postprocess", src: NO_CORE, flags: ["--crate-type=rlib"], crates: [] },
   // inject_profiler_runtime
-  { name: "-Cprofile-generate loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo"], crates: ["profiler_builtins"], stop: STOP_MITIGATION },
-  { name: "-Cinstrument-coverage loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cinstrument-coverage"], crates: ["profiler_builtins"], stop: STOP_MITIGATION },
+  { name: "-Cprofile-generate loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo"], crates: ["profiler_builtins"] },
+  { name: "-Cinstrument-coverage loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cinstrument-coverage"], crates: ["profiler_builtins"] },
   { name: "-Zno-profiler-runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cinstrument-coverage", "-Zno-profiler-runtime"], crates: [] },
-  { name: "-Zprofiler-runtime=<name> (not found, then the missing_core probe)", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo", "-Zprofiler-runtime=my_profiler"], crates: ["my_profiler", "core"] },
+  { name: "-Zprofiler-runtime=<name> (not found, then the missing_core probe)", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo", "-Zprofiler-runtime=my_profiler"], crates: ["my_profiler", "core"], expect: ["error[E0463]: can't find crate for `my_profiler`", "= note: the compiler may have been built without the profiler runtime"] },
   // inject_allocator_crate
   {
     name: "needs_allocator, bin, no global allocator",
@@ -159,10 +158,10 @@ const CASES: Case[] = [
   // name=path` needs `rustc_fs_util::try_canonicalize`, unported in rustc_session).
   { name: "unused pathless --extern", mode: "postprocess", src: NO_CORE, flags: ["--extern", "foo"], crates: [] },
   // process_extern_crate / the extern prelude through the real resolver
-  { name: "no_std injects extern crate core", mode: "pipeline", src: "#![no_std]\n", crates: ["core"] },
-  { name: "std crate injects extern crate std", mode: "pipeline", src: "", crates: ["std", "core"] },
-  { name: "extern crate in a no_core crate (not found, then the missing_core probe)", mode: "pipeline", src: NO_CORE + "extern crate foo;\n", crates: ["foo", "core"] },
-  { name: "extern crate with a non-ASCII name (NonAsciiName, then the missing_core probe)", mode: "pipeline", src: NO_CORE + "extern crate föo;\n", crates: ["föo", "core"] },
+  { name: "no_std injects extern crate core", mode: "pipeline", src: "#![no_std]\n", crates: ["core", "compiler_builtins", "core"] },
+  { name: "std crate injects extern crate std", mode: "pipeline", src: "", crates: ["std", "core", "alloc", "core", "compiler_builtins", "core", "compiler_builtins", "libc", "rustc_std_workspace_core", "core", "compiler_builtins", "core", "compiler_builtins", "rustc_std_workspace_core", "unwind", "rustc_std_workspace_core", "core", "compiler_builtins", "libc", "miniz_oxide", "rustc_std_workspace_core", "core", "compiler_builtins", "adler2", "rustc_std_workspace_core", "core", "compiler_builtins", "adler2", "hashbrown", "rustc_std_workspace_core", "core", "compiler_builtins", "rustc_std_workspace_alloc", "alloc", "core", "compiler_builtins", "alloc", "rustc_std_workspace_alloc", "std_detect", "rustc_std_workspace_core", "core", "compiler_builtins", "rustc_std_workspace_alloc", "alloc", "rustc_demangle", "rustc_std_workspace_core", "core", "compiler_builtins", "cfg_if", "rustc_std_workspace_core", "core", "compiler_builtins", "addr2line", "rustc_std_workspace_core", "core", "compiler_builtins", "rustc_std_workspace_alloc", "alloc", "gimli", "rustc_std_workspace_core", "core", "compiler_builtins", "rustc_std_workspace_alloc", "alloc", "gimli", "object", "rustc_std_workspace_core", "core", "compiler_builtins", "rustc_std_workspace_alloc", "alloc", "memchr", "rustc_std_workspace_core", "core", "compiler_builtins", "memchr", "panic_unwind", "rustc_std_workspace_core", "core", "compiler_builtins", "alloc", "unwind", "libc"] },
+  { name: "extern crate in a no_core crate (not found, then the missing_core probe)", mode: "pipeline", src: NO_CORE + "extern crate foo;\n", crates: ["foo", "core"], expect: ["error[E0463]: can't find crate for `foo`", "extern crate foo;"] },
+  { name: "extern crate with a non-ASCII name (NonAsciiName, then the missing_core probe)", mode: "pipeline", src: NO_CORE + "extern crate föo;\n", crates: ["föo", "core"], expect: ["error: cannot load a crate with a non-ascii name `föo`"] },
 ];
 
 function crates_of(lines: string[], re: RegExp): string[] {
