@@ -9,12 +9,15 @@
     "escape-synthetic": 11,
     "tokens": 25780,
     "fluent-format": 4210,
+    "resdump-nocore": 19677,
     "fluent-parse": 4210,
     "parse": 21523,
     "tokens-str": 39,
-    "escape": 25780
+    "unpretty-expanded-nocore": 19668,
+    "escape": 25780,
+    "expanded-nocore": 19668
   },
-  "updated": "2026-10-13T14:44:01.200Z",
+  "updated": "2026-10-13T18:16:51.836Z",
   "open_stops": [],
   "coverage": {
     "ported": 6247,
