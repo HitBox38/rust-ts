@@ -327,5 +327,12 @@
       "rustc_expand::mbe::diagnostics::BestFailure": "hand-written class in src/rustc_expand/mbe/diagnostics.ts"
     },
     "derive_default": true
+  },
+  "rustc_interface": {
+    "files": ["compiler/rustc_interface/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
   }
 }

@@ -1,10 +1,10 @@
 // Not an upstream mirror. PORT: stand-ins for crates the driver path reaches but that are not ported:
 //   rustc_codegen_ssa::traits::CodegenBackend, rustc_codegen_llvm::LlvmCodegenBackend
 //   rustc_data_structures::jobserver::initialize
-//   rustc_middle::ty::CurrentGcx
 // Each keeps only what can be copied verbatim or is observable-free on the `-Zunpretty` path; everything
 // else calls `unported(...)`. Replace by the real modules when those crates are ported.
-import type { CodegenBackendInit, EarlySession } from "../rustc_session/session.ts";
+import type { CodegenBackendInit, EarlySession, Session } from "../rustc_session/session.ts";
+import type { CrateType } from "../rustc_structures/crate_type.ts";
 import { defer_field } from "../rustc_session/stand_ins.ts";
 import { std_print } from "../rustc_session/config.ts";
 import { TargetTuple } from "../rustc_target/spec/tuple.ts";
@@ -65,6 +65,7 @@ export interface CodegenBackend {
   print_version(): void;
   print_passes(): void;
   metadata_loader(): never;
+  supported_crate_types(sess: Session): CrateType[];
 }
 
 /**
@@ -163,6 +164,11 @@ export class LlvmCodegenBackend implements CodegenBackend {
   metadata_loader(): never {
     return unported("rustc_codegen_llvm::LlvmCodegenBackend::metadata_loader");
   }
+  // PORT: the LLVM backend does not override the provided trait method.
+  // rustc: compiler/rustc_codegen_ssa/src/traits/backend.rs:61 supported_crate_types
+  supported_crate_types(_sess: Session): CrateType[] {
+    return ["Executable", "Dylib", "Rlib", "StaticLib", "Cdylib", "ProcMacro", "Sdylib"];
+  }
 }
 
 /** PORT: build constant of the oracle (its bundled LLVM), like `CFG_VERSION`; see `LlvmCodegenBackend`. */
@@ -181,9 +187,5 @@ export function jobserver_initialize(_limit: number, _report: (err: string) => v
   }
 }
 
-/** `rustc_middle::ty::CurrentGcx` (opaque: no `GlobalCtxt` is ever created). */
-export class CurrentGcx {
-  static new(): CurrentGcx {
-    return new CurrentGcx();
-  }
-}
+/** `rustc_middle::ty::CurrentGcx`: the real type (re-exported for the existing imports). */
+export { CurrentGcx } from "../rustc_middle/ty/context.ts";

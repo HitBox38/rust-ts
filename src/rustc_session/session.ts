@@ -24,6 +24,9 @@ import { UnstableFeatures } from "../rustc_feature/lib.ts";
 import type { Level, LintId } from "../rustc_lint_defs/lib.ts";
 import { Edition } from "../rustc_span/edition.ts";
 import type { ErrorGuaranteed, RealFileName, Span } from "../rustc_span/lib.ts";
+import { FileName, Span as SpanC } from "../rustc_span/lib.ts";
+import { path_components, path_is_absolute, path_join, path_parent } from "../std/path.ts";
+import { Err, Ok, type Result } from "../std/result.ts";
 import { FilePathMapping, SourceMap, get_source_map } from "../rustc_span/source_map.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { assert, unported, unwrap } from "../std/panic.ts";
@@ -598,6 +601,15 @@ export class Session {
     }
   }
 
+  // rustc: compiler/rustc_session/src/session.rs:916 staticlib_components
+  staticlib_components(verbatim: boolean): [string, string] {
+    if (verbatim) {
+      return ["", ""];
+    } else {
+      return [this.target.staticlib_prefix, this.target.staticlib_suffix];
+    }
+  }
+
   // rustc: compiler/rustc_session/src/session.rs:924 lint_groups_iter
   lint_groups_iter(): Iterable<LintGroup> {
     const lint_store = this.lint_store;
@@ -605,6 +617,43 @@ export class Session {
       return lint_store.lint_groups_iter();
     } else {
       return [];
+    }
+  }
+
+  /// Resolves a `path` mentioned inside Rust code, returning an absolute path.
+  ///
+  /// This unifies the logic used for resolving `include_*!` and debugger visualizers.
+  // rustc: compiler/rustc_session/src/session.rs:934 resolve_path
+  resolve_path(path: PathBuf, span: Span): Result<PathBuf, Diag> {
+    // Relative paths are resolved relative to the file in which they are found
+    // after macro expansion (that is, they are unhygienic).
+    if (!path_is_absolute(path)) {
+      const callsite = SpanC.source_callsite(span);
+      const source_map = this.source_map();
+      let base_path = FileName.into_local_path(source_map.span_to_filename(callsite));
+      if (base_path === undefined) {
+        return Err(
+          this.dcx().create_err(
+            diagnostics_gen.ResolveRelativePath_diagnostic({
+              span,
+              path: source_map.filename_for_diagnostics(source_map.span_to_filename(callsite)).to_string(),
+            }),
+          ),
+        );
+      }
+      // `base_path.pop()`: truncate to the parent, if any.
+      base_path = path_parent(base_path) ?? base_path;
+      base_path = path_join(base_path, path);
+      return Ok(base_path);
+    } else {
+      // This ensures that Windows verbatim paths are fixed if mixed path separators are used,
+      // which can happen when `concat!` is used to join paths.
+      const first = path_components(path).next();
+      if (first !== undefined && first.$ === "Prefix" && (first.parsed.$ === "Verbatim" || first.parsed.$ === "VerbatimDisk" || first.parsed.$ === "VerbatimUNC")) {
+        // `Ok(path.components().collect())`
+        return unported("std::path::PathBuf::from_iter (Session::resolve_path, Windows verbatim path)");
+      }
+      return Ok(path);
     }
   }
 

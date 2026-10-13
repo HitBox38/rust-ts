@@ -12,9 +12,15 @@ import "../rustc_session/lib.ts";
 import type { AttrVec, Crate } from "../rustc_ast/ast.gen.ts";
 import type { PResult } from "../rustc_errors/lib.gen.ts";
 import { catch_fatal_errors } from "../rustc_errors/lib.ts";
-import { type Config, run_compiler } from "../rustc_interface/interface.ts";
+import { type Compiler, type Config, run_compiler } from "../rustc_interface/interface.ts";
+import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { new_parser_from_file, new_parser_from_source_str, unwrap_or_emit_fatal } from "../rustc_parse/lib.ts";
 import * as passes from "../rustc_interface/passes.ts";
+import { build_output_filenames } from "../rustc_interface/util.ts";
+import { filename_for_input, invalid_output_for_target } from "../rustc_session/output.ts";
+import { CrateType as CrateTypeC } from "../rustc_structures/crate_type.ts";
+import { DUMMY_SP } from "../rustc_span/lib.ts";
+import { path_file_name } from "../std/path.ts";
 import type { CodegenBackend } from "../rustc_interface/stand_ins.ts";
 import { get_codegen_backend } from "../rustc_interface/util.ts";
 import {
@@ -75,8 +81,36 @@ const CFG_RELEASE: string | undefined = "1.101.0-nightly";
 export interface Callbacks {
   /// Called before creating the compiler instance
   config(config: Config): void;
-  // `after_crate_root_parsing`, `after_expansion`, `after_analysis`: default `Compilation::Continue`.
+  /// Called after parsing the crate root. Submodules are not yet parsed when
+  /// this callback is called. Return value instructs the compiler whether to
+  /// continue the compilation afterwards (defaults to `Compilation::Continue`)
+  after_crate_root_parsing?(compiler: Compiler, krate: Crate): Compilation; // (provided)
+  /// Called after expansion. Return value instructs the compiler whether to
+  /// continue the compilation afterwards (defaults to `Compilation::Continue`)
+  after_expansion?(compiler: Compiler, tcx: TyCtxt): Compilation; // (provided)
+  /// Called after analysis. Return value instructs the compiler whether to
+  /// continue the compilation afterwards (defaults to `Compilation::Continue`)
+  after_analysis?(compiler: Compiler, tcx: TyCtxt): Compilation; // (provided)
 }
+
+/** The provided methods of `Callbacks` (PORTING §8): an implementor's override wins. */
+export const Callbacks_provided = {
+  // rustc: compiler/rustc_driver_impl/src/lib.rs:126 after_crate_root_parsing
+  after_crate_root_parsing(self: Callbacks, compiler: Compiler, krate: Crate): Compilation {
+    if (self.after_crate_root_parsing !== undefined) return self.after_crate_root_parsing(compiler, krate);
+    return "Continue";
+  },
+  // rustc: compiler/rustc_driver_impl/src/lib.rs:135 after_expansion
+  after_expansion(self: Callbacks, compiler: Compiler, tcx: TyCtxt): Compilation {
+    if (self.after_expansion !== undefined) return self.after_expansion(compiler, tcx);
+    return "Continue";
+  },
+  // rustc: compiler/rustc_driver_impl/src/lib.rs:144 after_analysis
+  after_analysis(self: Callbacks, compiler: Compiler, tcx: TyCtxt): Compilation {
+    if (self.after_analysis !== undefined) return self.after_analysis(compiler, tcx);
+    return "Continue";
+  },
+} as const;
 
 // #[derive(Default)]
 export class TimePassesCallbacks implements Callbacks {
@@ -97,11 +131,6 @@ export class TimePassesCallbacks implements Callbacks {
       config.opts.prints.length === 0 && config.opts.unstable_opts.time_passes ? config.opts.unstable_opts.time_passes_format : undefined;
     config.opts.trimmed_def_paths = true;
   }
-}
-
-/** `Callbacks::after_crate_root_parsing` (default impl) */
-function after_crate_root_parsing(_callbacks: Callbacks, _krate: Crate): Compilation {
-  return "Continue";
 }
 
 /// This is the primary entry point for rustc.
@@ -216,11 +245,13 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
     if (sess.opts.unstable_opts.ls.length !== 0) {
       // `list_metadata(sess, &*codegen_backend.metadata_loader())`
       unported("rustc_driver_impl::list_metadata (-Z ls)");
+      return;
     }
 
     if (sess.opts.unstable_opts.link_only) {
       // `process_rlink(sess, compiler)`
       unported("rustc_driver_impl::process_rlink (-Z link-only)");
+      return;
     }
 
     // Parse the crate root source code (doesn't parse submodules yet)
@@ -233,10 +264,8 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
       if (PpMode.needs_ast_map(pp_mode)) {
         passes.create_and_enter_global_ctxt(compiler, krate, (tcx) => {
           tcx.ensure_ok().early_lint_checks(null);
-          // PORT: `pretty::print(sess, pp_mode, pretty::PrintExtra::NeedsAstMap { tcx })` and
-          // `passes::write_dep_info(tcx)`: the NeedsAstMap printing modes and dep-info are lane driver-m2's
-          // (wave 10); pretty.ts does not accept a TyCtxt yet.
-          unported("rustc_driver_impl::pretty::print (PrintExtra::NeedsAstMap; lane driver-m2)");
+          pretty.print(sess, pp_mode, { $: "NeedsAstMap", tcx });
+          passes.write_dep_info(tcx);
         });
       } else {
         pretty.print(sess, pp_mode, { $: "AfterParsing", krate });
@@ -245,7 +274,7 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
       return;
     }
 
-    if (after_crate_root_parsing(callbacks, krate) === "Stop") {
+    if (Callbacks_provided.after_crate_root_parsing(callbacks, compiler, krate) === "Stop") {
       return;
     }
 
@@ -253,8 +282,43 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
       return;
     }
 
-    // `create_and_enter_global_ctxt(compiler, krate, |tcx| { .. analysis, codegen .. })` and linking.
-    unported("rustc_interface::passes::create_and_enter_global_ctxt (expansion, analysis, codegen)");
+    const [linker, incr_comp_session] = passes.create_and_enter_global_ctxt(compiler, krate, (tcx): undefined => {
+      // Make sure name resolution and macro expansion is run.
+      void tcx.resolver_for_lowering();
+
+      if (Callbacks_provided.after_expansion(callbacks, compiler, tcx) === "Stop") {
+        return undefined;
+      }
+
+      passes.write_dep_info(tcx);
+
+      passes.write_interface(tcx);
+
+      if (sess.opts.output_types.contains_key("DepInfo") && sess.opts.output_types.len() === 1) {
+        return undefined;
+      }
+
+      if (sess.opts.unstable_opts.no_analysis) {
+        return undefined;
+      }
+
+      tcx.ensure_ok().analysis(null);
+
+      if (Callbacks_provided.after_analysis(callbacks, compiler, tcx) === "Stop") {
+        return undefined;
+      }
+
+      // `pretty::emit_mir` (`--emit=mir`), `Linker::codegen_and_build_linker`, `dump_feature_usage_metrics`,
+      // `tcx.report_unused_features()`: after analysis (M3+).
+      return unported("rustc_interface::queue::Linker::codegen_and_build_linker (analysis, codegen; M3+)");
+    });
+
+    // Linking is done outside the `compiler.enter()` so that the
+    // `GlobalCtxt` within `Queries` can be freed as early as possible.
+    if (linker !== undefined) {
+      void incr_comp_session;
+      unported("rustc_interface::queue::Linker::link");
+    }
   });
 }
 
@@ -435,15 +499,25 @@ export function print_crate_info(codegen_backend: CodegenBackend, sess: Session,
           // no crate attributes, print out an error and exit
           return "Continue";
         }
-        // `build_output_filenames`, `get_crate_name`, `collect_crate_types`, `filename_for_input`
-        return unported("rustc_driver_impl::print_crate_info (--print file-names)");
+        {
+          const t_outputs = build_output_filenames(attrs, sess);
+          const crate_name = passes.get_crate_name(sess, attrs);
+          const crate_types = passes.collect_crate_types(sess, codegen_backend.supported_crate_types(sess), codegen_backend.name(), attrs, DUMMY_SP);
+          for (const style of crate_types) {
+            const fname = filename_for_input(sess, style, crate_name, t_outputs);
+            const file_name = path_file_name(fname.$ === "Real" ? fname._0 : "stdout");
+            if (file_name === undefined) panic("called `Option::unwrap()` on a `None` value");
+            println_info(file_name);
+          }
+        }
+        break;
       case "CrateName":
         if (attrs === undefined) {
           // no crate attributes, print out an error and exit
           return "Continue";
         }
-        // `passes::get_crate_name(sess, attrs)`
-        return unported("rustc_interface::passes::get_crate_name (--print crate-name)");
+        println_info(Symbol.as_str(passes.get_crate_name(sess, attrs)));
+        break;
       case "CrateRootLintLevels":
         if (attrs === undefined) {
           // no crate attributes, print out an error and exit
@@ -554,8 +628,21 @@ export function print_crate_info(codegen_backend: CodegenBackend, sess: Session,
         }
         break;
       case "SupportedCrateTypes":
-        // `CrateType::all()` filtered by `rustc_session::output::invalid_output_for_target`
-        return unported("rustc_session::output::invalid_output_for_target (--print supported-crate-types)");
+      {
+        // `BTreeSet<Symbol>`: `Symbol`'s `Ord` is its index (all predefined here).
+        const supported_crate_types = [
+          ...new Set(
+            CrateTypeC.all()
+              .filter(([, crate_type]) => !invalid_output_for_target(sess, crate_type))
+              .filter(([, crate_type]) => crate_type !== "Sdylib")
+              .map(([crate_type_sym]) => crate_type_sym),
+          ),
+        ].sort((a, b) => Symbol.as_u32(a) - Symbol.as_u32(b));
+        for (const supported_crate_type of supported_crate_types) {
+          println_info(Symbol.as_str(supported_crate_type));
+        }
+        break;
+      }
     }
 
     OutFileNameImpl.overwrite(req.out, crate_info, sess);

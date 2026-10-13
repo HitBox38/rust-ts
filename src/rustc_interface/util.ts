@@ -1,7 +1,10 @@
 // Partial port of compiler/rustc_interface/src/util.rs: the session/thread setup and codegen backend
 // selection used by `interface::run_compiler`, and `rustc_version_str`.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
-import { DEFAULT_STACK_SIZE, type Jobs, type Sysroot } from "../rustc_session/config.ts";
+import { DEFAULT_STACK_SIZE, Input, type Jobs, OutFileName, OutputFilenames, OutputType, OutputTypes, type Sysroot } from "../rustc_session/config.ts";
+import { isatty } from "node:tty";
+import type { Attribute } from "../rustc_ast/ast.gen.ts";
+import { parse_crate_name } from "./passes.ts";
 import type { EarlyDiagCtxt } from "../rustc_session/session.ts";
 import type { Target } from "../rustc_session/stand_ins.ts";
 import type { Cfg } from "../rustc_session/config/cfg.ts";
@@ -13,6 +16,7 @@ import { create_session_globals_then } from "../rustc_span/lib.ts";
 import type { SourceMapInputs } from "../rustc_span/source_map.ts";
 import { assert, unported } from "../std/panic.ts";
 import { type CodegenBackend, CurrentGcx, LlvmCodegenBackend, type TargetConfig } from "./stand_ins.ts";
+import * as diagnostics from "./diagnostics.gen.ts";
 
 export { DEFAULT_STACK_SIZE };
 
@@ -74,19 +78,33 @@ export function check_abi_required_features(sess: Session): void {
   // Also make it a hard error on x86, where we use SSE registers for the "Rust" ABI. The
   // post-mono ABI check only systematically checks "C" calls, so we better reject this here.
   const hard_error = sess.target.arch.$ === "Arm" || sess.target.arch.$ === "X86";
-  void hard_error;
 
   for (const feature of abi_feature_constraints.required) {
     if (!sess.internal_target_features.has(Symbol.intern(feature))) {
-      // `diagnostics::AbiRequiredTargetFeature { feature, enabled: "enabled", fcw: !hard_error }`,
-      // emitted as an error (`hard_error`) or a warning.
-      unported(`rustc_interface::diagnostics::AbiRequiredTargetFeature (required feature ${feature})`);
+      const diag = diagnostics.AbiRequiredTargetFeature_diagnostic({
+        feature,
+        enabled: "enabled",
+        fcw: !hard_error,
+      });
+      if (hard_error) {
+        sess.dcx().emit_err(diag);
+      } else {
+        sess.dcx().emit_warn(diag);
+      }
     }
   }
   for (const feature of abi_feature_constraints.incompatible) {
     if (sess.internal_target_features.has(Symbol.intern(feature))) {
-      // `diagnostics::AbiRequiredTargetFeature { feature, enabled: "disabled", fcw: !hard_error }`
-      unported(`rustc_interface::diagnostics::AbiRequiredTargetFeature (incompatible feature ${feature})`);
+      const diag = diagnostics.AbiRequiredTargetFeature_diagnostic({
+        feature,
+        enabled: "disabled",
+        fcw: !hard_error,
+      });
+      if (hard_error) {
+        sess.dcx().emit_err(diag);
+      } else {
+        sess.dcx().emit_warn(diag);
+      }
     }
   }
 }
@@ -211,6 +229,99 @@ let LOAD: (() => CodegenBackend) | undefined;
 
 /** PORT: `option_env!("CFG_DEFAULT_CODEGEN_BACKEND")` of the oracle build (official nightlies: `llvm`). */
 const CFG_DEFAULT_CODEGEN_BACKEND: string | undefined = "llvm";
+
+// rustc: compiler/rustc_interface/src/util.rs:617 multiple_output_types_to_stdout
+function multiple_output_types_to_stdout(output_types: OutputTypes, single_output_file_is_stdout: boolean): boolean {
+  // use std::io::IsTerminal;
+  if (isatty(1)) {
+    // If stdout is a tty, check if multiple text output types are
+    // specified by `--emit foo=- --emit bar=-` or `-o - --emit foo,bar`
+    const named_text_types = [...output_types.iter()].filter(([f, o]) => OutputType.is_text_output(f) && o !== undefined && o.$ === "Stdout").length;
+    const unnamed_text_types = [...output_types.iter()].filter(([f, o]) => OutputType.is_text_output(f) && o === undefined).length;
+    return named_text_types > 1 || (unnamed_text_types > 1 && single_output_file_is_stdout);
+  } else {
+    // Otherwise, all the output types should be checked
+    const named_types = [...output_types.values()].filter((o) => o !== undefined && o.$ === "Stdout").length;
+    const unnamed_types = [...output_types.values()].filter((o) => o === undefined).length;
+    return named_types > 1 || (unnamed_types > 1 && single_output_file_is_stdout);
+  }
+}
+
+// rustc: compiler/rustc_interface/src/util.rs:641 build_output_filenames
+export function build_output_filenames(attrs: readonly Attribute[], sess: Session): OutputFilenames {
+  if (multiple_output_types_to_stdout(sess.opts.output_types, sess.io.output_file !== undefined && sess.io.output_file.$ === "Stdout")) {
+    sess.dcx().emit_fatal(diagnostics.MultipleOutputTypesToStdout_diagnostic({}));
+  }
+
+  let crate_name = sess.opts.crate_name;
+  if (crate_name === undefined) {
+    const i = parse_crate_name(sess, attrs, { $: "Nothing" });
+    crate_name = i !== undefined ? Symbol.as_str(i[0]) : undefined;
+  }
+
+  const invocation_temp =
+    sess.opts.incremental !== undefined
+      ? unported("rustc_interface::util::build_output_filenames (invocation_temp: rand rng().next_u32().to_base_fixed_len(CASE_INSENSITIVE); -C incremental)")
+      : undefined;
+
+  const output_file = sess.io.output_file;
+  if (output_file === undefined) {
+    // "-" as input file will cause the parser to read from stdin so we
+    // have to make up a name
+    // We want to toss everything after the final '.'
+    const dirpath = sess.io.output_dir ?? "";
+
+    // If a crate name is present, we use it as the link name
+    const stem = crate_name ?? Input.filestem(sess.io.input);
+
+    return OutputFilenames.new(
+      dirpath,
+      crate_name ?? stem.replaceAll("-", "_"),
+      stem,
+      undefined,
+      sess.io.temps_dir,
+      invocation_temp,
+      sess.opts.unstable_opts.split_dwarf_out_dir,
+      sess.opts.cg.extra_filename,
+      clone_OutputTypes(sess.opts.output_types),
+    );
+  } else {
+    const out_file = output_file;
+    const unnamed_output_types = [...sess.opts.output_types.values()].filter((a) => a === undefined).length;
+    let ofile: OutFileName | undefined;
+    if (unnamed_output_types > 1) {
+      sess.dcx().emit_warn(diagnostics.MultipleOutputTypesAdaption_diagnostic({}));
+      ofile = undefined;
+    } else {
+      if (sess.opts.cg.extra_filename.length !== 0) {
+        sess.dcx().emit_warn(diagnostics.IgnoringExtraFilename_diagnostic({}));
+      }
+      ofile = out_file;
+    }
+    if (sess.io.output_dir !== undefined) {
+      sess.dcx().emit_warn(diagnostics.IgnoringOutDir_diagnostic({}));
+    }
+
+    // `out_file.filestem().unwrap_or_default().to_str().unwrap().to_string()`
+    const out_filestem = OutFileName.filestem(out_file) ?? "";
+    return OutputFilenames.new(
+      OutFileName.parent(out_file) ?? "",
+      crate_name ?? out_filestem.replaceAll("-", "_"),
+      out_filestem,
+      ofile,
+      sess.io.temps_dir,
+      invocation_temp,
+      sess.opts.unstable_opts.split_dwarf_out_dir,
+      sess.opts.cg.extra_filename,
+      clone_OutputTypes(sess.opts.output_types),
+    );
+  }
+}
+
+/** `OutputTypes::clone` (`#[derive(Clone)]` of the `BTreeMap` newtype). */
+function clone_OutputTypes(v: OutputTypes): OutputTypes {
+  return new OutputTypes(new Map(v._0));
+}
 
 /// Returns a version string such as "1.46.0 (04488afe3 2020-08-24)" when invoked by an in-tree tool.
 // `pub macro version_str() { option_env!("CFG_VERSION") }`
