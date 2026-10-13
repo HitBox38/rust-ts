@@ -1,0 +1,61 @@
+{
+  "//": [
+    "Configuration of tools/codegen/queries.ts (the `rustc_queries!` declarations generator).",
+    "aliases: Rust path prefixes that are re-exports of another path (longest prefix wins); applied before the",
+    "  type map / generated-type index lookup. `rustc_hir::def_id` is `pub use rustc_span::def_id::*`, etc.",
+    "keys: resolved key type (canonical text, see `typeKey`) -> name of its `QueryKey` impl in",
+    "  src/rustc_middle/query/keys.ts (`KEY_<name>`). Key types missing here get `key_unported(..)`.",
+    "into_key: key types whose TyCtxt methods take `impl IntoQueryKey<K>` (`maybe_into_query_key!`, query_api.rs:3).",
+    "display: `{}` formatting of a resolved type in a `desc` (template, $v = value) + imports (module -> names).",
+    "methods: return types (Rust text, resolved in queries.rs's scope) of non-query `TyCtxt` methods a `desc` may call.",
+    "fns: free functions a `desc` may call: TS name, module, Rust return type.",
+    "tagged_enums: enums whose TS shape is the `$`-tagged object union (match arms test `x.$`); other enums",
+    "  matched by a `desc` are string unions (match arms test `x ===`).",
+    "Anything a `desc` uses that is not covered here makes that description `unported(..)` (reported)."
+  ],
+  "aliases": {
+    "rustc_hir::def_id": "rustc_span::def_id",
+    "rustc_middle::ty::Visibility": "rustc_middle::ty::Visibility",
+    "rustc_span::def_id": "rustc_span::def_id",
+    "rustc_span::ExpnId": "rustc_span::hygiene::ExpnId",
+    "rustc_span::LocalExpnId": "rustc_span::hygiene::LocalExpnId",
+    "rustc_span::Span": "rustc_span::Span",
+    "rustc_session::Limits": "rustc_session::session::Limits",
+    "rustc_hir::def::": "rustc_hir::def::",
+    "rustc_hir::OwnerId": "rustc_hir_id::OwnerId",
+    "rustc_hir::ItemLocalId": "rustc_hir_id::ItemLocalId",
+    "rustc_middle::lint::LintExpectation": "rustc_middle::lint::LintExpectation",
+    "rustc_hir::definitions": "rustc_hir_id::definitions"
+  },
+  "keys": {
+    "()": "unit",
+    "rustc_span::def_id::DefId": "DefId",
+    "rustc_span::def_id::LocalDefId": "LocalDefId",
+    "rustc_span::def_id::CrateNum": "CrateNum",
+    "rustc_hir_id::OwnerId": "OwnerId",
+    "rustc_span::def_id::ModId": "ModId",
+    "rustc_span::def_id::LocalModId": "LocalModId",
+    "rustc_span::Symbol": "Symbol",
+    "Option<rustc_span::Symbol>": "Option_Symbol",
+    "(rustc_span::def_id::DefId, rustc_span::def_id::DefId)": "DefId_DefId",
+    "(rustc_span::def_id::CrateNum, rustc_span::def_id::DefId)": "CrateNum_DefId"
+  },
+  "into_key": {
+    "rustc_span::def_id::DefId": "into_query_key_DefId",
+    "rustc_span::def_id::LocalDefId": "into_query_key_LocalDefId"
+  },
+  "display": {
+    "String": { "ts": "$v" },
+    "str": { "ts": "$v" },
+    "rustc_span::Symbol": { "ts": "display_Symbol($v)", "imports": { "src/rustc_span/symbol.ts": ["display_Symbol"] } },
+    "rustc_span::Ident": { "ts": "display_Ident($v)", "imports": { "src/rustc_span/symbol.ts": ["display_Ident"] } },
+    "rustc_span::def_id::CrateNum": { "ts": "display_CrateNum($v)", "imports": { "src/rustc_span/def_id.ts": ["display_CrateNum"] } }
+  },
+  "methods": {
+    "def_path_str": "String"
+  },
+  "fns": {
+    "describe_as_module": { "ts": "describe_as_module", "module": "src/rustc_middle/queries.ts", "ret": "String" }
+  },
+  "tagged_enums": ["rustc_hir::def::DefKind"]
+}

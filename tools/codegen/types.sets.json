@@ -278,5 +278,14 @@
     "hand_notes": {
       "*": "rustc_span's types are hand-written (src/rustc_span/*.ts); this set only generates rustc_span/stable_hash.gen.ts (derive(StableHash)). stable_hash_access: branded newtypes (the TS value is the field) and StableSourceFileId (keeps its hash inputs; hash() computes the Hash128)."
     }
+  },
+  "rustc_query_impl": {
+    "files": [
+      "compiler/rustc_query_impl/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
   }
 }

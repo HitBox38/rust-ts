@@ -1,7 +1,7 @@
 // Port of compiler/rustc_middle/src/ich.rs (the `StableHashCtxt` rustc uses: `tcx.with_stable_hashing_context`).
-// PORT: `Untracked` (rustc_crate_store) is not ported yet: `UntrackedForHashing` below is the slice of it
-// this file reads (`definitions.read().def_path_hash`, `cstore.read().def_path_hash`, `source_span`), with
-// the `FreezeLock`s / `RwLock`s erased (PORTING §5).
+// PORT: `Untracked` (rustc_crate_store) has its `FreezeLock`s / `RwLock`s erased (PORTING §5), so
+// `definitions.read()` / `cstore.read()` are the fields themselves.
+import type { Untracked } from "../rustc_crate_store/cstore.ts";
 import type { Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import {
   type RawDefId,
@@ -23,12 +23,13 @@ import type { SourceMap } from "../rustc_span/source_map.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
 
-/** PORT: the parts of `rustc_crate_store::Untracked` that stable hashing reads (see the top of the file). */
+/** The parts of `rustc_crate_store::Untracked` that stable hashing reads; `Untracked` satisfies it (tests pass
+ * smaller objects). */
 export interface UntrackedForHashing {
   /** `untracked.definitions.read()` */
-  definitions: { def_path_hash(def_id: LocalDefId): DefPathHash };
+  definitions: Pick<Untracked["definitions"], "def_path_hash">;
   /** `untracked.cstore.read()` */
-  cstore: { def_path_hash(def_id: DefId): DefPathHash };
+  cstore: Pick<Untracked["cstore"], "def_path_hash">;
   /** `untracked.source_span: AppendOnlyIndexVec<LocalDefId, Span>` */
   source_span: readonly (Span | undefined)[];
 }
