@@ -31,6 +31,10 @@ export const ORACLE_RETRY_FACTOR = 4;
 export interface CaseResult {
   id: string;
   status: Status;
+  /** UNPORTED: what the subject reported (`rust-ts: unported: <what>`), for bucketing. */
+  unported?: string;
+  /** DIFF/CRASH: the first differing line, as `<line>: <oracle> | <subject>` (each JSON, cut to 200 chars). */
+  first?: string;
 }
 
 interface Output {
@@ -354,6 +358,15 @@ function firstDiff(a: string, b: string): string {
   return "(identical text; exit codes differ)";
 }
 
+function firstDiffLine(a: string, b: string): string {
+  const al = a.split("\n");
+  const bl = b.split("\n");
+  for (let i = 0; i < Math.max(al.length, bl.length); i++) {
+    if (al[i] !== bl[i]) return `${i + 1}: ${JSON.stringify((al[i] ?? "<eof>").slice(0, 200))} | ${JSON.stringify((bl[i] ?? "<eof>").slice(0, 200))}`;
+  }
+  return "(identical text; exit codes differ)";
+}
+
 export function sample<T extends { id: string }>(items: T[], n: number, seed: string): T[] {
   return items
     .map((it) => ({ it, k: hash(seed + "\0" + it.id) }))
@@ -405,7 +418,12 @@ export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[
         const oc = o.get(c.id)!;
         const sc = sub.get(c.id)!;
         const status = classify(oc, sc);
-        results.push({ id: c.id, status });
+        const r: CaseResult = { id: c.id, status };
+        if (status === "UNPORTED") {
+          const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
+          if (m) r.unported = m[1]!.slice(0, 300);
+        } else if (status === "DIFF" || status === "CRASH") r.first = firstDiffLine(oc.text, sc.text);
+        results.push(r);
         if (status !== "MATCH" && status !== "UNPORTED" && diffsWritten < 500) {
           diffsWritten++;
           const name = c.id.replace(/[\\/:]/g, "__");
