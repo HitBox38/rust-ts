@@ -1,0 +1,195 @@
+== visibilities_for_hashing (30)
+DefId(0:0 ~ reexport[1d5a]) Public
+DefId(0:1 ~ reexport[1d5a]::a) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:2 ~ reexport[1d5a]::a::P) Restricted(LocalModId(DefId(0:1 ~ reexport[1d5a]::a)))
+DefId(0:2 ~ reexport[1d5a]::a::P) Restricted(LocalModId(DefId(0:1 ~ reexport[1d5a]::a)))
+DefId(0:3 ~ reexport[1d5a]::a::P::{constructor#0}) Restricted(LocalModId(DefId(0:1 ~ reexport[1d5a]::a)))
+DefId(0:4 ~ reexport[1d5a]::a::Q) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:4 ~ reexport[1d5a]::a::Q) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:5 ~ reexport[1d5a]::a::Q::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:6 ~ reexport[1d5a]::a::inner) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:7 ~ reexport[1d5a]::a::inner::R) Public
+DefId(0:7 ~ reexport[1d5a]::a::inner::R) Public
+DefId(0:8 ~ reexport[1d5a]::a::inner::R::{constructor#0}) Public
+DefId(0:9 ~ reexport[1d5a]::a::S) Public
+DefId(0:9 ~ reexport[1d5a]::a::S) Public
+DefId(0:10 ~ reexport[1d5a]::a::S::{constructor#0}) Public
+DefId(0:11 ~ reexport[1d5a]::a::q) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:12 ~ reexport[1d5a]::a::mac) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:13 ~ reexport[1d5a]::a::{use#0}) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:14 ~ reexport[1d5a]::{use#0}) Public
+DefId(0:15 ~ reexport[1d5a]::{use#1}) Public
+DefId(0:16 ~ reexport[1d5a]::{use#2}) Public
+DefId(0:17 ~ reexport[1d5a]::{use#3}) Public
+DefId(0:18 ~ reexport[1d5a]::{use#4}) Public
+DefId(0:19 ~ reexport[1d5a]::b) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:20 ~ reexport[1d5a]::b::c) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:21 ~ reexport[1d5a]::b::c::T) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:21 ~ reexport[1d5a]::b::c::T) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:22 ~ reexport[1d5a]::b::c::T::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+DefId(0:23 ~ reexport[1d5a]::b::{use#0}) Public
+DefId(0:24 ~ reexport[1d5a]::{use#5}) Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a])))
+== expn_that_defined (0)
+== effective_visibilities (23)
+DefId(0:0 ~ reexport[1d5a]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:4 ~ reexport[1d5a]::a::Q) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:5 ~ reexport[1d5a]::a::Q::{constructor#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:6 ~ reexport[1d5a]::a::inner) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:11 ~ reexport[1d5a]::a::q) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:12 ~ reexport[1d5a]::a::mac) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:1 ~ reexport[1d5a]::a))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:9 ~ reexport[1d5a]::a::S) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:10 ~ reexport[1d5a]::a::S::{constructor#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:1 ~ reexport[1d5a]::a) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:7 ~ reexport[1d5a]::a::inner::R) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:8 ~ reexport[1d5a]::a::inner::R::{constructor#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:19 ~ reexport[1d5a]::b) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:20 ~ reexport[1d5a]::b::c) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:21 ~ reexport[1d5a]::b::c::T) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:22 ~ reexport[1d5a]::b::c::T::{constructor#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:14 ~ reexport[1d5a]::{use#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:15 ~ reexport[1d5a]::{use#1}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:16 ~ reexport[1d5a]::{use#2}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:17 ~ reexport[1d5a]::{use#3}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:18 ~ reexport[1d5a]::{use#4}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:13 ~ reexport[1d5a]::a::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:24 ~ reexport[1d5a]::{use#5}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+DefId(0:23 ~ reexport[1d5a]::b::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reexported: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ reexport[1d5a]))) }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (5)
+DefId(0:0 ~ reexport[1d5a])
+  ModChild { ident: a#0, res: Def(Mod, DefId(0:1 ~ reexport[1d5a]::a)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [] }
+  ModChild { ident: Q#0, res: Def(Struct, DefId(0:4 ~ reexport[1d5a]::a::Q)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Single(DefId(0:15 ~ reexport[1d5a]::{use#1}))] }
+  ModChild { ident: Q#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ reexport[1d5a]::a::Q::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Single(DefId(0:15 ~ reexport[1d5a]::{use#1}))] }
+  ModChild { ident: inner#0, res: Def(Mod, DefId(0:6 ~ reexport[1d5a]::a::inner)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Single(DefId(0:16 ~ reexport[1d5a]::{use#2}))] }
+  ModChild { ident: q#0, res: Def(Fn, DefId(0:11 ~ reexport[1d5a]::a::q)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Single(DefId(0:17 ~ reexport[1d5a]::{use#3}))] }
+  ModChild { ident: mac#0, res: Def(Macro(MacroKinds(1)), DefId(0:12 ~ reexport[1d5a]::a::mac)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Single(DefId(0:18 ~ reexport[1d5a]::{use#4})), Single(DefId(0:13 ~ reexport[1d5a]::a::{use#0}))] }
+  ModChild { ident: b#0, res: Def(Mod, DefId(0:19 ~ reexport[1d5a]::b)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [] }
+  ModChild { ident: S#0, res: Def(Struct, DefId(0:9 ~ reexport[1d5a]::a::S)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Single(DefId(0:24 ~ reexport[1d5a]::{use#5}))] }
+  ModChild { ident: S#0, res: Def(Ctor(Struct, Const), DefId(0:10 ~ reexport[1d5a]::a::S::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Single(DefId(0:24 ~ reexport[1d5a]::{use#5}))] }
+DefId(0:1 ~ reexport[1d5a]::a)
+  ModChild { ident: P#0, res: Def(Struct, DefId(0:2 ~ reexport[1d5a]::a::P)), vis: Restricted(ModId(DefId(0:1 ~ reexport[1d5a]::a))), reexport_chain: [] }
+  ModChild { ident: P#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ reexport[1d5a]::a::P::{constructor#0})), vis: Restricted(ModId(DefId(0:1 ~ reexport[1d5a]::a))), reexport_chain: [] }
+  ModChild { ident: Q#0, res: Def(Struct, DefId(0:4 ~ reexport[1d5a]::a::Q)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [] }
+  ModChild { ident: Q#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ reexport[1d5a]::a::Q::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [] }
+  ModChild { ident: inner#0, res: Def(Mod, DefId(0:6 ~ reexport[1d5a]::a::inner)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [] }
+  ModChild { ident: S#0, res: Def(Struct, DefId(0:9 ~ reexport[1d5a]::a::S)), vis: Public, reexport_chain: [] }
+  ModChild { ident: S#0, res: Def(Ctor(Struct, Const), DefId(0:10 ~ reexport[1d5a]::a::S::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: q#0, res: Def(Fn, DefId(0:11 ~ reexport[1d5a]::a::q)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [] }
+  ModChild { ident: mac#0, res: Def(Macro(MacroKinds(1)), DefId(0:12 ~ reexport[1d5a]::a::mac)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Single(DefId(0:13 ~ reexport[1d5a]::a::{use#0}))] }
+DefId(0:6 ~ reexport[1d5a]::a::inner)
+  ModChild { ident: R#0, res: Def(Struct, DefId(0:7 ~ reexport[1d5a]::a::inner::R)), vis: Public, reexport_chain: [] }
+  ModChild { ident: R#0, res: Def(Ctor(Struct, Const), DefId(0:8 ~ reexport[1d5a]::a::inner::R::{constructor#0})), vis: Public, reexport_chain: [] }
+DefId(0:19 ~ reexport[1d5a]::b)
+  ModChild { ident: c#0, res: Def(Mod, DefId(0:20 ~ reexport[1d5a]::b::c)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [] }
+  ModChild { ident: T#0, res: Def(Struct, DefId(0:21 ~ reexport[1d5a]::b::c::T)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Glob(DefId(0:23 ~ reexport[1d5a]::b::{use#0}))] }
+  ModChild { ident: T#0, res: Def(Ctor(Struct, Const), DefId(0:22 ~ reexport[1d5a]::b::c::T::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [Glob(DefId(0:23 ~ reexport[1d5a]::b::{use#0}))] }
+DefId(0:20 ~ reexport[1d5a]::b::c)
+  ModChild { ident: T#0, res: Def(Struct, DefId(0:21 ~ reexport[1d5a]::b::c::T)), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [] }
+  ModChild { ident: T#0, res: Def(Ctor(Struct, Const), DefId(0:22 ~ reexport[1d5a]::b::c::T::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ reexport[1d5a]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (1)
+"mac"
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(57)
+== partial_res_map (9)
+NodeId(27) PartialRes { base_res: Def(Mod, DefId(0:1 ~ reexport[1d5a]::a)), unresolved_segments: 0 }
+NodeId(30) PartialRes { base_res: Def(Mod, DefId(0:1 ~ reexport[1d5a]::a)), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: Def(Mod, DefId(0:1 ~ reexport[1d5a]::a)), unresolved_segments: 0 }
+NodeId(36) PartialRes { base_res: Def(Mod, DefId(0:1 ~ reexport[1d5a]::a)), unresolved_segments: 0 }
+NodeId(39) PartialRes { base_res: Def(Mod, DefId(0:1 ~ reexport[1d5a]::a)), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: Def(Mod, DefId(0:20 ~ reexport[1d5a]::b::c)), unresolved_segments: 0 }
+NodeId(50) PartialRes { base_res: Def(Mod, DefId(0:19 ~ reexport[1d5a]::b)), unresolved_segments: 0 }
+NodeId(51) PartialRes { base_res: Def(Mod, DefId(0:20 ~ reexport[1d5a]::b::c)), unresolved_segments: 0 }
+NodeId(55) PartialRes { base_res: Def(Mod, DefId(0:1 ~ reexport[1d5a]::a)), unresolved_segments: 0 }
+== owners (20)
+NodeId(0) def_id=DefId(0:0 ~ reexport[1d5a]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ reexport[1d5a]::a) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:2 ~ reexport[1d5a]::a::P) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(5) DefId(0:3 ~ reexport[1d5a]::a::P::{constructor#0})
+NodeId(6) def_id=DefId(0:4 ~ reexport[1d5a]::a::Q) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(9) DefId(0:5 ~ reexport[1d5a]::a::Q::{constructor#0})
+NodeId(10) def_id=DefId(0:6 ~ reexport[1d5a]::a::inner) lifetime_elision_allowed=false
+NodeId(13) def_id=DefId(0:7 ~ reexport[1d5a]::a::inner::R) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(14) DefId(0:8 ~ reexport[1d5a]::a::inner::R::{constructor#0})
+NodeId(15) def_id=DefId(0:9 ~ reexport[1d5a]::a::S) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(16) DefId(0:10 ~ reexport[1d5a]::a::S::{constructor#0})
+NodeId(17) def_id=DefId(0:11 ~ reexport[1d5a]::a::q) lifetime_elision_allowed=false
+NodeId(21) def_id=DefId(0:12 ~ reexport[1d5a]::a::mac) lifetime_elision_allowed=false
+NodeId(22) def_id=DefId(0:13 ~ reexport[1d5a]::a::{use#0}) lifetime_elision_allowed=false
+  import_res NodeId(22) PerNS { value_ns: None, type_ns: None, macro_ns: Some(Def(Macro(MacroKinds(1)), DefId(0:12 ~ reexport[1d5a]::a::mac))) }
+NodeId(26) def_id=DefId(0:14 ~ reexport[1d5a]::{use#0}) lifetime_elision_allowed=false
+NodeId(29) def_id=DefId(0:15 ~ reexport[1d5a]::{use#1}) lifetime_elision_allowed=false
+  import_res NodeId(29) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:5 ~ reexport[1d5a]::a::Q::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:4 ~ reexport[1d5a]::a::Q))), macro_ns: None }
+NodeId(32) def_id=DefId(0:16 ~ reexport[1d5a]::{use#2}) lifetime_elision_allowed=false
+  import_res NodeId(32) PerNS { value_ns: None, type_ns: Some(Def(Mod, DefId(0:6 ~ reexport[1d5a]::a::inner))), macro_ns: None }
+NodeId(35) def_id=DefId(0:17 ~ reexport[1d5a]::{use#3}) lifetime_elision_allowed=false
+  import_res NodeId(35) PerNS { value_ns: Some(Def(Fn, DefId(0:11 ~ reexport[1d5a]::a::q))), type_ns: None, macro_ns: None }
+NodeId(38) def_id=DefId(0:18 ~ reexport[1d5a]::{use#4}) lifetime_elision_allowed=false
+  import_res NodeId(38) PerNS { value_ns: None, type_ns: None, macro_ns: Some(Def(Macro(MacroKinds(1)), DefId(0:12 ~ reexport[1d5a]::a::mac))) }
+NodeId(41) def_id=DefId(0:19 ~ reexport[1d5a]::b) lifetime_elision_allowed=false
+NodeId(42) def_id=DefId(0:20 ~ reexport[1d5a]::b::c) lifetime_elision_allowed=false
+NodeId(45) def_id=DefId(0:21 ~ reexport[1d5a]::b::c::T) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(48) DefId(0:22 ~ reexport[1d5a]::b::c::T::{constructor#0})
+NodeId(49) def_id=DefId(0:23 ~ reexport[1d5a]::b::{use#0}) lifetime_elision_allowed=false
+NodeId(52) def_id=DefId(0:24 ~ reexport[1d5a]::{use#5}) lifetime_elision_allowed=false
+  import_res NodeId(52) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:10 ~ reexport[1d5a]::a::S::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:9 ~ reexport[1d5a]::a::S))), macro_ns: None }
+== lint_buffer (8)
+NodeId(21) UNUSED_MACROS [reexport.rs:9:18: 9:21 (#0)]
+NodeId(49) UNUSED_IMPORTS [reexport.rs:19:13: 19:23 (#0)]
+NodeId(49) UNUSED_IMPORTS [reexport.rs:19:13: 19:23 (#0)]
+NodeId(29) UNUSED_IMPORTS [reexport.rs:13:9: 13:13 (#0)]
+NodeId(32) UNUSED_IMPORTS [reexport.rs:14:9: 14:17 (#0)]
+NodeId(35) UNUSED_IMPORTS [reexport.rs:15:9: 15:13 (#0)]
+NodeId(38) UNUSED_IMPORTS [reexport.rs:16:9: 16:15 (#0)]
+NodeId(52) UNUSED_IMPORTS [reexport.rs:21:16: 21:20 (#0)]
+== disambiguators (10)
+DefId(0:0 ~ reexport[1d5a])
+DefId(0:1 ~ reexport[1d5a]::a)
+DefId(0:2 ~ reexport[1d5a]::a::P)
+DefId(0:4 ~ reexport[1d5a]::a::Q)
+DefId(0:6 ~ reexport[1d5a]::a::inner)
+DefId(0:7 ~ reexport[1d5a]::a::inner::R)
+DefId(0:9 ~ reexport[1d5a]::a::S)
+DefId(0:19 ~ reexport[1d5a]::b)
+DefId(0:20 ~ reexport[1d5a]::b::c)
+DefId(0:21 ~ reexport[1d5a]::b::c::T)
+== definitions (25)
+DefId(0:0 ~ reexport[1d5a]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 2115219147776698055))
+DefId(0:1 ~ reexport[1d5a]::a) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("a"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 11816741113419240214))
+DefId(0:2 ~ reexport[1d5a]::a::P) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("P"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 9449992433309463318))
+DefId(0:3 ~ reexport[1d5a]::a::P::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 6070606158282068614))
+DefId(0:4 ~ reexport[1d5a]::a::Q) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Q"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 9022281533443640477))
+DefId(0:5 ~ reexport[1d5a]::a::Q::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 1641507478745052700))
+DefId(0:6 ~ reexport[1d5a]::a::inner) Mod DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("inner"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 3110106105730083844))
+DefId(0:7 ~ reexport[1d5a]::a::inner::R) Struct DefKey { parent: Some(DefIndex(6)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("R"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 9906798265664788520))
+DefId(0:8 ~ reexport[1d5a]::a::inner::R::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(7)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 10314903587016327739))
+DefId(0:9 ~ reexport[1d5a]::a::S) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("S"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 18253140167080048541))
+DefId(0:10 ~ reexport[1d5a]::a::S::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 2059809581633876689))
+DefId(0:11 ~ reexport[1d5a]::a::q) Fn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("q"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 18137090272838426356))
+DefId(0:12 ~ reexport[1d5a]::a::mac) Macro(MacroKinds(1)) DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: MacroNs("mac"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 3986788653351230602))
+DefId(0:13 ~ reexport[1d5a]::a::{use#0}) Use DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 249651857865461059))
+DefId(0:14 ~ reexport[1d5a]::{use#0}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 9720576756879261116))
+DefId(0:15 ~ reexport[1d5a]::{use#1}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(2115219147776698055, 6778231712582002500))
+DefId(0:16 ~ reexport[1d5a]::{use#2}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 2 } } DefPathHash(Fingerprint(2115219147776698055, 14917515600263449502))
+DefId(0:17 ~ reexport[1d5a]::{use#3}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 3 } } DefPathHash(Fingerprint(2115219147776698055, 507635832355476195))
+DefId(0:18 ~ reexport[1d5a]::{use#4}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 4 } } DefPathHash(Fingerprint(2115219147776698055, 11427410467576818965))
+DefId(0:19 ~ reexport[1d5a]::b) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("b"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 6880418799256913016))
+DefId(0:20 ~ reexport[1d5a]::b::c) Mod DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("c"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 11889445392799887771))
+DefId(0:21 ~ reexport[1d5a]::b::c::T) Struct DefKey { parent: Some(DefIndex(20)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 8895262182470280662))
+DefId(0:22 ~ reexport[1d5a]::b::c::T::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(21)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 5604098027041579133))
+DefId(0:23 ~ reexport[1d5a]::b::{use#0}) Use DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(2115219147776698055, 16237594925433196542))
+DefId(0:24 ~ reexport[1d5a]::{use#5}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 5 } } DefPathHash(Fingerprint(2115219147776698055, 15206954248957537275))

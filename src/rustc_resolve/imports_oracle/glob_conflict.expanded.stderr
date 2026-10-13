@@ -1,0 +1,118 @@
+error[E0659]: `X` is ambiguous
+  --> glob_conflict.rs:11:18
+   |
+11 |     pub type T = X;
+   |                  ^ ambiguous name
+   |
+   = note: ambiguous because of multiple glob imports of a name in the same module
+note: `X` could refer to the struct imported here
+  --> glob_conflict.rs:9:9
+   |
+ 9 |     use crate::a::*;
+   |         ^^^^^^^^^^^
+   = help: consider adding an explicit import of `X` to disambiguate
+note: `X` could also refer to the struct imported here
+  --> glob_conflict.rs:10:9
+   |
+10 |     use crate::b::*;
+   |         ^^^^^^^^^^^
+   = help: consider adding an explicit import of `X` to disambiguate
+
+warning: ambiguous glob re-exports
+ --> glob_conflict.rs:5:13
+  |
+5 |     pub use crate::a::*;
+  |             ^^^^^^^^^^^ the name `X` in the type namespace is first re-exported here
+6 |     pub use crate::b::*;
+  |             ----------- but the name `X` in the type namespace is also re-exported here
+  |
+  = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: ambiguous glob re-exports
+ --> glob_conflict.rs:5:13
+  |
+5 |     pub use crate::a::*;
+  |             ^^^^^^^^^^^ the name `X` in the value namespace is first re-exported here
+6 |     pub use crate::b::*;
+  |             ----------- but the name `X` in the value namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+ --> glob_conflict.rs:5:13
+  |
+5 |     pub use crate::a::*;
+  |             ^^^^^^^^^^^ the name `W` in the type namespace is first re-exported here
+6 |     pub use crate::b::*;
+  |             ----------- but the name `W` in the type namespace is also re-exported here
+
+warning: ambiguous glob re-exports
+ --> glob_conflict.rs:5:13
+  |
+5 |     pub use crate::a::*;
+  |             ^^^^^^^^^^^ the name `W` in the value namespace is first re-exported here
+6 |     pub use crate::b::*;
+  |             ----------- but the name `W` in the value namespace is also re-exported here
+
+warning: unused import: `crate::b::*`
+  --> glob_conflict.rs:10:9
+   |
+10 |     use crate::b::*;
+   |         ^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: private item shadows public glob re-export
+  --> glob_conflict.rs:20:5
+   |
+20 |     struct X;
+   |     ^^^^^^^^^
+   |
+note: the name `X` in the type namespace is supposed to be publicly re-exported here
+  --> glob_conflict.rs:19:13
+   |
+19 |     pub use crate::a::*;
+   |             ^^^^^^^^^^^
+note: but the private item here shadows it
+  --> glob_conflict.rs:20:5
+   |
+20 |     struct X;
+   |     ^^^^^^^^^
+   = note: `#[warn(hidden_glob_reexports)]` on by default
+
+warning: private item shadows public glob re-export
+  --> glob_conflict.rs:20:5
+   |
+20 |     struct X;
+   |     ^^^^^^^^^
+   |
+note: the name `X` in the value namespace is supposed to be publicly re-exported here
+  --> glob_conflict.rs:19:13
+   |
+19 |     pub use crate::a::*;
+   |             ^^^^^^^^^^^
+note: but the private item here shadows it
+  --> glob_conflict.rs:20:5
+   |
+20 |     struct X;
+   |     ^^^^^^^^^
+
+warning: unused import: `crate::a::*`
+  --> glob_conflict.rs:25:9
+   |
+25 |     use crate::a::*;
+   |         ^^^^^^^^^^^
+
+warning: unused import: `super::h2::*`
+  --> glob_conflict.rs:31:22
+   |
+31 |     mod h1 { pub use super::h2::*; pub struct Q; }
+   |                      ^^^^^^^^^^^^
+
+warning: unused import: `super::h1::*`
+  --> glob_conflict.rs:32:22
+   |
+32 |     mod h2 { pub use super::h1::*; pub struct R; }
+   |                      ^^^^^^^^^^^^
+
+error: aborting due to 1 previous error; 10 warnings emitted
+
+For more information about this error, try `rustc --explain E0659`.

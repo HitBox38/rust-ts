@@ -1,0 +1,22 @@
+{
+  "use_forms": {
+    "resdump": 0,
+    "expanded": 0
+  },
+  "glob_conflict": {
+    "resdump": 1,
+    "expanded": 1
+  },
+  "unresolved": {
+    "resdump": 1,
+    "expanded": 1
+  },
+  "reexport": {
+    "resdump": 1,
+    "expanded": 1
+  },
+  "unused": {
+    "resdump": 0,
+    "expanded": 0
+  }
+}

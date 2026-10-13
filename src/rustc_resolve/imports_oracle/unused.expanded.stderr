@@ -1,0 +1,46 @@
+warning: unused import: `a::B`
+ --> unused.rs:8:5
+  |
+8 | use a::B;
+  |     ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `B` and `D`
+  --> unused.rs:10:20
+   |
+10 |     use crate::a::{B, C, D};
+   |                    ^     ^
+
+warning: unused import: `crate::a::B as B2`
+  --> unused.rs:15:9
+   |
+15 |     use crate::a::B as B2;
+   |         ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::a::*`
+  --> unused.rs:19:9
+   |
+19 |     use crate::a::*;
+   |         ^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> unused.rs:18:1
+   |
+18 | mod tests {
+   | ^^^^^^^^^
+
+warning: unused import: `C`
+  --> unused.rs:20:20
+   |
+20 |     use crate::a::{C};
+   |                    ^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> unused.rs:18:1
+   |
+18 | mod tests {
+   | ^^^^^^^^^
+
+warning: 5 warnings emitted
+

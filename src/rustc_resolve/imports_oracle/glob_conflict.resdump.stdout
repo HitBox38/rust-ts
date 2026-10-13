@@ -1,0 +1,397 @@
+== visibilities_for_hashing (58)
+DefId(0:0 ~ glob_conflict[5adb]) Public
+DefId(0:1 ~ glob_conflict[5adb]::a) Public
+DefId(0:2 ~ glob_conflict[5adb]::a::X) Public
+DefId(0:2 ~ glob_conflict[5adb]::a::X) Public
+DefId(0:3 ~ glob_conflict[5adb]::a::X::{constructor#0}) Public
+DefId(0:4 ~ glob_conflict[5adb]::a::Y) Public
+DefId(0:4 ~ glob_conflict[5adb]::a::Y) Public
+DefId(0:5 ~ glob_conflict[5adb]::a::Y::{constructor#0}) Public
+DefId(0:6 ~ glob_conflict[5adb]::a::W) Public
+DefId(0:6 ~ glob_conflict[5adb]::a::W) Public
+DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0}) Public
+DefId(0:8 ~ glob_conflict[5adb]::b) Public
+DefId(0:9 ~ glob_conflict[5adb]::b::X) Public
+DefId(0:9 ~ glob_conflict[5adb]::b::X) Public
+DefId(0:10 ~ glob_conflict[5adb]::b::X::{constructor#0}) Public
+DefId(0:11 ~ glob_conflict[5adb]::b::Z) Public
+DefId(0:11 ~ glob_conflict[5adb]::b::Z) Public
+DefId(0:12 ~ glob_conflict[5adb]::b::Z::{constructor#0}) Public
+DefId(0:13 ~ glob_conflict[5adb]::b::W) Public
+DefId(0:13 ~ glob_conflict[5adb]::b::W) Public
+DefId(0:14 ~ glob_conflict[5adb]::b::W::{constructor#0}) Public
+DefId(0:15 ~ glob_conflict[5adb]::c) Public
+DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}) Public
+DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}) Public
+DefId(0:18 ~ glob_conflict[5adb]::d) Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb])))
+DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}) Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d)))
+DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}) Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d)))
+DefId(0:21 ~ glob_conflict[5adb]::d::T) Public
+DefId(0:22 ~ glob_conflict[5adb]::e) Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb])))
+DefId(0:23 ~ glob_conflict[5adb]::e::{use#0}) Restricted(LocalModId(DefId(0:22 ~ glob_conflict[5adb]::e)))
+DefId(0:24 ~ glob_conflict[5adb]::e::Y) Public
+DefId(0:24 ~ glob_conflict[5adb]::e::Y) Public
+DefId(0:25 ~ glob_conflict[5adb]::e::Y::{constructor#0}) Public
+DefId(0:26 ~ glob_conflict[5adb]::e::U) Public
+DefId(0:27 ~ glob_conflict[5adb]::f) Public
+DefId(0:28 ~ glob_conflict[5adb]::f::{use#0}) Public
+DefId(0:29 ~ glob_conflict[5adb]::f::X) Restricted(LocalModId(DefId(0:27 ~ glob_conflict[5adb]::f)))
+DefId(0:29 ~ glob_conflict[5adb]::f::X) Restricted(LocalModId(DefId(0:27 ~ glob_conflict[5adb]::f)))
+DefId(0:30 ~ glob_conflict[5adb]::f::X::{constructor#0}) Restricted(LocalModId(DefId(0:27 ~ glob_conflict[5adb]::f)))
+DefId(0:31 ~ glob_conflict[5adb]::f::V) Public
+DefId(0:32 ~ glob_conflict[5adb]::g) Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb])))
+DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}) Restricted(LocalModId(DefId(0:32 ~ glob_conflict[5adb]::g)))
+DefId(0:34 ~ glob_conflict[5adb]::g::{use#1}) Restricted(LocalModId(DefId(0:32 ~ glob_conflict[5adb]::g)))
+DefId(0:35 ~ glob_conflict[5adb]::g::S) Public
+DefId(0:36 ~ glob_conflict[5adb]::h) Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb])))
+DefId(0:37 ~ glob_conflict[5adb]::h::{use#0}) Public
+DefId(0:38 ~ glob_conflict[5adb]::h::{use#1}) Public
+DefId(0:39 ~ glob_conflict[5adb]::h::h1) Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h)))
+DefId(0:40 ~ glob_conflict[5adb]::h::h1::{use#0}) Public
+DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q) Public
+DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q) Public
+DefId(0:42 ~ glob_conflict[5adb]::h::h1::Q::{constructor#0}) Public
+DefId(0:43 ~ glob_conflict[5adb]::h::h2) Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h)))
+DefId(0:44 ~ glob_conflict[5adb]::h::h2::{use#0}) Public
+DefId(0:45 ~ glob_conflict[5adb]::h::h2::R) Public
+DefId(0:45 ~ glob_conflict[5adb]::h::h2::R) Public
+DefId(0:46 ~ glob_conflict[5adb]::h::h2::R::{constructor#0}) Public
+DefId(0:47 ~ glob_conflict[5adb]::h::P) Public
+== expn_that_defined (0)
+== effective_visibilities (45)
+DefId(0:0 ~ glob_conflict[5adb]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:1 ~ glob_conflict[5adb]::a) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:8 ~ glob_conflict[5adb]::b) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:15 ~ glob_conflict[5adb]::c) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:27 ~ glob_conflict[5adb]::f) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:2 ~ glob_conflict[5adb]::a::X) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:3 ~ glob_conflict[5adb]::a::X::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:4 ~ glob_conflict[5adb]::a::Y) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:5 ~ glob_conflict[5adb]::a::Y::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:6 ~ glob_conflict[5adb]::a::W) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:9 ~ glob_conflict[5adb]::b::X) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:10 ~ glob_conflict[5adb]::b::X::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:11 ~ glob_conflict[5adb]::b::Z) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:12 ~ glob_conflict[5adb]::b::Z::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:13 ~ glob_conflict[5adb]::b::W) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:14 ~ glob_conflict[5adb]::b::W::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:18 ~ glob_conflict[5adb]::d) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:21 ~ glob_conflict[5adb]::d::T) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:22 ~ glob_conflict[5adb]::e) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:24 ~ glob_conflict[5adb]::e::Y) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:25 ~ glob_conflict[5adb]::e::Y::{constructor#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:26 ~ glob_conflict[5adb]::e::U) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:31 ~ glob_conflict[5adb]::f::V) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:32 ~ glob_conflict[5adb]::g) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:35 ~ glob_conflict[5adb]::g::S) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:36 ~ glob_conflict[5adb]::h) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:47 ~ glob_conflict[5adb]::h::P) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:42 ~ glob_conflict[5adb]::h::h1::Q::{constructor#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:45 ~ glob_conflict[5adb]::h::h2::R) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:46 ~ glob_conflict[5adb]::h::h2::R::{constructor#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:39 ~ glob_conflict[5adb]::h::h1) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexported: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reachable: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))) }
+DefId(0:43 ~ glob_conflict[5adb]::h::h2) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexported: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reachable: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))) }
+DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexported: Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reachable: Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d))) }
+DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexported: Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reachable: Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:18 ~ glob_conflict[5adb]::d))) }
+DefId(0:23 ~ glob_conflict[5adb]::e::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:22 ~ glob_conflict[5adb]::e))), reexported: Restricted(LocalModId(DefId(0:22 ~ glob_conflict[5adb]::e))), reachable: Restricted(LocalModId(DefId(0:22 ~ glob_conflict[5adb]::e))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:22 ~ glob_conflict[5adb]::e))) }
+DefId(0:28 ~ glob_conflict[5adb]::f::{use#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:32 ~ glob_conflict[5adb]::g))), reexported: Restricted(LocalModId(DefId(0:32 ~ glob_conflict[5adb]::g))), reachable: Restricted(LocalModId(DefId(0:32 ~ glob_conflict[5adb]::g))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:32 ~ glob_conflict[5adb]::g))) }
+DefId(0:37 ~ glob_conflict[5adb]::h::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:38 ~ glob_conflict[5adb]::h::{use#1}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reexported: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ glob_conflict[5adb]))) }
+DefId(0:40 ~ glob_conflict[5adb]::h::h1::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexported: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reachable: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))) }
+DefId(0:44 ~ glob_conflict[5adb]::h::h2::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexported: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reachable: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:36 ~ glob_conflict[5adb]::h))) }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (11)
+DefId(0:0 ~ glob_conflict[5adb])
+  ModChild { ident: a#0, res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), vis: Public, reexport_chain: [] }
+  ModChild { ident: b#0, res: Def(Mod, DefId(0:8 ~ glob_conflict[5adb]::b)), vis: Public, reexport_chain: [] }
+  ModChild { ident: c#0, res: Def(Mod, DefId(0:15 ~ glob_conflict[5adb]::c)), vis: Public, reexport_chain: [] }
+  ModChild { ident: d#0, res: Def(Mod, DefId(0:18 ~ glob_conflict[5adb]::d)), vis: Restricted(ModId(DefId(0:0 ~ glob_conflict[5adb]))), reexport_chain: [] }
+  ModChild { ident: e#0, res: Def(Mod, DefId(0:22 ~ glob_conflict[5adb]::e)), vis: Restricted(ModId(DefId(0:0 ~ glob_conflict[5adb]))), reexport_chain: [] }
+  ModChild { ident: f#0, res: Def(Mod, DefId(0:27 ~ glob_conflict[5adb]::f)), vis: Public, reexport_chain: [] }
+  ModChild { ident: g#0, res: Def(Mod, DefId(0:32 ~ glob_conflict[5adb]::g)), vis: Restricted(ModId(DefId(0:0 ~ glob_conflict[5adb]))), reexport_chain: [] }
+  ModChild { ident: h#0, res: Def(Mod, DefId(0:36 ~ glob_conflict[5adb]::h)), vis: Restricted(ModId(DefId(0:0 ~ glob_conflict[5adb]))), reexport_chain: [] }
+DefId(0:1 ~ glob_conflict[5adb]::a)
+  ModChild { ident: X#0, res: Def(Struct, DefId(0:2 ~ glob_conflict[5adb]::a::X)), vis: Public, reexport_chain: [] }
+  ModChild { ident: X#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ glob_conflict[5adb]::a::X::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: Y#0, res: Def(Struct, DefId(0:4 ~ glob_conflict[5adb]::a::Y)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Y#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ glob_conflict[5adb]::a::Y::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: W#0, res: Def(Struct, DefId(0:6 ~ glob_conflict[5adb]::a::W)), vis: Public, reexport_chain: [] }
+  ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0})), vis: Public, reexport_chain: [] }
+DefId(0:8 ~ glob_conflict[5adb]::b)
+  ModChild { ident: X#0, res: Def(Struct, DefId(0:9 ~ glob_conflict[5adb]::b::X)), vis: Public, reexport_chain: [] }
+  ModChild { ident: X#0, res: Def(Ctor(Struct, Const), DefId(0:10 ~ glob_conflict[5adb]::b::X::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: Z#0, res: Def(Struct, DefId(0:11 ~ glob_conflict[5adb]::b::Z)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Z#0, res: Def(Ctor(Struct, Const), DefId(0:12 ~ glob_conflict[5adb]::b::Z::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: W#0, res: Def(Struct, DefId(0:13 ~ glob_conflict[5adb]::b::W)), vis: Public, reexport_chain: [] }
+  ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:14 ~ glob_conflict[5adb]::b::W::{constructor#0})), vis: Public, reexport_chain: [] }
+DefId(0:15 ~ glob_conflict[5adb]::c)
+  ModChild { ident: Y#0, res: Def(Struct, DefId(0:4 ~ glob_conflict[5adb]::a::Y)), vis: Public, reexport_chain: [Glob(DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}))] }
+  ModChild { ident: Y#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ glob_conflict[5adb]::a::Y::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}))] }
+  ModChild { ident: Z#0, res: Def(Struct, DefId(0:11 ~ glob_conflict[5adb]::b::Z)), vis: Public, reexport_chain: [Glob(DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}))] }
+  ModChild { ident: Z#0, res: Def(Ctor(Struct, Const), DefId(0:12 ~ glob_conflict[5adb]::b::Z::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}))] }
+DefId(0:18 ~ glob_conflict[5adb]::d)
+  ModChild { ident: T#0, res: Def(TyAlias, DefId(0:21 ~ glob_conflict[5adb]::d::T)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Y#0, res: Def(Struct, DefId(0:4 ~ glob_conflict[5adb]::a::Y)), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}))] }
+  ModChild { ident: Y#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ glob_conflict[5adb]::a::Y::{constructor#0})), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}))] }
+  ModChild { ident: Z#0, res: Def(Struct, DefId(0:11 ~ glob_conflict[5adb]::b::Z)), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}))] }
+  ModChild { ident: Z#0, res: Def(Ctor(Struct, Const), DefId(0:12 ~ glob_conflict[5adb]::b::Z::{constructor#0})), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}))] }
+DefId(0:22 ~ glob_conflict[5adb]::e)
+  ModChild { ident: Y#0, res: Def(Struct, DefId(0:24 ~ glob_conflict[5adb]::e::Y)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Y#0, res: Def(Ctor(Struct, Const), DefId(0:25 ~ glob_conflict[5adb]::e::Y::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: U#0, res: Def(TyAlias, DefId(0:26 ~ glob_conflict[5adb]::e::U)), vis: Public, reexport_chain: [] }
+  ModChild { ident: X#0, res: Def(Struct, DefId(0:2 ~ glob_conflict[5adb]::a::X)), vis: Restricted(ModId(DefId(0:22 ~ glob_conflict[5adb]::e))), reexport_chain: [Glob(DefId(0:23 ~ glob_conflict[5adb]::e::{use#0}))] }
+  ModChild { ident: X#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ glob_conflict[5adb]::a::X::{constructor#0})), vis: Restricted(ModId(DefId(0:22 ~ glob_conflict[5adb]::e))), reexport_chain: [Glob(DefId(0:23 ~ glob_conflict[5adb]::e::{use#0}))] }
+  ModChild { ident: W#0, res: Def(Struct, DefId(0:6 ~ glob_conflict[5adb]::a::W)), vis: Restricted(ModId(DefId(0:22 ~ glob_conflict[5adb]::e))), reexport_chain: [Glob(DefId(0:23 ~ glob_conflict[5adb]::e::{use#0}))] }
+  ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0})), vis: Restricted(ModId(DefId(0:22 ~ glob_conflict[5adb]::e))), reexport_chain: [Glob(DefId(0:23 ~ glob_conflict[5adb]::e::{use#0}))] }
+DefId(0:27 ~ glob_conflict[5adb]::f)
+  ModChild { ident: X#0, res: Def(Struct, DefId(0:29 ~ glob_conflict[5adb]::f::X)), vis: Restricted(ModId(DefId(0:27 ~ glob_conflict[5adb]::f))), reexport_chain: [] }
+  ModChild { ident: X#0, res: Def(Ctor(Struct, Const), DefId(0:30 ~ glob_conflict[5adb]::f::X::{constructor#0})), vis: Restricted(ModId(DefId(0:27 ~ glob_conflict[5adb]::f))), reexport_chain: [] }
+  ModChild { ident: V#0, res: Def(TyAlias, DefId(0:31 ~ glob_conflict[5adb]::f::V)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Y#0, res: Def(Struct, DefId(0:4 ~ glob_conflict[5adb]::a::Y)), vis: Public, reexport_chain: [Glob(DefId(0:28 ~ glob_conflict[5adb]::f::{use#0}))] }
+  ModChild { ident: Y#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ glob_conflict[5adb]::a::Y::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:28 ~ glob_conflict[5adb]::f::{use#0}))] }
+  ModChild { ident: W#0, res: Def(Struct, DefId(0:6 ~ glob_conflict[5adb]::a::W)), vis: Public, reexport_chain: [Glob(DefId(0:28 ~ glob_conflict[5adb]::f::{use#0}))] }
+  ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:28 ~ glob_conflict[5adb]::f::{use#0}))] }
+DefId(0:32 ~ glob_conflict[5adb]::g)
+  ModChild { ident: S#0, res: Def(TyAlias, DefId(0:35 ~ glob_conflict[5adb]::g::S)), vis: Public, reexport_chain: [] }
+  ModChild { ident: X#0, res: Def(Struct, DefId(0:2 ~ glob_conflict[5adb]::a::X)), vis: Restricted(ModId(DefId(0:32 ~ glob_conflict[5adb]::g))), reexport_chain: [Glob(DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}))] }
+  ModChild { ident: X#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ glob_conflict[5adb]::a::X::{constructor#0})), vis: Restricted(ModId(DefId(0:32 ~ glob_conflict[5adb]::g))), reexport_chain: [Glob(DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}))] }
+  ModChild { ident: Y#0, res: Def(Struct, DefId(0:4 ~ glob_conflict[5adb]::a::Y)), vis: Restricted(ModId(DefId(0:32 ~ glob_conflict[5adb]::g))), reexport_chain: [Glob(DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}))] }
+  ModChild { ident: Y#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ glob_conflict[5adb]::a::Y::{constructor#0})), vis: Restricted(ModId(DefId(0:32 ~ glob_conflict[5adb]::g))), reexport_chain: [Glob(DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}))] }
+  ModChild { ident: W#0, res: Def(Struct, DefId(0:6 ~ glob_conflict[5adb]::a::W)), vis: Restricted(ModId(DefId(0:32 ~ glob_conflict[5adb]::g))), reexport_chain: [Glob(DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}))] }
+  ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0})), vis: Restricted(ModId(DefId(0:32 ~ glob_conflict[5adb]::g))), reexport_chain: [Glob(DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}))] }
+DefId(0:36 ~ glob_conflict[5adb]::h)
+  ModChild { ident: h1#0, res: Def(Mod, DefId(0:39 ~ glob_conflict[5adb]::h::h1)), vis: Restricted(ModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexport_chain: [] }
+  ModChild { ident: h2#0, res: Def(Mod, DefId(0:43 ~ glob_conflict[5adb]::h::h2)), vis: Restricted(ModId(DefId(0:36 ~ glob_conflict[5adb]::h))), reexport_chain: [] }
+  ModChild { ident: P#0, res: Def(TyAlias, DefId(0:47 ~ glob_conflict[5adb]::h::P)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Q#0, res: Def(Struct, DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q)), vis: Public, reexport_chain: [Glob(DefId(0:37 ~ glob_conflict[5adb]::h::{use#0}))] }
+  ModChild { ident: Q#0, res: Def(Ctor(Struct, Const), DefId(0:42 ~ glob_conflict[5adb]::h::h1::Q::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:37 ~ glob_conflict[5adb]::h::{use#0}))] }
+  ModChild { ident: R#0, res: Def(Struct, DefId(0:45 ~ glob_conflict[5adb]::h::h2::R)), vis: Public, reexport_chain: [Glob(DefId(0:38 ~ glob_conflict[5adb]::h::{use#1}))] }
+  ModChild { ident: R#0, res: Def(Ctor(Struct, Const), DefId(0:46 ~ glob_conflict[5adb]::h::h2::R::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:38 ~ glob_conflict[5adb]::h::{use#1}))] }
+DefId(0:39 ~ glob_conflict[5adb]::h::h1)
+  ModChild { ident: Q#0, res: Def(Struct, DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Q#0, res: Def(Ctor(Struct, Const), DefId(0:42 ~ glob_conflict[5adb]::h::h1::Q::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: R#0, res: Def(Struct, DefId(0:45 ~ glob_conflict[5adb]::h::h2::R)), vis: Public, reexport_chain: [Glob(DefId(0:40 ~ glob_conflict[5adb]::h::h1::{use#0}))] }
+  ModChild { ident: R#0, res: Def(Ctor(Struct, Const), DefId(0:46 ~ glob_conflict[5adb]::h::h2::R::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:40 ~ glob_conflict[5adb]::h::h1::{use#0}))] }
+DefId(0:43 ~ glob_conflict[5adb]::h::h2)
+  ModChild { ident: R#0, res: Def(Struct, DefId(0:45 ~ glob_conflict[5adb]::h::h2::R)), vis: Public, reexport_chain: [] }
+  ModChild { ident: R#0, res: Def(Ctor(Struct, Const), DefId(0:46 ~ glob_conflict[5adb]::h::h2::R::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: Q#0, res: Def(Struct, DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q)), vis: Public, reexport_chain: [Glob(DefId(0:44 ~ glob_conflict[5adb]::h::h2::{use#0}))] }
+  ModChild { ident: Q#0, res: Def(Ctor(Struct, Const), DefId(0:42 ~ glob_conflict[5adb]::h::h1::Q::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:44 ~ glob_conflict[5adb]::h::h2::{use#0}))] }
+== ambig_module_children (2)
+DefId(0:15 ~ glob_conflict[5adb]::c)
+  AmbigModChild { main: ModChild { ident: X#0, res: Def(Struct, DefId(0:2 ~ glob_conflict[5adb]::a::X)), vis: Public, reexport_chain: [Glob(DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}))] }, second: ModChild { ident: X#0, res: Def(Struct, DefId(0:9 ~ glob_conflict[5adb]::b::X)), vis: Public, reexport_chain: [Glob(DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}))] } }
+  AmbigModChild { main: ModChild { ident: X#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ glob_conflict[5adb]::a::X::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}))] }, second: ModChild { ident: X#0, res: Def(Ctor(Struct, Const), DefId(0:10 ~ glob_conflict[5adb]::b::X::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}))] } }
+  AmbigModChild { main: ModChild { ident: W#0, res: Def(Struct, DefId(0:6 ~ glob_conflict[5adb]::a::W)), vis: Public, reexport_chain: [Glob(DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}))] }, second: ModChild { ident: W#0, res: Def(Struct, DefId(0:13 ~ glob_conflict[5adb]::b::W)), vis: Public, reexport_chain: [Glob(DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}))] } }
+  AmbigModChild { main: ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}))] }, second: ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:14 ~ glob_conflict[5adb]::b::W::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}))] } }
+DefId(0:18 ~ glob_conflict[5adb]::d)
+  AmbigModChild { main: ModChild { ident: X#0, res: Def(Struct, DefId(0:2 ~ glob_conflict[5adb]::a::X)), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}))] }, second: ModChild { ident: X#0, res: Def(Struct, DefId(0:9 ~ glob_conflict[5adb]::b::X)), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}))] } }
+  AmbigModChild { main: ModChild { ident: X#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ glob_conflict[5adb]::a::X::{constructor#0})), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}))] }, second: ModChild { ident: X#0, res: Def(Ctor(Struct, Const), DefId(0:10 ~ glob_conflict[5adb]::b::X::{constructor#0})), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}))] } }
+  AmbigModChild { main: ModChild { ident: W#0, res: Def(Struct, DefId(0:6 ~ glob_conflict[5adb]::a::W)), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}))] }, second: ModChild { ident: W#0, res: Def(Struct, DefId(0:13 ~ glob_conflict[5adb]::b::W)), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}))] } }
+  AmbigModChild { main: ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0})), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}))] }, second: ModChild { ident: W#0, res: Def(Ctor(Struct, Const), DefId(0:14 ~ glob_conflict[5adb]::b::W::{constructor#0})), vis: Restricted(ModId(DefId(0:18 ~ glob_conflict[5adb]::d))), reexport_chain: [Glob(DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}))] } }
+== glob_map (5)
+DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}) ["X"]
+DefId(0:23 ~ glob_conflict[5adb]::e::{use#0}) ["W"]
+DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}) ["Y"]
+DefId(0:37 ~ glob_conflict[5adb]::h::{use#0}) ["Q"]
+DefId(0:38 ~ glob_conflict[5adb]::h::{use#1}) ["R"]
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(90)
+== partial_res_map (48)
+NodeId(18) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(19) PartialRes { base_res: Def(Mod, DefId(0:0 ~ glob_conflict[5adb])), unresolved_segments: 0 }
+NodeId(20) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(21) PartialRes { base_res: Def(Mod, DefId(0:8 ~ glob_conflict[5adb]::b)), unresolved_segments: 0 }
+NodeId(22) PartialRes { base_res: Def(Mod, DefId(0:0 ~ glob_conflict[5adb])), unresolved_segments: 0 }
+NodeId(23) PartialRes { base_res: Def(Mod, DefId(0:8 ~ glob_conflict[5adb]::b)), unresolved_segments: 0 }
+NodeId(25) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(26) PartialRes { base_res: Def(Mod, DefId(0:0 ~ glob_conflict[5adb])), unresolved_segments: 0 }
+NodeId(27) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(28) PartialRes { base_res: Def(Mod, DefId(0:8 ~ glob_conflict[5adb]::b)), unresolved_segments: 0 }
+NodeId(29) PartialRes { base_res: Def(Mod, DefId(0:0 ~ glob_conflict[5adb])), unresolved_segments: 0 }
+NodeId(30) PartialRes { base_res: Def(Mod, DefId(0:8 ~ glob_conflict[5adb]::b)), unresolved_segments: 0 }
+NodeId(32) PartialRes { base_res: Def(Struct, DefId(0:2 ~ glob_conflict[5adb]::a::X)), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: Def(Struct, DefId(0:2 ~ glob_conflict[5adb]::a::X)), unresolved_segments: 0 }
+NodeId(35) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(36) PartialRes { base_res: Def(Mod, DefId(0:0 ~ glob_conflict[5adb])), unresolved_segments: 0 }
+NodeId(37) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(42) PartialRes { base_res: Def(Struct, DefId(0:24 ~ glob_conflict[5adb]::e::Y)), unresolved_segments: 0 }
+NodeId(43) PartialRes { base_res: Def(Struct, DefId(0:24 ~ glob_conflict[5adb]::e::Y)), unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: Def(Struct, DefId(0:6 ~ glob_conflict[5adb]::a::W)), unresolved_segments: 0 }
+NodeId(45) PartialRes { base_res: Def(Struct, DefId(0:6 ~ glob_conflict[5adb]::a::W)), unresolved_segments: 0 }
+NodeId(47) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(48) PartialRes { base_res: Def(Mod, DefId(0:0 ~ glob_conflict[5adb])), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(53) PartialRes { base_res: Def(Struct, DefId(0:29 ~ glob_conflict[5adb]::f::X)), unresolved_segments: 0 }
+NodeId(54) PartialRes { base_res: Def(Struct, DefId(0:29 ~ glob_conflict[5adb]::f::X)), unresolved_segments: 0 }
+NodeId(56) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(57) PartialRes { base_res: Def(Mod, DefId(0:0 ~ glob_conflict[5adb])), unresolved_segments: 0 }
+NodeId(58) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(59) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(60) PartialRes { base_res: Def(Mod, DefId(0:0 ~ glob_conflict[5adb])), unresolved_segments: 0 }
+NodeId(61) PartialRes { base_res: Def(Mod, DefId(0:1 ~ glob_conflict[5adb]::a)), unresolved_segments: 0 }
+NodeId(63) PartialRes { base_res: Def(Struct, DefId(0:4 ~ glob_conflict[5adb]::a::Y)), unresolved_segments: 0 }
+NodeId(64) PartialRes { base_res: Def(Struct, DefId(0:4 ~ glob_conflict[5adb]::a::Y)), unresolved_segments: 0 }
+NodeId(66) PartialRes { base_res: Def(Mod, DefId(0:39 ~ glob_conflict[5adb]::h::h1)), unresolved_segments: 0 }
+NodeId(67) PartialRes { base_res: Def(Mod, DefId(0:36 ~ glob_conflict[5adb]::h)), unresolved_segments: 0 }
+NodeId(68) PartialRes { base_res: Def(Mod, DefId(0:39 ~ glob_conflict[5adb]::h::h1)), unresolved_segments: 0 }
+NodeId(69) PartialRes { base_res: Def(Mod, DefId(0:43 ~ glob_conflict[5adb]::h::h2)), unresolved_segments: 0 }
+NodeId(70) PartialRes { base_res: Def(Mod, DefId(0:36 ~ glob_conflict[5adb]::h)), unresolved_segments: 0 }
+NodeId(71) PartialRes { base_res: Def(Mod, DefId(0:43 ~ glob_conflict[5adb]::h::h2)), unresolved_segments: 0 }
+NodeId(73) PartialRes { base_res: Def(Mod, DefId(0:43 ~ glob_conflict[5adb]::h::h2)), unresolved_segments: 0 }
+NodeId(75) PartialRes { base_res: Def(Mod, DefId(0:43 ~ glob_conflict[5adb]::h::h2)), unresolved_segments: 0 }
+NodeId(79) PartialRes { base_res: Def(Mod, DefId(0:39 ~ glob_conflict[5adb]::h::h1)), unresolved_segments: 0 }
+NodeId(81) PartialRes { base_res: Def(Mod, DefId(0:39 ~ glob_conflict[5adb]::h::h1)), unresolved_segments: 0 }
+NodeId(86) PartialRes { base_res: Def(Struct, DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q)), unresolved_segments: 0 }
+NodeId(87) PartialRes { base_res: Def(Struct, DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q)), unresolved_segments: 0 }
+NodeId(88) PartialRes { base_res: Def(Struct, DefId(0:45 ~ glob_conflict[5adb]::h::h2::R)), unresolved_segments: 0 }
+NodeId(89) PartialRes { base_res: Def(Struct, DefId(0:45 ~ glob_conflict[5adb]::h::h2::R)), unresolved_segments: 0 }
+== owners (38)
+NodeId(0) def_id=DefId(0:0 ~ glob_conflict[5adb]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ glob_conflict[5adb]::a) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:2 ~ glob_conflict[5adb]::a::X) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(5) DefId(0:3 ~ glob_conflict[5adb]::a::X::{constructor#0})
+NodeId(6) def_id=DefId(0:4 ~ glob_conflict[5adb]::a::Y) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(7) DefId(0:5 ~ glob_conflict[5adb]::a::Y::{constructor#0})
+NodeId(8) def_id=DefId(0:6 ~ glob_conflict[5adb]::a::W) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(9) DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0})
+NodeId(10) def_id=DefId(0:8 ~ glob_conflict[5adb]::b) lifetime_elision_allowed=false
+NodeId(11) def_id=DefId(0:9 ~ glob_conflict[5adb]::b::X) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(12) DefId(0:10 ~ glob_conflict[5adb]::b::X::{constructor#0})
+NodeId(13) def_id=DefId(0:11 ~ glob_conflict[5adb]::b::Z) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(14) DefId(0:12 ~ glob_conflict[5adb]::b::Z::{constructor#0})
+NodeId(15) def_id=DefId(0:13 ~ glob_conflict[5adb]::b::W) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(16) DefId(0:14 ~ glob_conflict[5adb]::b::W::{constructor#0})
+NodeId(17) def_id=DefId(0:15 ~ glob_conflict[5adb]::c) lifetime_elision_allowed=false
+NodeId(18) def_id=DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}) lifetime_elision_allowed=false
+NodeId(21) def_id=DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}) lifetime_elision_allowed=false
+NodeId(24) def_id=DefId(0:18 ~ glob_conflict[5adb]::d) lifetime_elision_allowed=false
+NodeId(25) def_id=DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}) lifetime_elision_allowed=false
+NodeId(28) def_id=DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}) lifetime_elision_allowed=false
+NodeId(31) def_id=DefId(0:21 ~ glob_conflict[5adb]::d::T) lifetime_elision_allowed=false
+NodeId(34) def_id=DefId(0:22 ~ glob_conflict[5adb]::e) lifetime_elision_allowed=false
+NodeId(35) def_id=DefId(0:23 ~ glob_conflict[5adb]::e::{use#0}) lifetime_elision_allowed=false
+NodeId(38) def_id=DefId(0:24 ~ glob_conflict[5adb]::e::Y) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(39) DefId(0:25 ~ glob_conflict[5adb]::e::Y::{constructor#0})
+NodeId(40) def_id=DefId(0:26 ~ glob_conflict[5adb]::e::U) lifetime_elision_allowed=false
+NodeId(46) def_id=DefId(0:27 ~ glob_conflict[5adb]::f) lifetime_elision_allowed=false
+NodeId(47) def_id=DefId(0:28 ~ glob_conflict[5adb]::f::{use#0}) lifetime_elision_allowed=false
+NodeId(50) def_id=DefId(0:29 ~ glob_conflict[5adb]::f::X) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(51) DefId(0:30 ~ glob_conflict[5adb]::f::X::{constructor#0})
+NodeId(52) def_id=DefId(0:31 ~ glob_conflict[5adb]::f::V) lifetime_elision_allowed=false
+NodeId(55) def_id=DefId(0:32 ~ glob_conflict[5adb]::g) lifetime_elision_allowed=false
+NodeId(56) def_id=DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}) lifetime_elision_allowed=false
+NodeId(59) def_id=DefId(0:34 ~ glob_conflict[5adb]::g::{use#1}) lifetime_elision_allowed=false
+NodeId(62) def_id=DefId(0:35 ~ glob_conflict[5adb]::g::S) lifetime_elision_allowed=false
+NodeId(65) def_id=DefId(0:36 ~ glob_conflict[5adb]::h) lifetime_elision_allowed=false
+NodeId(66) def_id=DefId(0:37 ~ glob_conflict[5adb]::h::{use#0}) lifetime_elision_allowed=false
+NodeId(69) def_id=DefId(0:38 ~ glob_conflict[5adb]::h::{use#1}) lifetime_elision_allowed=false
+NodeId(72) def_id=DefId(0:39 ~ glob_conflict[5adb]::h::h1) lifetime_elision_allowed=false
+NodeId(73) def_id=DefId(0:40 ~ glob_conflict[5adb]::h::h1::{use#0}) lifetime_elision_allowed=false
+NodeId(76) def_id=DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(77) DefId(0:42 ~ glob_conflict[5adb]::h::h1::Q::{constructor#0})
+NodeId(78) def_id=DefId(0:43 ~ glob_conflict[5adb]::h::h2) lifetime_elision_allowed=false
+NodeId(79) def_id=DefId(0:44 ~ glob_conflict[5adb]::h::h2::{use#0}) lifetime_elision_allowed=false
+NodeId(82) def_id=DefId(0:45 ~ glob_conflict[5adb]::h::h2::R) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(83) DefId(0:46 ~ glob_conflict[5adb]::h::h2::R::{constructor#0})
+NodeId(84) def_id=DefId(0:47 ~ glob_conflict[5adb]::h::P) lifetime_elision_allowed=false
+== lint_buffer (10)
+NodeId(18) AMBIGUOUS_GLOB_REEXPORTS [glob_conflict.rs:5:13: 5:24 (#0)]
+NodeId(18) AMBIGUOUS_GLOB_REEXPORTS [glob_conflict.rs:5:13: 5:24 (#0)]
+NodeId(18) AMBIGUOUS_GLOB_REEXPORTS [glob_conflict.rs:5:13: 5:24 (#0)]
+NodeId(18) AMBIGUOUS_GLOB_REEXPORTS [glob_conflict.rs:5:13: 5:24 (#0)]
+NodeId(50) HIDDEN_GLOB_REEXPORTS [glob_conflict.rs:20:5: 20:14 (#0)]
+NodeId(51) HIDDEN_GLOB_REEXPORTS [glob_conflict.rs:20:5: 20:14 (#0)]
+NodeId(28) UNUSED_IMPORTS [glob_conflict.rs:10:9: 10:20 (#0)]
+NodeId(59) UNUSED_IMPORTS [glob_conflict.rs:25:9: 25:20 (#0)]
+NodeId(73) UNUSED_IMPORTS [glob_conflict.rs:31:22: 31:34 (#0)]
+NodeId(79) UNUSED_IMPORTS [glob_conflict.rs:32:22: 32:34 (#0)]
+== disambiguators (21)
+DefId(0:0 ~ glob_conflict[5adb])
+DefId(0:1 ~ glob_conflict[5adb]::a)
+DefId(0:2 ~ glob_conflict[5adb]::a::X)
+DefId(0:4 ~ glob_conflict[5adb]::a::Y)
+DefId(0:6 ~ glob_conflict[5adb]::a::W)
+DefId(0:8 ~ glob_conflict[5adb]::b)
+DefId(0:9 ~ glob_conflict[5adb]::b::X)
+DefId(0:11 ~ glob_conflict[5adb]::b::Z)
+DefId(0:13 ~ glob_conflict[5adb]::b::W)
+DefId(0:15 ~ glob_conflict[5adb]::c)
+DefId(0:18 ~ glob_conflict[5adb]::d)
+DefId(0:22 ~ glob_conflict[5adb]::e)
+DefId(0:24 ~ glob_conflict[5adb]::e::Y)
+DefId(0:27 ~ glob_conflict[5adb]::f)
+DefId(0:29 ~ glob_conflict[5adb]::f::X)
+DefId(0:32 ~ glob_conflict[5adb]::g)
+DefId(0:36 ~ glob_conflict[5adb]::h)
+DefId(0:39 ~ glob_conflict[5adb]::h::h1)
+DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q)
+DefId(0:43 ~ glob_conflict[5adb]::h::h2)
+DefId(0:45 ~ glob_conflict[5adb]::h::h2::R)
+== definitions (48)
+DefId(0:0 ~ glob_conflict[5adb]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 6546871292950233350))
+DefId(0:1 ~ glob_conflict[5adb]::a) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("a"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 2765416299441466912))
+DefId(0:2 ~ glob_conflict[5adb]::a::X) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("X"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 6995879642239947046))
+DefId(0:3 ~ glob_conflict[5adb]::a::X::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 7893849577609132042))
+DefId(0:4 ~ glob_conflict[5adb]::a::Y) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Y"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 10694905438379354264))
+DefId(0:5 ~ glob_conflict[5adb]::a::Y::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 2476608282068341675))
+DefId(0:6 ~ glob_conflict[5adb]::a::W) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("W"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 4845046456551324239))
+DefId(0:7 ~ glob_conflict[5adb]::a::W::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(6)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 10984478102918219235))
+DefId(0:8 ~ glob_conflict[5adb]::b) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("b"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 3760389902980428023))
+DefId(0:9 ~ glob_conflict[5adb]::b::X) Struct DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("X"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 16363399594008920183))
+DefId(0:10 ~ glob_conflict[5adb]::b::X::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 10696194455551343016))
+DefId(0:11 ~ glob_conflict[5adb]::b::Z) Struct DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Z"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 17223529417537274895))
+DefId(0:12 ~ glob_conflict[5adb]::b::Z::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 436495445487239414))
+DefId(0:13 ~ glob_conflict[5adb]::b::W) Struct DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("W"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 1262087425530855099))
+DefId(0:14 ~ glob_conflict[5adb]::b::W::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 8148308853108807338))
+DefId(0:15 ~ glob_conflict[5adb]::c) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("c"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 6270761802926745241))
+DefId(0:16 ~ glob_conflict[5adb]::c::{use#0}) Use DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 4822440404765903870))
+DefId(0:17 ~ glob_conflict[5adb]::c::{use#1}) Use DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(6546871292950233350, 1074330292056313467))
+DefId(0:18 ~ glob_conflict[5adb]::d) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("d"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 2526925665480728950))
+DefId(0:19 ~ glob_conflict[5adb]::d::{use#0}) Use DefKey { parent: Some(DefIndex(18)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 16956141529543979893))
+DefId(0:20 ~ glob_conflict[5adb]::d::{use#1}) Use DefKey { parent: Some(DefIndex(18)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(6546871292950233350, 14057973925849886863))
+DefId(0:21 ~ glob_conflict[5adb]::d::T) TyAlias DefKey { parent: Some(DefIndex(18)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 9532720482582503315))
+DefId(0:22 ~ glob_conflict[5adb]::e) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("e"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 9443820430900724862))
+DefId(0:23 ~ glob_conflict[5adb]::e::{use#0}) Use DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 13498145771645192971))
+DefId(0:24 ~ glob_conflict[5adb]::e::Y) Struct DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Y"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 13874082361980525192))
+DefId(0:25 ~ glob_conflict[5adb]::e::Y::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(24)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 9554047220684023337))
+DefId(0:26 ~ glob_conflict[5adb]::e::U) TyAlias DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("U"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 4922261543033100047))
+DefId(0:27 ~ glob_conflict[5adb]::f) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 15357092526378999992))
+DefId(0:28 ~ glob_conflict[5adb]::f::{use#0}) Use DefKey { parent: Some(DefIndex(27)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 13279369697983830461))
+DefId(0:29 ~ glob_conflict[5adb]::f::X) Struct DefKey { parent: Some(DefIndex(27)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("X"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 3769448053047977498))
+DefId(0:30 ~ glob_conflict[5adb]::f::X::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(29)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 11077145522404336752))
+DefId(0:31 ~ glob_conflict[5adb]::f::V) TyAlias DefKey { parent: Some(DefIndex(27)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("V"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 13755211262681215067))
+DefId(0:32 ~ glob_conflict[5adb]::g) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("g"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 8768267806526035049))
+DefId(0:33 ~ glob_conflict[5adb]::g::{use#0}) Use DefKey { parent: Some(DefIndex(32)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 1209613170421359339))
+DefId(0:34 ~ glob_conflict[5adb]::g::{use#1}) Use DefKey { parent: Some(DefIndex(32)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(6546871292950233350, 1675348907602673411))
+DefId(0:35 ~ glob_conflict[5adb]::g::S) TyAlias DefKey { parent: Some(DefIndex(32)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("S"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 4834619788291168862))
+DefId(0:36 ~ glob_conflict[5adb]::h) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("h"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 15960985562911076179))
+DefId(0:37 ~ glob_conflict[5adb]::h::{use#0}) Use DefKey { parent: Some(DefIndex(36)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 5397821010798634441))
+DefId(0:38 ~ glob_conflict[5adb]::h::{use#1}) Use DefKey { parent: Some(DefIndex(36)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(6546871292950233350, 1849318265441456752))
+DefId(0:39 ~ glob_conflict[5adb]::h::h1) Mod DefKey { parent: Some(DefIndex(36)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("h1"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 15161068497025418378))
+DefId(0:40 ~ glob_conflict[5adb]::h::h1::{use#0}) Use DefKey { parent: Some(DefIndex(39)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 1387874265678815993))
+DefId(0:41 ~ glob_conflict[5adb]::h::h1::Q) Struct DefKey { parent: Some(DefIndex(39)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Q"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 10397419174070868363))
+DefId(0:42 ~ glob_conflict[5adb]::h::h1::Q::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(41)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 6700865470763348774))
+DefId(0:43 ~ glob_conflict[5adb]::h::h2) Mod DefKey { parent: Some(DefIndex(36)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("h2"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 14543952955314842053))
+DefId(0:44 ~ glob_conflict[5adb]::h::h2::{use#0}) Use DefKey { parent: Some(DefIndex(43)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 8455180902412305908))
+DefId(0:45 ~ glob_conflict[5adb]::h::h2::R) Struct DefKey { parent: Some(DefIndex(43)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("R"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 11886212664039787880))
+DefId(0:46 ~ glob_conflict[5adb]::h::h2::R::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(45)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 13835356496161327639))
+DefId(0:47 ~ glob_conflict[5adb]::h::P) TyAlias DefKey { parent: Some(DefIndex(36)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("P"), disambiguator: 0 } } DefPathHash(Fingerprint(6546871292950233350, 11749126434381226080))

@@ -1,0 +1,42 @@
+unused imports: `B` and `D`
+  primary 277..278 283..284
+  sugg remove the unused imports: 277..280="" 281..284="" 276..277="" 284..285=""
+unused imports: `F` and `self as aa`
+  primary 337..347 353..354
+  sugg remove the unused imports: 337..349="" 353..356="" 352..353="" 357..358="" 336..337="" 358..359=""
+unused import: `crate::a::e::*`
+  primary 400..414
+  sugg remove the whole `use` item: 396..415=""
+unused import: `crate::a::{}`
+  primary 424..436
+  sugg remove the whole `use` item: 420..437=""
+unused imports: `B` and `e::{}`
+  primary 457..462 464..465
+  sugg remove the whole `use` item: 442..467=""
+unused imports: `B`, `C`, `F`, and `G`
+  primary 498..499 501..502 508..509 511..512
+  sugg remove the unused imports: 498..504="" 508..514="" 507..508="" 515..516=""
+unused import: `B`
+  primary 602..603
+  sugg remove the unused import: 602..613="" 592..602="" 614..621=""
+unused import: `crate::a::B`
+  primary 665..676
+  sugg remove the whole `use` item: 661..677=""
+unused import: `B`
+  primary 714..715
+  sugg remove the unused import: 712..715=""
+unused imports: `B` and `C`
+  primary 771..772 774..775
+  sugg remove the unused imports: 771..777="" 770..771="" 778..780=""
+unused imports: `B` and `C`
+  primary 856..857 859..860
+  sugg remove the whole `use` item: 817..862=""
+unused imports: `F` and `G`
+  primary 897..898 900..901
+  sugg remove the unused imports: 893..904="" 892..893="" 905..906=""
+unused import: `B`
+  primary 967..968
+  sugg remove the unused import: 965..968=""
+unused import: `B as B2`
+  primary 1046..1053
+  sugg remove the unused import: 1046..1055="" 1045..1046="" 1056..1057=""
