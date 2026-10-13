@@ -75,7 +75,7 @@ const PENDING: Record<string, string> = {
   asm_option_bad: "rustc_parse::parser::expr::Parser::parse_expr",
   global_asm_option_bad: "rustc_parse::parser::expr::Parser::parse_expr",
   asm_options_missing_comma: "rustc_parse::parser::expr::Parser::parse_expr",
-  asm_attrs: "rustc_parse::parser::path::Parser::parse_path",
+  asm_attrs: "rustc_parse::parser::expr::Parser::parse_expr",
 };
 
 /** case -> narrow script: `skip:N` bumps N tokens, `opts:<macro>:<k>` runs `parse_options` as argument `k`. */
