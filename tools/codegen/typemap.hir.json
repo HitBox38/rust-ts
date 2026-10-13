@@ -33,6 +33,6 @@
     { "paths": ["rustc_attr_ir::CfgEntry"], "ts": "unknown", "debug": "unported_debug($v)", "clone": null, "note": "PORT: pending attr-ir-gen (rustc_attr_ir types); replace with the generated type" },
     { "paths": ["rustc_attr_ir::PeImportNameType"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending attr-ir-gen (rustc_attr_ir types); replace with the generated type" },
     { "paths": ["rustc_abi::Size"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending a rustc_abi lane; replace with the ported type" },
-    { "paths": ["rustc_abi::ExternAbi"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending a rustc_abi lane; replace with the ported type" }
+    { "paths": ["rustc_abi::ExternAbi", "rustc_abi::extern_abi::ExternAbi"], "ts": "ExternAbi", "import": "src/rustc_abi/extern_abi.ts", "types": ["ExternAbi"], "values": ["debug_ExternAbi"], "debug": "debug_ExternAbi($v, $f)", "clone": "copy", "note": "extern_abi.rs ported by lane ast-passes" }
   ]
 }
