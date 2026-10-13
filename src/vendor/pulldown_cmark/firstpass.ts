@@ -2479,6 +2479,8 @@ function parse_inside_attribute_block(inside_attr_block: Str): HeadingAttributes
 }
 
 // `mod simd` is compiled only with `#[cfg(all(target_arch = "x86_64", feature = "simd"))]` (off for the oracle):
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2482 compute_lookup cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2511 add_lookup_byte cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
 // crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2523 compute_mask cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
 // crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2562 iterate_special_bytes cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
 // crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2582 process_mask cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
