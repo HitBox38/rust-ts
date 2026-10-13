@@ -40,7 +40,6 @@ import type { Options } from "../../rustc_session/options.gen.ts";
 import { EarlySession, Session } from "../../rustc_session/lib.ts";
 import { ParseSess } from "../../rustc_session/parse.ts";
 import type { Edition } from "../../rustc_span/edition.ts";
-import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { Hash64 } from "../../rustc_hashes/lib.ts";
 import { DefPathHash, StableCrateId } from "../../rustc_span/def_id.ts";
 import { debug_ExpnHash, debug_ExpnId, debug_hygiene_data, HygieneData, LocalExpnId, type MacroKind } from "../../rustc_span/hygiene.ts";
@@ -136,7 +135,6 @@ function run_case(c: Case): { events: string[]; stderr: string } {
       { hash_spans: true },
       SourceSpanCache.default(),
     );
-    void Fingerprint;
 
     try {
       // The probe's session first parsed its real (empty, `#![no_core]`) crate root, which allocated
