@@ -137,9 +137,10 @@ coverage numbers and no `// rustc:` markers; one `unported(...)` and one `// POR
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean, before and after the merge.
-- `bun scripts/coverage.ts --check`: markers ok (3986; vendor 2323) before the merge.
-- `RUST_TS_REQUIRE_PROBES=1 CI=true bun test --timeout=60000 src tools` before the merge: 2051 pass,
-  1 skip (the allowlisted one), 0 fail. After the merge: see the final note below.
+- `bun scripts/coverage.ts --check`: markers ok (4319; vendor 2403) after the merge.
+- `RUST_TS_REQUIRE_PROBES=1 CI=true bun test --timeout=60000 src tools`:
+  - before the merge: 2051 pass, 1 skip (the allowlisted one), 0 fail;
+  - after the merge: 2211 pass, 1 skip, 0 fail.
 - Case lists: `sha256(JSON.stringify(cases()))[:16]` is identical to main 6b099d0 for every existing suite,
   and matches harness-w7's table: lex a8a356bd10b8a7b6, parse b244fb01ad2573be, escape a8a356bd10b8a7b6,
   symbols 7b46e1e12e1f8d93, escape-synthetic 6618a744d214bf09, fluent-* 696bc26b11376778,
@@ -159,9 +160,11 @@ coverage numbers and no `// rustc:` markers; one `unported(...)` and one `// POR
 
 ## Proposals (not done)
 - **The 3 expanded-nocore ORACLE_TIMEOUT cases** cost up to 25 min of a slot on every gate run, since they are
-  never cached. Either raise `expanded-nocore`'s `oracleTimeoutMs` once a measurement shows they finish (the
-  measurement was still running at handoff; see the final note), or list them in `skipped()` with the reason.
-  `expr-stack-overflow.rs` (~13 GB of output in `parse`) should be skipped either way.
+  never cached. I measured the first two without a timeout: after 2 min of CPU each (about 27 min of wall time
+  at load average 60+), neither had printed anything. RSS was flat at about 44 MB. I killed them.
+  - So raising `oracleTimeoutMs` is not a cheap fix.
+  - Proposal: list the three in `expanded-nocore`'s `skipped()` with the reason "oracle `{:#?}` does not finish".
+  - `expr-stack-overflow.rs` (~13 GB of output in `parse`) should be skipped regardless.
 - For the M2a ≥95% gate, consider excluding:
   - the 669 sysroot-dependent cases (they need metadata, wave 11);
   - the 15 delayed-bug ICE cases.
