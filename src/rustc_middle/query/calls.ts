@@ -218,7 +218,8 @@ export function query_feed<K, V>(tcx: TyCtxt, query: QueryVTable<K, V>, key: K, 
     // so now we check their hashes.
     if (query.hash_value_fn !== undefined) {
       // PORT: comparing the stable hashes of `old` and `value` needs stable hashing of query values
-      // (pending stable-hash; D3); on a mismatch upstream delays the bug
+      // (`hash_result` over the value's `StableHash` impl: not generated for query values yet; D3); on a
+      // mismatch upstream delays the bug
       // "Trying to feed an already recorded value for query {query:?} key={key:?}: ...".
       unported(`rustc_middle::query::calls::query_feed: re-feeding query \`${query.name}\` (stable hashing of query values)`);
     } else {

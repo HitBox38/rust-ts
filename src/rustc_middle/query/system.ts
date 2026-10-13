@@ -26,7 +26,7 @@ export const QueryMode = { Get: "Get", EnsureOk: "EnsureOk" } as const;
 export const debug_QueryMode = (v: QueryMode, _f: Fmt): string => v;
 
 /** PORT: `fn(&mut StableHashState<'_>, &C::Value) -> Fingerprint`; stable hashing of query values is not
- * ported (D3, pending stable-hash): only its presence (`no_hash` or not) is used. */
+ * ported (no `StableHash` impls of query values yet; D3): only its presence (`no_hash` or not) is used. */
 export type HashValueFn<V> = (value: V) => never;
 
 /// Stores data and metadata (e.g. function pointers) for a particular query.
