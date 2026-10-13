@@ -924,7 +924,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (deriveClone.has(r.key) && !matches(set.hand, r)) {
         if (!(r.mf === mf && r.mod.length === mf.mod.length)) imp(viaHand(r), "values", name, alias);
       } else {
-        if (!manualClone.has(r.key)) push(report.missing_clone, r.key, at);
+        // hand types provide `clone_<T>` in their hand module (see the derive(Clone) note)
+        if (!manualClone.has(r.key) && !matches(set.hand, r)) push(report.missing_clone, r.key, at);
         imp(`src:${r.mf.hand}`, "values", name, alias);
         addStub(r.mf.hand, name, `export declare function ${name}(v: any, ...c: ((v: any) => any)[]): any;`);
       }
@@ -995,6 +996,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           }
           if (r.k === "item") {
             const it = r.ref.item;
+            // A hand alias: `clone_<Alias>` from the hand module (its definition is not generated).
+            if (it.kind === "type" && matches(set.hand, r.ref)) return `${cloneName(r.ref, at)}(${v})`;
             if (it.kind === "type") return cl(it.ty!, v, aliasScope(r.ref, args, sc), at);
             const fn = cloneName(r.ref, at);
             const cfns = tsParams(it).map((p, i) => {
@@ -1433,6 +1436,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       }
 
       if (it.kind === "type") {
+        // A hand alias is only re-exported (above); its definition lives in the hand module.
+        if (matches(set.hand, r)) continue;
         body.push(...docLines(it.docs, ""));
         body.push(`export type ${name}${gdecl} = ${tsType(it.ty!, sc, at)};`);
         continue;

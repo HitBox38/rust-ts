@@ -8,8 +8,13 @@
 //! macros (`macro_rules!` definitions and invocations, with the type names they appear to
 //! define, since their expansion is invisible to syn).
 //!
+//! Default field values (`field: T = expr`, which syn cannot parse) are blanked out before parsing
+//! and reported as the field's `default` text.
+//!
 //! Types are emitted both as token text (`text`) and structured (`kind` + paths + generic args).
 //! Object keys are sorted (serde_json's default map), so output is deterministic.
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io::Write;
 
 use proc_macro2::{Span, TokenStream, TokenTree};
@@ -21,6 +26,121 @@ use syn::{
     Attribute, Expr, Fields, GenericArgument, GenericParam, Generics, ImplItem, Item, Lit, Meta, Path, PathArguments,
     Token, Type, TypeParamBound, UseTree, Visibility,
 };
+
+// ---- default field values ---------------------------------------------------------------
+
+thread_local! {
+    /// `(line, column)` of a named field's ident -> the text of its default value.
+    static FIELD_DEFAULTS: RefCell<HashMap<(usize, usize), String>> = RefCell::new(HashMap::new());
+}
+
+/// `#![feature(default_field_values)]` (`field: T = expr`) is not parsed by syn 2.0.117. Blank out every
+/// default value inside `struct` bodies (same byte length, newlines kept, so every span is unchanged)
+/// and record its text by the field ident's position; `fields_json` reports it as `default`.
+/// Sources without default field values are returned unchanged.
+fn strip_default_field_values(src: &str) -> String {
+    let Ok(ts) = src.parse::<TokenStream>() else { return src.to_string() };
+    let line_starts: Vec<usize> =
+        std::iter::once(0).chain(src.match_indices('\n').map(|(i, _)| i + 1)).collect();
+    let offset = |lc: proc_macro2::LineColumn| -> usize {
+        let start = line_starts[lc.line - 1];
+        start + src[start..].chars().take(lc.column).map(char::len_utf8).sum::<usize>()
+    };
+    let mut ranges: Vec<(usize, usize)> = vec![];
+    fn body(ts: TokenStream, ranges: &mut Vec<(usize, usize)>, offset: &dyn Fn(proc_macro2::LineColumn) -> usize, src: &str) {
+        let toks: Vec<TokenTree> = ts.into_iter().collect();
+        let punct = |i: usize, c: char| matches!(toks.get(i), Some(TokenTree::Punct(p)) if p.as_char() == c);
+        let joint = |i: usize| matches!(toks.get(i), Some(TokenTree::Punct(p)) if p.spacing() == proc_macro2::Spacing::Joint);
+        let mut field: Option<Span> = None;
+        let mut angle = 0i32;
+        let mut i = 0;
+        while i < toks.len() {
+            if punct(i, ',') && angle == 0 {
+                field = None;
+            } else if punct(i, '<') && !(i > 0 && joint(i - 1)) {
+                angle += 1;
+            } else if punct(i, '>') && !(i > 0 && (punct(i - 1, '-') || punct(i - 1, '=')) && joint(i - 1)) {
+                angle -= 1;
+            } else if punct(i, ':') && !joint(i) && !(i > 0 && punct(i - 1, ':') && joint(i - 1)) && angle == 0 {
+                if let Some(TokenTree::Ident(id)) = i.checked_sub(1).and_then(|j| toks.get(j)) {
+                    if field.is_none() {
+                        field = Some(id.span());
+                    }
+                }
+            } else if punct(i, '=') && !joint(i) && !(i > 0 && joint(i - 1)) && angle == 0 && field.is_some() {
+                // The default runs to the next `,` outside turbofish generics (or the end of the body).
+                let start = toks[i].span();
+                let mut j = i + 1;
+                let mut a = 0i32;
+                let mut end = start;
+                while j < toks.len() {
+                    if punct(j, ',') && a == 0 {
+                        break;
+                    }
+                    if punct(j, '<') && j > 0 && punct(j - 1, ':') {
+                        a += 1;
+                    } else if punct(j, '>') && a > 0 {
+                        a -= 1;
+                    }
+                    end = toks[j].span();
+                    j += 1;
+                }
+                let (lo, hi) = (offset(start.start()), offset(end.end()));
+                let id = field.take().unwrap();
+                let text = src[offset(toks[i + 1].span().start())..hi].to_string();
+                FIELD_DEFAULTS.with(|d| d.borrow_mut().insert((id.start().line, id.start().column), text));
+                ranges.push((lo, hi));
+                i = j;
+                continue;
+            }
+            i += 1;
+        }
+    }
+    fn walk(ts: TokenStream, ranges: &mut Vec<(usize, usize)>, offset: &dyn Fn(proc_macro2::LineColumn) -> usize, src: &str) {
+        let toks: Vec<TokenTree> = ts.into_iter().collect();
+        let mut i = 0;
+        while i < toks.len() {
+            if let TokenTree::Ident(id) = &toks[i]
+                && (id == "struct" || id == "union")
+                && matches!(toks.get(i + 1), Some(TokenTree::Ident(_)))
+            {
+                // Skip generics / where clause up to the body (a brace group) or a `;`.
+                let mut j = i + 2;
+                while j < toks.len() {
+                    match &toks[j] {
+                        TokenTree::Group(g) if g.delimiter() == proc_macro2::Delimiter::Brace => {
+                            body(g.stream(), ranges, offset, src);
+                            walk(g.stream(), ranges, offset, src);
+                            break;
+                        }
+                        TokenTree::Punct(p) if p.as_char() == ';' => break,
+                        _ => j += 1,
+                    }
+                }
+                i = j + 1;
+                continue;
+            }
+            if let TokenTree::Group(g) = &toks[i] {
+                walk(g.stream(), ranges, offset, src);
+            }
+            i += 1;
+        }
+    }
+    walk(ts, &mut ranges, &offset, src);
+    if ranges.is_empty() {
+        return src.to_string();
+    }
+    let mut out = src.as_bytes().to_vec();
+    for (lo, hi) in ranges {
+        for b in &mut out[lo..hi] {
+            if *b != b'\n' {
+                *b = b' ';
+            }
+        }
+    }
+    // Only whole UTF-8 sequences inside default expressions are replaced (byte by byte with spaces).
+    String::from_utf8(out).unwrap()
+}
 
 fn line(span: Span) -> usize {
     span.start().line
@@ -304,7 +424,11 @@ fn fields_json(f: &Fields) -> Value {
         .enumerate()
         .map(|(i, fl)| {
             let (attrs, docs) = attrs_json(&fl.attrs);
-            json!({
+            let default = fl.ident.as_ref().and_then(|i| {
+                let lc = i.span().start();
+                FIELD_DEFAULTS.with(|d| d.borrow().get(&(lc.line, lc.column)).cloned())
+            });
+            let mut v = json!({
                 "name": fl.ident.as_ref().map(|i| i.to_string()),
                 "index": i,
                 "vis": vis_str(&fl.vis),
@@ -315,7 +439,11 @@ fn fields_json(f: &Fields) -> Value {
                     Some(i) => i.span(),
                     None => fl.ty.to_token_stream().into_iter().next().map(|t| t.span()).unwrap_or_else(Span::call_site),
                 }),
-            })
+            });
+            if let Some(d) = default {
+                v["default"] = json!(d);
+            }
+            v
         })
         .collect();
     json!({ "style": style, "fields": fields })
@@ -574,6 +702,8 @@ fn main() {
                 continue;
             }
         };
+        FIELD_DEFAULTS.with(|d| d.borrow_mut().clear());
+        let src = strip_default_field_values(&src);
         let file = match syn::parse_file(&src) {
             Ok(f) => f,
             Err(e) => {
