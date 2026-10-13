@@ -1,0 +1,19 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (lane odht): drives the oracle toolchain's own odht 0.3.1 (the copy linked into
+# librustc_driver, built for the oracle host) and rustc_hir_id's `def_path_hash_map::Config`, so the
+# tables it builds and reads are exactly the oracle's.
+[package]
+name = "odht"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "odht"
+path = "@SRC@/main.rs"
+
+[workspace]
