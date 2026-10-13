@@ -151,6 +151,17 @@ Merged: res-ident, res-macros, res-graph, res-imports, ast-passes (+ExternAbi/Ab
 Second half running: res-late-a/-b (late.rs split at :2891), res-diag-a/-b (diagnostics/impls.rs split at :1978),
 res-late-diag-a/-b (late/diagnostics.rs split at :2267), rustdoc (+pulldown-cmark subset), feed-hash (query re-feed hashing,
 DenseBitSet, per-process test scratch dirs). lint-early-b after lint-early-a.
+**Wave 10 done (2026-10-13)**: rustc_resolve complete (all files), rustc_lint core + all early passes, rustc_ast_passes,
+creader (wave 11 lane pulled forward), rustdoc (+pulldown-cmark), target-asm, fx-maps, feed-hash. Samples (300):
+expanded-nocore 89.7% and unpretty-expanded-nocore 89.7% (0 DIFF; every other case stops at CrateLocator::new = extern crate);
+resdump-nocore 1% (the port's resdump printer, src/rust_ts/resdump.ts `dump`, is not written).
+
+## Wave 11 — metadata + resdump (toward M2a: expanded-nocore + resdump-nocore >= 95%)
+resdump-dump (write src/rust_ts/resdump.ts `dump` to the probe's format); locator (+fs, filesearch); rmeta-types
+(rmeta/mod, table, parameterized); serialize (rustc_serialize + Decodable codegen); rmeta-decoder (decoder.rs split);
+cstore-impl (rest of cstore_impl.rs + provide); object-read (vendor object 0.39.1 archive/ELF read; DefaultMetadataLoader).
+Follow-ups: char::to_titlecase -> src/std (generated table); late_b.test.ts loads .env.local itself; std-unicode
+switches; harness L1 env filtering; skip the 3 parse ORACLE_TIMEOUT files.
 
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
