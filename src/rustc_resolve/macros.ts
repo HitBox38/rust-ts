@@ -36,7 +36,7 @@ import type { Edition } from "../rustc_span/edition.ts";
 import { type AstPass, ExpnData, LocalExpnId, MacroKind, SyntaxContext, update_dollar_crate_names } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, Span } from "../rustc_span/lib.ts";
 import { display_Ident, Ident, kw, sym, Symbol } from "../rustc_span/symbol.ts";
-import { assert, panic, unported, unreachable } from "../std/panic.ts";
+import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { KeyedSet } from "../rust_ts/keyed.ts";
 import { Resolver } from "./decls.ts";
@@ -814,7 +814,7 @@ Resolver.prototype.resolve_macro_or_delegation_path = function (
     } else if (path_res.$ === "NonModule" || path_res.$ === "Indeterminate" || path_res.$ === "Failed") {
       res_ = Err("Determined");
     } else if (path_res._0.$ === "Module") {
-      res_ = Ok(path_res._0._0.res()!);
+      res_ = Ok(unwrap(path_res._0._0.res()));
     } else {
       return unreachable();
     }
@@ -914,7 +914,7 @@ Resolver.prototype.finalize_macro_resolutions = function (this: Resolver, krate:
       check_consistency(this, path, path_span, kind, initial_res, full_res);
     } else if (path_res.$ === "Module" && path_res._0.$ === "Module") {
       // This may be a trait for glob delegation expansions.
-      check_consistency(this, path, path_span, kind, initial_res, path_res._0._0.res()!);
+      check_consistency(this, path, path_span, kind, initial_res, unwrap(path_res._0._0.res()));
     } else if (path_res.$ === "NonModule" || path_res.$ === "Failed") {
       let suggestion: diagnostics_impls_Suggestion | undefined = undefined;
       let span: Span;
