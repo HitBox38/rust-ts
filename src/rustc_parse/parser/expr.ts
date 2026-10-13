@@ -36,6 +36,9 @@ import type {
 import type { Lit, MetaVarKind, Token, TokenKind } from "../../rustc_ast/token.ts";
 import { MetaItemLit as MetaItemLitC } from "../../rustc_ast/util/literal.ts";
 import { Visitor, walk_expr } from "../../rustc_ast/visit.ts";
+import { MutVisitor, walk_expr as walk_expr_mut } from "../../rustc_ast/mut_visit.ts";
+import { unescape_char } from "../../vendor/rustc_literal_escaper/lib.ts";
+import { Edition } from "../../rustc_span/edition.ts";
 import { ControlFlow, VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { BREAK_WITH_LABEL_AND_LOOP } from "../../rustc_lint_defs/builtin.ts";
 import { report_lit_error } from "../../rustc_session/diagnostics.ts";
@@ -48,16 +51,15 @@ import { type Diag, type PResult, StashKey } from "../../rustc_errors/lib.ts";
 import { Applicability } from "../../rustc_lint_defs/lib.ts";
 import type { MutRef } from "../../rustc_span/hygiene.ts";
 import { BytePos, type ErrorGuaranteed, Span, type SpanSnippetError, type Spanned, respan } from "../../rustc_span/lib.ts";
-import { Ident, kw, sym, Symbol } from "../../rustc_span/symbol.ts";
+import { display_Ident, display_Symbol, Ident, kw, sym, Symbol } from "../../rustc_span/symbol.ts";
 import { is_ascii_alphanumeric } from "../../std/char.ts";
 import { debug_char, debug_str, debug_tuple, debug_vec, PLAIN, type Fmt } from "../../std/fmt.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
-import { unported_methods } from "../../rust_ts/stubs.ts";
+import { assert, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
-import { type Str, utf8_len } from "../../std/str.ts";
+import { type Str, Str as StrC, utf8_len } from "../../std/str.ts";
 import * as crate_diagnostics from "../diagnostics.ts";
 import { AttrWrapper, UsePreAttrPos } from "./attr_wrapper.ts";
-import { RecoverQPath, type SnapshotParser } from "./diagnostics.ts";
+import { ConsumeClosingDelim, RecoverQPath, type SnapshotParser } from "./diagnostics.ts";
 import * as diagnostics from "./expr/diagnostics.ts";
 import * as gen from "./expr.gen.ts";
 import type { DestructuredFloat, LetChainsPolicy } from "./expr.gen.ts";
@@ -1940,6 +1942,7 @@ Parser.prototype.parse_expr_labeled = function (this: Parser, label_: Label, con
           {
             class FindLabeledBreaksVisitor extends Visitor<ControlFlow<null>> {
               override Result = VisitorResult.ControlFlow<null>();
+              // rustc: compiler/rustc_parse/src/parser/expr.rs:1608 visit_expr
               override visit_expr(ex: Expr): ControlFlow<null> {
                 if (ex.kind.$ === "Break" && ex.kind._0 !== undefined) {
                   return ControlFlow.Break(null);
@@ -4275,34 +4278,708 @@ Parser.prototype.maybe_recover_bad_struct_literal_path = function (
   }
 };
 
-// ---- STUB TAIL ----
-// pub(crate) fn could_be_unclosed_char_literal(ident: Ident) -> bool (expr.rs:4080)
-export function could_be_unclosed_char_literal(_ident: import("../../rustc_span/symbol.ts").Ident): boolean {
-  return unported("rustc_parse::parser::expr::could_be_unclosed_char_literal");
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3634 parse_struct_fields
+Parser.prototype.parse_struct_fields = function (
+  this: Parser,
+  pth: Path,
+  recover: boolean,
+  close: ExpTokenPair,
+): PResult<[ExprField[], StructRest, ErrorGuaranteed | undefined /* async blocks are forbidden in Rust 2015 */]> {
+  const open_span = this.prev_token.span; //{
+  const fields: ExprField[] = [];
+  let base: StructRest = ast.StructRest.None;
+  let recovered_async: ErrorGuaranteed | undefined = undefined;
+  const in_if_guard = Restrictions.contains(this.restrictions, Restrictions.IN_IF_GUARD);
+  const in_let = Restrictions.contains(this.restrictions, Restrictions.IN_LET);
+  const async_block_err = (e: Diag, span: Span): void => {
+    crate_diagnostics.AsyncBlockIn2015_add_to_diag({ span }, e);
+    crate_diagnostics.HelpUseLatestEdition_add_to_diag(crate_diagnostics.HelpUseLatestEdition.new(), e);
+  };
+
+  while (!this.token.eq(close.tok)) {
+    if (this.eat(exp.DotDot) || this.recover_struct_field_dots(close.tok)) {
+      const exp_span = this.prev_token.span;
+      // We permit `.. }` on the left-hand side of a destructuring assignment.
+      if (this.check(close)) {
+        base = { $: "Rest", _0: this.prev_token.span };
+        break;
+      }
+      const r = this.parse_expr();
+      if (r.$ === "Ok") {
+        base = { $: "Base", _0: r._0 };
+      } else if (recover) {
+        const e = r._0;
+        e.emit();
+        this.recover_stmt();
+      } else {
+        return r;
+      }
+      this.recover_struct_comma_after_dotdot(exp_span);
+      break;
+    }
+
+    // Peek the field's ident before parsing its expr in order to emit better diagnostics.
+    let peek = this.token.non_reserved_ident();
+    if (peek !== undefined && !this.look_ahead(1, (tok) => tok.eq(TK.Colon))) {
+      peek = undefined;
+    }
+
+    // We still want a field even if its expr didn't parse.
+    const field_ident = (this_: Parser, guar: ErrorGuaranteed): ExprField | undefined => {
+      if (peek === undefined) return undefined;
+      const ident = peek;
+      const span = ident.span;
+      return {
+        ident,
+        span,
+        expr: this_.mk_expr_err(span, guar),
+        is_shorthand: false,
+        attrs: [],
+        id: DUMMY_NODE_ID,
+        is_placeholder: false,
+      };
+    };
+
+    let parsed_field: Result<ExprField, ErrorGuaranteed>;
+    const rf = this.parse_expr_field();
+    if (rf.$ === "Ok") {
+      parsed_field = Ok(rf._0);
+    } else {
+      const e = rf._0;
+      if (pth.eq_Symbol(kw.Async)) {
+        async_block_err(e, pth.span);
+      } else {
+        e.span_label(pth.span, "while parsing this struct");
+      }
+
+      let id: [Ident, token.IdentKind] | undefined;
+      if (
+        (id = this.token.ident()) !== undefined &&
+        !this.token.is_reserved_ident() &&
+        this.look_ahead(
+          1,
+          (t) =>
+            AssocOp.from_token(t) !== undefined ||
+            t.kind.$ === "OpenParen" ||
+            t.kind.$ === "OpenBracket" ||
+            t.kind.$ === "OpenBrace" ||
+            t.eq(TK.Dot),
+        )
+      ) {
+        const ident = id[0];
+        // Looks like they tried to write a shorthand, complex expression,
+        // E.g.: `n + m`, `f(a)`, `a[i]`, `S { x: 3 }`, or `x.y`.
+        e.span_suggestion_verbose(
+          Span.shrink_to_lo(this.token.span),
+          "try naming a field",
+          `${display_Ident(ident)}: `,
+          Applicability.MaybeIncorrect,
+        );
+      }
+      if (in_if_guard && close.token_type === TokenType.CloseBrace) {
+        return Err(e);
+      }
+
+      if (!recover) {
+        return Err(e);
+      }
+
+      if (in_let) {
+        // Better diagnostic for `foo { return 42; };`
+        // We've consumed `foo {` already
+        const snapshot = this.create_snapshot_for_diagnostic();
+        const might_be_stmt = snapshot.parser.token.is_keyword(kw.Return);
+        snapshot.parser.consume_block(exp.OpenBrace, exp.CloseBrace, ConsumeClosingDelim.Yes); //consume to the end of the block, including `}`
+
+        // make sure the block is at the end by eating a `;`,
+        // we shouldn't report such diagnostic for `let a = foo{return 43;}+bar;`
+        // also skip the suggestion if the span cross macro boundaries
+        if (might_be_stmt && snapshot.parser.eat(exp.Semi) && Span.eq_ctxt(pth.span, open_span)) {
+          const span = Span.between(pth.span, open_span);
+          e.subdiagnostic(crate_diagnostics.MissingElseInLet_subdiagnostic({ span }));
+          this.restore_snapshot(snapshot);
+          return Err(e);
+        }
+      }
+      const guar = e.emit_err();
+      if (pth.eq_Symbol(kw.Async)) {
+        recovered_async = guar;
+      }
+
+      // If we encountered an error which we are recovering from, treat the struct
+      // as if it has a `..` in it, because we don’t know what fields the user
+      // might have *intended* it to have.
+      //
+      // This assignment will be overwritten if we actually parse a `..` later.
+      //
+      // (Note that this code is duplicated between here and below in comma parsing.
+      base = { $: "NoneWithError", _0: guar };
+
+      // If the next token is a comma, then try to parse
+      // what comes next as additional fields, rather than
+      // bailing out until next `}`.
+      if (!this.token.eq(TK.Comma)) {
+        this.recover_stmt_(SemiColonMode.Comma, BlockMode.Ignore);
+        if (!this.token.eq(TK.Comma)) {
+          break;
+        }
+      }
+
+      parsed_field = Err(guar);
+    }
+
+    const is_shorthand = parsed_field.$ === "Ok" && parsed_field._0.is_shorthand;
+    // A shorthand field can be turned into a full field with `:`.
+    // We should point this out.
+    this.check_or_expected(!is_shorthand, TokenType.Colon);
+
+    const re = this.expect_one_of([exp.Comma], [close]);
+    if (re.$ === "Ok") {
+      let f: ExprField | undefined;
+      if (parsed_field.$ === "Ok") {
+        f = parsed_field._0;
+      } else {
+        f = field_ident(this, parsed_field._0);
+      }
+      if (f !== undefined) {
+        // Only include the field if there's no parse error for the field name.
+        fields.push(f);
+      }
+    } else {
+      const e = re._0;
+      if (pth.eq_Symbol(kw.Async)) {
+        async_block_err(e, pth.span);
+      } else {
+        e.span_label(pth.span, "while parsing this struct");
+        if (peek !== undefined) {
+          e.span_suggestion(
+            Span.shrink_to_hi(this.prev_token.span),
+            "try adding a comma",
+            ",",
+            Applicability.MachineApplicable,
+          );
+        }
+      }
+      if (!recover) {
+        return Err(e);
+      }
+      const guar = e.emit_err();
+      let f: ExprField | undefined;
+      if (pth.eq_Symbol(kw.Async)) {
+        recovered_async = guar;
+      } else if ((f = field_ident(this, guar)) !== undefined) {
+        fields.push(f);
+      }
+
+      // See comment above on this same assignment inside of field parsing.
+      base = { $: "NoneWithError", _0: guar };
+
+      this.recover_stmt_(SemiColonMode.Comma, BlockMode.Ignore);
+      this.eat(exp.Comma);
+    }
+  }
+  return Ok([fields, base, recovered_async]);
+};
+
+/// Precondition: already parsed the '{'.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3836 parse_expr_struct
+Parser.prototype.parse_expr_struct = function (
+  this: Parser,
+  qself: QSelf | undefined,
+  pth: Path,
+  recover: boolean,
+): PResult<Expr> {
+  const lo = pth.span;
+  const r = this.parse_struct_fields(ast.clone_Path(pth), recover, exp.CloseBrace);
+  if (r.$ === "Err") return r;
+  const [fields, base, recovered_async] = r._0;
+  const span = Span.to(lo, this.token.span);
+  const r2 = this.expect(exp.CloseBrace);
+  if (r2.$ === "Err") return r2;
+  let expr: ExprKind;
+  if (recovered_async !== undefined) {
+    const guar = recovered_async;
+    expr = { $: "Err", _0: guar };
+  } else {
+    expr = { $: "Struct", _0: { qself, path: pth, fields, rest: base } };
+  }
+  return Ok(this.mk_expr(span, expr));
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3855 recover_struct_comma_after_dotdot
+Parser.prototype.recover_struct_comma_after_dotdot = function (this: Parser, span: Span): void {
+  if (!this.token.eq(TK.Comma)) {
+    return;
+  }
+  this.dcx().emit_err(
+    crate_diagnostics.CommaAfterBaseStruct_diagnostic({
+      span: Span.to(span, this.prev_token.span),
+      comma: this.token.span,
+    }),
+  );
+  this.recover_stmt();
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3866 recover_struct_field_dots
+Parser.prototype.recover_struct_field_dots = function (this: Parser, close: TokenKind): boolean {
+  if (!this.look_ahead(1, (t) => t.eq(close)) && this.eat(exp.DotDotDot)) {
+    // recover from typo of `...`, suggest `..`
+    const span = this.prev_token.span;
+    this.dcx().emit_err(crate_diagnostics.MissingDotDot_diagnostic({ token_span: span, sugg_span: span }));
+    return true;
+  }
+  return false;
+};
+
+/// Converts an ident into 'label and emits an "expected a label, found an identifier" error.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3878 recover_ident_into_label
+Parser.prototype.recover_ident_into_label = function (this: Parser, ident0: Ident): Label {
+  // Convert `label` -> `'label`,
+  // so that nameres doesn't complain about non-existing label
+  const label = `'${display_Symbol(ident0.name)}`;
+  const ident = Ident.new(Symbol.intern(label), ident0.span);
+
+  this.dcx().emit_err(
+    crate_diagnostics.ExpectedLabelFoundIdent_diagnostic({
+      span: ident.span,
+      start: Span.shrink_to_lo(ident.span),
+    }),
+  );
+
+  return { ident };
+};
+
+/// Parses `ident (COLON expr)?`.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3893 parse_expr_field
+Parser.prototype.parse_expr_field = function (this: Parser): PResult<ExprField> {
+  const ra = this.parse_outer_attributes();
+  if (ra.$ === "Err") return ra;
+  const attrs = ra._0;
+  this.recover_vcs_conflict_marker();
+  return this.collect_tokens(
+    undefined,
+    attrs,
+    ForceCollect.No,
+    (this_, attrs_) => {
+      const lo = this_.token.span;
+
+      // Check if a colon exists one ahead. This means we're parsing a fieldname.
+      const is_shorthand = !this_.look_ahead(1, (t) => t.eq(TK.Colon) || t.eq(TK.Eq));
+      // Proactively check whether parsing the field will be incorrect.
+      const is_wrong =
+        this_.token.is_non_reserved_ident() &&
+        !this_.look_ahead(
+          1,
+          (t) => t.eq(TK.Colon) || t.eq(TK.Eq) || t.eq(TK.Comma) || t.eq(TK.CloseBrace) || t.eq(TK.CloseParen),
+        );
+      if (is_wrong) {
+        return Err(
+          this_.dcx().create_err(
+            crate_diagnostics.ExpectedStructField_diagnostic({
+              span: this_.look_ahead(1, (t) => t.span),
+              ident_span: this_.token.span,
+              token: pprust.token_to_string(this_.look_ahead(1, (t) => t)),
+            }),
+          ),
+        );
+      }
+      let ident: Ident;
+      let expr: Expr;
+      if (is_shorthand) {
+        // Mimic `x: x` for the `x` field shorthand.
+        const ri = this_.parse_ident_common(false);
+        if (ri.$ === "Err") return ri;
+        ident = ri._0;
+        const path = ast.Path.from_ident(ident);
+        expr = this_.mk_expr(ident.span, { $: "Path", _0: undefined, _1: path });
+      } else {
+        const ri = this_.parse_field_name();
+        if (ri.$ === "Err") return ri;
+        ident = ri._0;
+        this_.error_on_eq_field_init(ident);
+        this_.bump(); // `:`
+        const re = this_.parse_expr();
+        if (re.$ === "Err") return re;
+        expr = re._0;
+      }
+
+      return Ok([
+        {
+          ident,
+          span: Span.to(lo, expr.span),
+          expr,
+          is_shorthand,
+          attrs: attrs_,
+          id: DUMMY_NODE_ID,
+          is_placeholder: false,
+        },
+        Trailing.from(this_.token.eq(TK.Comma)),
+        UsePreAttrPos.No,
+      ]);
+    },
+    HasTokens.ExprField,
+    HasAttrs.ExprField,
+  );
+};
+
+/// Check for `=`. This means the source incorrectly attempts to
+/// initialize a field with an eq rather than a colon.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3947 error_on_eq_field_init
+Parser.prototype.error_on_eq_field_init = function (this: Parser, field_name: Ident): void {
+  if (!this.token.eq(TK.Eq)) {
+    return;
+  }
+
+  this.dcx().emit_err(
+    crate_diagnostics.EqFieldInit_diagnostic({
+      span: this.token.span,
+      eq: Span.to(Span.shrink_to_hi(field_name.span), this.token.span),
+    }),
+  );
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3958 mk_assign_op
+Parser.prototype.mk_assign_op = function (this: Parser, assign_op: AssignOp, lhs: Expr, rhs: Expr): ExprKind {
+  return { $: "AssignOp", _0: assign_op, _1: lhs, _2: rhs };
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3962 mk_range
+Parser.prototype.mk_range = function (
+  this: Parser,
+  start: Expr | undefined,
+  end: Expr | undefined,
+  limits: RangeLimits,
+): ExprKind {
+  if (end === undefined && limits === ast.RangeLimits.Closed) {
+    const guar = this.inclusive_range_with_incorrect_end();
+    return { $: "Err", _0: guar };
+  } else {
+    return { $: "Range", _0: start, _1: end, _2: limits };
+  }
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3976 mk_unary
+Parser.prototype.mk_unary = function (this: Parser, unop: UnOp, expr: Expr): ExprKind {
+  return { $: "Unary", _0: unop, _1: expr };
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3980 mk_binary
+Parser.prototype.mk_binary = function (this: Parser, binop: BinOp, lhs: Expr, rhs: Expr): ExprKind {
+  return { $: "Binary", _0: binop, _1: lhs, _2: rhs };
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3984 mk_index
+Parser.prototype.mk_index = function (this: Parser, expr: Expr, idx: Expr, brackets_span: Span): ExprKind {
+  return { $: "Index", _0: expr, _1: idx, _2: brackets_span };
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3988 mk_call
+Parser.prototype.mk_call = function (this: Parser, f: Expr, args: Expr[]): ExprKind {
+  return { $: "Call", _0: f, _1: args };
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3992 mk_await_expr
+Parser.prototype.mk_await_expr = function (this: Parser, self_arg: Expr, lo: Span): Expr {
+  const span = Span.to(lo, this.prev_token.span);
+  const await_expr = this.mk_expr(span, { $: "Await", _0: self_arg, _1: this.prev_token.span });
+  this.recover_from_await_method_call();
+  return await_expr;
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3999 mk_use_expr
+Parser.prototype.mk_use_expr = function (this: Parser, self_arg: Expr, lo: Span): Expr {
+  const span = Span.to(lo, this.prev_token.span);
+  const use_expr = this.mk_expr(span, { $: "Use", _0: self_arg, _1: this.prev_token.span });
+  this.recover_from_use();
+  return use_expr;
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:4006 mk_expr_with_attrs
+Parser.prototype.mk_expr_with_attrs = function (this: Parser, span: Span, kind: ExprKind, attrs: AttrVec): Expr {
+  return new ast.Expr(DUMMY_NODE_ID, kind, span, attrs, undefined);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:4015 mk_expr
+Parser.prototype.mk_expr = function (this: Parser, span: Span, kind: ExprKind): Expr {
+  return this.mk_expr_with_attrs(span, kind, []);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:4019 mk_expr_err
+Parser.prototype.mk_expr_err = function (this: Parser, span: Span, guar: ErrorGuaranteed): Expr {
+  return this.mk_expr(span, { $: "Err", _0: guar });
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:4023 mk_unit_expr
+Parser.prototype.mk_unit_expr = function (this: Parser, span: Span): Expr {
+  return this.mk_expr(span, { $: "Tup", _0: [] });
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:4027 mk_closure_expr
+Parser.prototype.mk_closure_expr = function (this: Parser, span: Span, body: Expr): Expr {
+  return this.mk_expr(span, {
+    $: "Closure",
+    _0: {
+      binder: ast.ClosureBinder.NotPresent,
+      constness: ast.Const.No,
+      movability: ast.Movability.Movable,
+      capture_clause: ast.CaptureBy.Ref,
+      coroutine_marker: undefined,
+      fn_decl: new ast.FnDecl([], { $: "Default", _0: span }),
+      fn_arg_span: span,
+      fn_decl_span: span,
+      body,
+    },
+  });
+};
+
+/// Create expression span ensuring the span of the parent node
+/// is larger than the span of lhs and rhs, including the attributes.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:4049 mk_expr_sp
+Parser.prototype.mk_expr_sp = function (this: Parser, lhs: Expr, lhs_span: Span, op_span: Span, rhs_span: Span): Span {
+  const a = lhs.attrs.find((a) => a.style === ast.AttrStyle.Outer);
+  return Span.to(Span.to(a === undefined ? lhs_span : a.span, op_span), rhs_span);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:4058 collect_tokens_for_expr
+Parser.prototype.collect_tokens_for_expr = function (
+  this: Parser,
+  attrs: AttrWrapper,
+  f: (this_: Parser, a1: AttrVec) => PResult<Expr>,
+): PResult<Expr> {
+  return this.collect_tokens(
+    undefined,
+    attrs,
+    ForceCollect.No,
+    (this_, attrs_) => {
+      const r = f(this_, attrs_);
+      if (r.$ === "Err") return r;
+      const res = r._0;
+      const trailing = Trailing.from(
+        (Restrictions.contains(this_.restrictions, Restrictions.STMT_EXPR) && this_.token.eq(TK.Semi)) ||
+          // FIXME: pass an additional condition through from the place
+          // where we know we need a comma, rather than assuming that
+          // `#[attr] expr,` always captures a trailing comma.
+          this_.token.eq(TK.Comma),
+      );
+      return Ok([res, trailing, UsePreAttrPos.No]);
+    },
+    HasTokens.Expr,
+    HasAttrs.Expr,
+  );
+};
+
+/// Could this lifetime/label be an unclosed char literal? For example, `'a`
+/// could be, but `'abc` could not.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:4080 could_be_unclosed_char_literal
+export function could_be_unclosed_char_literal(ident: Ident): boolean {
+  return (
+    Symbol.as_str(ident.name).startsWith("'") &&
+    unescape_char(StrC.from(Symbol.as_str(ident.without_first_quote().name))).$ === "Ok"
+  );
 }
 
-// PORT(stub): placeholders until this file is ported; remove each name as its method is ported.
-unported_methods(Parser.prototype, "rustc_parse::parser::expr::Parser", [
-  "parse_struct_fields",
-  "parse_expr_struct",
-  "recover_struct_comma_after_dotdot",
-  "recover_struct_field_dots",
-  "recover_ident_into_label",
-  "parse_expr_field",
-  "error_on_eq_field_init",
-  "mk_assign_op",
-  "mk_range",
-  "mk_unary",
-  "mk_binary",
-  "mk_index",
-  "mk_call",
-  "mk_await_expr",
-  "mk_use_expr",
-  "mk_expr_with_attrs",
-  "mk_expr",
-  "mk_expr_err",
-  "mk_unit_expr",
-  "mk_closure_expr",
-  "mk_expr_sp",
-  "collect_tokens_for_expr",
-]);
+// (`LetChainsPolicy` is generated into expr.gen.ts.)
+
+/// Visitor to check for invalid use of `ExprKind::Let` that can't
+/// easily be caught in parsing. For example:
+///
+/// ```rust,ignore (example)
+/// // Only know that the let isn't allowed once the `||` token is reached
+/// if let Some(x) = y || true {}
+/// // Only know that the let isn't allowed once the second `=` token is reached.
+/// if let Some(x) = y && z = 1 {}
+/// ```
+// PORT: hand-written (shadows the generated `CondChecker` class of expr.gen.ts): `impl MutVisitor for
+// CondChecker` makes it a `MutVisitor` implementor, which in TS must `extends MutVisitor` (mut_visit.ts).
+// Same fields, same order.
+export class CondChecker extends MutVisitor {
+  constructor(
+    public parser: Parser,
+    public let_chains_policy: LetChainsPolicy,
+    public depth: number,
+    public forbid_let_reason: crate_diagnostics.ForbiddenLetReason | undefined,
+    public missing_let: crate_diagnostics.MaybeMissingLet | undefined,
+    public comparison: crate_diagnostics.MaybeComparison | undefined,
+    public found_incorrect_let_chain: ErrorGuaranteed | undefined,
+  ) {
+    super();
+  }
+
+  // rustc: compiler/rustc_parse/src/parser/expr.rs:4112 new
+  static new(parser: Parser, let_chains_policy: LetChainsPolicy): CondChecker {
+    return new CondChecker(parser, let_chains_policy, 0, undefined, undefined, undefined, undefined);
+  }
+
+  // impl MutVisitor for CondChecker<'_>
+  // rustc: compiler/rustc_parse/src/parser/expr.rs:4126 visit_expr
+  override visit_expr(e: Expr): void {
+    this.depth += 1;
+
+    const span = e.span;
+    const k = e.kind;
+    const flr = this.forbid_let_reason;
+    if (k.$ === "Let" && k._3.$ === "No") {
+      if (this.forbid_let_reason !== undefined) {
+        const reason = this.forbid_let_reason;
+        let error: ErrorGuaranteed;
+        if (reason.$ === "NotSupportedOr") {
+          const or_span = reason._0;
+          error = this.parser.dcx().emit_err(crate_diagnostics.OrInLetChain_diagnostic({ span: or_span }));
+        } else {
+          const guar = this.parser.dcx().emit_err(
+            crate_diagnostics.ExpectedExpressionFoundLet_diagnostic({
+              span,
+              reason,
+              missing_let: this.missing_let,
+              comparison: this.comparison,
+            }),
+          );
+          if (this.missing_let !== undefined) {
+            this.found_incorrect_let_chain = guar;
+          }
+          error = guar;
+        }
+        k._3 = { $: "Yes", _0: error };
+      } else if (this.depth > 1) {
+        // Top level `let` is always allowed; only gate chains
+        const policy = this.let_chains_policy;
+        switch (policy.$) {
+          case "AlwaysAllowed":
+            break;
+          case "EditionDependent": {
+            const current_edition = policy.current_edition;
+            if (!Edition.at_least_rust_2024(current_edition) || !Span.at_least_rust_2024(span)) {
+              this.parser.dcx().emit_err(crate_diagnostics.LetChainPre2024_diagnostic({ span }));
+            }
+            break;
+          }
+        }
+      }
+    } else if (k.$ === "Binary" && k._0.node === ast.BinOpKind.And) {
+      walk_expr_mut(this, e);
+    } else if (
+      k.$ === "Binary" &&
+      k._0.node === ast.BinOpKind.Or &&
+      (flr === undefined || flr.$ === "NotSupportedOr")
+    ) {
+      const or_span = k._0.span;
+      const forbid_let_reason = this.forbid_let_reason;
+      this.forbid_let_reason = { $: "NotSupportedOr", _0: or_span };
+      walk_expr_mut(this, e);
+      this.forbid_let_reason = forbid_let_reason;
+    } else if (k.$ === "Paren" && (flr === undefined || flr.$ === "NotSupportedParentheses")) {
+      const inner = k._0;
+      const forbid_let_reason = this.forbid_let_reason;
+      this.forbid_let_reason = { $: "NotSupportedParentheses", _0: inner.span };
+      walk_expr_mut(this, e);
+      this.forbid_let_reason = forbid_let_reason;
+    } else if (k.$ === "Assign") {
+      const [lhs, rhs, span] = [k._0, k._1, k._2];
+      if (lhs.kind.$ === "Call") {
+        // rustc: compiler/rustc_parse/src/parser/expr.rs:4195 get_path_from_rhs
+        function get_path_from_rhs(e: Expr): [number, Path] | undefined {
+          // rustc: compiler/rustc_parse/src/parser/expr.rs:4196 inner
+          function inner(e: Expr, depth: number): [number, Path] | undefined {
+            const ek = e.kind;
+            switch (ek.$) {
+              case "Binary":
+                return inner(ek._1, depth + 1);
+              case "Path":
+                return [depth, ek._1];
+              default:
+                return undefined;
+            }
+          }
+
+          return inner(e, 0);
+        }
+
+        const dp = get_path_from_rhs(rhs);
+        if (dp !== undefined) {
+          const [depth, path] = dp;
+          // For cases like if Some(_) = x && let Some(_) = y && let Some(_) = z
+          // This return let Some(_) = y expression
+          // rustc: compiler/rustc_parse/src/parser/expr.rs:4210 find_let_some
+          function find_let_some(expr: Expr): Expr | undefined {
+            const ek = expr.kind;
+            if (ek.$ === "Let") {
+              return expr;
+            } else if (ek.$ === "Binary" && ek._0.node === ast.BinOpKind.And) {
+              return find_let_some(ek._1) ?? find_let_some(ek._2);
+            } else {
+              return undefined;
+            }
+          }
+
+          const expr_span = Span.to(lhs.span, path.span);
+
+          const later_rhs = find_let_some(rhs);
+          if (later_rhs !== undefined && depth > 0) {
+            const guar = this.parser.dcx().emit_err(
+              crate_diagnostics.LetChainMissingLet_diagnostic({
+                span: lhs.span,
+                label_span: expr_span,
+                rhs_span: later_rhs.span,
+                sug_span: Span.shrink_to_lo(lhs.span),
+              }),
+            );
+
+            this.found_incorrect_let_chain = guar;
+          }
+        }
+      }
+
+      const forbid_let_reason = this.forbid_let_reason;
+      this.forbid_let_reason = crate_diagnostics.ForbiddenLetReason.OtherForbidden;
+      const missing_let = this.missing_let;
+      const lk = lhs.kind;
+      if (
+        lk.$ === "Binary" &&
+        (lk._2.kind.$ === "Path" || lk._2.kind.$ === "Struct" || lk._2.kind.$ === "Call" || lk._2.kind.$ === "Array")
+      ) {
+        const rhs2 = lk._2;
+        this.missing_let = { span: Span.shrink_to_lo(rhs2.span) };
+      }
+      const comparison = this.comparison;
+      this.comparison = { span: Span.shrink_to_hi(span) };
+      walk_expr_mut(this, e);
+      this.forbid_let_reason = forbid_let_reason;
+      this.missing_let = missing_let;
+      this.comparison = comparison;
+    } else if (
+      k.$ === "Unary" ||
+      k.$ === "Await" ||
+      k.$ === "Move" ||
+      k.$ === "Use" ||
+      k.$ === "AssignOp" ||
+      k.$ === "Range" ||
+      k.$ === "Try" ||
+      k.$ === "AddrOf" ||
+      k.$ === "Binary" ||
+      k.$ === "Field" ||
+      k.$ === "Index" ||
+      k.$ === "Call" ||
+      k.$ === "MethodCall" ||
+      k.$ === "Tup" ||
+      k.$ === "Paren"
+    ) {
+      const forbid_let_reason = this.forbid_let_reason;
+      this.forbid_let_reason = crate_diagnostics.ForbiddenLetReason.OtherForbidden;
+      walk_expr_mut(this, e);
+      this.forbid_let_reason = forbid_let_reason;
+    } else if (k.$ === "Cast" || k.$ === "Type" || k.$ === "UnsafeBinderCast") {
+      const op = k.$ === "UnsafeBinderCast" ? k._1 : k._0;
+      const forbid_let_reason = this.forbid_let_reason;
+      this.forbid_let_reason = crate_diagnostics.ForbiddenLetReason.OtherForbidden;
+      this.visit_expr(op);
+      this.forbid_let_reason = forbid_let_reason;
+    } else {
+      // ExprKind::Let(_, _, _, Recovered::Yes(_)) | Array | ConstBlock | Lit | If | While | ForLoop
+      // | Loop | Match | Closure | Block | Gen | TryBlock | Underscore | Path | Break | Continue
+      // | Ret | InlineAsm | OffsetOf | MacCall | Struct | Repeat | Yield | Yeet | Become
+      // | IncludedBytes | FormatArgs | Err | GcaMacro | Dummy
+      // These would forbid any let expressions they contain already.
+    }
+    this.depth -= 1;
+  }
+}
