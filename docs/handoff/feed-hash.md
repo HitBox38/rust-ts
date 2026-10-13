@@ -114,4 +114,4 @@ At the pin, the re-feed check is `rustc_middle::query::calls::query_feed` (calls
 
 ## For root
 - Review the codegen changes (queries.ts, types.ts, types.sets.json) and the one-line `build_reduced_graph.ts` edit.
-- `docs/claims/feed-hash.md` (if present) can be removed on integration.
+- `docs/claims/wave10-feed-hash.md` can be removed on integration.
