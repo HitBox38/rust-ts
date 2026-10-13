@@ -96,8 +96,9 @@ import "../rustc_attr_ir/lib.ts";
 import "./interface.ts";
 import "./context.ts";
 import "./safety.ts";
-import "./stability.ts";
-import "./target_checking.ts";
+import { install as install_stability } from "./stability.ts";
+import { install as install_target_checking } from "./target_checking.ts";
+import { install as install_util } from "./attributes/util.ts";
 import "./attributes/diagnostic/mod.ts";
 
 // #[macro_use]
@@ -134,3 +135,9 @@ export { AttributeParser, EmitAttribute } from "./interface.ts";
 export { Recovery } from "../rustc_parse/parser/mod.gen.ts";
 export { AttributeTemplate, template } from "./template.ts";
 export { unstable } from "./stability.ts";
+
+// PORT: extension modules that the attribute parser modules import (so they are evaluated while
+// context.ts is still evaluating) install their `impl AttributeParser` / `impl AcceptContext` fns here.
+install_stability();
+install_target_checking();
+install_util();

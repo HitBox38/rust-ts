@@ -79,7 +79,7 @@ declare module "../context.ts" {
 }
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/util.rs:56 parse_limit_int
-AcceptContext.prototype.parse_limit_int = function (this: AcceptContext, nv: NameValueParser): Limit | undefined {
+function parse_limit_int(this: AcceptContext, nv: NameValueParser): Limit | undefined {
   const limit = this.expect_string_literal(nv, ExpectStringLiteral.NameValueParser);
   if (limit === undefined) return undefined;
 
@@ -109,4 +109,11 @@ AcceptContext.prototype.parse_limit_int = function (this: AcceptContext, nv: Nam
   this.shared.emit_err(LimitInvalid_diagnostic({ span: this.attr_span, value_span: nv.value_span, error_str }));
 
   return undefined;
-};
+}
+
+// PORT: the `impl AcceptContext` fn is installed by `install()`, called from rustc_attr_parsing/lib.ts:
+// attribute parser modules import this module while context.ts is still evaluating its imports (see
+// target_checking.ts).
+export function install(): void {
+  AcceptContext.prototype.parse_limit_int = parse_limit_int;
+}

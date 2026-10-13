@@ -1,6 +1,6 @@
 // Port of compiler/rustc_attr_parsing/src/stability.rs
 // `impl AttributeParser { fn check_attribute_stability }`: an extension module of interface.ts
-// (PORTING §5 "Methods defined in another file"); lib.ts loads it after interface.ts.
+// (PORTING §5 "Methods defined in another file"); lib.ts calls `install()` after loading interface.ts.
 //
 // PORT: `macro_rules! unstable` -> the function `unstable(sym.<feat>, ...notes)`. The macro's
 // `_ = rustc_feature::Features::$feat;` is a compile-time check that the feature exists; it has no
@@ -25,7 +25,7 @@ declare module "./interface.ts" {
 }
 
 // rustc: compiler/rustc_attr_parsing/src/stability.rs:22 check_attribute_stability
-AttributeParser.prototype.check_attribute_stability = function (
+function check_attribute_stability(
   this: AttributeParser,
   attr_path: AttrPath,
   attr_span: Span,
@@ -137,4 +137,11 @@ AttributeParser.prototype.check_attribute_stability = function (
   }
 
   diag.emit();
-};
+}
+
+// PORT (attr-parse-b): installed by `install()`, called from lib.ts: the attribute parser modules import
+// `unstable` from here while context.ts (and interface.ts) are still evaluating their imports, so
+// `AttributeParser` is not initialized when this module's body runs (see target_checking.ts).
+export function install(): void {
+  AttributeParser.prototype.check_attribute_stability = check_attribute_stability;
+}
