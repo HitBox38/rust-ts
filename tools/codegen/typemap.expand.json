@@ -1,0 +1,11 @@
+{
+  "//": [
+    "Type-map additions of lane expand-base (rustc_expand diagnostics.rs), merged by",
+    "tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_span::MacroRulesNormalizedIdent", "rustc_span::symbol::MacroRulesNormalizedIdent"], "ts": "MacroRulesNormalizedIdent", "import": "src/rustc_span/symbol.ts", "types": ["MacroRulesNormalizedIdent"], "values": ["debug_MacroRulesNormalizedIdent"], "debug": "debug_MacroRulesNormalizedIdent($v, $f)", "clone": "copy" }
+  ]
+}
