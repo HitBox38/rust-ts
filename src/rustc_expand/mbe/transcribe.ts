@@ -9,7 +9,6 @@ import { ast, HasAttrs, HasTokens, token, tokenstream } from "../../rustc_ast/li
 import type { Delimiter, MetaVarKind, Token, TokenKind } from "../../rustc_ast/token.ts";
 import type { DelimSpacing, DelimSpan, Spacing, TokenStream, TokenTree } from "../../rustc_ast/tokenstream.ts";
 import { type Diag, type DiagCtxtHandle, listify, type PResult, pluralize } from "../../rustc_errors/lib.ts";
-import type { Diagnostic, Subdiagnostic } from "../../rustc_errors/diagnostic.ts";
 import { is_ident } from "../../rustc_lexer/lib.ts";
 import { nfc_normalize } from "../../rustc_parse/lexer/mod.ts";
 import type { ParseNtResult } from "../../rustc_parse/parser/mod.ts";
@@ -30,90 +29,21 @@ import { MetaVarExpr as MetaVarExpr_, type MetaVarExprConcatElem, validate_ident
 const { DelimSpan: DelimSpan_, DelimSpacing: DelimSpacing_, TokenStream: TokenStream_, TokenTree: TokenTree_, clone_DelimSpan, debug_WithTokens } = tokenstream;
 const { LitKind: LitKind_, Token: Token_, TokenKind: TokenKind_ } = token;
 
-// ---------------------------------------------------------------------------------------------
-// PORT: pending expand-core: `crate::diagnostics` (compiler/rustc_expand/src/diagnostics.rs, generated
-// into src/rustc_expand/diagnostics.gen.ts). Until it lands, these stand-ins have the generated shapes
-// (field interfaces + `<T>_diagnostic` / `<T>_subdiagnostic`) and stop with `unported` when the
-// diagnostic is built. Replace this block with imports from "../diagnostics.ts".
-interface ConcatInvalidIdent {
-  span: Span;
-  reason: InvalidIdentReason;
-}
-function ConcatInvalidIdent_diagnostic(_self: ConcatInvalidIdent): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::ConcatInvalidIdent") };
-}
-interface CountRepetitionMisplaced {
-  span: Span;
-}
-function CountRepetitionMisplaced_diagnostic(_self: CountRepetitionMisplaced): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::CountRepetitionMisplaced") };
-}
-type InvalidIdentReason =
-  | { readonly $: "Empty" }
-  | { readonly $: "InvalidStart"; symbol: Symbol; start: number }
-  | { readonly $: "InvalidContinue"; symbol: Symbol; not_continue: number };
-const InvalidIdentReason = {
-  new(_symbol: Symbol): InvalidIdentReason {
-    return unported("rustc_expand::diagnostics::InvalidIdentReason::new");
-  },
-};
-interface MacroVarStillRepeating {
-  span: Span;
-  ident: MacroRulesNormalizedIdent;
-}
-function MacroVarStillRepeating_diagnostic(_self: MacroVarStillRepeating): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::MacroVarStillRepeating") };
-}
-interface MetaVarsDifSeqMatchers {
-  span: Span;
-  msg: string;
-}
-function MetaVarsDifSeqMatchers_diagnostic(_self: MetaVarsDifSeqMatchers): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::MetaVarsDifSeqMatchers") };
-}
-interface MustRepeatOnce {
-  span: Span;
-}
-function MustRepeatOnce_diagnostic(_self: MustRepeatOnce): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::MustRepeatOnce") };
-}
-interface MveUnrecognizedVar {
-  span: Span;
-  key: MacroRulesNormalizedIdent;
-}
-function MveUnrecognizedVar_diagnostic(_self: MveUnrecognizedVar): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::MveUnrecognizedVar") };
-}
-interface NoRepeatableVar {
-  span: Span;
-}
-interface NoSyntaxVarsExprRepeat {
-  span: Span;
-  typo_repeatable: VarTypoSuggestionRepeatable | undefined;
-  typo_unrepeatable: VarTypoSuggestionUnrepeatable | undefined;
-  typo_unrepeatable_label: VarTypoSuggestionUnrepeatableLabel | undefined;
-  var_no_typo: VarNoTypo | undefined;
-  no_repeatable_var: NoRepeatableVar | undefined;
-}
-function NoSyntaxVarsExprRepeat_diagnostic(_self: NoSyntaxVarsExprRepeat): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::NoSyntaxVarsExprRepeat") };
-}
-interface VarNoTypo {
-  span: Span;
-  msg: string;
-}
-interface VarTypoSuggestionRepeatable {
-  span: Span;
-  name: Symbol;
-}
-interface VarTypoSuggestionUnrepeatable {
-  span: Span;
-}
-interface VarTypoSuggestionUnrepeatableLabel {
-  span: Span;
-}
-export type { Subdiagnostic as _UnusedSubdiagnostic };
-// ---------------------------------------------------------------------------------------------
+import {
+  ConcatInvalidIdent_diagnostic,
+  CountRepetitionMisplaced_diagnostic,
+  InvalidIdentReason,
+  MacroVarStillRepeating_diagnostic,
+  MetaVarsDifSeqMatchers_diagnostic,
+  MustRepeatOnce_diagnostic,
+  MveUnrecognizedVar_diagnostic,
+  type NoRepeatableVar,
+  NoSyntaxVarsExprRepeat_diagnostic,
+  type VarNoTypo,
+  type VarTypoSuggestionRepeatable,
+  type VarTypoSuggestionUnrepeatable,
+  type VarTypoSuggestionUnrepeatableLabel,
+} from "../diagnostics.ts";
 
 /// Context needed to perform transcription of metavariable expressions.
 // rustc-type: compiler/rustc_expand/src/mbe/transcribe.rs:32 TranscrCtx

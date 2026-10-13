@@ -1,27 +1,26 @@
 // Port of compiler/rustc_expand/src/mbe/diagnostics.rs
 //
-// PORT: types are hand-written (no codegen set covers this file yet). `ExplainDocComment`
-// (`#[derive(Subdiagnostic)]`) is a stand-in until tools/codegen generates this file's derive
-// (see docs/handoff/mbe-b.md).
+// PORT: `ExplainDocComment` and its `#[derive(Subdiagnostic)]` are generated into diagnostics.gen.ts
+// (tools/codegen set `rustc_expand`); the other types are hand-written here (`skip` in the set).
 
 import "../../rustc_parse/lib.ts";
-import { token } from "../../rustc_ast/lib.ts";
+import { token, tokenstream } from "../../rustc_ast/lib.ts";
 import type { Token } from "../../rustc_ast/token.ts";
 import type { TokenStream } from "../../rustc_ast/tokenstream.ts";
 import { default_CustomDiagnostic, type FormatArgs } from "../../rustc_attr_ir/diagnostic.gen.ts";
 import type { CustomDiagnostic, Directive } from "../../rustc_attr_ir/diagnostic.ts";
 import "../../rustc_attr_ir/diagnostic.ts";
 import { Applicability, type Diag, type DiagCtxtHandle, type ErrorGuaranteed, pluralize } from "../../rustc_errors/lib.ts";
-import type { Subdiagnostic } from "../../rustc_errors/diagnostic.ts";
 import { type Parser, type Recovery, token_descr } from "../../rustc_parse/parser/mod.ts";
 import type { ParseSess } from "../../rustc_session/parse.ts";
 import { find_best_match_for_name } from "../../rustc_span/edit_distance.ts";
 import { DUMMY_SP, Span } from "../../rustc_span/lib.ts";
 import type { SourceMap } from "../../rustc_span/source_map.ts";
 import { display_Ident, type Ident, Symbol } from "../../rustc_span/symbol.ts";
-import { assert, panic, unported, unreachable } from "../../std/panic.ts";
+import { assert, panic, unreachable } from "../../std/panic.ts";
 import type { AstFragmentKind } from "../expand.ts";
 import { parse_ast_fragment } from "../expand.ts";
+import { ExplainDocComment_subdiagnostic } from "./diagnostics.gen.ts";
 import { display_MatcherLoc, MatcherLoc, type NamedParseResult, CowParser, TtParser } from "./macro_parser.ts";
 import {
   type MacroRule,
@@ -34,6 +33,8 @@ import {
   WhichMatcher,
   WhichMatcher_discriminant,
 } from "./macro_rules.ts";
+
+export * from "./diagnostics.gen.ts";
 
 const { TokenKind: TokenKind_ } = token;
 
@@ -160,7 +161,7 @@ export function failed_to_match_macro(
     for (const rule of rules) {
       if (rule.$ !== "Func") continue;
       const lhs = rule.lhs;
-      const parser = parser_from_cx(psess, body.clone(), "Allowed");
+      const parser = parser_from_cx(psess, new tokenstream.TokenStream(body._0), "Allowed");
       const tt_parser = TtParser.new();
 
       if (tt_parser.parse_tt(CowParser.Borrowed(parser), lhs, new NoopTracker()).$ === "Success") {
@@ -454,7 +455,8 @@ export function emit_frag_parse_err(
   if (parser.token.kind.$ === "Dollar") {
     const dollar_span = parser.token.span;
     parser.bump();
-    const k = parser.token.kind;
+    // PORT: re-read after `bump()` (TS keeps the `Dollar` narrowing of `parser.token.kind`).
+    const k = (parser.token as Token).kind;
     if (k.$ === "Ident") {
       const name = k._0;
       const metavar_span = Span.to(dollar_span, parser.token.span);
@@ -515,13 +517,6 @@ export function annotate_err_with_kind(err: Diag, kind: AstFragmentKind, span: S
     default:
       break;
   }
-}
-
-// rustc-type: compiler/rustc_expand/src/mbe/diagnostics.rs:516 ExplainDocComment
-type ExplainDocComment = { readonly $: "Inner"; span: Span } | { readonly $: "Outer"; span: Span };
-// PORT: pending codegen of this file's `#[derive(Subdiagnostic)]` (see the header).
-function ExplainDocComment_subdiagnostic(_self: ExplainDocComment): Subdiagnostic {
-  return { add_to_diag: () => unported("rustc_expand::mbe::diagnostics::ExplainDocComment (derive(Subdiagnostic) codegen)") };
 }
 
 // rustc: compiler/rustc_expand/src/mbe/diagnostics.rs:533 annotate_doc_comment

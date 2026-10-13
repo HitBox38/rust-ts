@@ -11,6 +11,7 @@
 //! creates no expansions (no_core: no std injection), so the hygiene tables start empty.
 //!
 //! Then the probe:
+//! 0. prints the crate root's `DefPathHash` (what `ExpnHash`es are prefixed with);
 //! 1. parses <case.rs> as `FileName::Custom("case.rs")` (`new_parser_from_source_str`,
 //!    `StripTokens::Nothing`, `parse_crate_mod`);
 //! 2. computes `rustc_expand::config::features(sess, &krate.attrs, "case")`;
@@ -467,6 +468,7 @@ impl Callbacks for MbeProbe {
             before,
             "Expansions:\ncrate0::{{expn0}}: parent: crate0::{{expn0}}, call_site_ctxt: #0, def_site_ctxt: #0, kind: Root\n\nSyntaxContexts:\n#0: parent: #0, outer_mark: (crate0::{{expn0}}, Opaque)"
         );
+        ev(format!("crate_root {:?}", tcx.def_path_hash(rustc_hir::def_id::CRATE_DEF_ID.to_def_id())));
         let src = std::fs::read_to_string(&self.case).unwrap();
         let krate = match rustc_parse::new_parser_from_source_str(
             &sess.psess,

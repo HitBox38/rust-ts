@@ -299,12 +299,24 @@
   },
   "rustc_expand": {
     "files": [
-      "compiler/rustc_expand/src/diagnostics.rs"
+      "compiler/rustc_expand/src/diagnostics.rs",
+      "compiler/rustc_expand/src/mbe/diagnostics.rs"
     ],
     "class": [],
     "hand": [],
     "discriminant": [],
-    "skip": [],
+    "skip": [
+      "rustc_expand::mbe::diagnostics::FailedMacro",
+      "rustc_expand::mbe::diagnostics::CollectTrackerAndEmitter",
+      "rustc_expand::mbe::diagnostics::SuccessfulMatch",
+      "rustc_expand::mbe::diagnostics::BestFailure"
+    ],
+    "skip_notes": {
+      "rustc_expand::mbe::diagnostics::FailedMacro": "hand-written in src/rustc_expand/mbe/diagnostics.ts (lane mbe-b); only ExplainDocComment's derive(Subdiagnostic) is generated from this file",
+      "rustc_expand::mbe::diagnostics::CollectTrackerAndEmitter": "hand-written class (Tracker impl) in src/rustc_expand/mbe/diagnostics.ts",
+      "rustc_expand::mbe::diagnostics::SuccessfulMatch": "hand-written in src/rustc_expand/mbe/diagnostics.ts (FxHashSet key)",
+      "rustc_expand::mbe::diagnostics::BestFailure": "hand-written class in src/rustc_expand/mbe/diagnostics.ts"
+    },
     "derive_default": true
   }
 }

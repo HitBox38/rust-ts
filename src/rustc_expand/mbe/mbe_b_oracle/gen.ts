@@ -1,7 +1,7 @@
 // Regenerates out.json (the mbe-b oracle fixture) by running the rustc-dev probe `mbeprobe`
 // (probe/main.rs; build instructions in probe/Cargo.toml.in) over every cases/*.rs.
 //
-//   bun src/rustc_expand/mbe/mbe_oracle/gen.ts [path/to/mbeprobe]
+//   bun src/rustc_expand/mbe/mbe_b_oracle/gen.ts [path/to/mbeprobe]
 //
 // Default probe path: $RUST_TS_DATA/tmp/mbe-b/probe/target/release/mbeprobe. A case's first lines
 // may set `//@ edition: <year>` (default 2024). Each fixture entry records the probe's arguments,

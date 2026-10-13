@@ -14,6 +14,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def add NodeId(1): MacroRules kinds=MacroKinds(1) nrules=3 is_macro_rules=true",
    "  get_unused_rule(0) = Some((add#0, MultiSpan { primary_spans: [<case.rs>:2:5: 2:23 (#0)], span_labels: [], span_context: [] }))",
@@ -112,6 +113,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features [\"macro_attr\"]",
    "def a1 NodeId(1): MacroRules kinds=MacroKinds(2) nrules=2 is_macro_rules=true",
    "  get_unused_rule(0) = Some((a1#0, MultiSpan { primary_spans: [<case.rs>:3:9: 3:11 (#0), <case.rs>:3:12: 3:26 (#0)], span_labels: [], span_context: [] }))",
@@ -184,6 +186,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def a1 NodeId(1): MacroRules kinds=MacroKinds(2) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((a1#0, MultiSpan { primary_spans: [<case.rs>:1:23: 1:25 (#0), <case.rs>:1:26: 1:28 (#0)], span_labels: [], span_context: [] }))",
@@ -215,6 +218,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features [\"macro_metavar_expr_concat\"]",
    "def mk NodeId(1): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((mk#0, MultiSpan { primary_spans: [<case.rs>:3:5: 3:34 (#0)], span_labels: [], span_context: [] }))",
@@ -303,6 +307,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def empty NodeId(1): Bang (dummy)",
    "def no_arrow NodeId(2): Bang (dummy)",
@@ -345,6 +350,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features [\"macro_derive\"]",
    "def d1 NodeId(1): MacroRules kinds=MacroKinds(4) nrules=2 is_macro_rules=true",
    "  get_unused_rule(0) = Some((d1#0, MultiSpan { primary_spans: [<case.rs>:3:14: 3:35 (#0)], span_labels: [], span_context: [] }))",
@@ -397,6 +403,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def d1 NodeId(1): MacroRules kinds=MacroKinds(4) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((d1#0, MultiSpan { primary_spans: [<case.rs>:1:28: 1:30 (#0)], span_labels: [], span_context: [] }))",
@@ -420,6 +427,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def e1 NodeId(1): Bang (dummy)",
    "def e2 NodeId(2): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=true",
@@ -475,6 +483,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def p1 NodeId(1): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((p1#0, MultiSpan { primary_spans: [<case.rs>:2:19: 2:36 (#0)], span_labels: [], span_context: [] }))",
@@ -504,6 +513,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def p1 NodeId(1): Bang (dummy)",
    "def p2 NodeId(2): Bang (dummy)",
@@ -529,6 +539,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def incomplete NodeId(1): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((incomplete#0, MultiSpan { primary_spans: [<case.rs>:1:27: 1:29 (#0)], span_labels: [], span_context: [] }))",
@@ -664,6 +675,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def g1 NodeId(1): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((g1#0, MultiSpan { primary_spans: [<case.rs>:1:19: 1:36 (#0)], span_labels: [], span_context: [] }))",
@@ -688,6 +700,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features [\"macro_guard_matcher\"]",
    "def g1 NodeId(1): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((g1#0, MultiSpan { primary_spans: [<case.rs>:2:19: 2:47 (#0)], span_labels: [], span_context: [] }))",
@@ -722,6 +735,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def local NodeId(1): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((local#0, MultiSpan { primary_spans: [<case.rs>:2:5: 2:14 (#0)], span_labels: [], span_context: [] }))",
@@ -820,6 +834,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features [\"decl_macro\"]",
    "def m2 NodeId(1): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=false",
    "  get_unused_rule(0) = Some((m2#0, MultiSpan { primary_spans: [<case.rs>:2:9: 2:18 (#0)], span_labels: [], span_context: [] }))",
@@ -870,6 +885,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features [\"macro_metavar_expr\"]",
    "def cnt NodeId(1): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((cnt#0, MultiSpan { primary_spans: [<case.rs>:3:5: 3:25 (#0)], span_labels: [], span_context: [] }))",
@@ -946,6 +962,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def ce NodeId(1): MacroRules kinds=MacroKinds(1) nrules=5 is_macro_rules=true",
    "  get_unused_rule(0) = None",
@@ -1041,6 +1058,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def grid NodeId(1): MacroRules kinds=MacroKinds(1) nrules=1 is_macro_rules=true",
    "  get_unused_rule(0) = Some((grid#0, MultiSpan { primary_spans: [<case.rs>:2:5: 2:24 (#0)], span_labels: [], span_context: [] }))",
@@ -1158,6 +1176,7 @@
    "never"
   ],
   "events": [
+   "crate_root DefPathHash(Fingerprint(13408876052129304023, 13408876052129304023))",
    "features []",
    "def one NodeId(1): MacroRules kinds=MacroKinds(1) nrules=2 is_macro_rules=true",
    "  get_unused_rule(0) = Some((one#0, MultiSpan { primary_spans: [<case.rs>:1:20: 1:23 (#0)], span_labels: [], span_context: [] }))",

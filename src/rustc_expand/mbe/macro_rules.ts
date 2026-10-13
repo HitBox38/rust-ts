@@ -27,7 +27,6 @@ import type { Attribute as attrs_Attribute } from "../../rustc_attr_ir/lib.ts";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import type { Directive } from "../../rustc_attr_ir/diagnostic.ts";
 import { Applicability, type Diag, type ErrorGuaranteed, MultiSpan } from "../../rustc_errors/lib.ts";
-import type { Diagnostic } from "../../rustc_errors/diagnostic.ts";
 import type { Features } from "../../rustc_feature/lib.ts";
 import { MacroKinds } from "../../rustc_hir/def.ts";
 import { builtin } from "../../rustc_lint_defs/lib.ts";
@@ -41,7 +40,7 @@ import { Edition } from "../../rustc_span/edition.ts";
 import { Transparency } from "../../rustc_span/hygiene.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { display_Ident, type Ident, kw, sym, Symbol } from "../../rustc_span/symbol.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { assert, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type {
   AttrProcMacro,
@@ -66,38 +65,7 @@ import { transcribe } from "./transcribe.ts";
 
 const { Delimiter, Token: Token_, TokenKind: TokenKind_, display_NonterminalKind } = token;
 
-// ---------------------------------------------------------------------------------------------
-// PORT: pending expand-base/expand-core: `crate::diagnostics` (compiler/rustc_expand/src/diagnostics.rs,
-// generated into src/rustc_expand/diagnostics.gen.ts). Until it lands, these stand-ins have the generated
-// shapes (field interfaces + `<T>_diagnostic`) and stop with `unported` when the diagnostic is built.
-// Replace this block with imports from "../diagnostics.ts".
-interface TrailingMacro {
-  is_trailing: boolean;
-  name: Ident;
-}
-function TrailingMacro_diagnostic(_self: TrailingMacro): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::TrailingMacro") };
-}
-interface MacroArgsBadDelim {
-  span: Span;
-  sugg: MacroArgsBadDelimSugg;
-  rule_kw: Symbol;
-}
-interface MacroArgsBadDelimSugg {
-  open: Span;
-  close: Span;
-}
-function MacroArgsBadDelim_diagnostic(_self: MacroArgsBadDelim): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::MacroArgsBadDelim") };
-}
-interface OrPatternsBackCompat {
-  span: Span;
-  suggestion: string;
-}
-function OrPatternsBackCompat_diagnostic(_self: OrPatternsBackCompat): Diagnostic {
-  return { into_diag: () => unported("rustc_expand::diagnostics::OrPatternsBackCompat") };
-}
-// ---------------------------------------------------------------------------------------------
+import { MacroArgsBadDelim_diagnostic, OrPatternsBackCompat_diagnostic, TrailingMacro_diagnostic } from "../diagnostics.ts";
 
 // rustc-type: compiler/rustc_expand/src/mbe/macro_rules.rs:48 ParserAnyMacro
 export class ParserAnyMacro implements MacResult {
@@ -716,7 +684,7 @@ export function try_match_macro<R extends MacroRule>(
   // hacky, but speeds up the `html5ever` benchmark significantly. (Issue
   // 68836 suggests a more comprehensive but more complex change to deal with
   // this situation.)
-  const parser = parser_from_cx(psess, arg.clone(), track.recovery());
+  const parser = parser_from_cx(psess, clone_TokenStream(arg), track.recovery());
   // Try each arm's matchers.
   const tt_parser = TtParser.new();
   for (let i = 0; i < rules.length; i++) {
@@ -782,8 +750,8 @@ export function try_match_macro_attr<R extends MacroRule>(
   track: Tracker,
 ): Result<[number, R, NamedMatches], CanRetry> {
   // This uses the same strategy as `try_match_macro`
-  const args_parser = parser_from_cx(psess, attr_args.clone(), track.recovery());
-  const body_parser = parser_from_cx(psess, attr_body.clone(), track.recovery());
+  const args_parser = parser_from_cx(psess, clone_TokenStream(attr_args), track.recovery());
+  const body_parser = parser_from_cx(psess, clone_TokenStream(attr_body), track.recovery());
   const tt_parser = TtParser.new();
   for (let i = 0; i < rules.length; i++) {
     const rule = rules[i]!;
@@ -847,7 +815,7 @@ export function try_match_macro_derive<R extends MacroRule>(
   track: Tracker,
 ): Result<[number, R, NamedMatches], CanRetry> {
   // This uses the same strategy as `try_match_macro`
-  const body_parser = parser_from_cx(psess, body.clone(), track.recovery());
+  const body_parser = parser_from_cx(psess, clone_TokenStream(body), track.recovery());
   const tt_parser = TtParser.new();
   for (let i = 0; i < rules.length; i++) {
     const rule = rules[i]!;
@@ -899,7 +867,7 @@ export function compile_declarative_macro(
   const macro_rules = macro_def.macro_rules;
   const exp_sep = macro_rules ? exp.Semi : exp.Comma;
 
-  const body = macro_def.body.tokens.clone();
+  const body = clone_TokenStream(macro_def.body.tokens);
   const p = Parser.new(sess.psess, body, MACRO_ARGUMENTS);
 
   // Don't abort iteration early, so that multiple errors can be reported. We only abort early on
@@ -1506,10 +1474,23 @@ function mbe_TokenTree_eq(a: mbe.TokenTree, b: mbe.TokenTree): boolean {
     case "MetaVar":
       return b.$ === "MetaVar" && a._0 === b._0 && ident_eq(a._1, b._1);
     case "MetaVarDecl":
-      return b.$ === "MetaVarDecl" && a.span === b.span && ident_eq(a.name, b.name) && token.NonterminalKind_eq(a.kind, b.kind);
+      return b.$ === "MetaVarDecl" && a.span === b.span && ident_eq(a.name, b.name) && NonterminalKind_eq(a.kind, b.kind);
     case "MetaVarExpr":
       return b.$ === "MetaVarExpr" && dspan_eq(a._0, b._0) && expr_eq(a._1, b._1);
   }
+}
+
+/** `#[derive(PartialEq)]` of `NonterminalKind` (rustc_ast token.rs; no TS helper yet). */
+function NonterminalKind_eq(a: NonterminalKind, b: NonterminalKind): boolean {
+  if (a.$ !== b.$) return false;
+  if (a.$ === "Pat") return token.NtPatKind_eq(a._0, (b as typeof a)._0);
+  if (a.$ === "Expr") return token.NtExprKind_eq(a._0, (b as typeof a)._0);
+  return true;
+}
+
+/** `TokenStream::clone()`: a new stream sharing the (immutable) trees. */
+function clone_TokenStream(ts: TokenStream): TokenStream {
+  return new tokenstream.TokenStream(ts._0);
 }
 
 // A set of `mbe::TokenTree`s, which may include `TokenTree::Match`s
