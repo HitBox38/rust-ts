@@ -36,7 +36,7 @@ import { type Crate, type Item, Path, PathSegment } from "../../rustc_ast/lib.ts
 import { CRATE_NODE_ID, NodeId } from "../../rustc_ast/node_id.ts";
 import { AnnotateSnippetEmitter } from "../../rustc_errors/annotate_snippet_emitter_writer.ts";
 import { type Diag, DiagCtxt, DiagCtxtFlags_default, type DiagCtxtHandle, E0425, E0432, MultiSpan } from "../../rustc_errors/lib.ts";
-import { MacroKinds, type Res } from "../../rustc_hir/def.ts";
+import { MacroKinds } from "../../rustc_hir/def.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { new_parser_from_source_str } from "../../rustc_parse/lib.ts";
 import { DefId, DefIndex, LOCAL_CRATE, type LocalDefId } from "../../rustc_span/def_id.ts";
@@ -46,7 +46,7 @@ import { AutoStream, ColorChoice } from "../../vendor/anstream/lib.ts";
 import { dyn_write, VecU8 } from "../../vendor/anstream/stream.ts";
 import { PIN } from "../../../scripts/lib/common.ts";
 import { ImportData } from "../imports.ts";
-import { type Resolver, Segment } from "../lib.ts";
+import { type Res, type Resolver, Segment } from "../lib.ts";
 import { with_resolver } from "../macros_oracle/with_resolver.ts";
 import {
   DiagMode,
