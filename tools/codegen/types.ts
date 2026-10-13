@@ -233,7 +233,57 @@ export interface SetConfig {
    * the type's hand module (e.g. a branded newtype `ExpnHash(Fingerprint)`: `ExpnHash._0($v)`).
    */
   stable_hash_access?: Record<string, { expr: string; import?: string[] }>;
+  /**
+   * derive(Decodable) / Decodable_NoContext / BlobDecodable / LazyDecodable / TyDecodable (rustc_macros/src/serialize.rs
+   * `decodable_body`): `decode_<T>(__decoder[, decode_<P>...])`. Per-file sets emit it next to the type in the file's
+   * `.gen.ts`; `derive_only` sets (hand-written types) into `<crate>/decodable.gen.ts`. Field reads of the encoder use
+   * `stable_hash_access` (it describes the hand types' field reads, whatever the derive).
+   */
+  derive_decodable?: boolean;
+  /** derive(Encodable) / Encodable_NoContext / TyEncodable / MetadataEncodable (`encodable_body`): `encode_<T>(self, __encoder[, encode_<P>...])`. */
+  derive_encodable?: boolean;
+  /** derive(Decodable)/(Encodable): emit only these items (names or keys); absent = every derived item of the set. */
+  decodable_types?: string[];
+  /**
+   * derive(Decodable) of hand types whose TS value is not a `{ field }` object / `new T(..)`, keyed by type key:
+   * `expr` builds the value from the decoded fields `$0..$n` (decoded first, in declaration order), `import` = values
+   * it needs from the type's hand module (e.g. a branded newtype `ExpnHash(Fingerprint)`: `ExpnHash.of($0)`).
+   */
+  decodable_construct?: Record<string, { expr: string; import?: string[] }>;
 }
+
+/** tools/codegen/serialize.json: `Decodable`/`Encodable` impls of external (non-generated) types, and the decoder traits. */
+export interface SerializeMapEntry {
+  paths: string[];
+  /** call template: `$D` the decoder, `$d0..$dn` Decodable fns of the type arguments */
+  decode?: string;
+  /** call template: `$v` the value, `$E` the encoder, `$e0..$en` Encodable fns of the type arguments */
+  encode?: string;
+  /** `Option`: templates for an undefined-able argument (`{ $: "Some", _0 } | undefined`, PORTING §5) */
+  decode_nullable?: string;
+  encode_nullable?: string;
+  /** `Box`, `Rc`, `Arc`, `Cell`, ...: the impl of the type argument */
+  transparent?: boolean;
+  /** module of the `decode_*` / `encode_*` names the templates use (default: the map's `module`) */
+  import?: string;
+  /** other value names the templates use, imported from `values_import` (default: `import`) */
+  values?: string[];
+  values_import?: string;
+  note?: string;
+}
+export interface SerializeMap {
+  module: string;
+  /** derive name -> the TS type of its `__D: <trait>` decoder (`Decodable` -> `SpanDecoder`, ...) */
+  decoders: Record<string, { type: string; import: string; note?: string }>;
+  /** derive name -> the TS type of its encoder */
+  encoders: Record<string, { type: string; import: string; note?: string }>;
+  types: SerializeMapEntry[];
+}
+export function loadSerializeMap(): SerializeMap {
+  return JSON.parse(readFileSync(join(HERE, "serialize.json"), "utf8"));
+}
+const DECODABLE_DERIVES = ["Decodable_NoContext", "Decodable", "BlobDecodable", "LazyDecodable", "TyDecodable"];
+const ENCODABLE_DERIVES = ["Encodable_NoContext", "Encodable", "TyEncodable", "MetadataEncodable"];
 
 /** tools/codegen/stable_hash.json: `StableHash` impls of external (non-generated) types. */
 export interface StableHashMapEntry {
@@ -315,7 +365,19 @@ export function loadSet(name: string): SetConfig {
 
 export interface Report {
   set: string;
-  files: { upstream: string; out: string; types: number; debug_fns: number; clone_fns: number; walkable: number; diag_impls: number; print_attrs: number; stable_hash: number }[];
+  files: {
+    upstream: string;
+    out: string;
+    types: number;
+    debug_fns: number;
+    clone_fns: number;
+    walkable: number;
+    diag_impls: number;
+    print_attrs: number;
+    stable_hash: number;
+    decodable: number;
+    encodable: number;
+  }[];
   unknown_types: Record<string, string[]>;
   missing_debug: Record<string, string[]>;
   manual_debug: { type: string; impl_at: string; defined_at: string; provide_in: string; generic_params: string[] }[];
@@ -327,6 +389,10 @@ export interface Report {
   missing_diag_arg: Record<string, string[]>;
   /** derive(StableHash) field types with no StableHash impl (generated, manual or stable_hash.json): emitted as `unported` */
   missing_stable_hash: Record<string, string[]>;
+  /** derive(Decodable) field types with no TS `decode_<T>` (generated, exported by a hand module, or serialize.json): emitted as `unported` */
+  missing_decodable: Record<string, string[]>;
+  /** derive(Encodable) field types with no TS `encode_<T>`: emitted as `unported` */
+  missing_encodable: Record<string, string[]>;
   notes: string[];
   errors: string[];
 }
@@ -420,6 +486,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     macro_types: [],
     missing_diag_arg: {},
     missing_stable_hash: {},
+    missing_decodable: {},
+    missing_encodable: {},
     notes: [],
     errors: [],
   };
@@ -783,6 +851,49 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   const shMap = set.derive_stable_hash ? loadStableHashMap() : { module: "", types: [] };
   const shIndex = new Map<string, StableHashMapEntry>();
   for (const e of shMap.types) for (const p of e.paths) shIndex.set(p, e);
+  // derive(Decodable*) / derive(Encodable*) (item key -> derive name); `newtype_index!` with `#[encodable]`;
+  // manual `impl Decodable` / `impl Encodable` (a `decode_<T>` / `encode_<T>` exported by the hand module of
+  // the impl's file; checked against that file, so a hand impl ported later is picked up on regeneration)
+  const deriveDecodable = new Map<string, string>();
+  const deriveEncodable = new Map<string, string>();
+  const serWanted = (r: ItemRef) => set.decodable_types === undefined || matches(set.decodable_types, r);
+  for (const r of items.values()) {
+    if (!serWanted(r)) continue;
+    if (set.derive_decodable) {
+      const d = DECODABLE_DERIVES.find((n) => hasDerive(r, n));
+      if (d) deriveDecodable.set(r.key, d);
+      if (r.mac?.kind === "newtype" && r.mac.def.attrs.some((a) => a.name === "encodable")) deriveDecodable.set(r.key, "Decodable_NoContext");
+    }
+    if (set.derive_encodable) {
+      const d = ENCODABLE_DERIVES.find((n) => hasDerive(r, n));
+      if (d) deriveEncodable.set(r.key, d);
+      if (r.mac?.kind === "newtype" && r.mac.def.attrs.some((a) => a.name === "encodable")) deriveEncodable.set(r.key, "Encodable_NoContext");
+    }
+  }
+  const manualSer = { Decodable: new Map<string, ModFile>(), Encodable: new Map<string, ModFile>() };
+  if (set.derive_decodable || set.derive_encodable)
+    for (const mf of mfs)
+      for (const im of mf.file.impls) {
+        const tr = im.trait?.split("::").pop()?.replace(/<.*$/s, "");
+        if ((tr !== "Decodable" && tr !== "Encodable") || im.self_ty.kind !== "path") continue;
+        if (!enabled(im.attrs, `${mf.file.path}:${im.line}`)) continue;
+        const r = resolvePath(im.self_ty.path!, { mf, mod: [...mf.mod, ...im.module], params: new Set() });
+        if (r.k === "item") manualSer[tr].set(r.ref.key, mf);
+      }
+  const serMap: SerializeMap = set.derive_decodable || set.derive_encodable ? loadSerializeMap() : { module: "", decoders: {}, encoders: {}, types: [] };
+  const serIndex = new Map<string, SerializeMapEntry>();
+  for (const e of serMap.types) for (const p of e.paths) serIndex.set(p, e);
+  /** `export function <name>` / `export const <name>` / `export { .. <name> .. }` in a hand module (under --src-root). */
+  const handExports = new Map<string, string>();
+  const handExports_ = (hand: string, name: string): boolean => {
+    let text = handExports.get(hand);
+    if (text === undefined) {
+      const p = join(opts.srcRoot, hand);
+      text = existsSync(p) ? readFileSync(p, "utf8") : "";
+      handExports.set(hand, text);
+    }
+    return new RegExp(`export (?:declare )?(?:function|const|let) ${name}\\b|export \\{[^}]*\\b${name}\\b[^}]*\\}`).test(text);
+  };
   // manual `impl Diagnostic` / `impl Subdiagnostic` / `impl IntoDiagArg` (hand-written `<T>_into_diag`,
   // `<T>_add_to_diag`, `<T>_into_diag_arg` in the hand module)
   const manualDiagTrait = new Map<string, Set<string>>(); // trait -> item keys
@@ -854,9 +965,19 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       shMfs.push({ file, crate, mod: [crate, "stable_hash"], gen: `${crate}/stable_hash.gen.ts`, hand: `${crate}/lib.ts`, sh: true });
     }
 
-  for (const mf of [...mfs, ...walkMfs, ...shMfs]) {
+  // `derive_only` sets: the derive(Decodable)/(Encodable) impls of the (hand-written) types go into one generated
+  // module per crate, `<crate>/decodable.gen.ts`; other sets emit them next to each type.
+  const serMfs: (ModFile & { ser: true })[] = [];
+  if (set.derive_only)
+    for (const crate of [...new Set([...items.values()].filter((r) => deriveDecodable.has(r.key) || deriveEncodable.has(r.key)).map((r) => r.mf.crate))]) {
+      const file: PFile = { path: `compiler/${crate}/src/lib.rs`, attrs: [], items: [], uses: [], impls: [], macros: [], mods: [] };
+      serMfs.push({ file, crate, mod: [crate, "decodable"], gen: `${crate}/decodable.gen.ts`, hand: `${crate}/lib.ts`, ser: true });
+    }
+
+  for (const mf of [...mfs, ...walkMfs, ...shMfs, ...serMfs]) {
     const walk = (mf as { walk?: "ref" | "mut" }).walk;
     const sh = (mf as { sh?: true }).sh === true;
+    const ser = (mf as { ser?: true }).ser === true;
     const outFile = join(opts.out, mf.gen);
     const local = new Set(mf.file.items.map((i) => i.name));
     // module specifier -> { types, values } ; key: "gen:<out-rel>" or "src:<src-rel>"
@@ -872,6 +993,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     let fileWalk = 0;
     let fileDiag = 0;
     let fileStableHash = 0;
+    let fileDecodable = 0;
+    let fileEncodable = 0;
 
     /**
      * Module an item of another file is imported from: always its hand-port module (which re-exports
@@ -1741,6 +1864,385 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       return out;
     };
 
+    // ---- derive(Decodable) / derive(Encodable) (rustc_macros/src/serialize.rs) ----
+    const serModule = `src:${serMap.module.replace(/^src\//, "")}`;
+    /** A `decode_*` / `encode_*` impl of rustc_serialize/serialize.ts (or `module`), imported. */
+    const serUse = (name: string, module: string = serModule): string => {
+      imp(module, "values", name, name);
+      return name;
+    };
+    const serAliasOwner = new Map<string, string>();
+    /** Whether this set generates the derive of `r` (hand types of per-file sets bring their own). */
+    const serGenerated = (kind: "decode" | "encode", r: ItemRef): boolean =>
+      (kind === "decode" ? deriveDecodable : deriveEncodable).has(r.key) && (set.derive_only === true || (!matches(set.hand, r) && (!r.mac || r.mac.kind === "newtype")));
+    /** `decode_<T>` / `encode_<T>` of an item as seen from this file (imported if needed). */
+    const serItemName = (kind: "decode" | "encode", r: ItemRef, at: string): string => {
+      const name = `${kind}_${r.item.name}`;
+      if (serGenerated(kind, r)) {
+        if (!ser && r.mf === mf) return localName(r, name);
+        let alias = name;
+        const taken = serAliasOwner.get(alias);
+        if (taken !== undefined && taken !== r.key) alias = `${kind}_${r.mod[r.mod.length - 1]}_${r.item.name}`;
+        serAliasOwner.set(alias, r.key);
+        if (ser) {
+          if (r.mf.crate !== mf.crate) imp(`gen:${r.mf.crate}/decodable.gen.ts`, "values", name, alias);
+          else if (alias !== name) report.errors.push(`${at}: two derive(${kind === "decode" ? "Decodable" : "Encodable"}) types named ${r.item.name} in ${mf.crate}`);
+        } else imp(viaHand(r), "values", name, alias);
+        return alias;
+      }
+      // a manual impl (or a hand type's derive): `decode_<T>` exported by the hand module
+      const implMf = manualSer[kind === "decode" ? "Decodable" : "Encodable"].get(r.key);
+      const hand = implMf?.hand ?? r.mf.hand;
+      if ((implMf || matches(set.hand, r)) && handExports_(hand, name)) {
+        let alias = name;
+        const taken = serAliasOwner.get(alias);
+        if (taken !== undefined && taken !== r.key) alias = `${kind}_${r.mod[r.mod.length - 1]}_${r.item.name}`;
+        serAliasOwner.set(alias, r.key);
+        imp(`src:${hand}`, "values", name, alias);
+        return alias;
+      }
+      push(
+        kind === "decode" ? report.missing_decodable : report.missing_encodable,
+        implMf ? `${r.key} (manual impl in ${implMf.file.path}: src/${hand} exports no ${name})` : r.key,
+        at,
+      );
+      return `unported_${kind === "decode" ? "decodable" : "encodable"}`;
+    };
+    const serEntry = (keys: string[]): SerializeMapEntry | undefined => {
+      for (const k of keys) {
+        const e = serIndex.get(k);
+        if (e) return e;
+      }
+      return undefined;
+    };
+    const serEntryModule = (e: SerializeMapEntry) => (e.import ? `src:${e.import.replace(/^src\//, "")}` : serModule);
+    /** `N` of an array type `[T; N]` (a literal). */
+    const arrayLen = (ty: PType, at: string): string | undefined => {
+      const m = /;\s*(.+?)\s*\]$/s.exec(ty.text);
+      const n = m ? parseIntLit(m[1]!) : undefined;
+      if (n === undefined) report.errors.push(`${at}: cannot evaluate the length of ${ty.text}`);
+      return n === undefined ? undefined : String(n);
+    };
+    const DEC = "__decoder";
+    const ENC = "__encoder";
+    /** `Decodable::decode(__decoder)` of a field of type `ty` (serialize.rs `decode_field`). */
+    const decExpr = (ty: PType, sc: Scope, at: string): string => {
+      switch (ty.kind) {
+        case "ref":
+          // `::rustc_middle::ty::codec::RefDecodable::decode(__decoder)` for reference fields
+          push(report.missing_decodable, `RefDecodable (reference field ${ty.text})`, at);
+          return `unported_decodable(${DEC})`;
+        case "slice":
+          // only reachable through `Box<[T]>` / `Rc<[T]>` / `Arc<[T]>`, which decode a `Vec<T>`
+          return `${serUse("decode_Vec")}(${DEC}, ${decFn(ty.elem!, sc, at)})`;
+        case "array": {
+          const n = arrayLen(ty, at);
+          if (n === undefined) return `unported_decodable(${DEC})`;
+          return `${serUse("decode_array")}(${DEC}, ${n}, ${decFn(ty.elem!, sc, at)})`;
+        }
+        case "tuple":
+          if (ty.elems!.length === 0) return `${serUse("decode_unit")}(${DEC})`;
+          return `${serUse("decode_tuple")}(${DEC}, ${ty.elems!.map((e) => decFn(e, sc, at)).join(", ")})`;
+        case "never":
+          return `${serUse("decode_never")}(${DEC})`;
+        case "path": {
+          if (ty.qself) break;
+          const r = resolvePath(ty.path!, sc);
+          const args = typeArgs(ty.path!);
+          if (r.k === "param") {
+            const s = sc.subst?.get(r.name);
+            return s ? decExpr(s.ty, s.scope, at) : `decode_${r.name}(${DEC})`;
+          }
+          if (r.k === "item") {
+            const it = r.ref.item;
+            if (it.kind === "type") return decExpr(it.ty!, aliasScope(r.ref, args, sc), at);
+            const fn = serItemName("decode", r.ref, at);
+            const fns = tsParams(it).map((p, i) => {
+              const a = args[i];
+              if (a) return decFn(a, sc, at);
+              if (p.default) return decFn(p.default, itemScope(r.ref), at);
+              report.errors.push(`${at}: missing type argument ${p.name} for ${r.ref.key}`);
+              return "unported_decodable";
+            });
+            return `${fn}(${DEC}${fns.map((f) => `, ${f}`).join("")})`;
+          }
+          const e = serEntry(r.keys);
+          if (!e) {
+            push(report.missing_decodable, r.display, at);
+            return `unported_decodable(${DEC})`;
+          }
+          if (e.transparent) return decExpr(args[0]!, sc, at);
+          const tmpl = e.decode_nullable !== undefined && args[0] && nullable(args[0], sc) ? e.decode_nullable : e.decode;
+          if (tmpl === undefined) {
+            push(report.missing_decodable, `${r.display} (${e.note ?? "no decode in serialize.json"})`, at);
+            return `unported_decodable(${DEC})`;
+          }
+          const mod = serEntryModule(e);
+          for (const m of tmpl.matchAll(/\b(decode_\w+)\(/g)) serUse(m[1]!, mod);
+          for (const v of e.values ?? []) if (tmpl.includes(v)) serUse(v, e.values_import ? `src:${e.values_import.replace(/^src\//, "")}` : mod);
+          let out = tmpl.replaceAll("$D", () => DEC);
+          for (const n of new Set(tmpl.match(/\$d\d/g) ?? [])) {
+            const a = args[Number(n.slice(2))];
+            if (!a) {
+              report.errors.push(`${at}: ${r.display} needs type arg ${n.slice(2)} for Decodable`);
+              return `unported_decodable(${DEC})`;
+            }
+            const f = decFn(a, sc, at);
+            out = out.replaceAll(n, () => f);
+          }
+          return out;
+        }
+      }
+      push(report.missing_decodable, `${ty.kind}: ${ty.text}`, at);
+      return `unported_decodable(${DEC})`;
+    };
+    /** The Decodable impl of a type as a value (`Decodable<T, D>`). */
+    const decFn = (ty: PType, sc: Scope, at: string): string => {
+      if (ty.kind === "path" && !ty.qself) {
+        const r = resolvePath(ty.path!, sc);
+        if (r.k === "param" && !sc.subst?.has(r.name)) return `decode_${r.name}`;
+        if (r.k === "item" && r.ref.item.kind !== "type" && tsParams(r.ref.item).length === 0) return serItemName("decode", r.ref, at);
+        if (r.k === "ext") {
+          const e = serEntry(r.keys);
+          const m = e?.decode && /^(decode_\w+)\(\$D\)$/.exec(e.decode);
+          if (e && m && !e.transparent) return serUse(m[1]!, serEntryModule(e));
+        }
+      }
+      return `(${DEC}) => ${decExpr(ty, sc, at)}`;
+    };
+    /** `Encodable::encode(v, __encoder)` for a value `v` of type `ty`. */
+    const encExpr = (ty: PType, v: string, sc: Scope, at: string): string => {
+      switch (ty.kind) {
+        case "ref":
+          // `impl<S: Encoder, T: ?Sized + PointeeSized> Encodable<S> for &T`: the referent
+          return encExpr(ty.elem!, v, sc, at);
+        case "slice":
+          return `${serUse("encode_slice")}(${v}, ${ENC}, ${encFn(ty.elem!, sc, at)})`;
+        case "array":
+          return `${serUse("encode_array")}(${v}, ${ENC}, ${encFn(ty.elem!, sc, at)})`;
+        case "tuple":
+          if (ty.elems!.length === 0) return `${serUse("encode_unit")}(${v}, ${ENC})`;
+          return `${serUse("encode_tuple")}(${v}, ${ENC}, ${ty.elems!.map((e) => encFn(e, sc, at)).join(", ")})`;
+        case "never":
+          return `${serUse("encode_never")}(${v}, ${ENC})`;
+        case "path": {
+          if (ty.qself) break;
+          const r = resolvePath(ty.path!, sc);
+          const args = typeArgs(ty.path!);
+          if (r.k === "param") {
+            const s = sc.subst?.get(r.name);
+            return s ? encExpr(s.ty, v, s.scope, at) : `encode_${r.name}(${v}, ${ENC})`;
+          }
+          if (r.k === "item") {
+            const it = r.ref.item;
+            if (it.kind === "type") return encExpr(it.ty!, v, aliasScope(r.ref, args, sc), at);
+            const fn = serItemName("encode", r.ref, at);
+            const fns = tsParams(it).map((p, i) => {
+              const a = args[i];
+              if (a) return encFn(a, sc, at);
+              if (p.default) return encFn(p.default, itemScope(r.ref), at);
+              report.errors.push(`${at}: missing type argument ${p.name} for ${r.ref.key}`);
+              return "unported_encodable";
+            });
+            return `${fn}(${v}, ${ENC}${fns.map((f) => `, ${f}`).join("")})`;
+          }
+          const e = serEntry(r.keys);
+          if (!e) {
+            push(report.missing_encodable, r.display, at);
+            return `unported_encodable(${v})`;
+          }
+          if (e.transparent) return encExpr(args[0]!, v, sc, at);
+          const tmpl = e.encode_nullable !== undefined && args[0] && nullable(args[0], sc) ? e.encode_nullable : e.encode;
+          if (tmpl === undefined) {
+            push(report.missing_encodable, `${r.display} (${e.note ?? "no encode in serialize.json"})`, at);
+            return `unported_encodable(${v})`;
+          }
+          const mod = serEntryModule(e);
+          for (const m of tmpl.matchAll(/\b(encode_\w+)\(/g)) serUse(m[1]!, mod);
+          for (const x of e.values ?? []) if (tmpl.includes(x)) serUse(x, e.values_import ? `src:${e.values_import.replace(/^src\//, "")}` : mod);
+          let out = tmpl.replaceAll("$E", () => ENC).replaceAll("$v", () => v);
+          for (const n of new Set(tmpl.match(/\$e\d/g) ?? [])) {
+            const a = args[Number(n.slice(2))];
+            if (!a) {
+              report.errors.push(`${at}: ${r.display} needs type arg ${n.slice(2)} for Encodable`);
+              return `unported_encodable(${v})`;
+            }
+            const f = encFn(a, sc, at);
+            out = out.replaceAll(n, () => f);
+          }
+          return out;
+        }
+      }
+      push(report.missing_encodable, `${ty.kind}: ${ty.text}`, at);
+      return `unported_encodable(${v})`;
+    };
+    /** The Encodable impl of a type as a value (`Encodable<T, E>`). */
+    const encFn = (ty: PType, sc: Scope, at: string): string => {
+      if (ty.kind === "path" && !ty.qself) {
+        const r = resolvePath(ty.path!, sc);
+        if (r.k === "param" && !sc.subst?.has(r.name)) return `encode_${r.name}`;
+        if (r.k === "item" && r.ref.item.kind !== "type" && tsParams(r.ref.item).length === 0) return serItemName("encode", r.ref, at);
+        if (r.k === "ext") {
+          const e = serEntry(r.keys);
+          const m = e?.encode && /^(encode_\w+)\(\$v, \$E\)$/.exec(e.encode);
+          if (e && m && !e.transparent) return serUse(m[1]!, serEntryModule(e));
+        }
+      }
+      return `(__v, ${ENC}) => ${encExpr(ty, "__v", sc, at)}`;
+    };
+    /** The value companion of item `r` as seen from this file (unit variants, `newtype_index!` helpers). */
+    const serCompanion = (r: ItemRef): string => {
+      if (!ser && r.mf === mf) return localName(r, r.item.name);
+      const tname = refName(r);
+      imp(ser ? `src:${r.mf.hand}` : viaHand(r), "values", r.item.name, tname);
+      return tname;
+    };
+    /** The decoder / encoder type of a derive (serialize.json `decoders` / `encoders`), imported. */
+    const serTraitType = (kind: "decode" | "encode", derive: string, at: string): string => {
+      const t = (kind === "decode" ? serMap.decoders : serMap.encoders)[derive];
+      if (!t) {
+        report.errors.push(`${at}: no ${kind === "decode" ? "decoder" : "encoder"} type for derive(${derive}) in serialize.json`);
+        return kind === "decode" ? "unknown" : "unknown";
+      }
+      imp(`src:${t.import.replace(/^src\//, "")}`, "types", t.type, t.type);
+      return t.type;
+    };
+    /** `decode_<T>` / `encode_<T>` of item `r` (serialize.rs `decodable_body` / `encodable_body`). */
+    const serLines = (r: ItemRef): string[] => {
+      const out: string[] = [];
+      const it = r.item;
+      const at = r.mac ? r.mac.at : `${r.mf.file.path}:${it.line}`;
+      const wantDec = serGenerated("decode", r);
+      const wantEnc = serGenerated("encode", r);
+      if (!wantDec && !wantEnc) return out;
+      const sc = itemScope(r);
+      const tname = refName(r);
+      const ps = tsParams(it).map((p) => p.name);
+      const gen = ps.length ? `<${ps.join(", ")}>` : "";
+      const self = `${tname}${gen}`;
+      const decName = `decode_${it.name}`;
+      const encName = `encode_${it.name}`;
+      if (r.mac && r.mac.kind !== "newtype") {
+        report.errors.push(`${at}: derive(Decodable/Encodable) on a ${r.mac.kind} type`);
+        return out;
+      }
+      if (!r.mac && it.kind !== "struct" && it.kind !== "enum") {
+        // `panic!("cannot derive on union")`
+        report.errors.push(`${at}: derive(Decodable/Encodable) on a ${it.kind}`);
+        return out;
+      }
+      const DT = wantDec ? serTraitType("decode", deriveDecodable.get(r.key)!, at) : "";
+      const ET = wantEnc ? serTraitType("encode", deriveEncodable.get(r.key)!, at) : "";
+      if (wantDec && ps.length) imp(serModule, "types", "Decodable", "Decodable");
+      if (wantEnc && ps.length) imp(serModule, "types", "Encodable", "Encodable");
+      const decHead = `export function ${decName}${gen}(${DEC}: ${DT}${ps.map((p) => `, decode_${p}: Decodable<${p}, ${DT}>`).join("")}): ${self} {`;
+      const encHead = (used: boolean) =>
+        `export function ${encName}${gen}(${used ? "self" : "_self"}: ${self}, ${ENC}: ${ET}${ps.map((p) => `, encode_${p}: Encodable<${p}, ${ET}>`).join("")}): void {`;
+      if (r.mac?.kind === "newtype") {
+        // rustc_index_macros/src/newtype.rs `#[encodable]`: `Self::from_u32(d.read_u32())` / `e.emit_u32(self.as_u32())`
+        const c = serCompanion(r);
+        if (wantDec) {
+          out.push(`// rustc-derive: ${at} newtype_index! #[encodable] Decodable for ${it.name}`);
+          out.push(decHead, `  return ${c}.from_u32(${DEC}.read_u32());`, "}");
+          fileDecodable++;
+        }
+        if (wantEnc) {
+          out.push(`// rustc-derive: ${at} newtype_index! #[encodable] Encodable for ${it.name}`);
+          out.push(encHead(true), `  ${ENC}.emit_u32(${c}.as_u32(self));`, "}");
+          fileEncodable++;
+        }
+        return out;
+      }
+      // the struct, or the enum's variants (`s.variants()`)
+      type V = { name: string | undefined; style: string; fields: PField[]; line: number };
+      const vs: V[] =
+        it.kind === "struct"
+          ? [{ name: undefined, style: it.fields!.style, fields: liveFields(it.fields!, r.mf.file.path), line: it.line }]
+          : it.variants!.filter((v) => enabled(v.attrs, `${r.mf.file.path}:${v.line}`)).map((v) => ({ name: unraw(v.name), style: v.fields.style, fields: liveFields(v.fields, r.mf.file.path), line: v.line }));
+      const fieldless = it.kind === "enum" && fieldlessEnum(r);
+      const fat = (fl: PField) => `${r.mf.file.path}:${fl.line}`;
+      if (wantDec) {
+        /** `vi.construct(|field, _index| decode_field(field))` as statements ending in `return`. */
+        const construct = (v: V, indent: string): string[] => {
+          if (v.name !== undefined) {
+            if (fieldless) return [`${indent}return ${JSON.stringify(v.name)};`];
+            if (v.style === "unit") return [`${indent}return ${serCompanion(r)}.${v.name};`];
+            return [`${indent}return { $: ${JSON.stringify(v.name)}${v.fields.map((fl) => `, ${fieldName(fl)}: ${decExpr(fl.ty, sc, fat(fl))}`).join("")} };`];
+          }
+          const vals = v.fields.map((fl) => decExpr(fl.ty, sc, fat(fl)));
+          const cons = set.decodable_construct?.[r.key];
+          if (cons) {
+            for (const n of cons.import ?? []) imp(ser ? `src:${r.mf.hand}` : viaHand(r), "values", n, n);
+            let e = cons.expr;
+            for (let i = vals.length - 1; i >= 0; i--) e = e.replaceAll(`$${i}`, `__${i}`);
+            return [...vals.map((x, i) => `${indent}const __${i} = ${x};`), `${indent}return ${e};`];
+          }
+          if (isClass(r)) return [`${indent}return new ${tname}(${vals.join(", ")});`];
+          if (!vals.length) return [`${indent}return {};`];
+          return [`${indent}return {`, ...v.fields.map((fl, i) => `${indent}  ${fieldName(fl)}: ${vals[i]},`), `${indent}};`];
+        };
+        out.push(`// rustc-derive: ${at} ${deriveDecodable.get(r.key)} for ${it.name}`);
+        out.push(decHead);
+        if (vs.length === 0) {
+          out.push(`  return ${serUse("panic", "src:std/panic.ts")}(${JSON.stringify(`\`${it.name}\` has no variants to decode`)});`);
+        } else if (vs.length === 1) {
+          out.push(...construct(vs[0]!, "  "));
+        } else {
+          const tag = vs.length < 255 ? `${DEC}.read_u8()` : `${DEC}.read_usize()`;
+          out.push(`  const __tag = ${tag};`, "  switch (__tag) {");
+          vs.forEach((v, i) => {
+            out.push(`    case ${i}:`, ...construct(v, "      "));
+          });
+          out.push("    default:");
+          out.push(`      return ${serUse("panic", "src:std/panic.ts")}(\`invalid enum variant tag while decoding \\\`${it.name}\\\`, expected 0..${vs.length}, actual \${__tag}\`);`);
+          out.push("  }");
+        }
+        out.push("}");
+        fileDecodable++;
+      }
+      if (wantEnc) {
+        const read = (fl: PField, owner: string) => (it.kind === "struct" ? shField(r, fl, owner) : `${owner}.${fieldName(fl)}`);
+        const stmts = (v: V, indent: string) => v.fields.map((fl) => `${indent}${encExpr(fl.ty, read(fl, "self"), sc, fat(fl))};`);
+        const lines: string[] = [];
+        if (vs.length === 1) {
+          // Unit-like types don't need to encode anything.
+          lines.push(...stmts(vs[0]!, "  "));
+        } else if (vs.length > 1) {
+          // This code generates two separate match statements on purpose, because
+          //  LLVM can optimize the first one into direct discriminant read.
+          //  See: https://github.com/rust-lang/rust/pull/108440
+          // `let disc = match *self { V0 => 0, V1 => 1, .. };` (a hoisted fn: cycle-safe, unlike a const table)
+          const table = `${it.name}__variant_index`;
+          out.push(`function ${table}${gen}(tag: ${fieldless ? self : `${self}["$"]`}): number {`, "  switch (tag) {");
+          vs.forEach((v, i) => out.push(`    case ${JSON.stringify(v.name)}:`, `      return ${i};`));
+          out.push("  }", "}");
+          lines.push(`  const disc = ${table}(${fieldless ? "self" : "self.$"});`);
+          lines.push(`  ${ENC}.${vs.length < 255 ? "emit_u8" : "emit_usize"}(disc);`);
+          if (!vs.every((v) => v.fields.length === 0)) {
+            lines.push("  switch (self.$) {");
+            for (const v of vs) {
+              lines.push(`    case ${JSON.stringify(v.name)}:`, ...stmts(v, "      "), "      break;");
+            }
+            lines.push("  }");
+          }
+        }
+        out.push(`// rustc-derive: ${at} ${deriveEncodable.get(r.key)} for ${it.name}`);
+        out.push(encHead(lines.length > 0), ...lines, "}");
+        fileEncodable++;
+      }
+      return out;
+    };
+    /** `<crate>/decodable.gen.ts` of a `derive_only` set: every derived type of the crate, in file / line order. */
+    const serBody = (): string[] => {
+      const out: string[] = [];
+      const fileOrder = new Map(mfs.map((m, i) => [m, i]));
+      const list = [...items.values()]
+        .filter((r) => r.mf.crate === mf.crate && (deriveDecodable.has(r.key) || deriveEncodable.has(r.key)) && !matches(set.skip, r))
+        .sort((a, b) => fileOrder.get(a.mf)! - fileOrder.get(b.mf)! || a.item.line - b.item.line);
+      for (const r of list) out.push("", ...serLines(r));
+      return out;
+    };
+
     const docLines = (docs: string[] | undefined, indent: string) =>
       (docs ?? []).flatMap((d) => d.split("\n")).map((l) => `${indent}///${l.replace(/\r$/, "")}`.trimEnd());
     const genericDecl = (it: PItem, sc: Scope) => {
@@ -2197,6 +2699,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           body.push(...docLines(c.docs, ""));
           body.push(`export const ${c.name}: ${name} = ${name}.from_u32(${v ?? "NaN"});`);
         }
+        body.push(...serLines(r));
         continue;
       }
       if (r.mac?.kind === "bitflags") {
@@ -2318,6 +2821,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           else body.push("  return {};");
           body.push("}");
         }
+        body.push(...serLines(r));
         emitDiag(r, sc, selfType, "struct");
         emitPrint(r, sc, selfType);
         continue;
@@ -2374,6 +2878,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           if (dv.length !== 1) report.errors.push(`${at}: derive(Default) needs exactly one #[default] variant`);
           else body.push(`export function default_${name}(): ${name} {\n  return ${JSON.stringify(unraw(dv[0]!.name))};\n}`);
         }
+        body.push(...serLines(r));
         emitDiag(r, sc, selfType, "fieldless");
         emitPrint(r, sc, selfType);
         if (r.mac?.kind === "lang_items") emitLangItemTable(r, r.mac.rows, r.mac.at);
@@ -2444,12 +2949,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         if (dv.length !== 1 || dv[0]!.fields.style !== "unit") report.errors.push(`${at}: derive(Default) needs exactly one unit #[default] variant`);
         else body.push(`export function default_${name}(): ${name} {\n  return ${name}.${unraw(dv[0]!.name)};\n}`);
       }
+      body.push(...serLines(r));
       emitDiag(r, sc, selfType, "data");
       emitPrint(r, sc, selfType);
     }
     for (; curRel.length; curRel = curRel.slice(0, -1)) body.push("}");
     if (walk) body.push("", ...walkBody(walk));
     if (sh) body.push(...shBody());
+    if (ser) body.push(...serBody());
     body.push(...trailer);
 
     // helpers used by the body
@@ -2459,7 +2966,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (/\bDebug</.test(text)) imp("src:std/fmt.ts", "types", "Debug", "Debug");
       if (/\bFmt\b/.test(text)) imp("src:std/fmt.ts", "types", "Fmt", "Fmt");
     }
-    const header = sh
+    const header = ser
+      ? [
+          `// GENERATED by tools/codegen/types.ts: #[derive(Decodable)] / #[derive(Encodable)] (compiler/rustc_macros/src/serialize.rs) of the ${mf.crate} types${opts.pin ? ` @ ${opts.pin}` : ""}. Do not edit.`,
+          "// `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant",
+          "// index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.",
+          "// Only function declarations: hand modules may import from here inside an import cycle.",
+        ]
+      : sh
       ? [
           `// GENERATED by tools/codegen/types.ts: #[derive(StableHash)] / #[derive(StableHash_NoContext)] (compiler/rustc_macros/src/stable_hash.rs) of the ${mf.crate} types${opts.pin ? ` @ ${opts.pin}` : ""}. Do not edit.`,
           "// One `stable_hash_<T>(self, __hcx, __hasher[, stable_hash_<P>...])` per type: enums first hash `mem::discriminant(self)`",
@@ -2502,7 +3016,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       ].sort((a, b) => a.replace(/^type /, "").localeCompare(b.replace(/^type /, "")));
       if (parts.length) importLines.push(`import { ${parts.join(", ")} } from "${spec}";`);
     }
-    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(|\bunported_clone\b|\bunported_into_diag_arg\b|\bunported_display\(|\bunported_print_attribute\b|\bunported_const_expr\b|\bunported_default\(|\bunported_stable_hash\b/.test(text)) {
+    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(|\bunported_clone\b|\bunported_into_diag_arg\b|\bunported_display\(|\bunported_print_attribute\b|\bunported_const_expr\b|\bunported_default\(|\bunported_stable_hash\b|\bunported_decodable\b|\bunported_encodable\b/.test(text)) {
       importLines.push(`import { unported } from "${relImport(outFile, join(opts.srcRoot, "std/panic.ts"))}";`);
       const extra: string[] = [];
       if (/\bunported_debug\(/.test(text)) extra.push(`const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");`);
@@ -2518,15 +3032,19 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (/\bunported_const_expr\b/.test(text)) extra.push(`const unported_const_expr: never = unported("constant expression the generator cannot translate (see types report)");`);
       if (/\bunported_stable_hash\b/.test(text))
         extra.push(`function unported_stable_hash(..._a: unknown[]): void {\n  unported("StableHash without a TS impl (see types report)");\n}`);
+      if (/\bunported_decodable\b/.test(text))
+        extra.push(`function unported_decodable(..._a: unknown[]): never {\n  return unported("Decodable without a TS impl (see types report)");\n}`);
+      if (/\bunported_encodable\b/.test(text))
+        extra.push(`function unported_encodable(..._a: unknown[]): void {\n  unported("Encodable without a TS impl (see types report)");\n}`);
       importLines.push(...extra);
     }
-    if (fileTypes === 0 && !walk && !sh) {
+    if (fileTypes === 0 && !walk && !sh && !ser) {
       report.notes.push(`${mf.file.path}: no types; ${mf.gen} not written`);
       continue;
     }
     files.set(outFile, [...header, ...importLines, text, ""].join("\n"));
     report.files.push({
-      upstream: sh ? `derive(StableHash) of ${mf.crate}` : walk ? `derive(Walkable) of ${mf.crate}` : mf.file.path,
+      upstream: ser ? `derive(Decodable/Encodable) of ${mf.crate}` : sh ? `derive(StableHash) of ${mf.crate}` : walk ? `derive(Walkable) of ${mf.crate}` : mf.file.path,
       out: mf.gen,
       types: fileTypes,
       debug_fns: fileDebug,
@@ -2535,6 +3053,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       diag_impls: fileDiag,
       print_attrs: filePrint,
       stable_hash: fileStableHash,
+      decodable: fileDecodable,
+      encodable: fileEncodable,
     });
   }
   return { files, report, stubs };
@@ -2685,11 +3205,13 @@ if (import.meta.main) {
   const nDiag = r.files.reduce((a, f) => a + f.diag_impls, 0);
   const nSh = r.files.reduce((a, f) => a + f.stable_hash, 0);
   const nPrint = r.files.reduce((a, f) => a + f.print_attrs, 0);
+  const nDec = r.files.reduce((a, f) => a + f.decodable, 0);
+  const nEnc = r.files.reduce((a, f) => a + f.encodable, 0);
   console.log(
-    `${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns, ${nClone} clone fns, ${nWalk} walkable impls, ${nDiag} diagnostic derives, ${nPrint} PrintAttribute derives, ${nSh} stable_hash impls -> ${out}`,
+    `${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns, ${nClone} clone fns, ${nWalk} walkable impls, ${nDiag} diagnostic derives, ${nPrint} PrintAttribute derives, ${nSh} stable_hash impls, ${nDec}/${nEnc} decodable/encodable impls -> ${out}`,
   );
   console.log(
-    `unknown types: ${Object.keys(r.unknown_types).length}, missing debug: ${Object.keys(r.missing_debug).length}, manual Debug impls: ${r.manual_debug.length}, missing clone: ${Object.keys(r.missing_clone).length}, manual Clone impls: ${r.manual_clone.length}, unknown cfg: ${Object.keys(r.unknown_cfg).length}, macro types: ${r.macro_types.length}, missing IntoDiagArg/Display: ${Object.keys(r.missing_diag_arg).length}, missing StableHash: ${Object.keys(r.missing_stable_hash).length}`,
+    `unknown types: ${Object.keys(r.unknown_types).length}, missing debug: ${Object.keys(r.missing_debug).length}, manual Debug impls: ${r.manual_debug.length}, missing clone: ${Object.keys(r.missing_clone).length}, manual Clone impls: ${r.manual_clone.length}, unknown cfg: ${Object.keys(r.unknown_cfg).length}, macro types: ${r.macro_types.length}, missing IntoDiagArg/Display: ${Object.keys(r.missing_diag_arg).length}, missing StableHash: ${Object.keys(r.missing_stable_hash).length}, missing Decodable/Encodable: ${Object.keys(r.missing_decodable).length}/${Object.keys(r.missing_encodable).length}`,
   );
   console.log(`report: ${rp}`);
   if (stubs) console.log(`stubs: ${writeStubs(res, opts)} modules under ${srcRoot}`);

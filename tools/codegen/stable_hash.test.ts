@@ -22,8 +22,8 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_span set repro
   const res = generate(probe, loadSet("rustc_span"), loadTypeMap(), { set: "rustc_span", out: SRC, srcRoot: SRC, pin, upstream: UPSTREAM });
   expect(res.report.errors).toEqual([]);
   expect(res.report.missing_stable_hash).toEqual({});
-  // derive_only: no per-file type modules, only the derive module
-  expect([...res.files.keys()]).toEqual([join(SRC, "rustc_span/stable_hash.gen.ts")]);
+  // derive_only: no per-file type modules, only the derive modules (decodable.gen.ts: tools/codegen/serialize.test.ts)
+  expect([...res.files.keys()]).toEqual([join(SRC, "rustc_span/stable_hash.gen.ts"), join(SRC, "rustc_span/decodable.gen.ts")]);
   expect(res.report.files.reduce((a, f) => a + f.stable_hash, 0)).toBe(20);
   expect(res.files.get(join(SRC, "rustc_span/stable_hash.gen.ts"))).toBe(readFileSync(join(SRC, "rustc_span/stable_hash.gen.ts"), "utf8"));
 });

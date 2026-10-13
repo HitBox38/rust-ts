@@ -1,0 +1,646 @@
+{
+ "files": [
+  {
+   "attrs": [],
+   "docs": [],
+   "impls": [],
+   "items": [
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "PartialEq",
+        "Clone",
+        "Debug",
+        "Encodable_NoContext",
+        "Decodable_NoContext"
+       ],
+       "line": 9,
+       "path": "derive",
+       "text": "derive (PartialEq , Clone , Debug , Encodable_NoContext , Decodable_NoContext)"
+      }
+     ],
+     "docs": [],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 11,
+        "name": "a",
+        "ty": {
+         "elems": [],
+         "kind": "tuple",
+         "text": "()"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 1,
+        "line": 12,
+        "name": "b",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u8"
+           }
+          ]
+         },
+         "text": "u8"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 2,
+        "line": 13,
+        "name": "c",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u16"
+           }
+          ]
+         },
+         "text": "u16"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 3,
+        "line": 14,
+        "name": "d",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u32"
+           }
+          ]
+         },
+         "text": "u32"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 4,
+        "line": 15,
+        "name": "e",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u64"
+           }
+          ]
+         },
+         "text": "u64"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 5,
+        "line": 16,
+        "name": "f",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 6,
+        "line": 18,
+        "name": "g",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "i8"
+           }
+          ]
+         },
+         "text": "i8"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 7,
+        "line": 19,
+        "name": "h",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "i16"
+           }
+          ]
+         },
+         "text": "i16"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 8,
+        "line": 20,
+        "name": "i",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "i32"
+           }
+          ]
+         },
+         "text": "i32"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 9,
+        "line": 21,
+        "name": "j",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "i64"
+           }
+          ]
+         },
+         "text": "i64"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 10,
+        "line": 22,
+        "name": "k",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "isize"
+           }
+          ]
+         },
+         "text": "isize"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 11,
+        "line": 24,
+        "name": "l",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "char"
+           }
+          ]
+         },
+         "text": "char"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 12,
+        "line": 25,
+        "name": "m",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "String"
+           }
+          ]
+         },
+         "text": "String"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 13,
+        "line": 26,
+        "name": "p",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "bool"
+           }
+          ]
+         },
+         "text": "bool"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 14,
+        "line": 27,
+        "name": "q",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [
+             {
+              "kind": "type",
+              "ty": {
+               "kind": "path",
+               "path": {
+                "global": false,
+                "segments": [
+                 {
+                  "args": [],
+                  "name": "u32"
+                 }
+                ]
+               },
+               "text": "u32"
+              }
+             }
+            ],
+            "name": "Option"
+           }
+          ]
+         },
+         "text": "Option < u32 >"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 10,
+     "module": [],
+     "name": "Struct",
+     "vis": ""
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "PartialEq",
+        "Clone",
+        "Debug",
+        "Encodable_NoContext",
+        "Decodable_NoContext"
+       ],
+       "line": 212,
+       "path": "derive",
+       "text": "derive (PartialEq , Clone , Debug , Encodable_NoContext , Decodable_NoContext)"
+      }
+     ],
+     "docs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 213,
+     "module": [],
+     "name": "Enum",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 214,
+       "name": "Variant1"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 215,
+          "name": null,
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "usize"
+             }
+            ]
+           },
+           "text": "usize"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 1,
+          "line": 215,
+          "name": null,
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "u32"
+             }
+            ]
+           },
+           "text": "u32"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "unnamed"
+       },
+       "line": 215,
+       "name": "Variant2"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 216,
+          "name": "a",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "i32"
+             }
+            ]
+           },
+           "text": "i32"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 1,
+          "line": 216,
+          "name": "b",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "char"
+             }
+            ]
+           },
+           "text": "char"
+          },
+          "vis": ""
+         },
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 2,
+          "line": 216,
+          "name": "c",
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "bool"
+             }
+            ]
+           },
+           "text": "bool"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "named"
+       },
+       "line": 216,
+       "name": "Variant3"
+      }
+     ],
+     "vis": ""
+    }
+   ],
+   "macros": [],
+   "mods": [],
+   "path": "compiler/rustc_serialize/src/opaque/tests.rs",
+   "uses": [
+    {
+     "alias": "Debug",
+     "glob": false,
+     "line": 1,
+     "module": [],
+     "path": [
+      "std",
+      "fmt",
+      "Debug"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "fs",
+     "glob": false,
+     "line": 2,
+     "module": [],
+     "path": [
+      "std",
+      "fs"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Decodable_NoContext",
+     "glob": false,
+     "line": 4,
+     "module": [],
+     "path": [
+      "rustc_macros",
+      "Decodable_NoContext"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Encodable_NoContext",
+     "glob": false,
+     "line": 4,
+     "module": [],
+     "path": [
+      "rustc_macros",
+      "Encodable_NoContext"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "FileEncoder",
+     "glob": false,
+     "line": 6,
+     "module": [],
+     "path": [
+      "crate",
+      "opaque",
+      "FileEncoder"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "MAGIC_END_BYTES",
+     "glob": false,
+     "line": 6,
+     "module": [],
+     "path": [
+      "crate",
+      "opaque",
+      "MAGIC_END_BYTES"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "MemDecoder",
+     "glob": false,
+     "line": 6,
+     "module": [],
+     "path": [
+      "crate",
+      "opaque",
+      "MemDecoder"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Decodable",
+     "glob": false,
+     "line": 7,
+     "module": [],
+     "path": [
+      "crate",
+      "Decodable"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Encodable",
+     "glob": false,
+     "line": 7,
+     "module": [],
+     "path": [
+      "crate",
+      "Encodable"
+     ],
+     "vis": ""
+    }
+   ]
+  }
+ ],
+ "probe": "typedefs",
+ "syn": "2.0.117"
+}

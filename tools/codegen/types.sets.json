@@ -11,7 +11,8 @@
     "skip_notes: reason per skip entry; required for entries that name no item the probe sees (e.g. types defined inside macro_rules!).",
     "derive_clone: emit clone_<T> for #[derive(Clone)] types (value-like Copy types: identity; Copy objects and tuples: copied; manual impl Clone: hand clone_<T>).",
     "derive(Walkable) types of a crate get <crate>/walkable.gen.ts and <crate>/mut_walkable.gen.ts (always).",
-    "hand_notes: reason per hand entry (documentation only, not read by the generator)."
+    "hand_notes: reason per hand entry (documentation only, not read by the generator).",
+    "derive_decodable / derive_encodable: emit decode_<T> / encode_<T> for derive(Decodable*) / derive(Encodable*) types (rustc_macros/src/serialize.rs; per-file sets next to the type, derive_only sets into <crate>/decodable.gen.ts); decodable_types limits them to the listed items; decodable_construct builds hand types that are not { field } objects (see tools/codegen/types.ts SetConfig)."
   ],
   "rustc_lexer": {
     "files": [
@@ -284,8 +285,32 @@
       "rustc_span::def_id::LocalModId::0": { "expr": "LocalModId.to_local_def_id($v)", "import": ["LocalModId"] },
       "rustc_span::StableSourceFileId::0": { "expr": "$v.hash()" }
     },
+    "derive_decodable": true,
+    "derive_encodable": true,
+    "decodable_types": [
+      "rustc_span::edition::Edition",
+      "rustc_span::SourceFileHashAlgorithm",
+      "rustc_span::SourceFileHash",
+      "rustc_span::MultiByteChar",
+      "rustc_span::NormalizedPos",
+      "rustc_span::hygiene::ExpnHash",
+      "rustc_span::hygiene::Transparency",
+      "rustc_span::hygiene::MacroKind",
+      "rustc_span::hygiene::AstPass",
+      "rustc_span::hygiene::DesugaringKind",
+      "rustc_span::def_id::DefPathHash",
+      "rustc_span::def_id::StableCrateId"
+    ],
+    "decodable_construct": {
+      "rustc_span::hygiene::ExpnHash": { "expr": "ExpnHash.of($0)", "import": ["ExpnHash"] },
+      "rustc_span::def_id::DefPathHash": { "expr": "DefPathHash.of($0)", "import": ["DefPathHash"] },
+      "rustc_span::def_id::StableCrateId": { "expr": "StableCrateId.of($0)", "import": ["StableCrateId"] },
+      "rustc_span::SourceFileHash": { "expr": "new SourceFileHash($0, Uint8Array.from($1))", "import": ["SourceFileHash"] }
+    },
     "hand_notes": {
-      "*": "rustc_span's types are hand-written (src/rustc_span/*.ts); this set only generates rustc_span/stable_hash.gen.ts (derive(StableHash)). stable_hash_access: branded newtypes (the TS value is the field) and StableSourceFileId (keeps its hash inputs; hash() computes the Hash128)."
+      "*": "rustc_span's types are hand-written (src/rustc_span/*.ts); this set only generates rustc_span/stable_hash.gen.ts (derive(StableHash)) and rustc_span/decodable.gen.ts (derive(Decodable)/(Encodable) of decodable_types). stable_hash_access: branded newtypes (the TS value is the field) and StableSourceFileId (keeps its hash inputs; hash() computes the Hash128); the encoders read fields through it too.",
+      "decodable_types": "the rustc_span types whose fields need no SpanDecoder/BlobDecoder method (Span, Symbol, DefId, ... decode through rustc_span's SpanDecoder/BlobDecoder traits, not ported yet); add a type here once its fields' impls exist (the report lists missing_decodable)",
+      "decodable_construct": "branded newtypes are built with their `of` companion; SourceFileHash is a class holding its `[u8; 32]` as a Uint8Array"
     }
   },
   "rustc_middle": {
@@ -452,6 +477,19 @@
     "hand": [],
     "discriminant": [],
     "skip": []
+  },
+  "rustc_serialize": {
+    "files": ["compiler/rustc_serialize/src/opaque/tests.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_clone": true,
+    "derive_decodable": true,
+    "derive_encodable": true,
+    "hand_notes": {
+      "*": "the test types of opaque/tests.rs (derive(Encodable_NoContext, Decodable_NoContext)), imported by src/rustc_serialize/opaque/tests.test.ts; the fn-local test types are not visible to the typedefs probe"
+    }
   },
   "rustc_metadata": {
     "files": ["compiler/rustc_metadata/src/diagnostics.rs"],
