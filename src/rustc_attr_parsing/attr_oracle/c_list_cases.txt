@@ -696,3 +696,35 @@ fn a() {}
 ops: limited:emit lints
 #[link(name = "foo")]
 unsafe extern {}
+### c_doc_auto_cfg_multi
+ops: limited:emit+doc_cfg lints
+#[doc(auto_cfg(hide(unix, windows)))]
+mod a {}
+### c_naked
+ops: limited:emit lints
+#[unsafe(naked)]
+fn a() {}
+### c_lang_items
+ops: limited:emit+lang_items lints
+#[lang = "panic_impl"]
+#[track_caller]
+fn a() {}
+#[lang = "sized"]
+#[target_feature(enable = "x")]
+fn b() {}
+#[panic_handler]
+#[target_feature(enable = "x")]
+fn c() {}
+### c_unstable_feature_bound
+ops: limited:emit+staged_api,impl_stability lints
+#[stable(feature = "a", since = "1.0.0")]
+#[unstable_feature_bound(x)]
+fn a() {}
+### c_track_caller_closure_target
+ops: limited:emit lints
+#[track_caller]
+struct S;
+#[cold]
+struct T;
+#[target_feature(enable = "x")]
+struct U;
