@@ -1,5 +1,6 @@
 // rust-ts: the compiler-stack glue (stack.ts) uses rustc's default thread stack size and RUST_MIN_STACK rule.
 import { expect, test } from "bun:test";
+import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import { DEFAULT_STACK_SIZE as CONFIG_DEFAULT } from "../rustc_session/config.ts";
 import { DEFAULT_STACK_SIZE, rust_thread_stack_size } from "./stack.ts";
 
