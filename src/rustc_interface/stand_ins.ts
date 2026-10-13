@@ -2,7 +2,6 @@
 //   rustc_codegen_ssa::traits::CodegenBackend, rustc_codegen_llvm::LlvmCodegenBackend
 //   rustc_data_structures::jobserver::initialize
 //   rustc_middle::ty::CurrentGcx
-//   rustc_parse entry points (pending lane parser-core; see `pending_parser` below)
 // Each keeps only what can be copied verbatim or is observable-free on the `-Zunpretty` path; everything
 // else calls `unported(...)`. Replace by the real modules when those crates are ported.
 import type { CodegenBackendInit, EarlySession, Session } from "../rustc_session/session.ts";

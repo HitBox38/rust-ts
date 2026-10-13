@@ -13,7 +13,7 @@ import type { AttrVec, Crate } from "../rustc_ast/ast.gen.ts";
 import type { PResult } from "../rustc_errors/lib.gen.ts";
 import { catch_fatal_errors } from "../rustc_errors/lib.ts";
 import { type Config, run_compiler } from "../rustc_interface/interface.ts";
-import { new_parser_from_file, new_parser_from_source_str, unwrap_or_emit_fatal } from "../rustc_interface/pending_parser.ts";
+import { new_parser_from_file, new_parser_from_source_str, unwrap_or_emit_fatal } from "../rustc_parse/lib.ts";
 import * as passes from "../rustc_interface/passes.ts";
 import type { CodegenBackend } from "../rustc_interface/stand_ins.ts";
 import { get_codegen_backend } from "../rustc_interface/util.ts";

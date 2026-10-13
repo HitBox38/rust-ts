@@ -7,7 +7,7 @@ import type { ParseSess } from "../rustc_session/parse.ts";
 import type { Session } from "../rustc_session/session.ts";
 import "../rustc_session/utils.ts"; // `Session::time`
 import { unported } from "../std/panic.ts";
-import { new_parser_from_file, new_parser_from_source_str, unwrap_or_emit_fatal } from "./pending_parser.ts";
+import { new_parser_from_file, new_parser_from_source_str, unwrap_or_emit_fatal } from "../rustc_parse/lib.ts";
 import type { Compiler } from "./interface.ts";
 
 // rustc: compiler/rustc_interface/src/passes.rs:54 parse

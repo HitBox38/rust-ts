@@ -92,13 +92,13 @@ const MATCH: string[][] = [
 
 /** [args, the `unported(..)` text the port may stop at until the pending lane lands] */
 const PENDING: [string[], string][] = [
-  [["--edition=2021", "-Zunpretty=ast-tree", "x.rs"], "rustc_parse::new_parser_from_file (pending lane parser-core)"],
-  [["--edition=2015", "-Zunpretty=ast-tree", "nonexist.rs"], "rustc_parse::new_parser_from_file (pending lane parser-core)"],
-  [["-Zunpretty=ast-tree", "x.rs"], "rustc_parse::new_parser_from_file (pending lane parser-core)"],
-  [["--edition=2024", "-Zunpretty=normal", "x.rs"], "rustc_parse::new_parser_from_file (pending lane parser-core)"],
-  [["x.rs"], "rustc_parse::new_parser_from_file (pending lane parser-core)"],
-  [["-ooptimize", "x.rs"], "rustc_parse::new_parser_from_file (pending lane parser-core)"],
-  [["-Zui-testing", "--edition=2021", "-Zunpretty=ast-tree", "x.rs"], "rustc_parse::new_parser_from_file (pending lane parser-core)"],
+  [["--edition=2021", "-Zunpretty=ast-tree", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
+  [["--edition=2015", "-Zunpretty=ast-tree", "nonexist.rs"], "std::io::Error::kind (decode_error_kind, os error ENOENT)"],
+  [["-Zunpretty=ast-tree", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
+  [["--edition=2024", "-Zunpretty=normal", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
+  [["x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
+  [["-ooptimize", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
+  [["-Zui-testing", "--edition=2021", "-Zunpretty=ast-tree", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
   [["--help"], "unicode_width::tables::width_in_str"],
   [[], "unicode_width::tables::width_in_str"],
   [["-o"], "unicode_width::tables::width_in_str"],
