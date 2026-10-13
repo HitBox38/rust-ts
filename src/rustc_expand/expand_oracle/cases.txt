@@ -131,3 +131,6 @@ fn f() -> u8 { echo!(echo!(echo!(echo!(1)))) + echo!(echo!(2)) }
 fn f(s: S) { let S { #[inert] a, #[cfg(false)] b, .. } = s; }
 ### opt_expr
 fn f() { let a = [echo!(1), echo!(2)]; g(echo!(3), 4); }
+### parse_error_in_expansion
+fn f() { let x = echo!(+); let _: echo!(=) = 1; }
+echo! { fn }
