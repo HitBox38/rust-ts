@@ -13,12 +13,18 @@
 //                                  build, so registry deps resolve to exactly upstream's versions
 //   rustc_dev = true               a rustc-dev probe: links the oracle toolchain's own compiler
 //                                  crates (`#![feature(rustc_private)]` + `extern crate rustc_*`,
-//                                  from the rustc-dev component in the sysroot). It may have no
-//                                  dependencies (a path dep would link a second copy of the
-//                                  rustc_* crates), the component must be installed, and it is
-//                                  built with RUSTC_BOOTSTRAP=1 plus, on unix, an rpath to
-//                                  `<sysroot>/lib` (librustc_driver, libLLVM). Its oracle cache key
-//                                  also covers the sysroot (difftest: rustcDriverHash).
+//                                  from the rustc-dev component in the sysroot). Its manifest is
+//                                  allowlisted (RUSTC_DEV_MANIFEST): only `[package]` (name,
+//                                  version, edition, publish, metadata), `[[bin]]` (name, path)
+//                                  and an empty `[workspace]`, so no dependencies (a path dep
+//                                  would link a second copy of the rustc_* crates), no build
+//                                  script, `cargo-features`, `[profile]` (profile rustflags),
+//                                  `[patch]`, `[replace]`, `[target]`, ...; its `env` may only set
+//                                  RUSTC_DEV_ALLOWED_ENV (none today). The component must be
+//                                  installed, and it is built with RUSTC_BOOTSTRAP=1 plus, on
+//                                  unix, an rpath to `<sysroot>/lib` (librustc_driver, libLLVM).
+//                                  Its oracle cache key also covers the sysroot (difftest:
+//                                  rustcDriverHash).
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO, UPSTREAM, die, ensureDir, parseArgs, requireUpstream, run } from "./lib/common.ts";
@@ -55,10 +61,48 @@ interface ProbeMeta {
   rustcDev: boolean;
 }
 
-/** Dependency tables a rustc-dev probe may not have (top level or under `[target.*]`). */
-const DEP_TABLES = ["dependencies", "dev-dependencies", "build-dependencies", "dev_dependencies", "build_dependencies"];
-/** Build variables a rustc-dev probe's `env` may not set: flags, and anything that swaps the compiler. */
-const RUSTC_DEV_RESERVED_ENV = ["RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "RUSTDOC", "CARGO_BUILD_RUSTC", "CARGO_BUILD_RUSTC_WRAPPER", "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER", "CARGO_BUILD_RUSTFLAGS", "CARGO_TARGET_DIR", "RUSTUP_TOOLCHAIN"];
+/**
+ * The only manifest keys a rustc-dev probe may have: everything else is refused (dependencies of any
+ * kind, a build script, `cargo-features`, `[profile]`, `[patch]`, `[replace]`, `[target]`, `[lib]`,
+ * `[features]`, `[lints]`, ...), since each can change how the probe is compiled or linked and the
+ * probe needs none of them. `[workspace]` must be empty (it only stops cargo from looking for an
+ * enclosing workspace).
+ */
+const RUSTC_DEV_MANIFEST = {
+  top: ["package", "bin", "workspace"],
+  package: ["name", "version", "edition", "publish", "metadata"],
+  bin: ["name", "path"],
+  metadata: ["rust-ts"],
+  rustTs: ["rustc_dev", "env"],
+};
+/**
+ * Build variables a rustc-dev probe's `env` may set (compared case-insensitively, as Windows does).
+ * None: rustcDevEnv provides everything such a probe needs (RUSTC_BOOTSTRAP, the rpath).
+ */
+const RUSTC_DEV_ALLOWED_ENV: string[] = [];
+
+/** Every manifest key a rustc-dev probe has outside RUSTC_DEV_MANIFEST, as dotted paths (exported for review). */
+export function rustcDevManifestViolations(toml: Record<string, unknown>): string[] {
+  const bad: string[] = [];
+  const table = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+  const only = (path: string, v: unknown, allowed: string[]) => {
+    if (!table(v)) return void bad.push(`${path} (not a table)`);
+    for (const k of Object.keys(v)) if (!allowed.includes(k)) bad.push(path ? `${path}.${k}` : k);
+  };
+  only("", toml, RUSTC_DEV_MANIFEST.top);
+  only("package", toml.package ?? {}, RUSTC_DEV_MANIFEST.package);
+  const pkg = table(toml.package) ? toml.package : {};
+  if (pkg.metadata !== undefined) {
+    only("package.metadata", pkg.metadata, RUSTC_DEV_MANIFEST.metadata);
+    if (table(pkg.metadata)) only("package.metadata.rust-ts", pkg.metadata["rust-ts"] ?? {}, RUSTC_DEV_MANIFEST.rustTs);
+  }
+  if (toml.bin !== undefined) {
+    if (!Array.isArray(toml.bin)) bad.push("bin (not an array of tables)");
+    else toml.bin.forEach((b, i) => only(`bin[${i}]`, b, RUSTC_DEV_MANIFEST.bin));
+  }
+  if (toml.workspace !== undefined) only("workspace", toml.workspace, []);
+  return bad;
+}
 
 /** The substituted manifest of a probe. */
 function manifest(name: string): string {
@@ -90,14 +134,11 @@ export function probeMeta(name: string): ProbeMeta {
   if (meta.rustc_dev !== undefined && typeof meta.rustc_dev !== "boolean") die(`probe ${name}: metadata rustc_dev must be a boolean`);
   const rustcDev = meta.rustc_dev === true;
   if (rustcDev) {
-    const deps = [
-      ...DEP_TABLES.filter((t) => toml[t] !== undefined),
-      ...Object.entries(toml.target ?? {}).flatMap(([cfg, t]) => DEP_TABLES.filter((d) => t[d] !== undefined).map((d) => `target.${cfg}.${d}`)),
-    ];
-    if (deps.length) die(`probe ${name}: a rustc_dev probe may not have dependencies ([${deps.join("], [")}])`);
-    if (meta.lockfile !== undefined) die(`probe ${name}: a rustc_dev probe has no dependencies to lock`);
-    const reserved = RUSTC_DEV_RESERVED_ENV.filter((k) => k in env);
-    if (reserved.length) die(`probe ${name}: a rustc_dev probe's env may not set ${reserved.join(", ")}`);
+    const bad = rustcDevManifestViolations(toml);
+    if (bad.length) die(`probe ${name}: a rustc_dev probe's manifest may not have ${bad.join(", ")} (allowed: see RUSTC_DEV_MANIFEST in scripts/probes.ts)`);
+    const allowed = new Set(RUSTC_DEV_ALLOWED_ENV.map((k) => k.toUpperCase()));
+    const notAllowed = Object.keys(env).filter((k) => !allowed.has(k.toUpperCase()));
+    if (notAllowed.length) die(`probe ${name}: a rustc_dev probe's env may not set ${notAllowed.join(", ")} (allowed: ${RUSTC_DEV_ALLOWED_ENV.join(", ") || "none"})`);
   }
   return { env, lockfile: meta.lockfile as ProbeMeta["lockfile"], rustcDev };
 }
