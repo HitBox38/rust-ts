@@ -577,7 +577,9 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   traits: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => [...cdata.get_traits(tcx)]],
   trait_impls_in_crate: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => [...cdata.get_trait_impls(tcx)]],
   implementations_of_trait: [IntoArgs_CrateNum_DefId, (tcx, _def_id, other, cdata) => cdata.get_implementations_of_trait(tcx, other)],
-  crate_incoherent_impls: [IntoArgs_CrateNum_SimplifiedType, (tcx, _def_id, other, cdata) => cdata.get_incoherent_impls(tcx, other)],
+  // PORT: queries.gen.ts keys `crate_incoherent_impls` by `(CrateNum, unknown)` (the query key impls of `SimplifiedType` are
+  // not generated); the value is the `SimplifiedType` the key was built from.
+  crate_incoherent_impls: [IntoArgs_CrateNum_SimplifiedType, (tcx, _def_id, other, cdata) => cdata.get_incoherent_impls(tcx, other as SimplifiedType)],
 
   // PORT: the field `dep_kind` is `dep_kind_` (decoder.ts).
   crate_dep_kind: [IntoArgs_CrateNum, (_tcx, _def_id, _other, cdata) => cdata.dep_kind_],

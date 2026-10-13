@@ -1,0 +1,15 @@
+{
+  "//": [
+    "Type-map additions of lane decode-elems (set rustc_type_ir), merged after typemap.json by tools/codegen/types.ts",
+    "(loadTypeMap). rustc_type_ir re-exports rustc_ast_ir's IntTy / UintTy / FloatTy / Mutability (rustc_type_ir lib.rs:113);",
+    "these are the paths the typedefs probe resolves `ty::IntTy` etc. to. They repeat the canonical rustc_ast_ir entries."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_type_ir::IntTy"], "ts": "IntTy", "import": "src/rustc_ast_ir/lib.ts", "types": ["IntTy"], "values": ["debug_IntTy"], "debug": "debug_IntTy($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_type_ir::UintTy"], "ts": "UintTy", "import": "src/rustc_ast_ir/lib.ts", "types": ["UintTy"], "values": ["debug_UintTy"], "debug": "debug_UintTy($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_type_ir::FloatTy", "rustc_ast_ir::FloatTy", "rustc_ast::FloatTy", "rustc_ast::ast::FloatTy"], "ts": "FloatTy", "import": "src/rustc_ast_ir/lib.ts", "types": ["FloatTy"], "values": ["debug_FloatTy"], "debug": "debug_FloatTy($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_type_ir::Mutability"], "ts": "Mutability", "import": "src/rustc_ast_ir/lib.ts", "types": ["Mutability"], "values": ["debug_Mutability"], "debug": "debug_Mutability($v, $f)", "clone": "copy" }
+  ]
+}

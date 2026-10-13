@@ -65,7 +65,22 @@
       "rustc_ast::visit::FnKind": "defined inside macro_rules! common_visitor_and_walkers (visit.rs), which the probe does not expand; hand-written in visit.ts / mut_visit.ts (one per expansion)"
     },
     "auto_class": true,
-    "derive_clone": true
+    "derive_clone": true,
+    "derive_stable_hash": true,
+    "stable_hash_types": [
+      "rustc_ast_ir::IntTy",
+      "rustc_ast_ir::UintTy",
+      "rustc_ast_ir::FloatTy",
+      "rustc_ast_ir::Mutability"
+    ],
+    "derive_decodable": true,
+    "derive_encodable": true,
+    "decodable_types": [
+      "rustc_ast_ir::IntTy",
+      "rustc_ast_ir::UintTy",
+      "rustc_ast_ir::FloatTy",
+      "rustc_ast_ir::Mutability"
+    ]
   },
   "rustc_errors": {
     "files": [
@@ -338,6 +353,25 @@
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
       "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a); generates rustc_middle/decodable.gen.ts"
+    }
+  },
+  "rustc_type_ir": {
+    "files": [
+      "compiler/rustc_type_ir/src/fast_reject.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": ["rustc_type_ir::fast_reject::DeepRejectCtxt"],
+    "skip_notes": {
+      "rustc_type_ir::fast_reject::DeepRejectCtxt": "generic over `I: Interner` (M3 type relation); not reached by crate metadata decoding"
+    },
+    "derive_clone": true,
+    "derive_stable_hash": true,
+    "derive_decodable": true,
+    "derive_encodable": true,
+    "hand_notes": {
+      "*": "rustc_type_ir::fast_reject::SimplifiedType<DefId>: the keys of crate metadata's incoherent_impls / trait_impls (rmeta decoder.rs `CrateMetadata::new`, lane decode-elems); simplify_type itself is M3"
     }
   },
   "rustc_query_impl": {

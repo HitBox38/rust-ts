@@ -131,6 +131,10 @@ import { DefPathHashMapRef as DefPathHashMapRef_, decode_DefPathHashMapRef } fro
 import { fse_AttrFlags, fse_bool, fse_LazyArray, fse_u64, is_default_LazyArray } from "./table.ts";
 import { RawDefId_key, type VariantData } from "./mod.ts";
 // end rmeta-decoder-b imports
+// decode-elems imports
+import { type SimplifiedType, SimplifiedType_key } from "../../rustc_middle/ty/fast_reject.ts";
+import { decode_SimplifiedType as decode_SimplifiedType_ } from "../../rustc_type_ir/fast_reject.ts";
+// end decode-elems imports
 
 // pub(super) use cstore_impl::provide;  (../lib.ts exports it; mod cstore_impl; is loaded by ../lib.ts)
 
@@ -171,7 +175,8 @@ export type ProcMacroClient = unknown; // rustc_proc_macro::bridge::client::Clie
 export type AllocDecodingState = unknown; // rustc_middle::mir::interpret (M3)
 export type AllocDecodingSession = unknown; // rustc_middle::mir::interpret (M3)
 export type HygieneDecodeContext = unknown; // rustc_span::hygiene (lane hygiene-decode)
-export type SimplifiedType = unknown; // rustc_middle::ty::fast_reject (M3)
+// `rustc_middle::ty::fast_reject::SimplifiedType` (rustc_type_ir fast_reject.rs at `DefId`, lane decode-elems).
+export type { SimplifiedType };
 export type SourceFile = unknown; // rustc_span::SourceFile (`Arc<SourceFile>`)
 export type SpanData = unknown; // rustc_span::SpanData
 
@@ -267,6 +272,7 @@ export class CrateMetadata {
     /// FIXME: make type of the value `LazyArray<DefIndex>`
     /// through transmuting or somehow else, as `LocalDefId` here should be `DefIndex`,
     /// as it is from external crate.
+    /// PORT: a `KeyedMap` (src/rust_ts/keyed.ts) keyed by `SimplifiedType_key` (rustc_middle ty/fast_reject.ts).
     public incoherent_impls: Map<SimplifiedType, LazyArray<LocalDefId>>,
     /// Proc macro function pointers for this crate, if it's a proc macro crate.
     public raw_proc_macros: readonly ProcMacroClient[] | undefined,
@@ -332,7 +338,8 @@ export class CrateMetadata {
     // `.map(|trait_impls| (trait_impls.trait_id, trait_impls.impls)).collect()` (an `FxIndexMap<RawDefId, _>`)
     const trait_impls = new KeyedMap<RawDefId, LazyArray<[LocalDefId, SimplifiedType | undefined]>>(RawDefId_key);
     for (const trait_impls_ of root.impls.decode(blob, decode_TraitImpls)) {
-      trait_impls.set(trait_impls_.trait_id, trait_impls_.impls);
+      // PORT: mod.ts types `TraitImpls::impls`' element `(LocalDefId, Option<SimplifiedType>)` as `[LocalDefId, unknown]`.
+      trait_impls.set(trait_impls_.trait_id, trait_impls_.impls as LazyArray<[LocalDefId, SimplifiedType | undefined]>);
     }
     // PORT: `interpret_alloc_index` is a `LazyArray<u64>` (mod.ts types its phantom element `number`).
     const alloc_decoding_state = AllocDecodingState_new([...(root.interpret_alloc_index as LazyArray<unknown> as LazyArray<bigint>).decode(blob, decode_u64)]);
@@ -346,7 +353,7 @@ export class CrateMetadata {
       root,
       unhashed,
       trait_impls,
-      /* incoherent_impls */ new Map(),
+      /* incoherent_impls */ new KeyedMap(SimplifiedType_key),
       raw_proc_macros,
       /* source_map_import_info */ [],
       def_path_hash_map,
@@ -364,7 +371,7 @@ export class CrateMetadata {
       /* extern_crate */ undefined,
     );
 
-    const incoherent_impls = new Map<SimplifiedType, LazyArray<LocalDefId>>();
+    const incoherent_impls = new KeyedMap<SimplifiedType, LazyArray<LocalDefId>>(SimplifiedType_key);
     for (const incoherent_impls_ of cdata.root.incoherent_impls.decode([cdata, tcx], decode_IncoherentImpls)) {
       incoherent_impls.set((incoherent_impls_.self_ty as LazyValue<SimplifiedType>).decode([cdata, tcx], decode_SimplifiedType), incoherent_impls_.impls);
     }
@@ -1737,9 +1744,9 @@ function decode_VariantData(_d: MetadataDecodeContext): VariantData {
 function decode_Attribute(_d: MetadataDecodeContext): Attribute {
   return unported("Decodable for rustc_attr_ir::Attribute (derive(Decodable) not generated)");
 }
-/** `Decodable` of `rustc_middle::ty::fast_reject::SimplifiedType` (rustc_type_ir fast_reject.rs, M3). */
-function decode_SimplifiedType(_d: MetadataDecodeContext): SimplifiedType {
-  return unported("Decodable for rustc_middle::ty::fast_reject::SimplifiedType (M3)");
+/** `<SimplifiedType<DefId> as Decodable<DecodeContext>>::decode`: the generated derive(Decodable_NoContext) at `DefId`. */
+function decode_SimplifiedType(d: MetadataDecodeContext): SimplifiedType {
+  return decode_SimplifiedType_<DefId>(d, () => decode_DefId(d));
 }
 /** `#[derive(Decodable)]` of `rustc_crate_store::NativeLib`. */
 function decode_NativeLib(_d: MetadataDecodeContext): NativeLib {
