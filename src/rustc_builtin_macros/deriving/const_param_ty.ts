@@ -1,12 +1,30 @@
-// STUB for compiler/rustc_builtin_macros/src/deriving/const_param_ty.rs (owned by lane bm-derive-b; replace freely).
-// Published by lane bm-a with only the names `register_builtin_macros` (lib.ts) uses, so the crate
-// type-checks before bm-derive-b lands. No markers: every body is `unported`. Keep the export names and
-// shapes (or update lib.ts when you merge), then port the file in place.
-import type { ast } from "../../rustc_ast/lib.ts";
+// Port of compiler/rustc_builtin_macros/src/deriving/const_param_ty.rs
 import type { ExtCtxt } from "../../rustc_expand/base.ts";
 import type { Span } from "../../rustc_span/lib.ts";
-import { unported } from "../../std/panic.ts";
+import { sym } from "../../rustc_span/symbol.ts";
+import { ast, TraitDef } from "./generic/mod.ts";
+import { path_std } from "./mod.ts";
 
-export function expand_deriving_const_param_ty(_cx: ExtCtxt, _span: Span, _item: ast.Item, _push: (item: ast.Item) => void, _is_const: boolean): void {
-  unported("rustc_builtin_macros::deriving::const_param_ty::expand_deriving_const_param_ty (stub)");
+// rustc: compiler/rustc_builtin_macros/src/deriving/const_param_ty.rs:8 expand_deriving_const_param_ty
+export function expand_deriving_const_param_ty(
+  cx: ExtCtxt,
+  span: Span,
+  item: ast.Item,
+  push: (item: ast.Item) => void,
+  is_const: boolean,
+): void {
+  const trait_def = new TraitDef(
+    span,
+    path_std(cx, span, [sym.marker, sym.ConstParamTy_]),
+    false,
+    false,
+    [path_std(cx, span, [sym.cmp, sym.Eq])],
+    false,
+    [],
+    is_const,
+    ast.Safety.Default,
+    true,
+  );
+
+  trait_def.expand(cx, item, push);
 }

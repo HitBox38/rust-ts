@@ -1,8 +1,7 @@
 # One case per line, fields separated by " | ":
 #   name | kind (attr, attr_stmt, builtin, builtin_stmt) | edition | features (comma list or -) | pending (- or reason) | source
 # `\n` in the source is a newline. The first attribute of the item is the one expanded (see probe.rs).
-# Pending cases need lane bm-derive-b (the individual derives); the probe records them, the port must stop with `unported`.
-# `builtin` cases for Copy, Hash and Eq run on the port through test fixtures (run.ts) until bm-derive-b lands.
+# Pending cases (none at the moment) stop at an `unported` path on the port; the probe records them anyway.
 #
 # derive.rs: the `#[derive]` / `#[derive_const]` attribute
 attr_struct_one | attr | 2021 | - | - | #[derive(Copy)] struct S;
@@ -79,15 +78,15 @@ eq_union | builtin | 2021 | - | - | #[derive(Eq)] union U { a: u8, b: u8 }
 eq_packed | builtin | 2021 | - | - | #[derive(Eq)] #[repr(packed)] struct S<T>(T);
 eq_const_staged | builtin | 2021 | staged_api | - | #[derive_const(Eq)] struct S<T>(T);
 #
-# Other derives (lane bm-derive-b): recorded now to cover the remaining generic/mod.rs paths
+# Other derives (deriving/*.rs, lane bm-derive-b); these also cover the remaining generic/mod.rs paths
 # (two self-like args, `Default` / `SpecializeIfAllVariantsFieldless` strategies, `call_unreachable`).
-clone_struct | builtin | 2021 | - | bm-derive-b (clone.rs) | #[derive(Clone)] struct S<T> { a: T, b: u8 }
-clone_enum | builtin | 2021 | - | bm-derive-b (clone.rs) | #[derive(Clone)] enum E<T> { A, B(T), C { x: T } }
-partial_eq_struct | builtin | 2021 | - | bm-derive-b (partial_eq.rs) | #[derive(PartialEq)] struct S { a: u8, b: String }
-partial_eq_enum | builtin | 2021 | - | bm-derive-b (partial_eq.rs) | #[derive(PartialEq)] enum E { A, B(u8), C { x: u16, y: u8 } }
-partial_eq_packed | builtin | 2021 | - | bm-derive-b (partial_eq.rs) | #[derive(PartialEq)] #[repr(packed)] struct S(u8, u32);
-debug_fieldless | builtin | 2021 | - | bm-derive-b (debug.rs) | #[derive(Debug)] enum E { A, B, C }
-debug_enum | builtin | 2021 | - | bm-derive-b (debug.rs) | #[derive(Debug)] enum E { A, B(u8), C { x: u16 } }
-ord_enum | builtin | 2021 | - | bm-derive-b (ord.rs) | #[derive(Ord)] enum E { A(u8), B, C { x: u16 } }
-partial_ord_struct | builtin | 2021 | - | bm-derive-b (partial_ord.rs) | #[derive(PartialOrd)] struct S(u8, u16);
-default_struct | builtin | 2021 | - | bm-derive-b (default.rs) | #[derive(Default)] struct S { a: u8 }
+clone_struct | builtin | 2021 | - | - | #[derive(Clone)] struct S<T> { a: T, b: u8 }
+clone_enum | builtin | 2021 | - | - | #[derive(Clone)] enum E<T> { A, B(T), C { x: T } }
+partial_eq_struct | builtin | 2021 | - | - | #[derive(PartialEq)] struct S { a: u8, b: String }
+partial_eq_enum | builtin | 2021 | - | - | #[derive(PartialEq)] enum E { A, B(u8), C { x: u16, y: u8 } }
+partial_eq_packed | builtin | 2021 | - | - | #[derive(PartialEq)] #[repr(packed)] struct S(u8, u32);
+debug_fieldless | builtin | 2021 | - | - | #[derive(Debug)] enum E { A, B, C }
+debug_enum | builtin | 2021 | - | - | #[derive(Debug)] enum E { A, B(u8), C { x: u16 } }
+ord_enum | builtin | 2021 | - | - | #[derive(Ord)] enum E { A(u8), B, C { x: u16 } }
+partial_ord_struct | builtin | 2021 | - | - | #[derive(PartialOrd)] struct S(u8, u16);
+default_struct | builtin | 2021 | - | - | #[derive(Default)] struct S { a: u8 }
