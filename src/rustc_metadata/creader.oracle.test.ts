@@ -189,7 +189,7 @@ for (const c of CASES) {
     const oracle_log = run([...RUSTC, "-Zunpretty=expanded", ...args], { ...env, RUSTC_LOG: "rustc_metadata::creader=info" });
     const oracle_crates = crates_of(oracle_log.stderr.split("\n"), /^ INFO rustc_metadata::creader resolving crate `(.*)`$/);
     if (ours.code === 70) {
-      expect(ours.stderr).toContain("rust-ts: unported: rustc_metadata::rmeta::decoder::CrateMetadata::new");
+      expect(ours.stderr).toContain("rust-ts: unported: odht::HashTable::from_raw_bytes");
       expect(oracle_crates.slice(0, our_crates.length)).toEqual(our_crates);
     } else {
       expect(oracle_crates).toEqual(our_crates);
