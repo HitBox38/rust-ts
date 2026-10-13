@@ -3,9 +3,9 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { REPO, UPSTREAM } from "../scripts/lib/common.ts";
-import { oracleRustcCmd } from "../scripts/lib/oracle.ts";
+import { oracleRustcCmd, oracleSysroot } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
-import { uiCases, type ErrorFormat } from "./compiletest.ts";
+import { COMPILETEST_TARGET, uiCases, type ErrorFormat } from "./compiletest.ts";
 
 export interface Case {
   /** Stable id; the protected set (harness/baseline) is a list of these. */
@@ -293,6 +293,82 @@ SUITES.push(
     "json",
     "parse-ui with compiletest's exact UI-test argv, including its default `--error-format json --json future-incompat` (raw JSON diagnostics), + -Zparse-crate-root-only",
   ),
+);
+
+// M2a (plan-m2 §2 D, decision D7): expansion + name resolution without metadata. Every tests/ui file
+// is compiled as a `#![no_core]` crate (`-Zcrate-attr`), so neither std nor core is injected or in the
+// extern prelude, and crate metadata is only loaded when the file itself asks for it (an `extern crate`
+// item; a 2018+ `std::..`/`core::..` path is just an unresolved-path error). Target and sysroot as
+// decision D1 (the subject cannot derive the oracle's sysroot from its own location); edition from the
+// file's directives, as `parse`.
+// One rustc (or probe) process per file. Both sides run with `RUSTC_ICE=0` (no `rustc-ice-*.txt` report
+// written into the upstream checkout, whose name and the note pointing at it hold a timestamp and pid)
+// and `RUST_BACKTRACE=0` (an ICE prints no backtrace, whose frames/addresses vary). Timeouts as `parse`:
+// the oracle's `{:#?}` of very deep ASTs (tests/ui/try-trait/deep-try-chain-issue-153583.rs) needs minutes.
+const NOCORE_ENV: Record<string, string> = { RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
+const nocoreArgs = (f: string): string[] => [
+  "--target",
+  COMPILETEST_TARGET,
+  "--sysroot",
+  oracleSysroot(),
+  `--edition=${edition(f)}`,
+  "-Zcrate-attr=feature(no_core)",
+  "-Zcrate-attr=no_core",
+];
+// Left out of all three nocore suites (decision, review harness-w8 M1): the oracle's `{:#?}` of the
+// expanded AST for these does not finish within the 300 s + 4 x 300 s retry (2 min of CPU without
+// output, measured), and an ORACLE_TIMEOUT is never cached, so every run would pay up to 25 min per
+// file. `-Zunpretty=expanded` and resdump finish on them; they are left out there too so that the
+// three suites keep one case list.
+const NOCORE_SKIPPED: SkippedCase[] = [
+  { id: "tests/ui/associated-consts/issue-93775.rs", reason: "oracle -Zunpretty=ast-tree,expanded ({:#?} of a deeply nested expanded AST) does not finish in 1500 s" },
+  { id: "tests/ui/expr/if/expr-stack-overflow.rs", reason: "oracle -Zunpretty=ast-tree,expanded does not finish in 1500 s (the pre-expansion ast-tree is ~13 GB)" },
+  { id: "tests/ui/parser/survive-peano-lesson-queue.rs", reason: "oracle -Zunpretty=ast-tree,expanded ({:#?} of a deeply nested expanded AST) does not finish in 1500 s" },
+];
+const nocoreCorpus = (): string[] => {
+  const skip = new Set(NOCORE_SKIPPED.map((k) => k.id));
+  return corpus("tests/ui").filter((f) => !skip.has(f));
+};
+const nocoreSuite = (name: string, unpretty: string, description: string): Suite => ({
+  name,
+  milestone: "M2",
+  description,
+  mode: "single",
+  timeoutMs: 60_000,
+  oracleTimeoutMs: 300_000,
+  cases: () => nocoreCorpus().map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV })),
+  skipped: () => NOCORE_SKIPPED,
+  oracle: ([c]) => oracleRustcCmd(c!.args),
+  subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+});
+SUITES.push(
+  nocoreSuite(
+    "expanded-nocore",
+    "ast-tree,expanded",
+    "rustc -Zunpretty=ast-tree,expanded ({:#?} of the expanded AST after name resolution + expansion/resolution/early-lint diagnostics) on every .rs in tests/ui as a #![no_core] crate (-Zcrate-attr), --target x86_64-unknown-linux-gnu --sysroot <oracle sysroot>, edition from directives",
+  ),
+  nocoreSuite(
+    "unpretty-expanded-nocore",
+    "expanded",
+    "expanded-nocore with -Zunpretty=expanded (the pretty-printed expanded source instead of the AST tree)",
+  ),
+  {
+    // tools/probes/resdump: the same compilation (expanded-nocore's argv without -Zunpretty) through
+    // rustc_driver callbacks, stopped right after `resolver_for_lowering`; prints the resolver outputs
+    // (ResolverGlobalCtxt, ResolverAstLowering, the definitions table) sorted, see its header.
+    name: "resdump-nocore",
+    milestone: "M2",
+    description:
+      "name resolution results (rustc-dev probe tools/probes/resdump: ResolverGlobalCtxt + ResolverAstLowering + definitions, sorted, plus the diagnostics up to resolution) on every .rs in tests/ui as a #![no_core] crate, args as expanded-nocore",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: 300_000,
+    probes: ["resdump"],
+    cases: () => nocoreCorpus().map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), f], env: NOCORE_ENV })),
+    skipped: () => NOCORE_SKIPPED,
+    oracle: ([c]) => [probePath("resdump"), ...c!.args],
+    subject: ([c]) => [...bunCmd("src/rust_ts/resdump.ts"), ...c!.args],
+  },
 );
 
 export function suite(name: string): Suite {
