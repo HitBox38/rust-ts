@@ -1,6 +1,9 @@
 // Port of compiler/rustc_attr_parsing/src/target_checking.rs.
-// `impl AttributeParser` / `impl AcceptContext` blocks are extension methods (`declare module`);
-// rustc_attr_parsing/lib.ts imports this module after interface.ts and context.ts.
+// `impl AttributeParser` / `impl AcceptContext` blocks are extension methods (`declare module`).
+// PORT: they are installed on the classes by `install()`, which rustc_attr_parsing/lib.ts calls after
+// loading interface.ts and context.ts, not at module init: the attribute parser modules import this
+// module's data (`Policy`, `ALL_TARGETS`, `AllowedTargets`) while context.ts is still evaluating its
+// imports (context.ts -> attributes/* -> here), so the classes are not initialized yet at that point.
 import type { AttrStyle } from "../rustc_ast/lib.ts";
 import { AssocCtxt } from "../rustc_ast/visit.ts";
 import { type AttrItem, type Attribute, display_AttrPath, clone_AttrPath } from "../rustc_attr_ir/lib.ts";
@@ -163,7 +166,7 @@ declare module "./interface.ts" {
 }
 
 // rustc: compiler/rustc_attr_parsing/src/target_checking.rs:96 check_target
-AttributeParser.check_target = function (allowed_targets: AllowedTargets, attribute_args: string, cx: AcceptContext): void {
+function check_target(allowed_targets: AllowedTargets, attribute_args: string, cx: AcceptContext): void {
   if (cx.shared.cx.should_emit.$ === "Nothing") {
     return;
   }
@@ -239,7 +242,7 @@ AttributeParser.check_target = function (allowed_targets: AllowedTargets, attrib
       cx.shared.cx.dcx().emit_err(InvalidTarget_diagnostic(diag));
       break;
   }
-};
+}
 
 // PORT: the pattern `&AllowedTargets::AllowList(&[Allow(Target::Crate)])` (one element).
 function is_allow_crate_only(list: readonly Policy[]): boolean {
@@ -271,10 +274,8 @@ function target_checking_help(attribute_args: string, cx: AcceptContext): Invali
     return undefined;
   }
 }
-AttributeParser.target_checking_help = target_checking_help;
-
 // rustc: compiler/rustc_attr_parsing/src/target_checking.rs:215 check_crate_level
-AttributeParser.check_crate_level = function (cx: AcceptContext, warn: boolean): void {
+function check_crate_level(cx: AcceptContext, warn: boolean): void {
   if (cx.shared.target.$ === "Crate") {
     return;
   }
@@ -306,12 +307,12 @@ AttributeParser.check_crate_level = function (cx: AcceptContext, warn: boolean):
   } else {
     cx.shared.emit_err(InvalidAttrStyle_diagnostic(diag));
   }
-};
+}
 
 // FIXME: Fix "Cannot determine resolution" error and remove built-in macros
 // from this check.
 // rustc: compiler/rustc_attr_parsing/src/target_checking.rs:257 check_invalid_crate_level_attr_item
-AttributeParser.prototype.check_invalid_crate_level_attr_item = function (this: AttributeParser, attr: AttrItem, inner_span: Span): void {
+function check_invalid_crate_level_attr_item(this: AttributeParser, attr: AttrItem, inner_span: Span): void {
   // Check for builtin attributes at the crate level
   // which were unsuccessfully resolved due to cannot determine
   // resolution for the attribute macro error.
@@ -337,10 +338,10 @@ AttributeParser.prototype.check_invalid_crate_level_attr_item = function (this: 
 
     this.dcx().try_steal_replace_and_emit_err(attr.path.span, StashKey.UndeterminedMacroResolution, err);
   }
-};
+}
 
 // rustc: compiler/rustc_attr_parsing/src/target_checking.rs:286 first_line_of_next_item
-AttributeParser.prototype.first_line_of_next_item = function (this: AttributeParser, span: Span): Span | undefined {
+function first_line_of_next_item(this: AttributeParser, span: Span): Span | undefined {
   // We can't exactly call `tcx.hir_free_items()` here because it's too early and querying
   // this would create a circular dependency. Instead, we resort to getting the original
   // source code that follows `span` and find the next item from here.
@@ -393,7 +394,7 @@ AttributeParser.prototype.first_line_of_next_item = function (this: AttributePar
       return Ok(span_);
     });
   return r.$ === "Ok" ? r._0 : undefined;
-};
+}
 
 // PORT: `str::find(|c: char| ..)`: byte offset of the first char matching `pred`.
 function find_char(s: Str, pred: (c: number) => boolean): number | undefined {
@@ -418,7 +419,7 @@ function trim_end_len(s: Str): number {
 }
 
 // rustc: compiler/rustc_attr_parsing/src/target_checking.rs:336 check_invalid_where_predicate_attrs
-AttributeParser.prototype.check_invalid_where_predicate_attrs = function (this: AttributeParser, attrs: Iterable<Attribute>): void {
+function check_invalid_where_predicate_attrs(this: AttributeParser, attrs: Iterable<Attribute>): void {
   // FIXME(where_clause_attrs): Currently, as the following check shows,
   // only `#[cfg]` and `#[cfg_attr]` are allowed, but it should be removed
   // if we allow more attributes (e.g., tool attributes and `allow/deny/warn`)
@@ -441,7 +442,7 @@ AttributeParser.prototype.check_invalid_where_predicate_attrs = function (this: 
   if (spans.length !== 0) {
     this.dcx().emit_err(UnsupportedAttributesInWhere_diagnostic({ span: MultiSpan.from_spans(spans) }));
   }
-};
+}
 
 /// Takes a list of `allowed_targets` for an attribute, and the `target` the attribute was applied to.
 /// Does some heuristic-based filtering to remove uninteresting targets, and formats the targets into a string
@@ -541,18 +542,18 @@ declare module "./context.ts" {
 }
 
 // rustc: compiler/rustc_attr_parsing/src/target_checking.rs:467 check_target
-AcceptContext.prototype.check_target = function (this: AcceptContext, attribute_args: string, allowed_targets: AllowedTargets): void {
+function AcceptContext_check_target(this: AcceptContext, attribute_args: string, allowed_targets: AllowedTargets): void {
   this.ignore_target_checks();
   AttributeParser.check_target(allowed_targets, attribute_args, this);
-};
+}
 
 // rustc: compiler/rustc_attr_parsing/src/target_checking.rs:476 ignore_target_checks
-AcceptContext.prototype.ignore_target_checks = function (this: AcceptContext): void {
+function ignore_target_checks(this: AcceptContext): void {
   // #[cfg(debug_assertions)]
   // {
   //     self.has_target_been_checked = true;
   // }
-};
+}
 
 /// This is the list of all targets to which a attribute can be applied
 /// This is used for:
@@ -611,3 +612,15 @@ export const ALL_TARGETS: readonly Policy[] = [
   Allow(Target.While),
   Allow(Target.Break),
 ];
+
+/** Installs this module's `impl AttributeParser` / `impl AcceptContext` fns (see the header). */
+export function install(): void {
+  AttributeParser.check_target = check_target;
+  AttributeParser.target_checking_help = target_checking_help;
+  AttributeParser.check_crate_level = check_crate_level;
+  AttributeParser.prototype.check_invalid_crate_level_attr_item = check_invalid_crate_level_attr_item;
+  AttributeParser.prototype.first_line_of_next_item = first_line_of_next_item;
+  AttributeParser.prototype.check_invalid_where_predicate_attrs = check_invalid_where_predicate_attrs;
+  AcceptContext.prototype.check_target = AcceptContext_check_target;
+  AcceptContext.prototype.ignore_target_checks = ignore_target_checks;
+}
