@@ -79,8 +79,8 @@
 //   unchanged parts stay shared). Rust only skips that copy when nothing else holds the `Rc`, so the
 //   values every matcher position observes are the same.
 // - `NamedMatches` (`FxHashMap<MacroRulesNormalizedIdent, NamedMatch>`) is `MacroRulesIdentMap`
-//   (below), keyed like `Ident`'s `Hash`/`Eq` (name + `SyntaxContext`). Its iteration order is
-//   insertion order, NOT hashbrown's: callers that iterate must keep that in mind.
+//   (below), keyed like `Ident`'s `Hash`/`Eq` (name + `SyntaxContext`). It iterates in rustc's
+//   hashbrown bucket order (an `FxHashMap` from src/rust_ts/hash_map.ts underneath).
 // - The `Tracker<'matcher>` trait lives in macro_rules.rs (lane mbe-b). `Tracker` below is the part of
 //   it the matcher calls; macro_rules.ts' full trait is structurally assignable to it.
 
@@ -94,6 +94,7 @@ import { debug_ErrorGuaranteed, debug_Span, type ErrorGuaranteed, Span } from ".
 import { debug_Ident, display_Ident, type Ident, MacroRulesNormalizedIdent } from "../../rustc_span/symbol.ts";
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 import { assert, assert_eq, panic, unreachable, unwrap } from "../../std/panic.ts";
+import { FxHashMap, type KeyType, type Layout } from "../../rust_ts/hash_map.ts";
 import type { KleeneOp, TokenTree } from "../mbe.ts";
 import { debug_KleeneOp } from "../mbe.ts";
 
@@ -464,41 +465,50 @@ export const Ambiguity: ParseResult<never> = Object.freeze({ $: "Ambiguity" as c
 export type NamedParseResult = ParseResult<NamedMatches>;
 
 /// PORT: `FxHashMap<MacroRulesNormalizedIdent, V>`. `MacroRulesNormalizedIdent` hashes and compares
-/// as its `Ident`: the name plus the span's `SyntaxContext`, which is the JS key. Iteration
-/// (`iter`) is insertion order; hashbrown's order is not reproduced.
+/// as its `Ident` (`impl Hash for Ident`: `self.name.hash(state); self.span.ctxt().hash(state);`, i.e.
+/// `write_u32(name)` then `write_u32(ctxt)`). The JS key is the pair packed into one number
+/// (`MacroRulesIdentMap_key`), and the table is an `FxHashMap` (src/rust_ts/hash_map.ts) whose
+/// `KeyType` hashes that pair like `Ident::hash`, so `iter` walks rustc's hashbrown bucket order.
+/// `value` is `Layout::new::<V>()` (see `LAYOUT_NamedMatch`).
 export class MacroRulesIdentMap<V> {
-  private readonly m = new Map<string, [MacroRulesNormalizedIdent, V]>();
+  private readonly m: FxHashMap<number, [MacroRulesNormalizedIdent, V]>;
 
-  /** `Default::default()` */
-  static default<V>(): MacroRulesIdentMap<V> {
-    return new MacroRulesIdentMap<V>();
+  private constructor(value: Layout) {
+    this.m = FxHashMap.default(MacroRulesNormalizedIdent_key, value);
   }
 
-  private static key(k: MacroRulesNormalizedIdent): string {
-    return `${k._0.name},${Span.ctxt(k._0.span)}`;
+  /** `Default::default()` */
+  static default<V>(value: Layout): MacroRulesIdentMap<V> {
+    return new MacroRulesIdentMap<V>(value);
   }
 
   get(k: MacroRulesNormalizedIdent): V | undefined {
-    return this.m.get(MacroRulesIdentMap.key(k))?.[1];
+    return this.m.get(MacroRulesIdentMap_key(k))?.[1];
   }
 
   contains_key(k: MacroRulesNormalizedIdent): boolean {
-    return this.m.has(MacroRulesIdentMap.key(k));
+    return this.m.has(MacroRulesIdentMap_key(k));
   }
 
   /** `HashMap::insert`: returns the previous value; the stored key stays the first one inserted. */
   insert(k: MacroRulesNormalizedIdent, v: V): V | undefined {
-    const key = MacroRulesIdentMap.key(k);
+    const key = MacroRulesIdentMap_key(k);
     const old = this.m.get(key);
     this.m.set(key, [old !== undefined ? old[0] : k, v]);
     return old?.[1];
   }
 
   remove(k: MacroRulesNormalizedIdent): V | undefined {
-    const key = MacroRulesIdentMap.key(k);
+    const key = MacroRulesIdentMap_key(k);
     const old = this.m.get(key);
     this.m.delete(key);
     return old?.[1];
+  }
+
+  /** `Extend<(K, V)>` with `other.into_iter()` (bucket order, exact `size_hint`): std's `HashMap::extend`
+   * reserves from the size hint, then `insert`s each entry. */
+  extend(other: MacroRulesIdentMap<V>): void {
+    this.m.extend(other.m, other.m.size);
   }
 
   len(): number {
@@ -509,11 +519,36 @@ export class MacroRulesIdentMap<V> {
     return this.m.size === 0;
   }
 
-  /** Insertion order (see the class note). */
-  iter(): IterableIterator<[MacroRulesNormalizedIdent, V]> {
-    return this.m.values();
+  /** `iter()`: hashbrown bucket order. */
+  *iter(): IterableIterator<[MacroRulesNormalizedIdent, V]> {
+    yield* this.m.values();
   }
 }
+
+/// PORT: the JS key of a `MacroRulesNormalizedIdent`: `name * 2^32 + ctxt` (the two `u32`s its `Hash`
+/// writes). Exact while `name < 2^21` (asserted), far above the symbols any compilation interns.
+function MacroRulesIdentMap_key(k: MacroRulesNormalizedIdent): number {
+  const name: number = k._0.name;
+  assert(name < 0x200000, "MacroRulesIdentMap: Symbol index does not fit the packed key");
+  return name * 0x1_0000_0000 + Span.ctxt(k._0.span);
+}
+
+/// `KeyType` of the packed key: `Ident::hash` (`write_u32(name)`, `write_u32(ctxt)`) and the layout of
+/// `MacroRulesNormalizedIdent(Ident { name: Symbol, span: Span })`: 4 + 8 bytes, align 4.
+const MacroRulesNormalizedIdent_key: KeyType<number> = {
+  hash: (k, state) => {
+    state.write_u32(Math.floor(k / 0x1_0000_0000));
+    state.write_u32(k % 0x1_0000_0000);
+  },
+  size: 12,
+  align: 4,
+};
+
+/// PORT: `Layout::new::<NamedMatch>()` is not reproduced exactly: `NamedMatch::MatchedSeq(Vec<_>)`
+/// makes it at least a `Vec` (24 bytes, align 8). On the oracle host (`Group::WIDTH` 8) hashbrown's
+/// placement only depends on whether `size_of::<(K, V)>() <= 1` (raw.ts `capacity_to_buckets`), so
+/// any size above that gives rustc's order.
+export const LAYOUT_NamedMatch: Layout = { size: 24, align: 8 };
 
 /// Contains a mapping of `MacroRulesNormalizedIdent`s to `NamedMatch`es.
 /// This represents the mapping of metavars to the token trees they bind to.
@@ -1022,7 +1057,7 @@ export class TtParser {
   private nameize(matcher: readonly MatcherLoc[], res: Iterator<NamedMatch>): NamedMatches {
     // Make that each metavar has _exactly one_ binding. If so, insert the binding into the
     // `NamedParseResult`. Otherwise, it's an error.
-    const ret_val: NamedMatches = MacroRulesIdentMap.default();
+    const ret_val: NamedMatches = MacroRulesIdentMap.default(LAYOUT_NamedMatch);
     for (const loc of matcher) {
       if (loc.$ === "MetaVarDecl") {
         const bind = loc.bind;

@@ -8941,4 +8941,1566 @@ Some(
     },
 )
 lint NAMED_ARGUMENTS_USED_POSITIONALLY Some(MultiSpan { primary_spans: [<named_positionally_2018>:1:21: 1:22 (#0)], span_labels: [], span_context: [] }) NodeId(0)
+== named_many
+Some(
+    Expr {
+        id: NodeId(4294967040),
+        kind: FormatArgs(
+            FormatArgs {
+                span: <named_many>:1:14: 1:80 (#0),
+                template: [
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    0,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_many>:1:16: 1:21 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_many>:1:15: 1:22 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    1,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_many>:1:24: 1:28 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_many>:1:23: 1:29 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    2,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_many>:1:31: 1:36 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_many>:1:30: 1:37 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    3,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_many>:1:39: 1:44 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_many>:1:38: 1:45 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    4,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_many>:1:47: 1:50 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_many>:1:46: 1:51 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    5,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_many>:1:53: 1:57 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_many>:1:52: 1:58 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    6,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_many>:1:60: 1:63 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_many>:1:59: 1:64 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    7,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_many>:1:66: 1:71 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_many>:1:65: 1:72 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    8,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_many>:1:74: 1:78 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_many>:1:73: 1:79 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                ],
+                arguments: FormatArguments {
+                    arguments: [
+                        FormatArgument {
+                            original_span: <named_many>:1:82: 1:91 (#0),
+                            kind: Named(
+                                alpha#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "1",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_many>:1:90: 1:91 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_many>:1:93: 1:101 (#0),
+                            kind: Named(
+                                beta#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "2",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_many>:1:100: 1:101 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_many>:1:103: 1:112 (#0),
+                            kind: Named(
+                                gamma#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "3",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_many>:1:111: 1:112 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_many>:1:114: 1:123 (#0),
+                            kind: Named(
+                                delta#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "4",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_many>:1:122: 1:123 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_many>:1:125: 1:132 (#0),
+                            kind: Named(
+                                eps#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "5",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_many>:1:131: 1:132 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_many>:1:134: 1:142 (#0),
+                            kind: Named(
+                                zeta#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "6",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_many>:1:141: 1:142 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_many>:1:144: 1:151 (#0),
+                            kind: Named(
+                                eta#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "7",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_many>:1:150: 1:151 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_many>:1:153: 1:162 (#0),
+                            kind: Named(
+                                theta#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "8",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_many>:1:161: 1:162 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_many>:1:164: 1:172 (#0),
+                            kind: Named(
+                                iota#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "9",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_many>:1:171: 1:172 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                    ],
+                    num_unnamed_args: 0,
+                    num_explicit_args: 9,
+                    names: {
+                        "eps": 4,
+                        "alpha": 0,
+                        "theta": 7,
+                        "delta": 3,
+                        "eta": 6,
+                        "gamma": 2,
+                        "zeta": 5,
+                        "beta": 1,
+                        "iota": 8,
+                    },
+                },
+                uncooked_fmt_str: (
+                    Str,
+                    "{alpha} {beta} {gamma} {delta} {eps} {zeta} {eta} {theta} {iota}",
+                ),
+                is_source_literal: true,
+            },
+        ),
+        span: <named_many>:1:1: 1:173 (#105),
+        attrs: [],
+        tokens: None,
+    },
+)
+== named_captured_mix
+Some(
+    Expr {
+        id: NodeId(4294967040),
+        kind: FormatArgs(
+            FormatArgs {
+                span: <named_captured_mix>:1:14: 1:61 (#0),
+                template: [
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    1,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_captured_mix>:1:16: 1:18 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_captured_mix>:1:15: 1:19 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    4,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_captured_mix>:1:21: 1:23 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_captured_mix>:1:20: 1:24 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    0,
+                                ),
+                                kind: Number,
+                                span: Some(
+                                    <named_captured_mix>:1:26: 1:27 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_captured_mix>:1:25: 1:28 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    2,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_captured_mix>:1:30: 1:32 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_captured_mix>:1:29: 1:33 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    5,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_captured_mix>:1:35: 1:37 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_captured_mix>:1:34: 1:40 (#0),
+                            ),
+                            format_trait: Debug,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    6,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_captured_mix>:1:42: 1:44 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_captured_mix>:1:41: 1:45 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    7,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_captured_mix>:1:47: 1:49 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_captured_mix>:1:46: 1:50 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    3,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_captured_mix>:1:52: 1:54 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_captured_mix>:1:51: 1:55 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    8,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_captured_mix>:1:57: 1:59 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_captured_mix>:1:56: 1:60 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                ],
+                arguments: FormatArguments {
+                    arguments: [
+                        FormatArgument {
+                            original_span: <named_captured_mix>:1:63: 1:64 (#0),
+                            kind: Normal,
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "0",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_captured_mix>:1:63: 1:64 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_captured_mix>:1:66: 1:72 (#0),
+                            kind: Named(
+                                a1#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "1",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_captured_mix>:1:71: 1:72 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_captured_mix>:1:74: 1:80 (#0),
+                            kind: Named(
+                                c1#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "3",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_captured_mix>:1:79: 1:80 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_captured_mix>:1:82: 1:88 (#0),
+                            kind: Named(
+                                g1#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "7",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_captured_mix>:1:87: 1:88 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_captured_mix>:1:21: 1:23 (#0),
+                            kind: Captured(
+                                b1#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_captured_mix>:1:21: 1:23 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: b1#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_captured_mix>:1:21: 1:23 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_captured_mix>:1:35: 1:37 (#0),
+                            kind: Captured(
+                                d1#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_captured_mix>:1:35: 1:37 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: d1#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_captured_mix>:1:35: 1:37 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_captured_mix>:1:42: 1:44 (#0),
+                            kind: Captured(
+                                e1#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_captured_mix>:1:42: 1:44 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: e1#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_captured_mix>:1:42: 1:44 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_captured_mix>:1:47: 1:49 (#0),
+                            kind: Captured(
+                                f1#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_captured_mix>:1:47: 1:49 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: f1#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_captured_mix>:1:47: 1:49 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_captured_mix>:1:57: 1:59 (#0),
+                            kind: Captured(
+                                h1#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_captured_mix>:1:57: 1:59 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: h1#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_captured_mix>:1:57: 1:59 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                    ],
+                    num_unnamed_args: 1,
+                    num_explicit_args: 4,
+                    names: {
+                        "e1": 6,
+                        "c1": 2,
+                        "d1": 5,
+                        "a1": 1,
+                        "h1": 8,
+                        "b1": 4,
+                        "f1": 7,
+                        "g1": 3,
+                    },
+                },
+                uncooked_fmt_str: (
+                    Str,
+                    "{a1} {b1} {0} {c1} {d1:?} {e1} {f1} {g1} {h1}",
+                ),
+                is_source_literal: true,
+            },
+        ),
+        span: <named_captured_mix>:1:1: 1:89 (#106),
+        attrs: [],
+        tokens: None,
+    },
+)
+== named_width_mix
+Some(
+    Expr {
+        id: NodeId(4294967040),
+        kind: FormatArgs(
+            FormatArgs {
+                span: <named_width_mix>:1:14: 1:45 (#0),
+                template: [
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    0,
+                                ),
+                                kind: Implicit,
+                                span: Some(
+                                    <named_width_mix>:1:16: 1:16 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_width_mix>:1:15: 1:23 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: Some(
+                                    Argument(
+                                        FormatArgPosition {
+                                            index: Ok(
+                                                2,
+                                            ),
+                                            kind: Named,
+                                            span: Some(
+                                                <named_width_mix>:1:17: 1:19 (#0),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                                precision: Some(
+                                    Argument(
+                                        FormatArgPosition {
+                                            index: Ok(
+                                                3,
+                                            ),
+                                            kind: Named,
+                                            span: Some(
+                                                <named_width_mix>:1:19: 1:22 (#0),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    1,
+                                ),
+                                kind: Implicit,
+                                span: Some(
+                                    <named_width_mix>:1:25: 1:25 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_width_mix>:1:24: 1:29 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: Some(
+                                    Argument(
+                                        FormatArgPosition {
+                                            index: Ok(
+                                                4,
+                                            ),
+                                            kind: Named,
+                                            span: Some(
+                                                <named_width_mix>:1:26: 1:28 (#0),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    5,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_width_mix>:1:31: 1:32 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_width_mix>:1:30: 1:36 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: Some(
+                                    Argument(
+                                        FormatArgPosition {
+                                            index: Ok(
+                                                6,
+                                            ),
+                                            kind: Named,
+                                            span: Some(
+                                                <named_width_mix>:1:33: 1:35 (#0),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                    Literal(
+                        " ",
+                    ),
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    7,
+                                ),
+                                kind: Named,
+                                span: Some(
+                                    <named_width_mix>:1:38: 1:39 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_width_mix>:1:37: 1:44 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: Some(
+                                    Argument(
+                                        FormatArgPosition {
+                                            index: Ok(
+                                                8,
+                                            ),
+                                            kind: Named,
+                                            span: Some(
+                                                <named_width_mix>:1:40: 1:43 (#0),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                ],
+                arguments: FormatArguments {
+                    arguments: [
+                        FormatArgument {
+                            original_span: <named_width_mix>:1:47: 1:48 (#0),
+                            kind: Normal,
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_width_mix>:1:47: 1:48 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: a#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_width_mix>:1:47: 1:48 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_width_mix>:1:50: 1:51 (#0),
+                            kind: Normal,
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_width_mix>:1:50: 1:51 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: b#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_width_mix>:1:50: 1:51 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_width_mix>:1:53: 1:58 (#0),
+                            kind: Named(
+                                w#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "1",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_width_mix>:1:57: 1:58 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_width_mix>:1:60: 1:65 (#0),
+                            kind: Named(
+                                p#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "2",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_width_mix>:1:64: 1:65 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_width_mix>:1:67: 1:72 (#0),
+                            kind: Named(
+                                x#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "3",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_width_mix>:1:71: 1:72 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_width_mix>:1:74: 1:79 (#0),
+                            kind: Named(
+                                y#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "4",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_width_mix>:1:78: 1:79 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_width_mix>:1:81: 1:86 (#0),
+                            kind: Named(
+                                z#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "5",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_width_mix>:1:85: 1:86 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_width_mix>:1:38: 1:39 (#0),
+                            kind: Captured(
+                                q#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_width_mix>:1:38: 1:39 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: q#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_width_mix>:1:38: 1:39 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_width_mix>:1:41: 1:42 (#0),
+                            kind: Captured(
+                                r#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_width_mix>:1:41: 1:42 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: r#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_width_mix>:1:41: 1:42 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                    ],
+                    num_unnamed_args: 2,
+                    num_explicit_args: 7,
+                    names: {
+                        "y": 5,
+                        "q": 7,
+                        "z": 6,
+                        "x": 4,
+                        "r": 8,
+                        "p": 3,
+                        "w": 2,
+                    },
+                },
+                uncooked_fmt_str: (
+                    Str,
+                    "{:w$.p$} {:x$} {y:z$} {q:.r$}",
+                ),
+                is_source_literal: true,
+            },
+        ),
+        span: <named_width_mix>:1:1: 1:87 (#107),
+        attrs: [],
+        tokens: None,
+    },
+)
+== named_unused_many
+Some(
+    Expr {
+        id: NodeId(4294967040),
+        kind: FormatArgs(
+            FormatArgs {
+                span: <named_unused_many>:1:14: 1:18 (#0),
+                template: [
+                    Placeholder(
+                        FormatPlaceholder {
+                            argument: FormatArgPosition {
+                                index: Ok(
+                                    0,
+                                ),
+                                kind: Implicit,
+                                span: Some(
+                                    <named_unused_many>:1:16: 1:16 (#0),
+                                ),
+                            },
+                            span: Some(
+                                <named_unused_many>:1:15: 1:17 (#0),
+                            ),
+                            format_trait: Display,
+                            format_options: FormatOptions {
+                                width: None,
+                                precision: None,
+                                alignment: None,
+                                fill: None,
+                                sign: None,
+                                alternate: false,
+                                zero_pad: false,
+                                debug_hex: None,
+                            },
+                        },
+                    ),
+                ],
+                arguments: FormatArguments {
+                    arguments: [
+                        FormatArgument {
+                            original_span: <named_unused_many>:1:20: 1:21 (#0),
+                            kind: Normal,
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Path(
+                                    None,
+                                    Path {
+                                        span: <named_unused_many>:1:20: 1:21 (#0),
+                                        segments: [
+                                            PathSegment {
+                                                ident: a#0,
+                                                id: NodeId(4294967040),
+                                                args: None,
+                                            },
+                                        ],
+                                    },
+                                ),
+                                span: <named_unused_many>:1:20: 1:21 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_unused_many>:1:23: 1:29 (#0),
+                            kind: Named(
+                                n1#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "1",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_unused_many>:1:28: 1:29 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_unused_many>:1:31: 1:37 (#0),
+                            kind: Named(
+                                n2#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "2",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_unused_many>:1:36: 1:37 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_unused_many>:1:39: 1:45 (#0),
+                            kind: Named(
+                                n3#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "3",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_unused_many>:1:44: 1:45 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_unused_many>:1:47: 1:53 (#0),
+                            kind: Named(
+                                n4#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "4",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_unused_many>:1:52: 1:53 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                        FormatArgument {
+                            original_span: <named_unused_many>:1:55: 1:61 (#0),
+                            kind: Named(
+                                n5#0,
+                            ),
+                            expr: Expr {
+                                id: NodeId(4294967040),
+                                kind: Lit(
+                                    Lit {
+                                        kind: Integer,
+                                        symbol: "5",
+                                        suffix: None,
+                                    },
+                                ),
+                                span: <named_unused_many>:1:60: 1:61 (#0),
+                                attrs: [],
+                                tokens: None,
+                            },
+                        },
+                    ],
+                    num_unnamed_args: 1,
+                    num_explicit_args: 6,
+                    names: {
+                        "n2": 2,
+                        "n4": 4,
+                        "n5": 5,
+                        "n3": 3,
+                        "n1": 1,
+                    },
+                },
+                uncooked_fmt_str: (
+                    Str,
+                    "{}",
+                ),
+                is_source_literal: true,
+            },
+        ),
+        span: <named_unused_many>:1:1: 1:62 (#108),
+        attrs: [],
+        tokens: None,
+    },
+)
 == end

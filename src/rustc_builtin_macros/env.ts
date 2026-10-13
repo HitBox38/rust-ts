@@ -252,10 +252,12 @@ function env_var(key: string): Result<string, VarError> {
 /**
  * `cx.sess.env_depinfo.borrow_mut().insert((var, value))`. PORT: `Session.env_depinfo` is typed
  * `Set<string>` in session.ts (upstream `FxIndexSet<(Symbol, Option<Symbol>)>`); the pair is stored as
- * its JSON text until session.ts carries the tuple type. Only dep-info output reads it.
+ * the JSON text of its strings (`[as_str(var), as_str(value) | null]`), the encoding every other writer
+ * (rustc_interface/passes.ts `env_var_os`, rustc_expand/proc_macro_server.ts `track_env_var`) uses and
+ * passes.ts `write_out_deps` reads. Strings and symbols are in bijection, so set equality is unchanged.
  */
 function env_depinfo_insert(cx: ExtCtxt, var_: Symbol, value: Symbol | undefined): void {
-  cx.sess.env_depinfo.add(JSON.stringify([var_, value ?? null]));
+  cx.sess.env_depinfo.add(JSON.stringify([Symbol.as_str(var_), value === undefined ? null : Symbol.as_str(value)]));
 }
 
 /** PORT: `str::escape_debug` (library/core/src/str/mod.rs:3149): `char::escape_debug` on every char. */

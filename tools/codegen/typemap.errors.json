@@ -133,8 +133,16 @@
         "std::collections::HashSet"
       ],
       "ts": "Set<$0>",
-      "debug": null,
-      "note": "HashSet Debug iterates in hash order"
+      "import": "src/rust_ts/hash_map.ts",
+      "values": [
+        "debug_HashSet"
+      ],
+      "debug": "debug_HashSet($v, $f, $d0)",
+      "clone_values": [
+        "clone_HashSet"
+      ],
+      "clone": "clone_HashSet($v, $c0)",
+      "note": "PORT: Debug and Clone are exact for an FxHashSet (src/rust_ts/hash_map.ts: hashbrown bucket order); Debug of a plain Set with 2+ elements is unported (its creation site must build an FxHashSet)"
     },
     {
       "paths": [

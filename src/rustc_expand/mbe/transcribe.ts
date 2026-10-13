@@ -2,7 +2,8 @@
 //
 // PORT: types are hand-written (rustc_expand has no codegen set); none of them derives Debug.
 // `FxHashMap<MacroRulesNormalizedIdent, NamedMatch>` is `NamedMatches` (macro_parser.ts
-// `MacroRulesIdentMap`, insertion-ordered; see `transcribe_sequence` for the one place that iterates it).
+// `MacroRulesIdentMap`, iterating in hashbrown bucket order; `transcribe_sequence` is the one place that
+// iterates it).
 
 import "../../rustc_parse/lib.ts";
 import { ast, HasAttrs, HasTokens, token, tokenstream } from "../../rustc_ast/lib.ts";
@@ -18,7 +19,7 @@ import { type LocalExpnId, LocalExpnId as LocalExpnId_, SyntaxContext, type Tran
 import { BytePos, Span, with_metavar_spans } from "../../rustc_span/lib.ts";
 import { display_MacroRulesNormalizedIdent, Ident, kw, MacroRulesNormalizedIdent, sym, Symbol } from "../../rustc_span/symbol.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import { panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok } from "../../std/result.ts";
 import { type Delimited, type KleeneOp, type MetaVarExpr, type SequenceRepetition, TokenTree as MbeTokenTree } from "../mbe.ts";
 import type * as mbe from "../mbe.ts";
@@ -376,13 +377,6 @@ function transcribe_sequence(
         } else {
           non_repeatables.push(name);
         }
-      }
-      // PORT: `interp.iter()` walks the `FxHashMap` in hashbrown bucket order, which decides the order
-      // of both lists (the `listify` message and `find_best_match_for_name` ties). `MacroRulesIdentMap`
-      // iterates in insertion order, so the result is only known to match when neither list has more
-      // than one entry (then no order can differ).
-      if (repeatables.length > 1 || non_repeatables.length > 1) {
-        unported("std::collections::HashMap iteration order (hashbrown + FxHasher) in mbe::transcribe::transcribe_sequence");
       }
 
       const repeatable_names: Symbol[] = repeatables.map((name) => name.symbol());

@@ -120,6 +120,7 @@ import type { MutRef } from "../../std/mut_ref.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { type KleeneToken, MetaVarExpr, TokenTree } from "../mbe.ts";
 import { MacroRulesIdentMap } from "./macro_parser.ts";
+import type { Layout } from "../../rust_ts/hash_map.ts";
 import { type DuplicateMatcherBinding, type DuplicateMatcherBindingLint, DuplicateMatcherBindingLint_diagnostic, DuplicateMatcherBinding_diagnostic, type MetaVarStillRepeatingLint, MetaVarStillRepeatingLint_diagnostic, type MetaVariableWrongOperator, MetaVariableWrongOperator_diagnostic, type UnknownMacroVariable, UnknownMacroVariable_diagnostic } from "../diagnostics.ts";
 
 
@@ -218,6 +219,10 @@ interface BinderInfo {
 
 /// An environment of meta-variables to their binder information.
 type Binders = MacroRulesIdentMap<BinderInfo>;
+/// PORT: `Layout::new::<BinderInfo>()` is not reproduced exactly: it holds a `Span`, so it is at least
+/// 8 bytes (align 4). Binders are never iterated, and on the oracle host hashbrown's placement only
+/// depends on whether `size_of::<(K, V)>() <= 1` (see macro_parser.ts `LAYOUT_NamedMatch`).
+const LAYOUT_BinderInfo: Layout = { size: 8, align: 4 };
 
 /// The state at which we entered a macro definition in the RHS of another macro definition.
 // rustc-type: compiler/rustc_expand/src/mbe/macro_check.rs:183 MacroState
@@ -243,7 +248,7 @@ export function check_meta_variables(
   rhs: TokenTree,
 ): Result<undefined, ErrorGuaranteed> {
   const guar: MutRef<ErrorGuaranteed | undefined> = { value: undefined };
-  const binders: Binders = MacroRulesIdentMap.default();
+  const binders: Binders = MacroRulesIdentMap.default(LAYOUT_BinderInfo);
   if (args !== undefined) {
     check_binders(psess, node_id, args, Stack.Empty, binders, Stack.Empty, guar);
   }
@@ -450,7 +455,7 @@ function check_nested_occurrences(
 ): void {
   let state: NestedMacroState = "Empty";
   const nested_macros = Stack.push(macros, { binders, ops: kleene_ops_from(ops) });
-  let nested_binders: Binders = MacroRulesIdentMap.default();
+  let nested_binders: Binders = MacroRulesIdentMap.default(LAYOUT_BinderInfo);
   for (const tt of tts) {
     // PORT: `match (state, tt)`: the arms in upstream order; a guard that fails falls through to
     // the next arm, as in Rust.
@@ -494,7 +499,7 @@ function check_nested_occurrences(
       check_occurrences(psess, node_id, tt, macros, binders, ops, guar);
     } else if (state === "MacroName" && tt.$ === "Delimited" && tt._2.delim.$ === "Parenthesis") {
       state = "MacroNameParen";
-      nested_binders = MacroRulesIdentMap.default();
+      nested_binders = MacroRulesIdentMap.default(LAYOUT_BinderInfo);
       check_binders(psess, node_id, tt, nested_macros, nested_binders, Stack.Empty, guar);
     } else if (state === "MacroNameParen" && tt.$ === "Delimited" && tt._2.delim.$ === "Brace") {
       state = "Empty";
@@ -543,7 +548,7 @@ function check_nested_macro(
     }
     const lhs = tts[i]!;
     const rhs = tts[i + 2]!;
-    const binders: Binders = MacroRulesIdentMap.default();
+    const binders: Binders = MacroRulesIdentMap.default(LAYOUT_BinderInfo);
     check_binders(psess, node_id, lhs, macros, binders, Stack.Empty, guar);
     check_occurrences(psess, node_id, rhs, macros, binders, Stack.Empty, guar);
     // Since the last semicolon is optional for `macro_rules` macros and decl_macro are not terminated,

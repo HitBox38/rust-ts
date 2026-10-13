@@ -787,7 +787,7 @@ export function try_match_macro_attr<R extends MacroRule>(
         const body_named_matches = result._0;
         psess.gated_spans.merge(gated_spans_snapshot);
         // #[allow(rustc::potential_query_instability)]
-        for (const [k, v] of body_named_matches.iter()) named_matches.insert(k, v);
+        named_matches.extend(body_named_matches);
         return Ok([i, rule, named_matches]);
       }
       case "Failure":
