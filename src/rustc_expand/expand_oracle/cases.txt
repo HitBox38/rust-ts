@@ -1,0 +1,82 @@
+### empty
+
+### no_macros
+fn f(x: u8) -> u8 { let y = x; y }
+struct S { a: u8, b: (u8, u16) }
+enum E { A, B(u8) }
+### item_bang
+echo! { fn f() {} struct S; }
+fn g() {}
+### expr_bang
+fn f() -> u8 { let x = echo!(1 + 2); x }
+### stmt_bang
+fn f() { echo! { let a = 1; let b = a; } echo!(a); }
+### trailing_mac
+fn f() -> u8 { echo!(5) }
+### nested
+echo! { fn f() { echo! { let a = echo!(1); } } }
+### ty_pat
+fn f(x: echo!(u8)) { match x { echo!(_) => {} } }
+### method_receiver
+fn f() { echo!(1u8).max(2); }
+### assoc_items
+trait T { echo! { fn a(); } }
+impl S { echo! { fn b() {} } }
+impl T for S { echo! { fn a() {} } }
+### foreign
+extern "C" { echo! { fn f(); } }
+### cfg_items
+#[cfg(false)] fn a() {}
+#[cfg(true)] fn b() {}
+#[cfg(any())] struct S;
+#[cfg(all())] use x::{y, z::w, *};
+#[cfg(false)] use p::{q, r::s, *};
+### cfg_inner
+struct S { #[cfg(false)] a: u8, b: u8 }
+enum E { #[cfg(false)] A, B }
+fn f<#[cfg(false)] T>(#[cfg(false)] x: u8, y: u8) { match y { #[cfg(false)] 0 => {} _ => {} } }
+fn g() { #[cfg(false)] let a = 1; let b = S { #[cfg(false)] a: 1, b: 2 }; }
+### cfg_attr
+#[cfg_attr(all(), inert)] fn a() {}
+#[cfg_attr(any(), inert)] fn b() {}
+#[cfg_attr(all(), cfg(false))] fn c() {}
+### attr_macros
+#[echo_attr] fn a() {}
+#[keep] fn b() {}
+#[drop_it] fn c() {}
+#[inert] fn d() {}
+#[inert] #[keep] #[inert] fn e() {}
+### attr_on_stmt
+fn f() { #[keep] fn g() {} #[drop_it] fn h() {} }
+### later
+later! { fn f() {} }
+echo! { fn g() {} }
+### missing
+missing!();
+fn f() { let x = missing!(1); }
+### bad
+bad!();
+fn f() -> u8 { bad!() }
+### incomplete
+fn f() -> u8 { echo!(1 2) }
+fn g() { let _: echo!(u8 u16) = 1; }
+### impl_trait
+fn f(x: impl Copy, y: impl Fn(echo!(u8)) -> u8) {}
+### delegation_list
+trait T { fn a(&self); fn b(&self); }
+impl T for S { reuse T::{a, b as c}; }
+### delegation_errors
+reuse T::*;
+impl S { reuse T::{}; }
+### mod_inline
+mod m { echo! { fn f() {} } mod n { echo! { struct S; } } }
+### doc_on_mac
+/// doc
+echo! { fn f() {} }
+### cfg_on_mac
+#[cfg(false)] echo! { fn f() {} }
+#[cfg(true)] echo! { fn g() {} }
+### crate_cfg_false
+#![inert]
+#![cfg(false)]
+fn f() {}
