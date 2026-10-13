@@ -879,7 +879,10 @@ export function init_rustc_env_logger(_early_dcx: EarlyDiagCtxt): void {
 
 /// Install our usual `ctrlc` handler, which sets [`rustc_const_eval::CTRL_C_RECEIVED`].
 /// Making this handler optional lets tools can install a different handler, if they wish.
-// PORT: not ported (no marker): `ctrlc` + rustc_const_eval; the default SIGINT behaviour applies.
+// PORT: not ported (no marker). The handler sets `rustc_const_eval::CTRL_C_RECEIVED` (rustc_const_eval is
+// unported), sleeps 100 ms and exits with status 1. A JS signal handler only runs when the event loop
+// is idle, i.e. after the synchronous compilation has finished, so installing one would make Ctrl-C
+// ineffective; the default SIGINT action applies instead (the process dies by SIGINT, not exit 1).
 
 // rustc: compiler/rustc_driver_impl/src/lib.rs:1677 main
 export function main(): number {
