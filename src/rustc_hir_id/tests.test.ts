@@ -86,7 +86,7 @@ describe("rustc_hir_id::def_path_hash_map", () => {
   });
 
   test("HashTableOwned insert returns the previous value", () => {
-    const t = HashTableOwned.default();
+    const t = HashTableOwned.default(Config);
     expect(t.insert(Hash64.new(1n), DefIndex.from_u32(1))).toBeUndefined();
     expect(t.insert(Hash64.new(1n), DefIndex.from_u32(2))).toBe(DefIndex.from_u32(1));
     expect(t.get(Hash64.new(1n))).toBe(DefIndex.from_u32(2));

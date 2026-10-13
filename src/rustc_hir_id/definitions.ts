@@ -16,7 +16,7 @@ import { CRATE_DEF_INDEX, type CrateNum, type DefIndex, debug_DefIndex, DefPathH
 import { display_Symbol, kw, sym, Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN, PRETTY } from "../std/fmt.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../std/panic.ts";
-import { HashTableOwned } from "./def_path_hash_map.ts";
+import { Config, HashTableOwned } from "./def_path_hash_map.ts";
 import * as gen from "./definitions.gen.ts";
 import { debug_DefPath, type DefKey, DefPathToIndexMap, DisambiguatedDefPathData } from "./definitions.gen.ts";
 
@@ -196,7 +196,7 @@ declare module "./definitions.gen.ts" {
 
 /** `#[derive(Default)]` */
 export function default_DefPathToIndexMap(): DefPathToIndexMap {
-  return new DefPathToIndexMap(HashTableOwned.default(), undefined);
+  return new DefPathToIndexMap(HashTableOwned.default(Config), undefined);
 }
 
 // rustc: compiler/rustc_hir_id/src/definitions.rs:68 get

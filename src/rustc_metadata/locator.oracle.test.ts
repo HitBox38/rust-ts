@@ -84,8 +84,9 @@ interface Case {
   expect: string[];
 }
 
-// The first stop inside `CrateMetadata::new` (decoder.rs:1977): its `def_path_hash_map` decode (vendor odht).
-const RMETA_DECODER = "odht::HashTable::from_raw_bytes";
+// The first stop inside `CrateMetadata::new` (decoder.rs:1977): `incoherent_impls.decode((&cdata, tcx))`, lane
+// rmeta-decoder-a's `MetaDecoder::decoder`.
+const RMETA_DECODER = "rustc_metadata::rmeta::decoder::MetaDecoder::decoder for (&CrateMetadata, TyCtxt) (AllocDecodingState::new_decoding_session)";
 
 const CASES: Case[] = [
   // A missing target sysroot (no std/core for the target).

@@ -189,7 +189,9 @@ for (const c of CASES) {
     const oracle_log = run([...RUSTC, "-Zunpretty=expanded", ...args], { ...env, RUSTC_LOG: "rustc_metadata::creader=info" });
     const oracle_crates = crates_of(oracle_log.stderr.split("\n"), /^ INFO rustc_metadata::creader resolving crate `(.*)`$/);
     if (ours.code === 70) {
-      expect(ours.stderr).toContain("rust-ts: unported: odht::HashTable::from_raw_bytes");
+      // The first stop inside `CrateMetadata::new` (decoder.rs:1977): `incoherent_impls.decode((&cdata, tcx))`,
+      // lane rmeta-decoder-a's `MetaDecoder::decoder`.
+      expect(ours.stderr).toContain("rust-ts: unported: rustc_metadata::rmeta::decoder::MetaDecoder::decoder for (&CrateMetadata, TyCtxt) (AllocDecodingState::new_decoding_session)");
       expect(oracle_crates.slice(0, our_crates.length)).toEqual(our_crates);
     } else {
       expect(oracle_crates).toEqual(our_crates);

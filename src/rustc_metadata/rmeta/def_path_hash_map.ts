@@ -1,37 +1,21 @@
 // Port of compiler/rustc_metadata/src/rmeta/def_path_hash_map.rs.
 //
-// PORT (lane rmeta-contract): `odht` 0.3.1 is not vendored yet: `OdhtHashTable` below is a stand-in whose
-// `from_raw_bytes` / `get` call `unported`, so decoding a crate's `def_path_hash_map` (`CrateMetadata::new`)
-// stops there until a lane vendors odht's read side (`HashTable::from_raw_bytes`, `get`; src/vendor/odht).
+// PORT: `odht::HashTable<HashMapConfig, OwnedSlice>` is the vendored odht's `HashTable<Hash64, DefIndex>`
+// (src/vendor/odht); its storage is the `OwnedSlice` view (`OwnedSlice = Uint8Array`), borrowed zero-copy.
 import type { OwnedSlice } from "../../rustc_data_structures/owned_slice.ts";
 import { OwnedSlice_slice } from "../../rustc_data_structures/owned_slice.ts";
 import { SortedMap } from "../../rustc_data_structures/sorted_map.ts";
 import { Hash64 } from "../../rustc_hashes/lib.ts";
-import type { Config as HashMapConfig } from "../../rustc_hir_id/def_path_hash_map.ts";
+import { Config as HashMapConfig } from "../../rustc_hir_id/def_path_hash_map.ts";
 import type { DefPathToIndexMap } from "../../rustc_hir_id/definitions.ts";
 import { decode_Hash64, decode_tuple, decode_Vec } from "../../rustc_serialize/serialize.ts";
 import { DefPathHash, type DefIndex } from "../../rustc_span/def_id.ts";
-import { panic, unported } from "../../std/panic.ts";
+import { panic } from "../../std/panic.ts";
+import * as odht from "../../vendor/odht/lib.ts";
 import type { BlobDecodeContext } from "./decoder.ts";
 
-/** PORT: stand-in for `odht::HashTable<HashMapConfig, OwnedSlice>` (odht 0.3.1, not vendored). */
-export class OdhtHashTable {
-  declare readonly __config?: HashMapConfig;
-  private constructor(readonly raw: OwnedSlice) {}
-
-  /** `HashTable::from_raw_bytes(data) -> Result<HashTable<C, D>, Box<dyn Error>>` (odht lib.rs) */
-  static from_raw_bytes(_data: OwnedSlice): { $: "Ok"; _0: OdhtHashTable } | { $: "Err"; _0: string } {
-    return unported("odht::HashTable::from_raw_bytes (vendor odht 0.3.1 not ported)");
-  }
-
-  /** `HashTable::get(&self, key: &K) -> Option<V>` (odht lib.rs) */
-  get(_key: Hash64): DefIndex | undefined {
-    return unported("odht::HashTable::get (vendor odht 0.3.1 not ported)");
-  }
-}
-
 export type DefPathHashMapRef =
-  | { readonly $: "OwnedFromMetadata"; readonly _0: OdhtHashTable; readonly _1: SortedMap<Hash64, DefIndex> }
+  | { readonly $: "OwnedFromMetadata"; readonly _0: odht.HashTable<Hash64, DefIndex>; readonly _1: SortedMap<Hash64, DefIndex> }
   | { readonly $: "BorrowedFromTcx"; readonly _0: DefPathToIndexMap };
 
 export const DefPathHashMapRef = {
@@ -71,7 +55,7 @@ export function decode_DefPathHashMapRef(d: BlobDecodeContext, ..._phantom: unkn
   // the method. We use `read_raw_bytes()` for that.
   void d.read_raw_bytes(len);
 
-  const r = OdhtHashTable.from_raw_bytes(o);
+  const r = odht.HashTable.from_raw_bytes(HashMapConfig, o);
   if (r.$ === "Err") return panic(`decode error: ${r._0}`);
   const inner = r._0;
 

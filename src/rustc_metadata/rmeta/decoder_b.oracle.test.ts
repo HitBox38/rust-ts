@@ -10,7 +10,7 @@
 // - Compared now: `def_key`, `def_path`, `def_path_hash`, `is_item_mir_available`, `get_attr_flags`, `num_def_ids`
 //   (they read the blob only). `CrateMetadata::new` cannot finish yet (PENDING below), so the test builds the
 //   `CrateMetadata` with its constructor; the fields those methods do not read are placeholders.
-// - PENDING (exact stop texts): `CrateMetadata::new` (vendor odht), and everything decoded through
+// - PENDING (exact stop texts): `CrateMetadata::new` (its `incoherent_impls` decode), and everything decoded through
 //   `(&CrateMetadata, TyCtxt)` (lane rmeta-decoder-a's `MetaDecoder::decoder`) or -a's own methods. When a stop
 //   moves, update its text here; when it is gone, compare the section with the probe's lines.
 //
@@ -91,7 +91,7 @@ function blob_of(c: OracleCrate): MetadataBlob {
 
 /**
  * A `CrateMetadata` of the crate as `CrateMetadata::new` would build it, through the constructor: `new` stops on
- * vendor odht (PENDING). `def_path_hash_map`, `alloc_decoding_state` and the dep-graph fields are placeholders no
+ * -a's `MetaDecoder::decoder` (PENDING). `def_path_hash_map`, `alloc_decoding_state` and the dep-graph fields are placeholders no
  * compared method reads.
  */
 function cdata_of(c: OracleCrate, blob: MetadataBlob): CrateMetadata {
@@ -103,7 +103,7 @@ function cdata_of(c: OracleCrate, blob: MetadataBlob): CrateMetadata {
     new Map(),
     undefined,
     [],
-    undefined as never, // def_path_hash_map (odht, PENDING)
+    undefined as never, // def_path_hash_map (no compared method reads it)
     undefined,
     undefined, // alloc_decoding_state
     new Map(),
@@ -177,7 +177,7 @@ const PENDING: { name: string; oracle: string; run: (c: OracleCrate, cdata: Crat
         false,
         undefined,
       ),
-    stop: "odht::HashTable::from_raw_bytes (vendor odht 0.3.1 not ported)",
+    stop: TCX_DECODER,
   },
   { name: "get_module_children(CRATE_DEF_INDEX)", oracle: "child", run: (_c, cdata) => [...cdata.get_module_children(undefined as never, CRATE_DEF_INDEX)], stop: TCX_DECODER },
   { name: "get_lang_items", oracle: "lang", run: (_c, cdata) => cdata.get_lang_items(undefined as never), stop: "rustc_metadata::rmeta::decoder::CrateMetadata::get_lang_items" },

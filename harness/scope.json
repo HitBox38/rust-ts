@@ -60,6 +60,7 @@
     "termize": "=0.2.1",
     "unicode-normalization": "=0.1.25",
     "getopts": "=0.2.24",
-    "rustc-stable-hash": "=0.1.2"
+    "rustc-stable-hash": "=0.1.2",
+    "odht": "=0.3.1"
   }
 }
