@@ -315,6 +315,20 @@ const nocoreArgs = (f: string): string[] => [
   "-Zcrate-attr=feature(no_core)",
   "-Zcrate-attr=no_core",
 ];
+// Left out of all three nocore suites (decision, review harness-w8 M1): the oracle's `{:#?}` of the
+// expanded AST for these does not finish within the 300 s + 4 x 300 s retry (2 min of CPU without
+// output, measured), and an ORACLE_TIMEOUT is never cached, so every run would pay up to 25 min per
+// file. `-Zunpretty=expanded` and resdump finish on them; they are left out there too so that the
+// three suites keep one case list.
+const NOCORE_SKIPPED: SkippedCase[] = [
+  { id: "tests/ui/associated-consts/issue-93775.rs", reason: "oracle -Zunpretty=ast-tree,expanded ({:#?} of a deeply nested expanded AST) does not finish in 1500 s" },
+  { id: "tests/ui/expr/if/expr-stack-overflow.rs", reason: "oracle -Zunpretty=ast-tree,expanded does not finish in 1500 s (the pre-expansion ast-tree is ~13 GB)" },
+  { id: "tests/ui/parser/survive-peano-lesson-queue.rs", reason: "oracle -Zunpretty=ast-tree,expanded ({:#?} of a deeply nested expanded AST) does not finish in 1500 s" },
+];
+const nocoreCorpus = (): string[] => {
+  const skip = new Set(NOCORE_SKIPPED.map((k) => k.id));
+  return corpus("tests/ui").filter((f) => !skip.has(f));
+};
 const nocoreSuite = (name: string, unpretty: string, description: string): Suite => ({
   name,
   milestone: "M2",
@@ -322,7 +336,8 @@ const nocoreSuite = (name: string, unpretty: string, description: string): Suite
   mode: "single",
   timeoutMs: 60_000,
   oracleTimeoutMs: 300_000,
-  cases: () => corpus("tests/ui").map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV })),
+  cases: () => nocoreCorpus().map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV })),
+  skipped: () => NOCORE_SKIPPED,
   oracle: ([c]) => oracleRustcCmd(c!.args),
   subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
 });
@@ -349,7 +364,8 @@ SUITES.push(
     timeoutMs: 60_000,
     oracleTimeoutMs: 300_000,
     probes: ["resdump"],
-    cases: () => corpus("tests/ui").map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), f], env: NOCORE_ENV })),
+    cases: () => nocoreCorpus().map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), f], env: NOCORE_ENV })),
+    skipped: () => NOCORE_SKIPPED,
     oracle: ([c]) => [probePath("resdump"), ...c!.args],
     subject: ([c]) => [...bunCmd("src/rust_ts/resdump.ts"), ...c!.args],
   },

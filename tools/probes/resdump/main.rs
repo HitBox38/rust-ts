@@ -24,26 +24,26 @@
 //! From `tcx.resolutions(())` (ResolverGlobalCtxt):
 //!   visibilities_for_hashing    `<LocalDefId:?> <Visibility:?>`               Vec order
 //!   expn_that_defined           `<LocalDefId:?> <ExpnId:?>`                   sorted (1)
-//!   effective_visibilities      `<LocalDefId:?> <EffectiveVisibility:?>`      sorted (1)
-//!   macro_reachable_adts        `<LocalDefId:?> [<LocalDefId:?>, ..]`         sorted (1), set sorted (1)
+//!   effective_visibilities      `<LocalDefId:?> <EffectiveVisibility:?>`      index order
+//!   macro_reachable_adts        `<LocalDefId:?> [<LocalDefId:?>, ..]`         index order, set index order
 //!   extern_crate_map            `<LocalDefId:?> <CrateNum:?>`                 sorted (1)
-//!   maybe_unused_trait_imports  `<LocalDefId:?>`                              sorted (1)
+//!   maybe_unused_trait_imports  `<LocalDefId:?>`                              index order
 //!   module_children             `<LocalDefId:?>` then `  <ModChild:?>` lines  sorted (1), Vec order
 //!   ambig_module_children       `<LocalDefId:?>` then `  <AmbigModChild:?>`   sorted (1), Vec order
-//!   glob_map                    `<LocalDefId:?> [<Symbol:?>, ..]`             sorted (1), set sorted (3)
+//!   glob_map                    `<LocalDefId:?> [<Symbol:?>, ..]`             index order, set index order
 //!   main_def                    `<Option<MainDefinition>:?>`                  (one line)
-//!   trait_impls                 `<DefId:?> [<LocalDefId:?>, ..]`              sorted (2), Vec order
+//!   trait_impls                 `<DefId:?> [<LocalDefId:?>, ..]`              index order, Vec order
 //!   proc_macros                 `<LocalDefId:?>`                              Vec order
 //!   paths_matching_assoc_types  `<Span:?>`                                    sorted (4)
-//!   confused_type_with_std_module `<Span:?> <Span:?>`                         sorted (4) by key
+//!   confused_type_with_std_module `<Span:?> <Span:?>`                         index order
 //!   doc_link_resolutions        `<LocalModId:?>` then `  <Symbol:?> <Namespace:?> <Option<Res>:?>`
-//!                                                                             sorted (1), inner sorted (3) then ns
-//!   doc_link_traits_in_scope    `<LocalModId:?> [<DefId:?>, ..]`              sorted (1), Vec order
+//!                                                                             index order, inner index order
+//!   doc_link_traits_in_scope    `<LocalModId:?> [<DefId:?>, ..]`              index order, Vec order
 //!   all_macro_rules             `<Symbol:?>`                                  sorted (3)
 //!   stripped_cfg_items          `<StrippedCfgItem:?>`                         Vec order
-//!   delegation_infos            `<LocalDefId:?> <DelegationInfo:?>`           sorted (1)
+//!   delegation_infos            `<LocalDefId:?> <DelegationInfo:?>`           index order
 //!   delegation_inherent_fn_map  `<LocalDefId:?>` then `  <Ident:?> <DelegationInherentFnKind:?>`
-//!                                                                             sorted (1), inner sorted (3) then (4)
+//!                                                                             index order, inner index order
 //! From `tcx.resolver_for_lowering().0` (ResolverAstLowering):
 //!   next_node_id                `<NodeId:?>`                                  (one line)
 //!   partial_res_map             `<NodeId:?> <PartialRes:?>`                   sorted (5)
@@ -57,7 +57,7 @@
 //!     `  extra_lifetime_params <NodeId:?> <[(Ident, NodeId, MissingLifetimeKind)]:?>`
 //!                                                                             sorted (5), Vec order
 //!                               owners sorted (5)
-//!   lint_buffer                 `<NodeId:?> <lint NAME> <primary spans:?>`    sorted (5), buffer order
+//!   lint_buffer                 `<NodeId:?> <lint NAME> <primary spans:?>`    index order, buffer order
 //!   disambiguators              `<LocalDefId:?>`                              sorted (1); the per-parent
 //!                               state (a private FxHashMap) is not printed: it is implied by the
 //!                               DefKeys below
@@ -65,11 +65,17 @@
 //!   definitions                 `<LocalDefId:?> <DefKind:?> <DefKey:?> <DefPathHash:?>`
 //!                                                                             DefIndex order
 //!
-//! Sort keys (never a hash-map iteration order): (1) the `DefIndex` of a LocalDefId/LocalModId;
-//! (2) a DefId's (CrateNum, DefIndex); (3) the Symbol's string (byte order), then the `{:?}` text;
-//! (4) a Span's (lo, hi), then its `{:?}` text; (5) the NodeId. Sorts are stable, so equal keys
-//! keep the upstream order. "Vec order" / "slice order" / "buffer order" is the order upstream
-//! built (insertion into a Vec or an IndexMap during deterministic traversals), kept as is.
+//! Order. Only collections whose upstream iteration order is a hash order are sorted: the
+//! `UnordMap`/`UnordSet`s and the `define_id_collections!` maps (`NodeMap`, `LocalDefIdMap` =
+//! `UnordMap`): expn_that_defined, extern_crate_map, module_children, ambig_module_children,
+//! paths_matching_assoc_types, all_macro_rules, partial_res_map, owners and their six maps,
+//! disambiguators. Their keys: (1) the `DefIndex` of a LocalDefId; (3) the Symbol's string (byte
+//! order), then the `{:?}` text; (4) a Span's (lo, hi), then its `{:?}` text; (5) the NodeId. Every
+//! key is unique, except a Span whose (lo, hi, text) tie only between identical lines.
+//! "index order" is the iteration order of an `FxIndexMap`/`FxIndexSet` (insertion order, as
+//! modified by `swap_remove`): deterministic upstream and visible downstream (diagnostic order,
+//! metadata, order-sensitive stable hashing), so it is printed as is and the port must reproduce
+//! it. "Vec order" / "slice order" / "buffer order" is the order upstream built, also kept.
 #![feature(rustc_private)]
 extern crate rustc_ast;
 extern crate rustc_data_structures;
@@ -89,7 +95,7 @@ use std::process::ExitCode;
 use rustc_ast::NodeId;
 use rustc_data_structures::unord::UnordItems;
 use rustc_driver::{Callbacks, Compilation};
-use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::def_id::LocalDefId;
 use rustc_interface::interface;
 use rustc_middle::ty::TyCtxt;
 use rustc_session::EarlyDiagCtxt;
@@ -128,10 +134,6 @@ fn di(id: LocalDefId) -> u32 {
     id.local_def_index.as_u32()
 }
 
-fn did(id: DefId) -> (u32, u32) {
-    (id.krate.as_u32(), id.index.as_u32())
-}
-
 fn span_key(s: Span) -> (u32, u32, String) {
     let d = s.data();
     (d.lo.0, d.hi.0, format!("{s:?}"))
@@ -160,36 +162,38 @@ fn dump(tcx: TyCtxt<'_>) -> String {
 
     section(&mut out, "visibilities_for_hashing", g.visibilities_for_hashing.iter().map(|(id, vis)| format!("{id:?} {vis:?}")).collect());
 
+    // UnordMap: hash order, sorted (1).
     let mut v = unord_vec(g.expn_that_defined.items().map(|(id, e)| (*id, *e)));
     v.sort_by_key(|(id, _)| di(*id));
     section(&mut out, "expn_that_defined", v.into_iter().map(|(id, e)| format!("{id:?} {e:?}")).collect());
 
-    let mut v: Vec<_> = g.effective_visibilities.iter().collect();
-    v.sort_by_key(|(id, _)| di(**id));
+    // `EffectiveVisibilities.map` is an FxIndexMap: insertion order.
+    let v: Vec<_> = g.effective_visibilities.iter().collect();
     section(&mut out, "effective_visibilities", v.into_iter().map(|(id, e)| format!("{id:?} {e:?}")).collect());
 
-    let mut v: Vec<_> = g.macro_reachable_adts.iter().collect();
-    v.sort_by_key(|(id, _)| di(**id));
+    // FxIndexMap<_, FxIndexSet<_>>: insertion order, outer and inner.
     section(
         &mut out,
         "macro_reachable_adts",
-        v.into_iter()
+        g.macro_reachable_adts
+            .iter()
             .map(|(id, set)| {
-                let mut s: Vec<LocalDefId> = set.iter().copied().collect();
-                s.sort_by_key(|x| di(*x));
+                let s: Vec<LocalDefId> = set.iter().copied().collect();
                 format!("{id:?} {s:?}")
             })
             .collect(),
     );
 
+    // UnordMap: hash order, sorted (1).
     let mut v = unord_vec(g.extern_crate_map.items().map(|(id, c)| (*id, *c)));
     v.sort_by_key(|(id, _)| di(*id));
     section(&mut out, "extern_crate_map", v.into_iter().map(|(id, c)| format!("{id:?} {c:?}")).collect());
 
-    let mut v: Vec<LocalDefId> = g.maybe_unused_trait_imports.iter().copied().collect();
-    v.sort_by_key(|x| di(*x));
+    // FxIndexSet: insertion order (after check_unused's swap_removes).
+    let v: Vec<LocalDefId> = g.maybe_unused_trait_imports.iter().copied().collect();
     section(&mut out, "maybe_unused_trait_imports", v.into_iter().map(dbg).collect());
 
+    // LocalDefIdMap (= UnordMap): hash order, sorted (1); each Vec in upstream order.
     let mut v = unord_vec(g.module_children.items());
     v.sort_by_key(|(id, _)| di(**id));
     let mut lines = Vec::new();
@@ -200,6 +204,7 @@ fn dump(tcx: TyCtxt<'_>) -> String {
     writeln!(out, "== module_children ({})", g.module_children.len()).unwrap();
     lines.iter().for_each(|l| writeln!(out, "{l}").unwrap());
 
+    // LocalDefIdMap (= UnordMap): hash order, sorted (1); each Vec in upstream order.
     let mut v = unord_vec(g.ambig_module_children.items());
     v.sort_by_key(|(id, _)| di(**id));
     let mut lines = Vec::new();
@@ -210,15 +215,14 @@ fn dump(tcx: TyCtxt<'_>) -> String {
     writeln!(out, "== ambig_module_children ({})", g.ambig_module_children.len()).unwrap();
     lines.iter().for_each(|l| writeln!(out, "{l}").unwrap());
 
-    let mut v: Vec<_> = g.glob_map.iter().collect();
-    v.sort_by_key(|(id, _)| di(**id));
+    // FxIndexMap<_, FxIndexSet<Symbol>>: insertion order, outer and inner.
     section(
         &mut out,
         "glob_map",
-        v.into_iter()
+        g.glob_map
+            .iter()
             .map(|(id, set)| {
-                let mut s: Vec<Symbol> = set.iter().copied().collect();
-                s.sort_by_cached_key(|x| sym_key(*x));
+                let s: Vec<Symbol> = set.iter().copied().collect();
                 format!("{id:?} {s:?}")
             })
             .collect(),
@@ -227,54 +231,46 @@ fn dump(tcx: TyCtxt<'_>) -> String {
     writeln!(out, "== main_def").unwrap();
     writeln!(out, "{:?}", g.main_def).unwrap();
 
-    let mut v: Vec<_> = g.trait_impls.iter().collect();
-    v.sort_by_key(|(id, _)| did(**id));
-    section(&mut out, "trait_impls", v.into_iter().map(|(id, impls)| format!("{id:?} {impls:?}")).collect());
+    // FxIndexMap: insertion order; each Vec in upstream order.
+    section(&mut out, "trait_impls", g.trait_impls.iter().map(|(id, impls)| format!("{id:?} {impls:?}")).collect());
 
     section(&mut out, "proc_macros", g.proc_macros.iter().map(dbg).collect());
 
+    // UnordSet: hash order, sorted (4).
     let mut v: Vec<Span> = unord_vec(g.paths_matching_assoc_types.items().copied());
     v.sort_by_cached_key(|s| span_key(*s));
     section(&mut out, "paths_matching_assoc_types", v.into_iter().map(dbg).collect());
 
-    let mut v: Vec<_> = g.confused_type_with_std_module.iter().collect();
-    v.sort_by_cached_key(|(k, _)| span_key(**k));
-    section(&mut out, "confused_type_with_std_module", v.into_iter().map(|(k, s)| format!("{k:?} {s:?}")).collect());
+    // FxIndexMap: insertion order.
+    section(&mut out, "confused_type_with_std_module", g.confused_type_with_std_module.iter().map(|(k, s)| format!("{k:?} {s:?}")).collect());
 
-    let mut v: Vec<_> = g.doc_link_resolutions.iter().collect();
-    v.sort_by_key(|(id, _)| di(id.to_local_def_id()));
+    // FxIndexMap<_, DocLinkResMap (= FxIndexMap)>: insertion order, outer and inner.
     let mut lines = Vec::new();
-    for (id, map) in v {
+    for (id, map) in g.doc_link_resolutions.iter() {
         lines.push(format!("{id:?}"));
-        let mut inner: Vec<_> = map.iter().collect();
-        inner.sort_by_cached_key(|((sym, ns), _)| (sym_key(*sym), format!("{ns:?}")));
-        lines.extend(inner.into_iter().map(|((sym, ns), res)| format!("  {sym:?} {ns:?} {res:?}")));
+        lines.extend(map.iter().map(|((sym, ns), res)| format!("  {sym:?} {ns:?} {res:?}")));
     }
     writeln!(out, "== doc_link_resolutions ({})", g.doc_link_resolutions.len()).unwrap();
     lines.iter().for_each(|l| writeln!(out, "{l}").unwrap());
 
-    let mut v: Vec<_> = g.doc_link_traits_in_scope.iter().collect();
-    v.sort_by_key(|(id, _)| di(id.to_local_def_id()));
-    section(&mut out, "doc_link_traits_in_scope", v.into_iter().map(|(id, traits)| format!("{id:?} {traits:?}")).collect());
+    // FxIndexMap: insertion order; each Vec in upstream order.
+    section(&mut out, "doc_link_traits_in_scope", g.doc_link_traits_in_scope.iter().map(|(id, traits)| format!("{id:?} {traits:?}")).collect());
 
+    // UnordSet: hash order, sorted (3).
     let mut v: Vec<Symbol> = unord_vec(g.all_macro_rules.items().copied());
     v.sort_by_cached_key(|s| sym_key(*s));
     section(&mut out, "all_macro_rules", v.into_iter().map(dbg).collect());
 
     section(&mut out, "stripped_cfg_items", g.stripped_cfg_items.iter().map(dbg).collect());
 
-    let mut v: Vec<_> = g.delegation_infos.iter().collect();
-    v.sort_by_key(|(id, _)| di(**id));
-    section(&mut out, "delegation_infos", v.into_iter().map(|(id, info)| format!("{id:?} {info:?}")).collect());
+    // FxIndexMap: insertion order.
+    section(&mut out, "delegation_infos", g.delegation_infos.iter().map(|(id, info)| format!("{id:?} {info:?}")).collect());
 
-    let mut v: Vec<_> = g.delegation_inherent_fn_map.iter().collect();
-    v.sort_by_key(|(id, _)| di(**id));
+    // FxIndexMap<_, FxIndexMap<Ident, _>>: insertion order, outer and inner.
     let mut lines = Vec::new();
-    for (id, map) in v {
+    for (id, map) in g.delegation_inherent_fn_map.iter() {
         lines.push(format!("{id:?}"));
-        let mut inner: Vec<_> = map.iter().collect();
-        inner.sort_by_cached_key(|(ident, _)| (sym_key(ident.name), span_key(ident.span)));
-        lines.extend(inner.into_iter().map(|(ident, kind)| format!("  {ident:?} {kind:?}")));
+        lines.extend(map.iter().map(|(ident, kind)| format!("  {ident:?} {kind:?}")));
     }
     writeln!(out, "== delegation_inherent_fn_map ({})", g.delegation_inherent_fn_map.len()).unwrap();
     lines.iter().for_each(|l| writeln!(out, "{l}").unwrap());
@@ -286,10 +282,12 @@ fn dump(tcx: TyCtxt<'_>) -> String {
     writeln!(out, "== next_node_id").unwrap();
     writeln!(out, "{:?}", r.next_node_id).unwrap();
 
+    // NodeMap (= UnordMap): hash order, sorted (5).
     let mut v = unord_vec(r.partial_res_map.items());
     v.sort_by_key(|(id, _)| **id);
     section(&mut out, "partial_res_map", v.into_iter().map(|(id, res)| format!("{id:?} {res:?}")).collect());
 
+    // NodeMap (= UnordMap), and each owner's NodeMaps: hash order, sorted (5); values in upstream order.
     let mut owners = unord_vec(r.owners.items());
     owners.sort_by_key(|(id, _)| **id);
     writeln!(out, "== owners ({})", owners.len()).unwrap();
@@ -311,11 +309,10 @@ fn dump(tcx: TyCtxt<'_>) -> String {
     }
 
     {
+        // `LintBuffer.map` is an FxIndexMap<NodeId, Vec<_>>: insertion order, each Vec in push order.
         let lb = r.lint_buffer.borrow();
-        let mut v: Vec<_> = lb.map.iter().collect();
-        v.sort_by_key(|(id, _)| **id);
         let mut lines = Vec::new();
-        for (id, lints) in v {
+        for (id, lints) in lb.map.iter() {
             for l in lints {
                 let spans: Vec<Span> = l.span.as_ref().map_or_else(Vec::new, |s| s.primary_spans().to_vec());
                 lines.push(format!("{id:?} {} {spans:?}", l.lint_id.lint.name));
@@ -324,6 +321,7 @@ fn dump(tcx: TyCtxt<'_>) -> String {
         section(&mut out, "lint_buffer", lines);
     }
 
+    // LocalDefIdMap (= UnordMap): hash order, sorted (1).
     let mut v: Vec<LocalDefId> = unord_vec(r.disambiguators.keys().copied());
     v.sort_by_key(|id| di(*id));
     section(&mut out, "disambiguators", v.into_iter().map(dbg).collect());

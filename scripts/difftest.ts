@@ -106,7 +106,7 @@ const cwdOf = (s: Suite): string => s.cwd ?? UPSTREAM;
 const fileHash = (s: Suite, c: Case): string => (c.file === "" ? "" : hash(readFileSync(join(cwdOf(s), c.file))));
 
 /**
- * Oracle cache entries are JSON `Output`s. Entries larger than this are stored gzipped (token
+ * Oracle cache entries are JSON `Output`s. Entries larger than this (UTF-8 bytes) are stored gzipped (token
  * stream dumps are ~20x their source); a reader tells them apart by the gzip magic bytes, which
  * JSON text never starts with. 4 KiB (one filesystem block; was 64 KiB): the M2 suites
  * (expanded-nocore, resdump-nocore) write ~65k entries of mostly 4-60 KiB that gzip ~6-10x, so
@@ -138,7 +138,7 @@ function readCached(p: string): Output | undefined {
 function writeCached(p: string, o: Output): void {
   const json = JSON.stringify(o);
   const tmp = `${p}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-  writeFileSync(tmp, json.length > GZIP_OVER ? Bun.gzipSync(json) : json);
+  writeFileSync(tmp, Buffer.byteLength(json) > GZIP_OVER ? Bun.gzipSync(json) : json);
   renameSync(tmp, p);
 }
 
