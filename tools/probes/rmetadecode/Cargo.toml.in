@@ -1,0 +1,19 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (lane rmeta-decoder-b): runs the oracle compiler itself (`rustc_driver::compiler_entrypoint`)
+# on a tiny crate that loads sysroot crates, and after expansion prints, through the oracle's queries, what
+# `rustc_metadata::rmeta::decoder::CrateMetadata` (decoder.rs:1343..) answers for every loaded crate.
+[package]
+name = "rmetadecode"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "rmetadecode"
+path = "@SRC@/main.rs"
+
+[workspace]
