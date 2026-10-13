@@ -34,7 +34,7 @@ import type {
   UnsafeBinderCastKind,
 } from "../../rustc_ast/lib.ts";
 import type { Lit, MetaVarKind, Token, TokenKind } from "../../rustc_ast/token.ts";
-import { MetaItemLit as MetaItemLitC } from "../../rustc_ast/util/literal.ts";
+import { debug_LitError, MetaItemLit as MetaItemLitC } from "../../rustc_ast/util/literal.ts";
 import { Visitor, walk_expr } from "../../rustc_ast/visit.ts";
 import { MutVisitor, walk_expr as walk_expr_mut } from "../../rustc_ast/mut_visit.ts";
 import { unescape_char } from "../../vendor/rustc_literal_escaper/lib.ts";
@@ -2547,7 +2547,7 @@ Parser.prototype.parse_opt_meta_item_lit = function (this: Parser): MetaItemLit 
     const suffixless_lit = token.Lit.new(token_lit.kind, token_lit.symbol, undefined);
     const symbol = Symbol.intern(token.display_Lit(suffixless_lit));
     const token_lit2 = token.Lit.new({ $: "Err", _0: guar }, symbol, token_lit.suffix);
-    return unwrap_result(MetaItemLitC.from_token_lit(token_lit2, uninterpolated_span));
+    return unwrap_result(MetaItemLitC.from_token_lit(token_lit2, uninterpolated_span), debug_LitError);
   }
 };
 
