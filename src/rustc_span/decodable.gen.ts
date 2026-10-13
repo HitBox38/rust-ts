@@ -3,41 +3,168 @@
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
 import { decode_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
-import { decode_array, decode_bool, decode_Hash64, decode_u32, decode_u8, type Decoder, encode_array, encode_bool, encode_Hash64, encode_u32, encode_u8, type Encoder } from "../rustc_serialize/serialize.ts";
-import { DefPathHash, StableCrateId } from "./def_id.ts";
+import { type Decodable, decode_array, decode_bool, decode_Hash128, decode_Hash64, decode_isize, decode_Option, decode_PathBuf, decode_String, decode_u32, decode_u8, decode_Vec, type Encodable, encode_array, encode_bool, encode_Hash128, encode_Hash64, encode_isize, encode_Option, encode_PathBuf, encode_slice, encode_String, encode_u32, encode_u8, type Encoder } from "../rustc_serialize/serialize.ts";
+import { decode_LocalDefId, DefPathHash, encode_LocalDefId, LocalModId, ModId, StableCrateId } from "./def_id.ts";
 import { type Edition } from "./edition.ts";
-import { type AstPass, DesugaringKind, ExpnHash, type MacroKind, type Transparency } from "./hygiene.ts";
-import { type MultiByteChar, type NormalizedPos, RelativeBytePos, SourceFileHash, type SourceFileHashAlgorithm } from "./lib.ts";
+import { type AstPass, DesugaringKind, ExpnData, ExpnHash, ExpnKind, type MacroKind, type Transparency } from "./hygiene.ts";
+import { type BlobDecoder, decode_DefId, decode_ExpnId, decode_RelativeBytePos, decode_RemapPathScopeComponents, decode_Span, decode_Symbol, encode_DefId, encode_ExpnId, encode_RelativeBytePos, encode_RemapPathScopeComponents, encode_Span, encode_Symbol, type FileName, type InnerRealFileName, type MultiByteChar, type NormalizedPos, RealFileName, SourceFileHash, type SourceFileHashAlgorithm, type SpanDecoder, type Spanned, StableSourceFileId } from "./lib.ts";
+import { Ident } from "./symbol.ts";
 import { panic } from "../std/panic.ts";
 
-// rustc-derive: compiler/rustc_span/src/lib.rs:1674 Decodable for MultiByteChar
-export function decode_MultiByteChar(__decoder: Decoder): MultiByteChar {
+// rustc-derive: compiler/rustc_span/src/lib.rs:98 Decodable for Spanned
+export function decode_Spanned<T>(__decoder: SpanDecoder, decode_T: Decodable<T, SpanDecoder>): Spanned<T> {
   return {
-    pos: RelativeBytePos(decode_u32(__decoder)),
+    node: decode_T(__decoder),
+    span: decode_Span(__decoder),
+  };
+}
+// rustc-derive: compiler/rustc_span/src/lib.rs:98 Encodable for Spanned
+export function encode_Spanned<T>(self: Spanned<T>, __encoder: Encoder, encode_T: Encodable<T, Encoder>): void {
+  encode_T(self.node, __encoder);
+  encode_Span(self.span, __encoder);
+}
+
+// rustc-derive: compiler/rustc_span/src/lib.rs:306 Decodable for RealFileName
+export function decode_RealFileName(__decoder: SpanDecoder): RealFileName {
+  const __0 = decode_Option(__decoder, decode_InnerRealFileName);
+  const __1 = decode_InnerRealFileName(__decoder);
+  const __2 = decode_RemapPathScopeComponents(__decoder);
+  return new RealFileName(__0, __1, __2);
+}
+// rustc-derive: compiler/rustc_span/src/lib.rs:306 Encodable for RealFileName
+export function encode_RealFileName(self: RealFileName, __encoder: Encoder): void {
+  encode_Option(self.local, __encoder, encode_InnerRealFileName);
+  encode_InnerRealFileName(self.maybe_remapped, __encoder);
+  encode_RemapPathScopeComponents(self.scopes, __encoder);
+}
+
+// rustc-derive: compiler/rustc_span/src/lib.rs:319 Decodable for InnerRealFileName
+export function decode_InnerRealFileName(__decoder: SpanDecoder): InnerRealFileName {
+  return {
+    name: decode_PathBuf(__decoder),
+    working_directory: decode_PathBuf(__decoder),
+    embeddable_name: decode_PathBuf(__decoder),
+  };
+}
+// rustc-derive: compiler/rustc_span/src/lib.rs:319 Encodable for InnerRealFileName
+export function encode_InnerRealFileName(self: InnerRealFileName, __encoder: Encoder): void {
+  encode_PathBuf(self.name, __encoder);
+  encode_PathBuf(self.working_directory, __encoder);
+  encode_PathBuf(self.embeddable_name, __encoder);
+}
+
+// rustc-derive: compiler/rustc_span/src/lib.rs:509 Decodable for FileName
+export function decode_FileName(__decoder: SpanDecoder): FileName {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Real", _0: decode_RealFileName(__decoder) };
+    case 1:
+      return { $: "CfgSpec", _0: decode_Hash64(__decoder) };
+    case 2:
+      return { $: "Anon", _0: decode_Hash64(__decoder) };
+    case 3:
+      return { $: "MacroExpansion", _0: decode_Hash64(__decoder) };
+    case 4:
+      return { $: "ProcMacroSourceCode", _0: decode_Hash64(__decoder) };
+    case 5:
+      return { $: "CliCrateAttr", _0: decode_Hash64(__decoder) };
+    case 6:
+      return { $: "Custom", _0: decode_String(__decoder) };
+    case 7:
+      return { $: "DocTest", _0: decode_RealFileName(__decoder), _1: decode_isize(__decoder) };
+    case 8:
+      return { $: "InlineAsm", _0: decode_Hash64(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`FileName\`, expected 0..9, actual ${__tag}`);
+  }
+}
+function FileName__variant_index(tag: FileName["$"]): number {
+  switch (tag) {
+    case "Real":
+      return 0;
+    case "CfgSpec":
+      return 1;
+    case "Anon":
+      return 2;
+    case "MacroExpansion":
+      return 3;
+    case "ProcMacroSourceCode":
+      return 4;
+    case "CliCrateAttr":
+      return 5;
+    case "Custom":
+      return 6;
+    case "DocTest":
+      return 7;
+    case "InlineAsm":
+      return 8;
+  }
+}
+// rustc-derive: compiler/rustc_span/src/lib.rs:509 Encodable for FileName
+export function encode_FileName(self: FileName, __encoder: Encoder): void {
+  const disc = FileName__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Real":
+      encode_RealFileName(self._0, __encoder);
+      break;
+    case "CfgSpec":
+      encode_Hash64(self._0, __encoder);
+      break;
+    case "Anon":
+      encode_Hash64(self._0, __encoder);
+      break;
+    case "MacroExpansion":
+      encode_Hash64(self._0, __encoder);
+      break;
+    case "ProcMacroSourceCode":
+      encode_Hash64(self._0, __encoder);
+      break;
+    case "CliCrateAttr":
+      encode_Hash64(self._0, __encoder);
+      break;
+    case "Custom":
+      encode_String(self._0, __encoder);
+      break;
+    case "DocTest":
+      encode_RealFileName(self._0, __encoder);
+      encode_isize(self._1, __encoder);
+      break;
+    case "InlineAsm":
+      encode_Hash64(self._0, __encoder);
+      break;
+  }
+}
+
+// rustc-derive: compiler/rustc_span/src/lib.rs:1674 Decodable for MultiByteChar
+export function decode_MultiByteChar(__decoder: SpanDecoder): MultiByteChar {
+  return {
+    pos: decode_RelativeBytePos(__decoder),
     bytes: decode_u8(__decoder),
   };
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:1674 Encodable for MultiByteChar
 export function encode_MultiByteChar(self: MultiByteChar, __encoder: Encoder): void {
-  encode_u32(self.pos, __encoder);
+  encode_RelativeBytePos(self.pos, __encoder);
   encode_u8(self.bytes, __encoder);
 }
 
 // rustc-derive: compiler/rustc_span/src/lib.rs:1683 Decodable for NormalizedPos
-export function decode_NormalizedPos(__decoder: Decoder): NormalizedPos {
+export function decode_NormalizedPos(__decoder: SpanDecoder): NormalizedPos {
   return {
-    pos: RelativeBytePos(decode_u32(__decoder)),
+    pos: decode_RelativeBytePos(__decoder),
     diff: decode_u32(__decoder),
   };
 }
 // rustc-derive: compiler/rustc_span/src/lib.rs:1683 Encodable for NormalizedPos
 export function encode_NormalizedPos(self: NormalizedPos, __encoder: Encoder): void {
-  encode_u32(self.pos, __encoder);
+  encode_RelativeBytePos(self.pos, __encoder);
   encode_u32(self.diff, __encoder);
 }
 
 // rustc-derive: compiler/rustc_span/src/lib.rs:1726 Decodable for SourceFileHashAlgorithm
-export function decode_SourceFileHashAlgorithm(__decoder: Decoder): SourceFileHashAlgorithm {
+export function decode_SourceFileHashAlgorithm(__decoder: SpanDecoder): SourceFileHashAlgorithm {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -71,7 +198,7 @@ export function encode_SourceFileHashAlgorithm(self: SourceFileHashAlgorithm, __
 }
 
 // rustc-derive: compiler/rustc_span/src/lib.rs:1761 Decodable for SourceFileHash
-export function decode_SourceFileHash(__decoder: Decoder): SourceFileHash {
+export function decode_SourceFileHash(__decoder: SpanDecoder): SourceFileHash {
   const __0 = decode_SourceFileHashAlgorithm(__decoder);
   const __1 = decode_array(__decoder, 32, decode_u8);
   return new SourceFileHash(__0, Uint8Array.from(__1));
@@ -82,8 +209,18 @@ export function encode_SourceFileHash(self: SourceFileHash, __encoder: Encoder):
   encode_array(self.value, __encoder, encode_u8);
 }
 
+// rustc-derive: compiler/rustc_span/src/lib.rs:2144 Decodable for StableSourceFileId
+export function decode_StableSourceFileId(__decoder: SpanDecoder): StableSourceFileId {
+  const __0 = decode_Hash128(__decoder);
+  return StableSourceFileId.of(__0);
+}
+// rustc-derive: compiler/rustc_span/src/lib.rs:2144 Encodable for StableSourceFileId
+export function encode_StableSourceFileId(self: StableSourceFileId, __encoder: Encoder): void {
+  encode_Hash128(self.hash(), __encoder);
+}
+
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:134 Decodable for ExpnHash
-export function decode_ExpnHash(__decoder: Decoder): ExpnHash {
+export function decode_ExpnHash(__decoder: SpanDecoder): ExpnHash {
   const __0 = decode_Fingerprint(__decoder);
   return ExpnHash.of(__0);
 }
@@ -93,7 +230,7 @@ export function encode_ExpnHash(self: ExpnHash, __encoder: Encoder): void {
 }
 
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:168 Decodable for Transparency
-export function decode_Transparency(__decoder: Decoder): Transparency {
+export function decode_Transparency(__decoder: SpanDecoder): Transparency {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -122,8 +259,90 @@ export function encode_Transparency(self: Transparency, __encoder: Encoder): voi
   __encoder.emit_u8(disc);
 }
 
+// rustc-derive: compiler/rustc_span/src/hygiene.rs:983 Decodable for ExpnData
+export function decode_ExpnData(__decoder: SpanDecoder): ExpnData {
+  const __0 = decode_ExpnKind(__decoder);
+  const __1 = decode_ExpnId(__decoder);
+  const __2 = decode_Span(__decoder);
+  const __3 = decode_u32(__decoder);
+  const __4 = decode_Span(__decoder);
+  const __5 = decode_Option(__decoder, (__decoder) => decode_Vec(__decoder, decode_Symbol));
+  const __6 = decode_Edition(__decoder);
+  const __7 = decode_Option(__decoder, decode_DefId);
+  const __8 = decode_Option(__decoder, decode_ModId);
+  const __9 = decode_bool(__decoder);
+  const __10 = decode_bool(__decoder);
+  const __11 = decode_bool(__decoder);
+  const __12 = decode_bool(__decoder);
+  return new ExpnData(__0, __1, __2, __3, __4, __5, __6, __7, __8, __9, __10, __11, __12);
+}
+// rustc-derive: compiler/rustc_span/src/hygiene.rs:983 Encodable for ExpnData
+export function encode_ExpnData(self: ExpnData, __encoder: Encoder): void {
+  encode_ExpnKind(self.kind, __encoder);
+  encode_ExpnId(self.parent, __encoder);
+  encode_Span(self.call_site, __encoder);
+  encode_u32(self.disambiguator, __encoder);
+  encode_Span(self.def_site, __encoder);
+  encode_Option(self.allow_internal_unstable, __encoder, (__v, __encoder) => encode_slice(__v, __encoder, encode_Symbol));
+  encode_Edition(self.edition, __encoder);
+  encode_Option(self.macro_def_id, __encoder, encode_DefId);
+  encode_Option(self.parent_module, __encoder, encode_ModId);
+  encode_bool(self.allow_internal_unsafe, __encoder);
+  encode_bool(self.local_inner_macros, __encoder);
+  encode_bool(self.collapse_debuginfo, __encoder);
+  encode_bool(self.diagnostic_opaque, __encoder);
+}
+
+// rustc-derive: compiler/rustc_span/src/hygiene.rs:1131 Decodable for ExpnKind
+export function decode_ExpnKind(__decoder: SpanDecoder): ExpnKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return ExpnKind.Root;
+    case 1:
+      return { $: "Macro", _0: decode_MacroKind(__decoder), _1: decode_Symbol(__decoder) };
+    case 2:
+      return { $: "AstPass", _0: decode_AstPass(__decoder) };
+    case 3:
+      return { $: "Desugaring", _0: decode_DesugaringKind(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`ExpnKind\`, expected 0..4, actual ${__tag}`);
+  }
+}
+function ExpnKind__variant_index(tag: ExpnKind["$"]): number {
+  switch (tag) {
+    case "Root":
+      return 0;
+    case "Macro":
+      return 1;
+    case "AstPass":
+      return 2;
+    case "Desugaring":
+      return 3;
+  }
+}
+// rustc-derive: compiler/rustc_span/src/hygiene.rs:1131 Encodable for ExpnKind
+export function encode_ExpnKind(self: ExpnKind, __encoder: Encoder): void {
+  const disc = ExpnKind__variant_index(self.$);
+  __encoder.emit_u8(disc);
+  switch (self.$) {
+    case "Root":
+      break;
+    case "Macro":
+      encode_MacroKind(self._0, __encoder);
+      encode_Symbol(self._1, __encoder);
+      break;
+    case "AstPass":
+      encode_AstPass(self._0, __encoder);
+      break;
+    case "Desugaring":
+      encode_DesugaringKind(self._0, __encoder);
+      break;
+  }
+}
+
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:1160 Decodable for MacroKind
-export function decode_MacroKind(__decoder: Decoder): MacroKind {
+export function decode_MacroKind(__decoder: SpanDecoder): MacroKind {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -153,7 +372,7 @@ export function encode_MacroKind(self: MacroKind, __encoder: Encoder): void {
 }
 
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:1195 Decodable for AstPass
-export function decode_AstPass(__decoder: Decoder): AstPass {
+export function decode_AstPass(__decoder: SpanDecoder): AstPass {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -183,7 +402,7 @@ export function encode_AstPass(self: AstPass, __encoder: Encoder): void {
 }
 
 // rustc-derive: compiler/rustc_span/src/hygiene.rs:1213 Decodable for DesugaringKind
-export function decode_DesugaringKind(__decoder: Decoder): DesugaringKind {
+export function decode_DesugaringKind(__decoder: SpanDecoder): DesugaringKind {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -282,7 +501,7 @@ export function encode_DesugaringKind(self: DesugaringKind, __encoder: Encoder):
 }
 
 // rustc-derive: compiler/rustc_span/src/def_id.rs:97 Decodable for DefPathHash
-export function decode_DefPathHash(__decoder: Decoder): DefPathHash {
+export function decode_DefPathHash(__decoder: SpanDecoder): DefPathHash {
   const __0 = decode_Fingerprint(__decoder);
   return DefPathHash.of(__0);
 }
@@ -292,7 +511,7 @@ export function encode_DefPathHash(self: DefPathHash, __encoder: Encoder): void 
 }
 
 // rustc-derive: compiler/rustc_span/src/def_id.rs:147 BlobDecodable for StableCrateId
-export function decode_StableCrateId(__decoder: Decoder): StableCrateId {
+export function decode_StableCrateId(__decoder: BlobDecoder): StableCrateId {
   const __0 = decode_Hash64(__decoder);
   return StableCrateId.of(__0);
 }
@@ -301,8 +520,28 @@ export function encode_StableCrateId(self: StableCrateId, __encoder: Encoder): v
   encode_Hash64(StableCrateId._0(self), __encoder);
 }
 
+// rustc-derive: compiler/rustc_span/src/def_id.rs:460 Decodable for ModId
+export function decode_ModId(__decoder: SpanDecoder): ModId {
+  const __0 = decode_DefId(__decoder);
+  return new ModId(__0);
+}
+// rustc-derive: compiler/rustc_span/src/def_id.rs:460 Encodable for ModId
+export function encode_ModId(self: ModId, __encoder: Encoder): void {
+  encode_DefId(self._0, __encoder);
+}
+
+// rustc-derive: compiler/rustc_span/src/def_id.rs:511 Decodable for LocalModId
+export function decode_LocalModId(__decoder: SpanDecoder): LocalModId {
+  const __0 = decode_LocalDefId(__decoder);
+  return LocalModId.new_unchecked(__0);
+}
+// rustc-derive: compiler/rustc_span/src/def_id.rs:511 Encodable for LocalModId
+export function encode_LocalModId(self: LocalModId, __encoder: Encoder): void {
+  encode_LocalDefId(LocalModId.to_local_def_id(self), __encoder);
+}
+
 // rustc-derive: compiler/rustc_span/src/edition.rs:9 BlobDecodable for Edition
-export function decode_Edition(__decoder: Decoder): Edition {
+export function decode_Edition(__decoder: BlobDecoder): Edition {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -337,4 +576,16 @@ function Edition__variant_index(tag: Edition): number {
 export function encode_Edition(self: Edition, __encoder: Encoder): void {
   const disc = Edition__variant_index(self);
   __encoder.emit_u8(disc);
+}
+
+// rustc-derive: compiler/rustc_span/src/symbol.rs:2484 Decodable for Ident
+export function decode_Ident(__decoder: SpanDecoder): Ident {
+  const __0 = decode_Symbol(__decoder);
+  const __1 = decode_Span(__decoder);
+  return new Ident(__0, __1);
+}
+// rustc-derive: compiler/rustc_span/src/symbol.rs:2484 Encodable for Ident
+export function encode_Ident(self: Ident, __encoder: Encoder): void {
+  encode_Symbol(self.name, __encoder);
+  encode_Span(self.span, __encoder);
 }

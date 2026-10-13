@@ -23,7 +23,7 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_span set repro
   expect(res.report.missing_decodable).toEqual({});
   expect(res.report.missing_encodable).toEqual({});
   const f = res.report.files.find((x) => x.out === "rustc_span/decodable.gen.ts")!;
-  expect([f.decodable, f.encodable]).toEqual([12, 12]);
+  expect([f.decodable, f.encodable]).toEqual([22, 22]);
   expect(res.files.get(join(SRC, "rustc_span/decodable.gen.ts"))).toBe(readFileSync(join(SRC, "rustc_span/decodable.gen.ts"), "utf8"));
 });
 

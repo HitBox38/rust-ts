@@ -20,7 +20,32 @@ import type { Hasher } from "../vendor/rustc_stable_hash/lib.ts";
 import { debug_Hash64, Hash64, Hash128 } from "../rustc_hashes/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { analyze_source_file } from "./analyze_source_file.ts";
-import { type CrateNum, type LocalDefId, LOCAL_CRATE, type StableCrateId } from "./def_id.ts";
+import { FileEncoder, MemDecoder } from "../rustc_serialize/opaque.ts";
+import { MemEncoder } from "../rustc_serialize/opaque/mem_encoder.ts";
+import {
+  type Decoder,
+  decode_Option,
+  decode_u32,
+  decode_Vec,
+  type Encodable,
+  type Encoder,
+  encode_Option,
+  encode_u32,
+  encode_Vec,
+} from "../rustc_serialize/serialize.ts";
+import {
+  decode_FileName,
+  decode_MultiByteChar,
+  decode_NormalizedPos,
+  decode_SourceFileHash,
+  decode_StableSourceFileId,
+  encode_FileName,
+  encode_MultiByteChar,
+  encode_NormalizedPos,
+  encode_SourceFileHash,
+  encode_StableSourceFileId,
+} from "./decodable.gen.ts";
+import { CrateNum, DefId, DefIndex, LocalDefId, LOCAL_CRATE, type StableCrateId } from "./def_id.ts";
 import { DEFAULT_EDITION, Edition } from "./edition.ts";
 import { FatalError } from "./fatal_error.ts";
 import {
@@ -35,9 +60,9 @@ import {
   type Transparency,
 } from "./hygiene.ts";
 import { DUMMY_SP, Span, SpanInterner } from "./span_encoding.ts";
-import { Interner, type Symbol } from "./symbol.ts";
-import { debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_vec, type Debug, type Fmt } from "../std/fmt.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
+import { ByteSymbol, Interner, Symbol } from "./symbol.ts";
+import { debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_vec, type Debug, type Fmt, PLAIN } from "../std/fmt.ts";
+import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { Str, utf8 } from "../std/str.ts";
 import { path_hash } from "../std/path.ts";
@@ -304,8 +329,19 @@ export const debug_RemapPathScopeComponents: Debug<RemapPathScopeComponents> = (
   return debug_tuple(f, "RemapPathScopeComponents", [s]);
 };
 
-// rustc-skip: compiler/rustc_span/src/lib.rs:261 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:268 decode Decodable impl
+/** `impl<E: Encoder> Encodable<E> for RemapPathScopeComponents` */
+// rustc: compiler/rustc_span/src/lib.rs:261 encode
+export function encode_RemapPathScopeComponents(self: RemapPathScopeComponents, s: Encoder): void {
+  s.emit_u8(self);
+}
+
+/** `impl<D: Decoder> Decodable<D> for RemapPathScopeComponents` */
+// rustc: compiler/rustc_span/src/lib.rs:268 decode
+export function decode_RemapPathScopeComponents(s: Decoder): RemapPathScopeComponents {
+  // `RemapPathScopeComponents::from_bits(bits)`: `None` when a bit outside the flags is set.
+  const bits = s.read_u8();
+  return unwrap((bits & ~REMAP_ALL) === 0 ? bits : undefined, "invalid bits for RemapPathScopeComponents");
+}
 
 /** PORT: `PathBuf`/`&Path` are strings (paths as given on the command line / by the source map). */
 export type PathBuf = string;
@@ -313,7 +349,7 @@ export type PathBuf = string;
 /// The inner workings of `RealFileName`.
 ///
 /// It contains the `name`, `working_directory` and `embeddable_name` components.
-interface InnerRealFileName {
+export interface InnerRealFileName {
   /// The name.
   name: PathBuf;
   /// The working directory associated with the embeddable name.
@@ -1571,72 +1607,381 @@ export type AttrId = number & { readonly __brand: "AttrId" };
 export const AttrId = newtype_index<AttrId>((n) => `AttrId(${n})`);
 export const debug_AttrId: Debug<AttrId> = AttrId.debug;
 
-// The `SpanEncoder`/`SpanDecoder`/`BlobDecoder` traits and their impls, and the `Encodable`/
-// `Decodable` impls built on them, only serve metadata/incremental (out of scope until M5).
-// rustc-skip: compiler/rustc_span/src/lib.rs:1347 encode_span SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1348 encode_symbol SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1349 encode_byte_symbol SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1350 encode_expn_id SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1351 encode_syntax_context SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1354 encode_crate_num SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1355 encode_def_index SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1356 encode_def_id SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1358 encode_local_def_id SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1364 encode_def_key SpanEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1374 encode_span SpanEncoder for FileEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1380 encode_symbol SpanEncoder for FileEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1384 encode_byte_symbol SpanEncoder for FileEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1388 encode_expn_id SpanEncoder for FileEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1392 encode_syntax_context SpanEncoder for FileEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1396 encode_crate_num SpanEncoder for FileEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1400 encode_def_index SpanEncoder for FileEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1404 encode_def_id SpanEncoder for FileEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1411 encode_span SpanEncoder for MemEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1417 encode_symbol SpanEncoder for MemEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1421 encode_byte_symbol SpanEncoder for MemEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1425 encode_expn_id SpanEncoder for MemEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1429 encode_syntax_context SpanEncoder for MemEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1433 encode_crate_num SpanEncoder for MemEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1437 encode_def_index SpanEncoder for MemEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1441 encode_def_id SpanEncoder for MemEncoder (metadata encoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1448 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1454 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1460 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1466 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1472 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1478 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1484 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1490 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1496 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1502 decode_symbol BlobDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1503 decode_byte_symbol BlobDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1504 decode_def_index BlobDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1510 decode_local_def_id BlobDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1530 decode_span SpanDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1531 decode_expn_id SpanDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1532 decode_syntax_context SpanDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1533 decode_crate_num SpanDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1534 decode_def_id SpanDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1535 decode_attr_id SpanDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1539 decode_symbol BlobDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1543 decode_byte_symbol BlobDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1547 decode_def_index BlobDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1551 decode_local_def_id BlobDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1557 decode_span SpanDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1564 decode_expn_id SpanDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1568 decode_syntax_context SpanDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1572 decode_crate_num SpanDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1576 decode_def_id SpanDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1580 decode_attr_id SpanDecoder for MemDecoder (metadata decoding)
-// rustc-skip: compiler/rustc_span/src/lib.rs:1586 decode Decodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1592 decode Decodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1598 decode Decodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1604 decode Decodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1610 decode Decodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1616 decode Decodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1622 decode Decodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1628 decode Decodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:1634 decode Decodable impl
+/// This trait is used to allow encoder specific encodings of certain types.
+/// It is similar to rustc_type_ir's TyEncoder.
+// PORT: a trait over `Encoder` -> an interface extending it; the provided methods live in
+// `SpanEncoder_provided` (PORTING §8), implementors forward to them.
+export interface SpanEncoder extends Encoder {
+  // rustc: compiler/rustc_span/src/lib.rs:1347 encode_span
+  encode_span(span: Span): void;
+  // rustc: compiler/rustc_span/src/lib.rs:1348 encode_symbol
+  encode_symbol(sym: Symbol): void;
+  // rustc: compiler/rustc_span/src/lib.rs:1349 encode_byte_symbol
+  encode_byte_symbol(byte_sym: ByteSymbol): void;
+  // rustc: compiler/rustc_span/src/lib.rs:1350 encode_expn_id
+  encode_expn_id(expn_id: ExpnId): void;
+  // rustc: compiler/rustc_span/src/lib.rs:1351 encode_syntax_context
+  encode_syntax_context(syntax_context: SyntaxContext): void;
+  /// As a local identifier, a `CrateNum` is only meaningful within its context, e.g. within a
+  /// tcx. Therefore, make sure to include the context when encode a `CrateNum`.
+  // rustc: compiler/rustc_span/src/lib.rs:1354 encode_crate_num
+  encode_crate_num(crate_num: CrateNum): void;
+  // rustc: compiler/rustc_span/src/lib.rs:1355 encode_def_index
+  encode_def_index(def_index: DefIndex): void;
+  // rustc: compiler/rustc_span/src/lib.rs:1356 encode_def_id
+  encode_def_id(def_id: DefId): void;
+
+  encode_local_def_id(def_id: LocalDefId): void; // (provided)
+
+  // `rustc_span` does not reference `rustc_hir_id` (`rustc_hir_id` references `rustc_span` instead),
+  // so we can't use `DefKey` or `DisambiguatedDefPathData` here.
+  encode_def_key<T>(parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T>): void; // (provided)
+}
+
+/** The provided methods of `SpanEncoder`. */
+export const SpanEncoder_provided = {
+  // rustc: compiler/rustc_span/src/lib.rs:1358 encode_local_def_id
+  encode_local_def_id(self: SpanEncoder, def_id: LocalDefId): void {
+    self.encode_def_id(LocalDefId.to_def_id(def_id));
+  },
+
+  // rustc: compiler/rustc_span/src/lib.rs:1364 encode_def_key
+  encode_def_key<T>(self: SpanEncoder, parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T>): void {
+    encode_Option(parent, self, encode_DefIndex);
+    encode_T(disambiguated_data, self);
+  },
+};
+
+// PORT: `impl SpanEncoder for FileEncoder<'_>` / `for MemEncoder` / `impl BlobDecoder, SpanDecoder for
+// MemDecoder<'_>` (foreign types, impls in this crate) -> interface merging + prototype methods.
+declare module "../rustc_serialize/opaque.ts" {
+  interface FileEncoder extends SpanEncoder {}
+  interface MemDecoder extends SpanDecoder {}
+}
+declare module "../rustc_serialize/opaque/mem_encoder.ts" {
+  interface MemEncoder extends SpanEncoder {}
+}
+
+// impl SpanEncoder for FileEncoder<'_>
+// rustc: compiler/rustc_span/src/lib.rs:1374 encode_span
+FileEncoder.prototype.encode_span = function (this: FileEncoder, span: Span): void {
+  const data = Span.data(span);
+  encode_BytePos(data.lo, this);
+  encode_BytePos(data.hi, this);
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1380 encode_symbol
+FileEncoder.prototype.encode_symbol = function (this: FileEncoder, sym: Symbol): void {
+  this.emit_str(Symbol.as_str(sym));
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1384 encode_byte_symbol
+FileEncoder.prototype.encode_byte_symbol = function (this: FileEncoder, byte_sym: ByteSymbol): void {
+  this.emit_byte_str(ByteSymbol.as_byte_str(byte_sym));
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1388 encode_expn_id
+FileEncoder.prototype.encode_expn_id = function (this: FileEncoder, _expn_id: ExpnId): void {
+  panic("cannot encode `ExpnId` with `FileEncoder`");
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1392 encode_syntax_context
+FileEncoder.prototype.encode_syntax_context = function (this: FileEncoder, _syntax_context: SyntaxContext): void {
+  panic("cannot encode `SyntaxContext` with `FileEncoder`");
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1396 encode_crate_num
+FileEncoder.prototype.encode_crate_num = function (this: FileEncoder, crate_num: CrateNum): void {
+  this.emit_u32(CrateNum.as_u32(crate_num));
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1400 encode_def_index
+FileEncoder.prototype.encode_def_index = function (this: FileEncoder, _def_index: DefIndex): void {
+  panic("cannot encode `DefIndex` with `FileEncoder`");
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1404 encode_def_id
+FileEncoder.prototype.encode_def_id = function (this: FileEncoder, def_id: DefId): void {
+  encode_CrateNum(def_id.krate, this);
+  encode_DefIndex(def_id.index, this);
+};
+
+FileEncoder.prototype.encode_local_def_id = function (this: FileEncoder, def_id: LocalDefId): void {
+  SpanEncoder_provided.encode_local_def_id(this, def_id);
+};
+FileEncoder.prototype.encode_def_key = function <T>(this: FileEncoder, parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T>): void {
+  SpanEncoder_provided.encode_def_key(this, parent, disambiguated_data, encode_T);
+};
+
+// impl SpanEncoder for MemEncoder
+// rustc: compiler/rustc_span/src/lib.rs:1411 encode_span
+MemEncoder.prototype.encode_span = function (this: MemEncoder, span: Span): void {
+  const data = Span.data(span);
+  encode_BytePos(data.lo, this);
+  encode_BytePos(data.hi, this);
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1417 encode_symbol
+MemEncoder.prototype.encode_symbol = function (this: MemEncoder, sym: Symbol): void {
+  this.emit_str(Symbol.as_str(sym));
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1421 encode_byte_symbol
+MemEncoder.prototype.encode_byte_symbol = function (this: MemEncoder, byte_sym: ByteSymbol): void {
+  this.emit_byte_str(ByteSymbol.as_byte_str(byte_sym));
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1425 encode_expn_id
+MemEncoder.prototype.encode_expn_id = function (this: MemEncoder, _expn_id: ExpnId): void {
+  panic("cannot encode `ExpnId` with `MemEncoder`");
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1429 encode_syntax_context
+MemEncoder.prototype.encode_syntax_context = function (this: MemEncoder, _syntax_context: SyntaxContext): void {
+  panic("cannot encode `SyntaxContext` with `MemEncoder`");
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1433 encode_crate_num
+MemEncoder.prototype.encode_crate_num = function (this: MemEncoder, crate_num: CrateNum): void {
+  this.emit_u32(CrateNum.as_u32(crate_num));
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1437 encode_def_index
+MemEncoder.prototype.encode_def_index = function (this: MemEncoder, _def_index: DefIndex): void {
+  panic("cannot encode `DefIndex` with `MemEncoder`");
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1441 encode_def_id
+MemEncoder.prototype.encode_def_id = function (this: MemEncoder, def_id: DefId): void {
+  encode_CrateNum(def_id.krate, this);
+  encode_DefIndex(def_id.index, this);
+};
+
+MemEncoder.prototype.encode_local_def_id = function (this: MemEncoder, def_id: LocalDefId): void {
+  SpanEncoder_provided.encode_local_def_id(this, def_id);
+};
+MemEncoder.prototype.encode_def_key = function <T>(this: MemEncoder, parent: DefIndex | undefined, disambiguated_data: T, encode_T: Encodable<T>): void {
+  SpanEncoder_provided.encode_def_key(this, parent, disambiguated_data, encode_T);
+};
+
+// PORT: rustc_serialize's `Encodable<T>` is `(v: T, s: Encoder) => void`, not generic over the
+// encoder (src/rustc_serialize/serialize.ts), so the `impl<E: SpanEncoder> Encodable<E>` impls
+// take an `Encoder` and use it as the `SpanEncoder` upstream's bound guarantees.
+function span_encoder(s: Encoder): SpanEncoder {
+  return s as SpanEncoder;
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for Span` */
+// rustc: compiler/rustc_span/src/lib.rs:1448 encode
+export function encode_Span(self: Span, s: Encoder): void {
+  span_encoder(s).encode_span(self);
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for Symbol` */
+// rustc: compiler/rustc_span/src/lib.rs:1454 encode
+export function encode_Symbol(self: Symbol, s: Encoder): void {
+  span_encoder(s).encode_symbol(self);
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for ByteSymbol` */
+// rustc: compiler/rustc_span/src/lib.rs:1460 encode
+export function encode_ByteSymbol(self: ByteSymbol, s: Encoder): void {
+  span_encoder(s).encode_byte_symbol(self);
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for ExpnId` */
+// rustc: compiler/rustc_span/src/lib.rs:1466 encode
+export function encode_ExpnId(self: ExpnId, s: Encoder): void {
+  span_encoder(s).encode_expn_id(self);
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for SyntaxContext` */
+// rustc: compiler/rustc_span/src/lib.rs:1472 encode
+export function encode_SyntaxContext(self: SyntaxContext, s: Encoder): void {
+  span_encoder(s).encode_syntax_context(self);
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for CrateNum` */
+// rustc: compiler/rustc_span/src/lib.rs:1478 encode
+export function encode_CrateNum(self: CrateNum, s: Encoder): void {
+  span_encoder(s).encode_crate_num(self);
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for DefIndex` */
+// rustc: compiler/rustc_span/src/lib.rs:1484 encode
+export function encode_DefIndex(self: DefIndex, s: Encoder): void {
+  span_encoder(s).encode_def_index(self);
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for DefId` */
+// rustc: compiler/rustc_span/src/lib.rs:1490 encode
+export function encode_DefId(self: DefId, s: Encoder): void {
+  span_encoder(s).encode_def_id(self);
+}
+
+/** `impl<E: SpanEncoder> Encodable<E> for AttrId` */
+// rustc: compiler/rustc_span/src/lib.rs:1496 encode
+export function encode_AttrId(_self: AttrId, _s: Encoder): void {
+  // A fresh id will be generated when decoding
+}
+
+export interface BlobDecoder extends Decoder {
+  // rustc: compiler/rustc_span/src/lib.rs:1502 decode_symbol
+  decode_symbol(): Symbol;
+  // rustc: compiler/rustc_span/src/lib.rs:1503 decode_byte_symbol
+  decode_byte_symbol(): ByteSymbol;
+  // rustc: compiler/rustc_span/src/lib.rs:1504 decode_def_index
+  decode_def_index(): DefIndex;
+
+  // This function is placed here (not in a `SpanDecoder`),
+  // as during metadata decoding `LocalDefId` is just a wrapper
+  // around `DefIndex`, so it can be decoded without extra knowledge
+  // like crate remapping.
+  // rustc: compiler/rustc_span/src/lib.rs:1510 decode_local_def_id
+  decode_local_def_id(): LocalDefId;
+}
+
+/// This trait is used to allow decoder specific encodings of certain types.
+/// It is similar to rustc_type_ir's TyDecoder.
+///
+/// Specifically for metadata, an important note is that spans can only be decoded once
+/// some other metadata is already read.
+/// Spans have to be properly mapped into the decoding crate's sourcemap,
+/// and crate numbers have to be converted sometimes.
+/// This can only be done once the `CrateRoot` is available.
+///
+/// As such, some methods that used to be in the `SpanDecoder` trait
+/// are now in the `BlobDecoder` trait. This hierarchy is not mirrored for `Encoder`s.
+/// `BlobDecoder` has methods for deserializing types that are more complex than just those
+/// that can be decoded with `Decoder`, but which can be decoded on their own, *before* any other metadata is.
+/// Importantly, that means that types that can be decoded with `BlobDecoder` can show up in the crate root.
+/// The place where this distinction is relevant is in `rustc_metadata` where metadata is decoded using either the
+/// `MetadataDecodeContext` or the `BlobDecodeContext`.
+export interface SpanDecoder extends BlobDecoder {
+  // rustc: compiler/rustc_span/src/lib.rs:1530 decode_span
+  decode_span(): Span;
+  // rustc: compiler/rustc_span/src/lib.rs:1531 decode_expn_id
+  decode_expn_id(): ExpnId;
+  // rustc: compiler/rustc_span/src/lib.rs:1532 decode_syntax_context
+  decode_syntax_context(): SyntaxContext;
+  // rustc: compiler/rustc_span/src/lib.rs:1533 decode_crate_num
+  decode_crate_num(): CrateNum;
+  // rustc: compiler/rustc_span/src/lib.rs:1534 decode_def_id
+  decode_def_id(): DefId;
+  // rustc: compiler/rustc_span/src/lib.rs:1535 decode_attr_id
+  decode_attr_id(): AttrId;
+}
+
+// impl BlobDecoder for MemDecoder<'_>
+// rustc: compiler/rustc_span/src/lib.rs:1539 decode_symbol
+MemDecoder.prototype.decode_symbol = function (this: MemDecoder): Symbol {
+  return Symbol.intern(this.read_str());
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1543 decode_byte_symbol
+MemDecoder.prototype.decode_byte_symbol = function (this: MemDecoder): ByteSymbol {
+  return ByteSymbol.intern(this.read_byte_str());
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1547 decode_def_index
+MemDecoder.prototype.decode_def_index = function (this: MemDecoder): DefIndex {
+  return panic("cannot decode `DefIndex` with `MemDecoder`");
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1551 decode_local_def_id
+MemDecoder.prototype.decode_local_def_id = function (this: MemDecoder): LocalDefId {
+  return this.decode_def_id().expect_local();
+};
+
+// impl SpanDecoder for MemDecoder<'_>
+// rustc: compiler/rustc_span/src/lib.rs:1557 decode_span
+MemDecoder.prototype.decode_span = function (this: MemDecoder): Span {
+  const lo = decode_BytePos(this);
+  const hi = decode_BytePos(this);
+
+  return Span.new(lo, hi, SyntaxContext.root(), undefined);
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1564 decode_expn_id
+MemDecoder.prototype.decode_expn_id = function (this: MemDecoder): ExpnId {
+  return panic("cannot decode `ExpnId` with `MemDecoder`");
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1568 decode_syntax_context
+MemDecoder.prototype.decode_syntax_context = function (this: MemDecoder): SyntaxContext {
+  return panic("cannot decode `SyntaxContext` with `MemDecoder`");
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1572 decode_crate_num
+MemDecoder.prototype.decode_crate_num = function (this: MemDecoder): CrateNum {
+  return CrateNum.from_u32(this.read_u32());
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1576 decode_def_id
+MemDecoder.prototype.decode_def_id = function (this: MemDecoder): DefId {
+  const krate = decode_CrateNum(this);
+  const index = decode_DefIndex(this);
+  return new DefId(index, krate);
+};
+
+// rustc: compiler/rustc_span/src/lib.rs:1580 decode_attr_id
+MemDecoder.prototype.decode_attr_id = function (this: MemDecoder): AttrId {
+  return panic("cannot decode `AttrId` with `MemDecoder`");
+};
+
+/** `impl<D: SpanDecoder> Decodable<D> for Span` */
+// rustc: compiler/rustc_span/src/lib.rs:1586 decode
+export function decode_Span(s: SpanDecoder): Span {
+  return s.decode_span();
+}
+
+/** `impl<D: BlobDecoder> Decodable<D> for Symbol` */
+// rustc: compiler/rustc_span/src/lib.rs:1592 decode
+export function decode_Symbol(s: BlobDecoder): Symbol {
+  return s.decode_symbol();
+}
+
+/** `impl<D: BlobDecoder> Decodable<D> for ByteSymbol` */
+// rustc: compiler/rustc_span/src/lib.rs:1598 decode
+export function decode_ByteSymbol(s: BlobDecoder): ByteSymbol {
+  return s.decode_byte_symbol();
+}
+
+/** `impl<D: SpanDecoder> Decodable<D> for ExpnId` */
+// rustc: compiler/rustc_span/src/lib.rs:1604 decode
+export function decode_ExpnId(s: SpanDecoder): ExpnId {
+  return s.decode_expn_id();
+}
+
+/** `impl<D: SpanDecoder> Decodable<D> for SyntaxContext` */
+// rustc: compiler/rustc_span/src/lib.rs:1610 decode
+export function decode_SyntaxContext(s: SpanDecoder): SyntaxContext {
+  return s.decode_syntax_context();
+}
+
+/** `impl<D: SpanDecoder> Decodable<D> for CrateNum` */
+// rustc: compiler/rustc_span/src/lib.rs:1616 decode
+export function decode_CrateNum(s: SpanDecoder): CrateNum {
+  return s.decode_crate_num();
+}
+
+/** `impl<D: BlobDecoder> Decodable<D> for DefIndex` */
+// rustc: compiler/rustc_span/src/lib.rs:1622 decode
+export function decode_DefIndex(s: BlobDecoder): DefIndex {
+  return s.decode_def_index();
+}
+
+/** `impl<D: SpanDecoder> Decodable<D> for DefId` */
+// rustc: compiler/rustc_span/src/lib.rs:1628 decode
+export function decode_DefId(s: SpanDecoder): DefId {
+  return s.decode_def_id();
+}
+
+/** `impl<D: SpanDecoder> Decodable<D> for AttrId` */
+// rustc: compiler/rustc_span/src/lib.rs:1634 decode
+export function decode_AttrId(s: SpanDecoder): AttrId {
+  return s.decode_attr_id();
+}
 
 // rustc: compiler/rustc_span/src/lib.rs:1640 fmt
 /** `impl fmt::Debug for Span` */
@@ -2002,8 +2347,8 @@ export class SourceFile {
     );
   }
 
-  // rustc-skip: compiler/rustc_span/src/lib.rs:1996 encode Encodable impl
-  // rustc-skip: compiler/rustc_span/src/lib.rs:2071 decode Decodable impl
+  // `impl Encodable for SourceFile` / `impl Decodable for SourceFile`: `encode_SourceFile` /
+  // `decode_SourceFile` below the class (module-level, where codegen finds them).
 
   // rustc: compiler/rustc_span/src/lib.rs:2172 new
   static new(
@@ -2383,6 +2728,138 @@ export class SourceFile {
   }
 }
 
+/** `impl<S: SpanEncoder> Encodable<S> for SourceFile` */
+// rustc: compiler/rustc_span/src/lib.rs:1996 encode
+export function encode_SourceFile(self: SourceFile, s: Encoder): void {
+  encode_FileName(self.name, s);
+  encode_SourceFileHash(self.src_hash, s);
+  encode_Option(self.checksum_hash, s, encode_SourceFileHash);
+  // Do not encode `start_pos` as it's global state for this session.
+  encode_RelativeBytePos(self.normalized_source_len, s);
+  encode_u32(self.unnormalized_source_len, s);
+
+  // We are always in `Lines` form by the time we reach here.
+  assert(SourceFileLines.is_lines(self.lines_.read()), "assertion failed: self.lines.read().is_lines()");
+  const lines = self.lines();
+  // Store the length.
+  s.emit_u32(lines.length);
+
+  // Compute and store the difference list.
+  if (lines.length !== 0) {
+    let max_line_length: number;
+    if (lines.length === 1) {
+      max_line_length = 0;
+    } else {
+      // `lines.array_windows().map(|&[fst, snd]| snd - fst).map(|bp| bp.to_usize()).max().unwrap()`
+      let max: number | undefined = undefined;
+      for (let i = 0; i + 1 < lines.length; i++) {
+        const bp = lines[i + 1]! - lines[i]!;
+        if (max === undefined || bp > max) max = bp;
+      }
+      max_line_length = unwrap(max);
+    }
+
+    let bytes_per_diff: number;
+    if (max_line_length <= 0xff) bytes_per_diff = 1;
+    else if (max_line_length <= 0xffff) bytes_per_diff = 2;
+    else bytes_per_diff = 4;
+
+    // Encode the number of bytes used per diff.
+    s.emit_u8(bytes_per_diff);
+
+    // Encode the first element.
+    assert_eq(lines[0]!, RelativeBytePos(0), (v) => debug_RelativeBytePos(v, PLAIN));
+
+    // Encode the difference list.
+    // `let diff_iter = lines.array_windows().map(|&[fst, snd]| snd - fst);`
+    const num_diffs = lines.length - 1;
+    let raw_diffs: Uint8Array;
+    switch (bytes_per_diff) {
+      case 1: {
+        raw_diffs = new Uint8Array(num_diffs);
+        for (let i = 0; i < num_diffs; i++) {
+          raw_diffs[i] = (lines[i + 1]! - lines[i]!) & 0xff;
+        }
+        break;
+      }
+      case 2: {
+        raw_diffs = new Uint8Array(bytes_per_diff * num_diffs);
+        for (let i = 0; i < num_diffs; i++) {
+          const diff = (lines[i + 1]! - lines[i]!) & 0xffff;
+          raw_diffs[2 * i] = diff & 0xff;
+          raw_diffs[2 * i + 1] = diff >>> 8;
+        }
+        break;
+      }
+      case 4: {
+        raw_diffs = new Uint8Array(bytes_per_diff * num_diffs);
+        for (let i = 0; i < num_diffs; i++) {
+          const diff = (lines[i + 1]! - lines[i]!) >>> 0;
+          raw_diffs[4 * i] = diff & 0xff;
+          raw_diffs[4 * i + 1] = (diff >>> 8) & 0xff;
+          raw_diffs[4 * i + 2] = (diff >>> 16) & 0xff;
+          raw_diffs[4 * i + 3] = diff >>> 24;
+        }
+        break;
+      }
+      default:
+        unreachable();
+    }
+    s.emit_raw_bytes(raw_diffs);
+  }
+
+  encode_Vec(self.multibyte_chars, s, encode_MultiByteChar);
+  encode_StableSourceFileId(self.stable_id, s);
+  encode_Vec(self.normalized_pos, s, encode_NormalizedPos);
+  encode_CrateNum(self.cnum, s);
+}
+
+/** `impl<D: SpanDecoder> Decodable<D> for SourceFile` */
+// rustc: compiler/rustc_span/src/lib.rs:2071 decode
+export function decode_SourceFile(d: SpanDecoder): SourceFile {
+  const name: FileName = decode_FileName(d);
+  const src_hash: SourceFileHash = decode_SourceFileHash(d);
+  const checksum_hash: SourceFileHash | undefined = decode_Option(d, decode_SourceFileHash);
+  const normalized_source_len: RelativeBytePos = decode_RelativeBytePos(d);
+  const unnormalized_source_len = decode_u32(d);
+  let lines: SourceFileLines;
+  {
+    const num_lines: number = decode_u32(d);
+    if (num_lines > 0) {
+      // Read the number of bytes used per diff.
+      const bytes_per_diff = d.read_u8();
+
+      // Read the difference list.
+      const num_diffs = num_lines - 1;
+      const raw_diffs = d.read_raw_bytes(bytes_per_diff * num_diffs).slice();
+      lines = { $: "Diffs", _0: { bytes_per_diff, num_diffs, raw_diffs } };
+    } else {
+      lines = { $: "Lines", _0: [] };
+    }
+  }
+  const multibyte_chars: MultiByteChar[] = decode_Vec(d, decode_MultiByteChar);
+  const stable_id = decode_StableSourceFileId(d);
+  const normalized_pos: NormalizedPos[] = decode_Vec(d, decode_NormalizedPos);
+  const cnum: CrateNum = decode_CrateNum(d);
+  return new SourceFile(
+    name,
+    undefined,
+    src_hash,
+    checksum_hash,
+    // Unused - the metadata decoder will construct
+    // a new SourceFile, filling in `external_src` properly
+    FreezeLock.frozen(ExternalSource.Unneeded),
+    BytePos.from_u32(0),
+    normalized_source_len,
+    unnormalized_source_len,
+    FreezeLock.new(lines),
+    multibyte_chars,
+    normalized_pos,
+    stable_id,
+    cnum,
+  );
+}
+
 // PORT: `impl Debug for SourceFile` sits between upstream impl blocks that PORTING §8 merges into
 // the `SourceFile` class (lib.rs:1976.. and 2147..2516), so no position keeps the markers monotonic.
 // rustc: compiler/rustc_span/src/lib.rs:2116 fmt
@@ -2433,23 +2910,30 @@ function cmp_u32(a: number, b: number): -1 | 0 | 1 {
 ///
 /// When `SourceFile`s are exported in crate metadata, the `StableSourceFileId`
 /// is updated to incorporate the `StableCrateId` of the exporting crate.
-// PORT: upstream stores the `Hash128` = StableHasher((filename, stable_crate_id)). rust-ts keeps the
-// hash *inputs* (source_map.ts keys files on them, `stable_source_file_id_key`); `hash()` computes
-// (and caches) upstream's `Hash128`, i.e. the tuple field `.0`.
+// PORT: upstream stores the `Hash128` = StableHasher((filename, stable_crate_id)). Ids made from a
+// filename keep the hash *inputs* and compute (and cache) the `Hash128` on first use (`hash()`, the
+// tuple field `.0`), so sessions that never hash pay nothing; decoded ids (`of`, the derived
+// Decodable) carry the hash only. Equality and the source map's key are the hash
+// (`stable_source_file_id_key`).
 export class StableSourceFileId {
-  private hash_?: Hash128;
-  constructor(
-    readonly filename: FileName,
-    readonly stable_crate_id: StableCrateId | undefined,
+  private constructor(
+    private readonly inputs: readonly [FileName, StableCrateId | undefined] | undefined,
+    private hash_: Hash128 | undefined,
   ) {}
+
+  /** `StableSourceFileId(hash)` (the tuple constructor; used by the derived Decodable). */
+  static of(hash: Hash128): StableSourceFileId {
+    return new StableSourceFileId(undefined, hash);
+  }
 
   /** `self.0`: `StableHasher` over `filename.hash(..)` then `stable_crate_id.hash(..)`, as a `Hash128`. */
   hash(): Hash128 {
     if (this.hash_ === undefined) {
+      const [filename, stable_crate_id] = this.inputs!;
       const hasher = StableHasher.new();
-      hash_FileName(this.filename, hasher);
+      hash_FileName(filename, hasher);
       // `Option<StableCrateId>`'s derived Hash; `StableCrateId(Hash64)` hashes its `u64`
-      hash_Option(this.stable_crate_id, hasher, (id, state) => state.write_u64(id));
+      hash_Option(stable_crate_id, hasher, (id, state) => state.write_u64(id));
       this.hash_ = hasher.finish(Hash128);
     }
     return this.hash_;
@@ -2469,7 +2953,7 @@ export class StableSourceFileId {
   static from_filename_and_stable_crate_id(filename: FileName, stable_crate_id: StableCrateId | undefined): StableSourceFileId {
     // let mut hasher = StableHasher::new(); filename.hash(&mut hasher);
     // stable_crate_id.hash(&mut hasher); StableSourceFileId(hasher.finish())
-    return new StableSourceFileId(filename, stable_crate_id);
+    return new StableSourceFileId([filename, stable_crate_id], undefined);
   }
 }
 
@@ -2709,10 +3193,29 @@ export declare namespace CharPos {
 impl_pos(CharPos as typeof CharPos & Pos<CharPos>);
 export const debug_CharPos: Debug<CharPos> = (v, f) => debug_tuple(f, "CharPos", [String(v)]);
 
-// rustc-skip: compiler/rustc_span/src/lib.rs:2726 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:2732 decode Decodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:2738 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:2744 decode Decodable impl
+/** `impl<S: Encoder> Encodable<S> for BytePos` */
+// rustc: compiler/rustc_span/src/lib.rs:2726 encode
+export function encode_BytePos(self: BytePos, s: Encoder): void {
+  s.emit_u32(self);
+}
+
+/** `impl<D: Decoder> Decodable<D> for BytePos` */
+// rustc: compiler/rustc_span/src/lib.rs:2732 decode
+export function decode_BytePos(d: Decoder): BytePos {
+  return BytePos(d.read_u32());
+}
+
+/** `impl<S: Encoder> Encodable<S> for RelativeBytePos` */
+// rustc: compiler/rustc_span/src/lib.rs:2738 encode
+export function encode_RelativeBytePos(self: RelativeBytePos, s: Encoder): void {
+  s.emit_u32(self);
+}
+
+/** `impl<D: Decoder> Decodable<D> for RelativeBytePos` */
+// rustc: compiler/rustc_span/src/lib.rs:2744 decode
+export function decode_RelativeBytePos(d: Decoder): RelativeBytePos {
+  return RelativeBytePos(d.read_u32());
+}
 
 // _____________________________________________________________________________
 // Loc, SourceFileAndLine, SourceFileAndBytePos
@@ -2881,6 +3384,18 @@ export class ErrorGuaranteed {
 
 export const debug_ErrorGuaranteed: Debug<ErrorGuaranteed> = (_v, f) => debug_tuple(f, "ErrorGuaranteed", ["()"]);
 
-// rustc-skip: compiler/rustc_span/src/lib.rs:2874 encode Encodable impl
-// rustc-skip: compiler/rustc_span/src/lib.rs:2883 decode Decodable impl
+/** `impl<E: rustc_serialize::Encoder> Encodable<E> for ErrorGuaranteed` */
+// rustc: compiler/rustc_span/src/lib.rs:2874 encode
+export function encode_ErrorGuaranteed(_self: ErrorGuaranteed, _e: Encoder): void {
+  panic(
+    "should never serialize an `ErrorGuaranteed`, as we do not write metadata or " +
+      "incremental caches in case errors occurred",
+  );
+}
+
+/** `impl<D: rustc_serialize::Decoder> Decodable<D> for ErrorGuaranteed` */
+// rustc: compiler/rustc_span/src/lib.rs:2883 decode
+export function decode_ErrorGuaranteed(_d: Decoder): ErrorGuaranteed {
+  return panic("`ErrorGuaranteed` should never have been serialized to metadata or incremental caches");
+}
 

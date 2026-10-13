@@ -53,7 +53,7 @@ import { is_whitespace, len_utf8, to_string as char_to_string } from "../std/cha
 import { debug_list, debug_str, debug_struct, debug_tuple, debug_vec, PLAIN, type Debug } from "../std/fmt.ts";
 import { debug_IoError, INVALID_UTF8, io_error_from_node, io_error_other, type IoResult } from "../std/io.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
-import { type Hasher, path_components, path_eq, path_hash, path_is_absolute, path_join, path_strip_prefix } from "../std/path.ts";
+import { path_components, path_eq, path_is_absolute, path_join, path_strip_prefix } from "../std/path.ts";
 import { Err, Ok, ok, type Result } from "../std/result.ts";
 import { partition_point } from "../std/slice.ts";
 import {
@@ -217,13 +217,12 @@ export class RealFileLoader implements FileLoader {
 // SourceMap
 //
 
-// PORT: `UnhashMap<StableSourceFileId, Arc<SourceFile>>` is keyed by the id's hash. The hash
-// (StableHasher) is unported and `StableSourceFileId` keeps the hash inputs, so the map is keyed
-// by `stable_source_file_id_key`, a string built from exactly the inputs upstream hashes.
+// PORT: `UnhashMap<StableSourceFileId, Arc<SourceFile>>` is keyed by the id's hash
+// (`stable_source_file_id_key`).
 class SourceMapFiles {
   constructor(
     readonly source_files: MonotonicVec<SourceFile>,
-    readonly stable_id_to_source_file: Map<string, SourceFile>,
+    readonly stable_id_to_source_file: Map<bigint, SourceFile>,
   ) {}
 
   /** `#[derive(Default)]` */
@@ -1487,72 +1486,9 @@ export function RealFileName_eq(a: RealFileName, b: RealFileName): boolean {
   );
 }
 
-// PORT: records the byte stream a `StableHasher` (rustc-stable-hash 0.1.2, stable_hasher.rs) is fed,
-// as a latin1 string: two inputs get the same key exactly when upstream hashes the same bytes.
-class StableHasherBytes implements Hasher {
-  s = "";
-
-  write(bytes: Uint8Array): void {
-    for (const b of bytes) this.s += String.fromCharCode(b);
-  }
-
-  write_u8(i: number): void {
-    this.s += String.fromCharCode(i & 0xff);
-  }
-
-  /** `write_u64(i.to_le())` */
-  private write_u64(i: bigint): void {
-    for (let k = 0n; k < 64n; k += 8n) this.write_u8(Number((i >> k) & 0xffn));
-  }
-
-  write_usize(i: bigint): void {
-    this.write_u64(i);
-  }
-
-  /** Small values hash as one byte; others as `0xFF` + the 8 bytes. */
-  write_isize(i: number): void {
-    const value = BigInt.asUintN(64, BigInt(i));
-    if (value < 0xffn) {
-      this.write_u8(Number(value));
-    } else {
-      this.write_u8(0xff);
-      this.write_u64(value);
-    }
-  }
-
-  write_length_prefix(len: number): void {
-    this.write_usize(BigInt(len));
-  }
-}
-
-/** Key standing in for `StableSourceFileId`'s hash: built from the same inputs, in the same way as
- *  `impl Hash for RealFileName` (the local part is skipped when fully remapped). Paths contribute
- *  the exact bytes `impl Hash for Path` feeds the hasher (no root, `.` after a separator skipped,
- *  `chunk_bits` tail), so e.g. `/x.rs` and `x.rs` share a key, as they share a hash upstream. */
-export function stable_source_file_id_key(id: StableSourceFileId): string {
-  const path_key = (p: PathBuf): string => {
-    const h = new StableHasherBytes();
-    path_hash(p, h);
-    return JSON.stringify(h.s);
-  };
-  const inner_key = (i: InnerRealFileName): string => `${path_key(i.name)},${path_key(i.working_directory)},${path_key(i.embeddable_name)}`;
-  const real_key = (r: RealFileName): string =>
-    `${r.was_fully_remapped() ? "" : r.local === undefined ? "None" : `Some(${inner_key(r.local)})`};${inner_key(r.maybe_remapped)};${r.scopes}`;
-  const name = id.filename;
-  let key: string;
-  switch (name.$) {
-    case "Real":
-      key = `Real(${real_key(name._0)})`;
-      break;
-    case "Custom":
-      key = `Custom(${JSON.stringify(name._0)})`;
-      break;
-    case "DocTest":
-      key = `DocTest(${real_key(name._0)},${name._1})`;
-      break;
-    default:
-      key = `${name.$}(${String(name._0)})`;
-  }
-  return `${key}|${id.stable_crate_id === undefined ? "None" : String(id.stable_crate_id)}`;
+/** The key of `stable_id_to_source_file` (`UnhashMap<StableSourceFileId, _>`): the id's `Hash128`.
+ *  PORT: a JS `Map` key must be a primitive; the hash is the id's only field upstream. */
+export function stable_source_file_id_key(id: StableSourceFileId): bigint {
+  return id.hash();
 }
 

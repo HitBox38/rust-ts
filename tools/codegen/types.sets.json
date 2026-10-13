@@ -287,30 +287,22 @@
     },
     "derive_decodable": true,
     "derive_encodable": true,
-    "decodable_types": [
-      "rustc_span::edition::Edition",
-      "rustc_span::SourceFileHashAlgorithm",
-      "rustc_span::SourceFileHash",
-      "rustc_span::MultiByteChar",
-      "rustc_span::NormalizedPos",
-      "rustc_span::hygiene::ExpnHash",
-      "rustc_span::hygiene::Transparency",
-      "rustc_span::hygiene::MacroKind",
-      "rustc_span::hygiene::AstPass",
-      "rustc_span::hygiene::DesugaringKind",
-      "rustc_span::def_id::DefPathHash",
-      "rustc_span::def_id::StableCrateId"
-    ],
     "decodable_construct": {
       "rustc_span::hygiene::ExpnHash": { "expr": "ExpnHash.of($0)", "import": ["ExpnHash"] },
+      "rustc_span::hygiene::ExpnData": { "expr": "new ExpnData($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)", "import": ["ExpnData"] },
+      "rustc_span::def_id::ModId": { "expr": "new ModId($0)", "import": ["ModId"] },
+      "rustc_span::def_id::LocalModId": { "expr": "LocalModId.new_unchecked($0)", "import": ["LocalModId"] },
+      "rustc_span::RealFileName": { "expr": "new RealFileName($0, $1, $2)", "import": ["RealFileName"] },
+      "rustc_span::StableSourceFileId": { "expr": "StableSourceFileId.of($0)", "import": ["StableSourceFileId"] },
+      "rustc_span::symbol::Ident": { "expr": "new Ident($0, $1)", "import": ["Ident"] },
       "rustc_span::def_id::DefPathHash": { "expr": "DefPathHash.of($0)", "import": ["DefPathHash"] },
       "rustc_span::def_id::StableCrateId": { "expr": "StableCrateId.of($0)", "import": ["StableCrateId"] },
       "rustc_span::SourceFileHash": { "expr": "new SourceFileHash($0, Uint8Array.from($1))", "import": ["SourceFileHash"] }
     },
     "hand_notes": {
       "*": "rustc_span's types are hand-written (src/rustc_span/*.ts); this set only generates rustc_span/stable_hash.gen.ts (derive(StableHash)) and rustc_span/decodable.gen.ts (derive(Decodable)/(Encodable) of decodable_types). stable_hash_access: branded newtypes (the TS value is the field) and StableSourceFileId (keeps its hash inputs; hash() computes the Hash128); the encoders read fields through it too.",
-      "decodable_types": "the rustc_span types whose fields need no SpanDecoder/BlobDecoder method (Span, Symbol, DefId, ... decode through rustc_span's SpanDecoder/BlobDecoder traits, not ported yet); add a type here once its fields' impls exist (the report lists missing_decodable)",
-      "decodable_construct": "branded newtypes are built with their `of` companion; SourceFileHash is a class holding its `[u8; 32]` as a Uint8Array"
+      "decodable_types": "absent: every derive(Decodable*)/(Encodable*) rustc_span type is generated; Span, Symbol, DefId, ExpnId, SyntaxContext, CrateNum, DefIndex, LocalDefId, AttrId, LocalExpnId, SourceFile, BytePos, RelativeBytePos, RemapPathScopeComponents decode through the manual impls (SpanDecoder/BlobDecoder) exported by lib.ts / def_id.ts / hygiene.ts",
+      "decodable_construct": "branded newtypes are built with their `of` companion (LocalModId: new_unchecked); SourceFileHash is a class holding its `[u8; 32]` as a Uint8Array; ExpnData, ModId, RealFileName, Ident are classes (constructor takes every field in declaration order); StableSourceFileId.of wraps a decoded Hash128"
     }
   },
   "rustc_middle": {

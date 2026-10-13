@@ -10,6 +10,8 @@ import { type RawDefId, type StableHashCtxt, StableHasher, StableOrd_String, sta
 import type { Hasher } from "../vendor/rustc_stable_hash/lib.ts";
 import { stable_hash_DefPathHash, stable_hash_StableCrateId } from "./stable_hash.gen.ts";
 import { Symbol } from "./symbol.ts";
+import type { Encoder } from "../rustc_serialize/serialize.ts";
+import type { BlobDecoder, SpanEncoder } from "./lib.ts";
 
 export type { RawDefId };
 
@@ -340,8 +342,19 @@ export const LocalDefId = {
 // rustc: compiler/rustc_span/src/def_id.rs:396 fmt
 export const debug_LocalDefId: Debug<LocalDefId> = (v, f) => debug_DefId(LocalDefId.to_def_id(v), f);
 
-// rustc-skip: compiler/rustc_span/src/def_id.rs:402 encode Encodable impl (metadata, M5)
-// rustc-skip: compiler/rustc_span/src/def_id.rs:408 decode Decodable impl (metadata, M5)
+/** `impl<E: SpanEncoder> Encodable<E> for LocalDefId` */
+// PORT: takes an `Encoder` (rustc_serialize's `Encodable` is not generic over the encoder; see
+// `span_encoder` in lib.ts).
+// rustc: compiler/rustc_span/src/def_id.rs:402 encode
+export function encode_LocalDefId(self: LocalDefId, e: Encoder): void {
+  (e as SpanEncoder).encode_local_def_id(self);
+}
+
+/** `impl<D: BlobDecoder> Decodable<D> for LocalDefId` */
+// rustc: compiler/rustc_span/src/def_id.rs:408 decode
+export function decode_LocalDefId(d: BlobDecoder): LocalDefId {
+  return d.decode_local_def_id();
+}
 
 // PORT: `define_id_collections!(LocalDefIdMap, LocalDefIdSet, ..)` → use `Map<LocalDefId, _>` /
 // `Set<LocalDefId>` directly (LocalDefId is a primitive).
