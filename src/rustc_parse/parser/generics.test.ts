@@ -32,7 +32,29 @@ import type { PathStyle } from "./path.ts";
 const PREFIX = "gen_";
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
-const PENDING: Record<string, string> = {};
+const PENDING: Record<string, string> = {
+  gen_simple: "rustc_parse::parser::diagnostics::Parser::expect_gt_or_maybe_suggest_closing_generics",
+  gen_lifetimes: "rustc_parse::parser::diagnostics::Parser::expect_gt_or_maybe_suggest_closing_generics",
+  gen_bounds: "rustc_parse::parser::expr::Parser::is_builtin",
+  gen_const: "rustc_parse::parser::expr::Parser::is_builtin",
+  gen_where: "rustc_parse::parser::diagnostics::Parser::expect_gt_or_maybe_suggest_closing_generics",
+  gen_self_param: "rustc_parse::parser::diagnostics::Parser::dcx",
+  gen_lt_default: "rustc_parse::parser::diagnostics::Parser::dcx",
+  gen_const_missing_ty: "rustc_parse::parser::diagnostics::Parser::unexpected_err",
+  gen_mistyped_const: "rustc_parse::parser::expr::Parser::is_builtin",
+  gen_impl_trait_bound: "rustc_parse::parser::diagnostics::Parser::create_snapshot_for_diagnostic",
+  gen_assoc_bound: "rustc_parse::parser::diagnostics::Parser::create_snapshot_for_diagnostic",
+  gen_where_colon: "rustc_parse::parser::diagnostics::Parser::dcx",
+  gen_where_generics: "rustc_parse::parser::diagnostics::Parser::expect_gt_or_maybe_suggest_closing_generics",
+  gen_where_eq: "rustc_parse::parser::diagnostics::Parser::expect_gt_or_maybe_suggest_closing_generics",
+  gen_where_eq_qpath: "rustc_parse::parser::diagnostics::Parser::expect_gt_or_maybe_suggest_closing_generics",
+  gen_where_multiple: "rustc_parse::parser::diagnostics::Parser::dcx",
+  gen_unclosed: "rustc_parse::parser::diagnostics::Parser::expect_gt_or_maybe_suggest_closing_generics",
+  gen_path_sep: "rustc_parse::parser::diagnostics::Parser::dcx",
+  gen_attr_without: "rustc_parse::parser::diagnostics::Parser::dcx",
+  gen_attr_after: "rustc_parse::parser::diagnostics::Parser::dcx",
+  gen_where_doc_trailing: "rustc_parse::parser::diagnostics::Parser::dcx",
+};
 
 interface Case {
   name: string;
