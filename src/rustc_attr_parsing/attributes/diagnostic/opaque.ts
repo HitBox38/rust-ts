@@ -26,39 +26,40 @@ export interface OpaqueParser {
 export const OpaqueParser: AttributeParser<OpaqueParser> & {
   parse(self: OpaqueParser, cx: AcceptContext, args: ArgParser): void;
 } = {
-  ...AttributeParser_provided,
-  default: () => ({ attr_span: undefined }),
-  ATTRIBUTES: [
-    [
-      [sym.diagnostic, sym.opaque],
-      template({ Word: true }),
-      AttributeStability.Stable, // Unstable, stability checked manually below
-      (this_, cx, args) => {
-        if (gate_diagnostic_attr(cx, args, "diagnostic_opaque")) return;
-        OpaqueParser.parse(this_, cx, args);
-      },
+  ...AttributeParser_provided<OpaqueParser>({
+    default: () => ({ attr_span: undefined }),
+    ATTRIBUTES: [
+      [
+        [sym.diagnostic, sym.opaque],
+        template({ Word: true }),
+        AttributeStability.Stable, // Unstable, stability checked manually below
+        (this_, cx, args) => {
+          if (gate_diagnostic_attr(cx, args, "diagnostic_opaque")) return;
+          OpaqueParser.parse(this_, cx, args);
+        },
+      ],
+      [
+        // For use on exported macros, where using tool attributes is an error.
+        [sym.rustc_diagnostic_opaque],
+        template({ Word: true }),
+        unstable(
+          sym.rustc_attrs,
+          "see `#[diagnostic::opaque]` for the nightly equivalent of this attribute",
+        ),
+        (this_, cx, args) => OpaqueParser.parse(this_, cx, args),
+      ],
     ],
-    [
-      // For use on exported macros, where using tool attributes is an error.
-      [sym.rustc_diagnostic_opaque],
-      template({ Word: true }),
-      unstable(
-        sym.rustc_attrs,
-        "see `#[diagnostic::opaque]` for the nightly equivalent of this attribute",
-      ),
-      (this_, cx, args) => OpaqueParser.parse(this_, cx, args),
-    ],
-  ],
-  ALLOWED_TARGETS: { $: "AllowListWarnRest", _0: [Allow(Target.MacroDef)] },
+    ALLOWED_TARGETS: { $: "AllowListWarnRest", _0: [Allow(Target.MacroDef)] },
 
-  // rustc: compiler/rustc_attr_parsing/src/attributes/diagnostic/opaque.rs:46 finalize
-  finalize(self, _cx) {
-    if (self.attr_span !== undefined) {
-      return AttributeKind.Opaque;
-    } else {
-      return undefined;
-    }
-  },
+    // rustc: compiler/rustc_attr_parsing/src/attributes/diagnostic/opaque.rs:46 finalize
+    finalize(self, _cx) {
+      if (self.attr_span !== undefined) {
+        return AttributeKind.Opaque;
+      } else {
+        return undefined;
+      }
+    },
+  }),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/diagnostic/opaque.rs:52 parse
   parse(self: OpaqueParser, cx: AcceptContext, args: ArgParser): void {

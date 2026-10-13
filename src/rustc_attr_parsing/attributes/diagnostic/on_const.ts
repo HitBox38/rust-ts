@@ -14,8 +14,7 @@ export interface OnConstParser {
   directive: [Span, Directive] | undefined;
 }
 
-export const OnConstParser: AttributeParser<OnConstParser> = {
-  ...AttributeParser_provided,
+export const OnConstParser: AttributeParser<OnConstParser> = AttributeParser_provided<OnConstParser>({
   default: () => ({ path_span: undefined, directive: undefined }),
   ATTRIBUTES: [
     [
@@ -66,4 +65,4 @@ export const OnConstParser: AttributeParser<OnConstParser> = {
       return undefined;
     }
   },
-};
+});

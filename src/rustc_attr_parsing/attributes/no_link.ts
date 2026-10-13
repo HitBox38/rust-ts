@@ -3,8 +3,7 @@ import { AttributeStability } from "../../rustc_feature/lib.ts";
 import { NoArgsAttributeParser_provided } from "./mod.ts";
 import { Allow, AttributeKind, type NoArgsAttributeParser, OnDuplicate, sym, Target, Warn } from "./prelude.ts";
 
-export const NoLinkParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const NoLinkParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.no_link],
   ON_DUPLICATE: OnDuplicate.Warn,
   ALLOWED_TARGETS: {
@@ -13,4 +12,4 @@ export const NoLinkParser: NoArgsAttributeParser = {
   },
   STABILITY: AttributeStability.Stable,
   CREATE: (_) => AttributeKind.NoLink,
-};
+});

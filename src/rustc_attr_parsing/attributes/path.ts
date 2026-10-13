@@ -4,8 +4,7 @@ import { ExpectNameValue, ExpectStringLiteral } from "../context.ts";
 import { SingleAttributeParser_provided } from "./mod.ts";
 import { Allow, Error, OnDuplicate, type SingleAttributeParser, sym, Target, template } from "./prelude.ts";
 
-export const PathParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const PathParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.path],
   ON_DUPLICATE: OnDuplicate.WarnButFutureError,
   ALLOWED_TARGETS: { $: "AllowListWarnRest", _0: [Allow(Target.Mod), Error(Target.Crate)] },
@@ -24,4 +23,4 @@ export const PathParser: SingleAttributeParser = {
 
     return { $: "Path", _0: path, _1: cx.attr_span };
   },
-};
+});

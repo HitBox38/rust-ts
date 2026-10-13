@@ -17,8 +17,7 @@ import {
   unstable,
 } from "./prelude.ts";
 
-export const AllowInternalUnstableParser: CombineAttributeParser<[Symbol, Span]> = {
-  ...CombineAttributeParser_provided,
+export const AllowInternalUnstableParser: CombineAttributeParser<[Symbol, Span]> = CombineAttributeParser_provided<[Symbol, Span]>({
   PATH: [sym.allow_internal_unstable],
   CONVERT: (items, span) => ({ $: "AllowInternalUnstable", _0: items, _1: span }),
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.MacroDef), Allow(Target.Fn)] },
@@ -35,10 +34,9 @@ export const AllowInternalUnstableParser: CombineAttributeParser<[Symbol, Span]>
   finalize_check(cx, attr_span) {
     check_macro_only(cx, attr_span);
   },
-};
+});
 
-export const UnstableFeatureBoundParser: CombineAttributeParser<[Symbol, Span]> = {
-  ...CombineAttributeParser_provided,
+export const UnstableFeatureBoundParser: CombineAttributeParser<[Symbol, Span]> = CombineAttributeParser_provided<[Symbol, Span]>({
   PATH: [sym.unstable_feature_bound],
   CONVERT: (items, _) => ({ $: "UnstableFeatureBound", _0: items }),
   STABILITY: unstable(sym.staged_api),
@@ -53,10 +51,9 @@ export const UnstableFeatureBoundParser: CombineAttributeParser<[Symbol, Span]> 
     // `.into_iter().zip(iter::repeat(cx.attr_span))`
     return parse_unstable(cx, args, UnstableFeatureBoundParser.PATH[0]!).map((s): [Symbol, Span] => [s, cx.attr_span]);
   },
-};
+});
 
-export const RustcAllowConstFnUnstableParser: CombineAttributeParser<Symbol> = {
-  ...CombineAttributeParser_provided,
+export const RustcAllowConstFnUnstableParser: CombineAttributeParser<Symbol> = CombineAttributeParser_provided<Symbol>({
   PATH: [sym.rustc_allow_const_fn_unstable],
   CONVERT: (items, first_span) => ({ $: "RustcAllowConstFnUnstable", _0: items, _1: first_span }),
   ALLOWED_TARGETS: {
@@ -75,7 +72,7 @@ export const RustcAllowConstFnUnstableParser: CombineAttributeParser<Symbol> = {
   extend(cx, args) {
     return parse_unstable(cx, args, RustcAllowConstFnUnstableParser.PATH[0]!);
   },
-};
+});
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/allow_unstable.rs:83 parse_unstable
 function parse_unstable(cx: AcceptContext, args: ArgParser, symbol: Symbol): Symbol[] {

@@ -7,8 +7,7 @@ import { template } from "../../template.ts";
 import { OnDuplicate, type SingleAttributeParser, SingleAttributeParser_provided } from "../mod.ts";
 import { Allow, AttributeKind } from "../prelude.ts";
 
-export const DoNotRecommendParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const DoNotRecommendParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.diagnostic, sym.do_not_recommend],
   ON_DUPLICATE: OnDuplicate.Warn,
   // "Allowed" on any target, noop on all but trait impls
@@ -29,4 +28,4 @@ export const DoNotRecommendParser: SingleAttributeParser = {
 
     return AttributeKind.DoNotRecommend;
   },
-};
+});

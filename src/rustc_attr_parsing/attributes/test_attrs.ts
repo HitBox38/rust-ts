@@ -25,8 +25,7 @@ import {
   unstable,
 } from "./prelude.ts";
 
-export const IgnoreParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const IgnoreParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.ignore],
   ON_DUPLICATE: OnDuplicate.Warn,
   ALLOWED_TARGETS: { $: "AllowListWarnRest", _0: [Allow(Target.Fn), Error(Target.WherePredicate)] },
@@ -65,10 +64,9 @@ export const IgnoreParser: SingleAttributeParser = {
     }
     return { $: "Ignore", span: cx.attr_span, reason };
   },
-};
+});
 
-export const ShouldPanicParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const ShouldPanicParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.should_panic],
   ON_DUPLICATE: OnDuplicate.WarnButFutureError,
   ALLOWED_TARGETS: { $: "AllowListWarnRest", _0: [Allow(Target.Fn), Error(Target.WherePredicate)] },
@@ -105,10 +103,9 @@ export const ShouldPanicParser: SingleAttributeParser = {
     }
     return { $: "ShouldPanic", reason };
   },
-};
+});
 
-export const ReexportTestHarnessMainParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const ReexportTestHarnessMainParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.reexport_test_harness_main],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Crate)] },
   TEMPLATE: template({ NameValueStr: ["name"] }),
@@ -129,10 +126,9 @@ export const ReexportTestHarnessMainParser: SingleAttributeParser = {
 
     return { $: "ReexportTestHarnessMain", _0: name };
   },
-};
+});
 
-export const RustcAbiParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcAbiParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_abi],
   TEMPLATE: template({ OneOf: [sym.debug, sym.assert_eq] }),
   ALLOWED_TARGETS: {
@@ -183,18 +179,16 @@ export const RustcAbiParser: SingleAttributeParser = {
 
     return { $: "RustcAbi", attr_span: cx.attr_span, kind };
   },
-};
+});
 
-export const RustcDelayedBugFromInsideQueryParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDelayedBugFromInsideQueryParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_delayed_bug_from_inside_query],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Fn)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDelayedBugFromInsideQuery,
-};
+});
 
-export const RustcEvaluateWhereClausesParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcEvaluateWhereClausesParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_evaluate_where_clauses],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -208,10 +202,9 @@ export const RustcEvaluateWhereClausesParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcEvaluateWhereClauses,
-};
+});
 
-export const TestRunnerParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const TestRunnerParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.test_runner],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Crate)] },
   TEMPLATE: template({ List: ["path"] }),
@@ -230,10 +223,9 @@ export const TestRunnerParser: SingleAttributeParser = {
 
     return { $: "TestRunner", _0: clone_Path(meta.path()._0) };
   },
-};
+});
 
-export const RustcTestMarkerParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcTestMarkerParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_test_marker],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Const), Allow(Target.Fn), Allow(Target.Static)] },
   STABILITY: unstable(sym.rustc_attrs),
@@ -254,4 +246,4 @@ export const RustcTestMarkerParser: SingleAttributeParser = {
 
     return { $: "RustcTestMarker", _0: value_str };
   },
-};
+});

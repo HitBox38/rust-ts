@@ -14,8 +14,7 @@ export interface OnMoveParser {
   directive: [Span, Directive] | undefined;
 }
 
-export const OnMoveParser: AttributeParser<OnMoveParser> = {
-  ...AttributeParser_provided,
+export const OnMoveParser: AttributeParser<OnMoveParser> = AttributeParser_provided<OnMoveParser>({
   default: () => ({ span: undefined, directive: undefined }),
   ATTRIBUTES: [
     [
@@ -53,4 +52,4 @@ export const OnMoveParser: AttributeParser<OnMoveParser> = {
       return undefined;
     }
   },
-};
+});

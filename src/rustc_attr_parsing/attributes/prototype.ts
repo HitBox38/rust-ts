@@ -13,8 +13,7 @@ import { template } from "../template.ts";
 import { type SingleAttributeParser, SingleAttributeParser_provided } from "./mod.ts";
 import { Allow } from "./prelude.ts";
 
-export const CustomMirParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const CustomMirParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.custom_mir],
   STABILITY: unstable(sym.custom_mir),
 
@@ -63,7 +62,7 @@ export const CustomMirParser: SingleAttributeParser = {
 
     return { $: "CustomMir", _0: dialect_, _1: phase_ };
   },
-};
+});
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/prototype.rs:64 extract_value
 function extract_value(

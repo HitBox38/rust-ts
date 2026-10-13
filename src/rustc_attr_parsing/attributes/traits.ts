@@ -16,8 +16,7 @@ import {
   unstable,
 } from "./prelude.ts";
 
-export const RustcSkipDuringMethodDispatchParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcSkipDuringMethodDispatchParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_skip_during_method_dispatch],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
 
@@ -62,54 +61,48 @@ export const RustcSkipDuringMethodDispatchParser: SingleAttributeParser = {
     }
     return { $: "RustcSkipDuringMethodDispatch", array: array.value, boxed_slice: boxed_slice.value };
   },
-};
+});
 
-export const RustcParenSugarParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcParenSugarParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_paren_sugar],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
   STABILITY: unstable(sym.unboxed_closures),
   CREATE: (_) => AttributeKind.RustcParenSugar,
-};
+});
 
 // Markers
 
-export const MarkerParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const MarkerParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.marker],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
   STABILITY: unstable(sym.marker_trait_attr),
   CREATE: (_) => AttributeKind.Marker,
-};
+});
 
-export const RustcDenyExplicitImplParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDenyExplicitImplParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_deny_explicit_impl],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDenyExplicitImpl,
-};
+});
 
-export const RustcDynIncompatibleTraitParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDynIncompatibleTraitParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dyn_incompatible_trait],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (span) => ({ $: "RustcDynIncompatibleTrait", _0: span }),
-};
+});
 
 // Specialization
 
-export const RustcSpecializationTraitParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcSpecializationTraitParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_specialization_trait],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcSpecializationTrait,
-};
+});
 
-export const RustcAllowLifetimeDependentSpecializationParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcAllowLifetimeDependentSpecializationParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_allow_lifetime_dependent_specialization],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
   STABILITY: unstable(sym.rustc_attrs),
@@ -121,30 +114,27 @@ export const RustcAllowLifetimeDependentSpecializationParser: NoArgsAttributePar
       "the implementations of the trait are not considered when specializing",
     unsafe_since: undefined,
   } satisfies AttributeSafety,
-};
+});
 
 // Coherence
 
-export const RustcCoinductiveParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcCoinductiveParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_coinductive],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcCoinductive,
-};
+});
 
-export const RustcAllowIncoherentImplParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcAllowIncoherentImplParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_allow_incoherent_impl],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow({ $: "Method", _0: MethodKind.Inherent })] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (span) => ({ $: "RustcAllowIncoherentImpl", _0: span }),
-};
+});
 
-export const FundamentalParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const FundamentalParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.fundamental],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Struct), Allow(Target.Trait)] },
   STABILITY: unstable(sym.fundamental),
   CREATE: (_) => AttributeKind.Fundamental,
-};
+});

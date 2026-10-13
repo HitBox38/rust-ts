@@ -3,7 +3,8 @@
 // PORT: `use super::prelude::*;` -> named imports from this module. The `pub(super) use` items are
 // re-exported under their upstream names. `use crate::target_checking::Policy::{Allow, Error, Warn}`
 // imports enum variants as constructors; here they are constructor functions building the `Policy`
-// variant (`Allow(Target.Fn)` is `{ $: "Allow", _0: Target.Fn }`). `Error` shadows the JS global of
+// variant (`Allow(Target.Fn)` is `{ $: "Allow", _0: Target.Fn }`), defined here rather than taken from
+// target_checking.ts for the load-order reason given at `AllowedTargets` below. `Error` shadows the JS global of
 // the same name only in the modules that import it, like the Rust variant import does.
 // `ThinVec` maps to `T[]` and `crate::parser::*` to the named exports of parser.ts, so neither is
 // re-exported here.
@@ -49,6 +50,10 @@ export function Error(t: target.Target): Policy {
 export function Warn(t: target.Target): Policy {
   return { $: "Warn", _0: t };
 }
-export { AllowedTargets } from "../target_checking.ts";
+// PORT: type-only. target_checking.ts attaches methods to `AcceptContext` (context.ts) when it is
+// evaluated, and context.ts imports the parser modules: a value import from a parser module would
+// evaluate target_checking.ts while context.ts is still evaluating (TDZ). `ALL_TARGETS` (used by
+// doc.rs only) is not re-exported for the same reason.
+export type { AllowedTargets } from "../target_checking.ts";
 export { unstable } from "../stability.ts";
 export { AttributeTemplate, template } from "../template.ts";

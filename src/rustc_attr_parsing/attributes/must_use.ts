@@ -4,8 +4,7 @@ import { ExpectStringLiteral } from "../context.ts";
 import { SingleAttributeParser_provided } from "./mod.ts";
 import { Allow, Error, MethodKind, OnDuplicate, type SingleAttributeParser, sym, Target, template } from "./prelude.ts";
 
-export const MustUseParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const MustUseParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.must_use],
   ON_DUPLICATE: OnDuplicate.WarnButFutureError,
   ALLOWED_TARGETS: {
@@ -50,4 +49,4 @@ export const MustUseParser: SingleAttributeParser = {
     }
     return { $: "MustUse", span: cx.attr_span, reason };
   },
-};
+});

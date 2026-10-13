@@ -4,8 +4,7 @@ import { ExpectNameValue, ExpectStringLiteral } from "../context.ts";
 import { SingleAttributeParser_provided } from "./mod.ts";
 import { Allow, type SingleAttributeParser, Symbol, sym, Target, template, unstable } from "./prelude.ts";
 
-export const CfiEncodingParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const CfiEncodingParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.cfi_encoding],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -30,4 +29,4 @@ export const CfiEncodingParser: SingleAttributeParser = {
 
     return { $: "CfiEncoding", encoding: value_str };
   },
-};
+});

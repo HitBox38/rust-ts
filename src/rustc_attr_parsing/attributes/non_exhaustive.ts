@@ -5,8 +5,7 @@ import { NonExhaustiveWithDefaultFieldValues_diagnostic } from "../diagnostics.t
 import { NoArgsAttributeParser_provided } from "./mod.ts";
 import { Allow, type NoArgsAttributeParser, OnDuplicate, sym, Target, Warn } from "./prelude.ts";
 
-export const NonExhaustiveParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const NonExhaustiveParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.non_exhaustive],
   ON_DUPLICATE: OnDuplicate.Warn,
   ALLOWED_TARGETS: {
@@ -44,4 +43,4 @@ export const NonExhaustiveParser: NoArgsAttributeParser = {
       );
     }
   },
-};
+});

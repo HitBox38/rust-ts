@@ -14,8 +14,7 @@ export interface OnUnknownParser {
   directive: [Span, Directive] | undefined;
 }
 
-export const OnUnknownParser: AttributeParser<OnUnknownParser> = {
-  ...AttributeParser_provided,
+export const OnUnknownParser: AttributeParser<OnUnknownParser> = AttributeParser_provided<OnUnknownParser>({
   default: () => ({ span: undefined, directive: undefined }),
   ATTRIBUTES: [
     [
@@ -53,4 +52,4 @@ export const OnUnknownParser: AttributeParser<OnUnknownParser> = {
       return undefined;
     }
   },
-};
+});

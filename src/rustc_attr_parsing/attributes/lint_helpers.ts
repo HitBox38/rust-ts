@@ -5,8 +5,7 @@ import { RustcPubTransparent_diagnostic } from "../diagnostics.ts";
 import { NoArgsAttributeParser_provided } from "./mod.ts";
 import { Allow, AttributeKind, Error, MethodKind, type NoArgsAttributeParser, OnDuplicate, sym, Target, unstable } from "./prelude.ts";
 
-export const RustcAsPtrParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcAsPtrParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_as_ptr],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -20,10 +19,9 @@ export const RustcAsPtrParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcAsPtr,
-};
+});
 
-export const RustcPubTransparentParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcPubTransparentParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_pub_transparent],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Struct), Allow(Target.Enum), Allow(Target.Union)] },
   STABILITY: unstable(sym.rustc_attrs),
@@ -40,18 +38,16 @@ export const RustcPubTransparentParser: NoArgsAttributeParser = {
       cx.shared.emit_err(RustcPubTransparent_diagnostic({ span: cx.shared.target_span, attr_span }));
     }
   },
-};
+});
 
-export const RustcPassByValueParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcPassByValueParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_pass_by_value],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Struct), Allow(Target.Enum), Allow(Target.TyAlias)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcPassByValue,
-};
+});
 
-export const RustcShouldNotBeCalledOnConstItemsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcShouldNotBeCalledOnConstItemsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_should_not_be_called_on_const_items],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -59,10 +55,9 @@ export const RustcShouldNotBeCalledOnConstItemsParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcShouldNotBeCalledOnConstItems,
-};
+});
 
-export const AutomaticallyDerivedParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const AutomaticallyDerivedParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.automatically_derived],
   ON_DUPLICATE: OnDuplicate.Warn,
   ALLOWED_TARGETS: {
@@ -71,4 +66,4 @@ export const AutomaticallyDerivedParser: NoArgsAttributeParser = {
   },
   STABILITY: AttributeStability.Stable,
   CREATE: (_) => AttributeKind.AutomaticallyDerived,
-};
+});

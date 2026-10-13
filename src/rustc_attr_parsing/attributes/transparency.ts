@@ -4,8 +4,7 @@ import { ExpectNameValue } from "../context.ts";
 import { SingleAttributeParser_provided } from "./mod.ts";
 import { Allow, type SingleAttributeParser, sym, Target, template, unstable } from "./prelude.ts";
 
-export const RustcMacroTransparencyParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcMacroTransparencyParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_macro_transparency],
   STABILITY: unstable(sym.rustc_attrs),
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.MacroDef)] },
@@ -32,4 +31,4 @@ export const RustcMacroTransparencyParser: SingleAttributeParser = {
     // `.map(AttributeKind::RustcMacroTransparency)`
     return t === undefined ? undefined : { $: "RustcMacroTransparency", _0: t };
   },
-};
+});

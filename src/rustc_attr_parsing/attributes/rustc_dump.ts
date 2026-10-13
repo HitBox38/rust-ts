@@ -13,24 +13,21 @@ import {
   unstable,
 } from "./prelude.ts";
 
-export const RustcDumpUserArgsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpUserArgsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_user_args],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Fn)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDumpUserArgs,
-};
+});
 
-export const RustcDumpDefParentsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpDefParentsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_def_parents],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Fn)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDumpDefParents,
-};
+});
 
-export const RustcDumpDefPathParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcDumpDefPathParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_dump_def_path],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -51,10 +48,9 @@ export const RustcDumpDefPathParser: SingleAttributeParser = {
     if (cx.expect_no_args(args) === undefined) return undefined;
     return { $: "RustcDumpDefPath", _0: cx.attr_span };
   },
-};
+});
 
-export const RustcDumpGenericsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpGenericsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_generics],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -86,18 +82,16 @@ export const RustcDumpGenericsParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDumpGenerics,
-};
+});
 
-export const RustcDumpHiddenTypeOfOpaquesParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpHiddenTypeOfOpaquesParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_hidden_type_of_opaques],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Crate)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDumpHiddenTypeOfOpaques,
-};
+});
 
-export const RustcDumpInferredOutlivesParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpInferredOutlivesParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_inferred_outlives],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -105,10 +99,9 @@ export const RustcDumpInferredOutlivesParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDumpInferredOutlives,
-};
+});
 
-export const RustcDumpItemBoundsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpItemBoundsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_item_bounds],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -120,10 +113,9 @@ export const RustcDumpItemBoundsParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDumpItemBounds,
-};
+});
 
-export const RustcDumpLayoutParser: CombineAttributeParser<RustcDumpLayoutKind> = {
-  ...CombineAttributeParser_provided,
+export const RustcDumpLayoutParser: CombineAttributeParser<RustcDumpLayoutKind> = CombineAttributeParser_provided<RustcDumpLayoutKind>({
   PATH: [sym.rustc_dump_layout],
 
   CONVERT: (items, _) => ({ $: "RustcDumpLayout", _0: items }),
@@ -190,10 +182,9 @@ export const RustcDumpLayoutParser: CombineAttributeParser<RustcDumpLayoutKind> 
     }
     return result;
   },
-};
+});
 
-export const RustcDumpObjectLifetimeDefaultsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpObjectLifetimeDefaultsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_object_lifetime_defaults],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -223,10 +214,9 @@ export const RustcDumpObjectLifetimeDefaultsParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDumpObjectLifetimeDefaults,
-};
+});
 
-export const RustcDumpClausesParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpClausesParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_clauses],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -257,10 +247,9 @@ export const RustcDumpClausesParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDumpClauses,
-};
+});
 
-export const RustcDumpSymbolNameParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcDumpSymbolNameParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_dump_symbol_name],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -281,10 +270,9 @@ export const RustcDumpSymbolNameParser: SingleAttributeParser = {
     if (cx.expect_no_args(args) === undefined) return undefined;
     return { $: "RustcDumpSymbolName", _0: cx.attr_span };
   },
-};
+});
 
-export const RustcDumpVariancesParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpVariancesParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_variances],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -301,20 +289,18 @@ export const RustcDumpVariancesParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs, "the `rustc_dump_variances` attribute is used for rustc unit tests"),
   CREATE: (_) => AttributeKind.RustcDumpVariances,
-};
+});
 
-export const RustcDumpVariancesOfOpaquesParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpVariancesOfOpaquesParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_variances_of_opaques],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Crate)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcDumpVariancesOfOpaques,
-};
+});
 
-export const RustcDumpVtableParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDumpVtableParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_dump_vtable],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow({ $: "Impl", of_trait: true }), Allow(Target.TyAlias)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (span) => ({ $: "RustcDumpVtable", _0: span }),
-};
+});

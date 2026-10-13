@@ -13,8 +13,7 @@ import { Allow } from "./prelude.ts";
 const { DiffActivity, DiffMode } = expand.autodiff_attrs;
 type DiffActivity = expand.autodiff_attrs.DiffActivity;
 
-export const RustcAutodiffParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcAutodiffParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_autodiff],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -126,4 +125,4 @@ export const RustcAutodiffParser: SingleAttributeParser = {
       _0: new RustcAutodiff(mode, width, activities, ret_activity),
     };
   },
-};
+});

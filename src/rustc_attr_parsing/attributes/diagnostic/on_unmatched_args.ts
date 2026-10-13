@@ -14,8 +14,7 @@ export interface OnUnmatchedArgsParser {
   directive: [Span, Directive] | undefined;
 }
 
-export const OnUnmatchedArgsParser: AttributeParser<OnUnmatchedArgsParser> = {
-  ...AttributeParser_provided,
+export const OnUnmatchedArgsParser: AttributeParser<OnUnmatchedArgsParser> = AttributeParser_provided<OnUnmatchedArgsParser>({
   default: () => ({ span: undefined, directive: undefined }),
   ATTRIBUTES: [
     [
@@ -54,4 +53,4 @@ export const OnUnmatchedArgsParser: AttributeParser<OnUnmatchedArgsParser> = {
       return undefined;
     }
   },
-};
+});

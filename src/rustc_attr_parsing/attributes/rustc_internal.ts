@@ -55,8 +55,7 @@ import {
 } from "./prelude.ts";
 import { parse_single_integer } from "./util.ts";
 
-export const RustcMainParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcMainParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_main],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Fn)] },
   STABILITY: unstable(
@@ -64,10 +63,9 @@ export const RustcMainParser: NoArgsAttributeParser = {
     "the `rustc_main` attribute is used internally to specify test entry point function",
   ),
   CREATE: (_) => AttributeKind.RustcMain,
-};
+});
 
-export const RustcMustImplementOneOfParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcMustImplementOneOfParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_must_implement_one_of],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
   STABILITY: unstable(
@@ -125,10 +123,9 @@ export const RustcMustImplementOneOfParser: SingleAttributeParser = {
 
     return { $: "RustcMustImplementOneOf", attr_span: cx.attr_span, fn_names };
   },
-};
+});
 
-export const RustcNeverReturnsNullPtrParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcNeverReturnsNullPtrParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_never_returns_null_ptr],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -143,19 +140,17 @@ export const RustcNeverReturnsNullPtrParser: NoArgsAttributeParser = {
   STABILITY: unstable(sym.rustc_attrs),
 
   CREATE: (_) => AttributeKind.RustcNeverReturnsNullPtr,
-};
+});
 
-export const RustcPanicsWhenZeroParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcPanicsWhenZeroParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_panics_when_zero],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.ConstParam)] },
   STABILITY: unstable(sym.rustc_attrs),
 
   CREATE: (_) => AttributeKind.RustcPanicsWhenZero,
-};
+});
 
-export const RustcNoImplicitAutorefsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcNoImplicitAutorefsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_no_implicit_autorefs],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -170,10 +165,9 @@ export const RustcNoImplicitAutorefsParser: NoArgsAttributeParser = {
   STABILITY: unstable(sym.rustc_attrs),
 
   CREATE: (_) => AttributeKind.RustcNoImplicitAutorefs,
-};
+});
 
-export const RustcLegacyConstGenericsParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcLegacyConstGenericsParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_legacy_const_generics],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Fn)] },
   TEMPLATE: template({ List: ["N"] }),
@@ -272,10 +266,9 @@ export const RustcLegacyConstGenericsParser: SingleAttributeParser = {
       }
     }
   },
-};
+});
 
-export const RustcInheritOverflowChecksParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcInheritOverflowChecksParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_inherit_overflow_checks],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -288,10 +281,9 @@ export const RustcInheritOverflowChecksParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcInheritOverflowChecks,
-};
+});
 
-export const RustcLintOptDenyFieldAccessParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcLintOptDenyFieldAccessParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_lint_opt_deny_field_access],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Field)] },
   TEMPLATE: template({ Word: true }),
@@ -305,15 +297,14 @@ export const RustcLintOptDenyFieldAccessParser: SingleAttributeParser = {
 
     return { $: "RustcLintOptDenyFieldAccess", lint_message };
   },
-};
+});
 
-export const RustcLintOptTyParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcLintOptTyParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_lint_opt_ty],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Struct)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcLintOptTy,
-};
+});
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/rustc_internal.rs:254 parse_cgu_fields
 function parse_cgu_fields(
@@ -412,8 +403,7 @@ export interface RustcCguTestAttributeParser {
   items: [Span, CguFields][];
 }
 
-export const RustcCguTestAttributeParser: AttributeParser<RustcCguTestAttributeParser> = {
-  ...AttributeParser_provided,
+export const RustcCguTestAttributeParser: AttributeParser<RustcCguTestAttributeParser> = AttributeParser_provided<RustcCguTestAttributeParser>({
   default: () => ({ items: [] }),
   ATTRIBUTES: [
     [
@@ -461,10 +451,9 @@ export const RustcCguTestAttributeParser: AttributeParser<RustcCguTestAttributeP
   finalize(self, _cx) {
     return { $: "RustcCguTestAttr", _0: self.items };
   },
-};
+});
 
-export const RustcDeprecatedSafe2024Parser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcDeprecatedSafe2024Parser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_deprecated_safe_2024],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -498,10 +487,9 @@ export const RustcDeprecatedSafe2024Parser: SingleAttributeParser = {
 
     return { $: "RustcDeprecatedSafe2024", suggestion };
   },
-};
+});
 
-export const RustcConversionSuggestionParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcConversionSuggestionParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_conversion_suggestion],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -515,26 +503,23 @@ export const RustcConversionSuggestionParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcConversionSuggestion,
-};
+});
 
-export const RustcCaptureAnalysisParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcCaptureAnalysisParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_capture_analysis],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Closure)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcCaptureAnalysis,
-};
+});
 
-export const RustcTrivialFieldReadsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcTrivialFieldReadsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_trivial_field_reads],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Trait)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcTrivialFieldReads,
-};
+});
 
-export const RustcNoMirInlineParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcNoMirInlineParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_no_mir_inline],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -548,10 +533,9 @@ export const RustcNoMirInlineParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcNoMirInline,
-};
+});
 
-export const RustcNoWritableParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcNoWritableParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_no_writable],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -565,10 +549,9 @@ export const RustcNoWritableParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcNoWritable,
-};
+});
 
-export const RustcLintQueryInstabilityParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcLintQueryInstabilityParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_lint_query_instability],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -582,10 +565,9 @@ export const RustcLintQueryInstabilityParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcLintQueryInstability,
-};
+});
 
-export const RustcRegionsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcRegionsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_regions],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -599,10 +581,9 @@ export const RustcRegionsParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcRegions,
-};
+});
 
-export const RustcLintUntrackedQueryInformationParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcLintUntrackedQueryInformationParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_lint_untracked_query_information],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -616,10 +597,9 @@ export const RustcLintUntrackedQueryInformationParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcLintUntrackedQueryInformation,
-};
+});
 
-export const RustcSimdMonomorphizeLaneLimitParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcSimdMonomorphizeLaneLimitParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_simd_monomorphize_lane_limit],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Struct)] },
   TEMPLATE: template({ NameValueStr: ["N"] }),
@@ -633,10 +613,9 @@ export const RustcSimdMonomorphizeLaneLimitParser: SingleAttributeParser = {
     if (limit === undefined) return undefined;
     return { $: "RustcSimdMonomorphizeLaneLimit", _0: limit };
   },
-};
+});
 
-export const RustcScalableVectorParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcScalableVectorParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_scalable_vector],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Struct)] },
   TEMPLATE: template({ Word: true, List: ["count"] }),
@@ -658,10 +637,9 @@ export const RustcScalableVectorParser: SingleAttributeParser = {
     const n_ = Number(n);
     return { $: "RustcScalableVector", element_count: n_ };
   },
-};
+});
 
-export const LangParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const LangParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.lang],
   ALLOWED_TARGETS: { $: "ManuallyChecked" },
   TEMPLATE: template({ NameValueStr: ["name"] }),
@@ -697,10 +675,9 @@ export const LangParser: SingleAttributeParser = {
 
     return { $: "Lang", _0: lang_item };
   },
-};
+});
 
-export const RustcHasIncoherentInherentImplsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcHasIncoherentInherentImplsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_has_incoherent_inherent_impls],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -714,18 +691,16 @@ export const RustcHasIncoherentInherentImplsParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcHasIncoherentInherentImpls,
-};
+});
 
-export const PanicHandlerParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const PanicHandlerParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.panic_handler],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Fn)] },
   STABILITY: AttributeStability.Stable,
   CREATE: (_) => ({ $: "Lang", _0: LangItem.PanicImpl }),
-};
+});
 
-export const RustcNounwindParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcNounwindParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_nounwind],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -739,15 +714,14 @@ export const RustcNounwindParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcNounwind,
-};
+});
 
-export const RustcOffloadKernelParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcOffloadKernelParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_offload_kernel],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Fn)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcOffloadKernel,
-};
+});
 
 // PORT: `Path::file_name` is `self.components().next_back()` if it is a `Component::Normal`.
 // std/path.ts `Components` has no `next_back`; the last item of the forward iteration is the same
@@ -761,8 +735,7 @@ function path_file_name(path: string): string | undefined {
   return last !== undefined && last.$ === "Normal" ? last._0 : undefined;
 }
 
-export const RustcMirParser: CombineAttributeParser<RustcMirKind> = {
-  ...CombineAttributeParser_provided,
+export const RustcMirParser: CombineAttributeParser<RustcMirKind> = CombineAttributeParser_provided<RustcMirKind>({
   PATH: [sym.rustc_mir],
 
   CONVERT: (items, _) => ({ $: "RustcMir", _0: items }),
@@ -870,9 +843,8 @@ export const RustcMirParser: CombineAttributeParser<RustcMirKind> = {
     }
     return out;
   },
-};
-export const RustcNonConstTraitMethodParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+});
+export const RustcNonConstTraitMethodParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_non_const_trait_method],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -886,7 +858,7 @@ export const RustcNonConstTraitMethodParser: NoArgsAttributeParser = {
     "the `rustc_non_const_trait_method` attribute should only be used by the standard library to mark trait methods as non-const to allow large traits an easier transition to const",
   ),
   CREATE: (_) => AttributeKind.RustcNonConstTraitMethod,
-};
+});
 
 // PORT: `str::trim` trims `char::is_whitespace` (Unicode `White_Space`) from both ends; JS
 // `String.prototype.trim` uses a different set (it trims U+FEFF and keeps U+0085).
@@ -911,8 +883,7 @@ function str_trim(s: string): string {
   return s.slice(start, end);
 }
 
-export const RustcCleanParser: CombineAttributeParser<RustcCleanAttribute> = {
-  ...CombineAttributeParser_provided,
+export const RustcCleanParser: CombineAttributeParser<RustcCleanAttribute> = CombineAttributeParser_provided<RustcCleanAttribute>({
   PATH: [sym.rustc_clean],
 
   CONVERT: (items, _) => ({ $: "RustcClean", _0: items }),
@@ -1002,10 +973,9 @@ export const RustcCleanParser: CombineAttributeParser<RustcCleanAttribute> = {
 
     return [{ span: cx.attr_span, cfg, except, loaded_from_disk }];
   },
-};
+});
 
-export const RustcIfThisChangedParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcIfThisChangedParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_if_this_changed],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -1067,10 +1037,9 @@ export const RustcIfThisChangedParser: SingleAttributeParser = {
       }
     }
   },
-};
+});
 
-export const RustcThenThisWouldNeedParser: CombineAttributeParser<Ident> = {
-  ...CombineAttributeParser_provided,
+export const RustcThenThisWouldNeedParser: CombineAttributeParser<Ident> = CombineAttributeParser_provided<Ident>({
   PATH: [sym.rustc_then_this_would_need],
 
   CONVERT: (items, _span) => ({ $: "RustcThenThisWouldNeed", _0: items }),
@@ -1122,10 +1091,9 @@ export const RustcThenThisWouldNeedParser: CombineAttributeParser<Ident> = {
     }
     return [ident];
   },
-};
+});
 
-export const RustcInsignificantDtorParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcInsignificantDtorParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_insignificant_dtor],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -1133,10 +1101,9 @@ export const RustcInsignificantDtorParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcInsignificantDtor,
-};
+});
 
-export const RustcEffectiveVisibilityParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcEffectiveVisibilityParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_effective_visibility],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -1178,10 +1145,9 @@ export const RustcEffectiveVisibilityParser: NoArgsAttributeParser = {
   },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcEffectiveVisibility,
-};
+});
 
-export const RustcDiagnosticItemParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcDiagnosticItemParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_diagnostic_item],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -1222,10 +1188,9 @@ export const RustcDiagnosticItemParser: SingleAttributeParser = {
     if (value === undefined) return undefined;
     return { $: "RustcDiagnosticItem", _0: value };
   },
-};
+});
 
-export const RustcDoNotConstCheckParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcDoNotConstCheckParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_do_not_const_check],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -1242,10 +1207,9 @@ export const RustcDoNotConstCheckParser: NoArgsAttributeParser = {
     "the `rustc_do_not_const_check` attribute skips const-check for this function's body",
   ),
   CREATE: (_) => AttributeKind.RustcDoNotConstCheck,
-};
+});
 
-export const RustcNonnullOptimizationGuaranteedParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcNonnullOptimizationGuaranteedParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_nonnull_optimization_guaranteed],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Struct)] },
   STABILITY: unstable(
@@ -1254,10 +1218,9 @@ export const RustcNonnullOptimizationGuaranteedParser: NoArgsAttributeParser = {
     "the compiler does not even check whether the type indeed is being non-null-optimized; it is your responsibility to ensure that the attribute is only used on types that are optimized",
   ),
   CREATE: (_) => AttributeKind.RustcNonnullOptimizationGuaranteed,
-};
+});
 
-export const RustcStrictCoherenceParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcStrictCoherenceParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_strict_coherence],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -1272,18 +1235,16 @@ export const RustcStrictCoherenceParser: NoArgsAttributeParser = {
   STABILITY: unstable(sym.rustc_attrs),
   // `AttributeKind::RustcStrictCoherence` (the tuple variant's constructor fn)
   CREATE: (span) => ({ $: "RustcStrictCoherence", _0: span }),
-};
+});
 
-export const PreludeImportParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const PreludeImportParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.prelude_import],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Use)] },
   STABILITY: unstable(sym.prelude_import),
   CREATE: (_) => AttributeKind.PreludeImport,
-};
+});
 
-export const RustcDocPrimitiveParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcDocPrimitiveParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_doc_primitive],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Const)] },
   TEMPLATE: template({ NameValueStr: ["primitive name"] }),
@@ -1301,35 +1262,31 @@ export const RustcDocPrimitiveParser: SingleAttributeParser = {
 
     return { $: "RustcDocPrimitive", _0: cx.attr_span, _1: value_str };
   },
-};
+});
 
-export const RustcIntrinsicParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcIntrinsicParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_intrinsic],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Fn)] },
   STABILITY: unstable(sym.intrinsics),
   CREATE: (_) => AttributeKind.RustcIntrinsic,
-};
+});
 
-export const RustcIntrinsicConstStableIndirectParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcIntrinsicConstStableIndirectParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_intrinsic_const_stable_indirect],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Fn)] },
   STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => AttributeKind.RustcIntrinsicConstStableIndirect,
-};
+});
 
-export const RustcExhaustiveParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcExhaustiveParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_must_match_exhaustively],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Enum)] },
   STABILITY: unstable(sym.rustc_attrs),
   // `AttributeKind::RustcMustMatchExhaustively` (the tuple variant's constructor fn)
   CREATE: (span) => ({ $: "RustcMustMatchExhaustively", _0: span }),
-};
+});
 
-export const RustcCanonicalSymbolParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcCanonicalSymbolParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_canonical_symbol],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.ForeignFn)] },
   STABILITY: unstable(
@@ -1339,4 +1296,4 @@ export const RustcCanonicalSymbolParser: NoArgsAttributeParser = {
       "lints",
   ),
   CREATE: (_) => AttributeKind.RustcCanonicalSymbol,
-};
+});

@@ -44,40 +44,41 @@ export const OnUnimplementedParser: AttributeParser<OnUnimplementedParser> & {
     }
   },
 
-  ...AttributeParser_provided,
-  default: () => ({ span: undefined, directive: undefined }),
-  ATTRIBUTES: [
-    [
-      [sym.diagnostic, sym.on_unimplemented],
-      template({ List: [`/*opt*/ message = "...", /*opt*/ label = "...", /*opt*/ note = "..."`] }),
-      AttributeStability.Stable,
-      (this_, cx, args) => {
-        OnUnimplementedParser.parse(this_, cx, args, Mode.DiagnosticOnUnimplemented);
-      },
+  ...AttributeParser_provided<OnUnimplementedParser>({
+    default: () => ({ span: undefined, directive: undefined }),
+    ATTRIBUTES: [
+      [
+        [sym.diagnostic, sym.on_unimplemented],
+        template({ List: [`/*opt*/ message = "...", /*opt*/ label = "...", /*opt*/ note = "..."`] }),
+        AttributeStability.Stable,
+        (this_, cx, args) => {
+          OnUnimplementedParser.parse(this_, cx, args, Mode.DiagnosticOnUnimplemented);
+        },
+      ],
+      [
+        [sym.rustc_on_unimplemented],
+        template({ List: [`/*opt*/ message = "...", /*opt*/ label = "...", /*opt*/ note = "..."`] }),
+        unstable(
+          sym.rustc_attrs,
+          "see the `diagnostic::on_unimplemented` attribute for the stable equivalent of this attribute",
+        ),
+        (this_, cx, args) => {
+          OnUnimplementedParser.parse(this_, cx, args, Mode.RustcOnUnimplemented);
+        },
+      ],
     ],
-    [
-      [sym.rustc_on_unimplemented],
-      template({ List: [`/*opt*/ message = "...", /*opt*/ label = "...", /*opt*/ note = "..."`] }),
-      unstable(
-        sym.rustc_attrs,
-        "see the `diagnostic::on_unimplemented` attribute for the stable equivalent of this attribute",
-      ),
-      (this_, cx, args) => {
-        OnUnimplementedParser.parse(this_, cx, args, Mode.RustcOnUnimplemented);
-      },
-    ],
-  ],
-  ALLOWED_TARGETS: { $: "AllowListWarnRest", _0: [Allow(Target.Trait)] },
+    ALLOWED_TARGETS: { $: "AllowListWarnRest", _0: [Allow(Target.Trait)] },
 
-  // rustc: compiler/rustc_attr_parsing/src/attributes/diagnostic/on_unimplemented.rs:51 finalize
-  finalize(self, _cx) {
-    if (self.span !== undefined) {
-      return {
-        $: "OnUnimplemented",
-        directive: self.directive === undefined ? undefined : self.directive[1],
-      };
-    } else {
-      return undefined;
-    }
-  },
+    // rustc: compiler/rustc_attr_parsing/src/attributes/diagnostic/on_unimplemented.rs:51 finalize
+    finalize(self, _cx) {
+      if (self.span !== undefined) {
+        return {
+          $: "OnUnimplemented",
+          directive: self.directive === undefined ? undefined : self.directive[1],
+        };
+      } else {
+        return undefined;
+      }
+    },
+  }),
 };

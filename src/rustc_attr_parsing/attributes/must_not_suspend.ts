@@ -3,8 +3,7 @@ import { ExpectStringLiteral } from "../context.ts";
 import { SingleAttributeParser_provided } from "./mod.ts";
 import { Allow, type SingleAttributeParser, sym, Target, template, unstable } from "./prelude.ts";
 
-export const MustNotSuspendParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const MustNotSuspendParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.must_not_suspend],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -32,4 +31,4 @@ export const MustNotSuspendParser: SingleAttributeParser = {
 
     return { $: "MustNotSupend", reason };
   },
-};
+});

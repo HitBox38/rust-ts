@@ -5,8 +5,7 @@ import { ExpectNameValue, ExpectStringLiteral } from "../context.ts";
 import { CombineAttributeParser_provided } from "./mod.ts";
 import { Allow, type CombineAttributeParser, MetaItemOrLitParser, Span, sym, Target, template } from "./prelude.ts";
 
-export const DebuggerVisualizerParser: CombineAttributeParser<DebugVisualizer> = {
-  ...CombineAttributeParser_provided,
+export const DebuggerVisualizerParser: CombineAttributeParser<DebugVisualizer> = CombineAttributeParser_provided<DebugVisualizer>({
   PATH: [sym.debugger_visualizer],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Mod), Allow(Target.Crate)] },
   TEMPLATE: template(
@@ -43,4 +42,4 @@ export const DebuggerVisualizerParser: CombineAttributeParser<DebugVisualizer> =
 
     return [{ span: Span.to(ident.span, args_.value_span), visualizer_type, path }];
   },
-};
+});

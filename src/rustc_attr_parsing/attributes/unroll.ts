@@ -3,8 +3,7 @@ import { UnrollAttr } from "../../rustc_attr_ir/lib.ts";
 import { SingleAttributeParser_provided } from "./mod.ts";
 import { Allow, MetaItemOrLitParser, type SingleAttributeParser, sym, Target, template, unstable } from "./prelude.ts";
 
-export const UnrollParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const UnrollParser: SingleAttributeParser = SingleAttributeParser_provided({
   // FIXME(#159429): temporarily renamed to mitigate `#[unroll]` nameres ambiguity.
   PATH: [sym.rustc_unroll],
   ALLOWED_TARGETS: { $: "AllowList", _0: [Allow(Target.Loop), Allow(Target.ForLoop), Allow(Target.While)] },
@@ -51,4 +50,4 @@ export const UnrollParser: SingleAttributeParser = {
       }
     }
   },
-};
+});

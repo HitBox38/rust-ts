@@ -14,8 +14,7 @@ export interface OnTypeErrorParser {
   directive: [Span, Directive] | undefined;
 }
 
-export const OnTypeErrorParser: AttributeParser<OnTypeErrorParser> = {
-  ...AttributeParser_provided,
+export const OnTypeErrorParser: AttributeParser<OnTypeErrorParser> = AttributeParser_provided<OnTypeErrorParser>({
   default: () => ({ span: undefined, directive: undefined }),
   ATTRIBUTES: [
     [
@@ -57,4 +56,4 @@ export const OnTypeErrorParser: AttributeParser<OnTypeErrorParser> = {
       return undefined;
     }
   },
-};
+});

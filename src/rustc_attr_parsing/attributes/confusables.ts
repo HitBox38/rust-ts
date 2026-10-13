@@ -10,8 +10,7 @@ export interface ConfusablesParser {
   first_span: Span | undefined;
 }
 
-export const ConfusablesParser: AttributeParser<ConfusablesParser> = {
-  ...AttributeParser_provided,
+export const ConfusablesParser: AttributeParser<ConfusablesParser> = AttributeParser_provided<ConfusablesParser>({
   default: () => ({ confusables: [], first_span: undefined }),
   ATTRIBUTES: [
     [
@@ -50,4 +49,4 @@ export const ConfusablesParser: AttributeParser<ConfusablesParser> = {
 
     return { $: "RustcConfusables", confusables: self.confusables };
   },
-};
+});
