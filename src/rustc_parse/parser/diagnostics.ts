@@ -27,7 +27,7 @@ import type { Token, TokenKind, IdentKind } from "../../rustc_ast/token.ts";
 import { AssocOp, ExprPrecedence_discriminant } from "../../rustc_ast/util/parser.ts";
 import { MetaItemLit } from "../../rustc_ast/util/literal.ts";
 import * as pprust from "../../rustc_ast_pretty/pprust/mod.ts";
-import { type Diag, type DiagCtxtHandle, msg, type PResult } from "../../rustc_errors/lib.ts";
+import { type Diag, type DiagCtxtHandle, debug_Diag, msg, type PResult } from "../../rustc_errors/lib.ts";
 import { Applicability, pluralize } from "../../rustc_lint_defs/lib.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import {
@@ -2191,7 +2191,7 @@ Parser.prototype.parameter_without_type = function (
   // C-style parameter declaration.
   if (this.check_ident() && this.look_ahead(1, (t) => t.eq(TK.Comma) || t.eq(TK.CloseParen))) {
     // `fn foo(String s) {}`
-    const ident = unwrap_result(this.parse_ident_common(true));
+    const ident = unwrap_result(this.parse_ident_common(true), debug_Diag);
     const span = Span.with_hi(pat.span, Span.hi(ident.span));
 
     err.span_suggestion_verbose(
