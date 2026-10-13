@@ -3,7 +3,23 @@
 // UPSTREAM.json); 426 of 11158 values checked in lane span-wire (specials, thresholds 1e-4/1e16,
 // powers of 10 and 2, subnormals, f32::MAX/MIN_POSITIVE, random bit patterns).
 import { expect, test } from "bun:test";
-import { debug_f32, debug_f64, PLAIN } from "./fmt.ts";
+import {
+  type Debug,
+  debug_f32,
+  debug_f64,
+  debug_list,
+  debug_map,
+  debug_option,
+  debug_set,
+  debug_str,
+  debug_struct,
+  debug_tuple,
+  debug_vec,
+  type Fmt,
+  format_debug,
+  PLAIN,
+  PRETTY,
+} from "./fmt.ts";
 
 const CASES: [kind: "f64" | "f32", bits: string, expected: string][] = [
   ["f64", "0", "0.0"],
@@ -447,4 +463,90 @@ test("float Debug matches the oracle", () => {
     }
     expect(`${kind} ${bits} ${got}`).toBe(`${kind} ${bits} ${expected}`);
   }
+});
+
+// rust-ts: `{:#?}` indentation. `format_debug` (deferred pad, one pass) must give the same bytes as
+// the eager builders (`inner(v, PRETTY)`), and its cost must stay linear in the output size.
+
+/** A test tree that exercises every builder, eager subtrees and hand-padded children. */
+type Node = { $: "Leaf"; _0: string } | { $: "Br"; name: string; kids: Node[]; eager: boolean; mark: number };
+
+const debug_Node: Debug<Node> = (v, f) => {
+  if (v.$ === "Leaf") return debug_str(v._0);
+  // A subtree formatted with a plain `PRETTY` inside a deferred one (hand-written Debug impls do this).
+  const g: Fmt = v.eager && f.alternate ? PRETTY : f;
+  const kids = v.kids.map((k) => debug_Node(k, g));
+  switch (v.mark % 7) {
+    case 0:
+      return debug_struct(f, v.name, kids.map((k, i) => [`f${i}`, k]));
+    case 1:
+      return debug_tuple(f, v.name, kids);
+    case 2:
+      return debug_list(f, kids);
+    case 3:
+      return debug_set(f, kids);
+    case 4:
+      // multi-line keys too
+      return debug_map(f, kids.map((k, i) => [kids[(i + 1) % kids.length]!, k]));
+    case 5:
+      return debug_option(v.kids[0], f, debug_Node);
+    default: {
+      // a hand-written Debug that pads its children itself (as `debug_struct_finish_non_exhaustive` does)
+      if (!f.alternate) return v.name + " { " + kids.join(", ") + ", .. }";
+      let s = v.name + " {\n";
+      for (const k of kids) s += "    " + k.replaceAll("\n", "\n    ") + ",\n";
+      return s + "    ..\n}";
+    }
+  }
+};
+
+function tree(seed: number, depth: number): Node {
+  let x = seed;
+  const rnd = (n: number): number => ((x = (x * 1103515245 + 12345) & 0x7fffffff), x % n);
+  const go = (d: number): Node => {
+    if (d === 0 || rnd(5) === 0) {
+      const texts = ["", "a\nb", "\u{1F600}x", "\uD800\uDFFE", "tab\there", "plain"];
+      return { $: "Leaf", _0: texts[rnd(texts.length)]! };
+    }
+    const n = rnd(4);
+    return { $: "Br", name: rnd(3) === 0 ? "" : "N" + d, kids: Array.from({ length: n }, () => go(d - 1)), eager: rnd(6) === 0, mark: rnd(7) };
+  };
+  return go(depth);
+}
+
+test("format_debug gives the same bytes as the eager builders", () => {
+  const small: Node = { $: "Br", name: "S", mark: 1, eager: false, kids: [{ $: "Br", name: "T", mark: 0, eager: false, kids: [{ $: "Leaf", _0: "x" }] }] };
+  expect(format_debug(small, debug_Node, PRETTY)).toBe('S(\n    T {\n        f0: "x",\n    },\n)');
+  for (let seed = 1; seed <= 300; seed++) {
+    const t = tree(seed, 7);
+    expect(format_debug(t, debug_Node, PRETTY)).toBe(debug_Node(t, PRETTY));
+    expect(format_debug(t, debug_Node, PLAIN)).toBe(debug_Node(t, PLAIN));
+  }
+});
+
+/** `S(T { x: S(T { x: ... 0 }) })` */
+interface Chain {
+  next: Chain | undefined;
+}
+const debug_Chain: Debug<Chain> = (v, f) =>
+  debug_tuple(f, "S", [debug_struct(f, "T", [["x", v.next === undefined ? "0" : debug_Chain(v.next, f)]])]);
+
+test("format_debug of a deep chain is linear in the output size", () => {
+  // 2 indentation levels and 4 lines per step, so the output grows as depth^2. Eager padding
+  // re-copies every subtree at every level (time ~ depth^3: ~8x more per output byte at 8x the
+  // depth); the deferred pad must stay ~flat. Generous bound, one timed run per depth.
+  const run = (depth: number): [number, number] => {
+    let c: Chain = { next: undefined };
+    for (let i = 1; i < depth; i++) c = { next: c };
+    const t0 = performance.now();
+    const out = format_debug(c, debug_Chain, PRETTY);
+    return [performance.now() - t0, out.length];
+  };
+  run(250); // warm up
+  run(2000);
+  const [t_small, n_small] = run(250);
+  const [t_big, n_big] = run(2000);
+  expect(n_big).toBeGreaterThan(50 * n_small);
+  const per_byte_ratio = t_big / n_big / (Math.max(t_small, 0.5) / n_small);
+  expect(per_byte_ratio).toBeLessThan(3);
 });

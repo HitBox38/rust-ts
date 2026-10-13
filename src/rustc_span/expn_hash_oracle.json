@@ -1,0 +1,655 @@
+{
+ "//": "hashprobe compile --custom-name=expn_test.rs <src> --edition 2021: the crate's local expansions after expansion (ExpnData fields, DefPathHashes of macro_def_id / parent_module, spans with the marks of their SyntaxContext) and their ExpnHash, from the pinned rustc",
+ "custom_name": "expn_test.rs",
+ "edition": "Edition2021",
+ "src": "#![feature(no_core, decl_macro)]\n#![no_core]\n#![crate_type = \"lib\"]\n\nmacro_rules! inner {\n    () => {\n        struct Inner;\n    };\n}\n\nmacro_rules! outer {\n    ($n:ident) => {\n        inner!();\n        struct $n;\n    };\n}\n\nouter!(A);\n\nmacro_rules! nothing {\n    () => {};\n}\n\nmacro_rules! dup {\n    ($i:item) => {\n        $i\n        $i\n    };\n}\n\ndup!(nothing! {});\n\nmod m {\n    macro_rules! in_mod {\n        ($e:expr) => {\n            fn f() -> u8 {\n                $e\n            }\n        };\n    }\n    in_mod!(5);\n\n    pub macro opaque($name:ident) {\n        struct Hidden;\n        pub struct $name;\n    }\n    opaque!(Visible);\n\n    macro_rules! defines_mac {\n        () => {\n            macro_rules! defined {\n                () => {\n                    struct FromDefined;\n                };\n            }\n            defined!();\n        };\n    }\n    defines_mac!();\n}\n\nmacro_rules! uses_crate {\n    () => {\n        $crate::m::Visible\n    };\n}\n\nfn g() -> m::Visible {\n    uses_crate!()\n}\n\n// é 漢: multi-byte chars before the last invocation\nfn h() {}\nmod z {\n    outer!(B);\n}\n",
+ "stable_crate_id": "13408876052129304023",
+ "crate_name": "rust_out",
+ "crate_root": {
+  "krate": 0,
+  "index": 0,
+  "stable_crate_id": "13408876052129304023",
+  "local_hash": "13408876052129304023"
+ },
+ "cfg_version": "1.101.0-nightly (6f5da406b 2026-10-10)",
+ "files": [
+  {
+   "name": "Custom(\"expn_test.rs\")",
+   "start_pos": 0,
+   "len": 1081,
+   "stable_id": "StableSourceFileId(256196758781335367636254052497745157302)"
+  }
+ ],
+ "expns": [
+  {
+   "id": 0,
+   "hash": [
+    "0",
+    "0"
+   ],
+   "data": {
+    "kind": "Root",
+    "parent": [
+     0,
+     0
+    ],
+    "call_site": {
+     "lo": 0,
+     "hi": 0,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 0,
+     "hi": 0,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 0,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13408876052129304023"
+    },
+    "parent_module": null,
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 1,
+   "hash": [
+    "13408876052129304023",
+    "5948414811429628290"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"outer\")",
+    "parent": [
+     0,
+     0
+    ],
+    "call_site": {
+     "lo": 222,
+     "hi": 231,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 134,
+     "hi": 220,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 2,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "9804835385920039538"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 0,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13408876052129304023"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 2,
+   "hash": [
+    "13408876052129304023",
+    "13150139240047081478"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"dup\")",
+    "parent": [
+     0,
+     0
+    ],
+    "call_site": {
+     "lo": 344,
+     "hi": 361,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 274,
+     "hi": 342,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 4,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13475478031346823009"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 0,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13408876052129304023"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 3,
+   "hash": [
+    "13408876052129304023",
+    "17670217390347056981"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"in_mod\")",
+    "parent": [
+     0,
+     0
+    ],
+    "call_site": {
+     "lo": 502,
+     "hi": 512,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 376,
+     "hi": 497,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 6,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "4776604931973231181"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 5,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "17544195105488974087"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 4,
+   "hash": [
+    "13408876052129304023",
+    "12244969347401120580"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"opaque\")",
+    "parent": [
+     0,
+     0
+    ],
+    "call_site": {
+     "lo": 610,
+     "hi": 626,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 519,
+     "hi": 605,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 7,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "12478578321270007401"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 5,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "17544195105488974087"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 5,
+   "hash": [
+    "13408876052129304023",
+    "764900688289607661"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"defines_mac\")",
+    "parent": [
+     0,
+     0
+    ],
+    "call_site": {
+     "lo": 853,
+     "hi": 867,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 633,
+     "hi": 848,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 8,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "11908780118979381440"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 5,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "17544195105488974087"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 6,
+   "hash": [
+    "13408876052129304023",
+    "7592625295739967903"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"uses_crate\")",
+    "parent": [
+     0,
+     0
+    ],
+    "call_site": {
+     "lo": 974,
+     "hi": 987,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 872,
+     "hi": 945,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 9,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "2821634122903430825"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 0,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13408876052129304023"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 7,
+   "hash": [
+    "13408876052129304023",
+    "8620860929667997083"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"outer\")",
+    "parent": [
+     0,
+     0
+    ],
+    "call_site": {
+     "lo": 1068,
+     "hi": 1077,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 134,
+     "hi": 220,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 2,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "9804835385920039538"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 0,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13408876052129304023"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 8,
+   "hash": [
+    "13408876052129304023",
+    "16625877948162804556"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"inner\")",
+    "parent": [
+     0,
+     1
+    ],
+    "call_site": {
+     "lo": 183,
+     "hi": 191,
+     "ctxt": "#1",
+     "marks": [
+      [
+       0,
+       1,
+       "SemiOpaque"
+      ]
+     ],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 69,
+     "hi": 132,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 1,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "10941846607313744420"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 0,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13408876052129304023"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 9,
+   "hash": [
+    "13408876052129304023",
+    "14806911921050051832"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"nothing\")",
+    "parent": [
+     0,
+     2
+    ],
+    "call_site": {
+     "lo": 349,
+     "hi": 360,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 234,
+     "hi": 272,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 3,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "3478273710705877422"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 0,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13408876052129304023"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 10,
+   "hash": [
+    "13408876052129304023",
+    "8569293217709273614"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"nothing\")",
+    "parent": [
+     0,
+     2
+    ],
+    "call_site": {
+     "lo": 349,
+     "hi": 360,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "disambiguator": 1,
+    "def_site": {
+     "lo": 234,
+     "hi": 272,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 3,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "3478273710705877422"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 0,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13408876052129304023"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 11,
+   "hash": [
+    "13408876052129304023",
+    "12287417985755376404"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"defined\")",
+    "parent": [
+     0,
+     5
+    ],
+    "call_site": {
+     "lo": 820,
+     "hi": 830,
+     "ctxt": "#6",
+     "marks": [
+      [
+       0,
+       5,
+       "SemiOpaque"
+      ]
+     ],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 688,
+     "hi": 807,
+     "ctxt": "#6",
+     "marks": [
+      [
+       0,
+       5,
+       "SemiOpaque"
+      ]
+     ],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 22,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "12522461646102185490"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 5,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "17544195105488974087"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  },
+  {
+   "id": 12,
+   "hash": [
+    "13408876052129304023",
+    "11214685808669648564"
+   ],
+   "data": {
+    "kind": "Macro(Bang, \"inner\")",
+    "parent": [
+     0,
+     7
+    ],
+    "call_site": {
+     "lo": 183,
+     "hi": 191,
+     "ctxt": "#9",
+     "marks": [
+      [
+       0,
+       7,
+       "SemiOpaque"
+      ]
+     ],
+     "parent": null
+    },
+    "disambiguator": 0,
+    "def_site": {
+     "lo": 69,
+     "hi": 132,
+     "ctxt": "#0",
+     "marks": [],
+     "parent": null
+    },
+    "allow_internal_unstable": null,
+    "edition": "Edition2021",
+    "macro_def_id": {
+     "krate": 0,
+     "index": 1,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "10941846607313744420"
+    },
+    "parent_module": {
+     "krate": 0,
+     "index": 0,
+     "stable_crate_id": "13408876052129304023",
+     "local_hash": "13408876052129304023"
+    },
+    "allow_internal_unsafe": false,
+    "local_inner_macros": false,
+    "collapse_debuginfo": false,
+    "diagnostic_opaque": false
+   }
+  }
+ ]
+}

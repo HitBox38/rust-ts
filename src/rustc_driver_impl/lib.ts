@@ -21,6 +21,7 @@ import {
   ErrorOutputType,
   Input,
   type OutFileName,
+  OutFileName as OutFileNameImpl,
   PpMode,
   Sysroot,
   build_session_options,
@@ -30,7 +31,12 @@ import {
   parse_target_triple,
   rustc_optgroups,
 } from "../rustc_session/config.ts";
-import { CG_OPTIONS, type OptionDesc, OptionDesc as OptionDescC, type UnstableOptions, Z_OPTIONS } from "../rustc_session/options.ts";
+import { CG_OPTIONS, type OptionDesc, OptionDesc as OptionDescC, type UnstableOptions, Z_OPTIONS, str_cmp } from "../rustc_session/options.ts";
+import { find_gated_cfg } from "../rustc_feature/builtin_attrs.ts";
+import { Target_to_json, spec as target_spec } from "../rustc_target/lib.ts";
+import { JsonObject, to_string_pretty } from "../rustc_target/json.ts";
+import { TargetTuple } from "../rustc_target/spec/tuple.ts";
+import { Symbol } from "../rustc_span/symbol.ts";
 import { EarlyDiagCtxt, type Session } from "../rustc_session/session.ts";
 import type { TimePassesFormat } from "../rustc_session/stand_ins.ts";
 import { UnstableFeatures } from "../rustc_feature/lib.ts";
@@ -347,11 +353,13 @@ function handle_explain(_early_dcx: EarlyDiagCtxt, code: string, _color: unknown
 }
 
 // rustc: compiler/rustc_driver_impl/src/lib.rs:629 print_crate_info
-export function print_crate_info(_codegen_backend: CodegenBackend, sess: Session, _parse_attrs: boolean): Compilation {
+export function print_crate_info(codegen_backend: CodegenBackend, sess: Session, parse_attrs: boolean): Compilation {
   // use rustc_session::config::PrintKind::*;
   // This import prevents the following code from using the printing macros
   // used by the rest of the module. Within this function, we only write to
   // the output specified by `sess.io.output_file`.
+  // #[allow(unused_imports)]
+  // use {do_not_use_safe_print as safe_print, do_not_use_safe_print as safe_println};
 
   // NativeStaticLibs and LinkArgs are special - printed during linking
   // (empty iterator returns true)
@@ -359,8 +367,196 @@ export function print_crate_info(_codegen_backend: CodegenBackend, sess: Session
     return "Continue";
   }
 
-  // `let attrs = if parse_attrs { parse_crate_attrs(sess) .. }` and one arm per `PrintKind`.
-  return unported(`rustc_driver_impl::print_crate_info (--print ${sess.opts.prints.map((p) => p.kind).join(",")})`);
+  let attrs: AttrVec | undefined;
+  if (parse_attrs) {
+    const result = parse_crate_attrs(sess);
+    switch (result.$) {
+      case "Ok":
+        attrs = result._0;
+        break;
+      case "Err": {
+        const parse_error = result._0;
+        parse_error.emit();
+        return "Stop";
+      }
+    }
+  } else {
+    attrs = undefined;
+  }
+
+  for (const req of sess.opts.prints) {
+    let crate_info = "";
+    // macro println_info
+    const println_info = (s: string): void => {
+      crate_info += `${s}\n`;
+    };
+
+    switch (req.kind) {
+      case "TargetList": {
+        const targets = [...target_spec.TARGETS];
+        targets.sort(str_cmp);
+        println_info(targets.join("\n"));
+        break;
+      }
+      case "HostTuple":
+        println_info(host_tuple());
+        break;
+      case "WasmProcMacroTuple":
+        println_info(TargetTuple.display(sess.wasm_proc_macro_tuple));
+        break;
+      case "Sysroot":
+        println_info(sess.opts.sysroot.path());
+        break;
+      case "TargetLibdir":
+        println_info(sess.target_tlib_path.dir);
+        break;
+      case "TargetSpecJson":
+        println_info(to_string_pretty(Target_to_json(sess.target)));
+        break;
+      case "TargetSpecJsonSchema":
+        // `rustc_target::spec::json_schema()` (schemars)
+        return unported("rustc_target::spec::json_schema (--print target-spec-json-schema)");
+      case "AllTargetSpecsJson": {
+        const targets = new JsonObject();
+        for (const name of target_spec.TARGETS) {
+          const triple = TargetTuple.from_tuple(name);
+          const target = target_spec.Target.expect_builtin(triple);
+          targets.insert(name, Target_to_json(target));
+        }
+        println_info(to_string_pretty(targets));
+        break;
+      }
+      case "FileNames":
+        if (attrs === undefined) {
+          // no crate attributes, print out an error and exit
+          return "Continue";
+        }
+        // `build_output_filenames`, `get_crate_name`, `collect_crate_types`, `filename_for_input`
+        return unported("rustc_driver_impl::print_crate_info (--print file-names)");
+      case "CrateName":
+        if (attrs === undefined) {
+          // no crate attributes, print out an error and exit
+          return "Continue";
+        }
+        // `passes::get_crate_name(sess, attrs)`
+        return unported("rustc_interface::passes::get_crate_name (--print crate-name)");
+      case "CrateRootLintLevels":
+        if (attrs === undefined) {
+          // no crate attributes, print out an error and exit
+          return "Continue";
+        }
+        // rustc_lint `LintLevelsBuilder::crate_root`, rustc_expand `features`, rustc_resolve tools
+        return unported("rustc_driver_impl::print_crate_info (--print crate-root-lint-levels)");
+      case "Cfg": {
+        const cfgs = sess.config
+          .iter()
+          .map(([name, value]) => {
+            // On stable, exclude unstable flags.
+            if (!sess.is_nightly_build() && find_gated_cfg(name) !== undefined) {
+              return undefined;
+            }
+
+            if (value !== undefined) {
+              return `${Symbol.as_str(name)}="${Symbol.as_str(value)}"`;
+            } else {
+              return Symbol.as_str(name);
+            }
+          })
+          .filter((c): c is string => c !== undefined);
+
+        cfgs.sort(str_cmp);
+        for (const cfg of cfgs) {
+          println_info(cfg);
+        }
+        break;
+      }
+      case "CheckCfg": {
+        const check_cfgs: string[] = [];
+
+        // INSTABILITY: We are sorting the output below.
+        // #[allow(rustc::potential_query_instability)]
+        for (const [name, expected_values] of sess.check_config.expecteds) {
+          switch (expected_values.$) {
+            case "Any":
+              check_cfgs.push(`cfg(${Symbol.as_str(name)}, values(any()))`);
+              break;
+            case "Some": {
+              const values = [...expected_values._0].map((value) => {
+                if (value !== undefined) {
+                  return `"${Symbol.as_str(value)}"`;
+                } else {
+                  return "none()";
+                }
+              });
+
+              values.sort(str_cmp);
+
+              const values_ = values.join(", ");
+
+              check_cfgs.push(`cfg(${Symbol.as_str(name)}, values(${values_}))`);
+              break;
+            }
+          }
+        }
+
+        check_cfgs.sort(str_cmp);
+        if (!sess.check_config.exhaustive_names && sess.check_config.exhaustive_values) {
+          println_info("cfg(any())");
+        }
+        for (const check_cfg of check_cfgs) {
+          println_info(check_cfg);
+        }
+        break;
+      }
+      case "CallingConventions":
+        // `rustc_abi::all_names()`
+        return unported("rustc_abi::all_names (--print calling-conventions)");
+      case "BackendHasMnemonic":
+        // `codegen_backend.has_mnemonic(sess, req.arg)`
+        return unported("rustc_codegen_llvm::llvm_util::target_has_mnemonic (--print backend-has-mnemonic)");
+      case "BackendHasZstd":
+        // `codegen_backend.has_zstd()`
+        return unported("rustc_codegen_llvm::LLVMRustLLVMHasZstdCompression (--print backend-has-zstd)");
+      case "RelocationModels":
+      case "CodeModels":
+      case "TlsModels":
+      case "TargetCPUs":
+      case "StackProtectorStrategies":
+      case "TargetFeatures":
+        // `codegen_backend.print(req, &mut crate_info, sess)`
+        void codegen_backend;
+        return unported(`rustc_codegen_llvm::LlvmCodegenBackend::print (--print ${req.kind})`);
+      // Any output here interferes with Cargo's parsing of other printed output
+      case "NativeStaticLibs":
+        break;
+      case "LinkArgs":
+        break;
+      case "SplitDebuginfo": {
+        // use rustc_target::spec::SplitDebuginfo::{Off, Packed, Unpacked};
+
+        for (const split of ["Off", "Packed", "Unpacked"] as const) {
+          if (sess.target.options.supported_split_debuginfo.includes(split)) {
+            println_info(target_spec.SplitDebuginfo.display(split));
+          }
+        }
+        break;
+      }
+      case "DeploymentTarget":
+        if (sess.target.is_like_darwin) {
+          // `deployment_target_env_var(&sess.target.os)` = `sess.apple_deployment_target().fmt_pretty()`
+          return unported("rustc_session::session::EarlySession::apple_deployment_target (--print deployment-target)");
+        } else {
+          sess.dcx().fatal("only Apple targets currently support deployment version info");
+        }
+        break;
+      case "SupportedCrateTypes":
+        // `CrateType::all()` filtered by `rustc_session::output::invalid_output_for_target`
+        return unported("rustc_session::output::invalid_output_for_target (--print supported-crate-types)");
+    }
+
+    OutFileNameImpl.overwrite(req.out, crate_info, sess);
+  }
+  return "Stop";
 }
 
 /// Prints version information

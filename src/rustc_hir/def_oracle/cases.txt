@@ -1,0 +1,792 @@
+defkind.0.debug	Mod
+defkind.0.pretty	Mod
+defkind.0.descr.local	module
+defkind.0.descr.local_root	module
+defkind.0.descr.extern_root	crate
+defkind.0.article	a
+defkind.0.ns	Some(TypeNS)
+defkind.0.def_path_data	TypeNs("foo")
+defkind.0.flags	false true false false false false
+defkind.1.debug	Struct
+defkind.1.pretty	Struct
+defkind.1.descr.local	struct
+defkind.1.descr.local_root	struct
+defkind.1.descr.extern_root	struct
+defkind.1.article	a
+defkind.1.ns	Some(TypeNS)
+defkind.1.def_path_data	TypeNs("foo")
+defkind.1.flags	false false true false true false
+defkind.2.debug	Union
+defkind.2.pretty	Union
+defkind.2.descr.local	union
+defkind.2.descr.local_root	union
+defkind.2.descr.extern_root	union
+defkind.2.article	a
+defkind.2.ns	Some(TypeNS)
+defkind.2.def_path_data	TypeNs("foo")
+defkind.2.flags	false false true false true false
+defkind.3.debug	Enum
+defkind.3.pretty	Enum
+defkind.3.descr.local	enum
+defkind.3.descr.local_root	enum
+defkind.3.descr.extern_root	enum
+defkind.3.article	an
+defkind.3.ns	Some(TypeNS)
+defkind.3.def_path_data	TypeNs("foo")
+defkind.3.flags	false true true false true false
+defkind.4.debug	Variant
+defkind.4.pretty	Variant
+defkind.4.descr.local	variant
+defkind.4.descr.local_root	variant
+defkind.4.descr.extern_root	variant
+defkind.4.article	a
+defkind.4.ns	Some(TypeNS)
+defkind.4.def_path_data	TypeNs("foo")
+defkind.4.flags	false false false false true false
+defkind.5.debug	Trait
+defkind.5.pretty	Trait
+defkind.5.descr.local	trait
+defkind.5.descr.local_root	trait
+defkind.5.descr.extern_root	trait
+defkind.5.article	a
+defkind.5.ns	Some(TypeNS)
+defkind.5.def_path_data	TypeNs("foo")
+defkind.5.flags	false true false false true false
+defkind.6.debug	TyAlias
+defkind.6.pretty	TyAlias
+defkind.6.descr.local	type alias
+defkind.6.descr.local_root	type alias
+defkind.6.descr.extern_root	type alias
+defkind.6.article	a
+defkind.6.ns	Some(TypeNS)
+defkind.6.def_path_data	TypeNs("foo")
+defkind.6.flags	false false false false true false
+defkind.7.debug	ForeignTy
+defkind.7.pretty	ForeignTy
+defkind.7.descr.local	foreign type
+defkind.7.descr.local_root	foreign type
+defkind.7.descr.extern_root	foreign type
+defkind.7.article	a
+defkind.7.ns	Some(TypeNS)
+defkind.7.def_path_data	TypeNs("foo")
+defkind.7.flags	false false false false true false
+defkind.8.debug	TraitAlias
+defkind.8.pretty	TraitAlias
+defkind.8.descr.local	trait alias
+defkind.8.descr.local_root	trait alias
+defkind.8.descr.extern_root	trait alias
+defkind.8.article	a
+defkind.8.ns	Some(TypeNS)
+defkind.8.def_path_data	TypeNs("foo")
+defkind.8.flags	false false false false true false
+defkind.9.debug	AssocTy
+defkind.9.pretty	AssocTy
+defkind.9.descr.local	associated type
+defkind.9.descr.local_root	associated type
+defkind.9.descr.extern_root	associated type
+defkind.9.article	an
+defkind.9.ns	Some(TypeNS)
+defkind.9.def_path_data	TypeNs("foo")
+defkind.9.flags	true false false false true false
+defkind.10.debug	TyParam
+defkind.10.pretty	TyParam
+defkind.10.descr.local	type parameter
+defkind.10.descr.local_root	type parameter
+defkind.10.descr.extern_root	type parameter
+defkind.10.article	a
+defkind.10.ns	Some(TypeNS)
+defkind.10.def_path_data	TypeNs("foo")
+defkind.10.flags	false false false false false false
+defkind.11.debug	Fn
+defkind.11.pretty	Fn
+defkind.11.descr.local	function
+defkind.11.descr.local_root	function
+defkind.11.descr.extern_root	function
+defkind.11.article	a
+defkind.11.ns	Some(ValueNS)
+defkind.11.def_path_data	ValueNs("foo")
+defkind.11.flags	false false false true true true
+defkind.12.debug	Const
+defkind.12.pretty	Const
+defkind.12.descr.local	constant
+defkind.12.descr.local_root	constant
+defkind.12.descr.extern_root	constant
+defkind.12.article	a
+defkind.12.ns	Some(ValueNS)
+defkind.12.def_path_data	ValueNs("foo")
+defkind.12.flags	false false false false true false
+defkind.13.debug	ConstParam
+defkind.13.pretty	ConstParam
+defkind.13.descr.local	const parameter
+defkind.13.descr.local_root	const parameter
+defkind.13.descr.extern_root	const parameter
+defkind.13.article	a
+defkind.13.ns	Some(ValueNS)
+defkind.13.def_path_data	ValueNs("foo")
+defkind.13.flags	false false false false false false
+defkind.14.debug	Static { safety: Unsafe, mutability: Not, nested: false }
+defkind.14.pretty	Static {\n    safety: Unsafe,\n    mutability: Not,\n    nested: false,\n}
+defkind.14.descr.local	static
+defkind.14.descr.local_root	static
+defkind.14.descr.extern_root	static
+defkind.14.article	a
+defkind.14.ns	Some(ValueNS)
+defkind.14.def_path_data	ValueNs("foo")
+defkind.14.flags	false false false false true true
+defkind.15.debug	Static { safety: Unsafe, mutability: Not, nested: true }
+defkind.15.pretty	Static {\n    safety: Unsafe,\n    mutability: Not,\n    nested: true,\n}
+defkind.15.descr.local	static
+defkind.15.descr.local_root	static
+defkind.15.descr.extern_root	static
+defkind.15.article	a
+defkind.15.ns	Some(ValueNS)
+defkind.15.def_path_data	ValueNs("foo")
+defkind.15.flags	false false false false true true
+defkind.16.debug	Static { safety: Unsafe, mutability: Mut, nested: false }
+defkind.16.pretty	Static {\n    safety: Unsafe,\n    mutability: Mut,\n    nested: false,\n}
+defkind.16.descr.local	static
+defkind.16.descr.local_root	static
+defkind.16.descr.extern_root	static
+defkind.16.article	a
+defkind.16.ns	Some(ValueNS)
+defkind.16.def_path_data	ValueNs("foo")
+defkind.16.flags	false false false false true true
+defkind.17.debug	Static { safety: Unsafe, mutability: Mut, nested: true }
+defkind.17.pretty	Static {\n    safety: Unsafe,\n    mutability: Mut,\n    nested: true,\n}
+defkind.17.descr.local	static
+defkind.17.descr.local_root	static
+defkind.17.descr.extern_root	static
+defkind.17.article	a
+defkind.17.ns	Some(ValueNS)
+defkind.17.def_path_data	ValueNs("foo")
+defkind.17.flags	false false false false true true
+defkind.18.debug	Static { safety: Safe, mutability: Not, nested: false }
+defkind.18.pretty	Static {\n    safety: Safe,\n    mutability: Not,\n    nested: false,\n}
+defkind.18.descr.local	static
+defkind.18.descr.local_root	static
+defkind.18.descr.extern_root	static
+defkind.18.article	a
+defkind.18.ns	Some(ValueNS)
+defkind.18.def_path_data	ValueNs("foo")
+defkind.18.flags	false false false false true true
+defkind.19.debug	Static { safety: Safe, mutability: Not, nested: true }
+defkind.19.pretty	Static {\n    safety: Safe,\n    mutability: Not,\n    nested: true,\n}
+defkind.19.descr.local	static
+defkind.19.descr.local_root	static
+defkind.19.descr.extern_root	static
+defkind.19.article	a
+defkind.19.ns	Some(ValueNS)
+defkind.19.def_path_data	ValueNs("foo")
+defkind.19.flags	false false false false true true
+defkind.20.debug	Static { safety: Safe, mutability: Mut, nested: false }
+defkind.20.pretty	Static {\n    safety: Safe,\n    mutability: Mut,\n    nested: false,\n}
+defkind.20.descr.local	static
+defkind.20.descr.local_root	static
+defkind.20.descr.extern_root	static
+defkind.20.article	a
+defkind.20.ns	Some(ValueNS)
+defkind.20.def_path_data	ValueNs("foo")
+defkind.20.flags	false false false false true true
+defkind.21.debug	Static { safety: Safe, mutability: Mut, nested: true }
+defkind.21.pretty	Static {\n    safety: Safe,\n    mutability: Mut,\n    nested: true,\n}
+defkind.21.descr.local	static
+defkind.21.descr.local_root	static
+defkind.21.descr.extern_root	static
+defkind.21.article	a
+defkind.21.ns	Some(ValueNS)
+defkind.21.def_path_data	ValueNs("foo")
+defkind.21.flags	false false false false true true
+defkind.22.debug	Ctor(Struct, Fn)
+defkind.22.pretty	Ctor(\n    Struct,\n    Fn,\n)
+defkind.22.descr.local	tuple struct
+defkind.22.descr.local_root	tuple struct
+defkind.22.descr.extern_root	tuple struct
+defkind.22.article	a
+defkind.22.ns	Some(ValueNS)
+defkind.22.def_path_data	Ctor
+defkind.22.flags	false false false false true true
+defkind.23.debug	Ctor(Struct, Const)
+defkind.23.pretty	Ctor(\n    Struct,\n    Const,\n)
+defkind.23.descr.local	unit struct
+defkind.23.descr.local_root	unit struct
+defkind.23.descr.extern_root	unit struct
+defkind.23.article	a
+defkind.23.ns	Some(ValueNS)
+defkind.23.def_path_data	Ctor
+defkind.23.flags	false false false false true true
+defkind.24.debug	Ctor(Variant, Fn)
+defkind.24.pretty	Ctor(\n    Variant,\n    Fn,\n)
+defkind.24.descr.local	tuple variant
+defkind.24.descr.local_root	tuple variant
+defkind.24.descr.extern_root	tuple variant
+defkind.24.article	a
+defkind.24.ns	Some(ValueNS)
+defkind.24.def_path_data	Ctor
+defkind.24.flags	false false false false true true
+defkind.25.debug	Ctor(Variant, Const)
+defkind.25.pretty	Ctor(\n    Variant,\n    Const,\n)
+defkind.25.descr.local	unit variant
+defkind.25.descr.local_root	unit variant
+defkind.25.descr.extern_root	unit variant
+defkind.25.article	a
+defkind.25.ns	Some(ValueNS)
+defkind.25.def_path_data	Ctor
+defkind.25.flags	false false false false true true
+defkind.26.debug	AssocFn
+defkind.26.pretty	AssocFn
+defkind.26.descr.local	associated function
+defkind.26.descr.local_root	associated function
+defkind.26.descr.extern_root	associated function
+defkind.26.article	an
+defkind.26.ns	Some(ValueNS)
+defkind.26.def_path_data	ValueNs("foo")
+defkind.26.flags	true false false true true true
+defkind.27.debug	AssocConst
+defkind.27.pretty	AssocConst
+defkind.27.descr.local	associated constant
+defkind.27.descr.local_root	associated constant
+defkind.27.descr.extern_root	associated constant
+defkind.27.article	an
+defkind.27.ns	Some(ValueNS)
+defkind.27.def_path_data	ValueNs("foo")
+defkind.27.flags	true false false false true false
+defkind.28.debug	Macro(MacroKinds(0))
+defkind.28.pretty	Macro(\n    MacroKinds(\n        0,\n    ),\n)
+defkind.28.descr.local	useless macro
+defkind.28.descr.local_root	useless macro
+defkind.28.descr.extern_root	useless macro
+defkind.28.article	a
+defkind.28.ns	Some(MacroNS)
+defkind.28.def_path_data	MacroNs("foo")
+defkind.28.flags	false false false false false false
+defkind.29.debug	Macro(MacroKinds(1))
+defkind.29.pretty	Macro(\n    MacroKinds(\n        1,\n    ),\n)
+defkind.29.descr.local	macro
+defkind.29.descr.local_root	macro
+defkind.29.descr.extern_root	macro
+defkind.29.article	a
+defkind.29.ns	Some(MacroNS)
+defkind.29.def_path_data	MacroNs("foo")
+defkind.29.flags	false false false false false false
+defkind.30.debug	Macro(MacroKinds(2))
+defkind.30.pretty	Macro(\n    MacroKinds(\n        2,\n    ),\n)
+defkind.30.descr.local	attribute macro
+defkind.30.descr.local_root	attribute macro
+defkind.30.descr.extern_root	attribute macro
+defkind.30.article	an
+defkind.30.ns	Some(MacroNS)
+defkind.30.def_path_data	MacroNs("foo")
+defkind.30.flags	false false false false false false
+defkind.31.debug	Macro(MacroKinds(3))
+defkind.31.pretty	Macro(\n    MacroKinds(\n        3,\n    ),\n)
+defkind.31.descr.local	attribute/function macro
+defkind.31.descr.local_root	attribute/function macro
+defkind.31.descr.extern_root	attribute/function macro
+defkind.31.article	an
+defkind.31.ns	Some(MacroNS)
+defkind.31.def_path_data	MacroNs("foo")
+defkind.31.flags	false false false false false false
+defkind.32.debug	Macro(MacroKinds(4))
+defkind.32.pretty	Macro(\n    MacroKinds(\n        4,\n    ),\n)
+defkind.32.descr.local	derive macro
+defkind.32.descr.local_root	derive macro
+defkind.32.descr.extern_root	derive macro
+defkind.32.article	a
+defkind.32.ns	Some(MacroNS)
+defkind.32.def_path_data	MacroNs("foo")
+defkind.32.flags	false false false false false false
+defkind.33.debug	Macro(MacroKinds(5))
+defkind.33.pretty	Macro(\n    MacroKinds(\n        5,\n    ),\n)
+defkind.33.descr.local	derive/function macro
+defkind.33.descr.local_root	derive/function macro
+defkind.33.descr.extern_root	derive/function macro
+defkind.33.article	a
+defkind.33.ns	Some(MacroNS)
+defkind.33.def_path_data	MacroNs("foo")
+defkind.33.flags	false false false false false false
+defkind.34.debug	Macro(MacroKinds(6))
+defkind.34.pretty	Macro(\n    MacroKinds(\n        6,\n    ),\n)
+defkind.34.descr.local	attribute/derive macro
+defkind.34.descr.local_root	attribute/derive macro
+defkind.34.descr.extern_root	attribute/derive macro
+defkind.34.article	an
+defkind.34.ns	Some(MacroNS)
+defkind.34.def_path_data	MacroNs("foo")
+defkind.34.flags	false false false false false false
+defkind.35.debug	Macro(MacroKinds(7))
+defkind.35.pretty	Macro(\n    MacroKinds(\n        7,\n    ),\n)
+defkind.35.descr.local	attribute/derive/function macro
+defkind.35.descr.local_root	attribute/derive/function macro
+defkind.35.descr.extern_root	attribute/derive/function macro
+defkind.35.article	an
+defkind.35.ns	Some(MacroNS)
+defkind.35.def_path_data	MacroNs("foo")
+defkind.35.flags	false false false false false false
+defkind.36.debug	ExternCrate
+defkind.36.pretty	ExternCrate
+defkind.36.descr.local	extern crate
+defkind.36.descr.local_root	extern crate
+defkind.36.descr.extern_root	extern crate
+defkind.36.article	an
+defkind.36.ns	None
+defkind.36.def_path_data	TypeNs("foo")
+defkind.36.flags	false false false false false false
+defkind.37.debug	Use
+defkind.37.pretty	Use
+defkind.37.descr.local	import
+defkind.37.descr.local_root	import
+defkind.37.descr.extern_root	import
+defkind.37.article	an
+defkind.37.ns	None
+defkind.37.def_path_data	Use
+defkind.37.flags	false false false false false false
+defkind.38.debug	ForeignMod
+defkind.38.pretty	ForeignMod
+defkind.38.descr.local	foreign module
+defkind.38.descr.local_root	foreign module
+defkind.38.descr.extern_root	foreign module
+defkind.38.article	a
+defkind.38.ns	None
+defkind.38.def_path_data	ForeignMod
+defkind.38.flags	false false false false false false
+defkind.39.debug	AnonConst
+defkind.39.pretty	AnonConst
+defkind.39.descr.local	constant expression
+defkind.39.descr.local_root	constant expression
+defkind.39.descr.extern_root	constant expression
+defkind.39.article	a
+defkind.39.ns	None
+defkind.39.def_path_data	AnonConst
+defkind.39.flags	false false false false true false
+defkind.40.debug	OpaqueTy
+defkind.40.pretty	OpaqueTy
+defkind.40.descr.local	opaque type
+defkind.40.descr.local_root	opaque type
+defkind.40.descr.extern_root	opaque type
+defkind.40.article	an
+defkind.40.ns	None
+defkind.40.def_path_data	OpaqueTy
+defkind.40.flags	false false false false true false
+defkind.41.debug	Field
+defkind.41.pretty	Field
+defkind.41.descr.local	field
+defkind.41.descr.local_root	field
+defkind.41.descr.extern_root	field
+defkind.41.article	a
+defkind.41.ns	None
+defkind.41.def_path_data	ValueNs("foo")
+defkind.41.flags	false false false false true false
+defkind.42.debug	LifetimeParam
+defkind.42.pretty	LifetimeParam
+defkind.42.descr.local	lifetime parameter
+defkind.42.descr.local_root	lifetime parameter
+defkind.42.descr.extern_root	lifetime parameter
+defkind.42.article	a
+defkind.42.ns	None
+defkind.42.def_path_data	LifetimeNs("foo")
+defkind.42.flags	false false false false false false
+defkind.43.debug	GlobalAsm
+defkind.43.pretty	GlobalAsm
+defkind.43.descr.local	global assembly block
+defkind.43.descr.local_root	global assembly block
+defkind.43.descr.extern_root	global assembly block
+defkind.43.article	a
+defkind.43.ns	None
+defkind.43.def_path_data	GlobalAsm
+defkind.43.flags	false false false false false false
+defkind.44.debug	Impl { of_trait: false }
+defkind.44.pretty	Impl {\n    of_trait: false,\n}
+defkind.44.descr.local	implementation
+defkind.44.descr.local_root	implementation
+defkind.44.descr.extern_root	implementation
+defkind.44.article	an
+defkind.44.ns	None
+defkind.44.def_path_data	Impl
+defkind.44.flags	false false false false true false
+defkind.45.debug	Impl { of_trait: true }
+defkind.45.pretty	Impl {\n    of_trait: true,\n}
+defkind.45.descr.local	implementation
+defkind.45.descr.local_root	implementation
+defkind.45.descr.extern_root	implementation
+defkind.45.article	an
+defkind.45.ns	None
+defkind.45.def_path_data	Impl
+defkind.45.flags	false false false false true false
+defkind.46.debug	Closure
+defkind.46.pretty	Closure
+defkind.46.descr.local	closure
+defkind.46.descr.local_root	closure
+defkind.46.descr.extern_root	closure
+defkind.46.article	a
+defkind.46.ns	None
+defkind.46.def_path_data	Closure
+defkind.46.flags	false false false true true true
+defkind.47.debug	SyntheticCoroutineBody
+defkind.47.pretty	SyntheticCoroutineBody
+defkind.47.descr.local	synthetic mir body
+defkind.47.descr.local_root	synthetic mir body
+defkind.47.descr.extern_root	synthetic mir body
+defkind.47.article	a
+defkind.47.ns	None
+defkind.47.def_path_data	SyntheticCoroutineBody
+defkind.47.flags	false false false true true true
+defkind.48.debug	TestBinderConstraints
+defkind.48.pretty	TestBinderConstraints
+defkind.48.descr.local	test_binder_constraints!
+defkind.48.descr.local_root	test_binder_constraints!
+defkind.48.descr.extern_root	test_binder_constraints!
+defkind.48.article	a
+defkind.48.ns	None
+defkind.48.def_path_data	TestBinderConstraints
+defkind.48.flags	false false false false true false
+macrokinds.0	MacroKinds(0) "useless macro" a
+macrokinds.1	MacroKinds(1) "macro" a
+macrokinds.2	MacroKinds(2) "attribute macro" an
+macrokinds.3	MacroKinds(3) "attribute/function macro" an
+macrokinds.4	MacroKinds(4) "derive macro" a
+macrokinds.5	MacroKinds(5) "derive/function macro" a
+macrokinds.6	MacroKinds(6) "attribute/derive macro" an
+macrokinds.7	MacroKinds(7) "attribute/derive/function macro" an
+res.0.debug	Def(Fn, DefId { krate: crate0, index: DefIndex(7) })
+res.0.pretty	Def(\n    Fn,\n    DefId {\n        krate: crate0,\n        index: DefIndex(7),\n    },\n)
+res.0.descr	function
+res.0.article	a
+res.0.ns	Some(ValueNS)
+res.0.macro_kinds	None
+res.0.matches_ns	false true false
+res.0.ids	Some(DefId { krate: crate0, index: DefIndex(7) }) None None
+res.0.pat	false false
+res.0.map_id	Def(Fn, DefId { krate: crate0, index: DefIndex(7) })
+res.1.debug	Def(Mod, DefId { krate: crate0, index: DefIndex(0) })
+res.1.pretty	Def(\n    Mod,\n    DefId {\n        krate: crate0,\n        index: DefIndex(0),\n    },\n)
+res.1.descr	module
+res.1.article	a
+res.1.ns	Some(TypeNS)
+res.1.macro_kinds	None
+res.1.matches_ns	true false false
+res.1.ids	Some(DefId { krate: crate0, index: DefIndex(0) }) Some(DefId { krate: crate0, index: DefIndex(0) }) Some(DefId { krate: crate0, index: DefIndex(0) })
+res.1.pat	false false
+res.1.map_id	Def(Mod, DefId { krate: crate0, index: DefIndex(0) })
+res.2.debug	Def(Mod, DefId { krate: crate3, index: DefIndex(0) })
+res.2.pretty	Def(\n    Mod,\n    DefId {\n        krate: crate3,\n        index: DefIndex(0),\n    },\n)
+res.2.descr	crate
+res.2.article	a
+res.2.ns	Some(TypeNS)
+res.2.macro_kinds	None
+res.2.matches_ns	true false false
+res.2.ids	Some(DefId { krate: crate3, index: DefIndex(0) }) Some(DefId { krate: crate3, index: DefIndex(0) }) Some(DefId { krate: crate3, index: DefIndex(0) })
+res.2.pat	false false
+res.2.map_id	Def(Mod, DefId { krate: crate3, index: DefIndex(0) })
+res.3.debug	Def(Enum, DefId { krate: crate0, index: DefIndex(7) })
+res.3.pretty	Def(\n    Enum,\n    DefId {\n        krate: crate0,\n        index: DefIndex(7),\n    },\n)
+res.3.descr	enum
+res.3.article	an
+res.3.ns	Some(TypeNS)
+res.3.macro_kinds	None
+res.3.matches_ns	true false false
+res.3.ids	Some(DefId { krate: crate0, index: DefIndex(7) }) None Some(DefId { krate: crate0, index: DefIndex(7) })
+res.3.pat	false false
+res.3.map_id	Def(Enum, DefId { krate: crate0, index: DefIndex(7) })
+res.4.debug	Def(Trait, DefId { krate: crate0, index: DefIndex(7) })
+res.4.pretty	Def(\n    Trait,\n    DefId {\n        krate: crate0,\n        index: DefIndex(7),\n    },\n)
+res.4.descr	trait
+res.4.article	a
+res.4.ns	Some(TypeNS)
+res.4.macro_kinds	None
+res.4.matches_ns	true false false
+res.4.ids	Some(DefId { krate: crate0, index: DefIndex(7) }) None Some(DefId { krate: crate0, index: DefIndex(7) })
+res.4.pat	false false
+res.4.map_id	Def(Trait, DefId { krate: crate0, index: DefIndex(7) })
+res.5.debug	Def(Ctor(Struct, Fn), DefId { krate: crate0, index: DefIndex(7) })
+res.5.pretty	Def(\n    Ctor(\n        Struct,\n        Fn,\n    ),\n    DefId {\n        krate: crate0,\n        index: DefIndex(7),\n    },\n)
+res.5.descr	tuple struct
+res.5.article	a
+res.5.ns	Some(ValueNS)
+res.5.macro_kinds	None
+res.5.matches_ns	false true false
+res.5.ids	Some(DefId { krate: crate0, index: DefIndex(7) }) None None
+res.5.pat	true false
+res.5.map_id	Def(Ctor(Struct, Fn), DefId { krate: crate0, index: DefIndex(7) })
+res.6.debug	Def(Ctor(Variant, Const), DefId { krate: crate0, index: DefIndex(7) })
+res.6.pretty	Def(\n    Ctor(\n        Variant,\n        Const,\n    ),\n    DefId {\n        krate: crate0,\n        index: DefIndex(7),\n    },\n)
+res.6.descr	unit variant
+res.6.article	a
+res.6.ns	Some(ValueNS)
+res.6.macro_kinds	None
+res.6.matches_ns	false true false
+res.6.ids	Some(DefId { krate: crate0, index: DefIndex(7) }) None None
+res.6.pat	false true
+res.6.map_id	Def(Ctor(Variant, Const), DefId { krate: crate0, index: DefIndex(7) })
+res.7.debug	Def(Macro(MacroKinds(6)), DefId { krate: crate0, index: DefIndex(7) })
+res.7.pretty	Def(\n    Macro(\n        MacroKinds(\n            6,\n        ),\n    ),\n    DefId {\n        krate: crate0,\n        index: DefIndex(7),\n    },\n)
+res.7.descr	attribute/derive macro
+res.7.article	an
+res.7.ns	Some(MacroNS)
+res.7.macro_kinds	Some(MacroKinds(6))
+res.7.matches_ns	false false true
+res.7.ids	Some(DefId { krate: crate0, index: DefIndex(7) }) None None
+res.7.pat	false false
+res.7.map_id	Def(Macro(MacroKinds(6)), DefId { krate: crate0, index: DefIndex(7) })
+res.8.debug	Def(Static { safety: Safe, mutability: Mut, nested: false }, DefId { krate: crate3, index: DefIndex(0) })
+res.8.pretty	Def(\n    Static {\n        safety: Safe,\n        mutability: Mut,\n        nested: false,\n    },\n    DefId {\n        krate: crate3,\n        index: DefIndex(0),\n    },\n)
+res.8.descr	static
+res.8.article	a
+res.8.ns	Some(ValueNS)
+res.8.macro_kinds	None
+res.8.matches_ns	false true false
+res.8.ids	Some(DefId { krate: crate3, index: DefIndex(0) }) None None
+res.8.pat	false false
+res.8.map_id	Def(Static { safety: Safe, mutability: Mut, nested: false }, DefId { krate: crate3, index: DefIndex(0) })
+res.9.debug	PrimTy(Int(i8))
+res.9.pretty	PrimTy(\n    Int(\n        i8,\n    ),\n)
+res.9.descr	builtin type
+res.9.article	a
+res.9.ns	Some(TypeNS)
+res.9.macro_kinds	None
+res.9.matches_ns	true false false
+res.9.ids	None None None
+res.9.pat	false false
+res.9.map_id	PrimTy(Int(i8))
+res.10.debug	PrimTy(Int(isize))
+res.10.pretty	PrimTy(\n    Int(\n        isize,\n    ),\n)
+res.10.descr	builtin type
+res.10.article	a
+res.10.ns	Some(TypeNS)
+res.10.macro_kinds	None
+res.10.matches_ns	true false false
+res.10.ids	None None None
+res.10.pat	false false
+res.10.map_id	PrimTy(Int(isize))
+res.11.debug	PrimTy(Uint(u128))
+res.11.pretty	PrimTy(\n    Uint(\n        u128,\n    ),\n)
+res.11.descr	builtin type
+res.11.article	a
+res.11.ns	Some(TypeNS)
+res.11.macro_kinds	None
+res.11.matches_ns	true false false
+res.11.ids	None None None
+res.11.pat	false false
+res.11.map_id	PrimTy(Uint(u128))
+res.12.debug	PrimTy(Float(f16))
+res.12.pretty	PrimTy(\n    Float(\n        f16,\n    ),\n)
+res.12.descr	builtin type
+res.12.article	a
+res.12.ns	Some(TypeNS)
+res.12.macro_kinds	None
+res.12.matches_ns	true false false
+res.12.ids	None None None
+res.12.pat	false false
+res.12.map_id	PrimTy(Float(f16))
+res.13.debug	PrimTy(Float(f64))
+res.13.pretty	PrimTy(\n    Float(\n        f64,\n    ),\n)
+res.13.descr	builtin type
+res.13.article	a
+res.13.ns	Some(TypeNS)
+res.13.macro_kinds	None
+res.13.matches_ns	true false false
+res.13.ids	None None None
+res.13.pat	false false
+res.13.map_id	PrimTy(Float(f64))
+res.14.debug	PrimTy(Str)
+res.14.pretty	PrimTy(\n    Str,\n)
+res.14.descr	builtin type
+res.14.article	a
+res.14.ns	Some(TypeNS)
+res.14.macro_kinds	None
+res.14.matches_ns	true false false
+res.14.ids	None None None
+res.14.pat	false false
+res.14.map_id	PrimTy(Str)
+res.15.debug	PrimTy(Bool)
+res.15.pretty	PrimTy(\n    Bool,\n)
+res.15.descr	builtin type
+res.15.article	a
+res.15.ns	Some(TypeNS)
+res.15.macro_kinds	None
+res.15.matches_ns	true false false
+res.15.ids	None None None
+res.15.pat	false false
+res.15.map_id	PrimTy(Bool)
+res.16.debug	PrimTy(Char)
+res.16.pretty	PrimTy(\n    Char,\n)
+res.16.descr	builtin type
+res.16.article	a
+res.16.ns	Some(TypeNS)
+res.16.macro_kinds	None
+res.16.matches_ns	true false false
+res.16.ids	None None None
+res.16.pat	false false
+res.16.map_id	PrimTy(Char)
+res.17.debug	SelfTyParam { trait_: DefId { krate: crate0, index: DefIndex(7) } }
+res.17.pretty	SelfTyParam {\n    trait_: DefId {\n        krate: crate0,\n        index: DefIndex(7),\n    },\n}
+res.17.descr	self type
+res.17.article	a
+res.17.ns	Some(TypeNS)
+res.17.macro_kinds	None
+res.17.matches_ns	true false false
+res.17.ids	None None None
+res.17.pat	false false
+res.17.map_id	SelfTyParam { trait_: DefId { krate: crate0, index: DefIndex(7) } }
+res.18.debug	SelfTyAlias { alias_to: DefId { krate: crate3, index: DefIndex(0) }, is_trait_impl: true }
+res.18.pretty	SelfTyAlias {\n    alias_to: DefId {\n        krate: crate3,\n        index: DefIndex(0),\n    },\n    is_trait_impl: true,\n}
+res.18.descr	self type
+res.18.article	a
+res.18.ns	Some(TypeNS)
+res.18.macro_kinds	None
+res.18.matches_ns	true false false
+res.18.ids	None None None
+res.18.pat	false false
+res.18.map_id	SelfTyAlias { alias_to: DefId { krate: crate3, index: DefIndex(0) }, is_trait_impl: true }
+res.19.debug	SelfCtor(DefId { krate: crate0, index: DefIndex(7) })
+res.19.pretty	SelfCtor(\n    DefId {\n        krate: crate0,\n        index: DefIndex(7),\n    },\n)
+res.19.descr	self constructor
+res.19.article	a
+res.19.ns	Some(ValueNS)
+res.19.macro_kinds	None
+res.19.matches_ns	false true false
+res.19.ids	None None None
+res.19.pat	true true
+res.19.map_id	SelfCtor(DefId { krate: crate0, index: DefIndex(7) })
+res.20.debug	Local(42)
+res.20.pretty	Local(\n    42,\n)
+res.20.descr	local variable
+res.20.article	a
+res.20.ns	Some(ValueNS)
+res.20.macro_kinds	None
+res.20.matches_ns	false true false
+res.20.ids	None None None
+res.20.pat	false false
+res.20.map_id	Local(43)
+res.21.debug	ToolMod
+res.21.pretty	ToolMod
+res.21.descr	tool module
+res.21.article	a
+res.21.ns	Some(TypeNS)
+res.21.macro_kinds	None
+res.21.matches_ns	true false false
+res.21.ids	None None None
+res.21.pat	false false
+res.21.map_id	ToolMod
+res.22.debug	OpenMod("foo")
+res.22.pretty	OpenMod(\n    "foo",\n)
+res.22.descr	namespaced crate
+res.22.article	a
+res.22.ns	Some(TypeNS)
+res.22.macro_kinds	None
+res.22.matches_ns	true false false
+res.22.ids	None None None
+res.22.pat	false false
+res.22.map_id	OpenMod("foo")
+res.23.debug	NonMacroAttr(Builtin("inline"))
+res.23.pretty	NonMacroAttr(\n    Builtin(\n        "inline",\n    ),\n)
+res.23.descr	built-in attribute
+res.23.article	a
+res.23.ns	Some(MacroNS)
+res.23.macro_kinds	Some(MacroKinds(2))
+res.23.matches_ns	false false true
+res.23.ids	None None None
+res.23.pat	false false
+res.23.map_id	NonMacroAttr(Builtin("inline"))
+res.24.debug	NonMacroAttr(Tool)
+res.24.pretty	NonMacroAttr(\n    Tool,\n)
+res.24.descr	tool attribute
+res.24.article	a
+res.24.ns	Some(MacroNS)
+res.24.macro_kinds	Some(MacroKinds(2))
+res.24.matches_ns	false false true
+res.24.ids	None None None
+res.24.pat	false false
+res.24.map_id	NonMacroAttr(Tool)
+res.25.debug	NonMacroAttr(DeriveHelper)
+res.25.pretty	NonMacroAttr(\n    DeriveHelper,\n)
+res.25.descr	derive helper attribute
+res.25.article	a
+res.25.ns	Some(MacroNS)
+res.25.macro_kinds	Some(MacroKinds(2))
+res.25.matches_ns	false false true
+res.25.ids	None None None
+res.25.pat	false false
+res.25.map_id	NonMacroAttr(DeriveHelper)
+res.26.debug	NonMacroAttr(DeriveHelperCompat)
+res.26.pretty	NonMacroAttr(\n    DeriveHelperCompat,\n)
+res.26.descr	derive helper attribute
+res.26.article	a
+res.26.ns	Some(MacroNS)
+res.26.macro_kinds	Some(MacroKinds(2))
+res.26.matches_ns	false false true
+res.26.ids	None None None
+res.26.pat	false false
+res.26.map_id	NonMacroAttr(DeriveHelperCompat)
+res.27.debug	Err
+res.27.pretty	Err
+res.27.descr	unresolved item
+res.27.article	an
+res.27.ns	None
+res.27.macro_kinds	None
+res.27.matches_ns	true true true
+res.27.ids	None None None
+res.27.pat	false false
+res.27.map_id	Err
+nonmacroattr.0	Builtin("inline") built-in attribute a false
+nonmacroattr.1	Tool tool attribute a true
+nonmacroattr.2	DeriveHelper derive helper attribute a true
+nonmacroattr.3	DeriveHelperCompat derive helper attribute a true
+namespace.TypeNS	type
+namespace.ValueNS	value
+namespace.MacroNS	macro
+perns.debug	PerNS { value_ns: Some(Local(1)), type_ns: None, macro_ns: Some(ToolMod) }
+perns.pretty	PerNS {\n    value_ns: Some(\n        Local(\n            1,\n        ),\n    ),\n    type_ns: None,\n    macro_ns: Some(\n        ToolMod,\n    ),\n}
+perns.present_items	[Local(1), ToolMod]
+in_namespace.mod	PerNS { value_ns: None, type_ns: Some(Def(Mod, DefId { krate: crate0, index: DefIndex(7) })), macro_ns: None }
+in_namespace.enum	PerNS { value_ns: Some(Def(Enum, DefId { krate: crate0, index: DefIndex(7) })), type_ns: None, macro_ns: None }
+in_namespace.err	PerNS { value_ns: Some(Err), type_ns: Some(Err), macro_ns: Some(Err) }
+defpathdata.0	CrateRoot | {{crate}} | None | {crate#0} {crate#3} {crate#3} | DisambiguatedDefPathData { data: CrateRoot, disambiguator: 3 }
+defpathdata.1	Impl | {{impl}} | None | {impl#0} {impl#3} {impl#3} | DisambiguatedDefPathData { data: Impl, disambiguator: 3 }
+defpathdata.2	ForeignMod | {{extern}} | None | {extern#0} {extern#3} {extern#3} | DisambiguatedDefPathData { data: ForeignMod, disambiguator: 3 }
+defpathdata.3	Use | {{use}} | None | {use#0} {use#3} {use#3} | DisambiguatedDefPathData { data: Use, disambiguator: 3 }
+defpathdata.4	GlobalAsm | {{global_asm}} | None | {global_asm#0} {global_asm#3} {global_asm#3} | DisambiguatedDefPathData { data: GlobalAsm, disambiguator: 3 }
+defpathdata.5	TypeNs("foo") | foo | Some("foo") | foo foo#3 foo | DisambiguatedDefPathData { data: TypeNs("foo"), disambiguator: 3 }
+defpathdata.6	ValueNs("foo") | foo | Some("foo") | foo foo#3 foo | DisambiguatedDefPathData { data: ValueNs("foo"), disambiguator: 3 }
+defpathdata.7	MacroNs("foo") | foo | Some("foo") | foo foo#3 foo | DisambiguatedDefPathData { data: MacroNs("foo"), disambiguator: 3 }
+defpathdata.8	LifetimeNs("'a") | 'a | Some("'a") | 'a 'a#3 'a | DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 3 }
+defpathdata.9	Closure | {{closure}} | None | {closure#0} {closure#3} {closure#3} | DisambiguatedDefPathData { data: Closure, disambiguator: 3 }
+defpathdata.10	TestBinderConstraints | {{test_binder_constraints}} | None | {test_binder_constraints#0} {test_binder_constraints#3} {test_binder_constraints#3} | DisambiguatedDefPathData { data: TestBinderConstraints, disambiguator: 3 }
+defpathdata.11	Ctor | {{constructor}} | None | {constructor#0} {constructor#3} {constructor#3} | DisambiguatedDefPathData { data: Ctor, disambiguator: 3 }
+defpathdata.12	AnonConst | {{constant}} | None | {constant#0} {constant#3} {constant#3} | DisambiguatedDefPathData { data: AnonConst, disambiguator: 3 }
+defpathdata.13	OpaqueTy | {{opaque}} | None | {opaque#0} {opaque#3} {opaque#3} | DisambiguatedDefPathData { data: OpaqueTy, disambiguator: 3 }
+defpathdata.14	OpaqueLifetime("'b") | 'b | Some("'b") | 'b 'b#3 'b | DisambiguatedDefPathData { data: OpaqueLifetime("'b"), disambiguator: 3 }
+defpathdata.15	AnonAssocTy("foo") | {{anon_assoc}} | None | foo::{anon_assoc#0} foo::{anon_assoc#3} foo::{anon_assoc#3} | DisambiguatedDefPathData { data: AnonAssocTy("foo"), disambiguator: 3 }
+defpathdata.16	SyntheticCoroutineBody | {{synthetic}} | None | {synthetic#0} {synthetic#3} {synthetic#3} | DisambiguatedDefPathData { data: SyntheticCoroutineBody, disambiguator: 3 }
+defpathdata.17	NestedStatic | {{nested}} | None | {nested#0} {nested#3} {nested#3} | DisambiguatedDefPathData { data: NestedStatic, disambiguator: 3 }
+defkey.debug	DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("foo"), disambiguator: 1 } }
+defkey.pretty	DefKey {\n    parent: Some(\n        DefIndex(4),\n    ),\n    disambiguated_data: DisambiguatedDefPathData {\n        data: TypeNs(\n            "foo",\n        ),\n        disambiguator: 1,\n    },\n}
+hirid.debug	HirId(DefId { krate: crate0, index: DefIndex(0) }.10)
+hirid.pretty	HirId(DefId { krate: crate0, index: DefIndex(0) }.10)
+hirid.display	HirId(DefId { krate: crate0, index: DefIndex(0) }.10)
+ownerid.debug	DefId { krate: crate0, index: DefIndex(0) }
+res_hirid.debug	Local(HirId(DefId { krate: crate0, index: DefIndex(0) }.10))
+limit.unlimited	18446744073709551615 Limit(5)
+cratetype.Executable	bin false
+cratetype.Dylib	dylib true
+cratetype.Rlib	rlib true
+cratetype.StaticLib	staticlib false
+cratetype.Cdylib	cdylib false
+cratetype.ProcMacro	proc-macro true
+cratetype.Sdylib	sdylib false
+collapse.0	No
+collapse.1	Unspecified
+collapse.2	External
+collapse.3	Yes
+nativelibkind.0	Static { bundle: Some(true), whole_archive: None, export_symbols: Some(false) } true true false
+nativelibkind.1	Dylib { as_needed: None } false false true
+nativelibkind.2	RawDylib { as_needed: Some(true) } true false true
+nativelibkind.3	Framework { as_needed: None } false false false
+nativelibkind.4	LinkArg false false false
+nativelibkind.5	WasmImportModule false false false
+nativelibkind.6	Unspecified false false true
+sanitizer.0	 |  | None | None
+sanitizer.1	ADDRESS | address | Some("address") | None
+sanitizer.3	ADDRESS | LEAK | address, leak | None | None
+sanitizer.288	CFI | KCFI | cfi, kcfi | None | Some((CFI, KCFI))
+sanitizer.16383	ADDRESS | LEAK | MEMORY | THREAD | HWADDRESS | CFI | MEMTAG | SHADOWCALLSTACK | KCFI | KERNELADDRESS | KERNELHWADDRESS | SAFESTACK | DATAFLOW | REALTIME | address, leak, memory, thread, hwaddress, cfi, memtag, shadow-call-stack, kcfi, kernel-address, kernel-hwaddress, safestack, dataflow, realtime | None | Some((ADDRESS, MEMORY))
+sanitizer.18432	SAFESTACK | 0x4000 | <panics> | None | None

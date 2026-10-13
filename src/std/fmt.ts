@@ -1,21 +1,101 @@
 // core::fmt Debug formatting. A derive(Debug) port is a function `(v, f) => string`
 // built from these helpers; output must be byte-identical to rustc's `{:?}` / `{:#?}`.
+//
+// PORT: indentation for `{:#?}`. Core's `PadAdapter` wraps the writer and indents on the fly.
+// Our builders get their children as finished strings instead, so the obvious port re-indents
+// every child (`pad`, below) and every nesting level copies its whole subtree again: cost is
+// O(depth x output), which is cubic for deep ASTs (`-Zunpretty=ast-tree` of an 800-deep
+// expression took minutes). The fix keeps the `(v, f) => string` API unchanged:
+//
+// - With a plain `PRETTY` (or any `Fmt` without `deferred_pad`), builders pad eagerly as before.
+// - A `format!("{:#?}")`-style entry point (`format_debug`) formats with `PRETTY_DEFERRED`
+//   instead. Under it the builders do not pad: they wrap each child in a pair of scope markers
+//   (`PAD_OPEN` child `PAD_CLOSE`, an O(1) rope concatenation) and the entry point indents the
+//   final string once (`resolve_pad`): every `\n` gets 4 spaces per open scope. Nested `pad`s
+//   add 4 spaces after every `\n` inside each enclosing child, so both give identical bytes.
+//   Strings padded eagerly (a hand-written Debug that pads itself, or a subtree formatted with
+//   a plain `PRETTY`) nest correctly inside deferred scopes too: indentation is all spaces
+//   inserted right after the `\n`, so the order in which the levels add theirs is irrelevant.
+// - The markers are lone low surrogates (U+DFFE, U+DFFF). No Rust `&str` can contain a lone
+//   surrogate, so they never collide with formatted text; `resolve_pad` matches them with a
+//   `u`-flag regex, which only matches unpaired surrogates. A deferred string must only ever
+//   reach other builders or `resolve_pad`; `format_debug` is the only producer.
 import { in_table } from "./unicode/mod.ts";
 import { DEBUG_ESCAPE_UNICODE } from "./unicode/tables.ts";
 
 export interface Fmt {
   /** `{:#?}` */
   readonly alternate: boolean;
+  /**
+   * Builders mark child scopes instead of indenting them (see the file header). Only set by
+   * `format_debug` (`PRETTY_DEFERRED`), which resolves the markers before returning.
+   */
+  readonly deferred_pad?: boolean;
 }
 
 export const PLAIN: Fmt = { alternate: false };
 export const PRETTY: Fmt = { alternate: true };
+/** `PRETTY` whose output still contains scope markers; see `format_debug`. */
+const PRETTY_DEFERRED: Fmt = { alternate: true, deferred_pad: true };
 
 export type Debug<T> = (v: T, f: Fmt) => string;
 
+/** Opens / closes one `PadAdapter` scope in a deferred string (lone surrogates, see the header). */
+const PAD_OPEN = "\uDFFE";
+const PAD_CLOSE = "\uDFFF";
+
 /** PadAdapter: indent every line after the first by 4 spaces. */
-function pad(s: string): string {
+function pad(s: string, f: Fmt): string {
+  if (f.deferred_pad) return PAD_OPEN + s + PAD_CLOSE;
   return s.replaceAll("\n", "\n    ");
+}
+
+const PAD_EVENTS = /\n|\uDFFE|\uDFFF/gu;
+const INDENTS: string[] = [""];
+
+/** `"    ".repeat(depth)`, cached for the depths seen so far. */
+function indent(depth: number): string {
+  let s = INDENTS[depth];
+  if (s === undefined) {
+    s = " ".repeat(4 * depth);
+    if (depth < 1024) INDENTS[depth] = s;
+  }
+  return s;
+}
+
+/** Applies the deferred `pad`s of a `PRETTY_DEFERRED` string in one pass. */
+function resolve_pad(s: string): string {
+  const parts: string[] = [];
+  let depth = 0;
+  let last = 0;
+  PAD_EVENTS.lastIndex = 0;
+  for (let m = PAD_EVENTS.exec(s); m !== null; m = PAD_EVENTS.exec(s)) {
+    const i = m.index;
+    if (i > last) parts.push(s.slice(last, i));
+    last = i + 1;
+    const c = s.charCodeAt(i);
+    if (c === 0x0a) {
+      parts.push("\n");
+      if (depth > 0) parts.push(indent(depth));
+    } else if (c === 0xdffe) {
+      depth++;
+    } else {
+      depth--;
+    }
+  }
+  if (last === 0) return s;
+  if (last < s.length) parts.push(s.slice(last));
+  return parts.join("");
+}
+
+/**
+ * `format!("{:?}", v)` / `format!("{:#?}", v)`: the entry point for a whole Debug tree. With
+ * `f.alternate` it formats under `PRETTY_DEFERRED` and indents once at the end, which is linear
+ * in the output size (calling `inner(v, PRETTY)` directly gives the same bytes in O(depth x size)).
+ */
+export function format_debug<T>(v: T, inner: Debug<T>, f: Fmt): string {
+  if (!f.alternate) return inner(v, f);
+  return resolve_pad(inner(v, PRETTY_DEFERRED));
 }
 
 /** `f.debug_struct(name).field(..)...finish()`; field values are already formatted with `f`. */
@@ -23,7 +103,7 @@ export function debug_struct(f: Fmt, name: string, fields: [string, string][]): 
   if (fields.length === 0) return name;
   if (f.alternate) {
     let s = name + " {\n";
-    for (const [k, v] of fields) s += "    " + k + ": " + pad(v) + ",\n";
+    for (const [k, v] of fields) s += "    " + k + ": " + pad(v, f) + ",\n";
     return s + "}";
   }
   return name + " { " + fields.map(([k, v]) => k + ": " + v).join(", ") + " }";
@@ -34,7 +114,7 @@ export function debug_tuple(f: Fmt, name: string, fields: string[]): string {
   if (fields.length === 0) return name;
   if (f.alternate) {
     let s = name + "(\n";
-    for (const v of fields) s += "    " + pad(v) + ",\n";
+    for (const v of fields) s += "    " + pad(v, f) + ",\n";
     return s + ")";
   }
   // A 1-tuple with an empty name gets a trailing comma: `(x,)`.
@@ -46,7 +126,7 @@ function debug_seq(f: Fmt, open: string, close: string, items: string[]): string
   if (items.length === 0) return open + close;
   if (f.alternate) {
     let s = open + "\n";
-    for (const v of items) s += "    " + pad(v) + ",\n";
+    for (const v of items) s += "    " + pad(v, f) + ",\n";
     return s + close;
   }
   return open + items.join(", ") + close;
@@ -64,7 +144,7 @@ export function debug_map(f: Fmt, entries: [string, string][]): string {
   if (entries.length === 0) return "{}";
   if (f.alternate) {
     let s = "{\n";
-    for (const [k, v] of entries) s += "    " + pad(k) + ": " + pad(v) + ",\n";
+    for (const [k, v] of entries) s += "    " + pad(k, f) + ": " + pad(v, f) + ",\n";
     return s + "}";
   }
   return "{" + entries.map(([k, v]) => k + ": " + v).join(", ") + "}";
