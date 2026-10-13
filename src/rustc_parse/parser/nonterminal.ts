@@ -1,5 +1,5 @@
 // Port of compiler/rustc_parse/src/parser/nonterminal.rs (no types of its own).
-import { HasAttrs, HasTokens } from "../../rustc_ast/ast_traits.ts";
+import { HasAttrs, HasTokens } from "../../rustc_ast/lib.ts";
 import type { Block, Pat, Path, Ty, Visibility } from "../../rustc_ast/lib.ts";
 import { token, tokenstream } from "../../rustc_ast/lib.ts";
 import type { IdentKind, MetaVarKind, NonterminalKind, Token } from "../../rustc_ast/token.ts";

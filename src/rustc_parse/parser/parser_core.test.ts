@@ -16,8 +16,9 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 import { debug_Attribute } from "../../rustc_ast/lib.ts";
-import { debug_Token } from "../../rustc_ast/token.ts";
-import { debug_TokenStream, debug_TokenTree } from "../../rustc_ast/tokenstream.ts";
+import { token, tokenstream } from "../../rustc_ast/lib.ts";
+const { debug_Token } = token;
+const { debug_TokenStream, debug_TokenTree } = tokenstream;
 import { debug_Recovered } from "../../rustc_ast/lib.ts";
 import { AnnotateSnippetEmitter } from "../../rustc_errors/annotate_snippet_emitter_writer.ts";
 import { DiagCtxt, FatalErrorMarker } from "../../rustc_errors/lib.ts";

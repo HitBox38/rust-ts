@@ -3,7 +3,8 @@
 //
 // PORT: init order (see parser/decls.ts): this module has no `impl Parser`; it must never import
 // `./mod.ts` (or another parser extension module) at runtime, because `mod.ts` imports it.
-import { TokenKind } from "../../rustc_ast/token.ts";
+import { token } from "../../rustc_ast/lib.ts";
+import type { TokenKind } from "../../rustc_ast/token.ts";
 import { kw, sym, Symbol } from "../../rustc_span/symbol.ts";
 import { panic } from "../../std/panic.ts";
 import * as gen from "./token_type.gen.ts";
@@ -425,8 +426,8 @@ export const TokenType = {
 // PORT: `macro_rules! exp` -> a table of frozen pairs: `exp!(Comma)` is `exp.Comma`. Where the macro
 // has two arms for one input, the first arm wins (macro_rules order): `exp!(Pin)` is
 // `@kw, Pin, KwMut`; the later `(Pin) => exp!(@sym, pin, SymPin)` arm is unreachable upstream.
-const tok = (t: keyof typeof gen.TokenType & keyof typeof TokenKind): ExpTokenPair =>
-  Object.freeze({ tok: TokenKind[t] as TokenKind, token_type: gen.TokenType[t] });
+const tok = (t: keyof typeof gen.TokenType & keyof typeof token.TokenKind): ExpTokenPair =>
+  Object.freeze({ tok: token.TokenKind[t] as TokenKind, token_type: gen.TokenType[t] });
 const kwp = (k: Symbol, token_type: TokenType): ExpKeywordPair => Object.freeze({ kw: k, token_type });
 export const exp = {
   Eq: tok("Eq"),

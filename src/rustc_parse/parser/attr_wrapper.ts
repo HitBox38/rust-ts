@@ -2,7 +2,7 @@
 // Types (`CollectPos`, `UsePreAttrPos`, `AttrWrapper`) are generated into attr_wrapper.gen.ts.
 import { type AttrVec, type Attribute, clone_Attribute } from "../../rustc_ast/lib.ts";
 import type { HasAttrs, HasTokens } from "../../rustc_ast/ast_traits.ts";
-import { tokenstream } from "../../rustc_ast/lib.ts";
+import { token, tokenstream } from "../../rustc_ast/lib.ts";
 import type { NodeReplacement, ParserReplacement } from "../../rustc_ast/tokenstream.ts";
 import { is_builtin_attr_name } from "../../rustc_feature/builtin_attrs.ts";
 import type { PResult } from "../../rustc_errors/lib.ts";
@@ -83,7 +83,8 @@ function has_cfg_or_cfg_attr(attrs: readonly Attribute[]): boolean {
 // rustc: compiler/rustc_parse/src/parser/attr_wrapper.rs:95 collect_pos
 Parser.prototype.collect_pos = function (this: Parser): CollectPos {
   return {
-    start_token: [this.token, this.token_spacing],
+    // PORT: `(self.token, ..)` copies the `Copy` token: `clone_Token` (PORTING §8).
+    start_token: [token.clone_Token(this.token), this.token_spacing],
     cursor_snapshot: tokenstream.clone_TokenCursor(this.token_cursor),
     start_pos: this.num_bump_calls,
   };

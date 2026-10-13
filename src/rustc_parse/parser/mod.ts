@@ -1390,7 +1390,8 @@ Parser.prototype.parse_token_tree = function (this: Parser): TokenTree {
     assert(!token.TokenKind.is_close_delim_or_eof(this.token.kind), "assertion failed: !self.token.kind.is_close_delim_or_eof()");
     const prev_spacing = this.token_spacing;
     this.bump();
-    return { $: "Token", _0: this.prev_token, _1: prev_spacing };
+    // PORT: the `Copy` token is copied into the tree: `clone_Token` (PORTING §8, AST objects).
+    return { $: "Token", _0: token.clone_Token(this.prev_token), _1: prev_spacing };
   }
 };
 

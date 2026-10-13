@@ -18,7 +18,7 @@ import { AttrWrapper } from "./attr_wrapper.ts";
 import { AllowConstBlockItems, ForceCollect, Parser, Trailing, token_descr } from "./mod.ts";
 import { PathStyle } from "./path.ts";
 import { exp } from "./token_type.ts";
-import { HasAttrs, HasTokens } from "../../rustc_ast/ast_traits.ts";
+import { HasAttrs, HasTokens } from "../../rustc_ast/lib.ts";
 
 export * from "./attr.gen.ts";
 
