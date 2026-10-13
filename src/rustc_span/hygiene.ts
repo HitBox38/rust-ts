@@ -27,11 +27,13 @@
 import { debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Debug, type Fmt, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
 import { debug_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
-import type { Hash64 } from "../rustc_hashes/lib.ts";
+import { Hash64 } from "../rustc_hashes/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import {
   CRATE_DEF_ID,
   CrateNum,
+  DefId_to_stable_hash_key,
+  DefPathHash,
   type DefId,
   debug_CrateNum,
   debug_DefId,
@@ -47,10 +49,14 @@ import type { SourceMap } from "./source_map.ts";
 import { DUMMY_SP, Span } from "./span_encoding.ts";
 import { debug_Symbol, display_Symbol, kw, sym, type Symbol } from "./symbol.ts";
 
-/// PORT: stand-in for `rustc_data_structures::stable_hash::StableHashCtxt` (only what this file calls).
-export interface StableHashCtxt {
-  assert_default_stable_hash_controls(msg: string): void;
-}
+import {
+  type StableHashCtxt,
+  StableHasher,
+  stable_hash_Fingerprint,
+  stable_hash_u8,
+} from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_ExpnData, stable_hash_Transparency } from "./stable_hash.gen.ts";
+export type { StableHashCtxt };
 
 // PORT: `MutRef` (`&mut T` of a primitive/handle) lives in src/std/mut_ref.ts; re-exported here.
 import type { MutRef } from "../std/mut_ref.ts";
@@ -1241,9 +1247,10 @@ export class ExpnData {
   }
 
   // rustc: compiler/rustc_span/src/hygiene.rs:1122 hash_expn
-  hash_expn(_hcx: StableHashCtxt): Hash64 {
-    // PORT: needs StableHasher and the derived `StableHash` for ExpnData (incremental, M5).
-    unported("rustc_span::hygiene::ExpnData::hash_expn (StableHasher)");
+  hash_expn(hcx: StableHashCtxt): Hash64 {
+    const hasher = StableHasher.new();
+    stable_hash_ExpnData(this, hcx, hasher);
+    return hasher.finish(Hash64);
   }
 }
 
@@ -1613,13 +1620,45 @@ function update_disambiguator(expn_data: ExpnData, hcx: StableHashCtxt): ExpnHas
     // (#[cfg(debug_assertions)] check omitted: rustc ships without debug assertions)
   }
 
-  // PORT: `LOCAL_CRATE.as_def_id().to_stable_hash_key(&mut hcx).stable_crate_id()`: the
-  // `ToStableHashKey` impl is skipped (incremental, M5).
-  void CrateNum.as_def_id(LOCAL_CRATE);
-  const stable_crate_id: StableCrateId = unported("rustc_span::def_id::<DefId as ToStableHashKey>::to_stable_hash_key");
-  return ExpnHash.new(stable_crate_id, expn_hash);
+  return ExpnHash.new(DefPathHash.stable_crate_id(DefId_to_stable_hash_key(CrateNum.as_def_id(LOCAL_CRATE), hcx)), expn_hash);
 }
 
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1588 stable_hash StableHash impl (incremental, M5)
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1610 stable_hash StableHash impl (incremental, M5)
-// rustc-skip: compiler/rustc_span/src/hygiene.rs:1624 stable_hash StableHash impl (incremental, M5)
+// rustc: compiler/rustc_span/src/hygiene.rs:1588 stable_hash
+/** `impl StableHash for SyntaxContext` */
+export function stable_hash_SyntaxContext(self: SyntaxContext, hcx: StableHashCtxt, hasher: StableHasher): void {
+  const TAG_EXPANSION = 0;
+  const TAG_NO_EXPANSION = 1;
+
+  if (SyntaxContext.is_root(self)) {
+    stable_hash_u8(TAG_NO_EXPANSION, hcx, hasher);
+  } else {
+    stable_hash_u8(TAG_EXPANSION, hcx, hasher);
+    // This duplicates `ExpnId::stable_hash`, but reads the outer mark and
+    // expansion hash in a single `HygieneData::with` call to avoid extra locking.
+    hcx.assert_default_stable_hash_controls("ExpnId");
+    const [hash, transparency] = HygieneData.with((data): [Fingerprint, Transparency] => {
+      const [expn_id, transparency] = data.outer_mark(self);
+      return [ExpnHash._0(data.expn_hash(expn_id)), transparency];
+    });
+    stable_hash_Fingerprint(hash, hcx, hasher);
+    stable_hash_Transparency(transparency, hcx, hasher);
+  }
+}
+
+// rustc: compiler/rustc_span/src/hygiene.rs:1610 stable_hash
+/** `impl StableHash for ExpnId` */
+export function stable_hash_ExpnId(self: ExpnId, hcx: StableHashCtxt, hasher: StableHasher): void {
+  hcx.assert_default_stable_hash_controls("ExpnId");
+  const hash = ExpnId_eq(self, ExpnId.root())
+    ? // Avoid fetching TLS storage for a trivial often-used value.
+      Fingerprint.ZERO
+    : ExpnHash._0(self.expn_hash());
+
+  stable_hash_Fingerprint(hash, hcx, hasher);
+}
+
+// rustc: compiler/rustc_span/src/hygiene.rs:1624 stable_hash
+/** `impl StableHash for LocalExpnId` */
+export function stable_hash_LocalExpnId(self: LocalExpnId, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_ExpnId(LocalExpnId.to_expn_id(self), hcx, hasher);
+}
