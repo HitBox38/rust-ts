@@ -66,7 +66,7 @@ import {
 } from "./stand_ins.ts";
 import { FileSearch } from "./filesearch.ts";
 import { existsSync } from "node:fs";
-import { spec as target_spec } from "../rustc_target/lib.ts";
+import { asm as target_asm, spec as target_spec } from "../rustc_target/lib.ts";
 const LinkerFlavor = target_spec.LinkerFlavor;
 import { Cfg, CheckCfg } from "./config/cfg.ts";
 import { SearchPath } from "./search_paths.ts";
@@ -249,8 +249,7 @@ export class Session {
     private miri_unleashed_features: [Span, Symbol | undefined][],
 
     /// Architecture to use for interpreting asm!.
-    // PORT: `InlineAsmArch` (rustc_target::asm) is not ported.
-    public asm_arch: unknown,
+    public asm_arch: target_asm.InlineAsmArch | undefined,
 
     /// Set of actually enabled features for the current target, including ones that are not
     /// in `cfg(target_feature)` because they are unstable or internal-only.
@@ -1052,8 +1051,7 @@ export function build_session(
   const val = process.env.RUSTC_CTFE_BACKTRACE;
   const ctfe_backtrace: CtfeBacktrace = val === "immediate" ? "Immediate" : val !== undefined && val !== "0" ? "Capture" : "Disabled";
 
-  // `let asm_arch = if target.allow_asm { InlineAsmArch::from_arch(&target.arch) } else { None };`
-  // (rustc_target::asm is not ported: deferred below)
+  const asm_arch = early_sess.target.allow_asm ? target_asm.InlineAsmArch.from_arch(early_sess.target.arch) : undefined;
   const target_filesearch = FileSearch.new(sopts.search_paths, target_tlib_path, early_sess.target, sopts.unstable_opts.implicit_sysroot_deps);
   const host_filesearch = early_sess.target.eq(early_sess.host)
     ? target_filesearch
@@ -1093,7 +1091,7 @@ export function build_session(
     driver_lint_caps,
     ctfe_backtrace,
     /* miri_unleashed_features */ [],
-    /* asm_arch */ undefined,
+    asm_arch,
     /* internal_target_features */ new Set(),
     /* global_backend_features */ [],
     cfg_version,
@@ -1114,13 +1112,11 @@ export function build_session(
 
   // PORT: fields whose upstream value comes from crates that are not ported are deferred: reading
   // one calls `unported` (stand_ins.ts `defer_field`). Upstream computes, in order:
-  // - `asm_arch`: `if target.allow_asm { InlineAsmArch::from_arch(&target.arch) }` (rustc_target::asm)
   // - `global_backend_features`, `replaced_intrinsics`, `fallback_intrinsics`, `thin_lto_supported`:
   //   destructured from `codegen_backend_init` (the codegen backend stand-in defers them too)
   // - `code_stats` (code_stats.rs)
   // `config`/`check_config`/`lint_store`/`internal_target_features` start empty as upstream; the
   // driver (rustc_interface::interface::run_compiler) fills or defers them.
-  defer_field(sess, "asm_arch", "rustc_target::asm::InlineAsmArch::from_arch (Session::asm_arch)");
   defer_field(sess, "code_stats", "rustc_session::code_stats::CodeStats");
   for (const key of ["global_backend_features", "replaced_intrinsics", "fallback_intrinsics", "thin_lto_supported"] as const) {
     const desc = Object.getOwnPropertyDescriptor(codegen_backend_init, key);
