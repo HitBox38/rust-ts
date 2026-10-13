@@ -40,7 +40,7 @@ import type { Features } from "../rustc_feature/unstable.ts";
 import { Definitions } from "../rustc_hir_id/definitions.ts";
 import type { RegisteredTools } from "../rustc_lint_defs/lib.ts";
 import * as rustc_lint from "../rustc_lint/lib.ts";
-import { creader } from "../rustc_metadata/lib.ts";
+import { creader, provide as rustc_metadata_provide } from "../rustc_metadata/lib.ts";
 import type { EarlyCheckNode, LintStore } from "../rustc_lint/lib.ts";
 import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
 import { clone_Providers as clone_HookProviders, Providers_default as HookProviders_default } from "../rustc_middle/hooks.ts";
@@ -920,7 +920,7 @@ function default_query_providers(): MiddleProviders {
   // PORT: pending crates (their `provide` fns are not ported): rustc_ast_lowering, rustc_expand_queries,
   // rustc_const_eval, rustc_middle::hir, rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
   // rustc_monomorphize, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck, traits, solve, rustc_passes,
-  // rustc_traits, rustc_ty_utils, rustc_metadata, rustc_symbol_mangling, rustc_codegen_ssa (rustc_lint is provided below).
+  // rustc_traits, rustc_ty_utils, rustc_symbol_mangling, rustc_codegen_ssa (rustc_metadata and rustc_lint are provided below).
   // Their queries keep upstream's `default_query` ICE.
   limits.provide(providers.queries);
   rustc_incremental_provide(providers);
@@ -928,6 +928,9 @@ function default_query_providers(): MiddleProviders {
   rustc_resolve.provide(providers.queries);
   rustc_passes_provide(providers.queries);
   ty_context_provide(providers.queries);
+  // PORT: `rustc_metadata::provide` is `rmeta::provide`, i.e. `encoder::provide` (metadata encoding, M5, not
+  // ported) then `decoder::provide`; rustc_metadata/lib.ts exports `cstore_impl::provide` (the decoder half).
+  rustc_metadata_provide(providers);
   rustc_lint.provide(providers.queries);
   return providers;
 }
