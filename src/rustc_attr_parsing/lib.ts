@@ -99,7 +99,7 @@ import "./safety.ts";
 import { install as install_stability } from "./stability.ts";
 import { install as install_target_checking } from "./target_checking.ts";
 import { install as install_util } from "./attributes/util.ts";
-import "./attributes/diagnostic/mod.ts";
+import { install as install_diagnostic } from "./attributes/diagnostic/mod.ts";
 
 // #[macro_use]
 // mod attributes;
@@ -141,3 +141,4 @@ export { unstable } from "./stability.ts";
 install_stability();
 install_target_checking();
 install_util();
+install_diagnostic();

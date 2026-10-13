@@ -1,9 +1,11 @@
 // Port of compiler/rustc_attr_parsing/src/attributes/diagnostic/mod.rs
 //
 // PORT:
-// - `impl AttributeParser { fn unknown_diagnostic_attr }` is an extension method: it is attached to
-//   `AttributeParser.prototype` here (PORTING §5 "Methods defined in another file");
-//   rustc_attr_parsing/lib.ts imports this module after interface.ts.
+// - `impl AttributeParser { fn unknown_diagnostic_attr }` is an extension method (PORTING §5 "Methods
+//   defined in another file"), attached to `AttributeParser.prototype` by `install()`, which
+//   rustc_attr_parsing/lib.ts calls after loading: the submodules (imported by context.ts) import this
+//   module while interface.ts is still evaluating, so `AttributeParser` is not initialized when this
+//   module's body runs (the attr-parse-b `install()` pattern of stability.ts / target_checking.ts).
 // - The `pub(crate) mod <name>;` declarations are not mirrored as re-exports: the submodules import
 //   this module (their `use crate::attributes::diagnostic::*`), and context.ts imports each submodule.
 // - The private items the submodules reach through `use crate::attributes::diagnostic::*` (`Mode`,
@@ -77,7 +79,7 @@ declare module "../../interface.ts" {
 }
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/diagnostic/mod.rs:39 unknown_diagnostic_attr
-AttributeParser.prototype.unknown_diagnostic_attr = function (
+function unknown_diagnostic_attr(
   this: AttributeParser,
   segment: PathSegment,
   emit_lint: EmitLintFn,
@@ -113,7 +115,12 @@ AttributeParser.prototype.unknown_diagnostic_attr = function (
       return UnknownDiagnosticAttribute_into_diag({ typo }, dcx, level);
     }),
   );
-};
+}
+
+/** Attaches this module's `impl AttributeParser` fns (see the header). */
+export function install(): void {
+  AttributeParser.prototype.unknown_diagnostic_attr = unknown_diagnostic_attr;
+}
 
 /** The `$feature` idents `gate_diagnostic_attr!` is invoked with (a `Features` accessor and a `sym::`). */
 export type DiagnosticAttrFeature =
