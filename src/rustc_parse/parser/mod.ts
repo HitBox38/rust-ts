@@ -61,7 +61,6 @@ import {
   type ParsingRestrictionKind,
   Recovery,
   Restrictions,
-  Trailing,
 } from "./mod.gen.ts";
 
 export * from "./mod.gen.ts";
@@ -292,7 +291,7 @@ Parser.prototype.unexpected_any = function <T>(this: Parser): PResult<T> {
     // We can get `Ok(true)` from `recover_closing_delimiter`
     // which is called in `expected_one_of_not_found`.
     case "Ok":
-      return FatalError.raise();
+      return new FatalError().raise();
   }
 };
 
@@ -332,7 +331,7 @@ Parser.prototype.expect_one_of = function (
     // leave it in the input
     return Ok(ast.Recovered.No);
   } else if (!this.token.eq(TK.Eof) && this.last_unexpected_token_span === this.token.span) {
-    return FatalError.raise();
+    return new FatalError().raise();
   } else {
     const r = this.expected_one_of_not_found(edible, inedible);
     if (r.$ === "Err") return r;

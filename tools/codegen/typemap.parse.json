@@ -6,7 +6,7 @@
   "cfg": { "true": [], "false": [] },
   "helpers": {},
   "types": [
-    { "paths": ["rustc_ast::Item", "rustc_ast::ast::Item"], "ts": "Item", "import": "src/rustc_ast/lib.ts", "types": ["Item"], "values": ["debug_Item", "clone_Item"], "debug": "debug_Item($v, $f)", "clone": "clone_Item($v)" },
+    { "paths": ["rustc_ast::Item", "rustc_ast::ast::Item"], "ts": "Item", "import": "src/rustc_ast/lib.ts", "types": ["Item"], "values": ["debug_Item", "clone_Item", "debug_ItemKind", "clone_ItemKind"], "debug": "debug_Item($v, $f, debug_ItemKind)", "clone": "clone_Item($v, clone_ItemKind)", "note": "Item<K = ItemKind>" },
     { "paths": ["rustc_ast::Stmt", "rustc_ast::ast::Stmt"], "ts": "Stmt", "import": "src/rustc_ast/lib.ts", "types": ["Stmt"], "values": ["debug_Stmt", "clone_Stmt"], "debug": "debug_Stmt($v, $f)", "clone": "clone_Stmt($v)" },
     { "paths": ["rustc_ast::Expr", "rustc_ast::ast::Expr"], "ts": "Expr", "import": "src/rustc_ast/lib.ts", "types": ["Expr"], "values": ["debug_Expr", "clone_Expr"], "debug": "debug_Expr($v, $f)", "clone": "clone_Expr($v)" },
     { "paths": ["rustc_ast::Guard", "rustc_ast::ast::Guard"], "ts": "Guard", "import": "src/rustc_ast/lib.ts", "types": ["Guard"], "values": ["debug_Guard", "clone_Guard"], "debug": "debug_Guard($v, $f)", "clone": "clone_Guard($v)" },
