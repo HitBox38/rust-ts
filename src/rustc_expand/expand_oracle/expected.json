@@ -1,0 +1,165 @@
+{
+ "allow_features": {
+  "args": [
+   "-Zui-testing",
+   "-Zallow-features=no_core,rustc_attrs",
+   "main.rs"
+  ],
+  "stdout": "#![feature(rustc_attrs)]\n#![feature(decl_macro)]\nfn main() {}\n",
+  "stderr": "error[E0725]: the feature `decl_macro` is not in the list of allowed features\n  --> main.rs:2:12\n   |\nLL | #![feature(decl_macro)]\n   |            ^^^^^^^^^^\n\nwarning: the feature `rustc_attrs` is internal to the compiler or standard library\n  --> main.rs:1:12\n   |\nLL | #![feature(rustc_attrs)]\n   |            ^^^^^^^^^^^\n   |\n   = note: using it is strongly discouraged\n   = note: `#[warn(internal_features)]` on by default\n\nerror: aborting due to 1 previous error; 1 warning emitted\n\nFor more information about this error, try `rustc --explain E0725`.\n",
+  "exit": 1
+ },
+ "both": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "mod foo {}\nfn main() {}\n",
+  "stderr": "error[E0761]: file for module `foo` found at both \"foo.rs\" and \"foo/mod.rs\"\n  --> main.rs:1:1\n   |\nLL | mod foo;\n   | ^^^^^^^^\n   |\n   = help: delete or rename one of them to remove the ambiguity\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0761`.\n",
+  "exit": 1
+ },
+ "cfg_bad": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "fn a() {}\nfn b() {}\nfn c() {}\nfn d() {}\nfn main() {}\n",
+  "stderr": "error[E0539]: malformed `cfg_attr` attribute input\n  --> main.rs:1:3\n   |\nLL | #[cfg_attr()]\n   |   ^^^^^^^^--\n   |           |\n   |           expected at least 1 argument here\n   |\n   = note: for more information, visit <https://doc.rust-lang.org/reference/conditional-compilation.html#the-cfg_attr-attribute>\nhelp: must be of the form\n   |\nLL | #[cfg_attr(predicate, attr1, attr2, ...)]\n   |            ++++++++++++++++++++++++++++\n\nerror[E0539]: malformed `cfg` attribute input\n  --> main.rs:3:3\n   |\nLL | #[cfg(foo = 1)]\n   |   ^^^^^^^^^^-^\n   |             |\n   |             expected a string literal here\n   |\n   = note: for more information, visit <https://doc.rust-lang.org/reference/conditional-compilation.html#the-cfg-attribute>\nhelp: must be of the form\n   |\nLL - #[cfg(foo = 1)]\nLL + #[cfg(predicate)]\n   |\n\nerror[E0805]: malformed `cfg` attribute input\n  --> main.rs:5:3\n   |\nLL | #[cfg(a, b)]\n   |   ^^^------\n   |      |\n   |      expected a single argument here\n   |\n   = note: for more information, visit <https://doc.rust-lang.org/reference/conditional-compilation.html#the-cfg-attribute>\nhelp: if the function should be enabled when all these predicates are, wrap them in `all`\n   |\nLL - #[cfg(a, b)]\nLL + #[cfg(all(a, b))]\n   |\nhelp: alternately, if the function should be enabled when any of these predicates are, wrap them in `any`\n   |\nLL - #[cfg(a, b)]\nLL + #[cfg(any(a, b))]\n   |\n\nerror: expected `,`, found end of `cfg_attr` input\n  --> main.rs:7:16\n   |\nLL | #[cfg_attr(true)]\n   |                ^ expected `,`\n   |\n   = note: for more information, visit <https://doc.rust-lang.org/reference/conditional-compilation.html#the-cfg_attr-attribute>\nhelp: must be of the form\n   |\nLL - #[cfg_attr(true)]\nLL + #[cfg_attr(predicate, attr1, attr2, ...)]\n   |\n\nerror: aborting due to 4 previous errors\n\nSome errors have detailed explanations: E0539, E0805.\nFor more information about an error, try `rustc --explain E0539`.\n",
+  "exit": 1
+ },
+ "cfg_items": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "#![feature(no_debug)]\n#![crate_type = \"lib\"]\n#![crate_name = \"foo\"]\n#[inline]\nfn h() {}\n#[inline]\n#[cold]\nfn i() {}\nfn j() {}\nmod m {\n    #[allow(unused)]\n    fn shown() {}\n}\nfn main() {}\n",
+  "stderr": "error: the `crate_type` attribute is forbidden within a `cfg_attr` attribute\n  --> main.rs:2:19\n   |\nLL | #![cfg_attr(true, crate_type = \"lib\")]\n   |                   ^^^^^^^^^^\n\nerror: the `crate_name` attribute is forbidden within a `cfg_attr` attribute\n  --> main.rs:3:19\n   |\nLL | #![cfg_attr(true, crate_name = \"foo\")]\n   |                   ^^^^^^^^^^\n\nerror[E0557]: feature has been removed\n  --> main.rs:1:12\n   |\nLL | #![feature(no_debug)]\n   |            ^^^^^^^^ feature has been removed\n   |\n   = note: removed in 1.43.0; see <https://github.com/rust-lang/rust/pull/69667> for more information\n   = note: removed due to lack of demand\n\nerror: aborting due to 3 previous errors\n\nFor more information about this error, try `rustc --explain E0557`.\n",
+  "exit": 1
+ },
+ "cfg_mod": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "#[path = \"other.rs\"]\nmod foo {\n    fn o() {}\n}\nmod kept {\n    #![allow(dead_code)]\n    #![allow(unused)]\n    fn k() {}\n}\nfn main() {}\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "circular": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "mod a {\n    #[path = \"main.rs\"]\n    mod again { }\n}\nfn main() {}\n",
+  "stderr": "error: circular modules: main.rs -> a.rs -> main.rs\n  --> a.rs:2:1\n   |\nLL | mod again;\n   | ^^^^^^^^^^\n\nerror: aborting due to 1 previous error\n\n",
+  "exit": 1
+ },
+ "foo_mod_rs": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "mod foo {\n    pub fn f() {}\n    mod bar {\n        fn g() {}\n    }\n}\nfn main() {}\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "foo_rs": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "mod foo {\n    pub fn f() {}\n}\nfn main() {}\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "in_block": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "fn f() {\n    mod x {}\n}\nfn g() {\n    mod nope {}\n}\nfn h() {\n    #[path = \"x.rs\"]\n    mod ok {\n        fn xx() {}\n    }\n}\nfn main() {}\n",
+  "stderr": "error: cannot declare a file module inside a block unless it has a path attribute\n  --> main.rs:2:5\n   |\nLL |     mod x;\n   |     ^^^^^^\n   |\n   = note: file modules are usually placed outside of blocks, at the top level of the file\nhelp: maybe `use` the module `x` instead of redeclaring it\n  --> main.rs:2:5\n   |\nLL |     mod x;\n   |     ^^^^^^\n\nerror: cannot declare a file module inside a block unless it has a path attribute\n  --> main.rs:5:5\n   |\nLL |     mod nope;\n   |     ^^^^^^^^^\n   |\n   = note: file modules are usually placed outside of blocks, at the top level of the file\n\nerror: aborting due to 2 previous errors\n\n",
+  "exit": 1
+ },
+ "inline_nested": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "mod a {\n    mod b {\n        fn b() {}\n    }\n    mod c {\n        mod d {\n            fn d() {}\n        }\n    }\n}\nmod x {\n    mod y {\n        mod z {\n            fn z() {}\n        }\n    }\n}\nfn main() {}\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "inline_path": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "#[path = \"dir\"]\nmod m {\n    mod n {\n        fn n() {}\n    }\n}\nmod q {\n    #[path = \"pd\"]\n    mod r {\n        mod s {}\n    }\n}\nfn main() {}\n",
+  "stderr": "error[E0583]: file not found for module `s`\n  --> q.rs:3:5\n   |\nLL |     mod s;\n   |     ^^^^^^\n   |\n   = help: to create the module `s`, create file \"pd/s.rs\" or \"pd/s/mod.rs\"\n   = note: if there is a `mod s` elsewhere in the crate already, import it with `use crate::...` instead\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0583`.\n",
+  "exit": 1
+ },
+ "mod_rs_nested": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "mod a {\n    mod b {\n        fn b() {}\n    }\n    mod c {\n        mod d {\n            fn d() {}\n        }\n    }\n}\nfn main() {}\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "neither": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "mod foo {}\npub mod bar {}\nfn main() {}\n",
+  "stderr": "error[E0583]: file not found for module `foo`\n  --> main.rs:1:1\n   |\nLL | mod foo;\n   | ^^^^^^^^\n   |\n   = help: to create the module `foo`, create file \"foo.rs\" or \"foo/mod.rs\"\n   = note: if there is a `mod foo` elsewhere in the crate already, import it with `use crate::...` instead\n\nerror[E0583]: file not found for module `bar`\n  --> main.rs:2:1\n   |\nLL | pub mod bar;\n   | ^^^^^^^^^^^^\n   |\n   = help: to create the module `bar`, create file \"bar.rs\" or \"bar/mod.rs\"\n   = note: if there is a `mod bar` elsewhere in the crate already, import it with `use crate::...` instead\n\nerror: aborting due to 2 previous errors\n\nFor more information about this error, try `rustc --explain E0583`.\n",
+  "exit": 1
+ },
+ "nested_non_mod_rs": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "mod a {\n    mod b {\n        mod c {\n            pub fn f() {}\n        }\n        mod d {\n            pub fn g() {}\n        }\n    }\n}\nfn main() {}\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "parse_error": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "",
+  "stderr": "error: this file contains an unclosed delimiter\n  --> bad.rs:1:6\n   |\nLL | fn (\n   |    -^\n   |    |\n   |    unclosed delimiter\n\nerror: aborting due to 1 previous error\n\n",
+  "exit": 1
+ },
+ "parse_error_recover": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "mod bad {}\nmod good {\n    fn g() {}\n}\nfn main() {}\n",
+  "stderr": "error: expected identifier, found `;`\n  --> bad.rs:2:7\n   |\nLL | struct;\n   |       ^ expected identifier\n\nerror: aborting due to 1 previous error\n\n",
+  "exit": 1
+ },
+ "path_attr": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "",
+  "stderr": "error: couldn't find file `missing.rs`\n  --> main.rs:6:1\n   |\nLL | mod m;\n   | ^^^^^^\n\nerror: aborting due to 1 previous error\n\n",
+  "exit": 1
+ },
+ "path_malformed": {
+  "args": [
+   "-Zui-testing",
+   "main.rs"
+  ],
+  "stdout": "",
+  "stderr": "error: malformed `path` attribute input\n  --> main.rs:1:1\n   |\nLL | #[path]\n   | ^^^^^^^\n   |\n   = note: for more information, visit <https://doc.rust-lang.org/reference/items/modules.html#the-path-attribute>\nhelp: must be of the form\n   |\nLL | #[path = \"file\"]\n   |        ++++++++\n\nerror: aborting due to 1 previous error\n\n",
+  "exit": 1
+ }
+}

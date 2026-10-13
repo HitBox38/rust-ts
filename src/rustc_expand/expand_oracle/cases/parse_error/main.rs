@@ -1,0 +1,2 @@
+mod bad;
+fn main() {}
