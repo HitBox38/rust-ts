@@ -1,0 +1,79 @@
+error[E0411]: cannot find type `Self` in this scope
+ --> src/rustc_resolve/late/diagnostics_oracle/self_kw.rs:4:18
+  |
+4 | pub fn free() -> Self { loop {} }
+  |        ----      ^^^^ `Self` is only available in impls, traits, and type definitions
+  |        |
+  |        `Self` not allowed in a function
+
+error[E0424]: cannot find value `self` in this scope
+ --> src/rustc_resolve/late/diagnostics_oracle/self_kw.rs:6:30
+  |
+6 |     pub fn assoc() { let _ = self; }
+  |            -----             ^^^^ `self` value is a keyword only available in methods with a `self` parameter
+  |            |
+  |            this function doesn't have a `self` parameter
+  |
+  = note: a module named `self` exists in another namespace
+help: add a `self` receiver parameter to make the associated `fn` a method
+  |
+6 |     pub fn assoc(&self) { let _ = self; }
+  |                  +++++
+
+error[E0425]: cannot find value `this` in this scope
+ --> src/rustc_resolve/late/diagnostics_oracle/self_kw.rs:8:39
+  |
+8 |     pub fn uses_this(&self) { let _ = this; }
+  |                                       ^^^^
+  |                                       |
+  |                                       not found in this scope
+  |                                       help: you might have meant to use `self` here instead
+
+error[E0425]: cannot find value `field` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/self_kw.rs:10:35
+   |
+10 |     pub fn reads(&self) { let _ = field; }
+   |                                   ^^^^^
+   |
+help: you might have meant to use the available field
+   |
+10 |     pub fn reads(&self) { let _ = self.field; }
+   |                                   +++++
+
+error[E0425]: cannot find value `True` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/self_kw.rs:12:26
+   |
+12 | pub fn bools() { let _ = True; printf(); }
+   |                          ^^^^ not found in this scope
+   |
+help: you may want to use a bool value instead
+   |
+12 - pub fn bools() { let _ = True; printf(); }
+12 + pub fn bools() { let _ = true; printf(); }
+   |
+
+error[E0425]: cannot find function `method` in this scope
+ --> src/rustc_resolve/late/diagnostics_oracle/self_kw.rs:9:22
+  |
+7 |     pub fn method(&self) {}
+  |            ------ a method by that name is available on `Self` here
+8 |     pub fn uses_this(&self) { let _ = this; }
+9 |     pub fn calls() { method(); }
+  |                      ^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `printf` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/self_kw.rs:12:32
+   |
+12 | pub fn bools() { let _ = True; printf(); }
+   |                                ^^^^^^ not found in this scope
+   |
+help: you may have meant to use the `print` macro
+   |
+12 - pub fn bools() { let _ = True; printf(); }
+12 + pub fn bools() { let _ = True; print!(); }
+   |
+
+error: aborting due to 7 previous errors
+
+Some errors have detailed explanations: E0411, E0424, E0425.
+For more information about an error, try `rustc --explain E0411`.

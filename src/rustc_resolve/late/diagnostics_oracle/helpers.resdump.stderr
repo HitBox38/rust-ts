@@ -1,0 +1,65 @@
+error[E0425]: cannot find value `x` in this scope
+ --> src/rustc_resolve/late/diagnostics_oracle/helpers.rs:4:32
+  |
+4 | pub fn pattern_let(v: u8) { if x = v {} }
+  |                                ^ not found in this scope
+  |
+help: you might have meant to use pattern matching
+  |
+4 | pub fn pattern_let(v: u8) { if let x = v {} }
+  |                                +++
+
+error[E0425]: cannot find value `rest` in this scope
+ --> src/rustc_resolve/late/diagnostics_oracle/helpers.rs:5:42
+  |
+5 | pub fn slice(arr: [u8; 3]) { let [first, rest..] = arr; }
+  |                                          ^^^^ not found in this scope
+  |
+  = note: range patterns match against the start and end of a range; to bind the components, use a struct pattern
+help: if you meant to collect the rest of the slice in `rest`, use the at operator
+  |
+5 | pub fn slice(arr: [u8; 3]) { let [first, rest @ ..] = arr; }
+  |                                               +
+help: if you meant to destructure a range use a struct pattern
+  |
+5 - pub fn slice(arr: [u8; 3]) { let [first, rest..] = arr; }
+5 + pub fn slice(arr: [u8; 3]) { let [first, std::ops::RangeFrom { start: rest }] = arr; }
+  |
+
+error[E0425]: cannot find value `tail` in this scope
+ --> src/rustc_resolve/late/diagnostics_oracle/helpers.rs:6:48
+  |
+6 | pub fn slice_end(arr: [u8; 3]) { let [first, ..tail] = arr; }
+  |                                                ^^^^ not found in this scope
+  |
+  = note: range patterns match against the start and end of a range; to bind the components, use a struct pattern
+help: if you meant to collect the rest of the slice in `tail`, use the at operator
+  |
+6 - pub fn slice_end(arr: [u8; 3]) { let [first, ..tail] = arr; }
+6 + pub fn slice_end(arr: [u8; 3]) { let [first, tail @ ..] = arr; }
+  |
+help: if you meant to destructure a range use a struct pattern
+  |
+6 - pub fn slice_end(arr: [u8; 3]) { let [first, ..tail] = arr; }
+6 + pub fn slice_end(arr: [u8; 3]) { let [first, std::ops::RangeTo { end: tail }] = arr; }
+  |
+
+error[E0425]: cannot find function `m` in this scope
+ --> src/rustc_resolve/late/diagnostics_oracle/helpers.rs:9:26
+  |
+9 |     pub fn call(&self) { m(&self, 1, 2); }
+  |                          ^
+  |
+help: consider using the method on `Self`
+  |
+9 |     pub fn call(&self) { self.m(&self, 1, 2); }
+  |                          +++++
+help: try calling `m` as a method
+  |
+9 -     pub fn call(&self) { m(&self, 1, 2); }
+9 +     pub fn call(&self) { self.m(1, 2); }
+  |
+
+error: aborting due to 4 previous errors
+
+For more information about this error, try `rustc --explain E0425`.
