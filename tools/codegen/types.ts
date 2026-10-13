@@ -223,6 +223,11 @@ export interface SetConfig {
   /** Write only the per-crate derive modules (walkable / stable_hash), not the per-file type modules (the types are hand-written). */
   derive_only?: boolean;
   /**
+   * derive(StableHash): emit only these items (names or keys). For sets over a large hand-written file of
+   * which only a few types are ported (rustc_middle ty/mod.rs); absent = every derive(StableHash) item.
+   */
+  stable_hash_types?: string[];
+  /**
    * derive(StableHash) field reads of hand types whose TS value is not a `{ field }` object, keyed
    * `<type key>::<field name or index>`: `expr` with `$v` = the value, `import` = values it needs from
    * the type's hand module (e.g. a branded newtype `ExpnHash(Fingerprint)`: `ExpnHash._0($v)`).
@@ -755,6 +760,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   // `stable_hash_<T>` in the hand module of the file with the impl); `newtype_index!` with `#[stable_hash]`
   const deriveStableHash = new Set<string>();
   for (const r of items.values()) {
+    if (set.stable_hash_types !== undefined && !matches(set.stable_hash_types, r)) continue;
     if (hasDerive(r, "StableHash") || hasDerive(r, "StableHash_NoContext")) deriveStableHash.add(r.key);
     if (r.mac?.kind === "newtype" && r.mac.def.attrs.some((a) => a.name === "stable_hash")) deriveStableHash.add(r.key);
   }

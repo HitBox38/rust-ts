@@ -26,7 +26,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { DATA, REPO } from "../../../scripts/lib/common.ts";
+import { REPO } from "../../../scripts/lib/common.ts";
 import { ast, token, tokenstream } from "../../rustc_ast/lib.ts";
 import type { Expr, Ty } from "../../rustc_ast/lib.ts";
 import type { AssocOp } from "../../rustc_ast/util/parser.ts";
@@ -48,6 +48,7 @@ import { InnerAttrPolicy } from "./attr.ts";
 import type { SnapshotParser } from "./diagnostics.ts";
 import type { Parser } from "./mod.ts";
 import { exp, type ExpKeywordPair, type ExpTokenPair } from "./token_type.ts";
+import { test_scratch_dir } from "../../rust_ts/test_scratch.ts";
 
 const { debug_Token } = token;
 const { debug_TokenStream, debug_TokenTree } = tokenstream;
@@ -493,7 +494,7 @@ const PARSE_CRATE_MOD = "rustc_parse::parser::item::Parser::parse_crate_mod";
 const PENDING_DRIVER: Record<string, string> = {
 };
 
-const WORK = join(DATA, "tmp", "parser-diag-driver", process.env.RUST_TS_AGENT ?? "default");
+const WORK = test_scratch_dir("parser-diag-driver");
 
 for (const [name, c] of Object.entries(driver.cases)) {
   test(`parser-diag driver: ${name}`, () => {

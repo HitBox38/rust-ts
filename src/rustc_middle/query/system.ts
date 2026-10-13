@@ -1,7 +1,7 @@
 // Port of compiler/rustc_middle/src/query/system.rs.
 //
 // PORT: no dep graph (D3): `QueryVTable` has no `dep_kind` (dep kinds are the query names) and its
-// `try_load_from_disk_fn` / `hash_value_fn` are kept only as the shape the engine branches on;
+// `try_load_from_disk_fn` is kept only as the shape the engine branches on;
 // `QuerySystem` has no `arenas` (arena allocation is erased, PORTING §5), no `dep_kind_vtables`, no
 // `side_effects` and no `on_disk_cache` (incremental only). Erased values are the values themselves
 // (`Erased<V>` = `V`, see erase.ts). The `C: QueryCache` type parameter becomes the key/value types plus
@@ -10,7 +10,9 @@ import type { Diag } from "../../rustc_errors/lib.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import type { Symbol } from "../../rustc_span/symbol.ts";
 import type { Fmt } from "../../std/fmt.ts";
+import type { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import type { DepNodeIndex } from "../dep_graph/graph.ts";
+import type { StableHashState } from "../ich.ts";
 import type { ExternProviders, Providers, QueryName, QueryTypes, TaggedQueryKey } from "../queries.gen.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import type { QueryCache } from "./caches.ts";
@@ -25,9 +27,8 @@ export type QueryMode =
 export const QueryMode = { Get: "Get", EnsureOk: "EnsureOk" } as const;
 export const debug_QueryMode = (v: QueryMode, _f: Fmt): string => v;
 
-/** PORT: `fn(&mut StableHashState<'_>, &C::Value) -> Fingerprint`; stable hashing of query values is not
- * ported (no `StableHash` impls of query values yet; D3): only its presence (`no_hash` or not) is used. */
-export type HashValueFn<V> = (value: V) => never;
+/** `fn(&mut StableHashState<'_>, &C::Value) -> Fingerprint`. */
+export type HashValueFn<V> = (hcx: StableHashState, value: V) => Fingerprint;
 
 /// Stores data and metadata (e.g. function pointers) for a particular query.
 export class QueryVTable<K, V> {

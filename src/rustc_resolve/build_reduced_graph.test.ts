@@ -50,10 +50,10 @@ import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
 import { clone_Providers as clone_HookProviders } from "../rustc_middle/hooks.ts";
 import { debug_ModChild, type ModChild } from "../rustc_middle/middle/resolve.ts";
 import { clone_ExternProviders, clone_Providers } from "../rustc_middle/query/query_api.ts";
-import { CurrentGcx, TyCtxt, TyCtxtFeed } from "../rustc_middle/ty/context.ts";
-import { debug_Visibility, type Visibility } from "../rustc_middle/ty/mod.ts";
+import { CurrentGcx, TyCtxt } from "../rustc_middle/ty/context.ts";
+import { debug_Visibility } from "../rustc_middle/ty/mod.ts";
 import { query_system } from "../rustc_query_impl/lib.ts";
-import { CrateNum, DEF_ID_DEBUG, type DefId, DefIndex, debug_DefPathHash, debug_LocalModId, LOCAL_CRATE, LocalDefId, type ModId, ModId_eq, StableCrateId } from "../rustc_span/def_id.ts";
+import { CrateNum, DEF_ID_DEBUG, type DefId, DefIndex, debug_DefPathHash, debug_LocalModId, LOCAL_CRATE, LocalDefId, StableCrateId } from "../rustc_span/def_id.ts";
 import { type LocalExpnId, update_dollar_crate_names } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, Span } from "../rustc_span/lib.ts";
 import { Ident, kw, sym, Symbol } from "../rustc_span/symbol.ts";
@@ -76,7 +76,6 @@ const PENDING: Record<string, string> = {
   // With real import resolution, `use` paths reach late resolution (lane res-late).
   use_trees: "rustc_resolve::late::PathSource::is_expected",
   p_macro_escape: "rustc_resolve::diagnostics::impls::Resolver::dcx",
-  p_macro_rules: "rustc_index::bit_set::DenseBitSet::new_filled",
   p_vis_restricted: "rustc_resolve::late::PathSource::is_expected",
 };
 
@@ -206,33 +205,6 @@ afterAll(() => {
   for (const [target, name, fn] of saved) target[name] = fn;
 });
 
-// Stand-in for rustc_middle's `query_feed` re-feed check (calls.rs:215; calls.ts leaves it `unported` until query
-// values are stably hashed): `build_reduced_graph_for_item` and `build_reduced_graph_for_struct_variant` both
-// feed a struct's / union's `visibility`. Upstream compares the stable hashes of the old and the new value and
-// does nothing when they are equal; here equal values (same variant, same `ModId`) do nothing, anything else
-// stops the case. Installed per case (`run_case`), keyed on the `LocalDefId`.
-function with_visibility_refeed<R>(f: () => R): R {
-  const proto = TyCtxtFeed.prototype as unknown as Record<string, (this: TyCtxtFeed<LocalDefId>, v: Visibility<ModId>) => void>;
-  const orig = proto.visibility!;
-  const fed = new Map<LocalDefId, Visibility<ModId>>();
-  proto.visibility = function (this: TyCtxtFeed<LocalDefId>, v: Visibility<ModId>): void {
-    const key = this.key();
-    const old = fed.get(key);
-    if (old !== undefined) {
-      const same = old.$ === v.$ && (old.$ === "Public" || ModId_eq(old._0, (v as { _0: ModId })._0));
-      if (!same) unported("test stand-in: re-feeding a different visibility (query_feed stable hashing)");
-      return;
-    }
-    fed.set(key, v);
-    orig.call(this, v);
-  };
-  try {
-    return f();
-  } finally {
-    proto.visibility = orig;
-  }
-}
-
 // ---- the compilation ------------------------------------------------------------------------------------
 
 class CaptureConfig extends Error {}
@@ -321,7 +293,7 @@ function get_recursion_limit(krate_attrs: readonly Attribute[], sess: Session): 
 
 /** `Resolver::new`, then `configure_and_expand`'s expansion step; returns the compared sections. */
 function run_case(file: string, skip?: string): Map<string, string[]> {
-  return with_visibility_refeed(() => with_tcx(file, (tcx) => {
+  return with_tcx(file, (tcx) => {
     const sess = tcx.sess;
     const arenas = Resolver.arenas();
     void tcx.registered_attr_tools(null);
@@ -350,7 +322,7 @@ function run_case(file: string, skip?: string): Map<string, string[]> {
     } finally {
       DEF_ID_DEBUG.swap(old_debug);
     }
-  }));
+  });
 }
 
 /** The compared sections, printed like tools/probes/resdump/main.rs. */

@@ -5,7 +5,8 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, PIN } from "../../scripts/lib/common.ts";
+import { PIN } from "../../scripts/lib/common.ts";
+import { test_scratch_dir } from "../rust_ts/test_scratch.ts";
 import { Diag, DiagCtxt, DiagCtxtFlags_default, type DiagInner, Level as ErrLevel, Level_eq } from "../rustc_errors/lib.ts";
 import { Emitter } from "../rustc_errors/emitter.ts";
 import { AttrId, create_default_session_globals_then } from "../rustc_span/lib.ts";
@@ -172,8 +173,9 @@ test_("fulfilled expectations are a set of values (rustc_errors lib.rs:925 fulfi
 // ---- oracle: `reference()` texts as printed by the pinned rustc ---------------------------------
 
 const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
+const ORACLE_DIR = test_scratch_dir("lint-defs-oracle");
 function rustcStderr(name: string, src: string, edition: string): string | undefined {
-  const dir = join(DATA, "tmp", "lint-defs-oracle", process.env.RUST_TS_AGENT ?? "default");
+  const dir = ORACLE_DIR;
   mkdirSync(dir, { recursive: true });
   const file = join(dir, `${name}.rs`);
   writeFileSync(file, src);

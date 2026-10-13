@@ -17,6 +17,7 @@ import { QUERY_DECLS, QUERY_NAMES } from "../queries.gen.ts";
 import { TyCtxt, TyCtxtFeed } from "../ty/context.ts";
 import type { TyCtxtEnsureQueries, TyCtxtEnsureResultQueries, TyCtxtFeedQueries, TyCtxtQueries } from "../queries.gen.ts";
 import { query_ensure_ok, query_ensure_result, query_feed, query_get_at, TyCtxtAt, TyCtxtEnsureDone, TyCtxtEnsureOk, TyCtxtEnsureResult } from "./calls.ts";
+import type { StableHash } from "../../rustc_data_structures/stable_hash.ts";
 import type { QueryKey } from "./keys.ts";
 import type { QueryVTable } from "./system.ts";
 
@@ -45,6 +46,9 @@ export interface QueryDecl<K, V> {
   readonly desc: (tcx: TyCtxt, key: K) => string;
   /** `Debug` of the value; `undefined` while the value type is not ported. */
   readonly debug_value: Debug<V> | undefined;
+  /** `StableHash` of the value (`hash_result` in `hash_value_fn`); `undefined` for `no_hash` queries and while the
+   * value type's impl is not ported. */
+  readonly stable_hash_value: StableHash<V> | undefined;
 }
 
 type AnyDecl = QueryDecl<unknown, unknown>;

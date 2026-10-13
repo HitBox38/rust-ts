@@ -288,6 +288,23 @@
       "*": "rustc_span's types are hand-written (src/rustc_span/*.ts); this set only generates rustc_span/stable_hash.gen.ts (derive(StableHash)). stable_hash_access: branded newtypes (the TS value is the field) and StableSourceFileId (keeps its hash inputs; hash() computes the Hash128)."
     }
   },
+  "rustc_middle": {
+    "files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_stable_hash": true,
+    "stable_hash_types": [
+      "rustc_middle::ty::Visibility"
+    ],
+    "hand_notes": {
+      "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed)."
+    }
+  },
   "rustc_query_impl": {
     "files": [
       "compiler/rustc_query_impl/src/diagnostics.rs"

@@ -15,7 +15,8 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, PIN, REPO } from "../../../scripts/lib/common.ts";
+import { PIN, REPO } from "../../../scripts/lib/common.ts";
+import { test_scratch_dir } from "../../rust_ts/test_scratch.ts";
 
 interface Case {
   name: string;
@@ -161,7 +162,7 @@ const PENDING: Record<string, string> = {
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const WRITE = process.env.RUST_TS_WRITE_ORACLE === "1";
 const FIXTURE = new URL("./item_oracle.json", import.meta.url);
-const WORK = join(DATA, "tmp", "parser-item-test", process.env.RUST_TS_AGENT ?? "default");
+const WORK = test_scratch_dir("parser-item-test");
 mkdirSync(WORK, { recursive: true });
 
 // Same environment for both sides; no inherited jobserver or logging.

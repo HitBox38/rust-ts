@@ -10,12 +10,13 @@
 import { expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, PIN, UPSTREAM } from "../../scripts/lib/common.ts";
+import { PIN, UPSTREAM } from "../../scripts/lib/common.ts";
 import type { Diag } from "../rustc_errors/diagnostic.ts";
 import { Unported } from "../std/panic.ts";
 import { CG_OPTIONS, CodegenOptions, CollectedOptions, desc, type OptionDesc, OptionDesc as OptionDescC, UnstableOptions, Z_OPTIONS } from "./options.ts";
 import type { EarlyDiagCtxt, Matches } from "./stand_ins.ts";
 import { NextSolverConfig, Polonius } from "./config.ts";
+import { test_scratch_dir } from "../rust_ts/test_scratch.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
@@ -33,7 +34,7 @@ function requireRustc(): void {
   if (!HAVE) throw new Error(`ERROR: pinned rustc unavailable and RUST_TS_REQUIRE_PROBES=1`);
 }
 
-const WORK = join(DATA, "tmp", "session-options-oracle", process.env.RUST_TS_AGENT ?? "default");
+const WORK = test_scratch_dir("session-options-oracle");
 
 /** `rustc_driver_impl::print_flag_list` (compiler/rustc_driver_impl/src/lib.rs:1163):
  *  `"    {} {:>width$}=val -- {}"` with `width` = the longest option name in chars. */

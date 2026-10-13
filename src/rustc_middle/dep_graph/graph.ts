@@ -7,8 +7,20 @@
 // graph and the work products are not ported.
 import { newtype_index } from "../../rustc_index/newtype_index.ts";
 import type { Debug } from "../../std/fmt.ts";
+import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
+import { type StableHash, StableHasher } from "../../rustc_data_structures/stable_hash.ts";
 import { unported } from "../../std/panic.ts";
+import type { StableHashState } from "../ich.ts";
+import type { HashValueFn } from "../query/system.ts";
 import type { TyCtxt } from "../ty/context.ts";
+
+/** PORT: the `R: StableHash` bound is passed as `stable_hash_R` (stable-hash handoff, decision 4). */
+// rustc: compiler/rustc_middle/src/dep_graph/graph.rs:165 hash_result
+export function hash_result<R>(hcx: StableHashState, result: R, stable_hash_R: StableHash<R>): Fingerprint {
+  const stable_hasher = StableHasher.new();
+  stable_hash_R(result, hcx, stable_hasher);
+  return stable_hasher.finish(Fingerprint);
+}
 
 /** PORT: `DepGraphData` is not ported (D3); a `DepGraph` never has one. */
 export type DepGraphData = never;
@@ -77,7 +89,7 @@ export class DepGraph {
   /// caller's node, we suppose that those changes will be enough to mark this node red and
   /// force a recomputation using the "normal" way.
   // rustc: compiler/rustc_middle/src/dep_graph/graph.rs:601 with_feed_task
-  with_feed_task<R>(_node: undefined, _tcx: TyCtxt, _result: R, _hash_result: unknown, _format_value_fn: (v: R) => string): DepNodeIndex {
+  with_feed_task<R>(_node: undefined, _tcx: TyCtxt, _result: R, _hash_result: HashValueFn<R> | undefined, _format_value_fn: (v: R) => string): DepNodeIndex {
     if (this.data_ !== undefined) {
       return unported("rustc_middle::dep_graph::DepGraph::with_feed_task with a dep graph (D3)");
     } else {

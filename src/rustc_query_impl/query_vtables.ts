@@ -3,13 +3,14 @@
 //
 // PORT: the per-query modules the macro writes out are one generic `make_query_vtable` over the generated
 // `QUERY_DECLS` (rustc_middle/queries.gen.ts). Erased values are the values (erase.rs). No dep graph (D3):
-// `dep_kind` is the query name, `try_load_from_disk_fn` has no on-disk cache to read, and `hash_value_fn`
-// (stable hashing of query values: no `StableHash` impls for query values yet) is kept only as present /
-// absent (`no_hash`); calling it is unported.
+// `dep_kind` is the query name and `try_load_from_disk_fn` has no on-disk cache to read. `hash_value_fn` is
+// `hash_result` over the generated `stable_hash_value` of the decl (the value's `StableHash` impl); it is
+// unported for values whose impl is not ported yet.
 import { QUERY_DECLS, QUERY_NAMES, type QueryName } from "../rustc_middle/queries.gen.ts";
 import { provided_to_erased, type QueryDecl } from "../rustc_middle/query/query_api.ts";
 import { QueryState } from "../rustc_middle/query/job.ts";
-import { type QueryMode, QueryVTable, type QueryVTables } from "../rustc_middle/query/system.ts";
+import { type HashValueFn, type QueryMode, QueryVTable, type QueryVTables } from "../rustc_middle/query/system.ts";
+import { hash_result } from "../rustc_middle/dep_graph/graph.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { PLAIN } from "../std/fmt.ts";
@@ -70,6 +71,16 @@ function invoke_provider_fn<K, V>(decl: QueryDecl<K, V>): (tcx: TyCtxt, key: K) 
   };
 }
 
+/** `hash_value_fn: Some(|hcx, erased_value| { let value = restore_val(*erased_value); hash_result(hcx, &value) })`
+ * (the `#[cfg(not($no_hash))]` arm of `make_query_vtable`). */
+function hash_value_fn<K, V>(decl: QueryDecl<K, V>): HashValueFn<V> {
+  const stable_hash_value = decl.stable_hash_value;
+  if (stable_hash_value === undefined) {
+    return (_hcx, _value) => unported(`rustc_middle::dep_graph::hash_result (StableHash of the values of query \`${decl.name}\`)`);
+  }
+  return (hcx, value) => hash_result(hcx, value, stable_hash_value);
+}
+
 // rustc: compiler/rustc_query_impl/src/query_vtables.rs:142 make_query_vtable
 export function make_query_vtable<K, V>(decl: QueryDecl<K, V>, incremental: boolean, track_present: boolean): QueryVTable<K, V> {
   const name = decl.name;
@@ -86,7 +97,7 @@ export function make_query_vtable<K, V>(decl: QueryDecl<K, V>, incremental: bool
     decl.key.make_cache<V>(track_present),
     invoke_provider_fn(decl),
     decl.cache_on_disk ? () => unported(`rustc_query_impl::incremental::try_load_from_disk (query \`${name}\`; D3)`) : (_tcx, _prev_index) => undefined,
-    decl.no_hash ? undefined : (_value: V) => unported(`rustc_middle::dep_graph::hash_result (stable hashing of the values of query \`${name}\`)`),
+    decl.no_hash ? undefined : hash_value_fn(decl),
     decl.handle_cycle_error
       ? (tcx, key, cycle, err) => {
           if (custom === undefined) return unported(`rustc_query_impl::handle_cycle_error::${name}`);

@@ -71,6 +71,7 @@ function with_tcx<R>(src: string, set_providers: (p: Providers, e: ExternProvide
     opts: { jobs: { frontend: undefined }, unstable_opts: { incremental_verify_ich: false, incremental_ignore_spans: false }, incremental: undefined, actually_rustdoc: false },
     prof: { profiler: undefined },
     psess,
+    source_map: () => sm,
   } as unknown as Session;
   const sp = (needle: string, nth = 0): Span => {
     let at = -1;
@@ -230,6 +231,32 @@ test_("feed: create_def / create_crate_num / feed_unit_query fill the caches wit
   expect(r!.stolen).toBe(true);
   expect(r!.refeed).toBeInstanceOf(Panic);
   expect((r!.refeed as Panic).message).toStartWith("Trying to feed an already recorded value for query crate_for_resolver key=():\nold value: ");
+});
+
+test_("feed: re-feeding a hashed query compares stable hashes (equal: no-op; different: delayed bug, old value kept)", () => {
+  const { r, err } = with_tcx(
+    "struct S;\n",
+    () => {},
+    (tcx, sp) => {
+      const root = tcx.create_local_crate_def_id(sp("struct S;"));
+      root.def_kind(DefKind.Mod);
+      const feed = tcx.at(sp("S")).create_def(CRATE_DEF_ID, Symbol.intern("S"), DefKind.Struct, undefined, PerParentDisambiguatorState.new(CRATE_DEF_ID));
+      const root_mod = CrateNum.as_mod_id(LOCAL_CRATE);
+      // build_reduced_graph feeds a struct's visibility twice with the same value
+      feed.visibility({ $: "Restricted", _0: root_mod });
+      feed.visibility({ $: "Restricted", _0: root_mod });
+      const same = tcx.dcx().has_errors_or_delayed_bugs();
+      // a different value (different stable hash) delays a bug and keeps the old value
+      feed.visibility({ $: "Public" });
+      const different = tcx.dcx().has_errors_or_delayed_bugs();
+      return { same, different, kept: tcx.visibility(feed.def_id()).$, errors: tcx.dcx().has_errors() };
+    },
+  );
+  expect(err).toBeUndefined();
+  expect(r!.same).toBeUndefined();
+  expect(r!.different).toBeDefined();
+  expect(r!.kept).toBe("Restricted");
+  expect(r!.errors).toBeUndefined();
 });
 
 test_("Steal: borrow, steal once, then reads panic with upstream's messages", () => {

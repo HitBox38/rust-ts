@@ -19,7 +19,9 @@ import type { QueryMode, QueryVTable } from "../rustc_middle/query/system.ts";
 import type { DepNodeIndex } from "../rustc_middle/dep_graph/graph.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { enter_context, ImplicitCtxt, with_context } from "../rustc_middle/ty/context/tls.ts";
-import { panic, unported } from "../std/panic.ts";
+import { assert, panic, unported } from "../std/panic.ts";
+import { debug_str, PLAIN } from "../std/fmt.ts";
+import type { Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import { QueryOverflow_diagnostic } from "./diagnostics.ts";
 import * as handle_cycle_error from "./handle_cycle_error.ts";
 import { collect_active_query_jobs, find_cycle_in_stack, find_dep_kind_root } from "./job.ts";
@@ -242,7 +244,7 @@ function try_execute_query<K, V>(query: QueryVTable<K, V>, tcx: TyCtxt, span: Sp
 }
 
 // rustc: compiler/rustc_query_impl/src/execution.rs:363 check_feedable_consistency
-function check_feedable_consistency<K, V>(tcx: TyCtxt, query: QueryVTable<K, V>, key: K, _value: V): void {
+function check_feedable_consistency<K, V>(tcx: TyCtxt, query: QueryVTable<K, V>, key: K, value: V): void {
   // We should not compute queries that also got a value via feeding.
   // This can't happen, as query feeding adds the very dependencies to the fed query
   // as its feeding query had. So if the fed query is red, so is its feeder, which will
@@ -251,7 +253,8 @@ function check_feedable_consistency<K, V>(tcx: TyCtxt, query: QueryVTable<K, V>,
   if (cached === undefined) return;
   const cached_value = cached[0];
 
-  if (query.hash_value_fn === undefined) {
+  const hash_value_fn = query.hash_value_fn;
+  if (hash_value_fn === undefined) {
     panic(
       "no_hash fed query later has its value computed.\n" +
         "Remove `no_hash` modifier to allow recomputation.\n" +
@@ -259,9 +262,18 @@ function check_feedable_consistency<K, V>(tcx: TyCtxt, query: QueryVTable<K, V>,
     );
   }
 
-  // `tcx.with_stable_hashing_context(|mut hcx| (hash_value_fn(&mut hcx, &cached_value), hash_value_fn(&mut hcx, value)))`
-  void tcx;
-  unported(`rustc_query_impl::execution::check_feedable_consistency: stable hashing of the values of query \`${query.name}\``);
+  const [old_hash, new_hash] = tcx.with_stable_hashing_context((hcx): [Fingerprint, Fingerprint] => [hash_value_fn(hcx, cached_value), hash_value_fn(hcx, value)]);
+  const formatter = query.format_value;
+  if (old_hash !== new_hash) {
+    // We have an inconsistency. This can happen if one of the two
+    // results is tainted by errors.
+    // PORT: `query.dep_kind` is the query name (no dep graph, D3); `{:#?}` of the formatted `String`s.
+    assert(
+      tcx.dcx().has_errors() !== undefined,
+      `Computed query value for ${query.name}(${query.key_impl.debug(key, PLAIN)}) is inconsistent with fed value,\n` +
+        `computed=${debug_str(formatter(value))}\nfed=${debug_str(formatter(cached_value))}`,
+    );
+  }
 }
 
 // rustc: compiler/rustc_query_impl/src/execution.rs:403 depth_limit_error

@@ -11,24 +11,27 @@ import { type TokenStream, debug_TokenStream } from "../rustc_ast/tokenstream.ts
 import { type DiagnosticItems, debug_DiagnosticItems } from "../rustc_attr_ir/diagnostic_items.ts";
 import { type LangItem, type LanguageItems, debug_LangItem, debug_LanguageItems } from "../rustc_attr_ir/lang_items.ts";
 import { type Attribute, clone_Attribute, debug_Attribute } from "../rustc_attr_ir/lib.ts";
+import { stable_hash_IndexMap, stable_hash_IndexSet, stable_hash_Option, stable_hash_Path, stable_hash_String, stable_hash_Vec, stable_hash_bool, stable_hash_slice, stable_hash_str, stable_hash_unit, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
 import { type Steal, debug_Steal } from "../rustc_data_structures/steal.ts";
 import { type Features } from "../rustc_feature/unstable.ts";
 import { type DefKind, debug_DefKind } from "../rustc_hir/def.ts";
 import { type SortedMap } from "../rustc_hir_id/definitions.ts";
 import { type ItemLocalId, type OwnerId, debug_ItemLocalId } from "../rustc_hir_id/lib.ts";
 import { type HirId, type LintId, type StableLintExpectationId, debug_HirId } from "../rustc_lint_defs/lib.ts";
-import { type EffectiveVisibilities, debug_EffectiveVisibilities } from "./middle/privacy.ts";
+import { type EffectiveVisibilities, debug_EffectiveVisibilities, stable_hash_EffectiveVisibilities } from "./middle/privacy.ts";
 import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLowering, type ResolverGlobalCtxt, debug_DocLinkResMap, debug_ModChild, debug_ResolverAstLowering, debug_ResolverGlobalCtxt } from "./middle/resolve.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
 import { KEY_CrateNum, KEY_CrateNum_DefId, KEY_DefId, KEY_DefId_DefId, KEY_LocalDefId, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OwnerId, KEY_Symbol, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
+import { stable_hash_Visibility } from "./stable_hash.gen.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type Visibility, debug_Visibility } from "./ty/mod.ts";
-import { type CrateNum, type DefId, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum } from "../rustc_span/def_id.ts";
-import { type ExpnId, type LocalExpnId, debug_ExpnId } from "../rustc_span/hygiene.ts";
-import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span } from "../rustc_span/lib.ts";
-import { type Ident, type Symbol, debug_Ident, debug_Symbol, display_Ident, display_Symbol } from "../rustc_span/symbol.ts";
+import { type CrateNum, type DefId, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
+import { type ExpnId, type LocalExpnId, debug_ExpnId, stable_hash_ExpnId } from "../rustc_span/hygiene.ts";
+import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span, stable_hash_Span } from "../rustc_span/lib.ts";
+import { stable_hash_Ident, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
+import { type Ident, type Symbol, debug_Ident, debug_Symbol, display_Ident, display_Symbol, stable_hash_Symbol } from "../rustc_span/symbol.ts";
 import { PLAIN, debug_bool, debug_int, debug_map, debug_option, debug_set, debug_str, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 import { type Result, debug_result } from "../std/result.ts";
@@ -1831,6 +1834,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `expanding a derive (proc) macro`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => debug_TokenStream(x, f)), ((x, f) => "()")),
+    stable_hash_value: undefined,
   },
   trigger_delayed_bug: {
     name: "trigger_delayed_bug",
@@ -1848,6 +1852,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `triggering a delayed bug for testing incremental`,
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   registered_attr_tools: {
     name: "registered_attr_tools",
@@ -1865,6 +1870,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `compute registered attribute tools for crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   registered_lint_tools: {
     name: "registered_lint_tools",
@@ -1882,6 +1888,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `compute registered lint tools for crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   early_lint_checks: {
     name: "early_lint_checks",
@@ -1899,6 +1906,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `perform lints prior to AST lowering`,
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   env_var_os: {
     name: "env_var_os",
@@ -1916,6 +1924,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `get the value of an environment variable`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   resolutions: {
     name: "resolutions",
@@ -1933,6 +1942,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting the resolver outputs`,
     debug_value: (v, f) => debug_ResolverGlobalCtxt(v, f),
+    stable_hash_value: undefined,
   },
   resolver_for_lowering_raw: {
     name: "resolver_for_lowering_raw",
@@ -1950,6 +1960,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting the resolver for lowering`,
     debug_value: (v, f) => debug_tuple(f, "", [debug_Steal(v[0], f, ((x, f) => debug_ResolverAstLowering(x, f))), debug_Steal(v[1], f, ((x, f) => debug_Crate(x, f))), debug_ResolverGlobalCtxt(v[2], f)]),
+    stable_hash_value: undefined,
   },
   index_ast: {
     name: "index_ast",
@@ -1967,6 +1978,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting the AST for lowering`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   source_span: {
     name: "source_span",
@@ -1984,6 +1996,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting the source span`,
     debug_value: (v, f) => debug_Span(v, f),
+    stable_hash_value: stable_hash_Span,
   },
   resolve_type_relative_delegations: {
     name: "resolve_type_relative_delegations",
@@ -2001,6 +2014,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `resolving type relative delegations`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   lower_to_hir: {
     name: "lower_to_hir",
@@ -2018,6 +2032,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `lowering HIR for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   hir_owner: {
     name: "hir_owner",
@@ -2035,6 +2050,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `getting owner for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   hir_crate_items: {
     name: "hir_crate_items",
@@ -2052,6 +2068,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting HIR crate items`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   hir_module_items: {
     name: "hir_module_items",
@@ -2069,6 +2086,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `getting HIR module items in \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   hir_owner_parent_q: {
     name: "hir_owner_parent_q",
@@ -2086,6 +2104,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `getting HIR parent of \`${__0}\``; },
     debug_value: (v, f) => debug_HirId(v, f),
+    stable_hash_value: undefined,
   },
   hir_attr_map: {
     name: "hir_attr_map",
@@ -2103,6 +2122,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `getting HIR owner attributes in \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   const_param_default: {
     name: "const_param_default",
@@ -2120,6 +2140,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, param) => { const __0 = tcx.def_path_str(param); return `computing the default for const parameter \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   const_of_item: {
     name: "const_of_item",
@@ -2137,6 +2158,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing the type-level value for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_of: {
     name: "type_of",
@@ -2154,6 +2176,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = (() => { const __m = tcx.def_kind(key); if (__m.$ === "TyAlias") return "expanding type alias"; if (__m.$ === "TraitAlias") return "expanding trait alias"; return "computing type of"; })(); const __1 = tcx.def_path_str(key); return `${__0} \`${__1}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_of_opaque: {
     name: "type_of_opaque",
@@ -2171,6 +2194,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing type of opaque \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_of_opaque_hir_typeck: {
     name: "type_of_opaque_hir_typeck",
@@ -2188,6 +2212,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing type of opaque \`${__0}\` via HIR typeck`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_alias_is_checked: {
     name: "type_alias_is_checked",
@@ -2205,6 +2230,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing whether the type alias \`${__0}\` is checked`; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   collect_return_position_impl_trait_in_trait_tys: {
     name: "collect_return_position_impl_trait_in_trait_tys",
@@ -2222,6 +2248,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `comparing an impl and trait method signature, inferring any hidden \`impl Trait\` types in the process`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   opaque_ty_origin: {
     name: "opaque_ty_origin",
@@ -2239,6 +2266,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `determine where the opaque originates from`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   unsizing_params_for_adt: {
     name: "unsizing_params_for_adt",
@@ -2256,6 +2284,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `determining what parameters of \`${__0}\` can participate in unsizing`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   analysis: {
     name: "analysis",
@@ -2273,6 +2302,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `analysis` (path `LOCAL_CRATE`)"),
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   check_expectations: {
     name: "check_expectations",
@@ -2290,6 +2320,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking lint expectations (RFC 2383)`,
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   generics_of: {
     name: "generics_of",
@@ -2307,6 +2338,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing generics of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   clauses_of: {
     name: "clauses_of",
@@ -2324,6 +2356,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing clauses of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   opaque_types_defined_by: {
     name: "opaque_types_defined_by",
@@ -2341,6 +2374,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `opaque_types_defined_by` (method `.to_def_id()` on a non-tcx receiver)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   nested_bodies_within: {
     name: "nested_bodies_within",
@@ -2358,6 +2392,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `nested_bodies_within` (method `.to_def_id()` on a non-tcx receiver)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   explicit_item_bounds: {
     name: "explicit_item_bounds",
@@ -2375,6 +2410,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `finding item bounds for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   explicit_item_self_bounds: {
     name: "explicit_item_self_bounds",
@@ -2392,6 +2428,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `finding item bounds for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   item_bounds: {
     name: "item_bounds",
@@ -2409,6 +2446,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `elaborating item bounds for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   item_self_bounds: {
     name: "item_self_bounds",
@@ -2426,6 +2464,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `elaborating item assumptions for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   item_non_self_bounds: {
     name: "item_non_self_bounds",
@@ -2443,6 +2482,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `elaborating item assumptions for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   impl_super_outlives: {
     name: "impl_super_outlives",
@@ -2460,6 +2500,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `elaborating supertrait outlives for trait of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   native_libraries: {
     name: "native_libraries",
@@ -2477,6 +2518,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the native libraries of a linked crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   shallow_lint_levels_on: {
     name: "shallow_lint_levels_on",
@@ -2494,6 +2536,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `looking up lint levels for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   lint_expectations: {
     name: "lint_expectations",
@@ -2511,6 +2554,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `computing \`#[expect]\`ed lints in this crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   skippable_lints: {
     name: "skippable_lints",
@@ -2528,6 +2572,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `Computing all lints that are explicitly enabled or with a default level greater than Allow`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   expn_that_defined: {
     name: "expn_that_defined",
@@ -2545,6 +2590,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `getting the expansion that defined \`${__0}\``; },
     debug_value: (v, f) => debug_ExpnId(v, f),
+    stable_hash_value: stable_hash_ExpnId,
   },
   is_panic_runtime: {
     name: "is_panic_runtime",
@@ -2562,6 +2608,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking if the crate is_panic_runtime`,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   check_representability: {
     name: "check_representability",
@@ -2579,6 +2626,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking if \`${__0}\` is representable`; },
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   check_representability_adt_ty: {
     name: "check_representability_adt_ty",
@@ -2596,6 +2644,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `check_representability_adt_ty` (Display of `rustc_middle::ty::Ty`)"),
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   params_in_repr: {
     name: "params_in_repr",
@@ -2613,6 +2662,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `finding type parameters in the representation`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   thir_body: {
     name: "thir_body",
@@ -2630,6 +2680,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `building THIR for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   mir_keys: {
     name: "mir_keys",
@@ -2647,6 +2698,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting a list of all mir_keys`,
     debug_value: (v, f) => debug_set(f, [...v].map((x) => ((x, f) => debug_LocalDefId(x, f))(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_IndexSet(v, hcx, h, stable_hash_LocalDefId),
   },
   mir_const_qualif: {
     name: "mir_const_qualif",
@@ -2664,6 +2716,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `const checking \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   mir_built: {
     name: "mir_built",
@@ -2681,6 +2734,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `building MIR for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   thir_abstract_const: {
     name: "thir_abstract_const",
@@ -2698,6 +2752,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `building an abstract representation for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   mir_drops_elaborated_and_const_checked: {
     name: "mir_drops_elaborated_and_const_checked",
@@ -2715,6 +2770,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `elaborating drops for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   mir_for_ctfe: {
     name: "mir_for_ctfe",
@@ -2732,6 +2788,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `caching mir of \`${__0}\` for CTFE`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   mir_promoted: {
     name: "mir_promoted",
@@ -2749,6 +2806,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `promoting constants in MIR for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   closure_typeinfo: {
     name: "closure_typeinfo",
@@ -2766,6 +2824,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `finding symbols for captures of closure \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   closure_saved_names_of_captured_variables: {
     name: "closure_saved_names_of_captured_variables",
@@ -2783,6 +2842,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing debuginfo for closure \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   mir_coroutine_witnesses: {
     name: "mir_coroutine_witnesses",
@@ -2800,6 +2860,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `coroutine witness types for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   check_coroutine_obligations: {
     name: "check_coroutine_obligations",
@@ -2817,6 +2878,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `verify auto trait bounds for coroutine interior type \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   check_potentially_region_dependent_goals: {
     name: "check_potentially_region_dependent_goals",
@@ -2834,6 +2896,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `reproving potentially region dependent HIR typeck goals for \`${__0}`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   optimized_mir: {
     name: "optimized_mir",
@@ -2851,6 +2914,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `optimizing MIR for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_eligible_for_coverage: {
     name: "is_eligible_for_coverage",
@@ -2868,6 +2932,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking whether \`${__0}\` is eligible for coverage`; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   coverage_attr_on: {
     name: "coverage_attr_on",
@@ -2885,6 +2950,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking for \`#[coverage(..)]\` on \`${__0}\``; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   coverage_codegen_info: {
     name: "coverage_codegen_info",
@@ -2902,6 +2968,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `coverage_codegen_info` (method `.def_id()` on a non-tcx receiver)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   promoted_mir: {
     name: "promoted_mir",
@@ -2919,6 +2986,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `optimizing promoted MIR for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   erase_and_anonymize_regions_ty: {
     name: "erase_and_anonymize_regions_ty",
@@ -2936,6 +3004,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `erase_and_anonymize_regions_ty` (Display of `rustc_middle::ty::Ty`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   wasm_import_module_map: {
     name: "wasm_import_module_map",
@@ -2953,6 +3022,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting wasm import module map`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   trait_explicit_clauses_and_bounds: {
     name: "trait_explicit_clauses_and_bounds",
@@ -2970,6 +3040,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing explicit clauses of trait \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   explicit_clauses_of: {
     name: "explicit_clauses_of",
@@ -2987,6 +3058,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing explicit predicates of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   inferred_outlives_of: {
     name: "inferred_outlives_of",
@@ -3004,6 +3076,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing inferred outlives-clauses of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   explicit_super_clauses_of: {
     name: "explicit_super_clauses_of",
@@ -3021,6 +3094,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the super clauses of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   explicit_implied_clauses_of: {
     name: "explicit_implied_clauses_of",
@@ -3038,6 +3112,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied clauses of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   explicit_supertraits_containing_assoc_item: {
     name: "explicit_supertraits_containing_assoc_item",
@@ -3055,6 +3130,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key[0]); const __1 = key[1]; return `computing the super traits of \`${__0}\` with associated type name \`${display_Ident(__1)}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   const_conditions: {
     name: "const_conditions",
@@ -3072,6 +3148,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the conditions for \`${__0}\` to be considered const`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   explicit_implied_const_bounds: {
     name: "explicit_implied_const_bounds",
@@ -3089,6 +3166,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied \`[const]\` bounds for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_param_clauses: {
     name: "type_param_clauses",
@@ -3106,6 +3184,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `type_param_clauses` (TyCtxt method `hir_ty_param_name`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   trait_def: {
     name: "trait_def",
@@ -3123,6 +3202,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing trait definition for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   adt_def: {
     name: "adt_def",
@@ -3140,6 +3220,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing ADT definition for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   adt_destructor: {
     name: "adt_destructor",
@@ -3157,6 +3238,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing \`Drop\` impl for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   adt_async_destructor: {
     name: "adt_async_destructor",
@@ -3174,6 +3256,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing \`AsyncDrop\` impl for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   adt_sizedness_constraint: {
     name: "adt_sizedness_constraint",
@@ -3191,6 +3274,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key[0]); return `computing the sizedness constraint for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   adt_dtorck_constraint: {
     name: "adt_dtorck_constraint",
@@ -3208,6 +3292,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing drop-check constraints for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   constness: {
     name: "constness",
@@ -3225,6 +3310,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking if item is const: \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   asyncness: {
     name: "asyncness",
@@ -3242,6 +3328,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking if the function is async: \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_promotable_const_fn: {
     name: "is_promotable_const_fn",
@@ -3259,6 +3346,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking if item is promotable: \`${__0}\``; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   coroutine_by_move_body_def_id: {
     name: "coroutine_by_move_body_def_id",
@@ -3276,6 +3364,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up the coroutine by-move body for \`${__0}\``; },
     debug_value: (v, f) => debug_DefId(v, f),
+    stable_hash_value: stable_hash_DefId,
   },
   coroutine_kind: {
     name: "coroutine_kind",
@@ -3293,6 +3382,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up coroutine kind of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   coroutine_for_closure: {
     name: "coroutine_for_closure",
@@ -3310,6 +3400,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `Given a coroutine-closure def id, return the def id of the coroutine returned by it`,
     debug_value: (v, f) => debug_DefId(v, f),
+    stable_hash_value: stable_hash_DefId,
   },
   coroutine_hidden_types: {
     name: "coroutine_hidden_types",
@@ -3327,6 +3418,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `looking up the hidden types stored across await points in a coroutine`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   crate_variances: {
     name: "crate_variances",
@@ -3344,6 +3436,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `computing the variances for items in this crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   variances_of: {
     name: "variances_of",
@@ -3361,6 +3454,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing the variances of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   inferred_outlives_crate: {
     name: "inferred_outlives_crate",
@@ -3378,6 +3472,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `computing the inferred outlives-clauses for items in this crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   associated_item_def_ids: {
     name: "associated_item_def_ids",
@@ -3395,6 +3490,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `collecting associated items or fields of \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
   associated_item: {
     name: "associated_item",
@@ -3412,6 +3508,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing associated item data for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   associated_items: {
     name: "associated_items",
@@ -3429,6 +3526,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `collecting associated items of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   impl_item_implementor_ids: {
     name: "impl_item_implementor_ids",
@@ -3446,6 +3544,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, impl_id) => { const __0 = tcx.def_path_str(impl_id); return `comparing impl items against trait for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   associated_types_for_impl_traits_in_trait_or_impl: {
     name: "associated_types_for_impl_traits_in_trait_or_impl",
@@ -3463,6 +3562,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, item_def_id) => { const __0 = tcx.def_path_str(item_def_id); return `synthesizing RPITIT items for the opaque types for methods in \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   impl_trait_header: {
     name: "impl_trait_header",
@@ -3480,6 +3580,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, impl_id) => { const __0 = tcx.def_path_str(impl_id); return `computing trait implemented by \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   impl_is_fully_generic_for_reflection: {
     name: "impl_is_fully_generic_for_reflection",
@@ -3497,6 +3598,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, impl_id) => { const __0 = tcx.def_path_str(impl_id); return `computing trait implemented by \`${__0}\``; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   impl_self_is_guaranteed_unsized: {
     name: "impl_self_is_guaranteed_unsized",
@@ -3514,6 +3616,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, impl_def_id) => { const __0 = tcx.def_path_str(impl_def_id); return `computing whether \`${__0}\` has a guaranteed unsized self type`; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   inherent_impls: {
     name: "inherent_impls",
@@ -3531,6 +3634,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `collecting inherent impls for \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
   incoherent_impls: {
     name: "incoherent_impls",
@@ -3548,6 +3652,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `incoherent_impls` (Debug of `rustc_middle::ty::fast_reject::SimplifiedType`)"),
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
   check_transmutes: {
     name: "check_transmutes",
@@ -3565,6 +3670,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `check transmute calls inside \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   check_offloads: {
     name: "check_offloads",
@@ -3582,6 +3688,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `check offload calls inside \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   check_unsafety: {
     name: "check_unsafety",
@@ -3599,6 +3706,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `unsafety-checking \`${__0}\``; },
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   check_tail_calls: {
     name: "check_tail_calls",
@@ -3616,6 +3724,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `tail-call-checking \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   assumed_wf_types: {
     name: "assumed_wf_types",
@@ -3633,6 +3742,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied bounds of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   assumed_wf_types_for_rpitit: {
     name: "assumed_wf_types_for_rpitit",
@@ -3650,6 +3760,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied bounds of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   fn_sig: {
     name: "fn_sig",
@@ -3667,6 +3778,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing function signature of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   lint_mod: {
     name: "lint_mod",
@@ -3684,6 +3796,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = describe_as_module(key, tcx); return `linting ${__0}`; },
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   check_unused_traits: {
     name: "check_unused_traits",
@@ -3701,6 +3814,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking unused trait imports in crate`,
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   check_mod_attrs: {
     name: "check_mod_attrs",
@@ -3718,6 +3832,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = describe_as_module(key, tcx); return `checking attributes in ${__0}`; },
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   check_mod_unstable_api_usage: {
     name: "check_mod_unstable_api_usage",
@@ -3735,6 +3850,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = describe_as_module(key, tcx); return `checking for unstable API usage in ${__0}`; },
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   check_mod_privacy: {
     name: "check_mod_privacy",
@@ -3752,6 +3868,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `check_mod_privacy` (method `.to_local_def_id()` on a non-tcx receiver)"),
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   check_liveness: {
     name: "check_liveness",
@@ -3769,6 +3886,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `check_liveness` (method `.to_def_id()` on a non-tcx receiver)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   live_symbols_and_ignored_derived_traits: {
     name: "live_symbols_and_ignored_derived_traits",
@@ -3786,6 +3904,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `finding live symbols in crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   check_mod_deathness: {
     name: "check_mod_deathness",
@@ -3803,6 +3922,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = describe_as_module(key, tcx); return `checking deathness of variables in ${__0}`; },
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   check_type_wf: {
     name: "check_type_wf",
@@ -3820,6 +3940,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `checking that types are well-formed`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   coerce_unsized_info: {
     name: "coerce_unsized_info",
@@ -3837,6 +3958,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing CoerceUnsized info for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   typeck_root: {
     name: "typeck_root",
@@ -3854,6 +3976,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `type-checking \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   used_trait_imports: {
     name: "used_trait_imports",
@@ -3871,6 +3994,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `finding used_trait_imports \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   coherent_trait: {
     name: "coherent_trait",
@@ -3888,6 +4012,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `coherence checking all impls of trait \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   mir_borrowck: {
     name: "mir_borrowck",
@@ -3905,6 +4030,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `borrow-checking \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   crate_inherent_impls: {
     name: "crate_inherent_impls",
@@ -3922,6 +4048,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _k) => `finding all inherent impls defined in crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   crate_inherent_impls_validity_check: {
     name: "crate_inherent_impls_validity_check",
@@ -3939,6 +4066,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `check for inherent impls that should not be defined in crate`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   crate_inherent_impls_overlap_check: {
     name: "crate_inherent_impls_overlap_check",
@@ -3956,6 +4084,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (_tcx, _key) => `check for overlap between inherent impls defined in this crate`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   orphan_check_impl: {
     name: "orphan_check_impl",
@@ -3973,6 +4102,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking whether impl \`${__0}\` follows the orphan rules`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   mir_callgraph_cyclic: {
     name: "mir_callgraph_cyclic",
@@ -3990,6 +4120,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing (transitive) callees of \`${__0}\` that may recurse`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   mir_inliner_callees: {
     name: "mir_inliner_callees",
@@ -4007,6 +4138,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `mir_inliner_callees` (method `.def_id()` on a non-tcx receiver)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   tag_for_variant: {
     name: "tag_for_variant",
@@ -4024,6 +4156,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `computing variant tag for enum`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   eval_to_allocation_raw: {
     name: "eval_to_allocation_raw",
@@ -4041,6 +4174,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `eval_to_allocation_raw` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   eval_static_initializer: {
     name: "eval_static_initializer",
@@ -4058,6 +4192,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `evaluating initializer of static \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   eval_to_const_value_raw: {
     name: "eval_to_const_value_raw",
@@ -4075,6 +4210,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `eval_to_const_value_raw` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   eval_to_valtree: {
     name: "eval_to_valtree",
@@ -4092,6 +4228,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `evaluating type-level constant`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   valtree_to_const_val: {
     name: "valtree_to_const_val",
@@ -4109,6 +4246,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `converting type-level constant value to MIR constant value`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   lit_to_const: {
     name: "lit_to_const",
@@ -4126,6 +4264,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `converting literal to const`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   check_match: {
     name: "check_match",
@@ -4143,6 +4282,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `match-checking \`${__0}\``; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   effective_visibilities: {
     name: "effective_visibilities",
@@ -4160,6 +4300,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking effective visibilities`,
     debug_value: (v, f) => debug_EffectiveVisibilities(v, f),
+    stable_hash_value: stable_hash_EffectiveVisibilities,
   },
   check_private_in_public: {
     name: "check_private_in_public",
@@ -4177,6 +4318,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, module_def_id) => { const __0 = describe_as_module(module_def_id, tcx); return `checking for private elements in public interfaces for ${__0}`; },
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   reachable_set: {
     name: "reachable_set",
@@ -4194,6 +4336,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `reachability`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   region_scope_tree: {
     name: "region_scope_tree",
@@ -4211,6 +4354,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing drop scopes for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   mir_shims: {
     name: "mir_shims",
@@ -4228,6 +4372,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `mir_shims` (method `.def_id()` on a non-tcx receiver)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   symbol_name: {
     name: "symbol_name",
@@ -4245,6 +4390,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `symbol_name` (Display of `rustc_middle::ty::Instance`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   def_kind: {
     name: "def_kind",
@@ -4262,6 +4408,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up definition kind of \`${__0}\``; },
     debug_value: (v, f) => debug_DefKind(v, f),
+    stable_hash_value: undefined,
   },
   def_span: {
     name: "def_span",
@@ -4279,6 +4426,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up span for \`${__0}\``; },
     debug_value: (v, f) => debug_Span(v, f),
+    stable_hash_value: stable_hash_Span,
   },
   def_ident_span: {
     name: "def_ident_span",
@@ -4296,6 +4444,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up span for \`${__0}\`'s identifier`; },
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_Span(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_Span),
   },
   ty_span: {
     name: "ty_span",
@@ -4313,6 +4462,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up span for \`${__0}\`'s type`; },
     debug_value: (v, f) => debug_Span(v, f),
+    stable_hash_value: stable_hash_Span,
   },
   lookup_stability: {
     name: "lookup_stability",
@@ -4330,6 +4480,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up stability of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   lookup_const_stability: {
     name: "lookup_const_stability",
@@ -4347,6 +4498,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up const stability of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   lookup_default_body_stability: {
     name: "lookup_default_body_stability",
@@ -4364,6 +4516,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up default body stability of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   should_inherit_track_caller: {
     name: "should_inherit_track_caller",
@@ -4381,6 +4534,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing should_inherit_track_caller of \`${__0}\``; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   inherited_align: {
     name: "inherited_align",
@@ -4398,6 +4552,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing inherited_align of \`${__0}\``; },
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_Align(x, f))),
+    stable_hash_value: undefined,
   },
   lookup_deprecation_entry: {
     name: "lookup_deprecation_entry",
@@ -4415,6 +4570,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `checking whether \`${__0}\` is deprecated`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_doc_hidden: {
     name: "is_doc_hidden",
@@ -4432,6 +4588,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `checking whether \`${__0}\` is \`doc(hidden)\``; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_doc_notable_trait: {
     name: "is_doc_notable_trait",
@@ -4449,6 +4606,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `checking whether \`${__0}\` is \`doc(notable_trait)\``; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   attrs_for_def: {
     name: "attrs_for_def",
@@ -4466,6 +4624,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `collecting attributes of \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_Attribute(x, f)),
+    stable_hash_value: undefined,
   },
   codegen_fn_attrs: {
     name: "codegen_fn_attrs",
@@ -4483,6 +4642,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing codegen attributes of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   asm_target_features: {
     name: "asm_target_features",
@@ -4500,6 +4660,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing target features for inline asm of \`${__0}\``; },
     debug_value: (v, f) => debug_set(f, [...v].map((x) => ((x, f) => debug_Symbol(x, f))(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_IndexSet(v, hcx, h, stable_hash_Symbol),
   },
   fn_arg_idents: {
     name: "fn_arg_idents",
@@ -4517,6 +4678,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up function parameter identifiers for \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_option(x, f, ((x, f) => debug_Ident(x, f)))),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_Ident)),
   },
   rendered_const: {
     name: "rendered_const",
@@ -4534,6 +4696,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `rendering constant initializer of \`${__0}\``; },
     debug_value: (v, f) => debug_str(v),
+    stable_hash_value: stable_hash_String,
   },
   rendered_precise_capturing_args: {
     name: "rendered_precise_capturing_args",
@@ -4551,6 +4714,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `rendering precise capturing args for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   impl_parent: {
     name: "impl_parent",
@@ -4568,6 +4732,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing specialization parent impl of \`${__0}\``; },
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_DefId(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_DefId),
   },
   is_mir_available: {
     name: "is_mir_available",
@@ -4585,6 +4750,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking if item has MIR available: \`${__0}\``; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   own_existential_vtable_entries: {
     name: "own_existential_vtable_entries",
@@ -4602,6 +4768,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `finding all existential vtable entries for trait \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
   vtable_entries: {
     name: "vtable_entries",
@@ -4619,6 +4786,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `vtable_entries` (field `.def_id`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   first_method_vtable_slot: {
     name: "first_method_vtable_slot",
@@ -4636,6 +4804,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `first_method_vtable_slot` (method `.self_ty()` on a non-tcx receiver)"),
     debug_value: (v, f) => debug_int(v, f),
+    stable_hash_value: stable_hash_usize,
   },
   supertrait_vtable_slot: {
     name: "supertrait_vtable_slot",
@@ -4653,6 +4822,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `supertrait_vtable_slot` (Display of `rustc_middle::ty::Ty`)"),
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_int(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_usize),
   },
   vtable_allocation: {
     name: "vtable_allocation",
@@ -4670,6 +4840,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `vtable_allocation` (expression starting with `|`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   codegen_select_candidate: {
     name: "codegen_select_candidate",
@@ -4687,6 +4858,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `codegen_select_candidate` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   all_local_trait_impls: {
     name: "all_local_trait_impls",
@@ -4704,6 +4876,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `finding local trait impls`,
     debug_value: (v, f) => debug_map(f, [...v].map(([k, x]) => [((x, f) => debug_DefId(x, f))(k, f), ((x, f) => debug_vec(x, f, ((x, f) => debug_LocalDefId(x, f))))(x, f)])),
+    stable_hash_value: (v, hcx, h) => stable_hash_IndexMap(v, hcx, h, stable_hash_DefId, (v, hcx, h) => stable_hash_Vec(v, hcx, h, stable_hash_LocalDefId)),
   },
   local_trait_impls: {
     name: "local_trait_impls",
@@ -4721,6 +4894,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, trait_id) => { const __0 = tcx.def_path_str(trait_id); return `finding local trait impls of \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_LocalDefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_LocalDefId),
   },
   trait_impls_of: {
     name: "trait_impls_of",
@@ -4738,6 +4912,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, trait_id) => { const __0 = tcx.def_path_str(trait_id); return `finding trait impls of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   specialization_graph_of: {
     name: "specialization_graph_of",
@@ -4755,6 +4930,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, trait_id) => { const __0 = tcx.def_path_str(trait_id); return `building specialization graph of trait \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   dyn_compatibility_violations: {
     name: "dyn_compatibility_violations",
@@ -4772,6 +4948,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, trait_id) => { const __0 = tcx.def_path_str(trait_id); return `determining dyn-compatibility of trait \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_dyn_compatible: {
     name: "is_dyn_compatible",
@@ -4789,6 +4966,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, trait_id) => { const __0 = tcx.def_path_str(trait_id); return `checking if trait \`${__0}\` is dyn-compatible`; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   param_env: {
     name: "param_env",
@@ -4806,6 +4984,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing normalized predicates of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   param_env_normalized_for_post_analysis: {
     name: "param_env_normalized_for_post_analysis",
@@ -4823,6 +5002,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing revealed normalized predicates of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_copy_raw: {
     name: "is_copy_raw",
@@ -4840,6 +5020,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `is_copy_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_use_cloned_raw: {
     name: "is_use_cloned_raw",
@@ -4857,6 +5038,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `is_use_cloned_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_sized_raw: {
     name: "is_sized_raw",
@@ -4874,6 +5056,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `is_sized_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_freeze_raw: {
     name: "is_freeze_raw",
@@ -4891,6 +5074,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `is_freeze_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_unsafe_unpin_raw: {
     name: "is_unsafe_unpin_raw",
@@ -4908,6 +5092,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `is_unsafe_unpin_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_unpin_raw: {
     name: "is_unpin_raw",
@@ -4925,6 +5110,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `is_unpin_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_async_drop_raw: {
     name: "is_async_drop_raw",
@@ -4942,6 +5128,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `is_async_drop_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   needs_drop_raw: {
     name: "needs_drop_raw",
@@ -4959,6 +5146,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `needs_drop_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   needs_async_drop_raw: {
     name: "needs_async_drop_raw",
@@ -4976,6 +5164,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `needs_async_drop_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   has_significant_drop_raw: {
     name: "has_significant_drop_raw",
@@ -4993,6 +5182,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `has_significant_drop_raw` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   has_structural_eq_impl: {
     name: "has_structural_eq_impl",
@@ -5010,6 +5200,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `has_structural_eq_impl` (Display of `rustc_middle::ty::Ty`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   adt_drop_tys: {
     name: "adt_drop_tys",
@@ -5027,6 +5218,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing when \`${__0}\` needs drop`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   adt_async_drop_tys: {
     name: "adt_async_drop_tys",
@@ -5044,6 +5236,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing when \`${__0}\` needs async drop`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   adt_significant_drop_tys: {
     name: "adt_significant_drop_tys",
@@ -5061,6 +5254,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing when \`${__0}\` has a significant destructor`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   list_significant_drop_tys: {
     name: "list_significant_drop_tys",
@@ -5078,6 +5272,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `list_significant_drop_tys` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   layout_of: {
     name: "layout_of",
@@ -5095,6 +5290,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `layout_of` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   fn_abi_of_fn_ptr: {
     name: "fn_abi_of_fn_ptr",
@@ -5112,6 +5308,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `fn_abi_of_fn_ptr` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   fn_abi_of_instance_no_deduced_attrs: {
     name: "fn_abi_of_instance_no_deduced_attrs",
@@ -5129,6 +5326,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `fn_abi_of_instance_no_deduced_attrs` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   fn_abi_of_instance_raw: {
     name: "fn_abi_of_instance_raw",
@@ -5146,6 +5344,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `fn_abi_of_instance_raw` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   dylib_dependency_formats: {
     name: "dylib_dependency_formats",
@@ -5163,6 +5362,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting dylib dependency formats of crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   dependency_formats: {
     name: "dependency_formats",
@@ -5180,6 +5380,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting the linkage format of all dependencies`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_compiler_builtins: {
     name: "is_compiler_builtins",
@@ -5197,6 +5398,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking if the crate is_compiler_builtins`,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   has_global_allocator: {
     name: "has_global_allocator",
@@ -5214,6 +5416,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking if the crate has_global_allocator`,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   has_alloc_error_handler: {
     name: "has_alloc_error_handler",
@@ -5231,6 +5434,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking if the crate has_alloc_error_handler`,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   has_panic_handler: {
     name: "has_panic_handler",
@@ -5248,6 +5452,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking if the crate has_panic_handler`,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_profiler_runtime: {
     name: "is_profiler_runtime",
@@ -5265,6 +5470,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking if a crate is \`#![profiler_runtime]\``,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   has_ffi_unwind_calls: {
     name: "has_ffi_unwind_calls",
@@ -5282,6 +5488,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking if \`${__0}\` contains FFI-unwind calls`; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   required_panic_strategy: {
     name: "required_panic_strategy",
@@ -5299,6 +5506,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting a crate's required panic strategy`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   panic_in_drop_strategy: {
     name: "panic_in_drop_strategy",
@@ -5316,6 +5524,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting a crate's configured panic-in-drop strategy`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_no_builtins: {
     name: "is_no_builtins",
@@ -5333,6 +5542,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting whether a crate has \`#![no_builtins]\``,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   symbol_mangling_version: {
     name: "symbol_mangling_version",
@@ -5350,6 +5560,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting a crate's symbol mangling version`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   extern_crate: {
     name: "extern_crate",
@@ -5367,6 +5578,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `getting crate's ExternCrateData`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   specialization_enabled_in: {
     name: "specialization_enabled_in",
@@ -5384,6 +5596,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _cnum) => `checking whether the crate enabled \`specialization\`/\`min_specialization\``,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   specializes: {
     name: "specializes",
@@ -5401,6 +5614,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `computing whether impls specialize one another`,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   defaultness: {
     name: "defaultness",
@@ -5418,6 +5632,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up whether \`${__0}\` has \`default\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   default_field: {
     name: "default_field",
@@ -5435,6 +5650,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up the \`const\` corresponding to the default for \`${__0}\``; },
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_DefId(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_DefId),
   },
   check_well_formed: {
     name: "check_well_formed",
@@ -5452,6 +5668,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking that \`${__0}\` is well-formed`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   enforce_impl_non_lifetime_params_are_constrained: {
     name: "enforce_impl_non_lifetime_params_are_constrained",
@@ -5469,6 +5686,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking that \`${__0}\`'s generics are constrained by the impl header`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   reachable_non_generics: {
     name: "reachable_non_generics",
@@ -5486,6 +5704,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the exported symbols of a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_reachable_non_generic: {
     name: "is_reachable_non_generic",
@@ -5503,6 +5722,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `checking whether \`${__0}\` is an exported symbol`; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_unreachable_local_definition: {
     name: "is_unreachable_local_definition",
@@ -5520,6 +5740,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `checking whether \`${__0}\` is reachable from outside the crate`; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   upstream_monomorphizations: {
     name: "upstream_monomorphizations",
@@ -5537,6 +5758,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `collecting available upstream monomorphizations`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   upstream_monomorphizations_for: {
     name: "upstream_monomorphizations_for",
@@ -5554,6 +5776,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `collecting available upstream monomorphizations for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   upstream_drop_glue_for: {
     name: "upstream_drop_glue_for",
@@ -5571,6 +5794,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `upstream_drop_glue_for` (Debug of `rustc_middle::ty::GenericArgsRef`)"),
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_CrateNum(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_CrateNum),
   },
   upstream_async_drop_glue_for: {
     name: "upstream_async_drop_glue_for",
@@ -5588,6 +5812,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `upstream_async_drop_glue_for` (Debug of `rustc_middle::ty::GenericArgsRef`)"),
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_CrateNum(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_CrateNum),
   },
   foreign_modules: {
     name: "foreign_modules",
@@ -5605,6 +5830,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the foreign modules of a linked crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   clashing_extern_declarations: {
     name: "clashing_extern_declarations",
@@ -5622,6 +5848,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `checking \`extern fn\` declarations are compatible`,
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   entry_fn: {
     name: "entry_fn",
@@ -5639,6 +5866,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the entry function of a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   proc_macro_decls_static: {
     name: "proc_macro_decls_static",
@@ -5656,6 +5884,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the proc macro declarations for a crate`,
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_LocalDefId(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_LocalDefId),
   },
   crate_hash: {
     name: "crate_hash",
@@ -5673,6 +5902,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the hash of a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   crate_host_hash: {
     name: "crate_host_hash",
@@ -5690,6 +5920,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the hash of a host version of a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   extra_filename: {
     name: "extra_filename",
@@ -5707,6 +5938,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the extra filename for a crate`,
     debug_value: (v, f) => debug_str(v),
+    stable_hash_value: stable_hash_str,
   },
   crate_extern_paths: {
     name: "crate_extern_paths",
@@ -5724,6 +5956,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the paths for extern crates`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_str(x)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_Path),
   },
   implementations_of_trait: {
     name: "implementations_of_trait",
@@ -5741,6 +5974,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up implementations of a trait in a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   crate_incoherent_impls: {
     name: "crate_incoherent_impls",
@@ -5758,6 +5992,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `collecting all impls for a type in a crate`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
   native_library: {
     name: "native_library",
@@ -5775,6 +6010,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `getting the native library for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   inherit_sig_for_delegation_item: {
     name: "inherit_sig_for_delegation_item",
@@ -5792,6 +6028,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `inheriting delegation signature`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   delegation_user_specified_args: {
     name: "delegation_user_specified_args",
@@ -5809,6 +6046,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `getting delegation user-specified args`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   resolve_bound_vars: {
     name: "resolve_bound_vars",
@@ -5826,6 +6064,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, owner_id) => { const __0 = tcx.def_path_str(owner_id); return `resolving lifetimes for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   named_variable_map: {
     name: "named_variable_map",
@@ -5843,6 +6082,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, owner_id) => { const __0 = tcx.def_path_str(owner_id); return `looking up a named region inside \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_late_bound_map: {
     name: "is_late_bound_map",
@@ -5860,6 +6100,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, owner_id) => { const __0 = tcx.def_path_str(owner_id); return `testing if a region is late bound inside \`${__0}\``; },
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_set(f, [...x].map((x) => ((x, f) => debug_ItemLocalId(x, f))(x, f))))),
+    stable_hash_value: undefined,
   },
   object_lifetime_default: {
     name: "object_lifetime_default",
@@ -5877,6 +6118,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up lifetime defaults for type parameter \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   late_bound_vars_map: {
     name: "late_bound_vars_map",
@@ -5894,6 +6136,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, owner_id) => { const __0 = tcx.def_path_str(owner_id); return `looking up late bound vars inside \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   opaque_captured_lifetimes: {
     name: "opaque_captured_lifetimes",
@@ -5911,6 +6154,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `listing captured lifetimes for opaque \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   live_args_for_alias_from_outlives_bounds: {
     name: "live_args_for_alias_from_outlives_bounds",
@@ -5928,6 +6172,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `live_args_for_alias_from_outlives_bounds` (Debug of `rustc_middle::ty::AliasTyKind`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   args_known_to_outlive_alias_params: {
     name: "args_known_to_outlive_alias_params",
@@ -5945,6 +6190,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing the args known to outlive each region param of alias \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   visibility: {
     name: "visibility",
@@ -5962,6 +6208,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing visibility of \`${__0}\``; },
     debug_value: (v, f) => debug_Visibility(v, f, ((x, f) => debug_ModId(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Visibility(v, hcx, h, stable_hash_ModId),
   },
   inhabited_predicate_for_def: {
     name: "inhabited_predicate_for_def",
@@ -5979,6 +6226,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, key) => { const __0 = key; return `computing the uninhabited predicate of \`${debug_DefId(__0, PLAIN)}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   inhabited_predicate_type: {
     name: "inhabited_predicate_type",
@@ -5996,6 +6244,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `inhabited_predicate_type` (Display of `rustc_middle::ty::Ty`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_opsem_inhabited_adt_cached: {
     name: "is_opsem_inhabited_adt_cached",
@@ -6013,6 +6262,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `is_opsem_inhabited_adt_cached` (field `.value`)"),
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   crate_dep_kind: {
     name: "crate_dep_kind",
@@ -6030,6 +6280,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching what a dependency looks like`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   crate_name: {
     name: "crate_name",
@@ -6047,6 +6298,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching what a crate is named`,
     debug_value: (v, f) => debug_Symbol(v, f),
+    stable_hash_value: stable_hash_Symbol,
   },
   module_children: {
     name: "module_children",
@@ -6064,6 +6316,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `collecting child items of module \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_ModChild(x, f)),
+    stable_hash_value: undefined,
   },
   num_extern_def_ids: {
     name: "num_extern_def_ids",
@@ -6081,6 +6334,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching the number of definitions in a crate`,
     debug_value: (v, f) => debug_int(v, f),
+    stable_hash_value: stable_hash_usize,
   },
   lib_features: {
     name: "lib_features",
@@ -6098,6 +6352,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the lib features defined in a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   stability_implications: {
     name: "stability_implications",
@@ -6115,6 +6370,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the implications between \`#[unstable]\` features defined in a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   intrinsic_raw: {
     name: "intrinsic_raw",
@@ -6132,6 +6388,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `fetch intrinsic name if \`${__0}\` is an intrinsic`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   get_lang_items: {
     name: "get_lang_items",
@@ -6149,6 +6406,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the lang items map`,
     debug_value: (v, f) => debug_LanguageItems(v, f),
+    stable_hash_value: undefined,
   },
   all_diagnostic_items: {
     name: "all_diagnostic_items",
@@ -6166,6 +6424,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the diagnostic items map`,
     debug_value: (v, f) => debug_DiagnosticItems(v, f),
+    stable_hash_value: undefined,
   },
   all_canonical_symbols: {
     name: "all_canonical_symbols",
@@ -6183,6 +6442,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the canonical symbols map`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   defined_lang_items: {
     name: "defined_lang_items",
@@ -6200,6 +6460,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the lang items defined in a crate`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_DefId(x[0], f), debug_LangItem(x[1], f)])),
+    stable_hash_value: undefined,
   },
   diagnostic_items: {
     name: "diagnostic_items",
@@ -6217,6 +6478,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the diagnostic items map in a crate`,
     debug_value: (v, f) => debug_DiagnosticItems(v, f),
+    stable_hash_value: undefined,
   },
   canonical_symbols: {
     name: "canonical_symbols",
@@ -6234,6 +6496,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the canonical symbols map in a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   missing_lang_items: {
     name: "missing_lang_items",
@@ -6251,6 +6514,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the missing lang items in a crate`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_LangItem(x, f)),
+    stable_hash_value: undefined,
   },
   visible_parent_map: {
     name: "visible_parent_map",
@@ -6268,6 +6532,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the visible parent map`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   trimmed_def_paths: {
     name: "trimmed_def_paths",
@@ -6285,6 +6550,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating trimmed def paths`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   missing_extern_crate_item: {
     name: "missing_extern_crate_item",
@@ -6302,6 +6568,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `seeing if we're missing an \`extern crate\` item for this crate`,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   used_crate_source: {
     name: "used_crate_source",
@@ -6319,6 +6586,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking at the source for a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   debugger_visualizers: {
     name: "debugger_visualizers",
@@ -6336,6 +6604,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up the debugger visualizers for this crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   postorder_cnums: {
     name: "postorder_cnums",
@@ -6353,6 +6622,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `generating a postorder list of CrateNums`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_CrateNum(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_CrateNum),
   },
   is_private_dep: {
     name: "is_private_dep",
@@ -6370,6 +6640,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, c) => { const __0 = c; return `checking whether crate \`${display_CrateNum(__0)}\` is a private dependency`; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   allocator_kind: {
     name: "allocator_kind",
@@ -6387,6 +6658,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting the allocator kind for the current crate`,
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_AllocatorKind(x, f))),
+    stable_hash_value: undefined,
   },
   alloc_error_handler_kind: {
     name: "alloc_error_handler_kind",
@@ -6404,6 +6676,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `alloc error handler kind for the current crate`,
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_AllocatorKind(x, f))),
+    stable_hash_value: undefined,
   },
   upvars_mentioned: {
     name: "upvars_mentioned",
@@ -6421,6 +6694,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `collecting upvars mentioned in \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   crates: {
     name: "crates",
@@ -6438,6 +6712,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching all foreign CrateNum instances`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_CrateNum(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_CrateNum),
   },
   used_crates: {
     name: "used_crates",
@@ -6455,6 +6730,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching \`CrateNum\`s for all crates loaded non-speculatively`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_CrateNum(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_CrateNum),
   },
   duplicate_crate_names: {
     name: "duplicate_crate_names",
@@ -6472,6 +6748,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, c) => `fetching \`CrateNum\`s with same name as \`${debug_CrateNum(c, PLAIN)}\``,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_CrateNum(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_CrateNum),
   },
   traits: {
     name: "traits",
@@ -6489,6 +6766,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching all traits in a crate`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
   trait_impls_in_crate: {
     name: "trait_impls_in_crate",
@@ -6506,6 +6784,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching all trait impls in a crate`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
   stable_order_of_exportable_impls: {
     name: "stable_order_of_exportable_impls",
@@ -6523,6 +6802,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching the stable impl's order`,
     debug_value: (v, f) => debug_map(f, [...v].map(([k, x]) => [((x, f) => debug_DefId(x, f))(k, f), ((x, f) => debug_int(x, f))(x, f)])),
+    stable_hash_value: (v, hcx, h) => stable_hash_IndexMap(v, hcx, h, stable_hash_DefId, stable_hash_usize),
   },
   exportable_items: {
     name: "exportable_items",
@@ -6540,6 +6820,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `fetching all exportable items in a crate`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
   exported_non_generic_symbols: {
     name: "exported_non_generic_symbols",
@@ -6557,6 +6838,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, cnum) => { const __0 = cnum; return `collecting exported non-generic symbols for crate \`${display_CrateNum(__0)}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   exported_generic_symbols: {
     name: "exported_generic_symbols",
@@ -6574,6 +6856,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, cnum) => { const __0 = cnum; return `collecting exported generic symbols for crate \`${display_CrateNum(__0)}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   collect_and_partition_mono_items: {
     name: "collect_and_partition_mono_items",
@@ -6591,6 +6874,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `collect_and_partition_mono_items`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   is_codegened_item: {
     name: "is_codegened_item",
@@ -6608,6 +6892,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `determining whether \`${__0}\` needs codegen`; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   codegen_unit: {
     name: "codegen_unit",
@@ -6625,6 +6910,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, sym) => `getting codegen unit \`${display_Symbol(sym)}\``,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   backend_optimization_level: {
     name: "backend_optimization_level",
@@ -6642,6 +6928,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `optimization level used by backend`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   output_filenames: {
     name: "output_filenames",
@@ -6659,6 +6946,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting output filenames`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   normalize_canonicalized_projection: {
     name: "normalize_canonicalized_projection",
@@ -6676,6 +6964,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `normalize_canonicalized_projection` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   normalize_canonicalized_free_alias: {
     name: "normalize_canonicalized_free_alias",
@@ -6693,6 +6982,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `normalize_canonicalized_free_alias` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   normalize_canonicalized_inherent_projection: {
     name: "normalize_canonicalized_inherent_projection",
@@ -6710,6 +7000,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `normalize_canonicalized_inherent_projection` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   try_normalize_generic_arg_after_erasing_regions: {
     name: "try_normalize_generic_arg_after_erasing_regions",
@@ -6727,6 +7018,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `try_normalize_generic_arg_after_erasing_regions` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   implied_outlives_bounds: {
     name: "implied_outlives_bounds",
@@ -6744,6 +7036,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `implied_outlives_bounds` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   mir_borrowck_implied_outlives_bounds: {
     name: "mir_borrowck_implied_outlives_bounds",
@@ -6761,6 +7054,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, mir_def) => { const __0 = tcx.def_path_str(mir_def); return `computing implied outlives bounds for borrowck for \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   dropck_outlives: {
     name: "dropck_outlives",
@@ -6778,6 +7072,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `dropck_outlives` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   evaluate_obligation: {
     name: "evaluate_obligation",
@@ -6795,6 +7090,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `evaluate_obligation` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_op_ascribe_user_type: {
     name: "type_op_ascribe_user_type",
@@ -6812,6 +7108,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `type_op_ascribe_user_type` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_op_prove_predicate: {
     name: "type_op_prove_predicate",
@@ -6829,6 +7126,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `type_op_prove_predicate` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_op_normalize_ty: {
     name: "type_op_normalize_ty",
@@ -6846,6 +7144,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `type_op_normalize_ty` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_op_normalize_clause: {
     name: "type_op_normalize_clause",
@@ -6863,6 +7162,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `type_op_normalize_clause` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_op_normalize_poly_fn_sig: {
     name: "type_op_normalize_poly_fn_sig",
@@ -6880,6 +7180,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `type_op_normalize_poly_fn_sig` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   type_op_normalize_fn_sig: {
     name: "type_op_normalize_fn_sig",
@@ -6897,6 +7198,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `type_op_normalize_fn_sig` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   instantiate_and_check_impossible_clauses: {
     name: "instantiate_and_check_impossible_clauses",
@@ -6914,6 +7216,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key[0]); return `checking impossible instantiated clauses: \`${__0}\``; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   is_impossible_associated_item: {
     name: "is_impossible_associated_item",
@@ -6931,6 +7234,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key[1]); const __1 = tcx.def_path_str(key[0]); return `checking if \`${__0}\` is impossible to reference within \`${__1}\``; },
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   method_autoderef_steps: {
     name: "method_autoderef_steps",
@@ -6948,6 +7252,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `method_autoderef_steps` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   evaluate_root_goal_for_proof_tree_raw: {
     name: "evaluate_root_goal_for_proof_tree_raw",
@@ -6965,6 +7270,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `evaluate_root_goal_for_proof_tree_raw` (field `.canonical`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   all_rust_target_features: {
     name: "all_rust_target_features",
@@ -6982,6 +7288,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up Rust target features`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   implied_target_features: {
     name: "implied_target_features",
@@ -6999,6 +7306,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _feature) => `looking up implied target features`,
     debug_value: (v, f) => debug_vec(v, f, ((x, f) => debug_Symbol(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Vec(v, hcx, h, stable_hash_Symbol),
   },
   features_query: {
     name: "features_query",
@@ -7016,6 +7324,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up enabled feature gates`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   crate_for_resolver: {
     name: "crate_for_resolver",
@@ -7033,6 +7342,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `the ast before macro expansion and name resolution`,
     debug_value: (v, f) => debug_Steal(v, f, ((x, f) => debug_tuple(f, "", [debug_Crate(x[0], f), debug_vec(x[1], f, debug_Attribute_1)]))),
+    stable_hash_value: undefined,
   },
   resolve_instance_raw: {
     name: "resolve_instance_raw",
@@ -7050,6 +7360,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: () => unported("desc of query `resolve_instance_raw` (call of a path)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   reveal_opaque_types_in_bounds: {
     name: "reveal_opaque_types_in_bounds",
@@ -7067,6 +7378,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `reveal_opaque_types_in_bounds` (Debug of `rustc_middle::ty::Clauses`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   limits: {
     name: "limits",
@@ -7084,6 +7396,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up limits`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   diagnostic_hir_wf_check: {
     name: "diagnostic_hir_wf_check",
@@ -7101,6 +7414,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `diagnostic_hir_wf_check` (Debug of `rustc_middle::ty::Predicate`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   check_validity_requirement: {
     name: "check_validity_requirement",
@@ -7118,6 +7432,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `check_validity_requirement` (field `.value`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   compare_impl_item: {
     name: "compare_impl_item",
@@ -7135,6 +7450,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking assoc item \`${__0}\` is compatible with trait definition`; },
     debug_value: (v, f) => debug_result(v, f, ((x, f) => "()"), ((x, f) => debug_ErrorGuaranteed(x, f))),
+    stable_hash_value: undefined,
   },
   deduced_param_attrs: {
     name: "deduced_param_attrs",
@@ -7152,6 +7468,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `deducing parameter attributes for ${__0}`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   doc_link_resolutions: {
     name: "doc_link_resolutions",
@@ -7169,6 +7486,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `resolutions for documentation links for a module`,
     debug_value: (v, f) => debug_DocLinkResMap(v, f),
+    stable_hash_value: undefined,
   },
   doc_link_traits_in_scope: {
     name: "doc_link_traits_in_scope",
@@ -7186,6 +7504,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `traits in scope for documentation links for a module`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
   stripped_cfg_items: {
     name: "stripped_cfg_items",
@@ -7203,6 +7522,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _cnum) => `getting cfg-ed out item names`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   generics_require_sized_self: {
     name: "generics_require_sized_self",
@@ -7220,6 +7540,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `check whether the item has a \`where Self: Sized\` bound`,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   cross_crate_inlinable: {
     name: "cross_crate_inlinable",
@@ -7237,6 +7558,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `whether the item should be made inlinable across crates`,
     debug_value: (v, f) => debug_bool(v, f),
+    stable_hash_value: stable_hash_bool,
   },
   check_mono_item: {
     name: "check_mono_item",
@@ -7254,6 +7576,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `monomorphization-time checking`,
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   items_of_instance: {
     name: "items_of_instance",
@@ -7271,6 +7594,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `items_of_instance` (Display of `rustc_middle::ty::Instance`)"),
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   size_estimate: {
     name: "size_estimate",
@@ -7288,6 +7612,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `size_estimate` (Display of `rustc_middle::ty::Instance`)"),
     debug_value: (v, f) => debug_int(v, f),
+    stable_hash_value: stable_hash_usize,
   },
   anon_const_kind: {
     name: "anon_const_kind",
@@ -7305,6 +7630,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up anon const kind of \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   trivial_const: {
     name: "trivial_const",
@@ -7322,6 +7648,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `checking if \`${__0}\` is a trivial const`; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   sanitizer_settings_for: {
     name: "sanitizer_settings_for",
@@ -7339,6 +7666,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `checking what set of sanitizers are enabled on \`${__0}\``; },
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   check_externally_implementable_items: {
     name: "check_externally_implementable_items",
@@ -7356,6 +7684,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `check externally implementable items`,
     debug_value: (v, f) => "()",
+    stable_hash_value: stable_hash_unit,
   },
   externally_implementable_items: {
     name: "externally_implementable_items",
@@ -7373,6 +7702,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _cnum) => `looking up the externally implementable items of a crate`,
     debug_value: undefined,
+    stable_hash_value: undefined,
   },
   fake_doc_items: {
     name: "fake_doc_items",
@@ -7390,6 +7720,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the fake doc items`,
     debug_value: (v, f) => debug_vec(v, f, ((x, f) => debug_DefId(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Vec(v, hcx, h, stable_hash_DefId),
   },
   all_fake_doc_items: {
     name: "all_fake_doc_items",
@@ -7407,6 +7738,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating all fake doc items`,
     debug_value: (v, f) => debug_vec(v, f, ((x, f) => debug_DefId(x, f))),
+    stable_hash_value: (v, hcx, h) => stable_hash_Vec(v, hcx, h, stable_hash_DefId),
   },
 };
 
