@@ -917,6 +917,24 @@ help: use the named argument by name to avoid ambiguity
 1 + format_args!("{a}", a = 1)
   |
 
+== named_many
+== named_captured_mix
+== named_width_mix
+== named_unused_many
+error: multiple unused formatting arguments
+ --> <named_unused_many>:1:28
+  |
+1 | format_args!("{}", a, n1 = 1, n2 = 2, n3 = 3, n4 = 4, n5 = 5)
+  |              ----          ^       ^       ^       ^       ^ named argument never used
+  |              |             |       |       |       |
+  |              |             |       |       |       named argument never used
+  |              |             |       |       named argument never used
+  |              |             |       named argument never used
+  |              |             named argument never used
+  |              multiple missing formatting specifiers
+  |
+  = note: consider adding 5 format specifiers
+
 == end
-error: aborting due to 66 previous errors; 7 warnings emitted
+error: aborting due to 67 previous errors; 7 warnings emitted
 
