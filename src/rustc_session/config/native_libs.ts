@@ -35,7 +35,7 @@ interface ParseNativeLibCx {
 }
 
 /// Parses the value of a single `-l` option.
-// rustc: compiler/rustc_session/src/config/native_libs.rs:52 parse_native_lib
+// not ported (no marker): compiler/rustc_session/src/config/native_libs.rs:52 parse_native_lib
 function parse_native_lib(_cx: ParseNativeLibCx, _value: string): NativeLib {
   return unported("rustc_session::config::native_libs::parse_native_lib (rustc_structures::NativeLibKind)");
 }

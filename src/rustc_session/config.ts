@@ -1927,7 +1927,7 @@ function parse_jobs_one(
   return n > 1 ? n : undefined;
 }
 
-// rustc: compiler/rustc_session/src/config.rs:1844 build_configuration
+// not ported (no marker): compiler/rustc_session/src/config.rs:1844 build_configuration (config/cfg.rs)
 export function build_configuration(_sess: Session, _user_cfg: Cfg): Cfg {
   // First disallow some configuration given on the command line
   // `cfg::disallow_cfgs(sess, &user_cfg);` ... `user_cfg.extend(cfg::default_configuration(sess));`

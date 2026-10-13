@@ -15,7 +15,7 @@ import "./options.ts";
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import { AnnotateSnippetEmitter } from "../rustc_errors/annotate_snippet_emitter_writer.ts";
 import type { Diag } from "../rustc_errors/diagnostic.ts";
-import { type DynEmitter, HumanReadableErrorType, OutputTheme, stderr_destination } from "../rustc_errors/emitter.ts";
+import { type DynEmitter, OutputTheme, stderr_destination } from "../rustc_errors/emitter.ts";
 import { E0658 } from "../rustc_errors/error_codes.gen.ts";
 import { DiagCtxt, type DiagCtxtHandle, type Diagnostic, type ErrCode, TerminalUrl } from "../rustc_errors/lib.ts";
 import { TimingSectionHandler } from "../rustc_errors/timings.ts";
@@ -27,7 +27,7 @@ import { type SourceMap, get_source_map } from "../rustc_span/source_map.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { assert, unported, unwrap } from "../std/panic.ts";
 import { dimensions } from "../vendor/termize/lib.ts";
-import { type CodegenOptions, Options, type UnstableOptions } from "./options.ts";
+import type { Options } from "./options.ts";
 import {
   type Cfg,
   type CoverageOptions,
@@ -145,12 +145,12 @@ export class EarlySession {
   /// or fall back to the minimum version supported by `rustc`.
   ///
   /// This should be guarded behind `if sess.target.is_like_darwin`.
-  // rustc: compiler/rustc_session/src/session.rs:384 apple_deployment_target
+  // not ported (no marker): compiler/rustc_session/src/session.rs:384 apple_deployment_target
   apple_deployment_target(): never {
     return unported("rustc_target::spec::apple::OSVersion (EarlySession::apple_deployment_target)");
   }
 
-  // rustc: compiler/rustc_session/src/session.rs:420 sanitizers
+  // not ported (no marker): compiler/rustc_session/src/session.rs:420 sanitizers
   sanitizers(): SanitizerSet {
     // `self.opts.unstable_opts.sanitizer.combine_with_defaults(self.target.options.default_sanitizers)`
     return unported("rustc_structures::SanitizerSet::combine_with_defaults (EarlySession::sanitizers)");
@@ -948,5 +948,3 @@ function mk_emitter(output: ErrorOutputType): DynEmitter {
   return emitter;
 }
 
-// Type-only uses kept for the upstream signatures above.
-export type { CodegenOptions, UnstableOptions, HumanReadableErrorType };
