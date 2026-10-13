@@ -173,3 +173,12 @@ match the Unicode version of the pinned upstream deps.
   `Type_method` functions. Debug fns are always `debug_<Type>: Debug<Type>` taking `(v, f)`.
 - Zero-sized types with derived `PartialEq` (`ErrorGuaranteed`, `()`, unit structs) compare **always equal**: `_eq`
   helpers (hand-written or generated) never compare such fields by object identity.
+- A Rust copy of a `Copy` AST *object* (`Lifetime`, `FnHeader`, `DelimSpan`, tuples, ...) is `clone_<T>(v)` wherever
+  rustc copies it, because MutVisitors edit nodes in place; identity is only for numbers, string enums, interned
+  handles and `Arc`/`Lrc` contents.
+- Crates whose methods are attached by extension modules (`rustc_ast`, `rustc_parse`, `rustc_ast_pretty`, ...) are
+  imported only through their `lib.ts` (never `ast.ts`/`tokenstream.ts`/`parser/mod.ts` directly) outside the crate.
+- Provided (default) trait methods live in a `<Trait>_provided` helper; the interface keeps `// (provided)`
+  placeholders in upstream order and the markers sit on the helper's methods.
+- A `Deref`/`DerefMut` impl realised as a field (`State.s` for `Printer`) keeps its markers inside the class body,
+  after the methods that need the class to exist.
