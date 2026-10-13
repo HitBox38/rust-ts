@@ -159,5 +159,21 @@
     "hand": [],
     "discriminant": [],
     "skip": []
+  },
+  "rustc_parse_format": {
+    "files": [
+      "compiler/rustc_parse_format/src/lib.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_parse_format::Parser"
+    ],
+    "discriminant": [],
+    "skip": [],
+    "derive_clone": true,
+    "hand_notes": {
+      "rustc_parse_format::Parser": "holds the input as a byte-indexed Str (PORTING §5) and implements Iterator; hand-written in lib.ts"
+    },
+    "auto_class": true
   }
 }
