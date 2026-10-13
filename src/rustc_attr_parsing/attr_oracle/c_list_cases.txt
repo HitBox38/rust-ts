@@ -1,0 +1,730 @@
+### c_inline
+ops: limited:emit lints
+#[inline(always)]
+fn a() {}
+#[inline(never)]
+fn b() {}
+#[inline]
+fn c() {}
+#[inline(x)]
+fn d() {}
+#[inline(always, never)]
+fn e() {}
+#[inline = "x"]
+fn f() {}
+#[inline(always = "x")]
+fn g() {}
+### c_inline_dup
+ops: limited:emit limited:nothing lints
+#[inline]
+#[inline(always)]
+fn a() {}
+### c_inline_exported
+ops: limited:emit lints
+#[inline]
+#[unsafe(no_mangle)]
+fn a() {}
+#[inline(never)]
+#[unsafe(export_name = "x")]
+fn b() {}
+### c_force_inline
+ops: limited:emit+rustc_attrs lints
+#[rustc_force_inline]
+fn a() {}
+#[rustc_force_inline = "r"]
+fn b() {}
+#[rustc_force_inline("r")]
+fn c() {}
+#[rustc_force_inline(1)]
+fn d() {}
+#[rustc_force_inline = 1]
+fn e() {}
+#[rustc_force_inline]
+#[inline]
+fn f() {}
+### c_force_inline_ungated
+ops: limited:emit lints
+#[rustc_force_inline]
+fn a() {}
+### c_cold
+ops: limited:emit lints
+#[cold]
+fn a() {}
+#[cold]
+#[cold]
+fn b() {}
+#[cold(x)]
+fn c() {}
+#[cold = "x"]
+fn d() {}
+### c_optimize
+ops: limited:emit lints
+#[optimize(size)]
+fn a() {}
+#[optimize(speed)]
+fn b() {}
+#[optimize(none)]
+fn c() {}
+#[optimize(x)]
+fn d() {}
+#[optimize]
+fn e() {}
+#[optimize(size, speed)]
+fn f() {}
+#[optimize(size(x))]
+fn g() {}
+### c_coverage
+ops: limited:emit+coverage_attribute limited:emit lints
+#[coverage(off)]
+fn a() {}
+#[coverage(on)]
+fn b() {}
+#[coverage(x)]
+fn c() {}
+#[coverage]
+fn d() {}
+#[coverage("off")]
+fn e() {}
+### c_export_name
+ops: limited:emit lints
+#[unsafe(export_name = "foo")]
+fn a() {}
+#[unsafe(export_name = "")]
+fn b() {}
+#[unsafe(export_name = "a\0b")]
+fn c() {}
+#[unsafe(export_name)]
+fn d() {}
+#[unsafe(export_name = 1)]
+fn e() {}
+#[export_name = "bar"]
+fn f() {}
+#[unsafe(export_name = "x")]
+#[unsafe(export_name = "y")]
+fn g() {}
+### c_no_mangle
+ops: limited:emit lints
+#[unsafe(no_mangle)]
+fn a() {}
+#[unsafe(no_mangle)]
+#[unsafe(no_mangle)]
+fn b() {}
+#[unsafe(no_mangle(x))]
+fn c() {}
+#[unsafe(no_mangle)]
+static S: u8 = 0;
+### c_link_section
+ops: limited:emit lints
+#[unsafe(link_section = "__DATA,__foo")]
+static A: u8 = 0;
+#[unsafe(link_section = "a\0")]
+static B: u8 = 0;
+#[unsafe(link_section)]
+static C: u8 = 0;
+#[unsafe(link_section = 1)]
+static D: u8 = 0;
+### c_track_caller
+ops: limited:emit lints
+#[track_caller]
+fn a() {}
+#[track_caller]
+#[track_caller]
+fn b() {}
+#[track_caller(x)]
+fn c() {}
+### c_target_feature
+ops: limited:emit lints
+#[target_feature(enable = "avx2")]
+fn a() {}
+#[target_feature(enable = "a,b")]
+#[target_feature(enable = "c")]
+fn b() {}
+#[target_feature]
+fn c() {}
+#[target_feature()]
+fn d() {}
+#[target_feature(disable = "x")]
+fn e() {}
+#[target_feature(enable = 1)]
+fn f() {}
+#[target_feature(enable)]
+fn g() {}
+#[target_feature("x")]
+fn h() {}
+#[target_feature = "x"]
+fn i() {}
+### c_force_target_feature
+ops: limited:emit+effective_target_features lints
+#[unsafe(force_target_feature(enable = "x,y"))]
+fn a() {}
+#[force_target_feature(enable = "x")]
+fn b() {}
+### c_used
+ops: limited:emit limited:emit+used_with_arg lints
+#[used]
+static A: u8 = 0;
+#[used(compiler)]
+static B: u8 = 0;
+#[used(linker)]
+static C: u8 = 0;
+#[used(x)]
+static D: u8 = 0;
+#[used]
+#[used]
+static E: u8 = 0;
+#[used]
+#[used(linker)]
+static F: u8 = 0;
+#[used(compiler)]
+#[used(linker)]
+static G: u8 = 0;
+#[used = "x"]
+static H: u8 = 0;
+### c_sanitize
+ops: limited:emit+sanitize lints
+#[sanitize(address = "on", memory = "off")]
+fn a() {}
+#[sanitize(realtime = "blocking")]
+fn b() {}
+#[sanitize(realtime = "x")]
+fn c() {}
+#[sanitize(foo = "on")]
+fn d() {}
+#[sanitize(address = "maybe")]
+fn e() {}
+#[sanitize(thread = "on")]
+static S: u8 = 0;
+#[sanitize(kernel_address = "off")]
+static T: u8 = 0;
+#[sanitize(cfi = "on", kcfi = "off", memtag = "on", safestack = "off", shadow_call_stack = "on", hwaddress = "off")]
+fn f() {}
+#[sanitize]
+fn g() {}
+#[sanitize(address)]
+fn h() {}
+### c_instrument_fn
+ops: limited:emit+instrument_fn lints
+#[instrument_fn = "on"]
+fn a() {}
+#[instrument_fn = "off"]
+fn b() {}
+#[instrument_fn = "x"]
+fn c() {}
+#[instrument_fn(on)]
+fn d() {}
+#[instrument_fn]
+fn e() {}
+### c_patchable
+ops: limited:emit+patchable_function_entry lints
+#[patchable_function_entry(prefix_nops = 1, entry_nops = 2)]
+fn a() {}
+#[patchable_function_entry(prefix_nops = 300)]
+fn b() {}
+#[patchable_function_entry(section = "s", entry_nops = 3)]
+fn c() {}
+#[patchable_function_entry(foo = 1)]
+fn d() {}
+#[patchable_function_entry()]
+fn e() {}
+#[patchable_function_entry(prefix_nops = 1, prefix_nops = 2)]
+fn f() {}
+#[patchable_function_entry(section = 1)]
+fn g() {}
+#[patchable_function_entry(section = "")]
+fn h() {}
+#[patchable_function_entry(entry_nops = "x")]
+fn i() {}
+### c_noargs_misc
+ops: limited:emit+thread_local,rustc_attrs,eii_internals,export_stable,allocator_internals,compiler_builtins lints
+#![needs_allocator]
+#![compiler_builtins]
+#[thread_local]
+static A: u8 = 0;
+#[rustc_std_internal_symbol]
+fn b() {}
+#[export_stable]
+fn c() {}
+#[rustc_pass_indirectly_in_non_rustic_abis]
+struct D;
+#[rustc_objc_class = "X"]
+static E: u8 = 0;
+#[rustc_objc_selector = "m"]
+static F: u8 = 0;
+#[rustc_objc_class = 1]
+static G: u8 = 0;
+#[rustc_objc_selector = "a\0"]
+static H: u8 = 0;
+#[rustc_const_stable_indirect]
+fn i() {}
+### c_link
+ops: limited:emit lints
+#[link(name = "foo")]
+fn f1() {}
+#[link(name = "foo", kind = "static")]
+fn f2() {}
+#[link(name = "foo", kind = "dylib", modifiers = "+verbatim")]
+fn f3() {}
+#[link(name = "foo", kind = "static", modifiers = "+bundle,-whole-archive,+export-symbols")]
+fn f4() {}
+#[link(name = "foo", modifiers = "+bundle")]
+fn f5() {}
+#[link(name = "foo", modifiers = "bundle")]
+fn f6() {}
+#[link(name = "foo", kind = "static", modifiers = "+bundle,+bundle")]
+fn f7() {}
+#[link(name = "foo", modifiers = "+whole-archive,+export-symbols,+as-needed,+x")]
+fn f8() {}
+#[link(name = "foo", kind = "dylib", modifiers = "+as-needed")]
+fn f9() {}
+#[link(kind = "static")]
+fn f10() {}
+#[link(name = "")]
+fn f11() {}
+#[link(name = "a\0")]
+fn f12() {}
+#[link(name = "a", name = "b")]
+fn f13() {}
+#[link(name = "a", foo = "b")]
+fn f14() {}
+#[link(name = "a", kind = "bogus")]
+fn f15() {}
+#[link(name = "a", kind = "link-arg")]
+fn f16() {}
+#[link(wasm_import_module = "m")]
+fn f17() {}
+#[link(name = "a", wasm_import_module = "m")]
+fn f18() {}
+#[link(name = "a", import_name_type = "decorated")]
+fn f19() {}
+#[link(name = "a", "lit")]
+fn f20() {}
+#[link(name)]
+fn f21() {}
+#[link(name = 1)]
+fn f22() {}
+#[link(name = "a", kind = "static", kind = "dylib")]
+fn f23() {}
+### c_link_forms
+ops: limited:emit lints
+#[link = "dl"]
+fn f1() {}
+#[link = "x"]
+fn f2() {}
+#[link]
+fn f3() {}
+#[link()]
+fn f4() {}
+### c_link_cfg
+ops: limited:emit limited:emit+link_cfg lints
+#[link(name = "a", cfg(foo))]
+fn f1() {}
+### c_link_name_ordinal
+ops: limited:emit lints
+#[link_name = "x"]
+fn a() {}
+#[link_name = ""]
+fn b() {}
+#[link_name]
+fn c() {}
+#[link_ordinal(1)]
+fn d() {}
+#[link_ordinal(70000)]
+fn e() {}
+#[link_ordinal("x")]
+fn f() {}
+#[link_ordinal]
+fn g() {}
+### c_linkage
+ops: limited:emit+linkage lints
+#[linkage = "weak"]
+fn a() {}
+#[linkage = "extern_weak"]
+static B: u8 = 0;
+#[linkage = "bogus"]
+fn c() {}
+#[linkage]
+fn d() {}
+### c_ffi
+ops: limited:emit+ffi_pure,ffi_const lints
+#[unsafe(ffi_pure)]
+#[unsafe(ffi_const)]
+fn a() {}
+### c_instruction_set
+ops: limited:emit lints
+#[instruction_set(x86::a)]
+fn a() {}
+#[instruction_set]
+fn b() {}
+#[instruction_set(arm)]
+fn c() {}
+#[instruction_set("x")]
+fn d() {}
+#[instruction_set(arm(a32))]
+fn e() {}
+### c_repr
+ops: limited:emit lints
+#[repr(C)]
+struct A;
+#[repr(C, transparent)]
+struct B;
+#[repr(u8)]
+enum C { X }
+#[repr(i128, Rust)]
+enum D { X }
+#[repr(foo)]
+struct E;
+#[repr("C")]
+struct F;
+#[repr(C(x))]
+struct G;
+#[repr()]
+struct H;
+#[repr]
+struct I;
+#[repr = "C"]
+struct J;
+#[repr(simd)]
+struct K;
+#[repr(C)]
+#[repr(Rust)]
+union L { x: u8 }
+### c_repr_align
+ops: limited:emit lints
+#[repr(packed)]
+struct A;
+#[repr(packed(2))]
+struct B;
+#[repr(align(8))]
+struct C;
+#[repr(align(3))]
+struct D;
+#[repr(align(x))]
+struct E;
+#[repr(align)]
+struct F;
+#[repr(packed = 1)]
+struct G;
+#[repr(align(1u8))]
+struct H;
+#[repr(align(1073741824))]
+struct I;
+#[repr(align(8, 16))]
+struct J;
+### c_rustc_align
+ops: limited:emit+fn_align,static_align lints
+#[rustc_align(8)]
+fn a() {}
+#[rustc_align(8)]
+#[rustc_align(16)]
+fn b() {}
+#[rustc_align(3)]
+fn c() {}
+#[rustc_align_static(4)]
+static D: u8 = 0;
+#[rustc_align(x)]
+fn e() {}
+### c_deprecated
+ops: limited:emit lints
+#[deprecated]
+fn a() {}
+#[deprecated = "r"]
+fn b() {}
+#[deprecated(since = "1.0", note = "n")]
+fn c() {}
+#[deprecated(note = "n")]
+fn d() {}
+#[deprecated("foo")]
+fn e() {}
+#[deprecated(since = "1.0", since = "2")]
+fn f() {}
+#[deprecated(foo = "x")]
+fn g() {}
+#[deprecated(suggestion = "x")]
+fn h() {}
+#[deprecated(since = 1)]
+fn i() {}
+#[deprecated(note)]
+fn j() {}
+#[deprecated = 5]
+fn k() {}
+#[deprecated]
+#[deprecated]
+fn l() {}
+#[deprecated(since = "TBD")]
+fn m() {}
+#[deprecated(x)]
+fn n() {}
+### c_deprecated_version_lit
+ops: limited:emit lints
+#[deprecated("1.0")]
+fn a() {}
+### c_deprecated_rustc
+ops: limited:emit+staged_api lints
+#[deprecated(since = "1.2.3", note = "x")]
+fn a() {}
+#[deprecated(since = "CURRENT_RUSTC_VERSION", note = "x")]
+fn b() {}
+#[deprecated]
+fn c() {}
+#[deprecated(since = "x.y", note = "n")]
+fn d() {}
+#[deprecated(since = "TBD", note = "n")]
+fn e() {}
+#[deprecated(note = "n")]
+fn f() {}
+### c_stability
+ops: limited:emit+staged_api limited:emit lints
+#[stable(feature = "a", since = "1.0.0")]
+fn a() {}
+#[unstable(feature = "b", issue = "123")]
+fn b() {}
+#[unstable(feature = "b", issue = "none", reason = "r", implied_by = "c", old_name = "d")]
+fn c() {}
+#[unstable(feature = "b", issue = "0")]
+fn d() {}
+#[unstable(feature = "b", issue = "x")]
+fn e() {}
+#[unstable(feature = "b", issue = "")]
+fn e2() {}
+#[unstable(feature = "b", issue = "99999999999")]
+fn e3() {}
+#[unstable(feature = "b")]
+fn f() {}
+#[stable(feature = "a")]
+fn g() {}
+#[stable(since = "1.0.0")]
+fn h() {}
+#[stable(feature = "a b", since = "1.0.0")]
+fn i() {}
+#[stable(feature = "a", since = "1.0.0")]
+#[unstable(feature = "b", issue = "1")]
+fn j() {}
+#[unstable(feature = "slice_patterns", issue = "1")]
+fn k() {}
+#[stable(feature = "a", since = "CURRENT_RUSTC_VERSION")]
+fn l() {}
+#[stable(feature = "a", since = "x")]
+fn m() {}
+#[stable(feature = "a", foo = "1")]
+fn n() {}
+#[stable("a")]
+fn o() {}
+#[stable]
+fn p() {}
+#[stable(feature = "a", feature = "b", since = "1.0.0")]
+fn q() {}
+### c_const_stability
+ops: limited:emit+staged_api,rustc_attrs lints
+#[rustc_const_stable(feature = "c", since = "1.0.0")]
+const fn a() {}
+#[rustc_const_unstable(feature = "c", issue = "1")]
+const fn b() {}
+#[rustc_promotable]
+const fn c() {}
+#[rustc_const_stable(feature = "c", since = "1.0.0")]
+#[rustc_promotable]
+const fn d() {}
+#[rustc_const_stable(feature = "c", since = "1.0.0")]
+#[rustc_const_unstable(feature = "c", issue = "1")]
+const fn e() {}
+#[rustc_default_body_unstable(feature = "d", issue = "1")]
+fn f() {}
+#[rustc_default_body_unstable(feature = "d", issue = "1")]
+#[rustc_default_body_unstable(feature = "d", issue = "1")]
+fn g() {}
+#[rustc_const_stable_indirect]
+#[rustc_const_stable_indirect]
+const fn h() {}
+### c_atum
+ops: limited:emit+staged_api lints
+#[stable(feature = "a", since = "1.0.0")]
+#[rustc_allowed_through_unstable_modules(message = "m", module = "x")]
+fn a() {}
+#[stable(feature = "a", since = "1.0.0")]
+#[rustc_allowed_through_unstable_modules(message = "m")]
+fn b() {}
+#[rustc_allowed_through_unstable_modules(message = "m", module = "x")]
+fn c() {}
+#[unstable(feature = "b", issue = "1")]
+#[rustc_allowed_through_unstable_modules(message = "m", module = "x")]
+fn d() {}
+#[stable(feature = "a", since = "1.0.0")]
+#[rustc_allowed_through_unstable_modules(message = "m", message = "n", foo = "x")]
+fn e() {}
+### c_unstable_removed
+ops: limited:emit+staged_api lints
+#![unstable_removed(feature = "f", reason = "r", link = "l", since = "1.0.0")]
+#![unstable_removed(feature = "g", reason = "r", link = "l", since = "1.2")]
+#![unstable_removed(feature = "h", reason = "r", link = "l")]
+#![unstable_removed(feature = "i", reason = "r", link = "l", since = "x")]
+#![unstable_removed(feature = "j", foo = "r")]
+fn a() {}
+### c_doc
+ops: limited:emit lints
+#[doc(alias = "x")]
+fn a() {}
+#[doc(alias("a", "b"))]
+fn b() {}
+#[doc(alias = "")]
+fn c() {}
+#[doc(alias = "a b ")]
+fn d() {}
+#[doc(alias = "a\tb")]
+fn e() {}
+#[doc(alias = "x", alias = "x")]
+fn f() {}
+#[doc(alias)]
+fn g() {}
+#[doc(hidden)]
+fn h() {}
+#[doc(hidden = "x")]
+fn i() {}
+#[doc(inline)]
+fn j() {}
+#[doc(inline, no_inline)]
+use std::vec::Vec;
+#[doc(no_inline)]
+use std::vec;
+#[doc(spotlight)]
+fn k() {}
+#[doc(include = "x")]
+fn l() {}
+#[doc(passes)]
+fn m() {}
+#[doc(plugins)]
+fn n() {}
+#[doc(foo)]
+fn o() {}
+#[doc(a::b)]
+fn p() {}
+#[doc("x")]
+fn q() {}
+#[doc]
+fn r() {}
+#[doc()]
+fn s() {}
+#[doc = 1]
+fn t() {}
+#[doc(html_root_url = "x")]
+fn u() {}
+#[doc(alias = 1)]
+fn v() {}
+#[doc(include)]
+fn w() {}
+### c_doc_crate
+ops: limited:emit lints
+#![doc(html_root_url = "https://x")]
+#![doc(html_no_source)]
+#![doc(html_favicon_url = "f", html_logo_url = "l", html_playground_url = "p", issue_tracker_base_url = "i")]
+#![doc(test(no_crate_inject))]
+#![doc(test(attr(deny(warnings))))]
+#![doc(test(no_crate_inject))]
+#![doc(test(foo))]
+#![doc(test("x"))]
+#![doc(test)]
+#![doc(alias = "x")]
+#![doc(html_root_url)]
+#![doc(html_root_url = 1)]
+#![doc(html_no_source = "x")]
+fn a() {}
+### c_doc_gated
+ops: limited:emit limited:emit+rustdoc_internals,doc_masked,doc_notable_trait lints
+#![doc(rust_logo)]
+#[doc(masked)]
+extern crate std as s;
+#[doc(notable_trait)]
+trait T {}
+#[doc(keyword = "match")]
+mod m {}
+#[doc(keyword = "foo")]
+mod n {}
+#[doc(attribute = "inline")]
+mod o {}
+#[doc(attribute = "nonexistent")]
+mod p {}
+#[doc(fake_variadic)]
+impl T for () {}
+#[doc(search_unbox)]
+struct S;
+#[doc(keyword)]
+mod q {}
+### c_doc_auto_cfg
+ops: limited:emit+doc_cfg lints
+#[doc(auto_cfg)]
+mod a {}
+#[doc(auto_cfg = false)]
+mod b {}
+#[doc(auto_cfg = "x")]
+mod c {}
+#[doc(auto_cfg(hide(unix)))]
+mod d {}
+#[doc(auto_cfg(show(x, values("a", "b", "a"))))]
+mod e {}
+#[doc(auto_cfg(foo))]
+mod f {}
+#[doc(auto_cfg(hide))]
+mod g {}
+#[doc(auto_cfg(hide(values("a"))))]
+mod h {}
+#[doc(auto_cfg(hide(x, values(any()))))]
+mod i {}
+#[doc(auto_cfg(hide(x, values(none()))))]
+mod j {}
+#[doc(auto_cfg(hide(x = "y")))]
+mod k {}
+#[doc(auto_cfg(hide(x, values("a"), y)))]
+mod l {}
+#[doc(auto_cfg("x"))]
+mod m {}
+#[doc(auto_cfg(hide(x, values("a", any()))))]
+mod n {}
+#[doc(auto_cfg(hide(x, values(1, foo))))]
+mod o {}
+### c_doc_cfg
+ops: limited:emit+doc_cfg lints
+#[doc(cfg(unix))]
+fn a() {}
+#[doc(cfg(all()))]
+fn b() {}
+### c_doc_comments_mixed
+ops: limited:emit lints
+/// a
+#[doc(hidden)]
+/// b
+fn a() {}
+### c_link_foreign_mod
+ops: limited:emit lints
+#[link(name = "foo")]
+unsafe extern {}
+### c_doc_auto_cfg_multi
+ops: limited:emit+doc_cfg lints
+#[doc(auto_cfg(hide(unix, windows)))]
+mod a {}
+### c_naked
+ops: limited:emit lints
+#[unsafe(naked)]
+fn a() {}
+### c_lang_items
+ops: limited:emit+lang_items lints
+#[lang = "panic_impl"]
+#[track_caller]
+fn a() {}
+#[lang = "sized"]
+#[target_feature(enable = "x")]
+fn b() {}
+#[panic_handler]
+#[target_feature(enable = "x")]
+fn c() {}
+### c_unstable_feature_bound
+ops: limited:emit+staged_api,impl_stability lints
+#[stable(feature = "a", since = "1.0.0")]
+#[unstable_feature_bound(x)]
+fn a() {}
+### c_track_caller_closure_target
+ops: limited:emit lints
+#[track_caller]
+struct S;
+#[cold]
+struct T;
+#[target_feature(enable = "x")]
+struct U;
