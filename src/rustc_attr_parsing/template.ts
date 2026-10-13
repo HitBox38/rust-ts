@@ -34,7 +34,7 @@ export class AttributeTemplate {
     readonly docs: string | undefined,
   ) {}
 
-  // rustc: compiler/rustc_attr_parsing/src/template.rs:26 suggestions
+  // rustc: compiler/rustc_attr_parsing/src/template.rs:27 suggestions
   suggestions(description: ParsedDescription, safety: Safety, name: string): string[] {
     let macro_call: string;
     switch (description) {

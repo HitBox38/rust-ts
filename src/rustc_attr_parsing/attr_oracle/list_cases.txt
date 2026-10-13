@@ -1,0 +1,77 @@
+### doc_comments
+ops: limited:emit limited:nothing
+//! crate doc
+/// outer line
+/** outer block */
+fn f() {}
+### doc_raw
+ops: limited:emit
+/// a
+#[doc = "b"]
+/// c
+fn f() {}
+### unparsed
+ops: limited:emit
+#![allow(unused)]
+#[foo]
+#[rustfmt::skip]
+#[warn(x)]
+fn f() {}
+### parsed_basic
+ops: limited:emit
+#![no_std]
+#![crate_name = "x"]
+#[inline]
+#[cold]
+#[must_use = "x"]
+#[deprecated(since = "1.0", note = "n")]
+fn f() {}
+#[repr(C)]
+#[repr(packed)]
+struct S;
+### parsed_nothing
+ops: limited:nothing
+#[inline(always)]
+#[inline]
+#[no_mangle]
+#[rustc_dummy]
+fn f() {}
+### duplicates
+ops: limited:emit
+#[inline(always)]
+#[inline]
+#[must_use]
+#[must_use = "x"]
+fn f() {}
+### safety
+ops: limited:emit
+#[unsafe(no_mangle)]
+fn a() {}
+#[no_mangle]
+fn b() {}
+#[unsafe(inline)]
+fn c() {}
+#[unsafe(foo)]
+fn d() {}
+### malformed
+ops: limited:emit
+#[inline = 1]
+#[cold(x)]
+#[must_use(x)]
+fn f() {}
+### unstable
+ops: limited:emit
+#[rustc_dummy]
+#[thread_local]
+static S: u8 = 0;
+### wrong_target
+ops: limited:emit
+#[repr(C)]
+fn f() {}
+#[inline]
+struct S;
+### diagnostic_namespace
+ops: limited:emit
+#[diagnostic::unknown_thing]
+#[diagnostic::on_unimplemented(message = "m")]
+trait T {}

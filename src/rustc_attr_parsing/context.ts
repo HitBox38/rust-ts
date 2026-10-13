@@ -164,8 +164,9 @@ export function path_key(path: readonly Symbol[]): string {
 /**
  * `macro_rules! attribute_parsers` (context.rs:117), applied to the list of parser types `names`:
  * the body of the `LazyLock::new(|| { .. })` closure it expands to, repeated for each `$names`.
+ * (Exported for context.test.ts only.)
  */
-function attribute_parsers(names: readonly ErasedAttributeParser[]): GroupTypeInner {
+export function attribute_parsers(names: readonly ErasedAttributeParser[]): GroupTypeInner {
   const accepters = new Map<string, GroupTypeInnerAccept>();
   for (const $names of names) {
     {
