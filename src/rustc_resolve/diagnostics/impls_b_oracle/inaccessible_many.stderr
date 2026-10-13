@@ -1,0 +1,24 @@
+error[E0425]: cannot find type `Foo` in this scope
+ --> inaccessible_many.rs:7:9
+  |
+7 | fn f(_: Foo) {}
+  |         ^^^ not found in this scope
+  |
+note: these structs exist but are inaccessible
+ --> inaccessible_many.rs:2:5
+  |
+2 |     struct Foo;
+  |     ^^^^^^^^^^^ `crate::a::Foo`: not accessible
+...
+5 |     struct Foo;
+  |     ^^^^^^^^^^^ `crate::b::Foo`: not accessible
+
+error: requires `sized` lang_item
+ --> inaccessible_many.rs:7:14
+  |
+7 | fn f(_: Foo) {}
+  |              ^^
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0425`.

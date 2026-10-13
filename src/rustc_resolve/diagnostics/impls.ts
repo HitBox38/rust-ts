@@ -568,11 +568,14 @@ Resolver.prototype.decl_description = function (this: Resolver, b: Decl, ident: 
 Resolver.prototype.ambiguity_diagnostic = function (this: Resolver, ambiguity_error: AmbiguityError): diagnostics.Ambiguity {
   const { kind, ambig_vis, ident } = ambiguity_error;
   let { b1, b2, scope1, scope2 } = ambiguity_error;
+  // PORT: the closure captures the bindings of the destructuring (before the swap below shadows them).
+  const orig_b1 = b1;
+  const orig_scope2 = scope2;
   const extern_prelude_ambiguity = (): boolean => {
     // Note: b1 may come from a module scope, as an extern crate item in module.
-    if (scope2.$ !== "ExternPreludeFlags") return false;
+    if (orig_scope2.$ !== "ExternPreludeFlags") return false;
     const entry = this.extern_prelude.get(IdentKey.new(ident));
-    return entry !== undefined && entry.item_decl !== undefined && entry.item_decl[0] === b1;
+    return entry !== undefined && entry.item_decl !== undefined && entry.item_decl[0] === orig_b1;
   };
   let swapped: boolean;
   if (SpanC.is_dummy(b2.span) && !SpanC.is_dummy(b1.span)) {
@@ -1461,7 +1464,9 @@ Resolver.prototype.undeclared_module_exists = function (this: Resolver, ident: I
 /// Adds suggestions for a path that cannot be resolved.
 // PORT: `#[instrument(level = "debug", ..)]` and the `debug!` events of this group are tracing only.
 // rustc: compiler/rustc_resolve/src/diagnostics/impls.rs:3458 make_path_suggestion
-Resolver.prototype.make_path_suggestion = function (this: Resolver, path: Segment[], parent_scope: ParentScope): [Segment[], string | undefined] | undefined {
+Resolver.prototype.make_path_suggestion = function (this: Resolver, path_: Segment[], parent_scope: ParentScope): [Segment[], string | undefined] | undefined {
+  // PORT: `mut path: Vec<Segment>` is owned by the callee (`Segment: Copy`).
+  const path = path_.map(clone_Segment);
   const first = path[0];
   const second = path[1];
   if (first !== undefined && second !== undefined && first.ident.name === kw.PathRoot && !second.ident.is_path_segment_keyword()) {

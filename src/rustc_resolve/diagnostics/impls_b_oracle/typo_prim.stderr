@@ -1,0 +1,20 @@
+error[E0425]: cannot find type `u3` in this scope
+ --> typo_prim.rs:1:9
+  |
+1 | fn f(_: u3) {}
+  |         ^^ not found in this scope
+  |
+help: a builtin type with a similar name exists
+  |
+1 | fn f(_: u32) {}
+  |           +
+
+error: requires `sized` lang_item
+ --> typo_prim.rs:1:13
+  |
+1 | fn f(_: u3) {}
+  |             ^^
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0425`.

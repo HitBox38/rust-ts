@@ -1,0 +1,25 @@
+error[E0425]: cannot find type `Foo` in this scope
+ --> inaccessible.rs:7:9
+  |
+7 | fn f(_: Foo) {}
+  |         ^^^ not found in this scope
+  |
+note: struct `crate::a::Foo` exists but is inaccessible
+ --> inaccessible.rs:2:5
+  |
+2 |     struct Foo;
+  |     ^^^^^^^^^^^ not accessible
+help: consider importing this struct
+  |
+1 + use crate::b::Foo;
+  |
+
+error: requires `sized` lang_item
+ --> inaccessible.rs:7:14
+  |
+7 | fn f(_: Foo) {}
+  |              ^^
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0425`.
