@@ -13,10 +13,11 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, PIN } from "../../scripts/lib/common.ts";
+import { PIN } from "../../scripts/lib/common.ts";
 import { create_default_session_globals_then } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
 import { ACCEPTED_LANG_FEATURES, BUILTIN_ATTRIBUTES, Features, REMOVED_LANG_FEATURES, UNSTABLE_LANG_FEATURES } from "./lib.ts";
+import { test_scratch_dir } from "../rust_ts/test_scratch.ts";
 
 const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
 
@@ -40,7 +41,7 @@ interface Diag {
   children: { message: string; level: string }[];
 }
 
-const WORK = join(DATA, "tmp", "rustc_feature-oracle", process.env.RUST_TS_AGENT ?? "default");
+const WORK = test_scratch_dir("rustc_feature-oracle");
 
 /** Compile `src` as a metadata-only lib crate; returns its JSON diagnostics. */
 function compile(name: string, src: string): Diag[] {

@@ -6,11 +6,12 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, PIN } from "../../scripts/lib/common.ts";
+import { PIN } from "../../scripts/lib/common.ts";
 import { PLAIN } from "./fmt.ts";
 import { debug_IoError, display_IoError, ErrorKind_as_str, IoError_kind, type IoError } from "./io.ts";
 import { path_file_name, path_parent } from "./path.ts";
 import { debug_os_bytes, from_utf8, str_lines } from "./str.ts";
+import { test_scratch_dir } from "../rust_ts/test_scratch.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
@@ -25,7 +26,7 @@ const HAVE = rustcAvailable();
 const SKIP = !HAVE && !REQUIRE;
 if (SKIP) console.log(`SKIP: pinned rustc (${PIN.toolchain}) unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
 
-const WORK = join(DATA, "tmp", "std-oracle", process.env.RUST_TS_AGENT ?? "default");
+const WORK = test_scratch_dir("std-oracle");
 
 const PROBE = String.raw`
 use std::io::Read;

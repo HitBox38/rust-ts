@@ -12,7 +12,8 @@
 import { expect, test } from "bun:test";
 import { chmodSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, PIN, REPO } from "../../scripts/lib/common.ts";
+import { PIN, REPO } from "../../scripts/lib/common.ts";
+import { test_scratch_dir } from "../rust_ts/test_scratch.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
@@ -28,7 +29,7 @@ const SKIP = !HAVE && !REQUIRE;
 if (SKIP) console.log(`SKIP: pinned rustc (${PIN.toolchain}) unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
 const UNIX = process.platform !== "win32";
 
-const WORK = join(DATA, "tmp", "inputs-oracle", process.env.RUST_TS_AGENT ?? "default");
+const WORK = test_scratch_dir("inputs-oracle");
 
 const ENV: Record<string, string> = {};
 for (const [k, v] of Object.entries(process.env)) {

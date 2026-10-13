@@ -7,8 +7,10 @@ import { join } from "node:path";
 import { DATA, PIN } from "../../scripts/lib/common.ts";
 import { debug_char, debug_int, debug_str, PLAIN, PRETTY, type Debug, type Fmt } from "../../src/std/fmt.ts";
 import { generate, loadTypeMap, writeStubs, type ProbeJson } from "./types.ts";
+import { test_scratch_dir } from "../../src/rust_ts/test_scratch.ts";
 
 const MINI = join(import.meta.dir, "fixtures", "mini.rs");
+const WORK = test_scratch_dir("codegen-oracle");
 const PROBE = join(DATA, "target", "probes", "release", "typedefs" + (process.platform === "win32" ? ".exe" : ""));
 // Missing probe: a visible skip, or a failure under RUST_TS_REQUIRE_PROBES=1 (gate hosts build the probes).
 const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -21,7 +23,7 @@ test.skipIf(SKIP)(
     if (!existsSync(PROBE)) {
       throw new Error(`ERROR: typedefs probe not built (${PROBE}) and RUST_TS_REQUIRE_PROBES=1`);
     }
-    const work = join(DATA, "tmp", "codegen-oracle", process.env.RUST_TS_AGENT ?? "default");
+    const work = WORK;
     rmSync(work, { recursive: true, force: true });
     const src = join(work, "src");
     mkdirSync(join(src, "mini"), { recursive: true });

@@ -18,6 +18,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO } from "../../scripts/lib/common.ts";
+import { test_scratch_dir } from "../rust_ts/test_scratch.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const RUSTC = ["rustc", `+${PIN.toolchain}`];
@@ -32,7 +33,7 @@ const HAVE = rustcAvailable();
 const SKIP = !HAVE && !REQUIRE;
 if (SKIP) console.log(`SKIP: pinned rustc (${PIN.toolchain}, ${PIN.commit.slice(0, 12)}) unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
 
-const WORK = join(DATA, "tmp", "ast-passes-oracle", process.env.RUST_TS_AGENT ?? "default");
+const WORK = test_scratch_dir("ast-passes-oracle");
 const UI = join(DATA, "rust", "tests", "ui");
 const RUNNER = join(REPO, "src/rustc_ast_passes/oracle/run.ts");
 const COMMON = ["-Zcrate-attr=feature(no_core)", "-Zcrate-attr=no_core"];
