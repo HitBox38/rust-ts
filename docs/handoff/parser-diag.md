@@ -34,7 +34,7 @@ Branch `lane/parser-diag`. main merged three times (last at bcd0773, parser-ptg)
   default timeout twice under machine load (passes alone and with `--timeout 60000`); unrelated to this lane.
 - `RUST_TS_AGENT=parser-diag bun scripts/difftest.ts --suite tokens --sample 200`: 200/200 MATCH
   (run `20261013-005716-parser-diag-qh9g`).
-- `diagnostics.test.ts`: 151 tests, all byte-exact against the pinned nightly:
+- `diagnostics.test.ts`: 150 tests, all byte-exact against the pinned nightly:
   - **A. 64 probe cases** (`diagnostics_oracle.json`): lane parser-core's rustc-dev probe extended with per-case
     editions and ops `semi` (`maybe_consume_incorrect_semicolon(None)`), `snap`/`restore` (snapshots). Source,
     cases and build/run commands in the fixture (`_probe`, `_cases`, `_how`); scratch copy
@@ -48,7 +48,7 @@ Branch `lane/parser-diag`. main merged three times (last at bcd0773, parser-ptg)
     comma before an identifier, numbers starting identifiers, a documentation comment that documents nothing,
     `unexpected_err` (EOF, multi-line), `maybe_consume_incorrect_semicolon`, snapshot + restore.
     1 pending (`expect_one_of_question_prev`, needs `parse_expr`).
-  - **B. 21 direct cases**: the TS parser is moved to the token where rustc calls a diagnostics.rs fn inside a
+  - **B. 20 direct cases**: the TS parser is moved to the token where rustc calls a diagnostics.rs fn inside a
     whole program, AST arguments are rebuilt with the same spans, the fn is called, and the full stderr plus
     `print_error_count` must equal `rustc -Zui-testing -Zparse-crate-root-only` on that program (only programs
     whose entire rustc output is that diagnostic). Covers: VCS markers (plain and diff3, fatal), semicolon
@@ -66,7 +66,7 @@ Branch `lane/parser-diag`. main merged three times (last at bcd0773, parser-ptg)
     struct-literal recovery, ternary, closing generics, `await x`, `&&self`, C-style params, const-arg braces,
     `a:b` patterns, block labels, `let a, b`, `[u8]::len`, E0178, `'a T`, `..<`, `self` not first, const param
     declarations, `#[cfg]` chains). Root: as parser lanes land, update/remove `PENDING_DRIVER` entries.
-  - Negative control: appending a character to every fixture stderr fails all 82 non-pending probe/direct cases.
+  - Negative control: appending a character to every fixture stderr fails all 82 non-pending probe/direct cases (63 + 19 before the unmatched-angle case was added).
 
 ## `unported(...)` left
 None in diagnostics.ts. Indirect: the fns call other lanes' methods (`parse_expr`, `parse_ty`, `mk_expr`,
