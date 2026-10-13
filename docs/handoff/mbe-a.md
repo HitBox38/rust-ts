@@ -135,3 +135,6 @@ Branch `lane/mbe-a`. Merged `lane/expand-base` at 947a891, as the brief allows. 
 - **Disk is nearly full.** `/System/Volumes/Data` had 2.4–3.4 GB free during this lane. One full `bun test` run hit ENOSPC in other suites' scratch dirs (rustc_feature and codegen oracles). The rerun passed once space was freed elsewhere.
 - **mbe-b** should now drop its own pending shims for my types and for expand-base's diagnostics, and wire `lib.ts` `compile_declarative_macro`.
 - Delete `docs/claims/wave9-mbe-a.md` on integration.
+
+## Sample difftest
+`RUST_TS_AGENT=mbe-a bun scripts/difftest.ts --suite parse --sample 200`: 199 MATCH, 0 DIFF, 0 UNPORTED, 0 CRASH, 0 TIMEOUT, and 1 ORACLE_TIMEOUT. The subject was ok on that case. Run `20261013-091207-mbe-a-hch5`. This lane's code is not on the driver path yet, so the result is neutral, as expected.
