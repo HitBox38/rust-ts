@@ -620,3 +620,23 @@ function unwrap_usize(v: number | undefined): number {
 function assert_eq_number(left: number, right: number): void {
   if (left !== right) panic(`assertion \`left == right\` failed\n  left: ${left}\n right: ${right}`);
 }
+
+// benches/bench.rs (benchmarks only, `#![feature(test)]`):
+// crate-skip: odht-0.3.1/benches/bench.rs:24 encode_key benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:34 encode_value benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:39 decode_key benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:44 decode_value benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:49 index_contained benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:56 get_value benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:61 insert_value benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:69 generate_hash_table benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:89 generate_std_hash_table benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:106 generate_test_data benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:117 bench_odht_fx_lookup benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:144 bench_odht_fx_insert benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:160 bench_std_fx_lookup benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:179 bench_std_fx_insert benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:199 lookup_odht_fx_load_87 benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:204 insert_odht_fx_load_87 benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:209 lookup_std_fx benchmark (benches/, nightly #[bench])
+// crate-skip: odht-0.3.1/benches/bench.rs:214 insert_std_fx benchmark (benches/, nightly #[bench])

@@ -394,11 +394,9 @@ export class RawTableMut {
     }
   }
 
-  // impl<'a, K: ByteArray, V: ByteArray, H: HashFn> fmt::Debug for RawTableMut<'a, K, V, H>
-  // crate: odht-0.3.1/src/raw_table.rs:388 fmt
+  /** `{:?}` */
   fmt(): string {
-    const readonly = RawTable.new(this.H, this.metadata, this.data);
-    return `${readonly.fmt()}`;
+    return fmt_RawTableMut(this);
   }
 }
 
@@ -419,6 +417,13 @@ function metadata_at_mut(metadata: Uint8Array, index: number): MutRef<EntryMetad
       metadata[index] = v;
     },
   };
+}
+
+// impl<'a, K: ByteArray, V: ByteArray, H: HashFn> fmt::Debug for RawTableMut<'a, K, V, H>
+// crate: odht-0.3.1/src/raw_table.rs:388 fmt
+function fmt_RawTableMut(self: RawTableMut): string {
+  const readonly = RawTable.new(self.H, self.metadata, self.data);
+  return `${readonly.fmt()}`;
 }
 
 export class RawIter implements IterableIterator<[EntryMetadata, Entry]> {
