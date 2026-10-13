@@ -46,3 +46,45 @@ None added. The two odht stand-in `unported` calls are gone, and so is the `debu
    (`HashTableOwned<Config>`).
 2. The typemap entry's note ("stand-in ... until odht is vendored") is stale. Fix it in a tools batch; the generated
    files do not change.
+
+## Merge: rmeta-decoder-a + cstore-impl (follow-up fixer task)
+- **`git merge --no-ff lane/rmeta-decoder-a`** (80249ad).
+  - Conflicts:
+    - `contract.test.ts`: kept both lanes' probes, `get_associated_item` (-b) and `decode_alloc_id` (-a).
+    - `decoder.ts`: the duplicate imports across the two lanes' import blocks were dropped, and
+      `HygieneDecodeContext_` became a value import.
+  - decoder.rs is 156/156, and each marker appears exactly once.
+  - `print_item` now uses the generated `decode_DefKey`; the `decode_DefKey_pending` stub is deleted.
+  - `CrateMetadata::new` already set `HygieneDecodeContext.default()`, and `imported_source_file` already returned
+    rustc_span's `SourceFile` (from `new_imported_source_file`). Neither needed a change.
+  - Codegen: `bun tools/codegen/types.ts` was run for `rustc_hir`, `rustc_middle`, `rustc_crate_store` and
+    `rustc_metadata_rmeta`. The output is byte-identical to the committed files.
+- **`decoder_a.oracle.test.ts`**: `PENDING_B` is empty, so span / expn / name / path are compared strictly and match.
+  The `-Zls=items` case runs for real (its DefKey skip is gone) and matches.
+- **`decoder_b.oracle.test.ts`**, which moved from PENDING to compared:
+  - `get_diagnostic_items` and `get_traits`, against the probe's `diag` / `traits` lines;
+  - the root's `get_module_children` through a real `TyCtxt` (new helper `with_registered_crates`). The non-reexport
+    prefix matches the oracle, and the reexports stop at `Decodable for rustc_middle::metadata::ModChild`.
+
+  The PENDING cases that are left now use exact stop texts:
+  - `CrateMetadata::new`: `Decodable for rustc_middle::ty::fast_reject::SimplifiedType (M3)`. For compiler_builtins,
+    which has no incoherent impls, `new` finishes; the test then checks `num_def_ids` and the cnum.
+  - `get_lang_items`: `Decodable for rustc_hir::lang_items::LangItem (...)`.
+  - `get_missing_lang_items`: `Decodable for rustc_attr_ir::lang_items::LangItem (...)`.
+
+  For a crate with an empty array, the test also checks that the oracle section is empty.
+- **creader / locator oracle tests**: the stop is now SimplifiedType. The two profiler_builtins cases stop later, at
+  `Decodable for rustc_session::config::mitigation_coverage::DeniedPartialMitigation (...)`; they use a per-case
+  `stop`.
+- **`git merge --no-ff lane/cstore-impl`**: clean. cstore_impl.rs is 37/37.
+- Deleted the claims `docs/claims/wave11-{rmeta-decoder-a,rmeta-decoder-b,cstore-impl,odht}.md`.
+- **Checks:**
+  - probe `rmetadefs` built;
+  - tsc clean;
+  - `coverage --check`: markers ok (7890; vendor 3664);
+  - `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 3890 pass, 1 skip, 0 fail;
+  - parse `--sample 200`: 200/200 MATCH (run 20261013-194711-odht-wire-iv5a);
+  - expanded-nocore `--sample 300` (run 20261013-194728-odht-wire-vjli): 271 MATCH, 0 DIFF, 29 UNPORTED (3 skipped).
+    All 29 stop at `Decodable for rustc_middle::ty::fast_reject::SimplifiedType (M3)`.
+- **For root:** record -a's scope decision (the line split 1..1342 / 1343..end). Root can also tighten the
+  decoder.ts contract aliases `HygieneDecodeContext` / `SourceFile` / `SpanData`, which are still `unknown`.
