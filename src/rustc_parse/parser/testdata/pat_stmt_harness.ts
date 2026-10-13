@@ -21,12 +21,12 @@
 import { readFileSync } from "node:fs";
 
 import { ast, token } from "../../../rustc_ast/lib.ts";
-import type { AttrVec, Block, BlockCheckMode, Expr, ExprKind, Pat, Stmt } from "../../../rustc_ast/lib.ts";
+import type { Block, BlockCheckMode, Pat, Stmt } from "../../../rustc_ast/lib.ts";
 import type { TokenKind } from "../../../rustc_ast/token.ts";
 import { AnnotateSnippetEmitter } from "../../../rustc_errors/annotate_snippet_emitter_writer.ts";
 import { DiagCtxt, FatalErrorMarker, type PResult } from "../../../rustc_errors/lib.ts";
 import { ParseSess } from "../../../rustc_session/parse.ts";
-import { type ErrorGuaranteed, type FileName, Span, create_session_globals_then } from "../../../rustc_span/lib.ts";
+import { type FileName, Span, create_session_globals_then } from "../../../rustc_span/lib.ts";
 import { FilePathMapping, RealFileLoader, get_source_map } from "../../../rustc_span/source_map.ts";
 import { kw } from "../../../rustc_span/symbol.ts";
 import { PRETTY } from "../../../std/fmt.ts";
@@ -261,67 +261,7 @@ function install_shims(): () => void {
     throw new ShimMiss("expect_semi: recover_colon_as_semi / expect");
   });
 
-  // expr.rs:3460 is_builtin (whole fn)
-  set("is_builtin", function (this: Parser): boolean {
-    return this.token.is_keyword(kw.Builtin) && this.look_ahead(1, (t) => t.eq(TK.Pound));
-  });
-
-  // expr.rs:4006 mk_expr_with_attrs, :4015 mk_expr, :4019 mk_expr_err (whole fns)
-  set("mk_expr_with_attrs", function (this: Parser, span: Span, kind: ExprKind, attrs: AttrVec): Expr {
-    return new ast.Expr(ast.DUMMY_NODE_ID, kind, span, attrs, undefined);
-  });
-  set("mk_expr", function (this: Parser, span: Span, kind: ExprKind): Expr {
-    return this.mk_expr_with_attrs(span, kind, []);
-  });
-  set("mk_expr_err", function (this: Parser, span: Span, guar: ErrorGuaranteed): Expr {
-    return this.mk_expr(span, { $: "Err", _0: guar });
-  });
-
-  // expr.rs:2113 parse_literal_maybe_minus, with parse_token_lit (:1991) -> parse_opt_token_lit (:2083)
-  // -> recover_after_dot (:2003) + eat_token_lit (:2040) inlined. Misses: a `.` before the literal
-  // (`recover_after_dot`'s recovery), a reparsed metavar literal, and a missing literal
-  // (`handle_missing_lit`).
-  set("parse_literal_maybe_minus", function (this: Parser): PResult<Expr> {
-    const e1 = this.eat_metavar_seq_with_matcher(
-      (mv_kind) => mv_kind.$ === "Expr",
-      (this_) => this_.parse_expr(),
-    );
-    if (e1 !== undefined) {
-      return Ok(e1);
-    }
-    const e2 = this.eat_metavar_seq(token.MetaVarKind.Literal, (this_) => this_.parse_literal_maybe_minus());
-    if (e2 !== undefined) {
-      return Ok(e2);
-    }
-
-    const lo = this.token.span;
-    const minus_present = this.eat(exp.Minus);
-    // parse_token_lit -> parse_opt_token_lit
-    if (this.token.eq(TK.Dot)) throw new ShimMiss("recover_after_dot");
-    const span = this.token.span;
-    // eat_token_lit
-    let token_lit: token.Lit;
-    const k = this.token.uninterpolate().kind;
-    if (k.$ === "Ident" && (k._1 === "Normal" || k._1 === "ForcedKeyword") && k._0 === kw.True) {
-      this.bump();
-      token_lit = token.Lit.new({ $: "Bool" }, k._0, undefined);
-    } else if (k.$ === "Ident" && (k._1 === "Normal" || k._1 === "ForcedKeyword") && k._0 === kw.False) {
-      this.bump();
-      token_lit = token.Lit.new({ $: "Bool" }, k._0, undefined);
-    } else if (k.$ === "Literal") {
-      this.bump();
-      token_lit = k._0;
-    } else {
-      throw new ShimMiss("eat_token_lit: metavar literal / handle_missing_lit");
-    }
-    const expr = this.mk_expr(span, { $: "Lit", _0: token_lit });
-
-    if (minus_present) {
-      return Ok(this.mk_expr(Span.to(lo, this.prev_token.span), { $: "Unary", _0: "Neg", _1: expr }));
-    } else {
-      return Ok(expr);
-    }
-  });
+  // (expr.rs shims `is_builtin`, `mk_expr*`, `parse_literal_maybe_minus` removed: lane parser-expr ported them.)
 
   // ty.rs:784 parse_pin_and_mut (the `pin` branch is a miss)
   set("parse_pin_and_mut", function (this: Parser) {

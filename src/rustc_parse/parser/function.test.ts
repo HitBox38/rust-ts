@@ -127,10 +127,10 @@ const PENDING: Record<string, string> = {
   typo_impl: "rustc_parse::parser::item::Parser::parse_item",
   param_recover_bad: "rustc_parse::parser::item::Parser::parse_item",
   param_dup_recovered: "rustc_parse::parser::item::Parser::parse_item",
-  cfgsel_expr: "rustc_parse::parser::expr::Parser::parse_expr_res_after_attrs",
-  cfgsel_expr_block_like: "rustc_parse::parser::expr::Parser::parse_expr_res_after_attrs",
-  cfgsel_expr_missing_comma: "rustc_parse::parser::expr::Parser::parse_expr_res_after_attrs",
-  cfgsel_expr_end: "rustc_parse::parser::expr::Parser::parse_expr_res_after_attrs",
+  cfgsel_expr: "rustc_parse::parser::diagnostics::Parser::maybe_recover_from_bad_qpath",
+  cfgsel_expr_block_like: "rustc_parse::parser::path::Parser::parse_path",
+  cfgsel_expr_missing_comma: "rustc_parse::parser::diagnostics::Parser::maybe_recover_from_bad_qpath",
+  cfgsel_expr_end: "rustc_parse::parser::path::Parser::parse_path",
 };
 
 /** case -> narrow script (TS-only ops on the same source; see the header). */
