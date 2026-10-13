@@ -76,7 +76,6 @@ const PENDING: Record<string, string> = {
   // With real import resolution, `use` paths reach late resolution (lane res-late).
   use_trees: "rustc_resolve::late::PathSource::is_expected",
   p_macro_escape: "rustc_resolve::diagnostics::impls::Resolver::dcx",
-  p_macro_rules: "rustc_index::bit_set::DenseBitSet::new_filled",
   p_vis_restricted: "rustc_resolve::late::PathSource::is_expected",
 };
 

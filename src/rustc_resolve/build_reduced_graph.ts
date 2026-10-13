@@ -37,6 +37,7 @@ import { debug_NodeId, type NodeId, NodeId as NodeIdC } from "../rustc_ast/node_
 import { type AssocCtxt, walk_assoc_item, walk_block, walk_field_def, walk_item, walk_variant, WalkItemKind } from "../rustc_ast/visit.ts";
 import type { Attribute as HirAttribute } from "../rustc_attr_ir/lib.ts";
 import { AttributeParser } from "../rustc_attr_parsing/lib.ts";
+import { DenseBitSet } from "../rustc_index/bit_set.ts";
 import type { SyntaxExtension } from "../rustc_expand/base.ts";
 import { CtorKind, DefKind, debug_Res, MacroKinds, type Namespace, PerNS, Res as def_Res } from "../rustc_hir/def.ts";
 import { type AmbigModChild, type ModChild, PartialRes, Reexport } from "../rustc_middle/middle/resolve.ts";
@@ -1289,10 +1290,7 @@ DefCollector.prototype.insert_unused_macro = function (this: DefCollector, ident
     if (kind.$ === "MacroRules") {
       const mr = kind._0;
       const nrules = mr.nrules();
-      const value: [LocalDefId, lib.DenseBitSet<number>] = [
-        def_id,
-        unported(`rustc_index::bit_set::DenseBitSet::new_filled(${nrules}) (lib.ts DenseBitSet is a type-only stand-in)`),
-      ];
+      const value: [LocalDefId, DenseBitSet<number>] = [def_id, DenseBitSet.new_filled<number>(nrules)];
       this.r.unused_macro_rules.set(node_id, value);
     }
   }
