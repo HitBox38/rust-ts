@@ -145,8 +145,8 @@ export const CStore = {
   },
 };
 
-/** PORT: stand-in for `rustc_index::bit_set::DenseBitSet<T>` (not ported; owner: the macros lane). */
-export type DenseBitSet<T> = { readonly __stub: "rustc_index::bit_set::DenseBitSet"; readonly __t?: T };
+/** `rustc_index::bit_set::DenseBitSet<T>` (src/rustc_index/bit_set.ts, ported by lane res-macros). */
+export { DenseBitSet } from "../rustc_index/bit_set.ts";
 
 /**
  * PORT: stand-in for `rustc_hir::TraitCandidate<'tcx>` (hir.rs, M3). `import_ids` is the arena slice
