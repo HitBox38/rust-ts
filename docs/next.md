@@ -108,11 +108,24 @@ Compiler fns 2284/25518; vendor 2172/6531. Final gate: gate-20261012-222820-root
 
 Compiler fns 2650/25518; vendor 2277/6637. Final gate: gate-20261013-001906-root-2lda (tokens 25780 + tokens-str 39 protected).
 
-## Wave 6c (started 2026-10-13) — the rest of the parser (parallel, against parser/decls.ts)
-parser-path-ty-generics, parser-pat-stmt, parser-expr, parser-item, parser-fn-asm, parser-diag, parser-tests (emitter tests of tests.rs),
-unicode-width-str (width_in_str: getopts --help, string widths). Then: turn on the `parse` suite.
-Follow-ups queued: harness-w6-2 J1 (probe env allowlist); review w456b X1 (lexer fixture lint names/spans);
-`TokenCursor.clone_enclosing_delim` should clone (PORTING §8); std io error kinds + from_utf8 for "couldn't find file".
+## Wave 6c (2026-10-13) — done: the parser
+| lane | scope | status |
+|---|---|---|
+| parser-ptg / pat-stmt / expr / item / fn-asm / diag | all of rustc_parse/parser (path, ty, generics, pat, stmt, expr(+diagnostics), item, function, asm, cfg_select, diagnostics) | **merged** |
+| parser-tests | all 54 parser/tests.rs tests (emitter rendering + parser) | **merged** |
+| unicode-width-str | string widths (width_in_str); getopts usage; driver --help/--explain | **merged** |
+
+**`parse` suite: 21,522 / 21,526 tests/ui files byte-identical** (`-Zunpretty=ast-tree` + parser diagnostics), protected
+(gate-20261013-012502-root-ad5h). Not matching: 3 subject TIMEOUTs (deep nesting; `{:#?}` builders re-pad every level,
+O(depth×size)) and 1 oracle timeout (deep try chain). Compiler fns 3213/25518 (rustc_parse 779/791).
+
+## Wave 7 (started 2026-10-13) — finish M1, scope M2
+| lane | scope |
+|---|---|
+| review-parser-a / review-parser-b | independent review of wave 6b/6c porting lanes (parser files, driver-session, unicode-width-str) |
+| fmt-perf | std/fmt Debug builders without per-level re-padding (output byte-identical); clears the 3 parse TIMEOUTs |
+| harness-w7 | `parse-ui` suite: tests/ui/{parser,lexer} with compiletest flags (`//@ compile-flags`, edition, -Zui-testing) stopping after parsing; per-suite timeouts for deep-nesting cases; harness-w6-2 J1 |
+| plan-m2 | M2 (expansion + name resolution) crate map, order, lane split, oracle suites |
 
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
