@@ -20,16 +20,28 @@
 // Bootstrap's `--target-rustcflags` for the ui suite (src/bootstrap/src/core/build_steps/test.rs at
 // the pin: `-Crpath`, `-Cdebuginfo=<debuginfo-level-tests, default 0>`, `-Lnative=<test helpers>`)
 // are included except `-Lnative=`: there is no built `rust_test_helpers` (a link-time search path).
+// Bootstrap's default `rust.optimize-tests = true` (config.rs) passes `--optimize-tests`, so run-pass
+// tests get `-O`.
+//
+// Host independence: compiletest evaluates `ignore-*`/`only-*`, `--target=` and the exe suffix
+// against the machine it runs on. To make the case set (and argv shape) the same on every machine,
+// this module runs compiletest as it runs on rust-lang CI's primary `x86_64-unknown-linux-gnu`
+// host (host = target = COMPILETEST_TARGET, so not a cross-compile), per decision D1 for M2 suites
+// (`docs/plan-m2.md`). The oracle and the subject still run on this machine (stopping after parsing
+// needs no target std). Only absolute paths in argv (sysroot, cargo home, upstream checkout) vary.
 //
 // Paths: the input file is passed relative to the upstream checkout (the cwd of both sides), so
 // diagnostics show `tests/ui/...` where compiletest would show an absolute path and then
 // normalize it to `$DIR`. The output directory mirrors compiletest's layout relative to the cwd
-// (`build/<host>/test/ui/<dir>/<stem>[.<rev>]`); nothing is written there when stopping after parsing.
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+// (`build/<target>/test/ui/<dir>/<stem>[.<rev>]`); nothing is written there when stopping after parsing.
+import { existsSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { PIN, UPSTREAM } from "../scripts/lib/common.ts";
-import { oracleHost, oracleSysroot } from "../scripts/lib/oracle.ts";
+import { oracleSysroot } from "../scripts/lib/oracle.ts";
+
+/** The host and target compiletest is run as (see "Host independence" above). */
+export const COMPILETEST_TARGET = "x86_64-unknown-linux-gnu";
 
 export interface UiCase {
   id: string;
@@ -119,8 +131,11 @@ function expandVariables(value: string): string {
   if (value.includes("{{target-linker}}")) value = value.replaceAll("{{target-linker}}", "");
   if (value.includes("{{target}}")) value = value.replaceAll("{{target}}", h.target);
   if (value.includes("{{rust-src-base}}")) {
-    const src = join(h.sysroot, "lib", "rustlib", "src", "rust");
-    if (!existsSync(src)) throw new Reject(`{{rust-src-base}}: ${src} does not exist`);
+    // `try_exists().expect(..)` only panics on an IO error; `read_link_utf8().unwrap_or(src_base)`.
+    let src = join(h.sysroot, "lib", "rustlib", "src", "rust");
+    try {
+      src = readlinkSync(src);
+    } catch {}
     value = value.replaceAll("{{rust-src-base}}", src);
   }
   return value;
@@ -188,7 +203,7 @@ function host(): Host {
   // `home::cargo_home()`: $CARGO_HOME (relative to the cwd if relative), else ~/.cargo.
   const ch = process.env.CARGO_HOME;
   const cargoHome = ch ? (isAbsolute(ch) ? ch : resolve(UPSTREAM, ch)) : join(homedir(), ".cargo");
-  return (hostMemo = { target: oracleHost(), sysroot: oracleSysroot(), cargoHome });
+  return (hostMemo = { target: COMPILETEST_TARGET, sysroot: oracleSysroot(), cargoHome });
 }
 
 function rustcPrint(args: string[]): string {
@@ -259,7 +274,7 @@ function conditions(): Map<string, Cond> {
   cond("offload", undefined, "when rustc is built with LLVM Offload");
   // The oracle is a nightly toolchain.
   for (const ch of ["stable", "beta", "nightly"]) cond(ch, ch === "nightly", `when the release channel is ${ch}`);
-  cond("cross-compile", false, "when cross-compiling");
+  cond("cross-compile", false, "when cross-compiling"); // host = target = COMPILETEST_TARGET
   cond("endian-big", cur.endian === "big", "on big-endian targets");
   for (const st of ["stage0", "stage1", "stage2"]) cond(st, undefined, `when the bootstrapping stage is ${st}`);
   cond("remote", false, "when running tests remotely");
@@ -420,10 +435,15 @@ function compileArgs(file: string, relDir: string, stem: string, revision: strin
     a.push("--cfg", r);
   }
   if (!p.noAutoCheckCfg) a.push("--check-cfg", `cfg(test,FALSE${p.revisions.map((r) => "," + norm(r)).join("")})`);
+  // config.optimize_tests (bootstrap default) + TestMode::Ui: optimize run-pass tests that set no
+  // optimization level (no `--pass` override, so the effective mode is the declared one).
+  if (p.passFailMode === "run-pass" && !p.compileFlags.some((f) => f === "-O" || f.includes("opt-level"))) a.push("-O");
   // TestMode::Ui
   if (format === "json" && !p.compileFlags.some((f) => f.startsWith("--error-format"))) a.push("--error-format", "json", "--json", "future-incompat");
   a.push("-Ccodegen-units=1", "-Zui-testing", "-Zdeduplicate-diagnostics=no", "-Zwrite-long-types-to-disk=no", "-Cstrip=debuginfo");
-  if (p.remapSrcBase) a.push(`--remap-path-prefix=${join(UPSTREAM, "tests", "ui")}=fake-test-src-base`);
+  // `--remap-path-prefix=<src_test_suite_root>=fake-test-src-base` remaps an absolute input path; ours is
+  // relative, so the prefix would never match.
+  if (p.remapSrcBase) throw new Reject("`remap-src-base` needs compiletest's absolute input path");
   // run_ui_test: check modes emit metadata; build/run modes do a full build (a build-fail test's
   // preceding metadata-only compile is not a case).
   const mode = p.passFailMode!;
@@ -432,7 +452,8 @@ function compileArgs(file: string, relDir: string, stem: string, revision: strin
   const outDir = `build/${h.target}/test/ui/${relDir}/${stem}${revision !== undefined ? "." + revision : ""}`;
   if (!p.compileFlags.includes("-o")) {
     // `run_if_enabled`: running is enabled for every non-fuchsia target.
-    if (mode.startsWith("run-")) a.push("-o", `${outDir}/a${process.platform === "win32" ? ".exe" : ""}`);
+    // make_exe_name: the (linux) host's EXE_SUFFIX is empty.
+    if (mode.startsWith("run-")) a.push("-o", `${outDir}/a`);
     else a.push("--out-dir", outDir);
   }
   a.push("-Znext-solver=coherence");

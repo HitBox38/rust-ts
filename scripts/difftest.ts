@@ -35,6 +35,19 @@ export interface CaseResult {
   unported?: string;
   /** DIFF/CRASH: the first differing line, as `<line>: <oracle> | <subject>` (each JSON, cut to 200 chars). */
   first?: string;
+  /**
+   * ORACLE_TIMEOUT: what the subject did, which the status alone would hide: `TIMEOUT`, `ICE`
+   * (exit 101), `UNPORTED: <what>` (exit 70), or `exit <code>`.
+   */
+  subject?: string;
+}
+
+/** ORACLE_TIMEOUT cases by what the subject did (see `CaseResult.subject`). */
+export interface OracleTimeoutSubjects {
+  ok: number;
+  TIMEOUT: number;
+  ICE: number;
+  UNPORTED: number;
 }
 
 interface Output {
@@ -388,7 +401,9 @@ export interface RunOptions {
   quiet?: boolean;
 }
 
-export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[]; dir: string; counts: Record<Status, number>; stats: SubjectStats; skipped?: number }> {
+export async function difftest(
+  opts: RunOptions,
+): Promise<{ results: CaseResult[]; dir: string; counts: Record<Status, number>; stats: SubjectStats; skipped?: number; oracleTimeoutSubjects: OracleTimeoutSubjects }> {
   requireUpstream();
   await verifyOraclePin();
   const s = getSuite(opts.suite);
@@ -407,6 +422,7 @@ export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[
 
   const results: CaseResult[] = [];
   const stats: SubjectStats = { processes: 0, batchOnlyFailures: 0, batchOnlyTimeouts: 0 };
+  const oracleTimeoutSubjects: OracleTimeoutSubjects = { ok: 0, TIMEOUT: 0, ICE: 0, UNPORTED: 0 };
   let diffsWritten = 0;
   const started = performance.now();
   await pool(
@@ -423,6 +439,12 @@ export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[
           const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
           if (m) r.unported = m[1]!.slice(0, 300);
         } else if (status === "DIFF" || status === "CRASH") r.first = firstDiffLine(oc.text, sc.text);
+        else if (status === "ORACLE_TIMEOUT") {
+          const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
+          r.subject = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? `UNPORTED: ${(m?.[1] ?? "").slice(0, 300)}` : `exit ${sc.code}`;
+          const k = sc.timedOut ? "TIMEOUT" : sc.code === 101 ? "ICE" : sc.code === EXIT_UNPORTED ? "UNPORTED" : "ok";
+          oracleTimeoutSubjects[k]++;
+        }
         results.push(r);
         if (status !== "MATCH" && status !== "UNPORTED" && diffsWritten < 500) {
           diffsWritten++;
@@ -456,9 +478,10 @@ export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[
     seconds: Math.round((performance.now() - started) / 1000),
     ...stats,
     ...(s.skipped ? { skipped: skipped.length } : {}),
+    ...(counts.ORACLE_TIMEOUT ? { oracleTimeoutSubjects } : {}),
   };
   writeFileSync(join(dir, `${s.name}.summary.json`), JSON.stringify(summary, null, 2));
-  return { results, dir, counts, stats, skipped: s.skipped ? skipped.length : undefined };
+  return { results, dir, counts, stats, skipped: s.skipped ? skipped.length : undefined, oracleTimeoutSubjects };
 }
 
 if (import.meta.main) {
@@ -469,7 +492,7 @@ if (import.meta.main) {
     process.exit(0);
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
-  const { dir, counts, results, stats, skipped } = await difftest({
+  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots } = await difftest({
     suite: String(a.suite),
     sample: num("sample"),
     seed: typeof a.seed === "string" ? a.seed : undefined,
@@ -483,6 +506,9 @@ if (import.meta.main) {
   console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}${skipped !== undefined ? ` skipped=${skipped}` : ""}`);
   if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
     console.log(`note: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s): a batch process failed at a case that passes alone (see ${a.suite}.summary.json)`);
+  }
+  if (counts.ORACLE_TIMEOUT) {
+    console.log(`note: ${counts.ORACLE_TIMEOUT} ORACLE_TIMEOUT case(s); the subject on them: ok=${ots.ok} TIMEOUT=${ots.TIMEOUT} ICE=${ots.ICE} UNPORTED=${ots.UNPORTED} (per case: \`subject\` in ${a.suite}.jsonl)`);
   }
   console.log(`details: ${dir}`);
 }

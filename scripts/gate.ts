@@ -35,6 +35,8 @@ interface SuiteGate {
   batchOnlyTimeouts?: number;
   /** Cases whose oracle timed out twice (ORACLE_TIMEOUT): not MATCH, so a protected one is lost. */
   oracleTimeouts?: string[];
+  /** Protected cases the suite does not generate on this host, with the suite's reason (`Suite.skipped`). */
+  lostSkipped?: { id: string; reason: string }[];
 }
 
 /**
@@ -173,7 +175,9 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
     // lists the tests that skipped anyway (checked below against ALLOWED_SKIPS).
     // CI=true: Bun fails the run on a leftover `.only` (which would otherwise drop the other tests
     // of its file from the run, and from the report, without counting them as skipped).
-    ["unit tests", [process.execPath, "test", "src", "tools", "--reporter=junit", `--reporter-outfile=${junit}`], { RUST_TS_REQUIRE_PROBES: "1", CI: "true" }],
+    // --timeout: Bun's 5 s per-test default flakes under load (seen: options oracle, unicode_width
+    // all-scalar, termize pty); a hung test still fails, after 60 s.
+    ["unit tests", [process.execPath, "test", "src", "tools", "--timeout=60000", "--reporter=junit", `--reporter-outfile=${junit}`], { RUST_TS_REQUIRE_PROBES: "1", CI: "true" }],
     // --offline: a vendor crate missing from cargo's cache is an ERROR, never network I/O.
     ["markers", [process.execPath, "scripts/coverage.ts", "--check", "--offline"], {}],
   ];
@@ -243,10 +247,20 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
     const match = new Set(results.filter((r) => r.status === "MATCH").map((r) => r.id));
     const lost = [...base].filter((id) => !match.has(id));
     const gained = [...match].filter((id) => !base.has(id));
+    const byId = new Map(results.map((r) => [r.id, r]));
     const oracleTimeouts = results.filter((r) => r.status === "ORACLE_TIMEOUT").map((r) => r.id);
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts });
+    const skippedWhy = new Map((getSuite(suite).skipped?.() ?? []).map((k) => [k.id, k.reason]));
+    const lostSkipped = lost.filter((id) => skippedWhy.has(id)).map((id) => ({ id, reason: skippedWhy.get(id)! }));
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
-    for (const id of lost.slice(0, 20)) console.log(`  lost: ${id}${oracleTimeouts.includes(id) ? " (ORACLE_TIMEOUT)" : ""}`);
+    const why = (id: string): string => {
+      const r = byId.get(id);
+      if (r?.status === "ORACLE_TIMEOUT") return ` (ORACLE_TIMEOUT; subject: ${r.subject})`;
+      if (skippedWhy.has(id)) return ` (not applicable on this host: ${skippedWhy.get(id)})`;
+      if (!r) return " (no longer a case of this suite)";
+      return ` (${r.status})`;
+    };
+    for (const id of lost.slice(0, 20)) console.log(`  lost: ${id}${why(id)}`);
     if (oracleTimeouts.length) console.log(`note: ${suite}: ${oracleTimeouts.length} case(s) ORACLE_TIMEOUT (the oracle timed out twice; not compared)`);
     if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
       console.log(`note: ${suite}: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s) (a batch process failed at a case that passes alone; see ${suite}.summary.json)`);
