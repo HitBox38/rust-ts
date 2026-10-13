@@ -79,6 +79,7 @@ import { visit } from "../rustc_ast/lib.ts";
 import type { AssocCtxt, LifetimeCtxt } from "../rustc_ast/visit.ts";
 import type { CfgEntry } from "../rustc_ast/attr/data_structures.ts";
 import type { ControlFlow } from "../rustc_ast_ir/visit.ts";
+import type { Attribute as HirAttribute } from "../rustc_attr_ir/attr.ts";
 import type { Directive } from "../rustc_attr_ir/diagnostic.ts";
 import type { StrippedCfgItem } from "../rustc_attr_ir/data_structures.ts";
 import type { Applicability, BufferedEarlyLint, Diag, DiagCtxtHandle, LintBuffer } from "../rustc_errors/lib.ts";
@@ -777,7 +778,7 @@ export interface Resolver {
   // macros.rs:1195
   check_reserved_macro_name(name: Symbol, span: Span, res: Res): void;
   // macros.rs:1210
-  compile_macro(macro_def: MacroDef, ident: Ident, attrs: readonly Attribute[], span: Span, node_id: NodeId, edition: Edition): SyntaxExtension;
+  compile_macro(macro_def: MacroDef, ident: Ident, attrs: readonly HirAttribute[], span: Span, node_id: NodeId, edition: Edition): SyntaxExtension;
   // macros.rs:1244
   path_accessible(expn_id: LocalExpnId, path: Path, namespaces: readonly Namespace[]): Result<boolean, Indeterminate>;
   // ---- compiler/rustc_resolve/src/check_unused.rs ----
