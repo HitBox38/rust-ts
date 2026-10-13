@@ -83,7 +83,12 @@ interface Case {
 const oracle = JSON.parse(readFileSync(join(import.meta.dir, "expand_oracle", "out.json"), "utf8")) as Case[];
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
-const PENDING: Record<string, string> = {};
+const PENDING: Record<string, string> = {
+  // `check_attributes` on a builtin attribute (`#[inline]`, `#[doc]`) of a macro call asks
+  // `AttributeParser::is_parsed_attribute`, which builds `ATTRIBUTE_PARSERS` from the attribute parser
+  // modules (stubs of lane attr-parse-c on this branch).
+  unused_attrs_on_mac: "rustc_attr_parsing::attributes::codegen_attrs::ForceTargetFeatureParser::PATH",
+};
 
 const C = (f: string): string => f;
 
@@ -339,7 +344,14 @@ for (const c of oracle) {
   test(`expand oracle: ${C(c.name)}`, () => {
     const pending = PENDING[c.name];
     if (pending !== undefined) {
-      expect(() => run_case(c)).toThrow(new Unported(pending));
+      let thrown: unknown;
+      try {
+        run_case(c);
+      } catch (e) {
+        thrown = e;
+      }
+      expect(thrown).toBeInstanceOf(Unported);
+      expect((thrown as Unported).what).toBe(pending);
       return;
     }
     const got = run_case(c);
