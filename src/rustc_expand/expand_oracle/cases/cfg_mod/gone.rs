@@ -1,0 +1,2 @@
+#![cfg(false)]
+fn x() {}

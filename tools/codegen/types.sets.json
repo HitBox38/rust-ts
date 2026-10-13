@@ -296,5 +296,15 @@
     "hand": [],
     "discriminant": [],
     "skip": []
+  },
+  "rustc_expand": {
+    "files": [
+      "compiler/rustc_expand/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_default": true
   }
 }
