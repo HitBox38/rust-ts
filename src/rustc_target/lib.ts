@@ -22,6 +22,8 @@ import type { Json } from "./json.ts";
 // before this module body runs).
 export * as json from "./json.ts";
 export * as spec from "./spec/mod.ts";
+// `spec::json` (`impl ToJson for Target`); after the spec, whose values its tables read at load time.
+export { Target_to_json } from "./spec/json.ts";
 export * as target_features from "./target_features.ts";
 
 /// The name of rustc's own place to organize libraries.

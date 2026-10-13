@@ -29,7 +29,6 @@ import { assert, unported, unwrap } from "../std/panic.ts";
 import { dimensions } from "../vendor/termize/lib.ts";
 import type { Options } from "./options.ts";
 import {
-  type Cfg,
   type CoverageOptions,
   type ErrorOutputType,
   Input,
@@ -48,13 +47,15 @@ import {
   type PanicStrategy,
   type RelocModel,
   SanitizerSet,
-  type SearchPath,
   SelfProfilerRef,
   Target,
   TargetTuple,
   type TlsModel,
   defer_field,
 } from "./stand_ins.ts";
+import { FileSearch } from "./filesearch.ts";
+import { Cfg, CheckCfg } from "./config/cfg.ts";
+import { SearchPath } from "./search_paths.ts";
 
 /// The behavior of the CTFE engine when an error occurs with regards to backtraces.
 // #[derive(Clone, Copy)]
@@ -150,10 +151,9 @@ export class EarlySession {
     return unported("rustc_target::spec::apple::OSVersion (EarlySession::apple_deployment_target)");
   }
 
-  // not ported (no marker): compiler/rustc_session/src/session.rs:420 sanitizers
+  // rustc: compiler/rustc_session/src/session.rs:420 sanitizers
   sanitizers(): SanitizerSet {
-    // `self.opts.unstable_opts.sanitizer.combine_with_defaults(self.target.options.default_sanitizers)`
-    return unported("rustc_structures::SanitizerSet::combine_with_defaults (EarlySession::sanitizers)");
+    return SanitizerSet.combine_with_defaults(this.opts.unstable_opts.sanitizer, this.target.options.default_sanitizers);
   }
 
   // rustc: compiler/rustc_session/src/session.rs:427 merge_functions
@@ -196,8 +196,7 @@ export class Session {
     public target_tlib_path: SearchPath,
     public unstable_features: UnstableFeatures,
     public config: Cfg,
-    // PORT: `CheckCfg` (config/cfg.rs) is not ported.
-    public check_config: unknown,
+    public check_config: CheckCfg,
     /// Spans passed to `proc_macro::quote_span`. Each span has a numerical
     /// identifier represented by its position in the vector.
     private proc_macro_quoted_spans_: Span[],
@@ -266,10 +265,9 @@ export class Session {
     /// File paths accessed during the build.
     public file_depinfo: Set<Symbol>,
 
-    // PORT: `FileSearch` (filesearch.rs) is not ported.
-    private target_filesearch_: unknown,
-    private host_filesearch_: unknown,
-    private wasm_proc_macro_filesearch_: unknown,
+    private target_filesearch_: FileSearch,
+    private host_filesearch_: FileSearch,
+    private wasm_proc_macro_filesearch_: FileSearch | undefined,
 
     /// A list of all intrinsics that the current codegen backend definitely replaces with its own
     /// implementations, which means their fallback bodies do not need to be monomorphized.
@@ -539,6 +537,19 @@ export class Session {
   }
 
   /// Is this edition 2015?
+  // rustc: compiler/rustc_session/src/session.rs:812 target_filesearch
+  target_filesearch(): FileSearch {
+    return this.target_filesearch_;
+  }
+  // rustc: compiler/rustc_session/src/session.rs:815 host_filesearch
+  host_filesearch(): FileSearch {
+    return this.host_filesearch_;
+  }
+  // rustc: compiler/rustc_session/src/session.rs:818 wasm_proc_macro_filesearch
+  wasm_proc_macro_filesearch(): FileSearch {
+    return unwrap(this.wasm_proc_macro_filesearch_, "wasm_filesearch not set");
+  }
+
   // rustc: compiler/rustc_session/src/session.rs:843 is_rust_2015
   is_rust_2015(): boolean {
     return Edition.is_rust_2015(this.edition());
@@ -616,6 +627,21 @@ export class Session {
   // rustc: compiler/rustc_session/src/session.rs:1076 is_nightly_build
   is_nightly_build(): boolean {
     return UnstableFeatures.is_nightly_build(this.opts.unstable_features);
+  }
+
+  // rustc: compiler/rustc_session/src/session.rs:1080 overflow_checks
+  overflow_checks(): boolean {
+    return this.opts.cg.overflow_checks ?? this.opts.debug_assertions;
+  }
+
+  // rustc: compiler/rustc_session/src/session.rs:1084 ub_checks
+  ub_checks(): boolean {
+    return this.opts.unstable_opts.ub_checks ?? this.opts.debug_assertions;
+  }
+
+  // rustc: compiler/rustc_session/src/session.rs:1088 contract_checks
+  contract_checks(): boolean {
+    return this.opts.unstable_opts.contract_checks ?? false;
   }
 
   // rustc: compiler/rustc_session/src/session.rs:1251 teach
@@ -778,8 +804,12 @@ export function build_session(
     self_profiler = undefined;
   }
 
-  // `host_tlib_path`/`target_tlib_path`/`wasm_proc_macro_tlib_path`:
-  // `SearchPath::from_sysroot_and_triple(sopts.sysroot.path(), ..)` (search_paths.rs, deferred below).
+  const host_triple = host_tuple();
+  const target_triple = TargetTuple.tuple(sopts.target_triple);
+  // FIXME use host sysroot?
+  const host_tlib_path = SearchPath.from_sysroot_and_triple(sopts.sysroot.path(), host_triple);
+  const target_tlib_path = SearchPath.from_sysroot_and_triple(sopts.sysroot.path(), target_triple);
+  const wasm_proc_macro_tlib_path = SearchPath.from_sysroot_and_triple(sopts.sysroot.path(), TargetTuple.tuple(wasm_proc_macro_tuple));
 
   const prof = SelfProfilerRef.new(
     self_profiler,
@@ -789,18 +819,34 @@ export function build_session(
   const val = process.env.RUSTC_CTFE_BACKTRACE;
   const ctfe_backtrace: CtfeBacktrace = val === "immediate" ? "Immediate" : val !== undefined && val !== "0" ? "Capture" : "Disabled";
 
+  // `let asm_arch = if target.allow_asm { InlineAsmArch::from_arch(&target.arch) } else { None };`
+  // (rustc_target::asm is not ported: deferred below)
+  const target_filesearch = FileSearch.new(sopts.search_paths, target_tlib_path, early_sess.target, sopts.unstable_opts.implicit_sysroot_deps);
+  const host_filesearch = early_sess.target.eq(early_sess.host)
+    ? target_filesearch
+    : FileSearch.new(sopts.search_paths, host_tlib_path, early_sess.host, sopts.unstable_opts.implicit_sysroot_deps);
+  const wasm_proc_macro_filesearch = sopts.unstable_opts.wasm_proc_macros
+    ? FileSearch.new(sopts.search_paths, wasm_proc_macro_tlib_path, wasm_proc_macro_target, sopts.unstable_opts.implicit_sysroot_deps)
+    : undefined;
+
   const timings = TimingSectionHandler.new(sopts.json_timings);
+
+  // `PointerAuthConfig::from_raw(&sopts.unstable_opts.pointer_authentication, &target)` (deferred below)
+
+  // `EarlySess::sanitizers` does some computation but is called infrequently. `Sess::sanitizers`
+  // is called much more often so we cache the value.
+  const sanitizers = early_sess.sanitizers();
 
   const sess = new Session(
     early_sess,
     wasm_proc_macro_tuple,
     wasm_proc_macro_target,
-    /* target_tlib_path */ undefined as unknown as SearchPath,
+    target_tlib_path,
     // PORT: upstream at the pin: `UnstableFeatures::from_environment(None)` (not `opts.unstable_features`,
     // which uses `--crate-name`).
     UnstableFeatures.from_environment(undefined),
-    /* config */ new Set(),
-    /* check_config */ undefined,
+    /* config */ Cfg.default(),
+    /* check_config */ CheckCfg.default(),
     /* proc_macro_quoted_spans */ [],
     io,
     prof,
@@ -817,37 +863,29 @@ export function build_session(
     using_internal_features,
     /* env_depinfo */ new Set(),
     /* file_depinfo */ new Set(),
-    /* target_filesearch */ undefined,
-    /* host_filesearch */ undefined,
-    /* wasm_proc_macro_filesearch */ undefined,
+    target_filesearch,
+    host_filesearch,
+    wasm_proc_macro_filesearch,
     /* replaced_intrinsics */ new Set(),
     /* fallback_intrinsics */ new Set(),
     /* thin_lto_supported */ false,
     /* mir_opt_bisect_eval_count */ 0,
     /* removed_rustc_main_attr */ false,
     /* pointer_auth_config */ undefined,
-    /* sanitizers */ 0,
+    sanitizers,
   );
 
   // PORT: fields whose upstream value comes from crates that are not ported are deferred: reading
   // one calls `unported` (stand_ins.ts `defer_field`). Upstream computes, in order:
-  // - `target_tlib_path`: `SearchPath::from_sysroot_and_triple(sysroot, target_triple)` (search_paths.rs)
   // - `asm_arch`: `if target.allow_asm { InlineAsmArch::from_arch(&target.arch) }` (rustc_target::asm)
-  // - `target_filesearch`/`host_filesearch`/`wasm_proc_macro_filesearch`: `FileSearch::new(..)` (filesearch.rs)
   // - `pointer_auth_config`: `PointerAuthConfig::from_raw(&pointer_authentication, &target)` (rustc_target)
-  // - `sanitizers`: `early_sess.sanitizers()` (target default sanitizers)
   // - `global_backend_features`, `replaced_intrinsics`, `fallback_intrinsics`, `thin_lto_supported`:
   //   destructured from `codegen_backend_init` (the codegen backend stand-in defers them too)
   // - `code_stats` (code_stats.rs)
   // `config`/`check_config`/`lint_store`/`internal_target_features` start empty as upstream; the
   // driver (rustc_interface::interface::run_compiler) fills or defers them.
-  defer_field(sess, "target_tlib_path", "rustc_session::search_paths::SearchPath::from_sysroot_and_triple");
   defer_field(sess, "asm_arch", "rustc_target::asm::InlineAsmArch::from_arch (Session::asm_arch)");
-  defer_field(sess, "target_filesearch_" as keyof Session & string, "rustc_session::filesearch::FileSearch::new");
-  defer_field(sess, "host_filesearch_" as keyof Session & string, "rustc_session::filesearch::FileSearch::new");
-  defer_field(sess, "wasm_proc_macro_filesearch_" as keyof Session & string, "rustc_session::filesearch::FileSearch::new");
   defer_field(sess, "pointer_auth_config", "rustc_session::session::PointerAuthConfig::from_raw (rustc_target)");
-  defer_field(sess, "sanitizers_" as keyof Session & string, "rustc_session::session::EarlySession::sanitizers (rustc_target)");
   defer_field(sess, "code_stats", "rustc_session::code_stats::CodeStats");
   for (const key of ["global_backend_features", "replaced_intrinsics", "fallback_intrinsics", "thin_lto_supported"] as const) {
     const desc = Object.getOwnPropertyDescriptor(codegen_backend_init, key);

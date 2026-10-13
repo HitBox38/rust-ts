@@ -61,7 +61,6 @@ import {
   type LinkerFeatures,
   LinkerFeatures as LF,
   CrateType,
-  type SearchPath,
   Target,
   TargetTuple,
   default_sysroot,
@@ -71,8 +70,15 @@ import type { CanonicalizedPath } from "./utils.ts";
 /** `getopts::Matches` (the real type; `stand_ins.Matches` is the subset `build_options` uses). */
 type Matches = getopts.Matches;
 
-/** `Cfg` (config/cfg.rs): `FxIndexSet<(Symbol, Option<Symbol>)>`. PORT: a `Set` of `"name\0value"` keys. */
-export type Cfg = Set<string>;
+// pub use cfg::{Cfg, CheckCfg, ExpectedValues};
+// PORT: config/cfg.ts imports this module, so only the type is re-exported here; import the classes
+// from "./config/cfg.ts".
+export type { Cfg, CheckCfg, ExpectedValues } from "./config/cfg.ts";
+import type { Cfg } from "./config/cfg.ts";
+import * as cfg_mod from "./config/cfg.ts";
+import { SearchPath } from "./search_paths.ts";
+import { spec as target_spec } from "../rustc_target/lib.ts";
+import { edit_distance_with_substrings } from "../rustc_span/edit_distance.ts";
 
 // PORT: `print!`/`eprintln!` -> synchronous writes to fd 1/2 (Rust's `Stdout` is line-buffered and
 // `Stderr` unbuffered; the bytes written are the same).
@@ -1927,11 +1933,15 @@ function parse_jobs_one(
   return n > 1 ? n : undefined;
 }
 
-// not ported (no marker): compiler/rustc_session/src/config.rs:1844 build_configuration (config/cfg.rs)
-export function build_configuration(_sess: Session, _user_cfg: Cfg): Cfg {
+// rustc: compiler/rustc_session/src/config.rs:1844 build_configuration
+export function build_configuration(sess: Session, user_cfg: Cfg): Cfg {
   // First disallow some configuration given on the command line
-  // `cfg::disallow_cfgs(sess, &user_cfg);` ... `user_cfg.extend(cfg::default_configuration(sess));`
-  return unported("rustc_session::config::cfg::{disallow_cfgs, default_configuration}");
+  cfg_mod.disallow_cfgs(sess, user_cfg);
+
+  // Then combine the configuration requested by the session (command line) with
+  // some default and generated configuration items.
+  user_cfg.extend(cfg_mod.default_configuration(sess));
+  return user_cfg;
 }
 
 // rustc: compiler/rustc_session/src/config.rs:1854 build_target_config
@@ -1948,9 +1958,21 @@ export function build_target_config(early_dcx: EarlyDiagCtxt, target: TargetTupl
     }
     return target;
   } else {
-    // `early_struct_fatal(format!("error loading target specification: {e}"))` + `help`s with
-    // `rustc_target::spec::TARGETS` edit-distance suggestions.
-    return unported("rustc_target::spec::TARGETS (build_target_config error path)");
+    const e = r._0;
+    const err = early_dcx.early_struct_fatal(`error loading target specification: ${e}`);
+    err.help("run `rustc --print target-list` for a list of built-in targets");
+    const typed = TargetTuple.tuple(target);
+    const limit = Math.floor(utf8_len(typed) / 3) + 1;
+    let suggestion: [number, string] | undefined;
+    for (const t of target_spec.TARGETS) {
+      const d = edit_distance_with_substrings(typed, t, limit);
+      // `min_by_key` keeps the first minimum.
+      if (d !== undefined && (suggestion === undefined || d < suggestion[0])) suggestion = [d, t];
+    }
+    if (suggestion !== undefined) {
+      err.help(`did you mean \`${suggestion[1]}\`?`);
+    }
+    return err.emit_fatal();
   }
 }
 
@@ -2999,10 +3021,7 @@ export function build_session_options(early_dcx: EarlyDiagCtxtReal, matches: get
         seen_search_paths.add(p);
         return true;
       })
-      .map((_path): SearchPath => {
-        // `SearchPath::from_cli_opt(sysroot.path(), &target_triple, early_dcx, &path, unstable_opts.unstable_options)`
-        return unported("rustc_session::search_paths::SearchPath::from_cli_opt");
-      });
+      .map((path): SearchPath => SearchPath.from_cli_opt(sysroot.path(), target_triple, early_dcx, path, unstable_opts.unstable_options));
   })();
 
   // Ideally we would use `SourceMap::working_dir` instead, but we don't have access to it
