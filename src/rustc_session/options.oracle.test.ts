@@ -284,7 +284,7 @@ test.skipIf(SKIP)("option values: accepted / rejected like rustc", () => {
     if (o !== t) mismatches.push(`-${prefix} ${arg}\n  ours:   ${o}\n  rustc:  ${t}`);
   }
   expect(mismatches.join("\n")).toBe("");
-});
+}, 120_000); // runs rustc once per case; 5 s default is too tight under load
 
 test.skipIf(SKIP)("desc.parse_linker_flavor (computed from linker_flavor_cli_impls!) matches rustc", () => {
   requireRustc();
