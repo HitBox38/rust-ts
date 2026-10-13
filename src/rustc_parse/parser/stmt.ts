@@ -334,7 +334,7 @@ Parser.prototype.parse_stmt_mac = function (this: Parser, lo: Span, attrs: AttrV
   } else {
     // Since none of the above applied, this is an expression statement macro.
     const e0 = this.mk_expr(Span.to(lo, hi), { $: "MacCall", _0: mac });
-    const r1 = this.maybe_recover_from_bad_qpath(e0, RecoverQPath.Expr); // `Box<T>` is the identity: `T`'s impl
+    const r1 = this.maybe_recover_from_bad_qpath(e0, RecoverQPath.Box(RecoverQPath.Expr));
     if (r1.$ === "Err") return r1;
     const r2 = this.parse_expr_dot_or_call_with(attrs, r1._0, lo);
     if (r2.$ === "Err") return r2;

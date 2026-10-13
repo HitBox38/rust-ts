@@ -574,7 +574,7 @@ Parser.prototype.maybe_augment_stashed_expr_in_pats_with_suggestions = function 
           // FIXME: some suggestions don't actually need the snippet; see PR #123877's unresolved conversations.
           return;
         }
-        let expr = snip._0;
+        const expr = snip._0;
 
         if (stmt.kind.$ === "Let") {
           const local = stmt.kind._0;
@@ -609,12 +609,15 @@ Parser.prototype.maybe_augment_stashed_expr_in_pats_with_suggestions = function 
             // PORT: `err.args["expr_precedence"]` (IndexMap `Index`) panics on a missing key.
             return unreachable("IndexMap: key not found");
           }
+          // PORT: this `expr` shadows the snippet only inside the arm-guard block (the `Const`
+          // suggestion below uses the plain snippet).
+          let expr_: string;
           if (a.$ === "Number") {
             const expr_precedence = a._0;
             if (expr_precedence <= ExprPrecedence_discriminant.Compare) {
-              expr = `(${expr})`;
+              expr_ = `(${expr})`;
             } else {
-              expr = `${expr}`;
+              expr_ = `${expr}`;
             }
           } else {
             return unreachable();
@@ -628,7 +631,7 @@ Parser.prototype.maybe_augment_stashed_expr_in_pats_with_suggestions = function 
                 ident_span,
                 pat_hi: Span.shrink_to_hi(arm.pat.span),
                 ident,
-                expr,
+                expr: expr_,
               }),
             );
           } else {
@@ -644,7 +647,7 @@ Parser.prototype.maybe_augment_stashed_expr_in_pats_with_suggestions = function 
                 guard_hi: Span.shrink_to_hi(guard.span()),
                 guard_hi_paren: wrap_guard ? ")" : "",
                 ident,
-                expr,
+                expr: expr_,
               }),
             );
           }
