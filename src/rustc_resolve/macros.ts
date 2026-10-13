@@ -19,15 +19,14 @@ import { AttributeParser } from "../rustc_attr_parsing/interface.ts";
 import type { Attribute as HirAttribute, CfgEntry } from "../rustc_attr_ir/lib.ts";
 import { StrippedCfgItem } from "../rustc_attr_ir/lib.ts";
 import { UnstableReason } from "../rustc_attr_ir/stability.ts";
-import type { Deprecation } from "../rustc_attr_ir/lib.ts";
 import { index_map_swap_remove } from "../rustc_errors/decorate_diag.ts";
-import type { LintBuffer } from "../rustc_errors/lib.ts";
 import { clone_SyntaxExtensionKind, type DeriveResolution, Indeterminate, SyntaxExtension, type SyntaxExtensionKind } from "../rustc_expand/base.ts";
 import { type AstFragment, AstFragmentKind, type Invocation, type SupportsMacroExpansion } from "../rustc_expand/expand.ts";
 import { compile_declarative_macro } from "../rustc_expand/mbe/macro_rules.ts";
 import { DefKind, MacroKinds, type Namespace, NonMacroAttrKind, Res as hir_Res, Res_eq } from "../rustc_hir/def.ts";
 import { LEGACY_DERIVE_HELPERS, OUT_OF_SCOPE_MACRO_CALLS, UNUSED_MACRO_RULES, UNUSED_MACROS } from "../rustc_lint_defs/builtin.gen.ts";
 import type { RegisteredTools } from "../rustc_lint_defs/lib.ts";
+import { early_report_macro_deprecation, report_unstable, UnstableKind } from "../rustc_middle/middle/stability.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Session } from "../rustc_session/session.ts";
 import { feature_err } from "../rustc_session/diagnostics.ts";
@@ -36,7 +35,7 @@ import type { Edition } from "../rustc_span/edition.ts";
 import { type AstPass, ExpnData, LocalExpnId, MacroKind, SyntaxContext, update_dollar_crate_names } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, Span } from "../rustc_span/lib.ts";
 import { display_Ident, Ident, kw, sym, Symbol } from "../rustc_span/symbol.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
+import { assert, panic, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { KeyedSet } from "../rust_ts/keyed.ts";
 import { Resolver } from "./decls.ts";
@@ -1034,28 +1033,15 @@ Resolver.prototype.check_stability_and_deprecation = function (this: Resolver, e
     const is_allowed = (feature: Symbol): boolean => this.features.enabled(feature) || Span.allows_unstable(span, feature);
     const allowed_by_implication = implied_by !== undefined && is_allowed(implied_by);
     if (!is_allowed(feature) && !allowed_by_implication) {
-      stability_report_unstable(this.tcx_.sess, feature, UnstableReason.to_opt_reason(reason), issue, span, "Regular");
+      report_unstable(this.tcx_.sess, feature, UnstableReason.to_opt_reason(reason), issue, span, UnstableKind.Regular);
     }
   }
   if (ext.deprecation !== undefined) {
     const depr = ext.deprecation;
     const path_ = pprust.path_to_string(path);
-    stability_early_report_macro_deprecation(this.lint_buffer_, depr, span, node_id, path_);
+    early_report_macro_deprecation(this.lint_buffer_, depr, span, node_id, path_);
   }
 };
-
-/**
- * PORT: `rustc_middle::middle::stability::report_unstable` (middle/stability.rs is not ported).
- * `kind` is `stability::UnstableKind::Regular`.
- */
-function stability_report_unstable(_sess: Session, _feature: Symbol, _reason: Symbol | undefined, _issue: number | undefined, _span: Span, _kind: "Regular"): void {
-  unported("rustc_middle::middle::stability::report_unstable (middle/stability.rs)");
-}
-
-/** PORT: `rustc_middle::middle::stability::early_report_macro_deprecation` (middle/stability.rs is not ported). */
-function stability_early_report_macro_deprecation(_lint_buffer: LintBuffer, _depr: Deprecation, _span: Span, _node_id: NodeId, _path: string): void {
-  unported("rustc_middle::middle::stability::early_report_macro_deprecation (middle/stability.rs)");
-}
 
 // rustc: compiler/rustc_resolve/src/macros.rs:1117 prohibit_imported_non_macro_attrs
 Resolver.prototype.prohibit_imported_non_macro_attrs = function (this: Resolver, decl: Decl | undefined, res: Res | undefined, span: Span): void {

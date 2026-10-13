@@ -1,0 +1,12 @@
+{
+  "//": [
+    "Type-map additions of lane m2b-stability (set rustc_middle_stability), merged after typemap.json by",
+    "tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_attr_ir::Deprecation", "rustc_attr_ir::data_structures::Deprecation"], "ts": "Deprecation", "import": "src/rustc_attr_ir/lib.ts", "types": ["Deprecation"], "values": ["debug_Deprecation"], "debug": "debug_Deprecation($v, $f)", "note": "for sets outside rustc_attr_ir" },
+    { "paths": ["rustc_lint_defs::DeprecatedSinceKind"], "ts": "DeprecatedSinceKind", "import": "src/rustc_lint_defs/lib.ts", "types": ["DeprecatedSinceKind"], "values": ["debug_DeprecatedSinceKind"], "debug": "debug_DeprecatedSinceKind($v, $f)", "note": "for sets outside rustc_lint_defs" }
+  ]
+}

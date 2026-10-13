@@ -368,6 +368,17 @@
       "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a) module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
     }
   },
+  "rustc_middle_stability": {
+    "files": ["compiler/rustc_middle/src/middle/stability.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true,
+    "hand_notes": {
+      "*": "middle/stability.rs (lane m2b-stability): the types (UnstableKind, DeprecationEntry, DeprecationSuggestion with its derive(Subdiagnostic), Deprecated, EvalResult, AllowUnstable) are generated into src/rustc_middle/middle/stability.gen.ts; the hand port src/rustc_middle/middle/stability.ts adds the fns and Deprecated's manual `impl Diagnostic`. DeprecationEntry's derive(StableHash/Decodable) waits for the depr_map queries (M3)."
+    }
+  },
   "rustc_type_ir": {
     "files": [
       "compiler/rustc_type_ir/src/fast_reject.rs"
