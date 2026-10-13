@@ -1,11 +1,11 @@
 # Handoff: attr-parse-d (wave 8, M2)
 
-Branch `lane/attr-parse-d` (from `lane/attr-parse-a`; `lane/attr-parse-b` merged twice, no conflicts).
+Branch `lane/attr-parse-d` (from `lane/attr-parse-a`; `lane/attr-parse-b` merged three times, up to fce4e2c, no conflicts).
 
 The lane's attribute parsers in `compiler/rustc_attr_parsing/src/attributes/` are ported: `rustc_internal`,
 `rustc_dump`, `diagnostic/*`, `test_attrs`, `traits`, `prototype` and all the small files. Every fn has its
-marker, in upstream order. **The crate does not load yet**: see "Blockers" (a crate-wide module load-order
-problem, plus `check_macro_only` from attr-parse-b).
+marker, in upstream order. All checks are green. The lane's 17 new oracle cases match rustc byte for byte, but
+they stay in `LIST_PENDING` until attr-parse-c lands: building `ATTRIBUTE_PARSERS` still reaches c's stubs.
 
 ## Files touched
 - **Ported** (`src/rustc_attr_parsing/attributes/`, replacing attr-parse-a's stubs, export names kept):
@@ -29,14 +29,20 @@ allow_unstable 5/5, rustc_dump 3/3, on_unimplemented 2/2, opaque 2/2, the other 
 `coverage --check`: markers ok (4594; vendor 2403).
 
 ## Checks
-- `bunx tsc --noEmit -p .`: one error, `check_macro_only` is not exported by `macro_attrs.ts` (attr-parse-b,
-  not landed yet). Everything else is clean against attr-parse-b's committed `mod.ts`/`util.ts`/`target_checking.ts`.
-- `bun test src/rustc_attr_parsing`: **fails to load** (blockers below).
-- **Oracle evidence (local, uncommitted harness):** with `check_macro_only` shimmed and `context.ts` loading the
-  parser modules lazily and skipping registry entries that are still stubs (`$RUST_TS_DATA/tmp/attr-parse-d/hack_context.py`),
-  15 of the 17 new list cases match rustc byte for byte (AttributeKind Debug, buffered lints, rendered lint text,
-  stderr). The other 2 (`allow_internal_unstable_*`) reach `macro_attrs::check_macro_only`.
-  attr-parse-a's 10 old list cases were not re-judged here: they use other lanes' attributes.
+- `bunx tsc --noEmit -p .`: clean.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=120000 src tools`: 2283 pass, 1 skip, 0 fail.
+- `bun scripts/coverage.ts --check`: markers ok (4618; vendor 2403).
+- `RUST_TS_AGENT=attr-parse-d bun scripts/difftest.ts --suite parse --sample 200`: 200/200 MATCH (run
+  `20261013-083019-attr-parse-d-uov1`).
+- **List oracle.** Every list case reaches `codegen_attrs::ForceTargetFeatureParser::PATH`. That is attr-parse-c's
+  first stub that the registry build touches, so `PARSERS_PENDING` names it, and the 17 new cases sit in
+  `LIST_PENDING` with that value.
+  - Run with a local, uncommitted harness, all 17 new cases match rustc byte for byte: AttributeKind Debug,
+    buffered lints, rendered lint text and stderr.
+  - The harness (`$RUST_TS_DATA/tmp/attr-parse-d/hack_context.py`) rewrites `context.ts` to skip registry entries
+    that are still stubs.
+  - attr-parse-a's 11 old cases were not judged that way, because they use attr-parse-c's attributes.
+  - **When attr-parse-c lands, delete the lane-d block of `LIST_PENDING`.**
 
 ### New list cases
 `must_use_forms`, `non_exhaustive_forms`, `on_unimplemented_forms` (format args, positional/indexed/specifier
@@ -52,24 +58,17 @@ on_const, on_unknown, on_unmatched_args, on_type_error, opaque, unknown `diagnos
 Not covered, because `parse_limited_all` passes no `target_item` and the `finalize_check` would ICE in rustc
 too (`missing AST target item`): `#[non_exhaustive]` on structs, `#[rustc_legacy_const_generics]`.
 
-**PENDING lists not updated yet:** `LIST_PENDING`/`PENDING` still name `attributes::Combine` (attr-parse-a's).
-Once the crate loads, each case reaches either a match or the first stub `ATTRIBUTE_PARSERS()` builds
-(attr-parse-c's parsers); set the entries then.
-
-## Blockers (for root)
-1. **Module load order (crate-wide).** `interface.ts` imports `context.ts`, which statically imports every
-   parser module. The parsers import helpers from modules that attach methods to `AttributeParser`/`AcceptContext`
-   when they are evaluated: `stability.ts` (`unstable`, used by nearly every parser table), `attributes/util.ts`
-   (`parse_single_integer`, `parse_limit_int`), `attributes/diagnostic/mod.ts`, `target_checking.ts`. Those get
-   evaluated while `interface.ts`/`context.ts` are still evaluating, so `AttributeParser.prototype.x = ..` throws
-   `ReferenceError: Cannot access 'AttributeParser' before initialization` (or `AcceptContext`). No entry order
-   fixes it: two extension modules of the same class are always reached. attr-parse-b's and -c's parsers hit it too.
-   **Recommended fix:** `context.ts` loads the parser modules on first use of `ATTRIBUTE_PARSERS()` (already a
-   lazy accessor): `import type` the parser modules and `require()` them inside the accessor, with a `// PORT:` note.
-   Verified with the local harness above. This edits `context.ts` (attr-parse-a's), so this lane did not do it.
-   This lane avoids the part it controls: parser modules use `AllowedTargets` only as a type
-   (`{ $: "ManuallyChecked" }` literal in dummy.ts), and prelude.ts does not re-export `ALL_TARGETS`.
-2. `attributes/macro_attrs.ts` must export `check_macro_only` (attr-parse-b).
+## Module load order (resolved with attr-parse-b's `install()` pattern)
+- Parser modules import helpers (`unstable`, `parse_single_integer`, the diagnostic helpers) from modules that
+  attach `impl AttributeParser`/`impl AcceptContext` fns. `context.ts` imports the parsers, so those modules are
+  evaluated while `interface.ts`/`context.ts` are still evaluating, and they hit a TDZ `ReferenceError`.
+- attr-parse-b moved those attachments into `install()` fns that `lib.ts` calls at its end. This lane does the
+  same for `attributes/diagnostic/mod.ts`: `unknown_diagnostic_attr` is attached by `install()`.
+- **Out-of-ownership edit:** to make that call, this lane added `install_diagnostic()` to `lib.ts` (attr-parse-a's
+  file, already edited by attr-parse-b for the same purpose). Root: please accept or redo it.
+- A consequence for every lane: a parser module must not import `target_checking.ts` for a value at its top level.
+  That is why `prelude.ts` re-exports `AllowedTargets` type-only and does not re-export `ALL_TARGETS`, and why
+  `dummy.ts` writes `{ $: "ManuallyChecked" }` as a literal.
 
 ## `unported(...)` left
 None in this lane's files.
@@ -94,3 +93,4 @@ None in this lane's files.
 7. `&mut` places: `MutRef` (`prototype.rs` out-params, `traits.rs` `mem::replace(skip, true)`, `merge_directives`,
    `parse_cgu_fields`).
 8. Test harness: list_gen.rs `+features` / `lints` (above), stand-in `Session` with `opts`/`unstable_features`.
+9. `attributes/diagnostic/mod.ts` `install()` (see "Module load order").
