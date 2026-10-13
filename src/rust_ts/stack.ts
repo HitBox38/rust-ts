@@ -127,7 +127,7 @@ export function ensure_stack(): void {
   const setenv = (k: string, v: string): boolean => libc.symbols.setenv(ptr(cstr(k)), ptr(cstr(v)), 1) === 0;
   if (!setenv("BUN_JSC_maxPerThreadStackUsage", String(js_stack)) || !setenv(MARKER, String(js_stack))) return;
 
-  const args = ["sh", "-c", `ulimit -S -s ${soft_kib} 2>/dev/null; exec "$@"`, "sh", process.execPath]
+  const args = ["sh", "-c", `ulimit -S -s ${soft_kib} 2>/dev/null || unset BUN_JSC_maxPerThreadStackUsage; exec "$@"`, "sh", process.execPath]
     .map(cstr)
     .concat(argv.slice(1).map(cstr));
   const vec = new BigUint64Array(args.length + 1); // char *const argv[], NULL-terminated
