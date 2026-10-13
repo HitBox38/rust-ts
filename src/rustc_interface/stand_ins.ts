@@ -12,15 +12,8 @@ import { TARGET_CONFIGS } from "../rust_ts/target_config.gen.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { unported } from "../std/panic.ts";
 import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
+import { DefaultMetadataLoader } from "../rustc_codegen_ssa/back/metadata.ts";
 
-/**
- * `rustc_codegen_ssa::back::metadata::DefaultMetadataLoader` (the unit struct). PORT: stand-in until the
- * object-read lane (wave 11) ports back/metadata.rs; its methods read rlib/dylib files.
- */
-const DefaultMetadataLoader: MetadataLoaderDyn = {
-  get_rlib_metadata: () => unported("rustc_codegen_ssa::back::metadata::DefaultMetadataLoader::get_rlib_metadata (wave 11 object-read)"),
-  get_dylib_metadata: () => unported("rustc_codegen_ssa::back::metadata::DefaultMetadataLoader::get_dylib_metadata (wave 11 object-read)"),
-};
 
 /// `rustc_codegen_ssa::TargetConfig` (rustc_codegen_ssa/src/lib.rs:309)
 export interface TargetConfig {
