@@ -65,7 +65,7 @@ import {
   TargetTuple,
   default_sysroot,
 } from "./stand_ins.ts";
-import type { CanonicalizedPath } from "./utils.ts";
+import { CanonicalizedPath } from "./utils.ts";
 
 /** `getopts::Matches` (the real type; `stand_ins.Matches` is the subset `build_options` uses). */
 type Matches = getopts.Matches;
@@ -2785,9 +2785,9 @@ export function parse_externs(early_dcx: EarlyDiagCtxt, matches: Matches, unstab
     const occupied = externs.get(name);
     if (path !== undefined) {
       // --extern prelude_name=some_file.rlib
-      // PORT: `CanonicalizedPath::new(path)` (utils.rs) needs `rustc_fs_util::try_canonicalize`.
-      // utils.ts is not imported at runtime here (it extends `Session`, see lib.ts).
-      const cpath: CanonicalizedPath = unported(`rustc_fs_util::try_canonicalize (CanonicalizedPath::new ${path})`);
+      // PORT: utils.ts is imported at runtime for `CanonicalizedPath` (lane locator); `CanonicalizedPath::new`
+      // is only called here, after every module is loaded.
+      const cpath: CanonicalizedPath = CanonicalizedPath.new(path);
       if (occupied === undefined) {
         const files = new Set([cpath]);
         entry = ExternEntry.new({ $: "ExactPaths", _0: files });

@@ -13,9 +13,30 @@ import type { StableCrateId } from "../../rustc_span/def_id.ts";
 import type { Edition } from "../../rustc_span/edition.ts";
 import type { Symbol } from "../../rustc_span/symbol.ts";
 import type { PanicStrategy } from "../../rustc_target/spec/mod.ts";
+import type { TargetTuple } from "../../rustc_target/spec/tuple.ts";
 import type { Svh } from "./decoder.ts";
 
 export type { CrateMetadata, CrateNumMap, MetadataBlob, TargetModifiers } from "./decoder.ts";
+
+// PORT (lane locator): `rustc_version`, `METADATA_VERSION` and `METADATA_HEADER` are ported here because the
+// locator's reading and error reporting use them; the rest of the file is still the creader stub.
+// rustc: compiler/rustc_metadata/src/rmeta/mod.rs:62 rustc_version
+export function rustc_version(cfg_version: string): string {
+  return `rustc ${cfg_version}`;
+}
+
+/// Metadata encoding version.
+/// N.B., increment this if you change the format of metadata such that
+/// the rustc version can't be found to compare with `rustc_version()`.
+const METADATA_VERSION = 11;
+
+/// Metadata header which includes `METADATA_VERSION`.
+///
+/// This header is followed by the `CrateRoot` and `CrateRootUnhashed` positions
+/// which represent the hashed and unhashed metadata contents respectively, the
+/// crate hash (SVH), and the rustc version string. See the offset constants
+/// below for the exact layout.
+export const METADATA_HEADER: Uint8Array = new Uint8Array([0x72 /* r */, 0x75 /* u */, 0x73 /* s */, 0x74 /* t */, 0, 0, 0, METADATA_VERSION]);
 
 /// Serialized crate metadata.
 ///
@@ -26,7 +47,7 @@ export type { CrateMetadata, CrateNumMap, MetadataBlob, TargetModifiers } from "
 /// If you do modify this struct, also bump the [`METADATA_VERSION`] constant.
 // #[derive(MetadataEncodable, BlobDecodable)]
 export interface CrateHeader {
-  triple: unknown;
+  triple: TargetTuple;
   name: Symbol;
   /// Whether this is the header for a proc-macro crate.
   ///

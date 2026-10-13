@@ -25,7 +25,10 @@ import type { Ident, Symbol } from "../../rustc_span/symbol.ts";
 import type { PanicStrategy } from "../../rustc_target/spec/mod.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
 import { unported } from "../../std/panic.ts";
-import { CrateRoot, type CrateDep, type CrateRootUnhashed } from "./mod.ts";
+import { CrateRoot, type CrateDep, type CrateHeader, type CrateRootUnhashed } from "./mod.ts";
+import type { IoResult } from "../../std/io.ts";
+import type { Result } from "../../std/result.ts";
+import type { Write } from "../../vendor/anstream/stream.ts";
 
 /**
  * PORT: stand-in for `rustc_data_structures::svh::Svh` (svh.rs is not ported): the hash as its `Display`
@@ -36,18 +39,31 @@ export type Svh = string & { readonly __brand: "Svh" };
 // pub(crate) struct MetadataBlob(OwnedSlice);
 export class MetadataBlob {
   constructor(public _0: Uint8Array) {}
+
+  // PORT(stub, lane locator): `MetadataBlob::new` (the locator's `get_metadata_section` calls it).
+  static new(_slice: Uint8Array): Result<MetadataBlob, void> {
+    return unported("rustc_metadata::rmeta::decoder::MetadataBlob::new (wave 11 rmeta-decoder)");
+  }
 }
 export interface MetadataBlob {
+  check_compatibility(cfg_version: string): Result<void, string | undefined>;
+  get_header(): CrateHeader;
   get_root(): CrateRoot;
   get_root_unhashed(): CrateRootUnhashed;
   get_dep_extra_filenames(): string[];
   get_crate_hash(): Svh;
+  list_crate_metadata(out: Write, ls_kinds: readonly string[]): IoResult<void>;
+  get_proc_macro_info(): unknown[];
 }
 unported_methods(MetadataBlob.prototype, "rustc_metadata::rmeta::decoder::MetadataBlob (wave 11 rmeta-decoder)", [
+  "check_compatibility",
+  "get_header",
   "get_root",
   "get_root_unhashed",
   "get_dep_extra_filenames",
   "get_crate_hash",
+  "list_crate_metadata",
+  "get_proc_macro_info",
 ]);
 
 /// A map from external crate numbers (as decoded from some crate file) to

@@ -3,6 +3,7 @@
 // PORT: the types of this file (`NativeLib`, `CanonicalizedPath`) are hand-written (the codegen set
 // `rustc_session` only covers diagnostics.rs); `PathBuf` is a UTF-8 string (as in typemap.errors.json).
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
+import { try_canonicalize } from "../rustc_fs_util/lib.ts";
 import { type Debug, debug_bool, debug_option, debug_str, debug_struct } from "../std/fmt.ts";
 import { args_os } from "../std/env.ts";
 import { unported } from "../std/panic.ts";
@@ -67,9 +68,9 @@ export class CanonicalizedPath {
   ) {}
 
   // rustc: compiler/rustc_session/src/utils.rs:45 new
-  static new(_path: PathBuf): CanonicalizedPath {
-    // `Self { canonicalized: try_canonicalize(&path).ok(), original: path }`
-    return unported("rustc_fs_util::try_canonicalize (CanonicalizedPath::new)");
+  static new(path: PathBuf): CanonicalizedPath {
+    const canonicalized = try_canonicalize(path);
+    return new CanonicalizedPath(canonicalized.$ === "Ok" ? canonicalized._0 : undefined, path);
   }
 
   // rustc: compiler/rustc_session/src/utils.rs:49 canonicalized
