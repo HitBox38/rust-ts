@@ -140,6 +140,10 @@ expand-base, expand-core, mbe-a, mbe-b, bm-a (incl. cmdline_attrs::inject, the c
 then bm-format, bm-derive-a/-b, bm-rest, expand-pm-types. Then wave 10 (resolve, ast-passes, lint-early, driver-m2).
 Queued: lane std-unicode (oracle-generated char property tables replacing JS \p{} regexes); lane hashbrown-order (HashMap/HashSet iteration order for the oracle host; unblocks format named-arg Debug, doc(auto_cfg), mbe candidates); harness L1 env filtering; skip the 3 parse ORACLE_TIMEOUT files; error-code explanation texts for json.
 
+## Wave 10 (started 2026-10-13) — resolution, passes, lints
+lint-early-a, res-graph, res-ident, res-macros, res-imports, ast-passes (against res-lib's contract, docs/handoff/res-lib.md);
+then res-late-a/-b, res-diag, res-late-diag-a/-b, lint-early-b, rustdoc. Gate M2a: expanded-nocore + resdump-nocore >=95%.
+
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
    `LoneSlash` escape coverage (raw-input mode, harness batch); hash std libs into the oracle key once suites compile against std.
