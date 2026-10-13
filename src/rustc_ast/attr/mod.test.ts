@@ -6,6 +6,13 @@
 //   Each parsed attribute's token stream is read from that dump; the attribute is then rebuilt with
 //   the port (`MetaItem::from_tokens` for its path and span, `mk_attr_from_item` / `mk_doc_comment`
 //   for the attribute and its `AttrId`) and must print exactly as the oracle's.
+// - testdata/ext.rs (46 edge-case attributes, from review w456a ast-attr finding 3) is rebuilt the
+//   same way from testdata/ext.ast-tree.txt (`rustc +nightly-2026-10-11 --edition 2024
+//   -Zunpretty=ast-tree ext.rs`), except that the `AttrItem` path is read from the tokens directly
+//   (`MetaItem::from_tokens` stops at the first literal of `a = 1 + 1`). Every
+//   `Attribute`/`AttributeExt`/`MetaItem`/`MetaItemInner` query on them must print exactly as
+//   testdata/ext.oracle.txt, the output of the rustc_private program testdata/ext_oracle.rs (build and
+//   run commands in its header).
 // - The `mk_attr_*` excerpts below are attributes that rustc's test harness builds with those fns:
 //   `rustc +nightly-2026-10-11 --test -Zunpretty=ast-tree,expanded t.rs` with t.rs =
 //   `#![no_std]\n#![feature(prelude_import)]\n#[test]\nfn t() {}\n` (builtin_macros test.rs:270
@@ -22,12 +29,13 @@ import {
   create_session_globals_then,
   debug_Span,
   DUMMY_SP,
+  respan,
   Span,
   with_session_globals,
 } from "../../rustc_span/lib.ts";
 import { FilePathMapping, RealFileLoader } from "../../rustc_span/source_map.ts";
-import { Symbol, sym } from "../../rustc_span/symbol.ts";
-import { PLAIN, PRETTY } from "../../std/fmt.ts";
+import { debug_Ident, Ident, Symbol, sym } from "../../rustc_span/symbol.ts";
+import { debug_bool, debug_option, debug_str, debug_vec, PLAIN, PRETTY } from "../../std/fmt.ts";
 import { Panic } from "../../std/panic.ts";
 import { Str } from "../../std/str.ts";
 import {
@@ -36,16 +44,30 @@ import {
   Attribute,
   type AttrStyle,
   debug_Attribute,
+  debug_AttrStyle,
+  debug_MetaItem,
+  debug_MetaItemKind,
   debug_MetaItemLit,
   DelimArgs,
   debug_Path,
   Expr,
   MetaItemInner,
+  type MetaItemLit,
   MetaItemKind,
+  Path,
+  PathSegment,
   Safety,
 } from "../ast.ts";
 import { DUMMY_NODE_ID } from "../node_id.ts";
-import { type CommentKind, Delimiter, Token, TokenKind, LitKind as TokenLitKind } from "../token.ts";
+import {
+  type CommentKind,
+  debug_DocFragmentKind,
+  Delimiter,
+  type IdentKind,
+  Token,
+  TokenKind,
+  LitKind as TokenLitKind,
+} from "../token.ts";
 import {
   AttrTokenStream,
   type AttrTokenTree,
@@ -53,6 +75,7 @@ import {
   DelimSpan,
   LazyAttrTokenStream,
   Spacing,
+  debug_TokenTree,
   TokenStream,
   type TokenTree,
 } from "../tokenstream.ts";
@@ -162,12 +185,24 @@ function parse_attr_token_stream(text: string, sp: (text: string) => Span): Attr
     if (name === "Ident") {
       eat("(");
       const s = string();
-      eat(", Normal)");
-      return { $: "Ident", _0: Symbol.intern(s), _1: "Normal" };
+      eat(", ");
+      const raw = word() as IdentKind;
+      eat(")");
+      return { $: "Ident", _0: Symbol.intern(s), _1: raw };
     }
     if (name === "Literal") {
       eat("(Lit { kind: ");
-      const k = word() as "Str" | "Integer";
+      const k = word();
+      let lit_kind: TokenLitKind;
+      if (text.startsWith("(", i)) {
+        // `StrRaw(n)` / `ByteStrRaw(n)` / `CStrRaw(n)`
+        eat("(");
+        const n = Number(word());
+        eat(")");
+        lit_kind = { $: k, _0: n } as TokenLitKind;
+      } else {
+        lit_kind = (TokenLitKind as unknown as Record<string, TokenLitKind>)[k]!;
+      }
       eat(", symbol: ");
       const symbol = Symbol.intern(string());
       eat(", suffix: ");
@@ -180,7 +215,7 @@ function parse_attr_token_stream(text: string, sp: (text: string) => Span): Attr
         eat(")");
       }
       eat(" })");
-      return TokenKind.lit(TokenLitKind[k], symbol, suffix);
+      return TokenKind.lit(lit_kind, symbol, suffix);
     }
     return (TokenKind as unknown as Record<string, TokenKind>)[name]!;
   };
@@ -371,7 +406,9 @@ test("MetaItem::from_tokens: rejected inputs", () =>
     expect(MetaItemKind.list_from_tokens(TokenStream.new([]))).toEqual([]);
     // A delimiter token where a path should start is a bug (mod.rs:525).
     expect(() => from([t({ $: "OpenParen" } as unknown as TokenKind)])).toThrow(
-      "Should be `AttrTokenTree::Delimited`, not delim tokens: Some(Token(Token { kind: OpenParen, span: attrs.rs:1:1: 1:2 (#0) }, Alone))",
+      new Panic(
+        "Should be `AttrTokenTree::Delimited`, not delim tokens: Some(Token(Token { kind: OpenParen, span: attrs.rs:1:1: 1:2 (#0) }, Alone))",
+      ),
     );
   }));
 
@@ -660,4 +697,179 @@ test("Attribute::convert_normal_to_synthetic keeps id, style and span", () =>
     expect(syn.meta()).toBeUndefined();
     expect(syn.token_trees()).toEqual([]);
     expect(() => syn.get_normal_item()).toThrow(new Panic("internal error: entered unreachable code")); // attr/mod.rs:65
+  }));
+
+// ---- testdata/ext.rs: every query against the rustc_private oracle (testdata/ext_oracle.rs) ----
+
+const EXT_RS = readFileSync(join(TESTDATA, "ext.rs"), "utf8");
+const EXT_TREE = readFileSync(join(TESTDATA, "ext.ast-tree.txt"), "utf8");
+const EXT_ORACLE = readFileSync(join(TESTDATA, "ext.oracle.txt"), "utf8");
+
+/** The first and last span of a parsed token tree (`AttrsTarget` does not occur in attributes). */
+function lo(t: AttrTokenTree): Span {
+  if (t.$ === "AttrsTarget") throw new Error("unexpected AttrsTarget");
+  return t.$ === "Token" ? t._0.span : t._0.open;
+}
+function hi(t: AttrTokenTree): Span {
+  if (t.$ === "AttrsTarget") throw new Error("unexpected AttrsTarget");
+  return t.$ === "Token" ? t._0.span : t._0.close;
+}
+
+/** A literal token's `Expr` (tokens as given; `None` for operands, as the parser leaves them). */
+const lit_expr = (t: AttrTokenTree, tokens: LazyAttrTokenStream | undefined): Expr => {
+  if (t.$ !== "Token" || t._0.kind.$ !== "Literal") throw new Error("expected a literal");
+  return new Expr(DUMMY_NODE_ID, { $: "Lit", _0: t._0.kind._0 }, t._0.span, [], tokens);
+};
+
+/**
+ * Like `rebuild`, for attributes `MetaItem::from_tokens` does not parse whole: the `AttrItem`'s
+ * path is the leading `a::b` idents, its span runs to the last token, and an `Eq` value is either
+ * one literal or (`a = 1 + 1`) the `Binary(Add)` of two.
+ */
+function rebuild_ext(sp: (text: string) => Span, blocks: string[]): Attribute[] {
+  const g = AttrIdGenerator.new();
+  return blocks.map((block) => {
+    const doc = /kind: DocComment\(\n\s*(\w+),\n\s*"(.*)",\n\s*\),\n\s*id: AttrId\(\d+\),\n\s*style: (\w+),\n\s*span: (.*),/.exec(block);
+    if (doc !== null) {
+      return mk_doc_comment(g, doc[1] as CommentKind, doc[3] as AttrStyle, Symbol.intern(doc[2]!), sp(doc[4]!));
+    }
+    const line = block.split("\n").find((l) => l.trim().startsWith("LazyAttrTokenStream(AttrTokenStream([Token(Token { kind: Pound"))!;
+    const trees = parse_attr_token_stream(line.trim().replace(/^LazyAttrTokenStream\(/, "").replace(/\),$/, ""), sp);
+    const style: AttrStyle = trees.length === 3 ? "Inner" : "Outer";
+    const bracket = trees[trees.length - 1]!;
+    if (bracket.$ !== "Delimited") throw new Error("expected the bracket");
+    const c = bracket._3._0;
+    let k = 0;
+    const segments: PathSegment[] = [];
+    for (;;) {
+      const t = c[k]!;
+      if (t.$ !== "Token" || t._0.kind.$ !== "Ident") throw new Error("expected a path segment");
+      segments.push(PathSegment.from_ident(Ident.new(t._0.kind._0, t._0.span)));
+      k++;
+      const n = c[k];
+      if (n === undefined || n.$ !== "Token" || n._0.kind.$ !== "PathSep") break;
+      k++;
+    }
+    const path = new Path(Span.to(lo(c[0]!), hi(c[k - 1]!)), segments);
+    const rest = c.slice(k);
+    let args: AttrArgs;
+    if (rest.length === 0) {
+      args = { $: "Empty" };
+    } else if (rest[0]!.$ === "Token" && rest[0]!._0.kind.$ === "Eq") {
+      const e = rest.slice(1);
+      const tokens = LazyAttrTokenStream.new_direct(AttrTokenStream.new(e));
+      let expr: Expr;
+      if (e.length === 1) {
+        expr = lit_expr(e[0]!, tokens);
+      } else {
+        const op = e[1]!;
+        if (e.length !== 3 || op.$ !== "Token" || op._0.kind.$ !== "Plus") throw new Error("expected `lit + lit`");
+        const kind = { $: "Binary" as const, _0: respan(op._0.span, "Add" as const), _1: lit_expr(e[0]!, undefined), _2: lit_expr(e[2]!, undefined) };
+        expr = new Expr(DUMMY_NODE_ID, kind, Span.to(lo(e[0]!), hi(e[2]!)), [], tokens);
+      }
+      args = { $: "Eq", eq_span: rest[0]!._0.span, expr };
+    } else {
+      const d = rest[0]!;
+      if (d.$ !== "Delimited" || rest.length !== 1) throw new Error("expected a list");
+      args = { $: "Delimited", _0: new DelimArgs(d._0, d._2, TokenStream.new(d._3.to_token_trees())) };
+    }
+    const item = new AttrItem(Safety.Default, path, args, Span.to(lo(c[0]!), hi(c[c.length - 1]!)));
+    const first = trees[0]!;
+    if (first.$ !== "Token") throw new Error("expected `#`");
+    const tokens = LazyAttrTokenStream.new_direct(AttrTokenStream.new(trees));
+    return mk_attr_from_item(g, item, tokens, style, Span.to(first._0.span, bracket._0.close));
+  });
+}
+
+const run_ext = <R>(f: (attrs: Attribute[]) => R): R =>
+  with_file("ext.rs", EXT_RS, (sp) => f(rebuild_ext(sp, attribute_blocks(EXT_TREE))));
+
+/** The port's counterpart of ext_oracle.rs: the same queries, printed in the same format. */
+function ext_queries(attrs: Attribute[]): string[] {
+  const out: string[] = [];
+  const os = (s: Symbol | undefined): string => (s === undefined ? "None" : `Some(${Symbol.as_str(s)})`);
+  const osp = (s: Span | undefined): string => debug_option(s, PLAIN, debug_Span);
+  const olit = (l: MetaItemLit | undefined): string => debug_option(l, PLAIN, debug_MetaItemLit);
+  const olen = (n: number | undefined): string => (n === undefined ? "None" : `Some(${n})`);
+  const inner = (prefix: string, it: MetaItemInner): void => {
+    const sll = MetaItemInner.singleton_lit_list(it);
+    const l = MetaItemInner.lit(it);
+    out.push(
+      `${prefix} span=${debug_Span(MetaItemInner.span(it), PLAIN)} ident=${debug_option(MetaItemInner.ident(it), PLAIN, debug_Ident)}` +
+        ` name=${os(MetaItemInner.name(it))} word=${MetaItemInner.is_word(it)} lit=${olit(l)}` +
+        ` bool=${debug_option(MetaItemInner.boolean_literal(it), PLAIN, debug_bool)}` +
+        ` mib=${MetaItemInner.meta_item_or_bool(it) !== undefined} is_mi=${MetaItemInner.is_meta_item(it)}` +
+        ` nvls=${osp(MetaItemInner.name_value_literal_span(it))} vstr=${os(MetaItemInner.value_str(it))}` +
+        ` sll=${sll === undefined ? "None" : `Some(${Symbol.as_str(sll[0])}, ${debug_MetaItemLit(sll[1], PLAIN)})`}` +
+        ` vas=${os(l?.value_as_str())} mil=${olen(MetaItemInner.meta_item_list(it)?.length)}`,
+    );
+    const mi = MetaItemInner.meta_item(it);
+    if (mi !== undefined) {
+      out.push(
+        `${prefix}  mi ident=${debug_option(mi.ident(), PLAIN, debug_Ident)} name=${os(mi.name())} word=${mi.is_word()}` +
+          ` nvl=${olit(mi.name_value_literal())} nvls=${osp(mi.name_value_literal_span())} vstr=${os(mi.value_str())}` +
+          ` mil_len=${olen(mi.meta_item_list()?.length)}`,
+      );
+      mi.meta_item_list()?.forEach((x, k) => inner(`${prefix}.${k}`, x));
+    }
+  };
+  const E = AttributeExt.Attribute;
+  attrs.forEach((a, i) => {
+    const joined = (v: Symbol[] | undefined): string | undefined => v?.map((s) => Symbol.as_str(s)).join("::");
+    const symbol_path = joined(E.symbol_path(a));
+    out.push(
+      `[${i}] name=${os(a.name())} path=${joined(a.path())} symbol_path=${symbol_path === undefined ? "None" : `Some(${debug_str(symbol_path)})`}` +
+        ` path_span=${osp(E.path_span(a))} is_word=${a.is_word()} is_doc_comment=${a.is_doc_comment()}` +
+        ` idc=${osp(E.is_doc_comment(a))} value_str=${os(a.value_str())} value_span=${osp(a.value_span())}`,
+    );
+    const dsfk = a.doc_str_and_fragment_kind();
+    const dep = a.deprecation_note();
+    out.push(
+      `[${i}] doc_str=${os(a.doc_str())}` +
+        ` dsfk=${dsfk === undefined ? "None" : `Some(${Symbol.as_str(dsfk[0])}, ${debug_DocFragmentKind(dsfk[1], PLAIN)})`}` +
+        ` drs=${debug_option(E.doc_resolution_scope(a), PLAIN, debug_AttrStyle)} hidden=${E.is_doc_hidden(a)}` +
+        ` kw=${E.is_doc_keyword_or_attribute(a)} procm=${a.is_proc_macro_attr()} auto=${E.is_automatically_derived_attr(a)}` +
+        ` prim=${E.is_rustc_doc_primitive(a)}` +
+        ` dep=${dep === undefined ? "None" : `Some(${Symbol.as_str(dep.name)}, ${debug_Span(dep.span, PLAIN)})`}` +
+        ` mhdl=${a.may_have_doc_links()} style=${a.style_()} has_any=${a.has_any_name([sym.doc, sym.deprecated])}` +
+        ` pm=${a.path_matches([Symbol.intern("a"), Symbol.intern("b"), Symbol.intern("c")])}`,
+    );
+    out.push(`[${i}] meta=${debug_option(a.meta(), PLAIN, debug_MetaItem)}`);
+    out.push(`[${i}] meta_kind=${debug_option(a.meta_kind(), PLAIN, debug_MetaItemKind)}`);
+    out.push(`[${i}] tt=${debug_vec(a.token_trees(), PLAIN, debug_TokenTree)}`);
+    const l = a.meta_item_list();
+    if (l === undefined) {
+      out.push(`[${i}] mil=None`);
+    } else {
+      out.push(`[${i}] mil=Some(${l.length})`);
+      l.forEach((it, j) => inner(`[${i}].${j}`, it));
+    }
+  });
+  // ext_oracle.rs queries `krate.items[0].attrs`: the outer attributes of `fn f`.
+  const item_attrs = attrs.filter((a) => a.style === "Outer");
+  out.push(
+    `first_doc=${os(first_attr_value_str_by_name(item_attrs, sym.doc))}` +
+      ` contains_a=${contains_name(item_attrs, Symbol.intern("a"))}` +
+      ` filter_dep=${[...filter_by_name(item_attrs, sym.deprecated)].length}`,
+  );
+  return out;
+}
+
+test("ext.rs: rebuilt attributes print exactly as the oracle's parsed ones", () =>
+  run_ext((attrs) => {
+    const blocks = attribute_blocks(EXT_TREE);
+    expect(attrs.length).toBe(46);
+    for (let k = 0; k < attrs.length; k++) {
+      expect(debug_Attribute(attrs[k]!, PRETTY)).toBe(blocks[k]!);
+    }
+  }));
+
+test("ext.rs: every Attribute/AttributeExt/MetaItem/MetaItemInner query equals the rustc_private oracle (ext.oracle.txt)", () =>
+  run_ext((attrs) => {
+    // Compared as whole text (a cooked `value_str` such as `esc\nA` spans two lines), line by line.
+    const oracle = EXT_ORACLE.split("\n");
+    const port = `${ext_queries(attrs).join("\n")}\n`.split("\n");
+    for (let k = 0; k < Math.max(port.length, oracle.length); k++) {
+      expect(`ext.oracle.txt:${k + 1}: ${port[k]}`).toBe(`ext.oracle.txt:${k + 1}: ${oracle[k]}`);
+    }
   }));
