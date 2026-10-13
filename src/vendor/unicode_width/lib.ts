@@ -1,5 +1,5 @@
 // Port of unicode-width =0.2.2 `src/lib.rs` (default features, i.e. with `cjk`).
-// Table data: `tables.gen.ts` (generated from the oracle by tools/gen-unicode-width.ts).
+// Table data: `tables.gen.ts` (generated from upstream's tables.rs by tools/gen-unicode-width.ts).
 //
 // Copyright 2012-2025 The Rust Project Developers. See the COPYRIGHT
 // file at the top-level directory of this distribution and at
@@ -24,11 +24,36 @@ import * as tables from "./tables.ts";
 
 export { UNICODE_VERSION } from "./tables.ts";
 
-// PORT: the sealed traits `UnicodeWidthChar` (for `char`) and `UnicodeWidthStr` (for `str`) become
-// companion consts with the trait methods taking `self` first.
+// PORT: the traits `UnicodeWidthChar` and `UnicodeWidthStr` become interfaces over `Self` (methods
+// taking `self` first); their impls for `char` (a code point) and `str` (a JS string) are the
+// same-named companion consts. `mod private { trait Sealed }` only restricts implementors when the
+// `cjk` feature is off (with `cjk`, the default, it is implemented for every `T`), so it is erased.
 
 /// Methods for determining displayed width of Unicode characters.
-export const UnicodeWidthChar = {
+export interface UnicodeWidthChar<Self> {
+  /// Returns the character's displayed width in columns, or `None` if the
+  /// character is a control character.
+  ///
+  /// This function treats characters in the Ambiguous category according
+  /// to [Unicode Standard Annex #11](http://www.unicode.org/reports/tr11/)
+  /// as 1 column wide. This is consistent with the recommendations for non-CJK
+  /// contexts, or when the context cannot be reliably determined.
+  // crate: unicode-width-0.2.2/src/lib.rs:202 width
+  width(self: Self): number | undefined;
+
+  /// Returns the character's displayed width in columns, or `None` if the
+  /// character is a control character.
+  ///
+  /// This function treats characters in the Ambiguous category according
+  /// to [Unicode Standard Annex #11](http://www.unicode.org/reports/tr11/)
+  /// as 2 columns wide. This is consistent with the recommendations for
+  /// CJK contexts.
+  // crate: unicode-width-0.2.2/src/lib.rs:212 width_cjk
+  width_cjk(self: Self): number | undefined;
+}
+
+/// `impl UnicodeWidthChar for char`
+export const UnicodeWidthChar: UnicodeWidthChar<number> = {
   /// Returns the character's displayed width in columns, or `None` if the
   /// character is a control character.
   ///
@@ -52,10 +77,31 @@ export const UnicodeWidthChar = {
   width_cjk(self: number): number | undefined {
     return tables.single_char_width_cjk(self);
   },
-} as const;
+};
 
 /// Methods for determining displayed width of Unicode strings.
-export const UnicodeWidthStr = {
+export interface UnicodeWidthStr<Self> {
+  /// Returns the string's displayed width in columns.
+  ///
+  /// This function treats characters in the Ambiguous category according
+  /// to [Unicode Standard Annex #11](http://www.unicode.org/reports/tr11/)
+  /// as 1 column wide. This is consistent with the recommendations for
+  /// non-CJK contexts, or when the context cannot be reliably determined.
+  // crate: unicode-width-0.2.2/src/lib.rs:236 width
+  width(self: Self): number;
+
+  /// Returns the string's displayed width in columns.
+  ///
+  /// This function treats characters in the Ambiguous category according
+  /// to [Unicode Standard Annex #11](http://www.unicode.org/reports/tr11/)
+  /// as 2 column wide. This is consistent with the recommendations for
+  /// CJK contexts.
+  // crate: unicode-width-0.2.2/src/lib.rs:245 width_cjk
+  width_cjk(self: Self): number;
+}
+
+/// `impl UnicodeWidthStr for str`
+export const UnicodeWidthStr: UnicodeWidthStr<string> = {
   /// Returns the string's displayed width in columns.
   ///
   /// This function treats characters in the Ambiguous category according
@@ -77,4 +123,4 @@ export const UnicodeWidthStr = {
   width_cjk(self: string): number {
     return tables.str_width_cjk(self);
   },
-} as const;
+};
