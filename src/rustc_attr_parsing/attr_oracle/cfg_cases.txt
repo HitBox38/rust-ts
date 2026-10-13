@@ -1,0 +1,235 @@
+### cfg_basic
+ops: cfg
+cfg: foo;bar="x"
+check: cfg(foo);cfg(bar, values("x", "y"))
+#[cfg(foo)]
+fn a() {}
+#[cfg(not(foo))]
+fn b() {}
+#[cfg(all(foo, bar = "x"))]
+fn c() {}
+#[cfg(any(bar = "y", not(foo)))]
+fn d() {}
+#[cfg(true)]
+fn e() {}
+#[cfg(false)]
+fn f() {}
+#[cfg(all())]
+fn g() {}
+#[cfg(any())]
+fn h() {}
+### cfg_target
+ops: cfg
+cfg:
+check:
+#[cfg(unix)]
+fn a() {}
+#[cfg(windows)]
+fn b() {}
+#[cfg(target_os = "macos")]
+fn c() {}
+#[cfg(target_pointer_width = "64")]
+fn d() {}
+#[cfg(debug_assertions)]
+fn e() {}
+#[cfg(panic = "unwind")]
+fn f() {}
+#[cfg(target_feature = "neon")]
+fn g() {}
+#[cfg(test)]
+fn h() {}
+### cfg_malformed
+ops: cfg
+cfg:
+check:
+#[cfg]
+fn a() {}
+#[cfg()]
+fn b() {}
+#[cfg(foo, bar)]
+fn c() {}
+#[cfg(not(foo, bar))]
+fn d() {}
+#[cfg(nope(foo))]
+fn e() {}
+#[cfg("foo")]
+fn f() {}
+#[cfg(foo = 1)]
+fn g() {}
+#[cfg(self)]
+fn h() {}
+#[cfg = "x"]
+fn i() {}
+#[cfg(a::b)]
+fn j() {}
+### cfg_gated
+ops: cfg
+cfg:
+check:
+#[cfg(version("1.50"))]
+fn a() {}
+#[cfg(target(os = "linux", arch = "x86_64"))]
+fn b() {}
+#[cfg(target_has_atomic = "64")]
+fn c() {}
+#[cfg(sanitize = "address")]
+fn d() {}
+#[cfg(version(1))]
+fn e() {}
+#[cfg(version("foo"))]
+fn f() {}
+#[cfg(version())]
+fn g() {}
+### unexpected_name
+ops: cfg
+cfg:
+check: cfg(foo);cfg(feature, values("serde", "std"))
+#[cfg(fooo)]
+fn a() {}
+#[cfg(serde)]
+fn b() {}
+#[cfg(xyzzy)]
+fn c() {}
+#[cfg(False)]
+fn d() {}
+#[cfg(TRUE)]
+fn e() {}
+#[cfg(version = "1.0")]
+fn f() {}
+#[cfg(fooo = "x")]
+fn g() {}
+#[cfg(unixx)]
+fn h() {}
+#[cfg(target_oss = "linux")]
+fn i() {}
+### unexpected_value
+ops: cfg
+cfg:
+check: cfg(foo, values("abc", "def"));cfg(bar, values(none(), "x"));cfg(baz, values(none()));cfg(feature, values("serde"))
+#[cfg(foo = "abd")]
+fn a() {}
+#[cfg(foo)]
+fn b() {}
+#[cfg(bar = "y")]
+fn c() {}
+#[cfg(baz = "q")]
+fn d() {}
+#[cfg(feature = "std")]
+fn e() {}
+#[cfg(target_os = "linuz")]
+fn f() {}
+#[cfg(unix = "x")]
+fn g() {}
+#[cfg(target_os = "x86_64")]
+fn h() {}
+#[cfg(panic)]
+fn i() {}
+#[cfg(feature)]
+fn j() {}
+### unexpected_any
+ops: cfg
+cfg:
+check: cfg(foo, values(any()));cfg(any())
+#[cfg(foo = "anything")]
+fn a() {}
+#[cfg(whatever)]
+fn b() {}
+### cfg_attr_basic
+ops: cfg_attr
+cfg: foo
+check: cfg(foo)
+#[cfg_attr(foo, inline, cold)]
+fn a() {}
+#[cfg_attr(not(foo), inline)]
+fn b() {}
+#[cfg_attr(all(), must_use = "x",)]
+fn c() {}
+#[cfg_attr(foo, cfg_attr(foo, inline))]
+fn d() {}
+### cfg_attr_malformed
+ops: cfg_attr
+cfg:
+check:
+#[cfg_attr]
+fn a() {}
+#[cfg_attr()]
+fn b() {}
+#[cfg_attr(foo)]
+fn c() {}
+#[cfg_attr[foo, inline]]
+fn d() {}
+#[cfg_attr(foo inline)]
+fn e() {}
+#[cfg_attr = "x"]
+fn f() {}
+#[cfg_attr(nope(x), inline)]
+fn g() {}
+### cfg_select_basic
+ops: select
+cfg: foo
+check: cfg(foo);cfg(bar)
+cfg_select! {
+    bar => { fn a() {} }
+    foo => { fn b() {} }
+    _ => { fn c() {} }
+}
+cfg_select! {
+    bar => { fn a() {} }
+    _ => { fn c() {} }
+}
+cfg_select! {
+    bar => { fn a() {} }
+}
+### cfg_select_unreachable
+ops: select
+cfg:
+check: cfg(foo);cfg(bar)
+cfg_select! {
+    foo => {}
+    foo => {}
+    not(bar) => {}
+    not(bar) => {}
+    _ => {}
+    bar => {}
+    _ => {}
+}
+cfg_select! {
+    true => {}
+    foo => {}
+}
+cfg_select! {
+    not(foo) => {}
+    foo => {}
+    bar => {}
+}
+cfg_select! {
+    false => {}
+    all(foo, bar) => {}
+    _ => {}
+}
+### cfg_select_errors
+ops: select
+cfg:
+check: cfg(foo)
+cfg_select! {
+    foo(x) => {}
+    _ => {}
+}
+cfg_select! {
+    foo {}
+}
+cfg_select! {
+    "x" => {}
+}
+### unexpected_escapes
+ops: cfg
+cfg:
+check: cfg(foo, values("a"));cfg(q, values("x y"))
+#[cfg(foo = "a\"b\\é")]
+fn a() {}
+#[cfg(foo = "tab\there")]
+fn b() {}
+#[cfg(qq = "x y")]
+fn c() {}
+#[cfg(r#false)]
+fn d() {}
