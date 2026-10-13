@@ -26,8 +26,10 @@ import { ExpansionConfig } from "../rustc_expand/expand.ts";
 import { new_parser_from_file, new_parser_from_source_str, unwrap_or_emit_fatal } from "../rustc_parse/lib.ts";
 import type { Compiler } from "./interface.ts";
 import * as cmdline_attrs from "../rustc_builtin_macros/cmdline_attrs.ts";
+import * as proc_macro_harness from "../rustc_builtin_macros/proc_macro_harness.ts";
 import { register_builtin_macros } from "../rustc_builtin_macros/lib.ts";
 import * as standard_library_imports from "../rustc_builtin_macros/standard_library_imports.ts";
+import * as test_harness from "../rustc_builtin_macros/test_harness.ts";
 import type { Attribute } from "../rustc_ast/ast.gen.ts";
 import type { CrateStore } from "../rustc_crate_store/cstore.ts";
 import { Untracked } from "../rustc_crate_store/cstore.ts";
@@ -236,7 +238,7 @@ function configure_and_expand(krate: Crate, pre_configured_attrs: readonly Attri
   });
 
   sess.time("maybe_building_test_harness", () => {
-    rustc_builtin_macros_test_harness_inject(krate, sess, features, resolver);
+    test_harness.inject(krate, sess, features, resolver);
   });
 
   const has_proc_macro_decls = sess.time("AST_validation", () => {
@@ -282,7 +284,7 @@ function configure_and_expand(krate: Crate, pre_configured_attrs: readonly Attri
 
   sess.time("maybe_create_a_macro_crate", () => {
     const is_test_crate = sess.is_test_crate();
-    rustc_builtin_macros_proc_macro_harness_inject(
+    proc_macro_harness.inject(
       krate,
       sess,
       features,
@@ -1235,25 +1237,6 @@ function rustc_ast_passes_ast_validation_check_crate(_sess: Session, _features: 
 /** `rustc_ast_passes::feature_gate::check_crate` (feature_gate.rs:409). PORT: pending ast-passes. */
 function rustc_ast_passes_feature_gate_check_crate(_krate: Crate, _sess: Session, _features: Features): void {
   unported("rustc_ast_passes::feature_gate::check_crate (pending ast-passes)");
-}
-
-/** `rustc_builtin_macros::test_harness::inject` (test_harness.rs:47). PORT: pending bm-rest. */
-function rustc_builtin_macros_test_harness_inject(_krate: Crate, _sess: Session, _features: Features, _resolver: ResolverExpand): void {
-  unported("rustc_builtin_macros::test_harness::inject (pending bm-rest)");
-}
-
-/** `rustc_builtin_macros::proc_macro_harness::inject` (proc_macro_harness.rs:49). PORT: pending bm-rest. */
-function rustc_builtin_macros_proc_macro_harness_inject(
-  _krate: Crate,
-  _sess: Session,
-  _features: Features,
-  _resolver: ResolverExpand,
-  _is_proc_macro_crate: boolean,
-  _has_proc_macro_decls: boolean,
-  _is_test_crate: boolean,
-  _dcx: unknown,
-): void {
-  unported("rustc_builtin_macros::proc_macro_harness::inject (pending bm-rest)");
 }
 
 /** `rustc_metadata::creader::CStore::from_tcx` + `report_session_incompatibilities` (creader.rs:200, :452). PORT: pending wave 11 (cstore/creader). */

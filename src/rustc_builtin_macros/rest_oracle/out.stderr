@@ -1,0 +1,1164 @@
+== test_not_test_cfg
+== test_fn
+== test_fn_mod
+== test_fn_unicode
+== test_ignore
+== test_ignore_msg
+== test_ignore_list
+== test_should_panic
+== test_should_panic_expected
+== test_should_panic_eq
+== test_root_src
+== test_root_tests
+== test_root_other
+== test_returns_result
+== test_unit_ret_should_panic
+== test_should_panic_output
+error: functions using `#[should_panic]` must return `()`
+ --> <test_should_panic_output>:3:1
+  |
+3 | fn f() -> u8 { 0 }
+  | ^^^^^^^^^^^^^^^^^^
+
+== test_unsafe
+error: unsafe functions cannot be used for tests
+ --> <test_unsafe>:1:9
+  |
+1 | #[test] unsafe fn f() {}
+  |         ------^^^^^^^^^^
+  |         |
+  |         `unsafe` because of this
+
+== test_async
+error: async functions cannot be used for tests
+ --> <test_async>:1:9
+  |
+1 | #[test] async fn f() {}
+  |         -----^^^^^^^^^^
+  |         |
+  |         `async` because of this
+
+== test_gen
+error: gen functions cannot be used for tests
+ --> <test_gen>:1:9
+  |
+1 | #[test] gen fn f() {}
+  |         ---^^^^^^^^^^
+  |         |
+  |         `gen` because of this
+
+== test_args
+error: functions used as tests can not have any arguments
+ --> <test_args>:1:9
+  |
+1 | #[test] fn f(x: u8) {}
+  |         ^^^^^^^^^^^^^^
+
+== test_type_param
+error: functions used as tests can not have any non-lifetime generic parameters
+ --> <test_type_param>:1:9
+  |
+1 | #[test] fn f<T>() {}
+  |         ^^^^^^^^^^^^
+
+== test_const_param
+error: functions used as tests can not have any non-lifetime generic parameters
+ --> <test_const_param>:1:9
+  |
+1 | #[test] fn f<const N: usize>() {}
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== test_lifetime_param
+== test_naked
+error[E0736]: cannot use `#[unsafe(naked)]` with testing attributes
+ --> <test_naked>:1:9
+  |
+1 | #[test] #[unsafe(naked)] fn f() {}
+  | ------- ^^^^^^^^^^^^^^^^ `#[unsafe(naked)]` is incompatible with testing attributes
+  | |
+  | function marked with testing attribute here
+
+== test_naked_no_test
+== test_on_struct
+error: the `test` attribute may only be used on a free function
+ --> <test_on_struct>:1:1
+  |
+1 | #[test]
+  | ^^^^^^^ the `test` attribute causes a function to be run as a test and has no effect on non-functions
+2 | struct S;
+  | --------- expected a non-associated function, found a struct
+  |
+help: replace with conditional compilation to make the item only exist when tests are being run
+  |
+1 - #[test]
+1 + #[cfg(test)]
+  |
+
+== test_on_struct_no_test
+error: the `test` attribute may only be used on a free function
+ --> <test_on_struct_no_test>:1:1
+  |
+1 | #[test] struct S;
+  | ^^^^^^^ --------- expected a non-associated function, found a struct
+  | |
+  | the `test` attribute causes a function to be run as a test and has no effect on non-functions
+  |
+help: replace with conditional compilation to make the item only exist when tests are being run
+  |
+1 - #[test] struct S;
+1 + #[cfg(test)] struct S;
+  |
+
+== test_on_mod
+error: the `test` attribute may only be used on a free function
+ --> <test_on_mod>:1:1
+  |
+1 | #[test] mod m {}
+  | ^^^^^^^ -------- expected a non-associated function, found a module
+  | |
+  | the `test` attribute causes a function to be run as a test and has no effect on non-functions
+  |
+help: replace with conditional compilation to make the item only exist when tests are being run
+  |
+1 - #[test] mod m {}
+1 + #[cfg(test)] mod m {}
+  |
+
+== test_on_macro_call
+warning: the `test` attribute may only be used on a free function
+ --> <test_on_macro_call>:1:1
+  |
+1 | #[test] foo!();
+  | ^^^^^^^ ------- expected a non-associated function, found an item macro invocation
+  | |
+  | the `test` attribute causes a function to be run as a test and has no effect on non-functions
+  |
+help: replace with conditional compilation to make the item only exist when tests are being run
+  |
+1 - #[test] foo!();
+1 + #[cfg(test)] foo!();
+  |
+
+== test_stmt
+== test_stmt_struct
+error: the `test` attribute may only be used on a free function
+ --> <test_stmt_struct>:1:1
+  |
+1 | #[test] struct S;
+  | ^^^^^^^ --------- expected a non-associated function, found a struct
+  | |
+  | the `test` attribute causes a function to be run as a test and has no effect on non-functions
+  |
+help: replace with conditional compilation to make the item only exist when tests are being run
+  |
+1 - #[test] struct S;
+1 + #[cfg(test)] struct S;
+  |
+
+== test_stmt_bad_sig
+error: functions used as tests can not have any arguments
+ --> <test_stmt_bad_sig>:1:9
+  |
+1 | #[test] fn f(x: u8) {}
+  |         ^^^^^^^^^^^^^^
+
+== test_duplicate
+warning: duplicated attribute
+ --> <test_duplicate>:2:1
+  |
+2 | #[test]
+  | ^^^^^^^
+
+== test_with_args
+warning: attribute must be of the form `#[test]`
+ --> <test_with_args>:1:1
+  |
+1 | #[test(foo)] fn f() {}
+  | ^^^^^^^^^^^^
+
+== test_name_value
+warning: attribute must be of the form `#[test]`
+ --> <test_name_value>:1:1
+  |
+1 | #[test = "x"] fn f() {}
+  | ^^^^^^^^^^^^^
+
+== bench_fn
+== bench_fn_ret
+== bench_bad_sig
+error: functions used as benches must have signature `fn(&mut Bencher) -> impl Termination`
+ --> <bench_bad_sig>:1:10
+  |
+1 | #[bench] fn b() {}
+  |          ^^^^^^^^^
+
+== bench_on_struct
+error: the `bench` attribute may only be used on a free function
+ --> <bench_on_struct>:1:1
+  |
+1 | #[bench] struct S;
+  | ^^^^^^^^ --------- expected a non-associated function, found a struct
+  | |
+  | the `bench` attribute causes a function to be run as a test and has no effect on non-functions
+
+== bench_not_test
+== bench_stmt
+== bench_duplicate
+warning: duplicated attribute
+ --> <bench_duplicate>:1:10
+  |
+1 | #[bench] #[bench] fn b(x: u8) {}
+  |          ^^^^^^^^
+
+== test_case_fn
+== test_case_const
+== test_case_static
+== test_case_struct
+== test_case_no_test
+== test_case_stmt
+== test_case_args
+error: malformed `test_case` attribute input
+ --> <test_case_args>:1:1
+  |
+1 | #[test_case(x)] fn f() {}
+  | ^^^^^^^^^^^^^^^
+  |
+help: must be of the form
+  |
+1 - #[test_case(x)] fn f() {}
+1 + #[test_case] fn f() {}
+  |
+
+== test_case_duplicate
+warning: duplicated attribute
+ --> <test_case_duplicate>:1:14
+  |
+1 | #[test_case] #[test_case] fn f() {}
+  |              ^^^^^^^^^^^^
+
+== harness_not_test
+== harness_empty
+== harness_basic
+== harness_sort_unicode
+== harness_nested_mod
+== harness_inner_fn
+warning: cannot test inner items
+ --> <harness_inner_fn>:2:5
+  |
+2 |     #[rustc_test_marker = "x"]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== harness_inner_fn_not_test
+== harness_rustc_main
+== harness_reexport
+== harness_test_runner
+== harness_test_runner_not_test
+== harness_panic_abort
+error: building tests with panic=abort is not supported without `-Zpanic_abort_tests`
+
+== harness_panic_abort_tests
+== harness_immediate_abort_tests
+== harness_unwind_abort_tests
+== harness_marker_on_fn
+== harness_edition_2015
+== pm_not_proc_macro
+== pm_empty
+== pm_basic
+== pm_not_pub
+error: functions tagged with `#[proc_macro]` must be `pub`
+ --> <pm_not_pub>:1:15
+  |
+1 | #[proc_macro] fn bang(i: TokenStream) -> TokenStream { i }
+  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: functions tagged with `#[proc_macro_attribute]` must be `pub`
+ --> <pm_not_pub>:2:25
+  |
+2 | #[proc_macro_attribute] fn at(a: TokenStream, i: TokenStream) -> TokenStream { i }
+  |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: functions tagged with `#[proc_macro_derive]` must be `pub`
+ --> <pm_not_pub>:3:27
+  |
+3 | #[proc_macro_derive(Foo)] fn der(i: TokenStream) -> TokenStream { i }
+  |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== pm_nested
+error: functions tagged with `#[proc_macro]` must currently reside in the root of the crate
+ --> <pm_nested>:2:19
+  |
+2 |     #[proc_macro] pub fn bang(i: TokenStream) -> TokenStream { i }
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: functions tagged with `#[proc_macro_attribute]` must currently reside in the root of the crate
+ --> <pm_nested>:3:29
+  |
+3 |     #[proc_macro_attribute] pub fn at(a: TokenStream, i: TokenStream) -> TokenStream { i }
+  |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: functions tagged with `#[proc_macro_derive]` must currently reside in the root of the crate
+ --> <pm_nested>:4:31
+  |
+4 |     #[proc_macro_derive(Foo)] pub fn der(i: TokenStream) -> TokenStream { i }
+  |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== pm_pub_in_root
+error: `proc-macro` crate types currently cannot export any items other than functions tagged with `#[proc_macro]`, `#[proc_macro_derive]`, or `#[proc_macro_attribute]`
+ --> <pm_pub_in_root>:1:1
+  |
+1 | pub fn helper() {}
+  | ^^^^^^^^^^^^^^^
+
+error: `proc-macro` crate types currently cannot export any items other than functions tagged with `#[proc_macro]`, `#[proc_macro_derive]`, or `#[proc_macro_attribute]`
+ --> <pm_pub_in_root>:2:1
+  |
+2 | pub struct S;
+  | ^^^^^^^^^^^^^
+
+== pm_two_same
+error: only one `#[proc_macro]` attribute is allowed on any given function
+ --> <pm_two_same>:2:1
+  |
+1 | #[proc_macro]
+  | ------------- previous attribute here
+2 | #[proc_macro]
+  | ^^^^^^^^^^^^^
+
+== pm_two_different
+error: `#[proc_macro_derive]` and `#[proc_macro_attribute]` attributes cannot both be applied
+                                   to the same function
+ --> <pm_two_different>:2:1
+  |
+1 | #[proc_macro_attribute]
+  | ----------------------- previous attribute here
+2 | #[proc_macro_derive(Foo)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== pm_macro_export
+error: cannot export macro_rules! macros from a `proc-macro` crate type currently
+ --> <pm_macro_export>:2:1
+  |
+2 | macro_rules! m { () => {} }
+  | ^^^^^^^^^^^^^^
+
+== pm_macro_export_not_pm
+== pm_wrong_crate_type
+error: the `proc_macro` attribute is only usable with crates of the `proc-macro` crate type
+ --> <pm_wrong_crate_type>:1:3
+  |
+1 | #[proc_macro] pub fn bang(i: TokenStream) -> TokenStream { i }
+  |   ^^^^^^^^^^
+
+error: the `proc_macro_derive` attribute is only usable with crates of the `proc-macro` crate type
+ --> <pm_wrong_crate_type>:2:3
+  |
+2 | #[proc_macro_derive(Foo)] pub fn d(i: TokenStream) -> TokenStream { i }
+  |   ^^^^^^^^^^^^^^^^^
+
+== pm_test_crate
+error: `proc-macro` crate types currently cannot export any items other than functions tagged with `#[proc_macro]`, `#[proc_macro_derive]`, or `#[proc_macro_attribute]`
+ --> <pm_test_crate>:2:1
+  |
+2 | pub fn helper() {}
+  | ^^^^^^^^^^^^^^^
+
+== pm_on_non_fn
+== pm_derive_malformed
+== pm_order
+== asm_host_nop
+== asm_host_operands
+== asm_host_intel
+== asm_nop
+== asm_in_out
+== asm_inout
+== asm_lateout
+== asm_split_inout
+== asm_split_inout_underscore
+error: argument never used
+ --> <asm_split_inout_underscore>:1:39
+  |
+1 | asm!("add {0}, 1", inout(reg) x => _, out(reg) _)
+  |                                       ^^^^^^^^^^ argument never used
+  |
+  = help: if this argument is intentionally unused, consider using it in an asm comment: `"/* {1} */"`
+
+== asm_const_sym
+== asm_label
+== asm_explicit_reg
+== asm_named
+== asm_mixed_order
+== asm_options
+== asm_clobber_abi
+== asm_clobber_regclass
+error: asm with `clobber_abi` must specify explicit registers for outputs
+ --> <asm_clobber_regclass>:1:13
+  |
+1 | asm!("nop", out(reg) x, lateout("eax") y, clobber_abi("C"))
+  |             ^^^^^^^^^^ generic outputs    ---------------- clobber_abi
+
+error: argument never used
+ --> <asm_clobber_regclass>:1:13
+  |
+1 | asm!("nop", out(reg) x, lateout("eax") y, clobber_abi("C"))
+  |             ^^^^^^^^^^ argument never used
+  |
+  = help: if this argument is intentionally unused, consider using it in an asm comment: `"/* {0} */"`
+
+== asm_multi_template
+== asm_multiline_raw
+== asm_raw_option
+== asm_braces
+== asm_concat_template
+== asm_intel_lint
+warning: avoid using `.intel_syntax`, Intel syntax is the default
+ --> <asm_intel_lint>:1:7
+  |
+1 | asm!(".intel_syntax noprefix
+  |       ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: avoid using `.att_syntax`, prefer using `options(att_syntax)` instead
+ --> <asm_intel_lint>:2:8
+  |
+2 | nop", ".att_syntax; nop")
+  |        ^^^^^^^^^^^
+
+== asm_intel_lint_nospan
+warning: avoid using `.intel_syntax`, Intel syntax is the default
+ --> <asm_intel_lint_nospan>:1:6
+  |
+1 | asm!(concat!(".intel", "_syntax"))
+  |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== asm_cfg_operand
+error: expected one of `#`, `clobber_abi`, `const`, `in`, `inlateout`, `inout`, `label`, `lateout`, `options`, `out`, or `sym`, found `"nop"`
+ --> <asm_cfg_operand>:1:78
+  |
+1 | asm!("nop", #[cfg(false)] in(reg) x, #[cfg(all())] out(reg) y, #[cfg(false)] "nop")
+  |                                                                              ^^^^^ expected one of 11 possible tokens
+
+== asm_attr_unsupported
+error: this attribute is not supported on assembly
+ --> <asm_attr_unsupported>:1:16
+  |
+1 | asm!("nop {}", #[inline] in(reg) x)
+  |                ^^^^^^^^^
+
+== asm_template_after_operand
+error: expected one of `#`, `clobber_abi`, `const`, `in`, `inlateout`, `inout`, `label`, `lateout`, `options`, `out`, or `sym`, found `"nop"`
+ --> <asm_template_after_operand>:1:27
+  |
+1 | asm!("nop {}", in(reg) x, "nop", concat!("a"), 5)
+  |                           ^^^^^ expected one of 11 possible tokens
+
+== asm_template_after_operand_global
+error: expected one of `#`, `clobber_abi`, `const`, `options`, or `sym`, found `5`
+ --> <asm_template_after_operand_global>:1:41
+  |
+1 | global_asm!("nop", options(att_syntax), 5)
+  |                                         ^ expected one of `#`, `clobber_abi`, `const`, `options`, or `sym`
+
+== asm_template_not_literal
+error: asm template must be a string literal
+ --> <asm_template_not_literal>:1:6
+  |
+1 | asm!(5)
+  |      ^
+
+== asm_template_byte_str
+error: asm template must be a string literal
+ --> <asm_template_byte_str>:1:6
+  |
+1 | asm!(b"nop")
+  |      -^^^^^
+  |      |
+  |      help: consider removing the leading `b`
+
+== asm_explicit_reg_name
+error: explicit register arguments cannot have names
+ --> <asm_explicit_reg_name>:1:13
+  |
+1 | asm!("nop", a = in("eax") x)
+  |             ^^^^^^^^^^^^^^^
+
+== asm_duplicate_name
+error: duplicate argument named `a`
+ --> <asm_duplicate_name>:1:28
+  |
+1 | asm!("{a}", a = in(reg) x, a = in(reg) y)
+  |             -------------  ^^^^^^^^^^^^^ duplicate argument
+  |             |
+  |             previously here
+
+error: argument never used
+ --> <asm_duplicate_name>:1:28
+  |
+1 | asm!("{a}", a = in(reg) x, a = in(reg) y)
+  |                            ^^^^^^^^^^^^^ argument never used
+  |
+  = help: if this argument is intentionally unused, consider using it in an asm comment: `"/* {1} */"`
+
+== asm_positional_after
+error: positional arguments cannot follow named arguments or explicit register arguments
+ --> <asm_positional_after>:1:44
+  |
+1 | asm!("{} {a}", a = in(reg) x, in("eax") z, in(reg) y)
+  |                -------------  -----------  ^^^^^^^^^ positional argument
+  |                |              |
+  |                |              explicit register argument
+  |                named argument
+
+error: invalid reference to argument at index 0
+ --> <asm_positional_after>:1:7
+  |
+1 | asm!("{} {a}", a = in(reg) x, in("eax") z, in(reg) y)
+  |       ^^       ------------- named argument
+  |       |
+  |       from here
+  |
+  = note: there is 1 positional argument
+note: named arguments cannot be referenced by position
+ --> <asm_positional_after>:1:16
+  |
+1 | asm!("{} {a}", a = in(reg) x, in("eax") z, in(reg) y)
+  |                ^^^^^^^^^^^^^
+
+error: argument never used
+ --> <asm_positional_after>:1:44
+  |
+1 | asm!("{} {a}", a = in(reg) x, in("eax") z, in(reg) y)
+  |                                            ^^^^^^^^^ argument never used
+  |
+  = help: if this argument is intentionally unused, consider using it in an asm comment: `"/* {2} */"`
+
+== asm_mutually_exclusive
+error: the `nomem` and `readonly` options are mutually exclusive
+ --> <asm_mutually_exclusive>:1:13
+  |
+1 | asm!("nop", options(nomem), options(readonly, pure, noreturn))
+  |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: the `pure` and `noreturn` options are mutually exclusive
+ --> <asm_mutually_exclusive>:1:13
+  |
+1 | asm!("nop", options(nomem), options(readonly, pure, noreturn))
+  |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: asm with the `pure` option must have at least one output
+ --> <asm_mutually_exclusive>:1:13
+  |
+1 | asm!("nop", options(nomem), options(readonly, pure, noreturn))
+  |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== asm_pure_no_mem
+error: the `pure` option must be combined with either `nomem` or `readonly`
+ --> <asm_pure_no_mem>:1:28
+  |
+1 | asm!("nop {}", out(reg) _, options(pure))
+  |                            ^^^^^^^^^^^^^
+
+error: asm with the `pure` option must have at least one output
+ --> <asm_pure_no_mem>:1:28
+  |
+1 | asm!("nop {}", out(reg) _, options(pure))
+  |                            ^^^^^^^^^^^^^
+
+== asm_noreturn_outputs
+error: asm outputs are not allowed with the `noreturn` option
+ --> <asm_noreturn_outputs>:1:21
+  |
+1 | asm!("nop {0} {1}", out(reg) x, inout(reg) y, options(noreturn))
+  |                     ^^^^^^^^^^  ^^^^^^^^^^^^
+
+== asm_noreturn_label
+== asm_may_unwind_label
+error: asm labels are not allowed with the `may_unwind` option
+ --> <asm_may_unwind_label>:1:16
+  |
+1 | asm!("jmp {}", label {}, options(may_unwind))
+  |                ^^^^^^^^
+
+== asm_dup_option
+error: the `nomem` option was already provided
+ --> <asm_dup_option>:1:28
+  |
+1 | asm!("nop", options(nomem, nomem), options(nostack))
+  |                            ^^^^^ this option was already provided
+
+== asm_unused_one
+error: argument never used
+ --> <asm_unused_one>:1:13
+  |
+1 | asm!("nop", in(reg) x)
+  |             ^^^^^^^^^ argument never used
+  |
+  = help: if this argument is intentionally unused, consider using it in an asm comment: `"/* {0} */"`
+
+== asm_unused_many
+error: multiple unused asm arguments
+ --> <asm_unused_many>:1:17
+  |
+1 | asm!("nop {1}", in(reg) x, in(reg) y, a = in(reg) z, in("eax") w)
+  |                 ^^^^^^^^^             ^^^^^^^^^^^^^ named argument never used
+  |                 |
+  |                 argument never used
+  |
+  = help: if these arguments are intentionally unused, consider using them in an asm comment: `"/* {0} {a} */"`
+
+== asm_bad_index
+error: invalid reference to argument at index 3
+ --> <asm_bad_index>:1:7
+  |
+1 | asm!("{3} {} {1}", in(reg) x, a = in(reg) y, in("eax") z)
+  |       ^^^ from here
+  |
+  = note: there is 1 positional argument
+
+error: invalid reference to argument at index 1
+ --> <asm_bad_index>:1:14
+  |
+1 | asm!("{3} {} {1}", in(reg) x, a = in(reg) y, in("eax") z)
+  |              ^^^ from here    ------------- named argument
+  |
+  = note: there is 1 positional argument
+note: named arguments cannot be referenced by position
+ --> <asm_bad_index>:1:31
+  |
+1 | asm!("{3} {} {1}", in(reg) x, a = in(reg) y, in("eax") z)
+  |                               ^^^^^^^^^^^^^
+
+error: named argument never used
+ --> <asm_bad_index>:1:31
+  |
+1 | asm!("{3} {} {1}", in(reg) x, a = in(reg) y, in("eax") z)
+  |                               ^^^^^^^^^^^^^ named argument never used
+  |
+  = help: if this argument is intentionally unused, consider using it in an asm comment: `"/* {a} */"`
+
+== asm_bad_index_none
+error: invalid reference to argument at index 0
+ --> <asm_bad_index_none>:1:7
+  |
+1 | asm!("{}")
+  |       ^^ from here
+  |
+  = note: no arguments were given
+
+== asm_bad_index_one
+error: invalid reference to argument at index 1
+ --> <asm_bad_index_one>:1:10
+  |
+1 | asm!("{} {}", in(reg) x)
+  |          ^^ from here
+  |
+  = note: there is 1 argument
+
+== asm_bad_name
+error: there is no argument named `nope`
+ --> <asm_bad_name>:1:8
+  |
+1 | asm!("{nope}", in(reg) x)
+  |        ^^^^
+
+error: argument never used
+ --> <asm_bad_name>:1:16
+  |
+1 | asm!("{nope}", in(reg) x)
+  |                ^^^^^^^^^ argument never used
+  |
+  = help: if this argument is intentionally unused, consider using it in an asm comment: `"/* {0} */"`
+
+== asm_bad_modifier
+error: asm template modifier must be a single character
+ --> <asm_bad_modifier>:1:10
+  |
+1 | asm!("{0:ab} {0:}", in(reg) x)
+  |          ^^
+
+== asm_bad_template
+error: invalid asm template string: expected `}` but string was terminated
+ --> <asm_bad_template>:1:12
+  |
+1 | asm!("nop {", in(reg) x)
+  |           -^ expected `}` in asm template string
+  |           |
+  |           because of this opening brace
+  |
+  = note: if you intended to print `{`, you can escape it using `{{`
+
+== asm_bad_template_close
+error: invalid asm template string: unmatched `}` found
+ --> <asm_bad_template_close>:1:11
+  |
+1 | asm!("nop }")
+  |           ^ unmatched `}` in asm template string
+  |
+  = note: if you intended to print `}`, you can escape it using `}}`
+
+== asm_bad_template_macro
+error: invalid asm template string: expected `}` but string was terminated
+ --> <asm_bad_template_macro>:1:6
+  |
+1 | asm!(concat!("nop {"), in(reg) x)
+  |      ^^^^^^^^^^^^^^^^
+  |      |
+  |      expected `}` in asm template string
+  |      because of this opening brace
+  |
+  = note: if you intended to print `{`, you can escape it using `{{`
+
+== asm_bad_template_format_spec
+error: invalid asm template string: expected `}`, found `#`
+ --> <asm_bad_template_format_spec>:1:10
+  |
+1 | asm!("{0:#x}", in(reg) x)
+  |       -  ^ expected `}` in asm template string
+  |       |
+  |       because of this opening brace
+  |
+  = note: if you intended to print `{`, you can escape it using `{{`
+
+== asm_parse_empty
+error: requires at least a template string argument
+ --> <asm_parse_empty>:1:1
+  |
+1 | asm!()
+  | ^^^^^^
+
+== asm_parse_bad_operand
+error: expected expression, found end of macro arguments
+ --> <asm_parse_bad_operand>:1:20
+  |
+1 | asm!("nop", in(reg))
+  |                    ^ expected expression
+
+== global_asm_ok
+== global_asm_bad_option
+error: the `nomem` option cannot be used with `global_asm!`
+ --> <global_asm_bad_option>:1:28
+  |
+1 | global_asm!("nop", options(nomem, raw))
+  |                            ^^^^^ the `nomem` option is not meaningful for global-scoped inline assembly
+
+== global_asm_clobber
+error: `clobber_abi` cannot be used with `global_asm!`
+ --> <global_asm_clobber>:1:20
+  |
+1 | global_asm!("nop", clobber_abi("C"))
+  |                    ^^^^^^^^^^^^^^^^
+
+== global_asm_operand
+error: the `in` operand cannot be used with `global_asm!`
+ --> <global_asm_operand>:1:19
+  |
+1 | global_asm!("{}", in(reg) x)
+  |                   ^^ the `in` operand is not meaningful for global-scoped inline assembly, remove it
+
+== global_asm_unused
+error: argument never used
+ --> <global_asm_unused>:1:20
+  |
+1 | global_asm!("nop", sym foo)
+  |                    ^^^^^^^ argument never used
+  |
+  = help: if this argument is intentionally unused, consider using it in an asm comment: `"/* {0} */"`
+
+== naked_asm_ok
+== naked_asm_clobber
+error: `clobber_abi` cannot be used with `naked_asm!`
+ --> <naked_asm_clobber>:1:19
+  |
+1 | naked_asm!("ret", clobber_abi("C"), clobber_abi("system"))
+  |                   ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^
+
+== naked_asm_options
+error: the `noreturn` option cannot be used with `naked_asm!`
+ --> <naked_asm_options>:1:27
+  |
+1 | naked_asm!("ret", options(noreturn, att_syntax, nostack))
+  |                           ^^^^^^^^ the `noreturn` option is not meaningful for global-scoped inline assembly
+
+error: the `nostack` option cannot be used with `naked_asm!`
+ --> <naked_asm_options>:1:49
+  |
+1 | naked_asm!("ret", options(noreturn, att_syntax, nostack))
+  |                                                 ^^^^^^^ the `nostack` option is not meaningful for global-scoped inline assembly
+
+== naked_asm_in
+error: the `in` operand cannot be used with `naked_asm!`
+ --> <naked_asm_in>:1:22
+  |
+1 | naked_asm!("ret {}", in(reg) x)
+  |                      ^^ the `in` operand is not meaningful for global-scoped inline assembly, remove it
+
+== global_allocator_static
+== global_allocator_stmt
+== global_allocator_fn
+error: allocators must be statics
+ --> <global_allocator_fn>:1:21
+  |
+1 | #[global_allocator] fn f() {}
+  |                     ^^^^^^^^^
+
+== global_allocator_stmt_fn
+error: allocators must be statics
+ --> <global_allocator_stmt_fn>:1:21
+  |
+1 | #[global_allocator] fn f() {}
+  |                     ^^^^^^^^^
+
+== global_allocator_thread_local
+error: allocators cannot be `#[thread_local]`
+ --> <global_allocator_thread_local>:3:1
+  |
+2 | #[thread_local]
+  | ---------------
+  | |
+  | marked `#[thread_local]` here
+  | help: remove this attribute
+3 | static A: System = System;
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== global_allocator_args
+error: malformed `global_allocator` attribute input
+ --> <global_allocator_args>:1:1
+  |
+1 | #[global_allocator(x)] static A: System = System;
+  | ^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: must be of the form
+  |
+1 - #[global_allocator(x)] static A: System = System;
+1 + #[global_allocator] static A: System = System;
+  |
+
+== eii_decl
+== eii_default
+== eii_named
+== eii_unsafe
+== eii_extern_abi
+== eii_extern_implicit
+== eii_safe_unsafe_fn
+== eii_static_darwin
+error: `#[eii]` cannot be used on statics with a value on Apple targets
+ --> <eii_static_darwin>:1:28
+  |
+1 | #[eii(foo)] static X: u8 = 1;
+  |                            ^
+  |
+  = note: see issue #157649 <https://github.com/rust-lang/rust/issues/157649> for more information
+
+== eii_static_linux
+== eii_static_no_default
+== eii_static_word
+error: `#[eii]` requires the name as an explicit argument when used on a static
+ --> <eii_static_word>:1:1
+  |
+1 | #[eii] static X: u8 = 1;
+  | ^^^^^^
+  |
+  = note: this error originates in the attribute macro `eii` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== eii_static_mut
+error: `#[eii]` cannot be used on mutable statics
+ --> <eii_static_mut>:1:1
+  |
+1 | #[eii(foo)] static mut X: u8 = 1;
+  | ^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `eii` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== eii_on_struct
+error: `#[eii]` is only valid on functions and statics
+ --> <eii_on_struct>:1:1
+  |
+1 | #[eii] struct S;
+  | ^^^^^^
+  |
+  = note: this error originates in the attribute macro `eii` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== eii_stmt_fn
+error: `#[eii]` can only be used on functions inside a module
+ --> <eii_stmt_fn>:1:1
+  |
+1 | #[eii] fn f();
+  | ^^^^^^    - `#[eii]` is used on this item, which is part of another item's local scope
+  |
+  = note: this error originates in the attribute macro `eii` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== eii_stmt_struct
+error: `#[eii]` is only valid on functions and statics
+ --> <eii_stmt_struct>:1:1
+  |
+1 | #[eii] struct S;
+  | ^^^^^^
+  |
+  = note: this error originates in the attribute macro `eii` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== eii_attrs
+error: only a small subset of attributes are supported on externally implementable items
+ --> <eii_attrs>:9:1
+  |
+9 | fn f() {}
+  | ^^^^^^
+  |
+note: this attribute is not supported
+ --> <eii_attrs>:7:1
+  |
+7 | #[inline]
+  | ^^^^^^^^^
+
+error: only a small subset of attributes are supported on externally implementable items
+ --> <eii_attrs>:9:1
+  |
+9 | fn f() {}
+  | ^^^^^^
+  |
+note: this attribute is not supported
+ --> <eii_attrs>:8:1
+  |
+8 | #[doc = "y"]
+  | ^^^^^^^^^^^^
+
+== eii_twice
+error: `#[eii]` can only be specified once
+ --> <eii_twice>:2:1
+  |
+2 | #[eii]
+  | ^^^^^^
+  |
+note: specified again here
+ --> <eii_twice>:1:1
+  |
+1 | #[eii]
+  | ^^^^^^
+  = note: this error originates in the attribute macro `eii` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: only a small subset of attributes are supported on externally implementable items
+ --> <eii_twice>:4:1
+  |
+4 | fn f();
+  | ^^^^^^^
+  |
+note: this attribute is not supported
+ --> <eii_twice>:3:1
+  |
+3 | #[unsafe_eii]
+  | ^^^^^^^^^^^^^
+
+== eii_bad_args
+error: `#[eii]` expected no arguments or a single argument: `#[eii(default)]`
+ --> <eii_bad_args>:1:1
+  |
+1 | #[eii(a, b)] fn f();
+  | ^^^^^^^^^^^^
+
+== eii_bad_args_path
+error: `#[eii]` expected no arguments or a single argument: `#[eii(default)]`
+ --> <eii_bad_args_path>:1:1
+  |
+1 | #[eii(a::b)] fn f() {}
+  | ^^^^^^^^^^^^
+
+== eii_bad_args_value
+error: `#[eii]` expected no arguments or a single argument: `#[eii(default)]`
+ --> <eii_bad_args_value>:1:1
+  |
+1 | #[eii = "x"] fn f() {}
+  | ^^^^^^^^^^^^
+
+== eii_declaration_ok
+== eii_declaration_unsafe
+== eii_declaration_stmt
+== eii_declaration_on_fn
+error: `#[eii_declaration(...)]` is only valid on macros
+ --> <eii_declaration_on_fn>:1:1
+  |
+1 | #[eii_declaration(foo)] fn f() {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+
+== eii_declaration_word
+error: `#[eii_declaration(...)]` expects a list of one or two elements
+ --> <eii_declaration_word>:1:1
+  |
+1 | #[eii_declaration] macro m() {}
+  | ^^^^^^^^^^^^^^^^^^
+
+== eii_declaration_three
+error: `#[eii_declaration(...)]` expects a list of one or two elements
+ --> <eii_declaration_three>:1:1
+  |
+1 | #[eii_declaration(a, "unsafe", c)] macro m() {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== eii_declaration_lit_first
+error: `#[eii_declaration(...)]` expects a list of one or two elements
+ --> <eii_declaration_lit_first>:1:1
+  |
+1 | #[eii_declaration("foo")] macro m() {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== eii_declaration_not_unsafe
+error: expected this argument to be "unsafe"
+ --> <eii_declaration_not_unsafe>:1:24
+  |
+1 | #[eii_declaration(foo, "safe")] macro m() {}
+  |                        ^^^^^^
+  |
+note: the second argument is optional
+ --> <eii_declaration_not_unsafe>:1:24
+  |
+1 | #[eii_declaration(foo, "safe")] macro m() {}
+  |                        ^^^^^^
+
+== eii_declaration_empty
+error: `#[eii_declaration(...)]` expects a list of one or two elements
+ --> <eii_declaration_empty>:1:1
+  |
+1 | #[eii_declaration()] macro m() {}
+  | ^^^^^^^^^^^^^^^^^^^^
+
+== eii_shared_fn
+== eii_shared_default
+== eii_shared_not_default
+== eii_shared_unsafe
+== eii_shared_static
+== eii_shared_stmt
+== eii_shared_struct
+error: `#[foo]` is only valid on functions and statics
+ --> <eii_shared_struct>:1:1
+  |
+1 | #[foo] struct S;
+  | ^^^^^^
+
+== eii_shared_bad_args
+error: `#[foo]` expected no arguments or a single argument: `#[foo(default)]`
+ --> <eii_shared_bad_args>:1:1
+  |
+1 | #[foo(a, b)] fn f() {}
+  | ^^^^^^^^^^^^
+
+== eii_shared_value
+error: `#[foo]` expected no arguments or a single argument: `#[foo(default)]`
+ --> <eii_shared_value>:1:1
+  |
+1 | #[foo = "x"] fn f() {}
+  | ^^^^^^^^^^^^
+
+== contracts_requires
+== contracts_ensures
+== contracts_where
+== contracts_attrs_kept
+== contracts_empty_requires
+error: `requires` attribute requires an argument, e.g., `#[requires(condition)]`
+ --> <contracts_empty_requires>:1:1
+  |
+1 | #[contracts_requires] fn f() {}
+  | ^^^^^^^^^^^^^^^^^^^^^
+
+== contracts_empty_ensures
+error: `ensures` attribute requires an argument, e.g., `#[ensures(|result: &T| condition)]`
+ --> <contracts_empty_ensures>:1:1
+  |
+1 | #[contracts_ensures()] fn f() {}
+  | ^^^^^^^^^^^^^^^^^^^^^^
+
+== contracts_on_struct
+error: contract annotations can only be used on functions
+ --> <contracts_on_struct>:1:1
+  |
+1 | #[contracts_requires(true)] struct S;
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== contracts_async
+error: contract annotations are not yet supported on async or gen functions
+ --> <contracts_async>:1:1
+  |
+1 | #[contracts_requires(true)] async fn f() {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== contracts_gen
+error: contract annotations are not yet supported on async or gen functions
+ --> <contracts_gen>:1:1
+  |
+1 | #[contracts_ensures(true)] gen fn f() {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== contracts_no_body
+error: contract annotations is only supported in functions with bodies
+ --> <contracts_no_body>:1:1
+  |
+1 | #[contracts_requires(true)] fn f();
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== contracts_where_no_body
+error: contract annotations is only supported in functions with bodies
+ --> <contracts_where_no_body>:1:1
+  |
+1 | #[contracts_requires(true)] fn f<T>() where T: Copy;
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== expr_test
+error: the `test` attribute may only be used on a free function
+ --> <expr_test>:1:1
+  |
+1 | #[test] (1 + 2)
+  | ^^^^^^^ the `test` attribute causes a function to be run as a test and has no effect on non-functions
+  |
+help: replace with conditional compilation to make the item only exist when tests are being run
+  |
+1 - #[test] (1 + 2)
+1 + #[cfg(test)] (1 + 2)
+  |
+
+== expr_bench
+error: the `bench` attribute may only be used on a free function
+ --> <expr_bench>:1:1
+  |
+1 | #[bench] f()
+  | ^^^^^^^^ the `bench` attribute causes a function to be run as a test and has no effect on non-functions
+
+== expr_test_case
+error: `#[test_case]` attribute is only allowed on items
+ --> <expr_test_case>:1:14
+  |
+1 | #[test_case] x
+  |              ^
+
+== expr_test_case_no_test
+error: `#[test_case]` attribute is only allowed on items
+ --> <expr_test_case_no_test>:1:14
+  |
+1 | #[test_case] x
+  |              ^
+
+== expr_global_allocator
+error: allocators must be statics
+ --> <expr_global_allocator>:1:21
+  |
+1 | #[global_allocator] A
+  |                     ^
+
+== expr_eii
+error: `#[eii]` is only valid on functions and statics
+ --> <expr_eii>:1:1
+  |
+1 | #[eii] f
+  | ^^^^^^
+  |
+  = note: this error originates in the attribute macro `eii` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== expr_eii_declaration
+error: `#[eii_declaration(...)]` is only valid on macros
+ --> <expr_eii_declaration>:1:1
+  |
+1 | #[eii_declaration(foo)] f
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+
+== expr_eii_shared
+error: `#[foo]` is only valid on functions and statics
+ --> <expr_eii_shared>:1:1
+  |
+1 | #[foo] f
+  | ^^^^^^
+
+== end
