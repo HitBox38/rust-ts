@@ -5,6 +5,7 @@ import { debug_int, debug_list, debug_str, debug_vec, PLAIN, type Debug, type Fm
 import { panic, unwrap } from "../std/panic.ts";
 import { utf8 } from "../std/str.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
+import { type StableHashCtxt, type StableHasher, stable_hash_bytes, stable_hash_str } from "../rustc_data_structures/stable_hash.ts";
 import { find_best_match_for_name } from "./edit_distance.ts";
 import { Edition, Edition_discriminant } from "./edition.ts";
 import { debug_SyntaxContext, SyntaxContext } from "./hygiene.ts";
@@ -454,8 +455,7 @@ export const Symbol = {
     }
   },
 
-  // impl StableHash for Symbol
-  // rustc-skip: compiler/rustc_span/src/symbol.rs:2819 stable_hash StableHash (incremental, out of scope until M5)
+  // impl StableHash for Symbol: `stable_hash_Symbol` below (an exported fn, as derive(StableHash) impls are)
 
   // impl StableCompare for Symbol
   // const CAN_USE_UNSTABLE_SORT: bool = true;
@@ -605,9 +605,20 @@ export const ByteSymbol = {
     return self;
   },
 
-  // impl StableHash for ByteSymbol
-  // rustc-skip: compiler/rustc_span/src/symbol.rs:2871 stable_hash StableHash (incremental, out of scope until M5)
+  // impl StableHash for ByteSymbol: `stable_hash_ByteSymbol` below
 };
+
+// rustc: compiler/rustc_span/src/symbol.rs:2819 stable_hash
+/** `impl StableHash for Symbol`: hashes the string, not the (session-specific) index. */
+export function stable_hash_Symbol(self: Symbol, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_str(Symbol.as_str(self), hcx, hasher);
+}
+
+// rustc: compiler/rustc_span/src/symbol.rs:2871 stable_hash
+/** `impl StableHash for ByteSymbol`: hashes the bytes (`[u8]`). */
+export function stable_hash_ByteSymbol(self: ByteSymbol, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_bytes(ByteSymbol.as_byte_str(self), hcx, hasher);
+}
 
 // impl fmt::Debug for ByteSymbol
 // rustc: compiler/rustc_span/src/symbol.rs:2864 fmt

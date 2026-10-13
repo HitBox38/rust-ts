@@ -36,6 +36,9 @@ import { isatty } from "node:tty";
 import { dimensions } from ${JSON.stringify(join(import.meta.dir, "lib.ts"))};
 const n = () => readdirSync("/dev/fd").length;
 const tick = () => new Promise((r) => setTimeout(r, 30));
+// One warm-up call: the runtime creates process.stdout/stderr (and their fds) lazily on first use;
+// that one-time initialization is not a per-call leak.
+dimensions();
 await tick();
 const before = n();
 let last;

@@ -4,17 +4,92 @@ import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import { DEFAULT_STACK_SIZE, type Jobs, type Sysroot } from "../rustc_session/config.ts";
 import type { EarlyDiagCtxt } from "../rustc_session/session.ts";
 import type { Target } from "../rustc_session/stand_ins.ts";
+import type { Cfg } from "../rustc_session/config/cfg.ts";
+import type { Session } from "../rustc_session/session.ts";
+import { target_features } from "../rustc_target/lib.ts";
+import { Symbol, sym } from "../rustc_span/symbol.ts";
 import type { Edition } from "../rustc_span/edition.ts";
 import { create_session_globals_then } from "../rustc_span/lib.ts";
 import type { SourceMapInputs } from "../rustc_span/source_map.ts";
-import { unported } from "../std/panic.ts";
-import { type CodegenBackend, CurrentGcx, LlvmCodegenBackend } from "./stand_ins.ts";
+import { assert, unported } from "../std/panic.ts";
+import { type CodegenBackend, CurrentGcx, LlvmCodegenBackend, type TargetConfig } from "./stand_ins.ts";
 
 export { DEFAULT_STACK_SIZE };
 
-// `add_configuration` (util.rs:47), `check_abi_required_features` (util.rs:95): not ported (no markers):
-// both read the codegen backend's `TargetConfig` and the target spec (rustc_codegen_ssa, rustc_target).
-// `interface::run_compiler` defers what they compute.
+/// Adds `target_feature = "..."` cfgs for a variety of platform
+/// specific features (SSE, NEON etc.).
+///
+/// This is performed by checking whether a set of permitted features
+/// is available on the target machine, by querying the `TargetConfig` from the codegen backend.
+// rustc: compiler/rustc_interface/src/util.rs:47 add_configuration
+export function add_configuration(cfg: Cfg, target_config: TargetConfig, target: Target, is_nightly_build: boolean, is_crt_static: boolean): void {
+  // Add some of the target features to `cfg`.
+  cfg.extend(
+    target
+      .rust_target_features()
+      .filter(([, gate]) => target_features.Stability.in_cfg(gate) && (is_nightly_build || target_features.Stability.requires_nightly(gate, /* in_cfg */ true) === undefined))
+      .map(([feature]) => Symbol.intern(feature))
+      .filter((feature) => target_config.internal_target_features.has(feature))
+      .map((feature): [Symbol, Symbol | undefined] => [sym.target_feature, feature]),
+  );
+
+  if (target_config.has_reliable_f16) {
+    cfg.insert([sym.target_has_reliable_f16, undefined]);
+  }
+  if (target_config.has_reliable_f16_math) {
+    cfg.insert([sym.target_has_reliable_f16_math, undefined]);
+  }
+  if (target_config.has_reliable_f16b) {
+    cfg.insert([sym.target_has_reliable_f16b, undefined]);
+  }
+  if (target_config.has_reliable_f128) {
+    cfg.insert([sym.target_has_reliable_f128, undefined]);
+  }
+  if (target_config.has_reliable_f128_math) {
+    cfg.insert([sym.target_has_reliable_f128_math, undefined]);
+  }
+
+  if (is_crt_static) {
+    cfg.insert([sym.target_feature, sym.crt_dash_static]);
+  }
+}
+
+/// Ensures that all target features required by the ABI are present.
+/// Must be called after `internal_target_features` has been populated!
+// rustc: compiler/rustc_interface/src/util.rs:95 check_abi_required_features
+export function check_abi_required_features(sess: Session): void {
+  const abi_feature_constraints = sess.target.abi_required_features();
+  // We check this against `internal_target_features` as that is conveniently already
+  // back-translated to rustc feature names, taking into account `-Ctarget-cpu` and `-Ctarget-feature`.
+  // Just double-check that the features we care about are actually on our list.
+  for (const feature of [...abi_feature_constraints.required, ...abi_feature_constraints.incompatible]) {
+    assert(
+      sess.target.rust_target_features().some(([name]) => feature === name),
+      `target feature ${feature} is required/incompatible for the current ABI but not a recognized feature for this target`,
+    );
+  }
+
+  // Make this a hard error on ARM since starting with LLVM24, the backend will otherwise
+  // emit a (less friendly) hard error.
+  // Also make it a hard error on x86, where we use SSE registers for the "Rust" ABI. The
+  // post-mono ABI check only systematically checks "C" calls, so we better reject this here.
+  const hard_error = sess.target.arch.$ === "Arm" || sess.target.arch.$ === "X86";
+  void hard_error;
+
+  for (const feature of abi_feature_constraints.required) {
+    if (!sess.internal_target_features.has(Symbol.intern(feature))) {
+      // `diagnostics::AbiRequiredTargetFeature { feature, enabled: "enabled", fcw: !hard_error }`,
+      // emitted as an error (`hard_error`) or a warning.
+      unported(`rustc_interface::diagnostics::AbiRequiredTargetFeature (required feature ${feature})`);
+    }
+  }
+  for (const feature of abi_feature_constraints.incompatible) {
+    if (sess.internal_target_features.has(Symbol.intern(feature))) {
+      // `diagnostics::AbiRequiredTargetFeature { feature, enabled: "disabled", fcw: !hard_error }`
+      unported(`rustc_interface::diagnostics::AbiRequiredTargetFeature (incompatible feature ${feature})`);
+    }
+  }
+}
 
 /** `pub static STACK_SIZE: OnceLock<usize>` */
 export const STACK_SIZE: { value: number | undefined } = { value: undefined };

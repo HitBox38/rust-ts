@@ -9,6 +9,8 @@
 // `PerParentDisambiguatorState` is hand-written here (`hand` in the set). Methods are attached to
 // the generated classes (`declare module` + prototype), associated fns are statics on the
 // re-exported class consts, enum methods live on the companion (PORTING §8).
+import { StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { utf8 } from "../std/str.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
 import { CRATE_DEF_INDEX, type CrateNum, type DefIndex, debug_DefIndex, DefPathHash, LOCAL_CRATE, LocalDefId, StableCrateId } from "../rustc_span/def_id.ts";
 import { display_Symbol, kw, sym, Symbol } from "../rustc_span/symbol.ts";
@@ -24,23 +26,6 @@ export * from "./definitions.gen.ts";
 export { DefPathHash } from "../rustc_span/def_id.ts";
 
 // ---- stand-ins (PORT) ------------------------------------------------------------------------
-
-// PORT: pending stable-hash. `rustc_data_structures::stable_hash::StableHasher` (lane stable-hash
-// vendors rustc-stable-hash and ports stable_hash.rs in parallel). This local shim names the
-// upstream API used by `DefKey::compute_stable_hash`; constructing it is `unported`, so no hash is
-// ever guessed. Replace with the real `StableHasher` import once that lane lands.
-interface StableHasher {
-  write_u64(i: bigint): void;
-  write_isize(i: number): void;
-  write_str(s: string): void;
-  write_u32(i: number): void;
-  finish(): Hash64;
-}
-const StableHasher = {
-  new(): StableHasher {
-    return unported("rustc_data_structures::stable_hash::StableHasher (pending lane stable-hash)");
-  },
-};
 
 /**
  * PORT: stand-in for `rustc_data_structures::sorted_map::SortedMap<K, V>` (a `Vec<(K, V)>` kept
@@ -264,13 +249,13 @@ gen.DefKey.prototype.compute_stable_hash = function (this: DefKey, parent: DefPa
     // Get a stable hash by considering the symbol chars rather than
     // the symbol index.
     // `str::hash` -> `write_str`
-    hasher.write_str(Symbol.as_str(name));
+    hasher.write_str(utf8(Symbol.as_str(name)));
   }
 
   // `u32::hash` -> `write_u32`
   hasher.write_u32(disambiguator);
 
-  const local_hash = hasher.finish();
+  const local_hash = hasher.finish(Hash64);
 
   // Construct the new DefPathHash, making sure that the `crate_id`
   // portion of the hash is properly copied from the parent. This way the
