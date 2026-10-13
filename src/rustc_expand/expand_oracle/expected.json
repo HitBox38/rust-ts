@@ -2,11 +2,11 @@
  "allow_features": {
   "args": [
    "-Zui-testing",
-   "-Zallow-features=no_core,rustc_attrs",
+   "-Zallow-features=no_core,decl_macro",
    "main.rs"
   ],
-  "stdout": "#![feature(rustc_attrs)]\n#![feature(decl_macro)]\nfn main() {}\n",
-  "stderr": "error[E0725]: the feature `decl_macro` is not in the list of allowed features\n  --> main.rs:2:12\n   |\nLL | #![feature(decl_macro)]\n   |            ^^^^^^^^^^\n\nwarning: the feature `rustc_attrs` is internal to the compiler or standard library\n  --> main.rs:1:12\n   |\nLL | #![feature(rustc_attrs)]\n   |            ^^^^^^^^^^^\n   |\n   = note: using it is strongly discouraged\n   = note: `#[warn(internal_features)]` on by default\n\nerror: aborting due to 1 previous error; 1 warning emitted\n\nFor more information about this error, try `rustc --explain E0725`.\n",
+  "stdout": "#![feature(decl_macro)]\n#![feature(trait_alias, never_type)]\n#![feature(box_patterns)]\nfn main() {}\n",
+  "stderr": "error[E0725]: the feature `trait_alias` is not in the list of allowed features\n  --> main.rs:2:12\n   |\nLL | #![feature(trait_alias, never_type)]\n   |            ^^^^^^^^^^^\n\nerror[E0557]: feature has been removed\n  --> main.rs:3:12\n   |\nLL | #![feature(box_patterns)]\n   |            ^^^^^^^^^^^^ feature has been removed\n   |\n   = note: removed in 1.100.0\n   = note: superseded by `deref_patterns`\n\nerror: aborting due to 2 previous errors\n\nSome errors have detailed explanations: E0557, E0725.\nFor more information about an error, try `rustc --explain E0557`.\n",
   "exit": 1
  },
  "both": {

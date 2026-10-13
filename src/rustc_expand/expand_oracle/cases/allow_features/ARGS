@@ -1,1 +1,1 @@
--Zallow-features=no_core,rustc_attrs
+-Zallow-features=no_core,decl_macro
