@@ -1,0 +1,922 @@
+== plain
+== empty_str
+== positional
+== numbered
+== named
+== named_one
+== named_by_index
+warning: named argument `x` is not used by name
+ --> <named_by_index>:1:25
+  |
+1 | format_args!("{0} {x}", x = 1)
+  |                         ^
+  |
+help: use the named argument by name to avoid ambiguity
+  |
+1 - format_args!("{0} {x}", x = 1)
+1 + format_args!("{x} {x}", x = 1)
+  |
+
+== captured
+== captured_one
+== captured_2015
+== trailing_comma
+== width_precision
+== width_named
+== width_named_one
+== width_captured
+== width_captured_one
+== width_param
+== precision_star
+== numbered_width_prec
+== fill_align
+== fill_unicode
+== traits
+== braces
+== nl
+== nl_empty
+== raw_str
+== escapes
+== multiline
+== args_exprs
+== unused_one
+error: argument never used
+ --> <unused_one>:1:23
+  |
+1 | format_args!("{}", a, b)
+  |              ----     ^ argument never used
+  |              |
+  |              formatting specifier missing
+
+== unused_many
+error: multiple unused formatting arguments
+ --> <unused_many>:1:23
+  |
+1 | format_args!("{}", a, b, c)
+  |              ----     ^  ^ argument never used
+  |              |        |
+  |              |        argument never used
+  |              multiple missing formatting specifiers
+  |
+  = note: consider adding 2 format specifiers
+
+== unused_named
+error: named argument never used
+ --> <unused_named>:1:27
+  |
+1 | format_args!("{}", a, x = 1)
+  |              ----         ^ named argument never used
+  |              |
+  |              formatting specifier missing
+
+== no_specifiers
+error: multiple unused formatting arguments
+ --> <no_specifiers>:1:23
+  |
+1 | format_args!("hello", a, b)
+  |              -------  ^  ^ argument never used
+  |              |        |
+  |              |        argument never used
+  |              multiple missing formatting specifiers
+  |
+help: format specifiers use curly braces, consider adding 2 format specifiers
+  |
+1 | format_args!("hello{}{}", a, b)
+  |                    ++++
+
+== no_specifiers_one
+error: argument never used
+ --> <no_specifiers_one>:1:23
+  |
+1 | format_args!("hello", a)
+  |              -------  ^ argument never used
+  |              |
+  |              formatting specifier missing
+  |
+help: format specifiers use curly braces, consider adding a format specifier
+  |
+1 | format_args!("hello{}", a)
+  |                    ++
+
+== no_specifiers_raw
+error: argument never used
+ --> <no_specifiers_raw>:1:23
+  |
+1 | format_args!(r#"hi"#, a)
+  |              -------  ^ argument never used
+  |              |
+  |              formatting specifier missing
+  |
+help: format specifiers use curly braces, consider adding a format specifier
+  |
+1 | format_args!(r#"hi{}"#, a)
+  |                   ++
+
+== no_specifiers_nl
+error: multiple unused formatting arguments
+ --> <no_specifiers_nl>:1:23
+  |
+1 | format_args_nl!("hi", a, b)
+  |                 ----  ^  ^ argument never used
+  |                 |     |
+  |                 |     argument never used
+  |                 multiple missing formatting specifiers
+  |
+help: format specifiers use curly braces, consider adding 2 format specifiers
+  |
+1 | format_args_nl!("hi{}{}", a, b)
+  |                    ++++
+
+== invalid_ref_implicit
+error: 2 positional arguments in format string, but there is 1 argument
+ --> <invalid_ref_implicit>:1:15
+  |
+1 | format_args!("{} {}", a)
+  |               ^^ ^^   -
+
+== invalid_ref_none
+error: 1 positional argument in format string, but no arguments were given
+ --> <invalid_ref_none>:1:15
+  |
+1 | format_args!("{}")
+  |               ^^
+
+== invalid_ref_number
+error: invalid reference to positional argument 3 (there is 1 argument)
+ --> <invalid_ref_number>:1:20
+  |
+1 | format_args!("{0} {3}", a)
+  |                    ^
+  |
+  = note: positional arguments are zero-based
+
+== invalid_ref_star
+error: 2 positional arguments in format string, but there is 1 argument
+ --> <invalid_ref_star>:1:15
+  |
+1 | format_args!("{:.*}", a)
+  |               ^^--^   -
+  |                 |
+  |                 this precision flag adds an extra required argument at position 0, which is why there are 2 arguments expected
+  |
+  = note: positional arguments are zero-based
+  = note: for information about formatting flags, visit https://doc.rust-lang.org/std/fmt/index.html
+
+== invalid_ref_star_two
+error: 3 positional arguments in format string, but there are 2 arguments
+ --> <invalid_ref_star_two>:1:15
+  |
+1 | format_args!("{} {:.*}", a, b)
+  |               ^^ ^^--^   -  -
+  |                    |
+  |                    this precision flag adds an extra required argument at position 1, which is why there are 3 arguments expected
+  |
+  = note: positional arguments are zero-based
+  = note: for information about formatting flags, visit https://doc.rust-lang.org/std/fmt/index.html
+
+== invalid_ref_whitespace
+error: 1 positional argument in format string, but no arguments were given
+ --> <invalid_ref_whitespace>:1:15
+  |
+1 |   format_args!("{
+  |  _______________^
+2 | | }")
+  | |_^
+  |
+  = note: if you intended to print `{`, you can escape it with `{{`
+
+== invalid_ref_width
+error: invalid reference to positional argument 1 (there is 1 argument)
+ --> <invalid_ref_width>:1:17
+  |
+1 | format_args!("{:1$}", a)
+  |                 ^^
+  |
+  = note: positional arguments are zero-based
+  = note: for information about formatting flags, visit https://doc.rust-lang.org/std/fmt/index.html
+
+== invalid_ref_dedup
+error: invalid reference to positional argument 7 (there is 1 argument)
+ --> <invalid_ref_dedup>:1:16
+  |
+1 | format_args!("{7:7$}", 1)
+  |                ^ ^^
+  |
+  = note: positional arguments are zero-based
+  = note: for information about formatting flags, visit https://doc.rust-lang.org/std/fmt/index.html
+
+error: argument never used
+ --> <invalid_ref_dedup>:1:24
+  |
+1 | format_args!("{7:7$}", 1)
+  |              --------  ^ argument never used
+  |              |
+  |              formatting specifier missing
+
+== invalid_ref_flags
+error: 2 positional arguments in format string, but there is 1 argument
+ --> <invalid_ref_flags>:1:15
+  |
+1 | format_args!("{:>5} {}", a)
+  |               ^^^^^ ^^   -
+  |
+  = note: for information about formatting flags, visit https://doc.rust-lang.org/std/fmt/index.html
+
+== invalid_ref_many
+error: invalid reference to positional arguments 2, 3 and 4 (there are 2 arguments)
+ --> <invalid_ref_many>:1:16
+  |
+1 | format_args!("{2} {4} {3}", a, b)
+  |                ^   ^   ^
+  |
+  = note: positional arguments are zero-based
+
+error: multiple unused formatting arguments
+ --> <invalid_ref_many>:1:29
+  |
+1 | format_args!("{2} {4} {3}", a, b)
+  |              -------------  ^  ^ argument never used
+  |              |              |
+  |              |              argument never used
+  |              multiple missing formatting specifiers
+
+== err_open
+error: invalid format string: expected `}` but string was terminated
+ --> <err_open>:1:16
+  |
+1 | format_args!("{")
+  |               -^ expected `}` in format string
+  |               |
+  |               because of this opening brace
+  |
+  = note: if you intended to print `{`, you can escape it using `{{`
+
+== err_close
+error: invalid format string: unmatched `}` found
+ --> <err_close>:1:15
+  |
+1 | format_args!("}")
+  |               ^ unmatched `}` in format string
+  |
+  = note: if you intended to print `}`, you can escape it using `}}`
+
+== err_field
+error: invalid format string: field access isn't supported
+ --> <err_field>:1:16
+  |
+1 | format_args!("{foo.bar}", a)
+  |                ^^^^^^^ not supported in format string
+  |
+  = note: consider moving this expression to a local variable and then using the local here instead
+help: consider using a positional formatting argument instead
+  |
+1 - format_args!("{foo.bar}", a)
+1 + format_args!("{1}", a, foo.bar)
+  |
+
+== err_raw_ident
+error: invalid format string: raw identifiers are not supported
+ --> <err_raw_ident>:1:16
+  |
+1 | format_args!("{r#foo}")
+  |                --^^^
+  |                |
+  |                raw identifier used here in format string
+  |                help: remove the `r#`
+  |
+  = note: identifiers in format strings can be keywords and don't need to be prefixed with `r#`
+
+== err_reorder
+error: invalid format string: expected `}`, found `#`
+ --> <err_reorder>:1:19
+  |
+1 | format_args!("{x:?#}", x = 1)
+  |                   ^ expected `'}'` in format string
+  |
+help: did you mean `#?`?
+  |
+1 - format_args!("{x:?#}", x = 1)
+1 + format_args!("{x:#?}", x = 1)
+  |
+
+== err_missing_colon
+error: invalid format string: expected `}`, found `?`
+ --> <err_missing_colon>:1:17
+  |
+1 | format_args!("{x?}", x = 1)
+  |                 ^
+  |                 |
+  |                 expected `:` before `?` to format with `Debug` in format string
+  |                 help: add a colon before the format specifier: `:?`
+  |
+  = note: to print `{`, you can escape it using `{{`
+
+== err_dbg
+error: invalid format string: python's f-string debug `=` is not supported in rust, use `dbg(x)` instead
+ --> <err_dbg>:1:16
+  |
+1 | format_args!("{=}", x)
+  |               -^ expected `}` in format string
+  |               |
+  |               because of this opening brace
+  |
+  = note: to print `{`, you can escape it using `{{`
+help: use rust debug printing macro
+  |
+1 - format_args!("{=}", x)
+1 + dbg!(x)
+  |
+
+== err_dbg_numbered
+error: invalid format string: python's f-string debug `=` is not supported in rust, use `dbg(x)` instead
+ --> <err_dbg_numbered>:1:17
+  |
+1 | format_args!("{0=}", x)
+  |               - ^ expected `}` in format string
+  |               |
+  |               because of this opening brace
+  |
+  = note: to print `{`, you can escape it using `{{`
+help: use rust debug printing macro
+  |
+1 - format_args!("{0=}", x)
+1 + dbg!(x)
+  |
+
+== err_python_grouping
+error: invalid format string: python's numeric grouping `,` is not supported in rust format strings
+ --> <err_python_grouping>:1:17
+  |
+1 | format_args!("{:,}", a)
+  |               - ^ expected `}` in format string
+  |               |
+  |               because of this opening brace
+  |
+  = note: to print `{`, you can escape it using `{{`
+
+== err_width_overflow
+error: invalid format string: integer `65536` does not fit into the type `u16` whose range is `0..=65535`
+ --> <err_width_overflow>:1:17
+  |
+1 | format_args!("{:65536}", a)
+  |                 ^^^^^^ integer out of range for `u16` in format string
+
+== err_in_raw
+== err_secondary
+error: invalid format string: expected `}` but string was terminated
+ --> <err_secondary>:1:20
+  |
+1 | format_args!("{0:}{", a)
+  |                   -^ expected `}` in format string
+  |                   |
+  |                   because of this opening brace
+  |
+  = note: if you intended to print `{`, you can escape it using `{{`
+
+== unknown_trait
+error: unknown format trait `q`
+ --> <unknown_trait>:1:17
+  |
+1 | format_args!("{:q}", a)
+  |                 ^
+  |
+  = note: the only appropriate formatting traits are:
+          - ``, which uses the `Display` trait
+          - `?`, which uses the `Debug` trait
+          - `e`, which uses the `LowerExp` trait
+          - `E`, which uses the `UpperExp` trait
+          - `o`, which uses the `Octal` trait
+          - `p`, which uses the `Pointer` trait
+          - `b`, which uses the `Binary` trait
+          - `x`, which uses the `LowerHex` trait
+          - `X`, which uses the `UpperHex` trait
+
+== unknown_trait_raw
+error: unknown format trait `qq`
+ --> <unknown_trait_raw>:1:18
+  |
+1 | format_args!(r"{:qq}", a)
+  |                  ^^
+  |
+  = note: the only appropriate formatting traits are:
+          - ``, which uses the `Display` trait
+          - `?`, which uses the `Debug` trait
+          - `e`, which uses the `LowerExp` trait
+          - `E`, which uses the `UpperExp` trait
+          - `o`, which uses the `Octal` trait
+          - `p`, which uses the `Pointer` trait
+          - `b`, which uses the `Binary` trait
+          - `x`, which uses the `LowerHex` trait
+          - `X`, which uses the `UpperHex` trait
+
+== printf
+error: multiple unused formatting arguments
+ --> <printf>:1:23
+  |
+1 | format_args!("%d %s", a, b)
+  |              -------  ^  ^ argument never used
+  |              |        |
+  |              |        argument never used
+  |              multiple missing formatting specifiers
+  |
+  = note: printf formatting is not supported; see the documentation for `std::fmt`
+help: format specifiers use curly braces
+  |
+1 - format_args!("%d %s", a, b)
+1 + format_args!("{} {}", a, b)
+  |
+
+== printf_flags
+error: multiple unused formatting arguments
+ --> <printf_flags>:1:45
+  |
+1 | format_args!("%5.2f %% %-10s %08X %#x %+i", a, b, c, d, e)
+  |              -----------------------------  ^  ^  ^  ^  ^ argument never used
+  |              |                              |  |  |  |
+  |              |                              |  |  |  argument never used
+  |              |                              |  |  argument never used
+  |              |                              |  argument never used
+  |              |                              argument never used
+  |              multiple missing formatting specifiers
+  |
+  = note: printf formatting is not supported; see the documentation for `std::fmt`
+help: format specifiers use curly braces
+  |
+1 - format_args!("%5.2f %% %-10s %08X %#x %+i", a, b, c, d, e)
+1 + format_args!("{:5.2} %% {:<10} {:08X} {:#x} {:+}", a, b, c, d, e)
+  |
+
+== printf_errors
+error: multiple unused formatting arguments
+ --> <printf_errors>:1:40
+  |
+1 | format_args!("%*d %'d %1$*2$.*3$d %y", a, b, c, d)
+  |              ------------------------  ^  ^  ^  ^ argument never used
+  |              |                         |  |  |
+  |              |                         |  |  argument never used
+  |              |                         |  argument never used
+  |              |                         argument never used
+  |              multiple missing formatting specifiers
+  |
+note: format specifiers use curly braces, and you have to use a positional or named parameter for the width
+ --> <printf_errors>:1:15
+  |
+1 | format_args!("%*d %'d %1$*2$.*3$d %y", a, b, c, d)
+  |               ^^^
+note: format specifiers use curly braces, and the flag `'` is unknown or unsupported
+ --> <printf_errors>:1:19
+  |
+1 | format_args!("%*d %'d %1$*2$.*3$d %y", a, b, c, d)
+  |                   ^^^
+note: format specifiers use curly braces, and width and precision cannot both be specified for integer conversions
+ --> <printf_errors>:1:23
+  |
+1 | format_args!("%*d %'d %1$*2$.*3$d %y", a, b, c, d)
+  |                       ^^^^^^^^^^^
+note: format specifiers use curly braces, and the conversion specifier `y` is unknown or unsupported
+ --> <printf_errors>:1:35
+  |
+1 | format_args!("%*d %'d %1$*2$.*3$d %y", a, b, c, d)
+  |                                   ^^
+  = note: printf formatting is not supported; see the documentation for `std::fmt`
+
+== printf_dup
+error: multiple unused formatting arguments
+ --> <printf_dup>:1:26
+  |
+1 | format_args!("%d %d %s", a, b, c)
+  |              ----------  ^  ^  ^ argument never used
+  |              |           |  |
+  |              |           |  argument never used
+  |              |           argument never used
+  |              multiple missing formatting specifiers
+  |
+  = note: printf formatting is not supported; see the documentation for `std::fmt`
+help: format specifiers use curly braces
+  |
+1 - format_args!("%d %d %s", a, b, c)
+1 + format_args!("{} %d {}", a, b, c)
+  |
+
+== printf_raw
+error: argument never used
+ --> <printf_raw>:1:23
+  |
+1 | format_args!(r#"%d"#, a)
+  |                       ^ argument never used
+  |
+  = note: printf formatting is not supported; see the documentation for `std::fmt`
+help: format specifiers use curly braces
+  |
+1 - format_args!(r#"%d"#, a)
+1 + format_args!(r#"{}"#, a)
+  |
+
+== printf_few
+error: multiple unused formatting arguments
+ --> <printf_few>:1:26
+  |
+1 | format_args!("{} %d", a, b, c)
+  |              -------     ^  ^ argument never used
+  |              |           |
+  |              |           argument never used
+  |              multiple missing formatting specifiers
+  |
+  = note: printf formatting is not supported; see the documentation for `std::fmt`
+help: format specifiers use curly braces
+  |
+1 - format_args!("{} %d", a, b, c)
+1 + format_args!("{} {}", a, b, c)
+  |
+
+== shell
+error: multiple unused formatting arguments
+ --> <shell>:1:29
+  |
+1 | format_args!("$1 $NAME $$", a, b)
+  |              -------------  ^  ^ argument never used
+  |              |              |
+  |              |              argument never used
+  |              multiple missing formatting specifiers
+  |
+  = note: shell formatting is not supported; see the documentation for `std::fmt`
+help: format specifiers use curly braces
+  |
+1 - format_args!("$1 $NAME $$", a, b)
+1 + format_args!("{1} {NAME} $$", a, b)
+  |
+
+== shell_nl
+error: argument never used
+ --> <shell_nl>:1:28
+  |
+1 | format_args_nl!("$0 ${x}", a)
+  |                            ^ argument never used
+  |
+  = note: shell formatting is not supported; see the documentation for `std::fmt`
+help: format specifiers use curly braces
+  |
+1 - format_args_nl!("$0 ${x}", a)
+1 + format_args_nl!("{0} ${x}", a)
+  |
+
+== redundant
+error: redundant argument
+ --> <redundant>:1:21
+  |
+1 | format_args!("{x}", x)
+  |                     ^ help: this can be removed
+  |
+note: the formatting specifier is referencing the binding already
+ --> <redundant>:1:16
+  |
+1 | format_args!("{x}", x)
+  |                ^
+
+== redundant_two
+error: redundant arguments
+ --> <redundant_two>:1:29
+  |
+1 | format_args!("{x} {y} {x}", x, y)
+  |                             ^  ^
+  |
+note: the formatting specifiers are referencing the bindings already
+ --> <redundant_two>:1:16
+  |
+1 | format_args!("{x} {y} {x}", x, y)
+  |                ^   ^   ^
+help: this can be removed
+  |
+1 - format_args!("{x} {y} {x}", x, y)
+1 + format_args!("{x} {y} {x}", )
+  |
+
+== redundant_dup
+error: redundant argument
+ --> <redundant_dup>:1:27
+  |
+1 | format_args!("{x} {x:?}", x)
+  |                           ^ help: this can be removed
+  |
+note: the formatting specifier is referencing the binding already
+ --> <redundant_dup>:1:16
+  |
+1 | format_args!("{x} {x:?}", x)
+  |                ^   ^
+
+== redundant_middle
+error: argument never used
+ --> <redundant_middle>:1:27
+  |
+1 | format_args!("{x} {}", x, y)
+  |              --------     ^ argument never used
+  |              |
+  |              formatting specifier missing
+
+== redundant_named
+error: redundant argument
+ --> <redundant_named>:1:25
+  |
+1 | format_args!("{x} {z}", x, z = 1)
+  |                         ^
+  |
+note: the formatting specifier is referencing the binding already
+ --> <redundant_named>:1:16
+  |
+1 | format_args!("{x} {z}", x, z = 1)
+  |                ^
+
+== dup_arg
+error: duplicate argument named `x`
+ --> <dup_arg>:1:28
+  |
+1 | format_args!("{x}", x = 1, x = 2)
+  |                     -      ^ duplicate argument
+  |                     |
+  |                     previously here
+
+== positional_after_named
+error: positional arguments cannot follow named arguments
+ --> <positional_after_named>:1:31
+  |
+1 | format_args!("{} {x}", x = 1, 2)
+  |                        -----  ^ positional arguments must be before named arguments
+  |                        |
+  |                        named argument
+
+== positional_after_named_many
+error: positional arguments cannot follow named arguments
+ --> <positional_after_named_many>:1:42
+  |
+1 | format_args!("{} {x} {y}", x = 1, y = 2, 3)
+  |                            -----  -----  ^ positional arguments must be before named arguments
+  |                            |      |
+  |                            |      named argument
+  |                            named argument
+
+== empty
+error: requires at least a format string argument
+ --> <empty>:1:1
+  |
+1 | format_args!()
+  | ^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `format_args` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== not_literal
+error: format argument must be a string literal
+ --> <not_literal>:1:14
+  |
+1 | format_args!(a)
+  |              ^
+  |
+help: you might be missing a string literal to format with
+  |
+1 | format_args!("{}", a)
+  |              +++++
+
+== not_literal_args
+error: format argument must be a string literal
+ --> <not_literal_args>:1:14
+  |
+1 | format_args!(a, {}, (), 1)
+  |              ^
+  |
+help: you might be missing a string literal to format with
+  |
+1 | format_args!("{} {:?} {:?} {}", a, {}, (), 1)
+  |              ++++++++++++++++++
+
+== block_ident
+error: format argument must be a string literal
+ --> <block_ident>:1:14
+  |
+1 | format_args!({x})
+  |              ^^^
+  |
+help: quote your inlined format argument to use as string literal
+  |
+1 | format_args!("{x}")
+  |              +   +
+
+== block_empty
+error: format argument must be a string literal
+ --> <block_empty>:1:14
+  |
+1 | format_args!({})
+  |              ^^
+  |
+help: you might be missing a string literal to format with
+  |
+1 | format_args!("{:?}", {})
+  |              +++++++
+help: you might want to enclose `{}` with `""`
+  |
+1 - format_args!({})
+1 + format_args!("{}")
+  |
+
+== unit_fmt
+error: format argument must be a string literal
+ --> <unit_fmt>:1:14
+  |
+1 | format_args!(())
+  |              ^^
+  |
+help: you might be missing a string literal to format with
+  |
+1 | format_args!("{:?}", ())
+  |              +++++++
+
+== byte_str
+error: format argument must be a string literal
+ --> <byte_str>:1:14
+  |
+1 | format_args!(b"x{}", a)
+  |              -^^^^^
+  |              |
+  |              help: consider removing the leading `b`
+
+== int_lit
+error: format argument must be a string literal
+ --> <int_lit>:1:14
+  |
+1 | format_args!(1, 2)
+  |              ^
+  |
+help: you might be missing a string literal to format with
+  |
+1 | format_args!("{} {}", 1, 2)
+  |              ++++++++
+
+== missing_comma
+error: expected `,`, found `a`
+ --> <missing_comma>:1:19
+  |
+1 | format_args!("{}" a)
+  |                   ^ expected `,`
+
+== dot_for_comma
+error: expected `,`, found `.`
+ --> <dot_for_comma>:1:18
+  |
+1 | format_args!("{}". a)
+  |                  ^ expected `,`
+
+== semi_for_comma
+error: expected one of `!`, `,`, `.`, `::`, `?`, `{`, or an operator, found `;`
+ --> <semi_for_comma>:1:24
+  |
+1 | format_args!("{} {}", a; b)
+  |                        ^ expected one of 7 possible tokens
+
+== missing_comma_later
+error: expected one of `!`, `,`, `.`, `::`, `?`, `{`, or an operator, found `b`
+ --> <missing_comma_later>:1:25
+  |
+1 | format_args!("{} {}", a b)
+  |                         ^ expected one of 7 possible tokens
+  |
+help: there is a keyword `as` with a similar name
+  |
+1 | format_args!("{} {}", as b)
+  |                        +
+
+== operator_after_fmt
+error: expected `,`, found `+`
+ --> <operator_after_fmt>:1:19
+  |
+1 | format_args!("{}" + a)
+  |                   ^ expected `,`
+
+== named_eq_missing_expr
+error: expected expression, found end of macro arguments
+ --> <named_eq_missing_expr>:1:24
+  |
+1 | format_args!("{x}", x = )
+  |                        ^ expected expression
+
+== concat_fmt
+== concat_captured
+error: there is no argument named `x`
+ --> <concat_captured>:1:14
+  |
+1 | format_args!(concat!("{x}", "{}"), 1)
+  |              ^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: did you intend to capture a variable `x` from the surrounding scope?
+  = note: to avoid ambiguity, `format_args!` cannot capture variables when the format string is expanded from a macro
+  = note: this error originates in the macro `concat` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== concat_error
+error: invalid format string: expected `}` but string was terminated
+ --> <concat_error>:1:14
+  |
+1 | format_args!(concat!("{", "x"), 1)
+  |              ^^^^^^^^^^^^^^^^^ expected `}` in format string
+  |
+  = note: if you intended to print `{`, you can escape it using `{{`
+  = note: this error originates in the macro `concat` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== concat_unused
+error: argument never used
+ --> <concat_unused>:1:33
+  |
+1 | format_args!(concat!("a", "b"), 1)
+  |              -----------------  ^ argument never used
+  |              |
+  |              formatting specifier missing
+  |
+help: format specifiers use curly braces, consider adding a format specifier
+  |
+1 - format_args!(concat!("a", "b"), 1)
+1 + format_args!("ab{}", 1)
+  |
+
+== named_positionally
+warning: named argument `x` is not used by name
+ --> <named_positionally>:1:20
+  |
+1 | format_args!("{}", x = 1)
+  |                    ^
+  |
+help: use the named argument by name to avoid ambiguity
+  |
+1 | format_args!("{x}", x = 1)
+  |                +
+
+== named_positionally_width
+warning: named argument `w` is not used by name
+ --> <named_positionally_width>:1:31
+  |
+1 | format_args!("{0} {0:1$}", 3, w = 4)
+  |                               ^
+  |
+help: use the named argument by name to avoid ambiguity
+  |
+1 - format_args!("{0} {0:1$}", 3, w = 4)
+1 + format_args!("{0} {0:w$}", 3, w = 4)
+  |
+
+== named_positionally_precision
+warning: named argument `p` is not used by name
+ --> <named_positionally_precision>:1:28
+  |
+1 | format_args!("{0:.1$}", 3, p = 2)
+  |                            ^
+  |
+help: use the named argument by name to avoid ambiguity
+  |
+1 - format_args!("{0:.1$}", 3, p = 2)
+1 + format_args!("{0:.p$}", 3, p = 2)
+  |
+
+== named_positionally_star
+error: positional arguments cannot follow named arguments
+ --> <named_positionally_star>:1:30
+  |
+1 | format_args!("{:.*}", p = 2, 3)
+  |                       -----  ^ positional arguments must be before named arguments
+  |                       |
+  |                       named argument
+
+== named_positionally_colon
+warning: named argument `x` is not used by name
+ --> <named_positionally_colon>:1:27
+  |
+1 | format_args!("{:?} {0:}", x = 1)
+  |                           ^
+  |
+help: use the named argument by name to avoid ambiguity
+  |
+1 | format_args!("{x:?} {0:}", x = 1)
+  |                +
+
+warning: named argument `x` is not used by name
+ --> <named_positionally_colon>:1:27
+  |
+1 | format_args!("{:?} {0:}", x = 1)
+  |                           ^
+  |
+help: use the named argument by name to avoid ambiguity
+  |
+1 - format_args!("{:?} {0:}", x = 1)
+1 + format_args!("{:?} {x:}", x = 1)
+  |
+
+== named_positionally_2018
+warning: named argument `a` is not used by name
+ --> <named_positionally_2018>:1:21
+  |
+1 | format_args!("{0}", a = 1)
+  |                     ^
+  |
+help: use the named argument by name to avoid ambiguity
+  |
+1 - format_args!("{0}", a = 1)
+1 + format_args!("{a}", a = 1)
+  |
+
+== end
+error: aborting due to 66 previous errors; 7 warnings emitted
+
