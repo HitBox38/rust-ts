@@ -15,6 +15,7 @@ import type { Session } from "../rustc_session/session.ts";
 import "../rustc_session/utils.ts"; // `Session::time`
 import { unported, unreachable } from "../std/panic.ts";
 import * as rustc_resolve from "../rustc_resolve/lib.ts";
+import * as rustc_ast_passes from "../rustc_ast_passes/lib.ts";
 import { Resolver } from "../rustc_resolve/lib.ts";
 import { path_components, path_eq, path_file_stem, path_is_absolute, path_join } from "../std/path.ts";
 import { AttributeParser } from "../rustc_attr_parsing/lib.ts";
@@ -240,7 +241,7 @@ function configure_and_expand(krate: Crate, pre_configured_attrs: readonly Attri
   });
 
   const has_proc_macro_decls = sess.time("AST_validation", () => {
-    return rustc_ast_passes_ast_validation_check_crate(
+    return rustc_ast_passes.ast_validation.check_crate(
       sess,
       features,
       krate,
@@ -357,7 +358,7 @@ function early_lint_checks(tcx: TyCtxt, _: null): null {
 
   // Needs to go *after* expansion to be able to check the results of macro expansion.
   sess.time("complete_gated_feature_checking", () => {
-    rustc_ast_passes_feature_gate_check_crate(krate, sess, tcx.features());
+    rustc_ast_passes.feature_gate.check_crate(krate, sess, tcx.features());
   });
 
   // Add all buffered lints from the `ParseSess` to the `Session`.
@@ -1225,16 +1226,6 @@ function rustc_lint_check_ast_node(
   _check_node: EarlyCheckNode,
 ): void {
   unported(`rustc_lint::early::check_ast_node (${pre_expansion ? "pre-expansion" : "early"} lints; pending lint-early-a)`);
-}
-
-/** `rustc_ast_passes::ast_validation::check_crate` (ast_validation.rs:2226). PORT: pending ast-passes. */
-function rustc_ast_passes_ast_validation_check_crate(_sess: Session, _features: Features, _krate: Crate, _is_sdylib_interface: boolean, _lints: LintBuffer): boolean {
-  return unported("rustc_ast_passes::ast_validation::check_crate (pending ast-passes)");
-}
-
-/** `rustc_ast_passes::feature_gate::check_crate` (feature_gate.rs:409). PORT: pending ast-passes. */
-function rustc_ast_passes_feature_gate_check_crate(_krate: Crate, _sess: Session, _features: Features): void {
-  unported("rustc_ast_passes::feature_gate::check_crate (pending ast-passes)");
 }
 
 /** `rustc_builtin_macros::test_harness::inject` (test_harness.rs:47). PORT: pending bm-rest. */
