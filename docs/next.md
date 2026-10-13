@@ -133,7 +133,7 @@ lex 25,780/25,780; parse 21,523/21,526 (3 ORACLE_TIMEOUT); parse-ui 991/991 (ui/
 ## Wave 7–8 (2026-10-13) — mostly done
 reviews parser-a/b + fix-parser (stack re-exec, argfiles, raw argv, json emitter, io errors); fmt-perf (linear {:#?});
 harness-w7 (parse-ui, ORACLE_TIMEOUT), harness-w8 (expanded-nocore / unpretty-expanded-nocore / resdump-nocore, unprotected);
-target-cfg, attr-ir-gen, hir-def, stable-hash, tyctxt-min, attr-parse-a, attr-parse-d merged. In flight: attr-parse-b, attr-parse-c.
+target-cfg, attr-ir-gen, hir-def, stable-hash, tyctxt-min, attr-parse-a/-b/-c/-d merged. **Wave 8 done** (rustc_attr_parsing complete; query engine + TyCtxt subset; rustc_target 6 targets; stable hashing).
 
 ## Wave 9 (started 2026-10-13) — expansion + builtins (docs/plan-m2.md §3)
 expand-base, expand-core, mbe-a, mbe-b, bm-a (incl. cmdline_attrs::inject, the current stop point of every nocore case) now;
