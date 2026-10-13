@@ -11,13 +11,6 @@
 // -Zui-testing stderr must match byte for byte.
 //
 // PENDING: cases that reach code that is not ported yet must throw exactly the listed `Unported`.
-//
-// PORT(test): attributes/util.ts is imported before lib.ts. util.ts, stability.ts and
-// target_checking.ts attach methods to `AcceptContext` / `AttributeParser` when they are evaluated,
-// and the parser modules import util.ts / stability.ts while context.ts (which imports the parser
-// modules) is still being evaluated; entering through util.ts evaluates interface.ts and context.ts
-// first. lib.ts itself needs the same order (docs/handoff/attr-parse-c.md).
-import "./attributes/util.ts";
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

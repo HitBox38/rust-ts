@@ -22,7 +22,6 @@ import {
   type DocInline,
   type HideOrShow,
   clone_DocCfgHideShow,
-  target as target_mod,
 } from "../../rustc_attr_ir/lib.ts";
 import { MultiSpan, msg } from "../../rustc_errors/lib.ts";
 import { AttributeStability, BUILTIN_ATTRIBUTE_SET } from "../../rustc_feature/lib.ts";
@@ -69,74 +68,11 @@ import {
   UnusedDuplicate_diagnostic,
 } from "../diagnostics.ts";
 import { ArgParser, type MetaItemListParser, MetaItemOrLitParser, type MetaItemParser, type OwnedPathParser } from "../parser.ts";
-import type { Policy } from "../target_checking.ts";
+import { ALL_TARGETS } from "../target_checking.ts";
 import { unstable } from "../stability.ts";
 import { template } from "../template.ts";
 import { type AttributeParser, AttributeParser_provided } from "./mod.ts";
 import { parse_cfg as cfg_parse_cfg } from "./cfg.ts";
-
-const { Target, MethodKind, AssocCtxt } = target_mod;
-
-/**
- * `crate::target_checking::ALL_TARGETS` (target_checking.rs:488), copied verbatim.
- * PORT: target_checking.ts is an extension module of interface.ts/context.ts; value-importing it
- * from a parser module evaluates it while interface.ts/context.ts are still being evaluated, and
- * its top-level prototype assignments throw. Replace with the import once that cycle is resolved
- * (docs/handoff/attr-parse-c.md).
- */
-const ALL_TARGETS: readonly Policy[] = [
-  { $: "Allow", _0: Target.ExternCrate },
-  { $: "Allow", _0: Target.Use },
-  { $: "Allow", _0: Target.Static },
-  { $: "Allow", _0: Target.Const },
-  { $: "Allow", _0: Target.Fn },
-  { $: "Allow", _0: Target.Closure },
-  { $: "Allow", _0: Target.Mod },
-  { $: "Allow", _0: Target.ForeignMod },
-  { $: "Allow", _0: Target.GlobalAsm },
-  { $: "Allow", _0: Target.TyAlias },
-  { $: "Allow", _0: Target.Enum },
-  { $: "Allow", _0: Target.Variant },
-  { $: "Allow", _0: Target.Struct },
-  { $: "Allow", _0: Target.Field },
-  { $: "Allow", _0: Target.Union },
-  { $: "Allow", _0: Target.Trait },
-  { $: "Allow", _0: Target.TraitAlias },
-  { $: "Allow", _0: { $: "Impl", of_trait: false } },
-  { $: "Allow", _0: { $: "Impl", of_trait: true } },
-  { $: "Allow", _0: Target.Expression },
-  { $: "Allow", _0: Target.Statement },
-  { $: "Allow", _0: Target.Arm },
-  { $: "Allow", _0: { $: "AssocConst", _0: { $: "Impl", of_trait: false } } },
-  { $: "Allow", _0: { $: "AssocConst", _0: AssocCtxt.Trait } },
-  { $: "Allow", _0: { $: "AssocConst", _0: { $: "Impl", of_trait: true } } },
-  { $: "Allow", _0: { $: "Method", _0: MethodKind.Inherent } },
-  { $: "Allow", _0: { $: "Method", _0: { $: "Trait", body: false } } },
-  { $: "Allow", _0: { $: "Method", _0: { $: "Trait", body: true } } },
-  { $: "Allow", _0: { $: "Method", _0: MethodKind.TraitImpl } },
-  { $: "Allow", _0: { $: "AssocTy", _0: { $: "Impl", of_trait: false } } },
-  { $: "Allow", _0: { $: "AssocTy", _0: AssocCtxt.Trait } },
-  { $: "Allow", _0: { $: "AssocTy", _0: { $: "Impl", of_trait: true } } },
-  { $: "Allow", _0: Target.ForeignFn },
-  { $: "Allow", _0: Target.ForeignStatic },
-  { $: "Allow", _0: Target.ForeignTy },
-  { $: "Allow", _0: Target.MacroDef },
-  { $: "Allow", _0: Target.Param },
-  { $: "Allow", _0: Target.PatField },
-  { $: "Allow", _0: Target.ExprField },
-  { $: "Allow", _0: Target.WherePredicate },
-  { $: "Allow", _0: Target.MacroCall },
-  { $: "Allow", _0: Target.Crate },
-  { $: "Allow", _0: { $: "Delegation", mac: false } },
-  { $: "Allow", _0: { $: "Delegation", mac: true } },
-  { $: "Allow", _0: Target.ConstParam },
-  { $: "Allow", _0: Target.LifetimeParam },
-  { $: "Allow", _0: Target.TypeParam },
-  { $: "Allow", _0: Target.Loop },
-  { $: "Allow", _0: Target.ForLoop },
-  { $: "Allow", _0: Target.While },
-  { $: "Allow", _0: Target.Break },
-];
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:30 check_keyword
 function check_keyword(cx: AcceptContext, keyword: Symbol, span: Span): boolean {
