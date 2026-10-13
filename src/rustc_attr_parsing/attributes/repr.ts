@@ -12,6 +12,7 @@
 import type { LitKind } from "../../rustc_ast/lib.ts";
 import { Align, Size } from "../../rustc_abi/lib.ts";
 import type { ReprAttr } from "../../rustc_attr_ir/lib.ts";
+import type { Align as IrAlign } from "../../rustc_attr_ir/standins.ts";
 import { target as target_mod } from "../../rustc_attr_ir/lib.ts";
 import { AttributeStability } from "../../rustc_feature/lib.ts";
 import { feature_err } from "../../rustc_session/diagnostics.ts";
@@ -136,7 +137,7 @@ function parse_repr(cx: AcceptContext, param: MetaItemParser): ReprAttr | undefi
       const args = param.args();
       switch (args.$) {
         case "NoArgs":
-          return { $: "ReprPacked", _0: Align.ONE };
+          return { $: "ReprPacked", _0: ir_align(Align.ONE) };
         case "List":
           return parse_repr_align(cx, args._0, "Packed");
         case "NameValue": {
@@ -246,6 +247,15 @@ function parse_repr(cx: AcceptContext, param: MetaItemParser): ReprAttr | undefi
   }
 }
 
+/**
+ * PORT: rustc_attr_ir still types `Align` as an opaque stand-in (rustc_attr_ir/standins.ts, "rustc_abi
+ * not ported yet"); rustc_abi's `Align` is ported now, and it is the value stored. Drop this cast when
+ * root repoints tools/codegen/typemap.attr_ir.json at rustc_abi (docs/handoff/attr-parse-c.md).
+ */
+function ir_align(a: Align): IrAlign {
+  return a as unknown as IrAlign;
+}
+
 /** `enum AlignKind` */
 type AlignKind = "Packed" | "Align";
 
@@ -268,9 +278,9 @@ function parse_repr_align(cx: AcceptContext, list: MetaItemListParser, align_kin
     const literal = r._0;
     switch (align_kind) {
       case "Packed":
-        return { $: "ReprPacked", _0: literal };
+        return { $: "ReprPacked", _0: ir_align(literal) };
       case "Align":
-        return { $: "ReprAlign", _0: literal };
+        return { $: "ReprAlign", _0: ir_align(literal) };
     }
   } else {
     const message = r._0;
@@ -391,10 +401,10 @@ export class RustcAlignParser {
   static readonly SAFETY = AttributeParser_provided.SAFETY;
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/repr.rs:320 finalize
-  static finalize(self: RustcAlignParser, _cx: FinalizeContext): { $: "RustcAlign"; align: Align; span: Span } | undefined {
+  static finalize(self: RustcAlignParser, _cx: FinalizeContext): { $: "RustcAlign"; align: IrAlign; span: Span } | undefined {
     if (self._0 === undefined) return undefined;
     const [align, span] = self._0;
-    return { $: "RustcAlign", align, span: span._0 };
+    return { $: "RustcAlign", align: ir_align(align), span: span._0 };
   }
 
   static readonly deferred_finalize_check = AttributeParser_provided.deferred_finalize_check;
@@ -434,10 +444,10 @@ export class RustcAlignStaticParser {
   static readonly SAFETY = AttributeParser_provided.SAFETY;
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/repr.rs:344 finalize
-  static finalize(self: RustcAlignStaticParser, _cx: FinalizeContext): { $: "RustcAlign"; align: Align; span: Span } | undefined {
+  static finalize(self: RustcAlignStaticParser, _cx: FinalizeContext): { $: "RustcAlign"; align: IrAlign; span: Span } | undefined {
     if (self._0._0 === undefined) return undefined;
     const [align, span] = self._0._0;
-    return { $: "RustcAlign", align, span: span._0 };
+    return { $: "RustcAlign", align: ir_align(align), span: span._0 };
   }
 
   static readonly deferred_finalize_check = AttributeParser_provided.deferred_finalize_check;
