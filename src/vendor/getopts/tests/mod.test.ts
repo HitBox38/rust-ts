@@ -3,14 +3,9 @@
 // PORT: `match r { Err(OptionMissing(_)) => {}, _ => panic!() }` → `expect_fail(r, "OptionMissing")`;
 // `Ok(ref m) => { .. }, _ => panic!()` → `expect_ok(r)`. `debug!` logging (the `log` dev-dependency)
 // is dropped. `#[should_panic]` → `expect(..).toThrow(Panic)`.
-// PORT: everything that measures text with `UnicodeWidthStr::width` (`each_split_within`, `usage`)
-// throws `Unported` until unicode_width's string widths (`tables::width_in_str`) are ported; those
-// tests run through `str_width_test`: until then each must throw exactly that `Unported` (pending
-// convention, so the gate sees no skips); afterwards they run as normal tests.
 import { expect, test } from "bun:test";
-import { Panic, Unported } from "../../../std/panic.ts";
+import { Panic } from "../../../std/panic.ts";
 import { Err, Ok, type Result as StdResult } from "../../../std/result.ts";
-import { UnicodeWidthStr } from "../../unicode_width/lib.ts";
 import {
   display_Fail,
   each_split_within,
@@ -24,22 +19,6 @@ import {
   ParsingStyle,
   type Result,
 } from "../lib.ts";
-
-const str_width_ported = (() => {
-  try {
-    UnicodeWidthStr.width("a");
-    return true;
-  } catch (e) {
-    if (e instanceof Unported) return false;
-    throw e;
-  }
-})();
-const str_width_test = str_width_ported
-  ? test
-  : (name: string, fn: () => void) =>
-      test(`${name} (pending: unicode_width::tables::width_in_str)`, () => {
-        expect(fn).toThrow(/unicode_width::tables::width_in_str/);
-      });
 
 /** `match r { Ok(m) => m, Err(e) => panic!("{}", e) }` */
 function expect_ok(r: Result): Matches {
@@ -70,7 +49,7 @@ function parse_f64(s: string): StdResult<number, string> {
 }
 
 // crate: getopts-0.2.24/src/tests/mod.rs:6 test_split_within
-str_width_test("test_split_within", () => {
+test("test_split_within", () => {
   // crate: getopts-0.2.24/src/tests/mod.rs:7 t
   function t(s: string, i: number, u: readonly string[]): void {
     const v = each_split_within(s, i);
@@ -623,7 +602,7 @@ test("test_aliases_long_and_short", () => {
 });
 
 // crate: getopts-0.2.24/src/tests/mod.rs:824 test_usage
-str_width_test("test_usage", () => {
+test("test_usage", () => {
   const opts = Options.new();
   opts.reqopt("b", "banana", "Desc", "VAL");
   opts.optopt("a", "012345678901234567890123456789", "Desc", "VAL");
@@ -650,7 +629,7 @@ Options:
 });
 
 // crate: getopts-0.2.24/src/tests/mod.rs:853 test_usage_description_wrapping
-str_width_test("test_usage_description_wrapping", () => {
+test("test_usage_description_wrapping", () => {
   // indentation should be 24 spaces
   // lines wrap after 78: or rather descriptions wrap after 54
 
@@ -675,7 +654,7 @@ Options:
 
 // #[cfg(feature = "unicode")]
 // crate: getopts-0.2.24/src/tests/mod.rs:892 test_usage_description_multibyte_handling
-str_width_test("test_usage_description_multibyte_handling", () => {
+test("test_usage_description_multibyte_handling", () => {
   const opts = Options.new();
   opts.optflag("k", "k\u{2013}w\u{2013}", "The word kiwi is normally spelled with two i's");
   opts.optflag(
@@ -701,7 +680,7 @@ Options:
 
 // #[cfg(feature = "unicode")]
 // crate: getopts-0.2.24/src/tests/mod.rs:924 test_usage_description_newline_handling
-str_width_test("test_usage_description_newline_handling", () => {
+test("test_usage_description_newline_handling", () => {
   const opts = Options.new();
   opts.optflag("k", "k\u{2013}w\u{2013}", "The word kiwi is normally spelled with two i's");
   opts.optflag("a", "apple", "This description forces a new line.\n Here is a premature\n" + "newline");
@@ -722,7 +701,7 @@ Options:
 
 // #[cfg(feature = "unicode")]
 // crate: getopts-0.2.24/src/tests/mod.rs:956 test_usage_multiwidth
-str_width_test("test_usage_multiwidth", () => {
+test("test_usage_multiwidth", () => {
   const opts = Options.new();
   opts.optflag("a", "apple", "apple description");
   opts.optflag("b", "banana\u{00AB}", "banana description");
@@ -757,7 +736,7 @@ Options:
 });
 
 // crate: getopts-0.2.24/src/tests/mod.rs:993 test_usage_short_only
-str_width_test("test_usage_short_only", () => {
+test("test_usage_short_only", () => {
   const opts = Options.new();
   opts.optopt("k", "", "Kiwi", "VAL");
   opts.optflag("s", "", "Starfruit");
@@ -776,7 +755,7 @@ Options:
 });
 
 // crate: getopts-0.2.24/src/tests/mod.rs:1014 test_usage_long_only
-str_width_test("test_usage_long_only", () => {
+test("test_usage_long_only", () => {
   const opts = Options.new();
   opts.optopt("", "kiwi", "Kiwi", "VAL");
   opts.optflag("", "starfruit", "Starfruit");
@@ -830,7 +809,7 @@ test("test_args_with_equals", () => {
 });
 
 // crate: getopts-0.2.24/src/tests/mod.rs:1079 test_long_only_usage
-str_width_test("test_long_only_usage", () => {
+test("test_long_only_usage", () => {
   const opts = Options.new();
   opts.long_only(true);
   opts.optflag("k", "kiwi", "Description");
