@@ -9,7 +9,7 @@ import { PpAnn, print_crate } from "../rustc_ast_pretty/pprust/mod.ts";
 import { Input, OutFileName, type PpMode, PpMode as PpModeC } from "../rustc_session/config.ts";
 import type { Session } from "../rustc_session/session.ts";
 import type { FileName } from "../rustc_span/lib.ts";
-import { PRETTY } from "../std/fmt.ts";
+import { format_debug, PRETTY } from "../std/fmt.ts";
 import { panic, unported } from "../std/panic.ts";
 import type { Str } from "../std/str.ts";
 
@@ -96,7 +96,7 @@ export function print(sess: Session, ppm: PpMode, ex: PrintExtra): void {
     }
     case "AstTree":
       // debug!("pretty printing AST tree");
-      out = PrintExtra.with_krate(ex, (krate) => debug_Crate(krate, PRETTY));
+      out = PrintExtra.with_krate(ex, (krate) => format_debug(krate, debug_Crate, PRETTY)); // format!("{krate:#?}")
       break;
     case "AstTreeExpanded":
       // debug!("pretty-printing expanded AST");

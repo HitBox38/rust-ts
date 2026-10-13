@@ -25,7 +25,18 @@ import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync
 import { dirname, join, relative, resolve } from "node:path";
 
 import { type DiagTsCtx, diagDerives, diagnostic_derive, renderTs, subdiagnostic_derive, type Tok } from "./diagnostics.ts";
-import { type BitflagsType, debugFormatTemplate, evalFlagExpr, macroBody, type NewtypeIndex, parseBitflags, parseNewtypeIndex } from "./macros.ts";
+import {
+  type BitflagsType,
+  debugFormatTemplate,
+  evalFlagExpr,
+  type LangItemRow,
+  macroBody,
+  type NewtypeIndex,
+  parseBitflags,
+  parseLanguageItemTable,
+  parseLanguageItemTableDef,
+  parseNewtypeIndex,
+} from "./macros.ts";
 
 const HERE = import.meta.dir;
 export const REPO = resolve(HERE, "..", "..");
@@ -173,6 +184,12 @@ export interface TypeMapEntry {
   nullable?: boolean;
   /** derive(Clone): "copy" | "share" | "transparent" | "option" | template (`$v`, `$c0`..); null = none */
   clone?: string | null;
+  /** names `clone` uses that `values` does not list, imported from `import` only where a clone is emitted */
+  clone_values?: string[];
+  /** derive(Default): expression (`$e0`.. = defaults of the type arguments); absent = none */
+  default?: string | null;
+  /** names `default` uses, imported from `import` */
+  default_values?: string[];
   note?: string;
 }
 export interface TypeMap {
@@ -190,6 +207,8 @@ export interface SetConfig {
   auto_class?: boolean;
   /** Emit `clone_<T>` for `#[derive(Clone)]` types (and use hand `clone_<T>` for manual `impl Clone`). */
   derive_clone?: boolean;
+  /** Emit `default_<T>()` for `#[derive(Default)]` types (typemap `default` rules for external field types). */
+  derive_default?: boolean;
   /** Why a `skip` entry is skipped (reported); entries for types the probe cannot see need one. */
   skip_notes?: Record<string, string>;
 }
@@ -222,6 +241,17 @@ export interface DiagArgEntry {
   imports?: Record<string, string[]>;
   note?: string;
 }
+/** `PrintAttribute` impls of types outside the generated sets (print_attribute.json). */
+export interface PrintAttrEntry {
+  paths: string[];
+  /** expression of the `PrintAttribute<T>` table; `$p0`.. = tables of the type arguments */
+  print: string;
+  values: string[];
+  note?: string;
+}
+export function loadPrintAttrs(): { import: string; types: PrintAttrEntry[] } {
+  return JSON.parse(readFileSync(join(HERE, "print_attribute.json"), "utf8"));
+}
 export function loadDiagArgs(): DiagArgEntry[] {
   return JSON.parse(readFileSync(join(HERE, "diag_args.json"), "utf8")).types;
 }
@@ -236,7 +266,7 @@ export function loadSet(name: string): SetConfig {
 
 export interface Report {
   set: string;
-  files: { upstream: string; out: string; types: number; debug_fns: number; clone_fns: number; walkable: number; diag_impls: number }[];
+  files: { upstream: string; out: string; types: number; debug_fns: number; clone_fns: number; walkable: number; diag_impls: number; print_attrs: number }[];
   unknown_types: Record<string, string[]>;
   missing_debug: Record<string, string[]>;
   manual_debug: { type: string; impl_at: string; defined_at: string; provide_in: string; generic_params: string[] }[];
@@ -265,8 +295,11 @@ interface ItemRef {
   mf: ModFile;
   mod: string[]; // full module path (file module + inline modules)
   key: string; // `mod::Name`
-  /** set for types produced by an item macro the generator expands (`newtype_index!`, `bitflags!`) */
-  mac?: { kind: "newtype"; at: string; def: NewtypeIndex } | { kind: "bitflags"; at: string; def: BitflagsType };
+  /** set for types produced by an item macro the generator expands (`newtype_index!`, `bitflags!`, `language_item_table!`) */
+  mac?:
+    | { kind: "newtype"; at: string; def: NewtypeIndex }
+    | { kind: "bitflags"; at: string; def: BitflagsType }
+    | { kind: "lang_items"; at: string; rows: LangItemRow[] };
 }
 
 function fileModule(upstream: string): { crate: string; mod: string[]; rel: string } {
@@ -424,7 +457,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   for (const mf of mfs) {
     for (const m of mf.file.macros) {
       const last = m.macro.split("::").pop();
-      if (m.kind !== "call" || (last !== "newtype_index" && last !== "bitflags")) continue;
+      if (m.kind !== "call" || (last !== "newtype_index" && last !== "bitflags" && last !== "language_item_table")) continue;
       const at = `${mf.file.path}:${m.line}`;
       try {
         const body = macroBody(upstreamSrc(mf.file.path), m.line);
@@ -433,6 +466,34 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           const def = parseNewtypeIndex(body);
           const key = [...mf.mod, def.name].join("::");
           items.set(key, { item: synth(def.name, m.line), mf, mod: mf.mod, key, mac: { kind: "newtype", at, def } });
+        } else if (last === "language_item_table") {
+          // rustc_attr_ir/src/lang_items.rs: the `macro_rules!` declares `#[derive(..)] pub enum LangItem { $(
+          // #[doc = concat!("The `", stringify!($name), "` lang item.")] $(#[$attr])* $variant, )* }` plus fns
+          // over the rows (ported by hand over the `language_item_table` rows emitted after the enum).
+          const defM = mf.file.macros.find((d) => d.kind === "macro_rules" && d.name === last && d.line < m.line);
+          if (!defM) throw new Error("no macro_rules! language_item_table before the invocation in this file");
+          const def = parseLanguageItemTableDef(upstreamSrc(mf.file.path).split("\n").slice(defM.line - 1, m.line - 1).join("\n"));
+          const rows = parseLanguageItemTable(body);
+          const key = [...mf.mod, def.name].join("::");
+          const item: PItem = {
+            kind: "enum",
+            name: def.name,
+            line: m.line,
+            vis: "pub",
+            module: [],
+            attrs: [{ path: "derive", text: `derive(${def.derives.join(", ")})`, derives: def.derives }],
+            docs: def.docs,
+            generics: { params: [], where: [] },
+            variants: rows.map((r) => ({
+              name: r.variant,
+              line: m.line,
+              attrs: [],
+              docs: [` The \`${r.name.split("::").pop()}\` lang item.`, ...r.docs],
+              fields: { style: "unit", fields: [] },
+              discriminant: null,
+            })),
+          };
+          items.set(key, { item, mf, mod: mf.mod, key, mac: { kind: "lang_items", at, rows } });
         } else {
           for (const def of parseBitflags(body)) {
             const key = [...mf.mod, def.name].join("::");
@@ -620,6 +681,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   const diagArgs = loadDiagArgs();
   const daIndex = new Map<string, DiagArgEntry>();
   for (const e of diagArgs) for (const p of e.paths) daIndex.set(p, e);
+  const printAttrs = loadPrintAttrs();
+  const paModule = printAttrs.import.replace(/^src\//, "");
+  const paIndex = new Map<string, PrintAttrEntry>();
+  for (const e of printAttrs.types) for (const p of e.paths) paIndex.set(p, e);
 
   // skip entries naming no item of the set (e.g. a type defined inside a `macro_rules!`)
   for (const k of set.skip) {
@@ -1015,6 +1080,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             return `unported_clone(${v})`;
           }
           useEntry(e, false);
+          if (e.import) for (const n of e.clone_values ?? []) imp(`src:${e.import.replace(/^src\//, "")}`, "values", n, n);
           if (e.clone === "transparent") return cl(args[0]!, v, sc, at);
           if (e.clone === "option") {
             if (nullable(args[0]!, sc)) return `(${v} === undefined ? undefined : { $: "Some" as const, _0: ${cl(args[0]!, `${v}._0`, sc, at)} })`;
@@ -1040,6 +1106,41 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           push(report.missing_clone, `${ty.kind}: ${ty.text}`, at);
           return `unported_clone(${v})`;
       }
+    };
+
+    // ---- derive(Default) ----
+    /** `T::default()` as a TS expression. */
+    const defExpr = (ty: PType, sc: Scope, at: string): string => {
+      switch (ty.kind) {
+        case "tuple":
+          return ty.elems!.length === 0 ? "null" : `[${ty.elems!.map((e) => defExpr(e, sc, at)).join(", ")}] as ${tsType(ty, sc, at)}`;
+        case "path": {
+          if (ty.qself) break;
+          const r = resolvePath(ty.path!, sc);
+          const args = typeArgs(ty.path!);
+          if (r.k === "param") {
+            const sub = sc.subst?.get(r.name);
+            if (sub) return defExpr(sub.ty, sub.scope, at);
+            break;
+          }
+          if (r.k === "item") {
+            if (r.ref.item.kind === "type") return defExpr(r.ref.item.ty!, aliasScope(r.ref, args, sc), at);
+            if (!hasDerive(r.ref, "Default") || tsParams(r.ref.item).length) break;
+            const n = `default_${r.ref.item.name}`;
+            const alias = `default_${refName(r.ref)}`;
+            if (!(r.ref.mf === mf && r.ref.mod.length === mf.mod.length)) imp(viaHand(r.ref), "values", n, alias);
+            return `${alias}()`;
+          }
+          const e = tmLookup(r.keys);
+          if (!e || e.default == null) break;
+          if (e.import) for (const v of e.default_values ?? []) imp(`src:${e.import.replace(/^src\//, "")}`, "values", v, v);
+          let out = e.default;
+          for (const n of new Set(e.default.match(/\$e\d/g) ?? [])) out = out.replaceAll(n, defExpr(args[Number(n.slice(2))]!, sc, at));
+          return out;
+        }
+      }
+      report.errors.push(`${at}: no Default for field type \`${ty.text}\` (typemap \`default\`)`);
+      return "unported_default()";
     };
 
     // ---- derive(Walkable) (rustc_macros/src/visitable.rs) ----
@@ -1230,6 +1331,256 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     const liveFields = (fs: PFields, at: string) => fs.fields.filter((fl) => enabled(fl.attrs, `${at}:${fl.line}`));
 
     const body: string[] = [];
+    /** emitted after every item of the file (data that reads companions of later items at module init) */
+    const trailer: string[] = [];
+
+    // ---- derive(PrintAttribute) (rustc_macros/src/print_attribute.rs) ----
+    /** The `PrintAttribute<T>` table expression of a type. */
+    const paFn = (ty: PType, sc: Scope, at: string): string => {
+      const paImp = (n: string) => {
+        imp(`src:${paModule}`, "values", n, n);
+        return n;
+      };
+      switch (ty.kind) {
+        case "ref":
+          return `${paImp("print_attribute_ref")}(${paFn(ty.elem!, sc, at)})`;
+        case "tuple":
+          if (ty.elems!.length === 0) return paImp("print_attribute_unit");
+          if (ty.elems!.length > 8) break;
+          return `${paImp("print_attribute_tuple")}([${ty.elems!.map((e) => paFn(e, sc, at)).join(", ")}])`;
+        case "path": {
+          if (ty.qself) break;
+          const r = resolvePath(ty.path!, sc);
+          const args = typeArgs(ty.path!);
+          if (r.k === "param") {
+            const sub = sc.subst?.get(r.name);
+            if (sub) return paFn(sub.ty, sub.scope, at);
+            report.errors.push(`${at}: derive(PrintAttribute) over a type parameter is not supported`);
+            return "unported_print_attribute";
+          }
+          if (r.k === "item") {
+            if (r.ref.item.kind === "type") return paFn(r.ref.item.ty!, aliasScope(r.ref, args, sc), at);
+            if (!hasDerive(r.ref, "PrintAttribute")) break;
+            const n = `print_attribute_${r.ref.item.name}`;
+            const alias = `print_attribute_${refName(r.ref)}`;
+            if (!(r.ref.mf === mf && r.ref.mod.length === mf.mod.length)) imp(viaHand(r.ref), "values", n, alias);
+            return alias;
+          }
+          const e = r.keys.map((k) => paIndex.get(k)).find((x) => x !== undefined);
+          if (!e) break;
+          for (const v of e.values) paImp(v);
+          let out = e.print;
+          for (const n of new Set(e.print.match(/\$p\d/g) ?? [])) {
+            const a = args[Number(n.slice(2))];
+            if (!a) {
+              report.errors.push(`${at}: PrintAttribute of ${r.display} needs type argument ${n.slice(2)}`);
+              return "unported_print_attribute";
+            }
+            out = out.replaceAll(n, paFn(a, sc, at));
+          }
+          return out;
+        }
+      }
+      report.errors.push(`${at}: no PrintAttribute impl for field type \`${ty.text}\` (print_attribute.json)`);
+      return "unported_print_attribute";
+    };
+    /** `print_fields` of print_attribute.rs: the statements printing `name` and `fields` read from `owner`. */
+    const paFields = (name: string, fs: PFields, owner: string, sc: Scope, at: string): string[] => {
+      const live = liveFields(fs, mf.file.path);
+      const out: string[] = [];
+      if (fs.style === "unit") return [`__p.word(${JSON.stringify(name)});`];
+      const vals = live.map((fl) => ({ fl, v: `${owner}.${fieldName(fl)}`, pa: paFn(fl.ty, sc, at) }));
+      const disps: string[] = ["let __printed_anything = false;"];
+      for (const { fl, v, pa } of vals) {
+        disps.push(`if (${pa}.should_render(${v})) {`);
+        disps.push("  if (__printed_anything) {");
+        disps.push('    __p.word_space(",");');
+        disps.push("  }");
+        if (fs.style === "named") {
+          disps.push(`  __p.word(${JSON.stringify(unraw(fl.name!))});`);
+          disps.push('  __p.word(":");');
+          disps.push("  __p.nbsp();");
+        }
+        disps.push("  __printed_anything = true;");
+        disps.push("}");
+        disps.push(`${pa}.print_attribute(${v}, __p);`);
+      }
+      out.push(`__p.word(${JSON.stringify(name)});`);
+      out.push(`if (true${vals.map(({ v, pa }) => ` && !${pa}.should_render(${v})`).join("")}) {`);
+      out.push("  return;");
+      out.push("}");
+      if (fs.style === "named") {
+        out.push("__p.nbsp();");
+        out.push('__p.word("{");');
+        out.push(...disps);
+        out.push('__p.word("}");');
+      } else {
+        out.push("__p.popen();");
+        out.push(...disps);
+        out.push("__p.pclose();");
+      }
+      return out;
+    };
+    let filePrint = 0;
+    const emitPrint = (r: ItemRef, sc: Scope, selfType: string) => {
+      const it = r.item;
+      const at = `${mf.file.path}:${it.line}`;
+      if (!hasDerive(r, "PrintAttribute")) return;
+      if (tsParams(it).length) {
+        report.errors.push(`${at}: derive(PrintAttribute) on a generic type is not supported`);
+        return;
+      }
+      imp(`src:${paModule}`, "types", "PrintAttribute", "PrintAttribute");
+      imp("src:rustc_ast_pretty/pp.ts", "types", "Printer", "Printer");
+      const stmts: string[] = [];
+      if (it.kind === "struct") stmts.push(...paFields(it.name, it.fields!, "self", sc, at));
+      else if (it.kind === "enum") {
+        stmts.push("switch (self.$) {");
+        for (const v of it.variants!.filter((v) => enabled(v.attrs, `${mf.file.path}:${v.line}`))) {
+          const vn = unraw(v.name);
+          stmts.push(`  case ${JSON.stringify(vn)}: {`);
+          stmts.push(...paFields(vn, v.fields, "self", sc, `${mf.file.path}:${v.line}`).map((l) => `    ${l}`));
+          stmts.push("    break;");
+          stmts.push("  }");
+        }
+        stmts.push("}");
+      } else {
+        report.errors.push(`${at}: can't derive PrintAttribute on unions`);
+        return;
+      }
+      // a fieldless enum is a string union: `self.$` is the string itself
+      const fieldless = it.kind === "enum" && it.variants!.every((v) => v.fields.style === "unit");
+      const code = fieldless ? stmts.map((l) => l.replace("switch (self.$)", "switch (self)")) : stmts;
+      const usesSelf = code.some((l) => /\bself\b/.test(l));
+      body.push(`// rustc-derive: ${at} PrintAttribute for ${it.name}`);
+      body.push(`export const print_attribute_${it.name}: PrintAttribute<${selfType}> = {`);
+      body.push("  should_render: (_self) => true,");
+      body.push(`  print_attribute: (${usesSelf ? "self" : "_self"}, __p) => {`);
+      body.push(...code.map((l) => `    ${l}`));
+      body.push("  },");
+      body.push("};");
+      filePrint++;
+    };
+
+    // ---- `language_item_table!` rows (rustc_attr_ir/src/lang_items.rs) ----
+    /** A Rust constant expression of a table row (`sym::x`, `Enum::Variant`, `Enum::V(..)`, `Enum::V { f: .. }`, ints, bools) as TS. */
+    const rustConstExpr = (expr: string, sc: Scope, at: string): string => {
+      const toks = expr.match(/r#\w+|\w+|::|[(){},:]/g) ?? [];
+      if (toks.join("") !== expr.replace(/\s+/g, "")) {
+        report.errors.push(`${at}: unsupported constant expression \`${expr}\``);
+        return "unported_const_expr";
+      }
+      let p = 0;
+      const fail = (): string => {
+        report.errors.push(`${at}: unsupported constant expression \`${expr}\``);
+        p = toks.length;
+        return "unported_const_expr";
+      };
+      const prim = (): string => {
+        const t = toks[p];
+        if (t === undefined) return fail();
+        if (/^\d+$/.test(t) || t === "true" || t === "false") {
+          p++;
+          return t;
+        }
+        const segs = [unraw(toks[p++]!)];
+        while (toks[p] === "::") {
+          p++;
+          segs.push(unraw(toks[p++] ?? ""));
+        }
+        if (segs.length !== 2) return fail();
+        const [ty, v] = segs as [string, string];
+        if (ty === "sym" || ty === "kw") {
+          imp("src:rustc_span/symbol.ts", "values", ty, ty);
+          return `${ty}.${v}`;
+        }
+        // the enum's companion const (imported only where a unit variant reads it)
+        const r = resolvePath({ global: false, segments: [{ name: ty, args: [] }] }, sc);
+        let owner: (() => string) | undefined;
+        if (r.k === "item" && r.ref.item.kind === "enum") {
+          const ref = r.ref;
+          owner = () => {
+            const a = refName(ref);
+            if (!(ref.mf === mf && ref.mod.length === mf.mod.length)) imp(viaHand(ref), "values", ref.item.name, a);
+            return a;
+          };
+        } else if (r.k === "ext") {
+          const e = tmLookup(r.keys);
+          if (e?.import && e.values?.includes(ty)) {
+            const m = e.import.replace(/^src\//, "");
+            owner = () => {
+              imp(`src:${m}`, "values", ty, ty);
+              return ty;
+            };
+          }
+        }
+        if (owner === undefined) return fail();
+        if (toks[p] === "(") {
+          p++;
+          const args: string[] = [];
+          while (p < toks.length && toks[p] !== ")") {
+            args.push(prim());
+            if (toks[p] === ",") p++;
+          }
+          p++;
+          return `{ $: ${JSON.stringify(v)}${args.map((a, i) => `, _${i}: ${a}`).join("")} }`;
+        }
+        if (toks[p] === "{") {
+          p++;
+          const fs: string[] = [];
+          while (p < toks.length && toks[p] !== "}") {
+            const f = unraw(toks[p++]!);
+            if (toks[p++] !== ":") return fail();
+            fs.push(`${f}: ${prim()}`);
+            if (toks[p] === ",") p++;
+          }
+          p++;
+          return `{ $: ${JSON.stringify(v)}${fs.map((f) => `, ${f}`).join("")} }`;
+        }
+        return `${owner()}.${v}`;
+      };
+      const out = prim();
+      if (p !== toks.length) return fail();
+      return out;
+    };
+    const pathTy = (text: string): PType => ({ kind: "path", text, path: { global: false, segments: text.split("::").map((name) => ({ name, args: [] })) } });
+    const emitLangItemTable = (r: ItemRef, rows: LangItemRow[], at: string) => {
+      const sc: Scope = { mf, mod: mf.mod, params: new Set() };
+      const tSym = tsType(pathTy("Symbol"), sc, at);
+      const tTarget = tsType(pathTy("Target"), sc, at);
+      const tGen = tsType(pathTy("GenericRequirement"), sc, at);
+      const tDefId = tsType(pathTy("DefId"), sc, at);
+      const name = r.item.name;
+      trailer.push("");
+      trailer.push(`// rustc-macro: ${at} language_item_table! rows`);
+      trailer.push(`// PORT: the rows of \`language_item_table!\` as data. The fns the macro generates (\`${name}::{from_u32, name,`);
+      trailer.push(`// from_name, variant_name, target, required_generics}\` and the \`LanguageItems\` getters) are ported in`);
+      trailer.push(`// ${mf.hand.split("/").pop()} over this table.`);
+      trailer.push("export interface LanguageItemTableRow {");
+      trailer.push(`  variant: ${name};`);
+      trailer.push("  /** `$module::$name` */");
+      trailer.push(`  name: ${tSym};`);
+      trailer.push("  /** the `LanguageItems` getter */");
+      trailer.push("  method: string;");
+      trailer.push(`  target: ${tTarget};`);
+      trailer.push(`  generics: ${tGen};`);
+      trailer.push("}");
+      trailer.push("export const language_item_table: readonly LanguageItemTableRow[] = [");
+      for (const row of rows) {
+        const rat = at;
+        trailer.push(
+          `  { variant: ${JSON.stringify(row.variant)}, name: ${rustConstExpr(row.name, sc, rat)}, method: ${JSON.stringify(row.method)}, target: ${rustConstExpr(row.target, sc, rat)}, generics: ${rustConstExpr(row.generics, sc, rat)} },`,
+        );
+      }
+      trailer.push("];");
+      trailer.push("/** The `LanguageItems` getters `language_item_table!` generates (installed on the class by the hand module). */");
+      trailer.push("export interface LanguageItemsGetters {");
+      for (const row of rows) {
+        trailer.push(`  /** Returns the [\`DefId\`] of the \`${row.name.split("::").pop()}\` lang item if it is defined. */`);
+        trailer.push(`  ${row.method}(): ${tDefId} | undefined;`);
+      }
+      trailer.push("}");
+    };
 
     // ---- derive(Diagnostic) / derive(Subdiagnostic) (rustc_macros/src/diagnostics, see diagnostics.ts) ----
     const diagCodeState = { code_ident_count: 0 };
@@ -1431,7 +1782,12 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         body.push(");");
         if (def.form === "struct" && def.attrs.some((a) => /^derive\s*\(.*\bDebug\b/s.test(a.name)))
           report.notes.push(`${r.key}: derive(Debug) inside bitflags! is not generated yet`);
-        if (hasDebug) report.errors.push(`${at}: derive(Debug) on a bitflags struct is not supported`);
+        if (hasDebug && def.form === "impl") {
+          // `#[derive(Debug)] struct X(uN);` + `bitflags! { impl X: uN { .. } }`: the derive sees a plain
+          // tuple struct, so its Debug is `X(<bits>)` (e.g. rustc_hir::def::MacroKinds).
+          body.push(`export const debug_${name}: Debug<${name}> = (v, f) => debug_tuple(f, ${JSON.stringify(name)}, [debug_int(v, f)]);`);
+          fileDebug++;
+        } else if (hasDebug) report.errors.push(`${at}: derive(Debug) on a bitflags struct is not supported`);
         continue;
       }
 
@@ -1500,7 +1856,17 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           else body.push("  return {};");
           body.push("}");
         }
+        if (set.derive_default && hasDerive(r, "Default") && it.kind === "struct" && !matches(set.hand, r)) {
+          if (gparams.length) report.errors.push(`${at}: derive(Default) on a generic type is not supported`);
+          body.push(`export function default_${name}(): ${name} {`);
+          const vals = live.map((fl) => defExpr(fl.ty, sc, `${mf.file.path}:${fl.line}`));
+          if (isClass(r)) body.push(`  return new ${name}(${vals.join(", ")});`);
+          else if (live.length) body.push(`  return {\n${live.map((fl, i) => `    ${fieldName(fl)}: ${vals[i]},`).join("\n")}\n  };`);
+          else body.push("  return {};");
+          body.push("}");
+        }
         emitDiag(r, sc, selfType, "struct");
+        emitPrint(r, sc, selfType);
         continue;
       }
 
@@ -1550,7 +1916,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           fileClone++;
           body.push(`${cloneHead}\n  return v;\n}`);
         }
+        if (set.derive_default && hasDerive(r, "Default") && !matches(set.hand, r)) {
+          const dv = variants.filter((v) => effAttrs(v.attrs, `${mf.file.path}:${v.line}`).some((a) => a.path === "default"));
+          if (dv.length !== 1) report.errors.push(`${at}: derive(Default) needs exactly one #[default] variant`);
+          else body.push(`export function default_${name}(): ${name} {\n  return ${JSON.stringify(unraw(dv[0]!.name))};\n}`);
+        }
         emitDiag(r, sc, selfType, "fieldless");
+        emitPrint(r, sc, selfType);
+        if (r.mac?.kind === "lang_items") emitLangItemTable(r, r.mac.rows, r.mac.at);
         continue;
       }
       if (variants.some((v) => v.discriminant !== null)) report.errors.push(`${at}: data enum ${r.key} has explicit discriminants (not emitted)`);
@@ -1613,9 +1986,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         }
         body.push("}");
       }
+      if (set.derive_default && hasDerive(r, "Default") && !matches(set.hand, r)) {
+        const dv = variants.filter((v) => effAttrs(v.attrs, `${mf.file.path}:${v.line}`).some((a) => a.path === "default"));
+        if (dv.length !== 1 || dv[0]!.fields.style !== "unit") report.errors.push(`${at}: derive(Default) needs exactly one unit #[default] variant`);
+        else body.push(`export function default_${name}(): ${name} {\n  return ${name}.${unraw(dv[0]!.name)};\n}`);
+      }
       emitDiag(r, sc, selfType, "data");
+      emitPrint(r, sc, selfType);
     }
     if (walk) body.push("", ...walkBody(walk));
+    body.push(...trailer);
 
     // helpers used by the body
     const text = body.join("\n");
@@ -1652,7 +2032,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       ].sort((a, b) => a.replace(/^type /, "").localeCompare(b.replace(/^type /, "")));
       if (parts.length) importLines.push(`import { ${parts.join(", ")} } from "${spec}";`);
     }
-    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(|\bunported_clone\b|\bunported_into_diag_arg\b|\bunported_display\(/.test(text)) {
+    if (/\bunported_debug\(|\bunknown_debug\(|\bunported_discriminant\(|\bunported_clone\b|\bunported_into_diag_arg\b|\bunported_display\(|\bunported_print_attribute\b|\bunported_const_expr\b|\bunported_default\(/.test(text)) {
       importLines.push(`import { unported } from "${relImport(outFile, join(opts.srcRoot, "std/panic.ts"))}";`);
       const extra: string[] = [];
       if (/\bunported_debug\(/.test(text)) extra.push(`const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");`);
@@ -1662,6 +2042,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (/\bunported_into_diag_arg\b/.test(text))
         extra.push(`const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported("IntoDiagArg without a TS impl (see types report)");`);
       if (/\bunported_display\(/.test(text)) extra.push(`const unported_display = (_v: unknown): string => unported("Display without a TS impl (see types report)");`);
+      if (/\bunported_print_attribute\b/.test(text))
+        extra.push(`const unported_print_attribute = { should_render: (_v: unknown): boolean => unported("PrintAttribute without a TS impl (see types report)"), print_attribute: (_v: unknown, _p: unknown): void => unported("PrintAttribute without a TS impl (see types report)") };`);
+      if (/\bunported_default\(/.test(text)) extra.push(`const unported_default = (): never => unported("Default without a TS impl (see types report)");`);
+      if (/\bunported_const_expr\b/.test(text)) extra.push(`const unported_const_expr: never = unported("constant expression the generator cannot translate (see types report)");`);
       importLines.push(...extra);
     }
     if (fileTypes === 0 && !walk) {
@@ -1677,6 +2061,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       clone_fns: fileClone,
       walkable: fileWalk,
       diag_impls: fileDiag,
+      print_attrs: filePrint,
     });
   }
   return { files, report, stubs };
@@ -1825,7 +2210,10 @@ if (import.meta.main) {
   const nClone = r.files.reduce((a, f) => a + f.clone_fns, 0);
   const nWalk = r.files.reduce((a, f) => a + f.walkable, 0);
   const nDiag = r.files.reduce((a, f) => a + f.diag_impls, 0);
-  console.log(`${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns, ${nClone} clone fns, ${nWalk} walkable impls, ${nDiag} diagnostic derives -> ${out}`);
+  const nPrint = r.files.reduce((a, f) => a + f.print_attrs, 0);
+  console.log(
+    `${setName}: ${r.files.length} files, ${nTypes} types, ${nDebug} debug fns, ${nClone} clone fns, ${nWalk} walkable impls, ${nDiag} diagnostic derives, ${nPrint} PrintAttribute derives -> ${out}`,
+  );
   console.log(
     `unknown types: ${Object.keys(r.unknown_types).length}, missing debug: ${Object.keys(r.missing_debug).length}, manual Debug impls: ${r.manual_debug.length}, missing clone: ${Object.keys(r.missing_clone).length}, manual Clone impls: ${r.manual_clone.length}, unknown cfg: ${Object.keys(r.unknown_cfg).length}, macro types: ${r.macro_types.length}, missing IntoDiagArg/Display: ${Object.keys(r.missing_diag_arg).length}`,
   );
