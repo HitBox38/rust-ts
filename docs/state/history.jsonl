@@ -119,3 +119,4 @@
 {"ts":"2026-10-13T20:05:18.333Z","kind":"decision","msg":"cstore-impl: cstore_impl.rs ported (116 extern providers generated as a table, 15 local); only the decoder half of rmeta::provide is wired (encoder half M5)"}
 {"ts":"2026-10-13T20:05:18.348Z","kind":"decision","msg":"odht: vendored odht 0.3.1 in full (portable no_simd group path as compiled on aarch64-apple-darwin); def_path_hash_map uses it"}
 {"ts":"2026-10-13T20:05:18.362Z","kind":"decision","msg":"rmeta-decoder-a/-b: decoder.rs ported 156/156 split at :1343 by line; AllocDecodingState stand-in until rustc_middle mir; virtual source dirs /rustc/<commit> and /rustc-dev/<commit> as configured in the oracle build"}
+{"ts":"2026-10-13T20:35:58.653Z","kind":"decision","msg":"decode-elems: whole-crate derive_decodable for rustc_ast/rustc_attr_ir/rustc_structures; SimplifiedType via a codegen set (decode only; simplify_type is M3); ty::Generics decode; generic decoders generic over the decoder type"}
