@@ -778,7 +778,6 @@ export interface Resolver {
   // macros.rs:1195
   check_reserved_macro_name(name: Symbol, span: Span, res: Res): void;
   // macros.rs:1210
-  // PORT(decls): `attrs: &[rustc_attr_ir::Attribute]` (was the ast `Attribute`; changed by lane res-graph).
   compile_macro(macro_def: MacroDef, ident: Ident, attrs: readonly AttrIrAttribute[], span: Span, node_id: NodeId, edition: Edition): SyntaxExtension;
   // macros.rs:1244
   path_accessible(expn_id: LocalExpnId, path: Path, namespaces: readonly Namespace[]): Result<boolean, Indeterminate>;
