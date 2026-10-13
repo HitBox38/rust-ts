@@ -141,7 +141,10 @@ export const debug_LifetimeRes: Debug<LifetimeRes> = (v, f) => {
         ["binder", debug_NodeId(v.binder, f)],
       ]);
     case "Fresh":
-      return unported("Debug of rustc_hir::MissingLifetimeKind (LifetimeRes::Fresh; hir.rs, M3)");
+      return debug_struct(f, "Fresh", [
+        ["param", debug_NodeId(v.param, f)],
+        ["kind", debug_MissingLifetimeKind(v.kind, f)],
+      ]);
     case "Infer":
     case "Static":
       return v.$;
@@ -153,6 +156,16 @@ export const debug_LifetimeRes: Debug<LifetimeRes> = (v, f) => {
         ["end", debug_NodeId(v.end, f)],
       ]);
   }
+};
+
+/**
+ * `#[derive(Debug)]` of `rustc_hir::MissingLifetimeKind` (hir.rs:812, fieldless: the variant name).
+ * PORT: hir.rs is M3; until then the resolver carries the variant names as strings (rustc_resolve/late.ts
+ * `MissingLifetimeKind` stand-in), so `LifetimeRes::Fresh::kind` / `extra_lifetime_params_map` print them as is.
+ */
+export const debug_MissingLifetimeKind: Debug<unknown> = (v) => {
+  if (v !== "Underscore" && v !== "Ampersand" && v !== "Comma" && v !== "Brackets") panic(`not a MissingLifetimeKind: ${String(v)}`);
+  return v;
 };
 
 /// A simplified version of `ImportKind` from resolve.

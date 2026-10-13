@@ -23,6 +23,7 @@ import { Panic, unported, unwrap } from "../std/panic.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { type CodegenBackend, CurrentGcx, jobserver_initialize } from "./stand_ins.ts";
 import * as util from "./util.ts";
+import { setup_callbacks } from "./callbacks.ts";
 
 /// Represents a compiler session. Note that every `Compiler` contains a
 /// `Session`, but `Compiler` also contains some things that cannot be in
@@ -387,9 +388,8 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
     });
   }
 
-  // `crate::callbacks::setup_callbacks()`: PORT: not run. It installs rustc_middle-aware hooks
-  // (`SPAN_TRACK`, `DEF_ID_DEBUG`, `TRACK_DIAGNOSTIC`, `TRACK_FEATURE`, `EMIT_BUG_DIAGNOSTIC`) that only
-  // differ from the defaults while a `TyCtxt` is entered; rust-ts never creates one.
+  // PORT: installs only `DEF_ID_DEBUG` (callbacks.ts module comment).
+  setup_callbacks();
 
   const target = build_target_config(
     early_dcx,
