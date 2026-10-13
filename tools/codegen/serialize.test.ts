@@ -94,7 +94,7 @@ test("derive(Decodable)/(Encodable): structs, generics, Option<Option<_>>, array
   );
   expect(text).toContain(
     [
-      "export function decode_Outer<T>(__decoder: Decoder, decode_T: Decodable<T, Decoder>): Outer<T> {",
+      "export function decode_Outer<T, __D extends Decoder = Decoder>(__decoder: __D, decode_T: Decodable<T, __D>): Outer<T> {",
       "  return {",
       "    x: decode_T(__decoder),",
       "    o: decode_Option_some(__decoder, (__decoder) => decode_Option(__decoder, decode_u8)),",
