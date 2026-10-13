@@ -33,6 +33,8 @@ interface SuiteGate {
   /** See `SubjectStats` in difftest.ts (informational; never affects pass/accept). */
   batchOnlyFailures?: number;
   batchOnlyTimeouts?: number;
+  /** Cases whose oracle timed out twice (ORACLE_TIMEOUT): not MATCH, so a protected one is lost. */
+  oracleTimeouts?: string[];
 }
 
 /**
@@ -241,9 +243,11 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
     const match = new Set(results.filter((r) => r.status === "MATCH").map((r) => r.id));
     const lost = [...base].filter((id) => !match.has(id));
     const gained = [...match].filter((id) => !base.has(id));
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts });
+    const oracleTimeouts = results.filter((r) => r.status === "ORACLE_TIMEOUT").map((r) => r.id);
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
-    for (const id of lost.slice(0, 20)) console.log(`  lost: ${id}`);
+    for (const id of lost.slice(0, 20)) console.log(`  lost: ${id}${oracleTimeouts.includes(id) ? " (ORACLE_TIMEOUT)" : ""}`);
+    if (oracleTimeouts.length) console.log(`note: ${suite}: ${oracleTimeouts.length} case(s) ORACLE_TIMEOUT (the oracle timed out twice; not compared)`);
     if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
       console.log(`note: ${suite}: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s) (a batch process failed at a case that passes alone; see ${suite}.summary.json)`);
     }

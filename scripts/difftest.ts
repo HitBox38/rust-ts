@@ -9,18 +9,24 @@
 //     --run-id ID       output dir name under $RUST_TS_DATA/runs (default: timestamp)
 //     --list            list suites
 //
-// Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) | TIMEOUT
-// Prints one summary line; details go to $RUST_TS_DATA/runs/<run-id>/.
+// Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) |
+// TIMEOUT (the subject timed out) | ORACLE_TIMEOUT (the oracle timed out twice, the second time with
+// ORACLE_RETRY_FACTOR x its timeout; never cached, never compared, never MATCH)
+// Prints one summary line; details go to $RUST_TS_DATA/runs/<run-id>/ (`<suite>.skipped.jsonl` lists
+// the tests a suite leaves out, with reasons).
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
-import { ORACLE_CACHE, PIN, RUNS, UPSTREAM, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run } from "./lib/common.ts";
+import { ORACLE_CACHE, PIN, RUNS, UPSTREAM, die, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run } from "./lib/common.ts";
 import { rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
 import { isRustcDevProbe } from "./probes.ts";
 
-export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT";
-export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT"];
+export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT" | "ORACLE_TIMEOUT";
+export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT", "ORACLE_TIMEOUT"];
+
+/** An oracle process that times out is run once more with this many times its timeout. */
+export const ORACLE_RETRY_FACTOR = 4;
 
 export interface CaseResult {
   id: string;
@@ -117,7 +123,10 @@ function writeCached(p: string, o: Output): void {
 }
 
 function cachePath(s: Suite, c: Case, fileHash: string): string {
-  const key = hash(JSON.stringify([PIN.commit, oracleVersion(s), s.name, c.id, c.args, fileHash]));
+  // `env` joins the key only when a case has one, so the keys of env-less suites are unchanged.
+  const parts: unknown[] = [PIN.commit, oracleVersion(s), s.name, c.id, c.args, fileHash];
+  if (c.env !== undefined) parts.push(c.env);
+  const key = hash(JSON.stringify(parts));
   return join(ensureDir(join(ORACLE_CACHE, key.slice(0, 2))), key);
 }
 
@@ -133,13 +142,26 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
     else todo.push(c);
   }
   if (todo.length === 0) return out;
+  const timeoutMs = s.oracleTimeoutMs ?? s.timeoutMs;
+  /** One oracle process; a timed-out one is retried once with a longer timeout. */
+  const runOnce = async (cmd: string[], env: Case["env"]) => {
+    const r = await run(cmd, { cwd: cwdOf(s), timeoutMs, env });
+    return r.timedOut ? await run(cmd, { cwd: cwdOf(s), timeoutMs: timeoutMs * ORACLE_RETRY_FACTOR, env }) : r;
+  };
+  /** A case whose oracle timed out twice: no output to compare, never cached. */
+  const timedOut = (code: number): Output => ({ text: "", code, timedOut: true });
   if (s.mode === "batch") {
     // A batch can time out under load; split it in halves until it succeeds, and only
-    // fail when a single file cannot be run by the oracle.
+    // fail when a single file cannot be run by the oracle (a single file that times out twice is
+    // ORACLE_TIMEOUT).
     const runBatch = async (batch: Case[]): Promise<void> => {
-      const r = await run(s.oracle(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs });
+      const r = batch.length === 1 ? await runOnce(s.oracle(batch), undefined) : await run(s.oracle(batch), { cwd: cwdOf(s), timeoutMs });
       if (r.code !== 0 || r.timedOut) {
-        if (batch.length === 1) throw new Error(`oracle failed on ${batch[0]!.file} (exit ${r.code}${r.timedOut ? ", timeout" : ""}): ${r.stderr.slice(0, 2000)}`);
+        if (batch.length === 1 && r.timedOut) {
+          out.set(batch[0]!.id, timedOut(r.code));
+          return;
+        }
+        if (batch.length === 1) throw new Error(`oracle failed on ${batch[0]!.file} (exit ${r.code}): ${r.stderr.slice(0, 2000)}`);
         const mid = batch.length >> 1;
         await runBatch(batch.slice(0, mid));
         await runBatch(batch.slice(mid));
@@ -155,10 +177,14 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
     await runBatch(todo);
   } else {
     for (const c of todo) {
-      const r = await run(s.oracle([c]), { cwd: cwdOf(s), timeoutMs: s.timeoutMs });
-      const o: Output = { text: render(r), code: r.code, timedOut: r.timedOut };
+      const r = await runOnce(s.oracle([c]), c.env);
+      if (r.timedOut) {
+        out.set(c.id, timedOut(r.code));
+        continue;
+      }
+      const o: Output = { text: render(r), code: r.code, timedOut: false };
       out.set(c.id, o);
-      if (!r.timedOut) writeCached(paths.get(c.id)!, o);
+      writeCached(paths.get(c.id)!, o);
     }
   }
   return out;
@@ -188,7 +214,8 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
   const failedBatches: { ids: Set<string>; timedOut: boolean }[] = [];
   const exec = async (batch: Case[]) => {
     if (stats) stats.processes++;
-    const r = await run(s.subject(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env });
+    // (Only single-mode suites have per-case env; `difftest` rejects it in batch suites.)
+    const r = await run(s.subject(batch), { cwd: cwdOf(s), timeoutMs: s.timeoutMs, env: { ...batch[0]!.env, ...env } });
     if (batch.length > 1 && (r.code !== 0 || r.timedOut)) failedBatches.push({ ids: new Set(batch.map((c) => c.id)), timedOut: r.timedOut });
     return r;
   };
@@ -310,6 +337,7 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
 }
 
 export function classify(o: Output, sub: Output): Status {
+  if (o.timedOut) return "ORACLE_TIMEOUT";
   if (sub.timedOut) return "TIMEOUT";
   if (sub.text === o.text && sub.code === o.code) return "MATCH";
   if (sub.code === EXIT_UNPORTED) return "UNPORTED";
@@ -347,12 +375,14 @@ export interface RunOptions {
   quiet?: boolean;
 }
 
-export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[]; dir: string; counts: Record<Status, number>; stats: SubjectStats }> {
+export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[]; dir: string; counts: Record<Status, number>; stats: SubjectStats; skipped?: number }> {
   requireUpstream();
   await verifyOraclePin();
   const s = getSuite(opts.suite);
   let cases = s.cases();
+  if (s.mode === "batch" && cases.some((c) => c.env !== undefined)) die(`suite ${s.name}: a batch suite's cases cannot have their own env`);
   if (opts.filter) cases = cases.filter((c) => c.id.includes(opts.filter!));
+  const skipped = (s.skipped?.() ?? []).filter((k) => !opts.filter || k.id.includes(opts.filter));
   if (opts.sample) cases = sample(cases, opts.sample, opts.seed ?? process.env.RUST_TS_AGENT ?? "0");
   const impl = opts.impl ?? "port";
   const dir = ensureDir(join(RUNS, opts.runId ?? nowId()));
@@ -397,6 +427,7 @@ export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[
   const counts = Object.fromEntries(STATUSES.map((st) => [st, 0])) as Record<Status, number>;
   for (const r of results) counts[r.status]++;
   writeFileSync(join(dir, `${s.name}.jsonl`), results.map((r) => JSON.stringify(r)).join("\n") + "\n");
+  if (s.skipped) writeFileSync(join(dir, `${s.name}.skipped.jsonl`), skipped.map((k) => JSON.stringify(k) + "\n").join(""));
   const summary = {
     suite: s.name,
     impl,
@@ -406,9 +437,10 @@ export async function difftest(opts: RunOptions): Promise<{ results: CaseResult[
     filter: opts.filter ?? null,
     seconds: Math.round((performance.now() - started) / 1000),
     ...stats,
+    ...(s.skipped ? { skipped: skipped.length } : {}),
   };
   writeFileSync(join(dir, `${s.name}.summary.json`), JSON.stringify(summary, null, 2));
-  return { results, dir, counts, stats };
+  return { results, dir, counts, stats, skipped: s.skipped ? skipped.length : undefined };
 }
 
 if (import.meta.main) {
@@ -419,7 +451,7 @@ if (import.meta.main) {
     process.exit(0);
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
-  const { dir, counts, results, stats } = await difftest({
+  const { dir, counts, results, stats, skipped } = await difftest({
     suite: String(a.suite),
     sample: num("sample"),
     seed: typeof a.seed === "string" ? a.seed : undefined,
@@ -430,7 +462,7 @@ if (import.meta.main) {
     runId: typeof a["run-id"] === "string" ? a["run-id"] : undefined,
   });
   const pct = results.length ? ((100 * counts.MATCH) / results.length).toFixed(2) : "0";
-  console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}`);
+  console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}${skipped !== undefined ? ` skipped=${skipped}` : ""}`);
   if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
     console.log(`note: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s): a batch process failed at a case that passes alone (see ${a.suite}.summary.json)`);
   }

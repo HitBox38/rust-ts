@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { REPO, UPSTREAM } from "../scripts/lib/common.ts";
 import { oracleRustcCmd } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
+import { uiCases, type ErrorFormat } from "./compiletest.ts";
 
 export interface Case {
   /** Stable id; the protected set (harness/baseline) is a list of these. */
@@ -16,6 +17,17 @@ export interface Case {
    */
   file: string;
   args: string[];
+  /**
+   * Environment of both sides' processes, over the inherited one (`null` removes a variable). Part
+   * of the oracle cache key when present.
+   */
+  env?: Record<string, string | null>;
+}
+
+/** A test a suite does not run, with the reason (written next to each run's results). */
+export interface SkippedCase {
+  id: string;
+  reason: string;
 }
 
 export interface Suite {
@@ -31,6 +43,14 @@ export interface Suite {
   oracle(cases: Case[]): string[];
   subject(cases: Case[]): string[];
   timeoutMs: number;
+  /**
+   * Timeout of an oracle process, if not `timeoutMs`. An oracle process that times out is retried
+   * once with `ORACLE_RETRY_FACTOR` times the timeout; if it times out again the case is
+   * ORACLE_TIMEOUT (never cached, never MATCH).
+   */
+  oracleTimeoutMs?: number;
+  /** Tests this suite leaves out, with reasons (e.g. compiletest would ignore them on this host). */
+  skipped?(): SkippedCase[];
   /** Working directory of every command and base of `Case.file`; default: the upstream checkout. */
   cwd?: string;
   /** Probes (tools/probes/<name>) the oracle command runs; the gate checks they are built. */
@@ -240,6 +260,35 @@ SUITES.push(
     oracle: (cs) => [probePath("tokdump"), ...tokdumpArgs(cs)],
     subject: (cs) => [...bunCmd("src/rust_ts/tokdump.ts"), ...tokdumpArgs(cs)],
   },
+);
+
+// UI tests of the lexer and parser, run the way compiletest runs a UI test (harness/compiletest.ts:
+// its directives, revisions, ignores, env and full rustc argv) plus `-Zparse-crate-root-only`, so both
+// sides stop after parsing. One case per test and revision (`<file>#<revision>`). tests/ui/unicode
+// does not exist at the pin; unicode lexing tests live under tests/ui/lexer and tests/ui/parser.
+const UI_PARSE_DIRS = ["tests/ui/parser", "tests/ui/lexer", "tests/ui/frontmatter", "tests/ui/unicode"];
+const uiParseSuite = (name: string, format: ErrorFormat, description: string): Suite => ({
+  name,
+  milestone: "M1",
+  description,
+  mode: "single",
+  timeoutMs: 60_000,
+  cases: () => uiCases(UI_PARSE_DIRS, format).cases,
+  skipped: () => uiCases(UI_PARSE_DIRS, format).skipped,
+  oracle: ([c]) => oracleRustcCmd(c!.args),
+  subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+});
+SUITES.push(
+  uiParseSuite(
+    "parse-ui",
+    "human",
+    "rustc diagnostics (stderr, stdout, exit code) after parsing, on tests/ui/{parser,lexer,frontmatter} with compiletest's UI-test argv, env, directives and revisions, human-readable (compiletest's argv minus `--error-format json --json future-incompat`: the text its .stderr files hold) + -Zparse-crate-root-only",
+  ),
+  uiParseSuite(
+    "parse-ui-json",
+    "json",
+    "parse-ui with compiletest's exact UI-test argv, including its default `--error-format json --json future-incompat` (raw JSON diagnostics), + -Zparse-crate-root-only",
+  ),
 );
 
 export function suite(name: string): Suite {
