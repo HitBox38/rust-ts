@@ -1,0 +1,60 @@
+error[E0364]: `Q` is only public within the crate, and cannot be re-exported outside
+  --> reexport.rs:13:9
+   |
+13 | pub use a::Q;
+   |         ^^^^
+   |
+note: consider marking `Q` as `pub` in the imported module
+  --> reexport.rs:13:9
+   |
+13 | pub use a::Q;
+   |         ^^^^
+
+error[E0365]: `inner` is only public within the crate, and cannot be re-exported outside
+  --> reexport.rs:14:9
+   |
+14 | pub use a::inner;
+   |         ^^^^^^^^ re-export of crate public `inner`
+   |
+   = note: consider declaring type or module `inner` with `pub`
+
+error[E0364]: `q` is only public within the crate, and cannot be re-exported outside
+  --> reexport.rs:15:9
+   |
+15 | pub use a::q;
+   |         ^^^^
+   |
+note: consider marking `q` as `pub` in the imported module
+  --> reexport.rs:15:9
+   |
+15 | pub use a::q;
+   |         ^^^^
+
+error[E0364]: `mac` is only public within the crate, and cannot be re-exported outside
+  --> reexport.rs:16:9
+   |
+16 | pub use a::mac;
+   |         ^^^^^^
+   |
+note: consider marking `mac` as `pub` in the imported module
+  --> reexport.rs:16:9
+   |
+16 | pub use a::mac;
+   |         ^^^^^^
+
+error[E0603]: struct `P` is private
+  --> reexport.rs:12:12
+   |
+12 | pub use a::P;
+   |            ^ private struct
+   |
+note: the struct `P` is defined here
+  --> reexport.rs:4:5
+   |
+ 4 |     struct P;
+   |     ^^^^^^^^^
+
+error: aborting due to 5 previous errors
+
+Some errors have detailed explanations: E0364, E0365, E0603.
+For more information about an error, try `rustc --explain E0364`.

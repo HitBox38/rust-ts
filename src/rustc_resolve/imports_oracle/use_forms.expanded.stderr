@@ -1,0 +1,16 @@
+warning: unused import: `super::C`
+  --> use_forms.rs:10:24
+   |
+10 |         pub(crate) use super::C;
+   |                        ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `crate::a::Tr as _`
+  --> use_forms.rs:20:9
+   |
+20 |     use crate::a::Tr as _;
+   |         ^^^^^^^^^^^^^^^^^
+
+warning: 2 warnings emitted
+

@@ -1,0 +1,23 @@
+error[E0659]: `X` is ambiguous
+  --> glob_conflict.rs:11:18
+   |
+11 |     pub type T = X;
+   |                  ^ ambiguous name
+   |
+   = note: ambiguous because of multiple glob imports of a name in the same module
+note: `X` could refer to the struct imported here
+  --> glob_conflict.rs:9:9
+   |
+ 9 |     use crate::a::*;
+   |         ^^^^^^^^^^^
+   = help: consider adding an explicit import of `X` to disambiguate
+note: `X` could also refer to the struct imported here
+  --> glob_conflict.rs:10:9
+   |
+10 |     use crate::b::*;
+   |         ^^^^^^^^^^^
+   = help: consider adding an explicit import of `X` to disambiguate
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0659`.

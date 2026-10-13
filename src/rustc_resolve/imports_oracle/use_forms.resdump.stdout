@@ -1,0 +1,270 @@
+== visibilities_for_hashing (36)
+DefId(0:0 ~ use_forms[91f9]) Public
+DefId(0:1 ~ use_forms[91f9]::a) Public
+DefId(0:2 ~ use_forms[91f9]::a::B) Public
+DefId(0:2 ~ use_forms[91f9]::a::B) Public
+DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0}) Public
+DefId(0:4 ~ use_forms[91f9]::a::C) Public
+DefId(0:4 ~ use_forms[91f9]::a::C) Public
+DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0}) Public
+DefId(0:6 ~ use_forms[91f9]::a::f) Public
+DefId(0:7 ~ use_forms[91f9]::a::e) Public
+DefId(0:8 ~ use_forms[91f9]::a::e::F) Public
+DefId(0:8 ~ use_forms[91f9]::a::e::F) Public
+DefId(0:9 ~ use_forms[91f9]::a::e::F::{constructor#0}) Public
+DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}) Public
+DefId(0:11 ~ use_forms[91f9]::a::e::{use#1}) Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9])))
+DefId(0:12 ~ use_forms[91f9]::a::Tr) Public
+DefId(0:13 ~ use_forms[91f9]::m1) Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9])))
+DefId(0:14 ~ use_forms[91f9]::m1::{use#0}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:15 ~ use_forms[91f9]::m1::{use#1}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:16 ~ use_forms[91f9]::m1::{use#2}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:17 ~ use_forms[91f9]::m1::{use#2}::{use#0}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:18 ~ use_forms[91f9]::m1::{use#2}::{use#1}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:19 ~ use_forms[91f9]::m1::{use#2}::{use#2}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:20 ~ use_forms[91f9]::m1::{use#2}::{use#3}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:21 ~ use_forms[91f9]::m1::{use#3}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:22 ~ use_forms[91f9]::m1::{use#4}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:23 ~ use_forms[91f9]::m1::{use#5}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:24 ~ use_forms[91f9]::m1::inner) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:25 ~ use_forms[91f9]::m1::inner::G) Public
+DefId(0:25 ~ use_forms[91f9]::m1::inner::G) Public
+DefId(0:26 ~ use_forms[91f9]::m1::inner::G::{constructor#0}) Public
+DefId(0:27 ~ use_forms[91f9]::m1::X) Public
+DefId(0:28 ~ use_forms[91f9]::m1::g) Public
+DefId(0:29 ~ use_forms[91f9]::m1::g::{use#0}) Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1)))
+DefId(0:30 ~ use_forms[91f9]::{use#0}) Public
+DefId(0:31 ~ use_forms[91f9]::{use#1}) Public
+== expn_that_defined (0)
+== effective_visibilities (30)
+DefId(0:0 ~ use_forms[91f9]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:1 ~ use_forms[91f9]::a) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:2 ~ use_forms[91f9]::a::B) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:4 ~ use_forms[91f9]::a::C) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:6 ~ use_forms[91f9]::a::f) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:7 ~ use_forms[91f9]::a::e) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:12 ~ use_forms[91f9]::a::Tr) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:8 ~ use_forms[91f9]::a::e::F) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:9 ~ use_forms[91f9]::a::e::F::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:25 ~ use_forms[91f9]::m1::inner::G) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:26 ~ use_forms[91f9]::m1::inner::G::{constructor#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:13 ~ use_forms[91f9]::m1) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))) }
+DefId(0:27 ~ use_forms[91f9]::m1::X) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))) }
+DefId(0:28 ~ use_forms[91f9]::m1::g) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))) }
+DefId(0:24 ~ use_forms[91f9]::m1::inner) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:30 ~ use_forms[91f9]::{use#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:31 ~ use_forms[91f9]::{use#1}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:11 ~ use_forms[91f9]::a::e::{use#1}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_forms[91f9]))) }
+DefId(0:14 ~ use_forms[91f9]::m1::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:15 ~ use_forms[91f9]::m1::{use#1}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:17 ~ use_forms[91f9]::m1::{use#2}::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:16 ~ use_forms[91f9]::m1::{use#2}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:19 ~ use_forms[91f9]::m1::{use#2}::{use#2}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:20 ~ use_forms[91f9]::m1::{use#2}::{use#3}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:22 ~ use_forms[91f9]::m1::{use#4}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:21 ~ use_forms[91f9]::m1::{use#3}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+DefId(0:23 ~ use_forms[91f9]::m1::{use#5}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexported: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:13 ~ use_forms[91f9]::m1))) }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (5)
+DefId(0:0 ~ use_forms[91f9])
+  ModChild { ident: a#0, res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), vis: Public, reexport_chain: [] }
+  ModChild { ident: m1#0, res: Def(Mod, DefId(0:13 ~ use_forms[91f9]::m1)), vis: Restricted(ModId(DefId(0:0 ~ use_forms[91f9]))), reexport_chain: [] }
+  ModChild { ident: Reexported#0, res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), vis: Public, reexport_chain: [Single(DefId(0:30 ~ use_forms[91f9]::{use#0})), Single(DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}))] }
+  ModChild { ident: Reexported#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0})), vis: Public, reexport_chain: [Single(DefId(0:30 ~ use_forms[91f9]::{use#0})), Single(DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}))] }
+  ModChild { ident: B#0, res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), vis: Public, reexport_chain: [Glob(DefId(0:31 ~ use_forms[91f9]::{use#1}))] }
+  ModChild { ident: B#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:31 ~ use_forms[91f9]::{use#1}))] }
+  ModChild { ident: C#0, res: Def(Struct, DefId(0:4 ~ use_forms[91f9]::a::C)), vis: Public, reexport_chain: [Glob(DefId(0:31 ~ use_forms[91f9]::{use#1}))] }
+  ModChild { ident: C#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0})), vis: Public, reexport_chain: [Glob(DefId(0:31 ~ use_forms[91f9]::{use#1}))] }
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:6 ~ use_forms[91f9]::a::f)), vis: Public, reexport_chain: [Glob(DefId(0:31 ~ use_forms[91f9]::{use#1}))] }
+  ModChild { ident: e#0, res: Def(Mod, DefId(0:7 ~ use_forms[91f9]::a::e)), vis: Public, reexport_chain: [Glob(DefId(0:31 ~ use_forms[91f9]::{use#1}))] }
+  ModChild { ident: Tr#0, res: Def(Trait, DefId(0:12 ~ use_forms[91f9]::a::Tr)), vis: Public, reexport_chain: [Glob(DefId(0:31 ~ use_forms[91f9]::{use#1}))] }
+DefId(0:1 ~ use_forms[91f9]::a)
+  ModChild { ident: B#0, res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), vis: Public, reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Struct, DefId(0:4 ~ use_forms[91f9]::a::C)), vis: Public, reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:6 ~ use_forms[91f9]::a::f)), vis: Public, reexport_chain: [] }
+  ModChild { ident: e#0, res: Def(Mod, DefId(0:7 ~ use_forms[91f9]::a::e)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Tr#0, res: Def(Trait, DefId(0:12 ~ use_forms[91f9]::a::Tr)), vis: Public, reexport_chain: [] }
+DefId(0:7 ~ use_forms[91f9]::a::e)
+  ModChild { ident: F#0, res: Def(Struct, DefId(0:8 ~ use_forms[91f9]::a::e::F)), vis: Public, reexport_chain: [] }
+  ModChild { ident: F#0, res: Def(Ctor(Struct, Const), DefId(0:9 ~ use_forms[91f9]::a::e::F::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: BB#0, res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), vis: Public, reexport_chain: [Single(DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}))] }
+  ModChild { ident: BB#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0})), vis: Public, reexport_chain: [Single(DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}))] }
+  ModChild { ident: C#0, res: Def(Struct, DefId(0:4 ~ use_forms[91f9]::a::C)), vis: Restricted(ModId(DefId(0:0 ~ use_forms[91f9]))), reexport_chain: [Single(DefId(0:11 ~ use_forms[91f9]::a::e::{use#1}))] }
+  ModChild { ident: C#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ use_forms[91f9]))), reexport_chain: [Single(DefId(0:11 ~ use_forms[91f9]::a::e::{use#1}))] }
+DefId(0:13 ~ use_forms[91f9]::m1)
+  ModChild { ident: B#0, res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:14 ~ use_forms[91f9]::m1::{use#0}))] }
+  ModChild { ident: B#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0})), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:14 ~ use_forms[91f9]::m1::{use#0}))] }
+  ModChild { ident: C2#0, res: Def(Struct, DefId(0:4 ~ use_forms[91f9]::a::C)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:15 ~ use_forms[91f9]::m1::{use#1}))] }
+  ModChild { ident: C2#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0})), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:15 ~ use_forms[91f9]::m1::{use#1}))] }
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:6 ~ use_forms[91f9]::a::f)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:17 ~ use_forms[91f9]::m1::{use#2}::{use#0}))] }
+  ModChild { ident: e#0, res: Def(Mod, DefId(0:7 ~ use_forms[91f9]::a::e)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:19 ~ use_forms[91f9]::m1::{use#2}::{use#2}))] }
+  ModChild { ident: F#0, res: Def(Struct, DefId(0:8 ~ use_forms[91f9]::a::e::F)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:20 ~ use_forms[91f9]::m1::{use#2}::{use#3}))] }
+  ModChild { ident: F#0, res: Def(Ctor(Struct, Const), DefId(0:9 ~ use_forms[91f9]::a::e::F::{constructor#0})), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:20 ~ use_forms[91f9]::m1::{use#2}::{use#3}))] }
+  ModChild { ident: G#0, res: Def(Struct, DefId(0:25 ~ use_forms[91f9]::m1::inner::G)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:22 ~ use_forms[91f9]::m1::{use#4}))] }
+  ModChild { ident: G#0, res: Def(Ctor(Struct, Const), DefId(0:26 ~ use_forms[91f9]::m1::inner::G::{constructor#0})), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:22 ~ use_forms[91f9]::m1::{use#4}))] }
+  ModChild { ident: inner#0, res: Def(Mod, DefId(0:24 ~ use_forms[91f9]::m1::inner)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [] }
+  ModChild { ident: X#0, res: Def(TyAlias, DefId(0:27 ~ use_forms[91f9]::m1::X)), vis: Public, reexport_chain: [] }
+  ModChild { ident: g#0, res: Def(Fn, DefId(0:28 ~ use_forms[91f9]::m1::g)), vis: Public, reexport_chain: [] }
+  ModChild { ident: BB#0, res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Glob(DefId(0:21 ~ use_forms[91f9]::m1::{use#3})), Single(DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}))] }
+  ModChild { ident: BB#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0})), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Glob(DefId(0:21 ~ use_forms[91f9]::m1::{use#3})), Single(DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}))] }
+  ModChild { ident: C#0, res: Def(Struct, DefId(0:4 ~ use_forms[91f9]::a::C)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Glob(DefId(0:21 ~ use_forms[91f9]::m1::{use#3})), Single(DefId(0:11 ~ use_forms[91f9]::a::e::{use#1}))] }
+  ModChild { ident: C#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0})), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Glob(DefId(0:21 ~ use_forms[91f9]::m1::{use#3})), Single(DefId(0:11 ~ use_forms[91f9]::a::e::{use#1}))] }
+  ModChild { ident: _#0, res: Def(Trait, DefId(0:12 ~ use_forms[91f9]::a::Tr)), vis: Restricted(ModId(DefId(0:13 ~ use_forms[91f9]::m1))), reexport_chain: [Single(DefId(0:23 ~ use_forms[91f9]::m1::{use#5}))] }
+DefId(0:24 ~ use_forms[91f9]::m1::inner)
+  ModChild { ident: G#0, res: Def(Struct, DefId(0:25 ~ use_forms[91f9]::m1::inner::G)), vis: Public, reexport_chain: [] }
+  ModChild { ident: G#0, res: Def(Ctor(Struct, Const), DefId(0:26 ~ use_forms[91f9]::m1::inner::G::{constructor#0})), vis: Public, reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (1)
+DefId(0:21 ~ use_forms[91f9]::m1::{use#3}) ["BB"]
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(96)
+== partial_res_map (37)
+NodeId(24) PartialRes { base_res: Def(Mod, DefId(0:0 ~ use_forms[91f9])), unresolved_segments: 0 }
+NodeId(25) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), unresolved_segments: 0 }
+NodeId(28) PartialRes { base_res: Def(Mod, DefId(0:0 ~ use_forms[91f9])), unresolved_segments: 0 }
+NodeId(29) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), unresolved_segments: 0 }
+NodeId(32) PartialRes { base_res: Def(Mod, DefId(0:0 ~ use_forms[91f9])), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), unresolved_segments: 0 }
+NodeId(36) PartialRes { base_res: Def(Mod, DefId(0:7 ~ use_forms[91f9]::a::e)), unresolved_segments: 0 }
+NodeId(42) PartialRes { base_res: Def(Mod, DefId(0:7 ~ use_forms[91f9]::a::e)), unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), unresolved_segments: 0 }
+NodeId(45) PartialRes { base_res: Def(Mod, DefId(0:7 ~ use_forms[91f9]::a::e)), unresolved_segments: 0 }
+NodeId(47) PartialRes { base_res: Def(Mod, DefId(0:13 ~ use_forms[91f9]::m1)), unresolved_segments: 0 }
+NodeId(48) PartialRes { base_res: Def(Mod, DefId(0:24 ~ use_forms[91f9]::m1::inner)), unresolved_segments: 0 }
+NodeId(51) PartialRes { base_res: Def(Mod, DefId(0:0 ~ use_forms[91f9])), unresolved_segments: 0 }
+NodeId(52) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), unresolved_segments: 0 }
+NodeId(59) PartialRes { base_res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), unresolved_segments: 0 }
+NodeId(60) PartialRes { base_res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), unresolved_segments: 0 }
+NodeId(61) PartialRes { base_res: Def(Struct, DefId(0:4 ~ use_forms[91f9]::a::C)), unresolved_segments: 0 }
+NodeId(62) PartialRes { base_res: Def(Struct, DefId(0:4 ~ use_forms[91f9]::a::C)), unresolved_segments: 0 }
+NodeId(63) PartialRes { base_res: Def(Struct, DefId(0:8 ~ use_forms[91f9]::a::e::F)), unresolved_segments: 0 }
+NodeId(64) PartialRes { base_res: Def(Struct, DefId(0:8 ~ use_forms[91f9]::a::e::F)), unresolved_segments: 0 }
+NodeId(65) PartialRes { base_res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), unresolved_segments: 0 }
+NodeId(66) PartialRes { base_res: Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B)), unresolved_segments: 0 }
+NodeId(67) PartialRes { base_res: Def(Struct, DefId(0:25 ~ use_forms[91f9]::m1::inner::G)), unresolved_segments: 0 }
+NodeId(68) PartialRes { base_res: Def(Struct, DefId(0:25 ~ use_forms[91f9]::m1::inner::G)), unresolved_segments: 0 }
+NodeId(72) PartialRes { base_res: Def(Mod, DefId(0:0 ~ use_forms[91f9])), unresolved_segments: 0 }
+NodeId(73) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), unresolved_segments: 0 }
+NodeId(77) PartialRes { base_res: Def(Fn, DefId(0:6 ~ use_forms[91f9]::a::f)), unresolved_segments: 0 }
+NodeId(78) PartialRes { base_res: Def(Fn, DefId(0:6 ~ use_forms[91f9]::a::f)), unresolved_segments: 0 }
+NodeId(81) PartialRes { base_res: Def(Fn, DefId(0:6 ~ use_forms[91f9]::a::f)), unresolved_segments: 0 }
+NodeId(82) PartialRes { base_res: Def(Fn, DefId(0:6 ~ use_forms[91f9]::a::f)), unresolved_segments: 0 }
+NodeId(86) PartialRes { base_res: Def(Ctor(Struct, Const), DefId(0:9 ~ use_forms[91f9]::a::e::F::{constructor#0})), unresolved_segments: 0 }
+NodeId(87) PartialRes { base_res: Def(Mod, DefId(0:7 ~ use_forms[91f9]::a::e)), unresolved_segments: 0 }
+NodeId(88) PartialRes { base_res: Def(Ctor(Struct, Const), DefId(0:9 ~ use_forms[91f9]::a::e::F::{constructor#0})), unresolved_segments: 0 }
+NodeId(91) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), unresolved_segments: 0 }
+NodeId(92) PartialRes { base_res: Def(Mod, DefId(0:7 ~ use_forms[91f9]::a::e)), unresolved_segments: 0 }
+NodeId(94) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), unresolved_segments: 0 }
+NodeId(95) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_forms[91f9]::a)), unresolved_segments: 0 }
+== owners (24)
+NodeId(0) def_id=DefId(0:0 ~ use_forms[91f9]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ use_forms[91f9]::a) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:2 ~ use_forms[91f9]::a::B) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(5) DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0})
+NodeId(6) def_id=DefId(0:4 ~ use_forms[91f9]::a::C) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(7) DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0})
+NodeId(8) def_id=DefId(0:6 ~ use_forms[91f9]::a::f) lifetime_elision_allowed=false
+NodeId(10) def_id=DefId(0:7 ~ use_forms[91f9]::a::e) lifetime_elision_allowed=false
+NodeId(11) def_id=DefId(0:8 ~ use_forms[91f9]::a::e::F) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(12) DefId(0:9 ~ use_forms[91f9]::a::e::F::{constructor#0})
+NodeId(13) def_id=DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}) lifetime_elision_allowed=false
+  import_res NodeId(13) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B))), macro_ns: None }
+NodeId(16) def_id=DefId(0:11 ~ use_forms[91f9]::a::e::{use#1}) lifetime_elision_allowed=false
+  import_res NodeId(16) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:4 ~ use_forms[91f9]::a::C))), macro_ns: None }
+NodeId(21) def_id=DefId(0:12 ~ use_forms[91f9]::a::Tr) lifetime_elision_allowed=false
+NodeId(22) def_id=DefId(0:13 ~ use_forms[91f9]::m1) lifetime_elision_allowed=false
+NodeId(23) def_id=DefId(0:14 ~ use_forms[91f9]::m1::{use#0}) lifetime_elision_allowed=false
+  import_res NodeId(23) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B))), macro_ns: None }
+NodeId(27) def_id=DefId(0:15 ~ use_forms[91f9]::m1::{use#1}) lifetime_elision_allowed=false
+  import_res NodeId(27) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:4 ~ use_forms[91f9]::a::C))), macro_ns: None }
+NodeId(31) def_id=DefId(0:16 ~ use_forms[91f9]::m1::{use#2}) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(35) DefId(0:17 ~ use_forms[91f9]::m1::{use#2}::{use#0})
+  node_id_to_def_id NodeId(38) DefId(0:19 ~ use_forms[91f9]::m1::{use#2}::{use#2})
+  node_id_to_def_id NodeId(40) DefId(0:20 ~ use_forms[91f9]::m1::{use#2}::{use#3})
+  node_id_to_def_id NodeId(41) DefId(0:18 ~ use_forms[91f9]::m1::{use#2}::{use#1})
+  import_res NodeId(35) PerNS { value_ns: Some(Def(Fn, DefId(0:6 ~ use_forms[91f9]::a::f))), type_ns: None, macro_ns: None }
+  import_res NodeId(38) PerNS { value_ns: None, type_ns: Some(Def(Mod, DefId(0:7 ~ use_forms[91f9]::a::e))), macro_ns: None }
+  import_res NodeId(40) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:9 ~ use_forms[91f9]::a::e::F::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:8 ~ use_forms[91f9]::a::e::F))), macro_ns: None }
+NodeId(42) def_id=DefId(0:21 ~ use_forms[91f9]::m1::{use#3}) lifetime_elision_allowed=false
+NodeId(46) def_id=DefId(0:22 ~ use_forms[91f9]::m1::{use#4}) lifetime_elision_allowed=false
+  import_res NodeId(46) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:26 ~ use_forms[91f9]::m1::inner::G::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:25 ~ use_forms[91f9]::m1::inner::G))), macro_ns: None }
+NodeId(50) def_id=DefId(0:23 ~ use_forms[91f9]::m1::{use#5}) lifetime_elision_allowed=false
+  import_res NodeId(50) PerNS { value_ns: None, type_ns: Some(Def(Trait, DefId(0:12 ~ use_forms[91f9]::a::Tr))), macro_ns: None }
+NodeId(54) def_id=DefId(0:24 ~ use_forms[91f9]::m1::inner) lifetime_elision_allowed=false
+NodeId(55) def_id=DefId(0:25 ~ use_forms[91f9]::m1::inner::G) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(56) DefId(0:26 ~ use_forms[91f9]::m1::inner::G::{constructor#0})
+NodeId(57) def_id=DefId(0:27 ~ use_forms[91f9]::m1::X) lifetime_elision_allowed=false
+NodeId(69) def_id=DefId(0:28 ~ use_forms[91f9]::m1::g) lifetime_elision_allowed=false
+NodeId(71) def_id=DefId(0:29 ~ use_forms[91f9]::m1::g::{use#0}) lifetime_elision_allowed=false
+  import_res NodeId(71) PerNS { value_ns: Some(Def(Fn, DefId(0:6 ~ use_forms[91f9]::a::f))), type_ns: None, macro_ns: None }
+NodeId(90) def_id=DefId(0:30 ~ use_forms[91f9]::{use#0}) lifetime_elision_allowed=false
+  import_res NodeId(90) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:2 ~ use_forms[91f9]::a::B))), macro_ns: None }
+NodeId(94) def_id=DefId(0:31 ~ use_forms[91f9]::{use#1}) lifetime_elision_allowed=false
+== lint_buffer (3)
+NodeId(16) UNUSED_IMPORTS [use_forms.rs:10:24: 10:32 (#0)]
+NodeId(50) UNUSED_IMPORTS [use_forms.rs:20:9: 20:26 (#0)]
+NodeId(40) REDUNDANT_IMPORTS [use_forms.rs:17:33: 17:34 (#0)]
+== disambiguators (11)
+DefId(0:0 ~ use_forms[91f9])
+DefId(0:1 ~ use_forms[91f9]::a)
+DefId(0:2 ~ use_forms[91f9]::a::B)
+DefId(0:4 ~ use_forms[91f9]::a::C)
+DefId(0:7 ~ use_forms[91f9]::a::e)
+DefId(0:8 ~ use_forms[91f9]::a::e::F)
+DefId(0:13 ~ use_forms[91f9]::m1)
+DefId(0:16 ~ use_forms[91f9]::m1::{use#2})
+DefId(0:24 ~ use_forms[91f9]::m1::inner)
+DefId(0:25 ~ use_forms[91f9]::m1::inner::G)
+DefId(0:28 ~ use_forms[91f9]::m1::g)
+== definitions (32)
+DefId(0:0 ~ use_forms[91f9]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 10518627298416352386))
+DefId(0:1 ~ use_forms[91f9]::a) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("a"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 8445227107454586215))
+DefId(0:2 ~ use_forms[91f9]::a::B) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("B"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 6259178785343958089))
+DefId(0:3 ~ use_forms[91f9]::a::B::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 13200056798341378751))
+DefId(0:4 ~ use_forms[91f9]::a::C) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 13287147308349995439))
+DefId(0:5 ~ use_forms[91f9]::a::C::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 5012242543311300773))
+DefId(0:6 ~ use_forms[91f9]::a::f) Fn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 4729504555824215463))
+DefId(0:7 ~ use_forms[91f9]::a::e) Mod DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("e"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 3714856189404808767))
+DefId(0:8 ~ use_forms[91f9]::a::e::F) Struct DefKey { parent: Some(DefIndex(7)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("F"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 95911683353610459))
+DefId(0:9 ~ use_forms[91f9]::a::e::F::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 5016275007067081730))
+DefId(0:10 ~ use_forms[91f9]::a::e::{use#0}) Use DefKey { parent: Some(DefIndex(7)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 13779311434037730438))
+DefId(0:11 ~ use_forms[91f9]::a::e::{use#1}) Use DefKey { parent: Some(DefIndex(7)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(10518627298416352386, 1223787713933668774))
+DefId(0:12 ~ use_forms[91f9]::a::Tr) Trait DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Tr"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 8075103258506870185))
+DefId(0:13 ~ use_forms[91f9]::m1) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("m1"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 9850547975524445195))
+DefId(0:14 ~ use_forms[91f9]::m1::{use#0}) Use DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 18251349096806669443))
+DefId(0:15 ~ use_forms[91f9]::m1::{use#1}) Use DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(10518627298416352386, 14919368641203130111))
+DefId(0:16 ~ use_forms[91f9]::m1::{use#2}) Use DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 2 } } DefPathHash(Fingerprint(10518627298416352386, 12589561570147674957))
+DefId(0:17 ~ use_forms[91f9]::m1::{use#2}::{use#0}) Use DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 10208831353828280402))
+DefId(0:18 ~ use_forms[91f9]::m1::{use#2}::{use#1}) Use DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(10518627298416352386, 9169388892714881692))
+DefId(0:19 ~ use_forms[91f9]::m1::{use#2}::{use#2}) Use DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 2 } } DefPathHash(Fingerprint(10518627298416352386, 820585400796710175))
+DefId(0:20 ~ use_forms[91f9]::m1::{use#2}::{use#3}) Use DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 3 } } DefPathHash(Fingerprint(10518627298416352386, 10938333029102476215))
+DefId(0:21 ~ use_forms[91f9]::m1::{use#3}) Use DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 3 } } DefPathHash(Fingerprint(10518627298416352386, 8721130099657568762))
+DefId(0:22 ~ use_forms[91f9]::m1::{use#4}) Use DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 4 } } DefPathHash(Fingerprint(10518627298416352386, 2986125586282986814))
+DefId(0:23 ~ use_forms[91f9]::m1::{use#5}) Use DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 5 } } DefPathHash(Fingerprint(10518627298416352386, 3715335452510366882))
+DefId(0:24 ~ use_forms[91f9]::m1::inner) Mod DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("inner"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 8670664333781161296))
+DefId(0:25 ~ use_forms[91f9]::m1::inner::G) Struct DefKey { parent: Some(DefIndex(24)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("G"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 7364195014285596082))
+DefId(0:26 ~ use_forms[91f9]::m1::inner::G::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(25)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 15742364081776136879))
+DefId(0:27 ~ use_forms[91f9]::m1::X) TyAlias DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("X"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 6184898527600329903))
+DefId(0:28 ~ use_forms[91f9]::m1::g) Fn DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("g"), disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 638368653264136126))
+DefId(0:29 ~ use_forms[91f9]::m1::g::{use#0}) Use DefKey { parent: Some(DefIndex(28)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 14443348127070924291))
+DefId(0:30 ~ use_forms[91f9]::{use#0}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(10518627298416352386, 559076925613664770))
+DefId(0:31 ~ use_forms[91f9]::{use#1}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(10518627298416352386, 920716839558429329))

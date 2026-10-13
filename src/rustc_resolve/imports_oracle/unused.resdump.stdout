@@ -1,0 +1,228 @@
+== visibilities_for_hashing (30)
+DefId(0:0 ~ unused[cfec]) Public
+DefId(0:1 ~ unused[cfec]::a) Public
+DefId(0:2 ~ unused[cfec]::a::B) Public
+DefId(0:2 ~ unused[cfec]::a::B) Public
+DefId(0:3 ~ unused[cfec]::a::B::{constructor#0}) Public
+DefId(0:4 ~ unused[cfec]::a::C) Public
+DefId(0:4 ~ unused[cfec]::a::C) Public
+DefId(0:5 ~ unused[cfec]::a::C::{constructor#0}) Public
+DefId(0:6 ~ unused[cfec]::a::D) Public
+DefId(0:6 ~ unused[cfec]::a::D) Public
+DefId(0:7 ~ unused[cfec]::a::D::{constructor#0}) Public
+DefId(0:8 ~ unused[cfec]::{use#0}) Restricted(LocalModId(DefId(0:0 ~ unused[cfec])))
+DefId(0:9 ~ unused[cfec]::m1) Restricted(LocalModId(DefId(0:0 ~ unused[cfec])))
+DefId(0:10 ~ unused[cfec]::m1::{use#0}) Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1)))
+DefId(0:11 ~ unused[cfec]::m1::{use#0}::{use#0}) Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1)))
+DefId(0:12 ~ unused[cfec]::m1::{use#0}::{use#1}) Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1)))
+DefId(0:13 ~ unused[cfec]::m1::{use#0}::{use#2}) Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1)))
+DefId(0:14 ~ unused[cfec]::m1::X) Public
+DefId(0:15 ~ unused[cfec]::m2) Restricted(LocalModId(DefId(0:0 ~ unused[cfec])))
+DefId(0:16 ~ unused[cfec]::m2::{use#0}) Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2)))
+DefId(0:17 ~ unused[cfec]::m2::{use#1}) Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2)))
+DefId(0:18 ~ unused[cfec]::m2::Y) Public
+DefId(0:19 ~ unused[cfec]::tests) Restricted(LocalModId(DefId(0:0 ~ unused[cfec])))
+DefId(0:20 ~ unused[cfec]::tests::{use#0}) Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests)))
+DefId(0:21 ~ unused[cfec]::tests::{use#1}) Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests)))
+DefId(0:22 ~ unused[cfec]::tests::{use#1}::{use#0}) Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests)))
+DefId(0:23 ~ unused[cfec]::m3) Restricted(LocalModId(DefId(0:0 ~ unused[cfec])))
+DefId(0:24 ~ unused[cfec]::m3::{use#0}) Restricted(LocalModId(DefId(0:23 ~ unused[cfec]::m3)))
+DefId(0:25 ~ unused[cfec]::m3::Z) Public
+DefId(0:26 ~ unused[cfec]::m3::Z2) Public
+== expn_that_defined (0)
+== effective_visibilities (26)
+DefId(0:0 ~ unused[cfec]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:1 ~ unused[cfec]::a) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:2 ~ unused[cfec]::a::B) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:3 ~ unused[cfec]::a::B::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:4 ~ unused[cfec]::a::C) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:5 ~ unused[cfec]::a::C::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:6 ~ unused[cfec]::a::D) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:7 ~ unused[cfec]::a::D::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:9 ~ unused[cfec]::m1) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reexported: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))) }
+DefId(0:14 ~ unused[cfec]::m1::X) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reexported: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))) }
+DefId(0:15 ~ unused[cfec]::m2) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reexported: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))) }
+DefId(0:18 ~ unused[cfec]::m2::Y) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reexported: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))) }
+DefId(0:23 ~ unused[cfec]::m3) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reexported: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))) }
+DefId(0:25 ~ unused[cfec]::m3::Z) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reexported: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))) }
+DefId(0:26 ~ unused[cfec]::m3::Z2) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reexported: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))) }
+DefId(0:8 ~ unused[cfec]::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reexported: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ unused[cfec]))) }
+DefId(0:11 ~ unused[cfec]::m1::{use#0}::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reexported: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reachable: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))) }
+DefId(0:10 ~ unused[cfec]::m1::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reexported: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reachable: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))) }
+DefId(0:12 ~ unused[cfec]::m1::{use#0}::{use#1}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reexported: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reachable: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))) }
+DefId(0:13 ~ unused[cfec]::m1::{use#0}::{use#2}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reexported: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reachable: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:9 ~ unused[cfec]::m1))) }
+DefId(0:16 ~ unused[cfec]::m2::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2))), reexported: Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2))), reachable: Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2))) }
+DefId(0:17 ~ unused[cfec]::m2::{use#1}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2))), reexported: Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2))), reachable: Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:15 ~ unused[cfec]::m2))) }
+DefId(0:22 ~ unused[cfec]::tests::{use#1}::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))), reexported: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))), reachable: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))) }
+DefId(0:21 ~ unused[cfec]::tests::{use#1}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))), reexported: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))), reachable: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))) }
+DefId(0:20 ~ unused[cfec]::tests::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))), reexported: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))), reachable: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:19 ~ unused[cfec]::tests))) }
+DefId(0:24 ~ unused[cfec]::m3::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:23 ~ unused[cfec]::m3))), reexported: Restricted(LocalModId(DefId(0:23 ~ unused[cfec]::m3))), reachable: Restricted(LocalModId(DefId(0:23 ~ unused[cfec]::m3))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:23 ~ unused[cfec]::m3))) }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (6)
+DefId(0:0 ~ unused[cfec])
+  ModChild { ident: a#0, res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), vis: Public, reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Struct, DefId(0:2 ~ unused[cfec]::a::B)), vis: Restricted(ModId(DefId(0:0 ~ unused[cfec]))), reexport_chain: [Single(DefId(0:8 ~ unused[cfec]::{use#0}))] }
+  ModChild { ident: B#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ unused[cfec]))), reexport_chain: [Single(DefId(0:8 ~ unused[cfec]::{use#0}))] }
+  ModChild { ident: m1#0, res: Def(Mod, DefId(0:9 ~ unused[cfec]::m1)), vis: Restricted(ModId(DefId(0:0 ~ unused[cfec]))), reexport_chain: [] }
+  ModChild { ident: m2#0, res: Def(Mod, DefId(0:15 ~ unused[cfec]::m2)), vis: Restricted(ModId(DefId(0:0 ~ unused[cfec]))), reexport_chain: [] }
+  ModChild { ident: tests#0, res: Def(Mod, DefId(0:19 ~ unused[cfec]::tests)), vis: Restricted(ModId(DefId(0:0 ~ unused[cfec]))), reexport_chain: [] }
+  ModChild { ident: m3#0, res: Def(Mod, DefId(0:23 ~ unused[cfec]::m3)), vis: Restricted(ModId(DefId(0:0 ~ unused[cfec]))), reexport_chain: [] }
+DefId(0:1 ~ unused[cfec]::a)
+  ModChild { ident: B#0, res: Def(Struct, DefId(0:2 ~ unused[cfec]::a::B)), vis: Public, reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), vis: Public, reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ unused[cfec]::a::C::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: D#0, res: Def(Struct, DefId(0:6 ~ unused[cfec]::a::D)), vis: Public, reexport_chain: [] }
+  ModChild { ident: D#0, res: Def(Ctor(Struct, Const), DefId(0:7 ~ unused[cfec]::a::D::{constructor#0})), vis: Public, reexport_chain: [] }
+DefId(0:9 ~ unused[cfec]::m1)
+  ModChild { ident: B#0, res: Def(Struct, DefId(0:2 ~ unused[cfec]::a::B)), vis: Restricted(ModId(DefId(0:9 ~ unused[cfec]::m1))), reexport_chain: [Single(DefId(0:11 ~ unused[cfec]::m1::{use#0}::{use#0}))] }
+  ModChild { ident: B#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0})), vis: Restricted(ModId(DefId(0:9 ~ unused[cfec]::m1))), reexport_chain: [Single(DefId(0:11 ~ unused[cfec]::m1::{use#0}::{use#0}))] }
+  ModChild { ident: C#0, res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), vis: Restricted(ModId(DefId(0:9 ~ unused[cfec]::m1))), reexport_chain: [Single(DefId(0:12 ~ unused[cfec]::m1::{use#0}::{use#1}))] }
+  ModChild { ident: C#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ unused[cfec]::a::C::{constructor#0})), vis: Restricted(ModId(DefId(0:9 ~ unused[cfec]::m1))), reexport_chain: [Single(DefId(0:12 ~ unused[cfec]::m1::{use#0}::{use#1}))] }
+  ModChild { ident: D#0, res: Def(Struct, DefId(0:6 ~ unused[cfec]::a::D)), vis: Restricted(ModId(DefId(0:9 ~ unused[cfec]::m1))), reexport_chain: [Single(DefId(0:13 ~ unused[cfec]::m1::{use#0}::{use#2}))] }
+  ModChild { ident: D#0, res: Def(Ctor(Struct, Const), DefId(0:7 ~ unused[cfec]::a::D::{constructor#0})), vis: Restricted(ModId(DefId(0:9 ~ unused[cfec]::m1))), reexport_chain: [Single(DefId(0:13 ~ unused[cfec]::m1::{use#0}::{use#2}))] }
+  ModChild { ident: X#0, res: Def(TyAlias, DefId(0:14 ~ unused[cfec]::m1::X)), vis: Public, reexport_chain: [] }
+DefId(0:15 ~ unused[cfec]::m2)
+  ModChild { ident: B#0, res: Def(Struct, DefId(0:2 ~ unused[cfec]::a::B)), vis: Restricted(ModId(DefId(0:15 ~ unused[cfec]::m2))), reexport_chain: [Single(DefId(0:16 ~ unused[cfec]::m2::{use#0}))] }
+  ModChild { ident: B#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0})), vis: Restricted(ModId(DefId(0:15 ~ unused[cfec]::m2))), reexport_chain: [Single(DefId(0:16 ~ unused[cfec]::m2::{use#0}))] }
+  ModChild { ident: B2#0, res: Def(Struct, DefId(0:2 ~ unused[cfec]::a::B)), vis: Restricted(ModId(DefId(0:15 ~ unused[cfec]::m2))), reexport_chain: [Single(DefId(0:17 ~ unused[cfec]::m2::{use#1}))] }
+  ModChild { ident: B2#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0})), vis: Restricted(ModId(DefId(0:15 ~ unused[cfec]::m2))), reexport_chain: [Single(DefId(0:17 ~ unused[cfec]::m2::{use#1}))] }
+  ModChild { ident: Y#0, res: Def(TyAlias, DefId(0:18 ~ unused[cfec]::m2::Y)), vis: Public, reexport_chain: [] }
+DefId(0:19 ~ unused[cfec]::tests)
+  ModChild { ident: C#0, res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), vis: Restricted(ModId(DefId(0:19 ~ unused[cfec]::tests))), reexport_chain: [Single(DefId(0:22 ~ unused[cfec]::tests::{use#1}::{use#0}))] }
+  ModChild { ident: C#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ unused[cfec]::a::C::{constructor#0})), vis: Restricted(ModId(DefId(0:19 ~ unused[cfec]::tests))), reexport_chain: [Single(DefId(0:22 ~ unused[cfec]::tests::{use#1}::{use#0}))] }
+  ModChild { ident: B#0, res: Def(Struct, DefId(0:2 ~ unused[cfec]::a::B)), vis: Restricted(ModId(DefId(0:19 ~ unused[cfec]::tests))), reexport_chain: [Glob(DefId(0:20 ~ unused[cfec]::tests::{use#0}))] }
+  ModChild { ident: B#0, res: Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0})), vis: Restricted(ModId(DefId(0:19 ~ unused[cfec]::tests))), reexport_chain: [Glob(DefId(0:20 ~ unused[cfec]::tests::{use#0}))] }
+  ModChild { ident: D#0, res: Def(Struct, DefId(0:6 ~ unused[cfec]::a::D)), vis: Restricted(ModId(DefId(0:19 ~ unused[cfec]::tests))), reexport_chain: [Glob(DefId(0:20 ~ unused[cfec]::tests::{use#0}))] }
+  ModChild { ident: D#0, res: Def(Ctor(Struct, Const), DefId(0:7 ~ unused[cfec]::a::D::{constructor#0})), vis: Restricted(ModId(DefId(0:19 ~ unused[cfec]::tests))), reexport_chain: [Glob(DefId(0:20 ~ unused[cfec]::tests::{use#0}))] }
+DefId(0:23 ~ unused[cfec]::m3)
+  ModChild { ident: C#0, res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), vis: Restricted(ModId(DefId(0:23 ~ unused[cfec]::m3))), reexport_chain: [Single(DefId(0:24 ~ unused[cfec]::m3::{use#0}))] }
+  ModChild { ident: C#0, res: Def(Ctor(Struct, Const), DefId(0:5 ~ unused[cfec]::a::C::{constructor#0})), vis: Restricted(ModId(DefId(0:23 ~ unused[cfec]::m3))), reexport_chain: [Single(DefId(0:24 ~ unused[cfec]::m3::{use#0}))] }
+  ModChild { ident: Z#0, res: Def(TyAlias, DefId(0:25 ~ unused[cfec]::m3::Z)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Z2#0, res: Def(TyAlias, DefId(0:26 ~ unused[cfec]::m3::Z2)), vis: Public, reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(60)
+== partial_res_map (24)
+NodeId(11) PartialRes { base_res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), unresolved_segments: 0 }
+NodeId(15) PartialRes { base_res: Def(Mod, DefId(0:0 ~ unused[cfec])), unresolved_segments: 0 }
+NodeId(16) PartialRes { base_res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), unresolved_segments: 0 }
+NodeId(24) PartialRes { base_res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), unresolved_segments: 0 }
+NodeId(25) PartialRes { base_res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), unresolved_segments: 0 }
+NodeId(28) PartialRes { base_res: Def(Mod, DefId(0:0 ~ unused[cfec])), unresolved_segments: 0 }
+NodeId(29) PartialRes { base_res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), unresolved_segments: 0 }
+NodeId(32) PartialRes { base_res: Def(Mod, DefId(0:0 ~ unused[cfec])), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), unresolved_segments: 0 }
+NodeId(36) PartialRes { base_res: Def(Struct, DefId(0:2 ~ unused[cfec]::a::B)), unresolved_segments: 0 }
+NodeId(37) PartialRes { base_res: Def(Struct, DefId(0:2 ~ unused[cfec]::a::B)), unresolved_segments: 0 }
+NodeId(39) PartialRes { base_res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), unresolved_segments: 0 }
+NodeId(40) PartialRes { base_res: Def(Mod, DefId(0:0 ~ unused[cfec])), unresolved_segments: 0 }
+NodeId(41) PartialRes { base_res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), unresolved_segments: 0 }
+NodeId(43) PartialRes { base_res: Def(Mod, DefId(0:0 ~ unused[cfec])), unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: Def(Mod, DefId(0:0 ~ unused[cfec])), unresolved_segments: 0 }
+NodeId(50) PartialRes { base_res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), unresolved_segments: 0 }
+NodeId(53) PartialRes { base_res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), unresolved_segments: 0 }
+NodeId(54) PartialRes { base_res: Def(Mod, DefId(0:0 ~ unused[cfec])), unresolved_segments: 0 }
+NodeId(55) PartialRes { base_res: Def(Mod, DefId(0:1 ~ unused[cfec]::a)), unresolved_segments: 0 }
+NodeId(56) PartialRes { base_res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), unresolved_segments: 0 }
+NodeId(58) PartialRes { base_res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), unresolved_segments: 0 }
+NodeId(59) PartialRes { base_res: Def(Struct, DefId(0:4 ~ unused[cfec]::a::C)), unresolved_segments: 0 }
+== owners (20)
+NodeId(0) def_id=DefId(0:0 ~ unused[cfec]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ unused[cfec]::a) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:2 ~ unused[cfec]::a::B) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(5) DefId(0:3 ~ unused[cfec]::a::B::{constructor#0})
+NodeId(6) def_id=DefId(0:4 ~ unused[cfec]::a::C) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(7) DefId(0:5 ~ unused[cfec]::a::C::{constructor#0})
+NodeId(8) def_id=DefId(0:6 ~ unused[cfec]::a::D) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(9) DefId(0:7 ~ unused[cfec]::a::D::{constructor#0})
+NodeId(10) def_id=DefId(0:8 ~ unused[cfec]::{use#0}) lifetime_elision_allowed=false
+  import_res NodeId(10) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:2 ~ unused[cfec]::a::B))), macro_ns: None }
+NodeId(13) def_id=DefId(0:9 ~ unused[cfec]::m1) lifetime_elision_allowed=false
+NodeId(14) def_id=DefId(0:10 ~ unused[cfec]::m1::{use#0}) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(18) DefId(0:11 ~ unused[cfec]::m1::{use#0}::{use#0})
+  node_id_to_def_id NodeId(20) DefId(0:12 ~ unused[cfec]::m1::{use#0}::{use#1})
+  node_id_to_def_id NodeId(22) DefId(0:13 ~ unused[cfec]::m1::{use#0}::{use#2})
+  import_res NodeId(18) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:2 ~ unused[cfec]::a::B))), macro_ns: None }
+  import_res NodeId(20) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:5 ~ unused[cfec]::a::C::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:4 ~ unused[cfec]::a::C))), macro_ns: None }
+  import_res NodeId(22) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:7 ~ unused[cfec]::a::D::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:6 ~ unused[cfec]::a::D))), macro_ns: None }
+NodeId(23) def_id=DefId(0:14 ~ unused[cfec]::m1::X) lifetime_elision_allowed=false
+NodeId(26) def_id=DefId(0:15 ~ unused[cfec]::m2) lifetime_elision_allowed=false
+NodeId(27) def_id=DefId(0:16 ~ unused[cfec]::m2::{use#0}) lifetime_elision_allowed=false
+  import_res NodeId(27) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:2 ~ unused[cfec]::a::B))), macro_ns: None }
+NodeId(31) def_id=DefId(0:17 ~ unused[cfec]::m2::{use#1}) lifetime_elision_allowed=false
+  import_res NodeId(31) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:3 ~ unused[cfec]::a::B::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:2 ~ unused[cfec]::a::B))), macro_ns: None }
+NodeId(35) def_id=DefId(0:18 ~ unused[cfec]::m2::Y) lifetime_elision_allowed=false
+NodeId(38) def_id=DefId(0:19 ~ unused[cfec]::tests) lifetime_elision_allowed=false
+NodeId(39) def_id=DefId(0:20 ~ unused[cfec]::tests::{use#0}) lifetime_elision_allowed=false
+NodeId(42) def_id=DefId(0:21 ~ unused[cfec]::tests::{use#1}) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(46) DefId(0:22 ~ unused[cfec]::tests::{use#1}::{use#0})
+  import_res NodeId(46) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:5 ~ unused[cfec]::a::C::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:4 ~ unused[cfec]::a::C))), macro_ns: None }
+NodeId(47) def_id=DefId(0:23 ~ unused[cfec]::m3) lifetime_elision_allowed=false
+NodeId(48) def_id=DefId(0:24 ~ unused[cfec]::m3::{use#0}) lifetime_elision_allowed=false
+  import_res NodeId(48) PerNS { value_ns: Some(Def(Ctor(Struct, Const), DefId(0:5 ~ unused[cfec]::a::C::{constructor#0}))), type_ns: Some(Def(Struct, DefId(0:4 ~ unused[cfec]::a::C))), macro_ns: None }
+NodeId(52) def_id=DefId(0:25 ~ unused[cfec]::m3::Z) lifetime_elision_allowed=false
+NodeId(57) def_id=DefId(0:26 ~ unused[cfec]::m3::Z2) lifetime_elision_allowed=false
+== lint_buffer (6)
+NodeId(10) UNUSED_IMPORTS [unused.rs:8:5: 8:9 (#0)]
+NodeId(14) UNUSED_IMPORTS [unused.rs:10:20: 10:21 (#0), unused.rs:10:26: 10:27 (#0)]
+NodeId(31) UNUSED_IMPORTS [unused.rs:15:9: 15:26 (#0)]
+NodeId(39) UNUSED_IMPORTS [unused.rs:19:9: 19:20 (#0)]
+NodeId(42) UNUSED_IMPORTS [unused.rs:20:20: 20:21 (#0)]
+NodeId(53) UNUSED_QUALIFICATIONS [unused.rs:24:18: 24:29 (#0)]
+== disambiguators (11)
+DefId(0:0 ~ unused[cfec])
+DefId(0:1 ~ unused[cfec]::a)
+DefId(0:2 ~ unused[cfec]::a::B)
+DefId(0:4 ~ unused[cfec]::a::C)
+DefId(0:6 ~ unused[cfec]::a::D)
+DefId(0:9 ~ unused[cfec]::m1)
+DefId(0:10 ~ unused[cfec]::m1::{use#0})
+DefId(0:15 ~ unused[cfec]::m2)
+DefId(0:19 ~ unused[cfec]::tests)
+DefId(0:21 ~ unused[cfec]::tests::{use#1})
+DefId(0:23 ~ unused[cfec]::m3)
+== definitions (27)
+DefId(0:0 ~ unused[cfec]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 14982405553964412387))
+DefId(0:1 ~ unused[cfec]::a) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("a"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 9990321260792401663))
+DefId(0:2 ~ unused[cfec]::a::B) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("B"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 12383937258308631869))
+DefId(0:3 ~ unused[cfec]::a::B::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 17548343551757737158))
+DefId(0:4 ~ unused[cfec]::a::C) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 13099459527572648354))
+DefId(0:5 ~ unused[cfec]::a::C::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 3653958049365190076))
+DefId(0:6 ~ unused[cfec]::a::D) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("D"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 8733464653948911244))
+DefId(0:7 ~ unused[cfec]::a::D::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(6)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 2026663686062337231))
+DefId(0:8 ~ unused[cfec]::{use#0}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 1281139428870454718))
+DefId(0:9 ~ unused[cfec]::m1) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("m1"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 1413207999671113157))
+DefId(0:10 ~ unused[cfec]::m1::{use#0}) Use DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 4877591333307009793))
+DefId(0:11 ~ unused[cfec]::m1::{use#0}::{use#0}) Use DefKey { parent: Some(DefIndex(10)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 3676645304345647244))
+DefId(0:12 ~ unused[cfec]::m1::{use#0}::{use#1}) Use DefKey { parent: Some(DefIndex(10)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(14982405553964412387, 18423769147706721330))
+DefId(0:13 ~ unused[cfec]::m1::{use#0}::{use#2}) Use DefKey { parent: Some(DefIndex(10)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 2 } } DefPathHash(Fingerprint(14982405553964412387, 14391119865552247724))
+DefId(0:14 ~ unused[cfec]::m1::X) TyAlias DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("X"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 14575938298178598940))
+DefId(0:15 ~ unused[cfec]::m2) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("m2"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 12359827506248810814))
+DefId(0:16 ~ unused[cfec]::m2::{use#0}) Use DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 17967069640369920729))
+DefId(0:17 ~ unused[cfec]::m2::{use#1}) Use DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(14982405553964412387, 15305432951652292217))
+DefId(0:18 ~ unused[cfec]::m2::Y) TyAlias DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Y"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 17044162701208058680))
+DefId(0:19 ~ unused[cfec]::tests) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("tests"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 549143447677412067))
+DefId(0:20 ~ unused[cfec]::tests::{use#0}) Use DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 15118194462736265926))
+DefId(0:21 ~ unused[cfec]::tests::{use#1}) Use DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(14982405553964412387, 17720927696620361017))
+DefId(0:22 ~ unused[cfec]::tests::{use#1}::{use#0}) Use DefKey { parent: Some(DefIndex(21)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 14399694228748469389))
+DefId(0:23 ~ unused[cfec]::m3) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("m3"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 8412207508634058640))
+DefId(0:24 ~ unused[cfec]::m3::{use#0}) Use DefKey { parent: Some(DefIndex(23)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 8923747988772631794))
+DefId(0:25 ~ unused[cfec]::m3::Z) TyAlias DefKey { parent: Some(DefIndex(23)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Z"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 4673505326784874838))
+DefId(0:26 ~ unused[cfec]::m3::Z2) TyAlias DefKey { parent: Some(DefIndex(23)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Z2"), disambiguator: 0 } } DefPathHash(Fingerprint(14982405553964412387, 9019929248097546360))

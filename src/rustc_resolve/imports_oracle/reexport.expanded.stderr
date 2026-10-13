@@ -1,0 +1,119 @@
+error[E0364]: `Q` is only public within the crate, and cannot be re-exported outside
+  --> reexport.rs:13:9
+   |
+13 | pub use a::Q;
+   |         ^^^^
+   |
+note: consider marking `Q` as `pub` in the imported module
+  --> reexport.rs:13:9
+   |
+13 | pub use a::Q;
+   |         ^^^^
+
+error[E0365]: `inner` is only public within the crate, and cannot be re-exported outside
+  --> reexport.rs:14:9
+   |
+14 | pub use a::inner;
+   |         ^^^^^^^^ re-export of crate public `inner`
+   |
+   = note: consider declaring type or module `inner` with `pub`
+
+error[E0364]: `q` is only public within the crate, and cannot be re-exported outside
+  --> reexport.rs:15:9
+   |
+15 | pub use a::q;
+   |         ^^^^
+   |
+note: consider marking `q` as `pub` in the imported module
+  --> reexport.rs:15:9
+   |
+15 | pub use a::q;
+   |         ^^^^
+
+error[E0364]: `mac` is only public within the crate, and cannot be re-exported outside
+  --> reexport.rs:16:9
+   |
+16 | pub use a::mac;
+   |         ^^^^^^
+   |
+note: consider marking `mac` as `pub` in the imported module
+  --> reexport.rs:16:9
+   |
+16 | pub use a::mac;
+   |         ^^^^^^
+
+error[E0603]: struct `P` is private
+  --> reexport.rs:12:12
+   |
+12 | pub use a::P;
+   |            ^ private struct
+   |
+note: the struct `P` is defined here
+  --> reexport.rs:4:5
+   |
+ 4 |     struct P;
+   |     ^^^^^^^^^
+
+warning: unused macro definition: `mac`
+ --> reexport.rs:9:18
+  |
+9 |     macro_rules! mac { () => {} }
+  |                  ^^^
+  |
+  = note: `#[warn(unused_macros)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `a::Q`
+  --> reexport.rs:13:9
+   |
+13 | pub use a::Q;
+   |         ^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `a::inner`
+  --> reexport.rs:14:9
+   |
+14 | pub use a::inner;
+   |         ^^^^^^^^
+
+warning: unused import: `a::q`
+  --> reexport.rs:15:9
+   |
+15 | pub use a::q;
+   |         ^^^^
+
+warning: unused import: `a::mac`
+  --> reexport.rs:16:9
+   |
+16 | pub use a::mac;
+   |         ^^^^^^
+
+warning: glob import doesn't reexport anything with visibility `pub` because no imported item is public enough
+  --> reexport.rs:19:13
+   |
+19 |     pub use self::c::*;
+   |             ^^^^^^^^^^
+   |
+note: the most public imported item is `pub(crate)`
+  --> reexport.rs:19:13
+   |
+19 |     pub use self::c::*;
+   |             ^^^^^^^^^^
+   = help: reduce the glob import's visibility or increase visibility of imported items
+
+warning: unused import: `self::c::*`
+  --> reexport.rs:19:13
+   |
+19 |     pub use self::c::*;
+   |             ^^^^^^^^^^
+
+warning: unused import: `a::S`
+  --> reexport.rs:21:16
+   |
+21 | pub(crate) use a::S;
+   |                ^^^^
+
+error: aborting due to 5 previous errors; 8 warnings emitted
+
+Some errors have detailed explanations: E0364, E0365, E0603.
+For more information about an error, try `rustc --explain E0364`.

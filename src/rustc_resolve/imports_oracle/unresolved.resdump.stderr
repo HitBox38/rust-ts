@@ -1,0 +1,72 @@
+error[E0432]: unresolved import `crate::a::Thinng`
+ --> unresolved.rs:8:5
+  |
+8 | use crate::a::Thinng;
+  |     ^^^^^^^^^^------
+  |               |
+  |               no `Thinng` in `a`
+  |
+help: a similar name exists in the module
+  |
+8 - use crate::a::Thinng;
+8 + use crate::a::Thing;
+  |
+
+error[E0432]: unresolved imports `crate::a::Missing`, `crate::a::Another`
+ --> unresolved.rs:9:23
+  |
+9 | use crate::a::{Thing, Missing, Another};
+  |                       ^^^^^^^  ^^^^^^^ no `Another` in `a`
+  |                       |
+  |                       no `Missing` in `a`
+
+error[E0432]: unresolved import `crate::a::innr`
+  --> unresolved.rs:11:15
+   |
+11 | use crate::a::innr::Deep;
+   |               ^^^^ could not find `innr` in `a`
+   |
+help: a module with a similar name exists
+   |
+11 | use crate::a::inner::Deep;
+   |                  +
+
+error[E0432]: unresolved import `crate::a::Thing`
+  --> unresolved.rs:13:15
+   |
+13 | use crate::a::Thing::*;
+   |               ^^^^^ `Thing` is a struct, not a module
+
+error[E0432]: unresolved import `self::*`
+  --> unresolved.rs:14:13
+   |
+14 | mod m { use self::*; }
+   |             ^^^^^^^ cannot glob-import a module into itself
+
+error[E0432]: unresolved import `crate::a::inner::Deeep`
+  --> unresolved.rs:15:36
+   |
+15 | use crate::a::inner::{self as inn, Deeep};
+   |                                    ^^^^^ no `Deeep` in `a::inner`
+   |
+help: a similar name exists in the module
+   |
+15 - use crate::a::inner::{self as inn, Deeep};
+15 + use crate::a::inner::{self as inn, Deep};
+   |
+
+error[E0432]: unresolved import `crate::nope`
+  --> unresolved.rs:10:12
+   |
+10 | use crate::nope::X;
+   |            ^^^^ could not find `nope` in the crate root
+
+error[E0432]: unresolved import `nonexistent_crate`
+  --> unresolved.rs:12:5
+   |
+12 | use nonexistent_crate;
+   |     ^^^^^^^^^^^^^^^^^ no external crate `nonexistent_crate`
+
+error: aborting due to 8 previous errors
+
+For more information about this error, try `rustc --explain E0432`.
