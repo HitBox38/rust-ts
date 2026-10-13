@@ -1,0 +1,297 @@
+== attr_struct_one
+== attr_struct_many
+== attr_enum
+== attr_union
+== attr_paths
+== attr_trailing_comma
+== attr_empty_list
+== attr_on_fn
+error[E0774]: `derive` may only be applied to `struct`s, `enum`s and `union`s
+ --> <attr_on_fn>:1:1
+  |
+1 | #[derive(Copy)] fn f() {}
+  | ^^^^^^^^^^^^^^^ --------- not a `struct`, `enum` or `union`
+  | |
+  | not applicable here
+
+== attr_on_trait
+error[E0774]: `derive` may only be applied to `struct`s, `enum`s and `union`s
+ --> <attr_on_trait>:1:1
+  |
+1 | #[derive(Copy, Clone)]
+  | ^^^^^^^^^^^^^^^^^^^^^^ not applicable here
+2 | trait T { fn f(&self); }
+  | ------------------------ not a `struct`, `enum` or `union`
+
+== attr_on_mod
+error[E0774]: `derive` may only be applied to `struct`s, `enum`s and `union`s
+ --> <attr_on_mod>:1:1
+  |
+1 | #[derive(Debug)] mod m { struct S; }
+  | ^^^^^^^^^^^^^^^^ ------------------- not a `struct`, `enum` or `union`
+  | |
+  | not applicable here
+
+== attr_on_static
+error[E0774]: `derive` may only be applied to `struct`s, `enum`s and `union`s
+ --> <attr_on_static>:1:1
+  |
+1 | #[derive(Debug)] static X: u8 = 1;
+  | ^^^^^^^^^^^^^^^^ ----------------- not a `struct`, `enum` or `union`
+  | |
+  | not applicable here
+
+== attr_on_impl
+error[E0774]: `derive` may only be applied to `struct`s, `enum`s and `union`s
+ --> <attr_on_impl>:1:1
+  |
+1 | #[derive(Debug)] impl S {}
+  | ^^^^^^^^^^^^^^^^ --------- not a `struct`, `enum` or `union`
+  | |
+  | not applicable here
+
+== attr_word
+error: malformed `derive` attribute input
+ --> <attr_word>:1:1
+  |
+1 | #[derive] struct S;
+  | ^^^^^^^^^
+  |
+help: must be of the form
+  |
+1 | #[derive(Trait1, Trait2, ...)] struct S;
+  |         +++++++++++++++++++++
+
+== attr_name_value
+error: malformed `derive` attribute input
+ --> <attr_name_value>:1:1
+  |
+1 | #[derive = "Debug"] struct S;
+  | ^^^^^^^^^^^^^^^^^^^
+  |
+help: must be of the form
+  |
+1 - #[derive = "Debug"] struct S;
+1 + #[derive(Trait1, Trait2, ...)] struct S;
+  |
+
+== attr_path_args_value
+error: traits in `#[derive(...)]` don't accept values
+ --> <attr_path_args_value>:1:13
+  |
+1 | #[derive(Foo = "x")] struct S;
+  |             ^^^^^^ help: remove the value
+
+== attr_path_args_list
+error: traits in `#[derive(...)]` don't accept arguments
+ --> <attr_path_args_list>:1:15
+  |
+1 | #[derive(Debug(abc), Clone)] struct S;
+  |               ^^^^^ help: remove the arguments
+
+== attr_path_args_both
+error: traits in `#[derive(...)]` don't accept values
+ --> <attr_path_args_both>:1:11
+  |
+1 | #[derive(A = 1, B(), C, D(x = "y"), E::F(1))] struct S;
+  |           ^^^^ help: remove the value
+
+error: traits in `#[derive(...)]` don't accept arguments
+ --> <attr_path_args_both>:1:18
+  |
+1 | #[derive(A = 1, B(), C, D(x = "y"), E::F(1))] struct S;
+  |                  ^^ help: remove the arguments
+
+error: traits in `#[derive(...)]` don't accept arguments
+ --> <attr_path_args_both>:1:26
+  |
+1 | #[derive(A = 1, B(), C, D(x = "y"), E::F(1))] struct S;
+  |                          ^^^^^^^^^ help: remove the arguments
+
+error: traits in `#[derive(...)]` don't accept arguments
+ --> <attr_path_args_both>:1:41
+  |
+1 | #[derive(A = 1, B(), C, D(x = "y"), E::F(1))] struct S;
+  |                                         ^^^ help: remove the arguments
+
+== attr_lit_ident
+error[E0777]: expected path to a trait, found literal
+ --> <attr_lit_ident>:1:10
+  |
+1 | #[derive("Debug")] struct S;
+  |          ^^^^^^^ not a trait
+  |
+  = help: try using `#[derive(Debug)]`
+
+== attr_lit_other
+error[E0777]: expected path to a trait, found literal
+ --> <attr_lit_other>:1:10
+  |
+1 | #[derive("not ident", 1, r"Debug", b"Debug", "fn", "a::b")] struct S;
+  |          ^^^^^^^^^^^ not a trait
+  |
+  = help: for example, write `#[derive(Debug)]` for `Debug`
+
+error[E0777]: expected path to a trait, found literal
+ --> <attr_lit_other>:1:23
+  |
+1 | #[derive("not ident", 1, r"Debug", b"Debug", "fn", "a::b")] struct S;
+  |                       ^ not a trait
+  |
+  = help: for example, write `#[derive(Debug)]` for `Debug`
+
+error[E0777]: expected path to a trait, found literal
+ --> <attr_lit_other>:1:26
+  |
+1 | #[derive("not ident", 1, r"Debug", b"Debug", "fn", "a::b")] struct S;
+  |                          ^^^^^^^^ not a trait
+  |
+  = help: for example, write `#[derive(Debug)]` for `Debug`
+
+error[E0777]: expected path to a trait, found literal
+ --> <attr_lit_other>:1:36
+  |
+1 | #[derive("not ident", 1, r"Debug", b"Debug", "fn", "a::b")] struct S;
+  |                                    ^^^^^^^^ not a trait
+  |
+  = help: for example, write `#[derive(Debug)]` for `Debug`
+
+error[E0777]: expected path to a trait, found literal
+ --> <attr_lit_other>:1:46
+  |
+1 | #[derive("not ident", 1, r"Debug", b"Debug", "fn", "a::b")] struct S;
+  |                                              ^^^^ not a trait
+  |
+  = help: try using `#[derive(r#fn)]`
+
+error[E0777]: expected path to a trait, found literal
+ --> <attr_lit_other>:1:52
+  |
+1 | #[derive("not ident", 1, r"Debug", b"Debug", "fn", "a::b")] struct S;
+  |                                                    ^^^^^^ not a trait
+  |
+  = help: for example, write `#[derive(Debug)]` for `Debug`
+
+== attr_mixed
+error[E0777]: expected path to a trait, found literal
+ --> <attr_mixed>:1:16
+  |
+1 | #[derive(Copy, "Clone", Foo = 1, Bar(x), Baz)] enum E { A }
+  |                ^^^^^^^ not a trait
+  |
+  = help: try using `#[derive(Clone)]`
+
+error: traits in `#[derive(...)]` don't accept values
+ --> <attr_mixed>:1:28
+  |
+1 | #[derive(Copy, "Clone", Foo = 1, Bar(x), Baz)] enum E { A }
+  |                            ^^^^ help: remove the value
+
+error: traits in `#[derive(...)]` don't accept arguments
+ --> <attr_mixed>:1:37
+  |
+1 | #[derive(Copy, "Clone", Foo = 1, Bar(x), Baz)] enum E { A }
+  |                                     ^^^ help: remove the arguments
+
+== attr_unsafe
+== attr_cfg_eval
+== attr_cfg_eval_enum
+== attr_retry
+== attr_const
+== attr_const_on_fn
+error[E0774]: `derive` may only be applied to `struct`s, `enum`s and `union`s
+ --> <attr_const_on_fn>:1:1
+  |
+1 | #[derive_const(Default)] fn f() {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^ --------- not a `struct`, `enum` or `union`
+  | |
+  | not applicable here
+
+== attr_stmt
+== attr_stmt_bad
+error[E0774]: `derive` may only be applied to `struct`s, `enum`s and `union`s
+ --> <attr_stmt_bad>:1:1
+  |
+1 | #[derive(Clone)] fn f() {}
+  | ^^^^^^^^^^^^^^^^ --------- not a `struct`, `enum` or `union`
+  | |
+  | not applicable here
+
+== attr_generics
+== copy_unit
+== copy_tuple
+== copy_named
+== copy_enum
+== copy_union
+== copy_generics
+== copy_generics_enum
+== copy_param_attrs
+== copy_where_attrs
+== copy_macro_in_field
+error: `derive` cannot be used on items with type macros
+ --> <copy_macro_in_field>:1:34
+  |
+1 | #[derive(Copy)] struct S<T> { a: m!(T), b: T::X, c: n!() }
+  |                                  ^^^^^
+
+error: `derive` cannot be used on items with type macros
+ --> <copy_macro_in_field>:1:53
+  |
+1 | #[derive(Copy)] struct S<T> { a: m!(T), b: T::X, c: n!() }
+  |                                                     ^^^^
+
+== copy_macro_no_params
+== copy_lint_attrs
+== copy_packed
+== copy_packed_enum
+== copy_const
+== copy_const_staged
+== copy_staged_not_const
+== copy_stmt
+== copy_path
+== hash_unit
+== hash_tuple
+== hash_named
+== hash_packed
+== hash_packed_n
+== hash_enum
+== hash_enum_empty
+== hash_enum_one_fieldless
+== hash_enum_fieldless
+== hash_enum_one
+== hash_enum_struct_unit
+== hash_union
+error: this trait cannot be derived for unions
+ --> <hash_union>:1:10
+  |
+1 | #[derive(Hash)] union U { a: u8 }
+  |          ^^^^
+  |
+  = note: this error originates in the derive macro `Hash` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== hash_stmt
+== hash_const
+== eq_struct
+== eq_unit
+== eq_tuple_empty
+== eq_enum
+== eq_enum_fieldless
+== eq_enum_empty
+== eq_union
+== eq_packed
+== eq_const_staged
+== clone_struct
+== clone_enum
+== partial_eq_struct
+== partial_eq_enum
+== partial_eq_packed
+== debug_fieldless
+== debug_enum
+== ord_enum
+== partial_ord_struct
+== default_struct
+== end
+error: aborting due to 28 previous errors
+
+Some errors have detailed explanations: E0774, E0777.
+For more information about an error, try `rustc --explain E0774`.
