@@ -60,8 +60,8 @@ const PENDING: Record<string, string> = {
   attr_unsafe: "rustc_parse::parser::path::Parser::parse_path",
   attr_eq: "rustc_parse::parser::path::Parser::parse_path",
   attr_shebang_like: "rustc_parse::parser::diagnostics::Parser::unexpected_err",
-  outer_attrs_doc: "rustc_parse::parser::item::Parser::parse_item",
-  outer_attrs_inner_doc_misplaced: "rustc_parse::parser::item::Parser::parse_item",
+  outer_attrs_doc: "rustc_parse::parser::diagnostics::Parser::recover_vcs_conflict_marker",
+  outer_attrs_inner_doc_misplaced: "rustc_parse::parser::diagnostics::Parser::recover_vcs_conflict_marker",
 };
 
 const tok = (s: string): ExpTokenPair => {
