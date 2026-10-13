@@ -300,12 +300,10 @@ TyCtxt.prototype.eval_stability_allow_unstable = function (
 ): EvalResult {
   // Deprecated attributes apply in-crate and cross-crate.
   if (id !== undefined) {
-    // PORT: the `lookup_deprecation_entry` query value is typed `unknown` in queries.gen.ts (no typemap entry for
-    // `DeprecationEntry`); its type is `Option<DeprecationEntry>`.
-    const depr_entry = this.lookup_deprecation_entry(def_id) as DeprecationEntry | undefined;
+    const depr_entry = this.lookup_deprecation_entry(def_id);
     if (depr_entry !== undefined) {
       const parent_def_id: OwnerId = unported("rustc_middle::hir::map::TyCtxt::hir_get_parent_item (HIR, M3)");
-      const parent_depr = this.lookup_deprecation_entry(parent_def_id.to_def_id()) as DeprecationEntry | undefined;
+      const parent_depr = this.lookup_deprecation_entry(parent_def_id.to_def_id());
       const skip = parent_depr !== undefined && parent_depr.same_origin(depr_entry);
 
       // #[deprecated] doesn't emit a notice if we're not on the
@@ -550,8 +548,6 @@ TyCtxt.prototype.check_const_stability = function (this: TyCtxt, def_id: DefId, 
 
 // rustc: compiler/rustc_middle/src/middle/stability.rs:592 lookup_deprecation
 TyCtxt.prototype.lookup_deprecation = function (this: TyCtxt, id: DefId): Deprecation | undefined {
-  // PORT: the `lookup_deprecation_entry` query value is typed `unknown` in queries.gen.ts; it is
-  // `Option<DeprecationEntry>`.
-  const depr = this.lookup_deprecation_entry(id) as DeprecationEntry | undefined;
+  const depr = this.lookup_deprecation_entry(id);
   return depr !== undefined ? depr.attr : undefined;
 };

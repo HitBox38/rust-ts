@@ -21,6 +21,12 @@ redundant after that.
 - `tools/codegen/typemap.middle_stability.json` (new): typemap entries for `rustc_attr_ir::Deprecation` and
   `rustc_lint_defs::DeprecatedSinceKind`, which are used from outside their own sets. Root may fold these into
   typemap.json.
+- `src/rustc_middle/queries.gen.ts` (GENERATED, regenerated with `bun tools/codegen/queries.ts`): the
+  generator now finds the generated `DeprecationEntry`, so `lookup_deprecation_entry`'s value is
+  `Option<DeprecationEntry>` (it was `unknown`) and has a Debug. `tools/codegen/queries.test.ts` requires the
+  committed file to be up to date. Loading each of `queries.gen.ts`, `ty/context.ts`, `query/calls.ts`,
+  `rustc_middle/lib.ts`, `rustc_resolve/lib.ts` and `rustc_interface/lib.ts` on its own works, with no import
+  cycle failure.
 - `src/rustc_resolve/macros.ts`: call sites only. `check_stability_and_deprecation` now calls the real
   `report_unstable(.., UnstableKind.Regular)` and `early_report_macro_deprecation`. The two local `unported`
   stand-ins and their imports, which were now unused (`Deprecation`, `LintBuffer`, `unported`), are gone. The
@@ -45,11 +51,11 @@ Not touched, for root: `src/rustc_middle/lib.ts` doesn't re-export the module (u
 There are no other `unported(...)` calls in the file.
 
 ## `// PORT:` decisions
-- Query values typed `unknown` in queries.gen.ts (`lookup_stability`, `lookup_const_stability`,
-  `lookup_default_body_stability`, `lookup_deprecation_entry`) are cast to their Rust types (`Stability`,
-  `ConstStability`, `DefaultBodyStability`, `DeprecationEntry`) at each use, as `rustc_resolve` already does for
-  `lookup_stability`. Typing them in queries.gen.ts (an alias `rustc_hir::Stability` -> rustc_attr_ir, plus the now
-  generated `DeprecationEntry`) is left to the queries generator's owner.
+- Query values still typed `unknown` in queries.gen.ts (`lookup_stability`, `lookup_const_stability`,
+  `lookup_default_body_stability`; their Rust types are `rustc_hir::{Stability, ConstStability, DefaultBodyStability}`,
+  re-exports with no typemap entry) are cast to those types at each use, as `rustc_resolve` already does for
+  `lookup_stability`. A queries.config.json alias `rustc_hir::` -> `rustc_attr_ir::` for these would remove the casts;
+  that is left to the queries generator's owner.
 - The header comment says the HIR-needing `TyCtxt` methods stop at `unported` where upstream first needs them.
 - The `msg!` literals of `Deprecated::into_diag` reproduce the Rust literal bytes exactly: the newlines and the
   16/20/24-space indentation of the source lines, with `{\"\"}` written as `{""}`.
@@ -108,4 +114,4 @@ The 300 sample stops are `resolve_path` 1 and `Location::caller` 1.
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
 - `bun scripts/coverage.ts --check`: ok.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see the commit message of the handoff commit.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: RESULT_PLACEHOLDER
