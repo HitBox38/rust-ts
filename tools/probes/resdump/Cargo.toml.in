@@ -1,0 +1,20 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (see tools/probes/tokdump/Cargo.toml.in and the header of scripts/probes.ts):
+# it links the pinned nightly's own compiler crates (rustc_driver, rustc_interface, rustc_middle,
+# ...) through `#![feature(rustc_private)]` + `extern crate`, so it needs the rustc-dev component.
+# Its oracle cache key covers the probe binary and the sysroot's rustc_driver (difftest).
+[package]
+name = "resdump"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "resdump"
+path = "@SRC@/main.rs"
+
+[workspace]
