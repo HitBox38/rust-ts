@@ -58,28 +58,28 @@ export * from "./diagnostics.gen.ts";
 
 /** PORT: opaque stand-in for `std::num::ParseIntError` (std::num is not ported; AppleDeploymentTarget). */
 export type ParseIntError = { readonly __standin: "std::num::ParseIntError" };
-/** PORT: opaque stand-in for `rustc_target::spec::StackProtector` (rustc_target is not ported). */
-export type StackProtector = { readonly __standin: "rustc_target::spec::StackProtector" };
-/** PORT: opaque stand-in for `rustc_target::spec::TargetTuple` (rustc_target is not ported). */
-export type TargetTuple = { readonly __standin: "rustc_target::spec::TargetTuple" };
-/** PORT: opaque stand-in for `rustc_target::spec::SplitDebuginfo` (rustc_target is not ported). */
-export type SplitDebuginfo = { readonly __standin: "rustc_target::spec::SplitDebuginfo" };
+export type { SplitDebuginfo, StackProtector } from "../rustc_target/spec/mod.ts";
+export type { TargetTuple } from "../rustc_target/spec/tuple.ts";
+import type { SplitDebuginfo, StackProtector } from "../rustc_target/spec/mod.ts";
+import type { TargetTuple } from "../rustc_target/spec/tuple.ts";
+import { spec as target_spec } from "../rustc_target/lib.ts";
+import { TargetTuple_into_diag_arg as TargetTuple_into_diag_arg_ } from "../rustc_target/spec/tuple.ts";
 
 /** `into_diag_arg_using_display!(ParseIntError)` (rustc_error_messages). PORT: Display of std's ParseIntError is not ported. */
 export function ParseIntError_into_diag_arg(_self: ParseIntError, _path: MutRef<PathBuf | undefined>): DiagArgValue {
   return unported("std::num::ParseIntError Display (IntoDiagArg)");
 }
-/** `impl IntoDiagArg for StackProtector` (rustc_target, not ported). */
-export function StackProtector_into_diag_arg(_self: StackProtector, _path: MutRef<PathBuf | undefined>): DiagArgValue {
-  return unported("rustc_target::spec::StackProtector IntoDiagArg");
+/** `into_diag_arg_using_display!(StackProtector)` (rustc_target/src/spec/mod.rs) */
+export function StackProtector_into_diag_arg(self: StackProtector, path: MutRef<PathBuf | undefined>): DiagArgValue {
+  return target_spec.StackProtector.into_diag_arg(self, path);
 }
-/** `impl IntoDiagArg for TargetTuple` (rustc_target, not ported). */
-export function TargetTuple_into_diag_arg(_self: TargetTuple, _path: MutRef<PathBuf | undefined>): DiagArgValue {
-  return unported("rustc_target::spec::TargetTuple IntoDiagArg");
+/** `into_diag_arg_using_display!(&TargetTuple)` (rustc_target/src/spec/tuple.rs) */
+export function TargetTuple_into_diag_arg(self: TargetTuple, path: MutRef<PathBuf | undefined>): DiagArgValue {
+  return TargetTuple_into_diag_arg_(self, path);
 }
-/** `impl IntoDiagArg for SplitDebuginfo` (rustc_target, not ported). */
-export function SplitDebuginfo_into_diag_arg(_self: SplitDebuginfo, _path: MutRef<PathBuf | undefined>): DiagArgValue {
-  return unported("rustc_target::spec::SplitDebuginfo IntoDiagArg");
+/** `into_diag_arg_using_display!(SplitDebuginfo)` (rustc_target/src/spec/mod.rs) */
+export function SplitDebuginfo_into_diag_arg(self: SplitDebuginfo, path: MutRef<PathBuf | undefined>): DiagArgValue {
+  return target_spec.SplitDebuginfo.into_diag_arg(self, path);
 }
 
 // ---- diagnostics.rs ----------------------------------------------------------------------------

@@ -12,7 +12,7 @@
 // before this one. LOAD ORDER: import `./options.ts` before `./config.ts` (lib.ts and session.ts do);
 // importing this module first fails at load with a TDZ error on `Polonius` in options.gen.ts. Use a
 // bare `import "./options.ts";` for the ordering: Bun elides imports whose bindings are only used as types.
-import { lstatSync, readlinkSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import type { ColorConfig } from "../rustc_errors/emitter.ts";
@@ -61,7 +61,6 @@ import {
   type LinkerFeatures,
   LinkerFeatures as LF,
   CrateType,
-  type SearchPath,
   Target,
   TargetTuple,
   default_sysroot,
@@ -71,8 +70,15 @@ import type { CanonicalizedPath } from "./utils.ts";
 /** `getopts::Matches` (the real type; `stand_ins.Matches` is the subset `build_options` uses). */
 type Matches = getopts.Matches;
 
-/** `Cfg` (config/cfg.rs): `FxIndexSet<(Symbol, Option<Symbol>)>`. PORT: a `Set` of `"name\0value"` keys. */
-export type Cfg = Set<string>;
+// pub use cfg::{Cfg, CheckCfg, ExpectedValues};
+// PORT: config/cfg.ts imports this module, so only the type is re-exported here; import the classes
+// from "./config/cfg.ts".
+export type { Cfg, CheckCfg, ExpectedValues } from "./config/cfg.ts";
+import type { Cfg } from "./config/cfg.ts";
+import * as cfg_mod from "./config/cfg.ts";
+import { SearchPath } from "./search_paths.ts";
+import { spec as target_spec } from "../rustc_target/lib.ts";
+import { edit_distance_with_substrings } from "../rustc_span/edit_distance.ts";
 
 // PORT: `print!`/`eprintln!` -> synchronous writes to fd 1/2 (Rust's `Stdout` is line-buffered and
 // `Stderr` unbuffered; the bytes written are the same).
@@ -188,6 +194,26 @@ export const OptLevel = {
   },
 } as const;
 export const debug_OptLevel: Debug<OptLevel> = (v) => v;
+
+/// This is what the `LtoCli` values get mapped to after resolving defaults and
+/// and taking other command line options into account.
+///
+/// Note that linker plugin-based LTO is a different mechanism entirely.
+// #[derive(Clone, PartialEq, Encodable, Decodable)]
+export type Lto =
+  /// Don't do any LTO whatsoever.
+  | "No"
+
+  /// Do a full-crate-graph (inter-crate) LTO with ThinLTO.
+  | "Thin"
+
+  /// Do a local ThinLTO (intra-crate, over the CodeGen Units of the local crate only). This is
+  /// only relevant if multiple CGUs are used.
+  | "ThinLocal"
+
+  /// Do a full-crate-graph (inter-crate) LTO with "fat" LTO.
+  | "Fat";
+export const Lto = { No: "No", Thin: "Thin", ThinLocal: "ThinLocal", Fat: "Fat" } as const;
 
 /// The different settings that the `-C lto` flag can have.
 export type LtoCli =
@@ -1423,32 +1449,30 @@ export function host_tuple(): string {
   // Instead of grabbing the host triple (for the current host), we grab (at
   // compile time) the target triple that this rustc is built with and
   // calling that (at runtime) the host triple.
-  return unwrap(CFG_COMPILER_HOST_TRIPLE, "CFG_COMPILER_HOST_TRIPLE");
+  // `option_env!("CFG_COMPILER_HOST_TRIPLE").expect("CFG_COMPILER_HOST_TRIPLE")`
+  return CFG_COMPILER_HOST_TRIPLE ?? unported("CFG_COMPILER_HOST_TRIPLE (set RUST_TS_HOST_TUPLE in .env.local to the oracle's `rustc -vV` host)");
 }
 
 /**
- * PORT: `option_env!("CFG_COMPILER_HOST_TRIPLE")` is the tuple the oracle rustc was built for, i.e. the
- * rustup host toolchain of the machine (rust-ts mirrors the oracle installed on the same host). Derived
- * from the Node platform/arch for the hosts rust-ts runs on (the rustup default host of each); anything
- * else is `None` (`expect` panics, like a rustc built without the variable). Checked against the oracle's
- * `rustc -vV` `host:` line in src/rustc_driver_impl/driver.oracle.test.ts.
+ * PORT: `option_env!("CFG_COMPILER_HOST_TRIPLE")` is a build constant of the oracle rustc: the tuple it was
+ * built for (its `rustc -vV` `host:` line). rust-ts mirrors the oracle installed on the same machine, so the
+ * value is recorded per machine as `RUST_TS_HOST_TUPLE` (the environment, else the repo's `.env.local`)
+ * and checked against `rustc -vV` by src/rustc_driver_impl/print.oracle.test.ts. Without it the host
+ * tuple is unknown and `host_tuple()` calls `unported`.
  */
 const CFG_COMPILER_HOST_TRIPLE: string | undefined = ((): string | undefined => {
-  const key = `${process.platform}/${process.arch}`;
-  switch (key) {
-    case "darwin/arm64":
-      return "aarch64-apple-darwin";
-    case "darwin/x64":
-      return "x86_64-apple-darwin";
-    case "linux/x64":
-      return "x86_64-unknown-linux-gnu";
-    case "linux/arm64":
-      return "aarch64-unknown-linux-gnu";
-    case "win32/x64":
-      return "x86_64-pc-windows-msvc";
-    default:
-      return undefined;
+  const v = process.env.RUST_TS_HOST_TUPLE;
+  if (v !== undefined) return v;
+  try {
+    const env_local = readFileSync(path_join(import.meta.dir, "../../.env.local"), "utf8");
+    for (const line of env_local.split(/\r?\n/)) {
+      const m = /^\s*RUST_TS_HOST_TUPLE\s*=\s*(\S+)\s*$/.exec(line);
+      if (m) return m[1];
+    }
+  } catch {
+    // no .env.local
   }
+  return undefined;
 })();
 
 // rustc: compiler/rustc_session/src/config.rs:1463 file_path_mapping
@@ -1927,11 +1951,15 @@ function parse_jobs_one(
   return n > 1 ? n : undefined;
 }
 
-// not ported (no marker): compiler/rustc_session/src/config.rs:1844 build_configuration (config/cfg.rs)
-export function build_configuration(_sess: Session, _user_cfg: Cfg): Cfg {
+// rustc: compiler/rustc_session/src/config.rs:1844 build_configuration
+export function build_configuration(sess: Session, user_cfg: Cfg): Cfg {
   // First disallow some configuration given on the command line
-  // `cfg::disallow_cfgs(sess, &user_cfg);` ... `user_cfg.extend(cfg::default_configuration(sess));`
-  return unported("rustc_session::config::cfg::{disallow_cfgs, default_configuration}");
+  cfg_mod.disallow_cfgs(sess, user_cfg);
+
+  // Then combine the configuration requested by the session (command line) with
+  // some default and generated configuration items.
+  user_cfg.extend(cfg_mod.default_configuration(sess));
+  return user_cfg;
 }
 
 // rustc: compiler/rustc_session/src/config.rs:1854 build_target_config
@@ -1948,9 +1976,21 @@ export function build_target_config(early_dcx: EarlyDiagCtxt, target: TargetTupl
     }
     return target;
   } else {
-    // `early_struct_fatal(format!("error loading target specification: {e}"))` + `help`s with
-    // `rustc_target::spec::TARGETS` edit-distance suggestions.
-    return unported("rustc_target::spec::TARGETS (build_target_config error path)");
+    const e = r._0;
+    const err = early_dcx.early_struct_fatal(`error loading target specification: ${e}`);
+    err.help("run `rustc --print target-list` for a list of built-in targets");
+    const typed = TargetTuple.tuple(target);
+    const limit = Math.floor(utf8_len(typed) / 3) + 1;
+    let suggestion: [number, string] | undefined;
+    for (const t of target_spec.TARGETS) {
+      const d = edit_distance_with_substrings(typed, t, limit);
+      // `min_by_key` keeps the first minimum.
+      if (d !== undefined && (suggestion === undefined || d < suggestion[0])) suggestion = [d, t];
+    }
+    if (suggestion !== undefined) {
+      err.help(`did you mean \`${suggestion[1]}\`?`);
+    }
+    return err.emit_fatal();
   }
 }
 
@@ -2888,8 +2928,11 @@ export function build_session_options(early_dcx: EarlyDiagCtxtReal, matches: get
 
     const flavor = cg.linker_flavor;
     if (flavor !== undefined) {
-      // `flavor.is_unstable()` / `flavor.desc()` (rustc_target `LinkerFlavorCli`)
-      unported("rustc_target::spec::LinkerFlavorCli::is_unstable");
+      if (target_spec.LinkerFlavorCli.is_unstable(flavor)) {
+        early_dcx.early_fatal(
+          `the linker flavor \`${target_spec.LinkerFlavorCli.desc(flavor)}\` is unstable, the \`-Z unstable-options\` flag must also be passed to use the unstable values`,
+        );
+      }
     }
   }
 
@@ -2897,8 +2940,12 @@ export function build_session_options(early_dcx: EarlyDiagCtxtReal, matches: get
   // and disabled at the same time.
   const erroneous_components = cg.link_self_contained.check_consistency();
   if (erroneous_components !== undefined) {
-    // `erroneous_components.into_iter().map(|c| c.as_str().unwrap()).intersperse(", ").collect()`
-    unported("rustc_target::spec::LinkSelfContainedComponents::as_str");
+    // PORT: bitflags `into_iter()` yields the named flags in definition order (= `all_components()`).
+    const names: string = target_spec.LinkSelfContainedComponents.all_components()
+      .filter((c) => target_spec.LinkSelfContainedComponents.contains(erroneous_components, c))
+      .map((c) => unwrap(target_spec.LinkSelfContainedComponents.as_str(c)))
+      .join(", ");
+    early_dcx.early_fatal(`some \`-C link-self-contained\` components were both enabled and disabled: ${names}`);
   }
 
   const prints = print_request.collect_print_requests(early_dcx, cg, unstable_opts, matches, print_request.PrintCategory.ALL_VARIANTS);
@@ -2999,10 +3046,7 @@ export function build_session_options(early_dcx: EarlyDiagCtxtReal, matches: get
         seen_search_paths.add(p);
         return true;
       })
-      .map((_path): SearchPath => {
-        // `SearchPath::from_cli_opt(sysroot.path(), &target_triple, early_dcx, &path, unstable_opts.unstable_options)`
-        return unported("rustc_session::search_paths::SearchPath::from_cli_opt");
-      });
+      .map((path): SearchPath => SearchPath.from_cli_opt(sysroot.path(), target_triple, early_dcx, path, unstable_opts.unstable_options));
   })();
 
   // Ideally we would use `SourceMap::working_dir` instead, but we don't have access to it
