@@ -123,4 +123,4 @@ function, expr, pat, stmt), and all of those were ported in the scratch integrat
    in the parse suite. Fix: a streaming PadAdapter, writing into a buffer with an indent state, as std
    does.
 2. **The skip.** The one skip in `bun test src tools` is pre-existing and not from this lane.
-3. Delete `docs/claims/` for parser-item, if one was created for this lane, on integration.
+3. Delete `docs/claims/wave6c-parser-item.md` on integration.
