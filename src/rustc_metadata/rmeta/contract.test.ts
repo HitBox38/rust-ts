@@ -45,6 +45,7 @@ test("the CrateMetadata contract: every declared method exists after loading lib
 
 test("stubs stop as UNPORTED with their path", () => {
   const cm = Object.create(CrateMetadata.prototype) as CrateMetadata;
-  expect(() => cm.get_mod_child(undefined as never, 0 as never)).toThrow("rustc_metadata::rmeta::decoder::CrateMetadata::get_mod_child");
+  // rmeta-decoder-b's region has no stubs left; `get_associated_item` stops on M3 types (ty::AssocItem).
+  expect(() => cm.get_associated_item(undefined as never, 0 as never)).toThrow("rustc_metadata::rmeta::decoder::CrateMetadata::get_associated_item");
   expect(() => cm.def_kind(0 as never)).toThrow("rustc_metadata::rmeta::decoder::CrateMetadata::def_kind");
 });

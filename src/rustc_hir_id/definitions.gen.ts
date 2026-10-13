@@ -4,9 +4,12 @@ import { debug_HashMap } from "../rust_ts/hash_map.ts";
 import { debug_Hash64, type Hash64 } from "../rustc_hashes/lib.ts";
 import { debug_HashTableOwned, type DefPathHashMap, type HashTableOwned } from "./def_path_hash_map.ts";
 import { debug_SortedMap, type PerParentDisambiguatorState, type SortedMap } from "./definitions.ts";
+import { decode_Option, decode_u32 } from "../rustc_serialize/serialize.ts";
 import { type CrateNum, debug_CrateNum, debug_DefIndex, debug_LocalDefId, debug_StableCrateId, type DefIndex, type LocalDefId, type StableCrateId } from "../rustc_span/def_id.ts";
+import { type BlobDecoder } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
+import { panic } from "../std/panic.ts";
 
 // rustc-type: compiler/rustc_hir_id/src/definitions.rs:27 PerParentDisambiguatorState
 export type { PerParentDisambiguatorState } from "./definitions.ts";
@@ -73,6 +76,10 @@ export const debug_DefKey: Debug<DefKey> = (v, f) =>
 export function clone_DefKey(v: DefKey): DefKey {
   return new DefKey(v.parent, clone_DisambiguatedDefPathData(v.disambiguated_data));
 }
+// rustc-derive: compiler/rustc_hir_id/src/definitions.rs:108 BlobDecodable for DefKey
+export function decode_DefKey(__decoder: BlobDecoder): DefKey {
+  return new DefKey(decode_Option(__decoder, (__decoder) => __decoder.decode_def_index()), decode_DisambiguatedDefPathData(__decoder));
+}
 
 // rustc-type: compiler/rustc_hir_id/src/definitions.rs:164 DisambiguatedDefPathData
 /// A pair of `DefPathData` and an integer disambiguator. The integer is
@@ -94,6 +101,10 @@ export const debug_DisambiguatedDefPathData: Debug<DisambiguatedDefPathData> = (
   ]);
 export function clone_DisambiguatedDefPathData(v: DisambiguatedDefPathData): DisambiguatedDefPathData {
   return new DisambiguatedDefPathData(clone_DefPathData(v.data), v.disambiguator);
+}
+// rustc-derive: compiler/rustc_hir_id/src/definitions.rs:164 BlobDecodable for DisambiguatedDefPathData
+export function decode_DisambiguatedDefPathData(__decoder: BlobDecoder): DisambiguatedDefPathData {
+  return new DisambiguatedDefPathData(decode_DefPathData(__decoder), decode_u32(__decoder));
 }
 
 // rustc-type: compiler/rustc_hir_id/src/definitions.rs:191 DefPath
@@ -225,6 +236,50 @@ export function clone_DefPathData(v: DefPathData): DefPathData {
     case "SyntheticCoroutineBody":
     case "NestedStatic":
       return v;
+  }
+}
+// rustc-derive: compiler/rustc_hir_id/src/definitions.rs:258 BlobDecodable for DefPathData
+export function decode_DefPathData(__decoder: BlobDecoder): DefPathData {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return DefPathData.CrateRoot;
+    case 1:
+      return DefPathData.Impl;
+    case 2:
+      return DefPathData.ForeignMod;
+    case 3:
+      return DefPathData.Use;
+    case 4:
+      return DefPathData.GlobalAsm;
+    case 5:
+      return { $: "TypeNs", _0: __decoder.decode_symbol() };
+    case 6:
+      return { $: "ValueNs", _0: __decoder.decode_symbol() };
+    case 7:
+      return { $: "MacroNs", _0: __decoder.decode_symbol() };
+    case 8:
+      return { $: "LifetimeNs", _0: __decoder.decode_symbol() };
+    case 9:
+      return DefPathData.Closure;
+    case 10:
+      return DefPathData.TestBinderConstraints;
+    case 11:
+      return DefPathData.Ctor;
+    case 12:
+      return DefPathData.AnonConst;
+    case 13:
+      return DefPathData.OpaqueTy;
+    case 14:
+      return { $: "OpaqueLifetime", _0: __decoder.decode_symbol() };
+    case 15:
+      return { $: "AnonAssocTy", _0: __decoder.decode_symbol() };
+    case 16:
+      return DefPathData.SyntheticCoroutineBody;
+    case 17:
+      return DefPathData.NestedStatic;
+    default:
+      return panic(`invalid enum variant tag while decoding \`DefPathData\`, expected 0..18, actual ${__tag}`);
   }
 }
 

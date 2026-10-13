@@ -94,6 +94,24 @@ import {
   VERSION_OFFSET,
 } from "./mod.ts";
 
+// rmeta-decoder-b imports
+import type { DelimArgs } from "../../rustc_ast/lib.ts";
+import type { Res } from "../../rustc_hir/def.ts";
+import { clone_DefKey, debug_DefKey, debug_DefPathData, decode_DefKey, DefPath as DefPath_ } from "../../rustc_hir_id/definitions.ts";
+import { decode_u64 } from "../../rustc_serialize/serialize.ts";
+import { CRATE_DEF_INDEX, DefPathHash as DefPathHash_, StableCrateId as StableCrateId_ } from "../../rustc_span/def_id.ts";
+import { decode_ExpnData, decode_ExpnHash, decode_Ident } from "../../rustc_span/decodable.gen.ts";
+import { type ExpnData, HygieneDecodeContext as HygieneDecodeContext_, register_expn_id } from "../../rustc_span/hygiene.ts";
+import { decode_SourceFile, type FileName, type PathBuf, RealFileName, RelativeBytePos, RemapPathScopeComponents, type SourceFile as SourceFile_ } from "../../rustc_span/lib.ts";
+import { kw } from "../../rustc_span/symbol.ts";
+import { KeyedMap } from "../../rust_ts/keyed.ts";
+import { path_eq, path_join, path_strip_prefix } from "../../std/path.ts";
+import { decode_IncoherentImpls, decode_TraitImpls } from "../decodable.gen.ts";
+import { DefPathHashMapRef as DefPathHashMapRef_, decode_DefPathHashMapRef } from "./def_path_hash_map.ts";
+import { fse_AttrFlags, fse_bool, fse_LazyArray, fse_Option_LazyArray, fse_Option_LazyValue, fse_u64, is_default_LazyArray } from "./table.ts";
+import { RawDefId_key, type VariantData } from "./mod.ts";
+// end rmeta-decoder-b imports
+
 // pub(super) use cstore_impl::provide;  (../lib.ts exports it; mod cstore_impl; is loaded by ../lib.ts)
 
 // ---- stand-ins ------------------------------------------------------------------------------------------------
@@ -294,21 +312,62 @@ export class CrateMetadata {
 
   // ---- impl CrateMetadata (decoder.rs:1976) ----
 
-  // rustc-decl: compiler/rustc_metadata/src/rmeta/decoder.rs:1977 new  (lane rmeta-decoder-b)
+  // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1977 new
   static new(
-    _tcx: TyCtxt,
-    _blob: MetadataBlob,
-    _root: CrateRoot,
-    _unhashed: CrateRootUnhashed,
-    _raw_proc_macros: readonly ProcMacroClient[] | undefined,
-    _cnum: CrateNum,
-    _cnum_map: CrateNumMap,
-    _dep_kind: CrateDepKind,
-    _source: CrateSource,
-    _private_dep: boolean,
-    _host_hash: Svh | undefined,
+    tcx: TyCtxt,
+    blob: MetadataBlob,
+    root: CrateRoot,
+    unhashed: CrateRootUnhashed,
+    raw_proc_macros: readonly ProcMacroClient[] | undefined,
+    cnum: CrateNum,
+    cnum_map: CrateNumMap,
+    dep_kind: CrateDepKind,
+    source: CrateSource,
+    private_dep: boolean,
+    host_hash: Svh | undefined,
   ): CrateMetadata {
-    return unported("rustc_metadata::rmeta::decoder::CrateMetadata::new");
+    // `.map(|trait_impls| (trait_impls.trait_id, trait_impls.impls)).collect()` (an `FxIndexMap<RawDefId, _>`)
+    const trait_impls = new KeyedMap<RawDefId, LazyArray<[LocalDefId, SimplifiedType | undefined]>>(RawDefId_key);
+    for (const trait_impls_ of root.impls.decode(blob, decode_TraitImpls)) {
+      trait_impls.set(trait_impls_.trait_id, trait_impls_.impls);
+    }
+    // PORT: `interpret_alloc_index` is a `LazyArray<u64>` (mod.ts types its phantom element `number`).
+    const alloc_decoding_state = AllocDecodingState_new([...(root.interpret_alloc_index as LazyArray<unknown> as LazyArray<bigint>).decode(blob, decode_u64)]);
+
+    // Pre-decode the DefPathHash->DefIndex table. This is a cheap operation
+    // that does not copy any data. It just does some data verification.
+    const def_path_hash_map = root.def_path_hash_map.decode(blob, decode_DefPathHashMapRef);
+
+    const cdata = new CrateMetadata(
+      blob,
+      root,
+      unhashed,
+      trait_impls,
+      /* incoherent_impls */ new Map(),
+      raw_proc_macros,
+      /* source_map_import_info */ [],
+      def_path_hash_map,
+      /* expn_hash_map */ undefined,
+      alloc_decoding_state,
+      /* def_key_cache */ new Map(),
+      cnum,
+      cnum_map,
+      dep_kind,
+      source,
+      private_dep,
+      host_hash,
+      /* used */ false,
+      /* hygiene_context */ HygieneDecodeContext_.default(),
+      /* extern_crate */ undefined,
+    );
+
+    const incoherent_impls = new Map<SimplifiedType, LazyArray<LocalDefId>>();
+    for (const incoherent_impls_ of cdata.root.incoherent_impls.decode([cdata, tcx], decode_IncoherentImpls)) {
+      incoherent_impls.set((incoherent_impls_.self_ty as LazyValue<SimplifiedType>).decode([cdata, tcx], decode_SimplifiedType), incoherent_impls_.impls);
+    }
+    cdata.incoherent_impls = incoherent_impls;
+
+    return cdata;
   }
 }
 export interface CrateMetadata {
@@ -1198,45 +1257,720 @@ CrateMetadata.prototype.map_encoded_cnum_to_current = function (this: CrateMetad
 // ---- end rmeta-decoder-a ----
 
 // ---- lane rmeta-decoder-b: decoder.rs:1343..2035 ----
-unported_methods(CrateMetadata.prototype, "rustc_metadata::rmeta::decoder::CrateMetadata", [
-  "get_mod_child",
-  "get_module_children",
-  "get_ambig_module_children",
-  "is_item_mir_available",
-  "get_fn_has_self_parameter",
-  "get_associated_item_or_field_def_ids",
-  "get_associated_item",
-  "get_ctor",
-  "get_item_attrs",
-  "get_inherent_implementations_for_type",
-  "get_traits",
-  "get_trait_impls",
-  "get_incoherent_impls",
-  "get_implementations_of_trait",
-  "get_native_libraries",
-  "get_proc_macro_quoted_span",
-  "get_foreign_modules",
-  "get_dylib_dependency_formats",
-  "get_externally_implementable_items",
-  "get_missing_lang_items",
-  "get_exportable_items",
-  "get_stable_order_of_exportable_impls",
-  "exported_non_generic_symbols",
-  "exported_generic_symbols",
-  "get_macro",
-  "def_key",
-  "def_path",
-  "def_path_hash",
-  "def_path_hash_to_def_index",
-  "expn_hash_to_expn_id",
-  "imported_source_file",
-  "get_attr_flags",
-  "get_intrinsic",
-  "get_doc_link_resolutions",
-  "get_doc_link_traits_in_scope",
-]);
-// rustc-decl: decoder.rs:1737 filter (the fn nested in `imported_source_file`)
-// rustc-decl: decoder.rs:1977 CrateMetadata::new (static, in the class body above)
+
+// PORT: element types whose `Decodable` impl has no TS port yet. Each is the `T::decode` a `LazyValue<T>` /
+// `LazyArray<T>` / `LazyTable` element of this region needs; it stops as UNPORTED naming the impl, so a crate
+// load reaching it stops there (no guessed values). They become imports once their crates generate them.
+/** `#[derive(Decodable)]` of `rustc_middle::metadata::ModChild` (needs `Res<!>` / `Visibility<DefId>` / `Reexport`). */
+function decode_ModChild(_d: MetadataDecodeContext): ModChild {
+  return unported("Decodable for rustc_middle::metadata::ModChild (derive(Decodable) not generated)");
+}
+/** `#[derive(Decodable)]` of `rustc_middle::metadata::AmbigModChild`. */
+function decode_AmbigModChild(_d: MetadataDecodeContext): AmbigModChild {
+  return unported("Decodable for rustc_middle::metadata::AmbigModChild (derive(Decodable) not generated)");
+}
+/** `#[derive(MetadataEncodable, LazyDecodable)]` of `rmeta::VariantData` (its `discr: ty::VariantDiscr` is M3). */
+function decode_VariantData(_d: MetadataDecodeContext): VariantData {
+  return unported("Decodable for rustc_metadata::rmeta::VariantData (ty::VariantDiscr, M3)");
+}
+/** `#[derive(Decodable)]` of `rustc_attr_ir::Attribute`. */
+function decode_Attribute(_d: MetadataDecodeContext): Attribute {
+  return unported("Decodable for rustc_attr_ir::Attribute (derive(Decodable) not generated)");
+}
+/** `Decodable` of `rustc_middle::ty::fast_reject::SimplifiedType` (rustc_type_ir fast_reject.rs, M3). */
+function decode_SimplifiedType(_d: MetadataDecodeContext): SimplifiedType {
+  return unported("Decodable for rustc_middle::ty::fast_reject::SimplifiedType (M3)");
+}
+/** `#[derive(Decodable)]` of `rustc_crate_store::NativeLib`. */
+function decode_NativeLib(_d: MetadataDecodeContext): NativeLib {
+  return unported("Decodable for rustc_crate_store::NativeLib (derive(Decodable) not generated)");
+}
+/** `#[derive(Decodable)]` of `rustc_crate_store::ForeignModule`. */
+function decode_ForeignModule(_d: MetadataDecodeContext): ForeignModule {
+  return unported("Decodable for rustc_crate_store::ForeignModule (derive(Decodable) not generated)");
+}
+/** `Decodable` of `EiiMapEncodedKeyValue` (rmeta encoder.rs type alias of a tuple; `EiiDecl` / `EiiImpl`). */
+function decode_EiiMapEncodedKeyValue(_d: MetadataDecodeContext): unknown {
+  return unported("Decodable for rustc_metadata::rmeta::EiiMapEncodedKeyValue (rustc_attr_ir EiiDecl/EiiImpl, derive(Decodable) not generated)");
+}
+/** `BlobDecodable` of `rustc_attr_ir::lang_items::LangItem` (`language_item_table!`). */
+function decode_LangItem(_d: MetadataDecodeContext): LangItem {
+  return unported("Decodable for rustc_attr_ir::lang_items::LangItem (derive(BlobDecodable) not generated)");
+}
+/** `Decodable` of `(ExportedSymbol<'tcx>, SymbolExportInfo)` (rustc_middle middle/exported_symbols.rs, M3). */
+function decode_ExportedSymbol_SymbolExportInfo(_d: MetadataDecodeContext): unknown {
+  return unported("Decodable for (rustc_middle::middle::exported_symbols::ExportedSymbol, SymbolExportInfo) (M3)");
+}
+/** `#[derive(Decodable)]` of `rustc_ast::DelimArgs`. */
+function decode_DelimArgs(_d: MetadataDecodeContext): DelimArgs {
+  return unported("Decodable for rustc_ast::ast::DelimArgs (derive(Decodable) not generated)");
+}
+/** `Decodable` of `rustc_middle::ty::IntrinsicDef` (M3). */
+function decode_IntrinsicDef(_d: MetadataDecodeContext): unknown {
+  return unported("Decodable for rustc_middle::ty::IntrinsicDef (M3)");
+}
+/** `Decodable` of `DocLinkResMap` (`UnordMap<(Symbol, Namespace), Option<Res<NodeId>>>`). */
+function decode_DocLinkResMap(_d: MetadataDecodeContext): DocLinkResMap {
+  return unported("Decodable for rustc_hir::def::DocLinkResMap (derive(Decodable) of Res / Namespace not generated)");
+}
+
+/** `Iterator::map` over an iterator that is already created (the `.decode(..)` ran eagerly, as upstream). */
+function* iter_map<T, U>(it: Iterable<T>, f: (t: T) => U): Generator<U, void, undefined> {
+  for (const x of it) yield f(x);
+}
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1343 get_mod_child
+CrateMetadata.prototype.get_mod_child = function (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): ModChild {
+  const ident = this.item_ident(tcx, id);
+  const res: Res<never> = { $: "Def", _0: this.def_kind(id), _1: this.local_def_id(id) };
+  const vis = this.get_visibility(tcx, id);
+
+  return { ident, res, vis, reexport_chain: [] };
+};
+
+/// Iterates over all named children of the given module,
+/// including both proper items and reexports.
+/// Module here is understood in name resolution sense - it can be a `mod` item,
+/// or a crate root, or an enum, or a trait.
+///
+/// # Panics
+///
+/// May panic if the provided `id` does not refer to a module.
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1359 get_module_children
+CrateMetadata.prototype.get_module_children = function* (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): Iterable<ModChild> {
+  const data = this.root.proc_macro_data;
+  if (data !== undefined) {
+    // If we are loading as a proc macro, we want to return
+    // the view of this crate as a proc macro crate.
+    if (id === CRATE_DEF_INDEX) {
+      for (const [child_index, _] of data.macros.decode([this, tcx], (d) => decode_tuple_(d, (d) => d.decode_local_def_id(), (d) => d.read_lazy<ProcMacroKind>()))) {
+        yield this.get_mod_child(tcx, LocalDefId.local_def_index(child_index));
+      }
+    }
+  } else {
+    // Iterate over all children.
+    const non_reexports_ = this.root.tables.module_children_non_reexports.get(fse_Option_LazyArray, this, id);
+    if (non_reexports_ === undefined) return panic("provided `DefIndex` must refer to a module-like item");
+    const non_reexports = non_reexports_ as LazyArray<LocalDefId>;
+    for (const child_index of non_reexports.decode([this, tcx], (d) => d.decode_local_def_id())) {
+      yield this.get_mod_child(tcx, LocalDefId.local_def_index(child_index));
+    }
+
+    const reexports = this.root.tables.module_children_reexports.get(fse_LazyArray, this, id) as LazyArray<ModChild>;
+    if (!is_default_LazyArray(reexports)) {
+      for (const reexport of reexports.decode([this, tcx], decode_ModChild)) {
+        yield reexport;
+      }
+    }
+  }
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1388 get_ambig_module_children
+CrateMetadata.prototype.get_ambig_module_children = function* (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): Iterable<AmbigModChild> {
+  const children = this.root.tables.ambig_module_children.get(fse_LazyArray, this, id) as LazyArray<AmbigModChild>;
+  if (!is_default_LazyArray(children)) {
+    for (const child of children.decode([this, tcx], decode_AmbigModChild)) {
+      yield child;
+    }
+  }
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1403 is_item_mir_available
+CrateMetadata.prototype.is_item_mir_available = function (this: CrateMetadata, id: DefIndex): boolean {
+  return this.root.tables.optimized_mir.get(fse_Option_LazyValue, this, id) !== undefined;
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1407 get_fn_has_self_parameter
+CrateMetadata.prototype.get_fn_has_self_parameter = function (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): boolean {
+  const idents = this.root.tables.fn_arg_idents.get(fse_Option_LazyArray, this, id) as LazyArray<Ident | undefined> | undefined;
+  if (idents === undefined) return panic("argument names not encoded for a function");
+  // `.nth(0).is_some_and(|ident| matches!(ident, Some(Ident { name: kw::SelfLower, .. })))`
+  const first = idents.decode([this, tcx], (d) => decode_Option_(d, decode_Ident)).next();
+  if (first.done) return false;
+  const ident = first.value;
+  return ident !== undefined && ident.name === kw.SelfLower;
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1418 get_associated_item_or_field_def_ids
+CrateMetadata.prototype.get_associated_item_or_field_def_ids = function (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): Iterable<DefId> {
+  let ids = this.root.tables.associated_item_or_field_def_ids.get(fse_Option_LazyArray, this, id) as LazyArray<LocalDefId> | undefined;
+  if (ids === undefined) ids = this.missing("associated_item_or_field_def_ids", id);
+  return iter_map(
+    ids.decode([this, tcx], (d) => d.decode_local_def_id()),
+    (id) => this.local_def_id(LocalDefId.local_def_index(id)),
+  );
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1432 get_associated_item
+CrateMetadata.prototype.get_associated_item = function (this: CrateMetadata, _tcx: TyCtxt, _id: DefIndex): unknown {
+  // PORT: builds a `ty::AssocItem { kind: ty::AssocKind::{Const, Fn, Type { data: ty::AssocTypeData::.. }}, def_id,
+  // container: ty::AssocContainer }` (rustc_middle ty/assoc.rs) from `def_kind`, `item_name`,
+  // `get_fn_has_self_parameter`, the `opt_rpitit_info` (`ty::ImplTraitInTraitData`) and `assoc_container` tables;
+  // none of those rustc_middle types is ported (M3).
+  return unported("rustc_metadata::rmeta::decoder::CrateMetadata::get_associated_item (ty::AssocItem / AssocKind / AssocContainer, M3)");
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1455 get_ctor
+CrateMetadata.prototype.get_ctor = function (this: CrateMetadata, tcx: TyCtxt, node_id: DefIndex): [CtorKind, DefId] | undefined {
+  const kind = this.def_kind(node_id);
+  switch (kind.$) {
+    case "Struct":
+    case "Variant": {
+      const lazy = this.root.tables.variant_data.get(fse_Option_LazyValue, this, node_id);
+      if (lazy === undefined) return panic("called `Option::unwrap()` on a `None` value");
+      const vdata = lazy.decode([this, tcx], decode_VariantData);
+      if (vdata.ctor === undefined) return undefined;
+      const [ctor_kind, id] = vdata.ctor;
+      return [ctor_kind, this.local_def_id(LocalDefId.local_def_index(id))];
+    }
+    default:
+      return undefined;
+  }
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1466 get_item_attrs
+CrateMetadata.prototype.get_item_attrs = function (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): Iterable<Attribute> {
+  let attrs = this.root.tables.attributes.get(fse_Option_LazyArray, this, id) as LazyArray<Attribute> | undefined;
+  if (attrs === undefined) {
+    const def_key = this.def_key(id);
+    switch (def_key.disambiguated_data.data.$) {
+      case "Ctor": {
+        // Structure and variant constructors don't have any attributes encoded for them,
+        // but we assume that someone passing a constructor ID actually wants to look at
+        // the attributes on the corresponding struct or variant.
+        const parent_id = def_key.parent;
+        if (parent_id === undefined) return panic("no parent for a constructor");
+        const parent_attrs = this.root.tables.attributes.get(fse_Option_LazyArray, this, parent_id) as LazyArray<Attribute> | undefined;
+        if (parent_attrs === undefined) return panic("no encoded attributes for a structure or variant");
+        attrs = parent_attrs;
+        break;
+      }
+      case "SyntheticCoroutineBody":
+        // SyntheticCoroutineBodies cannot have attributes
+        attrs = LazyArray.default<Attribute>();
+        break;
+      default:
+        return panic(
+          `Definition key ${debug_DefKey(def_key, PLAIN)} of type \`${debug_DefPathData(def_key.disambiguated_data.data, PLAIN)}\` did not have any attributes stored`,
+        );
+    }
+  }
+  return attrs.decode([this, tcx], decode_Attribute);
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1499 get_inherent_implementations_for_type
+CrateMetadata.prototype.get_inherent_implementations_for_type = function (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): DefId[] {
+  // `tcx.arena.alloc_from_iter(..)`
+  const out: DefId[] = [];
+  const impls = this.root.tables.inherent_impls.get(fse_LazyArray, this, id) as LazyArray<LocalDefId>;
+  for (const id_ of impls.decode([this, tcx], (d) => d.decode_local_def_id())) {
+    out.push(this.local_def_id(LocalDefId.local_def_index(id_)));
+  }
+  return out;
+};
+
+/// Decodes all traits in the crate (for rustdoc and rustc diagnostics).
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1515 get_traits
+CrateMetadata.prototype.get_traits = function (this: CrateMetadata, tcx: TyCtxt): Iterable<DefId> {
+  return iter_map(
+    this.root.traits.decode([this, tcx], (d) => d.decode_local_def_id()),
+    (id) => this.local_def_id(LocalDefId.local_def_index(id)),
+  );
+};
+
+/// Decodes all trait impls in the crate (for rustdoc).
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1520 get_trait_impls
+CrateMetadata.prototype.get_trait_impls = function* (this: CrateMetadata, tcx: TyCtxt): Iterable<DefId> {
+  for (const impls of this.trait_impls.values()) {
+    for (const [id, _] of impls.decode([this, tcx], decode_LocalDefId_Option_SimplifiedType)) {
+      yield this.local_def_id(LocalDefId.local_def_index(id));
+    }
+  }
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1526 get_incoherent_impls
+CrateMetadata.prototype.get_incoherent_impls = function (this: CrateMetadata, tcx: TyCtxt, simp: SimplifiedType): DefId[] {
+  const impls = this.incoherent_impls.get(simp);
+  if (impls !== undefined) {
+    const out: DefId[] = [];
+    for (const id of impls.decode([this, tcx], (d) => d.decode_local_def_id())) {
+      out.push(this.local_def_id(LocalDefId.local_def_index(id)));
+    }
+    return out;
+  } else {
+    return [];
+  }
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1536 get_implementations_of_trait
+CrateMetadata.prototype.get_implementations_of_trait = function (this: CrateMetadata, tcx: TyCtxt, trait_def_id: DefId): [DefId, SimplifiedType | undefined][] {
+  if (this.trait_impls.size === 0) {
+    return [];
+  }
+
+  // Do a reverse lookup beforehand to avoid touching the crate_num
+  // hash map in the loop below.
+  const key = this.reverse_translate_def_id(trait_def_id);
+  if (key === undefined) return [];
+
+  const impls = this.trait_impls.get(key);
+  if (impls !== undefined) {
+    const out: [DefId, SimplifiedType | undefined][] = [];
+    for (const [id, simplified_self_ty] of impls.decode([this, tcx], decode_LocalDefId_Option_SimplifiedType)) {
+      out.push([this.local_def_id(LocalDefId.local_def_index(id)), simplified_self_ty]);
+    }
+    return out;
+  } else {
+    return [];
+  }
+};
+
+/** `<(LocalDefId, Option<SimplifiedType>)>::decode` (the elements of `TraitImpls::impls`). */
+function decode_LocalDefId_Option_SimplifiedType(d: MetadataDecodeContext): [LocalDefId, SimplifiedType | undefined] {
+  return decode_tuple_<[LocalDefId, SimplifiedType | undefined], MetadataDecodeContext>(
+    d,
+    (d) => d.decode_local_def_id(),
+    (d) => decode_Option_(d, decode_SimplifiedType),
+  );
+}
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1561 get_native_libraries
+CrateMetadata.prototype.get_native_libraries = function (this: CrateMetadata, tcx: TyCtxt): Iterable<NativeLib> {
+  return (this.root.native_libraries as LazyArray<NativeLib>).decode([this, tcx], decode_NativeLib);
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1565 get_proc_macro_quoted_span
+CrateMetadata.prototype.get_proc_macro_quoted_span = function (this: CrateMetadata, tcx: TyCtxt, index: number): Span {
+  const data = this.root.proc_macro_data;
+  if (data === undefined) return panic("missing proc macro data");
+  const lazy = data.proc_macro_quoted_spans.get(fse_Option_LazyValue, this, index) as LazyValue<Span> | undefined;
+  if (lazy === undefined) return panic(`missing proc macro quoted span: ${index}`);
+  return lazy.decode([this, tcx], (d) => d.decode_span());
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1576 get_foreign_modules
+CrateMetadata.prototype.get_foreign_modules = function (this: CrateMetadata, tcx: TyCtxt): Iterable<ForeignModule> {
+  return (this.root.foreign_modules as LazyArray<ForeignModule>).decode([this, tcx], decode_ForeignModule);
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1580 get_dylib_dependency_formats
+CrateMetadata.prototype.get_dylib_dependency_formats = function (this: CrateMetadata, tcx: TyCtxt): [CrateNum, LinkagePreference][] {
+  // `tcx.arena.alloc_from_iter(..enumerate().flat_map(..))`
+  const out: [CrateNum, LinkagePreference][] = [];
+  let i = 0;
+  for (const link of (this.root.dylib_dependency_formats as LazyArray<LinkagePreference | undefined>).decode([this, tcx], (d) =>
+    decode_Option_(d, (d) => decode_LinkagePreference_(d)),
+  )) {
+    const cnum = CrateNum.new(i + 1); // We skipped LOCAL_CRATE when encoding
+    if (link !== undefined) {
+      const c = this.cnum_map[CrateNum.as_usize(cnum)];
+      if (c === undefined) return panic(`index out of bounds: the len is ${this.cnum_map.length} but the index is ${CrateNum.as_usize(cnum)}`);
+      out.push([c, link]);
+    }
+    i++;
+  }
+  return out;
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1594 get_externally_implementable_items
+CrateMetadata.prototype.get_externally_implementable_items = function (this: CrateMetadata, tcx: TyCtxt): Iterable<unknown> {
+  return this.root.externally_implementable_items.decode([this, tcx], decode_EiiMapEncodedKeyValue);
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1601 get_missing_lang_items
+CrateMetadata.prototype.get_missing_lang_items = function (this: CrateMetadata, tcx: TyCtxt): LangItem[] {
+  return [...(this.root.lang_items_missing as LazyArray<LangItem>).decode([this, tcx], decode_LangItem)];
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1605 get_exportable_items
+CrateMetadata.prototype.get_exportable_items = function (this: CrateMetadata, tcx: TyCtxt): Iterable<DefId> {
+  return iter_map(
+    this.root.exportable_items.decode([this, tcx], (d) => d.decode_local_def_id()),
+    (id) => this.local_def_id(LocalDefId.local_def_index(id)),
+  );
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1612 get_stable_order_of_exportable_impls
+CrateMetadata.prototype.get_stable_order_of_exportable_impls = function (this: CrateMetadata, tcx: TyCtxt): Iterable<[DefId, number]> {
+  return iter_map(
+    this.root.stable_order_of_exportable_impls.decode([this, tcx], (d) =>
+      decode_tuple_<[LocalDefId, number], MetadataDecodeContext>(d, (d) => d.decode_local_def_id(), (d) => d.read_usize()),
+    ),
+    (v): [DefId, number] => [this.local_def_id(LocalDefId.local_def_index(v[0])), v[1]],
+  );
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1622 exported_non_generic_symbols
+CrateMetadata.prototype.exported_non_generic_symbols = function (this: CrateMetadata, tcx: TyCtxt): unknown[] {
+  return [...this.root.exported_non_generic_symbols.decode([this, tcx], decode_ExportedSymbol_SymbolExportInfo)];
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1629 exported_generic_symbols
+CrateMetadata.prototype.exported_generic_symbols = function (this: CrateMetadata, tcx: TyCtxt): unknown[] {
+  return [...this.root.exported_generic_symbols.decode([this, tcx], decode_ExportedSymbol_SymbolExportInfo)];
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1636 get_macro
+CrateMetadata.prototype.get_macro = function (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): MacroDef {
+  const kind = this.def_kind(id);
+  switch (kind.$) {
+    case "Macro": {
+      const macro_rules = this.root.tables.is_macro_rules.get(fse_bool, this, id);
+      const lazy = this.root.tables.macro_definition.get(fse_Option_LazyValue, this, id) as LazyValue<DelimArgs> | undefined;
+      if (lazy === undefined) return panic("called `Option::unwrap()` on a `None` value");
+      const body = lazy.decode([this, tcx], decode_DelimArgs);
+      return { macro_rules, body, eii_declaration: undefined };
+    }
+    default:
+      // `bug!()`
+      return bug("impossible case reached");
+  }
+};
+
+// #[inline]
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1649 def_key
+CrateMetadata.prototype.def_key = function (this: CrateMetadata, index: DefIndex): DefKey {
+  // `*self.def_key_cache.lock().entry(index).or_insert_with(|| ..)`
+  let key = this.def_key_cache.get(index);
+  if (key === undefined) {
+    const lazy = this.root.tables.def_keys.get(fse_Option_LazyValue, this.blob_, index) as LazyValue<DefKey> | undefined;
+    if (lazy === undefined) return panic("called `Option::unwrap()` on a `None` value");
+    key = lazy.decode(this.blob_, decode_DefKey);
+    this.def_key_cache.set(index, key);
+  }
+  return clone_DefKey(key);
+};
+
+// Returns the path leading to the thing with this `id`.
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1656 def_path
+CrateMetadata.prototype.def_path = function (this: CrateMetadata, id: DefIndex): DefPath {
+  // debug!("def_path(cnum={:?}, id={:?})", self.cnum, id);
+  return DefPath_.make(this.cnum, id, (parent) => this.def_key(parent));
+};
+
+// #[inline]
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1662 def_path_hash
+CrateMetadata.prototype.def_path_hash = function (this: CrateMetadata, index: DefIndex): DefPathHash {
+  // This is a hack to workaround the fact that we can't easily encode/decode a Hash64
+  // into the FixedSizeEncoding, as Hash64 lacks a Default impl. A future refactor to
+  // relax the Default restriction will likely fix this.
+  const fingerprint = Fingerprint.new(StableCrateId_.as_u64(this.root.stable_crate_id_), this.root.tables.def_path_hashes.get(fse_u64, this.blob_, index));
+  return DefPathHash_.new(this.root.stable_crate_id_, Fingerprint.split(fingerprint)[1]);
+};
+
+// #[inline]
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1674 def_path_hash_to_def_index
+CrateMetadata.prototype.def_path_hash_to_def_index = function (this: CrateMetadata, hash: DefPathHash): DefIndex | undefined {
+  return DefPathHashMapRef_.def_path_hash_to_def_index(this.def_path_hash_map, hash);
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1678 expn_hash_to_expn_id
+CrateMetadata.prototype.expn_hash_to_expn_id = function (this: CrateMetadata, tcx: TyCtxt, index_guess_: number, hash: ExpnHash): ExpnId {
+  const index_guess = ExpnIndex.from_u32(index_guess_);
+  const old_lazy = this.root.expn_hashes.get(fse_Option_LazyValue, this, index_guess) as LazyValue<ExpnHash> | undefined;
+  const old_hash = old_lazy === undefined ? undefined : old_lazy.decode([this, tcx], decode_ExpnHash);
+
+  let index: ExpnIndex;
+  if (old_hash !== undefined && old_hash === hash) {
+    // Fast path: the expn and its index is unchanged from the
+    // previous compilation session. There is no need to decode anything
+    // else.
+    index = index_guess;
+  } else {
+    // Slow path: We need to find out the new `DefIndex` of the provided
+    // `DefPathHash`, if its still exists. This requires decoding every `DefPathHash`
+    // stored in this crate.
+    // `self.expn_hash_map.get_or_init(|| ..)`
+    let map = this.expn_hash_map;
+    if (map === undefined) {
+      const end_id = this.root.expn_hashes.size();
+      const m = new Map<ExpnHash, ExpnIndex>();
+      for (let i_ = 0; i_ < end_id; i_++) {
+        const i = ExpnIndex.from_u32(i_);
+        const h = this.root.expn_hashes.get(fse_Option_LazyValue, this, i) as LazyValue<ExpnHash> | undefined;
+        if (h !== undefined) {
+          m.set(h.decode([this, tcx], decode_ExpnHash), i);
+        }
+      }
+      map = this.expn_hash_map = m;
+    }
+    // `map[&hash]`
+    const found = map.get(hash);
+    if (found === undefined) return panic("no entry found for key");
+    index = found;
+  }
+
+  const lazy = this.root.expn_data.get(fse_Option_LazyValue, this, index) as LazyValue<ExpnData> | undefined;
+  if (lazy === undefined) return panic("called `Option::unwrap()` on a `None` value");
+  const data = lazy.decode([this, tcx], decode_ExpnData);
+  return register_expn_id(this.cnum, index, data, hash);
+};
+
+/// Imports the source_map from an external crate into the source_map of the crate
+/// currently being compiled (the "local crate").
+///
+/// The import algorithm works analogous to how AST items are inlined from an
+/// external crate's metadata:
+/// For every SourceFile in the external source_map an 'inline' copy is created in the
+/// local source_map. The correspondence relation between external and local
+/// SourceFiles is recorded in the `ImportedSourceFile` objects returned from this
+/// function. When an item from an external crate is later inlined into this
+/// crate, this correspondence information is used to translate the span
+/// information of the inlined item so that it refers the correct positions in
+/// the local source_map (see `<decoder::DecodeContext as SpecializedDecoder<Span>>`).
+///
+/// The import algorithm in the function below will reuse SourceFiles already
+/// existing in the local source_map. For example, even if the SourceFile of some
+/// source file of libstd gets imported many times, there will only ever be
+/// one SourceFile object for the corresponding file in the local source_map.
+///
+/// Note that imported SourceFiles do not actually contain the source code of the
+/// file they represent, just information about length, line breaks, and
+/// multibyte characters. This information is enough to generate valid debuginfo
+/// for items inlined from other crates.
+///
+/// Proc macro crates don't currently export spans, so this function does not have
+/// to work for them.
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1736 imported_source_file
+CrateMetadata.prototype.imported_source_file = function (this: CrateMetadata, tcx: TyCtxt, source_file_index: number): ImportedSourceFile {
+  // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1737 filter
+  function filter(tcx: TyCtxt, real_source_base_dir: PathBuf | undefined, path: PathBuf | undefined): PathBuf | undefined {
+    // `path.filter(|_| ..).filter(|virtual_dir| ..)`
+    if (path === undefined) return undefined;
+    if (
+      !(
+        // Only spend time on further checks if we have what to translate *to*.
+        (
+          real_source_base_dir !== undefined &&
+          // Some tests need the translation to be always skipped.
+          tcx.sess.opts.unstable_opts.translate_remapped_path_to_local_path
+        )
+      )
+    ) {
+      return undefined;
+    }
+    const virtual_dir = path;
+    // Don't translate away `/rustc/$hash` if we're still remapping to it,
+    // since that means we're still building `std`/`rustc` that need it,
+    // and we don't want the real path to leak into codegen/debuginfo.
+    if (tcx.sess.opts.remap_path_prefix.some(([_from, to]) => path_eq(to, virtual_dir))) {
+      return undefined;
+    }
+    return path;
+  }
+
+  const try_to_translate_virtual_to_real = (
+    virtual_source_base_dir: string | undefined,
+    real_source_base_dir: PathBuf | undefined,
+    name: { value: FileName },
+  ): void => {
+    const virtual_source_base_dir_ = [
+      filter(tcx, real_source_base_dir, virtual_source_base_dir),
+      filter(tcx, real_source_base_dir, tcx.sess.opts.unstable_opts.simulate_remapped_rust_src_base),
+    ];
+
+    // debug!(
+    //     "try_to_translate_virtual_to_real(name={:?}): \
+    //      virtual_source_base_dir={:?}, real_source_base_dir={:?}",
+    //     name, virtual_source_base_dir, real_source_base_dir,
+    // );
+
+    for (const virtual_dir of virtual_source_base_dir_) {
+      if (virtual_dir === undefined) continue;
+      const real_dir = real_source_base_dir;
+      if (real_dir === undefined) continue;
+      const n = name.value;
+      if (n.$ !== "Real") continue;
+      const old_name = n._0;
+      const virtual_path = old_name.path(RemapPathScopeComponents.MACRO);
+      const rest = path_strip_prefix(virtual_path, virtual_dir);
+      if (rest === undefined) continue;
+      const new_path = path_join(real_dir, rest);
+
+      // debug!(
+      //     "try_to_translate_virtual_to_real: `{}` -> `{}`",
+      //     virtual_path.display(),
+      //     new_path.display(),
+      // );
+
+      // Check if the translated real path is affected by any user-requested
+      // remaps via --remap-path-prefix. Apply them if so.
+      // Note that this is a special case for imported rust-src paths specified by
+      // https://rust-lang.github.io/rfcs/3127-trim-paths.html#handling-sysroot-paths.
+      // Other imported paths are not currently remapped (see #66251).
+      name.value = { $: "Real", _0: tcx.sess.source_map().path_mapping().to_real_filename(RealFileName.empty(), new_path) };
+    }
+  };
+
+  const try_to_translate_real_to_virtual = (
+    virtual_source_base_dir: string | undefined,
+    real_source_base_dir: PathBuf | undefined,
+    subdir: string,
+    name: { value: FileName },
+  ): void => {
+    const virtual_dir = tcx.sess.opts.unstable_opts.simulate_remapped_rust_src_base;
+    const real_dir = real_source_base_dir;
+    const n = name.value;
+    if (virtual_dir !== undefined && real_dir !== undefined && n.$ === "Real") {
+      const old_name = n._0;
+      const [_working_dir, embeddable_path] = old_name.embeddable_name(RemapPathScopeComponents.MACRO);
+      let relative_path = path_strip_prefix(embeddable_path, real_dir);
+      if (relative_path === undefined) {
+        relative_path = virtual_source_base_dir === undefined ? undefined : path_strip_prefix(embeddable_path, virtual_source_base_dir);
+      }
+      // debug!(?relative_path, ?virtual_dir, ?subdir, "simulate_remapped_rust_src_base");
+      const rest = relative_path === undefined ? undefined : path_strip_prefix(relative_path, subdir);
+      if (rest !== undefined) {
+        name.value = { $: "Real", _0: RealFileName.from_virtual_path(path_join(path_join(virtual_dir, subdir), rest)) };
+      }
+    }
+  };
+
+  const import_info = this.source_map_import_info;
+  for (let _ = import_info.length; _ <= source_file_index; _++) {
+    import_info.push(undefined);
+  }
+  // `import_info[source_file_index].get_or_insert_with(|| ..).clone()`
+  let info = import_info[source_file_index];
+  if (info === undefined) {
+    const lazy = this.root.source_map.get(fse_Option_LazyValue, this, source_file_index) as LazyValue<SourceFile_> | undefined;
+    if (lazy === undefined) return panic("missing source file");
+    const source_file_to_import = lazy.decode([this, tcx], decode_SourceFile);
+
+    // We can't reuse an existing SourceFile, so allocate a new one
+    // containing the information we need.
+    const original_end_pos = source_file_to_import.end_position();
+    const {
+      src_hash,
+      checksum_hash,
+      start_pos: original_start_pos,
+      normalized_source_len,
+      unnormalized_source_len,
+      lines_: lines,
+      multibyte_chars,
+      normalized_pos,
+      stable_id,
+    } = source_file_to_import;
+    const name = { value: source_file_to_import.name };
+
+    // If this file is under $sysroot/lib/rustlib/src/
+    // and the user wish to simulate remapping with -Z simulate-remapped-rust-src-base,
+    // then we change `name` to a similar state as if the rust was bootstrapped
+    // with `remap-debuginfo = true`.
+    // This is useful for testing so that tests about the effects of
+    // `try_to_translate_virtual_to_real` don't have to worry about how the
+    // compiler is bootstrapped.
+    try_to_translate_real_to_virtual(CFG_VIRTUAL_RUST_SOURCE_BASE_DIR, tcx.sess.opts.real_rust_source_base_dir, "library", name);
+
+    // If this file is under $sysroot/lib/rustlib/rustc-src/
+    // and the user wish to simulate remapping with -Z simulate-remapped-rust-src-base,
+    // then we change `name` to a similar state as if the rust was bootstrapped
+    // with `remap-debuginfo = true`.
+    try_to_translate_real_to_virtual(CFG_VIRTUAL_RUSTC_DEV_SOURCE_BASE_DIR, tcx.sess.opts.real_rustc_dev_source_base_dir, "compiler", name);
+
+    // If this file's path has been remapped to `/rustc/$hash`,
+    // we might be able to reverse that.
+    //
+    // NOTE: if you update this, you might need to also update bootstrap's code for generating
+    // the `rust-src` component in `Src::run` in `src/bootstrap/dist.rs`.
+    try_to_translate_virtual_to_real(CFG_VIRTUAL_RUST_SOURCE_BASE_DIR, tcx.sess.opts.real_rust_source_base_dir, name);
+
+    // If this file's path has been remapped to `/rustc-dev/$hash`,
+    // we might be able to reverse that.
+    //
+    // NOTE: if you update this, you might need to also update bootstrap's code for generating
+    // the `rustc-dev` component in `Src::run` in `src/bootstrap/dist.rs`.
+    try_to_translate_virtual_to_real(CFG_VIRTUAL_RUSTC_DEV_SOURCE_BASE_DIR, tcx.sess.opts.real_rustc_dev_source_base_dir, name);
+
+    const local_version = tcx.sess
+      .source_map()
+      .new_imported_source_file(
+        name.value,
+        src_hash,
+        checksum_hash,
+        stable_id,
+        RelativeBytePos.to_u32(normalized_source_len),
+        unnormalized_source_len,
+        this.cnum,
+        lines,
+        multibyte_chars,
+        normalized_pos,
+        source_file_index,
+      );
+    // debug!(
+    //     "CrateMetaData::imported_source_files alloc \
+    //          source_file {:?} original (start_pos {:?} source_len {:?}) \
+    //          translated (start_pos {:?} source_len {:?})",
+    //     local_version.name,
+    //     original_start_pos,
+    //     normalized_source_len,
+    //     local_version.start_pos,
+    //     local_version.normalized_source_len
+    // );
+
+    info = {
+      original_start_pos,
+      original_end_pos,
+      translated_source_file: local_version,
+    };
+    import_info[source_file_index] = info;
+  }
+  // `#[derive(Clone)]` (the `Arc<SourceFile>` is shared)
+  return { ...info };
+};
+
+/**
+ * PORT: `option_env!("CFG_VIRTUAL_RUST_SOURCE_BASE_DIR")` / `option_env!("CFG_VIRTUAL_RUSTC_DEV_SOURCE_BASE_DIR")` of
+ * the oracle build: bootstrap's `debuginfo_map_to` (`/rustc/{commit}` and `/rustc-dev/{commit}` for the pinned
+ * `rust.commit`, UPSTREAM.json). Checked against the oracle: the sysroot's `core` metadata names its files
+ * `/rustc/6f5da406../library/core/src/..`, and librustc_driver embeds `/rustc-dev/6f5da406../compiler/..`.
+ */
+const CFG_VIRTUAL_RUST_SOURCE_BASE_DIR: string | undefined = "/rustc/6f5da406b56c2db6607202b63daee73aa8c61297";
+const CFG_VIRTUAL_RUSTC_DEV_SOURCE_BASE_DIR: string | undefined = "/rustc-dev/6f5da406b56c2db6607202b63daee73aa8c61297";
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1945 get_attr_flags
+CrateMetadata.prototype.get_attr_flags = function (this: CrateMetadata, index: DefIndex): AttrFlags {
+  return this.root.tables.attr_flags.get(fse_AttrFlags, this, index);
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1949 get_intrinsic
+CrateMetadata.prototype.get_intrinsic = function (this: CrateMetadata, tcx: TyCtxt, index: DefIndex): unknown | undefined {
+  const d = this.root.tables.intrinsic.get(fse_Option_LazyValue, this, index);
+  return d === undefined ? undefined : d.decode([this, tcx], decode_IntrinsicDef);
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1953 get_doc_link_resolutions
+CrateMetadata.prototype.get_doc_link_resolutions = function (this: CrateMetadata, tcx: TyCtxt, index: DefIndex): DocLinkResMap {
+  const lazy = this.root.tables.doc_link_resolutions.get(fse_Option_LazyValue, this, index) as LazyValue<DocLinkResMap> | undefined;
+  if (lazy === undefined) return panic("no resolutions for a doc link");
+  return lazy.decode([this, tcx], decode_DocLinkResMap);
+};
+
+// rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1962 get_doc_link_traits_in_scope
+CrateMetadata.prototype.get_doc_link_traits_in_scope = function (this: CrateMetadata, tcx: TyCtxt, index: DefIndex): Iterable<DefId> {
+  const lazy = this.root.tables.doc_link_traits_in_scope.get(fse_Option_LazyArray, this, index) as LazyArray<DefId> | undefined;
+  if (lazy === undefined) return panic("no traits in scope for a doc link");
+  return lazy.decode([this, tcx], (d) => d.decode_def_id());
+};
+
+/**
+ * PORT: stand-in for `rustc_middle::mir::interpret::AllocDecodingState` (mir/interpret/mod.rs:149; rustc_middle's
+ * mir is M3): its two fields, built as `AllocDecodingState::new` (mod.rs:162) builds them. `State::Empty` is
+ * `"Empty"`; `Lock<State>` is the element itself.
+ */
+export interface AllocDecodingStateStandIn {
+  // For each `AllocId`, we keep track of which decoding state it's currently in.
+  decoding_state: ({ $: "Empty" } | { $: "Done"; _0: unknown /* AllocId */ })[];
+  // The offsets of each allocation in the data stream.
+  data_offsets: bigint[];
+}
+/** `AllocDecodingState::new(data_offsets)` (rustc_middle mir/interpret/mod.rs:162) for the stand-in. */
+function AllocDecodingState_new(data_offsets: bigint[]): AllocDecodingStateStandIn {
+  const decoding_state: AllocDecodingStateStandIn["decoding_state"] = [];
+  for (let i = 0; i < data_offsets.length; i++) decoding_state.push({ $: "Empty" });
+
+  return { decoding_state, data_offsets };
+}
 
 // ---- end rmeta-decoder-b ----
 
