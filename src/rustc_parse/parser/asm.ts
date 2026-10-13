@@ -377,8 +377,9 @@ export function parse_asm_args(p: Parser, sp: Span, asm_macro: AsmMacro): PResul
   return Ok(args);
 }
 
+// PORT: private upstream; exported for asm.test.ts only.
 // rustc: compiler/rustc_parse/src/parser/asm.rs:289 parse_options
-function parse_options(p: Parser, asm_macro: AsmMacro): PResult<AsmOption[]> {
+export function parse_options(p: Parser, asm_macro: AsmMacro): PResult<AsmOption[]> {
   const r = p.expect(exp.OpenParen);
   if (r.$ === "Err") return r;
 
