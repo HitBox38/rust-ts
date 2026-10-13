@@ -20065,6 +20065,7 @@ tests/ui/try-block/try-block.rs
 tests/ui/try-block/try-is-identifier-edition2015.rs
 tests/ui/try-trait/bad-interconversion.rs
 tests/ui/try-trait/bad-question-mark-on-trait-object.rs
+tests/ui/try-trait/deep-try-chain-issue-153583.rs
 tests/ui/try-trait/incompatible-types-with-question-mark-51632.rs
 tests/ui/try-trait/issue-32709.rs
 tests/ui/try-trait/option-to-result.rs
