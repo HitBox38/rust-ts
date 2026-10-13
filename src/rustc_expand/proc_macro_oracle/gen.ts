@@ -4,18 +4,25 @@
 //
 // Builds the proc-macro crate `pm_probe.rs` into $RUST_TS_DATA/tmp/expand-pm-types/, then for each
 // `cases/<name>/t.rs` runs, in that directory:
-//   rustc +nightly --edition 2021 --crate-type lib -Zui-testing -Zunpretty=expanded --extern pm_probe=<lib> t.rs
+//   rustc +nightly --edition 2021 --crate-type lib -Zui-testing -Zunpretty=expanded [ARGS] --extern pm_probe=<lib> t.rs
+// (`cases/<name>/ARGS`: extra flags; only `-Zspan-debug` is used, mirrored by the test as `ecfg.span_debug`)
 // and records stderr and the exit code in expected.json. The probe's macros print what they observe through
 // the bridge as `@@ ` lines on stderr, interleaved with the diagnostics the server emits; the TS test
 // (proc_macro_server.test.ts) replays every invocation against the TS `Rustc` server into one buffer.
 // An ICE is recorded as `panic` (its message line) with `stderr` cut before rustc's panic report (and the
 // empty line the driver's ICE hook prints first).
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN } from "../../../scripts/lib/common.ts";
 
 const HERE = import.meta.dir;
 const CASES = join(HERE, "cases");
+
+/** Extra rustc flags of a case (`cases/<name>/ARGS`, whitespace-separated). */
+export function case_args(name: string): string[] {
+  const f = join(CASES, name, "ARGS");
+  return existsSync(f) ? readFileSync(f, "utf8").split(/\s+/).filter((s) => s !== "") : [];
+}
 
 export interface Expected {
   stderr: string;
@@ -39,7 +46,7 @@ if (import.meta.main) {
   const out: Record<string, Expected> = {};
   for (const name of readdirSync(CASES).sort()) {
     const p = Bun.spawnSync(
-      ["rustc", `+${PIN.toolchain}`, "--edition", "2021", "--crate-type", "lib", "-Zui-testing", "-Zunpretty=expanded", "--extern", `pm_probe=${lib}`, "t.rs"],
+      ["rustc", `+${PIN.toolchain}`, "--edition", "2021", "--crate-type", "lib", "-Zui-testing", "-Zunpretty=expanded", ...case_args(name), "--extern", `pm_probe=${lib}`, "t.rs"],
       { cwd: join(CASES, name), env: { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" } },
     );
     let stderr = p.stderr.toString();

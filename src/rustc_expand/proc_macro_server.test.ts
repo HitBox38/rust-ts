@@ -41,7 +41,7 @@ import type { Bound } from "../proc_macro/bridge/server.ts";
 import type { Level } from "../proc_macro/diagnostic.ts";
 import { ExtCtxt, type ResolverExpand } from "./base.ts";
 import { ExpansionConfig } from "./expand.ts";
-import type { Expected } from "./proc_macro_oracle/gen.ts";
+import { case_args, type Expected } from "./proc_macro_oracle/gen.ts";
 import { Rustc } from "./proc_macro_server.ts";
 
 const HERE = join(import.meta.dir, "proc_macro_oracle");
@@ -490,7 +490,10 @@ function run_case(name: string): { stderr: string; exit: number; panic: string |
     const p = unwrap_or_emit_fatal(new_parser_from_source_str(sess.psess, fname, src, "Nothing"));
     const kr = p.parse_crate_mod();
     if (kr.$ === "Err") throw new Error("parse t.rs");
-    const cx = ExtCtxt.new(sess, ExpansionConfig.default(Symbol.intern("t"), Features.default()), NoResolver, undefined);
+    const ecfg = ExpansionConfig.default(Symbol.intern("t"), Features.default());
+    // `ExpansionConfig { span_debug: sess.opts.unstable_opts.span_debug, .. }` (rustc_interface/passes.rs).
+    ecfg.span_debug = case_args(name).includes("-Zspan-debug");
+    const cx = ExtCtxt.new(sess, ecfg, NoResolver, undefined);
     try {
       for (const item of kr._0.items) {
         if (item.kind.$ !== "MacCall") throw new Error("expected only macro calls");
