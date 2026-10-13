@@ -20,7 +20,7 @@ import type { Result } from "../std/result.ts";
 export * from "./imports.gen.ts";
 export type NameResolution = gen.NameResolution;
 export type ImportData = gen.ImportData;
-const ImportData = gen.ImportData;
+export const ImportData = gen.ImportData;
 
 /** Stub (lane res-lib): `imports.rs:385` `pub_use_of_private_extern_crate_hack` (unported). */
 export function pub_use_of_private_extern_crate_hack(import_: ImportSummary, decl: Decl): LocalDefId | undefined {

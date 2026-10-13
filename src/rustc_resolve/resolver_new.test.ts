@@ -38,7 +38,7 @@ import { clone_ExternProviders, clone_Providers } from "../rustc_middle/query/qu
 import { CurrentGcx, TyCtxt } from "../rustc_middle/ty/context.ts";
 import { debug_Visibility } from "../rustc_middle/ty/mod.ts";
 import { query_system } from "../rustc_query_impl/lib.ts";
-import { debug_DefPathHash, LOCAL_CRATE, LocalDefId, StableCrateId } from "../rustc_span/def_id.ts";
+import { debug_DefPathHash, debug_LocalModId, LOCAL_CRATE, LocalDefId, StableCrateId } from "../rustc_span/def_id.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { panic, unported } from "../std/panic.ts";
@@ -131,7 +131,7 @@ function dump_after_new(tcx: TyCtxt, resolver: Resolver, outputs: ResolverOutput
   const a = outputs.ast_lowering;
   const sec = new Map<string, string[]>();
   const di = (id: LocalDefId) => debug_local_def_id(tcx, id);
-  sec.set("visibilities_for_hashing", g.visibilities_for_hashing.map(([id, vis]) => `${di(id)} ${debug_Visibility(vis, PLAIN)}`));
+  sec.set("visibilities_for_hashing", g.visibilities_for_hashing.map(([id, vis]) => `${di(id)} ${debug_Visibility(vis, PLAIN, debug_LocalModId)}`));
   sec.set("expn_that_defined", [...g.expn_that_defined].map(() => unported("test: expn_that_defined lines")));
   sec.set("macro_reachable_adts", [...g.macro_reachable_adts].map(() => unported("test")));
   sec.set("extern_crate_map", [...g.extern_crate_map].map(() => unported("test")));

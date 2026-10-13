@@ -1142,45 +1142,45 @@ export class ResolverArenas {
     );
   }
 
-  // rustc: compiler/rustc_resolve/src/lib.rs:1620 new_pub_def_decl
+  // rustc: compiler/rustc_resolve/src/lib.rs:1619 new_pub_def_decl
   new_pub_def_decl(res: Res, span: Span, expn_id: LocalExpnId): Decl {
     return this.new_def_decl(res, Visibility.Public, span, expn_id, undefined);
   }
 
-  // rustc: compiler/rustc_resolve/src/lib.rs:1624 alloc_decl
+  // rustc: compiler/rustc_resolve/src/lib.rs:1623 alloc_decl
   alloc_decl(data: DeclData): Decl {
     // SAFETY: `Interned` is valid because values of this type have "identity".
     return data;
   }
-  // rustc: compiler/rustc_resolve/src/lib.rs:1628 alloc_import
+  // rustc: compiler/rustc_resolve/src/lib.rs:1627 alloc_import
   alloc_import(import_: ImportData): Import {
     // SAFETY: `Interned` is valid because values of this type have "identity".
     return import_;
   }
-  // rustc: compiler/rustc_resolve/src/lib.rs:1632 alloc_name_resolution
+  // rustc: compiler/rustc_resolve/src/lib.rs:1631 alloc_name_resolution
   alloc_name_resolution(resolution: NameResolution): NameResolutionRef {
     // SAFETY: `Interned` is valid because values of this type have "identity".
     return CmRefCell.new(resolution);
   }
-  // rustc: compiler/rustc_resolve/src/lib.rs:1636 alloc_macro_rules_scope
+  // rustc: compiler/rustc_resolve/src/lib.rs:1635 alloc_macro_rules_scope
   alloc_macro_rules_scope(scope: MacroRulesScope): MacroRulesScopeRef {
     // `RwLock::new(scope)`: the box the scope is overwritten through (macros.ts `MacroRulesScopeRef`).
     return { value: scope };
   }
-  // rustc: compiler/rustc_resolve/src/lib.rs:1639 alloc_macro_rules_decl
+  // rustc: compiler/rustc_resolve/src/lib.rs:1638 alloc_macro_rules_decl
   alloc_macro_rules_decl(decl: MacroRulesDecl): MacroRulesDecl {
     return decl;
   }
-  // rustc: compiler/rustc_resolve/src/lib.rs:1642 alloc_ast_paths
+  // rustc: compiler/rustc_resolve/src/lib.rs:1641 alloc_ast_paths
   alloc_ast_paths(paths: readonly Path[]): readonly Path[] {
     return paths.map(clone_Path);
   }
-  // rustc: compiler/rustc_resolve/src/lib.rs:1645 alloc_macro
+  // rustc: compiler/rustc_resolve/src/lib.rs:1644 alloc_macro
   alloc_macro(ext: SyntaxExtension): SyntaxExtension {
     // `Arc::new(ext)`
     return ext;
   }
-  // rustc: compiler/rustc_resolve/src/lib.rs:1648 alloc_pattern_spans
+  // rustc: compiler/rustc_resolve/src/lib.rs:1647 alloc_pattern_spans
   alloc_pattern_spans(spans: Iterable<Span>): readonly Span[] {
     return [...spans];
   }
