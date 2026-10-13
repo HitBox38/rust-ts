@@ -144,8 +144,6 @@ function with_resolver<R>(f: (r: Resolver, tcx: TyCtxt) => R): R {
 const PENDING: Record<string, string> = {
   // Macro-namespace path segments check `PathSource::is_expected` (late.rs, lane res-late).
   "resolve_path crate::m::mac through a child module": "rustc_resolve::late::PathSource::is_expected",
-  // A finalized path ends in `lint_if_path_starts_with_module` (diagnostics/impls.rs).
-  "resolve_path [crate] with finalize records the crate root res": "rustc_resolve::diagnostics::impls::Resolver::lint_if_path_starts_with_module",
   // Rib lookups go through `RibKind::contains_params` (late.rs, lane res-late).
   "resolve_ident_in_lexical_scope finds a rib binding": "rustc_resolve::late::RibKind::contains_params",
 };

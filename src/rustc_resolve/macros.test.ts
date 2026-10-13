@@ -71,12 +71,17 @@ test("fast_print_path gives the expansion descriptions of the oracle (-Zunpretty
 test("register_builtin_macro: rustc_builtin_macros registers the oracle's builtins; a second registration is a bug", () => {
   const registry = readFileSync(join(HERE, "..", "rustc_builtin_macros", "builtins_oracle", "out.stdout"), "utf8");
   const oracle = section(registry.replace("== register_builtin_macros", "== register_builtin_macros (0)"), "register_builtin_macros");
-  with_resolver(join(ORACLE, "unit", "paths.rs"), (r) => {
-    register_builtin_macros(r);
-    expect([...r.builtin_macros].map(([name, kind]) => `${Symbol.as_str(name)} ${kind.$}`)).toEqual(oracle);
-    const asm = r.builtin_macros.get(sym.asm)!;
-    expect(() => r.register_builtin_macro(sym.asm, asm)).toThrow();
-  });
+  // The second registration is `dcx().bug(..)`: an ICE that unwinds out of the compiler.
+  let registered: string[] | undefined;
+  expect(() =>
+    with_resolver(join(ORACLE, "unit", "paths.rs"), (r) => {
+      register_builtin_macros(r);
+      registered = [...r.builtin_macros].map(([name, kind]) => `${Symbol.as_str(name)} ${kind.$}`);
+      const asm = r.builtin_macros.get(sym.asm)!;
+      r.register_builtin_macro(sym.asm, asm);
+    }),
+  ).toThrow();
+  expect(registered).toEqual(oracle);
 });
 
 test("record_macro_rule_usage + check_unused_macros: the oracle's UNUSED_MACROS / UNUSED_MACRO_RULES lints", () => {

@@ -70,15 +70,18 @@ const HERE = import.meta.dir;
 const CASES = join(HERE, "graph_oracle", "cases");
 
 const PENDING: Record<string, string> = {
-  p_duplicate: "rustc_resolve::diagnostics::impls::Resolver::report_conflict",
   // The test's own module_children dump does not yet follow import declarations (use finalize_resolutions_in).
   p_extern_crate_self: "test: module_children of imports (res-imports)",
   // With real import resolution, `use` paths reach late resolution (lane res-late).
   use_trees: "rustc_resolve::late::PathSource::is_expected",
-  p_macro_escape: "rustc_resolve::diagnostics::impls::Resolver::dcx",
   p_macro_rules: "rustc_index::bit_set::DenseBitSet::new_filled",
   p_vis_restricted: "rustc_resolve::late::PathSource::is_expected",
 };
+
+// Cases whose expansion reports an error (as the oracle's `.stderr` fixture shows; e.g. `report_conflict`'s
+// E0428). The driver then aborts when the compiler is dropped, so the sections are taken from `last_dump`.
+const EXPANSION_ERRORS = new Set(["p_duplicate"]);
+let last_dump: Map<string, string[]> | undefined;
 
 // PARTIAL: cases whose imports the `resolve_imports` stand-in leaves unresolved (import resolution creates no
 // definitions and feeds no visibilities, so those sections and the owners are still compared); their
@@ -342,11 +345,12 @@ function run_case(file: string, skip?: string): Map<string, string[]> {
     );
     const ecx = ExtCtxt.new(sess, cfg, resolver, undefined);
     ecx.monotonic_expander().expand_crate(krate0);
-    expect(sess.dcx().has_errors()).toBeUndefined();
+    expect(sess.dcx().has_errors() !== undefined).toBe(EXPANSION_ERRORS.has(file.replace(/^.*\//, "").replace(/\.rs$/, "")));
 
     const old_debug = DEF_ID_DEBUG.swap(def_id_debug(tcx));
     try {
-      return dump(tcx, resolver, skip);
+      last_dump = dump(tcx, resolver, skip);
+      return last_dump;
     } finally {
       DEF_ID_DEBUG.swap(old_debug);
     }
@@ -450,7 +454,14 @@ describe("def collector + reduced graph vs the resdump probe", () => {
       }
       imports_deferred = false;
       const skip = PARTIAL[name];
-      const got = run_case(join(CASES, `${name}.rs`), skip);
+      let got: Map<string, string[]>;
+      if (EXPANSION_ERRORS.has(name)) {
+        last_dump = undefined;
+        expect(() => run_case(join(CASES, `${name}.rs`), skip)).toThrow();
+        got = unwrap(last_dump);
+      } else {
+        got = run_case(join(CASES, `${name}.rs`), skip);
+      }
       expect(imports_deferred).toBe(skip !== undefined);
       if (skip !== undefined) oracle.delete(skip);
       expect(oracle.size).toBe(skip === undefined ? 4 : 3);
