@@ -285,9 +285,9 @@ export class CheckCfg {
 
     const atomic_values = [sym.ptr, sym.integer(8), sym.integer(16), sym.integer(32), sym.integer(64), sym.integer(128)];
     for (const sym_ of [sym.target_has_atomic, sym.target_has_atomic_load_store]) {
-      ExpectedValues.extend(ins(sym_, no_values), atomic_values);
+      ExpectedValues.extend_ref(ins(sym_, no_values), atomic_values);
     }
-    ExpectedValues.extend(ins(sym.target_has_atomic_primitive_alignment, empty_values), atomic_values);
+    ExpectedValues.extend_ref(ins(sym.target_has_atomic_primitive_alignment, empty_values), atomic_values);
 
     ins(sym.target_thread_local, no_values);
     ins(sym.target_has_threads, no_values);
@@ -328,12 +328,23 @@ export const ExpectedValues = {
   },
 
   // impl<T: Eq + Hash> Extend<T> for ExpectedValues<T>
-  // (`impl Extend<&T>`, cfg.rs:86, is the same over copied items)
   // rustc: compiler/rustc_session/src/config/cfg.rs:77 extend
   extend(self: ExpectedValues, iter: Iterable<Symbol>): void {
     switch (self.$) {
       case "Some":
         for (const v of iter) self._0.add(v);
+        break;
+      case "Any":
+        break;
+    }
+  },
+
+  // impl<'a, T: Eq + Hash + Copy + 'a> Extend<&'a T> for ExpectedValues<T>
+  // rustc: compiler/rustc_session/src/config/cfg.rs:86 extend
+  extend_ref(self: ExpectedValues, iter: Iterable<Symbol>): void {
+    switch (self.$) {
+      case "Some":
+        for (const a of iter) self._0.add(a);
         break;
       case "Any":
         break;

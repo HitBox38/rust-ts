@@ -1,7 +1,7 @@
 // compiler/rustc_target/src/spec/tuple.rs
 //
-// Not ported (no markers): `impl Hash` (tuple.rs:38; dep tracking), `impl Encodable`/`impl Decodable`
-// (tuple.rs:55/71; crate metadata, M5/wave 11), `from_path` (tuple.rs:93; needs `try_canonicalize` and
+// Not ported (no markers): `impl Hash` (tuple.rs:38; dep tracking), `impl Decodable` (tuple.rs:71;
+// crate metadata, wave 11; `impl Encodable` is skipped), `from_path` (tuple.rs:93; needs `try_canonicalize` and
 // `Path::file_stem`; target JSON files are unported anyway) and the `TargetJson` arm of `debug_tuple`
 // (needs std's `DefaultHasher`, SipHash-1-3).
 import type { DiagArgValue } from "../../rustc_error_messages/lib.ts";
@@ -23,6 +23,9 @@ export type TargetTuple =
       readonly tuple: string;
       readonly contents: string;
     };
+
+// Use a manual implementation to prevent encoding the target json file path in the crate metadata
+// rustc-skip: compiler/rustc_target/src/spec/tuple.rs:55 encode Encodable (metadata encoding is M5)
 
 export const TargetTuple = {
   // Use a manual implementation to ignore the path field

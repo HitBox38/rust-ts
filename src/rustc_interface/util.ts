@@ -56,7 +56,7 @@ export function add_configuration(cfg: Cfg, target_config: TargetConfig, target:
 
 /// Ensures that all target features required by the ABI are present.
 /// Must be called after `internal_target_features` has been populated!
-// rustc: compiler/rustc_interface/src/util.rs:94 check_abi_required_features
+// rustc: compiler/rustc_interface/src/util.rs:95 check_abi_required_features
 export function check_abi_required_features(sess: Session): void {
   const abi_feature_constraints = sess.target.abi_required_features();
   // We check this against `internal_target_features` as that is conveniently already
