@@ -84,6 +84,7 @@ import {
   debug_FileName,
   debug_MultiByteChar,
   debug_NormalizedPos,
+  debug_OffsetOverflowError,
   debug_RealFileName,
   debug_RelativeBytePos,
   debug_RemapPathScopeComponents,
@@ -425,7 +426,7 @@ function source_file_debug(sf: SourceFile): string {
 const debug_StableSourceFileId = (v: StableSourceFileId): string => `StableSourceFileId(${v.hash()})`;
 
 function new_source_file(name: FileName, src: string, kind: SourceFileHashAlgorithm, checksum: SourceFileHashAlgorithm | undefined): SourceFile {
-  return unwrap_result(SourceFile.new(name, Str.from(src), kind, checksum));
+  return unwrap_result(SourceFile.new(name, Str.from(src), kind, checksum), debug_OffsetOverflowError);
 }
 
 /** Session A of the probe: the expansions and contexts the cases refer to, then the cases. */
@@ -621,7 +622,7 @@ export const SESSION_B_EDITION: Edition = "Edition2024";
 
 export function new_decoder(bytes: Uint8Array, out: ProbeOutput, hygiene_ctxt: HygieneDecodeContext): ProbeDecoder {
   return new ProbeDecoder(
-    unwrap_result(MemDecoder.new(bytes, 0)),
+    unwrap_result(MemDecoder.new(bytes, 0), () => "()"),
     hygiene_ctxt,
     new Map(out.ctxts.map(([i, p]) => [i, p])),
     new Map(out.expns.map(([i, a, b]) => [i, [a, b] as const])),
