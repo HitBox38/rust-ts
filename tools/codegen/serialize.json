@@ -7,21 +7,22 @@
     "`import` (default: `module`), plus `values` (from `values_import`, default `import`). transparent: the type argument's impl (Box/Rc/Arc/Cell/RefCell/Lrc).",
     "*_nullable: Option of an undefined-able type ({ $: \"Some\", _0 } | undefined, PORTING section 5).",
     "Types of the set itself (derived, manual impl exported by the hand module, newtype_index! #[encodable]) need no entry.",
-    "decoders / encoders: the TS type of each derive's decoder (`__D: SpanDecoder` for derive(Decodable), ...). The rustc_span",
-    "/ rustc_middle / rustc_metadata decoder traits are not ported yet: until they are, every derive takes the plain",
-    "rustc_serialize Decoder / Encoder; switch the entry (and regenerate) when the trait exists."
+    "decoders / encoders: the TS type of each derive's decoder (`__D: SpanDecoder` for derive(Decodable), ...). rustc_span's",
+    "SpanDecoder / BlobDecoder are ported (src/rustc_span/lib.ts); the rustc_middle / rustc_metadata decoder traits are not yet:",
+    "until they are, those derives take the plain rustc_serialize Decoder; switch the entry (and regenerate) when the trait exists.",
+    "Encoders stay the plain Encoder (rustc_serialize's Encodable<T> is not generic over the encoder)."
   ],
   "module": "src/rustc_serialize/serialize.ts",
   "decoders": {
     "Decodable_NoContext": { "type": "Decoder", "import": "src/rustc_serialize/serialize.ts" },
-    "Decodable": { "type": "Decoder", "import": "src/rustc_serialize/serialize.ts", "note": "upstream: `__D: rustc_span::SpanDecoder` (not ported yet)" },
-    "BlobDecodable": { "type": "Decoder", "import": "src/rustc_serialize/serialize.ts", "note": "upstream: `__D: rustc_span::BlobDecoder` (not ported yet)" },
+    "Decodable": { "type": "SpanDecoder", "import": "src/rustc_span/lib.ts", "note": "upstream: `__D: rustc_span::SpanDecoder`" },
+    "BlobDecodable": { "type": "BlobDecoder", "import": "src/rustc_span/lib.ts", "note": "upstream: `__D: rustc_span::BlobDecoder`" },
     "LazyDecodable": { "type": "Decoder", "import": "src/rustc_serialize/serialize.ts", "note": "upstream: `__D: LazyDecoder` (rustc_metadata, not ported yet)" },
     "TyDecodable": { "type": "Decoder", "import": "src/rustc_serialize/serialize.ts", "note": "upstream: `__D: rustc_middle::ty::codec::TyDecoder` (not ported yet)" }
   },
   "encoders": {
     "Encodable_NoContext": { "type": "Encoder", "import": "src/rustc_serialize/serialize.ts" },
-    "Encodable": { "type": "Encoder", "import": "src/rustc_serialize/serialize.ts", "note": "upstream: `__E: rustc_span::SpanEncoder` (not ported yet)" },
+    "Encodable": { "type": "Encoder", "import": "src/rustc_serialize/serialize.ts", "note": "upstream: `__E: rustc_span::SpanEncoder` (ported, src/rustc_span/lib.ts); kept `Encoder` because rustc_serialize's `Encodable<T>` is `(v, s: Encoder)`, not generic over the encoder: the SpanEncoder impls (encode_Span, ...) take an `Encoder` and use it as a SpanEncoder" },
     "TyEncodable": { "type": "Encoder", "import": "src/rustc_serialize/serialize.ts", "note": "upstream: `__E: TyEncoder` (not ported yet)" },
     "MetadataEncodable": { "type": "Encoder", "import": "src/rustc_serialize/serialize.ts", "note": "upstream: `EncodeContext` (M5)" }
   },
@@ -65,8 +66,8 @@
     { "paths": ["rustc_data_structures::fingerprint::Fingerprint"], "decode": "decode_Fingerprint($D)", "encode": "$E.emit_raw_bytes(Fingerprint.to_le_bytes($v))", "import": "src/rustc_data_structures/fingerprint.ts", "values": ["Fingerprint"], "note": "the Encodable impl (fingerprint.rs:172, `s.emit_raw_bytes(&self.to_le_bytes())`) is rustc-skipped in fingerprint.ts (M5): its body is the encode template" },
     { "paths": ["rustc_data_structures::fingerprint::PackedFingerprint"], "decode": "decode_PackedFingerprint($D)", "import": "src/rustc_data_structures/fingerprint.ts", "note": "Encodable is rustc-skipped (M5)" },
 
-    { "paths": ["rustc_span::RelativeBytePos", "RelativeBytePos"], "decode": "RelativeBytePos(decode_u32($D))", "encode": "encode_u32($v, $E)", "values": ["RelativeBytePos"], "values_import": "src/rustc_span/lib.ts", "note": "manual impls at rustc_span lib.rs:2737/2743 (`RelativeBytePos(d.read_u32())` / `s.emit_u32(self.0)`), inside impl_pos! which the typedefs probe does not expand" },
-    { "paths": ["rustc_span::BytePos", "BytePos"], "decode": "BytePos(decode_u32($D))", "encode": "encode_u32($v, $E)", "values": ["BytePos"], "values_import": "src/rustc_span/lib.ts", "note": "manual impls at rustc_span lib.rs:2725/2731 (`BytePos(d.read_u32())` / `s.emit_u32(self.0)`), inside impl_pos!" },
+    { "paths": ["rustc_span::RelativeBytePos", "RelativeBytePos"], "decode": "decode_RelativeBytePos($D)", "encode": "encode_RelativeBytePos($v, $E)", "import": "src/rustc_span/lib.ts", "note": "manual impls at rustc_span lib.rs:2738/2744; the type is defined inside impl_pos!, which the typedefs probe does not expand" },
+    { "paths": ["rustc_span::BytePos", "BytePos"], "decode": "decode_BytePos($D)", "encode": "encode_BytePos($v, $E)", "import": "src/rustc_span/lib.ts", "note": "manual impls at rustc_span lib.rs:2726/2732; the type is defined inside impl_pos!" },
     { "paths": ["rustc_span::edition::Edition", "rustc_span::Edition"], "decode": "decode_Edition($D)", "encode": "encode_Edition($v, $E)", "import": "src/rustc_span/decodable.gen.ts" }
   ]
 }

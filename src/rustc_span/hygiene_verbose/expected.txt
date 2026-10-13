@@ -1,0 +1,1430 @@
+#![feature /* 883#0 */(no_core /* 1372#0 */)]
+#![no_core /* 1372#0 */]
+macro_rules! m
+    /*
+    2419#0
+    */ {
+    ($x /* 2430#0 */:ident /* 1037#0 */) =>
+    { fn /* 12#0 */ $x /* 2430#0 */() {} }
+}
+macro_rules! n
+    /*
+    2420#0
+    */ {
+    ($($t /* 2426#0 */:tt /* 2113#0 */)*) =>
+    { m /* 2419#0 */!(inner /* 2528#0 */); $($t /* 2426#0 */)* }
+}
+macro_rules! nothing /* 2529#0 */ { () => {} }
+macro_rules! dup
+    /*
+    2530#0
+    */ {
+    ($($t /* 2426#0 */:tt /* 2113#0 */)*) =>
+    { $($t /* 2426#0 */)* $($t /* 2426#0 */)* }
+}
+fn f0 /* 2531#0 */() {}
+fn f1 /* 2532#0 */() {}
+fn f2 /* 2533#0 */() {}
+fn f3 /* 2534#0 */() {}
+fn f4 /* 2535#0 */() {}
+fn f5 /* 2536#0 */() {}
+fn f6 /* 2537#0 */() {}
+fn f7 /* 2538#0 */() {}
+fn f8 /* 2539#0 */() {}
+mod n0 /* 2540#0 */ {
+    fn inner /* 2528#10 */() {}
+    fn g0 /* 2541#0 */() {}
+}
+mod n1 /* 2542#0 */ {
+    fn inner /* 2528#13 */() {}
+    fn g1 /* 2543#0 */() {}
+}
+mod n2 /* 2544#0 */ {
+    fn inner /* 2528#16 */() {}
+    fn g2 /* 2545#0 */() {}
+}
+
+/*
+HygieneData {
+    local_expn_data: [
+        Some(
+            ExpnData {
+                kind: Root,
+                parent: crate0::{{expn0}},
+                call_site: no-location (#0),
+                disambiguator: 0,
+                def_site: no-location (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:0 ~ verbose[0a7d]),
+                ),
+                parent_module: None,
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:7:1: 7:7 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:8:1: 8:7 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:9:1: 9:7 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:10:1: 10:7 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:11:1: 11:7 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:12:1: 12:7 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:13:1: 13:7 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:14:1: 14:7 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:15:1: 15:7 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "n",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:16:10: 16:21 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:4:1: 4:56 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:2 ~ verbose[0a7d]::n),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "n",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:17:10: 17:21 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:4:1: 4:56 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:2 ~ verbose[0a7d]::n),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "n",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:18:10: 18:21 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:4:1: 4:56 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:2 ~ verbose[0a7d]::n),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "dup",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:19:1: 19:18 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:6:1: 6:54 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:4 ~ verbose[0a7d]::dup),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "dup",
+                ),
+                parent: crate0::{{expn0}},
+                call_site: verbose.rs:20:1: 20:24 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:6:1: 6:54 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:4 ~ verbose[0a7d]::dup),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn10}},
+                call_site: verbose.rs:4:35: 4:44 (#10),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn10}},
+                call_site: verbose.rs:16:13: 16:19 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn11}},
+                call_site: verbose.rs:4:35: 4:44 (#13),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn11}},
+                call_site: verbose.rs:17:13: 17:19 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn12}},
+                call_site: verbose.rs:4:35: 4:44 (#16),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "m",
+                ),
+                parent: crate0::{{expn12}},
+                call_site: verbose.rs:18:13: 18:19 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:3:1: 3:48 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:1 ~ verbose[0a7d]::m),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "nothing",
+                ),
+                parent: crate0::{{expn13}},
+                call_site: verbose.rs:19:6: 19:17 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:5:1: 5:34 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:3 ~ verbose[0a7d]::nothing),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "nothing",
+                ),
+                parent: crate0::{{expn13}},
+                call_site: verbose.rs:19:6: 19:17 (#0),
+                disambiguator: 1,
+                def_site: verbose.rs:5:1: 5:34 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:3 ~ verbose[0a7d]::nothing),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "dup",
+                ),
+                parent: crate0::{{expn14}},
+                call_site: verbose.rs:20:6: 20:22 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:6:1: 6:54 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:4 ~ verbose[0a7d]::dup),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "dup",
+                ),
+                parent: crate0::{{expn14}},
+                call_site: verbose.rs:20:6: 20:22 (#0),
+                disambiguator: 1,
+                def_site: verbose.rs:6:1: 6:54 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:4 ~ verbose[0a7d]::dup),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "nothing",
+                ),
+                parent: crate0::{{expn23}},
+                call_site: verbose.rs:20:11: 20:21 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:5:1: 5:34 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:3 ~ verbose[0a7d]::nothing),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "nothing",
+                ),
+                parent: crate0::{{expn23}},
+                call_site: verbose.rs:20:11: 20:21 (#0),
+                disambiguator: 1,
+                def_site: verbose.rs:5:1: 5:34 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:3 ~ verbose[0a7d]::nothing),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "nothing",
+                ),
+                parent: crate0::{{expn24}},
+                call_site: verbose.rs:20:11: 20:21 (#0),
+                disambiguator: 0,
+                def_site: verbose.rs:5:1: 5:34 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:3 ~ verbose[0a7d]::nothing),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+        Some(
+            ExpnData {
+                kind: Macro(
+                    Bang,
+                    "nothing",
+                ),
+                parent: crate0::{{expn24}},
+                call_site: verbose.rs:20:11: 20:21 (#0),
+                disambiguator: 1,
+                def_site: verbose.rs:5:1: 5:34 (#0),
+                allow_internal_unstable: None,
+                edition: Edition2015,
+                macro_def_id: Some(
+                    DefId(0:3 ~ verbose[0a7d]::nothing),
+                ),
+                parent_module: Some(
+                    ModId(
+                        DefId(0:0 ~ verbose[0a7d]),
+                    ),
+                ),
+                allow_internal_unsafe: false,
+                local_inner_macros: false,
+                collapse_debuginfo: false,
+                diagnostic_opaque: false,
+            },
+        ),
+    ],
+    local_expn_hashes: [
+        ExpnHash(
+            Fingerprint(
+                0,
+                0,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                16353539268907758015,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                6419593049584933547,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                16620202725466106075,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                16737252137664654215,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                15436287709202795298,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                3251909582956283053,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                1003772558846298380,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                14714778714717694489,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                7987687256528999048,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                16823159886228177838,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                350631864416081922,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                4386986806393142074,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                2002351778836746941,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                17638005391399978372,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                6840062666412422576,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                812781759190583691,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                5451867380834463264,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                18000505460301178515,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                14993851161934347610,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                18284624581509020019,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                473860933286189872,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                13660104120845276822,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                2313898738619405703,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                18050092136775470949,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                10490424596621737377,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                12412671502448661645,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                2934556004019728360,
+            ),
+        ),
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                8704881262064677396,
+            ),
+        ),
+    ],
+    foreign_expn_data: {},
+    foreign_expn_hashes: {},
+    expn_hash_to_expn_id: {
+        ExpnHash(
+            Fingerprint(
+                0,
+                0,
+            ),
+        ): crate0::{{expn0}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                13660104120845276822,
+            ),
+        ): crate0::{{expn22}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                14714778714717694489,
+            ),
+        ): crate0::{{expn8}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                14993851161934347610,
+            ),
+        ): crate0::{{expn19}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                16620202725466106075,
+            ),
+        ): crate0::{{expn3}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                5451867380834463264,
+            ),
+        ): crate0::{{expn17}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                10490424596621737377,
+            ),
+        ): crate0::{{expn25}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                15436287709202795298,
+            ),
+        ): crate0::{{expn5}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                18050092136775470949,
+            ),
+        ): crate0::{{expn24}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                2934556004019728360,
+            ),
+        ): crate0::{{expn27}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                6419593049584933547,
+            ),
+        ): crate0::{{expn2}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                3251909582956283053,
+            ),
+        ): crate0::{{expn6}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                16823159886228177838,
+            ),
+        ): crate0::{{expn10}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                6840062666412422576,
+            ),
+        ): crate0::{{expn15}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                473860933286189872,
+            ),
+        ): crate0::{{expn21}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                18284624581509020019,
+            ),
+        ): crate0::{{expn20}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                4386986806393142074,
+            ),
+        ): crate0::{{expn12}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                2002351778836746941,
+            ),
+        ): crate0::{{expn13}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                16353539268907758015,
+            ),
+        ): crate0::{{expn1}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                350631864416081922,
+            ),
+        ): crate0::{{expn11}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                17638005391399978372,
+            ),
+        ): crate0::{{expn14}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                16737252137664654215,
+            ),
+        ): crate0::{{expn4}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                7987687256528999048,
+            ),
+        ): crate0::{{expn9}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                2313898738619405703,
+            ),
+        ): crate0::{{expn23}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                812781759190583691,
+            ),
+        ): crate0::{{expn16}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                1003772558846298380,
+            ),
+        ): crate0::{{expn7}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                12412671502448661645,
+            ),
+        ): crate0::{{expn26}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                18000505460301178515,
+            ),
+        ): crate0::{{expn18}},
+        ExpnHash(
+            Fingerprint(
+                755860327061535082,
+                8704881262064677396,
+            ),
+        ): crate0::{{expn28}},
+    },
+    syntax_context_data: [
+        SyntaxContextData {
+            outer_expn: crate0::{{expn0}},
+            outer_transparency: Opaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #0,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn1}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #1,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn2}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #2,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn3}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #3,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn4}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #4,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn5}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #5,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn6}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #6,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn7}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #7,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn8}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #8,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn9}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #9,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn10}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #10,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn15}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #11,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn16}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #12,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn11}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #13,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn17}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #14,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn18}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #15,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn12}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #16,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn19}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #17,
+            dollar_crate_name: "crate",
+        },
+        SyntaxContextData {
+            outer_expn: crate0::{{expn20}},
+            outer_transparency: SemiOpaque,
+            parent: #0,
+            opaque: #0,
+            opaque_and_semiopaque: #18,
+            dollar_crate_name: "crate",
+        },
+    ],
+    syntax_context_map: {
+        (
+            #0,
+            crate0::{{expn17}},
+            SemiOpaque,
+        ): #14,
+        (
+            #0,
+            crate0::{{expn7}},
+            SemiOpaque,
+        ): #7,
+        (
+            #0,
+            crate0::{{expn2}},
+            SemiOpaque,
+        ): #2,
+        (
+            #0,
+            crate0::{{expn12}},
+            SemiOpaque,
+        ): #16,
+        (
+            #0,
+            crate0::{{expn20}},
+            SemiOpaque,
+        ): #18,
+        (
+            #0,
+            crate0::{{expn10}},
+            SemiOpaque,
+        ): #10,
+        (
+            #0,
+            crate0::{{expn5}},
+            SemiOpaque,
+        ): #5,
+        (
+            #0,
+            crate0::{{expn15}},
+            SemiOpaque,
+        ): #11,
+        (
+            #0,
+            crate0::{{expn18}},
+            SemiOpaque,
+        ): #15,
+        (
+            #0,
+            crate0::{{expn3}},
+            SemiOpaque,
+        ): #3,
+        (
+            #0,
+            crate0::{{expn8}},
+            SemiOpaque,
+        ): #8,
+        (
+            #0,
+            crate0::{{expn16}},
+            SemiOpaque,
+        ): #12,
+        (
+            #0,
+            crate0::{{expn6}},
+            SemiOpaque,
+        ): #6,
+        (
+            #0,
+            crate0::{{expn1}},
+            SemiOpaque,
+        ): #1,
+        (
+            #0,
+            crate0::{{expn0}},
+            Opaque,
+        ): #0,
+        (
+            #0,
+            crate0::{{expn11}},
+            SemiOpaque,
+        ): #13,
+        (
+            #0,
+            crate0::{{expn19}},
+            SemiOpaque,
+        ): #17,
+        (
+            #0,
+            crate0::{{expn4}},
+            SemiOpaque,
+        ): #4,
+        (
+            #0,
+            crate0::{{expn9}},
+            SemiOpaque,
+        ): #9,
+    },
+    expn_data_disambiguators: {
+        5451867380834463264: 1,
+        10490424596621737377: 2,
+        15436287709202795298: 1,
+        350631864416081922: 1,
+        17638005391399978372: 1,
+        16737252137664654215: 1,
+        7987687256528999048: 1,
+        2313898738619405703: 2,
+        2934556004019728360: 2,
+        812781759190583691: 1,
+        6419593049584933547: 1,
+        3251909582956283053: 1,
+        16823159886228177838: 1,
+        1003772558846298380: 1,
+        6840062666412422576: 1,
+        473860933286189872: 2,
+        18000505460301178515: 1,
+        18284624581509020019: 1,
+        14714778714717694489: 1,
+        4386986806393142074: 1,
+        16620202725466106075: 1,
+        14993851161934347610: 1,
+        2002351778836746941: 1,
+        16353539268907758015: 1,
+    },
+}
+*/
