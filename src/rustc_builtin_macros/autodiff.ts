@@ -350,7 +350,7 @@ export function expand_with_mode(
   const inline_never = outer_normal_attr(inline_never_attr, new_id, span);
 
   // We're avoid duplicating the attribute `#[rustc_autodiff]`.
-  // rustc: compiler/rustc_builtin_macros/src/autodiff.rs:358 same_attribute
+  // rustc: compiler/rustc_builtin_macros/src/autodiff.rs:370 same_attribute
   function same_attribute(attr: ast.AttrKind, item: ast.AttrKind): boolean {
     if (attr.$ === "Normal" && item.$ === "Normal") {
       const a = attr._0.item.path;

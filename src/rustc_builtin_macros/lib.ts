@@ -73,7 +73,7 @@ export * as standard_library_imports from "./standard_library_imports.ts";
 // pub mod test_harness; (lane bm-rest)
 export * as util from "./util.ts";
 
-// rustc: compiler/rustc_builtin_macros/src/lib.rs:70 register_builtin_macros
+// rustc: compiler/rustc_builtin_macros/src/lib.rs:62 register_builtin_macros
 export function register_builtin_macros(resolver: ResolverExpand): void {
   const register = (name: Symbol, kind: SyntaxExtensionKind): void => resolver.register_builtin_macro(name, kind);
   const register_bang = (name: Symbol, f: (cx: ExtCtxt, sp: Span, tts: TokenStream) => ReturnType<typeof cfg.expand_cfg>): void =>
