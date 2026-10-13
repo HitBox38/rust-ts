@@ -1,0 +1,397 @@
+{
+ "_how": "`rustc +nightly-2026-10-11 -Zui-testing -Zparse-crate-root-only --edition <edition> t.rs` (cwd = a directory holding only t.rs = `src`), run by `_gen` (python3 gen.py cases.txt, cases.txt = `_cases`); `stderr` and the exit `code` are recorded verbatim. Cases that rustc accepts (exit 0) were dropped. Scratch copy: $RUST_TS_DATA/tmp/parser-diag/drv/.",
+ "_gen": "# Generates driver.json: rustc +nightly-2026-10-11 -Zui-testing -Zparse-crate-root-only --edition E t.rs\nimport json, os, subprocess, sys\ntext = open(sys.argv[1]).read()\nout = {}\nfor block in text.split(\"### \")[1:]:\n    header, src = block.split(\"\\n\", 1)\n    parts = header.split()\n    name = parts[0]\n    ed = \"2024\"\n    for p in parts[1:]:\n        if p.startswith(\"edition=\"): ed = p[8:]\n    d = os.path.join(\"work\", name); os.makedirs(d, exist_ok=True)\n    open(os.path.join(d, \"t.rs\"), \"w\").write(src)\n    r = subprocess.run([\"rustc\", \"+nightly-2026-10-11\", \"-Zui-testing\", \"-Zparse-crate-root-only\", \"--edition\", ed, \"t.rs\"], cwd=d, capture_output=True, text=True)\n    out[name] = {\"edition\": ed, \"src\": src, \"stderr\": r.stderr, \"code\": r.returncode}\njson.dump(out, open(\"driver.json\", \"w\"), indent=1)\nprint(len(out))\n",
+ "_cases": "### vcs_marker\n<<<<<<< HEAD\nfn a() {}\n=======\nfn b() {}\n>>>>>>> branch\n### vcs_marker_diff3\n<<<<<<< HEAD\nfn a() {}\n||||||| base\nfn c() {}\n=======\nfn b() {}\n>>>>>>> branch\n### semi_insert\nfn f() {\n    let x = 1\n    let y = 2;\n}\n### colon_as_semi\nfn f() {\n    let x = 1:\n    let y = 2;\n}\n### try_macro\nfn f() { try!(g(x, (y))) }\n### try_macro_empty\nfn f() { try!() }\n### expected_expression\nfn f() { let x = ; }\n### await_method_call\nasync fn f() { x.await(); }\n### use_method_call\nfn f() { x.use(); }\n### ambiguous_plus_impl\nfn f() -> &impl Copy + Send { x }\n### ambiguous_plus_dyn\nfn f(x: &dyn Copy + Send) {}\n### chain_turbofish_help\nfn f() { a < b > c; }\n### turbofish_call\nfn f() { foo<Bar>(); }\n### turbofish_path\nfn f() { Vec<u8>::new(); }\n### chain_split\nfn f() { a < b < c; }\n### chain_eq_eq\nfn f() { a == b == c; }\n### chain_eq_lt\nfn f() { a == b < c; }\n### chain_lt_eq\nfn f() { a < b == c; }\n### raw_str_terminators\nfn f() { let s = r#\"x\"##; }\n### question_in_type\nfn f() { let x: u8? = 1; }\n### kw_as_ident\nfn f() { let fn = 1; }\n### expected_one_of_item\nstruct S { a: u8 b: u8 }\n### unexpected_after_path\nfn f() { let x = a::b c; }\n### post_increment\nfn f() { a++; }\n### pre_increment\nfn f() { ++a; }\n### unmatched_angle\nfn f() { let _ = v.collect::<Vec<u8>>>(); }\n### turbofish_missing_angle\nfn f() { let _ = v.collect::Vec<u8>(); }\n### turbofish_multi\nfn f() { let _ = foo<A, B>(); }\n### struct_literal_no_path\nfn f() -> S { a: 1 }\n### struct_literal_consume_block\nfn f() -> S { a: 1 2 }\nfn g() {}\n### seq_parse_error\nfn f() { let x = (1 2); }\n### ternary\nfn f() { let x = a ? b : c; }\n### closing_generics\nimpl<S: Into<Cow<'static, str>> From<S> for C {}\n### await_prefix\nasync fn f() { await x; }\n### multi_ref_self\ntrait T { fn f(&&self); }\n### c_style_param\nfn f(String s) {}\n### anon_param_2015 edition=2015\ntrait T { fn f(u8, u8); }\n### anon_param_2018 edition=2018\ntrait T { fn f(u8); }\n### param_no_type\nfn f(a, b) {}\n### const_arg_braces\nfn f() { foo::<N + 1>(); }\n### const_arg_eqeq\nfn f(x: impl Tr<Assoc == u8>) {}\n### colon_colon_pat\nfn f() { match x { a:b => {} } }\n### block_label\nfn f() { loop 'a: {} }\n### unexpected_comma_pat\nfn f() { let a, b = (1, 2); }\n### bad_qpath\nfn f() { [u8]::len(); }\n### public_fn\npublic fn f() {}\n### def_fn\ndef f() {}\n### async_move_2015 edition=2015\nfn f() { async move {} }\n### doc_comment_nothing\nstruct S { a: u8, /// doc\n}\n### incorrect_semicolon\nstruct S {};\n### misspelled_struct\nStruct S;\n### bad_type_plus\ntype X = &Copy + Send;\n### lifetime_before_type\nfn f(x: S<'a T>) {}\n### raw_ref\nfn f() { let x = &raw y; }\n### dotdotlt\nfn f() { for i in 0..<10 {} }\n### type_in_generic_param\nfn f<Vec<u8>>() {}\n### self_not_first\nfn f(x: u8, self) {}\n### const_param_decl\nimpl S<const N: usize> {}\n### const_generic_old_syntax\nfn f() { foo::<const N>(); }\n### doubled_colon_bound\nfn f<T: Copy:: Clone>() {}\n### c_string_2018 edition=2018\nfn f() { let x = c\"x\"; }\n### attr_on_non_tail\nfn f() { #[attr] x\n    y }\n### attr_cfg_chain\nfn f() -> u8 {\n    #[cfg(a)]\n    1\n    #[cfg(b)]\n    2\n}\n### dyn_question\nfn f() -> Option<u8>? {}\n### recover_closure_body\nfn f() { let c = |x| x; y; }\n### closure_body_brace\nfn f() { { || x; y } }\n### for_in_in\nfn f() { for x in in y {} }\n### fat_arrow_ge\nfn f() { if a => b {} }\n### missing_let\nfn f() { a: u8 = 1; }\n",
+ "cases": {
+  "vcs_marker": {
+   "edition": "2024",
+   "src": "<<<<<<< HEAD\nfn a() {}\n=======\nfn b() {}\n>>>>>>> branch\n",
+   "stderr": "error: encountered diff marker\n  --> t.rs:1:1\n   |\nLL | <<<<<<< HEAD\n   | ^^^^^^^ between this marker and `=======` is the code that you are merging into\nLL | fn a() {}\nLL | =======\n   | ------- between this marker and `>>>>>>>` is the incoming code\nLL | fn b() {}\nLL | >>>>>>> branch\n   | ^^^^^^^ this marker concludes the conflict region\n   |\n   = note: conflict markers indicate that a merge was started but could not be completed due to merge conflicts\n           to resolve a conflict, keep only the code you want and then delete the lines containing conflict markers\n   = help: if you are in a merge, the top section is the code you already had checked out and the bottom section is the new code\n           if you are in a rebase, the top section is the code being rebased onto and the bottom section is the code you had checked out which is being rebased\n   = note: for an explanation on these markers from the `git` documentation, visit <https://git-scm.com/book/en/v2/Git-Tools-Advanced-Merging#_checking_out_conflicts>\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "vcs_marker_diff3": {
+   "edition": "2024",
+   "src": "<<<<<<< HEAD\nfn a() {}\n||||||| base\nfn c() {}\n=======\nfn b() {}\n>>>>>>> branch\n",
+   "stderr": "error: encountered diff marker\n  --> t.rs:1:1\n   |\nLL | <<<<<<< HEAD\n   | ^^^^^^^ between this marker and `|||||||` is the code that you are merging into\nLL | fn a() {}\nLL | ||||||| base\n   | ------- between this marker and `=======` is the base code (what the two refs diverged from)\nLL | fn c() {}\nLL | =======\n   | ------- between this marker and `>>>>>>>` is the incoming code\nLL | fn b() {}\nLL | >>>>>>> branch\n   | ^^^^^^^ this marker concludes the conflict region\n   |\n   = note: conflict markers indicate that a merge was started but could not be completed due to merge conflicts\n           to resolve a conflict, keep only the code you want and then delete the lines containing conflict markers\n   = help: if you are in a merge, the top section is the code you already had checked out and the bottom section is the new code\n           if you are in a rebase, the top section is the code being rebased onto and the bottom section is the code you had checked out which is being rebased\n   = note: for an explanation on these markers from the `git` documentation, visit <https://git-scm.com/book/en/v2/Git-Tools-Advanced-Merging#_checking_out_conflicts>\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "semi_insert": {
+   "edition": "2024",
+   "src": "fn f() {\n    let x = 1\n    let y = 2;\n}\n",
+   "stderr": "error: expected `;`, found keyword `let`\n  --> t.rs:2:14\n   |\nLL |     let x = 1\n   |              ^ help: add `;` here\nLL |     let y = 2;\n   |     --- unexpected token\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "colon_as_semi": {
+   "edition": "2024",
+   "src": "fn f() {\n    let x = 1:\n    let y = 2;\n}\n",
+   "stderr": "error: statements are terminated with a semicolon\n  --> t.rs:2:14\n   |\nLL |     let x = 1:\n   |              ^\n   |\nhelp: use a semicolon instead\n   |\nLL -     let x = 1:\nLL +     let x = 1;\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "try_macro": {
+   "edition": "2024",
+   "src": "fn f() { try!(g(x, (y))) }\n",
+   "stderr": "error: use of deprecated `try` macro\n  --> t.rs:1:10\n   |\nLL | fn f() { try!(g(x, (y))) }\n   |          ^^^^^^^^^^^^^^^\n   |\n   = note: in the 2018 edition `try` is a reserved keyword, and the `try!()` macro is deprecated\nhelp: you can use the `?` operator instead\n   |\nLL - fn f() { try!(g(x, (y))) }\nLL + fn f() { g(x, (y))? }\n   |\nhelp: alternatively, you can still access the deprecated `try!()` macro using the \"raw identifier\" syntax\n   |\nLL | fn f() { r#try!(g(x, (y))) }\n   |          ++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "try_macro_empty": {
+   "edition": "2024",
+   "src": "fn f() { try!() }\n",
+   "stderr": "error: use of deprecated `try` macro\n  --> t.rs:1:10\n   |\nLL | fn f() { try!() }\n   |          ^^^^^^\n   |\n   = note: in the 2018 edition `try` is a reserved keyword, and the `try!()` macro is deprecated\nhelp: you can still access the deprecated `try!()` macro using the \"raw identifier\" syntax\n   |\nLL | fn f() { r#try!() }\n   |          ++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "expected_expression": {
+   "edition": "2024",
+   "src": "fn f() { let x = ; }\n",
+   "stderr": "error: expected expression, found `;`\n  --> t.rs:1:18\n   |\nLL | fn f() { let x = ; }\n   |                  ^ expected expression\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "await_method_call": {
+   "edition": "2024",
+   "src": "async fn f() { x.await(); }\n",
+   "stderr": "error: incorrect use of `await`\n  --> t.rs:1:23\n   |\nLL | async fn f() { x.await(); }\n   |                       ^^\n   |\nhelp: `await` is not a method call, remove the parentheses\n   |\nLL - async fn f() { x.await(); }\nLL + async fn f() { x.await; }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "use_method_call": {
+   "edition": "2024",
+   "src": "fn f() { x.use(); }\n",
+   "stderr": "error: incorrect use of `use`\n  --> t.rs:1:15\n   |\nLL | fn f() { x.use(); }\n   |               ^^\n   |\nhelp: `use` is not a method call, try removing the parentheses\n   |\nLL - fn f() { x.use(); }\nLL + fn f() { x.use; }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "ambiguous_plus_impl": {
+   "edition": "2024",
+   "src": "fn f() -> &impl Copy + Send { x }\n",
+   "stderr": "error: ambiguous `+` in a type\n  --> t.rs:1:12\n   |\nLL | fn f() -> &impl Copy + Send { x }\n   |            ^^^^^^^^^^^^^^^^\n   |\nhelp: try adding parentheses\n   |\nLL | fn f() -> &(impl Copy + Send) { x }\n   |            +                +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "ambiguous_plus_dyn": {
+   "edition": "2024",
+   "src": "fn f(x: &dyn Copy + Send) {}\n",
+   "stderr": "error: ambiguous `+` in a type\n  --> t.rs:1:10\n   |\nLL | fn f(x: &dyn Copy + Send) {}\n   |          ^^^^^^^^^^^^^^^\n   |\nhelp: try adding parentheses\n   |\nLL | fn f(x: &(dyn Copy + Send)) {}\n   |          +               +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "chain_turbofish_help": {
+   "edition": "2024",
+   "src": "fn f() { a < b > c; }\n",
+   "stderr": "error: comparison operators cannot be chained\n  --> t.rs:1:12\n   |\nLL | fn f() { a < b > c; }\n   |            ^   ^\n   |\n   = help: use `::<...>` instead of `<...>` to specify lifetime, type, or const arguments\n   = help: or use `(...)` if you meant to specify fn arguments\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "turbofish_call": {
+   "edition": "2024",
+   "src": "fn f() { foo<Bar>(); }\n",
+   "stderr": "error: comparison operators cannot be chained\n  --> t.rs:1:13\n   |\nLL | fn f() { foo<Bar>(); }\n   |             ^   ^\n   |\nhelp: use `::<...>` instead of `<...>` to specify lifetime, type, or const arguments\n   |\nLL | fn f() { foo::<Bar>(); }\n   |             ++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "turbofish_path": {
+   "edition": "2024",
+   "src": "fn f() { Vec<u8>::new(); }\n",
+   "stderr": "error: comparison operators cannot be chained\n  --> t.rs:1:13\n   |\nLL | fn f() { Vec<u8>::new(); }\n   |             ^  ^\n   |\nhelp: use `::<...>` instead of `<...>` to specify lifetime, type, or const arguments\n   |\nLL | fn f() { Vec::<u8>::new(); }\n   |             ++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "chain_split": {
+   "edition": "2024",
+   "src": "fn f() { a < b < c; }\n",
+   "stderr": "error: comparison operators cannot be chained\n  --> t.rs:1:12\n   |\nLL | fn f() { a < b < c; }\n   |            ^   ^\n   |\n   = help: use `::<...>` instead of `<...>` to specify lifetime, type, or const arguments\n   = help: or use `(...)` if you meant to specify fn arguments\nhelp: split the comparison into two\n   |\nLL | fn f() { a < b && b < c; }\n   |                ++++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "chain_eq_eq": {
+   "edition": "2024",
+   "src": "fn f() { a == b == c; }\n",
+   "stderr": "error: comparison operators cannot be chained\n  --> t.rs:1:12\n   |\nLL | fn f() { a == b == c; }\n   |            ^^   ^^\n   |\nhelp: split the comparison into two\n   |\nLL | fn f() { a == b && b == c; }\n   |                 ++++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "chain_eq_lt": {
+   "edition": "2024",
+   "src": "fn f() { a == b < c; }\n",
+   "stderr": "error: comparison operators cannot be chained\n  --> t.rs:1:12\n   |\nLL | fn f() { a == b < c; }\n   |            ^^   ^\n   |\nhelp: parenthesize the comparison\n   |\nLL | fn f() { a == (b < c); }\n   |               +     +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "chain_lt_eq": {
+   "edition": "2024",
+   "src": "fn f() { a < b == c; }\n",
+   "stderr": "error: comparison operators cannot be chained\n  --> t.rs:1:12\n   |\nLL | fn f() { a < b == c; }\n   |            ^   ^^\n   |\nhelp: parenthesize the comparison\n   |\nLL | fn f() { (a < b) == c; }\n   |          +     +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "raw_str_terminators": {
+   "edition": "2024",
+   "src": "fn f() { let s = r#\"x\"##; }\n",
+   "stderr": "error: too many `#` when terminating raw string\n  --> t.rs:1:24\n   |\nLL | fn f() { let s = r#\"x\"##; }\n   |                  ------^\n   |                  |\n   |                  this raw string started with 1 `#`\n   |\nhelp: remove the extra `#`\n   |\nLL - fn f() { let s = r#\"x\"##; }\nLL + fn f() { let s = r#\"x\"#; }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "question_in_type": {
+   "edition": "2024",
+   "src": "fn f() { let x: u8? = 1; }\n",
+   "stderr": "error: invalid `?` in type\n  --> t.rs:1:19\n   |\nLL | fn f() { let x: u8? = 1; }\n   |                   ^ `?` is only allowed on expressions, not types\n   |\nhelp: if you meant to express that the type might not contain a value, use the `Option` wrapper type\n   |\nLL - fn f() { let x: u8? = 1; }\nLL + fn f() { let x: Option<u8> = 1; }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "kw_as_ident": {
+   "edition": "2024",
+   "src": "fn f() { let fn = 1; }\n",
+   "stderr": "error: expected identifier, found keyword `fn`\n  --> t.rs:1:14\n   |\nLL | fn f() { let fn = 1; }\n   |              ^^ expected identifier, found keyword\n   |\nhelp: escape `fn` to use it as an identifier\n   |\nLL | fn f() { let r#fn = 1; }\n   |              ++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "expected_one_of_item": {
+   "edition": "2024",
+   "src": "struct S { a: u8 b: u8 }\n",
+   "stderr": "error: expected `,`, or `}`, found `b`\n  --> t.rs:1:17\n   |\nLL | struct S { a: u8 b: u8 }\n   |                 ^ help: try adding a comma: `,`\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "unexpected_after_path": {
+   "edition": "2024",
+   "src": "fn f() { let x = a::b c; }\n",
+   "stderr": "error: expected one of `!`, `.`, `::`, `;`, `?`, `else`, `{`, or an operator, found `c`\n  --> t.rs:1:23\n   |\nLL | fn f() { let x = a::b c; }\n   |                       ^ expected one of 8 possible tokens\n   |\nhelp: you might have meant to write a field access\n   |\nLL | fn f() { let x = a::b.c; }\n   |                      +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "post_increment": {
+   "edition": "2024",
+   "src": "fn f() { a++; }\n",
+   "stderr": "error: Rust has no postfix increment operator\n  --> t.rs:1:11\n   |\nLL | fn f() { a++; }\n   |           ^^ not a valid postfix operator\n   |\nhelp: use `+= 1` instead\n   |\nLL - fn f() { a++; }\nLL + fn f() { a += 1; }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "pre_increment": {
+   "edition": "2024",
+   "src": "fn f() { ++a; }\n",
+   "stderr": "error: Rust has no prefix increment operator\n  --> t.rs:1:10\n   |\nLL | fn f() { ++a; }\n   |          ^^ not a valid prefix operator\n   |\nhelp: use `+= 1` instead\n   |\nLL - fn f() { ++a; }\nLL + fn f() { { a += 1; a }; }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "unmatched_angle": {
+   "edition": "2024",
+   "src": "fn f() { let _ = v.collect::<Vec<u8>>>(); }\n",
+   "stderr": "error: unmatched angle bracket\n  --> t.rs:1:38\n   |\nLL | fn f() { let _ = v.collect::<Vec<u8>>>(); }\n   |                                      ^\n   |\nhelp: remove extra angle bracket\n   |\nLL - fn f() { let _ = v.collect::<Vec<u8>>>(); }\nLL + fn f() { let _ = v.collect::<Vec<u8>>(); }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "turbofish_missing_angle": {
+   "edition": "2024",
+   "src": "fn f() { let _ = v.collect::Vec<u8>(); }\n",
+   "stderr": "error: generic parameters without surrounding angle brackets\n  --> t.rs:1:29\n   |\nLL | fn f() { let _ = v.collect::Vec<u8>(); }\n   |                             ^^^^^^^\n   |\nhelp: surround the type parameters with angle brackets\n   |\nLL | fn f() { let _ = v.collect::<Vec<u8>>(); }\n   |                             +       +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "turbofish_multi": {
+   "edition": "2024",
+   "src": "fn f() { let _ = foo<A, B>(); }\n",
+   "stderr": "error: expected one of `!`, `.`, `::`, `;`, `?`, `else`, `{`, or an operator, found `,`\n  --> t.rs:1:23\n   |\nLL | fn f() { let _ = foo<A, B>(); }\n   |                       ^ expected one of 8 possible tokens\n   |\nhelp: use `::<...>` instead of `<...>` to specify lifetime, type, or const arguments\n   |\nLL | fn f() { let _ = foo::<A, B>(); }\n   |                     ++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "struct_literal_no_path": {
+   "edition": "2024",
+   "src": "fn f() -> S { a: 1 }\n",
+   "stderr": "error: struct literal body without path\n  --> t.rs:1:13\n   |\nLL | fn f() -> S { a: 1 }\n   |             ^^^^^^^^\n   |\nhelp: you might have forgotten to add the struct literal inside the block\n   |\nLL | fn f() -> S { SomeStruct { a: 1 } }\n   |             ++++++++++++          +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "struct_literal_consume_block": {
+   "edition": "2024",
+   "src": "fn f() -> S { a: 1 2 }\nfn g() {}\n",
+   "stderr": "error: expected one of `!`, `.`, `::`, `;`, `?`, `{`, `}`, or an operator, found `:`\n  --> t.rs:1:16\n   |\nLL | fn f() -> S { a: 1 2 }\n   |                ^ expected one of 8 possible tokens\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "seq_parse_error": {
+   "edition": "2024",
+   "src": "fn f() { let x = (1 2); }\n",
+   "stderr": "error: expected one of `)`, `,`, `.`, `?`, or an operator, found `2`\n  --> t.rs:1:21\n   |\nLL | fn f() { let x = (1 2); }\n   |                    -^ expected one of `)`, `,`, `.`, `?`, or an operator\n   |                    |\n   |                    help: missing `,`\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "ternary": {
+   "edition": "2024",
+   "src": "fn f() { let x = a ? b : c; }\n",
+   "stderr": "error: Rust has no ternary operator\n  --> t.rs:1:20\n   |\nLL | fn f() { let x = a ? b : c; }\n   |                    ^^^^^^^\n   |\n   = help: use an `if-else` expression instead\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "closing_generics": {
+   "edition": "2024",
+   "src": "impl<S: Into<Cow<'static, str>> From<S> for C {}\n",
+   "stderr": "error: expected one of `+`, `,`, `::`, `=`, or `>`, found `From`\n  --> t.rs:1:33\n   |\nLL | impl<S: Into<Cow<'static, str>> From<S> for C {}\n   |                                 ^^^^ expected one of `+`, `,`, `::`, `=`, or `>`\n   |\nhelp: you might have meant to end the type parameters here\n   |\nLL | impl<S: Into<Cow<'static, str>>> From<S> for C {}\n   |                                +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "await_prefix": {
+   "edition": "2024",
+   "src": "async fn f() { await x; }\n",
+   "stderr": "error: incorrect use of `await`\n  --> t.rs:1:16\n   |\nLL | async fn f() { await x; }\n   |                ^^^^^^^\n   |\nhelp: `await` is a postfix operation\n   |\nLL - async fn f() { await x; }\nLL + async fn f() { x.await; }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "multi_ref_self": {
+   "edition": "2024",
+   "src": "trait T { fn f(&&self); }\n",
+   "stderr": "error: expected one of `!`, `(`, `...`, `..=`, `..`, `::`, `:`, `{`, or `|`, found `)`\n  --> t.rs:1:22\n   |\nLL | trait T { fn f(&&self); }\n   |                      ^ expected one of 9 possible tokens\n   |\nhelp: `self` should be `self`, `&self` or `&mut self`, consider removing extra references\n   |\nLL - trait T { fn f(&&self); }\nLL + trait T { fn f(&self); }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "c_style_param": {
+   "edition": "2024",
+   "src": "fn f(String s) {}\n",
+   "stderr": "error: expected one of `:`, `@`, or `|`, found `s`\n  --> t.rs:1:13\n   |\nLL | fn f(String s) {}\n   |             ^ expected one of `:`, `@`, or `|`\n   |\nhelp: declare the type after the parameter binding\n   |\nLL - fn f(String s) {}\nLL + fn f(<identifier>: <type>) {}\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "anon_param_2018": {
+   "edition": "2018",
+   "src": "trait T { fn f(u8); }\n",
+   "stderr": "error: expected one of `:`, `@`, or `|`, found `)`\n  --> t.rs:1:18\n   |\nLL | trait T { fn f(u8); }\n   |                  ^ expected one of `:`, `@`, or `|`\n   |\n   = note: anonymous parameters are removed in the 2018 edition (see RFC 1685)\nhelp: if this is a `self` type, give it a parameter name\n   |\nLL | trait T { fn f(self: u8); }\n   |                +++++\nhelp: if this is a parameter name, give it a type\n   |\nLL | trait T { fn f(u8: TypeName); }\n   |                  ++++++++++\nhelp: if this is a type, explicitly ignore the parameter name\n   |\nLL | trait T { fn f(_: u8); }\n   |                ++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "param_no_type": {
+   "edition": "2024",
+   "src": "fn f(a, b) {}\n",
+   "stderr": "error: expected one of `:`, `@`, or `|`, found `,`\n  --> t.rs:1:7\n   |\nLL | fn f(a, b) {}\n   |       ^ expected one of `:`, `@`, or `|`\n   |\nhelp: if this is a parameter name, give it a type\n   |\nLL | fn f(a: TypeName, b) {}\n   |       ++++++++++\nhelp: if this is a type, explicitly ignore the parameter name\n   |\nLL | fn f(_: a, b) {}\n   |      ++\n\nerror: expected one of `:`, `@`, or `|`, found `)`\n  --> t.rs:1:10\n   |\nLL | fn f(a, b) {}\n   |          ^ expected one of `:`, `@`, or `|`\n   |\nhelp: if this is a parameter name, give it a type\n   |\nLL | fn f(a, b: TypeName) {}\n   |          ++++++++++\nhelp: if this is a type, explicitly ignore the parameter name\n   |\nLL | fn f(a, _: b) {}\n   |         ++\n\nerror: aborting due to 2 previous errors\n\n",
+   "code": 1
+  },
+  "const_arg_braces": {
+   "edition": "2024",
+   "src": "fn f() { foo::<N + 1>(); }\n",
+   "stderr": "error: expected one of `,` or `>`, found `1`\n  --> t.rs:1:20\n   |\nLL | fn f() { foo::<N + 1>(); }\n   |                    ^ expected one of `,` or `>`\n   |\nhelp: expressions must be enclosed in braces to be used as const generic arguments\n   |\nLL | fn f() { foo::<{ N + 1 }>(); }\n   |                +       +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "const_arg_eqeq": {
+   "edition": "2024",
+   "src": "fn f(x: impl Tr<Assoc == u8>) {}\n",
+   "stderr": "error: expected one of `,` or `>`, found `==`\n  --> t.rs:1:23\n   |\nLL | fn f(x: impl Tr<Assoc == u8>) {}\n   |                       ^^ expected one of `,` or `>`\n   |\nhelp: if you meant to use an associated type binding, replace `==` with `=`\n   |\nLL - fn f(x: impl Tr<Assoc == u8>) {}\nLL + fn f(x: impl Tr<Assoc = u8>) {}\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "colon_colon_pat": {
+   "edition": "2024",
+   "src": "fn f() { match x { a:b => {} } }\n",
+   "stderr": "error: expected one of `@` or `|`, found `:`\n  --> t.rs:1:21\n   |\nLL | fn f() { match x { a:b => {} } }\n   |                     ^- specifying the type of a pattern isn't supported\n   |                     |\n   |                     expected one of `@` or `|`\n   |\nhelp: maybe write a path separator here\n   |\nLL | fn f() { match x { a::b => {} } }\n   |                      +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "block_label": {
+   "edition": "2024",
+   "src": "fn f() { loop 'a: {} }\n",
+   "stderr": "error: block label not supported here\n  --> t.rs:1:15\n   |\nLL | fn f() { loop 'a: {} }\n   |               ^^^ not supported here\n   |\nhelp: if you meant to label the loop, move this label before the loop\n   |\nLL - fn f() { loop 'a: {} }\nLL + fn f() { 'a: loop {} }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "unexpected_comma_pat": {
+   "edition": "2024",
+   "src": "fn f() { let a, b = (1, 2); }\n",
+   "stderr": "error: unexpected `,` in pattern\n  --> t.rs:1:15\n   |\nLL | fn f() { let a, b = (1, 2); }\n   |               ^\n   |\nhelp: try adding parentheses to match on a tuple\n   |\nLL | fn f() { let (a, b) = (1, 2); }\n   |              +    +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "bad_qpath": {
+   "edition": "2024",
+   "src": "fn f() { [u8]::len(); }\n",
+   "stderr": "error: missing angle brackets in associated item path\n  --> t.rs:1:10\n   |\nLL | fn f() { [u8]::len(); }\n   |          ^^^^\n   |\nhelp: types that don't start with an identifier need to be surrounded with angle brackets in qualified paths\n   |\nLL | fn f() { <[u8]>::len(); }\n   |          +    +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "public_fn": {
+   "edition": "2024",
+   "src": "public fn f() {}\n",
+   "stderr": "error: expected one of `!` or `::`, found keyword `fn`\n  --> t.rs:1:8\n   |\nLL | public fn f() {}\n   |        ^^ expected one of `!` or `::`\n   |\nhelp: write `pub` instead of `public` to make the item public\n   |\nLL - public fn f() {}\nLL + pub fn f() {}\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "def_fn": {
+   "edition": "2024",
+   "src": "def f() {}\n",
+   "stderr": "error: expected one of `!` or `::`, found `f`\n  --> t.rs:1:5\n   |\nLL | def f() {}\n   | --- ^ expected one of `!` or `::`\n   | |\n   | help: write `fn` instead of `def` to declare a function\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "async_move_2015": {
+   "edition": "2015",
+   "src": "fn f() { async move {} }\n",
+   "stderr": "error: `async move` blocks are only allowed in Rust 2018 or later\n  --> t.rs:1:10\n   |\nLL | fn f() { async move {} }\n   |          ^^^^^^^^^^\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "doc_comment_nothing": {
+   "edition": "2024",
+   "src": "struct S { a: u8, /// doc\n}\n",
+   "stderr": "error[E0585]: found a documentation comment that doesn't document anything\n  --> t.rs:1:19\n   |\nLL | struct S { a: u8, /// doc\n   |        -          ^^^^^^^\n   |        |\n   |        while parsing this struct\n   |\n   = help: doc comments must come before what they document, if a comment was intended use `//`\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0585`.\n",
+   "code": 1
+  },
+  "incorrect_semicolon": {
+   "edition": "2024",
+   "src": "struct S {};\n",
+   "stderr": "error: expected item, found `;`\n  --> t.rs:1:12\n   |\nLL | struct S {};\n   |            ^\n   |\n   = help: braced struct declarations are not followed by a semicolon\nhelp: remove this semicolon\n   |\nLL - struct S {};\nLL + struct S {}\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "misspelled_struct": {
+   "edition": "2024",
+   "src": "Struct S;\n",
+   "stderr": "error: keyword `struct` is written in the wrong case\n  --> t.rs:1:1\n   |\nLL | Struct S;\n   | ^^^^^^\n   |\nhelp: write it in lowercase (notice the capitalization)\n   |\nLL - Struct S;\nLL + struct S;\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "bad_type_plus": {
+   "edition": "2024",
+   "src": "type X = &Copy + Send;\n",
+   "stderr": "error[E0178]: expected a path on the left-hand side of `+`\n  --> t.rs:1:10\n   |\nLL | type X = &Copy + Send;\n   |          ^^^^^\n   |\nhelp: try adding parentheses\n   |\nLL | type X = &(Copy + Send);\n   |           +           +\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0178`.\n",
+   "code": 1
+  },
+  "lifetime_before_type": {
+   "edition": "2024",
+   "src": "fn f(x: S<'a T>) {}\n",
+   "stderr": "error: expected one of `,` or `>`, found `T`\n  --> t.rs:1:14\n   |\nLL | fn f(x: S<'a T>) {}\n   |              ^ expected one of `,` or `>`\n   |\nhelp: you might have meant to write a reference type here\n   |\nLL | fn f(x: S<&'a T>) {}\n   |           +\nhelp: use a comma to separate type parameters\n   |\nLL | fn f(x: S<'a, T>) {}\n   |             +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "raw_ref": {
+   "edition": "2024",
+   "src": "fn f() { let x = &raw y; }\n",
+   "stderr": "error: expected one of `!`, `.`, `::`, `;`, `?`, `const`, `else`, `mut`, `{`, or an operator, found `y`\n  --> t.rs:1:23\n   |\nLL | fn f() { let x = &raw y; }\n   |                       ^ expected one of 10 possible tokens\n   |\nhelp: `&raw` must be followed by `const` or `mut` to be a raw reference expression\n   |\nLL | fn f() { let x = &raw const y; }\n   |                       +++++\nLL | fn f() { let x = &raw mut y; }\n   |                       +++\nhelp: you might have meant to write a field access\n   |\nLL | fn f() { let x = &raw.y; }\n   |                      +\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "dotdotlt": {
+   "edition": "2024",
+   "src": "fn f() { for i in 0..<10 {} }\n",
+   "stderr": "error: expected type, found `10`\n  --> t.rs:1:23\n   |\nLL | fn f() { for i in 0..<10 {} }\n   |                       ^^ expected type\n   |\nhelp: remove the `<` to write an exclusive range\n   |\nLL - fn f() { for i in 0..<10 {} }\nLL + fn f() { for i in 0..10 {} }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "type_in_generic_param": {
+   "edition": "2024",
+   "src": "fn f<Vec<u8>>() {}\n",
+   "stderr": "error: expected one of `,`, `:`, `=`, or `>`, found `<`\n  --> t.rs:1:9\n   |\nLL | fn f<Vec<u8>>() {}\n   |         ^ expected one of `,`, `:`, `=`, or `>`\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "self_not_first": {
+   "edition": "2024",
+   "src": "fn f(x: u8, self) {}\n",
+   "stderr": "error: unexpected `self` parameter in function\n  --> t.rs:1:13\n   |\nLL | fn f(x: u8, self) {}\n   |             ^^^^ must be the first parameter of an associated function\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "const_param_decl": {
+   "edition": "2024",
+   "src": "impl S<const N: usize> {}\n",
+   "stderr": "error: unexpected `const` parameter declaration\n  --> t.rs:1:8\n   |\nLL | impl S<const N: usize> {}\n   |        ^^^^^^^^^^^^^^ expected a `const` expression, not a parameter declaration\n   |\nhelp: `const` parameters must be declared for the `impl`\n   |\nLL - impl S<const N: usize> {}\nLL + impl<const N: usize> S<N> {}\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "const_generic_old_syntax": {
+   "edition": "2024",
+   "src": "fn f() { foo::<const N>(); }\n",
+   "stderr": "error: expected `:`, found `>`\n  --> t.rs:1:23\n   |\nLL | fn f() { foo::<const N>(); }\n   |                       ^ expected `:`\n   |\nhelp: you likely meant to write the type of the const parameter here\n   |\nLL | fn f() { foo::<const N: /* Type */>(); }\n   |                       ++++++++++++\n\nerror: unexpected `const` parameter declaration\n  --> t.rs:1:16\n   |\nLL | fn f() { foo::<const N>(); }\n   |                ^^^^^^^ expected a `const` expression, not a parameter declaration\n\nerror: aborting due to 2 previous errors\n\n",
+   "code": 1
+  },
+  "c_string_2018": {
+   "edition": "2018",
+   "src": "fn f() { let x = c\"x\"; }\n",
+   "stderr": "error: expected one of `!`, `.`, `::`, `;`, `?`, `else`, `{`, or an operator, found `\"x\"`\n  --> t.rs:1:19\n   |\nLL | fn f() { let x = c\"x\"; }\n   |                   ^^^ expected one of 8 possible tokens\n   |\n   = note: you may be trying to write a c-string literal\n   = note: c-string literals require Rust 2021 or later\n   = help: pass `--edition 2024` to `rustc`\n   = note: for more on editions, read https://doc.rust-lang.org/edition-guide\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "attr_on_non_tail": {
+   "edition": "2024",
+   "src": "fn f() { #[attr] x\n    y }\n",
+   "stderr": "error: expected `;`, found `y`\n  --> t.rs:1:19\n   |\nLL | fn f() { #[attr] x\n   |          -------  ^ help: add `;` here\n   |          |\n   |          only `;` terminated statements or tail expressions are allowed after this attribute\nLL |     y }\n   |     - unexpected token\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "attr_cfg_chain": {
+   "edition": "2024",
+   "src": "fn f() -> u8 {\n    #[cfg(a)]\n    1\n    #[cfg(b)]\n    2\n}\n",
+   "stderr": "error: expected `;`, found `#`\n  --> t.rs:3:6\n   |\nLL |     #[cfg(a)]\n   |     --------- only `;` terminated statements or tail expressions are allowed after this attribute\nLL |     1\n   |      ^ expected `;` here\nLL |     #[cfg(b)]\n   |     - unexpected token\n   |\nhelp: add `;` here\n   |\nLL |     1;\n   |      +\nhelp: alternatively, consider surrounding the expression with a block\n   |\nLL |     { 1 }\n   |     +   +\nhelp: it seems like you are trying to provide different expressions depending on `cfg`, consider using `if cfg!(..)`\n   |\nLL ~     if cfg!(a) {\nLL ~         1\nLL ~     } else if cfg!(b) {\nLL ~         2\nLL +     }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "dyn_question": {
+   "edition": "2024",
+   "src": "fn f() -> Option<u8>? {}\n",
+   "stderr": "error: invalid `?` in type\n  --> t.rs:1:21\n   |\nLL | fn f() -> Option<u8>? {}\n   |                     ^ `?` is only allowed on expressions, not types\n   |\nhelp: if you meant to express that the type might not contain a value, use the `Option` wrapper type\n   |\nLL - fn f() -> Option<u8>? {}\nLL + fn f() -> Option<Option<u8>> {}\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "for_in_in": {
+   "edition": "2024",
+   "src": "fn f() { for x in in y {} }\n",
+   "stderr": "error: expected iterable, found keyword `in`\n  --> t.rs:1:19\n   |\nLL | fn f() { for x in in y {} }\n   |                   ^^\n   |\nhelp: remove the duplicated `in`\n   |\nLL - fn f() { for x in in y {} }\nLL + fn f() { for x in y {} }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "fat_arrow_ge": {
+   "edition": "2024",
+   "src": "fn f() { if a => b {} }\n",
+   "stderr": "error: expected `{`, found `=>`\n  --> t.rs:1:15\n   |\nLL | fn f() { if a => b {} }\n   |               ^^ expected `{`\n   |\nnote: the `if` expression is missing a block after this condition\n  --> t.rs:1:13\n   |\nLL | fn f() { if a => b {} }\n   |             ^\nhelp: you might have meant to write a \"greater than or equal to\" comparison\n   |\nLL - fn f() { if a => b {} }\nLL + fn f() { if a >= b {} }\n   |\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  },
+  "missing_let": {
+   "edition": "2024",
+   "src": "fn f() { a: u8 = 1; }\n",
+   "stderr": "error: expected identifier, found `:`\n  --> t.rs:1:11\n   |\nLL | fn f() { a: u8 = 1; }\n   |           ^ expected identifier\n   |\nhelp: you might have meant to introduce a new binding\n   |\nLL | fn f() { let a: u8 = 1; }\n   |          +++\n\nerror: aborting due to 1 previous error\n\n",
+   "code": 1
+  }
+ }
+}

@@ -47,16 +47,10 @@ const oracle = JSON.parse(readFileSync(new URL("./parser_core_oracle.json", impo
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
 const PENDING: Record<string, string> = {
-  expect_one_of: "rustc_parse::parser::diagnostics::Parser::expected_one_of_not_found",
-  expect_one_of_kw: "rustc_parse::parser::diagnostics::Parser::expected_one_of_not_found",
-  expect_one_of_many: "rustc_parse::parser::diagnostics::Parser::expected_one_of_not_found",
-  expect_two: "rustc_parse::parser::diagnostics::Parser::expected_one_of_not_found",
-  expect_after_check: "rustc_parse::parser::diagnostics::Parser::expected_one_of_not_found",
-  expect_single: "rustc_parse::parser::diagnostics::Parser::unexpected_err",
-  expect_kw_fail: "rustc_parse::parser::diagnostics::Parser::expected_one_of_not_found",
-  expect_gt_glued: "rustc_parse::parser::diagnostics::Parser::expected_one_of_not_found",
+  // `prev_token` is the initial `Token::dummy()` (`?`), so `expected_one_of_not_found` (expected `;`)
+  // tries `maybe_recover_from_ternary_operator`, which parses an expression (expr lane).
+  expect_one_of: "rustc_parse::parser::expr::Parser::parse_expr",
   attr_eq: "rustc_parse::parser::expr::Parser::parse_expr_force_collect",
-  attr_shebang_like: "rustc_parse::parser::diagnostics::Parser::unexpected_err",
   outer_attrs_doc: "rustc_parse::parser::item::Parser::parse_item",
   outer_attrs_inner_doc_misplaced: "rustc_parse::parser::item::Parser::parse_item",
 };

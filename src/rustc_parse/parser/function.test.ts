@@ -164,14 +164,6 @@ const NARROW: Record<string, string> = {
 
 /** narrow case -> the `Unported` its narrow script must reach until the owning lane lands. */
 const NARROW_PENDING: Record<string, string> = {
-  fm_async_2015: "rustc_parse::parser::diagnostics::Parser::dcx",
-  fm_async_unsafe_2015: "rustc_parse::parser::diagnostics::Parser::dcx",
-  ty_fnptr_const: "rustc_parse::parser::diagnostics::Parser::dcx",
-  ty_fnptr_async: "rustc_parse::parser::diagnostics::Parser::dcx",
-  ty_fnptr_const_async_unsafe: "rustc_parse::parser::diagnostics::Parser::dcx",
-  self_ptr: "rustc_parse::parser::diagnostics::Parser::dcx",
-  self_ptr_mut: "rustc_parse::parser::diagnostics::Parser::dcx",
-  self_ptr_const: "rustc_parse::parser::diagnostics::Parser::dcx",
 };
 
 const EDITIONS: Record<string, Edition> = {
