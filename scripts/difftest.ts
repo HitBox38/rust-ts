@@ -11,7 +11,7 @@
 //
 // Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) | TIMEOUT
 // Prints one summary line; details go to $RUST_TS_DATA/runs/<run-id>/.
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
@@ -89,15 +89,31 @@ const fileHash = (s: Suite, c: Case): string => (c.file === "" ? "" : hash(readF
  */
 const GZIP_OVER = 64 * 1024;
 
-function readCached(p: string): Output {
-  const raw = readFileSync(p);
-  const text = raw[0] === 0x1f && raw[1] === 0x8b ? new TextDecoder().decode(Bun.gunzipSync(raw)) : raw.toString("utf8");
-  return JSON.parse(text);
+/**
+ * A cached oracle output, or `undefined` (a miss) if the entry is unreadable: a torn or corrupt
+ * entry (neither a corrupt gzip stream nor a prefix of an `Output` decodes) is reported with one
+ * `ERROR:` line, removed, and re-run by the caller, which overwrites it.
+ */
+function readCached(p: string): Output | undefined {
+  try {
+    const raw = readFileSync(p);
+    const text = raw[0] === 0x1f && raw[1] === 0x8b ? new TextDecoder().decode(Bun.gunzipSync(raw)) : raw.toString("utf8");
+    const o = JSON.parse(text) as Output;
+    if (typeof o?.text !== "string" || typeof o.code !== "number") throw new Error("not an oracle output");
+    return o;
+  } catch (e) {
+    console.log(`ERROR: unreadable oracle cache entry ${p} (${e instanceof Error ? e.message : String(e)}); removed, re-running the oracle`);
+    rmSync(p, { force: true });
+    return undefined;
+  }
 }
 
+/** Atomic: written to a process-unique temp file, then renamed over the entry. */
 function writeCached(p: string, o: Output): void {
   const json = JSON.stringify(o);
-  writeFileSync(p, json.length > GZIP_OVER ? Bun.gzipSync(json) : json);
+  const tmp = `${p}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  writeFileSync(tmp, json.length > GZIP_OVER ? Bun.gzipSync(json) : json);
+  renameSync(tmp, p);
 }
 
 function cachePath(s: Suite, c: Case, fileHash: string): string {
@@ -112,7 +128,8 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
   for (const c of cases) {
     const p = cachePath(s, c, fileHash(s, c));
     paths.set(c.id, p);
-    if (existsSync(p)) out.set(c.id, readCached(p));
+    const cached = existsSync(p) ? readCached(p) : undefined;
+    if (cached) out.set(c.id, cached);
     else todo.push(c);
   }
   if (todo.length === 0) return out;

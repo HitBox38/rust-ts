@@ -70,21 +70,24 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
 /**
  * Unit tests that may skip under RUST_TS_REQUIRE_PROBES=1. Every other skipped test fails the gate:
  * with every probe required, a skip means a test silently did not run (a missing input, a guard
- * that no longer holds, a `test.skip` left behind).
+ * that no longer holds, a `test.skip` left behind). An entry names one test exactly: its file and
+ * its full path (enclosing `describe` names, outermost first, then the test name), and allows it
+ * to skip at most once.
  */
-export const ALLOWED_SKIPS: { file: string; name: string; why: string }[] = [
+export const ALLOWED_SKIPS: { file: string; path: string[]; why: string }[] = [
   {
     // Upstream `#[cfg(target_os = "linux")]`: reads /proc/self/cmdline, whose stat size lies (0).
-    // The port keeps the platform gate (`test.skipIf(process.platform !== "linux")`).
+    // The port keeps the platform gate (`test.skipIf(process.platform !== "linux")`), top level.
     file: "src/rustc_span/source_map/tests.test.ts",
-    name: "read_binary_file_handles_lying_stat",
+    path: ["read_binary_file_handles_lying_stat"],
     why: "Linux-only test (upstream #[cfg(target_os = \"linux\")])",
   },
 ];
 
 export interface SkippedTest {
   file: string;
-  name: string;
+  /** Enclosing `describe` names (outermost first), then the test name. */
+  path: string[];
 }
 
 const xmlUnescape = (s: string): string =>
@@ -92,31 +95,65 @@ const xmlUnescape = (s: string): string =>
     e === "lt" ? "<" : e === "gt" ? ">" : e === "quot" ? '"' : e === "apos" ? "'" : e === "amp" ? "&" : String.fromCodePoint(e[1] === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)),
   );
 
+const xmlAttr = (attrs: string, k: string): string | undefined => {
+  const a = new RegExp(`\\s${k}="([^"]*)"`).exec(attrs);
+  return a ? xmlUnescape(a[1]!) : undefined;
+};
+
 /**
- * Skipped test cases of a `bun test --reporter=junit` report (`<testcase ...><skipped .../></testcase>`).
- * Attributes are matched as `name="..."` pairs (a value may contain `>`, never a raw `"`). Throws if
+ * Skipped test cases of a `bun test --reporter=junit` report. Bun writes one `<testsuite>` per
+ * file, nested `<testsuite>`s for `describe` blocks, and `<testcase ...>` elements (self-closing,
+ * or holding `<skipped .../>` / `<failure>`). The report is read as a sequence of these tags, with
+ * attributes matched as `k="..."` pairs (a value may contain `>`, never a raw `"`), keeping a stack
+ * of open `<testsuite>` names for each test's `describe` path. Throws on an unbalanced report or if
  * the count disagrees with the report's own `<testsuites skipped="N">` total.
  */
 export function junitSkips(xml: string): SkippedTest[] {
   const out: SkippedTest[] = [];
-  for (const m of xml.matchAll(/<testcase((?:\s+[\w:.-]+="[^"]*")*)\s*(?:\/>|>([\s\S]*?)<\/testcase>)/g)) {
-    if (m[2] === undefined || !/<skipped\b/.test(m[2])) continue;
-    const attr = (k: string) => {
-      const a = new RegExp(`\\s${k}="([^"]*)"`).exec(m[1]!);
-      return a ? xmlUnescape(a[1]!) : "";
-    };
-    out.push({ file: attr("file"), name: attr("name") });
+  const suites: string[] = [];
+  let cur: { file: string; path: string[]; skipped: boolean } | undefined;
+  const tags = /<(\/?)(testsuites|testsuite|testcase|skipped)\b((?:\s+[\w:.-]+="[^"]*")*)\s*(\/?)>/g;
+  for (const m of xml.matchAll(tags)) {
+    const [, close, tag, attrs, selfClose] = m as unknown as [string, string, string, string, string];
+    if (tag === "testsuite") {
+      if (close) {
+        if (suites.pop() === undefined) throw new Error("junit report: unbalanced </testsuite>");
+      } else if (!selfClose) suites.push(xmlAttr(attrs, "name") ?? "");
+    } else if (tag === "testcase") {
+      if (close) {
+        if (!cur) throw new Error("junit report: unbalanced </testcase>");
+        if (cur.skipped) out.push({ file: cur.file, path: cur.path });
+        cur = undefined;
+      } else {
+        if (cur) throw new Error("junit report: nested <testcase>");
+        // suites[0] is the file's own <testsuite>; the rest are describe blocks.
+        const t = { file: (xmlAttr(attrs, "file") ?? "").replaceAll("\\", "/"), path: [...suites.slice(1), xmlAttr(attrs, "name") ?? ""], skipped: false };
+        if (!selfClose) cur = t;
+      }
+    } else if (tag === "skipped" && !close && cur) {
+      cur.skipped = true;
+    }
   }
+  if (cur || suites.length) throw new Error("junit report: unterminated <testcase>/<testsuite>");
   const total = /<testsuites\b(?:\s+[\w:.-]+="[^"]*")*?\s+skipped="(\d+)"/.exec(xml);
   if (!total) throw new Error("junit report has no <testsuites skipped=...> total");
   if (Number(total[1]) !== out.length) throw new Error(`junit report says ${total[1]} skipped, found ${out.length} skipped testcases`);
   return out;
 }
 
-/** Splits skips into allowlisted and unexpected ones. */
+/** Splits skips into allowlisted and unexpected ones; each ALLOWED_SKIPS entry is used at most once. */
 export function classifySkips(skips: SkippedTest[]): { allowed: SkippedTest[]; unexpected: SkippedTest[] } {
-  const ok = (t: SkippedTest) => ALLOWED_SKIPS.some((a) => a.file === t.file.replaceAll("\\", "/") && a.name === t.name);
-  return { allowed: skips.filter(ok), unexpected: skips.filter((t) => !ok(t)) };
+  const unused = [...ALLOWED_SKIPS];
+  const allowed: SkippedTest[] = [];
+  const unexpected: SkippedTest[] = [];
+  for (const t of skips) {
+    const i = unused.findIndex((a) => a.file === t.file && a.path.length === t.path.length && a.path.every((p, j) => p === t.path[j]));
+    if (i >= 0) {
+      unused.splice(i, 1);
+      allowed.push(t);
+    } else unexpected.push(t);
+  }
+  return { allowed, unexpected };
 }
 
 /** Unit-test skips of a gate run (recorded in gate.json). */
@@ -132,7 +169,9 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
     ["typecheck", ["bunx", "tsc", "--noEmit", "-p", "."], {}],
     // Oracle unit tests fail (instead of skipping) when their probe is missing; the junit report
     // lists the tests that skipped anyway (checked below against ALLOWED_SKIPS).
-    ["unit tests", [process.execPath, "test", "src", "tools", "--reporter=junit", `--reporter-outfile=${junit}`], { RUST_TS_REQUIRE_PROBES: "1" }],
+    // CI=true: Bun fails the run on a leftover `.only` (which would otherwise drop the other tests
+    // of its file from the run, and from the report, without counting them as skipped).
+    ["unit tests", [process.execPath, "test", "src", "tools", "--reporter=junit", `--reporter-outfile=${junit}`], { RUST_TS_REQUIRE_PROBES: "1", CI: "true" }],
     // --offline: a vendor crate missing from cargo's cache is an ERROR, never network I/O.
     ["markers", [process.execPath, "scripts/coverage.ts", "--check", "--offline"], {}],
   ];
@@ -163,7 +202,7 @@ export async function staticChecks(runDir: string): Promise<{ ok: boolean; skips
       const { allowed, unexpected } = classifySkips(found);
       skips = { skipped: allowed.length + unexpected.length, allowed: allowed.length, unexpected };
       console.log(`${unexpected.length ? "ERROR:" : "ok   "} unit test skips: ${skips.skipped} (${allowed.length} allowlisted, ${unexpected.length} not allowed under RUST_TS_REQUIRE_PROBES=1)`);
-      for (const t of unexpected.slice(0, 20)) console.log(`  skipped: ${t.file}: ${t.name}`);
+      for (const t of unexpected.slice(0, 20)) console.log(`  skipped: ${t.file}: ${t.path.join(" > ")}`);
       if (unexpected.length) ok = false;
     }
   }

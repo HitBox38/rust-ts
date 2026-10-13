@@ -56,7 +56,9 @@ interface ProbeMeta {
 }
 
 /** Dependency tables a rustc-dev probe may not have (top level or under `[target.*]`). */
-const DEP_TABLES = ["dependencies", "dev-dependencies", "build-dependencies"];
+const DEP_TABLES = ["dependencies", "dev-dependencies", "build-dependencies", "dev_dependencies", "build_dependencies"];
+/** Build variables a rustc-dev probe's `env` may not set: flags, and anything that swaps the compiler. */
+const RUSTC_DEV_RESERVED_ENV = ["RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "RUSTDOC", "CARGO_BUILD_RUSTC", "CARGO_BUILD_RUSTC_WRAPPER", "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER", "CARGO_BUILD_RUSTFLAGS", "CARGO_TARGET_DIR", "RUSTUP_TOOLCHAIN"];
 
 /** The substituted manifest of a probe. */
 function manifest(name: string): string {
@@ -94,7 +96,8 @@ export function probeMeta(name: string): ProbeMeta {
     ];
     if (deps.length) die(`probe ${name}: a rustc_dev probe may not have dependencies ([${deps.join("], [")}])`);
     if (meta.lockfile !== undefined) die(`probe ${name}: a rustc_dev probe has no dependencies to lock`);
-    if ("RUSTFLAGS" in env || "CARGO_ENCODED_RUSTFLAGS" in env) die(`probe ${name}: a rustc_dev probe may not set RUSTFLAGS`);
+    const reserved = RUSTC_DEV_RESERVED_ENV.filter((k) => k in env);
+    if (reserved.length) die(`probe ${name}: a rustc_dev probe's env may not set ${reserved.join(", ")}`);
   }
   return { env, lockfile: meta.lockfile as ProbeMeta["lockfile"], rustcDev };
 }
@@ -123,7 +126,9 @@ function rustcDevEnv(name: string): Record<string, string> {
   // librustc_driver and libLLVM are dylibs in <sysroot>/lib; without an rpath the probe would only
   // run with DYLD_LIBRARY_PATH / LD_LIBRARY_PATH set. (Windows has no rpath: <sysroot>/bin must be
   // on PATH when the probe runs.)
-  if (process.platform !== "win32") env.RUSTFLAGS = `-C link-arg=-Wl,-rpath,${join(sysroot, "lib")}`;
+  // CARGO_ENCODED_RUSTFLAGS (\x1f-separated) so a sysroot path with spaces stays one argument; it
+  // also takes precedence over any RUSTFLAGS in the outer environment.
+  if (process.platform !== "win32") env.CARGO_ENCODED_RUSTFLAGS = ["-C", `link-arg=-Wl,-rpath,${join(sysroot, "lib")}`].join("\x1f");
   return env;
 }
 

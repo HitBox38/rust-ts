@@ -7,14 +7,17 @@
 # installs the crates' .rmeta files under `<sysroot>/lib/rustlib/<host>/lib` (rustc's default
 # sysroot search path, so no `-L` is needed) and `librustc_driver-*` next to them and in
 # `<sysroot>/lib`. For such probes scripts/probes.ts:
-#   - refuses `[dependencies]` of any kind (path deps would link a second, different copy of the
-#     rustc_* crates; nothing else is needed),
-#   - checks the component is installed (an `rustc_driver` .rmeta/.rlib in the sysroot's rustlib
+#   - refuses dependency tables of any kind (`[dependencies]`, `[dev-dependencies]`,
+#     `[build-dependencies]`, their `_` aliases, and the same under `[target.*]`): a path dep
+#     would link a second, different copy of the rustc_* crates, and nothing else is needed,
+#   - refuses `lockfile`, and an `env` setting compiler flags or swapping the compiler (RUSTFLAGS,
+#     CARGO_ENCODED_RUSTFLAGS, RUSTC, RUSTC_WRAPPER, RUSTC_WORKSPACE_WRAPPER, ...),
+#   - checks the component is installed (a `rustc_driver` .rmeta/.rlib in the sysroot's rustlib
 #     dir; the error names the `rustup component add` command),
 #   - builds with `cargo +<toolchain>` and RUSTC_BOOTSTRAP=1 (harmless on nightly; needed if the
 #     pin ever moves to a beta/stable-named toolchain), and on unix adds an rpath to
-#     `<sysroot>/lib` (RUSTFLAGS) so the binary finds librustc_driver/libLLVM without
-#     DYLD_LIBRARY_PATH/LD_LIBRARY_PATH. On Windows the binary needs `<sysroot>/bin` on PATH.
+#     `<sysroot>/lib` (CARGO_ENCODED_RUSTFLAGS) so the binary finds librustc_driver/libLLVM
+#     without DYLD_LIBRARY_PATH/LD_LIBRARY_PATH. On Windows the binary needs `<sysroot>/bin` on PATH.
 # The probe's behavior depends on the sysroot's rustc_driver build, so difftest keys the oracle
 # cache of suites using it on rustcDriverHash() as well as on the probe binary.
 [package]
