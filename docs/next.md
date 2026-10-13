@@ -127,9 +127,18 @@ O(depth×size)) and 1 oracle timeout (deep try chain). Compiler fns 3213/25518 (
 | harness-w7 | `parse-ui` suite: tests/ui/{parser,lexer} with compiletest flags (`//@ compile-flags`, edition, -Zui-testing) stopping after parsing; per-suite timeouts for deep-nesting cases; harness-w6-2 J1 |
 | plan-m2 | M2 (expansion + name resolution) crate map, order, lane split, oracle suites |
 
-## Wave 8 (started 2026-10-13) — M2 foundations (see docs/plan-m2.md)
-target-cfg, attr-ir-gen, hir-def, stable-hash in parallel; then attr-parse-a/-b (after attr-ir-gen), tyctxt-min (after hir-def),
-harness-w8 (expanded-nocore / unpretty-expanded-nocore suites + resdump probe; after harness-w7 merges).
+## M1 — DONE 2026-10-13 (gate-20261013-074957-root-7dg1)
+lex 25,780/25,780; parse 21,523/21,526 (3 ORACLE_TIMEOUT); parse-ui 991/991 (ui/parser, ui/lexer, ui/frontmatter with compiletest flags).
+
+## Wave 7–8 (2026-10-13) — mostly done
+reviews parser-a/b + fix-parser (stack re-exec, argfiles, raw argv, json emitter, io errors); fmt-perf (linear {:#?});
+harness-w7 (parse-ui, ORACLE_TIMEOUT), harness-w8 (expanded-nocore / unpretty-expanded-nocore / resdump-nocore, unprotected);
+target-cfg, attr-ir-gen, hir-def, stable-hash, tyctxt-min, attr-parse-a, attr-parse-d merged. In flight: attr-parse-b, attr-parse-c.
+
+## Wave 9 (started 2026-10-13) — expansion + builtins (docs/plan-m2.md §3)
+expand-base, expand-core, mbe-a, mbe-b, bm-a (incl. cmdline_attrs::inject, the current stop point of every nocore case) now;
+then bm-format, bm-derive-a/-b, bm-rest, expand-pm-types. Then wave 10 (resolve, ast-passes, lint-early, driver-m2).
+Queued harness: L1 env filtering; skip the 3 parse ORACLE_TIMEOUT files; error-code explanation texts for json.
 
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
