@@ -1,7 +1,6 @@
 // Not an upstream mirror. PORT: stand-ins for crates the driver path reaches but that are not ported:
 //   rustc_codegen_ssa::traits::CodegenBackend, rustc_codegen_llvm::LlvmCodegenBackend
 //   rustc_data_structures::jobserver::initialize
-//   rustc_middle::ty::CurrentGcx
 // Each keeps only what can be copied verbatim or is observable-free on the `-Zunpretty` path; everything
 // else calls `unported(...)`. Replace by the real modules when those crates are ported.
 import type { CodegenBackendInit, EarlySession, Session } from "../rustc_session/session.ts";
@@ -188,9 +187,5 @@ export function jobserver_initialize(_limit: number, _report: (err: string) => v
   }
 }
 
-/** `rustc_middle::ty::CurrentGcx` (opaque: no `GlobalCtxt` is ever created). */
-export class CurrentGcx {
-  static new(): CurrentGcx {
-    return new CurrentGcx();
-  }
-}
+/** `rustc_middle::ty::CurrentGcx`: the real type (re-exported for the existing imports). */
+export { CurrentGcx } from "../rustc_middle/ty/context.ts";

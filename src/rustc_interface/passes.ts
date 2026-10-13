@@ -14,7 +14,7 @@ import { Input, type OutputFilenames, type OutFileName, std_print, UnstableOptio
 import type { Session } from "../rustc_session/session.ts";
 import "../rustc_session/utils.ts"; // `Session::time`
 import { unported, unreachable } from "../std/panic.ts";
-import { path_components, path_file_stem, path_is_absolute, path_join } from "../std/path.ts";
+import { path_components, path_eq, path_file_stem, path_is_absolute, path_join } from "../std/path.ts";
 import { AttributeParser } from "../rustc_attr_parsing/lib.ts";
 import type { ShouldEmit } from "../rustc_attr_parsing/lib.ts";
 import * as rustc_expand_config from "../rustc_expand/config.ts";
@@ -38,7 +38,7 @@ import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
 import { clone_Providers as clone_HookProviders, Providers_default as HookProviders_default } from "../rustc_middle/hooks.ts";
 import "../rustc_middle/lib.ts";
 import type { ResolverAstLowering, ResolverGlobalCtxt } from "../rustc_middle/middle/resolve.ts";
-import { CurrentGcx, type GlobalCtxt, provide as ty_context_provide, TyCtxt } from "../rustc_middle/ty/context.ts";
+import { type GlobalCtxt, provide as ty_context_provide, TyCtxt } from "../rustc_middle/ty/context.ts";
 import { clone_ExternProviders, clone_Providers, ExternProviders_default, Providers_default } from "../rustc_middle/query/query_api.ts";
 import type { Providers as QueryProviders } from "../rustc_middle/queries.gen.ts";
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
@@ -174,7 +174,7 @@ function configure_and_expand(krate: Crate, pre_configured_attrs: readonly Attri
         .search_paths("Native")
         .map((p) => p.dir);
       for (const path of env_split_paths_windows(old_path)) {
-        if (!new_path.includes(path)) {
+        if (!new_path.some((p) => path_eq(p, path))) { // `PathBuf: PartialEq` compares components
           new_path.push(path);
         }
       }
@@ -381,6 +381,7 @@ function early_lint_checks(tcx: TyCtxt, _: null): null {
       });
       if (ident === sym.ferris) {
         type FerrisFix = "SnakeCase" | "ScreamingSnakeCase" | "PascalCase";
+        // rustc: compiler/rustc_interface/src/passes.rs:447 as_str
         const FerrisFix_as_str = (self: FerrisFix): string => {
           switch (self) {
             case "SnakeCase":
@@ -635,6 +636,7 @@ function write_out_deps(tcx: TyCtxt, outputs: OutputFilenames, out_filenames: re
 
     // The entries will be used to declare dependencies between files in a
     // Makefile-like output, so the iteration order does not matter.
+    // rustc: compiler/rustc_interface/src/passes.rs:625 hash_iter_files
     const hash_iter_files = (it: Iterable<string>, checksum_hash_algo: SourceFileHashAlgorithm | undefined): [string, [number, SourceFileHash | undefined]][] =>
       Array.from(it, (path): [string, [number, SourceFileHash | undefined]] => {
         if (checksum_hash_algo !== undefined) {
@@ -974,8 +976,9 @@ export function create_and_enter_global_ctxt<T>(compiler: Compiler, krate: Crate
   // `codegen_backend.provide(&mut providers)`: PORT: the LLVM backend's providers are not ported (codegen).
   void codegen_backend;
 
-  if (compiler.override_queries !== undefined) {
-    unported("rustc_interface::Config::override_queries");
+  const callback = compiler.override_queries;
+  if (callback !== undefined) {
+    callback(sess, providers);
   }
 
   const incremental = dep_graph.is_fully_enabled();
@@ -995,9 +998,8 @@ export function create_and_enter_global_ctxt<T>(compiler: Compiler, krate: Crate
     dep_graph,
     query_system(providers.queries, providers.extern_queries, query_result_on_disk_cache, incremental, track_present),
     providers.hooks,
-    // `compiler.current_gcx.clone()`: PORT: `Compiler.current_gcx` is still the opaque stand-in of
-    // rustc_interface/stand_ins.ts; root swaps it for rustc_middle's `CurrentGcx` (handoff tyctxt-min).
-    CurrentGcx.new(),
+    // `compiler.current_gcx.clone()` (an `Arc` clone: the same cell)
+    compiler.current_gcx,
     (tcx) => {
       const r = tcx.create_crate_num(stable_crate_id);
       if (r.$ !== "Ok") return panic("called `Result::unwrap()` on an `Err` value");

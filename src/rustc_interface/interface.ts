@@ -1,5 +1,6 @@
 // Partial port of compiler/rustc_interface/src/interface.rs: `Compiler`, `parse_cfg`, `parse_check_cfg`,
 // `Config`, `run_compiler`. `try_print_query_stack` needs rustc_middle (not ported).
+import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import type { Level, LintId } from "../rustc_lint_defs/lib.ts";
@@ -34,8 +35,7 @@ export class Compiler {
   constructor(
     public sess: Session,
     public codegen_backend: CodegenBackend,
-    // PORT: `Option<fn(&Session, &mut Providers)>` (rustc_middle `Providers` is not ported).
-    public override_queries: unknown,
+    public override_queries: ((sess: Session, providers: MiddleProviders) => void) | undefined,
 
     /// A reference to the current `GlobalCtxt` which we pass on to `GlobalCtxt`.
     public current_gcx: CurrentGcx,
@@ -338,7 +338,7 @@ export interface Config {
 
   /// This is a callback from the driver that is called just after we have populated
   /// the list of queries.
-  override_queries: undefined;
+  override_queries: ((sess: Session, providers: MiddleProviders) => void) | undefined;
 
   /// An extra set of symbols to add to the symbol interner, the symbol indices
   /// will start at [`PREDEFINED_SYMBOLS_COUNT`](rustc_span::symbol::PREDEFINED_SYMBOLS_COUNT)
