@@ -14,10 +14,10 @@
     "tokens-str": 39,
     "escape": 25780
   },
-  "updated": "2026-10-13T12:51:15.854Z",
+  "updated": "2026-10-13T12:56:01.833Z",
   "open_stops": [],
   "coverage": {
-    "ported": 5864,
+    "ported": 6122,
     "total": 25518
   }
 }

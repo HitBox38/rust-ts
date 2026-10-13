@@ -1,0 +1,468 @@
+# Scenario cases for oracle.test.ts. `=== <name> [rustc args...]` starts a case; the lines up to the next
+# `===` are the source file. Every case also gets `-Zcrate-attr=feature(no_core) -Zcrate-attr=no_core`.
+=== vis_trait_items
+pub trait T {
+    pub fn f();
+    pub(crate) type A;
+    pub const C: u8;
+}
+=== vis_impl_items
+struct S;
+trait T { fn f(); }
+pub impl S {}
+pub impl T for S { pub fn f() {} }
+=== vis_enum_variants
+enum E { pub A, pub(crate) B { pub x: u8 }, C(pub u8) }
+=== vis_extern_block
+pub extern "C" {}
+pub(crate) unsafe extern "C" {}
+=== const_fn_in_trait
+trait T {
+    const fn f();
+    const fn g() {}
+}
+struct S;
+impl T for S {
+    const fn f() {}
+    const fn g() {}
+}
+=== const_fn_in_trait_const_trait_impl
+#![feature(const_trait_impl)]
+pub trait T {
+    const fn f();
+}
+struct S;
+impl T for S {
+    const fn f() {}
+}
+const trait U { const fn g(); }
+impl const U for S { const fn g() {} }
+=== const_impl_fn_redundant
+#![feature(const_trait_impl)]
+struct S;
+const impl S { const fn f() {} }
+=== async_fn_const_trait
+#![feature(const_trait_impl)]
+const trait T { async fn f(); }
+=== extern_fn_body
+extern "C" {
+    fn f() {}
+    fn g(x: u8) -> u8 { x }
+}
+=== extern_static_type_bodies
+extern "C" {
+    static X: u8 = 1;
+    type T = u8;
+    type U: Copy;
+    type V<A>;
+    type W where u8: Copy;
+}
+trait Copy {}
+=== extern_qualifiers
+#![allow(missing_abi)]
+unsafe extern "C" {
+    const fn a();
+    async fn b();
+    extern "C" fn c();
+    unsafe extern fn d();
+}
+=== extern_non_ascii
+#![feature(non_ascii_idents)]
+extern "C" {
+    fn é();
+    static Ü: u8;
+}
+=== safe_item_outside_extern
+safe fn f() {}
+safe static X: u8 = 0;
+=== safety_in_plain_extern
+extern "C" {
+    safe fn f();
+    unsafe fn g();
+    safe static X: u8;
+}
+=== unsafe_static_and_mod
+unsafe static X: u8 = 0;
+unsafe mod m {}
+=== unsafe_negative_impl
+#![feature(negative_impls)]
+struct S;
+trait T {}
+unsafe impl !T for S {}
+=== const_async_fn
+const async fn f() {}
+=== cvariadic_not_last
+#![allow(varargs_without_pattern)]
+unsafe extern "C" fn f(..., x: u32) {}
+=== cvariadic_no_extern
+#![allow(varargs_without_pattern)]
+fn f(x: u32, ...) {}
+=== cvariadic_not_unsafe
+extern "C" fn f(x: u32, mut ap: ...) {}
+=== cvariadic_bad_abi
+unsafe extern "Rust" fn f(x: u32, ap: ...) {}
+unsafe extern "sysv64" fn g(x: u32, ap: ...) {}
+=== cvariadic_ok_and_async
+unsafe extern "C" fn f(x: u32, ap: ...) {}
+=== cvariadic_in_extern_block
+extern "C" {
+    fn f(x: u8, ...);
+    fn g(..., x: u8);
+}
+=== cvariadic_const
+const unsafe extern "C" fn f(x: u32, ap: ...) {}
+=== generic_param_order
+struct S<T, 'a>(&'a T);
+fn f<const N: usize, 'a, T: 'a = u8>() {}
+enum E<'a, T, 'b> { A(&'a T, &'b T) }
+=== generic_defaults_trailing
+struct S<T = u8, U>(T, U);
+struct R<'a, T = u8, 'b, const N: usize>(&'a T, &'b T);
+=== impl_trait_nested
+trait A<T> {}
+trait B {}
+fn f(x: impl A<impl B>) {}
+fn g(x: impl A<Item = impl B>) {}
+=== impl_trait_no_trait
+fn f<'a>(x: impl 'a) {}
+=== impl_trait_use_bounds
+trait B {}
+fn f<'a>() -> impl B + use<'a> + use<> { loop {} }
+fn g<T: B + use<>>() {}
+trait C: use<> {}
+=== trait_object_lifetime_bounds
+trait B {}
+fn f<'a, 'b>(x: &(dyn B + 'a + 'b)) {}
+=== self_param_placement
+fn f(self) {}
+struct S;
+fn g(x: fn(self)) {}
+trait F<A> {}
+fn h(x: &dyn F(self)) {}
+=== patterns_in_fn_ptr_and_bodiless
+fn f(x: fn((a, b): (u8, u8))) {}
+extern "C" { fn g((a, b): (u8, u8)); }
+trait T { fn h((a, b): (u8, u8)); }
+=== fn_without_body
+fn f();
+const C: u8;
+static S: u8;
+type T;
+extern "C" fn g();
+=== impl_items_without_body
+struct S;
+impl S {
+    const C: u8;
+    fn f();
+    type T;
+}
+=== type_bounds_in_impl
+trait Tr { type A; }
+trait Copy {}
+struct S;
+impl Tr for S { type A: Copy = u8; }
+=== default_and_final
+default fn f() {}
+final fn g() {}
+=== auto_trait_items
+#![feature(auto_traits)]
+auto trait A<T> {}
+auto trait B: C {}
+auto trait D { fn f(); }
+const auto trait E {}
+trait C {}
+=== fieldless_union
+union U {}
+=== where_clause_after_type_alias
+type A = u8 where u8: Copy;
+trait Copy {}
+=== underscore_assoc_const
+struct S;
+impl S { const _: u8 = 0; }
+=== nomangle_non_ascii
+#![feature(non_ascii_idents)]
+#[no_mangle]
+fn é() {}
+=== fn_param_attrs
+fn f(#[inline] x: u8, /// doc
+     y: u8) {}
+=== nested_lifetimes_where
+trait T<'a> {}
+fn f<U>() where for<'a> U: for<'b> T<'b> {}
+=== generic_args_after_constraints
+trait T<A> { type B; }
+fn f(x: &dyn T<B = u8, u8>) {}
+=== const_bound_trait_object --edition 2021
+#![feature(const_trait_impl)]
+const trait T {}
+fn f(x: &dyn const T) {}
+=== tilde_const_disallowed
+#![feature(const_trait_impl)]
+const trait T {}
+fn f<U: [const] T>() {}
+struct S<U: [const] T>(U);
+=== negative_bound_constraint
+#![feature(negative_bounds)]
+#![allow(internal_features)]
+trait T { type A; }
+fn f<U: !T<A = u8>>() {}
+=== track_caller_c_abi
+#[track_caller]
+extern "C" fn f() {}
+=== extern_custom_abi
+#![feature(abi_custom)]
+extern "custom" fn f() {}
+unsafe extern "custom" fn g(x: u8) -> u8 { loop {} }
+=== x86_interrupt_abi
+#![feature(abi_x86_interrupt)]
+extern "x86-interrupt" fn f() {}
+=== gate_auto_trait
+auto trait A {}
+=== gate_negative_impls
+struct S;
+trait T {}
+impl !T for S {}
+=== gate_trait_alias
+trait A = B;
+trait B {}
+=== gate_decl_macro
+#![allow(unused_macros)]
+macro m() {}
+=== gate_specialization
+trait T { fn f(); }
+struct S;
+impl T for S { default fn f() {} }
+default impl T for u8 { fn f() {} }
+=== gate_assoc_type_defaults
+trait T { type A = u8; }
+=== gate_extern_types
+extern "C" { type A; }
+=== gate_link_llvm_intrinsics
+extern "C" {
+    fn llvm.foo();
+}
+=== gate_link_llvm_intrinsics_name
+extern "C" {
+    #[link_name = "llvm.sqrt.f32"]
+    fn sqrt(x: f32) -> f32;
+}
+=== gate_try_blocks --edition 2018
+fn f() { let x = try { 1 }; }
+=== gate_yield
+fn f() { yield 1; }
+=== gate_f16_f128
+fn f() { let a = 1.0f16; let b = 2f128; }
+=== gate_half_open_slice
+fn f(x: &[u8]) { if let [0.., ..] = x {} }
+=== gate_non_lifetime_binders
+trait T {}
+fn f() where for<U> U: T {}
+=== gate_type_alias_impl_trait
+trait B {}
+type A = impl B;
+=== gate_impl_trait_in_assoc_type
+trait B {}
+trait T { type A; }
+struct S;
+impl T for S { type A = impl B; }
+=== gate_postfix_match
+fn f() { 1.match { _ => {} } }
+=== gate_gen_blocks --edition 2024
+fn f() { let x = gen {}; }
+=== gate_const_closures
+fn f() { let x = const || {}; }
+=== gate_super_let
+fn f() { super let x = 1; }
+=== gate_mut_ref
+fn f() { let mut ref x = 1; }
+=== gate_guard_patterns
+fn f() { match 1 { (_ if true) => {} _ => {} } }
+=== gate_unsafe_binders
+fn f(x: unsafe<'a> &'a u8) {}
+=== gate_unsafe_fields
+struct S { unsafe x: u8 }
+=== gate_never_patterns
+enum Void {}
+fn f(x: Void) { match x { ! } }
+=== match_arm_without_body
+fn f(x: u8) { match x { 0 } }
+=== gate_explicit_tail_calls
+fn f() { become f() }
+=== gate_yeet
+fn f() { do yeet 1 }
+=== gate_builtin_syntax
+struct S { x: u8 }
+fn f() { builtin # offset_of(S, x); }
+=== gate_box_patterns
+fn f(x: u8) { let box y = x; }
+=== gate_let_chains_2021 --edition 2021
+fn f() { if let 1 = 1 && let 2 = 2 {} }
+=== let_chains_2024 --edition 2024
+fn f() { if let 1 = 1 && let 2 = 2 {} }
+=== gate_never_type
+fn f(x: !) {}
+fn g() -> ! { loop {} }
+=== gate_closure_lifetime_binder
+fn f() { let c = for<'a> |x: &'a u8| -> &'a u8 { x }; }
+=== gate_async_trait_bounds --edition 2021
+trait T {}
+fn f<U: async T>() {}
+=== gate_more_qualified_paths
+trait T { type A; }
+struct S;
+fn f() { let <S as T>::A { } = 1; }
+=== gate_return_type_notation
+trait T { fn m() -> u8; }
+fn f<U: T<m(..): Copy>>() {}
+trait Copy {}
+=== gate_default_field_values
+struct S { x: u8 = 1 }
+=== gate_generic_const_items
+const C<T>: u8 = 1;
+=== gate_frontmatter
+---
+---
+fn f() {}
+=== gate_min_specialization_soft
+#![feature(min_specialization)]
+trait T { type A; }
+struct S;
+impl T for S { default type A = u8; }
+=== incompatible_features
+#![feature(ref_pat_eat_one_layer_2024, ref_pat_eat_one_layer_2024_structural)]
+#![allow(incomplete_features)]
+=== incompatible_features_order
+#![feature(ref_pat_eat_one_layer_2024_structural)]
+#![feature(ref_pat_eat_one_layer_2024)]
+#![allow(incomplete_features)]
+=== removed_feature_is_fine
+#![feature(const_trait_impl)]
+=== feature_gca_needs_next_solver
+#![feature(gca_const_items)]
+#![allow(incomplete_features)]
+=== feature_gca_next_solver -Znext-solver=globally
+#![feature(gca_const_items, gca_min_const_items)]
+#![allow(incomplete_features)]
+=== next_solver_gce_warning -Znext-solver=globally
+#![feature(generic_const_exprs)]
+#![allow(incomplete_features)]
+=== next_solver_hra_warning -Znext-solver=globally -Zhigher-ranked-assumptions
+=== where_clause_before_assoc_type_lint
+trait T { type A where u8: Copy; }
+struct S;
+impl T for S { type A where u8: Copy = u8; }
+trait Copy {}
+=== missing_abi_lint
+extern fn f() {}
+=== missing_abi_allowed
+#![allow(missing_abi)]
+extern fn f() {}
+extern {}
+=== unused_visibility_lint
+pub const _: u8 = 0;
+=== patterns_in_fns_without_body_lint
+trait T { fn f(mut x: u8); }
+=== gate_dependent_features
+#![feature(gca_adts)]
+#![allow(incomplete_features)]
+=== stable_feature_nightly
+#![feature(rust1)]
+=== vis_nested_items_ok
+pub mod m { pub fn f() {} pub(crate) struct S; }
+=== extern_track_caller
+#![allow(missing_abi)]
+extern {
+    #[track_caller]
+    fn f();
+}
+extern "Rust" {
+    #[track_caller]
+    fn g();
+}
+=== fn_ptr_safe_and_variadic
+#![allow(varargs_without_pattern)]
+fn f(x: safe fn(), y: unsafe extern "C" fn(u8, ...), z: fn(u8, ...)) {}
+=== fn_too_many_args_is_fine
+fn f(a: u8, b: u8, c: u8) {}
+=== impl_trait_dummy_auto
+struct S;
+impl Send for .. {}
+=== where_bound_and_never
+fn f<T>() where T: for<'a> X<'a> {}
+trait X<'a> {}
+=== edition_2024_extern_unsafe --edition 2024
+extern "C" {}
+=== edition_2024_safe_items --edition 2024
+unsafe extern "C" {
+    safe fn f();
+    pub unsafe fn g();
+    safe static X: u8;
+}
+=== multiple_self_params
+struct S;
+impl S { fn f(&self, self) {} }
+=== async_closure_variadic_like
+fn f() { let c = async |x: u8| {}; }
+=== precise_capturing_dup --edition 2024
+trait B {}
+fn f<'a, T>() -> impl B + use<'a> + use<T> { loop {} }
+=== tilde_const_in_impl_contexts
+#![feature(const_trait_impl)]
+const trait T {}
+trait U { type A: [const] T; fn f<V: [const] T>(); }
+struct S;
+impl S { fn g<V: [const] T>() {} }
+const fn ok<V: [const] T>() {}
+=== union_with_fields_ok
+union U { a: u8 }
+=== enum_disc_anon_const
+#![feature(const_trait_impl)]
+const trait T {}
+struct S<const N: usize>;
+fn f(x: S<{ fn g<V: [const] T>() {} 1 }>) {}
+=== assoc_const_eq_gate
+trait T { const N: usize; }
+fn f<U: T<N = 1>>() {}
+=== associated_type_bounds_in_trait_ok
+trait Copy {}
+trait T { type A: Copy; }
+=== deny_items_in_auto_trait_generic
+#![feature(auto_traits)]
+auto trait A where u8: B {}
+trait B {}
+=== x86_interrupt_abi_x86_64 --target x86_64-unknown-linux-gnu
+#![feature(abi_x86_interrupt)]
+extern "x86-interrupt" fn f() {}
+extern "x86-interrupt" fn g(a: u8, b: u8, c: u8) -> u8 { loop {} }
+unsafe extern "x86-interrupt" fn h(a: u8) -> ! { loop {} }
+=== gpu_kernel_and_custom_x86_64 --target x86_64-unknown-linux-gnu
+#![feature(abi_custom, abi_gpu_kernel)]
+unsafe extern "custom" fn f(a: u8) {}
+extern "gpu-kernel" fn g() {}
+=== scalable_vector_x86_64 --target x86_64-unknown-linux-gnu
+#![feature(rustc_attrs)]
+#![allow(internal_features)]
+#[rustc_scalable_vector(4)]
+struct S { x: u8 }
+=== scalable_vector_aarch64 --target aarch64-unknown-linux-gnu
+#![feature(rustc_attrs)]
+#![allow(internal_features)]
+#[rustc_scalable_vector(4)]
+struct S { x: u8 }
+=== cvariadic_x86_64 --target x86_64-unknown-linux-gnu
+#![allow(varargs_without_pattern)]
+unsafe extern "sysv64" fn a(x: u8, ap: ...) {}
+unsafe extern "win64" fn b(x: u8, ap: ...) {}
+#[naked]
+unsafe extern "sysv64" fn c(x: u8, ap: ...) {}
+#[naked]
+unsafe extern "vectorcall" fn d(x: u8, ap: ...) {}
+=== cvariadic_wasm --target wasm32-wasip2
+unsafe extern "C" fn a(x: u8, ap: ...) {}
+=== swift_abi_on_linux --target x86_64-unknown-linux-gnu
+extern "Swift" fn f() {}
+=== track_caller_naked_custom
+#![feature(abi_custom)]
+#[cold]
+#[unsafe(naked)]
+unsafe extern "custom" fn f() { loop {} }

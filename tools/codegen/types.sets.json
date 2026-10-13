@@ -419,5 +419,12 @@
     "skip_notes": {
       "rustc_resolve::DelayedVisResolutionError": "its `vis: ast::Visibility` clashes with `ty::Visibility` in lib.gen.ts imports: written (with its Debug) in lib.ts"
     }
+  },
+  "rustc_ast_passes": {
+    "files": ["compiler/rustc_ast_passes/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
   }
 }
