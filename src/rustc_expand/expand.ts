@@ -2083,9 +2083,9 @@ const IC_Item: InvocationCollectorNode<Item, Item[]> & OutputTyDefault<Item[]> =
   OutputTy_default: () => [],
 };
 
-// `impl DeclaredIdents for Box<ast::Item>`
+// `impl DeclaredIdents for Box<ast::Item>` (exported: `pub trait`, used by rustc_builtin_macros::cfg_select)
 // rustc: compiler/rustc_expand/src/expand.rs:1459 declared_idents
-function Item_declared_idents(self: Item): Ident[] {
+export function Item_declared_idents(self: Item): Ident[] {
   if (self.kind.$ === "Use") {
     const ut = self.kind._0;
     // rustc: compiler/rustc_expand/src/expand.rs:1461 collect_use_tree_leaves

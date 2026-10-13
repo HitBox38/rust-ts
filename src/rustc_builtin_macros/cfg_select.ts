@@ -6,9 +6,10 @@ import { ast } from "../rustc_ast/lib.ts";
 import { eval_config_entry } from "../rustc_attr_parsing/lib.ts";
 import { type CfgSelectBranches, parse_cfg_select } from "../rustc_attr_parsing/attributes/cfg_select.ts";
 import { DummyResult, type ExtCtxt, type MacResult, MacResult_provided, MacroExpanderResult } from "../rustc_expand/base.ts";
+import { Item_declared_idents } from "../rustc_expand/expand.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { Ident, sym } from "../rustc_span/symbol.ts";
-import { unported, unreachable } from "../std/panic.ts";
+import { unreachable } from "../std/panic.ts";
 import { CfgSelectNoMatches_diagnostic } from "./diagnostics.ts";
 
 /// This intermediate structure is used to emit parse errors for the branches that are not chosen.
@@ -122,13 +123,6 @@ function forward_to_parser_any_macro<R>(
 
   const elements = method(tts_to_mac_result(ecx, site_span, selected_tts, selected_span));
   return elements === undefined ? undefined : selected(ecx, cfg_entry, elements);
-}
-/**
- * `<Box<ast::Item> as DeclaredIdents>::declared_idents` (rustc_expand/src/expand.rs:1459). PORT: lane
- * expand-core ports it as a module-private fn of expand.ts; until expand.ts exports it, this stops here.
- */
-function Item_declared_idents(_item: ast.Item): Ident[] {
-  return unported("rustc_expand::expand::DeclaredIdents for Box<Item> (not exported by expand.ts yet)");
 }
 function noop_other(_ecx: ExtCtxt, _cfg_entry: CfgEntry, _span: Span, _result: unknown): void {}
 function keep_selected<R>(_ecx: ExtCtxt, _cfg_entry: CfgEntry, elements: R): R {
