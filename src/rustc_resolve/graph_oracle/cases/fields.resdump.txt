@@ -1,0 +1,189 @@
+== visibilities_for_hashing (34)
+DefId(0:0 ~ fields[556e]) Public
+DefId(0:1 ~ fields[556e]::P) Public
+DefId(0:1 ~ fields[556e]::P) Public
+DefId(0:2 ~ fields[556e]::P::x) Public
+DefId(0:3 ~ fields[556e]::P::y) Restricted(LocalModId(DefId(0:0 ~ fields[556e])))
+DefId(0:4 ~ fields[556e]::Tup) Public
+DefId(0:4 ~ fields[556e]::Tup) Public
+DefId(0:5 ~ fields[556e]::Tup::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ fields[556e])))
+DefId(0:6 ~ fields[556e]::Tup::0) Public
+DefId(0:7 ~ fields[556e]::Tup::1) Restricted(LocalModId(DefId(0:0 ~ fields[556e])))
+DefId(0:8 ~ fields[556e]::Ne) Public
+DefId(0:8 ~ fields[556e]::Ne) Public
+DefId(0:9 ~ fields[556e]::Ne::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ fields[556e])))
+DefId(0:10 ~ fields[556e]::Ne::0) Public
+DefId(0:11 ~ fields[556e]::Unit) Public
+DefId(0:11 ~ fields[556e]::Unit) Public
+DefId(0:12 ~ fields[556e]::Unit::{constructor#0}) Public
+DefId(0:13 ~ fields[556e]::NeUnit) Public
+DefId(0:13 ~ fields[556e]::NeUnit) Public
+DefId(0:14 ~ fields[556e]::NeUnit::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ fields[556e])))
+DefId(0:15 ~ fields[556e]::E) Public
+DefId(0:16 ~ fields[556e]::E::V) Public
+DefId(0:17 ~ fields[556e]::E::V::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ fields[556e])))
+DefId(0:18 ~ fields[556e]::E::V::0) Public
+DefId(0:19 ~ fields[556e]::E::W) Public
+DefId(0:20 ~ fields[556e]::E::W::f) Public
+DefId(0:21 ~ fields[556e]::E::X) Public
+DefId(0:22 ~ fields[556e]::E::X::{constructor#0}) Public
+DefId(0:23 ~ fields[556e]::m) Restricted(LocalModId(DefId(0:0 ~ fields[556e])))
+DefId(0:24 ~ fields[556e]::m::Q) Public
+DefId(0:24 ~ fields[556e]::m::Q) Public
+DefId(0:25 ~ fields[556e]::m::Q::{constructor#0}) Restricted(LocalModId(DefId(0:23 ~ fields[556e]::m)))
+DefId(0:26 ~ fields[556e]::m::Q::0) Public
+DefId(0:27 ~ fields[556e]::m::Q::1) Restricted(LocalModId(DefId(0:23 ~ fields[556e]::m)))
+== expn_that_defined (0)
+== effective_visibilities (20)
+DefId(0:0 ~ fields[556e]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:1 ~ fields[556e]::P) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:4 ~ fields[556e]::Tup) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:8 ~ fields[556e]::Ne) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:11 ~ fields[556e]::Unit) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:12 ~ fields[556e]::Unit::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:13 ~ fields[556e]::NeUnit) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:15 ~ fields[556e]::E) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:2 ~ fields[556e]::P::x) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:6 ~ fields[556e]::Tup::0) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:10 ~ fields[556e]::Ne::0) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:16 ~ fields[556e]::E::V) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:19 ~ fields[556e]::E::W) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:21 ~ fields[556e]::E::X) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:22 ~ fields[556e]::E::X::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:18 ~ fields[556e]::E::V::0) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:20 ~ fields[556e]::E::W::f) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:23 ~ fields[556e]::m) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))), reexported: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))), reachable: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))) }
+DefId(0:24 ~ fields[556e]::m::Q) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))), reexported: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))), reachable: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))) }
+DefId(0:26 ~ fields[556e]::m::Q::0) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))), reexported: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))), reachable: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ fields[556e]))) }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (3)
+DefId(0:0 ~ fields[556e])
+  ModChild { ident: P#0, res: Def(Struct, DefId(0:1 ~ fields[556e]::P)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Tup#0, res: Def(Struct, DefId(0:4 ~ fields[556e]::Tup)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Tup#0, res: Def(Ctor(Struct, Fn), DefId(0:5 ~ fields[556e]::Tup::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ fields[556e]))), reexport_chain: [] }
+  ModChild { ident: Ne#0, res: Def(Struct, DefId(0:8 ~ fields[556e]::Ne)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Ne#0, res: Def(Ctor(Struct, Fn), DefId(0:9 ~ fields[556e]::Ne::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ fields[556e]))), reexport_chain: [] }
+  ModChild { ident: Unit#0, res: Def(Struct, DefId(0:11 ~ fields[556e]::Unit)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Unit#0, res: Def(Ctor(Struct, Const), DefId(0:12 ~ fields[556e]::Unit::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: NeUnit#0, res: Def(Struct, DefId(0:13 ~ fields[556e]::NeUnit)), vis: Public, reexport_chain: [] }
+  ModChild { ident: NeUnit#0, res: Def(Ctor(Struct, Const), DefId(0:14 ~ fields[556e]::NeUnit::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ fields[556e]))), reexport_chain: [] }
+  ModChild { ident: E#0, res: Def(Enum, DefId(0:15 ~ fields[556e]::E)), vis: Public, reexport_chain: [] }
+  ModChild { ident: m#0, res: Def(Mod, DefId(0:23 ~ fields[556e]::m)), vis: Restricted(ModId(DefId(0:0 ~ fields[556e]))), reexport_chain: [] }
+DefId(0:15 ~ fields[556e]::E)
+  ModChild { ident: V#0, res: Def(Variant, DefId(0:16 ~ fields[556e]::E::V)), vis: Public, reexport_chain: [] }
+  ModChild { ident: V#0, res: Def(Ctor(Variant, Fn), DefId(0:17 ~ fields[556e]::E::V::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ fields[556e]))), reexport_chain: [] }
+  ModChild { ident: W#0, res: Def(Variant, DefId(0:19 ~ fields[556e]::E::W)), vis: Public, reexport_chain: [] }
+  ModChild { ident: X#0, res: Def(Variant, DefId(0:21 ~ fields[556e]::E::X)), vis: Public, reexport_chain: [] }
+  ModChild { ident: X#0, res: Def(Ctor(Variant, Const), DefId(0:22 ~ fields[556e]::E::X::{constructor#0})), vis: Public, reexport_chain: [] }
+DefId(0:23 ~ fields[556e]::m)
+  ModChild { ident: Q#0, res: Def(Struct, DefId(0:24 ~ fields[556e]::m::Q)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Q#0, res: Def(Ctor(Struct, Fn), DefId(0:25 ~ fields[556e]::m::Q::{constructor#0})), vis: Restricted(ModId(DefId(0:23 ~ fields[556e]::m))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(51)
+== partial_res_map (18)
+NodeId(5) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(6) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(8) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(9) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(12) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(13) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(15) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(16) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(21) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(22) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(34) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(38) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(39) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(45) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(46) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(48) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+== owners (9)
+NodeId(0) def_id=DefId(0:0 ~ fields[556e]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ fields[556e]::P) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(4) DefId(0:2 ~ fields[556e]::P::x)
+  node_id_to_def_id NodeId(7) DefId(0:3 ~ fields[556e]::P::y)
+NodeId(10) def_id=DefId(0:4 ~ fields[556e]::Tup) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(11) DefId(0:6 ~ fields[556e]::Tup::0)
+  node_id_to_def_id NodeId(14) DefId(0:7 ~ fields[556e]::Tup::1)
+  node_id_to_def_id NodeId(17) DefId(0:5 ~ fields[556e]::Tup::{constructor#0})
+NodeId(18) def_id=DefId(0:8 ~ fields[556e]::Ne) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(20) DefId(0:10 ~ fields[556e]::Ne::0)
+  node_id_to_def_id NodeId(23) DefId(0:9 ~ fields[556e]::Ne::{constructor#0})
+NodeId(24) def_id=DefId(0:11 ~ fields[556e]::Unit) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(25) DefId(0:12 ~ fields[556e]::Unit::{constructor#0})
+NodeId(26) def_id=DefId(0:13 ~ fields[556e]::NeUnit) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(28) DefId(0:14 ~ fields[556e]::NeUnit::{constructor#0})
+NodeId(29) def_id=DefId(0:15 ~ fields[556e]::E) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(30) DefId(0:16 ~ fields[556e]::E::V)
+  node_id_to_def_id NodeId(32) DefId(0:18 ~ fields[556e]::E::V::0)
+  node_id_to_def_id NodeId(35) DefId(0:17 ~ fields[556e]::E::V::{constructor#0})
+  node_id_to_def_id NodeId(36) DefId(0:19 ~ fields[556e]::E::W)
+  node_id_to_def_id NodeId(37) DefId(0:20 ~ fields[556e]::E::W::f)
+  node_id_to_def_id NodeId(40) DefId(0:21 ~ fields[556e]::E::X)
+  node_id_to_def_id NodeId(41) DefId(0:22 ~ fields[556e]::E::X::{constructor#0})
+NodeId(42) def_id=DefId(0:23 ~ fields[556e]::m) lifetime_elision_allowed=false
+NodeId(43) def_id=DefId(0:24 ~ fields[556e]::m::Q) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(44) DefId(0:26 ~ fields[556e]::m::Q::0)
+  node_id_to_def_id NodeId(47) DefId(0:27 ~ fields[556e]::m::Q::1)
+  node_id_to_def_id NodeId(50) DefId(0:25 ~ fields[556e]::m::Q::{constructor#0})
+== lint_buffer (0)
+== disambiguators (12)
+DefId(0:0 ~ fields[556e])
+DefId(0:1 ~ fields[556e]::P)
+DefId(0:4 ~ fields[556e]::Tup)
+DefId(0:8 ~ fields[556e]::Ne)
+DefId(0:11 ~ fields[556e]::Unit)
+DefId(0:13 ~ fields[556e]::NeUnit)
+DefId(0:15 ~ fields[556e]::E)
+DefId(0:16 ~ fields[556e]::E::V)
+DefId(0:19 ~ fields[556e]::E::W)
+DefId(0:21 ~ fields[556e]::E::X)
+DefId(0:23 ~ fields[556e]::m)
+DefId(0:24 ~ fields[556e]::m::Q)
+== definitions (28)
+DefId(0:0 ~ fields[556e]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 6155882693118115687))
+DefId(0:1 ~ fields[556e]::P) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("P"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 936660057276861525))
+DefId(0:2 ~ fields[556e]::P::x) Field DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("x"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 11443361065463369444))
+DefId(0:3 ~ fields[556e]::P::y) Field DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("y"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 1293301947732330794))
+DefId(0:4 ~ fields[556e]::Tup) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Tup"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 10880554063081665328))
+DefId(0:5 ~ fields[556e]::Tup::{constructor#0}) Ctor(Struct, Fn) DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 2853145300507917798))
+DefId(0:6 ~ fields[556e]::Tup::0) Field DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 7205676431822575659))
+DefId(0:7 ~ fields[556e]::Tup::1) Field DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("1"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 16197338432614030678))
+DefId(0:8 ~ fields[556e]::Ne) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Ne"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 8711263736935267183))
+DefId(0:9 ~ fields[556e]::Ne::{constructor#0}) Ctor(Struct, Fn) DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 5721012210703840443))
+DefId(0:10 ~ fields[556e]::Ne::0) Field DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 13869878611091077283))
+DefId(0:11 ~ fields[556e]::Unit) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Unit"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 10895384000556538701))
+DefId(0:12 ~ fields[556e]::Unit::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 5962071002997377137))
+DefId(0:13 ~ fields[556e]::NeUnit) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("NeUnit"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 1833877061867293517))
+DefId(0:14 ~ fields[556e]::NeUnit::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 4566917247128321487))
+DefId(0:15 ~ fields[556e]::E) Enum DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("E"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 13007984013640934729))
+DefId(0:16 ~ fields[556e]::E::V) Variant DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("V"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 16790503476513719964))
+DefId(0:17 ~ fields[556e]::E::V::{constructor#0}) Ctor(Variant, Fn) DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 2116309248961906501))
+DefId(0:18 ~ fields[556e]::E::V::0) Field DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 11094782409378740399))
+DefId(0:19 ~ fields[556e]::E::W) Variant DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("W"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 1313066331880554888))
+DefId(0:20 ~ fields[556e]::E::W::f) Field DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 13679010208624770747))
+DefId(0:21 ~ fields[556e]::E::X) Variant DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("X"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 4033612432338453507))
+DefId(0:22 ~ fields[556e]::E::X::{constructor#0}) Ctor(Variant, Const) DefKey { parent: Some(DefIndex(21)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 17250215492758479711))
+DefId(0:23 ~ fields[556e]::m) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("m"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 15491107477102252393))
+DefId(0:24 ~ fields[556e]::m::Q) Struct DefKey { parent: Some(DefIndex(23)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Q"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 10761872662028284647))
+DefId(0:25 ~ fields[556e]::m::Q::{constructor#0}) Ctor(Struct, Fn) DefKey { parent: Some(DefIndex(24)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 3444042998501789253))
+DefId(0:26 ~ fields[556e]::m::Q::0) Field DefKey { parent: Some(DefIndex(24)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 14615294970770822354))
+DefId(0:27 ~ fields[556e]::m::Q::1) Field DefKey { parent: Some(DefIndex(24)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("1"), disambiguator: 0 } } DefPathHash(Fingerprint(6155882693118115687, 7290526549961433899))

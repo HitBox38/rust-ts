@@ -1,0 +1,207 @@
+== visibilities_for_hashing (27)
+DefId(0:0 ~ blocks[0503]) Public
+DefId(0:1 ~ blocks[0503]::f) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:2 ~ blocks[0503]::f::Local) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:2 ~ blocks[0503]::f::Local) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:3 ~ blocks[0503]::f::Local::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:4 ~ blocks[0503]::f::local_fn) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:7 ~ blocks[0503]::f::Inner) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:8 ~ blocks[0503]::f::Inner::V) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:9 ~ blocks[0503]::f::Inner::V::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:11 ~ blocks[0503]::f::Inner::W) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:12 ~ blocks[0503]::f::Inner::W::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:15 ~ blocks[0503]::f::deep) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:16 ~ blocks[0503]::D) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:17 ~ blocks[0503]::D::A) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:18 ~ blocks[0503]::D::A::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:20 ~ blocks[0503]::D::B) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:21 ~ blocks[0503]::D::B::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:22 ~ blocks[0503]::D::C) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:23 ~ blocks[0503]::D::C::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:24 ~ blocks[0503]::D::C::0) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:26 ~ blocks[0503]::G) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:26 ~ blocks[0503]::G) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:27 ~ blocks[0503]::G::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:31 ~ blocks[0503]::G::0) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:32 ~ blocks[0503]::G::1) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:34 ~ blocks[0503]::generic) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+DefId(0:38 ~ blocks[0503]::main) Restricted(LocalModId(DefId(0:0 ~ blocks[0503])))
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ blocks[0503]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (3)
+DefId(0:0 ~ blocks[0503])
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:1 ~ blocks[0503]::f)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: D#0, res: Def(Enum, DefId(0:16 ~ blocks[0503]::D)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: G#0, res: Def(Struct, DefId(0:26 ~ blocks[0503]::G)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: G#0, res: Def(Ctor(Struct, Fn), DefId(0:27 ~ blocks[0503]::G::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: generic#0, res: Def(Fn, DefId(0:34 ~ blocks[0503]::generic)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: main#0, res: Def(Fn, DefId(0:38 ~ blocks[0503]::main)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+DefId(0:7 ~ blocks[0503]::f::Inner)
+  ModChild { ident: V#0, res: Def(Variant, DefId(0:8 ~ blocks[0503]::f::Inner::V)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: V#0, res: Def(Ctor(Variant, Const), DefId(0:9 ~ blocks[0503]::f::Inner::V::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: W#0, res: Def(Variant, DefId(0:11 ~ blocks[0503]::f::Inner::W)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: W#0, res: Def(Ctor(Variant, Const), DefId(0:12 ~ blocks[0503]::f::Inner::W::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+DefId(0:16 ~ blocks[0503]::D)
+  ModChild { ident: A#0, res: Def(Variant, DefId(0:17 ~ blocks[0503]::D::A)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: A#0, res: Def(Ctor(Variant, Const), DefId(0:18 ~ blocks[0503]::D::A::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Variant, DefId(0:20 ~ blocks[0503]::D::B)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Ctor(Variant, Const), DefId(0:21 ~ blocks[0503]::D::B::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Variant, DefId(0:22 ~ blocks[0503]::D::C)), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Ctor(Variant, Fn), DefId(0:23 ~ blocks[0503]::D::C::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ blocks[0503]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+Some(MainDefinition { res: Def(Fn, DefId(0:38 ~ blocks[0503]::main)), is_import: false, span: blocks.rs:15:1: 15:13 (#0) })
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(124)
+== partial_res_map (34)
+NodeId(4) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(5) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(14) PartialRes { base_res: Local(NodeId(14)), unresolved_segments: 0 }
+NodeId(16) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(17) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(46) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(47) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(48) PartialRes { base_res: Local(NodeId(48)), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: Local(NodeId(48)), unresolved_segments: 0 }
+NodeId(50) PartialRes { base_res: Local(NodeId(48)), unresolved_segments: 0 }
+NodeId(67) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(68) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(69) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(80) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(81) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(87) PartialRes { base_res: Def(TyParam, DefId(0:29 ~ blocks[0503]::G::T)), unresolved_segments: 0 }
+NodeId(88) PartialRes { base_res: Def(ConstParam, DefId(0:30 ~ blocks[0503]::G::N)), unresolved_segments: 0 }
+NodeId(89) PartialRes { base_res: PrimTy(Uint(usize)), unresolved_segments: 0 }
+NodeId(90) PartialRes { base_res: PrimTy(Uint(usize)), unresolved_segments: 0 }
+NodeId(94) PartialRes { base_res: Def(TyParam, DefId(0:29 ~ blocks[0503]::G::T)), unresolved_segments: 0 }
+NodeId(95) PartialRes { base_res: Def(TyParam, DefId(0:29 ~ blocks[0503]::G::T)), unresolved_segments: 0 }
+NodeId(98) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(99) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(101) PartialRes { base_res: Def(ConstParam, DefId(0:30 ~ blocks[0503]::G::N)), unresolved_segments: 0 }
+NodeId(102) PartialRes { base_res: Def(ConstParam, DefId(0:30 ~ blocks[0503]::G::N)), unresolved_segments: 0 }
+NodeId(106) PartialRes { base_res: Def(TyParam, DefId(0:36 ~ blocks[0503]::generic::T)), unresolved_segments: 0 }
+NodeId(108) PartialRes { base_res: Def(ConstParam, DefId(0:37 ~ blocks[0503]::generic::M)), unresolved_segments: 0 }
+NodeId(109) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(110) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(112) PartialRes { base_res: Def(TyParam, DefId(0:36 ~ blocks[0503]::generic::T)), unresolved_segments: 0 }
+NodeId(113) PartialRes { base_res: Def(TyParam, DefId(0:36 ~ blocks[0503]::generic::T)), unresolved_segments: 0 }
+NodeId(118) PartialRes { base_res: Def(TyParam, DefId(0:36 ~ blocks[0503]::generic::T)), unresolved_segments: 0 }
+NodeId(119) PartialRes { base_res: Def(TyParam, DefId(0:36 ~ blocks[0503]::generic::T)), unresolved_segments: 0 }
+NodeId(120) PartialRes { base_res: Local(NodeId(120)), unresolved_segments: 0 }
+== owners (10)
+NodeId(0) def_id=DefId(0:0 ~ blocks[0503]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ blocks[0503]::f) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(18) DefId(0:5 ~ blocks[0503]::f::{constant#0})
+  node_id_to_def_id NodeId(22) DefId(0:6 ~ blocks[0503]::f::{constant#1})
+  node_id_to_def_id NodeId(39) DefId(0:13 ~ blocks[0503]::f::{closure#0})
+  node_id_to_def_id NodeId(44) DefId(0:14 ~ blocks[0503]::f::{closure#0}::{closure#0})
+NodeId(7) def_id=DefId(0:2 ~ blocks[0503]::f::Local) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(8) DefId(0:3 ~ blocks[0503]::f::Local::{constructor#0})
+NodeId(10) def_id=DefId(0:4 ~ blocks[0503]::f::local_fn) lifetime_elision_allowed=false
+NodeId(29) def_id=DefId(0:7 ~ blocks[0503]::f::Inner) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(30) DefId(0:8 ~ blocks[0503]::f::Inner::V)
+  node_id_to_def_id NodeId(31) DefId(0:9 ~ blocks[0503]::f::Inner::V::{constructor#0})
+  node_id_to_def_id NodeId(32) DefId(0:10 ~ blocks[0503]::f::Inner::V::{constant#0})
+  node_id_to_def_id NodeId(34) DefId(0:11 ~ blocks[0503]::f::Inner::W)
+  node_id_to_def_id NodeId(35) DefId(0:12 ~ blocks[0503]::f::Inner::W::{constructor#0})
+NodeId(58) def_id=DefId(0:15 ~ blocks[0503]::f::deep) lifetime_elision_allowed=false
+NodeId(71) def_id=DefId(0:16 ~ blocks[0503]::D) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(72) DefId(0:17 ~ blocks[0503]::D::A)
+  node_id_to_def_id NodeId(73) DefId(0:18 ~ blocks[0503]::D::A::{constructor#0})
+  node_id_to_def_id NodeId(74) DefId(0:19 ~ blocks[0503]::D::A::{constant#0})
+  node_id_to_def_id NodeId(76) DefId(0:20 ~ blocks[0503]::D::B)
+  node_id_to_def_id NodeId(77) DefId(0:21 ~ blocks[0503]::D::B::{constructor#0})
+  node_id_to_def_id NodeId(78) DefId(0:22 ~ blocks[0503]::D::C)
+  node_id_to_def_id NodeId(79) DefId(0:24 ~ blocks[0503]::D::C::0)
+  node_id_to_def_id NodeId(82) DefId(0:23 ~ blocks[0503]::D::C::{constructor#0})
+  node_id_to_def_id NodeId(83) DefId(0:25 ~ blocks[0503]::D::C::{constant#0})
+NodeId(85) def_id=DefId(0:26 ~ blocks[0503]::G) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(86) DefId(0:28 ~ blocks[0503]::G::'a)
+  node_id_to_def_id NodeId(87) DefId(0:29 ~ blocks[0503]::G::T)
+  node_id_to_def_id NodeId(88) DefId(0:30 ~ blocks[0503]::G::N)
+  node_id_to_def_id NodeId(91) DefId(0:31 ~ blocks[0503]::G::0)
+  node_id_to_def_id NodeId(96) DefId(0:32 ~ blocks[0503]::G::1)
+  node_id_to_def_id NodeId(100) DefId(0:33 ~ blocks[0503]::G::1::{constant#0})
+  node_id_to_def_id NodeId(103) DefId(0:27 ~ blocks[0503]::G::{constructor#0})
+  lifetime_res NodeId(86) Param { param: DefId(0:28 ~ blocks[0503]::G::'a), binder: NodeId(85) }
+  lifetime_res NodeId(93) Param { param: DefId(0:28 ~ blocks[0503]::G::'a), binder: NodeId(85) }
+NodeId(104) def_id=DefId(0:34 ~ blocks[0503]::generic) lifetime_elision_allowed=true
+  node_id_to_def_id NodeId(105) DefId(0:35 ~ blocks[0503]::generic::'a)
+  node_id_to_def_id NodeId(106) DefId(0:36 ~ blocks[0503]::generic::T)
+  node_id_to_def_id NodeId(108) DefId(0:37 ~ blocks[0503]::generic::M)
+  lifetime_res NodeId(105) Param { param: DefId(0:35 ~ blocks[0503]::generic::'a), binder: NodeId(104) }
+  lifetime_res NodeId(107) Param { param: DefId(0:35 ~ blocks[0503]::generic::'a), binder: NodeId(104) }
+  lifetime_res NodeId(114) Param { param: DefId(0:35 ~ blocks[0503]::generic::'a), binder: NodeId(104) }
+  lifetime_res NodeId(117) Param { param: DefId(0:35 ~ blocks[0503]::generic::'a), binder: NodeId(104) }
+NodeId(122) def_id=DefId(0:38 ~ blocks[0503]::main) lifetime_elision_allowed=false
+== lint_buffer (0)
+== disambiguators (14)
+DefId(0:0 ~ blocks[0503])
+DefId(0:1 ~ blocks[0503]::f)
+DefId(0:2 ~ blocks[0503]::f::Local)
+DefId(0:7 ~ blocks[0503]::f::Inner)
+DefId(0:8 ~ blocks[0503]::f::Inner::V)
+DefId(0:11 ~ blocks[0503]::f::Inner::W)
+DefId(0:13 ~ blocks[0503]::f::{closure#0})
+DefId(0:16 ~ blocks[0503]::D)
+DefId(0:17 ~ blocks[0503]::D::A)
+DefId(0:20 ~ blocks[0503]::D::B)
+DefId(0:22 ~ blocks[0503]::D::C)
+DefId(0:26 ~ blocks[0503]::G)
+DefId(0:32 ~ blocks[0503]::G::1)
+DefId(0:34 ~ blocks[0503]::generic)
+== definitions (39)
+DefId(0:0 ~ blocks[0503]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 361409073738989370))
+DefId(0:1 ~ blocks[0503]::f) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 7067183695361730271))
+DefId(0:2 ~ blocks[0503]::f::Local) Struct DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Local"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 3665227486234855269))
+DefId(0:3 ~ blocks[0503]::f::Local::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 17792929391057183893))
+DefId(0:4 ~ blocks[0503]::f::local_fn) Fn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("local_fn"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 2555627171813826594))
+DefId(0:5 ~ blocks[0503]::f::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 6497594667326673486))
+DefId(0:6 ~ blocks[0503]::f::{constant#1}) AnonConst DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 1 } } DefPathHash(Fingerprint(361409073738989370, 10244610289251750315))
+DefId(0:7 ~ blocks[0503]::f::Inner) Enum DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Inner"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 18197313827873339335))
+DefId(0:8 ~ blocks[0503]::f::Inner::V) Variant DefKey { parent: Some(DefIndex(7)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("V"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 15584263829393221393))
+DefId(0:9 ~ blocks[0503]::f::Inner::V::{constructor#0}) Ctor(Variant, Const) DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 10291278879430670695))
+DefId(0:10 ~ blocks[0503]::f::Inner::V::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 5854777498481038289))
+DefId(0:11 ~ blocks[0503]::f::Inner::W) Variant DefKey { parent: Some(DefIndex(7)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("W"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 5511972143839047768))
+DefId(0:12 ~ blocks[0503]::f::Inner::W::{constructor#0}) Ctor(Variant, Const) DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 12283594506080987512))
+DefId(0:13 ~ blocks[0503]::f::{closure#0}) Closure DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: Closure, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 11156256575976222386))
+DefId(0:14 ~ blocks[0503]::f::{closure#0}::{closure#0}) Closure DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Closure, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 3117104449919564427))
+DefId(0:15 ~ blocks[0503]::f::deep) Fn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("deep"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 10586205263129972991))
+DefId(0:16 ~ blocks[0503]::D) Enum DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("D"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 9422770443469937715))
+DefId(0:17 ~ blocks[0503]::D::A) Variant DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("A"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 630306387215260240))
+DefId(0:18 ~ blocks[0503]::D::A::{constructor#0}) Ctor(Variant, Const) DefKey { parent: Some(DefIndex(17)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 13762190886410296163))
+DefId(0:19 ~ blocks[0503]::D::A::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(17)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 17164051113273803357))
+DefId(0:20 ~ blocks[0503]::D::B) Variant DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("B"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 17031858392407956248))
+DefId(0:21 ~ blocks[0503]::D::B::{constructor#0}) Ctor(Variant, Const) DefKey { parent: Some(DefIndex(20)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 808560598834470979))
+DefId(0:22 ~ blocks[0503]::D::C) Variant DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 6772119962363992656))
+DefId(0:23 ~ blocks[0503]::D::C::{constructor#0}) Ctor(Variant, Fn) DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 17398025477214431938))
+DefId(0:24 ~ blocks[0503]::D::C::0) Field DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 8325680103073104309))
+DefId(0:25 ~ blocks[0503]::D::C::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 17689781840119213688))
+DefId(0:26 ~ blocks[0503]::G) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("G"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 3396510471679417531))
+DefId(0:27 ~ blocks[0503]::G::{constructor#0}) Ctor(Struct, Fn) DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 2256917794701884393))
+DefId(0:28 ~ blocks[0503]::G::'a) LifetimeParam DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 14415597405104619123))
+DefId(0:29 ~ blocks[0503]::G::T) TyParam DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 15367696541853410750))
+DefId(0:30 ~ blocks[0503]::G::N) ConstParam DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("N"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 2638944441947092945))
+DefId(0:31 ~ blocks[0503]::G::0) Field DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 16205639998902439296))
+DefId(0:32 ~ blocks[0503]::G::1) Field DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("1"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 2985816383710817144))
+DefId(0:33 ~ blocks[0503]::G::1::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(32)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 14236117694510782430))
+DefId(0:34 ~ blocks[0503]::generic) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("generic"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 17681779906213633117))
+DefId(0:35 ~ blocks[0503]::generic::'a) LifetimeParam DefKey { parent: Some(DefIndex(34)), disambiguated_data: DisambiguatedDefPathData { data: LifetimeNs("'a"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 11167300387271456703))
+DefId(0:36 ~ blocks[0503]::generic::T) TyParam DefKey { parent: Some(DefIndex(34)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 2497683305207957749))
+DefId(0:37 ~ blocks[0503]::generic::M) ConstParam DefKey { parent: Some(DefIndex(34)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("M"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 13704973828016135173))
+DefId(0:38 ~ blocks[0503]::main) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("main"), disambiguator: 0 } } DefPathHash(Fingerprint(361409073738989370, 16275976519969915803))
