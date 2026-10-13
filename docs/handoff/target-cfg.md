@@ -58,7 +58,10 @@ For example `RUST_TS_HOST_TUPLE=x86_64-pc-windows-msvc` on Windows, `aarch64-app
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
 - `bun scripts/coverage.ts --check`: markers ok (4218; vendor 2323).
-- `RUST_TS_REQUIRE_PROBES=1 bun test src tools`: see the final section.
+- `RUST_TS_REQUIRE_PROBES=1 bun test src tools`: 2180 pass, 3 fail, 1 skip. None of the four is in this lane's files:
+  - `tools/codegen/attr_ir.test.ts` golden: fails identically at main aa2e805 (hir-def's rustc_structures after attr-ir-gen).
+  - `src/vendor/termize` "no fd leak under a pty" (stdio branch): fails and its /dev/tty branch skips, both environment-dependent (pty).
+  - `src/vendor/unicode_width` `test_vs1_vs2_vs3`: 5 s timeout on this machine; it also times out in isolation, as does `test_khmer_coeng`.
 - `RUST_TS_AGENT=target-cfg bun scripts/difftest.ts --suite parse --sample 300`: 300/300 MATCH (run `20261013-030339-target-cfg-7rzd`).
 - Exact oracle matches on all 6 targets (`--target T`):
   - `--print cfg`
