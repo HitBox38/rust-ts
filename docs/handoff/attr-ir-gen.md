@@ -60,7 +60,6 @@ new `tools/codegen/{typemap.attr_ir.json,print_attribute.json,attr_ir.test.ts,fi
   diagnostic 14, stability 14, target 8, encode_cross_crate 2, canonical_symbols 4, lang_items 13,
   weak_lang_items 2, pretty_printing 24). `--check`: markers ok.
 - `bunx tsc --noEmit -p .`: clean. `RUST_TS_REQUIRE_PROBES=1 bun test src tools`: 2002 pass, 1 skip, 0 fail.
-  report (all pass).
 - **Debug oracle** (`debug_oracle/gen.rs`, rustc-dev of nightly-2026-10-11): 41 `AttributeKind` values (Repr,
   Inline/Force, Deprecated x2, Stability, RustcConstStability, MacroUse x2, DocComment x2, Lang x2, Doc (incl.
   the FxIndexMap print quirk) x2, OnUnimplemented with nested Directive/Filter/Predicate/FormatString,
