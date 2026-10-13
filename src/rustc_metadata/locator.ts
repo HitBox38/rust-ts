@@ -244,7 +244,7 @@ import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
 import type { Write } from "../vendor/anstream/stream.ts";
 import type { Library, MetadataLoader } from "./creader.ts";
 import * as diagnostics from "./diagnostics.ts";
-import { CrateError_from_DylibError, dlsym_proc_macros, type ProcMacroClient } from "./host_dylib.ts";
+import { dlsym_proc_macros, type ProcMacroClient } from "./host_dylib.ts";
 import { MetadataBlob, type Svh } from "./rmeta/decoder.ts";
 import { METADATA_HEADER, rustc_version } from "./rmeta/mod.ts";
 
@@ -696,7 +696,7 @@ export class CrateLocator {
 
     if (!TargetTuple.eq(header.triple, this.tuple)) {
       // info!("Rejecting via crate triple: expected {} got {}", self.tuple, header.triple);
-      crate_rejections.via_triple.push({ path: libpath, got: TargetTuple_to_string(header.triple) });
+      crate_rejections.via_triple.push({ path: libpath, got: TargetTuple.display(header.triple) });
       return undefined;
     }
 
@@ -861,7 +861,6 @@ function get_metadata_section(
       // PORT: compiling the interface runs `std::env::current_exe()` (the compiler binary) as a subprocess
       // (`--emit=metadata -Zbuild-sdylib-interface`) into a temp dir; rust-ts has no compiler binary of its own
       // and does not emit metadata yet (M5).
-      void crate_name;
       return unported("rustc_metadata::locator::get_metadata_section (sdylib interface: compiles it with the current compiler binary)");
     }
     case "Dylib": {
@@ -1003,9 +1002,9 @@ export function get_proc_macros(path: PathBuf, metadata_loader: MetadataLoader, 
 
   const c = dlsym_proc_macros(path, stable_crate_id);
   if (c.$ === "Err") {
-    const err = CrateError_from_DylibError(c._0) as { _0: string; _1: string };
-    const [path, err_] = [err._0, err._1];
-    return Err(io_error_other(`${path}${err_}`));
+    // let (crate::DylibError::DlOpen(path, err) | crate::DylibError::DlSym(path, err)) = err;
+    const [path, err] = [c._0._0, c._0._1];
+    return Err(io_error_other(`${path}${err}`));
   }
   const clients = c._0;
 
@@ -1297,11 +1296,6 @@ function bytes_eq(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
-}
-
-/** `TargetTuple`'s `Display` (tuple.rs `impl fmt::Display`: `self.debug_tuple()`), for `header.triple.to_string()`. */
-function TargetTuple_to_string(t: TargetTuple): string {
-  return TargetTuple.debug_tuple(t);
 }
 
 const COMPONENT_ORDER = { Prefix: 0, RootDir: 1, CurDir: 2, ParentDir: 3, Normal: 4 } as const;

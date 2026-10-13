@@ -39,6 +39,11 @@ export class FileSearch {
   // rustc: compiler/rustc_session/src/filesearch.rs:42 get_library_candidates
   get_library_candidates(prefix: string, suffix: string, kind: PathKind): [string, PathBuf][] {
     const exclude_sysroot = PathKind.matches(kind, "Crate") && !this.use_implicit_sysroot_deps;
+    // PORT (lane locator): the default sysroot is a stand-in (`DEFAULT_SYSROOT_STANDIN`); a search that would
+    // include it stops here instead of reporting crates as missing that the oracle finds in its own sysroot.
+    if (!exclude_sysroot && this.tlib_path.dir.startsWith(DEFAULT_SYSROOT_STANDIN)) {
+      return unported("rustc_session::filesearch::default_sysroot (crate search in the default sysroot; pass --sysroot)");
+    }
 
     // The indices are clipped to have only a single iterator returned from this function, to
     // avoid allocating it.
