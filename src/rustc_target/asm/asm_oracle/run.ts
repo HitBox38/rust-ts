@@ -9,7 +9,8 @@ import { create_default_session_globals_then } from "../../../rustc_span/lib.ts"
 import { debug_Symbol, Symbol } from "../../../rustc_span/symbol.ts";
 import { debug_target_spec_other, spec } from "../../lib.ts";
 import { type Debug, debug_char, debug_option, debug_set, debug_str, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
-import { debug_result, unwrap_result } from "../../../std/result.ts";
+import { panic } from "../../../std/panic.ts";
+import { debug_result } from "../../../std/result.ts";
 import {
   allocatable_registers,
   debug_chars,
@@ -112,19 +113,19 @@ function modifier_info(m: ModifierInfo | undefined): string {
 /** `emit` into a String (`fmt::Write`). */
 function emit(reg: InlineAsmReg, arch: InlineAsmArch, modifier: number | undefined): string {
   let s = "";
-  unwrap_result(
-    InlineAsmReg.emit(
-      reg,
-      {
-        write_str(x) {
-          s += x;
-          return { $: "Ok", _0: null };
-        },
+  const r = InlineAsmReg.emit(
+    reg,
+    {
+      write_str(x) {
+        s += x;
+        return { $: "Ok", _0: null };
       },
-      arch,
-      modifier,
-    ),
+    },
+    arch,
+    modifier,
   );
+  // `.unwrap()`
+  if (r.$ === "Err") panic("called `Result::unwrap()` on an `Err` value: Error");
   return s;
 }
 
