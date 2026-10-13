@@ -83,7 +83,10 @@ Branch `lane/rustdoc` (from main 00f8a7b, no merges). Every commit message ends 
     Crate total: 264/1471. Most of the rest is the generated `tests/suite/*` html tests.
   - unicase-2.8.1: 43/76. The rest is the `From`/`Into`/`Display`/`FromStr` impls, the nightly benches and the
     `DefaultHasher` tests.
-- `RUST_TS_AGENT=rustdoc bun scripts/difftest.ts --suite parse --sample 200`: see the result at the end.
+- `RUST_TS_AGENT=rustdoc bun scripts/difftest.ts --suite parse --sample 200` (run `20261013-133608-rustdoc-6lqt`): 199
+  MATCH, 0 DIFF/UNPORTED/CRASH, 1 ORACLE_TIMEOUT. The timeout is `tests/ui/expr/if/expr-stack-overflow.rs`, the known
+  case from the hashbrown-order handoff (not in the baseline). The rustdoc code is not reached by the parse suite yet,
+  because resolve is not wired into the driver.
 
 ## Root: needed outside this lane
 1. `harness/scope.json` `vendor`: add `"pulldown-cmark": "=0.11.3"` and `"unicase": "=2.8.1"`.
