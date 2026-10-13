@@ -2,18 +2,18 @@
 //
 // PORT:
 // - `pub use pulldown_cmark;` re-exports the vendored crate (src/vendor/pulldown_cmark).
-// - `FxIndexMap<Option<DefId>, DocStrings>` is a `KeyedMap` (a `Map`) keyed by `DefId_hash_key`, so equal
-//   `DefId`s share an entry as upstream.
+// - `FxIndexMap<Option<DefId>, DocStrings>` is an insertion-ordered `Map` whose keys are canonicalized
+//   through `DefId_hash_key`, so equal `DefId`s share an entry as upstream.
 // - `A: AttributeExt + Clone` is the trailing impl table; `attr.clone()` pushes the attribute itself
 //   (callers only read the returned attributes).
 // - `Box<str>`/`String` results are JS strings; `str::len()` is `utf8_len`. Doc strings are sliced only
 //   inside their leading ASCII-whitespace indentation, where UTF-16 and UTF-8 offsets agree.
 // - `tracing` `debug!`/`trace!` are comments.
 // Init order: top-level code here may touch only this file's `.gen.ts` and other crates.
-import type { Attribute } from "../rustc_ast/lib.ts";
-import { join_path_syms } from "../rustc_ast/lib.ts";
-import { AttributeExt as AttributeExt_impls, type AttributeExt } from "../rustc_ast/attr/mod.ts";
-import { DocFragmentKind } from "../rustc_ast/token.ts";
+import type { AttributeExt } from "../rustc_ast/attr/mod.ts";
+import { type Attribute, attr as ast_attr, join_path_syms, token } from "../rustc_ast/lib.ts";
+// PORT: `rustc_ast::util` is not re-exported by rustc_ast/lib.ts; lib.ts is imported above, so its
+// extension modules are loaded before this one is used.
 import { beautify_doc_string } from "../rustc_ast/util/comments.ts";
 import { DefId_hash_key } from "../rustc_middle/query/caches.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
@@ -25,8 +25,10 @@ import { is_whitespace } from "../std/char.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { assert } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
+
+type DocFragmentKind = token.DocFragmentKind;
+const DocFragmentKind = token.DocFragmentKind;
 import { Str, str_lines, utf8, utf8_len } from "../std/str.ts";
-import { KeyedMap } from "../rust_ts/keyed.ts";
 import { type BrokenLink, type Event, type LinkType, Options, Parser } from "../vendor/pulldown_cmark/lib.ts";
 import type { DocFragment, DocStrings, MalformedGenerics } from "./rustdoc.gen.ts";
 import type { Range } from "./lib.ts";
@@ -213,12 +215,18 @@ export function attrs_to_doc_fragments<A>(attrs: Iterable<[A, DefId | undefined]
 /// early and late doc link resolution regardless of their position.
 // rustc: compiler/rustc_resolve/src/rustdoc.rs:255 prepare_to_doc_link_resolution
 export function prepare_to_doc_link_resolution(doc_fragments: readonly DocFragment[]): Map<DefId | undefined, DocStrings> {
-  const res = new KeyedMap<DefId | undefined, DocStrings>((d) => (d === undefined ? -1 : DefId_hash_key(d)));
+  const res = new Map<DefId | undefined, DocStrings>();
+  // PORT: `Option<DefId>` keys compare by value: each key is canonicalized to the first equal key
+  // object (`KeyedMap` cannot hold the `None` key).
+  const canon = new Map<number, DefId | undefined>();
   for (const fragment of doc_fragments) {
-    let out_strs = res.get(fragment.item_id);
+    const ck = fragment.item_id === undefined ? -1 : DefId_hash_key(fragment.item_id);
+    if (!canon.has(ck)) canon.set(ck, fragment.item_id);
+    const key = canon.get(ck);
+    let out_strs = res.get(key);
     if (out_strs === undefined) {
       out_strs = { outer: "", inner: "" };
-      res.set(fragment.item_id, out_strs);
+      res.set(key, out_strs);
     }
     const strs = out_strs;
     const out: MutRef<string> =
@@ -440,7 +448,7 @@ export function attrs_to_preprocessed_links(attrs: readonly Attribute[]): string
   const [doc_fragments, other_attrs] = attrs_to_doc_fragments(
     attrs.map((attr): [Attribute, DefId | undefined] => [attr, undefined]),
     false,
-    AttributeExt_impls.Attribute,
+    ast_attr.AttributeExt.Attribute,
   );
   const doc = prepare_to_doc_link_resolution(doc_fragments).values().next();
   const links = doc.done ? [] : parse_links(`${doc.value.outer}${doc.value.inner}`);
