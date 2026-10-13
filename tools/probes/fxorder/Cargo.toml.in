@@ -1,0 +1,20 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (see tools/probes/tokdump/Cargo.toml.in and the header of scripts/probes.ts):
+# it links the pinned nightly's own compiler crates (`rustc_data_structures::fx`, `rustc_span`)
+# through `#![feature(rustc_private)]` + `extern crate`, so the FxHashMap/FxHashSet it drives are
+# exactly the oracle's (std's hashbrown for the host, rustc-hash's FxHasher).
+[package]
+name = "fxorder"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "fxorder"
+path = "@SRC@/main.rs"
+
+[workspace]

@@ -45,10 +45,8 @@ interface Case {
 const oracle = JSON.parse(readFileSync(join(import.meta.dir, "attr_oracle", "c_list_out.json"), "utf8")) as Case[];
 
 /** What stays pending once the attribute parsers of lane attr-parse-d are in the registry. */
-const AFTER_D: Record<string, string> = {
-  // `for cfg_name in &cfg_names` iterates an `FxHashSet` (doc.rs `parse_auto_cfg`).
-  c_doc_auto_cfg_multi: "std::collections::HashSet iteration order (hashbrown + FxHasher): doc(auto_cfg(hide/show(..)))",
-};
+// (`c_doc_auto_cfg_multi` iterates an `FxHashSet`, whose order lane hashbrown-order ported.)
+const AFTER_D: Record<string, string> = {};
 /**
  * Building `ATTRIBUTE_PARSERS` reaches the stubs of lane attr-parse-d (not merged into this lane) before
  * any of these cases runs. On a local merge with lane/attr-parse-d every case matches the oracle except
