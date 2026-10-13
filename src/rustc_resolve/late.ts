@@ -623,16 +623,15 @@ export const PathSource = {
       case "ExternItemImpl":
         return res.$ === "Def" && (def === "Fn" || def === "AssocFn" || def === "Ctor" || def === "Static");
       case "PreciseCapturingArg":
-        switch (self._0) {
-          case "ValueNS":
-            return res.$ === "Def" && def === "ConstParam";
+        if (self._0 === "ValueNS") {
+          return res.$ === "Def" && def === "ConstParam";
+        } else if (self._0 === "TypeNS") {
           // We allow `SelfTyAlias` here so we can give a more descriptive error later.
-          case "TypeNS":
-            return (res.$ === "Def" && def === "TyParam") || res.$ === "SelfTyParam" || res.$ === "SelfTyAlias";
-          case "MacroNS":
-            return false;
+          return (res.$ === "Def" && def === "TyParam") || res.$ === "SelfTyParam" || res.$ === "SelfTyAlias";
+        } else {
+          // PathSource::PreciseCapturingArg(MacroNS)
+          return false;
         }
-      // falls through (unreachable: the inner switch is exhaustive)
       case "Macro":
         return res.$ === "Def" && def === "Macro";
       case "Module":
