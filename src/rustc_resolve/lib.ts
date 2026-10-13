@@ -222,7 +222,7 @@ export function PrimTy_name(self: PrimTy): Symbol {
  * PORT: `impl HasAttrs for DefId` (rustc_middle/src/ty/mod.rs:2349, not ported): the attribute list
  * `find_attr!(tcx, def_id, ..)` searches.
  */
-function DefId_get_attrs(self: DefId, tcx: TyCtxt): readonly HirAttribute[] {
+export function DefId_get_attrs(self: DefId, tcx: TyCtxt): readonly HirAttribute[] {
   if (self.as_local() !== undefined) return unported("tcx.hir_attrs(tcx.local_def_id_to_hir_id(did)) (HIR, M3)");
   return tcx.attrs_for_def(self) as readonly HirAttribute[];
 }

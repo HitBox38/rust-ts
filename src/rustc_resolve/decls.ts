@@ -1067,6 +1067,8 @@ export class LateResolutionVisitor extends visit.Visitor {
 
   // late.rs:1581 new (assigned in late.ts)
   declare static new: (resolver: Resolver) => LateResolutionVisitor;
+  // late/diagnostics.rs:3174 likely_rust_type (assigned in late/diagnostics.ts)
+  declare static likely_rust_type: (path: readonly Segment[]) => Symbol | undefined;
 }
 export interface LateResolutionVisitor {
   // ---- compiler/rustc_resolve/src/late.rs ----
@@ -1369,7 +1371,7 @@ export interface LateResolutionVisitor {
   lookup_assoc_candidate(ident: Ident, ns: Namespace, filter_fn: ((_0: Res) => boolean), called: boolean): [AssocSuggestion, Span] | undefined;
   // late/diagnostics.rs:3065
   lookup_typo_candidate(path: readonly Segment[], following_seg: Segment | undefined, ns: Namespace, filter_fn: ((_0: Res) => boolean)): TypoCandidate;
-  // late/diagnostics.rs:3174 (static: see the hand module)
+  // late/diagnostics.rs:3174 (static: `declare static likely_rust_type` on the class)
   // likely_rust_type(path: readonly Segment[]): Symbol | undefined;
   // late/diagnostics.rs:3193
   let_binding_suggestion(err: Diag, ident_span: Span): boolean;

@@ -48,7 +48,7 @@ import * as diagnostics from "./mod.ts";
 import { type Import, type UnresolvedImportError, import_path_to_string } from "../imports.ts";
 // PORT (init order): the rustc_resolve bindings below are read inside function bodies only.
 import { UsePrelude } from "../ident.ts";
-import { type Decl, DeclKind, DefId_key, type Finalize, IdentKey, IdentKey_eq, Macros20NormalizedSyntaxContext, type Module, type ParentScope, path_names_to_string, PrimTy_ALL, PrimTy_name, type ResolutionError, type ScopeSet, type UseError, type VisResolutionError, AmbiguityKind, BindingKey, clone_Segment, Segment as SegmentC } from "../lib.ts";
+import { type Decl, DeclKind, DefId_get_attrs, DefId_key, type Finalize, IdentKey, IdentKey_eq, Macros20NormalizedSyntaxContext, type Module, type ParentScope, path_names_to_string, PrimTy_ALL, PrimTy_name, type ResolutionError, type ScopeSet, type UseError, type VisResolutionError, AmbiguityKind, BindingKey, clone_Segment, Segment as SegmentC } from "../lib.ts";
 // res-diag-b imports
 import { existsSync } from "node:fs";
 import { type CfgEntry, clone_CfgEntry } from "../../rustc_ast/attr/data_structures.ts";
@@ -4012,7 +4012,7 @@ Resolver.prototype.lookup_import_candidates_from_module = function (
           if (did !== undefined) {
             const requires_note =
               !did.is_local() &&
-              find_attr(DefId_get_attrs_extern(did, this_.tcx_), (k: AttributeKind) =>
+              find_attr(DefId_get_attrs(did, this_.tcx_), (k: AttributeKind) =>
                 k.$ === "RustcDiagnosticItem" && (k._0 === sym.TryInto || k._0 === sym.TryFrom || k._0 === sym.FromIterator)
                   ? true
                   : undefined,
@@ -4232,14 +4232,4 @@ function sort_dedup_symbols(v: Symbol[]): void {
   }
 }
 
-
-/**
- * PORT: `find_attr!(tcx, did, ..)` for an extern `did` (callers check `!did.is_local()` first): the
- * attributes are `tcx.attrs_for_def(did)` (`impl HasAttrs for DefId`, rustc_middle ty/mod.rs, not
- * ported; same stand-in as lib.ts's `DefId_get_attrs`).
- */
-function DefId_get_attrs_extern(did: DefId, tcx: TyCtxt): readonly HirAttribute[] {
-  if (did.is_local()) return unported("tcx.hir_attrs(tcx.local_def_id_to_hir_id(did)) (HIR, M3)");
-  return tcx.attrs_for_def(did) as readonly HirAttribute[];
-}
 

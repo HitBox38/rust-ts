@@ -1,0 +1,117 @@
+error[E0425]: cannot find type `Widgt` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:12:22
+   |
+12 | pub fn uses_type(_w: Widgt) {}
+   |                      ^^^^^ not found in this scope
+   |
+note: similarly named struct `Widget` defined here
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:8:1
+   |
+ 8 | pub struct Widget;
+   | ^^^^^^^^^^^^^^^^^^
+help: a struct with a similar name exists
+   |
+12 | pub fn uses_type(_w: Widget) {}
+   |                          +
+
+error[E0425]: cannot find value `LIMT` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:15:14
+   |
+15 |     let _x = LIMT;
+   |              ^^^^ not found in this scope
+   |
+note: similarly named constant `LIMIT` defined here
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:10:1
+   |
+10 | const LIMIT: u8 = 3;
+   | ^^^^^^^^^^^^^^^^^^^^
+help: a constant with a similar name exists
+   |
+15 |     let _x = LIMIT;
+   |                 +
+
+error[E0425]: cannot find function `area` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:16:5
+   |
+16 |     area();
+   |     ^^^^ not found in this scope
+   |
+help: consider importing this function
+   |
+ 3 + use crate::shapes::area;
+   |
+
+error[E0425]: cannot find type `Circle` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:17:13
+   |
+17 |     let _c: Circle;
+   |             ^^^^^^ not found in this scope
+   |
+help: consider importing this struct
+   |
+ 3 + use crate::shapes::Circle;
+   |
+
+error[E0425]: cannot find value `undefined_thing` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:18:14
+   |
+18 |     let _y = undefined_thing;
+   |              ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find value `Sqare` in module `shapes::deep`
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:21:28
+   |
+21 |     let _s = shapes::deep::Sqare;
+   |                            ^^^^^ not found in `shapes::deep`
+   |
+note: similarly named unit struct `Square` defined here
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:6:20
+   |
+ 6 |     pub mod deep { pub struct Square; }
+   |                    ^^^^^^^^^^^^^^^^^^
+help: a unit struct with a similar name exists
+   |
+21 |     let _s = shapes::deep::Square;
+   |                              +
+
+error[E0433]: cannot find module or crate `shapez` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:22:14
+   |
+22 |     let _t = shapez::Circle;
+   |              ^^^^^^ use of unresolved module or unlinked crate `shapez`
+   |
+help: there is a crate or module with a similar name
+   |
+22 -     let _t = shapez::Circle;
+22 +     let _t = shapes::Circle;
+   |
+
+error[E0433]: cannot find module or crate `missing` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:23:14
+   |
+23 |     let _u = missing::Thing;
+   |              ^^^^^^^ use of unresolved module or unlinked crate `missing`
+   |
+   = help: you might be missing a crate named `missing`
+
+error[E0425]: cannot find function `computee` in this scope
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:14:5
+   |
+14 |     computee();
+   |     ^^^^^^^^ not found in this scope
+   |
+note: similarly named function `compute` defined here
+  --> src/rustc_resolve/late/diagnostics_oracle/cannot_find.rs:9:1
+   |
+ 9 | pub fn compute() {}
+   | ^^^^^^^^^^^^^^^^
+help: a function with a similar name exists
+   |
+14 -     computee();
+14 +     compute();
+   |
+
+error: aborting due to 9 previous errors
+
+Some errors have detailed explanations: E0425, E0433.
+For more information about an error, try `rustc --explain E0425`.

@@ -460,7 +460,6 @@ const UNIT_PENDING: Record<string, string> = {
   "resolve_lifetime: a const param type rib": "rustc_resolve::late::diagnostics::LateResolutionVisitor::emit_non_static_lt_in_const_param_ty_error",
   "resolve_anonymous_lifetime: an Item barrier reports a missing lifetime": "rustc_resolve::late::diagnostics::LateResolutionVisitor::report_missing_lifetime_specifiers",
   "resolve_label: an unreachable label in an outer rib": "rustc_resolve::late::diagnostics::LateResolutionVisitor::suggestion_for_label_in_rib",
-  "visit_ty: a path type": "rustc_resolve::late::diagnostics::LateResolutionVisitor::smart_resolve_report_errors",
 };
 
 function case_(name: string, f: () => void): void {
@@ -775,8 +774,13 @@ case_("visit_generic_params: forward-ban ribs and their order (late.rs:1694)", (
 });
 
 case_("visit_ty: a path type", () => {
-  with_visitor((v) => {
-    v.visit_ty(new Ty(nid(5), { $: "Path", _0: undefined, _1: { span: DUMMY_SP, segments: [], tokens: undefined } as never }, DUMMY_SP));
+  // `u8` resolves through the builtin-types scope; the type's id gets the `PrimTy` partial resolution.
+  // (Was a path with no segments, a shape the parser never produces; `smart_resolve_report_errors`
+  // `path.last().unwrap()`s it.)
+  with_visitor((v, r) => {
+    const u8_path = { span: DUMMY_SP, segments: [{ ident: ident("u8"), id: nid(6), args: undefined }], tokens: undefined };
+    v.visit_ty(new Ty(nid(5), { $: "Path", _0: undefined, _1: u8_path as never }, DUMMY_SP));
+    expect(r.partial_res_map.get(nid(5))?.full_res()).toEqual({ $: "PrimTy", _0: { $: "Uint", _0: "U8" } });
   });
 });
 
