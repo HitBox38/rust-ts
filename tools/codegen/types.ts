@@ -250,6 +250,12 @@ export interface SetConfig {
    * it needs from the type's hand module (e.g. a branded newtype `ExpnHash(Fingerprint)`: `ExpnHash.of($0)`).
    */
   decodable_construct?: Record<string, { expr: string; import?: string[] }>;
+  /**
+   * derive(Decodable*): per-set override of serialize.json `decoders` (derive name -> the TS decoder type), for a set
+   * whose decoder trait exists before the global entry can switch (e.g. `BlobDecodable` -> `BlobDecoder` while other
+   * sets' callers still pass a plain `MemDecoder`).
+   */
+  decoders?: Record<string, { type: string; import: string; note?: string }>;
 }
 
 /** tools/codegen/serialize.json: `Decodable`/`Encodable` impls of external (non-generated) types, and the decoder traits. */
@@ -1978,7 +1984,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             return `unported_decodable(${DEC})`;
           }
           const mod = serEntryModule(e);
-          for (const m of tmpl.matchAll(/\b(decode_\w+)\(/g)) serUse(m[1]!, mod);
+          for (const m of tmpl.matchAll(/(?<![.\w])(decode_\w+)\(/g)) serUse(m[1]!, mod);
           for (const v of e.values ?? []) if (tmpl.includes(v)) serUse(v, e.values_import ? `src:${e.values_import.replace(/^src\//, "")}` : mod);
           let out = tmpl.replaceAll("$D", () => DEC);
           for (const n of new Set(tmpl.match(/\$d\d/g) ?? [])) {
@@ -2058,7 +2064,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             return `unported_encodable(${v})`;
           }
           const mod = serEntryModule(e);
-          for (const m of tmpl.matchAll(/\b(encode_\w+)\(/g)) serUse(m[1]!, mod);
+          for (const m of tmpl.matchAll(/(?<![.\w])(encode_\w+)\(/g)) serUse(m[1]!, mod);
           for (const x of e.values ?? []) if (tmpl.includes(x)) serUse(x, e.values_import ? `src:${e.values_import.replace(/^src\//, "")}` : mod);
           let out = tmpl.replaceAll("$E", () => ENC).replaceAll("$v", () => v);
           for (const n of new Set(tmpl.match(/\$e\d/g) ?? [])) {
@@ -2099,7 +2105,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     };
     /** The decoder / encoder type of a derive (serialize.json `decoders` / `encoders`), imported. */
     const serTraitType = (kind: "decode" | "encode", derive: string, at: string): string => {
-      const t = (kind === "decode" ? serMap.decoders : serMap.encoders)[derive];
+      const t = (kind === "decode" ? (set.decoders?.[derive] ?? serMap.decoders[derive]) : serMap.encoders[derive]);
       if (!t) {
         report.errors.push(`${at}: no ${kind === "decode" ? "decoder" : "encoder"} type for derive(${derive}) in serialize.json`);
         return kind === "decode" ? "unknown" : "unknown";
@@ -2177,7 +2183,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             for (let i = vals.length - 1; i >= 0; i--) e = e.replaceAll(`$${i}`, `__${i}`);
             return [...vals.map((x, i) => `${indent}const __${i} = ${x};`), `${indent}return ${e};`];
           }
-          if (isClass(r)) return [`${indent}return new ${tname}(${vals.join(", ")});`];
+          // `derive_only` modules import the hand class as a value (the per-file module defines it)
+          if (isClass(r)) return [`${indent}return new ${ser ? serCompanion(r) : tname}(${vals.join(", ")});`];
           if (!vals.length) return [`${indent}return {};`];
           return [`${indent}return {`, ...v.fields.map((fl, i) => `${indent}  ${fieldName(fl)}: ${vals[i]},`), `${indent}};`];
         };

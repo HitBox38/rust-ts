@@ -234,8 +234,17 @@
     "skip": [],
     "auto_class": true,
     "derive_clone": true,
+    "derive_decodable": true,
+    "decodable_types": [
+      "rustc_crate_store::cstore::CrateDepKind",
+      "rustc_crate_store::cstore::LinkagePreference"
+    ],
+    "decoders": {
+      "BlobDecodable": { "type": "BlobDecoder", "import": "src/rustc_metadata/rmeta/decoder.ts", "note": "upstream `__D: rustc_span::BlobDecoder`; declared in decoder.ts until rustc_span's lands (lane span-decode)" }
+    },
     "hand_notes": {
-      "rustc_crate_store::cstore::CrateStoreDyn": "`dyn CrateStore + DynSync + DynSend`: the trait object is the hand-written CrateStore interface (cstore.ts)"
+      "rustc_crate_store::cstore::CrateStoreDyn": "`dyn CrateStore + DynSync + DynSend`: the trait object is the hand-written CrateStore interface (cstore.ts)",
+      "decodable_types": "the types crate metadata's eagerly decoded parts contain (rmeta CrateDep, dylib_dependency_formats)"
     }
   },
   "rustc_attr_ir": {
@@ -497,5 +506,46 @@
     "hand": [],
     "discriminant": [],
     "skip": []
+  },
+  "rustc_metadata_rmeta": {
+    "files": [
+      "compiler/rustc_metadata/src/rmeta/mod.rs",
+      "compiler/rustc_metadata/src/rmeta/table.rs",
+      "compiler/rustc_metadata/src/rmeta/def_path_hash_map.rs"
+    ],
+    "class": [
+      "rustc_metadata::rmeta::CrateRoot",
+      "rustc_metadata::rmeta::RawDefId",
+      "rustc_metadata::rmeta::SpanTag"
+    ],
+    "hand": [
+      "rustc_metadata::rmeta::LazyValue",
+      "rustc_metadata::rmeta::LazyArray",
+      "rustc_metadata::rmeta::LazyTable"
+    ],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_decodable": true,
+    "decodable_types": [
+      "rustc_metadata::rmeta::ProcMacroData",
+      "rustc_metadata::rmeta::ProcMacroKind",
+      "rustc_metadata::rmeta::CrateHeader",
+      "rustc_metadata::rmeta::CrateRoot",
+      "rustc_metadata::rmeta::CrateRootUnhashed",
+      "rustc_metadata::rmeta::RawDefId",
+      "rustc_metadata::rmeta::CrateDep",
+      "rustc_metadata::rmeta::TraitImpls",
+      "rustc_metadata::rmeta::IncoherentImpls",
+      "rustc_metadata::rmeta::SpanTag"
+    ],
+    "decoders": {
+      "BlobDecodable": { "type": "BlobDecoder", "import": "src/rustc_metadata/rmeta/decoder.ts", "note": "upstream `__D: rustc_span::BlobDecoder`; declared in decoder.ts until rustc_span's lands (lane span-decode)" }
+    },
+    "hand_notes": {
+      "*": "rmeta/{mod,table,def_path_hash_map}.rs types are hand-written (src/rustc_metadata/rmeta/*.ts: classes whose fields clash with methods, e.g. CrateRoot.stable_crate_id_); this set only generates rustc_metadata/decodable.gen.ts (derive(LazyDecodable/BlobDecodable/Decodable)). The `impl Decodable for LazyValue/LazyArray/LazyTable` are in decoder.rs (syn cannot parse its `gen` blocks), exported by decoder.ts and re-exported by mod.ts: hence `hand`. LazyTables is defined by `define_tables!` (invisible to the probe): its decode is hand-expanded in mod.ts and reached through serialize.json.",
+      "decodable_types": "VariantData (TyDecodable) waits for rustc_middle's TyDecoder (M3)",
+      "class": "constructed with `new T(fields in declaration order)`"
+    }
   }
 }

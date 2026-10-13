@@ -1,14 +1,14 @@
 // compiler/rustc_target/src/spec/tuple.rs
 //
-// Not ported (no markers): `impl Hash` (tuple.rs:38; dep tracking), `impl Decodable` (tuple.rs:71;
-// crate metadata, wave 11; `impl Encodable` is skipped), `from_path` (tuple.rs:93; needs `try_canonicalize` and
+// Not ported (no markers): `impl Hash` (tuple.rs:38; dep tracking), `from_path` (tuple.rs:93; needs `try_canonicalize` and
 // `Path::file_stem`; target JSON files are unported anyway) and the `TargetJson` arm of `debug_tuple`
 // (needs std's `DefaultHasher`, SipHash-1-3).
 import type { DiagArgValue } from "../../rustc_error_messages/lib.ts";
 import type { PathBuf } from "../../rustc_span/lib.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { type Debug, debug_str, debug_struct, debug_tuple as debug_tuple_fmt } from "../../std/fmt.ts";
-import { unported } from "../../std/panic.ts";
+import { panic, unported } from "../../std/panic.ts";
+import type { Decoder } from "../../rustc_serialize/serialize.ts";
 import type { Result } from "../../std/result.ts";
 
 /// Either a target tuple string or a path to a JSON file.
@@ -26,6 +26,25 @@ export type TargetTuple =
 
 // Use a manual implementation to prevent encoding the target json file path in the crate metadata
 // rustc-skip: compiler/rustc_target/src/spec/tuple.rs:55 encode Encodable (metadata encoding is M5)
+
+// impl<D: Decoder> Decodable<D> for TargetTuple
+// rustc: compiler/rustc_target/src/spec/tuple.rs:71 decode
+export function decode_TargetTuple(d: Decoder): TargetTuple {
+  switch (d.read_u8()) {
+    case 0:
+      return { $: "TargetTuple", _0: d.read_str() };
+    case 1:
+      return {
+        $: "TargetJson",
+        path_for_rustdoc: "", // PathBuf::new()
+        tuple: d.read_str(),
+        contents: d.read_str(),
+      };
+    default: {
+      return panic("invalid enum variant tag while decoding `TargetTuple`, expected 0..2");
+    }
+  }
+}
 
 export const TargetTuple = {
   // Use a manual implementation to ignore the path field
