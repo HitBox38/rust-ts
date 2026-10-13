@@ -3,8 +3,8 @@
 // Partial port of compiler/rustc_session/src/config.rs: the types that the `-C`/`-Z` option tables
 // (options.rs) and the `Options` struct name, and the top-level CLI (`rustc_optgroups`,
 // `build_session_options` and the `parse_*` fns it calls, `Options::default`, `nightly_options`,
-// `PpMode`, `OutputType(s)`, `Input`, `OutFileName`, `Sysroot`, `Externs`). Not ported:
-// `OutputFilenames`, `dep_tracking`, `CrateType`/`Cfg` helpers of config/cfg.rs, and every fn that needs
+// `PpMode`, `OutputType(s)`, `Input`, `OutFileName`, `OutputFilenames` (partly), `Sysroot`, `Externs`). Not ported:
+// `dep_tracking`, `CrateType`/`Cfg` helpers of config/cfg.rs, and every fn that needs
 // rustc_target beyond the stand-ins (see `bun scripts/coverage.ts --missing`).
 //
 // PORT: upstream `pub use crate::options::*;` is not mirrored: options.gen.ts reads `Polonius`
@@ -33,7 +33,7 @@ import { FilePathMapping } from "../rustc_span/source_map.ts";
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_int, debug_map, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { type IoError, debug_IoError, display_IoError, io_error_from_node } from "../std/io.ts";
-import { path_join } from "../std/path.ts";
+import { path_file_name, path_file_stem, path_join, path_parent } from "../std/path.ts";
 import { assert_eq, unported, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
 import { utf8 as utf8_bytes, utf8_len } from "../std/str.ts";
@@ -1217,7 +1217,10 @@ export const Input = {
     if (self.$ === "File") {
       // If for some reason getting the file stem as a UTF-8 string fails,
       // then fallback to a fixed name.
-      return unported("std::path::Path::file_stem (rustc_session::config::Input::filestem)");
+      const name = path_file_stem(self._0); // PORT: paths are JS strings, so `to_str` always succeeds.
+      if (name !== undefined) {
+        return name;
+      }
     }
     return "rust_out";
   },
@@ -1284,7 +1287,7 @@ export const OutFileName = {
   parent(self: OutFileName): PathBuf | undefined {
     switch (self.$) {
       case "Real":
-        return unported("std::path::Path::parent (rustc_session::config::OutFileName::parent)");
+        return path_parent(self._0);
       case "Stdout":
         return undefined;
     }
@@ -1294,7 +1297,7 @@ export const OutFileName = {
   filestem(self: OutFileName): string | undefined {
     switch (self.$) {
       case "Real":
-        return unported("std::path::Path::file_stem (rustc_session::config::OutFileName::filestem)");
+        return path_file_stem(self._0);
       case "Stdout":
         return "stdout";
     }
@@ -1366,6 +1369,121 @@ export const OutFileName = {
   },
 } as const;
 export const debug_OutFileName: Debug<OutFileName> = (v, f) => (v.$ === "Real" ? debug_tuple(f, "Real", [debug_str(v._0)]) : "Stdout");
+
+// #[derive(Clone, Hash, Debug, StableHash, Encodable, Decodable)]
+// PORT (driver-m2): `OutputFilenames` and the `impl` fns on the `-Zunpretty`/dep-info path. The codegen-unit
+// temp paths (`temp_path_for_cgu`, `temp_path_dwo_for_cgu`, `temp_path_ext_for_cgu`, `maybe_strip_file_name`,
+// `split_dwarf_path`) are not ported (codegen).
+export class OutputFilenames {
+  constructor(
+    public out_directory: PathBuf,
+    /// Crate name. Never contains '-'.
+    public crate_stem: string,
+    /// Typically based on `.rs` input file name. Any '-' is preserved.
+    public filestem: string,
+    public single_output_file: OutFileName | undefined,
+    public temps_directory: PathBuf | undefined,
+    /// A random string generated per invocation of rustc.
+    ///
+    /// This is prepended to all temporary files so that they do not collide
+    /// during concurrent invocations of rustc, or past invocations that were
+    /// preserved with a flag like `-C save-temps`, since these files may be
+    /// hard linked.
+    // This does not affect incr comp outputs, only where temp files are stored.
+    // #[stable_hash(ignore)]
+    public invocation_temp: string | undefined,
+    public explicit_dwo_out_directory: PathBuf | undefined,
+    public outputs: OutputTypes,
+  ) {}
+
+  // rustc: compiler/rustc_session/src/config.rs:1263 new
+  static new(
+    out_directory: PathBuf,
+    out_crate_name: string,
+    out_filestem: string,
+    single_output_file: OutFileName | undefined,
+    temps_directory: PathBuf | undefined,
+    invocation_temp: string | undefined,
+    explicit_dwo_out_directory: PathBuf | undefined,
+    extra: string,
+    outputs: OutputTypes,
+  ): OutputFilenames {
+    return new OutputFilenames(
+      out_directory,
+      `${out_crate_name}${extra}`,
+      `${out_filestem}${extra}`,
+      single_output_file,
+      temps_directory,
+      invocation_temp,
+      explicit_dwo_out_directory,
+      outputs,
+    );
+  }
+
+  // rustc: compiler/rustc_session/src/config.rs:1286 path
+  path(flavor: OutputType): OutFileName {
+    const p = this.outputs.get(flavor);
+    return (p !== undefined ? p._0 : undefined) ?? this.single_output_file ?? { $: "Real", _0: this.output_path(flavor) };
+  }
+
+  // rustc: compiler/rustc_session/src/config.rs:1294 interface_path
+  interface_path(): PathBuf {
+    // debug!("using crate_name={} for interface_path", self.crate_stem);
+    return path_join(this.out_directory, `lib${this.crate_stem}.rs`);
+  }
+
+  /// Gets the output path where a compilation artifact of the given type
+  /// should be placed on disk.
+  // rustc: compiler/rustc_session/src/config.rs:1301 output_path
+  output_path(flavor: OutputType): PathBuf {
+    const extension = OutputType.extension(flavor);
+    switch (flavor) {
+      case "Metadata":
+        // debug!("using crate_name={} for {extension}", self.crate_stem);
+        return path_join(this.out_directory, `lib${this.crate_stem}.${extension}`);
+      default:
+        return this.with_directory_and_extension(this.out_directory, extension);
+    }
+  }
+
+  // rustc: compiler/rustc_session/src/config.rs:1356 temp_path_for_diagnostic
+  temp_path_for_diagnostic(ext: string): PathBuf {
+    const temps_directory = this.temps_directory ?? this.out_directory;
+    return this.with_directory_and_extension(temps_directory, ext);
+  }
+
+  // rustc: compiler/rustc_session/src/config.rs:1361 with_extension
+  with_extension(extension: string): PathBuf {
+    return this.with_directory_and_extension(this.out_directory, extension);
+  }
+
+  // rustc: compiler/rustc_session/src/config.rs:1365 with_directory_and_extension
+  with_directory_and_extension(directory: PathBuf, extension: string): PathBuf {
+    // debug!("using filestem={} for {extension}", self.filestem);
+    const path = path_join(directory, this.filestem);
+    return path_set_extension(path, extension)[0];
+  }
+}
+
+/**
+ * `PathBuf::set_extension` (library/std/src/path.rs `_set_extension`): returns the new path and whether
+ * it changed (`false` when there is no file name). PORT (driver-m2): not in src/std/path.ts yet; move it
+ * there. `Path::with_extension` is `path_set_extension(p, ext)[0]`.
+ */
+export function path_set_extension(self_: PathBuf, extension: string): [PathBuf, boolean] {
+  const file_stem = path_file_stem(self_);
+  if (file_stem === undefined) return [self_, false];
+  // truncate until right after the file stem: the file stem is a prefix of the file name, the last
+  // normal component (only separators and `.` components can follow it).
+  const file_name = path_file_name(self_)!;
+  const end_file_stem = self_.lastIndexOf(file_name) + file_stem.length;
+  let inner = self_.slice(0, end_file_stem);
+  // add the new extension, if any
+  if (extension.length !== 0) {
+    inner += "." + extension;
+  }
+  return [inner, true];
+}
 
 // pub for rustdoc
 // rustc: compiler/rustc_session/src/config.rs:1399 parse_remap_path_scope
