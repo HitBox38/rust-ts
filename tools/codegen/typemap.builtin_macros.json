@@ -1,0 +1,19 @@
+{
+  "//": [
+    "Type-map additions of lane bm-a (rustc_builtin_macros diagnostics.rs), merged by tools/codegen/types.ts (loadTypeMap)."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    {
+      "paths": ["rustc_errors::SingleLabelManySpans", "rustc_errors::diagnostic_impls::SingleLabelManySpans"],
+      "ts": "SingleLabelManySpans",
+      "import": "src/rustc_errors/diagnostic_impls.ts",
+      "types": ["SingleLabelManySpans"],
+      "values": [],
+      "debug": null,
+      "subdiagnostic": { "add_to_diag": "SingleLabelManySpans_add_to_diag", "subdiagnostic": "SingleLabelManySpans_subdiagnostic" },
+      "note": "manual `impl Subdiagnostic for SingleLabelManySpans` (rustc_errors/src/diagnostic_impls.rs)"
+    }
+  ]
+}
