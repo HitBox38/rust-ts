@@ -101,3 +101,4 @@
 {"ts":"2026-10-13T12:46:45.367Z","kind":"decision","msg":"res-macros/res-graph: decls compile_macro takes rustc_attr_ir Attribute[] (as upstream); partial rustc_index bit_set.ts added by res-macros"}
 {"ts":"2026-10-13T12:51:15.854Z","kind":"decision","msg":"target-asm: build_session sets asm_arch via InlineAsmArch::from_arch (upstream name); only x86/aarch64/wasm arch modules ported, others are stubs"}
 {"ts":"2026-10-13T12:56:01.833Z","kind":"decision","msg":"ast-passes: also ported ExternAbi (src/rustc_abi/extern_abi.ts) and AbiMap (src/rustc_target/spec/abi_map.ts) since every extern \"C\" fn reaches them; codegen typemaps updated"}
+{"ts":"2026-10-13T13:07:48.343Z","kind":"decision","msg":"lint-early-a: KeywordIdents ported early (only pre-expansion pass; runs on every crate); individual lint pass modules are stubs whose check_* methods call unported (lint-early-b fills early ones; late ones M3)"}

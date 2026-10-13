@@ -1,0 +1,21 @@
+{
+  "//": [
+    "Type-map additions of lane lint-early-a (set rustc_lint), merged after typemap.json by tools/codegen/types.ts",
+    "(loadTypeMap). Root may fold these into typemap.json. Entries with `\"ts\": \"unknown\"` are pending (HIR / ty: M3)."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_lint_defs::Level", "rustc_lint::Level", "rustc_session::lint::Level"], "ts": "LintLevel", "import": "src/rustc_errors/lib.ts", "types": ["LintLevel"], "debug": "$v", "clone": "copy", "note": "rustc_errors' re-export `LintLevel` (= rustc_lint_defs Level), so it does not clash with rustc_errors::Level; Debug of a fieldless enum is its variant name" },
+    { "paths": ["rustc_session::Session", "rustc_session::session::Session"], "ts": "Session", "import": "src/rustc_session/session.ts", "types": ["Session"], "debug": null, "clone": null },
+    { "paths": ["rustc_lint::LateContext", "rustc_lint::context::LateContext"], "ts": "LateContext", "import": "src/rustc_lint/context.ts", "types": ["LateContext"], "debug": null, "clone": null, "note": "hand-written in context.ts (late lints: M3)" },
+    { "paths": ["rustc_middle::ty::Ty"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty (M3)" },
+    { "paths": ["rustc_middle::ty::Clause"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty (M3)" },
+    { "paths": ["rustc_middle::ty::PolyExistentialTraitRef"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty (M3)" },
+    { "paths": ["rustc_middle::ty::PolyFnSig"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty (M3)" },
+    { "paths": ["rustc_hir::Ty", "rustc_hir::hir::Ty"], "ts": "unknown", "debug": null, "clone": null, "note": "PORT: pending hir.rs (M3)" },
+    { "paths": ["rustc_hir::WherePredicate", "rustc_hir::hir::WherePredicate"], "ts": "unknown", "debug": null, "clone": null, "note": "PORT: pending hir.rs (M3)" },
+    { "paths": ["rustc_lint::builtin::InitError"], "ts": "unknown", "debug": null, "clone": null, "note": "PORT: pending (builtin.rs InvalidValue, late pass: M3)" },
+    { "paths": ["rustc_lint::lifetime_syntax::LifetimeSyntaxCategories"], "ts": "unknown", "debug": null, "clone": null, "note": "PORT: pending (lifetime_syntax.rs, late pass: M3)" }
+  ]
+}

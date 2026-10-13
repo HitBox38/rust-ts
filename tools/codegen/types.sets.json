@@ -426,5 +426,14 @@
     "hand": [],
     "discriminant": [],
     "skip": []
+  },
+  "rustc_lint": {
+    "files": [
+      "compiler/rustc_lint/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
   }
 }

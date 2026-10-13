@@ -17,10 +17,22 @@ const HERE = import.meta.dir;
 const REPO = join(HERE, "..", "..");
 const expected = JSON.parse(readFileSync(join(HERE, "macros_oracle", "expected.json"), "utf8")) as Record<string, Outcome>;
 
-// Where the port stops today (the first unported step after the resolver is constructed: the early lint
-// store of `configure_and_expand`, lane lint-early-a). Every case of both modes stops there.
-const LINT_STORE = "rustc_lint::late::unerased_lint_store (pending lint-early-a)";
-const PENDING: Record<string, string> = Object.fromEntries(case_names().flatMap((name) => MODES.map((mode) => [`${name}/${mode}`, LINT_STORE])));
+// Where the port stops today, per case (both modes stop at the same point). Root advances these as lanes land.
+const STOPS: Record<string, string> = {
+  builtin_macros: "rustc_resolve::diagnostics::impls::Resolver::dcx",
+  derive_unresolved: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
+  effective_vis: "rustc_middle::query::calls::query_feed: re-feeding query `visibility` (stable hashing of query values)",
+  expand_errors: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
+  expand_positions: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
+  macro_errors: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
+  macro_rules_basic: "rustc_index::bit_set::DenseBitSet::new_filled(3) (lib.ts DenseBitSet is a type-only stand-in)",
+  macro_rules_scopes: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
+  out_of_scope: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
+  tool_attrs: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
+};
+const PENDING: Record<string, string> = Object.fromEntries(
+  case_names().flatMap((name) => (STOPS[name] === undefined ? [] : MODES.map((mode) => [`${name}/${mode}`, STOPS[name]]))),
+);
 
 function run_port(mode: Mode, name: string): Outcome {
   const script = mode === "resdump" ? "src/rust_ts/resdump.ts" : "src/rust_ts/main.ts";

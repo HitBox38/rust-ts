@@ -103,8 +103,8 @@ const MATCH: string[][] = [
   ]),
 ];
 
-/** Continue into name resolution: the port stops at the lint store (pending lint-early-a). */
-const PENDING_AT = "rustc_lint::late::unerased_lint_store (pending lint-early-a)";
+/** Continue into name resolution: the port stops at crate metadata (CStore, wave 11). */
+const PENDING_AT = "rustc_metadata::creader::CStore::from_tcx (wave 11)";
 const PENDING: string[][] = [
   ["--crate-name", "héllo", ...NOCORE, U, "a.rs"],
   ["--crate-name", "٣x", ...NOCORE, U, "a.rs"],

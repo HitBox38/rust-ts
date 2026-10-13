@@ -2031,6 +2031,10 @@ function tsExpr(e: Expr, env: Map<string, string>, tys: Map<string, PType>, ctx:
       const parts = pieces.map((p) => {
         if ("lit" in p) return JSON.stringify(p.lit);
         const a = e.args.find((x) => x.name === p.arg);
+        // `{x:X}` of an unsigned integer: `UpperHex` (no prefix, no padding).
+        if (a && a.ty && p.spec === "X" && a.ty.kind === "path" && /^(u8|u16|u32|u64|u128|usize)$/.test(a.ty.text)) {
+          return `BigInt(${tsExpr(a.value, env, tys, ctx, at)}).toString(16).toUpperCase()`;
+        }
         if (!a || !a.ty || p.spec !== "") {
           ctx.error(`${e.at}: format!: unsupported argument {${p.arg}${p.spec ? ":" + p.spec : ""}} in ${JSON.stringify(e.input)}`);
           return `unported_format(${JSON.stringify(e.input)})`;
