@@ -53,33 +53,6 @@ const oracle = JSON.parse(readFileSync(new URL("./expr_oracle.json", import.meta
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
 const PENDING: Record<string, string> = {
-  closure_ret_ty: "rustc_parse::parser::item::Parser::is_path_start_item",
-  if_else: "rustc_parse::parser::item::Parser::parse_item_common",
-  if_let: "rustc_parse::parser::item::Parser::is_path_start_item",
-  if_let_chain_2024: "rustc_parse::parser::item::Parser::is_path_start_item",
-  if_let_chain_2021: "rustc_parse::parser::item::Parser::is_path_start_item",
-  if_let_or: "rustc_parse::parser::item::Parser::is_path_start_item",
-  if_let_paren: "rustc_parse::parser::item::Parser::is_path_start_item",
-  if_missing_block: "rustc_parse::parser::item::Parser::is_path_start_item",
-  if_missing_cond: "rustc_parse::parser::item::Parser::parse_item_common",
-  else_without_if: "rustc_parse::parser::item::Parser::is_path_start_item",
-  while_let: "rustc_parse::parser::item::Parser::is_path_start_item",
-  while_label: "rustc_parse::parser::item::Parser::parse_item_common",
-  loop_label: "rustc_parse::parser::item::Parser::parse_item_common",
-  for_loop: "rustc_parse::parser::item::Parser::is_path_start_item",
-  for_label: "rustc_parse::parser::item::Parser::parse_item_common",
-  labeled_block: "rustc_parse::parser::item::Parser::parse_item_common",
-  match_arms: "rustc_parse::parser::item::Parser::is_path_start_item",
-  async_block: "rustc_parse::parser::item::Parser::parse_item_common",
-  async_move_block: "rustc_parse::parser::item::Parser::parse_item_common",
-  gen_block: "rustc_parse::parser::item::Parser::parse_item_common",
-  try_block: "rustc_parse::parser::item::Parser::is_path_start_item",
-  unsafe_block: "rustc_parse::parser::item::Parser::parse_item_common",
-  const_block: "rustc_parse::parser::item::Parser::parse_item_common",
-  match_arm_missing_braces: "rustc_parse::parser::item::Parser::is_path_start_item",
-  closure_in_call_semi: "rustc_parse::parser::item::Parser::is_path_start_item",
-  labeled_loop_value_break: "rustc_parse::parser::item::Parser::parse_item_common",
-  if_else_cond_like: "rustc_parse::parser::item::Parser::is_path_start_item",
 };
 
 /** `format!("Ok({v:#?})")` / emit + `"Err"` (the probe's `res!`). */

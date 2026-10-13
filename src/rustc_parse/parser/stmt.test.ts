@@ -20,29 +20,6 @@ import { Unported } from "../../std/panic.ts";
 import { type Got, ShimMiss, oracle, run_case } from "./testdata/pat_stmt_harness.ts";
 
 const PENDING: Record<string, string> = {
-  s_let_else: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_let_else_lazy: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_let_else_brace: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_let_else_if: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_doc_trailing: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_attr_trailing: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_item: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_item_struct: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_mac_semi: "rustc_parse::parser::item::Parser::is_path_start_item",
-  s_mac_brace: "rustc_parse::parser::item::Parser::is_path_start_item",
-  s_mac_nosemi_tail: "rustc_parse::parser::item::Parser::is_path_start_item",
-  s_mac_expr: "rustc_parse::parser::item::Parser::is_path_start_item",
-  s_mac_brace_dot: "rustc_parse::parser::item::Parser::is_path_start_item",
-  s_empty: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_empty2: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_expr: "rustc_parse::parser::item::Parser::is_path_start_item",
-  s_tail: "rustc_parse::parser::item::Parser::is_path_start_item",
-  s_if_else: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_assign_else: "rustc_parse::parser::item::Parser::parse_item_common",
-  s_expr_missing_semi: "rustc_parse::parser::item::Parser::is_path_start_item",
-  s_label_typo: "rustc_parse::parser::item::Parser::is_path_start_item",
-  st_mac: "rustc_parse::parser::item::Parser::is_path_start_item",
-  st_empty: "rustc_parse::parser::item::Parser::parse_item_common",
 };
 
 const SHIMMED: ReadonlySet<string> = new Set([

@@ -33,7 +33,6 @@ const PREFIX = "gen_";
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
 const PENDING: Record<string, string> = {
-  gen_const: "rustc_parse::parser::item::Parser::parse_item_common",
 };
 
 interface Case {

@@ -32,7 +32,6 @@ const PREFIX = "path_";
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
 const PENDING: Record<string, string> = {
-  path_const_args: "rustc_parse::parser::item::Parser::is_path_start_item",
 };
 
 interface Case {

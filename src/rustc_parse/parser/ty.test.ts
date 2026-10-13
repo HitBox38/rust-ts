@@ -33,7 +33,6 @@ const PREFIX = "ty_";
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
 const PENDING: Record<string, string> = {
-  ty_fn_ptr_extern: "rustc_parse::parser::item::Parser::is_unsafe_foreign_mod",
 };
 
 interface Case {
