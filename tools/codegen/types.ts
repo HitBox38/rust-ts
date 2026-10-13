@@ -620,7 +620,12 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (PRELUDE_ROOTS.has(e[0]!)) keys.push(e[e.length - 1]!);
       // a bare name may also come from a glob import of an external crate
       if (segs.length === 1 && abs.length === 1)
-        for (const g of (usesByMod.get(sc.mod.join("::")) ?? []).filter((u) => u.glob)) keys.push([...g.path, ...segs].join("::"));
+        for (const g of (usesByMod.get(sc.mod.join("::")) ?? []).filter((u) => u.glob)) {
+          keys.push([...g.path, ...segs].join("::"));
+          // `use super::*;` in an inline module: the name may be a `use` of the parent module
+          const ga = absolutize(g.path, sc.mod, 0);
+          if (ga) keys.push(extAbs([...ga, ...segs]).join("::"));
+        }
       return { k: "ext", keys, display: e.join("::") };
     }
     return { k: "ext", keys: [], display: segs.join("::") };
