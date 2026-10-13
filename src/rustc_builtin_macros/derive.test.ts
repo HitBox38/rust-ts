@@ -1,9 +1,9 @@
-// Oracle test for `#[derive]` (derive.rs) and the derive infrastructure (deriving/mod.rs,
-// deriving/generic/mod.rs): runs derive_oracle/run.ts (the port) on derive_oracle/cases.txt and compares
-// its stdout and stderr, case by case, with out.stdout / out.stderr recorded from the rustc-dev probe
-// derive_oracle/probe.rs (see its header for how to regenerate them). Pending cases need lane
-// bm-derive-b (the individual derives): the probe records their output, the port must stop at an
-// `unported` path; once bm-derive-b lands, clear their pending column and they must match.
+// Oracle test for `#[derive]` (derive.rs), the derive infrastructure (deriving/mod.rs,
+// deriving/generic/mod.rs) and the individual builtin derives (deriving/*.rs): runs derive_oracle/run.ts
+// (the port) on derive_oracle/cases.txt and compares its stdout and stderr, case by case, with
+// out.stdout / out.stderr recorded from the rustc-dev probe derive_oracle/probe.rs (see its header for
+// how to regenerate them). A pending case (pending column not `-`) is recorded by the probe but must stop
+// at an `unported` path on the port; clear its pending column once the path is ported.
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

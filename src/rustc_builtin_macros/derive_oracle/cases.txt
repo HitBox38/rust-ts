@@ -90,3 +90,137 @@ debug_enum | builtin | 2021 | - | - | #[derive(Debug)] enum E { A, B(u8), C { x:
 ord_enum | builtin | 2021 | - | - | #[derive(Ord)] enum E { A(u8), B, C { x: u16 } }
 partial_ord_struct | builtin | 2021 | - | - | #[derive(PartialOrd)] struct S(u8, u16);
 default_struct | builtin | 2021 | - | - | #[derive(Default)] struct S { a: u8 }
+#
+# clone.rs
+clone_unit | builtin | 2021 | - | - | #[derive(Clone)] struct S;
+clone_tuple | builtin | 2021 | - | - | #[derive(Clone)] struct S(u8, pub String, (u8, u16));
+clone_generics_bounds | builtin | 2021 | - | - | #[derive(Clone)]\nstruct S<'a, T: Clone + 'a, U: ?Sized, const N: usize>\nwhere\n    U: AsRef<T>,\n{\n    a: &'a U,\n    b: [T; N],\n    c: T::Assoc,\n}
+clone_enum_data | builtin | 2021 | - | - | #[derive(Clone)] enum E { A(u8, String), B { x: Vec<u8>, y: () }, C, D() , F {} }
+clone_enum_empty | builtin | 2021 | - | - | #[derive(Clone)] enum E {}
+clone_union | builtin | 2021 | - | - | #[derive(Clone)] union U<T: Copy> { a: u8, b: T }
+clone_copy_simple | builtin | 2021 | @has_derive_copy | - | #[derive(Clone)] struct S { a: u8, b: u8, c: u16, d: Vec<u8>, e: Vec<u8>, f: (u8,) }
+clone_copy_simple_enum | builtin | 2021 | @has_derive_copy | - | #[derive(Clone)] enum E<'a, const N: usize> { A(u8), B { x: &'a [u8; N], y: u8 }, C }
+clone_copy_type_params | builtin | 2021 | @has_derive_copy | - | #[derive(Clone)] struct S<T>(T, u8);
+clone_copy_unit | builtin | 2021 | @has_derive_copy | - | #[derive(Clone)] struct S;
+clone_packed | builtin | 2021 | - | - | #[derive(Clone)] #[repr(packed)] struct S<T>(T, u32);
+clone_const | builtin | 2021 | - | - | #[derive_const(Clone)] struct S(u8);
+#
+# const_param_ty.rs
+const_param_ty_struct | builtin | 2021 | - | - | #[derive(ConstParamTy)] struct S<T: Copy, const N: usize>([T; N], u8);
+const_param_ty_enum | builtin | 2021 | - | - | #[derive(ConstParamTy)] enum E { A, B(u8) }
+const_param_ty_union | builtin | 2021 | - | - | #[derive(ConstParamTy)] union U { a: u8 }
+#
+# debug.rs
+debug_unit | builtin | 2021 | - | - | #[derive(Debug)] struct S;
+debug_tuple_one | builtin | 2021 | - | - | #[derive(Debug)] struct S(u8);
+debug_named_two | builtin | 2015 | - | - | #[derive(Debug)] struct S { a: u8, b: String }
+debug_named_five | builtin | 2021 | - | - | #[derive(Debug)] struct S { a: u8, b: u16, c: u32, d: u64, e: str }
+debug_tuple_five | builtin | 2021 | - | - | #[derive(Debug)] struct S(u8, u16, u32, u64, [u8]);
+debug_named_large | builtin | 2021 | - | - | #[derive(Debug)]\nstruct S<T: Clone> {\n    a: u8,\n    b: u16,\n    c: u32,\n    d: T,\n    e: Vec<T>,\n    f: String,\n    g: [u8],\n}
+debug_tuple_large | builtin | 2021 | - | - | #[derive(Debug)] struct S(u8, u8, u8, u8, u8, u8, u8);
+debug_enum_large | builtin | 2021 | - | - | #[derive(Debug)] enum E { A(u8, u8, u8, u8, u8, u8), B { a: u8, b: u8, c: u8, d: u8, e: u8, f: u8 }, C {}, D() }
+debug_fieldless_mixed | builtin | 2021 | - | - | #[derive(Debug)] enum E { A, B(), C {}, D = 4 }
+debug_enum_empty | builtin | 2021 | - | - | #[derive(Debug)] enum E {}
+debug_enum_one | builtin | 2021 | - | - | #[derive(Debug)] enum E { A }
+debug_generics | builtin | 2021 | - | - | #[derive(Debug)] struct S<'a, T: Debug + ?Sized, const N: usize>(&'a T, [u8; N]) where T: 'a;
+debug_packed | builtin | 2021 | - | - | #[derive(Debug)] #[repr(packed)] struct S { a: u8, b: u32 }
+debug_union | builtin | 2021 | - | - | #[derive(Debug)] union U { a: u8 }
+debug_stmt | builtin_stmt | 2021 | - | - | #[derive(Debug)] struct S { x: u8 }
+#
+# default.rs
+default_unit | builtin | 2021 | - | - | #[derive(Default)] struct S;
+default_tuple | builtin | 2021 | - | - | #[derive(Default)] struct S(u8, String);
+default_generics | builtin | 2021 | - | - | #[derive(Default)] struct S<T: Default, U> where U: Clone { a: T, b: Vec<U> }
+default_field_values | builtin | 2021 | default_field_values | - | #[derive(Default)] struct S { a: u8 = 3, b: String, c: (u8, u8) = (1, 2) }
+default_enum | builtin | 2021 | - | - | #[derive(Default)] enum E { A(u8), #[default] B, C }
+default_enum_generics | builtin | 2021 | - | - | #[derive(Default)] enum E<T, U: Copy> { A(T), #[default] B, C(U) }
+default_enum_none | builtin | 2021 | - | - | #[derive(Default)] enum E { A, #[non_exhaustive] B, C(u8), D {}, E }
+default_enum_none_no_unit | builtin | 2021 | - | - | #[derive(Default)] enum E { A(u8), B {} }
+default_enum_empty | builtin | 2021 | - | - | #[derive(Default)] enum E {}
+default_enum_multiple | builtin | 2021 | - | - | #[derive(Default)] enum E { #[default] A, B, #[default] C, #[default] #[default] D }
+default_enum_multiple_two | builtin | 2021 | - | - | #[derive(Default)] enum E { #[default] A, #[default] B }
+default_enum_tuple | builtin | 2021 | - | - | #[derive(Default)] enum E { #[default] A(u8), B }
+default_enum_struct | builtin | 2021 | - | - | #[derive(Default)] enum E { #[default] A { x: u8 }, B }
+default_enum_struct_fv | builtin | 2021 | default_field_values | - | #[derive(Default)] enum E { #[default] A { x: u8 = 1, y: u16 = 2 }, B }
+default_enum_struct_fv_partial | builtin | 2021 | default_field_values | - | #[derive(Default)] enum E { #[default] A { x: u8 = 1, y: u16 }, B }
+default_enum_struct_fv_empty | builtin | 2021 | default_field_values | - | #[derive(Default)] enum E { #[default] A {}, B }
+default_enum_non_exhaustive | builtin | 2021 | - | - | #[derive(Default)] enum E { #[default] #[non_exhaustive] A, B }
+default_enum_two_attrs | builtin | 2021 | - | - | #[derive(Default)] enum E { #[default] #[default] A, B }
+default_enum_three_attrs | builtin | 2021 | - | - | #[derive(Default)] enum E { #[default] #[default] #[default] A, B }
+default_enum_arg | builtin | 2021 | - | - | #[derive(Default)] enum E { #[default(x)] A, B }
+default_enum_name_value | builtin | 2021 | - | - | #[derive(Default)] enum E { #[default = 1] A, B }
+default_attr_on_struct | builtin | 2021 | - | - | #[derive(Default)] #[default] struct S { #[default] a: u8 }
+default_attr_in_variant | builtin | 2021 | default_field_values | - | #[derive(Default)] enum E { #[default] A, B(#[default] u8), C { #[default] x: u8 } }
+#
+# from.rs
+from_tuple | builtin | 2021 | derive_from | - | #[derive(From)] struct S(u32);
+from_named | builtin | 2021 | derive_from | - | #[derive(From)] struct S<T: Clone> { x: Vec<T> }
+from_unit | builtin | 2021 | derive_from | - | #[derive(From)] struct S;
+from_empty | builtin | 2021 | derive_from | - | #[derive(From)] struct S {}
+from_two | builtin | 2021 | derive_from | - | #[derive(From)] struct S(u8, u16);
+from_enum | builtin | 2021 | derive_from | - | #[derive(From)] enum E { A(u8) }
+from_union | builtin | 2021 | derive_from | - | #[derive(From)] union U { a: u8 }
+#
+# partial_eq.rs
+partial_eq_scalar_order | builtin | 2021 | - | - | #[derive(PartialEq)] struct S { a: String, b: u8, c: &'static str, d: i32, e: Vec<u8>, f: bool, g: char, h: f64, i: usize }
+partial_eq_unit | builtin | 2021 | - | - | #[derive(PartialEq)] struct S;
+partial_eq_tuple | builtin | 2021 | - | - | #[derive(PartialEq)] struct S(String, u8);
+partial_eq_generics | builtin | 2021 | - | - | #[derive(PartialEq)] struct S<T: PartialEq, U>(T, U) where U: Eq;
+partial_eq_enum_fieldless | builtin | 2021 | - | - | #[derive(PartialEq)] enum E { A, B, C }
+partial_eq_enum_one | builtin | 2021 | - | - | #[derive(PartialEq)] enum E { A(u8, String) }
+partial_eq_enum_empty | builtin | 2021 | - | - | #[derive(PartialEq)] enum E {}
+partial_eq_union | builtin | 2021 | - | - | #[derive(PartialEq)] union U { a: u8 }
+partial_eq_const | builtin | 2021 | - | - | #[derive_const(PartialEq)] struct S(u8);
+#
+# partial_ord.rs / ord.rs
+partial_ord_named | builtin | 2021 | - | - | #[derive(PartialOrd)] struct S { a: u8, b: String, c: u16 }
+partial_ord_unit | builtin | 2021 | @has_derive_ord | - | #[derive(PartialOrd)] struct S;
+partial_ord_empty_enum | builtin | 2021 | @has_derive_ord | - | #[derive(PartialOrd)] enum E {}
+partial_ord_one_unit_variant | builtin | 2021 | @has_derive_ord | - | #[derive(PartialOrd)] enum E { A }
+partial_ord_simple | builtin | 2021 | @has_derive_ord | - | #[derive(PartialOrd)] struct S<'a, const N: usize>(&'a [u8; N], u8);
+partial_ord_simple_enum | builtin | 2021 | @has_derive_ord | - | #[derive(PartialOrd)] enum E { A(u8), B }
+partial_ord_ord_type_params | builtin | 2021 | @has_derive_ord | - | #[derive(PartialOrd)] struct S<T>(T);
+partial_ord_enum_discr | builtin | 2021 | - | - | #[derive(PartialOrd)] enum E { A = 1, B = 5, C = -3 }
+partial_ord_enum_data_few | builtin | 2021 | - | - | #[derive(PartialOrd)] enum E { A(u8), B, C { x: u16, y: u8 }, D }
+partial_ord_enum_data_spread | builtin | 2021 | - | - | #[derive(PartialOrd)] enum E { A(u8), B, C, D(u16), E(u32) }
+partial_ord_enum_data_dense | builtin | 2021 | - | - | #[derive(PartialOrd)] enum E { A(u8), B(u16), C, D(u32) }
+partial_ord_enum_one_data | builtin | 2021 | - | - | #[derive(PartialOrd)] enum E<T: PartialOrd> { A(T, T) }
+partial_ord_generics | builtin | 2021 | - | - | #[derive(PartialOrd)] struct S<T: PartialOrd + Clone, U>(T, Vec<U>) where U: Copy;
+partial_ord_union | builtin | 2021 | - | - | #[derive(PartialOrd)] union U { a: u8 }
+ord_struct | builtin | 2021 | - | - | #[derive(Ord)] struct S { a: u8, b: String }
+ord_unit | builtin | 2021 | - | - | #[derive(Ord)] struct S;
+ord_tuple_generics | builtin | 2021 | - | - | #[derive(Ord)] struct S<'a, T: Ord>(&'a T, u8) where T: Clone;
+ord_enum_discr | builtin | 2021 | - | - | #[derive(Ord)] enum E { A = 10, B = 2, C }
+ord_enum_data_spread | builtin | 2021 | - | - | #[derive(Ord)] enum E { A(u8), B, C, D { x: u8 }, E(u8) }
+ord_enum_empty | builtin | 2021 | - | - | #[derive(Ord)] enum E {}
+ord_packed | builtin | 2021 | - | - | #[derive(Ord)] #[repr(packed)] struct S(u8, u32);
+#
+# coerce_pointee.rs
+coerce_pointee_simple | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)]\n#[repr(transparent)]\nstruct P<T: ?Sized>(Box<T>);
+coerce_pointee_full | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)]\n#[repr(transparent)]\nstruct P<'a, U: Trait<T> + Clone, #[pointee] T: Trait<T> + ?Sized, V: Trait<T>, const N: usize = 3, W = u8>\nwhere\n    U: Other<T>,\n    Companion<T>: Trait<T>,\n    T: Trait<T>,\n    'a: 'a,\n    for<'b> &'b T: Trait<U>,\n{\n    ptr: &'a T,\n    u: PhantomData<(U, V, W)>,\n}
+coerce_pointee_where_sized | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)]\n#[repr(transparent)]\nstruct P<T>(Box<T>) where T: ?core::marker::Sized;
+coerce_pointee_global_sized | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)]\n#[repr(transparent)]\nstruct P<T: ?::std::marker::Sized>(Box<T>);
+coerce_pointee_not_maybe_sized | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)]\n#[repr(transparent)]\nstruct P<T: Clone + ?Send>(Box<T>);
+coerce_pointee_enum | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)] enum E<T: ?Sized> { A(Box<T>) }
+coerce_pointee_unit | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)] struct P;
+coerce_pointee_empty | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)] struct P<T: ?Sized> {}
+coerce_pointee_no_generic | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)] struct P<'a, const N: usize>(&'a [u8; N]);
+coerce_pointee_no_pointee | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)] struct P<T: ?Sized, U: ?Sized>(Box<T>, Box<U>);
+coerce_pointee_two_pointees | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)] struct P<#[pointee] T: ?Sized, #[pointee] U: ?Sized, #[pointee] V>(Box<T>, Box<U>);
+coerce_pointee_bad_pointee | builtin | 2021 | derive_coerce_pointee | - | #[derive(CoercePointee)]\n#[repr(transparent)]\n#[pointee]\nstruct P<#[pointee] 'a, #[pointee] const N: usize, #[pointee] T: ?Sized = [u8; { struct Q<#[pointee] X>(X); 1 }]> {\n    #[pointee] f: &'a T,\n    g: [u8; { #[pointee] struct R; 0 }],\n}
+#
+# reborrow.rs
+reborrow_struct | builtin | 2021 | reborrow | - | #[derive(Reborrow)] struct S<'a, T: Clone = u8, const N: usize = 1>(&'a mut [T; N]);
+reborrow_enum | builtin | 2021 | reborrow | - | #[derive(Reborrow)] enum E { A }
+reborrow_union | builtin | 2021 | reborrow | - | #[derive(Reborrow)] union U { a: u8 }
+reborrow_fn | builtin | 2021 | reborrow | - | #[derive(Reborrow)] fn f() {}
+coerce_shared_ok | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] #[coerce_shared(Target<'a, T>)] struct S<'a, T>(&'a mut T);
+coerce_shared_enum | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] #[coerce_shared(T)] enum E { A }
+coerce_shared_missing | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] struct S;
+coerce_shared_duplicate | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] #[coerce_shared(A)] #[coerce_shared(B)] #[coerce_shared(C)] struct S;
+coerce_shared_word | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] #[coerce_shared] struct S;
+coerce_shared_name_value | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] #[coerce_shared = "T"] struct S;
+coerce_shared_brackets | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] #[coerce_shared[T]] struct S;
+coerce_shared_empty | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] #[coerce_shared()] struct S;
+coerce_shared_trailing | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] #[coerce_shared(A, B)] struct S;
+coerce_shared_bad_ty | builtin | 2021 | reborrow | - | #[derive(CoerceShared)] #[coerce_shared(+)] struct S;

@@ -17,8 +17,10 @@
 // session's emitter. The resolver's `resolve_derives` calls the `derive_paths` closure once, prints
 // every resolution (`{:?}` of the path, `is_const`, whether `exts` is set, `{:#?}` of the item) and
 // returns `Err(Indeterminate)` if a path's last segment is `later` and `force` is false, else `Ok(())`;
-// `has_derive_copy` / `has_derive_ord` print their call and answer `false`. Every other resolver method
-// is `unimplemented!()`.
+// `has_derive_copy` / `has_derive_ord` print their call and answer `false`, or `true` when the case's
+// features column lists the pseudo-feature `@has_derive_copy` / `@has_derive_ord` (entries starting with
+// `@` configure the mock and are not enabled as lang features). Every other resolver method is
+// `unimplemented!()`.
 //
 // derive.test.ts runs `derive_oracle/run.ts` (the same steps on the port) and compares stdout and stderr
 // case by case. The pending column of cases.txt is ignored here (every case is recorded); the port must
@@ -26,9 +28,9 @@
 //
 // Regenerate (from this directory):
 //
-//   rustc +nightly-2026-10-11 --edition 2024 probe.rs -o $RUST_TS_DATA/tmp/bm-derive-a/probe
+//   rustc +nightly-2026-10-11 --edition 2024 probe.rs -o $RUST_TS_DATA/tmp/derive-oracle/probe
 //   DYLD_LIBRARY_PATH=$(rustc +nightly-2026-10-11 --print sysroot)/lib \
-//     $RUST_TS_DATA/tmp/bm-derive-a/probe cases.txt > out.stdout 2> out.stderr
+//     $RUST_TS_DATA/tmp/derive-oracle/probe cases.txt > out.stdout 2> out.stderr
 //
 // (`LD_LIBRARY_PATH` / `PATH` instead of `DYLD_LIBRARY_PATH` on Linux / Windows.)
 #![feature(rustc_private)]
@@ -75,10 +77,13 @@ use rustc_span::{DUMMY_SP, FileName, Ident, Span, Symbol, sym};
 struct Recorder(Vec<(Symbol, SyntaxExtensionKind)>);
 
 /// The resolver seen by the expanders.
-struct Mock;
+struct Mock {
+    has_derive_copy: bool,
+    has_derive_ord: bool,
+}
 
 macro_rules! resolver_impl {
-    ($ty:ty, $self:ident, register = $register:expr, resolve_derives = $rd:expr) => {
+    ($ty:ty, $self:ident, register = $register:expr, resolve_derives = $rd:expr, copy = $copy:expr, ord = $ord:expr) => {
         impl ResolverExpand for $ty {
             fn next_node_id(&mut self) -> NodeId { unimplemented!() }
             fn invocation_parent(&self, _: LocalExpnId) -> LocalDefId { unimplemented!() }
@@ -90,8 +95,8 @@ macro_rules! resolver_impl {
             fn resolve_macro_invocation(&mut self, _: &Invocation, _: LocalExpnId, _: bool) -> Result<Arc<SyntaxExtension>, Indeterminate> { unimplemented!() }
             fn record_macro_rule_usage(&mut self, _: NodeId, _: usize) { unimplemented!() }
             fn check_unused_macros(&mut self) { unimplemented!() }
-            fn has_derive_copy(&self, _: LocalExpnId) -> bool { println!("has_derive_copy -> false"); false }
-            fn has_derive_ord(&self, _: LocalExpnId) -> bool { println!("has_derive_ord -> false"); false }
+            fn has_derive_copy(&$self, _: LocalExpnId) -> bool { let b: bool = $copy(&*$self); println!("has_derive_copy -> {b}"); b }
+            fn has_derive_ord(&$self, _: LocalExpnId) -> bool { let b: bool = $ord(&*$self); println!("has_derive_ord -> {b}"); b }
             fn resolve_derives(&mut self, _: LocalExpnId, force: bool, derive_paths: &dyn Fn() -> Vec<DeriveResolution>) -> Result<(), Indeterminate> { $rd(force, derive_paths) }
             fn take_derive_resolutions(&mut self, _: LocalExpnId) -> Option<Vec<DeriveResolution>> { unimplemented!() }
             fn cfg_accessible(&mut self, _: LocalExpnId, _: &ast::Path) -> Result<bool, Indeterminate> { unimplemented!() }
@@ -111,7 +116,9 @@ macro_rules! resolver_impl {
 
 resolver_impl!(Recorder, self,
     register = |r: &mut Recorder, name, ext| r.0.push((name, ext)),
-    resolve_derives = |_: bool, _: &dyn Fn() -> Vec<DeriveResolution>| unimplemented!());
+    resolve_derives = |_: bool, _: &dyn Fn() -> Vec<DeriveResolution>| unimplemented!(),
+    copy = |_: &Recorder| unimplemented!(),
+    ord = |_: &Recorder| unimplemented!());
 
 resolver_impl!(Mock, self,
     register = |_: &mut Mock, _, _| unimplemented!(),
@@ -127,7 +134,9 @@ resolver_impl!(Mock, self,
             }
         }
         if indeterminate && !force { Err(Indeterminate) } else { Ok(()) }
-    });
+    },
+    copy = |m: &Mock| m.has_derive_copy,
+    ord = |m: &Mock| m.has_derive_ord);
 
 /// `ExpnData` hashing for `LocalExpnId::fresh`: spans hash to nothing, the default controls.
 struct NoSpanHcx;
@@ -216,7 +225,7 @@ fn main() {
             println!("== {}", case.name);
             eprintln!("== {}", case.name);
             let mut features = Features::default();
-            for f in &case.features {
+            for f in case.features.iter().filter(|f| !f.starts_with('@')) {
                 features.set_enabled_lang_feature(EnabledLangFeature {
                     gate_name: Symbol::intern(f),
                     attr_sp: DUMMY_SP,
@@ -224,7 +233,10 @@ fn main() {
                 });
             }
             let ecfg = ExpansionConfig::default(sym::main, &features);
-            let mut mock = Mock;
+            let mut mock = Mock {
+                has_derive_copy: case.features.iter().any(|f| f == "@has_derive_copy"),
+                has_derive_ord: case.features.iter().any(|f| f == "@has_derive_ord"),
+            };
             let mut cx = ExtCtxt::new(sess, ecfg, &mut mock, None);
             cx.current_expansion.module = Rc::new(ModuleData {
                 mod_path: vec![Ident::with_dummy_span(sym::main)],

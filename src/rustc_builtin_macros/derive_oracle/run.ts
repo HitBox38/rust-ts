@@ -134,14 +134,16 @@ try {
     const recorded: [Symbol, SyntaxExtensionKind][] = [];
     register_builtin_macros(resolver({ register_builtin_macro: (name, ext) => void recorded.push([name, ext]) }));
 
+    // `@has_derive_copy` / `@has_derive_ord` in the features column (see probe.rs).
+    const answers = { has_derive_copy: false, has_derive_ord: false };
     const mock = resolver({
       has_derive_copy: () => {
-        println("has_derive_copy -> false");
-        return false;
+        println(`has_derive_copy -> ${answers.has_derive_copy}`);
+        return answers.has_derive_copy;
       },
       has_derive_ord: () => {
-        println("has_derive_ord -> false");
-        return false;
+        println(`has_derive_ord -> ${answers.has_derive_ord}`);
+        return answers.has_derive_ord;
       },
       resolve_derives: (_expn_id, force, derive_paths) => {
         println(`resolve_derives(force = ${force})`);
@@ -162,6 +164,8 @@ try {
     for (const c of cases) {
       println(`== ${c.name}`);
       eprintln(`== ${c.name}`);
+      answers.has_derive_copy = c.features.includes("@has_derive_copy");
+      answers.has_derive_ord = c.features.includes("@has_derive_ord");
       try {
         run_case(c, sess, recorded, mock);
       } catch (e) {
@@ -178,7 +182,7 @@ try {
 
 function run_case(c: Case, sess: Parameters<typeof ExtCtxt.new>[0], recorded: [Symbol, SyntaxExtensionKind][], mock: ResolverExpand): void {
   const features = Features.default();
-  for (const f of c.features) {
+  for (const f of c.features.filter((f) => !f.startsWith("@"))) {
     features.set_enabled_lang_feature({ gate_name: Symbol.intern(f), attr_sp: DUMMY_SP, stable_since: undefined });
   }
   // `ExpansionConfig::default(sym::main, &features)` written out, as in builtins_oracle/run.ts.

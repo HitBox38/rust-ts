@@ -290,8 +290,571 @@ error: this trait cannot be derived for unions
 == ord_enum
 == partial_ord_struct
 == default_struct
-== end
-error: aborting due to 28 previous errors
+== clone_unit
+== clone_tuple
+== clone_generics_bounds
+== clone_enum_data
+== clone_enum_empty
+== clone_union
+== clone_copy_simple
+== clone_copy_simple_enum
+== clone_copy_type_params
+== clone_copy_unit
+== clone_packed
+== clone_const
+== const_param_ty_struct
+== const_param_ty_enum
+== const_param_ty_union
+error: this trait cannot be derived for unions
+ --> <const_param_ty_union>:1:10
+  |
+1 | #[derive(ConstParamTy)] union U { a: u8 }
+  |          ^^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `ConstParamTy` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-Some errors have detailed explanations: E0774, E0777.
-For more information about an error, try `rustc --explain E0774`.
+== debug_unit
+== debug_tuple_one
+== debug_named_two
+== debug_named_five
+== debug_tuple_five
+== debug_named_large
+== debug_tuple_large
+== debug_enum_large
+== debug_fieldless_mixed
+== debug_enum_empty
+== debug_enum_one
+== debug_generics
+== debug_packed
+== debug_union
+error: this trait cannot be derived for unions
+ --> <debug_union>:1:10
+  |
+1 | #[derive(Debug)] union U { a: u8 }
+  |          ^^^^^
+  |
+  = note: this error originates in the derive macro `Debug` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== debug_stmt
+== default_unit
+== default_tuple
+== default_generics
+== default_field_values
+== default_enum
+== default_enum_generics
+== default_enum_none
+error[E0665]: `#[derive(Default)]` on enum with no `#[default]`
+ --> <default_enum_none>:1:10
+  |
+1 | #[derive(Default)] enum E { A, #[non_exhaustive] B, C(u8), D {}, E }
+  |          ^^^^^^^   ------------------------------------------------- this enum needs a unit variant marked with `#[default]`
+  |
+  = note: this error originates in the derive macro `Default` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: make this unit variant default by placing `#[default]` on it
+  |
+1 | #[derive(Default)] enum E { #[default] A, #[non_exhaustive] B, C(u8), D {}, E }
+  |                             ++++++++++
+help: make this unit variant default by placing `#[default]` on it
+  |
+1 | #[derive(Default)] enum E { A, #[non_exhaustive] B, C(u8), D {}, #[default] E }
+  |                                                                  ++++++++++
+
+== default_enum_none_no_unit
+error[E0665]: `#[derive(Default)]` on enum with no `#[default]`
+ --> <default_enum_none_no_unit>:1:10
+  |
+1 | #[derive(Default)] enum E { A(u8), B {} }
+  |          ^^^^^^^   ---------------------- this enum needs a unit variant marked with `#[default]`
+  |
+  = note: this error originates in the derive macro `Default` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== default_enum_empty
+error[E0665]: `#[derive(Default)]` on enum with no `#[default]`
+ --> <default_enum_empty>:1:10
+  |
+1 | #[derive(Default)] enum E {}
+  |          ^^^^^^^   --------- this enum needs a unit variant marked with `#[default]`
+  |
+  = note: this error originates in the derive macro `Default` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== default_enum_multiple
+error: multiple declared defaults
+ --> <default_enum_multiple>:1:10
+  |
+1 | #[derive(Default)] enum E { #[default] A, B, #[default] C, #[default] #[default] D }
+  |          ^^^^^^^                       - first default  - additional default     - additional default
+  |
+  = note: only one variant can be default
+  = note: this error originates in the derive macro `Default` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== default_enum_multiple_two
+error: multiple declared defaults
+ --> <default_enum_multiple_two>:1:10
+  |
+1 | #[derive(Default)] enum E { #[default] A, #[default] B }
+  |          ^^^^^^^                       -             - additional default
+  |                                        |
+  |                                        first default
+  |
+  = note: only one variant can be default
+  = note: this error originates in the derive macro `Default` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== default_enum_tuple
+error: the `#[default]` attribute may only be used on unit enum variants
+ --> <default_enum_tuple>:1:40
+  |
+1 | #[derive(Default)] enum E { #[default] A(u8), B }
+  |                                        ^
+  |
+  = help: consider a manual implementation of `Default`
+
+== default_enum_struct
+error: the `#[default]` attribute may only be used on unit enum variants
+ --> <default_enum_struct>:1:40
+  |
+1 | #[derive(Default)] enum E { #[default] A { x: u8 }, B }
+  |                                        ^
+  |
+  = help: consider a manual implementation of `Default`
+
+== default_enum_struct_fv
+== default_enum_struct_fv_partial
+error: the `#[default]` attribute may only be used on unit enum variants or variants where every field has a default value
+ --> <default_enum_struct_fv_partial>:1:40
+  |
+1 | #[derive(Default)] enum E { #[default] A { x: u8 = 1, y: u16 }, B }
+  |                                        ^
+  |
+  = help: consider a manual implementation of `Default`
+
+== default_enum_struct_fv_empty
+error: the `#[default]` attribute may only be used on unit enum variants or variants where every field has a default value
+ --> <default_enum_struct_fv_empty>:1:40
+  |
+1 | #[derive(Default)] enum E { #[default] A {}, B }
+  |                                        ^
+  |
+  = help: consider a manual implementation of `Default`
+
+== default_enum_non_exhaustive
+error: default variant must be exhaustive
+ --> <default_enum_non_exhaustive>:1:58
+  |
+1 | #[derive(Default)] enum E { #[default] #[non_exhaustive] A, B }
+  |                                        ----------------- ^
+  |                                        |
+  |                                        declared `#[non_exhaustive]` here
+  |
+  = help: consider a manual implementation of `Default`
+
+== default_enum_two_attrs
+error: multiple `#[default]` attributes
+ --> <default_enum_two_attrs>:1:51
+  |
+1 | #[derive(Default)] enum E { #[default] #[default] A, B }
+  |                             ---------- ---------- ^
+  |                             |          |
+  |                             |          `#[default]` used again here
+  |                             `#[default]` used here
+  |
+  = note: only one `#[default]` attribute is needed
+help: try removing this
+ --> <default_enum_two_attrs>:1:40
+  |
+1 | #[derive(Default)] enum E { #[default] #[default] A, B }
+  |                                        ^^^^^^^^^^
+
+== default_enum_three_attrs
+error: multiple `#[default]` attributes
+ --> <default_enum_three_attrs>:1:62
+  |
+1 | #[derive(Default)] enum E { #[default] #[default] #[default] A, B }
+  |                             ---------- ----------            ^
+  |                             |          |
+  |                             |          `#[default]` used again here
+  |                             `#[default]` used here
+  |
+  = note: only one `#[default]` attribute is needed
+help: try removing these
+ --> <default_enum_three_attrs>:1:40
+  |
+1 | #[derive(Default)] enum E { #[default] #[default] #[default] A, B }
+  |                                        ^^^^^^^^^^ ^^^^^^^^^^
+
+== default_enum_arg
+error: `#[default]` attribute does not accept a value
+ --> <default_enum_arg>:1:29
+  |
+1 | #[derive(Default)] enum E { #[default(x)] A, B }
+  |                             ^^^^^^^^^^^^^
+  |
+  = help: try using `#[default]`
+
+== default_enum_name_value
+error: `#[default]` attribute does not accept a value
+ --> <default_enum_name_value>:1:29
+  |
+1 | #[derive(Default)] enum E { #[default = 1] A, B }
+  |                             ^^^^^^^^^^^^^^
+  |
+  = help: try using `#[default]`
+
+== default_attr_on_struct
+error: the `#[default]` attribute may only be used on unit enum variants
+ --> <default_attr_on_struct>:1:20
+  |
+1 | #[derive(Default)] #[default] struct S { #[default] a: u8 }
+  |                    ^^^^^^^^^^
+  |
+  = help: consider a manual implementation of `Default`
+
+error: the `#[default]` attribute may only be used on unit enum variants
+ --> <default_attr_on_struct>:1:42
+  |
+1 | #[derive(Default)] #[default] struct S { #[default] a: u8 }
+  |                                          ^^^^^^^^^^
+  |
+  = help: consider a manual implementation of `Default`
+
+== default_attr_in_variant
+error: the `#[default]` attribute may only be used on unit enum variants or variants where every field has a default value
+ --> <default_attr_in_variant>:1:45
+  |
+1 | #[derive(Default)] enum E { #[default] A, B(#[default] u8), C { #[default] x: u8 } }
+  |                                             ^^^^^^^^^^
+  |
+  = help: consider a manual implementation of `Default`
+
+error: the `#[default]` attribute may only be used on unit enum variants or variants where every field has a default value
+ --> <default_attr_in_variant>:1:65
+  |
+1 | #[derive(Default)] enum E { #[default] A, B(#[default] u8), C { #[default] x: u8 } }
+  |                                                                 ^^^^^^^^^^
+  |
+  = help: consider a manual implementation of `Default`
+
+== from_tuple
+== from_named
+== from_unit
+error: `#[derive(From)]` used on a struct with no fields
+ --> <from_unit>:1:10
+  |
+1 | #[derive(From)] struct S;
+  |          ^^^^          ^
+  |
+  = note: `#[derive(From)]` can only be used on structs with exactly one field
+  = note: this error originates in the derive macro `From` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== from_empty
+error: `#[derive(From)]` used on a struct with no fields
+ --> <from_empty>:1:10
+  |
+1 | #[derive(From)] struct S {}
+  |          ^^^^          ^
+  |
+  = note: `#[derive(From)]` can only be used on structs with exactly one field
+  = note: this error originates in the derive macro `From` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== from_two
+error: `#[derive(From)]` used on a struct with multiple fields
+ --> <from_two>:1:10
+  |
+1 | #[derive(From)] struct S(u8, u16);
+  |          ^^^^          ^
+  |
+  = note: `#[derive(From)]` can only be used on structs with exactly one field
+  = note: this error originates in the derive macro `From` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== from_enum
+error: `#[derive(From)]` used on an enum
+ --> <from_enum>:1:10
+  |
+1 | #[derive(From)] enum E { A(u8) }
+  |          ^^^^        ^
+  |
+  = note: `#[derive(From)]` can only be used on structs with exactly one field
+  = note: this error originates in the derive macro `From` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== from_union
+error: `#[derive(From)]` used on a union
+ --> <from_union>:1:10
+  |
+1 | #[derive(From)] union U { a: u8 }
+  |          ^^^^         ^
+  |
+  = note: `#[derive(From)]` can only be used on structs with exactly one field
+  = note: this error originates in the derive macro `From` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: this trait cannot be derived for unions
+ --> <from_union>:1:10
+  |
+1 | #[derive(From)] union U { a: u8 }
+  |          ^^^^
+  |
+  = note: this error originates in the derive macro `From` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== partial_eq_scalar_order
+== partial_eq_unit
+== partial_eq_tuple
+== partial_eq_generics
+== partial_eq_enum_fieldless
+== partial_eq_enum_one
+== partial_eq_enum_empty
+== partial_eq_union
+error: this trait cannot be derived for unions
+ --> <partial_eq_union>:1:10
+  |
+1 | #[derive(PartialEq)] union U { a: u8 }
+  |          ^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `PartialEq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== partial_eq_const
+== partial_ord_named
+== partial_ord_unit
+== partial_ord_empty_enum
+== partial_ord_one_unit_variant
+== partial_ord_simple
+== partial_ord_simple_enum
+== partial_ord_ord_type_params
+== partial_ord_enum_discr
+== partial_ord_enum_data_few
+== partial_ord_enum_data_spread
+== partial_ord_enum_data_dense
+== partial_ord_enum_one_data
+== partial_ord_generics
+== partial_ord_union
+error: this trait cannot be derived for unions
+ --> <partial_ord_union>:1:10
+  |
+1 | #[derive(PartialOrd)] union U { a: u8 }
+  |          ^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `PartialOrd` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== ord_struct
+== ord_unit
+== ord_tuple_generics
+== ord_enum_discr
+== ord_enum_data_spread
+== ord_enum_empty
+== ord_packed
+== coerce_pointee_simple
+== coerce_pointee_full
+== coerce_pointee_where_sized
+== coerce_pointee_global_sized
+== coerce_pointee_not_maybe_sized
+error[E0802]: `derive(CoercePointee)` requires `T` to be marked `?Sized`
+ --> <coerce_pointee_not_maybe_sized>:3:10
+  |
+3 | struct P<T: Clone + ?Send>(Box<T>);
+  |          ^
+
+== coerce_pointee_enum
+error[E0802]: `CoercePointee` can only be derived on `struct`s with `#[repr(transparent)]`
+ --> <coerce_pointee_enum>:1:10
+  |
+1 | #[derive(CoercePointee)] enum E<T: ?Sized> { A(Box<T>) }
+  |          ^^^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `CoercePointee` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== coerce_pointee_unit
+error[E0802]: `CoercePointee` can only be derived on `struct`s with at least one field
+ --> <coerce_pointee_unit>:1:10
+  |
+1 | #[derive(CoercePointee)] struct P;
+  |          ^^^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `CoercePointee` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== coerce_pointee_empty
+error[E0802]: `CoercePointee` can only be derived on `struct`s with at least one field
+ --> <coerce_pointee_empty>:1:10
+  |
+1 | #[derive(CoercePointee)] struct P<T: ?Sized> {}
+  |          ^^^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `CoercePointee` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== coerce_pointee_no_generic
+error[E0802]: `CoercePointee` can only be derived on `struct`s that are generic over at least one type
+ --> <coerce_pointee_no_generic>:1:10
+  |
+1 | #[derive(CoercePointee)] struct P<'a, const N: usize>(&'a [u8; N]);
+  |          ^^^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `CoercePointee` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== coerce_pointee_no_pointee
+error[E0802]: exactly one generic type parameter must be marked as `#[pointee]` to derive `CoercePointee` traits
+ --> <coerce_pointee_no_pointee>:1:10
+  |
+1 | #[derive(CoercePointee)] struct P<T: ?Sized, U: ?Sized>(Box<T>, Box<U>);
+  |          ^^^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `CoercePointee` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== coerce_pointee_two_pointees
+error[E0802]: only one type parameter can be marked as `#[pointee]` when deriving `CoercePointee` traits
+ --> <coerce_pointee_two_pointees>:1:46
+  |
+1 | #[derive(CoercePointee)] struct P<#[pointee] T: ?Sized, #[pointee] U: ?Sized, #[pointee] V>(Box<T>, Box<U>);
+  |                                              ^                     - here another type parameter is marked as `#[pointee]`
+
+== coerce_pointee_bad_pointee
+error: the `#[pointee]` attribute may only be used on generic parameters
+ --> <coerce_pointee_bad_pointee>:3:1
+  |
+3 | #[pointee]
+  | ^^^^^^^^^^
+
+error: the `#[pointee]` attribute may only be used on generic parameters
+ --> <coerce_pointee_bad_pointee>:4:10
+  |
+4 | struct P<#[pointee] 'a, #[pointee] const N: usize, #[pointee] T: ?Sized = [u8; { struct Q<#[pointee] X>(X); 1 }]> {
+  |          ^^^^^^^^^^
+
+error: the `#[pointee]` attribute may only be used on generic parameters
+ --> <coerce_pointee_bad_pointee>:4:25
+  |
+4 | struct P<#[pointee] 'a, #[pointee] const N: usize, #[pointee] T: ?Sized = [u8; { struct Q<#[pointee] X>(X); 1 }]> {
+  |                         ^^^^^^^^^^
+
+error: the `#[pointee]` attribute may only be used on generic parameters
+ --> <coerce_pointee_bad_pointee>:4:91
+  |
+4 | struct P<#[pointee] 'a, #[pointee] const N: usize, #[pointee] T: ?Sized = [u8; { struct Q<#[pointee] X>(X); 1 }]> {
+  |                                                                                           ^^^^^^^^^^
+
+error: the `#[pointee]` attribute may only be used on generic parameters
+ --> <coerce_pointee_bad_pointee>:5:5
+  |
+5 |     #[pointee] f: &'a T,
+  |     ^^^^^^^^^^
+
+error: the `#[pointee]` attribute may only be used on generic parameters
+ --> <coerce_pointee_bad_pointee>:6:15
+  |
+6 |     g: [u8; { #[pointee] struct R; 0 }],
+  |               ^^^^^^^^^^
+
+== reborrow_struct
+== reborrow_enum
+error[E0802]: `derive(Reborrow)` is only supported for structs, not enums
+ --> <reborrow_enum>:1:10
+  |
+1 | #[derive(Reborrow)] enum E { A }
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Reborrow` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== reborrow_union
+error[E0802]: `derive(Reborrow)` is only supported for structs, not unions
+ --> <reborrow_union>:1:10
+  |
+1 | #[derive(Reborrow)] union U { a: u8 }
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Reborrow` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== reborrow_fn
+error[E0802]: `derive(Reborrow)` is only supported for structs, not items
+ --> <reborrow_fn>:1:10
+  |
+1 | #[derive(Reborrow)] fn f() {}
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Reborrow` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== coerce_shared_ok
+== coerce_shared_enum
+error[E0802]: `derive(CoerceShared)` is only supported for structs, not enums
+ --> <coerce_shared_enum>:1:10
+  |
+1 | #[derive(CoerceShared)] #[coerce_shared(T)] enum E { A }
+  |          ^^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `CoerceShared` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== coerce_shared_missing
+error[E0802]: `derive(CoerceShared)` requires exactly one `#[coerce_shared(Target)]` attribute
+ --> <coerce_shared_missing>:1:10
+  |
+1 | #[derive(CoerceShared)] struct S;
+  |          ^^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `CoerceShared` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== coerce_shared_duplicate
+error[E0802]: duplicate `#[coerce_shared(Target)]` attribute for `derive(CoerceShared)`
+ --> <coerce_shared_duplicate>:1:45
+  |
+1 | #[derive(CoerceShared)] #[coerce_shared(A)] #[coerce_shared(B)] #[coerce_shared(C)] struct S;
+  |                                             ^^^^^^^^^^^^^^^^^^^
+  |
+note: first `#[coerce_shared(Target)]` attribute is here
+ --> <coerce_shared_duplicate>:1:25
+  |
+1 | #[derive(CoerceShared)] #[coerce_shared(A)] #[coerce_shared(B)] #[coerce_shared(C)] struct S;
+  |                         ^^^^^^^^^^^^^^^^^^^
+
+== coerce_shared_word
+error[E0802]: malformed `#[coerce_shared(Target)]` attribute for `derive(CoerceShared)`
+ --> <coerce_shared_word>:1:25
+  |
+1 | #[derive(CoerceShared)] #[coerce_shared] struct S;
+  |                         ^^^^^^^^^^^^^^^^
+  |
+  = note: expected a single target type, for example `#[coerce_shared(Target<'a, T>)]`
+
+== coerce_shared_name_value
+error[E0802]: malformed `#[coerce_shared(Target)]` attribute for `derive(CoerceShared)`
+ --> <coerce_shared_name_value>:1:25
+  |
+1 | #[derive(CoerceShared)] #[coerce_shared = "T"] struct S;
+  |                         ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: expected a single target type, for example `#[coerce_shared(Target<'a, T>)]`
+
+== coerce_shared_brackets
+error[E0802]: malformed `#[coerce_shared(Target)]` attribute for `derive(CoerceShared)`
+ --> <coerce_shared_brackets>:1:25
+  |
+1 | #[derive(CoerceShared)] #[coerce_shared[T]] struct S;
+  |                         ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: expected a single target type, for example `#[coerce_shared(Target<'a, T>)]`
+
+== coerce_shared_empty
+error[E0802]: malformed `#[coerce_shared(Target)]` attribute for `derive(CoerceShared)`
+ --> <coerce_shared_empty>:1:25
+  |
+1 | #[derive(CoerceShared)] #[coerce_shared()] struct S;
+  |                         ^^^^^^^^^^^^^^^^^^
+  |
+  = note: expected a single target type, for example `#[coerce_shared(Target<'a, T>)]`
+
+== coerce_shared_trailing
+error[E0802]: malformed `#[coerce_shared(Target)]` attribute for `derive(CoerceShared)`
+ --> <coerce_shared_trailing>:1:25
+  |
+1 | #[derive(CoerceShared)] #[coerce_shared(A, B)] struct S;
+  |                         ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: expected a single target type, for example `#[coerce_shared(Target<'a, T>)]`
+
+== coerce_shared_bad_ty
+error[E0802]: malformed `#[coerce_shared(Target)]` attribute for `derive(CoerceShared)`
+ --> <coerce_shared_bad_ty>:1:25
+  |
+1 | #[derive(CoerceShared)] #[coerce_shared(+)] struct S;
+  |                         ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: expected a single target type, for example `#[coerce_shared(Target<'a, T>)]`
+
+== end
+error: aborting due to 81 previous errors
+
+Some errors have detailed explanations: E0665, E0774, E0777, E0802.
+For more information about an error, try `rustc --explain E0665`.
