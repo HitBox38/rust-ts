@@ -2,9 +2,6 @@
 // the ported crates. `bun src/rustc_builtin_macros/derive_oracle/run.ts cases.txt`; stdout/stderr are
 // compared case by case with out.stdout/out.stderr by derive.test.ts. A case that reaches an
 // `unported` path prints `UNPORTED: <what>` instead of its result.
-//
-// `builtin` cases for Copy, Hash and Eq use the test fixtures of fixtures.ts (wrapped in the ported
-// `BuiltinDerive`) instead of the registered expanders, whose modules are lane bm-derive-b's stubs.
 import "../lib.ts";
 
 import { readFileSync, writeSync } from "node:fs";
@@ -18,7 +15,6 @@ import {
   type ExpandResult,
   ExtCtxt,
   ModuleData,
-  type MultiItemModifier,
   type ResolverExpand,
   type SyntaxExtensionKind,
 } from "../../rustc_expand/base.ts";
@@ -36,9 +32,7 @@ import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
 import { Limit } from "../../rustc_structures/lib.ts";
 import { format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
 import { panic, Unported, unwrap } from "../../std/panic.ts";
-import { BuiltinDerive, type BuiltinDeriveFn } from "../deriving/mod.ts";
 import { register_builtin_macros } from "../lib.ts";
-import { expand_deriving_copy, expand_deriving_eq, expand_deriving_hash } from "./fixtures.ts";
 
 function out(fd: 1 | 2, s: string): void {
   const buf = Buffer.from(s, "utf8");
@@ -102,13 +96,6 @@ function parse_cases(text: string): Case[] {
     });
 }
 
-/** Test fixtures standing in for lane bm-derive-b's derives (see fixtures.ts). */
-const FIXTURES = new Map<Symbol, BuiltinDeriveFn>([
-  [sym.Copy, expand_deriving_copy],
-  [sym.Hash, expand_deriving_hash],
-  [sym.Eq, expand_deriving_eq],
-]);
-
 function print_result(res: ExpandResult<Annotatable[], Annotatable>): void {
   if (res.$ === "Retry") {
     println(`Retry ${format_debug(res._0, debug_Annotatable, PRETTY)}`);
@@ -147,14 +134,16 @@ try {
     const recorded: [Symbol, SyntaxExtensionKind][] = [];
     register_builtin_macros(resolver({ register_builtin_macro: (name, ext) => void recorded.push([name, ext]) }));
 
+    // `@has_derive_copy` / `@has_derive_ord` in the features column (see probe.rs).
+    const answers = { has_derive_copy: false, has_derive_ord: false };
     const mock = resolver({
       has_derive_copy: () => {
-        println("has_derive_copy -> false");
-        return false;
+        println(`has_derive_copy -> ${answers.has_derive_copy}`);
+        return answers.has_derive_copy;
       },
       has_derive_ord: () => {
-        println("has_derive_ord -> false");
-        return false;
+        println(`has_derive_ord -> ${answers.has_derive_ord}`);
+        return answers.has_derive_ord;
       },
       resolve_derives: (_expn_id, force, derive_paths) => {
         println(`resolve_derives(force = ${force})`);
@@ -175,6 +164,8 @@ try {
     for (const c of cases) {
       println(`== ${c.name}`);
       eprintln(`== ${c.name}`);
+      answers.has_derive_copy = c.features.includes("@has_derive_copy");
+      answers.has_derive_ord = c.features.includes("@has_derive_ord");
       try {
         run_case(c, sess, recorded, mock);
       } catch (e) {
@@ -191,7 +182,7 @@ try {
 
 function run_case(c: Case, sess: Parameters<typeof ExtCtxt.new>[0], recorded: [Symbol, SyntaxExtensionKind][], mock: ResolverExpand): void {
   const features = Features.default();
-  for (const f of c.features) {
+  for (const f of c.features.filter((f) => !f.startsWith("@"))) {
     features.set_enabled_lang_feature({ gate_name: Symbol.intern(f), attr_sp: DUMMY_SP, stable_since: undefined });
   }
   // `ExpansionConfig::default(sym::main, &features)` written out, as in builtins_oracle/run.ts.
@@ -243,8 +234,6 @@ function run_case(c: Case, sess: Parameters<typeof ExtCtxt.new>[0], recorded: [S
     cx.current_expansion.id = LocalExpnId.fresh(expn_data, NoSpanHcx);
     const ext = find(name);
     if (ext.$ !== "LegacyDerive") return panic("LegacyDerive");
-    const fixture = FIXTURES.get(name);
-    const expander: MultiItemModifier = fixture !== undefined ? new BuiltinDerive(fixture) : ext._0;
-    print_result(expander.expand(cx, span, derive_meta, annotatable, is_const));
+    print_result(ext._0.expand(cx, span, derive_meta, annotatable, is_const));
   }
 }
