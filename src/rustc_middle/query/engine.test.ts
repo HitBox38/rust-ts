@@ -212,7 +212,7 @@ test_("feed: create_def / create_crate_num / feed_unit_query fill the caches wit
         item_name: Symbol.as_str(tcx.item_name(feed.def_id())),
         parent: LocalDefId.index(tcx.local_parent(feed.def_id())),
         parent_mod: tcx.parent_module_from_def_id(feed.def_id()),
-        stolen: tcx.crate_for_resolver(null) === steal,
+        stolen: (tcx.crate_for_resolver(null) as unknown) === steal,
         refeed,
       };
     },
