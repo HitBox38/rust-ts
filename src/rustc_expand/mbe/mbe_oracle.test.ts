@@ -72,7 +72,7 @@ const oracle = JSON.parse(readFileSync(join(import.meta.dir, "mbe_oracle", "out.
 // Every pending case reaches a generated diagnostic of compiler/rustc_expand/src/diagnostics.rs (lane
 // expand-core), stubbed in quoted.ts / macro_check.ts / metavar_expr.ts until it lands. Value: the type
 // name; the expected `Unported` is `rustc_expand::diagnostics::<value>`. (All of them were checked
-// against the oracle with a scratch codegen of diagnostics.rs: 118/118 matched; see docs/handoff/mbe-a.md.)
+// against the oracle with a scratch codegen of diagnostics.rs: 145/145 cases matched; see docs/handoff/mbe-a.md.)
 const PENDING_DIAG: Record<string, string> = {
   frag_invalid: "InvalidFragmentSpecifier",
   frag_missing: "MissingFragmentSpecifier",
@@ -102,6 +102,9 @@ const PENDING_DIAG: Record<string, string> = {
   check_nested_rest_after_macro: "UnknownMacroVariable",
   check_mve_occurrence: "MetaVarStillRepeatingLint",
   check_mve_still_repeating: "MetaVarStillRepeatingLint",
+  check_args_dup: "DuplicateMatcherBinding",
+  check_concat_unbound: "UnknownMacroVariable",
+  check_count_in_seq: "MetaVarStillRepeatingLint",
 };
 const PENDING: Record<string, string> = Object.fromEntries(
   Object.entries(PENDING_DIAG).map(([k, v]) => [k, `rustc_expand::diagnostics::${v}`]),
@@ -226,6 +229,7 @@ function run_case(c: Case): { events: string[]; fatal: boolean; stderr: string }
       const trees: TT[] = [...sr._0._0];
       let lhs: TokenTree | undefined;
       let rhs: TokenTree | undefined;
+      let args: TokenTree | undefined;
       for (const op of ops) {
         const i = op.indexOf(":");
         const name = i < 0 ? op : op.slice(0, i);
@@ -233,18 +237,20 @@ function run_case(c: Case): { events: string[]; fatal: boolean; stderr: string }
         const idx = (): number => Number(arg);
         switch (name) {
           case "lhs":
-          case "rhs": {
-            const part = name === "lhs" ? RulePart.Pattern : RulePart.Body;
+          case "rhs":
+          case "args": {
+            const part = name === "rhs" ? RulePart.Body : RulePart.Pattern;
             const tt = parse_one_tt(trees[idx()]!, part, sess, CRATE_NODE_ID, features, edition);
             ev.push(`${op} => ${debug_TokenTree(tt, PLAIN)}`);
             if (name === "lhs") lhs = tt;
-            else rhs = tt;
+            else if (name === "rhs") rhs = tt;
+            else args = tt;
             break;
           }
           case "check":
           case "checkd": {
             const node_id = name === "check" ? CRATE_NODE_ID : DUMMY_NODE_ID;
-            const r = check_meta_variables(psess, node_id, undefined, lhs!, rhs!);
+            const r = check_meta_variables(psess, node_id, args, lhs!, rhs!);
             ev.push(`${op} => ${debug_result(r, PLAIN, () => "()", debug_ErrorGuaranteed)}`);
             break;
           }
