@@ -60,21 +60,6 @@ const oracle = JSON.parse(readFileSync(join(import.meta.dir, "attr_oracle", "out
 const D = "rustc_attr_parsing::diagnostics";
 /** case -> the `Unported` it must reach until the owning lane (attr-parse-b) lands. */
 const PENDING: Record<string, string> = {
-  args_bad_delim: `${D}::MetaBadDelim`,
-  args_bad_delim_nothing: `${D}::MetaBadDelim`,
-  args_suffixed_list: `${D}::SuffixedLiteralInAttribute`,
-  args_suffixed_list_forbid: `${D}::SuffixedLiteralInAttribute`,
-  args_suffixed_nv: `${D}::SuffixedLiteralInAttribute`,
-  args_missing_comma: `${D}::ExpectedComma`,
-  args_missing_comma_many: `${D}::ExpectedComma`,
-  args_neg_literal: `${D}::InvalidMetaItem`,
-  args_quote_ident: `${D}::InvalidMetaItem`,
-  args_macro_call: `${D}::InvalidMetaItem`,
-  args_eq_alone: `${D}::InvalidMetaItem`,
-  args_diagnostic_namespace: `${D}::InvalidMetaItem`,
-  single_error: `${D}::InvalidMetaItem`,
-  meta_bad_delim: `${D}::MetaBadDelim`,
-  builtin_unsafe: `${D}::InvalidAttrUnsafe`,
   // `check_attr` on a builtin attribute asks `AttributeParser::is_parsed_attribute`, which builds
   // `ATTRIBUTE_PARSERS` from the attribute parsers (stubs until attr-parse-b).
   check_builtin: "rustc_attr_parsing::attributes::Combine",

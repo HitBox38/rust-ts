@@ -193,6 +193,8 @@ export interface TypeMapEntry {
   default?: string | null;
   /** names `default` uses, imported from `import` */
   default_values?: string[];
+  /** type arguments of a type written without them (defaulted generic params, `DiagSymbolList` = `DiagSymbolList<Symbol>`) */
+  default_args?: PType[];
   note?: string;
 }
 export interface TypeMap {
@@ -273,6 +275,8 @@ export interface DiagArgEntry {
   into_diag_arg?: string;
   /** Display expression template (`$v` = value) */
   display?: string;
+  /** type arguments used when the type is written without them (`DiagSymbolList` = `DiagSymbolList<Symbol>`); see `$display0` */
+  default_args?: PType[];
   /** repo-relative module -> names used by the two expressions */
   imports?: Record<string, string[]>;
   note?: string;
@@ -825,9 +829,22 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       addStub(r.mf.hand, "*", `export * from "./${r.mf.gen.split("/").pop()}";`);
       return `src:${r.mf.hand}`;
     };
+    /**
+     * Items of inline modules (`mod unexpected_cfg_name { .. }` inside the file) are emitted inside
+     * `export namespace <mod> { .. }` (nested for nested modules). `curRel` is the inline-module path of the
+     * item being emitted; `localName` qualifies a name of this file's item `r` as seen from there.
+     */
+    let curRel: string[] = [];
+    const relMod = (r: ItemRef): string[] => r.mod.slice(mf.mod.length);
+    const localName = (r: ItemRef, name: string): string => {
+      const rel = relMod(r);
+      let i = 0;
+      while (i < rel.length && i < curRel.length && rel[i] === curRel[i]) i++;
+      return [...rel.slice(i), name].join(".");
+    };
     /** The TS name of a generated item as seen from this file (imports it if needed). */
     const refName = (r: ItemRef): string => {
-      if (r.mf === mf && r.mod.length === mf.mod.length) return r.item.name;
+      if (r.mf === mf) return localName(r, r.item.name);
       let alias = r.item.name;
       const taken = aliasOwner.get(alias);
       if (local.has(alias) || (taken !== undefined && taken !== r.key)) alias = `${r.mod[r.mod.length - 1]}_${r.item.name}`;
@@ -839,9 +856,9 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     const debugName = (r: ItemRef, at: string): string => {
       const tname = refName(r);
       const name = `debug_${r.item.name}`;
-      const alias = `debug_${tname}`;
+      const alias = deriveDebug.has(r.key) && r.mf === mf ? localName(r, name) : `debug_${tname}`;
       if (deriveDebug.has(r.key)) {
-        if (!(r.mf === mf && r.mod.length === mf.mod.length)) imp(viaHand(r), "values", name, alias);
+        if (r.mf !== mf) imp(viaHand(r), "values", name, alias);
       } else if (manualDebug.has(r.key)) {
         imp(`src:${r.mf.hand}`, "values", name, alias);
         addStub(r.mf.hand, name, `export declare function ${name}(v: any, f: Fmt, ...d: Debug<any>[]): string;`);
@@ -922,7 +939,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           const needed = new Set(e.ts.match(/\$\d/g) ?? []);
           for (const n of needed) {
             const i = Number(n.slice(1));
-            const a = args[i];
+            const a = args[i] ?? e.default_args?.[i];
             if (!a) {
               report.errors.push(`${at}: ${r.display} needs type arg ${i}`);
               return `unknown /* ${ty.text} */`;
@@ -1054,9 +1071,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     const cloneName = (r: ItemRef, at: string): string => {
       const tname = refName(r);
       const name = `clone_${r.item.name}`;
-      const alias = `clone_${tname}`;
-      if (deriveClone.has(r.key) && !matches(set.hand, r)) {
-        if (!(r.mf === mf && r.mod.length === mf.mod.length)) imp(viaHand(r), "values", name, alias);
+      const local = deriveClone.has(r.key) && !matches(set.hand, r);
+      const alias = local && r.mf === mf ? localName(r, name) : `clone_${tname}`;
+      if (local) {
+        if (r.mf !== mf) imp(viaHand(r), "values", name, alias);
       } else {
         // hand types provide `clone_<T>` in their hand module (see the derive(Clone) note)
         if (!manualClone.has(r.key) && !matches(set.hand, r)) push(report.missing_clone, r.key, at);
@@ -1196,8 +1214,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             if (r.ref.item.kind === "type") return defExpr(r.ref.item.ty!, aliasScope(r.ref, args, sc), at);
             if (!hasDerive(r.ref, "Default") || tsParams(r.ref.item).length) break;
             const n = `default_${r.ref.item.name}`;
-            const alias = `default_${refName(r.ref)}`;
-            if (!(r.ref.mf === mf && r.ref.mod.length === mf.mod.length)) imp(viaHand(r.ref), "values", n, alias);
+            const alias = r.ref.mf === mf ? localName(r.ref, n) : `default_${refName(r.ref)}`;
+            if (r.ref.mf !== mf) imp(viaHand(r.ref), "values", n, alias);
             return `${alias}()`;
           }
           const e = tmLookup(r.keys);
@@ -1695,8 +1713,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             if (r.ref.item.kind === "type") return paFn(r.ref.item.ty!, aliasScope(r.ref, args, sc), at);
             if (!hasDerive(r.ref, "PrintAttribute")) break;
             const n = `print_attribute_${r.ref.item.name}`;
-            const alias = `print_attribute_${refName(r.ref)}`;
-            if (!(r.ref.mf === mf && r.ref.mod.length === mf.mod.length)) imp(viaHand(r.ref), "values", n, alias);
+            const alias = r.ref.mf === mf ? localName(r.ref, n) : `print_attribute_${refName(r.ref)}`;
+            if (r.ref.mf !== mf) imp(viaHand(r.ref), "values", n, alias);
             return alias;
           }
           const e = r.keys.map((k) => paIndex.get(k)).find((x) => x !== undefined);
@@ -1834,7 +1852,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           const ref = r.ref;
           owner = () => {
             const a = refName(ref);
-            if (!(ref.mf === mf && ref.mod.length === mf.mod.length)) imp(viaHand(ref), "values", ref.item.name, a);
+            if (ref.mf !== mf) imp(viaHand(ref), "values", ref.item.name, a);
             return a;
           };
         } else if (r.k === "ext") {
@@ -1935,8 +1953,18 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       for (const k of r.keys) {
         const e = daIndex.get(k);
         if (!e || e[which] === undefined) continue;
+        let expr = e[which]!;
+        if (expr.includes("$display0")) {
+          // generic impls over `S: Display` (`DiagSymbolList<S>`): `$display0` = the first type argument's Display
+          // as a function (`default_args` when the argument is omitted).
+          const a0 = t.path!.segments.at(-1)!.args.find((a) => a.kind === "type")?.ty ?? e.default_args?.[0];
+          const d = a0 === undefined ? undefined : diagArgOf(a0, sc, at, "display");
+          if (d === undefined) return undefined;
+          const m = /^([\w.]+)\(\$v\)$/.exec(d);
+          expr = expr.replaceAll("$display0", m ? m[1]! : `(x) => ${d.replaceAll("$v", "x")}`);
+        }
         for (const [m, names] of Object.entries(e.imports ?? {})) for (const n of names) imp(`src:${m.replace(/^src\//, "")}`, "values", n, n);
-        return e[which];
+        return expr;
       }
       return undefined;
     };
@@ -1965,7 +1993,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           const n = r.ref.item.name;
           const names = { add_to_diag: `${n}_add_to_diag`, subdiagnostic: `${n}_subdiagnostic` };
           if (hasDerive(r.ref, "Subdiagnostic")) {
-            if (!(r.ref.mf === mf && r.ref.mod.length === mf.mod.length)) for (const v of Object.values(names)) imp(viaHand(r.ref), "values", v, v);
+            if (r.ref.mf === mf) return { add_to_diag: localName(r.ref, names.add_to_diag), subdiagnostic: localName(r.ref, names.subdiagnostic) };
+            for (const v of Object.values(names)) imp(viaHand(r.ref), "values", v, v);
             return names;
           }
           if (manualDiagTrait.get("Subdiagnostic")?.has(r.ref.key)) {
@@ -2016,9 +2045,15 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         report.notes.push(`${r.key}: skipped by config`);
         continue;
       }
-      if (r.mod.length !== mf.mod.length) {
-        report.notes.push(`${r.key}: inside inline module ${r.mod.join("::")}; emitted into ${mf.gen} (flattened)`);
+      const rel = relMod(r);
+      if (rel.join("::") !== curRel.join("::")) {
+        let i = 0;
+        while (i < rel.length && i < curRel.length && rel[i] === curRel[i]) i++;
+        for (let k = curRel.length; k > i; k--) body.push("}");
+        for (const m of rel.slice(i)) body.push("", `export namespace ${m} {`);
+        curRel = rel;
       }
+      if (rel.length) report.notes.push(`${r.key}: inside inline module ${r.mod.join("::")}; emitted into ${mf.gen} as namespace ${rel.join(".")}`);
       const sc = itemScope(r);
       const name = it.name;
       const gdecl = genericDecl(it, sc);
@@ -2327,6 +2362,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       emitDiag(r, sc, selfType, "data");
       emitPrint(r, sc, selfType);
     }
+    for (; curRel.length; curRel = curRel.slice(0, -1)) body.push("}");
     if (walk) body.push("", ...walkBody(walk));
     if (sh) body.push(...shBody());
     body.push(...trailer);
