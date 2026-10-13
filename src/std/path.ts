@@ -471,7 +471,8 @@ export function path_eq(a: string, b: string): boolean {
   return path_components(a).eq(path_components(b));
 }
 
-/** `Path::parent` (library/std/src/path.rs:2636) */
+/** `Path::parent` */
+// std: library/std/src/path.rs:2636 parent
 export function path_parent(self_: string): string | undefined {
   const comps = path_components(self_);
   const comp = comps.next_back();
@@ -486,7 +487,8 @@ export function path_parent(self_: string): string | undefined {
   }
 }
 
-/** `Path::file_name` (library/std/src/path.rs:2703) */
+/** `Path::file_name` */
+// std: library/std/src/path.rs:2703 file_name
 export function path_file_name(self_: string): string | undefined {
   const p = path_components(self_).next_back();
   return p !== undefined && p.$ === "Normal" ? p._0 : undefined;
