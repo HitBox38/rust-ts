@@ -160,6 +160,38 @@ function load(file: string): { path: string; toks: Tok[] } {
   return { path, toks: lex(Str.of_bytes(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength))) };
 }
 
+/// sha1 of the token texts (joined by one space, comments dropped) of the `macro_rules!` bodies whose
+/// expansion this generator writes out itself, including the `incomplete`/`internal` fallback text of
+/// unstable.rs's `declare_features` (review w456b F1). A mismatch means upstream changed the macro:
+/// re-read it and update the generator, then the fingerprint.
+const MACRO_FINGERPRINTS: [file: string, name: string, sha1: string][] = [
+  ["accepted.rs", "declare_features", "ff48c70ee0547c86a9cd25284573c36788e0c8c9"],
+  ["removed.rs", "opt_nonzero_u32", "f4abe38a981c32fea2b885cc56e45d6656c6e2a4"],
+  ["removed.rs", "declare_features", "11ec6a4f6c710ef5c27861fac68bb1e9ce2b25b9"],
+  ["unstable.rs", "status_to_enum", "52d9fb74d3f8963abaeacee06dba2dda28cc1989"],
+  ["unstable.rs", "declare_features", "0cbd71e986b61bcf3e04f1f78ec4d7791f6592a3"],
+];
+
+function macroFingerprint(path: string, toks: Tok[], name: string): string {
+  const at = toks.findIndex((t, i) => t.text === "macro_rules" && toks[i + 1]?.text === "!" && toks[i + 2]?.text === name);
+  if (at < 0) fail(path, undefined, `no macro_rules! ${name}`);
+  const open = at + 3;
+  if (toks[open]?.kind.$ !== "OpenBrace") fail(path, toks[open], `macro_rules! ${name}: expected \`{\``);
+  const close = group(path, toks, open);
+  const texts = toks.slice(open + 1, close).filter((t) => !isComment(t)).map((t) => t.text);
+  return new Bun.CryptoHasher("sha1").update(texts.join(" ")).digest("hex");
+}
+
+function checkMacroFingerprints(): void {
+  for (const [file, name, want] of MACRO_FINGERPRINTS) {
+    const { path, toks } = load(file);
+    const got = macroFingerprint(path, toks, name);
+    if (got !== want) {
+      fail(path, undefined, `macro_rules! ${name} changed upstream (fingerprint ${got}, expected ${want}); re-read it and update tools/codegen/features.ts`);
+    }
+  }
+}
+
 /** `Option<_>` expression: `None` or `Some(<lit>)`. */
 function optionExpr<T>(p: Parser, value: (t: Tok) => T): T | undefined {
   const t = p.ident();
@@ -458,6 +490,7 @@ function genBuiltinAttrs(): string {
 
 /** Output path (relative to the repo) -> text. Throws `GenError` on malformed input. */
 export function generate(): Map<string, string> {
+  checkMacroFingerprints();
   return new Map([
     [`${OUT}/accepted.gen.ts`, genAccepted()],
     [`${OUT}/removed.gen.ts`, genRemoved()],
