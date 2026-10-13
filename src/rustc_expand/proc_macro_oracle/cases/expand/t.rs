@@ -1,0 +1,14 @@
+pm_probe::expand!(1);
+pm_probe::expand!(-1);
+pm_probe::expand!(-1.5f32);
+pm_probe::expand!(true);
+pm_probe::expand!("s");
+pm_probe::expand!(b"x");
+pm_probe::expand!(1 + 2);
+pm_probe::expand!(-"a");
+pm_probe::expand!(- x);
+pm_probe::expand!(c"x");
+pm_probe::expand!((1));
+pm_probe::expand!(x);
+pm_probe::expand!('c');
+pm_probe::expand!(-1u8);
