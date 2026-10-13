@@ -159,5 +159,30 @@
     "hand": [],
     "discriminant": [],
     "skip": []
+  },
+  "rustc_attr_ir": {
+    "files": [
+      "compiler/rustc_attr_ir/src/lib.rs",
+      "compiler/rustc_attr_ir/src/attr.rs",
+      "compiler/rustc_attr_ir/src/canonical_symbols.rs",
+      "compiler/rustc_attr_ir/src/data_structures.rs",
+      "compiler/rustc_attr_ir/src/diagnostic.rs",
+      "compiler/rustc_attr_ir/src/diagnostic_items.rs",
+      "compiler/rustc_attr_ir/src/encode_cross_crate.rs",
+      "compiler/rustc_attr_ir/src/lang_items.rs",
+      "compiler/rustc_attr_ir/src/pretty_printing.rs",
+      "compiler/rustc_attr_ir/src/stability.rs",
+      "compiler/rustc_attr_ir/src/target.rs",
+      "compiler/rustc_attr_ir/src/weak_lang_items.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [
+      "rustc_attr_ir::lang_items::LangItem"
+    ],
+    "skip": [],
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_default": true
   }
 }
