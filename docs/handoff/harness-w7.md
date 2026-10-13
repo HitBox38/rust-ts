@@ -103,8 +103,8 @@ Branch `lane/harness-w7`, based on main 5659298. No porting; no `src/`, `tools/`
 - **`parse` oracle timeout raised to 300 s, oracle side only** (decision below).
   - Measured: `rustc -Zunpretty=ast-tree` on `try-trait/deep-try-chain-issue-153583.rs` needs **203 s CPU** (1288 s wall at load ~100). 60 s can never finish it.
   - A success is cached, so the cost is paid once per oracle build.
-  - That case then becomes a subject TIMEOUT (fmt-perf's lane), not a DIFF.
-  - A run warming that cache entry was in flight at handoff time (`hw7-deep-try`).
+  - Verified: `difftest --suite parse --filter deep-try-chain` (run `hw7-deep-try`) gives **MATCH 1/1**. The subject finished within its own 60 s.
+  - That oracle output is now in the shared cache, so the gate can protect this case.
   - Subject timeouts are unchanged (`timeoutMs`).
 
 ## 3. J1 (harness-w6-2)
