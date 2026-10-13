@@ -16,8 +16,8 @@
 //
 //   bun tools/codegen/lints.ts           write the file
 //   bun tools/codegen/lints.ts --check   ERROR if the committed file is stale
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { FrontmatterAllowed, tokenize, type Token } from "../../src/rustc_lexer/lib.ts";
 import { unescape_str } from "../../src/vendor/rustc_literal_escaper/lib.ts";
 import { Str, utf8_len } from "../../src/std/str.ts";
@@ -159,12 +159,12 @@ class Cursor {
   closing(open: Tok): number {
     const pairs: Record<string, string> = { "(": ")", "[": "]", "{": "}" };
     const close = pairs[open.text];
-    if (close === undefined) fail(this.path, open, `expected a delimiter, found \`${open.text}\``);
+    if (close === undefined || !Object.hasOwn(pairs, open.text)) fail(this.path, open, `expected a delimiter, found \`${open.text}\``);
     let depth = 1;
     for (let j = this.i; j < this.end; j++) {
       const t = this.toks[j]!;
       if (isComment(t)) continue;
-      if (t.text in pairs) depth++;
+      if (Object.hasOwn(pairs, t.text)) depth++;
       else if (t.text === ")" || t.text === "]" || t.text === "}") {
         if (--depth === 0) {
           if (t.text !== close) fail(this.path, t, `mismatched delimiter \`${t.text}\``);
@@ -386,13 +386,17 @@ export interface LintDecl {
   fields: Map<string, string>;
 }
 
-function parseDeclareLint(path: string, c: Cursor, ctx: Ctx, lintFields: string[], fiiFields: Map<string, Tok[]>): LintDecl {
+/** `$vis:vis`: empty, `pub` or `pub(..)` (all statics are exported in TS). */
+function parseVis(c: Cursor, comments: string[]): void {
+  if (c.eat("pub", comments) && c.peek(comments)?.text === "(") c.group(c.next());
+}
+
+/** `$(#[$attr:meta])*`: doc lines (`///..`) and other attributes (`// #[..]`), in order. */
+function parseOuterAttrs(path: string, c: Cursor, comments: string[], what: string): string[] {
   const docs: string[] = [];
-  const comments: string[] = [];
-  // $(#[$attr:meta])*
   for (;;) {
     const t = c.peek(comments);
-    if (t === undefined) fail(path, undefined, "empty declare_lint!");
+    if (t === undefined) fail(path, undefined, `empty ${what}`);
     if (t.doc !== undefined) {
       docs.push(`///${t.doc}`);
       c.i++;
@@ -404,14 +408,21 @@ function parseDeclareLint(path: string, c: Cursor, ctx: Ctx, lintFields: string[
       const g = c.group(open);
       const inner = g.toks.slice(g.i, g.end).filter((x) => !isComment(x));
       const first = inner[0]?.text;
-      if (first === "cfg" || first === "cfg_attr") fail(path, t, "#[cfg] on a declare_lint! is not supported");
+      if (first === "cfg" || first === "cfg_attr") fail(path, t, `#[cfg] on a ${what} is not supported`);
       docs.push(`// #[${rawText(inner)}]`);
       continue;
     }
     break;
   }
+  return docs;
+}
+
+function parseDeclareLint(path: string, c: Cursor, ctx: Ctx, lintFields: string[], fiiFields: Map<string, Tok[]>): LintDecl {
+  const comments: string[] = [];
+  // $(#[$attr:meta])*
+  const docs = parseOuterAttrs(path, c, comments, "declare_lint!");
   // $vis
-  c.expect("pub", comments);
+  parseVis(c, comments);
   const nameTok = c.ident(comments);
   const name = nameTok.text;
   const fields = new Map<string, string>();
@@ -545,7 +556,14 @@ export interface Generated {
   hardwired: string[];
 }
 
-export function generate(libSrc: string, builtinSrc: string, editionSrc: string): Generated {
+interface Setup {
+  ctx: Ctx;
+  lintFields: string[];
+  fiiFields: Map<string, Tok[]>;
+}
+
+/** Reads lib.rs (macro fingerprints, `Lint`/`FutureIncompatibleInfo` fields and defaults) and edition.rs. */
+function setup(libSrc: string, editionSrc: string): Setup {
   const libToks = lex(libSrc);
   for (const [name, want] of Object.entries(MACRO_FINGERPRINTS)) {
     const got = macroFingerprint(LIB_PATH, libToks, name);
@@ -565,6 +583,11 @@ export function generate(libSrc: string, builtinSrc: string, editionSrc: string)
   // FutureIncompatibleInfo fields in declaration order
   const fiiFields = new Map(fiiFieldNames.map((f) => [f, fiiDef.get(f)!]));
   fii_defaults = new Map(fiiFieldNames.map((f) => [f, constExpr(LIB_PATH, fiiDef.get(f)!, ctx)]));
+  return { ctx, lintFields, fiiFields };
+}
+
+export function generate(libSrc: string, builtinSrc: string, editionSrc: string): Generated {
+  const { ctx, lintFields, fiiFields } = setup(libSrc, editionSrc);
 
   const toks = lex(builtinSrc);
   const top = new Cursor(SRC_PATH, toks);
@@ -692,28 +715,304 @@ export function generate(libSrc: string, builtinSrc: string, editionSrc: string)
   return { text: L.join("\n") + "\n", lints, hardwired };
 }
 
+// ---- rustc_lint modules ---------------------------------------------------------------------
+//
+// Every `compiler/rustc_lint/src/**.rs` with lint macro invocations gets `src/rustc_lint/<path>.lints.gen.ts`
+// (re-exported by the hand module `src/rustc_lint/<path>.ts`): `declare_lint!` and `declare_tool_lint!` statics,
+// `declare_lint_pass!` unit-struct classes (as for builtin.rs) and, for `impl_lint_pass!($ty => [..])` on a
+// hand-written struct, `<ty>_impl_lint_pass` = the expansion's `LintPass` impl (`name`, `get_lints`) plus the
+// inherent `lint_vec`. Invocations are found anywhere outside `macro_rules!` bodies, in source order.
+
+export const RUSTC_LINT_SRC = "compiler/rustc_lint/src";
+export const RUSTC_LINT_OUT = "src/rustc_lint";
+
+/// sha1 (as MACRO_FINGERPRINTS) of `macro_rules! declare_tool_lint` (lib.rs), expanded by parseDeclareToolLint.
+const TOOL_LINT_FINGERPRINT = "d2da9e620511f9c29d0e73036c98856f180791ac";
+
+/** `declare_tool_lint!` per the three arms of `macro_rules! declare_tool_lint` (lib.rs). */
+function parseDeclareToolLint(path: string, c: Cursor, ctx: Ctx, lintFields: string[]): LintDecl {
+  const comments: string[] = [];
+  // $(#[$attr:meta])* $vis:vis $tool:ident ::$NAME:ident, $Level:ident, $desc:expr
+  const docs = parseOuterAttrs(path, c, comments, "declare_tool_lint!");
+  parseVis(c, comments);
+  const tool = c.ident(comments);
+  c.expect(":");
+  c.expect(":");
+  const nameTok = c.ident(comments);
+  const name = nameTok.text;
+  c.expect(",", comments);
+  const level = c.ident(comments);
+  if (!ctx.levels.includes(level.text)) fail(path, level, `unknown lint level \`${level.text}\``);
+  c.expect(",", comments);
+  const descToks = c.exprUntilComma();
+  if (descToks.length !== 1) fail(path, descToks[0] ?? nameTok, "only a string literal `$desc` is supported");
+  const desc = strValue(path, descToks[0]!);
+  // arm 1: `$desc $(, @..)?` -> `$external = false`; arm 2: `$desc, report_in_external_macro: $rep`;
+  // arm 3: `$desc, $external:expr`.
+  let external = "false";
+  let at = c.peek(comments);
+  if (at !== undefined && c.toks[c.i + 1]?.text !== "@") {
+    c.expect(",", comments);
+    if (c.peek(comments)?.text === "report_in_external_macro" && c.toks[c.i + 1]?.text === ":") {
+      c.expect("report_in_external_macro");
+      c.expect(":");
+    }
+    const e = c.next(comments);
+    if (e.text !== "true" && e.text !== "false") fail(path, e, "declare_tool_lint!: only a bool literal `$external` is supported");
+    external = e.text;
+    at = c.peek(comments);
+  }
+  let eval_always: string | undefined;
+  let feature_gate: string | undefined;
+  // $(, @eval_always = $eval_always:literal)?
+  if (at?.text === "," && c.toks[c.i + 1]?.text === "@" && c.toks[c.i + 2]?.text === "eval_always") {
+    c.expect(",");
+    c.expect("@");
+    c.expect("eval_always");
+    c.expect("=");
+    const lit = c.next();
+    if (lit.text !== "true" && lit.text !== "false") fail(path, lit, "@eval_always must be a bool literal");
+    eval_always = lit.text;
+    at = c.peek(comments);
+  }
+  // $(, @feature_gate = $gate:ident;)?
+  if (at?.text === "," && c.toks[c.i + 1]?.text === "@" && c.toks[c.i + 2]?.text === "feature_gate") {
+    c.expect(",");
+    c.expect("@");
+    c.expect("feature_gate");
+    c.expect("=");
+    feature_gate = `sym.${c.ident().text}`;
+    c.expect(";");
+  }
+  if (!c.atEnd(comments)) fail(path, c.peek(), `declare_tool_lint!: unexpected \`${c.peek()!.text}\``);
+  const fields = new Map<string, string>();
+  const set = (f: string, v: string): void => {
+    if (!lintFields.includes(f)) fail(path, nameTok, `Lint has no field \`${f}\``);
+    fields.set(f, v);
+  };
+  // name: &concat!(stringify!($tool), "::", stringify!($NAME)), default_level: $crate::$Level, desc: $desc,
+  // edition_lint_opts: None, report_in_external_macro: $external, future_incompatible: None,
+  // is_externally_loaded: true, $(feature_gate: Some(rustc_span::sym::$gate),)? crate_level_only: false,
+  // $(eval_always: $eval_always,)? ..$crate::Lint::default_fields_for_macro()
+  set("name", JSON.stringify(`${tool.text}::${name}`));
+  set("default_level", JSON.stringify(level.text));
+  set("desc", JSON.stringify(desc));
+  set("edition_lint_opts", "undefined");
+  set("report_in_external_macro", external);
+  set("future_incompatible", "undefined");
+  set("is_externally_loaded", "true");
+  if (feature_gate !== undefined) set("feature_gate", feature_gate);
+  set("crate_level_only", "false");
+  if (eval_always !== undefined) set("eval_always", eval_always);
+  return { line: nameTok.line, name, docs, comments, fields };
+}
+
+export interface PassDecl {
+  line: number;
+  /** `declare_lint_pass!` (a generated unit struct) or `impl_lint_pass!` (on a hand-written type). */
+  kind: "declare" | "impl";
+  name: string;
+  docs: string[];
+  lints: string[];
+}
+
+/** `declare_lint_pass!($(#[$m:meta])* $name:ident => [$($lint:expr),* $(,)?])` / `impl_lint_pass!($ty:ty => [..])`. */
+function parseLintPass(path: string, kind: PassDecl["kind"], line: number, g: Cursor): PassDecl {
+  const comments: string[] = [];
+  const docs = kind === "declare" ? parseOuterAttrs(path, g, comments, "declare_lint_pass!") : [];
+  const name = g.ident(comments);
+  if (g.peek()?.text !== "=") fail(path, g.peek(), `${kind}_lint_pass!: only a plain type name is supported`);
+  g.expect("=");
+  g.expect(">");
+  const list = g.group(g.expect("["));
+  if (!g.atEnd(comments)) fail(path, g.peek(), `unexpected tokens in ${kind}_lint_pass!`);
+  const lints: string[] = [];
+  while (!list.atEnd(comments)) {
+    lints.push(list.ident(comments).text);
+    if (!list.atEnd(comments)) list.expect(",", comments);
+  }
+  return { line, kind, name: name.text, docs, lints };
+}
+
+export interface ModuleGenerated {
+  /** Upstream path (`compiler/rustc_lint/src/...`). */
+  path: string;
+  /** Repo-relative output path. */
+  out: string;
+  text: string;
+  lints: LintDecl[];
+  passes: PassDecl[];
+}
+
+const LINT_MACROS = new Set(["declare_lint", "declare_tool_lint", "declare_lint_pass", "impl_lint_pass"]);
+
+/** One rustc_lint module; `undefined` if it has no lint macro invocation. */
+export function generateModule(libSrc: string, editionSrc: string, path: string, src: string, externLints: ReadonlySet<string>): ModuleGenerated | undefined {
+  const { ctx, lintFields, fiiFields } = setup(libSrc, editionSrc);
+  const got = macroFingerprint(LIB_PATH, lex(libSrc), "declare_tool_lint");
+  if (got !== TOOL_LINT_FINGERPRINT) {
+    fail(LIB_PATH, undefined, `macro_rules! declare_tool_lint changed upstream (fingerprint ${got}, expected ${TOOL_LINT_FINGERPRINT}); re-read it and update tools/codegen/lints.ts`);
+  }
+  const toks = lex(src);
+  const items: ({ k: "lint"; l: LintDecl } | { k: "pass"; p: PassDecl })[] = [];
+  const top = new Cursor(path, toks);
+  while (!top.atEnd()) {
+    const t = top.next();
+    if (t.kind.$ !== "Ident" || top.peek()?.text !== "!") continue;
+    if (t.text === "macro_rules") {
+      top.expect("!");
+      top.ident();
+      top.group(top.next());
+      continue;
+    }
+    if (!LINT_MACROS.has(t.text)) continue;
+    top.expect("!");
+    const g = top.group(top.next());
+    switch (t.text) {
+      case "declare_lint":
+        items.push({ k: "lint", l: parseDeclareLint(path, g, ctx, lintFields, fiiFields) });
+        break;
+      case "declare_tool_lint":
+        items.push({ k: "lint", l: parseDeclareToolLint(path, g, ctx, lintFields) });
+        break;
+      case "declare_lint_pass":
+        items.push({ k: "pass", p: parseLintPass(path, "declare", t.line, g) });
+        break;
+      case "impl_lint_pass":
+        items.push({ k: "pass", p: parseLintPass(path, "impl", t.line, g) });
+        break;
+    }
+  }
+  if (items.length === 0) return undefined;
+  const lints = items.flatMap((x) => (x.k === "lint" ? [x.l] : []));
+  const passes = items.flatMap((x) => (x.k === "pass" ? [x.p] : []));
+  const declared = new Set(lints.map((l) => l.name));
+  if (declared.size !== lints.length) fail(path, undefined, "a lint is declared twice");
+
+  const rel = path.slice(RUSTC_LINT_SRC.length + 1).replace(/\.rs$/, "");
+  const out = `${RUSTC_LINT_OUT}/${rel}.lints.gen.ts`;
+  const up = "../".repeat(rel.split("/").length);
+  const L: string[] = [];
+  L.push(`// GENERATED by tools/codegen/lints.ts from ${path} @ ${PIN.commit.slice(0, 12)}. Do not edit.`);
+  L.push(`// \`declare_lint!\` / \`declare_tool_lint!\` (${LIB_PATH}) expanded field by field (struct order); \`declare_lint_pass!\``);
+  L.push(`// unit structs; \`impl_lint_pass!\` impls as \`<Ty>_impl_lint_pass\`. Hand module: ${rel.split("/").pop()}.ts.`);
+  const typeImports = ["Lint"];
+  if (lints.some((l) => l.fields.has("future_incompatible") && l.fields.get("future_incompatible") !== "undefined")) typeImports.unshift("FutureIncompatibleInfo");
+  if (passes.some((p) => p.kind === "declare")) typeImports.push("LintPass");
+  if (passes.length) typeImports.push("LintVec");
+  L.push(`import type { ${typeImports.join(", ")} } from "${up}rustc_lint_defs/lib.ts";`);
+  if (lints.some((l) => l.fields.has("feature_gate"))) L.push(`import { sym } from "${up}rustc_span/symbol.ts";`);
+  // Lints of `declare_lint_pass!`/`impl_lint_pass!` lists not declared in this module come from
+  // `rustc_lint_defs::builtin` (`use rustc_lint_defs::builtin::*` / `crate::builtin::*` re-exports).
+  const external: string[] = [];
+  for (const p of passes) {
+    for (const l of p.lints) {
+      if (declared.has(l) || external.includes(l)) continue;
+      if (!externLints.has(l)) fail(path, p, `${p.kind}_lint_pass!(${p.name}) lists ${l}, declared neither here nor in ${SRC_PATH}`);
+      external.push(l);
+    }
+  }
+  if (external.length) L.push(`import { ${external.join(", ")} } from "${up}rustc_lint_defs/builtin.ts";`);
+  for (const it of items) {
+    L.push("");
+    if (it.k === "lint") {
+      const l = it.l;
+      L.push(`// rustc-lint: ${path}:${l.line} ${l.name}`);
+      for (const d of l.docs) L.push(d);
+      for (const cm of l.comments) L.push(cm);
+      L.push(`export const ${l.name}: Lint = Object.freeze<Lint>({`);
+      for (const f of lintFields) L.push(`  ${f}: ${l.fields.get(f) ?? lint_defaults_raw.get(f)},`);
+      L.push("});");
+      continue;
+    }
+    const p = it.p;
+    const list = p.lints.join(", ");
+    L.push(`// rustc-lint-pass: ${path}:${p.line} ${p.name}`);
+    if (p.kind === "declare") {
+      for (const d of p.docs) L.push(d);
+      L.push(`// declare_lint_pass!(${p.name} => [${list}]): \`#[derive(Copy, Clone)] pub struct ${p.name};\` + impl_lint_pass! (lib.rs).`);
+      L.push(`export class ${p.name} implements LintPass {`);
+      L.push(`  name(): string {`);
+      L.push(`    return ${JSON.stringify(p.name)};`);
+      L.push(`  }`);
+      L.push(`  get_lints(): LintVec {`);
+      L.push(`    return [${list}];`);
+      L.push(`  }`);
+      L.push(`  static lint_vec(): LintVec {`);
+      L.push(`    return [${list}];`);
+      L.push(`  }`);
+      L.push(`}`);
+    } else {
+      L.push(`// impl_lint_pass!(${p.name} => [${list}]): \`impl LintPass for ${p.name}\` (name, get_lints) + inherent \`lint_vec\` (lib.rs).`);
+      L.push(`export const ${p.name}_impl_lint_pass = {`);
+      L.push(`  name(): string {`);
+      L.push(`    return ${JSON.stringify(p.name)};`);
+      L.push(`  },`);
+      L.push(`  get_lints(): LintVec {`);
+      L.push(`    return [${list}];`);
+      L.push(`  },`);
+      L.push(`  lint_vec(): LintVec {`);
+      L.push(`    return [${list}];`);
+      L.push(`  },`);
+      L.push(`};`);
+    }
+  }
+  return { path, out, text: L.join("\n") + "\n", lints, passes };
+}
+
+function walkRs(dir: string, rel: string, out: string[]): string[] {
+  for (const e of readdirSync(join(dir, rel), { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    const r = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) walkRs(dir, r, out);
+    else if (e.name.endsWith(".rs")) out.push(r);
+  }
+  return out;
+}
+
+/** Every rustc_lint module with lint macro invocations (`tests.rs` files excluded). */
+export function generateRustcLint(read: (p: string) => string, files: string[]): ModuleGenerated[] {
+  const out: ModuleGenerated[] = [];
+  const externLints = new Set(generate(read(LIB_PATH), read(SRC_PATH), read(EDITION_PATH)).lints.map((l) => l.name));
+  for (const f of files) {
+    if (f.endsWith("tests.rs")) continue;
+    const g = generateModule(read(LIB_PATH), read(EDITION_PATH), `${RUSTC_LINT_SRC}/${f}`, read(`${RUSTC_LINT_SRC}/${f}`), externLints);
+    if (g !== undefined) out.push(g);
+  }
+  return out;
+}
+
 function main(): void {
   requireUpstream();
   const read = (p: string): string => readFileSync(join(UPSTREAM, p), "utf8");
   let g: Generated;
+  let mods: ModuleGenerated[];
   try {
     g = generate(read(LIB_PATH), read(SRC_PATH), read(EDITION_PATH));
+    mods = generateRustcLint(read, walkRs(join(UPSTREAM, RUSTC_LINT_SRC), "", []));
   } catch (e) {
     if (e instanceof GenError) die(e.message.replace(/^ERROR: /, ""));
     throw e;
   }
-  const out = join(REPO, OUT_PATH);
+  const outputs: [string, string][] = [[OUT_PATH, g.text], ...mods.map((m): [string, string] => [m.out, m.text])];
+  const nLints = mods.reduce((n, m) => n + m.lints.length, 0);
+  const nPasses = mods.reduce((n, m) => n + m.passes.length, 0);
   if (process.argv.includes("--check")) {
-    let cur = "";
-    try {
-      cur = readFileSync(out, "utf8");
-    } catch {}
-    if (cur !== g.text) die(`${OUT_PATH} is stale; run: bun tools/codegen/lints.ts`);
-    console.log(`${OUT_PATH} up to date (${g.lints.length} lints)`);
+    for (const [path, text] of outputs) {
+      let cur = "";
+      try {
+        cur = readFileSync(join(REPO, path), "utf8");
+      } catch {}
+      if (cur !== text) die(`${path} is stale; run: bun tools/codegen/lints.ts`);
+    }
+    console.log(`${OUT_PATH} up to date (${g.lints.length} lints); ${mods.length} rustc_lint modules up to date (${nLints} lints, ${nPasses} passes)`);
     return;
   }
-  writeFileSync(out, g.text);
+  for (const [path, text] of outputs) {
+    mkdirSync(dirname(join(REPO, path)), { recursive: true });
+    writeFileSync(join(REPO, path), text);
+  }
   console.log(`wrote ${OUT_PATH}: ${g.lints.length} lints, ${g.hardwired.length} in hardwired::lint_vec`);
+  console.log(`wrote ${mods.length} rustc_lint modules (${RUSTC_LINT_OUT}/**.lints.gen.ts): ${nLints} lints, ${nPasses} passes`);
 }
 
 if (import.meta.main) main();

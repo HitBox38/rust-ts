@@ -279,6 +279,8 @@ export interface DiagArgEntry {
   display?: string;
   /** type arguments used when the type is written without them (`DiagSymbolList` = `DiagSymbolList<Symbol>`); see `$display0` */
   default_args?: PType[];
+  /** the impl is for this first type argument only (`Vec<char>`: `"char"`); other instantiations do not match */
+  arg0?: string;
   /** repo-relative module -> names used by the two expressions */
   imports?: Record<string, string[]>;
   note?: string;
@@ -783,8 +785,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       manualDiagTrait.get(tr)!.add(r.ref.key);
     }
   const diagArgs = loadDiagArgs();
-  const daIndex = new Map<string, DiagArgEntry>();
-  for (const e of diagArgs) for (const p of e.paths) daIndex.set(p, e);
+  const daIndex = new Map<string, DiagArgEntry[]>();
+  for (const e of diagArgs) for (const p of e.paths) daIndex.set(p, [...(daIndex.get(p) ?? []), e]);
   const printAttrs = loadPrintAttrs();
   const paModule = printAttrs.import.replace(/^src\//, "");
   const paIndex = new Map<string, PrintAttrEntry>();
@@ -2008,9 +2010,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         return undefined;
       }
       if (r.k !== "ext") return undefined;
-      for (const k of r.keys) {
-        const e = daIndex.get(k);
-        if (!e || e[which] === undefined) continue;
+      for (const k of r.keys) for (const e of daIndex.get(k) ?? []) {
+        if (e[which] === undefined) continue;
+        // impls for one instantiation only (`impl IntoDiagArg for Vec<char>`)
+        if (e.arg0 !== undefined && t.path!.segments.at(-1)!.args.find((a) => a.kind === "type")?.ty?.text !== e.arg0) continue;
         let expr = e[which]!;
         if (expr.includes("$display0")) {
           // generic impls over `S: Display` (`DiagSymbolList<S>`): `$display0` = the first type argument's Display
