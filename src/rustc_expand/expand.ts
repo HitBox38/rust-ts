@@ -115,6 +115,7 @@ import {
   type DeriveResolution,
   DummyResult,
   type ExpandResult,
+  clone_ExpansionData,
   type ExpansionData,
   type ExtCtxt,
   type MacResult,
@@ -129,20 +130,7 @@ import { PlaceholderExpander, placeholder } from "./placeholders.ts";
 
 const { TokenKind: TK } = token;
 
-// PORT(decls): pending lane mbe-b. `MacroRulesMacroExpander::expand_derive` (mbe/macro_rules.rs:230) is
-// ported by mbe-b; the expand-base stub of mbe/macro_rules.ts does not declare it yet.
-declare module "./mbe/macro_rules.ts" {
-  interface MacroRulesMacroExpander {
-    expand_derive(cx: ExtCtxt, sp: Span, body: TokenStream): Result<TokenStream, ErrorGuaranteed>;
-  }
-}
-
-// PORT(pending mbe-b): `use crate::mbe::diagnostics::annotate_err_with_kind;`. mbe/diagnostics.ts is lane
-// mbe-b's file and not on this branch yet; on integration replace this shim with
-// `import { annotate_err_with_kind } from "./mbe/diagnostics.ts";` (docs/handoff/expand-core.md).
-function annotate_err_with_kind(_err: Diag, _kind: AstFragmentKind, _span: Span): void {
-  unported("rustc_expand::mbe::diagnostics::annotate_err_with_kind (lane mbe-b)");
-}
+import { annotate_err_with_kind } from "./mbe/diagnostics.ts";
 
 const { token_descr } = rustc_parse_parser;
 type MutVisitor = mut_visit.MutVisitor;
@@ -1073,7 +1061,7 @@ export class MacroExpander {
   /// Recursively expand all macro invocations in this AST fragment.
   // rustc: compiler/rustc_expand/src/expand.rs:471 fully_expand_fragment
   fully_expand_fragment(input_fragment: AstFragment): AstFragment {
-    const orig_expansion_data = this.cx.current_expansion.clone();
+    const orig_expansion_data = clone_ExpansionData(this.cx.current_expansion);
     const orig_force_mode = this.cx.force_mode;
 
     // Collect all macro invocations and replace them with placeholders.
@@ -1133,7 +1121,7 @@ export class MacroExpander {
 
       const { depth: invoc_depth, id: expn_id } = invoc.expansion_data;
       const depth = invoc_depth - orig_expansion_data.depth;
-      this.cx.current_expansion = invoc.expansion_data.clone();
+      this.cx.current_expansion = clone_ExpansionData(invoc.expansion_data);
       this.cx.force_mode = force;
 
       const fragment_kind = invoc.fragment_kind;
@@ -1152,8 +1140,8 @@ export class MacroExpander {
                   // instead of enqueuing the derives to be resolved again later.
                   // Note that this can result in duplicate diagnostics.
                   const expn_id = LocalExpnId.fresh_empty();
-                  // PORT: `ExpansionData { id: expn_id, ..self.cx.current_expansion.clone() }`.
-                  const expansion_data = this.cx.current_expansion.clone();
+                  // PORT: `ExpansionData { id: expn_id, clone_ExpansionData(..self.cx.current_expansion) }`.
+                  const expansion_data = clone_ExpansionData(this.cx.current_expansion);
                   expansion_data.id = expn_id;
                   derive_invocations.push([
                     new Invocation({ $: "Derive", path, item, is_const }, fragment_kind, expansion_data),
@@ -3111,7 +3099,7 @@ export class InvocationCollector extends mut_visit.MutVisitor {
     // PORT: `ExpansionData { id: expn_id, depth: self.cx.current_expansion.depth + 1,
     // ..self.cx.current_expansion.clone() }`.
     const depth = this.cx.current_expansion.depth + 1;
-    const expansion_data = this.cx.current_expansion.clone();
+    const expansion_data = clone_ExpansionData(this.cx.current_expansion);
     expansion_data.id = expn_id;
     expansion_data.depth = depth;
     this.invocations.push([new Invocation(kind, fragment_kind, expansion_data), undefined]);

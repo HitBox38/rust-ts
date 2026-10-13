@@ -231,9 +231,13 @@ export function compiler_entrypoint(at_args0: readonly string[], callbacks: Call
     const pp_mode = sess.opts.pretty;
     if (pp_mode !== undefined) {
       if (PpMode.needs_ast_map(pp_mode)) {
-        // `create_and_enter_global_ctxt(compiler, krate, |tcx| { tcx.ensure_ok().early_lint_checks(());
-        //   pretty::print(sess, pp_mode, pretty::PrintExtra::NeedsAstMap { tcx }); passes::write_dep_info(tcx); })`
-        unported("rustc_interface::passes::create_and_enter_global_ctxt (-Zunpretty needing the AST map)");
+        passes.create_and_enter_global_ctxt(compiler, krate, (tcx) => {
+          tcx.ensure_ok().early_lint_checks(null);
+          // PORT: `pretty::print(sess, pp_mode, pretty::PrintExtra::NeedsAstMap { tcx })` and
+          // `passes::write_dep_info(tcx)`: the NeedsAstMap printing modes and dep-info are lane driver-m2's
+          // (wave 10); pretty.ts does not accept a TyCtxt yet.
+          unported("rustc_driver_impl::pretty::print (PrintExtra::NeedsAstMap; lane driver-m2)");
+        });
       } else {
         pretty.print(sess, pp_mode, { $: "AfterParsing", krate });
       }

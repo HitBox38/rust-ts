@@ -84,13 +84,6 @@ const oracle = JSON.parse(readFileSync(join(import.meta.dir, "expand_oracle", "o
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
 const PENDING: Record<string, string> = {
-  // `check_attributes` on a builtin attribute (`#[inline]`, `#[doc]`) of a macro call asks
-  // `AttributeParser::is_parsed_attribute`, which builds `ATTRIBUTE_PARSERS` from the attribute parser
-  // modules (stubs of lane attr-parse-c on this branch).
-  unused_attrs_on_mac: "rustc_attr_parsing::attributes::codegen_attrs::ForceTargetFeatureParser::PATH",
-  // A parse error in a macro's output goes through `annotate_err_with_kind` (mbe/diagnostics.rs, lane
-  // mbe-b), a shim in expand.ts on this branch.
-  parse_error_in_expansion: "rustc_expand::mbe::diagnostics::annotate_err_with_kind (lane mbe-b)",
 };
 
 const C = (f: string): string => f;

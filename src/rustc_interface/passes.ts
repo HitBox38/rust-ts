@@ -7,7 +7,12 @@ import type { Crate } from "../rustc_ast/ast.gen.ts";
 import { Input } from "../rustc_session/config.ts";
 import type { Session } from "../rustc_session/session.ts";
 import "../rustc_session/utils.ts"; // `Session::time`
-import { unported } from "../std/panic.ts";
+import { unported, unreachable } from "../std/panic.ts";
+import { path_file_stem } from "../std/path.ts";
+import { AttributeParser } from "../rustc_attr_parsing/lib.ts";
+import type { ShouldEmit } from "../rustc_attr_parsing/lib.ts";
+import * as rustc_expand_config from "../rustc_expand/config.ts";
+import { pre_configure_attrs } from "../rustc_expand/config.ts";
 import { new_parser_from_file, new_parser_from_source_str, unwrap_or_emit_fatal } from "../rustc_parse/lib.ts";
 import type { Compiler } from "./interface.ts";
 import * as cmdline_attrs from "../rustc_builtin_macros/cmdline_attrs.ts";
@@ -28,6 +33,7 @@ import { LOCAL_CRATE, StableCrateId, type StableCrateIdMap } from "../rustc_span
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
+import { DUMMY_SP } from "../rustc_span/lib.ts";
 import { type CrateType, CrateType_discriminant } from "../rustc_structures/lib.ts";
 import { assert_eq, Panic, panic } from "../std/panic.ts";
 
@@ -70,17 +76,6 @@ export function parse(sess: Session): Crate {
 // `rustc_incremental::{setup_dep_graph, load_query_result_cache, provide}` (no incremental, D3), and the
 // providers of the crates listed in `DEFAULT_QUERY_PROVIDERS`.
 
-/** `rustc_expand::config::pre_configure_attrs` (config.rs:127): pending wave 9 (expand-base). */
-function pre_configure_attrs(_sess: Session, attrs: readonly Attribute[]): Attribute[] {
-  // `attrs.iter().flat_map(process_cfg_attr).take_while(..).collect()`: empty for an empty slice.
-  if (attrs.length === 0) return [];
-  return unported("rustc_expand::config::pre_configure_attrs (crate attributes; wave 9)");
-}
-
-/** `rustc_expand::config::features` (config.rs): pending wave 9 (expand-base). */
-function expand_config_features(_sess: Session, _krate_attrs: readonly Attribute[], _crate_name: Symbol): Features {
-  return unported("rustc_expand::config::features (wave 9)");
-}
 
 /** `rustc_session::output::validate_crate_name` (output.rs): not ported. */
 function validate_crate_name(_sess: Session, _name: Symbol, _span: Span | undefined): void {
@@ -223,7 +218,7 @@ export function create_and_enter_global_ctxt<T>(compiler: Compiler, krate: Crate
       feed.crate_name(crate_name);
 
       const unit = tcx.feed_unit_query();
-      unit.features_query(expand_config_features(tcx.sess, pre_configured_attrs, crate_name));
+      unit.features_query(rustc_expand_config.features(tcx.sess, pre_configured_attrs, crate_name));
       unit.crate_for_resolver(Steal.new<[Crate, Attribute[]]>([krate, pre_configured_attrs], "(rustc_ast::ast::Crate, thin_vec::ThinVec<rustc_ast::ast::Attribute>)"));
       unit.output_filenames(outputs);
 
@@ -263,7 +258,7 @@ export function get_crate_name(sess: Session, krate_attrs: readonly Attribute[])
   // in all code paths that require the crate name very early on, namely before
   // macro expansion.
 
-  const attr_crate_name = parse_crate_name(sess, krate_attrs);
+  const attr_crate_name = parse_crate_name(sess, krate_attrs, { $: "EarlyFatal", also_emit_lints: true });
 
   const validate = (name: Symbol, span: Span | undefined): Symbol => {
     validate_crate_name(sess, name, span);
@@ -284,19 +279,31 @@ export function get_crate_name(sess: Session, krate_attrs: readonly Attribute[])
   }
 
   if (sess.io.input.$ === "File") {
-    // `path.file_stem().and_then(|s| s.to_str())`: PORT: no `Path::file_stem` in src/std yet.
-    return unported("std::path::Path::file_stem (get_crate_name from the input file name)");
+    // `path.file_stem().and_then(|s| s.to_str())` (paths are JS strings: always valid UTF-8 here)
+    const file_stem = path_file_stem(sess.io.input._0);
+    if (file_stem !== undefined) {
+      if (file_stem.startsWith("-")) {
+        // sess.dcx().emit_err(diagnostics::CrateNameInvalid { crate_name: file_stem });
+        unported("rustc_interface::diagnostics::CrateNameInvalid");
+      } else {
+        return validate(Symbol.intern(file_stem.replaceAll("-", "_")), undefined);
+      }
+    }
   }
 
   return sym.rust_out;
 }
 
 // rustc: compiler/rustc_interface/src/passes.rs:1415 parse_crate_name
-export function parse_crate_name(_sess: Session, attrs: readonly Attribute[]): [Symbol, Span] | undefined {
-  // `AttributeParser::parse_limited_sym_should_emit(sess, attrs, &[sym::crate_name], DUMMY_SP, None,
-  // ShouldEmit::EarlyFatal { also_emit_lints: true })?`: no attribute, no `crate_name`.
-  if (attrs.length === 0) return undefined;
-  return unported("rustc_attr_parsing::AttributeParser::parse_limited_sym_should_emit (#![crate_name]; attr-parse lanes)");
+export function parse_crate_name(sess: Session, attrs: readonly Attribute[], emit_errors: ShouldEmit): [Symbol, Span] | undefined {
+  const a = AttributeParser.parse_limited_sym_should_emit(sess, attrs, [sym.crate_name], DUMMY_SP, undefined, emit_errors);
+  if (a === undefined) return undefined; // `?`
+  if (!(a.$ === "Parsed" && a._0.$ === "CrateName")) {
+    return unreachable("crate_name is the only attr we could've parsed here");
+  }
+  const { name, name_span } = a._0;
+
+  return [name, name_span];
 }
 
 // rustc: compiler/rustc_interface/src/passes.rs:1436 collect_crate_types

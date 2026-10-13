@@ -492,6 +492,30 @@ export function path_file_name(self_: string): string | undefined {
   return p !== undefined && p.$ === "Normal" ? p._0 : undefined;
 }
 
+// std: library/std/src/path.rs:334 rsplit_file_at_dot
+function rsplit_file_at_dot(file: string): [string | undefined, string | undefined] {
+  if (file === "..") {
+    return [file, undefined];
+  }
+  // `file.as_encoded_bytes().rsplitn(2, |b| *b == b'.')`
+  const i = file.lastIndexOf(".");
+  const after = i < 0 ? file : file.slice(i + 1);
+  const before = i < 0 ? undefined : file.slice(0, i);
+  if (before === "") {
+    return [file, undefined];
+  } else {
+    return [before, after];
+  }
+}
+
+/** `Path::file_stem` (library/std/src/path.rs:2900) */
+export function path_file_stem(self_: string): string | undefined {
+  const name = path_file_name(self_);
+  if (name === undefined) return undefined;
+  const [before, after] = rsplit_file_at_dot(name);
+  return before ?? after;
+}
+
 /** `Path::join` = `to_path_buf()` + `PathBuf::_push` */
 export function path_join(self_: string, path: string): string {
   let inner = self_;

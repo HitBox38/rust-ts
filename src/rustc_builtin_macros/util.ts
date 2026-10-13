@@ -9,14 +9,6 @@ import { DUPLICATE_MACRO_ATTRIBUTES } from "../rustc_lint_defs/builtin.ts";
 import { type Annotatable, ExpandResult, type ExtCtxt } from "../rustc_expand/base.ts";
 import { AstFragment } from "../rustc_expand/expand.ts";
 
-// PORT: lane expand-core ports `MacroExpander::fully_expand_fragment` (expand.rs:471) into expand.ts; the
-// expand-base stub of `MacroExpander` this lane builds against does not declare it yet. Remove this
-// augmentation once expand-core is merged (its class method has this signature).
-declare module "../rustc_expand/expand.ts" {
-  interface MacroExpander {
-    fully_expand_fragment(input_fragment: AstFragment): AstFragment;
-  }
-}
 import type { parser } from "../rustc_parse/lib.ts";
 import { exp } from "../rustc_parse/parser/token_type.ts";
 import { report_lit_error } from "../rustc_session/diagnostics.ts";

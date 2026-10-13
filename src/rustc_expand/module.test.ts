@@ -18,10 +18,6 @@ const expected: Record<string, { args: string[]; stdout: string; stderr: string;
 );
 
 const PENDING: Record<string, string> = {
-  // `config::features` -> `AttributeParser::parse_limited_sym` builds `ATTRIBUTE_PARSERS`, which reaches
-  // attr-parse-c's stubs. Both cases match byte for byte with lane/attr-parse-c merged (checked in scratch).
-  allow_features: "rustc_attr_parsing::attributes::codegen_attrs::ForceTargetFeatureParser::PATH",
-  cfg_items: "rustc_attr_parsing::attributes::codegen_attrs::ForceTargetFeatureParser::PATH",
 };
 
 function run_walk(name: string, args: string[]): { stdout: string; stderr: string; exit: number } {
