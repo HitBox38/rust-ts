@@ -12,7 +12,7 @@ import type { MutRef } from "../../std/mut_ref.ts";
 import { panic, unwrap } from "../../std/panic.ts";
 import { decode_at, is_valid_utf8, Str, str_chars_nth } from "../../std/str.ts";
 import { UniCase } from "../unicase/lib.ts";
-import { type Alignment, type HeadingLevel, HeadingLevel_discriminant, type MetadataBlockKind, Options } from "./lib.ts";
+import { type HeadingLevel, HeadingLevel_discriminant, type MetadataBlockKind, Options } from "./lib.ts";
 import { type LinkLabel, scan_link_label_rest } from "./linklabel.ts";
 import {
   Allocations,
@@ -2478,5 +2478,3 @@ function parse_inside_attribute_block(inside_attr_block: Str): HeadingAttributes
   return { id, classes, attrs };
 }
 
-// Re-exported for the lane owner's tests (no upstream counterpart).
-export type { Alignment };
