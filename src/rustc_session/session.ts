@@ -29,6 +29,10 @@ import { assert, unported, unwrap } from "../std/panic.ts";
 import { dimensions } from "../vendor/termize/lib.ts";
 import type { Options } from "./options.ts";
 import {
+  FunctionReturn,
+  LinkerPluginLto,
+  type Lto,
+  NATIVE_CPU,
   type CoverageOptions,
   type ErrorOutputType,
   Input,
@@ -44,7 +48,9 @@ import {
   type CodeModel,
   CrateType,
   type MergeFunctions,
-  type PanicStrategy,
+  PanicStrategy,
+  type SplitDebuginfo,
+  LinkerFlavorCli,
   type RelocModel,
   SanitizerSet,
   SelfProfilerRef,
@@ -54,6 +60,9 @@ import {
   defer_field,
 } from "./stand_ins.ts";
 import { FileSearch } from "./filesearch.ts";
+import { existsSync } from "node:fs";
+import { spec as target_spec } from "../rustc_target/lib.ts";
+const LinkerFlavor = target_spec.LinkerFlavor;
 import { Cfg, CheckCfg } from "./config/cfg.ts";
 import { SearchPath } from "./search_paths.ts";
 
@@ -619,6 +628,83 @@ export class Session {
     return this.opts.unstable_opts.mir_opt_level ?? (this.opts.optimize !== "No" ? 2 : 1);
   }
 
+  /// Calculates the flavor of LTO to use for this compilation.
+  // rustc: compiler/rustc_session/src/session.rs:987 lto
+  lto(): Lto {
+    // If our target has codegen requirements ignore the command line
+    if (this.target.requires_lto) {
+      return "Fat";
+    }
+
+    // If the user specified something, return that. If they only said `-C
+    // lto` and we've for whatever reason forced off ThinLTO via the CLI,
+    // then ensure we can't use a ThinLTO.
+    switch (this.opts.cg.lto) {
+      case "Unspecified":
+        // The compiler was invoked without the `-Clto` flag. Fall
+        // through to the default handling
+        break;
+      case "No":
+        // The user explicitly opted out of any kind of LTO
+        return "No";
+      case "Yes":
+      case "Fat":
+      case "NoParam":
+        // All of these mean fat LTO
+        return "Fat";
+      case "Thin":
+        // The user explicitly asked for ThinLTO
+        if (!this.thin_lto_supported) {
+          // Backend doesn't support ThinLTO, fallback to fat LTO.
+          this.dcx().emit_warn(diagnostics_gen.ThinLtoNotSupportedByBackend_diagnostic({}));
+          return "Fat";
+        }
+        return "Thin";
+    }
+
+    if (!this.thin_lto_supported) {
+      return "No";
+    }
+
+    // Ok at this point the target doesn't require anything and the user
+    // hasn't asked for anything. Our next decision is whether or not
+    // we enable "auto" ThinLTO where we use multiple codegen units and
+    // then do ThinLTO over those codegen units. The logic below will
+    // either return `No` or `ThinLocal`.
+
+    // If processing command line options determined that we're incompatible
+    // with ThinLTO (e.g., `-C lto --emit llvm-ir`) then return that option.
+    if (this.opts.cli_forced_local_thinlto_off) {
+      return "No";
+    }
+
+    // If `-Z thinlto` specified process that, but note that this is mostly
+    // a deprecated option now that `-C lto=thin` exists.
+    const enabled = this.opts.unstable_opts.thinlto;
+    if (enabled !== undefined) {
+      if (enabled) {
+        return "ThinLocal";
+      } else {
+        return "No";
+      }
+    }
+
+    // If there's only one codegen unit and LTO isn't enabled then there's
+    // no need for ThinLTO so just return false.
+    if (CodegenUnits.as_usize(this.codegen_units()) === 1) {
+      return "No";
+    }
+
+    // Now we're in "defaults" territory. By default we enable ThinLTO for
+    // optimized compiles (anything greater than O0).
+    switch (this.opts.optimize) {
+      case "No":
+        return "No";
+      default:
+        return "ThinLocal";
+    }
+  }
+
   // rustc: compiler/rustc_session/src/session.rs:1072 unstable_options
   unstable_options(): boolean {
     return this.opts.unstable_opts.unstable_options;
@@ -642,6 +728,90 @@ export class Session {
   // rustc: compiler/rustc_session/src/session.rs:1088 contract_checks
   contract_checks(): boolean {
     return this.opts.unstable_opts.contract_checks ?? false;
+  }
+
+  // rustc: compiler/rustc_session/src/session.rs:1099 split_debuginfo
+  split_debuginfo(): SplitDebuginfo {
+    return this.opts.cg.split_debuginfo ?? this.target.split_debuginfo;
+  }
+
+  /// Returns the DWARF version passed on the CLI or the default for the target.
+  // rustc: compiler/rustc_session/src/session.rs:1104 dwarf_version
+  dwarf_version(): number {
+    return this.opts.cg.dwarf_version ?? this.opts.unstable_opts.dwarf_version ?? this.target.default_dwarf_version;
+  }
+
+  /// Returns the number of codegen units that should be used for this
+  /// compilation
+  // rustc: compiler/rustc_session/src/session.rs:1183 codegen_units
+  codegen_units(): CodegenUnits {
+    const n = this.opts.cli_forced_codegen_units;
+    if (n !== undefined) {
+      return { $: "User", _0: n };
+    }
+    const d = this.target.default_codegen_units;
+    if (d !== undefined) {
+      return { $: "Default", _0: d };
+    }
+
+    // If incremental compilation is turned on, we default to a high number
+    // codegen units in order to reduce the "collateral damage" small
+    // changes cause.
+    if (this.opts.incremental !== undefined) {
+      return { $: "Default", _0: 256 };
+    }
+
+    // Why is 16 codegen units the default all the time?
+    //
+    // The main reason for enabling multiple codegen units by default is to
+    // leverage the ability for the codegen backend to do codegen and
+    // optimization in parallel. This allows us, especially for large crates, to
+    // make good use of all available resources on the machine once we've
+    // hit that stage of compilation. Large crates especially then often
+    // take a long time in codegen/optimization and this helps us amortize that
+    // cost.
+    //
+    // Note that a high number here doesn't mean that we'll be spawning a
+    // large number of threads in parallel. The backend of rustc contains
+    // global rate limiting through the `jobserver` crate so we'll never
+    // overload the system with too much work, but rather we'll only be
+    // optimizing when we're otherwise cooperating with other instances of
+    // rustc.
+    //
+    // Rather a high number here means that we should be able to keep a lot
+    // of idle cpus busy. By ensuring that no codegen unit takes *too* long
+    // to build we'll be guaranteed that all cpus will finish pretty closely
+    // to one another and we should make relatively optimal use of system
+    // resources
+    //
+    // Note that the main cost of codegen units is that it prevents LLVM
+    // from inlining across codegen units. Users in general don't have a lot
+    // of control over how codegen units are split up so it's our job in the
+    // compiler to ensure that undue performance isn't lost when using
+    // codegen units (aka we can't require everyone to slap `#[inline]` on
+    // everything).
+    //
+    // If we're compiling at `-O0` then the number doesn't really matter too
+    // much because performance doesn't matter and inlining is ok to lose.
+    // In debug mode we just want to try to guarantee that no cpu is stuck
+    // doing work that could otherwise be farmed to others.
+    //
+    // In release mode, however (O1 and above) performance does indeed
+    // matter! To recover the loss in performance due to inlining we'll be
+    // enabling ThinLTO by default (the function for which is just below).
+    // This will ensure that we recover any inlining wins we otherwise lost
+    // through codegen unit partitioning.
+    //
+    // ---
+    //
+    // Ok that's a lot of words but the basic tl;dr; is that we want a high
+    // number here -- but not too high. Additionally we're "safe" to have it
+    // always at the same number at all optimization levels.
+    //
+    // As a result 16 was chosen here! Mostly because it was a power of 2
+    // and most benchmarks agreed it was roughly a local optimum. Not very
+    // scientific.
+    return { $: "Default", _0: 16 };
   }
 
   // rustc: compiler/rustc_session/src/session.rs:1251 teach
@@ -831,7 +1001,11 @@ export function build_session(
 
   const timings = TimingSectionHandler.new(sopts.json_timings);
 
-  // `PointerAuthConfig::from_raw(&sopts.unstable_opts.pointer_authentication, &target)` (deferred below)
+  // `PointerAuthConfig::from_raw(&sopts.unstable_opts.pointer_authentication, &target)`
+  // PORT: `from_raw` returns `None` unless the target's `cfg_abi` is `Pauthtest` (session.rs:232); the
+  // config itself (`PointerAuthConfig`/`PointerAuthSchema`) is not ported.
+  const pointer_auth_config: undefined =
+    early_sess.target.cfg_abi.$ !== "Pauthtest" ? undefined : unported("rustc_session::session::PointerAuthConfig::from_raw (pauthtest target)");
 
   // `EarlySess::sanitizers` does some computation but is called infrequently. `Sess::sanitizers`
   // is called much more often so we cache the value.
@@ -871,21 +1045,19 @@ export function build_session(
     /* thin_lto_supported */ false,
     /* mir_opt_bisect_eval_count */ 0,
     /* removed_rustc_main_attr */ false,
-    /* pointer_auth_config */ undefined,
+    pointer_auth_config,
     sanitizers,
   );
 
   // PORT: fields whose upstream value comes from crates that are not ported are deferred: reading
   // one calls `unported` (stand_ins.ts `defer_field`). Upstream computes, in order:
   // - `asm_arch`: `if target.allow_asm { InlineAsmArch::from_arch(&target.arch) }` (rustc_target::asm)
-  // - `pointer_auth_config`: `PointerAuthConfig::from_raw(&pointer_authentication, &target)` (rustc_target)
   // - `global_backend_features`, `replaced_intrinsics`, `fallback_intrinsics`, `thin_lto_supported`:
   //   destructured from `codegen_backend_init` (the codegen backend stand-in defers them too)
   // - `code_stats` (code_stats.rs)
   // `config`/`check_config`/`lint_store`/`internal_target_features` start empty as upstream; the
   // driver (rustc_interface::interface::run_compiler) fills or defers them.
   defer_field(sess, "asm_arch", "rustc_target::asm::InlineAsmArch::from_arch (Session::asm_arch)");
-  defer_field(sess, "pointer_auth_config", "rustc_session::session::PointerAuthConfig::from_raw (rustc_target)");
   defer_field(sess, "code_stats", "rustc_session::code_stats::CodeStats");
   for (const key of ["global_backend_features", "replaced_intrinsics", "fallback_intrinsics", "thin_lto_supported"] as const) {
     const desc = Object.getOwnPropertyDescriptor(codegen_backend_init, key);
@@ -910,13 +1082,298 @@ export function build_session(
 /// can do so here.
 // JUSTIFICATION: needs to access args to validate them
 // #[allow(rustc::bad_opt_access)]
-// rustc-unported (no marker): compiler/rustc_session/src/session.rs:1545 validate_commandline_args_with_session_available
-function validate_commandline_args_with_session_available(_sess: Session): void {
-  // PORT: every check here reads the target spec (`sess.target.*`, `sess.crt_static`, `sess.lto()`,
-  // `sess.split_debuginfo()`, ...) or the codegen backend. rustc_target is not ported, so the checks are
-  // not run: a flag combination that upstream rejects for the target is accepted here. Root: port this
-  // fn with rustc_target. The `-Zunpretty=ast-tree` driver path passes no flag these checks read beyond
-  // their defaults, for which upstream emits nothing on the built-in host targets.
+// rustc: compiler/rustc_session/src/session.rs:1545 validate_commandline_args_with_session_available
+function validate_commandline_args_with_session_available(sess: Session): void {
+  const D = diagnostics_gen;
+  // Since we don't know if code in an rlib will be linked to statically or
+  // dynamically downstream, rustc generates `__imp_` symbols that help linkers
+  // on Windows deal with this lack of knowledge (#27438). Unfortunately,
+  // these manually generated symbols confuse LLD when it tries to merge
+  // bitcode during ThinLTO. Therefore we disallow dynamic linking on Windows
+  // when compiling for LLD ThinLTO. This way we can validly just not generate
+  // the `dllimport` attributes and `__imp_` symbols in that case.
+  if (LinkerPluginLto.enabled(sess.opts.cg.linker_plugin_lto) && sess.opts.cg.prefer_dynamic && sess.target.is_like_windows) {
+    sess.dcx().emit_err(D.LinkerPluginToWindowsNotSupported_diagnostic({}));
+  }
+
+  // `sess.pointer_auth_config.as_ref().and_then(|cfg| cfg.function_pointers.as_ref()).is_some_and(..)`
+  // PORT: `PointerAuthConfig` (only built for `CfgAbi::Pauthtest` targets) is not ported; no ported
+  // target is one, so `pointer_auth_config` is `None` (see `build_session`).
+  if (sess.pointer_auth_config !== undefined) {
+    unported("rustc_session::session::PointerAuthConfig (validate_commandline_args_with_session_available)");
+  }
+
+  if (sess.target.cfg_abi.$ !== "Pauthtest" && sess.opts.unstable_opts.pointer_authentication.length !== 0) {
+    sess.dcx().emit_warn(D.PointerAuthenticationNotSupportedForTarget_diagnostic({ target_triple: sess.opts.target_triple }));
+  }
+
+  // Make sure that any given profiling data actually exists so LLVM can't
+  // decide to silently skip PGO.
+  const profile_use = sess.opts.cg.profile_use;
+  if (profile_use !== undefined) {
+    if (!existsSync(profile_use)) {
+      sess.dcx().emit_err(D.ProfileUseFileDoesNotExist_diagnostic({ path: profile_use }));
+    }
+  }
+
+  // Do the same for sample profile data.
+  const profile_sample_use = sess.opts.cg.profile_sample_use;
+  if (profile_sample_use !== undefined) {
+    if (!existsSync(profile_sample_use)) {
+      sess.dcx().emit_err(D.ProfileSampleUseFileDoesNotExist_diagnostic({ path: profile_sample_use }));
+    }
+  }
+
+  // Unwind tables cannot be disabled if the target requires them.
+  const include_uwtables = sess.opts.cg.force_unwind_tables;
+  if (include_uwtables !== undefined) {
+    if (sess.target.requires_uwtable && !include_uwtables) {
+      sess.dcx().emit_err(D.TargetRequiresUnwindTables_diagnostic({}));
+    }
+  }
+
+  // Sanitizers can only be used on platforms that we know have working sanitizer codegen.
+  const supported_sanitizers = sess.target.options.supported_sanitizers;
+  let unsupported_sanitizers = sess.sanitizers() & ~supported_sanitizers;
+  // Niche: if `fixed-x18`, or effectively switching on `reserved-x18` flag, is enabled
+  // we should allow Shadow Call Stack sanitizer.
+  if (sess.opts.unstable_opts.fixed_x18 && sess.target.arch.$ === "AArch64") {
+    unsupported_sanitizers &= ~SanitizerSet.SHADOWCALLSTACK;
+  }
+  switch (SanitizerSet.iter(unsupported_sanitizers).length) {
+    case 0:
+      break;
+    case 1:
+      sess.dcx().emit_err(D.SanitizerNotSupported_diagnostic({ us: SanitizerSet.display(unsupported_sanitizers) }));
+      break;
+    default:
+      sess.dcx().emit_err(D.SanitizersNotSupported_diagnostic({ us: SanitizerSet.display(unsupported_sanitizers) }));
+      break;
+  }
+
+  // Cannot mix and match mutually-exclusive sanitizers.
+  const me = SanitizerSet.MUTUALLY_EXCLUSIVE.find(([a, b]) => SanitizerSet.contains(sess.sanitizers(), a) && SanitizerSet.contains(sess.sanitizers(), b));
+  if (me !== undefined) {
+    const [first, second] = me;
+    sess.dcx().emit_err(D.CannotMixAndMatchSanitizers_diagnostic({ first: SanitizerSet.display(first), second: SanitizerSet.display(second) }));
+  }
+
+  // Cannot enable crt-static with sanitizers on Linux
+  if (sess.crt_static(undefined) && sess.sanitizers() !== 0 && !sess.target.is_like_msvc) {
+    sess.dcx().emit_err(D.CannotEnableCrtStaticLinux_diagnostic({}));
+  }
+
+  // FIXME(jchlanda) Pauthtest does not support static linking. It must be dynamically linked,
+  // with a dynamic linker acting as the ELF interpreter that can resolve pauth relocations and
+  // enforce pointer authentication constraints.
+  if (sess.crt_static(undefined) && sess.target.cfg_abi.$ === "Pauthtest") {
+    sess.dcx().emit_err(D.CannotEnableCrtStaticPointerAuth_diagnostic({}));
+  }
+
+  // LLVM CFI requires LTO.
+  if (sess.is_sanitizer_cfi_enabled() && !(sess.lto() === "Fat" || LinkerPluginLto.enabled(sess.opts.cg.linker_plugin_lto))) {
+    sess.dcx().emit_err(D.SanitizerCfiRequiresLto_diagnostic({}));
+  }
+
+  // KCFI requires panic=abort
+  if (sess.is_sanitizer_kcfi_enabled() && PanicStrategy.unwinds(sess.panic_strategy())) {
+    sess.dcx().emit_err(D.SanitizerKcfiRequiresPanicAbort_diagnostic({}));
+  }
+
+  // LLVM CFI using rustc LTO requires a single codegen unit.
+  if (sess.is_sanitizer_cfi_enabled() && sess.lto() === "Fat" && CodegenUnits.as_usize(sess.codegen_units()) !== 1) {
+    sess.dcx().emit_err(D.SanitizerCfiRequiresSingleCodegenUnit_diagnostic({}));
+  }
+
+  // Canonical jump tables requires CFI.
+  if (sess.is_sanitizer_cfi_canonical_jump_tables_disabled()) {
+    if (!sess.is_sanitizer_cfi_enabled()) {
+      sess.dcx().emit_err(D.SanitizerCfiCanonicalJumpTablesRequiresCfi_diagnostic({}));
+    }
+  }
+
+  // KCFI arity indicator requires KCFI.
+  if (sess.is_sanitizer_kcfi_arity_enabled() && !sess.is_sanitizer_kcfi_enabled()) {
+    sess.dcx().emit_err(D.SanitizerKcfiArityRequiresKcfi_diagnostic({}));
+  }
+
+  // LLVM CFI pointer generalization requires CFI or KCFI.
+  if (sess.is_sanitizer_cfi_generalize_pointers_enabled()) {
+    if (!(sess.is_sanitizer_cfi_enabled() || sess.is_sanitizer_kcfi_enabled())) {
+      sess.dcx().emit_err(D.SanitizerCfiGeneralizePointersRequiresCfi_diagnostic({}));
+    }
+  }
+
+  // LLVM CFI recovery requires CFI.
+  if (sess.is_sanitizer_cfi_recover_enabled()) {
+    if (!sess.is_sanitizer_cfi_enabled()) {
+      sess.dcx().emit_err(D.SanitizerCfiRecoverRequiresCfi_diagnostic({}));
+    }
+  }
+
+  // LLVM CFI diagnostics requires CFI.
+  if (sess.is_sanitizer_cfi_diag_enabled()) {
+    if (!sess.is_sanitizer_cfi_enabled()) {
+      sess.dcx().emit_err(D.SanitizerCfiDiagRequiresCfi_diagnostic({}));
+    }
+  }
+
+  // LLVM CFI minimal runtime requires CFI recovery or CFI diagnostics.
+  if (sess.is_sanitizer_cfi_minimal_runtime_enabled()) {
+    if (!sess.is_sanitizer_cfi_enabled()) {
+      sess.dcx().emit_err(D.SanitizerCfiMinimalRuntimeRequiresCfi_diagnostic({}));
+    } else if (!(sess.is_sanitizer_cfi_recover_enabled() || sess.is_sanitizer_cfi_diag_enabled())) {
+      sess.dcx().emit_err(D.SanitizerCfiMinimalRuntimeRequiresCfiRecoverOrDiag_diagnostic({}));
+    }
+  }
+
+  // LLVM CFI integer normalization requires CFI or KCFI.
+  if (sess.is_sanitizer_cfi_normalize_integers_enabled()) {
+    if (!(sess.is_sanitizer_cfi_enabled() || sess.is_sanitizer_kcfi_enabled())) {
+      sess.dcx().emit_err(D.SanitizerCfiNormalizeIntegersRequiresCfi_diagnostic({}));
+    }
+  }
+
+  // LTO unit splitting requires LTO.
+  if (sess.is_split_lto_unit_enabled() && !(sess.lto() === "Fat" || sess.lto() === "Thin" || LinkerPluginLto.enabled(sess.opts.cg.linker_plugin_lto))) {
+    sess.dcx().emit_err(D.SplitLtoUnitRequiresLto_diagnostic({}));
+  }
+
+  // VFE requires LTO.
+  if (sess.lto() !== "Fat") {
+    if (sess.opts.unstable_opts.virtual_function_elimination) {
+      sess.dcx().emit_err(D.UnstableVirtualFunctionElimination_diagnostic({}));
+    }
+  }
+
+  if (sess.opts.unstable_opts.stack_protector !== "None") {
+    if (!sess.target.options.supports_stack_protector) {
+      sess.dcx().emit_warn(
+        D.StackProtectorNotSupportedForTarget_diagnostic({
+          stack_protector: sess.opts.unstable_opts.stack_protector,
+          target_triple: sess.opts.target_triple,
+        }),
+      );
+    }
+  }
+
+  if (sess.opts.unstable_opts.small_data_threshold !== undefined) {
+    if (sess.target.small_data_threshold_support_().$ === "None") {
+      sess.dcx().emit_warn(D.SmallDataThresholdNotSupportedForTarget_diagnostic({ target_triple: sess.opts.target_triple }));
+    }
+  }
+
+  if (sess.opts.unstable_opts.branch_protection !== undefined && sess.target.arch.$ !== "AArch64") {
+    sess.dcx().emit_err(D.BranchProtectionRequiresAArch64_diagnostic({}));
+  }
+
+  const dwarf_version = sess.opts.cg.dwarf_version ?? sess.opts.unstable_opts.dwarf_version;
+  if (dwarf_version !== undefined) {
+    // DWARF 1 is not supported by LLVM and DWARF 6 is not yet finalized.
+    if (dwarf_version < 2 || dwarf_version > 5) {
+      sess.dcx().emit_err(D.UnsupportedDwarfVersion_diagnostic({ dwarf_version }));
+    }
+  }
+
+  if (!sess.target.options.supported_split_debuginfo.includes(sess.split_debuginfo()) && !sess.opts.unstable_opts.unstable_options) {
+    sess.dcx().emit_err(D.SplitDebugInfoUnstablePlatform_diagnostic({ debuginfo: sess.split_debuginfo() }));
+  }
+
+  if (sess.opts.unstable_opts.embed_source) {
+    const dwarf_version = sess.dwarf_version();
+
+    if (dwarf_version < 5) {
+      sess.dcx().emit_warn(D.EmbedSourceInsufficientDwarfVersion_diagnostic({ dwarf_version }));
+    }
+
+    if (sess.opts.debuginfo === "None") {
+      sess.dcx().emit_warn(D.EmbedSourceRequiresDebugInfo_diagnostic({}));
+    }
+  }
+
+  const instrument_mcount = sess.opts.unstable_opts.instrument_mcount;
+  if (instrument_mcount.$ === "Fentry") {
+    const opts = instrument_mcount._0;
+    if (!sess.target.options.supports_fentry) {
+      sess.dcx().emit_err(D.InstrumentationNotSupported_diagnostic({ us: "fentry" }));
+    }
+    if ((opts.no_call || opts.record) && sess.target.arch.$ !== "S390x") {
+      sess.dcx().emit_err(D.InstrumentationNotSupported_diagnostic({ us: "fentry-*" }));
+    }
+  }
+
+  if (sess.opts.unstable_opts.instrument_xray !== undefined && !sess.target.options.supports_xray) {
+    sess.dcx().emit_err(D.InstrumentationNotSupported_diagnostic({ us: "XRay" }));
+  }
+
+  const flavor = sess.opts.cg.linker_flavor;
+  const compatible_list = flavor !== undefined ? LinkerFlavor.check_compatibility(sess.target.linker_flavor, flavor) : undefined;
+  if (flavor !== undefined && compatible_list !== undefined) {
+    const flavor_ = LinkerFlavorCli.desc(flavor);
+    sess.dcx().emit_err(D.IncompatibleLinkerFlavor_diagnostic({ flavor: flavor_, compatible_list }));
+  }
+
+  if (sess.opts.unstable_opts.function_return !== FunctionReturn.default()) {
+    if (!(sess.target.arch.$ === "X86" || sess.target.arch.$ === "X86_64")) {
+      sess.dcx().emit_err(D.FunctionReturnRequiresX86OrX8664_diagnostic({}));
+    }
+  }
+
+  if (sess.opts.unstable_opts.indirect_branch_cs_prefix) {
+    if (!(sess.target.arch.$ === "X86" || sess.target.arch.$ === "X86_64")) {
+      sess.dcx().emit_err(D.IndirectBranchCsPrefixRequiresX86OrX8664_diagnostic({}));
+    }
+  }
+
+  const regparm = sess.opts.unstable_opts.regparm;
+  if (regparm !== undefined) {
+    if (regparm > 3) {
+      sess.dcx().emit_err(D.UnsupportedRegparm_diagnostic({ regparm }));
+    }
+    if (sess.target.arch.$ !== "X86") {
+      sess.dcx().emit_err(D.UnsupportedRegparmArch_diagnostic({}));
+    }
+  }
+  if (sess.opts.unstable_opts.reg_struct_return) {
+    if (sess.target.arch.$ !== "X86") {
+      sess.dcx().emit_err(D.UnsupportedRegStructReturnArch_diagnostic({}));
+    }
+  }
+
+  // The code model check applies to `thunk` and `thunk-extern`, but not `thunk-inline`, so it is
+  // kept as a `match` to force a change if new ones are added, even if we currently only support
+  // `thunk-extern` like Clang.
+  switch (sess.opts.unstable_opts.function_return) {
+    case "Keep":
+      break;
+    case "ThunkExtern": {
+      // FIXME: In principle, the inherited base LLVM target code model could be large,
+      // but this only checks whether we were passed one explicitly (like Clang does).
+      const code_model = sess.code_model();
+      if (code_model !== undefined && code_model === "Large") {
+        sess.dcx().emit_err(D.FunctionReturnThunkExternRequiresNonLargeCodeModel_diagnostic({}));
+      }
+      break;
+    }
+  }
+
+  if (sess.opts.unstable_opts.packed_stack) {
+    if (sess.target.arch.$ !== "S390x") {
+      sess.dcx().emit_err(D.UnsupportedPackedStack_diagnostic({}));
+    }
+  }
+
+  const cpu_name = sess.opts.cg.target_cpu;
+  if (cpu_name !== undefined) {
+    if (cpu_name === NATIVE_CPU && sess.target.requires_consistent_cpu) {
+      sess.dcx().emit_fatal(
+        D.NativeTargetCpuNotAllowed_diagnostic({
+          target_triple: sess.opts.target_triple,
+          need_explicit_cpu: sess.target.need_explicit_cpu,
+        }),
+      );
+    }
+  }
 }
 
 /// A wrapper around an [`DiagCtxt`] that is used for early error emissions.

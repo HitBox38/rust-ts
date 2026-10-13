@@ -195,6 +195,26 @@ export const OptLevel = {
 } as const;
 export const debug_OptLevel: Debug<OptLevel> = (v) => v;
 
+/// This is what the `LtoCli` values get mapped to after resolving defaults and
+/// and taking other command line options into account.
+///
+/// Note that linker plugin-based LTO is a different mechanism entirely.
+// #[derive(Clone, PartialEq, Encodable, Decodable)]
+export type Lto =
+  /// Don't do any LTO whatsoever.
+  | "No"
+
+  /// Do a full-crate-graph (inter-crate) LTO with ThinLTO.
+  | "Thin"
+
+  /// Do a local ThinLTO (intra-crate, over the CodeGen Units of the local crate only). This is
+  /// only relevant if multiple CGUs are used.
+  | "ThinLocal"
+
+  /// Do a full-crate-graph (inter-crate) LTO with "fat" LTO.
+  | "Fat";
+export const Lto = { No: "No", Thin: "Thin", ThinLocal: "ThinLocal", Fat: "Fat" } as const;
+
 /// The different settings that the `-C lto` flag can have.
 export type LtoCli =
   /// `-C lto=no`
@@ -2910,8 +2930,11 @@ export function build_session_options(early_dcx: EarlyDiagCtxtReal, matches: get
 
     const flavor = cg.linker_flavor;
     if (flavor !== undefined) {
-      // `flavor.is_unstable()` / `flavor.desc()` (rustc_target `LinkerFlavorCli`)
-      unported("rustc_target::spec::LinkerFlavorCli::is_unstable");
+      if (target_spec.LinkerFlavorCli.is_unstable(flavor)) {
+        early_dcx.early_fatal(
+          `the linker flavor \`${target_spec.LinkerFlavorCli.desc(flavor)}\` is unstable, the \`-Z unstable-options\` flag must also be passed to use the unstable values`,
+        );
+      }
     }
   }
 
@@ -2919,8 +2942,12 @@ export function build_session_options(early_dcx: EarlyDiagCtxtReal, matches: get
   // and disabled at the same time.
   const erroneous_components = cg.link_self_contained.check_consistency();
   if (erroneous_components !== undefined) {
-    // `erroneous_components.into_iter().map(|c| c.as_str().unwrap()).intersperse(", ").collect()`
-    unported("rustc_target::spec::LinkSelfContainedComponents::as_str");
+    // PORT: bitflags `into_iter()` yields the named flags in definition order (= `all_components()`).
+    const names: string = target_spec.LinkSelfContainedComponents.all_components()
+      .filter((c) => target_spec.LinkSelfContainedComponents.contains(erroneous_components, c))
+      .map((c) => unwrap(target_spec.LinkSelfContainedComponents.as_str(c)))
+      .join(", ");
+    early_dcx.early_fatal(`some \`-C link-self-contained\` components were both enabled and disabled: ${names}`);
   }
 
   const prints = print_request.collect_print_requests(early_dcx, cg, unstable_opts, matches, print_request.PrintCategory.ALL_VARIANTS);

@@ -9,7 +9,7 @@ import { defer_field } from "../rustc_session/stand_ins.ts";
 import { std_print } from "../rustc_session/config.ts";
 import { TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { TARGET_CONFIGS } from "../rust_ts/target_config.gen.ts";
-import { Symbol } from "../rustc_span/symbol.ts";
+import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { unported } from "../std/panic.ts";
 
 /// `rustc_codegen_ssa::TargetConfig` (rustc_codegen_ssa/src/lib.rs:309)
@@ -36,7 +36,7 @@ export interface TargetConfig {
  * default, `init` reports nothing (LLVM accepts the target's own `llvm_args`) and `target_config` is the
  * oracle table (decision D4).
  */
-function non_default_llvm_input(sess: EarlySession): string | undefined {
+function non_default_llvm_input(sess: EarlySession, for_target_config: boolean): string | undefined {
   const cg = sess.opts.cg;
   const z = sess.opts.unstable_opts;
   if (cg.llvm_args.length !== 0) return "-C llvm-args";
@@ -48,10 +48,11 @@ function non_default_llvm_input(sess: EarlySession): string | undefined {
   if (z.print_llvm_passes) return "-Z print-llvm-passes";
   if (z.print_codegen_stats || z.print_codegen_stats_json !== undefined) return "-Z print-codegen-stats";
   if (z.autodiff.length !== 0) return "-Z autodiff";
-  if (z.small_data_threshold !== undefined) return "-Z small-data-threshold";
+  if (z.small_data_threshold !== undefined && sess.target.small_data_threshold_support_().$ === "LlvmArg") return "-Z small-data-threshold";
   if (z.fixed_x18) return "-Z fixed-x18";
   if (z.retpoline || z.retpoline_external_thunk) return "-Z retpoline";
-  if (sess.sanitizers() !== 0) return "-Z sanitizer";
+  // `sanitizer_features_by_flags` only adds features (no diagnostics): it changes `target_config`, not `init`.
+  if (for_target_config && sess.sanitizers() !== 0) return "-Z sanitizer";
   if (sess.target.is_like_wasm && sess.panic_strategy() !== sess.target.panic_strategy) return "-C panic (wasm exception handling)";
   return undefined;
 }
@@ -84,19 +85,58 @@ export class LlvmCodegenBackend implements CodegenBackend {
   }
   init(sess: EarlySession): CodegenBackendInit {
     // `llvm_util::init(sess)`: LLVM's command-line parsing and the target-feature computations.
-    const input = non_default_llvm_input(sess);
+    const input = non_default_llvm_input(sess, false);
     if (input !== undefined) {
       unported(`rustc_codegen_llvm::llvm_util::configure_llvm (${input})`);
     }
+    // PORT: `global_backend_features` (`llvm_util::global_llvm_features`, LLVM feature names) is deferred;
+    // the rest is copied from back/llvm_backend.rs `init`.
     const init = {} as CodegenBackendInit;
-    for (const key of ["global_backend_features", "replaced_intrinsics", "fallback_intrinsics", "thin_lto_supported"] as const) {
-      defer_field(init, key, `rustc_codegen_llvm::LlvmCodegenBackend::init (${key})`);
-    }
+    defer_field(init, "global_backend_features", "rustc_codegen_llvm::llvm_util::global_llvm_features (CodegenBackendInit::global_backend_features)");
+
+    // Intrinsics whose fallback body will not be used by the LLVM backend.
+    // #[rustfmt::skip]
+    const will_not_use_fallback = [
+      // These are mapped to LLVM intrinsics instead.
+      sym.unchecked_funnel_shl,
+      sym.unchecked_funnel_shr,
+      sym.carrying_mul_add,
+      sym.carryless_mul,
+      sym.integer_max,
+      sym.integer_min,
+
+      // Fallback via libm, but the LLVM intrinsic is used instead.
+      sym.sin,
+      sym.cos,
+      sym.powf16, sym.powf32, sym.powf64,
+      sym.exp,
+      sym.exp2,
+      sym.log,
+      sym.log10,
+      sym.log2,
+
+      // Fallback via f32 or f64, but the LLVM intrinsic is used instead.
+      sym.floorf16, sym.ceilf16, sym.truncf16,
+      sym.round_ties_even_f16, sym.roundf16,
+      sym.sqrtf16, sym.powif16,
+      sym.fmaf16,
+
+      sym.copysignf16, sym.copysignf32, sym.copysignf64, sym.copysignf128,
+    ];
+    init.replaced_intrinsics = will_not_use_fallback;
+
+    // `type_id_eq` is a safe choice since *all* backends use the fallback body for that. When
+    // adding more intrinsics, keep in mind that the distributed standard library is compiled
+    // with the LLVM backend but might later be included in a project built with cranelift or
+    // GCC. Adding an intrinsic here can therefore mean the fallback body is used with
+    // cranelift/GCC even if they have dedicated implementations.
+    init.fallback_intrinsics = [sym.type_id_eq];
+    init.thin_lto_supported = true;
     return init;
   }
   /** `llvm_util::target_config` (PORT: the oracle table src/rust_ts/target_config.gen.ts, decision D4). */
   target_config(sess: EarlySession): TargetConfig {
-    const input = non_default_llvm_input(sess);
+    const input = non_default_llvm_input(sess, true);
     if (input !== undefined) {
       return unported(`rustc_codegen_llvm::llvm_util::target_config (${input})`);
     }
