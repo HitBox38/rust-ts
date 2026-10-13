@@ -1,0 +1,52 @@
+{
+  "//": [
+    "PrintAttribute impls of types outside the generated sets, for #[derive(PrintAttribute)] (tools/codegen/types.ts).",
+    "Upstream: compiler/rustc_attr_ir/src/pretty_printing.rs (generic impls for &T/Box/Option/ThinVec/FxIndexMap,",
+    "PathBuf, ast::Path, print_tup! for tuples, print_skip!/print_disp!/print_debug! lists). The TS impls are the",
+    "`print_attribute_*` tables in src/rustc_attr_ir/pretty_printing.ts (`import`).",
+    "types[].print: expression of the `PrintAttribute<T>` table; $p0..$pn = tables of the type arguments.",
+    "types[].values: names the expression uses (imported from `import`).",
+    "References are `print_attribute_ref($p)`, tuples `print_attribute_tuple([..])`, `()` `print_attribute_unit` (built in)."
+  ],
+  "import": "src/rustc_attr_ir/pretty_printing.ts",
+  "types": [
+    { "paths": ["Box"], "print": "print_attribute_Box($p0)", "values": ["print_attribute_Box"] },
+    { "paths": ["Option"], "print": "print_attribute_Option($p0)", "values": ["print_attribute_Option"] },
+    { "paths": ["thin_vec::ThinVec"], "print": "print_attribute_ThinVec($p0)", "values": ["print_attribute_ThinVec"] },
+    { "paths": ["rustc_data_structures::fx::FxIndexMap"], "print": "print_attribute_FxIndexMap($p0, $p1)", "values": ["print_attribute_FxIndexMap"] },
+    { "paths": ["std::path::PathBuf"], "print": "print_attribute_PathBuf", "values": ["print_attribute_PathBuf"] },
+    { "paths": ["rustc_ast::Path", "rustc_ast::ast::Path"], "print": "print_attribute_Path", "values": ["print_attribute_Path"] },
+
+    { "paths": ["rustc_span::Span", "rustc_span::span_encoding::Span"], "print": "print_attribute_Span", "values": ["print_attribute_Span"] },
+    { "paths": ["rustc_span::ErrorGuaranteed"], "print": "print_attribute_ErrorGuaranteed", "values": ["print_attribute_ErrorGuaranteed"] },
+    { "paths": ["rustc_ast::AttrId", "rustc_span::AttrId"], "print": "print_attribute_AttrId", "values": ["print_attribute_AttrId"] },
+
+    { "paths": ["u8"], "print": "print_attribute_u8", "values": ["print_attribute_u8"] },
+    { "paths": ["u16"], "print": "print_attribute_u16", "values": ["print_attribute_u16"] },
+    { "paths": ["u32"], "print": "print_attribute_u32", "values": ["print_attribute_u32"] },
+    { "paths": ["u128"], "print": "print_attribute_u128", "values": ["print_attribute_u128"] },
+    { "paths": ["usize"], "print": "print_attribute_usize", "values": ["print_attribute_usize"] },
+    { "paths": ["bool"], "print": "print_attribute_bool", "values": ["print_attribute_bool"] },
+    { "paths": ["std::num::NonZero"], "print": "print_attribute_NonZero_u32", "values": ["print_attribute_NonZero_u32"], "note": "only NonZero<u32> has an impl (print_disp!)" },
+    { "paths": ["rustc_structures::Limit"], "print": "print_attribute_Limit", "values": ["print_attribute_Limit"] },
+
+    { "paths": ["rustc_span::Symbol", "rustc_span::symbol::Symbol"], "print": "print_attribute_Symbol", "values": ["print_attribute_Symbol"] },
+    { "paths": ["rustc_span::Ident", "rustc_span::symbol::Ident"], "print": "print_attribute_Ident", "values": ["print_attribute_Ident"] },
+    { "paths": ["rustc_ast::ast::UintTy", "rustc_ast::UintTy", "rustc_ast_ir::UintTy"], "print": "print_attribute_UintTy", "values": ["print_attribute_UintTy"] },
+    { "paths": ["rustc_ast::ast::IntTy", "rustc_ast::IntTy", "rustc_ast_ir::IntTy"], "print": "print_attribute_IntTy", "values": ["print_attribute_IntTy"] },
+    { "paths": ["rustc_abi::Align"], "print": "print_attribute_Align", "values": ["print_attribute_Align"] },
+    { "paths": ["rustc_ast::AttrStyle", "rustc_ast::ast::AttrStyle"], "print": "print_attribute_AttrStyle", "values": ["print_attribute_AttrStyle"] },
+    { "paths": ["rustc_ast::token::CommentKind"], "print": "print_attribute_CommentKind", "values": ["print_attribute_CommentKind"] },
+    { "paths": ["rustc_ast::token::DocFragmentKind"], "print": "print_attribute_DocFragmentKind", "values": ["print_attribute_DocFragmentKind"] },
+    { "paths": ["rustc_span::hygiene::Transparency", "rustc_span::Transparency"], "print": "print_attribute_Transparency", "values": ["print_attribute_Transparency"] },
+    { "paths": ["rustc_structures::SanitizerSet"], "print": "print_attribute_SanitizerSet", "values": ["print_attribute_SanitizerSet"] },
+    { "paths": ["rustc_span::def_id::DefId", "rustc_span::DefId"], "print": "print_attribute_DefId", "values": ["print_attribute_DefId"] },
+    { "paths": ["rustc_ast::attr::version::RustcVersion", "rustc_ast::attr::RustcVersion"], "print": "print_attribute_RustcVersion", "values": ["print_attribute_RustcVersion"] },
+    { "paths": ["rustc_ast::attr::data_structures::CfgEntry"], "print": "print_attribute_CfgEntry", "values": ["print_attribute_CfgEntry"] },
+    { "paths": ["rustc_ast::expand::autodiff_attrs::DiffActivity"], "print": "print_attribute_DiffActivity", "values": ["print_attribute_DiffActivity"] },
+    { "paths": ["rustc_ast::expand::autodiff_attrs::DiffMode"], "print": "print_attribute_DiffMode", "values": ["print_attribute_DiffMode"] },
+    { "paths": ["rustc_structures::CrateType"], "print": "print_attribute_CrateType", "values": ["print_attribute_CrateType"] },
+    { "paths": ["rustc_structures::NativeLibKind"], "print": "print_attribute_NativeLibKind", "values": ["print_attribute_NativeLibKind"] },
+    { "paths": ["rustc_structures::CollapseMacroDebuginfo"], "print": "print_attribute_CollapseMacroDebuginfo", "values": ["print_attribute_CollapseMacroDebuginfo"] }
+  ]
+}
