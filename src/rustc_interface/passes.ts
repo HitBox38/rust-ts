@@ -14,6 +14,8 @@ import { Input, type OutputFilenames, type OutFileName, std_print, UnstableOptio
 import type { Session } from "../rustc_session/session.ts";
 import "../rustc_session/utils.ts"; // `Session::time`
 import { unported, unreachable } from "../std/panic.ts";
+import * as rustc_resolve from "../rustc_resolve/lib.ts";
+import { Resolver } from "../rustc_resolve/lib.ts";
 import { path_components, path_eq, path_file_stem, path_is_absolute, path_join } from "../std/path.ts";
 import { AttributeParser } from "../rustc_attr_parsing/lib.ts";
 import type { ShouldEmit } from "../rustc_attr_parsing/lib.ts";
@@ -924,7 +926,7 @@ function default_query_providers(): MiddleProviders {
   limits.provide(providers.queries);
   rustc_incremental_provide(providers);
   query_impl_provide(providers);
-  rustc_resolve_provide(providers.queries);
+  rustc_resolve.provide(providers.queries);
   rustc_passes_provide(providers.queries);
   ty_context_provide(providers.queries);
   return providers;
@@ -1190,39 +1192,6 @@ function clone_MiddleProviders(p: MiddleProviders): MiddleProviders {
 // ---- Pending-lane shims ------------------------------------------------------------------------------------
 // Each is named and typed as upstream; its body calls `unported` with the upstream path and the lane that
 // ports it. Root replaces each by the import when the lane lands (handoff driver-m2).
-
-/** `rustc_resolve::ResolverArenas` (erased arena set; PORT: pending res-lib). */
-export type ResolverArenas = unknown;
-
-/** `rustc_resolve::ResolverOutputs` (lib.rs:1345). PORT: pending res-lib. */
-export interface ResolverOutputs {
-  global_ctxt: ResolverGlobalCtxt;
-  ast_lowering: ResolverAstLowering;
-}
-
-/** `rustc_resolve::Resolver` (lib.rs): the methods `configure_and_expand` calls. PORT: pending res-lib. */
-export interface Resolver extends ResolverExpand {
-  tcx(): TyCtxt;
-  lint_buffer(): LintBuffer;
-  resolve_crate(krate: Crate): void;
-  into_outputs(): ResolverOutputs;
-}
-const Resolver = {
-  /** `Resolver::arenas` (lib.rs:1954). PORT: pending res-lib. */
-  arenas(): ResolverArenas {
-    return unported("rustc_resolve::Resolver::arenas (pending res-lib)");
-  },
-  /** `Resolver::new` (lib.rs:1803). PORT: pending res-lib. */
-  new(_tcx: TyCtxt, _attrs: readonly Attribute[], _crate_span: Span, _crate_inject_span: Span, _arenas: ResolverArenas): Resolver {
-    return unported("rustc_resolve::Resolver::new (pending res-lib)");
-  },
-};
-
-/** `rustc_resolve::provide` (lib.rs:2850). PORT: pending res-lib (`macros::registered_*_tools`: res-macros). */
-function rustc_resolve_provide(providers: QueryProviders): void {
-  providers.registered_attr_tools = () => unported("rustc_resolve::macros::registered_attr_tools (pending res-lib/res-macros)");
-  providers.registered_lint_tools = () => unported("rustc_resolve::macros::registered_lint_tools (pending res-lib/res-macros)");
-}
 
 /**
  * `rustc_passes::provide` (lib.rs): only the query this file reaches (`write_out_deps`).
