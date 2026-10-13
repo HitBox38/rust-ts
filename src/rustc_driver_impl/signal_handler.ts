@@ -12,7 +12,9 @@
 // left out, so stderr differs from rustc's in those lines only. On non-unix hosts upstream installs
 // nothing (`#[cfg(not(unix))] fn install() {}`), and a stack overflow stays an ICE in main.ts.
 
+import { writeSync } from "node:fs";
 import { DEFAULT_STACK_SIZE, STACK_SIZE } from "../rustc_interface/util.ts";
+import { Err, Ok, type Result } from "../std/result.ts";
 
 /// Signals that represent that we have a bug, and our prompt termination has
 /// been ordered.
@@ -22,14 +24,27 @@ const KILL_SIGNALS: readonly [NodeJS.Signals, string][] = [
   ["SIGSEGV", "SIGSEGV"],
 ];
 
+/// Unbuffered, unsynchronized writer to stderr.
+///
+/// Only acceptable because everything will end soon anyways.
+const RawStderr = {
+  // rustc: compiler/rustc_driver_impl/src/signal_handler.rs:33 write_str
+  write_str(s: string): Result<undefined, undefined> {
+    // `libc::write(STDERR_FILENO, ..)`: synchronous, so it lands before the signal is re-raised.
+    try {
+      writeSync(2, s);
+      return Ok(undefined);
+    } catch {
+      return Err(undefined);
+    }
+  },
+};
+
 /// We don't really care how many bytes we actually get out. SIGSEGV comes for our head.
 /// Splash stderr with letters of our own blood to warn our friends about the monster.
 function raw_errln(s: string): void {
-  try {
-    process.stderr.write(`${s}\n`);
-  } catch {
-    // `let _ = ...`
-  }
+  void RawStderr.write_str(s);
+  void RawStderr.write_str("\n");
 }
 
 /// Signal handler installed for SIGSEGV
