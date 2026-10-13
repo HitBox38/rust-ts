@@ -3,8 +3,8 @@
 //   - MATCH cases: CLI handling that needs no parser (version, bad flags, `-C help`, ...).
 //   - PENDING cases: paths that reach code another lane is porting. They must either match the oracle
 //     byte for byte, or stop with `rust-ts: unported: <expected what>` (exit 70) after printing a
-//     prefix of the oracle's stdout/stderr. Once the parser (lane parser-core) and unicode-width's
-//     string widths land, they turn into exact matches without changes here.
+//     prefix of the oracle's stdout/stderr. Once the parser (lane parser-core) lands, they turn into
+//     exact matches without changes here.
 //   - The target-spec stand-in (rustc_session/stand_ins.ts) against `--print target-spec-json`.
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
@@ -88,6 +88,10 @@ const MATCH: string[][] = [
   ["--edition=2021"],
   ["--extern", "foo-bar", "x.rs"],
   ["-Wall"],
+  ["--help"],
+  [],
+  ["-o"],
+  ["--explain"],
 ];
 
 /** [args, the `unported(..)` text the port may stop at until the pending lane lands] */
@@ -99,10 +103,6 @@ const PENDING: [string[], string][] = [
   [["x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
   [["-ooptimize", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
   [["-Zui-testing", "--edition=2021", "-Zunpretty=ast-tree", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
-  [["--help"], "unicode_width::tables::width_in_str"],
-  [[], "unicode_width::tables::width_in_str"],
-  [["-o"], "unicode_width::tables::width_in_str"],
-  [["--explain"], "unicode_width::tables::width_in_str"],
 ];
 
 for (const args of MATCH) {
