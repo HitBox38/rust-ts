@@ -5,8 +5,8 @@
 // defining module (PORTING section 5): rmeta/decoder/cstore_impl.ts attaches `impl CStore` /
 // `impl CrateStore for CStore` to creader.ts's `CStore`. Consumers import this module.
 //
-// Not ported yet (wave 11 lanes): dependency_format, eii, foreign_modules, native_libs, the write path of fs, the rmeta
-// encoder/table/parameterized/def_path_hash_map; host_dylib and rmeta/{mod,decoder} are stubs.
+// Not ported yet: dependency_format, eii, foreign_modules, native_libs, the write path of fs, the rmeta encoder (M5);
+// host_dylib is a stub; rmeta/decoder.ts is a contract (stubs for lanes rmeta-decoder-a/-b).
 
 // pub use rmeta::provide;
 export { provide } from "./rmeta/decoder/cstore_impl.ts";
@@ -17,7 +17,11 @@ export { provide } from "./rmeta/decoder/cstore_impl.ts";
 export * as host_dylib from "./host_dylib.ts";
 // mod native_libs;
 // mod rmeta;
+// PORT: rmeta/mod.ts first (decoder.ts extends its classes at load time), then table.ts / def_path_hash_map.ts
+// / decoder.ts (parameterized.rs is type-level only).
 import "./rmeta/mod.ts";
+import "./rmeta/table.ts";
+import "./rmeta/def_path_hash_map.ts";
 import "./rmeta/decoder.ts";
 
 export * as creader from "./creader.ts";

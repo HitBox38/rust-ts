@@ -68,9 +68,9 @@ interface Case {
 
 const CASES: Case[] = [
   // inject_panic_runtime
-  { name: "needs_panic_runtime, bin, -Cpanic=unwind (target default)", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", crates: ["panic_unwind"] },
-  { name: "needs_panic_runtime, -Cpanic=abort", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["-Cpanic=abort"], crates: ["panic_abort"] },
-  { name: "needs_panic_runtime, rlib (is_std overrides only_rlib)", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["--crate-type=rlib"], crates: ["panic_unwind"] },
+  { name: "needs_panic_runtime, bin, -Cpanic=unwind (target default)", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", crates: ["panic_unwind", "rustc_std_workspace_core", "core"] },
+  { name: "needs_panic_runtime, -Cpanic=abort", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["-Cpanic=abort"], crates: ["panic_abort", "rustc_std_workspace_core", "core"] },
+  { name: "needs_panic_runtime, rlib (is_std overrides only_rlib)", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["--crate-type=rlib"], crates: ["panic_unwind", "rustc_std_workspace_core", "core"] },
   { name: "needs_panic_runtime, -Cpanic=immediate-abort: no runtime", mode: "postprocess", src: "#![feature(no_core, needs_panic_runtime)]\n#![no_core]\n#![needs_panic_runtime]\n", flags: ["-Zunstable-options", "-Cpanic=immediate-abort"], crates: [] },
   { name: "no_core bin: no runtime needed", mode: "postprocess", src: NO_CORE, crates: [] },
   { name: "no_core bin, -Cpanic=abort: no runtime needed", mode: "postprocess", src: NO_CORE, flags: ["-Cpanic=abort"], crates: [] },
@@ -150,7 +150,7 @@ const CASES: Case[] = [
   { name: "unused pathless --extern", mode: "postprocess", src: NO_CORE, flags: ["--extern", "foo"], crates: [] },
   // process_extern_crate / the extern prelude through the real resolver
   { name: "no_std injects extern crate core", mode: "pipeline", src: "#![no_std]\n", crates: ["core"] },
-  { name: "std crate injects extern crate std", mode: "pipeline", src: "", crates: ["std"] },
+  { name: "std crate injects extern crate std", mode: "pipeline", src: "", crates: ["std", "core"] },
   { name: "extern crate in a no_core crate (not found, then the missing_core probe)", mode: "pipeline", src: NO_CORE + "extern crate foo;\n", crates: ["foo", "core"] },
   { name: "extern crate with a non-ASCII name (NonAsciiName, then the missing_core probe)", mode: "pipeline", src: NO_CORE + "extern crate föo;\n", crates: ["föo", "core"] },
 ];
@@ -189,7 +189,7 @@ for (const c of CASES) {
     const oracle_log = run([...RUSTC, "-Zunpretty=expanded", ...args], { ...env, RUSTC_LOG: "rustc_metadata::creader=info" });
     const oracle_crates = crates_of(oracle_log.stderr.split("\n"), /^ INFO rustc_metadata::creader resolving crate `(.*)`$/);
     if (ours.code === 70) {
-      expect(ours.stderr).toContain("rust-ts: unported: rustc_metadata::rmeta::decoder::MetadataBlob::new");
+      expect(ours.stderr).toContain("rust-ts: unported: rustc_metadata::rmeta::decoder::CrateMetadata::new");
       expect(oracle_crates.slice(0, our_crates.length)).toEqual(our_crates);
     } else {
       expect(oracle_crates).toEqual(our_crates);

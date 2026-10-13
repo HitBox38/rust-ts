@@ -34,7 +34,8 @@ import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_int, debug_map, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { type IoError, debug_IoError, display_IoError, io_error_from_node } from "../std/io.ts";
 import { path_file_name, path_file_stem, path_join, path_parent } from "../std/path.ts";
-import { assert_eq, unported, unwrap } from "../std/panic.ts";
+import { assert_eq, panic, unported, unwrap } from "../std/panic.ts";
+import type { Decoder } from "../rustc_serialize/serialize.ts";
 import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
 import { utf8 as utf8_bytes, utf8_len } from "../std/str.ts";
 import * as getopts from "../vendor/getopts/lib.ts";
@@ -759,6 +760,24 @@ export type SymbolManglingVersion = "Legacy" | "V0" | "Hashed";
 export const SymbolManglingVersion = { Legacy: "Legacy", V0: "V0", Hashed: "Hashed" } as const;
 /** `#[derive(PartialOrd, Ord)]` */
 export const SymbolManglingVersion_discriminant: Record<SymbolManglingVersion, number> = { Legacy: 0, V0: 1, Hashed: 2 };
+/**
+ * `#[derive(BlobDecodable)]` of `SymbolManglingVersion` (config.rs:607; rustc_macros serialize.rs `decodable_body`:
+ * the variant index as `read_u8`). PORT: hand-expanded: syn cannot parse config.rs, so no tools/codegen set can
+ * generate it; reached through tools/codegen/serialize.json.
+ */
+export function decode_SymbolManglingVersion(__decoder: Decoder): SymbolManglingVersion {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Legacy";
+    case 1:
+      return "V0";
+    case 2:
+      return "Hashed";
+    default:
+      return panic(`invalid enum variant tag while decoding \`SymbolManglingVersion\`, expected 0..3, actual ${__tag}`);
+  }
+}
 export const debug_SymbolManglingVersion: Debug<SymbolManglingVersion> = (v) => v;
 
 export type DebugInfo = "None" | "LineDirectivesOnly" | "LineTablesOnly" | "Limited" | "Full";

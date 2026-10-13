@@ -71,6 +71,7 @@ import { is_numeric } from "../../std/char.ts";
 import { type Debug, debug_str } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
+import type { Decoder } from "../../rustc_serialize/serialize.ts";
 import { path_join } from "../../std/path.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -1051,6 +1052,25 @@ export const PanicStrategy = {
     return { $: "Str", _0: PanicStrategy.desc(self) };
   },
 } as const;
+
+/**
+ * `#[derive(BlobDecodable)]` of `PanicStrategy` (rustc_macros serialize.rs `decodable_body`: the variant index as
+ * `read_u8`). PORT: hand-expanded: the enum is defined inside `target_spec_enum!`, which tools/codegen cannot see;
+ * reached through tools/codegen/serialize.json.
+ */
+export function decode_PanicStrategy(__decoder: Decoder): PanicStrategy {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Unwind";
+    case 1:
+      return "Abort";
+    case 2:
+      return "ImmediateAbort";
+    default:
+      return panic(`invalid enum variant tag while decoding \`PanicStrategy\`, expected 0..3, actual ${__tag}`);
+  }
+}
 
 // #[derive(Clone, Copy, Debug, PartialEq, Hash, Encodable, BlobDecodable, StableHash)]
 export type OnBrokenPipe = "Default" | "Kill" | "Error" | "Inherit";

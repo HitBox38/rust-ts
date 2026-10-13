@@ -3,11 +3,13 @@
 import { debug_ExternAbi, type ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { type CrateStoreDyn } from "./cstore.ts";
 import { type Definitions } from "../rustc_hir_id/definitions.ts";
+import { type BlobDecoder } from "../rustc_metadata/rmeta/decoder.ts";
 import { type CrateNum, debug_CrateNum, debug_DefId, type DefId, type StableCrateIdMap } from "../rustc_span/def_id.ts";
 import { debug_Span, type Span } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { clone_NativeLibKind, debug_NativeLibKind, type NativeLibKind } from "../rustc_structures/lib.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
+import { panic } from "../std/panic.ts";
 import { unported } from "../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
@@ -51,6 +53,20 @@ export const debug_CrateDepKind: Debug<CrateDepKind> = (v) => v;
 export function clone_CrateDepKind(v: CrateDepKind): CrateDepKind {
   return v;
 }
+// rustc-derive: compiler/rustc_crate_store/src/cstore.rs:40 BlobDecodable for CrateDepKind
+export function decode_CrateDepKind(__decoder: BlobDecoder): CrateDepKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "MacrosOnly";
+    case 1:
+      return "Conditional";
+    case 2:
+      return "Unconditional";
+    default:
+      return panic(`invalid enum variant tag while decoding \`CrateDepKind\`, expected 0..3, actual ${__tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_crate_store/src/cstore.rs:63 LinkagePreference
 export type LinkagePreference =
@@ -60,6 +76,18 @@ export const LinkagePreference = { RequireDynamic: "RequireDynamic", RequireStat
 export const debug_LinkagePreference: Debug<LinkagePreference> = (v) => v;
 export function clone_LinkagePreference(v: LinkagePreference): LinkagePreference {
   return v;
+}
+// rustc-derive: compiler/rustc_crate_store/src/cstore.rs:63 BlobDecodable for LinkagePreference
+export function decode_LinkagePreference(__decoder: BlobDecoder): LinkagePreference {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "RequireDynamic";
+    case 1:
+      return "RequireStatic";
+    default:
+      return panic(`invalid enum variant tag while decoding \`LinkagePreference\`, expected 0..2, actual ${__tag}`);
+  }
 }
 
 // rustc-type: compiler/rustc_crate_store/src/cstore.rs:69 NativeLib
