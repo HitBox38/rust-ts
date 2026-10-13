@@ -299,12 +299,18 @@
   },
   "rustc_builtin_macros": {
     "files": [
-      "compiler/rustc_builtin_macros/src/diagnostics.rs"
+      "compiler/rustc_builtin_macros/src/diagnostics.rs",
+      "compiler/rustc_builtin_macros/src/deriving/coerce_pointee.rs",
+      "compiler/rustc_builtin_macros/src/deriving/reborrow.rs"
     ],
     "class": [],
     "hand": [],
     "discriminant": [],
-    "skip": []
+    "skip": [
+      "rustc_builtin_macros::deriving::coerce_pointee::TypeSubstitution",
+      "rustc_builtin_macros::deriving::coerce_pointee::DetectNonGenericPointeeAttr",
+      "rustc_builtin_macros::deriving::coerce_pointee::AlwaysErrorOnGenericParam"
+    ]
   },
   "rustc_expand": {
     "files": [
