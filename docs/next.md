@@ -127,6 +127,10 @@ O(depth×size)) and 1 oracle timeout (deep try chain). Compiler fns 3213/25518 (
 | harness-w7 | `parse-ui` suite: tests/ui/{parser,lexer} with compiletest flags (`//@ compile-flags`, edition, -Zui-testing) stopping after parsing; per-suite timeouts for deep-nesting cases; harness-w6-2 J1 |
 | plan-m2 | M2 (expansion + name resolution) crate map, order, lane split, oracle suites |
 
+## Wave 8 (started 2026-10-13) — M2 foundations (see docs/plan-m2.md)
+target-cfg, attr-ir-gen, hir-def, stable-hash in parallel; then attr-parse-a/-b (after attr-ir-gen), tyctxt-min (after hir-def),
+harness-w8 (expanded-nocore / unpretty-expanded-nocore suites + resdump probe; after harness-w7 merges).
+
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
    `LoneSlash` escape coverage (raw-input mode, harness batch); hash std libs into the oracle key once suites compile against std.
