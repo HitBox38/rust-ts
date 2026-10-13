@@ -114,4 +114,4 @@ The 300 sample stops are `resolve_path` 1 and `Location::caller` 1.
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
 - `bun scripts/coverage.ts --check`: ok.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: RESULT_PLACEHOLDER
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 3889 pass, 1 skip, 0 fail (after the queries.gen.ts regeneration; before it, `queries.test.ts` "committed queries.gen.ts is up to date" failed).
