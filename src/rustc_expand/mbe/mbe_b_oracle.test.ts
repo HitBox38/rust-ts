@@ -72,9 +72,6 @@ const oracle = JSON.parse(readFileSync(join(import.meta.dir, "mbe_b_oracle", "ou
 // those stand-ins replaced by the generated impls, all 19 cases match the oracle (checked in an
 // integration scratch, see docs/handoff/mbe-b.md).
 const PENDING: Record<string, string> = {
-  concat: "rustc_expand::diagnostics::MetaVarStillRepeatingLint",
-  fragerr: "rustc_expand::diagnostics::UnknownMacroVariable",
-  nested: "rustc_expand::diagnostics::UnknownMacroVariable",
 };
 
 function test_session(psess: ParseSess, opts: Options): Session {
