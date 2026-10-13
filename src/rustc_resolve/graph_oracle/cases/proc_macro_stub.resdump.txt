@@ -1,0 +1,84 @@
+== visibilities_for_hashing (9)
+DefId(0:0 ~ proc_macro_stub[0e2d]) Public
+DefId(0:1 ~ proc_macro_stub[0e2d]::bang) Public
+DefId(0:1 ~ proc_macro_stub[0e2d]::bang) Public
+DefId(0:2 ~ proc_macro_stub[0e2d]::attr) Restricted(LocalModId(DefId(0:0 ~ proc_macro_stub[0e2d])))
+DefId(0:2 ~ proc_macro_stub[0e2d]::attr) Restricted(LocalModId(DefId(0:0 ~ proc_macro_stub[0e2d])))
+DefId(0:3 ~ proc_macro_stub[0e2d]::derive) Public
+DefId(0:3 ~ proc_macro_stub[0e2d]::derive) Public
+DefId(0:4 ~ proc_macro_stub[0e2d]::with_macro_use) Restricted(LocalModId(DefId(0:0 ~ proc_macro_stub[0e2d])))
+DefId(0:5 ~ proc_macro_stub[0e2d]::main) Restricted(LocalModId(DefId(0:0 ~ proc_macro_stub[0e2d])))
+== expn_that_defined (0)
+== effective_visibilities (3)
+DefId(0:0 ~ proc_macro_stub[0e2d]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:1 ~ proc_macro_stub[0e2d]::bang) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:3 ~ proc_macro_stub[0e2d]::derive) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (1)
+DefId(0:0 ~ proc_macro_stub[0e2d])
+  ModChild { ident: bang#0, res: Def(Fn, DefId(0:1 ~ proc_macro_stub[0e2d]::bang)), vis: Public, reexport_chain: [] }
+  ModChild { ident: bang#0, res: Def(Macro(MacroKinds(1)), DefId(0:1 ~ proc_macro_stub[0e2d]::bang)), vis: Public, reexport_chain: [] }
+  ModChild { ident: attr#0, res: Def(Fn, DefId(0:2 ~ proc_macro_stub[0e2d]::attr)), vis: Restricted(ModId(DefId(0:0 ~ proc_macro_stub[0e2d]))), reexport_chain: [] }
+  ModChild { ident: attr#0, res: Def(Macro(MacroKinds(2)), DefId(0:2 ~ proc_macro_stub[0e2d]::attr)), vis: Restricted(ModId(DefId(0:0 ~ proc_macro_stub[0e2d]))), reexport_chain: [] }
+  ModChild { ident: derive#0, res: Def(Fn, DefId(0:3 ~ proc_macro_stub[0e2d]::derive)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Derived#0, res: Def(Macro(MacroKinds(4)), DefId(0:3 ~ proc_macro_stub[0e2d]::derive)), vis: Public, reexport_chain: [] }
+  ModChild { ident: with_macro_use#0, res: Def(Mod, DefId(0:4 ~ proc_macro_stub[0e2d]::with_macro_use)), vis: Restricted(ModId(DefId(0:0 ~ proc_macro_stub[0e2d]))), reexport_chain: [] }
+  ModChild { ident: main#0, res: Def(Fn, DefId(0:5 ~ proc_macro_stub[0e2d]::main)), vis: Restricted(ModId(DefId(0:0 ~ proc_macro_stub[0e2d]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+Some(MainDefinition { res: Def(Fn, DefId(0:5 ~ proc_macro_stub[0e2d]::main)), is_import: false, span: proc_macro_stub.rs:9:1: 9:13 (#0) })
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(43)
+== partial_res_map (21)
+NodeId(6) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(7) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(8) PartialRes { base_res: Local(NodeId(8)), unresolved_segments: 0 }
+NodeId(9) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(10) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(12) PartialRes { base_res: Local(NodeId(8)), unresolved_segments: 0 }
+NodeId(13) PartialRes { base_res: Local(NodeId(8)), unresolved_segments: 0 }
+NodeId(18) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(19) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(20) PartialRes { base_res: Local(NodeId(20)), unresolved_segments: 0 }
+NodeId(21) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(22) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(24) PartialRes { base_res: Local(NodeId(20)), unresolved_segments: 0 }
+NodeId(25) PartialRes { base_res: Local(NodeId(20)), unresolved_segments: 0 }
+NodeId(30) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(31) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(32) PartialRes { base_res: Local(NodeId(32)), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(34) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(36) PartialRes { base_res: Local(NodeId(32)), unresolved_segments: 0 }
+NodeId(37) PartialRes { base_res: Local(NodeId(32)), unresolved_segments: 0 }
+== owners (6)
+NodeId(0) def_id=DefId(0:0 ~ proc_macro_stub[0e2d]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ proc_macro_stub[0e2d]::bang) lifetime_elision_allowed=false
+NodeId(15) def_id=DefId(0:2 ~ proc_macro_stub[0e2d]::attr) lifetime_elision_allowed=false
+NodeId(27) def_id=DefId(0:3 ~ proc_macro_stub[0e2d]::derive) lifetime_elision_allowed=false
+NodeId(39) def_id=DefId(0:4 ~ proc_macro_stub[0e2d]::with_macro_use) lifetime_elision_allowed=false
+NodeId(41) def_id=DefId(0:5 ~ proc_macro_stub[0e2d]::main) lifetime_elision_allowed=false
+== lint_buffer (1)
+NodeId(15) UNUSED_MACROS [proc_macro_stub.rs:4:4: 4:8 (#0)]
+== disambiguators (1)
+DefId(0:0 ~ proc_macro_stub[0e2d])
+== definitions (6)
+DefId(0:0 ~ proc_macro_stub[0e2d]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(1021662814069054070, 1021662814069054070))
+DefId(0:1 ~ proc_macro_stub[0e2d]::bang) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("bang"), disambiguator: 0 } } DefPathHash(Fingerprint(1021662814069054070, 4534916718336805362))
+DefId(0:2 ~ proc_macro_stub[0e2d]::attr) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("attr"), disambiguator: 0 } } DefPathHash(Fingerprint(1021662814069054070, 13900100682306776584))
+DefId(0:3 ~ proc_macro_stub[0e2d]::derive) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("derive"), disambiguator: 0 } } DefPathHash(Fingerprint(1021662814069054070, 6952938898991321874))
+DefId(0:4 ~ proc_macro_stub[0e2d]::with_macro_use) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("with_macro_use"), disambiguator: 0 } } DefPathHash(Fingerprint(1021662814069054070, 10007507081513847721))
+DefId(0:5 ~ proc_macro_stub[0e2d]::main) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("main"), disambiguator: 0 } } DefPathHash(Fingerprint(1021662814069054070, 301532950485362664))

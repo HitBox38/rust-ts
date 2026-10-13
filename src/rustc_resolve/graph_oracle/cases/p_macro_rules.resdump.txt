@@ -1,0 +1,43 @@
+== visibilities_for_hashing (3)
+DefId(0:0 ~ p_macro_rules[27e2]) Public
+DefId(0:1 ~ p_macro_rules[27e2]::m) Restricted(LocalModId(DefId(0:0 ~ p_macro_rules[27e2])))
+DefId(0:2 ~ p_macro_rules[27e2]::main) Restricted(LocalModId(DefId(0:0 ~ p_macro_rules[27e2])))
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ p_macro_rules[27e2]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (1)
+DefId(0:0 ~ p_macro_rules[27e2])
+  ModChild { ident: main#0, res: Def(Fn, DefId(0:2 ~ p_macro_rules[27e2]::main)), vis: Restricted(ModId(DefId(0:0 ~ p_macro_rules[27e2]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+Some(MainDefinition { res: Def(Fn, DefId(0:2 ~ p_macro_rules[27e2]::main)), is_import: false, span: p_macro_rules.rs:2:1: 2:13 (#0) })
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (1)
+"m"
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(6)
+== partial_res_map (0)
+== owners (3)
+NodeId(0) def_id=DefId(0:0 ~ p_macro_rules[27e2]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ p_macro_rules[27e2]::m) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:2 ~ p_macro_rules[27e2]::main) lifetime_elision_allowed=false
+== lint_buffer (1)
+NodeId(3) UNUSED_MACROS [p_macro_rules.rs:1:14: 1:15 (#0)]
+== disambiguators (1)
+DefId(0:0 ~ p_macro_rules[27e2])
+== definitions (3)
+DefId(0:0 ~ p_macro_rules[27e2]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(2874070528219445486, 2874070528219445486))
+DefId(0:1 ~ p_macro_rules[27e2]::m) Macro(MacroKinds(1)) DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: MacroNs("m"), disambiguator: 0 } } DefPathHash(Fingerprint(2874070528219445486, 13021130140859783676))
+DefId(0:2 ~ p_macro_rules[27e2]::main) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("main"), disambiguator: 0 } } DefPathHash(Fingerprint(2874070528219445486, 11615223817560480915))

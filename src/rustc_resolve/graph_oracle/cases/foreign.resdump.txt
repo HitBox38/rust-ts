@@ -1,0 +1,219 @@
+== visibilities_for_hashing (30)
+DefId(0:0 ~ foreign[f495]) Public
+DefId(0:1 ~ foreign[f495]::{extern#0}) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:2 ~ foreign[f495]::{extern#0}::a) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:3 ~ foreign[f495]::{extern#0}::b) Public
+DefId(0:4 ~ foreign[f495]::{extern#0}::C) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:5 ~ foreign[f495]::{extern#0}::D) Public
+DefId(0:6 ~ foreign[f495]::{extern#0}::e) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:7 ~ foreign[f495]::{extern#0}::F) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:8 ~ foreign[f495]::{extern#1}) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:9 ~ foreign[f495]::U) Public
+DefId(0:9 ~ foreign[f495]::U) Public
+DefId(0:10 ~ foreign[f495]::U::a) Public
+DefId(0:11 ~ foreign[f495]::U::b) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:12 ~ foreign[f495]::Big) Public
+DefId(0:13 ~ foreign[f495]::Big::A) Public
+DefId(0:14 ~ foreign[f495]::Big::A::{constructor#0}) Public
+DefId(0:16 ~ foreign[f495]::Big::B) Public
+DefId(0:17 ~ foreign[f495]::Big::B::{constructor#0}) Public
+DefId(0:19 ~ foreign[f495]::Big::C) Public
+DefId(0:20 ~ foreign[f495]::Big::C::x) Public
+DefId(0:22 ~ foreign[f495]::Big::D) Public
+DefId(0:23 ~ foreign[f495]::Big::D::{constructor#0}) Public
+DefId(0:24 ~ foreign[f495]::Big::D::0) Public
+DefId(0:26 ~ foreign[f495]::Gen) Public
+DefId(0:26 ~ foreign[f495]::Gen) Public
+DefId(0:31 ~ foreign[f495]::Gen::t) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:32 ~ foreign[f495]::Gen::u) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:33 ~ foreign[f495]::Gen::a) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+DefId(0:35 ~ foreign[f495]::Sized2) Public
+DefId(0:36 ~ foreign[f495]::main) Restricted(LocalModId(DefId(0:0 ~ foreign[f495])))
+== expn_that_defined (0)
+== effective_visibilities (17)
+DefId(0:0 ~ foreign[f495]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:3 ~ foreign[f495]::{extern#0}::b) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:5 ~ foreign[f495]::{extern#0}::D) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:9 ~ foreign[f495]::U) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:12 ~ foreign[f495]::Big) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:26 ~ foreign[f495]::Gen) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:35 ~ foreign[f495]::Sized2) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:10 ~ foreign[f495]::U::a) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:13 ~ foreign[f495]::Big::A) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:14 ~ foreign[f495]::Big::A::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:16 ~ foreign[f495]::Big::B) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:17 ~ foreign[f495]::Big::B::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:19 ~ foreign[f495]::Big::C) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:22 ~ foreign[f495]::Big::D) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:23 ~ foreign[f495]::Big::D::{constructor#0}) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:20 ~ foreign[f495]::Big::C::x) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:24 ~ foreign[f495]::Big::D::0) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (2)
+DefId(0:0 ~ foreign[f495])
+  ModChild { ident: a#0, res: Def(Fn, DefId(0:2 ~ foreign[f495]::{extern#0}::a)), vis: Restricted(ModId(DefId(0:0 ~ foreign[f495]))), reexport_chain: [] }
+  ModChild { ident: b#0, res: Def(Fn, DefId(0:3 ~ foreign[f495]::{extern#0}::b)), vis: Public, reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Static { safety: Unsafe, mutability: Not, nested: false }, DefId(0:4 ~ foreign[f495]::{extern#0}::C)), vis: Restricted(ModId(DefId(0:0 ~ foreign[f495]))), reexport_chain: [] }
+  ModChild { ident: D#0, res: Def(Static { safety: Unsafe, mutability: Mut, nested: false }, DefId(0:5 ~ foreign[f495]::{extern#0}::D)), vis: Public, reexport_chain: [] }
+  ModChild { ident: e#0, res: Def(Fn, DefId(0:6 ~ foreign[f495]::{extern#0}::e)), vis: Restricted(ModId(DefId(0:0 ~ foreign[f495]))), reexport_chain: [] }
+  ModChild { ident: F#0, res: Def(Static { safety: Unsafe, mutability: Not, nested: false }, DefId(0:7 ~ foreign[f495]::{extern#0}::F)), vis: Restricted(ModId(DefId(0:0 ~ foreign[f495]))), reexport_chain: [] }
+  ModChild { ident: U#0, res: Def(Union, DefId(0:9 ~ foreign[f495]::U)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Big#0, res: Def(Enum, DefId(0:12 ~ foreign[f495]::Big)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Gen#0, res: Def(Struct, DefId(0:26 ~ foreign[f495]::Gen)), vis: Public, reexport_chain: [] }
+  ModChild { ident: Sized2#0, res: Def(Trait, DefId(0:35 ~ foreign[f495]::Sized2)), vis: Public, reexport_chain: [] }
+  ModChild { ident: main#0, res: Def(Fn, DefId(0:36 ~ foreign[f495]::main)), vis: Restricted(ModId(DefId(0:0 ~ foreign[f495]))), reexport_chain: [] }
+DefId(0:12 ~ foreign[f495]::Big)
+  ModChild { ident: A#0, res: Def(Variant, DefId(0:13 ~ foreign[f495]::Big::A)), vis: Public, reexport_chain: [] }
+  ModChild { ident: A#0, res: Def(Ctor(Variant, Const), DefId(0:14 ~ foreign[f495]::Big::A::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Variant, DefId(0:16 ~ foreign[f495]::Big::B)), vis: Public, reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Ctor(Variant, Const), DefId(0:17 ~ foreign[f495]::Big::B::{constructor#0})), vis: Public, reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Variant, DefId(0:19 ~ foreign[f495]::Big::C)), vis: Public, reexport_chain: [] }
+  ModChild { ident: D#0, res: Def(Variant, DefId(0:22 ~ foreign[f495]::Big::D)), vis: Public, reexport_chain: [] }
+  ModChild { ident: D#0, res: Def(Ctor(Variant, Fn), DefId(0:23 ~ foreign[f495]::Big::D::{constructor#0})), vis: Public, reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+Some(MainDefinition { res: Def(Fn, DefId(0:36 ~ foreign[f495]::main)), is_import: false, span: foreign.rs:14:1: 14:13 (#0) })
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(89)
+== partial_res_map (37)
+NodeId(7) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(8) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(10) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(11) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(13) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(14) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(16) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(17) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(20) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(21) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(25) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(26) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(28) PartialRes { base_res: PrimTy(Uint(u16)), unresolved_segments: 0 }
+NodeId(29) PartialRes { base_res: PrimTy(Uint(u16)), unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(45) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(51) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(52) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(59) PartialRes { base_res: Def(TyParam, DefId(0:27 ~ foreign[f495]::Gen::T)), unresolved_segments: 0 }
+NodeId(60) PartialRes { base_res: Def(TyParam, DefId(0:28 ~ foreign[f495]::Gen::U)), unresolved_segments: 0 }
+NodeId(61) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(62) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(63) PartialRes { base_res: Def(ConstParam, DefId(0:29 ~ foreign[f495]::Gen::N)), unresolved_segments: 0 }
+NodeId(64) PartialRes { base_res: PrimTy(Uint(usize)), unresolved_segments: 0 }
+NodeId(65) PartialRes { base_res: PrimTy(Uint(usize)), unresolved_segments: 0 }
+NodeId(69) PartialRes { base_res: Def(TyParam, DefId(0:27 ~ foreign[f495]::Gen::T)), unresolved_segments: 0 }
+NodeId(70) PartialRes { base_res: Def(TyParam, DefId(0:27 ~ foreign[f495]::Gen::T)), unresolved_segments: 0 }
+NodeId(71) PartialRes { base_res: Def(Trait, DefId(0:35 ~ foreign[f495]::Sized2)), unresolved_segments: 0 }
+NodeId(72) PartialRes { base_res: Def(Trait, DefId(0:35 ~ foreign[f495]::Sized2)), unresolved_segments: 0 }
+NodeId(74) PartialRes { base_res: Def(TyParam, DefId(0:27 ~ foreign[f495]::Gen::T)), unresolved_segments: 0 }
+NodeId(75) PartialRes { base_res: Def(TyParam, DefId(0:27 ~ foreign[f495]::Gen::T)), unresolved_segments: 0 }
+NodeId(77) PartialRes { base_res: Def(TyParam, DefId(0:28 ~ foreign[f495]::Gen::U)), unresolved_segments: 0 }
+NodeId(78) PartialRes { base_res: Def(TyParam, DefId(0:28 ~ foreign[f495]::Gen::U)), unresolved_segments: 0 }
+NodeId(81) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(82) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(84) PartialRes { base_res: Def(ConstParam, DefId(0:29 ~ foreign[f495]::Gen::N)), unresolved_segments: 0 }
+NodeId(85) PartialRes { base_res: Def(ConstParam, DefId(0:29 ~ foreign[f495]::Gen::N)), unresolved_segments: 0 }
+== owners (14)
+NodeId(0) def_id=DefId(0:0 ~ foreign[f495]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ foreign[f495]::{extern#0}) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:2 ~ foreign[f495]::{extern#0}::a) lifetime_elision_allowed=false
+NodeId(5) def_id=DefId(0:3 ~ foreign[f495]::{extern#0}::b) lifetime_elision_allowed=false
+NodeId(12) def_id=DefId(0:4 ~ foreign[f495]::{extern#0}::C) lifetime_elision_allowed=false
+NodeId(15) def_id=DefId(0:5 ~ foreign[f495]::{extern#0}::D) lifetime_elision_allowed=false
+NodeId(18) def_id=DefId(0:6 ~ foreign[f495]::{extern#0}::e) lifetime_elision_allowed=false
+NodeId(19) def_id=DefId(0:7 ~ foreign[f495]::{extern#0}::F) lifetime_elision_allowed=false
+NodeId(22) def_id=DefId(0:8 ~ foreign[f495]::{extern#1}) lifetime_elision_allowed=false
+NodeId(23) def_id=DefId(0:9 ~ foreign[f495]::U) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(24) DefId(0:10 ~ foreign[f495]::U::a)
+  node_id_to_def_id NodeId(27) DefId(0:11 ~ foreign[f495]::U::b)
+NodeId(30) def_id=DefId(0:12 ~ foreign[f495]::Big) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(31) DefId(0:13 ~ foreign[f495]::Big::A)
+  node_id_to_def_id NodeId(32) DefId(0:14 ~ foreign[f495]::Big::A::{constructor#0})
+  node_id_to_def_id NodeId(33) DefId(0:15 ~ foreign[f495]::Big::A::{constant#0})
+  node_id_to_def_id NodeId(35) DefId(0:16 ~ foreign[f495]::Big::B)
+  node_id_to_def_id NodeId(36) DefId(0:17 ~ foreign[f495]::Big::B::{constructor#0})
+  node_id_to_def_id NodeId(37) DefId(0:18 ~ foreign[f495]::Big::B::{constant#0})
+  node_id_to_def_id NodeId(41) DefId(0:19 ~ foreign[f495]::Big::C)
+  node_id_to_def_id NodeId(42) DefId(0:20 ~ foreign[f495]::Big::C::x)
+  node_id_to_def_id NodeId(46) DefId(0:21 ~ foreign[f495]::Big::C::x::{constant#0})
+  node_id_to_def_id NodeId(48) DefId(0:22 ~ foreign[f495]::Big::D)
+  node_id_to_def_id NodeId(49) DefId(0:24 ~ foreign[f495]::Big::D::0)
+  node_id_to_def_id NodeId(53) DefId(0:25 ~ foreign[f495]::Big::D::0::{constant#0})
+  node_id_to_def_id NodeId(57) DefId(0:23 ~ foreign[f495]::Big::D::{constructor#0})
+NodeId(58) def_id=DefId(0:26 ~ foreign[f495]::Gen) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(59) DefId(0:27 ~ foreign[f495]::Gen::T)
+  node_id_to_def_id NodeId(60) DefId(0:28 ~ foreign[f495]::Gen::U)
+  node_id_to_def_id NodeId(63) DefId(0:29 ~ foreign[f495]::Gen::N)
+  node_id_to_def_id NodeId(66) DefId(0:30 ~ foreign[f495]::Gen::{constant#0})
+  node_id_to_def_id NodeId(73) DefId(0:31 ~ foreign[f495]::Gen::t)
+  node_id_to_def_id NodeId(76) DefId(0:32 ~ foreign[f495]::Gen::u)
+  node_id_to_def_id NodeId(79) DefId(0:33 ~ foreign[f495]::Gen::a)
+  node_id_to_def_id NodeId(83) DefId(0:34 ~ foreign[f495]::Gen::a::{constant#0})
+NodeId(86) def_id=DefId(0:35 ~ foreign[f495]::Sized2) lifetime_elision_allowed=false
+NodeId(87) def_id=DefId(0:36 ~ foreign[f495]::main) lifetime_elision_allowed=false
+== lint_buffer (1)
+NodeId(22) MISSING_UNSAFE_ON_EXTERN [foreign.rs:9:1: 9:14 (#0)]
+== disambiguators (12)
+DefId(0:0 ~ foreign[f495])
+DefId(0:1 ~ foreign[f495]::{extern#0})
+DefId(0:9 ~ foreign[f495]::U)
+DefId(0:12 ~ foreign[f495]::Big)
+DefId(0:13 ~ foreign[f495]::Big::A)
+DefId(0:16 ~ foreign[f495]::Big::B)
+DefId(0:19 ~ foreign[f495]::Big::C)
+DefId(0:20 ~ foreign[f495]::Big::C::x)
+DefId(0:22 ~ foreign[f495]::Big::D)
+DefId(0:24 ~ foreign[f495]::Big::D::0)
+DefId(0:26 ~ foreign[f495]::Gen)
+DefId(0:33 ~ foreign[f495]::Gen::a)
+== definitions (37)
+DefId(0:0 ~ foreign[f495]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 17624069783388304214))
+DefId(0:1 ~ foreign[f495]::{extern#0}) ForeignMod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ForeignMod, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 8266022240071081294))
+DefId(0:2 ~ foreign[f495]::{extern#0}::a) Fn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("a"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 9246667569615099818))
+DefId(0:3 ~ foreign[f495]::{extern#0}::b) Fn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("b"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 17883941803911996088))
+DefId(0:4 ~ foreign[f495]::{extern#0}::C) Static { safety: Unsafe, mutability: Not, nested: false } DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 4436752124458606400))
+DefId(0:5 ~ foreign[f495]::{extern#0}::D) Static { safety: Unsafe, mutability: Mut, nested: false } DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("D"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 6554364544334848498))
+DefId(0:6 ~ foreign[f495]::{extern#0}::e) Fn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("e"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 17756337805075856263))
+DefId(0:7 ~ foreign[f495]::{extern#0}::F) Static { safety: Unsafe, mutability: Not, nested: false } DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("F"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 9416426941078889879))
+DefId(0:8 ~ foreign[f495]::{extern#1}) ForeignMod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ForeignMod, disambiguator: 1 } } DefPathHash(Fingerprint(17624069783388304214, 5783981803943046726))
+DefId(0:9 ~ foreign[f495]::U) Union DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("U"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 8228155551102555999))
+DefId(0:10 ~ foreign[f495]::U::a) Field DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("a"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 6410725657578539396))
+DefId(0:11 ~ foreign[f495]::U::b) Field DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("b"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 5807009779979483154))
+DefId(0:12 ~ foreign[f495]::Big) Enum DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Big"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 4445002560694990841))
+DefId(0:13 ~ foreign[f495]::Big::A) Variant DefKey { parent: Some(DefIndex(12)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("A"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 6467681604768668209))
+DefId(0:14 ~ foreign[f495]::Big::A::{constructor#0}) Ctor(Variant, Const) DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 947462693435654033))
+DefId(0:15 ~ foreign[f495]::Big::A::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 6838939085190901028))
+DefId(0:16 ~ foreign[f495]::Big::B) Variant DefKey { parent: Some(DefIndex(12)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("B"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 3751404221340147408))
+DefId(0:17 ~ foreign[f495]::Big::B::{constructor#0}) Ctor(Variant, Const) DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 4739218338406798988))
+DefId(0:18 ~ foreign[f495]::Big::B::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 5172587783609643312))
+DefId(0:19 ~ foreign[f495]::Big::C) Variant DefKey { parent: Some(DefIndex(12)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 16859151279368178696))
+DefId(0:20 ~ foreign[f495]::Big::C::x) Field DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("x"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 9244951061315127687))
+DefId(0:21 ~ foreign[f495]::Big::C::x::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(20)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 16616147217691443173))
+DefId(0:22 ~ foreign[f495]::Big::D) Variant DefKey { parent: Some(DefIndex(12)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("D"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 17771821206459159444))
+DefId(0:23 ~ foreign[f495]::Big::D::{constructor#0}) Ctor(Variant, Fn) DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 4302015971807807935))
+DefId(0:24 ~ foreign[f495]::Big::D::0) Field DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 11297817899272231037))
+DefId(0:25 ~ foreign[f495]::Big::D::0::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(24)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 1663214814562044905))
+DefId(0:26 ~ foreign[f495]::Gen) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Gen"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 5208864645667399170))
+DefId(0:27 ~ foreign[f495]::Gen::T) TyParam DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 13704156506590522926))
+DefId(0:28 ~ foreign[f495]::Gen::U) TyParam DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("U"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 16637317878575877100))
+DefId(0:29 ~ foreign[f495]::Gen::N) ConstParam DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("N"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 14928383963466773286))
+DefId(0:30 ~ foreign[f495]::Gen::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 8177715947056370319))
+DefId(0:31 ~ foreign[f495]::Gen::t) Field DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("t"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 3388050934983421143))
+DefId(0:32 ~ foreign[f495]::Gen::u) Field DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("u"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 2602900834261686905))
+DefId(0:33 ~ foreign[f495]::Gen::a) Field DefKey { parent: Some(DefIndex(26)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("a"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 13585881734817374606))
+DefId(0:34 ~ foreign[f495]::Gen::a::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(33)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 9231578618761933645))
+DefId(0:35 ~ foreign[f495]::Sized2) Trait DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Sized2"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 1847737175333390107))
+DefId(0:36 ~ foreign[f495]::main) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("main"), disambiguator: 0 } } DefPathHash(Fingerprint(17624069783388304214, 12075253868869698442))

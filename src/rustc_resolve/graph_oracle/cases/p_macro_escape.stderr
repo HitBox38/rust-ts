@@ -1,0 +1,9 @@
+exit 0
+warning: `#[macro_escape]` is a deprecated synonym for `#[macro_use]`
+ --> p_macro_escape.rs:1:1
+  |
+1 | #[macro_escape]
+  | ^^^^^^^^^^^^^^^
+
+warning: 1 warning emitted
+

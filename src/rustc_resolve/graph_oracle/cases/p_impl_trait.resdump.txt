@@ -1,0 +1,53 @@
+== visibilities_for_hashing (4)
+DefId(0:0 ~ p_impl_trait[e995]) Public
+DefId(0:1 ~ p_impl_trait[e995]::Tr) Public
+DefId(0:2 ~ p_impl_trait[e995]::f) Restricted(LocalModId(DefId(0:0 ~ p_impl_trait[e995])))
+DefId(0:4 ~ p_impl_trait[e995]::main) Restricted(LocalModId(DefId(0:0 ~ p_impl_trait[e995])))
+== expn_that_defined (0)
+== effective_visibilities (2)
+DefId(0:0 ~ p_impl_trait[e995]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:1 ~ p_impl_trait[e995]::Tr) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (1)
+DefId(0:0 ~ p_impl_trait[e995])
+  ModChild { ident: Tr#0, res: Def(Trait, DefId(0:1 ~ p_impl_trait[e995]::Tr)), vis: Public, reexport_chain: [] }
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:2 ~ p_impl_trait[e995]::f)), vis: Restricted(ModId(DefId(0:0 ~ p_impl_trait[e995]))), reexport_chain: [] }
+  ModChild { ident: main#0, res: Def(Fn, DefId(0:4 ~ p_impl_trait[e995]::main)), vis: Restricted(ModId(DefId(0:0 ~ p_impl_trait[e995]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+Some(MainDefinition { res: Def(Fn, DefId(0:4 ~ p_impl_trait[e995]::main)), is_import: false, span: p_impl_trait.rs:3:1: 3:13 (#0) })
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(14)
+== partial_res_map (3)
+NodeId(8) PartialRes { base_res: Def(Trait, DefId(0:1 ~ p_impl_trait[e995]::Tr)), unresolved_segments: 0 }
+NodeId(9) PartialRes { base_res: Def(Trait, DefId(0:1 ~ p_impl_trait[e995]::Tr)), unresolved_segments: 0 }
+NodeId(10) PartialRes { base_res: Local(NodeId(10)), unresolved_segments: 0 }
+== owners (4)
+NodeId(0) def_id=DefId(0:0 ~ p_impl_trait[e995]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ p_impl_trait[e995]::Tr) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:2 ~ p_impl_trait[e995]::f) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(7) DefId(0:3 ~ p_impl_trait[e995]::f::impl Tr)
+NodeId(12) def_id=DefId(0:4 ~ p_impl_trait[e995]::main) lifetime_elision_allowed=false
+== lint_buffer (0)
+== disambiguators (2)
+DefId(0:0 ~ p_impl_trait[e995])
+DefId(0:2 ~ p_impl_trait[e995]::f)
+== definitions (5)
+DefId(0:0 ~ p_impl_trait[e995]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(16831454338178141006, 16831454338178141006))
+DefId(0:1 ~ p_impl_trait[e995]::Tr) Trait DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Tr"), disambiguator: 0 } } DefPathHash(Fingerprint(16831454338178141006, 7992993546348168954))
+DefId(0:2 ~ p_impl_trait[e995]::f) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(16831454338178141006, 17349826281134452949))
+DefId(0:3 ~ p_impl_trait[e995]::f::impl Tr) TyParam DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("impl Tr"), disambiguator: 0 } } DefPathHash(Fingerprint(16831454338178141006, 7407431857356826754))
+DefId(0:4 ~ p_impl_trait[e995]::main) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("main"), disambiguator: 0 } } DefPathHash(Fingerprint(16831454338178141006, 3677326391475429404))

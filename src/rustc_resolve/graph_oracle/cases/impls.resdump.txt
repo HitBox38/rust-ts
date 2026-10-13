@@ -1,0 +1,191 @@
+== visibilities_for_hashing (24)
+DefId(0:0 ~ impls[8ecc]) Public
+DefId(0:1 ~ impls[8ecc]::S) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:1 ~ impls[8ecc]::S) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:2 ~ impls[8ecc]::S::a) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:3 ~ impls[8ecc]::S::b) Public
+DefId(0:4 ~ impls[8ecc]::{impl#0}) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:5 ~ impls[8ecc]::{impl#0}::new) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:6 ~ impls[8ecc]::{impl#0}::K) Public
+DefId(0:7 ~ impls[8ecc]::{impl#0}::_hidden) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:8 ~ impls[8ecc]::T) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:9 ~ impls[8ecc]::T::m) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:10 ~ impls[8ecc]::T::d) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:11 ~ impls[8ecc]::T::A) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:12 ~ impls[8ecc]::T::C) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:13 ~ impls[8ecc]::{impl#1}) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:17 ~ impls[8ecc]::{impl#2}) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:18 ~ impls[8ecc]::{impl#2}::other) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:19 ~ impls[8ecc]::{extern#0}) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:20 ~ impls[8ecc]::{extern#0}::ext) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:21 ~ impls[8ecc]::{extern#0}::EXT) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:22 ~ impls[8ecc]::{extern#0}::ext_pub) Public
+DefId(0:23 ~ impls[8ecc]::_) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:24 ~ impls[8ecc]::_#1) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+DefId(0:25 ~ impls[8ecc]::_underscore) Restricted(LocalModId(DefId(0:0 ~ impls[8ecc])))
+== expn_that_defined (0)
+== effective_visibilities (2)
+DefId(0:0 ~ impls[8ecc]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:22 ~ impls[8ecc]::{extern#0}::ext_pub) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (2)
+DefId(0:0 ~ impls[8ecc])
+  ModChild { ident: S#0, res: Def(Struct, DefId(0:1 ~ impls[8ecc]::S)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+  ModChild { ident: T#0, res: Def(Trait, DefId(0:8 ~ impls[8ecc]::T)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+  ModChild { ident: ext#0, res: Def(Fn, DefId(0:20 ~ impls[8ecc]::{extern#0}::ext)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+  ModChild { ident: EXT#0, res: Def(Static { safety: Unsafe, mutability: Not, nested: false }, DefId(0:21 ~ impls[8ecc]::{extern#0}::EXT)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+  ModChild { ident: ext_pub#0, res: Def(Fn, DefId(0:22 ~ impls[8ecc]::{extern#0}::ext_pub)), vis: Public, reexport_chain: [] }
+  ModChild { ident: _#0, res: Def(Const, DefId(0:23 ~ impls[8ecc]::_)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+  ModChild { ident: _#0, res: Def(Const, DefId(0:24 ~ impls[8ecc]::_#1)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+  ModChild { ident: _underscore#0, res: Def(Fn, DefId(0:25 ~ impls[8ecc]::_underscore)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+DefId(0:8 ~ impls[8ecc]::T)
+  ModChild { ident: m#0, res: Def(AssocFn, DefId(0:9 ~ impls[8ecc]::T::m)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+  ModChild { ident: d#0, res: Def(AssocFn, DefId(0:10 ~ impls[8ecc]::T::d)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+  ModChild { ident: A#0, res: Def(AssocTy, DefId(0:11 ~ impls[8ecc]::T::A)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(AssocConst, DefId(0:12 ~ impls[8ecc]::T::C)), vis: Restricted(ModId(DefId(0:0 ~ impls[8ecc]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (1)
+DefId(0:8 ~ impls[8ecc]::T) [DefId(0:13 ~ impls[8ecc]::{impl#1})]
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (1)
+DefId(0:1 ~ impls[8ecc]::S)
+  new#0 Single(DefId(0:5 ~ impls[8ecc]::{impl#0}::new))
+  _hidden#0 Single(DefId(0:7 ~ impls[8ecc]::{impl#0}::_hidden))
+  other#0 Single(DefId(0:18 ~ impls[8ecc]::{impl#2}::other))
+== next_node_id
+NodeId(99)
+== partial_res_map (42)
+NodeId(5) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(6) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(8) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(9) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(11) PartialRes { base_res: Def(Struct, DefId(0:1 ~ impls[8ecc]::S)), unresolved_segments: 0 }
+NodeId(12) PartialRes { base_res: Def(Struct, DefId(0:1 ~ impls[8ecc]::S)), unresolved_segments: 0 }
+NodeId(14) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(15) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(20) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(21) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(26) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:4 ~ impls[8ecc]::{impl#0}), is_trait_impl: false }, unresolved_segments: 0 }
+NodeId(27) PartialRes { base_res: Local(NodeId(27)), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: SelfTyParam { trait_: DefId(0:8 ~ impls[8ecc]::T) }, unresolved_segments: 0 }
+NodeId(38) PartialRes { base_res: SelfTyParam { trait_: DefId(0:8 ~ impls[8ecc]::T) }, unresolved_segments: 0 }
+NodeId(39) PartialRes { base_res: Local(NodeId(39)), unresolved_segments: 0 }
+NodeId(43) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(47) PartialRes { base_res: Def(Trait, DefId(0:8 ~ impls[8ecc]::T)), unresolved_segments: 0 }
+NodeId(48) PartialRes { base_res: Def(Trait, DefId(0:8 ~ impls[8ecc]::T)), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: Def(Struct, DefId(0:1 ~ impls[8ecc]::S)), unresolved_segments: 0 }
+NodeId(50) PartialRes { base_res: Def(Struct, DefId(0:1 ~ impls[8ecc]::S)), unresolved_segments: 0 }
+NodeId(51) PartialRes { base_res: Def(AssocFn, DefId(0:9 ~ impls[8ecc]::T::m)), unresolved_segments: 0 }
+NodeId(54) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:13 ~ impls[8ecc]::{impl#1}), is_trait_impl: true }, unresolved_segments: 0 }
+NodeId(55) PartialRes { base_res: Local(NodeId(55)), unresolved_segments: 0 }
+NodeId(57) PartialRes { base_res: Def(AssocTy, DefId(0:11 ~ impls[8ecc]::T::A)), unresolved_segments: 0 }
+NodeId(58) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(59) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(60) PartialRes { base_res: Def(AssocConst, DefId(0:12 ~ impls[8ecc]::T::C)), unresolved_segments: 0 }
+NodeId(61) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(62) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(65) PartialRes { base_res: Def(Struct, DefId(0:1 ~ impls[8ecc]::S)), unresolved_segments: 0 }
+NodeId(66) PartialRes { base_res: Def(Struct, DefId(0:1 ~ impls[8ecc]::S)), unresolved_segments: 0 }
+NodeId(72) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(73) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(75) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(76) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(78) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(79) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(82) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(83) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(86) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(87) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+== owners (24)
+NodeId(0) def_id=DefId(0:0 ~ impls[8ecc]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ impls[8ecc]::S) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(4) DefId(0:2 ~ impls[8ecc]::S::a)
+  node_id_to_def_id NodeId(7) DefId(0:3 ~ impls[8ecc]::S::b)
+NodeId(10) def_id=DefId(0:4 ~ impls[8ecc]::{impl#0}) lifetime_elision_allowed=false
+NodeId(13) def_id=DefId(0:5 ~ impls[8ecc]::{impl#0}::new) lifetime_elision_allowed=false
+NodeId(19) def_id=DefId(0:6 ~ impls[8ecc]::{impl#0}::K) lifetime_elision_allowed=false
+NodeId(23) def_id=DefId(0:7 ~ impls[8ecc]::{impl#0}::_hidden) lifetime_elision_allowed=true
+  lifetime_res NodeId(25) ElidedAnchor { start: NodeId(91), end: NodeId(92) }
+  lifetime_res NodeId(91) Fresh { param: NodeId(92), kind: Ampersand }
+  lifetime_res NodeId(92) Fresh { param: NodeId(92), kind: Ampersand }
+  extra_lifetime_params NodeId(23) [('_#0, NodeId(92), Ampersand)]
+NodeId(29) def_id=DefId(0:8 ~ impls[8ecc]::T) lifetime_elision_allowed=false
+NodeId(30) def_id=DefId(0:9 ~ impls[8ecc]::T::m) lifetime_elision_allowed=true
+  lifetime_res NodeId(32) ElidedAnchor { start: NodeId(93), end: NodeId(94) }
+  lifetime_res NodeId(93) Fresh { param: NodeId(94), kind: Ampersand }
+  lifetime_res NodeId(94) Fresh { param: NodeId(94), kind: Ampersand }
+  extra_lifetime_params NodeId(30) [('_#0, NodeId(94), Ampersand)]
+NodeId(35) def_id=DefId(0:10 ~ impls[8ecc]::T::d) lifetime_elision_allowed=true
+  lifetime_res NodeId(37) ElidedAnchor { start: NodeId(95), end: NodeId(96) }
+  lifetime_res NodeId(95) Fresh { param: NodeId(96), kind: Ampersand }
+  lifetime_res NodeId(96) Fresh { param: NodeId(96), kind: Ampersand }
+  extra_lifetime_params NodeId(35) [('_#0, NodeId(96), Ampersand)]
+NodeId(41) def_id=DefId(0:11 ~ impls[8ecc]::T::A) lifetime_elision_allowed=false
+NodeId(42) def_id=DefId(0:12 ~ impls[8ecc]::T::C) lifetime_elision_allowed=false
+NodeId(46) def_id=DefId(0:13 ~ impls[8ecc]::{impl#1}) lifetime_elision_allowed=false
+NodeId(51) def_id=DefId(0:14 ~ impls[8ecc]::{impl#1}::m) lifetime_elision_allowed=true
+  lifetime_res NodeId(53) ElidedAnchor { start: NodeId(97), end: NodeId(98) }
+  lifetime_res NodeId(97) Fresh { param: NodeId(98), kind: Ampersand }
+  lifetime_res NodeId(98) Fresh { param: NodeId(98), kind: Ampersand }
+  extra_lifetime_params NodeId(51) [('_#0, NodeId(98), Ampersand)]
+NodeId(57) def_id=DefId(0:15 ~ impls[8ecc]::{impl#1}::A) lifetime_elision_allowed=false
+NodeId(60) def_id=DefId(0:16 ~ impls[8ecc]::{impl#1}::C) lifetime_elision_allowed=false
+NodeId(64) def_id=DefId(0:17 ~ impls[8ecc]::{impl#2}) lifetime_elision_allowed=false
+NodeId(67) def_id=DefId(0:18 ~ impls[8ecc]::{impl#2}::other) lifetime_elision_allowed=false
+NodeId(69) def_id=DefId(0:19 ~ impls[8ecc]::{extern#0}) lifetime_elision_allowed=false
+NodeId(70) def_id=DefId(0:20 ~ impls[8ecc]::{extern#0}::ext) lifetime_elision_allowed=false
+NodeId(77) def_id=DefId(0:21 ~ impls[8ecc]::{extern#0}::EXT) lifetime_elision_allowed=false
+NodeId(80) def_id=DefId(0:22 ~ impls[8ecc]::{extern#0}::ext_pub) lifetime_elision_allowed=false
+NodeId(81) def_id=DefId(0:23 ~ impls[8ecc]::_) lifetime_elision_allowed=false
+NodeId(85) def_id=DefId(0:24 ~ impls[8ecc]::_#1) lifetime_elision_allowed=false
+NodeId(89) def_id=DefId(0:25 ~ impls[8ecc]::_underscore) lifetime_elision_allowed=false
+== lint_buffer (1)
+NodeId(69) MISSING_UNSAFE_ON_EXTERN [impls.rs:10:1: 14:2 (#0)]
+== disambiguators (7)
+DefId(0:0 ~ impls[8ecc])
+DefId(0:1 ~ impls[8ecc]::S)
+DefId(0:4 ~ impls[8ecc]::{impl#0})
+DefId(0:8 ~ impls[8ecc]::T)
+DefId(0:13 ~ impls[8ecc]::{impl#1})
+DefId(0:17 ~ impls[8ecc]::{impl#2})
+DefId(0:19 ~ impls[8ecc]::{extern#0})
+== definitions (26)
+DefId(0:0 ~ impls[8ecc]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 10289687959039981680))
+DefId(0:1 ~ impls[8ecc]::S) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("S"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 7766699606669866269))
+DefId(0:2 ~ impls[8ecc]::S::a) Field DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("a"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 1934012972334374696))
+DefId(0:3 ~ impls[8ecc]::S::b) Field DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("b"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 18016741503069064368))
+DefId(0:4 ~ impls[8ecc]::{impl#0}) Impl { of_trait: false } DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Impl, disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 4866396006158469622))
+DefId(0:5 ~ impls[8ecc]::{impl#0}::new) AssocFn DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("new"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 1593366289893882254))
+DefId(0:6 ~ impls[8ecc]::{impl#0}::K) AssocConst DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("K"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 2009402080816686148))
+DefId(0:7 ~ impls[8ecc]::{impl#0}::_hidden) AssocFn DefKey { parent: Some(DefIndex(4)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("_hidden"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 125306326817096588))
+DefId(0:8 ~ impls[8ecc]::T) Trait DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 12474636443879042926))
+DefId(0:9 ~ impls[8ecc]::T::m) AssocFn DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("m"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 15807358608125955880))
+DefId(0:10 ~ impls[8ecc]::T::d) AssocFn DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("d"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 18244987201029123119))
+DefId(0:11 ~ impls[8ecc]::T::A) AssocTy DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("A"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 6015894132276110507))
+DefId(0:12 ~ impls[8ecc]::T::C) AssocConst DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 13134048467935249973))
+DefId(0:13 ~ impls[8ecc]::{impl#1}) Impl { of_trait: true } DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Impl, disambiguator: 1 } } DefPathHash(Fingerprint(10289687959039981680, 402168082675905195))
+DefId(0:14 ~ impls[8ecc]::{impl#1}::m) AssocFn DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("m"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 13457333502531065695))
+DefId(0:15 ~ impls[8ecc]::{impl#1}::A) AssocTy DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("A"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 2109352616337175671))
+DefId(0:16 ~ impls[8ecc]::{impl#1}::C) AssocConst DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 15973712981328061083))
+DefId(0:17 ~ impls[8ecc]::{impl#2}) Impl { of_trait: false } DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Impl, disambiguator: 2 } } DefPathHash(Fingerprint(10289687959039981680, 2201365980698498901))
+DefId(0:18 ~ impls[8ecc]::{impl#2}::other) AssocFn DefKey { parent: Some(DefIndex(17)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("other"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 4461537392712069795))
+DefId(0:19 ~ impls[8ecc]::{extern#0}) ForeignMod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ForeignMod, disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 16614903175675485057))
+DefId(0:20 ~ impls[8ecc]::{extern#0}::ext) Fn DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("ext"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 1043694459397848113))
+DefId(0:21 ~ impls[8ecc]::{extern#0}::EXT) Static { safety: Unsafe, mutability: Not, nested: false } DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("EXT"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 14648840755801021229))
+DefId(0:22 ~ impls[8ecc]::{extern#0}::ext_pub) Fn DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("ext_pub"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 10999094859115680007))
+DefId(0:23 ~ impls[8ecc]::_) Const DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("_"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 6893834338192916325))
+DefId(0:24 ~ impls[8ecc]::_#1) Const DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("_"), disambiguator: 1 } } DefPathHash(Fingerprint(10289687959039981680, 5817817558377715291))
+DefId(0:25 ~ impls[8ecc]::_underscore) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("_underscore"), disambiguator: 0 } } DefPathHash(Fingerprint(10289687959039981680, 8175530997107718313))
