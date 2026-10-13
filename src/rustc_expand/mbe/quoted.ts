@@ -3,7 +3,7 @@
 import { token as token_mod, tokenstream } from "../../rustc_ast/lib.ts";
 import type { NodeId } from "../../rustc_ast/node_id.ts";
 import type { Token } from "../../rustc_ast/token.ts";
-import type { TokenStreamIter } from "../../rustc_ast/tokenstream.ts";
+import { clone_DelimSpacing, clone_DelimSpan, type TokenStreamIter } from "../../rustc_ast/tokenstream.ts";
 import { token_kind_to_string, token_to_string } from "../../rustc_ast_pretty/pprust/mod.ts";
 import type { Diagnostic } from "../../rustc_errors/diagnostic.ts";
 import { Applicability } from "../../rustc_errors/lib.ts";
@@ -306,7 +306,7 @@ function parse_tree(
 
     if (next !== undefined && next.$ === "Delimited") {
       // `tree` is followed by a delimited set of token trees.
-      const delim_span = next._0;
+      const delim_span = clone_DelimSpan(next._0);
       const delim = next._2;
       const tts = next._3;
       if (RulePart.is_pattern(part)) {
@@ -405,8 +405,8 @@ function parse_tree(
 
   // `tree` is the beginning of a delimited set of tokens (e.g., `(` or `{`). We need to
   // descend into the delimited set and further parse it.
-  const span = tree._0;
-  const spacing = tree._1;
+  const span = clone_DelimSpan(tree._0);
+  const spacing = clone_DelimSpacing(tree._1);
   const delim = tree._2;
   const tts = tree._3;
   const delimited: Delimited = { delim, tts: parse(tts, part, sess, node_id, features, edition) };

@@ -97,7 +97,7 @@ import { assert, assert_eq, panic, unreachable, unwrap } from "../../std/panic.t
 import type { KleeneOp, TokenTree } from "../mbe.ts";
 import { debug_KleeneOp } from "../mbe.ts";
 
-const { debug_NonterminalKind, debug_Token, display_NonterminalKind, NtExprKind_eq, NtPatKind_eq, Token_eq, TokenKind_eq } = token;
+const { clone_Token, debug_NonterminalKind, debug_Token, display_NonterminalKind, NtExprKind_eq, NtPatKind_eq, Token_eq, TokenKind_eq } = token;
 
 /// A unit within a matcher that a `MatcherPos` can refer to. Similar to (and derived from)
 /// `mbe::TokenTree`, but designed specifically for fast and easy traversal during matching.
@@ -271,7 +271,7 @@ export function compute_locs(matcher: readonly TokenTree[]): MatcherLoc[] {
     for (const tt of tts) {
       switch (tt.$) {
         case "Token": {
-          locs.push({ $: "Token", token: tt._0 });
+          locs.push({ $: "Token", token: clone_Token(tt._0) });
           break;
         }
         case "Delimited": {
@@ -302,7 +302,7 @@ export function compute_locs(matcher: readonly TokenTree[]): MatcherLoc[] {
           inner(seq.tts, locs, next_metavar, seq_depth + 1);
 
           if (seq.separator !== undefined) {
-            const separator = seq.separator;
+            const separator = clone_Token(seq.separator);
             locs.push({ $: "SequenceSep", separator });
             locs.push({ $: "SequenceKleeneOpAfterSep", idx_first });
           } else {
