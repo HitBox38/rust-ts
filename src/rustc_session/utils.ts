@@ -4,6 +4,7 @@
 // `rustc_session` only covers diagnostics.rs); `PathBuf` is a UTF-8 string (as in typemap.errors.json).
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import { type Debug, debug_bool, debug_option, debug_str, debug_struct } from "../std/fmt.ts";
+import { args_os } from "../std/env.ts";
 import { unported } from "../std/panic.ts";
 import { Session } from "./session.ts";
 import type { VerboseTimingGuard } from "./stand_ins.ts";
@@ -102,9 +103,12 @@ export function extra_compiler_flags(): [string[], boolean] | undefined {
 
   const ICE_REPORT_COMPILER_FLAGS_STRIP_VALUE: readonly string[] = ["incremental"];
 
-  // PORT: `std::env::args_os()` -> `process.argv.slice(1)` (argv[0] is the runtime; argv[1], the
-  // script, stands for the program name). `to_string_lossy` is a no-op on JS strings.
-  const args = process.argv.slice(1)[globalThis.Symbol.iterator]();
+  // `env::args_os().map(|arg| arg.to_string_lossy().to_string())` (src/std/env.ts: argv[0] is the
+  // script path, standing for the program name).
+  const lossy = new TextDecoder("utf-8", { ignoreBOM: true });
+  const args = args_os()
+    .map((arg) => lossy.decode(arg))
+    [globalThis.Symbol.iterator]();
 
   const result: string[] = [];
   let excluded_cargo_defaults = false;

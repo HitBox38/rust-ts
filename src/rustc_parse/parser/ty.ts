@@ -314,8 +314,10 @@ Parser.prototype.parse_ty_common = function (
       this.check_noexpect_past_close_delim(TK.PathSep)
     ) {
       // Reparse the type, then move to recovery.
-      const ty = this.eat_metavar_seq(mv_kind, (this_) => this_.parse_ty_no_question_mark_recover());
-      if (ty === undefined) return unreachable("metavar seq ty");
+      const ty = unwrap(
+        this.eat_metavar_seq(mv_kind, (this_) => this_.parse_ty_no_question_mark_recover()),
+        "metavar seq ty",
+      );
 
       return this.maybe_recover_from_bad_qpath_stage_2(this.prev_token.span, ty, RecoverQPathImpl.Ty);
     }
@@ -749,7 +751,7 @@ Parser.prototype.parse_ty_c_style_pointer = function (this: Parser): PResult<TyK
     return Ok({ $: "Ptr", _0: ty, _1: mutbl });
   }
   // This is unreachable because we always get into if above and return from it
-  return unreachable("this could never happen");
+  return unreachable("internal error: entered unreachable code: this could never happen");
 };
 
 /// Parses a raw pointer type: `*[const | mut] $type`.
@@ -1417,7 +1419,7 @@ Parser.prototype.error_lt_bound_with_modifiers = function (
     return this.dcx().emit_err(diagnostics.ModifierLifetime_diagnostic({ span, modifier: "for<...>" }));
   }
 
-  return unreachable("lifetime bound intercepted in `parse_generic_ty_bound` but no modifiers?");
+  return unreachable("internal error: entered unreachable code: lifetime bound intercepted in `parse_generic_ty_bound` but no modifiers?");
 };
 
 /// Parses the modifiers that may precede a trait in a bound, e.g. `?Trait` or `[const] Trait`.

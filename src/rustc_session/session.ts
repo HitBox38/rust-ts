@@ -16,6 +16,7 @@ import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import { AnnotateSnippetEmitter } from "../rustc_errors/annotate_snippet_emitter_writer.ts";
 import type { Diag } from "../rustc_errors/diagnostic.ts";
 import { type DynEmitter, OutputTheme, stderr_destination } from "../rustc_errors/emitter.ts";
+import { JsonEmitter } from "../rustc_errors/json.ts";
 import { E0658 } from "../rustc_errors/error_codes.gen.ts";
 import { DiagCtxt, type DiagCtxtHandle, type Diagnostic, type ErrCode, TerminalUrl } from "../rustc_errors/lib.ts";
 import { TimingSectionHandler } from "../rustc_errors/timings.ts";
@@ -23,9 +24,10 @@ import { UnstableFeatures } from "../rustc_feature/lib.ts";
 import type { Level, LintId } from "../rustc_lint_defs/lib.ts";
 import { Edition } from "../rustc_span/edition.ts";
 import type { ErrorGuaranteed, RealFileName, Span } from "../rustc_span/lib.ts";
-import { type SourceMap, get_source_map } from "../rustc_span/source_map.ts";
+import { FilePathMapping, SourceMap, get_source_map } from "../rustc_span/source_map.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { assert, unported, unwrap } from "../std/panic.ts";
+import { stderr } from "../vendor/anstream/stream.ts";
 import { dimensions } from "../vendor/termize/lib.ts";
 import type { Options } from "./options.ts";
 import {
@@ -902,8 +904,20 @@ function default_emitter(sopts: Options, source_map: SourceMap): DynEmitter {
       ]);
       return AnnotateSnippetEmitter.ui_testing(emitter, sopts.unstable_opts.ui_testing);
     }
-    case "Json":
-      return unported("rustc_errors::json::JsonEmitter (--error-format=json)");
+    case "Json": {
+      const { pretty, json_rendered, color_config } = error_format;
+      // PORT: `Box::new(io::BufWriter::new(io::stderr()))`: `JsonEmitter::emit` writes each value with one
+      // `write_all` and flushes right after, so the unbuffered `Stderr` writes the same bytes.
+      let emitter = JsonEmitter.new(stderr(), sm, pretty, json_rendered, color_config);
+      emitter = JsonEmitter.ui_testing(emitter, sopts.unstable_opts.ui_testing);
+      emitter = JsonEmitter.ignored_directories_in_source_blocks(emitter, [
+        ...sopts.unstable_opts.ignore_directory_in_diagnostics_source_blocks,
+      ]);
+      emitter = JsonEmitter.diagnostic_width(emitter, sopts.diagnostic_width);
+      emitter = JsonEmitter.macro_backtrace(emitter, macro_backtrace);
+      emitter = JsonEmitter.track_diagnostics(emitter, track_diagnostics);
+      return JsonEmitter.terminal_url(emitter, terminal_url);
+    }
   }
 }
 
@@ -1437,8 +1451,12 @@ function mk_emitter(output: ErrorOutputType): DynEmitter {
       emitter = AnnotateSnippetEmitter.short_message(e, short);
       break;
     }
-    case "Json":
-      emitter = unported("rustc_errors::json::JsonEmitter (--error-format=json)");
+    case "Json": {
+      const { pretty, json_rendered, color_config } = output;
+      // PORT: `io::BufWriter::new(io::stderr())` -> `stderr()` (see `default_emitter`).
+      emitter = JsonEmitter.new(stderr(), SourceMap.new(FilePathMapping.empty()), pretty, json_rendered, color_config);
+      break;
+    }
   }
   return emitter;
 }

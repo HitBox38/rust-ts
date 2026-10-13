@@ -352,6 +352,48 @@ export class Components {
     return undefined;
   }
 
+  // std: library/std/src/path.rs:977 <Components as DoubleEndedIterator>::next_back
+  next_back(): Component | undefined {
+    while (!this.finished()) {
+      switch (this.back) {
+        case State.Body:
+          if (this.path.length > this.len_before_body()) {
+            const [size, comp] = this.parse_next_component_back();
+            this.path = this.path.slice(0, this.path.length - size);
+            if (comp !== undefined) return comp;
+          } else {
+            this.back = State.StartDir;
+          }
+          break;
+        case State.StartDir:
+          this.back = HAS_PREFIXES ? State.Prefix : State.Done;
+          if (this.has_physical_root) {
+            this.path = this.path.slice(0, this.path.length - 1);
+            return { $: "RootDir" };
+          } else if (HAS_PREFIXES && this.prefix !== undefined) {
+            if (prefix_has_implicit_root(this.prefix) && !prefix_is_verbatim(this.prefix)) {
+              return { $: "RootDir" };
+            }
+          } else if (this.include_cur_dir()) {
+            this.path = this.path.slice(0, this.path.length - 1);
+            return { $: "CurDir" };
+          }
+          break;
+        case State.Prefix:
+          if (!HAS_PREFIXES) return panic("internal error: entered unreachable code");
+          if (this.prefix_len() > 0) {
+            this.back = State.Done;
+            return { $: "Prefix", raw: this.path, parsed: this.prefix! };
+          }
+          this.back = State.Done;
+          return undefined;
+        case State.Done:
+          return panic("internal error: entered unreachable code");
+      }
+    }
+    return undefined;
+  }
+
   // PORT: upstream compares `self.clone().rev()` with `other.clone().rev()`; comparing the forward
   // sequences gives the same answer (both iterate the same components) without porting `next_back`.
   eq(other: Components): boolean {
@@ -427,6 +469,27 @@ export function path_is_absolute(p: string): boolean {
 /** `Path::eq` */
 export function path_eq(a: string, b: string): boolean {
   return path_components(a).eq(path_components(b));
+}
+
+/** `Path::parent` (library/std/src/path.rs:2636) */
+export function path_parent(self_: string): string | undefined {
+  const comps = path_components(self_);
+  const comp = comps.next_back();
+  if (comp === undefined) return undefined;
+  switch (comp.$) {
+    case "Normal":
+    case "CurDir":
+    case "ParentDir":
+      return comps.as_path();
+    default:
+      return undefined;
+  }
+}
+
+/** `Path::file_name` (library/std/src/path.rs:2703) */
+export function path_file_name(self_: string): string | undefined {
+  const p = path_components(self_).next_back();
+  return p !== undefined && p.$ === "Normal" ? p._0 : undefined;
 }
 
 /** `Path::join` = `to_path_buf()` + `PathBuf::_push` */

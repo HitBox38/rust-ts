@@ -4,7 +4,7 @@ import { ast, AsmMacro, clone_Path, clone_QSelf, token } from "../../rustc_ast/l
 import type { HasAttrs, HasTokens } from "../../rustc_ast/ast_traits.ts";
 import type { AttrVec, Attribute } from "../../rustc_ast/lib.ts";
 import type { LazyAttrTokenStream } from "../../rustc_ast/tokenstream.ts";
-import type { MutRef } from "../../rustc_span/hygiene.ts";
+import type { MutRef } from "../../std/mut_ref.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { kw, Symbol } from "../../rustc_span/symbol.ts";
 import type { PResult } from "../../rustc_errors/lib.ts";

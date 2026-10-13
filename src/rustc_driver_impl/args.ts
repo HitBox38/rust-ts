@@ -3,9 +3,10 @@ import { readFileSync } from "node:fs";
 import type { EarlyDiagCtxt } from "../rustc_session/session.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { type IoError, display_IoError, io_error_from_node } from "../std/io.ts";
+import * as env from "../std/env.ts";
 import { unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
-import { is_valid_utf8 } from "../std/str.ts";
+import { from_utf8, str_lines } from "../std/str.ts";
 
 /// Expands argfiles in command line arguments.
 // #[derive(Default)]
@@ -106,20 +107,14 @@ class Expander {
     } catch (e) {
       return Err({ $: "IOError", _0: path, _1: io_error_from_node(e) });
     }
-    if (!is_valid_utf8(bytes)) {
+    const s = from_utf8(bytes);
+    if (s.$ === "Err") {
       // `e.kind() == io::ErrorKind::InvalidData`
       return Err({ $: "Utf8Error", _0: path });
     }
-    return Ok(new TextDecoder().decode(bytes));
+    // A leading U+FEFF is kept (`read_to_string` does not strip a BOM).
+    return Ok(s._0);
   }
-}
-
-/** `str::lines`: split at `\n`, strip one trailing `\r`, no final empty line. */
-function str_lines(s: string): string[] {
-  if (s.length === 0) return [];
-  const lines = s.split("\n");
-  if (lines[lines.length - 1] === "") lines.pop();
-  return lines.map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l));
 }
 
 /// Replaces any `@file` arguments with the contents of `file`, with each line of `file` as a
@@ -150,12 +145,23 @@ export function arg_expand_all(early_dcx: EarlyDiagCtxt, at_args: readonly strin
 /// This function is identical to [`env::args()`] except that it emits an error when it encounters
 /// non-Unicode arguments instead of panicking.
 // rustc: compiler/rustc_driver_impl/src/args.rs:119 raw_args
-export function raw_args(_early_dcx: EarlyDiagCtxt, args_os: readonly string[]): string[] {
-  // PORT: `env::args_os()` is passed in (argv[0] = the program name). JS strings are always valid
-  // Unicode unless they hold a lone surrogate, which a decoded argv never does.
+export function raw_args(early_dcx: EarlyDiagCtxt): string[] {
   const args: string[] = [];
-  for (const arg of args_os) {
-    args.push(arg);
+  let guar: Result<undefined, ErrorGuaranteed> = Ok(undefined);
+  const args_os = env.args_os();
+  for (let i = 0; i < args_os.length; i++) {
+    const r = env.os_string_into_string(args_os[i]!);
+    switch (r.$) {
+      case "Ok":
+        args.push(r._0);
+        break;
+      case "Err":
+        guar = Err(early_dcx.early_err(`argument ${i} is not valid Unicode: ${env.debug_os_string(r._0)}`));
+        break;
+    }
+  }
+  if (guar.$ === "Err") {
+    guar._0.raise_fatal();
   }
   return args;
 }

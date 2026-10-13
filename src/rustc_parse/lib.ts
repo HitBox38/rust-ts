@@ -36,11 +36,11 @@ import { find_best_match_for_name } from "../rustc_span/edit_distance.ts";
 import type { SourceMap } from "../rustc_span/source_map.ts";
 import { FileName, type SourceFile, Span } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
-import { display_IoError, type IoError } from "../std/io.ts";
-import { assert_eq, panic, unported } from "../std/panic.ts";
-import { path_join } from "../std/path.ts";
+import { display_IoError, IoError_kind } from "../std/io.ts";
+import { assert_eq, panic } from "../std/panic.ts";
+import { path_eq, path_file_name, path_join, path_parent } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
-import { Str } from "../std/str.ts";
+import { from_utf8, Str, type Utf8Error } from "../std/str.ts";
 import { lex_token_trees, StripTokens } from "./lexer/mod.ts";
 import { Parser } from "./parser/mod.ts";
 
@@ -91,18 +91,6 @@ export function new_parser_from_source_str(
   return new_parser_from_source_file(psess, source_file, strip_tokens);
 }
 
-/// PORT: `std::io::Error::kind()` as used by `new_parser_from_file`. OS errors need
-/// `decode_error_kind` (std, unported); the other reprs carry their kind.
-function io_error_kind(e: IoError): string {
-  switch (e.$) {
-    case "Os":
-      return unported(`std::io::Error::kind (decode_error_kind, os error ${e.code})`);
-    case "Custom":
-    case "SimpleMessage":
-      return e.kind;
-  }
-}
-
 /// PORT: `Path::display()`; paths are UTF-8 strings in rust-ts (`PathBuf` = `string`).
 const display_path = (p: string): string => p;
 
@@ -130,7 +118,7 @@ export function new_parser_from_file(
     // use std::io::ErrorKind;
 
     let msg: string;
-    switch (io_error_kind(e)) {
+    switch (IoError_kind(e)) {
       case "NotFound":
         msg = `couldn't find file \`${display_path(path)}\``;
         break;
@@ -147,25 +135,20 @@ export function new_parser_from_file(
 
     const err = psess.dcx().struct_fatal(msg);
 
-    if (io_error_kind(e) === "NotFound") {
-      // PORT: `Path::file_name`, `Path::parent`, `std::fs::read_dir` via node:path / node:fs.
+    if (IoError_kind(e) === "NotFound") {
       const file_name = path_file_name(path);
       if (file_name !== undefined) {
         const p = path_parent(path);
         const parent = p !== undefined && p !== "" ? p : ".";
-        let entries: string[] | undefined;
-        try {
-          entries = readdirSync(parent);
-        } catch {
-          entries = undefined;
-        }
+        const entries = read_dir_names(parent);
         if (entries !== undefined) {
           const candidates: Symbol[] = entries.map((n) => Symbol.intern(n));
           const lookup = Symbol.intern(file_name);
           const suggestion = find_best_match_for_name(candidates, lookup, undefined);
           if (suggestion !== undefined) {
-            const suggested_path =
-              parent === "." ? Symbol.as_str(suggestion) : display_path(path_join(parent, Symbol.as_str(suggestion)));
+            const suggested_path = path_eq(parent, ".")
+              ? Symbol.as_str(suggestion)
+              : display_path(path_join(parent, Symbol.as_str(suggestion)));
             err.help(`you might have meant to open \`${suggested_path}\``);
           }
         }
@@ -178,9 +161,9 @@ export function new_parser_from_file(
       contents = undefined;
     }
     if (contents !== undefined) {
-      const utf8err = from_utf8_error(contents);
-      if (utf8err !== undefined) {
-        utf8_error(sm, display_path(path), sp, err, utf8err, contents);
+      const r = from_utf8(contents);
+      if (r.$ === "Err") {
+        utf8_error(sm, display_path(path), sp, err, r._0, contents);
       }
     }
     if (sp !== undefined) {
@@ -191,29 +174,23 @@ export function new_parser_from_file(
   return new_parser_from_source_file(psess, source_file, strip_tokens);
 }
 
-/// PORT: `core::str::Utf8Error` (`valid_up_to`, `error_len`).
-export interface Utf8Error {
-  valid_up_to(): number;
-  error_len(): number | undefined;
-}
-
-/// PORT: `std::str::from_utf8(bytes).err()` (core::str::validations::run_utf8_validation).
-function from_utf8_error(_bytes: Uint8Array): Utf8Error | undefined {
-  return unported("core::str::from_utf8 (Utf8Error)");
-}
-
-/// PORT: `Path::file_name` / `Path::parent` for UTF-8 path strings ("/" separators).
-function path_file_name(p: string): string | undefined {
-  const t = p.replace(/\/+$/, "");
-  const i = t.lastIndexOf("/");
-  const n = i < 0 ? t : t.slice(i + 1);
-  return n === "" || n === ".." ? undefined : n;
-}
-function path_parent(p: string): string | undefined {
-  const t = p.replace(/\/+$/, "");
-  if (t === "") return undefined;
-  const i = t.lastIndexOf("/");
-  return i < 0 ? "" : t.slice(0, i);
+/// PORT: `std::fs::read_dir(parent)` + `.flatten().filter_map(|entry| entry.file_name().to_str()...)`:
+/// the entry names in the directory's own (readdir) order, which is what Bun's `readdirSync` returns
+/// (unlike Node, whose libuv `scandir` sorts them; checked against `ls -f` in
+/// src/rustc_driver_impl/inputs.oracle.test.ts). Names that are not UTF-8 are skipped.
+function read_dir_names(parent: string): string[] | undefined {
+  let entries: Uint8Array[];
+  try {
+    entries = readdirSync(parent, { encoding: "buffer" });
+  } catch {
+    return undefined;
+  }
+  const names: string[] = [];
+  for (const name of entries) {
+    const r = from_utf8(name);
+    if (r.$ === "Ok") names.push(r._0);
+  }
+  return names;
 }
 
 // rustc: compiler/rustc_parse/src/lib.rs:168 utf8_error
@@ -237,7 +214,7 @@ export function utf8_error(
     msg = note;
   }
   // PORT: `String::from_utf8_lossy` = WHATWG UTF-8 decode (same maximal-subpart replacement).
-  const contents_ = new TextDecoder("utf-8", { fatal: false }).decode(contents);
+  const contents_ = new TextDecoder("utf-8", { fatal: false, ignoreBOM: true }).decode(contents);
 
   // We only emit this error for files in the current session
   // so the working directory can only be the current working directory

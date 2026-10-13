@@ -2,7 +2,9 @@
 // stores (token lengths, BytePos, ...) is a UTF-8 byte offset, so source text is kept
 // as a view over UTF-8 bytes. Plain JS strings are fine where no byte offsets leak out.
 import { is_whitespace, len_utf8, to_string as char_to_string } from "./char.ts";
+import { escape_char } from "./fmt.ts";
 import { Panic } from "./panic.ts";
+import type { Result } from "./result.ts";
 
 const encoder = new TextEncoder();
 // ignoreBOM: a Rust `&str` keeps a leading U+FEFF; TextDecoder strips it by default.
@@ -297,4 +299,165 @@ export function is_valid_utf8(bytes: Uint8Array): boolean {
   } catch {
     return false;
   }
+}
+
+/** `core::str::Utf8Error` (library/core/src/str/error.rs:47, `#[derive(Copy, Eq, PartialEq, Clone, Debug)]`). */
+export class Utf8Error {
+  constructor(
+    readonly valid_up_to_: number,
+    /** `Option<u8>` */
+    readonly error_len_: number | undefined,
+  ) {}
+
+  /** `Utf8Error::valid_up_to` */
+  valid_up_to(): number {
+    return this.valid_up_to_;
+  }
+
+  /** `Utf8Error::error_len` */
+  error_len(): number | undefined {
+    return this.error_len_;
+  }
+
+  /** `impl fmt::Display for Utf8Error` (library/core/src/str/error.rs:112) */
+  toString(): string {
+    const error_len = this.error_len_;
+    if (error_len !== undefined) {
+      return `invalid utf-8 sequence of ${error_len} bytes from index ${this.valid_up_to_}`;
+    } else {
+      return `incomplete utf-8 byte sequence from index ${this.valid_up_to_}`;
+    }
+  }
+
+  /** `#[derive(Debug)]` (non-alternate). */
+  debug(): string {
+    const l = this.error_len_ === undefined ? "None" : `Some(${this.error_len_})`;
+    return `Utf8Error { valid_up_to: ${this.valid_up_to_}, error_len: ${l} }`;
+  }
+}
+
+/** `core::str::validations::utf8_char_width` (UTF8_CHAR_WIDTH table). */
+function utf8_char_width(b: number): number {
+  if (b < 0x80) return 1;
+  if (b < 0xc2) return 0;
+  if (b < 0xe0) return 2;
+  if (b < 0xf0) return 3;
+  if (b < 0xf5) return 4;
+  return 0;
+}
+
+/** `core::str::validations::run_utf8_validation` (library/core/src/str/validations.rs:126), without
+ *  the ASCII block fast path (an optimisation with the same result). */
+export function run_utf8_validation(v: Uint8Array): Utf8Error | undefined {
+  let index = 0;
+  const len = v.length;
+  while (index < len) {
+    const old_offset = index;
+    const next = (): number | undefined => {
+      index += 1;
+      // we needed data, but there was none: error!
+      if (index >= len) return undefined;
+      return v[index]!;
+    };
+    const first = v[index]!;
+    if (first >= 128) {
+      const w = utf8_char_width(first);
+      switch (w) {
+        case 2: {
+          const n = next();
+          if (n === undefined) return new Utf8Error(old_offset, undefined);
+          if (n < 0x80 || n > 0xbf) return new Utf8Error(old_offset, 1);
+          break;
+        }
+        case 3: {
+          const n = next();
+          if (n === undefined) return new Utf8Error(old_offset, undefined);
+          if (
+            !(
+              (first === 0xe0 && n >= 0xa0 && n <= 0xbf) ||
+              (first >= 0xe1 && first <= 0xec && n >= 0x80 && n <= 0xbf) ||
+              (first === 0xed && n >= 0x80 && n <= 0x9f) ||
+              (first >= 0xee && first <= 0xef && n >= 0x80 && n <= 0xbf)
+            )
+          ) {
+            return new Utf8Error(old_offset, 1);
+          }
+          const n2 = next();
+          if (n2 === undefined) return new Utf8Error(old_offset, undefined);
+          if (n2 < 0x80 || n2 > 0xbf) return new Utf8Error(old_offset, 2);
+          break;
+        }
+        case 4: {
+          const n = next();
+          if (n === undefined) return new Utf8Error(old_offset, undefined);
+          if (
+            !(
+              (first === 0xf0 && n >= 0x90 && n <= 0xbf) ||
+              (first >= 0xf1 && first <= 0xf3 && n >= 0x80 && n <= 0xbf) ||
+              (first === 0xf4 && n >= 0x80 && n <= 0x8f)
+            )
+          ) {
+            return new Utf8Error(old_offset, 1);
+          }
+          const n2 = next();
+          if (n2 === undefined) return new Utf8Error(old_offset, undefined);
+          if (n2 < 0x80 || n2 > 0xbf) return new Utf8Error(old_offset, 2);
+          const n3 = next();
+          if (n3 === undefined) return new Utf8Error(old_offset, undefined);
+          if (n3 < 0x80 || n3 > 0xbf) return new Utf8Error(old_offset, 3);
+          break;
+        }
+        default:
+          return new Utf8Error(old_offset, 1);
+      }
+    }
+    index += 1;
+  }
+  return undefined;
+}
+
+/** `std::str::from_utf8(bytes)`: the decoded string or the `Utf8Error`. The string keeps a leading U+FEFF. */
+export function from_utf8(bytes: Uint8Array): Result<string, Utf8Error> {
+  const e = run_utf8_validation(bytes);
+  if (e !== undefined) return { $: "Err", _0: e };
+  return { $: "Ok", _0: decoder.decode(bytes) };
+}
+
+/** `str::lines` (library/core/src/str/mod.rs): split at `\n`; a line's one trailing `\r` is
+ *  stripped only when a `\n` follows it; no final empty line. */
+export function str_lines(s: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  while (start < s.length) {
+    const nl = s.indexOf("\n", start);
+    if (nl < 0) {
+      // the last line has no `\n`: kept as is (a trailing `\r` stays)
+      out.push(s.slice(start));
+      break;
+    }
+    let line = s.slice(start, nl);
+    if (line.endsWith("\r")) line = line.slice(0, -1);
+    out.push(line);
+    start = nl + 1;
+  }
+  return out;
+}
+
+/** `<OsStr as Debug>` on unix = `Debug` of `bytes.utf8_chunks().debug()` (library/core/src/str/lossy.rs:114):
+ *  valid chunks escaped like `str` Debug, invalid bytes as `\xNN`. */
+export function debug_os_bytes(bytes: Uint8Array): string {
+  let out = '"';
+  let rest = bytes;
+  while (rest.length > 0) {
+    const e = run_utf8_validation(rest);
+    const valid_len = e === undefined ? rest.length : e.valid_up_to();
+    const valid = decoder.decode(rest.subarray(0, valid_len));
+    for (const ch of valid) out += escape_char(ch.codePointAt(0)!, false, true);
+    const invalid_len = e === undefined ? 0 : (e.error_len() ?? rest.length - valid_len);
+    for (const b of rest.subarray(valid_len, valid_len + invalid_len)) {
+      out += `\\x${b.toString(16).toUpperCase().padStart(2, "0")}`;
+    }
+    rest = rest.subarray(valid_len + invalid_len);
+  }
+  return out + '"';
 }

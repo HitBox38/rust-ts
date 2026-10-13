@@ -35,6 +35,9 @@ function assert_width(s: string | number, nocjk: number | undefined, cjk: number
   }
 }
 const ch = (s: string): number => s.codePointAt(0)!;
+/** Tests that loop over `all_chars()` (1.1M scalars) get an explicit timeout: bun's default 5 s is
+ *  too short on a loaded host (review parser-b, batch 6 finding 1). Not part of the upstream tests. */
+const ALL_CHARS_TIMEOUT_MS = 300_000;
 /** `'\0'..=char::MAX` */
 function* all_chars(): Generator<number> {
   for (let c = 0; c <= 0x10ffff; c++) if (c < 0xd800 || c > 0xdfff) yield c;
@@ -251,7 +254,7 @@ test("char_str_consistent", () => {
         expect(UnicodeWidthStr.width(s)).toBe(unwrap_or(UnicodeWidthChar.width(c), 1));
         expect(UnicodeWidthStr.width_cjk(s)).toBe(unwrap_or(UnicodeWidthChar.width_cjk(c), 1));
     }
-});
+}, ALL_CHARS_TIMEOUT_MS);
 
 // crate: unicode-width-0.2.2/tests/tests.rs:240 test_lisu_tones
 test("test_lisu_tones", () => {
@@ -411,7 +414,7 @@ test("test_khmer_coeng", () => {
             assert_width(`\u{17D2}${S(c)}`, unwrap_or(UnicodeWidthChar.width(c), 1), unwrap_or(UnicodeWidthChar.width_cjk(c), 1));
         }
     }
-});
+}, ALL_CHARS_TIMEOUT_MS);
 
 // crate: unicode-width-0.2.2/tests/tests.rs:433 test_khmer_qaa
 test("test_khmer_qaa", () => {
@@ -575,7 +578,7 @@ test("test_vs1_vs2_vs3", () => {
             expect(UnicodeWidthStr.width_cjk(`${S(c)}\u{FE02}`), msg).toBe(unwrap_or(UnicodeWidthChar.width_cjk(c), 1));
         }
     }
-});
+}, ALL_CHARS_TIMEOUT_MS);
 
 // Test traits are unsealed
 
