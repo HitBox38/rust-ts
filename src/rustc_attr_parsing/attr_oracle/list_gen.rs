@@ -14,6 +14,10 @@
 // ops:
 //   limited:M   `AttributeParser::parse_limited_all(sess, attrs, None, target, target_span,
 //               CRATE_NODE_ID, Some(&Features::default()), M, None)`, `{:?}` of the result
+//   full:M      (lane attr-parse-b) `AttributeParser::new(sess, &Features::default(), &RegisteredTools::default(),
+//               M).parse_attribute_list(attrs, target_span, target, <the item, None for the crate>,
+//               identity, <buffer the lint like parse_limited_all>)`, `{:?}` of the result: unlike
+//               `limited`, the parsers' `finalize_check`s see the target item
 // M = emit | forbid | nothing | fatal (as in gen.rs).
 //
 // Regenerate (from this directory):
@@ -31,6 +35,7 @@ extern crate rustc_driver;
 extern crate rustc_errors;
 extern crate rustc_feature;
 extern crate rustc_interface;
+extern crate rustc_lint_defs;
 extern crate rustc_parse;
 extern crate rustc_session;
 extern crate rustc_span;
@@ -148,13 +153,14 @@ fn main() {
                         return;
                     }
                 };
-                let mut lists: Vec<(&[Attribute], Target, Span)> =
-                    vec![(&krate.attrs[..], Target::Crate, krate.spans.inner_span)];
+                let mut lists: Vec<(&[Attribute], Target, Span, Option<&rustc_ast::Item>)> =
+                    vec![(&krate.attrs[..], Target::Crate, krate.spans.inner_span, None)];
                 for item in &krate.items {
-                    lists.push((&item.attrs[..], Target::from_ast_item(item), item.span));
+                    lists.push((&item.attrs[..], Target::from_ast_item(item), item.span, Some(&**item)));
                 }
                 let features = Features::default();
-                for (idx, (attrs, target, target_span)) in lists.iter().enumerate() {
+                let tools = rustc_lint_defs::RegisteredTools::default();
+                for (idx, (attrs, target, target_span, item)) in lists.iter().enumerate() {
                     for op in &ops {
                         let (name, arg) = op.split_once(':').unwrap_or((op, ""));
                         let r = match name {
@@ -170,6 +176,19 @@ fn main() {
                                     Some(&features),
                                     mode(arg),
                                     None,
+                                )
+                            ),
+                            "full" => format!(
+                                "{:?}",
+                                AttributeParser::new(sess, &features, &tools, mode(arg)).parse_attribute_list(
+                                    attrs,
+                                    *target_span,
+                                    *target,
+                                    *item,
+                                    std::convert::identity,
+                                    |lint_id, span, kind| {
+                                        sess.psess.dyn_buffer_lint_sess(lint_id.lint, span, CRATE_NODE_ID, kind.0)
+                                    },
                                 )
                             ),
                             o => panic!("op {o}"),

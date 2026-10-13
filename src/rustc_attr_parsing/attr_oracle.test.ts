@@ -10,8 +10,8 @@
 //
 // The `limited:` scenarios (attr_oracle/list_gen.rs over list_cases.txt -> list_out.json) run
 // `AttributeParser::parse_limited_all` on every attribute list of the crate with a real `Session`
-// (rustc_interface::run_compiler, edition 2024). Here the `Session` is a stand-in that holds only the
-// `ParseSess` (see `test_session`): the scenarios reach nothing else of it.
+// (rustc_interface::run_compiler, edition 2024); so does the TS side (`run_compiler`). The `full:` op
+// (lane attr-parse-b) runs `parse_attribute_list` with the target item.
 //
 // PENDING: cases that reach code owned by a later lane (the generated diagnostics of
 // rustc_attr_parsing's diagnostics.rs and the attribute parsers behind `ATTRIBUTE_PARSERS`, both lane
@@ -30,17 +30,19 @@ import { AnnotateSnippetEmitter } from "../rustc_errors/annotate_snippet_emitter
 import { DiagCtxt, FatalErrorMarker } from "../rustc_errors/lib.ts";
 import { new_parser_from_source_str, parser as rustc_parse_parser, unwrap_or_emit_fatal } from "../rustc_parse/lib.ts";
 import { Features } from "../rustc_feature/lib.ts";
-import { EarlySession, Session } from "../rustc_session/lib.ts";
 import { ParseSess } from "../rustc_session/parse.ts";
 import { create_session_globals_then, debug_Span, type FileName, type Span } from "../rustc_span/lib.ts";
 import { FilePathMapping, get_source_map, RealFileLoader } from "../rustc_span/source_map.ts";
 import { debug_Ident, debug_Symbol, Symbol } from "../rustc_span/symbol.ts";
 import { debug_list, debug_option, debug_str, PLAIN } from "../std/fmt.ts";
-import { Unported, unwrap } from "../std/panic.ts";
+import { Panic, Unported, unwrap } from "../std/panic.ts";
+import { type Config, run_compiler } from "../rustc_interface/lib.ts";
+import { Options_default } from "../rustc_session/config.ts";
 import { AutoStream, ColorChoice } from "../vendor/anstream/lib.ts";
 import { dyn_write, VecU8 } from "../vendor/anstream/stream.ts";
 import { CRATE_NODE_ID } from "../rustc_ast/node_id.ts";
-import { debug_Attribute as debug_hir_Attribute, target } from "../rustc_attr_ir/lib.ts";
+import { type Attribute as hir_Attribute, debug_Attribute as debug_hir_Attribute, target } from "../rustc_attr_ir/lib.ts";
+import type { RegisteredTools } from "../rustc_lint_defs/lib.gen.ts";
 import { debug_vec } from "../std/fmt.ts";
 import { AttributeParser, AttributeTemplate, type ParsedDescription, type ShouldEmit } from "./lib.ts";
 import "./lib.ts";
@@ -355,38 +357,50 @@ const LIST_PENDING: Record<string, string> = {
   unstable: PARSERS_PENDING,
   wrong_target: PARSERS_PENDING,
   diagnostic_namespace: PARSERS_PENDING,
+  // lane attr-parse-b's parsers (crate_level, macro_attrs, proc_macro_attrs) behind the same registry.
+  // They matched the oracle with the attr-parse-c/d stub parsers made inert (a local, uncommitted check).
+  crate_level: PARSERS_PENDING,
+  macro_attrs: PARSERS_PENDING,
+  proc_macro_attrs: PARSERS_PENDING,
+  cfg_attrs: PARSERS_PENDING,
 };
 
-/**
- * PORT(test): a `Session` that holds only `psess` (through `EarlySession`); the target, options and
- * the rest of the session are not reached by these scenarios (`parse_limited_all` uses `sess.psess`,
- * `sess.dcx()` and `sess.source_map()`).
- */
-function test_session(psess: ParseSess): Session {
-  const sess = Object.create(Session.prototype) as Session;
-  sess.early_sess = new EarlySession(undefined as never, undefined as never, undefined as never, psess);
-  return sess;
-}
-
+// The `Session` comes from `run_compiler` (default options, edition 2024), like the probe's (lane
+// attr-parse-b; it replaced a stand-in `Session` that held only the `ParseSess`, which lacked the options
+// that feature-gate errors read).
 function run_list_case(c: Case): { events: string[]; fatal: boolean; stderr: string } {
-  const inputs = {
-    file_loader: new RealFileLoader(),
-    path_mapping: FilePathMapping.empty(),
-    hash_kind: "Md5" as const,
-    checksum_hash_kind: undefined,
-  };
   const events: string[] = [];
   let fatal = false;
-  let stderr = "";
+  const buf = new VecU8();
   const ops = c.ops.split(/\s+/).filter((s) => s !== "");
-  create_session_globals_then("Edition2024", [], inputs, () => {
-    const sm = get_source_map()!;
-    const buf = new VecU8();
+  const opts = Options_default();
+  opts.edition = "Edition2024";
+  const config: Config = {
+    opts,
+    crate_cfg: [],
+    crate_check_cfg: [],
+    input: { $: "Str", name: { $: "Custom", _0: "unused" }, input: "" },
+    output_dir: undefined,
+    output_file: undefined,
+    ice_file: undefined,
+    file_loader: undefined,
+    lint_caps: new Map(),
+    psess_created: undefined,
+    track_state: undefined,
+    register_lints: undefined,
+    override_queries: undefined,
+    extra_symbols: [],
+    make_codegen_backend: undefined,
+    using_internal_features: { value: false },
+  };
+  run_compiler(config, (compiler) => {
+    const sess = compiler.sess;
+    const psess = sess.psess;
+    const sm = psess.clone_source_map();
     let em = AnnotateSnippetEmitter.new(AutoStream.new(dyn_write(buf), ColorChoice.Never));
     em = AnnotateSnippetEmitter.sm(em, sm);
     em = AnnotateSnippetEmitter.ui_testing(em, true);
-    const psess = ParseSess.with_dcx(DiagCtxt.new(em), sm);
-    const sess = test_session(psess);
+    sess.dcx().set_emitter(em);
     const fname: FileName = { $: "Real", _0: sm.path_mapping().to_real_filename(sm.working_dir(), "t.rs") };
     try {
       const p = unwrap_or_emit_fatal(new_parser_from_source_str(psess, fname, c.src, "Nothing"));
@@ -396,16 +410,33 @@ function run_list_case(c: Case): { events: string[]; fatal: boolean; stderr: str
         events.push("parse_crate_mod => Err");
       } else {
         const krate = kr._0;
-        const lists: [readonly ast.Attribute[], target.Target, Span][] = [[krate.attrs, target.Target.Crate, krate.spans.inner_span]];
-        for (const item of krate.items) lists.push([item.attrs, target.Target.from_ast_item(item), item.span]);
+        const lists: [readonly ast.Attribute[], target.Target, Span, ast.Item | undefined][] = [
+          [krate.attrs, target.Target.Crate, krate.spans.inner_span, undefined],
+        ];
+        for (const item of krate.items) lists.push([item.attrs, target.Target.from_ast_item(item), item.span, item]);
         const features = Features.default();
-        lists.forEach(([attrs, t, target_span], idx) => {
+        const tools: RegisteredTools = new Set();
+        lists.forEach(([attrs, t, target_span, item], idx) => {
           for (const op of ops) {
             const i = op.indexOf(":");
             const name = i < 0 ? op : op.slice(0, i);
             const arg = i < 0 ? "" : op.slice(i + 1);
-            if (name !== "limited") throw new Error(`op ${op}`);
-            const r = AttributeParser.parse_limited_all(sess, attrs, undefined, t, target_span, CRATE_NODE_ID, features, mode(arg), undefined);
+            let r: hir_Attribute[];
+            if (name === "limited") {
+              r = AttributeParser.parse_limited_all(sess, attrs, undefined, t, target_span, CRATE_NODE_ID, features, mode(arg), undefined);
+            } else if (name === "full") {
+              // (lane attr-parse-b) `parse_attribute_list` with the target item
+              r = AttributeParser.new(sess, features, tools, mode(arg)).parse_attribute_list(
+                attrs,
+                target_span,
+                t,
+                item,
+                (x) => x,
+                (lint_id, span, kind) => sess.psess.dyn_buffer_lint_sess(lint_id.lint, span, CRATE_NODE_ID, kind._0),
+              );
+            } else {
+              throw new Error(`op ${op}`);
+            }
             events.push(`#${idx} ${op} => ${debug_vec(r, PLAIN, debug_hir_Attribute)}`);
           }
         });
@@ -414,13 +445,12 @@ function run_list_case(c: Case): { events: string[]; fatal: boolean; stderr: str
         }
       }
     } catch (e) {
-      if (!(e instanceof FatalErrorMarker)) throw e;
+      if (!(e instanceof FatalErrorMarker || e instanceof Panic)) throw e;
       fatal = true;
     }
-    psess.dcx().reset_err_count();
-    stderr = new TextDecoder().decode(buf.bytes());
+    sess.dcx().reset_err_count();
   });
-  return { events, fatal, stderr };
+  return { events, fatal, stderr: new TextDecoder().decode(buf.bytes()) };
 }
 
 for (const c of list_oracle) {

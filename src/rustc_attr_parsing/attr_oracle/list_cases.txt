@@ -75,3 +75,91 @@ ops: limited:emit
 #[diagnostic::unknown_thing]
 #[diagnostic::on_unimplemented(message = "m")]
 trait T {}
+### crate_level
+ops: limited:emit
+#![crate_name = "x"]
+#![crate_name = "y"]
+#![crate_type = "lib"]
+#![crate_type = "dylb"]
+#![recursion_limit = "256"]
+#![recursion_limit = "-1"]
+#![type_length_limit = "99999999999999999999999"]
+#![move_size_limit = ""]
+#![no_core]
+#![no_main]
+#![no_builtins]
+#![windows_subsystem = "console"]
+#![windows_subsystem = "gui"]
+#![feature(foo, bar)]
+#![feature()]
+#![feature(a = "b", c(d), "e")]
+#![register_tool(tool1, tool2)]
+#![register_tool(tool1, rustc, r#true)]
+#[no_std]
+#[crate_name = "z"]
+fn f() {}
+### macro_attrs
+ops: full:emit
+#[macro_export]
+#[macro_export(local_inner_macros)]
+macro_rules! a { () => {} }
+#[macro_export(foo)]
+macro_rules! b { () => {} }
+#[macro_export = "x"]
+macro_rules! c { () => {} }
+#[macro_use]
+mod m {}
+#[macro_use(a, b)]
+#[macro_use(c)]
+#[macro_use]
+extern crate std;
+#[macro_use()]
+#[macro_use = "x"]
+#[macro_use(1, a::b)]
+extern crate core;
+#[macro_escape]
+mod n {}
+#[collapse_debuginfo(yes)]
+#[collapse_debuginfo(maybe)]
+macro_rules! d { () => {} }
+#[allow_internal_unsafe]
+#[rustc_proc_macro_decls]
+static S: u8 = 0;
+#[macro_export]
+fn g() {}
+#[macro_export]
+pub macro m() {}
+### proc_macro_attrs
+ops: limited:emit
+#[proc_macro]
+fn a() {}
+#[proc_macro_attribute]
+fn b() {}
+#[proc_macro_derive(Foo)]
+fn c() {}
+#[proc_macro_derive(Foo, attributes(bar, baz))]
+fn d() {}
+#[proc_macro_derive(Foo, attributes(inline, r#true))]
+fn e() {}
+#[proc_macro_derive]
+fn f() {}
+#[proc_macro_derive()]
+fn g() {}
+#[proc_macro_derive("Foo")]
+fn h() {}
+#[proc_macro_derive(Foo, other(x))]
+fn i() {}
+#[proc_macro_derive(Foo, attributes(x), extra)]
+fn j() {}
+#[proc_macro_derive(Foo(x))]
+fn k() {}
+#[rustc_builtin_macro]
+#[rustc_builtin_macro(Bar, attributes(q))]
+macro_rules! l { () => {} }
+#[proc_macro]
+struct S;
+### cfg_attrs
+ops: limited:emit
+#[cfg(foo)]
+#[cfg_attr(foo, inline)]
+fn f() {}
