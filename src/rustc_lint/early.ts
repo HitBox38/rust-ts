@@ -441,14 +441,15 @@ function run_pass<T extends EarlyLintPass>(check_node: EarlyCheckNode, context: 
 
 // PORT: `crate::BuiltinCombinedPreExpansionLintPass` / `crate::BuiltinCombinedEarlyLintPass` are defined in lib.ts,
 // which imports this module; they are looked up when a pass runs (after every module is loaded).
-let lib_passes: { pre_expansion: () => { new(): EarlyLintPass }; early: () => { new(): EarlyLintPass } } | undefined;
+type CombinedPass = { new: () => EarlyLintPass };
+let lib_passes: { pre_expansion: () => CombinedPass; early: () => CombinedPass } | undefined;
 /** PORT: called by lib.ts once the combined passes exist. */
 export function set_builtin_combined_passes(p: typeof lib_passes): void {
   lib_passes = p;
 }
-function BuiltinCombinedPreExpansionLintPass(): { new(): EarlyLintPass } {
+function BuiltinCombinedPreExpansionLintPass(): CombinedPass {
   return lib_passes!.pre_expansion();
 }
-function BuiltinCombinedEarlyLintPass(): { new(): EarlyLintPass } {
+function BuiltinCombinedEarlyLintPass(): CombinedPass {
   return lib_passes!.early();
 }

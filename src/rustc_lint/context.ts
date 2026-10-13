@@ -17,7 +17,6 @@ import {
   Lint,
   LintExpectationId,
   LintId,
-  type HirId,
   type RegisteredTools,
   type StableLintExpectationId,
   type UnstableLintExpectationId,
@@ -27,6 +26,7 @@ import {
 import type { LevelSpec, StableLevelSpec, UnstableLevelSpec } from "../rustc_middle/lint.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { CrateNum, DefId } from "../rustc_span/def_id.ts";
+import type { HirId } from "../rustc_hir_id/lib.ts";
 import type { DynLintStore, LintGroup as SessionLintGroup, Session } from "../rustc_session/session.ts";
 import { find_best_match_for_names } from "../rustc_span/edit_distance.ts";
 import { Edition } from "../rustc_span/edition.ts";

@@ -17,11 +17,10 @@ import {
   Lint,
   LintExpectationId,
   LintId,
-  type HirId,
-  type ItemLocalId,
   type StableLintExpectationId,
   type UnstableLintExpectationId,
 } from "../rustc_lint_defs/lib.ts";
+import type { HirId, ItemLocalId } from "../rustc_hir_id/lib.ts";
 import type { Session } from "../rustc_session/session.ts";
 import { display_Edition } from "../rustc_span/edition.ts";
 import { DUMMY_SP, Span, debug_Span } from "../rustc_span/lib.ts";

@@ -20,7 +20,6 @@ import {
   Level,
   Lint,
   LintId,
-  type HirId,
   type RegisteredTools,
   type StableLintExpectationId,
   type UnstableLintExpectationId,
@@ -38,6 +37,7 @@ import {
 import type { Providers as QueryProviders } from "../rustc_middle/queries.gen.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { add_feature_diagnostics_for_issue } from "../rustc_session/diagnostics.ts";
+import { CRATE_HIR_ID, CRATE_OWNER_ID, type HirId, type OwnerId } from "../rustc_hir_id/lib.ts";
 import type { Session } from "../rustc_session/session.ts";
 import { type AttrId, DUMMY_SP, Span } from "../rustc_span/lib.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
@@ -137,14 +137,14 @@ interface LintSet {
 // rustc: compiler/rustc_lint/src/levels.rs:115 skippable_lints
 function skippable_lints(tcx: TyCtxt, _: null): Set<LintId> {
   const store = unerased_lint_store(tcx.sess);
-  const root_map = tcx.shallow_lint_levels_on(CRATE_OWNER_ID()) as ShallowLintLevelMap;
+  const root_map = tcx.shallow_lint_levels_on(CRATE_OWNER_ID) as ShallowLintLevelMap;
 
   const skippable = new Set<LintId>();
   for (const lint of store.get_lints()) {
     // Lints that show up in future-compat reports must always be run.
     const has_future_breakage = lint.future_incompatible !== undefined && lint.future_incompatible.report_in_deps;
     if (!(!has_future_breakage && !lint.eval_always)) continue;
-    const level_spec = root_map.lint_level_spec_at_node(tcx, LintId.of(lint), CRATE_HIR_ID());
+    const level_spec = root_map.lint_level_spec_at_node(tcx, LintId.of(lint), CRATE_HIR_ID);
     // Only include lints that are allowed at crate root or by default.
     if (!(level_spec.is_allow() || (level_spec.src.$ === "Default" && Lint.default_level(lint, tcx.sess.edition()) === "Allow"))) continue;
     skippable.add(LintId.of(lint));
@@ -166,22 +166,14 @@ function skippable_lints(tcx: TyCtxt, _: null): Set<LintId> {
   return skippable;
 }
 
-/** `hir::CRATE_OWNER_ID`. PORT: rustc_hir_id is not ported; `OwnerId { def_id: CRATE_DEF_ID }` (stand-in). */
-function CRATE_OWNER_ID(): HirId["owner"] {
-  return { def_id: 0 as HirId["owner"]["def_id"] };
-}
-/** `hir::CRATE_HIR_ID`. PORT: stand-in (`HirId { owner: CRATE_OWNER_ID, local_id: ItemLocalId::ZERO }`). */
-function CRATE_HIR_ID(): HirId {
-  return { owner: CRATE_OWNER_ID(), local_id: 0 as HirId["local_id"] };
-}
 /** `tcx.hir_crate_items(()).owners()`. PORT: HIR (M3). */
-function hir_crate_items_owners(_tcx: TyCtxt): Iterable<HirId["owner"]> {
+function hir_crate_items_owners(_tcx: TyCtxt): Iterable<OwnerId> {
   return unported("rustc_middle::hir::TyCtxt::hir_crate_items (HIR, M3)");
 }
 
 // #[instrument(level = "trace", skip(tcx), ret)]
 // rustc: compiler/rustc_lint/src/levels.rs:156 shallow_lint_levels_on
-function shallow_lint_levels_on(tcx: TyCtxt, owner: HirId["owner"]): ShallowLintLevelMap {
+function shallow_lint_levels_on(tcx: TyCtxt, owner: OwnerId): ShallowLintLevelMap {
   const store = unerased_lint_store(tcx.sess);
   void store;
   void owner;
