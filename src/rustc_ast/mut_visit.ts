@@ -2172,6 +2172,7 @@ function option_into_iter<T>(o: T | undefined): T[] {
 // `ThinVec`; not ported yet, root: move to src/rustc_data_structures/flat_map_in_place.ts). The same
 // algorithm on a JS array: each element is moved out and replaced, in order, by the elements `f` maps it
 // to; `insert` when the output outruns the input; on a panic the vec is left empty (`LeakGuard`).
+// rustc: compiler/rustc_data_structures/src/flat_map_in_place.rs:18 flat_map_in_place
 function flat_map_in_place<T>(self: T[], f: (e: T) => Iterable<T>): void {
   let read_i = 0;
   let write_i = 0;

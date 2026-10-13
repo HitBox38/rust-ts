@@ -10,6 +10,7 @@ import { Panic } from "../std/panic.ts";
 import { Err, type Result } from "../std/result.ts";
 import {
   type Arm,
+  type AssocItem,
   type AssocItemKind,
   Attribute,
   BindingMode,
@@ -18,6 +19,7 @@ import {
   type ExprKind,
   type ForeignItemKind,
   type Generics,
+  type Impl,
   Item,
   type ItemKind,
   type Lifetime,
@@ -28,11 +30,12 @@ import {
   PathSegment,
   Stmt,
   type StmtKind,
+  type TraitRef,
   Ty,
   type Visibility,
 } from "./ast.ts";
 import { AstNodeWrapper, HasAttrs, HasNodeId, HasTokens } from "./ast_traits.ts";
-import { MutVisitable, MutVisitor, walk_expr as mut_walk_expr, walk_flat_map_stmt } from "./mut_visit.ts";
+import { MutVisitable, MutVisitor, MutWalkable, walk_expr as mut_walk_expr, walk_flat_map_stmt } from "./mut_visit.ts";
 import type { NodeId } from "./node_id.ts";
 import { Lit } from "./token.ts";
 import type { LazyAttrTokenStream } from "./tokenstream.ts";
@@ -53,6 +56,7 @@ import {
   walk_stmt,
   walk_ty,
   WalkItemKind,
+  Walkable,
 } from "./visit.ts";
 
 const sp = (n: number) => n as Span;
@@ -274,18 +278,18 @@ describe("Visitor (visit.rs)", () => {
     expect(w.visit_expr(lit(9))).toBe(ControlFlow.CONTINUE); // `V::Result::output()`
   });
 
-  test("ControlFlow<()> Break with an `undefined` payload still stops the walk (try_visit returns from_residual)", () => {
-    class FindUnit extends Visitor<ControlFlow<undefined>> {
-      override Result = VisitorResult.ControlFlow<undefined>();
+  test("ControlFlow<()> Break with a `()` (`null`) payload still stops the walk (try_visit returns from_residual)", () => {
+    class FindUnit extends Visitor<ControlFlow<null>> {
+      override Result = VisitorResult.ControlFlow<null>();
       seen: number[] = [];
-      override visit_id(id: NodeId): ControlFlow<undefined> {
+      override visit_id(id: NodeId): ControlFlow<null> {
         this.seen.push(id);
-        return id === 4 ? ControlFlow.Break(undefined) : ControlFlow.CONTINUE;
+        return id === 4 ? ControlFlow.Break(null) : ControlFlow.CONTINUE;
       }
     }
     const v = new FindUnit();
     const tree = expr(1, { $: "Tup", _0: [lit(2), lit(4), lit(6)] });
-    expect(v.visit_expr(tree)).toEqual({ $: "Break", _0: undefined });
+    expect(v.visit_expr(tree)).toStrictEqual({ $: "Break", _0: null });
     expect(v.seen).toEqual([1, 2, 4]); // lit 6 is never reached
   });
 
@@ -307,15 +311,15 @@ describe("Visitor (visit.rs)", () => {
   });
 
   test("Result<(), E> result maps Break to Err (rustc_ast_ir visit.rs:44-65)", () => {
-    class Fail extends Visitor<Result<undefined, string>> {
+    class Fail extends Visitor<Result<null, string>> {
       override Result = VisitorResult.Result<string>();
-      override visit_ident(ident: Ident): Result<undefined, string> {
+      override visit_ident(ident: Ident): Result<null, string> {
         return Err(`ident ${ident.name}`);
       }
     }
     const tree = expr(1, { $: "Field", _0: lit(2), _1: new Ident(sym(7), sp(0)) });
     expect(new Fail().visit_expr(tree)).toEqual({ $: "Err", _0: "ident 7" });
-    expect(new Fail().visit_expr(lit(3))).toEqual({ $: "Ok", _0: undefined });
+    expect(new Fail().visit_expr(lit(3))).toStrictEqual({ $: "Ok", _0: null }); // `()` as a stored value is `null`
   });
 
   // Derived `Walkable` impls (rustc_macros/src/visitable.rs, generated into walkable.gen.ts): each
@@ -364,6 +368,59 @@ describe("Visitor (visit.rs)", () => {
     const v = new L();
     v.visit_lifetime(opaque("lt"), "Bound");
     expect(seen).toEqual(["Bound"]);
+  });
+
+  // visit.rs:989-999: generics, then (if `of_trait`) defaultness, safety, polarity, trait_ref, then self_ty,
+  // then the items with `AssocCtxt::Impl { of_trait: of_trait.is_some() }`.
+  test("Impl walk order with and without of_trait (visit.rs:989-999)", () => {
+    class V extends Recorder {
+      override visit_trait_ref(_t: TraitRef): undefined {
+        this.log.push("trait_ref");
+        return undefined;
+      }
+      override visit_assoc_item(_i: AssocItem, ctxt: AssocCtxt): undefined {
+        this.log.push(`assoc ${JSON.stringify(ctxt)}`);
+        return undefined;
+      }
+    }
+    const impl_ = (of_trait: boolean): Impl => ({
+      generics: opaque("generics"),
+      constness: opaque("constness"),
+      of_trait: of_trait
+        ? { defaultness: { $: "Default", _0: sp(1) }, safety: { $: "Unsafe", _0: sp(2) }, polarity: { $: "Negative", _0: sp(3) }, trait_ref: opaque("trait_ref") }
+        : undefined,
+      self_ty: new Ty(nid(7), opaque("tykind"), sp(4)),
+      items: [opaque("item")],
+    });
+    const v = new V();
+    Walkable.Impl(impl_(true), v);
+    expect(v.log).toEqual(["generics", "trait_ref", "ty 7", 'assoc {"$":"Impl","of_trait":true}']);
+    const w = new V();
+    Walkable.Impl(impl_(false), w);
+    expect(w.log).toEqual(["generics", "ty 7", 'assoc {"$":"Impl","of_trait":false}']);
+
+    // The mutable walk also visits the header's spans (mut_visit.rs: `Span` is `visit_span`), in field order.
+    const log: string[] = [];
+    class M extends MutVisitor {
+      override visit_generics(_g: Generics): void {
+        log.push("generics");
+      }
+      override visit_span(s: { value: Span }): void {
+        log.push(`span ${s.value}`);
+      }
+      override visit_trait_ref(_t: TraitRef): void {
+        log.push("trait_ref");
+      }
+      override visit_ty(t: Ty): void {
+        log.push(`ty ${t.id}`);
+      }
+      override flat_map_assoc_item(i: AssocItem, ctxt: AssocCtxt): AssocItem[] {
+        log.push(`assoc ${JSON.stringify(ctxt)}`);
+        return [i];
+      }
+    }
+    MutWalkable.Impl(impl_(true), new M());
+    expect(log).toEqual(["generics", "span 1", "span 2", "span 3", "trait_ref", "ty 7", 'assoc {"$":"Impl","of_trait":true}']);
   });
 
   test("BoundKind::descr (visit.rs:57-64)", () => {
@@ -431,6 +488,23 @@ describe("MutVisitor (mut_visit.rs)", () => {
     expect(w.wrapped).toBe(e);
     expect(e.id).toBe(nid(9));
     expect(e.kind.$).toBe("Paren");
+  });
+
+  // mut_visit.rs:69-78: the mutable `Spanned<T>` impl visits `span` first, then `node` (the immutable
+  // impl ignores the span).
+  test("mutable Spanned<T> visits the span before the node (mut_visit.rs:69)", () => {
+    const log: string[] = [];
+    class S extends MutVisitor {
+      override visit_span(s: { value: Span }): void {
+        log.push(`span ${s.value}`);
+      }
+    }
+    const holder = { op: { node: { tag: "node" }, span: sp(9) } };
+    const T_ = <K extends PropertyKey>(o: { [P in K]: { tag: string } }, k: K): void => {
+      log.push(`node ${o[k].tag}`);
+    };
+    MutVisitable.Spanned(holder, "op", new S(), undefined, T_);
+    expect(log).toEqual(["span 9", "node node"]);
   });
 
   test("visit_id gets a writable place; ids are renumbered in walk order (visit.rs:1010-1011)", () => {
