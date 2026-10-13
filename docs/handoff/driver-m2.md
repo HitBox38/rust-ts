@@ -86,7 +86,7 @@ The extra MATCH cases come from crate-name errors such as `a.b.rs` → `invalid 
 - `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 2677 pass, 1 skip (the pre-existing one), 0 fail.
 - `--suite parse --sample 300`: 300/300 MATCH (run 20261013-095640-driver-m2-wwhe). `--suite parse-ui --sample 300`: 300/300 MATCH (run 20261013-095647-driver-m2-qcs2).
 - **`output.oracle.test.ts`**: 52 tests, all against `rustc +nightly`.
-  - **MATCH, 39 cases:**
+  - **MATCH, 40 cases:**
     - `--crate-name` with `.`, a space, `€`, empty.
     - The file stem `a.b`; `#![crate_name = "a-b"]` and `= ""`.
     - `MultipleOutputTypesToStdout` (2 forms).
