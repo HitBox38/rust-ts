@@ -17,9 +17,10 @@ Method:
   every finding they raised myself. Scratch: `$RUST_TS_DATA/tmp/review-parser-a/`.
 - Oracle: the pinned nightly (`rustc 1.101.0-nightly (6f5da406b 2026-10-10)`).
   - **Crafted inputs** through `-Zunpretty=ast-tree` (stdout, stderr and exit code, byte for byte, vs
-    `bun src/rust_ts/main.ts` with the same args). About 1,270 distinct inputs and about 3,300 comparisons across
-    editions 2015/2018/2021/2024. Per batch: mod/token_type 536, path/generics 665, ty 1,529, pat 143,
-    stmt/function 516, plus about 60 of mine (token glue, edition keywords, deep recovery, attribute targets).
+    `bun src/rust_ts/main.ts` with the same args). About 1,500 distinct inputs and about 3,800 comparisons across
+    editions 2015/2018/2021/2024. Per batch: mod/token_type 536, attr/attr_wrapper/lib about 400 (189 files),
+    path/generics 665, ty 1,529, pat 143, stmt/function 516, plus about 60 of mine (token glue, edition keywords,
+    deep recovery, attribute targets).
     **All match.**
   - **Mutation fuzzing of recovery paths.** I mutated small tests/ui files with 1 to 4 token edits each (delete,
     duplicate, swap, or insert from a list of 60 tokens) under a random edition. 2,000 files ran; 89% of them make
@@ -65,8 +66,15 @@ Checked line by line, all matching upstream:
   (`LazyAttrTokenStream(AttrTokenStream([..]))`), so the parse suite already checks the `needs_tokens` fast path
   and the inner-attribute ranges. The cfg-eval capture mode, `parse_nonterminal`, `nonterminal_may_begin_with` and
   every metavar path were checked with the review probe above: all match.
-- **decls.ts.** All 560 declared methods have a `Parser.prototype.<name> =` assignment, and every assignment is
-  declared. No file still uses a local `declare module` augmentation (`PORT(decls)`).
+  - The sub-reviewer also ran 189 crafted files: attributes in every position, `#![x]` before every item kind,
+    shebang/frontmatter/BOM/CRLF, and all 199 `BUILTIN_ATTRIBUTES` for the `needs_tokens` decision. All match.
+  - An upstream ICE is mirrored faithfully. With `capture_cfg`,
+    `trait Tr<X>{} #[derive(Debug)] struct S<#[cfg(false)] T: Tr<u8>>(u8);` hits the same assert
+    ("Should not have unglued last token with cfg attr", attr_wrapper.rs:369) in both.
+- **decls.ts.** A script compared all 560 declarations with the upstream `fn` at each cited line: no name mismatches,
+  and parameter order and count match apart from the documented trailing impl tables. All 560 have a
+  `Parser.prototype.<name> =` assignment, and every assignment is declared. No file still uses a local
+  `declare module` augmentation (`PORT(decls)`).
 
 ### Findings
 1. **med (unported, reachable)**: lib.ts:96-104 `io_error_kind` and lib.ts:201-203 `from_utf8_error`. Every OS-level
@@ -194,5 +202,76 @@ Checked line by line, all matching upstream: all 11 + 11 + 1 fns.
    - remove the pat/stmt shim mode (batch 3, finding 1);
    - delete stubs.ts (batch 1, finding 3);
    - the `unreachable!` prefixes (batch 2, finding 1).
-4. Consider adopting the review probe's metavar mode (`tmp/review-parser-a/probe`) as a committed oracle test until
-   rustc_expand lands. It is the only check today on the `eat_metavar_seq*`/interpolated paths.
+4. Consider adopting the review probe's metavar mode as a committed oracle test until rustc_expand lands. It is the
+   only check today on the `eat_metavar_seq*`/interpolated paths. The scratch directory was deleted per the brief;
+   the probe's core is in the appendix.
+
+## Appendix: the metavar transform used by the review probe (rustc-dev side)
+
+The probe parsed each case with `source_str_to_stream`, applied `transform` and then ran `Parser::new(psess, ts, None)`
+with a `parse_item(ForceCollect::Yes, ..)` loop. It printed `{:#?}` of each item and the `-Zui-testing` stderr. The TS
+mirror is the same code against `rustc_parse/lib.ts`.
+
+```rust
+fn transform(psess: &ParseSess, ts: &TokenStream, edition: Edition, ev: &mut Vec<String>) -> TokenStream {
+    let mut out: Vec<TokenTree> = Vec::new();
+    for tt in ts.iter() {
+        match tt {
+            // `[$kind tokens]` -> what mbe::transcribe emits for a `$x:kind` matched against `tokens`
+            TokenTree::Delimited(_, _, Delimiter::Bracket, inner)
+                if matches!(inner.get(0), Some(TokenTree::Token(t, _)) if t.kind == TokenKind::Dollar) =>
+            {
+                let trees: Vec<TokenTree> = inner.iter().cloned().collect();
+                let TokenTree::Token(kt, _) = &trees[1] else { panic!() };
+                let TokenKind::Ident(ksym, _) = kt.kind else { panic!() };
+                let rest = transform(psess, &TokenStream::new(trees[2..].to_vec()), edition, ev);
+                let kind = NonterminalKind::from_symbol(ksym, || edition).unwrap();
+                let mut p = Parser::new(psess, rest.clone(), None);
+                let mk = |span, mv, stream| TokenTree::Delimited(DelimSpan::from_single(span),
+                    DelimSpacing::new(Spacing::Alone, Spacing::Alone),
+                    Delimiter::Invisible(InvisibleOrigin::MetaVar(mv)), stream);
+                match p.parse_nonterminal(kind) {
+                    Err(e) => { e.emit(); ev.push("transform-err".into()); out.extend(rest.iter().cloned()); }
+                    Ok(r) => out.push(match r {
+                        ParseNtResult::Tt(tt) => tt,
+                        ParseNtResult::Ident(i, k) => TokenTree::token_alone(token::NtIdent(i, k), i.span),
+                        ParseNtResult::Lifetime(i, k) => TokenTree::token_alone(token::NtLifetime(i, k), i.span),
+                        ParseNtResult::Item(i) => mk(i.span, MetaVarKind::Item, rest),
+                        ParseNtResult::Block(b) => mk(b.node.span, MetaVarKind::Block, rest),
+                        ParseNtResult::Stmt(s) => mk(s.span, MetaVarKind::Stmt, rest),
+                        ParseNtResult::Pat(pt, k) => mk(pt.node.span, MetaVarKind::Pat(k), rest),
+                        ParseNtResult::Expr(e, k) => {
+                            let (a, b) = match &e.kind {
+                                ExprKind::Lit(_) => (true, true),
+                                ExprKind::Unary(UnOp::Neg, x) if matches!(&x.kind, ExprKind::Lit(_)) => (true, false),
+                                _ => (false, false),
+                            };
+                            mk(e.span, MetaVarKind::Expr { kind: k, can_begin_literal_maybe_minus: a,
+                                can_begin_string_literal: b }, rest)
+                        }
+                        ParseNtResult::Literal(l) => mk(l.span, MetaVarKind::Literal, rest),
+                        ParseNtResult::Ty(t) => {
+                            let is_path = matches!(&t.node.kind, TyKind::Path(None, _));
+                            mk(t.node.span, MetaVarKind::Ty { is_path }, rest)
+                        }
+                        ParseNtResult::Meta(a) => {
+                            let h = a.node.meta_kind().is_some();
+                            mk(a.node.span, MetaVarKind::Meta { has_meta_form: h }, rest)
+                        }
+                        ParseNtResult::Path(pa) => mk(pa.node.span, MetaVarKind::Path, rest),
+                        ParseNtResult::Vis(v) => mk(v.node.span, MetaVarKind::Vis, rest),
+                        ParseNtResult::Guard(_) => panic!("guard"),
+                    }),
+                }
+            }
+            TokenTree::Delimited(a, b, c, inner) =>
+                out.push(TokenTree::Delimited(*a, *b, *c, transform(psess, inner, edition, ev))),
+            t => out.push(t.clone()),
+        }
+    }
+    TokenStream::new(out)
+}
+```
+
+Example case, which matches in 2015, 2021 and 2024:
+`fn f() { match x { [$literal 1] => {} [$literal -1]..=[$literal 2] => {} [$expr 3] => {} [$expr -4] => {} [$expr a + b] => {} } }`.
