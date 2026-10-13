@@ -2,13 +2,17 @@
 // `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
+import { decode_Res } from "../rustc_hir/def.ts";
+import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
+import { type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
 import { Visibility } from "./ty/mod.ts";
-import { type Decodable } from "../rustc_serialize/serialize.ts";
-import { type BlobDecoder } from "../rustc_span/lib.ts";
+import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_u32, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
+import { decode_Ident, decode_ModId } from "../rustc_span/decodable.gen.ts";
+import { type BlobDecoder, type SpanDecoder } from "../rustc_span/lib.ts";
 import { panic } from "../std/panic.ts";
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:249 BlobDecodable for Visibility
-export function decode_Visibility<Id>(__decoder: BlobDecoder, decode_Id: Decodable<Id, BlobDecoder>): Visibility<Id> {
+export function decode_Visibility<Id, __D extends BlobDecoder = BlobDecoder>(__decoder: __D, decode_Id: Decodable<Id, __D>): Visibility<Id> {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -18,4 +22,78 @@ export function decode_Visibility<Id>(__decoder: BlobDecoder, decode_Id: Decodab
     default:
       return panic(`invalid enum variant tag while decoding \`Visibility\`, expected 0..2, actual ${__tag}`);
   }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:15 TyDecodable for GenericParamDefKind
+export function decode_GenericParamDefKind(__decoder: SpanDecoder): GenericParamDefKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return GenericParamDefKind.Lifetime;
+    case 1:
+      return { $: "Type", has_default: decode_bool(__decoder), synthetic: decode_bool(__decoder) };
+    case 2:
+      return { $: "Const", has_default: decode_bool(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`GenericParamDefKind\`, expected 0..3, actual ${__tag}`);
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:54 TyDecodable for GenericParamDef
+export function decode_GenericParamDef(__decoder: SpanDecoder): GenericParamDef {
+  return {
+    name: __decoder.decode_symbol(),
+    def_id: __decoder.decode_def_id(),
+    index: decode_u32(__decoder),
+    pure_wrt_drop: decode_bool(__decoder),
+    kind: decode_GenericParamDefKind(__decoder),
+  };
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/generics.rs:120 TyDecodable for Generics
+export function decode_Generics(__decoder: SpanDecoder): Generics {
+  const __0 = decode_Option(__decoder, (__decoder) => __decoder.decode_def_id());
+  const __1 = decode_usize(__decoder);
+  const __2 = decode_Vec(__decoder, decode_GenericParamDef);
+  const __3 = decode_HashMap(__decoder, (__decoder) => __decoder.decode_def_id(), decode_u32);
+  const __4 = decode_bool(__decoder);
+  const __5 = decode_Option(__decoder, (__decoder) => __decoder.decode_span());
+  return Generics.from_decoded(__0, __1, __2, __3, __4, __5);
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:120 TyDecodable for Reexport
+export function decode_Reexport(__decoder: SpanDecoder): Reexport {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Single", _0: __decoder.decode_def_id() };
+    case 1:
+      return { $: "Glob", _0: __decoder.decode_def_id() };
+    case 2:
+      return { $: "ExternCrate", _0: __decoder.decode_def_id() };
+    case 3:
+      return Reexport.MacroUse;
+    case 4:
+      return Reexport.MacroExport;
+    default:
+      return panic(`invalid enum variant tag while decoding \`Reexport\`, expected 0..5, actual ${__tag}`);
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:143 TyDecodable for ModChild
+export function decode_ModChild(__decoder: SpanDecoder): ModChild {
+  return {
+    ident: decode_Ident(__decoder),
+    res: decode_Res(__decoder, (__decoder) => decode_never(__decoder)),
+    vis: decode_Visibility(__decoder, decode_ModId),
+    reexport_chain: decode_SmallVec(__decoder, decode_Reexport),
+  };
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:158 TyDecodable for AmbigModChild
+export function decode_AmbigModChild(__decoder: SpanDecoder): AmbigModChild {
+  return {
+    main: decode_ModChild(__decoder),
+    second: decode_ModChild(__decoder),
+  };
 }

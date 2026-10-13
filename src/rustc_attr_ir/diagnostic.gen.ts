@@ -2,10 +2,12 @@
 // Hand-written additions (methods, manual Debug impls) go in diagnostic.ts next to this file.
 import { type Printer } from "../rustc_ast_pretty/pp.ts";
 import { print_attribute_bool, print_attribute_Box, print_attribute_Option, print_attribute_Span, print_attribute_Symbol, print_attribute_ThinVec, print_attribute_tuple, type PrintAttribute } from "./pretty_printing.ts";
+import { decode_bool, decode_Option, decode_ThinVec, decode_tuple } from "../rustc_serialize/serialize.ts";
 import { debug_DesugaringKind, type DesugaringKind } from "../rustc_span/hygiene.ts";
-import { debug_Span, type Span } from "../rustc_span/lib.ts";
+import { debug_Span, type Span, type SpanDecoder } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_bool, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
+import { panic } from "../std/panic.ts";
 
 // rustc-type: compiler/rustc_attr_ir/src/diagnostic.rs:13 Directive
 export class Directive {
@@ -34,6 +36,10 @@ export function clone_Directive(v: Directive): Directive {
 }
 export function default_Directive(): Directive {
   return new Directive(false, [], undefined, undefined, [], undefined);
+}
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:13 Decodable for Directive
+export function decode_Directive(__decoder: SpanDecoder): Directive {
+  return new Directive(decode_bool(__decoder), decode_ThinVec(__decoder, (__decoder) => decode_tuple(__decoder, decode_Filter, decode_Directive)), decode_Option(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_span(), decode_FormatString)), decode_Option(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_span(), decode_FormatString)), decode_ThinVec(__decoder, decode_FormatString), decode_Option(__decoder, (__decoder) => decode_tuple(__decoder, (__decoder) => __decoder.decode_span(), decode_FormatString)));
 }
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:13 PrintAttribute for Directive
 export const print_attribute_Directive: PrintAttribute<Directive> = {
@@ -149,6 +155,10 @@ export const debug_FormatString: Debug<FormatString> = (v, f) =>
   ]);
 export function clone_FormatString(v: FormatString): FormatString {
   return new FormatString(v.input, v.span, v.pieces.map(clone_Piece));
+}
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:112 Decodable for FormatString
+export function decode_FormatString(__decoder: SpanDecoder): FormatString {
+  return new FormatString(__decoder.decode_symbol(), __decoder.decode_span(), decode_ThinVec(__decoder, decode_Piece));
 }
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:112 PrintAttribute for FormatString
 export const print_attribute_FormatString: PrintAttribute<FormatString> = {
@@ -273,6 +283,18 @@ export function clone_Piece(v: Piece): Piece {
       return { $: "Arg", _0: clone_FormatArg(v._0) };
   }
 }
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:226 Decodable for Piece
+export function decode_Piece(__decoder: SpanDecoder): Piece {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Lit", _0: __decoder.decode_symbol() };
+    case 1:
+      return { $: "Arg", _0: decode_FormatArg(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`Piece\`, expected 0..2, actual ${__tag}`);
+  }
+}
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:226 PrintAttribute for Piece
 export const print_attribute_Piece: PrintAttribute<Piece> = {
   should_render: (_self) => true,
@@ -384,6 +406,34 @@ export function clone_FormatArg(v: FormatArg): FormatArg {
       return v;
   }
 }
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:232 Decodable for FormatArg
+export function decode_FormatArg(__decoder: SpanDecoder): FormatArg {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "GenericParam", generic_param: __decoder.decode_symbol(), span: __decoder.decode_span() };
+    case 1:
+      return FormatArg.SelfUpper;
+    case 2:
+      return FormatArg.This;
+    case 3:
+      return FormatArg.ThisResolved;
+    case 4:
+      return FormatArg.ThisPath;
+    case 5:
+      return FormatArg.ItemContext;
+    case 6:
+      return { $: "AsIs", _0: __decoder.decode_symbol() };
+    case 7:
+      return FormatArg.Found;
+    case 8:
+      return FormatArg.Expected;
+    case 9:
+      return FormatArg.Unresolved;
+    default:
+      return panic(`invalid enum variant tag while decoding \`FormatArg\`, expected 0..10, actual ${__tag}`);
+  }
+}
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:232 PrintAttribute for FormatArg
 export const print_attribute_FormatArg: PrintAttribute<FormatArg> = {
   should_render: (_self) => true,
@@ -489,6 +539,10 @@ export const debug_Filter: Debug<Filter> = (v, f) =>
 export function clone_Filter(v: Filter): Filter {
   return new Filter(v.span, clone_Predicate(v.pred));
 }
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:260 Decodable for Filter
+export function decode_Filter(__decoder: SpanDecoder): Filter {
+  return new Filter(__decoder.decode_span(), decode_Predicate(__decoder));
+}
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:260 PrintAttribute for Filter
 export const print_attribute_Filter: PrintAttribute<Filter> = {
   should_render: (_self) => true,
@@ -566,6 +620,24 @@ export function clone_Predicate(v: Predicate): Predicate {
       return { $: "All", _0: v._0.map(clone_Predicate) };
     case "Any":
       return { $: "Any", _0: v._0.map(clone_Predicate) };
+  }
+}
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:285 Decodable for Predicate
+export function decode_Predicate(__decoder: SpanDecoder): Predicate {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Flag", _0: decode_Flag(__decoder) };
+    case 1:
+      return { $: "Match", _0: decode_NameValue(__decoder) };
+    case 2:
+      return { $: "Not", _0: decode_Predicate(__decoder) };
+    case 3:
+      return { $: "All", _0: decode_ThinVec(__decoder, decode_Predicate) };
+    case 4:
+      return { $: "Any", _0: decode_ThinVec(__decoder, decode_Predicate) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`Predicate\`, expected 0..5, actual ${__tag}`);
   }
 }
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:285 PrintAttribute for Predicate
@@ -678,6 +750,20 @@ export const debug_Flag: Debug<Flag> = (v) => v;
 export function clone_Flag(v: Flag): Flag {
   return v;
 }
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:323 Decodable for Flag
+export function decode_Flag(__decoder: SpanDecoder): Flag {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "CrateLocal";
+    case 1:
+      return "Direct";
+    case 2:
+      return "FromDesugaring";
+    default:
+      return panic(`invalid enum variant tag while decoding \`Flag\`, expected 0..3, actual ${__tag}`);
+  }
+}
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:323 PrintAttribute for Flag
 export const print_attribute_Flag: PrintAttribute<Flag> = {
   should_render: (_self) => true,
@@ -719,6 +805,10 @@ export const debug_NameValue: Debug<NameValue> = (v, f) =>
   ]);
 export function clone_NameValue(v: NameValue): NameValue {
   return new NameValue(clone_Name(v.name), clone_FilterFormatString(v.value));
+}
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:338 Decodable for NameValue
+export function decode_NameValue(__decoder: SpanDecoder): NameValue {
+  return new NameValue(decode_Name(__decoder), decode_FilterFormatString(__decoder));
 }
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:338 PrintAttribute for NameValue
 export const print_attribute_NameValue: PrintAttribute<NameValue> = {
@@ -786,6 +876,22 @@ export function clone_Name(v: Name): Name {
     case "FromDesugaring":
     case "SelfUpper":
       return v;
+  }
+}
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:357 Decodable for Name
+export function decode_Name(__decoder: SpanDecoder): Name {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return Name.Cause;
+    case 1:
+      return Name.FromDesugaring;
+    case 2:
+      return Name.SelfUpper;
+    case 3:
+      return { $: "GenericArg", _0: __decoder.decode_symbol() };
+    default:
+      return panic(`invalid enum variant tag while decoding \`Name\`, expected 0..4, actual ${__tag}`);
   }
 }
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:357 PrintAttribute for Name
@@ -866,6 +972,10 @@ export const debug_FilterFormatString: Debug<FilterFormatString> = (v, f) =>
 export function clone_FilterFormatString(v: FilterFormatString): FilterFormatString {
   return new FilterFormatString(v.pieces.map(clone_LitOrArg));
 }
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:377 Decodable for FilterFormatString
+export function decode_FilterFormatString(__decoder: SpanDecoder): FilterFormatString {
+  return new FilterFormatString(decode_ThinVec(__decoder, decode_LitOrArg));
+}
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:377 PrintAttribute for FilterFormatString
 export const print_attribute_FilterFormatString: PrintAttribute<FilterFormatString> = {
   should_render: (_self) => true,
@@ -909,6 +1019,18 @@ export function clone_LitOrArg(v: LitOrArg): LitOrArg {
       return { $: "Lit", _0: v._0 };
     case "Arg":
       return { $: "Arg", _0: v._0 };
+  }
+}
+// rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:409 Decodable for LitOrArg
+export function decode_LitOrArg(__decoder: SpanDecoder): LitOrArg {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Lit", _0: __decoder.decode_symbol() };
+    case 1:
+      return { $: "Arg", _0: __decoder.decode_symbol() };
+    default:
+      return panic(`invalid enum variant tag while decoding \`LitOrArg\`, expected 0..2, actual ${__tag}`);
   }
 }
 // rustc-derive: compiler/rustc_attr_ir/src/diagnostic.rs:409 PrintAttribute for LitOrArg

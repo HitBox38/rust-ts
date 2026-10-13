@@ -10,11 +10,10 @@
 // - Compared now: `def_key`, `def_path`, `def_path_hash`, `is_item_mir_available`, `get_attr_flags`, `num_def_ids`
 //   (they read the blob only). `CrateMetadata::new` cannot finish yet (PENDING below), so the test builds the
 //   `CrateMetadata` with its constructor; the fields those methods do not read are placeholders.
-// - Compared too (rmeta-decoder-a merged): `get_diagnostic_items`, `get_traits`, and the non-reexport prefix of the
-//   root's `get_module_children` (through a real `TyCtxt`: its spans need the session's source map and `CStore`).
-// - PENDING (exact stop texts): `CrateMetadata::new` (`Decodable for SimplifiedType`, M3), the reexport half of
-//   `get_module_children` (`Decodable for ModChild`) and the lang item arrays (`Decodable for LangItem`). When a stop
-//   moves, update its text here; when it is gone, compare the section with the probe's lines.
+// - Compared too (rmeta-decoder-a merged): `get_diagnostic_items`, `get_traits`, and (lane decode-elems) the root's
+//   `get_module_children` including the reexports, `get_lang_items` / `get_missing_lang_items` (through a real
+//   `TyCtxt`: spans need the session's source map and `CStore`), and `CrateMetadata::new` itself (it finishes for
+//   every crate now that `SimplifiedType` decodes).
 //
 // Without the probe this is a visible skip; RUST_TS_REQUIRE_PROBES=1 makes that a failure.
 import { beforeAll, expect, test } from "bun:test";
@@ -24,6 +23,7 @@ import { DATA } from "../../../scripts/lib/common.ts";
 import "../lib.ts";
 import type { Crate } from "../../rustc_ast/lib.ts";
 import type { DiagnosticItems } from "../../rustc_attr_ir/diagnostic_items.ts";
+import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { CrateSource } from "../../rustc_crate_store/lib.ts";
 import { compiler_entrypoint } from "../../rustc_driver_impl/lib.ts";
 import { debug_DefKind, debug_Res } from "../../rustc_hir/def.ts";
@@ -33,12 +33,11 @@ import { create_and_enter_global_ctxt, parse } from "../../rustc_interface/passe
 import type { ModChild } from "../../rustc_middle/middle/resolve.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { HygieneDecodeContext } from "../../rustc_span/hygiene.ts";
-import { CRATE_DEF_INDEX, CrateNum, DefIndex, debug_DefPathHash } from "../../rustc_span/def_id.ts";
+import { CRATE_DEF_INDEX, CrateNum, type DefId, DefIndex, debug_DefPathHash } from "../../rustc_span/def_id.ts";
 import { create_default_session_globals_then } from "../../rustc_span/lib.ts";
 import { Symbol } from "../../rustc_span/symbol.ts";
 import { KeyedMap } from "../../rust_ts/keyed.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { Unported } from "../../std/panic.ts";
 import { creader } from "../lib.ts";
 import { CrateMetadata, MetadataBlob } from "./decoder.ts";
 import { AttrFlags, RawDefId_key } from "./mod.ts";
@@ -257,96 +256,78 @@ function with_registered_crates(f: (tcx: TyCtxt, cdatas: Map<string, CrateMetada
   });
 }
 
-/** The probe's `child` line of a module child of the crate root (non-reexports: local `Res::Def`s). */
-function child_line(child: ModChild): string {
-  const res = child.res.$ === "Def" ? `Def(${debug_DefKind(child.res._0, PLAIN)}, ${DefIndex.as_u32(child.res._1.index)})` : debug_Res(child.res, PLAIN, (x: never) => x);
-  const vis = child.vis.$ === "Public" ? "pub" : `restricted(${DefIndex.as_u32(child.vis._0._0.index)})`;
+/** The probe's `did(cnum, d)`: the index for the crate's own `DefId`s, else `<oracle cnum>:<index>`. */
+function did_of(cnum: CrateNum, d: DefId, oracle_cnum: Map<CrateNum, number>): string {
+  return d.krate === cnum ? `${DefIndex.as_u32(d.index)}` : `${oracle_cnum.get(d.krate)}:${DefIndex.as_u32(d.index)}`;
+}
+
+/** The probe's `child` line of a module child of the crate root. */
+function child_line(cnum: CrateNum, child: ModChild, oracle_cnum: Map<CrateNum, number>): string {
+  const res = child.res.$ === "Def" ? `Def(${debug_DefKind(child.res._0, PLAIN)}, ${did_of(cnum, child.res._1, oracle_cnum)})` : debug_Res(child.res, PLAIN, (x: never) => x);
+  const vis = child.vis.$ === "Public" ? "pub" : `restricted(${did_of(cnum, child.vis._0.to_def_id(), oracle_cnum)})`;
   return `child ${Symbol.as_str(child.ident.name)} ${res} ${vis}`;
 }
 
-/** `Decodable for ModChild` (decoder.rs `get_module_children`'s reexports, lane rmeta-decoder-b). */
-const MOD_CHILD_STOP = "Decodable for rustc_middle::metadata::ModChild (derive(Decodable) not generated)";
+/** Our `CrateNum` (registration order) -> the probe's, by crate name. */
+function oracle_cnums(cdatas: Map<string, CrateMetadata>): Map<CrateNum, number> {
+  const m = new Map<CrateNum, number>();
+  for (const c of crates) m.set(cdatas.get(c.name)!.cnum, c.cnum);
+  return m;
+}
 
-test.skipIf(SKIP)("rmetadecode: get_module_children(CRATE_DEF_INDEX): the non-reexport children match; the reexports are PENDING", () => {
+test.skipIf(SKIP)("rmetadecode: get_module_children(CRATE_DEF_INDEX) (proper items and reexports)", () => {
   expect(crates.reduce((n, c) => n + (c.lines.get("child")?.length ?? 0), 0)).toBeGreaterThan(0);
   with_registered_crates((tcx, cdatas) => {
-    let compared = 0;
+    const oc = oracle_cnums(cdatas);
     for (const c of crates) {
-      const ours: string[] = [];
-      let stop = "";
-      try {
-        for (const child of cdatas.get(c.name)!.get_module_children(tcx, CRATE_DEF_INDEX)) ours.push(child_line(child));
-      } catch (e) {
-        if (!(e instanceof Unported)) throw e;
-        stop = e.what;
-      }
-      const oracle = c.lines.get("child") ?? [];
-      compared += ours.length;
-      if (stop === "") {
-        expect(`${c.name}: ${diff(ours, oracle)}`).toBe(`${c.name}: `);
-      } else {
-        expect(`${c.name}: ${stop}`).toBe(`${c.name}: ${MOD_CHILD_STOP}`);
-        expect(ours.length).toBeLessThan(oracle.length);
-        expect(`${c.name}: ${diff(ours, oracle.slice(0, ours.length))}`).toBe(`${c.name}: `);
-      }
+      const cdata = cdatas.get(c.name)!;
+      const ours = [...cdata.get_module_children(tcx, CRATE_DEF_INDEX)].map((child) => child_line(cdata.cnum, child, oc));
+      expect(`${c.name}: ${diff(ours, c.lines.get("child") ?? [])}`).toBe(`${c.name}: `);
     }
-    expect(compared).toBeGreaterThan(0);
   });
 }, 300_000);
 
-const PENDING: { name: string; oracle: string; run: (c: OracleCrate, cdata: CrateMetadata, blob: MetadataBlob) => unknown; stop: string }[] = [
-  {
-    name: "CrateMetadata::new (dependencies, crate_dep_kind through creader)",
-    oracle: "crate",
-    run: (c, _cdata, blob) =>
-      CrateMetadata.new(
+test.skipIf(SKIP)("rmetadecode: get_lang_items / get_missing_lang_items", () => {
+  // the oracle has lang items for some crate (guards against a case that tests nothing)
+  expect(crates.reduce((n, c) => n + (c.lines.get("lang")?.length ?? 0), 0)).toBeGreaterThan(0);
+  with_registered_crates((tcx, cdatas) => {
+    const oc = oracle_cnums(cdatas);
+    for (const c of crates) {
+      const cdata = cdatas.get(c.name)!;
+      const lang = cdata.get_lang_items(tcx).map(([d, item]) => `lang ${Symbol.as_str(LangItem.name(item))} ${did_of(cdata.cnum, d, oc)}`);
+      expect(`${c.name}: ${diff(lang, c.lines.get("lang") ?? [])}`).toBe(`${c.name}: `);
+      const missing = cdata.get_missing_lang_items(tcx).map((item) => `missing_lang ${Symbol.as_str(LangItem.name(item))}`);
+      expect(`${c.name}: ${diff(missing, c.lines.get("missing_lang") ?? [])}`).toBe(`${c.name}: `);
+    }
+  });
+}, 300_000);
+
+test.skipIf(SKIP)("rmetadecode: CrateMetadata::new builds every crate (incoherent impls decoded)", () => {
+  create_default_session_globals_then(() => {
+    let incoherent = 0;
+    for (const c of crates) {
+      const blob = blob_of(c);
+      // `cnum_map` as `CrateLoader::resolve_crate_deps` builds it: the crate itself, then its deps (the probe's cnums)
+      const cnum_map: CrateNum[] = [CrateNum.from_u32(c.cnum)];
+      for (const dep of blob.get_root().decode_crate_deps(blob)) cnum_map.push(CrateNum.from_u32(crates.find((o) => o.name === Symbol.as_str(dep.name))!.cnum));
+      const cdata = CrateMetadata.new(
         undefined as never,
         blob,
         blob.get_root(),
         blob.get_root_unhashed(),
         undefined,
         CrateNum.from_u32(c.cnum),
-        [],
+        cnum_map,
         "Unconditional",
         new CrateSource(undefined, undefined, undefined, undefined),
         false,
         undefined,
-      ),
-    stop: "Decodable for rustc_middle::ty::fast_reject::SimplifiedType (M3)",
-  },
-  { name: "get_lang_items", oracle: "lang", run: (_c, cdata) => cdata.get_lang_items(undefined as never), stop: "Decodable for rustc_hir::lang_items::LangItem (derive(BlobDecodable) inside language_item_table!)" },
-  { name: "get_missing_lang_items", oracle: "missing_lang", run: (_c, cdata) => cdata.get_missing_lang_items(undefined as never), stop: "Decodable for rustc_attr_ir::lang_items::LangItem (derive(BlobDecodable) not generated)" },
-];
-
-for (const p of PENDING) {
-  test.skipIf(SKIP)(`rmetadecode PENDING: ${p.name}`, () => {
-    // the oracle has the section for some crate (guards against a case that tests nothing)
-    if (p.oracle !== "crate" && p.oracle !== "missing_lang") expect(crates.reduce((n, c) => n + (c.lines.get(p.oracle)?.length ?? 0), 0)).toBeGreaterThan(0);
-    let stopped = 0;
-    create_default_session_globals_then(() => {
-      for (const c of crates) {
-        const blob = blob_of(c);
-        let r: unknown;
-        try {
-          r = p.run(c, cdata_of(c, blob), blob);
-        } catch (e) {
-          if (!(e instanceof Unported)) throw e;
-          expect(`${c.name}: ${e.what}`).toBe(`${c.name}: ${p.stop}`);
-          stopped++;
-          continue;
-        }
-        if (p.oracle === "crate") {
-          // `new` finishes for a crate without incoherent impls (compiler_builtins): what it built must match
-          expect(r).toBeInstanceOf(CrateMetadata);
-          const cdata = r as CrateMetadata;
-          expect(`${c.name}: ${cdata.num_def_ids()} ${CrateNum.as_u32(cdata.cnum)}`).toBe(`${c.name}: ${c.num_def_ids} ${c.cnum}`);
-          continue;
-        }
-        // a crate whose array is empty never reaches the element decoder: then it must match the oracle (empty)
-        expect(`${c.name}: ${Array.isArray(r) ? r.length : "not an array"}`).toBe(`${c.name}: 0`);
-        expect(c.lines.get(p.oracle) ?? []).toEqual([]);
-      }
-    });
-    expect(stopped).toBeGreaterThan(0);
+      );
+      expect(cdata).toBeInstanceOf(CrateMetadata);
+      expect(`${c.name}: ${cdata.num_def_ids()} ${CrateNum.as_u32(cdata.cnum)}`).toBe(`${c.name}: ${c.num_def_ids} ${c.cnum}`);
+      incoherent += cdata.incoherent_impls.size;
+    }
+    // core has incoherent impls (`#![rustc_coherence_is_core]`): the `SimplifiedType` keys were decoded
+    expect(incoherent).toBeGreaterThan(0);
   });
-}
+});

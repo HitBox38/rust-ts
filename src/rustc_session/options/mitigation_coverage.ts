@@ -12,6 +12,9 @@ import type { Edition } from "../../rustc_span/edition.ts";
 import { type Debug, debug_bool, debug_struct, debug_tuple } from "../../std/fmt.ts";
 import { type StackProtector, debug_StackProtector } from "../stand_ins.ts";
 import { Options } from "../options.ts";
+import { type Decoder, decode_bool } from "../../rustc_serialize/serialize.ts";
+import { decode_StackProtector } from "../../rustc_target/spec/mod.ts";
+import { panic } from "../../std/panic.ts";
 import {
   DeniedPartialMitigationKind,
   DeniedPartialMitigationKind_discriminant,
@@ -127,6 +130,45 @@ export type DeniedPartialMitigationKindParseError = undefined;
 export interface DeniedPartialMitigation {
   kind: DeniedPartialMitigationKind;
   level: DeniedPartialMitigationLevel;
+}
+
+// PORT: the three `#[derive(BlobDecodable)]`s of this file, hand-expanded (rustc_macros serialize.rs `decodable_body`:
+// an enum reads its variant index with `read_u8`, then the variant's fields; a struct reads its fields in order).
+// `DeniedPartialMitigationKind` is defined inside `denied_partial_mitigations!` (tools/codegen/options.ts) and the
+// other two are hand-written types; crate metadata decodes them (rmeta `CrateRoot::decode_denied_partial_mitigations`).
+
+/** `#[derive(BlobDecodable)]` of `DeniedPartialMitigationLevel` (mitigation_coverage.rs:12). */
+export function decode_DeniedPartialMitigationLevel(__decoder: Decoder): DeniedPartialMitigationLevel {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Enabled", _0: decode_bool(__decoder) };
+    case 1:
+      return { $: "StackProtector", _0: decode_StackProtector(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`DeniedPartialMitigationLevel\`, expected 0..2, actual ${__tag}`);
+  }
+}
+
+/** `#[derive(BlobDecodable)]` of `DeniedPartialMitigationKind` (inside `denied_partial_mitigations!`, mitigation_coverage.rs:136). */
+export function decode_DeniedPartialMitigationKind(__decoder: Decoder): DeniedPartialMitigationKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "StackProtector";
+    case 1:
+      return "ControlFlowGuard";
+    default:
+      return panic(`invalid enum variant tag while decoding \`DeniedPartialMitigationKind\`, expected 0..2, actual ${__tag}`);
+  }
+}
+
+/** `#[derive(BlobDecodable)]` of `DeniedPartialMitigation` (mitigation_coverage.rs:216). */
+export function decode_DeniedPartialMitigation(__decoder: Decoder): DeniedPartialMitigation {
+  return {
+    kind: decode_DeniedPartialMitigationKind(__decoder),
+    level: decode_DeniedPartialMitigationLevel(__decoder),
+  };
 }
 /** `#[derive(Debug)]` */
 export const debug_DeniedPartialMitigation: Debug<DeniedPartialMitigation> = (v, f) =>

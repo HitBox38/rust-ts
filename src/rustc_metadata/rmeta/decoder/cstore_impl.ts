@@ -45,6 +45,9 @@ import { assert, panic, unported } from "../../../std/panic.ts";
 import { Ok } from "../../../std/result.ts";
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
+import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
+import { decode_Generics } from "../../../rustc_middle/decodable.gen.ts";
+import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
   type FixedSizeEncoding,
@@ -408,7 +411,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   explicit_item_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
   explicit_item_self_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
   explicit_clauses_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::GenericClauses<'static>", decode_unported("ty::GenericClauses<'static>")), ProcessQueryValue_Option_T)],
-  generics_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Generics", decode_unported("ty::Generics")), ProcessQueryValue_Option_T)],
+  generics_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Generics", decode_Generics), ProcessQueryValue_Option_T)],
   inferred_outlives_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_T)],
   explicit_super_clauses_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
   explicit_implied_clauses_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
@@ -434,10 +437,10 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   promoted_mir: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("IndexVec<mir::Promoted, mir::Body<'static>>", decode_unported("IndexVec<mir::Promoted, mir::Body<'static>>")), ProcessQueryValue_Option_ref_T)],
   def_span: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Span", decode_Span), ProcessQueryValue_Option_T)],
   def_ident_span: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Span", decode_Span), ProcessQueryValue_T)],
-  lookup_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Stability", decode_unported("Stability")), ProcessQueryValue_T)],
-  lookup_const_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ConstStability", decode_unported("ConstStability")), ProcessQueryValue_T)],
-  lookup_default_body_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DefaultBodyStability", decode_unported("DefaultBodyStability")), ProcessQueryValue_T)],
-  lookup_deprecation_entry: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Deprecation", decode_unported("Deprecation")), ProcessQueryValue_Deprecation)],
+  lookup_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Stability", decode_Stability), ProcessQueryValue_T)],
+  lookup_const_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ConstStability", decode_ConstStability), ProcessQueryValue_T)],
+  lookup_default_body_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DefaultBodyStability", decode_DefaultBodyStability), ProcessQueryValue_T)],
+  lookup_deprecation_entry: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Deprecation", decode_Deprecation), ProcessQueryValue_Deprecation)],
   params_in_repr: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DenseBitSet<u32>", decode_unported("DenseBitSet<u32>")), ProcessQueryValue_Option_T)],
   def_kind: [IntoArgs_DefId, (_tcx, def_id, _other, cdata) => cdata.def_kind(def_id.index)],
   impl_parent: [IntoArgs_DefId, table(fse_Option_RawDefId, raw_def_id, ProcessQueryValue_T)],
@@ -577,7 +580,9 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   traits: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => [...cdata.get_traits(tcx)]],
   trait_impls_in_crate: [IntoArgs_CrateNum, (tcx, _def_id, _other, cdata) => [...cdata.get_trait_impls(tcx)]],
   implementations_of_trait: [IntoArgs_CrateNum_DefId, (tcx, _def_id, other, cdata) => cdata.get_implementations_of_trait(tcx, other)],
-  crate_incoherent_impls: [IntoArgs_CrateNum_SimplifiedType, (tcx, _def_id, other, cdata) => cdata.get_incoherent_impls(tcx, other)],
+  // PORT: queries.gen.ts keys `crate_incoherent_impls` by `(CrateNum, unknown)` (the query key impls of `SimplifiedType` are
+  // not generated); the value is the `SimplifiedType` the key was built from.
+  crate_incoherent_impls: [IntoArgs_CrateNum_SimplifiedType, (tcx, _def_id, other, cdata) => cdata.get_incoherent_impls(tcx, other as SimplifiedType)],
 
   // PORT: the field `dep_kind` is `dep_kind_` (decoder.ts).
   crate_dep_kind: [IntoArgs_CrateNum, (_tcx, _def_id, _other, cdata) => cdata.dep_kind_],

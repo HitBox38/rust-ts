@@ -84,10 +84,6 @@ interface Case {
   expect: string[];
 }
 
-// The first stop inside `CrateMetadata::new` (decoder.rs:1977) for core / std: `incoherent_impls.decode((&cdata, tcx))`
-// reaches `Decodable for SimplifiedType` (M3).
-const RMETA_DECODER = "Decodable for rustc_middle::ty::fast_reject::SimplifiedType (M3)";
-
 const CASES: Case[] = [
   // A missing target sysroot (no std/core for the target).
   { name: "std crate, empty sysroot: can't find std (target not installed)", args: ["std_crate.rs"], expect: ["error[E0463]: can't find crate for `std`", "target may not be installed"] },
@@ -125,9 +121,9 @@ const CASES: Case[] = [
   { name: "-L native= is not searched for crates", args: ["extern_foo.rs", "-L", "native=d_static"], expect: ["error[E0463]: can't find crate for `foo`"] },
   { name: "-L with an empty rmeta (skipped)", args: ["extern_foo.rs", "-L", "d_empty"], expect: ["error[E0463]: can't find crate for `foo`"] },
   { name: "-L of a nonexistent directory", args: ["extern_foo.rs", "-L", "nonexistent_dir"], expect: ["error[E0463]: can't find crate for `foo`"] },
-  // Stops: real metadata must be read.
-  { name: "extern crate nonexistent, real sysroot (probes core: decoder)", args: ["extern_nonexistent.rs"], sysroot: "real", stop: RMETA_DECODER, expect: ["error[E0463]: can't find crate for `nonexistent`"] },
-  { name: "std crate, real sysroot (decoder)", args: ["std_crate.rs"], sysroot: "real", stop: RMETA_DECODER, expect: [] },
+  // Real metadata is read (the crates load through `CrateMetadata::new` since lane decode-elems): full matches.
+  { name: "extern crate nonexistent, real sysroot (probes core: decoder)", args: ["extern_nonexistent.rs"], sysroot: "real", expect: ["error[E0463]: can't find crate for `nonexistent`"] },
+  { name: "std crate, real sysroot (decoder)", args: ["std_crate.rs"], sysroot: "real", expect: [] },
   { name: "-L with a non-empty rmeta that is not metadata", args: ["extern_foo.rs", "-L", "d_garbage"], expect: ["error[E0786]: found invalid metadata files for crate `foo`"] },
   { name: "--extern path to a dylib (object reader)", args: ["extern_foo.rs", "--extern", "foo=libfoo.so"], expect: ["error[E0786]: found invalid metadata files for crate `foo`"] },
 ];

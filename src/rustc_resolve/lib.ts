@@ -66,6 +66,7 @@ import {
   type ResolverGlobalCtxt,
 } from "../rustc_middle/middle/resolve.ts";
 import type { TyCtxt, TyCtxtFeed } from "../rustc_middle/ty/context.ts";
+import type { Generics } from "../rustc_middle/ty/generics.ts";
 import { Visibility } from "../rustc_middle/ty/mod.ts";
 import { CRATE_DEF_ID, CrateNum, type DefId, debug_LocalDefId, LOCAL_CRATE, LocalDefId, type LocalModId, ModId, ModId_eq } from "../rustc_span/def_id.ts";
 import { debug_SyntaxContext, ExpnId, ExpnId_eq, LocalExpnId, type MacroKind, SyntaxContext } from "../rustc_span/hygiene.ts";
@@ -1264,7 +1265,8 @@ Resolver.prototype.item_generics_num_lifetimes = function (this: Resolver, def_i
   if (local !== undefined) {
     return index_map(this.item_generics_num_lifetimes_, local);
   } else {
-    return unported("tcx.generics_of(def_id).own_counts().lifetimes (rustc_middle ty::Generics, M3)");
+    // PORT: queries.gen.ts types the `generics_of` value `unknown` (its arena/hash impls are not generated).
+    return (this.tcx_.generics_of(def_id) as Generics).own_counts().lifetimes;
   }
 };
 
@@ -1274,8 +1276,27 @@ Resolver.prototype.item_required_generic_args_suggestion = function (this: Resol
   if (local !== undefined) {
     return this.item_required_generic_args_suggestions.get(local) ?? "";
   } else {
-    // `self.tcx.generics_of(def_id).own_params ...`: `ty::Generics` / `GenericParamDefKind` (M3).
-    return unported("tcx.generics_of(def_id).own_params (rustc_middle ty::Generics, M3)");
+    const required = (this.tcx_.generics_of(def_id) as Generics).own_params
+      .map((param): string | undefined => {
+        switch (param.kind.$) {
+          case "Lifetime":
+            return "'_";
+          case "Type":
+          case "Const":
+            if (param.kind.has_default) {
+              return undefined;
+            } else {
+              return "_";
+            }
+        }
+      })
+      .filter((x): x is string => x !== undefined);
+
+    if (required.length === 0) {
+      return "";
+    } else {
+      return `<${required.join(", ")}>`;
+    }
   }
 };
 

@@ -1605,6 +1605,26 @@ export const StackProtector = {
   },
 } as const;
 
+/**
+ * `#[derive(BlobDecodable)]` of `StackProtector` (rustc_macros serialize.rs `decodable_body`: the variant index as
+ * `read_u8`). PORT: hand-expanded like `decode_PanicStrategy`: the enum is defined inside `target_spec_enum!`.
+ */
+export function decode_StackProtector(__decoder: Decoder): StackProtector {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "None";
+    case 1:
+      return "Basic";
+    case 2:
+      return "Strong";
+    case 3:
+      return "All";
+    default:
+      return panic(`invalid enum variant tag while decoding \`StackProtector\`, expected 0..4, actual ${__tag}`);
+  }
+}
+
 // crate::target_spec_enum! { pub enum BinaryFormat { .. } parse_error_type = "binary format"; }
 export type BinaryFormat = "Coff" | "Elf" | "MachO" | "Wasm" | "Xcoff";
 export const BinaryFormat = {

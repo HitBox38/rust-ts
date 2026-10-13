@@ -1880,7 +1880,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     const serAliasOwner = new Map<string, string>();
     /** Whether this set generates the derive of `r` (hand types of per-file sets bring their own). */
     const serGenerated = (kind: "decode" | "encode", r: ItemRef): boolean =>
-      (kind === "decode" ? deriveDecodable : deriveEncodable).has(r.key) && (set.derive_only === true || (!matches(set.hand, r) && (!r.mac || r.mac.kind === "newtype")));
+      (kind === "decode" ? deriveDecodable : deriveEncodable).has(r.key) &&
+      (set.derive_only === true || (!matches(set.hand, r) && (!r.mac || r.mac.kind === "newtype" || r.mac.kind === "lang_items" || (r.mac.kind === "bitflags" && r.mac.def.form === "impl"))));
     /** `decode_<T>` / `encode_<T>` of an item as seen from this file (imported if needed). */
     const serItemName = (kind: "decode" | "encode", r: ItemRef, at: string): string => {
       const name = `${kind}_${r.item.name}`;
@@ -2128,7 +2129,9 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const self = `${tname}${gen}`;
       const decName = `decode_${it.name}`;
       const encName = `encode_${it.name}`;
-      if (r.mac && r.mac.kind !== "newtype") {
+      const flagsStruct = r.mac?.kind === "bitflags" && r.mac.def.form === "impl" && it.kind === "struct" && it.fields!.style === "unnamed" && it.fields!.fields.length === 1;
+      // `language_item_table!`'s `#[derive(.., Encodable, BlobDecodable, ..)] pub enum LangItem` is a synthesized enum item.
+      if (r.mac && r.mac.kind !== "newtype" && r.mac.kind !== "lang_items" && !flagsStruct) {
         report.errors.push(`${at}: derive(Decodable/Encodable) on a ${r.mac.kind} type`);
         return out;
       }
@@ -2141,9 +2144,31 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       const ET = wantEnc ? serTraitType("encode", deriveEncodable.get(r.key)!, at) : "";
       if (wantDec && ps.length) imp(serModule, "types", "Decodable", "Decodable");
       if (wantEnc && ps.length) imp(serModule, "types", "Encodable", "Encodable");
-      const decHead = `export function ${decName}${gen}(${DEC}: ${DT}${ps.map((p) => `, decode_${p}: Decodable<${p}, ${DT}>`).join("")}): ${self} {`;
+      // A generic type's impl is generic over the decoder too (`impl<__D: SpanDecoder, T: Decodable<__D>> Decodable<__D>`), so
+      // a caller with a richer decoder (a `SpanDecoder` decoding a `BlobDecodable` `Visibility<ModId>`) passes its own fns.
+      const decHead = ps.length
+        ? `export function ${decName}<${ps.join(", ")}, __D extends ${DT} = ${DT}>(${DEC}: __D${ps.map((p) => `, decode_${p}: Decodable<${p}, __D>`).join("")}): ${self} {`
+        : `export function ${decName}(${DEC}: ${DT}): ${self} {`;
       const encHead = (used: boolean) =>
         `export function ${encName}${gen}(${used ? "self" : "_self"}: ${self}, ${ENC}: ${ET}${ps.map((p) => `, encode_${p}: Encodable<${p}, ${ET}>`).join("")}): void {`;
+      if (flagsStruct) {
+        // `#[derive(Decodable, Encodable)] struct X(uN);` + `bitflags! { impl X: uN { .. } }`: the derive sees a
+        // plain tuple struct, so it decodes / encodes the bits field (e.g. rustc_hir::def::MacroKinds). The TS value
+        // is the branded number itself.
+        const fl = it.fields!.fields[0]!;
+        const fat = `${r.mf.file.path}:${fl.line}`;
+        if (wantDec) {
+          out.push(`// rustc-derive: ${at} ${deriveDecodable.get(r.key)} for ${it.name}`);
+          out.push(decHead, `  return ${decExpr(fl.ty, sc, fat)} as ${self};`, "}");
+          fileDecodable++;
+        }
+        if (wantEnc) {
+          out.push(`// rustc-derive: ${at} ${deriveEncodable.get(r.key)} for ${it.name}`);
+          out.push(encHead(true), `  ${encExpr(fl.ty, "self", sc, fat)};`, "}");
+          fileEncodable++;
+        }
+        return out;
+      }
       if (r.mac?.kind === "newtype") {
         // rustc_index_macros/src/newtype.rs `#[encodable]`: `Self::from_u32(d.read_u32())` / `e.emit_u32(self.as_u32())`
         const c = serCompanion(r);
@@ -2751,6 +2776,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           body.push(`export const debug_${name}: Debug<${name}> = (v, f) => debug_tuple(f, ${JSON.stringify(name)}, [debug_int(v, f)]);`);
           fileDebug++;
         } else if (hasDebug) report.errors.push(`${at}: derive(Debug) on a bitflags struct is not supported`);
+        body.push(...serLines(r));
         continue;
       }
 

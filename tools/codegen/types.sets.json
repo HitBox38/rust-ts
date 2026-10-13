@@ -65,7 +65,15 @@
       "rustc_ast::visit::FnKind": "defined inside macro_rules! common_visitor_and_walkers (visit.rs), which the probe does not expand; hand-written in visit.ts / mut_visit.ts (one per expansion)"
     },
     "auto_class": true,
-    "derive_clone": true
+    "derive_clone": true,
+    "derive_stable_hash": true,
+    "stable_hash_types": [
+      "rustc_ast_ir::IntTy",
+      "rustc_ast_ir::UintTy",
+      "rustc_ast_ir::FloatTy",
+      "rustc_ast_ir::Mutability"
+    ],
+    "derive_decodable": true
   },
   "rustc_errors": {
     "files": [
@@ -200,7 +208,8 @@
     "discriminant": [],
     "skip": [],
     "auto_class": true,
-    "derive_clone": true
+    "derive_clone": true,
+    "derive_decodable": true
   },
   "rustc_hir": {
     "files": [
@@ -221,7 +230,14 @@
     "decodable_types": [
       "rustc_hir_id::definitions::DefKey",
       "rustc_hir_id::definitions::DisambiguatedDefPathData",
-      "rustc_hir_id::definitions::DefPathData"
+      "rustc_hir_id::definitions::DefPathData",
+      "rustc_hir::def::CtorOf",
+      "rustc_hir::def::CtorKind",
+      "rustc_hir::def::MacroKinds",
+      "rustc_hir::def::NonMacroAttrKind",
+      "rustc_hir::def::DefKind",
+      "rustc_hir::def::Res",
+      "rustc_hir::def::Namespace"
     ],
     "hand_notes": {
       "decodable_types": "crate metadata's def_keys table (rmeta decoder.rs `CrateMetadata::def_key`, lane rmeta-decoder-b)",
@@ -274,7 +290,8 @@
     "skip": [],
     "auto_class": true,
     "derive_clone": true,
-    "derive_default": true
+    "derive_default": true,
+    "derive_decodable": true
   },
   "rustc_span": {
     "files": [
@@ -320,7 +337,9 @@
   },
   "rustc_middle": {
     "files": [
-      "compiler/rustc_middle/src/ty/mod.rs"
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_middle/src/ty/generics.rs",
+      "compiler/rustc_middle/src/middle/resolve.rs"
     ],
     "class": [],
     "hand": [],
@@ -333,11 +352,38 @@
     ],
     "derive_decodable": true,
     "decodable_types": [
-      "rustc_middle::ty::Visibility"
+      "rustc_middle::ty::Visibility",
+      "rustc_middle::middle::resolve::Reexport",
+      "rustc_middle::middle::resolve::ModChild",
+      "rustc_middle::middle::resolve::AmbigModChild",
+      "rustc_middle::ty::generics::GenericParamDefKind",
+      "rustc_middle::ty::generics::GenericParamDef",
+      "rustc_middle::ty::generics::Generics"
     ],
+    "decodable_construct": {
+      "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] }
+    },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a) module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
+    }
+  },
+  "rustc_type_ir": {
+    "files": [
+      "compiler/rustc_type_ir/src/fast_reject.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": ["rustc_type_ir::fast_reject::DeepRejectCtxt"],
+    "skip_notes": {
+      "rustc_type_ir::fast_reject::DeepRejectCtxt": "generic over `I: Interner` (M3 type relation); not reached by crate metadata decoding"
+    },
+    "derive_clone": true,
+    "derive_stable_hash": true,
+    "derive_decodable": true,
+    "hand_notes": {
+      "*": "rustc_type_ir::fast_reject::SimplifiedType<DefId>: the keys of crate metadata's incoherent_impls / trait_impls (rmeta decoder.rs `CrateMetadata::new`, lane decode-elems); simplify_type itself is M3"
     }
   },
   "rustc_query_impl": {

@@ -57,7 +57,7 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: generator reproduces src
   const res = generate(probe, loadSet("rustc_ast"), loadTypeMap(), { set: "rustc_ast", out: src, srcRoot: src, pin, upstream: UPSTREAM });
   expect(res.report.errors).toEqual([]);
   expect(res.report.unknown_types).toEqual({});
-  expect(res.files.size).toBe(22); // 20 type modules + walkable.gen.ts + mut_walkable.gen.ts
+  expect(res.files.size).toBe(23); // 20 type modules + walkable.gen.ts + mut_walkable.gen.ts + rustc_ast_ir/stable_hash.gen.ts
   for (const [file, content] of res.files) expect(content).toBe(readFileSync(file, "utf8"));
   // no stale generated file left on disk
   expect(genFilesOnDisk(src)).toEqual([...res.files.keys()].map((f) => resolve(f)).sort());
