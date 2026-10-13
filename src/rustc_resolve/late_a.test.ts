@@ -8,8 +8,8 @@
 //    / import_res), lint_buffer, ...) and exit_codes.json; made by `REGEN=1 bun test
 //    src/rustc_resolve/late_a.test.ts` (needs the probe and the pinned toolchain; with them present the
 //    fixtures are re-checked on every run). The subject is src/rust_ts/resdump.ts on the same arguments.
-//    PENDING: every case until the pipeline reaches late resolution (see PENDING below); a pending case
-//    must still stop at unported code (exit 70), so it has to leave PENDING once it runs through.
+//    PENDING (empty since lane resdump-dump): a pending case must still stop at unported code (exit 70),
+//    so it has to leave PENDING once it runs through.
 // 2. Unit checks: the companions (pure), and the visitor methods of this half driven on a real
 //    `Resolver` (built as resolver_new.test.ts / ident.test.ts build it: an empty `#![no_core]` crate,
 //    `Resolver::new`). Expectations follow the upstream code cited per case; the lifetime numbering
@@ -73,12 +73,7 @@ const CASES = ["lifetimes", "labels", "generics"] as const;
 type Case = (typeof CASES)[number];
 
 /** Cases whose subject run stops at unported code; the reason is the first missing piece. */
-const PENDING: Partial<Record<Case, string>> = {
-  lifetimes:
-    "driver stops before resolution (rustc_lint::late::unerased_lint_store, lane lint-early-a); then late.rs:2891.. (res-late-b: resolve_item, late_resolve_crate, ...), late/diagnostics.rs, diagnostics/impls.rs (dcx), CStore (wave 11)",
-  labels: "as lifetimes",
-  generics: "as lifetimes",
-};
+const PENDING: Partial<Record<Case, string>> = {};
 
 const nocore_args = (sysroot: string, file: string): string[] => [
   "--target",
