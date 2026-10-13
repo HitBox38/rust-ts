@@ -237,7 +237,11 @@ export class BrokenLink {
 ///
 /// See [Parser::new_with_broken_link_callback].
 /// Automatically implemented for closures with the appropriate signature.
-// PORT: the trait is the closure type; `handle_broken_link` is calling it (parse.rs:1946, 1955, 1968).
+// PORT: the trait is the closure type; `handle_broken_link` (the trait method and its impls for
+// closures and `Box<dyn BrokenLinkCallback>`) is calling it.
+// crate: pulldown-cmark-0.11.3/src/parse.rs:1936 handle_broken_link
+// crate: pulldown-cmark-0.11.3/src/parse.rs:1946 handle_broken_link
+// crate: pulldown-cmark-0.11.3/src/parse.rs:1955 handle_broken_link
 export type BrokenLinkCallback = (link: BrokenLink) => [CowStr, CowStr] | undefined;
 
 /// Broken link callback that does nothing.
@@ -1777,7 +1781,7 @@ export class RefDefs {
     return new RefDefs(new Map());
   }
 
-  // crate: pulldown-cmark-0.11.3/src/parse.rs:1802 get
+  // crate: pulldown-cmark-0.11.3/src/parse.rs:1803 get
   /// Performs a lookup on reference label using unicode case folding.
   get(key: string): LinkDef | undefined {
     return this._0.get(UniCase_key(UniCase.new(key)))?.[1];

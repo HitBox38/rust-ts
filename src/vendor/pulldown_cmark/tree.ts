@@ -260,6 +260,7 @@ Tree.prototype.truncate_siblings = function (this: Tree<Item>, end_byte_ix: numb
 /// `impl Debug for Tree<T>` (the `debug_tree` walk). `item_debug` is `T: Debug`.
 export function debug_Tree<T>(tree: Tree<T>, f: Fmt, item_debug: (v: T, f: Fmt) => string): string {
   let out = "";
+  // crate: pulldown-cmark-0.11.3/src/tree.rs:242 debug_tree
   const debug_tree = (cur: TreeIndex, indent: number): void => {
     for (let i = 0; i < indent; i++) {
       out += "  ";

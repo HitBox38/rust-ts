@@ -4,8 +4,8 @@
 //!
 //! PORT: the `#[cfg(all(target_arch = "x86_64", feature = "simd"))]` variants (the `LookupTable`
 //! struct, the simd branches of `create_lut`/`iterate_special_bytes`) and `mod simd` (with its
-//! tests) are not ported: the oracle host is aarch64, so the scalar `#[cfg(not(..))]` path is the
-//! one compiled. firstpass.rs has no other test module.
+//! tests) are not ported: rustc_resolve does not enable pulldown-cmark's `simd` feature (and the
+//! oracle host is aarch64), so the scalar `#[cfg(not(..))]` path is the one compiled. firstpass.rs has no other test module.
 
 import { is_ascii_alphabetic, is_whitespace } from "../../std/char.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
@@ -2478,3 +2478,15 @@ function parse_inside_attribute_block(inside_attr_block: Str): HeadingAttributes
   return { id, classes, attrs };
 }
 
+// `mod simd` is compiled only with `#[cfg(all(target_arch = "x86_64", feature = "simd"))]` (off for the oracle):
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2523 compute_mask cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2562 iterate_special_bytes cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2582 process_mask cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2608 simd_iterate_special_bytes cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2646 check_expected_indices cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2666 simple_no_match cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2671 simple_match cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2676 single_open_fish cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2681 long_match cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2686 border_skip cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled
+// crate-skip: pulldown-cmark-0.11.3/src/firstpass.rs:2691 exhaustive_search cfg(all(target_arch = "x86_64", feature = "simd")) is not compiled

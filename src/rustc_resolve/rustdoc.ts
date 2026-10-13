@@ -476,7 +476,6 @@ function cmp_str(a: string, b: string): number {
 /// This will collect destination links and display text if exists.
 // rustc: compiler/rustc_resolve/src/rustdoc.rs:440 parse_links
 export function parse_links(doc: string): string[] {
-  // rustc: compiler/rustc_resolve/src/rustdoc.rs:441 parse_links::{closure}
   const broken_link_callback = (link: BrokenLink): [string, string] => [link.reference, ""];
   const event_iter = Parser.new_with_broken_link_callback(Str.from(doc), main_body_opts(), broken_link_callback);
   const links: string[] = [];
@@ -524,7 +523,6 @@ export function parse_links(doc: string): string[] {
 /** `F: BrokenLinkCallback` is erased (`Parser` holds the callback). */
 export function collect_link_data(event_iter: Parser): string | undefined {
   let display_text: string | undefined = undefined;
-  // rustc: compiler/rustc_resolve/src/rustdoc.rs:495 collect_link_data::{closure}
   const append_text = (text: string): void => {
     if (display_text !== undefined) {
       display_text += text;
