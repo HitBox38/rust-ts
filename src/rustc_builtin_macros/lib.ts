@@ -8,8 +8,6 @@
 // - `LegacyAttr(Arc::new($f))` -> `MultiItemModifier_from_fn(f)` for fns (the blanket impl), or the
 //   `MultiItemModifier` object itself (`cfg_accessible::Expander`, `derive::Expander { is_const }`);
 // - `LegacyDerive(Arc::new(BuiltinDerive($f)))` -> `new BuiltinDerive(f)`.
-// Modules owned by other lanes (asm, format, test, derive, deriving/*, eii, global_allocator, contracts)
-// are stubs whose bodies are `unported` until those lanes land.
 
 // rustc_expand (and through it rustc_ast / rustc_parse) is loaded first: the expanders use the
 // `ExtCtxt` builder methods attached by rustc_expand/build.ts.
@@ -68,9 +66,9 @@ import * as view_type from "./view_type.ts";
 export * as asm from "./asm.ts";
 export * as cmdline_attrs from "./cmdline_attrs.ts";
 export * as contracts from "./contracts.ts";
-// pub mod proc_macro_harness; (lane bm-rest)
+export * as proc_macro_harness from "./proc_macro_harness.ts";
 export * as standard_library_imports from "./standard_library_imports.ts";
-// pub mod test_harness; (lane bm-rest)
+export * as test_harness from "./test_harness.ts";
 export * as util from "./util.ts";
 
 // rustc: compiler/rustc_builtin_macros/src/lib.rs:62 register_builtin_macros
