@@ -629,7 +629,7 @@ MetadataBlob.prototype.decoder = function (this: MetadataBlob, pos: number): Blo
     // self-referential struct which is downright goofy because `MetadataBlob` is already
     // self-referential. Probably `MemDecoder` should contain an `OwnedSlice`, but that
     // demands a significant refactoring due to our crate graph.
-    unwrap_result(MemDecoder.new(this.deref(), pos)),
+    unwrap_result(MemDecoder.new(this.deref(), pos), () => "()"),
     this.blob(),
     LazyState.NoNode,
   );
