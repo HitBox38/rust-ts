@@ -2772,6 +2772,9 @@ function select_debuginfo(matches: Matches, cg: CodegenOptions): DebugInfo {
   return option_gt(max_g, max_c) ? "Full" : cg.debuginfo;
 }
 
+/** PORT: `CanonicalizedPath::new` (utils.rs), installed by utils.ts (see `parse_externs`). */
+export const CanonicalizedPath_new_hook: { new_: ((path: PathBuf) => CanonicalizedPath) | undefined } = { new_: undefined };
+
 // rustc: compiler/rustc_session/src/config.rs:2600 parse_externs
 export function parse_externs(early_dcx: EarlyDiagCtxt, matches: Matches, unstable_opts: UnstableOptions): Externs {
   const is_unstable_enabled = unstable_opts.unstable_options;
@@ -2785,9 +2788,9 @@ export function parse_externs(early_dcx: EarlyDiagCtxt, matches: Matches, unstab
     const occupied = externs.get(name);
     if (path !== undefined) {
       // --extern prelude_name=some_file.rlib
-      // PORT: `CanonicalizedPath::new(path)` (utils.rs) needs `rustc_fs_util::try_canonicalize`.
-      // utils.ts is not imported at runtime here (it extends `Session`, see lib.ts).
-      const cpath: CanonicalizedPath = unported(`rustc_fs_util::try_canonicalize (CanonicalizedPath::new ${path})`);
+      // PORT: utils.ts is not imported at runtime here (it extends `Session`, see lib.ts); it installs
+      // `CanonicalizedPath::new` into `CanonicalizedPath_new_hook` when it loads (lane locator).
+      const cpath: CanonicalizedPath = unwrap(CanonicalizedPath_new_hook.new_, "rustc_session::utils not loaded")(path);
       if (occupied === undefined) {
         const files = new Set([cpath]);
         entry = ExternEntry.new({ $: "ExactPaths", _0: files });
