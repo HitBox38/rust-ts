@@ -13,8 +13,14 @@
 //
 // ops:
 //   limited:M   `AttributeParser::parse_limited_all(sess, attrs, None, target, target_span,
-//               CRATE_NODE_ID, Some(&Features::default()), M, None)`, `{:?}` of the result
-// M = emit | forbid | nothing | fatal (as in gen.rs).
+//               CRATE_NODE_ID, Some(&features), M, None)`, `{:?}` of the result
+// M = emit | forbid | nothing | fatal (as in gen.rs), optionally followed by `+f1,f2,..`: the
+// features enabled in `features` (`Features::default()` + `set_enabled_lang_feature` for each, with
+// `attr_sp: DUMMY_SP`, `stable_since: None`; added by lane attr-parse-d).
+//   lints       (not per list) after the `buffered` events, render every buffered early lint into
+//               the captured stderr: its `DecorateDiagCompat` closure is called with `sess.dcx()`,
+//               `Level::Warning(None)` and the `Session`, the lint's span is set with `Diag::span`,
+//               and the diagnostic is emitted (lane attr-parse-d).
 //
 // Regenerate (from this directory):
 //
@@ -44,12 +50,12 @@ use rustc_attr_ir::target::Target;
 use rustc_attr_parsing::{AttributeParser, ShouldEmit};
 use rustc_errors::annotate_snippet_emitter_writer::AnnotateSnippetEmitter;
 use rustc_errors::AutoStream;
-use rustc_feature::Features;
+use rustc_feature::{EnabledLangFeature, Features};
 use rustc_parse::lexer::StripTokens;
 use rustc_parse::parser::Recovery;
 use rustc_session::config::{Input, Options};
 use rustc_span::edition::Edition;
-use rustc_span::{FileName, Span};
+use rustc_span::{DUMMY_SP, FileName, Span, Symbol};
 
 struct Shared(Arc<Mutex<Vec<u8>>>);
 impl Write for Shared {
@@ -153,10 +159,18 @@ fn main() {
                 for item in &krate.items {
                     lists.push((&item.attrs[..], Target::from_ast_item(item), item.span));
                 }
-                let features = Features::default();
                 for (idx, (attrs, target, target_span)) in lists.iter().enumerate() {
-                    for op in &ops {
+                    for op in ops.iter().filter(|op| **op != "lints") {
                         let (name, arg) = op.split_once(':').unwrap_or((op, ""));
+                        let (arg, feats) = arg.split_once('+').unwrap_or((arg, ""));
+                        let mut features = Features::default();
+                        for f in feats.split(',').filter(|f| !f.is_empty()) {
+                            features.set_enabled_lang_feature(EnabledLangFeature {
+                                gate_name: Symbol::intern(f),
+                                attr_sp: DUMMY_SP,
+                                stable_since: None,
+                            });
+                        }
                         let r = match name {
                             "limited" => format!(
                                 "{:?}",
@@ -179,6 +193,17 @@ fn main() {
                 }
                 for l in sess.psess.buffered_lints.lock().iter() {
                     ev.push(format!("buffered {} {:?}", l.lint_id.lint.name, l.span));
+                }
+                if ops.contains(&"lints") {
+                    let lints = std::mem::take(&mut *sess.psess.buffered_lints.lock());
+                    for l in lints {
+                        let mut diag =
+                            (l.diagnostic.0)(sess.dcx(), rustc_errors::Level::Warning(None), sess);
+                        if let Some(sp) = l.span {
+                            diag.span(sp);
+                        }
+                        diag.emit();
+                    }
                 }
             }));
             fatal = res.is_err();

@@ -75,3 +75,305 @@ ops: limited:emit
 #[diagnostic::unknown_thing]
 #[diagnostic::on_unimplemented(message = "m")]
 trait T {}
+### must_use_forms
+ops: limited:emit lints
+#[must_use]
+fn a() {}
+#[must_use = "reason"]
+struct B;
+#[must_use(x)]
+fn c() {}
+#[must_use = 1]
+fn d() {}
+#[must_use = b"x"]
+enum E {}
+#[must_use]
+mod m {}
+#[must_use]
+#[must_use = "again"]
+union U { x: u8 }
+### non_exhaustive_forms
+ops: limited:emit lints
+#[non_exhaustive]
+enum A { X }
+#[non_exhaustive]
+#[non_exhaustive]
+enum B {}
+#[non_exhaustive(x)]
+enum C {}
+#[non_exhaustive = "x"]
+enum D {}
+#[non_exhaustive]
+fn e() {}
+#[non_exhaustive]
+mod f {}
+### on_unimplemented_forms
+ops: limited:emit lints
+#[diagnostic::on_unimplemented(message = "m {Self} {A}", label = "l {This}", note = "n1", note = "n2 {}")]
+trait A<T> {}
+#[diagnostic::on_unimplemented(message = "a", message = "b", label = "x")]
+trait B {}
+#[diagnostic::on_unimplemented]
+trait C {}
+#[diagnostic::on_unimplemented = "x"]
+trait D {}
+#[diagnostic::on_unimplemented(unknown = "x", "lit", message)]
+trait E {}
+#[diagnostic::on_unimplemented(message = "{0} {:?} {x:5} {", note = "{Self:}")]
+trait F {}
+#[diagnostic::on_unimplemented(message = "x")]
+#[diagnostic::on_unimplemented(message = "y", note = "z")]
+trait G {}
+#[diagnostic::on_unimplemented(message = "x")]
+struct H;
+#[diagnostic::on_unimplemented()]
+trait I {}
+#[diagnostic::on_unimplemented(parent_label = "p", on(x, message = "y"))]
+trait J {}
+#[diagnostic::on_unimplemented(message = "{0} {x:?} {Self} {Self:} {T} {This}", label = "{1}")]
+trait K<T> {}
+### do_not_recommend_forms
+ops: limited:emit lints
+#[diagnostic::do_not_recommend]
+impl X for Y {}
+#[diagnostic::do_not_recommend(x)]
+impl X for Z {}
+#[diagnostic::do_not_recommend = "x"]
+impl X for W {}
+#[diagnostic::do_not_recommend]
+fn f() {}
+#[diagnostic::do_not_recommend]
+#[diagnostic::do_not_recommend]
+impl X for V {}
+### test_attr_forms
+ops: limited:emit lints
+#[test]
+#[ignore]
+fn a() {}
+#[ignore = "reason"]
+fn b() {}
+#[ignore(foo)]
+fn c() {}
+#[ignore = 1]
+fn d() {}
+#[ignore(foo, bar)]
+fn e() {}
+#[should_panic]
+fn f() {}
+#[should_panic = "x"]
+fn g() {}
+#[should_panic(expected = "x")]
+fn h() {}
+#[should_panic(other = "x")]
+fn i() {}
+#[should_panic(expected)]
+fn j() {}
+#[should_panic(expected = "a", expected = "b")]
+fn k() {}
+#[ignore]
+#[ignore]
+#[should_panic]
+#[should_panic]
+fn l() {}
+#[ignore]
+struct S;
+### rustc_attrs_internal
+ops: limited:emit+rustc_attrs lints
+#[rustc_dummy]
+#[rustc_dummy(anything = "goes")]
+fn a() {}
+#[rustc_abi(debug)]
+fn b() {}
+#[rustc_abi(assert_eq, debug)]
+#[rustc_abi]
+fn c() {}
+#[rustc_abi(other)]
+fn d() {}
+#[rustc_dump_layout(align, size, foo)]
+#[rustc_dump_layout(debug)]
+struct E;
+#[rustc_skip_during_method_dispatch(array, array, boxed_slice, other)]
+trait F {}
+#[rustc_macro_transparency = "semiopaque"]
+macro_rules! g { () => {} }
+#[rustc_macro_transparency = "other"]
+macro_rules! h { () => {} }
+#[rustc_test_marker = " "]
+#[rustc_allocator]
+fn i() {}
+#[rustc_main]
+#[rustc_nounwind]
+#[rustc_allocator_zeroed_variant = "f"]
+fn k() {}
+#[rustc_dump_symbol_name]
+#[rustc_dump_def_path(x)]
+fn l() {}
+#[rustc_coinductive]
+#[rustc_deny_explicit_impl]
+#[rustc_paren_sugar]
+trait M {}
+#[rustc_pub_transparent]
+struct N;
+#[rustc_must_implement_one_of(a, b)]
+trait O { fn a(); fn b(); }
+#[rustc_diagnostic_item = "item"]
+#[rustc_lint_opt_deny_field_access("msg")]
+struct P;
+#[rustc_simd_monomorphize_lane_limit = "8"]
+struct Q;
+### rustc_attrs_ungated
+ops: limited:emit lints
+#[rustc_dummy]
+fn a() {}
+#[rustc_confusables("a")]
+#[rustc_abi(debug)]
+fn b() {}
+### confusables
+ops: limited:emit+rustc_attrs lints
+#[rustc_confusables("a", "b")]
+fn a() {}
+#[rustc_confusables()]
+fn b() {}
+#[rustc_confusables(c, 1)]
+fn c() {}
+#[rustc_confusables = "x"]
+fn d() {}
+impl S {
+    fn e() {}
+}
+### allow_internal_unstable_forms
+ops: limited:emit+allow_internal_unstable lints
+#[allow_internal_unstable(a, b)]
+macro_rules! m { () => {} }
+#[allow_internal_unstable]
+macro_rules! n { () => {} }
+#[allow_internal_unstable("x", c, d(e))]
+macro_rules! o { () => {} }
+#[allow_internal_unstable(f)]
+#[allow_internal_unstable(g)]
+fn p() {}
+#[allow_internal_unstable(h)]
+struct Q;
+### allow_internal_unstable_ungated
+ops: limited:emit lints
+#[allow_internal_unstable(a)]
+macro_rules! m { () => {} }
+### path_forms
+ops: limited:emit lints
+#[path = "foo.rs"]
+mod a;
+#[path]
+mod b;
+#[path(x)]
+mod c;
+#[path = 1]
+mod d;
+#[path = "x"]
+#[path = "y"]
+mod e;
+#[path = "x"]
+fn f() {}
+### no_implicit_prelude_forms
+ops: limited:emit lints
+#![no_implicit_prelude]
+#[no_implicit_prelude]
+mod a {}
+#[no_implicit_prelude]
+#[no_implicit_prelude]
+mod b {}
+#[no_implicit_prelude(x)]
+mod c {}
+#[no_implicit_prelude]
+fn d() {}
+### unroll_forms
+ops: limited:emit+loop_hints lints
+#[rustc_unroll]
+#[rustc_unroll(full)]
+fn a() {}
+#[rustc_unroll(4)]
+fn b() {}
+#[rustc_unroll(5000000000)]
+fn c() {}
+#[rustc_unroll = 1]
+fn d() {}
+#[rustc_unroll(x)]
+fn e() {}
+#[rustc_unroll(4u8)]
+fn f() {}
+#[unroll]
+fn g() {}
+### debugger_visualizer_forms
+ops: limited:emit lints
+#![debugger_visualizer(natvis_file = "a.natvis")]
+#![debugger_visualizer(gdb_script_file = "b.py")]
+#![debugger_visualizer(other_file = "c")]
+#![debugger_visualizer]
+#![debugger_visualizer(natvis_file = 1)]
+#![debugger_visualizer(natvis_file = "a", gdb_script_file = "b")]
+#[debugger_visualizer(natvis_file = "m.natvis")]
+mod m {}
+#[debugger_visualizer(natvis_file = "f.natvis")]
+fn f() {}
+### misc_small
+ops: limited:emit+rustc_attrs,custom_mir,cfi_encoding,must_not_suspend,coroutines,custom_test_frameworks,dropck_eyepatch,marker_trait_attr,fundamental,unboxed_closures,pin_ergonomics lints
+#![reexport_test_harness_main = "m"]
+#![test_runner(path::to)]
+#[custom_mir(dialect = "built", phase = "optimized")]
+fn a() {}
+#[custom_mir(phase = "initial")]
+fn b() {}
+#[custom_mir(dialect = "analysis", phase = "optimized", dialect = "x")]
+fn c() {}
+#[custom_mir(dialect = "runtime", other = "x")]
+fn d() {}
+#[cfi_encoding = "  "]
+struct E;
+#[cfi_encoding = "3Foo"]
+struct F;
+#[must_not_suspend = "r"]
+struct G;
+#[must_not_suspend(x)]
+struct H;
+#[marker]
+#[fundamental]
+#[rustc_paren_sugar]
+trait I {}
+#[pin_v2]
+#[no_link]
+struct J;
+#[automatically_derived]
+impl K for L {}
+#[no_link]
+extern crate std as s;
+### rustc_on_unimplemented_forms
+ops: limited:emit+rustc_attrs lints
+#[rustc_on_unimplemented(message = "m", label = "l", parent_label = "p", note = "n")]
+trait A {}
+#[rustc_on_unimplemented(on(Self = "u8", message = "x"), on(crate_local, label = "y"), message = "z")]
+trait B {}
+#[rustc_on_unimplemented(on(all(from_desugaring, not(any(_Self = "a", direct))), note = "w"))]
+trait C {}
+#[rustc_on_unimplemented(on(), on(x), on(unknown_flag, note = "n"), on(1, note = "n"))]
+trait D {}
+#[rustc_on_unimplemented(on(Self = "{T}", note = "n"), on(Self = "{Self:?}", note = "n"))]
+trait E<T> {}
+#[rustc_on_unimplemented(message = "a", parent_label = "b", parent_label = "c")]
+trait F {}
+### diagnostic_feature_gated
+ops: limited:emit+diagnostic_on_move,diagnostic_on_const,diagnostic_on_unknown,diagnostic_on_unmatched_args,diagnostic_on_type_error,diagnostic_opaque lints
+#[diagnostic::on_move(message = "m {Self}", label = "l", note = "n")]
+struct A;
+#[diagnostic::on_const(message = "m", label = "l")]
+impl X for A {}
+#[diagnostic::on_unknown(message = "m", label = "l", note = "n")]
+use x::y;
+#[diagnostic::on_unmatched_args(message = "m", note = "n")]
+macro_rules! m { () => {} }
+#[diagnostic::on_type_error(note = "n", message = "x")]
+struct B;
+#[diagnostic::opaque]
+#[diagnostic::opaque(x)]
+macro_rules! n { () => {} }
+#[diagnostic::unknown_thing]
+#[diagnostic::on_unimplementd(message = "m")]
+trait T {}
