@@ -12,11 +12,16 @@ import { clone_Directive, debug_Directive, type Directive, print_attribute_Direc
 import { debug_LangItem, type LangItem, print_attribute_LangItem } from "./lang_items.ts";
 import { print_attribute_Align, print_attribute_AttrStyle, print_attribute_bool, print_attribute_Box, print_attribute_CfgEntry, print_attribute_CollapseMacroDebuginfo, print_attribute_CrateType, print_attribute_DefId, print_attribute_DiffActivity, print_attribute_DiffMode, print_attribute_DocFragmentKind, print_attribute_ErrorGuaranteed, print_attribute_FxIndexMap, print_attribute_Ident, print_attribute_IntTy, print_attribute_Limit, print_attribute_NativeLibKind, print_attribute_Option, print_attribute_Path, print_attribute_PathBuf, print_attribute_RustcVersion, print_attribute_SanitizerSet, print_attribute_Span, print_attribute_Symbol, print_attribute_ThinVec, print_attribute_Transparency, print_attribute_tuple, print_attribute_u16, print_attribute_u32, print_attribute_u8, print_attribute_UintTy, print_attribute_usize, type PrintAttribute } from "./pretty_printing.ts";
 import { clone_DefaultBodyStability, clone_PartialConstStability, clone_Stability, debug_DefaultBodyStability, debug_PartialConstStability, debug_Stability, type DefaultBodyStability, type PartialConstStability, print_attribute_DefaultBodyStability, print_attribute_PartialConstStability, print_attribute_Stability, type Stability } from "./stability.ts";
-import { type Align, type CollapseMacroDebuginfo, type CrateType, debug_Align, debug_CollapseMacroDebuginfo, debug_CrateType, debug_Limit, debug_NativeLibKind, debug_SanitizerSet, type Limit, type NativeLibKind, type SanitizerSet } from "./standins.ts";
+import { type Align, debug_Align } from "./standins.ts";
 import { debug_DefId, type DefId } from "../rustc_span/def_id.ts";
 import { debug_Transparency, type Transparency } from "../rustc_span/hygiene.ts";
 import { debug_ErrorGuaranteed, debug_Span, DUMMY_SP, type ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
 import { debug_Ident, debug_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
+import { type CollapseMacroDebuginfo, debug_CollapseMacroDebuginfo } from "../rustc_structures/collapse_macro_debug_info.ts";
+import { type CrateType, debug_CrateType } from "../rustc_structures/crate_type.ts";
+import { clone_NativeLibKind, debug_NativeLibKind, type NativeLibKind } from "../rustc_structures/lib.ts";
+import { debug_Limit, type Limit } from "../rustc_structures/limit.ts";
+import { debug_SanitizerSet, type SanitizerSet } from "../rustc_structures/sanitizer_set.ts";
 import { type Debug, debug_bool, debug_int, debug_map, debug_option, debug_str, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
 
 // rustc-type: compiler/rustc_attr_ir/src/data_structures.rs:31 EiiImplResolution
@@ -1454,7 +1459,7 @@ export const debug_LinkEntry: Debug<LinkEntry> = (v, f) =>
 export function clone_LinkEntry(v: LinkEntry): LinkEntry {
   return {
     span: v.span,
-    kind: v.kind,
+    kind: clone_NativeLibKind(v.kind),
     name: v.name,
     cfg: (v.cfg === undefined ? undefined : clone_CfgEntry(v.cfg)),
     verbatim: v.verbatim,
