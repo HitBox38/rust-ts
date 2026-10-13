@@ -1,0 +1,105 @@
+== visibilities_for_hashing (12)
+DefId(0:0 ~ use_trees[0dd3]) Public
+DefId(0:1 ~ use_trees[0dd3]::m) Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3])))
+DefId(0:2 ~ use_trees[0dd3]::m::f) Public
+DefId(0:3 ~ use_trees[0dd3]::m::n) Public
+DefId(0:4 ~ use_trees[0dd3]::{use#0}) Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3])))
+DefId(0:5 ~ use_trees[0dd3]::{use#1}) Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3])))
+DefId(0:6 ~ use_trees[0dd3]::{use#1}::{use#0}) Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3])))
+DefId(0:7 ~ use_trees[0dd3]::{use#1}::{use#1}) Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3])))
+DefId(0:8 ~ use_trees[0dd3]::{use#1}::{use#2}) Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3])))
+DefId(0:9 ~ use_trees[0dd3]::{use#1}::{use#3}) Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3])))
+DefId(0:10 ~ use_trees[0dd3]::{use#2}) Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3])))
+DefId(0:11 ~ use_trees[0dd3]::main) Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3])))
+== expn_that_defined (0)
+== effective_visibilities (9)
+DefId(0:0 ~ use_trees[0dd3]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+DefId(0:2 ~ use_trees[0dd3]::m::f) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))) }
+DefId(0:3 ~ use_trees[0dd3]::m::n) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))) }
+DefId(0:1 ~ use_trees[0dd3]::m) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))) }
+DefId(0:4 ~ use_trees[0dd3]::{use#0}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))) }
+DefId(0:8 ~ use_trees[0dd3]::{use#1}::{use#2}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))) }
+DefId(0:5 ~ use_trees[0dd3]::{use#1}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))) }
+DefId(0:9 ~ use_trees[0dd3]::{use#1}::{use#3}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))) }
+DefId(0:10 ~ use_trees[0dd3]::{use#2}) EffectiveVisibility { direct: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reexported: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))), reachable_through_impl_trait: Restricted(LocalModId(DefId(0:0 ~ use_trees[0dd3]))) }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (2)
+DefId(0:0 ~ use_trees[0dd3])
+  ModChild { ident: m#0, res: Def(Mod, DefId(0:1 ~ use_trees[0dd3]::m)), vis: Restricted(ModId(DefId(0:0 ~ use_trees[0dd3]))), reexport_chain: [] }
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:2 ~ use_trees[0dd3]::m::f)), vis: Restricted(ModId(DefId(0:0 ~ use_trees[0dd3]))), reexport_chain: [Single(DefId(0:4 ~ use_trees[0dd3]::{use#0}))] }
+  ModChild { ident: mm#0, res: Def(Mod, DefId(0:1 ~ use_trees[0dd3]::m)), vis: Restricted(ModId(DefId(0:0 ~ use_trees[0dd3]))), reexport_chain: [Single(DefId(0:6 ~ use_trees[0dd3]::{use#1}::{use#0}))] }
+  ModChild { ident: n#0, res: Def(Mod, DefId(0:3 ~ use_trees[0dd3]::m::n)), vis: Restricted(ModId(DefId(0:0 ~ use_trees[0dd3]))), reexport_chain: [Single(DefId(0:8 ~ use_trees[0dd3]::{use#1}::{use#2}))] }
+  ModChild { ident: g#0, res: Def(Fn, DefId(0:2 ~ use_trees[0dd3]::m::f)), vis: Restricted(ModId(DefId(0:0 ~ use_trees[0dd3]))), reexport_chain: [Single(DefId(0:9 ~ use_trees[0dd3]::{use#1}::{use#3}))] }
+  ModChild { ident: main#0, res: Def(Fn, DefId(0:11 ~ use_trees[0dd3]::main)), vis: Restricted(ModId(DefId(0:0 ~ use_trees[0dd3]))), reexport_chain: [] }
+  ModChild { ident: _#0, res: Def(Mod, DefId(0:3 ~ use_trees[0dd3]::m::n)), vis: Restricted(ModId(DefId(0:0 ~ use_trees[0dd3]))), reexport_chain: [Single(DefId(0:10 ~ use_trees[0dd3]::{use#2}))] }
+DefId(0:1 ~ use_trees[0dd3]::m)
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:2 ~ use_trees[0dd3]::m::f)), vis: Public, reexport_chain: [] }
+  ModChild { ident: n#0, res: Def(Mod, DefId(0:3 ~ use_trees[0dd3]::m::n)), vis: Public, reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+Some(MainDefinition { res: Def(Fn, DefId(0:11 ~ use_trees[0dd3]::main)), is_import: false, span: use_trees.rs:5:1: 5:13 (#0) })
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(25)
+== partial_res_map (5)
+NodeId(8) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_trees[0dd3]::m)), unresolved_segments: 0 }
+NodeId(11) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_trees[0dd3]::m)), unresolved_segments: 0 }
+NodeId(14) PartialRes { base_res: Def(Mod, DefId(0:3 ~ use_trees[0dd3]::m::n)), unresolved_segments: 0 }
+NodeId(21) PartialRes { base_res: Def(Mod, DefId(0:1 ~ use_trees[0dd3]::m)), unresolved_segments: 0 }
+NodeId(22) PartialRes { base_res: Def(Mod, DefId(0:3 ~ use_trees[0dd3]::m::n)), unresolved_segments: 0 }
+== owners (8)
+NodeId(0) def_id=DefId(0:0 ~ use_trees[0dd3]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ use_trees[0dd3]::m) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:2 ~ use_trees[0dd3]::m::f) lifetime_elision_allowed=false
+NodeId(6) def_id=DefId(0:3 ~ use_trees[0dd3]::m::n) lifetime_elision_allowed=false
+NodeId(7) def_id=DefId(0:4 ~ use_trees[0dd3]::{use#0}) lifetime_elision_allowed=false
+  import_res NodeId(7) PerNS { value_ns: Some(Def(Fn, DefId(0:2 ~ use_trees[0dd3]::m::f))), type_ns: None, macro_ns: None }
+NodeId(10) def_id=DefId(0:5 ~ use_trees[0dd3]::{use#1}) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(13) DefId(0:6 ~ use_trees[0dd3]::{use#1}::{use#0})
+  node_id_to_def_id NodeId(16) DefId(0:8 ~ use_trees[0dd3]::{use#1}::{use#2})
+  node_id_to_def_id NodeId(17) DefId(0:7 ~ use_trees[0dd3]::{use#1}::{use#1})
+  node_id_to_def_id NodeId(19) DefId(0:9 ~ use_trees[0dd3]::{use#1}::{use#3})
+  import_res NodeId(13) PerNS { value_ns: None, type_ns: Some(Def(Mod, DefId(0:1 ~ use_trees[0dd3]::m))), macro_ns: None }
+  import_res NodeId(16) PerNS { value_ns: None, type_ns: Some(Def(Mod, DefId(0:3 ~ use_trees[0dd3]::m::n))), macro_ns: None }
+  import_res NodeId(19) PerNS { value_ns: Some(Def(Fn, DefId(0:2 ~ use_trees[0dd3]::m::f))), type_ns: None, macro_ns: None }
+NodeId(20) def_id=DefId(0:10 ~ use_trees[0dd3]::{use#2}) lifetime_elision_allowed=false
+  import_res NodeId(20) PerNS { value_ns: None, type_ns: Some(Def(Mod, DefId(0:3 ~ use_trees[0dd3]::m::n))), macro_ns: None }
+NodeId(23) def_id=DefId(0:11 ~ use_trees[0dd3]::main) lifetime_elision_allowed=false
+== lint_buffer (8)
+NodeId(7) ABSOLUTE_PATHS_NOT_STARTING_WITH_CRATE [use_trees.rs:2:5: 2:9 (#0)]
+NodeId(7) UNUSED_IMPORTS [use_trees.rs:2:5: 2:9 (#0)]
+NodeId(10) ABSOLUTE_PATHS_NOT_STARTING_WITH_CRATE [use_trees.rs:3:5: 3:39 (#0)]
+NodeId(10) ABSOLUTE_PATHS_NOT_STARTING_WITH_CRATE [use_trees.rs:3:5: 3:39 (#0)]
+NodeId(10) ABSOLUTE_PATHS_NOT_STARTING_WITH_CRATE [use_trees.rs:3:5: 3:39 (#0)]
+NodeId(10) UNUSED_IMPORTS [use_trees.rs:3:9: 3:19 (#0), use_trees.rs:3:25: 3:29 (#0), use_trees.rs:3:32: 3:38 (#0)]
+NodeId(20) ABSOLUTE_PATHS_NOT_STARTING_WITH_CRATE [use_trees.rs:4:5: 4:13 (#0)]
+NodeId(20) UNUSED_IMPORTS [use_trees.rs:4:5: 4:13 (#0)]
+== disambiguators (3)
+DefId(0:0 ~ use_trees[0dd3])
+DefId(0:1 ~ use_trees[0dd3]::m)
+DefId(0:5 ~ use_trees[0dd3]::{use#1})
+== definitions (12)
+DefId(0:0 ~ use_trees[0dd3]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(996201604795041650, 996201604795041650))
+DefId(0:1 ~ use_trees[0dd3]::m) Mod DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("m"), disambiguator: 0 } } DefPathHash(Fingerprint(996201604795041650, 3431439221840464126))
+DefId(0:2 ~ use_trees[0dd3]::m::f) Fn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(996201604795041650, 7098422273853740182))
+DefId(0:3 ~ use_trees[0dd3]::m::n) Mod DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("n"), disambiguator: 0 } } DefPathHash(Fingerprint(996201604795041650, 15886677331330448725))
+DefId(0:4 ~ use_trees[0dd3]::{use#0}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(996201604795041650, 12948275266404665488))
+DefId(0:5 ~ use_trees[0dd3]::{use#1}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(996201604795041650, 9096567214503349245))
+DefId(0:6 ~ use_trees[0dd3]::{use#1}::{use#0}) Use DefKey { parent: Some(DefIndex(5)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 0 } } DefPathHash(Fingerprint(996201604795041650, 16457489752336879976))
+DefId(0:7 ~ use_trees[0dd3]::{use#1}::{use#1}) Use DefKey { parent: Some(DefIndex(5)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 1 } } DefPathHash(Fingerprint(996201604795041650, 5798197837237829126))
+DefId(0:8 ~ use_trees[0dd3]::{use#1}::{use#2}) Use DefKey { parent: Some(DefIndex(5)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 2 } } DefPathHash(Fingerprint(996201604795041650, 5892899752687562773))
+DefId(0:9 ~ use_trees[0dd3]::{use#1}::{use#3}) Use DefKey { parent: Some(DefIndex(5)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 3 } } DefPathHash(Fingerprint(996201604795041650, 18189637224831463208))
+DefId(0:10 ~ use_trees[0dd3]::{use#2}) Use DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Use, disambiguator: 2 } } DefPathHash(Fingerprint(996201604795041650, 3285060395685641543))
+DefId(0:11 ~ use_trees[0dd3]::main) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("main"), disambiguator: 0 } } DefPathHash(Fingerprint(996201604795041650, 3604410287669928949))
