@@ -4,6 +4,7 @@
 // PORT: method placement (PORTING §8, the token.ts pattern). `FormatArguments` is a generated
 // class: `FormatArguments::new` is assigned onto it, its `&self` methods go on the prototype
 // (declared via `declare module`). `FormatArgumentKind::ident` lives on a companion const.
+import { FxHashMap, LAYOUT_USIZE, u32_key } from "../rust_ts/hash_map.ts";
 import type { Ident, Symbol } from "../rustc_span/symbol.ts";
 import { assert } from "../std/panic.ts";
 import * as gen from "./format.gen.ts";
@@ -30,9 +31,10 @@ export const FormatArguments = gen.FormatArguments as typeof gen.FormatArguments
   "new": () => FormatArguments;
 };
 
+// PORT: `names: FxHashMap<Symbol, usize>` iterates (and `{:?}`s) in rustc's bucket order.
 // rustc: compiler/rustc_ast/src/format.rs:85 new
 FormatArguments.new = function (): FormatArguments {
-  return new gen.FormatArguments([], 0, 0, new Map());
+  return new gen.FormatArguments([], 0, 0, FxHashMap.default<Symbol, number>(u32_key, LAYOUT_USIZE));
 };
 
 // rustc: compiler/rustc_ast/src/format.rs:94 add

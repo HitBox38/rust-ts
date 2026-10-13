@@ -46,21 +46,10 @@ test("run.ts exits like the probe's run_compiler (FatalError caught) and prints 
 });
 
 /**
- * Cases whose expansion and diagnostics are ported but whose AST dump is not: `FormatArguments::names`
- * is an `FxHashMap`, and with two or more names its `{:#?}` follows hashbrown's bucket order
- * (src/rust_ts/hash_map.ts `debug_HashMap` is `unported` for that). The port must print exactly the
- * listed `UNPORTED` line on stdout and the oracle's stderr; root removes an entry when hashbrown order
- * lands, and the test fails until then. The `*_one` variants cover the same paths with one name.
+ * Cases that must stop at a listed `unported` path (none: the `FxHashMap` order of
+ * `FormatArguments::names` is ported, lane hashbrown-order).
  */
-const HASHMAP = "UNPORTED: unported: std::collections::HashMap Debug iteration order (hashbrown + FxHasher)";
-const PENDING: Record<string, string> = {
-  named: HASHMAP,
-  captured: HASHMAP,
-  width_named: HASHMAP,
-  width_captured: HASHMAP,
-  redundant_two: HASHMAP,
-  redundant_named: HASHMAP,
-};
+const PENDING: Record<string, string> = {};
 
 for (const name of want.stdout.keys()) {
   if (name === "") continue;

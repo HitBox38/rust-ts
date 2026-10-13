@@ -8,9 +8,8 @@
 // - `&mut Option<_>` / `&mut CfgEntry` places are `MutRef` views (`field_mut`).
 // - The `macro_rules!` helpers of `parse_single_doc_attr_item` (`no_args!`, ...) are local closures;
 //   every use is the tail of its `match` arm, so the macros' `return` is the closure's.
-// - `for cfg_name in &cfg_names` iterates an `FxHashSet` (hashbrown order, which depends on the
-//   FxHash of the symbols); with more than one name that order is unported (precedent:
-//   rust_ts/hash_map.ts `debug_HashMap`).
+// - `cfg_names` is an `FxHashSet` (rust_ts/hash_map.ts), so `for cfg_name in &cfg_names` visits the
+//   names in rustc's hashbrown order.
 import type { CfgEntry } from "../../rustc_ast/attr/data_structures.ts";
 import type { MetaItemLit } from "../../rustc_ast/lib.ts";
 import {
@@ -31,7 +30,8 @@ import type { Span } from "../../rustc_span/lib.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { is_whitespace } from "../../std/char.ts";
 import { field_mut, type MutRef } from "../../std/mut_ref.ts";
-import { unported, unreachable, unwrap } from "../../std/panic.ts";
+import { unreachable, unwrap } from "../../std/panic.ts";
+import { FxHashSet, u32_key } from "../../rust_ts/hash_map.ts";
 import { type AcceptContext, ExpectStringLiteral } from "../context.ts";
 import {
   AttrCrateLevelOnly_diagnostic,
@@ -466,7 +466,7 @@ const DocParser_inherent = {
 
           const cfg_hide_show: CfgHideShow = { kind, values: new Map() };
 
-          const cfg_names = new Set<Symbol>();
+          const cfg_names = FxHashSet.default<Symbol>(u32_key);
           const values: MutRef<DocCfgHideShow | undefined> = { value: undefined };
           for (const item_ of list.mixed()) {
             if (item_.$ !== "MetaItemParser") {
@@ -508,9 +508,6 @@ const DocParser_inherent = {
 
           const values_ = values.value ?? DocCfgHideShow.new_with_only_key(item.span());
           // #[allow(rustc::potential_query_instability)]
-          if (cfg_names.size > 1) {
-            unported("std::collections::HashSet iteration order (hashbrown + FxHasher): doc(auto_cfg(hide/show(..)))");
-          }
           for (const cfg_name of cfg_names) {
             const o = cfg_hide_show.values.get(cfg_name);
             if (o === undefined) {

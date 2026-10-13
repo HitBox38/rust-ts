@@ -24,7 +24,7 @@ test("same_seed_produces_same_hasher", () => {
   expect(a.build_hasher().hash).toBe(b.build_hasher().hash);
 });
 
-// crate: rustc-hash-2.1.1/src/seeded_state.rs:69 different_states_are_different
+// crate: rustc-hash-2.1.1/src/seeded_state.rs:70 different_states_are_different
 test("different_states_are_different", () => {
   const a = FxSeededState.with_seed(1n);
   const b = FxSeededState.with_seed(2n);
