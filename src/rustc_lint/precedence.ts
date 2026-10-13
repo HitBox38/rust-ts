@@ -1,12 +1,48 @@
-// Stub of compiler/rustc_lint/src/precedence.rs (lane lint-early-a; parser-core pattern). The lint statics and
-// `declare_lint_pass!` / `impl_lint_pass!` expansions are generated (precedence.lints.gen.ts); the pass
-// implementations are filled by lane lint-early-b (early passes) / M3 (late passes).
-// PORT: stub: pass types keep their upstream names; every `check_*` method upstream implements is an
-// `unported` placeholder (rust_ts/stubs.ts), so no pass silently does nothing. No markers.
-import { unported_methods } from "../rust_ts/stubs.ts";
-import { Precedence } from "./precedence.lints.gen.ts";
+// compiler/rustc_lint/src/precedence.rs. The lint static and the `declare_lint_pass!` expansion are generated
+// (precedence.lints.gen.ts).
+import type { ast } from "../rustc_ast/lib.ts";
+import { Span } from "../rustc_span/lib.ts";
+import type { EarlyContext } from "./context.ts";
+import { AmbiguousNegativeLiteralsDiag_diagnostic } from "./diagnostics.gen.ts";
+import type { EarlyLintPass } from "./passes.ts";
+import { AMBIGUOUS_NEGATIVE_LITERALS, Precedence } from "./precedence.lints.gen.ts";
 
 export * from "./precedence.lints.gen.ts";
 
-// impl EarlyLintPass for Precedence (precedence.rs:38)
-unported_methods(Precedence.prototype, "rustc_lint::precedence::Precedence", ["check_expr"]);
+declare module "./precedence.lints.gen.ts" {
+  interface Precedence extends EarlyLintPass {}
+}
+
+// impl EarlyLintPass for Precedence
+// rustc: compiler/rustc_lint/src/precedence.rs:39 check_expr
+Precedence.prototype.check_expr = function (this: Precedence, cx: EarlyContext, expr: ast.Expr): void {
+  if (!(expr.kind.$ === "Unary" && expr.kind._0 === "Neg")) {
+    return;
+  }
+  const operand = expr.kind._1;
+
+  let arg = operand;
+  let at_least_one = false;
+  while (arg.kind.$ === "MethodCall") {
+    const receiver = arg.kind._0.receiver;
+    at_least_one = true;
+    arg = receiver;
+  }
+
+  if (at_least_one && arg.kind.$ === "Lit" && (arg.kind._0.kind.$ === "Integer" || arg.kind._0.kind.$ === "Float")) {
+    cx.emit_span_lint(
+      AMBIGUOUS_NEGATIVE_LITERALS,
+      expr.span,
+      AmbiguousNegativeLiteralsDiag_diagnostic({
+        negative_literal: {
+          start_span: Span.shrink_to_lo(expr.span),
+          end_span: Span.shrink_to_hi(arg.span),
+        },
+        current_behavior: {
+          start_span: Span.shrink_to_lo(operand.span),
+          end_span: Span.shrink_to_hi(operand.span),
+        },
+      }),
+    );
+  }
+};

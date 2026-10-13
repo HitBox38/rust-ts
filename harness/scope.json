@@ -18,6 +18,8 @@
     "rustc": "binary wrapper around rustc_driver"
   },
   "vendor": {
+    "unicode-script": "=0.5.7",
+    "unicode-security": "=0.1.2",
     "rustc-hash": "=2.1.1",
     "hashbrown": "=0.17.1",
     "unicode-ident": "=1.0.24",
