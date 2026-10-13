@@ -121,7 +121,7 @@ export function display_CrateFlavor(self: CrateFlavor): string {
 }
 
 /** `impl IntoDiagArg for CrateFlavor` */
-// rustc: compiler/rustc_metadata/src/locator.rs:292 into_diag_arg
+// rustc: compiler/rustc_metadata/src/locator.rs:293 into_diag_arg
 export function CrateFlavor_into_diag_arg(self: CrateFlavor, _: MutRef<PathBuf | undefined>): DiagArgValue {
   switch (self) {
     case "Rlib":

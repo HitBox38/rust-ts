@@ -28,7 +28,7 @@ const STOPS: Record<string, string> = {
   macro_rules_basic: "rustc_index::bit_set::DenseBitSet::new_filled(3) (lib.ts DenseBitSet is a type-only stand-in)",
   macro_rules_scopes: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
   out_of_scope: "rustc_index::bit_set::DenseBitSet::new_filled(1) (lib.ts DenseBitSet is a type-only stand-in)",
-  tool_attrs: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
+  tool_attrs: "rustc_resolve::diagnostics::impls::Resolver::report_path_resolution_error",
 };
 const PENDING: Record<string, string> = Object.fromEntries(
   case_names().flatMap((name) => (STOPS[name] === undefined ? [] : MODES.map((mode) => [`${name}/${mode}`, STOPS[name]]))),

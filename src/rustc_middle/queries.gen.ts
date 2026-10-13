@@ -29,6 +29,7 @@ import { type CrateNum, type DefId, type LocalDefId, type LocalModId, type ModId
 import { type ExpnId, type LocalExpnId, debug_ExpnId } from "../rustc_span/hygiene.ts";
 import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span } from "../rustc_span/lib.ts";
 import { type Ident, type Symbol, debug_Ident, debug_Symbol, display_Ident, display_Symbol } from "../rustc_span/symbol.ts";
+import { type PanicStrategy } from "../rustc_target/spec/mod.ts";
 import { PLAIN, debug_bool, debug_int, debug_map, debug_option, debug_set, debug_str, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 import { type Result, debug_result } from "../std/result.ts";
@@ -1207,10 +1208,8 @@ export interface QueryTypes {
   has_panic_handler: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
   is_profiler_runtime: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
   has_ffi_unwind_calls: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: boolean; ProvidedValue: boolean };
-  // PORT: value `Option<PanicStrategy>` not ported (`unknown`)
-  required_panic_strategy: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
-  // PORT: value `PanicStrategy` not ported (`unknown`)
-  panic_in_drop_strategy: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown; ProvidedValue: unknown };
+  required_panic_strategy: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: PanicStrategy | undefined; ProvidedValue: PanicStrategy | undefined };
+  panic_in_drop_strategy: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: PanicStrategy; ProvidedValue: PanicStrategy };
   is_no_builtins: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
   // PORT: value `SymbolManglingVersion` not ported (`unknown`)
   symbol_mangling_version: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown; ProvidedValue: unknown };
@@ -5298,7 +5297,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting a crate's required panic strategy`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => x)),
   },
   panic_in_drop_strategy: {
     name: "panic_in_drop_strategy",
@@ -5315,7 +5314,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `getting a crate's configured panic-in-drop strategy`,
-    debug_value: undefined,
+    debug_value: (v, f) => v,
   },
   is_no_builtins: {
     name: "is_no_builtins",
