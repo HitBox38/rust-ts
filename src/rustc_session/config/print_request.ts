@@ -1,8 +1,10 @@
 //! Code for dealing with `--print` requests.
 // Port of compiler/rustc_session/src/config/print_request.rs.
+// LOAD ORDER (see config.ts header): options.ts before config.ts.
+import "../options.ts";
 import { type Debug, debug_option, debug_str, debug_struct } from "../../std/fmt.ts";
 import type { CodegenOptions, UnstableOptions } from "../options.ts";
-import type { EarlyDiagCtxt } from "../session.ts";
+import type { EarlyDiagCtxt } from "../stand_ins.ts";
 import type { Matches } from "../../vendor/getopts/lib.ts";
 import { type OutFileName, OutFileName as OutFileNameC, debug_OutFileName, nightly_options, split_out_file_name } from "../config.ts";
 

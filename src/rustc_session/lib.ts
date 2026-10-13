@@ -3,23 +3,12 @@
 // PORT: `pub mod x;` -> `export * as x from "./x.ts"`. Modules not ported yet (code_stats,
 // filesearch, output, search_paths, session) are listed as comments.
 // `pub(crate) use rustc_lint_defs as lint;` is crate-private: modules import src/rustc_lint_defs directly.
-// `pub use getopts;` (external crate) is not vendored yet.
-import type { UnstableFeatures } from "../rustc_feature/lib.ts";
-import type { DiagCtxtHandle } from "../rustc_errors/lib.ts";
 
 // pub use session::*;
-/**
- * PORT: pending session.rs (out of scope of lane session-parse). The minimal surface of
- * `rustc_session::Session` that the ported modules read (`diagnostics.rs`, `parse.rs`):
- * `sess.dcx()` (= `self.psess.dcx()`), `sess.unstable_features` and
- * `sess.opts.unstable_opts.ui_testing`. The real `Session` class must satisfy it structurally;
- * replace this declaration with `export * from "./session.ts"` once session.rs is ported.
- */
-export interface Session {
-  dcx(): DiagCtxtHandle;
-  unstable_features: UnstableFeatures;
-  opts: { unstable_opts: { ui_testing: boolean } };
-}
+// PORT: LOAD ORDER: options.ts is evaluated before config.ts (see config.ts header), and utils.ts
+// (which extends `Session`) after session.ts.
+import "./options.ts";
+export * from "./session.ts";
 
 // pub mod code_stats;
 export * as diagnostics from "./diagnostics.ts";
@@ -35,5 +24,7 @@ export * as config from "./config.ts";
 export * as options from "./options.ts";
 import "./options/mitigation_coverage.ts";
 // pub mod output;
+export * as getopts from "../vendor/getopts/lib.ts";
 // pub mod search_paths;
-// mod session;
+// mod session; (re-exported above)
+import "./utils.ts";

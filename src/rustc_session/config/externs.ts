@@ -4,7 +4,7 @@ import type { PathBuf } from "../../rustc_error_messages/lib.ts";
 import type { Diag } from "../../rustc_errors/diagnostic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { UnstableOptions } from "../options.ts";
-import type { EarlyDiagCtxt } from "../session.ts";
+import type { EarlyDiagCtxt } from "../stand_ins.ts";
 
 /// Represents the pieces of an `--extern` argument.
 export interface ExternOpt {

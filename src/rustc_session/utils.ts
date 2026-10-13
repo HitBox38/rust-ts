@@ -5,24 +5,28 @@
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import { type Debug, debug_bool, debug_option, debug_str, debug_struct } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
-import type { Session } from "./lib.ts";
+import { Session } from "./session.ts";
+import type { VerboseTimingGuard } from "./stand_ins.ts";
 
-/**
- * `impl Session { .. }` of this file.
- * PORT: pending session.rs: `Session` is the stand-in interface in lib.ts, so the methods are kept
- * here; attach them to the `Session` class (declare module + prototype) once session.rs is ported.
- * `self.prof` (`rustc_data_structures::profiling::SelfProfilerRef`) is not ported.
- */
-export const Session_utils = {
-  // rustc: compiler/rustc_session/src/utils.rs:12 timer
-  timer(_self: Session, _what: string): never {
-    return unported("rustc_data_structures::profiling::SelfProfilerRef::verbose_generic_activity (Session::timer)");
-  },
-  /// Used by `-Z self-profile`.
-  // rustc: compiler/rustc_session/src/utils.rs:16 time
-  time<R>(_self: Session, _what: string, _f: () => R): R {
-    return unported("rustc_data_structures::profiling::SelfProfilerRef::verbose_generic_activity (Session::time)");
-  },
+// PORT: `impl Session { .. }` of this file is attached to the `Session` class (PORTING §5 "Methods
+// defined in another file"); lib.ts imports this module after session.ts. `self.prof` is the
+// `SelfProfilerRef` stand-in (stand_ins.ts).
+declare module "./session.ts" {
+  interface Session {
+    timer(what: string): VerboseTimingGuard;
+    time<R>(what: string, f: () => R): R;
+  }
+}
+
+// rustc: compiler/rustc_session/src/utils.rs:12 timer
+Session.prototype.timer = function (this: Session, what: string): VerboseTimingGuard {
+  return this.prof.verbose_generic_activity(what);
+};
+
+/// Used by `-Z self-profile`.
+// rustc: compiler/rustc_session/src/utils.rs:16 time
+Session.prototype.time = function <R>(this: Session, what: string, f: () => R): R {
+  return this.prof.verbose_generic_activity(what).run(f);
 };
 
 /** PORT: opaque stand-in for `rustc_structures::NativeLibKind` (rustc_structures is not ported). */

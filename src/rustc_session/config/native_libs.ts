@@ -10,7 +10,7 @@ import { UnstableFeatures as UF } from "../../rustc_feature/lib.ts";
 import { unported } from "../../std/panic.ts";
 import type { Matches } from "../../vendor/getopts/lib.ts";
 import type { UnstableOptions } from "../options.ts";
-import type { EarlyDiagCtxt } from "../session.ts";
+import type { EarlyDiagCtxt } from "../stand_ins.ts";
 import type { NativeLib } from "../utils.ts";
 
 // rustc: compiler/rustc_session/src/config/native_libs.rs:18 parse_native_libs

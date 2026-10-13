@@ -10,7 +10,8 @@
 // PORT: upstream `pub use crate::options::*;` is not mirrored: options.gen.ts reads `Polonius`
 // from this module while it is evaluated (POLONIUS_HELP), so the options modules must be evaluated
 // before this one. LOAD ORDER: import `./options.ts` before `./config.ts` (lib.ts and session.ts do);
-// importing this module first fails at load with a TDZ error on `Polonius` in options.gen.ts.
+// importing this module first fails at load with a TDZ error on `Polonius` in options.gen.ts. Use a
+// bare `import "./options.ts";` for the ordering: Bun elides imports whose bindings are only used as types.
 import { lstatSync, readlinkSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
@@ -45,10 +46,10 @@ import {
   OptionsTargetModifiers,
   UnstableOptions,
   UnstableOptionsTargetModifiers,
+  mitigation_coverage,
   usize_from_str,
   u8_from_str,
 } from "./options.ts";
-import { MitigationCoverageMap } from "./options/mitigation_coverage.ts";
 import * as print_request from "./config/print_request.ts";
 import { parse_native_libs } from "./config/native_libs.ts";
 import { split_extern_opt } from "./config/externs.ts";
@@ -65,7 +66,7 @@ import {
   TargetTuple,
   default_sysroot,
 } from "./stand_ins.ts";
-import { CanonicalizedPath } from "./utils.ts";
+import type { CanonicalizedPath } from "./utils.ts";
 
 /** `getopts::Matches` (the real type; `stand_ins.Matches` is the subset `build_options` uses). */
 type Matches = getopts.Matches;
@@ -1539,107 +1540,95 @@ export function Options_default(): Options {
     /* jobs */ { frontend: undefined, backend: undefined, linker: LinkerJobs.Default },
     /* recommended_stack_size */ DEFAULT_STACK_SIZE,
     /* target_modifiers */ new Map(),
-    /* mitigation_coverage_map */ MitigationCoverageMap.default(),
+    /* mitigation_coverage_map */ mitigation_coverage.MitigationCoverageMap.default(),
   );
 }
 
-// PORT: `impl Options` / `impl UnstableOptions` of this file are attached to the generated classes
-// (PORTING §5 "Methods defined in another file"). Method names that clash with option fields get a
-// trailing `_` (session-options decision 8): `src_hash_algorithm_`, `checksum_hash_algorithm_`.
-declare module "./options.gen.ts" {
-  interface Options {
-    build_dep_graph(): boolean;
-    file_path_mapping(): FilePathMapping;
-    will_create_output_file(): boolean;
-    share_generics(): boolean;
-    get_symbol_mangling_version(): SymbolManglingVersion;
-    autodiff_enabled(): boolean;
-  }
-  interface UnstableOptions {
-    dcx_flags(can_emit_warnings: boolean): DiagCtxtFlags;
-    src_hash_algorithm_(target: Target): SourceFileHashAlgorithm;
-    checksum_hash_algorithm_(): SourceFileHashAlgorithm | undefined;
-  }
-}
-/// Returns `true` if there is a reason to build the dep graph.
-// rustc: compiler/rustc_session/src/config.rs:1547 build_dep_graph
-Options.prototype.build_dep_graph = function (this: Options): boolean {
-  return this.incremental !== undefined || this.unstable_opts.dump_dep_graph || this.unstable_opts.query_dep_graph;
-};
+// PORT: `impl Options` / `impl UnstableOptions` of this file are companion consts (`Options_impl.f(opts)`,
+// `UnstableOptions_impl.f(uo)`), not prototype extensions (so no name clash with option fields): options.gen.ts reads this module while it is
+// evaluated, so this module is evaluated before the generated classes exist and cannot touch their
+// prototypes at load time.
+export const Options_impl = {
+  // rustc: compiler/rustc_session/src/config.rs:1547 build_dep_graph
+  build_dep_graph(self: Options): boolean {
+    return self.incremental !== undefined || self.unstable_opts.dump_dep_graph || self.unstable_opts.query_dep_graph;
+  },
 
-// rustc: compiler/rustc_session/src/config.rs:1553 file_path_mapping
-Options.prototype.file_path_mapping = function (this: Options): FilePathMapping {
-  return file_path_mapping([...this.remap_path_prefix], this.unstable_opts.remap_cwd_prefix, this.remap_path_scope);
-};
+  // rustc: compiler/rustc_session/src/config.rs:1553 file_path_mapping
+  file_path_mapping(self: Options): FilePathMapping {
+    return file_path_mapping([...self.remap_path_prefix], self.unstable_opts.remap_cwd_prefix, self.remap_path_scope);
+  },
 
-/// Returns `true` if there will be an output file generated.
-// rustc: compiler/rustc_session/src/config.rs:1562 will_create_output_file
-Options.prototype.will_create_output_file = function (this: Options): boolean {
-  return (
-    !this.unstable_opts.parse_crate_root_only && // The file is just being parsed
-    this.unstable_opts.ls.length === 0 // The file is just being queried
-  );
-};
+  /// Returns `true` if there will be an output file generated.
+  // rustc: compiler/rustc_session/src/config.rs:1562 will_create_output_file
+  will_create_output_file(self: Options): boolean {
+    return (
+      !self.unstable_opts.parse_crate_root_only && // The file is just being parsed
+      self.unstable_opts.ls.length === 0 // The file is just being queried
+    );
+  },
 
-// #[inline]
-// rustc: compiler/rustc_session/src/config.rs:1568 share_generics
-Options.prototype.share_generics = function (this: Options): boolean {
-  const setting = this.unstable_opts.share_generics;
-  if (setting !== undefined) return setting;
-  switch (this.optimize) {
-    case "No":
-    case "Less":
-    case "Size":
-    case "SizeMin":
-      return true;
-    case "More":
-    case "Aggressive":
-      return false;
-  }
-};
+  // #[inline]
+  // rustc: compiler/rustc_session/src/config.rs:1568 share_generics
+  share_generics(self: Options): boolean {
+    const setting = self.unstable_opts.share_generics;
+    if (setting !== undefined) return setting;
+    switch (self.optimize) {
+      case "No":
+      case "Less":
+      case "Size":
+      case "SizeMin":
+        return true;
+      case "More":
+      case "Aggressive":
+        return false;
+    }
+  },
 
-// rustc: compiler/rustc_session/src/config.rs:1578 get_symbol_mangling_version
-Options.prototype.get_symbol_mangling_version = function (this: Options): SymbolManglingVersion {
-  return this.cg.symbol_mangling_version ?? "V0";
-};
+  // rustc: compiler/rustc_session/src/config.rs:1578 get_symbol_mangling_version
+  get_symbol_mangling_version(self: Options): SymbolManglingVersion {
+    return self.cg.symbol_mangling_version ?? "V0";
+  },
 
-// #[inline]
-// rustc: compiler/rustc_session/src/config.rs:1583 autodiff_enabled
-Options.prototype.autodiff_enabled = function (this: Options): boolean {
-  return this.unstable_opts.autodiff.some((a) => a.$ === "Enable");
-};
+  // #[inline]
+  // rustc: compiler/rustc_session/src/config.rs:1583 autodiff_enabled
+  autodiff_enabled(self: Options): boolean {
+    return self.unstable_opts.autodiff.some((a) => a.$ === "Enable");
+  },
+} as const;
 
-// rustc: compiler/rustc_session/src/config.rs:1589 dcx_flags
-UnstableOptions.prototype.dcx_flags = function (this: UnstableOptions, can_emit_warnings: boolean): DiagCtxtFlags {
-  return {
-    can_emit_warnings,
-    treat_err_as_bug: this.treat_err_as_bug,
-    eagerly_emit_delayed_bugs: this.eagerly_emit_delayed_bugs,
-    macro_backtrace: this.macro_backtrace,
-    deduplicate_diagnostics: this.deduplicate_diagnostics,
-    track_diagnostics: this.track_diagnostics,
-  };
-};
+export const UnstableOptions_impl = {
+  // rustc: compiler/rustc_session/src/config.rs:1589 dcx_flags
+  dcx_flags(self: UnstableOptions, can_emit_warnings: boolean): DiagCtxtFlags {
+    return {
+      can_emit_warnings,
+      treat_err_as_bug: self.treat_err_as_bug,
+      eagerly_emit_delayed_bugs: self.eagerly_emit_delayed_bugs,
+      macro_backtrace: self.macro_backtrace,
+      deduplicate_diagnostics: self.deduplicate_diagnostics,
+      track_diagnostics: self.track_diagnostics,
+    };
+  },
 
-// rustc: compiler/rustc_session/src/config.rs:1600 src_hash_algorithm
-UnstableOptions.prototype.src_hash_algorithm_ = function (this: UnstableOptions, target: Target): SourceFileHashAlgorithm {
-  return (
-    this.src_hash_algorithm ??
-    (() => {
-      if (target.is_like_msvc) {
-        return SourceFileHashAlgorithm.Sha256;
-      } else {
-        return SourceFileHashAlgorithm.Md5;
-      }
-    })()
-  );
-};
+  // rustc: compiler/rustc_session/src/config.rs:1600 src_hash_algorithm
+  src_hash_algorithm(self: UnstableOptions, target: Target): SourceFileHashAlgorithm {
+    return (
+      self.src_hash_algorithm ??
+      (() => {
+        if (target.is_like_msvc) {
+          return SourceFileHashAlgorithm.Sha256;
+        } else {
+          return SourceFileHashAlgorithm.Md5;
+        }
+      })()
+    );
+  },
 
-// rustc: compiler/rustc_session/src/config.rs:1610 checksum_hash_algorithm
-UnstableOptions.prototype.checksum_hash_algorithm_ = function (this: UnstableOptions): SourceFileHashAlgorithm | undefined {
-  return this.checksum_hash_algorithm;
-};
-
+  // rustc: compiler/rustc_session/src/config.rs:1610 checksum_hash_algorithm
+  checksum_hash_algorithm(self: UnstableOptions): SourceFileHashAlgorithm | undefined {
+    return self.checksum_hash_algorithm;
+  },
+} as const;
 
 export type Passes = { readonly $: "Some"; readonly _0: string[] } | { readonly $: "All" };
 export const Passes = {
@@ -2638,7 +2627,9 @@ export function parse_externs(early_dcx: EarlyDiagCtxt, matches: Matches, unstab
     const occupied = externs.get(name);
     if (path !== undefined) {
       // --extern prelude_name=some_file.rlib
-      const cpath = CanonicalizedPath.new(path);
+      // PORT: `CanonicalizedPath::new(path)` (utils.rs) needs `rustc_fs_util::try_canonicalize`.
+      // utils.ts is not imported at runtime here (it extends `Session`, see lib.ts).
+      const cpath: CanonicalizedPath = unported(`rustc_fs_util::try_canonicalize (CanonicalizedPath::new ${path})`);
       if (occupied === undefined) {
         const files = new Set([cpath]);
         entry = ExternEntry.new({ $: "ExactPaths", _0: files });
