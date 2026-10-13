@@ -4,11 +4,7 @@
 // - `use super::prelude::*;`: the items are imported from their defining modules (prelude.ts is
 //   lane attr-parse-d's). `Policy::{Allow, Error, Warn}` are written as the variant literals
 //   (`{ $: "Allow", _0: Target.Fn }`).
-// - `unstable!(feat, notes..)` is written as its expansion `{ $: "Unstable", gate_name: sym.feat,
-//   notes: [..] }`: importing `unstable` from ../stability.ts would evaluate that extension module
-//   while interface.ts is still being evaluated (interface.ts -> context.ts -> the parser modules),
-//   and its top-level `AttributeParser.prototype` assignment then throws (see
-//   docs/handoff/attr-parse-c.md).
+// - `unstable!(feat, notes..)` is `unstable(sym.feat, ..notes)` from ../stability.ts.
 // - `find_attr!(attrs, Pat)` is `find_attr(attrs, (k) => (k matches Pat ? value : undefined))`.
 import { type Attribute, AttributeKind, find_attr, InlineAttr, target as target_mod } from "../../rustc_attr_ir/lib.ts";
 import { AttributeStability } from "../../rustc_feature/lib.ts";
@@ -18,13 +14,13 @@ import { sym } from "../../rustc_span/symbol.ts";
 import { ExpectStringLiteral } from "../context.ts";
 import { InlineForceInlineConflict_diagnostic, InlineIgnoredForExported_diagnostic } from "../diagnostics.ts";
 import { MetaItemOrLitParser } from "../parser.ts";
+import { unstable } from "../stability.ts";
 import { template } from "../template.ts";
 import { OnDuplicate, type SingleAttributeParser, SingleAttributeParser_provided } from "./mod.ts";
 
 const { Target, MethodKind, AssocCtxt } = target_mod;
 
-export const InlineParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const InlineParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.inline],
   ON_DUPLICATE: OnDuplicate.WarnButFutureError,
   ALLOWED_TARGETS: {
@@ -103,10 +99,9 @@ export const InlineParser: SingleAttributeParser = {
       cx.shared.emit_lint(UNUSED_ATTRIBUTES, InlineIgnoredForExported_diagnostic({}), attr_span);
     }
   },
-};
+});
 
-export const RustcForceInlineParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcForceInlineParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_force_inline],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -115,11 +110,7 @@ export const RustcForceInlineParser: SingleAttributeParser = {
       { $: "Allow", _0: { $: "Method", _0: MethodKind.Inherent } },
     ],
   },
-  STABILITY: {
-    $: "Unstable",
-    gate_name: sym.rustc_attrs,
-    notes: ["the `rustc_force_inline` attribute forces a free function to be inlined"],
-  } satisfies AttributeStability,
+  STABILITY: unstable(sym.rustc_attrs, "the `rustc_force_inline` attribute forces a free function to be inlined"),
   TEMPLATE: template({ Word: true, List: ["reason"], NameValueStr: ["reason"] }),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/inline.rs:97 convert
@@ -170,4 +161,4 @@ export const RustcForceInlineParser: SingleAttributeParser = {
       }),
     );
   },
-};
+});

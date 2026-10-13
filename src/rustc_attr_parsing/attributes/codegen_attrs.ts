@@ -2,8 +2,8 @@
 // (Conventions for `use super::prelude::*` / `unstable!`: see inline.ts.)
 //
 // PORT:
-// - `#[derive(Default)]` parser states without inherent methods (`NakedParser`, `UsedParser`) are
-//   interfaces; their trait tables build them in `default()`.
+// - `#[derive(Default)]` parser states (`NakedParser`, `UsedParser`) are interfaces of the same name
+//   as their trait tables, which build them in `default()`.
 // - `&mut Option<_>` places chosen at run time (`UsedParser`'s `target`, `attrib_to_write`) are
 //   `MutRef` views (`field_mut`).
 // - `SanitizerSet` operators: `|` is `union`, `&` is `intersection`, `!` is `complement`; the first
@@ -43,6 +43,7 @@ import {
   TrackCallerOnLangItem_diagnostic,
 } from "../diagnostics.ts";
 import { type ArgParser, MetaItemOrLitParser } from "../parser.ts";
+import { unstable } from "../stability.ts";
 import { template } from "../template.ts";
 import {
   type AttributeParser,
@@ -58,8 +59,7 @@ import {
 
 const { Target, MethodKind } = target_mod;
 
-export const OptimizeParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const OptimizeParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.optimize],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -100,10 +100,9 @@ export const OptimizeParser: SingleAttributeParser = {
 
     return { $: "Optimize", _0: res, _1: cx.attr_span };
   },
-};
+});
 
-export const ColdParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const ColdParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.cold],
   ON_DUPLICATE: OnDuplicate.Warn,
   ALLOWED_TARGETS: {
@@ -119,10 +118,9 @@ export const ColdParser: NoArgsAttributeParser = {
   },
   STABILITY: AttributeStability.Stable,
   CREATE: (_) => ({ $: "Cold" }),
-};
+});
 
-export const CoverageParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const CoverageParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.coverage],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -139,7 +137,7 @@ export const CoverageParser: SingleAttributeParser = {
     ],
   },
   TEMPLATE: template({ OneOf: [sym.off, sym.on] }),
-  STABILITY: { $: "Unstable", gate_name: sym.coverage_attribute, notes: [] },
+  STABILITY: unstable(sym.coverage_attribute),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs:86 convert
   convert(cx, args) {
@@ -170,10 +168,9 @@ export const CoverageParser: SingleAttributeParser = {
 
     return { $: "Coverage", _0: kind };
   },
-};
+});
 
-export const ExportNameParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const ExportNameParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.export_name],
   ON_DUPLICATE: OnDuplicate.WarnButFutureError,
   SAFETY: {
@@ -218,14 +215,13 @@ export const ExportNameParser: SingleAttributeParser = {
     }
     return { $: "ExportName", name, span: cx.attr_span };
   },
-};
+});
 
-export const RustcObjcClassParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcObjcClassParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_objc_class],
   ALLOWED_TARGETS: { $: "AllowList", _0: [{ $: "Allow", _0: Target.ForeignStatic }] },
   TEMPLATE: template({ NameValueStr: ["ClassName"] }),
-  STABILITY: { $: "Unstable", gate_name: sym.rustc_attrs, notes: [] },
+  STABILITY: unstable(sym.rustc_attrs),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs:161 convert
   convert(cx, args) {
@@ -247,14 +243,13 @@ export const RustcObjcClassParser: SingleAttributeParser = {
     }
     return { $: "RustcObjcClass", classname };
   },
-};
+});
 
-export const RustcObjcSelectorParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const RustcObjcSelectorParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.rustc_objc_selector],
   ALLOWED_TARGETS: { $: "AllowList", _0: [{ $: "Allow", _0: Target.ForeignStatic }] },
   TEMPLATE: template({ NameValueStr: ["methodName"] }),
-  STABILITY: { $: "Unstable", gate_name: sym.rustc_attrs, notes: [] },
+  STABILITY: unstable(sym.rustc_attrs),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs:189 convert
   convert(cx, args) {
@@ -276,15 +271,14 @@ export const RustcObjcSelectorParser: SingleAttributeParser = {
     }
     return { $: "RustcObjcSelector", methname };
   },
-};
+});
 
-// #[derive(Default)]
-interface NakedParserState {
+/** `#[derive(Default)] pub(crate) struct NakedParser` */
+export interface NakedParser {
   span: Span | undefined;
 }
 
-export const NakedParser: AttributeParser<NakedParserState> = {
-  ...AttributeParser_provided,
+export const NakedParser: AttributeParser<NakedParser> = AttributeParser_provided<NakedParser>({
   default: () => ({ span: undefined }),
   ATTRIBUTES: [
     [
@@ -415,10 +409,9 @@ export const NakedParser: AttributeParser<NakedParserState> = {
 
     return { $: "Naked", _0: span };
   },
-};
+});
 
-export const TrackCallerParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const TrackCallerParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.track_caller],
   ON_DUPLICATE: OnDuplicate.Warn,
   ALLOWED_TARGETS: {
@@ -462,10 +455,9 @@ export const TrackCallerParser: NoArgsAttributeParser = {
       // _ => {}
     }
   },
-};
+});
 
-export const NoMangleParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const NoMangleParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.no_mangle],
   ON_DUPLICATE: OnDuplicate.Warn,
   SAFETY: {
@@ -486,10 +478,10 @@ export const NoMangleParser: NoArgsAttributeParser = {
   },
   STABILITY: AttributeStability.Stable,
   CREATE: (span) => ({ $: "NoMangle", _0: span }),
-};
+});
 
-// #[derive(Default)]
-interface UsedParserState {
+/** `#[derive(Default)] pub(crate) struct UsedParser` */
+export interface UsedParser {
   first_compiler: Span | undefined;
   first_linker: Span | undefined;
   first_default: Span | undefined;
@@ -499,8 +491,7 @@ interface UsedParserState {
 // - Specifying two `#[used]` attributes is a warning (but will be an error in the future)
 // - But specifying two conflicting attributes: `#[used(compiler)]` and `#[used(linker)]` is already an error today
 // We can change this to a Simple parser once the warning becomes an error
-export const UsedParser: AttributeParser<UsedParserState> = {
-  ...AttributeParser_provided,
+export const UsedParser: AttributeParser<UsedParser> = AttributeParser_provided<UsedParser>({
   default: () => ({ first_compiler: undefined, first_linker: undefined, first_default: undefined }),
   ATTRIBUTES: [
     [
@@ -608,7 +599,7 @@ export const UsedParser: AttributeParser<UsedParserState> = {
       return undefined;
     }
   },
-};
+});
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs:507 parse_tf_attribute
 function parse_tf_attribute(cx: AcceptContext, args: ArgParser): Iterable<[Symbol, Span]> {
@@ -647,8 +638,7 @@ function parse_tf_attribute(cx: AcceptContext, args: ArgParser): Iterable<[Symbo
   return features;
 }
 
-export const TargetFeatureParser: CombineAttributeParser<[Symbol, Span]> = {
-  ...CombineAttributeParser_provided,
+export const TargetFeatureParser: CombineAttributeParser<[Symbol, Span]> = CombineAttributeParser_provided({
   PATH: [sym.target_feature],
   CONVERT: (items, span) => ({
     $: "TargetFeature",
@@ -698,10 +688,9 @@ export const TargetFeatureParser: CombineAttributeParser<[Symbol, Span]> = {
       }
     }
   },
-};
+});
 
-export const ForceTargetFeatureParser: CombineAttributeParser<[Symbol, Span]> = {
-  ...CombineAttributeParser_provided,
+export const ForceTargetFeatureParser: CombineAttributeParser<[Symbol, Span]> = CombineAttributeParser_provided({
   PATH: [sym.force_target_feature],
   SAFETY: {
     $: "Unsafe",
@@ -724,16 +713,15 @@ export const ForceTargetFeatureParser: CombineAttributeParser<[Symbol, Span]> = 
       { $: "Allow", _0: { $: "Method", _0: MethodKind.TraitImpl } },
     ],
   },
-  STABILITY: { $: "Unstable", gate_name: sym.effective_target_features, notes: [] },
+  STABILITY: unstable(sym.effective_target_features),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs:613 extend
   extend(cx, args) {
     return parse_tf_attribute(cx, args);
   },
-};
+});
 
-export const InstrumentFnParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const InstrumentFnParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.instrument_fn],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -745,7 +733,7 @@ export const InstrumentFnParser: SingleAttributeParser = {
     ],
   },
   TEMPLATE: template({ NameValueStr: ["on|off"] }),
-  STABILITY: { $: "Unstable", gate_name: sym.instrument_fn, notes: [] },
+  STABILITY: unstable(sym.instrument_fn),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs:634 convert
   convert(cx, args) {
@@ -775,7 +763,7 @@ export const InstrumentFnParser: SingleAttributeParser = {
       }
     }
   },
-};
+});
 
 /**
  * PORT: `set.iter().next()` (bitflags `Iter`: the contained named flags in declaration order, then
@@ -789,8 +777,7 @@ function bitflags_iter_first(set: SanitizerSet): SanitizerSet | undefined {
   return Flags_is_empty(SanitizerSet.FLAGS_DESC, remaining) ? undefined : remaining;
 }
 
-export const SanitizeParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const SanitizeParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.sanitize],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -823,7 +810,7 @@ export const SanitizeParser: SingleAttributeParser = {
       'realtime = "nonblocking|blocking|caller"',
     ],
   }),
-  STABILITY: { $: "Unstable", gate_name: sym.sanitize, notes: [] },
+  STABILITY: unstable(sym.sanitize),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs:690 convert
   convert(cx, args) {
@@ -952,10 +939,9 @@ export const SanitizeParser: SingleAttributeParser = {
 
     return { $: "Sanitize", on_set, off_set, rtsan, span: cx.attr_span };
   },
-};
+});
 
-export const ThreadLocalParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const ThreadLocalParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.thread_local],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -964,20 +950,18 @@ export const ThreadLocalParser: NoArgsAttributeParser = {
       { $: "Allow", _0: Target.ForeignStatic },
     ],
   },
-  STABILITY: { $: "Unstable", gate_name: sym.thread_local, notes: [] },
+  STABILITY: unstable(sym.thread_local),
   CREATE: (_) => ({ $: "ThreadLocal" }),
-};
+});
 
-export const RustcPassIndirectlyInNonRusticAbisParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcPassIndirectlyInNonRusticAbisParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_pass_indirectly_in_non_rustic_abis],
   ALLOWED_TARGETS: { $: "AllowList", _0: [{ $: "Allow", _0: Target.Struct }] },
-  STABILITY: { $: "Unstable", gate_name: sym.rustc_attrs, notes: [] },
+  STABILITY: unstable(sym.rustc_attrs),
   CREATE: (span) => ({ $: "RustcPassIndirectlyInNonRusticAbis", _0: span }),
-};
+});
 
-export const RustcEiiForeignItemParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcEiiForeignItemParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_eii_foreign_item],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -986,16 +970,15 @@ export const RustcEiiForeignItemParser: NoArgsAttributeParser = {
       { $: "Allow", _0: Target.ForeignStatic },
     ],
   },
-  STABILITY: { $: "Unstable", gate_name: sym.eii_internals, notes: [] },
+  STABILITY: unstable(sym.eii_internals),
   CREATE: (_) => ({ $: "RustcEiiForeignItem" }),
-};
+});
 
-export const PatchableFunctionEntryParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const PatchableFunctionEntryParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.patchable_function_entry],
   ALLOWED_TARGETS: { $: "AllowList", _0: [{ $: "Allow", _0: Target.Fn }] },
   TEMPLATE: template({ List: ['prefix_nops = m, entry_nops = n, section = "section"'] }),
-  STABILITY: { $: "Unstable", gate_name: sym.patchable_function_entry, notes: [] },
+  STABILITY: unstable(sym.patchable_function_entry),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs:823 convert
   convert(cx, args) {
@@ -1085,4 +1068,4 @@ export const PatchableFunctionEntryParser: SingleAttributeParser = {
 
     return { $: "PatchableFunctionEntry", prefix: prefix.value, entry: entry.value, section };
   },
-};
+});

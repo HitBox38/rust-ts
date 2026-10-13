@@ -2,9 +2,8 @@
 // (Conventions for `use super::prelude::*` / `unstable!`: see inline.ts.)
 //
 // PORT:
-// - `StabilityParser` / `ConstStabilityParser` have an inherent method (`check_duplicate`), so they
-//   are classes whose statics form the `AttributeParser` trait table (see repr.ts);
-//   `BodyStabilityParser` is a data-only state (interface) with a table const.
+// - Parser states are interfaces; the inherent `impl StabilityParser { fn check_duplicate }` (and
+//   `ConstStabilityParser`'s) is `<Parser>_inherent`, spread into the parser's table (see repr.ts).
 // - `&mut Option<Symbol>` out-parameters are `MutRef<Symbol | undefined>`; `Option<()>` is
 //   `[] | undefined` (as `AcceptContext::expect_no_args`).
 // - `issue_str.parse::<NonZero<u32>>()` is `u32_from_str` (rustc_session/options.ts), then
@@ -21,20 +20,20 @@ import {
   type UnstableRemovedFeature,
   VERSION_PLACEHOLDER,
 } from "../../rustc_attr_ir/lib.ts";
-import { ACCEPTED_LANG_FEATURES, type AttributeStability } from "../../rustc_feature/lib.ts";
+import { ACCEPTED_LANG_FEATURES } from "../../rustc_feature/lib.ts";
 import { is_ident } from "../../rustc_lexer/lib.ts";
 import { u32_from_str } from "../../rustc_session/options.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import { type Ident, Symbol, sym } from "../../rustc_span/symbol.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
-import { type AcceptContext, ExpectNameValue, ExpectStringLiteral, type FinalizeContext } from "../context.ts";
+import { type AcceptContext, ExpectNameValue, ExpectStringLiteral } from "../context.ts";
 import * as diagnostics from "../diagnostics.ts";
 import { ArgParser, MetaItemOrLitParser, type MetaItemParser } from "../parser.ts";
 import type { AllowedTargets } from "../target_checking.ts";
+import { unstable } from "../stability.ts";
 import { template } from "../template.ts";
 import {
-  type AcceptMapping,
   type AttributeParser,
   AttributeParser_provided,
   type CombineAttributeParser,
@@ -85,159 +84,155 @@ const ALLOWED_TARGETS: AllowedTargets = {
   ],
 };
 
-/** `unstable!(staged_api)` */
-const UNSTABLE_STAGED_API: AttributeStability = { $: "Unstable", gate_name: sym.staged_api, notes: [] };
+/** `#[derive(Default)] pub(crate) struct StabilityParser` */
+export interface StabilityParser {
+  allowed_through_unstable_modules: [Symbol, Symbol] | undefined;
+  stability: [Stability, Span] | undefined;
+}
 
-// #[derive(Default)]
-export class StabilityParser {
-  constructor(
-    public allowed_through_unstable_modules: [Symbol, Symbol] | undefined,
-    public stability: [Stability, Span] | undefined,
-  ) {}
-
+/** `impl StabilityParser` */
+const StabilityParser_inherent = {
   /// Checks, and emits an error when a stability (or unstability) was already set, which would be a duplicate.
   // rustc: compiler/rustc_attr_parsing/src/attributes/stability.rs:59 check_duplicate
-  check_duplicate(cx: AcceptContext): boolean {
-    if (this.stability !== undefined) {
+  check_duplicate(self: StabilityParser, cx: AcceptContext): boolean {
+    if (self.stability !== undefined) {
       cx.shared.emit_err(diagnostics.MultipleStabilityLevels_diagnostic({ span: cx.attr_span }));
       return true;
     } else {
       return false;
     }
-  }
+  },
+};
 
-  // impl AttributeParser for StabilityParser
-  static default(): StabilityParser {
-    return new StabilityParser(undefined, undefined);
-  }
-  static readonly ATTRIBUTES: AcceptMapping<StabilityParser> = [
-    [
-      [sym.stable],
-      template({ List: ['feature = "name", since = "version"'] }),
-      UNSTABLE_STAGED_API,
-      (this_, cx, args) => {
-        let r;
-        if (!this_.check_duplicate(cx) && (r = parse_stability(cx, args)) !== undefined) {
-          const [feature, level] = r;
-          this_.stability = [new Stability(level, feature), cx.attr_span];
-        }
-      },
-    ],
-    [
-      [sym.unstable],
-      template({ List: ['feature = "name", reason = "...", issue = "N"'] }),
-      UNSTABLE_STAGED_API,
-      (this_, cx, args) => {
-        let r;
-        if (!this_.check_duplicate(cx) && (r = parse_unstability(cx, args)) !== undefined) {
-          const [feature, level] = r;
-          this_.stability = [new Stability(level, feature), cx.attr_span];
-        }
-      },
-    ],
-    [
-      [sym.rustc_allowed_through_unstable_modules],
-      template({ List: ['message = "...", module = "...'] }),
-      UNSTABLE_STAGED_API,
-      (this_, cx, args) => {
-        const list = cx.expect_list(args, cx.attr_span);
-        if (list === undefined) return;
-        let message: Symbol | undefined = undefined;
-        let module: Symbol | undefined = undefined;
-
-        for (const item of list.mixed()) {
-          const nv = ExpectNameValue.MetaItemOrLitParser.expect_name_value(item, cx, MetaItemOrLitParser.span(item), undefined);
-          if (nv === undefined) {
-            return;
+export const StabilityParser: AttributeParser<StabilityParser> & typeof StabilityParser_inherent = {
+  ...StabilityParser_inherent,
+  ...AttributeParser_provided<StabilityParser>({
+    default: () => ({ allowed_through_unstable_modules: undefined, stability: undefined }),
+    ATTRIBUTES: [
+      [
+        [sym.stable],
+        template({ List: ['feature = "name", since = "version"'] }),
+        unstable(sym.staged_api),
+        (this_, cx, args) => {
+          let r;
+          if (!StabilityParser_inherent.check_duplicate(this_, cx) && (r = parse_stability(cx, args)) !== undefined) {
+            const [feature, level] = r;
+            this_.stability = [new Stability(level, feature), cx.attr_span];
           }
-          const [name, value_] = nv;
-          const value = cx.expect_string_literal(value_, ExpectStringLiteral.NameValueParser);
-          if (value === undefined) {
-            return;
+        },
+      ],
+      [
+        [sym.unstable],
+        template({ List: ['feature = "name", reason = "...", issue = "N"'] }),
+        unstable(sym.staged_api),
+        (this_, cx, args) => {
+          let r;
+          if (!StabilityParser_inherent.check_duplicate(this_, cx) && (r = parse_unstability(cx, args)) !== undefined) {
+            const [feature, level] = r;
+            this_.stability = [new Stability(level, feature), cx.attr_span];
           }
+        },
+      ],
+      [
+        [sym.rustc_allowed_through_unstable_modules],
+        template({ List: ['message = "...", module = "...'] }),
+        unstable(sym.staged_api),
+        (this_, cx, args) => {
+          const list = cx.expect_list(args, cx.attr_span);
+          if (list === undefined) return;
+          let message: Symbol | undefined = undefined;
+          let module: Symbol | undefined = undefined;
 
-          switch (name.name) {
-            case sym.message: {
-              if (message !== undefined) {
-                cx.adcx().duplicate_key(name.span, name.name);
-              } else {
-                message = value;
+          for (const item of list.mixed()) {
+            const nv = ExpectNameValue.MetaItemOrLitParser.expect_name_value(item, cx, MetaItemOrLitParser.span(item), undefined);
+            if (nv === undefined) {
+              return;
+            }
+            const [name, value_] = nv;
+            const value = cx.expect_string_literal(value_, ExpectStringLiteral.NameValueParser);
+            if (value === undefined) {
+              return;
+            }
+
+            switch (name.name) {
+              case sym.message: {
+                if (message !== undefined) {
+                  cx.adcx().duplicate_key(name.span, name.name);
+                } else {
+                  message = value;
+                }
+                break;
               }
-              break;
-            }
-            case sym.module: {
-              if (module !== undefined) {
-                cx.adcx().duplicate_key(name.span, name.name);
-              } else {
-                module = value;
+              case sym.module: {
+                if (module !== undefined) {
+                  cx.adcx().duplicate_key(name.span, name.name);
+                } else {
+                  module = value;
+                }
+                break;
               }
-              break;
-            }
-            default: {
-              cx.adcx().expected_specific_argument(name.span, [sym.message, sym.module]);
+              default: {
+                cx.adcx().expected_specific_argument(name.span, [sym.message, sym.module]);
+              }
             }
           }
-        }
 
-        const allowed_through_unstable_modules: [Symbol, Symbol] | undefined =
-          message !== undefined && module !== undefined ? [message, module] : undefined;
-        if (allowed_through_unstable_modules === undefined) {
-          cx.shared.emit_err(diagnostics.RustcAtumMissingParams_diagnostic({ span: cx.attr_span }));
-        }
+          const allowed_through_unstable_modules: [Symbol, Symbol] | undefined =
+            message !== undefined && module !== undefined ? [message, module] : undefined;
+          if (allowed_through_unstable_modules === undefined) {
+            cx.shared.emit_err(diagnostics.RustcAtumMissingParams_diagnostic({ span: cx.attr_span }));
+          }
 
-        this_.allowed_through_unstable_modules = allowed_through_unstable_modules;
-      },
+          this_.allowed_through_unstable_modules = allowed_through_unstable_modules;
+        },
+      ],
     ],
-  ];
-  static readonly ALLOWED_TARGETS: AllowedTargets = ALLOWED_TARGETS;
-  static readonly SAFETY = AttributeParser_provided.SAFETY;
+    ALLOWED_TARGETS: ALLOWED_TARGETS,
 
-  // rustc: compiler/rustc_attr_parsing/src/attributes/stability.rs:147 finalize
-  static finalize(self: StabilityParser, cx: FinalizeContext): { $: "Stability"; stability: Stability; span: Span } | undefined {
-    if (self.allowed_through_unstable_modules !== undefined) {
-      const atum = self.allowed_through_unstable_modules;
+    // rustc: compiler/rustc_attr_parsing/src/attributes/stability.rs:147 finalize
+    finalize(self, cx) {
+      if (self.allowed_through_unstable_modules !== undefined) {
+        const atum = self.allowed_through_unstable_modules;
+        if (self.stability !== undefined && self.stability[0].level.$ === "Stable") {
+          self.stability[0].level.allowed_through_unstable_modules = atum;
+        } else {
+          cx.shared.cx.dcx().emit_err(diagnostics.RustcAllowedUnstablePairing_diagnostic({ span: cx.shared.target_span }));
+        }
+      }
+
       if (self.stability !== undefined && self.stability[0].level.$ === "Stable") {
-        self.stability[0].level.allowed_through_unstable_modules = atum;
-      } else {
-        cx.shared.cx.dcx().emit_err(diagnostics.RustcAllowedUnstablePairing_diagnostic({ span: cx.shared.target_span }));
-      }
-    }
-
-    if (self.stability !== undefined && self.stability[0].level.$ === "Stable") {
-      for (const other_attr of cx.all_attrs) {
-        if (other_attr.word_is(sym.unstable_feature_bound)) {
-          cx.shared.emit_err(
-            diagnostics.UnstableFeatureBoundIncompatibleStability_diagnostic({
-              span: cx.shared.target_span,
-            }),
-          );
+        for (const other_attr of cx.all_attrs) {
+          if (other_attr.word_is(sym.unstable_feature_bound)) {
+            cx.shared.emit_err(
+              diagnostics.UnstableFeatureBoundIncompatibleStability_diagnostic({
+                span: cx.shared.target_span,
+              }),
+            );
+          }
         }
       }
+
+      if (self.stability === undefined) return undefined;
+      const [stability, span] = self.stability;
+
+      return { $: "Stability", stability, span };
     }
-
-    if (self.stability === undefined) return undefined;
-    const [stability, span] = self.stability;
-
-    return { $: "Stability", stability, span };
-  }
-
-  static readonly deferred_finalize_check = AttributeParser_provided.deferred_finalize_check;
-}
+  }),
+};
 
 // FIXME(jdonszelmann) change to Single
-// #[derive(Default)]
-interface BodyStabilityParserState {
+/** `#[derive(Default)] pub(crate) struct BodyStabilityParser` */
+export interface BodyStabilityParser {
   stability: [DefaultBodyStability, Span] | undefined;
 }
 
-export const BodyStabilityParser: AttributeParser<BodyStabilityParserState> = {
-  ...AttributeParser_provided,
+export const BodyStabilityParser: AttributeParser<BodyStabilityParser> = AttributeParser_provided<BodyStabilityParser>({
   default: () => ({ stability: undefined }),
   ATTRIBUTES: [
     [
       [sym.rustc_default_body_unstable],
       template({ List: ['feature = "name", reason = "...", issue = "N"'] }),
-      UNSTABLE_STAGED_API,
+      unstable(sym.staged_api),
       (this_, cx, args) => {
         let r;
         if (this_.stability !== undefined) {
@@ -258,10 +253,9 @@ export const BodyStabilityParser: AttributeParser<BodyStabilityParserState> = {
 
     return { $: "RustcBodyStability", stability, span };
   },
-};
+});
 
-export const RustcConstStableIndirectParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcConstStableIndirectParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_const_stable_indirect],
   ON_DUPLICATE: OnDuplicate.Ignore,
   ALLOWED_TARGETS: {
@@ -271,109 +265,106 @@ export const RustcConstStableIndirectParser: NoArgsAttributeParser = {
       { $: "Allow", _0: { $: "Method", _0: MethodKind.Inherent } },
     ],
   },
-  STABILITY: { $: "Unstable", gate_name: sym.rustc_attrs, notes: [] },
+  STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => ({ $: "RustcConstStableIndirect" }),
-};
+});
 
-// #[derive(Default)]
-export class ConstStabilityParser {
-  constructor(
-    public promotable: boolean,
-    public stability: [PartialConstStability, Span] | undefined,
-  ) {}
+/** `#[derive(Default)] pub(crate) struct ConstStabilityParser` */
+export interface ConstStabilityParser {
+  promotable: boolean;
+  stability: [PartialConstStability, Span] | undefined;
+}
 
+/** `impl ConstStabilityParser` */
+const ConstStabilityParser_inherent = {
   /// Checks, and emits an error when a stability (or unstability) was already set, which would be a duplicate.
   // rustc: compiler/rustc_attr_parsing/src/attributes/stability.rs:228 check_duplicate
-  check_duplicate(cx: AcceptContext): boolean {
-    if (this.stability !== undefined) {
+  check_duplicate(self: ConstStabilityParser, cx: AcceptContext): boolean {
+    if (self.stability !== undefined) {
       cx.shared.emit_err(diagnostics.MultipleStabilityLevels_diagnostic({ span: cx.attr_span }));
       return true;
     } else {
       return false;
     }
-  }
+  },
+};
 
-  // impl AttributeParser for ConstStabilityParser
-  static default(): ConstStabilityParser {
-    return new ConstStabilityParser(false, undefined);
-  }
-  static readonly ATTRIBUTES: AcceptMapping<ConstStabilityParser> = [
-    [
-      [sym.rustc_const_stable],
-      template({ List: ['feature = "name"'] }),
-      UNSTABLE_STAGED_API,
-      (this_, cx, args) => {
-        let r;
-        if (!this_.check_duplicate(cx) && (r = parse_stability(cx, args)) !== undefined) {
-          const [feature, level] = r;
-          this_.stability = [new PartialConstStability(level, feature, false), cx.attr_path.span];
-        }
-      },
+export const ConstStabilityParser: AttributeParser<ConstStabilityParser> & typeof ConstStabilityParser_inherent = {
+  ...ConstStabilityParser_inherent,
+  ...AttributeParser_provided<ConstStabilityParser>({
+    default: () => ({ promotable: false, stability: undefined }),
+    ATTRIBUTES: [
+      [
+        [sym.rustc_const_stable],
+        template({ List: ['feature = "name"'] }),
+        unstable(sym.staged_api),
+        (this_, cx, args) => {
+          let r;
+          if (!ConstStabilityParser_inherent.check_duplicate(this_, cx) && (r = parse_stability(cx, args)) !== undefined) {
+            const [feature, level] = r;
+            this_.stability = [new PartialConstStability(level, feature, false), cx.attr_path.span];
+          }
+        },
+      ],
+      [
+        [sym.rustc_const_unstable],
+        template({ List: ['feature = "name"'] }),
+        unstable(sym.staged_api),
+        (this_, cx, args) => {
+          let r;
+          if (!ConstStabilityParser_inherent.check_duplicate(this_, cx) && (r = parse_unstability(cx, args)) !== undefined) {
+            const [feature, level] = r;
+            this_.stability = [new PartialConstStability(level, feature, false), cx.attr_path.span];
+          }
+        },
+      ],
+      [
+        [sym.rustc_promotable],
+        template({ Word: true }),
+        unstable(sym.staged_api),
+        (this_, _cx, _) => {
+          this_.promotable = true;
+        },
+      ],
     ],
-    [
-      [sym.rustc_const_unstable],
-      template({ List: ['feature = "name"'] }),
-      UNSTABLE_STAGED_API,
-      (this_, cx, args) => {
-        let r;
-        if (!this_.check_duplicate(cx) && (r = parse_unstability(cx, args)) !== undefined) {
-          const [feature, level] = r;
-          this_.stability = [new PartialConstStability(level, feature, false), cx.attr_path.span];
-        }
-      },
-    ],
-    [
-      [sym.rustc_promotable],
-      template({ Word: true }),
-      UNSTABLE_STAGED_API,
-      (this_, _cx, _) => {
-        this_.promotable = true;
-      },
-    ],
-  ];
-  static readonly ALLOWED_TARGETS: AllowedTargets = {
-    $: "AllowList",
-    _0: [
-      { $: "Allow", _0: Target.Fn },
-      { $: "Allow", _0: { $: "Method", _0: MethodKind.Inherent } },
-      { $: "Allow", _0: { $: "Method", _0: MethodKind.TraitImpl } },
-      { $: "Allow", _0: { $: "Method", _0: { $: "Trait", body: true } } },
-      { $: "Allow", _0: { $: "Impl", of_trait: false } },
-      { $: "Allow", _0: { $: "Impl", of_trait: true } },
-      { $: "Allow", _0: Target.Use }, // FIXME I don't think this does anything?
-      { $: "Allow", _0: Target.Const },
-      { $: "Allow", _0: { $: "AssocConst", _0: { $: "Impl", of_trait: false } } },
-      { $: "Allow", _0: { $: "AssocConst", _0: AssocCtxt.Trait } },
-      { $: "Allow", _0: { $: "AssocConst", _0: { $: "Impl", of_trait: true } } },
-      { $: "Allow", _0: Target.Trait },
-      { $: "Allow", _0: Target.Static },
-      { $: "Allow", _0: Target.Crate },
-    ],
-  };
-  static readonly SAFETY = AttributeParser_provided.SAFETY;
+    ALLOWED_TARGETS: {
+      $: "AllowList",
+      _0: [
+        { $: "Allow", _0: Target.Fn },
+        { $: "Allow", _0: { $: "Method", _0: MethodKind.Inherent } },
+        { $: "Allow", _0: { $: "Method", _0: MethodKind.TraitImpl } },
+        { $: "Allow", _0: { $: "Method", _0: { $: "Trait", body: true } } },
+        { $: "Allow", _0: { $: "Impl", of_trait: false } },
+        { $: "Allow", _0: { $: "Impl", of_trait: true } },
+        { $: "Allow", _0: Target.Use }, // FIXME I don't think this does anything?
+        { $: "Allow", _0: Target.Const },
+        { $: "Allow", _0: { $: "AssocConst", _0: { $: "Impl", of_trait: false } } },
+        { $: "Allow", _0: { $: "AssocConst", _0: AssocCtxt.Trait } },
+        { $: "Allow", _0: { $: "AssocConst", _0: { $: "Impl", of_trait: true } } },
+        { $: "Allow", _0: Target.Trait },
+        { $: "Allow", _0: Target.Static },
+        { $: "Allow", _0: Target.Crate },
+      ],
+    },
 
-  // rustc: compiler/rustc_attr_parsing/src/attributes/stability.rs:291 finalize
-  static finalize(
-    self: ConstStabilityParser,
-    cx: FinalizeContext,
-  ): { $: "RustcConstStability"; stability: PartialConstStability; span: Span } | undefined {
-    if (self.promotable) {
-      if (self.stability !== undefined) {
-        const stab = self.stability[0];
-        stab.promotable = true;
-      } else {
-        cx.shared.cx.dcx().emit_err(diagnostics.RustcPromotablePairing_diagnostic({ span: cx.shared.target_span }));
+    // rustc: compiler/rustc_attr_parsing/src/attributes/stability.rs:291 finalize
+    finalize(self, cx) {
+      if (self.promotable) {
+        if (self.stability !== undefined) {
+          const stab = self.stability[0];
+          stab.promotable = true;
+        } else {
+          cx.shared.cx.dcx().emit_err(diagnostics.RustcPromotablePairing_diagnostic({ span: cx.shared.target_span }));
+        }
       }
+
+      if (self.stability === undefined) return undefined;
+      const [stability, span] = self.stability;
+
+      return { $: "RustcConstStability", stability, span };
     }
-
-    if (self.stability === undefined) return undefined;
-    const [stability, span] = self.stability;
-
-    return { $: "RustcConstStability", stability, span };
-  }
-
-  static readonly deferred_finalize_check = AttributeParser_provided.deferred_finalize_check;
-}
+  }),
+};
 
 /// Tries to insert the value of a `key = value` meta item into an option.
 ///
@@ -585,12 +576,11 @@ export function parse_unstability(cx: AcceptContext, args: ArgParser): [Symbol, 
   }
 }
 
-export const UnstableRemovedParser: CombineAttributeParser<UnstableRemovedFeature> = {
-  ...CombineAttributeParser_provided,
+export const UnstableRemovedParser: CombineAttributeParser<UnstableRemovedFeature> = CombineAttributeParser_provided({
   PATH: [sym.unstable_removed],
   ALLOWED_TARGETS: { $: "AllowList", _0: [{ $: "Allow", _0: Target.Crate }] },
   TEMPLATE: template({ List: ['feature = "name", reason = "...", link = "...", since = "version"'] }),
-  STABILITY: UNSTABLE_STAGED_API,
+  STABILITY: unstable(sym.staged_api),
 
   CONVERT: (items, _) => ({ $: "UnstableRemoved", _0: items }),
 
@@ -662,4 +652,4 @@ export const UnstableRemovedParser: CombineAttributeParser<UnstableRemovedFeatur
 
     return [{ feature: feature.value, reason: reason.value, link: link.value, since: version }];
   },
-};
+});

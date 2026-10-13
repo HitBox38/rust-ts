@@ -44,8 +44,7 @@ function get(
   }
 }
 
-export const DeprecatedParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const DeprecatedParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.deprecated],
   ALLOWED_TARGETS: {
     $: "AllowListWarnRest",
@@ -167,7 +166,7 @@ export const DeprecatedParser: SingleAttributeParser = {
                   DeprecatedItemSuggestion_diagnostic({
                     span: param.span(),
                     is_nightly: cx.shared.cx.sess().is_nightly_build(),
-                    details: undefined,
+                    details: null,
                   }),
                 );
               }
@@ -237,7 +236,7 @@ export const DeprecatedParser: SingleAttributeParser = {
       span: cx.attr_span,
     };
   },
-};
+});
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/deprecation.rs:217 parse_since
 function parse_since(since: Symbol, is_rustc: boolean): DeprecatedSince {

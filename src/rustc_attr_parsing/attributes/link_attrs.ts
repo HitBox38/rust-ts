@@ -2,8 +2,8 @@
 // (Conventions for `use super::prelude::*` / `unstable!`: see inline.ts.)
 //
 // PORT:
-// - `LinkParser` has inherent associated fns (`parse_link_*`), so it is a class whose statics form
-//   the `CombineAttributeParser` trait table (see repr.ts); `Self::parse_link_name(..)` is
+// - `LinkParser`'s inherent associated fns (`impl LinkParser { fn parse_link_* }`) are members of its
+//   table after the `CombineAttributeParser` items (upstream order); `Self::parse_link_name(..)` is
 //   `LinkParser.parse_link_name(..)`.
 // - `&mut Option<_>` out-parameters are `MutRef`s; `&mut` places inside `NativeLibKind::Static { .. }`
 //   etc. are `field_mut` views.
@@ -50,11 +50,12 @@ import {
 } from "../diagnostics.ts";
 import { type ArgParser, MetaItemOrLitParser, type MetaItemParser } from "../parser.ts";
 import type { AllowedTargets } from "../target_checking.ts";
-import { type AttributeTemplate, template } from "../template.ts";
+import { unstable } from "../stability.ts";
+import { template } from "../template.ts";
 import { parse_cfg_entry } from "./cfg.ts";
 import {
+  type CombineAttributeParser,
   CombineAttributeParser_provided,
-  type ConvertFn,
   type NoArgsAttributeParser,
   NoArgsAttributeParser_provided,
   OnDuplicate,
@@ -65,8 +66,7 @@ import { parse_single_integer } from "./util.ts";
 
 const { Target, MethodKind, AssocCtxt } = target_mod;
 
-export const LinkNameParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const LinkNameParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.link_name],
   ON_DUPLICATE: OnDuplicate.WarnButFutureError,
   ALLOWED_TARGETS: {
@@ -104,235 +104,256 @@ export const LinkNameParser: SingleAttributeParser = {
 
     return { $: "LinkName", name, span: cx.attr_span };
   },
-};
+});
 
-export class LinkParser {
+/** `impl LinkParser`: inherent associated fns (no `self`). */
+interface LinkParserInherent {
+  parse_link_name(item: MetaItemParser, name: MutRef<[Symbol, Span] | undefined>, cx: AcceptContext): boolean;
+  parse_link_kind(
+    item: MetaItemParser,
+    kind: MutRef<NativeLibKind | undefined>,
+    cx: AcceptContext,
+    sess: Session,
+    features: Features,
+  ): boolean;
+  parse_link_modifiers(item: MetaItemParser, modifiers: MutRef<[Symbol, Span] | undefined>, cx: AcceptContext): boolean;
+  parse_link_cfg(item: MetaItemParser, cfg: MutRef<CfgEntry | undefined>, cx: AcceptContext, sess: Session, features: Features): boolean;
+  parse_link_wasm_import_module(item: MetaItemParser, wasm_import_module: MutRef<[Symbol, Span] | undefined>, cx: AcceptContext): boolean;
+  parse_link_import_name_type(
+    item: MetaItemParser,
+    import_name_type: MutRef<[PeImportNameType, Span] | undefined>,
+    cx: AcceptContext,
+  ): boolean;
+}
+
+export const LinkParser: CombineAttributeParser<LinkEntry> & LinkParserInherent = {
   // impl CombineAttributeParser for LinkParser
   // type Item = LinkEntry;
-  static readonly PATH = [sym.link];
-  static readonly CONVERT: ConvertFn<LinkEntry> = (items, span) => ({ $: "Link", _0: items, _1: span });
-  static readonly TEMPLATE: AttributeTemplate = template(
-    {
-      List: [
-        'name = "..."',
-        'name = "...", kind = "dylib|static|..."',
-        'name = "...", wasm_import_module = "..."',
-        'name = "...", import_name_type = "decorated|noprefix|undecorated"',
-        'name = "...", kind = "dylib|static|...", wasm_import_module = "...", import_name_type = "decorated|noprefix|undecorated"',
-      ],
+  ...CombineAttributeParser_provided<LinkEntry>({
+    PATH: [sym.link],
+    CONVERT: (items, span) => ({ $: "Link", _0: items, _1: span }),
+    TEMPLATE: template(
+      {
+        List: [
+          'name = "..."',
+          'name = "...", kind = "dylib|static|..."',
+          'name = "...", wasm_import_module = "..."',
+          'name = "...", import_name_type = "decorated|noprefix|undecorated"',
+          'name = "...", kind = "dylib|static|...", wasm_import_module = "...", import_name_type = "decorated|noprefix|undecorated"',
+        ],
+      },
+      "https://doc.rust-lang.org/reference/items/external-blocks.html#the-link-attribute",
+    ),
+    ALLOWED_TARGETS: {
+      $: "AllowListWarnRest",
+      _0: [{ $: "Allow", _0: Target.ForeignMod }],
     },
-    "https://doc.rust-lang.org/reference/items/external-blocks.html#the-link-attribute",
-  );
-  static readonly ALLOWED_TARGETS: AllowedTargets = {
-    $: "AllowListWarnRest",
-    _0: [{ $: "Allow", _0: Target.ForeignMod }],
-  };
-  static readonly STABILITY: AttributeStability = AttributeStability.Stable;
-  static readonly SAFETY = CombineAttributeParser_provided.SAFETY;
+    STABILITY: AttributeStability.Stable,
 
-  // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:80 extend
-  static extend(cx: AcceptContext, args: ArgParser): Iterable<LinkEntry> {
-    let items;
-    if (args.$ === "List") {
-      items = args._0;
-    } else if (args.$ === "NameValue" && args._0.value_as_str() === sym.dl) {
-      // This is an edgecase added because making this a hard error would break too many crates
-      // Specifically `#[link = "dl"]` is accepted with a FCW
-      // For more information, see https://github.com/rust-lang/rust/pull/143193
-      cx.adcx().warn_ill_formed_attribute_input(ILL_FORMED_ATTRIBUTE_INPUT);
-      return [];
-    } else {
-      const attr_span = cx.attr_span;
-      cx.adcx().expected_list(attr_span, args);
-      return [];
-    }
-
-    const sess = cx.shared.cx.sess();
-    const features = cx.shared.cx.features();
-
-    const name: MutRef<[Symbol, Span] | undefined> = { value: undefined };
-    const kind: MutRef<NativeLibKind | undefined> = { value: undefined };
-    const modifiers: MutRef<[Symbol, Span] | undefined> = { value: undefined };
-    const cfg: MutRef<CfgEntry | undefined> = { value: undefined };
-    const wasm_import_module: MutRef<[Symbol, Span] | undefined> = { value: undefined };
-    const import_name_type: MutRef<[PeImportNameType, Span] | undefined> = { value: undefined };
-    for (const item_ of items.mixed()) {
-      const item = MetaItemOrLitParser.meta_item(item_);
-      if (item === undefined) {
-        cx.adcx().expected_not_literal(MetaItemOrLitParser.span(item_));
-        continue;
-      }
-
-      const word = item.path().word();
-      let cont: boolean;
-      switch (word === undefined ? undefined : word.name) {
-        case sym.name:
-          cont = LinkParser.parse_link_name(item, name, cx);
-          break;
-        case sym.kind:
-          cont = LinkParser.parse_link_kind(item, kind, cx, sess, features);
-          break;
-        case sym.modifiers:
-          cont = LinkParser.parse_link_modifiers(item, modifiers, cx);
-          break;
-        case sym.cfg:
-          cont = LinkParser.parse_link_cfg(item, cfg, cx, sess, features);
-          break;
-        case sym.wasm_import_module: {
-          cont = LinkParser.parse_link_wasm_import_module(item, wasm_import_module, cx);
-          break;
-        }
-        case sym.import_name_type: {
-          cont = LinkParser.parse_link_import_name_type(item, import_name_type, cx);
-          break;
-        }
-        default: {
-          cx.adcx().expected_specific_argument_strings(item.span(), [
-            sym.name,
-            sym.kind,
-            sym.modifiers,
-            sym.cfg,
-            sym.wasm_import_module,
-            sym.import_name_type,
-          ]);
-          cont = true;
-        }
-      }
-      if (!cont) {
+    // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:80 extend
+    extend(cx, args) {
+      let items;
+      if (args.$ === "List") {
+        items = args._0;
+      } else if (args.$ === "NameValue" && args._0.value_as_str() === sym.dl) {
+        // This is an edgecase added because making this a hard error would break too many crates
+        // Specifically `#[link = "dl"]` is accepted with a FCW
+        // For more information, see https://github.com/rust-lang/rust/pull/143193
+        cx.adcx().warn_ill_formed_attribute_input(ILL_FORMED_ATTRIBUTE_INPUT);
+        return [];
+      } else {
+        const attr_span = cx.attr_span;
+        cx.adcx().expected_list(attr_span, args);
         return [];
       }
-    }
 
-    // Do this outside the above loop so we don't depend on modifiers coming after kinds
-    const verbatim: MutRef<boolean | undefined> = { value: undefined };
-    if (modifiers.value !== undefined) {
-      const [modifiers_, span] = modifiers.value;
-      for (const modifier_ of Symbol.as_str(modifiers_).split(",")) {
-        let modifier: Symbol;
-        let value: boolean;
-        if (modifier_.startsWith("+") || modifier_.startsWith("-")) {
-          const m = modifier_.slice(1);
-          [modifier, value] = [Symbol.intern(m), modifier_.startsWith("+")];
-        } else {
-          cx.shared.emit_err(InvalidLinkModifier_diagnostic({ span }));
+      const sess = cx.shared.cx.sess();
+      const features = cx.shared.cx.features();
+
+      const name: MutRef<[Symbol, Span] | undefined> = { value: undefined };
+      const kind: MutRef<NativeLibKind | undefined> = { value: undefined };
+      const modifiers: MutRef<[Symbol, Span] | undefined> = { value: undefined };
+      const cfg: MutRef<CfgEntry | undefined> = { value: undefined };
+      const wasm_import_module: MutRef<[Symbol, Span] | undefined> = { value: undefined };
+      const import_name_type: MutRef<[PeImportNameType, Span] | undefined> = { value: undefined };
+      for (const item_ of items.mixed()) {
+        const item = MetaItemOrLitParser.meta_item(item_);
+        if (item === undefined) {
+          cx.adcx().expected_not_literal(MetaItemOrLitParser.span(item_));
           continue;
         }
 
-        const assign_modifier = (dst: MutRef<boolean | undefined>): void => {
-          if (dst.value !== undefined) {
-            cx.shared.emit_err(MultipleModifiers_diagnostic({ span, modifier }));
-          } else {
-            dst.value = value;
+        const word = item.path().word();
+        let cont: boolean;
+        switch (word === undefined ? undefined : word.name) {
+          case sym.name:
+            cont = LinkParser.parse_link_name(item, name, cx);
+            break;
+          case sym.kind:
+            cont = LinkParser.parse_link_kind(item, kind, cx, sess, features);
+            break;
+          case sym.modifiers:
+            cont = LinkParser.parse_link_modifiers(item, modifiers, cx);
+            break;
+          case sym.cfg:
+            cont = LinkParser.parse_link_cfg(item, cfg, cx, sess, features);
+            break;
+          case sym.wasm_import_module: {
+            cont = LinkParser.parse_link_wasm_import_module(item, wasm_import_module, cx);
+            break;
           }
-        };
-        const k = kind.value;
-        if (modifier === sym.bundle && k !== undefined && k.$ === "Static") {
-          assign_modifier(field_mut(k, "bundle"));
-        } else if (modifier === sym.bundle) {
-          cx.shared.emit_err(BundleNeedsStatic_diagnostic({ span }));
-        } else if (modifier === sym.export_symbols && k !== undefined && k.$ === "Static") {
-          assign_modifier(field_mut(k, "export_symbols"));
-        } else if (modifier === sym.export_symbols) {
-          cx.shared.emit_err(ExportSymbolsNeedsStatic_diagnostic({ span }));
-        } else if (modifier === sym.verbatim) {
-          assign_modifier(verbatim);
-        } else if (modifier === sym.whole_dash_archive && k !== undefined && k.$ === "Static") {
-          assign_modifier(field_mut(k, "whole_archive"));
-        } else if (modifier === sym.whole_dash_archive) {
-          cx.shared.emit_err(WholeArchiveNeedsStatic_diagnostic({ span }));
-        } else if (
-          modifier === sym.as_dash_needed &&
-          k !== undefined &&
-          (k.$ === "Dylib" || k.$ === "Framework" || k.$ === "RawDylib")
-        ) {
-          // report_unstable_modifier!(native_link_modifiers_as_needed);
-          if (!features.native_link_modifiers_as_needed()) {
-            feature_err(
-              sess,
-              sym.native_link_modifiers_as_needed,
-              span,
-              `linking modifier \`${display_Symbol(modifier)}\` is unstable`,
-            ).emit();
+          case sym.import_name_type: {
+            cont = LinkParser.parse_link_import_name_type(item, import_name_type, cx);
+            break;
           }
-          assign_modifier(field_mut(k, "as_needed"));
-        } else if (modifier === sym.as_dash_needed) {
-          cx.shared.emit_err(AsNeededCompatibility_diagnostic({ span }));
-        } else {
-          cx.adcx().expected_specific_argument_strings(span, [
-            sym.bundle,
-            sym.export_symbols,
-            sym.verbatim,
-            sym.whole_dash_archive,
-            sym.as_dash_needed,
-          ]);
+          default: {
+            cx.adcx().expected_specific_argument_strings(item.span(), [
+              sym.name,
+              sym.kind,
+              sym.modifiers,
+              sym.cfg,
+              sym.wasm_import_module,
+              sym.import_name_type,
+            ]);
+            cont = true;
+          }
+        }
+        if (!cont) {
+          return [];
         }
       }
-    }
 
-    if (wasm_import_module.value !== undefined) {
-      const [, span] = wasm_import_module.value;
-      if (name.value !== undefined || kind.value !== undefined || modifiers.value !== undefined || cfg.value !== undefined) {
-        cx.shared.emit_err(IncompatibleWasmLink_diagnostic({ span }));
+      // Do this outside the above loop so we don't depend on modifiers coming after kinds
+      const verbatim: MutRef<boolean | undefined> = { value: undefined };
+      if (modifiers.value !== undefined) {
+        const [modifiers_, span] = modifiers.value;
+        for (const modifier_ of Symbol.as_str(modifiers_).split(",")) {
+          let modifier: Symbol;
+          let value: boolean;
+          if (modifier_.startsWith("+") || modifier_.startsWith("-")) {
+            const m = modifier_.slice(1);
+            [modifier, value] = [Symbol.intern(m), modifier_.startsWith("+")];
+          } else {
+            cx.shared.emit_err(InvalidLinkModifier_diagnostic({ span }));
+            continue;
+          }
+
+          const assign_modifier = (dst: MutRef<boolean | undefined>): void => {
+            if (dst.value !== undefined) {
+              cx.shared.emit_err(MultipleModifiers_diagnostic({ span, modifier }));
+            } else {
+              dst.value = value;
+            }
+          };
+          const k = kind.value;
+          if (modifier === sym.bundle && k !== undefined && k.$ === "Static") {
+            assign_modifier(field_mut(k, "bundle"));
+          } else if (modifier === sym.bundle) {
+            cx.shared.emit_err(BundleNeedsStatic_diagnostic({ span }));
+          } else if (modifier === sym.export_symbols && k !== undefined && k.$ === "Static") {
+            assign_modifier(field_mut(k, "export_symbols"));
+          } else if (modifier === sym.export_symbols) {
+            cx.shared.emit_err(ExportSymbolsNeedsStatic_diagnostic({ span }));
+          } else if (modifier === sym.verbatim) {
+            assign_modifier(verbatim);
+          } else if (modifier === sym.whole_dash_archive && k !== undefined && k.$ === "Static") {
+            assign_modifier(field_mut(k, "whole_archive"));
+          } else if (modifier === sym.whole_dash_archive) {
+            cx.shared.emit_err(WholeArchiveNeedsStatic_diagnostic({ span }));
+          } else if (
+            modifier === sym.as_dash_needed &&
+            k !== undefined &&
+            (k.$ === "Dylib" || k.$ === "Framework" || k.$ === "RawDylib")
+          ) {
+            // report_unstable_modifier!(native_link_modifiers_as_needed);
+            if (!features.native_link_modifiers_as_needed()) {
+              feature_err(
+                sess,
+                sym.native_link_modifiers_as_needed,
+                span,
+                `linking modifier \`${display_Symbol(modifier)}\` is unstable`,
+              ).emit();
+            }
+            assign_modifier(field_mut(k, "as_needed"));
+          } else if (modifier === sym.as_dash_needed) {
+            cx.shared.emit_err(AsNeededCompatibility_diagnostic({ span }));
+          } else {
+            cx.adcx().expected_specific_argument_strings(span, [
+              sym.bundle,
+              sym.export_symbols,
+              sym.verbatim,
+              sym.whole_dash_archive,
+              sym.as_dash_needed,
+            ]);
+          }
+        }
       }
-    }
 
-    if (wasm_import_module.value !== undefined) {
-      [name.value, kind.value] = [wasm_import_module.value, { $: "WasmImportModule" }];
-    }
-    if (name.value === undefined) {
-      cx.shared.emit_err(LinkRequiresName_diagnostic({ span: cx.attr_span }));
-      return [];
-    }
-    const [name_, _name_span] = name.value;
-
-    // Do this outside of the loop so that `import_name_type` can be specified before `kind`.
-    if (import_name_type.value !== undefined) {
-      const [, span] = import_name_type.value;
-      if (!(kind.value !== undefined && kind.value.$ === "RawDylib")) {
-        cx.shared.emit_err(ImportNameTypeRaw_diagnostic({ span }));
+      if (wasm_import_module.value !== undefined) {
+        const [, span] = wasm_import_module.value;
+        if (name.value !== undefined || kind.value !== undefined || modifiers.value !== undefined || cfg.value !== undefined) {
+          cx.shared.emit_err(IncompatibleWasmLink_diagnostic({ span }));
+        }
       }
-    }
 
-    return [
-      {
-        span: cx.attr_span,
-        kind: kind.value ?? { $: "Unspecified" },
-        name: name_,
-        cfg: cfg.value,
-        verbatim: verbatim.value,
-        import_name_type: import_name_type.value,
-      },
-    ];
-  }
+      if (wasm_import_module.value !== undefined) {
+        [name.value, kind.value] = [wasm_import_module.value, { $: "WasmImportModule" }];
+      }
+      if (name.value === undefined) {
+        cx.shared.emit_err(LinkRequiresName_diagnostic({ span: cx.attr_span }));
+        return [];
+      }
+      const [name_, _name_span] = name.value;
 
-  // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:264 finalize_check
-  static finalize_check(cx: FinalizeCheckContext, attr_span: Span): void {
-    if (cx.shared.target.$ !== "ForeignMod") {
-      return;
-    }
+      // Do this outside of the loop so that `import_name_type` can be specified before `kind`.
+      if (import_name_type.value !== undefined) {
+        const [, span] = import_name_type.value;
+        if (!(kind.value !== undefined && kind.value.$ === "RawDylib")) {
+          cx.shared.emit_err(ImportNameTypeRaw_diagnostic({ span }));
+        }
+      }
 
-    const item = unwrap(cx.target_item, "missing AST target item for Target::ForeignMod");
-    if (item.kind.$ !== "ForeignMod") {
-      panic("expected foreign module AST target item for Target::ForeignMod");
-    }
-    const fm = item.kind._0;
-    // `fm.abi.map_or(ExternAbi::FALLBACK, |abi| abi.symbol_unescaped.as_str().parse().unwrap_or_else(..))`
-    // PORT: `ExternAbi::FALLBACK` (`C { unwind: false }`) is not `ExternAbi::Rust`.
-    let abi_is_rust: boolean;
-    if (fm.abi === undefined) {
-      abi_is_rust = false;
-    } else {
-      abi_is_rust = unported("rustc_abi::ExternAbi::from_str (LinkParser::finalize_check)");
-    }
-    if (abi_is_rust) {
-      cx.shared.emit_lint(UNUSED_ATTRIBUTES, Link_diagnostic({}), attr_span);
-    }
-  }
+      return [
+        {
+          span: cx.attr_span,
+          kind: kind.value ?? { $: "Unspecified" },
+          name: name_,
+          cfg: cfg.value,
+          verbatim: verbatim.value,
+          import_name_type: import_name_type.value,
+        },
+      ];
+    },
+
+    // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:264 finalize_check
+    finalize_check(cx, attr_span) {
+      if (cx.shared.target.$ !== "ForeignMod") {
+        return;
+      }
+
+      const item = unwrap(cx.target_item, "missing AST target item for Target::ForeignMod");
+      if (item.kind.$ !== "ForeignMod") {
+        panic("expected foreign module AST target item for Target::ForeignMod");
+      }
+      const fm = item.kind._0;
+      // `fm.abi.map_or(ExternAbi::FALLBACK, |abi| abi.symbol_unescaped.as_str().parse().unwrap_or_else(..))`
+      // PORT: `ExternAbi::FALLBACK` (`C { unwind: false }`) is not `ExternAbi::Rust`.
+      let abi_is_rust: boolean;
+      if (fm.abi === undefined) {
+        abi_is_rust = false;
+      } else {
+        abi_is_rust = unported("rustc_abi::ExternAbi::from_str (LinkParser::finalize_check)");
+      }
+      if (abi_is_rust) {
+        cx.shared.emit_lint(UNUSED_ATTRIBUTES, Link_diagnostic({}), attr_span);
+      }
+    },
+  }),
 
   // impl LinkParser
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:289 parse_link_name
-  static parse_link_name(item: MetaItemParser, name: MutRef<[Symbol, Span] | undefined>, cx: AcceptContext): boolean {
+  parse_link_name(item: MetaItemParser, name: MutRef<[Symbol, Span] | undefined>, cx: AcceptContext): boolean {
     if (name.value !== undefined) {
       cx.adcx().duplicate_key(item.span(), sym.name);
       return true;
@@ -355,10 +376,10 @@ export class LinkParser {
 
     name.value = [link_name, nv.value_span];
     return true;
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:316 parse_link_kind
-  static parse_link_kind(
+  parse_link_kind(
     item: MetaItemParser,
     kind: MutRef<NativeLibKind | undefined>,
     cx: AcceptContext,
@@ -428,10 +449,10 @@ export class LinkParser {
     }
     kind.value = link_kind;
     return true;
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:396 parse_link_modifiers
-  static parse_link_modifiers(item: MetaItemParser, modifiers: MutRef<[Symbol, Span] | undefined>, cx: AcceptContext): boolean {
+  parse_link_modifiers(item: MetaItemParser, modifiers: MutRef<[Symbol, Span] | undefined>, cx: AcceptContext): boolean {
     if (modifiers.value !== undefined) {
       cx.adcx().duplicate_key(item.span(), sym.modifiers);
       return true;
@@ -446,10 +467,10 @@ export class LinkParser {
     }
     modifiers.value = [link_modifiers, nv.value_span];
     return true;
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:415 parse_link_cfg
-  static parse_link_cfg(
+  parse_link_cfg(
     item: MetaItemParser,
     cfg: MutRef<CfgEntry | undefined>,
     cx: AcceptContext,
@@ -470,10 +491,10 @@ export class LinkParser {
     const r = parse_cfg_entry(cx, link_cfg);
     cfg.value = r.$ === "Ok" ? r._0 : undefined;
     return true;
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:436 parse_link_wasm_import_module
-  static parse_link_wasm_import_module(
+  parse_link_wasm_import_module(
     item: MetaItemParser,
     wasm_import_module: MutRef<[Symbol, Span] | undefined>,
     cx: AcceptContext,
@@ -492,10 +513,10 @@ export class LinkParser {
     }
     wasm_import_module.value = [link_wasm_import_module, item.span()];
     return true;
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:457 parse_link_import_name_type
-  static parse_link_import_name_type(
+  parse_link_import_name_type(
     item: MetaItemParser,
     import_name_type: MutRef<[PeImportNameType, Span] | undefined>,
     cx: AcceptContext,
@@ -535,8 +556,8 @@ export class LinkParser {
     }
     import_name_type.value = [link_import_name_type, item.span()];
     return true;
-  }
-}
+  },
+};
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:497 check_link_section_macho
 function check_link_section_macho(name: Symbol): Result<undefined, InvalidMachoSectionReason> {
@@ -566,8 +587,7 @@ function check_link_section_macho(name: Symbol): Result<undefined, InvalidMachoS
   return Ok(undefined);
 }
 
-export const LinkSectionParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const LinkSectionParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.link_section],
   ON_DUPLICATE: OnDuplicate.WarnButFutureError,
   SAFETY: {
@@ -623,10 +643,9 @@ export const LinkSectionParser: SingleAttributeParser = {
 
     return { $: "LinkSection", name };
   },
-};
+});
 
-export const ExportStableParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const ExportStableParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.export_stable],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -645,12 +664,11 @@ export const ExportStableParser: NoArgsAttributeParser = {
       { $: "Allow", _0: { $: "Impl", of_trait: false } },
     ],
   },
-  STABILITY: { $: "Unstable", gate_name: sym.export_stable, notes: [] },
+  STABILITY: unstable(sym.export_stable),
   CREATE: (_) => ({ $: "ExportStable" }),
-};
+});
 
-export const FfiConstParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const FfiConstParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.ffi_const],
   SAFETY: {
     $: "Unsafe",
@@ -658,12 +676,11 @@ export const FfiConstParser: NoArgsAttributeParser = {
     unsafe_since: undefined,
   },
   ALLOWED_TARGETS: { $: "AllowList", _0: [{ $: "Allow", _0: Target.ForeignFn }] },
-  STABILITY: { $: "Unstable", gate_name: sym.ffi_const, notes: [] },
+  STABILITY: unstable(sym.ffi_const),
   CREATE: (_) => ({ $: "FfiConst" }),
-};
+});
 
-export const FfiPureParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const FfiPureParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.ffi_pure],
   SAFETY: {
     $: "Unsafe",
@@ -671,7 +688,7 @@ export const FfiPureParser: NoArgsAttributeParser = {
     unsafe_since: undefined,
   },
   ALLOWED_TARGETS: { $: "AllowList", _0: [{ $: "Allow", _0: Target.ForeignFn }] },
-  STABILITY: { $: "Unstable", gate_name: sym.ffi_pure, notes: [] },
+  STABILITY: unstable(sym.ffi_pure),
   CREATE: (span) => ({ $: "FfiPure", _0: span }),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:612 finalize_check
@@ -681,10 +698,9 @@ export const FfiPureParser: NoArgsAttributeParser = {
       cx.shared.emit_err(BothFfiConstAndPure_diagnostic({ attr_span }));
     }
   },
-};
+});
 
-export const RustcStdInternalSymbolParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const RustcStdInternalSymbolParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.rustc_std_internal_symbol],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -695,12 +711,11 @@ export const RustcStdInternalSymbolParser: NoArgsAttributeParser = {
       { $: "Allow", _0: Target.ForeignStatic },
     ],
   },
-  STABILITY: { $: "Unstable", gate_name: sym.rustc_attrs, notes: [] },
+  STABILITY: unstable(sym.rustc_attrs),
   CREATE: (_) => ({ $: "RustcStdInternalSymbol" }),
-};
+});
 
-export const LinkOrdinalParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const LinkOrdinalParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.link_ordinal],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -742,10 +757,9 @@ export const LinkOrdinalParser: SingleAttributeParser = {
 
     return { $: "LinkOrdinal", ordinal: Number(ordinal), span: cx.attr_span };
   },
-};
+});
 
-export const LinkageParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const LinkageParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.linkage],
   ALLOWED_TARGETS: {
     $: "AllowList",
@@ -762,7 +776,7 @@ export const LinkageParser: SingleAttributeParser = {
   TEMPLATE: template({
     NameValueStr: ["available_externally", "extern_weak", "linkonce", "linkonce_odr", "weak", "weak_odr"],
   }),
-  STABILITY: { $: "Unstable", gate_name: sym.linkage, notes: [] },
+  STABILITY: unstable(sym.linkage),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/link_attrs.rs:696 convert
   convert(cx, args) {
@@ -816,20 +830,18 @@ export const LinkageParser: SingleAttributeParser = {
 
     return { $: "Linkage", _0: linkage, _1: cx.attr_span };
   },
-};
+});
 
-export const NeedsAllocatorParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const NeedsAllocatorParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.needs_allocator],
   ALLOWED_TARGETS: { $: "AllowList", _0: [{ $: "Allow", _0: Target.Crate }] },
-  STABILITY: { $: "Unstable", gate_name: sym.allocator_internals, notes: [] },
+  STABILITY: unstable(sym.allocator_internals),
   CREATE: (_) => ({ $: "NeedsAllocator" }),
-};
+});
 
-export const CompilerBuiltinsParser: NoArgsAttributeParser = {
-  ...NoArgsAttributeParser_provided,
+export const CompilerBuiltinsParser: NoArgsAttributeParser = NoArgsAttributeParser_provided({
   PATH: [sym.compiler_builtins],
   ALLOWED_TARGETS: { $: "AllowList", _0: [{ $: "Allow", _0: Target.Crate }] },
-  STABILITY: { $: "Unstable", gate_name: sym.compiler_builtins, notes: [] },
+  STABILITY: unstable(sym.compiler_builtins),
   CREATE: (_) => ({ $: "CompilerBuiltins" }),
-};
+});

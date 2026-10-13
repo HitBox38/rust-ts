@@ -10,8 +10,7 @@ import { type SingleAttributeParser, SingleAttributeParser_provided } from "./mo
 
 const { Target, MethodKind } = target_mod;
 
-export const InstructionSetParser: SingleAttributeParser = {
-  ...SingleAttributeParser_provided,
+export const InstructionSetParser: SingleAttributeParser = SingleAttributeParser_provided({
   PATH: [sym.instruction_set],
   ALLOWED_TARGETS: {
     $: "AllowListWarnRest",
@@ -94,4 +93,4 @@ export const InstructionSetParser: SingleAttributeParser = {
 
     return { $: "InstructionSet", _0: instruction_set };
   },
-};
+});

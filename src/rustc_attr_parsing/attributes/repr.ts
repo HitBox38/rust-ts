@@ -2,11 +2,11 @@
 // (Conventions for `use super::prelude::*` / `unstable!`: see inline.ts.)
 //
 // PORT:
-// - `RustcAlignParser` / `RustcAlignStaticParser` have inherent items (`PATH`, `TEMPLATE`, `parse`),
-//   so they are classes (PORTING §5 "Structs"); the class itself is the `AttributeParser` trait
-//   table (static `default`, `ATTRIBUTES`, `ALLOWED_TARGETS`, `finalize`, and the provided items
-//   from `AttributeParser_provided`). `Self::parse` as an `AcceptFn` is `(self, cx, args) =>
-//   self.parse(cx, args)`.
+// - `RustcAlignParser` / `RustcAlignStaticParser`: the state is an interface; the inherent
+//   `impl RustcAlignParser { PATH, TEMPLATE, fn parse }` is `RustcAlignParser_inherent` (methods
+//   take the state as their first parameter), spread into the parser's table next to its
+//   `AttributeParser` items (the pattern of lane attr-parse-d's on_unimplemented.ts). `Self::parse`
+//   as an `AcceptFn` is `(self, cx, args) => RustcAlignParser_inherent.parse(self, cx, args)`.
 // - `Size::signed_int_max` (rustc_abi) is not ported; `parse_alignment` computes it in place
 //   (`i128::MAX >> (128 - bits)`), see `signed_int_max` below.
 import type { LitKind } from "../../rustc_ast/lib.ts";
@@ -18,16 +18,15 @@ import { AttributeStability } from "../../rustc_feature/lib.ts";
 import { feature_err } from "../../rustc_session/diagnostics.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import { OrdSpan } from "../../rustc_span/span_encoding.ts";
-import { sym } from "../../rustc_span/symbol.ts";
+import { type Symbol, sym } from "../../rustc_span/symbol.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
-import type { AcceptContext, FinalizeContext } from "../context.ts";
+import type { AcceptContext } from "../context.ts";
 import * as diagnostics from "../diagnostics.ts";
-import { type MetaItemListParser, MetaItemOrLitParser, type MetaItemParser } from "../parser.ts";
-import type { ArgParser } from "../parser.ts";
-import type { AllowedTargets } from "../target_checking.ts";
-import { type AttributeTemplate, template } from "../template.ts";
+import { type ArgParser, type MetaItemListParser, MetaItemOrLitParser, type MetaItemParser } from "../parser.ts";
+import { unstable } from "../stability.ts";
+import { template } from "../template.ts";
 import {
-  type AcceptMapping,
+  type AttributeParser,
   AttributeParser_provided,
   type CombineAttributeParser,
   CombineAttributeParser_provided,
@@ -44,8 +43,7 @@ const { Target, MethodKind } = target_mod;
 /// * `align(...)`, to change the alignment requirements of the type
 /// * `packed`, to remove padding
 /// * `transparent`, to delegate representation concerns to the only non-ZST field.
-export const ReprParser: CombineAttributeParser<[ReprAttr, Span]> = {
-  ...CombineAttributeParser_provided,
+export const ReprParser: CombineAttributeParser<[ReprAttr, Span]> = CombineAttributeParser_provided({
   PATH: [sym.repr],
   CONVERT: (items, first_span) => ({ $: "Repr", reprs: items, first_span }),
   TEMPLATE: template(
@@ -91,7 +89,7 @@ export const ReprParser: CombineAttributeParser<[ReprAttr, Span]> = {
 
   ALLOWED_TARGETS: { $: "ManuallyChecked" },
   STABILITY: AttributeStability.Stable,
-};
+});
 
 // rustc: compiler/rustc_attr_parsing/src/attributes/repr.rs:72 parse_repr
 function parse_repr(cx: AcceptContext, param: MetaItemParser): ReprAttr | undefined {
@@ -332,15 +330,18 @@ function cmp_align_span(a: [Align, OrdSpan], b: [Align, OrdSpan]): -1 | 0 | 1 {
 }
 
 /// Parse #[align(N)].
-// #[derive(Default)]
-export class RustcAlignParser {
-  constructor(public _0: [Align, OrdSpan] | undefined) {}
+/** `#[derive(Default)] pub(crate) struct RustcAlignParser(Option<(Align, OrdSpan)>)` */
+export interface RustcAlignParser {
+  _0: [Align, OrdSpan] | undefined;
+}
 
-  static readonly PATH = [sym.rustc_align];
-  static readonly TEMPLATE: AttributeTemplate = template({ List: ["<alignment in bytes>"] });
+/** `impl RustcAlignParser` */
+const RustcAlignParser_inherent = {
+  PATH: [sym.rustc_align] as readonly Symbol[],
+  TEMPLATE: template({ List: ["<alignment in bytes>"] }),
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/repr.rs:282 parse
-  parse(cx: AcceptContext, args: ArgParser): void {
+  parse(self: RustcAlignParser, cx: AcceptContext, args: ArgParser): void {
     const list = cx.expect_list(args, cx.attr_span);
     if (list === undefined) {
       return;
@@ -363,7 +364,7 @@ export class RustcAlignParser {
       // `Ord::max(self.0, Some((literal, OrdSpan(cx.attr_span))))`: `None` < `Some`; on equality the
       // second argument wins.
       const other: [Align, OrdSpan] = [literal, new OrdSpan(cx.attr_span)];
-      this._0 = this._0 !== undefined && cmp_align_span(this._0, other) === 1 ? this._0 : other;
+      self._0 = self._0 !== undefined && cmp_align_span(self._0, other) === 1 ? self._0 : other;
     } else {
       const message = r._0;
       cx.shared.emit_err(
@@ -373,82 +374,83 @@ export class RustcAlignParser {
         }),
       );
     }
-  }
+  },
+};
 
-  // impl AttributeParser for RustcAlignParser
-  static default(): RustcAlignParser {
-    return new RustcAlignParser(undefined);
-  }
-  static readonly ATTRIBUTES: AcceptMapping<RustcAlignParser> = [
-    [
-      RustcAlignParser.PATH,
-      RustcAlignParser.TEMPLATE,
-      { $: "Unstable", gate_name: sym.fn_align, notes: [] },
-      (self, cx, args) => self.parse(cx, args),
+export const RustcAlignParser: AttributeParser<RustcAlignParser> & typeof RustcAlignParser_inherent = {
+  ...RustcAlignParser_inherent,
+  ...AttributeParser_provided<RustcAlignParser>({
+    default: () => ({ _0: undefined }),
+    ATTRIBUTES: [
+      [
+        RustcAlignParser_inherent.PATH,
+        RustcAlignParser_inherent.TEMPLATE,
+        unstable(sym.fn_align),
+        (self, cx, args) => RustcAlignParser_inherent.parse(self, cx, args),
+      ],
     ],
-  ];
-  static readonly ALLOWED_TARGETS: AllowedTargets = {
-    $: "AllowList",
-    _0: [
-      { $: "Allow", _0: Target.Fn },
-      { $: "Allow", _0: { $: "Method", _0: MethodKind.Inherent } },
-      { $: "Allow", _0: { $: "Method", _0: { $: "Trait", body: true } } },
-      { $: "Allow", _0: { $: "Method", _0: MethodKind.TraitImpl } },
-      { $: "Allow", _0: { $: "Method", _0: { $: "Trait", body: false } } }, // `#[align]` is inherited from trait methods
-      { $: "Allow", _0: Target.ForeignFn },
-    ],
-  };
-  static readonly SAFETY = AttributeParser_provided.SAFETY;
+    ALLOWED_TARGETS: {
+      $: "AllowList",
+      _0: [
+        { $: "Allow", _0: Target.Fn },
+        { $: "Allow", _0: { $: "Method", _0: MethodKind.Inherent } },
+        { $: "Allow", _0: { $: "Method", _0: { $: "Trait", body: true } } },
+        { $: "Allow", _0: { $: "Method", _0: MethodKind.TraitImpl } },
+        { $: "Allow", _0: { $: "Method", _0: { $: "Trait", body: false } } }, // `#[align]` is inherited from trait methods
+        { $: "Allow", _0: Target.ForeignFn },
+      ],
+    },
 
-  // rustc: compiler/rustc_attr_parsing/src/attributes/repr.rs:320 finalize
-  static finalize(self: RustcAlignParser, _cx: FinalizeContext): { $: "RustcAlign"; align: IrAlign; span: Span } | undefined {
-    if (self._0 === undefined) return undefined;
-    const [align, span] = self._0;
-    return { $: "RustcAlign", align: ir_align(align), span: span._0 };
-  }
+    // rustc: compiler/rustc_attr_parsing/src/attributes/repr.rs:320 finalize
+    finalize(self, _cx) {
+      if (self._0 === undefined) return undefined;
+      const [align, span] = self._0;
+      return { $: "RustcAlign", align: ir_align(align), span: span._0 };
+    },
+  }),
+};
 
-  static readonly deferred_finalize_check = AttributeParser_provided.deferred_finalize_check;
+/** `#[derive(Default)] pub(crate) struct RustcAlignStaticParser(RustcAlignParser)` */
+export interface RustcAlignStaticParser {
+  _0: RustcAlignParser;
 }
 
-// #[derive(Default)]
-export class RustcAlignStaticParser {
-  constructor(public _0: RustcAlignParser) {}
-
-  static readonly PATH = [sym.rustc_align_static];
-  static readonly TEMPLATE: AttributeTemplate = RustcAlignParser.TEMPLATE;
+/** `impl RustcAlignStaticParser` */
+const RustcAlignStaticParser_inherent = {
+  PATH: [sym.rustc_align_static] as readonly Symbol[],
+  TEMPLATE: RustcAlignParser_inherent.TEMPLATE,
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/repr.rs:333 parse
-  parse(cx: AcceptContext, args: ArgParser): void {
-    this._0.parse(cx, args);
-  }
+  parse(self: RustcAlignStaticParser, cx: AcceptContext, args: ArgParser): void {
+    RustcAlignParser_inherent.parse(self._0, cx, args);
+  },
+};
 
-  // impl AttributeParser for RustcAlignStaticParser
-  static default(): RustcAlignStaticParser {
-    return new RustcAlignStaticParser(RustcAlignParser.default());
-  }
-  static readonly ATTRIBUTES: AcceptMapping<RustcAlignStaticParser> = [
-    [
-      RustcAlignStaticParser.PATH,
-      RustcAlignStaticParser.TEMPLATE,
-      { $: "Unstable", gate_name: sym.static_align, notes: [] },
-      (self, cx, args) => self.parse(cx, args),
+export const RustcAlignStaticParser: AttributeParser<RustcAlignStaticParser> & typeof RustcAlignStaticParser_inherent = {
+  ...RustcAlignStaticParser_inherent,
+  ...AttributeParser_provided<RustcAlignStaticParser>({
+    default: () => ({ _0: RustcAlignParser.default() }),
+    ATTRIBUTES: [
+      [
+        RustcAlignStaticParser_inherent.PATH,
+        RustcAlignStaticParser_inherent.TEMPLATE,
+        unstable(sym.static_align),
+        (self, cx, args) => RustcAlignStaticParser_inherent.parse(self, cx, args),
+      ],
     ],
-  ];
-  static readonly ALLOWED_TARGETS: AllowedTargets = {
-    $: "AllowList",
-    _0: [
-      { $: "Allow", _0: Target.Static },
-      { $: "Allow", _0: Target.ForeignStatic },
-    ],
-  };
-  static readonly SAFETY = AttributeParser_provided.SAFETY;
+    ALLOWED_TARGETS: {
+      $: "AllowList",
+      _0: [
+        { $: "Allow", _0: Target.Static },
+        { $: "Allow", _0: Target.ForeignStatic },
+      ],
+    },
 
-  // rustc: compiler/rustc_attr_parsing/src/attributes/repr.rs:344 finalize
-  static finalize(self: RustcAlignStaticParser, _cx: FinalizeContext): { $: "RustcAlign"; align: IrAlign; span: Span } | undefined {
-    if (self._0._0 === undefined) return undefined;
-    const [align, span] = self._0._0;
-    return { $: "RustcAlign", align: ir_align(align), span: span._0 };
-  }
-
-  static readonly deferred_finalize_check = AttributeParser_provided.deferred_finalize_check;
-}
+    // rustc: compiler/rustc_attr_parsing/src/attributes/repr.rs:344 finalize
+    finalize(self, _cx) {
+      if (self._0._0 === undefined) return undefined;
+      const [align, span] = self._0._0;
+      return { $: "RustcAlign", align: ir_align(align), span: span._0 };
+    },
+  }),
+};

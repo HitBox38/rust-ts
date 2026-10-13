@@ -2,8 +2,9 @@
 // (Conventions for `use super::prelude::*` / `unstable!`: see inline.ts.)
 //
 // PORT:
-// - `DocParser` has inherent methods, so it is a class whose statics form the `AttributeParser`
-//   trait table (see repr.ts). Its derived `Debug` is not used by the crate and is not provided.
+// - `DocParser`'s state is an interface; the inherent `impl DocParser` is `DocParser_inherent`
+//   (methods take the state as their first parameter), spread into the parser's table (see
+//   repr.ts). The derived `Debug` of `DocParser` is not used by the crate and is not provided.
 // - `&mut Option<_>` / `&mut CfgEntry` places are `MutRef` views (`field_mut`).
 // - The `macro_rules!` helpers of `parse_single_doc_attr_item` (`no_args!`, ...) are local closures;
 //   every use is the tail of its `match` arm, so the macros' `return` is the closure's.
@@ -32,7 +33,7 @@ import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { is_whitespace } from "../../std/char.ts";
 import { field_mut, type MutRef } from "../../std/mut_ref.ts";
 import { unported, unreachable, unwrap } from "../../std/panic.ts";
-import { type AcceptContext, ExpectStringLiteral, type FinalizeContext } from "../context.ts";
+import { type AcceptContext, ExpectStringLiteral } from "../context.ts";
 import {
   AttrCrateLevelOnly_diagnostic,
   DocAliasBadChar_diagnostic,
@@ -68,9 +69,10 @@ import {
   UnusedDuplicate_diagnostic,
 } from "../diagnostics.ts";
 import { ArgParser, type MetaItemListParser, MetaItemOrLitParser, type MetaItemParser, type OwnedPathParser } from "../parser.ts";
-import type { AllowedTargets, Policy } from "../target_checking.ts";
+import type { Policy } from "../target_checking.ts";
+import { unstable } from "../stability.ts";
 import { template } from "../template.ts";
-import { type AcceptMapping, AttributeParser_provided } from "./mod.ts";
+import { type AttributeParser, AttributeParser_provided } from "./mod.ts";
 import { parse_cfg as cfg_parse_cfg } from "./cfg.ts";
 
 const { Target, MethodKind, AssocCtxt } = target_mod;
@@ -235,15 +237,16 @@ function parse_keyword_and_attribute(
   attr_value.value = [value, span];
 }
 
-// #[derive(Default, Debug)]
-export class DocParser {
-  constructor(
-    public attribute: DocAttribute,
-    public nb_doc_attrs: number,
-  ) {}
+/** `#[derive(Default, Debug)] pub(crate) struct DocParser` */
+export interface DocParser {
+  attribute: DocAttribute;
+  nb_doc_attrs: number;
+}
 
+/** `impl DocParser` */
+const DocParser_inherent = {
   // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:141 parse_single_test_doc_attr_item
-  parse_single_test_doc_attr_item(cx: AcceptContext, mip: MetaItemParser): void {
+  parse_single_test_doc_attr_item(self: DocParser, cx: AcceptContext, mip: MetaItemParser): void {
     const path = mip.path();
     const args = mip.args();
 
@@ -256,8 +259,8 @@ export class DocParser {
         return;
       }
 
-      if (this.attribute.no_crate_inject !== undefined) {
-        const used_span = this.attribute.no_crate_inject;
+      if (self.attribute.no_crate_inject !== undefined) {
+        const used_span = self.attribute.no_crate_inject;
         const unused_span = path.span();
         cx.shared.emit_lint(
           INVALID_DOC_ATTRIBUTES,
@@ -271,7 +274,7 @@ export class DocParser {
         return;
       }
 
-      this.attribute.no_crate_inject = path.span();
+      self.attribute.no_crate_inject = path.span();
     } else if (name === sym.attr) {
       const list = ArgParser.as_list(args);
       if (list === undefined) {
@@ -286,17 +289,17 @@ export class DocParser {
       for (const attr of list.mixed()) {
         // Arguments of `attr` are checked via the span, so can be safely ignored
         MetaItemOrLitParser.ignore_args(attr);
-        this.attribute.test_attrs.push(MetaItemOrLitParser.span(attr));
+        self.attribute.test_attrs.push(MetaItemOrLitParser.span(attr));
       }
     } else if (name !== undefined) {
       cx.shared.emit_lint(INVALID_DOC_ATTRIBUTES, DocTestUnknown_diagnostic({ name }), path.span());
     } else {
       cx.shared.emit_lint(INVALID_DOC_ATTRIBUTES, DocTestLiteral_diagnostic({}), path.span());
     }
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:197 add_alias
-  add_alias(cx: AcceptContext, alias: Symbol, span: Span): void {
+  add_alias(self: DocParser, cx: AcceptContext, alias: Symbol, span: Span): void {
     const attr_str = '`#[doc(alias = "...")]`';
     if (alias === sym.empty) {
       cx.shared.emit_err(DocAliasEmpty_diagnostic({ span, attr_str }));
@@ -324,16 +327,16 @@ export class DocParser {
       return;
     }
 
-    const first_definition = this.attribute.aliases.get(alias);
+    const first_definition = self.attribute.aliases.get(alias);
     if (first_definition !== undefined) {
       cx.shared.emit_lint(UNUSED_ATTRIBUTES, DocAliasDuplicated_diagnostic({ first_definition }), span);
     }
 
-    this.attribute.aliases.set(alias, span);
-  }
+    self.attribute.aliases.set(alias, span);
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:226 parse_alias
-  parse_alias(cx: AcceptContext, path: OwnedPathParser, args: ArgParser): void {
+  parse_alias(self: DocParser, cx: AcceptContext, path: OwnedPathParser, args: ArgParser): void {
     switch (args.$) {
       case "NoArgs": {
         cx.shared.emit_err(DocAliasMalformed_diagnostic({ span: ArgParser.span(args) ?? path.span() }));
@@ -347,7 +350,7 @@ export class DocParser {
             continue;
           }
 
-          this.add_alias(cx, alias, MetaItemOrLitParser.span(i));
+          DocParser_inherent.add_alias(self, cx, alias, MetaItemOrLitParser.span(i));
         }
         break;
       }
@@ -357,14 +360,14 @@ export class DocParser {
         if (alias === undefined) {
           return;
         }
-        this.add_alias(cx, alias, nv.value_span);
+        DocParser_inherent.add_alias(self, cx, alias, nv.value_span);
         break;
       }
     }
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:254 parse_inline
-  parse_inline(cx: AcceptContext, path: OwnedPathParser, args: ArgParser, inline: DocInline): void {
+  parse_inline(self: DocParser, cx: AcceptContext, path: OwnedPathParser, args: ArgParser, inline: DocInline): void {
     const r = ArgParser.as_no_args(args);
     if (r.$ === "Err") {
       const span = r._0;
@@ -373,8 +376,8 @@ export class DocParser {
     }
 
     const span = path.span();
-    if (this.attribute.inline !== undefined) {
-      const [previous_inline, previous_span] = this.attribute.inline;
+    if (self.attribute.inline !== undefined) {
+      const [previous_inline, previous_span] = self.attribute.inline;
       if (previous_inline !== inline) {
         const spans = MultiSpan.from_spans([previous_span, span]);
         spans.push_span_label(previous_span, msg("this attribute..."));
@@ -382,7 +385,7 @@ export class DocParser {
         cx.shared.emit_err(DocInlineConflict_diagnostic({ spans }));
       }
     } else {
-      this.attribute.inline = [inline, span];
+      self.attribute.inline = [inline, span];
     }
 
     switch (cx.shared.target.$) {
@@ -394,10 +397,10 @@ export class DocParser {
         cx.shared.emit_lint(INVALID_DOC_ATTRIBUTES, DocInlineOnlyUse_diagnostic({ attr_span: span, item_span }), span);
       }
     }
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:291 parse_cfg
-  parse_cfg(cx: AcceptContext, args: ArgParser): void {
+  parse_cfg(self: DocParser, cx: AcceptContext, args: ArgParser): void {
     // This function replaces cases like `cfg(all())` with `true`.
     // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:293 simplify_cfg
     function simplify_cfg(cfg_entry: MutRef<CfgEntry>): void {
@@ -418,13 +421,13 @@ export class DocParser {
     if (cfg_entry !== undefined) {
       const cfg_entry_: MutRef<CfgEntry> = { value: cfg_entry };
       simplify_cfg(cfg_entry_);
-      this.attribute.cfg.push(cfg_entry_.value);
+      self.attribute.cfg.push(cfg_entry_.value);
     }
-  }
+  },
 
   // Parses the `doc(auto_cfg(hide/show(..., values())))` attribute.
   // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:312 parse_auto_cfg_values
-  parse_auto_cfg_values(cx: AcceptContext, list: MetaItemListParser, values: MutRef<DocCfgHideShow | undefined>): void {
+  parse_auto_cfg_values(self: DocParser, cx: AcceptContext, list: MetaItemListParser, values: MutRef<DocCfgHideShow | undefined>): void {
     const cfg_values: MutRef<DocCfgHideShow> = { value: DocCfgHideShow.new() };
 
     const values_set = new Set<Symbol>();
@@ -485,13 +488,13 @@ export class DocParser {
       }
     }
     values.value = cfg_values.value;
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:387 parse_auto_cfg
-  parse_auto_cfg(cx: AcceptContext, path: OwnedPathParser, args: ArgParser): void {
+  parse_auto_cfg(self: DocParser, cx: AcceptContext, path: OwnedPathParser, args: ArgParser): void {
     switch (args.$) {
       case "NoArgs": {
-        this.attribute.auto_cfg_change.push([true, path.span()]);
+        self.attribute.auto_cfg_change.push([true, path.span()]);
         break;
       }
       case "List": {
@@ -557,7 +560,7 @@ export class DocParser {
                 cx.shared.emit_lint(INVALID_DOC_ATTRIBUTES, DocAutoCfgHideShowNoIdentBeforeValues_diagnostic({}), sub_item.span());
                 continue main;
               }
-              this.parse_auto_cfg_values(cx, sub_args._0, values);
+              DocParser_inherent.parse_auto_cfg_values(self, cx, sub_args._0, values);
             } else if (sub_args.$ === "NameValue") {
               // No `name = value` is allowed.
               cx.shared.emit_lint(INVALID_DOC_ATTRIBUTES, DocAutoCfgHideShowUnexpectedItem_diagnostic({ attr_name }), sub_item.span());
@@ -584,7 +587,7 @@ export class DocParser {
               cfg_hide_show.values.set(cfg_name, o_.value);
             }
           }
-          this.attribute.auto_cfg.push([cfg_hide_show, path.span()]);
+          self.attribute.auto_cfg.push([cfg_hide_show, path.span()]);
         }
         break;
       }
@@ -597,17 +600,17 @@ export class DocParser {
         }
         const bool_value = lit.kind._0;
         const span = lit.span;
-        this.attribute.auto_cfg_change.push([bool_value, span]);
+        self.attribute.auto_cfg_change.push([bool_value, span]);
         break;
       }
     }
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:512 parse_single_doc_attr_item
-  parse_single_doc_attr_item(cx: AcceptContext, mip: MetaItemParser): void {
+  parse_single_doc_attr_item(self: DocParser, cx: AcceptContext, mip: MetaItemParser): void {
     const path = mip.path();
     const args = mip.args();
-    const attribute = this.attribute;
+    const attribute = self.attribute;
 
     // macro_rules! no_args
     const no_args = (ident: "hidden" | "html_no_source" | "masked" | "notable_trait"): void => {
@@ -690,13 +693,13 @@ export class DocParser {
     };
     // macro_rules! gated
     const gated = (feature: Symbol, ...notes: string[]): void => {
-      const stability: AttributeStability = { $: "Unstable", gate_name: feature, notes };
+      const stability = unstable(feature, ...notes);
       cx.shared.cx.check_attribute_stability(cx.attr_path, path.span(), stability);
     };
 
     const w = path.word_sym();
     if (w === sym.alias) {
-      this.parse_alias(cx, path, args);
+      DocParser_inherent.parse_alias(self, cx, path, args);
     } else if (w === sym.hidden) {
       no_args("hidden");
     } else if (w === sym.html_favicon_url) {
@@ -712,24 +715,24 @@ export class DocParser {
     } else if (w === sym.issue_tracker_base_url) {
       string_arg_and_crate_level("issue_tracker_base_url");
     } else if (w === sym.inline) {
-      this.parse_inline(cx, path, args, "Inline");
+      DocParser_inherent.parse_inline(self, cx, path, args, "Inline");
     } else if (w === sym.no_inline) {
-      this.parse_inline(cx, path, args, "NoInline");
+      DocParser_inherent.parse_inline(self, cx, path, args, "NoInline");
     } else if (w === sym.masked) {
       gated(sym.doc_masked);
       no_args("masked");
     } else if (w === sym.cfg) {
       gated(sym.doc_cfg);
-      this.parse_cfg(cx, args);
+      DocParser_inherent.parse_cfg(self, cx, args);
     } else if (w === sym.notable_trait) {
       gated(sym.doc_notable_trait);
       no_args("notable_trait");
     } else if (w === sym.keyword) {
       gated(sym.rustdoc_internals);
-      parse_keyword_and_attribute(cx, path, args, field_mut(this.attribute, "keyword"), sym.keyword);
+      parse_keyword_and_attribute(cx, path, args, field_mut(self.attribute, "keyword"), sym.keyword);
     } else if (w === sym.attribute) {
       gated(sym.rustdoc_internals);
-      parse_keyword_and_attribute(cx, path, args, field_mut(this.attribute, "attribute"), sym.attribute);
+      parse_keyword_and_attribute(cx, path, args, field_mut(self.attribute, "attribute"), sym.attribute);
     } else if (w === sym.fake_variadic) {
       gated(sym.rustdoc_internals);
       no_args_and_not_crate_level("fake_variadic", sym.fake_variadic);
@@ -744,7 +747,7 @@ export class DocParser {
       no_args_and_crate_level("rust_logo");
     } else if (w === sym.auto_cfg) {
       gated(sym.doc_cfg);
-      this.parse_auto_cfg(cx, path, args);
+      DocParser_inherent.parse_auto_cfg(self, cx, path, args);
     } else if (w === sym.test) {
       const list = ArgParser.as_list(args);
       if (list === undefined) {
@@ -756,7 +759,7 @@ export class DocParser {
         switch (i.$) {
           case "MetaItemParser": {
             const mip = i._0;
-            this.parse_single_test_doc_attr_item(cx, mip);
+            DocParser_inherent.parse_single_test_doc_attr_item(self, cx, mip);
             break;
           }
           case "Lit": {
@@ -805,21 +808,21 @@ export class DocParser {
       const name = Symbol.intern(full_name);
       cx.shared.emit_lint(INVALID_DOC_ATTRIBUTES, DocUnknownAny_diagnostic({ name }), path.span());
     }
-  }
+  },
 
   // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:728 accept_single_doc_attr
-  accept_single_doc_attr(cx: AcceptContext, args: ArgParser): void {
+  accept_single_doc_attr(self: DocParser, cx: AcceptContext, args: ArgParser): void {
     if (args.$ === "List" && !args._0.is_empty()) {
       const items = args._0;
       for (const i of items.mixed()) {
         switch (i.$) {
           case "MetaItemParser": {
             const mip = i._0;
-            if (this.nb_doc_attrs === 0) {
-              this.attribute.first_span = cx.attr_span;
+            if (self.nb_doc_attrs === 0) {
+              self.attribute.first_span = cx.attr_span;
             }
-            this.nb_doc_attrs += 1;
-            this.parse_single_doc_attr_item(cx, mip);
+            self.nb_doc_attrs += 1;
+            DocParser_inherent.parse_single_doc_attr_item(self, cx, mip);
             break;
           }
           case "Lit": {
@@ -845,88 +848,87 @@ export class DocParser {
         span,
       );
     }
-  }
+  },
+};
 
-  // impl AttributeParser for DocParser
-  static default(): DocParser {
-    return new DocParser(default_DocAttribute(), 0);
-  }
-  static readonly ATTRIBUTES: AcceptMapping<DocParser> = [
-    [
-      [sym.doc],
-      template({
-        List: [
-          "alias",
-          "hidden",
-          "html_favicon_url",
-          "html_logo_url",
-          "html_no_source",
-          "html_playground_url",
-          "html_root_url",
-          "issue_tracker_base_url",
-          "inline",
-          "no_inline",
-          "masked",
-          "cfg",
-          "notable_trait",
-          "auto_cfg",
-          "test",
-        ],
-        NameValueStr: ["doc comment"],
-      }),
-      AttributeStability.Stable, // Some parts of the attribute are unstable, manually checked in parser
-      (this_, cx, args) => {
-        this_.accept_single_doc_attr(cx, args);
-      },
+export const DocParser: AttributeParser<DocParser> & typeof DocParser_inherent = {
+  ...DocParser_inherent,
+  ...AttributeParser_provided<DocParser>({
+    default: () => ({ attribute: default_DocAttribute(), nb_doc_attrs: 0 }),
+    ATTRIBUTES: [
+      [
+        [sym.doc],
+        template({
+          List: [
+            "alias",
+            "hidden",
+            "html_favicon_url",
+            "html_logo_url",
+            "html_no_source",
+            "html_playground_url",
+            "html_root_url",
+            "issue_tracker_base_url",
+            "inline",
+            "no_inline",
+            "masked",
+            "cfg",
+            "notable_trait",
+            "auto_cfg",
+            "test",
+          ],
+          NameValueStr: ["doc comment"],
+        }),
+        AttributeStability.Stable, // Some parts of the attribute are unstable, manually checked in parser
+        (this_, cx, args) => {
+          DocParser_inherent.accept_single_doc_attr(this_, cx, args);
+        },
+      ],
     ],
-  ];
-  // FIXME: Currently emitted from 2 different places, generating duplicated warnings.
-  static readonly ALLOWED_TARGETS: AllowedTargets = { $: "AllowList", _0: ALL_TARGETS };
-  // const ALLOWED_TARGETS: AllowedTargets<'_> = AllowedTargets::AllowListWarnRest(&[
-  //     Allow(Target::ExternCrate),
-  //     Allow(Target::Use),
-  //     Allow(Target::Static),
-  //     Allow(Target::Const),
-  //     Allow(Target::Fn),
-  //     Allow(Target::Mod),
-  //     Allow(Target::ForeignMod),
-  //     Allow(Target::TyAlias),
-  //     Allow(Target::Enum),
-  //     Allow(Target::Variant),
-  //     Allow(Target::Struct),
-  //     Allow(Target::Field),
-  //     Allow(Target::Union),
-  //     Allow(Target::Trait),
-  //     Allow(Target::TraitAlias),
-  //     Allow(Target::Impl { of_trait: true }),
-  //     Allow(Target::Impl { of_trait: false }),
-  //     Allow(Target::AssocConst(AssocCtxt::Impl { of_trait: false })),
-  //     Allow(Target::AssocConst(AssocCtxt::Trait)),
-  //     Allow(Target::AssocConst(AssocCtxt::Impl { of_trait: true })),
-  //     Allow(Target::Method(MethodKind::Inherent)),
-  //     Allow(Target::Method(MethodKind::Trait { body: true })),
-  //     Allow(Target::Method(MethodKind::Trait { body: false })),
-  //     Allow(Target::Method(MethodKind::TraitImpl)),
-  //     Allow(Target::AssocTy(AssocCtxt::Impl { of_trait: false })),
-  //     Allow(Target::AssocTy(AssocCtxt::Trait)),
-  //     Allow(Target::AssocTy(AssocCtxt::Impl { of_trait: true })),
-  //     Allow(Target::ForeignFn),
-  //     Allow(Target::ForeignStatic),
-  //     Allow(Target::ForeignTy),
-  //     Allow(Target::MacroDef),
-  //     Allow(Target::Crate),
-  //     Error(Target::WherePredicate),
-  // ]);
-  static readonly SAFETY = AttributeParser_provided.SAFETY;
+    // FIXME: Currently emitted from 2 different places, generating duplicated warnings.
+    ALLOWED_TARGETS: { $: "AllowList", _0: ALL_TARGETS },
+    // const ALLOWED_TARGETS: AllowedTargets<'_> = AllowedTargets::AllowListWarnRest(&[
+    //     Allow(Target::ExternCrate),
+    //     Allow(Target::Use),
+    //     Allow(Target::Static),
+    //     Allow(Target::Const),
+    //     Allow(Target::Fn),
+    //     Allow(Target::Mod),
+    //     Allow(Target::ForeignMod),
+    //     Allow(Target::TyAlias),
+    //     Allow(Target::Enum),
+    //     Allow(Target::Variant),
+    //     Allow(Target::Struct),
+    //     Allow(Target::Field),
+    //     Allow(Target::Union),
+    //     Allow(Target::Trait),
+    //     Allow(Target::TraitAlias),
+    //     Allow(Target::Impl { of_trait: true }),
+    //     Allow(Target::Impl { of_trait: false }),
+    //     Allow(Target::AssocConst(AssocCtxt::Impl { of_trait: false })),
+    //     Allow(Target::AssocConst(AssocCtxt::Trait)),
+    //     Allow(Target::AssocConst(AssocCtxt::Impl { of_trait: true })),
+    //     Allow(Target::Method(MethodKind::Inherent)),
+    //     Allow(Target::Method(MethodKind::Trait { body: true })),
+    //     Allow(Target::Method(MethodKind::Trait { body: false })),
+    //     Allow(Target::Method(MethodKind::TraitImpl)),
+    //     Allow(Target::AssocTy(AssocCtxt::Impl { of_trait: false })),
+    //     Allow(Target::AssocTy(AssocCtxt::Trait)),
+    //     Allow(Target::AssocTy(AssocCtxt::Impl { of_trait: true })),
+    //     Allow(Target::ForeignFn),
+    //     Allow(Target::ForeignStatic),
+    //     Allow(Target::ForeignTy),
+    //     Allow(Target::MacroDef),
+    //     Allow(Target::Crate),
+    //     Error(Target::WherePredicate),
+    // ]);
 
-  // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:834 finalize
-  static finalize(self: DocParser, _cx: FinalizeContext): { $: "Doc"; _0: DocAttribute } | undefined {
-    if (self.nb_doc_attrs !== 0) {
-      return { $: "Doc", _0: self.attribute };
-    } else {
-      return undefined;
+    // rustc: compiler/rustc_attr_parsing/src/attributes/doc.rs:834 finalize
+    finalize(self, _cx) {
+      if (self.nb_doc_attrs !== 0) {
+        return { $: "Doc", _0: self.attribute };
+      } else {
+        return undefined;
+      }
     }
-  }
-
-  static readonly deferred_finalize_check = AttributeParser_provided.deferred_finalize_check;
-}
+  }),
+};
