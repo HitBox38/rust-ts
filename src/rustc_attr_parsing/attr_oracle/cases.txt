@@ -1,0 +1,195 @@
+### args_shapes
+ops: args:emit walk:emit
+#![allow(unused)]
+#[foo]
+#[foo(a, b::c, d = "x", e(f), 1, "s", true)]
+#[foo = "bar"]
+#[a::b(c)]
+#[foo()]
+#[foo(a,)]
+#[foo(::a, a::b = "c", r#type)]
+fn f() {}
+### args_modes_ok
+ops: args:forbid args:nothing args:fatal
+#[foo(a(b(c)), d = 'x', e = b"y", f = 1.5)]
+#[foo = 'c']
+fn f() {}
+### args_doc_comments
+ops: args:emit meta suggest:word:attr
+/// outer doc
+//! inner doc
+#[doc = "x"]
+struct S;
+### args_bad_delim
+ops: args:emit
+#[foo[a]]
+#[foo{a}]
+fn f() {}
+### args_bad_delim_nothing
+ops: args:nothing
+#[foo[a]]
+fn f() {}
+### args_suffixed_list
+ops: args:emit
+#[foo(1u8)]
+fn f() {}
+### args_suffixed_list_forbid
+ops: args:forbid
+#[foo(1u8)]
+fn f() {}
+### args_suffixed_nv
+ops: args:emit
+#[foo = 1u8]
+fn f() {}
+### args_not_literal
+ops: args:emit
+#[foo = 1 + 1]
+#[foo = bar]
+#[foo = a::b]
+fn f() {}
+### args_not_literal_nothing
+ops: args:nothing args:forbid
+#[foo = 1 + 1]
+fn f() {}
+### args_not_literal_fatal
+ops: args:fatal
+#[foo = bar]
+fn f() {}
+### args_lit_too_large
+ops: args:emit
+#[foo = 999999999999999999999999999999999999999999]
+fn f() {}
+### args_lit_too_large_forbid
+ops: args:forbid
+#[foo = 999999999999999999999999999999999999999999]
+fn f() {}
+### args_lit_too_large_list
+ops: args:emit
+#[foo(999999999999999999999999999999999999999999)]
+fn f() {}
+### args_missing_comma
+ops: args:emit
+#[foo(a b)]
+fn f() {}
+### args_missing_comma_many
+ops: args:emit
+#[foo(a b c, d e)]
+fn f() {}
+### args_missing_comma_forbid
+ops: args:forbid
+#[foo(a b)]
+fn f() {}
+### args_neg_literal
+ops: args:emit
+#[foo(-1)]
+fn f() {}
+### args_quote_ident
+ops: args:emit
+#[foo(key = value)]
+fn f() {}
+### args_macro_call
+ops: args:emit
+#[deprecated(note = concat!("a", "b"))]
+fn f() {}
+### args_eq_alone
+ops: args:emit
+#[foo(=)]
+fn f() {}
+### args_diagnostic_namespace
+ops: args:emit
+#[diagnostic::on_unimplemented(a b)]
+#[rustc_dummy(-)]
+#[diagnostic::foo(x = "y")]
+trait T {}
+### single_items
+ops: single:emit
+#[foo(a = "b", c)]
+#[foo("lit")]
+#[foo(x::y(z))]
+#[foo]
+fn f() {}
+### single_error
+ops: single:emit
+#[foo(-)]
+fn f() {}
+### meta_ok
+ops: meta
+#[foo]
+#[foo(a, b = "c", d(e))]
+#[foo = "x"]
+#[unsafe(foo)]
+fn f() {}
+### meta_suffixed
+ops: meta
+#[foo = 1u8]
+fn f() {}
+### meta_not_literal
+ops: meta
+#[foo = 1 + 1]
+fn f() {}
+### meta_lit_too_large
+ops: meta
+#[foo = 999999999999999999999999999999999999999999]
+fn f() {}
+### meta_bad_delim
+ops: meta
+#[foo[a]]
+fn f() {}
+### meta_parse_error
+ops: meta
+#[foo(a b)]
+fn f() {}
+### builtin_lint_forms
+ops: builtin:lint
+#![allow]
+#[allow = "x"]
+#[allow(a, b)]
+#[deny(a, reason = "r")]
+#[warn]
+fn f() {}
+### builtin_unsafe
+ops: builtin:lint
+#[unsafe(allow(a))]
+fn f() {}
+### builtin_templates
+ops: builtin:word builtin:oneof builtin:nv
+#[foo]
+#[foo(on)]
+#[foo(on, off)]
+#[foo(other)]
+#[foo = "r"]
+#[foo = 1]
+fn f() {}
+### malformed_templates
+ops: malformed:word malformed:word_list malformed:nv malformed:word_nv_docs malformed:oneof malformed:many malformed:list_nv malformed:empty
+#[foo(x)]
+fn f() {}
+### malformed_inner
+ops: malformed:word_list malformed:lint
+#![foo = "x"]
+fn f() {}
+### malformed_should_warn
+ops: malformed:word_list
+#[doc(x)]
+#[link]
+#[test = "x"]
+#[bench(a)]
+fn f() {}
+### suggest_templates
+ops: suggest:word:attr suggest:word_list:attr suggest:word_list:macro suggest:nv:attr suggest:oneof:attr suggest:many:attr suggest:list_nv:macro suggest:empty:attr suggest:lint:attr
+#[foo]
+#[unsafe(no_mangle)]
+#[a::b]
+fn f() {}
+### check_non_builtin
+ops: check
+#[foo = 1u8]
+#[foo = "ok"]
+#[foo(bar)]
+#[foo = 1 + 1]
+/// doc
+fn f() {}
+### check_builtin
+ops: check
+#[allow = "x"]
+fn f() {}
