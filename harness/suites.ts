@@ -209,6 +209,39 @@ SUITES.push({
   subject: (cs) => [...bunCmd("src/rust_ts/emitdump.ts"), ...cs.map((c) => c.file)],
 });
 
+// Token trees (`rustc_parse::lexer::lex_token_trees`) with the pinned nightly's own rustc_parse
+// (rustc-dev probe tools/probes/tokdump; its header documents the setup, the two entry points and
+// the output format). Each file is lexed in its own session with its compiletest edition
+// (`edition()`); edition and entry point are `--edition=`/`--strip=` arguments before the file (so
+// they are also part of the oracle cache key).
+const tokdumpArgs = (cs: Case[]): string[] => cs.flatMap((c) => [...c.args, c.file]);
+SUITES.push(
+  {
+    name: "tokens",
+    milestone: "M1",
+    description:
+      "rustc_parse token trees as rustc lexes a crate root (new_parser_from_source_str(.., ShebangAndFrontmatter) + parse_tokens: {:?} of the TokenStream, buffered lints, gated and raw-identifier spans) plus the -Zui-testing diagnostics they emit (rustc-dev probe: tools/probes/tokdump) on every .rs in tests/ui, library, compiler, each with its edition",
+    mode: "batch",
+    timeoutMs: 120_000,
+    probes: ["tokdump"],
+    cases: () => corpus("tests/ui", "library", "compiler").map((f) => ({ id: f, file: f, args: [`--edition=${edition(f)}`, "--strip=crate"] })),
+    oracle: (cs) => [probePath("tokdump"), ...tokdumpArgs(cs)],
+    subject: (cs) => [...bunCmd("src/rust_ts/tokdump.ts"), ...tokdumpArgs(cs)],
+  },
+  {
+    name: "tokens-str",
+    milestone: "M1",
+    description:
+      "tokens suite (same probe/subject) through rustc_parse::source_str_to_stream (StripTokens::Shebang: frontmatter lexed as ordinary tokens) on every tests/ui .rs whose path mentions frontmatter (which includes all 34 corpus files where the two entry points differ at the pin)",
+    mode: "batch",
+    timeoutMs: 120_000,
+    probes: ["tokdump"],
+    cases: () => corpus("tests/ui").filter((f) => f.includes("frontmatter")).map((f) => ({ id: f, file: f, args: [`--edition=${edition(f)}`, "--strip=str"] })),
+    oracle: (cs) => [probePath("tokdump"), ...tokdumpArgs(cs)],
+    subject: (cs) => [...bunCmd("src/rust_ts/tokdump.ts"), ...tokdumpArgs(cs)],
+  },
+);
+
 export function suite(name: string): Suite {
   const s = SUITES.find((s) => s.name === name);
   if (!s) throw new Error(`unknown suite '${name}' (have: ${SUITES.map((s) => s.name).join(", ")})`);

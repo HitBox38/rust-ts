@@ -11,12 +11,13 @@
 //
 // Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) | TIMEOUT
 // Prints one summary line; details go to $RUST_TS_DATA/runs/<run-id>/.
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
 import { ORACLE_CACHE, PIN, RUNS, UPSTREAM, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run } from "./lib/common.ts";
 import { rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
+import { isRustcDevProbe } from "./probes.ts";
 
 export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT";
 export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT"];
@@ -63,11 +64,14 @@ function splitBatch(stdout: string): Map<string, string> {
 const oracleVersionCache = new Map<string, string>();
 function oracleVersion(s: Suite): string {
   // Probe-based suites are keyed by the probe binary, rustc-based ones by the oracle rustc_driver
-  // build, so rebuilding a probe or reinstalling the toolchain invalidates the cache.
+  // build, so rebuilding a probe or reinstalling the toolchain invalidates the cache. A rustc-dev
+  // probe (scripts/probes.ts) runs the sysroot's librustc_driver, which its binary does not
+  // contain, so its suites are keyed by both.
   let v = oracleVersionCache.get(s.name);
   if (v) return v;
   const cmd0 = s.oracle([{ id: "", file: "", args: [] }])[0]!;
   v = cmd0 === "rustc" ? rustcDriverHash() : existsSync(cmd0) ? hash(readFileSync(cmd0)) : PIN.commit;
+  if (cmd0 !== "rustc" && (s.probes ?? []).some(isRustcDevProbe)) v += `+${rustcDriverHash()}`;
   oracleVersionCache.set(s.name, v);
   return v;
 }
@@ -77,6 +81,40 @@ const cwdOf = (s: Suite): string => s.cwd ?? UPSTREAM;
 
 /** Hash of a case's input file; synthetic cases (`file: ""`) have no input. */
 const fileHash = (s: Suite, c: Case): string => (c.file === "" ? "" : hash(readFileSync(join(cwdOf(s), c.file))));
+
+/**
+ * Oracle cache entries are JSON `Output`s. Entries larger than this are stored gzipped (token
+ * stream dumps are ~20x their source); a reader tells them apart by the gzip magic bytes, which
+ * JSON text never starts with.
+ */
+const GZIP_OVER = 64 * 1024;
+
+/**
+ * A cached oracle output, or `undefined` (a miss) if the entry is unreadable: a torn or corrupt
+ * entry (neither a corrupt gzip stream nor a prefix of an `Output` decodes) is reported with one
+ * `ERROR:` line, removed, and re-run by the caller, which overwrites it.
+ */
+function readCached(p: string): Output | undefined {
+  try {
+    const raw = readFileSync(p);
+    const text = raw[0] === 0x1f && raw[1] === 0x8b ? new TextDecoder().decode(Bun.gunzipSync(raw)) : raw.toString("utf8");
+    const o = JSON.parse(text) as Output;
+    if (typeof o?.text !== "string" || typeof o.code !== "number") throw new Error("not an oracle output");
+    return o;
+  } catch (e) {
+    console.log(`ERROR: unreadable oracle cache entry ${p} (${e instanceof Error ? e.message : String(e)}); removed, re-running the oracle`);
+    rmSync(p, { force: true });
+    return undefined;
+  }
+}
+
+/** Atomic: written to a process-unique temp file, then renamed over the entry. */
+function writeCached(p: string, o: Output): void {
+  const json = JSON.stringify(o);
+  const tmp = `${p}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  writeFileSync(tmp, json.length > GZIP_OVER ? Bun.gzipSync(json) : json);
+  renameSync(tmp, p);
+}
 
 function cachePath(s: Suite, c: Case, fileHash: string): string {
   const key = hash(JSON.stringify([PIN.commit, oracleVersion(s), s.name, c.id, c.args, fileHash]));
@@ -90,7 +128,8 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
   for (const c of cases) {
     const p = cachePath(s, c, fileHash(s, c));
     paths.set(c.id, p);
-    if (existsSync(p)) out.set(c.id, JSON.parse(readFileSync(p, "utf8")));
+    const cached = existsSync(p) ? readCached(p) : undefined;
+    if (cached) out.set(c.id, cached);
     else todo.push(c);
   }
   if (todo.length === 0) return out;
@@ -110,7 +149,7 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
       for (const c of batch) {
         const o: Output = { text: parts.get(c.file) ?? "", code: 0, timedOut: false };
         out.set(c.id, o);
-        writeFileSync(paths.get(c.id)!, JSON.stringify(o));
+        writeCached(paths.get(c.id)!, o);
       }
     };
     await runBatch(todo);
@@ -119,7 +158,7 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
       const r = await run(s.oracle([c]), { cwd: cwdOf(s), timeoutMs: s.timeoutMs });
       const o: Output = { text: render(r), code: r.code, timedOut: r.timedOut };
       out.set(c.id, o);
-      if (!r.timedOut) writeFileSync(paths.get(c.id)!, JSON.stringify(o));
+      if (!r.timedOut) writeCached(paths.get(c.id)!, o);
     }
   }
   return out;
@@ -221,7 +260,13 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
           streak = 1;
           continue;
         }
-        if (k > 0) {
+        if (k > 0 && k + 1 === rest.length) {
+          // Every section was complete, so the output pinpoints nothing and re-running `[0, k]` would
+          // repeat the identical failed batch (one case shorter per step: linear). Bisect `[0, k)`.
+          const mid = k >> 1;
+          await runBatch(rest.slice(0, mid));
+          await runBatch(rest.slice(mid, k));
+        } else if (k > 0) {
           const prefix = rest.slice(0, k + 1);
           const rp = await exec(prefix);
           if (ok(rp)) attribute(prefix, rp);
