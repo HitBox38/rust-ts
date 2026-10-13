@@ -850,7 +850,7 @@ BlobDecodeContext.prototype.decode_local_def_id = function (this: BlobDecodeCont
   return LocalDefId.of(this.decode_def_index());
 };
 
-// impl<'a, 'tcx> Decodable<MetadataDecodeContext<'a, 'tcx>> for SpanData (decoder.rs:575; rmeta-decoder-a)
+// impl<'a, 'tcx> Decodable<MetadataDecodeContext<'a, 'tcx>> for SpanData (`fn decode` at decoder.rs:576; rmeta-decoder-a)
 export function decode_SpanData(_decoder: MetadataDecodeContext): SpanData {
   return unported("rustc_metadata::rmeta::decoder::<SpanData as Decodable<MetadataDecodeContext>>::decode");
 }
@@ -1230,6 +1230,7 @@ unported_methods(CrateMetadata.prototype, "rustc_metadata::rmeta::decoder::Crate
   "get_doc_link_resolutions",
   "get_doc_link_traits_in_scope",
 ]);
+// rustc-decl: decoder.rs:1737 filter (the fn nested in `imported_source_file`)
 // rustc-decl: decoder.rs:1977 CrateMetadata::new (static, in the class body above)
 
 // ---- end rmeta-decoder-b ----
