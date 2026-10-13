@@ -33,7 +33,12 @@ import type {
   UnOp,
   UnsafeBinderCastKind,
 } from "../../rustc_ast/lib.ts";
-import type { Lit, Token, TokenKind } from "../../rustc_ast/token.ts";
+import type { Lit, MetaVarKind, Token, TokenKind } from "../../rustc_ast/token.ts";
+import { MetaItemLit as MetaItemLitC } from "../../rustc_ast/util/literal.ts";
+import { Visitor, walk_expr } from "../../rustc_ast/visit.ts";
+import { ControlFlow, VisitorResult } from "../../rustc_ast_ir/visit.ts";
+import { BREAK_WITH_LABEL_AND_LOOP } from "../../rustc_lint_defs/builtin.ts";
+import { report_lit_error } from "../../rustc_session/diagnostics.ts";
 import { clone_ExprKind, DUMMY_NODE_ID, GenericArgs } from "../../rustc_ast/ast.ts";
 import * as classify from "../../rustc_ast/util/classify.ts";
 import { AssocOp, ExprPrecedence, ExprPrecedence_discriminant, type Fixity } from "../../rustc_ast/util/parser.ts";
@@ -46,15 +51,15 @@ import { is_ascii_alphanumeric } from "../../std/char.ts";
 import { debug_char, debug_str, debug_tuple, debug_vec, PLAIN, type Fmt } from "../../std/fmt.ts";
 import { assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
-import { Err, Ok, type Result } from "../../std/result.ts";
+import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 import { type Str, utf8_len } from "../../std/str.ts";
 import * as crate_diagnostics from "../diagnostics.ts";
 import { AttrWrapper, UsePreAttrPos } from "./attr_wrapper.ts";
-import type { SnapshotParser } from "./diagnostics.ts";
+import { RecoverQPath, type SnapshotParser } from "./diagnostics.ts";
 import * as diagnostics from "./expr/diagnostics.ts";
 import * as gen from "./expr.gen.ts";
 import type { DestructuredFloat, LetChainsPolicy } from "./expr.gen.ts";
-import { clone_Parser, ForceCollect, Parser, Restrictions, token_descr, Trailing } from "./mod.ts";
+import { clone_Parser, ForceCollect, Parser, Restrictions, SeqSep, token_descr, Trailing } from "./mod.ts";
 import { PathStyle } from "./path.ts";
 import { exp, type ExpTokenPair, TokenType } from "./token_type.ts";
 
@@ -77,6 +82,12 @@ function mem_replace_parser(self: Parser, new_: Parser): Parser {
   const old = Object.assign(Object.create(Parser.prototype) as Parser, self);
   Object.assign(self, new_);
   return old;
+}
+
+/// PORT: the `RecoverQPath` impl table for `Box<Expr>` (the `T` of `maybe_recover_from_bad_qpath*`
+/// calls on `Box<Expr>` values). Built per call: the table lives in ./diagnostics.ts (init order).
+function expr_recover_qpath(): RecoverQPath<Expr> {
+  return RecoverQPath.Box(RecoverQPath.Expr);
 }
 
 // ---- impl<'a> Parser<'a> ----
@@ -1517,16 +1528,1152 @@ Parser.prototype.parse_dot_suffix = function (this: Parser, self_arg: Expr, lo: 
   }
 };
 
-// Parser::mk_token_lit_char (expr.rs:1957), an associated fn without `self`.
-export function mk_token_lit_char(_name: Symbol, _span: Span): [Lit, Span] {
-  return unported("rustc_parse::parser::expr::Parser::mk_token_lit_char");
+/// At the bottom (top?) of the precedence hierarchy,
+/// Parses things like parenthesized exprs, macros, `return`, etc.
+///
+/// N.B., this does not parse outer attributes, and is private because it only works
+/// correctly if called from `parse_expr_dot_or_call`.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1262 parse_expr_bottom
+Parser.prototype.parse_expr_bottom = function (this: Parser): PResult<Expr> {
+  // PORT: `maybe_recover_from_interpolated_ty_qpath!(self, true)` (parser/mod.rs:165), expanded.
+  {
+    let mv_kind: MetaVarKind | undefined;
+    if (
+      true &&
+      this.may_recover() &&
+      (mv_kind = this.token.is_metavar_seq()) !== undefined &&
+      mv_kind.$ === "Ty" &&
+      this.check_noexpect_past_close_delim(TK.PathSep)
+    ) {
+      // Reparse the type, then move to recovery.
+      const ty = this.eat_metavar_seq(mv_kind, (this_) => this_.parse_ty_no_question_mark_recover());
+      if (ty === undefined) return panic("metavar seq ty");
+
+      return this.maybe_recover_from_bad_qpath_stage_2(this.prev_token.span, ty, expr_recover_qpath());
+    }
+  }
+
+  const span = this.token.span;
+  let expr: Expr | undefined;
+  let lit: Expr | undefined;
+  let block: Block | undefined;
+  let path: Path | undefined;
+  if (
+    (expr = this.eat_metavar_seq_with_matcher(
+      (mv_kind) => mv_kind.$ === "Expr",
+      (this_) => {
+        // Force collection (as opposed to just `parse_expr`) is required to avoid the
+        // attribute duplication seen in #138478.
+        const expr = this_.parse_expr_force_collect();
+        // FIXME(nnethercote) Sometimes with expressions we get a trailing comma, possibly
+        // related to the FIXME in `collect_tokens_for_expr`. Examples are the multi-line
+        // `assert_eq!` calls involving arguments annotated with `#[rustfmt::skip]` in
+        // `compiler/rustc_index/src/bit_set/tests.rs`.
+        if (this_.token.kind.$ === "Comma") {
+          this_.bump();
+        }
+        return expr;
+      },
+    )) !== undefined
+  ) {
+    return Ok(expr);
+  } else if (
+    (lit = this.eat_metavar_seq(token.MetaVarKind.Literal, (this_) => this_.parse_literal_maybe_minus())) !==
+    undefined
+  ) {
+    return Ok(lit);
+  } else if ((block = this.eat_metavar_seq(token.MetaVarKind.Block, (this_) => this_.parse_block())) !== undefined) {
+    return Ok(this.mk_expr(span, { $: "Block", _0: block, _1: undefined }));
+  } else if (
+    (path = this.eat_metavar_seq(token.MetaVarKind.Path, (this_) => this_.parse_path(PathStyle.Type))) !== undefined
+  ) {
+    return Ok(this.mk_expr(span, { $: "Path", _0: undefined, _1: path }));
+  }
+
+  // Outer attributes are already parsed and will be
+  // added to the return value after the fact.
+
+  const restrictions = this.restrictions;
+  return this.with_res(Restrictions.difference(restrictions, Restrictions.ALLOW_LET), (this_): PResult<Expr> => {
+    // Note: adding new syntax here? Don't forget to adjust `TokenKind::can_begin_expr()`.
+    const lo = this_.token.span;
+    if (this_.token.kind.$ === "Literal") {
+      // This match arm is a special-case of the `_` match arm below and
+      // could be removed without changing functionality, but it's faster
+      // to have it here, especially for programs with large constants.
+      return this_.parse_expr_lit();
+    } else if (this_.check(exp.OpenParen)) {
+      return this_.parse_expr_tuple_parens(restrictions);
+    } else if (this_.check(exp.OpenBrace)) {
+      const r = this_.maybe_recover_bad_struct_literal_path(false);
+      if (r.$ === "Err") return r;
+      if (r._0 !== undefined) {
+        return Ok(r._0);
+      }
+      const arr = this_.recover_from_c_array(lo);
+      if (arr !== undefined) {
+        return Ok(arr);
+      }
+      return this_.parse_expr_block(undefined, lo, ast.BlockCheckMode.Default);
+    } else if (this_.check(exp.Or) || this_.check(exp.OrOr)) {
+      const r = this_.parse_expr_closure();
+      if (r.$ === "Err") {
+        const err = r._0;
+        // If the input is something like `if a { 1 } else { 2 } | if a { 3 } else { 4 }`
+        // then suggest parens around the lhs.
+        const sp = this_.psess.complete_stmt_exprs_before_bin_op_lookalike.get(lo);
+        if (sp !== undefined) {
+          err.subdiagnostic(
+            crate_diagnostics.ExprParenthesesNeeded_subdiagnostic(crate_diagnostics.ExprParenthesesNeeded.surrounding(sp)),
+          );
+        }
+        return Err(err);
+      }
+      return r;
+    } else if (this_.check(exp.OpenBracket)) {
+      return this_.parse_expr_array_or_repeat(exp.CloseBracket);
+    } else if (this_.is_builtin()) {
+      return this_.parse_expr_builtin();
+    } else if (this_.check_path()) {
+      return this_.parse_expr_path_start();
+    } else if (
+      this_.check_keyword(exp.Move) ||
+      this_.check_keyword(exp.Use) ||
+      this_.check_keyword(exp.Static) ||
+      this_.check_const_closure()
+    ) {
+      return this_.parse_expr_closure();
+    } else if (this_.eat_keyword(exp.If)) {
+      return this_.parse_expr_if();
+    } else if (this_.check_keyword(exp.For)) {
+      if (this_.choose_generics_over_qpath(1)) {
+        return this_.parse_expr_closure();
+      } else {
+        assert(this_.eat_keyword(exp.For), "assertion failed: this.eat_keyword(exp!(For))");
+        return this_.parse_expr_for(undefined, lo);
+      }
+    } else if (this_.eat_keyword(exp.While)) {
+      return this_.parse_expr_while(undefined, lo);
+    }
+    let label: Label | undefined;
+    if ((label = this_.eat_label()) !== undefined) {
+      return this_.parse_expr_labeled(label, true);
+    } else if (this_.eat_keyword(exp.Loop)) {
+      const r = this_.parse_expr_loop(undefined, lo);
+      if (r.$ === "Err") {
+        r._0.span_label(lo, "while parsing this `loop` expression");
+      }
+      return r;
+    } else if (this_.eat_keyword(exp.Match)) {
+      const r = this_.parse_expr_match();
+      if (r.$ === "Err") {
+        r._0.span_label(lo, "while parsing this `match` expression");
+      }
+      return r;
+    } else if (this_.eat_keyword(exp.Unsafe)) {
+      const r = this_.parse_expr_block(undefined, lo, { $: "Unsafe", _0: ast.UnsafeSource.UserProvided });
+      if (r.$ === "Err") {
+        r._0.span_label(lo, "while parsing this `unsafe` expression");
+      }
+      return r;
+    } else if (this_.check_inline_const(0)) {
+      return this_.parse_const_block(lo, false);
+    } else if (this_.may_recover() && this_.is_do_catch_block()) {
+      return this_.recover_do_catch();
+    } else if (this_.is_try_block()) {
+      const r = this_.expect_keyword(exp.Try);
+      if (r.$ === "Err") return r;
+      return this_.parse_try_block(lo);
+    } else if (this_.eat_keyword(exp.Return)) {
+      return this_.parse_expr_return();
+    } else if (this_.eat_keyword(exp.Continue)) {
+      return this_.parse_expr_continue(lo);
+    } else if (this_.eat_keyword(exp.Break)) {
+      return this_.parse_expr_break();
+    } else if (this_.eat_keyword(exp.Yield)) {
+      return this_.parse_expr_yield();
+    } else if (this_.is_do_yeet()) {
+      return this_.parse_expr_yeet();
+    } else if (this_.eat_keyword(exp.Become)) {
+      return this_.parse_expr_become();
+    } else if (this_.check_keyword(exp.Let)) {
+      return this_.parse_expr_let(restrictions);
+    } else if (this_.eat_keyword(exp.Underscore)) {
+      const r = this_.maybe_recover_bad_struct_literal_path(true);
+      if (r.$ === "Err") return r;
+      if (r._0 !== undefined) {
+        return Ok(r._0);
+      }
+      return Ok(this_.mk_expr(this_.prev_token.span, ast.ExprKind.Underscore));
+    } else if (Span.at_least_rust_2018(this_.token_uninterpolated_span())) {
+      // `Span::at_least_rust_2018()` is somewhat expensive; don't get it repeatedly.
+      const at_async = this_.check_keyword(exp.Async);
+      // check for `gen {}` and `gen move {}`
+      // or `async gen {}` and `async gen move {}`
+      // FIXME: (async) gen closures aren't yet parsed.
+      // FIXME(gen_blocks): Parse `gen async` and suggest swap
+      // FIXME(forced_keywords): Allow k#gen blocks prior to Rust 2024, too!
+      if (Span.at_least_rust_2024(this_.token_uninterpolated_span()) && this_.is_gen_block(kw.Gen, at_async ? 1 : 0)) {
+        return this_.parse_gen_block();
+        // Check for `async {` and `async move {`,
+      } else if (this_.is_gen_block(kw.Async, 0)) {
+        return this_.parse_gen_block();
+      } else if (at_async) {
+        return this_.parse_expr_closure();
+      } else if (this_.eat_keyword_noexpect(kw.Await)) {
+        return this_.recover_incorrect_await_syntax(lo);
+      } else {
+        return this_.parse_expr_lit();
+      }
+    } else {
+      return this_.parse_expr_lit();
+    }
+  });
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1428 parse_expr_lit
+Parser.prototype.parse_expr_lit = function (this: Parser): PResult<Expr> {
+  const lo = this.token.span;
+  const r = this.parse_opt_token_lit();
+  if (r !== undefined) {
+    const [token_lit, _] = r;
+    const expr = this.mk_expr(Span.to(lo, this.prev_token.span), { $: "Lit", _0: token_lit });
+    return this.maybe_recover_from_bad_qpath(expr, expr_recover_qpath());
+  } else {
+    return this.try_macro_suggestion();
+  }
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1439 parse_expr_tuple_parens
+Parser.prototype.parse_expr_tuple_parens = function (this: Parser, restrictions: Restrictions): PResult<Expr> {
+  const lo = this.token.span;
+  const r0 = this.expect(exp.OpenParen);
+  if (r0.$ === "Err") return r0;
+  const r = this.parse_seq_to_end(exp.CloseParen, SeqSep.trailing_allowed(exp.Comma), (p) =>
+    p.parse_expr_res(Restrictions.intersection(restrictions, Restrictions.ALLOW_LET)),
+  );
+  if (r.$ === "Err") {
+    const err = r._0;
+    return Ok(this.recover_seq_parse_error(exp.OpenParen, exp.CloseParen, lo, err));
+  }
+  const [es, trailing_comma] = r._0;
+  let kind: ExprKind;
+  if (es.length === 1 && trailing_comma === Trailing.No) {
+    // `(e)` is parenthesized `e`.
+    kind = { $: "Paren", _0: es[0]! };
+  } else {
+    // `(e,)` is a tuple with only one field, `e`.
+    kind = { $: "Tup", _0: es };
+  }
+  const expr = this.mk_expr(Span.to(lo, this.prev_token.span), kind);
+  return this.maybe_recover_from_bad_qpath(expr, expr_recover_qpath());
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1468 parse_expr_array_or_repeat
+Parser.prototype.parse_expr_array_or_repeat = function (this: Parser, close: ExpTokenPair): PResult<Expr> {
+  const lo = this.token.span;
+  this.bump(); // `[` or other open delim
+
+  let kind: ExprKind;
+  if (this.eat(close)) {
+    // Empty vector
+    kind = { $: "Array", _0: [] };
+  } else {
+    // Non-empty vector
+    const r = this.parse_expr();
+    if (r.$ === "Err") return r;
+    const first_expr = r._0;
+    if (this.eat(exp.Semi)) {
+      // Repeating array syntax: `[ 0; 512 ]`
+      const rc = this.parse_expr_anon_const();
+      if (rc.$ === "Err") return rc;
+      const count = rc._0;
+      const re = this.expect(close);
+      if (re.$ === "Err") return re;
+      kind = { $: "Repeat", _0: first_expr, _1: count };
+    } else if (this.eat(exp.Comma)) {
+      // Vector with two or more elements.
+      const sep = SeqSep.trailing_allowed(exp.Comma);
+      const rs = this.parse_seq_to_end(close, sep, (p) => p.parse_expr());
+      if (rs.$ === "Err") return rs;
+      const exprs = rs._0[0];
+      exprs.splice(0, 0, first_expr);
+      kind = { $: "Array", _0: exprs };
+    } else {
+      // Vector with one element
+      const re = this.expect(close);
+      if (re.$ === "Err") return re;
+      kind = { $: "Array", _0: [first_expr] };
+    }
+  }
+  const expr = this.mk_expr(Span.to(lo, this.prev_token.span), kind);
+  return this.maybe_recover_from_bad_qpath(expr, expr_recover_qpath());
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1499 parse_expr_path_start
+Parser.prototype.parse_expr_path_start = function (this: Parser): PResult<Expr> {
+  const maybe_eq_tok = this.prev_token;
+  let qself: QSelf | undefined;
+  let path: Path;
+  if (this.eat_lt()) {
+    const lt_span = this.prev_token.span;
+    const r = this.parse_qpath(PathStyle.Expr);
+    if (r.$ === "Err") {
+      const err = r._0;
+      // Suggests using '<=' if there is an error parsing qpath when the previous token
+      // is an '=' token. Only emits suggestion if the '<' token and '=' token are
+      // directly adjacent (i.e. '=<')
+      if (maybe_eq_tok.eq(TK.Eq) && Span.hi(maybe_eq_tok.span) === Span.lo(lt_span)) {
+        const eq_lt = Span.to(maybe_eq_tok.span, lt_span);
+        err.span_suggestion_verbose(
+          eq_lt,
+          'you might have meant to write a "less than or equal to" comparison',
+          "<=",
+          Applicability.Unspecified,
+        );
+      }
+      return Err(err);
+    }
+    [qself, path] = r._0;
+  } else {
+    qself = undefined;
+    const r = this.parse_path(PathStyle.Expr);
+    if (r.$ === "Err") return r;
+    path = r._0;
+  }
+
+  // `!`, as an operator, is prefix, so we know this isn't that.
+  let span: Span;
+  let kind: ExprKind;
+  let expr_: PResult<Expr> | undefined;
+  if (this.eat(exp.Bang)) {
+    // MACRO INVOCATION expression
+    if (qself !== undefined) {
+      this.dcx().emit_err(crate_diagnostics.MacroInvocationWithQualifiedPath_diagnostic({ _0: path.span }));
+    }
+    const lo = path.span;
+    const ra = this.parse_delim_args();
+    if (ra.$ === "Err") return ra;
+    const mac = new ast.MacCall(path, ra._0);
+    span = Span.to(lo, this.prev_token.span);
+    kind = { $: "MacCall", _0: mac };
+  } else if (this.check(exp.OpenBrace) && (expr_ = this.maybe_parse_struct_expr(qself, path)) !== undefined) {
+    if (qself !== undefined) {
+      this.psess.gated_spans.gate(sym.more_qualified_paths, path.span);
+    }
+    return expr_;
+  } else {
+    span = path.span;
+    kind = { $: "Path", _0: qself, _1: path };
+  }
+
+  const expr = this.mk_expr(span, kind);
+  return this.maybe_recover_from_bad_qpath(expr, expr_recover_qpath());
+};
+
+/// Parse `'label: $expr`. The label is already parsed.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1549 parse_expr_labeled
+Parser.prototype.parse_expr_labeled = function (this: Parser, label_: Label, consume_colon: boolean): PResult<Expr> {
+  const lo = label_.ident.span;
+  const label: Label | undefined = label_;
+  const ate_colon = this.eat(exp.Colon);
+  const tok_sp = this.token.span;
+  let res: PResult<Expr>;
+  if (this.eat_keyword(exp.While)) {
+    res = this.parse_expr_while(label, lo);
+  } else if (this.eat_keyword(exp.For)) {
+    res = this.parse_expr_for(label, lo);
+  } else if (this.eat_keyword(exp.Loop)) {
+    res = this.parse_expr_loop(label, lo);
+  } else if (this.check_noexpect(TK.OpenBrace) || this.token.is_metavar_block()) {
+    res = this.parse_expr_block(label, lo, ast.BlockCheckMode.Default);
+  } else if (
+    !ate_colon &&
+    this.may_recover() &&
+    (token.TokenKind.close_delim(this.token.kind) !== undefined || this.token.is_punct()) &&
+    could_be_unclosed_char_literal(label_.ident)
+  ) {
+    const [lit, _] = this.recover_unclosed_char(label_.ident, mk_token_lit_char, (self_) =>
+      self_.dcx().create_err(
+        crate_diagnostics.UnexpectedTokenAfterLabel_diagnostic({
+          span: self_.token.span,
+          remove_label: undefined,
+          enclose_in_block: undefined,
+        }),
+      ),
+    );
+    consume_colon = false;
+    res = Ok(this.mk_expr(lo, { $: "Lit", _0: lit }));
+  } else if (!ate_colon && (this.check_noexpect(TK.Comma) || this.check_noexpect(TK.Gt))) {
+    // We're probably inside of a `Path<'a>` that needs a turbofish
+    const guar = this.dcx().emit_err(
+      crate_diagnostics.UnexpectedTokenAfterLabel_diagnostic({
+        span: this.token.span,
+        remove_label: undefined,
+        enclose_in_block: undefined,
+      }),
+    );
+    consume_colon = false;
+    res = Ok(this.mk_expr_err(lo, guar));
+  } else {
+    const err: crate_diagnostics.UnexpectedTokenAfterLabel = {
+      span: this.token.span,
+      remove_label: undefined,
+      enclose_in_block: undefined,
+    };
+
+    // Continue as an expression in an effort to recover on `'label: non_block_expr`.
+    const r = this.parse_expr();
+    let expr: PResult<Expr>;
+    if (r.$ === "Err") {
+      expr = r;
+    } else {
+      expr = Ok(
+        ((expr: Expr): Expr => {
+          const span = expr.span;
+
+          let found_labeled_breaks: boolean;
+          {
+            class FindLabeledBreaksVisitor extends Visitor<ControlFlow<null>> {
+              override Result = VisitorResult.ControlFlow<null>();
+              override visit_expr(ex: Expr): ControlFlow<null> {
+                if (ex.kind.$ === "Break" && ex.kind._0 !== undefined) {
+                  return ControlFlow.Break(null);
+                } else {
+                  return walk_expr(this, ex);
+                }
+              }
+            }
+
+            found_labeled_breaks = new FindLabeledBreaksVisitor().visit_expr(expr).$ === "Break";
+          }
+
+          // Suggestion involves adding a labeled block.
+          //
+          // If there are no breaks that may use this label, suggest removing the label and
+          // recover to the unmodified expression.
+          if (!found_labeled_breaks) {
+            err.remove_label = Span.until(lo, span);
+
+            return expr;
+          }
+
+          err.enclose_in_block = {
+            left: Span.shrink_to_lo(span),
+            right: Span.shrink_to_hi(span),
+          };
+
+          // Replace `'label: non_block_expr` with `'label: {non_block_expr}` in order to suppress future errors about `break 'label`.
+          const stmt = this.mk_stmt(span, { $: "Expr", _0: expr });
+          const blk = this.mk_block([stmt], ast.BlockCheckMode.Default, span);
+          return this.mk_expr(span, { $: "Block", _0: blk, _1: label });
+        })(r._0),
+      );
+    }
+
+    this.dcx().emit_err(crate_diagnostics.UnexpectedTokenAfterLabel_diagnostic(err));
+    res = expr;
+  }
+  if (res.$ === "Err") return res;
+  const expr = res._0;
+
+  if (!ate_colon && consume_colon) {
+    this.dcx().emit_err(
+      crate_diagnostics.RequireColonAfterLabeledExpression_diagnostic({
+        span: expr.span,
+        label: lo,
+        label_end: Span.between(lo, tok_sp),
+      }),
+    );
+  }
+
+  return Ok(expr);
+};
+
+/// Emit an error when a char is parsed as a lifetime or label because of a missing quote.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1657 recover_unclosed_char
+Parser.prototype.recover_unclosed_char = function <L>(
+  this: Parser,
+  ident: Ident,
+  mk_lit_char: (a0: Symbol, a1: Span) => L,
+  err: (a0: Parser) => Diag,
+): L {
+  assert(could_be_unclosed_char_literal(ident), "assertion failed: could_be_unclosed_char_literal(ident)");
+  const r = this.dcx().try_steal_modify_and_emit_err(ident.span, StashKey.LifetimeIsChar, (err_) => {
+    err_.span_suggestion_verbose(
+      Span.shrink_to_hi(ident.span),
+      "add `'` to close the char literal",
+      "'",
+      Applicability.MaybeIncorrect,
+    );
+  });
+  if (r === undefined) {
+    err(this)
+      .with_span_suggestion_verbose(
+        Span.shrink_to_hi(ident.span),
+        "add `'` to close the char literal",
+        "'",
+        Applicability.MaybeIncorrect,
+      )
+      .emit_err();
+  }
+  const name = ident.without_first_quote().name;
+  return mk_lit_char(name, ident.span);
+};
+
+/// Recover on the syntax `do catch { ... }` suggesting `try { ... }` instead.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1688 recover_do_catch
+Parser.prototype.recover_do_catch = function (this: Parser): PResult<Expr> {
+  const lo = this.token.span;
+
+  this.bump(); // `do`
+  this.bump(); // `catch`
+
+  const span = Span.to(lo, this.prev_token.span);
+  this.dcx().emit_err(crate_diagnostics.DoCatchSyntaxRemoved_diagnostic({ span }));
+
+  return this.parse_try_block(lo);
+};
+
+/// Parse an expression if the token can begin one.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1701 parse_expr_opt
+Parser.prototype.parse_expr_opt = function (this: Parser): PResult<Expr | undefined> {
+  if (this.token.can_begin_expr()) {
+    const r = this.parse_expr();
+    if (r.$ === "Err") return r;
+    return Ok(r._0);
+  } else {
+    return Ok(undefined);
+  }
+};
+
+/// Parse `"return" expr?`.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1706 parse_expr_return
+Parser.prototype.parse_expr_return = function (this: Parser): PResult<Expr> {
+  const lo = this.prev_token.span;
+  const r = this.parse_expr_opt();
+  if (r.$ === "Err") return r;
+  const kind: ExprKind = { $: "Ret", _0: r._0 };
+  const expr = this.mk_expr(Span.to(lo, this.prev_token.span), kind);
+  return this.maybe_recover_from_bad_qpath(expr, expr_recover_qpath());
+};
+
+/// Parse `"do" "yeet" expr?`.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1714 parse_expr_yeet
+Parser.prototype.parse_expr_yeet = function (this: Parser): PResult<Expr> {
+  const lo = this.token.span;
+
+  this.bump(); // `do`
+  this.bump(); // `yeet`
+
+  const r = this.parse_expr_opt();
+  if (r.$ === "Err") return r;
+  const kind: ExprKind = { $: "Yeet", _0: r._0 };
+
+  const span = Span.to(lo, this.prev_token.span);
+  this.psess.gated_spans.gate(sym.yeet_expr, span);
+  const expr = this.mk_expr(span, kind);
+  return this.maybe_recover_from_bad_qpath(expr, expr_recover_qpath());
+};
+
+/// Parse `"become" expr`, with `"become"` token already eaten.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1729 parse_expr_become
+Parser.prototype.parse_expr_become = function (this: Parser): PResult<Expr> {
+  const lo = this.prev_token.span;
+  const r = this.parse_expr();
+  if (r.$ === "Err") return r;
+  const kind: ExprKind = { $: "Become", _0: r._0 };
+  const span = Span.to(lo, this.prev_token.span);
+  this.psess.gated_spans.gate(sym.explicit_tail_calls, span);
+  const expr = this.mk_expr(span, kind);
+  return this.maybe_recover_from_bad_qpath(expr, expr_recover_qpath());
+};
+
+/// Parse `"break" (('label (:? expr)?) | expr?)` with `"break"` token already eaten.
+/// If the label is followed immediately by a `:` token, the label and `:` are
+/// parsed as part of the expression (i.e. a labeled loop). The language team has
+/// decided in #87026 to require parentheses as a visual aid to avoid confusion if
+/// the break expression of an unlabeled break is a labeled loop (as in
+/// `break 'lbl: loop {}`); a labeled break with an unlabeled loop as its value
+/// expression only gets a warning for compatibility reasons; and a labeled break
+/// with a labeled loop does not even get a warning because there is no ambiguity.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1746 parse_expr_break
+Parser.prototype.parse_expr_break = function (this: Parser): PResult<Expr> {
+  const lo = this.prev_token.span;
+  let label = this.eat_label();
+  let kind: Expr | undefined;
+  if (this.token.kind.$ === "Colon" && label !== undefined) {
+    const label_ = label;
+    label = undefined;
+    // The value expression can be a labeled loop, see issue #86948, e.g.:
+    // `loop { break 'label: loop { break 'label 42; }; }`
+    const r = this.parse_expr_labeled(label_, true);
+    if (r.$ === "Err") return r;
+    const lexpr = r._0;
+    this.dcx().emit_err(
+      crate_diagnostics.LabeledLoopInBreak_diagnostic({
+        span: lexpr.span,
+        sub: {
+          $: "Expression",
+          left: Span.shrink_to_lo(lexpr.span),
+          right: Span.shrink_to_hi(lexpr.span),
+        },
+      }),
+    );
+    kind = lexpr;
+  } else if (
+    !this.token.eq(TK.OpenBrace) ||
+    !Restrictions.contains(this.restrictions, Restrictions.NO_STRUCT_LITERAL)
+  ) {
+    const r = this.parse_expr_opt();
+    if (r.$ === "Err") return r;
+    let expr = r._0;
+    if (expr !== undefined) {
+      const ek = expr.kind;
+      let is_unlabeled_loop: boolean;
+      switch (ek.$) {
+        case "While":
+          is_unlabeled_loop = ek._2 === undefined;
+          break;
+        case "ForLoop":
+          is_unlabeled_loop = ek._0.label === undefined;
+          break;
+        case "Loop":
+          is_unlabeled_loop = ek._1 === undefined;
+          break;
+        case "Block":
+          is_unlabeled_loop = ek._1 === undefined && ek._0.rules.$ === "Default";
+          break;
+        default:
+          is_unlabeled_loop = false;
+      }
+      if (label !== undefined && is_unlabeled_loop) {
+        const span = expr.span;
+        this.psess.buffer_lint(
+          BREAK_WITH_LABEL_AND_LOOP,
+          Span.to(lo, expr.span),
+          ast.CRATE_NODE_ID,
+          crate_diagnostics.BreakWithLabelAndLoop_diagnostic({
+            sub: {
+              left: Span.shrink_to_lo(span),
+              right: Span.shrink_to_hi(span),
+            },
+          }),
+        );
+      }
+
+      // Recover `break label aaaaa`
+      if (this.may_recover() && expr.kind.$ === "Path" && expr.kind._0 === undefined) {
+        const p = expr.kind._1;
+        if (p.segments.length === 1) {
+          const segment = p.segments[0]!;
+          if (segment.args === undefined) {
+            const ident = segment.ident;
+            const rn = this.parse_expr_opt();
+            if (rn.$ === "Err") return rn;
+            const next = rn._0;
+            if (next !== undefined) {
+              label = this.recover_ident_into_label(ident);
+              expr = next;
+            }
+          }
+        }
+      }
+    }
+
+    kind = expr;
+  } else {
+    kind = undefined;
+  }
+  const expr = this.mk_expr(Span.to(lo, this.prev_token.span), { $: "Break", _0: label, _1: kind });
+  return this.maybe_recover_from_bad_qpath(expr, expr_recover_qpath());
+};
+
+/// Parse `"continue" label?`.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1814 parse_expr_continue
+Parser.prototype.parse_expr_continue = function (this: Parser, lo: Span): PResult<Expr> {
+  let label = this.eat_label();
+
+  // Recover `continue label` -> `continue 'label`
+  let id: [Ident, token.IdentKind] | undefined;
+  if (this.may_recover() && label === undefined && (id = this.token.ident()) !== undefined) {
+    const [ident, _] = id;
+    this.bump();
+    label = this.recover_ident_into_label(ident);
+  }
+
+  const kind: ExprKind = { $: "Continue", _0: label };
+  return Ok(this.mk_expr(Span.to(lo, this.prev_token.span), kind));
+};
+
+/// Parse `"yield" expr?`.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1831 parse_expr_yield
+Parser.prototype.parse_expr_yield = function (this: Parser): PResult<Expr> {
+  const lo = this.prev_token.span;
+  const r = this.parse_expr_opt();
+  if (r.$ === "Err") return r;
+  const kind: ExprKind = { $: "Yield", _0: { $: "Prefix", _0: r._0 } };
+  const span = Span.to(lo, this.prev_token.span);
+  this.psess.gated_spans.gate(sym.yield_expr, span);
+  const expr = this.mk_expr(span, kind);
+  return this.maybe_recover_from_bad_qpath(expr, expr_recover_qpath());
+};
+
+/// Parse `builtin # ident(args,*)`.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1841 parse_expr_builtin
+Parser.prototype.parse_expr_builtin = function (this: Parser): PResult<Expr> {
+  return this.parse_builtin((this_, lo, ident): PResult<Expr | undefined> => {
+    let r: PResult<Expr>;
+    switch (ident.name) {
+      case sym.offset_of:
+        r = this_.parse_expr_offset_of(lo);
+        break;
+      case sym.type_ascribe:
+        r = this_.parse_expr_type_ascribe(lo);
+        break;
+      case sym.wrap_binder:
+        r = this_.parse_expr_unsafe_binder_cast(lo, ast.UnsafeBinderCastKind.Wrap);
+        break;
+      case sym.unwrap_binder:
+        r = this_.parse_expr_unsafe_binder_cast(lo, ast.UnsafeBinderCastKind.Unwrap);
+        break;
+      default:
+        return Ok(undefined);
+    }
+    if (r.$ === "Err") return r;
+    return Ok(r._0);
+  });
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1857 parse_builtin
+Parser.prototype.parse_builtin = function <T>(
+  this: Parser,
+  parse: (this_: Parser, a1: Span, a2: Ident) => PResult<T | undefined>,
+): PResult<T> {
+  const lo = this.token.span;
+
+  this.bump(); // `builtin`
+  this.bump(); // `#`
+
+  const id = this.token.ident();
+  if (!(id !== undefined && id[1] === IdentKind.Normal)) {
+    const err = this.dcx().create_err(crate_diagnostics.ExpectedBuiltinIdent_diagnostic({ span: this.token.span }));
+    return Err(err);
+  }
+  const ident = id[0];
+  this.psess.gated_spans.gate(sym.builtin_syntax, ident.span);
+  this.bump();
+
+  const r0 = this.expect(exp.OpenParen);
+  if (r0.$ === "Err") return r0;
+  let ret: PResult<T>;
+  const rp = parse(this, lo, ident);
+  if (rp.$ === "Err") return rp;
+  if (rp._0 !== undefined) {
+    ret = Ok(rp._0);
+  } else {
+    const err = this.dcx().create_err(
+      crate_diagnostics.UnknownBuiltinConstruct_diagnostic({
+        span: Span.to(lo, ident.span),
+        name: ident,
+      }),
+    );
+    return Err(err);
+  }
+  const r1 = this.expect(exp.CloseParen);
+  if (r1.$ === "Err") return r1;
+
+  return ret;
+};
+
+/// Built-in macro for `offset_of!` expressions.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1891 parse_expr_offset_of
+Parser.prototype.parse_expr_offset_of = function (this: Parser, lo: Span): PResult<Expr> {
+  const rt = this.parse_ty();
+  if (rt.$ === "Err") return rt;
+  const container = rt._0;
+  const rc = this.expect(exp.Comma);
+  if (rc.$ === "Err") return rc;
+
+  const rf = this.parse_floating_field_access();
+  if (rf.$ === "Err") return rf;
+  const fields = rf._0;
+  const trailing_comma = this.eat_noexpect(TK.Comma);
+
+  const re = this.expect_one_of([], [exp.CloseParen]);
+  if (re.$ === "Err") {
+    const e = re._0;
+    if (trailing_comma) {
+      e.note("unexpected third argument to offset_of");
+    } else {
+      e.note("offset_of expects dot-separated field and variant names");
+    }
+    e.emit();
+  }
+
+  // Eat tokens until the macro call ends.
+  if (this.may_recover()) {
+    while (!token.TokenKind.is_close_delim_or_eof(this.token.kind)) {
+      this.bump();
+    }
+  }
+
+  const span = Span.to(lo, this.token.span);
+  return Ok(this.mk_expr(span, { $: "OffsetOf", _0: container, _1: fields }));
+};
+
+/// Built-in macro for type ascription expressions.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1919 parse_expr_type_ascribe
+Parser.prototype.parse_expr_type_ascribe = function (this: Parser, lo: Span): PResult<Expr> {
+  const r = this.parse_expr();
+  if (r.$ === "Err") return r;
+  const expr = r._0;
+  const rc = this.expect(exp.Comma);
+  if (rc.$ === "Err") return rc;
+  const rt = this.parse_ty();
+  if (rt.$ === "Err") return rt;
+  const ty = rt._0;
+  const span = Span.to(lo, this.token.span);
+  return Ok(this.mk_expr(span, { $: "Type", _0: expr, _1: ty }));
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1927 parse_expr_unsafe_binder_cast
+Parser.prototype.parse_expr_unsafe_binder_cast = function (
+  this: Parser,
+  lo: Span,
+  kind: UnsafeBinderCastKind,
+): PResult<Expr> {
+  const r = this.parse_expr();
+  if (r.$ === "Err") return r;
+  const expr = r._0;
+  let ty: Ty | undefined;
+  if (this.eat(exp.Comma)) {
+    const rt = this.parse_ty();
+    if (rt.$ === "Err") return rt;
+    ty = rt._0;
+  } else {
+    ty = undefined;
+  }
+  const span = Span.to(lo, this.token.span);
+  return Ok(this.mk_expr(span, { $: "UnsafeBinderCast", _0: kind, _1: expr, _2: ty }));
+};
+
+/// Returns a string literal if the next token is a string literal.
+/// In case of error returns `Some(lit)` if the next token is a literal with a wrong kind,
+/// and returns `None` if the next token is not literal at all.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1941 parse_str_lit
+Parser.prototype.parse_str_lit = function (this: Parser): Result<StrLit, MetaItemLit | undefined> {
+  const lit = this.parse_opt_meta_item_lit();
+  if (lit !== undefined) {
+    if (lit.kind.$ === "Str") {
+      const [symbol_unescaped, style] = [lit.kind._0, lit.kind._1];
+      return Ok(new ast.StrLit(lit.symbol, lit.suffix, symbol_unescaped, style, lit.span));
+    } else {
+      return Err(lit);
+    }
+  } else {
+    return Err(undefined);
+  }
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1957 mk_token_lit_char
+export function mk_token_lit_char(name: Symbol, span: Span): [Lit, Span] {
+  return [token.Lit.new(token.LitKind.Char, name, undefined), span];
 }
 
-// Parser::mk_meta_item_lit_char (expr.rs:1961), an associated fn without `self`.
-export function mk_meta_item_lit_char(_name: Symbol, _span: Span): MetaItemLit {
-  return unported("rustc_parse::parser::expr::Parser::mk_meta_item_lit_char");
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1961 mk_meta_item_lit_char
+export function mk_meta_item_lit_char(name: Symbol, span: Span): MetaItemLit {
+  const first = Symbol.as_str(name).codePointAt(0);
+  return new ast.MetaItemLit(name, undefined, { $: "Char", _0: first ?? C_UNDERSCORE }, span);
 }
 
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1970 handle_missing_lit
+Parser.prototype.handle_missing_lit = function <L>(this: Parser, mk_lit_char: (a0: Symbol, a1: Span) => L): PResult<L> {
+  const token_ = this.token;
+  const err = (self_: Parser): Diag => {
+    const msg = `unexpected token: ${token_descr(token_)}`;
+    return self_.dcx().struct_span_err(token_.span, msg);
+  };
+  // On an error path, eagerly consider a lifetime to be an unclosed character lit, if that
+  // makes sense.
+  const lt0 = this.token.lifetime();
+  if (lt0 !== undefined && lt0[1] === IdentKind.Normal && could_be_unclosed_char_literal(lt0[0])) {
+    const lt = this.expect_lifetime();
+    return Ok(this.recover_unclosed_char(lt.ident, mk_lit_char, err));
+  } else {
+    return Err(err(this));
+  }
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1991 parse_token_lit
+Parser.prototype.parse_token_lit = function (this: Parser): PResult<[Lit, Span]> {
+  const r = this.parse_opt_token_lit();
+  if (r !== undefined) return Ok(r);
+  return this.handle_missing_lit(mk_token_lit_char);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:1997 parse_meta_item_lit
+Parser.prototype.parse_meta_item_lit = function (this: Parser): PResult<MetaItemLit> {
+  const r = this.parse_opt_meta_item_lit();
+  if (r !== undefined) return Ok(r);
+  return this.handle_missing_lit(mk_meta_item_lit_char);
+};
+
+/// PORT: `char::is_numeric` (general categories Nd, Nl, No), via the JS Unicode property `N`.
+const IS_NUMERIC = /^\p{N}$/u;
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2003 recover_after_dot
+Parser.prototype.recover_after_dot = function (this: Parser): void {
+  if (this.token.kind.$ === "Dot") {
+    // Attempt to recover `.4` as `0.4`. We don't currently have any syntax where
+    // dot would follow an optional literal, so we do this unconditionally.
+    const recovered = this.look_ahead(1, (next_token): Token | undefined => {
+      // If it's an integer that looks like a float, then recover as such.
+      //
+      // We will never encounter the exponent part of a floating
+      // point literal here, since there's no use of the exponent
+      // syntax that also constitutes a valid integer, so we need
+      // not check for that.
+      const k = next_token.kind;
+      if (
+        k.$ === "Literal" &&
+        k._0.kind.$ === "Integer" &&
+        (k._0.suffix === undefined || k._0.suffix === sym.f32 || k._0.suffix === sym.f64) &&
+        [...Symbol.as_str(k._0.symbol)].every((c) => IS_NUMERIC.test(c) || c === "_") &&
+        Span.hi(this.token.span) === Span.lo(next_token.span)
+      ) {
+        const { symbol, suffix } = k._0;
+        const s = "0." + Symbol.as_str(symbol);
+        const kind = token.TokenKind.lit(token.LitKind.Float, Symbol.intern(s), suffix);
+        return token.Token.new(kind, Span.to(this.token.span, next_token.span));
+      } else {
+        return undefined;
+      }
+    });
+    if (recovered !== undefined) {
+      this.dcx().emit_err(
+        crate_diagnostics.FloatLiteralRequiresIntegerPart_diagnostic({
+          span: recovered.span,
+          suggestion: Span.shrink_to_lo(recovered.span),
+        }),
+      );
+      this.bump();
+      this.token = recovered;
+    }
+  }
+};
+
+/// Keep this in sync with `Token::can_begin_literal_maybe_minus` and
+/// `Lit::from_token` (excluding unary negation).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2040 eat_token_lit
+Parser.prototype.eat_token_lit = function (this: Parser): Lit | undefined {
+  const check_expr = (expr: Expr): Lit | undefined => {
+    const ek = expr.kind;
+    if (ek.$ === "Lit") {
+      return ek._0;
+    } else if (ek.$ === "Unary" && ek._0 === ast.UnOp.Neg && ek._1.kind.$ === "Lit") {
+      return undefined;
+    } else {
+      return panic(`unexpected reparsed expr/literal: ${ast.debug_ExprKind(expr.kind, PLAIN)}`);
+    }
+  };
+  const k = this.token.uninterpolate().kind;
+  if (
+    k.$ === "Ident" &&
+    (k._1 === IdentKind.Normal || k._1 === IdentKind.ForcedKeyword) &&
+    Symbol.is_bool_lit(k._0)
+  ) {
+    const name = k._0;
+    this.bump();
+    return token.Lit.new(token.LitKind.Bool, name, undefined);
+  } else if (k.$ === "Literal") {
+    const token_lit = k._0;
+    this.bump();
+    return token_lit;
+  } else if (k.$ === "OpenInvisible" && k._0.$ === "MetaVar" && k._0._0.$ === "Literal") {
+    const lit = this.eat_metavar_seq(token.MetaVarKind.Literal, (this_) => this_.parse_literal_maybe_minus());
+    if (lit === undefined) return panic("metavar seq literal");
+    return check_expr(lit);
+  } else if (
+    k.$ === "OpenInvisible" &&
+    k._0.$ === "MetaVar" &&
+    k._0._0.$ === "Expr" &&
+    k._0._0.can_begin_literal_maybe_minus
+  ) {
+    const mv_kind = k._0._0;
+    const expr = this.eat_metavar_seq(mv_kind, (this_) => this_.parse_expr());
+    if (expr === undefined) return panic("metavar seq expr");
+    return check_expr(expr);
+  } else {
+    return undefined;
+  }
+};
+
+/// Matches `lit = true | false | token_lit`.
+/// Returns `None` if the next token is not a literal.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2083 parse_opt_token_lit
+Parser.prototype.parse_opt_token_lit = function (this: Parser): [Lit, Span] | undefined {
+  this.recover_after_dot();
+  const span = this.token.span;
+  const token_lit = this.eat_token_lit();
+  return token_lit === undefined ? undefined : [token_lit, span];
+};
+
+/// Matches `lit = true | false | token_lit`.
+/// Returns `None` if the next token is not a literal.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2091 parse_opt_meta_item_lit
+Parser.prototype.parse_opt_meta_item_lit = function (this: Parser): MetaItemLit | undefined {
+  this.recover_after_dot();
+  const span = this.token.span;
+  const uninterpolated_span = this.token_uninterpolated_span();
+  const token_lit0 = this.eat_token_lit();
+  if (token_lit0 === undefined) return undefined;
+  const token_lit = token_lit0;
+  const r = MetaItemLitC.from_token_lit(token_lit, span);
+  if (r.$ === "Ok") {
+    return r._0;
+  } else {
+    const err = r._0;
+    const guar = report_lit_error(this.psess, err, token_lit, uninterpolated_span);
+    // Pack possible quotes and prefixes from the original literal into
+    // the error literal's symbol so they can be pretty-printed faithfully.
+    const suffixless_lit = token.Lit.new(token_lit.kind, token_lit.symbol, undefined);
+    const symbol = Symbol.intern(token.display_Lit(suffixless_lit));
+    const token_lit2 = token.Lit.new({ $: "Err", _0: guar }, symbol, token_lit.suffix);
+    return unwrap_result(MetaItemLitC.from_token_lit(token_lit2, uninterpolated_span));
+  }
+};
+
+/// Matches `'-' lit | lit` (cf. `ast_validation::AstValidator::check_expr_within_pat`).
+/// Keep this in sync with `Token::can_begin_literal_maybe_minus`.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2113 parse_literal_maybe_minus
+Parser.prototype.parse_literal_maybe_minus = function (this: Parser): PResult<Expr> {
+  let expr: Expr | undefined;
+  let lit: Expr | undefined;
+  if (
+    (expr = this.eat_metavar_seq_with_matcher(
+      (mv_kind) => mv_kind.$ === "Expr",
+      (this_) => {
+        // FIXME(nnethercote) The `expr` case should only match if
+        // `e` is an `ExprKind::Lit` or an `ExprKind::Unary` containing
+        // an `UnOp::Neg` and an `ExprKind::Lit`, like how
+        // `can_begin_literal_maybe_minus` works. But this method has
+        // been over-accepting for a long time, and to make that change
+        // here requires also changing some `parse_literal_maybe_minus`
+        // call sites to accept additional expression kinds. E.g.
+        // `ExprKind::Path` must be accepted when parsing range
+        // patterns. That requires some care. So for now, we continue
+        // being less strict here than we should be.
+        return this_.parse_expr();
+      },
+    )) !== undefined
+  ) {
+    return Ok(expr);
+  } else if (
+    (lit = this.eat_metavar_seq(token.MetaVarKind.Literal, (this_) => this_.parse_literal_maybe_minus())) !==
+    undefined
+  ) {
+    return Ok(lit);
+  }
+
+  const lo = this.token.span;
+  const minus_present = this.eat(exp.Minus);
+  const r = this.parse_token_lit();
+  if (r.$ === "Err") return r;
+  const [token_lit, span] = r._0;
+  const expr2 = this.mk_expr(span, { $: "Lit", _0: token_lit });
+
+  if (minus_present) {
+    return Ok(this.mk_expr(Span.to(lo, this.prev_token.span), this.mk_unary(ast.UnOp.Neg, expr2)));
+  } else {
+    return Ok(expr2);
+  }
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2149 suggest_missing_semicolon_before_array
+Parser.prototype.suggest_missing_semicolon_before_array = function (
+  this: Parser,
+  prev_span: Span,
+  open_delim_span: Span,
+): PResult<undefined> {
+  if (!this.may_recover()) {
+    return Ok(undefined);
+  }
+
+  if (this.token.kind.$ === "Comma") {
+    if (!this.psess.source_map().is_multiline(Span.until(prev_span, this.token.span))) {
+      return Ok(undefined);
+    }
+    const snapshot = this.create_snapshot_for_diagnostic();
+    snapshot.parser.bump();
+    const r = snapshot.parser.parse_seq_to_before_end(exp.CloseBracket, SeqSep.trailing_allowed(exp.Comma), (p) =>
+      p.parse_expr(),
+    );
+    let snippet: Result<string, SpanSnippetError>;
+    if (
+      r.$ === "Ok" &&
+      // When the close delim is `)`, `token.kind` is expected to be `token::CloseParen`,
+      // but the actual `token.kind` is `token::CloseBracket`.
+      // This is because the `token.kind` of the close delim is treated as the same as
+      // that of the open delim in `TokenTreesReader::parse_token_tree`, even if the delimiters of them are different.
+      // Therefore, `token.kind` should not be compared here.
+      (snippet = snapshot.parser.span_to_snippet(snapshot.parser.token.span)).$ === "Ok" &&
+      snippet._0 === "]"
+    ) {
+      return Err(
+        this.dcx().create_err(
+          crate_diagnostics.MissingSemicolonBeforeArray_diagnostic({
+            open_delim: open_delim_span,
+            semicolon: Span.shrink_to_hi(prev_span),
+          }),
+        ),
+      );
+    } else if (r.$ === "Ok") {
+      // ()
+    } else {
+      r._0.cancel();
+    }
+  }
+  return Ok(undefined);
+};
+
+/// Parses a block or unsafe block.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2192 parse_expr_block
+Parser.prototype.parse_expr_block = function (
+  this: Parser,
+  opt_label: Label | undefined,
+  lo: Span,
+  blk_mode: BlockCheckMode,
+): PResult<Expr> {
+  if (this.token.is_metavar_block()) {
+    this.dcx().emit_err(
+      crate_diagnostics.InvalidBlockMacroSegment_diagnostic({
+        span: this.token.span,
+        context: Span.to(lo, this.token.span),
+        wrap: {
+          lo: Span.shrink_to_lo(this.token.span),
+          hi: Span.shrink_to_hi(this.token.span),
+        },
+      }),
+    );
+  }
+
+  const r = this.parse_block_common(lo, blk_mode, undefined);
+  if (r.$ === "Err") return r;
+  const [attrs, blk] = r._0;
+  return Ok(this.mk_expr_with_attrs(blk.span, { $: "Block", _0: blk, _1: opt_label }, attrs));
+};
+
+/// Parse a block which takes no attributes and has no label
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2214 parse_simple_block
+Parser.prototype.parse_simple_block = function (this: Parser): PResult<Expr> {
+  const r = this.parse_block();
+  if (r.$ === "Err") return r;
+  const blk = r._0;
+  return Ok(this.mk_expr(blk.span, { $: "Block", _0: blk, _1: undefined }));
+};
+
+// ---- STUB TAIL ----
 // pub(crate) fn could_be_unclosed_char_literal(ident: Ident) -> bool (expr.rs:4080)
 export function could_be_unclosed_char_literal(_ident: import("../../rustc_span/symbol.ts").Ident): boolean {
   return unported("rustc_parse::parser::expr::could_be_unclosed_char_literal");
@@ -1534,38 +2681,6 @@ export function could_be_unclosed_char_literal(_ident: import("../../rustc_span/
 
 // PORT(stub): placeholders until this file is ported; remove each name as its method is ported.
 unported_methods(Parser.prototype, "rustc_parse::parser::expr::Parser", [
-  "parse_expr_bottom",
-  "parse_expr_lit",
-  "parse_expr_tuple_parens",
-  "parse_expr_array_or_repeat",
-  "parse_expr_path_start",
-  "parse_expr_labeled",
-  "recover_unclosed_char",
-  "recover_do_catch",
-  "parse_expr_opt",
-  "parse_expr_return",
-  "parse_expr_yeet",
-  "parse_expr_become",
-  "parse_expr_break",
-  "parse_expr_continue",
-  "parse_expr_yield",
-  "parse_expr_builtin",
-  "parse_builtin",
-  "parse_expr_offset_of",
-  "parse_expr_type_ascribe",
-  "parse_expr_unsafe_binder_cast",
-  "parse_str_lit",
-  "handle_missing_lit",
-  "parse_token_lit",
-  "parse_meta_item_lit",
-  "recover_after_dot",
-  "eat_token_lit",
-  "parse_opt_token_lit",
-  "parse_opt_meta_item_lit",
-  "parse_literal_maybe_minus",
-  "suggest_missing_semicolon_before_array",
-  "parse_expr_block",
-  "parse_simple_block",
   "parse_expr_closure",
   "parse_closure_block_body",
   "parse_capture_clause",
