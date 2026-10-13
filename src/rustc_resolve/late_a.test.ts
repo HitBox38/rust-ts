@@ -455,12 +455,23 @@ function with_visitor<R>(f: (v: LateResolutionVisitor, r: Resolver) => R, editio
   return with_resolver(edition, (r) => f(LateResolutionVisitor.new(r), r));
 }
 
-const UNIT_PENDING: Record<string, string> = {
-  "resolve_lifetime: undeclared lifetime": "rustc_resolve::late::diagnostics::LateResolutionVisitor::emit_undeclared_lifetime_error",
-  "resolve_lifetime: a const param type rib": "rustc_resolve::late::diagnostics::LateResolutionVisitor::emit_non_static_lt_in_const_param_ty_error",
-  "resolve_anonymous_lifetime: an Item barrier reports a missing lifetime": "rustc_resolve::late::diagnostics::LateResolutionVisitor::report_missing_lifetime_specifiers",
-  "resolve_label: an unreachable label in an outer rib": "rustc_resolve::late::diagnostics::LateResolutionVisitor::suggestion_for_label_in_rib",
-};
+const UNIT_PENDING: Record<string, string> = {};
+
+/**
+ * Runs `f` on a fresh visitor and returns how many errors it emitted; the session then ends with
+ * "aborting due to N previous errors" (`FatalErrorMarker`), as rustc does after reporting.
+ */
+function errors_reported(f: (v: LateResolutionVisitor) => void): number {
+  let n = -1;
+  expect(() =>
+    with_visitor((v) => {
+      const before = v.r.dcx().err_count();
+      f(v);
+      n = v.r.dcx().err_count() - before;
+    }),
+  ).toThrow();
+  return n;
+}
 
 function case_(name: string, f: () => void): void {
   test(name, () => {
@@ -566,15 +577,13 @@ case_("resolve_lifetime: a named lifetime and its use set (late.rs:1851-1915)", 
 });
 
 case_("resolve_lifetime: undeclared lifetime", () => {
-  with_visitor((v) => {
-    v.with_lifetime_rib(LifetimeRibKind.Item, (v) => v.resolve_lifetime(lt(9, "'b"), "Ref"));
-  });
+  // E0261 (`emit_undeclared_lifetime_error`).
+  expect(errors_reported((v) => v.with_lifetime_rib(LifetimeRibKind.Item, (v) => v.resolve_lifetime(lt(9, "'b"), "Ref")))).toBe(1);
 });
 
 case_("resolve_lifetime: a const param type rib", () => {
-  with_visitor((v) => {
-    v.with_lifetime_rib(LifetimeRibKind.ConstParamTy, (v) => v.resolve_lifetime(lt(9, "'b"), "Ref"));
-  });
+  // `emit_non_static_lt_in_const_param_ty_error`.
+  expect(errors_reported((v) => v.with_lifetime_rib(LifetimeRibKind.ConstParamTy, (v) => v.resolve_lifetime(lt(9, "'b"), "Ref")))).toBe(1);
 });
 
 case_("resolve_elided_lifetime: anchor + fresh parameter, as the probe numbers it (late.rs:2203, 2216)", () => {
@@ -624,9 +633,8 @@ case_("resolve_anonymous_lifetime: explicit '_ under AnonymousReportError (E0637
 });
 
 case_("resolve_anonymous_lifetime: an Item barrier reports a missing lifetime", () => {
-  with_visitor((v) => {
-    v.with_lifetime_rib(LifetimeRibKind.Item, (v) => v.resolve_anonymous_lifetime(lt(64, "'_"), nid(64), false));
-  });
+  // E0106 (`report_missing_lifetime_specifiers`).
+  expect(errors_reported((v) => v.with_lifetime_rib(LifetimeRibKind.Item, (v) => v.resolve_anonymous_lifetime(lt(64, "'_"), nid(64), false)))).toBe(1);
 });
 
 case_("record_lifetime_def: a second resolution of the same id panics (late.rs:2492)", () => {
@@ -732,7 +740,11 @@ case_("resolve_label: an unreachable label in an outer rib", () => {
     const outer = Rib.new<NodeId>(RibKind.Normal);
     outer.bindings.set(ident("'a"), nid(53));
     v.label_ribs.push(outer, Rib.new<NodeId>(RibKind.FnOrCoroutine));
-    v.resolve_label(ident("'a"));
+    // Found behind the `FnOrCoroutine` barrier; the inner rib has no similar name to suggest.
+    expect(v.resolve_label(ident("'a"))).toEqual({
+      $: "Err",
+      _0: { $: "UnreachableLabel", name: Symbol.intern("'a"), definition_span: DUMMY_SP, suggestion: undefined },
+    });
   });
 });
 

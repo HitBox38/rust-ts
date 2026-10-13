@@ -11,7 +11,8 @@
 //       `partial_res_map`, each owner's `label_res` / `trait_map` / `extra_lifetime_params` lines and
 //       `lint_buffer` (UNUSED_LABELS).
 //    b. Through the driver (src/rust_ts/resdump.ts), stdout + stderr + exit code.
-//    PENDING: every case (the unported text it stops at is asserted); root deletes an entry once it runs.
+//    PENDING (the unported text it stops at is asserted; root deletes an entry once it runs): the driver runs;
+//    every in-process case matches since the late.rs / late/diagnostics.rs integration (merge-late).
 // 2. Unit checks of this half on a real `Resolver` (expectations follow the upstream code they cite). Test
 //    stand-ins replace the few small lane res-late-a functions they need (`LateResolutionVisitor::new`,
 //    `Rib::new`, `LifetimeRib::new`, `with_rib`, `with_lifetime_rib`, `LifetimeRibKind::elided`,
@@ -83,10 +84,6 @@ type Case = (typeof CASES)[number];
 
 /** In-process runs that stop at unported code: the text of the `Unported` they reach. */
 const PENDING_IN_PROCESS: Partial<Record<Case, string>> = {
-  patterns: "rustc_resolve::late::diagnostics::LateResolutionVisitor::maybe_report_lifetime_uses",
-  labels: "rustc_resolve::late::diagnostics::LateResolutionVisitor::suggestion_for_label_in_rib",
-  traits: "rustc_resolve::late::diagnostics::LateResolutionVisitor::maybe_report_lifetime_uses",
-  errors: "rustc_resolve::late::diagnostics::LateResolutionVisitor::maybe_report_lifetime_uses",
 };
 /** Driver runs that stop at unported code (exit 70); the reason is the first missing piece. */
 const PENDING_DRIVER: Partial<Record<Case, string>> = {
@@ -373,11 +370,26 @@ describe("late_resolve_crate vs the resdump probe (in process)", () => {
   for (const c of CASES) {
     test(`${c}${PENDING_IN_PROCESS[c] ? " (PENDING)" : ""}`, () => {
       const pending = PENDING_IN_PROCESS[c];
-      const go = () =>
-        with_expanded(join(DIR, `${c}.rs`), (tcx, resolver, krate) => {
-          resolver.late_resolve_crate(krate);
-          return dump_after_late(tcx, resolver);
-        });
+      let dumped: Map<string, string[]> | undefined;
+      // As the probe runs (fixtures made with cwd = late_b_oracle and the bare file name), so spans print
+      // `<case>.rs:..`. A crate with errors then ends the session with "aborting due to N previous errors"
+      // (`FatalErrorMarker`) after the dump, as the probe's run does (its exit code is in exit_codes.json).
+      const go = (): Map<string, string[]> => {
+        const cwd = process.cwd();
+        process.chdir(DIR);
+        try {
+          return with_expanded(`${c}.rs`, (tcx, resolver, krate) => {
+            resolver.late_resolve_crate(krate);
+            dumped = dump_after_late(tcx, resolver);
+            return dumped;
+          });
+        } catch (e) {
+          if (e instanceof FatalErrorMarker && dumped !== undefined && exit_codes()[c] !== 0) return dumped;
+          throw e;
+        } finally {
+          process.chdir(cwd);
+        }
+      };
       if (pending !== undefined) {
         let err: unknown;
         try {

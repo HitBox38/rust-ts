@@ -1,0 +1,42 @@
+{
+ "e0106_ret": {
+  "stderr": "error[E0106]: missing lifetime specifier\n --> e0106_ret.rs:1:11\n  |\n1 | fn f() -> &[u8] {\n  |           ^ expected named lifetime parameter\n  |\n  = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from\nhelp: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`\n  |\n1 | fn f() -> &'static [u8] {\n  |            +++++++\nhelp: instead, you are more likely to want to return an owned value\n  |\n1 - fn f() -> &[u8] {\n1 + fn f() -> Vec<u8> {\n  |\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0106`.\n",
+  "exit": 1
+ },
+ "e0106_struct": {
+  "stderr": "error[E0106]: missing lifetime specifier\n --> e0106_struct.rs:2:8\n  |\n2 |     x: &u8,\n  |        ^ expected named lifetime parameter\n  |\nhelp: consider introducing a named lifetime parameter\n  |\n1 ~ struct S<'a> {\n2 ~     x: &'a u8,\n  |\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0106`.\n",
+  "exit": 1
+ },
+ "e0261": {
+  "stderr": "error[E0261]: use of undeclared lifetime name `'a`\n --> e0261.rs:1:10\n  |\n1 | fn f(x: &'a u8) {}\n  |          ^^ undeclared lifetime\n  |\nhelp: consider introducing lifetime `'a` here\n  |\n1 | fn f<'a>(x: &'a u8) {}\n  |     ++++\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0261`.\n",
+  "exit": 1
+ },
+ "e0261_impl": {
+  "stderr": "error[E0261]: use of undeclared lifetime name `'a`\n --> e0261_impl.rs:3:21\n  |\n3 |     fn f(&self, x: &'a u8) {}\n  |                     ^^ undeclared lifetime\n  |\nhelp: consider introducing lifetime `'a` here\n  |\n3 |     fn f<'a>(&self, x: &'a u8) {}\n  |         ++++\nhelp: consider introducing lifetime `'a` here\n  |\n2 | impl<'a, 'b> S<'b> {\n  |      +++\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0261`.\n",
+  "exit": 1
+ },
+ "e0261_static": {
+  "stderr": "error[E0261]: use of undeclared lifetime name `'statik`\n --> e0261_static.rs:1:10\n  |\n1 | fn f(x: &'statik u8) {}\n  |          ^^^^^^^ undeclared lifetime\n  |\nhelp: you may have misspelled the `'static` lifetime\n  |\n1 - fn f(x: &'statik u8) {}\n1 + fn f(x: &'static u8) {}\n  |\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0261`.\n",
+  "exit": 1
+ },
+ "e0423_enum": {
+  "stderr": "error[E0423]: cannot find function, tuple struct or tuple variant `E` in this scope\n --> e0423_enum.rs:6:13\n  |\n6 |     let _ = E(0);\n  |             ^\n  |\n  = note: an enum named `E` exists in another namespace\n  = help: you might have meant to construct the enum's non-tuple variant\nnote: the enum is defined here\n --> e0423_enum.rs:1:1\n  |\n1 | / enum E {\n2 | |     A(u8),\n3 | |     B,\n4 | | }\n  | |_^\nhelp: try to construct one of the enum's variants\n  |\n6 |     let _ = E::A(0);\n  |              +++\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0423`.\n",
+  "exit": 1
+ },
+ "e0423_struct_call": {
+  "stderr": "error[E0423]: cannot find function, tuple struct or tuple variant `S` in this scope\n --> e0423_struct_call.rs:5:13\n  |\n1 | / struct S {\n2 | |     x: u8,\n3 | | }\n  | |_- `S` defined here\n4 |   fn f() {\n5 |       let _ = S(0);\n  |               ^^^^\n  |\n  = note: a struct named `S` exists in another namespace\nhelp: use struct literal syntax instead of calling\n  |\n5 -     let _ = S(0);\n5 +     let _ = S{x: 0};\n  |\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0423`.\n",
+  "exit": 1
+ },
+ "e0496": {
+  "stderr": "error[E0496]: lifetime name `'a` shadows a lifetime name that is already in scope\n --> e0496.rs:3:10\n  |\n2 | impl<'a> S<'a> {\n  |      -- first declared here\n3 |     fn f<'a>(x: &'a u8) {}\n  |          ^^ lifetime `'a` already in scope\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0496`.\n",
+  "exit": 1
+ },
+ "e0532_unit": {
+  "stderr": "error[E0532]: expected tuple struct or tuple variant, found unit struct `U`\n --> e0532_unit.rs:3:9\n  |\n1 | struct U;\n  | --------- `U` defined here\n2 | fn f(u: U) {\n3 |     let U(..) = u;\n  |         ^^^^^ help: use this syntax instead: `U`\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0532`.\n",
+  "exit": 1
+ },
+ "label_shadow": {
+  "stderr": "warning: label name `'a` shadows a label name that is already in scope\n --> label_shadow.rs:3:9\n  |\n2 |     'a: loop {\n  |     -- first declared here\n3 |         'a: loop {\n  |         ^^ label `'a` already in scope\n\nwarning: 1 warning emitted\n\n",
+  "exit": 0
+ }
+}
