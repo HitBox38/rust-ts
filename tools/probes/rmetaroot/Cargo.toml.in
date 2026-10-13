@@ -1,0 +1,20 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (lane rmeta-contract): reads crate metadata with the oracle toolchain's own
+# `DefaultMetadataLoader`, `MemDecoder` and leaf `Decodable` impls (`TargetTuple`, `StableCrateId`, `Edition`,
+# `PanicStrategy`, `SymbolManglingVersion`, `Svh`/`Fingerprint`) and prints the header, the `CrateRoot`
+# scalars and every lazy position / table layout of the root.
+[package]
+name = "rmetaroot"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "rmetaroot"
+path = "@SRC@/main.rs"
+
+[workspace]
