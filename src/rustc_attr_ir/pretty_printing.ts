@@ -18,7 +18,7 @@ import { debug_Transparency, type Transparency } from "../rustc_span/hygiene.ts"
 import type { AttrId, ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import { debug_Ident, debug_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
-import { type Align, debug_Align } from "./standins.ts";
+import { type Align, debug_Align } from "../rustc_abi/lib.ts";
 import { type CollapseMacroDebuginfo, debug_CollapseMacroDebuginfo } from "../rustc_structures/collapse_macro_debug_info.ts";
 import { type CrateType, debug_CrateType } from "../rustc_structures/crate_type.ts";
 import { display_Limit, type Limit } from "../rustc_structures/limit.ts";

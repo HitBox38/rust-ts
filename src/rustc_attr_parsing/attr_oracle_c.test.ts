@@ -44,12 +44,8 @@ interface Case {
 
 const oracle = JSON.parse(readFileSync(join(import.meta.dir, "attr_oracle", "c_list_out.json"), "utf8")) as Case[];
 
-/** `rustc_attr_ir` types `Align` as an opaque stand-in whose Debug is `unported` (rustc_attr_ir/standins.ts). */
-const ALIGN_STANDIN = "rustc_abi::Align Debug (stand-in, rustc_abi not ported)";
 /** What stays pending once the attribute parsers of lane attr-parse-d are in the registry. */
 const AFTER_D: Record<string, string> = {
-  c_repr_align: ALIGN_STANDIN,
-  c_rustc_align: ALIGN_STANDIN,
   // `for cfg_name in &cfg_names` iterates an `FxHashSet` (doc.rs `parse_auto_cfg`).
   c_doc_auto_cfg_multi: "std::collections::HashSet iteration order (hashbrown + FxHasher): doc(auto_cfg(hide/show(..)))",
 };
@@ -60,8 +56,8 @@ const AFTER_D: Record<string, string> = {
  */
 const D_STUB = "rustc_attr_parsing::attributes::allow_unstable::AllowInternalUnstableParser::PATH";
 /** case -> the `Unported` it must reach. */
-const PENDING: Record<string, string> = Object.fromEntries(oracle.map((c) => [c.name, D_STUB]));
-void AFTER_D;
+const PENDING: Record<string, string> = AFTER_D;
+void D_STUB;
 
 function mode(m: string): ShouldEmit {
   switch (m) {

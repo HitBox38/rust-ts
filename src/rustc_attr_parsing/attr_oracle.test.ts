@@ -62,10 +62,6 @@ const oracle = JSON.parse(readFileSync(join(import.meta.dir, "attr_oracle", "out
 const PARSERS_PENDING = "rustc_attr_parsing::attributes::codegen_attrs::ForceTargetFeatureParser::PATH";
 /** case -> the `Unported` it must reach until the owning lane (attr-parse-b) lands. */
 const PENDING: Record<string, string> = {
-  // `check_attr` on a builtin attribute asks `AttributeParser::is_parsed_attribute`, which builds
-  // `ATTRIBUTE_PARSERS` from the attribute parsers (stubs of lane attr-parse-c until it lands;
-  // the first one the registry build reaches is `ForceTargetFeatureParser`).
-  check_builtin: PARSERS_PENDING,
 };
 
 function leak_syms(s: string[]): Symbol[] {
@@ -346,35 +342,6 @@ const list_oracle = JSON.parse(readFileSync(join(import.meta.dir, "attr_oracle",
 /** list case -> the `Unported` it must reach until attr-parse-b lands. Every non-doc-comment
  *  attribute looks up `ATTRIBUTE_PARSERS`, whose list starts with the `Combine<..>` stub. */
 const LIST_PENDING: Record<string, string> = {
-  doc_raw: PARSERS_PENDING,
-  unparsed: PARSERS_PENDING,
-  parsed_basic: PARSERS_PENDING,
-  parsed_nothing: PARSERS_PENDING,
-  duplicates: PARSERS_PENDING,
-  safety: PARSERS_PENDING,
-  malformed: PARSERS_PENDING,
-  unstable: PARSERS_PENDING,
-  wrong_target: PARSERS_PENDING,
-  diagnostic_namespace: PARSERS_PENDING,
-  // lane attr-parse-d (verified against the oracle with the attr-parse-c parsers left out of the registry,
-  // see docs/handoff/attr-parse-d.md)
-  must_use_forms: PARSERS_PENDING,
-  non_exhaustive_forms: PARSERS_PENDING,
-  on_unimplemented_forms: PARSERS_PENDING,
-  do_not_recommend_forms: PARSERS_PENDING,
-  test_attr_forms: PARSERS_PENDING,
-  rustc_attrs_internal: PARSERS_PENDING,
-  rustc_attrs_ungated: PARSERS_PENDING,
-  confusables: PARSERS_PENDING,
-  allow_internal_unstable_forms: PARSERS_PENDING,
-  allow_internal_unstable_ungated: PARSERS_PENDING,
-  path_forms: PARSERS_PENDING,
-  no_implicit_prelude_forms: PARSERS_PENDING,
-  unroll_forms: PARSERS_PENDING,
-  debugger_visualizer_forms: PARSERS_PENDING,
-  misc_small: PARSERS_PENDING,
-  rustc_on_unimplemented_forms: PARSERS_PENDING,
-  diagnostic_feature_gated: PARSERS_PENDING,
 };
 
 /**

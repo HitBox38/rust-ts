@@ -4,13 +4,13 @@
 // `desc` closure (`QUERY_DECLS`), and the typed method / provider tables. query/query_api.ts implements
 // them generically. PORT: `unknown` types are not ported yet (see the PORT notes); calling such a query
 // without a provider is the upstream `default_query` ICE.
+import { type Align, debug_Align } from "../rustc_abi/lib.ts";
 import { type AllocatorKind, debug_AllocatorKind } from "../rustc_ast/expand/allocator.ts";
 import { type AttrVec, type Crate, clone_Attribute as clone_Attribute_1, debug_Attribute as debug_Attribute_1, debug_Crate } from "../rustc_ast/lib.ts";
 import { type TokenStream, debug_TokenStream } from "../rustc_ast/tokenstream.ts";
 import { type DiagnosticItems, debug_DiagnosticItems } from "../rustc_attr_ir/diagnostic_items.ts";
 import { type LangItem, type LanguageItems, debug_LangItem, debug_LanguageItems } from "../rustc_attr_ir/lang_items.ts";
 import { type Attribute, clone_Attribute, debug_Attribute } from "../rustc_attr_ir/lib.ts";
-import { type Align, debug_Align } from "../rustc_attr_ir/standins.ts";
 import { type Steal, debug_Steal } from "../rustc_data_structures/steal.ts";
 import { type Features } from "../rustc_feature/unstable.ts";
 import { type DefKind, debug_DefKind } from "../rustc_hir/def.ts";

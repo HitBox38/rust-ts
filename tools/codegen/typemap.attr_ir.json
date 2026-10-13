@@ -1,7 +1,7 @@
 {
   "//": [
     "Type-map additions of lane attr-ir-gen (set rustc_attr_ir), merged after typemap.json by tools/codegen/types.ts (loadTypeMap).",
-    "rustc_abi::Align points at src/rustc_attr_ir/standins.ts until rustc_abi is ported;",
+    "rustc_abi::Align resolves to src/rustc_abi/lib.ts (lane target-cfg);",
     "rustc_structures types resolve to the generated src/rustc_structures modules (lane hir-def)."
   ],
   "cfg": {
@@ -382,7 +382,7 @@
         "rustc_abi::Align"
       ],
       "ts": "Align",
-      "import": "src/rustc_attr_ir/standins.ts",
+      "import": "src/rustc_abi/lib.ts",
       "types": [
         "Align"
       ],
@@ -391,7 +391,7 @@
       ],
       "debug": "debug_Align($v, $f)",
       "clone": "copy",
-      "note": "PORT: stand-in until rustc_abi is ported"
+      "note": "real module (rustc_abi data-layout subset, lane target-cfg)"
     },
     {
       "paths": [
@@ -473,5 +473,6 @@
       "clone": "copy",
       "note": "real module (lane hir-def)"
     }
-  ]
+  ],
+  "comment": null
 }
