@@ -1,0 +1,29 @@
+error[E0425]: cannot find value `x` in this scope
+ --> typo_underscore.rs:2:5
+  |
+2 |     x;
+  |     ^ not found in this scope
+  |
+note: `_x` defined here
+ --> typo_underscore.rs:1:6
+  |
+1 | fn f(_x: ()) {
+  |      ^^
+help: the leading underscore in `_x` marks it as unused, consider renaming it to `x`
+  |
+1 - fn f(_x: ()) {
+1 + fn f(x: ()) {
+  |
+
+error: requires `sized` lang_item
+ --> typo_underscore.rs:1:14
+  |
+1 |   fn f(_x: ()) {
+  |  ______________^
+2 | |     x;
+3 | | }
+  | |_^
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0425`.

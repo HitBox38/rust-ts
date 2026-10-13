@@ -1,0 +1,25 @@
+error[E0425]: cannot find type `Foo` in module `x`
+ --> refer_direct.rs:5:12
+  |
+5 | fn f(_: x::Foo) {}
+  |            ^^^ not found in `x`
+  |
+help: consider importing this struct
+  |
+1 + use crate::a::Foo;
+  |
+help: if you import `Foo`, refer to it directly
+  |
+5 - fn f(_: x::Foo) {}
+5 + fn f(_: Foo) {}
+  |
+
+error: requires `sized` lang_item
+ --> refer_direct.rs:5:17
+  |
+5 | fn f(_: x::Foo) {}
+  |                 ^^
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0425`.

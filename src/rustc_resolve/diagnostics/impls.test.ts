@@ -14,15 +14,7 @@ import { CASES, case_names, ENV, run_oracle } from "./impls_oracle/gen.ts";
 
 const RUN = join(import.meta.dir, "impls_oracle", "run.ts");
 
-const PENDING: Record<string, string> = {
-  // `throw_unresolved_import_error` matches the oracle once these res-diag-b fns are ported (validated locally with
-  // no-op stand-ins for them: `check_for_module_export_macro` -> None, `on_unknown_data` -> None,
-  // `find_cfg_stripped` -> no stripped items).
-  unresolved_import: "rustc_resolve::diagnostics::impls::Resolver::check_for_module_export_macro",
-  vis_unresolved: "rustc_resolve::diagnostics::impls::Resolver::report_path_resolution_error",
-  private_import: "rustc_resolve::diagnostics::impls::Resolver::report_privacy_error",
-  ambiguous_glob: "rustc_resolve::diagnostics::impls::Resolver::ambiguity_diagnostic",
-};
+const PENDING: Record<string, string> = {};
 
 /** `exit <code>\n<stderr>` of the port for `cases/<name>.rs`. */
 function run_port(name: string): string {

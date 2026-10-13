@@ -1,0 +1,22 @@
+error[E0425]: cannot find type `Foo` in this scope
+ --> cands_root.rs:7:9
+  |
+7 | fn f(_: Foo) {}
+  |         ^^^ not found in this scope
+  |
+help: consider importing one of these structs
+  |
+1 + use crate::a::Foo;
+  |
+1 + use crate::b::Foo;
+  |
+
+error: requires `sized` lang_item
+ --> cands_root.rs:7:14
+  |
+7 | fn f(_: Foo) {}
+  |              ^^
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0425`.
