@@ -11,8 +11,8 @@ coverage numbers and no `// rustc:` markers; one `unported(...)` and one `// POR
 - `scripts/difftest.ts`: `GZIP_OVER` 64 KiB → 4 KiB (oracle cache entries; write side only).
 
 ## 1. `expanded-nocore` / `unpretty-expanded-nocore`
-- Cases: every `.rs` under tests/ui (the `parse` corpus, 21,526 files; id = path). Single mode (one rustc
-  per file).
+- Cases: every `.rs` under tests/ui (the `parse` corpus, 21,526 files; id = path) minus 3 skipped
+  (review fix M1, below), so 21,523. Single mode (one rustc per file).
 - argv, oracle (`rustc +nightly`) and subject (`src/rust_ts/main.ts`) alike:
   `--target x86_64-unknown-linux-gnu --sysroot <oracle sysroot> --edition=<directive, as parse>
   -Zcrate-attr=feature(no_core) -Zcrate-attr=no_core -Zunpretty=ast-tree,expanded|expanded <file>`.
@@ -90,15 +90,19 @@ coverage numbers and no `// rustc:` markers; one `unported(...)` and one `// POR
     DefPathHash. This checks def_collector and stable hashing.
   - Values use upstream `{:?}`: DefId through the tcx (`DefId(0:3 ~ krate[510d]::Cat)`), Span through the
     source map.
-- **Stability rules.** Every map or set (Unord, FxHash or FxIndex) is sorted:
-  - LocalDefId / LocalModId by DefIndex;
-  - DefId by (CrateNum, DefIndex);
-  - NodeId numerically;
-  - Symbol by its string;
-  - Span by (lo, hi), then text.
-  Vecs, and IndexMap-built buffers whose order is a deterministic traversal (module children, trait impls,
-  proc_macros, stripped_cfg_items, visibilities_for_hashing, lint buffer entries per node), keep upstream
-  order: it is part of the result (e.g. metadata order). The sorts are stable.
+- **Order rules (after review fix M2).** Only collections whose upstream iteration order is a hash order are sorted:
+  - which ones: Unord maps/sets and `NodeMap`/`LocalDefIdMap` (= UnordMap), i.e. expn_that_defined, extern_crate_map,
+    module_children, ambig_module_children, paths_matching_assoc_types, all_macro_rules, partial_res_map, owners
+    and their 6 maps, and disambiguators;
+  - keys: LocalDefId by DefIndex, NodeId numerically, Symbol by string, Span by (lo, hi) then text.
+
+  The 11 FxIndexMap/FxIndexSet collections print in upstream iteration order, inner Index collections included:
+  effective_visibilities, macro_reachable_adts, maybe_unused_trait_imports, glob_map, trait_impls,
+  confused_type_with_std_module, doc_link_resolutions, doc_link_traits_in_scope, delegation_infos,
+  delegation_inherent_fn_map and the lint buffer. That order is deterministic and visible downstream, so the port
+  must reproduce it.
+
+  Vecs keep upstream order. Each sort has a comment in `main.rs` saying why.
 - **Not printed (deliberately):**
   - the `PerParentDisambiguatorState` contents (a private FxHashMap; they are implied by the DefKeys);
   - a buffered lint's decorate closure (opaque; prints as `DecorateDiagCompat`). Its lint name, node and
@@ -135,6 +139,18 @@ coverage numbers and no `// rustc:` markers; one `unported(...)` and one `// POR
 - `gate.ts run --suites expanded-nocore,unpretty-expanded-nocore,resdump-nocore` works. `checkProbes`
   accepts them; resdump must be built with `bun scripts/probes.ts build resdump`.
 
+## Review fixes (docs/reviews/harness-w8.md on `lane/review-hw8`: ACCEPT-WITH-FIXES)
+- **M1:** done (see "Skipped slow files").
+- **M2:** done (see "Order rules"). The probe was rebuilt, so its cache key changes; the old resdump entries are unreachable.
+- **L2:** the gzip threshold now counts UTF-8 bytes (`Buffer.byteLength`).
+- **L1** (scrub the rest of the inherited environment) is left for a separate harness batch, as root decided.
+- **Spot checks after the fixes:**
+  - `resdump-nocore --sample 100`: shim 100/100 MATCH; port 3 MATCH + 97 UNPORTED. All 97 are `cmdline_attrs::inject`.
+  - `expanded-nocore --sample 100`: 3 MATCH + 97 UNPORTED.
+  - `--filter issue-93775`: 0 cases, 1 skipped, with its reason.
+  - Probe determinism: 30 imports/resolve files run twice gave identical output.
+  - Case lists: unchanged for the 12 existing suites. The nocore suites now have 21,523 cases and 3 skipped.
+
 ## Checks
 - `bunx tsc --noEmit -p .`: clean, before and after the merge.
 - `bun scripts/coverage.ts --check`: markers ok (4319; vendor 2403) after the merge.
@@ -155,16 +171,19 @@ coverage numbers and no `// rustc:` markers; one `unported(...)` and one `// POR
 2. Both sides run with `RUSTC_ICE=0 RUST_BACKTRACE=0`.
 3. Full tests/ui corpus, single mode, timeouts as `parse` (60 s subject, 300 s oracle, retry x4).
 4. Oracle cache entries are gzipped above 4 KiB (was 64 KiB).
-5. resdump stops right after `resolver_for_lowering` (no early lints), sorts every map/set by the keys above,
-   keeps Vec order, and omits the disambiguator state and lint closures.
+5. resdump stops right after `resolver_for_lowering` (no early lints).
+   - It sorts only hash-order (Unord/id-collection) maps and sets, by the keys above.
+   - It prints IndexMaps/IndexSets in upstream order and keeps Vec order (review M2).
+   - It omits the disambiguator state and lint closures.
+6. The 3 slow files are skipped in all three nocore suites, with reasons in `skipped()` (review M1; see below).
+7. Do not protect the nocore suites until the port gets past `cmdline_attrs::inject` (review §5). No baselines.
+
+## Skipped slow files (review fix M1, done)
+- **Files:** `associated-consts/issue-93775.rs`, `parser/survive-peano-lesson-queue.rs` and `expr/if/expr-stack-overflow.rs`.
+- **Why:** they are ORACLE_TIMEOUT in `expanded-nocore` and never cached, so they would cost up to 25 min each per run. Without a timeout, the first two printed nothing after 2 min of CPU each (about 27 min of wall time at load 60+), and I killed them. `expr-stack-overflow.rs` produces ~13 GB in `parse`.
+- **Fix:** `NOCORE_SKIPPED` in `harness/suites.ts` filters them out of `cases()` and lists them with reasons in `skipped()`. This applies to all three nocore suites, as root asked, so they keep one case list.
 
 ## Proposals (not done)
-- **The 3 expanded-nocore ORACLE_TIMEOUT cases** cost up to 25 min of a slot on every gate run, since they are
-  never cached. I measured the first two without a timeout: after 2 min of CPU each (about 27 min of wall time
-  at load average 60+), neither had printed anything. RSS was flat at about 44 MB. I killed them.
-  - So raising `oracleTimeoutMs` is not a cheap fix.
-  - Proposal: list the three in `expanded-nocore`'s `skipped()` with the reason "oracle `{:#?}` does not finish".
-  - `expr-stack-overflow.rs` (~13 GB of output in `parse`) should be skipped regardless.
 - For the M2a ≥95% gate, consider excluding:
   - the 669 sysroot-dependent cases (they need metadata, wave 11);
   - the 15 delayed-bug ICE cases.
