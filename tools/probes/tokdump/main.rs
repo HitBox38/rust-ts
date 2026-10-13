@@ -1,9 +1,10 @@
 //! Oracle probe for the `tokens` suite: lexes each file into token trees with the pinned
 //! nightly's own `rustc_parse` (rustc-dev component, `#![feature(rustc_private)]`).
 //!
-//!   tokdump [--edition=<2015|2018|2021|2024|future>] <file> [--edition=..] <file> ...
+//!   tokdump [--edition=<2015|2018|2021|2024|future>] [--strip=<crate|str>] <file> [--edition=..] <file> ...
 //!
-//! An `--edition=` argument sets the edition of the files after it (default 2015).
+//! An `--edition=` argument sets the edition of the files after it (default 2015), a `--strip=`
+//! argument the entry point (default `crate`, see below).
 //!
 //! Per file, inside its own `create_session_globals_then(edition, ..)` (a fresh source map,
 //! `RealFileLoader`, empty path mapping, MD5 source hashes: what rustc uses on non-MSVC targets):
@@ -11,10 +12,16 @@
 //!   (`Options::dcx_flags`: warnings on, deduplication on) and an `AnnotateSnippetEmitter` set up
 //!   like `rustc_session::session::default_emitter` with `-Zui-testing` (and every other option
 //!   at its default), writing into an in-memory buffer instead of stderr;
-//! - `rustc_parse::source_str_to_stream(&psess, <Real file name of the path>, <source>, None)`,
-//!   i.e. `lexer::lex_token_trees(.., StripTokens::Shebang)` on a new source file, the way
-//!   `source_file_to_stream` runs it. (`lex_token_trees` is crate-private; this is the only public
-//!   entry point that returns the `TokenStream`, so frontmatter is not stripped.)
+//! - the token trees of a new source file (`<Real file name of the path>`, `<source>`), lexed by
+//!   `lexer::lex_token_trees` through `source_file_to_stream` (both crate-private) via one of two
+//!   public entry points:
+//!   - `--strip=crate`: the way rustc lexes every file it reads as a crate root, out-of-line module
+//!     or `include!` (`StripTokens::ShebangAndFrontmatter`: frontmatter is lexed, validated and
+//!     feature-gated): `rustc_parse::new_parser_from_source_str(.., ShebangAndFrontmatter)`,
+//!     then `Parser::parse_tokens()`, which rebuilds the same `TokenStream` from the parser's
+//!     token cursor;
+//!   - `--strip=str`: `rustc_parse::source_str_to_stream(.., None)` (`StripTokens::Shebang`: what
+//!     proc-macro `TokenStream::from_str` and friends use; frontmatter is ordinary tokens).
 //!
 //! Output per file (the subject, src/rust_ts/tokdump.ts, prints the same):
 //!   file: <path>
@@ -45,6 +52,7 @@ use std::sync::{Arc, Mutex};
 use rustc_errors::annotate_snippet_emitter_writer::AnnotateSnippetEmitter;
 use rustc_errors::emitter::OutputTheme;
 use rustc_errors::{AutoStream, ColorChoice, DiagCtxt, DiagCtxtFlags, FatalErrorMarker, TerminalUrl};
+use rustc_parse::lexer::StripTokens;
 use rustc_session::parse::ParseSess;
 use rustc_span::edition::Edition;
 use rustc_span::source_map::{FilePathMapping, RealFileLoader, SourceMapInputs};
@@ -64,7 +72,13 @@ impl Write for Shared {
     }
 }
 
-fn lex_file(out: &mut impl Write, path: &str, edition: Edition, src: String) {
+#[derive(Clone, Copy)]
+enum Strip {
+    Crate,
+    Str,
+}
+
+fn lex_file(out: &mut impl Write, path: &str, edition: Edition, strip: Strip, src: String) {
     let inputs = SourceMapInputs {
         file_loader: Box::new(RealFileLoader),
         path_mapping: FilePathMapping::empty(),
@@ -100,7 +114,12 @@ fn lex_file(out: &mut impl Write, path: &str, edition: Edition, src: String) {
         let psess = ParseSess::with_dcx(dcx, Arc::clone(&sm));
         let fname = FileName::Real(sm.path_mapping().to_real_filename(sm.working_dir(), std::path::Path::new(path)));
         let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            match rustc_parse::source_str_to_stream(&psess, fname, src, None) {
+            let res = match strip {
+                Strip::Crate => rustc_parse::new_parser_from_source_str(&psess, fname, src, StripTokens::ShebangAndFrontmatter)
+                    .map(|mut parser| parser.parse_tokens()),
+                Strip::Str => rustc_parse::source_str_to_stream(&psess, fname, src, None),
+            };
+            match res {
                 Ok(stream) => writeln!(out, "OK {stream:?}").unwrap(),
                 Err(errs) => {
                     writeln!(out, "ERR {}", errs.len()).unwrap();
@@ -144,7 +163,16 @@ fn main() {
     let stdout = std::io::stdout();
     let mut out = std::io::BufWriter::new(stdout.lock());
     let mut edition = Edition::Edition2015;
+    let mut strip = Strip::Crate;
     for arg in std::env::args().skip(1) {
+        if let Some(s) = arg.strip_prefix("--strip=") {
+            strip = match s {
+                "crate" => Strip::Crate,
+                "str" => Strip::Str,
+                _ => panic!("tokdump: bad --strip {s:?}"),
+            };
+            continue;
+        }
         if let Some(e) = arg.strip_prefix("--edition=") {
             edition = Edition::from_str(e).unwrap_or_else(|()| panic!("tokdump: bad edition {e:?}"));
             continue;
@@ -152,7 +180,7 @@ fn main() {
         writeln!(out, "file: {arg}\nedition: {edition:?}").unwrap();
         let bytes = std::fs::read(&arg).unwrap();
         match String::from_utf8(bytes) {
-            Ok(src) => lex_file(&mut out, &arg, edition, src),
+            Ok(src) => lex_file(&mut out, &arg, edition, strip, src),
             Err(_) => writeln!(out, "not utf-8").unwrap(),
         }
     }

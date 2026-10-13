@@ -1,7 +1,11 @@
 // Subject side of the `tokens` suite: lexes each file into token trees with the ported
 // rustc_parse lexer and prints what tools/probes/tokdump/main.rs prints (its header documents the
 // setup and the output format; this file mirrors it step by step).
-//   bun src/rust_ts/tokdump.ts [--edition=<e>] <file> [--edition=<e>] <file> ...
+//   bun src/rust_ts/tokdump.ts [--edition=<e>] [--strip=<crate|str>] <file> [--edition=<e>] <file> ...
+// `--strip=crate` (default): `new_parser_from_source_str(.., ShebangAndFrontmatter)` +
+// `parse_tokens()` in the probe; here `lex_token_trees(.., "ShebangAndFrontmatter")` (the parser is
+// not ported; `parse_tokens` rebuilds the stream `source_file_to_stream` returned).
+// `--strip=str`: `source_str_to_stream`, i.e. `lex_token_trees(.., "Shebang")`.
 // Exit codes as src/rust_ts/main.ts: 70 = reached unported code, 101 = ICE.
 import { readFileSync } from "node:fs";
 import { tokenstream } from "../rustc_ast/lib.ts";
@@ -28,7 +32,7 @@ const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const debug_spans = (spans: readonly Span[]): string => debug_list(PLAIN, spans.map((s) => debug_Span(s, PLAIN)));
 
 /** The probe's `lex_file`: everything it prints for one UTF-8 file after the `edition:` line. */
-function lex_file(out: Uint8Array[], path: string, edition: Edition, src: Str): void {
+function lex_file(out: Uint8Array[], path: string, edition: Edition, strip: lexer.StripTokens, src: Str): void {
   const print = (s: string) => out.push(encoder.encode(s));
   const inputs = {
     file_loader: new RealFileLoader(),
@@ -61,10 +65,10 @@ function lex_file(out: Uint8Array[], path: string, edition: Edition, src: Str): 
     const psess = ParseSess.with_dcx(dcx, sm);
     const fname: FileName = { $: "Real", _0: sm.path_mapping().to_real_filename(sm.working_dir(), path) };
     try {
-      // rustc_parse::source_str_to_stream(&psess, fname, src, None):
-      // new_source_file, then source_file_to_stream(.., StripTokens::Shebang).
+      // new_source_file, then source_file_to_stream(.., strip) (`new_parser_from_source_str` /
+      // `source_str_to_stream`).
       const sf = sm.new_source_file(fname, src);
-      const res = lexer.lex_token_trees(psess, sf.src!, sf.start_pos, undefined, "Shebang");
+      const res = lexer.lex_token_trees(psess, sf.src!, sf.start_pos, undefined, strip);
       if (res.$ === "Ok") {
         print(`OK ${tokenstream.debug_TokenStream(res._0, PLAIN)}\n`);
       } else {
@@ -102,7 +106,15 @@ function main(): void {
   };
   try {
     let edition: Edition = "Edition2015";
+    let strip: lexer.StripTokens = "ShebangAndFrontmatter";
     for (const arg of process.argv.slice(2)) {
+      if (arg.startsWith("--strip=")) {
+        const s = arg.slice("--strip=".length);
+        if (s === "crate") strip = "ShebangAndFrontmatter";
+        else if (s === "str") strip = "Shebang";
+        else throw new Panic(`tokdump: bad --strip ${JSON.stringify(s)}`);
+        continue;
+      }
       if (arg.startsWith("--edition=")) {
         const e = arg.slice("--edition=".length);
         const r = EditionC.from_str(e);
@@ -119,7 +131,7 @@ function main(): void {
         continue;
       }
       const before = out.length;
-      lex_file(out, arg, edition, Str.of_bytes(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)));
+      lex_file(out, arg, edition, strip, Str.of_bytes(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)));
       for (let i = before; i < out.length; i++) size += out[i]!.length;
       if (size > 1 << 24) flush();
     }
