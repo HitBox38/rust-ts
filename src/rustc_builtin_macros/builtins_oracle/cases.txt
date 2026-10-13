@@ -1,0 +1,81 @@
+# One case per line, fields separated by " | ":
+#   name | kind (bang, attr) | fragment (expr, ty, items, stmts, pat, -) | edition | features (comma list or -) | pending (- or reason) | source
+# `\n` in the source is a newline. Pending cases need another lane; the oracle records them, the port must stop with `unported`.
+stringify_basic | bang | expr | 2015 | - | - | stringify!(a + b * "c" ; 'x' fn)
+stringify_empty | bang | expr | 2015 | - | - | stringify!()
+line_basic | bang | expr | 2015 | - | - | \n\n  line!()
+line_args | bang | expr | 2015 | - | - | line!(x)
+column_basic | bang | expr | 2015 | - | - |    column!()
+file_basic | bang | expr | 2015 | - | - | file!()
+module_path_basic | bang | expr | 2015 | - | - | module_path!()
+module_path_args | bang | expr | 2015 | - | - | module_path!(1, 2)
+cfg_true | bang | expr | 2015 | - | - | cfg!(all())
+cfg_false | bang | expr | 2015 | - | - | cfg!(any())
+cfg_not | bang | expr | 2015 | - | - | cfg!(not(any()))
+cfg_unknown | bang | expr | 2015 | - | - | cfg!(foo)
+cfg_trailing_comma | bang | expr | 2015 | - | - | cfg!(all(),)
+cfg_empty | bang | expr | 2015 | - | - | cfg!()
+cfg_two | bang | expr | 2015 | - | - | cfg!(all(), any())
+cfg_lit | bang | expr | 2015 | - | - | cfg!("x")
+cfg_true_lit | bang | expr | 2015 | - | - | cfg!(true)
+assert_basic | bang | expr | 2015 | - | - | assert!(x == 1)
+assert_msg | bang | expr | 2015 | - | - | assert!(x, "bad {}", y)
+assert_msg_2021 | bang | expr | 2021 | - | - | assert!(x, "bad {}", y)
+assert_braces | bang | expr | 2015 | - | - | assert!(a.b() != "{}")
+assert_empty | bang | expr | 2015 | - | - | assert!()
+assert_semi | bang | expr | 2015 | - | - | assert!(f(););
+assert_missing_comma | bang | expr | 2015 | - | - | assert!(true "msg")
+assert_trailing | bang | expr | 2015 | - | - | assert!(a b)
+assert_generic | bang | expr | 2021 | generic_assert | - | assert!(a == b && c(d, a) > [e, f][0])
+assert_generic_consumed | bang | expr | 2021 | generic_assert | - | assert!(-x + y.z(w) as i32 == !v)
+core_panic_2015 | bang | expr | 2015 | - | - | core_panic!("a {}", 1)
+std_panic_2021 | bang | expr | 2021 | - | - | std_panic!()
+unreachable_2021 | bang | expr | 2021 | - | - | unreachable!("x")
+unreachable_2015 | bang | expr | 2015 | - | - | unreachable!()
+trace_macros_true | bang | expr | 2015 | - | - | trace_macros!(true)
+trace_macros_false | bang | expr | 2015 | - | - | trace_macros!(false)
+trace_macros_bad | bang | expr | 2015 | - | - | trace_macros!(maybe)
+trace_macros_two | bang | expr | 2015 | - | - | trace_macros!(true false)
+log_syntax_basic | bang | expr | 2015 | - | - | log_syntax!(a, b => c)
+iter_closure | bang | expr | 2024 | - | - | iter!(|| { yield 1; })
+iter_not_closure | bang | expr | 2024 | - | - | iter!(1 + 2)
+iter_gen_closure | bang | expr | 2024 | - | - | iter!(gen || {})
+iter_trailing | bang | expr | 2024 | - | - | iter!(|| {} x)
+pattern_type_range | bang | ty | 2015 | - | - | pattern_type!(u32 is 1..=5)
+pattern_type_or | bang | ty | 2015 | - | - | pattern_type!(u8 is 1..2 | 4.. | (..=9))
+pattern_type_not_null | bang | ty | 2015 | - | - | pattern_type!(*const u8 is !null)
+pattern_type_bad | bang | ty | 2015 | - | - | pattern_type!(u8 is _)
+pattern_type_no_is | bang | ty | 2015 | - | - | pattern_type!(u8 1)
+view_type_basic | bang | ty | 2015 | - | - | view_type!(Foo.{a, b})
+view_type_bad | bang | ty | 2015 | - | - | view_type!(Foo a)
+concat_basic | bang | expr | 2015 | - | needs expand-core (MacroExpander::fully_expand_fragment) | concat!("a", 1, 2.5, 'c', true, -3)
+env_missing | bang | expr | 2015 | - | needs expand-core (MacroExpander::fully_expand_fragment) | env!("RUST_TS_SURELY_UNSET_VAR")
+option_env_missing | bang | expr | 2015 | - | needs expand-core (MacroExpander::fully_expand_fragment) | option_env!("RUST_TS_SURELY_UNSET_VAR")
+compile_error_basic | bang | expr | 2015 | - | needs expand-core (MacroExpander::fully_expand_fragment) | compile_error!("boom")
+cfg_select_basic | bang | items | 2015 | - | needs expand-core/mbe (ParserAnyMacro) | cfg_select! { any() => { fn a() {} } _ => { fn b() {} } }
+cfg_accessible_yes | attr | - | 2015 | - | - | #[cfg_accessible(yes)] struct S;
+cfg_accessible_no | attr | - | 2015 | - | - | #[cfg_accessible(no)] struct S;
+cfg_accessible_word | attr | - | 2015 | - | - | #[cfg_accessible] struct S;
+cfg_accessible_empty | attr | - | 2015 | - | - | #[cfg_accessible()] struct S;
+cfg_accessible_two | attr | - | 2015 | - | - | #[cfg_accessible(a, b)] struct S;
+cfg_accessible_lit | attr | - | 2015 | - | - | #[cfg_accessible("a")] struct S;
+cfg_accessible_args | attr | - | 2015 | - | - | #[cfg_accessible(a(b))] struct S;
+cfg_eval_noop | attr | - | 2015 | - | - | #[cfg_eval] struct S { a: u8 }
+cfg_eval_strip | attr | - | 2015 | - | - | #[cfg_eval] struct S { #[cfg(any())] a: u8, #[cfg_attr(all(), allow(x))] b: u8 }
+cfg_eval_args | attr | - | 2015 | - | - | #[cfg_eval(x)] struct S;
+define_opaque_fn | attr | - | 2015 | - | - | #[define_opaque(A, b::C)] fn f() {}
+define_opaque_bad | attr | - | 2015 | - | - | #[define_opaque(A, "x", b(c))] static S: u8 = 0;
+define_opaque_struct | attr | - | 2015 | - | - | #[define_opaque(A)] struct S;
+define_opaque_word | attr | - | 2015 | - | - | #[define_opaque] fn f() {}
+alloc_error_handler_fn | attr | - | 2015 | - | - | #[alloc_error_handler] fn h(_: core::alloc::Layout) -> ! { loop {} }
+alloc_error_handler_struct | attr | - | 2015 | - | - | #[alloc_error_handler] struct S;
+autodiff_reverse | attr | - | 2015 | - | - | #[autodiff_reverse(df, Duplicated, Active)] fn f(x: &f32) -> f32 { *x }
+autodiff_forward | attr | - | 2015 | - | - | #[autodiff_forward(df, 2, Dual, Dual)] fn f(x: f32) -> f32 { x }
+autodiff_forward_unit | attr | - | 2015 | - | - | #[autodiff_forward(df, Const)] fn f(x: f32) {}
+autodiff_bad_activity | attr | - | 2015 | - | - | #[autodiff_reverse(df, Bogus, Active)] fn f(x: f32) -> f32 { x }
+autodiff_count | attr | - | 2015 | - | - | #[autodiff_reverse(df, Active)] fn f(x: f32) -> f32 { x }
+autodiff_struct | attr | - | 2015 | - | - | #[autodiff_reverse(df, Active)] struct S;
+autodiff_word | attr | - | 2015 | - | - | #[autodiff_reverse] fn f() {}
+autodiff_generic | attr | - | 2015 | - | - | #[autodiff_reverse(df, Const, Active)] fn f<T, const N: usize>(t: T, x: f32) -> f32 { x }
+offload_kernel_fn | attr | - | 2015 | - | - | #[offload_kernel] pub fn k(a: &[f32], b: *mut f32) { }
+offload_kernel_struct | attr | - | 2015 | - | - | #[offload_kernel] struct S;
