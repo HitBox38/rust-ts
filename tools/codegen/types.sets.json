@@ -359,7 +359,6 @@
       "rustc_resolve::ref_mut::CmRefCell",
       "rustc_resolve::ref_mut::speculative::SpeculativeFlag",
       "rustc_resolve::hygiene::Macros20NormalizedSyntaxContext",
-      "rustc_resolve::macros::MacroRulesScopeRef",
       "rustc_resolve::def_collector::DefCollector",
       "rustc_resolve::late::LateResolutionVisitor",
       "rustc_resolve::check_unused::UnusedImportCheckVisitor",
@@ -385,7 +384,6 @@
       "rustc_resolve::ref_mut::CmRefCell": "RefCell wrapper with identity: class with `value`; borrow_mut returns the cell as a MutRef (lib.ts)",
       "rustc_resolve::ref_mut::speculative::SpeculativeFlag": "in a nested inline module (lib.ts)",
       "rustc_resolve::hygiene::Macros20NormalizedSyntaxContext": "newtype of SyntaxContext: the branded number (lib.ts)",
-      "rustc_resolve::macros::MacroRulesScopeRef": "`&'ra RwLock<MacroRulesScope>` is overwritten through the reference (path compression): a MutRef box (macros.ts)",
       "rustc_resolve::def_collector::DefCollector": "impl split over def_collector.rs and build_reduced_graph.rs: class in decls.ts",
       "rustc_resolve::late::LateResolutionVisitor": "impl split over late.rs and late/diagnostics.rs: class in decls.ts",
       "rustc_resolve::check_unused::UnusedImportCheckVisitor": "Visitor impl: hand-written class extending rustc_ast visit Visitor (check_unused.ts)",
@@ -400,8 +398,13 @@
     "discriminant": [
       "rustc_resolve::Used"
     ],
-    "skip": [],
+    "skip": [
+      "rustc_resolve::DelayedVisResolutionError"
+    ],
     "auto_class": true,
-    "derive_clone": true
+    "derive_clone": true,
+    "skip_notes": {
+      "rustc_resolve::DelayedVisResolutionError": "its `vis: ast::Visibility` clashes with `ty::Visibility` in lib.gen.ts imports: written (with its Debug) in lib.ts"
+    }
   }
 }

@@ -2469,9 +2469,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         ];
     const importLines: string[] = [];
     const sortedTargets = [...imports.keys()].sort();
+    // A type name imported both from this crate (an item, e.g. a hand alias `type Res = def::Res<NodeId>`)
+    // and from another crate (a type-map entry pulled in by a Debug/Clone of the alias' target): the
+    // file's references mean the crate's own item; the other import is dropped.
+    const ownCrate = `src:${mf.crate}/`;
+    const ownTypes = new Set<string>();
+    for (const [t, { types }] of imports) if (t.startsWith(ownCrate) || t.startsWith("gen:")) for (const a of types.values()) ownTypes.add(a);
     for (const t of sortedTargets) {
       const { types, values } = imports.get(t)!;
       if (t === `gen:${mf.gen}`) continue;
+      if (!t.startsWith(ownCrate) && !t.startsWith("gen:")) for (const [n, a] of [...types]) if (ownTypes.has(a) && values.get(n) !== a) types.delete(n);
       const abs = t.startsWith("gen:") ? join(opts.out, t.slice(4)) : join(opts.srcRoot, t.slice(4));
       const spec = relImport(outFile, abs);
       const parts = [

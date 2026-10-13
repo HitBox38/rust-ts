@@ -1,0 +1,32 @@
+== visibilities_for_hashing (1)
+DefId(0:0 ~ empty[f992]) Public
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ empty[f992]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (0)
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(3)
+== partial_res_map (0)
+== owners (1)
+NodeId(0) def_id=DefId(0:0 ~ empty[f992]) lifetime_elision_allowed=false
+== lint_buffer (0)
+== disambiguators (0)
+== definitions (1)
+DefId(0:0 ~ empty[f992]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(17983710700699607658, 17983710700699607658))
