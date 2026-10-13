@@ -122,3 +122,9 @@ export const SectionKind = {
   Note: { $: "Note" },
   Metadata: { $: "Metadata" },
 } as const satisfies Record<string, SectionKind>;
+
+/// The kind of a symbol.
+export type SymbolKind = "Unknown" | "Text" | "Data" | "Section" | "File" | "Label" | "Tls";
+
+/// A symbol scope.
+export type SymbolScope = "Unknown" | "Compilation" | "Linkage" | "Dynamic";

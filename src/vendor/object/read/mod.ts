@@ -236,3 +236,18 @@ export function SymbolIndex(i: number): SymbolIndex {
 export function display_SymbolIndex(self: SymbolIndex): string {
   return String(self);
 }
+
+/// The section where an [`ObjectSymbol`] is defined.
+export type SymbolSection =
+  /// The section is unknown.
+  | { $: "Unknown" }
+  /// The section is not applicable for this symbol (such as file symbols).
+  | { $: "None" }
+  /// The symbol is undefined.
+  | { $: "Undefined" }
+  /// The symbol has an absolute value.
+  | { $: "Absolute" }
+  /// The symbol is a zero-initialized symbol that will be combined with duplicate definitions.
+  | { $: "Common" }
+  /// The symbol is defined in the given section.
+  | { $: "Section"; _0: SectionIndex };
