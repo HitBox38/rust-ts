@@ -26,6 +26,7 @@ interface GateVisitor {
 
 /// The common case.
 // macro_rules! gate
+// rustc-macro: compiler/rustc_ast_passes/src/feature_gate.rs:15 gate!
 function gate(visitor: GateVisitor, feature: FeatureName, span: Span, explain: IntoDiagMessage, help?: IntoDiagMessage): void {
   if (!visitor.features[feature]() && !Span.allows_unstable(span, sym[feature])) {
     const diag = feature_err(visitor.sess, sym[feature], span, explain);
@@ -36,6 +37,7 @@ function gate(visitor: GateVisitor, feature: FeatureName, span: Span, explain: I
 
 /// The unusual case, where the `has_feature` condition is non-standard.
 // macro_rules! gate_alt
+// rustc-macro: compiler/rustc_ast_passes/src/feature_gate.rs:26 gate_alt!
 function gate_alt(visitor: GateVisitor, has_feature: boolean, name: Symbol, span: Span, explain: IntoDiagMessage, notes?: readonly string[]): void {
   if (!has_feature && !Span.allows_unstable(span, name)) {
     // #[allow(unused_mut)]
@@ -51,6 +53,7 @@ function gate_alt(visitor: GateVisitor, has_feature: boolean, name: Symbol, span
 
 /// The case involving a multispan.
 // macro_rules! gate_multi
+// rustc-macro: compiler/rustc_ast_passes/src/feature_gate.rs:38 gate_multi!
 function gate_multi(visitor: GateVisitor, feature: FeatureName, spans_: Iterable<Span>, explain: IntoDiagMessage): void {
   if (!visitor.features[feature]()) {
     const spans: Span[] = [];

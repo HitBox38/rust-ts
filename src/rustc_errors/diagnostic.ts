@@ -1336,6 +1336,7 @@ function level_eq_fieldless(a: Level, b: Level): boolean {
 }
 
 /** `struct_span_code_err!($dcx, $span, $code, $($message)*)` (PORT: the message is pre-formatted). */
+// rustc-macro: compiler/rustc_errors/src/diagnostic.rs:1299 struct_span_code_err!
 export function struct_span_code_err(dcx: DiagCtxtHandle, span: IntoMultiSpan, code: ErrCode, message: string): Diag {
   return dcx.struct_span_err(span, message).with_code(code);
 }

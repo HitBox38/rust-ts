@@ -15,9 +15,9 @@
 //     marker); frames of upstream `#[track_caller]` fns (attribute on the fn, or on the trait method it
 //     implements) and the derive(Diagnostic) `into_diag` glue are skipped; the first other frame is the
 //     caller `G` (closures inside a `#[track_caller]` fn are not `#[track_caller]`, as in Rust);
-//  2. the identifier at G's call position is the callee; it must be the fn of the frame below, or a name
-//     every upstream fn of which is `#[track_caller]` (JSC's proper tail calls drop frames of
-//     `return f(..)` calls; a dropped G is detected here, since G is not `#[track_caller]`);
+//  2. every caller frame's call position must name the function of the frame below it (JSC's proper tail
+//     calls drop the frame of a strict-mode `return f(..)`; a broken link is a refusal, never a guess;
+//     `BUN_JSC_useTailCalls=0` keeps every frame, see `TAIL_CALLS`);
 //  3. the TS call is the k-th call of that name in G's ported body; G's upstream body must contain the
 //     same number of calls of it, and the k-th one is the upstream call site.
 // Anything that does not check out (unmarked glue frames, native frames, count mismatch, a call inside a
@@ -82,30 +82,78 @@ function parse_stack(stack: string): (Frame | undefined)[] {
 
 const SRC_ROOT = resolve_path(import.meta.dir, "..");
 
+/** Whether JSC eliminates frames of strict-mode `return f(..)` calls (proper tail calls, on unless
+ *  `BUN_JSC_useTailCalls=0`). Then a frame of the chain can be missing; links are checked by name below. */
+export const TAIL_CALLS: boolean = (() => {
+  function tail_probe_inner(): string {
+    return new Error().stack ?? "";
+  }
+  function tail_probe_outer(): string {
+    return tail_probe_inner();
+  }
+  return !tail_probe_outer().includes("tail_probe_outer");
+})();
+
+type FrameKind =
+  | { kind: "glue" } // the `X_diagnostic` vtable wrapper: transparent
+  | { kind: "owned"; owner: Owner; closure: boolean; tc: boolean };
+
+function classify(fr: Frame): FrameKind | string {
+  if (!fr.file.startsWith(SRC_ROOT)) return `frame outside src: ${fr.file}`;
+  const ts = ts_file(fr.file);
+  const owner = ts.owner_at(fr.line);
+  if (owner === undefined) {
+    if (is_into_diag_glue(ts.lines[fr.line - 1] ?? "")) return { kind: "glue" };
+    return `unmarked frame ${rel(fr.file)}:${fr.line}`;
+  }
+  const closure = ts.in_nested_fn(owner, fr.line, fr.col);
+  // A `macro_rules!` port is transparent: a `#[track_caller]` call in the macro body is located at the
+  // outermost invocation (`expansion_cause`), i.e. at the call of the macro port in the frame above.
+  if (owner.kind === "macro" && !up_file(owner.path)?.lines[owner.line - 1]?.includes(`macro_rules! ${owner.name} `)) {
+    return `no macro_rules! ${owner.name} at ${owner.path}:${owner.line}`;
+  }
+  const tc = owner.kind === "fn" ? upstream_is_track_caller(owner.path, owner.line) : true;
+  if (tc === undefined) return `cannot read ${owner.path}:${owner.line}`;
+  return { kind: "owned", owner, closure, tc: tc && !closure };
+}
+
+/** Whether the call at `caller`'s position calls the function of frame `callee` (by name), i.e. no frame
+ *  between them was dropped by a tail call. */
+function linked(caller: Frame, callee: FrameKind): string | undefined {
+  const y = ident_at(ts_file(caller.file).masked_lines[caller.line - 1] ?? "", caller.col - 1);
+  if (y === undefined) return `no callee at ${rel(caller.file)}:${caller.line}:${caller.col}`;
+  let ok: boolean;
+  if (callee.kind === "glue") ok = y === "into_diag";
+  else if (callee.closure) ok = !TAIL_CALLS; // a call through a value: the name says nothing
+  else if (callee.owner.kind === "derive_diagnostic") ok = y === "into_diag" || y.endsWith("_into_diag");
+  else if (callee.owner.kind === "macro") ok = y === callee.owner.name;
+  else {
+    const n = callee.owner.name;
+    ok = y === n || y === `${n}_` || y.endsWith(`_${n}`);
+  }
+  return ok ? undefined : `\`${y}\` at ${rel(caller.file)}:${caller.line} does not call the next frame (tail call?)`;
+}
+
 function resolve_stack(stack: string): Resolved {
   const frames = parse_stack(stack);
-  // frames[0] is `capture` itself.
+  // frames[0] is `capture` itself; frames[1] must be `DiagLocation::caller`.
   let g = -1;
-  let below: Owner | undefined;
+  let prev: FrameKind | undefined;
   for (let i = 1; i < frames.length; i++) {
     const fr = frames[i];
     if (fr === undefined) return fail(`native frame #${i}`);
-    if (!fr.file.startsWith(SRC_ROOT)) return fail(`frame outside src: ${fr.file}`);
-    const ts = ts_file(fr.file);
-    const owner = ts.owner_at(fr.line);
-    if (owner === undefined) {
-      if (is_into_diag_glue(ts.lines[fr.line - 1] ?? "")) continue;
-      return fail(`unmarked frame ${rel(fr.file)}:${fr.line}`);
+    const k = classify(fr);
+    if (typeof k === "string") return fail(k);
+    if (i === 1) {
+      if (!(k.kind === "owned" && k.owner.kind === "fn" && k.owner.path === "compiler/rustc_errors/src/diagnostic.rs" && k.owner.name === "caller")) {
+        return fail("capture() not called from DiagLocation::caller");
+      }
+    } else {
+      const why = linked(fr, prev!);
+      if (why !== undefined) return fail(why);
     }
-    if (i === 1 && !(owner.kind === "fn" && owner.path === "compiler/rustc_errors/src/diagnostic.rs" && owner.name === "caller")) {
-      return fail("capture() not called from DiagLocation::caller");
-    }
-    const tc = owner.kind === "derive_diagnostic" ? true : upstream_is_track_caller(owner.path, owner.line);
-    if (tc === undefined) return fail(`cannot read ${owner.path}:${owner.line}`);
-    if (tc && !ts.in_nested_fn(owner, fr.line, fr.col)) {
-      below = owner;
-      continue;
-    }
+    prev = k;
+    if (k.kind === "glue" || k.tc) continue;
     g = i;
     break;
   }
@@ -114,16 +162,8 @@ function resolve_stack(stack: string): Resolved {
   const ts = ts_file(fr.file);
   const owner = ts.owner_at(fr.line)!;
   if (owner.kind !== "fn") return fail(`caller is not a ported fn (${rel(fr.file)}:${fr.line})`);
-
-  // 2. the callee at G's call position.
-  const callee_ts = ident_at(ts.masked_lines[fr.line - 1] ?? "", fr.col - 1);
-  if (callee_ts === undefined) return fail(`no callee at ${rel(fr.file)}:${fr.line}:${fr.col}`);
+  const callee_ts = ident_at(ts.masked_lines[fr.line - 1] ?? "", fr.col - 1)!;
   const callee = callee_ts.replace(/_$/, "");
-  const below_name = below === undefined ? undefined : below.kind === "fn" ? below.name : "into_diag";
-  if (callee !== below_name) {
-    const all = upstream_fns_named(callee);
-    if (all.length === 0 || !all.every((f) => f)) return fail(`callee \`${callee}\` is not (only) #[track_caller]`);
-  }
 
   // 3. k-th call of `callee` in G's TS body <-> k-th call in G's upstream body.
   const ts_calls = ts.calls_in(owner, callee_ts);
@@ -170,6 +210,7 @@ function ident_at(line: string, idx: number): string | undefined {
 
 type Owner =
   | { kind: "fn"; path: string; line: number; name: string; start: number; end: number }
+  | { kind: "macro"; path: string; line: number; name: string; start: number; end: number }
   | { kind: "derive_diagnostic"; path: string; line: number; start: number; end: number };
 
 class TsFile {
@@ -192,6 +233,11 @@ class TsFile {
       while (decl <= this.lines.length && /^\s*\/\//.test(this.lines[decl - 1]!)) decl++;
       if (m !== null) {
         this.owners.push({ kind: "fn", path: m[1]!, line: Number(m[2]), name: m[3]!, start: decl, end: this.body_end(decl) });
+        continue;
+      }
+      m = /^\s*\/\/ rustc-macro: (compiler\/\S+):(\d+) (\w+)!\s*$/.exec(l);
+      if (m !== null) {
+        this.owners.push({ kind: "macro", path: m[1]!, line: Number(m[2]), name: m[3]!, start: decl, end: this.body_end(decl) });
         continue;
       }
       m = /^\s*\/\/ rustc-derive: (compiler\/\S+):(\d+) Diagnostic \S+\s*$/.exec(l);
@@ -488,14 +534,14 @@ function strip_leading_generics(s: string): string {
   return t;
 }
 
-// ---- whole-compiler index (built on first need) -----------------------------------------------------
+// ---- trait index -------------------------------------------------------------------------------------
 
-let compiler_index: { trait_tc: Map<string, Set<string>>; fns: Map<string, boolean[]> } | undefined;
+/** Trait name -> its methods declared `#[track_caller]` (which makes every impl of them `#[track_caller]`),
+ *  over all upstream `compiler/` sources; built on first need. */
+let trait_tc_index: Map<string, Set<string>> | undefined;
 
-function build_compiler_index(): NonNullable<typeof compiler_index> {
-  if (compiler_index !== undefined) return compiler_index;
+function build_trait_tc_index(): Map<string, Set<string>> {
   const trait_tc = new Map<string, Set<string>>();
-  const fn_sites: [UpFile, number, string][] = [];
   const root = upstream_root();
   const files: string[] = [];
   const walk = (rel_dir: string) => {
@@ -508,6 +554,8 @@ function build_compiler_index(): NonNullable<typeof compiler_index> {
   };
   if (root !== undefined) walk("compiler");
   for (const path of files) {
+    const src = readFileSync(join(root!, path), "utf8");
+    if (!src.includes("#[track_caller]") || !/\btrait\s/.test(src)) continue;
     const f = up_file(path)!;
     let trait: { name: string; indent: number } | undefined;
     for (let i = 0; i < f.masked_lines.length; i++) {
@@ -516,32 +564,19 @@ function build_compiler_index(): NonNullable<typeof compiler_index> {
       if (tm !== null) trait = { name: tm[2]!, indent: tm[1]!.length };
       else if (trait !== undefined && l.trim().startsWith("}") && indent(l) === trait.indent) trait = undefined;
       const fm = /\bfn\s+(\w+)/.exec(l);
-      if (fm === null) continue;
-      fn_sites.push([f, i + 1, fm[1]!]);
-      if (trait !== undefined && has_track_caller_attr(f, i + 1)) {
-        let set = trait_tc.get(trait.name);
-        if (set === undefined) trait_tc.set(trait.name, (set = new Set()));
-        set.add(fm[1]!);
-      }
+      if (fm === null || trait === undefined || !has_track_caller_attr(f, i + 1)) continue;
+      let set = trait_tc.get(trait.name);
+      if (set === undefined) trait_tc.set(trait.name, (set = new Set()));
+      set.add(fm[1]!);
     }
   }
-  compiler_index = { trait_tc, fns: new Map() };
-  for (const [f, line, name] of fn_sites) {
-    let v = compiler_index.fns.get(name);
-    if (v === undefined) compiler_index.fns.set(name, (v = []));
-    v.push(fn_is_track_caller(f, line));
-  }
-  return compiler_index;
+  return trait_tc;
 }
 
 function trait_track_caller_methods(): Map<string, Set<string>> {
-  return build_compiler_index().trait_tc;
+  return (trait_tc_index ??= build_trait_tc_index());
 }
 
-/** For every upstream compiler fn named `name`: whether it is `#[track_caller]`. */
-function upstream_fns_named(name: string): boolean[] {
-  return build_compiler_index().fns.get(name) ?? [];
-}
 
 // ---- lexing helpers ----------------------------------------------------------------------------------
 
