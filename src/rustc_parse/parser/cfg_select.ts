@@ -23,7 +23,7 @@ Parser.prototype.parse_cfg_select_branch_rhs = function (this: Parser): PResult<
     const tt = this.parse_token_tree();
     switch (tt.$) {
       case "Token":
-        return unreachable("because the current token is a '{'");
+        return unreachable("internal error: entered unreachable code: because the current token is a '{'");
       case "Delimited": {
         const tts = tt._3;
         // Optionally end with a comma.
