@@ -108,3 +108,4 @@
 {"ts":"2026-10-13T14:11:26.729Z","kind":"decision","msg":"rustdoc: rustc_resolve rustdoc.rs ported; vendored pulldown-cmark 0.11.3 (parser subset) + unicase 2.8.1; rustdoc probe copies private parse_links verbatim from the pinned source"}
 {"ts":"2026-10-13T14:11:26.741Z","kind":"decision","msg":"creader: rustc_metadata creader.rs ported (55/55); locator/rmeta decoder are stubs (every crate load stops at CrateLocator::new); stand_ins metadata_loader returns a placeholder loader; Session::stack_protector ported"}
 {"ts":"2026-10-13T14:12:47.336Z","kind":"milestone","msg":"Wave 10 done: resolution, lints (early), ast passes, creader; expanded-nocore sample 89.7% (0 DIFF)"}
+{"ts":"2026-10-13T14:44:01.200Z","kind":"decision","msg":"resdump-dump: port-side resdump printer in src/rust_ts/resdump_dump.ts; run_compiler restores the previous DefId debug formatter on return (in-process tests); resdump-nocore sample 92%"}
