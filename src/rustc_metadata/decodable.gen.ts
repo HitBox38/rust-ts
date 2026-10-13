@@ -3,13 +3,13 @@
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
 import { decode_CrateDepKind, decode_LinkagePreference } from "../rustc_crate_store/lib.ts";
-import { type BlobDecoder, decode_Svh, type LazyDecoder } from "./rmeta/decoder.ts";
+import { decode_Svh, type LazyDecoder } from "./rmeta/decoder.ts";
 import { decode_DefPathHashMapRef } from "./rmeta/def_path_hash_map.ts";
 import { type CrateDep, type CrateHeader, CrateRoot, type CrateRootUnhashed, decode_LazyArray, decode_LazyTable, decode_LazyTables, decode_LazyValue, type IncoherentImpls, type ProcMacroData, type ProcMacroKind, RawDefId, SpanTag, type TraitImpls } from "./rmeta/mod.ts";
 import { decode_bool, decode_Option, decode_String, decode_tuple, decode_u32, decode_u64, decode_u8, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
 import { decode_SymbolManglingVersion } from "../rustc_session/config.ts";
 import { decode_Edition, decode_StableCrateId } from "../rustc_span/decodable.gen.ts";
-import { type SpanDecoder } from "../rustc_span/lib.ts";
+import { type BlobDecoder, type SpanDecoder } from "../rustc_span/lib.ts";
 import { decode_PanicStrategy } from "../rustc_target/spec/mod.ts";
 import { decode_TargetTuple } from "../rustc_target/spec/tuple.ts";
 import { panic } from "../std/panic.ts";
