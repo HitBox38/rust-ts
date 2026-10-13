@@ -1,0 +1,10 @@
+warning: label name `'a` shadows a label name that is already in scope
+  --> labels.rs:26:9
+   |
+25 |     'a: loop {
+   |     -- first declared here
+26 |         'a: loop {
+   |         ^^ label `'a` already in scope
+
+warning: 1 warning emitted
+

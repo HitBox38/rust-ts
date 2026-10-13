@@ -121,7 +121,7 @@ export const PatBoundCtx = { Product: "Product", Or: "Or" } as const;
 ///   subpattern to construct the scope for the guard.
 ///
 /// Each identifier must map to at most one distinct [`Res`].
-export type PatternBindings = (([PatBoundCtx, Map<Ident, Res>])[])[];
+export type PatternBindings = ([PatBoundCtx, Map<Ident, Res>])[];
 
 // rustc-type: compiler/rustc_resolve/src/late.rs:132 HasGenericParams
 /// Does this the item (from the item rib scope) allow generic parameters?

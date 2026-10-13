@@ -680,8 +680,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     }
     return undefined;
   };
-  const typeArgs = (p: PPath): PType[] =>
-    p.segments[p.segments.length - 1]!.args.filter((a) => a.kind === "type").map((a) => a.ty!);
+  const typeArgs = (p: PPath): PType[] => {
+    const seg = p.segments[p.segments.length - 1]!;
+    const args = seg.args.filter((a) => a.kind === "type").map((a) => a.ty!);
+    // `smallvec::SmallVec<A: Array>` is parameterised by its inline backing array `[T; N]`; the typemap entry
+    // (`$0[]`, `debug_vec`, ...) is about the element type `T`, so `SmallVec<[T; N]>` reads as `SmallVec<T>`.
+    if (seg.name === "SmallVec" && args.length === 1 && args[0]!.kind === "array") return [args[0]!.elem!];
+    return args;
+  };
   const tsParams = (it: PItem) => it.generics.params.filter((g) => g.kind === "type");
   /** Scope of a type alias' definition with its parameters bound to `args` (or their defaults). */
   const aliasScope = (ref: ItemRef, args: PType[], sc: Scope): Scope => {

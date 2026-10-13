@@ -460,9 +460,7 @@ const UNIT_PENDING: Record<string, string> = {
   "resolve_lifetime: a const param type rib": "rustc_resolve::late::diagnostics::LateResolutionVisitor::emit_non_static_lt_in_const_param_ty_error",
   "resolve_anonymous_lifetime: an Item barrier reports a missing lifetime": "rustc_resolve::late::diagnostics::LateResolutionVisitor::report_missing_lifetime_specifiers",
   "resolve_label: an unreachable label in an outer rib": "rustc_resolve::late::diagnostics::LateResolutionVisitor::suggestion_for_label_in_rib",
-  "resolve_fn_signature: no parameters, default return": "rustc_resolve::late::LateResolutionVisitor::apply_pattern_bindings",
-  "future_proof_import: edition 2018 `use x;` with a local `x`": "rustc_resolve::late::LateResolutionVisitor::should_report_errs",
-  "visit_ty: a path type": "rustc_resolve::late::LateResolutionVisitor::smart_resolve_path",
+  "visit_ty: a path type": "rustc_resolve::late::diagnostics::LateResolutionVisitor::smart_resolve_report_errors",
 };
 
 function case_(name: string, f: () => void): void {
@@ -839,11 +837,19 @@ case_("future_proof_import: 2015 paths and keywords return early; nested trees r
 });
 
 case_("future_proof_import: edition 2018 `use x;` with a local `x`", () => {
-  with_visitor((v) => {
-    const path = { span: DUMMY_SP, segments: [{ ident: ident("x"), id: nid(1), args: undefined }], tokens: undefined };
-    v.with_rib("ValueNS", RibKind.Normal, (v) => {
-      v.ribs.index("ValueNS").at(-1)!.bindings.set(ident("x"), { $: "Local", _0: nid(16) });
-      v.future_proof_import({ prefix: path, kind: { $: "Simple", _0: undefined } } as never);
-    });
-  }, "2018");
+  // `ImportsCannotReferTo` ("imports cannot refer to local variables") is emitted once; the compiler then
+  // aborts ("aborting due to 1 previous error") when the session ends.
+  let reported = -1;
+  expect(() =>
+    with_visitor((v) => {
+      const path = { span: DUMMY_SP, segments: [{ ident: ident("x"), id: nid(1), args: undefined }], tokens: undefined };
+      const before = v.r.dcx().err_count();
+      v.with_rib("ValueNS", RibKind.Normal, (v) => {
+        v.ribs.index("ValueNS").at(-1)!.bindings.set(ident("x"), { $: "Local", _0: nid(16) });
+        v.future_proof_import({ prefix: path, kind: { $: "Simple", _0: undefined } } as never);
+      });
+      reported = v.r.dcx().err_count() - before;
+    }, "2018"),
+  ).toThrow();
+  expect(reported).toBe(1);
 });

@@ -1,0 +1,59 @@
+== visibilities_for_hashing (2)
+DefId(0:0 ~ labels[6e9f]) Public
+DefId(0:1 ~ labels[6e9f]::f) Restricted(LocalModId(DefId(0:0 ~ labels[6e9f])))
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ labels[6e9f]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (1)
+DefId(0:0 ~ labels[6e9f])
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:1 ~ labels[6e9f]::f)), vis: Restricted(ModId(DefId(0:0 ~ labels[6e9f]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(68)
+== partial_res_map (14)
+NodeId(5) PartialRes { base_res: PrimTy(Bool), unresolved_segments: 0 }
+NodeId(6) PartialRes { base_res: PrimTy(Bool), unresolved_segments: 0 }
+NodeId(7) PartialRes { base_res: Local(NodeId(7)), unresolved_segments: 0 }
+NodeId(8) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(9) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(14) PartialRes { base_res: Local(NodeId(7)), unresolved_segments: 0 }
+NodeId(15) PartialRes { base_res: Local(NodeId(7)), unresolved_segments: 0 }
+NodeId(18) PartialRes { base_res: Local(NodeId(7)), unresolved_segments: 0 }
+NodeId(19) PartialRes { base_res: Local(NodeId(7)), unresolved_segments: 0 }
+NodeId(41) PartialRes { base_res: Local(NodeId(41)), unresolved_segments: 0 }
+NodeId(45) PartialRes { base_res: Local(NodeId(7)), unresolved_segments: 0 }
+NodeId(46) PartialRes { base_res: Local(NodeId(7)), unresolved_segments: 0 }
+NodeId(65) PartialRes { base_res: Local(NodeId(41)), unresolved_segments: 0 }
+NodeId(66) PartialRes { base_res: Local(NodeId(41)), unresolved_segments: 0 }
+== owners (2)
+NodeId(0) def_id=DefId(0:0 ~ labels[6e9f]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ labels[6e9f]::f) lifetime_elision_allowed=false
+  label_res NodeId(21) NodeId(11)
+  label_res NodeId(24) NodeId(13)
+  label_res NodeId(37) NodeId(11)
+  label_res NodeId(48) NodeId(53)
+  label_res NodeId(59) NodeId(57)
+== lint_buffer (2)
+NodeId(27) UNUSED_LABELS [labels.rs:11:9: 11:16 (#0)]
+NodeId(55) UNUSED_LABELS [labels.rs:25:5: 25:7 (#0)]
+== disambiguators (1)
+DefId(0:0 ~ labels[6e9f])
+== definitions (2)
+DefId(0:0 ~ labels[6e9f]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(7971294956449746237, 7971294956449746237))
+DefId(0:1 ~ labels[6e9f]::f) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(7971294956449746237, 4013802039684836874))

@@ -1064,6 +1064,9 @@ export class LateResolutionVisitor extends visit.Visitor {
   ) {
     super();
   }
+
+  // late.rs:1581 new (assigned in late.ts)
+  declare static new: (resolver: Resolver) => LateResolutionVisitor;
 }
 export interface LateResolutionVisitor {
   // ---- compiler/rustc_resolve/src/late.rs ----
