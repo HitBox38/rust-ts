@@ -252,5 +252,14 @@
     "auto_class": true,
     "derive_clone": true,
     "derive_default": true
+  },
+  "rustc_query_impl": {
+    "files": [
+      "compiler/rustc_query_impl/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
   }
 }
