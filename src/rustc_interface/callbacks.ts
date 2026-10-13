@@ -23,7 +23,7 @@ import * as tls from "../rustc_middle/ty/context/tls.ts";
 
 /// This is a callback from `rustc_hir` as it cannot access the implicit state
 /// in `rustc_middle` otherwise.
-// rustc: compiler/rustc_interface/src/callbacks.rs:76 def_id_debug
+// rustc: compiler/rustc_interface/src/callbacks.rs:78 def_id_debug
 function def_id_debug(def_id: DefId, _f: Fmt): string {
   let s = `DefId(${display_CrateNum(def_id.krate)}:${DefIndex.index(def_id.index)}`;
   tls.with_opt((opt_tcx) => {
