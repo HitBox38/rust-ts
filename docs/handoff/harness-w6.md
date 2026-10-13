@@ -24,9 +24,11 @@ The full format is in the header of `main.rs`.
   - It runs inside a fresh `create_session_globals_then(edition, &[], Some(inputs))`, with `RealFileLoader`, an empty path mapping and Md5.
   - The `ParseSess` gets a `DiagCtxt` with the flags of `Options::dcx_flags(true)` at default options: warnings on, `deduplicate_diagnostics: true`, everything else off.
   - The emitter is an `AnnotateSnippetEmitter` built the way `session.rs:1304` `default_emitter` builds it. Every setter is called explicitly with its default-options value, then `.ui_testing(true)`. It writes to an in-memory buffer through `AutoStream::new(.., ColorChoice::Never)`.
-- **Lexing.** The probe calls `rustc_parse::source_str_to_stream(&psess, FileName::Real(path), src, None)`.
-  - That is `new_source_file`, then `source_file_to_stream(.., StripTokens::Shebang)`, then `lex_token_trees`.
-  - **PORT decision.** `lex_token_trees` and `source_file_to_stream` are crate-private, and `new_parser_from_*` hides the stream inside a `Parser`. So this is the only public route to the `TokenStream`. As a result, frontmatter is lexed as plain tokens, the same on both sides. The `ShebangAndFrontmatter` path is covered by the lexer unit test's cli cases.
+- **Lexing** (corrected after review H1). A per-file `--strip=` argument picks one of two public entry points:
+  - **`--strip=crate`, used by the `tokens` suite.** This is how rustc lexes a crate root, an out-of-line module or an `include!`d file: `StripTokens::ShebangAndFrontmatter`. The probe calls `rustc_parse::new_parser_from_source_str(.., ShebangAndFrontmatter)`, then `Parser::parse_tokens()`. The subject calls `lex_token_trees(.., "ShebangAndFrontmatter")`.
+  - **`--strip=str`, used by the new sibling suite `tokens-str`.** The probe calls `source_str_to_stream`, which uses `StripTokens::Shebang`, so frontmatter is lexed as plain tokens. The subject calls `lex_token_trees(.., "Shebang")`.
+  - My earlier claim that `source_str_to_stream` was the only public route was wrong.
+  - `tokens-str` covers every `tests/ui` file whose path contains "frontmatter": 39 files. I ran the probe in both modes over the whole corpus. Exactly 34 files differ between the modes, and all 34 are in that set: 32 under `tests/ui/frontmatter/`, plus `feature-gates/feature-gate-frontmatter.rs` and `unpretty/frontmatter.rs`.
 - **Output per file:**
   - `file: <path>` and `edition: <Edition:?>`
   - `not utf-8`, or one of `OK <TokenStream:?>`, `ERR n` (the returned diagnostics are emitted in order) or `FATAL` (a `FatalErrorMarker` caught by `catch_unwind`; any other panic propagates)
@@ -71,7 +73,12 @@ The build then:
 
 ### Results
 - `--sample 200`: 200/200 MATCH.
-- Full suite, run `tokens-full-harness-w6-1`: **25,780 total, MATCH 25,780, DIFF 0, UNPORTED 0, CRASH 0, TIMEOUT 0**.
+- After the review fixes, with main merged and tokdump rebuilt:
+  - `tokens` (crate mode), run `tokens-full-harness-w6-2`: **25,780 total, MATCH 25,780, DIFF 0, UNPORTED 0, CRASH 0, TIMEOUT 0**.
+  - `tokens-str`: **39/39 MATCH**.
+  - The oracle now prints 34 `gated frontmatter` lines on the frontmatter files.
+  - A mutant subject with `--strip=crate` mapped to `Shebang` gives 34 DIFF on `tokens --filter frontmatter`.
+- Before the review, the Shebang-only `tokens` suite (run `tokens-full-harness-w6-1`) was also 25,780/25,780.
   - 258 processes, 26 s.
   - 0 batch-only failures.
   - A second full run, served from the gz cache, also gave 25,780/25,780.
@@ -95,6 +102,14 @@ The build then:
   - The test was a fake subject that prints every section and exits 101 at #10 of 100.
   - main: 270 processes. Lane: 12 processes.
   - In both, only `c10` fails. This matches the review's table.
+- **Review fixes (harness-w6 review):**
+  - **H2.** The unit-test step runs with `CI=true`, so Bun fails on a leftover `.only` (verified).
+  - **H3.** `junitSkips` now reads the report tag by tag and keeps a stack of `<testsuite>` names. Each skip carries its full path: the `describe` names, outermost first, then the test name. An `ALLOWED_SKIPS` entry is `{file, path}`, matches exactly and is used at most once. Verified: a same-named skip nested in a `describe`, or a second same-named skip, is rejected. Unbalanced reports throw.
+  - **H4.** Cache writes go to a temp file, then `renameSync`. An unreadable entry gives one `ERROR:` line, is removed and is re-run. Verified by truncating 3 entries: the run printed 3 ERRORs, still scored 39/39, and the next run was clean.
+  - **H5.** `build_dependencies` and `dev_dependencies` are now refused. A rustc-dev probe's `env` may not set RUSTFLAGS, CARGO_ENCODED_RUSTFLAGS, RUSTC, RUSTC_WRAPPER, RUSTC_WORKSPACE_WRAPPER, RUSTDOC, `CARGO_BUILD_RUSTC*`, CARGO_TARGET_DIR or RUSTUP_TOOLCHAIN. Both refusals verified on a scratch manifest.
+  - **H7.** The rpath is passed through `CARGO_ENCODED_RUSTFLAGS`. It survives spaces in the path and overrides an outer `RUSTFLAGS`. The rebuilt binary is unchanged.
+  - **Not done: H6** (INFO). The symbol gallery and decorated lint text are still not dumped. That is a possible follow-up.
+  - I deleted the 25,780 cache entries left by the first tokdump build. Their key contains the old binary hash, so nothing can reach them; this freed 0.4 GB. The disk had 5.5 GB free.
 - **F5** (harness-w5): the gate's unit-test step now runs `bun test src tools --reporter=junit --reporter-outfile=<run>/unit-tests.junit.xml`.
   - `junitSkips` parses the skipped `<testcase>`s. Attributes are matched as `k="v"` pairs, so a `>` in a test name is safe. It cross-checks the count against `<testsuites skipped=N>`.
   - `classifySkips` matches each skip against `ALLOWED_SKIPS` by file and test name. The list holds one entry: the Linux-only `read_binary_file_handles_lying_stat`, with a comment.
@@ -120,7 +135,7 @@ The build then:
 ## What a reviewer should check
 1. **Probe vs `default_emitter` and `dcx_flags`.** Are the emitter setters and flags exactly what `rustc -Zui-testing` gets at default options? Note `deduplicate_diagnostics: true`; the lexer unit test used false.
 2. **Probe/subject parity.** Same order of emit, stash and drop. The subject calls `dcx_.inner.drop()` where the probe drops `psess`. The `= no newline` tail matches.
-3. **`StripTokens::Shebang` choice** (above).
+3. **The two entry points** (above). Is the 39-file `tokens-str` selection enough?
 4. **`isRustcDevProbe` keying.** Non-rustc-dev suites' keys must be unchanged. The gzip cache must be backward compatible.
 5. **`junitSkips` robustness.** Regex attribute parsing and the count cross-check. Is name+file matching in the allowlist strict enough?
 6. **G1.** Statuses unchanged. Process counts as above.
