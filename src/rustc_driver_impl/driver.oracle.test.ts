@@ -100,8 +100,8 @@ const PENDING: [string[], string][] = [
   [["--edition=2015", "-Zunpretty=ast-tree", "nonexist.rs"], "std::io::Error::kind (decode_error_kind, os error ENOENT)"],
   [["-Zunpretty=ast-tree", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
   [["--edition=2024", "-Zunpretty=normal", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
-  [["x.rs"], "rustc_metadata::locator::CrateLocator::new (wave 11 locator)"],
-  [["-ooptimize", "x.rs"], "rustc_metadata::locator::CrateLocator::new (wave 11 locator)"],
+  [["x.rs"], "rustc_session::filesearch::default_sysroot (crate search in the default sysroot; pass --sysroot)"],
+  [["-ooptimize", "x.rs"], "rustc_session::filesearch::default_sysroot (crate search in the default sysroot; pass --sysroot)"],
   [["-Zui-testing", "--edition=2021", "-Zunpretty=ast-tree", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
 ];
 

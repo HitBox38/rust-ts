@@ -5,8 +5,8 @@
 // defining module (PORTING section 5): rmeta/decoder/cstore_impl.ts attaches `impl CStore` /
 // `impl CrateStore for CStore` to creader.ts's `CStore`. Consumers import this module.
 //
-// Not ported yet (wave 11 lanes): dependency_format, eii, foreign_modules, native_libs, fs, the rmeta
-// encoder/table/parameterized/def_path_hash_map; locator, host_dylib and rmeta/{mod,decoder} are stubs.
+// Not ported yet (wave 11 lanes): dependency_format, eii, foreign_modules, native_libs, the write path of fs, the rmeta
+// encoder/table/parameterized/def_path_hash_map; host_dylib and rmeta/{mod,decoder} are stubs.
 
 // pub use rmeta::provide;
 export { provide } from "./rmeta/decoder/cstore_impl.ts";
@@ -23,10 +23,14 @@ import "./rmeta/decoder.ts";
 export * as creader from "./creader.ts";
 import "./rmeta/decoder/cstore_impl.ts";
 export * as diagnostics from "./diagnostics.ts";
-// pub mod fs;
+export * as fs from "./fs.ts";
 export * as locator from "./locator.ts";
 
 // pub use fs::{METADATA_FILENAME, emit_wrapper_file};
+// PORT: `emit_wrapper_file` is not ported (metadata writing, M5).
+export { METADATA_FILENAME } from "./fs.ts";
 // pub use host_dylib::{DylibError, load_symbol_from_dylib};
 export type { DylibError } from "./host_dylib.ts";
 // pub use rmeta::{EncodedMetadata, METADATA_HEADER, ProcMacroKind, encode_metadata, rendered_const};
+// PORT: only `METADATA_HEADER` exists so far (lane locator); the rest is wave 11 rmeta-types / M5.
+export { METADATA_HEADER } from "./rmeta/mod.ts";

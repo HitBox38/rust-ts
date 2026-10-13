@@ -3,9 +3,13 @@
 // PORT: the types of this file (`NativeLib`, `CanonicalizedPath`) are hand-written (the codegen set
 // `rustc_session` only covers diagnostics.rs); `PathBuf` is a UTF-8 string (as in typemap.errors.json).
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
+import { try_canonicalize } from "../rustc_fs_util/lib.ts";
 import { type Debug, debug_bool, debug_option, debug_str, debug_struct } from "../std/fmt.ts";
 import { args_os } from "../std/env.ts";
 import { unported } from "../std/panic.ts";
+// LOAD ORDER: options.ts before config.ts (see config.ts header).
+import "./options.ts";
+import { CanonicalizedPath_new_hook } from "./config.ts";
 import { Session } from "./session.ts";
 import type { VerboseTimingGuard } from "./stand_ins.ts";
 
@@ -67,9 +71,9 @@ export class CanonicalizedPath {
   ) {}
 
   // rustc: compiler/rustc_session/src/utils.rs:45 new
-  static new(_path: PathBuf): CanonicalizedPath {
-    // `Self { canonicalized: try_canonicalize(&path).ok(), original: path }`
-    return unported("rustc_fs_util::try_canonicalize (CanonicalizedPath::new)");
+  static new(path: PathBuf): CanonicalizedPath {
+    const canonicalized = try_canonicalize(path);
+    return new CanonicalizedPath(canonicalized.$ === "Ok" ? canonicalized._0 : undefined, path);
   }
 
   // rustc: compiler/rustc_session/src/utils.rs:49 canonicalized
@@ -84,6 +88,8 @@ export class CanonicalizedPath {
 }
 // PORT: the fields `canonicalized` / `original` are `canonicalized_` / `original_` (their accessor
 // methods keep the upstream names); Debug prints the upstream field names.
+// PORT: config.ts's `parse_externs` reaches `CanonicalizedPath::new` through this hook (load order).
+CanonicalizedPath_new_hook.new_ = (path) => CanonicalizedPath.new(path);
 export const debug_CanonicalizedPath: Debug<CanonicalizedPath> = (v, f) =>
   debug_struct(f, "CanonicalizedPath", [
     ["canonicalized", debug_option(v.canonicalized_, f, (p) => debug_str(p))],

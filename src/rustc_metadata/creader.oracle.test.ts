@@ -7,8 +7,9 @@
 // The oracle compiles the same file with `-Zunpretty=expanded` (which runs resolution, hence `postprocess`).
 // Compared:
 //   1. the crates creader tries to load: the probe prints `resolving crate `x`` for every `maybe_resolve_crate`;
-//      the oracle's `RUSTC_LOG=rustc_metadata::creader=info` prints the same line. Ours (which stops at the
-//      locator stub) must be a prefix of the oracle's list; when ours completes, the lists must be equal.
+//      the oracle's `RUSTC_LOG=rustc_metadata::creader=info` prints the same line. Ours (which stops where the
+//      first found crate's metadata must be decoded: the rmeta decoder stub, wave 11) must be a prefix of the
+//      oracle's list; when ours completes, the lists must be equal.
 //   2. diagnostics: our stderr, up to `rust-ts: unported` / the final `error: aborting` summary, must be a prefix
 //      of the oracle's stderr and contain the expected text.
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
@@ -59,7 +60,7 @@ interface Case {
   src: string;
   flags?: string[];
   env?: Record<string, string>;
-  /** The crates our probe must try to load (in order; it stops at the first one, the locator is a stub). */
+  /** The crates our probe must try to load (in order; it stops at the first one that is found, the decoder is a stub). */
   crates: string[];
   /** Text our stderr must contain. */
   expect?: string[];
@@ -78,7 +79,7 @@ const CASES: Case[] = [
   { name: "-Cprofile-generate loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo"], crates: ["profiler_builtins"] },
   { name: "-Cinstrument-coverage loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cinstrument-coverage"], crates: ["profiler_builtins"] },
   { name: "-Zno-profiler-runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cinstrument-coverage", "-Zno-profiler-runtime"], crates: [] },
-  { name: "-Zprofiler-runtime=<name>", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo", "-Zprofiler-runtime=my_profiler"], crates: ["my_profiler"] },
+  { name: "-Zprofiler-runtime=<name> (not found, then the missing_core probe)", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo", "-Zprofiler-runtime=my_profiler"], crates: ["my_profiler", "core"] },
   // inject_allocator_crate
   {
     name: "needs_allocator, bin, no global allocator",
@@ -150,7 +151,7 @@ const CASES: Case[] = [
   // process_extern_crate / the extern prelude through the real resolver
   { name: "no_std injects extern crate core", mode: "pipeline", src: "#![no_std]\n", crates: ["core"] },
   { name: "std crate injects extern crate std", mode: "pipeline", src: "", crates: ["std"] },
-  { name: "extern crate in a no_core crate", mode: "pipeline", src: NO_CORE + "extern crate foo;\n", crates: ["foo"] },
+  { name: "extern crate in a no_core crate (not found, then the missing_core probe)", mode: "pipeline", src: NO_CORE + "extern crate foo;\n", crates: ["foo", "core"] },
   { name: "extern crate with a non-ASCII name (NonAsciiName, then the missing_core probe)", mode: "pipeline", src: NO_CORE + "extern crate föo;\n", crates: ["föo", "core"] },
 ];
 
@@ -188,7 +189,7 @@ for (const c of CASES) {
     const oracle_log = run([...RUSTC, "-Zunpretty=expanded", ...args], { ...env, RUSTC_LOG: "rustc_metadata::creader=info" });
     const oracle_crates = crates_of(oracle_log.stderr.split("\n"), /^ INFO rustc_metadata::creader resolving crate `(.*)`$/);
     if (ours.code === 70) {
-      expect(ours.stderr).toContain("rust-ts: unported: rustc_metadata::locator::CrateLocator::new");
+      expect(ours.stderr).toContain("rust-ts: unported: rustc_metadata::rmeta::decoder::MetadataBlob::new");
       expect(oracle_crates.slice(0, our_crates.length)).toEqual(our_crates);
     } else {
       expect(oracle_crates).toEqual(our_crates);
