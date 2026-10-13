@@ -70,3 +70,24 @@ export function splice<T>(vec: T[], start: number, len: number, replacement: rea
   for (const x of replacement) vec.push(x);
   for (const x of tail) vec.push(x);
 }
+
+/** A `usize` held in a JS number that may be negative: a wrapped (mod 2^64) unchecked difference. */
+function usize_display(n: number): string {
+  return n < 0 ? String(2n ** 64n + BigInt(n)) : String(n);
+}
+
+/**
+ * `&v[..end]`. `end` may be the negative result of unchecked `usize` subtraction (rustc ships without
+ * overflow checks, so `len - depth` wraps); the panic then prints the wrapped value, as core does
+ * (`slice_end_index_len_fail`, library/core/src/slice/index.rs at the pin).
+ */
+export function slice_to<T>(v: readonly T[], end: number): T[] {
+  if (end < 0 || end > v.length) panic(`range end index ${usize_display(end)} out of range for slice of length ${v.length}`);
+  return v.slice(0, end);
+}
+
+/** `&v[start..]`, with core's `slice_start_index_len_fail` panic; `start` as in `slice_to`. */
+export function slice_from<T>(v: readonly T[], start: number): T[] {
+  if (start < 0 || start > v.length) panic(`range start index ${usize_display(start)} out of range for slice of length ${v.length}`);
+  return v.slice(start);
+}

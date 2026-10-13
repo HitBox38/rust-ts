@@ -77,8 +77,8 @@ export const CfgEntry = {
 };
 
 // impl fmt::Display for CfgEntry
-// rustc: compiler/rustc_ast/src/attr/data_structures.rs:67 fmt
 // PORT: `Display` impls are `display_<Type>(v): string` (as in rustc_span).
+// rustc: compiler/rustc_ast/src/attr/data_structures.rs:67 fmt
 export function display_CfgEntry(self: CfgEntry): string {
   // rustc: compiler/rustc_ast/src/attr/data_structures.rs:68 write_entries
   function write_entries(name: string, entries: readonly CfgEntry[]): string {

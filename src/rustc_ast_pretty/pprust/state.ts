@@ -27,11 +27,10 @@ import { FilePathMapping, SourceMap } from "../../rustc_span/source_map.ts";
 import { BytePos, CharPos, DUMMY_SP, type FileName, Span } from "../../rustc_span/lib.ts";
 import { Ident, IdentPrinter, Symbol, display_IdentPrinter, kw, sym } from "../../rustc_span/symbol.ts";
 import { is_whitespace, len_utf8 } from "../../std/char.ts";
-import { debug_str } from "../../std/fmt.ts";
+import { debug_str, escape_char } from "../../std/fmt.ts";
 import { panic, unreachable, unwrap } from "../../std/panic.ts";
+import { slice_from, slice_to } from "../../std/slice.ts";
 import { Str, str_chars_count } from "../../std/str.ts";
-import { in_table } from "../../std/unicode/mod.ts";
-import { DEBUG_ESCAPE_UNICODE } from "../../std/unicode/tables.ts";
 import * as pp from "../pp.ts";
 import { type BoxMarker, Breaks } from "../pp.ts";
 import { FixupContext } from "./state/fixup.ts";
@@ -491,43 +490,11 @@ function literal_to_string(lit: tk.Lit): string {
 // PORT: `str::escape_debug` (library/core/src/str/mod.rs:3149 at the pin) is
 // `self.chars().flat_map(CharEscapeDebug)`, i.e. `char::escape_debug` (`EscapeDebugExtArgs::ESCAPE_ALL`:
 // both quote kinds and grapheme-extended chars escaped) on every char. `DEBUG_ESCAPE_UNICODE`
-// (src/std, generated from the oracle) is exactly `char::escape_debug`'s `\u{..}` set.
+// (src/std, generated from the oracle) is exactly `char::escape_debug`'s `\u{..}` set; the per-char
+// table is src/std/fmt.ts `escape_char`.
 function str_escape_debug(s: string): string {
   let out = "";
-  for (const c_ of s) {
-    const c = c_.codePointAt(0)!;
-    switch (c) {
-      case 0x00:
-        out += "\\0";
-        break;
-      case 0x09:
-        out += "\\t";
-        break;
-      case 0x0a:
-        out += "\\n";
-        break;
-      case 0x0d:
-        out += "\\r";
-        break;
-      case 0x5c:
-        out += "\\\\";
-        break;
-      case 0x22:
-        out += '\\"';
-        break;
-      case 0x27:
-        out += "\\'";
-        break;
-      default:
-        if (c >= 0x20 && c < 0x7f) {
-          out += c_;
-        } else if (in_table(DEBUG_ESCAPE_UNICODE, c)) {
-          out += "\\u{" + c.toString(16) + "}";
-        } else {
-          out += c_;
-        }
-    }
-  }
+  for (const c of s) out += escape_char(c.codePointAt(0)!, true, true);
   return out;
 }
 
@@ -1102,7 +1069,9 @@ export abstract class PrintState {
   print_path(path: ast.Path, colons_before_params: boolean, depth: number): void {
     this.maybe_print_comment(Span.lo(path.span));
 
-    const segments = path.segments.slice(0, path.segments.length - depth);
+    // PORT: `len - depth` is unchecked usize arithmetic (wraps; negative here), and the range index
+    // panics as in Rust when it is out of bounds (review w456a pp L1); only a malformed AST gets there.
+    const segments = slice_to(path.segments, path.segments.length - depth);
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i]!;
       if (i > 0) {
@@ -2310,7 +2279,8 @@ export class State extends PrintState {
       this.print_path(path, false, depth);
     }
     this.s.word(">");
-    for (const item_segment of path.segments.slice(qself.position)) {
+    // PORT: `depth` above may be a wrapped (negative) usize; `print_path` then sees `len - depth == position`.
+    for (const item_segment of slice_from(path.segments, qself.position)) {
       this.s.word("::");
       this.print_ident(item_segment.ident);
       const args = item_segment.args;

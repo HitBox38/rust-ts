@@ -8,12 +8,16 @@ import { clone_Mutability } from "../rustc_ast_ir/lib.ts";
 import type { Span } from "../rustc_span/span_encoding.ts";
 import { Ident, type Symbol } from "../rustc_span/symbol.ts";
 import {
+  clone_DelegationSuffixes,
   clone_Expr,
+  clone_InlineAsm,
   clone_Lifetime,
   clone_Pat,
   clone_Ty,
+  type DelegationSuffixes,
   DelimArgs,
   Expr,
+  type InlineAsm,
   type Lifetime,
   MacCall,
   Pat,
@@ -21,6 +25,7 @@ import {
   PathSegment,
   Ty,
 } from "./ast.ts";
+import { MutVisitor, MutWalkable } from "./mut_visit.ts";
 import type { NodeId } from "./node_id.ts";
 import { DelimSpan, LazyAttrTokenStream, type LazyAttrTokenStreamInner, TokenStream, type TokenTree } from "./tokenstream.ts";
 
@@ -88,4 +93,42 @@ test("Pat: Option<Box<Pat>> and ThinVec<Pat> are deep copies; unit variants stay
   expect(elems[0]).not.toBe(wild);
   expect(elems[0]!.kind).toBe(wild.kind); // `PatKind::Wild`: no data to copy
   expect(c).toEqual(p);
+});
+
+// Review w456a codegen-derive M1 (reviewer's tmp/review-w456a/codegen/repro_tuple.ts): a tuple of Copy
+// elements is a mutable JS array that `MutVisitable["(T1, T2)"]` writes into, so the clone rebuilds it.
+// Rust: running a span-rewriting MutVisitor over the clone leaves the original untouched.
+test("tuples are rebuilt on clone: a MutVisitor over the clone leaves the original's tuples alone", () => {
+  class Shift extends MutVisitor {
+    override visit_span(s: { value: Span }): void {
+      s.value = sp(s.value + 1000);
+    }
+  }
+  // InlineAsm.template_strs: Box<[(Symbol, Option<Symbol>, Span)]>, clobber_abis: Vec<(Symbol, Span)>
+  const asm = {
+    asm_macro: "Asm",
+    template: [],
+    template_strs: [[sym(1), undefined, sp(7)]],
+    operands: [],
+    clobber_abis: [[sym(2), sp(8)]],
+    options: 0,
+    line_spans: [sp(9)],
+  } as unknown as InlineAsm;
+  const c = clone_InlineAsm(asm);
+  MutWalkable.InlineAsm(c, new Shift());
+  expect(c.template_strs).toEqual([[sym(1), undefined, sp(1007)]]);
+  expect(c.clobber_abis).toEqual([[sym(2), sp(1008)]]);
+  expect(c.line_spans).toEqual([sp(1009)]);
+  expect(asm.template_strs).toEqual([[sym(1), undefined, sp(7)]]);
+  expect(asm.clobber_abis).toEqual([[sym(2), sp(8)]]);
+  expect(asm.line_spans).toEqual([sp(9)]);
+
+  // DelegationSuffixes::List(ThinVec<(Ident, Option<Ident>)>)
+  const ds: DelegationSuffixes = { $: "List", _0: [[new Ident(sym(5), sp(11)), undefined]] };
+  const dc = clone_DelegationSuffixes(ds);
+  MutWalkable.DelegationSuffixes(dc, new Shift());
+  const [orig, copy] = [ds, dc].map((d) => (d as { _0: [Ident, Ident | undefined][] })._0[0]!);
+  expect(copy).not.toBe(orig);
+  expect(copy![0].span).toBe(sp(1011));
+  expect(orig![0].span).toBe(sp(11));
 });

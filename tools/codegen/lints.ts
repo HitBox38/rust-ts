@@ -11,8 +11,8 @@
 // so every static is written out field by field in declaration order. `fcw!(..)` reasons are expanded
 // per the arms of `macro_rules! fcw`. `hardwired::lint_vec` (the HardwiredLints list) keeps its order.
 //
-// The `declare_lint!` and `fcw!` macro_rules bodies are fingerprinted: if upstream changes them, this
-// generator stops with an ERROR instead of guessing the new expansion.
+// The `declare_lint!`, `fcw!`, `declare_lint_pass!` and `impl_lint_pass!` macro_rules bodies are
+// fingerprinted: if upstream changes them, this generator stops with an ERROR instead of guessing the new expansion.
 //
 //   bun tools/codegen/lints.ts           write the file
 //   bun tools/codegen/lints.ts --check   ERROR if the committed file is stale
@@ -33,6 +33,9 @@ const OUT_PATH = "src/rustc_lint_defs/builtin.gen.ts";
 const MACRO_FINGERPRINTS: Record<string, string> = {
   declare_lint: "85d8adc4220264d494b05c020aadd3107e332595",
   fcw: "b5491f8095064b93d368a93ea8ba44fd6f8a4e1f",
+  // Expanded inline for builtin.rs's `declare_lint_pass!` (review w456b L3).
+  declare_lint_pass: "2323c761330a8ce87a6293581bea51ac3dbcb80d",
+  impl_lint_pass: "ab13b67320d136c3f93f43d1e6cf8b847b261301",
 };
 
 // ---- tokens -----------------------------------------------------------------------------------

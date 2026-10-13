@@ -9,7 +9,7 @@
     "Names may be bare (`Token`) or module-qualified (`rustc_lexer::Token`).",
     "auto_class: structs with an inherent impl (with fns) anywhere in the set are emitted as class too.",
     "skip_notes: reason per skip entry; required for entries that name no item the probe sees (e.g. types defined inside macro_rules!).",
-    "derive_clone: emit clone_<T> for #[derive(Clone)] types (Copy types: identity; manual impl Clone: hand clone_<T>).",
+    "derive_clone: emit clone_<T> for #[derive(Clone)] types (value-like Copy types: identity; Copy objects and tuples: copied; manual impl Clone: hand clone_<T>).",
     "derive(Walkable) types of a crate get <crate>/walkable.gen.ts and <crate>/mut_walkable.gen.ts (always)."
   ],
   "rustc_lexer": {

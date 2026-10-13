@@ -3,13 +3,14 @@
 // ASTs are built by hand; the parts a test never walks are opaque stand-ins (`opaque<T>()`), and the
 // hooks that would reach them are overridden. Comments cite the upstream lines each assertion follows.
 import { describe, expect, test } from "bun:test";
-import { ControlFlow, VisitorResult } from "../rustc_ast_ir/visit.ts";
+import { ControlFlow, UNIT_RESULT_MISMATCH, VisitorResult } from "../rustc_ast_ir/visit.ts";
 import type { Span } from "../rustc_span/span_encoding.ts";
 import { Ident, type Symbol } from "../rustc_span/symbol.ts";
 import { Panic } from "../std/panic.ts";
 import { Err, type Result } from "../std/result.ts";
 import {
   type Arm,
+  type AssocItem,
   type AssocItemKind,
   Attribute,
   BindingMode,
@@ -18,6 +19,7 @@ import {
   type ExprKind,
   type ForeignItemKind,
   type Generics,
+  type Impl,
   Item,
   type ItemKind,
   type Lifetime,
@@ -28,11 +30,12 @@ import {
   PathSegment,
   Stmt,
   type StmtKind,
+  type TraitRef,
   Ty,
   type Visibility,
 } from "./ast.ts";
 import { AstNodeWrapper, HasAttrs, HasNodeId, HasTokens } from "./ast_traits.ts";
-import { MutVisitable, MutVisitor, walk_expr as mut_walk_expr, walk_flat_map_stmt } from "./mut_visit.ts";
+import { MutVisitable, MutVisitor, MutWalkable, walk_expr as mut_walk_expr, walk_flat_map_stmt } from "./mut_visit.ts";
 import type { NodeId } from "./node_id.ts";
 import { Lit } from "./token.ts";
 import type { LazyAttrTokenStream } from "./tokenstream.ts";
@@ -53,6 +56,7 @@ import {
   walk_stmt,
   walk_ty,
   WalkItemKind,
+  Walkable,
 } from "./visit.ts";
 
 const sp = (n: number) => n as Span;
@@ -274,16 +278,48 @@ describe("Visitor (visit.rs)", () => {
     expect(w.visit_expr(lit(9))).toBe(ControlFlow.CONTINUE); // `V::Result::output()`
   });
 
+  test("ControlFlow<()> Break with a `()` (`null`) payload still stops the walk (try_visit returns from_residual)", () => {
+    class FindUnit extends Visitor<ControlFlow<null>> {
+      override Result = VisitorResult.ControlFlow<null>();
+      seen: number[] = [];
+      override visit_id(id: NodeId): ControlFlow<null> {
+        this.seen.push(id);
+        return id === 4 ? ControlFlow.Break(null) : ControlFlow.CONTINUE;
+      }
+    }
+    const v = new FindUnit();
+    const tree = expr(1, { $: "Tup", _0: [lit(2), lit(4), lit(6)] });
+    expect(v.visit_expr(tree)).toStrictEqual({ $: "Break", _0: null });
+    expect(v.seen).toEqual([1, 2, 4]); // lit 6 is never reached
+  });
+
+  // Review w456a ast-visit M1 (reviewer's tmp/review-w456a/ast-visit/footgun.ts): rustc rejects a
+  // visitor whose hooks return `ControlFlow` while `type Result` is `()`; the port panics instead of
+  // silently turning the Break into Continue.
+  test("a ControlFlow visitor that forgot `override Result` panics instead of dropping the Break", () => {
+    class Find extends Visitor<ControlFlow<NodeId>> {
+      override visit_id(id: NodeId): ControlFlow<NodeId> {
+        return ControlFlow.Break(id);
+      }
+    }
+    const e = expr(1, { $: "Paren", _0: expr(2, { $: "Underscore" }) });
+    expect(() => walk_expr(new Find(), e)).toThrow(new Panic(UNIT_RESULT_MISMATCH));
+    // A `()` visitor returning `Continue` objects is caught too, and `from_branch` rejects a Break.
+    expect(() => VisitorResult.unit.branch(ControlFlow.CONTINUE as never)).toThrow(new Panic(UNIT_RESULT_MISMATCH));
+    expect(() => VisitorResult.unit.from_branch(ControlFlow.Break(0) as never)).toThrow(new Panic(UNIT_RESULT_MISMATCH));
+    expect(VisitorResult.unit.from_branch(ControlFlow.CONTINUE as never)).toBeUndefined();
+  });
+
   test("Result<(), E> result maps Break to Err (rustc_ast_ir visit.rs:44-65)", () => {
-    class Fail extends Visitor<Result<undefined, string>> {
+    class Fail extends Visitor<Result<null, string>> {
       override Result = VisitorResult.Result<string>();
-      override visit_ident(ident: Ident): Result<undefined, string> {
+      override visit_ident(ident: Ident): Result<null, string> {
         return Err(`ident ${ident.name}`);
       }
     }
     const tree = expr(1, { $: "Field", _0: lit(2), _1: new Ident(sym(7), sp(0)) });
     expect(new Fail().visit_expr(tree)).toEqual({ $: "Err", _0: "ident 7" });
-    expect(new Fail().visit_expr(lit(3))).toEqual({ $: "Ok", _0: undefined });
+    expect(new Fail().visit_expr(lit(3))).toStrictEqual({ $: "Ok", _0: null }); // `()` as a stored value is `null`
   });
 
   // Derived `Walkable` impls (rustc_macros/src/visitable.rs, generated into walkable.gen.ts): each
@@ -334,6 +370,59 @@ describe("Visitor (visit.rs)", () => {
     expect(seen).toEqual(["Bound"]);
   });
 
+  // visit.rs:989-999: generics, then (if `of_trait`) defaultness, safety, polarity, trait_ref, then self_ty,
+  // then the items with `AssocCtxt::Impl { of_trait: of_trait.is_some() }`.
+  test("Impl walk order with and without of_trait (visit.rs:989-999)", () => {
+    class V extends Recorder {
+      override visit_trait_ref(_t: TraitRef): undefined {
+        this.log.push("trait_ref");
+        return undefined;
+      }
+      override visit_assoc_item(_i: AssocItem, ctxt: AssocCtxt): undefined {
+        this.log.push(`assoc ${JSON.stringify(ctxt)}`);
+        return undefined;
+      }
+    }
+    const impl_ = (of_trait: boolean): Impl => ({
+      generics: opaque("generics"),
+      constness: opaque("constness"),
+      of_trait: of_trait
+        ? { defaultness: { $: "Default", _0: sp(1) }, safety: { $: "Unsafe", _0: sp(2) }, polarity: { $: "Negative", _0: sp(3) }, trait_ref: opaque("trait_ref") }
+        : undefined,
+      self_ty: new Ty(nid(7), opaque("tykind"), sp(4)),
+      items: [opaque("item")],
+    });
+    const v = new V();
+    Walkable.Impl(impl_(true), v);
+    expect(v.log).toEqual(["generics", "trait_ref", "ty 7", 'assoc {"$":"Impl","of_trait":true}']);
+    const w = new V();
+    Walkable.Impl(impl_(false), w);
+    expect(w.log).toEqual(["generics", "ty 7", 'assoc {"$":"Impl","of_trait":false}']);
+
+    // The mutable walk also visits the header's spans (mut_visit.rs: `Span` is `visit_span`), in field order.
+    const log: string[] = [];
+    class M extends MutVisitor {
+      override visit_generics(_g: Generics): void {
+        log.push("generics");
+      }
+      override visit_span(s: { value: Span }): void {
+        log.push(`span ${s.value}`);
+      }
+      override visit_trait_ref(_t: TraitRef): void {
+        log.push("trait_ref");
+      }
+      override visit_ty(t: Ty): void {
+        log.push(`ty ${t.id}`);
+      }
+      override flat_map_assoc_item(i: AssocItem, ctxt: AssocCtxt): AssocItem[] {
+        log.push(`assoc ${JSON.stringify(ctxt)}`);
+        return [i];
+      }
+    }
+    MutWalkable.Impl(impl_(true), new M());
+    expect(log).toEqual(["generics", "span 1", "span 2", "span 3", "trait_ref", "ty 7", 'assoc {"$":"Impl","of_trait":true}']);
+  });
+
   test("BoundKind::descr (visit.rs:57-64)", () => {
     expect(BoundKind.descr(BoundKind.Bound)).toBe("bounds");
     expect(BoundKind.descr("Impl")).toBe("`impl Trait`");
@@ -371,6 +460,51 @@ describe("MutVisitor (mut_visit.rs)", () => {
     expect(ctxts).toEqual(["Ref"]);
     // Spans: lifetime ident, path span, segment ident, inner Ty span, outer Ty span.
     expect(v.spans).toEqual([51, 53, 54, 52, 50]);
+  });
+
+  // Review w456a ast-visit M2: rustc_expand's `visit_method_receiver_expr` does
+  // `self.visit_node(AstNodeWrapper::from_mut(node, MethodReceiverTag))` and `visit_node` stores the
+  // expansion with `*node = ..` (expand.rs:2468-2480, :2607). The store must reach the receiver slot.
+  test("AstNodeWrapper::from_mut writes a replacement through to the caller's node (ast_traits.rs:332)", () => {
+    class Expand extends MutVisitor {
+      override visit_method_receiver_expr(ex: Expr): void {
+        const node = AstNodeWrapper.from_mut(ex, "MethodReceiverTag");
+        if (node.wrapped.kind.$ === "Underscore") node.wrapped = lit(42); // `*node = self.collect_bang(..)`
+      }
+    }
+    const receiver = expr(2, { $: "Underscore" });
+    const call = { seg: new PathSegment(new Ident(sym(5), sp(0)), nid(6), undefined), receiver, args: [], span: sp(7) };
+    const tree = expr(1, { $: "MethodCall", _0: call } as ExprKind);
+    mut_walk_expr(new Expand(), tree);
+    expect(call.receiver).toBe(receiver); // the slot keeps its object; its contents are replaced
+    expect(receiver.id).toBe(nid(42));
+    expect(receiver.kind.$).toBe("Lit");
+    expect(receiver).toBeInstanceOf(Expr);
+
+    // `*w = new_wrapper` written `Object.assign(w, new_wrapper)` also writes through.
+    const e = expr(3, { $: "Underscore" });
+    const w = AstNodeWrapper.from_mut(e, "MethodReceiverTag");
+    Object.assign(w, AstNodeWrapper.new(expr(9, { $: "Paren", _0: lit(10) }), "MethodReceiverTag"));
+    expect(w.wrapped).toBe(e);
+    expect(e.id).toBe(nid(9));
+    expect(e.kind.$).toBe("Paren");
+  });
+
+  // mut_visit.rs:69-78: the mutable `Spanned<T>` impl visits `span` first, then `node` (the immutable
+  // impl ignores the span).
+  test("mutable Spanned<T> visits the span before the node (mut_visit.rs:69)", () => {
+    const log: string[] = [];
+    class S extends MutVisitor {
+      override visit_span(s: { value: Span }): void {
+        log.push(`span ${s.value}`);
+      }
+    }
+    const holder = { op: { node: { tag: "node" }, span: sp(9) } };
+    const T_ = <K extends PropertyKey>(o: { [P in K]: { tag: string } }, k: K): void => {
+      log.push(`node ${o[k].tag}`);
+    };
+    MutVisitable.Spanned(holder, "op", new S(), undefined, T_);
+    expect(log).toEqual(["span 9", "node node"]);
   });
 
   test("visit_id gets a writable place; ids are renumbered in walk order (visit.rs:1010-1011)", () => {
@@ -501,5 +635,23 @@ describe("ast_traits.rs", () => {
     const W = HasAttrs.AstNodeWrapper<Expr, string>(HasAttrs.Box(HasAttrs.Expr));
     expect(W.attrs(AstNodeWrapper.new(e, "tag"))).toEqual([a]);
     expect(HasAttrs.Option(HasAttrs.Expr).attrs(undefined)).toEqual([]);
+  });
+});
+
+// Review w456a codegen-derive L3: walkable.gen.ts / mut_walkable.gen.ts and visit.ts / mut_visit.ts import
+// each other. Every supported entry (visit.ts, mut_visit.ts, the crate's lib.ts) must load in a fresh
+// process; entering a `.gen.ts` first is the documented TDZ hazard (see their headers).
+describe("fresh-process load order", () => {
+  const load = (mod: string): number => {
+    const r = Bun.spawnSync([process.execPath, "-e", `await import(${JSON.stringify(`${import.meta.dir}/${mod}`)})`], { stdout: "ignore", stderr: "pipe" });
+    return r.exitCode;
+  };
+  for (const mod of ["visit.ts", "mut_visit.ts", "lib.ts"]) {
+    test(`entering through ${mod} loads`, () => {
+      expect(load(mod)).toBe(0);
+    });
+  }
+  test("entering through walkable.gen.ts first fails (the documented hazard)", () => {
+    expect(load("walkable.gen.ts")).not.toBe(0);
   });
 });

@@ -282,7 +282,7 @@ export const LazyAttrTokenStreamInner = {
         // initial token and using `take` produces the desired result - we
         // produce an empty `TokenStream` if no calls were made, and omit the
         // final token otherwise.
-        const cursor_snapshot = clone_TokenCursor(cursor_snapshot0);
+        const cursor_snapshot = gen.clone_TokenCursor(cursor_snapshot0);
         // iter::once(FlatToken::Token(*start_token))
         //     .chain(iter::repeat_with(|| FlatToken::Token(cursor_snapshot.next_and_bump())))
         //     .take(*num_calls as usize);
@@ -353,14 +353,6 @@ export const LazyAttrTokenStreamInner = {
     }
   },
 };
-
-/** `#[derive(Clone)]` for `TokenCursor` (the streams are `Arc`s, shared). */
-function clone_TokenCursor(c: TokenCursor): TokenCursor {
-  return new gen.TokenCursor(
-    new gen.TokenTreeCursor(c.curr.stream, c.curr.next_idx),
-    c.stack.map((t) => new gen.TokenTreeCursor(t.stream, t.next_idx)),
-  );
-}
 
 /// Converts a flattened iterator of tokens (including open and close delimiter tokens) into an
 /// `AttrTokenStream`, creating an `AttrTokenTree::Delimited` for each matching pair of open and

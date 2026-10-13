@@ -12,9 +12,8 @@ import * as parser from "../../../rustc_ast/util/parser.ts";
 import { type ExprPrecedence, ExprPrecedence_discriminant } from "../../../rustc_ast/util/parser.ts";
 import { Span } from "../../../rustc_span/lib.ts";
 import { ByteSymbol, Symbol } from "../../../rustc_span/symbol.ts";
+import { escape_char } from "../../../std/fmt.ts";
 import { panic } from "../../../std/panic.ts";
-import { in_table } from "../../../std/unicode/mod.ts";
-import { DEBUG_ESCAPE_UNICODE } from "../../../std/unicode/tables.ts";
 import { Breaks } from "../../pp.ts";
 import { INDENT_UNIT, State } from "../state.ts";
 import { FixupContext } from "./fixup.ts";
@@ -1202,7 +1201,8 @@ function reconstruct_format_args_template_string(pieces: readonly ast.FormatArgs
         const s = piece._0;
         for (const c_ of Symbol.as_str(s)) {
           const c = c_.codePointAt(0)!;
-          template += char_escape_debug(c);
+          // PORT: `c.escape_debug()` = `escape_debug_ext(ESCAPE_ALL)` = src/std/fmt.ts `escape_char(c, true, true)`.
+          template += escape_char(c, true, true);
           if (c === 0x7b /* '{' */ || c === 0x7d /* '}' */) {
             template += c_;
           }
@@ -1213,6 +1213,7 @@ function reconstruct_format_args_template_string(pieces: readonly ast.FormatArgs
         const p = piece._0;
         template += "{";
         // let (Ok(n) | Err(n)) = p.argument.index;
+        // PORT: an or-pattern binding the payload of either `Result` variant -> `._0` (both carry `usize`).
         const n = p.argument.index._0;
         template += String(n);
         if (!format_options_is_default(p.format_options) || p.format_trait !== "Display") {
@@ -1260,6 +1261,7 @@ function reconstruct_format_args_template_string(pieces: readonly ast.FormatArgs
               break;
             }
             case "Argument": {
+              // PORT: `FormatCount::Argument(FormatArgPosition { index: Ok(n) | Err(n), .. })` -> `.index._0`.
               const n = width._0.index._0;
               template += `${n}$`;
               break;
@@ -1276,6 +1278,7 @@ function reconstruct_format_args_template_string(pieces: readonly ast.FormatArgs
               break;
             }
             case "Argument": {
+              // PORT: `FormatCount::Argument(FormatArgPosition { index: Ok(n) | Err(n), .. })` -> `.index._0`.
               const n = precision._0.index._0;
               template += `${n}$`;
               break;
@@ -1364,29 +1367,4 @@ function format_options_is_default(o: ast.FormatOptions): boolean {
     !o.zero_pad &&
     o.debug_hex === undefined
   );
-}
-
-// PORT: `char::escape_debug` (`escape_debug_ext(EscapeDebugExtArgs::ESCAPE_ALL)`: both quote kinds
-// and grapheme-extended chars escaped). Same table as state.ts's `str_escape_debug`;
-// `DEBUG_ESCAPE_UNICODE` (src/std, generated from the oracle) is exactly the `\u{..}` set.
-function char_escape_debug(c: number): string {
-  switch (c) {
-    case 0x00:
-      return "\\0";
-    case 0x09:
-      return "\\t";
-    case 0x0a:
-      return "\\n";
-    case 0x0d:
-      return "\\r";
-    case 0x5c:
-      return "\\\\";
-    case 0x22:
-      return '\\"';
-    case 0x27:
-      return "\\'";
-  }
-  if (c >= 0x20 && c < 0x7f) return String.fromCharCode(c);
-  if (in_table(DEBUG_ESCAPE_UNICODE, c)) return "\\u{" + c.toString(16) + "}";
-  return String.fromCodePoint(c);
 }

@@ -37,8 +37,8 @@ export const NodeId = {
 };
 
 // impl fmt::Display for NodeId
-// rustc: compiler/rustc_ast/src/node_id.rs:49 fmt
 // PORT: `Display` impls are `display_<Type>(v): string` (as in rustc_span).
+// rustc: compiler/rustc_ast/src/node_id.rs:49 fmt
 export function display_NodeId(self: NodeId): string {
   return String(gen.NodeId.as_u32(self));
 }

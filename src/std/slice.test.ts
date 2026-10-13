@@ -4,7 +4,8 @@
 // Non-partitioned / unsorted inputs are included on purpose: the result then depends on core's
 // exact probe sequence.
 import { expect, test } from "bun:test";
-import { binary_search_by, extend, partition_point, splice } from "./slice.ts";
+import { Panic } from "./panic.ts";
+import { binary_search_by, extend, partition_point, slice_from, slice_to, splice } from "./slice.ts";
 
 // [v, partition_point(|x| x == 1), binary_search_by(|x| x.cmp(&1)) is Ok, its index]
 const CASES: [number[], number, boolean, number][] = [
@@ -42,4 +43,12 @@ test("extend / splice", () => {
   const big: number[] = [];
   extend(big, new Array<number>(1_000_000).fill(0));
   expect(big.length).toBe(1_000_000);
+});
+
+test("slice_to / slice_from: Rust's range-index panics, wrapped usize ends printed as u64", () => {
+  expect(slice_to([1, 2, 3], 2)).toEqual([1, 2]);
+  expect(slice_from([1, 2, 3], 3)).toEqual([]);
+  expect(() => slice_to([1, 2, 3], 4)).toThrow(new Panic("range end index 4 out of range for slice of length 3"));
+  expect(() => slice_to([1], 1 - 2)).toThrow(new Panic("range end index 18446744073709551615 out of range for slice of length 1"));
+  expect(() => slice_from([1, 2], 3)).toThrow(new Panic("range start index 3 out of range for slice of length 2"));
 });

@@ -78,9 +78,9 @@ gen.Type.prototype.add_offset = function (this: Type, add: number): Type {
 };
 
 // impl fmt::Display for Type
-// rustc: compiler/rustc_ast/src/expand/typetree.rs:99 fmt
 // PORT: `<Self as fmt::Debug>::fmt(self, f)` forwards the caller's formatter, so this takes the
 // `Fmt` too (default: plain `{}`).
+// rustc: compiler/rustc_ast/src/expand/typetree.rs:99 fmt
 export function display_Type(self: Type, f: Fmt = PLAIN): string {
   return gen.debug_Type(self, f);
 }

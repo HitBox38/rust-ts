@@ -5,7 +5,7 @@ import { create_default_session_globals_then } from "../rustc_span/lib.ts";
 import { DUMMY_SP } from "../rustc_span/span_encoding.ts";
 import { debug_Ident, Ident, Symbol } from "../rustc_span/symbol.ts";
 import { type Fmt, PLAIN, PRETTY } from "../std/fmt.ts";
-import { Unported } from "../std/panic.ts";
+import { Panic, Unported } from "../std/panic.ts";
 import { CRATE_NODE_ID, debug_NodeId, NodeId } from "./node_id.ts";
 
 // PORT: the generated modules import `debug_Span` (span_encoding.ts) and `debug_AttrId` (lib.ts),
@@ -210,7 +210,7 @@ tg("Path: from_ident / is_global / is_single_argless_ident / eq", () =>
     // join_path_syms: a leading kw::PathRoot prints as empty (ast.rs:180-182)
     expect(A!.join_path_syms([kw.PathRoot, foo, Symbol.intern("bar")])).toBe("::foo::bar");
     expect(A!.join_path_syms([foo])).toBe("foo");
-    expect(() => A!.join_path_syms([])).toThrow(); // ast.rs:179 `unwrap()` on an empty path
+    expect(() => A!.join_path_syms([])).toThrow(new Panic("called `Option::unwrap()` on a `None` value")); // ast.rs:179 `unwrap()` on an empty path
   }));
 
 tg("Expr: peel_parens / peel_parens_and_refs / maybe_unwrap_block / precedence", () =>
@@ -329,7 +329,7 @@ t("TraitObjectSyntax Tag; CoroutineKind; RangeLimits; Bound*::as_str; AttrStyle"
   const { TraitObjectSyntax, CoroutineKind, RangeLimits, BoundConstness, BoundPolarity, AttrStyle } = A!;
   expect(TraitObjectSyntax.into_usize("None")).toBe(1); // ast.rs:2671, 2681
   expect(TraitObjectSyntax.from_usize(0)).toBe("Dyn"); // ast.rs:2686
-  expect(() => TraitObjectSyntax.from_usize(2)).toThrow(); // ast.rs:2688
+  expect(() => TraitObjectSyntax.from_usize(2)).toThrow(new Panic("internal error: entered unreachable code")); // ast.rs:2688
   expect(A!.display_CoroutineKind("AsyncGen")).toBe("async gen"); // ast.rs:1954, 1971
   expect(CoroutineKind.is_gen("Async")).toBe(false); // ast.rs:1962
   expect(RangeLimits.as_str("Closed")).toBe("..="); // ast.rs:1709
@@ -416,4 +416,231 @@ t("expand: autodiff activities, TypeTree", () => {
   expect(t3._0[0]!.add_offset(5).offset).toBe(5); // typetree.rs:91 (`x => add + x`, x = 0)
   expect(TypeTree.all_ints()._0[0]!.add_offset(5).offset).toBe(5); // typetree.rs:90 (`-1 => add`)
   expect(t3.add_indirection()._0[0]!.kind).toBe("Pointer"); // typetree.rs:64
+});
+
+// ---------------------------------------------------------------------------------------------
+// Review w456a (ast-core finding 7): oracle-derived expectations. Every expected string is a line
+// of fixtures/ast_core_oracle/probe.out, the stdout of the rustc_private program
+// fixtures/ast_core_oracle/probe.rs built against the pinned nightly (commit 6f5da406b56c, UPSTREAM.json):
+//   rustc +nightly-2026-10-11 --edition 2024 probe.rs -o /tmp/probe \
+//     && DYLD_LIBRARY_PATH=$(rustc +nightly-2026-10-11 --print sysroot)/lib /tmp/probe > probe.out
+// The tests below build the same nodes (same ids/spans) and compare `{:?}` per case name.
+import { readFileSync } from "node:fs";
+import { BytePos, debug_Span, debug_Spanned, respan, Span, type Spanned } from "../rustc_span/lib.ts";
+import { debug_bool, debug_option, debug_str, debug_tuple } from "../std/fmt.ts";
+import { debug_CfgEntry } from "./attr/data_structures.ts";
+
+const ORACLE: Map<string, string> = new Map(
+  readFileSync(new URL("./fixtures/ast_core_oracle/probe.out", import.meta.url), "utf8")
+    .split("\n")
+    .filter((l) => l !== "")
+    .map((l): [string, string] => [l.slice(0, l.indexOf(": ")), l.slice(l.indexOf(": ") + 2)]),
+);
+const ORACLE_SEEN = new Set<string>();
+/** `expect(actual).toBe(<probe.out line for case>)`. */
+function oracle(name: string, actual: string): void {
+  ORACLE_SEEN.add(name);
+  const want = ORACLE.get(name);
+  if (want === undefined) throw new Error(`no oracle line for ${name}`);
+  expect(`${name}: ${actual}`).toBe(`${name}: ${want}`);
+}
+
+// probe.rs helpers `sp`, `id`, `ident`, `ty`, `path_ty`, `pat`, `expr`, `path_expr`, `mac`, `block_expr`, `param`.
+type AstT = typeof import("./ast.ts");
+const sp = (lo: number, hi: number): Span => Span.with_root_ctxt(BytePos(lo), BytePos(hi));
+const nid = (n: number) => NodeIdC.from_u32(n);
+const idt = (s: string, lo: number, hi: number) => Ident.new(Symbol.intern(s), sp(lo, hi));
+function mk(A: AstT) {
+  const ty = (n: number, kind: import("./ast.ts").TyKind, lo: number, hi: number) => new A.Ty(nid(n), kind, sp(lo, hi));
+  const pat = (n: number, kind: import("./ast.ts").PatKind, lo: number, hi: number) => new A.Pat(nid(n), kind, sp(lo, hi));
+  const expr = (n: number, kind: import("./ast.ts").ExprKind, lo: number, hi: number) => new A.Expr(nid(n), kind, sp(lo, hi), [], undefined);
+  return {
+    ty,
+    pat,
+    expr,
+    path_ty: (n: number, s: string, lo: number, hi: number) => ty(n, { $: "Path", _0: undefined, _1: A.Path.from_ident(idt(s, lo, hi)) }, lo, hi),
+    path_expr: (n: number, s: string, lo: number, hi: number) => expr(n, { $: "Path", _0: undefined, _1: A.Path.from_ident(idt(s, lo, hi)) }, lo, hi),
+    mac: (s: string, lo: number, hi: number) =>
+      new A.MacCall(A.Path.from_ident(idt(s, lo, hi)), new A.DelimArgs(TS!.DelimSpan.from_single(sp(hi, hi + 2)), T!.Delimiter.Parenthesis, TS!.TokenStream.default())),
+    block_expr: (n: number, stmts: import("./ast.ts").Stmt[], label: import("./ast.ts").Label | undefined) =>
+      expr(n, { $: "Block", _0: { stmts, id: nid(n + 1), rules: A.BlockCheckMode.Default, span: sp(500, 520) }, _1: label }, 500, 520),
+    param: (p: import("./ast.ts").Pat, t: import("./ast.ts").Ty) => new A.Param([], t, p, nid(99), sp(1, 90), false),
+  };
+}
+const dbg_self = (v: Spanned<import("./ast.ts").SelfKind> | undefined) => debug_option(v, PLAIN, (x, f) => debug_Spanned(x, f, A!.debug_SelfKind));
+
+tc("oracle: Param::to_self / Param::from_self (ast.rs:2973, 3004)", () =>
+  run(() => {
+    const { BindingMode, ByRef, Param, debug_Param } = A!;
+    const { ty, pat, path_ty, param } = mk(A!);
+    const lt = { id: nid(7), ident: idt("'a", 3, 5) };
+    const implicit = (n: number) => ty(n, { $: "ImplicitSelf" }, 20, 24);
+    const self_pat = (by_ref: import("./ast.ts").ByRef, m: "Not" | "Mut") =>
+      pat(1, { $: "Ident", _0: new BindingMode(by_ref, m), _1: Ident.new(kw.SelfLower, sp(10, 14)), _2: undefined }, 6, 14);
+    const cases: [string, import("./ast.ts").Param][] = [
+      ["to_self/value_mut", param(self_pat(ByRef.No, "Mut"), implicit(2))],
+      ["to_self/region_lt_mut", param(self_pat(ByRef.No, "Not"), ty(3, { $: "Ref", _0: lt, _1: implicit(2), _2: "Mut" }, 15, 30))],
+      ["to_self/region_none_not", param(self_pat(ByRef.No, "Not"), ty(3, { $: "Ref", _0: undefined, _1: implicit(2), _2: "Not" }, 15, 30))],
+      ["to_self/pinned_lt_not", param(self_pat(ByRef.No, "Not"), ty(3, { $: "PinnedRef", _0: lt, _1: implicit(2), _2: "Not" }, 15, 30))],
+      ["to_self/explicit_path", param(self_pat(ByRef.No, "Mut"), path_ty(4, "Box", 40, 43))],
+      ["to_self/explicit_ref_non_self", param(self_pat(ByRef.No, "Not"), ty(3, { $: "Ref", _0: undefined, _1: path_ty(4, "Foo", 40, 43), _2: "Not" }, 38, 43))],
+      ["to_self/not_self_ident", param(pat(1, { $: "Ident", _0: BindingMode.NONE, _1: idt("x", 10, 11), _2: undefined }, 10, 11), implicit(2))],
+      ["to_self/by_ref", param(self_pat({ $: "Yes", _0: "Not", _1: "Not" }, "Not"), implicit(2))],
+      ["to_self/wild", param(pat(1, { $: "Wild" }, 10, 11), implicit(2))],
+    ];
+    for (const [name, p] of cases) oracle(name, dbg_self(p.to_self()));
+
+    const eself_ident = Ident.new(kw.SelfLower, sp(60, 64));
+    const from: [string, Spanned<import("./ast.ts").SelfKind>][] = [
+      ["from_self/value_mut", respan(sp(50, 54), { $: "Value", _0: "Mut" })],
+      ["from_self/region_lt_mut", respan(sp(50, 54), { $: "Region", _0: lt, _1: "Mut" })],
+      ["from_self/region_none_not", respan(sp(50, 54), { $: "Region", _0: undefined, _1: "Not" })],
+      ["from_self/pinned_none_mut", respan(sp(50, 54), { $: "Pinned", _0: undefined, _1: "Mut" })],
+      ["from_self/explicit_not", respan(sp(50, 70), { $: "Explicit", _0: path_ty(4, "Rc", 66, 70), _1: "Not" })],
+    ];
+    for (const [name, eself] of from) {
+      const p = Param.from_self([], eself, eself_ident);
+      oracle(name, debug_Param(p, PLAIN));
+      oracle(`${name}/to_self`, dbg_self(p.to_self()));
+    }
+  }));
+
+tc("oracle: UseTree::ident / span / hi_span (ast.rs:3344-3373)", () =>
+  run(() => {
+    const { Path, PathSegment, UseTree } = A!;
+    const prefix = () => new Path(sp(100, 108), [PathSegment.from_ident(idt("foo", 100, 103)), PathSegment.from_ident(idt("bar", 105, 108))]);
+    const trees: [string, import("./ast.ts").UseTree][] = [
+      ["use_tree/simple", new UseTree(prefix(), { $: "Simple", _0: undefined })],
+      ["use_tree/rename", new UseTree(prefix(), { $: "Simple", _0: idt("baz", 112, 115) })],
+      ["use_tree/glob", new UseTree(prefix(), { $: "Glob", _0: sp(110, 111) })],
+      ["use_tree/nested", new UseTree(prefix(), { $: "Nested", items: [], span: sp(110, 120) })],
+      ["use_tree/empty_prefix", new UseTree(new Path(sp(130, 130), []), { $: "Simple", _0: undefined })],
+    ];
+    for (const [name, t] of trees) {
+      let ident: string;
+      try {
+        ident = debug_Ident(t.ident(), PLAIN);
+      } catch (e) {
+        if (!(e instanceof Panic)) throw e;
+        ident = `panic Some(${debug_str(e.message)})`; // probe.rs: catch_unwind payload `{:?}`
+      }
+      oracle(`${name}/ident`, ident);
+      oracle(`${name}/span`, debug_Span(t.span(), PLAIN));
+      oracle(`${name}/hi_span`, debug_Span(t.hi_span(), PLAIN));
+    }
+  }));
+
+tc("oracle: Pat::to_ty Ref/Slice, Expr::to_ty Binary/Repeat (ast.rs:645, 1506)", () =>
+  run(() => {
+    const { BindingMode, debug_Ty } = A!;
+    const { pat, expr, path_expr } = mk(A!);
+    const dbg = (t: import("./ast.ts").Ty | undefined) => debug_option(t, PLAIN, debug_Ty);
+    const x = () => pat(11, { $: "Ident", _0: BindingMode.NONE, _1: idt("u8", 151, 153), _2: undefined }, 151, 153);
+    const pats: [string, import("./ast.ts").Pat][] = [
+      ["pat_to_ty/ref_mut", pat(10, { $: "Ref", _0: x(), _1: "Not", _2: "Mut" }, 150, 153)],
+      ["pat_to_ty/ref_pinned_not", pat(10, { $: "Ref", _0: x(), _1: "Pinned", _2: "Not" }, 150, 153)],
+      ["pat_to_ty/ref_of_rest", pat(10, { $: "Ref", _0: pat(11, { $: "Rest" }, 151, 153), _1: "Not", _2: "Not" }, 150, 153)],
+      ["pat_to_ty/slice_one", pat(10, { $: "Slice", _0: [x()] }, 150, 154)],
+      ["pat_to_ty/slice_two", pat(10, { $: "Slice", _0: [x(), x()] }, 150, 154)],
+      ["pat_to_ty/slice_empty", pat(10, { $: "Slice", _0: [] }, 150, 154)],
+    ];
+    for (const [name, p] of pats) oracle(name, dbg(p.to_ty()));
+
+    const bin = (op: import("./ast.ts").BinOpKind, l: import("./ast.ts").Expr, r: import("./ast.ts").Expr) =>
+      expr(20, { $: "Binary", _0: { node: op, span: sp(205, 206) }, _1: l, _2: r }, 200, 212);
+    const len = () => ({ id: nid(25), value: path_expr(26, "N", 260, 261) });
+    const exprs: [string, import("./ast.ts").Expr][] = [
+      ["expr_to_ty/binary_add_paths", bin("Add", path_expr(21, "Send", 200, 204), path_expr(22, "Sync", 207, 211))],
+      ["expr_to_ty/binary_sub_paths", bin("Sub", path_expr(21, "Send", 200, 204), path_expr(22, "Sync", 207, 211))],
+      ["expr_to_ty/binary_add_non_path", bin("Add", path_expr(21, "Send", 200, 204), expr(22, { $: "Underscore" }, 207, 208))],
+      ["expr_to_ty/repeat_path", expr(23, { $: "Repeat", _0: path_expr(24, "u8", 251, 253), _1: len() }, 250, 262)],
+      ["expr_to_ty/repeat_underscore", expr(23, { $: "Repeat", _0: expr(24, { $: "Underscore" }, 251, 252), _1: len() }, 250, 262)],
+      ["expr_to_ty/repeat_non_ty", expr(23, { $: "Repeat", _0: expr(24, { $: "Ret", _0: undefined }, 251, 257), _1: len() }, 250, 262)],
+    ];
+    for (const [name, e] of exprs) oracle(name, dbg(e.to_ty()));
+  }));
+
+tg("oracle: FnSig::header_span / safety_span / extern_span (ast.rs:2355-2378)", () =>
+  run(() => {
+    const { FnHeader, FnSig, FnDecl, Const, Safety, Extern, CoroutineMarker, StrLit, StrStyle } = A!;
+    const abi = new StrLit(sym.C, undefined, sym.C, StrStyle.Cooked, sp(237, 240));
+    const h = (c: import("./ast.ts").Const, m: import("./ast.ts").CoroutineMarker | undefined, s: import("./ast.ts").Safety, e: import("./ast.ts").Extern) =>
+      new FnHeader(c, m, s, e);
+    const D = Safety.Default;
+    const sigs: [string, import("./ast.ts").FnHeader][] = [
+      ["fn_sig/empty", FnHeader.default()],
+      ["fn_sig/unsafe", h(Const.No, undefined, { $: "Unsafe", _0: sp(210, 216) }, Extern.None)],
+      ["fn_sig/safe", h(Const.No, undefined, { $: "Safe", _0: sp(210, 214) }, Extern.None)],
+      ["fn_sig/extern_implicit", h(Const.No, undefined, D, { $: "Implicit", _0: sp(220, 226) })],
+      ["fn_sig/const", h({ $: "Yes", _0: sp(200, 205) }, undefined, D, Extern.None)],
+      ["fn_sig/async", h(Const.No, CoroutineMarker.new("Async", sp(206, 211)), D, Extern.None)],
+      ["fn_sig/const_extern_explicit", h({ $: "Yes", _0: sp(200, 205) }, undefined, D, { $: "Explicit", _0: abi, _1: sp(230, 240) })],
+      [
+        "fn_sig/all",
+        h({ $: "Yes", _0: sp(200, 205) }, CoroutineMarker.new("Gen", sp(206, 209)), { $: "Unsafe", _0: sp(210, 216) }, { $: "Explicit", _0: abi, _1: sp(230, 240) }),
+      ],
+    ];
+    for (const [name, header] of sigs) {
+      const s = new FnSig(header, new FnDecl([], { $: "Default", _0: sp(300, 300) }), sp(200, 300));
+      oracle(`${name}/header_span`, debug_Span(s.header_span(), PLAIN));
+      oracle(`${name}/safety_span`, debug_Span(s.safety_span(), PLAIN));
+      oracle(`${name}/extern_span`, debug_Span(s.extern_span(), PLAIN));
+    }
+  }));
+
+tg("oracle: CfgEntry::lower_spans (attr/data_structures.rs:20)", () =>
+  run(() => {
+    const cfg: import("./attr/data_structures.ts").CfgEntry = {
+      $: "All",
+      _0: [
+        {
+          $: "Any",
+          _0: [
+            { $: "Bool", _0: true, _1: sp(402, 406) },
+            { $: "NameValue", name: sym.unix, value: undefined, span: sp(408, 412) },
+          ],
+          _1: sp(401, 413),
+        },
+        { $: "Not", _0: { $: "Version", _0: undefined, _1: sp(418, 425) }, _1: sp(414, 426) },
+        { $: "NameValue", name: sym.target_os, value: Symbol.intern("linux"), span: sp(427, 445) },
+      ],
+      _1: sp(400, 446),
+    };
+    const visited: Span[] = [];
+    CfgEntry.lower_spans(cfg, (s) => {
+      visited.push(s);
+      return Span.with_root_ctxt(BytePos(Span.lo(s) + 1000), BytePos(Span.hi(s) + 2000));
+    });
+    oracle("cfg_lower_spans/visited", `[${visited.map((s) => debug_Span(s, PLAIN)).join(", ")}]`);
+    oracle("cfg_lower_spans/result", debug_CfgEntry(cfg, PLAIN));
+  }));
+
+tg("oracle: Expr::optionally_braced_mac_call (ast.rs:1453)", () =>
+  run(() => {
+    const { Stmt } = A!;
+    const { expr, mac, block_expr } = mk(A!);
+    const mac_expr = () => expr(31, { $: "MacCall", _0: mac("m", 510, 511) }, 510, 515);
+    const mac_stmt = () => new Stmt(nid(32), { $: "MacCall", _0: { mac: mac("m", 510, 511), style: "Semicolon", attrs: [], tokens: undefined } }, sp(510, 516));
+    const expr_stmt = () => new Stmt(nid(33), { $: "Expr", _0: mac_expr() }, sp(510, 515));
+    const semi_stmt = () => new Stmt(nid(34), { $: "Semi", _0: mac_expr() }, sp(510, 516));
+    const label = { ident: idt("'l", 495, 497) };
+    const cases: [string, import("./ast.ts").Expr][] = [
+      ["braced_mac/mac_call", mac_expr()],
+      ["braced_mac/block_mac_stmt", block_expr(40, [mac_stmt()], undefined)],
+      ["braced_mac/block_expr_stmt", block_expr(40, [expr_stmt()], undefined)],
+      ["braced_mac/block_semi_stmt", block_expr(40, [semi_stmt()], undefined)],
+      ["braced_mac/block_two_stmts", block_expr(40, [mac_stmt(), expr_stmt()], undefined)],
+      ["braced_mac/labeled_block", block_expr(40, [mac_stmt()], label)],
+      ["braced_mac/nested_block", block_expr(42, [new Stmt(nid(45), { $: "Expr", _0: block_expr(40, [mac_stmt()], undefined) }, sp(500, 520))], undefined)],
+    ];
+    const dbg = (r: [boolean, import("./node_id.ts").NodeId] | undefined) =>
+      debug_option(r, PLAIN, ([b, n], f) => debug_tuple(f, "", [debug_bool(b, f), debug_NodeId(n, f)]));
+    for (const [name, e] of cases) {
+      oracle(`${name}/false`, dbg(e.optionally_braced_mac_call(false)));
+      oracle(`${name}/true`, dbg(e.optionally_braced_mac_call(true)));
+    }
+  }));
+
+tc("oracle: every probe.out line was checked", () => {
+  expect([...ORACLE.keys()].filter((k) => !ORACLE_SEEN.has(k))).toEqual([]);
 });

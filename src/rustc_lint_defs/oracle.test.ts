@@ -18,7 +18,19 @@ const EDITIONS: [string, Edition][] = [
   ["2024", "Edition2024"],
 ];
 
+// Review w456b L1: the oracle is only the pinned toolchain; a drifted `+${PIN.toolchain}` is "unavailable".
+function rustcAtPin(): boolean {
+  try {
+    const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "-vV"], { stdout: "pipe", stderr: "pipe" });
+    return r.exitCode === 0 && r.stdout.toString().includes(`commit-hash: ${PIN.commit}`);
+  } catch {
+    return false;
+  }
+}
+const AT_PIN = rustcAtPin();
+
 function oracleHelp(edition: string): string | undefined {
+  if (!AT_PIN) return undefined;
   try {
     const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--edition", edition, "-W", "help"], { stdout: "pipe", stderr: "pipe" });
     if (r.exitCode !== 0) return undefined;
@@ -30,7 +42,7 @@ function oracleHelp(edition: string): string | undefined {
 
 const AVAILABLE = oracleHelp("2015") !== undefined;
 const SKIP = !AVAILABLE && !REQUIRE_PROBES;
-if (SKIP) console.log(`SKIP: rustc +${PIN.toolchain} -W help unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
+if (SKIP) console.log(`SKIP: rustc +${PIN.toolchain} at ${PIN.commit.slice(0, 12)} -W help unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
 
 /** Every `Lint` static exported by builtin.gen.ts, in declaration order. */
 function builtinLints(): Lint[] {
@@ -81,7 +93,7 @@ const dashed = (l: Lint): string => Lint.name_lower(l).replaceAll("_", "-");
 for (const [ed, edition] of EDITIONS) {
   test.skipIf(SKIP)(`builtin.gen.ts lints match \`rustc --edition ${ed} -W help\` (name, default level, desc, order)`, () => {
     const help = oracleHelp(ed);
-    if (help === undefined) throw new Error(`ERROR: rustc +${PIN.toolchain} -W help unavailable and RUST_TS_REQUIRE_PROBES=1`);
+    if (help === undefined) throw new Error(`ERROR: rustc +${PIN.toolchain} at ${PIN.commit} -W help unavailable and RUST_TS_REQUIRE_PROBES=1`);
     const { rows } = parseHelp(help);
     const lints = builtinLints();
     expect(lints.length).toBe(153);
@@ -122,7 +134,7 @@ for (const [ed, edition] of EDITIONS) {
 
 test.skipIf(SKIP)("future_incompatible lints are in the oracle's future-incompatible / rust-20xx-compatibility groups", () => {
   const help = oracleHelp("2015");
-  if (help === undefined) throw new Error(`ERROR: rustc +${PIN.toolchain} -W help unavailable and RUST_TS_REQUIRE_PROBES=1`);
+  if (help === undefined) throw new Error(`ERROR: rustc +${PIN.toolchain} at ${PIN.commit} -W help unavailable and RUST_TS_REQUIRE_PROBES=1`);
   const { groups } = parseHelp(help);
   const problems: string[] = [];
   let n = 0;

@@ -1,0 +1,86 @@
+to_self/value_mut: Some(Spanned { node: Value(Mut), span: Span { lo: BytePos(6), hi: BytePos(14), ctxt: #0 } })
+to_self/region_lt_mut: Some(Spanned { node: Region(Some(lifetime(7: 'a)), Mut), span: Span { lo: BytePos(6), hi: BytePos(14), ctxt: #0 } })
+to_self/region_none_not: Some(Spanned { node: Region(None, Not), span: Span { lo: BytePos(6), hi: BytePos(14), ctxt: #0 } })
+to_self/pinned_lt_not: Some(Spanned { node: Pinned(Some(lifetime(7: 'a)), Not), span: Span { lo: BytePos(6), hi: BytePos(14), ctxt: #0 } })
+to_self/explicit_path: Some(Spanned { node: Explicit(Ty { id: NodeId(4), kind: Path(None, Path { span: Span { lo: BytePos(40), hi: BytePos(43), ctxt: #0 }, segments: [PathSegment { ident: Box#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(40), hi: BytePos(43), ctxt: #0 } }, Mut), span: Span { lo: BytePos(6), hi: BytePos(43), ctxt: #0 } })
+to_self/explicit_ref_non_self: Some(Spanned { node: Explicit(Ty { id: NodeId(3), kind: Ref(None, Ty { id: NodeId(4), kind: Path(None, Path { span: Span { lo: BytePos(40), hi: BytePos(43), ctxt: #0 }, segments: [PathSegment { ident: Foo#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(40), hi: BytePos(43), ctxt: #0 } }, Not), span: Span { lo: BytePos(38), hi: BytePos(43), ctxt: #0 } }, Not), span: Span { lo: BytePos(6), hi: BytePos(43), ctxt: #0 } })
+to_self/not_self_ident: None
+to_self/by_ref: None
+to_self/wild: None
+from_self/value_mut: Param { attrs: [], ty: Ty { id: NodeId(4294967040), kind: ImplicitSelf, span: Span { lo: BytePos(60), hi: BytePos(64), ctxt: #0 } }, pat: Pat { id: NodeId(4294967040), kind: Ident(BindingMode(No, Mut), self#0, None), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } }, id: NodeId(4294967040), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 }, is_placeholder: false }
+from_self/value_mut/to_self: Some(Spanned { node: Value(Mut), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } })
+from_self/region_lt_mut: Param { attrs: [], ty: Ty { id: NodeId(4294967040), kind: Ref(Some(lifetime(7: 'a)), Ty { id: NodeId(4294967040), kind: ImplicitSelf, span: Span { lo: BytePos(60), hi: BytePos(64), ctxt: #0 } }, Mut), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } }, pat: Pat { id: NodeId(4294967040), kind: Ident(BindingMode(No, Not), self#0, None), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } }, id: NodeId(4294967040), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 }, is_placeholder: false }
+from_self/region_lt_mut/to_self: Some(Spanned { node: Region(Some(lifetime(7: 'a)), Mut), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } })
+from_self/region_none_not: Param { attrs: [], ty: Ty { id: NodeId(4294967040), kind: Ref(None, Ty { id: NodeId(4294967040), kind: ImplicitSelf, span: Span { lo: BytePos(60), hi: BytePos(64), ctxt: #0 } }, Not), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } }, pat: Pat { id: NodeId(4294967040), kind: Ident(BindingMode(No, Not), self#0, None), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } }, id: NodeId(4294967040), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 }, is_placeholder: false }
+from_self/region_none_not/to_self: Some(Spanned { node: Region(None, Not), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } })
+from_self/pinned_none_mut: Param { attrs: [], ty: Ty { id: NodeId(4294967040), kind: PinnedRef(None, Ty { id: NodeId(4294967040), kind: ImplicitSelf, span: Span { lo: BytePos(60), hi: BytePos(64), ctxt: #0 } }, Mut), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } }, pat: Pat { id: NodeId(4294967040), kind: Ident(BindingMode(No, Not), self#0, None), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } }, id: NodeId(4294967040), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 }, is_placeholder: false }
+from_self/pinned_none_mut/to_self: Some(Spanned { node: Pinned(None, Mut), span: Span { lo: BytePos(50), hi: BytePos(64), ctxt: #0 } })
+from_self/explicit_not: Param { attrs: [], ty: Ty { id: NodeId(4), kind: Path(None, Path { span: Span { lo: BytePos(66), hi: BytePos(70), ctxt: #0 }, segments: [PathSegment { ident: Rc#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(66), hi: BytePos(70), ctxt: #0 } }, pat: Pat { id: NodeId(4294967040), kind: Ident(BindingMode(No, Not), self#0, None), span: Span { lo: BytePos(50), hi: BytePos(70), ctxt: #0 } }, id: NodeId(4294967040), span: Span { lo: BytePos(50), hi: BytePos(70), ctxt: #0 }, is_placeholder: false }
+from_self/explicit_not/to_self: Some(Spanned { node: Explicit(Ty { id: NodeId(4), kind: Path(None, Path { span: Span { lo: BytePos(66), hi: BytePos(70), ctxt: #0 }, segments: [PathSegment { ident: Rc#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(66), hi: BytePos(70), ctxt: #0 } }, Not), span: Span { lo: BytePos(50), hi: BytePos(70), ctxt: #0 } })
+use_tree/simple/ident: bar#0
+use_tree/simple/span: Span { lo: BytePos(100), hi: BytePos(108), ctxt: #0 }
+use_tree/simple/hi_span: Span { lo: BytePos(100), hi: BytePos(108), ctxt: #0 }
+use_tree/rename/ident: baz#0
+use_tree/rename/span: Span { lo: BytePos(100), hi: BytePos(115), ctxt: #0 }
+use_tree/rename/hi_span: Span { lo: BytePos(112), hi: BytePos(115), ctxt: #0 }
+use_tree/glob/ident: panic Some("`UseTree::ident` can only be used on a simple import")
+use_tree/glob/span: Span { lo: BytePos(100), hi: BytePos(111), ctxt: #0 }
+use_tree/glob/hi_span: Span { lo: BytePos(110), hi: BytePos(111), ctxt: #0 }
+use_tree/nested/ident: panic Some("`UseTree::ident` can only be used on a simple import")
+use_tree/nested/span: Span { lo: BytePos(100), hi: BytePos(120), ctxt: #0 }
+use_tree/nested/hi_span: Span { lo: BytePos(110), hi: BytePos(120), ctxt: #0 }
+use_tree/empty_prefix/ident: panic Some("empty prefix in a simple import")
+use_tree/empty_prefix/span: Span { lo: BytePos(130), hi: BytePos(130), ctxt: #0 }
+use_tree/empty_prefix/hi_span: Span { lo: BytePos(130), hi: BytePos(130), ctxt: #0 }
+pat_to_ty/ref_mut: Some(Ty { id: NodeId(10), kind: Ref(None, Ty { id: NodeId(11), kind: Path(None, Path { span: Span { lo: BytePos(151), hi: BytePos(153), ctxt: #0 }, segments: [PathSegment { ident: u8#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(151), hi: BytePos(153), ctxt: #0 } }, Mut), span: Span { lo: BytePos(150), hi: BytePos(153), ctxt: #0 } })
+pat_to_ty/ref_pinned_not: Some(Ty { id: NodeId(10), kind: PinnedRef(None, Ty { id: NodeId(11), kind: Path(None, Path { span: Span { lo: BytePos(151), hi: BytePos(153), ctxt: #0 }, segments: [PathSegment { ident: u8#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(151), hi: BytePos(153), ctxt: #0 } }, Not), span: Span { lo: BytePos(150), hi: BytePos(153), ctxt: #0 } })
+pat_to_ty/ref_of_rest: None
+pat_to_ty/slice_one: Some(Ty { id: NodeId(10), kind: Slice(Ty { id: NodeId(11), kind: Path(None, Path { span: Span { lo: BytePos(151), hi: BytePos(153), ctxt: #0 }, segments: [PathSegment { ident: u8#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(151), hi: BytePos(153), ctxt: #0 } }), span: Span { lo: BytePos(150), hi: BytePos(154), ctxt: #0 } })
+pat_to_ty/slice_two: None
+pat_to_ty/slice_empty: None
+expr_to_ty/binary_add_paths: Some(Ty { id: NodeId(20), kind: TraitObject([Trait(PolyTraitRef { bound_generic_params: [], modifiers: TraitBoundModifiers { constness: Never, asyncness: Normal, polarity: Positive }, trait_ref: TraitRef { path: Path { span: Span { lo: BytePos(200), hi: BytePos(204), ctxt: #0 }, segments: [PathSegment { ident: Send#0, id: NodeId(4294967040), args: None }] }, ref_id: NodeId(4294967040) }, span: Span { lo: BytePos(200), hi: BytePos(204), ctxt: #0 }, parens: No }), Trait(PolyTraitRef { bound_generic_params: [], modifiers: TraitBoundModifiers { constness: Never, asyncness: Normal, polarity: Positive }, trait_ref: TraitRef { path: Path { span: Span { lo: BytePos(207), hi: BytePos(211), ctxt: #0 }, segments: [PathSegment { ident: Sync#0, id: NodeId(4294967040), args: None }] }, ref_id: NodeId(4294967040) }, span: Span { lo: BytePos(207), hi: BytePos(211), ctxt: #0 }, parens: No })], None), span: Span { lo: BytePos(200), hi: BytePos(212), ctxt: #0 } })
+expr_to_ty/binary_sub_paths: None
+expr_to_ty/binary_add_non_path: None
+expr_to_ty/repeat_path: Some(Ty { id: NodeId(23), kind: Array(Ty { id: NodeId(24), kind: Path(None, Path { span: Span { lo: BytePos(251), hi: BytePos(253), ctxt: #0 }, segments: [PathSegment { ident: u8#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(251), hi: BytePos(253), ctxt: #0 } }, AnonConst { id: NodeId(25), value: Expr { id: NodeId(26), kind: Path(None, Path { span: Span { lo: BytePos(260), hi: BytePos(261), ctxt: #0 }, segments: [PathSegment { ident: N#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(260), hi: BytePos(261), ctxt: #0 }, attrs: [], tokens: None } }), span: Span { lo: BytePos(250), hi: BytePos(262), ctxt: #0 } })
+expr_to_ty/repeat_underscore: Some(Ty { id: NodeId(23), kind: Array(Ty { id: NodeId(24), kind: Infer, span: Span { lo: BytePos(251), hi: BytePos(252), ctxt: #0 } }, AnonConst { id: NodeId(25), value: Expr { id: NodeId(26), kind: Path(None, Path { span: Span { lo: BytePos(260), hi: BytePos(261), ctxt: #0 }, segments: [PathSegment { ident: N#0, id: NodeId(4294967040), args: None }] }), span: Span { lo: BytePos(260), hi: BytePos(261), ctxt: #0 }, attrs: [], tokens: None } }), span: Span { lo: BytePos(250), hi: BytePos(262), ctxt: #0 } })
+expr_to_ty/repeat_non_ty: None
+fn_sig/empty/header_span: Span { lo: BytePos(200), hi: BytePos(200), ctxt: #0 }
+fn_sig/empty/safety_span: Span { lo: BytePos(200), hi: BytePos(200), ctxt: #0 }
+fn_sig/empty/extern_span: Span { lo: BytePos(200), hi: BytePos(200), ctxt: #0 }
+fn_sig/unsafe/header_span: Span { lo: BytePos(210), hi: BytePos(216), ctxt: #0 }
+fn_sig/unsafe/safety_span: Span { lo: BytePos(210), hi: BytePos(216), ctxt: #0 }
+fn_sig/unsafe/extern_span: Span { lo: BytePos(216), hi: BytePos(216), ctxt: #0 }
+fn_sig/safe/header_span: Span { lo: BytePos(210), hi: BytePos(214), ctxt: #0 }
+fn_sig/safe/safety_span: Span { lo: BytePos(210), hi: BytePos(214), ctxt: #0 }
+fn_sig/safe/extern_span: Span { lo: BytePos(214), hi: BytePos(214), ctxt: #0 }
+fn_sig/extern_implicit/header_span: Span { lo: BytePos(220), hi: BytePos(226), ctxt: #0 }
+fn_sig/extern_implicit/safety_span: Span { lo: BytePos(220), hi: BytePos(220), ctxt: #0 }
+fn_sig/extern_implicit/extern_span: Span { lo: BytePos(220), hi: BytePos(226), ctxt: #0 }
+fn_sig/const/header_span: Span { lo: BytePos(200), hi: BytePos(205), ctxt: #0 }
+fn_sig/const/safety_span: Span { lo: BytePos(205), hi: BytePos(205), ctxt: #0 }
+fn_sig/const/extern_span: Span { lo: BytePos(205), hi: BytePos(205), ctxt: #0 }
+fn_sig/async/header_span: Span { lo: BytePos(206), hi: BytePos(211), ctxt: #0 }
+fn_sig/async/safety_span: Span { lo: BytePos(211), hi: BytePos(211), ctxt: #0 }
+fn_sig/async/extern_span: Span { lo: BytePos(211), hi: BytePos(211), ctxt: #0 }
+fn_sig/const_extern_explicit/header_span: Span { lo: BytePos(200), hi: BytePos(240), ctxt: #0 }
+fn_sig/const_extern_explicit/safety_span: Span { lo: BytePos(230), hi: BytePos(230), ctxt: #0 }
+fn_sig/const_extern_explicit/extern_span: Span { lo: BytePos(230), hi: BytePos(240), ctxt: #0 }
+fn_sig/all/header_span: Span { lo: BytePos(200), hi: BytePos(240), ctxt: #0 }
+fn_sig/all/safety_span: Span { lo: BytePos(210), hi: BytePos(216), ctxt: #0 }
+fn_sig/all/extern_span: Span { lo: BytePos(230), hi: BytePos(240), ctxt: #0 }
+cfg_lower_spans/visited: [Span { lo: BytePos(400), hi: BytePos(446), ctxt: #0 }, Span { lo: BytePos(401), hi: BytePos(413), ctxt: #0 }, Span { lo: BytePos(402), hi: BytePos(406), ctxt: #0 }, Span { lo: BytePos(408), hi: BytePos(412), ctxt: #0 }, Span { lo: BytePos(414), hi: BytePos(426), ctxt: #0 }, Span { lo: BytePos(418), hi: BytePos(425), ctxt: #0 }, Span { lo: BytePos(427), hi: BytePos(445), ctxt: #0 }]
+cfg_lower_spans/result: All([Any([Bool(true, Span { lo: BytePos(1402), hi: BytePos(2406), ctxt: #0 }), NameValue { name: "unix", value: None, span: Span { lo: BytePos(1408), hi: BytePos(2412), ctxt: #0 } }], Span { lo: BytePos(1401), hi: BytePos(2413), ctxt: #0 }), Not(Version(None, Span { lo: BytePos(1418), hi: BytePos(2425), ctxt: #0 }), Span { lo: BytePos(1414), hi: BytePos(2426), ctxt: #0 }), NameValue { name: "target_os", value: Some("linux"), span: Span { lo: BytePos(1427), hi: BytePos(2445), ctxt: #0 } }], Span { lo: BytePos(1400), hi: BytePos(2446), ctxt: #0 })
+braced_mac/mac_call/false: Some((false, NodeId(31)))
+braced_mac/mac_call/true: Some((true, NodeId(31)))
+braced_mac/block_mac_stmt/false: Some((true, NodeId(32)))
+braced_mac/block_mac_stmt/true: None
+braced_mac/block_expr_stmt/false: Some((true, NodeId(31)))
+braced_mac/block_expr_stmt/true: None
+braced_mac/block_semi_stmt/false: None
+braced_mac/block_semi_stmt/true: None
+braced_mac/block_two_stmts/false: None
+braced_mac/block_two_stmts/true: None
+braced_mac/labeled_block/false: None
+braced_mac/labeled_block/true: None
+braced_mac/nested_block/false: None
+braced_mac/nested_block/true: None

@@ -4,15 +4,20 @@
 // upstream impl (`VisitorResult.unit` for `()`, `VisitorResult.ControlFlow()`, `VisitorResult.Result()`).
 // A visitor names its `type Result` by carrying the impl object in its `Result` property (see
 // rustc_ast/visit.ts `Visitor`), so `V::Result::output()` is `visitor.Result.output()`.
-// `()` is `undefined`.
+// PORT: the two encodings of `()` (review w456a ast-visit L4, recorded decision): a fn or hook *returning*
+// `()` returns `undefined` (JS `void`), which is what the `()` impl models; `()` as a *stored value*
+// (a field, a `Result`/`Option` payload, a type argument) is `null`, the tools/codegen mapping, which
+// keeps `Some(())` (`null`) distinct from `None` (`undefined`). So `Result<(), E>` is `Result<null, E>` and
+// `ControlFlow<B>` (`C = ()`) continues with `Continue(null)`.
+import { panic } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 
 // PORT: `core::ops::ControlFlow<B, C = ()>`, encoded like every ported enum. Pending a home in src/std
 // (root): move it to `src/std/ops.ts` and re-export it from here.
-export type ControlFlow<B, C = undefined> = { readonly $: "Continue"; readonly _0: C } | { readonly $: "Break"; readonly _0: B };
+export type ControlFlow<B, C = null> = { readonly $: "Continue"; readonly _0: C } | { readonly $: "Break"; readonly _0: B };
 export const ControlFlow = {
-  /** `ControlFlow::Continue(())`, a shared frozen singleton. */
-  CONTINUE: Object.freeze({ $: "Continue" as const, _0: undefined }),
+  /** `ControlFlow::Continue(())`, a shared frozen singleton (`()` payload: `null`). */
+  CONTINUE: Object.freeze({ $: "Continue" as const, _0: null }),
   Continue<C>(c: C): { readonly $: "Continue"; readonly _0: C } {
     return { $: "Continue", _0: c };
   },
@@ -35,6 +40,13 @@ export interface VisitorResult<Self, Residual> {
 }
 
 // PORT: `impl VisitorResult for ()`: `type Residual = !` -> `never`.
+// PORT: rustc rejects at compile time a visitor whose hooks return `ControlFlow`/`Result` while its
+// `type Result` is still the `()` default. TS cannot: a visitor that forgot `override Result = ...`
+// would inherit this impl, whose `branch` turns every `Break`/`Err` into `Continue`, silently
+// dropping it (review w456a ast-visit M1). So `branch` and `from_branch` panic (ICE) on anything but
+// `()` (`undefined`) / `Continue`, which upstream makes unrepresentable.
+export const UNIT_RESULT_MISMATCH =
+  "visitor returned a value but its `Result` is `()`: set `override Result = VisitorResult.ControlFlow<T>()` (or `.Result<E>()`)";
 const VisitorResult_unit: VisitorResult<undefined, never> = {
   // rustc: compiler/rustc_ast_ir/src/visit.rs:19 output
   output(): undefined {
@@ -45,11 +57,13 @@ const VisitorResult_unit: VisitorResult<undefined, never> = {
     return undefined;
   },
   // rustc: compiler/rustc_ast_ir/src/visit.rs:21 from_branch
-  from_branch(_: ControlFlow<never>): undefined {
+  from_branch(b: ControlFlow<never>): undefined {
+    if (b.$ !== "Continue") panic(UNIT_RESULT_MISMATCH);
     return undefined;
   },
   // rustc: compiler/rustc_ast_ir/src/visit.rs:22 branch
-  branch(_self: undefined): ControlFlow<never> {
+  branch(self: undefined): ControlFlow<never> {
+    if (self !== undefined) panic(UNIT_RESULT_MISMATCH);
     return ControlFlow.CONTINUE;
   },
 };
@@ -75,26 +89,26 @@ const VisitorResult_ControlFlow: VisitorResult<ControlFlow<unknown>, unknown> = 
 };
 
 // PORT: `impl<E> VisitorResult for Result<(), E>`; `E` is erased, so one object serves every `E`.
-const VisitorResult_Result: VisitorResult<Result<undefined, unknown>, unknown> = {
+const VisitorResult_Result: VisitorResult<Result<null, unknown>, unknown> = {
   // rustc: compiler/rustc_ast_ir/src/visit.rs:47 output
-  output(): Result<undefined, unknown> {
-    return Ok(undefined);
+  output(): Result<null, unknown> {
+    return Ok(null);
   },
   // rustc: compiler/rustc_ast_ir/src/visit.rs:50 from_residual
-  from_residual(residual: unknown): Result<undefined, unknown> {
+  from_residual(residual: unknown): Result<null, unknown> {
     return Err(residual);
   },
   // rustc: compiler/rustc_ast_ir/src/visit.rs:53 from_branch
-  from_branch(b: ControlFlow<unknown>): Result<undefined, unknown> {
+  from_branch(b: ControlFlow<unknown>): Result<null, unknown> {
     switch (b.$) {
       case "Continue":
-        return Ok(undefined);
+        return Ok(null);
       case "Break":
         return Err(b._0);
     }
   },
   // rustc: compiler/rustc_ast_ir/src/visit.rs:59 branch
-  branch(self: Result<undefined, unknown>): ControlFlow<unknown> {
+  branch(self: Result<null, unknown>): ControlFlow<unknown> {
     switch (self.$) {
       case "Ok":
         return ControlFlow.CONTINUE;
@@ -113,8 +127,8 @@ export const VisitorResult = {
     return VisitorResult_ControlFlow as VisitorResult<ControlFlow<T>, T>;
   },
   /** `impl<E> VisitorResult for Result<(), E>` */
-  Result<E>(): VisitorResult<Result<undefined, E>, E> {
-    return VisitorResult_Result as VisitorResult<Result<undefined, E>, E>;
+  Result<E>(): VisitorResult<Result<null, E>, E> {
+    return VisitorResult_Result as VisitorResult<Result<null, E>, E>;
   },
 };
 
