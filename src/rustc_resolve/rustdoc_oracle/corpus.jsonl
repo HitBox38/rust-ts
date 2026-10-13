@@ -1,0 +1,1138 @@
+{"t":"doc","a":[["line","outer"," Links to [`Vec`] and [Option::Some]."],["line","outer",""],["line","outer"," See [`HashMap<K, V>`](std::collections::HashMap)."]]}
+{"t":"doc","a":[["line","outer"," [link text][Ref] and [Ref] and [ref][]."],["line","outer",""],["line","outer"," [Ref]: crate::foo::Bar"],["line","outer"," [unused]: crate::Unused"]]}
+{"t":"doc","a":[["line","outer"," ```"],["line","outer"," let x = [not_a_link];"],["line","outer"," ```"],["line","outer"," After [`code`] block."]]}
+{"t":"doc","a":[["line","outer"," A list:"],["line","outer",""],["line","outer","    - Foo [`a::b`]"],["line","outer","    - Bar"]]}
+{"t":"doc","a":[["line","outer"," hello!"],["raw","outer","another [`link`]"]]}
+{"t":"doc","a":[["line","outer","     indented code [x]"],["raw","outer","raw [y]"]]}
+{"t":"doc","a":[["block","outer","*\n * Block doc with [`Link`].\n *\n * And `code` [*emph* link](a::b)\n "]]}
+{"t":"doc","a":[["block","inner","! Inner block [`self::x`] "],["line","inner","! inner line [super::y]"]]}
+{"t":"doc","a":[["line","inner"," Module docs [`crate::m`]."],["line","outer"," Outer docs [`Self::f`]."]]}
+{"t":"doc","a":[["line","outer"," **Bold [`a`]** _em [b]_ ~~strike [c]~~"],["line","outer"," Smart \"quotes\" and 'single' -- dash ... [d]"]]}
+{"t":"doc","a":[["line","outer"," <https://example.com> and <me@example.com> [e](https://x.y)"]]}
+{"t":"doc","a":[["line","outer"," [f()] [g!] [h!()] [i{}] [j[]] [`k`]() [l](m#frag) [n@o] [!]"]]}
+{"t":"doc","a":[["line","outer"," [Vec<T>] [Vec::<T>::new] [<Vec as IntoIterator>::into_iter] [Vec:<T>:new] [Vec<<T>>] [Vec<>]"]]}
+{"t":"doc","a":[["line","outer"," | a | b |"],["line","outer"," |---|---|"],["line","outer"," | [x] | `y` |"],["line","outer",""],["line","outer"," - [ ] task [z]"],["line","outer"," - [x] done"]]}
+{"t":"doc","a":[["line","outer"," Footnote[^1] and [^note]."],["line","outer",""],["line","outer"," [^1]: The [`target`]."],["line","outer"," [^note]: Another."]]}
+{"t":"doc","a":[["line","outer"," > quote [q1]"],["line","outer"," > > nested [`q2`]"],["line","outer",""],["line","outer"," # Heading [h]"],["line","outer"," Setext"],["line","outer"," ==="]]}
+{"t":"doc","a":[["line","outer"," [nested [brackets]](target) [a [b] c][d]"],["line","outer",""],["line","outer"," [d]: e \"title\""]]}
+{"t":"doc","a":[["line","outer"," ![image [alt]](img.png) [link ![img](i)](t)"]]}
+{"t":"doc","a":[["line","outer"," <span>[html]</span> <!-- [comment] --> `[code]` \\[escaped\\]"]]}
+{"t":"doc","a":[["line","outer"," [x](<a b>) [y](a\\)b) [z](\"t\") [w]( a 'title' )"]]}
+{"t":"doc","a":[["line","outer"," Multi"],["line","outer"," line [link"],["line","outer"," text](dest) and [ref"],["line","outer"," label]"],["line","outer",""],["line","outer"," [ref label]: dest2"]]}
+{"t":"doc","a":[["raw","outer","    four spaces\n  two spaces [a]\nnone [b]"]]}
+{"t":"doc","a":[["raw","outer",""],["line","outer",""],["line","outer","  "]]}
+{"t":"doc","a":[["line","outer",""]]}
+{"t":"doc","a":[["line","outer","   "]]}
+{"t":"doc","a":[["raw","outer","  \n  "]]}
+{"t":"doc","a":[["line","outer","\tTabbed [t]"],["line","outer","\t\tmore"]]}
+{"t":"doc","a":[["line","outer"," Unicode [`Ünïcödé`] [ΣΑΣ] [ǅ] [straße]"],["line","outer",""],["line","outer"," [STRASSE]: x"],["line","outer"," [σας]: y"]]}
+{"t":"doc","a":[["line","outer"," Kelvin [K] [k]"],["line","outer",""],["line","outer"," [K]: kelvin"]]}
+{"t":"doc","a":[["line","outer"," [deprecated] `and` [[double]] [ [spaced] ]"]]}
+{"t":"doc","a":[["line","outer"," ```rust,ignore"],["line","outer"," [in_code]"],["line","outer"," ```"],["line","outer"," ~~~"],["line","outer"," [tilde]"],["line","outer"," ~~~"]]}
+{"t":"doc","a":[["line","outer"," 1. one [a]"],["line","outer"," 2. two"],["line","outer","    * nested [b]"],["line","outer",""],["line","outer","      para [c]"]]}
+{"t":"doc","a":[["line","outer"," Line with trailing spaces  "],["line","outer"," hard break [x]\\"],["line","outer"," end"]]}
+{"t":"doc","a":[["line","outer"," &amp; &lt;[`T`]&gt; &#x41; &#65; [&copy;]"]]}
+{"t":"doc","a":[["line","outer"," [link](dest 'title')[ref][]"],["line","outer"," [ref]: <dest with space> (title)"]]}
+{"t":"doc","a":[["line","outer"," $math$ [after]"]]}
+{"t":"doc","a":[["raw","inner","inner raw [a]"],["raw","outer","outer raw [b]"],["line","inner"," inner sugared [c]"]]}
+{"t":"strip","s":"Vec<T>"}
+{"t":"strip","s":"Vec::<T>::new"}
+{"t":"strip","s":"<Vec as IntoIterator>::into_iter"}
+{"t":"strip","s":"Vec:<T>:new"}
+{"t":"strip","s":"Vec<<T>>"}
+{"t":"strip","s":"Vec<>"}
+{"t":"strip","s":"Vec<T"}
+{"t":"strip","s":"Vec<T>>"}
+{"t":"strip","s":"<T>"}
+{"t":"strip","s":"a::b<c<d>>::e"}
+{"t":"strip","s":"Result<Vec<u8>, E>::unwrap"}
+{"t":"strip","s":"a:b"}
+{"t":"strip","s":"::std<T>"}
+{"t":"strip","s":"x<y>::"}
+{"t":"strip","s":"Option<Box<dyn Fn(u8) -> u8>>"}
+{"t":"strip","s":"f<'a>"}
+{"t":"strip","s":"<"}
+{"t":"strip","s":">"}
+{"t":"strip","s":"a::<"}
+{"t":"md","o":[0,62,3582],"s":"> This is a normal blockquote without tag.\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!NOTE]\n> Note blockquote\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!TIP]\n> Tip blockquote\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!IMPORTANT]\n> Important blockquote\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!WARNING]\n> Warning blockquote\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!CAUTION]\n> Caution blockquote\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!CAUTION]\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!CAUTION]\n> Line 1.\n> Line 2.\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!CAUTION]\n> Line 1.\n> [!CAUTION]\n> Line 2.\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!CAUTION]\n> Line 1.\n> > [!TIP]\n> Line 2.\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!CAUTION]\n> Line 1.\n\n\n> [!TIP]\n> Line 2.\n"}
+{"t":"md","o":[0,62,3582],"s":"> > [!CAUTION]\n> > Line 1.\n> Line 2.\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!CAUTION]\t\n> Line 1.\n> > [!NOTE]      \n> > Line 2.\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!caution]\t\n> Line 1.\n> > [!note]      \n> > Line 2.\n"}
+{"t":"md","o":[0,62,3582],"s":"  * loose lists\n\n    > [!NOTE]\n    > sink ships\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!NOTE]\nsink ships\n\n> [!NOTE]\n> sink ships\n\n  * loose lists\n\n    > [!NOTE]\n    sink ships\n\n    > [!NOTE]\n    > sink ships\n"}
+{"t":"md","o":[0,62,3582],"s":"  * loose lists\n\n    > [!NOTE]\n    - sink ships\n\n    > [!NOTE]\n    > - sink ships\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!Hello]\n> This should be a normal block quote.\n"}
+{"t":"md","o":[0,62,3582],"s":"Lorem ipsum.[^a] [^missing]\n\n[^a]: Cool.\n"}
+{"t":"md","o":[0,62,3582],"s":"> This is the song that never ends.\\\n> Yes it goes on and on my friends.[^lambchops]\n>\n> [^lambchops]: <https://www.youtube.com/watch?v=0U2zJOryHKQ>\n"}
+{"t":"md","o":[0,62,3582],"s":"Songs that simply loop are a popular way to annoy people. [^examples]\n\n[^examples]:\n * [The song that never ends](https://www.youtube.com/watch?v=0U2zJOryHKQ)\n * [I know a song that gets on everybody's nerves](https://www.youtube.com/watch?v=TehWI09qxls)\n * [Ninety-nine bottles of beer on the wall](https://www.youtube.com/watch?v=qVjCag8XoHQ)\n"}
+{"t":"md","o":[0,62,3582],"s":"Songs that simply loop are a popular way to annoy people. [^examples]\n\n[^examples]:\n    * [The song that never ends](https://www.youtube.com/watch?v=0U2zJOryHKQ)\n    * [I know a song that gets on everybody's nerves](https://www.youtube.com/watch?v=TehWI09qxls)\n    * [Ninety-nine bottles of beer on the wall](https://www.youtube.com/watch?v=qVjCag8XoHQ)\n"}
+{"t":"md","o":[0,62,3582],"s":"[^not-code] [^code] [^quote] [^not-quote] [^indented-quote]\n\n[^not-code]:         not code\n\n[^code]:\n        code\n\n[^quote]: > quote\n\n[^not-quote]:\n > external quote\n\n[^indented-quote]:\n    > indented quote\n"}
+{"t":"md","o":[0,62,3582],"s":"[^ab] [^cd]\n\n[^ab]: a\nb\n\n[^cd]: c\\\nd\n"}
+{"t":"md","o":[0,62,3582],"s":"[^lorem]: If heaven ever wishes to grant me a boon, it will be a total effacing of the results of a mere chance which fixed my eye on a certain stray piece of shelf-paper. It was nothing on which I would naturally have stumbled in the course of my daily round, for it was an old number of an Australian journal, the Sydney Bulletin for April 18, 1925. It had escaped even the cutting bureau which had at the time of its issuance been avidly collecting material for my uncle's research.\n\nI had largely given over my inquiries into what Professor Angell called the \"Cthulhu Cult\", and was visiting a learned friend in Paterson, New Jersey; the curator of a local museum and a mineralogist of note. Examining one day the reserve specimens roughly set on the storage shelves in a rear room of the museum, my eye was caught by an odd picture in one of the old papers spread beneath the stones. It was the Sydney Bulletin I have mentioned, for my friend had wide affiliations in all conceivable foreign parts; and the picture was a half-tone cut of a hideous stone image almost identical with that which Legrasse had found in the swamp.\n\n[^ipsum]: If heaven ever wishes to grant me a boon, it will be a total effacing of the results of a mere chance which fixed my eye on a certain stray piece of shelf-paper. It was nothing on which I would naturally have stumbled in the course of my daily round, for it was an old number of an Australian journal, the Sydney Bulletin for April 18, 1925. It had escaped even the cutting bureau which had at the time of its issuance been avidly collecting material for my uncle's research.\n\n    I had largely given over my inquiries into what Professor Angell called the \"Cthulhu Cult\", and was visiting a learned friend in Paterson, New Jersey; the curator of a local museum and a mineralogist of note. Examining one day the reserve specimens roughly set on the storage shelves in a rear room of the museum, my eye was caught by an odd picture in one of the old papers spread beneath the stones. It was the Sydney Bulletin I have mentioned, for my friend had wide affiliations in all conceivable foreign parts; and the picture was a half-tone cut of a hideous stone image almost identical with that which Legrasse had found in the swamp.\n"}
+{"t":"md","o":[0,62,3582],"s":"[^ipsum]: How much wood would a woodchuck chuck.\n\nIf a woodchuck could chuck wood.\n\n\n# Forms of entertainment that aren't childish\n"}
+{"t":"md","o":[0,62,3582],"s":"Footnotes [^one] [^many].\n\n[^one]:\n\n\n\n\n\n    first paragraph inside footnote\n\n[^many]: first paragraph inside footnote\n\n\n\n\n\n    second paragraph still inside footnote\n"}
+{"t":"md","o":[0,62,3582],"s":"> He's also really stupid. [^why]\n>\n> [^why]: Because your mamma!\n\nAs such, we can guarantee that the non-childish forms of entertainment are probably more entertaining to adults, since, having had a whole childhood doing the childish ones, the non-childish ones are merely the ones that haven't gotten boring yet.\n"}
+{"t":"md","o":[0,62,3582],"s":"Nested footnotes are considered poor style. [^a] [^xkcd] [^indent1] [^indent2]\n\n[^a]: This does not mean that footnotes cannot reference each other. [^b]\n\n[^b]: This means that a footnote definition cannot be directly inside another footnote definition.\n> This means that a footnote cannot be directly inside another footnote's body. [^e]\n>\n> [^e]: They can, however, be inside anything else.\n\n[^xkcd]: [The other kind of nested footnote is, however, considered poor style.](https://xkcd.com/1208/)\n\n[^indent1]: indent1\n\n    [^indent2]: indent2\n"}
+{"t":"md","o":[0,62,3582],"s":"[^foo] [^bar]\n\n[^foo]: [^bar]: 1\n"}
+{"t":"md","o":[0,62,3582],"s":"[^Doh] Ray Me Fa So La Te Do! [^1]\n\n[^Doh]: I know. Wrong Doe. And it won't render right.\n[^1]: Common for people practicing music.\n"}
+{"t":"md","o":[0,62,3582],"s":"Lorem ipsum.[^a]\n\nAn unordered list before the footnotes:\n* Ipsum\n* Lorem\n\n[^a]: Cool.\n"}
+{"t":"md","o":[0,62,3582],"s":"Songs that simply loop are a popular way to annoy people. [^examples]\n\n[^examples]: * [The song that never ends](https://www.youtube.com/watch?v=0U2zJOryHKQ)\n* [I know a song that gets on everybody's nerves](https://www.youtube.com/watch?v=TehWI09qxls)\n* [Ninety-nine bottles of beer on the wall](https://www.youtube.com/watch?v=qVjCag8XoHQ)\n\n\nSongs that simply loop are a popular way to annoy people. [^examples2]\n\n[^examples2]: * [The song that never ends](https://www.youtube.com/watch?v=0U2zJOryHKQ) 2\n    * [I know a song that gets on everybody's nerves](https://www.youtube.com/watch?v=TehWI09qxls) 2\n    - [Ninety-nine bottles of beer on the wall](https://www.youtube.com/watch?v=qVjCag8XoHQ) 2\n\n\nSongs that simply loop are a popular way to annoy people. [^examples3]\n\n[^examples3]: * [The song that never ends](https://www.youtube.com/watch?v=0U2zJOryHKQ) 3\n\n    * [I know a song that gets on everybody's nerves](https://www.youtube.com/watch?v=TehWI09qxls) 3\n\n    * [Ninety-nine bottles of beer on the wall](https://www.youtube.com/watch?v=qVjCag8XoHQ) 3\n"}
+{"t":"md","o":[0,62,3582],"s":"My [cmark-gfm][^c].\n\nMy [cmark-gfm][cmark-gfm][^c].\n\nMy [cmark-gfm][][^c].\n\nMy [cmark-gfm] [^c].\n\nMy [cmark-gfm[^c]].\n\n[cmark-gfm]: https://github.com/github/cmark-gfm/blob/1e230827a584ebc9938c3eadc5059c55ef3c9abf/test/extensions.txt#L702\n\n[^c]: cmark-gfm is under the MIT license, so incorporating parts of its\n    test suite into pulldown-cmark should be fine.\n\n\nMy [otherlink[^c]].\n\n[otherlink[^c]]: https://github.com/github/cmark-gfm/blob/1e230827a584ebc9938c3eadc5059c55ef3c9abf/test/extensions.txt#L702\n"}
+{"t":"md","o":[0,62,3582],"s":"[^1]: footnote definition text\n\n<!-- -->\n\n    // indented code block\n    fn main() {\n        println!(\"hello world!\");\n    }\n"}
+{"t":"md","o":[0,62,3582],"s":"[^1]: footnote definition text\n[^1]\\: this is a reference, rather than a definition\n"}
+{"t":"md","o":[0,62,3582],"s":"[^1]:\n\n    | column1 | column2 |\n    |---------|---------|\n    | row1a   | row1b   |\n    | row2a   | row2b   |\n"}
+{"t":"md","o":[0,62,3582],"s":"* First\n  [^1]: test\n* Second [^1] test\n\n\n> first\n> [^2]: test\n> Second [^2] test\n\n\n   First   | Second\n-----------|----------\nfirst      | second\n[^3]: test | test [^3]\n\n\n|    First   | Second    |\n|------------|-----------|\n| first      | second    |\n| [^4]: test | test [^4] |\n\n> [^5]: * test [^5]\n"}
+{"t":"md","o":[0,62,3582],"s":"Test [^] link\n\n[^]: https://rust-lang.org\n"}
+{"t":"md","o":[0,62,3582],"s":"[^foo\\\nbar]: not a footnote definition\n\n[baz\\\nquux]: https://rust-lang.org\n\n[first\nsecond]: https://rust-lang.org\n\n[^third\nfourth]: not a footnote definition\n\n[baz\\\nquux]\n[^foo\\\nbar]\n[first\nsecond]\n[^third\nfourth]\n"}
+{"t":"md","o":[0,62,3582],"s":"[^foo\n]: https://rust-lang.org\n\n[^foo\n]\n"}
+{"t":"md","o":[0,62,3582],"s":"footnote [^baz]\nfootnote [^quux]\n\n    [^quux]: x\n\n   [^baz]: x\n"}
+{"t":"md","o":[0,62,3582],"s":"Lorem ipsum.[^a][^b]\n\n[^a]: Foo\n[^b]: Bar\n"}
+{"t":"md","o":[0,62,3582],"s":"Lorem ipsum.[^a] [^b]\n\n[^a]: Foo\n[^b]: Bar\n"}
+{"t":"md","o":[0,62,3582],"s":"~~Hi~~ Hello, ~there~ world!\n"}
+{"t":"md","o":[0,62,3582],"s":"This ~~has a\n\nnew paragraph~~.\n"}
+{"t":"md","o":[0,62,3582],"s":"This will ~~~not~~~ strike.\n"}
+{"t":"md","o":[0,62,3582],"s":"| foo | bar |\n| --- | --- |\n| baz | bim |\n"}
+{"t":"md","o":[0,62,3582],"s":"| abc | defghi |\n:-: | -----------:\nbar | baz\n"}
+{"t":"md","o":[0,62,3582],"s":"| f\\|oo  |\n| ------ |\n| b `\\|` az |\n| b **\\|** im |\n"}
+{"t":"md","o":[0,62,3582],"s":"| abc | def |\n| --- | --- |\n| bar | baz |\n> bar\n"}
+{"t":"md","o":[0,62,3582],"s":"| abc | def |\n| --- | --- |\n| bar | baz |\nbar\n\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"| abc | def |\n| --- |\n| bar |\n"}
+{"t":"md","o":[0,62,3582],"s":"| abc | def |\n| --- | --- |\n| bar |\n| bar | baz | boo |\n"}
+{"t":"md","o":[0,62,3582],"s":"| abc | def |\n| --- | --- |\n"}
+{"t":"md","o":[0,62,3582],"s":"Hello World\n| abc | def |\n| --- | --- |\n| bar | baz |\n"}
+{"t":"md","o":[0,62,3582],"s":"- [ ] foo\n- [x] bar\n"}
+{"t":"md","o":[0,62,3582],"s":"- [x] foo\n  - [ ] bar\n  - [x] baz\n- [ ] bim\n"}
+{"t":"md","o":[0,62,3582],"s":"with the ID {#myh1}\n===================\nwith a class {.myclass}\n------------\nwith a custom attribute {myattr=myvalue}\n========================================\nmultiple! {.myclass1 myattr #myh3 otherattr=value .myclass2}\n--\n"}
+{"t":"md","o":[0,62,3582],"s":"# with the ID {#myh1}\n## with a class {.myclass}\n#### with a custom attribute {myattr=myvalue}\n### multiple! {.myclass1 myattr #myh3 otherattr=value .myclass2}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 # {#id1}\n## H2 ## with ## multiple ## hashes ## {#id2}\n### with trailing hash # ### {#id3}\n\n#### non-attribute-block {#id4} ####\n"}
+{"t":"md","o":[0,62,3582],"s":"# spaces {#myid1}    \n## tabs {#myid2}\t\t\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 \\\nnextline\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 \\\n{#myid}\n\n## H2 \\\nnextline {.class}\n\n### H3 [link\n](https://example.com/) {#myid3}\n"}
+{"t":"md","o":[0,62,3582],"s":"H1\ncont\n{#myid}\n==\n"}
+{"t":"md","o":[0,62,3582],"s":"H1\n{\n  .class1\n  .class2\n}\n==\n"}
+{"t":"md","o":[0,62,3582],"s":"# without space, not recommended{#id1}\n## recommended style with spaces {#id2}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 { #id1 }\n## H2 {.myclass      #id2 }\n### H3 {     .myclass}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {#id1.class1.class2 .class3}\n## H2 {.class1#id2.class2}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 { #id1\n## H2 {#id2\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 #id1 }\n## H2 #id2}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 { #id1 } foo\n## H2 {#id2} <!-- hello -->\n"}
+{"t":"md","o":[0,62,3582],"s":"# *H1* { #id1 }\n## **H2** {#id2}\n### _H3_ {#id3}\n#### ~~H4~~ {#id4}\n##### [text](uri) {#id5}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {#first #second #last}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {.z .a .zz}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {.a .a .a}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {.myclass #myid}\n## H2 {.z #m .a}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {foo}\n## H2 {#myid unknown this#is.ignored attr=value .myclass}\n"}
+{"t":"md","o":[0,62,3582],"s":"# Header # {myattr=value other_attr}\n"}
+{"t":"md","o":[0,62,3582],"s":"#### Header {#id myattr= .class1 other_attr=false}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {.foo{unknown}\n## H2 {.foo{.bar}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {.foo}bar}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {<i>foo</i>}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {.foo\\}\n"}
+{"t":"md","o":[0,62,3582],"s":"H1 {.foo\n.bar}\n==\n"}
+{"t":"md","o":[0,62,3582],"s":"H1 {} {}\n=====\n\n## H2 {} {}\n"}
+{"t":"md","o":[0,62,3582],"s":"## H2 {} ##\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {\\}\n## this is also ok \\{\\}\n\nnewline can be used for setext heading {\n}\n--\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 \\{.foo}\n## H2 \\\\{.bar}\n### stray backslash at the end is preserved \\\n"}
+{"t":"md","o":[0,62,3582],"s":"H1 \\{.foo}\n==\nH2 \\\\{.bar}\n--\n\nstray backslash at the end is preserved \\\n--\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {#`code`}\n## H2 {#foo__bar__baz}\n### H3 {#foo**bar**baz}\n"}
+{"t":"md","o":[0,62,3582],"s":"H1 {#`code`}\n==\n\nH2-1 {#foo__bar__baz}\n----\n\nH2-2 {#foo**bar**baz}\n--\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {.foo#bar}\n## H2 {#foo.bar}\n### H3 {.a\"b'c&d}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {#}\n## H2 {.}\n"}
+{"t":"md","o":[0,62,3582],"s":"# H1 {#foo #}\n# H1 {.foo . . .bar}\n"}
+{"t":"md","o":[0,62,3582],"s":"# {}\n## {}\n### {\\}\n#### {} {}\n\n#{}\n"}
+{"t":"md","o":[0,62,3582],"s":"{}\n==\n\n\\{}\n--\n\n\\\n--\n\n{\\}\n==\n\n{}{}\n--\n"}
+{"t":"md","o":[0,62,3582],"s":"# horizontal tab\t\n# horizontal tab\t{#ht}\n## form feed\f\n## form feed\f{#ff}\n### vertical tab\u000b\n### vertical tab\u000b{#vt}\n"}
+{"t":"md","o":[0,62,3582],"s":"# horizontal tab (U+000A) {#ht\t.myclass}\n## form feed (U+000C) {#ff\f.myclass}\n\n# vertical tab (U+000B) {#vt\u000b.myclass}\n"}
+{"t":"md","o":[0,62,3582],"s":"# EN SPACE (U+2002) {#en-space .myclass}\n## IDEOGRAPHIC SPACE (U+3000) {#ideographic-space　.myclass}\n"}
+{"t":"md","o":[0,62,3582],"s":"This sentence uses `$` delimiters to show math inline: $\\sqrt{3x-1}+(1+x)^2$\n$\\sum_{k=1}^n a_k b_k$: Mathematical expression at head of line\n\n`\\` may follow just after the first `$`: $\\{1, 2, 3\\}$\n"}
+{"t":"md","o":[0,62,3582],"s":"**The Cauchy-Schwarz Inequality**\n\n$$\\left( \\sum_{k=1}^n a_k b_k \\right)^2 \\leq \\left( \\sum_{k=1}^n a_k^2 \\right) \\left( \\sum_{k=1}^n b_k^2 \\right)$$\n"}
+{"t":"md","o":[0,62,3582],"s":"Oops empty $$ expression.\n\n$$$$\n"}
+{"t":"md","o":[0,62,3582],"s":"$x$$$$$$$y$$\n\n$x$$$$$$y$$\n\n$$x$$$$$$y$$\n"}
+{"t":"md","o":[0,62,3582],"s":"$a<b>c</b>$\n\n$${a*b*c} _c_ d$$\n\n$not `code`$\n\n$![not an](/image)$\n\n$<https://not.a.link/>$\n\n$&alpha;$\n"}
+{"t":"md","o":[0,62,3582],"s":"Hello $world.\n\nDollar at end of line$\n"}
+{"t":"md","o":[0,62,3582],"s":"$5x + 2 =\n17$\n\n$$\\left( \\sum_{k=1}^n a_k b_k \\right)^2 \\leq \\left( \\sum_{k=1}^n a_k^2 \\right)\n\\left( \\sum_{k=1}^n b_k^2 \\right)$$\n"}
+{"t":"md","o":[0,62,3582],"s":"$not a\\\nhard break  \neither$\n"}
+{"t":"md","o":[0,62,3582],"s":"$\\$$\n\n$$y = \\$ x$$\n"}
+{"t":"md","o":[0,62,3582],"s":"$x $ x$\n\n$$ $ $$\n"}
+{"t":"md","o":[0,62,3582],"s":"alpha$$beta$gamma$$delta\n"}
+{"t":"md","o":[0,62,3582],"s":"these are not math texts: $ y=x$, $y=x $, $\ny=x$ and $y=x\n$\n\n>The start of a line counts as whitespace $2 +\n>$\n\nWhile displays can start with whitespace, {${\nthey should not allow inlines to do that $$2 +\n$*$\n"}
+{"t":"md","o":[0,62,3582],"s":"these are math texts: foo$y=x$bar and $y=x$bar and foo$y=x$ bar\n"}
+{"t":"md","o":[0,62,3582],"s":"math texts: $x=y$! and $x=y$? and $x=y$: and $x=y$. and $x=y$\"\n\nalso math texts: !$x=y$! and ?$x=y$? and :$x=y$: and .$x=y$. and \"$x=y$\"\n\nbraces: ($x=y$) [$x=y$] {$x=y$}\n"}
+{"t":"md","o":[0,62,3582],"s":"$x=y$\n"}
+{"t":"md","o":[0,62,3582],"s":"$a$$b$\n\n$a$$$b$$\n\n$$a$$$b$\n\n$$a$$$$b$$\n"}
+{"t":"md","o":[0,62,3582],"s":"$Inline `first$ then` code\n\n`Code $first` then$ inline\n\n$$ Display `first $$ then` code\n\n`Code $$ first` then $$ display\n"}
+{"t":"md","o":[0,62,3582],"s":"$x + y - z$\n\n$x + y\n- z$\n\n$$ x + y\n> z $$\n"}
+{"t":"md","o":[0,62,3582],"s":"$not\n\nmath$\n\n$$\nnot\n\nmath\n$$\n"}
+{"t":"md","o":[0,62,3582],"s":"- $not\n    - *\n  math$\n"}
+{"t":"md","o":[0,62,3582],"s":"This is display math:\n$$\n\\text{Hello $x^2$}\n$$\nAnd this is inline math:\n$\\text{Hello $x$ there!}$\n"}
+{"t":"md","o":[0,62,3582],"s":"This is not valid math: $}{$\n\nNeither is this: { $}{$ }\n\nThis is: $\\}\\{$\n\nThis is: $\\}$\n\nMath environment contains 2+2: $}$2+2$\n\nMath environment contains y: $x {$ $ } $y$\n"}
+{"t":"md","o":[0,62,3582],"s":"This is not display math. It is inline math:\n\n$$\\text{first $$ second}$\n\n$$$\\text{first $$ second}$\n\nThis is display math:\n\n$$\\text{first $$ second}$$\n\n$$$\\text{first $$ second}$$\n\nThis is also display math, but (counterintuitively) it's allowed to be empty\nand expected to be as short as possible:\n\n$$$$\\text{first $$ second}$$\n"}
+{"t":"md","o":[0,62,3582],"s":"$\\text{\\$}$\n\n$$x$x$$\n\n${$^$$\n\n$}$$$$\n\n$}$] $$\n"}
+{"t":"md","o":[0,62,3582],"s":"$x$ $`y`$\n"}
+{"t":"md","o":[0,62,3582],"s":"- $a$\n\n  ```math\n  a\n  ```\n\n  $$\n  a\n  $$\n\n- ```math\n  b\n  ```\n\n  $$\n  b\n  $$\n"}
+{"t":"md","o":[0,62,3582],"s":"- ![node logo](https://nodejs.org/static/images/logo.svg)\n- $x$\n"}
+{"t":"md","o":[0,62,3582],"s":"<details>\n\n$A = 5$\n\n$$\nA = 5\n$$\n\n</details>\n"}
+{"t":"md","o":[0,62,3582],"s":"$a<b$\n\n$$a<b$$\n"}
+{"t":"md","o":[0,62,3582],"s":"[^a]\n\n[^a]: Lorem $a$\n"}
+{"t":"md","o":[0,62,3582],"s":"[$a$](x)\n"}
+{"t":"md","o":[0,62,3582],"s":"a$x$\n\n-$x$\n\n1$x$\n"}
+{"t":"md","o":[0,62,3582],"s":"_$a$ equals $b$_\n\n_$a$ equals $b$_\n\n**$a$ equals $b$**\n"}
+{"t":"md","o":[0,62,3582],"s":"$$\na\n$$\n\n- $$\n  \\text{$b$}\n  $$\n"}
+{"t":"md","o":[0,62,3582],"s":"$\\{a\\,b\\}$\n"}
+{"t":"md","o":[0,62,3582],"s":"$a <b > c$\n\n$[(a+b)c](d+e)$\n\n${a}_b c_{d}$\n"}
+{"t":"md","o":[0,62,3582],"s":"When $a \\ne 0$, there are two solutions to $(ax^2 + bx + c = 0)$ and they are\n$$ x = {-b \\pm \\sqrt{b^2-4ac} \\over 2a} $$\n"}
+{"t":"md","o":[0,62,3582],"s":"$x = \\$$\n"}
+{"t":"md","o":[0,62,3582],"s":"_Equation $\\Omega(69)$ in italic text_\n"}
+{"t":"md","o":[0,62,3582],"s":"$\\pi$\n'$\\pi$\n\"$\\pi$\n($\\pi$\n[$\\pi$\n{$\\pi$\n/$\\pi$\n"}
+{"t":"md","o":[0,62,3582],"s":"| first $|$ second |\n|--------|---------|\n| a ${   | }$ b    |\n"}
+{"t":"md","o":[0,62,3582],"s":"| first $\\|$ second |\n|-------------------|\n| a ${   \\| }$ b    |\n"}
+{"t":"md","o":[0,62,3582],"s":"| Description | Test case |\n|-------------|-----------|\n| Single      | $\\$       |\n| Double      | $\\\\$      |\n| Basic test  | $\\|$      |\n| Basic test 2| $\\|\\|\\$   |\n| Basic test 3| $x\\|y\\|z\\$|\n| Not pipe    | $\\.$      |\n| Combo       | $\\.\\|$    |\n| Combo 2     | $\\.\\|\\$   |\n| Extra       | $\\\\\\.$    |\n| Wait, what? | $\\\\|$     |\n| Wait, what? | $\\\\\\|$    |\n| Wait, what? | $\\\\\\\\|$   |\n| Wait, what? | $\\\\\\\\\\|$  |\n"}
+{"t":"md","o":[0,62,3582],"s":"This is not an inline math environment: $}{$\nBut, because it's nested too deeply, this is parsed as an inline math environment:\n{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{\nimproperly $}{$ nested\n}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}\nBut this still isn't, because the braces are still counted: $}{$\n"}
+{"t":"md","o":[0,62,3582],"s":"This is also deeply nested, but, unlike the first example,\nthey don't have an equal number of close braces and open braces,\nso aren't detected as math.\n{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{\nimproperly $}$ nested ${$ example\n}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}\nThis, however, is detected ${}$\n\n${{{{{{{{{{{{{{{{{{{{{{{{{{{{{{\nanother improperly nested example\n}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}$\n"}
+{"t":"md","o":[0,62,3582],"s":"${}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}  20 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}  40 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}  60 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}  80 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} 100 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} 120 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} 140 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} 160 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} 180 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} 200 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} 220 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} 240 brace pairs\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{$ 255 brace pairs and one unclosed brace\n"}
+{"t":"md","o":[0,62,3582],"s":"${{{{{{{{{{{{{{{{{{{{ 20 open braces\n{{{{{{{{{{{{{{{{{{{{  40 open braces\n{{{{{{{{{{{{{{{{{{{{  60 open braces\n{{{{{{{{{{{{{{{{{{{{  80 open braces\n{{{{{{{{{{{{{{{{{{{{ 100 open braces\n{{{{{{{{{{{{{{{{{{{{ 110 open braces\n{{{{{{{{{{{{{{{{{{{{ 120 open braces\n{{{{{{{{{{{{{{{{{{{{ 140 open braces\n{{{{{{{{{{{{{{{{{{{{ 160 open braces\n{{{{{{{{{{{{{{{{{{{{ 180 open braces\n{{{{{{{{{{{{{{{{{{{{ 200 open braces\n{{{{{{{{{{{{{{{{{{{{ 220 open braces\n{{{{{{{{{{{{{{{{{{{{ 240 open braces\n{{{{{{{{{{{{{{{ 255 open braces\n}}}}}}}}}}}}}}}}}}}}  20 close braces\n}}}}}}}}}}}}}}}}}}}}  40 close braces\n}}}}}}}}}}}}}}}}}}}}  60 close braces\n}}}}}}}}}}}}}}}}}}}}  80 close braces\n}}}}}}}}}}}}}}}}}}}} 100 close braces\n}}}}}}}}}}}}}}}}}}}} 120 close braces\n}}}}}}}}}}}}}}}}}}}} 140 close braces\n}}}}}}}}}}}}}}}}}}}} 160 close braces\n}}}}}}}}}}}}}}}}}}}} 180 close braces\n}}}}}}}}}}}}}}}}}}}} 200 close braces\n}}}}}}}}}}}}}}}}}}}} 220 close braces\n}}}}}}}}}}}}}}}}}}}} 240 close braces\n}}}}}}}}}}}}}}}{$ 255 close braces and one open brace\n"}
+{"t":"md","o":[0,62,3582],"s":"---\ntitle: example\nanother_field: 0\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"---\ntitle: example\nanother_field: 0\n"}
+{"t":"md","o":[0,62,3582],"s":"---\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"---\n\ntitle: example\nanother_field: 0\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"My paragraph here.\n---\ntitle: example\nanother_field: 0\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"My paragraph here.\n\n---\ntitle: example\nanother_field: 0\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"---    \ntitle: example\nanother_field: 0\n---\n\n--- -\ntitle: example\nanother_field: 0\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"---\ntitle: example\nanother_field: 0\n---        \n\n---\ntitle: example\nanother_field: 0\n---a\n"}
+{"t":"md","o":[0,62,3582],"s":"---\ntitle: example\nanother_field: 0\n...\n"}
+{"t":"md","o":[0,62,3582],"s":"+++\ntitle: example\nanother_field: 0\n+++\n"}
+{"t":"md","o":[0,62,3582],"s":"    ---\n    Things\n    ---\n"}
+{"t":"md","o":[0,62,3582],"s":"---\n- Item 1\n- Item 2\n---\n"}
+{"t":"md","o":[0,62,4094],"s":"Lorem ipsum.[^a]\n\n[^a]: Cool.\n"}
+{"t":"md","o":[0,62,4094],"s":"> This is the song that never ends.\\\n> Yes it goes on and on my friends.[^lambchops]\n>\n> [^lambchops]: <https://www.youtube.com/watch?v=0U2zJOryHKQ>\n"}
+{"t":"md","o":[0,62,4094],"s":"Songs that simply loop are a popular way to annoy people. [^examples]\n\n[^examples]:\n * [The song that never ends](https://www.youtube.com/watch?v=0U2zJOryHKQ)\n * [I know a song that gets on everybody's nerves](https://www.youtube.com/watch?v=TehWI09qxls)\n * [Ninety-nine bottles of beer on the wall](https://www.youtube.com/watch?v=qVjCag8XoHQ)\n"}
+{"t":"md","o":[0,62,4094],"s":"[^lorem]: If heaven ever wishes to grant me a boon, it will be a total effacing of the results of a mere chance which fixed my eye on a certain stray piece of shelf-paper. It was nothing on which I would naturally have stumbled in the course of my daily round, for it was an old number of an Australian journal, the Sydney Bulletin for April 18, 1925. It had escaped even the cutting bureau which had at the time of its issuance been avidly collecting material for my uncle's research.\n\nI had largely given over my inquiries into what Professor Angell called the \"Cthulhu Cult\", and was visiting a learned friend in Paterson, New Jersey; the curator of a local museum and a mineralogist of note. Examining one day the reserve specimens roughly set on the storage shelves in a rear room of the museum, my eye was caught by an odd picture in one of the old papers spread beneath the stones. It was the Sydney Bulletin I have mentioned, for my friend had wide affiliations in all conceivable foreign parts; and the picture was a half-tone cut of a hideous stone image almost identical with that which Legrasse had found in the swamp.\n"}
+{"t":"md","o":[0,62,4094],"s":"[^ipsum]: How much wood would a woodchuck chuck.\n\nIf a woodchuck could chuck wood.\n\n\n# Forms of entertainment that aren't childish\n"}
+{"t":"md","o":[0,62,4094],"s":"> He's also really stupid. [^why]\n>\n> [^why]: Because your mamma!\n\nAs such, we can guarantee that the non-childish forms of entertainment are probably more entertaining to adults, since, having had a whole childhood doing the childish ones, the non-childish ones are merely the ones that haven't gotten boring yet.\n"}
+{"t":"md","o":[0,62,4094],"s":"Nested footnotes are considered poor style. [^a] [^xkcd]\n\n[^a]: This does not mean that footnotes cannot reference each other. [^b]\n\n[^b]: This means that a footnote definition cannot be directly inside another footnote definition.\n> This means that a footnote cannot be directly inside another footnote's body. [^e]\n>\n> [^e]: They can, however, be inside anything else.\n\n[^xkcd]: [The other kind of nested footnote is, however, considered poor style.](https://xkcd.com/1208/)\n"}
+{"t":"md","o":[0,62,4094],"s":"[^Doh] Ray Me Fa So La Te Do! [^1]\n\n[^Doh]: I know. Wrong Doe. And it will render right.\n[^1]: Common for people practicing music.\n"}
+{"t":"md","o":[0,62,4094],"s":"[Reference to footnotes A[^1], B[^2] and C[^3].\n\n[^1]: Footnote A.\n[^2]: Footnote B.\n[^3]: Footnote C.\n"}
+{"t":"md","o":[0,62,4094],"s":"Lorem ipsum.[^a][^b]\n\n[^a]: Foo\n[^b]: Bar\n"}
+{"t":"md","o":[0,62,4094],"s":"Lorem ipsum.[^a] [^b]\n\n[^a]: Foo\n[^b]: Bar\n"}
+{"t":"md","o":[0,62,3582],"s":"<details><summary>Testing 1..2..3..</summary>\n\nThis is a test of the details element.\n\n</details>\n"}
+{"t":"md","o":[0,62,3582],"s":"see the [many] [articles] [on] [QuickCheck].\n\n[many]: https://medium.com/@jlouis666/quickcheck-advice-c357efb4e7e6\n[articles]: http://www.quviq.com/products/erlang-quickcheck/\n[on]: https://wiki.haskell.org/Introduction_to_QuickCheck1\n[QuickCheck]: https://hackage.haskell.org/package/QuickCheck\n"}
+{"t":"md","o":[0,62,3582],"s":"[![debug-stub-derive on crates.io][cratesio-image]][cratesio]\n[![debug-stub-derive on docs.rs][docsrs-image]][docsrs]\n\n[cratesio-image]: https://img.shields.io/crates/v/debug_stub_derive.svg\n[cratesio]: https://crates.io/crates/debug_stub_derive\n[docsrs-image]: https://docs.rs/debug_stub_derive/badge.svg?version=0.3.0\n[docsrs]: https://docs.rs/debug_stub_derive/0.3.0/\n"}
+{"t":"md","o":[0,62,3582],"s":"|  Title A  |  Title B  |\n| --------- | --------- |\n| Content   | Content   |\n\n|  Title A  |  Title B  |  Title C  |  Title D  |\n| --------- | --------- | --------- | ---------:|\n| Content   | Content   | Conent    | Content   |\n"}
+{"t":"md","o":[0,62,3582],"s":"foo§__(bar)__\n"}
+{"t":"md","o":[0,62,3582],"s":"<https://example.com> hello\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][bar]\n\n<!-- foo -->\n[bar]: a\n"}
+{"t":"md","o":[0,62,3582],"s":"<!-- <dl> -->\n- **foo** (u8, u8)\n\n  make something\n\n- **bar** (u16, u16)\n\n  make something\n"}
+{"t":"md","o":[0,62,3582],"s":"[`\ni8\n`](\n../../../std/primitive.i8.html\n)\n"}
+{"t":"md","o":[0,62,3582],"s":"[a]\n\n[a]: /url (title\\\\*)\n"}
+{"t":"md","o":[0,62,3582],"s":"[a]\n\n[a]: /url (title\\))\n"}
+{"t":"md","o":[0,62,3582],"s":"[a]\n\n[a]: /url (title))\n"}
+{"t":"md","o":[0,62,3582],"s":"a <?php this is not a valid processing tag\n---\nb <?php but this is ?>\n"}
+{"t":"md","o":[0,62,3582],"s":"[a]: u\\\nfoo\n"}
+{"t":"md","o":[0,62,3582],"s":"\\`foo`\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\\\\\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"1\\. foo\n\n1\\) bar\n"}
+{"t":"md","o":[0,62,3582],"s":"1...\n\n1.2.3.\n\n1 2 3 .\n\n1.|2.-3.\n\n1)2)3)\n"}
+{"t":"md","o":[0,62,3582],"s":"[](<<>)\n"}
+{"t":"md","o":[0,62,3582],"s":"\\``foo``bar`\n"}
+{"t":"md","o":[0,62,3582],"s":"\\\\`foo`\n"}
+{"t":"md","o":[0,62,3582],"s":"[\\\\]: x\n\nYOLO\n"}
+{"t":"md","o":[0,62,3582],"s":"lorem ipsum\nA | B\n---|---\nfoo | bar\n"}
+{"t":"md","o":[0,62,3582],"s":"foo|bar  \n---|---\nfoo|bar\n"}
+{"t":"md","o":[0,62,3582],"s":"foo|bar\\\\\n---|---\nfoo|bar\n"}
+{"t":"md","o":[0,62,3582],"s":"[<foo>](url)\n"}
+{"t":"md","o":[0,62,3582],"s":"[<foo>bar</foo>](url)\n"}
+{"t":"md","o":[0,62,3582],"s":"![<http://example.com>](http://example.com/logo.png)\n"}
+{"t":"md","o":[0,62,3582],"s":"[<http://one> <http://two>](url)\n"}
+{"t":"md","o":[0,62,3582],"s":"Markdown | Less | Pretty\n--- | --- | ---\n \nsome text\n"}
+{"t":"md","o":[0,62,3582],"s":"1. > foo\n2. >\n"}
+{"t":"md","o":[0,62,3582],"s":"[\nx\n\n]: f\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]:\n"}
+{"t":"md","o":[0,62,3582],"s":"> [foo\n> bar]: /url\n>\n> [foo bar]\n"}
+{"t":"md","o":[0,62,3582],"s":"> foo | bar\n> --- | ---\nyolo | swag\n"}
+{"t":"md","o":[0,62,3582],"s":"<foo bar>\n"}
+{"t":"md","o":[0,62,3582],"s":"<foo bar =\n \"hi\"> \n"}
+{"t":"md","o":[0,62,3582],"s":"~~*_**__\n\n__a__\n"}
+{"t":"md","o":[0,62,3582],"s":"> `\n> `\n"}
+{"t":"md","o":[0,62,3582],"s":"`\\|`\n"}
+{"t":"md","o":[0,62,3582],"s":"Paragraph 1\n    \nParagraph 2\n"}
+{"t":"md","o":[0,62,3582],"s":"\\[[link text](https://www.google.com/)\\]\n"}
+{"t":"md","o":[0,62,3582],"s":"foo | bar\n--- | ---\n[a](< | url>)\n"}
+{"t":"md","o":[0,62,3582],"s":"[a](url \"\n- - -\n\")\n"}
+{"t":"md","o":[0,62,3582],"s":"[a](url\n\n)\n"}
+{"t":"md","o":[0,62,3582],"s":"[a](b \"\n\n\")\n"}
+{"t":"md","o":[0,62,3582],"s":"<http:// >\n"}
+{"t":"md","o":[0,62,3582],"s":"<http://\u0007>\n"}
+{"t":"md","o":[0,62,3582],"s":"foo | bar\n--- | ---\n<http://| baz\n"}
+{"t":"md","o":[0,62,3582],"s":"foo | bar\n--- | ---\n<http://|>\n"}
+{"t":"md","o":[0,62,3582],"s":"<sup>\\*hi</sup>\\_\n"}
+{"t":"md","o":[0,62,3582],"s":"email: <john@example.com>\\_\n"}
+{"t":"md","o":[0,62,3582],"s":"> [link](/url 'foo\n> bar')\n"}
+{"t":"md","o":[0,62,3582],"s":"> [foo\n> bar]: /url\n>\n> [foo bar]\n"}
+{"t":"md","o":[0,62,3582],"s":"> [foo   bar]: /url\n>\n> [foo\n> bar]\n"}
+{"t":"md","o":[0,62,3582],"s":"> - [a\n> b c]: /foo\n\n[a b c]\n"}
+{"t":"md","o":[0,62,3582],"s":"[a\n> b]: /foo\n\n[a b] [a > b]\n"}
+{"t":"md","o":[0,62,3582],"s":"[`cargo\npackage`]\n\n[`cargo package`]: https://example.com\n"}
+{"t":"md","o":[0,62,3582],"s":"> [`cargo\n> package`]\n\n[`cargo package`]: https://example.com\n"}
+{"t":"md","o":[0,62,3582],"s":"> `cargo\n> package`\n"}
+{"t":"md","o":[0,62,3582],"s":"> Note: Though you should not rely on this, all pointers to <abbr\n> title=\"Dynamically Sized Types\">DSTs</abbr> are currently twice the size of\n> the size of `usize` and have the same alignment.\n"}
+{"t":"md","o":[0,62,3582],"s":"Lorem ipsum.[^a]\n\nAn unordered list before the footnotes:\n* Ipsum\n* Lorem\n\n[^a]: Cool.\n"}
+{"t":"md","o":[0,62,3582],"s":"[][a]\n\n[a]: b\n\n# assimp-rs [![][crates-badge]][crates]\n\n[crates]: https://crates.io/crates/assimp\n[crates-badge]: http://meritbadge.herokuapp.com/assimp\n"}
+{"t":"md","o":[0,62,3582],"s":"* A list.\n\n   * A sublist.\n\n   * Another sublist.\n\n\n* A list.\n \n   * A sublist.\n \n   * Another sublist.\n \n"}
+{"t":"md","o":[0,62,3582],"s":"<foo\n"}
+{"t":"md","o":[0,62,3582],"s":"> > a <a href\n> > =\"yo\n> > lo\">\n"}
+{"t":"md","o":[0,62,3582],"s":"\t-\tthe whitespace here are tabs\n"}
+{"t":"md","o":[0,62,3582],"s":"1. a\n   1. a\n\na\n2. a\n"}
+{"t":"md","o":[0,62,3582],"s":"1. a\n2. a\n   2. a\n"}
+{"t":"md","o":[0,62,3582],"s":"* [ ] foo\n\n* [ ] bar\n\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"* foo\n    + bar\n    + baz\n"}
+{"t":"md","o":[0,62,3582],"s":"[`]: xx:\n\n[`]`]\n"}
+{"t":"md","o":[0,62,3582],"s":"~~foo~~bar\n"}
+{"t":"md","o":[0,62,3582],"s":"foo~~bar~~\n"}
+{"t":"md","o":[0,62,3582],"s":"*~~__emphasis strike strong__~~* ~~*__strike emphasis strong__*~~\n"}
+{"t":"md","o":[0,62,3582],"s":"*~~__emphasis strike strong__~~* ~~*__`strike emphasis strong code`__*~~\n"}
+{"t":"md","o":[0,62,3582],"s":"*~~`emphasis strike code`~~* ~~*__strike emphasis strong__*~~\n"}
+{"t":"md","o":[0,62,3582],"s":"*~~`emphasis strike code`~~* ~~*__`strike emphasis strong code`__*~~\n"}
+{"t":"md","o":[0,62,3582],"s":"**~~_strong strike emphasis_~~** ~~*__strike emphasis strong__*~~\n"}
+{"t":"md","o":[0,62,3582],"s":"**~~_strong strike emphasis_~~** ~~*__`strike emphasis strong code`__*~~\n"}
+{"t":"md","o":[0,62,3582],"s":"**~~`strong strike code`~~** ~~*__strike emphasis strong__*~~\n"}
+{"t":"md","o":[0,62,3582],"s":"**~~`strong strike code`~~** ~~*__`strike emphasis strong code`__*~~\n"}
+{"t":"md","o":[0,62,3582],"s":"  | foo | bar  |\n  |-----|------|\n  | baz | alef |\n\n  | foo | bar  |\n  |-----|------|\n| baz | alef |\n\n  | foo | bar  |\n|-----|------|\n  | baz | alef |\n\n| foo | bar  |\n  |-----|------|\n  | baz | alef |\n\n  | foo | bar  |\n|-----|------|\n| baz | alef |\n\n| foo | bar  |\n|-----|------|\n  | baz | alef |\n\n| foo | bar  |\n|-----|------|\n| baz | alef |\n\n| foo | bar  |\n  |-----|------|\n| baz | alef |\n\n    | foo | bar  |\n    |-----|------|\n    | baz | alef |\n\n| foo | bar  |\n    |-----|------|\n| baz | alef |\n\n\t| foo | bar  |\n\t|-----|------|\n\t| baz | alef |\n\n| foo | bar  |\n\t|-----|------|\n| baz | alef |\n"}
+{"t":"md","o":[0,62,3582],"s":"### ###\n"}
+{"t":"md","o":[0,62,3582],"s":"### \n"}
+{"t":"md","o":[0,62,3582],"s":"<!doctype html>\n"}
+{"t":"md","o":[0,62,3582],"s":"| A | table    |\n| ------ | ---- |\n| not   |  in  |\n| a     | list|\n\n* A blockquote:\n  > inside a list item\n* A Heading:\n  # inside a list item\n* A table:\n\n  | inside | a       |\n  | ------ | ------- |\n  | list   | item    |\n  | with   | leading |\n  | empty  | lines   |\n* A table:\n  | inside  | a       |\n  | ------- | ------- |\n  | list    | item    |\n  | without | leading |\n  | empty   | lines   |\n"}
+{"t":"md","o":[0,62,3582],"s":"a\\\n\nb\n"}
+{"t":"md","o":[0,62,3582],"s":"a\\\n* b\n"}
+{"t":"md","o":[0,62,3582],"s":"a\\\n> b\n"}
+{"t":"md","o":[0,62,3582],"s":"a\\\n# b\n"}
+{"t":"md","o":[0,62,3582],"s":"a\\\n==\n"}
+{"t":"md","o":[0,62,3582],"s":"> a\\\n>\n"}
+{"t":"md","o":[0,62,3582],"s":"<a\n>\n"}
+{"t":"md","o":[0,62,3582],"s":"<div\n>\n"}
+{"t":"md","o":[0,62,3582],"s":"<a\n> quote\n"}
+{"t":"md","o":[0,62,3582],"s":"<div\n> not quote\n"}
+{"t":"md","o":[0,62,3582],"s":"<a\n>quote\n"}
+{"t":"md","o":[0,62,3582],"s":"<div\n>not quote\n"}
+{"t":"md","o":[0,62,3582],"s":"> alpha\n> | a | b |\n> |---|---|\n> | c | d |\n"}
+{"t":"md","o":[0,62,3582],"s":"***R]*-*\n"}
+{"t":"md","o":[0,62,3582],"s":"****foo*bar*baz****\n"}
+{"t":"md","o":[0,62,3582],"s":";\n*\n%\n"}
+{"t":"md","o":[0,62,3582],"s":";\n* \n%\n"}
+{"t":"md","o":[0,62,3582],"s":"<@1>\n"}
+{"t":"md","o":[0,62,3582],"s":"---\nanything:\n    indented4Spaces: true\n---\nThings\n"}
+{"t":"md","o":[0,62,3582],"s":"---\nsomething:\n  nested:\n    twice: true\n---\nThings\n"}
+{"t":"md","o":[0,62,3582],"s":"---\nlists:\n    - indented 4 spaces\n---\nThings\n"}
+{"t":"md","o":[0,62,3582],"s":"-\n\n-\n\n\n-\n\n\n\n-\n"}
+{"t":"md","o":[0,62,3582],"s":"-\n\n  -  .\n"}
+{"t":"md","o":[0,62,3582],"s":"j***5*=*\n"}
+{"t":"md","o":[0,62,3582],"s":"Not enough table\n\n|\n|\n\nNot enough table\n\n|x\n|\n\nNot enough table\n\n|\n|-\n\nTable\n\n|x\n|-\n\nNot enough table\n| col1 | col2 |\n|      | ---- |\n\nNot enough table\n| col1 | col2 |\n| :    | ---- |\n\nTable\n| col1 | col2 |\n| ---- | ---- |\n"}
+{"t":"md","o":[0,62,3582],"s":"[x] is not a valid link definition, because parens aren't balanced.\n\n[x]: (\n"}
+{"t":"md","o":[0,62,3582],"s":"Both of these two paragraphs are structurally the same, but the first one has\nan unmatched asterisk.\n\n_*_\n*{*{\n\n_x_\n*{*{\n"}
+{"t":"md","o":[0,62,3582],"s":"**a.*.**a*.**.\n"}
+{"t":"md","o":[0,62,3582],"s":"_*__*_*\n\n_*xx*_*\n\n_*__-_-\n\n_*xx-_-\n"}
+{"t":"md","o":[0,62,3582],"s":"-\n\n\t-\n\n\n- x\n\n\t-\n"}
+{"t":"md","o":[0,62,3582],"s":"-\n\n    -\n\n\n- x\n\n    -\n"}
+{"t":"md","o":[0,62,3582],"s":"[x\\\n\n]: https://rust-lang.org\n"}
+{"t":"md","o":[0,62,3582],"s":">>**#*\n>\n>**#*\n\n**#*\n\n|**#*|\n|----|\n|**#*|\n|**#*\n**#*|\n**#*\n"}
+{"t":"md","o":[0,62,3582],"s":"The second hyphen should parse the same way in both samples.\n\n - >*\n\n   -\n\nThe second hyphen should parse the same way in both samples.\n\n - >x\n\n   -\n"}
+{"t":"md","o":[0,62,3582],"s":"> Rewriting it in [Rust] is usually a bad idea.\n>\n> [Rust]:\nhttps://rust-lang.org\n"}
+{"t":"md","o":[0,62,3582],"s":"[First try\n----------\nSecond try]: https://rust-lang.org\n"}
+{"t":"md","o":[0,62,3582],"s":"[^foo][]\n\n[^foo][baz]\n\n[baz][^foo]\n\n[^foo]: bar\n\n[baz]: https://rust-lang.org\n"}
+{"t":"md","o":[0,62,3582],"s":"# foo \\\nbar \\\n"}
+{"t":"md","o":[0,62,3582],"s":"[third try]:\n-\n\n[third try]\n"}
+{"t":"md","o":[0,62,3582],"s":"- [foo]: test\nbar\n\n> [bar]: test\n[baz]: rstr\n[bar]\n"}
+{"t":"md","o":[0,62,3582],"s":"> - [foo]: test\n> bar\n> \n> > [bar]: test\n> [baz]: rstr\n> [bar]\n"}
+{"t":"md","o":[0,62,3582],"s":"[bar]: test\n-\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](\nfoo)\n\n> [link](\n> foo)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](foo\n)\n\n> [link](foo\n> )\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](foo\n\"bar\"\n)\n\n> [link](foo\n> \"bar\"\n> )\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](\t\n\tfoo\t\n\t\"bar\"\t\n\t)\n\n> [link](\t\n> \tfoo\t\n> \t\"bar\"\t\n> \t)\n"}
+{"t":"md","o":[0,62,3582],"s":"[linkme]: foo\n    - baz\n"}
+{"t":"md","o":[0,62,3582],"s":"[linkme-3]:\n   [^foo]:\n\n[linkme-4]:\n    [^bar]:\n\nGFM footnotes can interrupt link defs if they have three spaces, but not four.\n"}
+{"t":"md","o":[0,62,3582],"s":"[linkme-3]:\n   ===\n\n[linkme-4]:\n    ===\n\nSetext heading can interrupt link def if it has three spaces, but not four.\n"}
+{"t":"md","o":[0,62,3582],"s":"[linkme-3]: a\n   - a\n\n[linkme-4]: a\n    - b\n\nList can interrupt the paragraph at the start of a link definition if it starts with three spaces, but not four.\n"}
+{"t":"md","o":[0,62,3582],"s":"[first\n-\nsecond]: https://example.com\n\n[first\n-\nsecond]\n"}
+{"t":"md","o":[0,62,3582],"s":"[first\n    -\nsecond]: https://example.com\n\n[first\n    -\nsecond]\n"}
+{"t":"md","o":[0,62,3582],"s":"[first]: https://example.com\n\"\n-\n\"\n\n[first]\n"}
+{"t":"md","o":[0,62,3582],"s":"[first]: https://example.com\n\"\n    -\n\"\n\n[first]\n"}
+{"t":"md","o":[0,62,3582],"s":"> [first]: https://example.com\n> \"\n> -\n> \"\n>\n> [first]\n"}
+{"t":"md","o":[0,62,3582],"s":"> ```\n> code\n\n> text\n"}
+{"t":"md","o":[0,62,3582],"s":"> [first]: https://example.com\n> \"\n>     -\n> \"\n>\n> [first]\n"}
+{"t":"md","o":[0,62,3582],"s":"[first]: https://example.com\n\"\n\\\n\"\n\n[first]\n"}
+{"t":"md","o":[0,62,3582],"s":"[first]: https://example.com\n\"\n\\\n\n\"\n\n[first]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: https://example.com\n'[foo]'bar\n"}
+{"t":"md","o":[0,62,3582],"s":"- [foo]: https://example.com\n'[foo]'\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[\na]: https://example.com\n\n[b\n]: https://example.com\n\n[a] [b]\n"}
+{"t":"md","o":[0,62,3582],"s":"> > ```\n> > code\n>\n> > text\n"}
+{"t":"md","o":[0,62,3582],"s":"- *foo\n  - - \n  baz*\n"}
+{"t":"md","o":[0,62,3582],"s":"- `foo\n  - - \n  baz`\n"}
+{"t":"md","o":[0,62,3582],"s":"- [foo\n  - - \n  baz](https://example.com)\n"}
+{"t":"md","o":[0,62,3582],"s":"[mylink]\n\n[mylink]: https://example.com\n'\npart of the title'\n"}
+{"t":"md","o":[0,62,3582],"s":"1.\n      pulldown-cmark used to think this was code, but commonmark.js and commonmark-hs didn't.\n      The dot in the list marker is at column two, so the child paragraph actually\n      starts in column *three*.\n"}
+{"t":"md","o":[0,62,3582],"s":"1.\n  This is not in the list at all. It's a paragraph after it.\n"}
+{"t":"md","o":[0,62,3582],"s":"`\\!\\&quot;\\#\\$\\%\\&\n\\!\\&quot;\\#\\$\\%\\&\n\\!\\&quot;\\#\\$\\%\\&`\n"}
+{"t":"md","o":[0,62,3582],"s":"|\n-|- *\n"}
+{"t":"md","o":[0,62,3582],"s":" A paragraph is a paragraph and spaces must be removed. \n\n   Another paragraph whose spaces must be removed.  \n"}
+{"t":"md","o":[0,62,3582],"s":"![^1]\n\n[^1]: foo\n"}
+{"t":"md","o":[0,62,3582],"s":"First ![^1][] Second\n\n[^1]: foo\n"}
+{"t":"md","o":[0,62,3582],"s":"&#00000000; &#x0000000;\n"}
+{"t":"md","o":[0,62,3582],"s":"&#5307530;\n"}
+{"t":"md","o":[0,62,3582],"s":"- _t\n  # test\n  t_\n"}
+{"t":"md","o":[0,62,3582],"s":"* *_\n  #\n  N*\n"}
+{"t":"md","o":[0,62,3582],"s":"\n <foo>\n"}
+{"t":"md","o":[0,62,3582],"s":"\n<foo>\n"}
+{"t":"md","o":[0,62,3582],"s":"\n   <foo>\n"}
+{"t":"md","o":[0,62,3582],"s":"* <foo>\n\t<bar>\n"}
+{"t":"md","o":[0,62,3582],"s":"* test\n\n\t <foo>\n\t<bar>\n"}
+{"t":"md","o":[0,62,3582],"s":"*\n\t <div>\n\t <div>\n"}
+{"t":"md","o":[0,62,3582],"s":"*\n\t<div>\n\t<div>\n"}
+{"t":"md","o":[0,62,3582],"s":"*\n     <div>\n  <div>\n"}
+{"t":"md","o":[0,62,3582],"s":"*\n     <div>\n   <div>\n"}
+{"t":"md","o":[0,62,3582],"s":"*\n      <div>\n     <div>\n"}
+{"t":"md","o":[0,62,3582],"s":"[link]: test (()\n\n[link]\n"}
+{"t":"md","o":[0,62,3582],"s":"[link]: test (())\n\n[link]\n"}
+{"t":"md","o":[0,62,3582],"s":"[link]: test (\\(\\))\n\n[link]\n"}
+{"t":"md","o":[0,62,3582],"s":"[link]: test \"\"\"\n\n[link]\n"}
+{"t":"md","o":[0,62,3582],"s":"[link]: test \"\\\"\"\n\n[link]\n"}
+{"t":"md","o":[0,62,3582],"s":"[link]: test '''\n\n[link]\n"}
+{"t":"md","o":[0,62,3582],"s":"[link]: test '\\''\n\n[link]\n"}
+{"t":"md","o":[0,62,3582],"s":"-     test\n\n  test2\n"}
+{"t":"md","o":[0,62,3582],"s":"    test\n\ntest2\n"}
+{"t":"md","o":[0,62,3582],"s":"-     test\n  test2\n"}
+{"t":"md","o":[0,62,3582],"s":"-     test\n- test2\n"}
+{"t":"md","o":[0,62,3582],"s":"-     test\n\n- test2\n"}
+{"t":"md","o":[0,62,3582],"s":"<!p>\n\n<\\!p>\n"}
+{"t":"md","o":[0,62,3582],"s":"[linky]\n\n[linky]: ((()))\n"}
+{"t":"md","o":[0,62,3582],"s":"><span\ntitle\n>junk\n"}
+{"t":"md","o":[0,62,3582],"s":" ~~~\n    ~~~\n"}
+{"t":"md","o":[0,62,3582],"s":" ~~~\n   ~~~\n"}
+{"t":"md","o":[0,62,3582],"s":"[link]: destination \"\n          text          \"\n\n[link]\n"}
+{"t":"md","o":[0,62,3582],"s":"* _\n_**\n  ___\n  ^_\n"}
+{"t":"md","o":[0,62,3582],"s":"> [!Note]\n> - Foo\n"}
+{"t":"md","o":[0,62,3582],"s":" ---\n--\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"[30](https://rust.org/something%3A((((((((((((((((((((((((((((((())))))))))))))))))))))))))))))))\n[40](https://rust.org/something%3A((((((((((((((((((((((((((((((((((((((((())))))))))))))))))))))))))))))))))))))))))\n"}
+{"t":"md","o":[0,62,3582],"s":"- [x]\t\t\n\\\n-\n"}
+{"t":"md","o":[0,62,3582],"s":"* [ ] \n---\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"`\n`\n"}
+{"t":"md","o":[0,62,3582],"s":"\"Hello,\" said the spider.\n\"'Shelob' is my name.\"\n"}
+{"t":"md","o":[0,62,3582],"s":"'A', 'B', and 'C' are letters.\n"}
+{"t":"md","o":[0,62,3582],"s":"'Oak,' 'elm,' and 'beech' are names of trees.\nSo is 'pine.'\n"}
+{"t":"md","o":[0,62,3582],"s":"'He said, \"I want to go.\"'\n"}
+{"t":"md","o":[0,62,3582],"s":"Were you alive in the 70's?\n"}
+{"t":"md","o":[0,62,3582],"s":"Here is some quoted '`code`' and a \"[quoted link](url)\".\n"}
+{"t":"md","o":[0,62,3582],"s":"'tis the season to be 'jolly'\n"}
+{"t":"md","o":[0,62,3582],"s":"'We'll use Jane's boat and John's truck,' Jenna said.\n"}
+{"t":"md","o":[0,62,3582],"s":"\"A paragraph with no closing quote.\n\n\"Second paragraph by same speaker, in fiction.\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[a]'s b'\n"}
+{"t":"md","o":[0,62,3582],"s":"\\\"This is not smart.\\\"\nThis isn\\'t either.\n5\\'8\\\"\n"}
+{"t":"md","o":[0,62,3582],"s":"Some dashes:  em---em\nen--en\nem --- em\nen -- en\n2--3\n"}
+{"t":"md","o":[0,62,3582],"s":"one-\ntwo--\nthree---\nfour----\nfive-----\nsix------\nseven-------\neight--------\nnine---------\nthirteen-------------.\n"}
+{"t":"md","o":[0,62,3582],"s":"Escaped hyphens: \\-- \\-\\-\\-.\n"}
+{"t":"md","o":[0,62,3582],"s":"Ellipses...and...and....\n"}
+{"t":"md","o":[0,62,3582],"s":"No ellipses\\.\\.\\.\n"}
+{"t":"md","o":[0,62,3582],"s":"\tfoo\tbaz\t\tbim\n"}
+{"t":"md","o":[0,62,3582],"s":"  \tfoo\tbaz\t\tbim\n"}
+{"t":"md","o":[0,62,3582],"s":"    a\ta\n    ὐ\ta\n"}
+{"t":"md","o":[0,62,3582],"s":"  - foo\n\n\tbar\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n\n\t\tbar\n"}
+{"t":"md","o":[0,62,3582],"s":">\t\tfoo\n"}
+{"t":"md","o":[0,62,3582],"s":"-\t\tfoo\n"}
+{"t":"md","o":[0,62,3582],"s":"    foo\n\tbar\n"}
+{"t":"md","o":[0,62,3582],"s":" - foo\n   - bar\n\t - baz\n"}
+{"t":"md","o":[0,62,3582],"s":"#\tFoo\n"}
+{"t":"md","o":[0,62,3582],"s":"*\t*\t*\t\n"}
+{"t":"md","o":[0,62,3582],"s":"\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n"}
+{"t":"md","o":[0,62,3582],"s":"\\\t\\A\\a\\ \\3\\φ\\«\n"}
+{"t":"md","o":[0,62,3582],"s":"\\*not emphasized*\n\\<br/> not a tag\n\\[not a link](/foo)\n\\`not code`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo]: /url \"not a reference\"\n\\&ouml; not a character entity\n"}
+{"t":"md","o":[0,62,3582],"s":"\\\\*emphasis*\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\\\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"`` \\[\\` ``\n"}
+{"t":"md","o":[0,62,3582],"s":"    \\[\\]\n"}
+{"t":"md","o":[0,62,3582],"s":"~~~\n\\[\\]\n~~~\n"}
+{"t":"md","o":[0,62,3582],"s":"<https://example.com?find=\\*>\n"}
+{"t":"md","o":[0,62,3582],"s":"<a href=\"/bar\\/)\">\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo](/bar\\* \"ti\\*tle\")\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]\n\n[foo]: /bar\\* \"ti\\*tle\"\n"}
+{"t":"md","o":[0,62,3582],"s":"``` foo\\+bar\nfoo\n```\n"}
+{"t":"md","o":[0,62,3582],"s":"&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;\n"}
+{"t":"md","o":[0,62,3582],"s":"&#35; &#1234; &#992; &#0;\n"}
+{"t":"md","o":[0,62,3582],"s":"&#X22; &#XD06; &#xcab;\n"}
+{"t":"md","o":[0,62,3582],"s":"&nbsp &x; &#; &#x;\n&#87654321;\n&#abcdef0;\n&ThisIsNotDefined; &hi?;\n"}
+{"t":"md","o":[0,62,3582],"s":"&copy\n"}
+{"t":"md","o":[0,62,3582],"s":"&MadeUpEntity;\n"}
+{"t":"md","o":[0,62,3582],"s":"<a href=\"&ouml;&ouml;.html\">\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"\n"}
+{"t":"md","o":[0,62,3582],"s":"``` f&ouml;&ouml;\nfoo\n```\n"}
+{"t":"md","o":[0,62,3582],"s":"`f&ouml;&ouml;`\n"}
+{"t":"md","o":[0,62,3582],"s":"    f&ouml;f&ouml;\n"}
+{"t":"md","o":[0,62,3582],"s":"&#42;foo&#42;\n*foo*\n"}
+{"t":"md","o":[0,62,3582],"s":"&#42; foo\n\n* foo\n"}
+{"t":"md","o":[0,62,3582],"s":"foo&#10;&#10;bar\n"}
+{"t":"md","o":[0,62,3582],"s":"&#9;foo\n"}
+{"t":"md","o":[0,62,3582],"s":"[a](url &quot;tit&quot;)\n"}
+{"t":"md","o":[0,62,3582],"s":"- `one\n- two`\n"}
+{"t":"md","o":[0,62,3582],"s":"***\n---\n___\n"}
+{"t":"md","o":[0,62,3582],"s":"+++\n"}
+{"t":"md","o":[0,62,3582],"s":"===\n"}
+{"t":"md","o":[0,62,3582],"s":"--\n**\n__\n"}
+{"t":"md","o":[0,62,3582],"s":" ***\n  ***\n   ***\n"}
+{"t":"md","o":[0,62,3582],"s":"    ***\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n    ***\n"}
+{"t":"md","o":[0,62,3582],"s":"_____________________________________\n"}
+{"t":"md","o":[0,62,3582],"s":" - - -\n"}
+{"t":"md","o":[0,62,3582],"s":" **  * ** * ** * **\n"}
+{"t":"md","o":[0,62,3582],"s":"-     -      -      -\n"}
+{"t":"md","o":[0,62,3582],"s":"- - - -    \n"}
+{"t":"md","o":[0,62,3582],"s":"_ _ _ _ a\n\na------\n\n---a---\n"}
+{"t":"md","o":[0,62,3582],"s":" *-*\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n***\n- bar\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n***\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n---\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"* Foo\n* * *\n* Bar\n"}
+{"t":"md","o":[0,62,3582],"s":"- Foo\n- * * *\n"}
+{"t":"md","o":[0,62,3582],"s":"# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo\n"}
+{"t":"md","o":[0,62,3582],"s":"####### foo\n"}
+{"t":"md","o":[0,62,3582],"s":"#5 bolt\n\n#hashtag\n"}
+{"t":"md","o":[0,62,3582],"s":"\\## foo\n"}
+{"t":"md","o":[0,62,3582],"s":"# foo *bar* \\*baz\\*\n"}
+{"t":"md","o":[0,62,3582],"s":"#                  foo                     \n"}
+{"t":"md","o":[0,62,3582],"s":" ### foo\n  ## foo\n   # foo\n"}
+{"t":"md","o":[0,62,3582],"s":"    # foo\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\n    # bar\n"}
+{"t":"md","o":[0,62,3582],"s":"## foo ##\n  ###   bar    ###\n"}
+{"t":"md","o":[0,62,3582],"s":"# foo ##################################\n##### foo ##\n"}
+{"t":"md","o":[0,62,3582],"s":"### foo ###     \n"}
+{"t":"md","o":[0,62,3582],"s":"### foo ### b\n"}
+{"t":"md","o":[0,62,3582],"s":"# foo#\n"}
+{"t":"md","o":[0,62,3582],"s":"### foo \\###\n## foo #\\##\n# foo \\#\n"}
+{"t":"md","o":[0,62,3582],"s":"****\n## foo\n****\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo bar\n# baz\nBar foo\n"}
+{"t":"md","o":[0,62,3582],"s":"## \n#\n### ###\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo *bar*\n=========\n\nFoo *bar*\n---------\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo *bar\nbaz*\n====\n"}
+{"t":"md","o":[0,62,3582],"s":"  Foo *bar\nbaz*\t\n====\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n-------------------------\n\nFoo\n=\n"}
+{"t":"md","o":[0,62,3582],"s":"   Foo\n---\n\n  Foo\n-----\n\n  Foo\n  ===\n"}
+{"t":"md","o":[0,62,3582],"s":"    Foo\n    ---\n\n    Foo\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n   ----      \n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n    ---\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n= =\n\nFoo\n--- -\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo  \n-----\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\\\n----\n"}
+{"t":"md","o":[0,62,3582],"s":"`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n"}
+{"t":"md","o":[0,62,3582],"s":"> Foo\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"> foo\nbar\n===\n"}
+{"t":"md","o":[0,62,3582],"s":"- Foo\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\nBar\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"---\nFoo\n---\nBar\n---\nBaz\n"}
+{"t":"md","o":[0,62,3582],"s":"\n====\n"}
+{"t":"md","o":[0,62,3582],"s":"---\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n-----\n"}
+{"t":"md","o":[0,62,3582],"s":"    foo\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"> foo\n-----\n"}
+{"t":"md","o":[0,62,3582],"s":"\\> foo\n------\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n\nbar\n---\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\nbar\n\n---\n\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\nbar\n* * *\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\nbar\n\\---\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"    a simple\n      indented code block\n"}
+{"t":"md","o":[0,62,3582],"s":"  - foo\n\n    bar\n"}
+{"t":"md","o":[0,62,3582],"s":"1.  foo\n\n    - bar\n"}
+{"t":"md","o":[0,62,3582],"s":"    <a/>\n    *hi*\n\n    - one\n"}
+{"t":"md","o":[0,62,3582],"s":"    chunk1\n\n    chunk2\n  \n \n \n    chunk3\n"}
+{"t":"md","o":[0,62,3582],"s":"    chunk1\n      \n      chunk2\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n    bar\n\n"}
+{"t":"md","o":[0,62,3582],"s":"    foo\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"# Heading\n    foo\nHeading\n------\n    foo\n----\n"}
+{"t":"md","o":[0,62,3582],"s":"        foo\n    bar\n"}
+{"t":"md","o":[0,62,3582],"s":"\n    \n    foo\n    \n\n"}
+{"t":"md","o":[0,62,3582],"s":"    foo  \n"}
+{"t":"md","o":[0,62,3582],"s":"```\n<\n >\n```\n"}
+{"t":"md","o":[0,62,3582],"s":"~~~\n<\n >\n~~~\n"}
+{"t":"md","o":[0,62,3582],"s":"``\nfoo\n``\n"}
+{"t":"md","o":[0,62,3582],"s":"```\naaa\n~~~\n```\n"}
+{"t":"md","o":[0,62,3582],"s":"~~~\naaa\n```\n~~~\n"}
+{"t":"md","o":[0,62,3582],"s":"````\naaa\n```\n``````\n"}
+{"t":"md","o":[0,62,3582],"s":"~~~~\naaa\n~~~\n~~~~\n"}
+{"t":"md","o":[0,62,3582],"s":"```\n"}
+{"t":"md","o":[0,62,3582],"s":"`````\n\n```\naaa\n"}
+{"t":"md","o":[0,62,3582],"s":"> ```\n> aaa\n\nbbb\n"}
+{"t":"md","o":[0,62,3582],"s":"```\n\n  \n```\n"}
+{"t":"md","o":[0,62,3582],"s":"```\n```\n"}
+{"t":"md","o":[0,62,3582],"s":" ```\n aaa\naaa\n```\n"}
+{"t":"md","o":[0,62,3582],"s":"  ```\naaa\n  aaa\naaa\n  ```\n"}
+{"t":"md","o":[0,62,3582],"s":"   ```\n   aaa\n    aaa\n  aaa\n   ```\n"}
+{"t":"md","o":[0,62,3582],"s":"    ```\n    aaa\n    ```\n"}
+{"t":"md","o":[0,62,3582],"s":"```\naaa\n  ```\n"}
+{"t":"md","o":[0,62,3582],"s":"   ```\naaa\n  ```\n"}
+{"t":"md","o":[0,62,3582],"s":"```\naaa\n    ```\n"}
+{"t":"md","o":[0,62,3582],"s":"``` ```\naaa\n"}
+{"t":"md","o":[0,62,3582],"s":"~~~~~~\naaa\n~~~ ~~\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\n```\nbar\n```\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\n---\n~~~\nbar\n~~~\n# baz\n"}
+{"t":"md","o":[0,62,3582],"s":"```ruby\ndef foo(x)\n  return 3\nend\n```\n"}
+{"t":"md","o":[0,62,3582],"s":"~~~~    ruby startline=3 $%@#$\ndef foo(x)\n  return 3\nend\n~~~~~~~\n"}
+{"t":"md","o":[0,62,3582],"s":"````;\n````\n"}
+{"t":"md","o":[0,62,3582],"s":"``` aa ```\nfoo\n"}
+{"t":"md","o":[0,62,3582],"s":"~~~ aa ``` ~~~\nfoo\n~~~\n"}
+{"t":"md","o":[0,62,3582],"s":"```\n``` aaa\n```\n"}
+{"t":"md","o":[0,62,3582],"s":"<table><tr><td>\n<pre>\n**Hello**,\n\n_world_.\n</pre>\n</td></tr></table>\n"}
+{"t":"md","o":[0,62,3582],"s":"<table>\n  <tr>\n    <td>\n           hi\n    </td>\n  </tr>\n</table>\n\nokay.\n"}
+{"t":"md","o":[0,62,3582],"s":" <div>\n  *hello*\n         <foo><a>\n"}
+{"t":"md","o":[0,62,3582],"s":"</div>\n*foo*\n"}
+{"t":"md","o":[0,62,3582],"s":"<DIV CLASS=\"foo\">\n\n*Markdown*\n\n</DIV>\n"}
+{"t":"md","o":[0,62,3582],"s":"<div id=\"foo\"\n  class=\"bar\">\n</div>\n"}
+{"t":"md","o":[0,62,3582],"s":"<div id=\"foo\" class=\"bar\n  baz\">\n</div>\n"}
+{"t":"md","o":[0,62,3582],"s":"<div>\n*foo*\n\n*bar*\n"}
+{"t":"md","o":[0,62,3582],"s":"<div id=\"foo\"\n*hi*\n"}
+{"t":"md","o":[0,62,3582],"s":"<div class\nfoo\n"}
+{"t":"md","o":[0,62,3582],"s":"<div *???-&&&-<---\n*foo*\n"}
+{"t":"md","o":[0,62,3582],"s":"<div><a href=\"bar\">*foo*</a></div>\n"}
+{"t":"md","o":[0,62,3582],"s":"<table><tr><td>\nfoo\n</td></tr></table>\n"}
+{"t":"md","o":[0,62,3582],"s":"<div></div>\n``` c\nint x = 33;\n```\n"}
+{"t":"md","o":[0,62,3582],"s":"<a href=\"foo\">\n*bar*\n</a>\n"}
+{"t":"md","o":[0,62,3582],"s":"<Warning>\n*bar*\n</Warning>\n"}
+{"t":"md","o":[0,62,3582],"s":"<i class=\"foo\">\n*bar*\n</i>\n"}
+{"t":"md","o":[0,62,3582],"s":"</ins>\n*bar*\n"}
+{"t":"md","o":[0,62,3582],"s":"<del>\n*foo*\n</del>\n"}
+{"t":"md","o":[0,62,3582],"s":"<del>\n\n*foo*\n\n</del>\n"}
+{"t":"md","o":[0,62,3582],"s":"<del>*foo*</del>\n"}
+{"t":"md","o":[0,62,3582],"s":"<pre language=\"haskell\"><code>\nimport Text.HTML.TagSoup\n\nmain :: IO ()\nmain = print $ parseTags tags\n</code></pre>\nokay\n"}
+{"t":"md","o":[0,62,3582],"s":"<script type=\"text/javascript\">\n// JavaScript example\n\ndocument.getElementById(\"demo\").innerHTML = \"Hello JavaScript!\";\n</script>\nokay\n"}
+{"t":"md","o":[0,62,3582],"s":"<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n"}
+{"t":"md","o":[0,62,3582],"s":"<style\n  type=\"text/css\">\nh1 {color:red;}\n\np {color:blue;}\n</style>\nokay\n"}
+{"t":"md","o":[0,62,3582],"s":"<style\n  type=\"text/css\">\n\nfoo\n"}
+{"t":"md","o":[0,62,3582],"s":"> <div>\n> foo\n\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"- <div>\n- foo\n"}
+{"t":"md","o":[0,62,3582],"s":"<style>p{color:red;}</style>\n*foo*\n"}
+{"t":"md","o":[0,62,3582],"s":"<!-- foo -->*bar*\n*baz*\n"}
+{"t":"md","o":[0,62,3582],"s":"<script>\nfoo\n</script>1. *bar*\n"}
+{"t":"md","o":[0,62,3582],"s":"<!-- Foo\n\nbar\n   baz -->\nokay\n"}
+{"t":"md","o":[0,62,3582],"s":"<?php\n\n  echo '>';\n\n?>\nokay\n"}
+{"t":"md","o":[0,62,3582],"s":"<!DOCTYPE html>\n"}
+{"t":"md","o":[0,62,3582],"s":"<![CDATA[\nfunction matchwo(a,b)\n{\n  if (a < b && a < 0) then {\n    return 1;\n\n  } else {\n\n    return 0;\n  }\n}\n]]>\nokay\n"}
+{"t":"md","o":[0,62,3582],"s":"  <!-- foo -->\n\n    <!-- foo -->\n"}
+{"t":"md","o":[0,62,3582],"s":"  <div>\n\n    <div>\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n<div>\nbar\n</div>\n"}
+{"t":"md","o":[0,62,3582],"s":"<div>\nbar\n</div>\n*foo*\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n<a href=\"bar\">\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"<div>\n\n*Emphasized* text.\n\n</div>\n"}
+{"t":"md","o":[0,62,3582],"s":"<div>\n*Emphasized* text.\n</div>\n"}
+{"t":"md","o":[0,62,3582],"s":"<table>\n\n<tr>\n\n<td>\nHi\n</td>\n\n</tr>\n\n</table>\n"}
+{"t":"md","o":[0,62,3582],"s":"<table>\n\n  <tr>\n\n    <td>\n      Hi\n    </td>\n\n  </tr>\n\n</table>\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url \"title\"\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"   [foo]: \n      /url  \n           'the title'  \n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[Foo*bar\\]]:my_(url) 'title (with parens)'\n\n[Foo*bar\\]]\n"}
+{"t":"md","o":[0,62,3582],"s":"[Foo bar]:\n<my url>\n'title'\n\n[Foo bar]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url '\ntitle\nline1\nline2\n'\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url 'title\n\nwith blank line'\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]:\n/url\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]:\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: <>\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: <bar>(baz)\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]\n\n[foo]: url\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]\n\n[foo]: first\n[foo]: second\n"}
+{"t":"md","o":[0,62,3582],"s":"[FOO]: /url\n\n[Foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[ΑΓΩ]: /φου\n\n[αγω]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"[\nfoo\n]: /url\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url \"title\" ok\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url\n\"title\" ok\n"}
+{"t":"md","o":[0,62,3582],"s":"    [foo]: /url \"title\"\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"```\n[foo]: /url\n```\n\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n[bar]: /baz\n\n[bar]\n"}
+{"t":"md","o":[0,62,3582],"s":"# [Foo]\n[foo]: /url\n> bar\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url\nbar\n===\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url\n===\n[foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /foo-url \"foo\"\n[bar]: /bar-url\n  \"bar\"\n[baz]: /baz-url\n\n[foo],\n[bar],\n[baz]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]\n\n> [foo]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"aaa\n\nbbb\n"}
+{"t":"md","o":[0,62,3582],"s":"aaa\nbbb\n\nccc\nddd\n"}
+{"t":"md","o":[0,62,3582],"s":"aaa\n\n\nbbb\n"}
+{"t":"md","o":[0,62,3582],"s":"  aaa\n bbb\n"}
+{"t":"md","o":[0,62,3582],"s":"aaa\n             bbb\n                                       ccc\n"}
+{"t":"md","o":[0,62,3582],"s":"   aaa\nbbb\n"}
+{"t":"md","o":[0,62,3582],"s":"    aaa\nbbb\n"}
+{"t":"md","o":[0,62,3582],"s":"aaa     \nbbb     \n"}
+{"t":"md","o":[0,62,3582],"s":"  \n\naaa\n  \n\n# aaa\n\n  \n"}
+{"t":"md","o":[0,62,3582],"s":"> # Foo\n> bar\n> baz\n"}
+{"t":"md","o":[0,62,3582],"s":"># Foo\n>bar\n> baz\n"}
+{"t":"md","o":[0,62,3582],"s":"   > # Foo\n   > bar\n > baz\n"}
+{"t":"md","o":[0,62,3582],"s":"    > # Foo\n    > bar\n    > baz\n"}
+{"t":"md","o":[0,62,3582],"s":"> # Foo\n> bar\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"> bar\nbaz\n> foo\n"}
+{"t":"md","o":[0,62,3582],"s":"> foo\n---\n"}
+{"t":"md","o":[0,62,3582],"s":"> - foo\n- bar\n"}
+{"t":"md","o":[0,62,3582],"s":">     foo\n    bar\n"}
+{"t":"md","o":[0,62,3582],"s":"> ```\nfoo\n```\n"}
+{"t":"md","o":[0,62,3582],"s":"> foo\n    - bar\n"}
+{"t":"md","o":[0,62,3582],"s":">\n"}
+{"t":"md","o":[0,62,3582],"s":">\n>  \n> \n"}
+{"t":"md","o":[0,62,3582],"s":">\n> foo\n>  \n"}
+{"t":"md","o":[0,62,3582],"s":"> foo\n\n> bar\n"}
+{"t":"md","o":[0,62,3582],"s":"> foo\n> bar\n"}
+{"t":"md","o":[0,62,3582],"s":"> foo\n>\n> bar\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\n> bar\n"}
+{"t":"md","o":[0,62,3582],"s":"> aaa\n***\n> bbb\n"}
+{"t":"md","o":[0,62,3582],"s":"> bar\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"> bar\n\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"> bar\n>\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"> > > foo\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":">>> foo\n> bar\n>>baz\n"}
+{"t":"md","o":[0,62,3582],"s":">     code\n\n>    not code\n"}
+{"t":"md","o":[0,62,3582],"s":"A paragraph\nwith two lines.\n\n    indented code\n\n> A block quote.\n"}
+{"t":"md","o":[0,62,3582],"s":"1.  A paragraph\n    with two lines.\n\n        indented code\n\n    > A block quote.\n"}
+{"t":"md","o":[0,62,3582],"s":"- one\n\n two\n"}
+{"t":"md","o":[0,62,3582],"s":"- one\n\n  two\n"}
+{"t":"md","o":[0,62,3582],"s":" -    one\n\n     two\n"}
+{"t":"md","o":[0,62,3582],"s":" -    one\n\n      two\n"}
+{"t":"md","o":[0,62,3582],"s":"   > > 1.  one\n>>\n>>     two\n"}
+{"t":"md","o":[0,62,3582],"s":">>- one\n>>\n  >  > two\n"}
+{"t":"md","o":[0,62,3582],"s":"-one\n\n2.two\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n\n\n  bar\n"}
+{"t":"md","o":[0,62,3582],"s":"1.  foo\n\n    ```\n    bar\n    ```\n\n    baz\n\n    > bam\n"}
+{"t":"md","o":[0,62,3582],"s":"- Foo\n\n      bar\n\n\n      baz\n"}
+{"t":"md","o":[0,62,3582],"s":"123456789. ok\n"}
+{"t":"md","o":[0,62,3582],"s":"1234567890. not ok\n"}
+{"t":"md","o":[0,62,3582],"s":"0. ok\n"}
+{"t":"md","o":[0,62,3582],"s":"003. ok\n"}
+{"t":"md","o":[0,62,3582],"s":"-1. not ok\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n\n      bar\n"}
+{"t":"md","o":[0,62,3582],"s":"  10.  foo\n\n           bar\n"}
+{"t":"md","o":[0,62,3582],"s":"    indented code\n\nparagraph\n\n    more code\n"}
+{"t":"md","o":[0,62,3582],"s":"1.     indented code\n\n   paragraph\n\n       more code\n"}
+{"t":"md","o":[0,62,3582],"s":"1.      indented code\n\n   paragraph\n\n       more code\n"}
+{"t":"md","o":[0,62,3582],"s":"   foo\n\nbar\n"}
+{"t":"md","o":[0,62,3582],"s":"-    foo\n\n  bar\n"}
+{"t":"md","o":[0,62,3582],"s":"-  foo\n\n   bar\n"}
+{"t":"md","o":[0,62,3582],"s":"-\n  foo\n-\n  ```\n  bar\n  ```\n-\n      baz\n"}
+{"t":"md","o":[0,62,3582],"s":"-   \n  foo\n"}
+{"t":"md","o":[0,62,3582],"s":"-\n\n  foo\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n-\n- bar\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n-   \n- bar\n"}
+{"t":"md","o":[0,62,3582],"s":"1. foo\n2.\n3. bar\n"}
+{"t":"md","o":[0,62,3582],"s":"*\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\n*\n\nfoo\n1.\n"}
+{"t":"md","o":[0,62,3582],"s":" 1.  A paragraph\n     with two lines.\n\n         indented code\n\n     > A block quote.\n"}
+{"t":"md","o":[0,62,3582],"s":"  1.  A paragraph\n      with two lines.\n\n          indented code\n\n      > A block quote.\n"}
+{"t":"md","o":[0,62,3582],"s":"   1.  A paragraph\n       with two lines.\n\n           indented code\n\n       > A block quote.\n"}
+{"t":"md","o":[0,62,3582],"s":"    1.  A paragraph\n        with two lines.\n\n            indented code\n\n        > A block quote.\n"}
+{"t":"md","o":[0,62,3582],"s":"  1.  A paragraph\nwith two lines.\n\n          indented code\n\n      > A block quote.\n"}
+{"t":"md","o":[0,62,3582],"s":"  1.  A paragraph\n    with two lines.\n"}
+{"t":"md","o":[0,62,3582],"s":"> 1. > Blockquote\ncontinued here.\n"}
+{"t":"md","o":[0,62,3582],"s":"> 1. > Blockquote\n> continued here.\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n  - bar\n    - baz\n      - boo\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n - bar\n  - baz\n   - boo\n"}
+{"t":"md","o":[0,62,3582],"s":"10) foo\n    - bar\n"}
+{"t":"md","o":[0,62,3582],"s":"10) foo\n   - bar\n"}
+{"t":"md","o":[0,62,3582],"s":"- - foo\n"}
+{"t":"md","o":[0,62,3582],"s":"1. - 2. foo\n"}
+{"t":"md","o":[0,62,3582],"s":"- # Foo\n- Bar\n  ---\n  baz\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n- bar\n+ baz\n"}
+{"t":"md","o":[0,62,3582],"s":"1. foo\n2. bar\n3) baz\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo\n- bar\n- baz\n"}
+{"t":"md","o":[0,62,3582],"s":"The number of windows in my house is\n14.  The number of doors is 6.\n"}
+{"t":"md","o":[0,62,3582],"s":"The number of windows in my house is\n1.  The number of doors is 6.\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n\n- bar\n\n\n- baz\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n  - bar\n    - baz\n\n\n      bim\n"}
+{"t":"md","o":[0,62,3582],"s":"- foo\n- bar\n\n<!-- -->\n\n- baz\n- bim\n"}
+{"t":"md","o":[0,62,3582],"s":"-   foo\n\n    notcode\n\n-   foo\n\n<!-- -->\n\n    code\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n - b\n  - c\n   - d\n  - e\n - f\n- g\n"}
+{"t":"md","o":[0,62,3582],"s":"1. a\n\n  2. b\n\n   3. c\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n - b\n  - c\n   - d\n    - e\n"}
+{"t":"md","o":[0,62,3582],"s":"1. a\n\n  2. b\n\n    3. c\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n- b\n\n- c\n"}
+{"t":"md","o":[0,62,3582],"s":"* a\n*\n\n* c\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n- b\n\n  c\n- d\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n- b\n\n  [ref]: /url\n- d\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n- ```\n  b\n\n\n  ```\n- c\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n  - b\n\n    c\n- d\n"}
+{"t":"md","o":[0,62,3582],"s":"* a\n  > b\n  >\n* c\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n  > b\n  ```\n  c\n  ```\n- d\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n  - b\n"}
+{"t":"md","o":[0,62,3582],"s":"1. ```\n   foo\n   ```\n\n   bar\n"}
+{"t":"md","o":[0,62,3582],"s":"* foo\n  * bar\n\n  baz\n"}
+{"t":"md","o":[0,62,3582],"s":"- a\n  - b\n  - c\n\n- d\n  - e\n  - f\n"}
+{"t":"md","o":[0,62,3582],"s":"`hi`lo`\n"}
+{"t":"md","o":[0,62,3582],"s":"`foo`\n"}
+{"t":"md","o":[0,62,3582],"s":"`` foo ` bar ``\n"}
+{"t":"md","o":[0,62,3582],"s":"` `` `\n"}
+{"t":"md","o":[0,62,3582],"s":"`  ``  `\n"}
+{"t":"md","o":[0,62,3582],"s":"` a`\n"}
+{"t":"md","o":[0,62,3582],"s":"` b `\n"}
+{"t":"md","o":[0,62,3582],"s":"` `\n`  `\n"}
+{"t":"md","o":[0,62,3582],"s":"``\nfoo\nbar  \nbaz\n``\n"}
+{"t":"md","o":[0,62,3582],"s":"``\nfoo \n``\n"}
+{"t":"md","o":[0,62,3582],"s":"`foo   bar \nbaz`\n"}
+{"t":"md","o":[0,62,3582],"s":"`foo\\`bar`\n"}
+{"t":"md","o":[0,62,3582],"s":"``foo`bar``\n"}
+{"t":"md","o":[0,62,3582],"s":"` foo `` bar `\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo`*`\n"}
+{"t":"md","o":[0,62,3582],"s":"[not a `link](/foo`)\n"}
+{"t":"md","o":[0,62,3582],"s":"`<a href=\"`\">`\n"}
+{"t":"md","o":[0,62,3582],"s":"<a href=\"`\">`\n"}
+{"t":"md","o":[0,62,3582],"s":"`<https://foo.bar.`baz>`\n"}
+{"t":"md","o":[0,62,3582],"s":"<https://foo.bar.`baz>`\n"}
+{"t":"md","o":[0,62,3582],"s":"```foo``\n"}
+{"t":"md","o":[0,62,3582],"s":"`foo\n"}
+{"t":"md","o":[0,62,3582],"s":"`foo``bar``\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo bar*\n"}
+{"t":"md","o":[0,62,3582],"s":"a * foo bar*\n"}
+{"t":"md","o":[0,62,3582],"s":"a*\"foo\"*\n"}
+{"t":"md","o":[0,62,3582],"s":"* a *\n"}
+{"t":"md","o":[0,62,3582],"s":"*$*alpha.\n\n*£*bravo.\n\n*€*charlie.\n"}
+{"t":"md","o":[0,62,3582],"s":"foo*bar*\n"}
+{"t":"md","o":[0,62,3582],"s":"5*6*78\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo bar_\n"}
+{"t":"md","o":[0,62,3582],"s":"_ foo bar_\n"}
+{"t":"md","o":[0,62,3582],"s":"a_\"foo\"_\n"}
+{"t":"md","o":[0,62,3582],"s":"foo_bar_\n"}
+{"t":"md","o":[0,62,3582],"s":"5_6_78\n"}
+{"t":"md","o":[0,62,3582],"s":"пристаням_стремятся_\n"}
+{"t":"md","o":[0,62,3582],"s":"aa_\"bb\"_cc\n"}
+{"t":"md","o":[0,62,3582],"s":"foo-_(bar)_\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo*\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo bar *\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo bar\n*\n"}
+{"t":"md","o":[0,62,3582],"s":"*(*foo)\n"}
+{"t":"md","o":[0,62,3582],"s":"*(*foo*)*\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo*bar\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo bar _\n"}
+{"t":"md","o":[0,62,3582],"s":"_(_foo)\n"}
+{"t":"md","o":[0,62,3582],"s":"_(_foo_)_\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo_bar\n"}
+{"t":"md","o":[0,62,3582],"s":"_пристаням_стремятся\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo_bar_baz_\n"}
+{"t":"md","o":[0,62,3582],"s":"_(bar)_.\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo bar**\n"}
+{"t":"md","o":[0,62,3582],"s":"** foo bar**\n"}
+{"t":"md","o":[0,62,3582],"s":"a**\"foo\"**\n"}
+{"t":"md","o":[0,62,3582],"s":"foo**bar**\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo bar__\n"}
+{"t":"md","o":[0,62,3582],"s":"__ foo bar__\n"}
+{"t":"md","o":[0,62,3582],"s":"__\nfoo bar__\n"}
+{"t":"md","o":[0,62,3582],"s":"a__\"foo\"__\n"}
+{"t":"md","o":[0,62,3582],"s":"foo__bar__\n"}
+{"t":"md","o":[0,62,3582],"s":"5__6__78\n"}
+{"t":"md","o":[0,62,3582],"s":"пристаням__стремятся__\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo, __bar__, baz__\n"}
+{"t":"md","o":[0,62,3582],"s":"foo-__(bar)__\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo bar **\n"}
+{"t":"md","o":[0,62,3582],"s":"**(**foo)\n"}
+{"t":"md","o":[0,62,3582],"s":"*(**foo**)*\n"}
+{"t":"md","o":[0,62,3582],"s":"**Gomphocarpus (*Gomphocarpus physocarpus*, syn.\n*Asclepias physocarpa*)**\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo \"*bar*\" foo**\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo**bar\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo bar __\n"}
+{"t":"md","o":[0,62,3582],"s":"__(__foo)\n"}
+{"t":"md","o":[0,62,3582],"s":"_(__foo__)_\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo__bar\n"}
+{"t":"md","o":[0,62,3582],"s":"__пристаням__стремятся\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo__bar__baz__\n"}
+{"t":"md","o":[0,62,3582],"s":"__(bar)__.\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo [bar](/url)*\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo\nbar*\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo __bar__ baz_\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo _bar_ baz_\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo_ bar_\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo *bar**\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo **bar** baz*\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo**bar**baz*\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo**bar*\n"}
+{"t":"md","o":[0,62,3582],"s":"***foo** bar*\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo **bar***\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo**bar***\n"}
+{"t":"md","o":[0,62,3582],"s":"foo***bar***baz\n"}
+{"t":"md","o":[0,62,3582],"s":"foo******bar*********baz\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo **bar *baz* bim** bop*\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo [*bar*](/url)*\n"}
+{"t":"md","o":[0,62,3582],"s":"** is not an empty emphasis\n"}
+{"t":"md","o":[0,62,3582],"s":"**** is not an empty strong emphasis\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo [bar](/url)**\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo\nbar**\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo _bar_ baz__\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo __bar__ baz__\n"}
+{"t":"md","o":[0,62,3582],"s":"____foo__ bar__\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo **bar****\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo *bar* baz**\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo*bar*baz**\n"}
+{"t":"md","o":[0,62,3582],"s":"***foo* bar**\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo *bar***\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo *bar **baz**\nbim* bop**\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo [*bar*](/url)**\n"}
+{"t":"md","o":[0,62,3582],"s":"__ is not an empty emphasis\n"}
+{"t":"md","o":[0,62,3582],"s":"____ is not an empty strong emphasis\n"}
+{"t":"md","o":[0,62,3582],"s":"foo ***\n"}
+{"t":"md","o":[0,62,3582],"s":"foo *\\**\n"}
+{"t":"md","o":[0,62,3582],"s":"foo *_*\n"}
+{"t":"md","o":[0,62,3582],"s":"foo *****\n"}
+{"t":"md","o":[0,62,3582],"s":"foo **\\***\n"}
+{"t":"md","o":[0,62,3582],"s":"foo **_**\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo*\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo**\n"}
+{"t":"md","o":[0,62,3582],"s":"***foo**\n"}
+{"t":"md","o":[0,62,3582],"s":"****foo*\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo***\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo****\n"}
+{"t":"md","o":[0,62,3582],"s":"foo ___\n"}
+{"t":"md","o":[0,62,3582],"s":"foo _\\__\n"}
+{"t":"md","o":[0,62,3582],"s":"foo _*_\n"}
+{"t":"md","o":[0,62,3582],"s":"foo _____\n"}
+{"t":"md","o":[0,62,3582],"s":"foo __\\___\n"}
+{"t":"md","o":[0,62,3582],"s":"foo __*__\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo_\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo__\n"}
+{"t":"md","o":[0,62,3582],"s":"___foo__\n"}
+{"t":"md","o":[0,62,3582],"s":"____foo_\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo___\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo____\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo**\n"}
+{"t":"md","o":[0,62,3582],"s":"*_foo_*\n"}
+{"t":"md","o":[0,62,3582],"s":"__foo__\n"}
+{"t":"md","o":[0,62,3582],"s":"_*foo*_\n"}
+{"t":"md","o":[0,62,3582],"s":"****foo****\n"}
+{"t":"md","o":[0,62,3582],"s":"____foo____\n"}
+{"t":"md","o":[0,62,3582],"s":"******foo******\n"}
+{"t":"md","o":[0,62,3582],"s":"***foo***\n"}
+{"t":"md","o":[0,62,3582],"s":"_____foo_____\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo _bar* baz_\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo __bar *baz bim__ bam*\n"}
+{"t":"md","o":[0,62,3582],"s":"**foo **bar baz**\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo *bar baz*\n"}
+{"t":"md","o":[0,62,3582],"s":"*[bar*](/url)\n"}
+{"t":"md","o":[0,62,3582],"s":"_foo [bar_](/url)\n"}
+{"t":"md","o":[0,62,3582],"s":"*<img src=\"foo\" title=\"*\"/>\n"}
+{"t":"md","o":[0,62,3582],"s":"**<a href=\"**\">\n"}
+{"t":"md","o":[0,62,3582],"s":"__<a href=\"__\">\n"}
+{"t":"md","o":[0,62,3582],"s":"*a `*`*\n"}
+{"t":"md","o":[0,62,3582],"s":"_a `_`_\n"}
+{"t":"md","o":[0,62,3582],"s":"**a<https://foo.bar/?q=**>\n"}
+{"t":"md","o":[0,62,3582],"s":"__a<https://foo.bar/?q=__>\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](/uri \"title\")\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[](./target.md)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link]()\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](<>)\n"}
+{"t":"md","o":[0,62,3582],"s":"[]()\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](/my uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](</my uri>)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](foo\nbar)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](<foo\nbar>)\n"}
+{"t":"md","o":[0,62,3582],"s":"[a](<b)c>)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](<foo\\>)\n"}
+{"t":"md","o":[0,62,3582],"s":"[a](<b)c\n[a](<b)c>\n[a](<b>c)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](\\(foo\\))\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](foo(and(bar)))\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](foo(and(bar))\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](foo\\(and\\(bar\\))\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](<foo(and(bar)>)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](foo\\)\\:)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](#fragment)\n\n[link](https://example.com#fragment)\n\n[link](https://example.com?foo=3#frag)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](foo\\bar)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](foo%20b&auml;)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](\"title\")\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](/url \"title \\\"&quot;\")\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](/url \"title\")\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](/url \"title \"and\" title\")\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](/url 'title \"and\" title')\n"}
+{"t":"md","o":[0,62,3582],"s":"[link](   /uri\n  \"title\"  )\n"}
+{"t":"md","o":[0,62,3582],"s":"[link] (/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link [foo [bar]]](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link] bar](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link [bar](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link \\[bar](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[link *foo **bar** `#`*](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[![moon](moon.jpg)](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo [bar](/uri)](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo *[bar [baz](/uri)](/uri)*](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"![[[foo](uri1)](uri2)](uri3)\n"}
+{"t":"md","o":[0,62,3582],"s":"*[foo*](/uri)\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo *bar](baz*)\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo [bar* baz]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo <bar attr=\"](baz)\">\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo`](/uri)`\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo<https://example.com/?search=](uri)>\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][bar]\n\n[bar]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[link [foo [bar]]][ref]\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[link \\[bar][ref]\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[link *foo **bar** `#`*][ref]\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[![moon](moon.jpg)][ref]\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo [bar](/uri)][ref]\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo *bar [baz][ref]*][ref]\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"*[foo*][ref]\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo *bar][ref]*\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo <bar attr=\"][ref]\">\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo`][ref]`\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo<https://example.com/?search=][ref]>\n\n[ref]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][BaR]\n\n[bar]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[ẞ]\n\n[SS]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"[Foo\n  bar]: /url\n\n[Baz][Foo bar]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo] [bar]\n\n[bar]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]\n[bar]\n\n[bar]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]: /url1\n\n[foo]: /url2\n\n[bar][foo]\n"}
+{"t":"md","o":[0,62,3582],"s":"[bar][foo\\!]\n\n[foo!]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][ref[]\n\n[ref[]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][ref[bar]]\n\n[ref[bar]]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[[[foo]]]\n\n[[[foo]]]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][ref\\[]\n\n[ref\\[]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[bar\\\\]: /uri\n\n[bar\\\\]\n"}
+{"t":"md","o":[0,62,3582],"s":"[]\n\n[]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[\n ]\n\n[\n ]: /uri\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[*foo* bar][]\n\n[*foo* bar]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[Foo][]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo] \n[]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[*foo* bar]\n\n[*foo* bar]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[[*foo* bar]]\n\n[*foo* bar]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[[bar [foo]\n\n[foo]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"[Foo]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo] bar\n\n[foo]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"\\[foo]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo*]: /url\n\n*[foo*]\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][bar]\n\n[foo]: /url1\n[bar]: /url2\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][]\n\n[foo]: /url1\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo]()\n\n[foo]: /url1\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo](not a link)\n\n[foo]: /url1\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][bar][baz]\n\n[baz]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][bar][baz]\n\n[baz]: /url1\n[bar]: /url2\n"}
+{"t":"md","o":[0,62,3582],"s":"[foo][bar][baz]\n\n[baz]: /url1\n[foo]: /url2\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo](/url \"title\")\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo *bar*]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo ![bar](/url)](/url2)\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo [bar](/url)](/url2)\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo *bar*][]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo *bar*][foobar]\n\n[FOOBAR]: train.jpg \"train & tracks\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo](train.jpg)\n"}
+{"t":"md","o":[0,62,3582],"s":"My ![foo bar](/path/to/train.jpg  \"title\"   )\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo](<url>)\n"}
+{"t":"md","o":[0,62,3582],"s":"![](/url)\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo][bar]\n\n[bar]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo][bar]\n\n[BAR]: /url\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo][]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![*foo* bar][]\n\n[*foo* bar]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![Foo][]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo] \n[]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![foo]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![*foo* bar]\n\n[*foo* bar]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![[foo]]\n\n[[foo]]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"![Foo]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"!\\[foo]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"\\![foo]\n\n[foo]: /url \"title\"\n"}
+{"t":"md","o":[0,62,3582],"s":"<http://foo.bar.baz>\n"}
+{"t":"md","o":[0,62,3582],"s":"<https://foo.bar.baz/test?q=hello&id=22&boolean>\n"}
+{"t":"md","o":[0,62,3582],"s":"<irc://foo.bar:2233/baz>\n"}
+{"t":"md","o":[0,62,3582],"s":"<MAILTO:FOO@BAR.BAZ>\n"}
+{"t":"md","o":[0,62,3582],"s":"<a+b+c:d>\n"}
+{"t":"md","o":[0,62,3582],"s":"<made-up-scheme://foo,bar>\n"}
+{"t":"md","o":[0,62,3582],"s":"<https://../>\n"}
+{"t":"md","o":[0,62,3582],"s":"<localhost:5001/foo>\n"}
+{"t":"md","o":[0,62,3582],"s":"<https://foo.bar/baz bim>\n"}
+{"t":"md","o":[0,62,3582],"s":"<https://example.com/\\[\\>\n"}
+{"t":"md","o":[0,62,3582],"s":"<foo@bar.example.com>\n"}
+{"t":"md","o":[0,62,3582],"s":"<foo+special@Bar.baz-bar0.com>\n"}
+{"t":"md","o":[0,62,3582],"s":"<foo\\+@bar.example.com>\n"}
+{"t":"md","o":[0,62,3582],"s":"<>\n"}
+{"t":"md","o":[0,62,3582],"s":"< https://foo.bar >\n"}
+{"t":"md","o":[0,62,3582],"s":"<m:abc>\n"}
+{"t":"md","o":[0,62,3582],"s":"<foo.bar.baz>\n"}
+{"t":"md","o":[0,62,3582],"s":"https://example.com\n"}
+{"t":"md","o":[0,62,3582],"s":"foo@bar.example.com\n"}
+{"t":"md","o":[0,62,3582],"s":"<a><bab><c2c>\n"}
+{"t":"md","o":[0,62,3582],"s":"<a/><b2/>\n"}
+{"t":"md","o":[0,62,3582],"s":"<a  /><b2\ndata=\"foo\" >\n"}
+{"t":"md","o":[0,62,3582],"s":"<a foo=\"bar\" bam = 'baz <em>\"</em>'\n_boolean zoop:33=zoop:33 />\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo <responsive-image src=\"foo.jpg\" />\n"}
+{"t":"md","o":[0,62,3582],"s":"<33> <__>\n"}
+{"t":"md","o":[0,62,3582],"s":"<a h*#ref=\"hi\">\n"}
+{"t":"md","o":[0,62,3582],"s":"<a href=\"hi'> <a href=hi'>\n"}
+{"t":"md","o":[0,62,3582],"s":"< a><\nfoo><bar/ >\n<foo bar=baz\nbim!bop />\n"}
+{"t":"md","o":[0,62,3582],"s":"<a href='bar'title=title>\n"}
+{"t":"md","o":[0,62,3582],"s":"</a></foo >\n"}
+{"t":"md","o":[0,62,3582],"s":"</a href=\"foo\">\n"}
+{"t":"md","o":[0,62,3582],"s":"foo <!-- this is a --\ncomment - with hyphens -->\n"}
+{"t":"md","o":[0,62,3582],"s":"foo <!--> foo -->\n\nfoo <!---> foo -->\n"}
+{"t":"md","o":[0,62,3582],"s":"foo <?php echo $a; ?>\n"}
+{"t":"md","o":[0,62,3582],"s":"foo <!ELEMENT br EMPTY>\n"}
+{"t":"md","o":[0,62,3582],"s":"foo <![CDATA[>&<]]>\n"}
+{"t":"md","o":[0,62,3582],"s":"foo <a href=\"&ouml;\">\n"}
+{"t":"md","o":[0,62,3582],"s":"foo <a href=\"\\*\">\n"}
+{"t":"md","o":[0,62,3582],"s":"<a href=\"\\\"\">\n"}
+{"t":"md","o":[0,62,3582],"s":"foo  \nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\\\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"foo       \nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"foo  \n     bar\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\\\n     bar\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo  \nbar*\n"}
+{"t":"md","o":[0,62,3582],"s":"*foo\\\nbar*\n"}
+{"t":"md","o":[0,62,3582],"s":"`code  \nspan`\n"}
+{"t":"md","o":[0,62,3582],"s":"`code\\\nspan`\n"}
+{"t":"md","o":[0,62,3582],"s":"<a href=\"foo  \nbar\">\n"}
+{"t":"md","o":[0,62,3582],"s":"<a href=\"foo\\\nbar\">\n"}
+{"t":"md","o":[0,62,3582],"s":"foo\\\n"}
+{"t":"md","o":[0,62,3582],"s":"foo  \n"}
+{"t":"md","o":[0,62,3582],"s":"### foo\\\n"}
+{"t":"md","o":[0,62,3582],"s":"### foo  \n"}
+{"t":"md","o":[0,62,3582],"s":"foo\nbaz\n"}
+{"t":"md","o":[0,62,3582],"s":"foo \n baz\n"}
+{"t":"md","o":[0,62,3582],"s":"hello $.;'there\n"}
+{"t":"md","o":[0,62,3582],"s":"Foo χρῆν\n"}
+{"t":"md","o":[0,62,3582],"s":"Multiple     spaces\n"}
+{"t":"md","o":[0,62,3582],"s":"~~This is *stricken out*~~\n"}
+{"t":"md","o":[0,62,3582],"s":"~~This is \\~\\~stricken~~\n"}
+{"t":"md","o":[0,62,3582],"s":"This~~is~~stricken\n"}
+{"t":"md","o":[0,62,3582],"s":"~~This~~is~~stricken~~\n"}
+{"t":"md","o":[0,62,3582],"s":"Here I strike out an exclamation point~~!~~.\n"}
+{"t":"md","o":[0,62,3582],"s":"~This is stricken out~\n"}
+{"t":"md","o":[0,62,3582],"s":"~This is \\~stricken~\n"}
+{"t":"md","o":[0,62,3582],"s":"This~is~nothing\n"}
+{"t":"md","o":[0,62,3582],"s":"~This~is~nothing~\n"}
+{"t":"md","o":[0,62,3582],"s":"Here I fail to strike out an exclamation point~!~.\n"}
+{"t":"md","o":[0,62,3582],"s":"Here I fail to strike out a tilde ~~~.\n"}
+{"t":"md","o":[0,62,3582],"s":"Here I fail to match up ~~tildes~.\n"}
+{"t":"md","o":[0,62,3582],"s":"Here I fail to match up ~tildes~~.\n"}
+{"t":"md","o":[0,62,3582],"s":"~~This ~is stricken.~~\n"}
+{"t":"md","o":[0,62,3582],"s":"~This ~~is stricken.~\n"}
+{"t":"md","o":[0,62,3582],"s":"~This ~~is stricken~ but this is not~~\n"}
+{"t":"md","o":[0,62,3582],"s":"Test header\n-----------\n"}
+{"t":"md","o":[0,62,3582],"s":"Test|Table\n----|-----\n"}
+{"t":"md","o":[0,62,3582],"s":"> Test  | Table\n> ------|------\n> Row 1 | Every\n> Row 2 | Day\n>\n> Paragraph\n"}
+{"t":"md","o":[0,62,3582],"s":" 1. First entry\n 2. Second entry\n\n    Col 1|Col 2\n    -|-\n    Row 1|Part 2\n    Row 2|Part 2\n"}
+{"t":"md","o":[0,62,3582],"s":"|Col 1|Col 2|\n|-----|-----|\n|R1C1 |R1C2 |\n|R2C1 |R2C2 |\n"}
+{"t":"md","o":[0,62,3582],"s":"| Col 1 | Col 2 |\n|-------|-------|\n|       |       |\n|       |       |\n"}
+{"t":"md","o":[0,62,3582],"s":"| Col 1 | Col 2 |\n|-------|-------|\n|   x   |       |\n|       |    x  |\n"}
+{"t":"md","o":[0,62,3582],"s":"|Col 1|Col 2|\n|-----|-----|\n|✓    |✓    |\n|✓    |✓    |\n"}
+{"t":"md","o":[0,62,3582],"s":"|  Target                       | std |rustc|cargo| notes                      |\n|-------------------------------|-----|-----|-----|----------------------------|\n| `x86_64-unknown-linux-musl`   |  ✓  |     |     | 64-bit Linux with MUSL     |\n| `arm-linux-androideabi`       |  ✓  |     |     | ARM Android                |\n| `arm-unknown-linux-gnueabi`   |  ✓  |  ✓  |     | ARM Linux (2.6.18+)        |\n| `arm-unknown-linux-gnueabihf` |  ✓  |  ✓  |     | ARM Linux (2.6.18+)        |\n| `aarch64-unknown-linux-gnu`   |  ✓  |     |     | ARM64 Linux (2.6.18+)      |\n| `mips-unknown-linux-gnu`      |  ✓  |     |     | MIPS Linux (2.6.18+)       |\n| `mipsel-unknown-linux-gnu`    |  ✓  |     |     | MIPS (LE) Linux (2.6.18+)  |\n"}
+{"t":"md","o":[0,62,3582],"s":"|-|-|\n|ぃ|い|\n"}
+{"t":"md","o":[0,62,3582],"s":"|ぁ|ぃ|\n|-|-|\n|ぃ|ぃ|\n"}
+{"t":"md","o":[0,62,3582],"s":"|Колонка 1|Колонка 2|\n|---------|---------|\n|Ячейка 1 |Ячейка 2 |\n"}
+{"t":"md","o":[0,62,3582],"s":"table a\n|  a  |  b  |\n| --- | --- |\n|  c  |  d  |\n\n\ntable b\n    |  a  |  b  |\n    | --- | --- |\n    |  c  |  d  |\n\n\ntable c\n a  |  b\n--- | ---\n c  |  d\n\n\ntable d\n    a | b\n    --|--\n    c | d\n\n\ntable e\na | b\n--|--\nc | d\n\ntable f\n  |  a  |  b  |\n  | --- | --- |\n  |  c  |  d  |\n\n\ntable g\n   a  |  b\n  --- | ---\n   c  |  d\n\ntable h\na\n|-|\nb\n\ntable i\n| a\n|-\nb\n\ntable j\n| a\n-\nb\n"}
+{"t":"md","o":[0,62,3582],"s":"a | b\n- | -\n1 | 2\n"}
+{"t":"md","o":[0,62,3582],"s":"a | b\\\n- | -\n1 | 2\n"}
+{"t":"md","o":[0,62,3582],"s":"a\\\n| b | c |\n|---|---|\n| d | e |\n"}
+{"t":"md","o":[0,62,3582],"s":"| Description | Test case |\n|-------------|-----------|\n| Single      | `\\`       |\n| Double      | `\\\\`      |\n| Basic test  | `\\|`      |\n| Basic test 2| `\\|\\|\\`   |\n| Basic test 3| `x\\|y\\|z\\`|\n| Not pipe    | `\\.`      |\n| Combo       | `\\.\\|\\`   |\n| Extra       | `\\\\\\.`    |\n| Wait, what? | `\\\\|`     |\n| Wait, what? | `\\\\\\|`    |\n| Wait, what? | `\\\\\\\\|`   |\n| Wait, what? | `\\\\\\\\\\|`  |\n| Wait, what? |          \\|\n| Wait, what? |         \\\\|\n| Wait, what? |        \\\\\\|\n| Wait, what?x|          \\|x\n| Wait, what?x|         \\\\|x\n| Wait, what?x|        \\\\\\|x\n| Direct trail|         \\.|x\n"}
+{"t":"md","o":[0,62,3582],"s":"| Single | `\\|` |\n|--|--|\n| Single | `\\|` |\n\n\n| Double | `\\\\|` |\n|--|--|\n| Double | `\\\\|` |\n\n\n| Double Twice | `\\\\|\\\\|` |\n|--|--|\n| Double Twice | `\\\\|\\\\|` |\n\n\n| Triple | `\\\\\\|` |\n|--|--|\n| Triple | `\\\\\\|` |\n"}
+{"t":"md","o":[0,62,3582],"s":"| Table | Header |\n|-------|--------|\n| Table | Body   |\n|\n| Not   | Enough |\n\n\n| Table | Header |\n|-------|--------|\n| Table | Body   |\n|\t\n| Not   | Enough |\n"}
+{"t":"md","o":[0,62,3582],"s":"| Table | Header |\n|-------|--------|\n|\n"}
+{"t":"md","o":[0,62,3582],"s":"|\n|-------|--------|\n| Table | Body   |\n"}
+{"t":"md","o":[0,62,3582],"s":"| Single | [test](first\\|second) |\n|--|--|\n\n| Double | [test](first\\\\|second) |\n|--|--|\n\n| Triple | [test](first\\\\\\|second) |\n|--|--|\n"}
+{"t":"md","o":[0,62,3582],"s":"| Single | [first\\|second] |\n|--|--|\n\n| Double | [first\\\\|second] |\n|--|--|\n\n| Triple | [first\\\\\\|second] |\n|--|--|\n\n[first\\|second]: https://rust-lang.org\n\n[first\\\\|second]: https://docs.rs\n"}
+{"t":"md","o":[0,62,3582],"s":"Q: Knock knock.\nA: Who's there.\nQ: Interrupting cow.\nA: Interrupting —?\n| `Moo\\\\|ooo` |\n|-------------|\n| `ooo\\\\|ooo` |\n"}
+{"t":"md","o":[0,62,3582],"s":"| ![Moo\\\\|Moo](image.png) |\n|-------------|\n| ![Moo\\\\\\|Moo](image.png) |\n"}
+{"t":"md","o":[0,62,3582],"s":"| [Moo](https://example.org \"Example\\\\|Link\") |\n|---------------------------------------------|\n| [Moo](https://example.org \"Example\\\\\\|Link\") |\n"}
+{"t":"md","o":[0,62,3582],"s":"moo | moo\n----|----\nmoo | moo\n*\n"}
+{"t":"md","o":[0,62,3582],"s":"moo | moo\n----|----\nmoo | moo\n2.\n"}
