@@ -1,0 +1,341 @@
+== register_builtin_macros
+== stringify_basic
+== stringify_empty
+== line_basic
+== line_args
+error: line! takes no arguments
+ --> <line_args>:1:1
+  |
+1 | line!(x)
+  | ^^^^^^^^
+  |
+  = note: this error originates in the macro `line` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== column_basic
+== file_basic
+== module_path_basic
+== module_path_args
+error: module_path! takes no arguments
+ --> <module_path_args>:1:1
+  |
+1 | module_path!(1, 2)
+  | ^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `module_path` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== cfg_true
+== cfg_false
+== cfg_not
+== cfg_unknown
+== cfg_trailing_comma
+== cfg_empty
+error: macro requires a cfg-pattern as an argument
+ --> <cfg_empty>:1:1
+  |
+1 | cfg!()
+  | ^^^^^^ cfg-pattern required
+  |
+  = note: this error originates in the macro `cfg` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== cfg_two
+error: expected 1 cfg-pattern
+ --> <cfg_two>:1:1
+  |
+1 | cfg!(all(), any())
+  | ^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `cfg` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== cfg_lit
+error[E0565]: malformed `cfg` macro input
+ --> <cfg_lit>:1:1
+  |
+1 | cfg!("x")
+  | ^^^^^---^
+  |      |
+  |      expected a valid identifier here
+  |
+  = note: for more information, visit <https://doc.rust-lang.org/reference/conditional-compilation.html#the-cfg-attribute>
+  = note: this error originates in the macro `cfg` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: must be of the form
+  |
+1 - cfg!("x")
+1 + cfg!(predicate)
+  |
+
+== cfg_true_lit
+== assert_basic
+== assert_msg
+== assert_msg_2021
+== assert_braces
+== assert_empty
+error: macro requires a boolean expression as an argument
+ --> <assert_empty>:1:1
+  |
+1 | assert!()
+  | ^^^^^^^^^ boolean expression required
+
+== assert_semi
+error: macro requires an expression as an argument
+ --> <assert_semi>:1:1
+  |
+1 | assert!(f(););
+  | ^^^^^^^^^^^-^
+  |            |
+  |            help: try removing semicolon
+
+== assert_missing_comma
+error: unexpected string literal
+ --> <assert_missing_comma>:1:14
+  |
+1 | assert!(true "msg")
+  |             -^^^^^
+  |             |
+  |             help: try adding a comma
+
+== assert_trailing
+error: expected one of `!`, `,`, `.`, `::`, `?`, `{`, or an operator, found `b`
+ --> <assert_trailing>:1:11
+  |
+1 | assert!(a b)
+  |           ^ expected one of 7 possible tokens
+  |
+help: there is a keyword `as` with a similar name
+  |
+1 | assert!(as b)
+  |          +
+
+== assert_generic
+== assert_generic_consumed
+== core_panic_2015
+== std_panic_2021
+== unreachable_2021
+== unreachable_2015
+== trace_macros_true
+== trace_macros_false
+== trace_macros_bad
+error: trace_macros! accepts only `true` or `false`
+ --> <trace_macros_bad>:1:1
+  |
+1 | trace_macros!(maybe)
+  | ^^^^^^^^^^^^^^^^^^^^
+
+== trace_macros_two
+error: trace_macros! accepts only `true` or `false`
+ --> <trace_macros_two>:1:1
+  |
+1 | trace_macros!(true false)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+== log_syntax_basic
+== iter_closure
+== iter_not_closure
+error: `iter!` body must be a closure
+ --> <iter_not_closure>:1:7
+  |
+1 | iter!(1 + 2)
+  |       ^^^^^
+
+error: expected one of `.`, `?`, or an operator, found `<eof>`
+ --> <iter_not_closure>:1:11
+  |
+1 | iter!(1 + 2)
+  |           ^ expected one of `.`, `?`, or an operator
+
+== iter_gen_closure
+error: `iter!` body must be a closure
+ --> <iter_gen_closure>:1:7
+  |
+1 | iter!(gen || {})
+  |       ^^^^^^^^^
+
+error: expected one of `.`, `?`, or an operator, found `<eof>`
+ --> <iter_gen_closure>:1:15
+  |
+1 | iter!(gen || {})
+  |               ^ expected one of `.`, `?`, or an operator
+
+== iter_trailing
+error: expected one of `.`, `?`, or an operator, found `x`
+ --> <iter_trailing>:1:13
+  |
+1 | iter!(|| {} x)
+  |             ^ expected one of `.`, `?`, or an operator
+
+== pattern_type_range
+== pattern_type_or
+== pattern_type_not_null
+== pattern_type_bad
+error: pattern not supported in pattern types
+ --> <pattern_type_bad>:1:21
+  |
+1 | pattern_type!(u8 is _)
+  |                     ^
+
+== pattern_type_no_is
+error: expected one of `!`, `(`, `+`, `::`, `<`, or `is`, found `1`
+ --> <pattern_type_no_is>:1:18
+  |
+1 | pattern_type!(u8 1)
+  |                  ^ expected one of `!`, `(`, `+`, `::`, `<`, or `is`
+
+== view_type_basic
+== view_type_bad
+error: expected one of `!`, `(`, `+`, `.`, `::`, or `<`, found `a`
+ --> <view_type_bad>:1:16
+  |
+1 | view_type!(Foo a)
+  |                ^ expected one of `!`, `(`, `+`, `.`, `::`, or `<`
+
+== concat_basic
+== env_missing
+== option_env_missing
+== compile_error_basic
+== cfg_select_basic
+== cfg_accessible_yes
+== cfg_accessible_no
+== cfg_accessible_word
+error: malformed `cfg_accessible` attribute input
+ --> <cfg_accessible_word>:1:1
+  |
+1 | #[cfg_accessible] struct S;
+  | ^^^^^^^^^^^^^^^^^
+  |
+help: must be of the form
+  |
+1 | #[cfg_accessible(path)] struct S;
+  |                 ++++++
+
+== cfg_accessible_empty
+error: `cfg_accessible` path is not specified
+ --> <cfg_accessible_empty>:1:1
+  |
+1 | #[cfg_accessible()] struct S;
+  | ^^^^^^^^^^^^^^^^^^^
+
+== cfg_accessible_two
+error: multiple `cfg_accessible` paths are specified
+ --> <cfg_accessible_two>:1:21
+  |
+1 | #[cfg_accessible(a, b)] struct S;
+  |                     ^
+
+== cfg_accessible_lit
+error: `cfg_accessible` path cannot be a literal
+ --> <cfg_accessible_lit>:1:18
+  |
+1 | #[cfg_accessible("a")] struct S;
+  |                  ^^^
+
+== cfg_accessible_args
+error: `cfg_accessible` path cannot accept arguments
+ --> <cfg_accessible_args>:1:18
+  |
+1 | #[cfg_accessible(a(b))] struct S;
+  |                  ^^^^
+
+== cfg_eval_noop
+== cfg_eval_strip
+== cfg_eval_args
+error: malformed `cfg_eval` attribute input
+ --> <cfg_eval_args>:1:1
+  |
+1 | #[cfg_eval(x)] struct S;
+  | ^^^^^^^^^^^^^^
+  |
+help: must be of the form
+  |
+1 - #[cfg_eval(x)] struct S;
+1 + #[cfg_eval] struct S;
+  |
+
+== define_opaque_fn
+== define_opaque_bad
+error: expected path to type alias
+ --> <define_opaque_bad>:1:20
+  |
+1 | #[define_opaque(A, "x", b(c))] static S: u8 = 0;
+  |                    ^^^
+
+error: expected path to type alias
+ --> <define_opaque_bad>:1:25
+  |
+1 | #[define_opaque(A, "x", b(c))] static S: u8 = 0;
+  |                         ^^^^
+
+== define_opaque_struct
+error: only functions, statics, and consts can define opaque types
+ --> <define_opaque_struct>:1:1
+  |
+1 | #[define_opaque(A)] struct S;
+  | ^^^^^^^^^^^^^^^^^^^
+
+== define_opaque_word
+error: expected list of type aliases
+ --> <define_opaque_word>:1:1
+  |
+1 | #[define_opaque] fn f() {}
+  | ^^^^^^^^^^^^^^^^
+
+== alloc_error_handler_fn
+== alloc_error_handler_struct
+error: alloc_error_handler must be a function
+ --> <alloc_error_handler_struct>:1:24
+  |
+1 | #[alloc_error_handler] struct S;
+  |                        ^^^^^^^^^
+
+== autodiff_reverse
+== autodiff_forward
+== autodiff_forward_unit
+== autodiff_bad_activity
+error: did not recognize Activity: `Bogus`
+ --> <autodiff_bad_activity>:1:24
+  |
+1 | #[autodiff_reverse(df, Bogus, Active)] fn f(x: f32) -> f32 { x }
+  |                        ^^^^^
+
+== autodiff_count
+error: expected 2 activities, but found 1
+ --> <autodiff_count>:1:1
+  |
+1 | #[autodiff_reverse(df, Active)] fn f(x: f32) -> f32 { x }
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `autodiff_reverse` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== autodiff_struct
+error: autodiff must be applied to function
+ --> <autodiff_struct>:1:33
+  |
+1 | #[autodiff_reverse(df, Active)] struct S;
+  |                                 ^^^^^^^^^
+
+== autodiff_word
+error: autodiff requires at least a name and mode
+ --> <autodiff_word>:1:21
+  |
+1 | #[autodiff_reverse] fn f() {}
+  |                     ^^^^^^^^^
+
+== autodiff_generic
+error: expected 3 activities, but found 2
+ --> <autodiff_generic>:1:1
+  |
+1 | #[autodiff_reverse(df, Const, Active)] fn f<T, const N: usize>(t: T, x: f32) -> f32 { x }
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `autodiff_reverse` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+== offload_kernel_fn
+== offload_kernel_struct
+error: autodiff must be applied to function
+ --> <offload_kernel_struct>:1:19
+  |
+1 | #[offload_kernel] struct S;
+  |                   ^^^^^^^^^
+
+== end
+error: aborting due to 36 previous errors
+
+For more information about this error, try `rustc --explain E0565`.

@@ -297,6 +297,15 @@
     "discriminant": [],
     "skip": []
   },
+  "rustc_builtin_macros": {
+    "files": [
+      "compiler/rustc_builtin_macros/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  },
   "rustc_expand": {
     "files": [
       "compiler/rustc_expand/src/diagnostics.rs",

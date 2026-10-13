@@ -195,6 +195,8 @@ export interface TypeMapEntry {
   default_values?: string[];
   /** type arguments of a type written without them (defaulted generic params, `DiagSymbolList` = `DiagSymbolList<Symbol>`) */
   default_args?: PType[];
+  /** manual `impl Subdiagnostic` of an external type: the TS fns (`<T>_add_to_diag`, `<T>_subdiagnostic`), imported from `import` */
+  subdiagnostic?: { add_to_diag: string; subdiagnostic: string };
   note?: string;
 }
 export interface TypeMap {
@@ -574,6 +576,13 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     for (const g of uses.filter((u) => u.glob)) {
       const base = absolutize(g.path, mod, depth + 1);
       if (base && lookup([...base, ...segs], depth + 1)) return [...base, ...segs];
+    }
+    // a glob of a local module (`use super::*;`) also imports that module's own `use`s of external
+    // paths (`use rustc_span::Span;` in the parent)
+    for (const g of uses.filter((u) => u.glob)) {
+      const base = absolutize(g.path, mod, depth + 1);
+      if (!base || !modsWithChildren.has(base.join("::"))) continue;
+      if ((usesByMod.get(base.join("::")) ?? []).some((u) => !u.glob && u.alias === first)) return absolutize(segs, base, depth + 1);
     }
     // an external crate path (`std::..`, `rustc_span::..`) or a prelude name (`Option`)
     return segs;
@@ -2008,6 +2017,13 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
               addStub(r.ref.mf.hand, v, `export declare function ${v}(v: any, ...a: any[]): any;`);
             }
             return names;
+          }
+        }
+        if (r?.k === "ext") {
+          const e = tmLookup(r.keys);
+          if (e?.subdiagnostic && e.import) {
+            for (const v of Object.values(e.subdiagnostic)) imp(`src:${e.import.replace(/^src\//, "")}`, "values", v, v);
+            return e.subdiagnostic;
           }
         }
         report.errors.push(`${at}: #[subdiagnostic] field of type ${ty.text}: no Subdiagnostic impl found`);
