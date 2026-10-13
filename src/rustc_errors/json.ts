@@ -29,7 +29,7 @@ import { BytePos, DUMMY_SP, type FileName, RealFileName, type SourceFile, Span }
 import { PLAIN, debug_list, debug_struct } from "../std/fmt.ts";
 import { type IoResult, debug_IoError } from "../std/io.ts";
 import { panic } from "../std/panic.ts";
-import { Err, Ok, unwrap_result } from "../std/result.ts";
+import { unwrap_result } from "../std/result.ts";
 import { Str, type Utf8Error, from_utf8, utf8 } from "../std/str.ts";
 import { AnnotateSnippetEmitter } from "./annotate_snippet_emitter_writer.ts";
 import { ColorConfig, type Destination, Emitter, HumanReadableErrorType, OutputTheme, type TimingEvent, should_show_source_code } from "./emitter.ts";
@@ -321,8 +321,7 @@ class Diagnostic {
     // PORT: `Arc::try_unwrap(..).unwrap().into_inner().unwrap()` cannot fail (the emitter holding the
     // other clone is gone); `String::from_utf8(buf).unwrap()`: the rendered text is always UTF-8.
     const bytes = buf._0.bytes();
-    const r = from_utf8(bytes);
-    const rendered = unwrap_result<string, Utf8Error>(r.$ === "Ok" ? Ok(r._0) : Err(r._0), (e, f) =>
+    const rendered = unwrap_result(from_utf8(bytes), (e: Utf8Error, f) =>
       // `#[derive(Debug)] struct FromUtf8Error { bytes: Vec<u8>, error: Utf8Error }`
       debug_struct(f, "FromUtf8Error", [
         ["bytes", debug_list(f, [...bytes].map(String))],
