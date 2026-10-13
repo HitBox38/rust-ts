@@ -147,6 +147,10 @@ mismatch between rustc_builtin_macros/env.ts and passes.ts.
 ## Wave 10 (started 2026-10-13) — resolution, passes, lints
 lint-early-a, res-graph, res-ident, res-macros, res-imports, ast-passes (against res-lib's contract, docs/handoff/res-lib.md);
 then res-late-a/-b, res-diag, res-late-diag-a/-b, lint-early-b, rustdoc. Gate M2a: expanded-nocore + resdump-nocore >=95%.
+Merged: res-ident, res-macros, res-graph, res-imports, ast-passes (+ExternAbi/AbiMap), target-asm, fx-maps. rustc_resolve 56%.
+Second half running: res-late-a/-b (late.rs split at :2891), res-diag-a/-b (diagnostics/impls.rs split at :1978),
+res-late-diag-a/-b (late/diagnostics.rs split at :2267), rustdoc (+pulldown-cmark subset), feed-hash (query re-feed hashing,
+DenseBitSet, per-process test scratch dirs). lint-early-b after lint-early-a.
 
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
