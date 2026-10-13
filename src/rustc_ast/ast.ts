@@ -456,12 +456,13 @@ gen.ParenthesizedArgs.prototype.as_angle_bracketed_args = function (this: Parent
 
 /// Modifiers on a trait bound like `[const]`, `?` and `!`.
 export type TraitBoundModifiers = TraitBoundModifiersT;
+// PORT: `NONE` is a shared associated const, frozen so no caller can edit it in place.
 export const TraitBoundModifiers: { NONE: TraitBoundModifiers } = {
-  NONE: {
+  NONE: Object.freeze({
     constness: gen.BoundConstness.Never,
     asyncness: gen.BoundAsyncness.Normal,
     polarity: gen.BoundPolarity.Positive,
-  },
+  }),
 };
 
 export type GenericBound = GenericBoundT;

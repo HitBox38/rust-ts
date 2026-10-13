@@ -73,6 +73,7 @@ const AttrWrapperC = attr_wrapper_gen.AttrWrapper as unknown as typeof AttrWrapp
 
 const { TokenKind: TK } = token;
 
+// PORT: `Parser::new` (mod.rs:346) sits in the class body, ahead of mod.rs:295-329 (`SeqSep`, `token_descr`), because the class must declare its constructor (PORTING §8).
 export class Parser {
   constructor(
     public psess: ParseSess,
@@ -798,7 +799,8 @@ Parser.prototype.parse_seq_to_before_tokens = function <T>(
   let trailing: Trailing = Trailing.No;
   const v: T[] = [];
 
-  while (!this.expect_any_with_type(closes_expected, closes_not_expected)) {
+  // PORT: the label lets the `Err(e)` arm below `break` the loop from inside the JS `switch`.
+  seq_loop: while (!this.expect_any_with_type(closes_expected, closes_not_expected)) {
     if (token.TokenKind.is_close_delim_or_eof(this.token.kind)) {
       break;
     }
@@ -900,12 +902,10 @@ Parser.prototype.parse_seq_to_before_tokens = function <T>(
                 return Err(expect_err);
               } else {
                 expect_err.emit();
-                break;
+                break seq_loop;
               }
             }
           }
-          // PORT: the `Err(e)` arm ends the loop (`break` above inside the `switch`).
-          break;
         }
       }
     }

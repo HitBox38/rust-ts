@@ -3,8 +3,7 @@
 // rustc splits `impl<'a> Parser<'a>` over ~15 files. Every method is declared here, once, grouped by
 // upstream file in upstream order (`// <file>:<line>` = line of the `fn` keyword at the pin), so that
 // all parser files type-check against one surface while they are ported in parallel. The method
-// bodies are assigned onto `Parser.prototype` by the file that ports them (PORTING §5); until then
-// each stub file installs `unported(..)` placeholders (src/rust_ts/stubs.ts).
+// bodies are assigned onto `Parser.prototype` by the file that ports them (PORTING §5).
 //
 // Signature rules (PORTING §5):
 // - `&self` / `&mut self` -> `this`; `self`-by-value builders return `Parser`.

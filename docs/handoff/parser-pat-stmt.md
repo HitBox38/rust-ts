@@ -140,7 +140,7 @@ expr/diagnostics, ty, path and item.
     pat.test.ts and stmt.test.ts.
 
 ## For root
-1. **Contract mismatch, not in my files.** `src/rustc_parse/parser/expr/diagnostics.ts` stubs
+1. **Resolved** (review parser-a, batch 3 finding 2: expr/diagnostics.ts now takes `op: AssocOp`; the cast is gone). **Contract mismatch, not in my files.** `src/rustc_parse/parser/expr/diagnostics.ts` stubs
    `op_can_continue_stmt_expr_unambiguously(_token: Token)`. Upstream (expr/diagnostics.rs:301) takes
    `op: AssocOp`, and stmt.rs:1137 calls it with `op.node`.
    - stmt.ts calls it through a cast to the upstream signature, marked `// PORT(contract)`. The cast compiles
