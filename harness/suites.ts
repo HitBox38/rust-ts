@@ -105,6 +105,10 @@ export const SUITES: Suite[] = [
     description: "rustc -Zunpretty=ast-tree (pre-expansion AST + parser diagnostics) on every .rs in tests/ui",
     mode: "single",
     timeoutMs: 60_000,
+    // The oracle needs ~200 s of CPU on tests/ui/try-trait/deep-try-chain-issue-153583.rs (its
+    // `{:#?}` dump nests ~1300 levels); 60 s could never finish it. Success is cached once per
+    // oracle build, so the longer limit costs nothing afterwards.
+    oracleTimeoutMs: 300_000,
     cases: () =>
       corpus("tests/ui").map((f) => {
         const ed = edition(f);
