@@ -1,0 +1,231 @@
+== visibilities_for_hashing (17)
+DefId(0:0 ~ traits[f138]) Public
+DefId(0:1 ~ traits[f138]::Tr) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:2 ~ traits[f138]::Tr::C) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:3 ~ traits[f138]::Tr::T) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:4 ~ traits[f138]::Tr::m) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:5 ~ traits[f138]::Tr::n) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:6 ~ traits[f138]::S) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:6 ~ traits[f138]::S) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:7 ~ traits[f138]::S::f) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:8 ~ traits[f138]::{impl#0}) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:9 ~ traits[f138]::{impl#0}::new) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:10 ~ traits[f138]::{impl#0}::get) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:11 ~ traits[f138]::{impl#1}) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:15 ~ traits[f138]::ST) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:16 ~ traits[f138]::CO) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:19 ~ traits[f138]::gen) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+DefId(0:22 ~ traits[f138]::f) Restricted(LocalModId(DefId(0:0 ~ traits[f138])))
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ traits[f138]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (2)
+DefId(0:0 ~ traits[f138])
+  ModChild { ident: Tr#0, res: Def(Trait, DefId(0:1 ~ traits[f138]::Tr)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+  ModChild { ident: S#0, res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+  ModChild { ident: ST#0, res: Def(Static { safety: Safe, mutability: Not, nested: false }, DefId(0:15 ~ traits[f138]::ST)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+  ModChild { ident: CO#0, res: Def(Const, DefId(0:16 ~ traits[f138]::CO)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+  ModChild { ident: gen#0, res: Def(Fn, DefId(0:19 ~ traits[f138]::gen)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:22 ~ traits[f138]::f)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+DefId(0:1 ~ traits[f138]::Tr)
+  ModChild { ident: C#0, res: Def(AssocConst, DefId(0:2 ~ traits[f138]::Tr::C)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+  ModChild { ident: T#0, res: Def(AssocTy, DefId(0:3 ~ traits[f138]::Tr::T)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+  ModChild { ident: m#0, res: Def(AssocFn, DefId(0:4 ~ traits[f138]::Tr::m)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+  ModChild { ident: n#0, res: Def(AssocFn, DefId(0:5 ~ traits[f138]::Tr::n)), vis: Restricted(ModId(DefId(0:0 ~ traits[f138]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (1)
+DefId(0:1 ~ traits[f138]::Tr) [DefId(0:11 ~ traits[f138]::{impl#1})]
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (1)
+DefId(0:6 ~ traits[f138]::S)
+  new#0 Single(DefId(0:9 ~ traits[f138]::{impl#0}::new))
+  get#0 Single(DefId(0:10 ~ traits[f138]::{impl#0}::get))
+== next_node_id
+NodeId(190)
+== partial_res_map (91)
+NodeId(5) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(6) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(11) PartialRes { base_res: SelfTyParam { trait_: DefId(0:1 ~ traits[f138]::Tr) }, unresolved_segments: 0 }
+NodeId(13) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(14) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(16) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(17) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(19) PartialRes { base_res: SelfTyParam { trait_: DefId(0:1 ~ traits[f138]::Tr) }, unresolved_segments: 1 }
+NodeId(20) PartialRes { base_res: SelfTyParam { trait_: DefId(0:1 ~ traits[f138]::Tr) }, unresolved_segments: 0 }
+NodeId(25) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(26) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(28) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(29) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(31) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(32) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(34) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(35) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(42) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:8 ~ traits[f138]::{impl#0}), is_trait_impl: false }, unresolved_segments: 0 }
+NodeId(43) PartialRes { base_res: Local(NodeId(43)), unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(45) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(48) PartialRes { base_res: Local(NodeId(43)), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: Local(NodeId(43)), unresolved_segments: 0 }
+NodeId(52) PartialRes { base_res: Def(Trait, DefId(0:1 ~ traits[f138]::Tr)), unresolved_segments: 0 }
+NodeId(53) PartialRes { base_res: Def(Trait, DefId(0:1 ~ traits[f138]::Tr)), unresolved_segments: 0 }
+NodeId(54) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(55) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(56) PartialRes { base_res: Def(AssocConst, DefId(0:2 ~ traits[f138]::Tr::C)), unresolved_segments: 0 }
+NodeId(57) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(58) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(60) PartialRes { base_res: Def(AssocTy, DefId(0:3 ~ traits[f138]::Tr::T)), unresolved_segments: 0 }
+NodeId(61) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(62) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(63) PartialRes { base_res: Def(AssocFn, DefId(0:4 ~ traits[f138]::Tr::m)), unresolved_segments: 0 }
+NodeId(66) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:11 ~ traits[f138]::{impl#1}), is_trait_impl: true }, unresolved_segments: 0 }
+NodeId(67) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(68) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(69) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(72) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(73) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(77) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(78) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(82) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(83) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(91) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ traits[f138]::gen::T)), unresolved_segments: 0 }
+NodeId(92) PartialRes { base_res: Def(Trait, DefId(0:1 ~ traits[f138]::Tr)), unresolved_segments: 0 }
+NodeId(93) PartialRes { base_res: Def(Trait, DefId(0:1 ~ traits[f138]::Tr)), unresolved_segments: 0 }
+NodeId(94) PartialRes { base_res: Def(ConstParam, DefId(0:21 ~ traits[f138]::gen::N)), unresolved_segments: 0 }
+NodeId(95) PartialRes { base_res: PrimTy(Uint(usize)), unresolved_segments: 0 }
+NodeId(96) PartialRes { base_res: PrimTy(Uint(usize)), unresolved_segments: 0 }
+NodeId(98) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ traits[f138]::gen::T)), unresolved_segments: 0 }
+NodeId(99) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ traits[f138]::gen::T)), unresolved_segments: 0 }
+NodeId(100) PartialRes { base_res: Local(NodeId(100)), unresolved_segments: 0 }
+NodeId(101) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(102) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(106) PartialRes { base_res: Def(AssocConst, DefId(0:2 ~ traits[f138]::Tr::C)), unresolved_segments: 0 }
+NodeId(107) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ traits[f138]::gen::T)), unresolved_segments: 0 }
+NodeId(108) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ traits[f138]::gen::T)), unresolved_segments: 0 }
+NodeId(109) PartialRes { base_res: Def(Trait, DefId(0:1 ~ traits[f138]::Tr)), unresolved_segments: 0 }
+NodeId(110) PartialRes { base_res: Def(AssocConst, DefId(0:2 ~ traits[f138]::Tr::C)), unresolved_segments: 0 }
+NodeId(115) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ traits[f138]::gen::T)), unresolved_segments: 1 }
+NodeId(116) PartialRes { base_res: Def(TyParam, DefId(0:20 ~ traits[f138]::gen::T)), unresolved_segments: 0 }
+NodeId(120) PartialRes { base_res: Local(NodeId(100)), unresolved_segments: 0 }
+NodeId(121) PartialRes { base_res: Local(NodeId(100)), unresolved_segments: 0 }
+NodeId(125) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(126) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(129) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(131) PartialRes { base_res: Def(Mod, DefId(0:0 ~ traits[f138])), unresolved_segments: 1 }
+NodeId(132) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(133) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(137) PartialRes { base_res: Local(NodeId(137)), unresolved_segments: 0 }
+NodeId(140) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(141) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(142) PartialRes { base_res: Local(NodeId(142)), unresolved_segments: 0 }
+NodeId(143) PartialRes { base_res: Local(NodeId(142)), unresolved_segments: 0 }
+NodeId(144) PartialRes { base_res: Local(NodeId(142)), unresolved_segments: 0 }
+NodeId(158) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(159) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(163) PartialRes { base_res: Def(Const, DefId(0:16 ~ traits[f138]::CO)), unresolved_segments: 0 }
+NodeId(164) PartialRes { base_res: Def(Const, DefId(0:16 ~ traits[f138]::CO)), unresolved_segments: 0 }
+NodeId(169) PartialRes { base_res: Local(NodeId(137)), unresolved_segments: 0 }
+NodeId(170) PartialRes { base_res: Local(NodeId(137)), unresolved_segments: 0 }
+NodeId(172) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(173) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(176) PartialRes { base_res: Def(AssocFn, DefId(0:5 ~ traits[f138]::Tr::n)), unresolved_segments: 0 }
+NodeId(177) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(178) PartialRes { base_res: Def(Struct, DefId(0:6 ~ traits[f138]::S)), unresolved_segments: 0 }
+NodeId(179) PartialRes { base_res: Def(Trait, DefId(0:1 ~ traits[f138]::Tr)), unresolved_segments: 0 }
+NodeId(180) PartialRes { base_res: Def(AssocFn, DefId(0:5 ~ traits[f138]::Tr::n)), unresolved_segments: 0 }
+NodeId(181) PartialRes { base_res: Def(Static { safety: Safe, mutability: Not, nested: false }, DefId(0:15 ~ traits[f138]::ST)), unresolved_segments: 0 }
+NodeId(182) PartialRes { base_res: Def(Static { safety: Safe, mutability: Not, nested: false }, DefId(0:15 ~ traits[f138]::ST)), unresolved_segments: 0 }
+== owners (18)
+NodeId(0) def_id=DefId(0:0 ~ traits[f138]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ traits[f138]::Tr) lifetime_elision_allowed=false
+NodeId(4) def_id=DefId(0:2 ~ traits[f138]::Tr::C) lifetime_elision_allowed=false
+NodeId(7) def_id=DefId(0:3 ~ traits[f138]::Tr::T) lifetime_elision_allowed=false
+NodeId(8) def_id=DefId(0:4 ~ traits[f138]::Tr::m) lifetime_elision_allowed=true
+  lifetime_res NodeId(10) ElidedAnchor { start: NodeId(184), end: NodeId(185) }
+  lifetime_res NodeId(184) Fresh { param: NodeId(185), kind: Ampersand }
+  lifetime_res NodeId(185) Fresh { param: NodeId(185), kind: Ampersand }
+  extra_lifetime_params NodeId(8) [('_#0, NodeId(185), Ampersand)]
+NodeId(15) def_id=DefId(0:5 ~ traits[f138]::Tr::n) lifetime_elision_allowed=false
+  trait_map NodeId(19) [TraitCandidate { def_id: DefId(0:1 ~ traits[f138]::Tr), import_ids: [], lint_ambiguous: false }]
+NodeId(23) def_id=DefId(0:6 ~ traits[f138]::S) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(24) DefId(0:7 ~ traits[f138]::S::f)
+NodeId(27) def_id=DefId(0:8 ~ traits[f138]::{impl#0}) lifetime_elision_allowed=false
+NodeId(30) def_id=DefId(0:9 ~ traits[f138]::{impl#0}::new) lifetime_elision_allowed=false
+NodeId(39) def_id=DefId(0:10 ~ traits[f138]::{impl#0}::get) lifetime_elision_allowed=true
+  lifetime_res NodeId(41) ElidedAnchor { start: NodeId(186), end: NodeId(187) }
+  lifetime_res NodeId(186) Fresh { param: NodeId(187), kind: Ampersand }
+  lifetime_res NodeId(187) Fresh { param: NodeId(187), kind: Ampersand }
+  trait_map NodeId(47) []
+  extra_lifetime_params NodeId(39) [('_#0, NodeId(187), Ampersand)]
+NodeId(51) def_id=DefId(0:11 ~ traits[f138]::{impl#1}) lifetime_elision_allowed=false
+NodeId(56) def_id=DefId(0:12 ~ traits[f138]::{impl#1}::C) lifetime_elision_allowed=false
+NodeId(60) def_id=DefId(0:13 ~ traits[f138]::{impl#1}::T) lifetime_elision_allowed=false
+NodeId(63) def_id=DefId(0:14 ~ traits[f138]::{impl#1}::m) lifetime_elision_allowed=true
+  lifetime_res NodeId(65) ElidedAnchor { start: NodeId(188), end: NodeId(189) }
+  lifetime_res NodeId(188) Fresh { param: NodeId(189), kind: Ampersand }
+  lifetime_res NodeId(189) Fresh { param: NodeId(189), kind: Ampersand }
+  trait_map NodeId(71) []
+  extra_lifetime_params NodeId(63) [('_#0, NodeId(189), Ampersand)]
+NodeId(76) def_id=DefId(0:15 ~ traits[f138]::ST) lifetime_elision_allowed=false
+NodeId(80) def_id=DefId(0:16 ~ traits[f138]::CO) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(84) DefId(0:17 ~ traits[f138]::CO::{constant#0})
+  node_id_to_def_id NodeId(88) DefId(0:18 ~ traits[f138]::CO::{constant#1})
+NodeId(90) def_id=DefId(0:19 ~ traits[f138]::gen) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(91) DefId(0:20 ~ traits[f138]::gen::T)
+  node_id_to_def_id NodeId(94) DefId(0:21 ~ traits[f138]::gen::N)
+  trait_map NodeId(115) [TraitCandidate { def_id: DefId(0:1 ~ traits[f138]::Tr), import_ids: [], lint_ambiguous: false }]
+  trait_map NodeId(119) [TraitCandidate { def_id: DefId(0:1 ~ traits[f138]::Tr), import_ids: [], lint_ambiguous: false }]
+NodeId(124) def_id=DefId(0:22 ~ traits[f138]::f) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(138) DefId(0:23 ~ traits[f138]::f::{closure#0})
+  node_id_to_def_id NodeId(149) DefId(0:24 ~ traits[f138]::f::{constant#0})
+  trait_map NodeId(131) []
+  trait_map NodeId(157) []
+  trait_map NodeId(171) [TraitCandidate { def_id: DefId(0:1 ~ traits[f138]::Tr), import_ids: [], lint_ambiguous: false }]
+== lint_buffer (0)
+== disambiguators (8)
+DefId(0:0 ~ traits[f138])
+DefId(0:1 ~ traits[f138]::Tr)
+DefId(0:6 ~ traits[f138]::S)
+DefId(0:8 ~ traits[f138]::{impl#0})
+DefId(0:11 ~ traits[f138]::{impl#1})
+DefId(0:16 ~ traits[f138]::CO)
+DefId(0:19 ~ traits[f138]::gen)
+DefId(0:22 ~ traits[f138]::f)
+== definitions (25)
+DefId(0:0 ~ traits[f138]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 17381849139994757821))
+DefId(0:1 ~ traits[f138]::Tr) Trait DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Tr"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 4857729094467202975))
+DefId(0:2 ~ traits[f138]::Tr::C) AssocConst DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 8451039388547297006))
+DefId(0:3 ~ traits[f138]::Tr::T) AssocTy DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 13115919247389983073))
+DefId(0:4 ~ traits[f138]::Tr::m) AssocFn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("m"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 14871793611104598941))
+DefId(0:5 ~ traits[f138]::Tr::n) AssocFn DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("n"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 14404350258250430601))
+DefId(0:6 ~ traits[f138]::S) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("S"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 10900467378855130124))
+DefId(0:7 ~ traits[f138]::S::f) Field DefKey { parent: Some(DefIndex(6)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 11996682158786471973))
+DefId(0:8 ~ traits[f138]::{impl#0}) Impl { of_trait: false } DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Impl, disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 4792088967082854174))
+DefId(0:9 ~ traits[f138]::{impl#0}::new) AssocFn DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("new"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 1719619985102101430))
+DefId(0:10 ~ traits[f138]::{impl#0}::get) AssocFn DefKey { parent: Some(DefIndex(8)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("get"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 2673693678359873440))
+DefId(0:11 ~ traits[f138]::{impl#1}) Impl { of_trait: true } DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Impl, disambiguator: 1 } } DefPathHash(Fingerprint(17381849139994757821, 12896725603939569820))
+DefId(0:12 ~ traits[f138]::{impl#1}::C) AssocConst DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 5455178294815417928))
+DefId(0:13 ~ traits[f138]::{impl#1}::T) AssocTy DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 2917857388617280524))
+DefId(0:14 ~ traits[f138]::{impl#1}::m) AssocFn DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("m"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 534782833216043691))
+DefId(0:15 ~ traits[f138]::ST) Static { safety: Safe, mutability: Not, nested: false } DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("ST"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 2312631882757414191))
+DefId(0:16 ~ traits[f138]::CO) Const DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("CO"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 12510550873657009039))
+DefId(0:17 ~ traits[f138]::CO::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 8078240454254241769))
+DefId(0:18 ~ traits[f138]::CO::{constant#1}) AnonConst DefKey { parent: Some(DefIndex(16)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 1 } } DefPathHash(Fingerprint(17381849139994757821, 5903126066592720272))
+DefId(0:19 ~ traits[f138]::gen) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("gen"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 10127720420659830613))
+DefId(0:20 ~ traits[f138]::gen::T) TyParam DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 17354659244144735318))
+DefId(0:21 ~ traits[f138]::gen::N) ConstParam DefKey { parent: Some(DefIndex(19)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("N"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 8929688777613315402))
+DefId(0:22 ~ traits[f138]::f) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 9861929768302046599))
+DefId(0:23 ~ traits[f138]::f::{closure#0}) Closure DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: Closure, disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 9979712172878266195))
+DefId(0:24 ~ traits[f138]::f::{constant#0}) AnonConst DefKey { parent: Some(DefIndex(22)), disambiguated_data: DisambiguatedDefPathData { data: AnonConst, disambiguator: 0 } } DefPathHash(Fingerprint(17381849139994757821, 683556388333549047))

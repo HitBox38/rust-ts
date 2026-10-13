@@ -433,6 +433,17 @@ function PrimTy_from_name(name: Symbol): PrimTy | undefined {
 
 const RES_ERR: Res = { $: "Err" };
 
+// PORT: `LateResolutionVisitor::new` (late.rs:1581) belongs to lane res-late-a; the res-lib stub has no
+// placeholder for it (decls.ts declares the static). Until that lane's real one is assigned, calls stop
+// here as UNPORTED instead of a TypeError. Guarded like `unported_methods`, so it never replaces the
+// real function whichever of the two runs first.
+if (!Object.prototype.hasOwnProperty.call(LateResolutionVisitor, "new")) {
+  LateResolutionVisitor.new = function (_resolver: Resolver): LateResolutionVisitor {
+    return unported("rustc_resolve::late::LateResolutionVisitor::new");
+  };
+}
+
+
 // rustc: compiler/rustc_resolve/src/late.rs:2891 resolve_item
 LateResolutionVisitor.prototype.resolve_item = function (this: LateResolutionVisitor, item: Item): void {
   let mod_inner_attrs_start: number | undefined = undefined;

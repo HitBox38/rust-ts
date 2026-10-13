@@ -1,0 +1,209 @@
+== visibilities_for_hashing (22)
+DefId(0:0 ~ patterns[f898]) Public
+DefId(0:1 ~ patterns[f898]::E) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:2 ~ patterns[f898]::E::A) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:3 ~ patterns[f898]::E::A::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:4 ~ patterns[f898]::E::A::0) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:5 ~ patterns[f898]::E::A::1) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:6 ~ patterns[f898]::E::B) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:7 ~ patterns[f898]::E::B::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:8 ~ patterns[f898]::E::B::0) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:9 ~ patterns[f898]::E::C) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:10 ~ patterns[f898]::E::C::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:11 ~ patterns[f898]::P) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:11 ~ patterns[f898]::P) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:12 ~ patterns[f898]::P::x) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:13 ~ patterns[f898]::P::y) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:14 ~ patterns[f898]::U) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:14 ~ patterns[f898]::U) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:15 ~ patterns[f898]::U::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:16 ~ patterns[f898]::K) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:17 ~ patterns[f898]::params) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:18 ~ patterns[f898]::f) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+DefId(0:19 ~ patterns[f898]::g) Restricted(LocalModId(DefId(0:0 ~ patterns[f898])))
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ patterns[f898]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (2)
+DefId(0:0 ~ patterns[f898])
+  ModChild { ident: E#0, res: Def(Enum, DefId(0:1 ~ patterns[f898]::E)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: P#0, res: Def(Struct, DefId(0:11 ~ patterns[f898]::P)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: U#0, res: Def(Struct, DefId(0:14 ~ patterns[f898]::U)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: U#0, res: Def(Ctor(Struct, Const), DefId(0:15 ~ patterns[f898]::U::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: K#0, res: Def(Const, DefId(0:16 ~ patterns[f898]::K)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: params#0, res: Def(Fn, DefId(0:17 ~ patterns[f898]::params)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:18 ~ patterns[f898]::f)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: g#0, res: Def(Fn, DefId(0:19 ~ patterns[f898]::g)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+DefId(0:1 ~ patterns[f898]::E)
+  ModChild { ident: A#0, res: Def(Variant, DefId(0:2 ~ patterns[f898]::E::A)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: A#0, res: Def(Ctor(Variant, Fn), DefId(0:3 ~ patterns[f898]::E::A::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Variant, DefId(0:6 ~ patterns[f898]::E::B)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Ctor(Variant, Fn), DefId(0:7 ~ patterns[f898]::E::B::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Variant, DefId(0:9 ~ patterns[f898]::E::C)), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(Ctor(Variant, Const), DefId(0:10 ~ patterns[f898]::E::C::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ patterns[f898]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (0)
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(168)
+== partial_res_map (95)
+NodeId(6) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(7) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(9) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(10) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(14) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(15) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(21) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(22) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(24) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(25) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(29) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(30) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(35) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(36) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(37) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(38) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(40) PartialRes { base_res: Local(NodeId(40)), unresolved_segments: 0 }
+NodeId(41) PartialRes { base_res: Local(NodeId(41)), unresolved_segments: 0 }
+NodeId(43) PartialRes { base_res: Def(Struct, DefId(0:11 ~ patterns[f898]::P)), unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: Def(Struct, DefId(0:11 ~ patterns[f898]::P)), unresolved_segments: 0 }
+NodeId(45) PartialRes { base_res: Def(Struct, DefId(0:11 ~ patterns[f898]::P)), unresolved_segments: 0 }
+NodeId(46) PartialRes { base_res: Def(Struct, DefId(0:11 ~ patterns[f898]::P)), unresolved_segments: 0 }
+NodeId(48) PartialRes { base_res: Local(NodeId(48)), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(50) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(55) PartialRes { base_res: Local(NodeId(40)), unresolved_segments: 0 }
+NodeId(56) PartialRes { base_res: Local(NodeId(40)), unresolved_segments: 0 }
+NodeId(57) PartialRes { base_res: Local(NodeId(41)), unresolved_segments: 0 }
+NodeId(58) PartialRes { base_res: Local(NodeId(41)), unresolved_segments: 0 }
+NodeId(60) PartialRes { base_res: Local(NodeId(48)), unresolved_segments: 0 }
+NodeId(61) PartialRes { base_res: Local(NodeId(48)), unresolved_segments: 0 }
+NodeId(65) PartialRes { base_res: Def(Enum, DefId(0:1 ~ patterns[f898]::E)), unresolved_segments: 0 }
+NodeId(66) PartialRes { base_res: Def(Enum, DefId(0:1 ~ patterns[f898]::E)), unresolved_segments: 0 }
+NodeId(67) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(69) PartialRes { base_res: Def(Struct, DefId(0:11 ~ patterns[f898]::P)), unresolved_segments: 0 }
+NodeId(70) PartialRes { base_res: Def(Struct, DefId(0:11 ~ patterns[f898]::P)), unresolved_segments: 0 }
+NodeId(71) PartialRes { base_res: Local(NodeId(71)), unresolved_segments: 0 }
+NodeId(72) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(73) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(76) PartialRes { base_res: Def(Struct, DefId(0:11 ~ patterns[f898]::P)), unresolved_segments: 0 }
+NodeId(77) PartialRes { base_res: Def(Struct, DefId(0:11 ~ patterns[f898]::P)), unresolved_segments: 0 }
+NodeId(79) PartialRes { base_res: Local(NodeId(79)), unresolved_segments: 0 }
+NodeId(81) PartialRes { base_res: Local(NodeId(81)), unresolved_segments: 0 }
+NodeId(82) PartialRes { base_res: Local(NodeId(71)), unresolved_segments: 0 }
+NodeId(83) PartialRes { base_res: Local(NodeId(71)), unresolved_segments: 0 }
+NodeId(87) PartialRes { base_res: Local(NodeId(81)), unresolved_segments: 0 }
+NodeId(88) PartialRes { base_res: Local(NodeId(81)), unresolved_segments: 0 }
+NodeId(91) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(92) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(95) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:3 ~ patterns[f898]::E::A::{constructor#0})), unresolved_segments: 0 }
+NodeId(96) PartialRes { base_res: Def(Enum, DefId(0:1 ~ patterns[f898]::E)), unresolved_segments: 0 }
+NodeId(97) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:3 ~ patterns[f898]::E::A::{constructor#0})), unresolved_segments: 0 }
+NodeId(98) PartialRes { base_res: Local(NodeId(98)), unresolved_segments: 0 }
+NodeId(100) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:7 ~ patterns[f898]::E::B::{constructor#0})), unresolved_segments: 0 }
+NodeId(101) PartialRes { base_res: Def(Enum, DefId(0:1 ~ patterns[f898]::E)), unresolved_segments: 0 }
+NodeId(102) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:7 ~ patterns[f898]::E::B::{constructor#0})), unresolved_segments: 0 }
+NodeId(103) PartialRes { base_res: Local(NodeId(98)), unresolved_segments: 0 }
+NodeId(104) PartialRes { base_res: Local(NodeId(98)), unresolved_segments: 0 }
+NodeId(105) PartialRes { base_res: Local(NodeId(98)), unresolved_segments: 0 }
+NodeId(107) PartialRes { base_res: Def(Ctor(Variant, Const), DefId(0:10 ~ patterns[f898]::E::C::{constructor#0})), unresolved_segments: 0 }
+NodeId(108) PartialRes { base_res: Def(Enum, DefId(0:1 ~ patterns[f898]::E)), unresolved_segments: 0 }
+NodeId(109) PartialRes { base_res: Def(Ctor(Variant, Const), DefId(0:10 ~ patterns[f898]::E::C::{constructor#0})), unresolved_segments: 0 }
+NodeId(111) PartialRes { base_res: Local(NodeId(79)), unresolved_segments: 0 }
+NodeId(112) PartialRes { base_res: Local(NodeId(79)), unresolved_segments: 0 }
+NodeId(113) PartialRes { base_res: Def(Const, DefId(0:16 ~ patterns[f898]::K)), unresolved_segments: 0 }
+NodeId(114) PartialRes { base_res: Def(Const, DefId(0:16 ~ patterns[f898]::K)), unresolved_segments: 0 }
+NodeId(115) PartialRes { base_res: Local(NodeId(79)), unresolved_segments: 0 }
+NodeId(116) PartialRes { base_res: Local(NodeId(79)), unresolved_segments: 0 }
+NodeId(118) PartialRes { base_res: Def(Ctor(Variant, Const), DefId(0:10 ~ patterns[f898]::E::C::{constructor#0})), unresolved_segments: 0 }
+NodeId(119) PartialRes { base_res: Def(Enum, DefId(0:1 ~ patterns[f898]::E)), unresolved_segments: 0 }
+NodeId(120) PartialRes { base_res: Def(Ctor(Variant, Const), DefId(0:10 ~ patterns[f898]::E::C::{constructor#0})), unresolved_segments: 0 }
+NodeId(124) PartialRes { base_res: Def(Ctor(Struct, Const), DefId(0:15 ~ patterns[f898]::U::{constructor#0})), unresolved_segments: 0 }
+NodeId(125) PartialRes { base_res: Def(Ctor(Struct, Const), DefId(0:15 ~ patterns[f898]::U::{constructor#0})), unresolved_segments: 0 }
+NodeId(126) PartialRes { base_res: Def(Ctor(Struct, Const), DefId(0:15 ~ patterns[f898]::U::{constructor#0})), unresolved_segments: 0 }
+NodeId(129) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(133) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(134) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(135) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(136) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(138) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(139) PartialRes { base_res: Local(NodeId(129)), unresolved_segments: 0 }
+NodeId(144) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(145) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(146) PartialRes { base_res: Local(NodeId(146)), unresolved_segments: 0 }
+NodeId(147) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(148) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(151) PartialRes { base_res: Local(NodeId(146)), unresolved_segments: 0 }
+NodeId(152) PartialRes { base_res: Local(NodeId(146)), unresolved_segments: 0 }
+NodeId(154) PartialRes { base_res: Def(Const, DefId(0:16 ~ patterns[f898]::K)), unresolved_segments: 0 }
+NodeId(157) PartialRes { base_res: Local(NodeId(157)), unresolved_segments: 0 }
+NodeId(160) PartialRes { base_res: Local(NodeId(157)), unresolved_segments: 0 }
+NodeId(161) PartialRes { base_res: Local(NodeId(157)), unresolved_segments: 0 }
+NodeId(163) PartialRes { base_res: Local(NodeId(163)), unresolved_segments: 0 }
+NodeId(165) PartialRes { base_res: Local(NodeId(163)), unresolved_segments: 0 }
+NodeId(166) PartialRes { base_res: Local(NodeId(163)), unresolved_segments: 0 }
+== owners (8)
+NodeId(0) def_id=DefId(0:0 ~ patterns[f898]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ patterns[f898]::E) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(4) DefId(0:2 ~ patterns[f898]::E::A)
+  node_id_to_def_id NodeId(5) DefId(0:4 ~ patterns[f898]::E::A::0)
+  node_id_to_def_id NodeId(8) DefId(0:5 ~ patterns[f898]::E::A::1)
+  node_id_to_def_id NodeId(11) DefId(0:3 ~ patterns[f898]::E::A::{constructor#0})
+  node_id_to_def_id NodeId(12) DefId(0:6 ~ patterns[f898]::E::B)
+  node_id_to_def_id NodeId(13) DefId(0:8 ~ patterns[f898]::E::B::0)
+  node_id_to_def_id NodeId(16) DefId(0:7 ~ patterns[f898]::E::B::{constructor#0})
+  node_id_to_def_id NodeId(17) DefId(0:9 ~ patterns[f898]::E::C)
+  node_id_to_def_id NodeId(18) DefId(0:10 ~ patterns[f898]::E::C::{constructor#0})
+NodeId(19) def_id=DefId(0:11 ~ patterns[f898]::P) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(20) DefId(0:12 ~ patterns[f898]::P::x)
+  node_id_to_def_id NodeId(23) DefId(0:13 ~ patterns[f898]::P::y)
+NodeId(26) def_id=DefId(0:14 ~ patterns[f898]::U) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(27) DefId(0:15 ~ patterns[f898]::U::{constructor#0})
+NodeId(28) def_id=DefId(0:16 ~ patterns[f898]::K) lifetime_elision_allowed=false
+NodeId(32) def_id=DefId(0:17 ~ patterns[f898]::params) lifetime_elision_allowed=false
+NodeId(63) def_id=DefId(0:18 ~ patterns[f898]::f) lifetime_elision_allowed=false
+NodeId(142) def_id=DefId(0:19 ~ patterns[f898]::g) lifetime_elision_allowed=false
+== lint_buffer (0)
+== disambiguators (7)
+DefId(0:0 ~ patterns[f898])
+DefId(0:1 ~ patterns[f898]::E)
+DefId(0:2 ~ patterns[f898]::E::A)
+DefId(0:6 ~ patterns[f898]::E::B)
+DefId(0:9 ~ patterns[f898]::E::C)
+DefId(0:11 ~ patterns[f898]::P)
+DefId(0:14 ~ patterns[f898]::U)
+== definitions (20)
+DefId(0:0 ~ patterns[f898]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 17913238768645484544))
+DefId(0:1 ~ patterns[f898]::E) Enum DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("E"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 5347709552215676389))
+DefId(0:2 ~ patterns[f898]::E::A) Variant DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("A"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 15699196126557233028))
+DefId(0:3 ~ patterns[f898]::E::A::{constructor#0}) Ctor(Variant, Fn) DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 16666762117175047861))
+DefId(0:4 ~ patterns[f898]::E::A::0) Field DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 9218251494848426824))
+DefId(0:5 ~ patterns[f898]::E::A::1) Field DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("1"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 16689539473200918222))
+DefId(0:6 ~ patterns[f898]::E::B) Variant DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("B"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 15587584019274767456))
+DefId(0:7 ~ patterns[f898]::E::B::{constructor#0}) Ctor(Variant, Fn) DefKey { parent: Some(DefIndex(6)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 1905218354988762751))
+DefId(0:8 ~ patterns[f898]::E::B::0) Field DefKey { parent: Some(DefIndex(6)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 1978120976650277273))
+DefId(0:9 ~ patterns[f898]::E::C) Variant DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 6503275950946234436))
+DefId(0:10 ~ patterns[f898]::E::C::{constructor#0}) Ctor(Variant, Const) DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 189536544005917910))
+DefId(0:11 ~ patterns[f898]::P) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("P"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 13603999377020133453))
+DefId(0:12 ~ patterns[f898]::P::x) Field DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("x"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 5056176653819076846))
+DefId(0:13 ~ patterns[f898]::P::y) Field DefKey { parent: Some(DefIndex(11)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("y"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 1752419840925359798))
+DefId(0:14 ~ patterns[f898]::U) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("U"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 4291427285571393471))
+DefId(0:15 ~ patterns[f898]::U::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(14)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 9301527405680674049))
+DefId(0:16 ~ patterns[f898]::K) Const DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("K"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 1946448922662245492))
+DefId(0:17 ~ patterns[f898]::params) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("params"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 5412669634696752177))
+DefId(0:18 ~ patterns[f898]::f) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 8938972578286771180))
+DefId(0:19 ~ patterns[f898]::g) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("g"), disambiguator: 0 } } DefPathHash(Fingerprint(17913238768645484544, 13833590440531427568))

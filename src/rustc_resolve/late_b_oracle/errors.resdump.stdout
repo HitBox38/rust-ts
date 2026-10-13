@@ -1,0 +1,211 @@
+== visibilities_for_hashing (22)
+DefId(0:0 ~ errors[df80]) Public
+DefId(0:1 ~ errors[df80]::E) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:2 ~ errors[df80]::E::A) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:3 ~ errors[df80]::E::A::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:4 ~ errors[df80]::E::A::0) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:5 ~ errors[df80]::E::B) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:6 ~ errors[df80]::E::B::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:7 ~ errors[df80]::E::B::0) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:8 ~ errors[df80]::E::B::1) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:9 ~ errors[df80]::Tr) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:10 ~ errors[df80]::Tr::m) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:11 ~ errors[df80]::Tr::T) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:12 ~ errors[df80]::Tr::C) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:13 ~ errors[df80]::S) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:13 ~ errors[df80]::S) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:14 ~ errors[df80]::S::{constructor#0}) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:15 ~ errors[df80]::{impl#0}) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:21 ~ errors[df80]::dup) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:24 ~ errors[df80]::params) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:25 ~ errors[df80]::f) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:26 ~ errors[df80]::FOO) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+DefId(0:27 ~ errors[df80]::g) Restricted(LocalModId(DefId(0:0 ~ errors[df80])))
+== expn_that_defined (0)
+== effective_visibilities (1)
+DefId(0:0 ~ errors[df80]) EffectiveVisibility { direct: Public, reexported: Public, reachable: Public, reachable_through_impl_trait: Public }
+== macro_reachable_adts (0)
+== extern_crate_map (0)
+== maybe_unused_trait_imports (0)
+== module_children (3)
+DefId(0:0 ~ errors[df80])
+  ModChild { ident: E#0, res: Def(Enum, DefId(0:1 ~ errors[df80]::E)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: Tr#0, res: Def(Trait, DefId(0:9 ~ errors[df80]::Tr)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: S#0, res: Def(Struct, DefId(0:13 ~ errors[df80]::S)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: S#0, res: Def(Ctor(Struct, Const), DefId(0:14 ~ errors[df80]::S::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: dup#0, res: Def(Fn, DefId(0:21 ~ errors[df80]::dup)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: params#0, res: Def(Fn, DefId(0:24 ~ errors[df80]::params)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: f#0, res: Def(Fn, DefId(0:25 ~ errors[df80]::f)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: FOO#0, res: Def(Static { safety: Safe, mutability: Not, nested: false }, DefId(0:26 ~ errors[df80]::FOO)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: g#0, res: Def(Fn, DefId(0:27 ~ errors[df80]::g)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+DefId(0:1 ~ errors[df80]::E)
+  ModChild { ident: A#0, res: Def(Variant, DefId(0:2 ~ errors[df80]::E::A)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: A#0, res: Def(Ctor(Variant, Fn), DefId(0:3 ~ errors[df80]::E::A::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Variant, DefId(0:5 ~ errors[df80]::E::B)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: B#0, res: Def(Ctor(Variant, Fn), DefId(0:6 ~ errors[df80]::E::B::{constructor#0})), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+DefId(0:9 ~ errors[df80]::Tr)
+  ModChild { ident: m#0, res: Def(AssocFn, DefId(0:10 ~ errors[df80]::Tr::m)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: T#0, res: Def(AssocTy, DefId(0:11 ~ errors[df80]::Tr::T)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+  ModChild { ident: C#0, res: Def(AssocConst, DefId(0:12 ~ errors[df80]::Tr::C)), vis: Restricted(ModId(DefId(0:0 ~ errors[df80]))), reexport_chain: [] }
+== ambig_module_children (0)
+== glob_map (0)
+== main_def
+None
+== trait_impls (1)
+DefId(0:9 ~ errors[df80]::Tr) [DefId(0:15 ~ errors[df80]::{impl#0})]
+== proc_macros (0)
+== paths_matching_assoc_types (0)
+== confused_type_with_std_module (0)
+== doc_link_resolutions (0)
+== doc_link_traits_in_scope (0)
+== all_macro_rules (0)
+== stripped_cfg_items (0)
+== delegation_infos (0)
+== delegation_inherent_fn_map (0)
+== next_node_id
+NodeId(142)
+== partial_res_map (60)
+NodeId(6) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(7) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(11) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(12) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(14) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(15) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(21) PartialRes { base_res: SelfTyParam { trait_: DefId(0:9 ~ errors[df80]::Tr) }, unresolved_segments: 0 }
+NodeId(25) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(26) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(30) PartialRes { base_res: Def(Trait, DefId(0:9 ~ errors[df80]::Tr)), unresolved_segments: 0 }
+NodeId(31) PartialRes { base_res: Def(Trait, DefId(0:9 ~ errors[df80]::Tr)), unresolved_segments: 0 }
+NodeId(32) PartialRes { base_res: Def(Struct, DefId(0:13 ~ errors[df80]::S)), unresolved_segments: 0 }
+NodeId(33) PartialRes { base_res: Def(Struct, DefId(0:13 ~ errors[df80]::S)), unresolved_segments: 0 }
+NodeId(34) PartialRes { base_res: Def(AssocFn, DefId(0:10 ~ errors[df80]::Tr::m)), unresolved_segments: 0 }
+NodeId(37) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:15 ~ errors[df80]::{impl#0}), is_trait_impl: true }, unresolved_segments: 0 }
+NodeId(38) PartialRes { base_res: Local(NodeId(38)), unresolved_segments: 0 }
+NodeId(43) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:15 ~ errors[df80]::{impl#0}), is_trait_impl: true }, unresolved_segments: 0 }
+NodeId(44) PartialRes { base_res: Local(NodeId(44)), unresolved_segments: 0 }
+NodeId(49) PartialRes { base_res: SelfTyAlias { alias_to: DefId(0:15 ~ errors[df80]::{impl#0}), is_trait_impl: true }, unresolved_segments: 0 }
+NodeId(50) PartialRes { base_res: Local(NodeId(50)), unresolved_segments: 0 }
+NodeId(53) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(54) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(57) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(58) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(60) PartialRes { base_res: Def(TyParam, DefId(0:22 ~ errors[df80]::dup::T)), unresolved_segments: 0 }
+NodeId(61) PartialRes { base_res: Err, unresolved_segments: 0 }
+NodeId(65) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(66) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(67) PartialRes { base_res: Local(NodeId(67)), unresolved_segments: 0 }
+NodeId(69) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(70) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(71) PartialRes { base_res: Local(NodeId(71)), unresolved_segments: 0 }
+NodeId(75) PartialRes { base_res: Def(Enum, DefId(0:1 ~ errors[df80]::E)), unresolved_segments: 0 }
+NodeId(76) PartialRes { base_res: Def(Enum, DefId(0:1 ~ errors[df80]::E)), unresolved_segments: 0 }
+NodeId(77) PartialRes { base_res: Local(NodeId(77)), unresolved_segments: 0 }
+NodeId(80) PartialRes { base_res: Local(NodeId(77)), unresolved_segments: 0 }
+NodeId(81) PartialRes { base_res: Local(NodeId(77)), unresolved_segments: 0 }
+NodeId(84) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:3 ~ errors[df80]::E::A::{constructor#0})), unresolved_segments: 0 }
+NodeId(85) PartialRes { base_res: Def(Enum, DefId(0:1 ~ errors[df80]::E)), unresolved_segments: 0 }
+NodeId(86) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:3 ~ errors[df80]::E::A::{constructor#0})), unresolved_segments: 0 }
+NodeId(87) PartialRes { base_res: Local(NodeId(87)), unresolved_segments: 0 }
+NodeId(88) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:6 ~ errors[df80]::E::B::{constructor#0})), unresolved_segments: 0 }
+NodeId(89) PartialRes { base_res: Def(Enum, DefId(0:1 ~ errors[df80]::E)), unresolved_segments: 0 }
+NodeId(90) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:6 ~ errors[df80]::E::B::{constructor#0})), unresolved_segments: 0 }
+NodeId(91) PartialRes { base_res: Local(NodeId(91)), unresolved_segments: 0 }
+NodeId(96) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:6 ~ errors[df80]::E::B::{constructor#0})), unresolved_segments: 0 }
+NodeId(97) PartialRes { base_res: Def(Enum, DefId(0:1 ~ errors[df80]::E)), unresolved_segments: 0 }
+NodeId(98) PartialRes { base_res: Def(Ctor(Variant, Fn), DefId(0:6 ~ errors[df80]::E::B::{constructor#0})), unresolved_segments: 0 }
+NodeId(99) PartialRes { base_res: Local(NodeId(99)), unresolved_segments: 0 }
+NodeId(100) PartialRes { base_res: Local(NodeId(100)), unresolved_segments: 0 }
+NodeId(107) PartialRes { base_res: Local(NodeId(107)), unresolved_segments: 0 }
+NodeId(108) PartialRes { base_res: Local(NodeId(107)), unresolved_segments: 0 }
+NodeId(113) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(114) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(118) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(119) PartialRes { base_res: PrimTy(Uint(u8)), unresolved_segments: 0 }
+NodeId(120) PartialRes { base_res: Local(NodeId(120)), unresolved_segments: 0 }
+NodeId(123) PartialRes { base_res: Local(NodeId(120)), unresolved_segments: 0 }
+NodeId(124) PartialRes { base_res: Local(NodeId(120)), unresolved_segments: 0 }
+NodeId(126) PartialRes { base_res: Local(NodeId(126)), unresolved_segments: 0 }
+== owners (18)
+NodeId(0) def_id=DefId(0:0 ~ errors[df80]) lifetime_elision_allowed=false
+NodeId(3) def_id=DefId(0:1 ~ errors[df80]::E) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(4) DefId(0:2 ~ errors[df80]::E::A)
+  node_id_to_def_id NodeId(5) DefId(0:4 ~ errors[df80]::E::A::0)
+  node_id_to_def_id NodeId(8) DefId(0:3 ~ errors[df80]::E::A::{constructor#0})
+  node_id_to_def_id NodeId(9) DefId(0:5 ~ errors[df80]::E::B)
+  node_id_to_def_id NodeId(10) DefId(0:7 ~ errors[df80]::E::B::0)
+  node_id_to_def_id NodeId(13) DefId(0:8 ~ errors[df80]::E::B::1)
+  node_id_to_def_id NodeId(16) DefId(0:6 ~ errors[df80]::E::B::{constructor#0})
+NodeId(17) def_id=DefId(0:9 ~ errors[df80]::Tr) lifetime_elision_allowed=false
+NodeId(18) def_id=DefId(0:10 ~ errors[df80]::Tr::m) lifetime_elision_allowed=true
+  lifetime_res NodeId(20) ElidedAnchor { start: NodeId(134), end: NodeId(135) }
+  lifetime_res NodeId(134) Fresh { param: NodeId(135), kind: Ampersand }
+  lifetime_res NodeId(135) Fresh { param: NodeId(135), kind: Ampersand }
+  extra_lifetime_params NodeId(18) [('_#0, NodeId(135), Ampersand)]
+NodeId(23) def_id=DefId(0:11 ~ errors[df80]::Tr::T) lifetime_elision_allowed=false
+NodeId(24) def_id=DefId(0:12 ~ errors[df80]::Tr::C) lifetime_elision_allowed=false
+NodeId(27) def_id=DefId(0:13 ~ errors[df80]::S) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(28) DefId(0:14 ~ errors[df80]::S::{constructor#0})
+NodeId(29) def_id=DefId(0:15 ~ errors[df80]::{impl#0}) lifetime_elision_allowed=false
+NodeId(34) def_id=DefId(0:16 ~ errors[df80]::{impl#0}::m) lifetime_elision_allowed=true
+  lifetime_res NodeId(36) ElidedAnchor { start: NodeId(136), end: NodeId(137) }
+  lifetime_res NodeId(136) Fresh { param: NodeId(137), kind: Ampersand }
+  lifetime_res NodeId(137) Fresh { param: NodeId(137), kind: Ampersand }
+  extra_lifetime_params NodeId(34) [('_#0, NodeId(137), Ampersand)]
+NodeId(40) def_id=DefId(0:17 ~ errors[df80]::{impl#0}::m#1) lifetime_elision_allowed=true
+  lifetime_res NodeId(42) ElidedAnchor { start: NodeId(138), end: NodeId(139) }
+  lifetime_res NodeId(138) Fresh { param: NodeId(139), kind: Ampersand }
+  lifetime_res NodeId(139) Fresh { param: NodeId(139), kind: Ampersand }
+  extra_lifetime_params NodeId(40) [('_#0, NodeId(139), Ampersand)]
+NodeId(46) def_id=DefId(0:18 ~ errors[df80]::{impl#0}::missing) lifetime_elision_allowed=true
+  lifetime_res NodeId(48) ElidedAnchor { start: NodeId(140), end: NodeId(141) }
+  lifetime_res NodeId(140) Fresh { param: NodeId(141), kind: Ampersand }
+  lifetime_res NodeId(141) Fresh { param: NodeId(141), kind: Ampersand }
+  extra_lifetime_params NodeId(46) [('_#0, NodeId(141), Ampersand)]
+NodeId(52) def_id=DefId(0:19 ~ errors[df80]::{impl#0}::T) lifetime_elision_allowed=false
+NodeId(56) def_id=DefId(0:20 ~ errors[df80]::{impl#0}::C) lifetime_elision_allowed=false
+NodeId(59) def_id=DefId(0:21 ~ errors[df80]::dup) lifetime_elision_allowed=false
+  node_id_to_def_id NodeId(60) DefId(0:22 ~ errors[df80]::dup::T)
+  node_id_to_def_id NodeId(61) DefId(0:23 ~ errors[df80]::dup::T#1)
+NodeId(63) def_id=DefId(0:24 ~ errors[df80]::params) lifetime_elision_allowed=false
+NodeId(73) def_id=DefId(0:25 ~ errors[df80]::f) lifetime_elision_allowed=false
+NodeId(112) def_id=DefId(0:26 ~ errors[df80]::FOO) lifetime_elision_allowed=false
+NodeId(116) def_id=DefId(0:27 ~ errors[df80]::g) lifetime_elision_allowed=false
+== lint_buffer (0)
+== disambiguators (8)
+DefId(0:0 ~ errors[df80])
+DefId(0:1 ~ errors[df80]::E)
+DefId(0:2 ~ errors[df80]::E::A)
+DefId(0:5 ~ errors[df80]::E::B)
+DefId(0:9 ~ errors[df80]::Tr)
+DefId(0:13 ~ errors[df80]::S)
+DefId(0:15 ~ errors[df80]::{impl#0})
+DefId(0:21 ~ errors[df80]::dup)
+== definitions (28)
+DefId(0:0 ~ errors[df80]) Mod DefKey { parent: None, disambiguated_data: DisambiguatedDefPathData { data: CrateRoot, disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 16104884346877638580))
+DefId(0:1 ~ errors[df80]::E) Enum DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("E"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 16034596280310090667))
+DefId(0:2 ~ errors[df80]::E::A) Variant DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("A"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 469684328191152168))
+DefId(0:3 ~ errors[df80]::E::A::{constructor#0}) Ctor(Variant, Fn) DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 7761019198524697372))
+DefId(0:4 ~ errors[df80]::E::A::0) Field DefKey { parent: Some(DefIndex(2)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 17264785698927966106))
+DefId(0:5 ~ errors[df80]::E::B) Variant DefKey { parent: Some(DefIndex(1)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("B"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 5013051663595172282))
+DefId(0:6 ~ errors[df80]::E::B::{constructor#0}) Ctor(Variant, Fn) DefKey { parent: Some(DefIndex(5)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 8064331959848616208))
+DefId(0:7 ~ errors[df80]::E::B::0) Field DefKey { parent: Some(DefIndex(5)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("0"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 17216366893661151400))
+DefId(0:8 ~ errors[df80]::E::B::1) Field DefKey { parent: Some(DefIndex(5)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("1"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 15627224883107748041))
+DefId(0:9 ~ errors[df80]::Tr) Trait DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("Tr"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 8393265150462513787))
+DefId(0:10 ~ errors[df80]::Tr::m) AssocFn DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("m"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 16876616584870347164))
+DefId(0:11 ~ errors[df80]::Tr::T) AssocTy DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 9689095542454107823))
+DefId(0:12 ~ errors[df80]::Tr::C) AssocConst DefKey { parent: Some(DefIndex(9)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 1185882255085703397))
+DefId(0:13 ~ errors[df80]::S) Struct DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("S"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 13660318781121952749))
+DefId(0:14 ~ errors[df80]::S::{constructor#0}) Ctor(Struct, Const) DefKey { parent: Some(DefIndex(13)), disambiguated_data: DisambiguatedDefPathData { data: Ctor, disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 3481196288508511526))
+DefId(0:15 ~ errors[df80]::{impl#0}) Impl { of_trait: true } DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: Impl, disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 10731187731448863828))
+DefId(0:16 ~ errors[df80]::{impl#0}::m) AssocFn DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("m"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 1311381347755658340))
+DefId(0:17 ~ errors[df80]::{impl#0}::m#1) AssocFn DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("m"), disambiguator: 1 } } DefPathHash(Fingerprint(16104884346877638580, 16470080443467075252))
+DefId(0:18 ~ errors[df80]::{impl#0}::missing) AssocFn DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("missing"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 4523364803335218975))
+DefId(0:19 ~ errors[df80]::{impl#0}::T) AssocConst DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 10493890551272990321))
+DefId(0:20 ~ errors[df80]::{impl#0}::C) AssocTy DefKey { parent: Some(DefIndex(15)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("C"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 3834342091377330046))
+DefId(0:21 ~ errors[df80]::dup) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("dup"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 13350377060132302431))
+DefId(0:22 ~ errors[df80]::dup::T) TyParam DefKey { parent: Some(DefIndex(21)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 17781739909258197567))
+DefId(0:23 ~ errors[df80]::dup::T#1) TyParam DefKey { parent: Some(DefIndex(21)), disambiguated_data: DisambiguatedDefPathData { data: TypeNs("T"), disambiguator: 1 } } DefPathHash(Fingerprint(16104884346877638580, 3311429547808843393))
+DefId(0:24 ~ errors[df80]::params) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("params"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 3304698554662966359))
+DefId(0:25 ~ errors[df80]::f) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("f"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 707013007806835384))
+DefId(0:26 ~ errors[df80]::FOO) Static { safety: Safe, mutability: Not, nested: false } DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("FOO"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 9332095826416763553))
+DefId(0:27 ~ errors[df80]::g) Fn DefKey { parent: Some(DefIndex(0)), disambiguated_data: DisambiguatedDefPathData { data: ValueNs("g"), disambiguator: 0 } } DefPathHash(Fingerprint(16104884346877638580, 7697848434442576929))

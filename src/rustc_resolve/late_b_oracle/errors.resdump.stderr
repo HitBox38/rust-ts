@@ -1,0 +1,114 @@
+error[E0201]: duplicate definitions with name `m`:
+  --> errors.rs:14:5
+   |
+ 6 | trait Tr {
+ 7 |     fn m(&self);
+   |     ------------ item in trait
+...
+12 | impl Tr for S {
+13 |     fn m(&self) {}
+   |     -------------- previous definition here
+14 |     fn m(&self) {}
+   |     ^^^^^^^^^^^^^^ duplicate definition
+
+error[E0407]: method `missing` is not a member of trait `Tr`
+  --> errors.rs:15:5
+   |
+15 |     fn missing(&self) {}
+   |     ^^^^^^^^^^^^^^^^^^^^ not a member of trait `Tr`
+
+error[E0323]: item `T` is an associated const, which doesn't match its trait `Tr`
+  --> errors.rs:16:5
+   |
+ 6 | trait Tr {
+ 7 |     fn m(&self);
+ 8 |     type T;
+   |     ------- item in trait
+...
+12 | impl Tr for S {
+...
+16 |     const T: u8 = 0;
+   |     ^^^^^^^^^^^^^^^^ does not match trait
+
+error[E0325]: item `C` is an associated type, which doesn't match its trait `Tr`
+  --> errors.rs:17:5
+   |
+ 6 | trait Tr {
+...
+ 9 |     const C: u8;
+   |     ------------ item in trait
+...
+12 | impl Tr for S {
+...
+17 |     type C = u8;
+   |     ^^^^^^^^^^^^ does not match trait
+
+error[E0403]: the name `T` is already used for a generic parameter in this item's generic parameters
+  --> errors.rs:19:11
+   |
+19 | fn dup<T, T>() {}
+   |        -  ^ already used
+   |        |
+   |        first use of `T`
+
+error[E0415]: identifier `a` is bound more than once in this parameter list
+  --> errors.rs:20:18
+   |
+20 | fn params(a: u8, a: u8) {}
+   |                  ^ used as parameter more than once
+
+error[E0408]: variable `y` is not bound in all patterns
+  --> errors.rs:23:9
+   |
+23 |         E::A(x) | E::B(y, _) => {}
+   |         ^^^^^^^        - variable not in all patterns
+   |         |
+   |         pattern doesn't bind `y`
+   |
+help: you might have meant to use the similarly named previously used binding `x`
+   |
+23 -         E::A(x) | E::B(y, _) => {}
+23 +         E::A(x) | E::B(x, _) => {}
+   |
+
+error[E0408]: variable `x` is not bound in all patterns
+  --> errors.rs:23:19
+   |
+23 |         E::A(x) | E::B(y, _) => {}
+   |              -    ^^^^^^^^^^ pattern doesn't bind `x`
+   |              |
+   |              variable not in all patterns
+   |
+help: you might have meant to use the similarly named previously used binding `y`
+   |
+23 -         E::A(x) | E::B(y, _) => {}
+23 +         E::A(y) | E::B(y, _) => {}
+   |
+
+error[E0416]: identifier `z` is bound more than once in the same pattern
+  --> errors.rs:24:17
+   |
+24 |         E::B(z, z) => {}
+   |                 ^ used in a pattern more than once
+
+error[E0409]: variable `p` is bound inconsistently across alternatives separated by `|`
+  --> errors.rs:26:18
+   |
+26 |     let (ref p | p) = (1u8);
+   |              -   ^ bound in different ways
+   |              |
+   |              first binding
+
+error[E0530]: match bindings cannot shadow statics
+  --> errors.rs:31:9
+   |
+28 | static FOO: u8 = 1;
+   | ------------------- the static `FOO` is defined here
+...
+31 |         FOO => {}
+   |         ^^^ cannot be named the same as a static
+
+error: aborting due to 11 previous errors
+
+Some errors have detailed explanations: E0201, E0323, E0325, E0403, E0407, E0408, E0409, E0415, E0416...
+For more information about an error, try `rustc --explain E0201`.
