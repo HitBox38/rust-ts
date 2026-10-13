@@ -7,7 +7,7 @@ import type { Level, LintId } from "../rustc_lint_defs/lib.ts";
 import { type Input, LinkerJobs, type OutFileName, Options_impl, UnstableOptions_impl, build_configuration, build_target_config } from "../rustc_session/config.ts";
 import { type Options, str_cmp } from "../rustc_session/options.ts";
 import { EarlyDiagCtxt, type Session, build_early_session, build_session } from "../rustc_session/session.ts";
-import { defer_field } from "../rustc_session/stand_ins.ts";
+import * as rustc_lint from "../rustc_lint/lib.ts";
 import { drop_compiler_dcx } from "../rust_ts/driver.ts";
 import { ast, token } from "../rustc_ast/lib.ts";
 import { meta_list_item_to_string } from "../rustc_ast_pretty/pprust/mod.ts";
@@ -462,10 +462,9 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
       // Even though the session holds the lint store, we can't build the
       // lint store until after the session exists. And we wait until now
       // so that `register_lints` sees the fully initialized session.
-      //   let mut lint_store = rustc_lint::new_lint_store(sess.enable_internal_lints());
-      //   sess.lint_store = Some(Arc::new(lint_store));
-      // PORT: rustc_lint is not ported; reading the lint store calls `unported`.
-      defer_field(sess, "lint_store", "rustc_lint::new_lint_store (Session::lint_store)");
+      const lint_store = rustc_lint.new_lint_store(sess.enable_internal_lints());
+      // `if let Some(register_lints) = config.register_lints` (always `None` for the driver, see `Config`)
+      sess.lint_store = lint_store;
 
       util.check_abi_required_features(sess);
 

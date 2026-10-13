@@ -36,6 +36,8 @@ import type { BufferedEarlyLint, LintBuffer } from "../rustc_errors/lib.ts";
 import type { Features } from "../rustc_feature/unstable.ts";
 import { Definitions } from "../rustc_hir_id/definitions.ts";
 import type { RegisteredTools } from "../rustc_lint_defs/lib.ts";
+import * as rustc_lint from "../rustc_lint/lib.ts";
+import type { EarlyCheckNode, LintStore } from "../rustc_lint/lib.ts";
 import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
 import { clone_Providers as clone_HookProviders, Providers_default as HookProviders_default } from "../rustc_middle/hooks.ts";
 import "../rustc_middle/lib.ts";
@@ -103,7 +105,7 @@ function pre_expansion_lint(
   // self-profiler), so the event argument is unobservable; `generic_activity` gives the same guard.
   void node_name;
   sess.prof.generic_activity("pre_AST_expansion_lint_checks").run(() => {
-    rustc_lint_check_ast_node(sess, features, true, lint_store, registered_lint_tools, undefined, check_node);
+    rustc_lint.check_ast_node(sess, features, true, lint_store, registered_lint_tools, undefined, check_node);
   });
 }
 
@@ -136,7 +138,7 @@ function configure_and_expand(krate: Crate, pre_configured_attrs: readonly Attri
   const tcx = resolver.tcx();
   const sess = tcx.sess;
   const features = tcx.features();
-  const lint_store = rustc_lint_unerased_lint_store(sess);
+  const lint_store = rustc_lint.unerased_lint_store(sess);
   const crate_name = tcx.crate_name(LOCAL_CRATE);
   pre_expansion_lint(
     sess,
@@ -422,8 +424,8 @@ function early_lint_checks(tcx: TyCtxt, _: null): null {
     }
   }
 
-  const lint_store = rustc_lint_unerased_lint_store(tcx.sess);
-  rustc_lint_check_ast_node(
+  const lint_store = rustc_lint.unerased_lint_store(tcx.sess);
+  rustc_lint.check_ast_node(
     sess,
     tcx.features(),
     false,
@@ -921,7 +923,7 @@ function default_query_providers(): MiddleProviders {
   // PORT: pending crates (their `provide` fns are not ported): rustc_ast_lowering, rustc_expand_queries,
   // rustc_const_eval, rustc_middle::hir, rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
   // rustc_monomorphize, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck, traits, solve, rustc_passes,
-  // rustc_traits, rustc_ty_utils, rustc_metadata, rustc_lint, rustc_symbol_mangling, rustc_codegen_ssa.
+  // rustc_traits, rustc_ty_utils, rustc_metadata, rustc_symbol_mangling, rustc_codegen_ssa (rustc_lint is provided below).
   // Their queries keep upstream's `default_query` ICE.
   limits.provide(providers.queries);
   rustc_incremental_provide(providers);
@@ -929,6 +931,7 @@ function default_query_providers(): MiddleProviders {
   rustc_resolve.provide(providers.queries);
   rustc_passes_provide(providers.queries);
   ty_context_provide(providers.queries);
+  rustc_lint.provide(providers.queries);
   return providers;
 }
 let DEFAULT_QUERY_PROVIDERS_: MiddleProviders | undefined;
@@ -1199,32 +1202,6 @@ function clone_MiddleProviders(p: MiddleProviders): MiddleProviders {
  */
 function rustc_passes_provide(providers: QueryProviders): void {
   providers.debugger_visualizers = () => unported("rustc_passes::debugger_visualizer::debugger_visualizers (HIR, M3)");
-}
-
-/** `rustc_lint::LintStore` (opaque here). PORT: pending lint-early-a. */
-type LintStore = { readonly __rustc_lint_LintStore: never };
-
-/** `rustc_lint::EarlyCheckNode` (early.rs:278). PORT: pending lint-early-a. */
-type EarlyCheckNode =
-  | { readonly $: "CrateRoot"; readonly _0: Crate; readonly _1: readonly Attribute[] }
-  | { readonly $: "LoadedMod"; readonly _0: NodeId; readonly _1: readonly Attribute[]; readonly _2: readonly Item[] };
-
-/** `rustc_lint::late::unerased_lint_store` (late.rs:25). PORT: pending lint-early-a. */
-function rustc_lint_unerased_lint_store(_sess: Session): LintStore {
-  return unported("rustc_lint::late::unerased_lint_store (pending lint-early-a)");
-}
-
-/** `rustc_lint::early::check_ast_node` (early.rs:311). PORT: pending lint-early-a. */
-function rustc_lint_check_ast_node(
-  _sess: Session,
-  _features: Features,
-  pre_expansion: boolean,
-  _lint_store: LintStore,
-  _registered_lint_tools: RegisteredTools,
-  _lint_buffer: LintBuffer | undefined,
-  _check_node: EarlyCheckNode,
-): void {
-  unported(`rustc_lint::early::check_ast_node (${pre_expansion ? "pre-expansion" : "early"} lints; pending lint-early-a)`);
 }
 
 /** `rustc_ast_passes::ast_validation::check_crate` (ast_validation.rs:2226). PORT: pending ast-passes. */
