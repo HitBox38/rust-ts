@@ -1,0 +1,22 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+# Dependency versions are pinned to upstream's Cargo.lock at the pinned commit: object 0.39.1
+# with exactly the features rustc_codegen_ssa enables (compiler/rustc_codegen_ssa/Cargo.toml).
+[package]
+name = "objlist"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+lockfile = "upstream"
+
+[[bin]]
+name = "objlist"
+path = "@SRC@/main.rs"
+
+[dependencies.object]
+version = "=0.39.1"
+default-features = false
+features = ["read_core", "elf", "macho", "pe", "xcoff", "unaligned", "archive", "write", "wasm"]
+
+[workspace]

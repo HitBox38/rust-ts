@@ -2,8 +2,10 @@
 //
 // PORT: `memmap2::MmapOptions::new().map_copy_read_only(&file)` is `Bun.mmap(path, { shared: false })`
 // (a private read-only mapping of the whole file), or `readFileSync` when not running on Bun.
-// memmap2 maps an empty file to an empty slice without calling mmap(2); that is kept. Mapping
-// a non-regular file (mmap(2) fails with a platform errno) calls `unported(...)`.
+// memmap2 is 0.2.3 (Cargo.lock): on unix an empty file is `io::Error::new(InvalidInput, "memory
+// map must have a non-zero length")` (src/unix.rs:46) without calling mmap(2); that is kept (the
+// Windows behavior, a `CreateFileMappingW` OS error, is unported). Mapping a non-regular file
+// (mmap(2) fails with a platform errno) calls `unported(...)`.
 // PORT: `std::fs::File` is the small `File` below (an open fd plus its path, since `Bun.mmap`
 // takes a path); `MmapMut` (incremental/codegen) is not ported.
 
@@ -59,7 +61,11 @@ export class Mmap {
     try {
       const st = fstatSync(file.fd);
       if (!st.isFile()) return unported("rustc_data_structures::memmap::Mmap::map of a non-regular file");
-      if (st.size === 0) return Ok(new Mmap(new Uint8Array(0)));
+      if (st.size === 0) {
+        if (process.platform === "win32") return unported("memmap2 0.2.3 map of an empty file on Windows");
+        // memmap2 src/unix.rs:46: "Normally the OS would catch this, but it segfaults under QEMU."
+        return Err({ $: "Custom", kind: "InvalidInput", error: "memory map must have a non-zero length" });
+      }
       const bytes = typeof Bun !== "undefined" ? Bun.mmap(file.path, { shared: false }) : new Uint8Array(readFileSync(file.fd));
       return Ok(new Mmap(bytes));
     } catch (e) {
