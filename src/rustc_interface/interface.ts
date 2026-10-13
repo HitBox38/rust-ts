@@ -23,6 +23,8 @@ import { Panic, unported, unwrap } from "../std/panic.ts";
 import { FatalErrorMarker } from "../rustc_span/fatal_error.ts";
 import { type CodegenBackend, CurrentGcx, jobserver_initialize } from "./stand_ins.ts";
 import * as util from "./util.ts";
+import { setup_callbacks } from "./callbacks.ts";
+import { DEF_ID_DEBUG } from "../rustc_span/def_id.ts";
 
 /// Represents a compiler session. Note that every `Compiler` contains a
 /// `Session`, but `Compiler` also contains some things that cannot be in
@@ -387,145 +389,151 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
     });
   }
 
-  // `crate::callbacks::setup_callbacks()`: PORT: not run. It installs rustc_middle-aware hooks
-  // (`SPAN_TRACK`, `DEF_ID_DEBUG`, `TRACK_DIAGNOSTIC`, `TRACK_FEATURE`, `EMIT_BUG_DIAGNOSTIC`) that only
-  // differ from the defaults while a `TyCtxt` is entered; rust-ts never creates one.
+  // PORT: installs only `DEF_ID_DEBUG` (callbacks.ts module comment). Upstream installs the callbacks for the
+  // rest of the process (one compiler per rustc process); rust-ts tests run several compilers in one process
+  // and also test the defaults, so the previous hook is restored when `run_compiler` returns. Nothing formats
+  // a `DefId` after that in a real run, so this is not observable there.
+  const old_def_id_debug = DEF_ID_DEBUG.deref();
+  setup_callbacks();
+  try {
+    const target = build_target_config(
+      early_dcx,
+      config.opts.target_triple,
+      config.opts.sysroot.path(),
+      config.opts.unstable_opts.unstable_options,
+    );
+    const file_loader = config.file_loader ?? new RealFileLoader();
+    const path_mapping = Options_impl.file_path_mapping(config.opts);
+    const hash_kind = UnstableOptions_impl.src_hash_algorithm(config.opts.unstable_opts, target);
+    const checksum_hash_kind = UnstableOptions_impl.checksum_hash_algorithm(config.opts.unstable_opts);
 
-  const target = build_target_config(
-    early_dcx,
-    config.opts.target_triple,
-    config.opts.sysroot.path(),
-    config.opts.unstable_opts.unstable_options,
-  );
-  const file_loader = config.file_loader ?? new RealFileLoader();
-  const path_mapping = Options_impl.file_path_mapping(config.opts);
-  const hash_kind = UnstableOptions_impl.src_hash_algorithm(config.opts.unstable_opts, target);
-  const checksum_hash_kind = UnstableOptions_impl.checksum_hash_algorithm(config.opts.unstable_opts);
+    return util.run_in_thread_pool_with_globals(
+      early_dcx,
+      config.opts.edition,
+      jobs,
+      config.extra_symbols,
+      { file_loader, path_mapping, hash_kind, checksum_hash_kind },
+      (current_gcx) => {
+        // The previous `early_dcx` can't be reused here because it doesn't
+        // impl `Send`. Creating a new one is fine.
+        const early_dcx = EarlyDiagCtxt.new(config.opts.error_format);
 
-  return util.run_in_thread_pool_with_globals(
-    early_dcx,
-    config.opts.edition,
-    jobs,
-    config.extra_symbols,
-    { file_loader, path_mapping, hash_kind, checksum_hash_kind },
-    (current_gcx) => {
-      // The previous `early_dcx` can't be reused here because it doesn't
-      // impl `Send`. Creating a new one is fine.
-      const early_dcx = EarlyDiagCtxt.new(config.opts.error_format);
+        const temps_dir = config.opts.unstable_opts.temps_dir;
 
-      const temps_dir = config.opts.unstable_opts.temps_dir;
+        const early_sess = build_early_session(config.opts, target, config.ice_file);
 
-      const early_sess = build_early_session(config.opts, target, config.ice_file);
+        const codegen_backend: CodegenBackend = util.get_codegen_backend(
+          early_dcx,
+          early_sess.opts.sysroot,
+          early_sess.opts.unstable_opts.codegen_backend,
+          early_sess.target,
+        );
+        const codegen_backend_init = codegen_backend.init(early_sess);
 
-      const codegen_backend: CodegenBackend = util.get_codegen_backend(
-        early_dcx,
-        early_sess.opts.sysroot,
-        early_sess.opts.unstable_opts.codegen_backend,
-        early_sess.target,
-      );
-      const codegen_backend_init = codegen_backend.init(early_sess);
+        const sess = build_session(
+          early_sess,
+          codegen_backend_init,
+          {
+            input: config.input,
+            output_dir: config.output_dir,
+            output_file: config.output_file,
+            temps_dir,
+          },
+          config.lint_caps,
+          util.rustc_version_str() ?? "unknown",
+          config.using_internal_features,
+        );
 
-      const sess = build_session(
-        early_sess,
-        codegen_backend_init,
-        {
-          input: config.input,
-          output_dir: config.output_dir,
-          output_file: config.output_file,
-          temps_dir,
-        },
-        config.lint_caps,
-        util.rustc_version_str() ?? "unknown",
-        config.using_internal_features,
-      );
+        // STACK_SIZE is setup in run_in_thread_pool_with_globals, before arriving here.
+        sess.opts.recommended_stack_size = util.STACK_SIZE.value!;
 
-      // STACK_SIZE is setup in run_in_thread_pool_with_globals, before arriving here.
-      sess.opts.recommended_stack_size = util.STACK_SIZE.value!;
+        const target_config = codegen_backend.target_config(sess.early_sess);
 
-      const target_config = codegen_backend.target_config(sess.early_sess);
-
-      // Store all of the target features in the session.
-      // Needs to be done before `parse_cfg` because it checks this list.
-      for (const f of [...target_config.internal_target_features].sort((a, b) => str_cmp(Symbol.as_str(a), Symbol.as_str(b)))) {
-        sess.internal_target_features.add(f);
-      }
-
-      sess.config = parse_cfg(sess, config.crate_cfg);
-      const is_nightly_build = sess.is_nightly_build();
-      const is_crt_static = sess.crt_static(undefined);
-      util.add_configuration(sess.config, target_config, sess.target, is_nightly_build, is_crt_static);
-
-      sess.check_config = parse_check_cfg(sess, config.crate_check_cfg);
-
-      // `psess_created` / `track_state` are `None` (driver).
-
-      // Even though the session holds the lint store, we can't build the
-      // lint store until after the session exists. And we wait until now
-      // so that `register_lints` sees the fully initialized session.
-      const lint_store = rustc_lint.new_lint_store(sess.enable_internal_lints());
-      // `if let Some(register_lints) = config.register_lints` (always `None` for the driver, see `Config`)
-      sess.lint_store = lint_store;
-
-      util.check_abi_required_features(sess);
-
-      const compiler = new Compiler(sess, codegen_backend, config.override_queries, current_gcx);
-
-      // There are two paths out of `f`.
-      // - Normal exit.
-      // - Panic, e.g. triggered by `abort_if_errors` or a fatal error.
-      //
-      // We must run `finish_diagnostics` in both cases.
-      let res: { $: "Ok"; _0: R } | { $: "Err"; _0: unknown };
-      try {
-        res = { $: "Ok", _0: f(compiler) };
-      } catch (e) {
-        // `catch_unwind` catches panics (`Panic`, `FatalErrorMarker`); anything else (e.g. `Unported`)
-        // is not an unwind and propagates unchanged.
-        if (!is_unwind(e)) throw e;
-        res = { $: "Err", _0: e };
-      }
-
-      compiler.sess.finish_diagnostics();
-
-      // If error diagnostics have been emitted, we can't return an
-      // error directly, because the return type of this function
-      // is `R`, not `Result<R, E>`. But we need to communicate the
-      // errors' existence to the caller, otherwise the caller might
-      // mistakenly think that no errors occurred and return a zero
-      // exit code. So we abort (panic) instead, similar to if `f`
-      // had panicked.
-      if (res.$ === "Ok") {
-        try {
-          compiler.sess.dcx().abort_if_errors();
-        } catch (e) {
-          // PORT: the unwind starts here and leaves the closure: the rest of it does not run, and
-          // `compiler` (with its `DiagCtxt`) is dropped while unwinding.
-          if (!is_unwind(e)) throw e;
-          drop_compiler_dcx(compiler.sess.psess.dcx_, true);
-          throw e;
+        // Store all of the target features in the session.
+        // Needs to be done before `parse_cfg` because it checks this list.
+        for (const f of [...target_config.internal_target_features].sort((a, b) => str_cmp(Symbol.as_str(a), Symbol.as_str(b)))) {
+          sess.internal_target_features.add(f);
         }
-      }
 
-      // Also make sure to flush delayed bugs as if we panicked, the
-      // bugs would be flushed by the Drop impl of DiagCtxt while
-      // unwinding, which would result in an abort with
-      // "panic in a destructor during cleanup".
-      compiler.sess.dcx().flush_delayed();
+        sess.config = parse_cfg(sess, config.crate_cfg);
+        const is_nightly_build = sess.is_nightly_build();
+        const is_crt_static = sess.crt_static(undefined);
+        util.add_configuration(sess.config, target_config, sess.target, is_nightly_build, is_crt_static);
 
-      if (res.$ === "Err") {
-        // Resume unwinding if a panic happened.
-        // PORT: `resume_unwind(err)` drops `compiler` (and its `DiagCtxt`) while unwinding.
-        drop_compiler_dcx(compiler.sess.psess.dcx_, true);
-        throw res._0;
-      }
+        sess.check_config = parse_check_cfg(sess, config.crate_check_cfg);
 
-      // `prof.generic_activity("drop_compiler").run(move || drop(compiler));`
-      const prof = compiler.sess.prof;
-      prof.generic_activity("drop_compiler").run(() => drop_compiler_dcx(compiler.sess.psess.dcx_, false));
+        // `psess_created` / `track_state` are `None` (driver).
 
-      return res._0;
-    },
-  );
+        // Even though the session holds the lint store, we can't build the
+        // lint store until after the session exists. And we wait until now
+        // so that `register_lints` sees the fully initialized session.
+        const lint_store = rustc_lint.new_lint_store(sess.enable_internal_lints());
+        // `if let Some(register_lints) = config.register_lints` (always `None` for the driver, see `Config`)
+        sess.lint_store = lint_store;
+
+        util.check_abi_required_features(sess);
+
+        const compiler = new Compiler(sess, codegen_backend, config.override_queries, current_gcx);
+
+        // There are two paths out of `f`.
+        // - Normal exit.
+        // - Panic, e.g. triggered by `abort_if_errors` or a fatal error.
+        //
+        // We must run `finish_diagnostics` in both cases.
+        let res: { $: "Ok"; _0: R } | { $: "Err"; _0: unknown };
+        try {
+          res = { $: "Ok", _0: f(compiler) };
+        } catch (e) {
+          // `catch_unwind` catches panics (`Panic`, `FatalErrorMarker`); anything else (e.g. `Unported`)
+          // is not an unwind and propagates unchanged.
+          if (!is_unwind(e)) throw e;
+          res = { $: "Err", _0: e };
+        }
+
+        compiler.sess.finish_diagnostics();
+
+        // If error diagnostics have been emitted, we can't return an
+        // error directly, because the return type of this function
+        // is `R`, not `Result<R, E>`. But we need to communicate the
+        // errors' existence to the caller, otherwise the caller might
+        // mistakenly think that no errors occurred and return a zero
+        // exit code. So we abort (panic) instead, similar to if `f`
+        // had panicked.
+        if (res.$ === "Ok") {
+          try {
+            compiler.sess.dcx().abort_if_errors();
+          } catch (e) {
+            // PORT: the unwind starts here and leaves the closure: the rest of it does not run, and
+            // `compiler` (with its `DiagCtxt`) is dropped while unwinding.
+            if (!is_unwind(e)) throw e;
+            drop_compiler_dcx(compiler.sess.psess.dcx_, true);
+            throw e;
+          }
+        }
+
+        // Also make sure to flush delayed bugs as if we panicked, the
+        // bugs would be flushed by the Drop impl of DiagCtxt while
+        // unwinding, which would result in an abort with
+        // "panic in a destructor during cleanup".
+        compiler.sess.dcx().flush_delayed();
+
+        if (res.$ === "Err") {
+          // Resume unwinding if a panic happened.
+          // PORT: `resume_unwind(err)` drops `compiler` (and its `DiagCtxt`) while unwinding.
+          drop_compiler_dcx(compiler.sess.psess.dcx_, true);
+          throw res._0;
+        }
+
+        // `prof.generic_activity("drop_compiler").run(move || drop(compiler));`
+        const prof = compiler.sess.prof;
+        prof.generic_activity("drop_compiler").run(() => drop_compiler_dcx(compiler.sess.psess.dcx_, false));
+
+        return res._0;
+      },
+    );
+  } finally {
+    DEF_ID_DEBUG.swap(old_def_id_debug);
+  }
 }
 
 /** `Option<NonZero<usize>>::max` (`None < Some(_)`). */

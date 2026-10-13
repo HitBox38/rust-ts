@@ -43,10 +43,8 @@ const expected = JSON.parse(readFileSync(join(HERE, "diagnostics_b_oracle", "exp
 
 // ---- 1. end to end ----------------------------------------------------------------------------
 
-// Where the port stops today: the crate store (`CStore::from_tcx`, wave 11), before resolution. (Was the early
-// lint store of `configure_and_expand`, lane lint-early-a.) late.rs and late/diagnostics.rs are integrated.
-const CSTORE = "rust_ts::resdump::dump (ResolverGlobalCtxt / ResolverAstLowering / definitions: rustc_middle::ty::TyCtxt and rustc_resolve are not ported)";
-const PENDING: Record<string, string> = Object.fromEntries(case_names().map((name) => [name, CSTORE]));
+// Where the port stops today: nowhere (the resdump dump runs through since lane resdump-dump).
+const PENDING: Record<string, string> = {};
 
 for (const name of case_names()) {
   test(`end to end: ${name}`, () => {

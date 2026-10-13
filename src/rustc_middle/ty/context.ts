@@ -22,9 +22,9 @@ import type { DefKey, DefPath, DefPathData, Definitions, PerParentDisambiguatorS
 import { OwnerId } from "../../rustc_hir_id/lib.ts";
 import type { Session } from "../../rustc_session/session.ts";
 import type { SelfProfilerRef } from "../../rustc_session/stand_ins.ts";
-import { CRATE_DEF_ID, type CrateNum, type DefId, type DefPathHash, LOCAL_CRATE, LocalDefId, LocalModId, type StableCrateId, debug_StableCrateId } from "../../rustc_span/def_id.ts";
+import { CRATE_DEF_ID, type CrateNum, type DefId, type DefPathHash, LOCAL_CRATE, LocalDefId, LocalModId, StableCrateId, debug_StableCrateId } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP, type Span } from "../../rustc_span/lib.ts";
-import type { Symbol } from "../../rustc_span/symbol.ts";
+import { Symbol } from "../../rustc_span/symbol.ts";
 import type { CrateType } from "../../rustc_structures/lib.ts";
 import type { Limit } from "../../rustc_structures/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
@@ -348,6 +348,28 @@ export class TyCtxt {
       if (cnum === undefined) panic(`uninterned StableCrateId: ${debug_StableCrateId(stable_crate_id, PLAIN)}`);
       return cnum;
     }
+  }
+
+  // rustc: compiler/rustc_middle/src/ty/context.rs:1224 def_path_debug_str
+  def_path_debug_str(def_id: DefId): string {
+    // We are explicitly not going through queries here in order to get
+    // crate name and stable crate id since this code is called from debug!()
+    // statements within the query system and we'd run into endless
+    // recursion otherwise.
+    let crate_name: Symbol;
+    let stable_crate_id: StableCrateId;
+    if (def_id.is_local()) {
+      [crate_name, stable_crate_id] = [this.crate_name(LOCAL_CRATE), this.stable_crate_id(LOCAL_CRATE)];
+    } else {
+      const cstore = this.cstore_untracked();
+      [crate_name, stable_crate_id] = [cstore.crate_name(def_id.krate), cstore.stable_crate_id(def_id.krate)];
+    }
+
+    return `${Symbol.as_str(crate_name)}[${
+      // Don't print the whole stable crate id. That's just
+      // annoying in debug output.
+      (StableCrateId.as_u64(stable_crate_id) >> BigInt(8 * 6)).toString(16).padStart(4, "0")
+    }]${this.def_path(def_id).to_string_no_crate_verbose()}`;
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:1246 dcx

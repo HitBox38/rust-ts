@@ -1,5 +1,6 @@
 // Port of compiler/rustc_interface/src/lib.rs (module wiring). Partial: see each module's header.
-// mod callbacks;  (not ported: `setup_callbacks` installs rustc_middle hooks; see interface.ts)
+// mod callbacks;  (partial: `DEF_ID_DEBUG` only, see callbacks.ts)
+export { setup_callbacks } from "./callbacks.ts";
 // pub mod diagnostics;  (not ported)
 // PORT: `interface` is reserved in strict mode: the module namespace is `interface_`.
 export * as interface_ from "./interface.ts";

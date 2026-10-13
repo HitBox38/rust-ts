@@ -86,12 +86,7 @@ type Case = (typeof CASES)[number];
 const PENDING_IN_PROCESS: Partial<Record<Case, string>> = {
 };
 /** Driver runs that stop at unported code (exit 70); the reason is the first missing piece. */
-const PENDING_DRIVER: Partial<Record<Case, string>> = {
-  patterns: "driver stops before resolution (rustc_lint::late::unerased_lint_store, lane lint-early-a); then res-late-a, late/diagnostics (res-late-diag), diagnostics (res-diag), CStore (wave 11)",
-  labels: "as patterns",
-  traits: "as patterns",
-  errors: "as patterns",
-};
+const PENDING_DRIVER: Partial<Record<Case, string>> = {};
 
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 interface Run {
