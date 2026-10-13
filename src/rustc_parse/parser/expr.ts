@@ -41,10 +41,12 @@ import { BREAK_WITH_LABEL_AND_LOOP } from "../../rustc_lint_defs/builtin.ts";
 import { report_lit_error } from "../../rustc_session/diagnostics.ts";
 import { clone_ExprKind, DUMMY_NODE_ID, GenericArgs } from "../../rustc_ast/ast.ts";
 import * as classify from "../../rustc_ast/util/classify.ts";
-import { AssocOp, ExprPrecedence, ExprPrecedence_discriminant, type Fixity } from "../../rustc_ast/util/parser.ts";
+import { Case } from "../../rustc_ast/util/case.ts";
+import { AssocOp, ExprPrecedence, ExprPrecedence_discriminant, type Fixity, prec_let_scrutinee_needs_par } from "../../rustc_ast/util/parser.ts";
 import * as pprust from "../../rustc_ast_pretty/pprust/mod.ts";
 import { type Diag, type PResult, StashKey } from "../../rustc_errors/lib.ts";
 import { Applicability } from "../../rustc_lint_defs/lib.ts";
+import type { MutRef } from "../../rustc_span/hygiene.ts";
 import { BytePos, type ErrorGuaranteed, Span, type SpanSnippetError, type Spanned, respan } from "../../rustc_span/lib.ts";
 import { Ident, kw, sym, Symbol } from "../../rustc_span/symbol.ts";
 import { is_ascii_alphanumeric } from "../../std/char.ts";
@@ -59,8 +61,10 @@ import { RecoverQPath, type SnapshotParser } from "./diagnostics.ts";
 import * as diagnostics from "./expr/diagnostics.ts";
 import * as gen from "./expr.gen.ts";
 import type { DestructuredFloat, LetChainsPolicy } from "./expr.gen.ts";
-import { clone_Parser, ForceCollect, Parser, Restrictions, SeqSep, token_descr, Trailing } from "./mod.ts";
+import { BlockMode, type ClosureSpans, clone_Parser, ForceCollect, SemiColonMode, Parser, Restrictions, SeqSep, token_descr, Trailing } from "./mod.ts";
+import { CommaRecoveryMode, Expected, RecoverColon, RecoverComma } from "./pat.ts";
 import { PathStyle } from "./path.ts";
+import { AllowPlus, RecoverQPath as RecoverQPathTy, RecoverReturnSign } from "./ty.ts";
 import { exp, type ExpTokenPair, TokenType } from "./token_type.ts";
 
 export * from "./expr.gen.ts";
@@ -2673,6 +2677,1604 @@ Parser.prototype.parse_simple_block = function (this: Parser): PResult<Expr> {
   return Ok(this.mk_expr(blk.span, { $: "Block", _0: blk, _1: undefined }));
 };
 
+/// Parses a closure expression (e.g., `move |args| expr`).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2220 parse_expr_closure
+Parser.prototype.parse_expr_closure = function (this: Parser): PResult<Expr> {
+  const lo = this.token.span;
+
+  const before = this.prev_token;
+  let binder: ast.ClosureBinder;
+  if (this.check_keyword(exp.For)) {
+    const lo = this.token.span;
+    const r = this.parse_higher_ranked_binder();
+    if (r.$ === "Err") return r;
+    const [bound_vars, _] = r._0;
+    const span = Span.to(lo, this.prev_token.span);
+
+    this.psess.gated_spans.gate(sym.closure_lifetime_binder, span);
+
+    binder = { $: "For", span, generic_params: bound_vars };
+  } else {
+    binder = ast.ClosureBinder.NotPresent;
+  }
+
+  const constness = this.parse_closure_constness();
+
+  let movability: ast.Movability;
+  if (this.eat_keyword(exp.Static)) {
+    this.psess.gated_spans.gate(sym.coroutines, this.prev_token.span);
+    movability = ast.Movability.Static;
+  } else {
+    movability = ast.Movability.Movable;
+  }
+
+  const coroutine_marker = Span.at_least_rust_2018(this.token_uninterpolated_span())
+    ? this.parse_coroutine_marker(Case.Sensitive)
+    : undefined;
+
+  if (binder.$ === "NotPresent" && coroutine_marker !== undefined) {
+    // coroutine closures and generators can have the same qualifiers, so we might end up
+    // in here if there is a missing `|` but also no `{`. Adjust the expectations in that case.
+    this.expected_token_types.insert(TokenType.OpenBrace);
+  }
+
+  const rc = this.parse_capture_clause();
+  if (rc.$ === "Err") return rc;
+  const capture_clause = rc._0;
+  const rd = this.parse_fn_block_decl();
+  if (rd.$ === "Err") return rd;
+  const [fn_decl, fn_arg_span] = rd._0;
+  const decl_hi = this.prev_token.span;
+  let body: Expr;
+  const output = fn_decl.output;
+  switch (output.$) {
+    // No return type.
+    case "Default": {
+      const restrictions = Restrictions.difference(
+        Restrictions.difference(this.restrictions, Restrictions.STMT_EXPR),
+        Restrictions.ALLOW_LET,
+      );
+      const prev = this.prev_token;
+      const token_ = this.token;
+      const r = this.parse_expr_res(restrictions);
+      if (r.$ === "Ok") {
+        body = r._0;
+      } else {
+        const err = r._0;
+        const rr = this.recover_closure_body(err, before, prev, token_, lo, decl_hi);
+        if (rr.$ === "Err") return rr;
+        body = rr._0;
+      }
+      break;
+    }
+    // Explicit return type (`->`) needs block `-> T { }`.
+    case "Ty": {
+      const ty = output._0;
+      const r = this.parse_closure_block_body(ty.span);
+      if (r.$ === "Err") return r;
+      body = r._0;
+      break;
+    }
+  }
+
+  if (coroutine_marker !== undefined && ast.CoroutineKind.is_gen(coroutine_marker.kind)) {
+    // Feature-gate `gen ||` and `async gen ||` closures.
+    // FIXME(gen_blocks): This perhaps should be a different gate.
+    this.psess.gated_spans.gate(sym.gen_blocks, coroutine_marker.span);
+  }
+
+  let pd: ReturnType<typeof this.token_cursor.parent_delim_and_span>;
+  if (
+    this.token.eq(TK.Semi) &&
+    (pd = this.token_cursor.parent_delim_and_span()) !== undefined &&
+    pd[0].$ === "Parenthesis" &&
+    this.may_recover()
+  ) {
+    // It is likely that the closure body is a block but where the
+    // braces have been removed. We will recover and eat the next
+    // statements later in the parsing process.
+    body = this.mk_expr_err(body.span, this.dcx().span_delayed_bug(body.span, "recovered a closure body as a block"));
+  }
+
+  const body_span = body.span;
+
+  const closure = this.mk_expr(Span.to(lo, body.span), {
+    $: "Closure",
+    _0: {
+      binder,
+      capture_clause,
+      constness,
+      coroutine_marker,
+      movability,
+      fn_decl,
+      body,
+      fn_decl_span: Span.to(lo, decl_hi),
+      fn_arg_span,
+    },
+  });
+
+  // Disable recovery for closure body
+  const spans: ClosureSpans = { whole_closure: closure.span, closing_pipe: decl_hi, body: body_span };
+  this.current_closure = spans;
+
+  return Ok(closure);
+};
+
+/// If an explicit return type is given, require a block to appear (RFC 968).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2325 parse_closure_block_body
+Parser.prototype.parse_closure_block_body = function (this: Parser, ret_span: Span): PResult<Expr> {
+  if (
+    this.may_recover() &&
+    this.token.can_begin_expr() &&
+    this.token.kind.$ !== "OpenBrace" &&
+    !this.token.is_metavar_block()
+  ) {
+    const snapshot = this.create_snapshot_for_diagnostic();
+    const restrictions = Restrictions.difference(
+      Restrictions.difference(this.restrictions, Restrictions.STMT_EXPR),
+      Restrictions.ALLOW_LET,
+    );
+    const tok = this.token;
+    const r = this.parse_expr_res(restrictions);
+    if (r.$ === "Ok") {
+      const expr = r._0;
+      const descr = token_descr(tok);
+      const diag = this.dcx().struct_span_err(tok.span, `expected \`{\`, found ${descr}`);
+      diag.span_label(ret_span, "explicit return type requires closure body to be enclosed in braces");
+      diag.multipart_suggestion(
+        "wrap the expression in curly braces",
+        [
+          [Span.shrink_to_lo(expr.span), "{ "],
+          [Span.shrink_to_hi(expr.span), " }"],
+        ],
+        Applicability.MachineApplicable,
+      );
+      diag.emit();
+      return Ok(expr);
+    } else {
+      const diag = r._0;
+      diag.cancel();
+      this.restore_snapshot(snapshot);
+    }
+  }
+
+  const body_lo = this.token.span;
+  return this.parse_expr_block(undefined, body_lo, ast.BlockCheckMode.Default);
+};
+
+/// Parses an optional `move` or `use` prefix to a closure-like construct.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2368 parse_capture_clause
+Parser.prototype.parse_capture_clause = function (this: Parser): PResult<CaptureBy> {
+  if (this.eat_keyword(exp.Move)) {
+    const move_kw_span = this.prev_token.span;
+    // Check for `move async` and recover
+    if (this.check_keyword(exp.Async)) {
+      const move_async_span = Span.with_lo(this.token.span, Span.data(this.prev_token.span).lo);
+      return Err(
+        this.dcx().create_err(
+          crate_diagnostics.AsyncMoveOrderIncorrect_diagnostic({
+            span: move_async_span,
+          }),
+        ),
+      );
+    } else {
+      return Ok({ $: "Value", move_kw: move_kw_span });
+    }
+  } else if (this.eat_keyword(exp.Use)) {
+    const use_kw_span = this.prev_token.span;
+    this.psess.gated_spans.gate(sym.ergonomic_clones, use_kw_span);
+    // Check for `use async` and recover
+    if (this.check_keyword(exp.Async)) {
+      const use_async_span = Span.with_lo(this.token.span, Span.data(this.prev_token.span).lo);
+      return Err(
+        this.dcx().create_err(
+          crate_diagnostics.AsyncUseOrderIncorrect_diagnostic({
+            span: use_async_span,
+          }),
+        ),
+      );
+    } else {
+      return Ok({ $: "Use", use_kw: use_kw_span });
+    }
+  } else {
+    return Ok(ast.CaptureBy.Ref);
+  }
+};
+
+/// Parses the `|arg, arg|` header of a closure.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2398 parse_fn_block_decl
+Parser.prototype.parse_fn_block_decl = function (this: Parser): PResult<[FnDecl, Span]> {
+  const arg_start = Span.lo(this.token.span);
+
+  let inputs: Param[];
+  if (this.eat(exp.OrOr)) {
+    inputs = [];
+  } else {
+    const r0 = this.expect(exp.Or);
+    if (r0.$ === "Err") return r0;
+    const r = this.parse_seq_to_before_tokens(
+      [exp.Or],
+      [TK.OrOr],
+      SeqSep.trailing_allowed(exp.Comma),
+      (p) => p.parse_fn_block_param(),
+    );
+    if (r.$ === "Err") return r;
+    const args = r._0[0];
+    const r1 = this.expect_or();
+    if (r1.$ === "Err") return r1;
+    inputs = args;
+  }
+  const arg_span = Span.with_lo(this.prev_token.span, arg_start);
+  const ro = this.parse_ret_ty(AllowPlus.Yes, RecoverQPathTy.Yes, RecoverReturnSign.Yes);
+  if (ro.$ === "Err") return ro;
+  const output = ro._0;
+
+  return Ok([new ast.FnDecl(inputs, output), arg_span]);
+};
+
+/// Parses a parameter in a closure header (e.g., `|arg, arg|`).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2424 parse_fn_block_param
+Parser.prototype.parse_fn_block_param = function (this: Parser): PResult<Param> {
+  const lo = this.token.span;
+  const ra = this.parse_outer_attributes();
+  if (ra.$ === "Err") return ra;
+  const attrs = ra._0;
+  return this.collect_tokens(
+    undefined,
+    attrs,
+    ForceCollect.No,
+    (this_, attrs_) => {
+      const rp = this_.parse_pat_no_top_alt(Expected.ParameterName, undefined);
+      if (rp.$ === "Err") return rp;
+      const pat = rp._0;
+      let ty: Ty;
+      if (this_.eat(exp.Colon)) {
+        const rt = this_.parse_ty();
+        if (rt.$ === "Err") return rt;
+        ty = rt._0;
+      } else {
+        ty = this_.mk_ty(pat.span, ast.TyKind.Infer);
+      }
+
+      return Ok([
+        new ast.Param(attrs_, ty, pat, DUMMY_NODE_ID, Span.to(lo, this_.prev_token.span), false),
+        Trailing.from(this_.token.eq(TK.Comma)),
+        UsePreAttrPos.No,
+      ]);
+    },
+    HasTokens.Param,
+    HasAttrs.Param,
+  );
+};
+
+/// Parses an `if` expression (`if` token already eaten).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2451 parse_expr_if
+Parser.prototype.parse_expr_if = function (this: Parser): PResult<Expr> {
+  const lo = this.prev_token.span;
+  // Scoping code checks the top level edition of the `if`; let's match it here.
+  // The `CondChecker` also checks the edition of the `let` itself, just to make sure.
+  const let_chains_policy: LetChainsPolicy = { $: "EditionDependent", current_edition: Span.edition(lo) };
+  const r = this.parse_expr_cond(let_chains_policy);
+  if (r.$ === "Err") return r;
+  const cond = r._0;
+  return this.parse_if_after_cond(lo, cond);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2460 parse_if_after_cond
+Parser.prototype.parse_if_after_cond = function (this: Parser, lo: Span, cond: Expr): PResult<Expr> {
+  const cond_span = cond.span;
+  // Tries to interpret `cond` as either a missing expression if it's a block,
+  // or as an unfinished expression if it's a binop and the RHS is a block.
+  // We could probably add more recoveries here too...
+  const recover_block_from_condition = (this_: Parser): Block | undefined => {
+    let block: Expr;
+    const ck = cond.kind;
+    if (ck.$ === "Binary" && ck._2.kind.$ === "Block" && ck._2.kind._1 === undefined) {
+      const binop_span = ck._0.span;
+      const guar = this_.dcx().emit_err(
+        crate_diagnostics.IfExpressionMissingThenBlock_diagnostic({
+          if_span: lo,
+          missing_then_block_sub: {
+            $: "UnfinishedCondition",
+            _0: Span.to(Span.shrink_to_lo(cond_span), binop_span),
+          },
+          let_else_sub: undefined,
+        }),
+      );
+      // std::mem::replace(right, this.mk_expr_err(binop_span.shrink_to_hi(), guar))
+      block = ck._2;
+      ck._2 = this_.mk_expr_err(Span.shrink_to_hi(binop_span), guar);
+    } else if (ck.$ === "Block" && ck._1 === undefined) {
+      const guar = this_.dcx().emit_err(
+        crate_diagnostics.IfExpressionMissingCondition_diagnostic({
+          if_span: Span.shrink_to_hi(Span.with_neighbor(lo, cond.span)),
+          block_span: this.psess.source_map().start_point(cond_span),
+        }),
+      );
+      // std::mem::replace(&mut cond, this.mk_expr_err(cond_span.shrink_to_hi(), guar))
+      block = cond;
+      cond = this_.mk_expr_err(Span.shrink_to_hi(cond_span), guar);
+    } else {
+      return undefined;
+    }
+    if (block.kind.$ === "Block") {
+      return ast.clone_Block(block.kind._0);
+    } else {
+      return unreachable("internal error: entered unreachable code");
+    }
+  };
+  // Parse then block
+  let thn: Block;
+  if (this.token.is_keyword(kw.Else)) {
+    const block = recover_block_from_condition(this);
+    if (block !== undefined) {
+      thn = block;
+    } else {
+      const let_else_sub: crate_diagnostics.IfExpressionLetSomeSub | undefined =
+        cond.kind.$ === "Let" ? { if_span: Span.until(lo, cond_span) } : undefined;
+
+      const guar = this.dcx().emit_err(
+        crate_diagnostics.IfExpressionMissingThenBlock_diagnostic({
+          if_span: lo,
+          missing_then_block_sub: { $: "AddThenBlock", _0: Span.shrink_to_hi(cond_span) },
+          let_else_sub,
+        }),
+      );
+      thn = this.mk_block_err(Span.shrink_to_hi(cond_span), guar);
+    }
+  } else {
+    const ra = this.parse_outer_attributes(); // For recovery.
+    if (ra.$ === "Err") return ra;
+    const attrs = ra._0;
+    const maybe_fatarrow = this.token;
+    let block: Block;
+    let rb: Block | undefined;
+    if (this.check(exp.OpenBrace)) {
+      const r = this.parse_block();
+      if (r.$ === "Err") return r;
+      block = r._0;
+    } else if ((rb = recover_block_from_condition(this)) !== undefined) {
+      block = rb;
+    } else {
+      const re = this.error_on_extra_if(cond);
+      if (re.$ === "Err") return re;
+      // Parse block, which will always fail, but we can add a nice note to the error
+      const r = this.parse_block();
+      if (r.$ === "Err") {
+        const err = r._0;
+        let maybe_let: Token;
+        if (
+          this.prev_token.eq(TK.Semi) &&
+          this.token.eq(TK.AndAnd) &&
+          ((maybe_let = this.look_ahead(1, (t) => t)), true) &&
+          maybe_let.is_keyword(kw.Let)
+        ) {
+          err
+            .span_suggestion_verbose(
+              this.prev_token.span,
+              "consider removing this semicolon to parse the `let` as part of the same chain",
+              "",
+              Applicability.MachineApplicable,
+            )
+            .span_note(
+              Span.to(this.token.span, maybe_let.span),
+              "you likely meant to continue parsing the let-chain starting here",
+            );
+        } else {
+          if (
+            this.prev_token.eq(TK.Semi) &&
+            (this.token.eq(TK.OpenBrace) || AssocOp.from_token(this.token) !== undefined)
+          ) {
+            err.span_suggestion_verbose(this.prev_token.span, "remove this semicolon", "", Applicability.MaybeIncorrect);
+          }
+
+          // Look for usages of '=>' where '>=' might be intended
+          if (maybe_fatarrow.eq(TK.FatArrow)) {
+            err.span_suggestion_verbose(
+              maybe_fatarrow.span,
+              'you might have meant to write a "greater than or equal to" comparison',
+              ">=",
+              Applicability.MaybeIncorrect,
+            );
+          }
+          err.span_note(cond_span, "the `if` expression is missing a block after this condition");
+        }
+        return Err(err);
+      }
+      block = r._0;
+    }
+    this.error_on_if_block_attrs(lo, false, block.span, attrs);
+    thn = block;
+  }
+  let els: Expr | undefined;
+  if (this.eat_keyword(exp.Else)) {
+    const r = this.parse_expr_else();
+    if (r.$ === "Err") return r;
+    els = r._0;
+  } else {
+    els = undefined;
+  }
+  return Ok(this.mk_expr(Span.to(lo, this.prev_token.span), { $: "If", _0: cond, _1: thn, _2: els }));
+};
+
+/// Parses the condition of a `if` or `while` expression.
+///
+/// The specified `edition` in `let_chains_policy` should be that of the whole `if` construct,
+/// i.e. the same span we use to later decide whether the drop behaviour should be that of
+/// edition `..=2021` or that of `2024..`.
+// Public to use it for custom `if` expressions in rustfmt forks like https://github.com/tucant/rustfmt
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2584 parse_expr_cond
+Parser.prototype.parse_expr_cond = function (this: Parser, let_chains_policy: LetChainsPolicy): PResult<Expr> {
+  const r = this.parse_expr_res(Restrictions.union(Restrictions.NO_STRUCT_LITERAL, Restrictions.ALLOW_LET));
+  if (r.$ === "Err") return r;
+  const cond: MutRef<Expr> = { value: r._0 };
+
+  const checker = CondChecker.new(this, let_chains_policy);
+  checker.visit_expr(cond.value);
+  if (checker.found_incorrect_let_chain !== undefined) {
+    const guar = checker.found_incorrect_let_chain;
+    return Ok(this.mk_expr_err(cond.value.span, guar));
+  } else {
+    return Ok(cond.value);
+  }
+};
+
+/// Parses a `let $pat = $expr` pseudo-expression.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2601 parse_expr_let
+Parser.prototype.parse_expr_let = function (this: Parser, restrictions: Restrictions): PResult<Expr> {
+  let recovered: ast.Recovered;
+  if (!Restrictions.contains(restrictions, Restrictions.ALLOW_LET)) {
+    const err: crate_diagnostics.ExpectedExpressionFoundLet = {
+      span: this.token.span,
+      reason: crate_diagnostics.ForbiddenLetReason.OtherForbidden,
+      missing_let: undefined,
+      comparison: undefined,
+    };
+    if (this.prev_token.eq(TK.Or)) {
+      // This was part of a closure, the that part of the parser recover.
+      return Err(this.dcx().create_err(crate_diagnostics.ExpectedExpressionFoundLet_diagnostic(err)));
+    } else {
+      recovered = { $: "Yes", _0: this.dcx().emit_err(crate_diagnostics.ExpectedExpressionFoundLet_diagnostic(err)) };
+    }
+  } else {
+    recovered = ast.Recovered.No;
+  }
+  this.bump(); // Eat `let` token
+  const lo = this.prev_token.span;
+  const rp = this.parse_pat_no_top_guard(undefined, RecoverComma.Yes, RecoverColon.Yes, CommaRecoveryMode.LikelyTuple);
+  if (rp.$ === "Err") return rp;
+  const pat = rp._0;
+  if (this.token.eq(TK.EqEq)) {
+    this.dcx().emit_err(
+      crate_diagnostics.ExpectedEqForLetExpr_diagnostic({
+        span: this.token.span,
+        sugg_span: this.token.span,
+      }),
+    );
+    this.bump();
+  } else {
+    const re = this.expect(exp.Eq);
+    if (re.$ === "Err") return re;
+  }
+  const re = this.parse_expr_assoc({ $: "Excluded", _0: prec_let_scrutinee_needs_par() });
+  if (re.$ === "Err") return re;
+  const expr = re._0;
+  const span = Span.to(lo, expr.span);
+  return Ok(this.mk_expr(span, { $: "Let", _0: pat, _1: expr, _2: span, _3: recovered }));
+};
+
+/// Parses an `else { ... }` expression (`else` token already eaten).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2641 parse_expr_else
+Parser.prototype.parse_expr_else = function (this: Parser): PResult<Expr> {
+  const else_span = this.prev_token.span; // `else`
+  const ra = this.parse_outer_attributes(); // For recovery.
+  if (ra.$ === "Err") return ra;
+  const attrs = ra._0;
+  let expr: Expr;
+  if (this.eat_keyword(exp.If)) {
+    const r = this.parse_expr_if();
+    if (r.$ === "Err") return r;
+    expr = r._0;
+  } else if (this.check(exp.OpenBrace)) {
+    const r = this.parse_simple_block();
+    if (r.$ === "Err") return r;
+    expr = r._0;
+  } else {
+    const snapshot = this.create_snapshot_for_diagnostic();
+    const first_tok = token_descr(this.token);
+    const first_tok_span = this.token.span;
+    const rc = this.parse_expr();
+    if (
+      rc.$ === "Ok" &&
+      // Try to guess the difference between a "condition-like" vs
+      // "statement-like" expression.
+      //
+      // We are seeing the following code, in which $cond is neither
+      // ExprKind::Block nor ExprKind::If (the 2 cases wherein this
+      // would be valid syntax).
+      //
+      //     if ... {
+      //     } else $cond
+      //
+      // If $cond is "condition-like" such as ExprKind::Binary, we
+      // want to suggest inserting `if`.
+      //
+      //     if ... {
+      //     } else if a == b {
+      //            ^^
+      //     }
+      //
+      // We account for macro calls that were meant as conditions as well.
+      //
+      //     if ... {
+      //     } else if macro! { foo bar } {
+      //            ^^
+      //     }
+      //
+      // If $cond is "statement-like" such as ExprKind::While then we
+      // want to suggest wrapping in braces.
+      //
+      //     if ... {
+      //     } else {
+      //            ^
+      //         while true {}
+      //     }
+      //     ^
+      this.check(exp.OpenBrace) &&
+      (classify.expr_requires_semi_to_be_stmt(rc._0) || rc._0.kind.$ === "MacCall")
+    ) {
+      const cond = rc._0;
+      this.dcx().emit_err(
+        crate_diagnostics.ExpectedElseBlock_diagnostic({
+          first_tok_span,
+          first_tok,
+          else_span,
+          condition_start: Span.shrink_to_lo(cond.span),
+        }),
+      );
+      const r = this.parse_if_after_cond(Span.shrink_to_lo(cond.span), cond);
+      if (r.$ === "Err") return r;
+      expr = r._0;
+    } else if (rc.$ === "Err") {
+      const e = rc._0;
+      e.cancel();
+      this.restore_snapshot(snapshot);
+      const r = this.parse_simple_block();
+      if (r.$ === "Err") return r;
+      expr = r._0;
+    } else {
+      this.restore_snapshot(snapshot);
+      const r = this.parse_simple_block();
+      if (r.$ === "Err") return r;
+      expr = r._0;
+    }
+  }
+  this.error_on_if_block_attrs(else_span, true, expr.span, attrs);
+  return Ok(expr);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2716 error_on_if_block_attrs
+Parser.prototype.error_on_if_block_attrs = function (
+  this: Parser,
+  ctx_span: Span,
+  is_ctx_else: boolean,
+  branch_span: Span,
+  attrs: AttrWrapper,
+): void {
+  if (!attrs.is_empty()) {
+    const v = attrs.take_for_recovery(this.psess);
+    if (v.length >= 1) {
+      const x0 = v[0]!;
+      const xn = v[v.length - 1]!;
+      const attributes = Span.until(x0.span, branch_span);
+      const last = xn.span;
+      const ctx = is_ctx_else ? "else" : "if";
+      this.dcx().emit_err(
+        crate_diagnostics.OuterAttributeNotAllowedOnIfElse_diagnostic({
+          last,
+          branch_span,
+          ctx_span,
+          ctx,
+          attributes,
+        }),
+      );
+    }
+  }
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2739 error_on_extra_if
+Parser.prototype.error_on_extra_if = function (this: Parser, cond: Expr): PResult<undefined> {
+  const ck = cond.kind;
+  if (ck.$ === "Binary" && ck._0.node === ast.BinOpKind.And && ck._2.kind.$ === "If") {
+    const binop_span = ck._0.span;
+    const cond2 = ck._2.kind._0;
+    return Err(
+      this.dcx().create_err(
+        crate_diagnostics.UnexpectedIfWithIf_diagnostic({
+          _0: Span.to(Span.shrink_to_hi(binop_span), Span.shrink_to_lo(cond2.span)),
+        }),
+      ),
+    );
+  } else {
+    return Ok(undefined);
+  }
+};
+
+// Public to use it for custom `for` expressions in rustfmt forks like https://github.com/tucant/rustfmt
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2753 parse_for_head
+Parser.prototype.parse_for_head = function (this: Parser): PResult<[Pat, Expr]> {
+  let begin_paren: [Span, Span] | undefined;
+  if (this.token.kind.$ === "OpenParen") {
+    // Record whether we are about to parse `for (`.
+    // This is used below for recovery in case of `for ( $stuff ) $block`
+    // in which case we will suggest `for $stuff $block`.
+    const start_span = this.token.span;
+    const left = Span.between(
+      this.prev_token.span,
+      this.look_ahead(1, (t) => t.span),
+    );
+    begin_paren = [start_span, left];
+  } else {
+    begin_paren = undefined;
+  }
+  // Try to parse the pattern `for ($PAT) in $EXPR`.
+  let pat: Pat;
+  const rp = this.parse_pat_allow_top_guard(undefined, RecoverComma.Yes, RecoverColon.Yes, CommaRecoveryMode.LikelyTuple);
+  if (rp.$ === "Ok") {
+    pat = rp._0; // Happy path.
+  } else if (begin_paren !== undefined && this.eat_keyword(exp.In)) {
+    const err = rp._0;
+    const [start_span, left] = begin_paren;
+    // We know for sure we have seen `for ($SOMETHING in`. In the happy path this would
+    // happen right before the return of this method.
+    let expr: Expr;
+    const re = this.parse_expr_res(Restrictions.NO_STRUCT_LITERAL);
+    if (re.$ === "Ok") {
+      expr = re._0;
+    } else {
+      const expr_err = re._0;
+      // We don't know what followed the `in`, so cancel and bubble up the
+      // original error.
+      expr_err.cancel();
+      return Err(err);
+    }
+    if (this.token.kind.$ === "CloseParen") {
+      // We know for sure we have seen `for ($SOMETHING in $EXPR)`, so we recover the
+      // parser state and emit a targeted suggestion.
+      const span = [start_span, this.token.span];
+      const right = Span.between(
+        this.prev_token.span,
+        this.look_ahead(1, (t) => t.span),
+      );
+      this.bump(); // )
+      err.cancel();
+      this.dcx().emit_err(
+        crate_diagnostics.ParenthesesInForHead_diagnostic({
+          span,
+          // With e.g. `for (x) in y)` this would replace `(x) in y)`
+          // with `x) in y)` which is syntactically invalid.
+          // However, this is prevented before we get here.
+          sugg: { left, right },
+        }),
+      );
+      return Ok([this.mk_pat(Span.to(start_span, right), ast.PatKind.Wild), expr]);
+    } else {
+      return Err(err); // Some other error, bubble up.
+    }
+  } else {
+    return Err(rp._0); // Some other error, bubble up.
+  }
+  if (!this.eat_keyword(exp.In)) {
+    this.error_missing_in_for_loop();
+  }
+  this.check_for_for_in_in_typo(this.prev_token.span);
+  const re = this.parse_expr_res(Restrictions.NO_STRUCT_LITERAL);
+  if (re.$ === "Err") return re;
+  const expr = re._0;
+  return Ok([pat, expr]);
+};
+
+/// Parses `for await? <src_pat> in <src_expr> <src_loop_block>` (`for` token already eaten).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2817 parse_expr_for
+Parser.prototype.parse_expr_for = function (this: Parser, opt_label: Label | undefined, lo: Span): PResult<Expr> {
+  const is_await = Span.at_least_rust_2018(this.token_uninterpolated_span()) && this.eat_keyword(exp.Await);
+
+  if (is_await) {
+    this.psess.gated_spans.gate(sym.async_for_loop, this.prev_token.span);
+  }
+
+  const kind = is_await ? ast.ForLoopKind.ForAwait : ast.ForLoopKind.For;
+
+  const rh = this.parse_for_head();
+  if (rh.$ === "Err") return rh;
+  const [pat, expr] = rh._0;
+  // Recover from missing expression in `for` loop
+  if (expr.kind.$ === "Block" && this.token.kind.$ !== "OpenBrace" && this.may_recover()) {
+    const guar = this.dcx().emit_err(
+      crate_diagnostics.MissingExpressionInForLoop_diagnostic({
+        span: Span.shrink_to_lo(expr.span),
+      }),
+    );
+    const err_expr = this.mk_expr(expr.span, { $: "Err", _0: guar });
+    const block = this.mk_block([], ast.BlockCheckMode.Default, this.prev_token.span);
+    return Ok(
+      this.mk_expr(Span.to(lo, this.prev_token.span), {
+        $: "ForLoop",
+        _0: {
+          pat,
+          iter: err_expr,
+          body: block,
+          label: opt_label,
+          kind,
+        },
+      }),
+    );
+  }
+
+  const rb = this.parse_inner_attrs_and_block(
+    // Only suggest moving erroneous block label to the loop header
+    // if there is not already a label there
+    opt_label === undefined ? lo : undefined,
+  );
+  if (rb.$ === "Err") return rb;
+  const [attrs, loop_block] = rb._0;
+
+  const kind2: ExprKind = {
+    $: "ForLoop",
+    _0: {
+      pat,
+      iter: expr,
+      body: loop_block,
+      label: opt_label,
+      kind,
+    },
+  };
+
+  const rl = this.recover_loop_else("for", lo);
+  if (rl.$ === "Err") return rl;
+
+  return Ok(this.mk_expr_with_attrs(Span.to(lo, this.prev_token.span), kind2, attrs));
+};
+
+/// Recovers from an `else` clause after a loop (`for...else`, `while...else`)
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2871 recover_loop_else
+Parser.prototype.recover_loop_else = function (this: Parser, loop_kind: string, loop_kw: Span): PResult<undefined> {
+  if (this.token.is_keyword(kw.Else) && this.may_recover()) {
+    const else_span = this.token.span;
+    this.bump();
+    const r = this.parse_expr_else();
+    if (r.$ === "Err") return r;
+    const else_clause = r._0;
+    this.dcx().emit_err(
+      crate_diagnostics.LoopElseNotSupported_diagnostic({
+        span: Span.to(else_span, else_clause.span),
+        loop_kind,
+        loop_kw,
+      }),
+    );
+  }
+  return Ok(undefined);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2885 error_missing_in_for_loop
+Parser.prototype.error_missing_in_for_loop = function (this: Parser): void {
+  let span: Span;
+  let sub: crate_diagnostics.MissingInInForLoopSub | undefined;
+  if (this.token.is_ident_named(sym.of)) {
+    // Possibly using JS syntax (#75311).
+    span = this.token.span;
+    this.bump();
+    sub = { $: "InNotOf", _0: span };
+  } else if (this.eat(exp.Eq)) {
+    span = this.prev_token.span;
+    sub = { $: "InNotEq", _0: span };
+  } else {
+    span = Span.between(this.prev_token.span, this.token.span);
+    sub = !this.for_loop_head_has_in() ? { $: "AddIn", _0: span } : undefined;
+  }
+
+  this.dcx().emit_err(crate_diagnostics.MissingInInForLoop_diagnostic({ span, sub }));
+};
+
+/// Whether the `for` loop header already contains an `in` before its body.
+/// If it does, the binding is malformed (e.g. `for i i in 0..10`) rather
+/// than missing `in`, so suggesting another `in` would just be invalid too.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2907 for_loop_head_has_in
+Parser.prototype.for_loop_head_has_in = function (this: Parser): boolean {
+  let dist = 0;
+  for (;;) {
+    const [is_in, is_end] = this.look_ahead(dist, (t): [boolean, boolean] => [
+      t.is_keyword(kw.In),
+      t.kind.$ === "OpenBrace" || t.kind.$ === "Eof",
+    ]);
+    if (is_in) {
+      return true;
+    }
+    if (is_end) {
+      return false;
+    }
+    dist += 1;
+  }
+};
+
+/// Parses a `while` or `while let` expression (`while` token already eaten).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2924 parse_expr_while
+Parser.prototype.parse_expr_while = function (this: Parser, opt_label: Label | undefined, lo: Span): PResult<Expr> {
+  const policy: LetChainsPolicy = { $: "EditionDependent", current_edition: Span.edition(lo) };
+  const rc = this.parse_expr_cond(policy);
+  if (rc.$ === "Err") {
+    rc._0.span_label(lo, "while parsing the condition of this `while` expression");
+    return rc;
+  }
+  const cond = rc._0;
+  const rb = this.parse_inner_attrs_and_block(
+    // Only suggest moving erroneous block label to the loop header
+    // if there is not already a label there
+    opt_label === undefined ? lo : undefined,
+  );
+  if (rb.$ === "Err") {
+    const err = rb._0;
+    err.span_label(lo, "while parsing the body of this `while` expression");
+    err.span_label(cond.span, "this `while` condition successfully parsed");
+    return Err(err);
+  }
+  const [attrs, body] = rb._0;
+
+  const rl = this.recover_loop_else("while", lo);
+  if (rl.$ === "Err") return rl;
+
+  return Ok(
+    this.mk_expr_with_attrs(Span.to(lo, this.prev_token.span), { $: "While", _0: cond, _1: body, _2: opt_label }, attrs),
+  );
+};
+
+/// Parses `loop { ... }` (`loop` token already eaten).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2952 parse_expr_loop
+Parser.prototype.parse_expr_loop = function (this: Parser, opt_label: Label | undefined, lo: Span): PResult<Expr> {
+  const loop_span = this.prev_token.span;
+  const rb = this.parse_inner_attrs_and_block(
+    // Only suggest moving erroneous block label to the loop header
+    // if there is not already a label there
+    opt_label === undefined ? lo : undefined,
+  );
+  if (rb.$ === "Err") return rb;
+  const [attrs, body] = rb._0;
+  const rl = this.recover_loop_else("loop", lo);
+  if (rl.$ === "Err") return rl;
+  return Ok(
+    this.mk_expr_with_attrs(
+      Span.to(lo, this.prev_token.span),
+      { $: "Loop", _0: body, _1: opt_label, _2: loop_span },
+      attrs,
+    ),
+  );
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2967 eat_label
+Parser.prototype.eat_label = function (this: Parser): Label | undefined {
+  const lt = this.token.lifetime();
+  if (lt !== undefined) {
+    const [ident, kind] = lt;
+    // Disallow `'fn`, but with a better error message than `expect_lifetime`.
+    if (kind === IdentKind.Normal && ident.without_first_quote().is_reserved()) {
+      this.dcx().emit_err(crate_diagnostics.KeywordLabel_diagnostic({ span: ident.span }));
+    }
+
+    this.bump();
+    return { ident };
+  } else {
+    return undefined;
+  }
+};
+
+/// Parses a `match ... { ... }` expression (`match` token already eaten).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2982 parse_expr_match
+Parser.prototype.parse_expr_match = function (this: Parser): PResult<Expr> {
+  const match_span = this.prev_token.span;
+  const r = this.parse_expr_res(Restrictions.NO_STRUCT_LITERAL);
+  if (r.$ === "Err") return r;
+  const scrutinee = r._0;
+
+  return this.parse_match_block(match_span, match_span, scrutinee, ast.MatchKind.Prefix);
+};
+
+/// Parses the block of a `match expr { ... }` or a `expr.match { ... }`
+/// expression. This is after the match token and scrutinee are eaten
+// rustc: compiler/rustc_parse/src/parser/expr.rs:2991 parse_match_block
+Parser.prototype.parse_match_block = function (
+  this: Parser,
+  lo: Span,
+  match_span: Span,
+  scrutinee: Expr,
+  match_kind: MatchKind,
+): PResult<Expr> {
+  const r0 = this.expect(exp.OpenBrace);
+  if (r0.$ === "Err") {
+    const e = r0._0;
+    if (this.token.eq(TK.Semi)) {
+      e.span_suggestion_short(
+        match_span,
+        "try removing this `match`",
+        "",
+        Applicability.MaybeIncorrect, // speculative
+      );
+    }
+    if (this.maybe_recover_unexpected_block_label(undefined)) {
+      e.cancel();
+      this.bump();
+    } else {
+      return Err(e);
+    }
+  }
+  const ra = this.parse_inner_attributes();
+  if (ra.$ === "Err") return ra;
+  const attrs = ra._0;
+
+  const arms: Arm[] = [];
+  while (!this.token.eq(TK.CloseBrace)) {
+    const r = this.parse_arm();
+    if (r.$ === "Ok") {
+      arms.push(r._0);
+    } else {
+      const e = r._0;
+      // Recover by skipping to the end of the block.
+      const guar = e.emit_err();
+      this.recover_stmt();
+      const span = Span.to(lo, this.token.span);
+      if (this.token.eq(TK.CloseBrace)) {
+        this.bump();
+      }
+      // Always push at least one arm to make the match non-empty
+      arms.push({
+        attrs: [],
+        pat: this.mk_pat(span, { $: "Err", _0: guar }),
+        guard: undefined,
+        body: this.mk_expr_err(span, guar),
+        span,
+        id: DUMMY_NODE_ID,
+        is_placeholder: false,
+      });
+      return Ok(this.mk_expr_with_attrs(span, { $: "Match", _0: scrutinee, _1: arms, _2: match_kind }, attrs));
+    }
+  }
+  const hi = this.token.span;
+  this.bump();
+  return Ok(this.mk_expr_with_attrs(Span.to(lo, hi), { $: "Match", _0: scrutinee, _1: arms, _2: match_kind }, attrs));
+};
+
+/// Attempt to recover from match arm body with statements and no surrounding braces.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3052 parse_arm_body_missing_braces
+Parser.prototype.parse_arm_body_missing_braces = function (
+  this: Parser,
+  first_expr: Expr,
+  arrow_span: Span,
+): [Span, ErrorGuaranteed] | undefined {
+  if (!this.token.eq(TK.Semi)) {
+    return undefined;
+  }
+  const start_snapshot = this.create_snapshot_for_diagnostic();
+  const semi_sp = this.token.span;
+  this.bump(); // `;`
+  const stmts = [this.mk_stmt(first_expr.span, { $: "Expr", _0: ast.clone_Expr(first_expr) })];
+  const err = (this_: Parser, stmts: ast.Stmt[]): [Span, ErrorGuaranteed] => {
+    const span = Span.to(stmts[0]!.span, stmts[stmts.length - 1]!.span);
+
+    const guar = this_.dcx().emit_err(
+      crate_diagnostics.MatchArmBodyWithoutBraces_diagnostic({
+        statements: span,
+        arrow: arrow_span,
+        num_statements: stmts.length,
+        sub:
+          stmts.length > 1
+            ? {
+                $: "AddBraces",
+                left: Span.shrink_to_lo(span),
+                right: Span.shrink_to_hi(span),
+                num_statements: stmts.length,
+              }
+            : {
+                $: "UseComma",
+                semicolon: semi_sp,
+              },
+      }),
+    );
+    return [span, guar];
+  };
+  // We might have either a `,` -> `;` typo, or a block without braces. We need
+  // a more subtle parsing strategy.
+  for (;;) {
+    if (this.token.eq(TK.CloseBrace)) {
+      // We have reached the closing brace of the `match` expression.
+      return err(this, stmts);
+    }
+    if (this.token.eq(TK.Comma)) {
+      this.restore_snapshot(start_snapshot);
+      return undefined;
+    }
+    const pre_pat_snapshot = this.create_snapshot_for_diagnostic();
+    const rp = this.parse_pat_no_top_alt(undefined, undefined);
+    if (rp.$ === "Ok") {
+      if (this.token.eq(TK.FatArrow)) {
+        // Reached arm end.
+        this.restore_snapshot(pre_pat_snapshot);
+        return err(this, stmts);
+      }
+    } else {
+      const err_ = rp._0;
+      err_.cancel();
+    }
+
+    this.restore_snapshot(pre_pat_snapshot);
+    const rs = this.parse_stmt_without_recovery(true, ForceCollect.No, false);
+    if (rs.$ === "Ok") {
+      // Consume statements for as long as possible.
+      const stmt = rs._0;
+      stmts.push(stmt);
+    } else {
+      // We couldn't parse either yet another statement missing it's
+      // enclosing block nor the next arm's pattern or closing brace.
+      const stmt_err = rs._0;
+      stmt_err.cancel();
+      this.restore_snapshot(start_snapshot);
+      break;
+    }
+  }
+  return undefined;
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3129 parse_arm
+Parser.prototype.parse_arm = function (this: Parser): PResult<Arm> {
+  const ra = this.parse_outer_attributes();
+  if (ra.$ === "Err") return ra;
+  const attrs = ra._0;
+  return this.collect_tokens(
+    undefined,
+    attrs,
+    ForceCollect.No,
+    (this_, attrs_) => {
+      const lo = this_.token.span;
+      const rp = this_.parse_match_arm_pat_and_guard();
+      if (rp.$ === "Err") return rp;
+      const [pat, guard] = rp._0;
+
+      const span_before_body = this_.prev_token.span;
+      let arm_body: Expr | undefined;
+      const is_fat_arrow = this_.check(exp.FatArrow);
+      const is_almost_fat_arrow = token.TokenKind.similar_tokens(TK.FatArrow).some((k) =>
+        token.TokenKind_eq(k, this_.token.kind),
+      );
+
+      // this avoids the compiler saying that a `,` or `}` was expected even though
+      // the pattern isn't a never pattern (and thus an arm body is required)
+      const armless =
+        (!is_fat_arrow && !is_almost_fat_arrow && pat.could_be_never_pattern()) ||
+        this_.token.kind.$ === "Comma" ||
+        this_.token.kind.$ === "CloseBrace";
+
+      let result: PResult<ast.Recovered>;
+      if (armless) {
+        // A pattern without a body, allowed for never patterns.
+        arm_body = undefined;
+        const span = Span.to(lo, this_.prev_token.span);
+        result = this_.expect_one_of([exp.Comma], [exp.CloseBrace]);
+        if (result.$ === "Ok") {
+          // Don't gate twice
+          if (!pat.contains_never_pattern()) {
+            this_.psess.gated_spans.gate(sym.never_patterns, span);
+          }
+        }
+      } else {
+        const rf = this_.expect(exp.FatArrow);
+        if (rf.$ === "Err") {
+          const err = rf._0;
+          // We might have a `=>` -> `=` or `->` typo (issue #89396).
+          if (is_almost_fat_arrow) {
+            err.span_suggestion_verbose(
+              this_.token.span,
+              "use a fat arrow to start a match arm",
+              "=>",
+              Applicability.MachineApplicable,
+            );
+            if (this_.prev_token.kind.$ === "DotDotEq" && this_.token.kind.$ === "Gt") {
+              // `error_inclusive_range_match_arrow` handles cases like `0..=> {}`,
+              // so we suppress the error here
+              err.delay_as_bug();
+            } else {
+              err.emit();
+            }
+            this_.bump();
+          } else {
+            return Err(err);
+          }
+        }
+        const arrow_span = this_.prev_token.span;
+        const arm_start_span = this_.token.span;
+
+        const re = this_.parse_expr_res(Restrictions.STMT_EXPR);
+        if (re.$ === "Err") {
+          re._0.span_label(arrow_span, "while parsing the `match` arm starting here");
+          return re;
+        }
+        const expr = re._0;
+
+        const require_comma = !classify.expr_is_complete(expr) && !this_.token.eq(TK.CloseBrace);
+
+        let mb: [Span, ErrorGuaranteed] | undefined;
+        if (!require_comma) {
+          arm_body = expr;
+          // Eat a comma if it exists, though.
+          this_.eat(exp.Comma);
+          result = Ok(ast.Recovered.No);
+        } else if ((mb = this_.parse_arm_body_missing_braces(expr, arrow_span)) !== undefined) {
+          const [span, guar] = mb;
+          const body = this_.mk_expr_err(span, guar);
+          arm_body = body;
+          result = Ok({ $: "Yes", _0: guar });
+        } else {
+          const expr_span = expr.span;
+          arm_body = expr;
+          result = this_.expect_one_of([exp.Comma], [exp.CloseBrace]);
+          if (result.$ === "Err") {
+            const err = result._0;
+            if (this_.token.eq(TK.FatArrow)) {
+              const sm = this_.psess.source_map();
+              let expr_lines: ReturnType<typeof sm.span_to_lines>;
+              let arm_start_lines: ReturnType<typeof sm.span_to_lines>;
+              if (
+                (expr_lines = sm.span_to_lines(expr_span)).$ === "Ok" &&
+                (arm_start_lines = sm.span_to_lines(arm_start_span)).$ === "Ok" &&
+                expr_lines._0.lines.length === 2
+              ) {
+                if (arm_start_lines._0.lines[0]!.end_col === expr_lines._0.lines[0]!.end_col) {
+                  // We check whether there's any trailing code in the parse span,
+                  // if there isn't, we very likely have the following:
+                  //
+                  // X |     &Y => "y"
+                  //   |        --    - missing comma
+                  //   |        |
+                  //   |        arrow_span
+                  // X |     &X => "x"
+                  //   |      - ^^ self.token.span
+                  //   |      |
+                  //   |      parsed until here as `"y" & X`
+                  err.span_suggestion_short(
+                    Span.shrink_to_hi(arm_start_span),
+                    "missing a comma here to end this `match` arm",
+                    ",",
+                    Applicability.MachineApplicable,
+                  );
+                } else if (arm_start_lines._0.lines[0]!.end_col + 1 === expr_lines._0.lines[0]!.end_col) {
+                  // similar to the above, but we may typo a `.` or `/` at the end of the line
+                  const comma_span = Span.with_hi(
+                    Span.shrink_to_hi(arm_start_span),
+                    BytePos.add(Span.hi(arm_start_span), BytePos(1)),
+                  );
+                  const res = sm.span_to_snippet(comma_span);
+                  if (res.$ === "Ok" && (res._0.toString() === "." || res._0.toString() === "/")) {
+                    err.span_suggestion_short(
+                      comma_span,
+                      "you might have meant to write a `,` to end this `match` arm",
+                      ",",
+                      Applicability.MachineApplicable,
+                    );
+                  }
+                }
+              }
+            } else {
+              err.span_label(arrow_span, "while parsing the `match` arm starting here");
+            }
+          }
+        }
+      }
+
+      const hi_span = arm_body === undefined ? span_before_body : arm_body.span;
+      const arm_span = Span.to(lo, hi_span);
+
+      // We want to recover:
+      // X |     Some(_) => foo()
+      //   |                     - missing comma
+      // X |     None => "x"
+      //   |     ^^^^ self.token.span
+      // as well as:
+      // X |     Some(!)
+      //   |            - missing comma
+      // X |     None => "x"
+      //   |     ^^^^ self.token.span
+      // But we musn't recover
+      // X |     pat[0] => {}
+      //   |        ^ self.token.span
+      const recover_missing_comma = arm_body !== undefined || pat.could_be_never_pattern();
+      if (recover_missing_comma && result.$ === "Err") {
+        const err = result._0;
+        result = ((): PResult<ast.Recovered> => {
+          // FIXME(compiler-errors): We could also recover `; PAT =>` here
+
+          // Try to parse a following `PAT =>`, if successful
+          // then we should recover.
+          const snapshot = this_.create_snapshot_for_diagnostic();
+          const rs = snapshot.parser.parse_pat_no_top_guard(
+            undefined,
+            RecoverComma.Yes,
+            RecoverColon.Yes,
+            CommaRecoveryMode.EitherTupleOrPipe,
+          );
+          if (rs.$ === "Err") rs._0.cancel();
+          const pattern_follows = rs.$ === "Ok";
+          if (pattern_follows && snapshot.parser.check(exp.FatArrow)) {
+            err.cancel();
+            const guar = this_.dcx().emit_err(
+              crate_diagnostics.MissingCommaAfterMatchArm_diagnostic({
+                span: Span.shrink_to_hi(arm_span),
+              }),
+            );
+            return Ok({ $: "Yes", _0: guar });
+          }
+          return Err(err);
+        })();
+      }
+      if (result.$ === "Err") return result;
+
+      return Ok([
+        {
+          attrs: attrs_,
+          pat,
+          guard,
+          body: arm_body,
+          span: arm_span,
+          id: DUMMY_NODE_ID,
+          is_placeholder: false,
+        },
+        Trailing.No,
+        UsePreAttrPos.No,
+      ]);
+    },
+    HasTokens.Arm,
+    HasAttrs.Arm,
+  );
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3325 eat_metavar_guard
+Parser.prototype.eat_metavar_guard = function (this: Parser): Guard | undefined {
+  return this.eat_metavar_seq(token.MetaVarKind.Guard, (this_) => this_.expect_match_arm_guard(ForceCollect.Yes));
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3331 parse_match_arm_guard
+Parser.prototype.parse_match_arm_guard = function (this: Parser): PResult<Guard | undefined> {
+  const guard = this.eat_metavar_guard();
+  if (guard !== undefined) {
+    return Ok(guard);
+  }
+
+  if (!this.eat_keyword(exp.If)) {
+    // No match arm guard present.
+    return Ok(undefined);
+  }
+  const r = this.expect_match_arm_guard_cond(ForceCollect.No);
+  if (r.$ === "Err") return r;
+  return Ok(r._0);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3343 expect_match_arm_guard
+Parser.prototype.expect_match_arm_guard = function (this: Parser, force_collect: ForceCollect): PResult<Guard> {
+  const guard = this.eat_metavar_guard();
+  if (guard !== undefined) {
+    return Ok(guard);
+  }
+
+  const r = this.expect_keyword(exp.If);
+  if (r.$ === "Err") return r;
+  return this.expect_match_arm_guard_cond(force_collect);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3355 expect_match_arm_guard_cond
+Parser.prototype.expect_match_arm_guard_cond = function (this: Parser, force_collect: ForceCollect): PResult<Guard> {
+  const leading_if_span = this.prev_token.span;
+
+  const r = this.parse_match_guard_condition(force_collect);
+  if (r.$ === "Err") return r;
+  const cond = r._0;
+  const cond_span = cond.span;
+
+  CondChecker.new(this, gen.LetChainsPolicy.AlwaysAllowed).visit_expr(cond);
+
+  const guard = new ast.Guard(cond, Span.to(leading_if_span, cond_span));
+  return Ok(guard);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3370 parse_match_arm_pat_and_guard
+Parser.prototype.parse_match_arm_pat_and_guard = function (this: Parser): PResult<[Pat, Guard | undefined]> {
+  if (this.token.kind.$ === "OpenParen") {
+    const left = this.token.span;
+    const rp = this.parse_pat_no_top_guard(
+      undefined,
+      RecoverComma.Yes,
+      RecoverColon.Yes,
+      CommaRecoveryMode.EitherTupleOrPipe,
+    );
+    if (rp.$ === "Err") return rp;
+    const pat = rp._0;
+    if (pat.kind.$ === "Paren" && pat.kind._0.kind.$ === "Guard") {
+      // Detect and recover from `($pat if $cond) => $arm`.
+      // FIXME(guard_patterns): convert this to a normal guard instead
+      const span = pat.span;
+      const subpat = pat.kind._0;
+      const guard = (subpat.kind as { readonly $: "Guard"; _0: Pat; _1: Guard })._1;
+      this.psess.gated_spans.ungate_last(sym.guard_patterns, guard.span());
+      const checker = CondChecker.new(this, gen.LetChainsPolicy.AlwaysAllowed);
+      checker.visit_expr(guard.cond);
+
+      const right = this.prev_token.span;
+      this.dcx().emit_err(
+        crate_diagnostics.ParenthesesInMatchPat_diagnostic({
+          span: [left, right],
+          sugg: { left, right },
+        }),
+      );
+
+      if (checker.found_incorrect_let_chain !== undefined) {
+        const guar = checker.found_incorrect_let_chain;
+        guard.cond = this.mk_expr_err(guard.span(), guar);
+      }
+      return Ok([this.mk_pat(span, ast.PatKind.Wild), guard]);
+    } else {
+      const rg = this.parse_match_arm_guard();
+      if (rg.$ === "Err") return rg;
+      return Ok([pat, rg._0]);
+    }
+  } else {
+    // Regular parser flow:
+    const rp = this.parse_pat_no_top_guard(
+      undefined,
+      RecoverComma.Yes,
+      RecoverColon.Yes,
+      CommaRecoveryMode.EitherTupleOrPipe,
+    );
+    if (rp.$ === "Err") return rp;
+    const pat = rp._0;
+    const rg = this.parse_match_arm_guard();
+    if (rg.$ === "Err") return rg;
+    return Ok([pat, rg._0]);
+  }
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3416 parse_match_guard_condition
+Parser.prototype.parse_match_guard_condition = function (this: Parser, force_collect: ForceCollect): PResult<Expr> {
+  const ra = this.parse_outer_attributes();
+  if (ra.$ === "Err") return ra;
+  const attrs = ra._0;
+  const r = this.collect_tokens(
+    undefined,
+    AttrWrapper.empty(),
+    force_collect,
+    (this_, _empty_attrs) => {
+      const re = this_.parse_expr_res_after_attrs(Restrictions.union(Restrictions.ALLOW_LET, Restrictions.IN_IF_GUARD), attrs);
+      if (re.$ === "Ok") {
+        const [expr, _] = re._0;
+        return Ok([expr, Trailing.No, UsePreAttrPos.No]);
+      } else {
+        const err = re._0;
+        if (this_.prev_token.eq(TK.OpenBrace)) {
+          const sugg_sp = Span.shrink_to_lo(this_.prev_token.span);
+          // Consume everything within the braces, let's avoid further parse
+          // errors.
+          this_.recover_stmt_(SemiColonMode.Ignore, BlockMode.Ignore);
+          const msg = "you might have meant to start a match arm after the match guard";
+          if (this_.eat(exp.CloseBrace)) {
+            const applicability = !this_.token.eq(TK.FatArrow)
+              ? // We have high confidence that we indeed didn't have a struct
+                // literal in the match guard, but rather we had some operation
+                // that ended in a path, immediately followed by a block that was
+                // meant to be the match arm.
+                Applicability.MachineApplicable
+              : Applicability.MaybeIncorrect;
+            err.span_suggestion_verbose(sugg_sp, msg, "=> ", applicability);
+          }
+        }
+        return Err(err);
+      }
+    },
+    HasTokens.Expr,
+    HasAttrs.Expr,
+  );
+  if (r.$ === "Err") return r;
+  const expr = r._0;
+  return Ok(expr);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3460 is_builtin
+Parser.prototype.is_builtin = function (this: Parser): boolean {
+  return this.token.is_keyword(kw.Builtin) && this.look_ahead(1, (t) => t.eq(TK.Pound));
+};
+
+/// Parses a `try {...}` or `try bikeshed Ty {...}` expression (`try` token already eaten).
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3465 parse_try_block
+Parser.prototype.parse_try_block = function (this: Parser, span_lo: Span): PResult<Expr> {
+  let annotation: Ty | undefined;
+  if (this.eat_keyword(exp.Bikeshed)) {
+    const r = this.parse_ty();
+    if (r.$ === "Err") return r;
+    annotation = r._0;
+  } else {
+    annotation = undefined;
+  }
+
+  const rb = this.parse_inner_attrs_and_block(undefined);
+  if (rb.$ === "Err") return rb;
+  const [attrs, body] = rb._0;
+  if (this.eat_keyword(exp.Catch)) {
+    return Err(this.dcx().create_err(crate_diagnostics.CatchAfterTry_diagnostic({ span: this.prev_token.span })));
+  } else {
+    const span = Span.to(span_lo, body.span);
+    const gate_sym = annotation === undefined ? sym.try_blocks : sym.try_blocks_heterogeneous;
+    this.psess.gated_spans.gate(gate_sym, span);
+    return Ok(this.mk_expr_with_attrs(span, { $: "TryBlock", _0: body, _1: annotation }, attrs));
+  }
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3483 is_do_catch_block
+Parser.prototype.is_do_catch_block = function (this: Parser): boolean {
+  return (
+    this.token.is_keyword(kw.Do) &&
+    this.is_keyword_ahead(1, [kw.Catch]) &&
+    this.look_ahead(2, (t) => t.eq(TK.OpenBrace) || t.is_metavar_block()) &&
+    !Restrictions.contains(this.restrictions, Restrictions.NO_STRUCT_LITERAL)
+  );
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3490 is_do_yeet
+Parser.prototype.is_do_yeet = function (this: Parser): boolean {
+  return this.token.is_keyword(kw.Do) && this.is_keyword_ahead(1, [kw.Yeet]);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3494 is_try_block
+Parser.prototype.is_try_block = function (this: Parser): boolean {
+  return (
+    this.token.is_keyword(kw.Try) &&
+    this.look_ahead(1, (t) => t.eq(TK.OpenBrace) || t.is_metavar_block() || t.is_keyword(sym.bikeshed)) &&
+    Span.at_least_rust_2018(this.token_uninterpolated_span())
+  );
+};
+
+/// Parses an `async move? {...}` or `gen move? {...}` expression.
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3503 parse_gen_block
+Parser.prototype.parse_gen_block = function (this: Parser): PResult<Expr> {
+  const lo = this.token.span;
+  let kind: ast.CoroutineKind;
+  if (this.eat_keyword(exp.Async)) {
+    kind = this.eat_keyword(exp.Gen) ? ast.CoroutineKind.AsyncGen : ast.CoroutineKind.Async;
+  } else {
+    assert(this.eat_keyword(exp.Gen), "assertion failed: self.eat_keyword(exp!(Gen))");
+    kind = ast.CoroutineKind.Gen;
+  }
+  if (ast.CoroutineKind.is_gen(kind)) {
+    this.psess.gated_spans.gate(sym.gen_blocks, Span.to(lo, this.prev_token.span));
+  }
+  const rc = this.parse_capture_clause();
+  if (rc.$ === "Err") return rc;
+  const capture_clause = rc._0;
+  const decl_span = Span.to(lo, this.prev_token.span);
+  const rb = this.parse_inner_attrs_and_block(undefined);
+  if (rb.$ === "Err") return rb;
+  const [attrs, body] = rb._0;
+  const kind2: ExprKind = { $: "Gen", _0: capture_clause, _1: body, _2: kind, _3: decl_span };
+  return Ok(this.mk_expr_with_attrs(Span.to(lo, this.prev_token.span), kind2, attrs));
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3521 is_gen_block
+Parser.prototype.is_gen_block = function (this: Parser, kw_: Symbol, lookahead: number): boolean {
+  return (
+    this.is_keyword_ahead(lookahead, [kw_]) &&
+    // `async move {`
+    ((this.is_keyword_ahead(lookahead + 1, [kw.Move, kw.Use]) &&
+      this.look_ahead(lookahead + 2, (t) => t.eq(TK.OpenBrace) || t.is_metavar_block())) ||
+      // `async {`
+      this.look_ahead(lookahead + 1, (t) => t.eq(TK.OpenBrace) || t.is_metavar_block()))
+  );
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3535 is_async_gen_block
+Parser.prototype.is_async_gen_block = function (this: Parser): boolean {
+  return this.token.is_keyword(kw.Async) && this.is_gen_block(kw.Gen, 1);
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3539 is_likely_struct_lit
+Parser.prototype.is_likely_struct_lit = function (this: Parser): boolean {
+  // `{ ident, ` and `{ ident: ` cannot start a block.
+  return this.look_ahead(1, (t) => t.is_ident()) && this.look_ahead(2, (t) => t.eq(TK.Comma) || t.eq(TK.Colon));
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3545 maybe_parse_struct_expr
+Parser.prototype.maybe_parse_struct_expr = function (
+  this: Parser,
+  qself: QSelf | undefined,
+  path: Path,
+): PResult<Expr> | undefined {
+  const struct_allowed = !Restrictions.contains(this.restrictions, Restrictions.NO_STRUCT_LITERAL);
+  const likely = this.is_likely_struct_lit();
+  if (!struct_allowed && !likely) {
+    // A struct literal isn't expected and one is pretty much assured not to be present. The
+    // only situation that isn't detected is when a struct with a single field was attempted
+    // in a place where a struct literal wasn't expected, but regular parser errors apply.
+    // Happy path.
+    return undefined;
+  } else if (struct_allowed) {
+    // A struct is accepted here, try to parse it and rely on `parse_expr_struct` for
+    // any kind of recovery. Happy path.
+    const r = this.expect(exp.OpenBrace);
+    if (r.$ === "Err") {
+      return Err(r._0);
+    }
+    return this.parse_expr_struct(qself === undefined ? undefined : ast.clone_QSelf(qself), ast.clone_Path(path), true);
+  } else {
+    // We have something like `match foo { bar,` or `match foo { bar:`, which means the
+    // user might have meant to write a struct literal as part of the `match`
+    // discriminant. This is done purely for error recovery.
+    const snapshot = this.create_snapshot_for_diagnostic();
+    const r = this.expect(exp.OpenBrace);
+    if (r.$ === "Err") {
+      return Err(r._0);
+    }
+    const rs = this.parse_expr_struct(qself === undefined ? undefined : ast.clone_QSelf(qself), ast.clone_Path(path), false);
+    if (rs.$ === "Ok") {
+      const expr = rs._0;
+      // This is a struct literal, but we don't accept them here.
+      this.dcx().emit_err(
+        crate_diagnostics.StructLiteralNotAllowedHere_diagnostic({
+          span: expr.span,
+          sub: {
+            left: Span.shrink_to_lo(path.span),
+            right: Span.shrink_to_hi(expr.span),
+          },
+        }),
+      );
+      return Ok(expr);
+    } else {
+      const err = rs._0;
+      // We couldn't parse a valid struct, rollback and let the parser emit an
+      // error elsewhere.
+      err.cancel();
+      this.restore_snapshot(snapshot);
+      return undefined;
+    }
+  }
+};
+
+// rustc: compiler/rustc_parse/src/parser/expr.rs:3597 maybe_recover_bad_struct_literal_path
+Parser.prototype.maybe_recover_bad_struct_literal_path = function (
+  this: Parser,
+  is_underscore_entry_point: boolean,
+): PResult<Expr | undefined> {
+  if (
+    this.may_recover() &&
+    this.check_noexpect(TK.OpenBrace) &&
+    !Restrictions.contains(this.restrictions, Restrictions.NO_STRUCT_LITERAL) &&
+    this.is_likely_struct_lit()
+  ) {
+    const span = is_underscore_entry_point ? this.prev_token.span : Span.shrink_to_lo(this.token.span);
+
+    this.bump(); // {
+    const r = this.parse_expr_struct(undefined, ast.Path.from_ident(Ident.new(kw.Underscore, span)), false);
+    if (r.$ === "Err") return r;
+    const expr = r._0;
+
+    let guar: ErrorGuaranteed;
+    if (is_underscore_entry_point) {
+      guar = this.dcx().emit_err(crate_diagnostics.StructLiteralPlaceholderPath_diagnostic({ span }));
+    } else {
+      guar = this.dcx().emit_err(
+        crate_diagnostics.StructLiteralWithoutPathLate_diagnostic({
+          span: expr.span,
+          suggestion_span: Span.shrink_to_lo(expr.span),
+        }),
+      );
+    }
+
+    return Ok(this.mk_expr_err(expr.span, guar));
+  } else {
+    return Ok(undefined);
+  }
+};
+
 // ---- STUB TAIL ----
 // pub(crate) fn could_be_unclosed_char_literal(ident: Ident) -> bool (expr.rs:4080)
 export function could_be_unclosed_char_literal(_ident: import("../../rustc_span/symbol.ts").Ident): boolean {
@@ -2681,47 +4283,6 @@ export function could_be_unclosed_char_literal(_ident: import("../../rustc_span/
 
 // PORT(stub): placeholders until this file is ported; remove each name as its method is ported.
 unported_methods(Parser.prototype, "rustc_parse::parser::expr::Parser", [
-  "parse_expr_closure",
-  "parse_closure_block_body",
-  "parse_capture_clause",
-  "parse_fn_block_decl",
-  "parse_fn_block_param",
-  "parse_expr_if",
-  "parse_if_after_cond",
-  "parse_expr_cond",
-  "parse_expr_let",
-  "parse_expr_else",
-  "error_on_if_block_attrs",
-  "error_on_extra_if",
-  "parse_for_head",
-  "parse_expr_for",
-  "recover_loop_else",
-  "error_missing_in_for_loop",
-  "for_loop_head_has_in",
-  "parse_expr_while",
-  "parse_expr_loop",
-  "eat_label",
-  "parse_expr_match",
-  "parse_match_block",
-  "parse_arm_body_missing_braces",
-  "parse_arm",
-  "eat_metavar_guard",
-  "parse_match_arm_guard",
-  "expect_match_arm_guard",
-  "expect_match_arm_guard_cond",
-  "parse_match_arm_pat_and_guard",
-  "parse_match_guard_condition",
-  "is_builtin",
-  "parse_try_block",
-  "is_do_catch_block",
-  "is_do_yeet",
-  "is_try_block",
-  "parse_gen_block",
-  "is_gen_block",
-  "is_async_gen_block",
-  "is_likely_struct_lit",
-  "maybe_parse_struct_expr",
-  "maybe_recover_bad_struct_literal_path",
   "parse_struct_fields",
   "parse_expr_struct",
   "recover_struct_comma_after_dotdot",
