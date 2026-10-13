@@ -1,0 +1,38 @@
+{
+  "//": [
+    "Type-map additions of lane hir-def (sets rustc_hir, rustc_structures, rustc_crate_store), merged after",
+    "typemap.json by tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json.",
+    "Entries marked `PORT: pending <lane>` are opaque until that crate is ported; replace them then."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_span::def_id::DefId", "rustc_span::DefId"], "ts": "DefId", "import": "src/rustc_span/def_id.ts", "types": ["DefId"], "values": ["debug_DefId"], "debug": "debug_DefId($v, $f)", "clone": "copy", "note": "immutable class (PORTING §5 multi-field ids): a copy may share it" },
+    { "paths": ["rustc_span::def_id::LocalDefId"], "ts": "LocalDefId", "import": "src/rustc_span/def_id.ts", "types": ["LocalDefId"], "values": ["debug_LocalDefId"], "debug": "debug_LocalDefId($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_span::def_id::DefIndex"], "ts": "DefIndex", "import": "src/rustc_span/def_id.ts", "types": ["DefIndex"], "values": ["debug_DefIndex"], "debug": "debug_DefIndex($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_span::def_id::CrateNum"], "ts": "CrateNum", "import": "src/rustc_span/def_id.ts", "types": ["CrateNum"], "values": ["debug_CrateNum"], "debug": "debug_CrateNum($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_span::def_id::StableCrateId"], "ts": "StableCrateId", "import": "src/rustc_span/def_id.ts", "types": ["StableCrateId"], "values": ["debug_StableCrateId"], "debug": "debug_StableCrateId($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_span::def_id::DefPathHash"], "ts": "DefPathHash", "import": "src/rustc_span/def_id.ts", "types": ["DefPathHash"], "values": ["debug_DefPathHash"], "debug": "debug_DefPathHash($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_span::def_id::StableCrateIdMap"], "ts": "StableCrateIdMap", "import": "src/rustc_span/def_id.ts", "types": ["StableCrateIdMap"], "debug": null, "clone": null },
+    { "paths": ["rustc_hashes::Hash64"], "ts": "Hash64", "import": "src/rustc_hashes/lib.ts", "types": ["Hash64"], "values": ["debug_Hash64"], "debug": "debug_Hash64($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_ast::Mutability", "rustc_ast::ast::Mutability", "rustc_ast_ir::Mutability"], "ts": "Mutability", "import": "src/rustc_ast_ir/lib.ts", "types": ["Mutability"], "values": ["debug_Mutability"], "debug": "debug_Mutability($v, $f)", "clone": "copy" },
+    { "paths": ["rustc_index::IndexVec", "rustc_index::vec::IndexVec"], "ts": "$1[]", "debug": "debug_vec($v, $f, $d1)", "clone": "$v.map($c1)", "note": "PORTING §5: IndexVec<I, T> = T[] indexed by the handle number; Debug = Debug of the raw Vec" },
+    { "paths": ["rustc_data_structures::sync::AppendOnlyIndexVec"], "ts": "$1[]", "debug": null, "clone": null, "note": "PORTING §5 (sync wrappers are their inner value)" },
+    { "paths": ["rustc_data_structures::sync::FreezeLock"], "ts": "$0", "debug": null, "clone": null, "note": "PORTING §5 (sync wrappers are their inner value)" },
+    { "paths": ["std::sync::OnceLock"], "ts": "$0 | undefined", "debug": null, "clone": null, "note": "PORT: set-once cell as an optional field" },
+    { "paths": ["std::path::PathBuf", "PathBuf"], "ts": "string", "debug": "debug_str($v)", "clone": "copy", "note": "PORT: PathBuf as a UTF-8 string; Debug = OsStr Debug (same escapes as str for valid UTF-8). Same as typemap.errors.json plus the clone rule" },
+    { "paths": ["rustc_hir::PrimTy", "rustc_hir::hir::PrimTy"], "ts": "PrimTy", "import": "src/rustc_hir/def.ts", "types": ["PrimTy"], "values": ["debug_PrimTy"], "debug": "debug_PrimTy($v, $f)", "clone": "copy", "note": "PORT: stand-in in def.ts until hir.rs is ported (M3)" },
+    { "paths": ["rustc_hir::Safety", "rustc_hir::hir::Safety"], "ts": "Safety", "import": "src/rustc_hir/def.ts", "types": ["Safety"], "values": ["debug_Safety"], "debug": "debug_Safety($v, $f)", "clone": "copy", "note": "PORT: stand-in in def.ts until hir.rs is ported (M3)" },
+    { "paths": ["rustc_data_structures::sorted_map::SortedMap"], "ts": "SortedMap<$0, $1>", "import": "src/rustc_hir_id/definitions.ts", "types": ["SortedMap"], "values": ["debug_SortedMap"], "debug": "debug_SortedMap($v, $f, $d0, $d1)", "clone": null, "note": "PORT: stand-in in definitions.ts until rustc_data_structures::sorted_map is ported" },
+    { "paths": ["odht::HashTableOwned"], "ts": "HashTableOwned", "import": "src/rustc_hir_id/def_path_hash_map.ts", "types": ["HashTableOwned"], "values": ["debug_HashTableOwned"], "debug": "debug_HashTableOwned($v, $f)", "clone": null, "note": "PORT: stand-in in def_path_hash_map.ts until odht is vendored (metadata)" },
+    { "paths": ["rustc_structures::NativeLibKind", "rustc_structures::native_lib_kind::NativeLibKind"], "ts": "NativeLibKind", "import": "src/rustc_structures/lib.ts", "types": ["NativeLibKind"], "values": ["debug_NativeLibKind", "clone_NativeLibKind"], "debug": "debug_NativeLibKind($v, $f)", "clone": "clone_NativeLibKind($v)" },
+    { "paths": ["rustc_hir_id::definitions::Definitions"], "ts": "Definitions", "import": "src/rustc_hir_id/definitions.ts", "types": ["Definitions"], "values": ["debug_Definitions"], "debug": "debug_Definitions($v, $f)", "clone": null },
+    { "paths": ["rustc_hir_id::definitions::DefKey"], "ts": "DefKey", "import": "src/rustc_hir_id/definitions.ts", "types": ["DefKey"], "values": ["debug_DefKey", "clone_DefKey"], "debug": "debug_DefKey($v, $f)", "clone": "clone_DefKey($v)" },
+    { "paths": ["rustc_hir_id::definitions::DefPath"], "ts": "DefPath", "import": "src/rustc_hir_id/definitions.ts", "types": ["DefPath"], "values": ["debug_DefPath", "clone_DefPath"], "debug": "debug_DefPath($v, $f)", "clone": "clone_DefPath($v)" },
+    { "paths": ["rustc_data_structures::svh::Svh"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending rustc_data_structures::svh (metadata); replace with the ported type" },
+    { "paths": ["rustc_attr_ir::CfgEntry"], "ts": "unknown", "debug": "unported_debug($v)", "clone": null, "note": "PORT: pending attr-ir-gen (rustc_attr_ir types); replace with the generated type" },
+    { "paths": ["rustc_attr_ir::PeImportNameType"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending attr-ir-gen (rustc_attr_ir types); replace with the generated type" },
+    { "paths": ["rustc_abi::Size"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending a rustc_abi lane; replace with the ported type" },
+    { "paths": ["rustc_abi::ExternAbi"], "ts": "unknown", "debug": "unported_debug($v)", "clone": "copy", "note": "PORT: pending a rustc_abi lane; replace with the ported type" }
+  ]
+}

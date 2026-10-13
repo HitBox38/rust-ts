@@ -159,5 +159,73 @@
     "hand": [],
     "discriminant": [],
     "skip": []
+  },
+  "rustc_parse_format": {
+    "files": [
+      "compiler/rustc_parse_format/src/lib.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_parse_format::Parser"
+    ],
+    "discriminant": [],
+    "skip": [],
+    "derive_clone": true,
+    "hand_notes": {
+      "rustc_parse_format::Parser": "holds the input as a byte-indexed Str (PORTING §5) and implements Iterator; hand-written in lib.ts"
+    },
+    "auto_class": true
+  },
+  "rustc_structures": {
+    "files": [
+      "compiler/rustc_structures/src/lib.rs",
+      "compiler/rustc_structures/src/collapse_macro_debug_info.rs",
+      "compiler/rustc_structures/src/crate_type.rs",
+      "compiler/rustc_structures/src/limit.rs",
+      "compiler/rustc_structures/src/native_lib_kind.rs",
+      "compiler/rustc_structures/src/sanitizer_set.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true,
+    "derive_clone": true
+  },
+  "rustc_hir": {
+    "files": [
+      "compiler/rustc_hir_id/src/lib.rs",
+      "compiler/rustc_hir_id/src/def_path_hash_map.rs",
+      "compiler/rustc_hir_id/src/definitions.rs",
+      "compiler/rustc_hir/src/def.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_hir_id::definitions::PerParentDisambiguatorState"
+    ],
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true,
+    "derive_clone": true,
+    "hand_notes": {
+      "rustc_hir_id::definitions::PerParentDisambiguatorState": "FxHashMap<DefPathData, u32> keyed by a data enum: needs a canonical key (JS Map keys by identity); hand-written in definitions.ts"
+    }
+  },
+  "rustc_crate_store": {
+    "files": [
+      "compiler/rustc_crate_store/src/lib.rs",
+      "compiler/rustc_crate_store/src/cstore.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_crate_store::cstore::CrateStoreDyn"
+    ],
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true,
+    "derive_clone": true,
+    "hand_notes": {
+      "rustc_crate_store::cstore::CrateStoreDyn": "`dyn CrateStore + DynSync + DynSend`: the trait object is the hand-written CrateStore interface (cstore.ts)"
+    }
   }
 }

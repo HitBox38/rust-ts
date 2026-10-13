@@ -1431,7 +1431,12 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         body.push(");");
         if (def.form === "struct" && def.attrs.some((a) => /^derive\s*\(.*\bDebug\b/s.test(a.name)))
           report.notes.push(`${r.key}: derive(Debug) inside bitflags! is not generated yet`);
-        if (hasDebug) report.errors.push(`${at}: derive(Debug) on a bitflags struct is not supported`);
+        if (hasDebug && def.form === "impl") {
+          // `#[derive(Debug)] struct X(uN);` + `bitflags! { impl X: uN { .. } }`: the derive sees a plain
+          // tuple struct, so its Debug is `X(<bits>)` (e.g. rustc_hir::def::MacroKinds).
+          body.push(`export const debug_${name}: Debug<${name}> = (v, f) => debug_tuple(f, ${JSON.stringify(name)}, [debug_int(v, f)]);`);
+          fileDebug++;
+        } else if (hasDebug) report.errors.push(`${at}: derive(Debug) on a bitflags struct is not supported`);
         continue;
       }
 
