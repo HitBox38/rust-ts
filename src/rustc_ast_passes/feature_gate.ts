@@ -417,6 +417,7 @@ export function check_crate(krate: Crate, sess: Session, features: Features): vo
   /** `spans.get(&sym::$feature).into_flat_iter()` */
   const spans_of = (name: Symbol): readonly Span[] => spans.get(name) ?? [];
   // macro_rules! gate_all
+  // rustc-macro: compiler/rustc_ast_passes/src/feature_gate.rs:424 gate_all!
   const gate_all = (feature: FeatureName, explain: string, help?: string): void => {
     for (const span of spans_of(sym[feature])) {
       gate(visitor, feature, span, explain, help);

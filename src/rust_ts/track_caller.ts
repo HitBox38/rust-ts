@@ -125,13 +125,21 @@ function linked(caller: Frame, callee: FrameKind): string | undefined {
   let ok: boolean;
   if (callee.kind === "glue") ok = y === "into_diag";
   else if (callee.closure) ok = !TAIL_CALLS; // a call through a value: the name says nothing
-  else if (callee.owner.kind === "derive_diagnostic") ok = y === "into_diag" || y.endsWith("_into_diag");
-  else if (callee.owner.kind === "macro") ok = y === callee.owner.name;
-  else {
-    const n = callee.owner.name;
-    ok = y === n || y === `${n}_` || y.endsWith(`_${n}`);
-  }
+  else ok = ts_name_re(callee_name(callee), true, callee.owner.kind === "macro").test(y);
   return ok ? undefined : `\`${y}\` at ${rel(caller.file)}:${caller.line} does not call the next frame (tail call?)`;
+}
+
+/** The upstream name of a frame's function (`into_diag` for the derive(Diagnostic) glue). */
+function callee_name(k: FrameKind): string {
+  if (k.kind === "glue" || k.owner.kind === "derive_diagnostic") return "into_diag";
+  return k.owner.name;
+}
+
+/** TS identifiers that port a call of upstream `name`: `name`, `name_` (reserved words, `caller_`), and
+ *  `Type_name` (methods of types realised as free functions, e.g. `X_into_diag`); not for macros. */
+function ts_name_re(name: string, whole: boolean, macro = false): RegExp {
+  const body = macro ? escape_re(name) : `(?:[A-Za-z][\\w$]*_)?${escape_re(name)}_?`;
+  return whole ? new RegExp(`^${body}$`) : new RegExp(`(?<![\\w$])${body}(?![\\w$])`, "g");
 }
 
 function resolve_stack(stack: string): Resolved {
@@ -139,6 +147,7 @@ function resolve_stack(stack: string): Resolved {
   // frames[0] is `capture` itself; frames[1] must be `DiagLocation::caller`.
   let g = -1;
   let prev: FrameKind | undefined;
+  let prev_below: FrameKind | undefined;
   for (let i = 1; i < frames.length; i++) {
     const fr = frames[i];
     if (fr === undefined) return fail(`native frame #${i}`);
@@ -152,8 +161,11 @@ function resolve_stack(stack: string): Resolved {
       const why = linked(fr, prev!);
       if (why !== undefined) return fail(why);
     }
-    prev = k;
-    if (k.kind === "glue" || k.tc) continue;
+    if (k.kind === "glue" || k.tc) {
+      prev_below = k;
+      prev = k;
+      continue;
+    }
     g = i;
     break;
   }
@@ -162,11 +174,11 @@ function resolve_stack(stack: string): Resolved {
   const ts = ts_file(fr.file);
   const owner = ts.owner_at(fr.line)!;
   if (owner.kind !== "fn") return fail(`caller is not a ported fn (${rel(fr.file)}:${fr.line})`);
-  const callee_ts = ident_at(ts.masked_lines[fr.line - 1] ?? "", fr.col - 1)!;
-  const callee = callee_ts.replace(/_$/, "");
+  // The upstream name of the callee: the fn of the frame below G (`linked` checked the TS name against it).
+  const callee = callee_name(prev_below!);
 
   // 3. k-th call of `callee` in G's TS body <-> k-th call in G's upstream body.
-  const ts_calls = ts.calls_in(owner, callee_ts);
+  const ts_calls = ts.calls_in(owner, callee, prev_below!.kind === "owned" && prev_below!.owner.kind === "macro");
   const k = ts_calls.findIndex(([l, c]) => l === fr.line && c === fr.col);
   if (k < 0) return fail(`call at ${rel(fr.file)}:${fr.line}:${fr.col} not found`);
   const up = up_file(owner.path);
@@ -294,14 +306,14 @@ class TsFile {
   }
 
   /** Positions (1-based line, col) of the calls of `name` in `owner`'s declaration. */
-  calls_in(owner: Owner, name: string): [number, number][] {
+  calls_in(owner: Owner, name: string, macro: boolean): [number, number][] {
     const out: [number, number][] = [];
-    const re = new RegExp(`(?<![\\w$])${escape_re(name)}(?![\\w$])`, "g");
+    const re = ts_name_re(name, false, macro);
     for (let l = owner.start; l <= owner.end; l++) {
       const text = this.masked_lines[l - 1]!;
       for (const m of text.matchAll(re)) {
         const before = text.slice(0, m.index);
-        const after = text.slice(m.index + name.length);
+        const after = text.slice(m.index + m[0].length);
         if (/\bfunction\s*$/.test(before)) continue;
         if (!/^\s*(<[^()]*>)?\s*\(/.test(after) && !/^\s*$/.test(after)) continue;
         if (/^\s*$/.test(after) && !/^\s*\(/.test(this.masked_lines[l] ?? "")) continue;
