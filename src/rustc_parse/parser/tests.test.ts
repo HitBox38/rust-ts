@@ -1,12 +1,11 @@
-// Port of compiler/rustc_parse/src/parser/tests.rs (scaffolding, lane parser-core).
+// Port of compiler/rustc_parse/src/parser/tests.rs.
 //
-// Ported here: every helper fn of tests.rs (with markers) and the tests this lane makes work
-// (`look_ahead`, `look_ahead_non_outermost_stream`, `debug_lookahead`, `eqmodws`,
-// `pattern_whitespace`, `non_pattern_whitespace`). The other test bodies are left to the final lane
-// of the parser chain; they are listed in `PENDING_TESTS` below, in upstream order (a data list, not
-// `test.todo`, so the gate sees no skips; a test checks the list against upstream's #[test] fns).
+// Every upstream helper and `#[test]` fn is ported here, in upstream order, with markers. Each
+// `#[test]` is registered through `upstream_test`; a check asserts the registered list equals
+// upstream's `#[test]` fns (in order). Tests that reach parser code owned by a lane that has not
+// landed yet are listed in `PENDING` with the exact `Unported` they must throw (see below).
 //
-// Helper API (for the follow-on lanes; all upstream names):
+// Helper API (all upstream names):
 //   filename(sm, path): FileName                      `FileName::Real` relative to the working dir
 //   string_to_parser(psess, src): Parser             StripTokens::Nothing, `unwrap_or_emit_fatal`
 //   create_test_handler(theme): [DiagCtxt, SourceMap, VecU8]   emitter into a byte buffer, width 140
@@ -22,10 +21,18 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { UPSTREAM } from "../../../scripts/lib/common.ts";
 
-import type { Expr, Item } from "../../rustc_ast/lib.ts";
-import { token } from "../../rustc_ast/lib.ts";
-import type { TokenKind } from "../../rustc_ast/token.ts";
-import type { TokenStream } from "../../rustc_ast/tokenstream.ts";
+import { ast, type Expr, type Item, token, tokenstream, visit } from "../../rustc_ast/lib.ts";
+import { debug_Delimiter, Delimiter, Delimiter_eq, IdentKind, TokenKind, Token_eq } from "../../rustc_ast/token.ts";
+import {
+  debug_TokenStream,
+  debug_TokenTree,
+  DelimSpacing,
+  DelimSpan,
+  Spacing,
+  TokenStream,
+  TokenTree,
+} from "../../rustc_ast/tokenstream.ts";
+import { item_to_string } from "../../rustc_ast_pretty/pprust/mod.ts";
 import { AnnotateSnippetEmitter } from "../../rustc_errors/annotate_snippet_emitter_writer.ts";
 import { OutputTheme } from "../../rustc_errors/emitter.ts";
 import { DiagCtxt, type PResult } from "../../rustc_errors/lib.ts";
@@ -34,9 +41,11 @@ import { is_whitespace } from "../../rustc_lexer/lib.ts";
 import { ParseSess } from "../../rustc_session/parse.ts";
 import { BytePos, create_default_session_globals_then, type FileName, Span } from "../../rustc_span/lib.ts";
 import { FilePathMapping, SourceMap } from "../../rustc_span/source_map.ts";
-import { kw, sym } from "../../rustc_span/symbol.ts";
-import { debug_str, PRETTY } from "../../std/fmt.ts";
-import { assert, panic, unwrap } from "../../std/panic.ts";
+import { debug_Symbol, kw, sym, Symbol } from "../../rustc_span/symbol.ts";
+import { ch } from "../../std/char.ts";
+import { debug_str, debug_vec, PLAIN, PRETTY } from "../../std/fmt.ts";
+import { assert, assert_eq, assert_matches, panic, Unported, unwrap } from "../../std/panic.ts";
+import { unwrap_result } from "../../std/result.ts";
 import { Str, utf8_len } from "../../std/str.ts";
 import { AutoStream } from "../../vendor/anstream/lib.ts";
 import { type FmtArguments, VecU8, Write_default, dyn_write, type Write } from "../../vendor/anstream/stream.ts";
@@ -276,6 +285,2027 @@ function make_pos(file_text: string, pos: Position): number {
   return offset;
 }
 
+// ---- upstream #[test] registration and the PENDING convention ----
+//
+// Every upstream `#[test]` is registered through `upstream_test` (in upstream order); a check below
+// asserts the registered names equal upstream's `#[test]` fns. A test listed in `PENDING` reaches
+// code owned by a parser lane that has not landed yet: it must throw exactly that `Unported` (any
+// other outcome fails). When the owning lane lands, the test runs to completion, the check fails
+// until root deletes its `PENDING` entry, so nothing passes silently and nothing is skipped.
+
+/** test -> the `Unported` it must reach until the owning lane lands. */
+const PENDING: Record<string, string> = {
+  bad_path_expr_1: "rustc_parse::parser::expr::Parser::parse_expr",
+  parse_use: "rustc_parse::parser::item::Parser::parse_item",
+  parse_extern_crate: "rustc_parse::parser::item::Parser::parse_item",
+  span_of_self_arg_pat_idents_are_correct: "rustc_parse::parser::item::Parser::parse_item",
+  parse_exprs: "rustc_parse::parser::expr::Parser::parse_expr",
+  attrs_fix_bug: "rustc_parse::parser::item::Parser::parse_item",
+  crlf_doc_comments: "rustc_parse::parser::item::Parser::parse_item",
+  ttdelim_span: "rustc_parse::parser::expr::Parser::parse_expr",
+  out_of_line_mod: "rustc_parse::parser::item::Parser::parse_item",
+};
+
+const REGISTERED: string[] = [];
+
+/** PORT: `#[test] fn <name>() { <body> }` under the PENDING convention (test scaffolding, no upstream fn). */
+function upstream_test(name: string, body: () => void): void {
+  REGISTERED.push(name);
+  test(name, () => {
+    let reached: string | undefined;
+    try {
+      body();
+    } catch (e) {
+      if (!(e instanceof Unported)) throw e;
+      reached = e.what;
+    }
+    expect(reached).toBe(PENDING[name]);
+  });
+}
+
+test("tests.rs: every upstream #[test] is ported and registered; PENDING names registered tests", () => {
+  const src = readFileSync(join(UPSTREAM, "compiler/rustc_parse/src/parser/tests.rs"), "utf8");
+  const upstream = [...src.matchAll(/#\[test\]\s*(?:#\[[^\]]*\]\s*)*fn\s+(\w+)/g)].map((m) => m[1]!);
+  expect(REGISTERED).toEqual(upstream);
+  for (const name of Object.keys(PENDING)) expect(REGISTERED).toContain(name);
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:245 ends_on_col0
+upstream_test("ends_on_col0", () => {
+  test_harness(
+    `
+fn foo() {
+}
+`,
+    [{
+      start: { string: "{", count: 1 },
+      end: { string: "}", count: 1 },
+      label: "test",
+    }],
+    [],
+    `
+error: foo
+ --> test.rs:2:10
+  |
+2 |   fn foo() {
+  |  __________^
+3 | | }
+  | |_^ test
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:2:10
+  │
+2 │   fn foo() {
+  │ ┏━━━━━━━━━━┛
+3 │ ┃ }
+  ╰╴┗━┛ test
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:281 ends_on_col2
+upstream_test("ends_on_col2", () => {
+  test_harness(
+    `
+fn foo() {
+
+
+  }
+`,
+    [{
+      start: { string: "{", count: 1 },
+      end: { string: "}", count: 1 },
+      label: "test",
+    }],
+    [],
+    `
+error: foo
+ --> test.rs:2:10
+  |
+2 |   fn foo() {
+  |  __________^
+... |
+5 | |   }
+  | |___^ test
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:2:10
+  │
+2 │   fn foo() {
+  │ ┏━━━━━━━━━━┛
+  ‡ ┃
+5 │ ┃   }
+  ╰╴┗━━━┛ test
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:320 non_nested
+upstream_test("non_nested", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0
+  X1 Y1
+  X2 Y2
+}
+`,
+    [
+      {
+        start: { string: "X0", count: 1 },
+        end: { string: "X2", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "Y0", count: 1 },
+        end: { string: "Y2", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |      X0 Y0
+  |  ____^  -
+  | | ______|
+4 | ||   X1 Y1
+5 | ||   X2 Y2
+  | ||____^__- \`Y\` is a good letter too
+  | |_____|
+  |       \`X\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │      X0 Y0
+  │ ┏━━━━┛  │
+  │ ┃┌──────┘
+4 │ ┃│   X1 Y1
+5 │ ┃│   X2 Y2
+  │ ┃└────╿──┘ \`Y\` is a good letter too
+  │ ┗━━━━━┥
+  ╰╴      \`X\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:374 nested
+upstream_test("nested", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0
+  Y1 X1
+}
+`,
+    [
+      {
+        start: { string: "X0", count: 1 },
+        end: { string: "X1", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "Y0", count: 1 },
+        end: { string: "Y1", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |      X0 Y0
+  |  ____^  -
+  | | ______|
+4 | ||   Y1 X1
+  | ||____-__^ \`X\` is a good letter
+  |  |____|
+  |       \`Y\` is a good letter too
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │      X0 Y0
+  │ ┏━━━━┛  │
+  │ ┃┌──────┘
+4 │ ┃│   Y1 X1
+  │ ┗│━━━━│━━┛ \`X\` is a good letter
+  │  └────┤
+  ╰╴      \`Y\` is a good letter too
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:425 multiline_and_normal_overlap
+upstream_test("multiline_and_normal_overlap", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [
+      {
+        start: { string: "Y0", count: 1 },
+        end: { string: "X2", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "X0", count: 1 },
+        end: { string: "Y0", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |     X0 Y0 Z0
+  |  ___---^-
+  | |   |
+  | |   \`Y\` is a good letter too
+4 | |   X1 Y1 Z1
+5 | |   X2 Y2 Z2
+  | |____^ \`X\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │     X0 Y0 Z0
+  │ ┏━━━┬──┛─
+  │ ┃   │
+  │ ┃   \`Y\` is a good letter too
+4 │ ┃   X1 Y1 Z1
+5 │ ┃   X2 Y2 Z2
+  ╰╴┗━━━━┛ \`X\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:478 different_overlap
+upstream_test("different_overlap", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [
+      {
+        start: { string: "Y0", count: 1 },
+        end: { string: "X2", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "Z1", count: 1 },
+        end: { string: "X3", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |      X0 Y0 Z0
+  |  _______^
+4 | |    X1 Y1 Z1
+  | | _________-
+5 | ||   X2 Y2 Z2
+  | ||____^ \`X\` is a good letter
+6 |  |   X3 Y3 Z3
+  |  |____- \`Y\` is a good letter too
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │      X0 Y0 Z0
+  │ ┏━━━━━━━┛
+4 │ ┃    X1 Y1 Z1
+  │ ┃┌─────────┘
+5 │ ┃│   X2 Y2 Z2
+  │ ┗│━━━━┛ \`X\` is a good letter
+6 │  │   X3 Y3 Z3
+  ╰╴ └────┘ \`Y\` is a good letter too
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:533 different_note_1
+upstream_test("different_note_1", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [[undefined, "bar"]],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+  = note: bar
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  │
+  ╰ note: bar
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:573 different_note_2
+upstream_test("different_note_2", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [[undefined, "bar"], [undefined, "qux"]],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+  = note: bar
+  = note: qux
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  │
+  ├ note: bar
+  ╰ note: qux
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:615 different_note_3
+upstream_test("different_note_3", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [[undefined, "bar"], [undefined, "baz"], [undefined, "qux"]],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+  = note: bar
+  = note: baz
+  = note: qux
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  │
+  ├ note: bar
+  ├ note: baz
+  ╰ note: qux
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:659 different_note_spanned_1
+upstream_test("different_note_spanned_1", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [[
+      [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+      "bar",
+    ]],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+note: bar
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  ╰╴
+note: bar
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:710 different_note_spanned_2
+upstream_test("different_note_spanned_2", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "bar",
+      ],
+      [
+        [{ string: "X2", count: 1 }, { string: "Y2", count: 1 }],
+        "qux",
+      ],
+    ],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+note: bar
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+note: qux
+ --> test.rs:5:3
+  |
+5 |   X2 Y2 Z2
+  |   ^^^^^
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  ╰╴
+note: bar
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+note: qux
+  ╭▸ test.rs:5:3
+  │
+5 │   X2 Y2 Z2
+  ╰╴  ━━━━━
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:777 different_note_spanned_3
+upstream_test("different_note_spanned_3", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "bar",
+      ],
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "baz",
+      ],
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "qux",
+      ],
+    ],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+note: bar
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+note: baz
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+note: qux
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  ╰╴
+note: bar
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+note: baz
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+note: qux
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:858 different_note_spanned_4
+upstream_test("different_note_spanned_4", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "bar",
+      ],
+      [undefined, "qux"],
+    ],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+note: bar
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+  = note: qux
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  ╰╴
+note: bar
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  │   ━━━━━━━━
+  ╰ note: qux
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:914 different_note_spanned_5
+upstream_test("different_note_spanned_5", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [
+      [undefined, "bar"],
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "qux",
+      ],
+    ],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+  = note: bar
+note: qux
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  │
+  ╰ note: bar
+note: qux
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:970 different_note_spanned_6
+upstream_test("different_note_spanned_6", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [
+      [undefined, "bar"],
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "baz",
+      ],
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "qux",
+      ],
+    ],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+  = note: bar
+note: baz
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+note: qux
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  │
+  ╰ note: bar
+note: baz
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+note: qux
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1040 different_note_spanned_7
+upstream_test("different_note_spanned_7", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [
+      [
+        [{ string: "X1", count: 1 }, { string: "Z3", count: 1 }],
+        "bar",
+      ],
+      [undefined, "baz"],
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "qux",
+      ],
+    ],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+note: bar
+ --> test.rs:4:3
+  |
+4 | /   X1 Y1 Z1
+5 | |   X2 Y2 Z2
+6 | |   X3 Y3 Z3
+  | |__________^
+  = note: baz
+note: qux
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  ╰╴
+note: bar
+  ╭▸ test.rs:4:3
+  │
+4 │ ┏   X1 Y1 Z1
+5 │ ┃   X2 Y2 Z2
+6 │ ┃   X3 Y3 Z3
+  │ ┗━━━━━━━━━━┛
+  ╰ note: baz
+note: qux
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1114 different_note_spanned_8
+upstream_test("different_note_spanned_8", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "bar",
+      ],
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "baz",
+      ],
+      [undefined, "qux"],
+    ],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+note: bar
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+note: baz
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+  = note: qux
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  ╰╴
+note: bar
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+note: baz
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  │   ━━━━━━━━
+  ╰ note: qux
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1184 different_note_spanned_9
+upstream_test("different_note_spanned_9", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [
+      [undefined, "bar"],
+      [undefined, "baz"],
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "qux",
+      ],
+    ],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+  = note: bar
+  = note: baz
+note: qux
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  │
+  ├ note: bar
+  ╰ note: baz
+note: qux
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  ╰╴  ━━━━━━━━
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1243 different_note_spanned_10
+upstream_test("different_note_spanned_10", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [{
+      start: { string: "Y0", count: 1 },
+      end: { string: "Z0", count: 1 },
+      label: "`X` is a good letter",
+    }],
+    [
+      [
+        [{ string: "X1", count: 1 }, { string: "Z1", count: 1 }],
+        "bar",
+      ],
+      [undefined, "baz"],
+      [undefined, "qux"],
+    ],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |   X0 Y0 Z0
+  |      ^^^^^ \`X\` is a good letter
+  |
+note: bar
+ --> test.rs:4:3
+  |
+4 |   X1 Y1 Z1
+  |   ^^^^^^^^
+  = note: baz
+  = note: qux
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │   X0 Y0 Z0
+  │      ━━━━━ \`X\` is a good letter
+  ╰╴
+note: bar
+  ╭▸ test.rs:4:3
+  │
+4 │   X1 Y1 Z1
+  │   ━━━━━━━━
+  ├ note: baz
+  ╰ note: qux
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1302 triple_overlap
+upstream_test("triple_overlap", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+}
+`,
+    [
+      {
+        start: { string: "X0", count: 1 },
+        end: { string: "X2", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "Y0", count: 1 },
+        end: { string: "Y2", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+      {
+        start: { string: "Z0", count: 1 },
+        end: { string: "Z2", count: 1 },
+        label: "`Z` label",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |       X0 Y0 Z0
+  |  _____^  -  -
+  | | _______|  |
+  | || _________|
+4 | |||   X1 Y1 Z1
+5 | |||   X2 Y2 Z2
+  | |||____^__-__- \`Z\` label
+  | ||_____|__|
+  | |______|  \`Y\` is a good letter too
+  |        \`X\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │       X0 Y0 Z0
+  │ ┏━━━━━┛  │  │
+  │ ┃┌───────┘  │
+  │ ┃│┌─────────┘
+4 │ ┃││   X1 Y1 Z1
+5 │ ┃││   X2 Y2 Z2
+  │ ┃│└────╿──│──┘ \`Z\` label
+  │ ┃└─────│──┤
+  │ ┗━━━━━━┥  \`Y\` is a good letter too
+  ╰╴       \`X\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1365 triple_exact_overlap
+upstream_test("triple_exact_overlap", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+}
+`,
+    [
+      {
+        start: { string: "X0", count: 1 },
+        end: { string: "X2", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "X0", count: 1 },
+        end: { string: "X2", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+      {
+        start: { string: "X0", count: 1 },
+        end: { string: "X2", count: 1 },
+        label: "`Z` label",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 | /   X0 Y0 Z0
+4 | |   X1 Y1 Z1
+5 | |   X2 Y2 Z2
+  | |    ^
+  | |    |
+  | |    \`X\` is a good letter
+  | |____\`Y\` is a good letter too
+  |      \`Z\` label
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │ ┏   X0 Y0 Z0
+4 │ ┃   X1 Y1 Z1
+5 │ ┃   X2 Y2 Z2
+  │ ┃    ╿
+  │ ┃    │
+  │ ┃    \`X\` is a good letter
+  │ ┗━━━━\`Y\` is a good letter too
+  ╰╴     \`Z\` label
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1424 minimum_depth
+upstream_test("minimum_depth", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [
+      {
+        start: { string: "Y0", count: 1 },
+        end: { string: "X1", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "Y1", count: 1 },
+        end: { string: "Z2", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+      {
+        start: { string: "X2", count: 1 },
+        end: { string: "Y3", count: 1 },
+        label: "`Z`",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |      X0 Y0 Z0
+  |  _______^
+4 | |    X1 Y1 Z1
+  | | ____^_-
+  | ||____|
+  |  |    \`X\` is a good letter
+5 |  |   X2 Y2 Z2
+  |  |___-______- \`Y\` is a good letter too
+  |   ___|
+  |  |
+6 |  |   X3 Y3 Z3
+  |  |_______- \`Z\`
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │      X0 Y0 Z0
+  │ ┏━━━━━━━┛
+4 │ ┃    X1 Y1 Z1
+  │ ┃┌────╿─┘
+  │ ┗│━━━━┥
+  │  │    \`X\` is a good letter
+5 │  │   X2 Y2 Z2
+  │  └───│──────┘ \`Y\` is a good letter too
+  │  ┌───┘
+  │  │
+6 │  │   X3 Y3 Z3
+  ╰╴ └───────┘ \`Z\`
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1492 non_overlapping
+upstream_test("non_overlapping", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [
+      {
+        start: { string: "X0", count: 1 },
+        end: { string: "X1", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "Y2", count: 1 },
+        end: { string: "Z3", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 | /   X0 Y0 Z0
+4 | |   X1 Y1 Z1
+  | |____^ \`X\` is a good letter
+5 |     X2 Y2 Z2
+  |  ______-
+6 | |   X3 Y3 Z3
+  | |__________- \`Y\` is a good letter too
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │ ┏   X0 Y0 Z0
+4 │ ┃   X1 Y1 Z1
+  │ ┗━━━━┛ \`X\` is a good letter
+5 │     X2 Y2 Z2
+  │ ┌──────┘
+6 │ │   X3 Y3 Z3
+  ╰╴└──────────┘ \`Y\` is a good letter too
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1545 overlapping_start_and_end
+upstream_test("overlapping_start_and_end", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [
+      {
+        start: { string: "Y0", count: 1 },
+        end: { string: "X1", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "Z1", count: 1 },
+        end: { string: "Z3", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:6
+  |
+3 |      X0 Y0 Z0
+  |  _______^
+4 | |    X1 Y1 Z1
+  | | ____^____-
+  | ||____|
+  |  |    \`X\` is a good letter
+5 |  |   X2 Y2 Z2
+6 |  |   X3 Y3 Z3
+  |  |__________- \`Y\` is a good letter too
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:6
+  │
+3 │      X0 Y0 Z0
+  │ ┏━━━━━━━┛
+4 │ ┃    X1 Y1 Z1
+  │ ┃┌────╿────┘
+  │ ┗│━━━━┥
+  │  │    \`X\` is a good letter
+5 │  │   X2 Y2 Z2
+6 │  │   X3 Y3 Z3
+  ╰╴ └──────────┘ \`Y\` is a good letter too
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1602 multiple_labels_primary_without_message
+upstream_test("multiple_labels_primary_without_message", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [
+      {
+        start: { string: "b", count: 1 },
+        end: { string: "}", count: 1 },
+        label: "",
+      },
+      {
+        start: { string: "a", count: 1 },
+        end: { string: "d", count: 1 },
+        label: "`a` is a good letter",
+      },
+      {
+        start: { string: "c", count: 1 },
+        end: { string: "c", count: 1 },
+        label: "",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:7
+  |
+3 |   a { b { c } d }
+  |   ----^^^^-^^-- \`a\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:7
+  │
+3 │   a { b { c } d }
+  ╰╴  ────━━━━─━━── \`a\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1647 multiline_notes
+upstream_test("multiline_notes", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [{
+      start: { string: "a", count: 1 },
+      end: { string: "d", count: 1 },
+      label: "`a` is a good letter",
+    }],
+    [[undefined, "foo\nbar"], [undefined, "foo\nbar"]],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |   a { b { c } d }
+  |   ^^^^^^^^^^^^^ \`a\` is a good letter
+  |
+  = note: foo
+          bar
+  = note: foo
+          bar
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │   a { b { c } d }
+  │   ━━━━━━━━━━━━━ \`a\` is a good letter
+  │
+  ├ note: foo
+  │       bar
+  ╰ note: foo
+          bar
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1690 multiple_labels_secondary_without_message
+upstream_test("multiple_labels_secondary_without_message", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [
+      {
+        start: { string: "a", count: 1 },
+        end: { string: "d", count: 1 },
+        label: "`a` is a good letter",
+      },
+      {
+        start: { string: "b", count: 1 },
+        end: { string: "}", count: 1 },
+        label: "",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |   a { b { c } d }
+  |   ^^^^-------^^ \`a\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │   a { b { c } d }
+  ╰╴  ━━━━───────━━ \`a\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1730 multiple_labels_primary_without_message_2
+upstream_test("multiple_labels_primary_without_message_2", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [
+      {
+        start: { string: "b", count: 1 },
+        end: { string: "}", count: 1 },
+        label: "`b` is a good letter",
+      },
+      {
+        start: { string: "a", count: 1 },
+        end: { string: "d", count: 1 },
+        label: "",
+      },
+      {
+        start: { string: "c", count: 1 },
+        end: { string: "c", count: 1 },
+        label: "",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:7
+  |
+3 |   a { b { c } d }
+  |   ----^^^^-^^--
+  |       |
+  |       \`b\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:7
+  │
+3 │   a { b { c } d }
+  │   ────┯━━━─━━──
+  │       │
+  ╰╴      \`b\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1779 multiple_labels_secondary_without_message_2
+upstream_test("multiple_labels_secondary_without_message_2", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [
+      {
+        start: { string: "a", count: 1 },
+        end: { string: "d", count: 1 },
+        label: "",
+      },
+      {
+        start: { string: "b", count: 1 },
+        end: { string: "}", count: 1 },
+        label: "`b` is a good letter",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |   a { b { c } d }
+  |   ^^^^-------^^
+  |       |
+  |       \`b\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │   a { b { c } d }
+  │   ━━━━┬──────━━
+  │       │
+  ╰╴      \`b\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1823 multiple_labels_secondary_without_message_3
+upstream_test("multiple_labels_secondary_without_message_3", () => {
+  test_harness(
+    `
+fn foo() {
+  a  bc  d
+}
+`,
+    [
+      {
+        start: { string: "a", count: 1 },
+        end: { string: "b", count: 1 },
+        label: "`a` is a good letter",
+      },
+      {
+        start: { string: "c", count: 1 },
+        end: { string: "d", count: 1 },
+        label: "",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |   a  bc  d
+  |   ^^^^----
+  |   |
+  |   \`a\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │   a  bc  d
+  │   ┯━━━────
+  │   │
+  ╰╴  \`a\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1867 multiple_labels_without_message
+upstream_test("multiple_labels_without_message", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [
+      {
+        start: { string: "a", count: 1 },
+        end: { string: "d", count: 1 },
+        label: "",
+      },
+      {
+        start: { string: "b", count: 1 },
+        end: { string: "}", count: 1 },
+        label: "",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |   a { b { c } d }
+  |   ^^^^-------^^
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │   a { b { c } d }
+  ╰╴  ━━━━───────━━
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1907 multiple_labels_without_message_2
+upstream_test("multiple_labels_without_message_2", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [
+      {
+        start: { string: "b", count: 1 },
+        end: { string: "}", count: 1 },
+        label: "",
+      },
+      {
+        start: { string: "a", count: 1 },
+        end: { string: "d", count: 1 },
+        label: "",
+      },
+      {
+        start: { string: "c", count: 1 },
+        end: { string: "c", count: 1 },
+        label: "",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:7
+  |
+3 |   a { b { c } d }
+  |   ----^^^^-^^--
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:7
+  │
+3 │   a { b { c } d }
+  ╰╴  ────━━━━─━━──
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1952 multiple_labels_with_message
+upstream_test("multiple_labels_with_message", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [
+      {
+        start: { string: "a", count: 1 },
+        end: { string: "d", count: 1 },
+        label: "`a` is a good letter",
+      },
+      {
+        start: { string: "b", count: 1 },
+        end: { string: "}", count: 1 },
+        label: "`b` is a good letter",
+      },
+    ],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |   a { b { c } d }
+  |   ^^^^-------^^
+  |   |   |
+  |   |   \`b\` is a good letter
+  |   \`a\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │   a { b { c } d }
+  │   ┯━━━┬──────━━
+  │   │   │
+  │   │   \`b\` is a good letter
+  ╰╴  \`a\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:1998 single_label_with_message
+upstream_test("single_label_with_message", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [{
+      start: { string: "a", count: 1 },
+      end: { string: "d", count: 1 },
+      label: "`a` is a good letter",
+    }],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |   a { b { c } d }
+  |   ^^^^^^^^^^^^^ \`a\` is a good letter
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │   a { b { c } d }
+  ╰╴  ━━━━━━━━━━━━━ \`a\` is a good letter
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2031 single_label_without_message
+upstream_test("single_label_without_message", () => {
+  test_harness(
+    `
+fn foo() {
+  a { b { c } d }
+}
+`,
+    [{
+      start: { string: "a", count: 1 },
+      end: { string: "d", count: 1 },
+      label: "",
+    }],
+    [],
+    `
+error: foo
+ --> test.rs:3:3
+  |
+3 |   a { b { c } d }
+  |   ^^^^^^^^^^^^^
+
+`,
+    `
+error: foo
+  ╭▸ test.rs:3:3
+  │
+3 │   a { b { c } d }
+  ╰╴  ━━━━━━━━━━━━━
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2064 long_snippet
+upstream_test("long_snippet", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+  X1 Y1 Z1
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+  X2 Y2 Z2
+  X3 Y3 Z3
+}
+`,
+    [
+      {
+        start: { string: "Y0", count: 1 },
+        end: { string: "X1", count: 1 },
+        label: "`X` is a good letter",
+      },
+      {
+        start: { string: "Z1", count: 1 },
+        end: { string: "Z3", count: 1 },
+        label: "`Y` is a good letter too",
+      },
+    ],
+    [],
+    `
+error: foo
+  --> test.rs:3:6
+   |
+ 3 |      X0 Y0 Z0
+   |  _______^
+ 4 | |    X1 Y1 Z1
+   | | ____^____-
+   | ||____|
+   |  |    \`X\` is a good letter
+ 5 |  | 1
+ 6 |  | 2
+ 7 |  | 3
+...   |
+15 |  |   X2 Y2 Z2
+16 |  |   X3 Y3 Z3
+   |  |__________- \`Y\` is a good letter too
+
+`,
+    `
+error: foo
+   ╭▸ test.rs:3:6
+   │
+ 3 │      X0 Y0 Z0
+   │ ┏━━━━━━━┛
+ 4 │ ┃    X1 Y1 Z1
+   │ ┃┌────╿────┘
+   │ ┗│━━━━┥
+   │  │    \`X\` is a good letter
+ 5 │  │ 1
+ 6 │  │ 2
+ 7 │  │ 3
+   ‡  │
+15 │  │   X2 Y2 Z2
+16 │  │   X3 Y3 Z3
+   ╰╴ └──────────┘ \`Y\` is a good letter too
+
+`,
+  );
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2139 long_snippet_multiple_spans
+upstream_test("long_snippet_multiple_spans", () => {
+  test_harness(
+    `
+fn foo() {
+  X0 Y0 Z0
+1
+2
+3
+  X1 Y1 Z1
+4
+5
+6
+  X2 Y2 Z2
+7
+8
+9
+10
+  X3 Y3 Z3
+}
+`,
+    [
+      {
+        start: { string: "Y0", count: 1 },
+        end: { string: "Y3", count: 1 },
+        label: "`Y` is a good letter",
+      },
+      {
+        start: { string: "Z1", count: 1 },
+        end: { string: "Z2", count: 1 },
+        label: "`Z` is a good letter too",
+      },
+    ],
+    [],
+    `
+error: foo
+  --> test.rs:3:6
+   |
+ 3 |      X0 Y0 Z0
+   |  _______^
+ 4 | |  1
+ 5 | |  2
+ 6 | |  3
+ 7 | |    X1 Y1 Z1
+   | | _________-
+ 8 | || 4
+ 9 | || 5
+10 | || 6
+11 | ||   X2 Y2 Z2
+   | ||__________- \`Z\` is a good letter too
+...  |
+15 | |  10
+16 | |    X3 Y3 Z3
+   | |________^ \`Y\` is a good letter
+
+`,
+    `
+error: foo
+   ╭▸ test.rs:3:6
+   │
+ 3 │      X0 Y0 Z0
+   │ ┏━━━━━━━┛
+ 4 │ ┃  1
+ 5 │ ┃  2
+ 6 │ ┃  3
+ 7 │ ┃    X1 Y1 Z1
+   │ ┃┌─────────┘
+ 8 │ ┃│ 4
+ 9 │ ┃│ 5
+10 │ ┃│ 6
+11 │ ┃│   X2 Y2 Z2
+   │ ┃└──────────┘ \`Z\` is a good letter too
+   ‡ ┃
+15 │ ┃  10
+16 │ ┃    X3 Y3 Z3
+   ╰╴┗━━━━━━━━┛ \`Y\` is a good letter
+
+`,
+  );
+});
+
 // rustc: compiler/rustc_parse/src/parser/tests.rs:2223 parse_item_from_source_str
 function parse_item_from_source_str(name: FileName, source: string, psess: ParseSess): PResult<Item | undefined> {
   return unwrap_or_emit_fatal(new_parser_from_source_str(psess, name, source, "Nothing")).parse_item("No", "Yes");
@@ -299,8 +2329,366 @@ function string_to_item(source_str: string): Item | undefined {
   return with_error_checking_parse(source_str, ParseSess.new(), (p) => p.parse_item("No", "Yes"));
 }
 
-// (`parse_expr_from_source_str`, tests.rs:2505, is a nested fn of `ttdelim_span`; it is ported with
-// that test.)
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2250 bad_path_expr_1
+upstream_test("bad_path_expr_1", () => {
+  // This should trigger error: expected identifier, found keyword `return`
+  create_default_session_globals_then(() => {
+    with_expected_parse_error("::abc::def::return", "expected identifier, found keyword `return`", (p) => p.parse_expr());
+  });
+});
+
+/** PORT: `stream.iter().collect::<Vec<_>>()` (test scaffolding). */
+function collect_tts(iter: tokenstream.TokenStreamIter): TokenTree[] {
+  const v: TokenTree[] = [];
+  for (let tt = iter.next(); tt !== undefined; tt = iter.next()) v.push(tt);
+  return v;
+}
+
+/** PORT: the slice-pattern piece `TokenTree::Token(Token { kind: token::Ident(name, IdentKind::Normal), .. }, _)`, binding `name`. */
+function tt_ident_normal(tt: TokenTree | undefined): Symbol | undefined {
+  if (tt !== undefined && tt.$ === "Token" && tt._0.kind.$ === "Ident" && tt._0.kind._1 === IdentKind.Normal) return tt._0.kind._0;
+  return undefined;
+}
+
+/** PORT: the slice-pattern piece `TokenTree::Token(Token { kind: token::<kind>, .. }, _)` for a unit token kind. */
+function tt_is(tt: TokenTree | undefined, kind: TokenKind["$"]): boolean {
+  return tt !== undefined && tt.$ === "Token" && tt._0.kind.$ === kind;
+}
+
+/** PORT: the slice-pattern piece `TokenTree::Delimited(.., delim, tts)`, binding `(delim, tts)`. */
+function tt_delimited(tt: TokenTree | undefined): [Delimiter, TokenStream] | undefined {
+  if (tt !== undefined && tt.$ === "Delimited") return [tt._2, tt._3];
+  return undefined;
+}
+
+const debug_tts = (tts: readonly TokenTree[]): string => debug_vec(tts, PLAIN, debug_TokenTree);
+
+// Checks the token-tree-ization of macros.
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2263 string_to_tts_macro
+upstream_test("string_to_tts_macro", () => {
+  create_default_session_globals_then(() => {
+    const stream = string_to_stream("macro_rules! zip (($a)=>($a))");
+    const tts = collect_tts(stream.iter());
+
+    const name_macro_rules = tt_ident_normal(tts[0]);
+    const name_zip = tt_ident_normal(tts[2]);
+    const macro_ = tt_delimited(tts[3]);
+    if (
+      tts.length === 4 &&
+      name_macro_rules !== undefined &&
+      tt_is(tts[1], "Bang") &&
+      name_zip !== undefined &&
+      macro_ !== undefined &&
+      name_macro_rules === kw.MacroRules &&
+      Symbol.as_str(name_zip) === "zip"
+    ) {
+      const [macro_delim, macro_tts] = macro_;
+      const tts = collect_tts(macro_tts.iter());
+      const first = tt_delimited(tts[0]);
+      const second = tt_delimited(tts[2]);
+      if (
+        tts.length === 3 &&
+        first !== undefined &&
+        tt_is(tts[1], "FatArrow") &&
+        second !== undefined &&
+        Delimiter_eq(macro_delim, Delimiter.Parenthesis)
+      ) {
+        const [first_delim, first_tts] = first;
+        const [second_delim, second_tts] = second;
+        {
+          const tts = collect_tts(first_tts.iter());
+          const name = tt_ident_normal(tts[1]);
+          if (
+            tts.length === 2 &&
+            tt_is(tts[0], "Dollar") &&
+            name !== undefined &&
+            Delimiter_eq(first_delim, Delimiter.Parenthesis) &&
+            Symbol.as_str(name) === "a"
+          ) {
+            // (empty arm)
+          } else {
+            panic(`value 3: ${debug_Delimiter(first_delim, PLAIN)} ${debug_TokenStream(first_tts, PLAIN)}`);
+          }
+        }
+        {
+          const tts = collect_tts(second_tts.iter());
+          const name = tt_ident_normal(tts[1]);
+          if (
+            tts.length === 2 &&
+            tt_is(tts[0], "Dollar") &&
+            name !== undefined &&
+            Delimiter_eq(second_delim, Delimiter.Parenthesis) &&
+            Symbol.as_str(name) === "a"
+          ) {
+            // (empty arm)
+          } else {
+            panic(`value 4: ${debug_Delimiter(second_delim, PLAIN)} ${debug_TokenStream(second_tts, PLAIN)}`);
+          }
+        }
+      } else {
+        panic(`value 2: ${debug_Delimiter(macro_delim, PLAIN)} ${debug_TokenStream(macro_tts, PLAIN)}`);
+      }
+    } else {
+      panic(`value: ${debug_tts(tts)}`);
+    }
+  });
+});
+
+// PORT: `#[derive(PartialEq)]` of `TokenStream`, `TokenTree`, `DelimSpan` and `DelimSpacing`
+// (rustc_ast/src/tokenstream.rs) for `assert_eq!(tts, expected)`. rustc_ast/tokenstream.ts has no
+// `_eq` fns for them yet, so they are test-local here (see the handoff).
+function TokenStream_eq(a: TokenStream, b: TokenStream): boolean {
+  return a._0.length === b._0.length && a._0.every((tt, i) => TokenTree_eq(tt, b._0[i]!));
+}
+function TokenTree_eq(a: TokenTree, b: TokenTree): boolean {
+  switch (a.$) {
+    case "Token":
+      return b.$ === "Token" && Token_eq(a._0, b._0) && a._1 === b._1;
+    case "Delimited":
+      return (
+        b.$ === "Delimited" &&
+        a._0.open === b._0.open &&
+        a._0.close === b._0.close &&
+        a._1.open === b._1.open &&
+        a._1.close === b._1.close &&
+        Delimiter_eq(a._2, b._2) &&
+        TokenStream_eq(a._3, b._3)
+      );
+  }
+}
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2319 string_to_tts_1
+upstream_test("string_to_tts_1", () => {
+  create_default_session_globals_then(() => {
+    const tts = string_to_stream("fn a(b: i32) { b; }");
+
+    const expected = TokenStream.new([
+      TokenTree.token_alone({ $: "Ident", _0: kw.Fn, _1: IdentKind.Normal }, sp(0, 2)),
+      TokenTree.token_joint_hidden({ $: "Ident", _0: sym.character(ch("a")), _1: IdentKind.Normal }, sp(3, 4)),
+      {
+        $: "Delimited",
+        _0: DelimSpan.from_pair(sp(4, 5), sp(11, 12)),
+        // `JointHidden` because the `(` is followed immediately by
+        // `b`, `Alone` because the `)` is followed by whitespace.
+        _1: DelimSpacing.new(Spacing.JointHidden, Spacing.Alone),
+        _2: Delimiter.Parenthesis,
+        _3: TokenStream.new([
+          TokenTree.token_joint({ $: "Ident", _0: sym.character(ch("b")), _1: IdentKind.Normal }, sp(5, 6)),
+          TokenTree.token_alone(TokenKind.Colon, sp(6, 7)),
+          // `JointHidden` because the `i32` is immediately followed by the `)`.
+          TokenTree.token_joint_hidden({ $: "Ident", _0: sym.i32, _1: IdentKind.Normal }, sp(8, 11)),
+        ]),
+      },
+      {
+        $: "Delimited",
+        _0: DelimSpan.from_pair(sp(13, 14), sp(18, 19)),
+        // First `Alone` because the `{` is followed by whitespace,
+        // second `Alone` because the `}` is followed immediately by
+        // EOF.
+        _1: DelimSpacing.new(Spacing.Alone, Spacing.Alone),
+        _2: Delimiter.Brace,
+        _3: TokenStream.new([
+          TokenTree.token_joint({ $: "Ident", _0: sym.character(ch("b")), _1: IdentKind.Normal }, sp(15, 16)),
+          // `Alone` because the `;` is followed by whitespace.
+          TokenTree.token_alone(TokenKind.Semi, sp(16, 17)),
+        ]),
+      },
+    ]);
+
+    assert_eq(tts, expected, (v) => debug_TokenStream(v, PLAIN), TokenStream_eq);
+  });
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2371 parse_use
+upstream_test("parse_use", () => {
+  create_default_session_globals_then(() => {
+    {
+      const use_s = "use foo::bar::baz;";
+      const vitem = unwrap(string_to_item(use_s));
+      const vitem_s = item_to_string(vitem);
+      assert_eq(vitem_s, use_s, debug_str);
+    }
+
+    {
+      const use_s = "use foo::bar as baz;";
+      const vitem = unwrap(string_to_item(use_s));
+      const vitem_s = item_to_string(vitem);
+      assert_eq(vitem_s, use_s, debug_str);
+    }
+  });
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2386 parse_extern_crate
+upstream_test("parse_extern_crate", () => {
+  create_default_session_globals_then(() => {
+    {
+      const ex_s = "extern crate foo;";
+      const vitem = unwrap(string_to_item(ex_s));
+      const vitem_s = item_to_string(vitem);
+      assert_eq(vitem_s, ex_s, debug_str);
+    }
+
+    {
+      const ex_s = "extern crate foo as bar;";
+      const vitem = unwrap(string_to_item(ex_s));
+      const vitem_s = item_to_string(vitem);
+      assert_eq(vitem_s, ex_s, debug_str);
+    }
+  });
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2400 get_spans_of_pat_idents
+function get_spans_of_pat_idents(src: string): Span[] {
+  const item = unwrap(string_to_item(src));
+
+  class PatIdentVisitor extends visit.Visitor {
+    constructor(public spans: Span[]) {
+      super();
+    }
+
+    // rustc: compiler/rustc_parse/src/parser/tests.rs:2407 visit_pat
+    override visit_pat(p: ast.Pat): undefined {
+      switch (p.kind.$) {
+        case "Ident": {
+          const ident = p.kind._1;
+          this.spans.push(ident.span);
+          break;
+        }
+        default: {
+          visit.walk_pat(this, p);
+        }
+      }
+      return undefined;
+    }
+  }
+  const v = new PatIdentVisitor([]);
+  visit.walk_item(v, item, visit.WalkItemKind.ItemKind);
+  return v.spans;
+}
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2424 span_of_self_arg_pat_idents_are_correct
+upstream_test("span_of_self_arg_pat_idents_are_correct", () => {
+  create_default_session_globals_then(() => {
+    const srcs = [
+      "impl z { fn a (&self, &myarg: i32) {} }",
+      "impl z { fn a (&mut self, &myarg: i32) {} }",
+      "impl z { fn a (&'a self, &myarg: i32) {} }",
+      "impl z { fn a (self, &myarg: i32) {} }",
+      "impl z { fn a (self: Foo, &myarg: i32) {} }",
+    ];
+
+    for (const src of srcs) {
+      const spans = get_spans_of_pat_idents(src);
+      const [lo, hi] = [Span.lo(spans[0]!), Span.hi(spans[0]!)];
+      // PORT: `&src[lo.to_usize()..hi.to_usize()]` slices UTF-8 bytes.
+      const text = Str.from(src).slice(BytePos.to_usize(lo), BytePos.to_usize(hi)).toString();
+      assert("self" === text, `"${text}" != "self". src="${src}"`);
+    }
+  });
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2448 parse_exprs
+upstream_test("parse_exprs", () => {
+  create_default_session_globals_then(() => {
+    // just make sure that they parse....
+    string_to_expr("3 + 4");
+    string_to_expr("a::z.froob(b,&(987+3))");
+  });
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2457 attrs_fix_bug
+upstream_test("attrs_fix_bug", () => {
+  create_default_session_globals_then(() => {
+    string_to_item(
+      `pub fn mk_file_writer(path: &Path, flags: &[FileFlag])
+                -> Result<Box<Writer>, String> {
+#[cfg(windows)]
+fn wb() -> c_int {
+    (O_WRONLY | libc::consts::os::extra::O_BINARY) as c_int
+}
+
+#[cfg(unix)]
+fn wb() -> c_int { O_WRONLY as c_int }
+
+let mut fflags: c_int = wb();
+}`,
+    );
+  });
+});
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2478 crlf_doc_comments
+upstream_test("crlf_doc_comments", () => {
+  create_default_session_globals_then(() => {
+    const psess = ParseSess.new();
+
+    {
+      const name_1: FileName = { $: "Custom", _0: "crlf_source_1" };
+      const source = "/// doc comment\r\nfn foo() {}";
+      const item = unwrap(unwrap_result(parse_item_from_source_str(name_1, source, psess)));
+      const doc = unwrap(first_doc_str(item.attrs));
+      assert_eq(Symbol.as_str(doc), " doc comment", debug_str);
+    }
+
+    {
+      const name_2: FileName = { $: "Custom", _0: "crlf_source_2" };
+      const source = "/// doc comment\r\n/// line 2\r\nfn foo() {}";
+      const item = unwrap(unwrap_result(parse_item_from_source_str(name_2, source, psess)));
+      const docs = item.attrs.map((at) => at.doc_str()).filter((s): s is Symbol => s !== undefined);
+      const b: readonly Symbol[] = [Symbol.intern(" doc comment"), Symbol.intern(" line 2")];
+      assert_eq<readonly Symbol[]>(
+        docs,
+        b,
+        (v) => debug_vec(v, PLAIN, debug_Symbol),
+        (x, y) => x.length === y.length && x.every((s, i) => s === y[i]),
+      );
+    }
+
+    {
+      const name_3: FileName = { $: "Custom", _0: "clrf_source_3" };
+      const source = "/** doc comment\r\n *  with CRLF */\r\nfn foo() {}";
+      const item = unwrap(unwrap_result(parse_item_from_source_str(name_3, source, psess)));
+      const doc = unwrap(first_doc_str(item.attrs));
+      assert_eq(Symbol.as_str(doc), " doc comment\n *  with CRLF ", debug_str);
+    }
+  });
+});
+
+/** PORT: `attrs.iter().filter_map(|at| at.doc_str()).next()` (test scaffolding). */
+function first_doc_str(attrs: readonly ast.Attribute[]): Symbol | undefined {
+  for (const at of attrs) {
+    const s = at.doc_str();
+    if (s !== undefined) return s;
+  }
+  return undefined;
+}
+
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2504 ttdelim_span
+upstream_test("ttdelim_span", () => {
+  // rustc: compiler/rustc_parse/src/parser/tests.rs:2505 parse_expr_from_source_str
+  function parse_expr_from_source_str(name: FileName, source: string, psess: ParseSess): PResult<Expr> {
+    return unwrap_or_emit_fatal(new_parser_from_source_str(psess, name, source, "Nothing")).parse_expr();
+  }
+
+  create_default_session_globals_then(() => {
+    const psess = ParseSess.new();
+    const expr = unwrap_result(
+      parse_expr_from_source_str(filename(psess.source_map(), "foo"), "foo!( fn main() { body } )", psess),
+    );
+
+    if (expr.kind.$ !== "MacCall") return panic("not a macro");
+    const mac = expr.kind._0;
+    const span = TokenTree.span(unwrap(collect_tts(mac.args.tokens.iter()).at(-1)));
+
+    const r = psess.source_map().span_to_snippet(span);
+    switch (r.$) {
+      case "Ok":
+        assert_eq(r._0.toString(), "{ body }", debug_str);
+        break;
+      case "Err":
+        panic("could not get snippet");
+    }
+  });
+});
 
 // rustc: compiler/rustc_parse/src/parser/tests.rs:2534 look
 function look(p: Parser, dist: number, kind: TokenKind): void {
@@ -311,32 +2699,8 @@ function look(p: Parser, dist: number, kind: TokenKind): void {
   expect(token.TokenKind_eq(kind, tok.kind)).toBe(true);
 }
 
-// ---- tests left to the final lane of the parser chain (upstream order) ----
-const PENDING_TESTS = [
-  "ends_on_col0", "ends_on_col2", "non_nested", "nested", "multiline_and_normal_overlap", "different_overlap",
-  "different_note_1", "different_note_2", "different_note_3", "different_note_spanned_1", "different_note_spanned_2",
-  "different_note_spanned_3", "different_note_spanned_4", "different_note_spanned_5", "different_note_spanned_6",
-  "different_note_spanned_7", "different_note_spanned_8", "different_note_spanned_9", "different_note_spanned_10",
-  "triple_overlap", "triple_exact_overlap", "minimum_depth", "non_overlapping", "overlapping_start_and_end",
-  "multiple_labels_primary_without_message", "multiline_notes", "multiple_labels_secondary_without_message",
-  "multiple_labels_primary_without_message_2", "multiple_labels_secondary_without_message_2",
-  "multiple_labels_secondary_without_message_3", "multiple_labels_without_message", "multiple_labels_without_message_2",
-  "multiple_labels_with_message", "single_label_with_message", "single_label_without_message", "long_snippet",
-  "long_snippet_multiple_spans", "bad_path_expr_1", "string_to_tts_macro", "string_to_tts_1", "parse_use",
-  "parse_extern_crate", "span_of_self_arg_pat_idents_are_correct (+ get_spans_of_pat_idents)", "parse_exprs",
-  "attrs_fix_bug", "crlf_doc_comments", "ttdelim_span (+ parse_expr_from_source_str)", "out_of_line_mod",
-];
-const PORTED_TESTS = ["look_ahead", "look_ahead_non_outermost_stream", "debug_lookahead", "eqmodws", "pattern_whitespace", "non_pattern_whitespace"];
-
-test("tests.rs: every upstream #[test] is ported or listed in PENDING_TESTS", () => {
-  const src = readFileSync(join(UPSTREAM, "compiler/rustc_parse/src/parser/tests.rs"), "utf8");
-  const upstream = [...src.matchAll(/#\[test\]\s*(?:#\[[^\]]*\]\s*)*fn\s+(\w+)/g)].map((m) => m[1]!);
-  const listed = [...PORTED_TESTS, ...PENDING_TESTS.map((n) => n.split(" ")[0]!)];
-  expect([...listed].sort()).toEqual([...upstream].sort());
-});
-
 // rustc: compiler/rustc_parse/src/parser/tests.rs:2543 look_ahead
-test("look_ahead", () => {
+upstream_test("look_ahead", () => {
   create_default_session_globals_then(() => {
     const sym_f = sym.character("f".codePointAt(0)!);
     const sym_x = sym.character("x".codePointAt(0)!);
@@ -412,7 +2776,7 @@ test("look_ahead", () => {
 /// There used to be some buggy behaviour when using `look_ahead` not within
 /// the outermost token stream, which this test covers.
 // rustc: compiler/rustc_parse/src/parser/tests.rs:2618 look_ahead_non_outermost_stream
-test("look_ahead_non_outermost_stream", () => {
+upstream_test("look_ahead_non_outermost_stream", () => {
   create_default_session_globals_then(() => {
     const sym_f = sym.character("f".codePointAt(0)!);
     const sym_x = sym.character("x".codePointAt(0)!);
@@ -451,7 +2815,7 @@ test("look_ahead_non_outermost_stream", () => {
 });
 
 // rustc: compiler/rustc_parse/src/parser/tests.rs:2656 debug_lookahead
-test("debug_lookahead", () => {
+upstream_test("debug_lookahead", () => {
   create_default_session_globals_then(() => {
     const psess = ParseSess.new();
     const p = string_to_parser(psess, "fn f(x: u32) { x } struct S;");
@@ -477,8 +2841,36 @@ test("debug_lookahead", () => {
   });
 });
 
+// This tests that when parsing a string (rather than a file) we don't try
+// and read in a file for a module declaration and just parse a stub.
+// See `recurse_into_file_modules` in the parser.
+// rustc: compiler/rustc_parse/src/parser/tests.rs:2877 out_of_line_mod
+upstream_test("out_of_line_mod", () => {
+  create_default_session_globals_then(() => {
+    const psess = ParseSess.new();
+    const item = unwrap(
+      unwrap_result(
+        parse_item_from_source_str(
+          filename(psess.source_map(), "foo"),
+          "mod foo { struct S; mod this_does_not_exist; }",
+          psess,
+        ),
+      ),
+    );
+
+    if (item.kind.$ !== "Mod") return panic();
+    const mod_kind = item.kind._2;
+    assert_matches(
+      mod_kind,
+      mod_kind.$ === "Loaded" && mod_kind._0.length === 2,
+      "ast::ModKind::Loaded(items, ..) if items.len() == 2",
+      (v) => ast.debug_ModKind(v, PLAIN),
+    );
+  });
+});
+
 // rustc: compiler/rustc_parse/src/parser/tests.rs:2894 eqmodws
-test("eqmodws", () => {
+upstream_test("eqmodws", () => {
   expect(matches_codepattern("", "")).toBe(true);
   expect(matches_codepattern("", "a")).toBe(false);
   expect(matches_codepattern("a", "")).toBe(false);
@@ -493,23 +2885,20 @@ test("eqmodws", () => {
 });
 
 // rustc: compiler/rustc_parse/src/parser/tests.rs:2909 pattern_whitespace
-test("pattern_whitespace", () => {
+upstream_test("pattern_whitespace", () => {
   expect(matches_codepattern("", "\x0C")).toBe(false);
   expect(matches_codepattern("a b ", "a   \u{0085}\n\t\r  b")).toBe(true);
   expect(matches_codepattern("a b", "a   \u{0085}\n\t\r  b ")).toBe(false);
 });
 
 // rustc: compiler/rustc_parse/src/parser/tests.rs:2916 non_pattern_whitespace
-test("non_pattern_whitespace", () => {
+upstream_test("non_pattern_whitespace", () => {
   // These have the property 'White_Space' but not 'Pattern_White_Space'
   expect(matches_codepattern("a b", "a\u{2002}b")).toBe(false);
   expect(matches_codepattern("a   b", "a\u{2002}b")).toBe(false);
   expect(matches_codepattern("\u{205F}a   b", "ab")).toBe(false);
   expect(matches_codepattern("a  \u{3000}b", "ab")).toBe(false);
 });
-
-// Unused-for-now helpers are referenced so the scaffolding type-checks without warnings.
-void [with_expected_parse_error, string_to_stream, test_harness, parse_item_from_source_str, sp, string_to_expr, string_to_item, unwrap];
 
 // The `debug_lookahead` expectations, verbatim from tests.rs.
 const EXPECTED_0 = "Parser {\n    prev_token: Token {\n        kind: Question,\n        span: Span {\n            lo: BytePos(\n                0,\n            ),\n            hi: BytePos(\n                0,\n            ),\n            ctxt: #0,\n        },\n    },\n    tokens: [],\n    approx_token_stream_pos: 0,\n    ..\n}";
