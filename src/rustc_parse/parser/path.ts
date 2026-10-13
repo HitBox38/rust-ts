@@ -23,7 +23,7 @@ import { type Diag, type PResult } from "../../rustc_errors/lib.ts";
 import { Applicability } from "../../rustc_lint_defs/lib.ts";
 import { BytePos, Span } from "../../rustc_span/lib.ts";
 import { type Ident, kw, sym } from "../../rustc_span/symbol.ts";
-import { unreachable, unwrap } from "../../std/panic.ts";
+import { panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import * as diagnostics from "../diagnostics.ts";
 import {
@@ -705,7 +705,7 @@ Parser.prototype.parse_angle_args = function (
         this.check(exp.Gt);
         // Handle `,` to `;` substitution
         const u = this.unexpected();
-        if (u.$ === "Ok") return unreachable("called `Result::unwrap_err()` on an `Ok` value");
+        if (u.$ === "Ok") return panic("called `Result::unwrap_err()` on an `Ok` value: ()");
         const err = u._0;
         this.bump();
         err.span_suggestion_verbose(
