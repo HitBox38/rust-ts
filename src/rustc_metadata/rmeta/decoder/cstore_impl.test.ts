@@ -313,7 +313,7 @@ describe("provide_extern", () => {
       expect(ext.crate_dep_kind!(f.tcx, K1)).toBe("Explicit");
       expect(ext.doc_link_traits_in_scope!(f.tcx, new ModId(did(1, 3)))).toEqual([did(1, 103)]);
       expect(ext.implementations_of_trait!(f.tcx, [K1, trait])).toEqual([[trait, undefined]]);
-  }));
+    }));
 
   test("local DefIds are rejected; crate_hash is ensured only with a fully enabled dep graph", () => {
     const f = fake({ 1: { def_kind: () => DefKind.Fn, hash: () => "h" as never } }, {}, true);
@@ -379,7 +379,7 @@ describe("provide (local providers) and provide_cstore_hooks", () => {
       const names = ["a", "b", "a"].map((s) => Symbol.intern(s));
       const f = fake({}, { crates: () => [1, 2, 3].map((n) => CrateNum.from_u32(n)), crate_name: (c: number) => names[c - 1] });
       expect(q.duplicate_crate_names!(f.tcx, CrateNum.from_u32(1))).toEqual([CrateNum.from_u32(3)]);
-  }));
+    }));
 
   test("visible_parent_map: BFS, `_` re-exports only as fallback", () =>
     create_default_session_globals_then(() => {
@@ -403,13 +403,9 @@ describe("provide (local providers) and provide_cstore_hooks", () => {
         },
       );
       const m = q.visible_parent_map!(f.tcx, null) as Map<DefId, DefId>;
-      expect([...m].map(([k, v]) => [k.index, v.index])).toEqual([
-        [1, 0],
-        [2, 0],
-        [3, 1],
-      ]);
+      expect([...m].map(([k, v]) => `${k.index}->${v.index}`)).toEqual(["1->0", "2->0", "3->1"]);
       void root;
-  }));
+    }));
 
   test("unported local providers stop at unported(..)", () => {
     expect(() => q.dependency_formats!({} as TyCtxt, null)).toThrow("rustc_metadata::dependency_format::calculate");
