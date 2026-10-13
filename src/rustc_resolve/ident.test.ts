@@ -145,6 +145,7 @@ const PENDING: Record<string, string> = {
   // `ScopeSet::All` lookups that find a declaration call `macros::sub_namespace_match` (lane res-macros).
   "resolve_ident_in_scope_set All(TypeNS) finds a planted item": "rustc_resolve::macros::sub_namespace_match",
   "resolve_ident_in_module ExternPrelude finds an extern crate item": "rustc_resolve::macros::sub_namespace_match",
+  "resolve_path crate::m::mac through a child module": "rustc_resolve::macros::sub_namespace_match",
   // A miss in the module's non-glob scope continues into its glob scope, which enters the
   // `imports::cycle_detection` guard (lane res-imports).
   "resolve_ident_in_scope_set All(TypeNS) falls through to the builtin `u8`": "rustc_resolve::imports::cycle_detection::enter_cycle_detector",
@@ -608,7 +609,34 @@ case_("resolve_path [crate] with finalize records the crate root res", () => {
     s.id = NodeId.from_u32(5);
     expect<unknown>(r.resolve_path([s], undefined, root_scope(r), finalize(), undefined, undefined)).toEqual({ $: "Module", _0: { $: "Module", _0: r.graph_root } });
     const pr = r.partial_res_map.get(NodeId.from_u32(5));
-    expect<unknown>(pr?.base_res).toEqual({ $: "Def", _0: DefKind.Mod, _1: crate_def_id() });
+    expect<unknown>(pr?.base_res()).toEqual({ $: "Def", _0: DefKind.Mod, _1: crate_def_id() });
+  });
+});
+
+case_("resolve_path crate::m::mac through a child module", () => {
+  with_resolver((r) => {
+    // `mod m { macro mac }` planted by hand: the module (as `build_reduced_graph` creates it) and its names.
+    const feed = r.create_def(CRATE_DEF_ID, NodeId.from_u32(11), Symbol.intern("m"), DefKind.Mod, ExpnId.root(), DUMMY_SP, false);
+    r.feed_visibility(feed, { $: "Public" });
+    const m_def_id = LocalDefId.to_def_id(feed.def_id());
+    const m = r.new_local_module(r.graph_root, { $: "Def", _0: DefKind.Mod, _1: m_def_id, _2: NodeId.from_u32(11), _3: Symbol.intern("m") }, ExpnId.root(), DUMMY_SP, false);
+    plant(r, r.graph_root, ident("m"), "TypeNS", r.arenas.new_pub_def_decl({ $: "Def", _0: DefKind.Mod, _1: m_def_id }, DUMMY_SP, LocalExpnId.ROOT));
+    const mac_res: Res = { $: "Def", _0: { $: "Macro", _0: 1 as never }, _1: crate_def_id() };
+    plant(r, m, ident("mac"), "MacroNS", r.arenas.new_pub_def_decl(mac_res, DUMMY_SP, LocalExpnId.ROOT));
+    const path = [Segment.from_ident(kwi(kw.Crate)), Segment.from_ident(ident("m")), Segment.from_ident(ident("mac"))];
+
+    const got = r.resolve_path(path, "MacroNS", root_scope(r), undefined, undefined, undefined);
+    expect<unknown>(got.$).toBe("NonModule");
+    if (got.$ === "NonModule") {
+      expect<unknown>(got._0.base_res()).toEqual(mac_res);
+      expect<unknown>(got._0.unresolved_segments()).toBe(0);
+    }
+    // As a module path (imports: `opt_ns = None`) the last segment is looked up in the type namespace.
+    const as_mod = r.resolve_path(path.slice(0, 2), undefined, root_scope(r), undefined, undefined, undefined);
+    expect<unknown>(as_mod).toEqual({ $: "Module", _0: { $: "Module", _0: m } });
+    // A missing segment after a module, in a fully expanded module: a determinate failure of the last segment.
+    const miss = failed(r.resolve_path([path[0]!, path[1]!, Segment.from_ident(ident("nope"))], "MacroNS", root_scope(r), undefined, undefined, undefined));
+    expect<unknown>([miss.message, miss.is_error_from_last_segment, miss.module]).toEqual(["cannot find `nope` in this scope", true, { $: "Module", _0: m }]);
   });
 });
 
