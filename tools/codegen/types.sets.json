@@ -236,7 +236,14 @@
     "decodable_types": [
       "rustc_hir_id::definitions::DefKey",
       "rustc_hir_id::definitions::DisambiguatedDefPathData",
-      "rustc_hir_id::definitions::DefPathData"
+      "rustc_hir_id::definitions::DefPathData",
+      "rustc_hir::def::CtorOf",
+      "rustc_hir::def::CtorKind",
+      "rustc_hir::def::MacroKinds",
+      "rustc_hir::def::NonMacroAttrKind",
+      "rustc_hir::def::DefKind",
+      "rustc_hir::def::Res",
+      "rustc_hir::def::Namespace"
     ],
     "hand_notes": {
       "decodable_types": "crate metadata's def_keys table (rmeta decoder.rs `CrateMetadata::def_key`, lane rmeta-decoder-b)",
@@ -335,7 +342,8 @@
   },
   "rustc_middle": {
     "files": [
-      "compiler/rustc_middle/src/ty/mod.rs"
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_middle/src/middle/resolve.rs"
     ],
     "class": [],
     "hand": [],
@@ -348,11 +356,14 @@
     ],
     "derive_decodable": true,
     "decodable_types": [
-      "rustc_middle::ty::Visibility"
+      "rustc_middle::ty::Visibility",
+      "rustc_middle::middle::resolve::Reexport",
+      "rustc_middle::middle::resolve::ModChild",
+      "rustc_middle::middle::resolve::AmbigModChild"
     ],
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a) and module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`, lane decode-elems); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_type_ir": {

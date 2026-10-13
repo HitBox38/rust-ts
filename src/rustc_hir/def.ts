@@ -7,11 +7,12 @@
 // PORT: `PartialRes`, `LifetimeRes` and `DocLinkResMap` are not in this file at the pin: they live
 // in compiler/rustc_middle/src/middle/resolve.rs (lane tyctxt-min).
 import type { NodeId, VariantData } from "../rustc_ast/lib.ts";
-import { debug_FloatTy, debug_IntTy, debug_UintTy, type FloatTy, type IntTy, type UintTy } from "../rustc_ast_ir/lib.ts";
+import { debug_FloatTy, debug_IntTy, debug_UintTy, decode_FloatTy, decode_IntTy, decode_UintTy, type FloatTy, type IntTy, type UintTy } from "../rustc_ast_ir/lib.ts";
 import type { DiagArgValue } from "../rustc_error_messages/lib.ts";
 import { DefPathData } from "../rustc_hir_id/definitions.ts";
 import { debug_HirId, type HirId } from "../rustc_hir_id/lib.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
+import type { SpanDecoder } from "../rustc_span/lib.ts";
 import type { MacroKind } from "../rustc_span/hygiene.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, debug_tuple, PLAIN } from "../std/fmt.ts";
@@ -53,6 +54,29 @@ export const debug_PrimTy: Debug<PrimTy> = (v, f) => {
       return v.$;
   }
 };
+/**
+ * `#[derive(Decodable)]` of `PrimTy` (hir.rs:3319), written out like the stand-in itself
+ * (rustc_macros serialize.rs `decodable_body`: a `u8` variant index, then the fields).
+ */
+export function decode_PrimTy(d: SpanDecoder): PrimTy {
+  const tag = d.read_u8();
+  switch (tag) {
+    case 0:
+      return { $: "Int", _0: decode_IntTy(d) };
+    case 1:
+      return { $: "Uint", _0: decode_UintTy(d) };
+    case 2:
+      return { $: "Float", _0: decode_FloatTy(d) };
+    case 3:
+      return { $: "Str" };
+    case 4:
+      return { $: "Bool" };
+    case 5:
+      return { $: "Char" };
+    default:
+      return panic(`invalid enum variant tag while decoding \`PrimTy\`, expected 0..6, actual ${tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:4391 Safety
 export type Safety =
@@ -64,6 +88,18 @@ export type Safety =
   | "Safe";
 /** `#[derive(Debug)]` */
 export const debug_Safety: Debug<Safety> = (v) => v;
+/** `#[derive(Decodable)]` of `Safety` (hir.rs:4390), written out like the stand-in itself. */
+export function decode_Safety(d: SpanDecoder): Safety {
+  const tag = d.read_u8();
+  switch (tag) {
+    case 0:
+      return "Unsafe";
+    case 1:
+      return "Safe";
+    default:
+      return panic(`invalid enum variant tag while decoding \`Safety\`, expected 0..2, actual ${tag}`);
+  }
+}
 
 // ---- def.rs -------------------------------------------------------------------------------------
 

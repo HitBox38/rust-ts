@@ -134,6 +134,7 @@ import { RawDefId_key, type VariantData } from "./mod.ts";
 // decode-elems imports
 import { type SimplifiedType, SimplifiedType_key } from "../../rustc_middle/ty/fast_reject.ts";
 import { decode_SimplifiedType as decode_SimplifiedType_ } from "../../rustc_type_ir/fast_reject.ts";
+import { decode_AmbigModChild, decode_ModChild } from "../../rustc_middle/decodable.gen.ts";
 // end decode-elems imports
 
 // pub(super) use cstore_impl::provide;  (../lib.ts exports it; mod cstore_impl; is loaded by ../lib.ts)
@@ -1728,14 +1729,6 @@ CrateMetadata.prototype.get_fake_doc_items = function (this: CrateMetadata, tcx:
 // PORT: element types whose `Decodable` impl has no TS port yet. Each is the `T::decode` a `LazyValue<T>` /
 // `LazyArray<T>` / `LazyTable` element of this region needs; it stops as UNPORTED naming the impl, so a crate
 // load reaching it stops there (no guessed values). They become imports once their crates generate them.
-/** `#[derive(Decodable)]` of `rustc_middle::metadata::ModChild` (needs `Res<!>` / `Visibility<DefId>` / `Reexport`). */
-function decode_ModChild(_d: MetadataDecodeContext): ModChild {
-  return unported("Decodable for rustc_middle::metadata::ModChild (derive(Decodable) not generated)");
-}
-/** `#[derive(Decodable)]` of `rustc_middle::metadata::AmbigModChild`. */
-function decode_AmbigModChild(_d: MetadataDecodeContext): AmbigModChild {
-  return unported("Decodable for rustc_middle::metadata::AmbigModChild (derive(Decodable) not generated)");
-}
 /** `#[derive(MetadataEncodable, LazyDecodable)]` of `rmeta::VariantData` (its `discr: ty::VariantDiscr` is M3). */
 function decode_VariantData(_d: MetadataDecodeContext): VariantData {
   return unported("Decodable for rustc_metadata::rmeta::VariantData (ty::VariantDiscr, M3)");
@@ -1746,7 +1739,7 @@ function decode_Attribute(_d: MetadataDecodeContext): Attribute {
 }
 /** `<SimplifiedType<DefId> as Decodable<DecodeContext>>::decode`: the generated derive(Decodable_NoContext) at `DefId`. */
 function decode_SimplifiedType(d: MetadataDecodeContext): SimplifiedType {
-  return decode_SimplifiedType_<DefId>(d, () => decode_DefId(d));
+  return decode_SimplifiedType_(d, decode_DefId);
 }
 /** `#[derive(Decodable)]` of `rustc_crate_store::NativeLib`. */
 function decode_NativeLib(_d: MetadataDecodeContext): NativeLib {

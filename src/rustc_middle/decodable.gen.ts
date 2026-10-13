@@ -2,13 +2,16 @@
 // `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
+import { decode_Res } from "../rustc_hir/def.gen.ts";
+import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { Visibility } from "./ty/mod.ts";
-import { type Decodable } from "../rustc_serialize/serialize.ts";
-import { type BlobDecoder } from "../rustc_span/lib.ts";
+import { type Decodable, decode_never, decode_SmallVec } from "../rustc_serialize/serialize.ts";
+import { decode_Ident, decode_ModId } from "../rustc_span/decodable.gen.ts";
+import { type BlobDecoder, type SpanDecoder } from "../rustc_span/lib.ts";
 import { panic } from "../std/panic.ts";
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:249 BlobDecodable for Visibility
-export function decode_Visibility<Id>(__decoder: BlobDecoder, decode_Id: Decodable<Id, BlobDecoder>): Visibility<Id> {
+export function decode_Visibility<Id, __D extends BlobDecoder = BlobDecoder>(__decoder: __D, decode_Id: Decodable<Id, __D>): Visibility<Id> {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -18,4 +21,41 @@ export function decode_Visibility<Id>(__decoder: BlobDecoder, decode_Id: Decodab
     default:
       return panic(`invalid enum variant tag while decoding \`Visibility\`, expected 0..2, actual ${__tag}`);
   }
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:120 TyDecodable for Reexport
+export function decode_Reexport(__decoder: SpanDecoder): Reexport {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Single", _0: __decoder.decode_def_id() };
+    case 1:
+      return { $: "Glob", _0: __decoder.decode_def_id() };
+    case 2:
+      return { $: "ExternCrate", _0: __decoder.decode_def_id() };
+    case 3:
+      return Reexport.MacroUse;
+    case 4:
+      return Reexport.MacroExport;
+    default:
+      return panic(`invalid enum variant tag while decoding \`Reexport\`, expected 0..5, actual ${__tag}`);
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:143 TyDecodable for ModChild
+export function decode_ModChild(__decoder: SpanDecoder): ModChild {
+  return {
+    ident: decode_Ident(__decoder),
+    res: decode_Res(__decoder, (__decoder) => decode_never(__decoder)),
+    vis: decode_Visibility(__decoder, decode_ModId),
+    reexport_chain: decode_SmallVec(__decoder, decode_Reexport),
+  };
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:158 TyDecodable for AmbigModChild
+export function decode_AmbigModChild(__decoder: SpanDecoder): AmbigModChild {
+  return {
+    main: decode_ModChild(__decoder),
+    second: decode_ModChild(__decoder),
+  };
 }

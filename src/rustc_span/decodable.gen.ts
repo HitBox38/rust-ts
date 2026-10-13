@@ -12,7 +12,7 @@ import { Ident } from "./symbol.ts";
 import { panic } from "../std/panic.ts";
 
 // rustc-derive: compiler/rustc_span/src/lib.rs:98 Decodable for Spanned
-export function decode_Spanned<T>(__decoder: SpanDecoder, decode_T: Decodable<T, SpanDecoder>): Spanned<T> {
+export function decode_Spanned<T, __D extends SpanDecoder = SpanDecoder>(__decoder: __D, decode_T: Decodable<T, __D>): Spanned<T> {
   return {
     node: decode_T(__decoder),
     span: decode_Span(__decoder),

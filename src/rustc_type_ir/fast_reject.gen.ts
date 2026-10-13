@@ -130,7 +130,7 @@ export function clone_SimplifiedType<DefId>(v: SimplifiedType<DefId>, clone_DefI
   }
 }
 // rustc-derive: compiler/rustc_type_ir/src/fast_reject.rs:17 Decodable_NoContext for SimplifiedType
-export function decode_SimplifiedType<DefId>(__decoder: Decoder, decode_DefId: Decodable<DefId, Decoder>): SimplifiedType<DefId> {
+export function decode_SimplifiedType<DefId, __D extends Decoder = Decoder>(__decoder: __D, decode_DefId: Decodable<DefId, __D>): SimplifiedType<DefId> {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
