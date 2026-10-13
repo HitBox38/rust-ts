@@ -99,3 +99,4 @@
 {"ts":"2026-10-13T10:59:48.912Z","kind":"decision","msg":"fx-maps: mbe NamedMatches is an FxHashMap keyed by packed (name, ctxt) hashing like Ident::hash; codegen Fx clones/debug go through clone_HashMap/debug_HashSet; env_depinfo stores strings"}
 {"ts":"2026-10-13T12:44:58.301Z","kind":"decision","msg":"res-ident: Rib.bindings is a KeyedMap(Ident_key); decls is_accessible_from accepts Visibility<ModId>|Visibility<LocalModId>"}
 {"ts":"2026-10-13T12:46:45.367Z","kind":"decision","msg":"res-macros/res-graph: decls compile_macro takes rustc_attr_ir Attribute[] (as upstream); partial rustc_index bit_set.ts added by res-macros"}
+{"ts":"2026-10-13T12:51:15.854Z","kind":"decision","msg":"target-asm: build_session sets asm_arch via InlineAsmArch::from_arch (upstream name); only x86/aarch64/wasm arch modules ported, others are stubs"}
