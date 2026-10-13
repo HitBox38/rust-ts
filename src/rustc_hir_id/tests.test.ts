@@ -26,22 +26,8 @@ import {
 } from "./definitions.ts";
 import { CRATE_HIR_ID, CRATE_OWNER_ID, HirId, HirId_INVALID, HirId_eq, HirId_from_LocalModId, HirId_make_owner, ItemLocalId, OwnerId, OwnerId_new, debug_HirId, display_HirId } from "./lib.ts";
 
-/** Pending on lane stable-hash: the body either completes or stops at the StableHasher / StableCrateId `Unported`. */
-function pending_stable_hash(body: () => void): void {
-  try {
-    body();
-  } catch (e) {
-    if (!(e instanceof Unported)) throw e;
-    expect(e.what).toMatch(/StableHasher \(pending lane stable-hash\)|StableCrateId::new/);
-  }
-}
-
-// PORT: pending stable-hash. Needs `StableCrateId::new` (rustc_span/def_id.ts, unported until the
-// StableHasher lands) and `DefKey::compute_stable_hash` (StableHasher shim in definitions.ts).
-// Pending convention (no test.skip: the gate rejects skips): until then the body must stop at exactly one of
-// those two `Unported`s; once stable-hash lands it runs to completion and the guard below is removed.
 // rustc: compiler/rustc_hir_id/src/tests.rs:11 def_path_hash_depends_on_crate_id
-test("def_path_hash_depends_on_crate_id", () => pending_stable_hash(() => {
+test("def_path_hash_depends_on_crate_id", () => {
   // This test makes sure that *both* halves of a DefPathHash depend on
   // the crate-id of the defining crate. This is a desirable property
   // because the crate-id can be more easily changed than the DefPath
@@ -69,7 +55,7 @@ test("def_path_hash_depends_on_crate_id", () => pending_stable_hash(() => {
       return key.compute_stable_hash(parent_hash);
     }
   });
-}));
+});
 
 const SCI = StableCrateId.of(Hash64.new(0x1234_5678_9abc_def0n));
 
@@ -181,15 +167,15 @@ describe("rustc_hir_id::definitions", () => {
     });
   });
 
-  test("create_def asserts and reaches the (pending) StableHasher", () => {
+  test("create_def asserts and counts disambiguators per DefPathData", () => {
     create_default_session_globals_then(() => {
       const defs = Definitions.new(SCI);
       const dis = PerParentDisambiguatorState.new(CRATE_DEF_ID);
       expect(() => defs.create_def(CRATE_DEF_ID, DefPathData.CrateRoot, dis)).toThrow("assertion failed: data != DefPathData::CrateRoot");
       // disambiguators are counted per DefPathData value before hashing
-      expect(() => defs.create_def(CRATE_DEF_ID, { $: "TypeNs", _0: Symbol.intern("a") }, dis)).toThrow("StableHasher");
-      expect(() => defs.create_def(CRATE_DEF_ID, { $: "TypeNs", _0: Symbol.intern("a") }, dis)).toThrow("StableHasher");
-      expect(() => defs.create_def(CRATE_DEF_ID, { $: "TypeNs", _0: Symbol.intern("b") }, dis)).toThrow("StableHasher");
+      defs.create_def(CRATE_DEF_ID, { $: "TypeNs", _0: Symbol.intern("a") }, dis);
+      defs.create_def(CRATE_DEF_ID, { $: "TypeNs", _0: Symbol.intern("a") }, dis);
+      defs.create_def(CRATE_DEF_ID, { $: "TypeNs", _0: Symbol.intern("b") }, dis);
       expect(dis.next.get({ $: "TypeNs", _0: Symbol.intern("a") })).toBe(2);
       expect(dis.next.get({ $: "TypeNs", _0: Symbol.intern("b") })).toBe(1);
       expect(dis.next.size).toBe(2);
