@@ -76,9 +76,9 @@ type Case = (typeof CASES)[number];
 const PENDING: Partial<Record<Case, string>> = {
   // Then: late.rs (res-late-a/-b), late/diagnostics.rs from 2267 (res-late-diag-b), diagnostics.rs
   // (res-diag-a/-b: lookup_import_candidates, add_typo_suggestion, find_cfg_stripped, ...).
-  cannot_find: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  self_kw: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  helpers: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
+  cannot_find: "rust_ts::resdump::dump (ResolverGlobalCtxt / ResolverAstLowering / definitions: rustc_middle::ty::TyCtxt and rustc_resolve are not ported)",
+  self_kw: "rust_ts::resdump::dump (ResolverGlobalCtxt / ResolverAstLowering / definitions: rustc_middle::ty::TyCtxt and rustc_resolve are not ported)",
+  helpers: "rust_ts::resdump::dump (ResolverGlobalCtxt / ResolverAstLowering / definitions: rustc_middle::ty::TyCtxt and rustc_resolve are not ported)",
 };
 
 const nocore_args = (sysroot: string, file: string): string[] => [

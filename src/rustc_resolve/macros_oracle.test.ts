@@ -17,21 +17,15 @@ const HERE = import.meta.dir;
 const REPO = join(HERE, "..", "..");
 const expected = JSON.parse(readFileSync(join(HERE, "macros_oracle", "expected.json"), "utf8")) as Record<string, Outcome>;
 
-// Where the port stops today, per case (both modes stop at the same point). Root advances these as lanes land.
-const STOPS: Record<string, string> = {
-  builtin_macros: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  derive_unresolved: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  effective_vis: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  expand_errors: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  expand_positions: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  macro_errors: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  macro_rules_basic: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  macro_rules_scopes: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  out_of_scope: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  tool_attrs: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-};
+// Where the port stops today (mode -> case -> unported text). Root advances these as lanes land.
+// resdump mode: the dump itself (src/rust_ts/resdump.ts) is not written yet.
+const RESDUMP_STOP = "rust_ts::resdump::dump (ResolverGlobalCtxt / ResolverAstLowering / definitions: rustc_middle::ty::TyCtxt and rustc_resolve are not ported)";
+const STOPS: Record<Mode, Record<string, string>> = {
+  resdump: Object.fromEntries(case_names().map((name) => [name, RESDUMP_STOP])),
+  expanded: {},
+} as Record<Mode, Record<string, string>>;
 const PENDING: Record<string, string> = Object.fromEntries(
-  case_names().flatMap((name) => (STOPS[name] === undefined ? [] : MODES.map((mode) => [`${name}/${mode}`, STOPS[name]]))),
+  MODES.flatMap((mode) => Object.entries(STOPS[mode] ?? {}).map(([name, stop]) => [`${name}/${mode}`, stop])),
 );
 
 function run_port(mode: Mode, name: string): Outcome {

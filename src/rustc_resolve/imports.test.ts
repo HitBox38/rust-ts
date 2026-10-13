@@ -53,7 +53,7 @@ type Case = (typeof CASES)[number];
 
 /** Cases whose subject run stops at unported code; the reason is the first missing piece. */
 const PENDING: Partial<Record<Case, string>> = {
-  use_forms: "driver stops before resolution (rustc_lint::late::unerased_lint_store, lane lint-early-a); then build_reduced_graph (res-graph), ident.rs (res-ident), macros.rs (res-macros), late.rs, diagnostics, CStore (wave 11)",
+  use_forms: "resdump mode: rust_ts::resdump::dump is not written yet (the expanded run is compared in full)",
   glob_conflict: "as use_forms",
   unresolved: "as use_forms",
   reexport: "as use_forms",
@@ -171,12 +171,14 @@ for (const c of CASES) {
     const args = nocore_args(sysroot, `${c}.rs`);
     const resdump = run(["bun", join(ROOT, "src/rust_ts/resdump.ts"), ...args]);
     const expanded = run(["bun", join(ROOT, "src/rust_ts/main.ts"), ...args, "-Zunpretty=expanded"]);
+    const codes = exit_codes();
     if (PENDING[c] !== undefined) {
-      // Still stops at unported code (UNPORTED, exit 70); once it does not, take it off PENDING.
-      expect({ c, resdump: resdump.exit, expanded: expanded.exit }).toEqual({ c, resdump: 70, expanded: 70 });
+      // The resdump run still stops at unported code (UNPORTED, exit 70); once it does not, take it off PENDING.
+      // The expanded run is compared in full.
+      expect({ c, resdump: resdump.exit }).toEqual({ c, resdump: 70 });
+      expect({ c, exit: expanded.exit, stderr: expanded.stderr }).toEqual({ c, exit: codes[c]!.expanded, stderr: fixture(`${c}.expanded.stderr`) });
       return;
     }
-    const codes = exit_codes();
     expect({ c, exit: resdump.exit, stdout: resdump.stdout, stderr: resdump.stderr }).toEqual({
       c,
       exit: codes[c]!.resdump,
