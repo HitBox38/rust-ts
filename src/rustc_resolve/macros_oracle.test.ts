@@ -19,12 +19,12 @@ const expected = JSON.parse(readFileSync(join(HERE, "macros_oracle", "expected.j
 
 // Where the port stops today, per case (both modes stop at the same point). Root advances these as lanes land.
 const STOPS: Record<string, string> = {
-  builtin_macros: "rustc_resolve::diagnostics::impls::Resolver::dcx",
+  builtin_macros: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
   derive_unresolved: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  effective_vis: "rustc_resolve::diagnostics::impls::Resolver::lint_if_path_starts_with_module",
+  effective_vis: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
   expand_errors: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
   expand_positions: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
-  macro_errors: "rustc_resolve::diagnostics::impls::Resolver::dcx",
+  macro_errors: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
   macro_rules_basic: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
   macro_rules_scopes: "rustc_metadata::creader::CStore::from_tcx (wave 11)",
   out_of_scope: "rustc_metadata::creader::CStore::from_tcx (wave 11)",

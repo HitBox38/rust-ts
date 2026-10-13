@@ -1,0 +1,20 @@
+exit 1
+error[E0432]: unresolved import `a::missing`
+ --> unresolved_import.rs:7:5
+  |
+7 | use a::missing;
+  |     ^^^-------
+  |        |
+  |        no `missing` in `a`
+
+error[E0432]: unresolved imports `a::gone`, `a::lost`
+ --> unresolved_import.rs:8:12
+  |
+8 | use a::{F, gone, lost};
+  |            ^^^^  ^^^^ no `lost` in `a`
+  |            |
+  |            no `gone` in `a`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0432`.

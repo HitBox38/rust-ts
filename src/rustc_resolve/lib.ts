@@ -180,7 +180,7 @@ export interface AsMutResolver {
  * PORT: `hir::PrimTy::ALL` and `PrimTy::name` (rustc_hir/src/hir.rs:3331/3368; hir.rs is M3). Faithful
  * copies, without markers (they belong to hir.rs); replace with rustc_hir's when it is ported.
  */
-const PrimTy_ALL: readonly PrimTy[] = [
+export const PrimTy_ALL: readonly PrimTy[] = [
   { $: "Int", _0: "I8" },
   { $: "Int", _0: "I16" },
   { $: "Int", _0: "I32" },
@@ -201,7 +201,7 @@ const PrimTy_ALL: readonly PrimTy[] = [
   { $: "Char" },
   { $: "Str" },
 ];
-function PrimTy_name(self: PrimTy): Symbol {
+export function PrimTy_name(self: PrimTy): Symbol {
   switch (self.$) {
     case "Int":
       return IntTy.name(self._0);

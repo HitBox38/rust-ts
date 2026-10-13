@@ -458,7 +458,6 @@ function with_visitor<R>(f: (v: LateResolutionVisitor, r: Resolver) => R, editio
 const UNIT_PENDING: Record<string, string> = {
   "resolve_lifetime: undeclared lifetime": "rustc_resolve::late::diagnostics::LateResolutionVisitor::emit_undeclared_lifetime_error",
   "resolve_lifetime: a const param type rib": "rustc_resolve::late::diagnostics::LateResolutionVisitor::emit_non_static_lt_in_const_param_ty_error",
-  "resolve_anonymous_lifetime: explicit '_ under AnonymousReportError (E0637)": "rustc_resolve::diagnostics::impls::Resolver::dcx",
   "resolve_anonymous_lifetime: an Item barrier reports a missing lifetime": "rustc_resolve::late::diagnostics::LateResolutionVisitor::report_missing_lifetime_specifiers",
   "resolve_label: an unreachable label in an outer rib": "rustc_resolve::late::diagnostics::LateResolutionVisitor::suggestion_for_label_in_rib",
   "resolve_fn_signature: no parameters, default return": "rustc_resolve::late::LateResolutionVisitor::apply_pattern_bindings",
@@ -616,9 +615,15 @@ case_("resolve_anonymous_lifetime: '_ under Elided / ElisionFailure (late.rs:208
 });
 
 case_("resolve_anonymous_lifetime: explicit '_ under AnonymousReportError (E0637)", () => {
-  with_visitor((v) => {
-    v.with_lifetime_rib(LifetimeRibKind.AnonymousReportError, (v) => v.resolve_anonymous_lifetime(lt(63, "'_"), nid(63), false));
-  });
+  // E0637 is emitted; the compiler then aborts ("aborting due to 1 previous error") when the session ends.
+  let emitted = false;
+  expect(() =>
+    with_visitor((v) => {
+      v.with_lifetime_rib(LifetimeRibKind.AnonymousReportError, (v) => v.resolve_anonymous_lifetime(lt(63, "'_"), nid(63), false));
+      emitted = v.r.dcx().has_errors() !== undefined;
+    }),
+  ).toThrow();
+  expect(emitted).toBe(true);
 });
 
 case_("resolve_anonymous_lifetime: an Item barrier reports a missing lifetime", () => {

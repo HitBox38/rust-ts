@@ -1,0 +1,44 @@
+exit 1
+error[E0428]: the name `m` is defined multiple times
+ --> conflict_kinds.rs:5:1
+  |
+4 | mod m {}
+  | ----- previous definition of the module `m` here
+5 | mod m {}
+  | ^^^^^ `m` redefined here
+  |
+  = note: `m` must be defined only once in the type namespace of this module
+
+error[E0428]: the name `T` is defined multiple times
+ --> conflict_kinds.rs:7:1
+  |
+6 | trait T {}
+  | ------- previous definition of the trait `T` here
+7 | struct T;
+  | ^^^^^^^^^ `T` redefined here
+  |
+  = note: `T` must be defined only once in the type namespace of this module
+
+error[E0428]: the name `S` is defined multiple times
+ --> conflict_kinds.rs:9:1
+  |
+8 | struct S;
+  | --------- previous definition of the type `S` here
+9 | struct S;
+  | ^^^^^^^^^ `S` redefined here
+  |
+  = note: `S` must be defined only once in the type namespace of this module
+
+error[E0428]: the name `A` is defined multiple times
+  --> conflict_kinds.rs:11:1
+   |
+10 | type A = S;
+   | ----------- previous definition of the type `A` here
+11 | enum A {}
+   | ^^^^^^ `A` redefined here
+   |
+   = note: `A` must be defined only once in the type namespace of this module
+
+error: aborting due to 4 previous errors
+
+For more information about this error, try `rustc --explain E0428`.

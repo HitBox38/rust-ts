@@ -1,0 +1,16 @@
+exit 1
+error[E0742]: visibilities can only be restricted to ancestor modules
+ --> vis_errors.rs:5:12
+  |
+5 |     pub(in crate::outer::inner) struct A;
+  |            ^^^^^^^^^^^^^^^^^^^
+
+error: relative paths are not supported in visibilities in 2018 edition or later
+ --> vis_errors.rs:6:12
+  |
+6 |     pub(in outer) struct B;
+  |            ^^^^^ help: try: `crate::outer`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0742`.

@@ -142,8 +142,6 @@ function with_resolver<R>(f: (r: Resolver, tcx: TyCtxt) => R): R {
 // ---- helpers ---------------------------------------------------------------------------------------
 
 const PENDING: Record<string, string> = {
-  // A finalized path ends in `lint_if_path_starts_with_module` (diagnostics/impls.rs).
-  "resolve_path [crate] with finalize records the crate root res": "rustc_resolve::diagnostics::impls::Resolver::lint_if_path_starts_with_module",
 };
 
 function case_(name: string, f: () => void): void {
