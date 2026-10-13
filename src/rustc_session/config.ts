@@ -12,7 +12,7 @@
 // before this one. LOAD ORDER: import `./options.ts` before `./config.ts` (lib.ts and session.ts do);
 // importing this module first fails at load with a TDZ error on `Polonius` in options.gen.ts. Use a
 // bare `import "./options.ts";` for the ordering: Bun elides imports whose bindings are only used as types.
-import { lstatSync, readlinkSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import type { ColorConfig } from "../rustc_errors/emitter.ts";
@@ -1449,32 +1449,30 @@ export function host_tuple(): string {
   // Instead of grabbing the host triple (for the current host), we grab (at
   // compile time) the target triple that this rustc is built with and
   // calling that (at runtime) the host triple.
-  return unwrap(CFG_COMPILER_HOST_TRIPLE, "CFG_COMPILER_HOST_TRIPLE");
+  // `option_env!("CFG_COMPILER_HOST_TRIPLE").expect("CFG_COMPILER_HOST_TRIPLE")`
+  return CFG_COMPILER_HOST_TRIPLE ?? unported("CFG_COMPILER_HOST_TRIPLE (set RUST_TS_HOST_TUPLE in .env.local to the oracle's `rustc -vV` host)");
 }
 
 /**
- * PORT: `option_env!("CFG_COMPILER_HOST_TRIPLE")` is the tuple the oracle rustc was built for, i.e. the
- * rustup host toolchain of the machine (rust-ts mirrors the oracle installed on the same host). Derived
- * from the Node platform/arch for the hosts rust-ts runs on (the rustup default host of each); anything
- * else is `None` (`expect` panics, like a rustc built without the variable). Checked against the oracle's
- * `rustc -vV` `host:` line in src/rustc_driver_impl/driver.oracle.test.ts.
+ * PORT: `option_env!("CFG_COMPILER_HOST_TRIPLE")` is a build constant of the oracle rustc: the tuple it was
+ * built for (its `rustc -vV` `host:` line). rust-ts mirrors the oracle installed on the same machine, so the
+ * value is recorded per machine as `RUST_TS_HOST_TUPLE` (the environment, else the repo's `.env.local`)
+ * and checked against `rustc -vV` by src/rustc_driver_impl/print.oracle.test.ts. Without it the host
+ * tuple is unknown and `host_tuple()` calls `unported`.
  */
 const CFG_COMPILER_HOST_TRIPLE: string | undefined = ((): string | undefined => {
-  const key = `${process.platform}/${process.arch}`;
-  switch (key) {
-    case "darwin/arm64":
-      return "aarch64-apple-darwin";
-    case "darwin/x64":
-      return "x86_64-apple-darwin";
-    case "linux/x64":
-      return "x86_64-unknown-linux-gnu";
-    case "linux/arm64":
-      return "aarch64-unknown-linux-gnu";
-    case "win32/x64":
-      return "x86_64-pc-windows-msvc";
-    default:
-      return undefined;
+  const v = process.env.RUST_TS_HOST_TUPLE;
+  if (v !== undefined) return v;
+  try {
+    const env_local = readFileSync(path_join(import.meta.dir, "../../.env.local"), "utf8");
+    for (const line of env_local.split(/\r?\n/)) {
+      const m = /^\s*RUST_TS_HOST_TUPLE\s*=\s*(\S+)\s*$/.exec(line);
+      if (m) return m[1];
+    }
+  } catch {
+    // no .env.local
   }
+  return undefined;
 })();
 
 // rustc: compiler/rustc_session/src/config.rs:1463 file_path_mapping
