@@ -3,9 +3,8 @@
 import { debug_ExternAbi, type ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { type CrateStoreDyn } from "./cstore.ts";
 import { type Definitions } from "../rustc_hir_id/definitions.ts";
-import { type BlobDecoder } from "../rustc_metadata/rmeta/decoder.ts";
 import { type CrateNum, debug_CrateNum, debug_DefId, type DefId, type StableCrateIdMap } from "../rustc_span/def_id.ts";
-import { debug_Span, type Span } from "../rustc_span/lib.ts";
+import { type BlobDecoder, debug_Span, type Span } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { clone_NativeLibKind, debug_NativeLibKind, type NativeLibKind } from "../rustc_structures/lib.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";

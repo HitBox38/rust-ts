@@ -246,9 +246,6 @@
       "rustc_crate_store::cstore::CrateDepKind",
       "rustc_crate_store::cstore::LinkagePreference"
     ],
-    "decoders": {
-      "BlobDecodable": { "type": "BlobDecoder", "import": "src/rustc_metadata/rmeta/decoder.ts", "note": "upstream `__D: rustc_span::BlobDecoder`; declared in decoder.ts until rustc_span's lands (lane span-decode)" }
-    },
     "hand_notes": {
       "rustc_crate_store::cstore::CrateStoreDyn": "`dyn CrateStore + DynSync + DynSend`: the trait object is the hand-written CrateStore interface (cstore.ts)",
       "decodable_types": "the types crate metadata's eagerly decoded parts contain (rmeta CrateDep, dylib_dependency_formats)"
@@ -334,8 +331,13 @@
     "stable_hash_types": [
       "rustc_middle::ty::Visibility"
     ],
+    "derive_decodable": true,
+    "decodable_types": [
+      "rustc_middle::ty::Visibility"
+    ],
     "hand_notes": {
-      "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed)."
+      "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
+      "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_query_impl": {
@@ -538,9 +540,6 @@
       "rustc_metadata::rmeta::IncoherentImpls",
       "rustc_metadata::rmeta::SpanTag"
     ],
-    "decoders": {
-      "BlobDecodable": { "type": "BlobDecoder", "import": "src/rustc_metadata/rmeta/decoder.ts", "note": "upstream `__D: rustc_span::BlobDecoder`; declared in decoder.ts until rustc_span's lands (lane span-decode)" }
-    },
     "hand_notes": {
       "*": "rmeta/{mod,table,def_path_hash_map}.rs types are hand-written (src/rustc_metadata/rmeta/*.ts: classes whose fields clash with methods, e.g. CrateRoot.stable_crate_id_); this set only generates rustc_metadata/decodable.gen.ts (derive(LazyDecodable/BlobDecodable/Decodable)). The `impl Decodable for LazyValue/LazyArray/LazyTable` are in decoder.rs (syn cannot parse its `gen` blocks), exported by decoder.ts and re-exported by mod.ts: hence `hand`. LazyTables is defined by `define_tables!` (invisible to the probe): its decode is hand-expanded in mod.ts and reached through serialize.json.",
       "decodable_types": "VariantData (TyDecodable) waits for rustc_middle's TyDecoder (M3)",

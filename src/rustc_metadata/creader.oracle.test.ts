@@ -64,7 +64,17 @@ interface Case {
   crates: string[];
   /** Text our stderr must contain. */
   expect?: string[];
+  /** The `unported` our run stops at when it exits 70 (default `STOP`). */
+  stop?: string;
 }
+
+/**
+ * The first stop inside `CrateMetadata::new` (decoder.rs:1977) for crates with incoherent impls (core, std, ...):
+ * `incoherent_impls.decode((&cdata, tcx))` reaches `Decodable for SimplifiedType` (M3).
+ */
+const STOP = "Decodable for rustc_middle::ty::fast_reject::SimplifiedType (M3)";
+/** profiler_builtins has no incoherent impls: `new` finishes and the load stops later, on its mitigations. */
+const STOP_MITIGATION = "Decodable for rustc_session::config::mitigation_coverage::DeniedPartialMitigation (derive(BlobDecodable) not generated)";
 
 const CASES: Case[] = [
   // inject_panic_runtime
@@ -76,8 +86,8 @@ const CASES: Case[] = [
   { name: "no_core bin, -Cpanic=abort: no runtime needed", mode: "postprocess", src: NO_CORE, flags: ["-Cpanic=abort"], crates: [] },
   { name: "no_core rlib", mode: "postprocess", src: NO_CORE, flags: ["--crate-type=rlib"], crates: [] },
   // inject_profiler_runtime
-  { name: "-Cprofile-generate loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo"], crates: ["profiler_builtins"] },
-  { name: "-Cinstrument-coverage loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cinstrument-coverage"], crates: ["profiler_builtins"] },
+  { name: "-Cprofile-generate loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo"], crates: ["profiler_builtins"], stop: STOP_MITIGATION },
+  { name: "-Cinstrument-coverage loads the profiler runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cinstrument-coverage"], crates: ["profiler_builtins"], stop: STOP_MITIGATION },
   { name: "-Zno-profiler-runtime", mode: "postprocess", src: NO_CORE, flags: ["-Cinstrument-coverage", "-Zno-profiler-runtime"], crates: [] },
   { name: "-Zprofiler-runtime=<name> (not found, then the missing_core probe)", mode: "postprocess", src: NO_CORE, flags: ["-Cprofile-generate=/tmp/creader-pgo", "-Zprofiler-runtime=my_profiler"], crates: ["my_profiler", "core"] },
   // inject_allocator_crate
@@ -189,9 +199,7 @@ for (const c of CASES) {
     const oracle_log = run([...RUSTC, "-Zunpretty=expanded", ...args], { ...env, RUSTC_LOG: "rustc_metadata::creader=info" });
     const oracle_crates = crates_of(oracle_log.stderr.split("\n"), /^ INFO rustc_metadata::creader resolving crate `(.*)`$/);
     if (ours.code === 70) {
-      // The first stop inside `CrateMetadata::new` (decoder.rs:1977): `incoherent_impls.decode((&cdata, tcx))`,
-      // lane rmeta-decoder-a's `MetaDecoder::decoder`.
-      expect(ours.stderr).toContain("rust-ts: unported: rustc_metadata::rmeta::decoder::MetaDecoder::decoder for (&CrateMetadata, TyCtxt) (AllocDecodingState::new_decoding_session)");
+      expect(ours.stderr).toContain(`rust-ts: unported: ${c.stop ?? STOP}`);
       expect(oracle_crates.slice(0, our_crates.length)).toEqual(our_crates);
     } else {
       expect(oracle_crates).toEqual(our_crates);

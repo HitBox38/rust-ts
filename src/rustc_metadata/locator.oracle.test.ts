@@ -84,9 +84,9 @@ interface Case {
   expect: string[];
 }
 
-// The first stop inside `CrateMetadata::new` (decoder.rs:1977): `incoherent_impls.decode((&cdata, tcx))`, lane
-// rmeta-decoder-a's `MetaDecoder::decoder`.
-const RMETA_DECODER = "rustc_metadata::rmeta::decoder::MetaDecoder::decoder for (&CrateMetadata, TyCtxt) (AllocDecodingState::new_decoding_session)";
+// The first stop inside `CrateMetadata::new` (decoder.rs:1977) for core / std: `incoherent_impls.decode((&cdata, tcx))`
+// reaches `Decodable for SimplifiedType` (M3).
+const RMETA_DECODER = "Decodable for rustc_middle::ty::fast_reject::SimplifiedType (M3)";
 
 const CASES: Case[] = [
   // A missing target sysroot (no std/core for the target).
