@@ -100,7 +100,10 @@ Changed:
     tag, bitmask and group/neon are complete. Not ported: other groups (sse2/lsx/generic), table.rs,
     raw_entry.rs, rustc_entry.rs, rayon/serde, Entry APIs, drain/extract_if, set algebra, and the
     Bucket pointer helpers. None of these affects placement for the operations ported.
-- `--suite parse --sample 300`: see the result line at the end.
+- `--suite parse --sample 300` (run 20261013-102248-hashbrown-order-4kx4): 299 MATCH, 0 DIFF/UNPORTED/CRASH,
+  1 ORACLE_TIMEOUT. That case is `tests/ui/expr/if/expr-stack-overflow.rs`: the oracle times out
+  and the port ICEs on stack depth. It is unrelated to hash maps and not in the protected
+  baseline.
 
 ## Root: needed outside this lane
 1. `harness/scope.json` `vendor`: add `"rustc-hash": "=2.1.1"` and `"hashbrown": "=0.17.1"`.
