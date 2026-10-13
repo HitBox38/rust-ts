@@ -88,7 +88,7 @@ import {
   validate_attr,
 } from "../rustc_attr_parsing/lib.ts";
 import { AllowExprMetavar } from "../rustc_attr_parsing/parser.ts";
-import type { ErrorGuaranteed, PResult } from "../rustc_errors/lib.ts";
+import type { Diag, ErrorGuaranteed, PResult } from "../rustc_errors/lib.ts";
 import { is_builtin_attr_name } from "../rustc_feature/builtin_attrs.ts";
 import type { Features } from "../rustc_feature/lib.ts";
 import { MacroKinds } from "../rustc_hir/def.ts";
@@ -112,7 +112,6 @@ import { path_parent } from "../std/path.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import {
   Annotatable,
-  clone_ExpansionData,
   type DeriveResolution,
   DummyResult,
   type ExpandResult,
@@ -125,11 +124,26 @@ import {
 } from "./base.ts";
 import { StripUnconfigured } from "./config.ts";
 import * as diagnostics from "./diagnostics.ts";
-import { annotate_err_with_kind } from "./mbe/diagnostics.ts";
 import { DirOwnership, mod_dir_path, mod_file_path_from_attr, parse_external_mod } from "./module.ts";
 import { PlaceholderExpander, placeholder } from "./placeholders.ts";
 
 const { TokenKind: TK } = token;
+
+// PORT(decls): pending lane mbe-b. `MacroRulesMacroExpander::expand_derive` (mbe/macro_rules.rs:230) is
+// ported by mbe-b; the expand-base stub of mbe/macro_rules.ts does not declare it yet.
+declare module "./mbe/macro_rules.ts" {
+  interface MacroRulesMacroExpander {
+    expand_derive(cx: ExtCtxt, sp: Span, body: TokenStream): Result<TokenStream, ErrorGuaranteed>;
+  }
+}
+
+// PORT(pending mbe-b): `use crate::mbe::diagnostics::annotate_err_with_kind;`. mbe/diagnostics.ts is lane
+// mbe-b's file and not on this branch yet; on integration replace this shim with
+// `import { annotate_err_with_kind } from "./mbe/diagnostics.ts";` (docs/handoff/expand-core.md).
+function annotate_err_with_kind(_err: Diag, _kind: AstFragmentKind, _span: Span): void {
+  unported("rustc_expand::mbe::diagnostics::annotate_err_with_kind (lane mbe-b)");
+}
+
 const { token_descr } = rustc_parse_parser;
 type MutVisitor = mut_visit.MutVisitor;
 type Visitor<R> = visit.Visitor<R>;
@@ -1059,7 +1073,7 @@ export class MacroExpander {
   /// Recursively expand all macro invocations in this AST fragment.
   // rustc: compiler/rustc_expand/src/expand.rs:471 fully_expand_fragment
   fully_expand_fragment(input_fragment: AstFragment): AstFragment {
-    const orig_expansion_data = clone_ExpansionData(this.cx.current_expansion);
+    const orig_expansion_data = this.cx.current_expansion.clone();
     const orig_force_mode = this.cx.force_mode;
 
     // Collect all macro invocations and replace them with placeholders.
@@ -1119,7 +1133,7 @@ export class MacroExpander {
 
       const { depth: invoc_depth, id: expn_id } = invoc.expansion_data;
       const depth = invoc_depth - orig_expansion_data.depth;
-      this.cx.current_expansion = clone_ExpansionData(invoc.expansion_data);
+      this.cx.current_expansion = invoc.expansion_data.clone();
       this.cx.force_mode = force;
 
       const fragment_kind = invoc.fragment_kind;
@@ -1139,7 +1153,7 @@ export class MacroExpander {
                   // Note that this can result in duplicate diagnostics.
                   const expn_id = LocalExpnId.fresh_empty();
                   // PORT: `ExpansionData { id: expn_id, ..self.cx.current_expansion.clone() }`.
-                  const expansion_data = clone_ExpansionData(this.cx.current_expansion);
+                  const expansion_data = this.cx.current_expansion.clone();
                   expansion_data.id = expn_id;
                   derive_invocations.push([
                     new Invocation({ $: "Derive", path, item, is_const }, fragment_kind, expansion_data),
@@ -2041,7 +2055,10 @@ const IC_Item: InvocationCollectorNode<Item, Item[]> & OutputTyDefault<Item[]> =
         }
 
         // `*mod_kind = ModKind::Loaded(items, Inline::No { had_parse_error }, spans);`
-        node_kind._2 = { $: "Loaded", _0: items, _1: { $: "No", had_parse_error }, _2: spans };
+        // PORT: module.ts returns `had_parse_error: Result<(), ErrorGuaranteed>` as `Result<undefined, ..>`;
+        // a stored `()` is `null` (ast.ts `Inline::No`, codegen convention), so `Ok(())` is rebuilt as `Ok(null)`.
+        const had_parse_error_: Result<null, ErrorGuaranteed> = had_parse_error.$ === "Ok" ? Ok(null) : had_parse_error;
+        node_kind._2 = { $: "Loaded", _0: items, _1: { $: "No", had_parse_error: had_parse_error_ }, _2: spans };
         if (node.attrs.length > old_attrs_len) {
           // If we loaded an out-of-line module and added some inner attributes,
           // then we need to re-configure it and re-collect attributes for
@@ -3094,7 +3111,7 @@ export class InvocationCollector extends mut_visit.MutVisitor {
     // PORT: `ExpansionData { id: expn_id, depth: self.cx.current_expansion.depth + 1,
     // ..self.cx.current_expansion.clone() }`.
     const depth = this.cx.current_expansion.depth + 1;
-    const expansion_data = clone_ExpansionData(this.cx.current_expansion);
+    const expansion_data = this.cx.current_expansion.clone();
     expansion_data.id = expn_id;
     expansion_data.depth = depth;
     this.invocations.push([new Invocation(kind, fragment_kind, expansion_data), undefined]);
