@@ -98,15 +98,21 @@ Compiler fns 1527/25517; vendor 1773/6132 (26 crates). Final gate: gate-20261012
 
 Compiler fns 2284/25518; vendor 2172/6531. Final gate: gate-20261012-222820-root-ezdj (emit protected 1466).
 
-## Wave 6b (next)
-1. **parser** (rustc_parse/src/parser/*, ~25k lines incl. diagnostics.rs 3k, expr.rs 4.3k, item.rs 3k): split into chained lanes:
-   parser-core (mod.rs, token_type.rs, attr.rs, attr_wrapper.rs, nonterminal.rs), parser-path-ty-generics (path.rs, ty.rs, generics.rs),
-   parser-pat-stmt (pat.rs, stmt.rs), parser-expr (expr.rs, expr/diagnostics.rs), parser-item (item.rs, function.rs, asm.rs),
-   parser-diag (diagnostics.rs), then rustc_parse lib.rs + parser/tests.rs.
-2. **driver**: rustc_driver_impl/rustc_interface subset: CLI (getopts vendor) → Session (session.rs subset) → parse → `-Zunpretty=ast-tree`;
-   `drop_compiler_dcx` at upstream's drop point. Turns on the `parse` suite.
-3. **harness**: `tokens` suite (rustc-dev probe: lex_token_trees TokenStream Debug + diagnostics on tests/ui, library, compiler);
-   harness-w5-2 G1 bisect, gate F5 (skips), and a `pretty` suite (`-Zunpretty=normal`) once the parser lands.
+## Wave 6b (2026-10-13) — done
+| lane | scope | status |
+|---|---|---|
+| parser-core | Parser contract (decls.ts, 560 methods), mod.rs, token_type.rs, attr.rs, attr_wrapper.rs, nonterminal.rs, rustc_parse lib.rs | **merged** |
+| driver-session | vendor getopts 0.2.24; config/session subset; rustc_driver_impl + rustc_interface driver path; CLI oracle | **merged** |
+| harness-w6 | `tokens` (crate-root lexing, rustc-dev probe) + `tokens-str` suites; gate/cache/probe hardening | **merged, protected**, reviewed x2 |
+| review-w456a/b + fix-w456 | independent review of waves 4–6a + fixes (termize fd leak, Visitor Result footgun, AstNodeWrapper write-through, tuple clones) | **merged** |
+
+Compiler fns 2650/25518; vendor 2277/6637. Final gate: gate-20261013-001906-root-2lda (tokens 25780 + tokens-str 39 protected).
+
+## Wave 6c (started 2026-10-13) — the rest of the parser (parallel, against parser/decls.ts)
+parser-path-ty-generics, parser-pat-stmt, parser-expr, parser-item, parser-fn-asm, parser-diag, parser-tests (emitter tests of tests.rs),
+unicode-width-str (width_in_str: getopts --help, string widths). Then: turn on the `parse` suite.
+Follow-ups queued: harness-w6-2 J1 (probe env allowlist); review w456b X1 (lexer fixture lint names/spans);
+`TokenCursor.clone_enclosing_delim` should clone (PORTING §8); std io error kinds + from_utf8 for "couldn't find file".
 
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
