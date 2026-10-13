@@ -1,5 +1,5 @@
 {
-  "milestone": "Wave",
+  "milestone": "M1",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
     "lex": 25780,
@@ -14,7 +14,7 @@
     "tokens-str": 39,
     "escape": 25780
   },
-  "updated": "2026-10-13T08:32:19.045Z",
+  "updated": "2026-10-13T08:32:27.945Z",
   "open_stops": [],
   "coverage": {
     "ported": 3213,

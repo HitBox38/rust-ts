@@ -50,7 +50,7 @@ narrow measurable milestones; a ratchet that never goes backwards.
 | | Milestone | Gate | Status |
 |---|---|---|---|
 | M0 | Harness | shim scores 100%, stub 0% | **done** |
-| M1 | Lexer, parser, AST, error emitter | `lex` 100%; `parse` (`-Zunpretty=ast-tree`) on tests/ui; ui/parser stderr | lex **25,780/25,780** |
+| M1 | Lexer, parser, AST, error emitter | `lex` 100%; `parse` (`-Zunpretty=ast-tree`) on tests/ui; ui/parser stderr | **done** 2026-10-13: lex 25,780/25,780; parse 21,523/21,526 (3 oracle timeouts); parse-ui 991/991 |
 | M2 | Expansion + name resolution | `ast-tree,expanded` parity; ui/macros, ui/resolve |
 | M3 | Typeck + trait solving on `#![no_core]` (cg_clif's mini_core.rs) | hir-tree / thir-tree; ui/typeck, ui/traits |
 | M4 | MIR build, borrowck, MIR transforms | `-Zunpretty=mir`; ui/borrowck, ui/nll |
