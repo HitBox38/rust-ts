@@ -167,10 +167,10 @@ export class FxHashMap<K, V> extends Map<K, V> {
     });
   }
 
-  /** `Clone` (`K`/`V` copied by reference, as the codegen `clone` of interned keys does). */
-  clone(clone_V: (v: V) => V = (v) => v): FxHashMap<K, V> {
+  /** `Clone`: the same buckets, holding `clone_K(k)` / `clone_V(v)` (identity by default). */
+  clone(clone_K: (k: K) => K = (k) => k, clone_V: (v: V) => V = (v) => v): FxHashMap<K, V> {
     const m = new FxHashMap<K, V>(this.key, this.value);
-    m.base = this.base.clone((k) => k, clone_V);
+    m.base = this.base.clone(clone_K, clone_V);
     for (const [k, v] of m.base.iter()) Map.prototype.set.call(m, k, v);
     return m;
   }
@@ -287,10 +287,10 @@ export class FxHashSet<T> extends Set<T> {
     });
   }
 
-  /** `Clone` */
-  clone(): FxHashSet<T> {
+  /** `Clone`: the same buckets, holding `clone_T(t)` (identity by default). */
+  clone(clone_T: (t: T) => T = (t) => t): FxHashSet<T> {
     const s = new FxHashSet<T>(this.key);
-    s.base = this.base.clone((t) => t);
+    s.base = this.base.clone(clone_T);
     for (const t of s.base.iter()) Set.prototype.add.call(s, t);
     return s;
   }
@@ -341,4 +341,17 @@ export function debug_HashSet<T>(v: Set<T>, f: Fmt, debug_T: Debug<T>): string {
     f,
     [...v].map((t) => debug_T(t, f)),
   );
+}
+
+/** `<HashMap<K, V, S> as Clone>::clone` of a map ported as a JS `Map`: an `FxHashMap` keeps its
+ * buckets (and so its order); a plain `Map` is copied entry by entry. */
+export function clone_HashMap<K, V>(v: Map<K, V>, clone_K: (k: K) => K, clone_V: (v: V) => V): Map<K, V> {
+  if (v instanceof FxHashMap) return (v as FxHashMap<K, V>).clone(clone_K, clone_V);
+  return new Map([...v].map(([k, x]) => [clone_K(k), clone_V(x)]));
+}
+
+/** `<HashSet<T, S> as Clone>::clone` of a set ported as a JS `Set` (see `clone_HashMap`). */
+export function clone_HashSet<T>(v: Set<T>, clone_T: (t: T) => T): Set<T> {
+  if (v instanceof FxHashSet) return (v as FxHashSet<T>).clone(clone_T);
+  return new Set([...v].map(clone_T));
 }

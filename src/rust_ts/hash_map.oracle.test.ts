@@ -14,7 +14,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PLAIN, PRETTY, debug_int, debug_str } from "../std/fmt.ts";
 import { Unported } from "../std/panic.ts";
-import { FxHashMap, FxHashSet, LAYOUT_USIZE, String_key, debug_HashMap, debug_HashSet, u32_key } from "./hash_map.ts";
+import { clone_HashMap, FxHashMap, FxHashSet, LAYOUT_USIZE, String_key, debug_HashMap, debug_HashSet, u32_key } from "./hash_map.ts";
 import { FIXTURE_COUNT, FIXTURE_SEED, PROBE, digest, gen, probe, replay } from "./hash_map_oracle/scripts.ts";
 
 const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -63,6 +63,9 @@ test("FxHashMap keeps the Map API in sync with the table", () => {
   for (const [k, v] of m) expect(Map.prototype.get.call(m, k)).toBe(v);
   const c = m.clone();
   expect([...c]).toEqual([...m]);
+  const c2 = clone_HashMap(m, (k) => k, (v) => v + 1);
+  expect(c2 instanceof FxHashMap).toBe(true);
+  expect([...c2].map(([k]) => k)).toEqual([...m.keys()]);
   m.clear();
   expect(m.size).toBe(0);
   expect([...m]).toEqual([]);
