@@ -1306,7 +1306,7 @@ Parser.prototype.parse_field_name = function (this: Parser): PResult<Ident> {
   }
 };
 
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1362 parse_delim_args
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1363 parse_delim_args
 Parser.prototype.parse_delim_args = function (this: Parser): PResult<ast.DelimArgs> {
   const args = this.parse_delim_args_inner();
   if (args !== undefined) {
@@ -1316,7 +1316,7 @@ Parser.prototype.parse_delim_args = function (this: Parser): PResult<ast.DelimAr
   }
 };
 
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1370 parse_attr_args
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1371 parse_attr_args
 Parser.prototype.parse_attr_args = function (this: Parser): PResult<ast.AttrArgs> {
   const args = this.parse_delim_args_inner();
   if (args !== undefined) {
@@ -1332,7 +1332,7 @@ Parser.prototype.parse_attr_args = function (this: Parser): PResult<ast.AttrArgs
   }
 };
 
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1382 parse_delim_args_inner
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1383 parse_delim_args_inner
 Parser.prototype.parse_delim_args_inner = function (this: Parser): ast.DelimArgs | undefined {
   const delimited = this.check(exp.OpenParen) || this.check(exp.OpenBracket) || this.check(exp.OpenBrace);
 
@@ -1348,7 +1348,7 @@ Parser.prototype.parse_delim_args_inner = function (this: Parser): ast.DelimArgs
 };
 
 /// Parses a single token tree from the input.
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1396 parse_token_tree
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1397 parse_token_tree
 Parser.prototype.parse_token_tree = function (this: Parser): TokenTree {
   if (token.TokenKind.open_delim(this.token.kind) !== undefined) {
     // Clone the `TokenTree::Delimited` that we are currently
@@ -1394,7 +1394,7 @@ Parser.prototype.parse_token_tree = function (this: Parser): TokenTree {
   }
 };
 
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1441 parse_tokens
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1442 parse_tokens
 Parser.prototype.parse_tokens = function (this: Parser): TokenStream {
   const result: TokenTree[] = [];
   for (;;) {
@@ -1482,7 +1482,7 @@ Parser.prototype.parse_visibility = function (this: Parser, fbt: FollowedByType)
 };
 
 /// Recovery for e.g. `pub(something) fn ...` or `struct X { pub(something) y: Z }`
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1532 recover_incorrect_vis_restriction
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1531 recover_incorrect_vis_restriction
 Parser.prototype.recover_incorrect_vis_restriction = function (this: Parser): PResult<undefined> {
   this.bump(); // `(`
   const r = this.parse_path(PathStyle.Mod);
@@ -1499,7 +1499,7 @@ Parser.prototype.recover_incorrect_vis_restriction = function (this: Parser): PR
 
 /// Parses an optional `impl` restriction.
 /// Enforces the `impl_restriction` feature gate whenever an explicit restriction is encountered.
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1546 parse_impl_restriction
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1545 parse_impl_restriction
 Parser.prototype.parse_impl_restriction = function (this: Parser): PResult<ast.ImplRestriction> {
   if (this.eat_keyword(exp.Impl)) {
     const r = this.parse_restriction(gen.ParsingRestrictionKind.Impl);
@@ -1513,7 +1513,7 @@ Parser.prototype.parse_impl_restriction = function (this: Parser): PResult<ast.I
 
 /// Parses an optional `mut` restriction.
 /// Enforces the `mut_restriction` feature gate whenever an explicit restriction is encountered.
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1560 parse_mut_restriction
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1559 parse_mut_restriction
 Parser.prototype.parse_mut_restriction = function (this: Parser): PResult<ast.MutRestriction> {
   if (this.eat_keyword(exp.Mut)) {
     const r = this.parse_restriction(gen.ParsingRestrictionKind.Mut);
@@ -1532,7 +1532,7 @@ Parser.prototype.parse_mut_restriction = function (this: Parser): PResult<ast.Mu
 
 /// Parses `impl` or `mut` restrictions.
 /// Returns the parsed restriction and its span, as well as the gated span.
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1577 parse_restriction
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1575 parse_restriction
 Parser.prototype.parse_restriction = function (
   this: Parser,
   restriction_kind: ParsingRestrictionKind,
@@ -1585,7 +1585,7 @@ Parser.prototype.parse_restriction = function (
 };
 
 /// Parses `extern string_literal?`.
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1627 parse_extern
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1628 parse_extern
 Parser.prototype.parse_extern = function (this: Parser, case_: Case): ast.Extern {
   if (this.eat_keyword_case(exp.Extern, case_)) {
     let extern_span = this.prev_token.span;
@@ -1600,7 +1600,7 @@ Parser.prototype.parse_extern = function (this: Parser, case_: Case): ast.Extern
 };
 
 /// Parses a string literal as an ABI spec.
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1641 parse_abi
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1642 parse_abi
 Parser.prototype.parse_abi = function (this: Parser): ast.StrLit | undefined {
   const r = this.parse_str_lit();
   if (r.$ === "Ok") {
@@ -1701,12 +1701,12 @@ Parser.prototype.debug_lookahead = function (this: Parser, lookahead: number): (
   };
 };
 
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1722 clear_expected_token_types
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1721 clear_expected_token_types
 Parser.prototype.clear_expected_token_types = function (this: Parser): void {
   this.expected_token_types.clear();
 };
 
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1726 approx_token_stream_pos
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1725 approx_token_stream_pos
 Parser.prototype.approx_token_stream_pos = function (this: Parser): number {
   return this.num_bump_calls;
 };
@@ -1717,7 +1717,7 @@ Parser.prototype.approx_token_stream_pos = function (this: Parser): number {
 /// and lifetimes for which spans affect name resolution and edition
 /// checks. Note that keywords are also identifiers, so they should use
 /// this if they keep spans or perform edition checks.
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1736 token_uninterpolated_span
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1735 token_uninterpolated_span
 Parser.prototype.token_uninterpolated_span = function (this: Parser): Span {
   const k = this.token.kind;
   switch (k.$) {
@@ -1733,7 +1733,7 @@ Parser.prototype.token_uninterpolated_span = function (this: Parser): Span {
 };
 
 /// Like `token_uninterpolated_span`, but works on `self.prev_token`.
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1745 prev_token_uninterpolated_span
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1744 prev_token_uninterpolated_span
 Parser.prototype.prev_token_uninterpolated_span = function (this: Parser): Span {
   const k = this.prev_token.kind;
   switch (k.$) {
@@ -1748,7 +1748,7 @@ Parser.prototype.prev_token_uninterpolated_span = function (this: Parser): Span 
   }
 };
 
-// rustc: compiler/rustc_parse/src/parser/mod.rs:1753 missing_semi_from_binop
+// rustc: compiler/rustc_parse/src/parser/mod.rs:1752 missing_semi_from_binop
 Parser.prototype.missing_semi_from_binop = function (
   this: Parser,
   kind_desc: string,
