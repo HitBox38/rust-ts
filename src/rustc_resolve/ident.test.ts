@@ -144,10 +144,6 @@ function with_resolver<R>(f: (r: Resolver, tcx: TyCtxt) => R): R {
 const PENDING: Record<string, string> = {
   // Macro-namespace path segments check `PathSource::is_expected` (late.rs, lane res-late).
   "resolve_path crate::m::mac through a child module": "rustc_resolve::late::PathSource::is_expected",
-  // A miss in the module's non-glob scope continues into its glob scope, which enters the
-  // `imports::cycle_detection` guard (lane res-imports).
-  "resolve_ident_in_scope_set All(TypeNS) falls through to the builtin `u8`": "rustc_resolve::imports::cycle_detection::enter_cycle_detector",
-  "ModuleGlobs without finalize": "rustc_resolve::imports::cycle_detection::enter_cycle_detector",
   // A finalized path ends in `lint_if_path_starts_with_module` (diagnostics/impls.rs).
   "resolve_path [crate] with finalize records the crate root res": "rustc_resolve::diagnostics::impls::Resolver::lint_if_path_starts_with_module",
   // Rib lookups go through `RibKind::contains_params` (late.rs, lane res-late).

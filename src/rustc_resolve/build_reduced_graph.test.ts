@@ -71,7 +71,10 @@ const CASES = join(HERE, "graph_oracle", "cases");
 
 const PENDING: Record<string, string> = {
   p_duplicate: "rustc_resolve::diagnostics::impls::Resolver::report_conflict",
-  p_extern_crate_self: "rustc_resolve::imports::Resolver::new_import_decl",
+  // The test's own module_children dump does not yet follow import declarations (use finalize_resolutions_in).
+  p_extern_crate_self: "test: module_children of imports (res-imports)",
+  // With real import resolution, `use` paths reach late resolution (lane res-late).
+  use_trees: "rustc_resolve::late::PathSource::is_expected",
   p_macro_escape: "rustc_resolve::diagnostics::impls::Resolver::dcx",
   p_macro_rules: "rustc_index::bit_set::DenseBitSet::new_filled",
   p_vis_restricted: "rustc_resolve::late::PathSource::is_expected",
@@ -80,9 +83,7 @@ const PENDING: Record<string, string> = {
 // PARTIAL: cases whose imports the `resolve_imports` stand-in leaves unresolved (import resolution creates no
 // definitions and feeds no visibilities, so those sections and the owners are still compared); their
 // `module_children` need res-imports. Root deletes an entry once res-imports has landed.
-const PARTIAL: Record<string, string> = {
-  use_trees: "module_children",
-};
+const PARTIAL: Record<string, string> = {};
 let imports_deferred = false;
 
 // ---- the stand-ins for pending lanes ------------------------------------------------------------------
