@@ -19,6 +19,7 @@ import type { Fingerprint } from "./fingerprint.ts";
 import { Fingerprint as FingerprintC } from "./fingerprint.ts";
 
 export type { FromStableHash, SipHasher128Hash as StableHasherHash } from "../vendor/rustc_stable_hash/lib.ts";
+import type { Hasher } from "../vendor/rustc_stable_hash/lib.ts";
 import { StableSipHasher128 } from "../vendor/rustc_stable_hash/lib.ts";
 /** `pub use rustc_stable_hash::StableSipHasher128 as StableHasher;` */
 export type StableHasher = StableSipHasher128;
@@ -676,8 +677,8 @@ export function stable_hash_PathBuf(self: string, hcx: StableHashCtxt, hasher: S
   stable_hash_Path(self, hcx, hasher);
 }
 
-/** src/std/path.ts's `Hasher` view of a `StableHasher` (its `write_usize` takes a 64-bit `bigint`). */
-export function path_hasher(hasher: StableHasher): PathHasher {
+/** src/std/path.ts's `Hasher` view of a hasher (its `write_usize` takes a 64-bit `bigint`). */
+export function path_hasher(hasher: Hasher): PathHasher {
   return {
     write: (bytes) => hasher.write(bytes),
     write_u8: (i) => hasher.write_u8(i),
