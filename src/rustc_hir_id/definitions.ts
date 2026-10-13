@@ -16,7 +16,7 @@ import { type Debug, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN, PRET
 import { assert, assert_eq, panic, unported, unwrap } from "../std/panic.ts";
 import { HashTableOwned } from "./def_path_hash_map.ts";
 import * as gen from "./definitions.gen.ts";
-import { debug_DefPath, type DefKey, DefPath, DefPathToIndexMap, DisambiguatedDefPathData } from "./definitions.gen.ts";
+import { debug_DefPath, type DefKey, DefPathToIndexMap, DisambiguatedDefPathData } from "./definitions.gen.ts";
 
 export * from "./definitions.gen.ts";
 
