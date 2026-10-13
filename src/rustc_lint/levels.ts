@@ -187,25 +187,25 @@ export class TopDown {
     public cur: LintStackIndex,
   ) {}
 
-  // rustc: compiler/rustc_lint/src/levels.rs:218 current_specs
+  // rustc: compiler/rustc_lint/src/levels.rs:241 current_specs
   current_specs(): Map<LintId, UnstableLevelSpec> {
     return this.sets.list[this.cur]!.specs;
   }
 
-  // rustc: compiler/rustc_lint/src/levels.rs:220 insert
+  // rustc: compiler/rustc_lint/src/levels.rs:245 insert
   insert(id: LintId, level_spec: UnstableLevelSpec): void {
     this.sets.list[this.cur]!.specs.set(id, level_spec);
   }
 
-  // rustc: compiler/rustc_lint/src/levels.rs:222 get_lint_level_spec
+  // rustc: compiler/rustc_lint/src/levels.rs:249 get_lint_level_spec
   get_lint_level_spec(lint: Lint, sess: Session): UnstableLevelSpec {
     return this.sets.get_lint_level_spec(lint, this.cur, this.current_specs(), sess);
   }
 
-  // rustc: compiler/rustc_lint/src/levels.rs:228 push_expectation
+  // rustc: compiler/rustc_lint/src/levels.rs:253 push_expectation
   push_expectation(_: UnstableLintExpectationId, __: LintExpectation): void {}
 
-  // rustc: compiler/rustc_lint/src/levels.rs:230 mk_lint_expectation_id
+  // rustc: compiler/rustc_lint/src/levels.rs:255 mk_lint_expectation_id
   mk_lint_expectation_id(attr_id: AttrId, _attr_index: number, lint_index: number): UnstableLintExpectationId {
     return { attr_id, lint_index };
   }
@@ -218,19 +218,19 @@ export class TopDown {
 export interface LintLevelsProvider<Id> {
   // type LintExpectationId: Copy + Debug + Into<LintExpectationId>;
 
-  // rustc: compiler/rustc_lint/src/levels.rs:241 current_specs
+  // rustc: compiler/rustc_lint/src/levels.rs:218 current_specs
   current_specs(): Map<LintId, LevelSpec<Id>>;
 
-  // rustc: compiler/rustc_lint/src/levels.rs:243 insert
+  // rustc: compiler/rustc_lint/src/levels.rs:220 insert
   insert(id: LintId, level_spec: LevelSpec<Id>): void;
 
-  // rustc: compiler/rustc_lint/src/levels.rs:245 get_lint_level_spec
+  // rustc: compiler/rustc_lint/src/levels.rs:222 get_lint_level_spec
   get_lint_level_spec(lint: Lint, sess: Session): LevelSpec<Id>;
 
-  // rustc: compiler/rustc_lint/src/levels.rs:253 push_expectation
+  // rustc: compiler/rustc_lint/src/levels.rs:228 push_expectation
   push_expectation(id: Id, expectation: LintExpectation): void;
 
-  // rustc: compiler/rustc_lint/src/levels.rs:255 mk_lint_expectation_id
+  // rustc: compiler/rustc_lint/src/levels.rs:230 mk_lint_expectation_id
   mk_lint_expectation_id(attr_id: AttrId, attr_index: number, lint_index: number): Id;
 
   /** PORT: `LevelSpec<Self::LintExpectationId>: Into<LevelSpec>` (lint.rs `From` impls). */
