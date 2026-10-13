@@ -1,6 +1,38 @@
-# Handoff: harness-w7 (harness/scripts batch; needs independent review)
+# Handoff: harness-w7 (harness/scripts batch; reviewed ACCEPT-WITH-FIXES, fixes below)
 
-Branch `lane/harness-w7`, based on main 5659298. No porting; no `src/`, `tools/` or `harness/baseline/` changes.
+Branch `lane/harness-w7`, based on main 5659298, with main (ef0dc66) merged in afterwards.
+
+## Review fixes (docs/reviews/harness-w7.md on `lane/review-hw7`)
+- **K1 fixed: `-O` on run-pass cases.**
+  - Bootstrap defaults to `rust.optimize-tests = true` → `--optimize-tests`.
+  - So `make_compile_args` adds `-O` to run-pass UI tests that set no `-O`/`opt-level`. It goes right after `--check-cfg`.
+  - All 38 run-pass cases now get `-O`.
+- **K2 fixed: ORACLE_TIMEOUT records the subject side.**
+  - Each ORACLE_TIMEOUT record in `<suite>.jsonl` carries `subject`: `TIMEOUT`, `ICE`, `UNPORTED: <what>` or `exit <code>`.
+  - `summary.json` gets `oracleTimeoutSubjects` (ok/TIMEOUT/ICE/UNPORTED), and the CLI prints a `note:` line.
+  - The gate prints the subject next to a lost ORACLE_TIMEOUT case.
+  - Verified with a 1 ms scratch oracle timeout: stub subject → `UNPORTED: stub implementation`; port subject → `exit 0`.
+- **K3 fixed, both ways.**
+  - (a) Case generation is host-independent: compiletest is run as on rust-lang CI's `x86_64-unknown-linux-gnu` host, per M2 decision D1. Host = target = `COMPILETEST_TARGET`, so not a cross-compile.
+    - `ignore-*`/`only-*`/`needs-*`, `--target=` and the exe suffix are all evaluated for that target, from `--print=all-target-specs-json`, which is the same on every machine.
+    - compiletest semantics allow this: `config.target`/`host` are inputs to compiletest, and on that CI host they are both this triple.
+    - The oracle and subject still run here. Parsing needs no target std, though rust-std for it is installed.
+    - Only absolute paths in argv (sysroot, cargo home, checkout) vary between machines.
+  - (b) The gate labels every lost id:
+    - `(not applicable on this host: <reason>)` when the suite lists it in `skipped()`;
+    - `(ORACLE_TIMEOUT; subject: …)`;
+    - `(no longer a case of this suite)`;
+    - otherwise `(<status>)`.
+  - Lost skipped cases are recorded in gate.json as `lostSkipped`.
+- **K6 fixed:**
+  - `{{rust-src-base}}` follows upstream: no failure when the directory is missing, and a symlink is resolved.
+  - `remap-src-base` tests are skipped with a reason, since a relative input path cannot be remapped. None exist at the pin.
+- **Also:** the gate's unit-test step uses `bun test --timeout=60000`, because the options-oracle, unicode_width and termize pty tests flaked at 5 s under load.
+- **After the fixes:**
+  - full `parse-ui` and `parse-ui-json`: 991 UNPORTED each, same buckets;
+  - what-if: 976 MATCH, 15 UNPORTED;
+  - oracle vs `.stderr`: 768 equal + 222 later-phase-only + 1 normalizer artifact. Unchanged.
+ No porting; no `src/`, `tools/` or `harness/baseline/` changes.
 
 ## Files touched
 - `harness/compiletest.ts` (new): compiletest's UI-test command line, from `src/tools/compiletest` at the pin.
@@ -70,9 +102,9 @@ Branch `lane/harness-w7`, based on main 5659298. No porting; no `src/`, `tools/`
 
 | run | MATCH | DIFF | UNPORTED | CRASH | TIMEOUT | ORACLE_TIMEOUT |
 |---|---|---|---|---|---|---|
-| `parse-ui` (hw7-parse-ui-full) | 0 | 0 | 991 | 0 | 0 | 0 |
-| `parse-ui-json` (hw7-parse-ui-json-full) | 0 | 0 | 991 | 0 | 0 | 0 |
-| scratch: parse-ui minus `--check-cfg <spec>` (hw7-whatif-no-check-cfg) | 976 | 0 | 15 | 0 | 0 | 0 |
+| `parse-ui` (hw7b-parse-ui-full) | 0 | 0 | 991 | 0 | 0 | 0 |
+| `parse-ui-json` (hw7b-parse-ui-json-full) | 0 | 0 | 991 | 0 | 0 | 0 |
+| scratch: parse-ui minus `--check-cfg <spec>` (hw7b-whatif-no-check-cfg) | 976 | 0 | 15 | 0 | 0 | 0 |
 
 **UNPORTED buckets.**
 - `parse-ui`:
@@ -143,10 +175,8 @@ Branch `lane/harness-w7`, based on main 5659298. No porting; no `src/`, `tools/`
   | tokens-str | 65fb6186a8e1cf70 |
 
   None of these suites has an env, so their oracle cache keys are unchanged too.
-- **`RUST_TS_REQUIRE_PROBES=1 bun test src tools`:** 1998 pass, 1 skip (the allowlisted one), 1 fail.
-  - The failure is `unicode_width/tests/tests.test.ts` `test_vs1_vs2_vs3`, which hit the 5 s Bun timeout at 8.9 s while the host load average was 60–120 from other lanes.
-  - It passes with `--timeout 60000`.
-  - This lane does not touch `src/` or `tools/`.
+- **`RUST_TS_REQUIRE_PROBES=1 CI=true bun test src tools --timeout=60000`** (after merging main): 2051 pass, 1 skip (the allowlisted one), 0 fail.
+  - Before the fixes, without `--timeout`, `unicode_width` `test_vs1_vs2_vs3` hit Bun's 5 s timeout under load average 60–120.
 - No baselines touched; no `unported(...)`; no `// PORT:` (no ported code).
 
 ## Decisions for root to record
@@ -156,4 +186,5 @@ Branch `lane/harness-w7`, based on main 5659298. No porting; no `src/`, `tools/`
 2. Bootstrap's `-Lnative=<rust_test_helpers>` is omitted: it is not built, and it is a link-time path. `-Crpath -Cdebuginfo=0` are kept.
 3. The input path is relative to the upstream checkout (both sides), not absolute as in compiletest, so nothing needs normalizing.
 4. `parse` oracle timeout is 300 s (oracle side only). Retry factor is 4.
-5. Tests needing aux crates, minicore, incremental, or host conditions we cannot evaluate are skipped with recorded reasons, not guessed.
+5. compiletest is emulated on an `x86_64-unknown-linux-gnu` host (host = target), so the parse-ui case set is host-independent (D1).
+6. Tests needing aux crates, minicore, incremental, or host conditions we cannot evaluate are skipped with recorded reasons, not guessed.
