@@ -170,3 +170,14 @@ rmeta-decoder-a/-b, cstore-impl, odht (+odht-wire fixer). decoder.rs 156/156. Re
 ## Queued (later)
 1. Follow-ups: move shared helpers into src/std (str helpers from ast-token/span-map/errors-core, path, io, Backtrace);
    `LoneSlash` escape coverage (raw-input mode, harness batch); hash std libs into the oracle key once suites compile against std.
+
+## M2a — DONE 2026-10-14 (gate-20261013-203604-root-k75z)
+expanded-nocore 21471/21523 (99.76%), unpretty-expanded-nocore 21471, resdump-nocore 21480 (99.80%).
+
+## Wave 12 — M2b (`expanded` with std >= 95%)
+Merged: harness-w12 (suites expanded / unpretty-expanded / resdump; review ACCEPT-WITH-NOTES), m2b-stability
+(middle/stability.rs), m2b-misc (include!/resolve_path, Path::file_name, DeclaredIdents). Samples ~99.5%.
+Known stops: Location::caller (-Ztrack-diagnostics, decision: unported), VariantData decode, find_by_ident_and_kind,
+proc-macro quote! (M6). Next: gate protecting the with-std suites (= M2b), then wave 12 ui-expanded harness
+(compiletest flags, aux crates by the oracle) toward gate M2, then M3 planning (typeck on mini_core).
+

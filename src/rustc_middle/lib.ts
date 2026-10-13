@@ -17,6 +17,7 @@ export * as queries from "./queries.ts";
 export * as query from "./query/mod.ts";
 export * as resolve from "./middle/resolve.ts";
 export * as privacy from "./middle/privacy.ts";
+export * as stability from "./middle/stability.ts";
 export * as ty from "./ty/mod.ts";
 export * as tls from "./ty/context/tls.ts";
 export { CurrentGcx, GlobalCtxt, TyCtxt, TyCtxtFeed } from "./ty/context.ts";
