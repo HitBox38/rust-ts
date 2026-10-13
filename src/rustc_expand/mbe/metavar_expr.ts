@@ -16,41 +16,8 @@ import { debug_Ident, debug_Symbol, display_Ident, display_Symbol, type Ident, s
 import { type Debug, debug_int, debug_list, debug_tuple } from "../../std/fmt.ts";
 import { panic, unported, unreachable } from "../../std/panic.ts";
 import { Err, Ok } from "../../std/result.ts";
+import { type MveExtraTokens, MveExtraTokens_diagnostic, type MveMissingParen, MveMissingParen_diagnostic, type MveUnrecognizedExpr, MveUnrecognizedExpr_diagnostic, default_MveExtraTokens } from "../diagnostics.ts";
 
-// ---------------------------------------------------------------------------------------------
-// PORT: pending expand-core: `crate::diagnostics` (compiler/rustc_expand/src/diagnostics.rs, generated
-// into src/rustc_expand/diagnostics.gen.ts). Until it lands, these stand-ins have the generated shapes
-// (field interfaces + `<T>_diagnostic`) and stop with `unported`. Replace this block with
-// `import { MveExtraTokens_diagnostic, MveMissingParen_diagnostic, MveUnrecognizedExpr_diagnostic } from "../diagnostics.ts";`
-interface MveMissingParen {
-  ident_span: Span;
-  unexpected_span: Span | undefined;
-  insert_span: Span | undefined;
-}
-function MveMissingParen_diagnostic(_self: MveMissingParen): Diagnostic {
-  return unported("rustc_expand::diagnostics::MveMissingParen");
-}
-interface MveExtraTokens {
-  span: Span;
-  ident_span: Span;
-  extra_count: number;
-  exact_args_note: null | undefined;
-  range_args_note: null | undefined;
-  min_or_exact_args: number;
-  max_args: number;
-  name: string;
-}
-function MveExtraTokens_diagnostic(_self: MveExtraTokens): Diagnostic {
-  return unported("rustc_expand::diagnostics::MveExtraTokens");
-}
-interface MveUnrecognizedExpr {
-  span: Span;
-  valid_expr_list: string;
-}
-function MveUnrecognizedExpr_diagnostic(_self: MveUnrecognizedExpr): Diagnostic {
-  return unported("rustc_expand::diagnostics::MveUnrecognizedExpr");
-}
-// ---------------------------------------------------------------------------------------------
 
 const { TokenKind_eq } = token;
 
@@ -126,10 +93,10 @@ export const MetaVarExpr = {
       const span = iter_span(iter);
       if (span === undefined) panic("checked is_some above");
       const err: MveExtraTokens = {
+        ...default_MveExtraTokens(),
         span,
         ident_span: ident.span,
         extra_count: iter_count(iter),
-        ...MveExtraTokens_default(),
       };
       return Err(psess.dcx().create_err(MveExtraTokens_diagnostic(err)));
     }
@@ -209,13 +176,6 @@ export const MetaVarExpr = {
     }
   },
 };
-
-/** `#[derive(Default)]` of `MveExtraTokens`, minus the fields every caller sets. */
-function MveExtraTokens_default(): Omit<MveExtraTokens, "span" | "ident_span" | "extra_count"> {
-  // PORT: `..Default::default()`: `Option` -> None, `usize` -> 0, `String` -> "" (the explicit
-  // `span`/`ident_span`/`extra_count` fields of the only user override the rest: `DUMMY_SP`, `DUMMY_SP`, 0).
-  return { exact_args_note: undefined, range_args_note: undefined, min_or_exact_args: 0, max_args: 0, name: "" };
-}
 
 /** `Iterator::count` on a `TokenStreamIter` (consumes it). */
 function iter_count(iter: TokenStreamIter): number {

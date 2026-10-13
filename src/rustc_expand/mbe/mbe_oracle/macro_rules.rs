@@ -12,7 +12,8 @@
 // ops (events are `<op> => <result>`):
 //   lhs:I      `parse_one_tt(tree I, RulePart::Pattern, ..)` -> `{:?}` (kept as the LHS)
 //   rhs:I      `parse_one_tt(tree I, RulePart::Body, ..)` -> `{:?}` (kept as the RHS)
-//   check      `check_meta_variables(psess, CRATE_NODE_ID, None, &lhs, &rhs)` -> `{:?}`
+//   args:I     `parse_one_tt(tree I, RulePart::Pattern, ..)` -> `{:?}` (kept as the attr-rule args)
+//   check      `check_meta_variables(psess, CRATE_NODE_ID, args.as_ref(), &lhs, &rhs)` -> `{:?}`
 //   checkd     the same with `DUMMY_NODE_ID` (lints are not buffered)
 //   locs       `compute_locs(&lhs_delimited.tts)`: one event `loc i => {:?} | {}` per entry
 //   count      `count_metavar_decls(&lhs_delimited.tts)`
@@ -316,12 +317,13 @@ pub(crate) fn probe_main() {
                 let trees: Vec<TT> = stream.iter().cloned().collect();
                 let mut lhs: Option<mbe::TokenTree> = None;
                 let mut rhs: Option<mbe::TokenTree> = None;
+                let mut args: Option<mbe::TokenTree> = None;
                 for op in &ops {
                     let (name, arg) = op.split_once(':').unwrap_or((op, ""));
                     let idx = || arg.parse::<usize>().unwrap();
                     match name {
-                        "lhs" | "rhs" => {
-                            let part = if name == "lhs" { RulePart::Pattern } else { RulePart::Body };
+                        "lhs" | "rhs" | "args" => {
+                            let part = if name == "rhs" { RulePart::Body } else { RulePart::Pattern };
                             let tt = parse_one_tt(
                                 trees[idx()].clone(),
                                 part,
@@ -333,8 +335,10 @@ pub(crate) fn probe_main() {
                             ev.push(format!("{op} => {tt:?}"));
                             if name == "lhs" {
                                 lhs = Some(tt);
-                            } else {
+                            } else if name == "rhs" {
                                 rhs = Some(tt);
+                            } else {
+                                args = Some(tt);
                             }
                         }
                         "check" | "checkd" => {
@@ -342,7 +346,7 @@ pub(crate) fn probe_main() {
                             let r = check_meta_variables(
                                 &sess.psess,
                                 node_id,
-                                None,
+                                args.as_ref(),
                                 lhs.as_ref().unwrap(),
                                 rhs.as_ref().unwrap(),
                             );

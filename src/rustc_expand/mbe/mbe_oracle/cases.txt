@@ -451,3 +451,129 @@ ops: lhs:0 match:3 match:4
 ($t:ty) => {}
 (dyn Trait)
 (Box<dyn Trait>)
+### frag_guard
+ops: lhs:0 locs match:3 match:4
+($g:guard) => {}
+(if x == 1)
+(x)
+### ident_async_2015 edition=2015
+ops: lhs:0 match:3 match:4 match:5
+($i:ident) => {}
+(async)
+(dyn)
+(try)
+### ident_async_2018 edition=2018
+ops: lhs:0 match:3 match:4 match:5
+($i:ident) => {}
+(async)
+(dyn)
+(try)
+### ident_gen_2024
+ops: lhs:0 match:3 match:4
+($i:ident) => {}
+(gen)
+(r#gen)
+### frag_vis_empty
+ops: lhs:0 match:3 match:4 match:5
+($v:vis $i:ident) => {}
+(x)
+(pub x)
+(pub(in a::b) x)
+### frag_stmt_variants edition=2021
+ops: lhs:0 match:3 match:4 match:5
+($s:stmt) => {}
+(let x: u8 = 1)
+(struct S;)
+(x += 1)
+### frag_block_errors
+ops: lhs:0 match:3 match:4
+($b:block) => {}
+(x)
+({ let })
+### frag_ty_errors
+ops: lhs:0 match:3 matchr:3
+($t:ty) => {}
+(Vec<)
+### frag_meta_errors
+ops: lhs:0 match:3 match:4
+($m:meta) => {}
+(a = )
+(a::b(c = "d", e))
+### frag_path_variants
+ops: lhs:0 match:3 match:4 match:5
+($p:path) => {}
+(::a::b)
+(<T as Tr>::X)
+(Vec::<u8>::new)
+### frag_lifetime_errors
+ops: lhs:0 match:3 match:4
+($l:lifetime) => {}
+('_)
+(a)
+### frag_tt_delims
+ops: lhs:0 match:3 match:4
+($($t:tt)*) => {}
+([a] (b) {c} d ;)
+(+= >>= ..= ...)
+### nested_reps_depth3
+ops: lhs:0 rhs:2 check locs count match:3 match:4
+($($($($x:ident)*),*);*) => { $($($($x)*)*)* }
+(a b, c; ; d)
+()
+### nested_inner_zero
+ops: lhs:0 locs match:3 match:4
+($($($x:ident)*);*) => {}
+(; a b; )
+(a)
+### mixed_depths
+ops: lhs:0 rhs:2 check locs count match:3
+($($a:ident $($b:ident)*),*) => { $($a $($b)*)* }
+(a b c, d, e f)
+### separator_dollar
+ops: lhs:0 locs match:3
+($($x:ident)$*) => {}
+(a $ b $ c)
+### lhs_dollar_crate
+ops: lhs:0 locs match:3 match:4
+($crate) => {}
+($crate)
+(crate)
+### raw_metavar_name
+ops: lhs:0 rhs:2 check locs match:3
+($r#x:ident $r#fn:tt) => { $x $fn $r#x }
+(a b)
+### lifetime_after_dollar
+ops: lhs:0
+($'a:ident)
+### check_args_ok
+ops: args:0 lhs:1 rhs:3 check lints
+($a:ident) ($b:tt) => { $a $b }
+### check_args_dup
+ops: args:0 lhs:1 rhs:3 check lints
+($a:ident) ($a:tt) => { $a }
+### check_concat_unbound features=macro_metavar_expr_concat
+ops: lhs:0 rhs:2 check lints
+($x:ident) => { ${concat($x, $y)} }
+### check_rhs_expr_seq_ok features=macro_metavar_expr
+ops: lhs:0 rhs:2 check lints
+($($x:ident),* ; $($y:ident),*) => { $( ${ignore($x)} ${index()} )* $(${len()} $y)* }
+### check_count_in_seq features=macro_metavar_expr
+ops: lhs:0 rhs:2 check lints
+($($($x:ident)*);*) => { $( ${count($x)} )* ${count($x, 1)} }
+### ambiguity_sep_vs_nt
+ops: lhs:0 match:3 match:4
+($($a:tt),* $b:tt) => {}
+(x, y)
+(x)
+### ambiguity_after_tokens
+ops: lhs:0 match:3
+(a $($x:ident)? $y:ident) => {}
+(a b)
+### seq_sep_after_last_item_not_nt
+ops: lhs:0 match:3 match:4
+($($x:ident),+ , last) => {}
+(a, b, last)
+(a, last)
+### mve_count_depth_huge features=macro_metavar_expr
+ops: mve:0
+{count($x, 18446744073709551616)}

@@ -69,43 +69,7 @@ interface Case {
 const oracle = JSON.parse(readFileSync(join(import.meta.dir, "mbe_oracle", "out.json"), "utf8")) as Case[];
 
 /** case -> the `Unported` it must reach until the owning lane lands. */
-// Every pending case reaches a generated diagnostic of compiler/rustc_expand/src/diagnostics.rs (lane
-// expand-core), stubbed in quoted.ts / macro_check.ts / metavar_expr.ts until it lands. Value: the type
-// name; the expected `Unported` is `rustc_expand::diagnostics::<value>`. (All of them were checked
-// against the oracle with a scratch codegen of diagnostics.rs: 118/118 matched; see docs/handoff/mbe-a.md.)
-const PENDING_DIAG: Record<string, string> = {
-  frag_invalid: "InvalidFragmentSpecifier",
-  frag_missing: "MissingFragmentSpecifier",
-  frag_missing_colon_end: "MissingFragmentSpecifier",
-  frag_missing_colon_delim: "MissingFragmentSpecifier",
-  frag_dollar_dollar_end: "MissingFragmentSpecifier",
-  dollar_number: "MissingFragmentSpecifier",
-  rhs_seq_brace_is_mve_error: "ExpectedParenOrBrace",
-  mve_count: "MetaVarStillRepeatingLint",
-  mve_err_unknown: "MveUnrecognizedExpr",
-  mve_err_missing_paren: "MveMissingParen",
-  mve_err_bracket_paren: "MveMissingParen",
-  mve_err_not_delim: "MveMissingParen",
-  mve_err_extra_outer: "MveExtraTokens",
-  mve_err_extra_args_ignore: "MveExtraTokens",
-  mve_err_extra_args_index: "MveExtraTokens",
-  mve_err_extra_args_count: "MveExtraTokens",
-  check_free_var: "UnknownMacroVariable",
-  check_free_var_dummy: "UnknownMacroVariable",
-  check_duplicate_binder: "DuplicateMatcherBinding",
-  check_still_repeating: "MetaVarStillRepeatingLint",
-  check_wrong_operator: "MetaVariableWrongOperator",
-  check_nested_macro_rules_free: "UnknownMacroVariable",
-  check_nested_macro_rules_dup: "DuplicateMatcherBindingLint",
-  check_nested_decl_macro_name_var: "UnknownMacroVariable",
-  check_nested_macro_outer_rep_missing: "MetaVarStillRepeatingLint",
-  check_nested_rest_after_macro: "UnknownMacroVariable",
-  check_mve_occurrence: "MetaVarStillRepeatingLint",
-  check_mve_still_repeating: "MetaVarStillRepeatingLint",
-};
-const PENDING: Record<string, string> = Object.fromEntries(
-  Object.entries(PENDING_DIAG).map(([k, v]) => [k, `rustc_expand::diagnostics::${v}`]),
-);
+const PENDING: Record<string, string> = {};
 
 /** `parser_from_cx` (macro_rules.rs, lane mbe-b), as copied into the probe. */
 function parser_from_cx(psess: ParseSess, tts: TokenStream, recovery: Recovery): rustc_parse_parser.Parser {
@@ -226,6 +190,7 @@ function run_case(c: Case): { events: string[]; fatal: boolean; stderr: string }
       const trees: TT[] = [...sr._0._0];
       let lhs: TokenTree | undefined;
       let rhs: TokenTree | undefined;
+      let args: TokenTree | undefined;
       for (const op of ops) {
         const i = op.indexOf(":");
         const name = i < 0 ? op : op.slice(0, i);
@@ -233,18 +198,20 @@ function run_case(c: Case): { events: string[]; fatal: boolean; stderr: string }
         const idx = (): number => Number(arg);
         switch (name) {
           case "lhs":
-          case "rhs": {
-            const part = name === "lhs" ? RulePart.Pattern : RulePart.Body;
+          case "rhs":
+          case "args": {
+            const part = name === "rhs" ? RulePart.Body : RulePart.Pattern;
             const tt = parse_one_tt(trees[idx()]!, part, sess, CRATE_NODE_ID, features, edition);
             ev.push(`${op} => ${debug_TokenTree(tt, PLAIN)}`);
             if (name === "lhs") lhs = tt;
-            else rhs = tt;
+            else if (name === "rhs") rhs = tt;
+            else args = tt;
             break;
           }
           case "check":
           case "checkd": {
             const node_id = name === "check" ? CRATE_NODE_ID : DUMMY_NODE_ID;
-            const r = check_meta_variables(psess, node_id, undefined, lhs!, rhs!);
+            const r = check_meta_variables(psess, node_id, args, lhs!, rhs!);
             ev.push(`${op} => ${debug_result(r, PLAIN, () => "()", debug_ErrorGuaranteed)}`);
             break;
           }

@@ -117,52 +117,11 @@ import type { ParseSess } from "../../rustc_session/parse.ts";
 import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { kw, MacroRulesNormalizedIdent } from "../../rustc_span/symbol.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
-import { unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { type KleeneToken, MetaVarExpr, TokenTree } from "../mbe.ts";
 import { MacroRulesIdentMap } from "./macro_parser.ts";
+import { type DuplicateMatcherBinding, type DuplicateMatcherBindingLint, DuplicateMatcherBindingLint_diagnostic, DuplicateMatcherBinding_diagnostic, type MetaVarStillRepeatingLint, MetaVarStillRepeatingLint_diagnostic, type MetaVariableWrongOperator, MetaVariableWrongOperator_diagnostic, type UnknownMacroVariable, UnknownMacroVariable_diagnostic } from "../diagnostics.ts";
 
-// ---------------------------------------------------------------------------------------------
-// PORT: pending expand-core: `crate::diagnostics` (compiler/rustc_expand/src/diagnostics.rs, generated
-// into src/rustc_expand/diagnostics.gen.ts). Until it lands, these stand-ins have the generated shapes
-// (field interfaces + `<T>_diagnostic`) and stop with `unported`. Replace this block with
-// `import { DuplicateMatcherBinding_diagnostic, DuplicateMatcherBindingLint_diagnostic, MetaVarStillRepeatingLint_diagnostic,
-//   MetaVariableWrongOperator_diagnostic, UnknownMacroVariable_diagnostic } from "../diagnostics.ts";`
-interface DuplicateMatcherBindingLint {
-  span: Span;
-  prev: Span;
-}
-function DuplicateMatcherBindingLint_diagnostic(_self: DuplicateMatcherBindingLint): Diagnostic {
-  return unported("rustc_expand::diagnostics::DuplicateMatcherBindingLint");
-}
-interface DuplicateMatcherBinding {
-  span: Span;
-  prev: Span;
-}
-function DuplicateMatcherBinding_diagnostic(_self: DuplicateMatcherBinding): Diagnostic {
-  return unported("rustc_expand::diagnostics::DuplicateMatcherBinding");
-}
-interface UnknownMacroVariable {
-  name: MacroRulesNormalizedIdent;
-}
-function UnknownMacroVariable_diagnostic(_self: UnknownMacroVariable): Diagnostic {
-  return unported("rustc_expand::diagnostics::UnknownMacroVariable");
-}
-interface MetaVarStillRepeatingLint {
-  label: Span;
-  ident: MacroRulesNormalizedIdent;
-}
-function MetaVarStillRepeatingLint_diagnostic(_self: MetaVarStillRepeatingLint): Diagnostic {
-  return unported("rustc_expand::diagnostics::MetaVarStillRepeatingLint");
-}
-interface MetaVariableWrongOperator {
-  binder: Span;
-  occurrence: Span;
-}
-function MetaVariableWrongOperator_diagnostic(_self: MetaVariableWrongOperator): Diagnostic {
-  return unported("rustc_expand::diagnostics::MetaVariableWrongOperator");
-}
-// ---------------------------------------------------------------------------------------------
 
 const { TokenKind: TokenKindC } = token;
 
