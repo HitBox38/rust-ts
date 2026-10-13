@@ -3,16 +3,10 @@
 // copied verbatim from upstream (variant names, bitflag values); every piece of logic calls
 // `unported(...)`. When the owning crate is ported, replace the stand-in by a re-export and delete it here.
 //
-//   rustc_target::spec        CodeModel, FramePointer (+ratchet), LinkerFlavorCli, MergeFunctions,
-//                             OnBrokenPipe, PanicStrategy, RelocModel, RelroLevel, SplitDebuginfo,
-//                             StackProtector, SymbolVisibility, TlsModel, LinkSelfContainedComponents,
-//                             LinkerFeatures, TargetTuple
+//   rustc_target::spec        re-exports of the ported spec types (src/rustc_target/spec/mod.ts)
 //   rustc_structures          SanitizerSet, CollapseMacroDebuginfo, CrateType
-//   rustc_abi                 Align
+//   rustc_abi                 Align (re-export of src/rustc_abi)
 //   rustc_data_structures     TimePassesFormat, SelfProfilerRef (profiling.rs)
-//   rustc_target::spec        Target (driver stand-in: a few fields per built-in host target, see below)
-//   rustc_session::filesearch default_sysroot
-//   rustc_session::config     externs::split_extern_opt, native_libs::parse_native_lib
 //
 // `EarlyDiagCtxt` (session.rs) and `getopts::Matches` are the real types now; the aliases below keep the
 // structural subsets that `build_options` (options.ts) uses, so tests can pass small fakes.
@@ -20,7 +14,7 @@ import type { PathBuf } from "../rustc_error_messages/lib.ts";
 import type { EarlyDiagCtxt as EarlyDiagCtxtReal } from "./session.ts";
 import type { Matches as MatchesReal } from "../vendor/getopts/lib.ts";
 import { type Debug } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
+import { panic, unported } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
 
 /** An opaque stand-in for a type that is not ported yet (named by its upstream path). */
@@ -28,220 +22,33 @@ export interface Unported<N extends string> {
   readonly __unported: N;
 }
 
-// ---- rustc_target::spec (compiler/rustc_target/src/spec/mod.rs; `target_spec_enum!` types) ----
-
-// PORT: `target_spec_enum!` (rustc_target/src/lib.rs:71) derives `FromStr`, `Debug`, `desc`. Only the
-// variants are copied; `from_str` is unported until rustc_target is ported.
-function target_spec_from_str<T>(name: string): (s: string) => Result<T, string> {
-  return (_s: string) => {
-    unported(`rustc_target::spec::${name}::from_str`);
-  };
-}
-function target_spec_debug<T extends string>(): Debug<T> {
-  return (v) => v;
-}
-
-/** rustc_target/src/spec/mod.rs:974 */
-export type CodeModel = "Tiny" | "Small" | "Kernel" | "Medium" | "Large";
-export const CodeModel = {
-  Tiny: "Tiny",
-  Small: "Small",
-  Kernel: "Kernel",
-  Medium: "Medium",
-  Large: "Large",
-  from_str: target_spec_from_str<CodeModel>("CodeModel"),
-} as const;
-export const debug_CodeModel: Debug<CodeModel> = target_spec_debug();
-
-/** rustc_target/src/spec/mod.rs:1171 */
-export type FramePointer = "Always" | "NonLeaf" | "MayOmit";
-export const FramePointer = {
-  Always: "Always",
-  NonLeaf: "NonLeaf",
-  MayOmit: "MayOmit",
-  from_str: target_spec_from_str<FramePointer>("FramePointer"),
-  /** rustc_target/src/spec/mod.rs:1190 `ratchet(&mut self, rhs)` */
-  ratchet(_self: { value: FramePointer }, _rhs: FramePointer): FramePointer {
-    unported("rustc_target::spec::FramePointer::ratchet");
-  },
-} as const;
-export const debug_FramePointer: Debug<FramePointer> = target_spec_debug();
-
-/** rustc_target/src/spec/mod.rs:146 (data variants are opaque here) */
-export type LinkerFlavorCli = Unported<"rustc_target::spec::LinkerFlavorCli">;
-export const LinkerFlavorCli = {
-  from_str(_s: string): Result<LinkerFlavorCli, string> {
-    unported("rustc_target::spec::LinkerFlavorCli::from_str");
-  },
-} as const;
-
-/** rustc_target/src/spec/mod.rs:929 */
-export type MergeFunctions = "Disabled" | "Trampolines" | "Aliases";
-export const MergeFunctions = {
-  Disabled: "Disabled",
-  Trampolines: "Trampolines",
-  Aliases: "Aliases",
-  from_str: target_spec_from_str<MergeFunctions>("MergeFunctions"),
-} as const;
-
-/** rustc_target/src/spec/mod.rs:830 */
-export type OnBrokenPipe = "Default" | "Kill" | "Error" | "Inherit";
-export const OnBrokenPipe = { Default: "Default", Kill: "Kill", Error: "Error", Inherit: "Inherit" } as const;
-
-/** rustc_target/src/spec/mod.rs:820 */
-export type PanicStrategy = "Unwind" | "Abort" | "ImmediateAbort";
-export const PanicStrategy = {
-  Unwind: "Unwind",
-  Abort: "Abort",
-  ImmediateAbort: "ImmediateAbort",
-  from_str: target_spec_from_str<PanicStrategy>("PanicStrategy"),
-} as const;
-
-/** rustc_target/src/spec/mod.rs:946 */
-export type RelocModel = "Static" | "Pic" | "Pie" | "DynamicNoPic" | "Ropi" | "Rwpi" | "RopiRwpi";
-export const RelocModel = {
-  Static: "Static",
-  Pic: "Pic",
-  Pie: "Pie",
-  DynamicNoPic: "DynamicNoPic",
-  Ropi: "Ropi",
-  Rwpi: "Rwpi",
-  RopiRwpi: "RopiRwpi",
-  from_str: target_spec_from_str<RelocModel>("RelocModel"),
-} as const;
-
-/** rustc_target/src/spec/mod.rs:852 */
-export type RelroLevel = "Full" | "Partial" | "Off" | "None";
-export const RelroLevel = {
-  Full: "Full",
-  Partial: "Partial",
-  Off: "Off",
-  None: "None",
-  from_str: target_spec_from_str<RelroLevel>("RelroLevel"),
-} as const;
-
-/** rustc_target/src/spec/mod.rs:1082 */
-export type SplitDebuginfo = "Off" | "Packed" | "Unpacked";
-export const SplitDebuginfo = {
-  Off: "Off",
-  Packed: "Packed",
-  Unpacked: "Unpacked",
-  from_str: target_spec_from_str<SplitDebuginfo>("SplitDebuginfo"),
-} as const;
-
-/** rustc_target/src/spec/mod.rs:1203 */
-export type StackProtector = "None" | "Basic" | "Strong" | "All";
-export const StackProtector = {
-  None: "None",
-  Basic: "Basic",
-  Strong: "Strong",
-  All: "All",
-  from_str: target_spec_from_str<StackProtector>("StackProtector"),
-} as const;
-export const debug_StackProtector: Debug<StackProtector> = target_spec_debug();
-
-/** rustc_target/src/spec/mod.rs:869 */
-export type SymbolVisibility = "Hidden" | "Protected" | "Interposable";
-export const SymbolVisibility = {
-  Hidden: "Hidden",
-  Protected: "Protected",
-  Interposable: "Interposable",
-  from_str: target_spec_from_str<SymbolVisibility>("SymbolVisibility"),
-} as const;
-
-/** rustc_target/src/spec/mod.rs:1012 */
-export type TlsModel = "GeneralDynamic" | "LocalDynamic" | "InitialExec" | "LocalExec" | "Emulated";
-export const TlsModel = {
-  GeneralDynamic: "GeneralDynamic",
-  LocalDynamic: "LocalDynamic",
-  InitialExec: "InitialExec",
-  LocalExec: "LocalExec",
-  Emulated: "Emulated",
-  from_str: target_spec_from_str<TlsModel>("TlsModel"),
-} as const;
-
-/** rustc_target/src/spec/mod.rs:642 `bitflags! struct LinkSelfContainedComponents: u8` (values copied). */
-export type LinkSelfContainedComponents = number;
-export const LinkSelfContainedComponents = {
-  CRT_OBJECTS: 1 << 0,
-  LIBC: 1 << 1,
-  UNWIND: 1 << 2,
-  LINKER: 1 << 3,
-  SANITIZERS: 1 << 4,
-  MINGW: 1 << 5,
-  empty: (): LinkSelfContainedComponents => 0,
-  all: (): LinkSelfContainedComponents => 0b111111,
-  from_str(_s: string): Result<LinkSelfContainedComponents, undefined> {
-    unported("rustc_target::spec::LinkSelfContainedComponents::from_str");
-  },
-} as const;
-
-/** rustc_target/src/spec/mod.rs:777 `bitflags! struct LinkerFeatures: u8` (values copied). */
-export type LinkerFeatures = number;
-export const LinkerFeatures = {
-  CC: 1 << 0,
-  LLD: 1 << 1,
-  empty: (): LinkerFeatures => 0,
-  /** rustc_target/src/spec/mod.rs:799 `as_str` (verbatim) */
-  as_str(self: LinkerFeatures): string | undefined {
-    switch (self) {
-      case 1 << 0:
-        return "cc";
-      case 1 << 1:
-        return "lld";
-      default:
-        return undefined;
-    }
-  },
-  /** rustc_target/src/spec/mod.rs:808 `is_lld_enabled` (verbatim: `self.contains(LinkerFeatures::LLD)`) */
-  is_lld_enabled(self: LinkerFeatures): boolean {
-    return (self & (1 << 1)) === 1 << 1;
-  },
-  /** bitflags `iter()`: each defined flag contained in `self`, in definition order. */
-  iter(self: LinkerFeatures): LinkerFeatures[] {
-    return [1 << 0, 1 << 1].filter((f) => (self & f) === f);
-  },
-} as const;
-
-/**
- * rustc_target/src/spec/tuple.rs:11 `TargetTuple` (variants copied).
- * PORT: `TargetJson` (a `--target <path>.json`) is never constructed: `from_path` is unported.
- */
-export type TargetTuple =
-  | { readonly $: "TargetTuple"; readonly _0: string }
-  | { readonly $: "TargetJson"; readonly path_for_rustdoc: PathBuf; readonly tuple: string; readonly contents: string };
-export const TargetTuple = {
-  /** rustc_target/src/spec/tuple.rs:88 `from_tuple` (verbatim: `TargetTuple::TargetTuple(tuple.into())`) */
-  from_tuple(tuple: string): TargetTuple {
-    return { $: "TargetTuple", _0: tuple };
-  },
-  /** rustc_target/src/spec/tuple.rs:93 `from_path` */
-  from_path(_path: PathBuf): Result<TargetTuple, unknown> {
-    unported("rustc_target::spec::TargetTuple::from_path");
-  },
-  /** rustc_target/src/spec/tuple.rs:113 `tuple` (verbatim) */
-  tuple(self: TargetTuple): string {
-    switch (self.$) {
-      case "TargetTuple":
-        return self._0;
-      case "TargetJson":
-        return self.tuple;
-    }
-  },
-  /** rustc_target/src/spec/tuple.rs:125 `debug_tuple` (the `TargetJson` arm hashes the contents: unported) */
-  debug_tuple(self: TargetTuple): string {
-    switch (self.$) {
-      case "TargetTuple":
-        return self._0;
-      case "TargetJson":
-        return unported("rustc_target::spec::TargetTuple::debug_tuple (TargetJson)");
-    }
-  },
-  /** rustc_target/src/spec/tuple.rs:140 `impl Display` (`self.debug_tuple()`) */
-  display(self: TargetTuple): string {
-    return TargetTuple.debug_tuple(self);
-  },
-} as const;
+// ---- rustc_target::spec ----
+// PORT: rustc_target's spec is ported (src/rustc_target); these re-exports keep the names the option
+// tables import from here.
+export {
+  CodeModel,
+  FramePointer,
+  LinkerFeatures,
+  LinkerFlavorCli,
+  LinkSelfContainedComponents,
+  MergeFunctions,
+  OnBrokenPipe,
+  PanicStrategy,
+  RelocModel,
+  RelroLevel,
+  SplitDebuginfo,
+  StackProtector,
+  SymbolVisibility,
+  Target,
+  TargetTuple,
+  TargetWarnings,
+  TlsModel,
+} from "../rustc_target/spec/mod.ts";
+import type { CodeModel, FramePointer, StackProtector } from "../rustc_target/spec/mod.ts";
+/** `#[derive(Debug)]` of the `target_spec_enum!` types (the variant name). */
+export const debug_CodeModel: Debug<CodeModel> = (v) => v;
+export const debug_FramePointer: Debug<FramePointer> = (v) => v;
+export const debug_StackProtector: Debug<StackProtector> = (v) => v;
 
 // ---- rustc_structures ----
 
@@ -265,6 +72,118 @@ export const SanitizerSet = {
   empty: (): SanitizerSet => 0,
   /** `#[derive(Default)]` of the bitflags newtype: no bits. */
   default: (): SanitizerSet => 0,
+  /** bitflags `all()` */
+  all: (): SanitizerSet => (1 << 14) - 1,
+  /** bitflags `contains` */
+  contains: (self: SanitizerSet, other: SanitizerSet): boolean => (self & other) === other,
+  /** bitflags `iter()`: the named flags contained in `self`, in definition order (then any unknown bits). */
+  iter(self: SanitizerSet): SanitizerSet[] {
+    const out: SanitizerSet[] = [];
+    let rest = self;
+    for (let i = 0; i < 14; i++) {
+      const f = 1 << i;
+      if ((self & f) === f) {
+        out.push(f);
+        rest &= ~f;
+      }
+    }
+    if (rest !== 0) out.push(rest);
+    return out;
+  },
+
+  // PORT: the fns below are copied verbatim from rustc_structures/src/sanitizer_set.rs (no markers:
+  // the hir-def lane ports rustc_structures; replace this stand-in by its module then).
+
+  /** `const MUTUALLY_EXCLUSIVE` */
+  MUTUALLY_EXCLUSIVE: [
+    [1 << 0, 1 << 2],
+    [1 << 0, 1 << 3],
+    [1 << 0, 1 << 4],
+    [1 << 0, 1 << 6],
+    [1 << 0, 1 << 9],
+    [1 << 0, 1 << 10],
+    [1 << 0, 1 << 11],
+    [1 << 1, 1 << 2],
+    [1 << 1, 1 << 3],
+    [1 << 1, 1 << 9],
+    [1 << 1, 1 << 10],
+    [1 << 1, 1 << 11],
+    [1 << 2, 1 << 3],
+    [1 << 2, 1 << 4],
+    [1 << 2, 1 << 9],
+    [1 << 2, 1 << 10],
+    [1 << 2, 1 << 11],
+    [1 << 3, 1 << 4],
+    [1 << 3, 1 << 9],
+    [1 << 3, 1 << 10],
+    [1 << 3, 1 << 11],
+    [1 << 4, 1 << 6],
+    [1 << 4, 1 << 9],
+    [1 << 4, 1 << 10],
+    [1 << 4, 1 << 11],
+    [1 << 5, 1 << 8],
+    [1 << 6, 1 << 9],
+    [1 << 6, 1 << 10],
+    [1 << 9, 1 << 10],
+    [1 << 9, 1 << 11],
+    [1 << 10, 1 << 11],
+  ] as readonly (readonly [SanitizerSet, SanitizerSet])[],
+
+  /** sanitizer_set.rs `as_str` */
+  as_str(self: SanitizerSet): string | undefined {
+    switch (self) {
+      case 1 << 0:
+        return "address";
+      case 1 << 5:
+        return "cfi";
+      case 1 << 12:
+        return "dataflow";
+      case 1 << 8:
+        return "kcfi";
+      case 1 << 9:
+        return "kernel-address";
+      case 1 << 10:
+        return "kernel-hwaddress";
+      case 1 << 1:
+        return "leak";
+      case 1 << 2:
+        return "memory";
+      case 1 << 6:
+        return "memtag";
+      case 1 << 11:
+        return "safestack";
+      case 1 << 7:
+        return "shadow-call-stack";
+      case 1 << 3:
+        return "thread";
+      case 1 << 4:
+        return "hwaddress";
+      case 1 << 13:
+        return "realtime";
+      default:
+        return undefined;
+    }
+  },
+
+  /** sanitizer_set.rs `combine_with_defaults` */
+  combine_with_defaults(self: SanitizerSet, defaults: SanitizerSet): SanitizerSet {
+    for (const [a, b] of SanitizerSet.MUTUALLY_EXCLUSIVE) {
+      if ((defaults & a) === a && (self & b) === b) {
+        defaults &= ~a;
+      }
+      if ((defaults & b) === b && (self & a) === a) {
+        defaults &= ~b;
+      }
+    }
+    return self | defaults;
+  },
+
+  /** sanitizer_set.rs `impl Display` (comma separated names) */
+  display(self: SanitizerSet): string {
+    return SanitizerSet.iter(self)
+      .map((s) => SanitizerSet.as_str(s) ?? panic(`unrecognized sanitizer ${s}`))
+      .join(", ");
+  },
 } as const;
 // PORT: `external_bitflags_debug!` (rustc_data_structures) is not ported.
 export const debug_SanitizerSet: Debug<SanitizerSet> = () => unported("rustc_structures::SanitizerSet Debug");
@@ -290,13 +209,7 @@ export const debug_CrateType: Debug<CrateType> = (v) => v;
 
 // ---- rustc_abi ----
 
-/** rustc_abi/src/lib.rs:1102 `Align { pow2: u8 }` (opaque) */
-export type Align = Unported<"rustc_abi::Align">;
-export const Align = {
-  from_bytes(_align: bigint): Result<Align, unknown> {
-    unported("rustc_abi::Align::from_bytes");
-  },
-} as const;
+export { Align } from "../rustc_abi/lib.ts";
 
 // ---- rustc_data_structures::profiling ----
 
@@ -379,67 +292,6 @@ export const DEFAULT_SYSROOT_STANDIN: PathBuf = "<rust-ts: default sysroot unpor
 export function default_sysroot(): PathBuf {
   return DEFAULT_SYSROOT_STANDIN;
 }
-
-// ---- rustc_target::spec::Target ----
-
-/**
- * rustc_target `Target` stand-in. PORT: `rustc_target` is not ported. A built-in target spec is a fixed
- * table; the stand-in carries only the fields the driver path reads before parsing, with the values of the
- * pinned upstream specs (checked against `rustc --print target-spec-json` in
- * src/rustc_driver_impl/driver.oracle.test.ts). Reading any other field calls `unported`.
- */
-export interface Target {
-  /** The tuple the spec was loaded for (not an upstream field: identifies the built-in spec). */
-  readonly __tuple: string;
-  /** `Target::pointer_width` */
-  readonly pointer_width: number;
-  /** `TargetOptions::is_like_msvc` */
-  readonly is_like_msvc: boolean;
-  /** `TargetOptions::default_codegen_backend` */
-  readonly default_codegen_backend: string | undefined;
-}
-
-/** The built-in specs the stand-in knows (hosts rust-ts runs on, plus the wasm proc-macro target). */
-export const TARGET_STANDIN_SPECS: ReadonlyMap<string, Omit<Target, "__tuple">> = new Map([
-  ["aarch64-apple-darwin", { pointer_width: 64, is_like_msvc: false, default_codegen_backend: undefined }],
-  ["x86_64-apple-darwin", { pointer_width: 64, is_like_msvc: false, default_codegen_backend: undefined }],
-  ["x86_64-unknown-linux-gnu", { pointer_width: 64, is_like_msvc: false, default_codegen_backend: undefined }],
-  ["aarch64-unknown-linux-gnu", { pointer_width: 64, is_like_msvc: false, default_codegen_backend: undefined }],
-  ["x86_64-pc-windows-msvc", { pointer_width: 64, is_like_msvc: true, default_codegen_backend: undefined }],
-  ["wasm32-wasip2", { pointer_width: 32, is_like_msvc: false, default_codegen_backend: undefined }],
-]);
-
-/** rustc_target `TargetWarnings`: built-in specs load with `TargetWarnings::empty()`. */
-export interface TargetWarnings {
-  warning_messages(): string[];
-}
-
-export const Target = {
-  /**
-   * rustc_target/src/spec/mod.rs `Target::search` (stand-in): a built-in tuple from `TARGET_STANDIN_SPECS`
-   * loads with no warnings, like upstream's `load_builtin`. Anything else (other built-ins, JSON specs,
-   * `RUST_TARGET_PATH`, errors) is unported.
-   */
-  search(target_tuple: TargetTuple, _sysroot: PathBuf, _unstable_options: boolean): Result<[Target, TargetWarnings], string> {
-    if (target_tuple.$ === "TargetTuple") {
-      const spec = TARGET_STANDIN_SPECS.get(target_tuple._0);
-      if (spec !== undefined) {
-        const target = new Proxy({ __tuple: target_tuple._0, ...spec } as Target, {
-          get(t, p, r) {
-            if (typeof p !== "string" || p in t) return Reflect.get(t, p, r);
-            return unported(`rustc_target::spec::Target::${p} (target stand-in, ${t.__tuple})`);
-          },
-        });
-        return Ok([target, { warning_messages: () => [] }]);
-      }
-    }
-    return unported(`rustc_target::spec::Target::search (${TargetTuple.tuple(target_tuple)})`);
-  },
-  /** `impl PartialEq for Target`: two stand-ins are equal when they are the same built-in spec. */
-  eq(a: Target, b: Target): boolean {
-    return a.__tuple === b.__tuple;
-  },
-} as const;
 
 // ---- deferred values ----
 
