@@ -1,7 +1,7 @@
 // Port of compiler/rustc_expand/src/module.rs
 //
 // PORT: `Path`/`PathBuf` are strings (src/std/path.ts, host path rules); `path.display()` is the identity.
-// `DirOwnership` is Copy: a Rust copy is `DirOwnership.clone(..)` where the copy is edited.
+// `DirOwnership` is Copy: a Rust copy is `clone_DirOwnership(..)` where the copy is edited.
 import type { AttrVec, Attribute, Inline, Item, ModSpans } from "../rustc_ast/lib.ts";
 import { template } from "../rustc_attr_parsing/template.ts";
 import { emit_malformed_attribute } from "../rustc_attr_parsing/validate_attr.ts";
@@ -37,12 +37,12 @@ export type DirOwnership =
 
 export const DirOwnership = {
   UnownedViaBlock: Object.freeze({ $: "UnownedViaBlock" as const }) as DirOwnership,
-
-  /** `#[derive(Clone)]` (Copy): a fresh object, so edits of the copy do not reach the original. */
-  clone(v: DirOwnership): DirOwnership {
-    return v.$ === "Owned" ? { $: "Owned", relative: v.relative } : v;
-  },
 };
+
+/** `#[derive(Clone)]` (Copy): a fresh object, so edits of the copy do not reach the original. */
+export function clone_DirOwnership(v: DirOwnership): DirOwnership {
+  return v.$ === "Owned" ? { $: "Owned", relative: v.relative } : v;
+}
 
 // Public for rustfmt usage.
 export interface ModulePathSuccess {
@@ -135,7 +135,7 @@ export function mod_dir_path(
   inline: Inline,
 ): [string, DirOwnership] {
   // PORT: `mut dir_ownership` is a by-value Copy parameter; edit a copy.
-  dir_ownership = DirOwnership.clone(dir_ownership);
+  dir_ownership = clone_DirOwnership(dir_ownership);
   if (inline.$ === "Yes") {
     const file_path = mod_file_path_from_attr(sess, attrs, module.dir_path);
     if (file_path !== undefined) {

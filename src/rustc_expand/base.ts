@@ -103,7 +103,7 @@ import { MacroBodyStability_diagnostic, TraceMacro_diagnostic } from "./diagnost
 import type { AstFragment, ExpansionConfig, Invocation } from "./expand.ts";
 import { MacroExpander } from "./expand.ts";
 import { type MacroRulesMacroExpander, ParserAnyMacro } from "./mbe/macro_rules.ts";
-import { DirOwnership } from "./module.ts";
+import { clone_DirOwnership, type DirOwnership } from "./module.ts";
 import type { MacroStat } from "./stats.ts";
 
 type Parser = parser.Parser;
@@ -1470,18 +1470,11 @@ export class ExpansionData {
     public lint_node_id: NodeId,
     public is_trailing_mac: boolean,
   ) {}
+}
 
-  /** `#[derive(Clone)]`: `Rc<ModuleData>` is shared, `DirOwnership` (Copy) is copied. */
-  clone(): ExpansionData {
-    return new ExpansionData(
-      this.id,
-      this.depth,
-      this.module,
-      DirOwnership.clone(this.dir_ownership),
-      this.lint_node_id,
-      this.is_trailing_mac,
-    );
-  }
+/** `#[derive(Clone)]`: `Rc<ModuleData>` is shared, `DirOwnership` (Copy) is copied. */
+export function clone_ExpansionData(v: ExpansionData): ExpansionData {
+  return new ExpansionData(v.id, v.depth, v.module, clone_DirOwnership(v.dir_ownership), v.lint_node_id, v.is_trailing_mac);
 }
 
 /// One of these is made during expansion and incrementally updated as we go;
