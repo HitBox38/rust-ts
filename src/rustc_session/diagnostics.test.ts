@@ -10,6 +10,8 @@
 // from the lexer's token literal through `LitKind::from_token_lit` + `report_lit_error` (rustc_parse),
 // emitted by an `AnnotateSnippetEmitter` into a byte buffer, then `print_error_count`.
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { ast, token } from "../rustc_ast/lib.ts";
 import { AnnotateSnippetEmitter } from "../rustc_errors/annotate_snippet_emitter_writer.ts";
 import { DecorateDiagCompat, Diag, DiagCtxt, DiagCtxtFlags_default } from "../rustc_errors/lib.ts";
@@ -305,4 +307,13 @@ test("utils: extra_compiler_flags / was_invoked_from_cargo", () => {
   // `bun test` is invoked without -Z/-C/--crate-type flags.
   expect(extra_compiler_flags()).toBeUndefined();
   expect(was_invoked_from_cargo()).toBe(process.env["CARGO_CRATE_NAME"] !== undefined);
+});
+
+// Review w456b S3: `CFG_VER_DATE` is a second copy of the pin's commit date; it must follow a re-pin.
+// Read from the source text: the const is module-private and only a test needs it.
+test("CFG_VER_DATE equals UPSTREAM.json rust.commitDate", () => {
+  const root = join(import.meta.dir, "..", "..");
+  const upstream = JSON.parse(readFileSync(join(root, "UPSTREAM.json"), "utf8")) as { rust: { commitDate: string } };
+  const m = /^const CFG_VER_DATE: string \| undefined = "([^"]*)";$/m.exec(readFileSync(join(import.meta.dir, "diagnostics.ts"), "utf8"));
+  expect(m?.[1]).toBe(upstream.rust.commitDate);
 });

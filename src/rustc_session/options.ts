@@ -220,6 +220,28 @@ export interface ExtendedTargetModifierInfo {
   tech_value: string;
 }
 
+// PORT: `mod target_modifier_consistency_check` (options.rs:90, between `struct TargetModifier` and its
+// impl; the TS class holds both, so the module comes first) -> a const object of its fns. They read
+// `sess.target` / `sess.sanitizers()` (session.rs, rustc_target), which are not ported yet.
+const target_modifier_consistency_check = {
+  // rustc: compiler/rustc_session/src/options.rs:92 sanitizer
+  sanitizer(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
+    unported("rustc_session::options::target_modifier_consistency_check::sanitizer (Session::target, SanitizerSet::combine_with_defaults)");
+  },
+  // rustc: compiler/rustc_session/src/options.rs:124 sanitizer_cfi_normalize_integers
+  sanitizer_cfi_normalize_integers(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
+    unported("rustc_session::options::target_modifier_consistency_check::sanitizer_cfi_normalize_integers (Session::sanitizers)");
+  },
+  // rustc: compiler/rustc_session/src/options.rs:139 sanitizer_cfi_minimal_runtime
+  sanitizer_cfi_minimal_runtime(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
+    unported("rustc_session::options::target_modifier_consistency_check::sanitizer_cfi_minimal_runtime (Session::sanitizers)");
+  },
+  // rustc: compiler/rustc_session/src/options.rs:154 target_cpu
+  target_cpu(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
+    unported("rustc_session::options::target_modifier_consistency_check::target_cpu (Session::target)");
+  },
+};
+
 /// A recorded -Zopt_name=opt_value (or -Copt_name=opt_value)
 /// which alter the ABI or effectiveness of exploit mitigations.
 export class TargetModifier {
@@ -284,27 +306,6 @@ export function TargetModifier_cmp(a: TargetModifier, b: TargetModifier): number
   const c = OptionsTargetModifiers_cmp(a.opt, b.opt);
   return c !== 0 ? c : str_cmp(a.value_name, b.value_name);
 }
-
-// PORT: `mod target_modifier_consistency_check` -> a const object of its fns. They read
-// `sess.target` / `sess.sanitizers()` (session.rs, rustc_target), which are not ported yet.
-const target_modifier_consistency_check = {
-  // rustc: compiler/rustc_session/src/options.rs:92 sanitizer
-  sanitizer(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
-    unported("rustc_session::options::target_modifier_consistency_check::sanitizer (Session::target, SanitizerSet::combine_with_defaults)");
-  },
-  // rustc: compiler/rustc_session/src/options.rs:124 sanitizer_cfi_normalize_integers
-  sanitizer_cfi_normalize_integers(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
-    unported("rustc_session::options::target_modifier_consistency_check::sanitizer_cfi_normalize_integers (Session::sanitizers)");
-  },
-  // rustc: compiler/rustc_session/src/options.rs:139 sanitizer_cfi_minimal_runtime
-  sanitizer_cfi_minimal_runtime(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
-    unported("rustc_session::options::target_modifier_consistency_check::sanitizer_cfi_minimal_runtime (Session::sanitizers)");
-  },
-  // rustc: compiler/rustc_session/src/options.rs:154 target_cpu
-  target_cpu(_sess: Session, _l: TargetModifier, _r: TargetModifier | undefined): boolean {
-    unported("rustc_session::options::target_modifier_consistency_check::target_cpu (Session::target)");
-  },
-};
 
 // rustc: compiler/rustc_session/src/options.rs:216 tmod_push_impl
 export function tmod_push_impl(opt: OptionsTargetModifiers, tmod_vals: Map<OptionsTargetModifiers, string>, tmods: TargetModifier[]): void {
