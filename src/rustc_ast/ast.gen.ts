@@ -3200,9 +3200,9 @@ export function clone_InlineAsm(v: InlineAsm): InlineAsm {
   return {
     asm_macro: v.asm_macro,
     template: v.template.map(clone_InlineAsmTemplatePiece),
-    template_strs: v.template_strs.slice(),
+    template_strs: v.template_strs.map((x) => [...x] as [Symbol, Symbol | undefined, Span]),
     operands: v.operands.map((x) => [clone_InlineAsmOperand(x[0]), x[1]] as [InlineAsmOperand, Span]),
-    clobber_abis: v.clobber_abis.slice(),
+    clobber_abis: v.clobber_abis.map((x) => [...x] as [Symbol, Span]),
     options: v.options,
     line_spans: v.line_spans.slice(),
   };
@@ -4712,7 +4712,7 @@ export const debug_DelegationSuffixes: Debug<DelegationSuffixes> = (v, f) => {
 export function clone_DelegationSuffixes(v: DelegationSuffixes): DelegationSuffixes {
   switch (v.$) {
     case "List":
-      return { $: "List", _0: v._0.slice() };
+      return { $: "List", _0: v._0.map((x) => [...x] as [Ident, Ident | undefined]) };
     case "Glob":
       return { $: "Glob", _0: v._0 };
   }

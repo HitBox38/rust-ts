@@ -637,3 +637,21 @@ describe("ast_traits.rs", () => {
     expect(HasAttrs.Option(HasAttrs.Expr).attrs(undefined)).toEqual([]);
   });
 });
+
+// Review w456a codegen-derive L3: walkable.gen.ts / mut_walkable.gen.ts and visit.ts / mut_visit.ts import
+// each other. Every supported entry (visit.ts, mut_visit.ts, the crate's lib.ts) must load in a fresh
+// process; entering a `.gen.ts` first is the documented TDZ hazard (see their headers).
+describe("fresh-process load order", () => {
+  const load = (mod: string): number => {
+    const r = Bun.spawnSync([process.execPath, "-e", `await import(${JSON.stringify(`${import.meta.dir}/${mod}`)})`], { stdout: "ignore", stderr: "pipe" });
+    return r.exitCode;
+  };
+  for (const mod of ["visit.ts", "mut_visit.ts", "lib.ts"]) {
+    test(`entering through ${mod} loads`, () => {
+      expect(load(mod)).toBe(0);
+    });
+  }
+  test("entering through walkable.gen.ts first fails (the documented hazard)", () => {
+    expect(load("walkable.gen.ts")).not.toBe(0);
+  });
+});
