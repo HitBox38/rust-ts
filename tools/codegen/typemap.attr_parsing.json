@@ -1,0 +1,24 @@
+{
+  "//": [
+    "Type-map additions of lane attr-parse-b (rustc_attr_parsing diagnostics.rs), merged by",
+    "tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_errors::DiagArgValue", "rustc_error_messages::DiagArgValue"], "ts": "DiagArgValue", "import": "src/rustc_error_messages/lib.ts", "types": ["DiagArgValue"], "values": ["debug_DiagArgValue"], "debug": "debug_DiagArgValue($v, $f)", "note": "rustc_errors re-exports rustc_error_messages::DiagArgValue" },
+    {
+      "paths": ["rustc_errors::DiagSymbolList", "rustc_errors::diagnostic_impls::DiagSymbolList"],
+      "ts": "DiagSymbolList<$0>",
+      "import": "src/rustc_errors/diagnostic_impls.ts",
+      "types": ["DiagSymbolList"],
+      "debug": null,
+      "default_args": [{ "kind": "path", "path": { "global": false, "segments": [{ "name": "rustc_span", "args": [] }, { "name": "Symbol", "args": [] }] }, "text": "rustc_span::Symbol" }],
+      "note": "pub struct DiagSymbolList<S = Symbol>(Vec<S>)"
+    },
+    { "paths": ["rustc_attr_parsing::AttributeTemplate", "rustc_attr_parsing::template::AttributeTemplate"], "ts": "AttributeTemplate", "import": "src/rustc_attr_parsing/template.ts", "types": ["AttributeTemplate"], "debug": null, "note": "hand-written class (template.ts)" },
+    { "paths": ["rustc_attr_parsing::context::Suggestion"], "ts": "Suggestion", "import": "src/rustc_attr_parsing/context.ts", "types": ["Suggestion"], "debug": null, "note": "hand-written (context.ts)" },
+    { "paths": ["rustc_attr_ir::MirDialect", "rustc_attr_ir::data_structures::MirDialect"], "ts": "MirDialect", "import": "src/rustc_attr_ir/lib.ts", "types": ["MirDialect"], "values": ["debug_MirDialect"], "debug": "debug_MirDialect($v, $f)", "note": "for sets outside rustc_attr_ir" },
+    { "paths": ["rustc_attr_ir::MirPhase", "rustc_attr_ir::data_structures::MirPhase"], "ts": "MirPhase", "import": "src/rustc_attr_ir/lib.ts", "types": ["MirPhase"], "values": ["debug_MirPhase"], "debug": "debug_MirPhase($v, $f)", "note": "for sets outside rustc_attr_ir" }
+  ]
+}

@@ -418,10 +418,14 @@ export function compare(expected: ExpandedImpl[], actual: ExpandedImpl[], file: 
   const diffs: string[] = [];
   let same = 0;
   const key = (x: ExpandedImpl) => `${x.kind} ${x.item}`;
-  const act = new Map(actual.map((a) => [key(a), a]));
+  // Items of different inline modules may share a name (`unexpected_cfg_name::CodeSuggestion`,
+  // `unexpected_cfg_value::CodeSuggestion`): equal keys are matched in source order.
+  const act = new Map<string, ExpandedImpl[]>();
+  for (const a of actual) act.set(key(a), [...(act.get(key(a)) ?? []), a]);
   for (const e of expected) {
-    const a = act.get(key(e));
-    act.delete(key(e));
+    const q = act.get(key(e));
+    const a = q?.shift();
+    if (q && !q.length) act.delete(key(e));
     if (!a) {
       diffs.push(`${file}: ${key(e)}: not generated`);
       continue;

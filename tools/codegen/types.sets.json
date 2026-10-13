@@ -160,6 +160,15 @@
     "discriminant": [],
     "skip": []
   },
+  "rustc_attr_parsing": {
+    "files": [
+      "compiler/rustc_attr_parsing/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  },
   "rustc_parse_format": {
     "files": [
       "compiler/rustc_parse_format/src/lib.rs"
