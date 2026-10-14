@@ -4,6 +4,27 @@
 // Load order (PORTING §5 "Methods defined in another file"): the defining modules first, then the
 // installers that put the generated query methods and the hooks on the `TyCtxt` family of classes.
 import "./ty/context.ts";
+// ty extension modules (lane ty-contract; docs/handoff/ty-contract.md "Init order"): they put the methods of
+// `Ty`, `RawList`, `Const`, `TyCtxt`, ... defined in other upstream files on the prototypes, so they load after
+// the defining modules (context.ts pulls in mod.ts, list.ts, generic_args.ts, predicate.ts and rustc_type_ir's
+// sty/*.ts). Alphabetical, then context/impl_interner.ts.
+import "./ty/abstract_const.ts";
+import "./ty/assoc.ts";
+import "./ty/closure.ts";
+import "./ty/consts.ts";
+import "./ty/diagnostics.ts";
+import "./ty/erase_regions.ts";
+import "./ty/error.ts";
+import "./ty/fold.ts";
+import "./ty/inhabitedness/mod.ts";
+import "./ty/intrinsic.ts";
+import "./ty/normalize_erasing_regions.ts";
+import "./ty/print/pretty.ts";
+import "./ty/sty.ts";
+import "./ty/trait_def.ts";
+import "./ty/util.ts";
+import "./ty/visit.ts";
+import "./ty/context/impl_interner.ts";
 import { define_hooks } from "./hooks.ts";
 import { define_query_api } from "./query/query_api.ts";
 

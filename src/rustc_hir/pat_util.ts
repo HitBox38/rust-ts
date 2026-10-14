@@ -6,7 +6,7 @@
 import { BindingMode, ByRef } from "../rustc_ast/lib.ts";
 import type { Mutability } from "../rustc_ast/lib.ts";
 import type { HirId } from "../rustc_hir_id/lib.ts";
-import { CrateNum, DefIndex, type DefId } from "../rustc_span/def_id.ts";
+import { type DefId, DefIdSet } from "../rustc_span/def_id.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import type { Ident } from "../rustc_span/symbol.ts";
 import { Pat } from "./hir.ts";
@@ -181,12 +181,11 @@ Pat.prototype.necessary_variants = function (this: Pat): DefId[] {
   });
   // We remove duplicates by inserting into a hash set to avoid re-ordering
   // the bounds
-  // PORT: `DefIdSet` keyed on `krate * 2^32 + index` (plan-m3 D5; lane ty-contract adds `DefIdSet`).
-  const duplicates = new Set<number>();
+  const duplicates = new DefIdSet();
+  // PORT: `HashSet::insert` returns whether the value was new.
   variants = variants.filter((def_id) => {
-    const key = CrateNum.as_u32(def_id.krate) * 2 ** 32 + DefIndex.as_u32(def_id.index);
-    if (duplicates.has(key)) return false;
-    duplicates.add(key);
+    if (duplicates.has(def_id)) return false;
+    duplicates.add(def_id);
     return true;
   });
   return variants;

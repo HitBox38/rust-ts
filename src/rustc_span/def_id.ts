@@ -1,5 +1,6 @@
 // Port of compiler/rustc_span/src/def_id.rs
 import { AtomicRef } from "../rustc_data_structures/atomic_ref.ts";
+import { KeyedMap, KeyedSet } from "../rust_ts/keyed.ts";
 import { debug_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import { debug_Hash64, Hash64 } from "../rustc_hashes/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
@@ -291,8 +292,33 @@ export const DEF_ID_DEBUG: AtomicRef<DefIdDebugFn> = AtomicRef.new<DefIdDebugFn>
 // rustc: compiler/rustc_span/src/def_id.rs:345 fmt
 export const debug_DefId: Debug<DefId> = (v, f) => DEF_ID_DEBUG.deref()(v, f);
 
-// PORT: `define_id_collections!(DefIdMap, DefIdSet, DefIdMapEntry, DefId)` not ported: `DefId` is
-// not a primitive, so a JS Map keyed on it needs a key strategy (root decision).
+/**
+ * PORT (docs/plan-m3.md D5): the JS map key of a `DefId`, `krate * 2^32 + index` (the `u64` that
+ * `impl Hash for DefId` hashes, def_id.rs:269). Equal exactly when the `DefId`s are; below 2^53 for every
+ * `CrateNum` under 2^21 (checked).
+ */
+export function DefId_key(d: DefId): number {
+  const k = d.krate * 0x1_0000_0000 + d.index;
+  if (!Number.isSafeInteger(k)) panic(`DefId_key: crate number ${d.krate} too large for an exact key`);
+  return k;
+}
+
+// rustc_data_structures::define_id_collections!(DefIdMap, DefIdSet, DefIdMapEntry, DefId);
+// PORT (D5): `DefIdMap<T>` = `UnordMap<DefId, T>` and `DefIdSet` = `UnordSet<DefId>` are `Map`/`Set` subclasses
+// keyed by `DefId_key` (rust_ts/keyed.ts): `get`/`set`/`has` compare `DefId`s by value, iteration is insertion
+// order (upstream only reads an `UnordMap` through sorted / order-independent APIs). `DefIdMapEntry` (the entry API)
+// is `Map` get/set.
+export class DefIdMap<T> extends KeyedMap<DefId, T> {
+  constructor(entries?: Iterable<readonly [DefId, T]>) {
+    super(DefId_key, entries);
+  }
+}
+
+export class DefIdSet extends KeyedSet<DefId> {
+  constructor(values?: Iterable<DefId>) {
+    super(DefId_key, values);
+  }
+}
 
 /// A `LocalDefId` is equivalent to a `DefId` with `krate == LOCAL_CRATE`. Since
 /// we encode this information in the type, we can ensure at compile time that
