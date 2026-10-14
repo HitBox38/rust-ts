@@ -1,5 +1,6 @@
-// Port of compiler/rustc_middle/src/ty/print/pretty.rs, in two lane regions: ty-print-a (lines 1..1704) and
-// ty-print-b (lines 1705..end). Each region has its own import block; root deduplicates them at merge.
+// Port of compiler/rustc_middle/src/ty/print/pretty.rs (docs/plan-m3.md D7). Two lanes share this file:
+// lane ty-print-a ports pretty.rs:1..1704, lane ty-print-b pretty.rs:1705..end. Each region has its own import
+// block; edit only your own region.
 //
 // Extension module (docs/handoff/ty-contract.md "Init order"): rustc_middle/lib.ts loads it after the classes;
 // its top-level code may touch only the classes it imports, never another extension module.
@@ -7,6 +8,17 @@
 // ==== lane ty-print-a: pretty.rs:1..1704 ====
 
 // ==== lane ty-print-b: pretty.rs:1705..end ====
+// PORT decisions (docs/handoff/ty-print-b.md). This region follows lane ty-print-a's conventions (its handoff):
+// `Result<(), PrintError>` is `PrintResult` and `?` is `if ((r = ..).$ === "Err") return r;`; `Printer` /
+// `PrettyPrinter` are abstract classes; `write!(p, "..", args)` is one `write_str` of the formatted text; the impl
+// `Print<P> for X` is the function `print_X(self, p)`, generic impls take their parameters' descriptors last.
+// - The provided methods of `PrettyPrinter` in pretty.rs:1705..2055 are `PrettyPrinter.prototype` assignments
+//   (declared on the class by the `declare module` below); `FmtPrinter` overrides by subclassing.
+// - `FmtPrinter(Box<FmtPrinterData>)` keeps its tuple field `_0`; `Deref`/`DerefMut` to the data are realised as
+//   that field (PORTING §8), so `self.empty_path` is `this._0.empty_path`.
+// - `impl fmt::Display for X` (`forward_display_to_print!`) is `display_X(self): string`; a `fmt::Error` from the
+//   printer panics as `ToString::to_string` does (lane ty-print-a's `IrPrint_print`).
+// - `tcx.lift(x)` is the identity (rustc's `Lift` is skipped, PORTING §3).
 // ---- lane ty-print-b imports ----
 import { type ExternAbi, display_ExternAbi } from "../../../rustc_abi/extern_abi.ts";
 import { Size } from "../../../rustc_abi/lib.ts";
@@ -17,7 +29,7 @@ import type { DiagArgValue } from "../../../rustc_error_messages/lib.ts";
 import { DefKind, Namespace } from "../../../rustc_hir/def.ts";
 import { ItemKind, Safety } from "../../../rustc_hir/hir.ts";
 import { DefPathData, type DisambiguatedDefPathData } from "../../../rustc_hir_id/definitions.ts";
-import { CrateNum, DefId, DefIdMap, DefIdSet, LOCAL_CRATE, debug_DefId } from "../../../rustc_span/def_id.ts";
+import { CrateNum, DefId, DefIdMap, DefIdSet, DefId_eq, LOCAL_CRATE, debug_DefId } from "../../../rustc_span/def_id.ts";
 import { Ident, Symbol, display_Symbol, kw } from "../../../rustc_span/symbol.ts";
 import { Limit } from "../../../rustc_structures/limit.ts";
 import { BoundVar } from "../../../rustc_type_ir/lib.ts";
@@ -25,7 +37,6 @@ import { debug_BoundVariableKind } from "../../../rustc_type_ir/binder.gen.ts";
 import { debug_BoundTy, debug_Placeholder, visit_with_Binder } from "../../../rustc_type_ir/binder.ts";
 import type { AliasTerm } from "../../../rustc_type_ir/ty/alias.ts";
 import type { BoundConstness, CoercePredicate, SubtypePredicate } from "../../../rustc_type_ir/predicate.ts";
-import type { TypeAndMut } from "../../../rustc_type_ir/ty_kind.ts";
 import type {
   AliasTy,
   Binder,
@@ -36,10 +47,10 @@ import type {
   ClosureKind,
   ConstVid,
   DebruijnIndex,
+  EarlyBinder,
   ExistentialPredicate,
   ExistentialProjection,
   ExistentialTraitRef,
-  FnSig,
   HostEffectClause,
   NormalizesTo,
   OutlivesClause,
@@ -53,449 +64,836 @@ import type {
   TraitRef,
   TyVid,
   TypeFlags as TypeFlagsT,
+  Unnormalized,
+  ValTreeKind,
 } from "../../../rustc_type_ir/decls.ts";
-import { INNERMOST } from "../../../rustc_type_ir/decls.ts";
+import { INNERMOST, type Pending } from "../../../rustc_type_ir/decls.ts";
 import { TypeFlags } from "../../../rustc_type_ir/flags.ts";
-import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../../rustc_type_ir/fold.ts";
-import { fold_with_ClauseKind, try_fold_with_ClauseKind, visit_with_ClauseKind } from "../../../rustc_type_ir/predicate_kind.gen.ts";
-import { fold_with_PredicateKind, try_fold_with_PredicateKind, visit_with_PredicateKind } from "../../../rustc_type_ir/predicate_kind.gen.ts";
+import { type FallibleTypeFolder, type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../../rustc_type_ir/fold.ts";
+import {
+  fold_with_ClauseKind,
+  fold_with_PredicateKind,
+  try_fold_with_ClauseKind,
+  try_fold_with_PredicateKind,
+  visit_with_ClauseKind,
+  visit_with_PredicateKind,
+} from "../../../rustc_type_ir/predicate_kind.gen.ts";
 import { debug_RegionVid } from "../../../rustc_type_ir/region_kind.ts";
 import { Const, Region, debug_Region } from "../../../rustc_type_ir/sty/mod.ts";
 import { AliasTerm as AliasTermC } from "../../../rustc_type_ir/term_kind.ts";
 import { ClosureArgs as ClosureArgsC, debug_ClosureArgs } from "../../../rustc_type_ir/ty_kind/closure.ts";
-import { Binder_map_bound, Binder_skip_binder, DebruijnIndex_shifted_in, DebruijnIndex_shifted_out, FnSig as FnSigC } from "../../../rustc_type_ir/ty_kind.ts";
+import {
+  Binder_map_bound,
+  Binder_skip_binder,
+  DebruijnIndex_shifted_in,
+  DebruijnIndex_shifted_out,
+  FnSig as FnSigC,
+  type FnSig,
+  fold_with_FnSig,
+  try_fold_with_FnSig,
+  type TypeAndMut,
+  visit_with_FnSig,
+} from "../../../rustc_type_ir/ty_kind.ts";
 import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "../../../rustc_type_ir/visit.ts";
 import { intern_key } from "../../../rust_ts/intern_key.ts";
 import { KeyedMap } from "../../../rust_ts/keyed.ts";
-import { type Debug, type Fmt, PLAIN, PRETTY, debug_char, debug_str } from "../../../std/fmt.ts";
+import { type Debug, type Fmt, PLAIN, PRETTY, debug_char, debug_str, debug_struct } from "../../../std/fmt.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
 import { assert_eq, panic, unported, unreachable, unwrap } from "../../../std/panic.ts";
+import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
 import { utf8_len } from "../../../std/str.ts";
 import type { Providers } from "../../queries.gen.ts";
 import { with_ } from "../context/tls.ts";
 import { TyCtxt } from "../context.ts";
-import type { AdtDef, Allocation, ConstAllocation, Instance, ScalarInt, Scalar, ValTree, Value } from "../decls.ts";
+import type { AdtDef, Allocation, AssocItem, ConstAllocation, Instance, Pattern, ScalarInt, Scalar, ValTree, Value } from "../decls.ts";
 import { GenericArg } from "../generic_args.ts";
 import type { GenericArgs } from "../generic_args.ts";
 import type { Generics } from "../generics.ts";
 import type { Clauses, List } from "../list.ts";
-import { Term, Ty, debug_Ty } from "../mod.ts";
-import { Visibility } from "../mod.ts";
+import { Term, Ty, Visibility, debug_Ty } from "../mod.ts";
 import type { Clause, Predicate } from "../predicate.ts";
 import type { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
 import type { ParamConst, ParamTy } from "../sty.ts";
 import type { IntoQueryKey } from "../../query/into_query_key.ts";
 import { into_query_key_DefId } from "../../query/into_query_key.ts";
 
-// PORT (lane ty-print-b): conventions of this region (docs/handoff/ty-print-b.md, "PORT decisions").
-// 1. `Result<(), PrintError>` (`PrintError = fmt::Error`) is `void`, `Result<bool, PrintError>` is `boolean`, and `?`
-//    is dropped: no upstream `Printer` ever produces the error (`FmtPrinter::write_str` always returns `Ok`), so the
-//    `Err` arm is dead code. `.unwrap()` of a print result is dropped likewise.
-// 2. `trait Print<P>` (print/mod.rs:17) is a D4-style descriptor over the printed type (`Print<T>`, below); each
-//    `impl Print<P> for X` is a descriptor `print_<X>`, generic impls are functions from descriptors to descriptors.
-//    `x.print(p)` is `print_<X>.print(x, p)`.
-// 3. `impl fmt::Display for X` is `display_<X>(self): string` (Display for these types ignores the formatter flags).
-// 4. `FmtPrinter(Box<FmtPrinterData>)` keeps its tuple field `_0`; `Deref`/`DerefMut` are realised as that field
-//    (PORTING §8), so `self.empty_path` is `this._0.empty_path`.
-// 5. `tcx.lift(x)` is the identity (rustc's `Lift` is skipped, PORTING §3).
-// 6. The provided methods of `PrettyPrinter` in pretty.rs:1705..2055 are `PrettyPrinter_provided_b` (PORTING §8);
-//    root merges it into lane ty-print-a's `PrettyPrinter_provided`.
+// ==== DELETE AT MERGE: lane ty-print-a's items (print/mod.rs and pretty.rs:1..1704) this region uses. ====
+// Same names and signatures as lane/ty-print-a's port (its module-level stand-ins included), so deleting this block is
+// the whole reconciliation: lane a's region imports `Print`, `PRINT_OK`, `PrintError`, `PrintResult`, `print_Const`,
+// `print_List_PolyExistentialPredicate`, `print_Region`, `print_Ty`, `Printer` from ./mod.ts into this module and
+// defines the rest at module level (before this region, which needs `PrettyPrinter` at load). Bodies are lane a's
+// (upstream) where this region's tests reach them, `unported` otherwise. No markers: lane a's port carries them.
 
-/** PORT: the provided methods of `PrettyPrinter` from pretty.rs:1705..2055 (PORTING §8; see the region header). */
-export const PrettyPrinter_provided_b = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1705 pretty_print_const_scalar
-  pretty_print_const_scalar(self: PrettyPrinter, scalar: Scalar, ty: Ty): void {
-    const scalar_ = scalar as unknown as ScalarShape;
-    switch (scalar_.$) {
-      case "Ptr": {
-        const ptr = scalar_._0;
-        return self.pretty_print_const_scalar_ptr(ptr, ty);
-      }
-      case "Int": {
-        const int = scalar_._0;
-        return self.pretty_print_const_scalar_int(int, ty, /* print_ty */ true);
-      }
+/** `std::fmt::Error`. */
+export type PrintError = { readonly $: "Error" };
+/** `Result<(), PrintError>`. */
+export type PrintResult = Result<undefined, PrintError>;
+/** `Ok(())`. */
+export const PRINT_OK: PrintResult = Ok(undefined);
+/** `pub trait Print<P> { fn print(&self, p: &mut P) -> Result<(), PrintError>; }`: the impl for `T` is a function. */
+export type Print<T, P extends Printer = PrettyPrinter> = (self: T, p: P) => PrintResult;
+
+/** `trait Printer` (print/mod.rs:28). */
+export abstract class Printer {
+  abstract tcx(): TyCtxt;
+  print_def_path(def_id: DefId, args: readonly GenericArg[]): PrintResult {
+    return this.default_print_def_path(def_id, args);
+  }
+  print_impl_path(_impl_def_id: DefId, _args: readonly GenericArg[]): PrintResult {
+    return unported("rustc_middle::ty::print::Printer::print_impl_path (lane ty-print-a)");
+  }
+  abstract print_region(region: Region): PrintResult;
+  abstract print_type(ty: Ty): PrintResult;
+  abstract print_dyn_existential(predicates: List<PolyExistentialPredicate>): PrintResult;
+  abstract print_const(ct: Const): PrintResult;
+  abstract print_crate_name(cnum: CrateNum): PrintResult;
+  abstract print_path_with_simple(print_prefix: (p: this) => PrintResult, disambiguated_data: DisambiguatedDefPathData): PrintResult;
+  abstract print_path_with_impl(print_prefix: (p: this) => PrintResult, self_ty: Ty, trait_ref: TraitRef | undefined): PrintResult;
+  abstract print_path_with_generic_args(print_prefix: (p: this) => PrintResult, args: readonly GenericArg[]): PrintResult;
+  abstract print_path_with_qualified(self_ty: Ty, trait_ref: TraitRef | undefined): PrintResult;
+  print_coroutine_with_kind(_def_id: DefId, _parent_args: readonly GenericArg[], _kind: Ty): PrintResult {
+    return unported("rustc_middle::ty::print::Printer::print_coroutine_with_kind (lane ty-print-a)");
+  }
+  reset_path(): PrintResult {
+    return PRINT_OK;
+  }
+  should_omit_parent_def_path(_parent_def_id: DefId): boolean {
+    return false;
+  }
+  default_print_def_path(_def_id: DefId, _args: readonly GenericArg[]): PrintResult {
+    return unported("rustc_middle::ty::print::Printer::default_print_def_path (lane ty-print-a)");
+  }
+  default_print_impl_path(_impl_def_id: DefId, _self_ty: Ty, _impl_trait_ref: TraitRef | undefined): PrintResult {
+    return unported("rustc_middle::ty::print::Printer::default_print_impl_path (lane ty-print-a)");
+  }
+}
+
+/** `impl Print<P> for Region` (print/mod.rs:354). */
+export function print_Region(self: Region, p: Printer): PrintResult {
+  return p.print_region(self);
+}
+/** `impl Print<P> for Ty` (print/mod.rs:360). */
+export function print_Ty(self: Ty, p: Printer): PrintResult {
+  return p.print_type(self);
+}
+/** `impl Print<P> for &List<PolyExistentialPredicate>` (print/mod.rs:412). */
+export function print_List_PolyExistentialPredicate(self: List<PolyExistentialPredicate>, p: Printer): PrintResult {
+  return p.print_dyn_existential(self);
+}
+/** `impl Print<P> for Const` (print/mod.rs:418). */
+export function print_Const(self: Const, p: Printer): PrintResult {
+  return p.print_const(self);
+}
+
+/** A `thread_local!` `Cell<T>`. */
+class TlCell<T> {
+  constructor(private value: T) {}
+  get(): T {
+    return this.value;
+  }
+  set(v: T): void {
+    this.value = v;
+  }
+  replace(v: T): T {
+    const old = this.value;
+    this.value = v;
+    return old;
+  }
+}
+const FORCE_IMPL_FILENAME_LINE = new TlCell<boolean>(false);
+const SHOULD_PREFIX_WITH_CRATE_NAME = new TlCell<boolean>(false);
+const SHOULD_PREFIX_WITH_CRATE = new TlCell<boolean>(false);
+const FORCE_TRIMMED_PATH = new TlCell<boolean>(false);
+const REDUCED_QUERIES = new TlCell<boolean>(false);
+const RTN_MODE = new TlCell<RtnMode>("ForDiagnostic");
+
+/// Rendering style for RTN types.
+export type RtnMode = "ForDiagnostic" | "ForSignature" | "ForSuggestion";
+
+/** `pub macro $name($e:expr) { { let _guard = $helper::new(); $e } }` */
+function define_helper_macro<R>(tl: TlCell<boolean>, e: () => R): R {
+  const old = tl.replace(true);
+  try {
+    return e();
+  } finally {
+    tl.set(old);
+  }
+}
+export function with_reduced_queries(): boolean;
+export function with_reduced_queries<R>(e: () => R): R;
+export function with_reduced_queries<R>(e?: () => R): boolean | R {
+  return e === undefined ? REDUCED_QUERIES.get() : define_helper_macro(REDUCED_QUERIES, e);
+}
+export function with_forced_impl_filename_line(): boolean;
+export function with_forced_impl_filename_line<R>(e: () => R): R;
+export function with_forced_impl_filename_line<R>(e?: () => R): boolean | R {
+  return e === undefined ? FORCE_IMPL_FILENAME_LINE.get() : define_helper_macro(FORCE_IMPL_FILENAME_LINE, e);
+}
+export function with_resolve_crate_name(): boolean;
+export function with_resolve_crate_name<R>(e: () => R): R;
+export function with_resolve_crate_name<R>(e?: () => R): boolean | R {
+  return e === undefined ? SHOULD_PREFIX_WITH_CRATE_NAME.get() : define_helper_macro(SHOULD_PREFIX_WITH_CRATE_NAME, e);
+}
+export function with_crate_prefix(): boolean;
+export function with_crate_prefix<R>(e: () => R): R;
+export function with_crate_prefix<R>(e?: () => R): boolean | R {
+  return e === undefined ? SHOULD_PREFIX_WITH_CRATE.get() : define_helper_macro(SHOULD_PREFIX_WITH_CRATE, e);
+}
+export function with_forced_trimmed_paths(): boolean;
+export function with_forced_trimmed_paths<R>(e: () => R): R;
+export function with_forced_trimmed_paths<R>(e?: () => R): boolean | R {
+  return e === undefined ? FORCE_TRIMMED_PATH.get() : define_helper_macro(FORCE_TRIMMED_PATH, e);
+}
+
+export type WrapBinderMode = "ForAll" | "Unsafe";
+export const WrapBinderMode = {
+  ForAll: "ForAll",
+  Unsafe: "Unsafe",
+  start_str(self: WrapBinderMode): string {
+    switch (self) {
+      case "ForAll":
+        return "for<";
+      case "Unsafe":
+        return "unsafe<";
     }
   },
+} as const;
 
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1718 pretty_print_const_scalar_ptr
-  pretty_print_const_scalar_ptr(self: PrettyPrinter, ptr: Pointer, ty: Ty): void {
-    const [prov, offset] = Pointer_prov_and_relative_offset(ptr);
-    const k = ty.kind();
-    switch (k.$) {
-      // Byte strings (&[u8; N])
-      case "Ref": {
-        const inner = k._1;
-        const ik = inner.kind();
-        if (ik.$ === "Array") {
-          const elem = ik._0;
-          const ct_len = ik._1;
-          const ek = elem.kind();
-          let len: number | undefined;
-          if (ek.$ === "Uint" && ek._0 === "U8" && (len = ct_len.try_to_target_usize(self.tcx())) !== undefined) {
-            const global_alloc = TyCtxt_try_get_global_alloc(self.tcx(), CtfeProvenance_alloc_id(prov));
-            if (global_alloc === undefined) {
-              self.write_str("<dangling pointer>");
-            } else {
-              switch (global_alloc.$) {
-                case "Memory": {
-                  const alloc = global_alloc._0;
-                  const range: AllocRange = { start: offset, size: Size.from_bytes(len) };
-                  const byte_str = Allocation_get_bytes_strip_provenance(ConstAllocation_inner(alloc), self.tcx(), range);
-                  if (byte_str !== undefined) {
-                    self.pretty_print_byte_str(byte_str);
-                  } else {
-                    self.write_str("<too short allocation>");
-                  }
-                  break;
-                }
-                // FIXME: for statics, vtables, and functions, we could in principle print more detail.
-                case "Static": {
-                  const def_id = global_alloc._0;
-                  self.write_str(`<static(${debug_DefId(def_id, PLAIN)})>`);
-                  break;
-                }
-                case "Function":
-                  self.write_str("<function>");
-                  break;
-                case "VTable":
-                  self.write_str("<vtable>");
-                  break;
-                case "TypeId":
-                  self.write_str("<typeid>");
-                  break;
-              }
-            }
-            return;
-          }
-        }
-        break;
+/** `RegionHighlightMode` (pretty.rs:188). */
+export class RegionHighlightMode {
+  constructor(
+    public highlight_regions: [[Region, number] | undefined, [Region, number] | undefined, [Region, number] | undefined],
+    public keep_regions: boolean,
+    public highlight_bound_region: [BoundRegionKind, number] | undefined,
+  ) {}
+  static default(): RegionHighlightMode {
+    return new RegionHighlightMode([undefined, undefined, undefined], false, undefined);
+  }
+  clone(): RegionHighlightMode {
+    return new RegionHighlightMode([...this.highlight_regions], this.keep_regions, this.highlight_bound_region);
+  }
+  highlighting_region(region: Region, number: number): void {
+    const num_slots = this.highlight_regions.length;
+    const first_avail_slot = this.highlight_regions.findIndex((s) => s === undefined);
+    if (first_avail_slot === -1) {
+      panic(`can only highlight ${num_slots} placeholders at a time`);
+    }
+    this.highlight_regions[first_avail_slot] = [region, number];
+    this.keep_regions = true;
+  }
+  region_highlighted(region: Region): number | undefined {
+    for (const h of this.highlight_regions) {
+      if (h !== undefined && h[0] === region) return h[1];
+    }
+    return undefined;
+  }
+  highlighting_bound_region(br: BoundRegionKind, number: number): void {
+    this.highlight_bound_region = [br, number];
+  }
+}
+
+/** `trait PrettyPrinter: Printer + fmt::Write` (pretty.rs:263). */
+export abstract class PrettyPrinter extends Printer {
+  abstract write_str(s: string): PrintResult;
+  pretty_print_value_path(def_id: DefId, args: readonly GenericArg[]): PrintResult {
+    return this.print_def_path(def_id, args);
+  }
+  pretty_print_in_binder<T>(value: Binder<T>, print_T: Print<T, this>, _d_T: TypeFoldable<T>): PrintResult {
+    return print_T(Binder_skip_binder(value), this);
+  }
+  wrap_binder<T>(value: Binder<T>, _mode: WrapBinderMode, f: (value: T, p: this) => PrintResult, _d_T: TypeFoldable<T>): PrintResult {
+    return f(Binder_skip_binder(value), this);
+  }
+  comma_sep<T>(elems: Iterable<T>, print_T: Print<T, this>): PrintResult {
+    let r: PrintResult;
+    let first = true;
+    for (const elem of elems) {
+      if (first) {
+        first = false;
+        if ((r = print_T(elem, this)).$ === "Err") return r;
+      } else {
+        if ((r = this.write_str(", ")).$ === "Err") return r;
+        if ((r = print_T(elem, this)).$ === "Err") return r;
       }
-      case "FnPtr": {
-        // FIXME: We should probably have a helper method to share code with the "Byte strings"
-        // printing above (which also has to handle pointers to all sorts of things).
-        const global_alloc = TyCtxt_try_get_global_alloc(self.tcx(), CtfeProvenance_alloc_id(prov));
-        if (global_alloc !== undefined && global_alloc.$ === "Function") {
-          const instance = global_alloc.instance;
-          self.typed_value(
+    }
+    return PRINT_OK;
+  }
+  typed_value(f: (p: this) => PrintResult, t: (p: this) => PrintResult, conversion: string): PrintResult {
+    let r: PrintResult;
+    if ((r = this.write_str("{")).$ === "Err") return r;
+    if ((r = f(this)).$ === "Err") return r;
+    if ((r = this.write_str(conversion)).$ === "Err") return r;
+    if ((r = t(this)).$ === "Err") return r;
+    if ((r = this.write_str("}")).$ === "Err") return r;
+    return PRINT_OK;
+  }
+  parenthesized(_f: (p: this) => PrintResult): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::parenthesized (lane ty-print-a)");
+  }
+  maybe_parenthesized(_f: (p: this) => PrintResult, _parenthesized: boolean): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::maybe_parenthesized (lane ty-print-a)");
+  }
+  abstract generic_delimiters(f: (p: this) => PrintResult): PrintResult;
+  should_truncate(): boolean {
+    return false;
+  }
+  abstract should_print_optional_region(region: Region): boolean;
+  reset_type_limit(): void {}
+  try_print_visible_def_path(_def_id: DefId): Result<boolean, PrintError> {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::try_print_visible_def_path (lane ty-print-a)");
+  }
+  force_print_trimmed_def_path(_def_id: DefId): Result<boolean, PrintError> {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::force_print_trimmed_def_path (lane ty-print-a)");
+  }
+  try_print_trimmed_def_path(_def_id: DefId): Result<boolean, PrintError> {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::try_print_trimmed_def_path (lane ty-print-a)");
+  }
+  try_print_visible_def_path_recur(_def_id: DefId, _callers: DefId[]): Result<boolean, PrintError> {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::try_print_visible_def_path_recur (lane ty-print-a)");
+  }
+  pretty_print_path_with_qualified(_self_ty: Ty, _trait_ref: TraitRef | undefined): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_path_with_qualified (lane ty-print-a)");
+  }
+  pretty_print_path_with_impl(_print_prefix: (p: this) => PrintResult, _self_ty: Ty, _trait_ref: TraitRef | undefined): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_path_with_impl (lane ty-print-a)");
+  }
+  pretty_print_type(_ty: Ty): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_type (lane ty-print-a)");
+  }
+  pretty_print_inherent_projection(_alias_term: AliasTerm): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_inherent_projection (lane ty-print-a)");
+  }
+  pretty_print_rpitit(_def_id: DefId, _args: GenericArgs): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_rpitit (lane ty-print-a)");
+  }
+  ty_infer_name(_: TyVid): Symbol | undefined {
+    return undefined;
+  }
+  const_infer_name(_: ConstVid): Symbol | undefined {
+    return undefined;
+  }
+  pretty_print_dyn_existential(_predicates: List<PolyExistentialPredicate>): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_dyn_existential (lane ty-print-a)");
+  }
+  pretty_print_fn_sig(_inputs: readonly Ty[], _c_variadic: boolean, _splatted: number | undefined, _output: Ty): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_fn_sig (lane ty-print-a)");
+  }
+  pretty_print_const(_ct: Const, _print_ty: boolean): PrintResult {
+    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_const (lane ty-print-a)");
+  }
+}
+
+/** Lane a's `str_cmp`: `Ord for str` (UTF-8 byte order, i.e. code point order). */
+function str_cmp(a: string, b: string): number {
+  const ia = a[globalThis.Symbol.iterator]();
+  const ib = b[globalThis.Symbol.iterator]();
+  for (;;) {
+    const x = ia.next();
+    const y = ib.next();
+    if (x.done) return y.done ? 0 : -1;
+    if (y.done) return 1;
+    const cx = x.value.codePointAt(0)!;
+    const cy = y.value.codePointAt(0)!;
+    if (cx !== cy) return cx < cy ? -1 : 1;
+  }
+}
+/** Lane a's `descriptor`: a D4 descriptor from the impl fns of a type. */
+function descriptor<T>(
+  visit_with: <R>(self: T, visitor: TypeVisitor<R>) => R,
+  try_fold_with: <E>(self: T, folder: FallibleTypeFolder<E>) => Result<T, E>,
+  fold_with: (self: T, folder: TypeFolder) => T,
+): TypeFoldable<T> {
+  return { visit_with, try_fold_with, fold_with };
+}
+/** Lane a's `fold_FnSig_`. */
+const fold_FnSig_: TypeFoldable<FnSig> = descriptor<FnSig>(visit_with_FnSig, try_fold_with_FnSig, fold_with_FnSig);
+/** Lane a's `Binder_no_bound_vars` (binder.rs; needs `has_escaping_bound_vars`). */
+function Binder_no_bound_vars<T>(_self: Binder<T>): T | undefined {
+  return unported("rustc_type_ir::binder::Binder::no_bound_vars (binder.rs)");
+}
+/** Lane a's `EarlyBinder_iter_instantiated_copied` (binder.rs). */
+function EarlyBinder_iter_instantiated_copied<T>(_self: EarlyBinder<readonly T[]>, _tcx: TyCtxt, _args: readonly GenericArg[]): Unnormalized<T>[] {
+  return unported("rustc_type_ir::binder::EarlyBinder::iter_instantiated_copied (binder.rs)");
+}
+/** Lane a's `Unnormalized_skip_norm_wip`: `self.value`. */
+function Unnormalized_skip_norm_wip<T>(self: Unnormalized<T>): T {
+  return self.value;
+}
+/** Lane a's `TraitRef_self_ty`: `self.args.type_at(0)`. */
+function TraitRef_self_ty(self: TraitRef): Ty {
+  return self.args.type_at(0);
+}
+/** Lane a's `ExistentialTraitRef_with_self_ty` (predicate.rs). */
+function ExistentialTraitRef_with_self_ty(_self: ExistentialTraitRef, _tcx: TyCtxt, _self_ty: Ty): TraitRef {
+  return unported("rustc_type_ir::predicate::ExistentialTraitRef::with_self_ty (predicate.rs)");
+}
+/** Lane a's `AssocItem_name` (ty/assoc.rs). */
+function AssocItem_name(_self: AssocItem): Symbol {
+  return unported("rustc_middle::ty::assoc::AssocItem::name (ty/assoc.rs)");
+}
+/** Lane a's `AdtDef_did` (ty/adt.rs; `AdtDef` is `Pending`). */
+function AdtDef_did(_self: unknown): DefId {
+  return unported("rustc_middle::ty::adt::AdtDef::did (ty/adt.rs)");
+}
+/** Lane a's `debug_Pattern` (ty/pattern.rs). */
+function debug_Pattern(_pat: Pattern): string {
+  return unported("rustc_middle::ty::pattern `impl Debug for Pattern` (ty/pattern.rs)");
+}
+/** Lane a's `Instance_def_id` (its mod.ts; ty/instance.rs). */
+function Instance_def_id(_self: Instance): DefId {
+  return unported("rustc_middle::ty::instance::Instance::def_id (ty/instance.rs)");
+}
+// ==== end of DELETE AT MERGE ====
+
+// The provided methods of `trait PrettyPrinter` in pretty.rs:1705..2055, assigned to `PrettyPrinter.prototype` below.
+declare module "./pretty.ts" {
+  interface PrettyPrinter {
+    // pretty.rs:1705
+    pretty_print_const_scalar(scalar: Scalar, ty: Ty): PrintResult;
+    // pretty.rs:1718
+    pretty_print_const_scalar_ptr(ptr: Pointer, ty: Ty): PrintResult;
+    // pretty.rs:1775
+    pretty_print_const_scalar_int(int: ScalarInt, ty: Ty, print_ty: boolean): PrintResult;
+    // pretty.rs:1852
+    pretty_print_const_pointer(p: Pointer, ty: Ty): PrintResult;
+    // pretty.rs:1867
+    pretty_print_byte_str(byte_str: Uint8Array): PrintResult;
+    // pretty.rs:1872
+    pretty_print_const_valtree(cv: Value, print_ty: boolean): PrintResult;
+    // pretty.rs:2014
+    pretty_print_closure_as_impl(closure: ClosureArgs): PrintResult;
+    // pretty.rs:2041
+    pretty_print_bound_constness(constness: BoundConstness): PrintResult;
+    // pretty.rs:2052
+    should_print_verbose(): boolean;
+  }
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1705 pretty_print_const_scalar
+PrettyPrinter.prototype.pretty_print_const_scalar = function (this: PrettyPrinter, scalar: Scalar, ty: Ty): PrintResult {
+  const scalar_ = scalar as unknown as ScalarShape;
+  switch (scalar_.$) {
+    case "Ptr": {
+      const ptr = scalar_._0;
+      return this.pretty_print_const_scalar_ptr(ptr, ty);
+    }
+    case "Int": {
+      const int = scalar_._0;
+      return this.pretty_print_const_scalar_int(int, ty, /* print_ty */ true);
+    }
+  }
+};
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1718 pretty_print_const_scalar_ptr
+PrettyPrinter.prototype.pretty_print_const_scalar_ptr = function (this: PrettyPrinter, ptr: Pointer, ty: Ty): PrintResult {
+  let r: PrintResult;
+  const [prov, offset] = Pointer_prov_and_relative_offset(ptr);
+  const k = ty.kind();
+  switch (k.$) {
+    // Byte strings (&[u8; N])
+    case "Ref": {
+      const inner = k._1;
+      const ik = inner.kind();
+      if (ik.$ === "Array") {
+        const elem = ik._0;
+        const ct_len = ik._1;
+        const ek = elem.kind();
+        let len: number | undefined;
+        if (ek.$ === "Uint" && ek._0 === "U8" && (len = ct_len.try_to_target_usize(this.tcx())) !== undefined) {
+          const global_alloc = TyCtxt_try_get_global_alloc(this.tcx(), CtfeProvenance_alloc_id(prov));
+          if (global_alloc === undefined) {
+            if ((r = this.write_str("<dangling pointer>")).$ === "Err") return r;
+          } else {
+            switch (global_alloc.$) {
+              case "Memory": {
+                const alloc = global_alloc._0;
+                const range: AllocRange = { start: offset, size: Size.from_bytes(len) };
+                const byte_str = Allocation_get_bytes_strip_provenance(ConstAllocation_inner(alloc), this.tcx(), range);
+                if (byte_str !== undefined) {
+                  if ((r = this.pretty_print_byte_str(byte_str)).$ === "Err") return r;
+                } else {
+                  if ((r = this.write_str("<too short allocation>")).$ === "Err") return r;
+                }
+                break;
+              }
+              // FIXME: for statics, vtables, and functions, we could in principle print more detail.
+              case "Static": {
+                const def_id = global_alloc._0;
+                if ((r = this.write_str(`<static(${debug_DefId(def_id, PLAIN)})>`)).$ === "Err") return r;
+                break;
+              }
+              case "Function":
+                if ((r = this.write_str("<function>")).$ === "Err") return r;
+                break;
+              case "VTable":
+                if ((r = this.write_str("<vtable>")).$ === "Err") return r;
+                break;
+              case "TypeId":
+                if ((r = this.write_str("<typeid>")).$ === "Err") return r;
+                break;
+            }
+          }
+          return PRINT_OK;
+        }
+      }
+      break;
+    }
+    case "FnPtr": {
+      // FIXME: We should probably have a helper method to share code with the "Byte strings"
+      // printing above (which also has to handle pointers to all sorts of things).
+      const global_alloc = TyCtxt_try_get_global_alloc(this.tcx(), CtfeProvenance_alloc_id(prov));
+      if (global_alloc !== undefined && global_alloc.$ === "Function") {
+        const instance = global_alloc.instance;
+        if (
+          (r = this.typed_value(
             (this_) => this_.pretty_print_value_path(Instance_def_id(instance), Instance_args(instance)),
             (this_) => this_.print_type(ty),
             " as ",
-          );
-          return;
-        }
-        break;
+          )).$ === "Err"
+        )
+          return r;
+        return PRINT_OK;
       }
-      default:
-        break;
+      break;
     }
-    // Any pointer values not covered by a branch above
-    self.pretty_print_const_pointer(ptr, ty);
-  },
+    default:
+      break;
+  }
+  // Any pointer values not covered by a branch above
+  if ((r = this.pretty_print_const_pointer(ptr, ty)).$ === "Err") return r;
+  return PRINT_OK;
+};
 
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1775 pretty_print_const_scalar_int
-  pretty_print_const_scalar_int(self: PrettyPrinter, int: ScalarInt, ty: Ty, print_ty: boolean): void {
-    const k = ty.kind();
-    // Bool
-    if (k.$ === "Bool" && ScalarInt_eq(int, ScalarInt_FALSE())) {
-      self.write_str("false");
-    } else if (k.$ === "Bool" && ScalarInt_eq(int, ScalarInt_TRUE())) {
-      self.write_str("true");
-    }
-    // Float
-    else if (k.$ === "Float") {
-      const fty = k._0;
-      switch (fty) {
-        case "F16": {
-          const val = unwrap_float(IeeeFloat_try_from_ScalarInt("Half", int));
-          self.write_str(`${display_IeeeFloat(val)}${IeeeFloat_is_finite(val) ? "" : "_"}f16`);
-          break;
-        }
-        case "F32": {
-          const val = unwrap_float(IeeeFloat_try_from_ScalarInt("Single", int));
-          self.write_str(`${display_IeeeFloat(val)}${IeeeFloat_is_finite(val) ? "" : "_"}f32`);
-          break;
-        }
-        case "F64": {
-          const val = unwrap_float(IeeeFloat_try_from_ScalarInt("Double", int));
-          self.write_str(`${display_IeeeFloat(val)}${IeeeFloat_is_finite(val) ? "" : "_"}f64`);
-          break;
-        }
-        case "F128": {
-          const val = unwrap_float(IeeeFloat_try_from_ScalarInt("Quad", int));
-          self.write_str(`${display_IeeeFloat(val)}${IeeeFloat_is_finite(val) ? "" : "_"}f128`);
-          break;
-        }
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1775 pretty_print_const_scalar_int
+PrettyPrinter.prototype.pretty_print_const_scalar_int = function (this: PrettyPrinter, int: ScalarInt, ty: Ty, print_ty: boolean): PrintResult {
+  let r: PrintResult;
+  const k = ty.kind();
+  // Bool
+  if (k.$ === "Bool" && ScalarInt_eq(int, ScalarInt_FALSE())) {
+    if ((r = this.write_str("false")).$ === "Err") return r;
+  } else if (k.$ === "Bool" && ScalarInt_eq(int, ScalarInt_TRUE())) {
+    if ((r = this.write_str("true")).$ === "Err") return r;
+  }
+  // Float
+  else if (k.$ === "Float") {
+    const fty = k._0;
+    switch (fty) {
+      case "F16": {
+        const val = unwrap_float(IeeeFloat_try_from_ScalarInt("Half", int));
+        if ((r = this.write_str(`${display_IeeeFloat(val)}${IeeeFloat_is_finite(val) ? "" : "_"}f16`)).$ === "Err") return r;
+        break;
+      }
+      case "F32": {
+        const val = unwrap_float(IeeeFloat_try_from_ScalarInt("Single", int));
+        if ((r = this.write_str(`${display_IeeeFloat(val)}${IeeeFloat_is_finite(val) ? "" : "_"}f32`)).$ === "Err") return r;
+        break;
+      }
+      case "F64": {
+        const val = unwrap_float(IeeeFloat_try_from_ScalarInt("Double", int));
+        if ((r = this.write_str(`${display_IeeeFloat(val)}${IeeeFloat_is_finite(val) ? "" : "_"}f64`)).$ === "Err") return r;
+        break;
+      }
+      case "F128": {
+        const val = unwrap_float(IeeeFloat_try_from_ScalarInt("Quad", int));
+        if ((r = this.write_str(`${display_IeeeFloat(val)}${IeeeFloat_is_finite(val) ? "" : "_"}f128`)).$ === "Err") return r;
+        break;
       }
     }
-    // Int
-    else if (k.$ === "Uint" || k.$ === "Int") {
-      const int_ = ConstInt_new(int, k.$ === "Int", ty.is_ptr_sized_integral());
-      if (print_ty) {
-        self.write_str(debug_ConstInt(int_, PRETTY));
-      } else {
-        self.write_str(debug_ConstInt(int_, PLAIN));
-      }
+  }
+  // Int
+  else if (k.$ === "Uint" || k.$ === "Int") {
+    const int_ = ConstInt_new(int, k.$ === "Int", ty.is_ptr_sized_integral());
+    if (print_ty) {
+      if ((r = this.write_str(debug_ConstInt(int_, PRETTY))).$ === "Err") return r;
+    } else {
+      if ((r = this.write_str(debug_ConstInt(int_, PLAIN))).$ === "Err") return r;
     }
-    // Char
-    else if (k.$ === "Char" && char_try_from_ScalarInt(int) !== undefined) {
-      self.write_str(debug_char(unwrap(char_try_from_ScalarInt(int))));
-    }
-    // Pointer types
-    else if (k.$ === "Ref" || k.$ === "RawPtr" || k.$ === "FnPtr") {
-      const data = ScalarInt_to_bits(int, TargetDataLayout_pointer_size(self.tcx().gcx.data_layout));
-      self.typed_value(
+  }
+  // Char
+  else if (k.$ === "Char" && char_try_from_ScalarInt(int) !== undefined) {
+    if ((r = this.write_str(debug_char(unwrap(char_try_from_ScalarInt(int))))).$ === "Err") return r;
+  }
+  // Pointer types
+  else if (k.$ === "Ref" || k.$ === "RawPtr" || k.$ === "FnPtr") {
+    const data = ScalarInt_to_bits(int, TargetDataLayout_pointer_size(this.tcx().gcx.data_layout));
+    if (
+      (r = this.typed_value(
         (this_) => {
-          this_.write_str(`0x${data.toString(16)}`);
+          let r: PrintResult;
+          if ((r = this_.write_str(`0x${data.toString(16)}`)).$ === "Err") return r;
+          return PRINT_OK;
         },
         (this_) => this_.print_type(ty),
         " as ",
-      );
-    } else if (k.$ === "Pat" && TyCtxt_validate_scalar_in_layout(self.tcx(), int, ty)) {
-      const base_ty = k._0;
-      const pat = k._1;
-      self.pretty_print_const_scalar_int(int, base_ty, print_ty);
-      self.write_str(` is ${debug_Pattern(pat, PLAIN)}`);
-    }
-    // Nontrivial types with scalar bit representation
-    else {
-      const print = (this_: PrettyPrinter): void => {
-        if (ScalarInt_size(int).raw === Size.ZERO.raw) {
-          this_.write_str("transmute(())");
-        } else {
-          this_.write_str(`transmute(0x${lower_hex_ScalarInt(int)})`);
-        }
-      };
-      if (print_ty) {
-        self.typed_value(print, (this_) => this_.print_type(ty), ": ");
+      )).$ === "Err"
+    )
+      return r;
+  } else if (k.$ === "Pat" && TyCtxt_validate_scalar_in_layout(this.tcx(), int, ty)) {
+    const base_ty = k._0;
+    const pat = k._1;
+    if ((r = this.pretty_print_const_scalar_int(int, base_ty, print_ty)).$ === "Err") return r;
+    if ((r = this.write_str(` is ${debug_Pattern(pat)}`)).$ === "Err") return r;
+  }
+  // Nontrivial types with scalar bit representation
+  else {
+    const print = (this_: PrettyPrinter): PrintResult => {
+      let r: PrintResult;
+      if (ScalarInt_size(int).raw === Size.ZERO.raw) {
+        if ((r = this_.write_str("transmute(())")).$ === "Err") return r;
       } else {
-        print(self);
+        if ((r = this_.write_str(`transmute(0x${lower_hex_ScalarInt(int)})`)).$ === "Err") return r;
       }
+      return PRINT_OK;
+    };
+    if (print_ty) {
+      if ((r = this.typed_value(print, (this_) => this_.print_type(ty), ": ")).$ === "Err") return r;
+    } else {
+      if ((r = print(this)).$ === "Err") return r;
     }
-  },
+  }
+  return PRINT_OK;
+};
 
-  /// This is overridden for MIR printing because we only want to hide alloc ids from users, not
-  /// from MIR where it is actually useful.
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1852 pretty_print_const_pointer
-  pretty_print_const_pointer(self: PrettyPrinter, _: Pointer, ty: Ty): void {
-    self.typed_value(
-      (this_) => {
-        this_.write_str("&_");
-      },
-      (this_) => this_.print_type(ty),
-      ": ",
-    );
-  },
+/// This is overridden for MIR printing because we only want to hide alloc ids from users, not
+/// from MIR where it is actually useful.
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1852 pretty_print_const_pointer
+PrettyPrinter.prototype.pretty_print_const_pointer = function (this: PrettyPrinter, _: Pointer, ty: Ty): PrintResult {
+  return this.typed_value(
+    (this_) => {
+      let r: PrintResult;
+      if ((r = this_.write_str("&_")).$ === "Err") return r;
+      return PRINT_OK;
+    },
+    (this_) => this_.print_type(ty),
+    ": ",
+  );
+};
 
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1867 pretty_print_byte_str
-  pretty_print_byte_str(self: PrettyPrinter, byte_str: Uint8Array): void {
-    self.write_str(`b"${escape_ascii(byte_str)}"`);
-  },
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1867 pretty_print_byte_str
+PrettyPrinter.prototype.pretty_print_byte_str = function (this: PrettyPrinter, byte_str: Uint8Array): PrintResult {
+  let r: PrintResult;
+  if ((r = this.write_str(`b"${escape_ascii(byte_str)}"`)).$ === "Err") return r;
+  return PRINT_OK;
+};
 
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1872 pretty_print_const_valtree
-  pretty_print_const_valtree(self: PrettyPrinter, cv: Value, print_ty: boolean): void {
-    const cv_ = cv as unknown as ValueShape;
-    if (with_reduced_queries_get() || self.should_print_verbose()) {
-      self.write_str(`ValTree(${debug_ValTree(cv_.valtree, PLAIN)}: `);
-      print_Ty.print(cv_.ty, self);
-      self.write_str(")");
-      return;
-    }
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:1872 pretty_print_const_valtree
+PrettyPrinter.prototype.pretty_print_const_valtree = function (this: PrettyPrinter, cv: Value, print_ty: boolean): PrintResult {
+  let r: PrintResult;
+  const cv_ = cv as unknown as ValueShape;
+  if (with_reduced_queries() || this.should_print_verbose()) {
+    if ((r = this.write_str(`ValTree(${debug_ValTree(cv_.valtree, PLAIN)}: `)).$ === "Err") return r;
+    if ((r = print_Ty(cv_.ty, this)).$ === "Err") return r;
+    if ((r = this.write_str(")")).$ === "Err") return r;
+    return PRINT_OK;
+  }
 
-    const u8_type = self.tcx().types.u8;
-    const vk = ValTree_deref(cv_.valtree);
-    const tk = cv_.ty.kind();
-    if (vk.$ === "Branch" && tk.$ === "Ref") {
-      const inner_ty = tk._1;
-      const ik = inner_ty.kind();
-      if (ik.$ === "Slice" && ik._0 === u8_type) {
-        const t = ik._0;
-        const bytes = Value_try_to_raw_bytes(cv_, self.tcx());
-        if (bytes === undefined) {
-          return panic(`expected to convert valtree ${debug_ValTree(cv_.valtree, PLAIN)} to raw bytes for type ${debug_Ty(t, PLAIN)}`);
-        }
-        return self.pretty_print_byte_str(bytes);
-      } else if (ik.$ === "Str") {
-        const bytes = Value_try_to_raw_bytes(cv_, self.tcx());
-        if (bytes === undefined) {
-          return panic(`expected to convert valtree to raw bytes for type ${debug_Ty(cv_.ty, PLAIN)}`);
-        }
-        self.write_str(debug_str(String_from_utf8_lossy(bytes)));
-        return;
-      } else {
-        const cv: ValueShape = { valtree: cv_.valtree, ty: inner_ty };
-        self.write_str("&");
-        self.pretty_print_const_valtree(cv as unknown as Value, print_ty);
-        return;
+  const u8_type = this.tcx().types.u8;
+  const vk = ValTree_deref(cv_.valtree);
+  const tk = cv_.ty.kind();
+  if (vk.$ === "Branch" && tk.$ === "Ref") {
+    const inner_ty = tk._1;
+    const ik = inner_ty.kind();
+    if (ik.$ === "Slice" && ik._0 === u8_type) {
+      const t = ik._0;
+      const bytes = Value_try_to_raw_bytes(cv_, this.tcx());
+      if (bytes === undefined) {
+        return panic(`expected to convert valtree ${debug_ValTree(cv_.valtree, PLAIN)} to raw bytes for type ${debug_Ty(t, PLAIN)}`);
       }
-    }
-    // If it is a branch with an array, and this array can be printed as raw bytes, then dump its bytes
-    let bytes: Uint8Array | undefined;
-    if (vk.$ === "Branch" && tk.$ === "Array" && tk._0 === u8_type && (bytes = Value_try_to_raw_bytes(cv_, self.tcx())) !== undefined) {
-      self.write_str("*");
-      self.pretty_print_byte_str(bytes);
-      return;
-    }
-    // Otherwise, print the array separated by commas (or if it's a tuple)
-    if (vk.$ === "Branch" && (tk.$ === "Array" || tk.$ === "Tuple")) {
-      const fields = vk._0;
-      const fields_iter = fields;
-
-      const k2 = cv_.ty.kind();
-      switch (k2.$) {
-        case "Array": {
-          self.write_str("[");
-          self.comma_sep(fields_iter, print_Const);
-          self.write_str("]");
-          break;
-        }
-        case "Tuple": {
-          self.write_str("(");
-          self.comma_sep(fields_iter, print_Const);
-          if (fields.length === 1) {
-            self.write_str(",");
-          }
-          self.write_str(")");
-          break;
-        }
-        default:
-          unreachable();
+      return this.pretty_print_byte_str(bytes);
+    } else if (ik.$ === "Str") {
+      const bytes = Value_try_to_raw_bytes(cv_, this.tcx());
+      if (bytes === undefined) {
+        return panic(`expected to convert valtree to raw bytes for type ${debug_Ty(cv_.ty, PLAIN)}`);
       }
-      return;
+      if ((r = this.write_str(debug_str(String_from_utf8_lossy(bytes)))).$ === "Err") return r;
+      return PRINT_OK;
+    } else {
+      const cv: ValueShape = { valtree: cv_.valtree, ty: inner_ty };
+      if ((r = this.write_str("&")).$ === "Err") return r;
+      if ((r = this.pretty_print_const_valtree(cv as unknown as Value, print_ty)).$ === "Err") return r;
+      return PRINT_OK;
     }
-    if (vk.$ === "Branch" && tk.$ === "Adt") {
-      const def = tk._0;
-      const args = tk._1;
-      const contents = Value_destructure_adt_const(cv_);
-      const fields = contents.fields;
+  }
+  // If it is a branch with an array, and this array can be printed as raw bytes, then dump its bytes
+  let bytes: Uint8Array | undefined;
+  if (vk.$ === "Branch" && tk.$ === "Array" && tk._0 === u8_type && (bytes = Value_try_to_raw_bytes(cv_, this.tcx())) !== undefined) {
+    if ((r = this.write_str("*")).$ === "Err") return r;
+    if ((r = this.pretty_print_byte_str(bytes)).$ === "Err") return r;
+    return PRINT_OK;
+  }
+  // Otherwise, print the array separated by commas (or if it's a tuple)
+  if (vk.$ === "Branch" && (tk.$ === "Array" || tk.$ === "Tuple")) {
+    const fields = vk._0;
+    const fields_iter = fields;
 
-      if (AdtDef_variants(def).length === 0) {
-        self.typed_value(
+    const k2 = cv_.ty.kind();
+    switch (k2.$) {
+      case "Array": {
+        if ((r = this.write_str("[")).$ === "Err") return r;
+        if ((r = this.comma_sep(fields_iter, print_Const)).$ === "Err") return r;
+        if ((r = this.write_str("]")).$ === "Err") return r;
+        break;
+      }
+      case "Tuple": {
+        if ((r = this.write_str("(")).$ === "Err") return r;
+        if ((r = this.comma_sep(fields_iter, print_Const)).$ === "Err") return r;
+        if (fields.length === 1) {
+          if ((r = this.write_str(",")).$ === "Err") return r;
+        }
+        if ((r = this.write_str(")")).$ === "Err") return r;
+        break;
+      }
+      default:
+        unreachable();
+    }
+    return PRINT_OK;
+  }
+  if (vk.$ === "Branch" && tk.$ === "Adt") {
+    const def = tk._0;
+    const args = tk._1;
+    const contents = Value_destructure_adt_const(cv_);
+    const fields = contents.fields;
+
+    if (AdtDef_variants(def).length === 0) {
+      if (
+        (r = this.typed_value(
           (this_) => {
-            this_.write_str("unreachable()");
+            let r: PrintResult;
+            if ((r = this_.write_str("unreachable()")).$ === "Err") return r;
+            return PRINT_OK;
           },
           (this_) => this_.print_type(cv_.ty),
           ": ",
-        );
-      } else {
-        const variant_idx = contents.variant;
-        const variant_def = AdtDef_variant(def, variant_idx);
-        self.pretty_print_value_path(variant_def.def_id, args);
-        const ctor_kind = VariantDef_ctor_kind(variant_def);
-        if (ctor_kind === "Const") {
-          // nothing
-        } else if (ctor_kind === "Fn") {
-          self.write_str("(");
-          self.comma_sep(fields, print_Const);
-          self.write_str(")");
-        } else {
-          self.write_str(" { ");
-          let first = true;
-          const n = Math.min(variant_def.fields.length, fields.length);
-          for (let i = 0; i < n; i++) {
-            const field_def = variant_def.fields[i]!;
-            const field = fields[i]!;
-            if (!first) {
-              self.write_str(", ");
-            }
-            self.write_str(`${display_Symbol(field_def.name)}: `);
-            print_Const.print(field, self);
-            first = false;
-          }
-          self.write_str(" }");
-        }
-      }
-      return;
-    }
-    if (vk.$ === "Leaf" && tk.$ === "Ref") {
-      const leaf = vk._0;
-      const inner_ty = tk._1;
-      self.write_str("&");
-      return self.pretty_print_const_scalar_int(leaf, inner_ty, print_ty);
-    }
-    if (vk.$ === "Leaf") {
-      const leaf = vk._0;
-      return self.pretty_print_const_scalar_int(leaf, cv_.ty, print_ty);
-    }
-    if (tk.$ === "FnDef") {
-      const def_id = tk._0;
-      const args = tk._1;
-      // Never allowed today, but we still encounter them in invalid const args.
-      // FIXME(addiesh): fix wrt late-bound stuff
-      self.pretty_print_value_path(def_id, unwrap(Binder_no_bound_vars(args)));
-      return;
-    }
-    // FIXME(oli-obk): also pretty print arrays and other aggregate constants by reading
-    // their fields instead of just dumping the memory.
-
-    // fallback
-    if (ValTree_is_zst(cv_.valtree)) {
-      self.write_str("<ZST>");
+        )).$ === "Err"
+      )
+        return r;
     } else {
-      self.write_str(debug_ValTree(cv_.valtree, PLAIN));
-    }
-    if (print_ty) {
-      self.write_str(": ");
-      print_Ty.print(cv_.ty, self);
-    }
-  },
-
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2014 pretty_print_closure_as_impl
-  pretty_print_closure_as_impl(self: PrettyPrinter, closure: ClosureArgs): void {
-    const sig = ClosureArgsC.sig(closure);
-    const kind = ClosureArgsC.kind_ty(closure).to_opt_closure_kind() ?? "Fn";
-
-    self.write_str("impl ");
-    self.wrap_binder(
-      sig,
-      WrapBinderMode.ForAll,
-      (sig, p) => {
-        p.write_str(`${display_ClosureKind(kind)}(`);
-        const fields = unwrap(FnSigC.inputs(sig)[0]).tuple_fields();
-        for (let i = 0; i < fields.length; i++) {
-          const arg = fields[i]!;
-          if (i > 0) {
-            p.write_str(", ");
+      const variant_idx = contents.variant;
+      const variant_def = AdtDef_variant(def, variant_idx);
+      if ((r = this.pretty_print_value_path(variant_def.def_id, args)).$ === "Err") return r;
+      const ctor_kind = VariantDef_ctor_kind(variant_def);
+      if (ctor_kind === "Const") {
+        // nothing
+      } else if (ctor_kind === "Fn") {
+        if ((r = this.write_str("(")).$ === "Err") return r;
+        if ((r = this.comma_sep(fields, print_Const)).$ === "Err") return r;
+        if ((r = this.write_str(")")).$ === "Err") return r;
+      } else {
+        if ((r = this.write_str(" { ")).$ === "Err") return r;
+        let first = true;
+        const n = Math.min(variant_def.fields.length, fields.length);
+        for (let i = 0; i < n; i++) {
+          const field_def = variant_def.fields[i]!;
+          const field = fields[i]!;
+          if (!first) {
+            if ((r = this.write_str(", ")).$ === "Err") return r;
           }
-          print_Ty.print(arg, p);
+          if ((r = this.write_str(`${display_Symbol(field_def.name)}: `)).$ === "Err") return r;
+          if ((r = print_Const(field, this)).$ === "Err") return r;
+          first = false;
         }
-        p.write_str(")");
-
-        if (!FnSigC.output(sig).is_unit()) {
-          p.write_str(" -> ");
-          print_Ty.print(FnSigC.output(sig), p);
-        }
-      },
-      fold_FnSig,
-    );
-  },
-
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2041 pretty_print_bound_constness
-  pretty_print_bound_constness(self: PrettyPrinter, constness: BoundConstness): void {
-    switch (constness) {
-      case "Const":
-        self.write_str("const ");
-        break;
-      case "Maybe":
-        self.write_str("[const] ");
-        break;
+        if ((r = this.write_str(" }")).$ === "Err") return r;
+      }
     }
-  },
+    return PRINT_OK;
+  }
+  if (vk.$ === "Leaf" && tk.$ === "Ref") {
+    const leaf = vk._0;
+    const inner_ty = tk._1;
+    if ((r = this.write_str("&")).$ === "Err") return r;
+    return this.pretty_print_const_scalar_int(leaf, inner_ty, print_ty);
+  }
+  if (vk.$ === "Leaf") {
+    const leaf = vk._0;
+    return this.pretty_print_const_scalar_int(leaf, cv_.ty, print_ty);
+  }
+  if (tk.$ === "FnDef") {
+    const def_id = tk._0;
+    const args = tk._1;
+    // Never allowed today, but we still encounter them in invalid const args.
+    // FIXME(addiesh): fix wrt late-bound stuff
+    if ((r = this.pretty_print_value_path(def_id, unwrap(Binder_no_bound_vars(args)))).$ === "Err") return r;
+    return PRINT_OK;
+  }
+  // FIXME(oli-obk): also pretty print arrays and other aggregate constants by reading
+  // their fields instead of just dumping the memory.
 
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2052 should_print_verbose
-  should_print_verbose(self: PrettyPrinter): boolean {
-    return self.tcx().sess.verbose_internals();
-  },
+  // fallback
+  if (ValTree_is_zst(cv_.valtree)) {
+    if ((r = this.write_str("<ZST>")).$ === "Err") return r;
+  } else {
+    if ((r = this.write_str(debug_ValTree(cv_.valtree, PLAIN))).$ === "Err") return r;
+  }
+  if (print_ty) {
+    if ((r = this.write_str(": ")).$ === "Err") return r;
+    if ((r = print_Ty(cv_.ty, this)).$ === "Err") return r;
+  }
+  return PRINT_OK;
 };
 
-// PORT: `fmt: &mut fmt::Formatter` is the output: the fn returns what it writes (the `Debug<T>` convention).
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2014 pretty_print_closure_as_impl
+PrettyPrinter.prototype.pretty_print_closure_as_impl = function (this: PrettyPrinter, closure: ClosureArgs): PrintResult {
+  let r: PrintResult;
+  const sig = ClosureArgsC.sig(closure);
+  const kind = ClosureArgsC.kind_ty(closure).to_opt_closure_kind() ?? "Fn";
+
+  if ((r = this.write_str("impl ")).$ === "Err") return r;
+  return this.wrap_binder(
+    sig,
+    WrapBinderMode.ForAll,
+    (sig, p) => {
+      let r: PrintResult;
+      if ((r = p.write_str(`${display_ClosureKind(kind)}(`)).$ === "Err") return r;
+      const fields = unwrap(FnSigC.inputs(sig)[0]).tuple_fields();
+      for (let i = 0; i < fields.length; i++) {
+        const arg = fields[i]!;
+        if (i > 0) {
+          if ((r = p.write_str(", ")).$ === "Err") return r;
+        }
+        if ((r = print_Ty(arg, p)).$ === "Err") return r;
+      }
+      if ((r = p.write_str(")")).$ === "Err") return r;
+
+      if (!FnSigC.output(sig).is_unit()) {
+        if ((r = p.write_str(" -> ")).$ === "Err") return r;
+        if ((r = print_Ty(FnSigC.output(sig), p)).$ === "Err") return r;
+      }
+
+      return PRINT_OK;
+    },
+    fold_FnSig_,
+  );
+};
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2041 pretty_print_bound_constness
+PrettyPrinter.prototype.pretty_print_bound_constness = function (this: PrettyPrinter, constness: BoundConstness): PrintResult {
+  let r: PrintResult;
+  switch (constness) {
+    case "Const":
+      if ((r = this.write_str("const ")).$ === "Err") return r;
+      break;
+    case "Maybe":
+      if ((r = this.write_str("[const] ")).$ === "Err") return r;
+      break;
+  }
+  return PRINT_OK;
+};
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2052 should_print_verbose
+PrettyPrinter.prototype.should_print_verbose = function (this: PrettyPrinter): boolean {
+  return this.tcx().sess.verbose_internals();
+};
+
+// PORT: `fmt: &mut fmt::Formatter` is the output: the fn returns what it writes (the `Debug<T>` convention); a
+// `fmt::Error` panics (see the region header).
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2057 pretty_print_const
 export function pretty_print_const(c: Const, fmt: Fmt, print_types: boolean): string {
   void fmt;
   return with_((tcx) => {
     const p = FmtPrinter.new(tcx, Namespace.ValueNS);
     p._0.print_alloc_ids = true;
-    p.pretty_print_const(/* tcx.lift */ c, print_types);
+    const r = p.pretty_print_const(/* tcx.lift */ c, print_types);
+    if (r.$ === "Err") panic("a Display implementation returned an error unexpectedly: Error");
     return p.into_buffer();
   });
 }
@@ -525,10 +923,12 @@ export interface FmtPrinterData {
 
 // HACK(eddyb) boxed to avoid moving around a large struct by-value.
 // PORT: every `impl` block of `FmtPrinter` (pretty.rs:2096..2953) is in this class body (PORTING §8); the markers keep
-// the upstream lines. The provided `Printer`/`PrettyPrinter` methods it does not override delegate to the helpers.
+// the upstream lines. The `Printer` / `PrettyPrinter` impls override the abstract classes' methods.
 // rustc-type: compiler/rustc_middle/src/ty/print/pretty.rs:2072 FmtPrinter
-export class FmtPrinter implements PrettyPrinter {
-  constructor(public _0: FmtPrinterData) {}
+export class FmtPrinter extends PrettyPrinter {
+  constructor(public _0: FmtPrinterData) {
+    super();
+  }
 
   // impl Deref for FmtPrinter
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2098 deref
@@ -544,15 +944,16 @@ export class FmtPrinter implements PrettyPrinter {
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2110 new
   static new(tcx: TyCtxt, ns: Namespace): FmtPrinter {
-    const limit = with_reduced_queries_get() ? Limit.new(1048576) : tcx.type_length_limit();
+    const limit = with_reduced_queries() ? Limit.new(1048576) : tcx.type_length_limit();
     return FmtPrinter.new_with_limit(tcx, ns, limit);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2116 print_string
-  static print_string(tcx: TyCtxt, ns: Namespace, f: (p: FmtPrinter) => void): string {
+  static print_string(tcx: TyCtxt, ns: Namespace, f: (p: FmtPrinter) => PrintResult): Result<string, PrintError> {
+    let r: PrintResult;
     const c = FmtPrinter.new(tcx, ns);
-    f(c);
-    return c.into_buffer();
+    if ((r = f(c)).$ === "Err") return r;
+    return Ok(c.into_buffer());
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2126 new_with_limit
@@ -570,7 +971,7 @@ export class FmtPrinter implements PrettyPrinter {
       binder_depth: 0,
       printed_type_count: 0,
       type_length_limit,
-      region_highlight_mode: RegionHighlightMode.default_(),
+      region_highlight_mode: RegionHighlightMode.default(),
       ty_infer_name_resolver: undefined,
       const_infer_name_resolver: undefined,
     });
@@ -583,8 +984,9 @@ export class FmtPrinter implements PrettyPrinter {
 
   // impl fmt::Write for FmtPrinter
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2204 write_str
-  write_str(s: string): void {
+  write_str(s: string): PrintResult {
     this._0.fmt += s;
+    return PRINT_OK;
   }
 
   // ---- impl Printer for FmtPrinter ----
@@ -594,26 +996,31 @@ export class FmtPrinter implements PrettyPrinter {
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2215 reset_path
-  reset_path(): void {
+  override reset_path(): PrintResult {
     this._0.empty_path = true;
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2220 should_omit_parent_def_path
-  should_omit_parent_def_path(parent_def_id: DefId): boolean {
-    if (RTN_MODE_get() !== "ForSuggestion") return false;
+  override should_omit_parent_def_path(parent_def_id: DefId): boolean {
+    if (RTN_MODE.get() !== "ForSuggestion") return false;
     const data = this.tcx().def_key(parent_def_id).disambiguated_data.data;
     return data.$ === "ValueNs" || data.$ === "Closure" || data.$ === "AnonConst";
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2228 print_def_path
-  print_def_path(def_id: DefId, args: readonly GenericArg[]): void {
+  override print_def_path(def_id: DefId, args: readonly GenericArg[]): PrintResult {
+    let r: PrintResult;
     if (args.length === 0) {
-      if (this.try_print_trimmed_def_path(def_id)) {
-        return;
+      let b: Result<boolean, PrintError>;
+      if ((b = this.try_print_trimmed_def_path(def_id)).$ === "Err") return Err(b._0);
+      if (b._0) {
+        return PRINT_OK;
       }
 
-      if (this.try_print_visible_def_path(def_id)) {
-        return;
+      if ((b = this.try_print_visible_def_path(def_id)).$ === "Err") return Err(b._0);
+      if (b._0) {
+        return PRINT_OK;
       }
     }
 
@@ -626,7 +1033,7 @@ export class FmtPrinter implements PrettyPrinter {
         use_types = true;
       } else {
         // Otherwise, use filename/line-number if forced.
-        const force_no_types = with_forced_impl_filename_line_get();
+        const force_no_types = with_forced_impl_filename_line();
         use_types = !force_no_types;
       }
 
@@ -637,36 +1044,40 @@ export class FmtPrinter implements PrettyPrinter {
         const parent_def_id = new DefId(unwrap(key.parent), def_id.krate);
         const span = this._0.tcx.def_span(def_id);
 
-        this.print_def_path(parent_def_id, []);
+        if ((r = this.print_def_path(parent_def_id, [])).$ === "Err") return r;
 
         // HACK(eddyb) copy of `print_path_with_simple` to avoid
         // constructing a `DisambiguatedDefPathData`.
         if (!this._0.empty_path) {
-          this.write_str("::");
+          if ((r = this.write_str("::")).$ === "Err") return r;
         }
-        this.write_str(
-          `<impl at ${
-            // This may end up in stderr diagnostics but it may also be emitted
-            // into MIR. Hence we use the remapped path if available
-            this._0.tcx.sess.source_map().span_to_diagnostic_string(span)
-          }>`,
-        );
+        if (
+          (r = this.write_str(
+            `<impl at ${
+              // This may end up in stderr diagnostics but it may also be emitted
+              // into MIR. Hence we use the remapped path if available
+              this._0.tcx.sess.source_map().span_to_diagnostic_string(span)
+            }>`,
+          )).$ === "Err"
+        )
+          return r;
         this._0.empty_path = false;
 
-        return;
+        return PRINT_OK;
       }
     }
 
-    this.default_print_def_path(def_id, args);
+    return this.default_print_def_path(def_id, args);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2285 print_region
-  print_region(region: Region): void {
-    this.pretty_print_region(region);
+  print_region(region: Region): PrintResult {
+    return this.pretty_print_region(region);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2289 print_type
-  print_type(ty: Ty): void {
+  print_type(ty: Ty): PrintResult {
+    let r: PrintResult;
     const has_regions = this._0.region_highlight_mode.keep_regions && Ty_has_type_flags(ty, TypeFlags.HAS_REGIONS);
     const k = ty.kind();
     if (k.$ === "Tuple" && k._0.length === 0) {
@@ -723,7 +1134,9 @@ export class FmtPrinter implements PrettyPrinter {
       this._0.region_highlight_mode.keep_regions &&
       (() => {
         const def_id = (k._1.kind as { def_id: DefId }).def_id;
-        for (const u of EarlyBinder_iter_instantiated_copied(this._0.tcx.explicit_item_bounds(def_id), this._0.tcx, k._1.args)) {
+        // PORT: the `explicit_item_bounds` query value is `unknown` in queries.gen.ts.
+        const bounds = this._0.tcx.explicit_item_bounds(def_id) as EarlyBinder<readonly [Clause, unknown][]>;
+        for (const u of EarlyBinder_iter_instantiated_copied(bounds, this._0.tcx, k._1.args)) {
           const [value, _] = Unnormalized_skip_norm_wip(u);
           if (Clause_has_bound_vars(value)) return true;
         }
@@ -758,8 +1171,8 @@ export class FmtPrinter implements PrettyPrinter {
     ) {
       // We only truncate types that we know are likely to be much longer than 3 chars.
       // There's no point in replacing `i32` or `!`.
-      this.write_str("_");
-      return;
+      if ((r = this.write_str("_")).$ === "Err") return r;
+      return PRINT_OK;
     }
     if (k.$ === "Ref" && this.should_truncate() && has_regions) return this.pretty_print_type(ty);
     if (k.$ === "Closure") return this.pretty_print_type(ty);
@@ -768,161 +1181,190 @@ export class FmtPrinter implements PrettyPrinter {
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2385 print_dyn_existential
-  print_dyn_existential(predicates: List<PolyExistentialPredicate>): void {
-    this.pretty_print_dyn_existential(predicates);
+  print_dyn_existential(predicates: List<PolyExistentialPredicate>): PrintResult {
+    return this.pretty_print_dyn_existential(predicates);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2392 print_const
-  print_const(ct: Const): void {
-    this.pretty_print_const(ct, false);
+  print_const(ct: Const): PrintResult {
+    return this.pretty_print_const(ct, false);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2396 print_crate_name
-  print_crate_name(cnum: CrateNum): void {
+  print_crate_name(cnum: CrateNum): PrintResult {
+    let r: PrintResult;
     this._0.empty_path = true;
-    if (cnum === LOCAL_CRATE && !with_resolve_crate_name_get()) {
-      if (with_crate_prefix_get()) {
-        this.write_str(display_Symbol(kw.Crate));
+    if (cnum === LOCAL_CRATE && !with_resolve_crate_name()) {
+      if (with_crate_prefix()) {
+        if ((r = this.write_str(display_Symbol(kw.Crate))).$ === "Err") return r;
         this._0.empty_path = false;
       }
     } else {
-      this.write_str(display_Symbol(this._0.tcx.crate_name(cnum)));
+      if ((r = this.write_str(display_Symbol(this._0.tcx.crate_name(cnum)))).$ === "Err") return r;
       this._0.empty_path = false;
     }
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2410 print_path_with_qualified
-  print_path_with_qualified(self_ty: Ty, trait_ref: TraitRef | undefined): void {
-    this.pretty_print_path_with_qualified(self_ty, trait_ref);
+  print_path_with_qualified(self_ty: Ty, trait_ref: TraitRef | undefined): PrintResult {
+    let r: PrintResult;
+    if ((r = this.pretty_print_path_with_qualified(self_ty, trait_ref)).$ === "Err") return r;
     this._0.empty_path = false;
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2420 print_path_with_impl
-  print_path_with_impl(print_prefix: (p: this) => void, self_ty: Ty, trait_ref: TraitRef | undefined): void {
-    this.pretty_print_path_with_impl(
-      (p) => {
-        print_prefix(p);
-        if (!p._0.empty_path) {
-          p.write_str("::");
-        }
-      },
-      self_ty,
-      trait_ref,
-    );
+  print_path_with_impl(print_prefix: (p: this) => PrintResult, self_ty: Ty, trait_ref: TraitRef | undefined): PrintResult {
+    let r: PrintResult;
+    if (
+      (r = this.pretty_print_path_with_impl(
+        (p) => {
+          let r: PrintResult;
+          if ((r = print_prefix(p)).$ === "Err") return r;
+          if (!p._0.empty_path) {
+            if ((r = p.write_str("::")).$ === "Err") return r;
+          }
+
+          return PRINT_OK;
+        },
+        self_ty,
+        trait_ref,
+      )).$ === "Err"
+    )
+      return r;
     this._0.empty_path = false;
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2442 print_path_with_simple
-  print_path_with_simple(print_prefix: (p: this) => void, disambiguated_data: DisambiguatedDefPathData): void {
-    print_prefix(this);
+  print_path_with_simple(print_prefix: (p: this) => PrintResult, disambiguated_data: DisambiguatedDefPathData): PrintResult {
+    let r: PrintResult;
+    if ((r = print_prefix(this)).$ === "Err") return r;
 
     // Skip `::{{extern}}` blocks and `::{{constructor}}` on tuple/unit structs.
     if (disambiguated_data.data.$ === "ForeignMod" || disambiguated_data.data.$ === "Ctor") {
-      return;
+      return PRINT_OK;
     }
 
     const name = DefPathData.name(disambiguated_data.data);
     if (!this._0.empty_path) {
-      this.write_str("::");
+      if ((r = this.write_str("::")).$ === "Err") return r;
     }
 
     if (name.$ === "Named") {
       if (Ident.with_dummy_span(name._0).is_raw_guess()) {
-        this.write_str("r#");
+        if ((r = this.write_str("r#")).$ === "Err") return r;
       }
     }
 
     const verbose = this.should_print_verbose();
-    this.write_str(display_Symbol(disambiguated_data.as_sym(verbose)));
+    if ((r = this.write_str(display_Symbol(disambiguated_data.as_sym(verbose)))).$ === "Err") return r;
 
     this._0.empty_path = false;
+
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2473 print_path_with_generic_args
-  print_path_with_generic_args(print_prefix: (p: this) => void, args: readonly GenericArg[]): void {
-    print_prefix(this);
+  print_path_with_generic_args(print_prefix: (p: this) => PrintResult, args: readonly GenericArg[]): PrintResult {
+    let r: PrintResult;
+    if ((r = print_prefix(this)).$ === "Err") return r;
 
     if (args.length !== 0) {
       if (this._0.in_value) {
-        this.write_str("::");
+        if ((r = this.write_str("::")).$ === "Err") return r;
       }
-      this.generic_delimiters((p) => p.comma_sep(args, print_GenericArg));
+      return this.generic_delimiters((p) => p.comma_sep(args, print_GenericArg));
+    } else {
+      return PRINT_OK;
     }
   }
 
   // ---- impl PrettyPrinter for FmtPrinter ----
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2492 ty_infer_name
-  ty_infer_name(id: TyVid): Symbol | undefined {
+  override ty_infer_name(id: TyVid): Symbol | undefined {
     const func = this._0.ty_infer_name_resolver;
     return func === undefined ? undefined : func(id);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2496 reset_type_limit
-  reset_type_limit(): void {
+  override reset_type_limit(): void {
     this._0.printed_type_count = 0;
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2500 const_infer_name
-  const_infer_name(id: ConstVid): Symbol | undefined {
+  override const_infer_name(id: ConstVid): Symbol | undefined {
     const func = this._0.const_infer_name_resolver;
     return func === undefined ? undefined : func(id);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2504 pretty_print_value_path
-  pretty_print_value_path(def_id: DefId, args: readonly GenericArg[]): void {
+  override pretty_print_value_path(def_id: DefId, args: readonly GenericArg[]): PrintResult {
+    let r: PrintResult;
     const was_in_value = this._0.in_value;
     this._0.in_value = true;
-    this.print_def_path(def_id, args);
+    if ((r = this.print_def_path(def_id, args)).$ === "Err") return r;
     this._0.in_value = was_in_value;
+
+    return PRINT_OK;
   }
 
-  // PORT: `T: Print<Self> + TypeFoldable` are the descriptors `p_T` and `d_T` (D4).
+  // PORT: `T: Print<Self> + TypeFoldable` are the descriptors `print_T` and `d_T`, last (D4).
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2516 pretty_print_in_binder
-  pretty_print_in_binder<T>(value: Binder<T>, p_T: Print<T>, d_T: TypeFoldable<T>): void {
-    this.wrap_binder(value, WrapBinderMode.ForAll, (new_value, this_) => p_T.print(new_value, this_), d_T);
+  override pretty_print_in_binder<T>(value: Binder<T>, print_T: Print<T, this>, d_T: TypeFoldable<T>): PrintResult {
+    return this.wrap_binder(value, WrapBinderMode.ForAll, (new_value, this_) => print_T(new_value, this_), d_T);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2523 wrap_binder
-  wrap_binder<T>(value: Binder<T>, mode: WrapBinderMode, f: (value: T, p: this) => void, d_T: TypeFoldable<T>): void {
+  override wrap_binder<T>(value: Binder<T>, mode: WrapBinderMode, f: (value: T, p: this) => PrintResult, d_T: TypeFoldable<T>): PrintResult {
+    let r: PrintResult;
     const old_region_index = this._0.region_index;
-    const [new_value, _] = this.name_all_regions(value, mode, d_T);
-    f(new_value, this);
+    const n = this.name_all_regions(value, mode, d_T);
+    if (n.$ === "Err") return n;
+    const [new_value, _] = n._0;
+    if ((r = f(new_value, this)).$ === "Err") return r;
     this._0.region_index = old_region_index;
     this._0.binder_depth -= 1;
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2540 typed_value
-  typed_value(f: (p: this) => void, t: (p: this) => void, conversion: string): void {
-    this.write_str("{");
-    f(this);
-    this.write_str(conversion);
+  override typed_value(f: (p: this) => PrintResult, t: (p: this) => PrintResult, conversion: string): PrintResult {
+    let r: PrintResult;
+    if ((r = this.write_str("{")).$ === "Err") return r;
+    if ((r = f(this)).$ === "Err") return r;
+    if ((r = this.write_str(conversion)).$ === "Err") return r;
     const was_in_value = this._0.in_value;
     this._0.in_value = false;
-    t(this);
+    if ((r = t(this)).$ === "Err") return r;
     this._0.in_value = was_in_value;
-    this.write_str("}");
+    if ((r = this.write_str("}")).$ === "Err") return r;
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2556 generic_delimiters
-  generic_delimiters(f: (p: this) => void): void {
-    this.write_str("<");
+  generic_delimiters(f: (p: this) => PrintResult): PrintResult {
+    let r: PrintResult;
+    if ((r = this.write_str("<")).$ === "Err") return r;
 
     const was_in_value = this._0.in_value;
     this._0.in_value = false;
-    f(this);
+    if ((r = f(this)).$ === "Err") return r;
     this._0.in_value = was_in_value;
 
-    this.write_str(">");
+    if ((r = this.write_str(">")).$ === "Err") return r;
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2570 should_truncate
-  should_truncate(): boolean {
+  override should_truncate(): boolean {
     return !this._0.type_length_limit.value_within_limit(this._0.printed_type_count);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2574 should_print_optional_region
   should_print_optional_region(region: Region): boolean {
-    const highlight = this._0.region_highlight_mode;
+    const highlight = this._0.region_highlight_mode.clone();
     if (highlight.region_highlighted(region) !== undefined) {
       return true;
     }
@@ -931,7 +1373,7 @@ export class FmtPrinter implements PrettyPrinter {
       return true;
     }
 
-    if (with_forced_trimmed_paths_get()) {
+    if (with_forced_trimmed_paths()) {
       return false;
     }
 
@@ -975,31 +1417,34 @@ export class FmtPrinter implements PrettyPrinter {
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2619 pretty_print_const_pointer
-  pretty_print_const_pointer(p: Pointer, ty: Ty): void {
-    const print = (this_: FmtPrinter): void => {
+  override pretty_print_const_pointer(p: Pointer, ty: Ty): PrintResult {
+    const print = (this_: this): PrintResult => {
+      let r: PrintResult;
       if (this_._0.print_alloc_ids) {
-        this_.write_str(debug_Pointer(p, PLAIN));
+        if ((r = this_.write_str(debug_Pointer(p, PLAIN))).$ === "Err") return r;
       } else {
-        this_.write_str("&_");
+        if ((r = this_.write_str("&_")).$ === "Err") return r;
       }
+      return PRINT_OK;
     };
-    this.typed_value(print, (this_) => this_.print_type(ty), ": ");
+    return this.typed_value(print, (this_) => this_.print_type(ty), ": ");
   }
 
   // HACK(eddyb) limited to `FmtPrinter` because of `region_highlight_mode`.
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2638 pretty_print_region
-  pretty_print_region(region: Region): void {
+  pretty_print_region(region: Region): PrintResult {
+    let r: PrintResult;
     // Watch out for region highlights.
-    const highlight = this._0.region_highlight_mode;
+    const highlight = this._0.region_highlight_mode.clone();
     const n = highlight.region_highlighted(region);
     if (n !== undefined) {
-      this.write_str(`'${n}`);
-      return;
+      if ((r = this.write_str(`'${n}`)).$ === "Err") return r;
+      return PRINT_OK;
     }
 
     if (this.should_print_verbose()) {
-      this.write_str(debug_Region(region, PLAIN));
-      return;
+      if ((r = this.write_str(debug_Region(region, PLAIN))).$ === "Err") return r;
+      return PRINT_OK;
     }
 
     const identify_regions = this._0.tcx.sess.opts.unstable_opts.identify_regions;
@@ -1012,15 +1457,15 @@ export class FmtPrinter implements PrettyPrinter {
     switch (k.$) {
       case "ReEarlyParam": {
         const data = k._0;
-        this.write_str(display_Symbol(data.name));
-        return;
+        if ((r = this.write_str(display_Symbol(data.name))).$ === "Err") return r;
+        return PRINT_OK;
       }
       case "ReLateParam": {
         const kind = k._0.kind;
         const name = LateParamRegionKind_get_name(kind, this._0.tcx);
         if (name !== undefined) {
-          this.write_str(display_Symbol(name));
-          return;
+          if ((r = this.write_str(display_Symbol(name))).$ === "Err") return r;
+          return PRINT_OK;
         }
         break;
       }
@@ -1029,15 +1474,15 @@ export class FmtPrinter implements PrettyPrinter {
         const br = k.$ === "ReBound" ? k._1.kind : k._0.bound.kind;
         const name = BoundRegionKind_get_name(br, this._0.tcx);
         if (name !== undefined) {
-          this.write_str(display_Symbol(name));
-          return;
+          if ((r = this.write_str(display_Symbol(name))).$ === "Err") return r;
+          return PRINT_OK;
         }
 
         if (highlight.highlight_bound_region !== undefined) {
           const [region, counter] = highlight.highlight_bound_region;
           if (BoundRegionKind_eq(br, region)) {
-            this.write_str(`'${counter}`);
-            return;
+            if ((r = this.write_str(`'${counter}`)).$ === "Err") return r;
+            return PRINT_OK;
           }
         }
         break;
@@ -1045,8 +1490,8 @@ export class FmtPrinter implements PrettyPrinter {
       case "ReVar": {
         if (identify_regions) {
           const region_vid = k._0;
-          this.write_str(debug_RegionVid(region_vid, PLAIN));
-          return;
+          if ((r = this.write_str(debug_RegionVid(region_vid, PLAIN))).$ === "Err") return r;
+          return PRINT_OK;
         }
         break;
       }
@@ -1055,19 +1500,22 @@ export class FmtPrinter implements PrettyPrinter {
       case "ReError":
         break;
       case "ReStatic": {
-        this.write_str("'static");
-        return;
+        if ((r = this.write_str("'static")).$ === "Err") return r;
+        return PRINT_OK;
       }
     }
 
-    this.write_str("'_");
+    if ((r = this.write_str("'_")).$ === "Err") return r;
+
+    return PRINT_OK;
   }
 
   // HACK(eddyb) limited to `FmtPrinter` because of `binder_depth`,
   // `region_index` and `used_region_names`.
   // PORT: `T: TypeFoldable` is the descriptor `d_T` (D4); `UnordMap<BoundRegion, Region>` is a `KeyedMap` (D5).
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2778 name_all_regions
-  name_all_regions<T>(value: Binder<T>, mode: WrapBinderMode, d_T: TypeFoldable<T>): [T, KeyedMap<BoundRegion, Region>] {
+  name_all_regions<T>(value: Binder<T>, mode: WrapBinderMode, d_T: TypeFoldable<T>): Result<[T, KeyedMap<BoundRegion, Region>], PrintError> {
+    let r: PrintResult;
     // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2786 name_by_region_index
     function name_by_region_index(index: number, available_names: Symbol[], num_available: number): Symbol {
       const name = available_names.pop();
@@ -1100,10 +1548,10 @@ export class FmtPrinter implements PrettyPrinter {
       } else {
         w = cont;
       }
-      p.write_str(w);
+      void p.write_str(w);
     };
     const do_continue = (p: FmtPrinter, cont: Symbol): void => {
-      p.write_str(display_Symbol(cont));
+      void p.write_str(display_Symbol(cont));
     };
 
     // `('a'..='z').rev().map(|s| Symbol::intern(&format!("'{s}")))`, collected through the filter below in the
@@ -1141,7 +1589,7 @@ export class FmtPrinter implements PrettyPrinter {
     if (this.should_print_verbose()) {
       for (const var_ of value.bound_vars) {
         start_or_continue(this, WrapBinderMode.start_str(mode), ", ");
-        this.write_str(debug_BoundVariableKind(var_, PLAIN));
+        if ((r = this.write_str(debug_BoundVariableKind(var_, PLAIN))).$ === "Err") return r;
       }
       // Unconditionally render `unsafe<>`.
       if (value.bound_vars.length === 0 && mode === WrapBinderMode.Unsafe) {
@@ -1152,7 +1600,7 @@ export class FmtPrinter implements PrettyPrinter {
     } else {
       const tcx = this._0.tcx;
 
-      const trim_path = with_forced_trimmed_paths_get();
+      const trim_path = with_forced_trimmed_paths();
       // Closure used in `RegionFolder` to create names for anonymous late-bound
       // regions.
       const name = (br: BoundRegion): Region => {
@@ -1187,7 +1635,7 @@ export class FmtPrinter implements PrettyPrinter {
 
     this._0.binder_depth += 1;
     this._0.region_index = region_index;
-    return [new_value, map];
+    return Ok([new_value, map]);
   }
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2907 prepare_region_info
@@ -1255,106 +1703,6 @@ export class FmtPrinter implements PrettyPrinter {
     this._0.used_region_names = collector.used_region_names;
     this._0.region_index = 0;
   }
-
-  // ---- provided `Printer` / `PrettyPrinter` methods that FmtPrinter does not override (delegation) ----
-  print_impl_path(impl_def_id: DefId, args: readonly GenericArg[]): void {
-    Printer_provided.print_impl_path(this, impl_def_id, args);
-  }
-  print_coroutine_with_kind(def_id: DefId, parent_args: readonly GenericArg[], kind: Ty): void {
-    Printer_provided.print_coroutine_with_kind(this, def_id, parent_args, kind);
-  }
-  default_print_def_path(def_id: DefId, args: readonly GenericArg[]): void {
-    Printer_provided.default_print_def_path(this, def_id, args);
-  }
-  default_print_impl_path(impl_def_id: DefId, self_ty: Ty, impl_trait_ref: TraitRef | undefined): void {
-    Printer_provided.default_print_impl_path(this, impl_def_id, self_ty, impl_trait_ref);
-  }
-  comma_sep<T>(elems: Iterable<T>, p_T: Print<T>): void {
-    PrettyPrinter_provided.comma_sep(this, elems, p_T);
-  }
-  parenthesized(f: (p: this) => void): void {
-    PrettyPrinter_provided.parenthesized(this, f as (p: PrettyPrinter) => void);
-  }
-  maybe_parenthesized(f: (p: this) => void, parenthesized: boolean): void {
-    PrettyPrinter_provided.maybe_parenthesized(this, f as (p: PrettyPrinter) => void, parenthesized);
-  }
-  try_print_visible_def_path(def_id: DefId): boolean {
-    return PrettyPrinter_provided.try_print_visible_def_path(this, def_id);
-  }
-  force_print_trimmed_def_path(def_id: DefId): boolean {
-    return PrettyPrinter_provided.force_print_trimmed_def_path(this, def_id);
-  }
-  try_print_trimmed_def_path(def_id: DefId): boolean {
-    return PrettyPrinter_provided.try_print_trimmed_def_path(this, def_id);
-  }
-  try_print_visible_def_path_recur(def_id: DefId, callers: DefId[]): boolean {
-    return PrettyPrinter_provided.try_print_visible_def_path_recur(this, def_id, callers);
-  }
-  pretty_print_path_with_qualified(self_ty: Ty, trait_ref: TraitRef | undefined): void {
-    PrettyPrinter_provided.pretty_print_path_with_qualified(this, self_ty, trait_ref);
-  }
-  pretty_print_path_with_impl(print_prefix: (p: this) => void, self_ty: Ty, trait_ref: TraitRef | undefined): void {
-    PrettyPrinter_provided.pretty_print_path_with_impl(this, print_prefix as (p: PrettyPrinter) => void, self_ty, trait_ref);
-  }
-  pretty_print_closure_inner(did: DefId, args: GenericArgs): void {
-    PrettyPrinter_provided.pretty_print_closure_inner(this, did, args);
-  }
-  pretty_print_type(ty: Ty): void {
-    PrettyPrinter_provided.pretty_print_type(this, ty);
-  }
-  pretty_print_opaque_impl_type(def_id: DefId, args: GenericArgs): void {
-    PrettyPrinter_provided.pretty_print_opaque_impl_type(this, def_id, args);
-  }
-  insert_trait_and_projection(
-    trait_pred: PolyTraitClause,
-    proj_ty: [DefId, Binder<Term>] | undefined,
-    traits: KeyedMap<PolyTraitClause, KeyedMap<DefId, Binder<Term>>>,
-    fn_traits: KeyedMap<[Binder<[List<Ty>, Ty]>, boolean], OpaqueFnEntry>,
-  ): void {
-    PrettyPrinter_provided.insert_trait_and_projection(this, trait_pred, proj_ty, traits, fn_traits);
-  }
-  pretty_print_inherent_projection(alias_term: AliasTerm): void {
-    PrettyPrinter_provided.pretty_print_inherent_projection(this, alias_term);
-  }
-  pretty_print_rpitit(def_id: DefId, args: GenericArgs): void {
-    PrettyPrinter_provided.pretty_print_rpitit(this, def_id, args);
-  }
-  pretty_print_dyn_existential(predicates: List<PolyExistentialPredicate>): void {
-    PrettyPrinter_provided.pretty_print_dyn_existential(this, predicates);
-  }
-  pretty_print_fn_sig(inputs: readonly Ty[], c_variadic: boolean, splatted: number | undefined, output: Ty): void {
-    PrettyPrinter_provided.pretty_print_fn_sig(this, inputs, c_variadic, splatted, output);
-  }
-  pretty_print_const(ct: Const, print_ty: boolean): void {
-    PrettyPrinter_provided.pretty_print_const(this, ct, print_ty);
-  }
-  pretty_print_const_expr(expr: Expr, print_ty: boolean): void {
-    PrettyPrinter_provided.pretty_print_const_expr(this, expr, print_ty);
-  }
-  pretty_print_const_scalar(scalar: Scalar, ty: Ty): void {
-    PrettyPrinter_provided_b.pretty_print_const_scalar(this, scalar, ty);
-  }
-  pretty_print_const_scalar_ptr(ptr: Pointer, ty: Ty): void {
-    PrettyPrinter_provided_b.pretty_print_const_scalar_ptr(this, ptr, ty);
-  }
-  pretty_print_const_scalar_int(int: ScalarInt, ty: Ty, print_ty: boolean): void {
-    PrettyPrinter_provided_b.pretty_print_const_scalar_int(this, int, ty, print_ty);
-  }
-  pretty_print_byte_str(byte_str: Uint8Array): void {
-    PrettyPrinter_provided_b.pretty_print_byte_str(this, byte_str);
-  }
-  pretty_print_const_valtree(cv: Value, print_ty: boolean): void {
-    PrettyPrinter_provided_b.pretty_print_const_valtree(this, cv, print_ty);
-  }
-  pretty_print_closure_as_impl(closure: ClosureArgs): void {
-    PrettyPrinter_provided_b.pretty_print_closure_as_impl(this, closure);
-  }
-  pretty_print_bound_constness(constness: BoundConstness): void {
-    PrettyPrinter_provided_b.pretty_print_bound_constness(this, constness);
-  }
-  should_print_verbose(): boolean {
-    return PrettyPrinter_provided_b.should_print_verbose(this);
-  }
 }
 
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2151 guess_def_namespace
@@ -1398,7 +1746,10 @@ TyCtxt.prototype.def_path_str_with_args = function (this: TyCtxt, def_id_: IntoQ
   const ns = guess_def_namespace(this, def_id);
   // debug!("def_path_str: def_id={:?}, ns={:?}", def_id, ns);
 
-  return FmtPrinter.print_string(this, ns, (p) => p.print_def_path(def_id, args));
+  return unwrap_result(
+    FmtPrinter.print_string(this, ns, (p) => p.print_def_path(def_id, args)),
+    debug_PrintError,
+  );
 };
 
 /// For this one we always use value namespace.
@@ -1408,8 +1759,14 @@ TyCtxt.prototype.value_path_str_with_args = function (this: TyCtxt, def_id_: Int
   const ns = Namespace.ValueNS;
   // debug!("value_path_str: def_id={:?}, ns={:?}", def_id, ns);
 
-  return FmtPrinter.print_string(this, ns, (p) => p.print_def_path(def_id, args));
+  return unwrap_result(
+    FmtPrinter.print_string(this, ns, (p) => p.print_def_path(def_id, args)),
+    debug_PrintError,
+  );
 };
+
+/** `#[derive(Debug)]` of `std::fmt::Error` (a unit struct): `Error`. */
+const debug_PrintError: Debug<PrintError> = () => "Error";
 
 /// Folds through bound vars and placeholders, naming them
 // rustc-type: compiler/rustc_middle/src/ty/print/pretty.rs:2704 RegionFolder
@@ -1506,25 +1863,19 @@ function map_entry_or_insert_with<K, V>(map: Map<K, V>, k: K, f: () => V): V {
 }
 
 // impl<'tcx, T, P: PrettyPrinter<'tcx>> Print<P> for ty::Binder<'tcx, T> where T: Print<P> + TypeFoldable
-export function print_Binder<T>(p_T: Print<T>, d_T: TypeFoldable<T>): Print<Binder<T>> {
-  return {
-    // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2960 print
-    print(self: Binder<T>, p: PrettyPrinter): void {
-      p.pretty_print_in_binder(self, p_T, d_T);
-    },
-  };
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2960 print
+export function print_Binder<T, P extends PrettyPrinter>(self: Binder<T>, p: P, print_T: Print<T, P>, d_T: TypeFoldable<T>): PrintResult {
+  return p.pretty_print_in_binder(self, print_T as Print<T, PrettyPrinter>, d_T);
 }
 
 // impl<'tcx, T, P: PrettyPrinter<'tcx>> Print<P> for ty::OutlivesClause<'tcx, T> where T: Print<P>
-export function print_OutlivesClause<T>(p_T: Print<T>): Print<OutlivesClause<T>> {
-  return {
-    // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2969 print
-    print(self: OutlivesClause<T>, p: PrettyPrinter): void {
-      p_T.print(self._0, p);
-      p.write_str(": ");
-      print_Region.print(self._1, p);
-    },
-  };
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2969 print
+export function print_OutlivesClause<T, P extends PrettyPrinter>(self: OutlivesClause<T>, p: P, print_T: Print<T, P>): PrintResult {
+  let r: PrintResult;
+  if ((r = print_T(self._0, p)).$ === "Err") return r;
+  if ((r = p.write_str(": ")).$ === "Err") return r;
+  if ((r = print_Region(self._1, p)).$ === "Err") return r;
+  return PRINT_OK;
 }
 
 /// Wrapper type for `ty::TraitRef` which opts-in to pretty printing only
@@ -1575,36 +1926,32 @@ export interface TraitRefPrintOnlyTraitName {
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3025 fmt
 export const debug_TraitRefPrintOnlyTraitName: Debug<TraitRefPrintOnlyTraitName> = (v, _f) => display_TraitRefPrintOnlyTraitName(v);
 
-/** `#[extension(pub trait PrintTraitRefExt)] impl TraitRef` */
-export const PrintTraitRefExt = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3032 print_only_trait_path
-  print_only_trait_path(self: TraitRef): TraitRefPrintOnlyTraitPath {
-    return { _0: self };
-  },
+// #[extension(pub trait PrintTraitRefExt<'tcx>)] impl<'tcx> ty::TraitRef<'tcx>
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3032 print_only_trait_path
+export function TraitRef_print_only_trait_path(self: TraitRef): TraitRefPrintOnlyTraitPath {
+  return { _0: self };
+}
 
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3036 print_trait_sugared
-  print_trait_sugared(self: TraitRef): TraitRefPrintSugared {
-    return { _0: self };
-  },
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3036 print_trait_sugared
+export function TraitRef_print_trait_sugared(self: TraitRef): TraitRefPrintSugared {
+  return { _0: self };
+}
 
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3040 print_only_trait_name
-  print_only_trait_name(self: TraitRef): TraitRefPrintOnlyTraitName {
-    return { _0: self };
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3040 print_only_trait_name
+export function TraitRef_print_only_trait_name(self: TraitRef): TraitRefPrintOnlyTraitName {
+  return { _0: self };
+}
 
-/** `#[extension(pub trait PrintPolyTraitRefExt)] impl Binder<TraitRef>` */
-export const PrintPolyTraitRefExt = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3047 print_only_trait_path
-  print_only_trait_path(self: PolyTraitRef): Binder<TraitRefPrintOnlyTraitPath> {
-    return Binder_map_bound(self, (tr) => PrintTraitRefExt.print_only_trait_path(tr));
-  },
+// #[extension(pub trait PrintPolyTraitRefExt<'tcx>)] impl<'tcx> ty::Binder<'tcx, ty::TraitRef<'tcx>>
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3047 print_only_trait_path
+export function PolyTraitRef_print_only_trait_path(self: PolyTraitRef): Binder<TraitRefPrintOnlyTraitPath> {
+  return Binder_map_bound(self, (tr) => TraitRef_print_only_trait_path(tr));
+}
 
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3051 print_trait_sugared
-  print_trait_sugared(self: PolyTraitRef): Binder<TraitRefPrintSugared> {
-    return Binder_map_bound(self, (tr) => PrintTraitRefExt.print_trait_sugared(tr));
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3051 print_trait_sugared
+export function PolyTraitRef_print_trait_sugared(self: PolyTraitRef): Binder<TraitRefPrintSugared> {
+  return Binder_map_bound(self, (tr) => TraitRef_print_trait_sugared(tr));
+}
 
 // rustc-type: compiler/rustc_middle/src/ty/print/pretty.rs:3057 TraitClausePrintModifiersAndPath
 export interface TraitClausePrintModifiersAndPath {
@@ -1614,13 +1961,11 @@ export interface TraitClausePrintModifiersAndPath {
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3060 fmt
 export const debug_TraitClausePrintModifiersAndPath: Debug<TraitClausePrintModifiersAndPath> = (v, _f) => display_TraitClausePrintModifiersAndPath(v);
 
-/** `#[extension(pub trait PrintTraitClauseExt)] impl TraitClause` */
-export const PrintTraitClauseExt = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3067 print_modifiers_and_trait_path
-  print_modifiers_and_trait_path(self: TraitClause): TraitClausePrintModifiersAndPath {
-    return { _0: self };
-  },
-};
+// #[extension(pub trait PrintTraitClauseExt<'tcx>)] impl<'tcx> ty::TraitClause<'tcx>
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3067 print_modifiers_and_trait_path
+export function TraitClause_print_modifiers_and_trait_path(self: TraitClause): TraitClausePrintModifiersAndPath {
+  return { _0: self };
+}
 
 // rustc-type: compiler/rustc_middle/src/ty/print/pretty.rs:3073 TraitClausePrintWithBoundConstness
 export interface TraitClausePrintWithBoundConstness {
@@ -1631,542 +1976,565 @@ export interface TraitClausePrintWithBoundConstness {
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3079 fmt
 export const debug_TraitClausePrintWithBoundConstness: Debug<TraitClausePrintWithBoundConstness> = (v, _f) => display_TraitClausePrintWithBoundConstness(v);
 
-/** `#[extension(pub trait PrintPolyTraitClauseExt)] impl PolyTraitClause` */
-export const PrintPolyTraitClauseExt = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3086 print_modifiers_and_trait_path
-  print_modifiers_and_trait_path(self: PolyTraitClause): Binder<TraitClausePrintModifiersAndPath> {
-    return Binder_map_bound(self, (_0): TraitClausePrintModifiersAndPath => ({ _0 }));
-  },
+// #[extension(pub trait PrintPolyTraitClauseExt<'tcx>)] impl<'tcx> ty::PolyTraitClause<'tcx>
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3086 print_modifiers_and_trait_path
+export function PolyTraitClause_print_modifiers_and_trait_path(self: PolyTraitClause): Binder<TraitClausePrintModifiersAndPath> {
+  return Binder_map_bound(self, (_0): TraitClausePrintModifiersAndPath => ({ _0 }));
+}
 
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3092 print_with_bound_constness
-  print_with_bound_constness(self: PolyTraitClause, constness: BoundConstness | undefined): Binder<TraitClausePrintWithBoundConstness> {
-    return Binder_map_bound(self, (trait_pred): TraitClausePrintWithBoundConstness => ({ _0: trait_pred, _1: constness }));
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3092 print_with_bound_constness
+export function PolyTraitClause_print_with_bound_constness(self: PolyTraitClause, constness: BoundConstness | undefined): Binder<TraitClausePrintWithBoundConstness> {
+  return Binder_map_bound(self, (trait_pred): TraitClausePrintWithBoundConstness => ({ _0: trait_pred, _1: constness }));
+}
 
 // rustc-type: compiler/rustc_middle/src/ty/print/pretty.rs:3101 PrintClosureAsImpl
 export interface PrintClosureAsImpl {
   closure: ClosureArgs;
 }
 /** `#[derive(Debug)]` */
-export const debug_PrintClosureAsImpl: Debug<PrintClosureAsImpl> = (v, f) => {
-  const fields: [string, string][] = [["closure", debug_ClosureArgs(v.closure, f)]];
-  return f.alternate ? `PrintClosureAsImpl {\n${fields.map(([n, s]) => `    ${n}: ${s.replaceAll("\n", "\n    ")},\n`).join("")}}` : `PrintClosureAsImpl { ${fields.map(([n, s]) => `${n}: ${s}`).join(", ")} }`;
-};
+export const debug_PrintClosureAsImpl: Debug<PrintClosureAsImpl> = (v, f) => debug_struct(f, "PrintClosureAsImpl", [["closure", debug_ClosureArgs(v.closure, f)]]);
 
-/** `macro_rules! forward_display_to_print`: `impl fmt::Display for $ty` (one `display_<T>` per type). */
-function forward_display_to_print<T>(p_T: Print<T>): (self: T) => string {
+/** `macro_rules! forward_display_to_print`: the body of each `impl fmt::Display for $ty`. */
+function forward_display_to_print<T>(self: T, print_T: Print<T, FmtPrinter>): string {
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3110 fmt
-  return function fmt(self: T): string {
-    return with_((tcx) => {
-      const p = FmtPrinter.new(tcx, Namespace.TypeNS);
-      p_T.print(/* tcx.lift */ self, p);
-      return p.into_buffer();
-    });
-  };
+  return with_((tcx) => {
+    const p = FmtPrinter.new(tcx, Namespace.TypeNS);
+    const r = print_T(/* tcx.lift */ self, p);
+    if (r.$ === "Err") panic("a Display implementation returned an error unexpectedly: Error");
+    return p.into_buffer();
+  });
 }
 
-// `define_print!` / `define_print_and_forward_display!` (pretty.rs:3124 / :3135): each `$ty $print` block is a
-// descriptor `print_<T>` whose `print` is the block (the macro's `let _: () = $print; Ok(())`).
+// `define_print!` (pretty.rs:3124): each `$ty $print` block is `print_<T>`, the macro's
+// `fn print(&$self, $p: &mut P) -> Result<(), PrintError> { let _: () = $print; Ok(()) }`.
 
-// forward_display_to_print! { Ty<'tcx>, &'tcx ty::List<ty::PolyExistentialPredicate<'tcx>> }
-export const display_Ty: (self: Ty) => string = (self) => forward_display_to_print(print_Ty)(self);
-export const display_List_PolyExistentialPredicate: (self: List<PolyExistentialPredicate>) => string = (self) =>
-  forward_display_to_print(print_List_PolyExistentialPredicate)(self);
+// forward_display_to_print! { Ty<'tcx>, &'tcx ty::List<ty::PolyExistentialPredicate<'tcx>> } (pretty.rs:3142)
+export function display_Ty(self: Ty): string {
+  return forward_display_to_print(self, print_Ty);
+}
+export function display_List_PolyExistentialPredicate(self: List<PolyExistentialPredicate>): string {
+  return forward_display_to_print(self, print_List_PolyExistentialPredicate);
+}
 
 // ---- define_print! (pretty.rs:3147) ----
-export const print_FnSig: Print<FnSig> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: FnSig, p: PrettyPrinter): void {
-    p.write_str(Safety.prefix_str(FnSigC.safety(self)));
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_FnSig(self: FnSig, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = p.write_str(Safety.prefix_str(FnSigC.safety(self)))).$ === "Err") return r;
 
-    const abi: ExternAbi = FnSigC.abi(self);
-    if (abi.$ !== "Rust") {
-      p.write_str(`extern ${display_ExternAbi(abi)} `);
+  const abi: ExternAbi = FnSigC.abi(self);
+  if (abi.$ !== "Rust") {
+    if ((r = p.write_str(`extern ${display_ExternAbi(abi)} `)).$ === "Err") return r;
+  }
+
+  if ((r = p.write_str("fn")).$ === "Err") return r;
+  if ((r = p.pretty_print_fn_sig(FnSigC.inputs(self), FnSigC.c_variadic(self), FnSigC.splatted(self), FnSigC.output(self))).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_TraitRef(self: TraitRef, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = p.write_str(`<${display_Ty(TraitRef_self_ty(self))} as ${display_TraitRefPrintOnlyTraitPath(TraitRef_print_only_trait_path(self))}>`)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_AliasTy(self: AliasTy, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  const alias_term: AliasTerm = AliasTermC.from_AliasTy(self);
+  if ((r = print_AliasTerm(alias_term, p)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_AliasTerm(self: AliasTerm, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  const kind = self.kind;
+  switch (kind.$) {
+    case "InherentTy":
+    case "InherentConstSelf": {
+      if ((r = p.pretty_print_inherent_projection(self)).$ === "Err") return r;
+      break;
     }
-
-    p.write_str("fn");
-    p.pretty_print_fn_sig(FnSigC.inputs(self), FnSigC.c_variadic(self), FnSigC.splatted(self), FnSigC.output(self));
-  },
-};
-
-export const print_TraitRef: Print<TraitRef> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: TraitRef, p: PrettyPrinter): void {
-    p.write_str(`<${display_Ty(TraitRef_self_ty(self))} as ${display_TraitRefPrintOnlyTraitPath(PrintTraitRefExt.print_only_trait_path(self))}>`);
-  },
-};
-
-export const print_AliasTy: Print<AliasTy> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: AliasTy, p: PrettyPrinter): void {
-    const alias_term: AliasTerm = AliasTermC.from_AliasTy(self);
-    print_AliasTerm.print(alias_term, p);
-  },
-};
-
-export const print_AliasTerm: Print<AliasTerm> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: AliasTerm, p: PrettyPrinter): void {
-    const kind = self.kind;
-    switch (kind.$) {
-      case "InherentTy":
-      case "InherentConstSelf": {
-        p.pretty_print_inherent_projection(self);
-        break;
+    case "ProjectionTy": {
+      const def_id = kind.def_id;
+      if (!(p.should_print_verbose() || with_reduced_queries()) && p.tcx().is_impl_trait_in_trait(def_id)) {
+        if ((r = p.pretty_print_rpitit(def_id, self.args)).$ === "Err") return r;
+      } else {
+        if ((r = p.print_def_path(def_id, self.args)).$ === "Err") return r;
       }
-      case "ProjectionTy": {
-        const def_id = kind.def_id;
-        if (!(p.should_print_verbose() || with_reduced_queries_get()) && p.tcx().is_impl_trait_in_trait(def_id)) {
-          p.pretty_print_rpitit(def_id, self.args);
-        } else {
-          p.print_def_path(def_id, self.args);
-        }
-        break;
-      }
-      case "FreeTy":
-      case "FreeConst":
-      case "OpaqueTy":
-      case "AnonConst":
-      case "ProjectionConst":
-      case "InherentConstImpl": {
-        const def_id = kind.def_id;
-        p.print_def_path(def_id, self.args);
-        break;
-      }
+      break;
     }
-  },
-};
-
-export const print_TraitClause: Print<TraitClause> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: TraitClause, p: PrettyPrinter): void {
-    print_Ty.print(TraitRef_self_ty(self.trait_ref), p);
-    p.write_str(": ");
-    if (self.polarity === "Negative") {
-      p.write_str("!");
+    case "FreeTy":
+    case "FreeConst":
+    case "OpaqueTy":
+    case "AnonConst":
+    case "ProjectionConst":
+    case "InherentConstImpl": {
+      const def_id = kind.def_id;
+      if ((r = p.print_def_path(def_id, self.args)).$ === "Err") return r;
+      break;
     }
-    print_TraitRefPrintSugared.print(PrintTraitRefExt.print_trait_sugared(self.trait_ref), p);
-  },
-};
+  }
+  return PRINT_OK;
+}
 
-export const print_HostEffectClause: Print<HostEffectClause> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: HostEffectClause, p: PrettyPrinter): void {
-    let constness: string;
-    switch (self.constness) {
-      case "Const":
-        constness = "const";
-        break;
-      case "Maybe":
-        constness = "[const]";
-        break;
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_TraitClause(self: TraitClause, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = print_Ty(TraitRef_self_ty(self.trait_ref), p)).$ === "Err") return r;
+  if ((r = p.write_str(": ")).$ === "Err") return r;
+  if (self.polarity === "Negative") {
+    if ((r = p.write_str("!")).$ === "Err") return r;
+  }
+  if ((r = print_TraitRefPrintSugared(TraitRef_print_trait_sugared(self.trait_ref), p)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_HostEffectClause(self: HostEffectClause, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  let constness: string;
+  switch (self.constness) {
+    case "Const":
+      constness = "const";
+      break;
+    case "Maybe":
+      constness = "[const]";
+      break;
+  }
+  if ((r = print_Ty(TraitRef_self_ty(self.trait_ref), p)).$ === "Err") return r;
+  if ((r = p.write_str(`: ${constness} `)).$ === "Err") return r;
+  if ((r = print_TraitRefPrintSugared(TraitRef_print_trait_sugared(self.trait_ref), p)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_TypeAndMut(self: TypeAndMut, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = p.write_str(Mutability.prefix_str(self.mutbl))).$ === "Err") return r;
+  if ((r = print_Ty(self.ty, p)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_ClauseKind(self: ClauseKind, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  switch (self.$) {
+    case "Trait":
+      if ((r = print_TraitClause(self._0, p)).$ === "Err") return r;
+      break;
+    case "RegionOutlives":
+      if ((r = print_OutlivesClause(self._0, p, print_Region)).$ === "Err") return r;
+      break;
+    case "TypeOutlives":
+      if ((r = print_OutlivesClause(self._0, p, print_Ty)).$ === "Err") return r;
+      break;
+    case "Projection":
+      if ((r = print_ProjectionClause(self._0, p)).$ === "Err") return r;
+      break;
+    case "HostEffect":
+      if ((r = print_HostEffectClause(self._0, p)).$ === "Err") return r;
+      break;
+    case "ConstArgHasType": {
+      const ct = self._0;
+      const ty = self._1;
+      if ((r = p.write_str("the constant `")).$ === "Err") return r;
+      if ((r = print_Const(ct, p)).$ === "Err") return r;
+      if ((r = p.write_str("` has type `")).$ === "Err") return r;
+      if ((r = print_Ty(ty, p)).$ === "Err") return r;
+      if ((r = p.write_str("`")).$ === "Err") return r;
+      break;
     }
-    print_Ty.print(TraitRef_self_ty(self.trait_ref), p);
-    p.write_str(`: ${constness} `);
-    print_TraitRefPrintSugared.print(PrintTraitRefExt.print_trait_sugared(self.trait_ref), p);
-  },
-};
-
-export const print_TypeAndMut: Print<TypeAndMut> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: TypeAndMut, p: PrettyPrinter): void {
-    p.write_str(Mutability.prefix_str(self.mutbl));
-    print_Ty.print(self.ty, p);
-  },
-};
-
-export const print_ClauseKind: Print<ClauseKind> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: ClauseKind, p: PrettyPrinter): void {
-    switch (self.$) {
-      case "Trait":
-        print_TraitClause.print(self._0, p);
-        break;
-      case "RegionOutlives":
-        print_OutlivesClause(print_Region).print(self._0, p);
-        break;
-      case "TypeOutlives":
-        print_OutlivesClause(print_Ty).print(self._0, p);
-        break;
-      case "Projection":
-        print_ProjectionClause.print(self._0, p);
-        break;
-      case "HostEffect":
-        print_HostEffectClause.print(self._0, p);
-        break;
-      case "ConstArgHasType": {
-        const ct = self._0;
-        const ty = self._1;
-        p.write_str("the constant `");
-        print_Const.print(ct, p);
-        p.write_str("` has type `");
-        print_Ty.print(ty, p);
-        p.write_str("`");
-        break;
-      }
-      case "WellFormed": {
-        const term = self._0;
-        print_Term.print(term, p);
-        p.write_str(" well-formed");
-        break;
-      }
-      case "ConstEvaluatable": {
-        const ct = self._0;
-        p.write_str("the constant `");
-        print_Const.print(ct, p);
-        p.write_str("` can be evaluated");
-        break;
-      }
-      case "UnstableFeature": {
-        const symbol = self._0;
-        p.write_str(`feature(${display_Symbol(symbol)}) is enabled`);
-        break;
-      }
+    case "WellFormed": {
+      const term = self._0;
+      if ((r = print_Term(term, p)).$ === "Err") return r;
+      if ((r = p.write_str(" well-formed")).$ === "Err") return r;
+      break;
     }
-  },
-};
-
-export const print_PredicateKind: Print<PredicateKind> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: PredicateKind, p: PrettyPrinter): void {
-    switch (self.$) {
-      case "Clause":
-        print_ClauseKind.print(self._0, p);
-        break;
-      case "Subtype":
-        print_SubtypePredicate.print(self._0, p);
-        break;
-      case "Coerce":
-        print_CoercePredicate.print(self._0, p);
-        break;
-      case "DynCompatible": {
-        const trait_def_id = self._0;
-        p.write_str("the trait `");
-        p.print_def_path(trait_def_id, []);
-        p.write_str("` is dyn-compatible");
-        break;
-      }
-      case "ConstEquate": {
-        const c1 = self._0;
-        const c2 = self._1;
-        p.write_str("the constant `");
-        print_Const.print(c1, p);
-        p.write_str("` equals `");
-        print_Const.print(c2, p);
-        p.write_str("`");
-        break;
-      }
-      case "Ambiguous":
-        p.write_str("ambiguous");
-        break;
-      case "NormalizesTo":
-        print_NormalizesTo.print(self._0, p);
-        break;
+    case "ConstEvaluatable": {
+      const ct = self._0;
+      if ((r = p.write_str("the constant `")).$ === "Err") return r;
+      if ((r = print_Const(ct, p)).$ === "Err") return r;
+      if ((r = p.write_str("` can be evaluated")).$ === "Err") return r;
+      break;
     }
-  },
-};
-
-export const print_ExistentialPredicate: Print<ExistentialPredicate> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: ExistentialPredicate, p: PrettyPrinter): void {
-    switch (self.$) {
-      case "Trait":
-        print_ExistentialTraitRef.print(self._0, p);
-        break;
-      case "Projection":
-        print_ExistentialProjection.print(self._0, p);
-        break;
-      case "AutoTrait":
-        p.print_def_path(self._0, []);
-        break;
+    case "UnstableFeature": {
+      const symbol = self._0;
+      if ((r = p.write_str(`feature(${display_Symbol(symbol)}) is enabled`)).$ === "Err") return r;
+      break;
     }
-  },
-};
+  }
+  return PRINT_OK;
+}
 
-export const print_ExistentialTraitRef: Print<ExistentialTraitRef> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: ExistentialTraitRef, p: PrettyPrinter): void {
-    // Dummy Self is safe to use as it can't appear in generic param defaults which is important
-    // later on for correctly eliding generic args that coincide with their default.
-    const trait_ref = ExistentialTraitRef_with_self_ty(self, p.tcx(), p.tcx().types.trait_object_dummy_self);
-    print_TraitRefPrintOnlyTraitPath.print(PrintTraitRefExt.print_only_trait_path(trait_ref), p);
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_PredicateKind(self: PredicateKind, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  switch (self.$) {
+    case "Clause":
+      if ((r = print_ClauseKind(self._0, p)).$ === "Err") return r;
+      break;
+    case "Subtype":
+      if ((r = print_SubtypePredicate(self._0, p)).$ === "Err") return r;
+      break;
+    case "Coerce":
+      if ((r = print_CoercePredicate(self._0, p)).$ === "Err") return r;
+      break;
+    case "DynCompatible": {
+      const trait_def_id = self._0;
+      if ((r = p.write_str("the trait `")).$ === "Err") return r;
+      if ((r = p.print_def_path(trait_def_id, [])).$ === "Err") return r;
+      if ((r = p.write_str("` is dyn-compatible")).$ === "Err") return r;
+      break;
+    }
+    case "ConstEquate": {
+      const c1 = self._0;
+      const c2 = self._1;
+      if ((r = p.write_str("the constant `")).$ === "Err") return r;
+      if ((r = print_Const(c1, p)).$ === "Err") return r;
+      if ((r = p.write_str("` equals `")).$ === "Err") return r;
+      if ((r = print_Const(c2, p)).$ === "Err") return r;
+      if ((r = p.write_str("`")).$ === "Err") return r;
+      break;
+    }
+    case "Ambiguous":
+      if ((r = p.write_str("ambiguous")).$ === "Err") return r;
+      break;
+    case "NormalizesTo":
+      if ((r = print_NormalizesTo(self._0, p)).$ === "Err") return r;
+      break;
+  }
+  return PRINT_OK;
+}
 
-export const print_ExistentialProjection: Print<ExistentialProjection> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: ExistentialProjection, p: PrettyPrinter): void {
-    const name = AssocItem_name(p.tcx().associated_item(self.def_id));
-    // The args don't contain the self ty (as it has been erased) but the corresp.
-    // generics do as the trait always has a self ty param. We need to offset.
-    const args = self.args.slice((p.tcx().generics_of(self.def_id) as Generics).parent_count - 1);
-    p.print_path_with_generic_args((p) => p.write_str(display_Symbol(name)), args);
-    p.write_str(" = ");
-    print_Term.print(self.term, p);
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_ExistentialPredicate(self: ExistentialPredicate, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  switch (self.$) {
+    case "Trait":
+      if ((r = print_ExistentialTraitRef(self._0, p)).$ === "Err") return r;
+      break;
+    case "Projection":
+      if ((r = print_ExistentialProjection(self._0, p)).$ === "Err") return r;
+      break;
+    case "AutoTrait":
+      if ((r = p.print_def_path(self._0, [])).$ === "Err") return r;
+      break;
+  }
+  return PRINT_OK;
+}
 
-export const print_ProjectionClause: Print<ProjectionClause> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: ProjectionClause, p: PrettyPrinter): void {
-    print_AliasTerm.print(self.projection_term, p);
-    p.write_str(" == ");
-    p.reset_type_limit();
-    print_Term.print(self.term, p);
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_ExistentialTraitRef(self: ExistentialTraitRef, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  // Dummy Self is safe to use as it can't appear in generic param defaults which is important
+  // later on for correctly eliding generic args that coincide with their default.
+  const trait_ref = ExistentialTraitRef_with_self_ty(self, p.tcx(), p.tcx().types.trait_object_dummy_self);
+  if ((r = print_TraitRefPrintOnlyTraitPath(TraitRef_print_only_trait_path(trait_ref), p)).$ === "Err") return r;
+  return PRINT_OK;
+}
 
-export const print_SubtypePredicate: Print<SubtypePredicate> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: SubtypePredicate, p: PrettyPrinter): void {
-    print_Ty.print(self.a, p);
-    p.write_str(" <: ");
-    p.reset_type_limit();
-    print_Ty.print(self.b, p);
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_ExistentialProjection(self: ExistentialProjection, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  // PORT: the `associated_item` / `generics_of` query values are `unknown` in queries.gen.ts.
+  const name = AssocItem_name(p.tcx().associated_item(self.def_id) as AssocItem);
+  // The args don't contain the self ty (as it has been erased) but the corresp.
+  // generics do as the trait always has a self ty param. We need to offset.
+  const args = self.args.slice((p.tcx().generics_of(self.def_id) as Generics).parent_count - 1);
+  if ((r = p.print_path_with_generic_args((p) => p.write_str(display_Symbol(name)), args)).$ === "Err") return r;
+  if ((r = p.write_str(" = ")).$ === "Err") return r;
+  if ((r = print_Term(self.term, p)).$ === "Err") return r;
+  return PRINT_OK;
+}
 
-export const print_CoercePredicate: Print<CoercePredicate> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: CoercePredicate, p: PrettyPrinter): void {
-    print_Ty.print(self.a, p);
-    p.write_str(" -> ");
-    p.reset_type_limit();
-    print_Ty.print(self.b, p);
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_ProjectionClause(self: ProjectionClause, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = print_AliasTerm(self.projection_term, p)).$ === "Err") return r;
+  if ((r = p.write_str(" == ")).$ === "Err") return r;
+  p.reset_type_limit();
+  if ((r = print_Term(self.term, p)).$ === "Err") return r;
+  return PRINT_OK;
+}
 
-export const print_NormalizesTo: Print<NormalizesTo> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: NormalizesTo, p: PrettyPrinter): void {
-    print_AliasTerm.print(self.alias, p);
-    p.write_str(" normalizes-to ");
-    p.reset_type_limit();
-    print_Term.print(self.term, p);
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_SubtypePredicate(self: SubtypePredicate, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = print_Ty(self.a, p)).$ === "Err") return r;
+  if ((r = p.write_str(" <: ")).$ === "Err") return r;
+  p.reset_type_limit();
+  if ((r = print_Ty(self.b, p)).$ === "Err") return r;
+  return PRINT_OK;
+}
 
-export const print_PlaceholderType: Print<PlaceholderType> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: PlaceholderType, p: PrettyPrinter): void {
-    const kind = self.bound.kind;
-    switch (kind.$) {
-      case "Anon":
-        p.write_str(debug_Placeholder(self, PLAIN, debug_BoundTy));
-        break;
-      case "Param": {
-        const def_id = kind._0;
-        switch (p.should_print_verbose()) {
-          case true:
-            p.write_str(debug_Placeholder(self, PLAIN, debug_BoundTy));
-            break;
-          case false:
-            p.write_str(display_Symbol(p.tcx().item_name(def_id)));
-            break;
-        }
-        break;
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_CoercePredicate(self: CoercePredicate, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = print_Ty(self.a, p)).$ === "Err") return r;
+  if ((r = p.write_str(" -> ")).$ === "Err") return r;
+  p.reset_type_limit();
+  if ((r = print_Ty(self.b, p)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_NormalizesTo(self: NormalizesTo, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = print_AliasTerm(self.alias, p)).$ === "Err") return r;
+  if ((r = p.write_str(" normalizes-to ")).$ === "Err") return r;
+  p.reset_type_limit();
+  if ((r = print_Term(self.term, p)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_PlaceholderType(self: PlaceholderType, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  const kind = self.bound.kind;
+  switch (kind.$) {
+    case "Anon":
+      if ((r = p.write_str(debug_Placeholder(self, PLAIN, debug_BoundTy))).$ === "Err") return r;
+      break;
+    case "Param": {
+      const def_id = kind._0;
+      switch (p.should_print_verbose()) {
+        case true:
+          if ((r = p.write_str(debug_Placeholder(self, PLAIN, debug_BoundTy))).$ === "Err") return r;
+          break;
+        case false:
+          if ((r = p.write_str(display_Symbol(p.tcx().item_name(def_id)))).$ === "Err") return r;
+          break;
       }
+      break;
     }
-  },
-};
+  }
+  return PRINT_OK;
+}
 
 // ---- define_print_and_forward_display! (pretty.rs:3334) ----
-export const print_List_Ty: Print<List<Ty>> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: List<Ty>, p: PrettyPrinter): void {
-    p.write_str("{");
-    p.comma_sep(self, print_Ty);
-    p.write_str("}");
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_List_Ty(self: List<Ty>, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = p.write_str("{")).$ === "Err") return r;
+  if ((r = p.comma_sep(self, print_Ty)).$ === "Err") return r;
+  if ((r = p.write_str("}")).$ === "Err") return r;
+  return PRINT_OK;
+}
 
-export const print_TraitRefPrintOnlyTraitPath: Print<TraitRefPrintOnlyTraitPath> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: TraitRefPrintOnlyTraitPath, p: PrettyPrinter): void {
-    p.print_def_path(self._0.def_id, self._0.args);
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_TraitRefPrintOnlyTraitPath(self: TraitRefPrintOnlyTraitPath, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = p.print_def_path(self._0.def_id, self._0.args)).$ === "Err") return r;
+  return PRINT_OK;
+}
 
-export const print_TraitRefPrintSugared: Print<TraitRefPrintSugared> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: TraitRefPrintSugared, p: PrettyPrinter): void {
-    let args_ty: Ty | undefined;
-    let tk;
-    if (
-      !with_reduced_queries_get() &&
-      TraitDef_paren_sugar(p.tcx().trait_def(self._0.def_id)) &&
-      (args_ty = self._0.args[1] === undefined ? undefined : GenericArg.as_type(self._0.args[1])) !== undefined &&
-      (tk = args_ty.kind()).$ === "Tuple"
-    ) {
-      const args = tk._0;
-      p.write_str(`${display_Symbol(p.tcx().item_name(self._0.def_id))}(`);
-      for (let i = 0; i < args.length; i++) {
-        const arg = args[i]!;
-        if (i > 0) {
-          p.write_str(", ");
-        }
-        print_Ty.print(arg, p);
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_TraitRefPrintSugared(self: TraitRefPrintSugared, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  let args_ty: Ty | undefined;
+  let tk;
+  if (
+    !with_reduced_queries() &&
+    // PORT: the `trait_def` query value is `unknown` in queries.gen.ts.
+    TraitDef_paren_sugar(p.tcx().trait_def(self._0.def_id)) &&
+    (args_ty = self._0.args[1] === undefined ? undefined : GenericArg.as_type(self._0.args[1])) !== undefined &&
+    (tk = args_ty.kind()).$ === "Tuple"
+  ) {
+    const args = tk._0;
+    if ((r = p.write_str(`${display_Symbol(p.tcx().item_name(self._0.def_id))}(`)).$ === "Err") return r;
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i]!;
+      if (i > 0) {
+        if ((r = p.write_str(", ")).$ === "Err") return r;
       }
-      p.write_str(")");
-    } else {
-      p.print_def_path(self._0.def_id, self._0.args);
+      if ((r = print_Ty(arg, p)).$ === "Err") return r;
     }
-  },
-};
+    if ((r = p.write_str(")")).$ === "Err") return r;
+  } else {
+    if ((r = p.print_def_path(self._0.def_id, self._0.args)).$ === "Err") return r;
+  }
+  return PRINT_OK;
+}
 
-export const print_TraitRefPrintOnlyTraitName: Print<TraitRefPrintOnlyTraitName> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: TraitRefPrintOnlyTraitName, p: PrettyPrinter): void {
-    p.print_def_path(self._0.def_id, []);
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_TraitRefPrintOnlyTraitName(self: TraitRefPrintOnlyTraitName, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = p.print_def_path(self._0.def_id, [])).$ === "Err") return r;
+  return PRINT_OK;
+}
 
-export const print_TraitClausePrintModifiersAndPath: Print<TraitClausePrintModifiersAndPath> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: TraitClausePrintModifiersAndPath, p: PrettyPrinter): void {
-    if (self._0.polarity === "Negative") {
-      p.write_str("!");
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_TraitClausePrintModifiersAndPath(self: TraitClausePrintModifiersAndPath, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if (self._0.polarity === "Negative") {
+    if ((r = p.write_str("!")).$ === "Err") return r;
+  }
+  if ((r = print_TraitRefPrintSugared(TraitRef_print_trait_sugared(self._0.trait_ref), p)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_TraitClausePrintWithBoundConstness(self: TraitClausePrintWithBoundConstness, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = print_Ty(TraitRef_self_ty(self._0.trait_ref), p)).$ === "Err") return r;
+  if ((r = p.write_str(": ")).$ === "Err") return r;
+  if (self._1 !== undefined) {
+    const constness = self._1;
+    if ((r = p.pretty_print_bound_constness(constness)).$ === "Err") return r;
+  }
+  if (self._0.polarity === "Negative") {
+    if ((r = p.write_str("!")).$ === "Err") return r;
+  }
+  if ((r = print_TraitRefPrintSugared(TraitRef_print_trait_sugared(self._0.trait_ref), p)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_PrintClosureAsImpl(self: PrintClosureAsImpl, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = p.pretty_print_closure_as_impl(self.closure)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_ParamTy(self: ParamTy, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = p.write_str(display_Symbol(self.name))).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_ParamConst(self: ParamConst, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = p.write_str(display_Symbol(self.name))).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_Term(self: Term, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  const k = Term.kind(self);
+  switch (k.$) {
+    case "Ty":
+      if ((r = print_Ty(k._0, p)).$ === "Err") return r;
+      break;
+    case "Const":
+      if ((r = print_Const(k._0, p)).$ === "Err") return r;
+      break;
+  }
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_Predicate(self: Predicate, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = print_Binder(self.kind(), p, print_PredicateKind, fold_PredicateKind_)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_Clause(self: Clause, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  if ((r = print_Binder(self.kind(), p, print_ClauseKind, fold_ClauseKind_)).$ === "Err") return r;
+  return PRINT_OK;
+}
+
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_UserTypeKind(self: UserTypeKind, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  switch (self.$) {
+    case "Ty": {
+      const ty = self._0;
+      if ((r = p.write_str("Ty(")).$ === "Err") return r;
+      if ((r = print_Ty(ty, p)).$ === "Err") return r;
+      break;
     }
-    print_TraitRefPrintSugared.print(PrintTraitRefExt.print_trait_sugared(self._0.trait_ref), p);
-  },
-};
-
-export const print_TraitClausePrintWithBoundConstness: Print<TraitClausePrintWithBoundConstness> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: TraitClausePrintWithBoundConstness, p: PrettyPrinter): void {
-    print_Ty.print(TraitRef_self_ty(self._0.trait_ref), p);
-    p.write_str(": ");
-    if (self._1 !== undefined) {
-      const constness = self._1;
-      p.pretty_print_bound_constness(constness);
-    }
-    if (self._0.polarity === "Negative") {
-      p.write_str("!");
-    }
-    print_TraitRefPrintSugared.print(PrintTraitRefExt.print_trait_sugared(self._0.trait_ref), p);
-  },
-};
-
-export const print_PrintClosureAsImpl: Print<PrintClosureAsImpl> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: PrintClosureAsImpl, p: PrettyPrinter): void {
-    p.pretty_print_closure_as_impl(self.closure);
-  },
-};
-
-export const print_ParamTy: Print<ParamTy> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: ParamTy, p: PrettyPrinter): void {
-    p.write_str(display_Symbol(self.name));
-  },
-};
-
-export const print_ParamConst: Print<ParamConst> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: ParamConst, p: PrettyPrinter): void {
-    p.write_str(display_Symbol(self.name));
-  },
-};
-
-export const print_Term: Print<Term> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: Term, p: PrettyPrinter): void {
-    const k = Term.kind(self);
-    switch (k.$) {
-      case "Ty":
-        print_Ty.print(k._0, p);
-        break;
-      case "Const":
-        print_Const.print(k._0, p);
-        break;
-    }
-  },
-};
-
-export const print_Predicate: Print<Predicate> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: Predicate, p: PrettyPrinter): void {
-    print_Binder(print_PredicateKind, fold_PredicateKind).print(self.kind(), p);
-  },
-};
-
-export const print_Clause: Print<Clause> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: Clause, p: PrettyPrinter): void {
-    print_Binder(print_ClauseKind, fold_ClauseKind).print(self.kind(), p);
-  },
-};
-
-export const print_UserTypeKind: Print<UserTypeKind> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: UserTypeKind, p: PrettyPrinter): void {
-    switch (self.$) {
-      case "Ty": {
-        const ty = self._0;
-        p.write_str("Ty(");
-        print_Ty.print(ty, p);
-        break;
+    case "TypeOf": {
+      const def_id = self._0;
+      const { args, user_self_ty } = self._1;
+      if ((r = p.write_str("TypeOf(")).$ === "Err") return r;
+      if ((r = p.print_def_path(def_id, args)).$ === "Err") return r;
+      if (user_self_ty !== undefined) {
+        const { impl_def_id, self_ty } = user_self_ty;
+        if ((r = p.write_str(" at <impl ")).$ === "Err") return r;
+        const key = p.tcx().def_key(impl_def_id);
+        const parent_def_id = new DefId(unwrap(key.parent), impl_def_id.krate);
+        if ((r = p.print_def_path(parent_def_id, [])).$ === "Err") return r;
+        if ((r = p.write_str(`::<${display_Symbol(key.disambiguated_data.as_sym(false))}> for `)).$ === "Err") return r;
+        if ((r = print_Ty(self_ty, p)).$ === "Err") return r;
+        if ((r = p.write_str(">")).$ === "Err") return r;
       }
-      case "TypeOf": {
-        const def_id = self._0;
-        const { args, user_self_ty } = self._1;
-        p.write_str("TypeOf(");
-        p.print_def_path(def_id, args);
-        if (user_self_ty !== undefined) {
-          const { impl_def_id, self_ty } = user_self_ty;
-          p.write_str(" at <impl ");
-          const key = p.tcx().def_key(impl_def_id);
-          const parent_def_id = new DefId(unwrap(key.parent), impl_def_id.krate);
-          p.print_def_path(parent_def_id, []);
-          p.write_str(`::<${display_Symbol(key.disambiguated_data.as_sym(false))}> for `);
-          print_Ty.print(self_ty, p);
-          p.write_str(">");
-        }
-        break;
-      }
+      break;
     }
-    p.write_str(")");
-  },
-};
+  }
+  if ((r = p.write_str(")")).$ === "Err") return r;
+  return PRINT_OK;
+}
 
-export const print_GenericArg: Print<GenericArg> = {
-  // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-  print(self: GenericArg, p: PrettyPrinter): void {
-    const k = GenericArg.kind(self);
-    switch (k.$) {
-      case "Lifetime":
-        print_Region.print(k._0, p);
-        break;
-      case "Type":
-        print_Ty.print(k._0, p);
-        break;
-      case "Const":
-        print_Const.print(k._0, p);
-        break;
-    }
-  },
-};
+// rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
+export function print_GenericArg(self: GenericArg, p: PrettyPrinter): PrintResult {
+  let r: PrintResult;
+  const k = GenericArg.kind(self);
+  switch (k.$) {
+    case "Lifetime":
+      if ((r = print_Region(k._0, p)).$ === "Err") return r;
+      break;
+    case "Type":
+      if ((r = print_Ty(k._0, p)).$ === "Err") return r;
+      break;
+    case "Const":
+      if ((r = print_Const(k._0, p)).$ === "Err") return r;
+      break;
+  }
+  return PRINT_OK;
+}
 
-// The `forward_display_to_print!` half of `define_print_and_forward_display!`.
-export const display_List_Ty: (self: List<Ty>) => string = (self) => forward_display_to_print(print_List_Ty)(self);
-export const display_TraitRefPrintOnlyTraitPath: (self: TraitRefPrintOnlyTraitPath) => string = (self) =>
-  forward_display_to_print(print_TraitRefPrintOnlyTraitPath)(self);
-export const display_TraitRefPrintSugared: (self: TraitRefPrintSugared) => string = (self) => forward_display_to_print(print_TraitRefPrintSugared)(self);
-export const display_TraitRefPrintOnlyTraitName: (self: TraitRefPrintOnlyTraitName) => string = (self) =>
-  forward_display_to_print(print_TraitRefPrintOnlyTraitName)(self);
-export const display_TraitClausePrintModifiersAndPath: (self: TraitClausePrintModifiersAndPath) => string = (self) =>
-  forward_display_to_print(print_TraitClausePrintModifiersAndPath)(self);
-export const display_TraitClausePrintWithBoundConstness: (self: TraitClausePrintWithBoundConstness) => string = (self) =>
-  forward_display_to_print(print_TraitClausePrintWithBoundConstness)(self);
-export const display_PrintClosureAsImpl: (self: PrintClosureAsImpl) => string = (self) => forward_display_to_print(print_PrintClosureAsImpl)(self);
-export const display_ParamTy: (self: ParamTy) => string = (self) => forward_display_to_print(print_ParamTy)(self);
-export const display_ParamConst: (self: ParamConst) => string = (self) => forward_display_to_print(print_ParamConst)(self);
-export const display_Term: (self: Term) => string = (self) => forward_display_to_print(print_Term)(self);
-export const display_Predicate: (self: Predicate) => string = (self) => forward_display_to_print(print_Predicate)(self);
-export const display_Clause: (self: Clause) => string = (self) => forward_display_to_print(print_Clause)(self);
-export const display_UserTypeKind: (self: UserTypeKind) => string = (self) => forward_display_to_print(print_UserTypeKind)(self);
-export const display_GenericArg: (self: GenericArg) => string = (self) => forward_display_to_print(print_GenericArg)(self);
+// The `forward_display_to_print!` half of `define_print_and_forward_display!` (pretty.rs:3138).
+export function display_List_Ty(self: List<Ty>): string {
+  return forward_display_to_print(self, print_List_Ty);
+}
+export function display_TraitRefPrintOnlyTraitPath(self: TraitRefPrintOnlyTraitPath): string {
+  return forward_display_to_print(self, print_TraitRefPrintOnlyTraitPath);
+}
+export function display_TraitRefPrintSugared(self: TraitRefPrintSugared): string {
+  return forward_display_to_print(self, print_TraitRefPrintSugared);
+}
+export function display_TraitRefPrintOnlyTraitName(self: TraitRefPrintOnlyTraitName): string {
+  return forward_display_to_print(self, print_TraitRefPrintOnlyTraitName);
+}
+export function display_TraitClausePrintModifiersAndPath(self: TraitClausePrintModifiersAndPath): string {
+  return forward_display_to_print(self, print_TraitClausePrintModifiersAndPath);
+}
+export function display_TraitClausePrintWithBoundConstness(self: TraitClausePrintWithBoundConstness): string {
+  return forward_display_to_print(self, print_TraitClausePrintWithBoundConstness);
+}
+export function display_PrintClosureAsImpl(self: PrintClosureAsImpl): string {
+  return forward_display_to_print(self, print_PrintClosureAsImpl);
+}
+export function display_ParamTy(self: ParamTy): string {
+  return forward_display_to_print(self, print_ParamTy);
+}
+export function display_ParamConst(self: ParamConst): string {
+  return forward_display_to_print(self, print_ParamConst);
+}
+export function display_Term(self: Term): string {
+  return forward_display_to_print(self, print_Term);
+}
+export function display_Predicate(self: Predicate): string {
+  return forward_display_to_print(self, print_Predicate);
+}
+export function display_Clause(self: Clause): string {
+  return forward_display_to_print(self, print_Clause);
+}
+export function display_UserTypeKind(self: UserTypeKind): string {
+  return forward_display_to_print(self, print_UserTypeKind);
+}
+export function display_GenericArg(self: GenericArg): string {
+  return forward_display_to_print(self, print_GenericArg);
+}
 
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3448 for_each_def
 function for_each_def(tcx: TyCtxt, collect_fn: (ident: Ident, ns: Namespace, def_id: DefId) => void): void {
@@ -2191,6 +2559,7 @@ function for_each_def(tcx: TyCtxt, collect_fn: (ident: Ident, ns: Namespace, def
 
   for (const cnum of tcx.crates(null)) {
     // Ignore crates that are not direct dependencies.
+    // PORT: the `extern_crate` query value is `unknown` in queries.gen.ts.
     const extern_crate = tcx.extern_crate(cnum) as ExternCrate | undefined;
     if (extern_crate === undefined) {
       continue;
@@ -2307,7 +2676,7 @@ export function trimmed_def_paths(tcx: TyCtxt, _: null): DefIdMap<Symbol> {
         // name.
         //
         // Any stable ordering would be fine here though.
-        if (v !== symbol && str_cmp_utf8(Symbol.as_str(v), Symbol.as_str(symbol)) > 0) {
+        if (v !== symbol && str_cmp(Symbol.as_str(v), Symbol.as_str(symbol)) > 0) {
           map.set(def_id, symbol);
         }
       } else {
@@ -2346,27 +2715,7 @@ function iter_next<T>(it: Iterable<T>): T | undefined {
   return undefined;
 }
 
-/** `DefId`'s derived `PartialEq`. */
-function DefId_eq(a: DefId, b: DefId): boolean {
-  return a.index === b.index && a.krate === b.krate;
-}
-
-/** `str`'s `Ord` (byte-wise UTF-8, i.e. code point order). */
-function str_cmp_utf8(a: string, b: string): number {
-  const ai = a[globalThis.Symbol.iterator]();
-  const bi = b[globalThis.Symbol.iterator]();
-  for (;;) {
-    const x = ai.next();
-    const y = bi.next();
-    if (x.done) return y.done ? 0 : -1;
-    if (y.done) return 1;
-    const cx = x.value.codePointAt(0)!;
-    const cy = y.value.codePointAt(0)!;
-    if (cx !== cy) return cx < cy ? -1 : 1;
-  }
-}
-
-/** PORT: `<[u8]>::escape_ascii` (core `ascii::escape_default` per byte), not in src/std yet. */
+/** PORT: `<[u8]>::escape_ascii`'s Display (core `ascii::escape_default` per byte), not in src/std yet. */
 function escape_ascii(bytes: Uint8Array): string {
   let s = "";
   for (const b of bytes) {
@@ -2402,326 +2751,27 @@ function String_from_utf8_lossy(bytes: Uint8Array): string {
   return new TextDecoder("utf-8", { fatal: false, ignoreBOM: true }).decode(bytes);
 }
 
-// ==== stand-ins (PORT: pending other lanes). Root deletes each when its owner lands and points the uses at the
-// real port; bodies are upstream's where they only read fields / call ported code, `unported` otherwise. ====
+/** The `TypeFoldable` descriptors of `PredicateKind` / `ClauseKind` from their generated impl fns (D4). */
+const fold_PredicateKind_: TypeFoldable<PredicateKind> = descriptor<PredicateKind>(visit_with_PredicateKind, try_fold_with_PredicateKind, fold_with_PredicateKind);
+const fold_ClauseKind_: TypeFoldable<ClauseKind> = descriptor<ClauseKind>(visit_with_ClauseKind, try_fold_with_ClauseKind, fold_with_ClauseKind);
 
-// ---- PORT: pending ty-print-a (pretty.rs:1..1704 and print/mod.rs) ----
-
-/// Rendering style for RTN types.
-// PORT: pending ty-print-a: `RtnMode` (pretty.rs:47).
-export type RtnMode = "ForDiagnostic" | "ForSignature" | "ForSuggestion";
-
-// PORT: pending ty-print-a: the `thread_local!` cells of pretty.rs:33 as module-level `let`s, at their initial values
-// (nothing in this region sets them).
-let REDUCED_QUERIES = false;
-let FORCE_IMPL_FILENAME_LINE = false;
-let SHOULD_PREFIX_WITH_CRATE_NAME = false;
-let SHOULD_PREFIX_WITH_CRATE = false;
-let FORCE_TRIMMED_PATH = false;
-let RTN_MODE: RtnMode = "ForDiagnostic";
-
-/** PORT: pending ty-print-a: `pub fn with_reduced_queries() -> bool` (define_helper!, pretty.rs:82). */
-function with_reduced_queries_get(): boolean {
-  return REDUCED_QUERIES;
-}
-/** PORT: pending ty-print-a: `pub fn with_forced_impl_filename_line() -> bool` (define_helper!, pretty.rs:82). */
-function with_forced_impl_filename_line_get(): boolean {
-  return FORCE_IMPL_FILENAME_LINE;
-}
-/** PORT: pending ty-print-a: `pub fn with_resolve_crate_name() -> bool` (define_helper!, pretty.rs:82). */
-function with_resolve_crate_name_get(): boolean {
-  return SHOULD_PREFIX_WITH_CRATE_NAME;
-}
-/** PORT: pending ty-print-a: `pub fn with_crate_prefix() -> bool` (define_helper!, pretty.rs:82). */
-function with_crate_prefix_get(): boolean {
-  return SHOULD_PREFIX_WITH_CRATE;
-}
-/** PORT: pending ty-print-a: `pub fn with_forced_trimmed_paths() -> bool` (define_helper!, pretty.rs:82). */
-function with_forced_trimmed_paths_get(): boolean {
-  return FORCE_TRIMMED_PATH;
-}
-/** PORT: pending ty-print-a: `pub macro with_forced_trimmed_paths($e)` (define_helper!, pretty.rs:69). */
-function with_forced_trimmed_paths<R>(f: () => R): R {
-  const old = FORCE_TRIMMED_PATH;
-  FORCE_TRIMMED_PATH = true;
-  try {
-    return f();
-  } finally {
-    FORCE_TRIMMED_PATH = old;
-  }
-}
-/** PORT: pending ty-print-a: `RTN_MODE.with(|mode| mode.get())`. */
-function RTN_MODE_get(): RtnMode {
-  return RTN_MODE;
-}
-/** PORT: test hook for the stand-in thread-locals above (lane ty-print-a's `with_*` guards replace it). */
-export function with_print_flags_b<R>(flags: { reduced_queries?: boolean; forced_impl_filename_line?: boolean; resolve_crate_name?: boolean; crate_prefix?: boolean; forced_trimmed_paths?: boolean; rtn_mode?: RtnMode }, f: () => R): R {
-  const old = [REDUCED_QUERIES, FORCE_IMPL_FILENAME_LINE, SHOULD_PREFIX_WITH_CRATE_NAME, SHOULD_PREFIX_WITH_CRATE, FORCE_TRIMMED_PATH, RTN_MODE] as const;
-  REDUCED_QUERIES = flags.reduced_queries ?? REDUCED_QUERIES;
-  FORCE_IMPL_FILENAME_LINE = flags.forced_impl_filename_line ?? FORCE_IMPL_FILENAME_LINE;
-  SHOULD_PREFIX_WITH_CRATE_NAME = flags.resolve_crate_name ?? SHOULD_PREFIX_WITH_CRATE_NAME;
-  SHOULD_PREFIX_WITH_CRATE = flags.crate_prefix ?? SHOULD_PREFIX_WITH_CRATE;
-  FORCE_TRIMMED_PATH = flags.forced_trimmed_paths ?? FORCE_TRIMMED_PATH;
-  RTN_MODE = flags.rtn_mode ?? RTN_MODE;
-  try {
-    return f();
-  } finally {
-    [REDUCED_QUERIES, FORCE_IMPL_FILENAME_LINE, SHOULD_PREFIX_WITH_CRATE_NAME, SHOULD_PREFIX_WITH_CRATE, FORCE_TRIMMED_PATH, RTN_MODE] = old;
-  }
-}
-
-// PORT: pending ty-print-a: `WrapBinderMode` (pretty.rs:166) and `start_str` (:173).
-export type WrapBinderMode = "ForAll" | "Unsafe";
-export const WrapBinderMode = {
-  ForAll: "ForAll",
-  Unsafe: "Unsafe",
-  start_str(self: WrapBinderMode): string {
-    switch (self) {
-      case "ForAll":
-        return "for<";
-      case "Unsafe":
-        return "unsafe<";
-    }
-  },
-} as const;
-
-/// The "region highlights" are used to control region printing during
-/// specific error messages.
-// PORT: pending ty-print-a: `RegionHighlightMode` (pretty.rs:188), `default()` and `region_highlighted` (:246).
-export class RegionHighlightMode {
-  constructor(
-    public highlight_regions: ([Region, number] | undefined)[],
-    public keep_regions: boolean,
-    public highlight_bound_region: [BoundRegionKind, number] | undefined,
-  ) {}
-
-  static default_(): RegionHighlightMode {
-    return new RegionHighlightMode([undefined, undefined, undefined], false, undefined);
-  }
-
-  region_highlighted(region: Region): number | undefined {
-    for (const h of this.highlight_regions) {
-      if (h !== undefined && h[0] === region) return h[1];
-    }
-    return undefined;
-  }
-}
-
-/** PORT: pending ty-print-a: `trait Print<P>` (print/mod.rs:17) as a descriptor over the printed type (header 2). */
-export interface Print<T> {
-  print(self: T, p: PrettyPrinter): void;
-}
-
-/// A trait that "prints" user-facing type system entities.
-// PORT: pending ty-print-a: `trait Printer` (print/mod.rs:28). Provided methods are in `Printer_provided`.
-export interface Printer {
-  tcx(): TyCtxt;
-  print_def_path(def_id: DefId, args: readonly GenericArg[]): void;
-  print_impl_path(impl_def_id: DefId, args: readonly GenericArg[]): void;
-  print_region(region: Region): void;
-  print_type(ty: Ty): void;
-  print_dyn_existential(predicates: List<PolyExistentialPredicate>): void;
-  print_const(ct: Const): void;
-  print_crate_name(cnum: CrateNum): void;
-  print_path_with_simple(print_prefix: (p: this) => void, disambiguated_data: DisambiguatedDefPathData): void;
-  print_path_with_impl(print_prefix: (p: this) => void, self_ty: Ty, trait_ref: TraitRef | undefined): void;
-  print_path_with_generic_args(print_prefix: (p: this) => void, args: readonly GenericArg[]): void;
-  print_path_with_qualified(self_ty: Ty, trait_ref: TraitRef | undefined): void;
-  print_coroutine_with_kind(def_id: DefId, parent_args: readonly GenericArg[], kind: Ty): void;
-  reset_path(): void;
-  should_omit_parent_def_path(parent_def_id: DefId): boolean;
-  default_print_def_path(def_id: DefId, args: readonly GenericArg[]): void;
-  default_print_impl_path(impl_def_id: DefId, self_ty: Ty, impl_trait_ref: TraitRef | undefined): void;
-}
-
-/// Trait for printers that pretty-print using `fmt::Write` to the printer.
-// PORT: pending ty-print-a: `trait PrettyPrinter: Printer + fmt::Write` (pretty.rs:263).
-export interface PrettyPrinter extends Printer {
-  /** `fmt::Write::write_str` */
-  write_str(s: string): void;
-  pretty_print_value_path(def_id: DefId, args: readonly GenericArg[]): void;
-  pretty_print_in_binder<T>(value: Binder<T>, p_T: Print<T>, d_T: TypeFoldable<T>): void;
-  wrap_binder<T>(value: Binder<T>, mode: WrapBinderMode, f: (value: T, p: this) => void, d_T: TypeFoldable<T>): void;
-  comma_sep<T>(elems: Iterable<T>, p_T: Print<T>): void;
-  typed_value(f: (p: this) => void, t: (p: this) => void, conversion: string): void;
-  parenthesized(f: (p: this) => void): void;
-  maybe_parenthesized(f: (p: this) => void, parenthesized: boolean): void;
-  generic_delimiters(f: (p: this) => void): void;
-  should_truncate(): boolean;
-  should_print_optional_region(region: Region): boolean;
-  reset_type_limit(): void;
-  try_print_visible_def_path(def_id: DefId): boolean;
-  force_print_trimmed_def_path(def_id: DefId): boolean;
-  try_print_trimmed_def_path(def_id: DefId): boolean;
-  try_print_visible_def_path_recur(def_id: DefId, callers: DefId[]): boolean;
-  pretty_print_path_with_qualified(self_ty: Ty, trait_ref: TraitRef | undefined): void;
-  pretty_print_path_with_impl(print_prefix: (p: this) => void, self_ty: Ty, trait_ref: TraitRef | undefined): void;
-  pretty_print_closure_inner(did: DefId, args: GenericArgs): void;
-  pretty_print_type(ty: Ty): void;
-  pretty_print_opaque_impl_type(def_id: DefId, args: GenericArgs): void;
-  insert_trait_and_projection(
-    trait_pred: PolyTraitClause,
-    proj_ty: [DefId, Binder<Term>] | undefined,
-    traits: KeyedMap<PolyTraitClause, KeyedMap<DefId, Binder<Term>>>,
-    fn_traits: KeyedMap<[Binder<[List<Ty>, Ty]>, boolean], OpaqueFnEntry>,
-  ): void;
-  pretty_print_inherent_projection(alias_term: AliasTerm): void;
-  pretty_print_rpitit(def_id: DefId, args: GenericArgs): void;
-  ty_infer_name(id: TyVid): Symbol | undefined;
-  const_infer_name(id: ConstVid): Symbol | undefined;
-  pretty_print_dyn_existential(predicates: List<PolyExistentialPredicate>): void;
-  pretty_print_fn_sig(inputs: readonly Ty[], c_variadic: boolean, splatted: number | undefined, output: Ty): void;
-  pretty_print_const(ct: Const, print_ty: boolean): void;
-  pretty_print_const_expr(expr: Expr, print_ty: boolean): void;
-  // pretty.rs:1705..2055 (this region, `PrettyPrinter_provided_b`)
-  pretty_print_const_scalar(scalar: Scalar, ty: Ty): void;
-  pretty_print_const_scalar_ptr(ptr: Pointer, ty: Ty): void;
-  pretty_print_const_scalar_int(int: ScalarInt, ty: Ty, print_ty: boolean): void;
-  pretty_print_const_pointer(p: Pointer, ty: Ty): void;
-  pretty_print_byte_str(byte_str: Uint8Array): void;
-  pretty_print_const_valtree(cv: Value, print_ty: boolean): void;
-  pretty_print_closure_as_impl(closure: ClosureArgs): void;
-  pretty_print_bound_constness(constness: BoundConstness): void;
-  should_print_verbose(): boolean;
-}
-
-/** PORT: pending ty-print-a: the provided methods of `Printer` (print/mod.rs). */
-const Printer_provided = {
-  print_impl_path(_self: Printer, _impl_def_id: DefId, _args: readonly GenericArg[]): void {
-    unported("rustc_middle::ty::print::Printer::print_impl_path (lane ty-print-a)");
-  },
-  print_coroutine_with_kind(_self: Printer, _def_id: DefId, _parent_args: readonly GenericArg[], _kind: Ty): void {
-    unported("rustc_middle::ty::print::Printer::print_coroutine_with_kind (lane ty-print-a)");
-  },
-  default_print_def_path(_self: Printer, _def_id: DefId, _args: readonly GenericArg[]): void {
-    unported("rustc_middle::ty::print::Printer::default_print_def_path (lane ty-print-a)");
-  },
-  default_print_impl_path(_self: Printer, _impl_def_id: DefId, _self_ty: Ty, _impl_trait_ref: TraitRef | undefined): void {
-    unported("rustc_middle::ty::print::Printer::default_print_impl_path (lane ty-print-a)");
-  },
-};
-
-/** PORT: pending ty-print-a: the provided methods of `PrettyPrinter` (pretty.rs:263..1704); bodies only where trivial. */
-const PrettyPrinter_provided = {
-  comma_sep<T>(self: PrettyPrinter, elems: Iterable<T>, p_T: Print<T>): void {
-    const it = elems[globalThis.Symbol.iterator]();
-    const first = it.next();
-    if (!first.done) {
-      p_T.print(first.value, self);
-      for (let elem = it.next(); !elem.done; elem = it.next()) {
-        self.write_str(", ");
-        p_T.print(elem.value, self);
-      }
-    }
-  },
-  parenthesized(self: PrettyPrinter, f: (p: PrettyPrinter) => void): void {
-    self.write_str("(");
-    f(self);
-    self.write_str(")");
-  },
-  maybe_parenthesized(self: PrettyPrinter, f: (p: PrettyPrinter) => void, parenthesized: boolean): void {
-    if (parenthesized) {
-      self.parenthesized(f);
-    } else {
-      f(self);
-    }
-  },
-  try_print_visible_def_path(_self: PrettyPrinter, _def_id: DefId): boolean {
-    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::try_print_visible_def_path (lane ty-print-a)");
-  },
-  force_print_trimmed_def_path(_self: PrettyPrinter, _def_id: DefId): boolean {
-    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::force_print_trimmed_def_path (lane ty-print-a)");
-  },
-  try_print_trimmed_def_path(_self: PrettyPrinter, _def_id: DefId): boolean {
-    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::try_print_trimmed_def_path (lane ty-print-a)");
-  },
-  try_print_visible_def_path_recur(_self: PrettyPrinter, _def_id: DefId, _callers: DefId[]): boolean {
-    return unported("rustc_middle::ty::print::pretty::PrettyPrinter::try_print_visible_def_path_recur (lane ty-print-a)");
-  },
-  pretty_print_path_with_qualified(_self: PrettyPrinter, _self_ty: Ty, _trait_ref: TraitRef | undefined): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_path_with_qualified (lane ty-print-a)");
-  },
-  pretty_print_path_with_impl(_self: PrettyPrinter, _print_prefix: (p: PrettyPrinter) => void, _self_ty: Ty, _trait_ref: TraitRef | undefined): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_path_with_impl (lane ty-print-a)");
-  },
-  pretty_print_closure_inner(_self: PrettyPrinter, _did: DefId, _args: GenericArgs): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_closure_inner (lane ty-print-a)");
-  },
-  pretty_print_type(_self: PrettyPrinter, _ty: Ty): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_type (lane ty-print-a)");
-  },
-  pretty_print_opaque_impl_type(_self: PrettyPrinter, _def_id: DefId, _args: GenericArgs): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_opaque_impl_type (lane ty-print-a)");
-  },
-  insert_trait_and_projection(
-    _self: PrettyPrinter,
-    _trait_pred: PolyTraitClause,
-    _proj_ty: [DefId, Binder<Term>] | undefined,
-    _traits: KeyedMap<PolyTraitClause, KeyedMap<DefId, Binder<Term>>>,
-    _fn_traits: KeyedMap<[Binder<[List<Ty>, Ty]>, boolean], OpaqueFnEntry>,
-  ): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::insert_trait_and_projection (lane ty-print-a)");
-  },
-  pretty_print_inherent_projection(_self: PrettyPrinter, _alias_term: AliasTerm): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_inherent_projection (lane ty-print-a)");
-  },
-  pretty_print_rpitit(_self: PrettyPrinter, _def_id: DefId, _args: GenericArgs): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_rpitit (lane ty-print-a)");
-  },
-  pretty_print_dyn_existential(_self: PrettyPrinter, _predicates: List<PolyExistentialPredicate>): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_dyn_existential (lane ty-print-a)");
-  },
-  pretty_print_fn_sig(_self: PrettyPrinter, _inputs: readonly Ty[], _c_variadic: boolean, _splatted: number | undefined, _output: Ty): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_fn_sig (lane ty-print-a)");
-  },
-  pretty_print_const(_self: PrettyPrinter, _ct: Const, _print_ty: boolean): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_const (lane ty-print-a)");
-  },
-  pretty_print_const_expr(_self: PrettyPrinter, _expr: Expr, _print_ty: boolean): void {
-    unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_const_expr (lane ty-print-a)");
-  },
-};
-
-/** PORT: pending ty-print-a: `impl Print<P> for Region` (print/mod.rs:354). */
-export const print_Region: Print<Region> = {
-  print(self: Region, p: PrettyPrinter): void {
-    p.print_region(self);
-  },
-};
-/** PORT: pending ty-print-a: `impl Print<P> for Ty` (print/mod.rs:360). */
-export const print_Ty: Print<Ty> = {
-  print(self: Ty, p: PrettyPrinter): void {
-    p.print_type(self);
-  },
-};
-/** PORT: pending ty-print-a: `impl Print<P> for &List<PolyExistentialPredicate>` (print/mod.rs:412). */
-export const print_List_PolyExistentialPredicate: Print<List<PolyExistentialPredicate>> = {
-  print(self: List<PolyExistentialPredicate>, p: PrettyPrinter): void {
-    p.print_dyn_existential(self);
-  },
-};
-/** PORT: pending ty-print-a: `impl Print<P> for Const` (print/mod.rs:418). */
-export const print_Const: Print<Const> = {
-  print(self: Const, p: PrettyPrinter): void {
-    p.print_const(self);
-  },
-};
-
-// ---- PORT: pending root (decls.ts) ----
-// `Print<T>` is `Pending1<"Print", T>` in ty/decls.ts (ty-contract left its shape to this lane): the descriptor above.
+/** `TyCtxt::short_string` takes ty/decls.ts's pending `Print<T>` (`Pending1`); this region's `Print` is lane a's. */
 function as_decls_print<T>(d: Print<T>): import("../decls.ts").Print<T> {
   return d as unknown as import("../decls.ts").Print<T>;
 }
-// `TyCtxt::is_impl_trait_in_trait` (context.rs:2847, lane ty-ctxt) is not declared on the class yet; merge-w14 installed
-// an `unported` placeholder for it.
+
+// ==== stand-ins (PORT: pending other lanes). Root deletes each when its owner lands and points the uses at the
+// real port; bodies are upstream's where they only read fields / call ported code, `unported` otherwise. ====
+
+// PORT(decls): pending root / ty-ctxt: `TyCtxt::is_impl_trait_in_trait` (context.rs:2847) is not declared on the class
+// yet (merge-w14 installed an `unported` placeholder).
 declare module "../context.ts" {
   interface TyCtxt {
     is_impl_trait_in_trait(def_id: DefId): boolean;
   }
 }
 
-// ---- PORT: pending tyir-binder / tyir-misc (rustc_type_ir binder.rs, predicate.rs, visit.rs) ----
-
+// ---- pending tyir-binder / tyir-misc (rustc_type_ir binder.rs, visit.rs, lib.rs) ----
 /** PORT: pending tyir-binder: `BoundRegionKind::is_named` (binder.rs:1037). */
 function BoundRegionKind_is_named(self: BoundRegionKind, tcx: TyCtxt): boolean {
   return BoundRegionKind_get_name(self, tcx) !== undefined;
@@ -2750,18 +2800,6 @@ function BoundRegionKind_eq(a: BoundRegionKind, b: BoundRegionKind): boolean {
 function Binder_super_fold_with<T>(self: Binder<T>, folder: TypeFolder, d: TypeFoldable<T>): Binder<T> {
   return Binder_map_bound(self, (t) => d.fold_with(t, folder));
 }
-/** PORT: pending tyir-binder: `Binder::no_bound_vars` (binder.rs). */
-function Binder_no_bound_vars<T>(_self: Binder<T>): T | undefined {
-  return unported("rustc_type_ir::binder::Binder::no_bound_vars (lane tyir-binder)");
-}
-/** PORT: pending tyir-binder: `EarlyBinder::iter_instantiated_copied` (binder.rs) over `explicit_item_bounds`. */
-function EarlyBinder_iter_instantiated_copied(_self: unknown, _tcx: TyCtxt, _args: GenericArgs): Iterable<unknown> {
-  return unported("rustc_type_ir::binder::EarlyBinder::iter_instantiated_copied (lane tyir-binder)");
-}
-/** PORT: pending tyir-misc: `Unnormalized::skip_norm_wip` (unnormalized.rs). */
-function Unnormalized_skip_norm_wip(_u: unknown): [Clause, unknown] {
-  return unported("rustc_type_ir::unnormalized::Unnormalized::skip_norm_wip (lane tyir-misc)");
-}
 /** PORT: pending tyir-binder: `TypeVisitableExt::has_bound_vars` on `Clause`. */
 function Clause_has_bound_vars(_c: Clause): boolean {
   return unported("rustc_type_ir::visit::TypeVisitableExt::has_bound_vars (lane tyir-binder)");
@@ -2784,14 +2822,6 @@ function Ty_has_placeholders(t: Ty): boolean {
 function Ty_has_vars_bound_at_or_above(t: Ty, binder: DebruijnIndex): boolean {
   return t.outer_exclusive_binder() > binder;
 }
-/** PORT: pending tyir-misc: `TraitRef::self_ty` (predicate.rs): `self.args.type_at(0)`. */
-function TraitRef_self_ty(self: TraitRef): Ty {
-  return self.args.type_at(0);
-}
-/** PORT: pending tyir-misc: `ExistentialTraitRef::with_self_ty` (predicate.rs). */
-function ExistentialTraitRef_with_self_ty(_self: ExistentialTraitRef, _tcx: TyCtxt, _self_ty: Ty): TraitRef {
-  return unported("rustc_type_ir::predicate::ExistentialTraitRef::with_self_ty (lane tyir-misc)");
-}
 /** PORT: pending tyir-misc: `ClosureKind`'s `Display` (lib.rs): `self.as_str()`. */
 function display_ClosureKind(self: ClosureKind): string {
   switch (self) {
@@ -2803,33 +2833,8 @@ function display_ClosureKind(self: ClosureKind): string {
       return "FnOnce";
   }
 }
-/** PORT: pending tyir-binder / codegen: the `TypeFoldable` descriptor of `PredicateKind` from its generated fns. */
-const fold_PredicateKind: TypeFoldable<PredicateKind> = {
-  try_fold_with: try_fold_with_PredicateKind,
-  fold_with: fold_with_PredicateKind,
-  visit_with: visit_with_PredicateKind,
-};
-/** PORT: pending tyir-binder / codegen: the `TypeFoldable` descriptor of `ClauseKind` from its generated fns. */
-const fold_ClauseKind: TypeFoldable<ClauseKind> = {
-  try_fold_with: try_fold_with_ClauseKind,
-  fold_with: fold_with_ClauseKind,
-  visit_with: visit_with_ClauseKind,
-};
-/** PORT: pending tyir-kind / codegen: the `TypeFoldable` descriptor of `FnSig`. */
-const fold_FnSig: TypeFoldable<FnSig> = {
-  try_fold_with() {
-    return unported("rustc_type_ir::ty_kind::FnSig: TypeFoldable descriptor (codegen)");
-  },
-  fold_with() {
-    return unported("rustc_type_ir::ty_kind::FnSig: TypeFoldable descriptor (codegen)");
-  },
-  visit_with() {
-    return unported("rustc_type_ir::ty_kind::FnSig: TypeVisitable descriptor (codegen)");
-  },
-};
 
-// ---- PORT: pending ty-results / ty-sty / ty-adt-assoc / ty-mod (rustc_middle ty/*) ----
-
+// ---- pending ty-results / ty-adt-assoc (rustc_middle ty/*) ----
 /** PORT: pending ty-results: `impl TypeSuperFoldable for Ty` (structural_impls.rs). */
 function Ty_super_fold_with(_t: Ty, _folder: TypeFolder): Ty {
   return unported("rustc_middle::ty::structural_impls::<Ty as TypeSuperFoldable>::super_fold_with (lane ty-results)");
@@ -2859,10 +2864,6 @@ function LateParamRegionKind_get_name(self: LateParamRegionKind, tcx: TyCtxt): S
       return undefined;
   }
 }
-/** PORT: pending ty-adt-assoc: `AdtDef::did` (adt.rs). */
-function AdtDef_did(_def: AdtDef): DefId {
-  return unported("rustc_middle::ty::adt::AdtDef::did (lane ty-adt-assoc)");
-}
 /** PORT: pending ty-adt-assoc: `AdtDef::variants` (adt.rs). */
 function AdtDef_variants(_def: AdtDef): readonly VariantDefShape[] {
   return unported("rustc_middle::ty::adt::AdtDef::variants (lane ty-adt-assoc)");
@@ -2880,17 +2881,9 @@ interface VariantDefShape {
   def_id: DefId;
   fields: readonly { name: Symbol }[];
 }
-/** PORT: pending ty-adt-assoc: `AssocItem::name` (assoc.rs). */
-function AssocItem_name(_item: unknown): Symbol {
-  return unported("rustc_middle::ty::assoc::AssocItem::name (lane ty-adt-assoc)");
-}
 /** PORT: pending ty-adt-assoc: `TraitDef::paren_sugar` (trait_def.rs; the `trait_def` query value is `unknown`). */
 function TraitDef_paren_sugar(trait_def: unknown): boolean {
   return (trait_def as { paren_sugar: boolean }).paren_sugar;
-}
-/** PORT: pending ty-results: the `Debug` of `ty::Pattern` (pattern.rs). */
-function debug_Pattern(_p: unknown, _f: Fmt): string {
-  return unported("rustc_middle::ty::pattern::Pattern Debug (lane ty-results)");
 }
 // `ty::Value` (valtree.rs:103) is `Pending` in decls.ts; its fields read here.
 interface ValueShape {
@@ -2898,7 +2891,7 @@ interface ValueShape {
   ty: Ty;
 }
 /** PORT: pending ty-results: `Deref for ValTree` (valtree.rs). */
-function ValTree_deref(_v: ValTree): import("../../../rustc_type_ir/decls.ts").ValTreeKind {
+function ValTree_deref(_v: ValTree): ValTreeKind {
   return unported("rustc_middle::ty::consts::valtree::ValTree: Deref (lane ty-results)");
 }
 /** PORT: pending ty-results: `ValTree::is_zst` (valtree.rs). */
@@ -2946,7 +2939,7 @@ function char_try_from_ScalarInt(_int: ScalarInt): number | undefined {
   return unported("rustc_middle::ty::consts::int::<char as TryFrom<ScalarInt>>::try_from (lane ty-results)");
 }
 /** PORT: pending ty-results: `ConstInt` (int.rs). */
-type ConstInt = import("../../../rustc_type_ir/decls.ts").Pending<"ConstInt">;
+type ConstInt = Pending<"ConstInt">;
 /** PORT: pending ty-results: `ConstInt::new` (int.rs). */
 function ConstInt_new(_int: ScalarInt, _signed: boolean, _is_ptr_sized_integral: boolean): ConstInt {
   return unported("rustc_middle::ty::consts::int::ConstInt::new (lane ty-results)");
@@ -2956,7 +2949,7 @@ function debug_ConstInt(_v: ConstInt, _f: Fmt): string {
   return unported("rustc_middle::ty::consts::int::ConstInt: Debug (lane ty-results)");
 }
 /** PORT: pending (rustc_apfloat, not ported): `Half`/`Single`/`Double`/`Quad::try_from(ScalarInt)` (int.rs). */
-type IeeeFloat = import("../../../rustc_type_ir/decls.ts").Pending<"rustc_apfloat::ieee::IeeeFloat">;
+type IeeeFloat = Pending<"rustc_apfloat::ieee::IeeeFloat">;
 function IeeeFloat_try_from_ScalarInt(_kind: "Half" | "Single" | "Double" | "Quad", _int: ScalarInt): IeeeFloat | undefined {
   return unported("rustc_middle::ty::consts::int::<IeeeFloat as TryFrom<ScalarInt>>::try_from (rustc_apfloat, not ported)");
 }
@@ -2980,7 +2973,7 @@ function TyCtxt_validate_scalar_in_layout(_tcx: TyCtxt, _int: ScalarInt, _ty: Ty
 function TargetDataLayout_pointer_size(_dl: unknown): Size {
   return unported("rustc_abi::TargetDataLayout::pointer_size (tcx.data_layout is pending)");
 }
-/** PORT: pending (UserTypeKind, typeck_results.rs, lane ty-results): the shape per PORTING §5. */
+/** PORT: pending ty-results (`UserTypeKind`, typeck_results.rs): the shape per PORTING §5. */
 export type UserTypeKind = { readonly $: "Ty"; _0: Ty } | { readonly $: "TypeOf"; _0: DefId; _1: UserArgs };
 interface UserArgs {
   args: GenericArgs;
@@ -2990,15 +2983,13 @@ interface UserSelfTy {
   impl_def_id: DefId;
   self_ty: Ty;
 }
-/** PORT: pending (rustc_middle ty/consts/kind.rs `Expr`, lane ty-results). */
-type Expr = import("../decls.ts").Expr;
 
-// ---- PORT: pending mir-interpret (M4): mir/interpret's `Scalar`, `Pointer`, `GlobalAlloc`, `AllocRange` ----
+// ---- pending mir-interpret (M4): mir/interpret's `Scalar`, `Pointer`, `GlobalAlloc`, `AllocRange` ----
 // `Scalar` is `Pending` in decls.ts; `ScalarShape` is mir/interpret/value.rs:25 per PORTING §5.
 type ScalarShape = { readonly $: "Int"; _0: ScalarInt } | { readonly $: "Ptr"; _0: Pointer; _1: number };
-type Pointer = import("../../../rustc_type_ir/decls.ts").Pending<"mir::interpret::Pointer">;
-type CtfeProvenance = import("../../../rustc_type_ir/decls.ts").Pending<"mir::interpret::CtfeProvenance">;
-type AllocId = import("../../../rustc_type_ir/decls.ts").Pending<"mir::interpret::AllocId">;
+type Pointer = Pending<"mir::interpret::Pointer">;
+type CtfeProvenance = Pending<"mir::interpret::CtfeProvenance">;
+type AllocId = Pending<"mir::interpret::AllocId">;
 /** mir/interpret/mod.rs:255 per PORTING §5. */
 type GlobalAlloc =
   | { readonly $: "Function"; instance: Instance }
@@ -3029,9 +3020,6 @@ function ConstAllocation_inner(_alloc: ConstAllocation): Allocation {
 /** `Ok(bytes)` is the bytes, `Err(_)` is `undefined`. */
 function Allocation_get_bytes_strip_provenance(_alloc: Allocation, _tcx: TyCtxt, _range: AllocRange): Uint8Array | undefined {
   return unported("rustc_middle::mir::interpret::Allocation::get_bytes_strip_provenance (M4)");
-}
-function Instance_def_id(_instance: Instance): DefId {
-  return unported("rustc_middle::ty::instance::Instance::def_id (M4)");
 }
 function Instance_args(_instance: Instance): GenericArgs {
   return unported("rustc_middle::ty::instance::Instance::args (M4)");

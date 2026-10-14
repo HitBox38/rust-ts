@@ -3,10 +3,8 @@
 //
 // Subject side of ./probe.rs (its header documents the output): runs the ported driver and, in `after_expansion`,
 // prints the same sections with lane ty-print-b's `FmtPrinter`, then stops (`Compilation::Stop`).
-// Differences from the probe, all forced by lane ty-print-a's pending items (stand-ins in pretty.ts):
+// Differences from the probe:
 // - regions are interned with `tcx.intern_region(kind)` (the `Region::new_*` statics are stubs);
-// - `with_crate_prefix!` / `with_resolve_crate_name!` are the `with_print_flags_b` test hook;
-// - `highlighting_region` / `highlighting_bound_region` set the `RegionHighlightMode` fields they set upstream;
 // - `ty::print::trimmed_def_paths(tcx, ())` is called directly, as in the probe.
 // One more, forced by rustc_interface/limits.ts (its `hir_krate_attrs` stand-in, a merge-w14 root item): the printers
 // are made with `FmtPrinter::new_with_limit(tcx, ns, Limit::new(2^24))` (`print_string` likewise), i.e. with the
@@ -31,14 +29,15 @@ async function main(): Promise<number> {
   const { Symbol, display_Symbol, kw } = await import("../../../../rustc_span/symbol.ts");
   const { INNERMOST } = await import("../../../../rustc_type_ir/decls.ts");
   const pretty = await import("../pretty.ts");
-  const { FmtPrinter, with_print_flags_b, trimmed_def_paths } = pretty;
+  const { FmtPrinter, trimmed_def_paths, with_crate_prefix, with_resolve_crate_name } = pretty;
   const { Limit } = await import("../../../../rustc_structures/limit.ts");
   type Ns = import("../../../../rustc_hir/def.ts").Namespace;
   type FmtPrinterT = import("../pretty.ts").FmtPrinter;
   const new_printer = (tcx: TyCtxt, ns: Ns): FmtPrinterT => FmtPrinter.new_with_limit(tcx, ns, Limit.new(2 ** 24));
-  const print_string = (tcx: TyCtxt, ns: Ns, f: (p: FmtPrinterT) => void): string => {
+  type PrintResult = import("../pretty.ts").PrintResult;
+  const print_string = (tcx: TyCtxt, ns: Ns, f: (p: FmtPrinterT) => PrintResult): string => {
     const c = new_printer(tcx, ns);
-    f(c);
+    if (f(c).$ === "Err") throw new Error("fmt::Error");
     return c.into_buffer();
   };
   type Region = import("../../../../rustc_type_ir/sty/mod.ts").Region;
@@ -92,15 +91,12 @@ async function main(): Promise<number> {
       if (!verbose) {
         const r = (l: string): Region => rs.find(([x]) => x === l)![1];
         const p = new_printer(tcx, "TypeNS");
-        // `highlighting_region(var3, 7)`
-        p._0.region_highlight_mode.highlight_regions[0] = [r("var3"), 7];
-        p._0.region_highlight_mode.keep_regions = true;
+        p._0.region_highlight_mode.highlighting_region(r("var3"), 7);
         p.print_region(r("var3"));
         p.write_str(" ");
         p.print_region(r("early_a"));
         p.write_str(" ");
-        // `highlighting_bound_region(Anon, 4)`
-        p._0.region_highlight_mode.highlight_bound_region = [{ $: "Anon" }, 4];
+        p._0.region_highlight_mode.highlighting_bound_region({ $: "Anon" }, 4);
         p.print_region(r("bound_anon"));
         p.write_str(" ");
         p.print_region(r("placeholder_anon"));
@@ -115,9 +111,9 @@ async function main(): Promise<number> {
       out += "== crate_name\n";
       const cn = (cnum: import("../../../../rustc_span/def_id.ts").CrateNum) => print_string(tcx, "TypeNS", (p) => p.print_crate_name(cnum));
       out += `local [${cn(LOCAL_CRATE)}]\n`;
-      out += `local+crate_prefix [${with_print_flags_b({ crate_prefix: true }, () => cn(LOCAL_CRATE))}]\n`;
-      out += `local+resolve_crate_name [${with_print_flags_b({ resolve_crate_name: true }, () => cn(LOCAL_CRATE))}]\n`;
-      out += `local+both [${with_print_flags_b({ crate_prefix: true }, () => with_print_flags_b({ resolve_crate_name: true }, () => cn(LOCAL_CRATE)))}]\n`;
+      out += `local+crate_prefix [${with_crate_prefix(() => cn(LOCAL_CRATE))}]\n`;
+      out += `local+resolve_crate_name [${with_resolve_crate_name(() => cn(LOCAL_CRATE))}]\n`;
+      out += `local+both [${with_crate_prefix(() => with_resolve_crate_name(() => cn(LOCAL_CRATE)))}]\n`;
       for (const cnum of tcx.crates(null)) {
         out += `${CrateNum.as_u32(cnum)} [${cn(cnum)}]\n`;
       }
@@ -129,7 +125,7 @@ async function main(): Promise<number> {
         const simple = (ns: "TypeNS" | "ValueNS") =>
           print_string(tcx, ns, (p) => p.print_path_with_simple((p) => p.print_crate_name(LOCAL_CRATE), key.disambiguated_data));
         const a = simple("TypeNS");
-        const b = with_print_flags_b({ crate_prefix: true }, () => simple("ValueNS"));
+        const b = with_crate_prefix(() => simple("ValueNS"));
         out += `${DefIndex.as_u32(def_id.index)} [${a}] [${b}]\n`;
       }
 
@@ -152,14 +148,14 @@ async function main(): Promise<number> {
       if (!verbose) {
         // `{x}`: `Display` (`forward_display_to_print!` / `IrPrint::print`) is `FmtPrinter::new(tcx, TypeNS)` + `x.print(p)`;
         // here through `print_string` (see the header about `FmtPrinter::new`).
-        const d = <T>(pr: import("../pretty.ts").Print<T>, v: T): string => print_string(tcx, "TypeNS", (p) => pr.print(v, p));
+        const d = <T>(pr: import("../pretty.ts").Print<T>, v: T): string => print_string(tcx, "TypeNS", (p) => pr(v, p));
         const pt = d(pretty.print_ParamTy, { index: 0, name: Symbol.intern("T") });
         const pc = d(pretty.print_ParamConst, { index: 1, name: Symbol.intern("N") });
         const empty = d(pretty.print_List_Ty, tcx.mk_type_list([]));
         const ga = d(pretty.print_GenericArg, tcx.lifetimes.re_static);
         const ck = d(pretty.print_ClauseKind, { $: "UnstableFeature", _0: Symbol.intern("foo") });
         const pk = d(pretty.print_PredicateKind, { $: "Ambiguous" });
-        const oc = d(pretty.print_OutlivesClause(pretty.print_Region), { _0: tcx.lifetimes.re_static, _1: tcx.lifetimes.re_erased });
+        const oc = d((self: import("../../../../rustc_type_ir/decls.ts").OutlivesClause<Region>, p: import("../pretty.ts").PrettyPrinter) => pretty.print_OutlivesClause(self, p, pretty.print_Region), { _0: tcx.lifetimes.re_static, _1: tcx.lifetimes.re_erased });
         out += `${pt} ${pc} ${empty} ${ga} [${ck}] [${pk}] [${oc}]\n`;
       }
 
