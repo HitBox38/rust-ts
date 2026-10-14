@@ -121,12 +121,12 @@ export class ValTree extends Interned {
 
   // rustc: compiler/rustc_middle/src/ty/consts/valtree.rs:53 from_branches
   static from_branches(tcx: TyCtxt, branches: Iterable<Const>): ValTree {
-    return tcx.intern_valtree({ $: "Branch", _0: tcx.mk_const_list_from_iter(branches) } as ValTreeKind) as unknown as ValTree;
+    return tcx.intern_valtree({ $: "Branch", _0: tcx.mk_const_list_from_iter(branches) } as ValTreeKind);
   }
 
   // rustc: compiler/rustc_middle/src/ty/consts/valtree.rs:62 from_scalar_int
   static from_scalar_int(tcx: TyCtxt, i: ScalarInt): ValTree {
-    return tcx.intern_valtree({ $: "Leaf", _0: i } as unknown as ValTreeKind) as unknown as ValTree;
+    return tcx.intern_valtree({ $: "Leaf", _0: i } as unknown as ValTreeKind);
   }
 
   // PORT: `Deref for ValTree` (`&self.0.0`, the interned `&ValTreeKind`) and `IntoKind::kind` (`*self.0`) are one

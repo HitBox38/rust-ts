@@ -29,11 +29,12 @@ import type { AliasTy } from "./ty/alias.ts";
 import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs } from "./ty_kind/closure.ts";
 import { Unnormalized } from "./unnormalized.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "./visit.ts";
-import { standin_fold_Ty, type TypeFoldable } from "./fold.ts";
+import { type TypeFoldable } from "./fold.ts";
 import { visit_with_Alias } from "./ty/alias.ts";
 import { visit_with_AliasTyKind } from "./ty_kind.ts";
 import { fold_with_Clause, try_fold_with_Clause, visit_with_Clause } from "../rustc_middle/ty/predicate.ts";
 import type { Component } from "./outlives.gen.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 
 export * from "./outlives.gen.ts";
 
@@ -204,7 +205,7 @@ export class OutlivesCollector implements TypeVisitor<undefined> {
       case "UnsafeBinder":
       case "Dynamic":
       case "Tuple":
-        standin_fold_Ty.super_visit_with(ty, this);
+        fold_Ty.super_visit_with(ty, this);
         break;
     }
     return undefined;

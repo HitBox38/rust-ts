@@ -36,7 +36,7 @@ import { type AliasConst, type AliasTy, type BoundRegion, type ClauseKind, type 
 import { Elaboratable_Clause, elaborate } from "../../../rustc_type_ir/elaborate.ts";
 import { fold_with_trivial, try_fold_with_trivial, visit_with_trivial } from "../../../rustc_type_ir/macros.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
-import { type FallibleTypeFolder, fold_tuple2, fold_with_tuple2, type PredicateProxy, standin_fold_Ty, try_fold_with_tuple2, type TypeFoldable, type TypeFolder, TypeFolder_provided, visit_with_tuple2 } from "../../../rustc_type_ir/fold.ts";
+import { type FallibleTypeFolder, fold_tuple2, fold_with_tuple2, type PredicateProxy, try_fold_with_tuple2, type TypeFoldable, type TypeFolder, TypeFolder_provided, visit_with_tuple2 } from "../../../rustc_type_ir/fold.ts";
 import { BoundVar, ClosureKind, DebruijnIndex, debug_bound_var, debug_BoundVar, display_ClosureKind, type FieldInfo } from "../../../rustc_type_ir/lib.ts";
 import { as_interner, type BoundConstness, Clause_upcast_from_PolyTraitRef, type CoercePredicate, ExistentialProjection, ExistentialTraitRef, fold_with_ExistentialProjection, fold_with_ExistentialTraitRef, fold_with_TraitClause, PolyExistentialTraitRef, PolyProjectionClause, type SubtypePredicate, TraitClause, TraitRef, try_fold_with_ExistentialProjection, try_fold_with_ExistentialTraitRef, try_fold_with_TraitClause, visit_with_ExistentialProjection, visit_with_ExistentialTraitRef, visit_with_TraitClause } from "../../../rustc_type_ir/predicate.ts";
 import { Const, debug_Const, debug_Region, Region } from "../../../rustc_type_ir/sty/mod.ts";
@@ -74,6 +74,7 @@ import { with_ } from "../context/tls.ts";
 import type { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
 import type { ParamConst, ParamTy } from "../sty.ts";
 import { into_query_key_DefId, type IntoQueryKey } from "../../query/into_query_key.ts";
+import { fold_Ty } from "../structural_impls.ts";
 
 /** A `thread_local!` `Cell<T>` (PORTING §5 "Global state": module-level state; `get`/`set`/`replace` as `Cell`). */
 class TlCell<T> {
@@ -2008,9 +2009,9 @@ function descriptor<T>(
 ): TypeFoldable<T> {
   return { visit_with, try_fold_with, fold_with };
 }
-// merge-w15a: `Ty`'s descriptor is fold.ts's `standin_fold_Ty` (the one-line impls are upstream's; the super impls are
+// merge-w15a: `Ty`'s descriptor is fold.ts's `fold_Ty` (the one-line impls are upstream's; the super impls are
 // structural_impls.rs's, not ported); `Binder<T>`'s is binder.ts's `fold_Binder`.
-const fold_Ty_: TypeFoldable<Ty> = standin_fold_Ty;
+const fold_Ty_: TypeFoldable<Ty> = fold_Ty;
 const fold_Clause_: TypeFoldable<Clause> = descriptor<Clause>(visit_with_Clause, try_fold_with_Clause, fold_with_Clause);
 /** `(Clause, Span): TypeFoldable` (fold.rs's tuple impl; `Span` is trivially traversable). */
 const fold_Clause_Span_: TypeFoldable<[Clause, Span]> = fold_tuple2(
@@ -2729,7 +2730,7 @@ export class FmtPrinter extends PrettyPrinter {
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2289 print_type
   print_type(ty: Ty): PrintResult {
     let r: PrintResult;
-    const has_regions = this._0.region_highlight_mode.keep_regions && TypeVisitableExt.has_type_flags(ty, TypeFlags.HAS_REGIONS, standin_fold_Ty);
+    const has_regions = this._0.region_highlight_mode.keep_regions && TypeVisitableExt.has_type_flags(ty, TypeFlags.HAS_REGIONS, fold_Ty);
     const k = ty.kind();
     if (k.$ === "Tuple" && k._0.length === 0) {
       // Don't truncate `()`.
@@ -3327,7 +3328,7 @@ export class FmtPrinter extends PrettyPrinter {
         const not_previously_inserted = !this.type_collector.has(ty);
         this.type_collector.add(ty);
         if (not_previously_inserted) {
-          standin_fold_Ty.super_visit_with(ty, this);
+          fold_Ty.super_visit_with(ty, this);
         }
         return undefined;
       }
@@ -3446,8 +3447,8 @@ class RegionFolder implements TypeFolder {
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2728 fold_ty
   fold_ty(t: Ty): Ty {
-    if (TypeVisitableExt.has_vars_bound_at_or_above(t, this.current_index, standin_fold_Ty) || TypeVisitableExt.has_placeholders(t, standin_fold_Ty)) {
-      return standin_fold_Ty.super_fold_with(t, this);
+    if (TypeVisitableExt.has_vars_bound_at_or_above(t, this.current_index, fold_Ty) || TypeVisitableExt.has_placeholders(t, fold_Ty)) {
+      return fold_Ty.super_fold_with(t, this);
     }
     return t;
   }

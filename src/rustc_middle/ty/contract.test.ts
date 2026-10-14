@@ -214,11 +214,12 @@ test("a stub stops as UNPORTED", () => {
   expect(() => (Ty.prototype as unknown as { is_bool(): boolean }).is_bool.call(undefined)).toThrow(Unported);
   // `trait_is_marker` is ported now (lane ty-ctxt); a ty/util.rs stub stands in.
   expect(() => (TyCtxt.prototype as unknown as { typeck_root_def_id_local(): unknown }).typeck_root_def_id_local.call(undefined)).toThrow(Unported);
-  // `Region::new_static` (sty/mod.rs:135) is ported now (lane tyir-misc): it is the interner's pre-interned `'static`; a
-  // rustc_middle `Const` static stands in as the static-stub example.
+  // `Region::new_static` (sty/mod.rs:135) is ported now (lane tyir-misc): it is the interner's pre-interned `'static`.
+  // The rustc_middle `Const` statics of consts.rs are ported now (lane ty-results); a ty/sty.rs `Ty` static stub stands
+  // in as the static-stub example.
   const re_static = {} as Region;
   expect(Region.new_static({ get_re_static_lifetime: () => re_static } as unknown as TyCtxt)).toBe(re_static);
-  expect(() => (Const as unknown as { zero_sized(): unknown }).zero_sized()).toThrow(Unported);
+  expect(() => (Ty as unknown as { new_infer(): unknown }).new_infer()).toThrow(Unported);
 });
 
 test("every TyCtxt fn of ty/mod.rs is a TyCtxt method delegating to TyCtxt_<name> in mod.ts (decision 6)", () => {

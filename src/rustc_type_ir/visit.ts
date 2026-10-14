@@ -65,10 +65,11 @@ import type { Fmt } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { Binder, visit_Binder } from "./binder.ts";
-import { type PredicateProxy, standin_fold_Clauses, standin_fold_Ty } from "./fold.ts";
+import { type PredicateProxy } from "./fold.ts";
 import { debug_TypeFlags, TypeFlags } from "./flags.ts";
 import { DebruijnIndex, INNERMOST } from "./lib.ts";
 import { type Const, fold_Const, type Region } from "./sty/mod.ts";
+import { fold_Clauses, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 
 /// This trait is implemented for every type that can be visited,
 /// providing the skeleton of the traversal.
@@ -136,7 +137,7 @@ export const TypeVisitor_provided = {
 
   // rustc: compiler/rustc_type_ir/src/visit.rs:102 visit_ty
   visit_ty<R>(self: TypeVisitor<R>, t: Ty): R {
-    return standin_fold_Ty.super_visit_with(t, self);
+    return fold_Ty.super_visit_with(t, self);
   },
 
   // `Region` is non-recursive so the default region visitor has no
@@ -164,7 +165,7 @@ export const TypeVisitor_provided = {
 
   // rustc: compiler/rustc_type_ir/src/visit.rs:124 visit_clauses
   visit_clauses<R>(self: TypeVisitor<R>, c: Clauses): R {
-    return standin_fold_Clauses.super_visit_with(c, self);
+    return fold_Clauses.super_visit_with(c, self);
   },
 
   // rustc: compiler/rustc_type_ir/src/visit.rs:128 visit_error

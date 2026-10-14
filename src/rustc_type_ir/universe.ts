@@ -12,16 +12,17 @@ import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { panic, unwrap } from "../std/panic.ts";
 import type { Binder } from "./binder.ts";
-import { type PredicateProxy, standin_fold_Ty, type TypeFoldable } from "./fold.ts";
+import { type PredicateProxy, type TypeFoldable } from "./fold.ts";
 import type { InferCtxtLike } from "./infer_ctxt.ts";
 import { UniverseIndex } from "./lib.ts";
 import { type Const, fold_Const } from "./sty/consts.ts";
 import type { Region } from "./sty/mod.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "./visit.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 
-/** `impl TypeVisitable for Ty` as a descriptor: fold.ts's `standin_fold_Ty` (rustc_middle structural_impls.rs's
+/** `impl TypeVisitable for Ty` as a descriptor: fold.ts's `fold_Ty` (rustc_middle structural_impls.rs's
  *  impls are not ported; its one-line `visit_with` is upstream's, merge-w15a). */
-const visit_Ty: TypeVisitable<Ty> = standin_fold_Ty;
+const visit_Ty: TypeVisitable<Ty> = fold_Ty;
 
 function UniverseIndex_max(a: UniverseIndex, b: UniverseIndex): UniverseIndex {
   return a >= b ? a : b;
@@ -116,7 +117,7 @@ class MaxUniverse implements TypeVisitor<undefined> {
       // debug!("var {inf:?} in universe {u:?}");
       this.max_universe_ = UniverseIndex_max(this.max_universe_, u);
     } else {
-      standin_fold_Ty.super_visit_with(t, this);
+      fold_Ty.super_visit_with(t, this);
     }
 
     // `assert!(self.cache.insert(t), "we shouldn't visit {t:?} twice")`

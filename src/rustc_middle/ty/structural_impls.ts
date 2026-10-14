@@ -20,7 +20,7 @@
 // ty_kind.ts, generic_args.ts, sty/*.ts, print/pretty.ts, context/tls.ts, ...) are required lazily at call time.
 // PORT: `write!(f, "{:?}", x)` formats `x` with fresh options (`PLAIN`, tyir-kind decision 5).
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
-import { Namespace } from "../../rustc_hir/def.gen.ts";
+import type { Namespace } from "../../rustc_hir/def.ts";
 import type { HirId } from "../../rustc_hir_id/lib.ts";
 import { debug_HirId } from "../../rustc_hir_id/lib.ts";
 import { type DefId, debug_LocalDefId, type LocalDefId } from "../../rustc_span/def_id.ts";
@@ -238,7 +238,7 @@ function print_def_path_string(def_id: DefId): string {
   return tls().with_((tcx) => {
     const { with_no_trimmed_paths, FmtPrinter } = pretty();
     return with_no_trimmed_paths(() => {
-      const s = FmtPrinter.print_string(tcx, Namespace.TypeNS, (p) => p.print_def_path(def_id, []));
+      const s = FmtPrinter.print_string(tcx, "TypeNS" as Namespace, (p) => p.print_def_path(def_id, []));
       if (s.$ === "Err") return panic("a Display implementation returned an error unexpectedly: Error");
       return s._0;
     });
@@ -935,7 +935,7 @@ export const fold_ValTree: TypeFoldable<ValTree> = {
     if (intern_key(inner) === intern_key(new_inner._0)) {
       return Ok(self);
     } else {
-      const valtree = folder.cx().intern_valtree(new_inner._0) as unknown as ValTree;
+      const valtree = folder.cx().intern_valtree(new_inner._0);
       return Ok(valtree);
     }
   },
@@ -945,7 +945,7 @@ export const fold_ValTree: TypeFoldable<ValTree> = {
     const inner: ValTreeKind = self.kind();
     const new_inner = fold_ValTreeKind().fold_with(inner, folder);
 
-    return intern_key(inner) === intern_key(new_inner) ? self : (folder.cx().intern_valtree(new_inner) as unknown as ValTree);
+    return intern_key(inner) === intern_key(new_inner) ? self : folder.cx().intern_valtree(new_inner);
   },
 };
 
