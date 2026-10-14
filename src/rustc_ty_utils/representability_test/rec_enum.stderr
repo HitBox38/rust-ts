@@ -1,0 +1,25 @@
+error[E0072]: recursive types `E` and `F` have infinite size
+  --> rec_enum.rs:1:1
+   |
+LL | enum E {
+   | ^^^^^^
+LL |     V(u8, F),
+   |           - recursive without indirection
+...
+LL | struct F {
+   | ^^^^^^^^
+LL |     e: E,
+   |        - recursive without indirection
+   |
+help: insert some indirection (e.g., a `Box`, `Rc`, or `&`) to break the cycle
+   |
+LL ~     V(u8, Box<F>),
+LL |     W,
+LL | }
+LL | struct F {
+LL ~     e: Box<E>,
+   |
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0072`.
