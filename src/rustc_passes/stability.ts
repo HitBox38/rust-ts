@@ -33,7 +33,7 @@ import {
 import { TyCtxt_as_HirTyCtxt } from "../rustc_middle/hir/map.ts";
 import type { ModuleItems } from "../rustc_middle/hir/mod.ts";
 import { OnlyBodies } from "../rustc_middle/hir/nested_filter.ts";
-import { LibFeatures } from "../rustc_middle/middle/mod.ts";
+import { lib_features as lib_features_ } from "../rustc_middle/middle/mod.ts";
 import type { EffectiveVisibilities } from "../rustc_middle/middle/privacy.ts";
 import { Reexport } from "../rustc_middle/middle/resolve.ts";
 import { DeprecationEntry, type EvalResult } from "../rustc_middle/middle/stability.ts";
@@ -52,6 +52,9 @@ import { PLAIN } from "../std/fmt.ts";
 import { unwrap } from "../std/panic.ts";
 import { debug_PathSegment } from "../rustc_hir/hir.gen.ts";
 import * as diagnostics from "./diagnostics.ts";
+
+type LibFeatures = lib_features_.LibFeatures;
+const LibFeatures = lib_features_.LibFeatures;
 
 // rustc-type: compiler/rustc_passes/src/stability.rs:36 AnnotationKind
 /** `#[derive(PartialEq)]` */

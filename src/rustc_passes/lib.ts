@@ -13,7 +13,7 @@ import * as stability from "./stability.ts";
 
 // pub mod abi_test;            (not ported)
 // mod canonical_symbols;       (not ported)
-export * as check_attr from "./check_attr.ts";
+// mod check_attr;             (private: imported above for `provide`)
 // mod check_export;            (not ported)
 // pub mod dead;                (not ported, M4)
 export * as debugger_visualizer from "./debugger_visualizer.ts";
@@ -27,7 +27,7 @@ export * as diagnostics from "./diagnostics.ts";
 // pub mod input_stats;         (not ported)
 export * as lang_items from "./lang_items.ts";
 // pub mod layout_test;         (not ported)
-export * as lib_features from "./lib_features.ts";
+// mod lib_features;           (private: imported above for `provide`)
 // mod reachable;               (not ported, M4)
 export * as stability from "./stability.ts";
 // mod upvars;                  (not ported)

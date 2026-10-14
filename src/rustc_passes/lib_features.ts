@@ -1,29 +1,30 @@
-// Port of compiler/rustc_passes/src/lib_features.rs (lane passes-b: `check_unused_or_stable_features` in stability.rs
-// always reads `tcx.lib_features(LOCAL_CRATE)`).
+// Port of compiler/rustc_passes/src/lib_features.rs
 //! Detecting lib features (i.e., features that are not lang features).
 //!
 //! These are declared using stability attributes (e.g., `#[stable (..)]` and `#[unstable (..)]`),
 //! but are not declared in one single location (unlike lang features), which means we need to
 //! collect them instead.
 import { display_RustcVersion } from "../rustc_ast/attr/version.ts";
-import type { Attribute } from "../rustc_attr_ir/lib.ts";
-import type { StabilityLevel } from "../rustc_attr_ir/stability.ts";
-import type { HirTyCtxt } from "../rustc_hir/intravisit.ts";
-import { Visitor } from "../rustc_hir/intravisit.ts";
+import type { Attribute, StabilityLevel } from "../rustc_attr_ir/lib.ts";
+import { type HirTyCtxt, Visitor } from "../rustc_hir/intravisit.ts";
 import { TyCtxt_as_HirTyCtxt } from "../rustc_middle/hir/map.ts";
 import { All } from "../rustc_middle/hir/nested_filter.ts";
-import { type FeatureStability, LibFeatures } from "../rustc_middle/middle/mod.ts";
-import type { LocalCrate } from "../rustc_middle/query/keys.ts";
+import { lib_features as lib_features_ } from "../rustc_middle/middle/mod.ts";
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
 import { FeaturePreviouslyDeclared_diagnostic, FeatureStableTwice_diagnostic } from "./diagnostics.ts";
 
+type FeatureStability = lib_features_.FeatureStability;
+type LibFeatures = lib_features_.LibFeatures;
+const LibFeatures = lib_features_.LibFeatures;
+
+// impl<'tcx> LibFeatureCollector<'tcx> (lib_features.rs:22) and its `Visitor` impl (:95) are the methods of the
+// class below, in upstream order (PORTING §8).
 // rustc-type: compiler/rustc_passes/src/lib_features.rs:17 LibFeatureCollector
 class LibFeatureCollector extends Visitor {
-  // impl<'tcx> Visitor<'tcx> for LibFeatureCollector<'tcx>
-  // type NestedFilter = nested_filter::All;
+  // `type NestedFilter = nested_filter::All;`
   override NestedFilter = All;
 
   constructor(
@@ -32,8 +33,6 @@ class LibFeatureCollector extends Visitor {
   ) {
     super();
   }
-
-  // ---- impl<'tcx> LibFeatureCollector<'tcx> ----
 
   // rustc: compiler/rustc_passes/src/lib_features.rs:23 new
   static new(tcx: TyCtxt): LibFeatureCollector {
@@ -46,41 +45,32 @@ class LibFeatureCollector extends Visitor {
     let level: StabilityLevel;
     let span: Span;
     if (attr.$ === "Parsed" && attr._0.$ === "Stability") {
-      const { stability, span: s } = attr._0;
-      [feature, level, span] = [stability.feature, stability.level, s];
+      const { stability, span: span_ } = attr._0;
+      [feature, level, span] = [stability.feature, stability.level, span_];
     } else if (attr.$ === "Parsed" && attr._0.$ === "RustcConstStability") {
-      const { stability, span: s } = attr._0;
-      [feature, level, span] = [stability.feature, stability.level, s];
+      const { stability, span: span_ } = attr._0;
+      [feature, level, span] = [stability.feature, stability.level, span_];
     } else if (attr.$ === "Parsed" && attr._0.$ === "RustcBodyStability") {
-      const { stability, span: s } = attr._0;
-      [feature, level, span] = [stability.feature, stability.level, s];
+      const { stability, span: span_ } = attr._0;
+      [feature, level, span] = [stability.feature, stability.level, span_];
     } else {
       return undefined;
     }
 
     let feature_stability: FeatureStability;
-    switch (level.$) {
-      case "Unstable": {
-        const old_name = level.old_name;
-        feature_stability = { $: "Unstable", old_name };
-        break;
+    if (level.$ === "Unstable") {
+      feature_stability = { $: "Unstable", old_name: level.old_name };
+    } else {
+      const since = level.since;
+      let s: Symbol;
+      if (since.$ === "Version") {
+        s = Symbol.intern(display_RustcVersion(since._0));
+      } else if (since.$ === "Current") {
+        s = sym.env_CFG_RELEASE;
+      } else {
+        return undefined;
       }
-      case "Stable": {
-        const since = level.since;
-        let s: Symbol;
-        switch (since.$) {
-          case "Version":
-            s = Symbol.intern(display_RustcVersion(since._0));
-            break;
-          case "Current":
-            s = sym.env_CFG_RELEASE;
-            break;
-          case "Err":
-            return undefined;
-        }
-        feature_stability = { $: "AcceptedSince", _0: s };
-        break;
-      }
+      feature_stability = { $: "AcceptedSince", _0: s };
     }
 
     return [feature, feature_stability, span];
@@ -96,14 +86,7 @@ class LibFeatureCollector extends Visitor {
       const since = stability._0;
       const prev_since = existing_stability[0]._0;
       if (prev_since !== since) {
-        this.tcx.dcx().emit_err(
-          FeatureStableTwice_diagnostic({
-            span,
-            feature,
-            since,
-            prev_since,
-          }),
-        );
+        this.tcx.dcx().emit_err(FeatureStableTwice_diagnostic({ span, feature, since, prev_since }));
       }
     } else if (stability.$ === "AcceptedSince" && existing_stability[0].$ === "Unstable") {
       this.tcx.dcx().emit_err(
@@ -128,7 +111,7 @@ class LibFeatureCollector extends Visitor {
     }
   }
 
-  // ---- impl<'tcx> Visitor<'tcx> for LibFeatureCollector<'tcx> ----
+  // impl<'tcx> Visitor<'tcx> for LibFeatureCollector<'tcx>
 
   // rustc: compiler/rustc_passes/src/lib_features.rs:98 maybe_tcx
   override maybe_tcx(): HirTyCtxt {
@@ -142,12 +125,11 @@ class LibFeatureCollector extends Visitor {
       const [feature, stable, span] = r;
       this.collect_feature(feature, stable, span);
     }
-    return undefined;
   }
 }
 
 // rustc: compiler/rustc_passes/src/lib_features.rs:109 lib_features
-function lib_features(tcx: TyCtxt, _: LocalCrate): LibFeatures {
+function lib_features(tcx: TyCtxt, _: unknown): LibFeatures {
   // If `staged_api` is not enabled then we aren't allowed to define lib
   // features; there is no point collecting them.
   if (!tcx.features().staged_api()) {
