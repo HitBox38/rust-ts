@@ -313,7 +313,7 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
   test("the contract's placeholders stop as UNPORTED", () => {
     const tcx = mk_tcx();
     const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-    expect(() => infcx.inner.unwrap_region_constraints()).toThrow(/rustc_infer::infer::region_constraints::RegionConstraintStorage::with_log/);
+    // (`next_ty_var` and `unwrap_region_constraints` stopped here until lanes infer-core / infer-regions ported them.)
     expect(() => infcx.can_eq(undefined as never, undefined, undefined, undefined as never)).toThrow(/rustc_trait_selection::infer::InferCtxt::can_eq/);
   });
 
