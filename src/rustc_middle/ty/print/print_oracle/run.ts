@@ -19,7 +19,7 @@ import { INNERMOST } from "../../../../rustc_type_ir/decls.ts";
 import { TypeFlags } from "../../../../rustc_type_ir/flags.ts";
 import type { DebruijnIndex } from "../../../../rustc_type_ir/lib.ts";
 import { Region } from "../../../../rustc_type_ir/sty/mod.ts";
-import { FnSigKind, PolyFnSig } from "../../../../rustc_type_ir/ty_kind.ts";
+import { debug_SplattedArgIndexError, FnSigKind, PolyFnSig } from "../../../../rustc_type_ir/ty_kind.ts";
 import { PLAIN } from "../../../../std/fmt.ts";
 import { unwrap_result } from "../../../../std/result.ts";
 import type { TyCtxt } from "../../context.ts";
@@ -127,8 +127,8 @@ export function types(tcx: TyCtxt): [string, Ty][] {
     return mk({ $: "FnPtr", _0: sig_tys, _1: hdr });
   };
   const rust = FnSigKind.dummy();
-  const unsafe_c = unwrap_result(FnSigKind.new({ $: "C", unwind: false }, "Unsafe", true, undefined, 1));
-  const system = unwrap_result(FnSigKind.new({ $: "System", unwind: true }, "Safe", false, undefined, 0));
+  const unsafe_c = unwrap_result(FnSigKind.new({ $: "C", unwind: false }, "Unsafe", true, undefined, 1), debug_SplattedArgIndexError);
+  const system = unwrap_result(FnSigKind.new({ $: "System", unwind: true }, "Safe", false, undefined, 0), debug_SplattedArgIndexError);
   const ref = (r: Region, ty: Ty, m: "Not" | "Mut"): Ty => mk({ $: "Ref", _0: r, _1: ty, _2: m });
   return [
     ["bool", t.bool],
