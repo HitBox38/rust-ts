@@ -35,10 +35,11 @@ import type { Attribute } from "../rustc_ast/ast.gen.ts";
 import type { CrateStore } from "../rustc_crate_store/cstore.ts";
 import { Untracked } from "../rustc_crate_store/cstore.ts";
 import { Steal } from "../rustc_data_structures/steal.ts";
-import type { BufferedEarlyLint, LintBuffer } from "../rustc_errors/lib.ts";
+import type { BufferedEarlyLint, Diag, DiagCtxtHandle, Level, LintBuffer, MultiSpan } from "../rustc_errors/lib.ts";
+import type { HirId } from "../rustc_hir_id/lib.ts";
 import type { Features } from "../rustc_feature/unstable.ts";
 import { Definitions } from "../rustc_hir_id/definitions.ts";
-import type { RegisteredTools } from "../rustc_lint_defs/lib.ts";
+import type { LintId, RegisteredTools } from "../rustc_lint_defs/lib.ts";
 import * as rustc_lint from "../rustc_lint/lib.ts";
 import * as rustc_ty_utils from "../rustc_ty_utils/lib.ts";
 import { creader, provide as rustc_metadata_provide } from "../rustc_metadata/lib.ts";
@@ -1072,6 +1073,43 @@ export function create_and_enter_global_ctxt<T>(compiler: Compiler, krate: Crate
   );
 
   return [res, incr_comp_session];
+}
+
+/**
+ * PORT: `rustc_hir::lints::DelayedLint` (lints.rs) is not ported yet (`unknown` in rustc_ast_lowering/hir_shim.ts);
+ * this is the view of its fields that `emit_delayed_lints` reads (the literal rustc_ast_lowering builds).
+ */
+interface DelayedLintView {
+  lint_id: LintId;
+  id: HirId;
+  span: MultiSpan;
+  callback: (dcx: DiagCtxtHandle, level: Level, sess: unknown) => Diag;
+}
+
+/** `struct DiagCallback<'tcx> { callback, tcx }` (passes.rs:1069). */
+interface DiagCallback {
+  callback: (dcx: DiagCtxtHandle, level: Level, sess: unknown) => Diag;
+  tcx: TyCtxt;
+}
+
+// impl<'a, 'tcx> Diagnostic<'a> for DiagCallback<'tcx>
+// rustc: compiler/rustc_interface/src/passes.rs:1078 into_diag
+function DiagCallback_into_diag(self: DiagCallback, dcx: DiagCtxtHandle, level: Level): Diag {
+  return self.callback(dcx, level, self.tcx.sess);
+}
+
+// rustc: compiler/rustc_interface/src/passes.rs:1083 emit_delayed_lints
+export function emit_delayed_lints(tcx: TyCtxt): void {
+  // PORT: the `hir_crate_items` query value is `unknown` in queries.gen.ts.
+  for (const owner_id of (tcx.hir_crate_items(null) as hir.ModuleItems).owners()) {
+    const delayed_lints = tcx.opt_ast_lowering_delayed_lints(owner_id);
+    if (delayed_lints !== undefined) {
+      for (const lint of delayed_lints.steal() as DelayedLintView[]) {
+        const cb: DiagCallback = { callback: lint.callback, tcx };
+        tcx.emit_node_span_lint(lint.lint_id.lint, lint.id, lint.span, { into_diag: (dcx, level) => DiagCallback_into_diag(cb, dcx, level) });
+      }
+    }
+  }
 }
 
 /// Compute and validate the crate name.

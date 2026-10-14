@@ -14,7 +14,8 @@ import * as lang_items from "./lang_items.ts";
 // mod check_export;            (not ported)
 // pub mod dead;                (not ported, M4)
 export * as debugger_visualizer from "./debugger_visualizer.ts";
-// pub mod delegation;          (not ported)
+// pub mod delegation;
+export * as delegation from "./delegation.ts";
 // mod diagnostic_items;        (not ported)
 export * as diagnostics from "./diagnostics.ts";
 // mod eii;                     (not ported)
