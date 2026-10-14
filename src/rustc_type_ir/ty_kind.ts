@@ -16,7 +16,7 @@ import { debug_ExternAbi, ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { debug_FloatTy, debug_IntTy, debug_UintTy, Mutability } from "../rustc_ast_ir/lib.ts";
 import { Safety } from "../rustc_hir/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { debug_GenericArg, debug_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
+import { debug_GenericArg, debug_GenericArgs, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { debug_RawList, type List, RawList } from "../rustc_middle/ty/list.ts";
 import { debug_Ty, type FnInputTys, Ty } from "../rustc_middle/ty/mod.ts";
 import { debug_ParamTy } from "../rustc_middle/ty/sty.ts";
@@ -26,7 +26,7 @@ import { type Debug, debug_str, debug_tuple, type Fmt, PLAIN } from "../std/fmt.
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { NoError, type UnifyKey, UnifyKey_provided, type UnifyValue } from "../vendor/ena/unify/mod.ts";
-import { type Binder, type BoundVarIndexKind, debug_Binder, debug_BoundTy, debug_Placeholder } from "./binder.ts";
+import { Binder, type BoundVarIndexKind, debug_Binder, debug_BoundTy, debug_Placeholder, EarlyBinder, fold_Binder } from "./binder.ts";
 import type { Interner } from "./interner.ts";
 import { DebruijnIndex, INNERMOST } from "./lib.ts";
 import { debug_ExistentialPredicate, type ExistentialPredicate, type TraitRef } from "./predicate.ts";
@@ -35,6 +35,7 @@ import { debug_Region } from "./sty/mod.ts";
 import { type AliasTy as AliasTyT, debug_Alias, type FreeAliasTy as FreeAliasTyT, type InherentAliasTy as InherentAliasTyT, type OpaqueAliasTy as OpaqueAliasTyT, type ProjectionAliasTy as ProjectionAliasTyT } from "./ty/alias.ts";
 import * as gen from "./ty_kind.gen.ts";
 import type { FloatVid, InferTy, IntVid, SplattedArgIndexError } from "./ty_kind.gen.ts";
+import type { TypeFoldable } from "./fold.ts";
 import { debug_AliasTyKind, debug_FloatVid, debug_IntVid, debug_IsRigid, debug_TyVid, FloatVid as FloatVidC, IntVid as IntVidC } from "./ty_kind.gen.ts";
 import type { Unnormalized } from "./unnormalized.ts";
 
@@ -78,17 +79,6 @@ export function debug_bound_var<T>(bound_index: BoundVarIndexKind, var_: T, debu
       return `^c_${debug_T(var_, PLAIN)}`;
     }
   }
-}
-
-/** PORT: stand-in for `Binder::skip_binder` (binder.rs, lane tyir-binder): the field read. */
-export function Binder_skip_binder<T>(self: Binder<T>): T {
-  return self.value;
-}
-
-/** PORT: stand-in for `Binder::map_bound` (binder.rs, lane tyir-binder). */
-export function Binder_map_bound<T, U>(self: Binder<T>, f: (value: T) => U): Binder<U> {
-  const value = f(self.value);
-  return { value, bound_vars: self.bound_vars };
 }
 
 /** PORT: stand-in for `Unnormalized::new_wip` / `Unnormalized::dummy` (unnormalized.rs:57 / :51, not ported yet). */
@@ -185,18 +175,20 @@ export const TyKind = {
   // PORT: `Unnormalized::new_wip` / `dummy` / `skip_normalization` (unnormalized.rs, not ported yet) are the
   // object literal / field read.
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:368 unnormalized_fn_sig
-  unnormalized_fn_sig(self: TyKind, _interner: TyCtxt): Unnormalized<Binder<FnSig>> {
+  unnormalized_fn_sig(self: TyKind, interner: TyCtxt): Unnormalized<Binder<FnSig>> {
     switch (self.$) {
       case "FnPtr":
         return Unnormalized_new(PolyFnSigTys.with(self._0, self._1));
       case "FnDef": {
-        // interner.fn_sig(def_id).instantiate(interner, args.no_bound_vars().unwrap())
-        return unported("rustc_type_ir::ty_kind::TyKind::unnormalized_fn_sig (FnDef: EarlyBinder::instantiate / Binder::no_bound_vars, lane tyir-binder)");
+        const def_id = self._0;
+        const args = self._1;
+        // PORT: queries.gen.ts types the `fn_sig` query's value `unknown` until its type is generated; it is
+        // `EarlyBinder<Binder<FnSig>>` (`Interner::fn_sig`).
+        return EarlyBinder.instantiate(interner.fn_sig(def_id) as EarlyBinder<Binder<FnSig>>, interner, unwrap(Binder.no_bound_vars(args, fold_GenericArgs)), fold_Binder(fold_FnSig));
       }
       case "Error": {
         // ignore errors (#54954)
-        // Unnormalized::dummy(ty::Binder::dummy(ty::FnSig::dummy()))
-        return unported("rustc_type_ir::ty_kind::TyKind::unnormalized_fn_sig (Error: Binder::dummy, lane tyir-binder)");
+        return Unnormalized_new(Binder.dummy(FnSig.dummy(), fold_FnSig));
       }
       case "Closure":
         return panic("to get the signature of a closure, use `args.as_closure().sig()` not `fn_sig()`");
@@ -927,63 +919,71 @@ export const FnSig = {
   },
 };
 
+/** PORT (D4): the descriptor of `FnSig` over its derived impls (ty_kind.gen.ts `#[derive(TypeVisitable_Generic,
+ *  TypeFoldable_Generic)]`), for generic code (`EarlyBinder::instantiate`, `Binder::dummy`). */
+export const fold_FnSig: TypeFoldable<FnSig> = {
+  visit_with: (self, visitor) => gen.visit_with_FnSig(self, visitor),
+  try_fold_with: (self, folder) => gen.try_fold_with_FnSig(self, folder),
+  fold_with: (self, folder) => gen.fold_with_FnSig(self, folder),
+};
+
 /** The inherent methods of `ty::Binder<I, FnSig<I>>` (rustc_middle's `PolyFnSig`). */
 export const PolyFnSig = {
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1195 inputs
   inputs(self: Binder<FnSig>): Binder<FnInputTys> {
-    return Binder_map_bound(self, (fn_sig) => FnSig.inputs(fn_sig));
+    return Binder.map_bound(self, (fn_sig) => FnSig.inputs(fn_sig));
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1201 input
   input(self: Binder<FnSig>, index: number): Binder<Ty> {
-    return Binder_map_bound(self, (fn_sig) => unwrap(FnSig.inputs(fn_sig)[index]));
+    return Binder.map_bound(self, (fn_sig) => unwrap(FnSig.inputs(fn_sig)[index]));
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1205 inputs_and_output
   inputs_and_output(self: Binder<FnSig>): Binder<List<Ty>> {
-    return Binder_map_bound(self, (fn_sig) => fn_sig.inputs_and_output);
+    return Binder.map_bound(self, (fn_sig) => fn_sig.inputs_and_output);
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1210 output
   output(self: Binder<FnSig>): Binder<Ty> {
-    return Binder_map_bound(self, (fn_sig) => FnSig.output(fn_sig));
+    return Binder.map_bound(self, (fn_sig) => FnSig.output(fn_sig));
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1214 fn_sig_kind
   fn_sig_kind(self: Binder<FnSig>): FnSigKind {
-    return Binder_skip_binder(self).fn_sig_kind;
+    return Binder.skip_binder(self).fn_sig_kind;
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1218 c_variadic
   c_variadic(self: Binder<FnSig>): boolean {
-    return FnSig.c_variadic(Binder_skip_binder(self));
+    return FnSig.c_variadic(Binder.skip_binder(self));
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1222 splatted
   splatted(self: Binder<FnSig>): number | undefined {
-    return FnSig.splatted(Binder_skip_binder(self));
+    return FnSig.splatted(Binder.skip_binder(self));
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1226 safety
   safety(self: Binder<FnSig>): Safety {
-    return FnSig.safety(Binder_skip_binder(self));
+    return FnSig.safety(Binder.skip_binder(self));
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1230 abi
   abi(self: Binder<FnSig>): ExternAbi {
-    return FnSig.abi(Binder_skip_binder(self));
+    return FnSig.abi(Binder.skip_binder(self));
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1234 is_fn_trait_compatible
   is_fn_trait_compatible(self: Binder<FnSig>): boolean {
-    return FnSig.is_fn_trait_compatible(Binder_skip_binder(self));
+    return FnSig.is_fn_trait_compatible(Binder.skip_binder(self));
   },
 
   // Used to split a single value into the two fields in `TyKind::FnPtr`.
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1239 split
   split(self: Binder<FnSig>): [Binder<FnSigTys>, FnHeader] {
     const hdr: FnHeader = { fn_sig_kind: PolyFnSig.fn_sig_kind(self) };
-    return [Binder_map_bound(self, (sig) => ({ inputs_and_output: sig.inputs_and_output })), hdr];
+    return [Binder.map_bound(self, (sig) => ({ inputs_and_output: sig.inputs_and_output })), hdr];
   },
 };
 
@@ -1075,7 +1075,7 @@ export const PolyFnSigTys = {
   // Used to combine the two fields in `TyKind::FnPtr` into a single value.
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1343 with
   with(self: Binder<FnSigTys>, hdr: FnHeader): Binder<FnSig> {
-    return Binder_map_bound(self, (sig_tys) => ({
+    return Binder.map_bound(self, (sig_tys) => ({
       inputs_and_output: sig_tys.inputs_and_output,
       fn_sig_kind: hdr.fn_sig_kind,
     }));
@@ -1083,22 +1083,22 @@ export const PolyFnSigTys = {
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1351 inputs
   inputs(self: Binder<FnSigTys>): Binder<FnInputTys> {
-    return Binder_map_bound(self, (sig_tys) => FnSigTys.inputs(sig_tys));
+    return Binder.map_bound(self, (sig_tys) => FnSigTys.inputs(sig_tys));
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1357 input
   input(self: Binder<FnSigTys>, index: number): Binder<Ty> {
-    return Binder_map_bound(self, (sig_tys) => unwrap(FnSigTys.inputs(sig_tys)[index]));
+    return Binder.map_bound(self, (sig_tys) => unwrap(FnSigTys.inputs(sig_tys)[index]));
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1361 inputs_and_output
   inputs_and_output(self: Binder<FnSigTys>): Binder<List<Ty>> {
-    return Binder_map_bound(self, (sig_tys) => sig_tys.inputs_and_output);
+    return Binder.map_bound(self, (sig_tys) => sig_tys.inputs_and_output);
   },
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:1366 output
   output(self: Binder<FnSigTys>): Binder<Ty> {
-    return Binder_map_bound(self, (sig_tys) => FnSigTys.output(sig_tys));
+    return Binder.map_bound(self, (sig_tys) => FnSigTys.output(sig_tys));
   },
 };
 

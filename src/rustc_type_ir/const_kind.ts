@@ -12,7 +12,8 @@ import type { DefId } from "../rustc_span/def_id.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
 import { panic, unported } from "../std/panic.ts";
-import { debug_BoundConst, debug_Placeholder } from "./binder.ts";
+import { debug_BoundConst, debug_Placeholder, EarlyBinder } from "./binder.ts";
+import { standin_fold_Ty } from "./fold.ts";
 import * as gen from "./const_kind.gen.ts";
 import { debug_AliasConstKind, debug_ConstVid, debug_ValTreeKind, type InferConst } from "./const_kind.gen.ts";
 import type { Interner } from "./interner.ts";
@@ -60,7 +61,7 @@ export const AliasConst = {
   },
 
   // rustc: compiler/rustc_type_ir/src/const_kind.rs:81 type_of
-  type_of(self: AliasConstT, _interner: Interner): Unnormalized<Ty> {
+  type_of(self: AliasConstT, interner: TyCtxt): Unnormalized<Ty> {
     let def_id: DefId;
     switch (self.kind.$) {
       case "Projection":
@@ -79,9 +80,9 @@ export const AliasConst = {
         def_id = self.kind.def_id;
         break;
     }
-    // interner.type_of(def_id).instantiate(interner, self.args)
-    void def_id;
-    return unported("rustc_type_ir::const_kind::AliasConst::type_of (EarlyBinder::instantiate, lane tyir-binder)");
+    // PORT: queries.gen.ts types the `type_of` query's value `unknown` until its type is generated; it is
+    // `EarlyBinder<Ty>` (`Interner::type_of`).
+    return EarlyBinder.instantiate(interner.type_of(def_id) as EarlyBinder<Ty>, interner, self.args, standin_fold_Ty);
   },
 };
 
