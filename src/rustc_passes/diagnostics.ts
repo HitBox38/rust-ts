@@ -1,14 +1,72 @@
 // Port of compiler/rustc_passes/src/diagnostics.rs: the types and their `#[derive(Diagnostic)]` /
 // `#[derive(Subdiagnostic)]` impls are generated into diagnostics.gen.ts (tools/codegen/types.ts, set rustc_passes);
 // the manual `impl Diagnostic` blocks are ported here.
-import { String_into_diag_arg, Symbol_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
-import { Diag, type DiagCtxtHandle, type Diagnostic, E0152, IntoDiagArg, type Level } from "../rustc_errors/lib.ts";
-import type { DuplicateLangItem } from "./diagnostics.gen.ts";
+import { bool_into_diag_arg, PathBuf_into_diag_arg, String_into_diag_arg, Symbol_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
+import type { DiagMessage } from "../rustc_error_messages/lib.ts";
+import { Diag, type DiagCtxtHandle, type Diagnostic, E0152, E0601, IntoDiagArg, type Level } from "../rustc_errors/lib.ts";
+import { MainDefinition } from "../rustc_middle/middle/resolve.ts";
+import { DUMMY_SP, Span } from "../rustc_span/lib.ts";
+import type { DuplicateLangItem, NoMainErr } from "./diagnostics.gen.ts";
 
 export * from "./diagnostics.gen.ts";
 
 // impl<'a> Diagnostic<'a> for NoMainErr
-// (diagnostics.rs:328 into_diag: not ported; rustc_passes::entry is lane passes-a)
+// #[track_caller]
+// rustc: compiler/rustc_passes/src/diagnostics.rs:328 into_diag
+export function NoMainErr_into_diag(self: NoMainErr, dcx: DiagCtxtHandle, level: Level): Diag {
+  const diag = Diag.new(dcx, level, { $: "Inline", _0: "`main` function not found in crate `{$crate_name}`" });
+  diag.span(DUMMY_SP);
+  diag.code(E0601);
+  diag.arg("crate_name", IntoDiagArg.of(self.crate_name, Symbol_into_diag_arg));
+  diag.arg("filename", IntoDiagArg.of(self.filename, PathBuf_into_diag_arg));
+  diag.arg("has_filename", IntoDiagArg.of(self.has_filename, bool_into_diag_arg));
+  let note: DiagMessage;
+  if (self.non_main_fns.length !== 0) {
+    for (const span of self.non_main_fns) {
+      diag.span_note(span, { $: "Inline", _0: "here is a function named `main`" });
+    }
+    diag.note({ $: "Inline", _0: "you have one or more functions named `main` not defined at the crate level" });
+    diag.help({ $: "Inline", _0: "consider moving the `main` function definitions" });
+    // There were some functions named `main` though. Try to give the user a hint.
+    note = {
+      $: "Inline",
+      _0:
+        "the main function must be defined at the crate level{$has_filename ->\n" +
+        '                    [true] {" "}(in `{$filename}`)\n' +
+        '                    *[false] {""}\n' +
+        "                }",
+    };
+  } else if (self.has_filename) {
+    note = { $: "Inline", _0: "consider adding a `main` function to `{$filename}`" };
+  } else {
+    note = { $: "Inline", _0: "consider adding a `main` function at the crate level" };
+  }
+  if (self.file_empty) {
+    diag.note(note);
+  } else {
+    diag.span(Span.shrink_to_hi(self.sp));
+    diag.span_label(Span.shrink_to_hi(self.sp), note);
+  }
+
+  if (self.main_def_opt !== undefined && MainDefinition.opt_fn_def_id(self.main_def_opt) === undefined) {
+    const main_def = self.main_def_opt;
+    // There is something at `crate::main`, but it is not a function definition.
+    diag.span_label(main_def.span, { $: "Inline", _0: "non-function item at `crate::main` is found" });
+  }
+
+  if (self.add_teach_note) {
+    diag.note({
+      $: "Inline",
+      _0: "if you don't know the basics of Rust, you can go look to the Rust Book to get started: https://doc.rust-lang.org/book/",
+    });
+  }
+
+  return diag;
+}
+/** `NoMainErr` as a `Diagnostic` trait object. */
+export function NoMainErr_diagnostic(self: NoMainErr): Diagnostic {
+  return { into_diag: (dcx, level) => NoMainErr_into_diag(self, dcx, level) };
+}
 
 // impl Diagnostic<'_> for DuplicateLangItem
 // #[track_caller]
