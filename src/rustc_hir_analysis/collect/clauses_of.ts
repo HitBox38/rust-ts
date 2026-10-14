@@ -13,6 +13,8 @@
 // - `FxIndexSet<(ty::Clause<'tcx>, Span)>` is a `KeyedSet` keyed by `key_ClauseSpan` (the interned clause and the span
 //   interner index are equal exactly when the Rust tuples are `==`).
 // - `debug!` / `trace!` / `#[instrument]` are tracing only and stay as comments.
+import { parameters_for_impl, setup_constraining_clauses } from "../constrained_generic_params.ts";
+import { inherit_clauses_for_delegation_item } from "../delegation.ts";
 import { ItemCtxt } from "../decls.ts";
 import { VisitorResult as VisitorResultC, type VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
@@ -53,7 +55,7 @@ import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "../.
 import type { Clauses } from "../../rustc_middle/ty/list.ts";
 import type { PolyFnSig, PolyTraitRef as PolyTraitRefT, TraitRef as TraitRefT } from "../../rustc_type_ir/decls.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { assert_eq, assert_matches, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { assert_eq, assert_matches, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { explicit_item_bounds_with_filter } from "./item_bounds.ts";
 import { HirTyLowerer_ItemCtxt } from "../collect.ts";
 import { ImpliedBoundsContext, OverlappingAsssocItemConstraints, PredicateFilter, RegionInferReason, debug_PredicateFilter } from "../hir_ty_lowering/mod.gen.ts";
@@ -178,8 +180,7 @@ export function gather_explicit_clauses_of(tcx: TyCtxt, def_id: LocalDefId): Gen
   if (sig !== undefined) {
     const sig_id = sig.decl.opt_delegation_sig_id();
     if (sig_id !== undefined) {
-      // PORT: rustc_hir_analysis delegation.rs is not ported (no lane yet).
-      return unported("rustc_hir_analysis::delegation::inherit_clauses_for_delegation_item");
+      return inherit_clauses_for_delegation_item(tcx, def_id, sig_id);
     }
   }
 
@@ -305,11 +306,7 @@ export function gather_explicit_clauses_of(tcx: TyCtxt, def_id: LocalDefId): Gen
     const impl_ = node._0.kind._0;
     const self_ty = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.type_of(def_id) as EarlyBinder<Ty>));
     const trait_ref = impl_.of_trait !== undefined ? Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.impl_trait_ref(def_id) as EarlyBinder<TraitRefT>)) : undefined;
-    // PORT: rustc_hir_analysis constrained_generic_params.rs is not ported (no lane yet). Upstream evaluates the
-    // argument `&mut cgp::parameters_for_impl(tcx, self_ty, trait_ref)` before calling `setup_constraining_clauses`.
-    void self_ty;
-    void trait_ref;
-    return unported("rustc_hir_analysis::constrained_generic_params::parameters_for_impl");
+    setup_constraining_clauses(tcx, clauses, trait_ref, parameters_for_impl(tcx, self_ty, trait_ref));
   }
 
   // Opaque types duplicate some of their generic parameters.

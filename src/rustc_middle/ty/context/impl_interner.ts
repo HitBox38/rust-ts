@@ -20,6 +20,7 @@ import type { DefId, LocalDefId } from "../../../rustc_span/def_id.ts";
 import { LocalDefId as LocalDefIdC } from "../../../rustc_span/def_id.ts";
 import { DUMMY_SP, type ErrorGuaranteed, type Span } from "../../../rustc_span/lib.ts";
 import { unported } from "../../../std/panic.ts";
+import { as_interner, TraitRef as TraitRef_ir } from "../../../rustc_type_ir/predicate.ts";
 import type {
   AliasConstKind,
   BoundRegion,
@@ -152,10 +153,8 @@ TyCtxt.prototype.trait_ref_and_own_args_for_alias = function (this: TyCtxt, def_
   // debug_assert_matches!(self.def_kind(def_id), DefKind::AssocTy | DefKind::AssocConst);
   const trait_def_id = this.parent(def_id);
   // debug_assert_matches!(self.def_kind(trait_def_id), DefKind::Trait);
-  // let trait_ref = ty::TraitRef::from_assoc(self, trait_def_id, args);
-  // (trait_ref, &args[trait_ref.args.len()..])
-  void [trait_def_id, args];
-  return unported("rustc_type_ir::predicate::TraitRef::from_assoc (predicate.rs, lane tyir-misc)");
+  const trait_ref = TraitRef_ir.from_assoc(as_interner(this), trait_def_id, args);
+  return [trait_ref, args.slice(trait_ref.args.length)];
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:235 mk_args

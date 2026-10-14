@@ -105,12 +105,6 @@ function world(): { tcx: TyCtxt; self_ty: Ty; outlives: (r: Region) => Clause } 
     generics_of: (d: DefId | LocalDefId) => gens.get(ix(d)),
     parent: (d: DefId) => parents.get(ix(d)),
     is_impl_trait_in_trait: () => false,
-    // Test stand-in: rustc_middle impl_interner.ts's `trait_ref_and_own_args_for_alias` (impl_interner.rs:223) still stops
-    // at `TraitRef::from_assoc`, which rustc_type_ir predicate.ts now ports; this is upstream's body over it.
-    trait_ref_and_own_args_for_alias: (def_id: DefId, args: GenericArgs): [TraitRefT, readonly GenericArg[]] => {
-      const trait_ref = TraitRef.from_assoc(as_interner(tcx), tcx.parent(def_id), args);
-      return [trait_ref, args.slice(trait_ref.args.length)];
-    },
   });
   const self_ty = tcx.types.self_param;
   const outlives = (r: Region): Clause => Clause_upcast_from_ClauseKind({ $: "TypeOutlives", _0: { _0: self_ty, _1: r } }, tcx);

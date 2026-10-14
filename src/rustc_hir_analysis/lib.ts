@@ -139,8 +139,8 @@ export function provide(providers: Providers): void {
   // providers.diagnostic_hir_wf_check = hir_wf_check.diagnostic_hir_wf_check;
   // providers.inferred_outlives_crate = outlives.inferred_outlives_crate;
   // providers.inferred_outlives_of = outlives.inferred_outlives_of;
-  // providers.inherit_sig_for_delegation_item = delegation.inherit_sig_for_delegation_item;
-  // providers.delegation_user_specified_args = delegation.delegation_user_specified_args;
+  providers.inherit_sig_for_delegation_item = delegation.inherit_sig_for_delegation_item;
+  providers.delegation_user_specified_args = delegation.delegation_user_specified_args;
   // providers.enforce_impl_non_lifetime_params_are_constrained = impl_wf_check.enforce_impl_non_lifetime_params_are_constrained;
   // providers.crate_variances = variance.crate_variances;
   // providers.variances_of = variance.variances_of;
