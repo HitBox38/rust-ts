@@ -145,16 +145,6 @@ export function ProcMacroKind_into_diag_arg(self: ProcMacroKind, _: MutRef<PathB
   return str_into_diag_arg(s, { value: undefined });
 }
 
-// PORT: the generic-param test shared by the `#[diagnostic::*]` checks below, written out inline upstream in each
-// closure (`!matches!(p.kind, GenericParamKind::Lifetime { .. }) && let ParamName::Plain(name) = p.name && name.name == argument_name`).
-function param_is_named_non_lifetime(p: hir.GenericParam, argument_name: Symbol): boolean {
-  if (p.kind.$ !== "Lifetime" && p.name.$ === "Plain" && p.name._0.name === argument_name) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
 // rustc-type: compiler/rustc_passes/src/check_attr.rs:115 CheckAttrVisitor
 class CheckAttrVisitor extends Visitor {
   // impl<'tcx> Visitor<'tcx> for CheckAttrVisitor<'tcx>
@@ -654,7 +644,13 @@ class CheckAttrVisitor extends Visitor {
       if (node.$ === "Item" && node._0.kind.$ === "Trait") {
         const { ident: trait_name, generics } = node._0.kind;
         directive.visit_params((argument_name, span) => {
-          const has_generic = generics.params.some((p) => param_is_named_non_lifetime(p, argument_name));
+          const has_generic = generics.params.some((p) => {
+            if (p.kind.$ !== "Lifetime" && p.name.$ === "Plain" && p.name._0.name === argument_name) {
+              return true;
+            } else {
+              return false;
+            }
+          });
           if (!has_generic) {
             this.tcx.emit_node_span_lint(
               MALFORMED_DIAGNOSTIC_FORMAT_LITERALS,
@@ -682,7 +678,13 @@ class CheckAttrVisitor extends Visitor {
       if (directive !== undefined && (node = this.tcx.hir_node(hir_id)).$ === "Item" && node._0.kind.$ === "Impl") {
         const { generics } = node._0.kind._0;
         directive.visit_params((argument_name, span) => {
-          const has_generic = generics.params.some((p) => param_is_named_non_lifetime(p, argument_name));
+          const has_generic = generics.params.some((p) => {
+            if (p.kind.$ !== "Lifetime" && p.name.$ === "Plain" && p.name._0.name === argument_name) {
+              return true;
+            } else {
+              return false;
+            }
+          });
           if (!has_generic) {
             this.tcx.emit_node_span_lint(
               MALFORMED_DIAGNOSTIC_FORMAT_LITERALS,
@@ -718,7 +720,13 @@ class CheckAttrVisitor extends Visitor {
       if (node.$ === "Item" && (node._0.kind.$ === "Struct" || node._0.kind.$ === "Enum" || node._0.kind.$ === "Union")) {
         const generics = node._0.kind._1;
         directive.visit_params((argument_name, span) => {
-          const has_generic = generics.params.some((p) => param_is_named_non_lifetime(p, argument_name));
+          const has_generic = generics.params.some((p) => {
+            if (p.kind.$ !== "Lifetime" && p.name.$ === "Plain" && p.name._0.name === argument_name) {
+              return true;
+            } else {
+              return false;
+            }
+          });
           if (!has_generic) {
             this.tcx.emit_node_span_lint(
               MALFORMED_DIAGNOSTIC_FORMAT_LITERALS,
@@ -751,7 +759,13 @@ class CheckAttrVisitor extends Visitor {
         }
 
         directive.visit_params((argument_name, span) => {
-          const has_generic = generics.params.some((p) => param_is_named_non_lifetime(p, argument_name));
+          const has_generic = generics.params.some((p) => {
+            if (p.kind.$ !== "Lifetime" && p.name.$ === "Plain" && p.name._0.name === argument_name) {
+              return true;
+            } else {
+              return false;
+            }
+          });
 
           const is_allowed = argument_name === sym.Expected || argument_name === sym.Found;
           if (!(has_generic || is_allowed)) {
