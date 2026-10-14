@@ -25,7 +25,7 @@ import { debug_Predicate } from "../../rustc_middle/ty/structural_impls.ts";
 import type { Predicate } from "../../rustc_middle/ty/predicate.ts";
 import { Predicate_upcast_from_ProjectionClause } from "../../rustc_middle/ty/predicate.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { ParamEnv, Term, Ty } from "../../rustc_middle/ty/decls.ts";
+import type { GenericArg, ParamEnv, Term, Ty } from "../../rustc_middle/ty/decls.ts";
 import { Term as MTerm } from "../../rustc_middle/ty/mod.ts";
 import { fold_Term } from "../../rustc_middle/ty/mod.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
@@ -56,7 +56,8 @@ import {
   VisibleForLeakCheck,
 } from "../../rustc_type_ir/solve/mod.ts";
 import type { Canonical } from "../../rustc_type_ir/canonical.ts";
-import { PlaceholderConst } from "../../rustc_type_ir/binder.ts";
+import { EarlyBinder, PlaceholderConst } from "../../rustc_type_ir/binder.ts";
+import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { AliasConst } from "../../rustc_type_ir/const_kind.ts";
 import { Term_provided } from "../../rustc_type_ir/inherent.ts";
 import type { CoercePredicate, OutlivesClause, ProjectionClause, SubtypePredicate } from "../../rustc_type_ir/predicate.ts";
@@ -516,15 +517,42 @@ EvalCtxt.prototype.structurally_normalize_term = function (
   }
 };
 
-// ---- PORT helpers (not upstream fns) --------------------------------------------------------------------------------
+// ---- PORT helpers (not upstream fns; shared by this lane's files, read inside fn bodies only) ----------------------
 
 /** PORT: `NoSolution` is a unit struct; its value. */
-const NO_SOLUTION: NoSolution = {};
+export const NO_SOLUTION: NoSolution = Object.freeze({});
 
 /** PORT: rustc_middle's `UpcastFrom` impls take `TyCtxt` (`I = TyCtxt`); `Goal::new` / `Goal::with` take the
  *  `Interner`-typed upcast (`as_interner` precedent, rustc_type_ir predicate.ts). */
-function upcast_fn<T, P>(f: (from: T, tcx: TyCtxt) => P): UpcastFn<T, P> {
+export function upcast_fn<T, P>(f: (from: T, tcx: TyCtxt) => P): UpcastFn<T, P> {
   return f as unknown as UpcastFn<T, P>;
+}
+
+/** PORT: `goal.with(cx, predicate)`: `Goal::with` with the `UpcastFrom` impl of the target predicate type. */
+export function goal_with<P, Q, T>(goal: Goal<P>, cx: TyCtxt, predicate: T, upcast: (from: T, tcx: TyCtxt) => Q): Goal<Q> {
+  return Goal.with(goal, as_interner(cx), predicate, upcast_fn(upcast));
+}
+
+/** PORT: `Interner::clauses_of` & co. return `EarlyBinder<impl IntoIterator>` (a lazy `Iterable` in TS), while
+ *  binder.ts's `iter_instantiated` takes the slice its double-ended iterator needs: collect first (the source
+ *  iterators are side-effect free, so the items and their order are the same). */
+export function iter_instantiated<T>(
+  self: EarlyBinder<Iterable<T>>,
+  cx: TyCtxt,
+  args: readonly GenericArg[],
+  d: TypeFoldable<T>,
+): Iterable<Unnormalized<T>> {
+  return EarlyBinder.iter_instantiated(
+    EarlyBinder.map_bound(self, (v) => Array.from(v)),
+    cx,
+    args,
+    d,
+  );
+}
+
+/** PORT: `Iterator::map` (lazy, like upstream's adapters). */
+export function* map_iter<T, U>(it: Iterable<T>, f: (t: T) => U): Generator<U, void, undefined> {
+  for (const t of it) yield f(t);
 }
 
 /// The result of evaluating a goal.
