@@ -502,7 +502,7 @@ declare module "./hir.gen.ts" {
 
 Object.assign(GenericArgs, {
   /// An empty `GenericArgs` (no generic arguments).
-  NONE: new GenericArgs([], [], "No", DUMMY_SP),
+  NONE: Object.freeze(new GenericArgs(Object.freeze([]), Object.freeze([]), "No", DUMMY_SP)),
 });
 
 /// Obtain the list of input types and the output type if the generic arguments are parenthesized.
@@ -700,7 +700,7 @@ declare module "./hir.gen.ts" {
 }
 
 /** `const NOPE: Generics<'_>` of `Generics::empty` (one shared value, like the upstream `&NOPE`). */
-const Generics_NOPE: Generics = new Generics([], [], false, DUMMY_SP, DUMMY_SP);
+const Generics_NOPE: Generics = Object.freeze(new Generics(Object.freeze([]), Object.freeze([]), false, DUMMY_SP, DUMMY_SP));
 
 Object.assign(Generics, {
   // rustc: compiler/rustc_hir/src/hir.rs:921 empty
