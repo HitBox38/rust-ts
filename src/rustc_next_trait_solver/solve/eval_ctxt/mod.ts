@@ -206,6 +206,10 @@ export function maybe_evaluate_root_goal_for_proof_tree_with_higher_recursion_li
 }
 
 // PORT: `external_constraints: &mut ExternalConstraintsData<I>` is mutated in place.
+// The struct `NonTrivialVars` is local to this fn (`#[derive(Default)]`, `impl TypeVisitor`): port it inside.
+// solve/eval_ctxt/mod.rs:1845 NonTrivialVars::visit_ty
+// solve/eval_ctxt/mod.rs:1853 NonTrivialVars::visit_const
+// solve/eval_ctxt/mod.rs:1860 NonTrivialVars::visit_region
 export function filter_irrelevant_region_constraints(
   _delegate: SolverDelegate,
   _var_values: GenericArgs,
