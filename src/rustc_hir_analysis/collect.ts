@@ -56,7 +56,10 @@ import { type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import { DUMMY_SP } from "../rustc_span/span_encoding.ts";
 import { type Ident, kw, Symbol } from "../rustc_span/symbol.ts";
 import { bug, span_bug } from "../rustc_span/macros.ts";
+import { TypingMode as TypingModeC } from "../rustc_type_ir/infer_ctxt.ts";
+import "../rustc_infer/lib.ts";
 import { Binder, BoundRegionKind, EarlyBinder, fold_Binder } from "../rustc_type_ir/binder.ts";
+import { RegionConstraint } from "../rustc_type_ir/region_constraint.ts"; // `SolverRegionConstraint` = `RegionConstraint<TyCtxt, Span>` (rustc_infer solver_region_constraints.rs:5)
 import { debug_BoundVariableKind } from "../rustc_type_ir/binder.gen.ts";
 import type { AnonConstKind, BoundRegion, BoundVariableKind, ImplPolarity, PolyFnSig, PolyTraitRef, PolyTypeOutlivesClause, RegionOutlivesClause, TraitRef } from "../rustc_type_ir/decls.ts";
 import { DeepRejectCtxt } from "../rustc_type_ir/fast_reject.ts";
@@ -409,29 +412,22 @@ ItemCtxt.prototype.lower_test_binder_assumptions = function (
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:424 lower_test_binder_constraint
 ItemCtxt.prototype.lower_test_binder_constraint = function (this: ItemCtxt, constraint: hir.TestBinderConstraint): SolverRegionConstraint {
-  // PORT: `SolverRegionConstraint` (`build_and`, `build_or`, `new_true`, `new_false`, `new_ambig`, `new_leaf`) is pending
-  // (lane infcx-contract): each arm stops where upstream builds one, after lowering its operands.
-  const pending = (what: string): SolverRegionConstraint =>
-    unported(`rustc_infer::infer::SolverRegionConstraint::${what} (pending: lane infcx-contract)`);
   switch (constraint.$) {
     case "And": {
       const items = constraint.items.map((item) => this.lower_test_binder_constraint(item));
-      void items;
-      return pending("build_and");
+      return items.length === 0 ? RegionConstraint.new_true<Span>() : items.reduce((a, b) => RegionConstraint.build_and(a, b));
     }
     case "Or": {
       const items = constraint.items.map((item) => this.lower_test_binder_constraint(item));
-      void items;
-      return pending("build_or");
+      return items.length === 0 ? RegionConstraint.new_false<Span>() : items.reduce((a, b) => RegionConstraint.build_or(a, b));
     }
     case "Ambiguity":
-      return pending("new_ambig");
+      return RegionConstraint.new_ambig(constraint.span);
     case "Lifetime": {
       const span = Span.to(constraint.lhs.ident.span, constraint.rhs.ident.span);
       const lhs = this.lowerer().lower_lifetime(constraint.lhs, RegionInferReason.RegionPredicate);
       const rhs = this.lowerer().lower_lifetime(constraint.rhs, RegionInferReason.RegionPredicate);
-      void [span, lhs, rhs];
-      return pending("new_leaf(LeafRegionConstraint::RegionOutlives)");
+      return RegionConstraint.new_leaf({ $: "RegionOutlives", _0: lhs, _1: rhs, _2: span });
     }
     case "PlaceholderOutlives": {
       const span = Span.to(constraint.lhs.span, constraint.rhs.ident.span);
@@ -440,8 +436,7 @@ ItemCtxt.prototype.lower_test_binder_constraint = function (this: ItemCtxt, cons
       // note that we cannot check that lhs is a placeholder at this moment, as at this
       // point it is a bound variable that is not yet instantiated with a placeholder.
       // instead, we check it when we emit the region constraint.
-      void [span, lhs, rhs];
-      return pending("new_leaf(LeafRegionConstraint::PlaceholderTyOutlives)");
+      return RegionConstraint.new_leaf({ $: "PlaceholderTyOutlives", _0: lhs, _1: rhs, _2: span });
     }
     case "AliasOutlives": {
       const { span, hir_id, lhs: lhs_, rhs: rhs_ } = constraint.bound_type_constraint;
@@ -449,12 +444,11 @@ ItemCtxt.prototype.lower_test_binder_constraint = function (this: ItemCtxt, cons
       const lhs_ty = this.lower_ty(lhs_).kind();
       if (lhs_ty.$ !== "Alias") {
         HirTyLowerer_ItemCtxt.dcx.call(this).span_err(lhs_.span, "bound type test binder constraint must be alias (it's a AliasTyOutlivesViaEnv)");
-        return pending("new_true");
+        return RegionConstraint.new_true<Span>();
       }
       const lhs = lhs_ty._1;
       const rhs = this.lowerer().lower_lifetime(rhs_, RegionInferReason.RegionPredicate);
-      void [span, bound_vars, lhs, rhs];
-      return pending("new_leaf(LeafRegionConstraint::AliasTyOutlivesViaEnv)");
+      return RegionConstraint.new_leaf({ $: "AliasTyOutlivesViaEnv", _0: Binder.bind_with_vars([lhs, rhs], bound_vars), _1: span });
     }
   }
 };
@@ -1298,8 +1292,7 @@ export function recover_infer_ret_ty(icx: ItemCtxt, infer_ret_ty: hir.Ty, generi
     recovered_ret_ty = suggestable_ret_ty;
   } else if (
     (sugg = suggest_impl_trait(
-      // `&tcx.infer_ctxt().build(TypingMode::non_body_analysis())`
-      unported("rustc_infer::infer::TyCtxtInferExt::infer_ctxt (pending: lane infcx-contract)"),
+      tcx.infer_ctxt().build(TypingModeC.non_body_analysis()),
       tcx.param_env(def_id) as ParamEnv,
       ret_ty,
     )) !== undefined
@@ -1347,11 +1340,11 @@ export function suggest_impl_trait(infcx: InferCtxt, param_env: ParamEnv, ret_ty
   };
   void [format_as_assoc, format_as_parenthesized, param_env, ret_ty];
 
-  // PORT: `InferCtxt` is pending (lane infcx-contract): the candidate list reads `infcx.tcx` first, so the fn stops there.
-  // The loop (`infcx.probe`, `GenericArgs::for_item` with `infcx.var_for_def`, `type_implements_trait`, `ObligationCtxt`,
-  // `deeply_resolve_ignoring_regions`) is all `InferCtxt` / rustc_trait_selection.
+  // PORT: the candidate loop (`infcx.probe`, `GenericArgs::for_item` with `infcx.var_for_def`, `type_implements_trait`,
+  // `ObligationCtxt`, `deeply_resolve_ignoring_regions`) needs rustc_trait_selection's `ObligationCtxt` (wave 17), so the
+  // fn stops before it (after merge-w16a `infcx` is the real `InferCtxt`).
   void infcx;
-  return unported("rustc_hir_analysis::collect::suggest_impl_trait (InferCtxt pending: lane infcx-contract)");
+  return unported("rustc_hir_analysis::collect::suggest_impl_trait (ObligationCtxt pending: wave 17)");
 }
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:1561 impl_is_fully_generic_for_reflection
