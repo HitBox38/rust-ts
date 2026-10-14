@@ -103,6 +103,7 @@ import { assert_eq, unported, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { Parameter } from "../constrained_generic_params.ts";
 import type { ItemCtxt } from "../decls.ts";
+import type * as diagnostics_t from "../diagnostics.ts";
 
 // ==== lane check-wf-a: wfcheck.rs:1..1139 ====
 // PORT(stand-in, check-wf-b): check-wf-b's copy of this file holds only the members of check-wf-a's region that the
@@ -1822,7 +1823,7 @@ interface RedundantLifetimeArgsLint {
 }
 
 // #[derive(Clone, Debug, TypeFoldable, TypeVisitable)]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2777 TestBinderBody
+// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2776 TestBinderBody
 export interface TestBinderBody {
   foralls: TestBinderForall[];
   exists: TestBinderExists[];
@@ -1833,7 +1834,7 @@ export interface TestBinderBody {
 }
 
 // #[derive(Clone, Debug, TypeFoldable, TypeVisitable)]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2787 TestBinderForall
+// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2786 TestBinderForall
 export interface TestBinderForall {
   span: Span;
   binder: Binder<WithWhereClauses<TestBinderBody>>;
@@ -1841,14 +1842,14 @@ export interface TestBinderForall {
 }
 
 // #[derive(Clone, Debug, TypeFoldable, TypeVisitable)]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2794 TestBinderExists
+// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2793 TestBinderExists
 export interface TestBinderExists {
   span: Span;
   binder: Binder<TestBinderBody>;
 }
 
 // #[derive(Clone, Debug, TypeFoldable, TypeVisitable)]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2800 WithWhereClauses
+// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2799 WithWhereClauses
 export interface WithWhereClauses<T> {
   value: T;
 
@@ -1909,7 +1910,6 @@ function set_insert<T>(set: Set<T>, v: T): boolean {
 function diagnostics(): typeof import("../diagnostics.ts") {
   return require("../diagnostics.ts") as typeof import("../diagnostics.ts");
 }
-import type * as diagnostics_t from "../diagnostics.ts";
 
 /** `crate::collect` (read at call time: init order). */
 function collect(): typeof import("../collect.ts") {
