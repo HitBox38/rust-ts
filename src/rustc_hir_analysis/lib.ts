@@ -79,6 +79,8 @@ import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as collect from "./collect.ts";
 
 // pub mod check;            (wave 17: check-wf-a/-b, check-check, check-compare, check-region-intrinsic)
+// PORT: check/mod.ts is lane check-check's; until it merges, this lane's modules are imported here directly.
+import * as check_region from "./check/region.ts";
 // pub mod autoderef;        (wave 17/18)
 // mod check_unused;         (wave 17)
 // mod coherence;            (wave 17: coherence)
@@ -140,6 +142,9 @@ export function provide(providers: Providers): void {
   // rustc_interface's `install_unported_providers` (UNPORTED). Each lane uncomments its lines.
   // coherence::provide(providers);
   // check::provide(providers);
+  // PORT: `region_scope_tree` is one of check/mod.rs:112 `check::provide`'s providers (lane check-region-intrinsic);
+  // when lane check-check's `check::provide` merges, this line moves there.
+  providers.region_scope_tree = check_region.region_scope_tree;
   // providers.check_unused_traits = check_unused.check_unused_traits;
   // providers.diagnostic_hir_wf_check = hir_wf_check.diagnostic_hir_wf_check;
   providers.inferred_outlives_crate = outlives.inferred_outlives_crate;
