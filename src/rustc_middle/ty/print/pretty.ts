@@ -1988,11 +1988,26 @@ function DefId_key_(d: DefId): number {
   return DefId_key(d);
 }
 
-/** `slice::sort_by_cached_key` (stable; the keys are computed once per element, in order). */
+/** `slice::sort_by_cached_key` with `String` keys (stable; the keys are computed once per element, in order). */
 function sort_by_cached_key<T>(v: T[], f: (x: T) => string): void {
   const keyed = v.map((x, i) => [f(x), i, x] as const);
-  keyed.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]));
+  keyed.sort((a, b) => str_cmp(a[0], b[0]) || a[1] - b[1]);
   for (let i = 0; i < v.length; i++) v[i] = keyed[i]![2];
+}
+
+/** `Ord for str`: UTF-8 byte order, i.e. code point order (JS `<` compares UTF-16 code units). */
+function str_cmp(a: string, b: string): number {
+  const ia = a[globalThis.Symbol.iterator]();
+  const ib = b[globalThis.Symbol.iterator]();
+  for (;;) {
+    const x = ia.next();
+    const y = ib.next();
+    if (x.done) return y.done ? 0 : -1;
+    if (y.done) return 1;
+    const cx = x.value.codePointAt(0)!;
+    const cy = y.value.codePointAt(0)!;
+    if (cx !== cy) return cx < cy ? -1 : 1;
+  }
 }
 
 /** `Option<DefId> == Some(def_id)`. */
