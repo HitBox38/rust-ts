@@ -89,4 +89,10 @@ it). The `mod opaque_types;` / `pub use` lines of ty/mod.rs are not wired (mod.t
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
 - Fresh-process loads of `rustc_middle/ty/opaque_types.ts`, `rustc_ty_utils/lib.ts`, `rustc_ty_utils/assoc.ts`: ok.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: RESULTS_PLACEHOLDER
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4298 pass, 0 fail (4299 tests, 256 files).
+- Sample difftests (`--sample 200`, RUST_TS_AGENT=assoc-opaque): hir-tree-nocore 199 MATCH / 1 UNPORTED / 0 DIFF / 0 CRASH;
+  resdump-nocore 200/200 MATCH.
+
+## Overlap for root
+- `delegation/resolution.ts`: the same one-line `is_method` repoint as lane/ty-adt-assoc (identical hunk, merges
+  cleanly; ty-adt-assoc also deletes the stand-in fn, which I left untouched). No other shared files.
