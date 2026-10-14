@@ -211,10 +211,6 @@ new_error: {type error}
   is: sized meta_sized
   opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=Fn seq=n/a discr=u8
   walk: {type error}
-new_unsafe_binder: unsafe<> i32
-  is: concrete_skeleton known_rigid sized meta_sized
-  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
-  walk: unsafe<> i32, i32
 from_closure_kind_fn: i8
   is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
   opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i8 tuple_len=- closure_kind=Fn seq=n/a discr=u8
@@ -243,7 +239,6 @@ tuple_fields: [i32, bool]
 inputs: [i32, u8]
 output: bool
 contains_self: true
-contains_closure_leaf: false
 == variant_name
 0: Unresumed
 1: Returned

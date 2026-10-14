@@ -219,7 +219,6 @@ impl Callbacks for Probe {
             ("new_bound_shifted", Ty::new_bound(tcx, ty::DebruijnIndex::from_u32(1), ty::BoundTy { var: ty::BoundVar::from_u32(0), kind: ty::BoundTyKind::Anon })),
             ("new_placeholder", Ty::new_placeholder(tcx, ty::PlaceholderType::new_anon(ty::UniverseIndex::from_u32(1), ty::BoundVar::from_u32(2)))),
             ("new_error", Ty::new_error(tcx, guar)),
-            ("new_unsafe_binder", Ty::new_unsafe_binder(tcx, ty::Binder::dummy(t.i32))),
             ("from_closure_kind_fn", Ty::from_closure_kind(tcx, ty::ClosureKind::Fn)),
             ("from_closure_kind_fn_mut", Ty::from_closure_kind(tcx, ty::ClosureKind::FnMut)),
             ("from_closure_kind_fn_once", Ty::from_closure_kind(tcx, ty::ClosureKind::FnOnce)),
@@ -239,7 +238,6 @@ impl Callbacks for Probe {
         writeln!(out, "inputs: {:?}", rustc_type_ir::inherent::Tys::inputs(sig_tys)).unwrap();
         writeln!(out, "output: {:?}", rustc_type_ir::inherent::Tys::output(sig_tys)).unwrap();
         writeln!(out, "contains_self: {}", t.i32.contains(t.i32)).unwrap();
-        writeln!(out, "contains_closure_leaf: {}", t.i32.contains_closure()).unwrap();
         out.push_str("== variant_name\n");
         for i in 0..6 {
             writeln!(out, "{i}: {}", ty::CoroutineArgs::<TyCtxt<'tcx>>::variant_name(VariantIdx::from_usize(i))).unwrap();
