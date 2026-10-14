@@ -1,0 +1,64 @@
+case proj
+  env: []
+  args: []
+  goal 0: Binder { value: TraitClause(<S as Assoc>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(Impl(DefId(0:16 ~ proj[0858]::{impl#2}))) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:16 ~ proj[0858]::{impl#2}), args=[], nested=[])))
+  goal 1: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:6 ~ proj[0858]::Assoc::Out) }, args: [S], .. }, Term::Ty(W<S>)), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: Root Ok(Yes) shallow=Yes
+  goal 2: Binder { value: TraitClause(<<S as Assoc>::Out as Tr>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(Impl(DefId(0:14 ~ proj[0858]::{impl#1}))) Ok(Yes) shallow=Yes
+    nested: Normalization Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:6 ~ proj[0858]::Assoc::Out) }, args: [S], .. }, Term::Ty(W<S>)), bound_vars: [] } Ok(Yes)
+    nested: ImplWhereBound Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    nested: ImplWhereBound Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:14 ~ proj[0858]::{impl#1}), args=[S], nested=[])))
+  goal 3: Binder { value: TraitClause(<S as Assoc>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(Impl(DefId(0:16 ~ proj[0858]::{impl#2}))) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:16 ~ proj[0858]::{impl#2}), args=[], nested=[])))
+  goal 4: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:6 ~ proj[0858]::Assoc::Out) }, args: [S], .. }, Term::Ty(S)), bound_vars: [] }
+    result: Err(NoSolution)
+    candidate: Root Err(NoSolution) shallow=Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })
+  try_evaluate: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:6 ~ proj[0858]::Assoc::Out) }, args: [S], .. }, Term::Ty(S)), bound_vars: [] } code=Project root=Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:6 ~ proj[0858]::Assoc::Out) }, args: [S], .. }, Term::Ty(S)), bound_vars: [] }
+  pending: 0
+  remaining: []
+  resolved: []
+case rigid
+  env: [Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }, Binder { value: TraitClause(<T as Assoc>, polarity:Positive), bound_vars: [] }]
+  args: [T/#0]
+  goal 0: Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(ParamEnv(NonGlobal)) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceParamData([])))
+  goal 1: Binder { value: TraitClause(<T as Assoc>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(ParamEnv(NonGlobal)) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceParamData([])))
+  goal 2: Binder { value: TraitClause(<<T as Assoc>::Out as Tr>, polarity:Positive), bound_vars: [] }
+    result: Err(NoSolution)
+    select: Err(Unimplemented)
+  try_evaluate: Binder { value: TraitClause(<<T as Assoc>::Out as Tr>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<<T as Assoc>::Out as Tr>, polarity:Positive), bound_vars: [] }
+  pending: 0
+  remaining: []
+  resolved: [T/#0]
+case proj_infer
+  env: []
+  args: [?0t]
+  goal 0: Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No }))
+    candidate: TraitCandidate(BuiltinImpl(Misc)) Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })) shallow=Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })
+    select: Ok(None)
+  goal 1: Binder { value: TraitClause(<S as Assoc>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(Impl(DefId(0:16 ~ proj[0858]::{impl#2}))) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:16 ~ proj[0858]::{impl#2}), args=[], nested=[])))
+  goal 2: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:6 ~ proj[0858]::Assoc::Out) }, args: [S], .. }, Term::Ty(?0t)), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: Root Ok(Yes) shallow=Yes
+  try_evaluate: []
+  pending: 0
+  remaining: []
+  resolved: [W<S>]
