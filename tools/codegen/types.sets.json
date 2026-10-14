@@ -856,5 +856,13 @@
       "compiler/rustc_middle/src/ty/mod.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
+  },
+  "rustc_ty_utils": {
+    "files": ["compiler/rustc_ty_utils/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "typemap_extra": ["tyir.typemap.json"]
   }
 }
