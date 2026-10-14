@@ -1771,13 +1771,14 @@ function map_err_into(r: Result<CanonicalResponse, NoSolution>): QueryResultOrRe
 }
 
 /**
- * `cx.item_self_bounds(def_id).iter_instantiated(cx, args).map(Unnormalized::skip_norm_wip)` (and `item_bounds` /
+ * `cx.item_self_bounds(def_id).iter_instantiated(cx, args).map(Unnormalized::skip_norm_wip)` (and
  * `item_non_self_bounds`).
- * PORT(merge-w15a precedent, rustc_type_ir outlives.ts): `Interner::item_*bounds` is declared `impl IntoIterator`;
- * `TyCtxt`'s is the `Clauses` list (a `readonly Clause[]`), which `iter_instantiated`'s double-ended iterator needs.
+ * PORT: `Interner::item_*bounds` is declared `impl IntoIterator`; rustc_type_ir binder.ts's `iter_instantiated` takes
+ * the slice its double-ended iterator needs, so the items are collected first. Instantiation is per element and pure:
+ * the items are those of upstream's lazy iterator.
  */
 function* iter_bounds(cx: TyCtxt, bounds: EarlyBinder<Iterable<Clause>>, args: readonly GenericArg[]): Generator<Clause> {
-  for (const u of EarlyBinder.iter_instantiated<Clause>(bounds as EarlyBinder<readonly Clause[]>, cx, args, fold_Clause)) {
+  for (const u of EarlyBinder.iter_instantiated<Clause>(EarlyBinder.map_bound(bounds, (it) => Array.from(it)), cx, args, fold_Clause)) {
     yield Unnormalized.skip_norm_wip(u);
   }
 }
