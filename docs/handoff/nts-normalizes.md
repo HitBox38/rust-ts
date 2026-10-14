@@ -123,4 +123,4 @@ No call site. These files never call an `InferCtxtLike` method directly; they go
 - If root prefers, the solve/mod.ts helpers (decision 1) could move to a shared non-upstream module.
 
 ## Full test run
-`RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: RESULT_PLACEHOLDER
+`RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4510 pass, 1 skip (the pre-existing linux-only one), 0 fail (4511 tests, 272 files).
