@@ -29,7 +29,7 @@ import {
   MaybeInfo,
   type NoSolutionOrRerunNonErased,
 } from "../rustc_type_ir/solve/mod.ts";
-import { Panic, Unported } from "../std/panic.ts";
+import { Panic } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { EvalCtxt } from "./decls.ts";
 import { type SolverDelegate, SolverDelegate_provided, type SolverDelegate_static } from "./delegate.ts";
