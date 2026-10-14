@@ -46,7 +46,7 @@ check/mod.rs (lane check-check). So the tydump stops do not move with this lane 
 `bun scripts/coverage.ts --missing compiler/rustc_hir_analysis/src/check/wfcheck.rs`: **23/57**; the first missing fn
 is `:1140 check_item_fn` (nothing missing in 1..1139). `bun scripts/coverage.ts --check`: markers ok.
 
-## Tests (`RUST_TS_REQUIRE_PROBES=1 bun test src/rustc_hir_analysis/check/wfcheck_a.test.ts`: 8 pass)
+## Tests (`RUST_TS_REQUIRE_PROBES=1 bun test src/rustc_hir_analysis/check/wfcheck_a.test.ts`: 8 pass; full `bun test src tools`: 4968 pass / 1 skip / 0 fail; `tsc` clean)
 `run.ts` walks the items in `check_type_wf` order and makes the calls `check_item_type` makes into this region
 (`wf` mode), or only the calls that build no `ObligationCtxt` (`lint` mode); then `check_param_wf` per own param.
 - **Oracle matches** (`lint`, exit + stderr equal to the pinned rustc):
