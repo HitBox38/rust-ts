@@ -2,6 +2,7 @@
 //
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
+import { type GenericArgsInfo, WrongNumberOfGenericArgs } from "../diagnostics/wrong_number_of_generic_args.ts";
 import { display_ParamKindOrd, type ParamKindOrd, ParamKindOrd_discriminant } from "../../rustc_ast/lib.ts";
 import { Applicability, Diag, type DiagCtxtHandle, type Diagnostic, E0747, E0794, type Level, struct_span_code_err } from "../../rustc_errors/lib.ts";
 import { MultiSpan } from "../../rustc_error_messages/lib.ts";
@@ -429,11 +430,16 @@ export function check_generic_arg_count(cx: HirTyLowerer, def_id: DefId, seg: hi
 
     for (let i = min_expected_args; i < provided_args; i++) invalid_args.push(i);
 
-    // PORT: `GenericArgsInfo::{ExcessLifetimes, MissingLifetimes}` and `WrongNumberOfGenericArgs::new` live in
-    // diagnostics/wrong_number_of_generic_args.rs, which no lane has ported yet: the
-    // `let gen_args_info = ..; let reported = cx.dcx().emit_err(WrongNumberOfGenericArgs::new(..)); Err(reported)` tail
-    // stops here.
-    return unported("rustc_hir_analysis::diagnostics::wrong_number_of_generic_args::WrongNumberOfGenericArgs::new (E0107, lifetimes)");
+    let gen_args_info: GenericArgsInfo;
+    if (provided_args > min_expected_args) {
+      const num_redundant_args = provided_args - min_expected_args;
+      gen_args_info = { $: "ExcessLifetimes", num_redundant_args };
+    } else {
+      const num_missing_args = min_expected_args - provided_args;
+      gen_args_info = { $: "MissingLifetimes", num_missing_args };
+    }
+    const reported = cx.dcx().emit_err(WrongNumberOfGenericArgs.new(tcx, gen_args_info, seg, gen_params, has_self ? 1 : 0, gen_args, def_id, cx.item_def_id()));
+    return Err(reported);
   };
 
   const min_expected_lifetime_args = infer_lifetimes ? 0 : param_counts.lifetimes;
@@ -463,6 +469,7 @@ export function check_generic_arg_count(cx: HirTyLowerer, def_id: DefId, seg: hi
     const num_default_params = expected_max - expected_min;
 
     let all_params_are_binded = false;
+    let gen_args_info: GenericArgsInfo;
     if (provided > expected_max) {
       for (let i = expected_max; i < provided; i++) invalid_args.push(i + args_offset);
       const num_redundant_args = provided - expected_max;
@@ -470,8 +477,7 @@ export function check_generic_arg_count(cx: HirTyLowerer, def_id: DefId, seg: hi
       // Provide extra note if synthetic arguments like `impl Trait` are specified.
       const synth_provided = provided <= expected_max_with_synth;
 
-      // PORT: `GenericArgsInfo::ExcessTypesOrConsts { num_redundant_args, num_default_params, args_offset, synth_provided }`
-      // (diagnostics/wrong_number_of_generic_args.rs, unported; see below).
+      gen_args_info = { $: "ExcessTypesOrConsts", num_redundant_args, num_default_params, args_offset, synth_provided };
     } else {
       // Check if associated type bounds are incorrectly written in impl block header like:
       // ```
@@ -508,18 +514,17 @@ export function check_generic_arg_count(cx: HirTyLowerer, def_id: DefId, seg: hi
 
       const num_missing_args = expected_max - provided;
 
-      // PORT: `GenericArgsInfo::MissingTypesOrConsts { num_missing_args, num_default_params, args_offset }`
-      // (diagnostics/wrong_number_of_generic_args.rs, unported; see below).
+      gen_args_info = { $: "MissingTypesOrConsts", num_missing_args, num_default_params, args_offset };
     }
 
     // debug!(?gen_args_info);
 
     let reported = gen_args.has_err();
     if (reported === undefined) {
-      // PORT: `cx.dcx().create_err(WrongNumberOfGenericArgs::new(tcx, gen_args_info, seg, gen_params, params_offset, gen_args,
-      // def_id, cx.item_def_id())).emit_err_unless_delay(all_params_are_binded || has_invalid_bound)`:
-      // diagnostics/wrong_number_of_generic_args.rs is unported.
-      reported = unported("rustc_hir_analysis::diagnostics::wrong_number_of_generic_args::WrongNumberOfGenericArgs::new (E0107, types/consts)");
+      reported = cx
+        .dcx()
+        .create_err(WrongNumberOfGenericArgs.new(tcx, gen_args_info, seg, gen_params, params_offset, gen_args, def_id, cx.item_def_id()))
+        .emit_err_unless_delay(all_params_are_binded || has_invalid_bound);
     }
 
     return Err(reported);
