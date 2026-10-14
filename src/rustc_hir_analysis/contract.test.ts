@@ -521,8 +521,8 @@ test("provide installs the collect providers (and leaves the others)", () => {
   expect(providers.const_of_item).toBe(Collect.const_of_item);
   // collect.rs:65 assigns 32 queries, resolve_bound_vars::provide (resolve_bound_vars.rs:234, lane collect-rbv) 6,
   // lib.rs the 2 delegation queries (lane hira-misc) and the 5 outlives / impl_wf_check / variance queries (lane
-  // variance-outlives); the other wave-17 modules none yet
-  expect(Object.keys(providers).length).toBe(45);
+  // variance-outlives), coherence::provide (coherence/mod.rs:142, lane coherence) 8; the other wave-17 modules none yet
+  expect(Object.keys(providers).length).toBe(53);
   expect(providers.inherit_sig_for_delegation_item).toBe(Lib.delegation.inherit_sig_for_delegation_item);
   expect(providers.delegation_user_specified_args).toBe(Lib.delegation.delegation_user_specified_args);
   expect(providers.resolve_bound_vars).toBe(Rbv.resolve_bound_vars);
@@ -530,6 +530,9 @@ test("provide installs the collect providers (and leaves the others)", () => {
   expect(providers.object_lifetime_default).toBe(Rbv.object_lifetime_default);
   for (const q of ["named_variable_map", "late_bound_vars_map", "opaque_captured_lifetimes"]) expect([q, typeof providers[q]]).toEqual([q, "function"]);
   for (const q of ["inferred_outlives_crate", "inferred_outlives_of", "enforce_impl_non_lifetime_params_are_constrained", "crate_variances", "variances_of"]) {
+    expect([q, typeof providers[q]]).toEqual([q, "function"]);
+  }
+  for (const q of ["coherent_trait", "crate_inherent_impls", "crate_incoherent_impls", "inherent_impls", "crate_inherent_impls_validity_check", "crate_inherent_impls_overlap_check", "coerce_unsized_info", "orphan_check_impl"]) {
     expect([q, typeof providers[q]]).toEqual([q, "function"]);
   }
   expect(providers.check_unused_traits).toBeUndefined();
