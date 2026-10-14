@@ -57,7 +57,7 @@ import type { TraitDef } from "../../rustc_middle/ty/trait_def.ts";
 import type { GenericClauses, Generics } from "../../rustc_middle/ty/generics.ts";
 import type { TypeckResults } from "../../rustc_middle/ty/typeck_results.ts";
 import type { IntrinsicDefView } from "../../rustc_middle/ty/util.ts";
-import { Node as Node_ } from "../../rustc_middle/traits/specialization_graph.ts";
+import { clone_Ancestors, Node as Node_ } from "../../rustc_middle/traits/specialization_graph.ts";
 import { clone_ObligationCause, ObligationCause, ObligationCauseCode, type WellFormedLoc } from "../../rustc_middle/traits/mod.ts";
 import type { PredicateObligation } from "../../rustc_infer/traits/mod.gen.ts";
 import { Asyncness, type FieldDef, HasAttrs_LocalDefId, type ImplTraitHeader, type ParamEnv, ProvisionalHiddenType, type Term, Ty, TypingEnv, type VariantDef, Visibility } from "../../rustc_middle/ty/mod.ts";
@@ -86,7 +86,7 @@ import type { OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.gen.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { type TypeVisitable, type TypeVisitor, TypeVisitableExt, TypeVisitor_provided } from "../../rustc_type_ir/visit.ts";
 import { KeyedMap } from "../../rust_ts/keyed.ts";
-import { assert, assert_eq, panic, unported, unreachable } from "../../std/panic.ts";
+import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { type InferCtxt, ItemCtxt, type TestBinderBody } from "../decls.ts";
 import type { FulfillmentError } from "../../rustc_trait_selection/decls.ts";
@@ -993,7 +993,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
       tcx.ensure_ok().codegen_fn_attrs(def_id);
       const i = tcx.intrinsic(def_id);
       if (i !== undefined) {
-        intrinsic_check_intrinsic_type(tcx, def_id, tcx.def_ident_span(def_id)!, (i as unknown as IntrinsicDefView).name);
+        intrinsic_check_intrinsic_type(tcx, def_id, unwrap(tcx.def_ident_span(def_id)), (i as unknown as IntrinsicDefView).name);
       }
       break;
     }
@@ -1569,7 +1569,8 @@ function check_impl_items_against_trait(tcx: TyCtxt, impl_id: LocalDefId, impl_t
     let must_implement_one_of: readonly Ident[] | undefined = trait_def.must_implement_one_of;
 
     for (const trait_item_id of tcx.associated_item_def_ids(trait_ref.def_id) as readonly DefId[]) {
-      const leaf_def = ancestors.leaf_def(tcx, trait_item_id);
+      // PORT: `Ancestors` is `Copy` and `leaf_def` takes `self`: each call walks a copy.
+      const leaf_def = clone_Ancestors(ancestors).leaf_def(tcx, trait_item_id);
 
       const is_implemented = leaf_def !== undefined && Defaultness.has_value(AssocItem.defaultness(leaf_def.item, tcx));
 
@@ -2012,7 +2013,7 @@ function check_transparent(tcx: TyCtxt, adt: AdtDef): void {
     const ty = Unnormalized.skip_norm_wip(field.ty(tcx, RawList.identity_for_item(tcx, field.did)));
     const layout = tcx.layout_of(typing_env.as_query_input(ty));
     // We are currently checking the type this field came from, so it must be local
-    const span = tcx.hir_span_if_local(field.did)!;
+    const span = unwrap(tcx.hir_span_if_local(field.did));
     void layout;
     void span;
     void is_trivial;

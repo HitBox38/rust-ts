@@ -84,7 +84,7 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Const, GenericArg, Region } from "../../rustc_middle/ty/decls.ts";
 import { RawList } from "../../rustc_middle/ty/list.ts";
 import { GenericClauses, type Generics, GenericParamDefKind } from "../../rustc_middle/ty/generics.ts";
-import { ObligationCause } from "../../rustc_middle/traits/mod.ts";
+import { clone_ObligationCause, ObligationCause } from "../../rustc_middle/traits/mod.ts";
 import type { FulfillmentError } from "../../rustc_trait_selection/decls.ts";
 import type { TraitErrors } from "../../rustc_infer/traits/engine.ts";
 import { type ToTrace, ToTrace_PolyFnSig } from "../../rustc_infer/infer/at.ts";
@@ -116,7 +116,7 @@ import { FnSig, fold_FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import type { PolyFnSig } from "../../rustc_type_ir/decls.ts";
 import { fold_Binder } from "../../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { panic, unported } from "../../std/panic.ts";
+import { panic, unported, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { InferCtxt } from "../decls.ts";
 import * as diagnostics from "../diagnostics.ts";
@@ -612,7 +612,7 @@ function suggestion_signature(tcx: TyCtxt, assoc: AssocItem, impl_trait_ref: Tra
 /// Emit an error when encountering two or more variants in a transparent enum.
 // rustc: compiler/rustc_hir_analysis/src/check/mod.rs:631 bad_variant_count
 export function bad_variant_count(tcx: TyCtxt, adt: AdtDef, sp: Span, did: DefId): void {
-  const variant_spans: Span[] = adt.variants().map((variant) => tcx.hir_span_if_local(variant.def_id)!);
+  const variant_spans: Span[] = adt.variants().map((variant) => unwrap(tcx.hir_span_if_local(variant.def_id)));
   let [spans, many]: [Span[], Span | undefined] = [[], undefined];
   if (variant_spans.length >= 1) {
     const start = variant_spans.slice(0, -1);
@@ -638,7 +638,9 @@ export function potentially_plural_count(count: number, word: string): string {
 }
 
 // rustc: compiler/rustc_hir_analysis/src/check/mod.rs:656 check_function_signature
-export function check_function_signature(tcx: TyCtxt, cause: ObligationCause, fn_id: DefId, expected_sig: PolyFnSig): Result<null, ErrorGuaranteed> {
+export function check_function_signature(tcx: TyCtxt, cause_: ObligationCause, fn_id: DefId, expected_sig: PolyFnSig): Result<null, ErrorGuaranteed> {
+  // PORT: `mut cause: ObligationCause` is taken by value: assignments go to a copy.
+  const cause = clone_ObligationCause(cause_);
   // rustc: compiler/rustc_hir_analysis/src/check/mod.rs:662 extract_span_for_error_reporting
   function extract_span_for_error_reporting(tcx: TyCtxt, err: TypeError, cause: ObligationCause, fn_id: LocalDefId): Span {
     const node = tcx.expect_hir_owner_node(fn_id);
