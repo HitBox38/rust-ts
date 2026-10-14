@@ -54,10 +54,10 @@ import { debug_OutlivesClause, fold_with_OutlivesClause, type OutlivesClause, tr
 import * as gen from "./region_constraint.gen.ts";
 import type { RelateResult, VarianceDiagInfo } from "./relate.ts";
 import type { Const } from "./sty/consts.ts";
-import { debug_Region, fold_with_Region, Region, try_fold_with_Region, visit_with_Region } from "./sty/mod.ts";
+import { debug_Region, fold_Region, fold_with_Region, Region, try_fold_with_Region, visit_with_Region } from "./sty/mod.ts";
 import { type AliasTy, debug_Alias, fold_with_Alias, try_fold_with_Alias, visit_with_Alias } from "./ty/alias.ts";
 import { AliasTy as AliasTyC, Binder_map_bound, Binder_skip_binder, debug_AliasTyKind, fold_with_AliasTyKind, try_fold_with_AliasTyKind, visit_with_AliasTyKind } from "./ty_kind.ts";
-import type { Unnormalized } from "./unnormalized.ts";
+import { Unnormalized } from "./unnormalized.ts";
 import { max_universe } from "./universe.ts";
 
 export * from "./region_constraint.gen.ts";
@@ -155,6 +155,9 @@ export const Assumptions = {
   new(infcx: InferCtxtLike, clauses: Iterable<Clause>, region_outlives: TransitiveRelation<Region>, universe: UniverseIndex): Assumptions {
     const type_outlives: Binder<OutlivesClause<Ty>>[] = [];
     const region_outlives_builder = TransitiveRelationBuilder_default<Region>();
+    // PORT (D6): `base_edges()` iterates the relation's `edges: FxHashSet<Edge>` in hashbrown order, which fixes the
+    // element order of the new builder and so the order of every later `reachable_from`; see
+    // `TransitiveRelation_base_edges`.
     for (const [r1, r2] of TransitiveRelation_base_edges(region_outlives)) {
       TransitiveRelationBuilder_add(region_outlives_builder, r1, r2);
     }
@@ -195,6 +198,8 @@ export const Assumptions = {
     return {
       inverse_region_outlives: (() => {
         const builder = TransitiveRelationBuilder_default<Region>();
+        // PORT (D6): hashbrown order of `base_edges()` (see `Assumptions.new`): it fixes the element order of
+        // `inverse_region_outlives`, i.e. the order of `regions_outliving`.
         for (const [r1, r2] of TransitiveRelation_base_edges(region_outlives)) {
           TransitiveRelationBuilder_add(builder, r2, r1);
         }
@@ -663,7 +668,7 @@ function compute_new_region_constraints(infcx: InferCtxtLike, constraint: Region
             case "ReStatic":
               return true;
             case "ReVar":
-              return max_universe(infcx, r, fold_Region_) < u;
+              return max_universe(infcx, r, fold_Region) < u;
             case "ReError":
               return false;
             case "ReErased":
@@ -731,8 +736,8 @@ function pull_region_outlives_constraints_out_of_universe(infcx: InferCtxtLike, 
         case "RegionOutlives": {
           const region_1 = c._0;
           const region_2 = c._1;
-          const region_1_u = max_universe(infcx, region_1, fold_Region_);
-          const region_2_u = max_universe(infcx, region_2, fold_Region_);
+          const region_1_u = max_universe(infcx, region_1, fold_Region);
+          const region_2_u = max_universe(infcx, region_2, fold_Region);
 
           if (region_1_u !== u && region_2_u !== u) {
             pulled_constraints.push(Or.new_leaf(c));
@@ -749,11 +754,11 @@ function pull_region_outlives_constraints_out_of_universe(infcx: InferCtxtLike, 
 
           const candidates: LeafRegionConstraint[] = [];
 
-          for (const ub of regions_outlived_by(region_1, assumptions).filter((r) => max_universe(infcx, r, fold_Region_) < u)) {
+          for (const ub of regions_outlived_by(region_1, assumptions).filter((r) => max_universe(infcx, r, fold_Region) < u)) {
             // FIXME(-Zassumptions-on-binders): if `region_2` is in a smaller universe there'll be both
             // `'region_2` and `'static` as lower bounds which seems... unfortunate and may cause us to
             // add a bunch of duplicate `'ub: 'static` candidates the more binders we leave.
-            for (const lb of regions_outliving(region_2, assumptions, infcx.cx()).filter((r) => max_universe(infcx, r, fold_Region_) < u)) {
+            for (const lb of regions_outliving(region_2, assumptions, infcx.cx()).filter((r) => max_universe(infcx, r, fold_Region) < u)) {
               // As long as any region outlived by `region_1` outlives any region region which
               // `region_2` outlives, we know that `region_1: region_2` holds. In other words,
               // there exists some set of 4 regions for which `'r1: 'i1` `'i1: 'i2` `'i2: 'r2`
@@ -872,7 +877,7 @@ function rewrite_type_outlives_constraints_in_universe_for_eager_placeholder_han
 // rustc: compiler/rustc_type_ir/src/region_constraint.rs:892 rewrite_placeholder_ty_outlives_constraints_in_universe_for_eager_placeholder_handling
 function rewrite_placeholder_ty_outlives_constraints_in_universe_for_eager_placeholder_handling(infcx: InferCtxtLike, ty: Ty, region: Region, u: UniverseIndex, assumptions: Assumptions): Or {
   const ty_u = max_universe(infcx, ty, fold_Ty_);
-  const region_u = max_universe(infcx, region, fold_Region_);
+  const region_u = max_universe(infcx, region, fold_Region);
 
   if (region_u !== u && ty_u !== u) {
     return Or.new_leaf({ $: "PlaceholderTyOutlives", _0: ty, _1: region, _2: null });
@@ -890,7 +895,7 @@ function rewrite_placeholder_ty_outlives_constraints_in_universe_for_eager_place
   if (region_u === u && ty_u < u) {
     candidates.push(
       ...regions_outliving(region, assumptions, infcx.cx())
-        .filter((r) => max_universe(infcx, r, fold_Region_) < u)
+        .filter((r) => max_universe(infcx, r, fold_Region) < u)
         .map((r): LeafRegionConstraint => ({ $: "PlaceholderTyOutlives", _0: ty, _1: r, _2: null })),
     );
   }
@@ -952,7 +957,7 @@ function rewrite_alias_ty_outlives_constraints_in_universe_for_eager_placeholder
   // alias then we get a less general constraint after replacing with bound vars compared to if we
   // had just replaced the initial region. See `assumptions_on_binders/alias_outlives_with_repeated_placeholder.rs`
   const escaping_r = Binder_skip_binder(bound_outlives)[1];
-  if (max_universe(infcx, escaping_r, fold_Region_) < u || Region_has_escaping_bound_vars(escaping_r)) {
+  if (max_universe(infcx, escaping_r, fold_Region) < u || Region_has_escaping_bound_vars(escaping_r)) {
     // we don't know anything about lower universe regions, and we also don't bother
     // looking at the assumptions on the `AliasTyOutlivesViaEnv` binder.
     candidates.push(higher_ranked_candidate_for_outlived_region(escaping_r));
@@ -1119,7 +1124,7 @@ function alias_outlives_candidates_from_assumptions(infcx: InferCtxtLike, bound_
 
         // FIXME(#155345): Both sides should be rigid in the future.
         // Currently we can't guarantee that.
-        if (relation.relate(AliasTyC.to_ty(alias, infcx.cx(), "No"), Unnormalized_skip_norm_wip(set_aliases_to_non_rigid(infcx.cx(), alias2, fold_Ty_)), relate_Ty).$ === "Ok") {
+        if (relation.relate(AliasTyC.to_ty(alias, infcx.cx(), "No"), Unnormalized.skip_norm_wip(set_aliases_to_non_rigid(infcx.cx(), alias2, fold_Ty_)), relate_Ty).$ === "Ok") {
           candidates.push(And.new(relation.region_constraints));
         }
       }
@@ -1226,7 +1231,6 @@ function descriptor<T>(visit_with: VisitWith<T>, try_fold_with: TryFoldWith<T>, 
   return { visit_with, try_fold_with, fold_with };
 }
 
-const fold_Region_: TypeFoldable<Region> = descriptor(visit_with_Region, try_fold_with_Region, fold_with_Region);
 const fold_Ty_: TypeFoldable<Ty> = descriptor(visit_with_Ty, try_fold_with_Ty, fold_with_Ty);
 const fold_Clause_: TypeFoldable<Clause> = descriptor(visit_with_Clause, try_fold_with_Clause, fold_with_Clause);
 /** `LeafRegionConstraint<I, ()>` (`()` is trivially traversable). */
@@ -1288,7 +1292,11 @@ interface TransitiveRelationMethods<T> {
 function TransitiveRelation_reachable_from<T>(self: TransitiveRelation<T>, a: T): T[] {
   return (self as unknown as TransitiveRelationMethods<T>).reachable_from(a);
 }
-/** PORT: stand-in for `TransitiveRelation::base_edges` (rustc_data_structures transitive_relation.rs). */
+/**
+ * PORT: stand-in for `TransitiveRelation::base_edges` (rustc_data_structures transitive_relation.rs).
+ * PORT (D6): upstream iterates `edges: FxHashSet<Edge>` (hashbrown order of the FxHash of the two element indices), not
+ * insertion order; the real port must reproduce that order (the oracle shows it in `regions_outliving`).
+ */
 function TransitiveRelation_base_edges<T>(self: TransitiveRelation<T>): Iterable<[T, T]> {
   return (self as unknown as TransitiveRelationMethods<T>).base_edges();
 }
@@ -1339,10 +1347,6 @@ function Region_has_escaping_bound_vars(_r: Region): boolean {
 /** PORT: stand-in for `rustc_type_ir::fold::set_aliases_to_non_rigid` (fold.rs:594, lane tyir-binder). */
 function set_aliases_to_non_rigid<T>(_cx: TyCtxt, _value: T, _d_T: TypeFoldable<T>): Unnormalized<T> {
   return unported("rustc_type_ir::fold::set_aliases_to_non_rigid");
-}
-/** PORT: stand-in for `Unnormalized::skip_norm_wip` (unnormalized.rs:71, sub-lane predicate): the field read. */
-function Unnormalized_skip_norm_wip<T>(self: Unnormalized<T>): T {
-  return self.value;
 }
 
 /** PORT: stand-in for `trait Relate<I>` (relate.rs:104, lane tyir-relate) as a D4-style descriptor. */
