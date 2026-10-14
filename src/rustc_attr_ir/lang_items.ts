@@ -17,6 +17,7 @@
 import { type DefId, DefIdMap } from "../rustc_span/def_id.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { panic, unwrap } from "../std/panic.ts";
+import type { StableHashCtxt, StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import * as gen from "./lang_items.gen.ts";
 import { type GenericRequirement, language_item_table, type LanguageItemTableRow, LangItem_discriminant, type LanguageItemsGetters } from "./lang_items.gen.ts";
 import { clone_Target, type Target } from "./target.ts";
@@ -178,7 +179,11 @@ for (const row of language_item_table) {
 }
 
 // impl StableHash for LangItem
-// rustc-skip: compiler/rustc_attr_ir/src/lang_items.rs:153 stable_hash HashStable (StableHash) impl of a type not reached from metadata/hygiene decoding (PORTING §3)
+// rustc: compiler/rustc_attr_ir/src/lang_items.rs:153 stable_hash
+export function stable_hash_LangItem(self: LangItem, _: StableHashCtxt, hasher: StableHasher): void {
+  // `::std::hash::Hash::hash(self, hasher)`: the derived `Hash` of a fieldless enum hashes its `isize` discriminant.
+  hasher.write_isize(LangItem_discriminant[self]);
+}
 
 /// The requirement imposed on the generics of a lang item
 export type { GenericRequirement };

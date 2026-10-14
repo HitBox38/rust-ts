@@ -21,6 +21,7 @@ import { Ident, sym, type Symbol } from "../rustc_span/symbol.ts";
 import { PLAIN } from "../std/fmt.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { panic } from "../std/panic.ts";
+import type { StableHashCtxt, StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import * as gen from "./attr.gen.ts";
 import { type AttrItem, debug_Attribute } from "./attr.gen.ts";
 
@@ -54,7 +55,10 @@ export function display_AttrPath(self: AttrPath): string {
 }
 
 // impl StableHash for HashIgnoredAttrId
-// rustc-skip: compiler/rustc_attr_ir/src/attr.rs:87 stable_hash HashStable (StableHash) impl; it hashes nothing, and attribute hashing is not reached from metadata/hygiene decoding (PORTING §3)
+// rustc: compiler/rustc_attr_ir/src/attr.rs:87 stable_hash
+export function stable_hash_HashIgnoredAttrId(_self: gen.HashIgnoredAttrId, _hcx: StableHashCtxt, _hasher: StableHasher): void {
+  /* we don't hash HashIgnoredAttrId, we ignore them */
+}
 
 export type Attribute = gen.Attribute;
 

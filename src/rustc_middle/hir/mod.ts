@@ -38,6 +38,7 @@ import {
 } from "../../rustc_hir/hir.ts";
 import { debug_ExprKind, debug_ForeignItemId, debug_ImplItemId, debug_ItemId, debug_TraitItemId } from "../../rustc_hir/hir.ts";
 import { stable_hash_Body, stable_hash_OwnerNode } from "../../rustc_hir/stable_hash.gen.ts";
+import { stable_hash_Attribute } from "../../rustc_attr_ir/stable_hash.gen.ts";
 import { CRATE_HIR_ID, CRATE_OWNER_ID, debug_HirId, HirId, HirId_eq, ItemLocalId, OwnerId } from "../../rustc_hir_id/lib.ts";
 import { stable_hash_ItemLocalId } from "../../rustc_hir_id/stable_hash.gen.ts";
 import { type DefId, type LocalDefId, LocalModId, debug_LocalDefId, debug_LocalModId, stable_hash_LocalDefId } from "../../rustc_span/def_id.ts";
@@ -253,12 +254,10 @@ TyCtxt.prototype.is_foreign_item = function (this: TyCtxt, def_id: IntoQueryKey<
   return parent !== undefined && this.def_kind(parent).$ === "ForeignMod";
 };
 
-/**
- * `impl StableHash for &[Attribute]` (the values of `AttributeMap::map`). PORT: `Attribute`'s derive(StableHash)
- * (rustc_attr_ir attr.rs) is not generated yet; an empty slice hashes as its length alone.
- */
+/** `impl StableHash for &[Attribute]` (the values of `AttributeMap::map`); `Attribute`'s derive(StableHash) is generated
+ *  (rustc_attr_ir/stable_hash.gen.ts). */
 function stable_hash_attr_slice(self: readonly Attribute[], hcx: StableHashCtxt, hasher: StableHasher): void {
-  stable_hash_slice(self, hcx, hasher, () => unported("StableHash for rustc_attr_ir::Attribute (derive(StableHash), codegen set rustc_attr_ir)"));
+  stable_hash_slice(self, hcx, hasher, stable_hash_Attribute);
 }
 
 // rustc: compiler/rustc_middle/src/hir/mod.rs:175 hash_owner_nodes

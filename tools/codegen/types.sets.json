@@ -340,6 +340,7 @@
     "skip": [],
     "auto_class": true,
     "derive_clone": true,
+    "derive_stable_hash": true,
     "derive_default": true,
     "derive_decodable": true
   },
