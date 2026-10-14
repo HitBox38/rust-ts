@@ -10,6 +10,7 @@
 // PORT: derived `PartialEq` of non-interned values (`ParamTy`, `Placeholder*`, `AliasTyKind`, `FnHeader`, `ParamConst`)
 // is `eq_by_value` (rust_ts/intern_key.ts: equal keys exactly when the Rust values are `==`); interned values
 // (`Ty`, `AdtDef`, `ValTree`) compare with `===`.
+// PORT: `I::Ty`'s provided `inherent::Ty` methods are `Ty_provided.<name>(ty)` (inherent.ts header).
 // PORT: fns of other files that are not ported yet are module-local stand-ins at the end of this file; they call
 // `unported`.
 import { intern_key } from "../rust_ts/intern_key.ts";
@@ -22,6 +23,7 @@ import { panic, unported } from "../std/panic.ts";
 import type { Binder } from "./binder.ts";
 import * as gen from "./fast_reject.gen.ts";
 import type { TreatParams } from "./fast_reject.gen.ts";
+import { Ty_provided } from "./inherent.ts";
 import type { Interner } from "./interner.ts";
 import type { Const } from "./sty/consts.ts";
 import { Binder_skip_binder, FnSigTys, type InferTy, UnsafeBinderInner_deref } from "./ty_kind.ts";
@@ -644,15 +646,15 @@ export class DeepRejectCtxt {
 
   // rustc: compiler/rustc_type_ir/src/fast_reject.rs:535 var_and_ty_may_unify
   var_and_ty_may_unify(var_: InferTy, ty: Ty): boolean {
-    if (!ty.is_known_rigid()) {
+    if (!Ty_provided.is_known_rigid(ty)) {
       return true;
     }
 
     switch (var_.$) {
       case "IntVar":
-        return ty.is_integral();
+        return Ty_provided.is_integral(ty);
       case "FloatVar":
-        return ty.is_floating_point();
+        return Ty_provided.is_floating_point(ty);
       default:
         return true;
     }

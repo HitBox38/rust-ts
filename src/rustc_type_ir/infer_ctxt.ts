@@ -22,6 +22,7 @@ import type { Result } from "../std/result.ts";
 import type { FxHasher } from "../vendor/rustc_hash/lib.ts";
 import type { Binder } from "./binder.ts";
 import type { Pending } from "./decls.ts";
+import type { OpaqueTypeStorageEntries } from "./inherent.ts";
 import type { Interner } from "./interner.ts";
 import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "./fold.ts";
 import * as gen from "./infer_ctxt.gen.ts";
@@ -313,10 +314,10 @@ export const TypingMode = {
 // ---- InferCtxtLike -------------------------------------------------------------------------------------------------
 
 /**
- * PORT: `type OpaqueTypeStorageEntries: inherent::OpaqueTypeStorageEntries` of `InferCtxtLike`, fixed by its one impl
- * (rustc_infer `opaque_types::OpaqueTypeStorageEntries`, lane infcx-contract): opaque until that lands.
+ * PORT: `type OpaqueTypeStorageEntries: inherent::OpaqueTypeStorageEntries` of `InferCtxtLike`: typed by its trait
+ * (inherent.ts); its one impl is rustc_infer's `OpaqueTypeStorageEntries` (lane infcx-contract).
  */
-export type InferCtxtLike_OpaqueTypeStorageEntries = Pending<"rustc_infer::infer::opaque_types::OpaqueTypeStorageEntries">;
+export type InferCtxtLike_OpaqueTypeStorageEntries = OpaqueTypeStorageEntries;
 
 /**
  * PORT: `std::range::RangeInclusive<T>` (the new range type: fields `start` and `last`, both inclusive).
