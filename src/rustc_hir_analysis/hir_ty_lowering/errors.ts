@@ -102,7 +102,6 @@ import {
 import * as bounds from "./bounds.ts";
 import type { AmbiguityBetweenVariantAndAssocItem } from "./errors.gen.ts";
 import type { AssocItemQSelf, InherentAssocCandidate, LowerTypeRelativePathMode } from "./mod.gen.ts";
-import type { AdtDef as AdtDefT } from "../../rustc_middle/ty/adt.ts";
 
 export * from "./errors.gen.ts";
 
@@ -1058,7 +1057,9 @@ HirTyLowerer.prototype.check_for_required_assoc_items = function (
   }
 
   const tcx = this.tcx();
-  const principal_span = spans[0]!;
+  const principal_span0 = spans[0];
+  if (principal_span0 === undefined) panic("called `Option::unwrap()` on a `None` value");
+  const principal_span = principal_span0;
 
   // FIXME: This logic needs some more care w.r.t handling of conflicts
   const missing_assoc_items: [AssocItem, PolyTraitRef][] = [...missing_assoc_items_].map(([def_id, trait_ref]) => [
@@ -1219,13 +1220,14 @@ HirTyLowerer.prototype.check_for_required_assoc_items = function (
       err.span_label(sp, `\`${prefix}${display_Symbol(name)}\` defined here${rename_message}`);
     }
   }
-  const snippet_r = tcx.sess.source_map().span_to_snippet(principal_span);
+  // PORT: `else if let (Ok(snippet), false, false) = (..)` evaluates the snippet only when the first branch is not taken.
+  let snippet_r: ReturnType<ReturnType<TyCtxt["sess"]["source_map"]>["span_to_snippet"]> | undefined;
   if (potential_assoc_items.length === missing_assoc_items.length) {
     // When the amount of missing associated types equals the number of
     // extra type arguments present. A suggesting to replace the generic args with
     // associated types is already emitted.
     already_has_generics_args_suggestion = true;
-  } else if (snippet_r.$ === "Ok" && !dupes && !shadows) {
+  } else if ((snippet_r = tcx.sess.source_map().span_to_snippet(principal_span)).$ === "Ok" && !dupes && !shadows) {
     const snippet = snippet_r._0.toString();
     const bindings: string[] = missing_assoc_items.map(([item]) => {
       let k: string;
@@ -1371,6 +1373,7 @@ HirTyLowerer.prototype.maybe_report_similar_assoc_fn = function (
       if (adt_def !== undefined) {
         inherent_impls = tcx.inherent_impls(adt_def.did());
       } else {
+        // PORT: `TyCtxt` as the `Interner` (`impl Interner for TyCtxt`; its declaration is not complete yet, ty-print-a 13).
         const simple_ty = simplify_type(tcx as unknown as Interner, qself_ty, TreatParams.InstantiateWithInfer);
         inherent_impls = simple_ty === undefined ? undefined : tcx.incoherent_impls(simple_ty);
       }
@@ -1438,10 +1441,11 @@ HirTyLowerer.prototype.report_prohibited_generic_args = function (
     }
     const res = segment.res;
     let what: string;
+    // PORT: the match guard `if let Some(name) = self.tcx().opt_item_name(def_id)` is evaluated once.
+    const name = res.$ === "Def" ? this.tcx().opt_item_name(res._1) : undefined;
     if (res.$ === "PrimTy") {
       what = `${Res.descr(res)} \`${display_Symbol(PrimTy.name(res._0))}\``;
-    } else if (res.$ === "Def" && this.tcx().opt_item_name(res._1) !== undefined) {
-      const name = this.tcx().opt_item_name(res._1)!;
+    } else if (res.$ === "Def" && name !== undefined) {
       what = `${Res.descr(res)} \`${display_Symbol(name)}\``;
     } else if (res.$ === "Err") {
       what = "this type";
@@ -1915,7 +1919,7 @@ export function generics_args_err_extend(tcx: TyCtxt, segments: Iterable<hir.Pat
       const span_of_impl = tcx.span_of_impl(def_id);
       const kind_ = ty.kind();
       if (kind_.$ !== "Adt") return;
-      const self_def: AdtDefT = kind_._0;
+      const self_def: AdtDef = kind_._0;
       def_id = self_def.did();
 
       const type_name = tcx.item_name(def_id);
