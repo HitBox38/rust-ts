@@ -71,7 +71,7 @@ declare module "./context.ts" {
   }
 }
 
-// rustc-type: compiler/rustc_middle/src/ty/util.rs:36 Discr
+// rustc-type: compiler/rustc_middle/src/ty/util.rs:37 Discr
 // #[derive(Copy, Clone, Debug)]
 export class Discr {
   constructor(
@@ -92,7 +92,7 @@ export const debug_Discr: Debug<Discr> = (v, f) =>
   ]);
 
 /// Used as an input to [`TyCtxt::uses_unique_generic_params`].
-// rustc-type: compiler/rustc_middle/src/ty/util.rs:44 CheckRegions
+// rustc-type: compiler/rustc_middle/src/ty/util.rs:45 CheckRegions
 // #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 export type CheckRegions =
   | "No"
@@ -107,7 +107,7 @@ export type CheckRegions =
 export const CheckRegions = { No: "No", OnlyParam: "OnlyParam", FromFunction: "FromFunction" } as const;
 export const debug_CheckRegions: Debug<CheckRegions> = (v) => v;
 
-// rustc-type: compiler/rustc_middle/src/ty/util.rs:57 NotUniqueParam
+// rustc-type: compiler/rustc_middle/src/ty/util.rs:58 NotUniqueParam
 // #[derive(Copy, Clone, Debug)]
 export type NotUniqueParam = { readonly $: "DuplicateParam"; _0: GenericArg } | { readonly $: "NotParam"; _0: GenericArg };
 export const debug_NotUniqueParam: Debug<NotUniqueParam> = (v, f) => debug_tuple(f, v.$, [debug_GenericArg(v._0, f)]);
@@ -162,7 +162,7 @@ Discr.prototype.checked_add = function (this: Discr, tcx: TyCtxt, n: bigint): [D
   return [new Discr(val, this.ty), oflo];
 };
 
-// rustc-trait: compiler/rustc_middle/src/ty/util.rs:108 IntTypeExt
+// rustc-trait: compiler/rustc_middle/src/ty/util.rs:108 IntTypeExt (`#[extension]` on `impl IntegerType`, :109)
 // PORT: `#[extension(pub trait IntTypeExt)] impl IntegerType` -> companion functions taking `self` first.
 export const IntTypeExt = {
   // rustc: compiler/rustc_middle/src/ty/util.rs:110 to_ty
@@ -1104,7 +1104,7 @@ TyCtxt.prototype.opt_alias_variances = function (this: TyCtxt, kind: AliasTermKi
   }
 };
 
-// rustc-type: compiler/rustc_middle/src/ty/util.rs:977 OpaqueTypeExpander
+// rustc-type: compiler/rustc_middle/src/ty/util.rs:978 OpaqueTypeExpander
 class OpaqueTypeExpander implements TypeFolder {
   constructor(
     // Contains the DefIds of the opaque types that are currently being
@@ -1211,7 +1211,7 @@ class OpaqueTypeExpander implements TypeFolder {
   }
 }
 
-// rustc-type: compiler/rustc_middle/src/ty/util.rs:1062 FreeAliasTypeExpander
+// rustc-type: compiler/rustc_middle/src/ty/util.rs:1063 FreeAliasTypeExpander
 class FreeAliasTypeExpander implements TypeFolder {
   constructor(
     public tcx: TyCtxt,
@@ -1974,7 +1974,7 @@ export function try_fold_list<L extends readonly T[], T, E>(
 }
 
 // PORT: the unit struct is its name (as `FoundFlags` in rustc_type_ir visit.ts).
-// rustc-type: compiler/rustc_middle/src/ty/util.rs:1677 AlwaysRequiresDrop
+// rustc-type: compiler/rustc_middle/src/ty/util.rs:1678 AlwaysRequiresDrop
 // #[derive(Copy, Clone, Debug, StableHash, TyEncodable, TyDecodable)]
 export type AlwaysRequiresDrop = "AlwaysRequiresDrop";
 export const AlwaysRequiresDrop: AlwaysRequiresDrop = "AlwaysRequiresDrop";
