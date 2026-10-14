@@ -21,8 +21,7 @@
 // `unported` stand-ins at the end of the file (repoint when the owners land).
 import { Interned } from "../../rustc_data_structures/intern.ts";
 import { find_attr, type Attribute as Attribute_ } from "../../rustc_attr_ir/lib.ts";
-import type { CtorKind, DefKind, Res } from "../../rustc_hir/def.ts";
-import { debug_Res } from "../../rustc_hir/def.gen.ts";
+import { type CtorKind, debug_Res, type DefKind, type Res } from "../../rustc_hir/def.ts";
 import type { Constness } from "../../rustc_hir/hir.ts";
 import { debug_HirId, type HirId } from "../../rustc_hir_id/lib.ts";
 import { type DefId, DefId_eq } from "../../rustc_span/def_id.ts";

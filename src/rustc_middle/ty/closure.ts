@@ -15,8 +15,7 @@
 // PORT: `closure_typeinfo` (the provider) and `provide` are exported; ty/mod.rs `provide` (lane ty-mod) calls
 // `closure::provide`.
 import { TyCtxt } from "./context.ts";
-import type { Mutability } from "../../rustc_ast_ir/lib.ts";
-import { debug_Mutability } from "../../rustc_ast_ir/lib.gen.ts";
+import { debug_Mutability, type Mutability } from "../../rustc_ast_ir/lib.ts";
 import { debug_HirId, type HirId, HirId_eq } from "../../rustc_hir_id/lib.ts";
 import { LocalDefId } from "../../rustc_span/def_id.ts";
 import type { Span } from "../../rustc_span/lib.ts";

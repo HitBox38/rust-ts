@@ -29,8 +29,7 @@ import { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { display_FnSig } from "../../rustc_type_ir/ir_print.ts";
 import type { FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import type { Binder } from "../../rustc_type_ir/binder.ts";
-import { debug_Unnormalized } from "../../rustc_type_ir/unnormalized.gen.ts";
-import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
+import { debug_Unnormalized, Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { debug_Ty, type Ty, type Visibility } from "./mod.ts";
 
 // The generated types, debug fns and unit-variant singletons.
