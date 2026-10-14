@@ -211,7 +211,8 @@ test("every declared method exists on its prototype (or constructor) once rustc_
 });
 
 test("a stub stops as UNPORTED", () => {
-  expect(() => (Ty.prototype as unknown as { is_bool(): boolean }).is_bool.call(undefined)).toThrow(Unported);
+  // `Ty::is_bool` is ported now (lane ty-sty); a ty/inhabitedness/mod.rs stub stands in.
+  expect(() => (Ty.prototype as unknown as { inhabited_predicate(): unknown }).inhabited_predicate.call(undefined)).toThrow(Unported);
   // `trait_is_marker` (lane ty-ctxt) and `typeck_root_def_id_local` (lane ty-util) are ported now; a ty/abstract_const.rs
   // stub stands in.
   expect(() => (TyCtxt.prototype as unknown as { expand_abstract_consts(): unknown }).expand_abstract_consts.call(undefined)).toThrow(Unported);

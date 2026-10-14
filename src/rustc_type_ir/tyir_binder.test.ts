@@ -8,7 +8,7 @@
 //
 // Mocked dependencies (other lanes' stubs, with upstream's logic for the cases these tests build):
 // - `Region::flags` / `outer_exclusive_binder` / `type_flags` (rustc_type_ir sty/mod.rs:199-:269) and `Region::new_bound`
-//   (interning `ReBound`), `Ty::new_bound` (rustc_middle ty/sty.rs, interning `Bound`);
+//   (interning `ReBound`);
 // - `fold_Region`'s `TypeVisitable` / `TypeFoldable` one-liners (sty/mod.rs:296-:309);
 // - the `TypeSuper*` impls of `Ty` (rustc_middle ty/structural_impls.rs:330-:440) for the kinds used here
 //   (`RawPtr`, `Slice`, `Tuple`, `Ref`, `FnPtr`, `Error`, leaves), installed on fold.ts's `standin_fold_Ty`.
@@ -213,9 +213,6 @@ beforeAll(() => {
     }),
     spyOn(Region, "new_bound").mockImplementation((tcx: TyCtxt, debruijn: DebruijnIndex, br: BoundRegion) =>
       tcx.intern_region({ $: "ReBound", _0: { $: "Bound", _0: debruijn }, _1: br }),
-    ),
-    spyOn(Ty, "new_bound").mockImplementation((tcx: TyCtxt, debruijn: DebruijnIndex, bt: BoundTy) =>
-      tcx.mk_ty_from_kind({ $: "Bound", _0: { $: "Bound", _0: debruijn }, _1: bt }),
     ),
   ];
   for (const s of spies) restores.push(() => s.mockRestore());

@@ -13,7 +13,6 @@ import { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
-import { RawList } from "../rustc_middle/ty/list.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { Clause, Predicate } from "../rustc_middle/ty/predicate.ts";
 import { type DefIndex, DefId, LOCAL_CRATE } from "../rustc_span/def_id.ts";
@@ -197,16 +196,8 @@ class RecordingInfcx {
   }
 }
 
-// `impl inherent::Tys for &List<Ty>` (rustc_middle ty/sty.rs:2180, lane ty-sty) is not ported yet; `FnSig::inputs` /
-// `output` need it: upstream's two one-liners (`split_last().unwrap()`).
 const spies: { mockRestore(): void }[] = [];
 beforeAll(() => {
-  spies.push(spyOn(RawList.prototype as unknown as { inputs(): readonly Ty[] }, "inputs").mockImplementation(function (this: readonly Ty[]) {
-    return this.slice(0, this.length - 1);
-  }));
-  spies.push(spyOn(RawList.prototype as unknown as { output(): Ty }, "output").mockImplementation(function (this: readonly Ty[]) {
-    return this[this.length - 1]!;
-  }));
   // `TyCtxt::features` needs a session; these relations run without `generic_const_exprs`.
   spies.push(spyOn(TyCtxt.prototype, "features").mockImplementation(() => ({ generic_const_exprs: () => false }) as unknown as ReturnType<TyCtxt["features"]>));
 });
@@ -281,15 +272,16 @@ describe("structurally_relate_tys", () => {
     const a = ptr(t.bool, "Mut");
     expect(structurally_relate_tys(rel, a, ptr(t.char, "Mut"))).toEqual(sorts(t.bool, t.char));
     expect(rel.calls).toEqual([[Variance.Invariant, { $: "Invariant", ty: a, param_index: 0 }]]);
-    // Rebuilding the pointer needs `Ty::new_ptr` (rustc_middle ty/sty.rs, lane ty-sty).
-    expect(() => structurally_relate_tys(rel, ptr(t.bool, "Not"), ptr(t.bool, "Not"))).toThrow(Unported);
+    // Equal pointees rebuild the pointer with `Ty::new_ptr` (rustc_middle ty/sty.rs): the same interned type.
+    expect(structurally_relate_tys(rel, ptr(t.bool, "Not"), ptr(t.bool, "Not"))).toEqual(Ok(ptr(t.bool, "Not")));
   });
 
   test("tuples: TupleSize when both are non-empty, Sorts when one is empty", () => {
     expect(structurally_relate_tys(rel, tup(t.bool, t.char), tup(t.bool))).toEqual(Err({ $: "TupleSize", _0: ExpectedFound.new(2, 1) }));
     expect(structurally_relate_tys(rel, t.unit, tup(t.bool))).toEqual(sorts(t.unit, tup(t.bool)));
-    // Equal lengths rebuild the tuple through `Ty::new_tup_from_iter` (lane ty-sty).
-    expect(() => structurally_relate_tys(rel, tup(t.bool), tup(t.char))).toThrow(Unported);
+    // Equal lengths rebuild the tuple through `Ty::new_tup_from_iter`, which stops at the first `Err`.
+    expect(structurally_relate_tys(rel, tup(t.bool), tup(t.char))).toEqual(sorts(t.bool, t.char));
+    expect(structurally_relate_tys(rel, tup(t.bool, t.char), tup(t.bool, t.char))).toEqual(Ok(tup(t.bool, t.char)));
   });
 
   test("inference and bound variables are the caller's job", () => {
@@ -302,8 +294,9 @@ describe("structurally_relate_tys", () => {
   test("foreign types relate by DefId", () => {
     const f = (i: number) => tcx.mk_ty_from_kind({ $: "Foreign", _0: def(i) });
     expect(structurally_relate_tys(rel, f(1), f(2))).toEqual(sorts(f(1), f(2)));
-    expect(() => structurally_relate_tys(rel, f(1), f(1))).toThrow(Unported); // `Ty::new_foreign`
-    expect(() => structurally_relate_tys(rel, t.bool, tcx.mk_ty_from_kind({ $: "Error", _0: guar }))).toThrow(Unported); // `Ty::new_error`
+    expect(structurally_relate_tys(rel, f(1), f(1))).toEqual(Ok(f(1))); // `Ty::new_foreign`
+    const err = tcx.mk_ty_from_kind({ $: "Error", _0: guar });
+    expect(structurally_relate_tys(rel, t.bool, err)).toEqual(Ok(err)); // `Ty::new_error`
   });
 });
 

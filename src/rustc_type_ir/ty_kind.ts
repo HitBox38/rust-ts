@@ -41,16 +41,6 @@ import { Unnormalized } from "./unnormalized.ts";
 
 export * from "./ty_kind.gen.ts";
 
-// PORT(decls): pending root. rustc_middle/ty/decls.ts declares `inputs` / `output` of ty/sty.rs:2181 / :2185
-// (`impl inherent::Tys for &'tcx List<Ty<'tcx>>`) with `this: List<PolyExistentialPredicate>`; the impl is on
-// `&List<Ty>`. These overloads make the calls on `I::Tys` type-check.
-declare module "../rustc_middle/ty/list.ts" {
-  interface RawList<H, T> {
-    inputs(this: List<Ty>): readonly Ty[];
-    output(this: List<Ty>): Ty;
-  }
-}
-
 // ---- AliasTyKind ---------------------------------------------------------------------------------------------------
 
 export type AliasTyKind = gen.AliasTyKind;

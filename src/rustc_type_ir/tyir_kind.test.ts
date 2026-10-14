@@ -5,7 +5,7 @@
 // throwaway rustc-dev program (source in docs/handoff/tyir-kind.md, "Oracle probe") that builds the same values with
 // rustc's own `TyCtxt` and prints them with `{:?}` / `{:#?}` / `{}`; the flag expectations are `Ty::flags()` /
 // `outer_exclusive_binder()` of the same types there.
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import "../rustc_middle/lib.ts";
 import { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
@@ -16,7 +16,6 @@ import { CRATE_DEF_ID, LocalDefId } from "../rustc_span/def_id.ts";
 import { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { kw } from "../rustc_span/symbol.ts";
 import { format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
-import { Unported } from "../std/panic.ts";
 import { Ok } from "../std/result.ts";
 import type { BoundVar, ConstVid, DebruijnIndex, RegionVid, UniverseIndex } from "./decls.ts";
 import { debug_ConstKind, debug_InferConst, type ConstKind } from "./const_kind.ts";
@@ -47,20 +46,6 @@ import {
   UnifyValue_IntVarValue,
 } from "./ty_kind.ts";
 
-// `impl inherent::Tys for &List<Ty>` (rustc_middle ty/sty.rs:2180, lane ty-sty) is not ported yet; `debug_FnSig` needs
-// it, so these tests provide upstream's two one-liners (`split_last().unwrap()`).
-const spies: { mockRestore(): void }[] = [];
-beforeAll(() => {
-  spies.push(spyOn(RawList.prototype as unknown as { inputs(): readonly Ty[] }, "inputs").mockImplementation(function (this: readonly Ty[]) {
-    return this.slice(0, this.length - 1);
-  }));
-  spies.push(spyOn(RawList.prototype as unknown as { output(): Ty }, "output").mockImplementation(function (this: readonly Ty[]) {
-    return this[this.length - 1]!;
-  }));
-});
-afterAll(() => {
-  for (const s of spies) s.mockRestore();
-});
 
 /** A `TyCtxt` over a fresh `CtxtInterners` (as in rustc_middle/ty/interning.test.ts). */
 function mk_tcx(): TyCtxt {

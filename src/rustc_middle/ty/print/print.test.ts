@@ -3,7 +3,7 @@
 // print.oracle.test.ts; this file covers the thread-local guards, region highlighting, the `PrettyPrinter` helpers,
 // `characteristic_def_id_of_type` and the trimmed-path decisions of `try_print_trimmed_def_path`, whose expected values
 // follow from the upstream code cited in each test.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import "../../lib.ts";
 import { CrateNum, DefId, DefIndex } from "../../../rustc_span/def_id.ts";
 import { create_default_session_globals_then } from "../../../rustc_span/lib.ts";
@@ -27,7 +27,6 @@ import {
   with_reduced_queries,
   with_resolve_crate_name,
 } from "./pretty.ts";
-import { install_scaffolding } from "./print_oracle/run.ts";
 import { FmtPrinter } from "./pretty.ts";
 import { Limit } from "../../../rustc_structures/limit.ts";
 
@@ -66,13 +65,6 @@ function mk_tcx(opts: FakeOpts = { trim_diagnostic_paths: true, trimmed_def_path
 }
 
 const def = (i: number): DefId => new DefId(DefIndex.from_u32(i), 3 as CrateNum);
-
-// print_oracle/run.ts's scaffolding (upstream bodies of other lanes' stubs), removed again after this file.
-let restore: () => void = () => {};
-beforeAll(() => {
-  restore = install_scaffolding();
-});
-afterAll(() => restore());
 
 describe("define_helper! thread-locals", () => {
   const helpers = [

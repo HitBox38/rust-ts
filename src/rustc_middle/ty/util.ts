@@ -28,6 +28,7 @@ import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import type { AnonConstKind } from "../../rustc_type_ir/const_kind.ts";
 import { type FallibleTypeFolder, type PredicateProxy, standin_fold_Clauses, standin_fold_Ty, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
 import { TypeFlags } from "../../rustc_type_ir/flags.ts";
+import { SizedTraitKind } from "../../rustc_type_ir/solve/mod.ts";
 import type { BoundRegion } from "../../rustc_type_ir/binder.gen.ts";
 import type { BoundVarIndexKind } from "../../rustc_type_ir/binder.gen.ts";
 import type { ClosureKind } from "../../rustc_type_ir/lib.gen.ts";
@@ -52,7 +53,6 @@ import type {
   Destructor,
   ObligationCause,
   PseudoCanonicalInput,
-  SizedTraitKind,
   TypingEnv,
 } from "./decls.ts";
 import type { AliasTermKind, Variance } from "../../rustc_type_ir/decls.ts";
@@ -1351,8 +1351,7 @@ Ty.prototype.numeric_min_val = function (this: Ty, tcx: TyCtxt): Const | undefin
 /// actually carry lifetime requirements.
 // rustc: compiler/rustc_middle/src/ty/util.rs:1172 is_sized
 Ty.prototype.is_sized = function (this: Ty, tcx: TyCtxt, typing_env: TypingEnv): boolean {
-  // PORT: `SizedTraitKind` is `Pending` in ty/decls.ts; rustc_type_ir's is the string union.
-  return this.has_trivial_sizedness(tcx, "Sized" as unknown as SizedTraitKind) || tcx.is_sized_raw(typing_env.as_query_input(this));
+  return this.has_trivial_sizedness(tcx, SizedTraitKind.Sized) || tcx.is_sized_raw(typing_env.as_query_input(this));
 };
 
 /// Checks whether values of this type `T` implement the `Freeze`
@@ -1473,6 +1472,7 @@ Ty.prototype.is_trivially_unpin = function (this: Ty): boolean {
 
 /// Checks whether this type is an ADT that has unsafe fields.
 // PORT: also serves `impl inherent::Ty for Ty` (ty/sty.rs:1122, `Ty::has_unsafe_fields(self)`): one TS method.
+// rustc: compiler/rustc_middle/src/ty/sty.rs:1122 has_unsafe_fields
 // rustc: compiler/rustc_middle/src/ty/util.rs:1275 has_unsafe_fields
 Ty.prototype.has_unsafe_fields = function (this: Ty): boolean {
   const k = this.kind();

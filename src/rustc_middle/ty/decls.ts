@@ -144,6 +144,8 @@ import type { AdtDef, AdtDefData } from "./adt.ts";
 import type { CapturedPlace } from "./closure.ts";
 import type { SortedIndexMultiMap } from "../../rustc_data_structures/sorted_map/index_map.ts";
 export type { AdtDef, AdtDefData, CapturedPlace, SortedIndexMultiMap };
+import type { SizedTraitKind } from "../../rustc_type_ir/solve/mod.ts";
+export type { SizedTraitKind };
 export type { AsyncDestructor, Attribute, CheckRegions, Destructor, Discr, NotUniqueParam, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef };
 
 // ---- 2. pending rustc_middle types (and other crates') ----
@@ -158,7 +160,6 @@ export type Value = Pending<"ty::Value">;
 export type ScalarInt = Pending<"ScalarInt">;
 export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
-export type SizedTraitKind = Pending<"SizedTraitKind">;
 export type NumScalableVectors = Pending<"NumScalableVectors">;
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
 export type NormalizationError = Pending<"NormalizationError">;

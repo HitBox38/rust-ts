@@ -1,0 +1,271 @@
+== types
+new_bool: bool
+  is: primitive bool scalar concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=bool tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: bool
+new_u8: u8
+  is: primitive scalar integral numeric concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=u8 tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: u8
+new_unit: ()
+  is: unit concrete_skeleton known_rigid pure_clone_copy sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=0 closure_kind=n/a seq=n/a discr=u8
+  walk: ()
+new_usize: usize
+  is: usize usize_like primitive scalar integral numeric ptr_sized_integral concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=usize tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: usize
+char: char
+  is: primitive scalar char concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=char tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: char
+str: str
+  is: str concrete_skeleton known_rigid trivially_wf meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=str tuple_len=- closure_kind=n/a seq=u8 discr=u8
+  walk: str
+never: !
+  is: never concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: !
+new_int_i8: i8
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i8 tuple_len=- closure_kind=Fn seq=n/a discr=u8
+  walk: i8
+new_int_i16: i16
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i16 tuple_len=- closure_kind=FnMut seq=n/a discr=u8
+  walk: i16
+new_int_i32: i32
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i32 tuple_len=- closure_kind=FnOnce seq=n/a discr=u8
+  walk: i32
+new_int_i64: i64
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i64 tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: i64
+new_int_i128: i128
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i128 tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: i128
+new_int_isize: isize
+  is: primitive scalar integral numeric signed ptr_sized_integral concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=isize tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: isize
+new_uint_u32: u32
+  is: primitive scalar integral numeric concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=u32 tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: u32
+new_uint_usize: usize
+  is: usize usize_like primitive scalar integral numeric ptr_sized_integral concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=usize tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: usize
+new_float_f16: f16
+  is: primitive scalar floating_point numeric concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=f16 tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: f16
+new_float_f64: f64
+  is: primitive scalar floating_point numeric concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=f64 tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: f64
+new_tup_empty: ()
+  is: unit concrete_skeleton known_rigid pure_clone_copy sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=0 closure_kind=n/a seq=n/a discr=u8
+  walk: ()
+new_tup: (i32, bool)
+  is: concrete_skeleton known_rigid pure_clone_copy sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=2 closure_kind=n/a seq=n/a discr=u8
+  walk: (i32, bool), i32, bool
+new_tup_unsized_tail: (u8, str)
+  is: concrete_skeleton known_rigid meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=2 closure_kind=n/a seq=n/a discr=u8
+  walk: (u8, str), u8, str
+new_tup_from_iter: (u8, char, ())
+  is: concrete_skeleton known_rigid pure_clone_copy sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=3 closure_kind=n/a seq=n/a discr=u8
+  walk: (u8, char, ()), u8, char, ()
+new_tup_four: (u8, u8, u8, u8)
+  is: concrete_skeleton known_rigid sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=4 closure_kind=n/a seq=n/a discr=u8
+  walk: (u8, u8, u8, u8), u8
+new_static_str: &'static str
+  is: ref imm_ref_str any_ptr concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=Not deref_explicit=str deref=str index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: &'static str, str
+new_imm_ref: &i32
+  is: ref any_ptr concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=Not deref_explicit=i32 deref=i32 index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: &i32, i32
+new_mut_ref: &'static mut [u8]
+  is: ref array_slice mutable_ptr any_ptr concrete_skeleton known_rigid trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=Mut deref_explicit=[u8] deref=[u8] index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: &'static mut [u8], [u8], u8
+new_ref_param: &'static T
+  is: ref any_ptr concrete_skeleton known_rigid pure_clone_copy sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=Not deref_explicit=T deref=T index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: &'static T, T
+new_imm_ptr: *const u8
+  is: raw_ptr any_ptr scalar concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=u8 deref=- index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: *const u8, u8
+new_mut_ptr: *mut [u8]
+  is: array_slice mutable_ptr raw_ptr any_ptr scalar concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=[u8] deref=- index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: *mut [u8], [u8], u8
+new_ptr_str: *mut str
+  is: mutable_ptr raw_ptr any_ptr scalar concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=str deref=- index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: *mut str, str
+new_slice: [u16]
+  is: slice array_slice concrete_skeleton known_rigid trivially_wf meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=u16 primitive_symbol=- tuple_len=- closure_kind=n/a seq=u16 discr=u8
+  walk: [u16], u16
+new_slice_str: [str]
+  is: slice array_slice concrete_skeleton known_rigid meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=str primitive_symbol=- tuple_len=- closure_kind=n/a seq=str discr=u8
+  walk: [str], str
+new_array_with_const_len: [u8; N]
+  is: array concrete_skeleton known_rigid pure_clone_copy sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=u8 primitive_symbol=- tuple_len=- closure_kind=n/a seq=u8 discr=u8
+  walk: [u8; N], u8
+new_array_var: [!; _]
+  is: array concrete_skeleton known_rigid pure_clone_copy sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=! primitive_symbol=- tuple_len=- closure_kind=n/a seq=! discr=u8
+  walk: [!; _], !
+new_fn_ptr: fn(i32) -> bool
+  is: any_ptr scalar concrete_skeleton fn fn_ptr known_rigid trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: fn(i32) -> bool, i32, bool
+new_fn_ptr_unit: fn()
+  is: any_ptr scalar concrete_skeleton fn fn_ptr known_rigid sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=n/a seq=n/a discr=u8
+  walk: fn(), ()
+new_param_self: Self
+  is: self_param param0 trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: Self
+new_param_t: T
+  is: trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: T
+param_ty_to_ty: T
+  is: trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: T
+ir_new_param: T
+  is: param0 trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: T
+new_var: _
+  is: ty_var ty_or_numeric_infer
+  opt: ty_vid=3 float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: _
+new_var_big: _
+  is: ty_var ty_or_numeric_infer
+  opt: ty_vid=500 float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: _
+new_int_var: {integer}
+  is: usize_like ty_or_numeric_infer scalar integral numeric pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=u8
+  walk: {integer}
+new_float_var: {float}
+  is: ty_or_numeric_infer scalar floating_point numeric pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=4 ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=u8
+  walk: {float}
+new_infer: _
+  is: ty_var ty_or_numeric_infer
+  opt: ty_vid=7 float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: _
+new_fresh: FreshTy(1)
+  is: ty_or_numeric_infer fresh_ty fresh trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: FreshTy(1)
+new_fresh_big: FreshTy(50)
+  is: ty_or_numeric_infer fresh_ty fresh trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: FreshTy(50)
+new_fresh_int: FreshIntTy(2)
+  is: ty_or_numeric_infer fresh trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: FreshIntTy(2)
+new_fresh_float: FreshFloatTy(0)
+  is: ty_or_numeric_infer fresh trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: FreshFloatTy(0)
+new_canonical_bound: ^c_0
+  is: concrete_skeleton trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: ^c_0
+new_anon_bound: ^1
+  is: concrete_skeleton trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: ^1
+new_bound_shifted: ^1_0
+  is: concrete_skeleton trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: ^1_0
+new_placeholder: !1_2
+  is: concrete_skeleton trivially_wf
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=- seq=n/a discr=n/a
+  walk: !1_2
+new_error: {type error}
+  is: sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=- tuple_len=- closure_kind=Fn seq=n/a discr=u8
+  walk: {type error}
+from_closure_kind_fn: i8
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i8 tuple_len=- closure_kind=Fn seq=n/a discr=u8
+  walk: i8
+from_closure_kind_fn_mut: i16
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i16 tuple_len=- closure_kind=FnMut seq=n/a discr=u8
+  walk: i16
+from_closure_kind_fn_once: i32
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i32 tuple_len=- closure_kind=FnOnce seq=n/a discr=u8
+  walk: i32
+from_coroutine_closure_kind_fn: i16
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i16 tuple_len=- closure_kind=FnMut seq=n/a discr=u8
+  walk: i16
+from_coroutine_closure_kind_fn_once: i32
+  is: primitive scalar integral numeric signed concrete_skeleton known_rigid pure_clone_copy trivially_wf sized meta_sized
+  opt: ty_vid=- float_vid=- ref_mutability=- deref_explicit=- deref=- index=- primitive_symbol=i32 tuple_len=- closure_kind=FnOnce seq=n/a discr=u8
+  walk: i32
+== identities
+new_var_preinterned: true
+new_tup_empty_is_unit: true
+new_static_str_is_imm_ref: true
+tuple_fields: [i32, bool]
+inputs: [i32, u8]
+output: bool
+contains_self: true
+== variant_name
+0: Unresumed
+1: Returned
+2: Panicked
+3: Suspend0
+4: Suspend1
+5: Suspend2
+== article
+new_bool: a
+new_u8: a
+new_unit: a
+new_usize: a
+char: a
+str: a
+never: a
+new_int_i8: an
+new_int_i16: an
+new_int_i32: an
+new_int_i64: an
+new_int_i128: an
+new_int_isize: an
+new_uint_u32: a
+new_uint_usize: a
+new_float_f16: an
+new_float_f64: an
+new_tup_empty: a
+new_tup: a
+new_tup_unsized_tail: a
+new_array_var: an
+new_error: a
