@@ -2,8 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in mod.ts next to this file.
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { clone_ObligationCause, type ImplSource, type ObligationCause } from "../../rustc_middle/traits/mod.ts";
-import { type ParamEnv } from "../../rustc_middle/ty/decls.ts";
-import { fold_with_ParamEnv, try_fold_with_ParamEnv, visit_with_ParamEnv } from "../../rustc_middle/ty/mod.ts";
+import { fold_with_ParamEnv, type ParamEnv, try_fold_with_ParamEnv, visit_with_ParamEnv } from "../../rustc_middle/ty/mod.ts";
 import { type PolyTraitClause, type Predicate } from "../../rustc_middle/ty/predicate.ts";
 import { type FallibleTypeFolder, type FoldWith, type TryFoldWith, type TypeFolder, type TypeVisitor, type VisitWith } from "../../rustc_type_ir/fold.ts";
 import { type TraitClause } from "../../rustc_type_ir/predicate.ts";

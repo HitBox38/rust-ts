@@ -22,7 +22,7 @@ import { PIN } from "../../../scripts/lib/common.ts";
 import { CanonicalParamEnvCache, debug_OriginalQueryValues, OriginalQueryValues, QueryRegionConstraints, QueryResponse } from "../../rustc_middle/infer/canonical.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { GenericArg } from "../../rustc_middle/ty/generic_args.ts";
-import { debug_RawList, RawList } from "../../rustc_middle/ty/list.ts";
+import { debug_RawList } from "../../rustc_middle/ty/list.ts";
 import { ParamEnv, Ty } from "../../rustc_middle/ty/mod.ts";
 import { Clause_upcast_from_Binder_ClauseKind } from "../../rustc_middle/ty/predicate.ts";
 import { debug_GenericArg, debug_ParamTy, debug_Ty, fold_Clauses, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
@@ -41,7 +41,6 @@ import { Panic, Unported } from "../../std/panic.ts";
 import { Err } from "../../std/result.ts";
 import { InferCtxt } from "../decls.ts";
 import { Canonical_instantiate, instantiate_value } from "./canonical/instantiate.ts";
-import { Canonicalizer, CanonicalizeAllFreeRegions } from "./canonical/canonicalizer.ts";
 import { make_query_region_constraints } from "./canonical/query_response.ts";
 import { ConstVidKey_from } from "./unify_key.ts";
 import { explicit_outlives_bounds } from "./outlives/mod.ts";
@@ -281,10 +280,6 @@ describe("old-solver canonicalizer vs the oracle probe", () => {
     );
   }
 
-  // `canonicalize_query` itself stops at the `ParamEnv` derive (rustc_middle ty/mod.ts stub, `get_or_insert`'s
-  // `has_type_flags`). For `ParamEnv::empty()` the cache returns the param env unchanged with no variables, and the
-  // value is canonicalized by `Canonicalizer::canonicalize_with_base(canonical_param_env, value, Some(self), tcx,
-  // &CanonicalizeAllFreeRegions, query_state)`: that call is compared with the probe's `canonicalize_query`.
   for (const [label, build] of query_cases) {
     test(
       `query ${label}`,
@@ -293,17 +288,14 @@ describe("old-solver canonicalizer vs the oracle probe", () => {
         const infcx = mk_infcx(tcx);
         const v = vars(tcx, infcx);
         const value = build(tcx, v);
-        expect(() => infcx.canonicalize_query(ParamEnv.empty().and(value), OriginalQueryValues.default_(), fold_Ty)).toThrow(/ParamEnv: TypeVisitable::visit_with/);
-
         const query_state = OriginalQueryValues.default_();
-        const base: Canonical<ParamEnv> = { max_universe: UniverseIndex.ROOT, var_kinds: RawList.empty() as never, value: ParamEnv.empty() };
         const got = run(
-          () => Canonicalizer.canonicalize_with_base(base, value, infcx, tcx, CanonicalizeAllFreeRegions, query_state, fold_Ty),
+          () => infcx.canonicalize_query(ParamEnv.empty().and(value), query_state, fold_Ty),
           (c) =>
             [
-              `max_universe: ${debug_UniverseIndex(c.max_universe, PLAIN)}`,
-              `var_kinds: ${debug_var_kinds(c.var_kinds)}`,
-              `value: ${debug_Ty(c.value[1], PLAIN)}`,
+              `max_universe: ${debug_UniverseIndex(c.canonical.max_universe, PLAIN)}`,
+              `var_kinds: ${debug_var_kinds(c.canonical.var_kinds)}`,
+              `value: ${debug_Ty(c.canonical.value.value, PLAIN)}`,
               `query_state: ${debug_OriginalQueryValues(query_state, PLAIN)}`,
             ].join("\n"),
         );

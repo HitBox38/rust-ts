@@ -4,14 +4,11 @@ import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { clone_Obligation, type Obligation, type PredicateObligations } from "./mod.ts";
 import { debug_Normalized, type ProjectionCache, type ProjectionCacheStorage } from "./project.ts";
 import { debug_EvaluationResult, type EvaluationResult } from "../../rustc_middle/traits/select.ts";
-import { type ParamEnv } from "../../rustc_middle/ty/decls.ts";
-import { debug_Term, type Term } from "../../rustc_middle/ty/mod.ts";
+import { debug_ParamEnv, debug_Term, type ParamEnv, type Term } from "../../rustc_middle/ty/mod.ts";
 import { type TypeError, visit_with_TypeError } from "../../rustc_type_ir/error.ts";
 import { type TypeVisitor, type VisitWith } from "../../rustc_type_ir/fold.ts";
-import { type AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
+import { type AliasTerm, debug_AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
 import { type Debug, debug_option, debug_struct } from "../../std/fmt.ts";
-import { unported } from "../../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_infer/src/traits/project.rs:17 MismatchedProjectionTypes
 export interface MismatchedProjectionTypes {
@@ -58,8 +55,8 @@ export class ProjectionCacheKey {
 }
 export const debug_ProjectionCacheKey: Debug<ProjectionCacheKey> = (v, f) =>
   debug_struct(f, "ProjectionCacheKey", [
-    ["term", unported_debug(v.term)],
-    ["param_env", unported_debug(v.param_env)],
+    ["term", debug_AliasTerm(v.term, f)],
+    ["param_env", debug_ParamEnv(v.param_env, f)],
   ]);
 export function clone_ProjectionCacheKey(v: ProjectionCacheKey): ProjectionCacheKey {
   return new ProjectionCacheKey(v.term, v.param_env);

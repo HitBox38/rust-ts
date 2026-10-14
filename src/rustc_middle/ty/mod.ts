@@ -38,7 +38,7 @@ import type { EarlyBinder, ImplPolarity, TraitRef } from "../../rustc_type_ir/de
 import type { GenericArg, GenericArgs } from "./generic_args.ts";
 import type { List } from "./list.ts";
 // ty-mod-a imports
-import { ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
+import { ControlFlow, try_visit, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import type { Diag } from "../../rustc_errors/lib.ts";
 import { type Constness as HirConstness, debug_Constness, debug_Safety, type Safety as HirSafety } from "../../rustc_hir/lib.ts";
 import { CrateNum, type DefIdMap, LOCAL_CRATE } from "../../rustc_span/def_id.ts";
@@ -94,7 +94,7 @@ import type { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
 import type { Interner } from "../../rustc_type_ir/interner.ts";
 import type { SimplifiedType } from "../../rustc_type_ir/fast_reject.ts";
 import type { Providers } from "../queries.gen.ts";
-import { debug_Ty, fold_Ty } from "./structural_impls.ts";
+import { debug_Ty, fold_Clauses, fold_Ty } from "./structural_impls.ts";
 
 export type Ordering = "Less" | "Equal" | "Greater";
 
@@ -1381,18 +1381,21 @@ export function debug_FnInputTys(v: FnInputTys, f: Fmt): string {
   return debug_list(f, v.map((x) => debug_Ty(x, f)));
 }
 
-/** Stub: `#[derive(TypeVisitable)]` of `ParamEnv` (mod.rs:1018; not generated yet: ParamEnv is pending). */
-// PORT: generated code (rustc_type_ir solve/mod.gen.ts) still types `I::ParamEnv` as decls.ts's pending `ParamEnv`, so
-// these keep that type until root re-exports the class above from decls.ts.
-export function visit_with_ParamEnv<R>(_self: ParamEnv, _visitor: TypeVisitor<R>): R {
-  return unported("rustc_middle::ty::ParamEnv: TypeVisitable::visit_with (mod.rs:1018 derive)");
+/** `#[derive(TypeVisitable)]` of `ParamEnv` (mod.rs:1018): visits `caller_bounds` (`ty::Clauses`, structural_impls.rs:618). */
+// PORT: ParamEnv is a hand class (above), so its derives are written out here as the generator writes them.
+export function visit_with_ParamEnv<R>(self: ParamEnv, visitor: TypeVisitor<R>): R {
+  let r: R | undefined;
+  if ((r = try_visit(visitor.Result, fold_Clauses.visit_with(self.caller_bounds_, visitor))) !== undefined) return r;
+  return visitor.Result.output();
 }
-/** Stub: `#[derive(TypeFoldable)]` of `ParamEnv` (mod.rs:1018). */
-export function try_fold_with_ParamEnv<E>(_self: ParamEnv, _folder: FallibleTypeFolder<E>): Result<ParamEnv, E> {
-  return unported("rustc_middle::ty::ParamEnv: TypeFoldable::try_fold_with (mod.rs:1018 derive)");
+/** `#[derive(TypeFoldable)]` of `ParamEnv` (mod.rs:1018): folds `caller_bounds` (`ty::Clauses`, structural_impls.rs:564). */
+export function try_fold_with_ParamEnv<E>(self: ParamEnv, folder: FallibleTypeFolder<E>): Result<ParamEnv, E> {
+  const caller_bounds = fold_Clauses.try_fold_with(self.caller_bounds_, folder);
+  if (caller_bounds.$ === "Err") return caller_bounds;
+  return Ok(new ParamEnv(caller_bounds._0));
 }
-export function fold_with_ParamEnv(_self: ParamEnv, _folder: TypeFolder): ParamEnv {
-  return unported("rustc_middle::ty::ParamEnv: TypeFoldable::fold_with (mod.rs:1018 derive)");
+export function fold_with_ParamEnv(self: ParamEnv, folder: TypeFolder): ParamEnv {
+  return new ParamEnv(fold_Clauses.fold_with(self.caller_bounds_, folder));
 }
 
 // ---- impl TyCtxt (ty/mod.rs) -------------------------------------------------------------------

@@ -3,9 +3,9 @@
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { fold_with_ExternalConstraints, try_fold_with_ExternalConstraints, visit_with_ExternalConstraints } from "../../rustc_middle/traits/solve.ts";
 import { decode_ParamEnv, type TyDecoder } from "../../rustc_middle/ty/codec.ts";
-import { type ExternalConstraints, type ParamEnv, type PredefinedOpaques } from "../../rustc_middle/ty/decls.ts";
+import { type ExternalConstraints, type PredefinedOpaques } from "../../rustc_middle/ty/decls.ts";
 import { debug_GenericArgs, fold_with_GenericArgs, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
-import { debug_Ty, fold_with_ParamEnv, fold_with_Ty, try_fold_with_ParamEnv, try_fold_with_Ty, type Ty, visit_with_ParamEnv, visit_with_Ty } from "../../rustc_middle/ty/mod.ts";
+import { debug_ParamEnv, debug_Ty, fold_with_ParamEnv, fold_with_Ty, type ParamEnv, try_fold_with_ParamEnv, try_fold_with_Ty, type Ty, visit_with_ParamEnv, visit_with_Ty } from "../../rustc_middle/ty/mod.ts";
 import { debug_Predicate, fold_with_Predicate, type Predicate, try_fold_with_Predicate, visit_with_Predicate } from "../../rustc_middle/ty/predicate.ts";
 import { fold_with_PredefinedOpaques, try_fold_with_PredefinedOpaques, visit_with_PredefinedOpaques } from "../../rustc_middle/ty/structural_impls.ts";
 import { type Decodable, decode_usize } from "../../rustc_serialize/serialize.ts";
@@ -311,7 +311,7 @@ export interface Goal<P> {
 }
 export function debug_Goal<P>(v: Goal<P>, f: Fmt, debug_P: Debug<P>): string {
   return debug_struct(f, "Goal", [
-    ["param_env", unported_debug(v.param_env)],
+    ["param_env", debug_ParamEnv(v.param_env, f)],
     ["predicate", debug_P(v.predicate, f)],
   ]);
 }

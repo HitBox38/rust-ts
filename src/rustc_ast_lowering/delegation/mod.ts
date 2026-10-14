@@ -51,12 +51,14 @@ import { type DefId, LocalDefId } from "../../rustc_span/def_id.ts";
 import type { LocalExpnId } from "../../rustc_span/hygiene.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import { Ident, kw, sym, Symbol } from "../../rustc_span/symbol.ts";
+import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
+import { FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { unwrap } from "../../std/panic.ts";
 import { unwrap_result } from "../../std/result.ts";
 import { DelegationResolver, LoweringContext } from "../decls.ts";
 import type { AllowReturnTypeNotation, ImplTraitContext, ParamMode } from "../lib.ts";
 import { type GenericsGenerationResult, type GenericsGenerationResults, GenericsPosition, HirOrTyGenerics } from "./generics.ts";
-import { type DelegationResolution, fn_sig_skip_binders, type ParamInfo } from "./resolution.ts";
+import { type DelegationResolution, type ParamInfo } from "./resolution.ts";
 
 // mod attributes;
 import "./attributes.ts";
@@ -187,7 +189,8 @@ LoweringContext.prototype.lower_delegation_decl = function (
 
 // rustc: compiler/rustc_ast_lowering/src/delegation/mod.rs:168 lower_delegation_sig
 LoweringContext.prototype.lower_delegation_sig = function (this: LoweringContext, sig_id: DefId, decl: hir.FnDecl, span: Span): hir.FnSig {
-  const sig = fn_sig_skip_binders(this.tcx, sig_id);
+  // PORT: the `fn_sig` query value is `unknown` in queries.gen.ts (`EarlyBinder<PolyFnSig>`).
+  const sig = Binder.skip_binder(EarlyBinder.skip_binder(this.tcx.fn_sig(sig_id) as EarlyBinder<Binder<FnSig>>));
   let asyncness: hir.IsAsync;
   switch (this.tcx.asyncness(sig_id) as Asyncness) {
     case "Yes":
@@ -201,10 +204,10 @@ LoweringContext.prototype.lower_delegation_sig = function (this: LoweringContext
   const header = new hir.FnHeader(
     (this.tcx.codegen_fn_attrs(sig_id) as CodegenFnAttrsFields).safe_target_features
       ? hir.HeaderSafety.SafeTargetFeatures
-      : { $: "Normal", _0: sig.safety() },
+      : { $: "Normal", _0: FnSig.safety(sig) },
     this.tcx.constness(sig_id) as hir.Constness,
     asyncness,
-    sig.abi(),
+    FnSig.abi(sig),
   );
 
   return { decl, header, span };

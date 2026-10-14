@@ -20,14 +20,17 @@ import { AssocItems } from "../../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { GenericArg } from "../../rustc_middle/ty/generic_args.ts";
 import { type Ty, visit_with_Ty } from "../../rustc_middle/ty/mod.ts";
+import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { type DefId, DefIdSet, LocalDefId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import type { Ident } from "../../rustc_span/symbol.ts";
+import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
+import { FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { type TypeVisitor, TypeVisitor_provided } from "../../rustc_type_ir/visit.ts";
 import { debug_NodeId } from "../../rustc_ast/node_id.gen.ts";
 import { debug_LocalDefId } from "../../rustc_span/def_id.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { unported, unreachable, unwrap } from "../../std/panic.ts";
+import { unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { DelegationResolver, type LoweringContext } from "../decls.ts";
 import * as diagnostics from "../diagnostics.ts";
@@ -36,29 +39,6 @@ import type { GenericsGenerationResults } from "./generics.ts";
 // ---- Types of this file: resolution.gen.ts (codegen set rustc_ast_lowering) ----
 export * from "./resolution.gen.ts";
 import type { DelegationResolution, ParamInfo, SigMapping } from "./resolution.gen.ts";
-
-// ---- PORT(stand-in): upstream APIs this file calls that are not ported yet. Each stops as UNPORTED; replace the
-// call sites with the real API when it lands. ----
-
-/** The `ty::FnSig` accessors this lane calls (rustc_type_ir ty_kind.rs:1141 `inputs`, :1145 `output`, :1170
- *  `safety`, :1174 `abi`, :1178 `c_variadic`); `ty::FnSig` (wave 15) has no methods yet. */
-export interface TyFnSigView {
-  inputs(): readonly Ty[];
-  output(): Ty;
-  safety(): Safety;
-  abi(): ExternAbi;
-  c_variadic(): boolean;
-}
-/** `tcx.fn_sig(def_id).skip_binder().skip_binder()`: `EarlyBinder::skip_binder` / `Binder::skip_binder`
- *  (rustc_type_ir binder.rs) and the `ty::FnSig` methods are not ported (wave 15). */
-export function fn_sig_skip_binders(tcx: TyCtxt, def_id: DefId): TyFnSigView {
-  void tcx.fn_sig(def_id);
-  return unported("rustc_type_ir::binder::{EarlyBinder, Binder}::skip_binder of `tcx.fn_sig(..)` (ty::FnSig, wave 15)");
-}
-/** `impl TypeSuperVisitable for Ty` (rustc_middle ty/structural_impls.rs:420) is not ported. */
-function Ty_super_visit_with<R>(_t: Ty, _visitor: TypeVisitor<R>): R {
-  return unported("rustc_middle::ty::Ty: TypeSuperVisitable::super_visit_with (structural_impls.rs:420)");
-}
 
 /// Simple (hack or heuristic) resolution of some delegations to inherent impls
 /// while correct resolution through `ProbeContext` is not available
@@ -275,8 +255,9 @@ DelegationResolver.prototype.resolve_delegation = function (
   if (cycles.$ === "Err") return cycles;
 
   const is_method = tcx.is_method(sig_id);
-  const sig = fn_sig_skip_binders(tcx, sig_id);
-  const param_count = sig.inputs().length + (sig.c_variadic() ? 1 : 0);
+  // PORT: the `fn_sig` query value is `unknown` in queries.gen.ts (`EarlyBinder<PolyFnSig>`).
+  const sig = Binder.skip_binder(EarlyBinder.skip_binder(tcx.fn_sig(sig_id) as EarlyBinder<Binder<FnSig>>));
+  const param_count = FnSig.inputs(sig).length + (FnSig.c_variadic(sig) ? 1 : 0);
   const parent = tcx.local_parent(def_id);
 
   const soundness = this.check_block_soundness(delegation, sig_id, is_method, param_count);
@@ -284,7 +265,7 @@ DelegationResolver.prototype.resolve_delegation = function (
   const [should_generate_block, contains_defs] = soundness._0;
 
   // PORT: the struct literal's field initializers run in source order; `?` returns early.
-  const param_info: ParamInfo = { param_count, c_variadic: sig.c_variadic(), splatted: undefined };
+  const param_info: ParamInfo = { param_count, c_variadic: FnSig.c_variadic(sig), splatted: undefined };
   const call_path_res = this.get_call_path_res(delegation, span);
   if (call_path_res.$ === "Err") return call_path_res;
   const sig_mapping = this.create_sig_mapping(delegation, span, should_generate_block, parent, sig, contains_defs);
@@ -470,8 +451,8 @@ DelegationResolver.prototype.create_sig_mapping = function (
   sig_: unknown,
   contains_defs: boolean,
 ): Result<SigMapping, ErrorGuaranteed> {
-  // PORT: `ty::FnSig<'tcx>` is `TyFnSig = unknown` in decls.ts; the stand-in view of its methods.
-  const sig = sig_ as TyFnSigView;
+  // PORT: `ty::FnSig<'tcx>` is `TyFnSig = unknown` in decls.ts.
+  const sig = sig_ as FnSig;
   // SigMapping::default()
   const mapping: SigMapping = { map_return: false, arguments_to_map: new Set() };
   if (should_generate_block) {
@@ -499,7 +480,7 @@ DelegationResolver.prototype.create_sig_mapping = function (
               return ControlFlow.Break(null);
             }
 
-            return Ty_super_visit_with(t, this);
+            return fold_Ty.super_visit_with(t, this);
           }
           case "Ref": {
             const ref_t = kind._1;
@@ -507,7 +488,7 @@ DelegationResolver.prototype.create_sig_mapping = function (
               return ControlFlow.Break(null);
             }
 
-            return Ty_super_visit_with(t, this);
+            return fold_Ty.super_visit_with(t, this);
           }
           default:
             return ControlFlow.CONTINUE;
@@ -528,9 +509,9 @@ DelegationResolver.prototype.create_sig_mapping = function (
       visit_error: TypeVisitor<ControlFlow<null>>["visit_error"] = (g) => TypeVisitor_provided.visit_error(this, g);
     }
 
-    mapping.map_return = SelfFinder.contains_self(sig.output());
+    mapping.map_return = SelfFinder.contains_self(FnSig.output(sig));
 
-    const inputs = sig.inputs();
+    const inputs = FnSig.inputs(sig);
     // .skip(1): Already checked above.
     for (let idx = 1; idx < inputs.length; idx++) {
       const param = inputs[idx]!;

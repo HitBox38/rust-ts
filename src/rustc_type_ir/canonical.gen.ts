@@ -3,8 +3,9 @@
 import { debug_HashMap } from "../rust_ts/hash_map.ts";
 import { try_visit } from "../rustc_ast_ir/visit.ts";
 import { decode_CanonicalVarKinds, decode_GenericArgs, type TyDecoder } from "../rustc_middle/ty/codec.ts";
-import { type CanonicalVarKinds, type ParamEnv } from "../rustc_middle/ty/decls.ts";
+import { type CanonicalVarKinds } from "../rustc_middle/ty/decls.ts";
 import { debug_GenericArg, debug_GenericArgs, fold_with_GenericArgs, type GenericArg, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../rustc_middle/ty/generic_args.ts";
+import { debug_ParamEnv, type ParamEnv } from "../rustc_middle/ty/mod.ts";
 import { type Decodable } from "../rustc_serialize/serialize.ts";
 import { type BoundConst, type BoundRegion, type BoundTy, debug_BoundConst, debug_BoundRegion, debug_BoundTy, debug_Placeholder, decode_BoundConst, decode_BoundRegion, decode_BoundTy, decode_Placeholder, type Placeholder, type PlaceholderConst, type PlaceholderRegion, type PlaceholderType } from "./binder.ts";
 import { type FallibleTypeFolder, type FoldWith, type TryFoldWith, type TypeFolder, type TypeVisitor, type VisitWith } from "./fold.ts";
@@ -189,7 +190,7 @@ export interface CanonicalParamEnvCacheEntry {
 }
 export const debug_CanonicalParamEnvCacheEntry: Debug<CanonicalParamEnvCacheEntry> = (v, f) =>
   debug_struct(f, "CanonicalParamEnvCacheEntry", [
-    ["param_env", unported_debug(v.param_env)],
+    ["param_env", debug_ParamEnv(v.param_env, f)],
     ["variables", debug_vec(v.variables, f, debug_GenericArg)],
     ["variable_lookup_table", debug_HashMap(v.variable_lookup_table, f, debug_GenericArg, debug_int)],
     ["var_kinds", debug_vec(v.var_kinds, f, debug_CanonicalVarKind)],

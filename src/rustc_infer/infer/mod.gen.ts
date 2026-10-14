@@ -18,7 +18,7 @@ import { debug_TraitRef } from "../../rustc_type_ir/ir_print.ts";
 import { type TraitRef } from "../../rustc_type_ir/predicate.ts";
 import { debug_TyOrConstInferVar, type TyOrConstInferVar } from "../../rustc_type_ir/solve/mod.ts";
 import { debug_Region, type Region } from "../../rustc_type_ir/sty/mod.ts";
-import { type AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
+import { type AliasTerm, debug_AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
 import { type Debug, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 import { type Result } from "../../std/result.ts";
 import { unported } from "../../std/panic.ts";
@@ -77,7 +77,7 @@ export const debug_ValuePairs: Debug<ValuePairs> = (v, f) => {
     case "Terms":
       return debug_tuple(f, "Terms", [debug_ExpectedFound(v._0, f, debug_Term)]);
     case "Aliases":
-      return debug_tuple(f, "Aliases", [debug_ExpectedFound(v._0, f, ((x, f) => unported_debug(x)))]);
+      return debug_tuple(f, "Aliases", [debug_ExpectedFound(v._0, f, debug_AliasTerm)]);
     case "TraitRefs":
       return debug_tuple(f, "TraitRefs", [debug_ExpectedFound(v._0, f, debug_TraitRef)]);
     case "PolySigs":

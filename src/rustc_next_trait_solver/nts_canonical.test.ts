@@ -21,7 +21,7 @@ import { Symbol } from "../rustc_span/symbol.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import { debug_RawList } from "../rustc_middle/ty/list.ts";
-import { Ty } from "../rustc_middle/ty/mod.ts";
+import { ParamEnv, Ty } from "../rustc_middle/ty/mod.ts";
 import { debug_GenericArg, debug_Ty, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { ParamConst } from "../rustc_middle/ty/sty.ts";
 import { PlaceholderConst, PlaceholderRegion, PlaceholderType } from "../rustc_type_ir/binder.ts";
@@ -35,7 +35,7 @@ import { debug_NestedNormalizationGoals } from "../rustc_type_ir/solve/mod.ts";
 import { Const, fold_Const } from "../rustc_type_ir/sty/consts.ts";
 import { Region } from "../rustc_type_ir/sty/mod.ts";
 import { PLAIN } from "../std/fmt.ts";
-import { Panic, Unported } from "../std/panic.ts";
+import { Panic } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { Canonicalizer } from "./canonical/canonicalizer.ts";
 import { instantiate_and_apply_query_response, make_canonical_state, response_no_constraints_raw } from "./canonical/mod.ts";
@@ -361,11 +361,22 @@ describe("Canonicalizer vs the oracle probe", () => {
 
 describe("canonical/mod.rs (upstream semantics)", () => {
   test(
-    "canonicalize_input stops UNPORTED at the ParamEnv traversal (rustc_middle derive, not ported)",
+    "canonicalize_input with an empty ParamEnv: a fresh Predicate canonicalizer over the predicate (as the oracle cases)",
     sg(() => {
-      const { delegate, v } = setup();
-      const input = { goal: { param_env: {} as never, predicate: v.t0 }, predefined_opaques_in_body: [] as never };
-      expect(() => Canonicalizer.canonicalize_input(delegate, input, fold_Ty)).toThrow(Unported);
+      const { tcx, delegate, v } = setup();
+      for (const [label, build] of input_cases) {
+        const value = build(tcx, v);
+        const [variables, canonical] = Canonicalizer.canonicalize_input(
+          delegate,
+          { goal: { param_env: ParamEnv.empty(), predicate: value }, predefined_opaques_in_body: tcx.mk_predefined_opaques_in_body([]) },
+          fold_Ty,
+        );
+        const [max_universe, variables_, term, var_kinds] = canonicalize_input_term(delegate, value);
+        expect([label, canonical.max_universe, debug_RawList(canonical.var_kinds, PLAIN, debug_CanonicalVarKind)]).toEqual([label, max_universe, var_kinds]);
+        expect(canonical.value.goal.predicate).toBe(term);
+        expect(canonical.value.goal.param_env.caller_bounds_).toBe(ParamEnv.empty().caller_bounds_);
+        expect(variables).toEqual(variables_);
+      }
     }),
   );
 
