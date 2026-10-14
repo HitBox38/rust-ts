@@ -134,6 +134,11 @@ import type { Expr } from "./consts/kind.ts";
 import type { AssocItem } from "./assoc.ts";
 export type { AssocItem, CanonicalPolyFnSig, EarlyParamRegion, Expr, InlineConstArgs, LateParamRegionKind, ParamConst, ParamTy };
 
+// re-exported by merge-w15b: ty/mod.rs types (lanes ty-mod-a, ty-mod-b) and `hir::Attribute` (rustc_attr_ir)
+import type { AsyncDestructor, Destructor, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef } from "./mod.ts";
+import type { Attribute } from "../../rustc_attr_ir/lib.ts";
+export type { AsyncDestructor, Attribute, Destructor, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef };
+
 // ---- 2. pending rustc_middle types (and other crates') ----
 // newtype indices (rustc_abi): final shapes
 export type FieldIdx = number & { readonly __brand: "FieldIdx" };
@@ -141,10 +146,7 @@ export type VariantIdx = number & { readonly __brand: "VariantIdx" };
 // ty/adt.rs:187 (D2: hash-consed `AdtDef(Interned<AdtDefData>)`, lane ty-adt-assoc)
 export type AdtDef = Pending<"AdtDef">;
 export type AdtDefData = Pending<"AdtDefData">;
-export type VariantDef = Pending<"VariantDef">;
 export type ReprOptions = Pending<"ReprOptions">;
-export type Destructor = Pending<"Destructor">;
-export type AsyncDestructor = Pending<"AsyncDestructor">;
 // ty/pattern.rs:16, ty/consts/valtree.rs:34, :103, ty/consts/int.rs:147 (D2: hash-consed)
 export type Pattern = Pending<"Pattern">;
 export type ValTree = Pending<"ValTree">;
@@ -152,9 +154,6 @@ export type Value = Pending<"ty::Value">;
 export type ScalarInt = Pending<"ScalarInt">;
 export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
-export type ParamEnv = Pending<"ParamEnv">;
-export type TypingEnv = Pending<"TypingEnv">;
-export type PseudoCanonicalInput<T> = Pending1<"PseudoCanonicalInput", T>;
 export type CapturedPlace = Pending<"CapturedPlace">;
 export type Discr = Pending<"Discr">;
 export type CheckRegions = Pending<"CheckRegions">;
@@ -162,8 +161,6 @@ export type NotUniqueParam = Pending<"NotUniqueParam">;
 export type SizedTraitKind = Pending<"SizedTraitKind">;
 export type NumScalableVectors = Pending<"NumScalableVectors">;
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
-export type ImplOverlapKind = Pending<"ImplOverlapKind">;
-export type ImplTraitInTraitData = Pending<"ImplTraitInTraitData">;
 export type NormalizationError = Pending<"NormalizationError">;
 export type TypeckResults = Pending<"TypeckResults">;
 export type Instance = Pending<"Instance">;
@@ -190,7 +187,6 @@ export type PointeeInfo = Pending<"PointeeInfo">;
 export type FnAbi<T> = Pending1<"FnAbi", T>;
 export type FnAbiError = Pending<"FnAbiError">;
 // rustc_hir (lane hir-types)
-export type Attribute = Pending<"hir::Attribute">;
 export type BodyId = Pending<"hir::BodyId">;
 // the arenas are erased (PORTING §5); `Arena` only appears as a parameter type
 export type Arena = Pending<"Arena">;

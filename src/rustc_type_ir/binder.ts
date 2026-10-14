@@ -1273,7 +1273,7 @@ export const PlaceholderConst = {
   find_const_ty_from_env(self: PlaceholderConst, env: ParamEnv): Ty {
     // PORT: the lazy `filter_map` iterator is a generator (the closure runs as `next()` pulls).
     const candidates = (function* (): Generator<Ty> {
-      for (const clause of ParamEnv_caller_bounds(env)) {
+      for (const clause of env.caller_bounds()) {
         // `ConstArgHasType` are never desugared to be higher ranked.
         const k = Binder.skip_binder(clause.kind());
         if (k.$ === "ConstArgHasType") {
@@ -1353,11 +1353,6 @@ function Placeholder_eq_BoundConst(a: PlaceholderConst, b: PlaceholderConst): bo
 const visit_Const_Ty: TypeVisitable<[Const, Ty]> = {
   visit_with: (self, visitor) => visit_with_tuple2(self, visitor, fold_Const.visit_with, standin_fold_Ty.visit_with),
 };
-
-/** PORT: stand-in for `ParamEnv::caller_bounds` (rustc_middle ty/mod.rs; `ParamEnv` is a pending type). */
-function ParamEnv_caller_bounds(_env: ParamEnv): readonly Clause[] {
-  return unported("rustc_middle::ty::ParamEnv::caller_bounds (ParamEnv not ported yet)");
-}
 
 /** PORT: stand-in for `impl fmt::Debug for ty::ParamConst` (rustc_middle ty/structural_impls.rs, not ported yet). */
 function debug_ParamConst(_v: ParamConst, _f: Fmt): string {

@@ -563,7 +563,7 @@ export const InferCtxtLike_provided = {
 // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:594 may_use_unstable_feature
 export function may_use_unstable_feature(infcx: InferCtxtLike, param_env: ParamEnv, symbol: Symbol): boolean {
   // Iterate through all goals in param_env to find the one that has the same symbol.
-  for (const clause of ParamEnv_caller_bounds(param_env)) {
+  for (const clause of param_env.caller_bounds()) {
     const sym = Binder.skip_binder(clause.kind());
     if (sym.$ === "UnstableFeature") {
       if (sym._0 === symbol) {
@@ -708,11 +708,3 @@ class DeepVariableResolver implements TypeFolder {
     }
   }
 }
-
-// ---- PORT stand-ins for fns of other files that are not ported yet (module header) -----------------------------------
-
-/** PORT: stand-in for `inherent::ParamEnv::caller_bounds` of rustc_middle's `ParamEnv` (ty/mod.rs, pending). */
-function ParamEnv_caller_bounds(_param_env: ParamEnv): Clauses {
-  return unported("rustc_middle::ty::ParamEnv::caller_bounds");
-}
-
