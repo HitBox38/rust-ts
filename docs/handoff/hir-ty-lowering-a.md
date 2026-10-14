@@ -113,4 +113,4 @@ Everything else this region calls exists; where it is still a stub elsewhere, it
   expected (contract.test.ts 10/10 passes with it gone).
 
 ## Test run
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: PENDING_RESULT
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4499 pass, 1 skip (pre-existing linux-only), 0 fail (4500 tests, 272 files, 1334 s), including mod_a.test.ts and contract.test.ts 10/10.
