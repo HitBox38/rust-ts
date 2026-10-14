@@ -40,6 +40,7 @@ import type { Features } from "../rustc_feature/unstable.ts";
 import { Definitions } from "../rustc_hir_id/definitions.ts";
 import type { RegisteredTools } from "../rustc_lint_defs/lib.ts";
 import * as rustc_lint from "../rustc_lint/lib.ts";
+import * as rustc_ty_utils from "../rustc_ty_utils/lib.ts";
 import { creader, provide as rustc_metadata_provide } from "../rustc_metadata/lib.ts";
 import type { EarlyCheckNode, LintStore } from "../rustc_lint/lib.ts";
 import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
@@ -926,7 +927,7 @@ function default_query_providers(): MiddleProviders {
   // PORT: pending crates (their `provide` fns are not ported): rustc_expand_queries,
   // rustc_const_eval, rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
   // rustc_monomorphize, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck, traits, solve,
-  // rustc_traits, rustc_ty_utils, rustc_symbol_mangling, rustc_codegen_ssa (rustc_metadata and rustc_lint are provided below).
+  // rustc_traits, rustc_symbol_mangling, rustc_codegen_ssa (rustc_ty_utils, rustc_metadata and rustc_lint are provided below).
   // Their queries keep upstream's `default_query` ICE.
   limits.provide(providers.queries);
   hir.provide(providers.queries);
@@ -938,6 +939,7 @@ function default_query_providers(): MiddleProviders {
   // PORT: `ty::provide` (ty/mod.rs:2377) is not ported; of its sub-providers, `context::provide` (above) and
   // `print::provide` (ty/print/pretty.rs:3594, `trimmed_def_paths`) are (merge-w15a).
   ty_print_provide(providers.queries);
+  rustc_ty_utils.provide(providers.queries);
   // PORT: `rustc_metadata::provide` is `rmeta::provide`, i.e. `encoder::provide` (metadata encoding, M5, not
   // ported) then `decoder::provide`; rustc_metadata/lib.ts exports `cstore_impl::provide` (the decoder half).
   rustc_metadata_provide(providers);
