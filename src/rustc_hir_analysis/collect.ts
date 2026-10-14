@@ -38,7 +38,7 @@ import type { DynCompatibilityViolation } from "../rustc_middle/traits/mod.ts";
 import type { AdtDef, AdtKind } from "../rustc_middle/ty/adt.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Const, Region, ReprOptions } from "../rustc_middle/ty/decls.ts";
-import type { GenericArgs } from "../rustc_middle/ty/generic_args.ts";
+import { fold_List_Ty, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { GenericClauses, type GenericParamDef } from "../rustc_middle/ty/generics.ts";
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import { type List, RawList } from "../rustc_middle/ty/list.ts";
@@ -1328,8 +1328,29 @@ export function recover_infer_ret_ty(icx: ItemCtxt, infer_ret_ty: hir.Ty, generi
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:1429 suggest_impl_trait
 export function suggest_impl_trait(infcx: InferCtxt, param_env: ParamEnv, ret_ty: Ty): string | undefined {
-  // PORT: `InferCtxt` is pending (lane infcx-contract): its first use (`infcx.tcx`) stops.
-  void [infcx, param_env, ret_ty];
+  const format_as_assoc = (tcx: TyCtxt, _: GenericArgs, trait_def_id: DefId, assoc_item_def_id: DefId, item_ty: Ty): string | undefined => {
+    const trait_name = Symbol.as_str(tcx.item_name(trait_def_id));
+    const assoc_name = Symbol.as_str(tcx.item_name(assoc_item_def_id));
+    return `impl ${trait_name}<${assoc_name} = ${display_Ty(item_ty)}>`;
+  };
+  const format_as_parenthesized = (tcx: TyCtxt, args: GenericArgs, trait_def_id: DefId, _: DefId, item_ty: Ty): string | undefined => {
+    const trait_name = Symbol.as_str(tcx.item_name(trait_def_id));
+    const args_tuple = args.type_at(1);
+    const k = args_tuple.kind();
+    if (k.$ !== "Tuple") {
+      return undefined;
+    }
+    const types = IsSuggestable.make_suggestable(k._0, tcx, false, undefined, fold_List_Ty);
+    if (types === undefined) return undefined;
+    const maybe_ret = item_ty.is_unit() ? "" : ` -> ${display_Ty(item_ty)}`;
+    return `impl ${trait_name}(${types.map((ty) => display_Ty(ty)).join(", ")})${maybe_ret}`;
+  };
+  void [format_as_assoc, format_as_parenthesized, param_env, ret_ty];
+
+  // PORT: `InferCtxt` is pending (lane infcx-contract): the candidate list reads `infcx.tcx` first, so the fn stops there.
+  // The loop (`infcx.probe`, `GenericArgs::for_item` with `infcx.var_for_def`, `type_implements_trait`, `ObligationCtxt`,
+  // `deeply_resolve_ignoring_regions`) is all `InferCtxt` / rustc_trait_selection.
+  void infcx;
   return unported("rustc_hir_analysis::collect::suggest_impl_trait (InferCtxt pending: lane infcx-contract)");
 }
 
