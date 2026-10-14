@@ -26,7 +26,7 @@ import { display_Edition } from "../rustc_span/edition.ts";
 import { DUMMY_SP, Span, debug_Span } from "../rustc_span/lib.ts";
 import { type Symbol, Symbol as SymbolC, debug_Symbol, kw } from "../rustc_span/symbol.ts";
 import { type Debug, debug_option, debug_struct, debug_tuple } from "../std/fmt.ts";
-import { panic, unported, unreachable } from "../std/panic.ts";
+import { panic, unreachable } from "../std/panic.ts";
 import { TyCtxt } from "./ty/context.ts";
 
 /// How a lint level was set.
@@ -221,7 +221,7 @@ export class ShallowLintLevelMap {
     let owner = start.owner;
     let specs = this.specs;
 
-    for (const parent of hir_parent_id_iter(tcx, start)) {
+    for (const parent of tcx.hir_parent_id_iter(start)) {
       if (parent.owner.def_id !== owner.def_id) {
         owner = parent.owner;
         specs = (tcx.shallow_lint_levels_on(owner) as ShallowLintLevelMap).specs;
@@ -241,11 +241,6 @@ export class ShallowLintLevelMap {
   lint_level_spec_at_node(tcx: TyCtxt, lint: LintId, cur: HirId): StableLevelSpec {
     return reveal_actual_level_spec(tcx.sess, lint, (lint) => this.probe_for_lint_level_spec(tcx, lint, cur));
   }
-}
-
-/** `tcx.hir_parent_id_iter(start)` (rustc_middle hir/map.rs). PORT: HIR is M3. */
-function hir_parent_id_iter(_tcx: TyCtxt, _start: HirId): Iterable<HirId> {
-  return unported("rustc_middle::hir::map::TyCtxt::hir_parent_id_iter (HIR, M3)");
 }
 
 /// Verify the effect of special annotations: `warnings` lint level and lint caps.
