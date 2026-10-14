@@ -28,8 +28,19 @@ import { Ty } from "../../mod.ts";
 import { with_crate_prefix, with_forced_trimmed_paths } from "../pretty.ts";
 import { TestPrinter } from "./test_printer.ts";
 
-/** Upstream bodies of the stubs listed in the header. */
-export function install_scaffolding(): void {
+/** Upstream bodies of the stubs listed in the header; returns a function that puts the stubs back. */
+export function install_scaffolding(): () => void {
+  const saved: [object, string, PropertyDescriptor | undefined][] = [];
+  for (const [o, k] of [
+    [Region.prototype, "type_flags"],
+    [Region.prototype, "flags"],
+    [Region.prototype, "outer_exclusive_binder"],
+    [RawList.prototype, "inputs"],
+    [RawList.prototype, "output"],
+    [Ty.prototype, "is_unit"],
+  ] as const) {
+    saved.push([o, k, Object.getOwnPropertyDescriptor(o, k)]);
+  }
   const region = Region.prototype as unknown as { type_flags(): TypeFlags; flags(): TypeFlags; outer_exclusive_binder(): DebruijnIndex };
   // sty/mod.rs:198 type_flags
   region.type_flags = function (this: Region): TypeFlags {
@@ -88,6 +99,12 @@ export function install_scaffolding(): void {
   (Ty.prototype as unknown as { is_unit(): boolean }).is_unit = function (this: Ty): boolean {
     const k = this.kind();
     return k.$ === "Tuple" && k._0.length === 0;
+  };
+  return () => {
+    for (const [o, k, d] of saved) {
+      if (d === undefined) delete (o as Record<string, unknown>)[k];
+      else Object.defineProperty(o, k, d);
+    }
   };
 }
 
