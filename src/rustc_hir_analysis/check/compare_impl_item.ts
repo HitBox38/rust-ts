@@ -370,19 +370,18 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
   const impl_sig = ocx.normalize(norm_cause, param_env, Unnormalized.new_wip(unnormalized_impl_sig), fold_FnSig);
   // debug!(?impl_sig);
 
-  let trait_sig = Unnormalized.skip_norm_wip(EarlyBinder.instantiate(fn_sig_of(tcx, trait_m.def_id), tcx, trait_to_impl_args, fold_Binder(fold_FnSig)));
-  let trait_sig_ = tcx.liberate_late_bound_regions(impl_m.def_id, trait_sig, fold_FnSig);
+  const trait_sig_binder = Unnormalized.skip_norm_wip(EarlyBinder.instantiate(fn_sig_of(tcx, trait_m.def_id), tcx, trait_to_impl_args, fold_Binder(fold_FnSig)));
+  let trait_sig = tcx.liberate_late_bound_regions(impl_m.def_id, trait_sig_binder, fold_FnSig);
 
   // Next, add all inputs and output as well-formed tys. Importantly,
   // we have to do this before normalization, since the normalized ty may
   // not contain the input parameters. See issue #87748.
-  for (const ty of trait_sig_.inputs_and_output) wf_tys.add(ty);
-  trait_sig_ = ocx.normalize(norm_cause, param_env, Unnormalized.new_wip(trait_sig_), fold_FnSig);
+  for (const ty of trait_sig.inputs_and_output) wf_tys.add(ty);
+  trait_sig = ocx.normalize(norm_cause, param_env, Unnormalized.new_wip(trait_sig), fold_FnSig);
   // We also have to add the normalized trait signature
   // as we don't normalize during implied bounds computation.
-  for (const ty of trait_sig_.inputs_and_output) wf_tys.add(ty);
+  for (const ty of trait_sig.inputs_and_output) wf_tys.add(ty);
   // debug!(?trait_sig);
-  void trait_sig;
 
   // FIXME: We'd want to keep more accurate spans than "the method signature" when
   // processing the comparison between the trait and impl fn, but we sadly lose them
@@ -391,17 +390,17 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
   // corresponding to their `Vec<Predicate>`, but we don't have that here.
   // Fixing this would improve the output of test `issue-83765.rs`.
   // There's the same issue in compare_eii code.
-  const result = ocx.sup(cause, param_env, trait_sig_, impl_sig, rustc_infer.infer.at.ToTrace_FnSig);
+  const result = ocx.sup(cause, param_env, trait_sig, impl_sig, rustc_infer.infer.at.ToTrace_FnSig);
 
   if (result.$ === "Err") {
     const terr = result._0;
     // debug!(?impl_sig, ?trait_sig, ?terr, "sub_types failed");
 
-    const emitted = report_trait_method_mismatch(infcx, cause, param_env, terr, [trait_m, trait_sig_], [impl_m, impl_sig], impl_trait_ref);
+    const emitted = report_trait_method_mismatch(infcx, cause, param_env, terr, [trait_m, trait_sig], [impl_m, impl_sig], impl_trait_ref);
     return Err(emitted);
   }
 
-  if (!TypeVisitableExt.references_error([impl_sig, trait_sig_] as [FnSig, FnSig], fold_tuple2(fold_FnSig, fold_FnSig))) {
+  if (!TypeVisitableExt.references_error([impl_sig, trait_sig] as [FnSig, FnSig], fold_tuple2(fold_FnSig, fold_FnSig))) {
     for (const ty of unnormalized_impl_sig.inputs_and_output) {
       ocx.register_obligation(rustc_infer.traits.Obligation.new(infcx.tcx, clone_ObligationCause(cause), param_env, { $: "WellFormed", _0: ty }, upcast_tcx(Predicate_upcast_from_ClauseKind)));
     }
