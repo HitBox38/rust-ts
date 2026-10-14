@@ -52,7 +52,8 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: generator reproduces src
   expect(Object.keys(res.report.missing_debug)).toEqual([expect.stringContaining("rustc_span::def_id::DefIdMap")]);
   expect(res.report.missing_clone).toEqual({});
   const sum = (k: "types" | "debug_fns" | "clone_fns" | "print_attrs") => res.report.files.reduce((a, f) => a + f[k], 0);
-  expect([res.files.size, sum("types"), sum("debug_fns"), sum("clone_fns"), sum("print_attrs")]).toEqual([9, 80, 77, 70, 60]);
+  // 10 files: the 9 type modules + stable_hash.gen.ts (derive_stable_hash, merge-w14)
+  expect([res.files.size, sum("types"), sum("debug_fns"), sum("clone_fns"), sum("print_attrs")]).toEqual([10, 80, 77, 70, 60]);
   for (const [file, content] of res.files) expect(content).toBe(readFileSync(file, "utf8"));
   // no stale generated file left on disk
   const onDisk = (readdirSync(join(src, "rustc_attr_ir")) as string[]).filter((f) => f.endsWith(".gen.ts")).map((f) => resolve(src, "rustc_attr_ir", f));

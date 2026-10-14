@@ -9,10 +9,11 @@ import { type AllocatorKind, debug_AllocatorKind } from "../rustc_ast/expand/all
 import { type AttrVec, type Crate, clone_Attribute as clone_Attribute_1, debug_Attribute as debug_Attribute_1, debug_Crate } from "../rustc_ast/lib.ts";
 import { type TokenStream, debug_TokenStream, stable_hash_TokenStream } from "../rustc_ast/tokenstream.ts";
 import { type DiagnosticItems, debug_DiagnosticItems } from "../rustc_attr_ir/diagnostic_items.ts";
-import { type LangItem, type LanguageItems, debug_LangItem, debug_LanguageItems } from "../rustc_attr_ir/lang_items.ts";
+import { type LangItem, type LanguageItems, debug_LangItem, debug_LanguageItems, stable_hash_LangItem } from "../rustc_attr_ir/lang_items.ts";
 import { type Attribute, clone_Attribute, debug_Attribute } from "../rustc_attr_ir/lib.ts";
+import { stable_hash_Attribute, stable_hash_DiagnosticItems, stable_hash_LanguageItems } from "../rustc_attr_ir/stable_hash.gen.ts";
 import { type SortedMap } from "../rustc_data_structures/sorted_map.ts";
-import { stable_hash_IndexMap, stable_hash_IndexSet, stable_hash_Option, stable_hash_Path, stable_hash_Result, stable_hash_String, stable_hash_Vec, stable_hash_bool, stable_hash_slice, stable_hash_str, stable_hash_unit, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_IndexMap, stable_hash_IndexSet, stable_hash_Option, stable_hash_Path, stable_hash_Result, stable_hash_String, stable_hash_Vec, stable_hash_bool, stable_hash_slice, stable_hash_str, stable_hash_tuple2, stable_hash_unit, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
 import { type Steal, debug_Steal } from "../rustc_data_structures/steal.ts";
 import { type Features } from "../rustc_feature/unstable.ts";
 import { type DefKind, debug_DefKind } from "../rustc_hir/def.ts";
@@ -4625,7 +4626,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `collecting attributes of \`${__0}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_Attribute(x, f)),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_Attribute),
   },
   codegen_fn_attrs: {
     name: "codegen_fn_attrs",
@@ -6407,7 +6408,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the lang items map`,
     debug_value: (v, f) => debug_LanguageItems(v, f),
-    stable_hash_value: undefined,
+    stable_hash_value: stable_hash_LanguageItems,
   },
   all_diagnostic_items: {
     name: "all_diagnostic_items",
@@ -6425,7 +6426,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the diagnostic items map`,
     debug_value: (v, f) => debug_DiagnosticItems(v, f),
-    stable_hash_value: undefined,
+    stable_hash_value: stable_hash_DiagnosticItems,
   },
   all_canonical_symbols: {
     name: "all_canonical_symbols",
@@ -6461,7 +6462,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the lang items defined in a crate`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_DefId(x[0], f), debug_LangItem(x[1], f)])),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, (v, hcx, h) => stable_hash_tuple2(v, hcx, h, stable_hash_DefId, stable_hash_LangItem)),
   },
   diagnostic_items: {
     name: "diagnostic_items",
@@ -6479,7 +6480,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the diagnostic items map in a crate`,
     debug_value: (v, f) => debug_DiagnosticItems(v, f),
-    stable_hash_value: undefined,
+    stable_hash_value: stable_hash_DiagnosticItems,
   },
   canonical_symbols: {
     name: "canonical_symbols",
@@ -6515,7 +6516,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `calculating the missing lang items in a crate`,
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_LangItem(x, f)),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_LangItem),
   },
   visible_parent_map: {
     name: "visible_parent_map",
