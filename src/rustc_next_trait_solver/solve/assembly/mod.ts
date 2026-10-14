@@ -25,7 +25,7 @@
 // `Debug` descriptor for `G` (decls.ts), so those two arms are `unported(..)` (binder.ts `instantiate` precedent).
 import { type ControlFlow, ControlFlow as ControlFlowC, type VisitorResult, VisitorResult as VisitorResultC } from "../../../rustc_ast_ir/visit.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
-import type { Clause, Clauses, ParamEnv, Predicate, Ty } from "../../../rustc_middle/ty/decls.ts";
+import type { Clause, Clauses, GenericArg, ParamEnv, Predicate, Ty } from "../../../rustc_middle/ty/decls.ts";
 import { Clause_upcast_from_PolyTraitRef, Predicate_upcast_from_TraitRef } from "../../../rustc_middle/ty/predicate.ts";
 import { debug_Ty, fold_Clause, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import type { DefId } from "../../../rustc_span/def_id.ts";
@@ -68,8 +68,8 @@ import type { Const } from "../../../rustc_type_ir/sty/consts.ts";
 import type { Region } from "../../../rustc_type_ir/sty/mod.ts";
 import { AliasTerm } from "../../../rustc_type_ir/term_kind.ts";
 import { AliasTy as AliasTyC, ProjectionAliasTy as ProjectionAliasTyImpl } from "../../../rustc_type_ir/ty_kind.ts";
-import type { OpaqueAliasTy, ProjectionAliasTy } from "../../../rustc_type_ir/ty/alias.ts";
-import { type TypingMode, TypingMode as TypingModeImpl } from "../../../rustc_type_ir/infer_ctxt.ts";
+import type { OpaqueAliasTy } from "../../../rustc_type_ir/ty/alias.ts";
+import { TypingMode as TypingModeImpl } from "../../../rustc_type_ir/infer_ctxt.ts";
 import { fold_Const } from "../../../rustc_type_ir/sty/consts.ts";
 import { upcast_from_self, type UpcastFrom } from "../../../rustc_type_ir/upcast.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
@@ -610,7 +610,7 @@ EvalCtxt.prototype.assemble_and_evaluate_candidates = function <G>(
   // normalizing the self type as well, since type variables are not uniquified.
   const goal = this.deeply_resolve_ignoring_regions(goal1, fold_Goal(G));
 
-  if (TypingModeC.is_coherence(this.typing_mode())) {
+  if (TypingModeImpl.is_coherence(this.typing_mode())) {
     const candidate = this.consider_coherence_unknowable_candidate(goal, G);
     if (candidate.$ === "Ok") {
       candidates.push(candidate._0);
@@ -745,7 +745,7 @@ EvalCtxt.prototype.assemble_builtin_impl_candidates = function <G>(
   // of trying to handle these manually, we just reject all builtin impls in reflection
   // mode. We can probably lift this restriction for specific cases, but this is safer.
   // See `try_as_dyn_builtin_impl` for how just allowing all builtin impls is unsound.
-  if (TypingModeC.is_reflection(this.typing_mode())) {
+  if (TypingModeImpl.is_reflection(this.typing_mode())) {
     return Ok(undefined);
   }
 
@@ -1043,7 +1043,7 @@ EvalCtxt.prototype.assemble_alias_bound_candidates_recur = function <G>(
   }
 
   // Recurse on the self type of the projection.
-  const next = this.structurally_normalize_ty(goal.param_env, ProjectionAliasTyC.projection_self_ty(projection_ty));
+  const next = this.structurally_normalize_ty(goal.param_env, ProjectionAliasTyImpl.projection_self_ty(projection_ty));
   if (next.$ === "Ok") {
     return this.assemble_alias_bound_candidates_recur(next._0, goal, candidates, AliasBoundKind.NonSelfBounds, G);
   }
@@ -1075,7 +1075,7 @@ EvalCtxt.prototype.assemble_object_bound_candidates = function <G>(
   // of trying to handle these manually, we just reject all builtin impls in reflection
   // mode. We can probably lift this restriction for specific cases, but this is safer.
   // See `try_as_dyn_builtin_impl` for how just allowing all builtin impls is unsound.
-  if (TypingModeC.is_reflection(this.typing_mode())) {
+  if (TypingModeImpl.is_reflection(this.typing_mode())) {
     return;
   }
 
@@ -1186,7 +1186,7 @@ EvalCtxt.prototype.consider_coherence_unknowable_candidate = function <G>(
   goal: Goal<G>,
   G: GoalKind<G>,
 ): Result<Candidate, NoSolutionOrRerunNonErased> {
-  return this.probe_trait_candidate(CandidateSourceC.CoherenceUnknowable).enter((ecx) => {
+  return this.probe_trait_candidate({ $: "CoherenceUnknowable" }).enter((ecx) => {
     const cx = ecx.cx();
     const trait_ref = G.trait_ref(goal.predicate, cx);
     const knowable = ecx.trait_ref_is_knowable(goal.param_env, trait_ref);
@@ -1230,7 +1230,7 @@ EvalCtxt.prototype.filter_specialized_impls = function (
   allow_inference_constraints: AllowInferenceConstraints,
   candidates: Candidate[],
 ): void {
-  if (TypingModeC.is_coherence(this.typing_mode())) {
+  if (TypingModeImpl.is_coherence(this.typing_mode())) {
     return;
   }
 
@@ -1764,30 +1764,6 @@ export class FindParamInClause implements TypeVisitor<ControlFlow<Result<Certain
 /** `NoSolution` (unit struct value). */
 const NoSolution: NoSolution = Object.freeze({});
 
-/** `CandidateSource::CoherenceUnknowable` (the generated unit-variant singleton). */
-const CandidateSourceC = {
-  get CoherenceUnknowable(): CandidateSource {
-    return { $: "CoherenceUnknowable" };
-  },
-};
-
-/** `TypingMode::is_coherence` / `is_reflection` (rustc_type_ir infer_ctxt.ts), read lazily. */
-const TypingModeC = {
-  is_coherence(m: TypingMode): boolean {
-    return TypingModeImpl.is_coherence(m);
-  },
-  is_reflection(m: TypingMode): boolean {
-    return TypingModeImpl.is_reflection(m);
-  },
-};
-
-/** `ProjectionAliasTy::projection_self_ty` (rustc_type_ir ty_kind.ts). */
-const ProjectionAliasTyC = {
-  projection_self_ty(p: ProjectionAliasTy): Ty {
-    return ProjectionAliasTyImpl.projection_self_ty(p);
-  },
-};
-
 /** `.map_err(Into::into)` from `QueryResult` (`NoSolution`) into `QueryResultOrRerunNonErased`. */
 function map_err_into(r: Result<CanonicalResponse, NoSolution>): QueryResultOrRerunNonErased {
   if (r.$ === "Err") return Err(NoSolutionOrRerunNonErased.from_NoSolution(r._0));
@@ -1800,7 +1776,7 @@ function map_err_into(r: Result<CanonicalResponse, NoSolution>): QueryResultOrRe
  * PORT(merge-w15a precedent, rustc_type_ir outlives.ts): `Interner::item_*bounds` is declared `impl IntoIterator`;
  * `TyCtxt`'s is the `Clauses` list (a `readonly Clause[]`), which `iter_instantiated`'s double-ended iterator needs.
  */
-function* iter_bounds(cx: TyCtxt, bounds: EarlyBinder<Iterable<Clause>>, args: readonly import("../../../rustc_middle/ty/decls.ts").GenericArg[]): Generator<Clause> {
+function* iter_bounds(cx: TyCtxt, bounds: EarlyBinder<Iterable<Clause>>, args: readonly GenericArg[]): Generator<Clause> {
   for (const u of EarlyBinder.iter_instantiated<Clause>(bounds as EarlyBinder<readonly Clause[]>, cx, args, fold_Clause)) {
     yield Unnormalized.skip_norm_wip(u);
   }
