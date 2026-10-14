@@ -97,6 +97,7 @@ exist at the pin. The 25 methods are the contract's list (`lower_resolved_ty_pat
 - Fresh-process `import()` of `hir_ty_lowering/mod.ts`, `lib.ts`, `collect.ts`, `decls.ts`: all load (mod.ts now imports
   `../lib.ts` for `check_c_variadic_abi`; it is used only inside function bodies).
 - `bun test src/rustc_hir_analysis`: contract.test.ts 10/10 + lower_ty.test.ts 4/4.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Full test run".
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4502 pass, 1 skip (the pre-existing linux-only one),
+  0 fail (4503 tests, 272 files, 1327 s).
 - `RUST_TS_AGENT=hir-ty-lowering-b bun scripts/difftest.ts --suite hir-tree-nocore --sample 200`: 200 MATCH / 0 DIFF /
   0 UNPORTED / 0 CRASH (run `20261014-120756-hir-ty-lowering-b-ldcn`). No driver path reaches the new code yet.
