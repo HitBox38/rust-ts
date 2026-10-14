@@ -192,3 +192,11 @@ of 0.55 s per case) to speed up the gate (harness batch).
 Next: wave 14 = lowering lanes (lower-lib-a/-b, lower-item, lower-expr, lower-pat-path-block, lower-asm-format-contract,
 lower-delegation, lower-index-diag, middle-hir, hir-pretty-a/-b) -> gate M3a (hir-tree); + tyir lanes.
 
+## M3a — DONE 2026-10-14 (gate-20261014-053236-root-e5u0): hir-tree-nocore 21335, hir-tree 21306; unpretty-hir 21310 protected (gate-20261014-092810).
+## Waves 15–16 merged 2026-10-14: rustc_middle::ty, type IR, next trait solver (425/425), infer contract, collect, HIR ty lowering.
+Compiler fns ported: 12816/25518 (50.2%).
+Next: tydump-subject (port side of tydump suites), delegation fn_sig_skip_binders repoint; infer fill lanes (infer-core, -relate, -regions,
+-canonical-outlives, -opaque-snapshot per infcx-contract split); wave 17 (trait-sel-solve, trait-sel-traits-a/-b, check-wf-a/-b, check-check,
+check-compare, check-region-intrinsic, coherence, variance-outlives-implwf, lint-levels-hir).
+Follow-ups: scripts tests pollute env when run with src (run separately); coverage can't mark two fns on one line; cache-deps notes N1-N3.
+
