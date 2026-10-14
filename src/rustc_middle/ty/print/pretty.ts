@@ -2683,25 +2683,25 @@ const PrettyPrinter_provided = {
 };
 
 /** PORT: pending ty-print-a: `impl Print<P> for Region` (print/mod.rs:354). */
-const print_Region: Print<Region> = {
+export const print_Region: Print<Region> = {
   print(self: Region, p: PrettyPrinter): void {
     p.print_region(self);
   },
 };
 /** PORT: pending ty-print-a: `impl Print<P> for Ty` (print/mod.rs:360). */
-const print_Ty: Print<Ty> = {
+export const print_Ty: Print<Ty> = {
   print(self: Ty, p: PrettyPrinter): void {
     p.print_type(self);
   },
 };
 /** PORT: pending ty-print-a: `impl Print<P> for &List<PolyExistentialPredicate>` (print/mod.rs:412). */
-const print_List_PolyExistentialPredicate: Print<List<PolyExistentialPredicate>> = {
+export const print_List_PolyExistentialPredicate: Print<List<PolyExistentialPredicate>> = {
   print(self: List<PolyExistentialPredicate>, p: PrettyPrinter): void {
     p.print_dyn_existential(self);
   },
 };
 /** PORT: pending ty-print-a: `impl Print<P> for Const` (print/mod.rs:418). */
-const print_Const: Print<Const> = {
+export const print_Const: Print<Const> = {
   print(self: Const, p: PrettyPrinter): void {
     p.print_const(self);
   },

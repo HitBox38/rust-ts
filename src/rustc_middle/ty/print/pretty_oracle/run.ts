@@ -148,6 +148,21 @@ async function main(): Promise<number> {
         out += `${ns} ${s} ${e} ${t}\n`;
       }
 
+      out += "== display\n";
+      if (!verbose) {
+        // `{x}`: `Display` (`forward_display_to_print!` / `IrPrint::print`) is `FmtPrinter::new(tcx, TypeNS)` + `x.print(p)`;
+        // here through `print_string` (see the header about `FmtPrinter::new`).
+        const d = <T>(pr: import("../pretty.ts").Print<T>, v: T): string => print_string(tcx, "TypeNS", (p) => pr.print(v, p));
+        const pt = d(pretty.print_ParamTy, { index: 0, name: Symbol.intern("T") });
+        const pc = d(pretty.print_ParamConst, { index: 1, name: Symbol.intern("N") });
+        const empty = d(pretty.print_List_Ty, tcx.mk_type_list([]));
+        const ga = d(pretty.print_GenericArg, tcx.lifetimes.re_static);
+        const ck = d(pretty.print_ClauseKind, { $: "UnstableFeature", _0: Symbol.intern("foo") });
+        const pk = d(pretty.print_PredicateKind, { $: "Ambiguous" });
+        const oc = d(pretty.print_OutlivesClause(pretty.print_Region), { _0: tcx.lifetimes.re_static, _1: tcx.lifetimes.re_erased });
+        out += `${pt} ${pc} ${empty} ${ga} [${ck}] [${pk}] [${oc}]\n`;
+      }
+
       out += "== byte_str\n";
       {
         const p = new_printer(tcx, "ValueNS");

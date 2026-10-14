@@ -11,6 +11,8 @@
 //!   == simple           `<def index> <print_path_with_simple> <same under with_crate_prefix>` per `hir_free_items`
 //!   == generic_args     `print_path_with_generic_args` with lifetime args, TypeNS and ValueNS; `typed_value`
 //!                       (skipped under -Zverbose-internals)
+//!   == display          Display of ParamTy, ParamConst, an empty `&List<Ty>`, a lifetime `GenericArg`, a
+//!                       `ClauseKind` / `PredicateKind` (`print`) and a region `OutlivesClause` (skipped under -Zverbose-internals)
 //!   == byte_str         `pretty_print_byte_str`, `pretty_print_bound_constness`, `should_print_verbose`
 //!   == trimmed (<n>)    `ty::print::trimmed_def_paths(tcx, ())` as `<DefId:?> <Symbol>`, sorted by (krate, index)
 #![feature(rustc_private)]
@@ -134,6 +136,21 @@ impl Callbacks for TyPrint {
             })
             .unwrap();
             writeln!(out, "{ns:?} {s} {e} {t}").unwrap();
+        }
+
+        writeln!(out, "== display").unwrap();
+        if !verbose {
+            let pt = ty::ParamTy::new(0, Symbol::intern("T"));
+            let pc = ty::ParamConst::new(1, Symbol::intern("N"));
+            let empty = tcx.mk_type_list(&[]);
+            let ga: GenericArg<'tcx> = tcx.lifetimes.re_static.into();
+            // (no Display: printed with `FmtPrinter::print_string(tcx, TypeNS, |p| x.print(p))`)
+            let ck = ty::ClauseKind::UnstableFeature(Symbol::intern("foo"));
+            let ck = FmtPrinter::print_string(tcx, Namespace::TypeNS, |p| ck.print(p)).unwrap();
+            let pk = ty::PredicateKind::Ambiguous;
+            let pk = FmtPrinter::print_string(tcx, Namespace::TypeNS, |p| pk.print(p)).unwrap();
+            let oc = ty::OutlivesClause::<TyCtxt<'tcx>, _>(tcx.lifetimes.re_static, tcx.lifetimes.re_erased);
+            writeln!(out, "{pt} {pc} {empty} {ga} [{ck}] [{pk}] [{oc}]").unwrap();
         }
 
         writeln!(out, "== byte_str").unwrap();
