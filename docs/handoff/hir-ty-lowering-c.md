@@ -122,4 +122,5 @@ collect-a/-b stubs and typeck is wave 17+. Once a suite lowers types:
 - `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Test run".
 
 ## Test run
-FULL_TEST_RESULT
+`RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4519 pass, 1 skip (pre-existing linux-only), 0 fail
+(4520 tests, 272 files, 1389 s).
