@@ -36,8 +36,7 @@ consts 14/14, consts/int 60/60, consts/kind 11/11, consts/lit 1/1, consts/valtre
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4351 pass, 1 skip (pre-existing), 1 fail on the first
-  run (a stale `context.test.ts` pin, fixed in the last commit; that file now 17/17).
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4352 pass, 1 skip (pre-existing linux-only), 0 fail.
 - difftest: `hir-tree-nocore --sample 200`: 198 MATCH, 2 UNPORTED (both `TyCtxt::is_method`, pre-existing; run
   `20261014-073330-ty-results-vzfq`); `resdump-nocore --sample 100`: 100/100 MATCH (`20261014-092326-ty-results-pxe5`).
 - Every non-gen module under `rustc_type_ir/` and `rustc_middle/ty/` loads as a fresh entry point (the six `.gen.ts` /
