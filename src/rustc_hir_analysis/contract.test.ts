@@ -519,8 +519,12 @@ test("provide installs the collect providers (and leaves the others)", () => {
   expect(providers.item_bounds).toBe(ItemBounds.item_bounds);
   expect(providers.fn_sig).toBe(Collect.fn_sig);
   expect(providers.const_of_item).toBe(Collect.const_of_item);
-  // collect.rs:65 assigns 32 queries; resolve_bound_vars::provide (stub) and the wave-17 modules none yet
-  expect(Object.keys(providers).length).toBe(32);
-  expect(providers.resolve_bound_vars).toBeUndefined();
+  // collect.rs:65 assigns 32 queries and resolve_bound_vars::provide (resolve_bound_vars.rs:234, lane collect-rbv) 6;
+  // the wave-17 modules none yet
+  expect(Object.keys(providers).length).toBe(38);
+  expect(providers.resolve_bound_vars).toBe(Rbv.resolve_bound_vars);
+  expect(providers.is_late_bound_map).toBe(Rbv.is_late_bound_map);
+  expect(providers.object_lifetime_default).toBe(Rbv.object_lifetime_default);
+  for (const q of ["named_variable_map", "late_bound_vars_map", "opaque_captured_lifetimes"]) expect([q, typeof providers[q]]).toEqual([q, "function"]);
   expect(providers.variances_of).toBeUndefined();
 });

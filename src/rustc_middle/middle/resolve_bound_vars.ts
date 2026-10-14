@@ -13,7 +13,7 @@ import { debug_ItemLocalId, type ItemLocalId } from "../../rustc_hir_id/lib.ts";
 import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../../rustc_span/def_id.ts";
 import { debug_ErrorGuaranteed, type ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { debug_SortedMap, SortedMap } from "../../rustc_data_structures/sorted_map.ts";
-import { debug_BoundVariableKind, type BoundVariableKind } from "../../rustc_type_ir/binder.gen.ts";
+import { debug_BoundVariableKind, type BoundVariableKind } from "../../rustc_type_ir/binder.ts";
 import { debug_DebruijnIndex, type DebruijnIndex } from "../../rustc_type_ir/lib.ts";
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
