@@ -24,82 +24,9 @@ import { PerNS } from "./def.gen.ts";
 
 export * from "./def.gen.ts";
 
-// ---- stand-ins for compiler/rustc_hir/src/hir.rs (PORT) ---------------------------------------
-// PORT: `hir::PrimTy` and `hir::Safety` are defined in hir.rs (M3, not ported). def.rs needs their
-// types and derived Debug for `Res::PrimTy` / `DefKind::Static`; these are the upstream definitions
-// (hir.rs:3320, hir.rs:4391) written by hand. Move them to src/rustc_hir/hir.ts when hir.rs is
-// ported (and point tools/codegen/typemap.hir.json at it).
-
-/// Not represented directly in the AST; referred to by name through a `ty_path`.
-// rustc-type: compiler/rustc_hir/src/hir.rs:3320 PrimTy
-export type PrimTy =
-  | { readonly $: "Int"; _0: IntTy }
-  | { readonly $: "Uint"; _0: UintTy }
-  | { readonly $: "Float"; _0: FloatTy }
-  | { readonly $: "Str" }
-  | { readonly $: "Bool" }
-  | { readonly $: "Char" };
-/** `#[derive(Debug)]` */
-export const debug_PrimTy: Debug<PrimTy> = (v, f) => {
-  switch (v.$) {
-    case "Int":
-      return debug_tuple(f, "Int", [debug_IntTy(v._0, f)]);
-    case "Uint":
-      return debug_tuple(f, "Uint", [debug_UintTy(v._0, f)]);
-    case "Float":
-      return debug_tuple(f, "Float", [debug_FloatTy(v._0, f)]);
-    case "Str":
-    case "Bool":
-    case "Char":
-      return v.$;
-  }
-};
-/**
- * `#[derive(Decodable)]` of `PrimTy` (hir.rs:3319), written out like the stand-in itself
- * (rustc_macros serialize.rs `decodable_body`: a `u8` variant index, then the fields).
- */
-export function decode_PrimTy(d: SpanDecoder): PrimTy {
-  const tag = d.read_u8();
-  switch (tag) {
-    case 0:
-      return { $: "Int", _0: decode_IntTy(d) };
-    case 1:
-      return { $: "Uint", _0: decode_UintTy(d) };
-    case 2:
-      return { $: "Float", _0: decode_FloatTy(d) };
-    case 3:
-      return { $: "Str" };
-    case 4:
-      return { $: "Bool" };
-    case 5:
-      return { $: "Char" };
-    default:
-      return panic(`invalid enum variant tag while decoding \`PrimTy\`, expected 0..6, actual ${tag}`);
-  }
-}
-
-// rustc-type: compiler/rustc_hir/src/hir.rs:4391 Safety
-export type Safety =
-  /// This is the default variant, because the compiler messing up
-  /// metadata encoding and failing to encode a `Safe` flag, means
-  /// downstream crates think a thing is `Unsafe` instead of silently
-  /// treating an unsafe thing as safe.
-  | "Unsafe"
-  | "Safe";
-/** `#[derive(Debug)]` */
-export const debug_Safety: Debug<Safety> = (v) => v;
-/** `#[derive(Decodable)]` of `Safety` (hir.rs:4390), written out like the stand-in itself. */
-export function decode_Safety(d: SpanDecoder): Safety {
-  const tag = d.read_u8();
-  switch (tag) {
-    case 0:
-      return "Unsafe";
-    case 1:
-      return "Safe";
-    default:
-      return panic(`invalid enum variant tag while decoding \`Safety\`, expected 0..2, actual ${tag}`);
-  }
-}
+// PORT: `hir::PrimTy` and `hir::Safety` (hir.rs) are generated into hir.gen.ts (set `rustc_hir`); def.rs names
+// them through `crate::hir`. Re-exported here for this module's existing importers (rustc_resolve).
+export { debug_PrimTy, debug_Safety, decode_PrimTy, decode_Safety, type PrimTy, type Safety } from "./hir.ts";
 
 // ---- def.rs -------------------------------------------------------------------------------------
 

@@ -49,6 +49,8 @@
 import { Mutability, Mutability_cmp, Pinnedness } from "../rustc_ast_ir/lib.ts";
 import type { MutRef } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, respan, Span, type Spanned } from "../rustc_span/lib.ts";
+import { type StableHashCtxt, type StableHasher, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_Ident } from "../rustc_span/stable_hash.gen.ts";
 import { debug_Ident, display_Ident, display_Symbol, Ident, kw, Symbol, sym } from "../rustc_span/symbol.ts";
 import { type Debug, debug_str, PLAIN } from "../std/fmt.ts";
 import { panic, unreachable, unwrap } from "../std/panic.ts";
@@ -252,7 +254,19 @@ gen.Path.prototype.eq_slice = function (this: Path, names: readonly Symbol[]): b
   return true;
 };
 
-// rustc-skip: compiler/rustc_ast/src/ast.rs:123 stable_hash StableHash (incremental, out of scope until M5)
+// impl StableHash for Path
+// rustc: compiler/rustc_ast/src/ast.rs:123 stable_hash
+export function stable_hash_Path(self: Path, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_usize(self.segments.length, hcx, hasher);
+  for (const segment of self.segments) {
+    stable_hash_Ident(segment.ident, hcx, hasher);
+    if (segment.args !== undefined) {
+      // This should never happen, because Path::stable_hash is only used for attributes,
+      // which never have generic args. Check that to make sure, though.
+      panic("Paths with generic args should not appear in incremental state");
+    }
+  }
+}
 
 /// Convert a span and an identifier to the corresponding
 /// one-segment path.

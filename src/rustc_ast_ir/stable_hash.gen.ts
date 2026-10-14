@@ -3,7 +3,7 @@
 // (the `isize` discriminant, or the `#[repr]` integer), then the fields of the variant / struct in declaration order,
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
-import { type FloatTy, type IntTy, type Mutability, type UintTy } from "./lib.ts";
+import { type FloatTy, type IntTy, type Movability, type Mutability, type Pinnedness, type UintTy } from "./lib.ts";
 import { stable_hash_Discriminant, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 
 // rustc-derive: compiler/rustc_ast_ir/src/lib.rs:24 StableHash for IntTy
@@ -24,8 +24,20 @@ export function stable_hash_FloatTy(self: FloatTy, __hcx: StableHashCtxt, __hash
   stable_hash_Discriminant(FloatTy__discriminant[self], __hcx, __hasher);
 }
 
+// rustc-derive: compiler/rustc_ast_ir/src/lib.rs:223 StableHash for Movability
+const Movability__discriminant = { Static: 0, Movable: 1 } as const;
+export function stable_hash_Movability(self: Movability, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(Movability__discriminant[self], __hcx, __hasher);
+}
+
 // rustc-derive: compiler/rustc_ast_ir/src/lib.rs:232 StableHash for Mutability
 const Mutability__discriminant = { Not: 0, Mut: 1 } as const;
 export function stable_hash_Mutability(self: Mutability, __hcx: StableHashCtxt, __hasher: StableHasher): void {
   stable_hash_Discriminant(Mutability__discriminant[self], __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_ast_ir/src/lib.rs:291 StableHash for Pinnedness
+const Pinnedness__discriminant = { Not: 0, Pinned: 1 } as const;
+export function stable_hash_Pinnedness(self: Pinnedness, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(Pinnedness__discriminant[self], __hcx, __hasher);
 }

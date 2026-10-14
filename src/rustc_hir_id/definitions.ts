@@ -9,6 +9,7 @@
 // `PerParentDisambiguatorState` is hand-written here (`hand` in the set). Methods are attached to
 // the generated classes (`declare module` + prototype), associated fns are statics on the
 // re-exported class consts, enum methods live on the companion (PORTING §8).
+import { SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import { StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { utf8 } from "../std/str.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
@@ -27,54 +28,12 @@ export { DefPathHash } from "../rustc_span/def_id.ts";
 
 // ---- stand-ins (PORT) ------------------------------------------------------------------------
 
-/**
- * PORT: stand-in for `rustc_data_structures::sorted_map::SortedMap<K, V>` (a `Vec<(K, V)>` kept
- * sorted by key) until that module is ported: `get`/`insert` with the upstream semantics (binary
- * search; `insert` returns the previous value). Keys are primitives compared with `<`.
- */
-export class SortedMap<K extends number | bigint | string, V> {
-  constructor(public data: [K, V][]) {}
+// PORT: `SortedMap` is rustc_data_structures/sorted_map.ts (re-exported for the existing importers of this module).
+export { debug_SortedMap, SortedMap } from "../rustc_data_structures/sorted_map.ts";
 
-  /** `SortedMap::default()` */
-  static default<K extends number | bigint | string, V>(): SortedMap<K, V> {
-    return new SortedMap<K, V>([]);
-  }
-
-  private lookup_index_for(key: K): { $: "Ok" | "Err"; i: number } {
-    let lo = 0;
-    let hi = this.data.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      const k = this.data[mid]![0];
-      if (k < key) lo = mid + 1;
-      else if (k > key) hi = mid;
-      else return { $: "Ok", i: mid };
-    }
-    return { $: "Err", i: lo };
-  }
-
-  /** `SortedMap::get` */
-  get(key: K): V | undefined {
-    const r = this.lookup_index_for(key);
-    return r.$ === "Ok" ? this.data[r.i]![1] : undefined;
-  }
-
-  /** `SortedMap::insert` */
-  insert(key: K, value: V): V | undefined {
-    const r = this.lookup_index_for(key);
-    if (r.$ === "Ok") {
-      const old = this.data[r.i]![1];
-      this.data[r.i]![1] = value;
-      return old;
-    }
-    this.data.splice(r.i, 0, [key, value]);
-    return undefined;
-  }
-}
-
-/** `#[derive(Debug)] struct SortedMap { data: Vec<(K, V)> }` */
-export function debug_SortedMap<K extends number | bigint | string, V>(v: SortedMap<K, V>, f: Fmt, debug_K: Debug<K>, debug_V: Debug<V>): string {
-  return debug_struct(f, "SortedMap", [["data", debug_vec(v.data, f, (e, f) => debug_tuple(f, "", [debug_K(e[0], f), debug_V(e[1], f)]))]]);
+/** `Ord for Hash64` (the `u64`), the comparator of `after_parallel_alloc`'s `SortedMap`. */
+function Hash64_cmp(a: Hash64, b: Hash64): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**
@@ -391,7 +350,7 @@ export const Definitions = gen.Definitions as typeof gen.Definitions & {
 // rustc: compiler/rustc_hir_id/src/definitions.rs:307 commit_end_of_determinism
 gen.Definitions.prototype.commit_end_of_determinism = function (this: Definitions): void {
   const old = this.def_path_hash_to_index.after_parallel_alloc;
-  this.def_path_hash_to_index.after_parallel_alloc = SortedMap.default();
+  this.def_path_hash_to_index.after_parallel_alloc = SortedMap.default(Hash64_cmp);
   assert(old === undefined, "this function should be called only once");
 };
 

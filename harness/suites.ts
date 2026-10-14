@@ -1,9 +1,9 @@
 // Differential test suites. Each case runs on the oracle and on rust-ts with the same
 // inputs; outputs (stdout, stderr, exit code) must be byte-identical.
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { REPO, UPSTREAM } from "../scripts/lib/common.ts";
-import { oracleRustcCmd, oracleSysroot } from "../scripts/lib/oracle.ts";
+import { DATA, REPO, UPSTREAM, hash } from "../scripts/lib/common.ts";
+import { oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { COMPILETEST_TARGET, uiCases, type ErrorFormat } from "./compiletest.ts";
 
@@ -423,6 +423,132 @@ SUITES.push(
     skipped: () => STD_SKIPPED,
     oracle: ([c]) => [probePath("resdump"), ...c!.args],
     subject: ([c]) => [...bunCmd("src/rust_ts/resdump.ts"), ...c!.args],
+  },
+);
+
+// M3 (plan-m3 D1/D1a, D11, §4): type checking through the rustc-dev probes tools/probes/tydump (per-item
+// type facts + typeck results) and tools/probes/thirdump (`{:#?}` of every body's THIR). Both stop the
+// compilation after `rustc_hir_analysis::check_crate` (run_required_analyses up to definitions.freeze(),
+// without check_crate's const-eval arm, D1a; tools/probes/tydump/prefix.rs). Unprotected until root
+// accepts a run. Env, timeouts and one process per case as the M2 nocore suites.
+
+// `tydump-nocore`: resdump-nocore's cases (every tests/ui file as a `#![no_core]` crate, same argv and
+// skips) through tydump. A smoke test (D11): most cases stop at the first fatal `requires `sized`
+// lang_item`, so stdout is empty and only the diagnostics are compared.
+SUITES.push({
+  name: "tydump-nocore",
+  milestone: "M3",
+  description:
+    "type checking results (rustc-dev probe tools/probes/tydump: run_required_analyses up to typeck without const eval, then per-DefId generics_of/clauses_of/type_of/fn_sig/variances_of/explicit_item_bounds/impl_trait_header and every body's TypeckResults, sorted, plus the diagnostics) on every .rs in tests/ui as a #![no_core] crate, args as resdump-nocore",
+  mode: "single",
+  timeoutMs: 60_000,
+  oracleTimeoutMs: 300_000,
+  probes: ["tydump"],
+  cases: () => nocoreCorpus().map((f) => ({ id: f, file: f, args: [...nocoreArgs(f), f], env: NOCORE_ENV })),
+  skipped: () => NOCORE_SKIPPED,
+  oracle: ([c]) => [probePath("tydump"), ...c!.args],
+  subject: ([c]) => [...bunCmd("src/rust_ts/tydump.ts"), ...c!.args],
+});
+
+// The minicore corpus (D11), shared by `tydump-minicore` and `thirdump-minicore`:
+// (a) cg_clif's `example/mini_core.rs` as a lib crate, and `example/mini_core_hello_world.rs` (a bin)
+//     against it. Flags: cg_clif's `rustc_command` (compiler/rustc_codegen_cranelift/build_system/tests.rs
+//     at the pin: `-Cdebuginfo=2 --target <t> -Cpanic=abort --check-cfg=cfg(jit)
+//     --check-cfg=cfg(target_has_reliable_f128) --edition=2024 -Zforce-unstable-if-unmarked`, then the
+//     source; `--crate-type lib` for mini_core, which cg_clif builds as `lib,dylib`), with target and
+//     sysroot per M2 D1. cg_clif's `-L crate=<out dir>` + `--out-dir` become `--extern
+//     mini_core=<rmeta>`: the aux crate is built by the oracle (M2 D5) with `--emit=metadata` into
+//     `$RUST_TS_DATA/aux/mini_core-<key>/`, key = hash of the oracle build (rustcDriverHash), the
+//     source and the flags, so the path in the case args (and so the oracle cache key) changes with
+//     any of them. Built on first use, when the case list is made.
+// (b) every tests/ui test that is natively `#![no_core]` or has an `add-minicore` directive, with
+//     compiletest's UI-test argv (harness/compiletest.ts, `human` format, revisions, directives, env)
+//     minus the `-Zparse-crate-root-only` it appends for the parse-ui suites. Tests compiletest.ts does not
+//     reproduce are skipped with its reason: today every `add-minicore` test (minicore is not built yet:
+//     tests/auxiliary is outside the sparse checkout, plan-m3 D11) and every test with an aux crate.
+const CG_CLIF_EXAMPLE = "compiler/rustc_codegen_cranelift/example";
+const cgClifArgs = (): string[] => [
+  "-Cdebuginfo=2",
+  "--target",
+  COMPILETEST_TARGET,
+  "--sysroot",
+  oracleSysroot(),
+  "-Cpanic=abort",
+  "--check-cfg=cfg(jit)",
+  "--check-cfg=cfg(target_has_reliable_f128)",
+  "--edition=2024",
+  "-Zforce-unstable-if-unmarked",
+];
+/** `lib<crate>.rmeta` of `file` (a lib crate) built by the oracle with `args`, cached by content (see above). */
+function oracleAuxRmeta(file: string, crate: string, args: string[]): string {
+  const key = hash([rustcDriverHash(), hash(readFileSync(join(UPSTREAM, file))), file, ...args].join("\0")).slice(0, 16);
+  const dir = join(DATA, "aux", `${crate}-${key}`);
+  const out = join(dir, `lib${crate}.rmeta`);
+  if (!existsSync(out)) {
+    mkdirSync(dir, { recursive: true });
+    const r = Bun.spawnSync(oracleRustcCmd([...args, file, "--crate-type", "lib", "--emit=metadata", "--out-dir", dir]), {
+      cwd: UPSTREAM,
+      env: { ...process.env, ...NOCORE_ENV },
+    });
+    if (r.exitCode !== 0 || !existsSync(out)) throw new Error(`ERROR: oracle build of aux crate ${file} failed: ${r.stderr.toString().trim()}`);
+  }
+  return out;
+}
+const minicoreUiFile = (f: string): boolean => {
+  const src = readFileSync(join(UPSTREAM, f), "utf8");
+  return /^\s*#!\[no_core\]/m.test(src) || /^\s*\/\/@\s*add-minicore\b/m.test(src);
+};
+let minicoreMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
+function minicoreCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
+  if (minicoreMemo) return minicoreMemo;
+  const mc = `${CG_CLIF_EXAMPLE}/mini_core.rs`;
+  const hw = `${CG_CLIF_EXAMPLE}/mini_core_hello_world.rs`;
+  const cases: Case[] = [
+    { id: mc, file: mc, args: [...cgClifArgs(), mc, "--crate-type", "lib"], env: NOCORE_ENV },
+    { id: hw, file: hw, args: ["--extern", `mini_core=${oracleAuxRmeta(mc, "mini_core", cgClifArgs())}`, ...cgClifArgs(), hw], env: NOCORE_ENV },
+  ];
+  const files = corpus("tests/ui").filter((f) => !f.includes("/auxiliary/") && minicoreUiFile(f));
+  const want = new Set(files);
+  // uiCases takes directories (recursively): the files' directories, without those under another one.
+  const dirs = [...new Set(files.map((f) => f.slice(0, f.lastIndexOf("/"))))].sort();
+  const roots = dirs.filter((d) => !dirs.some((p) => p !== d && d.startsWith(p + "/")));
+  const ui = uiCases(roots, "human");
+  const fileOf = (id: string) => id.split("#")[0]!;
+  for (const c of ui.cases) {
+    if (!want.has(c.file)) continue;
+    cases.push({ id: c.id, file: c.file, args: c.args.filter((a) => a !== "-Zparse-crate-root-only"), env: { ...NOCORE_ENV, ...c.env } });
+  }
+  const skipped = ui.skipped.filter((k) => want.has(fileOf(k.id)));
+  return (minicoreMemo = { cases, skipped });
+}
+SUITES.push(
+  {
+    name: "tydump-minicore",
+    milestone: "M3",
+    description:
+      "tools/probes/tydump (as tydump-nocore) on cg_clif's mini_core.rs (lib) and mini_core_hello_world.rs (--extern mini_core=<oracle-built rmeta>) with cg_clif's flags, and the natively #![no_core] / add-minicore tests of tests/ui with compiletest's UI-test argv (human diagnostics)",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: 300_000,
+    probes: ["tydump"],
+    cases: () => minicoreCorpus().cases,
+    skipped: () => minicoreCorpus().skipped,
+    oracle: ([c]) => [probePath("tydump"), ...c!.args],
+    subject: ([c]) => [...bunCmd("src/rust_ts/tydump.ts"), ...c!.args],
+  },
+  {
+    name: "thirdump-minicore",
+    milestone: "M3",
+    description:
+      "THIR of every body (rustc-dev probe tools/probes/thirdump: the tydump prefix, abort_if_errors, then `{did:?}:\\n{thir_flat}\\n` per hir_body_owner, as -Zunpretty=thir-flat prints) on the tydump-minicore cases",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: 300_000,
+    probes: ["thirdump"],
+    cases: () => minicoreCorpus().cases,
+    skipped: () => minicoreCorpus().skipped,
+    oracle: ([c]) => [probePath("thirdump"), ...c!.args],
+    subject: ([c]) => [...bunCmd("src/rust_ts/thirdump.ts"), ...c!.args],
   },
 );
 

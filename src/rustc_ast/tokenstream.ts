@@ -46,6 +46,8 @@ import {
 } from "./tokenstream.gen.ts";
 import { BytePos, DUMMY_SP, Span, type SpanDecoder, debug_Span } from "../rustc_span/lib.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
+import { type StableHashCtxt, type StableHasher, stable_hash_slice } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_TokenTree } from "./stable_hash.gen.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unwrap } from "../std/panic.ts";
 import { extend, partition_point, splice } from "../std/slice.ts";
@@ -861,7 +863,11 @@ TokenStream.from_iter = function (iter: Iterable<TokenTree>): TokenStream {
   return TokenStream.new([...iter]);
 };
 
-// rustc-skip: compiler/rustc_ast/src/tokenstream.rs:870 stable_hash StableHash (incremental, out of scope until M5)
+// impl StableHash for TokenStream
+// rustc: compiler/rustc_ast/src/tokenstream.rs:870 stable_hash
+export function stable_hash_TokenStream(self: TokenStream, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_slice(self._0, hcx, hasher, stable_hash_TokenTree);
+}
 
 // PORT: `TokenStreamIter<'t>(std::slice::Iter<'t, TokenTree>)`: the slice and a position.
 export class TokenStreamIter {

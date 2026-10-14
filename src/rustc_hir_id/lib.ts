@@ -5,9 +5,12 @@
 // Types are generated into lib.gen.ts (tools/codegen/types.ts, set `rustc_hir`); methods are
 // attached to the generated classes below (`declare module` + prototype), statics/consts on the
 // companions.
-import { CRATE_DEF_ID, DefIndex, type DefId, LocalDefId, LocalModId, debug_LocalDefId } from "../rustc_span/def_id.ts";
+import type { StableHashCtxt, StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import { CRATE_DEF_ID, DefIndex, type DefId, type DefPathHash, DefId_to_stable_hash_key, LocalDefId, LocalModId, debug_LocalDefId } from "../rustc_span/def_id.ts";
+import { stable_hash_DefPathHash } from "../rustc_span/stable_hash.gen.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
-import { assert_eq } from "../std/panic.ts";
+import { assert_eq, panic } from "../std/panic.ts";
+import { KeyedMap, KeyedSet } from "../rust_ts/keyed.ts";
 import * as gen from "./lib.gen.ts";
 import { HirId, OwnerId } from "./lib.gen.ts";
 
@@ -71,8 +74,18 @@ OwnerId.prototype.index = function (this: OwnerId): number {
   return DefIndex.as_usize(LocalDefId.local_def_index(this.def_id));
 };
 
-// rustc-skip: compiler/rustc_hir_id/src/lib.rs:72 stable_hash StableHash impl (incremental, M5)
-// rustc-skip: compiler/rustc_hir_id/src/lib.rs:81 to_stable_hash_key ToStableHashKey impl (incremental, M5)
+// impl StableHash for OwnerId
+// PORT: a free fn (the derive(StableHash) generator imports `stable_hash_OwnerId` from this module).
+// rustc: compiler/rustc_hir_id/src/lib.rs:72 stable_hash
+export function stable_hash_OwnerId(self: OwnerId, hcx: StableHashCtxt, hasher: StableHasher): void {
+  stable_hash_DefPathHash(OwnerId_to_stable_hash_key(self, hcx), hcx, hasher);
+}
+
+// impl ToStableHashKey for OwnerId
+// rustc: compiler/rustc_hir_id/src/lib.rs:81 to_stable_hash_key
+export function OwnerId_to_stable_hash_key(self: OwnerId, hcx: StableHashCtxt): DefPathHash {
+  return DefId_to_stable_hash_key(self.to_def_id(), hcx);
+}
 
 /// Uniquely identifies a node in the HIR of the current crate. It is
 /// composed of the `owner`, which is the `LocalDefId` of the directly enclosing
@@ -130,9 +143,32 @@ export function HirId_from_LocalModId(id: LocalModId): HirId {
 
 // rustc_data_structures::define_stable_id_collections!(HirIdMap, HirIdSet, HirIdMapEntry, HirId);
 // rustc_data_structures::define_id_collections!(ItemLocalMap, ItemLocalSet, ItemLocalMapEntry, ItemLocalId);
-// PORT: the id collections are not defined here: `HirId` is a class (not a JS Map key; same open
-// key-strategy decision as `DefIdMap` in rustc_span/def_id.ts). `ItemLocalMap<T>` /
-// `ItemLocalSet` are plain `Map<ItemLocalId, T>` / `Set<ItemLocalId>` (branded numbers) at use sites.
+// PORT (docs/plan-m3.md D5): `HirIdMap<T>` = `FxIndexMap<HirId, T>` and `HirIdSet` = `FxIndexSet<HirId>` are
+// `Map`/`Set` subclasses keyed by `HirId_key` (rust_ts/keyed.ts): value comparison, insertion order (the
+// `FxIndexMap` order). `HirIdMapEntry` (the entry API) is `Map` get/set. `ItemLocalMap<T>` / `ItemLocalSet`
+// are plain `Map<ItemLocalId, T>` / `Set<ItemLocalId>` (branded numbers) at use sites.
+
+/**
+ * PORT (D5): the JS map key of a `HirId`, `owner * 2^32 + local_id`; equal exactly when the `HirId`s are, exact
+ * while the owner's `DefIndex` is below 2^21 (checked).
+ */
+export function HirId_key(id: HirId): number {
+  const k = id.owner.def_id * 0x1_0000_0000 + id.local_id;
+  if (!Number.isSafeInteger(k)) panic(`HirId_key: owner index ${id.owner.def_id} too large for an exact key`);
+  return k;
+}
+
+export class HirIdMap<T> extends KeyedMap<HirId, T> {
+  constructor(entries?: Iterable<readonly [HirId, T]>) {
+    super(HirId_key, entries);
+  }
+}
+
+export class HirIdSet extends KeyedSet<HirId> {
+  constructor(values?: Iterable<HirId>) {
+    super(HirId_key, values);
+  }
+}
 
 /// An `ItemLocalId` uniquely identifies something within a given "item-like";
 /// that is, within a `hir::Item`, `hir::TraitItem`, or `hir::ImplItem`.

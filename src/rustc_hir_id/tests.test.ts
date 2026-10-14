@@ -208,8 +208,8 @@ describe("rustc_hir_id::definitions", () => {
     expect(h.insert(Hash64.new(3n), DefIndex.from_u32(7))).toBeUndefined();
     expect(h.insert(Hash64.new(1n), DefIndex.from_u32(8))).toBeUndefined();
     expect(h.get(Hash64.new(3n))).toBe(DefIndex.from_u32(7));
-    expect(debug_SortedMap(h.after_parallel_alloc!, PLAIN, (v) => String(v), (v) => String(v))).toBe("SortedMap { data: [(1, 8), (3, 7)] }");
-    const sm = SortedMap.default<bigint, number>();
+    expect(debug_SortedMap(h.after_parallel_alloc!, PLAIN, (v) => String(v), (v) => String(v))).toBe("{1: 8, 3: 7}");
+    const sm = SortedMap.default<bigint, number>((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     expect(sm.insert(2n, 1)).toBeUndefined();
     expect(sm.insert(2n, 3)).toBe(1);
     expect(sm.get(2n)).toBe(3);
