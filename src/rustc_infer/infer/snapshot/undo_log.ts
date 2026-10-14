@@ -19,8 +19,8 @@ import { type UndoLogs, UndoLogs_provided } from "../../../vendor/ena/undo_log.t
 import type { InPlaceUndoLog } from "../../../vendor/ena/unify/mod.ts";
 import { InferCtxtInner } from "../../decls.ts";
 import type { UndoLog as ProjectionCacheUndoLog } from "../../traits/project.ts";
-import type { UndoLog as RegionConstraintsUndoLog } from "../region_constraints/mod.gen.ts";
-import { clone_UndoLog as clone_RegionConstraintsUndoLog } from "../region_constraints/mod.gen.ts";
+import type { UndoLog as RegionConstraintsUndoLog } from "../region_constraints/mod.ts";
+import { clone_UndoLog as clone_RegionConstraintsUndoLog } from "../region_constraints/mod.ts";
 import type { SolverRegionConstraint } from "../solver_region_constraints.ts";
 import * as type_variable from "../type_variable.ts";
 import type { ConstVariableValue, ConstVidKey, RegionVariableValue, RegionVidKey } from "../unify_key.gen.ts";

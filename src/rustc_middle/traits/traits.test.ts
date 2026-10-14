@@ -12,6 +12,7 @@ import { Unported } from "../../std/panic.ts";
 import { CtxtInterners, GlobalCaches, type GlobalCtxt, TyCtxt } from "../ty/context.ts";
 import { DepNodeIndex } from "../dep_graph/graph.ts";
 import { WithDepNode, WithDepNodeCache } from "./cache.ts";
+import { CanonicalParamEnvCache as InferCanonicalParamEnvCache } from "../infer/canonical.ts";
 import {
   DynCompatibilityViolation,
   DynCompatibilityViolationSolution,
@@ -139,12 +140,13 @@ describe("cache.rs", () => {
     expect(n.get(tcx)).toBe(5);
   });
 
-  test("GlobalCaches::default builds the traits caches (infer's CanonicalParamEnvCache stops on first use)", () => {
-    // merge-w15b: rmeta-ty's `pending_cache` defers the infer cache's stop from `default` to its first use.
+  test("GlobalCaches::default builds the traits caches and infer's CanonicalParamEnvCache", () => {
+    // infcx-contract: rustc_middle infer/canonical.rs's `CanonicalParamEnvCache` (with its derived `Default`) is ported.
     const caches = GlobalCaches.default_();
     expect(caches.selection_cache).toBeInstanceOf(WithDepNodeCache);
     expect(caches.evaluation_cache).toBeInstanceOf(WithDepNodeCache);
-    expect(() => (caches.canonical_param_env_cache as unknown as { get(): unknown }).get()).toThrow(/CanonicalParamEnvCache: Default \(lane infcx-contract\)/);
+    expect(caches.canonical_param_env_cache).toBeInstanceOf(InferCanonicalParamEnvCache);
+    expect(caches.canonical_param_env_cache.map.size).toBe(0);
   });
 });
 

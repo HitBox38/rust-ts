@@ -1374,3 +1374,457 @@ export type InferDeclsUnused =
   | Clauses
   | BoundVar
   | Range<number>;
+
+// ======================================================================================================================
+// Comment-only declarations: the remaining fns of the crate (file-local helper types, trait impls of folders and
+// relations, private fns), by file. `<Self>[<Trait>]` is the impl the fn sits in (`-` = free fn). The owning lane picks
+// the TS form (methods on a generated class via `declare module` in its own file, a descriptor object, a free fn).
+// ======================================================================================================================
+
+// ---- infer/at.rs (lane infer-core) ----
+// infer/at.rs:320
+// to_trace: Ty[ToTrace]
+// infer/at.rs:329
+// to_trace: ty[ToTrace]
+// infer/at.rs:335
+// to_trace: Const[ToTrace]
+// infer/at.rs:344
+// to_trace: ty[ToTrace]
+// infer/at.rs:364
+// to_trace: ty[ToTrace]
+// infer/at.rs:370
+// to_trace: ty[ToTrace]
+// infer/at.rs:376
+// to_trace: ty[ToTrace]
+// infer/at.rs:385
+// to_trace: ty[ToTrace]
+// infer/at.rs:391
+// to_trace: ty[ToTrace]
+// infer/at.rs:403
+// to_trace: ty[ToTrace]
+// infer/at.rs:409
+// to_trace: ty[ToTrace]
+// infer/at.rs:418
+// to_trace: ty[ToTrace]
+// infer/at.rs:430
+// to_trace: ty[ToTrace]
+// infer/at.rs:439
+// to_trace: ty[ToTrace]
+
+// ---- infer/canonical/canonicalizer.rs (lane infer-canonical-outlives) ----
+// infer/canonical/canonicalizer.rs:141
+// canonicalize_free_region: trait:CanonicalizeMode[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:147
+// any: trait:CanonicalizeMode[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:150
+// preserve_universes: trait:CanonicalizeMode[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:156
+// canonicalize_free_region: CanonicalizeQueryResponse[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:209
+// any: CanonicalizeQueryResponse[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:213
+// preserve_universes: CanonicalizeQueryResponse[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:221
+// canonicalize_free_region: CanonicalizeUserTypeAnnotation[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:240
+// any: CanonicalizeUserTypeAnnotation[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:244
+// preserve_universes: CanonicalizeUserTypeAnnotation[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:252
+// canonicalize_free_region: CanonicalizeAllFreeRegions[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:260
+// any: CanonicalizeAllFreeRegions[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:264
+// preserve_universes: CanonicalizeAllFreeRegions[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:272
+// canonicalize_free_region: CanonicalizeFreeRegionsOtherThanStatic[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:280
+// any: CanonicalizeFreeRegionsOtherThanStatic[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:284
+// preserve_universes: CanonicalizeFreeRegionsOtherThanStatic[CanonicalizeMode]
+// infer/canonical/canonicalizer.rs:310
+// cx: Canonicalizer[TypeFolder]
+// infer/canonical/canonicalizer.rs:314
+// fold_region: Canonicalizer[TypeFolder]
+// infer/canonical/canonicalizer.rs:332
+// fold_ty: Canonicalizer[TypeFolder]
+// infer/canonical/canonicalizer.rs:434
+// fold_const: Canonicalizer[TypeFolder]
+// infer/canonical/canonicalizer.rs:487
+// fold_predicate: Canonicalizer[TypeFolder]
+// infer/canonical/canonicalizer.rs:491
+// fold_clauses: Canonicalizer[TypeFolder]
+// infer/canonical/canonicalizer.rs:499
+// canonicalize: Canonicalizer
+// infer/canonical/canonicalizer.rs:525
+// canonicalize_with_base: Canonicalizer
+// infer/canonical/canonicalizer.rs:589
+// canonical_var: Canonicalizer
+// infer/canonical/canonicalizer.rs:653
+// get_or_insert_sub_root: Canonicalizer
+// infer/canonical/canonicalizer.rs:663
+// universe_canonicalized_var_kinds: Canonicalizer
+// infer/canonical/canonicalizer.rs:722
+// canonical_var_for_region_in_root_universe: Canonicalizer
+// infer/canonical/canonicalizer.rs:731
+// canonical_var_for_region: Canonicalizer
+// infer/canonical/canonicalizer.rs:744
+// canonicalize_ty_var: Canonicalizer
+// infer/canonical/canonicalizer.rs:758
+// canonicalize_const_var: Canonicalizer
+
+// ---- infer/canonical/instantiate.rs (lane infer-canonical-outlives) ----
+// infer/canonical/instantiate.rs:87
+// cx: CanonicalInstantiator[TypeFolder]
+// infer/canonical/instantiate.rs:91
+// fold_ty: CanonicalInstantiator[TypeFolder]
+// infer/canonical/instantiate.rs:110
+// fold_region: CanonicalInstantiator[TypeFolder]
+// infer/canonical/instantiate.rs:119
+// fold_const: CanonicalInstantiator[TypeFolder]
+// infer/canonical/instantiate.rs:128
+// fold_predicate: CanonicalInstantiator[TypeFolder]
+// infer/canonical/instantiate.rs:132
+// fold_clauses: CanonicalInstantiator[TypeFolder]
+// infer/canonical/instantiate.rs:164
+// highest_var_in_clauses: -
+// infer/canonical/instantiate.rs:169
+// visit_ty: HighestVarInClauses[TypeVisitor]
+// infer/canonical/instantiate.rs:176
+// visit_region: HighestVarInClauses[TypeVisitor]
+// infer/canonical/instantiate.rs:181
+// visit_const: HighestVarInClauses[TypeVisitor]
+
+// ---- infer/context.rs (lane infer-relate) ----
+// infer/context.rs:400
+// lower_universe: -
+// infer/context.rs:443
+// cx: LowerUniverseFolder[TypeFolder]
+// infer/context.rs:447
+// fold_ty: LowerUniverseFolder[TypeFolder]
+// infer/context.rs:483
+// fold_const: LowerUniverseFolder[TypeFolder]
+// infer/context.rs:519
+// fold_region: LowerUniverseFolder[TypeFolder]
+
+// ---- infer/freshen.rs (lane infer-core) ----
+// infer/freshen.rs:97
+// cx: TypeFreshener[TypeFolder]
+// infer/freshen.rs:101
+// fold_region: TypeFreshener[TypeFolder]
+// infer/freshen.rs:118
+// fold_ty: TypeFreshener[TypeFolder]
+// infer/freshen.rs:135
+// fold_const: TypeFreshener[TypeFolder]
+
+// ---- infer/lexical_region_resolve/indexed_edges.rs (lane infer-regions) ----
+// infer/lexical_region_resolve/indexed_edges.rs:26
+// build_index: IndexedConstraintEdges
+// infer/lexical_region_resolve/indexed_edges.rs:78
+// adjacent_edges: IndexedConstraintEdges
+
+// ---- infer/lexical_region_resolve/mod.rs (lane infer-regions) ----
+// infer/lexical_region_resolve/mod.rs:139
+// tcx: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:143
+// infer_variable_values: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:167
+// num_vars: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:173
+// construct_var_data: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:186
+// dump_constraints: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:192
+// expansion: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:325
+// expand_node: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:392
+// sub_region_values: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:473
+// sub_concrete_regions: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:503
+// lub_concrete_regions: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:548
+// collect_errors: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:630
+// collect_var_errors: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:694
+// collect_error_for_expanding_node: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:715
+// region_order_key: -
+// infer/lexical_region_resolve/mod.rs:812
+// collect_bounding_regions: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:858
+// process_edges: -
+// infer/lexical_region_resolve/mod.rs:900
+// bound_is_met: LexicalResolver
+// infer/lexical_region_resolve/mod.rs:957
+// fmt: RegionAndOrigin[Debug]
+
+// ---- infer/mod.rs (lane infer-core) ----
+// infer/mod.rs:1571
+// replace_region: ToFreshVars[BoundVarReplacerDelegate]
+// infer/mod.rs:1574
+// replace_ty: ToFreshVars[BoundVarReplacerDelegate]
+// infer/mod.rs:1577
+// replace_const: ToFreshVars[BoundVarReplacerDelegate]
+// infer/mod.rs:1796
+// cx: InferenceLiteralEraser[TypeFolder]
+// infer/mod.rs:1800
+// fold_ty: InferenceLiteralEraser[TypeFolder]
+// infer/mod.rs:1945
+// unresolved_root_variables_of: -
+
+// ---- infer/outlives/obligations.rs (lane infer-canonical-outlives) ----
+// infer/outlives/obligations.rs:454
+// new: Comma
+// infer/outlives/obligations.rs:482
+// type_must_outlive: Comma
+// infer/outlives/obligations.rs:501
+// components_must_outlive: Comma
+// infer/outlives/obligations.rs:541
+// param_ty_must_outlive: Comma
+// infer/outlives/obligations.rs:552
+// placeholder_ty_must_outlive: Comma
+// infer/outlives/obligations.rs:570
+// alias_ty_must_outlive: Comma
+// infer/outlives/obligations.rs:684
+// args_must_outlive: Comma
+// infer/outlives/obligations.rs:721
+// push_sub_region_constraint: And[TypeOutlivesDelegate]
+// infer/outlives/obligations.rs:732
+// push_verify: And[TypeOutlivesDelegate]
+
+// ---- infer/outlives/test_type_match.rs (lane infer-canonical-outlives) ----
+// infer/outlives/test_type_match.rs:39
+// extract_verify_if_eq: -
+// infer/outlives/test_type_match.rs:78
+// can_match_erased_ty: -
+// infer/outlives/test_type_match.rs:101
+// new: MatchAgainstHigherRankedOutlives
+// infer/outlives/test_type_match.rs:112
+// no_match: MatchAgainstHigherRankedOutlives
+// infer/outlives/test_type_match.rs:119
+// bind: MatchAgainstHigherRankedOutlives
+// infer/outlives/test_type_match.rs:141
+// cx: MatchAgainstHigherRankedOutlives[TypeRelation]
+// infer/outlives/test_type_match.rs:145
+// relate_ty_args: MatchAgainstHigherRankedOutlives[TypeRelation]
+// infer/outlives/test_type_match.rs:160
+// relate_with_variance: MatchAgainstHigherRankedOutlives[TypeRelation]
+// infer/outlives/test_type_match.rs:177
+// regions: MatchAgainstHigherRankedOutlives[TypeRelation]
+// infer/outlives/test_type_match.rs:194
+// tys: MatchAgainstHigherRankedOutlives[TypeRelation]
+// infer/outlives/test_type_match.rs:207
+// consts: MatchAgainstHigherRankedOutlives[TypeRelation]
+// infer/outlives/test_type_match.rs:220
+// binders: MatchAgainstHigherRankedOutlives[TypeRelation]
+
+// ---- infer/outlives/verify.rs (lane infer-canonical-outlives) ----
+// infer/outlives/verify.rs:31
+// new: VerifyBoundCx
+// infer/outlives/verify.rs:41
+// param_or_placeholder_bound: VerifyBoundCx
+// infer/outlives/verify.rs:95
+// approx_declared_bounds_from_env: VerifyBoundCx
+// infer/outlives/verify.rs:106
+// alias_bound: VerifyBoundCx
+// infer/outlives/verify.rs:140
+// bound_from_components: VerifyBoundCx
+// infer/outlives/verify.rs:155
+// bound_from_single_component: VerifyBoundCx
+// infer/outlives/verify.rs:187
+// declared_generic_bounds_from_env: VerifyBoundCx
+// infer/outlives/verify.rs:207
+// declared_generic_bounds_from_env_for_erased_ty: VerifyBoundCx
+
+// ---- infer/region_constraints/leak_check.rs (lane infer-regions) ----
+// infer/region_constraints/leak_check.rs:123
+// new: LeakCheck
+// infer/region_constraints/leak_check.rs:144
+// assign_placeholder_values: LeakCheck
+// infer/region_constraints/leak_check.rs:184
+// propagate_scc_value: LeakCheck
+// infer/region_constraints/leak_check.rs:259
+// placeholder_error: LeakCheck
+// infer/region_constraints/leak_check.rs:267
+// error: LeakCheck
+// infer/region_constraints/leak_check.rs:328
+// take_min: SccUniverse
+// infer/region_constraints/leak_check.rs:361
+// new: MiniGraph
+// infer/region_constraints/leak_check.rs:384
+// iterate_region_constraints: MiniGraph
+// infer/region_constraints/leak_check.rs:428
+// add_node: MiniGraph
+
+// ---- infer/region_constraints/mod.rs (lane infer-regions) ----
+// infer/region_constraints/mod.rs:780
+// fmt: RegionSnapshot[Debug]
+// infer/region_constraints/mod.rs:786
+// fmt: GenericKind[Debug]
+// infer/region_constraints/mod.rs:796
+// fmt: GenericKind[Display]
+
+// ---- infer/relate/generalize.rs (lane infer-relate) ----
+// infer/relate/generalize.rs:22
+// from: TermVid[From]
+// infer/relate/generalize.rs:28
+// from: TermVid[From]
+// infer/relate/generalize.rs:370
+// cyclic_term_error: Generalizer
+// infer/relate/generalize.rs:379
+// next_var_for_alias_of_kind: Generalizer
+// infer/relate/generalize.rs:408
+// generalize_alias_term: Generalizer
+// infer/relate/generalize.rs:448
+// cx: Generalizer[TypeRelation]
+// infer/relate/generalize.rs:452
+// relate_ty_args: Generalizer[TypeRelation]
+// infer/relate/generalize.rs:475
+// relate_with_variance: Generalizer[TypeRelation]
+// infer/relate/generalize.rs:493
+// tys: Generalizer[TypeRelation]
+// infer/relate/generalize.rs:610
+// regions: Generalizer[TypeRelation]
+// infer/relate/generalize.rs:655
+// consts: Generalizer[TypeRelation]
+// infer/relate/generalize.rs:751
+// binders: Generalizer[TypeRelation]
+
+// ---- infer/relate/lattice.rs (lane infer-relate) ----
+// infer/relate/lattice.rs:39
+// invert: LatticeOpKind
+// infer/relate/lattice.rs:74
+// cx: LatticeOp[TypeRelation]
+// infer/relate/lattice.rs:78
+// relate_ty_args: LatticeOp[TypeRelation]
+// infer/relate/lattice.rs:91
+// relate_with_variance: LatticeOp[TypeRelation]
+// infer/relate/lattice.rs:122
+// tys: LatticeOp[TypeRelation]
+// infer/relate/lattice.rs:198
+// regions: LatticeOp[TypeRelation]
+// infer/relate/lattice.rs:216
+// consts: LatticeOp[TypeRelation]
+// infer/relate/lattice.rs:224
+// binders: LatticeOp[TypeRelation]
+// infer/relate/lattice.rs:257
+// relate_bound: LatticeOp
+// infer/relate/lattice.rs:274
+// span: LatticeOp[PredicateEmittingRelation]
+// infer/relate/lattice.rs:278
+// param_env: LatticeOp[PredicateEmittingRelation]
+// infer/relate/lattice.rs:282
+// register_predicates: LatticeOp[PredicateEmittingRelation]
+// infer/relate/lattice.rs:291
+// register_goals: LatticeOp[PredicateEmittingRelation]
+
+// ---- infer/relate/type_relating.rs (lane infer-relate) ----
+// infer/relate/type_relating.rs:77
+// cx: TypeRelating[TypeRelation]
+// infer/relate/type_relating.rs:81
+// relate_ty_args: TypeRelating[TypeRelation]
+// infer/relate/type_relating.rs:102
+// relate_with_variance: TypeRelating[TypeRelation]
+// infer/relate/type_relating.rs:120
+// tys: TypeRelating[TypeRelation]
+// infer/relate/type_relating.rs:220
+// regions: TypeRelating[TypeRelation]
+// infer/relate/type_relating.rs:263
+// consts: TypeRelating[TypeRelation]
+// infer/relate/type_relating.rs:275
+// binders: TypeRelating[TypeRelation]
+// infer/relate/type_relating.rs:355
+// span: TypeRelating[PredicateEmittingRelation]
+// infer/relate/type_relating.rs:359
+// param_env: TypeRelating[PredicateEmittingRelation]
+// infer/relate/type_relating.rs:363
+// register_predicates: TypeRelating[PredicateEmittingRelation]
+// infer/relate/type_relating.rs:372
+// register_goals: TypeRelating[PredicateEmittingRelation]
+
+// ---- infer/resolve.rs (lane infer-core) ----
+// infer/resolve.rs:28
+// new: DeepResolverIgnoringRegions
+// infer/resolve.rs:34
+// cx: DeepResolverIgnoringRegions[TypeFolder]
+// infer/resolve.rs:39
+// fold_ty: DeepResolverIgnoringRegions[TypeFolder]
+// infer/resolve.rs:52
+// fold_const: DeepResolverIgnoringRegions[TypeFolder]
+// infer/resolve.rs:61
+// fold_predicate: DeepResolverIgnoringRegions[TypeFolder]
+// infer/resolve.rs:65
+// fold_clauses: DeepResolverIgnoringRegions[TypeFolder]
+// infer/resolve.rs:90
+// cx: FullTypeResolver[FallibleTypeFolder]
+// infer/resolve.rs:94
+// try_fold_ty: FullTypeResolver[FallibleTypeFolder]
+// infer/resolve.rs:117
+// try_fold_region: FullTypeResolver[FallibleTypeFolder]
+// infer/resolve.rs:130
+// try_fold_const: FullTypeResolver[FallibleTypeFolder]
+
+// ---- infer/snapshot/fudge.rs (lane infer-opaque-snapshot) ----
+// infer/snapshot/fudge.rs:19
+// vars_since_snapshot: -
+// infer/snapshot/fudge.rs:30
+// float_vars_since_snapshot: -
+// infer/snapshot/fudge.rs:38
+// const_vars_since_snapshot: -
+// infer/snapshot/fudge.rs:181
+// cx: InferenceFudger[TypeFolder]
+// infer/snapshot/fudge.rs:185
+// fold_ty: InferenceFudger[TypeFolder]
+// infer/snapshot/fudge.rs:235
+// fold_region: InferenceFudger[TypeFolder]
+// infer/snapshot/fudge.rs:249
+// fold_const: InferenceFudger[TypeFolder]
+
+// ---- traits/engine.rs (lane infer-opaque-snapshot) ----
+// traits/engine.rs:116
+// into_iter: And[IntoIterator]
+// traits/engine.rs:125
+// register_bound: trait:TraitEngine[TraitEngine]
+// traits/engine.rs:151
+// register_predicate_obligations: trait:TraitEngine[TraitEngine]
+// traits/engine.rs:183
+// evaluate_obligations_error_on_ambiguity: trait:TraitEngine[TraitEngine]
+// traits/engine.rs:203
+// pending_obligations_potentially_referencing_sub_root: trait:TraitEngine[TraitEngine]
+// traits/engine.rs:215
+// pending_obligations_potentially_referencing_float_infer: trait:TraitEngine[TraitEngine]
+
+// ---- traits/mod.rs (lane infer-opaque-snapshot) ----
+// traits/mod.rs:70
+// eq: Obligation[PartialEq]
+// traits/mod.rs:82
+// hash: Obligation[Hash]
+
+// ---- traits/structural_impls.rs (lane infer-opaque-snapshot) ----
+// traits/structural_impls.rs:11
+// fmt: Normalized[Debug]
+// traits/structural_impls.rs:17
+// fmt: traits[Debug]
+// traits/structural_impls.rs:31
+// fmt: traits[Debug]
+
+// ---- traits/util.rs (lane infer-opaque-snapshot) ----
+// traits/util.rs:22
+// new: PredicateSet
+// traits/util.rs:33
+// insert: PredicateSet
+// traits/util.rs:49
+// extend: PredicateSet[Extend]
+// traits/util.rs:57
+// extend_one: PredicateSet[Extend]
+// traits/util.rs:61
+// extend_reserve: PredicateSet[Extend]
+// traits/util.rs:69
+// predicate: PredicateObligation[Elaboratable]
+// traits/util.rs:73
+// child: PredicateObligation[Elaboratable]
+// traits/util.rs:82
+// child_with_derived_cause: PredicateObligation[Elaboratable]
