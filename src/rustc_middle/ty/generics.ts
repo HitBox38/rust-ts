@@ -20,7 +20,8 @@ import { Binder, EarlyBinder, fold_Binder, type IterIdentityCopied, type IterIns
 import type { ClauseKind, PolyTraitRef, TraitRef } from "../../rustc_type_ir/decls.ts";
 import { fold_tuple2, type PredicateProxy, type TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { fold_with_TraitRef, try_fold_with_TraitRef, visit_with_TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
-import { TraitClause } from "../../rustc_type_ir/predicate.ts";
+import { debug_TraitRef, TraitClause } from "../../rustc_type_ir/predicate.ts";
+import { debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
 import { Const, debug_Region, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
@@ -793,7 +794,7 @@ export interface ConstConditions {
   readonly clauses: readonly (readonly [PolyTraitRef, Span])[];
 }
 
-/** `#[derive(Debug)]`. PORT: `PolyTraitRef`'s Debug is `Binder`'s over `TraitRef`'s (ir_print), loaded lazily. */
+/** `#[derive(Debug)]`. `PolyTraitRef`'s Debug is `Binder`'s (generated) over `TraitRef`'s (ir_print.rs). */
 export const debug_ConstConditions: Debug<ConstConditions> = (v, f) =>
   debug_struct(f, "ConstConditions", [
     ["parent", debug_option(v.parent, f, debug_DefId)],
@@ -801,9 +802,7 @@ export const debug_ConstConditions: Debug<ConstConditions> = (v, f) =>
   ]);
 
 function debug_PolyTraitRef(v: PolyTraitRef, f: Fmt): string {
-  const binder = require("../../rustc_type_ir/binder.gen.ts") as typeof import("../../rustc_type_ir/binder.gen.ts");
-  const ir_print = require("../../rustc_type_ir/ir_print.ts") as typeof import("../../rustc_type_ir/ir_print.ts");
-  return binder.debug_Binder(v, f, ir_print.debug_TraitRef);
+  return debug_Binder(v, f, debug_TraitRef);
 }
 
 export const ConstConditions = {
