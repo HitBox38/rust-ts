@@ -271,3 +271,5 @@ All under `src/rustc_hir_analysis/` unless noted.
   No new UNPORTED, and none of the 4 is protected.
 
 ## Test run
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4498 pass, 1 skip (pre-existing linux-only), 0 fail
+  (4499 tests, 271 files, 963 s), including contract.test.ts 10/10.
