@@ -55,6 +55,12 @@ export interface Suite {
   cwd?: string;
   /** Probes (tools/probes/<name>) the oracle command runs; the gate checks they are built. */
   probes?: string[];
+  /**
+   * The suite's tools read no file but the case files (a lexer, an escaper, a token-tree dump, ...: no
+   * module loading, no include macros), so the oracle cache key hashes only those. Unset: the key also
+   * covers every other file a case may make rustc read (scripts/lib/deps.ts).
+   */
+  readsOnlyCaseFile?: boolean;
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -95,6 +101,7 @@ export const SUITES: Suite[] = [
     mode: "batch",
     timeoutMs: 120_000,
     probes: ["lexdump"],
+    readsOnlyCaseFile: true,
     cases: () => corpus("tests/ui", "library", "compiler").map((f) => ({ id: f, file: f, args: [] })),
     oracle: (cs) => [probePath("lexdump"), ...cs.map((c) => c.file)],
     subject: (cs) => [...bunCmd("src/rust_ts/lexdump.ts"), ...cs.map((c) => c.file)],
@@ -125,6 +132,7 @@ export const SUITES: Suite[] = [
     mode: "batch",
     timeoutMs: 120_000,
     probes: ["escapes"],
+    readsOnlyCaseFile: true,
     cases: () => corpus("tests/ui", "library", "compiler").map((f) => ({ id: f, file: f, args: [] })),
     oracle: (cs) => [probePath("escapes"), ...cs.map((c) => c.file)],
     subject: (cs) => [...bunCmd("src/rust_ts/escapedump.ts"), ...cs.map((c) => c.file)],
@@ -150,6 +158,7 @@ SUITES.push(
     mode: "single",
     timeoutMs: 60_000,
     probes: ["symdump"],
+    readsOnlyCaseFile: true,
     cases: () => SYMBOL_SECTIONS.map((sec) => ({ id: `symbols/${sec}`, file: "", args: [sec] })),
     oracle: ([c]) => [probePath("symdump"), ...c!.args],
     subject: ([c]) => [...bunCmd("src/rust_ts/symdump.ts"), ...c!.args],
@@ -163,6 +172,7 @@ SUITES.push(
     timeoutMs: 120_000,
     cwd: REPO,
     probes: ["escapes"],
+    readsOnlyCaseFile: true,
     cases: () => repoCorpus("harness/corpus/escape-synthetic").map((f) => ({ id: f, file: f, args: [] })),
     oracle: (cs) => [probePath("escapes"), ...cs.map((c) => c.file)],
     subject: (cs) => [...bunCmd("src/rust_ts/escapedump.ts"), ...cs.map((c) => c.file)],
@@ -197,6 +207,7 @@ SUITES.push(
     timeoutMs: 120_000,
     cwd: REPO,
     probes: ["fluentdump"],
+    readsOnlyCaseFile: true,
     cases: fluentCases,
     oracle: (cs) => [probePath("fluentdump"), "parse", ...cs.map((c) => c.file)],
     subject: (cs) => [...bunCmd("src/rust_ts/fluentdump.ts"), "parse", ...cs.map((c) => c.file)],
@@ -210,6 +221,7 @@ SUITES.push(
     timeoutMs: 120_000,
     cwd: REPO,
     probes: ["fluentdump"],
+    readsOnlyCaseFile: true,
     cases: fluentCases,
     oracle: (cs) => [probePath("fluentdump"), "format", ...cs.map((c) => c.file)],
     subject: (cs) => [...bunCmd("src/rust_ts/fluentdump.ts"), "format", ...cs.map((c) => c.file)],
@@ -228,6 +240,7 @@ SUITES.push({
   timeoutMs: 120_000,
   cwd: REPO,
   probes: ["emitdump"],
+  readsOnlyCaseFile: true,
   cases: () => repoCorpusDeep("harness/corpus/emit", ".json").map((f) => ({ id: f, file: f, args: [] })),
   oracle: (cs) => [probePath("emitdump"), ...cs.map((c) => c.file)],
   subject: (cs) => [...bunCmd("src/rust_ts/emitdump.ts"), ...cs.map((c) => c.file)],
@@ -248,6 +261,7 @@ SUITES.push(
     mode: "batch",
     timeoutMs: 120_000,
     probes: ["tokdump"],
+    readsOnlyCaseFile: true,
     cases: () => corpus("tests/ui", "library", "compiler").map((f) => ({ id: f, file: f, args: [`--edition=${edition(f)}`, "--strip=crate"] })),
     oracle: (cs) => [probePath("tokdump"), ...tokdumpArgs(cs)],
     subject: (cs) => [...bunCmd("src/rust_ts/tokdump.ts"), ...tokdumpArgs(cs)],
@@ -260,6 +274,7 @@ SUITES.push(
     mode: "batch",
     timeoutMs: 120_000,
     probes: ["tokdump"],
+    readsOnlyCaseFile: true,
     cases: () => corpus("tests/ui").filter((f) => f.includes("frontmatter")).map((f) => ({ id: f, file: f, args: [`--edition=${edition(f)}`, "--strip=str"] })),
     oracle: (cs) => [probePath("tokdump"), ...tokdumpArgs(cs)],
     subject: (cs) => [...bunCmd("src/rust_ts/tokdump.ts"), ...tokdumpArgs(cs)],
