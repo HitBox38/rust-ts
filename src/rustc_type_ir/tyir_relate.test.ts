@@ -16,7 +16,7 @@ import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { Clause, Predicate } from "../rustc_middle/ty/predicate.ts";
 import { type DefIndex, DefId, LOCAL_CRATE } from "../rustc_span/def_id.ts";
-import { DUMMY_SP, ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
+import { create_default_session_globals_then, DUMMY_SP, ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
 import { kw } from "../rustc_span/symbol.ts";
 import { Panic, Unported } from "../std/panic.ts";
 import { Err, Ok } from "../std/result.ts";
@@ -380,8 +380,11 @@ describe("structurally_relate_consts", () => {
     const err = tcx.mk_ct_from_kind({ $: "Error", _0: guar });
     expect(structurally_relate_consts(rel, err, ct_param(1))).toEqual(Ok(err));
     expect(structurally_relate_consts(rel, ct_param(1), err)).toEqual(Ok(err));
-    // the panic message formats both consts with `{:?}` (`Debug for Const` is not ported yet).
-    expect(() => structurally_relate_consts(rel, ct_var(0), ct_param(1))).toThrow(Unported);
+    // the panic message formats both consts with `{:?}` (merge-w15b: `Debug for ParamConst` is ported; it reads the
+    // symbol interner, hence the session globals).
+    create_default_session_globals_then(() => {
+      expect(() => structurally_relate_consts(rel, ct_var(0), ct_param(1))).toThrow("var types encountered in structurally_relate_consts: ?0c Self/#1");
+    });
     expect(relate_Const.relate(rel, ct_param(2), ct_param(2))).toEqual(Ok(ct_param(2)));
   });
 });

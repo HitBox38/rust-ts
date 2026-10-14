@@ -332,6 +332,14 @@ describe("sty/consts.rs: Const", () => {
       if (n === "var3" || n === "fresh2" || n === "error" || n.startsWith("bound") || n === "canon2") {
         expect(format_debug(c, debug_Const, PLAIN)).toBe(expected[n]!);
         expect(format_debug(c, debug_Const, PRETTY)).toBe(expected[n]!);
+      } else if (n === "param") {
+        // merge-w15b: `Debug for ParamConst` (structural_impls.rs) is ported; it reads the symbol interner, so the
+        // param is interned and printed under one set of session globals.
+        create_default_session_globals_then(() => {
+          const p = Const.new_param(tcx, { index: 0, name: Symbol.intern("N") });
+          expect(format_debug(p, debug_Const, PLAIN)).toBe(expected[n]!);
+          expect(format_debug(p, debug_Const, PRETTY)).toBe(expected[n]!);
+        });
       } else {
         oracle_or_unported(c, debug_Const, expected[n]!);
       }
