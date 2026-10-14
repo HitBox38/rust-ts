@@ -58,7 +58,7 @@ as covered. **Root:** if `--check` should validate both names on such lines, `sc
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Full test run" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4124 pass, 1 skip (pre-existing linux-only), 0 fail (on commit `98500f4`+tests; `src/rustc_middle` re-run green after the final `iter_local_def_id` fix).
 - `RUST_TS_AGENT=ty-ctxt --sample 100`: hir-tree-nocore 100/100 MATCH (`20261014-051154-ty-ctxt-gv93`), expanded 100/100
   (`20261014-051212-ty-ctxt-wlik`), hir-tree 100/100 (`20261014-051244-ty-ctxt-0nys`). No DIFF, no UNPORTED.
 
