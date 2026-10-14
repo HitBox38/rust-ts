@@ -21,6 +21,7 @@ import { SolverAdtLangItem, SolverProjectionLangItem, SolverTraitLangItem } from
 import { FnSigKind } from "../../rustc_type_ir/ty_kind.ts";
 import { PLAIN, PRETTY } from "../../std/fmt.ts";
 import { Panic, Unported } from "../../std/panic.ts";
+import { RawList } from "./list.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { CommonConsts, CommonLifetimes, CommonTypes, CtxtInterners, debug_FreeRegionInfo, type GlobalCtxt, InternedInSet, inherent_DefId, inherent_Features, inherent_Safety, inherent_Span, TyCtxt } from "./context.ts";
 import { SOLVER_LANG_ITEM_MAPS } from "./context/impl_interner.ts";
@@ -115,9 +116,11 @@ describe("mk_* identities", () => {
     expect(tcx.lift(l)).toBe(l);
   });
 
-  test("CommonConsts::new stops at the unported ValTree", () => {
+  test("CommonConsts::new interns the zst / true / false valtrees (ValTree landed, lane ty-results)", () => {
     const tcx = mk_tcx();
-    expect(() => CommonConsts.new(tcx.interners, tcx.types)).toThrow(Unported);
+    const cc = CommonConsts.new(tcx.interners, tcx.types);
+    expect(tcx.intern_valtree({ $: "Branch", _0: RawList.empty() } as never)).toBe(cc.valtree_zst);
+    expect(CommonConsts.new(tcx.interners, tcx.types).true_).toBe(cc.true_);
   });
 });
 
