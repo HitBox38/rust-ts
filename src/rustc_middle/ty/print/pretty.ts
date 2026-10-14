@@ -67,7 +67,7 @@ import { Binder_map_bound, Binder_skip_binder, DebruijnIndex_shifted_in, Debruij
 import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "../../../rustc_type_ir/visit.ts";
 import { intern_key } from "../../../rust_ts/intern_key.ts";
 import { KeyedMap } from "../../../rust_ts/keyed.ts";
-import { type Debug, type Fmt, PLAIN, debug_char, debug_str } from "../../../std/fmt.ts";
+import { type Debug, type Fmt, PLAIN, PRETTY, debug_char, debug_str } from "../../../std/fmt.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
 import { assert_eq, panic, unported, unreachable, unwrap } from "../../../std/panic.ts";
 import { utf8_len } from "../../../std/str.ts";
@@ -79,7 +79,7 @@ import { GenericArg } from "../generic_args.ts";
 import type { GenericArgs } from "../generic_args.ts";
 import type { Generics } from "../generics.ts";
 import type { Clauses, List } from "../list.ts";
-import { Term, Ty } from "../mod.ts";
+import { Term, Ty, debug_Ty } from "../mod.ts";
 import { Visibility } from "../mod.ts";
 import type { Clause, Predicate } from "../predicate.ts";
 import type { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
@@ -232,7 +232,7 @@ export const PrettyPrinter_provided_b = {
     else if (k.$ === "Uint" || k.$ === "Int") {
       const int_ = ConstInt_new(int, k.$ === "Int", ty.is_ptr_sized_integral());
       if (print_ty) {
-        self.write_str(debug_ConstInt(int_, { alternate: true }));
+        self.write_str(debug_ConstInt(int_, PRETTY));
       } else {
         self.write_str(debug_ConstInt(int_, PLAIN));
       }
@@ -312,13 +312,13 @@ export const PrettyPrinter_provided_b = {
         const t = ik._0;
         const bytes = Value_try_to_raw_bytes(cv_, self.tcx());
         if (bytes === undefined) {
-          return panic(`expected to convert valtree ${debug_ValTree(cv_.valtree, PLAIN)} to raw bytes for type ${debug_Ty_(t)}`);
+          return panic(`expected to convert valtree ${debug_ValTree(cv_.valtree, PLAIN)} to raw bytes for type ${debug_Ty(t, PLAIN)}`);
         }
         return self.pretty_print_byte_str(bytes);
       } else if (ik.$ === "Str") {
         const bytes = Value_try_to_raw_bytes(cv_, self.tcx());
         if (bytes === undefined) {
-          return panic(`expected to convert valtree to raw bytes for type ${debug_Ty_(cv_.ty)}`);
+          return panic(`expected to convert valtree to raw bytes for type ${debug_Ty(cv_.ty, PLAIN)}`);
         }
         self.write_str(debug_str(String_from_utf8_lossy(bytes)));
         return;
@@ -2402,11 +2402,6 @@ function String_from_utf8_lossy(bytes: Uint8Array): string {
   return new TextDecoder("utf-8", { fatal: false, ignoreBOM: true }).decode(bytes);
 }
 
-/** `Ty`'s `{:?}` (structural_impls.rs: Display under `with_no_trimmed_paths!`; lane ty-results). */
-function debug_Ty_(t: Ty): string {
-  return debug_Ty(t, PLAIN);
-}
-
 // ==== stand-ins (PORT: pending other lanes). Root deletes each when its owner lands and points the uses at the
 // real port; bodies are upstream's where they only read fields / call ported code, `unported` otherwise. ====
 
@@ -2842,10 +2837,6 @@ function Ty_super_fold_with(_t: Ty, _folder: TypeFolder): Ty {
 /** PORT: pending ty-results: `impl TypeSuperVisitable for Ty` (structural_impls.rs). */
 function Ty_super_visit_with<R>(_t: Ty, _visitor: TypeVisitor<R>): R {
   return unported("rustc_middle::ty::structural_impls::<Ty as TypeSuperVisitable>::super_visit_with (lane ty-results)");
-}
-/** PORT: pending ty-results: `impl Debug for Ty` (structural_impls.rs). */
-function debug_Ty(_t: Ty, _f: Fmt): string {
-  return unported("rustc_middle::ty::structural_impls::<Ty as Debug>::fmt (lane ty-results)");
 }
 /** PORT: pending ty-results: `EarlyParamRegion::is_named` (region.rs:31). */
 function EarlyParamRegion_is_named(self: EarlyParamRegion): boolean {
