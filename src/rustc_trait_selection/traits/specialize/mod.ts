@@ -31,6 +31,7 @@ import { Obligation, type PredicateObligation, type ScrubbedTraitError } from ".
 import { COHERENCE_LEAK_CHECK } from "../../../rustc_lint_defs/builtin.gen.ts";
 import { KeyedSet } from "../../../rust_ts/keyed.ts";
 import { clone_ObligationCause, ObligationCause } from "../../../rustc_middle/traits/mod.ts";
+import type { LocalCrate } from "../../../rustc_middle/query/keys.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { Clause, Predicate } from "../../../rustc_middle/ty/decls.ts";
 import type { GenericArgsRef } from "../../../rustc_middle/ty/generic_args.ts";
@@ -243,7 +244,7 @@ function fulfill_implication(
 }
 
 // rustc: compiler/rustc_trait_selection/src/traits/specialize/mod.rs:220 specialization_enabled_in
-export function specialization_enabled_in(tcx: TyCtxt, _: CrateNum): boolean {
+export function specialization_enabled_in(tcx: TyCtxt, _: LocalCrate): boolean {
   return tcx.features().specialization() || tcx.features().min_specialization();
 }
 
