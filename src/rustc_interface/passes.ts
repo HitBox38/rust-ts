@@ -45,6 +45,8 @@ import type { EarlyCheckNode, LintStore } from "../rustc_lint/lib.ts";
 import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
 import { clone_Providers as clone_HookProviders, Providers_default as HookProviders_default } from "../rustc_middle/hooks.ts";
 import "../rustc_middle/lib.ts";
+import { hir } from "../rustc_middle/lib.ts";
+import * as rustc_ast_lowering from "../rustc_ast_lowering/lib.ts";
 import type { ResolverAstLowering, ResolverGlobalCtxt } from "../rustc_middle/middle/resolve.ts";
 import { type GlobalCtxt, provide as ty_context_provide, TyCtxt } from "../rustc_middle/ty/context.ts";
 import { clone_ExternProviders, clone_Providers, ExternProviders_default, Providers_default } from "../rustc_middle/query/query_api.ts";
@@ -916,13 +918,16 @@ function default_query_providers(): MiddleProviders {
   providers.queries.resolutions = (tcx, _) => tcx.resolver_for_lowering_raw(null)[2];
   providers.queries.early_lint_checks = early_lint_checks;
   providers.queries.env_var_os = (tcx, key) => env_var_os(tcx, key as string);
-  providers.queries.proc_macro_decls_static = () => unported("tcx.hir_crate_items(()).proc_macro_decls() (HIR, M3)");
-  // PORT: pending crates (their `provide` fns are not ported): rustc_ast_lowering, rustc_expand_queries,
-  // rustc_const_eval, rustc_middle::hir, rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
+  // PORT: the `hir_crate_items` query value is `unknown` in queries.gen.ts.
+  providers.queries.proc_macro_decls_static = (tcx, _) => (tcx.hir_crate_items(null) as hir.ModuleItems).proc_macro_decls();
+  rustc_ast_lowering.provide(providers.queries);
+  // PORT: pending crates (their `provide` fns are not ported): rustc_expand_queries,
+  // rustc_const_eval, rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
   // rustc_monomorphize, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck, traits, solve, rustc_passes,
   // rustc_traits, rustc_ty_utils, rustc_symbol_mangling, rustc_codegen_ssa (rustc_metadata and rustc_lint are provided below).
   // Their queries keep upstream's `default_query` ICE.
   limits.provide(providers.queries);
+  hir.provide(providers.queries);
   rustc_incremental_provide(providers);
   query_impl_provide(providers);
   rustc_resolve.provide(providers.queries);

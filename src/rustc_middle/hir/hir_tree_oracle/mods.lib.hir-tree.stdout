@@ -1,0 +1,134 @@
+DefId(0:0 ~ mods[92b0]) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Crate(
+            Mod {
+                spans: ModSpans {
+                    inner_span: mods.rs:1:1: 6:9 (#0),
+                    inject_use_span: mods.rs:3:1: 3:1 (#0),
+                },
+                item_ids: [
+                    ItemId {
+                        owner_id: DefId(0:1 ~ mods[92b0]::m),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:3 ~ mods[92b0]::k),
+                    },
+                ],
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            12447602290791488567,
+            661160777473216692,
+        ),
+    ),
+}
+DefId(0:1 ~ mods[92b0]::m) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:1 ~ mods[92b0]::m),
+                kind: Mod(
+                    m#0,
+                    Mod {
+                        spans: ModSpans {
+                            inner_span: mods.rs:4:5: 5:2 (#0),
+                            inject_use_span: mods.rs:4:5: 4:5 (#0),
+                        },
+                        item_ids: [
+                            ItemId {
+                                owner_id: DefId(0:2 ~ mods[92b0]::m::n),
+                            },
+                        ],
+                    },
+                ),
+                span: mods.rs:3:1: 5:2 (#0),
+                vis_span: mods.rs:3:1: 3:1 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            14371272291144045440,
+            1643208707187987591,
+        ),
+    ),
+}
+DefId(0:2 ~ mods[92b0]::m::n) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:2 ~ mods[92b0]::m::n),
+                kind: Mod(
+                    n#0,
+                    Mod {
+                        spans: ModSpans {
+                            inner_span: mods.rs:4:12: 4:13 (#0),
+                            inject_use_span: mods.rs:4:12: 4:12 (#0),
+                        },
+                        item_ids: [],
+                    },
+                ),
+                span: mods.rs:4:5: 4:13 (#0),
+                vis_span: mods.rs:4:5: 4:5 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            13645896672344180200,
+            11550450694749744570,
+        ),
+    ),
+}
+DefId(0:3 ~ mods[92b0]::k) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:3 ~ mods[92b0]::k),
+                kind: Mod(
+                    k#0,
+                    Mod {
+                        spans: ModSpans {
+                            inner_span: mods.rs:6:8: 6:9 (#0),
+                            inject_use_span: mods.rs:6:8: 6:8 (#0),
+                        },
+                        item_ids: [],
+                    },
+                ),
+                span: mods.rs:6:1: 6:9 (#0),
+                vis_span: mods.rs:6:1: 6:1 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            8261881082427651376,
+            10553307623057777132,
+        ),
+    ),
+}

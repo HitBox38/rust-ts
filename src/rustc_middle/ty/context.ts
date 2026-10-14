@@ -46,7 +46,6 @@ import { type IntoQueryKey, into_query_key_DefId } from "../query/into_query_key
 import type { QuerySystem } from "../query/system.ts";
 import * as calls from "../query/calls.ts";
 import type { TyCtxtAt, TyCtxtEnsureDone, TyCtxtEnsureOk, TyCtxtEnsureResult } from "../query/calls.ts";
-import * as hir_mod from "../hir/mod.ts";
 import * as ty_mod from "./mod.ts";
 import { enter_context, ImplicitCtxt } from "./context/tls.ts";
 import { Visibility } from "./mod.ts";
@@ -682,10 +681,8 @@ export class TyCtxt {
   fn_abi_of_instance(query: PseudoCanonicalInput<[Instance, List<Ty>]>): Result<FnAbi<Ty>, FnAbiError> {
     return ty_mod.TyCtxt_fn_abi_of_instance(this, query);
   }
-  // hir/mod.rs
-  parent_module_from_def_id(id: LocalDefId): LocalModId {
-    return hir_mod.TyCtxt_parent_module_from_def_id(this, id);
-  }
+  // hir/mod.rs, hir/map.rs: attached to `TyCtxt.prototype` by rustc_middle/hir/{mod,map}.ts (lane middle-hir), which
+  // rustc_middle/lib.ts loads after this module.
   // ty/print/pretty.rs
   def_path_str(def_id: IntoQueryKey<DefId>): string {
     void def_id;
@@ -835,6 +832,29 @@ export class TyCtxt {
             return true;
         }
       }) && !this.sess.opts.actually_rustdoc
+    );
+  }
+
+  // rustc: compiler/rustc_middle/src/ty/context.rs:1142 needs_hir_hash
+  needs_hir_hash(): boolean {
+    // Why is the hir hash needed for these configurations?
+    // - debug_assertions: for the "fingerprint the result" check in
+    //   `rustc_query_impl::execution::execute_job`.
+    // - incremental: for query lookups.
+    // - needs_metadata: it is included in the crate metadata through the crate_hash query
+    // - instrument_coverage: for putting into coverage data (see
+    //   `hash_mir_source`).
+    // - metrics_dir: metrics use the strict version hash in the filenames
+    //   for dumped metrics files to prevent overwriting distinct metrics
+    //   for similar source builds (may change in the future, this is part
+    //   of the proof of concept impl for the metrics initiative project goal)
+    // PORT: `cfg!(debug_assertions)` is false (the oracle is a release build).
+    return (
+      false ||
+      this.sess.opts.incremental !== undefined ||
+      this.needs_metadata() ||
+      this.sess.instrument_coverage() ||
+      this.sess.opts.unstable_opts.metrics_dir !== undefined
     );
   }
 
