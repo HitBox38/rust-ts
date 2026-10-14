@@ -1447,24 +1447,26 @@ export class TyCtxt {
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:1373 iter_local_def_id
-  *iter_local_def_id(): Generator<LocalDefId> {
+  iter_local_def_id(): Iterable<LocalDefId> {
     // Depend on the `analysis` query to ensure compilation if finished.
     this.ensure_ok().analysis(null);
 
     const definitions = this.gcx.untracked.definitions;
-    // PORT: the `gen { .. }` block is this generator (lazy like upstream: the body above runs on the first `next()`).
-    let i = 0;
+    // PORT: the `gen { .. }` block is this generator.
+    return (function* () {
+      let i = 0;
 
-    // Recompute the number of definitions each time, because our caller may be creating
-    // new ones.
-    while (i < definitions.num_definitions()) {
-      const local_def_index = DefIndex.from_usize(i);
-      yield LocalDefId.of(local_def_index);
-      i += 1;
-    }
+      // Recompute the number of definitions each time, because our caller may be creating
+      // new ones.
+      while (i < definitions.num_definitions()) {
+        const local_def_index = DefIndex.from_usize(i);
+        yield LocalDefId.of(local_def_index);
+        i += 1;
+      }
 
-    // Freeze definitions once we finish iterating on them, to prevent adding new ones.
-    // PORT: `FreezeLock::freeze` is a no-op (PORTING §5: the lock is its inner value).
+      // Freeze definitions once we finish iterating on them, to prevent adding new ones.
+      // PORT: `FreezeLock::freeze` is a no-op (PORTING §5: the lock is its inner value).
+    })();
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:1394 definitions
