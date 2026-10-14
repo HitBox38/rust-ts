@@ -19,6 +19,7 @@
 //   for custom target specs.
 // - Query methods (`tcx.$query(..)`) are installed by query/query_api.ts and hook methods by hooks.ts.
 import type { Crate } from "../../rustc_ast/ast.gen.ts";
+import type { LanguageItems } from "../../rustc_attr_ir/lang_items.ts";
 import type { Untracked, CrateStoreDyn } from "../../rustc_crate_store/cstore.ts";
 import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
 import type { Features } from "../../rustc_feature/unstable.ts";
@@ -766,6 +767,12 @@ export class TyCtxt {
 
     // This is a separate function to work around a crash with parallel rustc (#135870)
     return gcx.enter(f);
+  }
+
+  /// Obtain all lang items of this crate and all dependencies (recursively)
+  // rustc: compiler/rustc_middle/src/ty/context.rs:995 lang_items
+  lang_items(): LanguageItems {
+    return this.get_lang_items(null);
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:1089 features

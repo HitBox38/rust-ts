@@ -88,14 +88,17 @@ import * as targets from "./targets/mod.ts";
 import { TargetTuple } from "./tuple.ts";
 
 export * as crt_objects from "./crt_objects.ts";
+import { AbiMap, AbiMapping } from "./abi_map.ts";
+import type { ExternAbi } from "../../rustc_abi/extern_abi.ts";
 
-// mod abi_map;     (not ported)
+// mod abi_map;
 // mod base;
 // mod consistency; (not ported)
 // mod json;
 // mod tuple;
 
-// pub use abi_map::{AbiMap, AbiMapping};  (not ported)
+// pub use abi_map::{AbiMap, AbiMapping};
+export { AbiMap, AbiMapping } from "./abi_map.ts";
 // pub use base::apple;
 // pub use base::avr::ef_avr_arch;         (not ported)
 // pub use json::json_schema;              (not ported)
@@ -2643,9 +2646,10 @@ export class Target {
 
   // ---- `impl Target` (mod.rs:2874) ----
 
-  // not ported (no marker; mod.rs:2875 is_abi_supported): needs `AbiMap` (abi_map.rs).
-  is_abi_supported(_abi: unknown): boolean {
-    return unported("rustc_target::spec::Target::is_abi_supported (AbiMap)");
+  // rustc: compiler/rustc_target/src/spec/mod.rs:2875 is_abi_supported
+  is_abi_supported(abi: ExternAbi): boolean {
+    const abi_map = AbiMap.from_target(this);
+    return AbiMapping.is_mapped(abi_map.canonize_abi(abi, false));
   }
 
   /// Minimum integer size in bits that this target can perform atomic

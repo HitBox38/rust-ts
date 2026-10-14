@@ -1,0 +1,13 @@
+{
+  "//": [
+    "Type-map additions of lane lang-items (sets rustc_passes and rustc_middle_diagnostics: diagnostics.rs), merged after typemap.json by",
+    "tools/codegen/types.ts (loadTypeMap). Root may fold these into typemap.json."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_passes::lang_items::Duplicate"], "ts": "Duplicate", "import": "src/rustc_passes/lang_items.ts", "types": ["Duplicate"], "debug": "$v", "clone": "copy", "note": "fieldless enum (string union) of the hand port; only read by the manual Diagnostic impl of DuplicateLangItem" },
+    { "paths": ["rustc_passes::check_attr::ProcMacroKind"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_passes::check_attr (lane passes-a)" },
+    { "paths": ["rustc_middle::ty::Instance"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty::instance (M4); only a field of rustc_middle diagnostics" }
+  ]
+}
