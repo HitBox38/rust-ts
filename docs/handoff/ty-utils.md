@@ -93,7 +93,8 @@ Also not in this lane's list and not started: `common_traits.rs` (`is_copy_raw` 
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Full test run" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4497 pass, 1 skip (pre-existing linux-only), 0 fail
+  (4498 tests, 272 files).
 - Fresh-process loads of every new module (`rustc_ty_utils/{lib,ty,needs_drop,opaque_types,implied_bounds,
   structural_match,representability,nested_bodies,diagnostics}.ts`, `rustc_ty_walk/lib.ts`): ok.
 - Samples (`RUST_TS_AGENT=ty-utils`), no DIFF, no CRASH, nothing protected lost:
