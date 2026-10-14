@@ -47,6 +47,7 @@ import type { Diag, DiagCtxtHandle } from "../rustc_errors/lib.ts";
 import type { CtorOf, DefKind, Res } from "../rustc_hir/def.ts";
 import type * as hir from "../rustc_hir/lib.ts";
 import type { HirId } from "../rustc_hir_id/lib.ts";
+import type { ObjectLifetimeDefault, ResolveBoundVars, ResolvedArg } from "../rustc_middle/middle/resolve_bound_vars.ts"; // PORT(decls): pending root (lane collect-rbv)
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import type { DynCompatibilityViolation } from "../rustc_middle/traits/mod.ts";
 import type { AdtDef, AdtKind } from "../rustc_middle/ty/adt.ts";
@@ -123,12 +124,13 @@ export type TestBinderBody = Pending<"rustc_hir_analysis::check::wfcheck::TestBi
 export type TestBinderForall = Pending<"rustc_hir_analysis::check::wfcheck::TestBinderForall">;
 export type TestBinderExists = Pending<"rustc_hir_analysis::check::wfcheck::TestBinderExists">;
 /**
- * rustc_middle middle/resolve_bound_vars.rs (67 lines, not ported): `ResolvedArg`, `ObjectLifetimeDefault`,
- * `ResolveBoundVars<'tcx>`. Recommended: lane collect-rbv ports that file (codegen + its `Set1`), then root re-exports.
+ * rustc_middle middle/resolve_bound_vars.rs (ported by lane collect-rbv): `ResolvedArg`, `ObjectLifetimeDefault`,
+ * `ResolveBoundVars<'tcx>`.
  */
-export type ResolvedArg = Pending<"rustc_middle::middle::resolve_bound_vars::ResolvedArg">;
-export type ObjectLifetimeDefault = Pending<"rustc_middle::middle::resolve_bound_vars::ObjectLifetimeDefault">;
-export type ResolveBoundVars = Pending<"rustc_middle::middle::resolve_bound_vars::ResolveBoundVars">;
+// PORT(decls): pending root. Lane collect-rbv replaced the three `Pending<..>` aliases by these type-only re-exports
+// (a type alias cannot be augmented with `declare module`, and the real `provide` / `resolve_bound_vars` /
+// `object_lifetime_default` / `deny_non_region_late_bound` do not type-check against the brands).
+export type { ObjectLifetimeDefault, ResolveBoundVars, ResolvedArg };
 /** rustc_middle ty/layout.rs `LayoutCx<'tcx>` (hir_ty_lowering/cmse.rs; M4 layout). */
 export type LayoutCx = Pending<"rustc_middle::ty::layout::LayoutCx">;
 
