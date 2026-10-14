@@ -61,15 +61,16 @@ Branch `lane/ty-print-a` (from main a62a248, no merges).
 - Test printer: `print_oracle/test_printer.ts` is a reduced `FmtPrinter` (its `Printer`/`PrettyPrinter` overrides
   for what the tests print, upstream bodies, `unported` otherwise). **Root: switch the tests to ty-print-b's
   `FmtPrinter` at merge and delete test_printer.ts.**
+- `run.ts` passes `debug_SplattedArgIndexError` to `unwrap_result` (the repo lint forbids the one-argument form outside tests).
 - Scaffolding: `run.ts` `install_scaffolding()` installs upstream bodies for 6 stubs of other lanes
   (`Region::type_flags`/`flags`/`outer_exclusive_binder`, `&List<Ty>`'s `inputs`/`output`, `Ty::is_unit`) and returns
   a restore function; print.test.ts restores them in `afterAll`. Drop it when those lanes land.
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: RESULT_PLACEHOLDER
-- `bun scripts/coverage.ts --check`: COVERAGE_PLACEHOLDER
-- Sample difftest: DIFFTEST_PLACEHOLDER
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4125 pass, 1 skip (pre-existing linux-only), 0 fail.
+- `bun scripts/coverage.ts --check`: `markers ok (9514; vendor 3888)`.
+- Sample difftest: `RUST_TS_AGENT=ty-print-a` parse `--sample 100`: 100/100 MATCH (run `20261014-051839-ty-print-a-lof4`); resdump-nocore `--sample 50`: 50/50 MATCH (`20261014-051845-ty-print-a-newz`). Nothing on a driver path prints types yet, so no suite exercises the printer.
 - Load: `import("src/rustc_middle/lib.ts")` then `ty/print/mod.ts` works (see "Init order").
 
 ## PORT decisions (please record)
