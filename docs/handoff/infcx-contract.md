@@ -239,4 +239,17 @@ Branch `lane/infcx-contract` (from main `00ce463`, no merges).
    row, and the wave-17 trait-selection lanes at rustc_trait_selection/decls.ts.
 
 ## Checks
-CHECKS_PLACEHOLDER
+- `bunx tsc --noEmit -p .`: clean.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4498 pass, 1 skip (the pre-existing linux-only one),
+  0 fail.
+- `bun scripts/coverage.ts --check`: `markers ok (12361; vendor 3888)`.
+- Coverage:
+  - rustc_infer 98/644: type_variable 37/37, unify_key 13/13, snapshot/undo_log 14/14, solver_region_constraints
+    3/3 (+ tests.rs 1/1), mod.rs 20/123, traits/engine 7/23, outlives/obligations 2/28, at.rs 1/25, every other file 0;
+  - rustc_middle infer/canonical.rs 5/5.
+- `RUST_TS_AGENT=infcx-contract bun scripts/difftest.ts --suite hir-tree-nocore --sample 100`: 100 MATCH, 0 DIFF,
+  0 UNPORTED, 0 CRASH (run `20261014-120849-infcx-contract-97xl`). No new UNPORTED.
+- Fresh-process loads: every hand module of src/rustc_infer, src/rustc_middle/infer and src/rustc_trait_selection,
+  plus rustc_middle's `lib.ts`, `ty/context.ts`, `ty/mod.ts` and `ty/decls.ts`, loads as an entry point.
+- Negative control: dropping a name from a stub list fails contract.test.ts test 2. The decl is then undefined at
+  runtime.
