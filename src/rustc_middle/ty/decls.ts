@@ -54,6 +54,9 @@ import type {
   CanonicalVarKind,
   ClauseKind,
   ClosureArgs,
+  ClosureArgsParts,
+  CoroutineArgsParts,
+  CoroutineClosureArgsParts,
   ClosureKind,
   ConstKind,
   CoroutineArgs,
@@ -114,15 +117,14 @@ import type { Result } from "../../std/result.ts";
 import type { DepNodeIndex } from "../dep_graph/graph.ts";
 import type { IntoQueryKey } from "../query/into_query_key.ts";
 import type { TyCtxt } from "./context.ts";
-import type { GenericArg } from "./generic_args.ts";
+import type { GenericArg, GenericArgs } from "./generic_args.ts";
 import type { Generics, GenericParamDef } from "./generics.ts";
 import type { Clauses, List, RawList } from "./list.ts";
 import type { Term, Ty } from "./mod.ts";
 import type { Clause, Predicate } from "./predicate.ts";
 
 // ---- 1. the skeleton types ----
-export type { Clauses, Const, GenericArg, List, Predicate, Clause, RawList, Region, Term, Ty };
-export type { GenericArgs } from "./generic_args.ts";
+export type { Clauses, Const, GenericArg, GenericArgs, List, Predicate, Clause, RawList, Region, Term, Ty };
 export type { ListWithCachedTypeInfo } from "./list.ts";
 
 // ---- 2. pending rustc_middle types (and other crates') ----

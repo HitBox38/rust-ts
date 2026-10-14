@@ -8,7 +8,6 @@
 //   JS `Map<string, [K, V]>` keyed by the canonical key of the borrowed value (`Q`), which callers pass in:
 //   the derived `Hash` + `PartialEq` of `Q` as a string (rust_ts/intern_key.ts). Equal keys <=> `==` values.
 // - Insertion order is the JS `Map`'s; nothing iterates an interner (D6).
-import { assert } from "../std/panic.ts";
 
 export class ShardedHashMap<K, V> {
   /** canonical key of the borrowed value -> the stored `(K, V)` */
@@ -52,44 +51,34 @@ export class ShardedHashMap<K, V> {
     // entry per key, so a violated uniqueness keeps the first (upstream: an arbitrary one).
     if (!this.table.has(hash_key)) this.table.set(hash_key, [key, value]);
   }
-}
-
-/** PORT: `ShardedHashMap<K, ()>`, the interner set (`impl<K: Eq + Hash + Copy> ShardedHashMap<K, ()>`). */
-export class InternedSet<K> extends ShardedHashMap<K, null> {
-  static override with_capacity<K>(_cap: number): InternedSet<K> {
-    // PORT: capacity hint dropped (see `ShardedHashMap::with_capacity`).
-    return new InternedSet<K>();
-  }
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:215 intern_ref
   /** PORT: `key` is the canonical key of `value` (module comment). */
-  intern_ref<Q>(_value: Q, key: string, make: () => K): K {
-    const hit = this.get_stored(key);
-    if (hit !== undefined) return hit;
+  intern_ref<Q>(this: InternedSet<K>, _value: Q, key: string, make: () => K): K {
+    const hit = this.table.get(key);
+    if (hit !== undefined) return hit[0];
     const v = make();
-    this.insert_unique(v, key, null);
+    this.table.set(key, [v, null]);
     return v;
   }
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:234 intern
   /** PORT: `key` is the canonical key of `value` (module comment). */
-  intern<Q>(value: Q, key: string, make: (value: Q) => K): K {
-    const hit = this.get_stored(key);
-    if (hit !== undefined) return hit;
+  intern<Q>(this: InternedSet<K>, value: Q, key: string, make: (value: Q) => K): K {
+    const hit = this.table.get(key);
+    if (hit !== undefined) return hit[0];
     const v = make(value);
-    this.insert_unique(v, key, null);
+    this.table.set(key, [v, null]);
     return v;
   }
 
   // rustc: compiler/rustc_data_structures/src/sharded.rs:259 contains_pointer_to
   /** PORT: `IntoPointer` is object identity: is `value` the object stored under `key`? */
-  contains_pointer_to(value: K, key: string): boolean {
-    return this.get_stored(key) === value;
-  }
-
-  /** The stored `K` for `key` (the `Entry::Occupied(e) => e.get().0` arm). */
-  private get_stored(key: string): K | undefined {
-    const e = this.table.get(key);
-    return e === undefined ? undefined : e[0];
+  contains_pointer_to(this: InternedSet<K>, value: K, key: string): boolean {
+    const hit = this.table.get(key);
+    return hit !== undefined && hit[0] === value;
   }
 }
+
+/** PORT: `ShardedHashMap<K, ()>`, the interner set (`impl<K: Eq + Hash + Copy> ShardedHashMap<K, ()>`). */
+export type InternedSet<K> = ShardedHashMap<K, null>;

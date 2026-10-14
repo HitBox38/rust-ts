@@ -18,7 +18,9 @@
 // `Ordering = "Less" | "Equal" | "Greater"`.
 import { type DefPath, debug_DefPath } from "../../rustc_hir_id/definitions.ts";
 import { DefId, type DefId as DefIdT, debug_DefId, debug_LocalModId, debug_ModId, type LocalDefId, LocalModId, ModId, ModId_eq } from "../../rustc_span/def_id.ts";
-import type { Symbol } from "../../rustc_span/symbol.ts";
+import type { Ident, Symbol } from "../../rustc_span/symbol.ts";
+import type { Span } from "../../rustc_span/lib.ts";
+import type { DefKind, Res } from "../../rustc_hir/def.ts";
 import { type Debug, debug_tuple, PLAIN } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
 import { Interned } from "../../rustc_data_structures/intern.ts";
