@@ -13,6 +13,9 @@
 // methods they do not override to `TypeVisitor_provided` / `FallibleTypeFolder_provided` (tyir-binder convention).
 // `ControlFlow<()>` is `ControlFlow<null>`, `type Error = ()` is `null` (rustc_ast_ir/visit.ts header).
 // PORT: print/pretty.ts is imported before print/mod.ts (print/mod.ts header: entering mod.ts first is a TDZ error).
+// PORT: ./context.ts is imported first so that this module also loads as an entry point (init order).
+import "./context.ts";
+import type { TyCtxt } from "./context.ts";
 import { display_Ty, print_Binder, print_TraitClause } from "./print/pretty.ts";
 import { IrPrint_print, print_Instance, print_Ty } from "./print/mod.ts";
 import { ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
@@ -57,7 +60,6 @@ import type { MutRef } from "../../std/mut_ref.ts";
 import { unwrap } from "../../std/panic.ts";
 import { Err, ok, type Result } from "../../std/result.ts";
 import { with_ } from "./context/tls.ts";
-import type { TyCtxt } from "./context.ts";
 import type { Clauses, Instance } from "./decls.ts";
 import type { PolyTraitClause } from "../../rustc_type_ir/decls.ts";
 import { fold_GenericArgs } from "./generic_args.ts";

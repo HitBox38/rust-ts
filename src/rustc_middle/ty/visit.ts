@@ -9,6 +9,8 @@
 // insertion order that compares the kinds by value.
 // PORT: the visitors implement `TypeVisitor<R>` and forward the methods they do not override to
 // `TypeVisitor_provided` (tyir-binder convention); `Self::Result = ()` is `VisitorResult.unit`.
+// PORT: ./context.ts is imported first so that this module also loads as an entry point (init order).
+import { TyCtxt } from "./context.ts";
 import { ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import { Binder, type BoundRegionKind, visit_Binder } from "../../rustc_type_ir/binder.ts";
 import { TypeFlags } from "../../rustc_type_ir/flags.ts";
@@ -21,7 +23,6 @@ import { KeyedSet } from "../../rust_ts/keyed.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
-import { TyCtxt } from "./context.ts";
 import type { Clauses } from "./list.ts";
 import type { Ty } from "./mod.ts";
 import { fold_Ty } from "./structural_impls.ts";

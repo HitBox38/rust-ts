@@ -11,11 +11,13 @@
 // (lane ty-print-b decision 6: `<SelfType>_<method>`).
 // PORT (D4): `T: Print<FmtPrinter>` is the `Print<T>` descriptor `d_T`, last (decls.ts signatures).
 // PORT: print/pretty.ts is imported before print/mod.ts (print/mod.ts header: entering mod.ts first is a TDZ error).
+// PORT: ./context.ts is imported first so that this module also loads as an entry point (init order).
+import { TyCtxt } from "./context.ts";
 import { display_List_PolyExistentialPredicate, display_ParamTy, FmtPrinter, with_forced_trimmed_paths } from "./print/pretty.ts";
 import { type Print, type PrintError, print_Ty } from "./print/mod.ts";
 import { display_ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import { pluralize } from "../../rustc_errors/lib.ts";
-import { type DefKind, Namespace } from "../../rustc_hir/def.ts";
+import { Namespace } from "../../rustc_hir/def.ts";
 import { type CoroutineKind, display_CoroutineKind, display_Safety } from "../../rustc_hir/hir.ts";
 import { Limit } from "../../rustc_structures/limit.ts";
 import type { TypeError } from "../../rustc_type_ir/error.ts";
@@ -27,7 +29,6 @@ import type { MutRef } from "../../std/mut_ref.ts";
 import { unported, unwrap } from "../../std/panic.ts";
 import { expect_result } from "../../std/result.ts";
 import { utf8_len } from "../../std/str.ts";
-import { TyCtxt } from "./context.ts";
 import type { AdtDef } from "./decls.ts";
 import { Ty } from "./mod.ts";
 
@@ -144,25 +145,22 @@ export function TypeError_to_string(self: TypeError, tcx: TyCtxt): string {
   }
 }
 
-/** `match tcx.def_kind(def_id) { Ctor(Struct, _) => .., Ctor(Variant, _) => .., _ => "fn item" }` (both fns below). */
-function fn_def_descr(kind: DefKind): string {
-  if (kind.$ === "Ctor" && kind._0 === "Struct") {
-    return "struct constructor";
-  } else if (kind.$ === "Ctor" && kind._0 === "Variant") {
-    return "enum constructor";
-  } else {
-    return "fn item";
-  }
-}
-
 // rustc: compiler/rustc_middle/src/ty/error.rs:140 sort_string
 Ty.prototype.sort_string = function (this: Ty, tcx: TyCtxt): string {
   const k = this.kind();
   switch (k.$) {
     case "Foreign":
       return `extern type \`${tcx.def_path_str(k._0)}\``;
-    case "FnDef":
-      return fn_def_descr(tcx.def_kind(k._0));
+    case "FnDef": {
+      const def_kind = tcx.def_kind(k._0);
+      if (def_kind.$ === "Ctor" && def_kind._0 === "Struct") {
+        return "struct constructor";
+      } else if (def_kind.$ === "Ctor" && def_kind._0 === "Variant") {
+        return "enum constructor";
+      } else {
+        return "fn item";
+      }
+    }
     case "FnPtr":
       return "fn pointer";
     case "Dynamic": {
@@ -263,8 +261,16 @@ Ty.prototype.prefix_string = function (this: Ty, tcx: TyCtxt): string {
         default:
           return "reference";
       }
-    case "FnDef":
-      return fn_def_descr(tcx.def_kind(k._0));
+    case "FnDef": {
+      const def_kind = tcx.def_kind(k._0);
+      if (def_kind.$ === "Ctor" && def_kind._0 === "Struct") {
+        return "struct constructor";
+      } else if (def_kind.$ === "Ctor" && def_kind._0 === "Variant") {
+        return "enum constructor";
+      } else {
+        return "fn item";
+      }
+    }
     case "FnPtr":
       return "fn pointer";
     case "UnsafeBinder":
