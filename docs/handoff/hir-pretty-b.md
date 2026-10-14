@@ -56,8 +56,8 @@ through `print_impl_restriction` (the rest of `impl State`), then the free fns `
   `bclose*`, `commasep_cmnt`, `commasep_exprs`, `print_type` (Path/Infer), `print_generic_arg`,
   `print_formal_generic_params`, `print_call_post`, `print_expr_as_cond`, `print_expr_cond_paren`, `print_expr_vec`.
   The State constructor is called through a cast, because lane a owns the real one.
-- `bunx tsc --noEmit -p .`: clean. `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see the final line
-  below.
+- `bunx tsc --noEmit -p .`: clean. `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4114
+  pass, 1 skip (the pre-existing linux-only one), 0 fail. `bun scripts/coverage.ts --check`: markers ok (9505).
 - **No difftest sample.** No suite reaches this code yet: `rustc_driver_impl/pretty.ts` still calls `unported` for
   `-Zunpretty=hir`. End-to-end needs both halves plus the driver wiring.
 
