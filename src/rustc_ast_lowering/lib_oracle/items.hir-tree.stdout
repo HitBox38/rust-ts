@@ -1,0 +1,2339 @@
+DefId(0:0 ~ items[7a7e]) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Crate(
+            Mod {
+                spans: ModSpans {
+                    inner_span: items.rs:1:1: 44:2 (#0),
+                    inject_use_span: items.rs:4:1: 4:1 (#0),
+                },
+                item_ids: [
+                    ItemId {
+                        owner_id: DefId(0:1 ~ items[7a7e]::PointeeSized),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:2 ~ items[7a7e]::MetaSized),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:3 ~ items[7a7e]::Sized),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:4 ~ items[7a7e]::m),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:12 ~ items[7a7e]::Tr),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:16 ~ items[7a7e]::{impl#0}),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:20 ~ items[7a7e]::{extern#0}),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:24 ~ items[7a7e]::E),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:30 ~ items[7a7e]::{use#0}),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:31 ~ items[7a7e]::mac),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:32 ~ items[7a7e]::outer),
+                    },
+                ],
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            2921999794963714455,
+            17777405938446400107,
+        ),
+    ),
+}
+DefId(0:1 ~ items[7a7e]::PointeeSized) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:1 ~ items[7a7e]::PointeeSized),
+                kind: Trait {
+                    impl_restriction: ImplRestriction {
+                        kind: Unrestricted,
+                        span: items.rs:5:5: 5:5 (#0),
+                    },
+                    constness: NotConst,
+                    is_auto: No,
+                    safety: Safe,
+                    ident: PointeeSized#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:5:23: 5:23 (#0),
+                        span: items.rs:5:23: 5:23 (#0),
+                    },
+                    bounds: [],
+                    items: [],
+                },
+                span: items.rs:5:1: 5:26 (#0),
+                vis_span: items.rs:5:1: 5:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            5612690049137688476,
+            9521005536956890630,
+        ),
+    ),
+}
+DefId(0:2 ~ items[7a7e]::MetaSized) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:2 ~ items[7a7e]::MetaSized),
+                kind: Trait {
+                    impl_restriction: ImplRestriction {
+                        kind: Unrestricted,
+                        span: items.rs:7:5: 7:5 (#0),
+                    },
+                    constness: NotConst,
+                    is_auto: No,
+                    safety: Safe,
+                    ident: MetaSized#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:7:34: 7:34 (#0),
+                        span: items.rs:7:20: 7:20 (#0),
+                    },
+                    bounds: [
+                        Trait(
+                            PolyTraitRef {
+                                bound_generic_params: [],
+                                modifiers: TraitBoundModifiers {
+                                    constness: Never,
+                                    polarity: Positive,
+                                },
+                                trait_ref: TraitRef {
+                                    path: Path {
+                                        span: items.rs:7:22: 7:34 (#0),
+                                        res: Def(
+                                            Trait,
+                                            DefId(0:1 ~ items[7a7e]::PointeeSized),
+                                        ),
+                                        segments: [
+                                            PathSegment {
+                                                ident: PointeeSized#0,
+                                                hir_id: HirId(DefId(0:2 ~ items[7a7e]::MetaSized).1),
+                                                res: Def(
+                                                    Trait,
+                                                    DefId(0:1 ~ items[7a7e]::PointeeSized),
+                                                ),
+                                                args: None,
+                                                infer_args: false,
+                                                delegation_child_segment: false,
+                                            },
+                                        ],
+                                    },
+                                    hir_ref_id: HirId(DefId(0:2 ~ items[7a7e]::MetaSized).2),
+                                },
+                                span: items.rs:7:22: 7:34 (#0),
+                            },
+                        ),
+                    ],
+                    items: [],
+                },
+                span: items.rs:7:1: 7:37 (#0),
+                vis_span: items.rs:7:1: 7:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 2),
+        (2, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            3334262111380363410,
+            994915117615064591,
+        ),
+    ),
+}
+DefId(0:3 ~ items[7a7e]::Sized) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:3 ~ items[7a7e]::Sized),
+                kind: Trait {
+                    impl_restriction: ImplRestriction {
+                        kind: Unrestricted,
+                        span: items.rs:9:5: 9:5 (#0),
+                    },
+                    constness: NotConst,
+                    is_auto: No,
+                    safety: Safe,
+                    ident: Sized#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:9:27: 9:27 (#0),
+                        span: items.rs:9:16: 9:16 (#0),
+                    },
+                    bounds: [
+                        Trait(
+                            PolyTraitRef {
+                                bound_generic_params: [],
+                                modifiers: TraitBoundModifiers {
+                                    constness: Never,
+                                    polarity: Positive,
+                                },
+                                trait_ref: TraitRef {
+                                    path: Path {
+                                        span: items.rs:9:18: 9:27 (#0),
+                                        res: Def(
+                                            Trait,
+                                            DefId(0:2 ~ items[7a7e]::MetaSized),
+                                        ),
+                                        segments: [
+                                            PathSegment {
+                                                ident: MetaSized#0,
+                                                hir_id: HirId(DefId(0:3 ~ items[7a7e]::Sized).1),
+                                                res: Def(
+                                                    Trait,
+                                                    DefId(0:2 ~ items[7a7e]::MetaSized),
+                                                ),
+                                                args: None,
+                                                infer_args: false,
+                                                delegation_child_segment: false,
+                                            },
+                                        ],
+                                    },
+                                    hir_ref_id: HirId(DefId(0:3 ~ items[7a7e]::Sized).2),
+                                },
+                                span: items.rs:9:18: 9:27 (#0),
+                            },
+                        ),
+                    ],
+                    items: [],
+                },
+                span: items.rs:9:1: 9:30 (#0),
+                vis_span: items.rs:9:1: 9:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 2),
+        (2, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            14188676231054871902,
+            7695560443386922956,
+        ),
+    ),
+}
+DefId(0:4 ~ items[7a7e]::m) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:4 ~ items[7a7e]::m),
+                kind: Mod(
+                    m#0,
+                    Mod {
+                        spans: ModSpans {
+                            inner_span: items.rs:12:5: 14:2 (#0),
+                            inject_use_span: items.rs:12:5: 12:5 (#0),
+                        },
+                        item_ids: [
+                            ItemId {
+                                owner_id: DefId(0:5 ~ items[7a7e]::m::f),
+                            },
+                            ItemId {
+                                owner_id: DefId(0:6 ~ items[7a7e]::m::S),
+                            },
+                        ],
+                    },
+                ),
+                span: items.rs:11:1: 14:2 (#0),
+                vis_span: items.rs:11:1: 11:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            8804310765540510727,
+            5834763500866814698,
+        ),
+    ),
+}
+DefId(0:5 ~ items[7a7e]::m::f) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:5 ~ items[7a7e]::m::f),
+                kind: Fn {
+                    sig: FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [
+                                Ty {
+                                    hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).14),
+                                    span: items.rs:12:17: 12:19 (#0),
+                                    kind: Tup(
+                                        [],
+                                    ),
+                                },
+                                Ty {
+                                    hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).15),
+                                    span: items.rs:12:24: 12:25 (#0),
+                                    kind: Never,
+                                },
+                            ],
+                            output: Return(
+                                Ty {
+                                    hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).18),
+                                    span: items.rs:12:30: 12:38 (#0),
+                                    kind: Tup(
+                                        [
+                                            Ty {
+                                                hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).16),
+                                                span: items.rs:12:31: 12:33 (#0),
+                                                kind: Tup(
+                                                    [],
+                                                ),
+                                            },
+                                            Ty {
+                                                hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).17),
+                                                span: items.rs:12:35: 12:37 (#0),
+                                                kind: Tup(
+                                                    [],
+                                                ),
+                                            },
+                                        ],
+                                    ),
+                                },
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(None)",
+                                "NoLifetimeElision",
+                            ),
+                        },
+                        span: items.rs:12:5: 12:38 (#0),
+                    },
+                    ident: f#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:12:38: 12:38 (#0),
+                        span: items.rs:12:13: 12:13 (#0),
+                    },
+                    body: BodyId {
+                        hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).13),
+                    },
+                    has_body: true,
+                },
+                span: items.rs:12:5: 12:62 (#0),
+                vis_span: items.rs:12:5: 12:8 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 1),
+        (3, 0),
+        (4, 3),
+        (5, 13),
+        (6, 5),
+        (7, 9),
+        (8, 7),
+        (9, 6),
+        (10, 9),
+        (11, 5),
+        (12, 11),
+        (13, 0),
+        (14, 0),
+        (15, 0),
+        (16, 18),
+        (17, 18),
+        (18, 0),
+    ],
+    bodies: {
+        13: Body {
+            params: [
+                Param {
+                    hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).1),
+                    pat: Pat {
+                        hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).2),
+                        kind: Binding(
+                            BindingMode(
+                                No,
+                                Not,
+                            ),
+                            HirId(DefId(0:5 ~ items[7a7e]::m::f).2),
+                            x#0,
+                            None,
+                        ),
+                        span: items.rs:12:14: 12:15 (#0),
+                        default_binding_modes: true,
+                    },
+                    ty_span: items.rs:12:17: 12:19 (#0),
+                    span: items.rs:12:14: 12:19 (#0),
+                },
+                Param {
+                    hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).3),
+                    pat: Pat {
+                        hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).4),
+                        kind: Wild,
+                        span: items.rs:12:21: 12:22 (#0),
+                        default_binding_modes: true,
+                    },
+                    ty_span: items.rs:12:24: 12:25 (#0),
+                    span: items.rs:12:21: 12:25 (#0),
+                },
+            ],
+            value: Expr {
+                hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).13),
+                kind: Block(
+                    Block {
+                        stmts: [
+                            Stmt {
+                                hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).6),
+                                kind: Let(
+                                    LetStmt {
+                                        super_: None,
+                                        pat: Pat {
+                                            hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).10),
+                                            kind: Binding(
+                                                BindingMode(
+                                                    No,
+                                                    Not,
+                                                ),
+                                                HirId(DefId(0:5 ~ items[7a7e]::m::f).10),
+                                                _y#0,
+                                                None,
+                                            ),
+                                            span: items.rs:12:45: 12:47 (#0),
+                                            default_binding_modes: true,
+                                        },
+                                        ty: None,
+                                        init: Some(
+                                            Expr {
+                                                hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).7),
+                                                kind: Path(
+                                                    Resolved(
+                                                        None,
+                                                        Path {
+                                                            span: items.rs:12:50: 12:51 (#0),
+                                                            res: Local(
+                                                                HirId(DefId(0:5 ~ items[7a7e]::m::f).2),
+                                                            ),
+                                                            segments: [
+                                                                PathSegment {
+                                                                    ident: x#0,
+                                                                    hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).8),
+                                                                    res: Local(
+                                                                        HirId(DefId(0:5 ~ items[7a7e]::m::f).2),
+                                                                    ),
+                                                                    args: None,
+                                                                    infer_args: true,
+                                                                    delegation_child_segment: false,
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                ),
+                                                span: items.rs:12:50: 12:51 (#0),
+                                            },
+                                        ),
+                                        els: None,
+                                        hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).9),
+                                        span: items.rs:12:41: 12:52 (#0),
+                                        source: Normal,
+                                    },
+                                ),
+                                span: items.rs:12:41: 12:52 (#0),
+                            },
+                        ],
+                        expr: Some(
+                            Expr {
+                                hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).11),
+                                kind: Loop(
+                                    Block {
+                                        stmts: [],
+                                        expr: None,
+                                        hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).12),
+                                        rules: DefaultBlock,
+                                        span: items.rs:12:58: 12:60 (#0),
+                                        targeted_by_break: false,
+                                    },
+                                    None,
+                                    Loop,
+                                    items.rs:12:53: 12:57 (#0),
+                                ),
+                                span: items.rs:12:53: 12:60 (#0),
+                            },
+                        ),
+                        hir_id: HirId(DefId(0:5 ~ items[7a7e]::m::f).5),
+                        rules: DefaultBlock,
+                        span: items.rs:12:39: 12:62 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: items.rs:12:39: 12:62 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            16857246692083716514,
+            10964284943561195429,
+        ),
+    ),
+}
+DefId(0:6 ~ items[7a7e]::m::S) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:6 ~ items[7a7e]::m::S),
+                kind: Struct(
+                    S#0,
+                    Generics {
+                        params: [
+                            GenericParam {
+                                hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).1),
+                                def_id: DefId(0:8 ~ items[7a7e]::m::S::'a),
+                                name: Plain(
+                                    'a#0,
+                                ),
+                                span: items.rs:13:18: 13:20 (#0),
+                                pure_wrt_drop: false,
+                                kind: Lifetime {
+                                    kind: Explicit,
+                                },
+                                colon_span: None,
+                                source: Generics,
+                            },
+                            GenericParam {
+                                hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).2),
+                                def_id: DefId(0:9 ~ items[7a7e]::m::S::T),
+                                name: Plain(
+                                    T#0,
+                                ),
+                                span: items.rs:13:22: 13:23 (#0),
+                                pure_wrt_drop: false,
+                                kind: Type {
+                                    default: None,
+                                    synthetic: false,
+                                },
+                                colon_span: None,
+                                source: Generics,
+                            },
+                        ],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:13:37: 13:37 (#0),
+                        span: items.rs:13:17: 13:24 (#0),
+                    },
+                    Tuple(
+                        [
+                            FieldDef {
+                                span: items.rs:13:25: 13:30 (#0),
+                                vis_span: items.rs:13:25: 13:25 (#0),
+                                mut_restriction: MutRestriction {
+                                    kind: Unrestricted,
+                                    span: no-location (#0),
+                                },
+                                ident: 0#0,
+                                hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).8),
+                                def_id: DefId(0:10 ~ items[7a7e]::m::S::0),
+                                ty: Ty {
+                                    hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).7),
+                                    span: items.rs:13:25: 13:30 (#0),
+                                    kind: Ref(
+                                        Lifetime {
+                                            hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).4),
+                                            ident: 'a#0,
+                                            kind: Param(
+                                                DefId(0:8 ~ items[7a7e]::m::S::'a),
+                                            ),
+                                            source: Reference,
+                                            syntax: ExplicitBound,
+                                        },
+                                        Ty {
+                                            hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).5),
+                                            span: items.rs:13:29: 13:30 (#0),
+                                            kind: Path(
+                                                Resolved(
+                                                    None,
+                                                    Path {
+                                                        span: items.rs:13:29: 13:30 (#0),
+                                                        res: Def(
+                                                            TyParam,
+                                                            DefId(0:9 ~ items[7a7e]::m::S::T),
+                                                        ),
+                                                        segments: [
+                                                            PathSegment {
+                                                                ident: T#0,
+                                                                hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).6),
+                                                                res: Def(
+                                                                    TyParam,
+                                                                    DefId(0:9 ~ items[7a7e]::m::S::T),
+                                                                ),
+                                                                args: None,
+                                                                infer_args: false,
+                                                                delegation_child_segment: false,
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                            ),
+                                        },
+                                        Not,
+                                    ),
+                                },
+                                safety: Safe,
+                                default: None,
+                            },
+                            FieldDef {
+                                span: items.rs:13:32: 13:36 (#0),
+                                vis_span: items.rs:13:32: 13:32 (#0),
+                                mut_restriction: MutRestriction {
+                                    kind: Unrestricted,
+                                    span: no-location (#0),
+                                },
+                                ident: 1#0,
+                                hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).12),
+                                def_id: DefId(0:11 ~ items[7a7e]::m::S::1),
+                                ty: Ty {
+                                    hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).11),
+                                    span: items.rs:13:32: 13:36 (#0),
+                                    kind: Tup(
+                                        [
+                                            Ty {
+                                                hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).9),
+                                                span: items.rs:13:33: 13:34 (#0),
+                                                kind: Path(
+                                                    Resolved(
+                                                        None,
+                                                        Path {
+                                                            span: items.rs:13:33: 13:34 (#0),
+                                                            res: Def(
+                                                                TyParam,
+                                                                DefId(0:9 ~ items[7a7e]::m::S::T),
+                                                            ),
+                                                            segments: [
+                                                                PathSegment {
+                                                                    ident: T#0,
+                                                                    hir_id: HirId(DefId(0:6 ~ items[7a7e]::m::S).10),
+                                                                    res: Def(
+                                                                        TyParam,
+                                                                        DefId(0:9 ~ items[7a7e]::m::S::T),
+                                                                    ),
+                                                                    args: None,
+                                                                    infer_args: false,
+                                                                    delegation_child_segment: false,
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                ),
+                                            },
+                                        ],
+                                    ),
+                                },
+                                safety: Safe,
+                                default: None,
+                            },
+                        ],
+                        HirId(DefId(0:6 ~ items[7a7e]::m::S).3),
+                        DefId(0:7 ~ items[7a7e]::m::S::{constructor#0}),
+                    ),
+                ),
+                span: items.rs:13:5: 13:38 (#0),
+                vis_span: items.rs:13:5: 13:8 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 0),
+        (3, 0),
+        (4, 7),
+        (5, 7),
+        (6, 5),
+        (7, 8),
+        (8, 0),
+        (9, 11),
+        (10, 9),
+        (11, 12),
+        (12, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            8959857053120759254,
+            13280148272482434025,
+        ),
+    ),
+}
+DefId(0:12 ~ items[7a7e]::Tr) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:12 ~ items[7a7e]::Tr),
+                kind: Trait {
+                    impl_restriction: ImplRestriction {
+                        kind: Unrestricted,
+                        span: items.rs:16:5: 16:5 (#0),
+                    },
+                    constness: NotConst,
+                    is_auto: No,
+                    safety: Safe,
+                    ident: Tr#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:16:13: 16:13 (#0),
+                        span: items.rs:16:13: 16:13 (#0),
+                    },
+                    bounds: [],
+                    items: [
+                        TraitItemId {
+                            owner_id: DefId(0:13 ~ items[7a7e]::Tr::A),
+                        },
+                        TraitItemId {
+                            owner_id: DefId(0:14 ~ items[7a7e]::Tr::C),
+                        },
+                        TraitItemId {
+                            owner_id: DefId(0:15 ~ items[7a7e]::Tr::g),
+                        },
+                    ],
+                },
+                span: items.rs:16:1: 20:2 (#0),
+                vis_span: items.rs:16:1: 16:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            506174855570316605,
+            10313638710694878875,
+        ),
+    ),
+}
+DefId(0:16 ~ items[7a7e]::{impl#0}) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:16 ~ items[7a7e]::{impl#0}),
+                kind: Impl(
+                    Impl {
+                        generics: Generics {
+                            params: [],
+                            predicates: [],
+                            has_where_clause_predicates: false,
+                            where_clause_span: items.rs:22:15: 22:15 (#0),
+                            span: items.rs:22:5: 22:5 (#0),
+                        },
+                        of_trait: Some(
+                            TraitImplHeader {
+                                safety: Safe,
+                                polarity: "positive",
+                                defaultness: Final,
+                                defaultness_span: None,
+                                trait_ref: TraitRef {
+                                    path: Path {
+                                        span: items.rs:22:6: 22:8 (#0),
+                                        res: Def(
+                                            Trait,
+                                            DefId(0:12 ~ items[7a7e]::Tr),
+                                        ),
+                                        segments: [
+                                            PathSegment {
+                                                ident: Tr#0,
+                                                hir_id: HirId(DefId(0:16 ~ items[7a7e]::{impl#0}).1),
+                                                res: Def(
+                                                    Trait,
+                                                    DefId(0:12 ~ items[7a7e]::Tr),
+                                                ),
+                                                args: None,
+                                                infer_args: false,
+                                                delegation_child_segment: false,
+                                            },
+                                        ],
+                                    },
+                                    hir_ref_id: HirId(DefId(0:16 ~ items[7a7e]::{impl#0}).2),
+                                },
+                            },
+                        ),
+                        self_ty: Ty {
+                            hir_id: HirId(DefId(0:16 ~ items[7a7e]::{impl#0}).3),
+                            span: items.rs:22:13: 22:15 (#0),
+                            kind: Tup(
+                                [],
+                            ),
+                        },
+                        items: [
+                            ImplItemId {
+                                owner_id: DefId(0:17 ~ items[7a7e]::{impl#0}::A),
+                            },
+                            ImplItemId {
+                                owner_id: DefId(0:18 ~ items[7a7e]::{impl#0}::C),
+                            },
+                            ImplItemId {
+                                owner_id: DefId(0:19 ~ items[7a7e]::{impl#0}::g),
+                            },
+                        ],
+                        constness: NotConst,
+                    },
+                ),
+                span: items.rs:22:1: 26:2 (#0),
+                vis_span: items.rs:22:1: 22:1 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 2),
+        (2, 0),
+        (3, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            11398708652363515666,
+            12169670872605820504,
+        ),
+    ),
+}
+DefId(0:20 ~ items[7a7e]::{extern#0}) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:20 ~ items[7a7e]::{extern#0}),
+                kind: ForeignMod {
+                    abi: C {
+                        unwind: false,
+                    },
+                    items: [
+                        ForeignItemId {
+                            owner_id: DefId(0:21 ~ items[7a7e]::{extern#0}::ext),
+                        },
+                        ForeignItemId {
+                            owner_id: DefId(0:22 ~ items[7a7e]::{extern#0}::X),
+                        },
+                    ],
+                },
+                span: items.rs:28:1: 31:2 (#0),
+                vis_span: items.rs:28:1: 28:1 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            15138076907064099062,
+            17893692733003713360,
+        ),
+    ),
+}
+DefId(0:24 ~ items[7a7e]::E) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:24 ~ items[7a7e]::E),
+                kind: Enum(
+                    E#0,
+                    Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:33:11: 33:11 (#0),
+                        span: items.rs:33:11: 33:11 (#0),
+                    },
+                    EnumDef {
+                        variants: [
+                            Variant {
+                                ident: A#0,
+                                hir_id: HirId(DefId(0:24 ~ items[7a7e]::E).1),
+                                def_id: DefId(0:25 ~ items[7a7e]::E::A),
+                                data: Tuple(
+                                    [
+                                        FieldDef {
+                                            span: items.rs:33:16: 33:18 (#0),
+                                            vis_span: items.rs:33:16: 33:16 (#0),
+                                            mut_restriction: MutRestriction {
+                                                kind: Unrestricted,
+                                                span: no-location (#0),
+                                            },
+                                            ident: 0#0,
+                                            hir_id: HirId(DefId(0:24 ~ items[7a7e]::E).4),
+                                            def_id: DefId(0:27 ~ items[7a7e]::E::A::0),
+                                            ty: Ty {
+                                                hir_id: HirId(DefId(0:24 ~ items[7a7e]::E).3),
+                                                span: items.rs:33:16: 33:18 (#0),
+                                                kind: Tup(
+                                                    [],
+                                                ),
+                                            },
+                                            safety: Safe,
+                                            default: None,
+                                        },
+                                    ],
+                                    HirId(DefId(0:24 ~ items[7a7e]::E).2),
+                                    DefId(0:26 ~ items[7a7e]::E::A::{constructor#0}),
+                                ),
+                                disr_expr: None,
+                                span: items.rs:33:14: 33:19 (#0),
+                            },
+                            Variant {
+                                ident: B#0,
+                                hir_id: HirId(DefId(0:24 ~ items[7a7e]::E).5),
+                                def_id: DefId(0:28 ~ items[7a7e]::E::B),
+                                data: Struct {
+                                    fields: [
+                                        FieldDef {
+                                            span: items.rs:33:25: 33:30 (#0),
+                                            vis_span: items.rs:33:25: 33:25 (#0),
+                                            mut_restriction: MutRestriction {
+                                                kind: Unrestricted,
+                                                span: no-location (#0),
+                                            },
+                                            ident: f#0,
+                                            hir_id: HirId(DefId(0:24 ~ items[7a7e]::E).7),
+                                            def_id: DefId(0:29 ~ items[7a7e]::E::B::f),
+                                            ty: Ty {
+                                                hir_id: HirId(DefId(0:24 ~ items[7a7e]::E).6),
+                                                span: items.rs:33:28: 33:30 (#0),
+                                                kind: Tup(
+                                                    [],
+                                                ),
+                                            },
+                                            safety: Safe,
+                                            default: None,
+                                        },
+                                    ],
+                                    recovered: No,
+                                },
+                                disr_expr: None,
+                                span: items.rs:33:21: 33:32 (#0),
+                            },
+                        ],
+                    },
+                ),
+                span: items.rs:33:1: 33:34 (#0),
+                vis_span: items.rs:33:1: 33:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 1),
+        (3, 4),
+        (4, 1),
+        (5, 0),
+        (6, 7),
+        (7, 5),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            13388934604812525607,
+            1732717487301351148,
+        ),
+    ),
+}
+DefId(0:30 ~ items[7a7e]::{use#0}) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:30 ~ items[7a7e]::{use#0}),
+                kind: Use(
+                    UseTree {
+                        prefix: Path {
+                            span: items.rs:35:9: 35:13 (#0),
+                            res: PerNS {
+                                value_ns: None,
+                                type_ns: Some(
+                                    Def(
+                                        Struct,
+                                        DefId(0:6 ~ items[7a7e]::m::S),
+                                    ),
+                                ),
+                                macro_ns: None,
+                            },
+                            segments: [
+                                PathSegment {
+                                    ident: m#0,
+                                    hir_id: HirId(DefId(0:30 ~ items[7a7e]::{use#0}).1),
+                                    res: Def(
+                                        Mod,
+                                        DefId(0:4 ~ items[7a7e]::m),
+                                    ),
+                                    args: None,
+                                    infer_args: false,
+                                    delegation_child_segment: false,
+                                },
+                                PathSegment {
+                                    ident: S#0,
+                                    hir_id: HirId(DefId(0:30 ~ items[7a7e]::{use#0}).2),
+                                    res: Err,
+                                    args: None,
+                                    infer_args: false,
+                                    delegation_child_segment: false,
+                                },
+                            ],
+                        },
+                        kind: Single(
+                            T#0,
+                        ),
+                    },
+                ),
+                span: items.rs:35:1: 35:19 (#0),
+                vis_span: items.rs:35:1: 35:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            12984416855442323977,
+            4206402023663268447,
+        ),
+    ),
+}
+DefId(0:31 ~ items[7a7e]::mac) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:31 ~ items[7a7e]::mac),
+                kind: Macro(
+                    mac#0,
+                    MacroDef {
+                        body: DelimArgs {
+                            dspan: DelimSpan {
+                                open: items.rs:37:18: 37:19 (#0),
+                                close: items.rs:37:29: 37:30 (#0),
+                            },
+                            delim: Brace,
+                            tokens: TokenStream(
+                                [
+                                    Delimited(
+                                        DelimSpan {
+                                            open: items.rs:37:20: 37:21 (#0),
+                                            close: items.rs:37:21: 37:22 (#0),
+                                        },
+                                        DelimSpacing {
+                                            open: JointHidden,
+                                            close: Alone,
+                                        },
+                                        Parenthesis,
+                                        TokenStream(
+                                            [],
+                                        ),
+                                    ),
+                                    Token(
+                                        Token {
+                                            kind: FatArrow,
+                                            span: items.rs:37:23: 37:25 (#0),
+                                        },
+                                        Alone,
+                                    ),
+                                    Delimited(
+                                        DelimSpan {
+                                            open: items.rs:37:26: 37:27 (#0),
+                                            close: items.rs:37:27: 37:28 (#0),
+                                        },
+                                        DelimSpacing {
+                                            open: JointHidden,
+                                            close: Alone,
+                                        },
+                                        Brace,
+                                        TokenStream(
+                                            [],
+                                        ),
+                                    ),
+                                ],
+                            ),
+                        },
+                        macro_rules: true,
+                        eii_declaration: None,
+                    },
+                    MacroKinds(
+                        1,
+                    ),
+                ),
+                span: items.rs:37:1: 37:30 (#0),
+                vis_span: items.rs:37:1: 37:1 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            7163359708184039101,
+            8823757337120809129,
+        ),
+    ),
+}
+DefId(0:32 ~ items[7a7e]::outer) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:32 ~ items[7a7e]::outer),
+                kind: Fn {
+                    sig: FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [],
+                            output: DefaultReturn(
+                                items.rs:39:15: 39:15 (#0),
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(None)",
+                                "NoLifetimeElision",
+                            ),
+                        },
+                        span: items.rs:39:1: 39:15 (#0),
+                    },
+                    ident: outer#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:39:15: 39:15 (#0),
+                        span: items.rs:39:13: 39:13 (#0),
+                    },
+                    body: BodyId {
+                        hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).12),
+                    },
+                    has_body: true,
+                },
+                span: items.rs:39:1: 44:2 (#0),
+                vis_span: items.rs:39:1: 39:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 12),
+        (2, 1),
+        (3, 1),
+        (4, 1),
+        (5, 1),
+        (6, 10),
+        (7, 6),
+        (8, 7),
+        (9, 8),
+        (10, 5),
+        (11, 10),
+        (12, 0),
+    ],
+    bodies: {
+        7: Body {
+            params: [],
+            value: Expr {
+                hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).7),
+                kind: Block(
+                    Block {
+                        stmts: [
+                            Stmt {
+                                hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).9),
+                                kind: Item(
+                                    ItemId {
+                                        owner_id: DefId(0:39 ~ items[7a7e]::outer::{closure#0}::in_closure),
+                                    },
+                                ),
+                                span: items.rs:43:19: 43:37 (#0),
+                            },
+                        ],
+                        expr: None,
+                        hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).8),
+                        rules: DefaultBlock,
+                        span: items.rs:43:17: 43:39 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: items.rs:43:17: 43:39 (#0),
+            },
+        },
+        12: Body {
+            params: [],
+            value: Expr {
+                hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).12),
+                kind: Block(
+                    Block {
+                        stmts: [
+                            Stmt {
+                                hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).2),
+                                kind: Item(
+                                    ItemId {
+                                        owner_id: DefId(0:33 ~ items[7a7e]::outer::inner),
+                                    },
+                                ),
+                                span: items.rs:40:5: 40:18 (#0),
+                            },
+                            Stmt {
+                                hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).3),
+                                kind: Item(
+                                    ItemId {
+                                        owner_id: DefId(0:34 ~ items[7a7e]::outer::L),
+                                    },
+                                ),
+                                span: items.rs:41:5: 41:14 (#0),
+                            },
+                            Stmt {
+                                hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).4),
+                                kind: Item(
+                                    ItemId {
+                                        owner_id: DefId(0:36 ~ items[7a7e]::outer::{impl#0}),
+                                    },
+                                ),
+                                span: items.rs:42:5: 42:25 (#0),
+                            },
+                            Stmt {
+                                hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).5),
+                                kind: Let(
+                                    LetStmt {
+                                        super_: None,
+                                        pat: Pat {
+                                            hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).11),
+                                            kind: Binding(
+                                                BindingMode(
+                                                    No,
+                                                    Not,
+                                                ),
+                                                HirId(DefId(0:32 ~ items[7a7e]::outer).11),
+                                                _c#0,
+                                                None,
+                                            ),
+                                            span: items.rs:43:9: 43:11 (#0),
+                                            default_binding_modes: true,
+                                        },
+                                        ty: None,
+                                        init: Some(
+                                            Expr {
+                                                hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).6),
+                                                kind: Closure(
+                                                    Closure {
+                                                        def_id: DefId(0:38 ~ items[7a7e]::outer::{closure#0}),
+                                                        binder: Default,
+                                                        constness: NotConst,
+                                                        capture_clause: Ref,
+                                                        bound_generic_params: [],
+                                                        fn_decl: FnDecl {
+                                                            inputs: [],
+                                                            output: DefaultReturn(
+                                                                items.rs:43:16: 43:16 (#0),
+                                                            ),
+                                                            fn_decl_kind: FnDeclFlags(
+                                                                "ImplicitSelfKind(None)",
+                                                                "NoLifetimeElision",
+                                                            ),
+                                                        },
+                                                        body: BodyId {
+                                                            hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).7),
+                                                        },
+                                                        fn_decl_span: items.rs:43:14: 43:16 (#0),
+                                                        fn_arg_span: Some(
+                                                            items.rs:43:14: 43:16 (#0),
+                                                        ),
+                                                        kind: Closure,
+                                                        explicit_captures: [],
+                                                    },
+                                                ),
+                                                span: items.rs:43:14: 43:39 (#0),
+                                            },
+                                        ),
+                                        els: None,
+                                        hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).10),
+                                        span: items.rs:43:5: 43:40 (#0),
+                                        source: Normal,
+                                    },
+                                ),
+                                span: items.rs:43:5: 43:40 (#0),
+                            },
+                        ],
+                        expr: None,
+                        hir_id: HirId(DefId(0:32 ~ items[7a7e]::outer).1),
+                        rules: DefaultBlock,
+                        span: items.rs:39:16: 44:2 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: items.rs:39:16: 44:2 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            6332758238186499060,
+            1635774857017481221,
+        ),
+    ),
+}
+DefId(0:33 ~ items[7a7e]::outer::inner) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:33 ~ items[7a7e]::outer::inner),
+                kind: Fn {
+                    sig: FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [],
+                            output: DefaultReturn(
+                                items.rs:40:15: 40:15 (#0),
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(None)",
+                                "NoLifetimeElision",
+                            ),
+                        },
+                        span: items.rs:40:5: 40:15 (#0),
+                    },
+                    ident: inner#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:40:15: 40:15 (#0),
+                        span: items.rs:40:13: 40:13 (#0),
+                    },
+                    body: BodyId {
+                        hir_id: HirId(DefId(0:33 ~ items[7a7e]::outer::inner).2),
+                    },
+                    has_body: true,
+                },
+                span: items.rs:40:5: 40:18 (#0),
+                vis_span: items.rs:40:5: 40:5 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 2),
+        (2, 0),
+    ],
+    bodies: {
+        2: Body {
+            params: [],
+            value: Expr {
+                hir_id: HirId(DefId(0:33 ~ items[7a7e]::outer::inner).2),
+                kind: Block(
+                    Block {
+                        stmts: [],
+                        expr: None,
+                        hir_id: HirId(DefId(0:33 ~ items[7a7e]::outer::inner).1),
+                        rules: DefaultBlock,
+                        span: items.rs:40:16: 40:18 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: items.rs:40:16: 40:18 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            4439892622048701460,
+            1283882132586395471,
+        ),
+    ),
+}
+DefId(0:34 ~ items[7a7e]::outer::L) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:34 ~ items[7a7e]::outer::L),
+                kind: Struct(
+                    L#0,
+                    Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:41:13: 41:13 (#0),
+                        span: items.rs:41:13: 41:13 (#0),
+                    },
+                    Unit(
+                        HirId(DefId(0:34 ~ items[7a7e]::outer::L).1),
+                        DefId(0:35 ~ items[7a7e]::outer::L::{constructor#0}),
+                    ),
+                ),
+                span: items.rs:41:5: 41:14 (#0),
+                vis_span: items.rs:41:5: 41:5 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            6134202625081249732,
+            2832630089969154988,
+        ),
+    ),
+}
+DefId(0:36 ~ items[7a7e]::outer::{impl#0}) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:36 ~ items[7a7e]::outer::{impl#0}),
+                kind: Impl(
+                    Impl {
+                        generics: Generics {
+                            params: [],
+                            predicates: [],
+                            has_where_clause_predicates: false,
+                            where_clause_span: items.rs:42:11: 42:11 (#0),
+                            span: items.rs:42:9: 42:9 (#0),
+                        },
+                        of_trait: None,
+                        self_ty: Ty {
+                            hir_id: HirId(DefId(0:36 ~ items[7a7e]::outer::{impl#0}).1),
+                            span: items.rs:42:10: 42:11 (#0),
+                            kind: Path(
+                                Resolved(
+                                    None,
+                                    Path {
+                                        span: items.rs:42:10: 42:11 (#0),
+                                        res: Def(
+                                            Struct,
+                                            DefId(0:34 ~ items[7a7e]::outer::L),
+                                        ),
+                                        segments: [
+                                            PathSegment {
+                                                ident: L#0,
+                                                hir_id: HirId(DefId(0:36 ~ items[7a7e]::outer::{impl#0}).2),
+                                                res: Def(
+                                                    Struct,
+                                                    DefId(0:34 ~ items[7a7e]::outer::L),
+                                                ),
+                                                args: None,
+                                                infer_args: false,
+                                                delegation_child_segment: false,
+                                            },
+                                        ],
+                                    },
+                                ),
+                            ),
+                        },
+                        items: [
+                            ImplItemId {
+                                owner_id: DefId(0:37 ~ items[7a7e]::outer::{impl#0}::h),
+                            },
+                        ],
+                        constness: NotConst,
+                    },
+                ),
+                span: items.rs:42:5: 42:25 (#0),
+                vis_span: items.rs:42:5: 42:5 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 1),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            3849287745180687188,
+            9021591419546773128,
+        ),
+    ),
+}
+DefId(0:39 ~ items[7a7e]::outer::{closure#0}::in_closure) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:39 ~ items[7a7e]::outer::{closure#0}::in_closure),
+                kind: Fn {
+                    sig: FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [],
+                            output: DefaultReturn(
+                                items.rs:43:34: 43:34 (#0),
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(None)",
+                                "NoLifetimeElision",
+                            ),
+                        },
+                        span: items.rs:43:19: 43:34 (#0),
+                    },
+                    ident: in_closure#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:43:34: 43:34 (#0),
+                        span: items.rs:43:32: 43:32 (#0),
+                    },
+                    body: BodyId {
+                        hir_id: HirId(DefId(0:39 ~ items[7a7e]::outer::{closure#0}::in_closure).2),
+                    },
+                    has_body: true,
+                },
+                span: items.rs:43:19: 43:37 (#0),
+                vis_span: items.rs:43:19: 43:19 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 2),
+        (2, 0),
+    ],
+    bodies: {
+        2: Body {
+            params: [],
+            value: Expr {
+                hir_id: HirId(DefId(0:39 ~ items[7a7e]::outer::{closure#0}::in_closure).2),
+                kind: Block(
+                    Block {
+                        stmts: [],
+                        expr: None,
+                        hir_id: HirId(DefId(0:39 ~ items[7a7e]::outer::{closure#0}::in_closure).1),
+                        rules: DefaultBlock,
+                        span: items.rs:43:35: 43:37 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: items.rs:43:35: 43:37 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            5198862298240486401,
+            5189314133191339374,
+        ),
+    ),
+}
+DefId(0:13 ~ items[7a7e]::Tr::A) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: TraitItem(
+            TraitItem {
+                ident: A#0,
+                owner_id: DefId(0:13 ~ items[7a7e]::Tr::A),
+                generics: Generics {
+                    params: [],
+                    predicates: [],
+                    has_where_clause_predicates: false,
+                    where_clause_span: items.rs:17:11: 17:11 (#0),
+                    span: items.rs:17:11: 17:11 (#0),
+                },
+                kind: Type(
+                    [],
+                    None,
+                ),
+                span: items.rs:17:5: 17:12 (#0),
+                defaultness: Default {
+                    has_value: false,
+                },
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            11366294258678046516,
+            5118307481039485935,
+        ),
+    ),
+}
+DefId(0:14 ~ items[7a7e]::Tr::C) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: TraitItem(
+            TraitItem {
+                ident: C#0,
+                owner_id: DefId(0:14 ~ items[7a7e]::Tr::C),
+                generics: Generics {
+                    params: [],
+                    predicates: [],
+                    has_where_clause_predicates: false,
+                    where_clause_span: items.rs:18:16: 18:16 (#0),
+                    span: items.rs:18:12: 18:12 (#0),
+                },
+                kind: Const(
+                    Ty {
+                        hir_id: HirId(DefId(0:14 ~ items[7a7e]::Tr::C).1),
+                        span: items.rs:18:14: 18:16 (#0),
+                        kind: Tup(
+                            [],
+                        ),
+                    },
+                    None,
+                ),
+                span: items.rs:18:5: 18:17 (#0),
+                defaultness: Default {
+                    has_value: false,
+                },
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            17578138527048119898,
+            3956155187967861218,
+        ),
+    ),
+}
+DefId(0:15 ~ items[7a7e]::Tr::g) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: TraitItem(
+            TraitItem {
+                ident: g#0,
+                owner_id: DefId(0:15 ~ items[7a7e]::Tr::g),
+                generics: Generics {
+                    params: [
+                        GenericParam {
+                            hir_id: HirId(DefId(0:15 ~ items[7a7e]::Tr::g).1),
+                            def_id: DefId(0:40 ~ items[7a7e]::Tr::g::'_),
+                            name: Fresh,
+                            span: items.rs:19:10: 19:11 (#0),
+                            pure_wrt_drop: false,
+                            kind: Lifetime {
+                                kind: Elided(
+                                    Ampersand,
+                                ),
+                            },
+                            colon_span: None,
+                            source: Generics,
+                        },
+                    ],
+                    predicates: [],
+                    has_where_clause_predicates: false,
+                    where_clause_span: items.rs:19:16: 19:16 (#0),
+                    span: items.rs:19:9: 19:9 (#0),
+                },
+                kind: Fn(
+                    FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [
+                                Ty {
+                                    hir_id: HirId(DefId(0:15 ~ items[7a7e]::Tr::g).5),
+                                    span: items.rs:19:10: 19:15 (#0),
+                                    kind: Ref(
+                                        Lifetime {
+                                            hir_id: HirId(DefId(0:15 ~ items[7a7e]::Tr::g).2),
+                                            ident: '_#0,
+                                            kind: Param(
+                                                DefId(0:40 ~ items[7a7e]::Tr::g::'_),
+                                            ),
+                                            source: Reference,
+                                            syntax: Implicit,
+                                        },
+                                        Ty {
+                                            hir_id: HirId(DefId(0:15 ~ items[7a7e]::Tr::g).4),
+                                            span: items.rs:19:11: 19:15 (#0),
+                                            kind: Path(
+                                                Resolved(
+                                                    None,
+                                                    Path {
+                                                        span: items.rs:19:11: 19:15 (#0),
+                                                        res: SelfTyParam {
+                                                            trait_: DefId(0:12 ~ items[7a7e]::Tr),
+                                                        },
+                                                        segments: [
+                                                            PathSegment {
+                                                                ident: Self#0,
+                                                                hir_id: HirId(DefId(0:15 ~ items[7a7e]::Tr::g).3),
+                                                                res: SelfTyParam {
+                                                                    trait_: DefId(0:12 ~ items[7a7e]::Tr),
+                                                                },
+                                                                args: None,
+                                                                infer_args: true,
+                                                                delegation_child_segment: false,
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                            ),
+                                        },
+                                        Not,
+                                    ),
+                                },
+                            ],
+                            output: DefaultReturn(
+                                items.rs:19:16: 19:16 (#0),
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(RefImm)",
+                                "LifetimeElisionAllowed",
+                            ),
+                        },
+                        span: items.rs:19:5: 19:17 (#0),
+                    },
+                    Required(
+                        [
+                            Some(
+                                self#0,
+                            ),
+                        ],
+                    ),
+                ),
+                span: items.rs:19:5: 19:17 (#0),
+                defaultness: Default {
+                    has_value: false,
+                },
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 5),
+        (3, 4),
+        (4, 5),
+        (5, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            1489087694865162612,
+            1092310809924530410,
+        ),
+    ),
+}
+DefId(0:17 ~ items[7a7e]::{impl#0}::A) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: ImplItem(
+            ImplItem {
+                ident: A#0,
+                owner_id: DefId(0:17 ~ items[7a7e]::{impl#0}::A),
+                generics: Generics {
+                    params: [],
+                    predicates: [],
+                    has_where_clause_predicates: false,
+                    where_clause_span: items.rs:23:16: 23:16 (#0),
+                    span: items.rs:23:11: 23:11 (#0),
+                },
+                kind: Type(
+                    Ty {
+                        hir_id: HirId(DefId(0:17 ~ items[7a7e]::{impl#0}::A).1),
+                        span: items.rs:23:14: 23:16 (#0),
+                        kind: Tup(
+                            [],
+                        ),
+                    },
+                ),
+                impl_kind: Trait {
+                    defaultness: Final,
+                    trait_item_def_id: Ok(
+                        DefId(0:13 ~ items[7a7e]::Tr::A),
+                    ),
+                },
+                span: items.rs:23:5: 23:17 (#0),
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            4817806045378618551,
+            9008986960401478574,
+        ),
+    ),
+}
+DefId(0:18 ~ items[7a7e]::{impl#0}::C) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: ImplItem(
+            ImplItem {
+                ident: C#0,
+                owner_id: DefId(0:18 ~ items[7a7e]::{impl#0}::C),
+                generics: Generics {
+                    params: [],
+                    predicates: [],
+                    has_where_clause_predicates: false,
+                    where_clause_span: items.rs:24:16: 24:16 (#0),
+                    span: items.rs:24:12: 24:12 (#0),
+                },
+                kind: Const(
+                    Ty {
+                        hir_id: HirId(DefId(0:18 ~ items[7a7e]::{impl#0}::C).1),
+                        span: items.rs:24:14: 24:16 (#0),
+                        kind: Tup(
+                            [],
+                        ),
+                    },
+                    Body(
+                        BodyId {
+                            hir_id: HirId(DefId(0:18 ~ items[7a7e]::{impl#0}::C).2),
+                        },
+                    ),
+                ),
+                impl_kind: Trait {
+                    defaultness: Final,
+                    trait_item_def_id: Ok(
+                        DefId(0:14 ~ items[7a7e]::Tr::C),
+                    ),
+                },
+                span: items.rs:24:5: 24:22 (#0),
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 0),
+    ],
+    bodies: {
+        2: Body {
+            params: [],
+            value: Expr {
+                hir_id: HirId(DefId(0:18 ~ items[7a7e]::{impl#0}::C).2),
+                kind: Tup(
+                    [],
+                ),
+                span: items.rs:24:19: 24:21 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            12543103157139999031,
+            5082645164767882016,
+        ),
+    ),
+}
+DefId(0:19 ~ items[7a7e]::{impl#0}::g) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: ImplItem(
+            ImplItem {
+                ident: g#0,
+                owner_id: DefId(0:19 ~ items[7a7e]::{impl#0}::g),
+                generics: Generics {
+                    params: [
+                        GenericParam {
+                            hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).5),
+                            def_id: DefId(0:41 ~ items[7a7e]::{impl#0}::g::'_),
+                            name: Fresh,
+                            span: items.rs:25:10: 25:11 (#0),
+                            pure_wrt_drop: false,
+                            kind: Lifetime {
+                                kind: Elided(
+                                    Ampersand,
+                                ),
+                            },
+                            colon_span: None,
+                            source: Generics,
+                        },
+                    ],
+                    predicates: [],
+                    has_where_clause_predicates: false,
+                    where_clause_span: items.rs:25:16: 25:16 (#0),
+                    span: items.rs:25:9: 25:9 (#0),
+                },
+                kind: Fn(
+                    FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [
+                                Ty {
+                                    hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).9),
+                                    span: items.rs:25:10: 25:15 (#0),
+                                    kind: Ref(
+                                        Lifetime {
+                                            hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).6),
+                                            ident: '_#0,
+                                            kind: Param(
+                                                DefId(0:41 ~ items[7a7e]::{impl#0}::g::'_),
+                                            ),
+                                            source: Reference,
+                                            syntax: Implicit,
+                                        },
+                                        Ty {
+                                            hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).8),
+                                            span: items.rs:25:11: 25:15 (#0),
+                                            kind: Path(
+                                                Resolved(
+                                                    None,
+                                                    Path {
+                                                        span: items.rs:25:11: 25:15 (#0),
+                                                        res: SelfTyAlias {
+                                                            alias_to: DefId(0:16 ~ items[7a7e]::{impl#0}),
+                                                            is_trait_impl: true,
+                                                        },
+                                                        segments: [
+                                                            PathSegment {
+                                                                ident: Self#0,
+                                                                hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).7),
+                                                                res: SelfTyAlias {
+                                                                    alias_to: DefId(0:16 ~ items[7a7e]::{impl#0}),
+                                                                    is_trait_impl: true,
+                                                                },
+                                                                args: None,
+                                                                infer_args: true,
+                                                                delegation_child_segment: false,
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                            ),
+                                        },
+                                        Not,
+                                    ),
+                                },
+                            ],
+                            output: DefaultReturn(
+                                items.rs:25:16: 25:16 (#0),
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(RefImm)",
+                                "LifetimeElisionAllowed",
+                            ),
+                        },
+                        span: items.rs:25:5: 25:16 (#0),
+                    },
+                    BodyId {
+                        hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).4),
+                    },
+                ),
+                impl_kind: Trait {
+                    defaultness: Final,
+                    trait_item_def_id: Ok(
+                        DefId(0:15 ~ items[7a7e]::Tr::g),
+                    ),
+                },
+                span: items.rs:25:5: 25:19 (#0),
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 1),
+        (3, 4),
+        (4, 0),
+        (5, 0),
+        (6, 9),
+        (7, 8),
+        (8, 9),
+        (9, 0),
+    ],
+    bodies: {
+        4: Body {
+            params: [
+                Param {
+                    hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).1),
+                    pat: Pat {
+                        hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).2),
+                        kind: Binding(
+                            BindingMode(
+                                No,
+                                Not,
+                            ),
+                            HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).2),
+                            self#0,
+                            None,
+                        ),
+                        span: items.rs:25:10: 25:15 (#0),
+                        default_binding_modes: true,
+                    },
+                    ty_span: items.rs:25:10: 25:15 (#0),
+                    span: items.rs:25:10: 25:15 (#0),
+                },
+            ],
+            value: Expr {
+                hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).4),
+                kind: Block(
+                    Block {
+                        stmts: [],
+                        expr: None,
+                        hir_id: HirId(DefId(0:19 ~ items[7a7e]::{impl#0}::g).3),
+                        rules: DefaultBlock,
+                        span: items.rs:25:17: 25:19 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: items.rs:25:17: 25:19 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            6458714467125513323,
+            10390230092991065542,
+        ),
+    ),
+}
+DefId(0:37 ~ items[7a7e]::outer::{impl#0}::h) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: ImplItem(
+            ImplItem {
+                ident: h#0,
+                owner_id: DefId(0:37 ~ items[7a7e]::outer::{impl#0}::h),
+                generics: Generics {
+                    params: [],
+                    predicates: [],
+                    has_where_clause_predicates: false,
+                    where_clause_span: items.rs:42:20: 42:20 (#0),
+                    span: items.rs:42:18: 42:18 (#0),
+                },
+                kind: Fn(
+                    FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [],
+                            output: DefaultReturn(
+                                items.rs:42:20: 42:20 (#0),
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(None)",
+                                "NoLifetimeElision",
+                            ),
+                        },
+                        span: items.rs:42:14: 42:20 (#0),
+                    },
+                    BodyId {
+                        hir_id: HirId(DefId(0:37 ~ items[7a7e]::outer::{impl#0}::h).2),
+                    },
+                ),
+                impl_kind: Inherent {
+                    vis_span: items.rs:42:14: 42:14 (#0),
+                },
+                span: items.rs:42:14: 42:23 (#0),
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 2),
+        (2, 0),
+    ],
+    bodies: {
+        2: Body {
+            params: [],
+            value: Expr {
+                hir_id: HirId(DefId(0:37 ~ items[7a7e]::outer::{impl#0}::h).2),
+                kind: Block(
+                    Block {
+                        stmts: [],
+                        expr: None,
+                        hir_id: HirId(DefId(0:37 ~ items[7a7e]::outer::{impl#0}::h).1),
+                        rules: DefaultBlock,
+                        span: items.rs:42:21: 42:23 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: items.rs:42:21: 42:23 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            5498674455935340540,
+            6564199461654651174,
+        ),
+    ),
+}
+DefId(0:21 ~ items[7a7e]::{extern#0}::ext) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: ForeignItem(
+            ForeignItem {
+                ident: ext#0,
+                kind: Fn(
+                    FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Unsafe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [
+                                Ty {
+                                    hir_id: HirId(DefId(0:21 ~ items[7a7e]::{extern#0}::ext).2),
+                                    span: items.rs:29:19: 29:28 (#0),
+                                    kind: Ptr(
+                                        Ty {
+                                            hir_id: HirId(DefId(0:21 ~ items[7a7e]::{extern#0}::ext).1),
+                                            span: items.rs:29:26: 29:28 (#0),
+                                            kind: Tup(
+                                                [],
+                                            ),
+                                        },
+                                        Not,
+                                    ),
+                                },
+                            ],
+                            output: DefaultReturn(
+                                items.rs:29:29: 29:29 (#0),
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(None)",
+                                "NoLifetimeElision",
+                            ),
+                        },
+                        span: items.rs:29:5: 29:30 (#0),
+                    },
+                    [
+                        Some(
+                            a#0,
+                        ),
+                    ],
+                    Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: items.rs:29:29: 29:29 (#0),
+                        span: items.rs:29:15: 29:15 (#0),
+                    },
+                ),
+                owner_id: DefId(0:21 ~ items[7a7e]::{extern#0}::ext),
+                span: items.rs:29:5: 29:30 (#0),
+                vis_span: items.rs:29:5: 29:8 (#0),
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 2),
+        (2, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            8242467238802238420,
+            1846691461454840369,
+        ),
+    ),
+}
+DefId(0:22 ~ items[7a7e]::{extern#0}::X) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: ForeignItem(
+            ForeignItem {
+                ident: X#0,
+                kind: Static(
+                    Ty {
+                        hir_id: HirId(DefId(0:22 ~ items[7a7e]::{extern#0}::X).5),
+                        span: items.rs:30:19: 30:26 (#0),
+                        kind: Array(
+                            Ty {
+                                hir_id: HirId(DefId(0:22 ~ items[7a7e]::{extern#0}::X).1),
+                                span: items.rs:30:20: 30:22 (#0),
+                                kind: Tup(
+                                    [],
+                                ),
+                            },
+                            ConstArg {
+                                hir_id: HirId(DefId(0:22 ~ items[7a7e]::{extern#0}::X).4),
+                                kind: Anon(
+                                    AnonConst {
+                                        hir_id: HirId(DefId(0:22 ~ items[7a7e]::{extern#0}::X).2),
+                                        def_id: DefId(0:23 ~ items[7a7e]::{extern#0}::X::{constant#0}),
+                                        body: BodyId {
+                                            hir_id: HirId(DefId(0:22 ~ items[7a7e]::{extern#0}::X).3),
+                                        },
+                                        span: items.rs:30:24: 30:25 (#0),
+                                    },
+                                ),
+                                span: items.rs:30:24: 30:25 (#0),
+                            },
+                        ),
+                    },
+                    Not,
+                    Unsafe,
+                ),
+                owner_id: DefId(0:22 ~ items[7a7e]::{extern#0}::X),
+                span: items.rs:30:5: 30:27 (#0),
+                vis_span: items.rs:30:5: 30:8 (#0),
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 5),
+        (2, 4),
+        (3, 2),
+        (4, 5),
+        (5, 0),
+    ],
+    bodies: {
+        3: Body {
+            params: [],
+            value: Expr {
+                hir_id: HirId(DefId(0:22 ~ items[7a7e]::{extern#0}::X).3),
+                kind: Lit(
+                    Spanned {
+                        node: Int(
+                            Pu128(
+                                0,
+                            ),
+                            Unsuffixed,
+                        ),
+                        span: items.rs:30:24: 30:25 (#0),
+                    },
+                ),
+                span: items.rs:30:24: 30:25 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            17571915822979548999,
+            922404777132771954,
+        ),
+    ),
+}
