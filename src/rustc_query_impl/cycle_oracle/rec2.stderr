@@ -1,0 +1,17 @@
+error[E0072]: recursive types `A` and `B` have infinite size
+  --> rec2.rs:1:1
+   |
+LL | struct A { b: B }
+   | ^^^^^^^^      - recursive without indirection
+LL | struct B { a: A }
+   | ^^^^^^^^      - recursive without indirection
+   |
+help: insert some indirection (e.g., a `Box`, `Rc`, or `&`) to break the cycle
+   |
+LL ~ struct A { b: Box<B> }
+LL ~ struct B { a: Box<A> }
+   |
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0072`.

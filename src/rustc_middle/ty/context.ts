@@ -73,7 +73,7 @@ import type { ConstStability } from "../../rustc_attr_ir/stability.ts";
 import type { Diag, Diagnostic } from "../../rustc_errors/lib.ts";
 import { into_MultiSpan, type IntoMultiSpan } from "../../rustc_error_messages/lib.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
-import { type Constness, CoroutineKind, Node, type OpaqueTyOrigin, type TraitCandidate, type Ty as HirTy } from "../../rustc_hir/lib.ts";
+import { AttributeMap, type Constness, CoroutineKind, Node, type OpaqueTyOrigin, OwnerNodes, type TraitCandidate, type Ty as HirTy } from "../../rustc_hir/lib.ts";
 import type { DefPathToIndexMap } from "../../rustc_hir_id/definitions.ts";
 import { CRATE_HIR_ID, type HirId } from "../../rustc_hir_id/lib.ts";
 import type { Lint } from "../../rustc_lint_defs/lib.ts";
@@ -616,8 +616,20 @@ export class TyCtxtFeed<K> {
   // Fills in all the important parts needed by HIR queries
   // rustc: compiler/rustc_middle/src/ty/context.rs:652 feed_hir
   feed_hir(this: TyCtxtFeed<LocalDefId>): void {
-    // `self.hir_owner(ProjectedMaybeOwner::Owner(..))` + `hir_attr_map(hir::AttributeMap::EMPTY)`
-    unported("rustc_middle::ty::context::TyCtxtFeed::feed_hir (HIR, M3)");
+    // PORT: `self.tcx.arena.alloc(..)` is the value itself (arenas are erased, PORTING §5); `Default::default()`
+    // of `LocalDefIdMap` / `ItemLocalMap` is an empty `Map`, of `DelayedLints` (`Box<[DelayedLint]>`) `[]`.
+    const { ProjectedOwnerInfo } = middle_hir();
+    this.hir_owner({
+      $: "Owner",
+      _0: ProjectedOwnerInfo.new(
+        OwnerNodes.synthetic(),
+        new Map(),
+        new Map(),
+        Steal.new([], "alloc::boxed::Box<[rustc_hir::lints::DelayedLint]>"),
+      ),
+    });
+
+    this.feed_owner_id().hir_attr_map(AttributeMap.EMPTY);
   }
 }
 
@@ -3017,6 +3029,12 @@ function alias_term_def_id_and_is_self_args(kind: AliasTermKind): [DefId, boolea
  */
 function middle_lint(): typeof import("../lint.ts") {
   return require("../lint.ts") as typeof import("../lint.ts");
+}
+
+/** PORT: hir/mod.ts is an extension module of `TyCtxt` (it defines `ProjectedOwnerInfo` and attaches the HIR
+ * `impl TyCtxt` blocks), so `feed_hir` reaches it lazily, as `middle_lint()` (decision 5). */
+function middle_hir(): typeof import("../hir/mod.ts") {
+  return require("../hir/mod.ts") as typeof import("../hir/mod.ts");
 }
 
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----

@@ -85,10 +85,7 @@ export const TaggedQueryKey = {
   /// Used when reporting query cycle errors and similar problems.
   // rustc: compiler/rustc_middle/src/query/query_api.rs:155 description
   description(self: TaggedQueryKey, tcx: TyCtxt): string {
-    // PORT: `ty::print::with_no_queries!(..)` only changes how `ty::print` renders paths; the printer is
-    // not ported (descriptions that print paths are unported until it is).
-    const name = self.$;
-    const description = decl_of(name).desc(tcx, self._0);
+    const [name, description] = ty_print().with_no_queries((): [QueryName, string] => [self.$, decl_of(self.$).desc(tcx, self._0)]);
     if (tcx.sess.verbose_internals()) {
       return `${description} [${debug_str(name)}]`;
     } else {
@@ -127,6 +124,12 @@ export const TaggedQueryKey = {
 
 /** `#[derive(Debug)] enum TaggedQueryKey { $name($name::Key), .. }` */
 export const debug_TaggedQueryKey: Debug<TaggedQueryKey> = (v, f) => debug_tuple(f, v.$, [decl_of(v.$).key.debug(v._0, f)]);
+
+/** PORT: ty/print/pretty.ts is an extension module of `TyCtxt` (it assigns `TyCtxt.prototype` methods at load
+ * time), so the defining-module side reaches it lazily (ty-ctxt decision 5 precedent: `middle_lint()`). */
+function ty_print(): typeof import("../ty/print/pretty.ts") {
+  return require("../ty/print/pretty.ts") as typeof import("../ty/print/pretty.ts");
+}
 
 // ---- Providers / ExternProviders ----------------------------------------------------------------
 

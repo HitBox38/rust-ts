@@ -8,10 +8,11 @@
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { DUMMY_SP, type Span } from "../../rustc_span/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { panic, unported, unwrap } from "../../std/panic.ts";
+import { panic, unwrap } from "../../std/panic.ts";
 import type { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
-import type { LocalDefId } from "../../rustc_span/def_id.ts";
+import { LocalDefId } from "../../rustc_span/def_id.ts";
+import type { QueryTypes } from "../queries.gen.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import { TyCtxtAt_create_def, type TyCtxtFeed } from "../ty/context.ts";
 import type { DefKind } from "../../rustc_hir/def.ts";
@@ -51,9 +52,7 @@ export class TyCtxtEnsureOk {
 
   // rustc: compiler/rustc_middle/src/query/calls.rs:48 typeck
   typeck(def_id: IntoQueryKey<LocalDefId>): void {
-    void def_id;
-    // `self.typeck_root(self.tcx.typeck_root_def_id(def_id.into_query_key().to_def_id()).expect_local())`
-    return unported("rustc_middle::ty::util::TyCtxt::typeck_root_def_id (TyCtxtEnsureOk::typeck)");
+    return this.typeck_root(this.tcx.typeck_root_def_id(LocalDefId.to_def_id(into_query_key_LocalDefId(def_id))).expect_local());
   }
 }
 
@@ -67,10 +66,8 @@ export class TyCtxtEnsureDone {
 
 
 // rustc: compiler/rustc_middle/src/query/calls.rs:56 typeck
-export function TyCtxt_typeck(tcx: TyCtxt, def_id: IntoQueryKey<LocalDefId>): unknown {
-  void into_query_key_LocalDefId(def_id);
-  // `self.typeck_root(self.typeck_root_def_id(def_id.into_query_key().to_def_id()).expect_local())`
-  return unported("rustc_middle::ty::util::TyCtxt::typeck_root_def_id (TyCtxt::typeck)");
+export function TyCtxt_typeck(tcx: TyCtxt, def_id: IntoQueryKey<LocalDefId>): QueryTypes["typeck_root"]["Value"] {
+  return tcx.typeck_root(tcx.typeck_root_def_id(LocalDefId.to_def_id(into_query_key_LocalDefId(def_id))).expect_local());
 }
 
 /// Returns a transparent wrapper for `TyCtxt` which uses
