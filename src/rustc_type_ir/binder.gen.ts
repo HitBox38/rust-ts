@@ -2,7 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in binder.ts next to this file.
 import { try_visit } from "../rustc_ast_ir/visit.ts";
 import { type TyDecoder } from "../rustc_middle/ty/codec.ts";
-import { type BoundVarKinds } from "../rustc_middle/ty/list.ts";
+import { type BoundVarKinds, debug_BoundVarKinds } from "../rustc_middle/ty/list.ts";
 import { type Decodable, decode_PhantomData } from "../rustc_serialize/serialize.ts";
 import { debug_DefId, type DefId } from "../rustc_span/def_id.ts";
 import { type Symbol } from "../rustc_span/symbol.ts";
@@ -12,8 +12,6 @@ import { type BoundVar, type DebruijnIndex, debug_BoundVar, debug_DebruijnIndex,
 import { type Debug, debug_struct, debug_struct_non_exhaustive, debug_tuple, type Fmt } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
-import { unported } from "../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_type_ir/src/binder.rs:31 Binder
 /// `Binder` is a binder for higher-ranked lifetimes or types. It is part of the
@@ -29,7 +27,7 @@ export interface Binder<T> {
 export function debug_Binder<T>(v: Binder<T>, f: Fmt, debug_T: Debug<T>): string {
   return debug_struct(f, "Binder", [
     ["value", debug_T(v.value, f)],
-    ["bound_vars", unported_debug(v.bound_vars)],
+    ["bound_vars", debug_BoundVarKinds(v.bound_vars, f)],
   ]);
 }
 

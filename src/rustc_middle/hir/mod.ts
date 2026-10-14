@@ -20,6 +20,7 @@ import { debug_Fingerprint, Fingerprint } from "../../rustc_data_structures/fing
 import { type SortedMap, stable_hash_SortedMap } from "../../rustc_data_structures/sorted_map.ts";
 import { type StableHashCtxt, StableHasher, stable_hash_Option, stable_hash_slice, stable_hash_tuple2 } from "../../rustc_data_structures/stable_hash.ts";
 import type { Steal } from "../../rustc_data_structures/steal.ts";
+import { try_par_for_each_in } from "../../rustc_data_structures/sync/parallel.ts";
 import {
   AttributeMap,
   type Body,
@@ -61,13 +62,6 @@ export * as map from "./map.ts";
 export * as nested_filter from "./nested_filter.ts";
 // pub mod place;  (not ported: lane of the typeck/THIR places)
 
-/**
- * `rustc_data_structures::sync::try_par_for_each_in` (sync/parallel.rs). PORT: pending-lane shim (parallel.rs is
- * not ported; its serial path runs every item under a `ParallelGuard` and resumes the first panic afterwards).
- */
-function try_par_for_each_in<T>(_t: readonly T[], _for_each: (i: T) => Result<null, ErrorGuaranteed>): Result<null, ErrorGuaranteed> {
-  return unported("rustc_data_structures::sync::parallel::try_par_for_each_in (pending sync/parallel.rs)");
-}
 
 // rustc-type: compiler/rustc_middle/src/hir/mod.rs:29 ModuleItems
 /// Gather the LocalDefId for each item-like within a module, including items contained within

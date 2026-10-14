@@ -16,23 +16,23 @@ DefId(0:6 ~ misc[c6e0]::Unit::{constructor#0}) Ctor(Struct, Const)
   type_of EarlyBinder { value: Unit, .. }
 DefId(0:7 ~ misc[c6e0]::L) Struct
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "'a", def_id: DefId(0:9 ~ misc[c6e0]::L::'a), index: 0, pure_wrt_drop: false, kind: Lifetime }, GenericParamDef { name: "T", def_id: DefId(0:10 ~ misc[c6e0]::L::T), index: 1, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:9 ~ misc[c6e0]::L::'a), 0), (DefId(0:10 ~ misc[c6e0]::L::T), 1)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::ty::region::EarlyParamRegion Debug (manual impl, compiler/rustc_middle/src/ty/region.rs:56)
+  type_of EarlyBinder { value: L<'a/#0, T/#1>, .. }
 DefId(0:8 ~ misc[c6e0]::L::{constructor#0}) Ctor(Struct, Fn)
   generics_of Generics { parent: Some(DefId(0:7 ~ misc[c6e0]::L)), parent_count: 2, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::ty::region::EarlyParamRegion Debug (manual impl, compiler/rustc_middle/src/ty/region.rs:56)
+  type_of EarlyBinder { value: FnDef(DefId(0:8 ~ misc[c6e0]::L::{constructor#0}), Binder { value: ['a/#0, T/#1], bound_vars: [] }), .. }
 DefId(0:9 ~ misc[c6e0]::L::'a) LifetimeParam
 DefId(0:10 ~ misc[c6e0]::L::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:11 ~ misc[c6e0]::L::0) Field
   generics_of Generics { parent: Some(DefId(0:7 ~ misc[c6e0]::L)), parent_count: 2, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::ty::region::EarlyParamRegion Debug (manual impl, compiler/rustc_middle/src/ty/region.rs:56)
+  type_of EarlyBinder { value: &'a/#0 T/#1, .. }
 DefId(0:12 ~ misc[c6e0]::late) Fn
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: Some(misc.rs:16:13: 16:15 (#0)) }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:12 ~ misc[c6e0]::late), Binder { value: [], bound_vars: [Region(BrNamed(DefId(0:13 ~ misc[c6e0]::late::'a)))] }), .. }
 DefId(0:13 ~ misc[c6e0]::late::'a) LifetimeParam
 DefId(0:14 ~ misc[c6e0]::early) Fn
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "'a", def_id: DefId(0:15 ~ misc[c6e0]::early::'a), index: 0, pure_wrt_drop: false, kind: Lifetime }], param_def_id_to_index: [(DefId(0:15 ~ misc[c6e0]::early::'a), 0)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::ty::region::EarlyParamRegion Debug (manual impl, compiler/rustc_middle/src/ty/region.rs:56)
+  type_of EarlyBinder { value: FnDef(DefId(0:14 ~ misc[c6e0]::early), Binder { value: ['a/#0], bound_vars: [] }), .. }
 DefId(0:15 ~ misc[c6e0]::early::'a) LifetimeParam
 DefId(0:16 ~ misc[c6e0]::WithDefault) Trait
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "Self", def_id: DefId(0:16 ~ misc[c6e0]::WithDefault), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }, GenericParamDef { name: "T", def_id: DefId(0:17 ~ misc[c6e0]::WithDefault::T), index: 1, pure_wrt_drop: false, kind: Type { has_default: true, synthetic: false } }], param_def_id_to_index: [(DefId(0:16 ~ misc[c6e0]::WithDefault), 0), (DefId(0:17 ~ misc[c6e0]::WithDefault::T), 1)], has_self: true, has_late_bound_regions: None }
@@ -44,7 +44,7 @@ DefId(0:18 ~ misc[c6e0]::Arr) Struct
   type_of EarlyBinder { value: Arr, .. }
 DefId(0:19 ~ misc[c6e0]::Arr::{constructor#0}) Ctor(Struct, Fn)
   generics_of Generics { parent: Some(DefId(0:18 ~ misc[c6e0]::Arr)), parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:19 ~ misc[c6e0]::Arr::{constructor#0}), Binder { value: [], bound_vars: [] }), .. }
 DefId(0:20 ~ misc[c6e0]::Arr::0) Field
   generics_of Generics { parent: Some(DefId(0:18 ~ misc[c6e0]::Arr)), parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
   type_of STOP UNPORTED: rustc_middle::query::keys: QueryKey for `LitToConstInput<'tcx>` (cache)
@@ -74,11 +74,11 @@ DefId(0:29 ~ misc[c6e0]::CB::{constant#0}) AnonConst
   generics_of Generics { parent: Some(DefId(0:28 ~ misc[c6e0]::CB)), parent_count: 0, own_params: [GenericParamDef { name: "<const_ty>", def_id: DefId(0:29 ~ misc[c6e0]::CB::{constant#0}), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:29 ~ misc[c6e0]::CB::{constant#0}), 0)], has_self: false, has_late_bound_regions: None }
 DefId(0:30 ~ misc[c6e0]::rpit) Fn
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:30 ~ misc[c6e0]::rpit), Binder { value: [], bound_vars: [] }), .. }
 DefId(0:31 ~ misc[c6e0]::rpit::{opaque#0}) OpaqueTy
   generics_of Generics { parent: Some(DefId(0:30 ~ misc[c6e0]::rpit)), parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
   type_of STOP UNPORTED: mir_borrowck provider (not ported)
 DefId(0:32 ~ misc[c6e0]::fptr) Fn
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:32 ~ misc[c6e0]::fptr), Binder { value: [], bound_vars: [] }), .. }
 DefId(0:33 ~ misc[c6e0]::fptr::'_) LifetimeParam
