@@ -1039,5 +1039,13 @@
       "compiler/rustc_hir/src/lib.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "hir_analysis.typemap.json"]
+  },
+  "rustc_ty_utils": {
+    "files": ["compiler/rustc_ty_utils/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "typemap_extra": ["tyir.typemap.json"]
   }
 }
