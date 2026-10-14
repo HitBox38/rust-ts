@@ -12,8 +12,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import "../rustc_middle/lib.ts";
 import "./lib.ts";
-import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { ParamEnv } from "../rustc_middle/ty/decls.ts";
+import { DepGraph } from "../rustc_middle/dep_graph/graph.ts";
+import { CommonLifetimes, CommonTypes, CtxtInterners, GlobalCaches, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
+import { ParamEnv } from "../rustc_middle/ty/mod.ts";
 import { type Predicate, Predicate_upcast_from_PredicateKind } from "../rustc_middle/ty/predicate.ts";
 import { DUMMY_SP } from "../rustc_span/lib.ts";
 import type { InferCtxtLike } from "../rustc_type_ir/infer_ctxt.ts";
@@ -31,7 +32,7 @@ import {
 import { Panic, Unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { EvalCtxt } from "./decls.ts";
-import type { SolverDelegate, SolverDelegate_static } from "./delegate.ts";
+import { type SolverDelegate, SolverDelegate_provided, type SolverDelegate_static } from "./delegate.ts";
 import { EvaluationStepBuilder } from "./solve/inspect/build.ts";
 import { FIXPOINT_STEP_LIMIT, type GoalEvaluation } from "./solve/mod.ts";
 import { compute_goal_fast_path, inlined_rerunning_stalled_goal_may_make_progress } from "./solve/eval_ctxt/fast_path.ts";
@@ -45,9 +46,14 @@ function mk_tcx(): TyCtxt {
   const interners = CtxtInterners.new(undefined);
   let types: CommonTypes | undefined;
   let lifetimes: CommonLifetimes | undefined;
+  let caches: GlobalCaches | undefined;
   const gcx = {
     interners,
     sess: { opts: { unstable_opts: { renormalize_rigid_aliases: false, assumptions_on_binders: false } } },
+    get caches() {
+      return (caches ??= GlobalCaches.default_());
+    },
+    dep_graph: DepGraph.new_disabled(),
     get types() {
       return (types ??= CommonTypes.new(interners));
     },
@@ -59,7 +65,7 @@ function mk_tcx(): TyCtxt {
 }
 
 const tcx = mk_tcx();
-const param_env = {} as ParamEnv;
+const param_env = ParamEnv.empty();
 /** `PredicateKind::Ambiguous`: interned for real; it has no aliases, so `normalize` returns it unchanged. */
 const ambiguous: Predicate = Predicate_upcast_from_PredicateKind({ $: "Ambiguous" }, tcx);
 const goal: Goal<Predicate> = { param_env, predicate: ambiguous };
@@ -74,6 +80,8 @@ interface FakeState {
   /** Stalled vars that changed since the goal stalled. */
   changed: Set<number>;
   probes: number;
+  /** The canonical inputs `D::build_with_canonical` was called with (the search graph's `enter_canonical`). */
+  canonical_inputs: unknown[];
 }
 
 function stalled_on_var(n: number): GoalStalledOn {
@@ -81,7 +89,7 @@ function stalled_on_var(n: number): GoalStalledOn {
 }
 
 function mk_delegate(): { delegate: SolverDelegate; state: FakeState } {
-  const state: FakeState = { vars: 0, fast_paths: [], fast_path_calls: 0, changed: new Set(), probes: 0 };
+  const state: FakeState = { vars: 0, fast_paths: [], fast_path_calls: 0, changed: new Set(), probes: 0, canonical_inputs: [] };
   const infcx = {
     cx: () => tcx,
     disable_trait_solver_fast_paths: () => false,
@@ -103,8 +111,9 @@ function mk_delegate(): { delegate: SolverDelegate; state: FakeState } {
     },
   } as unknown as InferCtxtLike;
   const Self: SolverDelegate_static = {
-    build_with_canonical: () => {
-      throw new Error("not reached");
+    build_with_canonical: (_cx: unknown, canonical: unknown) => {
+      state.canonical_inputs.push(canonical);
+      throw new Error("build_with_canonical: the test stops here");
     },
     OpaqueTypeStorageEntries_default: () => ({ needs_reevaluation: () => false }),
   };
@@ -112,6 +121,8 @@ function mk_delegate(): { delegate: SolverDelegate; state: FakeState } {
     deref: () => infcx,
     Self,
     cx: () => tcx,
+    obtain_canonicalizer_state: () => SolverDelegate_provided.obtain_canonicalizer_state(delegate),
+    release_canonicalizer_state: (st: never) => SolverDelegate_provided.release_canonicalizer_state(delegate, st),
     compute_goal_fast_path(): ComputeGoalFastPathOutcome {
       state.fast_path_calls++;
       return state.fast_paths.shift() ?? { $: "NoFastPath" };
@@ -271,14 +282,21 @@ describe("add_goal -> try_evaluate_added_goals", () => {
     });
   });
 
-  test("a goal without a fast path is evaluated in the search graph (canonicalization is nts-canonical's: UNPORTED)", () => {
-    const { delegate } = mk_delegate();
+  test("a goal without a fast path is canonicalized and evaluated in the search graph (up to D::build_with_canonical)", () => {
+    const { delegate, state } = mk_delegate();
     expect(() =>
       EvalCtxt.enter_root(delegate, 128, DUMMY_SP, (ecx) => {
         ecx.add_goal("Misc", goal);
         return ecx.try_evaluate_added_goals();
       }),
-    ).toThrow(Unported);
+    ).toThrow("build_with_canonical: the test stops here");
+    // The canonical input of the goal: no variables, the empty param env kept, the predicate unchanged.
+    expect(state.canonical_inputs.length).toBe(1);
+    const c = state.canonical_inputs[0] as { canonical: { max_universe: number; var_kinds: readonly unknown[]; value: { goal: Goal<Predicate> } } };
+    expect(c.canonical.max_universe).toBe(0);
+    expect(c.canonical.var_kinds.length).toBe(0);
+    expect(c.canonical.value.goal.predicate).toBe(ambiguous);
+    expect(c.canonical.value.goal.param_env.caller_bounds_).toBe(param_env.caller_bounds_);
   });
 });
 
