@@ -323,14 +323,17 @@ describe("TraitRef / ExistentialTraitRef / ExistentialProjection logic", () => {
     expect(() => ExistentialProjection.trait_ref(p, mk_interner(tcx, 5, did(7)))).toThrow("range end index 4 out of range for slice of length 3");
   });
 
-  // merge-w15a: the Binder stand-ins are binder.ts's real fns now; the helpers stop at rustc_middle stubs
-  // (`GenericArgs::type_at`, `Predicate::expect_clause`, lane ty-args).
-  test("PolyTraitRef helpers stop at rustc_middle stubs as UNPORTED", () => {
+  // merge-w15a: the Binder stand-ins are binder.ts's real fns now. ty-args: the rustc_middle methods they reach
+  // (`GenericArgs::type_at`, `Predicate::expect_clause`) are ported: `type_at(0)` on empty args is core's index panic,
+  // and the host-effect clause interns.
+  test("PolyTraitRef helpers run the rustc_middle methods", () => {
     const tcx = mk_tcx();
     const tr: TraitRef = { def_id: did(1), args: tcx.mk_args([]), _use_trait_ref_new_instead: null };
     const b: Binder<TraitRef> = { value: tr, bound_vars: RawList.empty<BoundVariableKind>() };
     expect(PolyTraitRef.def_id(b)).toBe(tr.def_id);
-    expect(() => PolyTraitRef.self_ty(b)).toThrow("rustc_middle::ty::generic_args::GenericArgs::type_at");
-    expect(() => PolyTraitRef.to_host_effect_clause(b, tcx, BoundConstness.Const)).toThrow("rustc_middle::ty::predicate::Predicate::expect_clause");
+    expect(() => PolyTraitRef.self_ty(b)).toThrow("index out of bounds: the len is 0 but the index is 0");
+    const c = PolyTraitRef.to_host_effect_clause(b, tcx, BoundConstness.Const);
+    expect(c.kind().value).toEqual({ $: "HostEffect", _0: { trait_ref: tr, constness: BoundConstness.Const } });
+    expect(PolyTraitRef.to_host_effect_clause(b, tcx, BoundConstness.Const)).toBe(c);
   });
 });
