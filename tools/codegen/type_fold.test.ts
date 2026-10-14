@@ -41,8 +41,22 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
     "rustc_type_ir::solve::NoSolution (TypeFoldable)",
     "rustc_type_ir::solve::NoSolution (TypeVisitable)",
   ]);
-  const sum = (k: "types" | "debug_fns" | "type_fold") => res.report.files.reduce((a, f) => a + f[k], 0);
-  expect([res.files.size, sum("types"), sum("debug_fns"), sum("type_fold")]).toEqual([35, 254, 127, 204]);
+  // derive(Decodable_NoContext / TyDecodable) (lane rmeta-ty): the fields whose Decodable impl is not ported yet
+  expect(Object.keys(res.report.missing_decodable).sort()).toEqual([
+    "I::LocalDefIds",
+    "I::PredefinedOpaques",
+    "I::RegionAssumptions",
+    "I::ScalarInt",
+    "I::ValueConst",
+    "rustc_abi::FieldIdx",
+    "rustc_middle::mir::BinOp",
+    "rustc_middle::mir::UnOp",
+    "rustc_middle::ty::ImplTraitInTraitData",
+    "rustc_middle::ty::abstract_const::CastKind",
+  ]);
+  const sum = (k: "types" | "debug_fns" | "type_fold" | "decodable") => res.report.files.reduce((a, f) => a + f[k], 0);
+  // lane rmeta-ty: CoerceUnsizedInfo is generated (+1 type, +1 Debug); 94 Decodable impls
+  expect([res.files.size, sum("types"), sum("debug_fns"), sum("type_fold"), sum("decodable")]).toEqual([35, 255, 128, 204, 94]);
   for (const [file, content] of res.files) expect(content).toBe(readFileSync(file, "utf8"));
   // no stale generated file of the set left on disk (fast_reject.gen.ts / stable_hash.gen.ts belong to set rustc_type_ir)
   const onDisk: string[] = [];

@@ -629,6 +629,12 @@ export class TyCtxtFeed<K> {
 // PORT: `Lock<..>` is the inner value (PORTING §5). The cache types of traits/ (`SelectionCache`, `EvaluationCache`)
 // and infer's `CanonicalParamEnvCache` are not ported (lanes middle-traits-thir, infcx-contract), so
 // `#[derive(Default)]` stops as UNPORTED at `selection_cache` and `GlobalCtxt.caches` is built on first read.
+// PORT (lane rmeta-ty): the not-yet-ported caches are `pending_cache(..)` values that stop as UNPORTED on first *use*
+// (any property access), so `ty_rcache` (crate metadata's type shorthands) works before traits/ and infer/ land.
+/** PORT: a not-yet-ported cache's `Default` value: stops as UNPORTED (`what`) on first use (GlobalCaches comment). */
+function pending_cache<T>(what: string): T {
+  return new Proxy({}, { get: () => unported(what) }) as T;
+}
 export class GlobalCaches {
   constructor(
     // Internal caches for metadata decoding. No need to track deps on this.
@@ -660,11 +666,11 @@ export class GlobalCaches {
    *  search graph's `GlobalCache` and rustc_type_ir's `CanonicalParamEnvCache`; traits' caches still stop). */
   static default_(): GlobalCaches {
     const ty_rcache = new Map<string, Ty>();
-    const selection_cache: Pending<"traits::SelectionCache"> = unported("rustc_middle::traits::SelectionCache: Default (lane middle-traits-thir)");
-    const evaluation_cache: Pending<"traits::EvaluationCache"> = unported("rustc_middle::traits::EvaluationCache: Default (lane middle-traits-thir)");
+    const selection_cache: Pending<"traits::SelectionCache"> = pending_cache("rustc_middle::traits::SelectionCache: Default (lane middle-traits-thir)");
+    const evaluation_cache: Pending<"traits::EvaluationCache"> = pending_cache("rustc_middle::traits::EvaluationCache: Default (lane middle-traits-thir)");
     const new_solver_evaluation_cache: GlobalCache = GlobalCache_.default_();
     const new_solver_canonical_param_env_cache: CanonicalParamEnvCache = CanonicalParamEnvCache_.default_();
-    const canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache"> = unported("rustc_middle::infer::canonical::CanonicalParamEnvCache: Default (lane infcx-contract)");
+    const canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache"> = pending_cache("rustc_middle::infer::canonical::CanonicalParamEnvCache: Default (lane infcx-contract)");
     return new GlobalCaches(
       ty_rcache,
       selection_cache,

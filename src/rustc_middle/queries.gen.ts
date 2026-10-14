@@ -29,6 +29,7 @@ import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identit
 import { KEY_CrateNum, KEY_CrateNum_DefId, KEY_DefId, KEY_DefId_DefId, KEY_LocalDefId, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OwnerId, KEY_Symbol, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
 import { stable_hash_Visibility } from "./stable_hash.gen.ts";
+import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type Visibility, debug_Visibility } from "./ty/mod.ts";
 import { type CrateNum, type DefId, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
@@ -795,8 +796,7 @@ export interface QueryTypes {
   /**
    * Caches `CoerceUnsized` kinds for impls on custom types.
    */
-  // PORT: value `Result<ty::adjustment::CoerceUnsizedInfo, ErrorGuaranteed>` not ported (`unknown`)
-  coerce_unsized_info: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<unknown, ErrorGuaranteed>; ProvidedValue: Result<unknown, ErrorGuaranteed> };
+  coerce_unsized_info: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<CoerceUnsizedInfo, ErrorGuaranteed>; ProvidedValue: Result<CoerceUnsizedInfo, ErrorGuaranteed> };
   // PORT: value `&'tcx ty::TypeckResults<'tcx>` not ported (`unknown`)
   typeck_root: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: unknown; ProvidedValue: unknown };
   used_trait_imports: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Set<LocalDefId>; ProvidedValue: Set<LocalDefId> };
@@ -3959,7 +3959,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing CoerceUnsized info for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_result(v, f, ((x, f) => debug_CoerceUnsizedInfo(x, f)), ((x, f) => debug_ErrorGuaranteed(x, f))),
     stable_hash_value: undefined,
   },
   typeck_root: {

@@ -265,6 +265,12 @@ export interface SetConfig {
    */
   decoders?: Record<string, { type: string; import: string; note?: string }>;
   /**
+   * derive(Decodable*) of a per-file set: hand modules (src-relative paths) through which the generated `decode_<T>` of
+   * their `.gen.ts` is *not* imported; it is imported from the `.gen.ts` itself (lane rmeta-ty: extension modules, which
+   * a generated module must not evaluate early; ty-contract "Init order").
+   */
+  decodable_import_gen?: string[];
+  /**
    * Type parameters erased from the TS types of this set's items (plan-m3 D3: `I: Interner`, generic code takes no
    * interner type). An erased parameter is dropped from the item's TS generics and from every reference's type
    * arguments at its position (`Binder<I, T>` -> `Binder<T>`, `ir::TraitRef<TyCtxt<'tcx>>` -> `TraitRef`), and
@@ -2116,7 +2122,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         if (ser) {
           if (r.mf.crate !== mf.crate) imp(`gen:${r.mf.crate}/decodable.gen.ts`, "values", name, alias);
           else if (alias !== name) report.errors.push(`${at}: two derive(${kind === "decode" ? "Decodable" : "Encodable"}) types named ${r.item.name} in ${mf.crate}`);
-        } else imp(viaHand(r), "values", name, alias);
+        } else imp(set.decodable_import_gen?.includes(r.mf.hand) ? `gen:${r.mf.gen}` : viaHand(r), "values", name, alias);
         return alias;
       }
       // a manual impl (or a hand type's derive): `decode_<T>` exported by the hand module
@@ -2143,6 +2149,22 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         if (e) return e;
       }
       return undefined;
+    };
+    /**
+     * A serialize.json entry for an item of the set whose derive this set does not generate and whose hand module
+     * exports no `decode_<T>`: its `Decodable` impl is hand-written in another module than the type's (rustc_middle
+     * ty/codec.rs `Predicate` / `Clause`, rustc_type_ir serialize.rs `Binder` / `Region` / `Const`). Keyed by the
+     * item's key. A type alias's entry (`GenericArgsRef`: the alias hides a reference) is used before the alias is
+     * expanded.
+     */
+    const serItemEntry = (r: ItemRef): SerializeMapEntry | undefined => {
+      if (serGenerated("decode", r)) return undefined;
+      const e = serIndex.get(r.key);
+      if (e === undefined || r.item.kind === "type") return e;
+      const implMf = manualSer.Decodable.get(r.key);
+      const hand = implMf?.hand ?? r.mf.hand;
+      if ((implMf || matches(set.hand, r)) && handExports_(hand, `decode_${r.item.name}`)) return undefined;
+      return e;
     };
     const serEntryModule = (e: SerializeMapEntry) => (e.import ? `src:${e.import.replace(/^src\//, "")}` : serModule);
     /** `N` of an array type `[T; N]` (a literal). */
@@ -2184,6 +2206,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           }
           if (r.k === "item") {
             const it = r.ref.item;
+            const ie = serItemEntry(r.ref);
+            if (ie) return decTemplate(ie, r.ref.key, args, sc, at);
             if (it.kind === "type") return decExpr(it.ty!, aliasScope(r.ref, args, sc), at);
             const fn = serItemName("decode", r.ref, at);
             const fns = tsParams(it).map((p, i) => {
@@ -2200,39 +2224,43 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             push(report.missing_decodable, r.display, at);
             return `unported_decodable(${DEC})`;
           }
-          if (e.transparent) return decExpr(args[0]!, sc, at);
-          const tmpl = e.decode_nullable !== undefined && args[0] && nullable(args[0], sc) ? e.decode_nullable : e.decode;
-          if (tmpl === undefined) {
-            push(report.missing_decodable, `${r.display} (${e.note ?? "no decode in serialize.json"})`, at);
-            return `unported_decodable(${DEC})`;
-          }
-          const mod = serEntryModule(e);
-          for (const m of tmpl.matchAll(/(?<![.\w])(decode_\w+)\(/g)) serUse(m[1]!, mod);
-          for (const v of e.values ?? []) if (tmpl.includes(v)) serUse(v, e.values_import ? `src:${e.values_import.replace(/^src\//, "")}` : mod);
-          let out = tmpl.replaceAll("$D", () => DEC);
-          for (const n of new Set(tmpl.match(/\$d\d/g) ?? [])) {
-            const a = args[Number(n.slice(2))];
-            if (!a) {
-              report.errors.push(`${at}: ${r.display} needs type arg ${n.slice(2)} for Decodable`);
-              return `unported_decodable(${DEC})`;
-            }
-            const f = decFn(a, sc, at);
-            out = out.replaceAll(n, () => f);
-          }
-          return out;
+          return decTemplate(e, r.display, args, sc, at);
         }
       }
       push(report.missing_decodable, `${ty.kind}: ${ty.text}`, at);
       return `unported_decodable(${DEC})`;
+    };
+    /** A serialize.json entry `e` applied to type arguments `args` (`$D` the decoder, `$d<k>` their Decodable fns). */
+    const decTemplate = (e: SerializeMapEntry, display: string, args: PType[], sc: Scope, at: string): string => {
+      if (e.transparent) return decExpr(args[0]!, sc, at);
+      const tmpl = e.decode_nullable !== undefined && args[0] && nullable(args[0], sc) ? e.decode_nullable : e.decode;
+      if (tmpl === undefined) {
+        push(report.missing_decodable, `${display} (${e.note ?? "no decode in serialize.json"})`, at);
+        return `unported_decodable(${DEC})`;
+      }
+      const mod = serEntryModule(e);
+      for (const m of tmpl.matchAll(/(?<![.\w])(decode_\w+)\(/g)) serUse(m[1]!, mod);
+      for (const v of e.values ?? []) if (tmpl.includes(v)) serUse(v, e.values_import ? `src:${e.values_import.replace(/^src\//, "")}` : mod);
+      let out = tmpl.replaceAll("$D", () => DEC);
+      for (const n of new Set(tmpl.match(/\$d\d/g) ?? [])) {
+        const a = args[Number(n.slice(2))];
+        if (!a) {
+          report.errors.push(`${at}: ${display} needs type arg ${n.slice(2)} for Decodable`);
+          return `unported_decodable(${DEC})`;
+        }
+        const f = decFn(a, sc, at);
+        out = out.replaceAll(n, () => f);
+      }
+      return out;
     };
     /** The Decodable impl of a type as a value (`Decodable<T, D>`). */
     const decFn = (ty: PType, sc: Scope, at: string): string => {
       if (ty.kind === "path" && !ty.qself) {
         const r = resolvePath(ty.path!, sc);
         if (r.k === "param" && !sc.subst?.has(r.name)) return `decode_${r.name}`;
-        if (r.k === "item" && r.ref.item.kind !== "type" && tsParams(r.ref.item).length === 0) return serItemName("decode", r.ref, at);
-        if (r.k === "ext") {
-          const e = serEntry(r.keys);
+        if (r.k === "item" && r.ref.item.kind !== "type" && tsParams(r.ref.item).length === 0 && !serItemEntry(r.ref)) return serItemName("decode", r.ref, at);
+        if (r.k === "ext" || (r.k === "item" && serItemEntry(r.ref))) {
+          const e = r.k === "ext" ? serEntry(r.keys) : serItemEntry(r.ref);
           const m = e?.decode && /^(decode_\w+)\(\$D\)$/.exec(e.decode);
           if (e && m && !e.transparent) return serUse(m[1]!, serEntryModule(e));
         }

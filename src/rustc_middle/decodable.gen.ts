@@ -4,11 +4,12 @@
 // Only function declarations: hand modules may import from here inside an import cycle.
 import { decode_Res } from "../rustc_hir/def.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
+import { type TyDecoder } from "./ty/codec.ts";
 import { type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
 import { Visibility } from "./ty/mod.ts";
 import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_u32, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
 import { decode_Ident, decode_ModId } from "../rustc_span/decodable.gen.ts";
-import { type BlobDecoder, type SpanDecoder } from "../rustc_span/lib.ts";
+import { type BlobDecoder } from "../rustc_span/lib.ts";
 import { panic } from "../std/panic.ts";
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:249 BlobDecodable for Visibility
@@ -25,7 +26,7 @@ export function decode_Visibility<Id, __D extends BlobDecoder = BlobDecoder>(__d
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/generics.rs:15 TyDecodable for GenericParamDefKind
-export function decode_GenericParamDefKind(__decoder: SpanDecoder): GenericParamDefKind {
+export function decode_GenericParamDefKind(__decoder: TyDecoder): GenericParamDefKind {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -40,7 +41,7 @@ export function decode_GenericParamDefKind(__decoder: SpanDecoder): GenericParam
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/generics.rs:54 TyDecodable for GenericParamDef
-export function decode_GenericParamDef(__decoder: SpanDecoder): GenericParamDef {
+export function decode_GenericParamDef(__decoder: TyDecoder): GenericParamDef {
   return {
     name: __decoder.decode_symbol(),
     def_id: __decoder.decode_def_id(),
@@ -51,7 +52,7 @@ export function decode_GenericParamDef(__decoder: SpanDecoder): GenericParamDef 
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/generics.rs:120 TyDecodable for Generics
-export function decode_Generics(__decoder: SpanDecoder): Generics {
+export function decode_Generics(__decoder: TyDecoder): Generics {
   const __0 = decode_Option(__decoder, (__decoder) => __decoder.decode_def_id());
   const __1 = decode_usize(__decoder);
   const __2 = decode_Vec(__decoder, decode_GenericParamDef);
@@ -62,7 +63,7 @@ export function decode_Generics(__decoder: SpanDecoder): Generics {
 }
 
 // rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:120 TyDecodable for Reexport
-export function decode_Reexport(__decoder: SpanDecoder): Reexport {
+export function decode_Reexport(__decoder: TyDecoder): Reexport {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
@@ -81,7 +82,7 @@ export function decode_Reexport(__decoder: SpanDecoder): Reexport {
 }
 
 // rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:143 TyDecodable for ModChild
-export function decode_ModChild(__decoder: SpanDecoder): ModChild {
+export function decode_ModChild(__decoder: TyDecoder): ModChild {
   return {
     ident: decode_Ident(__decoder),
     res: decode_Res(__decoder, (__decoder) => decode_never(__decoder)),
@@ -91,7 +92,7 @@ export function decode_ModChild(__decoder: SpanDecoder): ModChild {
 }
 
 // rustc-derive: compiler/rustc_middle/src/middle/resolve.rs:158 TyDecodable for AmbigModChild
-export function decode_AmbigModChild(__decoder: SpanDecoder): AmbigModChild {
+export function decode_AmbigModChild(__decoder: TyDecoder): AmbigModChild {
   return {
     main: decode_ModChild(__decoder),
     second: decode_ModChild(__decoder),
