@@ -16,6 +16,7 @@ import "../rustc_hir_analysis/lib.ts";
 import * as collect_dump from "../rustc_hir_analysis/collect/dump.ts";
 import { emit_delayed_lints } from "../rustc_interface/passes.ts";
 import { creader } from "../rustc_metadata/lib.ts";
+import { par_fns } from "../rustc_data_structures/sync/parallel.ts";
 import { check_glob_and_list_delegations_target_expr } from "../rustc_passes/delegation.ts";
 import { Defaultness, type MaybeOwner, MaybeOwner as MaybeOwnerC } from "../rustc_hir/lib.ts";
 import type { OwnerInfo } from "../rustc_hir/hir.gen.ts";
@@ -80,34 +81,35 @@ export function run_required_analyses_prefix(tcx: TyCtxt): number {
 
   const sess = tcx.sess;
   sess.time("misc_checking_1", () => {
-    // `par_fns(&mut [..])`: sequential, in order, with the default `-Zthreads=1`.
-    {
-      sess.time("looking_for_entry_point", () => tcx.ensure_ok().entry_fn(null));
-      sess.time("check_externally_implementable_items", () => {
-        tcx.ensure_ok().check_externally_implementable_items(null);
-      });
+    par_fns([
+      () => {
+        sess.time("looking_for_entry_point", () => tcx.ensure_ok().entry_fn(null));
+        sess.time("check_externally_implementable_items", () => {
+          tcx.ensure_ok().check_externally_implementable_items(null);
+        });
 
-      sess.time("looking_for_derive_registrar", () => {
-        tcx.ensure_ok().proc_macro_decls_static(null);
-      });
+        sess.time("looking_for_derive_registrar", () => {
+          tcx.ensure_ok().proc_macro_decls_static(null);
+        });
 
-      creader.CStore.from_tcx(tcx).report_unused_deps(tcx);
-    }
-    {
-      tcx.ensure_ok().exportable_items(LOCAL_CRATE);
-      tcx.ensure_ok().stable_order_of_exportable_impls(LOCAL_CRATE);
-      tcx.par_hir_for_each_module((module) => {
-        tcx.ensure_ok().check_mod_attrs(module);
-        tcx.ensure_ok().check_mod_unstable_api_usage(module);
-      });
-    }
-    {
-      // We force these queries to run,
-      // since they might not otherwise get called.
-      // This marks the corresponding crate-level attributes
-      // as used, and ensures that their values are valid.
-      tcx.ensure_ok().limits(null);
-    }
+        creader.CStore.from_tcx(tcx).report_unused_deps(tcx);
+      },
+      () => {
+        tcx.ensure_ok().exportable_items(LOCAL_CRATE);
+        tcx.ensure_ok().stable_order_of_exportable_impls(LOCAL_CRATE);
+        tcx.par_hir_for_each_module((module) => {
+          tcx.ensure_ok().check_mod_attrs(module);
+          tcx.ensure_ok().check_mod_unstable_api_usage(module);
+        });
+      },
+      () => {
+        // We force these queries to run,
+        // since they might not otherwise get called.
+        // This marks the corresponding crate-level attributes
+        // as used, and ensures that their values are valid.
+        tcx.ensure_ok().limits(null);
+      },
+    ]);
   });
 
   sess.time("emit_ast_lowering_delayed_lints", () => {

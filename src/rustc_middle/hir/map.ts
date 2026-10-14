@@ -17,6 +17,7 @@ import { type Attribute, find_attr } from "../../rustc_attr_ir/lib.ts";
 import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 import { type StableHashCtxt, StableHasher, stable_hash_Fingerprint, stable_hash_Hash64, stable_hash_tuple2, stable_hash_Vec } from "../../rustc_data_structures/stable_hash.ts";
 import type { Steal } from "../../rustc_data_structures/steal.ts";
+import { par_for_each_in, try_par_for_each_in } from "../../rustc_data_structures/sync/parallel.ts";
 import { debug_DefKind, Res } from "../../rustc_hir/def.ts";
 import {
   type AnonConst,
@@ -101,16 +102,6 @@ function crate_items(tcx: TyCtxt): ModuleItems {
   return tcx.hir_crate_items(null) as ModuleItems;
 }
 
-/**
- * `rustc_data_structures::sync::{par_for_each_in, try_par_for_each_in}` (sync/parallel.rs). PORT: pending-lane shims
- * (parallel.rs is not ported).
- */
-function par_for_each_in<T>(_t: readonly T[], _for_each: (i: T) => void): void {
-  return unported("rustc_data_structures::sync::parallel::par_for_each_in (pending sync/parallel.rs)");
-}
-function try_par_for_each_in<T>(_t: readonly T[], _for_each: (i: T) => Result<null, ErrorGuaranteed>): Result<null, ErrorGuaranteed> {
-  return unported("rustc_data_structures::sync::parallel::try_par_for_each_in (pending sync/parallel.rs)");
-}
 
 // rustc-type: compiler/rustc_middle/src/hir/map.rs:29 ParentHirIterator
 /// An iterator that walks up the ancestor tree of a given `HirId`.
