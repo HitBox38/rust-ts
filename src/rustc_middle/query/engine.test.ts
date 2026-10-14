@@ -41,6 +41,9 @@ import { ExternProviders_default, Providers_default } from "./query_api.ts";
 import { with_context } from "../ty/context/tls.ts";
 import { KEY_DefId_Ident, KEY_Ty, KEY_Ty_Ty } from "./keys.ts";
 import { Ident } from "../../rustc_span/symbol.ts";
+import { AttributeMap, type OwnerNodes } from "../../rustc_hir/lib.ts";
+import { OwnerId } from "../../rustc_hir_id/lib.ts";
+import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 
 const test_ = (name: string, f: () => void): void => {
   test(name, () => create_default_session_globals_then(f));
@@ -424,4 +427,53 @@ test_("QueryKey for (DefId, Ident) (keys.rs:203): `Hash`/`Eq` of `Ident` see the
   expect(KEY_DefId_Ident.hash_key([d, a])).toBe(KEY_DefId_Ident.hash_key([d, b]));
   expect(KEY_DefId_Ident.hash_key([d, a])).not.toBe(KEY_DefId_Ident.hash_key([d, c]));
   expect(KEY_DefId_Ident.key_as_def_id([d, a])).toBe(d);
+});
+
+test_("ensure_result (calls.rs:178): `Ok(())` / the `ErrorGuaranteed` of the cached or computed `Result`", () => {
+  let calls = 0;
+  const { r, err } = with_tcx(
+    "",
+    (p) => {
+      p.check_well_formed = (tcx, def_id) => {
+        calls++;
+        return LocalDefId.index(def_id) === 1 ? { $: "Ok", _0: null } : { $: "Err", _0: tcx.dcx().delayed_bug("test error") };
+      };
+    },
+    (tcx) => {
+      const ok = tcx.ensure_result().check_well_formed(LocalDefId.new(1));
+      const bad = tcx.ensure_result().check_well_formed(LocalDefId.new(2));
+      // cached: no new provider call, same results
+      const ok2 = tcx.ensure_result().check_well_formed(LocalDefId.new(1));
+      const bad2 = tcx.ensure_result().check_well_formed(LocalDefId.new(2));
+      return { ok, bad: bad.$, ok2, bad2: bad2.$ };
+    },
+  );
+  expect(err).toBeUndefined();
+  expect(r).toEqual({ ok: { $: "Ok", _0: null }, bad: "Err", ok2: { $: "Ok", _0: null }, bad2: "Err" });
+  expect(calls).toBe(2);
+});
+
+test_("feed_hir (context.rs:652): a synthetic owner gets `OwnerNodes::synthetic()` and an empty attribute map without providers", () => {
+  const { r, err } = with_tcx(
+    "",
+    () => {},
+    (tcx, sp) => {
+      const root = tcx.create_local_crate_def_id(sp(""));
+      root.def_kind(DefKind.Mod);
+      const feed = tcx.at(DUMMY_SP).create_def(CRATE_DEF_ID, undefined, DefKind.SyntheticCoroutineBody, undefined, PerParentDisambiguatorState.new(CRATE_DEF_ID));
+      feed.feed_hir();
+      const owner = tcx.hir_owner(feed.def_id()) as { $: string; _0: { nodes: OwnerNodes; parenting: Map<unknown, unknown>; trait_map: Map<unknown, unknown>; delayed_lints: Steal<unknown> } };
+      const attrs = tcx.hir_attr_map(new OwnerId(feed.def_id()));
+      return {
+        owner: owner.$,
+        node: owner._0.nodes.node().$,
+        opt_hash: owner._0.nodes.opt_hash,
+        maps: [owner._0.parenting.size, owner._0.trait_map.size],
+        lints: owner._0.delayed_lints.borrow(),
+        attrs_empty: attrs === AttributeMap.EMPTY,
+      };
+    },
+  );
+  expect(err).toBeUndefined();
+  expect(r).toEqual({ owner: "Owner", node: "Synthetic", opt_hash: Fingerprint.ZERO, maps: [0, 0], lints: [], attrs_empty: true });
 });
