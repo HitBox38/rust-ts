@@ -39,7 +39,8 @@ Same 36 MATCH as the ty-mod-b runs before; no case left MATCH.
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Results" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4315 pass, 1 skip (pre-existing linux-only), 0 fail
+  (after the last two small edits, `bun test src/rustc_middle` re-run green).
 - `bun scripts/coverage.ts --check`: markers ok (11193; vendor 3888).
 - `--missing`: adt.rs 60/60, assoc.rs 35/35, trait_def.rs 11/11, closure.rs 20/20, sorted_map/index_map.rs 15/15.
 - Fresh-process loads: ty/adt.ts, ty/assoc.ts, ty/closure.ts, ty/trait_def.ts, rustc_middle/lib.ts,
