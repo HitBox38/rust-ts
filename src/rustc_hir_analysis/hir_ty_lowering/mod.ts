@@ -176,6 +176,18 @@ function assert_eq_msg<T>(left: T, right: T, debug: (v: T) => string, msg: strin
   }
 }
 
+/** `if let DefKind::Ctor(<ctor_of>, _) = def_kind` */
+function is_ctor_of(def_kind: DefKind, ctor_of: CtorOf): boolean {
+  return def_kind.$ === "Ctor" && def_kind._0 === ctor_of;
+}
+
+/** `map[&key]` (std's `Index for HashMap`: `self.get(key).expect("no entry found for key")`). */
+function map_index<K, V>(map: Map<K, V>, key: K): V {
+  const v = map.get(key);
+  if (v === undefined) panic("no entry found for key");
+  return v;
+}
+
 /** `assert_eq!(opt_self_ty, None)` */
 function assert_no_self_ty(opt_self_ty: Ty | undefined): void {
   assert_eq(opt_self_ty, undefined, (v) => debug_option(v, PLAIN, debug_Ty));
@@ -233,7 +245,9 @@ HirTyLowerer.prototype.lower_resolved_ty_path = function (
     const generic_segments = this.probe_generic_path_segments(path.segments, undefined, kind, def_id, span);
     const indices = new Set<number>(generic_segments.map(({ _1: index }) => index));
     void this.prohibit_generic_args(
-      filter_map_enumerate(path.segments, (index, seg) => (!indices.has(index) ? seg : undefined)),
+      // PORT: `path.segments.iter().enumerate().filter_map(..)` is an `impl Iterator + Clone` that
+      // `prohibit_generic_args` walks more than once: an array (decls.ts rule).
+      path.segments.filter((_seg, index) => !indices.has(index)),
       { $: "DefVariant", _0: path.segments },
     );
 
@@ -340,18 +354,6 @@ HirTyLowerer.prototype.lower_ty_param = function (this: HirTyLowerer, hir_id: Hi
   }
   return this.check_param_uses_if_mcg(ty, tcx.hir_span(hir_id), false, fold_Ty);
 };
-
-/** `if let DefKind::Ctor(<ctor_of>, _) = def_kind` */
-function is_ctor_of(def_kind: DefKind, ctor_of: CtorOf): boolean {
-  return def_kind.$ === "Ctor" && def_kind._0 === ctor_of;
-}
-
-/** `map[&key]` (`Index for HashMap`): panics with std's text when the key is missing. */
-function map_index<K, V>(map: Map<K, V>, key: K): V {
-  const v = map.get(key);
-  if (v === undefined) panic("key not found in map");
-  return v;
-}
 
 /// Lower a const parameter from the HIR to our internal notion of a constant.
 ///
@@ -822,7 +824,9 @@ HirTyLowerer.prototype.lower_resolved_const_path = function (
     const generic_segments = this.probe_generic_path_segments(path.segments, opt_self_ty, kind, did, span);
     const indices = new Set<number>(generic_segments.map(({ _1: index }) => index));
     void this.prohibit_generic_args(
-      filter_map_enumerate(path.segments, (index, seg) => (!indices.has(index) ? seg : undefined)),
+      // PORT: `path.segments.iter().enumerate().filter_map(..)` is an `impl Iterator + Clone` that
+      // `prohibit_generic_args` walks more than once: an array (decls.ts rule).
+      path.segments.filter((_seg, index) => !indices.has(index)),
       { $: "DefVariant", _0: path.segments },
     );
 
@@ -845,7 +849,9 @@ HirTyLowerer.prototype.lower_resolved_const_path = function (
     const generic_segments = this.probe_generic_path_segments(path.segments, opt_self_ty, { $: "Ctor", _0: ctor_of, _1: "Const" }, did, span);
     const indices = new Set<number>(generic_segments.map(({ _1: index }) => index));
     void this.prohibit_generic_args(
-      filter_map_enumerate(path.segments, (index, seg) => (!indices.has(index) ? seg : undefined)),
+      // PORT: `path.segments.iter().enumerate().filter_map(..)` is an `impl Iterator + Clone` that
+      // `prohibit_generic_args` walks more than once: an array (decls.ts rule).
+      path.segments.filter((_seg, index) => !indices.has(index)),
       { $: "DefVariant", _0: path.segments },
     );
 
@@ -1353,6 +1359,7 @@ HirTyLowerer.prototype.lower_field_of = function (
   variant_: Ident | undefined,
   field: Ident,
 ): Ty {
+  // PORT: the parameter `variant` is `variant_`: upstream shadows it with the `(variant_idx, variant)` binding below.
   const dcx = this.dcx();
   const tcx = this.tcx();
   const k = ty.kind();
@@ -1782,11 +1789,3 @@ HirTyLowerer.prototype.lower_view = function (this: HirTyLowerer, inner_ty: Ty, 
   // FIXME(scrabsha): actually lower view types.
   return inner_ty;
 };
-
-/** `slice.iter().enumerate().filter_map(f)` as a lazy iterator. */
-function* filter_map_enumerate<T, U>(xs: readonly T[], f: (index: number, x: T) => U | undefined): Generator<U> {
-  for (let index = 0; index < xs.length; index++) {
-    const u = f(index, xs[index]!);
-    if (u !== undefined) yield u;
-  }
-}
