@@ -19,7 +19,7 @@
 import { Interned } from "../../rustc_data_structures/intern.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { fold_with_Expr, try_fold_with_Expr, visit_with_Expr } from "../../rustc_middle/ty/consts/kind.ts";
-import { fold_with_Value, try_fold_with_Value, visit_with_Value } from "../../rustc_middle/ty/consts/valtree.ts";
+import { display_Value as display_ValueC, fold_with_Value, from_pending_Value, try_fold_with_Value, visit_with_Value } from "../../rustc_middle/ty/consts/valtree.ts";
 import type { Expr, ParamConst, Value } from "../../rustc_middle/ty/decls.ts";
 import { visit_with_ErrorGuaranteed } from "../../rustc_middle/ty/structural_impls.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
@@ -47,9 +47,9 @@ function const_kind(): typeof import("../const_kind.ts") {
 
 // ---- PORT stand-ins for fns of other lanes' files that are not ported yet (convention 6) -------------------------
 
-/** PORT: stand-in for `impl Display for ty::Value` (rustc_middle ty/consts/valtree.rs, lane ty-print). */
-function display_Value(_v: Value): string {
-  return unported("rustc_middle::ty::consts::valtree: Display for Value");
+/** `impl Display for ty::Value` (rustc_middle ty/consts/valtree.rs:241, lane ty-results). */
+function display_Value(v: Value): string {
+  return display_ValueC(from_pending_Value(v));
 }
 // PORT (init order, merge-w15a): binder.ts reaches rustc_middle ty/sty.ts (see `const_kind()` above), so it is
 // required lazily.

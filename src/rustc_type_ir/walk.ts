@@ -10,6 +10,7 @@ import type { Pattern } from "../rustc_middle/ty/decls.ts";
 import { fold_GenericArgs, GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import { Term } from "../rustc_middle/ty/mod.ts";
 import type { Value } from "../rustc_middle/ty/decls.ts";
+import { from_pending_Value, Value as ValueC } from "../rustc_middle/ty/consts/valtree.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { unported, unwrap } from "../std/panic.ts";
 import { Binder } from "./binder.ts";
@@ -293,7 +294,7 @@ function Pattern_kind(_pat: Pattern): PatternKind {
   return unported("rustc_middle::ty::Pattern::kind (Pattern not ported yet)");
 }
 
-/** PORT: stand-in for `inherent::ValueConst::ty` (rustc_middle ty/consts/valtree.rs; `ty::Value` is pending). */
-function Value_ty(_cv: Value): Ty {
-  return unported("rustc_middle::ty::Value::ty (ty::Value not ported yet)");
+/** `inherent::ValueConst::ty` (rustc_middle ty/consts/valtree.rs:231, lane ty-results). */
+function Value_ty(cv: Value): Ty {
+  return ValueC.ty(from_pending_Value(cv));
 }
