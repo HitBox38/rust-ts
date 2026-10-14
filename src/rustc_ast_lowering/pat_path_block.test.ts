@@ -69,7 +69,7 @@ function fake(opts: { features?: Record<string, boolean>; partial_res?: [number,
     lower_ident: (i: Ident) => i,
     lower_res: (r: Res<NodeId>) => r,
     get_partial_res: (id: NodeId) => partial.get(id),
-    dcx: () => ({ emit_err: () => GUAR }),
+    dcx: () => ({ emit_err: () => (log.push("emit_err"), GUAR) }),
     lower_attrs: (id: HirId, attrs: unknown[], _span: Span, target: { $: string }) => {
       log.push(`attrs ${id.local_id} ${attrs.length} ${target.$}`);
       return [];
@@ -204,11 +204,11 @@ describe("pat.rs", () => {
     expect(k._1).toEqual(hir.DotDotPos.new(undefined));
   });
 
-  test("a second `..` in a tuple reports ExtraDoubleDot (pat.rs:192-194; diagnostics pending codegen)", () => {
-    const { lctx } = fake();
-    expect(stops(() => lctx.lower_pat(pat(1, { $: "Tuple", _0: [rest(2), rest(3)] })))).toContain(
-      "ExtraDoubleDot_diagnostic",
-    );
+  test("a second `..` in a tuple reports ExtraDoubleDot (pat.rs:192-194)", () => {
+    const { lctx, log } = fake();
+    const k = lctx.lower_pat(pat(1, { $: "Tuple", _0: [rest(2), rest(3)] })).kind as Extract<hir.PatKind, { $: "Tuple" }>;
+    expect(log.filter((l) => l === "emit_err").length).toBe(1);
+    expect(k._1).toEqual(hir.DotDotPos.new(0));
   });
 
   test("slice with `rest @ ..`: sub-slice binding lowered to `rest @ _` (pat.rs:209-273)", () => {
@@ -307,15 +307,17 @@ describe("pat.rs", () => {
       lit: { node: { $: "ByteStr", _0: 9 as never, _1: { $: "Cooked" } }, span: sp(7) },
       negated: false,
     });
-    // a path is only allowed in range patterns; elsewhere it is an arbitrary expression (diagnostic pending codegen)
-    const path = expr(6, { $: "Path", _0: undefined, _1: {} as never });
-    expect(stops(() => lctx.lower_expr_within_pat(path, false))).toContain("ArbitraryExpressionInPattern_diagnostic");
+    // a path is only allowed in range patterns; elsewhere it is an arbitrary expression (ArbitraryExpressionInPattern)
+    const path = expr(6, { $: "Path", _0: undefined, _1: {} as never }, 8);
+    const arb = lctx.lower_expr_within_pat(path, false);
+    expect(arb.kind).toEqual({ $: "Lit", lit: { node: { $: "Err", _0: GUAR }, span: sp(8) }, negated: false });
     expect(stops(() => lctx.lower_expr_within_pat(expr(7, { $: "Dummy" }), false))).toContain("lowered ExprKind::Dummy");
   });
 
-  test("`..` outside a list reports MisplacedDoubleDot (pat.rs:136-139, 352; diagnostic pending codegen)", () => {
-    const { lctx } = fake();
-    expect(stops(() => lctx.lower_pat(rest(1)))).toContain("MisplacedDoubleDot_diagnostic");
+  test("`..` outside a list reports MisplacedDoubleDot (pat.rs:136-139, 352)", () => {
+    const { lctx, log } = fake();
+    expect(lctx.lower_pat(rest(1)).kind).toEqual(hir.PatKind.Wild);
+    expect(log.filter((l) => l === "emit_err").length).toBe(1);
   });
 
   test("type patterns: NotNull, Or and the HirId order (pat.rs:432-477)", () => {
@@ -369,12 +371,13 @@ describe("path.rs", () => {
     );
   });
 
-  test("segments need the generated GenericArgsCtor (pending codegen set rustc_ast_lowering)", () => {
+  test("a segment without args gets an empty, non-parenthesized GenericArgs (path.rs:419-421, lib.rs:3310)", () => {
     const { lctx } = fake();
     const segment = { ident: ident(10), id: nid(3), args: undefined } as never;
-    expect(stops(() => lctx.lower_path_segment(sp(0), segment, "Optional", "Err", { $: "Disallowed", _0: "Path" }, undefined))).toContain(
-      "rustc_ast_lowering::GenericArgsCtor (pending codegen set rustc_ast_lowering)",
-    );
+    const seg = lctx.lower_path_segment(sp(0), segment, "Optional", "Err", { $: "Disallowed", _0: "Path" }, undefined);
+    expect(seg.ident.name).toBe(10 as Symbol);
+    expect(seg.args).toBeUndefined();
+    expect(seg.infer_args).toBe(true);
   });
 
   test("trait paths need the TyCtxt lang-item methods (path.rs:75-76, 603-610)", () => {

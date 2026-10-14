@@ -13,75 +13,22 @@ import {
   type RangeEnd,
   type TyPat,
 } from "../rustc_ast/lib.ts";
-import type { NodeId } from "../rustc_ast/node_id.ts";
 import type { LangItem } from "../rustc_attr_ir/lang_items.ts";
 import { Target } from "../rustc_attr_ir/target.ts";
-import type { Diagnostic } from "../rustc_errors/diagnostic.ts";
 import { DefKind } from "../rustc_hir/def.ts";
 import * as hir from "../rustc_hir/lib.ts";
-import type { HirId, ItemLocalId, OwnerId } from "../rustc_hir_id/lib.ts";
+import type { HirId } from "../rustc_hir_id/lib.ts";
 import { DesugaringKind } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, type ErrorGuaranteed, respan, Span } from "../rustc_span/lib.ts";
 import { span_bug } from "../rustc_span/macros.ts";
-import type { Ident, Symbol } from "../rustc_span/symbol.ts";
+import type { Ident } from "../rustc_span/symbol.ts";
 import { format_debug, PRETTY } from "../std/fmt.ts";
-import { panic, unported, unwrap } from "../std/panic.ts";
+import { panic, unwrap } from "../std/panic.ts";
 import { debug_Pat } from "../rustc_ast/lib.ts";
 import { LoweringContext } from "./decls.ts";
 import * as diagnostics from "./diagnostics.ts";
 import { ALLOW_PATTERN_TYPE } from "./lib.ts";
 
-// ---- PORT(pending-gen): bridge to codegen set rustc_ast_lowering --------------------------------------------------
-// The crate's own types are not generated yet (tools/codegen set `rustc_ast_lowering`): lib.ts aliases the lib.rs
-// types to `unknown` and diagnostics.ts has no `#[derive(Diagnostic)]` structs. This block stands in for the
-// generated exports with the generator's names and shapes (checked against a scratch run of
-// `bun tools/codegen/types.ts rustc_ast_lowering`); a generated value that is still missing at run time stops as
-// UNPORTED. On integration: call `diagnostics.X_diagnostic` directly, read `this.curr_owner` without the view, and
-// delete this block.
-
-/** A generated export of `module` (see above); UNPORTED while it does not exist. */
-function pending_gen<T>(module: object, name: string): T {
-  const v = (module as Record<string, unknown>)[name];
-  if (v === undefined) return unported(`rustc_ast_lowering::${name} (pending codegen set rustc_ast_lowering)`);
-  return v as T;
-}
-
-/** The `#[derive(Diagnostic)]` structs of diagnostics.rs this file emits (diagnostics.gen.ts, lane lower-index-diag). */
-const diagnostics_ = {
-  /** diagnostics.rs:336 */
-  SubTupleBinding_diagnostic(d: { span: Span; ident: Ident; ident_name: Symbol; ctx: string }): Diagnostic {
-    return pending_gen<(d_: typeof d) => Diagnostic>(diagnostics, "SubTupleBinding_diagnostic")(d);
-  },
-  /** diagnostics.rs:353 */
-  ExtraDoubleDot_diagnostic(d: { span: Span; prev_span: Span; ctx: string }): Diagnostic {
-    return pending_gen<(d_: typeof d) => Diagnostic>(diagnostics, "ExtraDoubleDot_diagnostic")(d);
-  },
-  /** diagnostics.rs:365 */
-  MisplacedDoubleDot_diagnostic(d: { span: Span }): Diagnostic {
-    return pending_gen<(d_: typeof d) => Diagnostic>(diagnostics, "MisplacedDoubleDot_diagnostic")(d);
-  },
-  /** diagnostics.rs:403 */
-  ArbitraryExpressionInPattern_diagnostic(d: {
-    span: Span;
-    pattern_from_macro_note: boolean;
-    const_block_in_pattern_help: boolean;
-  }): Diagnostic {
-    return pending_gen<(d_: typeof d) => Diagnostic>(diagnostics, "ArbitraryExpressionInPattern_diagnostic")(d);
-  },
-};
-
-/**
- * The parts of `PerOwnerLoweringState` (lib.rs:155: generated class in lib.gen.ts; `owner_id` lib.rs:177, lane
- * lower-lib-a) this file uses; `LoweringContext.curr_owner` is `unknown` until then.
- */
-interface PerOwnerLoweringStateView {
-  ident_and_label_to_local_id: Map<NodeId, ItemLocalId>;
-  owner_id(): OwnerId;
-}
-function curr_owner(this_: LoweringContext): PerOwnerLoweringStateView {
-  return this_.curr_owner as PerOwnerLoweringStateView;
-}
-// ---- end PORT(pending-gen) ---------------------------------------------------------------------------------------
 
 // rustc: compiler/rustc_ast_lowering/src/pat.rs:18 lower_pat
 LoweringContext.prototype.lower_pat = function (this: LoweringContext, pattern: Pat): hir.Pat {
@@ -277,7 +224,7 @@ LoweringContext.prototype.lower_pat_tuple = function (
       const ident = kind._1;
       const sp = pat.span;
       this.dcx().emit_err(
-        diagnostics_.SubTupleBinding_diagnostic({
+        diagnostics.SubTupleBinding_diagnostic({
           span: sp,
           ident_name: ident.name,
           ident: ident,
@@ -408,15 +355,15 @@ LoweringContext.prototype.lower_pat_ident = function (
       // will be resolved to the same `Res::Local`. Thus they just share a single
       // `HirId`.
       if (id === p.id) {
-        curr_owner(this).ident_and_label_to_local_id.set(id, hir_id.local_id);
+        this.curr_owner.ident_and_label_to_local_id.set(id, hir_id.local_id);
         binding_id = hir_id;
       } else {
-        const owner = curr_owner(this).owner_id();
-        const local_id = unwrap(curr_owner(this).ident_and_label_to_local_id.get(id), "no entry found for key");
+        const owner = this.curr_owner.owner_id();
+        const local_id = unwrap(this.curr_owner.ident_and_label_to_local_id.get(id), "no entry found for key");
         binding_id = new hir.HirId(owner, local_id);
       }
     } else {
-      curr_owner(this).ident_and_label_to_local_id.set(p.id, hir_id.local_id);
+      this.curr_owner.ident_and_label_to_local_id.set(p.id, hir_id.local_id);
       binding_id = hir_id;
     }
     return { $: "Binding", _0: annotation, _1: binding_id, _2: this.lower_ident(ident), _3: lower_sub(this) };
@@ -451,13 +398,13 @@ LoweringContext.prototype.pat_with_node_id_of = function (
 /// Emit a friendly error for extra `..` patterns in a tuple/tuple struct/slice pattern.
 // rustc: compiler/rustc_ast_lowering/src/pat.rs:347 ban_extra_rest_pat
 LoweringContext.prototype.ban_extra_rest_pat = function (this: LoweringContext, sp: Span, prev_sp: Span, ctx: string): void {
-  this.dcx().emit_err(diagnostics_.ExtraDoubleDot_diagnostic({ span: sp, prev_span: prev_sp, ctx }));
+  this.dcx().emit_err(diagnostics.ExtraDoubleDot_diagnostic({ span: sp, prev_span: prev_sp, ctx }));
 };
 
 /// Used to ban the `..` pattern in places it shouldn't be semantically.
 // rustc: compiler/rustc_ast_lowering/src/pat.rs:352 ban_illegal_rest_pat
 LoweringContext.prototype.ban_illegal_rest_pat = function (this: LoweringContext, sp: Span): hir.PatKind {
-  this.dcx().emit_err(diagnostics_.MisplacedDoubleDot_diagnostic({ span: sp }));
+  this.dcx().emit_err(diagnostics.MisplacedDoubleDot_diagnostic({ span: sp }));
 
   // We're not in a list context so `..` can be reasonably treated
   // as `_` because it should always be valid and roughly matches the
@@ -529,7 +476,7 @@ LoweringContext.prototype.lower_expr_within_pat = function (
     const pattern_from_macro =
       expr.is_approximately_pattern() || (peeled.$ === "Binary" && peeled._0.node === "BitOr");
     const guar = this.dcx().emit_err(
-      diagnostics_.ArbitraryExpressionInPattern_diagnostic({
+      diagnostics.ArbitraryExpressionInPattern_diagnostic({
         span,
         pattern_from_macro_note: pattern_from_macro,
         const_block_in_pattern_help: is_const_block,

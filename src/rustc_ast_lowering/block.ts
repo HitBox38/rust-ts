@@ -4,10 +4,6 @@
 // `LoweringContext.prototype` here, in upstream order, each with its `// rustc:` marker.
 // Init order: top-level code here may touch only `./decls.ts`, this file's `.gen.ts` and other crates; every other
 // rustc_ast_lowering export (lib.ts, ...) is read inside function bodies only.
-//
-// PORT(pending-gen): the lib.rs types (`ImplTraitContext`, `ImplTraitPosition`) are `unknown` aliases in lib.ts until
-// codegen set rustc_ast_lowering generates lib.gen.ts; the values below are the generated shapes (PORTING §5:
-// `{ $: "InBinding" }`, `"Variable"`), so they type-check unchanged once the aliases are replaced.
 import { type Block, type BlockCheckMode, type Local, LocalKind, type Stmt } from "../rustc_ast/lib.ts";
 import { Target } from "../rustc_attr_ir/target.ts";
 import * as hir from "../rustc_hir/lib.ts";

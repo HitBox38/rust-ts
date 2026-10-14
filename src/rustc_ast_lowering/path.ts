@@ -14,10 +14,9 @@ import type {
 } from "../rustc_ast/lib.ts";
 import { NodeId } from "../rustc_ast/node_id.ts";
 import type { LanguageItems } from "../rustc_attr_ir/lang_items.ts";
-import type { Diagnostic } from "../rustc_errors/diagnostic.ts";
 import { DefKind, type PerNS, Res } from "../rustc_hir/def.ts";
 import * as hir from "../rustc_hir/lib.ts";
-import { debug_LifetimeRes, PartialRes, type PerOwnerResolverData } from "../rustc_middle/middle/resolve.ts";
+import { debug_LifetimeRes, PartialRes } from "../rustc_middle/middle/resolve.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { add_feature_diagnostics } from "../rustc_session/diagnostics.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
@@ -27,7 +26,7 @@ import { span_bug } from "../rustc_span/macros.ts";
 import { Ident, sym, type Symbol } from "../rustc_span/symbol.ts";
 import type { ClosureKind } from "../rustc_type_ir/lib.ts";
 import { PLAIN } from "../std/fmt.ts";
-import { assert, unported, unreachable, unwrap } from "../std/panic.ts";
+import { assert, unported, unwrap } from "../std/panic.ts";
 import { LoweringContext } from "./decls.ts";
 import * as diagnostics from "./diagnostics.ts";
 import * as lib from "./lib.ts";
@@ -40,86 +39,9 @@ import {
   type ParamMode,
 } from "./lib.ts";
 
-// ---- PORT(pending-gen): bridge to codegen set rustc_ast_lowering --------------------------------------------------
-// The crate's own types are not generated yet (tools/codegen set `rustc_ast_lowering`): lib.ts aliases the lib.rs
-// types (`GenericArgsCtor`, `ImplTraitContext`, `ParamMode`, ...) to `unknown` and diagnostics.ts has no
-// `#[derive(Diagnostic)]` structs. This block stands in for the generated exports with the generator's names and
-// shapes (checked against a scratch run of `bun tools/codegen/types.ts rustc_ast_lowering`); a generated value that is
-// still missing at run time stops as UNPORTED. Fieldless lib.rs enums are written as their string values
-// (`"Optional"`, `"Err"`), data enums as `{ $: .. }` literals (PORTING §5), so those need no bridge. On integration:
-// call `diagnostics.X_diagnostic` / `new GenericArgsCtor(..)` directly, drop the `*View` casts and delete this block.
-// The `TyCtxt` lang-item methods (rustc_middle middle/lang_items.rs, ty/context.rs:995) are not ported either;
+// ---- PORT(pending-gen): bridge to rustc_middle lang items ------------------------------------------------------
+// The `TyCtxt` lang-item methods (rustc_middle middle/lang_items.rs, ty/context.rs:995) are not ported yet;
 // `tcx_method` stops as UNPORTED until `TyCtxt` has them.
-
-/** A generated export of `module` (see above); UNPORTED while it does not exist. */
-function pending_gen<T>(module: object, name: string): T {
-  const v = (module as Record<string, unknown>)[name];
-  if (v === undefined) return unported(`rustc_ast_lowering::${name} (pending codegen set rustc_ast_lowering)`);
-  return v as T;
-}
-
-/** The `#[derive(Diagnostic)]` structs of diagnostics.rs this file emits (diagnostics.gen.ts, lane lower-index-diag). */
-const diagnostics_ = {
-  /** diagnostics.rs:8 (`sub`: the `#[subdiagnostic] UseAngleBrackets`, diagnostics.rs:18) */
-  GenericTypeWithParentheses_diagnostic(d: {
-    span: Span;
-    sub: { open_param: Span; close_param: Span } | undefined;
-  }): Diagnostic {
-    return pending_gen<(d_: typeof d) => Diagnostic>(diagnostics, "GenericTypeWithParentheses_diagnostic")(d);
-  },
-  /** diagnostics.rs:434 (`suggestion`: the `#[subdiagnostic] RTNSuggestion`, diagnostics.rs:426) */
-  BadReturnTypeNotation_diagnostic(d: BadReturnTypeNotationView): Diagnostic {
-    return pending_gen<(d_: typeof d) => Diagnostic>(diagnostics, "BadReturnTypeNotation_diagnostic")(d);
-  },
-  /** diagnostics.rs:480 */
-  AsyncBoundNotOnTrait_diagnostic(d: { span: Span; descr: string }): Diagnostic {
-    return pending_gen<(d_: typeof d) => Diagnostic>(diagnostics, "AsyncBoundNotOnTrait_diagnostic")(d);
-  },
-  /** diagnostics.rs:488 */
-  AsyncBoundOnlyForFnTraits_diagnostic(d: { span: Span }): Diagnostic {
-    return pending_gen<(d_: typeof d) => Diagnostic>(diagnostics, "AsyncBoundOnlyForFnTraits_diagnostic")(d);
-  },
-};
-/** diagnostics.rs:434 `enum BadReturnTypeNotation` */
-type BadReturnTypeNotationView =
-  | { readonly $: "Inputs"; span: Span }
-  | { readonly $: "Output"; span: Span; suggestion: { output: Span; input: Span } }
-  | { readonly $: "NeedsDots"; span: Span }
-  | { readonly $: "Position"; span: Span };
-
-/**
- * `GenericArgsCtor` (lib.rs:3296: generated class in lib.gen.ts, fields in declaration order) with `is_empty`
- * (lib.rs:3304) and `into_generic_args` (lib.rs:3310) of lane lower-lib-b.
- */
-interface GenericArgsCtorView {
-  args: hir.GenericArg[];
-  constraints: readonly hir.AssocItemConstraint[];
-  parenthesized: hir.GenericArgsParentheses;
-  span: Span;
-  is_empty(): boolean;
-  into_generic_args(this_: LoweringContext): hir.GenericArgs;
-}
-/** `GenericArgsCtor { args, constraints, parenthesized, span }` */
-function new_GenericArgsCtor(
-  args: hir.GenericArg[],
-  constraints: readonly hir.AssocItemConstraint[],
-  parenthesized: hir.GenericArgsParentheses,
-  span: Span,
-): GenericArgsCtorView {
-  type Ctor = new (
-    args: hir.GenericArg[],
-    constraints: readonly hir.AssocItemConstraint[],
-    parenthesized: hir.GenericArgsParentheses,
-    span: Span,
-  ) => GenericArgsCtorView;
-  const ctor = pending_gen<Ctor>(lib, "GenericArgsCtor");
-  return new ctor(args, constraints, parenthesized, span);
-}
-
-/** The field of `PerOwnerLoweringState` (lib.rs:155, generated class in lib.gen.ts) this file uses. */
-interface PerOwnerLoweringStateView {
-  owner: PerOwnerResolverData;
-}
 
 /** The `TyCtxt` lang-item methods this file uses (not ported yet, see above). */
 interface TyCtxtLangItemsView {
@@ -174,7 +96,7 @@ LoweringContext.prototype.lower_qpath = function (
       if (async_def_id !== undefined) {
         res = { $: "Def", _0: DefKind.Trait, _1: async_def_id };
       } else {
-        this.dcx().emit_err(diagnostics_.AsyncBoundOnlyForFnTraits_diagnostic({ span: p.span }));
+        this.dcx().emit_err(diagnostics.AsyncBoundOnlyForFnTraits_diagnostic({ span: p.span }));
       }
     } else if (res.$ === "Err") {
       // No additional error.
@@ -182,7 +104,7 @@ LoweringContext.prototype.lower_qpath = function (
       // This error isn't actually emitted AFAICT, but it's best to keep
       // it around in case the resolver doesn't always check the defkind
       // of an item or something.
-      this.dcx().emit_err(diagnostics_.AsyncBoundNotOnTrait_diagnostic({ span: p.span, descr: Res.descr(res) }));
+      this.dcx().emit_err(diagnostics.AsyncBoundNotOnTrait_diagnostic({ span: p.span, descr: Res.descr(res) }));
     }
   }
 
@@ -361,7 +283,7 @@ LoweringContext.prototype.lower_path_segment = function (
   bound_modifier_allowed_features: readonly Symbol[] | undefined,
 ): hir.PathSegment {
   // debug!("path_span: {:?}, lower_path_segment(segment: {:?})", path_span, segment);
-  let generic_args: GenericArgsCtorView;
+  let generic_args: lib.GenericArgsCtor;
   let infer_args: boolean;
   const generic_args_ = segment.args;
   if (generic_args_ !== undefined) {
@@ -369,7 +291,7 @@ LoweringContext.prototype.lower_path_segment = function (
       case "AngleBracketed": {
         const data = generic_args_._0;
         [generic_args, infer_args] = this.lower_angle_bracketed_parameter_data(data, param_mode, itctx) as [
-          GenericArgsCtorView,
+          lib.GenericArgsCtor,
           boolean,
         ];
         break;
@@ -378,7 +300,7 @@ LoweringContext.prototype.lower_path_segment = function (
         const data = generic_args_._0;
         switch (generic_args_mode) {
           case "ReturnTypeNotation": {
-            let err: BadReturnTypeNotationView;
+            let err: diagnostics.BadReturnTypeNotation;
             const output = data.output;
             switch (output.$) {
               // `([_, ..], FnRetTy::Default(_))` / `([], FnRetTy::Default(_))`
@@ -404,12 +326,12 @@ LoweringContext.prototype.lower_path_segment = function (
                 break;
               }
             }
-            const err_ = this.dcx().create_err(diagnostics_.BadReturnTypeNotation_diagnostic(err));
+            const err_ = this.dcx().create_err(diagnostics.BadReturnTypeNotation_diagnostic(err));
             if (!this.tcx.features().return_type_notation() && this.tcx.sess.is_nightly_build()) {
               add_feature_diagnostics(err_, this.tcx.sess, sym.return_type_notation);
             }
             err_.stash(path_span, "ReturnTypeNotation");
-            [generic_args, infer_args] = [new_GenericArgsCtor([], [], "ReturnTypeNotation", path_span), false];
+            [generic_args, infer_args] = [new lib.GenericArgsCtor([], [], "ReturnTypeNotation", path_span), false];
             break;
           }
           case "ParenSugar":
@@ -418,7 +340,7 @@ LoweringContext.prototype.lower_path_segment = function (
               data,
               itctx,
               bound_modifier_allowed_features,
-            ) as [GenericArgsCtorView, boolean];
+            );
             break;
           case "Err": {
             // Suggest replacing parentheses with angle brackets `Trait(params...)` to `Trait<params...>`
@@ -439,21 +361,18 @@ LoweringContext.prototype.lower_path_segment = function (
             } else {
               sub = undefined;
             }
-            const guar = this.dcx().emit_err(diagnostics_.GenericTypeWithParentheses_diagnostic({ span: data.span, sub }));
+            const guar = this.dcx().emit_err(diagnostics.GenericTypeWithParentheses_diagnostic({ span: data.span, sub }));
             [generic_args, infer_args] = [
               (
                 this.lower_angle_bracketed_parameter_data(data.as_angle_bracketed_args(), param_mode, {
                   $: "AlreadyErrored",
                   _0: guar,
-                }) as [GenericArgsCtorView, boolean]
+                })
               )[0],
               false,
             ];
             break;
           }
-          default:
-            // PORT: the match is exhaustive upstream; `GenericArgsMode` is `unknown` until lib.gen.ts.
-            return unreachable();
         }
         break;
       }
@@ -466,19 +385,16 @@ LoweringContext.prototype.lower_path_segment = function (
             break;
           case "ParenSugar":
           case "Err":
-            this.dcx().emit_err(diagnostics_.BadReturnTypeNotation_diagnostic({ $: "Position", span }));
+            this.dcx().emit_err(diagnostics.BadReturnTypeNotation_diagnostic({ $: "Position", span }));
             break;
-          default:
-            // PORT: the match is exhaustive upstream; `GenericArgsMode` is `unknown` until lib.gen.ts.
-            return unreachable();
         }
-        [generic_args, infer_args] = [new_GenericArgsCtor([], [], "ReturnTypeNotation", span), false];
+        [generic_args, infer_args] = [new lib.GenericArgsCtor([], [], "ReturnTypeNotation", span), false];
         break;
       }
     }
   } else {
     [generic_args, infer_args] = [
-      new_GenericArgsCtor([], [], "No", Span.shrink_to_hi(path_span)),
+      new lib.GenericArgsCtor([], [], "No", Span.shrink_to_hi(path_span)),
       param_mode === "Optional",
     ];
   }
@@ -513,8 +429,8 @@ LoweringContext.prototype.maybe_insert_elided_lifetimes_in_path = function (
   segment_ident_span: Span,
   generic_args_: GenericArgsCtor,
 ): void {
-  const generic_args = generic_args_ as GenericArgsCtorView;
-  const lres = (this.curr_owner as PerOwnerLoweringStateView).owner.get_lifetime_res(segment_id);
+  const generic_args = generic_args_;
+  const lres = this.curr_owner.owner.get_lifetime_res(segment_id);
   let start: NodeId;
   let end: NodeId;
   if (lres !== undefined && lres.$ === "ElidedAnchor") {
@@ -584,7 +500,7 @@ LoweringContext.prototype.lower_angle_bracketed_parameter_data = function (
     }
   }
   const constraints = this.arena.alloc_from_iter(constraints_);
-  const ctor = new_GenericArgsCtor(args, constraints, "No", data.span);
+  const ctor = new lib.GenericArgsCtor(args, constraints, "No", data.span);
   return [ctor, !has_non_lt_args && param_mode === "Optional"];
 };
 
@@ -610,7 +526,7 @@ LoweringContext.prototype.lower_parenthesized_parameter_data = function (
   // fn f(_: impl Fn() -> impl Debug) -> impl Fn() -> impl Debug
   // //      disallowed --^^^^^^^^^^        allowed --^^^^^^^^^^
   // ```
-  if (output.$ === "Ty" && (itctx as { readonly $: string }).$ === "OpaqueTy") {
+  if (output.$ === "Ty" && itctx.$ === "OpaqueTy") {
     const ty = output._0;
     if (this.tcx.features().impl_trait_in_fn_trait_return()) {
       output_ty = this.lower_ty_alloc(ty, itctx);
@@ -638,7 +554,7 @@ LoweringContext.prototype.lower_parenthesized_parameter_data = function (
   }
   const constraint = this.assoc_ty_binding(sym.Output, output_span, output_ty);
 
-  return [new_GenericArgsCtor(args, [constraint], "ParenSugar", data.inputs_span), false];
+  return [new lib.GenericArgsCtor(args, [constraint], "ParenSugar", data.inputs_span), false];
 };
 
 /// An associated type binding (i.e., associated type equality constraint).
