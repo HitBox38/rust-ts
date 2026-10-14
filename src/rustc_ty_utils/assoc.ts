@@ -9,7 +9,7 @@ import type { DefPathData } from "../rustc_hir_id/definitions.ts";
 import { PerParentDisambiguatorState } from "../rustc_hir_id/definitions.ts";
 import type { OwnerId } from "../rustc_hir_id/lib.ts";
 import type { Providers } from "../rustc_middle/queries.gen.ts";
-import type { AssocContainer, AssocItem, AssocItems, AssocKind } from "../rustc_middle/ty/assoc.ts";
+import { type AssocContainer, AssocItem, AssocItems, type AssocKind } from "../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { ImplTraitInTraitData } from "../rustc_middle/ty/decls.ts";
 import { type GenericParamDef, Generics } from "../rustc_middle/ty/generics.ts";
@@ -21,32 +21,6 @@ import { kw } from "../rustc_span/symbol.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { assert_eq, panic, unported } from "../std/panic.ts";
 import { Ok } from "../std/result.ts";
-
-// ---- PORT(stand-in): rustc_middle ty/assoc.rs APIs this file calls, being ported by lane ty-adt-assoc. On merge,
-// replace each call site with the real API (`AssocItems.new`, `AssocItems.in_definition_order`,
-// `AssocItem.trait_item_def_id`) and delete the stand-in. ----
-
-/** `AssocItems::new` (rustc_middle ty/assoc.rs:258), lane ty-adt-assoc. */
-function AssocItems_new(_items_in_def_order: Iterable<AssocItem>): AssocItems {
-  return unported("rustc_middle::ty::assoc::AssocItems::new (lane ty-adt-assoc)");
-}
-/** `AssocItems::in_definition_order` (rustc_middle ty/assoc.rs:267), lane ty-adt-assoc. */
-function AssocItems_in_definition_order(_self: AssocItems): Iterable<AssocItem> {
-  return unported("rustc_middle::ty::assoc::AssocItems::in_definition_order (lane ty-adt-assoc)");
-}
-/** `AssocItem::trait_item_def_id` (rustc_middle ty/assoc.rs:78), lane ty-adt-assoc: the upstream body. */
-function AssocItem_trait_item_def_id(self: AssocItem): DefId | undefined {
-  const c = self.container;
-  if (c.$ === "TraitImpl" && c._0.$ === "Ok") {
-    return c._0._0;
-  }
-  return undefined;
-}
-/** `ImplTraitInTraitData` (rustc_middle ty/mod.rs:1572) is `Pending` in ty/decls.ts (ported by lane ty-mod-b as
- *  `{ $: "Trait", fn_def_id, opaque_def_id } | { $: "Impl", fn_def_id }`). */
-function ImplTraitInTraitData_of(v: { $: "Trait"; fn_def_id: DefId; opaque_def_id: DefId } | { $: "Impl"; fn_def_id: DefId }): ImplTraitInTraitData {
-  return v as unknown as ImplTraitInTraitData;
-}
 
 // rustc: compiler/rustc_ty_utils/src/assoc.rs:11 provide
 export function provide(providers: Providers): void {
@@ -95,21 +69,21 @@ function associated_item_def_ids(tcx: TyCtxt, def_id: LocalDefId): readonly DefI
 // rustc: compiler/rustc_ty_utils/src/assoc.rs:53 associated_items
 function associated_items(tcx: TyCtxt, def_id: DefId): AssocItems {
   if (tcx.is_trait_alias(def_id)) {
-    return AssocItems_new([]);
+    return AssocItems.new([]);
   } else {
     const ids = tcx.associated_item_def_ids(def_id);
     function* items(): Generator<AssocItem> {
       for (const did of ids) yield tcx.associated_item(did) as AssocItem;
     }
-    return AssocItems_new(items());
+    return AssocItems.new(items());
   }
 }
 
 // rustc: compiler/rustc_ty_utils/src/assoc.rs:62 impl_item_implementor_ids
 function impl_item_implementor_ids(tcx: TyCtxt, impl_id: DefId): Map<DefId, DefId> {
   const out = new DefIdMap<DefId>();
-  for (const item of AssocItems_in_definition_order(tcx.associated_items(impl_id) as AssocItems)) {
-    const trait_item = AssocItem_trait_item_def_id(item);
+  for (const item of AssocItems.in_definition_order(tcx.associated_items(impl_id) as AssocItems)) {
+    const trait_item = AssocItem.trait_item_def_id(item);
     if (trait_item !== undefined) out.set(trait_item, item.def_id);
   }
   return out;
@@ -314,11 +288,11 @@ function associated_type_for_impl_trait_in_trait(
       $: "Type",
       data: {
         $: "Rpitit",
-        _0: ImplTraitInTraitData_of({
+        _0: {
           $: "Trait",
           fn_def_id: LocalDefId.to_def_id(fn_def_id),
           opaque_def_id: LocalDefId.to_def_id(opaque_ty_def_id),
-        }),
+        },
       },
     },
     def_id,
@@ -397,10 +371,10 @@ function associated_type_for_impl_trait_in_impl(
       $: "Type",
       data: {
         $: "Rpitit",
-        _0: ImplTraitInTraitData_of({
+        _0: {
           $: "Impl",
           fn_def_id: impl_fn.owner_id.to_def_id(),
-        }),
+        },
       },
     },
     def_id,

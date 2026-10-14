@@ -132,11 +132,9 @@ function visit_Ty_Ty(): TypeVisitable<[Ty, Ty]> {
   return { visit_with: (self, visitor) => tyir_visit().visit_with_tuple2(self, visitor, standin_fold_Ty.visit_with, standin_fold_Ty.visit_with) };
 }
 
-// ---- PORT stand-ins for fns of other upstream files that are not ported yet (repoint when they land) ----
-
-/** PORT: stand-in for `opaque_types::ReverseMapper::new` (rustc_middle ty/opaque_types.rs, not ported yet). */
-function ReverseMapper_new(_tcx: TyCtxt, _map: Map<GenericArg, GenericArg>, _span: Span): TypeFolder {
-  return unported("rustc_middle::ty::opaque_types::ReverseMapper::new");
+/** PORT (merge-w15b): ty/opaque_types.ts imports print/pretty.ts (an extension module): reached lazily. */
+function middle_opaque_types(): typeof import("./opaque_types.ts") {
+  return require("./opaque_types.ts") as typeof import("./opaque_types.ts");
 }
 
 // Data types
@@ -988,7 +986,7 @@ export class ProvisionalHiddenType {
         ty = this.ty;
         break;
     }
-    const result_ty = standin_fold_Ty.fold_with(ty, ReverseMapper_new(tcx, map, this.span));
+    const result_ty = standin_fold_Ty.fold_with(ty, middle_opaque_types().ReverseMapper.new(tcx, map, this.span));
     // PORT: `if cfg!(debug_assertions) && .. { assert_eq!(result_ty, fold_regions(..)) }`: rustc ships without
     // debug assertions.
     return new DefinitionSiteHiddenType(this.span, tyir_binder().EarlyBinder.bind(tcx, result_ty, standin_fold_Ty));
