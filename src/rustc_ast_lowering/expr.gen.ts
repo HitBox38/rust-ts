@@ -2,13 +2,13 @@
 // Hand-written additions (methods, manual Debug impls) go in expr.ts next to this file.
 import { type Expr } from "../rustc_ast/lib.ts";
 import { type NodeId } from "../rustc_ast/node_id.ts";
+import { type MoveExprInitializerFinder, type WillCreateDefIdsVisitor } from "./expr.ts";
 import { type Pat } from "../rustc_hir/lib.ts";
 import { type HirId } from "../rustc_hir_id/lib.ts";
 import { type Debug } from "../std/fmt.ts";
 
 // rustc-type: compiler/rustc_ast_lowering/src/expr.rs:34 WillCreateDefIdsVisitor
-export interface WillCreateDefIdsVisitor {
-}
+export type { WillCreateDefIdsVisitor } from "./expr.ts";
 
 // rustc-type: compiler/rustc_ast_lowering/src/expr.rs:37 MoveExprInitializer
 /// A `move(...)` expression found while looking up generated initializers.
@@ -33,12 +33,7 @@ export interface MoveExprOccurrence {
 }
 
 // rustc-type: compiler/rustc_ast_lowering/src/expr.rs:57 MoveExprInitializerFinder
-/// Looks up the initializer expression for each `move(...)` occurrence.
-export class MoveExprInitializerFinder {
-  constructor(
-    public initializers: MoveExprInitializer[],
-  ) {}
-}
+export type { MoveExprInitializerFinder } from "./expr.ts";
 
 // rustc-type: compiler/rustc_ast_lowering/src/expr.rs:2377 FutureKind
 /// Used by [`LoweringContext::make_lowered_await`] to customize the desugaring based on what kind

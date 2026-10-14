@@ -83,7 +83,6 @@ import { resolve_type_relative_delegations } from "./delegation/resolution.ts";
 import { index_hir } from "./index.ts";
 // ---- lane lower-lib-b imports ----
 import * as ast from "../rustc_ast/lib.ts";
-import type { ControlFlow } from "../rustc_ast_ir/visit.ts";
 import type * as attr_ir from "../rustc_attr_ir/lib.ts";
 import { E0203 } from "../rustc_errors/lib.ts";
 import { debug_DefKind, DefKind_eq } from "../rustc_hir/def.ts";
@@ -92,7 +91,7 @@ import { debug_Ident, debug_Symbol, display_Symbol } from "../rustc_span/symbol.
 import { unreachable } from "../std/panic.ts";
 import { unwrap_result } from "../std/result.ts";
 import * as diagnostics from "./diagnostics.ts";
-import * as expr from "./expr.ts";
+import { WillCreateDefIdsVisitor } from "./expr.ts";
 // ---- shared ----
 import { LoweringContext } from "./decls.ts";
 
@@ -1765,23 +1764,10 @@ function relaxed_bound_policy_allowed(): RelaxedBoundPolicy {
   return { $: "Allowed", _0: new DefIdMap<Span>() };
 }
 
-/**
- * `expr::WillCreateDefIdsVisitor` (expr.rs:34, lane lower-expr): a unit struct implementing `Visitor` with
- * `type Result = ControlFlow<Span>`.
- * PORT(lane lower-expr): expr.ts has no value export of it yet (an `unknown` alias), so it is looked up at call
- * time and stops as UNPORTED until lower-expr exports the visitor class. Root: replace the calls with
- * `new expr.WillCreateDefIdsVisitor()` at integration. Not a port of an upstream fn.
- */
-function WillCreateDefIdsVisitor(): { visit_expr(ex: ast.Expr): ControlFlow<Span> } {
-  const V = (expr as Record<string, unknown>)["WillCreateDefIdsVisitor"] as (new () => { visit_expr(ex: ast.Expr): ControlFlow<Span> }) | undefined;
-  if (V === undefined) return unported("rustc_ast_lowering::expr::WillCreateDefIdsVisitor");
-  return new V();
-}
-
 // rustc: compiler/rustc_ast_lowering/src/lib.rs:1757 emit_bad_gca_macro
 LoweringContext.prototype.emit_bad_gca_macro = function (this: LoweringContext, span: Span, expr: ast.Expr, expected: string): ErrorGuaranteed {
   const msg = `expected ${expected}, found \`gca!()\` constant`;
-  if (WillCreateDefIdsVisitor().visit_expr(expr).$ === "Break") {
+  if (new WillCreateDefIdsVisitor().visit_expr(expr).$ === "Break") {
     // FIXME(mgca): make this non-fatal once we have a better way to handle
     // nested items in invalid `gca!()` arguments.
     return this.dcx().span_fatal(span, msg);
@@ -2453,7 +2439,7 @@ LoweringContext.prototype.lower_generic_param_kind = function (
             break;
           case "Binder": {
             const err = diagnostics.GenericParamDefaultInBinder_diagnostic({ span: param.span() });
-            if (WillCreateDefIdsVisitor().visit_expr(anon_const.value).$ === "Break") {
+            if (new WillCreateDefIdsVisitor().visit_expr(anon_const.value).$ === "Break") {
               // FIXME(mgca): make this non-fatal once we have a better way
               // to handle nested items in anno const from binder
               // Issue: https://github.com/rust-lang/rust/issues/123629
@@ -3400,7 +3386,7 @@ export const DirectConstArgContext = {
 Object.assign(UnrepresentableConstArgError, {
   // rustc: compiler/rustc_ast_lowering/src/lib.rs:3377 new
   new(expr: ast.Expr): UnrepresentableConstArgError {
-    return new UnrepresentableConstArgError(expr.span, WillCreateDefIdsVisitor().visit_expr(expr).$ === "Break");
+    return new UnrepresentableConstArgError(expr.span, new WillCreateDefIdsVisitor().visit_expr(expr).$ === "Break");
   },
 });
 

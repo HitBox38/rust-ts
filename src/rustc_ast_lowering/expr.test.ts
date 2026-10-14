@@ -66,11 +66,12 @@ function fake_ctx(new_range = false): Fake {
   cx.try_block_scope = { $: "Function" };
   cx.coroutine_kind = undefined;
   cx.task_context = undefined;
+  // a fake with only the fields expr.rs reads
   cx.curr_owner = {
     owner: { get_label_res: () => undefined },
     ident_and_label_to_local_id: new Map(),
     owner_id: () => owner,
-  };
+  } as unknown as LoweringContext["curr_owner"];
   return { cx, marks, lang_items };
 }
 

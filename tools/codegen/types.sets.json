@@ -750,12 +750,16 @@
     "hand": [
       "rustc_ast_lowering::LoweringContext",
       "rustc_ast_lowering::index::NodeCollector",
-      "rustc_ast_lowering::RelaxedBoundPolicy"
+      "rustc_ast_lowering::RelaxedBoundPolicy",
+      "rustc_ast_lowering::expr::WillCreateDefIdsVisitor",
+      "rustc_ast_lowering::expr::MoveExprInitializerFinder"
     ],
     "hand_notes": {
       "rustc_ast_lowering::LoweringContext": "the shared contract (lowering-contract): class with all fields + every method declared in decls.ts; methods assigned by each file",
       "rustc_ast_lowering::index::NodeCollector": "intravisit Visitor impl: hand-written class extending rustc_hir intravisit Visitor (index.ts)",
-      "rustc_ast_lowering::RelaxedBoundPolicy": "`Allowed(&mut FxIndexMap<DefId, Span>)` is a `DefIdMap<Span>` (keyed by DefId value); the generator would say `Map<DefId, Span>` (merge-w14)"
+      "rustc_ast_lowering::RelaxedBoundPolicy": "`Allowed(&mut FxIndexMap<DefId, Span>)` is a `DefIdMap<Span>` (keyed by DefId value); the generator would say `Map<DefId, Span>` (merge-w14)",
+      "rustc_ast_lowering::expr::WillCreateDefIdsVisitor": "ast Visitor impl: hand class extending rustc_ast visit.Visitor (expr.ts, lane lower-expr)",
+      "rustc_ast_lowering::expr::MoveExprInitializerFinder": "ast Visitor impl: hand class extending rustc_ast visit.Visitor (expr.ts, lane lower-expr)"
     },
     "discriminant": [],
     "skip": ["rustc_ast_lowering::delegation::resolution::resolver::DelegationResolver"],

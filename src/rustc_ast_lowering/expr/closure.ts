@@ -21,7 +21,6 @@ import {
 } from "../../rustc_ast/lib.ts";
 import { type Attribute as HirAttribute, find_attr } from "../../rustc_attr_ir/lib.ts";
 import { Target } from "../../rustc_attr_ir/target.ts";
-import type { Diagnostic } from "../../rustc_errors/lib.ts";
 import * as hir from "../../rustc_hir/lib.ts";
 import type { HirId } from "../../rustc_hir_id/lib.ts";
 import type { Span } from "../../rustc_span/lib.ts";
@@ -30,13 +29,6 @@ import { panic } from "../../std/panic.ts";
 import { LoweringContext } from "../decls.ts";
 import * as diagnostics from "../diagnostics.ts";
 import type { MoveExprState } from "../expr.ts";
-
-// PORT(gen): pending root, as in ../expr.ts: the generator's signatures of the diagnostic structs this file
-// emits (diagnostics.gen.ts, codegen set rustc_ast_lowering). Delete once diagnostics.ts re-exports it.
-declare module "../diagnostics.ts" {
-  export function ClosureCannotBeStatic_diagnostic(self: { fn_decl_span: Span }): Diagnostic;
-  export function CoroutineTooManyParameters_diagnostic(self: { fn_decl_span: Span }): Diagnostic;
-}
 
 // Entry point for `ExprKind::Closure`. Plain closures go through
 // `lower_expr_plain_closure_with_move_exprs`, which can wrap the lowered
