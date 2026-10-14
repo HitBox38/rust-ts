@@ -1,0 +1,19 @@
+error[E0107]: missing generics for struct `C`
+  --> const_param.rs:16:14
+   |
+LL | pub type X = C;
+   |              ^ expected 1 generic argument
+   |
+note: struct defined here, with 1 generic parameter: `N`
+  --> const_param.rs:15:12
+   |
+LL | pub struct C<const N: usize>;
+   |            ^ --------------
+help: add missing generic argument
+   |
+LL | pub type X = C<N>;
+   |               +++
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0107`.

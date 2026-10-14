@@ -1,0 +1,21 @@
+error[E0107]: struct takes 2 lifetime arguments but 1 lifetime argument was supplied
+  --> lifetime_const.rs:16:14
+   |
+LL | pub const C: L<'static> = L(&0, &0);
+   |              ^ ------- supplied 1 lifetime argument
+   |              |
+   |              expected 2 lifetime arguments
+   |
+note: struct defined here, with 2 lifetime parameters: `'a`, `'b`
+  --> lifetime_const.rs:15:12
+   |
+LL | pub struct L<'a, 'b>(&'a u8, &'b u8);
+   |            ^ --  --
+help: add missing lifetime argument
+   |
+LL | pub const C: L<'static, 'static> = L(&0, &0);
+   |                       +++++++++
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0107`.
