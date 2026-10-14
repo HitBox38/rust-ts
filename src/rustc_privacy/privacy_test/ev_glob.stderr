@@ -1,0 +1,35 @@
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+  --> ev_glob.rs:4:12
+   |
+LL | #![feature(rustc_attrs)]
+   |            ^^^^^^^^^^^
+   |
+   = note: using it is strongly discouraged
+   = note: `#[warn(internal_features)]` on by default
+
+error: Direct: pub(crate), Reexported: pub, Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_glob.rs:8:5
+   |
+LL |     pub struct S1 {} //~ ERROR Direct: pub(crate), Reexported: pub, Reachable: pub, ReachableThroughImplTrait: pub
+   |     ^^^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+  --> ev_glob.rs:10:5
+   |
+LL |     pub struct S2 {} //~ ERROR Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+   |     ^^^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub, Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_glob.rs:15:13
+   |
+LL |     pub use crate::m::*; //~ ERROR Direct: pub(crate), Reexported: pub, Reachable: pub, ReachableThroughImplTrait: pub
+   |             ^^^^^^^^
+
+error: Direct: pub, Reexported: pub, Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_glob.rs:19:9
+   |
+LL | pub use glob::S1; //~ ERROR Direct: pub, Reexported: pub, Reachable: pub, ReachableThroughImplTrait: pub
+   |         ^^^^^^^^
+
+error: aborting due to 4 previous errors; 1 warning emitted
+

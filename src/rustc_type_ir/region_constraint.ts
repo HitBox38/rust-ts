@@ -21,7 +21,7 @@
 // PORT: fns of other files/lanes that are not ported yet are module-local stand-ins at the end of this file (each with a
 // `// PORT: stand-in` comment).
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { TransitiveRelation as TransitiveRelationPending } from "../rustc_middle/ty/decls.ts";
+import { type TransitiveRelation, TransitiveRelationBuilder } from "../rustc_data_structures/transitive_relation.ts";
 import type { GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
 import { type Clause, fold_with_Clause, try_fold_with_Clause, visit_with_Clause } from "../rustc_middle/ty/predicate.ts";
@@ -30,7 +30,7 @@ import type { DefId } from "../rustc_span/def_id.ts";
 import { intern_key } from "../rust_ts/intern_key.ts";
 import { type Debug, debug_str, debug_struct, debug_tuple, debug_vec, type Fmt, format_debug, PLAIN } from "../std/fmt.ts";
 import { field_mut } from "../std/mut_ref.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
+import { assert, panic, unreachable, unwrap } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
 import { Binder, type BoundRegion, type BoundVariableKind, debug_Binder, fold_Binder, fold_with_Binder, try_fold_with_Binder, visit_with_Binder } from "./binder.ts";
 import {
@@ -128,8 +128,8 @@ export const Assumptions = {
   empty(): Assumptions {
     return {
       type_outlives: [],
-      region_outlives: TransitiveRelationBuilder_freeze(TransitiveRelationBuilder_default<Region>()),
-      inverse_region_outlives: TransitiveRelationBuilder_freeze(TransitiveRelationBuilder_default<Region>()),
+      region_outlives: TransitiveRelationBuilder.default<Region>().freeze(),
+      inverse_region_outlives: TransitiveRelationBuilder.default<Region>().freeze(),
     };
   },
 
@@ -157,12 +157,11 @@ export const Assumptions = {
   // rustc: compiler/rustc_type_ir/src/region_constraint.rs:113 new
   new(infcx: InferCtxtLike, clauses: Iterable<Clause>, region_outlives: TransitiveRelation<Region>, universe: UniverseIndex): Assumptions {
     const type_outlives: Binder<OutlivesClause<Ty>>[] = [];
-    const region_outlives_builder = TransitiveRelationBuilder_default<Region>();
-    // PORT (D6): `base_edges()` iterates the relation's `edges: FxHashSet<Edge>` in hashbrown order, which fixes the
-    // element order of the new builder and so the order of every later `reachable_from`; see
-    // `TransitiveRelation_base_edges`.
-    for (const [r1, r2] of TransitiveRelation_base_edges(region_outlives)) {
-      TransitiveRelationBuilder_add(region_outlives_builder, r1, r2);
+    const region_outlives_builder = TransitiveRelationBuilder.default<Region>();
+    // `base_edges()` iterates the relation's `edges: FxHashSet<Edge>` in hashbrown order (rustc_data_structures
+    // transitive_relation.ts), which fixes the element order of the new builder and so of every later `reachable_from`.
+    for (const [r1, r2] of region_outlives.base_edges()) {
+      region_outlives_builder.add(r1, r2);
     }
 
     // PORT(merge-w15a): the lazy `.filter(..)` over the `Elaborator` is a generator.
@@ -187,7 +186,7 @@ export const Assumptions = {
           // bails on `for<'a> Ty: 'a`, so both regions here are free even though the
           // clause itself may still be under a binder.
           // debug_assert!(!r1.is_bound() && !r2.is_bound());
-          TransitiveRelationBuilder_add(region_outlives_builder, r1, r2);
+          region_outlives_builder.add(r1, r2);
           break;
         }
         // Anything else can't be used as an outlives assumption.
@@ -196,7 +195,7 @@ export const Assumptions = {
       }
     }
 
-    return Assumptions.new_unelaborated(type_outlives, TransitiveRelationBuilder_freeze(region_outlives_builder));
+    return Assumptions.new_unelaborated(type_outlives, region_outlives_builder.freeze());
   },
 
   /// Builds assumptions from exactly the given clauses, see [`Assumptions::new`] for when
@@ -205,13 +204,13 @@ export const Assumptions = {
   new_unelaborated(type_outlives: Binder<OutlivesClause<Ty>>[], region_outlives: TransitiveRelation<Region>): Assumptions {
     return {
       inverse_region_outlives: (() => {
-        const builder = TransitiveRelationBuilder_default<Region>();
-        // PORT (D6): hashbrown order of `base_edges()` (see `Assumptions.new`): it fixes the element order of
+        const builder = TransitiveRelationBuilder.default<Region>();
+        // hashbrown order of `base_edges()` (see `Assumptions.new`): it fixes the element order of
         // `inverse_region_outlives`, i.e. the order of `regions_outliving`.
-        for (const [r1, r2] of TransitiveRelation_base_edges(region_outlives)) {
-          TransitiveRelationBuilder_add(builder, r2, r1);
+        for (const [r1, r2] of region_outlives.base_edges()) {
+          builder.add(r2, r1);
         }
-        return TransitiveRelationBuilder_freeze(builder);
+        return builder.freeze();
       })(),
       type_outlives,
       region_outlives,
@@ -643,28 +642,28 @@ function compute_new_region_constraints(infcx: InferCtxtLike, constraint: Region
           const r2 = c._1;
           regions.add(r1);
           regions.add(r2);
-          TransitiveRelationBuilder_add(builder, r2, r1);
+          builder.add(r2, r1);
           break;
         }
       }
     }
   };
 
-  const base_region_flows_builder = TransitiveRelationBuilder_default<Region>();
+  const base_region_flows_builder = TransitiveRelationBuilder.default<Region>();
   const base_regions = new Set<Region>();
   const base_constraints: LeafRegionConstraint[] = [];
   extend_from_and(base_region_flows_builder, base_regions, base_constraints, constraint.and_constraint);
 
   const new_ands: Or[] = [];
   for (const and of constraint.or_constraint._0) {
-    const region_flows_builder = TransitiveRelationBuilder_clone(base_region_flows_builder);
+    const region_flows_builder = base_region_flows_builder.clone();
     const regions = new Set(base_regions);
     const constraints = base_constraints.slice();
     extend_from_and(region_flows_builder, regions, constraints, and);
 
-    const region_flow = TransitiveRelationBuilder_freeze(region_flows_builder);
+    const region_flow = region_flows_builder.freeze();
     for (const r of regions) {
-      for (const ub of TransitiveRelation_reachable_from(region_flow, r)) {
+      for (const ub of region_flow.reachable_from(r)) {
         // we want to retain any region constraints between two "placeholder-likes" where for our
         // purposes a placeholder-like is either a placeholder or variable in a lower universe
         const is_placeholder_like = (r: Region): boolean => {
@@ -1004,7 +1003,7 @@ function rewrite_alias_ty_outlives_constraints_in_universe_for_eager_placeholder
 /// the universe associated with `assumptions`
 // rustc: compiler/rustc_type_ir/src/region_constraint.rs:1040 regions_outlived_by
 export function regions_outlived_by(r: Region, assumptions: Assumptions): Region[] {
-  return [...TransitiveRelation_reachable_from(assumptions.region_outlives, r), r];
+  return [...assumptions.region_outlives.reachable_from(r), r];
 }
 
 /// Returns all regions `r2` for which `r2: r` is known to hold in
@@ -1012,7 +1011,7 @@ export function regions_outlived_by(r: Region, assumptions: Assumptions): Region
 // rustc: compiler/rustc_type_ir/src/region_constraint.rs:1049 regions_outliving
 export function regions_outliving(r: Region, assumptions: Assumptions, cx: TyCtxt): Region[] {
   return [
-    ...TransitiveRelation_reachable_from(assumptions.inverse_region_outlives, r),
+    ...assumptions.inverse_region_outlives.reachable_from(r),
     // FIXME(-Zassumptions-on-binders): 'static may have been an input region canonicalized to something else is that important?
     // FIXME(-Zassumptions-on-binders): do we need to adding the reflexive edge here?
     r,
@@ -1277,51 +1276,4 @@ const fold_OutlivesClause_Ty: TypeFoldable<OutlivesClause<Ty>> = descriptor(
 
 // ---- PORT stand-ins for fns of other files / lanes that are not ported yet ------------------------------------------
 
-/** PORT: `rustc_data_structures::transitive_relation::TransitiveRelation<T>` (decls.ts `Pending1`). */
-type TransitiveRelation<T> = TransitiveRelationPending<T>;
-/**
- * PORT: stand-in for `rustc_data_structures::transitive_relation::TransitiveRelationBuilder<T>`
- * (compiler/rustc_data_structures/src/transitive_relation.rs, not ported yet; plan-m3 lists it under rustc_data_structures).
- */
-type TransitiveRelationBuilder<T> = { readonly __pending: "TransitiveRelationBuilder"; readonly __T?: T };
-/**
- * PORT: the `TransitiveRelation` methods this file calls, as a view of the (pending) relation object. The real type
- * (rustc_data_structures transitive_relation.rs, not ported yet) is expected to have these methods; until then no
- * relation can be built here (the builder stand-ins are unported), so these calls only reach relations constructed
- * elsewhere (the unit tests build them).
- */
-interface TransitiveRelationMethods<T> {
-  // transitive_relation.rs `reachable_from`
-  reachable_from(a: T): T[];
-  // transitive_relation.rs `base_edges`
-  base_edges(): Iterable<[T, T]>;
-}
-/** PORT: stand-in for `TransitiveRelation::reachable_from` (rustc_data_structures transitive_relation.rs). */
-function TransitiveRelation_reachable_from<T>(self: TransitiveRelation<T>, a: T): T[] {
-  return (self as unknown as TransitiveRelationMethods<T>).reachable_from(a);
-}
-/**
- * PORT: stand-in for `TransitiveRelation::base_edges` (rustc_data_structures transitive_relation.rs).
- * PORT (D6): upstream iterates `edges: FxHashSet<Edge>` (hashbrown order of the FxHash of the two element indices), not
- * insertion order; the real port must reproduce that order (the oracle shows it in `regions_outliving`).
- */
-function TransitiveRelation_base_edges<T>(self: TransitiveRelation<T>): Iterable<[T, T]> {
-  return (self as unknown as TransitiveRelationMethods<T>).base_edges();
-}
-/** PORT: stand-in for `<TransitiveRelationBuilder<T> as Default>::default` (rustc_data_structures transitive_relation.rs). */
-function TransitiveRelationBuilder_default<T>(): TransitiveRelationBuilder<T> {
-  return unported("rustc_data_structures::transitive_relation::TransitiveRelationBuilder::default");
-}
-/** PORT: stand-in for `TransitiveRelationBuilder::add` (rustc_data_structures transitive_relation.rs). */
-function TransitiveRelationBuilder_add<T>(_self: TransitiveRelationBuilder<T>, _a: T, _b: T): void {
-  unported("rustc_data_structures::transitive_relation::TransitiveRelationBuilder::add");
-}
-/** PORT: stand-in for `TransitiveRelationBuilder::freeze` (rustc_data_structures transitive_relation.rs). */
-function TransitiveRelationBuilder_freeze<T>(_self: TransitiveRelationBuilder<T>): TransitiveRelation<T> {
-  return unported("rustc_data_structures::transitive_relation::TransitiveRelationBuilder::freeze");
-}
-/** PORT: stand-in for `<TransitiveRelationBuilder<T> as Clone>::clone` (rustc_data_structures transitive_relation.rs). */
-function TransitiveRelationBuilder_clone<T>(_self: TransitiveRelationBuilder<T>): TransitiveRelationBuilder<T> {
-  return unported("rustc_data_structures::transitive_relation::TransitiveRelationBuilder::clone");
-}
 

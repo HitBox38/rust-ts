@@ -264,3 +264,16 @@ export function hash_RawList<H, T>(self: RawList<H, T>, s: Pick<FxHasher, "write
 /** (decls) `RawList::from_vars` is `impl BoundVarKinds<TyCtxt> for &List<BoundVariableKind>` (list.rs:154). */
 export type BoundVarKinds = List<BoundVariableKind>;
 
+/**
+ * `{:?}` of `BoundVarKinds` (`&List<BoundVariableKind>`): `debug_RawList` (list.rs:192) over the element's derived Debug.
+ * PORT: the hand alias the codegen type map (tools/codegen/tyir.typemap.json `I::BoundVarKinds`) names. rustc_type_ir
+ * binder.gen.ts (the element's Debug) is read lazily: a static value import of it here evaluates binder.gen.ts's
+ * imports before `RawList` exists, and `rustc_next_trait_solver/lib.ts` then fails to load (merge-w16b).
+ */
+export function debug_BoundVarKinds(v: BoundVarKinds, f: Fmt): string {
+  return debug_RawList(v, f, tyir_binder_gen().debug_BoundVariableKind);
+}
+function tyir_binder_gen(): typeof import("../../rustc_type_ir/binder.gen.ts") {
+  return require("../../rustc_type_ir/binder.gen.ts") as typeof import("../../rustc_type_ir/binder.gen.ts");
+}
+

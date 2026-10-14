@@ -6,8 +6,10 @@
 // `impl LintLevelsBuilder<'_, TopDown>` / `impl LintLevelsBuilder<'_, LintLevelQueryMap>` blocks are typed on
 // `this`. The `LevelSpec<P::LintExpectationId>: Into<LevelSpec>` bound is the provider member `into_level_spec`.
 // PORT: `fn add(&mut self, attrs: &[impl AttributeExt], ..)` takes the `AttributeExt` impl table as its last
-// argument (rustc_ast attr/mod.ts convention). The HIR side (`shallow_lint_levels_on`, `LintLevelQueryMap`'s
-// visitor, `skippable_lints`) needs the HIR (M3): those bodies stop at the first missing piece with `unported`.
+// argument (rustc_ast attr/mod.ts convention): `ast::Attribute` for `TopDown`, `hir::Attribute` (rustc_attr_ir) for
+// `LintLevelQueryMap`.
+// PORT: `impl Visitor<'tcx> for LintLevelsBuilder<'_, LintLevelQueryMap<'tcx>>`: `LintLevelsBuilder` extends the HIR
+// `Visitor` class for every provider; only the `LintLevelQueryMap` builder (`shallow_lint_levels_on`) ever visits.
 import { type ast, attr as ast_attr, MetaItemInner } from "../rustc_ast/lib.ts";
 import type { AttributeExt } from "../rustc_ast/attr/mod.ts";
 import { path_to_string } from "../rustc_ast_pretty/pprust/mod.ts";
@@ -37,11 +39,34 @@ import {
 import type { Providers as QueryProviders } from "../rustc_middle/queries.gen.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { add_feature_diagnostics_for_issue } from "../rustc_session/diagnostics.ts";
-import { CRATE_HIR_ID, CRATE_OWNER_ID, type HirId, type OwnerId } from "../rustc_hir_id/lib.ts";
+import { CRATE_HIR_ID, CRATE_OWNER_ID, HirId, HirId_eq, HirId_from_OwnerId, type OwnerId, OwnerId_eq } from "../rustc_hir_id/lib.ts";
+import { AttributeExt as hir_AttributeExt } from "../rustc_attr_ir/attr.ts";
+import type * as hir from "../rustc_hir/lib.ts";
+import {
+  type HirTyCtxt,
+  Visitor,
+  walk_arm,
+  walk_expr,
+  walk_expr_field,
+  walk_field_def,
+  walk_foreign_item,
+  walk_impl_item,
+  walk_item,
+  walk_local,
+  walk_param,
+  walk_pat_field,
+  walk_stmt,
+  walk_trait_item,
+  walk_variant,
+} from "../rustc_hir/intravisit.ts";
+import { TyCtxt_as_HirTyCtxt } from "../rustc_middle/hir/map.ts";
+import type { ModuleItems } from "../rustc_middle/hir/mod.ts";
+import { OnlyBodies } from "../rustc_middle/hir/nested_filter.ts";
+import { CRATE_MOD_ID } from "../rustc_span/def_id.ts";
 import type { Session } from "../rustc_session/session.ts";
 import { type AttrId, DUMMY_SP, Span } from "../rustc_span/lib.ts";
 import { Symbol, sym } from "../rustc_span/symbol.ts";
-import { assert, panic, unported } from "../std/panic.ts";
+import { assert, panic, unreachable } from "../std/panic.ts";
 import { MISSING_DOCS } from "./builtin.ts";
 import { type CheckLintNameResult, LintStore } from "./context.ts";
 import {
@@ -150,7 +175,7 @@ function skippable_lints(tcx: TyCtxt, _: null): Set<LintId> {
     skippable.add(LintId.of(lint));
   }
 
-  for (const owner of hir_crate_items_owners(tcx)) {
+  for (const owner of (tcx.hir_crate_items(null) as ModuleItems).owners()) {
     const map = tcx.shallow_lint_levels_on(owner) as ShallowLintLevelMap;
 
     // All lints that appear with a non-allow level must be run.
@@ -166,19 +191,69 @@ function skippable_lints(tcx: TyCtxt, _: null): Set<LintId> {
   return skippable;
 }
 
-/** `tcx.hir_crate_items(()).owners()`. PORT: HIR (M3). */
-function hir_crate_items_owners(_tcx: TyCtxt): Iterable<OwnerId> {
-  return unported("rustc_middle::hir::TyCtxt::hir_crate_items (HIR, M3)");
-}
-
 // #[instrument(level = "trace", skip(tcx), ret)]
 // rustc: compiler/rustc_lint/src/levels.rs:156 shallow_lint_levels_on
 function shallow_lint_levels_on(tcx: TyCtxt, owner: OwnerId): ShallowLintLevelMap {
   const store = unerased_lint_store(tcx.sess);
-  void store;
-  void owner;
-  // `let attrs = tcx.hir_attr_map(owner);` and the HIR visit below.
-  return unported("rustc_lint::levels::shallow_lint_levels_on (tcx.hir_attr_map / hir_owner_node: HIR, M3)");
+  const attrs = tcx.hir_attr_map(owner) as hir.AttributeMap;
+
+  const levels = new LintLevelsBuilder<LintLevelQueryMap, StableLintExpectationId>(
+    tcx.sess,
+    tcx.features(),
+    new LintLevelQueryMap(tcx, HirId_from_OwnerId(owner), ShallowLintLevelMap.default(), new Map(), attrs),
+    false,
+    store,
+    tcx.registered_lint_tools(null) as RegisteredTools,
+  );
+
+  if (OwnerId_eq(owner, CRATE_OWNER_ID)) {
+    levels.add_command_line();
+  }
+
+  const range = attrs.map.iter();
+  if (range.length === 0) {
+    // There is only something to do if there are attributes at all.
+  } else if (range.length === 1) {
+    // Most of the time, there is only one attribute. Avoid fetching HIR in that case.
+    const local_id = range[0]![0];
+    levels.add_id(new HirId(owner, local_id));
+  } else {
+    // Otherwise, we need to visit the attributes in source code order, so we fetch HIR and do
+    // a standard visit.
+    // FIXME(#102522) Just iterate on attrs once that iteration order matches HIR's.
+    const node = tcx.hir_owner_node(owner);
+    switch (node.$) {
+      case "Item":
+        levels.visit_item(node._0);
+        break;
+      case "ForeignItem":
+        levels.visit_foreign_item(node._0);
+        break;
+      case "TraitItem":
+        levels.visit_trait_item(node._0);
+        break;
+      case "ImplItem":
+        levels.visit_impl_item(node._0);
+        break;
+      case "Crate": {
+        const mod_ = node._0;
+        levels.add_id(CRATE_HIR_ID);
+        levels.visit_mod(mod_, mod_.spans.inner_span, CRATE_MOD_ID);
+        break;
+      }
+      case "Synthetic":
+        unreachable();
+    }
+  }
+
+  const specs = levels.provider.specs;
+
+  // #[cfg(debug_assertions)]
+  // for (_, v) in specs.specs.iter() {
+  //     debug_assert!(!v.is_empty());
+  // }
+
+  return specs;
 }
 
 export class TopDown {
@@ -244,7 +319,7 @@ class LintLevelQueryMap {
     public specs: ShallowLintLevelMap,
     /// Empty hash map to simplify code.
     public empty: Map<LintId, StableLevelSpec>,
-    public attrs: unknown,
+    public attrs: hir.AttributeMap,
   ) {}
 
   // rustc: compiler/rustc_lint/src/levels.rs:277 current_specs
@@ -285,7 +360,13 @@ class LintLevelQueryMap {
   }
 }
 
-export class LintLevelsBuilder<P extends LintLevelsProvider<Id>, Id> {
+/** PORT: the receiver of the `impl Visitor for LintLevelsBuilder<'_, LintLevelQueryMap<'tcx>>` methods (see header). */
+type QueryMapBuilder = LintLevelsBuilder<LintLevelQueryMap, StableLintExpectationId>;
+
+export class LintLevelsBuilder<P extends LintLevelsProvider<Id>, Id> extends Visitor {
+  // `type NestedFilter = nested_filter::OnlyBodies;`
+  override NestedFilter = OnlyBodies;
+
   constructor(
     private sess_: Session,
     private features_: Features,
@@ -293,90 +374,101 @@ export class LintLevelsBuilder<P extends LintLevelsProvider<Id>, Id> {
     private lint_added_lints: boolean,
     private store: LintStore,
     private registered_lint_tools: RegisteredTools,
-  ) {}
+  ) {
+    super();
+  }
 
   // ---- impl<'tcx> LintLevelsBuilder<'_, LintLevelQueryMap<'tcx>> ----
 
   // rustc: compiler/rustc_lint/src/levels.rs:305 add_id
-  add_id(this: LintLevelsBuilder<LintLevelQueryMap, StableLintExpectationId>, hir_id: HirId): void {
+  add_id(this: QueryMapBuilder, hir_id: HirId): void {
     this.provider.cur = hir_id;
-    void hir_id;
-    // `self.add(self.provider.attrs.get(hir_id.local_id), hir_id == hir::CRATE_HIR_ID)`
-    unported("rustc_lint::levels::LintLevelsBuilder::add_id (hir::AttributeMap / AttributeExt for hir attributes, M3)");
+    this.add(this.provider.attrs.get(hir_id.local_id), HirId_eq(hir_id, CRATE_HIR_ID), hir_AttributeExt.Attribute);
   }
 
   // ---- impl<'tcx> Visitor<'tcx> for LintLevelsBuilder<'_, LintLevelQueryMap<'tcx>> ----
-  // PORT: rustc_hir::intravisit is not ported (M3); every visit method records the node's attributes (`add_id`)
-  // and would then walk it.
 
   // rustc: compiler/rustc_lint/src/levels.rs:314 maybe_tcx
-  maybe_tcx(this: LintLevelsBuilder<LintLevelQueryMap, StableLintExpectationId>): TyCtxt {
-    return this.provider.tcx;
+  override maybe_tcx(): HirTyCtxt {
+    return TyCtxt_as_HirTyCtxt((this as unknown as QueryMapBuilder).provider.tcx);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:318 visit_param
-  visit_param(_param: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_param (hir intravisit, M3)");
+  override visit_param(param: hir.Param): undefined {
+    (this as unknown as QueryMapBuilder).add_id(param.hir_id);
+    walk_param(this, param);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:323 visit_item
-  visit_item(_it: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_item (hir intravisit, M3)");
+  override visit_item(it: hir.Item): undefined {
+    (this as unknown as QueryMapBuilder).add_id(it.hir_id());
+    walk_item(this, it);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:328 visit_foreign_item
-  visit_foreign_item(_it: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_foreign_item (hir intravisit, M3)");
+  override visit_foreign_item(it: hir.ForeignItem): undefined {
+    (this as unknown as QueryMapBuilder).add_id(it.hir_id());
+    walk_foreign_item(this, it);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:333 visit_stmt
-  visit_stmt(_s: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_stmt (hir intravisit, M3)");
+  override visit_stmt(s: hir.Stmt): undefined {
+    (this as unknown as QueryMapBuilder).add_id(s.hir_id);
+    walk_stmt(this, s);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:338 visit_expr
-  visit_expr(_e: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_expr (hir intravisit, M3)");
+  override visit_expr(e: hir.Expr): undefined {
+    (this as unknown as QueryMapBuilder).add_id(e.hir_id);
+    walk_expr(this, e);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:343 visit_pat_field
-  visit_pat_field(_f: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_pat_field (hir intravisit, M3)");
+  override visit_pat_field(f: hir.PatField): undefined {
+    (this as unknown as QueryMapBuilder).add_id(f.hir_id);
+    walk_pat_field(this, f);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:348 visit_expr_field
-  visit_expr_field(_f: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_expr_field (hir intravisit, M3)");
+  override visit_expr_field(f: hir.ExprField): undefined {
+    (this as unknown as QueryMapBuilder).add_id(f.hir_id);
+    walk_expr_field(this, f);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:353 visit_field_def
-  visit_field_def(_s: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_field_def (hir intravisit, M3)");
+  override visit_field_def(s: hir.FieldDef): undefined {
+    (this as unknown as QueryMapBuilder).add_id(s.hir_id);
+    walk_field_def(this, s);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:358 visit_variant
-  visit_variant(_v: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_variant (hir intravisit, M3)");
+  override visit_variant(v: hir.Variant): undefined {
+    (this as unknown as QueryMapBuilder).add_id(v.hir_id);
+    walk_variant(this, v);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:363 visit_local
-  visit_local(_l: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_local (hir intravisit, M3)");
+  override visit_local(l: hir.LetStmt): undefined {
+    (this as unknown as QueryMapBuilder).add_id(l.hir_id);
+    walk_local(this, l);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:368 visit_arm
-  visit_arm(_a: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_arm (hir intravisit, M3)");
+  override visit_arm(a: hir.Arm): undefined {
+    (this as unknown as QueryMapBuilder).add_id(a.hir_id);
+    walk_arm(this, a);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:373 visit_trait_item
-  visit_trait_item(_trait_item: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_trait_item (hir intravisit, M3)");
+  override visit_trait_item(trait_item: hir.TraitItem): undefined {
+    (this as unknown as QueryMapBuilder).add_id(trait_item.hir_id());
+    walk_trait_item(this, trait_item);
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:378 visit_impl_item
-  visit_impl_item(_impl_item: unknown): void {
-    unported("rustc_lint::levels::LintLevelsBuilder::visit_impl_item (hir intravisit, M3)");
+  override visit_impl_item(impl_item: hir.ImplItem): undefined {
+    (this as unknown as QueryMapBuilder).add_id(impl_item.hir_id());
+    walk_impl_item(this, impl_item);
   }
 
   // ---- impl<'s> LintLevelsBuilder<'s, TopDown> ----
@@ -471,7 +563,7 @@ export class LintLevelsBuilder<P extends LintLevelsProvider<Id>, Id> {
   }
 
   // rustc: compiler/rustc_lint/src/levels.rs:495 add_command_line
-  private add_command_line(): void {
+  add_command_line(): void {
     for (const [lint_name, level] of this.sess_.opts.lint_opts) {
       // Checks the validity of lint names derived from the command line.
       const [tool_name, lint_name_only] = parse_lint_and_tool_name(lint_name);

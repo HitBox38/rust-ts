@@ -20,6 +20,7 @@
 //   `CStore.prototype` (PORTING section 5, "Methods defined in another file"; loaded by ../../lib.ts after
 //   creader.ts).
 import type { AllocatorKind } from "../../../rustc_ast/expand/allocator.ts";
+import * as eii from "../../eii.ts";
 import type { DiagnosticItems } from "../../../rustc_attr_ir/diagnostic_items.ts";
 import { clone_ExternCrate, ExternCrate, type ForeignModule, type NativeLib } from "../../../rustc_crate_store/lib.ts";
 import { Res } from "../../../rustc_hir/def.ts";
@@ -682,7 +683,7 @@ export function provide(providers: Providers): void {
     },
     native_libraries: (_tcx, _) => unported("rustc_metadata::native_libs::collect"),
     foreign_modules: (_tcx, _) => unported("rustc_metadata::foreign_modules::collect"),
-    externally_implementable_items: (_tcx, _) => unported("rustc_metadata::eii::collect"),
+    externally_implementable_items: eii.collect,
 
     // Returns a map from a sufficiently visible external item (i.e., an
     // external item that is visible from at least one local module) to a

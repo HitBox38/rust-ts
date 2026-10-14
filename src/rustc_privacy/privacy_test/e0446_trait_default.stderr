@@ -1,0 +1,21 @@
+error[E0446]: private type `Priv` in public interface
+  --> e0446_trait_default.rs:5:5
+   |
+LL | struct Priv;
+   | ----------- `Priv` declared as private
+...
+LL |     type A = Priv;
+   |     ^^^^^^ can't leak private type
+
+error[E0446]: private type `CrateVis` in public interface
+  --> e0446_trait_default.rs:6:5
+   |
+LL | pub(crate) struct CrateVis;
+   | -------------------------- `CrateVis` declared as private
+...
+LL |     type B = CrateVis;
+   |     ^^^^^^ can't leak private type
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0446`.

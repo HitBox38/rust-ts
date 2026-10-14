@@ -625,6 +625,20 @@
     "discriminant": [],
     "skip": []
   },
+  "rustc_passes_check_attr": {
+    "files": ["compiler/rustc_passes/src/check_attr.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": ["CheckAttrVisitor", "ProcMacroKind"],
+    "skip_notes": {
+      "CheckAttrVisitor": "intravisit Visitor impl (a `TyCtxt` + `Cell<bool>`): hand class extending rustc_hir intravisit Visitor in src/rustc_passes/check_attr.ts (lane passes-b)",
+      "ProcMacroKind": "fieldless enum with a manual `impl IntoDiagArg`: hand-written in src/rustc_passes/check_attr.ts (lane passes-b)"
+    },
+    "hand_notes": {
+      "*": "check_attr.rs (lane passes-b): only the file-local #[derive(Diagnostic)] DiagnosticOnConstOnlyForNonConstTraitImpls is generated (src/rustc_passes/check_attr.gen.ts); the hand port is src/rustc_passes/check_attr.ts."
+    }
+  },
   "rustc_middle_diagnostics": {
     "files": ["compiler/rustc_middle/src/diagnostics.rs"],
     "diag_args_skip": ["rustc_middle::ty::Ty"],
@@ -916,6 +930,8 @@
       "rustc_infer::infer::region_constraints::RegionConstraintStorage",
       "rustc_infer::infer::outlives::env::OutlivesEnvironment",
       "rustc_infer::traits::project::ProjectionCache",
+      "rustc_infer::traits::project::ProjectionCacheStorage",
+      "rustc_infer::infer::opaque_types::table::OpaqueTypeStorage",
       "rustc_infer::infer::relate::lattice::LatticeOp",
       "rustc_infer::infer::relate::type_relating::TypeRelating",
       "rustc_middle::infer::canonical::CanonicalParamEnvCache",
@@ -970,6 +986,8 @@
       "rustc_infer::infer::region_constraints::RegionConstraintStorage": "holds `ut::UnificationTableStorage<RegionVidKey>`; region_constraints/mod.ts",
       "rustc_infer::infer::outlives::env::OutlivesEnvironment": "fields `free_region_map_`, `region_bound_pairs_`, `known_type_outlives_`, `higher_ranked_assumptions_` renamed (accessor methods of the same name); outlives/env.ts",
       "rustc_infer::traits::project::ProjectionCache": "field `map_` renamed (method `map()`); traits/project.ts",
+      "rustc_infer::traits::project::ProjectionCacheStorage": "`SnapshotMapStorage<ProjectionCacheKey, _>` keyed by a plain struct: a KeyedMap on intern_key (derived Default / Clone written with it); traits/project.ts",
+      "rustc_infer::infer::opaque_types::table::OpaqueTypeStorage": "`FxIndexMap<OpaqueTypeKey, _>` keyed by a plain struct: a KeyedMap on intern_key (derived Default / Debug / Clone written with it); opaque_types/table.ts",
       "rustc_infer::infer::relate::lattice::LatticeOp": "field `param_env_` renamed (`PredicateEmittingRelation::param_env`); relate/lattice.ts",
       "rustc_infer::infer::relate::type_relating::TypeRelating": "field `param_env_` renamed (`PredicateEmittingRelation::param_env`); relate/type_relating.ts",
       "rustc_middle::infer::canonical::CanonicalParamEnvCache": "`Lock<FxHashMap<ParamEnv, ..>>` keyed by an interned-list struct: a KeyedMap on intern_key; rustc_middle/infer/canonical.ts",
@@ -1049,5 +1067,13 @@
     "discriminant": [],
     "skip": [],
     "typemap_extra": ["tyir.typemap.json"]
+  },
+  "rustc_privacy": {
+    "files": ["compiler/rustc_privacy/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "typemap_extra": ["tyir.typemap.json", "ast_lowering.typemap.json"]
   }
 }

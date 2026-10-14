@@ -568,10 +568,10 @@ export class LateContext implements LintContext<StableLintExpectationId> {
     const hir_id = this.last_node_with_lint_attrs;
 
     if (span !== undefined) {
-      void [hir_id, decorate];
-      return unported("rustc_middle::ty::TyCtxt::emit_node_span_lint (HIR, M3)");
+      const s = span;
+      this.tcx.emit_node_span_lint(lint, hir_id, s, decorate);
     } else {
-      return unported("rustc_middle::ty::TyCtxt::emit_node_lint (HIR, M3)");
+      this.tcx.emit_node_lint(lint, hir_id, decorate);
     }
   }
 

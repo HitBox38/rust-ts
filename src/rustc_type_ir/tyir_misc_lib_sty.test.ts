@@ -242,7 +242,8 @@ describe("sty/mod.rs: Region", () => {
         expect(format_debug(r, debug_Region, PLAIN)).toBe(expected[n]!);
         expect(format_debug(r, debug_Region, PRETTY)).toBe(expected[n]!);
       } else {
-        oracle_or_unported(r, debug_Region, expected[n]!);
+        // A `Symbol`'s `{}` (`EarlyParamRegion`'s Debug, region.rs:57) reads the session globals, as upstream's.
+        create_default_session_globals_then(() => oracle_or_unported(r, debug_Region, expected[n]!));
       }
     }
     expect(() => regions(tcx)[0]![1].as_var()).toThrow("expected region 'static to be of kind ReVar");

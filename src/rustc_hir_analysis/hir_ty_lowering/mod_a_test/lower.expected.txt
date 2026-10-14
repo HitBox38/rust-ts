@@ -29,14 +29,14 @@ probe_trait_that_defines_assoc_item(Other, Type, Assoc): false
 probe_trait_that_defines_assoc_item(Inner, Type, Item): true
 collapse_candidates_to_subtrait_pick (no supertrait_item_shadowing): undefined
 probe_single_bound_for_assoc_item(no candidates): Err
-PENDING lower_type_relative_ty_path(<u8>::Assoc): unported: rustc_infer::infer::InferCtxt::fresh_args_for_item
+PENDING lower_type_relative_ty_path(<u8>::Assoc): unported: rustc_trait_selection::infer::InferCtxt::can_eq
 lower_type_relative_const_path(<u8>::C): Err
 probe_inherent_assoc_item(S::Assoc, Type) without inherent_associated_types: Ok(None)
 probe_assoc_item_unchecked(Assoc, Type, Tr): Some(Assoc, Type, scope is crate root: true)
 probe_assoc_item_unchecked(Assoc, Const, Tr): undefined
 probe_assoc_item_unchecked(Item, Type, m::Inner): Some(Item, scope is crate root: true)
-PENDING probe_assoc_item(C, Const, Tr): unported: lookup_deprecation_entry provider (not ported)
-PENDING probe_traits_that_match_assoc_ty(u8, Assoc): unported: rustc_infer::infer::InferCtxt::fresh_args_for_item
+probe_assoc_item(C, Const, Tr): Some(C)
+PENDING probe_traits_that_match_assoc_ty(u8, Assoc): unported: rustc_trait_selection::infer::InferCtxt::can_eq
 PENDING lower_resolved_assoc_ty_path(None, Tr::Assoc): unported: rustc_middle::ty::erase_regions::TyCtxt::erase_and_anonymize_regions
 lower_resolved_assoc_ty_path(Some(u8), Tr::Assoc): Alias
 prohibit_generic_args([]): Ok

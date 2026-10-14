@@ -73,13 +73,10 @@
       "paths": [
         "rustc_data_structures::sso::SsoHashMap"
       ],
-      "ts": "SsoHashMap<$0, $1>",
-      "import": "src/rustc_data_structures/sso/mod.ts",
-      "types": [
-        "SsoHashMap"
-      ],
+      "ts": "Map<$0, $1>",
       "debug": null,
-      "clone": null
+      "clone": null,
+      "note": "lane infer-relate: the SsoHashMaps of the set are lookup caches (get/insert only, never iterated), so a JS `Map` (PORTING §5, as rustc_type_ir data_structures); a tuple-keyed one is a `KeyedMap` (rust_ts/keyed.ts) at its creation site"
     },
     {
       "paths": [
@@ -590,10 +587,14 @@
       "paths": [
         "rustc_data_structures::graph::scc::Sccs"
       ],
-      "ts": "unknown",
+      "ts": "Sccs<$0, $1>",
+      "import": "src/rustc_data_structures/graph/scc/mod.ts",
+      "types": [
+        "Sccs"
+      ],
       "debug": null,
       "clone": null,
-      "note": "PORT: pending rustc_data_structures graph/scc (lane infer-regions)"
+      "note": "rustc_data_structures graph/scc (lane rds-graph); `MiniGraph` (its only field user) derives neither Debug nor Clone"
     },
     {
       "paths": [

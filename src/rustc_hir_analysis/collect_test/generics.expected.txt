@@ -11,7 +11,7 @@ DefId(0:4 ~ generics[21d0]::S) Struct
   type_of EarlyBinder { value: S<T/#0, N/#1>, .. }
 DefId(0:5 ~ generics[21d0]::S::{constructor#0}) Ctor(Struct, Fn)
   generics_of Generics { parent: Some(DefId(0:4 ~ generics[21d0]::S)), parent_count: 2, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:5 ~ generics[21d0]::S::{constructor#0}), Binder { value: [T/#0, N/#1], bound_vars: [] }), .. }
 DefId(0:6 ~ generics[21d0]::S::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:7 ~ generics[21d0]::S::N) ConstParam
@@ -32,10 +32,10 @@ DefId(0:12 ~ generics[21d0]::E::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:13 ~ generics[21d0]::E::A) Variant
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:14 ~ generics[21d0]::E::A::{constructor#0}), Binder { value: [T/#0], bound_vars: [] }), .. }
 DefId(0:14 ~ generics[21d0]::E::A::{constructor#0}) Ctor(Variant, Fn)
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:14 ~ generics[21d0]::E::A::{constructor#0}), Binder { value: [T/#0], bound_vars: [] }), .. }
 DefId(0:15 ~ generics[21d0]::E::A::0) Field
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
   type_of EarlyBinder { value: T/#0, .. }
@@ -70,7 +70,7 @@ DefId(0:26 ~ generics[21d0]::Tr::K) AssocConst
   type_of EarlyBinder { value: usize, .. }
 DefId(0:27 ~ generics[21d0]::Tr::f) AssocFn
   generics_of Generics { parent: Some(DefId(0:23 ~ generics[21d0]::Tr)), parent_count: 2, own_params: [GenericParamDef { name: "U", def_id: DefId(0:28 ~ generics[21d0]::Tr::f::U), index: 2, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:28 ~ generics[21d0]::Tr::f::U), 2)], has_self: true, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:27 ~ generics[21d0]::Tr::f), Binder { value: [Self/#0, X/#1, U/#2], bound_vars: [] }), .. }
 DefId(0:28 ~ generics[21d0]::Tr::f::U) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:29 ~ generics[21d0]::Alias2) Trait
@@ -100,7 +100,7 @@ DefId(0:38 ~ generics[21d0]::{impl#0}::K) AssocConst
   type_of EarlyBinder { value: usize, .. }
 DefId(0:39 ~ generics[21d0]::{impl#0}::f) AssocFn
   generics_of Generics { parent: Some(DefId(0:34 ~ generics[21d0]::{impl#0})), parent_count: 1, own_params: [GenericParamDef { name: "U", def_id: DefId(0:40 ~ generics[21d0]::{impl#0}::f::U), index: 1, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:40 ~ generics[21d0]::{impl#0}::f::U), 1)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:39 ~ generics[21d0]::{impl#0}::f), Binder { value: [T/#0, U/#1], bound_vars: [] }), .. }
 DefId(0:40 ~ generics[21d0]::{impl#0}::f::U) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:41 ~ generics[21d0]::{impl#1}) Impl { of_trait: false }
@@ -112,12 +112,12 @@ DefId(0:43 ~ generics[21d0]::{impl#1}::{constant#0}) AnonConst
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:44 ~ generics[21d0]::{impl#1}::g) AssocFn
   generics_of Generics { parent: Some(DefId(0:41 ~ generics[21d0]::{impl#1})), parent_count: 1, own_params: [GenericParamDef { name: "V", def_id: DefId(0:45 ~ generics[21d0]::{impl#1}::g::V), index: 1, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:45 ~ generics[21d0]::{impl#1}::g::V), 1)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:44 ~ generics[21d0]::{impl#1}::g), Binder { value: [T/#0, V/#1], bound_vars: [] }), .. }
 DefId(0:45 ~ generics[21d0]::{impl#1}::g::V) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:46 ~ generics[21d0]::h) Fn
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "A", def_id: DefId(0:47 ~ generics[21d0]::h::A), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }, GenericParamDef { name: "B", def_id: DefId(0:48 ~ generics[21d0]::h::B), index: 1, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }, GenericParamDef { name: "C", def_id: DefId(0:49 ~ generics[21d0]::h::C), index: 2, pure_wrt_drop: false, kind: Const { has_default: false } }], param_def_id_to_index: [(DefId(0:47 ~ generics[21d0]::h::A), 0), (DefId(0:48 ~ generics[21d0]::h::B), 1), (DefId(0:49 ~ generics[21d0]::h::C), 2)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:46 ~ generics[21d0]::h), Binder { value: [A/#0, B/#1, C/#2], bound_vars: [] }), .. }
 DefId(0:47 ~ generics[21d0]::h::A) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:48 ~ generics[21d0]::h::B) TyParam
@@ -130,7 +130,7 @@ DefId(0:51 ~ generics[21d0]::{extern#0}::Foreign) ForeignTy
   type_of EarlyBinder { value: Foreign(DefId(0:51 ~ generics[21d0]::{extern#0}::Foreign)), .. }
 DefId(0:52 ~ generics[21d0]::{extern#0}::ext) Fn
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: Debug without a TS impl (see types report)
+  type_of EarlyBinder { value: FnDef(DefId(0:52 ~ generics[21d0]::{extern#0}::ext), Binder { value: [], bound_vars: [] }), .. }
 DefId(0:53 ~ generics[21d0]::{extern#0}::X) Static { safety: Unsafe, mutability: Not, nested: false }
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
   type_of STOP UNPORTED: rustc_hir_analysis::check::wfcheck::check_static_item (wave 17)

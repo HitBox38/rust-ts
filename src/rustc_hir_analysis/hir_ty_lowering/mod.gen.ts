@@ -11,11 +11,9 @@ import { debug_DefId, debug_ModId, type DefId, type LocalDefId, type ModId } fro
 import { debug_ErrorGuaranteed, debug_Span, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
 import { debug_Ident, type Ident } from "../../rustc_span/symbol.ts";
 import { type FallibleTypeFolder, type FoldWith, type TryFoldWith, type TypeFolder, type TypeVisitor, type VisitWith } from "../../rustc_type_ir/fold.ts";
-import { type AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
+import { type AliasTerm, debug_AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
 import { debug_result, Ok, type Result } from "../../std/result.ts";
-import { unported } from "../../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs:70 ImpliedBoundsContext
 /// The context in which an implied bound is being added to a item being lowered (i.e. a sizedness
@@ -230,7 +228,7 @@ export type TypeRelativePath =
 export const debug_TypeRelativePath: Debug<TypeRelativePath> = (v, f) => {
   switch (v.$) {
     case "AssocItem":
-      return debug_tuple(f, "AssocItem", [unported_debug(v._0)]);
+      return debug_tuple(f, "AssocItem", [debug_AliasTerm(v._0, f)]);
     case "Variant":
       return debug_struct(f, "Variant", [
         ["adt", debug_Ty(v.adt, f)],
