@@ -78,7 +78,7 @@ export abstract class Interned {
     return this;
   }
 
-  // rustc: compiler/rustc_data_structures/src/intern.rs:73 eq
+  // rustc: compiler/rustc_data_structures/src/intern.rs:72 eq
   eq(other: Interned): boolean {
     // Pointer equality implies equality, due to the uniqueness constraint.
     return this === other;
@@ -86,7 +86,7 @@ export abstract class Interned {
 }
 Object.defineProperty(Interned.prototype, INTERNED, { value: true });
 
-// rustc: compiler/rustc_data_structures/src/intern.rs:83 hash
+// rustc: compiler/rustc_data_structures/src/intern.rs:82 hash
 /**
  * PORT: `ptr::hash(self.0, s)` writes the address; the port writes the intern `id` instead (a JS object has no
  * address). As a JS `Map`/`Set` key the object itself is used, so this is only reached by hand-written `Hash`
@@ -96,13 +96,13 @@ export function hash_Interned(self: Interned, s: Pick<FxHasher, "write_usize">):
   s.write_usize(self.id);
 }
 
-// rustc: compiler/rustc_data_structures/src/intern.rs:93 stable_hash
+// rustc: compiler/rustc_data_structures/src/intern.rs:92 stable_hash
 /** `impl<T: StableHash> StableHash for Interned<'_, T>`: the referent's stable hash. */
 export function stable_hash_Interned<T>(self: T, hcx: StableHashCtxt, hasher: StableHasher, stable_hash_T: StableHash<T>): void {
   stable_hash_T(self, hcx, hasher);
 }
 
-// rustc: compiler/rustc_data_structures/src/intern.rs:99 fmt
+// rustc: compiler/rustc_data_structures/src/intern.rs:98 fmt
 /** `impl<T: Debug> Debug for Interned<'_, T>`: the referent's Debug (`self.0.fmt(f)`). */
 export function debug_Interned<T>(v: T, f: Fmt, debug_T: Debug<T>): string {
   return debug_T(v, f);
