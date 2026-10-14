@@ -22,6 +22,7 @@ import { type ItemLocalId, type OwnerId, debug_ItemLocalId } from "../rustc_hir_
 import { stable_hash_ItemLocalId } from "../rustc_hir_id/stable_hash.gen.ts";
 import { type HirId, type LintId, type StableLintExpectationId, debug_HirId } from "../rustc_lint_defs/lib.ts";
 import { type EffectiveVisibilities, debug_EffectiveVisibilities, stable_hash_EffectiveVisibilities } from "./middle/privacy.ts";
+import { type ScopeTree, debug_ScopeTree } from "./middle/region.ts";
 import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLowering, type ResolverGlobalCtxt, debug_DocLinkResMap, debug_ModChild, debug_ResolverAstLowering, debug_ResolverGlobalCtxt } from "./middle/resolve.ts";
 import { type DeprecationEntry, debug_DeprecationEntry } from "./middle/stability.ts";
 import { describe_as_module } from "./queries.ts";
@@ -29,6 +30,10 @@ import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identit
 import { KEY_CrateNum, KEY_CrateNum_DefId, KEY_DefId, KEY_DefId_DefId, KEY_LocalDefId, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OwnerId, KEY_Symbol, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
 import { stable_hash_Visibility } from "./stable_hash.gen.ts";
+import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause } from "./traits/mod.ts";
+import { type CanonicalAliasGoal, type CanonicalDropckOutlivesGoal, type CanonicalImpliedOutlivesBoundsGoal, type CanonicalMethodAutoderefStepsGoal, type CanonicalPredicateGoal, type CanonicalTypeOpAscribeUserTypeGoal, type CanonicalTypeOpNormalizeGoal, type CanonicalTypeOpProvePredicateGoal, type DropckConstraint, type DropckOutlivesResult, type MethodAutoderefStepsResult, type MirBorrowckImpliedOutlivesBounds, type NormalizationResult, type OutlivesBound, debug_DropckConstraint, debug_MethodAutoderefStepsResult } from "./traits/query.ts";
+import { type CanonicalInput } from "./traits/solve.ts";
+import { type Graph, debug_Graph } from "./traits/specialization_graph.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type Visibility, debug_Visibility } from "./ty/mod.ts";
 import { type CrateNum, type DefId, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
@@ -576,8 +581,7 @@ export interface QueryTypes {
   adt_async_destructor: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   // PORT: key `(DefId, SizedTraitKind)` not ported; value `Option<ty::EarlyBinder<'tcx, Ty<'tcx>>>` not ported (`unknown`)
   adt_sizedness_constraint: { Key: [DefId, unknown]; KeyArg: [DefId, unknown]; LocalKey: [DefId, unknown]; Value: unknown | undefined; ProvidedValue: unknown | undefined };
-  // PORT: value `&'tcx DropckConstraint<'tcx>` not ported (`unknown`)
-  adt_dtorck_constraint: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
+  adt_dtorck_constraint: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: DropckConstraint; ProvidedValue: DropckConstraint };
   /**
    * Returns the constness of the function-like[^1] definition given by `DefId`.
    *
@@ -922,8 +926,7 @@ export interface QueryTypes {
    * Per-body `region::ScopeTree`. The `DefId` should be the owner `DefId` for the body;
    * in the case of closures, this will be redirected to the enclosing function.
    */
-  // PORT: value `&'tcx crate::middle::region::ScopeTree` not ported (`unknown`)
-  region_scope_tree: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: unknown; ProvidedValue: unknown };
+  region_scope_tree: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: ScopeTree; ProvidedValue: ScopeTree };
   /**
    * Generates a MIR body for the shim.
    */
@@ -1014,7 +1017,7 @@ export interface QueryTypes {
   // PORT: key `(Ty<'tcx>, Option<ty::ExistentialTraitRef<'tcx>>)` not ported; value `mir::interpret::AllocId` not ported (`unknown`)
   vtable_allocation: { Key: [unknown, unknown | undefined]; KeyArg: [unknown, unknown | undefined]; LocalKey: [unknown, unknown | undefined]; Value: unknown; ProvidedValue: unknown };
   // PORT: key `PseudoCanonicalInput<'tcx, ty::TraitRef<'tcx>>` not ported; value `Result<&'tcx ImplSource<'tcx, ()>, CodegenObligationError>` not ported (`unknown`)
-  codegen_select_candidate: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  codegen_select_candidate: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, CodegenObligationError>; ProvidedValue: Result<unknown, CodegenObligationError> };
   /**
    * Return all `impl` blocks in the current crate.
    */
@@ -1028,10 +1031,8 @@ export interface QueryTypes {
    */
   // PORT: value `&'tcx ty::trait_def::TraitImpls` not ported (`unknown`)
   trait_impls_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown; ProvidedValue: unknown };
-  // PORT: value `Result<&'tcx specialization_graph::Graph, ErrorGuaranteed>` not ported (`unknown`)
-  specialization_graph_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: Result<unknown, ErrorGuaranteed>; ProvidedValue: Result<unknown, ErrorGuaranteed> };
-  // PORT: value `&'tcx [DynCompatibilityViolation]` not ported (`unknown`)
-  dyn_compatibility_violations: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: readonly unknown[]; ProvidedValue: readonly unknown[] };
+  specialization_graph_of: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: Result<Graph, ErrorGuaranteed>; ProvidedValue: Result<Graph, ErrorGuaranteed> };
+  dyn_compatibility_violations: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: readonly DynCompatibilityViolation[]; ProvidedValue: readonly DynCompatibilityViolation[] };
   is_dyn_compatible: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: boolean; ProvidedValue: boolean };
   /**
    * Gets the ParameterEnvironment for a given item; this environment
@@ -1636,8 +1637,8 @@ export interface QueryTypes {
    *
    * </div>
    */
-  // PORT: key `CanonicalAliasGoal<'tcx>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, NormalizationResult<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  normalize_canonicalized_projection: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, NormalizationResult<'tcx>>>, NoSolution,>` not ported (`unknown`)
+  normalize_canonicalized_projection: { Key: CanonicalAliasGoal; KeyArg: CanonicalAliasGoal; LocalKey: CanonicalAliasGoal; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * <div class="warning">
    *
@@ -1645,8 +1646,8 @@ export interface QueryTypes {
    *
    * </div>
    */
-  // PORT: key `CanonicalAliasGoal<'tcx>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, NormalizationResult<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  normalize_canonicalized_free_alias: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, NormalizationResult<'tcx>>>, NoSolution,>` not ported (`unknown`)
+  normalize_canonicalized_free_alias: { Key: CanonicalAliasGoal; KeyArg: CanonicalAliasGoal; LocalKey: CanonicalAliasGoal; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * <div class="warning">
    *
@@ -1654,69 +1655,68 @@ export interface QueryTypes {
    *
    * </div>
    */
-  // PORT: key `CanonicalAliasGoal<'tcx>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, NormalizationResult<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  normalize_canonicalized_inherent_projection: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, NormalizationResult<'tcx>>>, NoSolution,>` not ported (`unknown`)
+  normalize_canonicalized_inherent_projection: { Key: CanonicalAliasGoal; KeyArg: CanonicalAliasGoal; LocalKey: CanonicalAliasGoal; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: invoke `try_normalize_erasing_regions` instead.
    */
   // PORT: key `PseudoCanonicalInput<'tcx, GenericArg<'tcx>>` not ported; value `Result<GenericArg<'tcx>, NoSolution>` not ported (`unknown`)
   try_normalize_generic_arg_after_erasing_regions: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
-  // PORT: key `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, Vec<OutlivesBound<'tcx>>>>, NoSolution,>` not ported (`unknown`)
-  implied_outlives_bounds: { Key: [unknown, boolean]; KeyArg: [unknown, boolean]; LocalKey: [unknown, boolean]; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, Vec<OutlivesBound<'tcx>>>>, NoSolution,>` not ported (`unknown`)
+  implied_outlives_bounds: { Key: [CanonicalImpliedOutlivesBoundsGoal, boolean]; KeyArg: [CanonicalImpliedOutlivesBoundsGoal, boolean]; LocalKey: [CanonicalImpliedOutlivesBoundsGoal, boolean]; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, MirBorrowckImpliedOutlivesBounds<'tcx>>>, NoSolution,>` not ported (`unknown`)
   mir_borrowck_implied_outlives_bounds: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly:
    * invoke `DropckOutlives::new(dropped_ty)).fully_perform(typeck.infcx)` instead.
    */
-  // PORT: key `CanonicalDropckOutlivesGoal<'tcx>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, DropckOutlivesResult<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  dropck_outlives: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, DropckOutlivesResult<'tcx>>>, NoSolution,>` not ported (`unknown`)
+  dropck_outlives: { Key: CanonicalDropckOutlivesGoal; KeyArg: CanonicalDropckOutlivesGoal; LocalKey: CanonicalDropckOutlivesGoal; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: invoke `infcx.predicate_may_hold()` or
    * `infcx.predicate_must_hold()` instead.
    */
-  // PORT: key `CanonicalPredicateGoal<'tcx>` not ported; value `Result<EvaluationResult, OverflowError>` not ported (`unknown`)
-  evaluate_obligation: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<EvaluationResult, OverflowError>` not ported (`unknown`)
+  evaluate_obligation: { Key: CanonicalPredicateGoal; KeyArg: CanonicalPredicateGoal; LocalKey: CanonicalPredicateGoal; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: part of the `Eq` type-op
    */
-  // PORT: key `CanonicalTypeOpAscribeUserTypeGoal<'tcx>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ()>>, NoSolution,>` not ported (`unknown`)
-  type_op_ascribe_user_type: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ()>>, NoSolution,>` not ported (`unknown`)
+  type_op_ascribe_user_type: { Key: CanonicalTypeOpAscribeUserTypeGoal; KeyArg: CanonicalTypeOpAscribeUserTypeGoal; LocalKey: CanonicalTypeOpAscribeUserTypeGoal; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: part of the `ProvePredicate` type-op
    */
-  // PORT: key `CanonicalTypeOpProvePredicateGoal<'tcx>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ()>>, NoSolution,>` not ported (`unknown`)
-  type_op_prove_predicate: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ()>>, NoSolution,>` not ported (`unknown`)
+  type_op_prove_predicate: { Key: CanonicalTypeOpProvePredicateGoal; KeyArg: CanonicalTypeOpProvePredicateGoal; LocalKey: CanonicalTypeOpProvePredicateGoal; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: part of the `Normalize` type-op
    */
   // PORT: key `CanonicalTypeOpNormalizeGoal<'tcx, Ty<'tcx>>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, Ty<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  type_op_normalize_ty: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  type_op_normalize_ty: { Key: CanonicalTypeOpNormalizeGoal<unknown>; KeyArg: CanonicalTypeOpNormalizeGoal<unknown>; LocalKey: CanonicalTypeOpNormalizeGoal<unknown>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: part of the `Normalize` type-op
    */
   // PORT: key `CanonicalTypeOpNormalizeGoal<'tcx, ty::Clause<'tcx>>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ty::Clause<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  type_op_normalize_clause: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  type_op_normalize_clause: { Key: CanonicalTypeOpNormalizeGoal<unknown>; KeyArg: CanonicalTypeOpNormalizeGoal<unknown>; LocalKey: CanonicalTypeOpNormalizeGoal<unknown>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: part of the `Normalize` type-op
    */
   // PORT: key `CanonicalTypeOpNormalizeGoal<'tcx, ty::PolyFnSig<'tcx>>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ty::PolyFnSig<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  type_op_normalize_poly_fn_sig: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  type_op_normalize_poly_fn_sig: { Key: CanonicalTypeOpNormalizeGoal<unknown>; KeyArg: CanonicalTypeOpNormalizeGoal<unknown>; LocalKey: CanonicalTypeOpNormalizeGoal<unknown>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: part of the `Normalize` type-op
    */
   // PORT: key `CanonicalTypeOpNormalizeGoal<'tcx, ty::FnSig<'tcx>>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, ty::FnSig<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  type_op_normalize_fn_sig: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  type_op_normalize_fn_sig: { Key: CanonicalTypeOpNormalizeGoal<unknown>; KeyArg: CanonicalTypeOpNormalizeGoal<unknown>; LocalKey: CanonicalTypeOpNormalizeGoal<unknown>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   // PORT: key `(DefId, GenericArgsRef<'tcx>)` not ported (`unknown`)
   instantiate_and_check_impossible_clauses: { Key: [DefId, unknown]; KeyArg: [DefId, unknown]; LocalKey: [DefId, unknown]; Value: boolean; ProvidedValue: boolean };
   is_impossible_associated_item: { Key: [DefId, DefId]; KeyArg: [DefId, DefId]; LocalKey: [DefId, DefId]; Value: boolean; ProvidedValue: boolean };
-  // PORT: key `CanonicalMethodAutoderefStepsGoal<'tcx>` not ported; value `MethodAutoderefStepsResult<'tcx>` not ported (`unknown`)
-  method_autoderef_steps: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  method_autoderef_steps: { Key: CanonicalMethodAutoderefStepsGoal; KeyArg: CanonicalMethodAutoderefStepsGoal; LocalKey: CanonicalMethodAutoderefStepsGoal; Value: MethodAutoderefStepsResult; ProvidedValue: MethodAutoderefStepsResult };
   /**
    * Used by `-Znext-solver` to compute proof trees.
    */
-  // PORT: key `(solve::CanonicalInput<'tcx>, usize)` not ported; value `(solve::QueryResult<'tcx>, &'tcx solve::inspect::Probe<TyCtxt<'tcx>>, RequiredDepth)` not ported (`unknown`)
-  evaluate_root_goal_for_proof_tree_raw: { Key: [unknown, number]; KeyArg: [unknown, number]; LocalKey: [unknown, number]; Value: [unknown, unknown, unknown]; ProvidedValue: [unknown, unknown, unknown] };
+  // PORT: value `(solve::QueryResult<'tcx>, &'tcx solve::inspect::Probe<TyCtxt<'tcx>>, RequiredDepth)` not ported (`unknown`)
+  evaluate_root_goal_for_proof_tree_raw: { Key: [CanonicalInput, number]; KeyArg: [CanonicalInput, number]; LocalKey: [CanonicalInput, number]; Value: [unknown, unknown, unknown]; ProvidedValue: [unknown, unknown, unknown] };
   /**
    * Returns a list of all Rust target features for the current target (not just the ones that
    * are enabled). These are not always the same as LLVM target features!
@@ -1752,8 +1752,8 @@ export interface QueryTypes {
    * all of the cases that the normal `ty::Ty`-based wfcheck does. This is fine,
    * because the `ty::Ty`-based wfcheck is always run.
    */
-  // PORT: key `(ty::Predicate<'tcx>, WellFormedLoc)` not ported; value `Option<&'tcx ObligationCause<'tcx>>` not ported (`unknown`)
-  diagnostic_hir_wf_check: { Key: [unknown, unknown]; KeyArg: [unknown, unknown]; LocalKey: [unknown, unknown]; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  // PORT: key `(ty::Predicate<'tcx>, WellFormedLoc)` not ported (`unknown`)
+  diagnostic_hir_wf_check: { Key: [unknown, WellFormedLoc]; KeyArg: [unknown, WellFormedLoc]; LocalKey: [unknown, WellFormedLoc]; Value: ObligationCause | undefined; ProvidedValue: ObligationCause | undefined };
   // PORT: key `(ValidityRequirement, ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>)` not ported; value `Result<bool, &'tcx ty::layout::LayoutError<'tcx>>` not ported (`unknown`)
   check_validity_requirement: { Key: [unknown, unknown]; KeyArg: [unknown, unknown]; LocalKey: [unknown, unknown]; Value: Result<boolean, unknown>; ProvidedValue: Result<boolean, unknown> };
   /**
@@ -3293,7 +3293,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing drop-check constraints for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_DropckConstraint(v, f),
     stable_hash_value: undefined,
   },
   constness: {
@@ -4355,7 +4355,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing drop scopes for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_ScopeTree(v, f),
     stable_hash_value: undefined,
   },
   mir_shims: {
@@ -4931,7 +4931,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: true,
     desc: (tcx, trait_id) => { const __0 = tcx.def_path_str(trait_id); return `building specialization graph of trait \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_result(v, f, ((x, f) => debug_Graph(x, f)), ((x, f) => debug_ErrorGuaranteed(x, f))),
     stable_hash_value: undefined,
   },
   dyn_compatibility_violations: {
@@ -4949,7 +4949,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, trait_id) => { const __0 = tcx.def_path_str(trait_id); return `determining dyn-compatibility of trait \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DynCompatibilityViolation(x, f)),
     stable_hash_value: undefined,
   },
   is_dyn_compatible: {
@@ -7253,7 +7253,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `method_autoderef_steps` (field `.canonical`)"),
-    debug_value: undefined,
+    debug_value: (v, f) => debug_MethodAutoderefStepsResult(v, f),
     stable_hash_value: undefined,
   },
   evaluate_root_goal_for_proof_tree_raw: {
@@ -7415,7 +7415,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `diagnostic_hir_wf_check` (Debug of `rustc_middle::ty::Predicate`)"),
-    debug_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_ObligationCause(x, f))),
     stable_hash_value: undefined,
   },
   check_validity_requirement: {
