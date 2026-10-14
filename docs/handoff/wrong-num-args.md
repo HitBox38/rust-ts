@@ -121,4 +121,5 @@ None in this file.
 - `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Test run".
 
 ## Test run
-(pending)
+`RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4519 pass, 1 skip (pre-existing linux-only), 0 fail
+(4520 tests, 272 files, 1090 s), including the 21 oracle tests of this lane.
