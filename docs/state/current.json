@@ -18,14 +18,15 @@
     "tokens-str": 39,
     "unpretty-expanded-nocore": 21479,
     "escape": 25780,
+    "unpretty-hir": 21310,
     "expanded": 21460,
     "unpretty-expanded": 21460,
     "expanded-nocore": 21479
   },
-  "updated": "2026-10-14T09:22:44.509Z",
+  "updated": "2026-10-14T15:44:38.998Z",
   "open_stops": [],
   "coverage": {
-    "ported": 9547,
+    "ported": 12816,
     "total": 25518
   }
 }
