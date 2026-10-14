@@ -1652,7 +1652,7 @@ Ty.prototype.discriminant_ty = function (this: Ty, tcx: TyCtxt): Ty {
 /// or the struct tail if the metadata type cannot be determined.
 // rustc: compiler/rustc_middle/src/ty/sty.rs:1765 ptr_metadata_ty_or_tail
 Ty.prototype.ptr_metadata_ty_or_tail = function (this: Ty, tcx: TyCtxt, normalize: (_0: Unnormalized<Ty>) => Ty): Result<Ty, Ty> {
-  const tail = tcx.struct_tail_raw(this, ObligationCause_dummy(), normalize, () => {});
+  const tail = tcx.struct_tail_raw(this, traits_mod().ObligationCause.dummy(), normalize, () => {});
   const k = tail.kind();
   switch (k.$) {
     // Sized types
@@ -2287,17 +2287,9 @@ function ValTree_from_scalar_int(_tcx: TyCtxt, _i: ScalarInt): ValTree {
 function ScalarInt_from_u32(_v: number): ScalarInt {
   return unported("rustc_middle::ty::consts::int::ScalarInt: From<u32> (ty/consts/int.rs)");
 }
-/** PORT: stand-in for `{:#?}` of `ParamEnv` (only in an ICE message). */
-function debug_ParamEnv_pretty(_env: ParamEnv): string {
-  return unported("rustc_middle::ty::ParamEnv: Debug (ParamEnv not ported yet)");
-}
 /** PORT: stand-in for `impl fmt::Debug for ParamConst` (ty/structural_impls.rs, lane ty-results). */
 function debug_ParamConst(_v: ParamConst, _f: Fmt): string {
   return unported("rustc_middle::ty::structural_impls: Debug for ParamConst");
-}
-/** PORT: stand-in for `ObligationCause::dummy` (traits/mod.rs, lane middle-traits-thir; `ObligationCause` is pending). */
-function ObligationCause_dummy(): ObligationCause {
-  return unported("rustc_middle::traits::ObligationCause::dummy (traits/mod.rs)");
 }
 /** PORT: stand-in for the `CoroutineLayout::variant_fields` field (mir/query.rs; MIR, M4). */
 function CoroutineLayout_variant_fields(_self: CoroutineLayout): readonly (readonly CoroutineSavedLocal[])[] {
@@ -2311,4 +2303,9 @@ function CoroutineLayout_field_ty(_self: CoroutineLayout, _field: CoroutineSaved
 /** PORT (merge-w15b): ty/util.ts is another extension module of `Ty` / `TyCtxt`: reached lazily. */
 function ty_util(): typeof import("./util.ts") {
   return require("./util.ts") as typeof import("./util.ts");
+}
+
+/** PORT (merge-w15b): rustc_middle traits/mod.ts reaches this module back through rustc_type_ir: loaded lazily. */
+function traits_mod(): typeof import("../traits/mod.ts") {
+  return require("../traits/mod.ts") as typeof import("../traits/mod.ts");
 }

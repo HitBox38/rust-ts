@@ -13,6 +13,7 @@
 // PORT: the query providers of this file (`trait_impls_of_provider`, ..) are `pub(super)` upstream, installed by
 // ty/mod.rs `provide` (lane ty-mod): exported here, not wired.
 import type { LocalCrate } from "../query/keys.ts";
+import type { Ancestors } from "../traits/specialization_graph.ts";
 import { TyCtxt } from "./context.ts";
 import { type VisitorResult, try_visit } from "../../rustc_ast_ir/visit.ts";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
@@ -105,8 +106,8 @@ export class TraitDef {
 
   // PORT: from the later `impl<'tcx> TraitDef` block (trait_def.rs:125), in the class body.
   // rustc: compiler/rustc_middle/src/ty/trait_def.rs:126 ancestors
-  ancestors(tcx: TyCtxt, of_impl: DefId): Result<specialization_graph_Ancestors, ErrorGuaranteed> {
-    return specialization_graph_ancestors(tcx, this.def_id, of_impl);
+  ancestors(tcx: TyCtxt, of_impl: DefId): Result<Ancestors, ErrorGuaranteed> {
+    return specialization_graph().ancestors(tcx, this.def_id, of_impl);
   }
 }
 
@@ -436,9 +437,7 @@ function entry_or_default(map: KeyedMap<SimplifiedType, DefId[]>, k: SimplifiedT
   return v;
 }
 
-/** `traits::specialization_graph::Ancestors` (traits/specialization_graph.rs, lane middle-traits-thir). PORT(decls): pending. */
-type specialization_graph_Ancestors = { readonly __pending: "specialization_graph::Ancestors" };
-/** PORT: stand-in for `traits::specialization_graph::ancestors` (traits/specialization_graph.rs, lane middle-traits-thir). */
-function specialization_graph_ancestors(_tcx: TyCtxt, _trait_def_id: DefId, _start_from_impl: DefId): Result<specialization_graph_Ancestors, ErrorGuaranteed> {
-  return unported("rustc_middle::traits::specialization_graph::ancestors (lane middle-traits-thir)");
+/** PORT (merge-w15b): traits/specialization_graph.ts imports ty modules back: loaded lazily. */
+function specialization_graph(): typeof import("../traits/specialization_graph.ts") {
+  return require("../traits/specialization_graph.ts") as typeof import("../traits/specialization_graph.ts");
 }

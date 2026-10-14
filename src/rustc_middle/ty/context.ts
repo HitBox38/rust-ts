@@ -60,7 +60,7 @@ import { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { CollectAndApply_Result, CollectAndApply_T } from "../../rustc_type_ir/interner.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { kw } from "../../rustc_span/symbol.ts";
-import type { Allocation, AssocItem, Attribute, Body, BodyId, CanonicalInput, CapturedPlace, ConstAllocation, CoroutineLayout, ExternalConstraints, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, ValTree, VariantDef } from "./decls.ts";
+import type { Allocation, AssocItem, Attribute, Body, BodyId, CapturedPlace, ConstAllocation, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, ValTree, VariantDef } from "./decls.ts";
 import { GenericArg, type GenericArgs } from "./generic_args.ts";
 import { type Clauses, type List, RawList, TypeInfo } from "./list.ts";
 import { Ty } from "./mod.ts";
@@ -89,11 +89,14 @@ import { FnSig, FnSigKind, PolyFnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { supertrait_def_ids } from "../../rustc_type_ir/elaborate.ts";
 import { GlobalCache as GlobalCache_ } from "../../rustc_type_ir/search_graph/mod.ts";
+import { CanonicalInput, ExternalConstraints } from "../traits/solve.ts";
+import { WithDepNodeCache } from "../traits/cache.ts";
+import type { EvaluationCache, SelectionCache } from "../traits/select.ts";
 import { CanonicalParamEnvCache as CanonicalParamEnvCache_ } from "../../rustc_type_ir/canonical.ts";
 import { standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { AliasTermKind, CanonicalParamEnvCache, GlobalCache, Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
-import type { EarlyParamRegion, LateParamRegionKind, VariantIdx } from "./decls.ts";
+import type { EarlyParamRegion, LateParamRegionKind, TypingEnv, VariantIdx } from "./decls.ts";
 import { debug_GenericArg, debug_GenericArgs } from "./generic_args.ts";
 import { GenericParamDef, type Generics } from "./generics.ts";
 import type { ListWithCachedTypeInfo } from "./list.ts";
@@ -241,7 +244,7 @@ export class CtxtInterners {
     public bound_variable_kinds: InternedSet<List<BoundVariableKind>>,
     public layout: InternedSet<unknown>,
     public adt_def: InternedSet<AdtDef>,
-    public external_constraints: InternedSet<unknown>,
+    public external_constraints: InternedSet<ExternalConstraints>,
     public predefined_opaques_in_body: InternedSet<List<[OpaqueTypeKey, Ty]>>,
     public fields: InternedSet<List<FieldIdx>>,
     public local_def_ids: InternedSet<List<LocalDefId>>,
@@ -249,7 +252,7 @@ export class CtxtInterners {
     public valtree: InternedSet<unknown>,
     public patterns: InternedSet<List<Pattern>>,
     public outlives: InternedSet<List<ArgOutlivesClause>>,
-    public canonical_inputs: InternedSet<unknown>,
+    public canonical_inputs: InternedSet<CanonicalInput>,
   ) {}
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:173 new
@@ -639,9 +642,9 @@ export class TyCtxtFeed<K> {
 /// The individual fields are mostly unrelated to each other, but have been grouped together to
 /// reduce the number of top-level fields in [`GlobalCtxt`].
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:669 GlobalCaches
-// PORT: `Lock<..>` is the inner value (PORTING §5). The cache types of traits/ (`SelectionCache`, `EvaluationCache`)
-// and infer's `CanonicalParamEnvCache` are not ported (lanes middle-traits-thir, infcx-contract), so
-// `#[derive(Default)]` stops as UNPORTED at `selection_cache` and `GlobalCtxt.caches` is built on first read.
+// PORT: `Lock<..>` is the inner value (PORTING §5). infer's `CanonicalParamEnvCache` is not ported (lane
+// infcx-contract), so `#[derive(Default)]` stops as UNPORTED at `canonical_param_env_cache` and `GlobalCtxt.caches`
+// is built on first read.
 export class GlobalCaches {
   constructor(
     // Internal caches for metadata decoding. No need to track deps on this.
@@ -649,12 +652,12 @@ export class GlobalCaches {
 
     /// Caches the results of trait selection. This cache is used
     /// for things that do not have to do with the parameters in scope.
-    public selection_cache: Pending<"traits::SelectionCache">,
+    public selection_cache: SelectionCache<TypingEnv>,
 
     /// Caches the results of trait evaluation. This cache is used
     /// for things that do not have to do with the parameters in scope.
     /// Merge this with `selection_cache`?
-    public evaluation_cache: Pending<"traits::EvaluationCache">,
+    public evaluation_cache: EvaluationCache<TypingEnv>,
 
     /// Caches the results of goal evaluation in the new solver.
     public new_solver_evaluation_cache: GlobalCache,
@@ -670,11 +673,12 @@ export class GlobalCaches {
   ) {}
 
   /** `#[derive(Default)]`: every field's `Default`, in field order (PORT: see the type comment; merge-w15a wired the
-   *  search graph's `GlobalCache` and rustc_type_ir's `CanonicalParamEnvCache`; traits' caches still stop). */
+   *  search graph's `GlobalCache` and rustc_type_ir's `CanonicalParamEnvCache`, lane middle-traits-thir the traits
+   *  caches; infer's `CanonicalParamEnvCache` still stops). */
   static default_(): GlobalCaches {
     const ty_rcache = new Map<string, Ty>();
-    const selection_cache: Pending<"traits::SelectionCache"> = unported("rustc_middle::traits::SelectionCache: Default (lane middle-traits-thir)");
-    const evaluation_cache: Pending<"traits::EvaluationCache"> = unported("rustc_middle::traits::EvaluationCache: Default (lane middle-traits-thir)");
+    const selection_cache: SelectionCache<TypingEnv> = WithDepNodeCache.default_();
+    const evaluation_cache: EvaluationCache<TypingEnv> = WithDepNodeCache.default_();
     const new_solver_evaluation_cache: GlobalCache = GlobalCache_.default_();
     const new_solver_canonical_param_env_cache: CanonicalParamEnvCache = CanonicalParamEnvCache_.default_();
     const canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache"> = unported("rustc_middle::infer::canonical::CanonicalParamEnvCache: Default (lane infcx-contract)");
@@ -1870,13 +1874,17 @@ export class TyCtxt {
   mk_adt_def_from_data(v: AdtDefData): AdtDef {
     return Interned.new_unchecked(this.interners.adt_def.intern(v, v.hash(), (v) => new AdtDef(v)));
   }
-  /** Stub (`direct_interners!` `mk_external_constraints`, context.rs:2021): the class is lane middle-traits-thir's. */
-  mk_external_constraints(_v: ExternalConstraintsData): ExternalConstraints {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_external_constraints (ExternalConstraints class)");
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2021 direct_interners! mk_external_constraints
+  mk_external_constraints(v: ExternalConstraintsData): ExternalConstraints {
+    return Interned.new_unchecked(
+      this.interners.external_constraints.intern(v, intern_key(v), (v) => new ExternalConstraints(v)),
+    );
   }
-  /** Stub (`direct_interners!` `intern_canonical_input`, context.rs:2023): the class is lane middle-traits-thir's. */
-  intern_canonical_input(_v: CanonicalInputData): CanonicalInput {
-    return unported("rustc_middle::ty::context::TyCtxt::intern_canonical_input (CanonicalInput class)");
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2023 direct_interners! intern_canonical_input
+  intern_canonical_input(v: CanonicalInputData): CanonicalInput {
+    return Interned.new_unchecked(
+      this.interners.canonical_inputs.intern(v, intern_key(v), (v) => new CanonicalInput(v)),
+    );
   }
 
   // PORT: `slice_interners!` (context.rs:2026) expands, per entry, `fn $method(self, v: &[$ty]) -> &List<$ty>`:

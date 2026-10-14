@@ -795,5 +795,60 @@
     "auto_class": true,
     "bitflags_debug": true,
     "typemap_extra": ["ast_lowering.typemap.json"]
+  },
+  "rustc_middle_traits_thir": {
+    "files": [
+      "compiler/rustc_middle/src/middle/region.rs",
+      "compiler/rustc_middle/src/traits/mod.rs",
+      "compiler/rustc_middle/src/traits/cache.rs",
+      "compiler/rustc_middle/src/traits/select.rs",
+      "compiler/rustc_middle/src/traits/query.rs",
+      "compiler/rustc_middle/src/traits/specialization_graph.rs",
+      "compiler/rustc_middle/src/traits/solve.rs",
+      "compiler/rustc_middle/src/thir.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_middle::traits::solve::CanonicalInput",
+      "rustc_middle::traits::solve::ExternalConstraints",
+      "rustc_middle::traits::cache::WithDepNodeCache"
+    ],
+    "hand_notes": {
+      "rustc_middle::traits::solve::CanonicalInput": "hash-consed (`Interned<'tcx, CanonicalInputData>`, D2): a frozen class extending Interned, made only by `TyCtxt::intern_canonical_input` (traits/solve.ts)",
+      "rustc_middle::traits::solve::ExternalConstraints": "hash-consed (`Interned<'tcx, ExternalConstraintsData>`, D2): a frozen class extending Interned, made only by `TyCtxt::mk_external_constraints` (traits/solve.ts)",
+      "rustc_middle::traits::cache::WithDepNodeCache": "`Lock<FxHashMap<Key, ..>>` keyed by tuples of interned values: a KeyedMap with the key fn passed at construction (traits/cache.ts)"
+    },
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::traits::solve::Goal",
+      "rustc_middle::traits::solve::QueryInput",
+      "rustc_middle::traits::solve::QueryResult",
+      "rustc_middle::traits::solve::CandidateSource",
+      "rustc_middle::traits::solve::CanonicalResponse",
+      "rustc_middle::traits::solve::FetchEligibleAssocItemResponse",
+      "rustc_middle::traits::solve::ComputeGoalFastPathOutcome",
+      "rustc_middle::traits::solve::GoalStalledOn",
+      "rustc_middle::traits::solve::GoalStalledOnOpaques",
+      "rustc_middle::traits::solve::SucceededInErased"
+    ],
+    "skip_notes": {
+      "rustc_middle::traits::solve::Goal": "`pub type Goal<..> = ir::solve::Goal<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::QueryInput": "`pub type QueryInput<..> = ir::solve::QueryInput<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::QueryResult": "`pub type QueryResult<..> = ir::solve::QueryResult<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::CandidateSource": "`pub type CandidateSource<..> = ir::solve::CandidateSource<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::CanonicalResponse": "`pub type CanonicalResponse<..> = ir::solve::CanonicalResponse<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::FetchEligibleAssocItemResponse": "`pub type FetchEligibleAssocItemResponse<..> = ir::solve::FetchEligibleAssocItemResponse<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::ComputeGoalFastPathOutcome": "`pub type ComputeGoalFastPathOutcome<..> = ir::solve::ComputeGoalFastPathOutcome<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::GoalStalledOn": "`pub type GoalStalledOn<..> = ir::solve::GoalStalledOn<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::GoalStalledOnOpaques": "`pub type GoalStalledOnOpaques<..> = ir::solve::GoalStalledOnOpaques<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::SucceededInErased": "`pub type SucceededInErased<..> = ir::solve::SucceededInErased<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts"
+    },
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
   }
 }

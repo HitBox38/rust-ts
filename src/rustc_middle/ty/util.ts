@@ -271,7 +271,7 @@ TyCtxt.prototype.struct_tail_for_codegen = function (this: TyCtxt, ty: Ty, typin
   this.assert_fully_normalized(typing_env, ty, standin_fold_Ty);
   return this.struct_tail_raw(
     ty,
-    ObligationCause_dummy(),
+    traits_mod().ObligationCause.dummy(),
     (ty) => this.normalize_erasing_regions(typing_env, ty, standin_fold_Ty),
     () => {},
   );
@@ -327,7 +327,7 @@ TyCtxt.prototype.struct_tail_raw = function (
       const suggested_limit = recursion_limit._0 === 0 ? Limit.new(2) : Limit_mul(recursion_limit, 2);
       const reported = this.dcx().emit_err(
         RecursionLimitReached_diagnostic({
-          span: ObligationCause_span(cause),
+          span: cause.span,
           ty,
           suggested_limit,
         }),
@@ -2139,13 +2139,8 @@ export interface IntrinsicDefView {
   /// Whether the intrinsic can be invoked from stable const fn (`#[rustc_intrinsic_const_stable_indirect]`).
   const_stable_indirect: boolean;
 }
-// ---- lane middle-traits-thir (traits/mod.rs) ----
-/** PORT: pending middle-traits-thir: `ObligationCause::dummy` (traits/mod.rs). */
-function ObligationCause_dummy(): ObligationCause {
-  return unported("rustc_middle::traits::ObligationCause::dummy (lane middle-traits-thir)");
-}
-/** PORT: pending middle-traits-thir: the `span` field of `ObligationCause` (traits/mod.rs). */
-function ObligationCause_span(self: ObligationCause): Span {
-  return (self as unknown as { span: Span }).span;
-}
 
+/** PORT (merge-w15b): rustc_middle traits/mod.ts reaches this module back through rustc_type_ir: loaded lazily. */
+function traits_mod(): typeof import("../traits/mod.ts") {
+  return require("../traits/mod.ts") as typeof import("../traits/mod.ts");
+}

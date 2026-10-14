@@ -166,11 +166,12 @@ export type NormalizationError = Pending<"NormalizationError">;
 export type TypeckResults = Pending<"TypeckResults">;
 export type Instance = Pending<"Instance">;
 export type InstanceKind = Pending<"InstanceKind">;
-// traits/solve.rs:33, :44 (D2: hash-consed)
-export type CanonicalInput = Pending<"CanonicalInput">;
-export type ExternalConstraints = Pending<"ExternalConstraints">;
-// traits/mod.rs
-export type ObligationCause = Pending<"ObligationCause">;
+// traits/solve.rs:33, :44 (D2: hash-consed; lane middle-traits-thir)
+import type { CanonicalInput, ExternalConstraints } from "../traits/solve.ts";
+export type { CanonicalInput, ExternalConstraints };
+// traits/mod.rs (lane middle-traits-thir)
+import type { ObligationCause } from "../traits/mod.ts";
+export type { ObligationCause };
 // hir/place.rs, mir/syntax.rs, mir/interpret/allocation.rs, mir/mod.rs
 export type HirPlace = Pending<"hir::place::Place">;
 export type ProjectionKind = Pending<"ProjectionKind">;
@@ -199,8 +200,9 @@ export type { Print };
 // ty/fold.rs `trait BoundVarReplacerDelegate`
 import type { BoundVarReplacerDelegate } from "./fold.ts";
 export type { BoundVarReplacerDelegate };
-// the search graph's `Tracked<T>` (`I::Tracked<T>`, impl_interner.rs: `WithDepNode<T>`)
-export type Tracked<T> = Pending1<"Tracked", T>;
+// the search graph's `Tracked<T>` (`I::Tracked<T>`, impl_interner.rs: `WithDepNode<T>`; lane middle-traits-thir)
+import type { WithDepNode as Tracked } from "../traits/cache.ts";
+export type { Tracked };
 
 // TyCtxt's `Interner` associated list types (rustc_type_ir/interner.ts header; `&'tcx List<T>`), named for
 // tools/codegen's type map (merge-w13)
