@@ -67,18 +67,17 @@ LoweringContext.prototype.lower_inline_asm = function (this: LoweringContext, sp
       asm_arch === "S390x" ||
       asm_arch === "PowerPC" ||
       asm_arch === "PowerPC64";
-    const allow_internal_unstable = SyntaxContext.outer_expn_data(Span.ctxt(sp)).allow_internal_unstable;
-    if (
-      !is_stable &&
-      !this.tcx.features().asm_experimental_arch() &&
-      !(allow_internal_unstable !== undefined && allow_internal_unstable.includes(sym.asm_experimental_arch))
-    ) {
-      feature_err(
-        this.tcx.sess,
-        sym.asm_experimental_arch,
-        sp,
-        msg("inline assembly is not stable yet on this architecture"),
-      ).emit();
+    // PORT: the `&&` chain is nested so that `outer_expn_data` is read only when upstream reads it.
+    if (!is_stable && !this.tcx.features().asm_experimental_arch()) {
+      const allow_internal_unstable = SyntaxContext.outer_expn_data(Span.ctxt(sp)).allow_internal_unstable;
+      if (!(allow_internal_unstable !== undefined && allow_internal_unstable.includes(sym.asm_experimental_arch))) {
+        feature_err(
+          this.tcx.sess,
+          sym.asm_experimental_arch,
+          sp,
+          msg("inline assembly is not stable yet on this architecture"),
+        ).emit();
+      }
     }
   }
   const allow_experimental_reg = this.tcx.features().asm_experimental_reg();
