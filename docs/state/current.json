@@ -1,13 +1,15 @@
 {
-  "milestone": "M2b",
+  "milestone": "M3a",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
     "lex": 25780,
     "symbols": 10,
     "emit": 1466,
     "parse-ui": 991,
+    "hir-tree": 21306,
     "escape-synthetic": 11,
     "tokens": 25780,
+    "hir-tree-nocore": 21335,
     "fluent-format": 4210,
     "resdump": 21470,
     "resdump-nocore": 21488,
@@ -20,7 +22,7 @@
     "unpretty-expanded": 21460,
     "expanded-nocore": 21479
   },
-  "updated": "2026-10-14T05:32:36.142Z",
+  "updated": "2026-10-14T09:22:44.509Z",
   "open_stops": [],
   "coverage": {
     "ported": 9547,
