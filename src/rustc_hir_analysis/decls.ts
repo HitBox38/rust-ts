@@ -47,7 +47,7 @@ import type { Diag, DiagCtxtHandle } from "../rustc_errors/lib.ts";
 import type { CtorOf, DefKind, Res } from "../rustc_hir/def.ts";
 import type * as hir from "../rustc_hir/lib.ts";
 import type { HirId } from "../rustc_hir_id/lib.ts";
-import type { ObjectLifetimeDefault, ResolveBoundVars, ResolvedArg } from "../rustc_middle/middle/resolve_bound_vars.ts"; // PORT(decls): pending root (lane collect-rbv)
+import type { ObjectLifetimeDefault, ResolveBoundVars, ResolvedArg } from "../rustc_middle/middle/resolve_bound_vars.ts";
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import type { DynCompatibilityViolation } from "../rustc_middle/traits/mod.ts";
 import type { AdtDef, AdtKind } from "../rustc_middle/ty/adt.ts";
@@ -127,9 +127,7 @@ export type TestBinderExists = Pending<"rustc_hir_analysis::check::wfcheck::Test
  * rustc_middle middle/resolve_bound_vars.rs (ported by lane collect-rbv): `ResolvedArg`, `ObjectLifetimeDefault`,
  * `ResolveBoundVars<'tcx>`.
  */
-// PORT(decls): pending root. Lane collect-rbv replaced the three `Pending<..>` aliases by these type-only re-exports
-// (a type alias cannot be augmented with `declare module`, and the real `provide` / `resolve_bound_vars` /
-// `object_lifetime_default` / `deny_non_region_late_bound` do not type-check against the brands).
+// Type-only re-exports of the real types (lane collect-rbv; adopted by merge-w16a).
 export type { ObjectLifetimeDefault, ResolveBoundVars, ResolvedArg };
 /** rustc_middle ty/layout.rs `LayoutCx<'tcx>` (hir_ty_lowering/cmse.rs; M4 layout). */
 export type LayoutCx = Pending<"rustc_middle::ty::layout::LayoutCx">;

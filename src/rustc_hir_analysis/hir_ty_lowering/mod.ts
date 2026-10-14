@@ -26,133 +26,66 @@
 // upstream order; until then the `unported_methods(..)` call installs an `unported(..)` placeholder for each.
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
-// ---- lane hir-ty-lowering-a imports ----
-import { BoundConstness as hir_BoundConstness } from "../../rustc_ast/lib.ts";
-import type { Diagnostic, DiagCtxtHandle } from "../../rustc_errors/lib.ts";
-import { FatalError } from "../../rustc_errors/lib.ts";
-import { debug_DefKind, DefKind, type Res } from "../../rustc_hir/def.ts";
+// ---- imports (lanes hir-ty-lowering-a and -b, merged by merge-w16a) ----
+import { BoundConstness as hir_BoundConstness, type LitKind } from "../../rustc_ast/lib.ts";
+import { type Diagnostic, type DiagCtxtHandle, FatalError, type Diag, E0559, E0560, E0581, E0609, E0616, struct_span_code_err } from "../../rustc_errors/lib.ts";
+import { debug_DefKind, DefKind, Res, type CtorOf, debug_Res } from "../../rustc_hir/def.ts";
 import * as hir from "../../rustc_hir/lib.ts";
-import { type HirId, HirId_make_owner } from "../../rustc_hir_id/lib.ts";
+import { type HirId, HirId_make_owner, debug_HirId } from "../../rustc_hir_id/lib.ts";
 import { AMBIGUOUS_ASSOCIATED_ITEMS } from "../../rustc_lint_defs/builtin.gen.ts";
 import type { DynCompatibilityViolation } from "../../rustc_middle/traits/mod.ts";
 import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
 import { AssocItem, AssocItems, type AssocTag } from "../../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { LateParamRegionKind } from "../../rustc_middle/ty/decls.ts";
-import { GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
+import type { LateParamRegionKind, FieldIdx, VariantIdx } from "../../rustc_middle/ty/decls.ts";
+import { GenericArg, type GenericArgs, fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { debug_GenericParamDefKind, GenericParamDef, type Generics } from "../../rustc_middle/ty/generics.ts";
-import { RawList } from "../../rustc_middle/ty/list.ts";
-import { type ImplTraitHeader, Ty, Visibility } from "../../rustc_middle/ty/mod.ts";
+import { RawList, type Clauses, type List } from "../../rustc_middle/ty/list.ts";
+import { type ImplTraitHeader, Ty, Visibility, type FieldDef, type VariantDef } from "../../rustc_middle/ty/mod.ts";
 import { type Clause, Clause_upcast_from_Binder_ClauseKind } from "../../rustc_middle/ty/predicate.ts";
-import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
+import { fold_Ty, debug_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { feature_err } from "../../rustc_session/diagnostics.ts";
 import { DefId_eq, DefIdMap, DefIdSet, debug_DefId, type DefId, LocalDefId, type LocalModId, type ModId } from "../../rustc_span/def_id.ts";
 import { type ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
-import { type Ident, kw, Symbol as Sym, sym } from "../../rustc_span/symbol.ts";
-import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
-import type { BoundRegion, ClauseKind, EarlyBinder as EarlyBinderT, PolyTraitRef as PolyTraitRefT, TraitRef as TraitRefT } from "../../rustc_type_ir/decls.ts";
+import { type Ident, kw, Symbol as Sym, sym, debug_Symbol, display_Ident, display_Symbol } from "../../rustc_span/symbol.ts";
+import { Binder, EarlyBinder, BoundConst, BoundRegionKind, fold_Binder } from "../../rustc_type_ir/binder.ts";
+import type { BoundRegion, ClauseKind, EarlyBinder as EarlyBinderT, PolyTraitRef as PolyTraitRefT, TraitRef as TraitRefT, AnonConstKind, DebruijnIndex, BoundTy, PolyFnSig } from "../../rustc_type_ir/decls.ts";
 import { supertrait_def_ids, supertraits } from "../../rustc_type_ir/elaborate.ts";
-import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
+import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided, fold_Vec } from "../../rustc_type_ir/fold.ts";
 import { BoundVar } from "../../rustc_type_ir/lib.ts";
 import { as_interner, PolyTraitRef, TraitRef, visit_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
 import { Const, fold_Const } from "../../rustc_type_ir/sty/consts.ts";
 import { fold_Region, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { AliasTerm, type AliasTermKind } from "../../rustc_type_ir/term_kind.ts";
 import type { AliasTerm as AliasTermT } from "../../rustc_type_ir/ty/alias.ts";
-import { AliasConst } from "../../rustc_type_ir/const_kind.ts";
-import { AliasTy, debug_AliasTyKind } from "../../rustc_type_ir/ty_kind.ts";
+import { AliasConst, AliasConstKind } from "../../rustc_type_ir/const_kind.ts";
+import { AliasTy, debug_AliasTyKind, FnSig, FnSigKind, PolyFnSig as PolyFnSig_, fold_FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { type TypeVisitable, TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
-import type { Clauses } from "../../rustc_middle/ty/list.ts";
-import type { AnonConstKind, DebruijnIndex } from "../../rustc_type_ir/decls.ts";
-import { PLAIN } from "../../std/fmt.ts";
-import { assert, unported, unreachable, unwrap } from "../../std/panic.ts";
-import { Err, Ok, type Result } from "../../std/result.ts";
+import { PLAIN, debug_option } from "../../std/fmt.ts";
+import { assert, unported, unreachable, unwrap, assert_eq, assert_matches, panic } from "../../std/panic.ts";
+import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 import type { GenericArgsLowerer, InferCtxt, ResolvedArg } from "../decls.ts";
 import { AssocItemIsPrivate_diagnostic, ConstBoundForNonConstTrait_diagnostic } from "../diagnostics.ts";
-import { type AmbiguityBetweenVariantAndAssocItem, GenericsArgsErrExtend, prohibit_assoc_item_constraint } from "./errors.ts";
+import { type AmbiguityBetweenVariantAndAssocItem, GenericsArgsErrExtend, prohibit_assoc_item_constraint, eq_ctxt_suggestion_span } from "./errors.ts";
 import { check_generic_arg_count, lower_generic_args } from "./generics.ts";
 import * as gen from "./mod.gen.ts";
-import {
-  type ForbidParamContext,
-  type GenericArgCountMismatch,
-  type GenericArgCountResult,
-  GenericArgPosition,
-  type GenericPathSegment,
-  type InherentAssocCandidate,
-  clone_InherentAssocCandidate,
-  type OverlappingAsssocItemConstraints,
-  type PermitVariants,
-  type PredicateFilter,
-  type RegionInferReason,
-  type TypeRelativePath,
-} from "./mod.gen.ts";
-// ---- lane hir-ty-lowering-b imports ----
+import { type ForbidParamContext, type GenericArgCountMismatch, type GenericArgCountResult, GenericArgPosition, type GenericPathSegment, type InherentAssocCandidate, clone_InherentAssocCandidate, type OverlappingAsssocItemConstraints, type PermitVariants, PredicateFilter, RegionInferReason, type TypeRelativePath, ImpliedBoundsContext, type ResolvedStructPath } from "./mod.gen.ts";
 import type { ExternAbi } from "../../rustc_abi/extern_abi.ts";
-import type { LitKind } from "../../rustc_ast/lib.ts";
-import { type Diag, E0559, E0560, E0581, E0609, E0616, struct_span_code_err } from "../../rustc_errors/lib.ts";
-import { type CtorOf, type DefKind, Res, debug_Res } from "../../rustc_hir/def.ts";
-import * as hir from "../../rustc_hir/lib.ts";
 import { debug_OpaqueTyOrigin } from "../../rustc_hir/hir.gen.ts";
-import { type HirId, debug_HirId } from "../../rustc_hir_id/lib.ts";
-import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
-import { AssocItems } from "../../rustc_middle/ty/assoc.ts";
-import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
-import type { LitToConstInput } from "../../rustc_middle/ty/consts/lit.ts";
-import { const_lit_matches_ty } from "../../rustc_middle/ty/consts/lit.ts";
+import { type LitToConstInput, const_lit_matches_ty } from "../../rustc_middle/ty/consts/lit.ts";
 import { ValTree, type Value } from "../../rustc_middle/ty/consts/valtree.ts";
-import type { FieldIdx, VariantIdx } from "../../rustc_middle/ty/decls.ts";
-import { type GenericArgs, fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
-import type { Generics } from "../../rustc_middle/ty/generics.ts";
-import { type List, RawList } from "../../rustc_middle/ty/list.ts";
-import { type FieldDef, Ty, type VariantDef, Visibility } from "../../rustc_middle/ty/mod.ts";
-import type { Clause } from "../../rustc_middle/ty/predicate.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { ParamConst } from "../../rustc_middle/ty/sty.ts";
-import { debug_Ty, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
-import { type DefId, LocalDefId, type LocalModId, debug_DefId } from "../../rustc_span/def_id.ts";
-import { type ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
-import { span_bug, bug } from "../../rustc_span/macros.ts";
-import { type Ident, debug_Symbol, display_Ident, display_Symbol, kw, sym } from "../../rustc_span/symbol.ts";
-import { AliasConst, AliasConstKind } from "../../rustc_type_ir/const_kind.ts";
-import { Binder, BoundConst, BoundRegionKind, EarlyBinder, fold_Binder } from "../../rustc_type_ir/binder.ts";
-import type { BoundTy, DebruijnIndex, PolyFnSig } from "../../rustc_type_ir/decls.ts";
-import { fold_Vec } from "../../rustc_type_ir/fold.ts";
-import { as_interner } from "../../rustc_type_ir/predicate.ts";
 import { CollectAndApply_Result } from "../../rustc_type_ir/interner.ts";
-import { BoundVar } from "../../rustc_type_ir/lib.gen.ts";
 import { PatternKind } from "../../rustc_type_ir/pattern.ts";
-import { Const, fold_Const } from "../../rustc_type_ir/sty/consts.ts";
-import { FnSig, FnSigKind, PolyFnSig as PolyFnSig_, fold_FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { debug_SplattedArgIndexError } from "../../rustc_type_ir/ty_kind.gen.ts";
-import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import type { KeyedSet } from "../../rust_ts/keyed.ts";
-import { debug_option, PLAIN } from "../../std/fmt.ts";
-import { assert, assert_eq, assert_matches, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
-import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 import { check_c_variadic_abi } from "../lib.ts";
-import type { ResolvedArg } from "../decls.ts";
-import {
-  BadReturnTypeNotation_diagnostic,
-  ComplexConstArg_diagnostic,
-  NoFieldOnType_diagnostic,
-  NoVariantNamed_diagnostic,
-  OnlyStructsCanBeViewedAdt_diagnostic,
-  OnlyStructsCanBeViewedNonAdt_diagnostic,
-  ViewedFieldIsAlreadyPartOfTheView_diagnostic,
-} from "../diagnostics.gen.ts";
+import { BadReturnTypeNotation_diagnostic, ComplexConstArg_diagnostic, NoFieldOnType_diagnostic, NoVariantNamed_diagnostic, OnlyStructsCanBeViewedAdt_diagnostic, OnlyStructsCanBeViewedNonAdt_diagnostic, ViewedFieldIsAlreadyPartOfTheView_diagnostic } from "../diagnostics.gen.ts";
 import { validate_cmse_abi } from "./cmse.ts";
-import { GenericsArgsErrExtend, eq_ctxt_suggestion_span } from "./errors.ts";
-import {
-  ImpliedBoundsContext,
-  type PermitVariants,
-  PredicateFilter,
-  RegionInferReason,
-  type ResolvedStructPath,
-} from "./mod.gen.ts";
 // ---- shared ----
 import { HirTyLowerer, type HirTyLowererImpl } from "../decls.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";

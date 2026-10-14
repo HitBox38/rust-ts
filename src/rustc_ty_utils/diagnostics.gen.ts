@@ -4,6 +4,7 @@ import { Diag, type DiagArgMap, type DiagCtxtHandle, type Diagnostic, E0792, for
 import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
 import { type GenericArg, GenericArg_into_diag_arg } from "../rustc_middle/ty/generic_args.ts";
 import { type Ty } from "../rustc_middle/ty/mod.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { type Span } from "../rustc_span/lib.ts";
 
 // rustc-type: compiler/rustc_ty_utils/src/diagnostics.rs:10 NeedsDropOverflow

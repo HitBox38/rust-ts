@@ -7,6 +7,8 @@ import { type LateContext } from "./context.ts";
 import { BuiltinClashingExternSub_add_to_diag, BuiltinClashingExternSub_subdiagnostic, NonBindingLetSub_add_to_diag, NonBindingLetSub_subdiagnostic, NonSnakeCaseDiagSub_add_to_diag, NonSnakeCaseDiagSub_subdiagnostic, OverruledAttributeSub_add_to_diag, OverruledAttributeSub_subdiagnostic } from "./diagnostics.ts";
 import { type Applicability } from "../rustc_lint_defs/lib.ts";
 import { type TyCtxt } from "../rustc_middle/ty/context.ts";
+import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { type Session } from "../rustc_session/session.ts";
 import { type DefId } from "../rustc_span/def_id.ts";
 import { display_Edition, type Edition } from "../rustc_span/edition.ts";
@@ -310,7 +312,7 @@ export function ImplicitUnsafeAutorefsDiag_into_diag(self: ImplicitUnsafeAutoref
   const { raw_ptr_span: __binding_0, raw_ptr_ty: __binding_1, origin: __binding_2, method: __binding_3, suggestion: __binding_4 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "implicit autoref creates a reference to the dereference of a raw pointer" });
   diag.note({ $: "Inline", _0: "creating a reference requires the pointer target to be valid and imposes aliasing requirements" });
-  diag.arg("raw_ptr_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("raw_ptr_ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   diag.span_label(__binding_0, { $: "Inline", _0: "this raw pointer has type `{$raw_ptr_ty}`" });
   diag.subdiagnostic(ImplicitUnsafeAutorefsOrigin_subdiagnostic(__binding_2));
   if (__binding_3 !== undefined) {
@@ -339,7 +341,7 @@ export function ImplicitUnsafeAutorefsOrigin_add_to_diag(self: ImplicitUnsafeAut
     case "Autoref": {
       const { autoref_span: __binding_0, autoref_ty: __binding_1 } = self;
       const sub_args: DiagArgMap = new Map();
-      sub_args.set("autoref_ty", unported_into_diag_arg(__binding_1, diag.long_ty_path()));
+      sub_args.set("autoref_ty", Ty_into_diag_arg(__binding_1, diag.long_ty_path()));
       let __message = format_diag_message({ $: "Inline", _0: "autoref is being applied to this expression, resulting in: `{$autoref_ty}`" }, sub_args);
       diag.span_note(__binding_0, __message);
       return;
@@ -1101,7 +1103,7 @@ export interface SupertraitAsDerefTarget {
 export function SupertraitAsDerefTarget_into_diag(self: SupertraitAsDerefTarget, dcx: DiagCtxtHandle, level: Level): Diag {
   const { self_ty: __binding_0, supertrait_principal: __binding_1, target_principal: __binding_2, label: __binding_3, label2: __binding_4 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "this `Deref` implementation is covered by an implicit supertrait coercion" });
-  diag.arg("self_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("self_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   diag.arg("supertrait_principal", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
   diag.arg("target_principal", IntoDiagArg.of(__binding_2, unported_into_diag_arg));
   diag.span_label(__binding_3, { $: "Inline", _0: "`{$self_ty}` implements `Deref<Target = dyn {$target_principal}>` which conflicts with supertrait `{$supertrait_principal}`" });
@@ -1125,7 +1127,7 @@ export interface SupertraitAsDerefTargetLabel {
 export function SupertraitAsDerefTargetLabel_add_to_diag(self: SupertraitAsDerefTargetLabel, diag: Diag): void {
   const { label: __binding_0, self_ty: __binding_1 } = self;
   const sub_args: DiagArgMap = new Map();
-  sub_args.set("self_ty", unported_into_diag_arg(__binding_1, diag.long_ty_path()));
+  sub_args.set("self_ty", Ty_into_diag_arg(__binding_1, diag.long_ty_path()));
   let __message = format_diag_message({ $: "Inline", _0: "target type is a supertrait of `{$self_ty}`" }, sub_args);
   diag.span_label(__binding_0, __message);
 }
@@ -1144,7 +1146,7 @@ export interface EnumIntrinsicsMemDiscriminate {
 export function EnumIntrinsicsMemDiscriminate_into_diag(self: EnumIntrinsicsMemDiscriminate, dcx: DiagCtxtHandle, level: Level): Diag {
   const { ty_param: __binding_0, note: __binding_1 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "the return value of `mem::discriminant` is unspecified when called with a non-enum type" });
-  diag.arg("ty_param", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("ty_param", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   diag.span_note(__binding_1, { $: "Inline", _0: "the argument to `discriminant` should be a reference to an enum, but it was passed a reference to a `{$ty_param}`, which is not an enum" });
   return diag;
 }
@@ -1163,7 +1165,7 @@ export function EnumIntrinsicsMemVariant_into_diag(self: EnumIntrinsicsMemVarian
   const { ty_param: __binding_0 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "the return value of `mem::variant_count` is unspecified when called with a non-enum type" });
   diag.note({ $: "Inline", _0: "the type parameter of `variant_count` should be an enum, but it was instantiated with the type `{$ty_param}`, which is not an enum" });
-  diag.arg("ty_param", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("ty_param", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   return diag;
 }
 /** `EnumIntrinsicsMemVariant` as a `Diagnostic` trait object. */
@@ -1225,14 +1227,14 @@ export function UselessPtrNullChecksDiag_into_diag(self: UselessPtrNullChecksDia
       const { orig_ty: __binding_0, label: __binding_1 } = self;
       const diag = Diag.new(dcx, level, { $: "Inline", _0: "function pointers are not nullable, so checking them for null will always return false" });
       diag.help({ $: "Inline", _0: "wrap the function pointer inside an `Option` and use `Option::is_none` to check for null pointer value" });
-      diag.arg("orig_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+      diag.arg("orig_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
       diag.span_label(__binding_1, { $: "Inline", _0: "expression has type `{$orig_ty}`" });
       return diag;
     }
     case "Ref": {
       const { orig_ty: __binding_0, label: __binding_1 } = self;
       const diag = Diag.new(dcx, level, { $: "Inline", _0: "references are not nullable, so checking them for null will always return false" });
-      diag.arg("orig_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+      diag.arg("orig_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
       diag.span_label(__binding_1, { $: "Inline", _0: "expression has type `{$orig_ty}`" });
       return diag;
     }
@@ -1436,8 +1438,8 @@ export function RedefiningRuntimeSymbolsDiag_into_diag(self: RedefiningRuntimeSy
       diag.note({ $: "Inline", _0: "expected `{$expected_fn_sig}` (for the current target)\n{\"   \"}found `{$found_fn_sig}`" });
       diag.help({ $: "Inline", _0: "either fix the signature or remove any attributes like `#[unsafe(no_mangle)]`, `#[unsafe(export_name = \"{$symbol_name}\")]`, or `#[link_name = \"{$symbol_name}\"]`" });
       diag.arg("symbol_name", IntoDiagArg.of(__binding_0, String_into_diag_arg));
-      diag.arg("expected_fn_sig", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
-      diag.arg("found_fn_sig", IntoDiagArg.of(__binding_2, unported_into_diag_arg));
+      diag.arg("expected_fn_sig", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
+      diag.arg("found_fn_sig", IntoDiagArg.of(__binding_2, Ty_into_diag_arg));
       return diag;
     }
     case "Suspicious": {
@@ -1447,8 +1449,8 @@ export function RedefiningRuntimeSymbolsDiag_into_diag(self: RedefiningRuntimeSy
       diag.help({ $: "Inline", _0: "either fix the signature or remove any attributes like `#[unsafe(no_mangle)]`, `#[unsafe(export_name = \"{$symbol_name}\")]`, or `#[link_name = \"{$symbol_name}\"]`" });
       diag.help({ $: "Inline", _0: "allow this lint if the signature is compatible" });
       diag.arg("symbol_name", IntoDiagArg.of(__binding_0, String_into_diag_arg));
-      diag.arg("expected_fn_sig", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
-      diag.arg("found_fn_sig", IntoDiagArg.of(__binding_2, unported_into_diag_arg));
+      diag.arg("expected_fn_sig", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
+      diag.arg("found_fn_sig", IntoDiagArg.of(__binding_2, Ty_into_diag_arg));
       return diag;
     }
   }
@@ -1469,7 +1471,7 @@ export interface DropRefDiag {
 export function DropRefDiag_into_diag(self: DropRefDiag, dcx: DiagCtxtHandle, level: Level): Diag {
   const { arg_ty: __binding_0, label: __binding_1, sugg: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "calls to `std::mem::drop` with a reference instead of an owned value does nothing" });
-  diag.arg("arg_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("arg_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   diag.span_label(__binding_1, { $: "Inline", _0: "argument has type `{$arg_ty}`" });
   diag.subdiagnostic(UseLetUnderscoreIgnoreSuggestion_subdiagnostic(__binding_2));
   return diag;
@@ -1490,7 +1492,7 @@ export interface DropCopyDiag {
 export function DropCopyDiag_into_diag(self: DropCopyDiag, dcx: DiagCtxtHandle, level: Level): Diag {
   const { arg_ty: __binding_0, label: __binding_1, sugg: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "calls to `std::mem::drop` with a value that implements `Copy` does nothing" });
-  diag.arg("arg_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("arg_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   diag.span_label(__binding_1, { $: "Inline", _0: "argument has type `{$arg_ty}`" });
   diag.subdiagnostic(UseLetUnderscoreIgnoreSuggestion_subdiagnostic(__binding_2));
   return diag;
@@ -1513,7 +1515,7 @@ export function DropInPlaceRefDiag_into_diag(self: DropInPlaceRefDiag, dcx: Diag
   const { from_fn: __binding_0, arg_ty: __binding_1, label: __binding_2, sugg: __binding_3 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "calls to {$from_fn ->\n        [true] `std::ptr::drop_in_place`\n        *[false] `drop_in_place`\n    } with a pointer to a reference instead of a pointer to an owned value does nothing" });
   diag.arg("from_fn", IntoDiagArg.of(__binding_0, bool_into_diag_arg));
-  diag.arg("arg_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("arg_ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   diag.span_label(__binding_2, { $: "Inline", _0: "argument has type `{$arg_ty}`" });
   diag.subdiagnostic(UseLetUnderscoreIgnoreSuggestion_subdiagnostic(__binding_3));
   return diag;
@@ -1536,7 +1538,7 @@ export function DropInPlaceCopyDiag_into_diag(self: DropInPlaceCopyDiag, dcx: Di
   const { from_fn: __binding_0, arg_ty: __binding_1, label: __binding_2, sugg: __binding_3 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "calls to {$from_fn ->\n        [true] `std::ptr::drop_in_place`\n        *[false] `drop_in_place`\n    } with a pointer to a value that implements `Copy` does nothing" });
   diag.arg("from_fn", IntoDiagArg.of(__binding_0, bool_into_diag_arg));
-  diag.arg("arg_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("arg_ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   diag.span_label(__binding_2, { $: "Inline", _0: "argument has type `{$arg_ty}`" });
   diag.subdiagnostic(UseLetUnderscoreIgnoreSuggestion_subdiagnostic(__binding_3));
   return diag;
@@ -1557,7 +1559,7 @@ export interface ForgetRefDiag {
 export function ForgetRefDiag_into_diag(self: ForgetRefDiag, dcx: DiagCtxtHandle, level: Level): Diag {
   const { arg_ty: __binding_0, label: __binding_1, sugg: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "calls to `std::mem::forget` with a reference instead of an owned value does nothing" });
-  diag.arg("arg_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("arg_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   diag.span_label(__binding_1, { $: "Inline", _0: "argument has type `{$arg_ty}`" });
   diag.subdiagnostic(UseLetUnderscoreIgnoreSuggestion_subdiagnostic(__binding_2));
   return diag;
@@ -1578,7 +1580,7 @@ export interface ForgetCopyDiag {
 export function ForgetCopyDiag_into_diag(self: ForgetCopyDiag, dcx: DiagCtxtHandle, level: Level): Diag {
   const { arg_ty: __binding_0, label: __binding_1, sugg: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "calls to `std::mem::forget` with a value that implements `Copy` does nothing" });
-  diag.arg("arg_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("arg_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   diag.span_label(__binding_1, { $: "Inline", _0: "argument has type `{$arg_ty}`" });
   diag.subdiagnostic(UseLetUnderscoreIgnoreSuggestion_subdiagnostic(__binding_2));
   return diag;
@@ -1601,7 +1603,7 @@ export function UndroppedManuallyDropsDiag_into_diag(self: UndroppedManuallyDrop
   const { krate: __binding_0, arg_ty: __binding_1, label: __binding_2, suggestion: __binding_3 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "calls to `{$krate}::mem::drop` with `{$krate}::mem::ManuallyDrop` instead of the inner value does nothing" });
   diag.arg("krate", IntoDiagArg.of(__binding_0, str_into_diag_arg));
-  diag.arg("arg_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("arg_ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   diag.span_label(__binding_2, { $: "Inline", _0: "argument has type `{$arg_ty}`" });
   diag.subdiagnostic(UndroppedManuallyDropsSuggestion_subdiagnostic(__binding_3));
   return diag;
@@ -1649,7 +1651,7 @@ export function UndroppedManuallyDropsInPlaceDiag_into_diag(self: UndroppedManua
   const { krate: __binding_0, arg_ty: __binding_1, label: __binding_2, suggestion: __binding_3 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "calls to `drop_in_place` with a pointer to a `{$krate}::mem::ManuallyDrop` instead of the inner value does nothing" });
   diag.arg("krate", IntoDiagArg.of(__binding_0, str_into_diag_arg));
-  diag.arg("arg_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("arg_ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   diag.span_label(__binding_2, { $: "Inline", _0: "argument has type `{$arg_ty}`" });
   diag.subdiagnostic(UndroppedManuallyDropsInPlaceSuggestion_subdiagnostic(__binding_3));
   return diag;
@@ -1733,7 +1735,7 @@ export function ConstItemInteriorMutationsDiag_into_diag(self: ConstItemInterior
   diag.help({ $: "Inline", _0: "for more details on interior mutability see <https://doc.rust-lang.org/reference/interior-mutability.html>" });
   diag.arg("method_name", IntoDiagArg.of(__binding_0, into_diag_arg_using_display(display_Ident)));
   diag.arg("const_name", IntoDiagArg.of(__binding_1, into_diag_arg_using_display(display_Ident)));
-  diag.arg("const_ty", IntoDiagArg.of(__binding_2, unported_into_diag_arg));
+  diag.arg("const_ty", IntoDiagArg.of(__binding_2, Ty_into_diag_arg));
   diag.span_label(__binding_3, { $: "Inline", _0: "`{$const_name}` is a interior mutable `const` item of type `{$const_ty}`" });
   if (__binding_4 !== undefined) {
     diag.subdiagnostic(ConstItemInteriorMutationsSuggestionStatic_subdiagnostic(__binding_4));
@@ -1808,9 +1810,9 @@ export function InvalidReferenceCastingDiag_into_diag(self: InvalidReferenceCast
       const { orig_cast: __binding_0, alloc: __binding_1, from_ty: __binding_2, from_size: __binding_3, to_ty: __binding_4, to_size: __binding_5 } = self;
       const diag = Diag.new(dcx, level, { $: "Inline", _0: "casting references to a bigger memory layout than the backing allocation is undefined behavior, even if the reference is unused" });
       diag.note({ $: "Inline", _0: "casting from `{$from_ty}` ({$from_size} bytes) to `{$to_ty}` ({$to_size} bytes)" });
-      diag.arg("from_ty", IntoDiagArg.of(__binding_2, unported_into_diag_arg));
+      diag.arg("from_ty", IntoDiagArg.of(__binding_2, Ty_into_diag_arg));
       diag.arg("from_size", IntoDiagArg.of(__binding_3, number_into_diag_arg));
-      diag.arg("to_ty", IntoDiagArg.of(__binding_4, unported_into_diag_arg));
+      diag.arg("to_ty", IntoDiagArg.of(__binding_4, Ty_into_diag_arg));
       diag.arg("to_size", IntoDiagArg.of(__binding_5, number_into_diag_arg));
       if (__binding_0 !== undefined) {
         diag.span_label(__binding_0, { $: "Inline", _0: "casting happened here" });
@@ -2475,7 +2477,7 @@ export function DanglingPointersFromTemporaries_into_diag(self: DanglingPointers
   diag.note({ $: "Inline", _0: "returning a pointer to a local variable will always result in a dangling pointer" });
   diag.note({ $: "Inline", _0: "for more information, see <https://doc.rust-lang.org/reference/destructors.html>" });
   diag.arg("callee", IntoDiagArg.of(__binding_0, into_diag_arg_using_display(display_Ident)));
-  diag.arg("ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   diag.span_label(__binding_2, { $: "Inline", _0: "pointer created here" });
   diag.span_label(__binding_3, { $: "Inline", _0: "this `{$ty}` is dropped at end of statement" });
   return diag;
@@ -2502,7 +2504,7 @@ export function DanglingPointersFromLocals_into_diag(self: DanglingPointersFromL
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "{$fn_kind} returns a dangling pointer to dropped local variable `{$local_var_name}`" });
   diag.note({ $: "Inline", _0: "a dangling pointer is safe, but dereferencing one is undefined behavior" });
   diag.note({ $: "Inline", _0: "for more information, see <https://doc.rust-lang.org/reference/destructors.html>" });
-  diag.arg("ret_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("ret_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   diag.arg("fn_kind", IntoDiagArg.of(__binding_2, str_into_diag_arg));
   diag.arg("local_var_name", IntoDiagArg.of(__binding_4, into_diag_arg_using_display(display_Ident)));
   diag.span_label(__binding_1, { $: "Inline", _0: "return type is `{$ret_ty}`" });
@@ -2814,7 +2816,7 @@ export function NoopMethodCallDiag_into_diag(self: NoopMethodCallDiag, dcx: Diag
   let __code_47 = ["#[derive(Clone)]\n"];
   diag.note({ $: "Inline", _0: "the type `{$orig_ty}` does not implement `{$trait_}`, so calling `{$method}` on `&{$orig_ty}` copies the reference, which does not do anything and can be removed" });
   diag.arg("method", IntoDiagArg.of(__binding_0, into_diag_arg_using_display(display_Ident)));
-  diag.arg("orig_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("orig_ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   diag.arg("trait_", IntoDiagArg.of(__binding_2, Symbol_into_diag_arg));
   diag.span_suggestions_with_style(__binding_3, { $: "Inline", _0: "remove this redundant call" }, __code_46, "MachineApplicable", "ShowCode");
   if (__binding_4 !== undefined) {
@@ -2836,7 +2838,7 @@ export interface SuspiciousDoubleRefDerefDiag {
 export function SuspiciousDoubleRefDerefDiag_into_diag(self: SuspiciousDoubleRefDerefDiag, dcx: DiagCtxtHandle, level: Level): Diag {
   const { ty: __binding_0 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "using `.deref()` on a double reference, which returns `{$ty}` instead of dereferencing the inner type" });
-  diag.arg("ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   return diag;
 }
 /** `SuspiciousDoubleRefDerefDiag` as a `Diagnostic` trait object. */
@@ -2853,7 +2855,7 @@ export interface SuspiciousDoubleRefCloneDiag {
 export function SuspiciousDoubleRefCloneDiag_into_diag(self: SuspiciousDoubleRefCloneDiag, dcx: DiagCtxtHandle, level: Level): Diag {
   const { ty: __binding_0 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "using `.clone()` on a double reference, which returns `{$ty}` instead of cloning the inner type" });
-  diag.arg("ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   return diag;
 }
 /** `SuspiciousDoubleRefCloneDiag` as a `Diagnostic` trait object. */
@@ -3084,7 +3086,7 @@ export function IntegerToPtrTransmutesSuggestion_add_to_diag(self: IntegerToPtrT
     case "ToPtr": {
       const { krate: __binding_0, dst: __binding_1, suffix: __binding_2, start_call: __binding_3 } = self;
       const suggestions: [Span, string][] = [];
-      let __code_54 = __binding_0 + "::ptr::with_exposed_provenance" + __binding_2 + "::<" + unported_display(__binding_1) + ">(";
+      let __code_54 = __binding_0 + "::ptr::with_exposed_provenance" + __binding_2 + "::<" + display_Ty(__binding_1) + ">(";
       suggestions.push([__binding_3, __code_54]);
       const sub_args: DiagArgMap = new Map();
       sub_args.set("krate", str_into_diag_arg(__binding_0, diag.long_ty_path()));
@@ -3096,7 +3098,7 @@ export function IntegerToPtrTransmutesSuggestion_add_to_diag(self: IntegerToPtrT
     case "ToRef": {
       const { krate: __binding_0, dst: __binding_1, suffix: __binding_2, ref_mutbl: __binding_3, start_call: __binding_4 } = self;
       const suggestions: [Span, string][] = [];
-      let __code_55 = "&" + __binding_3 + "*" + __binding_0 + "::ptr::with_exposed_provenance" + __binding_2 + "::<" + unported_display(__binding_1) + ">(";
+      let __code_55 = "&" + __binding_3 + "*" + __binding_0 + "::ptr::with_exposed_provenance" + __binding_2 + "::<" + display_Ty(__binding_1) + ">(";
       suggestions.push([__binding_4, __code_55]);
       const sub_args: DiagArgMap = new Map();
       sub_args.set("krate", str_into_diag_arg(__binding_0, diag.long_ty_path()));
@@ -3821,7 +3823,7 @@ export function ImproperGpuKernelArg_into_diag(self: ImproperGpuKernelArg, dcx: 
   const { ty: __binding_0 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "passing type `{$ty}` to a function with \"gpu-kernel\" ABI may have unexpected behavior" });
   diag.help({ $: "Inline", _0: "use primitive types and raw pointers to get reliable behavior" });
-  diag.arg("ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   return diag;
 }
 /** `ImproperGpuKernelArg` as a `Diagnostic` trait object. */
@@ -3992,7 +3994,7 @@ export interface UnusedResult {
 export function UnusedResult_into_diag(self: UnusedResult, dcx: DiagCtxtHandle, level: Level): Diag {
   const { ty: __binding_0 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "unused result of type `{$ty}`" });
-  diag.arg("ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
   return diag;
 }
 /** `UnusedResult` as a `Diagnostic` trait object. */
@@ -4548,8 +4550,8 @@ export function ImplicitProvenanceCastsInt2Ptr_into_diag(self: ImplicitProvenanc
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "cast from `{$expr_ty}` to `{$cast_ty}` implicitly relies on exposed provenance" });
   diag.help({ $: "Inline", _0: "if conforming to strict provenance is not possible, use `std::ptr::with_exposed_provenance()`" });
   diag.note({ $: "Inline", _0: "for more information, visit <https://doc.rust-lang.org/std/ptr/index.html#provenance>" });
-  diag.arg("expr_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
-  diag.arg("cast_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("expr_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
+  diag.arg("cast_ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   if (__binding_2 !== undefined) {
     diag.subdiagnostic(Int2PtrSuggestion_subdiagnostic(__binding_2));
   }
@@ -4596,8 +4598,8 @@ export function ImplicitProvenanceCastsPtr2Int_into_diag(self: ImplicitProvenanc
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "cast from `{$cast_from_ty}` to `{$cast_to_ty}` implicitly exposes pointer provenance" });
   diag.help({ $: "Inline", _0: "if conforming to strict provenance is not possible, use `.expose_provenance()`" });
   diag.note({ $: "Inline", _0: "for more information, visit <https://doc.rust-lang.org/std/ptr/index.html#provenance>" });
-  diag.arg("cast_from_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
-  diag.arg("cast_to_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("cast_from_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
+  diag.arg("cast_to_ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   if (__binding_2 !== undefined) {
     diag.subdiagnostic(Ptr2IntSuggestion_subdiagnostic(__binding_2));
   }
@@ -4622,7 +4624,7 @@ export function Ptr2IntSuggestion_add_to_diag(self: Ptr2IntSuggestion, diag: Dia
       const { expr_span: __binding_0, cast_span: __binding_1, cast_to_ty: __binding_2 } = self;
       const suggestions: [Span, string][] = [];
       let __code_102 = "(";
-      let __code_103 = ").addr() as " + unported_display(__binding_2);
+      let __code_103 = ").addr() as " + display_Ty(__binding_2);
       suggestions.push([__binding_0, __code_102]);
       suggestions.push([__binding_1, __code_103]);
       const sub_args: DiagArgMap = new Map();
@@ -4644,7 +4646,7 @@ export function Ptr2IntSuggestion_add_to_diag(self: Ptr2IntSuggestion, diag: Dia
     }
     case "NeedsCast": {
       const { cast_span: __binding_0, cast_to_ty: __binding_1 } = self;
-      let __code_106 = [".addr() as " + unported_display(__binding_1)];
+      let __code_106 = [".addr() as " + display_Ty(__binding_1)];
       const sub_args: DiagArgMap = new Map();
       let __message = format_diag_message({ $: "Inline", _0: "use `.addr()` to obtain the address of a pointer" }, sub_args);
       diag.span_suggestions_with_style(__binding_0, __message, __code_106, "MaybeIncorrect", "ShowCode");
