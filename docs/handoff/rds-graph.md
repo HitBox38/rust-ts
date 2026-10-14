@@ -49,9 +49,10 @@ Branch `lane/rds-graph` (from `816b5c5`, no merges).
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see the final commit message / section below.
-- Difftest: nothing in the driver reaches these modules yet (all consumers still hold stand-ins), so no suite can
-  change; see "Sample difftest" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4790 pass, 1 skip, 0 fail (4791 tests, 299 files).
+- Sample difftest: `--suite unpretty-hir --sample 200`: MATCH 199, DIFF 0, UNPORTED 1, CRASH 0 (run
+  `20261014-170551-rds-graph-gco3`). Nothing in the driver reaches these modules yet (every consumer still holds a
+  stand-in), so no suite can change.
 
 ## Exports for the repoints (root / infer lanes)
 - `src/rustc_data_structures/transitive_relation.ts`: `TransitiveRelationBuilder.default<T>()`, `b.add(a, b)`,
