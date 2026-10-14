@@ -91,7 +91,7 @@ Other checks:
 - Fresh-process loads: index.ts, stability.ts, diagnostics.ts and lib.ts.
 - `RUST_TS_AGENT=lower-index-diag bun scripts/difftest.ts --suite parse --sample 200`: 200/200 MATCH (run
   `20261014-024103-lower-index-diag-qqj0`). Nothing in the pipeline reaches the crate yet.
-- Full `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see the end of this file.
+- Full `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 3997 pass, 1 skip, 0 fail.
 
 ## `unported(...)` left
 - **Hand code:** none.
@@ -147,4 +147,5 @@ Other checks:
   - repointing the global `rustc_hir::HirId` typemap entry from the rustc_lint_defs stand-in to rustc_hir_id.
 
 ## Full test run
-(filled in below)
+`RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 3997 pass, 1 skip (the pre-existing linux-only one), 0 fail
+(228 files).
