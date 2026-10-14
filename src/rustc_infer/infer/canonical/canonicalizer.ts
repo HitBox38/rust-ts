@@ -15,8 +15,6 @@
 // PORT: `query_state.var_values` is a `SmallVec<[GenericArg; 8]>`; `spilled()` (heap-allocated) is `len > 8`: the
 // vector only ever grows (pushes and `extend`), so it has spilled exactly when it once held more than 8 elements.
 // PORT: `tracing::debug!` / `#[instrument]` lines are dropped (no output: tracing is not enabled in the oracle runs).
-import { SsoHashMap } from "../../../rustc_data_structures/sso/mod.ts";
-import { LAYOUT_USIZE, u32_key } from "../../../rust_ts/hash_map.ts";
 import { OriginalQueryValues } from "../../../rustc_middle/infer/canonical.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { Clauses } from "../../../rustc_middle/ty/decls.ts";
@@ -582,7 +580,7 @@ Canonicalizer.canonicalize_with_base = function <U, V>(
     [...base.var_kinds],
     query_state,
     new Map(),
-    SsoHashMap.default<TyVid, number>(u32_key, LAYOUT_USIZE),
+    new Map<TyVid, number>() as unknown as Canonicalizer["sub_root_lookup_table"], // PORT(merge): SsoHashMap -> Map (infer-relate typemap)
     canonicalize_region_mode,
     needs_canonical_flags,
   );
@@ -684,7 +682,13 @@ Canonicalizer.prototype.canonical_var = function (this: Canonicalizer, var_kind:
 // rustc: compiler/rustc_infer/src/infer/canonical/canonicalizer.rs:653 get_or_insert_sub_root
 Canonicalizer.prototype.get_or_insert_sub_root = function (this: Canonicalizer, vid: TyVid): BoundVar {
   const root_vid = unwrap(this.infcx).sub_unification_table_root_var(vid);
-  const idx = this.sub_root_lookup_table.entry(root_vid).or_insert_with(() => this.var_kinds.length).value;
+  // PORT(merge): SsoHashMap -> Map (infer-relate typemap): `entry(root_vid).or_insert_with(|| self.var_kinds.len())`.
+  const table = this.sub_root_lookup_table as unknown as Map<TyVid, number>;
+  let idx = table.get(root_vid);
+  if (idx === undefined) {
+    idx = this.var_kinds.length;
+    table.set(root_vid, idx);
+  }
   return BoundVar.from_usize(idx);
 };
 
