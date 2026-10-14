@@ -6,6 +6,7 @@
 //! This API is completely unstable and subject to change.
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as debugger_visualizer from "./debugger_visualizer.ts";
+import * as entry from "./entry.ts";
 import * as lang_items from "./lang_items.ts";
 
 // pub mod abi_test;            (not ported)
@@ -18,7 +19,7 @@ export * as debugger_visualizer from "./debugger_visualizer.ts";
 // mod diagnostic_items;        (not ported)
 export * as diagnostics from "./diagnostics.ts";
 // mod eii;                     (not ported)
-// pub mod entry;               (not ported)
+export * as entry from "./entry.ts";
 // mod fake_doc_items;          (not ported)
 // pub mod hir_id_validator;    (not ported)
 // pub mod input_stats;         (not ported)
@@ -38,7 +39,7 @@ export function provide(providers: Providers): void {
   // dead::provide(providers);
   debugger_visualizer.provide(providers);
   // diagnostic_items::provide(providers);
-  // entry::provide(providers);
+  entry.provide(providers);
   lang_items.provide(providers);
   // lib_features::provide(providers);
   // reachable::provide(providers);
