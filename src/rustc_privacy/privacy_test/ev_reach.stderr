@@ -1,0 +1,113 @@
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+  --> ev_reach.rs:1:12
+   |
+LL | #![feature(rustc_attrs)]
+   |            ^^^^^^^^^^^
+   |
+   = note: using it is strongly discouraged
+   = note: `#[warn(internal_features)]` on by default
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:4:5
+   |
+LL |     pub struct Hidden { #[rustc_effective_visibility] pub f: u8, #[rustc_effective_visibility] g: u16 }
+   |     ^^^^^^^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:4:55
+   |
+LL |     pub struct Hidden { #[rustc_effective_visibility] pub f: u8, #[rustc_effective_visibility] g: u16 }
+   |                                                       ^^^^^^^^^
+
+error: not in the table
+  --> ev_reach.rs:4:96
+   |
+LL |     pub struct Hidden { #[rustc_effective_visibility] pub f: u8, #[rustc_effective_visibility] g: u16 }
+   |                                                                                                ^^^^^^
+
+error: Direct: pub(crate), Reexported: pub, Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:6:5
+   |
+LL |     pub fn make() -> Hidden { Hidden { f: 0, g: 0 } }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+  --> ev_reach.rs:8:5
+   |
+LL |     pub trait Tr { #[rustc_effective_visibility] fn m(&self); }
+   |     ^^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:10:5
+   |
+LL |     pub enum E { #[rustc_effective_visibility] V(#[rustc_effective_visibility] u8), #[rustc_effective_visibility] W }
+   |     ^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:10:48
+   |
+LL |     pub enum E { #[rustc_effective_visibility] V(#[rustc_effective_visibility] u8), #[rustc_effective_visibility] W }
+   |                                                ^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:10:80
+   |
+LL |     pub enum E { #[rustc_effective_visibility] V(#[rustc_effective_visibility] u8), #[rustc_effective_visibility] W }
+   |                                                                                ^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:10:115
+   |
+LL |     pub enum E { #[rustc_effective_visibility] V(#[rustc_effective_visibility] u8), #[rustc_effective_visibility] W }
+   |                                                                                                                   ^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+  --> ev_reach.rs:12:5
+   |
+LL |     impl Tr for Hidden { #[rustc_effective_visibility] fn m(&self) {} }
+   |     ^^^^^^^^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:14:5
+   |
+LL |     impl Hidden { #[rustc_effective_visibility] pub fn new() -> E { E::W } #[rustc_effective_visibility] fn private() {} }
+   |     ^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+  --> ev_reach.rs:16:5
+   |
+LL |     pub struct Unreached;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+error: Direct: pub, Reexported: pub, Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:19:9
+   |
+LL | pub use private::make;
+   |         ^^^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+  --> ev_reach.rs:8:50
+   |
+LL |     pub trait Tr { #[rustc_effective_visibility] fn m(&self); }
+   |                                                  ^^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+  --> ev_reach.rs:12:56
+   |
+LL |     impl Tr for Hidden { #[rustc_effective_visibility] fn m(&self) {} }
+   |                                                        ^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_reach.rs:14:49
+   |
+LL |     impl Hidden { #[rustc_effective_visibility] pub fn new() -> E { E::W } #[rustc_effective_visibility] fn private() {} }
+   |                                                 ^^^^^^^^^^^^^^^^^
+
+error: not in the table
+  --> ev_reach.rs:14:106
+   |
+LL |     impl Hidden { #[rustc_effective_visibility] pub fn new() -> E { E::W } #[rustc_effective_visibility] fn private() {} }
+   |                                                                                                          ^^^^^^^^^^^^
+
+error: aborting due to 17 previous errors; 1 warning emitted
+

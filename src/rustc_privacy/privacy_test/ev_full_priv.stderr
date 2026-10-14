@@ -1,0 +1,29 @@
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+  --> ev_full_priv.rs:1:12
+   |
+LL | #![feature(rustc_attrs)]
+   |            ^^^^^^^^^^^
+   |
+   = note: using it is strongly discouraged
+   = note: `#[warn(internal_features)]` on by default
+
+error: not in the table
+  --> ev_full_priv.rs:8:5
+   |
+LL |     struct Priv;
+   |     ^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+  --> ev_full_priv.rs:13:5
+   |
+LL |     pub fn foo() {} //~ ERROR Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+   |     ^^^^^^^^^^^^
+
+error: Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: pub(crate)
+  --> ev_full_priv.rs:16:5
+   |
+LL |     impl crate::SemiPriv { //~ ERROR Direct: pub(crate), Reexported: pub(crate), Reachable: pub(crate), ReachableThroughImplTrait: p...
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 3 previous errors; 1 warning emitted
+
