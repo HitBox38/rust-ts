@@ -256,3 +256,58 @@ export const FallibleTypeFolder_provided = {
     return unported("rustc_type_ir::fold::FallibleTypeFolder::try_fold_clauses (provided)");
   },
 };
+
+// ---- the container impls (fold.rs:232-392; lane tyir-binder) and the tools/codegen facade ----
+// PORT (merge-w13): generated code (tools/codegen type_fold.json, `module`) imports the traversal names from this
+// module: the folder / visitor traits, the impl fn types (`<T as TypeFoldable>::try_fold_with` as a value is
+// `TryFoldWith<T>`, the method of `T`'s D4 descriptor), the `TrivialTypeTraversalImpls!` fns and the container
+// impls of visit.rs / fold.rs. A generic impl takes the impl fns of its type arguments after the folder. Stubs moved
+// from codegen-tyir's src/rust_ts/tyir_contract.ts.
+export type { TypeVisitor, VisitWith } from "./visit.ts";
+export { visit_with_IndexSet, visit_with_Option, visit_with_Result, visit_with_slice, visit_with_tuple2, visit_with_tuple3, visit_with_Vec } from "./visit.ts";
+export { fold_with_trivial, try_fold_with_trivial, visit_with_trivial } from "./macros.ts";
+export type TryFoldWith<T> = TypeFoldable<T>["try_fold_with"];
+export type FoldWith<T> = TypeFoldable<T>["fold_with"];
+
+/** Stub: `impl TypeFoldable for (T, U)` (fold.rs:232). */
+export function try_fold_with_tuple2<T, U, E>(_self: [T, U], _folder: FallibleTypeFolder<E>, _try_fold_with_T: TryFoldWith<T>, _try_fold_with_U: TryFoldWith<U>): Result<[T, U], E> {
+  return unported("rustc_type_ir::fold: TypeFoldable for (T, U)");
+}
+export function fold_with_tuple2<T, U>(_self: [T, U], _folder: TypeFolder, _fold_with_T: FoldWith<T>, _fold_with_U: FoldWith<U>): [T, U] {
+  return unported("rustc_type_ir::fold: TypeFoldable for (T, U)");
+}
+/** Stub: `impl TypeFoldable for (A, B, C)` (fold.rs:242). */
+export function try_fold_with_tuple3<A, B, C, E>(_self: [A, B, C], _folder: FallibleTypeFolder<E>, _a: TryFoldWith<A>, _b: TryFoldWith<B>, _c: TryFoldWith<C>): Result<[A, B, C], E> {
+  return unported("rustc_type_ir::fold: TypeFoldable for (A, B, C)");
+}
+export function fold_with_tuple3<A, B, C>(_self: [A, B, C], _folder: TypeFolder, _a: FoldWith<A>, _b: FoldWith<B>, _c: FoldWith<C>): [A, B, C] {
+  return unported("rustc_type_ir::fold: TypeFoldable for (A, B, C)");
+}
+/** Stub: `impl TypeFoldable for Option<T>` (fold.rs:261). */
+export function try_fold_with_Option<T, E>(_self: T | undefined, _folder: FallibleTypeFolder<E>, _try_fold_with_T: TryFoldWith<T>): Result<T | undefined, E> {
+  return unported("rustc_type_ir::fold: TypeFoldable for Option<T>");
+}
+export function fold_with_Option<T>(_self: T | undefined, _folder: TypeFolder, _fold_with_T: FoldWith<T>): T | undefined {
+  return unported("rustc_type_ir::fold: TypeFoldable for Option<T>");
+}
+/** Stub: `impl TypeFoldable for Result<T, E>` (fold.rs:274). */
+export function try_fold_with_Result<T, U, E>(_self: Result<T, U>, _folder: FallibleTypeFolder<E>, _try_fold_with_T: TryFoldWith<T>, _try_fold_with_U: TryFoldWith<U>): Result<Result<T, U>, E> {
+  return unported("rustc_type_ir::fold: TypeFoldable for Result<T, E>");
+}
+export function fold_with_Result<T, U>(_self: Result<T, U>, _folder: TypeFolder, _fold_with_T: FoldWith<T>, _fold_with_U: FoldWith<U>): Result<T, U> {
+  return unported("rustc_type_ir::fold: TypeFoldable for Result<T, E>");
+}
+/** Stub: `impl TypeFoldable for Vec<T>` (fold.rs:352; also `ThinVec` :362, `IndexVec` :382). */
+export function try_fold_with_Vec<T, E>(_self: T[], _folder: FallibleTypeFolder<E>, _try_fold_with_T: TryFoldWith<T>): Result<T[], E> {
+  return unported("rustc_type_ir::fold: TypeFoldable for Vec<T>");
+}
+export function fold_with_Vec<T>(_self: T[], _folder: TypeFolder, _fold_with_T: FoldWith<T>): T[] {
+  return unported("rustc_type_ir::fold: TypeFoldable for Vec<T>");
+}
+/** Stub: `impl TypeFoldable for Box<[T]>` (fold.rs:372). */
+export function try_fold_with_slice<T, E>(_self: T[], _folder: FallibleTypeFolder<E>, _try_fold_with_T: TryFoldWith<T>): Result<T[], E> {
+  return unported("rustc_type_ir::fold: TypeFoldable for Box<[T]>");
+}
+export function fold_with_slice<T>(_self: T[], _folder: TypeFolder, _fold_with_T: FoldWith<T>): T[] {
+  return unported("rustc_type_ir::fold: TypeFoldable for Box<[T]>");
+}

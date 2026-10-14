@@ -18,9 +18,15 @@ import { unported_methods } from "../../rust_ts/stubs.ts";
 import type { Fmt } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
 import type { RegionKind } from "../decls.ts";
-import type { TypeFoldable } from "../fold.ts";
+import type { FallibleTypeFolder, TypeFoldable, TypeFolder } from "../fold.ts";
+import type { Result } from "../../std/result.ts";
+import type { TypeVisitor } from "../visit.ts";
+import type { LateParamRegion } from "./mod.gen.ts";
 
 export * from "./consts.ts";
+// The other types of sty/mod.rs (`LateParamRegion`) with their derived impls are generated into mod.gen.ts (set rustc_ty
+// of tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
+export * from "./mod.gen.ts";
 
 /// Use this rather than `RegionKind`, whenever possible.
 // rustc-type: compiler/rustc_type_ir/src/sty/mod.rs:26 Region
@@ -93,3 +99,19 @@ export const fold_Region: TypeFoldable<Region> = {
     return unported("rustc_type_ir::sty::Region: TypeFoldable::fold_with");
   },
 };
+
+// PORT (merge-w13): the impl fns of `fold_Region` as tools/codegen's generated code calls them (type_fold.json shape).
+export function visit_with_Region<R>(self: Region, visitor: TypeVisitor<R>): R {
+  return fold_Region.visit_with(self, visitor);
+}
+export function try_fold_with_Region<E>(self: Region, folder: FallibleTypeFolder<E>): Result<Region, E> {
+  return fold_Region.try_fold_with(self, folder);
+}
+export function fold_with_Region(self: Region, folder: TypeFolder): Region {
+  return fold_Region.fold_with(self, folder);
+}
+
+/** Stub: `impl<I: Interner> fmt::Debug for LateParamRegion<I>` (sty/mod.rs:330), ported by the later tyir lanes. */
+export function debug_LateParamRegion(_v: LateParamRegion, _f: Fmt): string {
+  return unported("rustc_type_ir::sty::LateParamRegion: Debug (manual impl, compiler/rustc_type_ir/src/sty/mod.rs:330)");
+}

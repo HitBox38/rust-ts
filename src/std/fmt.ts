@@ -109,6 +109,19 @@ export function debug_struct(f: Fmt, name: string, fields: [string, string][]): 
   return name + " { " + fields.map(([k, v]) => k + ": " + v).join(", ") + " }";
 }
 
+/**
+ * `f.debug_struct(name).field(..)...finish_non_exhaustive()` (library/core/src/fmt/builders.rs
+ * `DebugStruct::finish_non_exhaustive`). Field values are already formatted with `f`, as for `debug_struct`.
+ */
+export function debug_struct_non_exhaustive(f: Fmt, name: string, fields: [string, string][]): string {
+  // `has_fields == false`: `name { .. }` in both modes
+  if (fields.length === 0) return name + " { .. }";
+  const s = debug_struct(f, name, fields);
+  // pretty: the PadAdapter writes `..\n` indented, then `}`; plain: `, .. }`
+  if (f.alternate) return s.slice(0, -1) + "    ..\n}";
+  return s.slice(0, -2) + ", .. }";
+}
+
 /** `f.debug_tuple(name).field(..)...finish()` */
 export function debug_tuple(f: Fmt, name: string, fields: string[]): string {
   if (fields.length === 0) return name;

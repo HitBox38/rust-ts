@@ -10,6 +10,16 @@
 import { Ty } from "./mod.ts";
 import { RawList } from "./list.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
+import type { Debug } from "../../std/fmt.ts";
+import { unported } from "../../std/panic.ts";
+import type { ParamTy } from "./sty.gen.ts";
+
+// The types of this file with their derived Debug / TypeVisitable / TypeFoldable impls are generated into sty.gen.ts
+// (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
+export * from "./sty.gen.ts";
+
+// `impl fmt::Debug for ty::ParamTy` (structural_impls.rs:88): ported by the later ty lanes (codegen-tyir stub).
+export const debug_ParamTy: Debug<ParamTy> = (_v, _f) => unported("Debug for ParamTy (`impl fmt::Debug for ty::ParamTy` (structural_impls.rs:88))");
 
 unported_methods(Ty.prototype, "rustc_middle::ty::sty::Ty", [
   "tuple_fields",

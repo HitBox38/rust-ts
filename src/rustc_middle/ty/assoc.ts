@@ -10,6 +10,10 @@
 import { TyCtxt } from "./context.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
 
+// The types of this file with their derived Debug / TypeVisitable / TypeFoldable impls are generated into assoc.gen.ts
+// (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
+export * from "./assoc.gen.ts";
+
 unported_methods(TyCtxt.prototype, "rustc_middle::ty::assoc::TyCtxt", [
   "associated_types_for_impl_traits_in_associated_fn",
 ]);

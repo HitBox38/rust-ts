@@ -12,6 +12,7 @@ import type { Ty } from "../rustc_middle/ty/mod.ts";
 import type { VisitorResult } from "../rustc_ast_ir/visit.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { unported } from "../std/panic.ts";
+import type { Result } from "../std/result.ts";
 import type { Binder, DebruijnIndex, TypeFlags } from "./decls.ts";
 import type { PredicateProxy } from "./fold.ts";
 import type { Const, Region } from "./sty/mod.ts";
@@ -105,4 +106,39 @@ export interface Flags<T> {
   flags(self: T): TypeFlags;
   // rustc: compiler/rustc_type_ir/src/visit.rs:243 outer_exclusive_binder
   outer_exclusive_binder(self: T): DebruijnIndex;
+}
+
+// ---- the container impls (visit.rs:136-240; lane tyir-binder) ----
+// PORT (merge-w13): the impl fn shape of tools/codegen (type_fold.json): `<T as TypeVisitable>::visit_with` as a value
+// is `VisitWith<T>`, the `visit_with` of `T`'s D4 descriptor; a generic impl takes its type arguments' impl fns after
+// the visitor. Stubs moved from codegen-tyir's src/rust_ts/tyir_contract.ts.
+export type VisitWith<T> = TypeVisitable<T>["visit_with"];
+
+/** Stub: `impl TypeVisitable for (T, U)` (visit.rs:136). */
+export function visit_with_tuple2<T, U, R>(_self: [T, U], _visitor: TypeVisitor<R>, _visit_with_T: VisitWith<T>, _visit_with_U: VisitWith<U>): R {
+  return unported("rustc_type_ir::visit: TypeVisitable for (T, U)");
+}
+/** Stub: `impl TypeVisitable for (A, B, C)` (visit.rs:143). */
+export function visit_with_tuple3<A, B, C, R>(_self: [A, B, C], _visitor: TypeVisitor<R>, _a: VisitWith<A>, _b: VisitWith<B>, _c: VisitWith<C>): R {
+  return unported("rustc_type_ir::visit: TypeVisitable for (A, B, C)");
+}
+/** Stub: `impl TypeVisitable for Option<T>` (visit.rs:153). */
+export function visit_with_Option<T, R>(_self: T | undefined, _visitor: TypeVisitor<R>, _visit_with_T: VisitWith<T>): R {
+  return unported("rustc_type_ir::visit: TypeVisitable for Option<T>");
+}
+/** Stub: `impl TypeVisitable for Result<T, E>` (visit.rs:162). */
+export function visit_with_Result<T, U, R>(_self: Result<T, U>, _visitor: TypeVisitor<R>, _visit_with_T: VisitWith<T>, _visit_with_U: VisitWith<U>): R {
+  return unported("rustc_type_ir::visit: TypeVisitable for Result<T, E>");
+}
+/** Stub: `impl TypeVisitable for Vec<T>` (visit.rs:189; also `ThinVec` :196, `SmallVec` :203, `IndexVec` :227). */
+export function visit_with_Vec<T, R>(_self: readonly T[], _visitor: TypeVisitor<R>, _visit_with_T: VisitWith<T>): R {
+  return unported("rustc_type_ir::visit: TypeVisitable for Vec<T>");
+}
+/** Stub: `impl TypeVisitable for [T]` (visit.rs:213; also `[T; N]` :220). */
+export function visit_with_slice<T, R>(_self: readonly T[], _visitor: TypeVisitor<R>, _visit_with_T: VisitWith<T>): R {
+  return unported("rustc_type_ir::visit: TypeVisitable for [T]");
+}
+/** Stub: `impl TypeVisitable for IndexSet<T>` (visit.rs:234). */
+export function visit_with_IndexSet<T, R>(_self: Set<T>, _visitor: TypeVisitor<R>, _visit_with_T: VisitWith<T>): R {
+  return unported("rustc_type_ir::visit: TypeVisitable for IndexSet<T>");
 }

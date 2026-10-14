@@ -10,6 +10,10 @@
 import { Const } from "../../rustc_type_ir/sty/consts.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
 
+// The types of this file with their derived Debug / TypeVisitable / TypeFoldable impls are generated into consts.gen.ts
+// (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
+export * from "./consts.gen.ts";
+
 unported_methods(Const.prototype, "rustc_middle::ty::consts::Const", [
   "to_value",
   "try_to_value",

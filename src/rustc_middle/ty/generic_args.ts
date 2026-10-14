@@ -18,7 +18,16 @@ import type { Fmt } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { RawList, type List } from "./list.ts";
-import { Term, Ty } from "./mod.ts";
+import { debug_Ty, Term, Ty } from "./mod.ts";
+import type { FallibleTypeFolder, TypeFolder } from "../../rustc_type_ir/fold.ts";
+import { visit_with_slice, type TypeVisitor } from "../../rustc_type_ir/visit.ts";
+import { debug_RawList } from "./list.ts";
+import { debug_list } from "../../std/fmt.ts";
+import type { Result } from "../../std/result.ts";
+
+// The other types of generic_args.rs with their derived impls are generated into generic_args.gen.ts (set rustc_ty of
+// tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
+export * from "./generic_args.gen.ts";
 
 /// An entity in the Rust type system, which can be one of
 /// several kinds (types, lifetimes, and consts).
@@ -240,3 +249,54 @@ unported_methods(RawList, "rustc_middle::ty::generic_args::GenericArgs", [
   "fill_single",
   "extend_with_error",
 ]);
+
+// ---- tools/codegen's view of the impls above (merge-w13) ----
+// PORT: generated code calls `visit_with_<T>` / `try_fold_with_<T>` / `fold_with_<T>` free fns (type_fold.json); for the
+// interned types they are the methods of the D4 descriptors above. `I::Tys` = `&List<Ty>`, `I::GenericArgsSlice` =
+// `&[GenericArg]` (TyCtxt's `Interner` associated types, rustc_type_ir/interner.ts header).
+export type Tys = List<Ty>;
+export type GenericArgsSlice = readonly GenericArg[];
+
+export function visit_with_GenericArg<R>(self: GenericArg, visitor: TypeVisitor<R>): R {
+  return fold_GenericArg.visit_with(self, visitor);
+}
+export function try_fold_with_GenericArg<E>(self: GenericArg, folder: FallibleTypeFolder<E>): Result<GenericArg, E> {
+  return fold_GenericArg.try_fold_with(self, folder);
+}
+export function fold_with_GenericArg(self: GenericArg, folder: TypeFolder): GenericArg {
+  return fold_GenericArg.fold_with(self, folder);
+}
+export function visit_with_GenericArgs<R>(self: GenericArgs, visitor: TypeVisitor<R>): R {
+  return fold_GenericArgs.visit_with(self, visitor);
+}
+export function try_fold_with_GenericArgs<E>(self: GenericArgs, folder: FallibleTypeFolder<E>): Result<GenericArgs, E> {
+  return fold_GenericArgs.try_fold_with(self, folder);
+}
+export function fold_with_GenericArgs(self: GenericArgs, folder: TypeFolder): GenericArgs {
+  return fold_GenericArgs.fold_with(self, folder);
+}
+export function visit_with_Tys<R>(self: Tys, visitor: TypeVisitor<R>): R {
+  return fold_List_Ty.visit_with(self, visitor);
+}
+export function try_fold_with_Tys<E>(self: Tys, folder: FallibleTypeFolder<E>): Result<Tys, E> {
+  return fold_List_Ty.try_fold_with(self, folder);
+}
+export function fold_with_Tys(self: Tys, folder: TypeFolder): Tys {
+  return fold_List_Ty.fold_with(self, folder);
+}
+/** `impl TypeVisitable for &[T]` (visit.rs:171 `&T` + :213 `[T]`) with `T = GenericArg`; no TypeFoldable impl. */
+export function visit_with_GenericArgsSlice<R>(self: GenericArgsSlice, visitor: TypeVisitor<R>): R {
+  return visit_with_slice(self, visitor, visit_with_GenericArg);
+}
+/** `Debug for &List<GenericArg>`: `RawList`'s Debug (list.rs:192). */
+export function debug_GenericArgs(v: GenericArgs, f: Fmt): string {
+  return debug_RawList(v, f, debug_GenericArg);
+}
+/** `Debug for &List<Ty>`: `RawList`'s Debug (list.rs:192). */
+export function debug_Tys(v: Tys, f: Fmt): string {
+  return debug_RawList(v, f, debug_Ty);
+}
+/** `Debug for &[GenericArg]`: the slice's Debug. */
+export function debug_GenericArgsSlice(v: GenericArgsSlice, f: Fmt): string {
+  return debug_list(f, v.map((x) => debug_GenericArg(x, f)));
+}

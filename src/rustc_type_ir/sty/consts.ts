@@ -20,8 +20,13 @@ import type { Fmt } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
 import type { ConstKind, DebruijnIndex, TypeFlags } from "../decls.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { TypeSuperFoldable } from "../fold.ts";
-import type { TypeSuperVisitable } from "../visit.ts";
+import type { FallibleTypeFolder, TypeFolder, TypeSuperFoldable } from "../fold.ts";
+import type { TypeSuperVisitable, TypeVisitor } from "../visit.ts";
+import type { Result } from "../../std/result.ts";
+
+// The other types of sty/consts.rs with their derived impls are generated into consts.gen.ts (set rustc_ty of
+// tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
+export * from "./consts.gen.ts";
 
 // rustc-type: compiler/rustc_type_ir/src/sty/consts.rs:22 Const
 export class Const extends Interned {
@@ -112,3 +117,14 @@ export const fold_Const: TypeSuperFoldable<Const> & TypeSuperVisitable<Const> = 
     return unported("rustc_type_ir::sty::Const: TypeSuperFoldable::super_fold_with");
   },
 };
+
+// PORT (merge-w13): the impl fns of `fold_Const` as tools/codegen's generated code calls them (type_fold.json shape).
+export function visit_with_Const<R>(self: Const, visitor: TypeVisitor<R>): R {
+  return fold_Const.visit_with(self, visitor);
+}
+export function try_fold_with_Const<E>(self: Const, folder: FallibleTypeFolder<E>): Result<Const, E> {
+  return fold_Const.try_fold_with(self, folder);
+}
+export function fold_with_Const(self: Const, folder: TypeFolder): Const {
+  return fold_Const.fold_with(self, folder);
+}

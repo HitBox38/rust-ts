@@ -21,18 +21,19 @@ import { DefId, type DefId as DefIdT, debug_DefId, debug_LocalModId, debug_ModId
 import type { Ident, Symbol } from "../../rustc_span/symbol.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import type { DefKind, Res } from "../../rustc_hir/def.ts";
-import { type Debug, debug_tuple, PLAIN } from "../../std/fmt.ts";
+import { type Debug, debug_list, debug_tuple, type Fmt, PLAIN } from "../../std/fmt.ts";
 import { panic } from "../../std/panic.ts";
 import { Interned } from "../../rustc_data_structures/intern.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
 import type { DebruijnIndex, TermKind, TyKind, TypeFlags } from "../../rustc_type_ir/decls.ts";
-import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
+import type { FallibleTypeFolder, TypeFoldable, TypeFolder } from "../../rustc_type_ir/fold.ts";
+import type { TypeVisitor } from "../../rustc_type_ir/visit.ts";
 import { Const } from "../../rustc_type_ir/sty/mod.ts";
 import { unported } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import { type IntoQueryKey, into_query_key_DefId } from "../query/into_query_key.ts";
 import type { TyCtxt } from "./context.ts";
-import type { AssocItem, Attribute, Body, BodyId, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, LayoutError, PseudoCanonicalInput, ReprOptions, TypeckResults, VariantDef } from "./decls.ts";
+import type { AssocItem, Attribute, Body, BodyId, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, ParamEnv, InstanceKind, LayoutError, PseudoCanonicalInput, ReprOptions, TypeckResults, VariantDef } from "./decls.ts";
 import type { EarlyBinder, ImplPolarity, TraitRef } from "../../rustc_type_ir/decls.ts";
 import type { GenericArg, GenericArgs } from "./generic_args.ts";
 import type { List } from "./list.ts";
@@ -318,7 +319,7 @@ export const Term = {
 };
 
 /** Stub: `impl Debug for Term` (mod.rs:579). */
-export function debug_Term(_v: Term): string {
+export function debug_Term(_v: Term, _f: Fmt): string {
   return unported("rustc_middle::ty::Term: Debug");
 }
 
@@ -334,6 +335,55 @@ export const fold_Term: TypeFoldable<Term> = {
     return unported("rustc_middle::ty::Term: TypeVisitable::visit_with");
   },
 };
+
+// ---- tools/codegen's view of the traversal / Debug impls (merge-w13) ----
+// PORT: generated code calls `visit_with_<T>` / `try_fold_with_<T>` / `fold_with_<T>` free fns and `debug_<T>`
+// (tools/codegen type_fold.json / tyir.typemap.json). For `Term` they are the methods of the D4 descriptor above;
+// `Ty`'s impls (structural_impls.rs) are stubs until lane ty-print / tyir-binder ports them (then: a D4 descriptor
+// `fold_Ty`, which these wrap). `I::FnInputTys` = `&[Ty]` (rustc_type_ir/interner.ts header).
+export type FnInputTys = readonly Ty[];
+
+export function visit_with_Term<R>(self: Term, visitor: TypeVisitor<R>): R {
+  return fold_Term.visit_with(self, visitor);
+}
+export function try_fold_with_Term<E>(self: Term, folder: FallibleTypeFolder<E>): Result<Term, E> {
+  return fold_Term.try_fold_with(self, folder);
+}
+export function fold_with_Term(self: Term, folder: TypeFolder): Term {
+  return fold_Term.fold_with(self, folder);
+}
+
+/** Stub: `impl fmt::Debug for Ty` (structural_impls.rs:82). */
+export function debug_Ty(_v: Ty, _f: Fmt): string {
+  return unported("rustc_middle::ty::Ty: Debug (structural_impls.rs:82)");
+}
+/** Stub: `impl TypeVisitable for Ty` (structural_impls.rs:324). */
+export function visit_with_Ty<R>(_self: Ty, _visitor: TypeVisitor<R>): R {
+  return unported("rustc_middle::ty::Ty: TypeVisitable::visit_with (structural_impls.rs:324)");
+}
+/** Stub: `impl TypeFoldable for Ty` (structural_impls.rs:311). */
+export function try_fold_with_Ty<E>(_self: Ty, _folder: FallibleTypeFolder<E>): Result<Ty, E> {
+  return unported("rustc_middle::ty::Ty: TypeFoldable::try_fold_with (structural_impls.rs:311)");
+}
+export function fold_with_Ty(_self: Ty, _folder: TypeFolder): Ty {
+  return unported("rustc_middle::ty::Ty: TypeFoldable::fold_with (structural_impls.rs:311)");
+}
+/** `Debug for &[Ty]`: the slice's Debug. */
+export function debug_FnInputTys(v: FnInputTys, f: Fmt): string {
+  return debug_list(f, v.map((x) => debug_Ty(x, f)));
+}
+
+/** Stub: `#[derive(TypeVisitable)]` of `ParamEnv` (mod.rs:1018; not generated yet: ParamEnv is pending). */
+export function visit_with_ParamEnv<R>(_self: ParamEnv, _visitor: TypeVisitor<R>): R {
+  return unported("rustc_middle::ty::ParamEnv: TypeVisitable::visit_with (mod.rs:1018 derive)");
+}
+/** Stub: `#[derive(TypeFoldable)]` of `ParamEnv` (mod.rs:1018). */
+export function try_fold_with_ParamEnv<E>(_self: ParamEnv, _folder: FallibleTypeFolder<E>): Result<ParamEnv, E> {
+  return unported("rustc_middle::ty::ParamEnv: TypeFoldable::try_fold_with (mod.rs:1018 derive)");
+}
+export function fold_with_ParamEnv(_self: ParamEnv, _folder: TypeFolder): ParamEnv {
+  return unported("rustc_middle::ty::ParamEnv: TypeFoldable::fold_with (mod.rs:1018 derive)");
+}
 
 // ---- impl TyCtxt (ty/mod.rs) -------------------------------------------------------------------
 // PORT: free functions `TyCtxt_<name>(tcx, ..)`; the `TyCtxt` class (context.ts) declares the methods and

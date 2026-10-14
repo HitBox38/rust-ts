@@ -10,6 +10,9 @@ import type { Clause } from "../rustc_middle/ty/predicate.ts";
 import type { Binder, ConstKind, DebruijnIndex, PredicateKind, TyKind, TypeFlags } from "./decls.ts";
 import { INNERMOST, TypeFlags_empty } from "./decls.ts";
 
+// `TypeFlags` (bitflags) is generated into flags.gen.ts (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir).
+export * from "./flags.gen.ts";
+
 // rustc-type: compiler/rustc_type_ir/src/flags.rs:165 FlagComputation
 export class FlagComputation {
   constructor(

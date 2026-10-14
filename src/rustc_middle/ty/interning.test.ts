@@ -11,7 +11,7 @@ import { CRATE_DEF_ID, CrateNum, DefId, DefIdMap, DefIdSet, DefIndex } from "../
 import { HirId, HirIdMap, HirIdSet, ItemLocalId, OwnerId } from "../../rustc_hir_id/lib.ts";
 import { kw } from "../../rustc_span/symbol.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
-import { type Binder, type BoundVar, type DebruijnIndex, INNERMOST, type PredicateKind, type RegionVid, TypeFlags_empty } from "../../rustc_type_ir/decls.ts";
+import { type Binder, type BoundVar, type ConstVid, type DebruijnIndex, INNERMOST, type PredicateKind, type RegionVid, TypeFlags_empty } from "../../rustc_type_ir/decls.ts";
 import { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { CollectAndApply_Result } from "../../rustc_type_ir/interner.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
@@ -57,7 +57,7 @@ describe("Region", () => {
     expect(tcx.intern_region({ $: "ReVar", _0: 600 as RegionVid })).toBe(a);
     expect(tcx.intern_region({ $: "ReVar", _0: 601 as RegionVid })).not.toBe(a);
     expect(a).toBeInstanceOf(Region);
-    expect(a.kind()).toEqual({ $: "ReVar", _0: 600 });
+    expect(a.kind()).toEqual({ $: "ReVar", _0: 600 as RegionVid });
     expect(Object.isFrozen(a)).toBe(true);
     expect(Object.isFrozen(a.kind())).toBe(true);
   });
@@ -146,11 +146,11 @@ describe("Ty", () => {
 describe("Const and Predicate", () => {
   test("mk_ct_from_kind interns", () => {
     const tcx = mk_tcx();
-    const c = tcx.mk_ct_from_kind({ $: "Infer", _0: { $: "Var", _0: 1 } });
-    expect(tcx.mk_ct_from_kind({ $: "Infer", _0: { $: "Var", _0: 1 } })).toBe(c);
-    expect(tcx.mk_ct_from_kind({ $: "Infer", _0: { $: "Var", _0: 2 } })).not.toBe(c);
+    const c = tcx.mk_ct_from_kind({ $: "Infer", _0: { $: "Var", _0: 1 as ConstVid } });
+    expect(tcx.mk_ct_from_kind({ $: "Infer", _0: { $: "Var", _0: 1 as ConstVid } })).toBe(c);
+    expect(tcx.mk_ct_from_kind({ $: "Infer", _0: { $: "Var", _0: 2 as ConstVid } })).not.toBe(c);
     expect(c).toBeInstanceOf(Const);
-    expect(c.kind()).toEqual({ $: "Infer", _0: { $: "Var", _0: 1 } });
+    expect(c.kind()).toEqual({ $: "Infer", _0: { $: "Var", _0: 1 as ConstVid } });
   });
 
   test("CommonConsts is UNPORTED until ValTree/ScalarInt land", () => {
@@ -238,7 +238,7 @@ describe("GenericArg and Term", () => {
     const tcx = mk_tcx();
     const ty = tcx.types.bool;
     const re = tcx.lifetimes.re_static;
-    const ct = tcx.mk_ct_from_kind({ $: "Infer", _0: { $: "Var", _0: 0 } });
+    const ct = tcx.mk_ct_from_kind({ $: "Infer", _0: { $: "Var", _0: 0 as ConstVid } });
     expect(GenericArg.from_Ty(ty)).toBe(ty);
     expect(GenericArg.kind(ty)).toEqual({ $: "Type", _0: ty });
     expect(GenericArg.kind(re)).toEqual({ $: "Lifetime", _0: re });

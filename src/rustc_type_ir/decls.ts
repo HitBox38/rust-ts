@@ -37,131 +37,64 @@ export type PendingEnum<N extends string> = { readonly $: string; readonly __pen
 /** A generic type not ported yet; `T` is phantom. */
 export type Pending1<N extends string, T> = { readonly __pending: N; readonly __T?: T };
 
-// ---- newtype indices (`rustc_index::newtype_index!`) and bitflags: final shapes (branded numbers) ----
-// rustc_type_ir lib.rs:171
-export type DebruijnIndex = number & { readonly __brand: "DebruijnIndex" };
-// lib.rs:381
-export type UniverseIndex = number & { readonly __brand: "UniverseIndex" };
-// lib.rs:436
-export type BoundVar = number & { readonly __brand: "BoundVar" };
-// region_kind.rs:20
-export type RegionVid = number & { readonly __brand: "RegionVid" };
-// ty_kind.rs:731, :740, :749
-export type TyVid = number & { readonly __brand: "TyVid" };
-export type IntVid = number & { readonly __brand: "IntVid" };
-export type FloatVid = number & { readonly __brand: "FloatVid" };
-// const_kind.rs:171
-export type ConstVid = number & { readonly __brand: "ConstVid" };
-// flags.rs:11 (`bitflags! { pub struct TypeFlags: u32 }`)
-export type TypeFlags = number & { readonly __brand: "TypeFlags" };
+// ---- the generated types (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir; re-exported by merge-w13) ----
+// Each name comes from the hand module of its upstream file (which re-exports `<file>.gen.ts`). The shapes are
+// PORTING §5's: newtype indices and bitflags are branded numbers, enums `{ $: variant, .. }` unions, structs
+// interfaces; `I: Interner` is erased (D3).
+import type { BoundVar, ClosureKind, DebruijnIndex, UniverseIndex, Variance } from "./lib.ts";
+export type { BoundVar, ClosureKind, DebruijnIndex, UniverseIndex, Variance };
+import type { RegionKind, RegionVid } from "./region_kind.ts";
+export type { RegionKind, RegionVid };
+import type { AliasTyKind, CoroutineWitnessTypes, FloatVid, FnSig, FnSigKind, InferTy, IntVid, IsRigid, TyKind, TyVid } from "./ty_kind.ts";
+export type { AliasTyKind, CoroutineWitnessTypes, FloatVid, FnSig, FnSigKind, InferTy, IntVid, IsRigid, TyKind, TyVid };
+import type { AliasConstKind, AnonConstKind, ConstKind, ConstVid, InferConst, ValTreeKind } from "./const_kind.ts";
+export type { AliasConstKind, AnonConstKind, ConstKind, ConstVid, InferConst, ValTreeKind };
+import type { TypeFlags } from "./flags.ts";
+export type { TypeFlags };
+import type { ClauseKind, PredicateKind } from "./predicate_kind.ts";
+export type { ClauseKind, PredicateKind };
+import type { Binder, BoundConst, BoundRegion, BoundRegionKind, BoundTy, BoundTyKind, BoundVarIndexKind, BoundVariableKind, EarlyBinder, PlaceholderConst, PlaceholderRegion, PlaceholderType } from "./binder.ts";
+export type { Binder, BoundConst, BoundRegion, BoundRegionKind, BoundTy, BoundTyKind, BoundVarIndexKind, BoundVariableKind, EarlyBinder, PlaceholderConst, PlaceholderRegion, PlaceholderType };
+import type { GenericArgKind } from "./generic_arg.ts";
+export type { GenericArgKind };
+import type { AliasTermKind, TermKind } from "./term_kind.ts";
+export type { AliasTermKind, TermKind };
+import type { PatternKind } from "./pattern.ts";
+export type { PatternKind };
+import type { CanonicalVarKind } from "./canonical.ts";
+export type { CanonicalVarKind };
+import type { ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, HostEffectClause, ImplPolarity, NormalizesTo, OutlivesClause, ProjectionClause, TraitClause, TraitRef } from "./predicate.ts";
+export type { ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, HostEffectClause, ImplPolarity, NormalizesTo, OutlivesClause, ProjectionClause, TraitClause, TraitRef };
+import type { AliasConst, AliasTy } from "./ty/alias.ts";
+export type { AliasConst, AliasTy };
+import type { ClosureArgs, ClosureArgsParts, CoroutineArgs, CoroutineArgsParts, CoroutineClosureArgs, CoroutineClosureArgsParts } from "./ty_kind/closure.ts";
+export type { ClosureArgs, ClosureArgsParts, CoroutineArgs, CoroutineArgsParts, CoroutineClosureArgs, CoroutineClosureArgsParts };
+import type { OpaqueTypeKey } from "./opaque_ty.ts";
+export type { OpaqueTypeKey };
+import type { Unnormalized } from "./unnormalized.ts";
+export type { Unnormalized };
+import type { RelateResult } from "./relate.ts";
+export type { RelateResult };
+import type { CanonicalInputData, ExternalConstraintsData, QueryResult } from "./solve/mod.ts";
+export type { CanonicalInputData, ExternalConstraintsData, QueryResult };
+import type { Probe } from "./solve/inspect.ts";
+export type { Probe };
+import type { SolverAdtLangItem, SolverProjectionLangItem, SolverTraitLangItem } from "./lang_items.ts";
+export type { SolverAdtLangItem, SolverProjectionLangItem, SolverTraitLangItem };
 
-// ---- enums the interners construct ----
-// ty_kind.rs:157
-export type TyKind = PendingEnum<"TyKind">;
-// region_kind.rs:138
-export type RegionKind = PendingEnum<"RegionKind">;
-// const_kind.rs:21
-export type ConstKind = PendingEnum<"ConstKind">;
-// predicate_kind.rs:66, :18
-export type PredicateKind = PendingEnum<"PredicateKind">;
-export type ClauseKind = PendingEnum<"ClauseKind">;
-// const_kind.rs:223
-export type ValTreeKind = PendingEnum<"ValTreeKind">;
-// binder.rs:965, :1004, :1066, :1077
-export type BoundVarIndexKind = PendingEnum<"BoundVarIndexKind">;
-export type BoundRegionKind = PendingEnum<"BoundRegionKind">;
-export type BoundTyKind = PendingEnum<"BoundTyKind">;
-export type BoundVariableKind = PendingEnum<"BoundVariableKind">;
-// ty_kind.rs:759, const_kind.rs:177
-export type InferTy = PendingEnum<"InferTy">;
-export type InferConst = PendingEnum<"InferConst">;
-// generic_arg.rs:14 (`Lifetime(Region) | Type(Ty) | Const(Const)`; built by `GenericArg.kind`, generic_args.ts)
-export type GenericArgKind =
-  | { readonly $: "Lifetime"; readonly _0: Region }
-  | { readonly $: "Type"; readonly _0: Ty }
-  | { readonly $: "Const"; readonly _0: Const };
-// term_kind.rs:19 (`Ty(Ty) | Const(Const)`; built by `Term.kind`, rustc_middle ty/mod.ts)
-export type TermKind = { readonly $: "Ty"; readonly _0: Ty } | { readonly $: "Const"; readonly _0: Const };
-// pattern.rs:16
-export type PatternKind = PendingEnum<"PatternKind">;
-// canonical.rs:96
-export type CanonicalVarKind = PendingEnum<"CanonicalVarKind">;
-// predicate.rs:331
-export type ExistentialPredicate = PendingEnum<"ExistentialPredicate">;
-// term_kind.rs:32, ty_kind.rs:34, const_kind.rs:106
-export type AliasTermKind = PendingEnum<"AliasTermKind">;
-export type AliasTyKind = PendingEnum<"AliasTyKind">;
-export type AliasConstKind = PendingEnum<"AliasConstKind">;
-// const_kind.rs:279
-export type AnonConstKind = PendingEnum<"AnonConstKind">;
-// lib.rs:262 (fieldless), lib.rs:447 (fieldless), predicate.rs:266 (fieldless), ty_kind.rs:135
-export type Variance = Pending<"Variance">;
-export type ClosureKind = Pending<"ClosureKind">;
-export type ImplPolarity = Pending<"ImplPolarity">;
-export type IsRigid = Pending<"IsRigid">;
-
-// ---- structs ----
-// binder.rs:31 (D3: a plain object, not interned)
-export type Binder<T> = { readonly value: T; readonly bound_vars: List<BoundVariableKind> };
-// binder.rs:325
-export type EarlyBinder<T> = Pending1<"EarlyBinder", T>;
-// binder.rs:1112, :1174, :1230
-export type BoundRegion = { readonly var: BoundVar; readonly kind: BoundRegionKind };
-export type BoundTy = { readonly var: BoundVar; readonly kind: BoundTyKind };
-export type BoundConst = Pending<"BoundConst">;
-// binder.rs:979 (`Placeholder<I, T>`), :1143, :1199, :1250
-export type PlaceholderRegion = Pending<"PlaceholderRegion">;
-export type PlaceholderType = Pending<"PlaceholderType">;
-export type PlaceholderConst = Pending<"PlaceholderConst">;
-// ty/alias.rs:21 (`Alias<I, K>`), :53, :58
-export type AliasTy = Pending<"AliasTy">;
-export type AliasConst = Pending<"AliasConst">;
-// ty_kind.rs:1131, :930, :1414
-export type FnSig = Pending<"FnSig">;
-export type FnSigKind = Pending<"FnSigKind">;
-export type CoroutineWitnessTypes = Pending<"CoroutineWitnessTypes">;
-// ty_kind/closure.rs
-export type ClosureArgs = Pending<"ClosureArgs">;
-export type CoroutineArgs = Pending<"CoroutineArgs">;
-export type CoroutineClosureArgs = Pending<"CoroutineClosureArgs">;
-export type ClosureArgsParts = Pending<"ClosureArgsParts">;
-export type CoroutineArgsParts = Pending<"CoroutineArgsParts">;
-export type CoroutineClosureArgsParts = Pending<"CoroutineClosureArgsParts">;
-// predicate.rs:113, :196, :389, :455, :567, :630, :667
-export type TraitRef = Pending<"TraitRef">;
-export type TraitClause = Pending<"TraitClause">;
-export type ExistentialTraitRef = Pending<"ExistentialTraitRef">;
-export type ExistentialProjection = Pending<"ExistentialProjection">;
-export type ProjectionClause = Pending<"ProjectionClause">;
-export type NormalizesTo = Pending<"NormalizesTo">;
-export type HostEffectClause = Pending<"HostEffectClause">;
-// predicate.rs:24 (`OutlivesClause<I, A>(pub A, pub Region<I>)`), rustc_middle predicate.rs:28 and ff.
-export type OutlivesClause<A> = Pending1<"OutlivesClause", A>;
+// rustc_middle predicate.rs:28 and ff. (`pub type TypeOutlivesClause<'tcx> = ir::OutlivesClause<TyCtxt<'tcx>, Ty<'tcx>>`)
 export type TypeOutlivesClause = OutlivesClause<Ty>;
 export type RegionOutlivesClause = OutlivesClause<Region>;
 export type ArgOutlivesClause = OutlivesClause<GenericArg>;
-// opaque_ty.rs:15
-export type OpaqueTypeKey = Pending<"OpaqueTypeKey">;
-// unnormalized.rs
-export type Unnormalized<T> = Pending1<"Unnormalized", T>;
-// relate.rs (`RelateResult<I, T> = Result<T, TypeError<I>>`)
-export type RelateResult<T> = Pending1<"RelateResult", T>;
+
+// ---- pending (not generated: working structs and files outside set rustc_ty) ----
 // walk.rs
 export type TypeWalker = Pending<"TypeWalker">;
-// canonical.rs:271
+// canonical.rs:271 (skipped by set rustc_ty: canonicalizer state)
 export type CanonicalParamEnvCache = Pending<"CanonicalParamEnvCache">;
-// solve/mod.rs
-export type CanonicalInputData = Pending<"CanonicalInputData">;
-export type ExternalConstraintsData = Pending<"ExternalConstraintsData">;
-export type QueryResult = Pending<"QueryResult">;
-export type Probe = Pending<"inspect::Probe">;
 // search_graph
 export type GlobalCache = Pending<"GlobalCache">;
 export type RequiredDepth = Pending<"RequiredDepth">;
-// lang_items.rs
-export type SolverAdtLangItem = Pending<"SolverAdtLangItem">;
-export type SolverProjectionLangItem = Pending<"SolverProjectionLangItem">;
-export type SolverTraitLangItem = Pending<"SolverTraitLangItem">;
 
 // ---- `type Poly* = Binder<*>` (rustc_middle aliases of rustc_type_ir structs) ----
 export type PolyFnSig = Binder<FnSig>;
