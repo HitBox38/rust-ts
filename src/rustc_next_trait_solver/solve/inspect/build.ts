@@ -5,7 +5,7 @@
 //! see the comment on [ProofTreeBuilder].
 //
 // Contract stub for compiler/rustc_next_trait_solver/src/solve/inspect/build.rs (lane evalctxt-contract; the file
-// belongs to lane nts-eval). The types are final; their methods are stubs with final signatures: fill each in place and
+// belongs to lane nts-canonical, docs/handoff/evalctxt-contract.md split table). The types are final; their methods are stubs with final signatures: fill each in place and
 // add the `// rustc:` marker. Extension module (docs/handoff/evalctxt-contract.md "Init order").
 //
 // PORT: `ProofTreeBuilder<D>` / `EvaluationStepBuilder<D>`: `D` is erased and so is `_infcx: PhantomData<D>`; their
@@ -14,14 +14,17 @@
 // `EvaluationStepBuilder::state: Option<Box<WipEvaluationStep<I>>>` is `WipEvaluationStep | undefined`.
 // PORT: `WipProbeStep::finalize` is on the companion (PORTING §8). The derived `PartialEq` of `WipEvaluationStep`,
 // `WipProbe` and `WipProbeStep` is not ported (nothing compares them); their derived Debug is below.
-import { debug_GenericArg } from "../../../rustc_middle/ty/structural_impls.ts";
+import { debug_GenericArg, fold_Predicate } from "../../../rustc_middle/ty/structural_impls.ts";
 import { debug_Predicate } from "../../../rustc_middle/ty/structural_impls.ts";
-import { debug_GenericArgs, type GenericArg, type GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
+import { debug_GenericArgs, fold_GenericArgs, type GenericArg, type GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
 import type { Predicate } from "../../../rustc_middle/ty/predicate.ts";
 import { debug_Canonical } from "../../../rustc_type_ir/canonical.ts";
 import type { UniverseIndex } from "../../../rustc_type_ir/decls.ts";
+import type { TypeFoldable } from "../../../rustc_type_ir/fold.ts";
+import { fold_with_trivial, try_fold_with_trivial, visit_with_trivial } from "../../../rustc_type_ir/macros.ts";
 import {
   type CanonicalState,
+  debug_Probe,
   debug_ProbeKind,
   debug_State,
   type Probe,
@@ -29,10 +32,11 @@ import {
   type ProbeStep,
 } from "../../../rustc_type_ir/solve/inspect.ts";
 import type { Certainty, Goal, GoalSource, QueryResult } from "../../../rustc_type_ir/solve/mod.ts";
-import { debug_Certainty, debug_Goal, debug_GoalSource } from "../../../rustc_type_ir/solve/mod.ts";
-import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../../std/fmt.ts";
+import { debug_Certainty, debug_Goal, debug_GoalSource, fold_with_Goal, try_fold_with_Goal, visit_with_Goal } from "../../../rustc_type_ir/solve/mod.ts";
+import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
-import { unported } from "../../../std/panic.ts";
+import { assert_eq, panic, unreachable, unwrap } from "../../../std/panic.ts";
+import { make_canonical_state } from "../../canonical/mod.ts";
 import type { SolverDelegate } from "../../delegate.ts";
 
 /// We need to know whether to build a prove tree while evaluating. We
@@ -46,85 +50,172 @@ import type { SolverDelegate } from "../../delegate.ts";
 export class ProofTreeBuilder {
   constructor(public state: MutRef<Probe | undefined> | undefined) {}
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:35 new
   static new(): ProofTreeBuilder {
-    return unported("rustc_next_trait_solver::solve::inspect::build::ProofTreeBuilder::new");
+    return new ProofTreeBuilder({ value: undefined });
   }
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:39 new_noop
   static new_noop(): ProofTreeBuilder {
-    return unported("rustc_next_trait_solver::solve::inspect::build::ProofTreeBuilder::new_noop");
+    return new ProofTreeBuilder(undefined);
   }
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:43 is_noop
   is_noop(): boolean {
-    return unported("rustc_next_trait_solver::solve::inspect::build::ProofTreeBuilder::is_noop");
+    return this.state === undefined;
   }
 
-  new_evaluation_step(_var_values: GenericArgs): EvaluationStepBuilder {
-    return unported("rustc_next_trait_solver::solve::inspect::build::ProofTreeBuilder::new_evaluation_step");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:47 new_evaluation_step
+  new_evaluation_step(var_values: GenericArgs): EvaluationStepBuilder {
+    if (this.is_noop()) {
+      return new EvaluationStepBuilder(undefined);
+    } else {
+      return new EvaluationStepBuilder(
+        new WipEvaluationStep(
+          [...var_values],
+          0,
+          new WipProbe(var_values.length, [], undefined, undefined),
+        ),
+      );
+    }
   }
 
-  finish_evaluation_step(_goal_evaluation_step: EvaluationStepBuilder): void {
-    return unported("rustc_next_trait_solver::solve::inspect::build::ProofTreeBuilder::finish_evaluation_step");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:70 finish_evaluation_step
+  finish_evaluation_step(goal_evaluation_step: EvaluationStepBuilder): void {
+    const this_ = this.state;
+    if (this_ !== undefined) {
+      this_.value = unwrap(goal_evaluation_step.state).finalize();
+    }
   }
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:79 unwrap
   unwrap(): Probe {
-    return unported("rustc_next_trait_solver::solve::inspect::build::ProofTreeBuilder::unwrap");
+    return unwrap(unwrap(this.state).value);
   }
 }
 
 export class EvaluationStepBuilder {
   constructor(public state: WipEvaluationStep | undefined) {}
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:173 new_noop
   static new_noop(): EvaluationStepBuilder {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::new_noop");
+    return new EvaluationStepBuilder(undefined);
   }
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:177 is_noop
   is_noop(): boolean {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::is_noop");
+    return this.state === undefined;
   }
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:181 as_mut
   as_mut(): WipEvaluationStep | undefined {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::as_mut");
+    return this.state;
   }
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:185 take_and_enter_probe
   take_and_enter_probe(): EvaluationStepBuilder {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::take_and_enter_probe");
+    const state = this.state;
+    this.state = undefined;
+    const nested = new EvaluationStepBuilder(state);
+    nested.enter_probe();
+    return nested;
   }
 
   // PORT: `T: Into<I::GenericArg>`: every such `T` is already a `GenericArg` (`Ty | Region | Const`).
-  add_var_value(_arg: GenericArg): void {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::add_var_value");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:191 add_var_value
+  add_var_value(arg: GenericArg): void {
+    const this_ = this.as_mut();
+    if (this_ !== undefined) {
+      this_.var_values.push(arg);
+    }
   }
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:197 enter_probe
   enter_probe(): void {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::enter_probe");
+    const this_ = this.as_mut();
+    if (this_ !== undefined) {
+      const initial_num_var_values = this_.var_values.length;
+      this_
+        .current_evaluation_scope()
+        .steps.push({ $: "NestedProbe", _0: new WipProbe(initial_num_var_values, [], undefined, undefined) });
+      this_.probe_depth += 1;
+    }
   }
 
-  probe_kind(_probe_kind: ProbeKind): void {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::probe_kind");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:210 probe_kind
+  probe_kind(probe_kind: ProbeKind): void {
+    const this_ = this.as_mut();
+    if (this_ !== undefined) {
+      const scope = this_.current_evaluation_scope();
+      const prev = scope.kind;
+      scope.kind = probe_kind;
+      assert_eq(prev, undefined, (v) => debug_option(v, PLAIN, debug_ProbeKind));
+    }
   }
 
-  probe_final_state(_delegate: SolverDelegate, _max_input_universe: UniverseIndex): void {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::probe_final_state");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:217 probe_final_state
+  probe_final_state(delegate: SolverDelegate, max_input_universe: UniverseIndex): void {
+    const this_ = this.as_mut();
+    if (this_ !== undefined) {
+      const final_state = make_canonical_state(delegate, this_.var_values, max_input_universe, null, fold_unit);
+      const scope = this_.current_evaluation_scope();
+      const prev = scope.final_state;
+      scope.final_state = final_state;
+      assert_eq(prev, undefined, (v) => debug_option(v, PLAIN, debug_CanonicalState_unit));
+    }
   }
 
-  add_goal(_delegate: SolverDelegate, _max_input_universe: UniverseIndex, _source: GoalSource, _goal: Goal<Predicate>): void {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::add_goal");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:230 add_goal
+  add_goal(delegate: SolverDelegate, max_input_universe: UniverseIndex, source: GoalSource, goal: Goal<Predicate>): void {
+    const this_ = this.as_mut();
+    if (this_ !== undefined) {
+      const goal_ = make_canonical_state(delegate, this_.var_values, max_input_universe, goal, fold_Goal_Predicate);
+      this_.current_evaluation_scope().steps.push({ $: "AddGoal", _0: source, _1: goal_ });
+    }
   }
 
-  record_impl_args(_delegate: SolverDelegate, _max_input_universe: UniverseIndex, _impl_args: GenericArgs): void {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::record_impl_args");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:248 record_impl_args
+  record_impl_args(delegate: SolverDelegate, max_input_universe: UniverseIndex, impl_args: GenericArgs): void {
+    const this_ = this.as_mut();
+    if (this_ !== undefined) {
+      const impl_args_ = make_canonical_state(delegate, this_.var_values, max_input_universe, impl_args, fold_GenericArgs);
+      this_.current_evaluation_scope().steps.push({ $: "RecordImplArgs", impl_args: impl_args_ });
+    }
   }
 
-  make_canonical_response(_shallow_certainty: Certainty): void {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::make_canonical_response");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:265 make_canonical_response
+  make_canonical_response(shallow_certainty: Certainty): void {
+    const this_ = this.as_mut();
+    if (this_ !== undefined) {
+      this_.current_evaluation_scope().steps.push({ $: "MakeCanonicalResponse", shallow_certainty });
+    }
   }
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:273 finish_probe
   finish_probe(): EvaluationStepBuilder {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::finish_probe");
+    const this_ = this.as_mut();
+    if (this_ !== undefined) {
+      if (this_.probe_depth === 0) {
+        panic(`assertion \`left != right\` failed\n  left: ${this_.probe_depth}\n right: 0`);
+      }
+      const num_var_values = this_.current_evaluation_scope().initial_num_var_values;
+      if (num_var_values < this_.var_values.length) {
+        this_.var_values.length = num_var_values;
+      }
+      this_.probe_depth -= 1;
+    }
+
+    return this;
   }
 
-  query_result(_result: QueryResult): void {
-    return unported("rustc_next_trait_solver::solve::inspect::build::EvaluationStepBuilder::query_result");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:284 query_result
+  query_result(result: QueryResult): void {
+    const this_ = this.as_mut();
+    if (this_ !== undefined) {
+      const prev = this_.evaluation.kind;
+      this_.evaluation.kind = { $: "Root", result };
+      assert_eq(prev, undefined, (v) => debug_option(v, PLAIN, debug_ProbeKind));
+    }
   }
 }
 
@@ -142,12 +233,28 @@ export class WipEvaluationStep {
     public evaluation: WipProbe,
   ) {}
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:107 current_evaluation_scope
   current_evaluation_scope(): WipProbe {
-    return unported("rustc_next_trait_solver::solve::inspect::build::WipEvaluationStep::current_evaluation_scope");
+    let current = this.evaluation;
+    for (let i = 0; i < this.probe_depth; i++) {
+      const last = current.steps.length > 0 ? current.steps[current.steps.length - 1] : undefined;
+      if (last !== undefined && last.$ === "NestedProbe") {
+        current = last._0;
+      } else {
+        panic();
+      }
+    }
+    return current;
   }
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:118 finalize
   finalize(): Probe {
-    return unported("rustc_next_trait_solver::solve::inspect::build::WipEvaluationStep::finalize");
+    const evaluation = this.evaluation.finalize();
+    if (evaluation.kind.$ === "Root") {
+      return evaluation;
+    } else {
+      return unreachable(`internal error: entered unreachable code: unexpected root evaluation: ${debug_Probe(evaluation, PLAIN)}`);
+    }
   }
 }
 export const debug_WipEvaluationStep: Debug<WipEvaluationStep> = (v, f) =>
@@ -166,8 +273,13 @@ export class WipProbe {
     public final_state: CanonicalState<null> | undefined,
   ) {}
 
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:138 finalize
   finalize(): Probe {
-    return unported("rustc_next_trait_solver::solve::inspect::build::WipProbe::finalize");
+    return {
+      steps: this.steps.map((step) => WipProbeStep.finalize(step)),
+      kind: unwrap(this.kind),
+      final_state: unwrap(this.final_state),
+    };
   }
 }
 export function debug_WipProbe(v: WipProbe, f: Fmt): string {
@@ -186,8 +298,18 @@ export type WipProbeStep =
   | { readonly $: "MakeCanonicalResponse"; readonly shallow_certainty: Certainty }
   | { readonly $: "RecordImplArgs"; readonly impl_args: CanonicalState<GenericArgs> };
 export const WipProbeStep = {
-  finalize(_self: WipProbeStep): ProbeStep {
-    return unported("rustc_next_trait_solver::solve::inspect::build::WipProbeStep::finalize");
+  // rustc: compiler/rustc_next_trait_solver/src/solve/inspect/build.rs:158 finalize
+  finalize(self: WipProbeStep): ProbeStep {
+    switch (self.$) {
+      case "AddGoal":
+        return { $: "AddGoal", _0: self._0, _1: self._1 };
+      case "NestedProbe":
+        return { $: "NestedProbe", _0: self._0.finalize() };
+      case "RecordImplArgs":
+        return { $: "RecordImplArgs", impl_args: self.impl_args };
+      case "MakeCanonicalResponse":
+        return { $: "MakeCanonicalResponse", shallow_certainty: self.shallow_certainty };
+    }
   },
 } as const;
 export function debug_WipProbeStep(v: WipProbeStep, f: Fmt): string {
@@ -212,3 +334,19 @@ export function debug_WipProbeStep(v: WipProbeStep, f: Fmt): string {
 function debug_CanonicalState_unit(v: CanonicalState<null>, f: Fmt): string {
   return debug_Canonical(v, f, (s, f2) => debug_State(s, f2, () => "()"));
 }
+
+// ---- D4 descriptors of the traversed types (fold.ts header) ---------------------------------------------------------
+
+/** `()` (trivially traversable). */
+const fold_unit: TypeFoldable<null> = {
+  visit_with: visit_with_trivial,
+  try_fold_with: try_fold_with_trivial,
+  fold_with: fold_with_trivial,
+};
+
+/** `Goal<I, I::Predicate>` (derived traversal, rustc_type_ir solve/mod.gen.ts). */
+const fold_Goal_Predicate: TypeFoldable<Goal<Predicate>> = {
+  visit_with: (self, visitor) => visit_with_Goal(self, visitor, fold_Predicate.visit_with),
+  try_fold_with: (self, folder) => try_fold_with_Goal(self, folder, fold_Predicate.try_fold_with),
+  fold_with: (self, folder) => fold_with_Goal(self, folder, fold_Predicate.fold_with),
+};
