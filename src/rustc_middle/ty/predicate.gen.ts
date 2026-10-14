@@ -2,13 +2,13 @@
 // Hand-written additions (methods, manual Debug impls) go in predicate.ts next to this file.
 import { type Ty } from "../../rust_ts/tyir_contract.ts";
 import { type GenericArg } from "./generic_args.ts";
+import { type Clause, type Predicate } from "./predicate.ts";
 import { type Region } from "./region.ts";
 import { type Binder } from "./sty.ts";
 import { type CoercePredicate as predicate_CoercePredicate, type ExistentialPredicate as predicate_ExistentialPredicate, type ExistentialProjection as predicate_ExistentialProjection, type ExistentialTraitRef as predicate_ExistentialTraitRef, type HostEffectClause as predicate_HostEffectClause, type NormalizesTo as predicate_NormalizesTo, type OutlivesClause as predicate_OutlivesClause, type ProjectionClause as predicate_ProjectionClause, type RegionConstraint as predicate_RegionConstraint, type RegionEqPredicate as predicate_RegionEqPredicate, type SubtypePredicate as predicate_SubtypePredicate, type TraitClause as predicate_TraitClause, type TraitRef as predicate_TraitRef } from "../../rustc_type_ir/predicate.ts";
 import { type ClauseKind as predicate_kind_ClauseKind, type PredicateKind as predicate_kind_PredicateKind } from "../../rustc_type_ir/predicate_kind.ts";
 import { type AliasTermKind as term_kind_AliasTermKind } from "../../rustc_type_ir/term_kind.ts";
 import { type AliasTerm as alias_AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
-import { type WithCachedTypeInfo } from "../../rustc_type_ir/ty_info.ts";
 
 // rustc-type: compiler/rustc_middle/src/ty/predicate.rs:11 TraitRef
 export type TraitRef = predicate_TraitRef;
@@ -89,23 +89,10 @@ export type PolyCoercePredicate = Binder<CoercePredicate>;
 export type PolyProjectionClause = Binder<ProjectionClause>;
 
 // rustc-type: compiler/rustc_middle/src/ty/predicate.rs:46 Predicate
-/// A statement that can be proven by a trait solver. This includes things that may
-/// show up in where clauses, such as trait predicates and projection predicates,
-/// and also things that are emitted as part of type checking such as `DynCompatible`
-/// predicate which is emitted when a type is coerced to a trait object.
-///
-/// Use this rather than `PredicateKind`, whenever possible.
-export interface Predicate {
-  _0: WithCachedTypeInfo<Binder<PredicateKind>>;
-}
+export type { Predicate } from "./predicate.ts";
 
 // rustc-type: compiler/rustc_middle/src/ty/predicate.rs:136 Clause
-/// A subset of predicates which can be assumed by the trait solver. They show up in
-/// an item's where clauses, hence the name `Clause`, and may either be user-written
-/// (such as traits) or may be inserted during lowering.
-export interface Clause {
-  _0: WithCachedTypeInfo<Binder<PredicateKind>>;
-}
+export type { Clause } from "./predicate.ts";
 
 // rustc-type: compiler/rustc_middle/src/ty/predicate.rs:250 PolyExistentialPredicate
 export type PolyExistentialPredicate = Binder<ExistentialPredicate>;

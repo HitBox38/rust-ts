@@ -3,3 +3,6 @@
 // are ported by the later tyir / ty lanes (plan-m3 §5 waves 14-15). The stubs below call `unported`.
 
 export * from "./predicate.gen.ts";
+
+// PORT: `Predicate` / `Clause` are interned types of lane ty-contract (plan-m3 D2); the stand-ins until it merges.
+export type { Clause, Predicate } from "../../rust_ts/tyir_contract.ts";

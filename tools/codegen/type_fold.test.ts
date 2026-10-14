@@ -42,7 +42,7 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
     "rustc_type_ir::solve::NoSolution (TypeVisitable)",
   ]);
   const sum = (k: "types" | "debug_fns" | "type_fold") => res.report.files.reduce((a, f) => a + f[k], 0);
-  expect([res.files.size, sum("types"), sum("debug_fns"), sum("type_fold")]).toEqual([35, 255, 128, 204]);
+  expect([res.files.size, sum("types"), sum("debug_fns"), sum("type_fold")]).toEqual([35, 254, 127, 204]);
   for (const [file, content] of res.files) expect(content).toBe(readFileSync(file, "utf8"));
   // no stale generated file of the set left on disk (fast_reject.gen.ts / stable_hash.gen.ts belong to set rustc_type_ir)
   const onDisk: string[] = [];
@@ -50,7 +50,7 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
     for (const f of readdirSync(join(SRC, dir), { recursive: true }) as string[])
       if (f.endsWith(".gen.ts") && !(dir === "rustc_type_ir" && (f === "fast_reject.gen.ts" || f === "stable_hash.gen.ts"))) onDisk.push(resolve(SRC, dir, f));
   expect(onDisk.sort()).toEqual([...res.files.keys()].map((f) => resolve(f)).sort());
-});
+}, 120_000); // path resolution through rustc_middle's and rustc_type_ir's glob re-exports takes a few seconds
 
 // ---- a synthetic crate ----
 const path = (name: string, ...args: PType[]): PType => ({

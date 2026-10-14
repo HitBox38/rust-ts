@@ -5,7 +5,7 @@ import { debug_Mutability, type Mutability } from "../../rustc_ast_ir/lib.ts";
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { debug_Safety, type Safety } from "../../rustc_hir/def.ts";
 import { debug_Span, type Span } from "../../rustc_span/lib.ts";
-import { type Debug, debug_option, debug_struct, debug_tuple } from "../../std/fmt.ts";
+import { type Debug, debug_struct, debug_tuple } from "../../std/fmt.ts";
 import { Ok, type Result } from "../../std/result.ts";
 
 // rustc-type: compiler/rustc_middle/src/ty/adjustment.rs:11 PointerCoercion
@@ -380,25 +380,6 @@ export function fold_with_AutoBorrow(self: AutoBorrow, __folder: TypeFolder): Au
     }
   }
 }
-
-// rustc-type: compiler/rustc_middle/src/ty/adjustment.rs:217 CoerceUnsizedInfo
-/// Information for `CoerceUnsized` impls, storing information we
-/// have computed about the coercion.
-///
-/// This struct can be obtained via the `coerce_impl_info` query.
-/// Demanding this struct also has the side-effect of reporting errors
-/// for inappropriate impls.
-export interface CoerceUnsizedInfo {
-  /// If this is a "custom coerce" impl, then what kind of custom
-  /// coercion is it? This applies to impls of `CoerceUnsized` for
-  /// structs, primarily, where we store a bit of info about which
-  /// fields need to be coerced.
-  custom_kind: CustomCoerceUnsized | undefined;
-}
-export const debug_CoerceUnsizedInfo: Debug<CoerceUnsizedInfo> = (v, f) =>
-  debug_struct(f, "CoerceUnsizedInfo", [
-    ["custom_kind", debug_option(v.custom_kind, f, debug_CustomCoerceUnsized)],
-  ]);
 
 // rustc-type: compiler/rustc_middle/src/ty/adjustment.rs:226 CustomCoerceUnsized
 export type CustomCoerceUnsized =

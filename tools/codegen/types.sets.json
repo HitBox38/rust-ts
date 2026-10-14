@@ -12,7 +12,8 @@
     "derive_clone: emit clone_<T> for #[derive(Clone)] types (value-like Copy types: identity; Copy objects and tuples: copied; manual impl Clone: hand clone_<T>).",
     "derive(Walkable) types of a crate get <crate>/walkable.gen.ts and <crate>/mut_walkable.gen.ts (always).",
     "hand_notes: reason per hand entry (documentation only, not read by the generator).",
-    "derive_decodable / derive_encodable: emit decode_<T> / encode_<T> for derive(Decodable*) / derive(Encodable*) types (rustc_macros/src/serialize.rs; per-file sets next to the type, derive_only sets into <crate>/decodable.gen.ts); decodable_types limits them to the listed items; decodable_construct builds hand types that are not { field } objects (see tools/codegen/types.ts SetConfig)."
+    "derive_decodable / derive_encodable: emit decode_<T> / encode_<T> for derive(Decodable*) / derive(Encodable*) types (rustc_macros/src/serialize.rs; per-file sets next to the type, derive_only sets into <crate>/decodable.gen.ts); decodable_types limits them to the listed items; decodable_construct builds hand types that are not { field } objects (see tools/codegen/types.ts SetConfig).",
+    "erase_params: type parameters dropped from the TS types and from type arguments at their position (`I: Interner`, plan-m3 D3); `<I as Interner>::X` reads as `I::X`. resolve_files: probed for `use`/`mod` only (re-exports such as rustc_middle ty/mod.rs). typemap_extra: type-map files merged after the global map for this set only (tyir.typemap.json: `I::Ty` etc.). bitflags_debug: emit bitflags' derived Debug. derive_type_fold (+ type_fold_types): visit_with_<T> / try_fold_with_<T> / fold_with_<T> for derive(TypeVisitable[_Generic]) / derive(TypeFoldable[_Generic]) next to the type (tools/codegen/type_fold.json)."
   ],
   "rustc_lexer": {
     "files": [
@@ -642,7 +643,7 @@
       "compiler/rustc_middle/src/ty/assoc.rs"
     ],
     "class": [],
-    "hand": ["rustc_type_ir::sty::Region", "rustc_type_ir::sty::consts::Const", "rustc_middle::ty::generic_args::GenericArg"],
+    "hand": ["rustc_type_ir::sty::Region", "rustc_type_ir::sty::consts::Const", "rustc_middle::ty::generic_args::GenericArg", "rustc_middle::ty::predicate::Predicate", "rustc_middle::ty::predicate::Clause"],
     "discriminant": [],
     "skip": [
       "rustc_type_ir::binder::ValidateBoundVars",
@@ -659,8 +660,12 @@
       "rustc_type_ir::ty_kind::closure::HasRegionsBoundAt",
       "rustc_type_ir::ty_kind::closure::FoldEscapingRegions",
       "rustc_type_ir::canonical::CanonicalParamEnvCache",
-      "rustc_type_ir::canonical::CanonicalizerState"
+      "rustc_type_ir::canonical::CanonicalizerState",
+      "rustc_middle::ty::adjustment::CoerceUnsizedInfo"
     ],
+    "skip_notes": {
+      "rustc_middle::ty::adjustment::CoerceUnsizedInfo": "value of query coerce_unsized_info: once generated, tools/codegen/queries.ts types the query with it and rmeta's cstore_impl.ts provider (decode_unported) no longer type-checks; lane rmeta-ty opts it in with its TyDecodable decoder and regenerates queries.gen.ts"
+    },
     "resolve_files": [
       "compiler/rustc_type_ir/src/ty/mod.rs",
       "compiler/rustc_type_ir/src/data_structures/mod.rs",

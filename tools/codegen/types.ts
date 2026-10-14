@@ -4,7 +4,10 @@
 // the `Walkable::walk_ref` / `MutWalkable::walk_mut` tables that visit.ts / mut_visit.ts spread in), and
 // derive(StableHash) / derive(StableHash_NoContext) (`<crate>/stable_hash.gen.ts`, sets with `derive_stable_hash`:
 // one `stable_hash_<T>` per type, rustc_macros/src/stable_hash.rs; the external-type impls come from
-// tools/codegen/stable_hash.json).
+// tools/codegen/stable_hash.json), derive(Decodable) / derive(Encodable) (rustc_macros/src/serialize.rs), and
+// derive(TypeVisitable[_Generic]) / derive(TypeFoldable[_Generic]) (sets with `derive_type_fold`: `visit_with_<T>` /
+// `try_fold_with_<T>` / `fold_with_<T>` next to the type; impls of other types from tools/codegen/type_fold.json).
+// `#[derive_where(..)]` (derive-where) derives like `#[derive(..)]`; sets with `erase_params` drop `I: Interner`.
 //
 //   bun tools/codegen/types.ts <set> [--out <dir>] [--src-root <dir>] [--json <probe.json>]
 //                                    [--report <file>] [--stubs] [--save-json <file>]
