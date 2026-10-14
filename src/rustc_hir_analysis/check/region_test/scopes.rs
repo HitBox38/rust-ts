@@ -67,6 +67,8 @@ pub fn chains(a: bool, b: bool, o: E) -> bool {
 pub fn assign_op(mut x: u8) {
     let r = &mut x;
     *r = 3;
+    // compound assignment: the RHS is visited first (the scope tree records it first)
+    *{ let s = &mut x; s } += { let t = 1u8; t };
 }
 
 pub fn closures(k: u8) -> u8 {
