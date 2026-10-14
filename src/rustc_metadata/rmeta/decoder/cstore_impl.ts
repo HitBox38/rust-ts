@@ -12,7 +12,8 @@
 // - `trait IntoArgs`: each impl is a value (`IntoArgs_<Key>`).
 // - Arenas are erased (`tcx.arena.alloc(x)` is `x`, `alloc_from_iter` collects into an array), as in
 //   rustc_middle's queries.gen.ts (`ProvidedValue` = `Value`).
-// - `DefIdMap` / `FxIndexMap<DefId, _>` values are `KeyedMap(DefId_hash_key)` (src/rust_ts/keyed.ts).
+// - `DefIdMap` / `FxIndexMap<DefId, _>` values are keyed by `DefId` value: rustc_span's `DefIdMap` or
+//   `KeyedMap(DefId_hash_key)` (src/rust_ts/keyed.ts).
 // - Element types with no TS `Decodable` yet decode through `decode_unported(<type>)`, which stops at
 //   `unported(..)` naming the type.
 // - The `impl CStore` block (line 629) and `impl CrateStore for CStore` (line 737) are attached to creader.ts's
@@ -33,7 +34,7 @@ import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { Visibility } from "../../../rustc_middle/ty/mod.ts";
 import type { Providers } from "../../../rustc_middle/util/mod.ts";
 import { type Decodable, decode_Option, decode_String, decode_Vec } from "../../../rustc_serialize/serialize.ts";
-import { CrateNum, DefId, DefId_eq, LOCAL_CRATE, type ModId, type StableCrateId, debug_CrateNum, debug_DefId, debug_StableCrateId } from "../../../rustc_span/def_id.ts";
+import { CrateNum, DefId, DefId_eq, DefIdMap, LOCAL_CRATE, type ModId, type StableCrateId, debug_CrateNum, debug_DefId, debug_StableCrateId } from "../../../rustc_span/def_id.ts";
 import { decode_Ident } from "../../../rustc_span/decodable.gen.ts";
 import type { ExpnId } from "../../../rustc_span/hygiene.ts";
 import { decode_Span, type Span } from "../../../rustc_span/lib.ts";
@@ -515,7 +516,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
       return Ok(
         ProcessQueryValue_Option_ref_T.process_decoded(lazy === undefined ? undefined : lazy.decode([cdata, tcx], decode_unported("DefIdMap<ty::EarlyBinder<'static, Ty<'static>>>")), tcx, () =>
           panic(`${debug_DefId(def_id, PLAIN)} does not have collect_return_position_impl_trait_in_trait_tys`),
-        ) as Map<DefId, unknown>,
+        ) as DefIdMap<unknown>,
       );
     },
   ],
@@ -691,7 +692,7 @@ export function provide(providers: Providers): void {
       // use std::collections::hash_map::Entry;
       // use std::collections::vec_deque::VecDeque;
 
-      const visible_parent_map: Map<DefId, DefId> = new KeyedMap<DefId, DefId>(DefId_hash_key);
+      const visible_parent_map: DefIdMap<DefId> = new DefIdMap<DefId>();
       // This is a secondary visible_parent_map, storing the DefId of
       // parents that re-export the child as `_`, module parents
       // which are `#[doc(hidden)]`, or `use` items that are themselves

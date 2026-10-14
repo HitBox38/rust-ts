@@ -226,15 +226,18 @@
       "paths": [
         "rustc_span::def_id::DefIdMap"
       ],
-      "ts": "Map<DefId, $0>",
+      "ts": "DefIdMap<$0>",
       "import": "src/rustc_span/def_id.ts",
       "types": [
-        "DefId"
+        "DefIdMap"
       ],
       "debug": null,
       "clone": null,
-      "default": "new Map()",
-      "note": "PORT: UnordMap<DefId, T>: DefId is not a JS Map key and UnordMap Debug is hash order (root decision pending, see rustc_span/def_id.ts)"
+      "default": "new DefIdMap()",
+      "default_values": [
+        "DefIdMap"
+      ],
+      "note": "PORT: UnordMap<DefId, T> is rustc_span's D5 keyed `DefIdMap` (merge-w15b); UnordMap Debug is hash order (unported)"
     },
     {
       "paths": [

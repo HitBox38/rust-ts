@@ -37,7 +37,7 @@ import { type Graph, debug_Graph } from "./traits/specialization_graph.ts";
 import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type Visibility, debug_Visibility } from "./ty/mod.ts";
-import { type CrateNum, type DefId, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
+import { type CrateNum, type DefId, type DefIdMap, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
 import { type ExpnId, type LocalExpnId, debug_ExpnId, stable_hash_ExpnId } from "../rustc_span/hygiene.ts";
 import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span, stable_hash_Span } from "../rustc_span/lib.ts";
 import { stable_hash_Ident, stable_hash_ModId } from "../rustc_span/stable_hash.gen.ts";
@@ -210,7 +210,7 @@ export interface QueryTypes {
    */
   type_alias_is_checked: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: boolean; ProvidedValue: boolean };
   // PORT: value `Result<&'tcx DefIdMap<ty::EarlyBinder<'tcx, Ty<'tcx>>>, ErrorGuaranteed>` not ported (`unknown`)
-  collect_return_position_impl_trait_in_trait_tys: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<Map<DefId, unknown>, ErrorGuaranteed>; ProvidedValue: Result<Map<DefId, unknown>, ErrorGuaranteed> };
+  collect_return_position_impl_trait_in_trait_tys: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<DefIdMap<unknown>, ErrorGuaranteed>; ProvidedValue: Result<DefIdMap<unknown>, ErrorGuaranteed> };
   // PORT: value `hir::OpaqueTyOrigin<DefId>` not ported (`unknown`)
   opaque_ty_origin: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
   // PORT: value `&'tcx rustc_index::bit_set::DenseBitSet<u32>` not ported (`unknown`)
@@ -471,7 +471,7 @@ export interface QueryTypes {
    */
   // PORT: key `Ty<'tcx>` not ported; value `Ty<'tcx>` not ported (`unknown`)
   erase_and_anonymize_regions_ty: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
-  wasm_import_module_map: { Key: CrateNum; KeyArg: CrateNum; LocalKey: CrateNum; Value: Map<DefId, string>; ProvidedValue: Map<DefId, string> };
+  wasm_import_module_map: { Key: CrateNum; KeyArg: CrateNum; LocalKey: CrateNum; Value: DefIdMap<string>; ProvidedValue: DefIdMap<string> };
   /**
    * Returns the explicitly user-written *clauses and bounds* of the trait given by `DefId`.
    *
@@ -708,12 +708,12 @@ export interface QueryTypes {
    * The map returned for `tcx.impl_item_implementor_ids(impl_id)` would be
    *`{ trait_f: impl_f, trait_g: impl_g }`
    */
-  impl_item_implementor_ids: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: Map<DefId, DefId>; ProvidedValue: Map<DefId, DefId> };
+  impl_item_implementor_ids: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: DefIdMap<DefId>; ProvidedValue: DefIdMap<DefId> };
   /**
    * Given the `item_def_id` of a trait or impl, return a mapping from associated fn def id
    * to its associated type items that correspond to the RPITITs in its signature.
    */
-  associated_types_for_impl_traits_in_trait_or_impl: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Map<DefId, DefId[]>; ProvidedValue: Map<DefId, DefId[]> };
+  associated_types_for_impl_traits_in_trait_or_impl: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: DefIdMap<DefId[]>; ProvidedValue: DefIdMap<DefId[]> };
   /**
    * Given an `impl_id`, return the trait it implements along with some header information.
    */
@@ -1237,7 +1237,7 @@ export interface QueryTypes {
   check_well_formed: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
   enforce_impl_non_lifetime_params_are_constrained: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
   // PORT: value `&'tcx DefIdMap<SymbolExportInfo>` not ported (`unknown`)
-  reachable_non_generics: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: Map<DefId, unknown>; ProvidedValue: Map<DefId, unknown> };
+  reachable_non_generics: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: DefIdMap<unknown>; ProvidedValue: DefIdMap<unknown> };
   is_reachable_non_generic: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: boolean; ProvidedValue: boolean };
   is_unreachable_local_definition: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: boolean; ProvidedValue: boolean };
   /**
@@ -1250,7 +1250,7 @@ export interface QueryTypes {
    * even better, `Instance::upstream_monomorphization()`.
    */
   // PORT: value `&'tcx DefIdMap<UnordMap<GenericArgsRef<'tcx>, CrateNum>>` not ported (`unknown`)
-  upstream_monomorphizations: { Key: null; KeyArg: null; LocalKey: null; Value: Map<DefId, Map<unknown, CrateNum>>; ProvidedValue: Map<DefId, Map<unknown, CrateNum>> };
+  upstream_monomorphizations: { Key: null; KeyArg: null; LocalKey: null; Value: DefIdMap<Map<unknown, CrateNum>>; ProvidedValue: DefIdMap<Map<unknown, CrateNum>> };
   /**
    * Returns the set of upstream monomorphizations available for the
    * generic function identified by the given `def_id`. The query makes
@@ -1542,12 +1542,12 @@ export interface QueryTypes {
    * Used for diagnostics, for example path trimming.
    * The parents are modules, enums or traits.
    */
-  visible_parent_map: { Key: null; KeyArg: null; LocalKey: null; Value: Map<DefId, DefId>; ProvidedValue: Map<DefId, DefId> };
+  visible_parent_map: { Key: null; KeyArg: null; LocalKey: null; Value: DefIdMap<DefId>; ProvidedValue: DefIdMap<DefId> };
   /**
    * Collects the "trimmed", shortest accessible paths to all items for diagnostics.
    * See the [provider docs](`rustc_middle::ty::print::trimmed_def_paths`) for more info.
    */
-  trimmed_def_paths: { Key: null; KeyArg: null; LocalKey: null; Value: Map<DefId, Symbol>; ProvidedValue: Map<DefId, Symbol> };
+  trimmed_def_paths: { Key: null; KeyArg: null; LocalKey: null; Value: DefIdMap<Symbol>; ProvidedValue: DefIdMap<Symbol> };
   missing_extern_crate_item: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: boolean; ProvidedValue: boolean };
   // PORT: value `&'tcx Arc<CrateSource>` not ported (`unknown`)
   used_crate_source: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown; ProvidedValue: unknown };

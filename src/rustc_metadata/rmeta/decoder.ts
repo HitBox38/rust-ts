@@ -1707,8 +1707,8 @@ CrateMetadata.prototype.get_stripped_cfg_items = function (this: CrateMetadata, 
 /// Iterates over the diagnostic items in the given crate.
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1304 get_diagnostic_items
 CrateMetadata.prototype.get_diagnostic_items = function (this: CrateMetadata, tcx: TyCtxt): DiagnosticItems {
-  // PORT: `DefIdMap` (an `UnordMap` keyed by `DefId`) is rustc_span's `DefIdMap` (D5; the generated field type is
-  // `Map<DefId, Symbol>`, which it extends), so `get_diagnostic_name` finds extern items by value (merge-w15a).
+  // PORT: `DefIdMap` (an `UnordMap` keyed by `DefId`) is rustc_span's `DefIdMap` (D5; also the generated field type
+  // since merge-w15b), so `get_diagnostic_name` finds extern items by value (merge-w15a).
   const id_to_name = new DefIdMap<Symbol>();
   const name_to_id = new Map<Symbol, DefId>();
   for (const [name, id0] of this.root.diagnostic_items.decode([this, tcx], (d) => decode_tuple_(d, (d) => d.decode_symbol(), (d) => d.decode_local_def_id()))) {

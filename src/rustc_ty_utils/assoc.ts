@@ -80,7 +80,7 @@ function associated_items(tcx: TyCtxt, def_id: DefId): AssocItems {
 }
 
 // rustc: compiler/rustc_ty_utils/src/assoc.rs:62 impl_item_implementor_ids
-function impl_item_implementor_ids(tcx: TyCtxt, impl_id: DefId): Map<DefId, DefId> {
+function impl_item_implementor_ids(tcx: TyCtxt, impl_id: DefId): DefIdMap<DefId> {
   const out = new DefIdMap<DefId>();
   for (const item of AssocItems.in_definition_order(tcx.associated_items(impl_id) as AssocItems)) {
     const trait_item = AssocItem.trait_item_def_id(item);
@@ -182,7 +182,7 @@ class RPITVisitor extends Visitor {
 }
 
 // rustc: compiler/rustc_ty_utils/src/assoc.rs:142 associated_types_for_impl_traits_in_trait_or_impl
-function associated_types_for_impl_traits_in_trait_or_impl(tcx: TyCtxt, def_id: LocalDefId): Map<DefId, DefId[]> {
+function associated_types_for_impl_traits_in_trait_or_impl(tcx: TyCtxt, def_id: LocalDefId): DefIdMap<DefId[]> {
   const item = tcx.hir_expect_item(def_id);
   const disambiguator = PerParentDisambiguatorState.new(def_id);
   const kind = item.kind;
