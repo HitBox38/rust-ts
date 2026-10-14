@@ -17,7 +17,7 @@
 // `into_query_key_DefId`). `Option<Ordering>` is `Ordering | undefined` with
 // `Ordering = "Less" | "Equal" | "Greater"`.
 import { type DefPath, debug_DefPath } from "../../rustc_hir_id/definitions.ts";
-import { DefId, type DefId as DefIdT, debug_DefId, debug_LocalModId, debug_ModId, type LocalDefId, LocalModId, ModId, ModId_eq } from "../../rustc_span/def_id.ts";
+import { DefId, type DefId as DefIdT, debug_DefId, debug_LocalModId, debug_ModId, LocalDefId, LocalModId, ModId, ModId_eq } from "../../rustc_span/def_id.ts";
 import type { Ident, Symbol } from "../../rustc_span/symbol.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import type { DefKind, Res } from "../../rustc_hir/def.ts";
@@ -33,7 +33,7 @@ import { unported } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import { type IntoQueryKey, into_query_key_DefId } from "../query/into_query_key.ts";
 import type { TyCtxt } from "./context.ts";
-import type { AssocItem, Attribute, Body, BodyId, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, Instance, InstanceKind, LayoutError, ReprOptions, TypeckResults } from "./decls.ts";
+import type { AssocItem, Attribute, Body, BodyId, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, Instance, InstanceKind, LayoutError, TypeckResults } from "./decls.ts";
 import type { EarlyBinder, ImplPolarity, TraitRef } from "../../rustc_type_ir/decls.ts";
 import type { GenericArg, GenericArgs } from "./generic_args.ts";
 import type { List } from "./list.ts";
@@ -63,6 +63,12 @@ import { OpaqueHiddenTypeMismatch_diagnostic, type TypeMismatchReason } from "..
 import { type Clauses, debug_RawList, RawList } from "./list.ts";
 import type { Clause } from "./predicate.ts";
 // ty-mod-b imports
+// repr-options imports
+import { type Align, Align_max, Align_min, Integer, type IntegerType, ReprFlags, ReprOptions, ScalableElt } from "../../rustc_abi/lib.ts";
+import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
+import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
+import type { Hash64 } from "../../rustc_hashes/lib.ts";
+import { DefPathHash } from "../../rustc_span/def_id.ts";
 import type { AdtDef, VariantIdx } from "./decls.ts";
 import type { AssocItems } from "./assoc.ts";
 import type { TraitDef } from "./trait_def.ts";
@@ -1856,11 +1862,139 @@ export function TyCtxt_provided_trait_methods(tcx: TyCtxt, id: DefIdT): Iterable
   })();
 }
 
-// PORT: rustc_abi's `ReprOptions` / `ReprFlags` / `IntegerType` / `ScalableElt` are not ported (rustc_abi lib.rs),
-// and the very first statement builds a `ReprFlags`: the fn stops UNPORTED before any query runs.
 // rustc: compiler/rustc_middle/src/ty/mod.rs:1588 repr_options_of_def
-export function TyCtxt_repr_options_of_def(_tcx: TyCtxt, _did: LocalDefId): ReprOptions {
-  return unported("rustc_middle::ty::TyCtxt::repr_options_of_def (rustc_abi ReprOptions/ReprFlags/IntegerType/ScalableElt)");
+export function TyCtxt_repr_options_of_def(tcx: TyCtxt, did: LocalDefId): ReprOptions {
+  let flags = ReprFlags.empty();
+  let size: IntegerType | undefined = undefined;
+  let max_align: Align | undefined = undefined;
+  let min_pack: Align | undefined = undefined;
+
+  // Generate a deterministically-derived seed from the item's path hash
+  // to allow for cross-crate compilation to actually work
+  let field_shuffle_seed = Fingerprint.to_smaller_hash(DefPathHash._0(tcx.def_path_hash(LocalDefId.to_def_id(did))));
+
+  // If the user defined a custom seed for layout randomization, xor the item's
+  // path hash with the user defined seed, this will allowing determinism while
+  // still allowing users to further randomize layout generation for e.g. fuzzing
+  const user_seed = tcx.sess.opts.unstable_opts.layout_seed;
+  if (user_seed !== undefined) {
+    field_shuffle_seed = (field_shuffle_seed ^ user_seed) as Hash64;
+  }
+
+  // PORT: `find_attr!(..) -> Option<&Option<u16>>`: the outer `Some` is the `{ element_count }` wrapper.
+  const found_elt = find_attr(HasAttrs_LocalDefId.get_attrs(did, tcx), (k) => (k.$ === "RustcScalableVector" ? { element_count: k.element_count } : undefined));
+  const elt: ScalableElt | undefined =
+    found_elt === undefined ? undefined : found_elt.element_count !== undefined ? { $: "ElementCount", _0: found_elt.element_count } : ScalableElt.Container;
+  if (elt !== undefined) {
+    flags = ReprFlags.insert(flags, ReprFlags.IS_SCALABLE);
+  }
+  const reprs = find_attr(HasAttrs_LocalDefId.get_attrs(did, tcx), (k) => (k.$ === "Repr" ? k.reprs : undefined));
+  if (reprs !== undefined) {
+    for (const [r, _] of reprs) {
+      let f: ReprFlags;
+      switch (r.$) {
+        case "ReprRust":
+          f = ReprFlags.empty();
+          break;
+        case "ReprC":
+          f = ReprFlags.IS_C;
+          break;
+        case "ReprPacked": {
+          const pack = r._0;
+          min_pack = min_pack !== undefined ? Align_min(min_pack, pack) : pack;
+          f = ReprFlags.empty();
+          break;
+        }
+        case "ReprTransparent":
+          f = ReprFlags.IS_TRANSPARENT;
+          break;
+        case "ReprSimd":
+          f = ReprFlags.IS_SIMD;
+          break;
+        case "ReprInt": {
+          const i = r._0;
+          switch (i.$) {
+            case "SignedInt":
+              switch (i._0) {
+                case "Isize":
+                  size = { $: "Pointer", _0: true };
+                  break;
+                case "I8":
+                  size = { $: "Fixed", _0: Integer.I8, _1: true };
+                  break;
+                case "I16":
+                  size = { $: "Fixed", _0: Integer.I16, _1: true };
+                  break;
+                case "I32":
+                  size = { $: "Fixed", _0: Integer.I32, _1: true };
+                  break;
+                case "I64":
+                  size = { $: "Fixed", _0: Integer.I64, _1: true };
+                  break;
+                case "I128":
+                  size = { $: "Fixed", _0: Integer.I128, _1: true };
+                  break;
+              }
+              break;
+            case "UnsignedInt":
+              switch (i._0) {
+                case "Usize":
+                  size = { $: "Pointer", _0: false };
+                  break;
+                case "U8":
+                  size = { $: "Fixed", _0: Integer.I8, _1: false };
+                  break;
+                case "U16":
+                  size = { $: "Fixed", _0: Integer.I16, _1: false };
+                  break;
+                case "U32":
+                  size = { $: "Fixed", _0: Integer.I32, _1: false };
+                  break;
+                case "U64":
+                  size = { $: "Fixed", _0: Integer.I64, _1: false };
+                  break;
+                case "U128":
+                  size = { $: "Fixed", _0: Integer.I128, _1: false };
+                  break;
+              }
+              break;
+          }
+          f = ReprFlags.empty();
+          break;
+        }
+        case "ReprAlign": {
+          const align = r._0;
+          // `Option<Align>::max`: `None` is the smallest; `Ord::max` returns the second argument on ties.
+          max_align = max_align === undefined ? align : Align_max(max_align, align);
+          f = ReprFlags.empty();
+          break;
+        }
+      }
+      flags = ReprFlags.insert(flags, f);
+    }
+  }
+
+  // If `-Z randomize-layout` was enabled for the type definition then we can
+  // consider performing layout randomization
+  if (tcx.sess.opts.unstable_opts.randomize_layout) {
+    flags = ReprFlags.insert(flags, ReprFlags.RANDOMIZE_LAYOUT);
+  }
+
+  // box is special, on the one hand the compiler assumes an ordered layout, with the pointer
+  // always at offset zero. On the other hand we want scalar abi optimizations.
+  const is_box = tcx.is_lang_item(LocalDefId.to_def_id(did), LangItem.OwnedBox);
+
+  // This is here instead of layout because the choice must make it into metadata.
+  if (is_box) {
+    flags = ReprFlags.insert(flags, ReprFlags.IS_LINEAR);
+  }
+
+  // See `TyAndLayout::pass_indirectly_in_non_rustic_abis` for details.
+  if (find_attr(HasAttrs_LocalDefId.get_attrs(did, tcx), (k) => (k.$ === "RustcPassIndirectlyInNonRusticAbis" ? null : undefined)) !== undefined) {
+    flags = ReprFlags.insert(flags, ReprFlags.PASS_INDIRECTLY_IN_NON_RUSTIC_ABIS);
+  }
+
+  return new ReprOptions(size, max_align, min_pack, flags, elt, field_shuffle_seed);
 }
 
 /// Look up the name of a definition across crates. This does not look at HIR.

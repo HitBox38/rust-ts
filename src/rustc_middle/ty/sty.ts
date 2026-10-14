@@ -14,7 +14,7 @@
 //   function, which carries both markers (the inherent one and the trait impl's, PORTING §8). `inherent::Ty::new_param`
 //   is `Ty.ir_new_param` (ty-contract decision 5). `has_unsafe_fields` (:1122) forwards to `Ty::has_unsafe_fields` of
 //   ty/util.rs:1275 (util.ts), which defines the one method (merge-w15b).
-// - Stand-ins for fns of other files that are not ported yet (`AdtDef`, `ReprOptions`, `VariantDef`, `ValTree`,
+// - Stand-ins for fns of other files that are not ported yet (`AdtDef`, `VariantDef`, `ValTree`,
 //   `ParamEnv`, `CoroutineLayout`, ...) are at the end of the file: module-local, not markers, each calls
 //   `unported`. Root repoints them when their lanes land.
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
@@ -49,7 +49,6 @@ import type { GenericParamDef, Generics } from "./generics.ts";
 import { type Clauses, type List, RawList } from "./list.ts";
 import { debug_ParamEnv, debug_Ty, type FieldDef, Ty, type VariantDef } from "./mod.ts";
 import { AdtFlags } from "./adt.ts";
-import type { IntegerType } from "./util.ts";
 import type { Clause } from "./predicate.ts";
 import * as gen from "./sty.gen.ts";
 import type { TyKind } from "./sty.gen.ts";
@@ -1030,7 +1029,7 @@ Ty.prototype.is_simd = function (this: Ty): boolean {
   const k = this.kind();
   switch (k.$) {
     case "Adt":
-      return ReprOptions_simd(k._0.repr());
+      return k._0.repr().simd();
     default:
       return false;
   }
@@ -1041,7 +1040,7 @@ Ty.prototype.is_scalable_vector = function (this: Ty): boolean {
   const k = this.kind();
   switch (k.$) {
     case "Adt":
-      return ReprOptions_is_scalable(k._0.repr());
+      return k._0.repr().is_scalable();
     default:
       return false;
   }
@@ -1069,7 +1068,7 @@ Ty.prototype.scalable_vector_parts = function (this: Ty, tcx: TyCtxt): [number, 
   }
   const def = k._0;
   const args = k._1;
-  const scalable = ReprOptions_scalable(def.repr());
+  const scalable = def.repr().scalable;
   if (scalable === undefined) return undefined;
   let num_vectors: NumScalableVectors;
   let vec_def: AdtDef;
@@ -1087,7 +1086,7 @@ Ty.prototype.scalable_vector_parts = function (this: Ty, tcx: TyCtxt): [number, 
       break;
     }
   }
-  const vec_scalable = ReprOptions_scalable(vec_def.repr());
+  const vec_scalable = vec_def.repr().scalable;
   if (vec_scalable === undefined || vec_scalable.$ !== "ElementCount") {
     return undefined;
   }
@@ -1107,7 +1106,7 @@ Ty.prototype.simd_size_and_type = function (this: Ty, tcx: TyCtxt): [number, Ty]
   }
   const def = k._0;
   const args = k._1;
-  assert(ReprOptions_simd(def.repr()), "`simd_size_and_type` called on non-SIMD type");
+  assert(def.repr().simd(), "`simd_size_and_type` called on non-SIMD type");
   const variant = def.non_enum_variant();
   assert_eq(variant.fields.length, 1, String);
   const field_ty = index_slice(variant.fields, 0).ty(tcx, args);
@@ -1592,7 +1591,7 @@ Ty.prototype.discriminant_for_variant = function (this: Ty, tcx: TyCtxt, variant
 Ty.prototype.discriminant_ty = function (this: Ty, tcx: TyCtxt): Ty {
   const k = this.kind();
   if (k.$ === "Adt" && k._0.is_enum()) {
-    return ty_util().IntTypeExt.to_ty(ReprOptions_discr_type(k._0.repr()), tcx);
+    return ty_util().IntTypeExt.to_ty(k._0.repr().discr_type(), tcx);
   }
   switch (k.$) {
     case "Coroutine":
@@ -2254,26 +2253,7 @@ function unwrap_layout(r: Result<CoroutineLayout, unknown>): CoroutineLayout {
 
 type CoroutineLayout = Pending<"CoroutineLayout">;
 type CoroutineSavedLocal = number & { readonly __brand: "CoroutineSavedLocal" };
-type ReprOptions = Pending<"ReprOptions">;
-/** `rustc_abi::ScalableElt` (rustc_abi is not ported yet; PORTING §5 shape). */
-type ScalableElt = { readonly $: "ElementCount"; readonly _0: number } | { readonly $: "Container" };
 
-/** PORT: stand-in for `ReprOptions::simd` (rustc_abi, not ported). */
-function ReprOptions_simd(_self: ReprOptions): boolean {
-  return unported("rustc_abi::ReprOptions::simd");
-}
-/** PORT: stand-in for `ReprOptions::scalable` (rustc_abi, not ported; the method). */
-function ReprOptions_is_scalable(_self: ReprOptions): boolean {
-  return unported("rustc_abi::ReprOptions::scalable");
-}
-/** PORT: stand-in for the `ReprOptions::scalable` field (rustc_abi, not ported). */
-function ReprOptions_scalable(_self: ReprOptions): ScalableElt | undefined {
-  return unported("rustc_abi::ReprOptions.scalable");
-}
-/** PORT: stand-in for `ReprOptions::discr_type` (rustc_abi, not ported). */
-function ReprOptions_discr_type(_self: ReprOptions): IntegerType {
-  return unported("rustc_abi::ReprOptions::discr_type");
-}
 /** PORT: stand-in for `NumScalableVectors::for_non_tuple` (rustc_abi, not ported). */
 function NumScalableVectors_for_non_tuple(): NumScalableVectors {
   return unported("rustc_abi::NumScalableVectors::for_non_tuple");
