@@ -33,7 +33,6 @@ import { find_best_match_for_name } from "../../rustc_span/edit_distance.ts";
 import { type ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { display_Symbol, Symbol } from "../../rustc_span/symbol.ts";
 import type {
-  BoundRegionKind,
   ExistentialPredicate,
   PolyExistentialPredicate,
   PolyProjectionClause,
@@ -566,10 +565,9 @@ HirTyLowerer.prototype.check_elaborated_projection_mentions_input_lifetimes = fu
   // struct S1<F: for<'a> Fn(&i32, &i32) -> &'a i32>(F);
   //                         ----  ----     ^^^^^^^
   // NOTE(mgca): This error should be impossible to trigger with assoc const bindings.
-  // PORT: the casts restate the runtime `KeyedSet` (see bounds.ts `lower_assoc_item_constraint`).
   this.validate_late_bound_regions(
-    late_bound_in_projection_term as KeyedSet<BoundRegionKind>,
-    late_bound_in_term as KeyedSet<BoundRegionKind>,
+    late_bound_in_projection_term,
+    late_bound_in_term,
     (br_name: string): Diag => {
       const item_name = tcx.item_name(PolyProjectionClauseC.item_def_id(pred));
       return struct_span_code_err(

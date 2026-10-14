@@ -6,9 +6,8 @@
 // `check_representability` with a stand-in); `<case>.stderr` is the pinned rustc's output (`REGEN=1` rewrites it).
 //
 // Through the real providers every E0072 cycle goes through a `check_representability_adt_ty(Ty)` frame, and
-// `create_cycle_error` describes every frame: that query's `desc` (`Display` of `rustc_middle::ty::Ty`) is still
-// `unported` in queries.gen.ts (queries.ts typemap, handoff merge-w15b "Left for root"), so the cycles stop there. The
-// test pins that stop; when the desc lands, the rec cases must match the oracle fixtures instead (`EXPECT_ORACLE`).
+// `create_cycle_error` describes every frame with that query's `desc` (`Display` of `rustc_middle::ty::Ty`, generated
+// since merge-w16a): the rec cases must equal the oracle fixtures.
 import { expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -19,7 +18,6 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const REGEN = process.env.REGEN === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 const REC = ["rec1", "rec2", "rec3", "rec6", "rec_enum", "rec_alias"] as const;
-const DESC_STOP = "unported: desc of query `check_representability_adt_ty` (Display of `rustc_middle::ty::Ty`)";
 
 function sysroot(): string | undefined {
   try {
@@ -86,9 +84,6 @@ for (const c of REC) {
       return;
     }
     const r = run(["bun", join(DIR, "run.ts"), ...args(s, c)]);
-    // EXPECT_ORACLE: once the desc is ported, replace with
-    //   expect({ exit: r.exit, stderr: r.stderr }).toEqual({ exit: 1, stderr: readFileSync(join(DIR, `${c}.stderr`), "utf8") });
-    expect(r.stderr).toContain(DESC_STOP);
-    expect(r.exit).not.toBe(0);
+    expect({ exit: r.exit, stderr: r.stderr }).toEqual({ exit: 1, stderr: readFileSync(join(DIR, `${c}.stderr`), "utf8") });
   }, 120_000);
 }

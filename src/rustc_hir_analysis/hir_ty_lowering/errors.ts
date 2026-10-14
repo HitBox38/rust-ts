@@ -101,7 +101,8 @@ import {
 } from "../diagnostics.ts";
 import * as bounds from "./bounds.ts";
 import type { AmbiguityBetweenVariantAndAssocItem } from "./errors.gen.ts";
-import type { AssocItemQSelf, InherentAssocCandidate, LowerTypeRelativePathMode } from "./mod.gen.ts";
+import type { InherentAssocCandidate } from "./mod.gen.ts";
+import { AssocItemQSelf, LowerTypeRelativePathMode } from "./mod.ts";
 
 export * from "./errors.gen.ts";
 
@@ -219,7 +220,7 @@ HirTyLowerer.prototype.report_unresolved_assoc_item = function (
   }
 
   const assoc_kind = assoc_tag_str(assoc_tag);
-  const qself_str = AssocItemQSelf_to_string(qself, tcx);
+  const qself_str = AssocItemQSelf.to_string(qself, tcx);
 
   // The fallback span is needed because `assoc_name` might be an `Fn()`'s `Output` without a
   // valid span, so we point at the whole path segment instead.
@@ -499,7 +500,7 @@ HirTyLowerer.prototype.report_ambiguous_assoc_item = function (
   const tcx = this.tcx();
 
   const assoc_kind_str = assoc_tag_str(assoc_tag);
-  const qself_str = AssocItemQSelf_to_string(qself, tcx);
+  const qself_str = AssocItemQSelf.to_string(qself, tcx);
   const err = this.dcx().create_err(
     AmbiguousAssocItem_diagnostic({ span, assoc_kind: assoc_kind_str, assoc_ident, qself: qself_str }),
   );
@@ -1989,7 +1990,7 @@ export function AmbiguityBetweenVariantAndAssocItem_into_diag(
   };
 
   could_refer_to(DefKind.Variant, variant_def_id, "");
-  could_refer_to(LowerTypeRelativePathMode_def_kind_for_diagnostics(mode), item_def_id, " also");
+  could_refer_to(LowerTypeRelativePathMode.def_kind_for_diagnostics(mode), item_def_id, " also");
 
   lint.span_suggestion_verbose(
     span,
@@ -2095,16 +2096,6 @@ function as_decls_print<T>(d: Print<T>): import("../../rustc_middle/ty/decls.ts"
 }
 
 // ==== stand-ins (PORT: pending other lanes). Root deletes each when its owner lands and points the uses at the real port. ====
-
-/** mod.rs:261 `AssocItemQSelf::to_string` (lane hir-ty-lowering-a; becomes `AssocItemQSelf.to_string(qself, tcx)`). */
-function AssocItemQSelf_to_string(_qself: AssocItemQSelf, _tcx: TyCtxt): string {
-  return unported("rustc_hir_analysis::hir_ty_lowering::AssocItemQSelf::to_string");
-}
-
-/** mod.rs:285 `LowerTypeRelativePathMode::def_kind_for_diagnostics` (lane hir-ty-lowering-a). */
-function LowerTypeRelativePathMode_def_kind_for_diagnostics(_mode: LowerTypeRelativePathMode): DefKind {
-  return unported("rustc_hir_analysis::hir_ty_lowering::LowerTypeRelativePathMode::def_kind_for_diagnostics");
-}
 
 /** `FulfillmentError::root_obligation.predicate` (rustc_trait_selection, wave 17; `FulfillmentError` is pending). */
 function FulfillmentError_root_obligation_predicate(_e: FulfillmentError): Predicate {

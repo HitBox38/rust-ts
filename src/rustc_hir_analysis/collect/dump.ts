@@ -23,6 +23,7 @@ import { HasAttrs_LocalDefId, type Ty, TypingEnv } from "../../rustc_middle/ty/m
 import { debug_Clause } from "../../rustc_middle/ty/structural_impls.ts";
 import { visit_with_Ty } from "../../rustc_middle/ty/mod.ts";
 import { CRATE_DEF_ID, type DefId, debug_DefId, debug_LocalDefId, LocalDefId } from "../../rustc_span/def_id.ts";
+import type { ObjectLifetimeDefault } from "../../rustc_middle/middle/resolve_bound_vars.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import type { TraitRef } from "../../rustc_type_ir/decls.ts";
@@ -66,17 +67,6 @@ export function generics(tcx: TyCtxt): void {
   }
 }
 
-/**
- * PORT(decls): pending root. rustc_middle middle/resolve_bound_vars.rs:42 `enum ObjectLifetimeDefault` is the pending
- * `ObjectLifetimeDefault` alias in decls.ts; this is its PORTING §5 shape, which the `object_lifetime_default` query
- * value is viewed as until the type is ported (lane collect-rbv, see its handoff).
- */
-type ObjectLifetimeDefault_ =
-  | { readonly $: "Empty" }
-  | { readonly $: "Static" }
-  | { readonly $: "Ambiguous" }
-  | { readonly $: "Param"; _0: DefId };
-
 // rustc: compiler/rustc_hir_analysis/src/collect/dump.rs:30 object_lifetime_defaults
 export function object_lifetime_defaults(tcx: TyCtxt): void {
   for (const def_id of (tcx.hir_crate_items(null) as ModuleItems).definitions()) {
@@ -90,7 +80,7 @@ export function object_lifetime_defaults(tcx: TyCtxt): void {
 
     for (const param of (tcx.generics_of(def_id) as Generics).own_params) {
       if (param.kind.$ !== "Type") continue;
-      const default_ = tcx.object_lifetime_default(param.def_id) as ObjectLifetimeDefault_;
+      const default_ = tcx.object_lifetime_default(param.def_id) as ObjectLifetimeDefault;
       let repr: string;
       switch (default_.$) {
         case "Empty":

@@ -136,18 +136,18 @@ TyCtxt.prototype.any_free_region_meets = function <T>(this: TyCtxt, value: T, ca
 /// variables and equate `value` with something else, those
 /// variables will also be equated.
 // rustc: compiler/rustc_middle/src/ty/visit.rs:114 collect_constrained_late_bound_regions
-TyCtxt.prototype.collect_constrained_late_bound_regions = function <T>(this: TyCtxt, value: Binder<T>, d_T: TypeFoldable<T>): Set<BoundRegionKind> {
+TyCtxt.prototype.collect_constrained_late_bound_regions = function <T>(this: TyCtxt, value: Binder<T>, d_T: TypeFoldable<T>): KeyedSet<BoundRegionKind> {
   return this.collect_late_bound_regions(value, true, d_T);
 };
 
 /// Returns a set of all late-bound regions that appear in `value` anywhere.
 // rustc: compiler/rustc_middle/src/ty/visit.rs:125 collect_referenced_late_bound_regions
-TyCtxt.prototype.collect_referenced_late_bound_regions = function <T>(this: TyCtxt, value: Binder<T>, d_T: TypeFoldable<T>): Set<BoundRegionKind> {
+TyCtxt.prototype.collect_referenced_late_bound_regions = function <T>(this: TyCtxt, value: Binder<T>, d_T: TypeFoldable<T>): KeyedSet<BoundRegionKind> {
   return this.collect_late_bound_regions(value, false, d_T);
 };
 
 // rustc: compiler/rustc_middle/src/ty/visit.rs:135 collect_late_bound_regions
-TyCtxt.prototype.collect_late_bound_regions = function <T>(this: TyCtxt, value_: Binder<T>, just_constrained: boolean, d_T: TypeFoldable<T>): Set<BoundRegionKind> {
+TyCtxt.prototype.collect_late_bound_regions = function <T>(this: TyCtxt, value_: Binder<T>, just_constrained: boolean, d_T: TypeFoldable<T>): KeyedSet<BoundRegionKind> {
   const collector = LateBoundRegionsCollector.new(just_constrained);
   let value = Binder.skip_binder(value_);
   value = just_constrained ? this.expand_free_alias_tys(value, d_T) : value;
@@ -163,7 +163,7 @@ class LateBoundRegionsCollector implements TypeVisitor<undefined> {
 
   constructor(
     public current_index: DebruijnIndex,
-    public regions: Set<BoundRegionKind>,
+    public regions: KeyedSet<BoundRegionKind>,
 
     /// `true` if we only want regions that are known to be
     /// "constrained" when you equate this type with another type. In

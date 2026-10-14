@@ -1,5 +1,5 @@
-// Port of compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs (STUB, lanes hir-ty-lowering-a (lines 1..2185) and
-// hir-ty-lowering-b (lines 2186..3915): see docs/handoff/hirtylowerer-contract.md "How to fill a stub").
+// Port of compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs (lanes hir-ty-lowering-a (lines 1..2185) and
+// hir-ty-lowering-b (lines 2186..3915); see docs/handoff/hirtylowerer-contract.md).
 //
 //! HIR ty lowering: Lowers type-system entities[^1] from the [HIR][hir] to
 //! the [`rustc_middle::ty`] representation.
@@ -67,8 +67,9 @@ import { PLAIN, debug_option } from "../../std/fmt.ts";
 import { assert, unported, unreachable, unwrap, assert_eq, assert_matches, panic } from "../../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 import type { GenericArgsLowerer, InferCtxt, ResolvedArg } from "../decls.ts";
+import { debug_ResolvedArg } from "../../rustc_middle/middle/resolve_bound_vars.ts";
 import { AssocItemIsPrivate_diagnostic, ConstBoundForNonConstTrait_diagnostic } from "../diagnostics.ts";
-import { type AmbiguityBetweenVariantAndAssocItem, GenericsArgsErrExtend, prohibit_assoc_item_constraint, eq_ctxt_suggestion_span } from "./errors.ts";
+import { AmbiguityBetweenVariantAndAssocItem_diagnostic, GenericsArgsErrExtend, prohibit_assoc_item_constraint, eq_ctxt_suggestion_span } from "./errors.ts";
 import { check_generic_arg_count, lower_generic_args } from "./generics.ts";
 import * as gen from "./mod.gen.ts";
 import { type ForbidParamContext, type GenericArgCountMismatch, type GenericArgCountResult, GenericArgPosition, type GenericPathSegment, type InherentAssocCandidate, clone_InherentAssocCandidate, type OverlappingAsssocItemConstraints, type PermitVariants, PredicateFilter, RegionInferReason, type TypeRelativePath, ImpliedBoundsContext, type ResolvedStructPath } from "./mod.gen.ts";
@@ -111,9 +112,9 @@ export type { GenericArgsLowerer, HirTyLowererImpl } from "../decls.ts";
 // PORT: `#[instrument(..)]` and `debug!(..)` (tracing) are not ported: rustc's tracing output is not part of the oracle.
 
 // rustc-trait: compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs:138 HirTyLowerer
-// PORT(decls): pending root. The trait is declared in ../decls.ts as `HirTyLowererImpl<S>` (root-owned, without markers). Its
-// required methods are restated here with their markers; the signatures are identical to decls.ts's, so the merged
-// interface is unchanged. Root may move the markers into decls.ts and drop this block.
+// PORT: the trait is declared in ../decls.ts as `HirTyLowererImpl<S>` (root-owned, without markers). Its required methods
+// are restated here, in upstream order, with their markers (merge-w16a decision: the markers live in this mirrored module,
+// not in decls.ts); the signatures are identical to decls.ts's, so the merged interface is unchanged.
 declare module "../decls.ts" {
   interface HirTyLowererImpl<S> {
     // rustc: compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs:139 tcx
@@ -209,7 +210,7 @@ declare module "../decls.ts" {
   }
 
   // rustc-trait: compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs:375 GenericArgsLowerer
-  // PORT(decls): pending root, as `HirTyLowererImpl` above (decls.ts `GenericArgsLowerer`, restated with markers).
+  // PORT: as `HirTyLowererImpl` above (decls.ts `GenericArgsLowerer`, restated here with its markers).
   interface GenericArgsLowerer {
     // rustc: compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs:376 args_for_def_id
     args_for_def_id(def_id: DefId): [hir.GenericArgs | undefined, boolean];
@@ -394,18 +395,6 @@ export class ForbidParamUsesFolder implements TypeFolder {
   }
 }
 
-/**
- * PORT(decls): pending root. `rbv::ResolvedArg` (rustc_middle middle/resolve_bound_vars.rs:13) is still `Pending` in
- * ../decls.ts (and a `PendingEnum` in rustc_middle ty/context.ts); this is its PORTING §5 shape (the generated type will
- * have it), used to match on it in `lower_resolved_lifetime`.
- */
-type ResolvedArgShape =
-  | { readonly $: "StaticLifetime" }
-  | { readonly $: "EarlyBound"; _0: LocalDefId }
-  | { readonly $: "LateBound"; _0: DebruijnIndex; _1: number; _2: LocalDefId }
-  | { readonly $: "Free"; _0: LocalDefId; _1: LocalDefId }
-  | { readonly $: "Error"; _0: ErrorGuaranteed };
-
 // impl<'tcx> dyn HirTyLowerer<'tcx> + '_
 
 /// See `check_param_uses_if_mcg`.
@@ -507,8 +496,7 @@ HirTyLowerer.prototype.check_param_uses_if_mcg = function <T>(
 HirTyLowerer.prototype.lower_lifetime = function (this: HirTyLowerer, lifetime: hir.Lifetime, reason: RegionInferReason): Region {
   const resolved = this.tcx().named_bound_var(lifetime.hir_id);
   if (resolved !== undefined) {
-    // PORT: rustc_middle's `PendingEnum` `ResolvedArg` and decls.ts's `Pending` one are the same upstream type.
-    const region = this.lower_resolved_lifetime(resolved as unknown as ResolvedArg);
+    const region = this.lower_resolved_lifetime(resolved);
     return this.check_param_uses_if_mcg(region, lifetime.ident.span, false, fold_Region);
   } else {
     return this.re_infer(lifetime.ident.span, reason);
@@ -518,11 +506,9 @@ HirTyLowerer.prototype.lower_lifetime = function (this: HirTyLowerer, lifetime: 
 /// Lower a lifetime from the HIR to our internal notion of a lifetime called a *region*.
 // #[instrument(level = "debug", skip(self), ret)]
 // rustc: compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs:595 lower_resolved_lifetime
-HirTyLowerer.prototype.lower_resolved_lifetime = function (this: HirTyLowerer, resolved_: ResolvedArg): Region {
+HirTyLowerer.prototype.lower_resolved_lifetime = function (this: HirTyLowerer, resolved: ResolvedArg): Region {
   const tcx = this.tcx();
 
-  // PORT: see `ResolvedArgShape`.
-  const resolved = resolved_ as unknown as ResolvedArgShape;
   switch (resolved.$) {
     case "StaticLifetime":
       return tcx.lifetimes.re_static;
@@ -1425,15 +1411,6 @@ HirTyLowerer.prototype.lower_type_relative_const_path = function (
   }
 };
 
-/**
- * PORT: pending lane hir-ty-lowering-d. errors.rs:2031 is a manual `impl Diagnostic for AmbiguityBetweenVariantAndAssocItem`
- * (`AmbiguityBetweenVariantAndAssocItem_diagnostic` in errors.ts, not written yet). Root: at merge, replace the call of this
- * helper with `errors.AmbiguityBetweenVariantAndAssocItem_diagnostic(..)` and delete it.
- */
-function AmbiguityBetweenVariantAndAssocItem_diagnostic_pending(_v: AmbiguityBetweenVariantAndAssocItem): Diagnostic {
-  return unported("rustc_hir_analysis::hir_ty_lowering::errors::AmbiguityBetweenVariantAndAssocItem as Diagnostic (into_diag)");
-}
-
 /// Lower a [type-relative][hir::QPath::TypeRelative] (and type-level) path.
 // #[instrument(level = "debug", skip_all, ret)]
 // rustc: compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs:1512 lower_type_relative_path
@@ -1525,7 +1502,7 @@ HirTyLowerer.prototype.lower_type_relative_path = function (
       AMBIGUOUS_ASSOCIATED_ITEMS,
       qpath_hir_id,
       span,
-      AmbiguityBetweenVariantAndAssocItem_diagnostic_pending({
+      AmbiguityBetweenVariantAndAssocItem_diagnostic({
         variant_def_id,
         item_def_id,
         span,
@@ -2105,17 +2082,6 @@ HirTyLowerer.prototype.probe_generic_path_segments = function (
 
 // ==== lane hir-ty-lowering-b: mod.rs:2186..3915 ====
 
-// PORT(decls): pending root. `rbv::ResolvedArg` (rustc_middle middle/resolve_bound_vars.rs) is `Pending` in ../decls.ts and
-// `PendingEnum` in rustc_middle ty/context.ts (`named_bound_var`). This is its upstream shape, used to match on it here:
-// `enum ResolvedArg { StaticLifetime, EarlyBound(LocalDefId), LateBound(DebruijnIndex, u32, LocalDefId),
-// Free(LocalDefId, LocalDefId), Error(ErrorGuaranteed) }`.
-type RbvResolvedArg =
-  | { readonly $: "StaticLifetime" }
-  | { readonly $: "EarlyBound"; _0: LocalDefId }
-  | { readonly $: "LateBound"; _0: DebruijnIndex; _1: number; _2: LocalDefId }
-  | { readonly $: "Free"; _0: LocalDefId; _1: LocalDefId }
-  | { readonly $: "Error"; _0: ErrorGuaranteed };
-
 // rustc_abi `FIRST_VARIANT` (`VariantIdx::ZERO`); PORT: rustc_abi's layout module is not ported (rustc_middle ty/adt.ts
 // keeps the same local constant).
 const FIRST_VARIANT = 0 as VariantIdx;
@@ -2148,11 +2114,6 @@ function map_index<K, V>(map: Map<K, V>, key: K): V {
 /** `assert_eq!(opt_self_ty, None)` */
 function assert_no_self_ty(opt_self_ty: Ty | undefined): void {
   assert_eq(opt_self_ty, undefined, (v) => debug_option(v, PLAIN, debug_Ty));
-}
-
-/** The `Debug` of `Option<ResolvedArg>` in a `bug!` text. PORT: `Debug for ResolvedArg` is pending (see above). */
-function debug_opt_resolved_arg(_arg: RbvResolvedArg | undefined): string {
-  return unported("Debug for rustc_middle::middle::resolve_bound_vars::ResolvedArg");
 }
 
 /// Lower a [resolved][hir::QPath::Resolved] path to a type.
@@ -2290,7 +2251,7 @@ HirTyLowerer.prototype.lower_ty_param = function (this: HirTyLowerer, hir_id: Hi
   const tcx = this.tcx();
 
   let ty: Ty;
-  const arg = tcx.named_bound_var(hir_id) as RbvResolvedArg | undefined;
+  const arg = tcx.named_bound_var(hir_id);
   if (arg !== undefined && arg.$ === "LateBound") {
     const [debruijn, index, def_id] = [arg._0, arg._1, arg._2];
     const br: BoundTy = {
@@ -2307,7 +2268,7 @@ HirTyLowerer.prototype.lower_ty_param = function (this: HirTyLowerer, hir_id: Hi
   } else if (arg !== undefined && arg.$ === "Error") {
     ty = Ty.new_error(tcx, arg._0);
   } else {
-    return bug(`unexpected bound var resolution for ${debug_HirId(hir_id, PLAIN)}: ${debug_opt_resolved_arg(arg)}`);
+    return bug(`unexpected bound var resolution for ${debug_HirId(hir_id, PLAIN)}: ${debug_option(arg, PLAIN, debug_ResolvedArg)}`);
   }
   return this.check_param_uses_if_mcg(ty, tcx.hir_span(hir_id), false, fold_Ty);
 };
@@ -2321,7 +2282,7 @@ HirTyLowerer.prototype.lower_const_param = function (this: HirTyLowerer, param_d
   const tcx = this.tcx();
 
   let ct: Const;
-  const arg = tcx.named_bound_var(path_hir_id) as RbvResolvedArg | undefined;
+  const arg = tcx.named_bound_var(path_hir_id);
   if (arg !== undefined && arg.$ === "EarlyBound") {
     // Find the name and index of the const parameter by indexing the generics of
     // the parent item and construct a `ParamConst`.
@@ -2336,7 +2297,7 @@ HirTyLowerer.prototype.lower_const_param = function (this: HirTyLowerer, param_d
   } else if (arg !== undefined && arg.$ === "Error") {
     ct = Const.new_error(tcx, arg._0);
   } else {
-    return bug(`unexpected bound var resolution for ${debug_HirId(path_hir_id, PLAIN)}: ${debug_opt_resolved_arg(arg)}`);
+    return bug(`unexpected bound var resolution for ${debug_HirId(path_hir_id, PLAIN)}: ${debug_option(arg, PLAIN, debug_ResolvedArg)}`);
   }
   return this.check_param_uses_if_mcg(ct, tcx.hir_span(path_hir_id), false, fold_Const);
 };
@@ -3561,13 +3522,12 @@ HirTyLowerer.prototype.lower_fn_ty = function (
     //     for<'a> fn() -> &'a str <-- 'a is bad
     //     for<'a> fn(&'a String) -> &'a str <-- 'a is ok
     const inputs = PolyFnSig_.inputs(fn_ptr_ty);
-    // PORT: `collect_*_late_bound_regions` build an `FxIndexSet` (rustc_middle ty/visit.ts: a `KeyedSet`, typed `Set`).
     const late_bound_in_args = tcx.collect_constrained_late_bound_regions(
       Binder.map_bound(inputs, (i): readonly Ty[] => [...i]),
       fold_Vec(fold_Ty),
-    ) as KeyedSet<BoundRegionKind>;
+    );
     const output = PolyFnSig_.output(fn_ptr_ty);
-    const late_bound_in_ret = tcx.collect_referenced_late_bound_regions(output, fold_Ty) as KeyedSet<BoundRegionKind>;
+    const late_bound_in_ret = tcx.collect_referenced_late_bound_regions(output, fold_Ty);
 
     this.validate_late_bound_regions(late_bound_in_args, late_bound_in_ret, (br_name) =>
       struct_span_code_err(

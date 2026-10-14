@@ -561,12 +561,10 @@ export function has_late_bound_regions(tcx: TyCtxt, node: hir.Node): Span | unde
 
     // rustc: compiler/rustc_hir_analysis/src/collect/generics_of.rs:479 visit_lifetime
     override visit_lifetime(lt: hir.Lifetime): ControlFlow<Span> {
-      // PORT: `rbv::ResolvedArg` is pending (rustc_middle middle/resolve_bound_vars.rs, lane collect-rbv): its
-      // variants are matched by tag, `LateBound(debruijn, _, _)`'s index is `_0`.
       const r = this.tcx.named_bound_var(lt.hir_id);
       if (r !== undefined && (r.$ === "StaticLifetime" || r.$ === "EarlyBound")) {
         return ControlFlow.CONTINUE;
-      } else if (r !== undefined && r.$ === "LateBound" && (r._0 as DebruijnIndex) < this.outer_index) {
+      } else if (r !== undefined && r.$ === "LateBound" && r._0 < this.outer_index) {
         return ControlFlow.CONTINUE;
       } else {
         // Some(LateBound(..) | Free(..) | Error(_)) | None

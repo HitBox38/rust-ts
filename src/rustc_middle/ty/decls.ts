@@ -202,6 +202,7 @@ import type { BoundVarReplacerDelegate } from "./fold.ts";
 export type { BoundVarReplacerDelegate };
 // the search graph's `Tracked<T>` (`I::Tracked<T>`, impl_interner.rs: `WithDepNode<T>`; lane middle-traits-thir)
 import type { WithDepNode as Tracked } from "../traits/cache.ts";
+import type { KeyedSet } from "../../rust_ts/keyed.ts";
 export type { Tracked };
 
 // TyCtxt's `Interner` associated list types (rustc_type_ir/interner.ts header; `&'tcx List<T>`), named for
@@ -1324,11 +1325,11 @@ declare module "./context.ts" {
     // ty/visit.rs:37
     any_free_region_meets<T>(value: T, callback: (r: Region) => boolean, d_T: TypeVisitable<T>): boolean;
     // ty/visit.rs:114
-    collect_constrained_late_bound_regions<T>(value: Binder<T>, d_T: TypeFoldable<T>): Set<BoundRegionKind>;
+    collect_constrained_late_bound_regions<T>(value: Binder<T>, d_T: TypeFoldable<T>): KeyedSet<BoundRegionKind>;
     // ty/visit.rs:125
-    collect_referenced_late_bound_regions<T>(value: Binder<T>, d_T: TypeFoldable<T>): Set<BoundRegionKind>;
+    collect_referenced_late_bound_regions<T>(value: Binder<T>, d_T: TypeFoldable<T>): KeyedSet<BoundRegionKind>;
     // ty/visit.rs:135
-    collect_late_bound_regions<T>(value: Binder<T>, just_constrained: boolean, d_T: TypeFoldable<T>): Set<BoundRegionKind>;
+    collect_late_bound_regions<T>(value: Binder<T>, just_constrained: boolean, d_T: TypeFoldable<T>): KeyedSet<BoundRegionKind>;
   }
   // statics:
     // ---- ty/pattern.rs ----

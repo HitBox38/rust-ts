@@ -25,7 +25,7 @@ import { bug } from "../../rustc_span/macros.ts";
 import { display_Ident, display_Symbol, type Ident, kw } from "../../rustc_span/symbol.ts";
 import { Binder, debug_BoundRegionKind, EarlyBinder, fold_Binder, visit_Binder } from "../../rustc_type_ir/binder.ts";
 import { AliasConst } from "../../rustc_type_ir/const_kind.ts";
-import type { AliasTy, BoundRegionKind, BoundVariableKind, ClauseKind, DebruijnIndex, FnSig, PolyTraitRef, ProjectionClause } from "../../rustc_type_ir/decls.ts";
+import type { AliasTy, BoundVariableKind, ClauseKind, DebruijnIndex, FnSig, PolyTraitRef, ProjectionClause } from "../../rustc_type_ir/decls.ts";
 import { supertraits } from "../../rustc_type_ir/elaborate.ts";
 import { BoundVar, DebruijnIndex as DebruijnIndexC, INNERMOST } from "../../rustc_type_ir/lib.ts";
 import { debug_BoundVar } from "../../rustc_type_ir/lib.gen.ts";
@@ -42,7 +42,6 @@ import { fold_Const } from "../../rustc_type_ir/sty/consts.ts";
 import { PolyFnSig } from "../../rustc_type_ir/ty_kind.ts";
 import type { AliasTerm as AliasTermT } from "../../rustc_type_ir/ty/alias.ts";
 import type { AliasTermKind } from "../../rustc_type_ir/term_kind.gen.ts";
-import type { KeyedSet } from "../../rust_ts/keyed.ts";
 import { MultiSpan } from "../../rustc_error_messages/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { unwrap } from "../../std/panic.ts";
@@ -519,9 +518,7 @@ HirTyLowerer.prototype.lower_assoc_item_constraint = function (
     // struct S1<F: for<'a> Fn(&i32, &i32) -> &'a i32>(F);
     //                         ----  ----     ^^^^^^^
     // NOTE(mgca): This error should be impossible to trigger with assoc const bindings.
-    // PORT: `collect_*_late_bound_regions` are declared to return `Set<BoundRegionKind>` (rustc_middle ty/decls.ts) but build a
-    // `KeyedSet` (ty/visit.ts), which `validate_late_bound_regions` takes (decls.ts); the casts restate the runtime type.
-    this.validate_late_bound_regions(late_bound_in_projection_ty as KeyedSet<BoundRegionKind>, late_bound_in_term as KeyedSet<BoundRegionKind>, (br_name: string): Diag => {
+    this.validate_late_bound_regions(late_bound_in_projection_ty, late_bound_in_term, (br_name: string): Diag => {
       return struct_span_code_err(
         this.dcx(),
         constraint.span,

@@ -203,7 +203,7 @@ type AllocId = Pending<"mir::interpret::AllocId">;
 type IntrinsicDef = Pending<"ty::IntrinsicDef">;
 type DepNode = Pending<"dep_graph::DepNode">;
 type Local = Pending<"mir::Local">;
-type ResolvedArg = PendingEnum<"middle::resolve_bound_vars::ResolvedArg">;
+import type { ResolvedArg } from "../middle/resolve_bound_vars.ts";
 interface TargetFeature {
   name: Symbol;
 }
