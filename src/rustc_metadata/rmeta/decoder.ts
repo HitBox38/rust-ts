@@ -100,7 +100,7 @@ import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { DiagnosticItems } from "../../rustc_attr_ir/diagnostic_items.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { DefPath as DefPath_, DefPathData } from "../../rustc_hir_id/definitions.ts";
-import { decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { decode_ImplTraitInTraitData, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
 import type { RestrictionKind } from "../../rustc_middle/ty/mod.ts";
 import { debug_Visibility, Visibility as ty_Visibility } from "../../rustc_middle/ty/mod.ts";
 import { decode_u32 } from "../../rustc_serialize/serialize.ts";
@@ -1890,7 +1890,7 @@ CrateMetadata.prototype.get_associated_item = function (this: CrateMetadata, tcx
       let data: AssocTypeData;
       const rpitit_info = this.root.tables.opt_rpitit_info.get(fse_Option_LazyValue, this, id) as LazyValue<ImplTraitInTraitData> | undefined;
       if (rpitit_info !== undefined) {
-        data = { $: "Rpitit", _0: rpitit_info.decode([this, tcx], decode_ImplTraitInTraitData_pending) };
+        data = { $: "Rpitit", _0: rpitit_info.decode([this, tcx], decode_ImplTraitInTraitData) };
       } else {
         data = { $: "Normal", _0: this.item_name(id) };
       }
@@ -1905,10 +1905,6 @@ CrateMetadata.prototype.get_associated_item = function (this: CrateMetadata, tcx
   return { kind, def_id: this.local_def_id(id), container };
 };
 
-/** `derive(TyDecodable)` of `ty::ImplTraitInTraitData` (ty/mod.rs, lane ty-mod: the type is still `Pending`). */
-function decode_ImplTraitInTraitData_pending(_d: MetadataDecodeContext): ImplTraitInTraitData {
-  return unported("Decodable for rustc_middle::ty::ImplTraitInTraitData (ty/mod.rs, lane ty-mod)");
-}
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1455 get_ctor
 CrateMetadata.prototype.get_ctor = function (this: CrateMetadata, tcx: TyCtxt, node_id: DefIndex): [CtorKind, DefId] | undefined {

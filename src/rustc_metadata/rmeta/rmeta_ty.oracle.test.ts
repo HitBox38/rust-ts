@@ -51,6 +51,11 @@ import { Unported } from "../../std/panic.ts";
 import { creader } from "../lib.ts";
 import { debug_EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { debug_Ty } from "../../rustc_middle/ty/mod.ts";
+import { debug_Clause } from "../../rustc_middle/ty/predicate.ts";
+import { debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
+import { debug_FnSig } from "../../rustc_type_ir/ty_kind.ts";
+import { debug_Span } from "../../rustc_span/lib.ts";
+import { debug_list, debug_tuple } from "../../std/fmt.ts";
 
 const REQUIRE_PROBES = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const PROBE = join(DATA, "target", "probes", "release", "rmetatydump");
@@ -62,7 +67,21 @@ const CRATES = ["core", "alloc"];
 /** Lines of each shape kind that must match (not merely be pending): see the header. */
 /** (Measured by lane rmeta-ty: kind 3400, type_of 1181, fn_sig 214, generics 1912, outlives 1908, variances 884, assoc 747,
  * bounds 121; the rest stopped at AdtDefData / GenericClauses / `Predicate::expect_clause` / Debug of `Ty`.) */
-const MIN_MATCHED: Record<string, number> = { kind: 3400, type_of: 1181, fn_sig: 214, generics: 1912, outlives: 1908, variances: 884, assoc: 747, bounds: 121 };
+// merge-w15b: raised to the counts after the wave-15 merge (ty-adt-assoc / ty-results / ty-args landed).
+const MIN_MATCHED: Record<string, number> = {
+  kind: 3400,
+  type_of: 1181,
+  "type_of.dbg": 294,
+  fn_sig: 214,
+  generics: 1912,
+  outlives: 1912,
+  "outlives.dbg": 1908,
+  super: 9,
+  implied: 9,
+  variances: 884,
+  assoc: 748,
+  bounds: 124,
+};
 const WORK = join(DATA, "tmp", "rmeta-ty-oracle", process.env.RUST_TS_AGENT ?? "default");
 
 function sysroot(): string {
@@ -316,7 +335,7 @@ function lines_of(tcx: TyCtxt, d: DefId): Line[] {
         return `<${sig.bound_vars.length}>(${tys_shape(tcx, s.inputs_and_output)}) c_variadic=${FnSigKind.c_variadic(s.fn_sig_kind)} safety=${debug_Safety(FnSigKind.safety(s.fn_sig_kind), PLAIN)} abi=${debug_ExternAbi(FnSigKind.abi(s.fn_sig_kind), PLAIN)}`;
       },
     ]);
-    out.push(["fn_sig.dbg", () => unsupported_dbg("fn_sig", fn_sig())]);
+    out.push(["fn_sig.dbg", () => debug_EarlyBinder(fn_sig(), PLAIN, (b, f) => debug_Binder(b, f, debug_FnSig))]);
   }
   if (GENERICS.has(k)) {
     out.push([
@@ -329,7 +348,7 @@ function lines_of(tcx: TyCtxt, d: DefId): Line[] {
     ]);
     const outlives = once(() => tcx.inferred_outlives_of(d) as readonly [Clause, Span][]);
     out.push(["outlives", () => clauses_shape(tcx, outlives())]);
-    out.push(["outlives.dbg", () => unsupported_dbg("outlives", outlives())]);
+    out.push(["outlives.dbg", () => debug_list(PLAIN, outlives().map(([c, sp]) => debug_tuple(PLAIN, "", [debug_Clause(c, PLAIN), debug_Span(sp, PLAIN)])))]);
     out.push([
       "clauses",
       () => {
@@ -380,11 +399,6 @@ function lines_of(tcx: TyCtxt, d: DefId): Line[] {
   return out;
 }
 
-/** `{:?}` of values whose Debug needs the pretty printer of `Ty` / `Clause` (lanes ty-print / ty-results). */
-function unsupported_dbg(what: string, v: unknown): string {
-  void v;
-  throw new Unported(`rmeta-ty test: {:?} of ${what} (Debug for Ty / Clause: structural_impls.rs)`);
-}
 
 function value_or_stop(f: () => string): string {
   try {

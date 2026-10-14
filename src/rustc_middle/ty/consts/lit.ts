@@ -81,7 +81,5 @@ function byte_str_inner_is_u8(inner_ty: Ty): boolean {
 function is_cstr_adt(tcx: TyCtxt, inner_ty: Ty): boolean {
   const k = inner_ty.kind();
   if (k.$ !== "Adt") return false;
-  // PORT: `AdtDef::did` is lane ty-adt-assoc's (adt.rs); until it lands, reaching this arm stops here.
-  const { unported } = require("../../../std/panic.ts") as typeof import("../../../std/panic.ts");
-  return tcx.is_lang_item(unported("rustc_middle::ty::adt::AdtDef::did (lane ty-adt-assoc)"), "CStr");
+  return tcx.is_lang_item(k._0.did(), "CStr");
 }

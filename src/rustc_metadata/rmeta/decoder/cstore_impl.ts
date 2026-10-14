@@ -59,7 +59,7 @@ import { decode_FnSig, type FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
 import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
-import { decode_Generics } from "../../../rustc_middle/decodable.gen.ts";
+import { decode_AsyncDestructor, decode_Destructor, decode_Generics } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
@@ -524,8 +524,8 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
 
   visibility: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_visibility(tcx, def_id.index)],
   adt_def: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_adt_def(tcx, def_id.index)],
-  adt_destructor: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Destructor", decode_unported("ty::Destructor")), ProcessQueryValue_T)],
-  adt_async_destructor: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::AsyncDestructor", decode_unported("ty::AsyncDestructor")), ProcessQueryValue_T)],
+  adt_destructor: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Destructor", decode_Destructor), ProcessQueryValue_T)],
+  adt_async_destructor: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::AsyncDestructor", decode_AsyncDestructor), ProcessQueryValue_T)],
   associated_item_def_ids: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => [...cdata.get_associated_item_or_field_def_ids(tcx, def_id.index)]],
   associated_item: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_associated_item(tcx, def_id.index)],
   inherent_impls: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_inherent_implementations_for_type(tcx, def_id.index)],

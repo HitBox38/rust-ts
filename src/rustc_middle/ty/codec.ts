@@ -418,9 +418,10 @@ function CtfeProvenance_from_parts(_parts: [AllocId, boolean]): CtfeProvenance {
 function decode_Allocation(_d: TyDecoder): Allocation {
   return unported("Decodable for rustc_middle::mir::interpret::Allocation (M4)");
 }
-/** `derive(TyDecodable)` of `ty::AdtDefData` (ty/adt.rs:109: `did`, `variants`, `flags`, `repr`; lane ty-adt-assoc). */
+/** `derive(TyDecodable)` of `ty::AdtDefData` (ty/adt.rs:109: `did`, `variants`, `flags`, `repr`). PORT: not generated
+ *  yet (tools/codegen: needs the `VariantDef` / `FieldDef` derives and rustc_abi's `ReprOptions`, not ported). */
 function decode_AdtDefData(_d: TyDecoder): AdtDefData {
-  return unported("Decodable for rustc_middle::ty::AdtDefData (ty/adt.rs, lane ty-adt-assoc)");
+  return unported("Decodable for rustc_middle::ty::AdtDefData (derive(TyDecodable) not generated; rustc_abi ReprOptions)");
 }
 
 export type { BoundVariableKind };

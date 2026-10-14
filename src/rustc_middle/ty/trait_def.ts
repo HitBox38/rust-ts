@@ -31,10 +31,8 @@ import { simplify_type } from "../../rustc_type_ir/fast_reject.ts";
 import { as_interner } from "../../rustc_type_ir/predicate.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { debug_SimplifiedType, SimplifiedType, SimplifiedType_key } from "./fast_reject.ts";
-import { debug_Ty, HasAttrs_DefId, type Ty } from "./mod.ts";
+import { debug_Ty, HasAttrs_DefId, type RestrictionKind, type Ty } from "./mod.ts";
 
-/** `ty::RestrictionKind` (ty/mod.rs:277). PORT(decls): pending lane ty-mod-a/-b (PORTING §5 shape). */
-export type RestrictionKind = { readonly $: "Unrestricted" } | { readonly $: "Restricted"; readonly _0: DefId; readonly _1: Span };
 
 /// A trait's definition with type information.
 export class TraitDef {

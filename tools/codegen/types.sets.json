@@ -410,6 +410,9 @@
     "decodable_types": [
       "rustc_middle::ty::Visibility",
       "rustc_middle::ty::RestrictionKind",
+      "rustc_middle::ty::ImplTraitInTraitData",
+      "rustc_middle::ty::Destructor",
+      "rustc_middle::ty::AsyncDestructor",
       "rustc_middle::middle::resolve::Reexport",
       "rustc_middle::middle::resolve::ModChild",
       "rustc_middle::middle::resolve::AmbigModChild",
@@ -422,7 +425,7 @@
     },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b) module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_middle_stability": {

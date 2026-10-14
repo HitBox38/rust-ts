@@ -13,12 +13,10 @@
 // Defining module (docs/handoff/ty-contract.md "Init order"): it never imports an extension module and its top-level
 // code touches nothing but its own classes. context.ts may import it.
 //
-// PORT(decls): pending. `VariantDef`, `FieldDef`, `VariantDiscr`, `Destructor`, `AsyncDestructor` (ty/mod.rs, lanes
-// ty-mod-a/-b), `ReprOptions` / `IntegerType` (rustc_abi), `Discr` / `IntTypeExt` (ty/util.rs, lane ty-util),
-// `ty::Value` / `ScalarInt` (lane ty-results), `ErrorHandled` / `const_eval_poly` (mir/interpret, M4) are not ported.
-// Their members that this file reads are typed by the `*View` interfaces below (upstream field and method names,
-// PORTING §4/§5 shapes) and reached by a cast; their methods that are not plain field reads go through the
-// `unported` stand-ins at the end of the file (repoint when the owners land).
+// PORT(decls): pending. `ReprOptions` (rustc_abi) and `ErrorHandled` / `const_eval_poly` (mir/interpret, M4) are not
+// ported: their methods go through the `unported` stand-ins at the end of the file. (merge-w15b: `VariantDef`,
+// `FieldDef`, `Destructor` are ty/mod.ts's, `Discr` / `IntTypeExt` ty/util.ts's, `ty::Value` / `ScalarInt`
+// ty/consts/*.ts's; ty/mod.ts / util.ts / valtree.ts are reached lazily.)
 import { Interned } from "../../rustc_data_structures/intern.ts";
 import { find_attr, type Attribute as Attribute_ } from "../../rustc_attr_ir/lib.ts";
 import { type CtorKind, debug_Res, type DefKind, type Res } from "../../rustc_hir/def.ts";

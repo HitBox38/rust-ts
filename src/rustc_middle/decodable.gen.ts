@@ -6,7 +6,7 @@ import { decode_Res } from "../rustc_hir/def.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { type TyDecoder } from "./ty/codec.ts";
 import { type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
-import { RestrictionKind, Visibility } from "./ty/mod.ts";
+import { type AsyncDestructor, type Destructor, type ImplTraitInTraitData, RestrictionKind, Visibility } from "./ty/mod.ts";
 import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_u32, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
 import { decode_Ident, decode_ModId } from "../rustc_span/decodable.gen.ts";
 import { type BlobDecoder, type SpanDecoder } from "../rustc_span/lib.ts";
@@ -35,6 +35,33 @@ export function decode_RestrictionKind(__decoder: SpanDecoder): RestrictionKind 
       return { $: "Restricted", _0: __decoder.decode_def_id(), _1: __decoder.decode_span() };
     default:
       return panic(`invalid enum variant tag while decoding \`RestrictionKind\`, expected 0..2, actual ${__tag}`);
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1253 Decodable for Destructor
+export function decode_Destructor(__decoder: SpanDecoder): Destructor {
+  return {
+    did: __decoder.decode_def_id(),
+  };
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1260 Decodable for AsyncDestructor
+export function decode_AsyncDestructor(__decoder: SpanDecoder): AsyncDestructor {
+  return {
+    impl_did: __decoder.decode_def_id(),
+  };
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1572 Decodable for ImplTraitInTraitData
+export function decode_ImplTraitInTraitData(__decoder: SpanDecoder): ImplTraitInTraitData {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Trait", fn_def_id: __decoder.decode_def_id(), opaque_def_id: __decoder.decode_def_id() };
+    case 1:
+      return { $: "Impl", fn_def_id: __decoder.decode_def_id() };
+    default:
+      return panic(`invalid enum variant tag while decoding \`ImplTraitInTraitData\`, expected 0..2, actual ${__tag}`);
   }
 }
 

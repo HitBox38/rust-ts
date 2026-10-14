@@ -6,7 +6,8 @@
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { Mutability } from "../../rustc_ast_ir/lib.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
-import { unported } from "../../std/panic.ts";
+import { unwrap } from "../../std/panic.ts";
+import type { AssocItem as AssocItemT, AssocItems as AssocItemsT } from "./assoc.ts";
 import * as gen from "./adjustment.gen.ts";
 import type { TyCtxt } from "./context.ts";
 
@@ -35,13 +36,16 @@ export const OverloadedDeref = {
         trait_def_id = tcx.require_lang_item("DerefMut" satisfies LangItem, self.span);
         break;
     }
-    // tcx.associated_items(trait_def_id)
-    //     .in_definition_order()
-    //     .find(|item| item.is_fn())
-    //     .unwrap()
-    //     .def_id
-    void trait_def_id;
-    return unported("rustc_middle::ty::assoc::AssocItems::in_definition_order (ty/assoc.rs, lane ty-adt-assoc)");
+    const { AssocItem, AssocItems } = assoc();
+    // PORT: the `associated_items` query value is `unknown` in queries.gen.ts: it is an `AssocItems`.
+    let found: AssocItemT | undefined;
+    for (const item of AssocItems.in_definition_order(tcx.associated_items(trait_def_id) as AssocItemsT)) {
+      if (AssocItem.is_fn(item)) {
+        found = item;
+        break;
+      }
+    }
+    return unwrap(found, "called `Option::unwrap()` on a `None` value").def_id;
   },
 };
 
@@ -72,4 +76,9 @@ export function Mutability_from_AutoBorrowMutability(m: AutoBorrowMutability): M
     case "Not":
       return "Not";
   }
+}
+
+/** PORT (merge-w15b): ty/assoc.ts is an extension module of `TyCtxt`: reached lazily. */
+function assoc(): typeof import("./assoc.ts") {
+  return require("./assoc.ts") as typeof import("./assoc.ts");
 }

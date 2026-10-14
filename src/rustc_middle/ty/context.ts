@@ -1644,9 +1644,9 @@ export class TyCtxt {
     }
     const hir_output = decl.output._0;
 
-    void hir_output;
-    // let mut v = TraitObjectVisitor(vec![]); v.visit_ty_unambig(hir_output); v.0
-    return unported("rustc_middle::ty::diagnostics::TraitObjectVisitor (ty/diagnostics.rs, lane ty-results)");
+    const v = new (middle_ty_diagnostics().TraitObjectVisitor)([]);
+    v.visit_ty_unambig(hir_output);
+    return v._0;
   }
 
   /// Given a `DefId` for an `fn`, return all the `dyn` and `impl` traits in
@@ -1655,7 +1655,7 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:1519 return_type_impl_or_dyn_traits_with_type_alias
   return_type_impl_or_dyn_traits_with_type_alias(scope_def_id: LocalDefId): [HirTy[], Span, Span | undefined] | undefined {
     const hir_id = this.local_def_id_to_hir_id(scope_def_id);
-    // let mut v = TraitObjectVisitor(vec![]);
+    const v = new (middle_ty_diagnostics().TraitObjectVisitor)([]);
     // when the return type is a type alias
     const decl = this.hir_fn_decl_by_hir_id(hir_id);
     if (decl !== undefined && decl.output.$ === "Return") {
@@ -1669,9 +1669,10 @@ export class TyCtxt {
             if (alias_ty !== undefined) {
               const alias_generics = Node.generics(this.hir_node_by_def_id(local_id));
               if (alias_generics !== undefined) {
-                // v.visit_ty_unambig(alias_ty); if !v.0.is_empty() { return Some((v.0, alias_generics.span,
-                // alias_generics.span_for_lifetime_suggestion())); }
-                return unported("rustc_middle::ty::diagnostics::TraitObjectVisitor (ty/diagnostics.rs, lane ty-results)");
+                v.visit_ty_unambig(alias_ty);
+                if (v._0.length !== 0) {
+                  return [v._0, alias_generics.span, alias_generics.span_for_lifetime_suggestion()];
+                }
               }
             }
           }
@@ -3048,6 +3049,11 @@ function middle_lint(): typeof import("../lint.ts") {
  * `impl TyCtxt` blocks), so `feed_hir` reaches it lazily, as `middle_lint()` (decision 5). */
 function middle_hir(): typeof import("../hir/mod.ts") {
   return require("../hir/mod.ts") as typeof import("../hir/mod.ts");
+}
+
+/** PORT: ty/diagnostics.ts imports rustc_hir's visitor and attaches `TyCtxt` methods: reached lazily (merge-w15b). */
+function middle_ty_diagnostics(): typeof import("./diagnostics.ts") {
+  return require("./diagnostics.ts") as typeof import("./diagnostics.ts");
 }
 
 /** PORT: ty/assoc.ts is an extension module of `TyCtxt` (it attaches `associated_types_for_impl_traits_in_associated_fn`),

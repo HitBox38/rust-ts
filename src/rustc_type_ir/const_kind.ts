@@ -23,6 +23,7 @@ import { debug_bound_var } from "./lib.ts";
 import type { Unnormalized } from "./unnormalized.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { debug_Value } from "../rustc_middle/ty/consts/valtree.ts";
+import { debug_ParamConst } from "../rustc_middle/ty/structural_impls.ts";
 
 export * from "./const_kind.gen.ts";
 
@@ -31,8 +32,7 @@ export const debug_ConstKind: Debug<gen.ConstKind> = (self, _f) => {
   switch (self.$) {
     case "Param":
       // write!(f, "{param:?}")
-      // PORT: `impl Debug for ty::ParamConst` (rustc_middle ty/structural_impls.rs) is not ported yet.
-      return unported("rustc_type_ir::const_kind::ConstKind Debug (Param: Debug for rustc_middle::ty::ParamConst)");
+      return debug_ParamConst(self._0, PLAIN);
     case "Infer":
       return debug_InferConst(self._0, PLAIN);
     case "Bound":
