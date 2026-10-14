@@ -144,11 +144,9 @@ import type { ByteSymbol, Ident, Symbol } from "../rustc_span/symbol.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import type { Result } from "../std/result.ts";
 import type {
-  DelegationGenerics,
   GenericArgSlot,
   GenericsGenerationResult,
   GenericsGenerationResults,
-  GenericsPosition,
   GenericsResolution,
   ParentSegmentArgs,
   TyGenerics,
