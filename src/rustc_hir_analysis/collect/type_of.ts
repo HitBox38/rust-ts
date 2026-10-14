@@ -31,7 +31,7 @@ import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { unported } from "../../std/panic.ts";
+import { panic, unported } from "../../std/panic.ts";
 import type { HirTyLowerer, ItemCtxt } from "../decls.ts";
 import { bad_placeholder, HirPlaceholderCollector, ItemCtxt as ItemCtxtC } from "../collect.ts";
 import * as diagnostics from "../diagnostics.ts";
@@ -55,9 +55,9 @@ export function type_of(tcx: TyCtxt, def_id_: LocalDefId): EarlyBinder<Ty> {
           case "Ok": {
             const map = r._0;
             const trait_item_def_id = tcx.trait_item_of(LocalDefId.to_def_id(def_id_));
-            if (trait_item_def_id === undefined) return bug("called `Option::unwrap()` on a `None` value");
+            if (trait_item_def_id === undefined) return panic("called `Option::unwrap()` on a `None` value");
             const v = map.get(trait_item_def_id);
-            if (v === undefined) return bug("key not found");
+            if (v === undefined) return panic("key not found");
             return v as EarlyBinder<Ty>;
           }
           case "Err":
@@ -467,7 +467,7 @@ export function const_arg_anon_type_of(icx: ItemCtxt, arg_hir_id: HirId, span: S
     // Or patterns can be nested one level deep
     const node = p0.$ === "TyPat" ? tcx.parent_hir_node(p0._0.hir_id) : p0;
     const k = hir.Node.expect_ty(node).kind;
-    if (k.$ !== "Pat") return bug("");
+    if (k.$ !== "Pat") return bug();
     const ty = k._0;
     return icx.lower_ty(ty);
   }

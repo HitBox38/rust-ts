@@ -573,6 +573,7 @@ export const HirTyLowerer_ItemCtxt: HirTyLowererImpl<ItemCtxt> = {
       // Not replacing escaping bound vars in `self_ty` with placeholders also leads to slightly worse
       // resolution, but it probably won't come up in practice and it would be backwards compatible
       // to switch over to doing that.
+      // PORT: `usize::MAX` as the depth limit: `Number.MAX_SAFE_INTEGER` (the walk decrements it, never reaching 0 either way).
       return DeepRejectCtxt.relate_rigid_infer(as_interner(this.tcx)).types_may_unify_with_depth(self_ty, impl_ty, Number.MAX_SAFE_INTEGER);
     });
 
@@ -1461,13 +1462,13 @@ export function coroutine_kind(tcx: TyCtxt, def_id: LocalDefId): hir.CoroutineKi
 export function coroutine_for_closure(tcx: TyCtxt, def_id: LocalDefId): DefId {
   const closure = hir.Node.expect_closure(tcx.hir_node_by_def_id(def_id));
   if (closure.kind.$ !== "CoroutineClosure") {
-    return bug("");
+    return bug();
   }
   const body = closure.body;
 
   const value = tcx.hir_body(body).value;
   if (!(value.kind.$ === "Closure" && value.kind._0.kind.$ === "Coroutine")) {
-    return bug("");
+    return bug();
   }
   const def_id_ = value.kind._0.def_id;
 

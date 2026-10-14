@@ -163,7 +163,7 @@ export function generics_of(tcx: TyCtxt, def_id: LocalDefId): Generics {
         const parent_def_id = tcx.local_parent(param_id);
         const generics = tcx.generics_of(parent_def_id) as Generics;
         const param_def_idx = generics.param_def_id_to_index.get(LocalDefId.to_def_id(param_id));
-        if (param_def_idx === undefined) return panic("key not found in `param_def_id_to_index`");
+        if (param_def_idx === undefined) return panic("key not found");
         // In the above example this would be .params[..N#0]
         const own_params = generics.params_to(param_def_idx, tcx).map(clone_GenericParamDef);
         const param_def_id_to_index = new KeyedMap<DefId, number>(
