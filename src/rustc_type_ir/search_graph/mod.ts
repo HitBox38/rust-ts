@@ -317,16 +317,6 @@ export function clone_HeadUsages(v: HeadUsages): HeadUsages {
   return new HeadUsages(v.inductive, v.unknown, v.coinductive, v.forced_ambiguity);
 }
 
-/** `HeadUsages == HeadUsages` (`#[derive(PartialEq)]`). */
-export function HeadUsages_eq(a: HeadUsages, b: HeadUsages): boolean {
-  return (
-    a.inductive === b.inductive &&
-    a.unknown === b.unknown &&
-    a.coinductive === b.coinductive &&
-    a.forced_ambiguity === b.forced_ambiguity
-  );
-}
-
 /** `size_of::<HeadUsages>()` / `align_of`: four `u32`s. */
 const LAYOUT_HEAD_USAGES: Layout = { size: 16, align: 4 };
 
