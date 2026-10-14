@@ -17,6 +17,7 @@ import { INTERNED, next_intern_id } from "../../rustc_data_structures/intern.ts"
 import type { BoundVariableKind, DebruijnIndex, TypeFlags } from "../../rustc_type_ir/decls.ts";
 import { INNERMOST, TypeFlags_empty } from "../../rustc_type_ir/decls.ts";
 import type { FlagComputation } from "../../rustc_type_ir/flags.ts";
+import { debug_BoundVariableKind } from "../../rustc_type_ir/binder.gen.ts";
 import { type Debug, debug_list, type Fmt } from "../../std/fmt.ts";
 import { assert } from "../../std/panic.ts";
 import type { FxHasher } from "../../vendor/rustc_hash/lib.ts";
@@ -263,4 +264,13 @@ export function hash_RawList<H, T>(self: RawList<H, T>, s: Pick<FxHasher, "write
 
 /** (decls) `RawList::from_vars` is `impl BoundVarKinds<TyCtxt> for &List<BoundVariableKind>` (list.rs:154). */
 export type BoundVarKinds = List<BoundVariableKind>;
+
+/**
+ * `{:?}` of `BoundVarKinds` (`&List<BoundVariableKind>`): `debug_RawList` (list.rs:192) over the element's derived Debug.
+ * PORT: the hand alias the codegen type map (tools/codegen/tyir.typemap.json `I::BoundVarKinds`) names; a function
+ * declaration, so the import cycle with rustc_type_ir/binder.gen.ts (which imports this module) is safe at load.
+ */
+export function debug_BoundVarKinds(v: BoundVarKinds, f: Fmt): string {
+  return debug_RawList(v, f, debug_BoundVariableKind);
+}
 
