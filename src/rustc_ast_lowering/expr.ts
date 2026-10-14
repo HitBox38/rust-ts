@@ -8,7 +8,9 @@
 // PORT: arenas are erased (contract, "How to fill a stub" 7): `self.arena.alloc(x)` is `x`,
 // `alloc_from_iter` / `arena_vec!` build a fresh array. Copies of `Copy` HIR values are identity
 // (no HIR MutVisitor; hir-visit decision); AST values cloned upstream (`.clone()`) are `clone_<T>`.
-// PORT: closures `|this| ..` are `(this_) => ..` (`this` is reserved).
+// PORT: closures `|this| ..` are `(this_) => ..` (`this` is reserved). A Rust `let x = ..x..` that shadows a
+// binding of the same scope (a parameter, or a destructured field) gets a trailing `_` on one of the two
+// names (`head_`, `kind_`, `rest_`); `let`-else / `if let` chains are early returns or nested `if`s.
 import {
   type AngleBracketedArg,
   type AnonConst,
