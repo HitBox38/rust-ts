@@ -10,7 +10,7 @@
 // PORT: the generic code's `I::Clause` / `I::Ty` methods resolve to rustc_type_ir inherent.ts (solve/mod.ts header).
 // TyCtxt methods whose query values are typed `unknown` in queries.gen.ts (`impl_trait_ref`) and the `Interner`-typed
 // rustc_type_ir helpers are reached through `as_interner(cx)` (rustc_type_ir predicate.ts precedent).
-import type { DefId } from "../../rustc_span/def_id.ts";
+import { type DefId, DefId_eq } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Clause, Predicate, Ty } from "../../rustc_middle/ty/decls.ts";
@@ -135,7 +135,7 @@ export const GoalKind_HostEffectClause: GoalKind<HostEffectClauseT> = {
     const host_clause = Clause_provided.as_host_effect_clause(assumption);
     if (
       host_clause !== undefined &&
-      PolyHostEffectClause.def_id(host_clause) === HostEffectClause.def_id(goal.predicate) &&
+      DefId_eq(PolyHostEffectClause.def_id(host_clause), HostEffectClause.def_id(goal.predicate)) &&
       BoundConstness.satisfies(PolyHostEffectClause.constness(host_clause), goal.predicate.constness) &&
       DeepRejectCtxt.relate_rigid_rigid(as_interner(ecx.cx())).args_may_unify(
         goal.predicate.trait_ref.args,
