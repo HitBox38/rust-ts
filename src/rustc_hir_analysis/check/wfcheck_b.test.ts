@@ -38,7 +38,9 @@ const PENDING_WF = new Set([
   "rustc_hir_analysis::check::wfcheck::check_static_item (wave 17)",
   // check-wf-b's stand-in for check-wf-a's region (wfcheck.rs:151)
   "rustc_hir_analysis::check::wfcheck::enter_wf_checking_ctxt (lane check-wf-a)",
-  // check-wf-a's `enter_wf_checking_ctxt` once merged (rustc_trait_selection traits/engine.rs, lane trait-sel-traits-a)
+  // check-wf-a's `enter_wf_checking_ctxt` once merged: `tcx.param_env(..)` (checked on a simulated merge with
+  // lane/check-wf-a 5b60494), then `ObligationCtxt::new_with_diagnostics` (lane trait-sel-traits-a)
+  "constness provider (not ported)",
   "rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics",
 ]);
 
