@@ -896,7 +896,6 @@ InferCtxt.prototype.opaques_with_sub_unified_hidden_type = function (this: Infer
       const opaque_sub_vid = type_variables.sub_unification_table_root_var(hidden_vid);
       if (opaque_sub_vid === ty_sub_vid) {
         out.push(OpaqueAliasTy.new_opaque_from_args(as_interner(this.tcx), LocalDefId.to_def_id(key.def_id), key.args));
-        continue;
       }
     }
   }
