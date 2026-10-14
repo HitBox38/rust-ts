@@ -16,6 +16,13 @@ import "./regions.ts";
 import "./solve/select.ts";
 import "./solve/inspect/analyse.ts";
 // pub mod traits;
+// (lane trait-sel-traits-c: traits/{coherence,const_evaluatable,effects}.rs and traits/specialize/*; `traits/mod.rs`'s
+// `mod` lines and re-exports are lane trait-sel-traits-a's)
+import "./traits/coherence.ts";
+import "./traits/const_evaluatable.ts";
+import "./traits/effects.ts";
+import "./traits/specialize/mod.ts";
+import "./traits/specialize/specialization_graph.ts";
 import "./traits/normalize.ts";
 import "./traits/outlives_bounds.ts";
 import "./traits/query/evaluate_obligation.ts";
