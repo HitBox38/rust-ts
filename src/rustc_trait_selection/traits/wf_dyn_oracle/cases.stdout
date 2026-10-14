@@ -1,0 +1,351 @@
+== DefId(0:1 ~ cases[e248]::PointeeSized) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+== DefId(0:2 ~ cases[e248]::MetaSized) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+== DefId(0:3 ~ cases[e248]::Sized) Trait
+  generics_require_sized_self true
+  dyn_compatibility_violations [SizedSelf([])]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+== DefId(0:4 ~ cases[e248]::Copy) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+== DefId(0:5 ~ cases[e248]::Auto) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+== DefId(0:6 ~ cases[e248]::Empty) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+== DefId(0:7 ~ cases[e248]::Static) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds ['static]
+== DefId(0:8 ~ cases[e248]::SubStatic) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds ['static]
+== DefId(0:9 ~ cases[e248]::Two) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+== DefId(0:11 ~ cases[e248]::SizedSuper) Trait
+  generics_require_sized_self true
+  dyn_compatibility_violations [SizedSelf([cases.rs:26:23: 26:28 (#0)]), SizedSelf([])]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+== DefId(0:12 ~ cases[e248]::WhereSized) Trait
+  generics_require_sized_self true
+  dyn_compatibility_violations [SizedSelf([cases.rs:29:11: 29:16 (#0)]), SizedSelf([])]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+== DefId(0:13 ~ cases[e248]::SelfArg) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations [SupertraitSelf([cases.rs:32:35: 32:44 (#0)])]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations [SupertraitSelf([cases.rs:32:35: 32:44 (#0)])]
+  object_region_bounds ['static]
+== DefId(0:14 ~ cases[e248]::Gen) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+== DefId(0:16 ~ cases[e248]::SuperSelf) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations [SupertraitSelf([cases.rs:34:22: 34:31 (#0)])]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations [SupertraitSelf([cases.rs:34:22: 34:31 (#0)])]
+  object_region_bounds []
+== DefId(0:17 ~ cases[e248]::ConstItem) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations [AssocConst("C", FeatureNotEnabled, cases.rs:36:11: 36:12 (#0))]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+  assoc C dyn_compatibility_violations_for_assoc_item [AssocConst("C", FeatureNotEnabled, cases.rs:36:11: 36:12 (#0))]
+== DefId(0:19 ~ cases[e248]::AssocTy) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations [SupertraitSelf([cases.rs:40:13: 40:22 (#0)])]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+  assoc A dyn_compatibility_violations_for_assoc_item []
+  assoc B dyn_compatibility_violations_for_assoc_item []
+== DefId(0:22 ~ cases[e248]::Gat) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations [GenericAssocTy("G", cases.rs:43:10: 43:11 (#0)), GenericAssocTy("H", cases.rs:44:10: 44:11 (#0))]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+  assoc G dyn_compatibility_violations_for_assoc_item [GenericAssocTy("G", cases.rs:43:10: 43:11 (#0))]
+  assoc H dyn_compatibility_violations_for_assoc_item [GenericAssocTy("H", cases.rs:44:10: 44:11 (#0))]
+== DefId(0:27 ~ cases[e248]::StaticFn) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations [Method("f", StaticMethod(Some((("&self", cases.rs:47:10: 47:10 (#0)), (" where Self: Sized", cases.rs:47:11: 47:11 (#0))))), cases.rs:47:8: 47:9 (#0)), Method("g", StaticMethod(Some((("&self, ", cases.rs:48:10: 48:10 (#0)), (" where Self: Sized", cases.rs:48:22: 48:22 (#0))))), cases.rs:48:8: 48:9 (#0))]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+  assoc f dyn_compatibility_violations_for_assoc_item [Method("f", StaticMethod(Some((("&self", cases.rs:47:10: 47:10 (#0)), (" where Self: Sized", cases.rs:47:11: 47:11 (#0))))), cases.rs:47:8: 47:9 (#0))]
+  assoc f is_vtable_safe_method false
+  assoc g dyn_compatibility_violations_for_assoc_item [Method("g", StaticMethod(Some((("&self, ", cases.rs:48:10: 48:10 (#0)), (" where Self: Sized", cases.rs:48:22: 48:22 (#0))))), cases.rs:48:8: 48:9 (#0))]
+  assoc g is_vtable_safe_method false
+  assoc h dyn_compatibility_violations_for_assoc_item []
+  assoc h is_vtable_safe_method false
+== DefId(0:31 ~ cases[e248]::ByValue) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations [Method("ret_self", ReferencesSelfOutput, cases.rs:55:26: 55:30 (#0)), Method("arg_self", ReferencesSelfInput(Some(cases.rs:56:30: 56:34 (#0))), cases.rs:56:30: 56:34 (#0)), Method("generic", Generic, cases.rs:57:8: 57:15 (#0))]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+  assoc by_value dyn_compatibility_violations_for_assoc_item []
+  assoc by_value is_vtable_safe_method true
+  assoc ret_self dyn_compatibility_violations_for_assoc_item [Method("ret_self", ReferencesSelfOutput, cases.rs:55:26: 55:30 (#0))]
+  assoc ret_self is_vtable_safe_method false
+  assoc arg_self dyn_compatibility_violations_for_assoc_item [Method("arg_self", ReferencesSelfInput(Some(cases.rs:56:30: 56:34 (#0))), cases.rs:56:30: 56:34 (#0))]
+  assoc arg_self is_vtable_safe_method false
+  assoc generic dyn_compatibility_violations_for_assoc_item [Method("generic", Generic, cases.rs:57:8: 57:15 (#0))]
+  assoc generic is_vtable_safe_method false
+  assoc lifetime_generic dyn_compatibility_violations_for_assoc_item []
+  assoc lifetime_generic is_vtable_safe_method true
+== DefId(0:39 ~ cases[e248]::Receivers) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations [Method("by_ref", UndispatchableReceiver(Some((cases.rs:61:15: 61:20 (#0), ""))), cases.rs:61:15: 61:20 (#0)), Method("by_mut", UndispatchableReceiver(Some((cases.rs:62:15: 62:24 (#0), ""))), cases.rs:62:15: 62:24 (#0)), Method("by_ref_lt", UndispatchableReceiver(Some((cases.rs:63:22: 63:36 (#0), "'a"))), cases.rs:63:22: 63:36 (#0))]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+  assoc by_ref dyn_compatibility_violations_for_assoc_item [Method("by_ref", UndispatchableReceiver(Some((cases.rs:61:15: 61:20 (#0), ""))), cases.rs:61:15: 61:20 (#0))]
+  assoc by_ref is_vtable_safe_method false
+  assoc by_mut dyn_compatibility_violations_for_assoc_item [Method("by_mut", UndispatchableReceiver(Some((cases.rs:62:15: 62:24 (#0), ""))), cases.rs:62:15: 62:24 (#0))]
+  assoc by_mut is_vtable_safe_method false
+  assoc by_ref_lt dyn_compatibility_violations_for_assoc_item [Method("by_ref_lt", UndispatchableReceiver(Some((cases.rs:63:22: 63:36 (#0), "'a"))), cases.rs:63:22: 63:36 (#0))]
+  assoc by_ref_lt is_vtable_safe_method false
+  assoc sized_only dyn_compatibility_violations_for_assoc_item []
+  assoc sized_only is_vtable_safe_method false
+== DefId(0:45 ~ cases[e248]::WhereClauses) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations [Method("other", WhereClauseReferencesSelf, cases.rs:75:8: 75:13 (#0))]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+  assoc outlives dyn_compatibility_violations_for_assoc_item []
+  assoc outlives is_vtable_safe_method true
+  assoc auto_bound dyn_compatibility_violations_for_assoc_item []
+  assoc auto_bound is_vtable_safe_method true
+  assoc other dyn_compatibility_violations_for_assoc_item [Method("other", WhereClauseReferencesSelf, cases.rs:75:8: 75:13 (#0))]
+  assoc other is_vtable_safe_method false
+== DefId(0:49 ~ cases[e248]::Proj) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+  assoc A dyn_compatibility_violations_for_assoc_item []
+  assoc p dyn_compatibility_violations_for_assoc_item []
+  assoc p is_vtable_safe_method true
+== DefId(0:52 ~ cases[e248]::Mixed) Trait
+  generics_require_sized_self true
+  dyn_compatibility_violations [SizedSelf([cases.rs:83:30: 83:40 (#0)]), SizedSelf([cases.rs:26:23: 26:28 (#0)]), SizedSelf([]), SupertraitSelf([cases.rs:34:22: 34:31 (#0)])]
+  is_dyn_compatible false
+  hir_ty_lowering_dyn_compatibility_violations [SupertraitSelf([cases.rs:34:22: 34:31 (#0)])]
+  object_region_bounds []
+  assoc m dyn_compatibility_violations_for_assoc_item []
+  assoc m is_vtable_safe_method false
+== DefId(0:67 ~ cases[e248]::Bound) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+== DefId(0:69 ~ cases[e248]::TySlice) TyAlias
+  obligations (2)
+    Binder { value: TraitClause(<Plain<u8> as Sized>, polarity:Positive), bound_vars: [] } | SliceOrArrayElem | depth 0
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:63 ~ cases[e248]::Plain), cases.rs:91:18: 91:19 (#0)) | depth 0
+  unnormalized_obligations (2)
+    Binder { value: TraitClause(<Plain<u8> as Sized>, polarity:Positive), bound_vars: [] } | SliceOrArrayElem | depth 0
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:63 ~ cases[e248]::Plain), cases.rs:91:18: 91:19 (#0)) | depth 0
+== DefId(0:70 ~ cases[e248]::TyTuple) TyAlias
+  obligations (4)
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 0
+    Binder { value: TraitClause(<Plain<u16> as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 0
+    Binder { value: TraitClause(<u16 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:63 ~ cases[e248]::Plain), cases.rs:91:18: 91:19 (#0)) | depth 0
+    Binder { value: TraitClause(<u32 as Sized>, polarity:Positive), bound_vars: [] } | SliceOrArrayElem | depth 0
+  unnormalized_obligations (4)
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 0
+    Binder { value: TraitClause(<Plain<u16> as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 0
+    Binder { value: TraitClause(<u16 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:63 ~ cases[e248]::Plain), cases.rs:91:18: 91:19 (#0)) | depth 0
+    Binder { value: TraitClause(<u32 as Sized>, polarity:Positive), bound_vars: [] } | SliceOrArrayElem | depth 0
+== DefId(0:71 ~ cases[e248]::TyRef) TyAlias
+  obligations (2)
+    Binder { value: OutlivesClause(Plain<u8>, 'a/#0), bound_vars: [] } | ReferenceOutlivesReferent(&'a/#0 Plain<u8>) | depth 0
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:63 ~ cases[e248]::Plain), cases.rs:91:18: 91:19 (#0)) | depth 0
+  unnormalized_obligations (2)
+    Binder { value: OutlivesClause(Plain<u8>, 'a/#0), bound_vars: [] } | ReferenceOutlivesReferent(&'a/#0 Plain<u8>) | depth 0
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:63 ~ cases[e248]::Plain), cases.rs:91:18: 91:19 (#0)) | depth 0
+== DefId(0:73 ~ cases[e248]::TyNested) TyAlias
+  obligations (3)
+    Binder { value: OutlivesClause(&'b/#1 Plain<u8>, 'a/#0), bound_vars: [] } | ReferenceOutlivesReferent(&'a/#0 &'b/#1 Plain<u8>) | depth 0
+    Binder { value: OutlivesClause(Plain<u8>, 'b/#1), bound_vars: [] } | ReferenceOutlivesReferent(&'b/#1 Plain<u8>) | depth 0
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:63 ~ cases[e248]::Plain), cases.rs:91:18: 91:19 (#0)) | depth 0
+  unnormalized_obligations (3)
+    Binder { value: OutlivesClause(&'b/#1 Plain<u8>, 'a/#0), bound_vars: [] } | ReferenceOutlivesReferent(&'a/#0 &'b/#1 Plain<u8>) | depth 0
+    Binder { value: OutlivesClause(Plain<u8>, 'b/#1), bound_vars: [] } | ReferenceOutlivesReferent(&'b/#1 Plain<u8>) | depth 0
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:63 ~ cases[e248]::Plain), cases.rs:91:18: 91:19 (#0)) | depth 0
+== DefId(0:76 ~ cases[e248]::TyPtr) TyAlias
+  obligations (1)
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | SliceOrArrayElem | depth 0
+  unnormalized_obligations (1)
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | SliceOrArrayElem | depth 0
+== DefId(0:77 ~ cases[e248]::TyAdt) TyAlias
+  obligations (2)
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:54 ~ cases[e248]::S), cases.rs:89:14: 89:15 (#0)) | depth 0
+    Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:54 ~ cases[e248]::S), cases.rs:89:17: 89:21 (#0)) | depth 0
+  unnormalized_obligations (2)
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:54 ~ cases[e248]::S), cases.rs:89:14: 89:15 (#0)) | depth 0
+    Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:54 ~ cases[e248]::S), cases.rs:89:17: 89:21 (#0)) | depth 0
+== DefId(0:78 ~ cases[e248]::TyAdtParam) TyAlias
+  obligations (2)
+    Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:54 ~ cases[e248]::S), cases.rs:89:14: 89:15 (#0)) | depth 0
+    Binder { value: TraitClause(<T as Copy>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:54 ~ cases[e248]::S), cases.rs:89:17: 89:21 (#0)) | depth 0
+  unnormalized_obligations (2)
+    Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:54 ~ cases[e248]::S), cases.rs:89:14: 89:15 (#0)) | depth 0
+    Binder { value: TraitClause(<T as Copy>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:54 ~ cases[e248]::S), cases.rs:89:17: 89:21 (#0)) | depth 0
+== DefId(0:80 ~ cases[e248]::TyW) TyAlias
+  obligations (3)
+    Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:58 ~ cases[e248]::W), cases.rs:90:18: 90:19 (#0)) | depth 0
+    Binder { value: OutlivesClause(T/#1, 'a/#0), bound_vars: [] } | WhereClause(DefId(0:58 ~ cases[e248]::W), cases.rs:90:21: 90:23 (#0)) | depth 0
+    Binder { value: OutlivesClause(T/#1, 'a/#0), bound_vars: [] } | WhereClause(DefId(0:58 ~ cases[e248]::W), cases.rs:90:25: 90:30 (#0)) | depth 0
+  unnormalized_obligations (3)
+    Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:58 ~ cases[e248]::W), cases.rs:90:18: 90:19 (#0)) | depth 0
+    Binder { value: OutlivesClause(T/#1, 'a/#0), bound_vars: [] } | WhereClause(DefId(0:58 ~ cases[e248]::W), cases.rs:90:21: 90:23 (#0)) | depth 0
+    Binder { value: OutlivesClause(T/#1, 'a/#0), bound_vars: [] } | WhereClause(DefId(0:58 ~ cases[e248]::W), cases.rs:90:25: 90:30 (#0)) | depth 0
+== DefId(0:83 ~ cases[e248]::TyNever) TyAlias
+  obligations (2)
+    Binder { value: TraitClause(<! as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 0
+    Binder { value: TraitClause(<bool as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 0
+  unnormalized_obligations (2)
+    Binder { value: TraitClause(<! as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 0
+    Binder { value: TraitClause(<bool as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 0
+== DefId(0:84 ~ cases[e248]::where_trait) Fn
+  clause Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }
+  clause_obligations (1)
+    Binder { value: WellFormed(Term::Ty(T/#0)), bound_vars: [] } | Misc | depth 0
+  clause Binder { value: TraitClause(<T as Bound<u8>>, polarity:Positive), bound_vars: [] }
+  clause_obligations (6)
+    Binder { value: TraitClause(<T as MetaSized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:1: 92:28 (#0)) | depth 0
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:17: 92:18 (#0)) | depth 0
+    Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:20: 92:24 (#0)) | depth 0
+    Binder { value: TraitClause(<T as Bound<u8>>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:67 ~ cases[e248]::Bound), no-location (#0)) | depth 0
+    Binder { value: WellFormed(Term::Ty(T/#0)), bound_vars: [] } | Misc | depth 0
+    Binder { value: WellFormed(Term::Ty(u8)), bound_vars: [] } | Misc | depth 0
+== DefId(0:86 ~ cases[e248]::where_outlives) Fn
+  clause Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }
+  clause_obligations (1)
+    Binder { value: WellFormed(Term::Ty(T/#1)), bound_vars: [] } | Misc | depth 0
+  clause Binder { value: OutlivesClause(T/#1, 'a/#0), bound_vars: [] }
+  clause_obligations (0)
+  clause Binder { value: TraitClause(<S<u8> as Gen<T>>, polarity:Positive), bound_vars: [] }
+  clause_obligations (5)
+    Binder { value: TraitClause(<S<u8> as MetaSized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:14 ~ cases[e248]::Gen), cases.rs:33:1: 33:28 (#0)) | depth 0
+    Binder { value: TraitClause(<T as MetaSized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:14 ~ cases[e248]::Gen), cases.rs:33:18: 33:24 (#0)) | depth 0
+    Binder { value: TraitClause(<S<u8> as Gen<T>>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:14 ~ cases[e248]::Gen), no-location (#0)) | depth 0
+    Binder { value: WellFormed(Term::Ty(S<u8>)), bound_vars: [] } | Misc | depth 0
+    Binder { value: WellFormed(Term::Ty(T/#1)), bound_vars: [] } | Misc | depth 0
+== DefId(0:89 ~ cases[e248]::where_wf) Fn
+  clause Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }
+  clause_obligations (1)
+    Binder { value: WellFormed(Term::Ty(T/#1)), bound_vars: [] } | Misc | depth 0
+  clause Binder { value: OutlivesClause(T/#1, 'a/#0), bound_vars: [] }
+  clause_obligations (0)
+  clause Binder { value: TraitClause(<&'a T as Gen<[T]>>, polarity:Positive), bound_vars: [] }
+  clause_obligations (5)
+    Binder { value: TraitClause(<&'a T as MetaSized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:14 ~ cases[e248]::Gen), cases.rs:33:1: 33:28 (#0)) | depth 0
+    Binder { value: TraitClause(<[T] as MetaSized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:14 ~ cases[e248]::Gen), cases.rs:33:18: 33:24 (#0)) | depth 0
+    Binder { value: TraitClause(<&'a T as Gen<[T]>>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:14 ~ cases[e248]::Gen), no-location (#0)) | depth 0
+    Binder { value: WellFormed(Term::Ty(&'a/#0 T/#1)), bound_vars: [] } | Misc | depth 0
+    Binder { value: WellFormed(Term::Ty([T/#1])), bound_vars: [] } | Misc | depth 0
+== DefId(0:92 ~ cases[e248]::{impl#0}) Impl { of_trait: true }
+  trait_obligations (3)
+    Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:4 ~ cases[e248]::Copy), no-location (#0)) }) | depth 0
+    Binder { value: TraitClause(<u8 as MetaSized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as MetaSized>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:4 ~ cases[e248]::Copy), cases.rs:16:1: 16:18 (#0)) }) | depth 0
+    Binder { value: WellFormed(Term::Ty(u8)), bound_vars: [] } | Misc | depth 0
+== DefId(0:93 ~ cases[e248]::{impl#1}) Impl { of_trait: true }
+  trait_obligations (7)
+    Binder { value: TraitClause(<Plain<u16> as Bound<u8>>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<Plain<u16> as Bound<u8>>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), no-location (#0)) }) | depth 0
+    Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:20: 92:24 (#0)) }) | depth 0
+    Binder { value: TraitClause(<u8 as MetaSized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as MetaSized>, polarity:Positive), bound_vars: [] }, parent_code: ImplDerived(ImplDerivedCause { derived: DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:20: 92:24 (#0)) }, impl_or_alias_def_id: DefId(0:4 ~ cases[e248]::Copy), impl_def_clause_index: Some(0), span: cases.rs:16:1: 16:18 (#0) }) }) | depth 0
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:17: 92:18 (#0)) }) | depth 0
+    Binder { value: TraitClause(<Plain<u16> as MetaSized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<Plain<u16> as MetaSized>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:1: 92:28 (#0)) }) | depth 0
+    Binder { value: WellFormed(Term::Ty(Plain<u16>)), bound_vars: [] } | Misc | depth 0
+    Binder { value: WellFormed(Term::Ty(u8)), bound_vars: [] } | Misc | depth 0
+== DefId(0:94 ~ cases[e248]::SubB) Trait
+  generics_require_sized_self false
+  dyn_compatibility_violations []
+  is_dyn_compatible true
+  hir_ty_lowering_dyn_compatibility_violations []
+  object_region_bounds []
+== DefId(0:95 ~ cases[e248]::{impl#2}) Impl { of_trait: true }
+  trait_obligations (7)
+    Binder { value: TraitClause(<Plain<u32> as Bound<u8>>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<Plain<u32> as Bound<u8>>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), no-location (#0)) }) | depth 0
+    Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:20: 92:24 (#0)) }) | depth 0
+    Binder { value: TraitClause(<u8 as MetaSized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as MetaSized>, polarity:Positive), bound_vars: [] }, parent_code: ImplDerived(ImplDerivedCause { derived: DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as Copy>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:20: 92:24 (#0)) }, impl_or_alias_def_id: DefId(0:4 ~ cases[e248]::Copy), impl_def_clause_index: Some(0), span: cases.rs:16:1: 16:18 (#0) }) }) | depth 0
+    Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<u8 as Sized>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:17: 92:18 (#0)) }) | depth 0
+    Binder { value: TraitClause(<Plain<u32> as MetaSized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<Plain<u32> as MetaSized>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:1: 92:28 (#0)) }) | depth 0
+    Binder { value: WellFormed(Term::Ty(Plain<u32>)), bound_vars: [] } | Misc | depth 0
+    Binder { value: WellFormed(Term::Ty(u8)), bound_vars: [] } | Misc | depth 0
+== DefId(0:96 ~ cases[e248]::{impl#3}) Impl { of_trait: true }
+  trait_obligations (4)
+    Binder { value: TraitClause(<Plain<u32> as SubB>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<Plain<u32> as SubB>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:94 ~ cases[e248]::SubB), no-location (#0)) }) | depth 0
+    Binder { value: TraitClause(<Plain<u32> as Bound<u8>>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<Plain<u32> as Bound<u8>>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:94 ~ cases[e248]::SubB), cases.rs:124:17: 124:26 (#0)) }) | depth 0
+    Binder { value: TraitClause(<Plain<u32> as MetaSized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<Plain<u32> as MetaSized>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:94 ~ cases[e248]::SubB), cases.rs:124:1: 124:29 (#0)) }) | depth 0
+    Binder { value: WellFormed(Term::Ty(Plain<u32>)), bound_vars: [] } | Misc | depth 0
+== DefId(0:97 ~ cases[e248]::{impl#4}) Impl { of_trait: true }
+  trait_obligations (7)
+    Binder { value: TraitClause(<S<T> as Bound<T>>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<S<T> as Bound<T>>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), no-location (#0)) }) | depth 0
+    Binder { value: TraitClause(<T as Copy>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<T as Copy>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:20: 92:24 (#0)) }) | depth 0
+    Binder { value: TraitClause(<T as MetaSized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<T as MetaSized>, polarity:Positive), bound_vars: [] }, parent_code: ImplDerived(ImplDerivedCause { derived: DerivedCause { parent_trait_pred: Binder { value: TraitClause(<T as Copy>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:20: 92:24 (#0)) }, impl_or_alias_def_id: DefId(0:4 ~ cases[e248]::Copy), impl_def_clause_index: Some(0), span: cases.rs:16:1: 16:18 (#0) }) }) | depth 0
+    Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:17: 92:18 (#0)) }) | depth 0
+    Binder { value: TraitClause(<S<T> as MetaSized>, polarity:Positive), bound_vars: [] } | WellFormedDerived(DerivedCause { parent_trait_pred: Binder { value: TraitClause(<S<T> as MetaSized>, polarity:Positive), bound_vars: [] }, parent_code: WhereClause(DefId(0:67 ~ cases[e248]::Bound), cases.rs:92:1: 92:28 (#0)) }) | depth 0
+    Binder { value: WellFormed(Term::Ty(S<T/#0>)), bound_vars: [] } | Misc | depth 0
+    Binder { value: WellFormed(Term::Ty(T/#0)), bound_vars: [] } | Misc | depth 0
+== DefId(0:99 ~ cases[e248]::{impl#5}) Impl { of_trait: true }
+  trait_obligations (1)
+    Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] } | WhereClause(DefId(0:63 ~ cases[e248]::Plain), cases.rs:91:18: 91:19 (#0)) | depth 0
+== hand-built
+  obligations ?0 None
+  obligations ?c None
+  obligations ?int (0)
+  obligations &'static ?0 (2)
+    Binder { value: OutlivesClause(?0t, 'static), bound_vars: [] } | ReferenceOutlivesReferent(&'static ?0t) | depth 0
+    Binder { value: WellFormed(Term::Ty(?0t)), bound_vars: [] } | WellFormed(None) | depth 0
+  obligations (?int, &'static ?0, bool) depth 3 (4)
+    Binder { value: TraitClause(<{integer} as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 3
+    Binder { value: TraitClause(<&'static _ as Sized>, polarity:Positive), bound_vars: [] } | TupleElem | depth 3
+    Binder { value: OutlivesClause(?0t, 'static), bound_vars: [] } | ReferenceOutlivesReferent(&'static ?0t) | depth 3
+    Binder { value: WellFormed(Term::Ty(?0t)), bound_vars: [] } | WellFormed(None) | depth 3
+  unnormalized_obligations ?0 None
+  unnormalized_obligations &'static ?0 (2)
+    Binder { value: OutlivesClause(?0t, 'static), bound_vars: [] } | ReferenceOutlivesReferent(&'static ?0t) | depth 0
+    Binder { value: WellFormed(Term::Ty(?0t)), bound_vars: [] } | WellFormed(None) | depth 0
