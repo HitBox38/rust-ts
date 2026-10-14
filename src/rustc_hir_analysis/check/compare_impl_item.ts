@@ -37,12 +37,11 @@ import { Visitor as HirVisitor } from "../../rustc_hir/intravisit.ts";
 import type { AmbigArg } from "../../rustc_hir/hir.ts";
 import { walk_ty } from "../../rustc_hir/intravisit.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
-import { BoundRegionConversionTime } from "../../rustc_infer/infer/mod.gen.ts";
 import type { ValuePairs } from "../../rustc_infer/infer/mod.gen.ts";
-import { ToTrace_FnSig, ToTrace_PolyFnSig, ToTrace_Ty, type ToTrace } from "../../rustc_infer/infer/at.ts";
-import { TraitErrors } from "../../rustc_infer/traits/engine.ts";
-import { Obligation, type PredicateObligation } from "../../rustc_infer/traits/mod.ts";
-import { Elaboratable_PredicateObligation } from "../../rustc_infer/traits/util.ts";
+import type { ToTrace } from "../../rustc_infer/infer/at.ts";
+import type { TraitErrors } from "../../rustc_infer/traits/engine.ts";
+import type { PredicateObligation } from "../../rustc_infer/traits/mod.ts";
+import * as rustc_infer from "../../rustc_infer/lib.ts";
 import { clone_ObligationCause, ObligationCause, type ObligationCauseCode } from "../../rustc_middle/traits/mod.ts";
 import { AssocItem } from "../../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -56,8 +55,6 @@ import { debug_Ty, fold_Clause, fold_Predicate, fold_Span, fold_Ty } from "../..
 import { fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { debug_AssocTag } from "../../rustc_middle/ty/assoc.ts";
 import { debug_Node } from "../../rustc_hir/hir.gen.ts";
-import { debug_FixupError } from "../../rustc_infer/infer/mod.ts";
-import { deeply_resolve_via_region_graph } from "../../rustc_infer/infer/resolve.ts";
 import { fold_with_ProjectionClause, fold_with_TraitRef, try_fold_with_ProjectionClause, try_fold_with_TraitRef, visit_with_ProjectionClause, visit_with_TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
 import { BoundTyKind, type BoundRegionKind } from "../../rustc_type_ir/binder.ts";
 import { display_Region } from "../../rustc_type_ir/ir_print.ts";
@@ -65,13 +62,11 @@ import { format_debug, PLAIN } from "../../std/fmt.ts";
 import "../../rustc_trait_selection/lib.ts";
 import { BottomUpFolder } from "../../rustc_middle/ty/fold.ts";
 import type { EarlyParamRegion, LateParamRegionKind } from "../../rustc_middle/ty/region.gen.ts";
-import type { FulfillmentError } from "../../rustc_trait_selection/decls.ts";
-import { CRATE_DEF_ID, type DefId, DefId_eq, DefIdMap, LocalDefId } from "../../rustc_span/def_id.ts";
+import { type DefId, DefId_eq, DefIdMap, LocalDefId } from "../../rustc_span/def_id.ts";
 import { BytePos, DUMMY_SP, Span } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { display_Ident, display_Symbol } from "../../rustc_span/symbol.ts";
 import { Binder, BoundConst, BoundVariableKind, EarlyBinder, PlaceholderType, fold_Binder } from "../../rustc_type_ir/binder.ts";
-import type { ExpectedFound } from "../../rustc_type_ir/error.ts";
 import type { TypeError } from "../../rustc_type_ir/error.ts";
 import { type PredicateProxy, fold_tuple2, type FallibleTypeFolder, FallibleTypeFolder_provided, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
 import { elaborate } from "../../rustc_type_ir/elaborate.ts";
@@ -329,7 +324,7 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
       trait_item_def_id: trait_m.def_id,
       kind: impl_m.kind,
     });
-    ocx.register_obligation(Obligation.new(tcx, cause, param_env, clause, upcast_tcx(Predicate_upcast_from_Clause)));
+    ocx.register_obligation(rustc_infer.traits.Obligation.new(tcx, cause, param_env, clause, upcast_tcx(Predicate_upcast_from_Clause)));
   }
 
   // If we're within a const implementation, we need to make sure that the method
@@ -349,7 +344,7 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
         trait_item_def_id: trait_m.def_id,
         kind: impl_m.kind,
       });
-      ocx.register_obligation(Obligation.new(tcx, cause, param_env, PolyTraitRef.to_host_effect_clause(const_condition, tcx, "Maybe"), upcast_tcx(Predicate_upcast_from_Clause)));
+      ocx.register_obligation(rustc_infer.traits.Obligation.new(tcx, cause, param_env, PolyTraitRef.to_host_effect_clause(const_condition, tcx, "Maybe"), upcast_tcx(Predicate_upcast_from_Clause)));
     }
   }
 
@@ -366,7 +361,7 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
 
   const unnormalized_impl_sig = infcx.instantiate_binder_with_fresh_vars(
     impl_m_span,
-    BoundRegionConversionTime.HigherRankedType,
+    rustc_infer.infer.BoundRegionConversionTime.HigherRankedType,
     Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(fn_sig_of(tcx, impl_m.def_id))),
     fold_FnSig,
   );
@@ -396,7 +391,7 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
   // corresponding to their `Vec<Predicate>`, but we don't have that here.
   // Fixing this would improve the output of test `issue-83765.rs`.
   // There's the same issue in compare_eii code.
-  const result = ocx.sup(cause, param_env, trait_sig_, impl_sig, ToTrace_FnSig);
+  const result = ocx.sup(cause, param_env, trait_sig_, impl_sig, rustc_infer.infer.at.ToTrace_FnSig);
 
   if (result.$ === "Err") {
     const terr = result._0;
@@ -408,7 +403,7 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
 
   if (!TypeVisitableExt.references_error([impl_sig, trait_sig_] as [FnSig, FnSig], fold_tuple2(fold_FnSig, fold_FnSig))) {
     for (const ty of unnormalized_impl_sig.inputs_and_output) {
-      ocx.register_obligation(Obligation.new(infcx.tcx, clone_ObligationCause(cause), param_env, { $: "WellFormed", _0: ty }, upcast_tcx(Predicate_upcast_from_ClauseKind)));
+      ocx.register_obligation(rustc_infer.traits.Obligation.new(infcx.tcx, clone_ObligationCause(cause), param_env, { $: "WellFormed", _0: ty }, upcast_tcx(Predicate_upcast_from_ClauseKind)));
     }
   }
 
@@ -566,7 +561,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
       trait_item_def_id: trait_m.def_id,
       kind: impl_m.kind,
     });
-    ocx.register_obligation(Obligation.new(tcx, cause, param_env, clause, upcast_tcx(Predicate_upcast_from_Clause)));
+    ocx.register_obligation(rustc_infer.traits.Obligation.new(tcx, cause, param_env, clause, upcast_tcx(Predicate_upcast_from_Clause)));
   }
 
   // Normalize the impl signature with fresh variables for lifetime inference.
@@ -577,7 +572,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
     Unnormalized.new_wip(
       infcx.instantiate_binder_with_fresh_vars(
         return_span,
-        BoundRegionConversionTime.HigherRankedType,
+        rustc_infer.infer.BoundRegionConversionTime.HigherRankedType,
         Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(fn_sig_of(tcx, impl_m.def_id))),
         fold_FnSig,
       ),
@@ -648,7 +643,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
   const wf_tys = new Set<Ty>([...unnormalized_trait_sig.inputs_and_output, ...trait_sig.inputs_and_output].map((ty) => fold_Ty.fold_with(ty, type_mapper)));
 
   {
-    const res = ocx.eq(cause, param_env, trait_return_ty, impl_return_ty, ToTrace_Ty);
+    const res = ocx.eq(cause, param_env, trait_return_ty, impl_return_ty, rustc_infer.infer.at.ToTrace_Ty);
     if (res.$ === "Err") {
       const terr = res._0;
       const diag = struct_span_code_err(tcx.dcx(), cause.span, E0053, `method \`${display_Symbol(AssocItem.name(trait_m))}\` has an incompatible return type for trait`);
@@ -674,7 +669,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
   // return types, since we want to avoid duplicating errors from
   // `compare_method_clause_entailment`.
   {
-    const res = ocx.eq(cause, param_env, trait_sig, impl_sig, ToTrace_FnSig);
+    const res = ocx.eq(cause, param_env, trait_sig, impl_sig, rustc_infer.infer.at.ToTrace_FnSig);
     if (res.$ === "Err") {
       const terr = res._0;
       // This function gets called during `compare_method_clause_entailment` when normalizing a
@@ -696,7 +691,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
   // compatible way later.
   const collected_types = collector.types;
   for (const [_, [ty, _args]] of collected_types) {
-    ocx.register_obligation(Obligation.new(tcx, clone_ObligationCause(misc_cause), param_env, { $: "WellFormed", _0: ty }, upcast_tcx(Predicate_upcast_from_ClauseKind)));
+    ocx.register_obligation(rustc_infer.traits.Obligation.new(tcx, clone_ObligationCause(misc_cause), param_env, { $: "WellFormed", _0: ty }, upcast_tcx(Predicate_upcast_from_ClauseKind)));
   }
 
   // Check that all obligations are satisfied by the implementation's
@@ -719,7 +714,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
 
   const remapped_types = new DefIdMap<EarlyBinder<Ty>>();
   for (const [def_id, [ty_, args]] of collected_types) {
-    const resolved = deeply_resolve_via_region_graph(infcx, ty_, fold_Ty);
+    const resolved = infcx.deeply_resolve_via_region_graph(ty_, fold_Ty);
     switch (resolved.$) {
       case "Ok": {
         let ty = resolved._0;
@@ -781,7 +776,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
         // reachable. If this is triggered, it should be converted to
         // `span_delayed_bug` and the triggering case turned into a
         // test.
-        tcx.dcx().span_bug(return_span, `could not fully resolve: ${display_Ty(ty_)} => ${format_debug(err, debug_FixupError, PLAIN)}`);
+        tcx.dcx().span_bug(return_span, `could not fully resolve: ${display_Ty(ty_)} => ${format_debug(err, rustc_infer.infer.debug_FixupError, PLAIN)}`);
       }
     }
   }
@@ -852,7 +847,7 @@ class ImplTraitInTraitCollector implements TypeFolder {
         const pred = this.ocx.normalize(ObligationCause.misc(this.span, this.impl_m_id), this.param_env, Unnormalized.new_wip(pred__), fold_Clause);
 
         this.ocx.register_obligation(
-          Obligation.new(this.cx(), ObligationCause.new(this.span, this.impl_m_id, { $: "WhereClause", _0: def_id, _1: pred_span }), this.param_env, pred, upcast_tcx(Predicate_upcast_from_Clause)),
+          rustc_infer.traits.Obligation.new(this.cx(), ObligationCause.new(this.span, this.impl_m_id, { $: "WhereClause", _0: def_id, _1: pred_span }), this.param_env, pred, upcast_tcx(Predicate_upcast_from_Clause)),
         );
       }
       return infer_ty;
@@ -1256,13 +1251,13 @@ function check_region_late_boundedness(tcx: TyCtxt, impl_m: AssocItem, trait_m: 
   // an early-bound param was expected, since we replace the late-bound lifetimes with
   // `ReLateParam`, and early-bound lifetimes with infer vars, so the early-bound args will
   // resolve to `ReLateParam` if there is a mismatch.
-  const eq = ocx.eq(ObligationCause.dummy(), param_env, Binder.dummy(trait_m_sig, fold_FnSig), Binder.dummy(impl_m_sig, fold_FnSig), ToTrace_PolyFnSig);
+  const eq = ocx.eq(ObligationCause.dummy(), param_env, Binder.dummy(trait_m_sig, fold_FnSig), Binder.dummy(impl_m_sig, fold_FnSig), rustc_infer.infer.at.ToTrace_PolyFnSig);
   if (eq.$ !== "Ok") {
     return undefined;
   }
 
   const errors = ocx.try_evaluate_obligations();
-  if (!TraitErrors.no_errors(errors)) {
+  if (!rustc_infer.traits.TraitErrors.no_errors(errors)) {
     return undefined;
   }
 
@@ -1467,7 +1462,7 @@ function compare_self_type(tcx: TyCtxt, impl_m: AssocItem, trait_m: AssocItem, i
     const self_arg_ty_ = PolyFnSig.input(Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(fn_sig_of(tcx, method.def_id))), 0);
     const [infcx, param_env] = tcx.infer_ctxt().build_with_typing_env(TypingEnv.non_body_analysis(tcx, method.def_id));
     const self_arg_ty = tcx.liberate_late_bound_regions(method.def_id, self_arg_ty_, fold_Ty);
-    const can_eq_self = (ty: Ty): boolean => infcx.can_eq(param_env, untransformed_self_ty, ty, ToTrace_Ty);
+    const can_eq_self = (ty: Ty): boolean => infcx.can_eq(param_env, untransformed_self_ty, ty, rustc_infer.infer.at.ToTrace_Ty);
     return get_self_string(self_arg_ty, can_eq_self);
   };
 
@@ -2053,7 +2048,7 @@ function compare_const_generic_param_types(tcx: TyCtxt, impl_item: AssocItem, tr
 
     const trait_ty = ocx.normalize(cause, param_env, EarlyBinder.instantiate(tcx.type_of(param_trait.def_id) as EarlyBinder<Ty>, tcx, trait_to_impl_args, fold_Ty), fold_Ty);
 
-    const res = ocx.eq(cause, param_env, trait_ty, impl_ty, ToTrace_Ty);
+    const res = ocx.eq(cause, param_env, trait_ty, impl_ty, rustc_infer.infer.at.ToTrace_Ty);
     switch (res.$) {
       // Despite returning `Ok` all may not be well. As such, outside of this
       // loop we invoke `ocx.evaluate_obligations_error_on_ambiguity()` to check
@@ -2190,7 +2185,7 @@ function compare_const_clause_entailment(tcx: TyCtxt, impl_ct: AssocItem, trait_
     const clause = ocx.normalize(cause, param_env, clause_, fold_Clause);
 
     const cause_ = ObligationCause.new(span, impl_ct_def_id, { ...code });
-    ocx.register_obligation(Obligation.new(tcx, cause_, param_env, clause, upcast_tcx(Predicate_upcast_from_Clause)));
+    ocx.register_obligation(rustc_infer.traits.Obligation.new(tcx, cause_, param_env, clause, upcast_tcx(Predicate_upcast_from_Clause)));
   }
 
   // There is no "body" here, so just pass dummy id.
@@ -2200,7 +2195,7 @@ function compare_const_clause_entailment(tcx: TyCtxt, impl_ct: AssocItem, trait_
   const trait_ty = ocx.normalize(cause, param_env, trait_ty_, fold_Ty);
   // debug!(?trait_ty);
 
-  const err = ocx.sup(cause, param_env, trait_ty, impl_ty, ToTrace_Ty);
+  const err = ocx.sup(cause, param_env, trait_ty, impl_ty, rustc_infer.infer.at.ToTrace_Ty);
 
   if (err.$ === "Err") {
     const terr = err._0;
@@ -2326,7 +2321,7 @@ function compare_type_clause_entailment(tcx: TyCtxt, impl_ty: AssocItem, trait_t
       trait_item_def_id: trait_ty.def_id,
       kind: impl_ty.kind,
     });
-    ocx.register_obligation(Obligation.new(tcx, cause_, param_env, clause, upcast_tcx(Predicate_upcast_from_Clause)));
+    ocx.register_obligation(rustc_infer.traits.Obligation.new(tcx, cause_, param_env, clause, upcast_tcx(Predicate_upcast_from_Clause)));
   }
 
   if (is_conditionally_const) {
@@ -2342,7 +2337,7 @@ function compare_type_clause_entailment(tcx: TyCtxt, impl_ty: AssocItem, trait_t
         trait_item_def_id: trait_ty.def_id,
         kind: impl_ty.kind,
       });
-      ocx.register_obligation(Obligation.new(tcx, cause, param_env, PolyTraitRef.to_host_effect_clause(const_condition, tcx, "Maybe"), upcast_tcx(Predicate_upcast_from_Clause)));
+      ocx.register_obligation(rustc_infer.traits.Obligation.new(tcx, cause, param_env, PolyTraitRef.to_host_effect_clause(const_condition, tcx, "Maybe"), upcast_tcx(Predicate_upcast_from_Clause)));
     }
   }
 
@@ -2434,9 +2429,9 @@ export function check_type_bounds(tcx: TyCtxt, trait_ty: AssocItem, impl_ty: Ass
         .map(Unnormalized.skip_norm_wip)
         .map(([concrete_ty_bound, span]) => {
           // debug!(?concrete_ty_bound);
-          return Obligation.new(tcx, mk_cause(span), param_env, concrete_ty_bound, upcast_tcx(Predicate_upcast_from_Clause));
+          return rustc_infer.traits.Obligation.new(tcx, mk_cause(span), param_env, concrete_ty_bound, upcast_tcx(Predicate_upcast_from_Clause));
         }),
-      Elaboratable_PredicateObligation,
+      rustc_infer.traits.util.Elaboratable_PredicateObligation,
     ),
   ];
 
@@ -2454,8 +2449,8 @@ export function check_type_bounds(tcx: TyCtxt, trait_ty: AssocItem, impl_ty: Ass
           ),
         ]
           .map(Unnormalized.skip_norm_wip)
-          .map(([c, span]) => Obligation.new(tcx, mk_cause(span), param_env, PolyTraitRef.to_host_effect_clause(c, tcx, "Maybe"), upcast_tcx(Predicate_upcast_from_Clause))),
-        Elaboratable_PredicateObligation,
+          .map(([c, span]) => rustc_infer.traits.Obligation.new(tcx, mk_cause(span), param_env, PolyTraitRef.to_host_effect_clause(c, tcx, "Maybe"), upcast_tcx(Predicate_upcast_from_Clause))),
+        rustc_infer.traits.util.Elaboratable_PredicateObligation,
       ),
     );
   }
@@ -2665,7 +2660,7 @@ function try_report_async_mismatch(
     if (proj_ === undefined) continue;
     const proj = Binder.no_bound_vars(proj_, d_ProjectionClause);
     if (proj === undefined) continue;
-    if (infcx.can_eq(error.root_obligation.param_env, Term.expect_type(proj.term), FnSig.output(impl_sig), ToTrace_Ty)) {
+    if (infcx.can_eq(error.root_obligation.param_env, Term.expect_type(proj.term), FnSig.output(impl_sig), rustc_infer.infer.at.ToTrace_Ty)) {
       // FIXME: We should suggest making the fn `async`, but extracting
       // the right span is a bit difficult.
       return Err(

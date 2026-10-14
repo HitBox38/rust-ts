@@ -15,8 +15,8 @@ import { type VisitorResult, VisitorResult as VisitorResultC } from "../../../ru
 import type { ErrorGuaranteed } from "../../../rustc_errors/lib.ts";
 import { Node } from "../../../rustc_hir/hir.ts";
 import type { InferCtxt } from "../../../rustc_infer/decls.ts";
-import { TraitErrors } from "../../../rustc_infer/traits/engine.ts";
-import { deeply_resolve_via_region_graph } from "../../../rustc_infer/infer/resolve.ts";
+import type { TraitErrors } from "../../../rustc_infer/traits/engine.ts";
+import * as rustc_infer from "../../../rustc_infer/lib.ts";
 import { REFINING_IMPL_TRAIT_INTERNAL, REFINING_IMPL_TRAIT_REACHABLE } from "../../../rustc_lint_defs/builtin.gen.ts";
 import { ObligationCause } from "../../../rustc_middle/traits/mod.ts";
 import { AssocItem } from "../../../rustc_middle/ty/assoc.ts";
@@ -24,13 +24,13 @@ import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { Const } from "../../../rustc_middle/ty/decls.ts";
 import { fold_List_Ty, GenericArg, visit_with_GenericArg } from "../../../rustc_middle/ty/generic_args.ts";
 import { GenericClauses } from "../../../rustc_middle/ty/generics.ts";
-import { type Clauses, type List, RawList } from "../../../rustc_middle/ty/list.ts";
+import { type Clauses, RawList } from "../../../rustc_middle/ty/list.ts";
 import { Asyncness, ParamEnv, Term, Ty, Visibility } from "../../../rustc_middle/ty/mod.ts";
 import { type Clause, visit_with_Clause } from "../../../rustc_middle/ty/predicate.ts";
 import { display_GenericArg, display_Ty, with_no_trimmed_paths, with_types_for_signature } from "../../../rustc_middle/ty/print/pretty.ts";
 import type { LateParamRegionKind } from "../../../rustc_middle/ty/region.gen.ts";
 import { fold_Clause, fold_Span, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
-import { type DefId, DefId_eq, type DefIdMap, type LocalDefId, type ModId } from "../../../rustc_span/def_id.ts";
+import { type DefId, type DefIdMap, type LocalDefId, type ModId } from "../../../rustc_span/def_id.ts";
 import type { Span } from "../../../rustc_span/lib.ts";
 import { span_bug } from "../../../rustc_span/macros.ts";
 import { Binder, type BoundRegionKind, EarlyBinder } from "../../../rustc_type_ir/binder.ts";
@@ -199,7 +199,7 @@ export function check_refining_return_position_impl_trait_in_trait(tcx: TyCtxt, 
   const implied_wf_types = new Set<Ty>();
   for (const ty of trait_m_sig.inputs_and_output) implied_wf_types.add(ty);
   for (const ty of ocx.normalize(ObligationCause.dummy(), param_env, Unnormalized.new_wip(trait_m_sig.inputs_and_output), fold_List_Ty)) implied_wf_types.add(ty);
-  if (!TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity())) {
+  if (!rustc_infer.traits.TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity())) {
     tcx.dcx().delayed_bug("encountered errors when checking RPITIT refinement (selection)");
     return;
   }
@@ -209,7 +209,7 @@ export function check_refining_return_position_impl_trait_in_trait(tcx: TyCtxt, 
     return;
   }
   // Resolve any lifetime variables that may have been introduced during normalization.
-  const resolved = deeply_resolve_via_region_graph(infcx, [trait_bounds_n, impl_bounds_n] as Bounds, d_Bounds);
+  const resolved = infcx.deeply_resolve_via_region_graph([trait_bounds_n, impl_bounds_n] as Bounds, d_Bounds);
   if (resolved.$ !== "Ok") {
     // If resolution didn't fully complete, we cannot continue checking RPITIT refinement, and
     // delay a bug as the original code contains load-bearing errors.
