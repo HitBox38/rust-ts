@@ -365,6 +365,7 @@ tests/ui/asm/naked-asm-outside-naked-fn.rs
 tests/ui/asm/naked-functions/ffi.rs
 tests/ui/asm/naked-functions/instruction-set.rs
 tests/ui/asm/naked-functions/invalid-attr.rs
+tests/ui/asm/naked-functions/invalid-repr-attr.rs
 tests/ui/asm/naked-functions/mono-sym-fn.rs
 tests/ui/asm/naked-functions/rustic-abi.rs
 tests/ui/asm/naked-functions/shim.rs
@@ -1635,9 +1636,11 @@ tests/ui/attributes/main-removed-1.rs
 tests/ui/attributes/main-removed-2/auxiliary/tokyo.rs
 tests/ui/attributes/main-removed-2/main.rs
 tests/ui/attributes/malformed-attrs.rs
+tests/ui/attributes/malformed-fn-align.rs
 tests/ui/attributes/malformed-must_use.rs
 tests/ui/attributes/malformed-no-std.rs
 tests/ui/attributes/malformed-reprs.rs
+tests/ui/attributes/malformed-static-align.rs
 tests/ui/attributes/malformed-unstable-removed.rs
 tests/ui/attributes/may_dangle.rs
 tests/ui/attributes/method-attributes.rs
@@ -5890,6 +5893,7 @@ tests/ui/derives/derive-type-with-reference.rs
 tests/ui/derives/derive-with-where-bounds.rs
 tests/ui/derives/derived-trait-requires-field-impl.rs
 tests/ui/derives/derives-span-Hash.rs
+tests/ui/derives/deriving-all-codegen.rs
 tests/ui/derives/deriving-associated-types.rs
 tests/ui/derives/deriving-from-wrong-target.rs
 tests/ui/derives/deriving-from.rs
@@ -7384,6 +7388,7 @@ tests/ui/feature-gates/feature-gate-field-representing-type-raw.rs
 tests/ui/feature-gates/feature-gate-final-associated-functions.rs
 tests/ui/feature-gates/feature-gate-fma4_target_feature.rs
 tests/ui/feature-gates/feature-gate-fmt-debug.rs
+tests/ui/feature-gates/feature-gate-fn_align.rs
 tests/ui/feature-gates/feature-gate-fn_static.rs
 tests/ui/feature-gates/feature-gate-format_args_nl.rs
 tests/ui/feature-gates/feature-gate-freeze-impls.rs
@@ -7480,6 +7485,8 @@ tests/ui/feature-gates/feature-gate-simd.rs
 tests/ui/feature-gates/feature-gate-sized-hierarchy.rs
 tests/ui/feature-gates/feature-gate-splat.rs
 tests/ui/feature-gates/feature-gate-staged_api.rs
+tests/ui/feature-gates/feature-gate-static_align-thread_local.rs
+tests/ui/feature-gates/feature-gate-static_align.rs
 tests/ui/feature-gates/feature-gate-stmt_expr_attributes.rs
 tests/ui/feature-gates/feature-gate-strict_provenance_lints.rs
 tests/ui/feature-gates/feature-gate-super-let.rs
@@ -9768,6 +9775,7 @@ tests/ui/layout/aggregate-lang/union-size.rs
 tests/ui/layout/base-layout-is-sized-ice-123078.rs
 tests/ui/layout/big-type-no-err.rs
 tests/ui/layout/cannot-transmute-unnormalizable-type.rs
+tests/ui/layout/debug.rs
 tests/ui/layout/enum-scalar-pair-int-ptr.rs
 tests/ui/layout/enum-signedness.rs
 tests/ui/layout/enum-unusual-variants.rs
@@ -9789,6 +9797,7 @@ tests/ui/layout/issue-113941.rs
 tests/ui/layout/issue-60431-unsized-tail-behind-projection.rs
 tests/ui/layout/issue-84108.rs
 tests/ui/layout/issue-96158-scalarpair-payload-might-be-uninit.rs
+tests/ui/layout/issue-96185-overaligned-enum.rs
 tests/ui/layout/issue-unsized-tail-restatic-ice-122488.rs
 tests/ui/layout/layout-cycle.rs
 tests/ui/layout/layout-type-err-nested-structs-114435.rs
@@ -9807,6 +9816,7 @@ tests/ui/layout/rust-call-abi-not-a-tuple-ice-81974.rs
 tests/ui/layout/size-of-val-raw-too-big-64.rs
 tests/ui/layout/size-of-val-raw-too-big.rs
 tests/ui/layout/struct.rs
+tests/ui/layout/thaw-transmute-invalid-enum.rs
 tests/ui/layout/thaw-validate-invalid-enum.rs
 tests/ui/layout/thin-meta-implies-thin-ptr.rs
 tests/ui/layout/thumb-enum.rs
@@ -9822,6 +9832,7 @@ tests/ui/layout/unknown-when-no-type-parameter.rs
 tests/ui/layout/unknown-when-ptr-metadata-is-DST.rs
 tests/ui/layout/unsafe-cell-hides-niche.rs
 tests/ui/layout/unsatisfiable-sized-ungated.rs
+tests/ui/layout/zero-sized-array-enum-niche.rs
 tests/ui/layout/zero-sized-array-union.rs
 tests/ui/lazy-type-alias-impl-trait/branches.rs
 tests/ui/lazy-type-alias-impl-trait/branches2.rs
@@ -10051,6 +10062,11 @@ tests/ui/lifetimes/mismatched-lifetime-syntaxes-details/not-tied-to-crate.rs
 tests/ui/lifetimes/mismatched-lifetime-syntaxes-details/path-count.rs
 tests/ui/lifetimes/mismatched-lifetime-syntaxes-details/static.rs
 tests/ui/lifetimes/missing-lifetime-in-alias.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-1.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-2.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-3.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-4.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-5.rs
 tests/ui/lifetimes/missing-lifetime-in-assoc-type-6.rs
 tests/ui/lifetimes/missing-lifetime-in-return.rs
 tests/ui/lifetimes/missing-lifetime-specifier-13497.rs
@@ -19723,6 +19739,7 @@ tests/ui/transmutability/alignment/align-pass.rs
 tests/ui/transmutability/arrays/huge-len.rs
 tests/ui/transmutability/arrays/issue-103783-array-length.rs
 tests/ui/transmutability/arrays/should_have_correct_length.rs
+tests/ui/transmutability/arrays/should_inherit_alignment.rs
 tests/ui/transmutability/arrays/should_require_well_defined_layout.rs
 tests/ui/transmutability/assoc-bound.rs
 tests/ui/transmutability/char.rs
@@ -19747,6 +19764,7 @@ tests/ui/transmutability/malformed-program-gracefulness/unknown_src.rs
 tests/ui/transmutability/malformed-program-gracefulness/unknown_src_field.rs
 tests/ui/transmutability/malformed-program-gracefulness/wrong-adt-assume.rs
 tests/ui/transmutability/malformed-program-gracefulness/wrong-type-assume.rs
+tests/ui/transmutability/maybeuninit.rs
 tests/ui/transmutability/non_scalar_alignment_value.rs
 tests/ui/transmutability/primitives/bool-mut.rs
 tests/ui/transmutability/primitives/bool.rs
@@ -19758,6 +19776,7 @@ tests/ui/transmutability/references/recursive-wrapper-types-bit-compatible-mut.r
 tests/ui/transmutability/references/recursive-wrapper-types-bit-compatible.rs
 tests/ui/transmutability/references/recursive-wrapper-types-bit-incompatible.rs
 tests/ui/transmutability/references/recursive-wrapper-types.rs
+tests/ui/transmutability/references/reject_extension.rs
 tests/ui/transmutability/references/reject_lifetime_extension.rs
 tests/ui/transmutability/references/u8-to-unit.rs
 tests/ui/transmutability/references/unit-to-itself.rs
@@ -19770,20 +19789,27 @@ tests/ui/transmutability/safety/assume/should_accept_if_src_has_safety_invariant
 tests/ui/transmutability/safety/should_accept_if_src_has_safety_invariant.rs
 tests/ui/transmutability/safety/should_reject_if_dst_has_safety_invariant.rs
 tests/ui/transmutability/safety/should_reject_if_ref_src_has_safety_invariant.rs
+tests/ui/transmutability/structs/repr/should_handle_align.rs
+tests/ui/transmutability/structs/repr/should_handle_all.rs
+tests/ui/transmutability/structs/repr/should_handle_packed.rs
 tests/ui/transmutability/structs/repr/transmute_infinitely_recursive_type.rs
 tests/ui/transmutability/structs/should_order_fields_correctly.rs
 tests/ui/transmutability/transmute-between-associated-types-with-lifetimers-21174.rs
 tests/ui/transmutability/transmute-copy-associated-type.rs
 tests/ui/transmutability/transmute-from-const-args-ice-150457.rs
 tests/ui/transmutability/transmute-higher-ranked.rs
+tests/ui/transmutability/transmute-padding-ice.rs
 tests/ui/transmutability/transmute-with-type-params.rs
 tests/ui/transmutability/type-alias-normalization.rs
 tests/ui/transmutability/uninhabited.rs
 tests/ui/transmutability/unions/boolish.rs
 tests/ui/transmutability/unions/extension.rs
 tests/ui/transmutability/unions/init_as_uninit.rs
+tests/ui/transmutability/unions/repr/should_handle_align.rs
 tests/ui/transmutability/unions/repr/should_handle_all.rs
+tests/ui/transmutability/unions/repr/should_handle_packed.rs
 tests/ui/transmutability/unions/should_pad_variants.rs
+tests/ui/transmutability/unions/should_permit_intersecting_if_validity_is_assumed.rs
 tests/ui/transmutability/unions/should_reject_contraction.rs
 tests/ui/transmutability/unions/should_reject_disjoint.rs
 tests/ui/transmutability/unions/should_reject_intersecting.rs

@@ -10191,6 +10191,11 @@ tests/ui/lifetimes/mismatched-lifetime-syntaxes-details/not-tied-to-crate.rs
 tests/ui/lifetimes/mismatched-lifetime-syntaxes-details/path-count.rs
 tests/ui/lifetimes/mismatched-lifetime-syntaxes-details/static.rs
 tests/ui/lifetimes/missing-lifetime-in-alias.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-1.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-2.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-3.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-4.rs
+tests/ui/lifetimes/missing-lifetime-in-assoc-type-5.rs
 tests/ui/lifetimes/missing-lifetime-in-assoc-type-6.rs
 tests/ui/lifetimes/missing-lifetime-in-return.rs
 tests/ui/lifetimes/missing-lifetime-specifier-13497.rs
