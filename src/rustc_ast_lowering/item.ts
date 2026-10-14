@@ -88,7 +88,7 @@ import { E0570, struct_span_code_err } from "../rustc_errors/lib.ts";
 import { DefKind, Res } from "../rustc_hir/def.ts";
 import * as hir from "../rustc_hir/lib.ts";
 import { HirId_from_OwnerId, type HirId, OwnerId_eq, debug_OwnerId } from "../rustc_hir_id/lib.ts";
-import { type DefId, DefIdMap, DefId_eq, debug_LocalDefId, LocalDefId, type LocalModId } from "../rustc_span/def_id.ts";
+import { type DefId, DefIdMap, DefId_eq, debug_LocalDefId, LocalDefId } from "../rustc_span/def_id.ts";
 import { find_best_match_for_name } from "../rustc_span/edit_distance.ts";
 import { DesugaringKind } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, debug_Span, type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
@@ -1501,9 +1501,7 @@ LoweringContext.prototype.lower_restriction_kind = function (
     case "Restricted": {
       const { path, id } = restriction_kind;
       const res = this.get_partial_res(id);
-      // PORT: `TyCtxt::parent_module(hir_id)` (rustc_middle hir/mod.rs:151) is not ported yet.
-      void hir_id;
-      const parent_module: LocalModId = unported("rustc_middle::hir::TyCtxt::parent_module");
+      const parent_module = this.tcx.parent_module(hir_id);
       const did = res === undefined ? undefined : Res.opt_def_id(res.expect_full_res());
       if (did !== undefined) {
         if (!this.tcx.is_descendant_of(parent_module, did)) {

@@ -858,6 +858,26 @@ export class TyCtxt {
     );
   }
 
+  /// Whether the combined per-owner HIR hash (`OwnerInfo::opt_hash`, which folds `parenting`,
+  /// `trait_map` and `children` on top of the node/attr hashes) needs to be computed during
+  /// lowering.
+  ///
+  /// This is a strict subset of [`Self::needs_hir_hash`]: notably it drops the plain
+  /// `needs_metadata` case. With metadata-based crate hashing (the default) the crate hash is
+  /// built from the encoded metadata plus each owner's cheaper `OwnerInfo::fingerprint` (just the
+  /// node and attr sub-hashes), so the combined hash is never read and computing it is wasted
+  /// work. It is still required for:
+  /// - `-Z metadata-crate-hash=no`, where `crate_hash` falls back to hashing each `OwnerInfo`;
+  /// - incremental, where the `lower_to_hir` result is fingerprinted for red/green tracking;
+  /// - debug assertions, where every query result is fingerprinted to catch nondeterminism.
+  ///
+  /// The `needs_hir_hash()` conjunct guarantees the node/attr sub-hashes it folds in are present.
+  // rustc: compiler/rustc_middle/src/ty/context.rs:1175 needs_owner_info_hash
+  needs_owner_info_hash(): boolean {
+    // PORT: `cfg!(debug_assertions)` is false (the oracle is a release build).
+    return this.needs_hir_hash() && (!this.sess.opts.unstable_opts.metadata_crate_hash || this.sess.opts.incremental !== undefined || false);
+  }
+
   // rustc: compiler/rustc_middle/src/ty/context.rs:1183 stable_crate_id
   stable_crate_id(crate_num: CrateNum): StableCrateId {
     if (crate_num === LOCAL_CRATE) {

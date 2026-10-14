@@ -61,7 +61,7 @@ import type { DiagCtxtHandle } from "../rustc_errors/lib.ts";
 import { DefKind, PerNS, Res } from "../rustc_hir/def.ts";
 import * as rustc_hir from "../rustc_hir/lib.ts";
 import { CRATE_HIR_ID, debug_OwnerId, HirId, OwnerId, OwnerId_eq } from "../rustc_hir_id/lib.ts";
-import { PerParentDisambiguatorState } from "../rustc_hir_id/definitions.ts";
+import { debug_DefKey, PerParentDisambiguatorState } from "../rustc_hir_id/definitions.ts";
 import type { RegisteredTools } from "../rustc_lint_defs/lib.ts";
 import { type AstOwner, PartialRes, type PerOwnerResolverData, type ResolverAstLowering } from "../rustc_middle/middle/resolve.ts";
 import type { Providers as QueryProviders } from "../rustc_middle/queries.gen.ts";
@@ -245,20 +245,13 @@ PerOwnerLoweringState.prototype.into_owner_info = function (this: PerOwnerLoweri
   const bodies_ = SortedMap.from_presorted_elements(bodies, rustc_hir.ItemLocalId_cmp);
 
   // Don't hash unless necessary, because it's expensive.
-  // PORT: `tcx.hash_owner_nodes(node, &bodies, &attrs, define_opaque)` (rustc_middle hir/mod.rs:175, lane
-  // middle-hir) is not on `TyCtxt` yet.
-  const hashes: { bodies_hash: Fingerprint | undefined; attrs_hash: Fingerprint | undefined } = unported(
-    "rustc_middle::hir::TyCtxt::hash_owner_nodes (hir/mod.rs:175)",
-  );
-  const { bodies_hash, attrs_hash } = hashes;
+  const { bodies_hash, attrs_hash } = tcx.hash_owner_nodes(node, bodies_, attrs, define_opaque);
   const num_nodes = rustc_hir.ItemLocalId.as_usize(this.item_local_id_counter);
   const [nodes, parenting] = index_hir(tcx, node, bodies_, num_nodes);
   const nodes_ = new rustc_hir.OwnerNodes(bodies_hash, nodes, bodies_);
   const attrs_ = new rustc_hir.AttributeMap(attrs, define_opaque, attrs_hash);
 
-  // PORT: `tcx.needs_owner_info_hash()` (rustc_middle ty/context.rs:1175) is not on `TyCtxt` yet.
-  const needs_owner_info_hash: boolean = unported("rustc_middle::ty::TyCtxt::needs_owner_info_hash (context.rs:1175)");
-  const opt_hash = needs_owner_info_hash
+  const opt_hash = tcx.needs_owner_info_hash()
     ? tcx.with_stable_hashing_context((hcx) => {
         const stable_hasher = StableHasher.new();
         stable_hash_Fingerprint(unwrap(bodies_hash), hcx, stable_hasher);
@@ -774,9 +767,9 @@ LoweringContext.prototype.create_def = function (
   assert_ne(node_id, DUMMY_NODE_ID, (v) => format_debug(v, ast_node_id_mod.debug_NodeId, PLAIN));
   if (!(this.opt_local_def_id(node_id) === undefined)) {
     // "adding a def'n for node-id {:?} and def kind {:?} but a previous def'n exists: {:?}",
-    // node_id, def_kind, self.tcx.hir_def_key(self.local_def_id(node_id))
-    // PORT: `TyCtxt::hir_def_key` (rustc_middle hir/map.rs) is not ported yet.
-    return unported("rustc_middle::hir::map::TyCtxt::hir_def_key (create_def assertion message)");
+    return panic(
+      `adding a def'n for node-id ${format_debug(node_id, ast_node_id_mod.debug_NodeId, PLAIN)} and def kind ${format_debug(def_kind, debug_DefKind, PLAIN)} but a previous def'n exists: ${format_debug(this.tcx.hir_def_key(this.local_def_id(node_id)), debug_DefKey, PLAIN)}`,
+    );
   }
 
   const def_id = this.tcx
