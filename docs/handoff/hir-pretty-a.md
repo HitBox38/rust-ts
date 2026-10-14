@@ -57,7 +57,7 @@ Branch `lane/hir-pretty-a`, from main `a62a248`. Nothing merged.
 
 ## Tests and evidence
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Final checks" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4107 pass, 1 skip (the pre-existing linux-only one), 0 fail.
 - **`RUST_TS_AGENT=hir-pretty-a bun scripts/difftest.ts --suite unpretty-hir --sample 100`** (run
   `20261014-044849-hir-pretty-a-kdsi`):
   - **10 MATCH, 0 DIFF, 90 UNPORTED, 0 CRASH.**
@@ -81,7 +81,8 @@ Branch `lane/hir-pretty-a`, from main `a62a248`. Nothing merged.
 
     **Its stdout and stderr were byte-identical to the pinned rustc.**
   - **tests/ui sweep:** a deterministic 300-file sweep (every 97th file) compared the same harness with the oracle.
-    Results are in "Final checks". Most files stop at b's `print_fn`/`print_expr` before printing.
+    Result: **28 MATCH, 0 DIFF**, and 193 stops. The stops are b's methods that the scratch script does not fill
+    (`print_fn`, `print_ty_fn`, `print_expr`, ...) or the script's own limits (18 at `scratch: generic args`).
 
 ## `unported(...)` left
 - The merge stand-ins above: 30 `State` methods and 2 free fns, all in lane b's range.
@@ -107,4 +108,8 @@ Branch `lane/hir-pretty-a`, from main `a62a248`. Nothing merged.
    `lifetime.pointer().is_elided()`.
 
 ## Final checks
-(filled in below after the runs)
+- `bunx tsc --noEmit -p .`: clean.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4107 pass, 1 skip, 0 fail.
+- `bun scripts/coverage.ts --check`: markers ok.
+- `--missing`: nothing in 1..1305.
+- unpretty-hir `--sample 100`: 10 MATCH / 0 DIFF / 90 UNPORTED (all at lane b's `print_path_`).
