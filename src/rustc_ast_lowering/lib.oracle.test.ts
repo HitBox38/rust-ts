@@ -117,7 +117,7 @@ test("index_ast indexes exactly the oracle's HIR owners, and lower_ty lowers typ
   // Owners.
   const tree = readFileSync(fixture_path, "utf8");
   const expected = oracle_owners(tree);
-  expect(expected.size).toBe(19);
+  expect(expected.size).toBe(27);
   const got = new Map<string, string>();
   for (const line of strip(index_part!)) {
     const m = /^(DefId\(.*\)) => (\w+)$/.exec(line);

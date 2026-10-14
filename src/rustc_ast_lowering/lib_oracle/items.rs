@@ -31,3 +31,14 @@ extern "C" {
 }
 
 pub enum E { A(()), B { f: () } }
+
+pub use m::S as T;
+
+macro_rules! mac { () => {} }
+
+pub fn outer() {
+    fn inner() {}
+    struct L;
+    impl L { fn h() {} }
+    let _c = || { fn in_closure() {} };
+}
