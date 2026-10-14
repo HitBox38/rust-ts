@@ -63,7 +63,7 @@ count (`MIN_MATCHED`), so a regression cannot hide behind UNPORTED.
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Full suite" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4293 pass, 1 skip (the existing linux-only one), 0 fail.
 - `bun scripts/coverage.ts --check`: markers ok (11110; vendor 3888). `--missing`: codec.rs 50/50,
   codec/ref_decodable.rs 8/8, decoder.rs 156/156, cstore_impl.rs 37/37.
 - Fresh-process loads of every module under rustc_type_ir/, rustc_middle/, rustc_metadata/: the same set of failures
