@@ -261,11 +261,13 @@ describe("delegation", () => {
     expect(gc.clauses.map((c) => c[0])).toEqual([trait_clause(tcx, TR, [g.from_Ty(tcx.types.u8)])]);
   });
 
-  test("delegation_user_specified_args stops at collect-a's ItemCtxt::new_for_delegation (PENDING)", () => {
+  test("delegation_user_specified_args without user-specified segments", () => {
     const tcx = with_methods(mk_tcx(), {
       hir_delegation_info: () => ({ parent_seg_id_for_sig: undefined, child_seg_id_for_sig: undefined }),
     });
-    expect(stop(() => delegation_user_specified_args(tcx, DELEG))).toBe("UNPORTED rustc_hir_analysis::collect::ItemCtxt::new_for_delegation");
+    let r: [readonly unknown[], readonly unknown[]] | undefined;
+    expect(stop(() => (r = delegation_user_specified_args(tcx, DELEG)))).toBeUndefined();
+    expect(r).toEqual([[], []]);
   });
 
   test("inherit_sig_for_delegation_item: the signature over the delegation's args", () => {
