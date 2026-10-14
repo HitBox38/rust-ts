@@ -3,8 +3,6 @@
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
 import * as hir from "../../../rustc_hir/lib.ts";
-import { debug_DefKind } from "../../../rustc_hir/def.gen.ts";
-import { type HirTyCtxt, Visitor, walk_expr, walk_foreign_item, walk_impl_item, walk_item, walk_trait_item } from "../../../rustc_hir/intravisit.ts";
 import { All } from "../../../rustc_middle/hir/nested_filter.ts";
 import type { AssocItem } from "../../../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
@@ -39,7 +37,7 @@ export function find_opaque_ty_constraints_for_impl_trait_in_assoc_type(tcx: TyC
     case "Impl":
       break;
     default:
-      return bug(`invalid impl trait in assoc type parent: ${debug_DefKind(k, PLAIN)}`);
+      return bug(`invalid impl trait in assoc type parent: ${hir.def.debug_DefKind(k, PLAIN)}`);
   }
 
   const locator = new TaitConstraintLocator(tcx, def_id, undefined, opaque_types_from);
@@ -117,7 +115,7 @@ export function find_opaque_ty_constraints_for_tait(tcx: TyCtxt, def_id: LocalDe
 }
 
 // rustc-type: compiler/rustc_hir_analysis/src/collect/type_of/opaque.rs:101 TaitConstraintLocator
-export class TaitConstraintLocator extends Visitor {
+export class TaitConstraintLocator extends hir.intravisit.Visitor {
   // `type NestedFilter = nested_filter::All;`
   override NestedFilter = All;
 
@@ -238,37 +236,37 @@ export class TaitConstraintLocator extends Visitor {
   // impl<'tcx> intravisit::Visitor<'tcx> for TaitConstraintLocator<'tcx>
 
   // rustc: compiler/rustc_hir_analysis/src/collect/type_of/opaque.rs:208 maybe_tcx
-  override maybe_tcx(): HirTyCtxt {
+  override maybe_tcx(): hir.intravisit.HirTyCtxt {
     return this.tcx;
   }
   // rustc: compiler/rustc_hir_analysis/src/collect/type_of/opaque.rs:211 visit_expr
   override visit_expr(ex: hir.Expr): undefined {
-    return walk_expr(this, ex);
+    return hir.intravisit.walk_expr(this, ex);
   }
   // rustc: compiler/rustc_hir_analysis/src/collect/type_of/opaque.rs:214 visit_item
   override visit_item(it: hir.Item): undefined {
     // trace!(?it.owner_id);
     this.check(it.owner_id.def_id);
-    return walk_item(this, it);
+    return hir.intravisit.walk_item(this, it);
   }
   // rustc: compiler/rustc_hir_analysis/src/collect/type_of/opaque.rs:219 visit_impl_item
   override visit_impl_item(it: hir.ImplItem): undefined {
     // trace!(?it.owner_id);
     this.check(it.owner_id.def_id);
-    return walk_impl_item(this, it);
+    return hir.intravisit.walk_impl_item(this, it);
   }
   // rustc: compiler/rustc_hir_analysis/src/collect/type_of/opaque.rs:224 visit_trait_item
   override visit_trait_item(it: hir.TraitItem): undefined {
     // trace!(?it.owner_id);
     this.check(it.owner_id.def_id);
-    return walk_trait_item(this, it);
+    return hir.intravisit.walk_trait_item(this, it);
   }
   // rustc: compiler/rustc_hir_analysis/src/collect/type_of/opaque.rs:229 visit_foreign_item
   override visit_foreign_item(it: hir.ForeignItem): undefined {
     // trace!(?it.owner_id);
     assert(it.owner_id.def_id !== this.def_id, "assertion `left != right` failed");
     // No need to call `check`, as we do not run borrowck on foreign items.
-    return walk_foreign_item(this, it);
+    return hir.intravisit.walk_foreign_item(this, it);
   }
 }
 

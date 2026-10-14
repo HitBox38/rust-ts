@@ -6,8 +6,7 @@ import { ControlFlow, VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { into_MultiSpan } from "../../rustc_error_messages/lib.ts";
 import type { Diag } from "../../rustc_errors/lib.ts";
 import * as hir from "../../rustc_hir/lib.ts";
-import { debug_ItemKind, debug_Node } from "../../rustc_hir/hir.gen.ts";
-import { Visitor, walk_ty } from "../../rustc_hir/intravisit.ts";
+import { debug_ItemKind, debug_Node } from "../../rustc_hir/lib.ts";
 import { type HirId, HirId_eq } from "../../rustc_hir_id/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { RawList } from "../../rustc_middle/ty/list.ts";
@@ -577,7 +576,7 @@ export function type_alias_is_checked(tcx: TyCtxt, def_id: LocalDefId): boolean 
     return true;
   }
   // struct HasTait;
-  class HasTait extends Visitor<ControlFlow<null>> {
+  class HasTait extends hir.intravisit.Visitor<ControlFlow<null>> {
     override Result = VisitorResult.ControlFlow<null>();
 
     // rustc: compiler/rustc_hir_analysis/src/collect/type_of.rs:579 visit_ty
@@ -585,7 +584,7 @@ export function type_alias_is_checked(tcx: TyCtxt, def_id: LocalDefId): boolean 
       if (t.kind.$ === "OpaqueDef") {
         return ControlFlow.Break(null);
       } else {
-        return walk_ty(this, t);
+        return hir.intravisit.walk_ty(this, t);
       }
     }
   }

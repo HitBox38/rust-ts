@@ -5,9 +5,7 @@
 import { ControlFlow, VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { Diag, type DiagCtxtHandle, type Diagnostic, type Level } from "../../rustc_errors/lib.ts";
 import * as hir from "../../rustc_hir/lib.ts";
-import { debug_Node } from "../../rustc_hir/hir.gen.ts";
-import { debug_DefKind } from "../../rustc_hir/def.gen.ts";
-import { Visitor, walk_anon_const, walk_poly_trait_ref, walk_ty } from "../../rustc_hir/intravisit.ts";
+import { debug_Node } from "../../rustc_hir/lib.ts";
 import { type HirId, HirId_eq } from "../../rustc_hir_id/lib.ts";
 import { INVALID_TYPE_PARAM_DEFAULT } from "../../rustc_lint_defs/builtin.gen.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -523,7 +521,7 @@ export function param_default_policy(node: hir.Node): ParamDefaultPolicy | undef
 // rustc: compiler/rustc_hir_analysis/src/collect/generics_of.rs:446 has_late_bound_regions
 export function has_late_bound_regions(tcx: TyCtxt, node: hir.Node): Span | undefined {
   // struct LateBoundRegionsDetector<'tcx> { tcx, outer_index }
-  class LateBoundRegionsDetector extends Visitor<ControlFlow<Span>> {
+  class LateBoundRegionsDetector extends hir.intravisit.Visitor<ControlFlow<Span>> {
     override Result = VisitorResult.ControlFlow<Span>();
 
     constructor(
@@ -538,25 +536,25 @@ export function has_late_bound_regions(tcx: TyCtxt, node: hir.Node): Span | unde
       switch (ty.kind.$) {
         case "FnPtr": {
           DebruijnIndex.shift_in(field_mut(this, "outer_index"), 1);
-          const res = walk_ty(this, ty);
+          const res = hir.intravisit.walk_ty(this, ty);
           DebruijnIndex.shift_out(field_mut(this, "outer_index"), 1);
           return res;
         }
         case "UnsafeBinder": {
           DebruijnIndex.shift_in(field_mut(this, "outer_index"), 1);
-          const res = walk_ty(this, ty);
+          const res = hir.intravisit.walk_ty(this, ty);
           DebruijnIndex.shift_out(field_mut(this, "outer_index"), 1);
           return res;
         }
         default:
-          return walk_ty(this, ty);
+          return hir.intravisit.walk_ty(this, ty);
       }
     }
 
     // rustc: compiler/rustc_hir_analysis/src/collect/generics_of.rs:472 visit_poly_trait_ref
     override visit_poly_trait_ref(tr: hir.PolyTraitRef): ControlFlow<Span> {
       DebruijnIndex.shift_in(field_mut(this, "outer_index"), 1);
-      const res = walk_poly_trait_ref(this, tr);
+      const res = hir.intravisit.walk_poly_trait_ref(this, tr);
       DebruijnIndex.shift_out(field_mut(this, "outer_index"), 1);
       return res;
     }
@@ -599,7 +597,7 @@ export function has_late_bound_regions(tcx: TyCtxt, node: hir.Node): Span | unde
 }
 
 // rustc-type: compiler/rustc_hir_analysis/src/collect/generics_of.rs:520 AnonConstInParamTyDetector
-export class AnonConstInParamTyDetector extends Visitor<ControlFlow<null>> {
+export class AnonConstInParamTyDetector extends hir.intravisit.Visitor<ControlFlow<null>> {
   override Result = VisitorResult.ControlFlow<null>();
 
   constructor(
@@ -628,7 +626,7 @@ export class AnonConstInParamTyDetector extends Visitor<ControlFlow<null>> {
     if (this.in_param_ty && HirId_eq(this.ct, c.hir_id)) {
       return ControlFlow.Break(null);
     }
-    return walk_anon_const(this, c);
+    return hir.intravisit.walk_anon_const(this, c);
   }
 }
 
@@ -644,6 +642,6 @@ function clone_GenericParamDef(p: GenericParamDef): GenericParamDef {
 function assert_matches_def_kind(tcx: TyCtxt, def_id: LocalDefId, kinds: readonly string[]): void {
   const k = tcx.def_kind(def_id);
   if (!kinds.includes(k.$)) {
-    panic(`assertion \`left matches right\` failed\n  left: ${debug_DefKind(k, PLAIN)}\n right: DefKind::${kinds.join(" | DefKind::")}`);
+    panic(`assertion \`left matches right\` failed\n  left: ${hir.def.debug_DefKind(k, PLAIN)}\n right: DefKind::${kinds.join(" | DefKind::")}`);
   }
 }

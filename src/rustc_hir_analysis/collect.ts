@@ -30,8 +30,7 @@ import { find_attr } from "../rustc_attr_ir/lib.ts";
 import { into_MultiSpan } from "../rustc_error_messages/lib.ts";
 import { Diag, type DiagCtxtHandle, type Diagnostic, E0228, type Level } from "../rustc_errors/lib.ts";
 import * as hir from "../rustc_hir/lib.ts";
-import { debug_Node } from "../rustc_hir/hir.gen.ts";
-import { Visitor, type InferKind } from "../rustc_hir/intravisit.ts";
+import { debug_Node } from "../rustc_hir/lib.ts";
 import { type HirId, HirId_eq } from "../rustc_hir_id/lib.ts";
 import { pluralize } from "../rustc_lint_defs/lib.ts";
 import { REPR_C_ENUMS_LARGER_THAN_INT } from "../rustc_lint_defs/builtin.gen.ts";
@@ -140,14 +139,14 @@ export function provide(providers: Providers): void {
 
 // rustc-type: compiler/rustc_hir_analysis/src/collect.rs:144 HirPlaceholderCollector
 // #[derive(Default)]
-export class HirPlaceholderCollector extends Visitor {
+export class HirPlaceholderCollector extends hir.intravisit.Visitor {
   spans: Span[] = [];
   // If any of the spans points to a const infer var, then suppress any messages
   // that may try to turn that const infer into a type parameter.
   may_contain_const_infer = false;
 
   // rustc: compiler/rustc_hir_analysis/src/collect.rs:152 visit_infer
-  override visit_infer(_inf_id: HirId, inf_span: Span, kind: InferKind): undefined {
+  override visit_infer(_inf_id: HirId, inf_span: Span, kind: hir.intravisit.InferKind): undefined {
     this.spans.push(inf_span);
 
     if (kind.$ === "Const" || kind.$ === "Ambig") {
