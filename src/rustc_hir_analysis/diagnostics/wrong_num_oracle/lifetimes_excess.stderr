@@ -1,0 +1,17 @@
+error[E0107]: struct takes 1 lifetime argument but 2 lifetime arguments were supplied
+  --> lifetimes_excess.rs:16:14
+   |
+LL | pub type X = M<'static, 'static>;
+   |              ^        --------- help: remove the lifetime argument
+   |              |
+   |              expected 1 lifetime argument
+   |
+note: struct defined here, with 1 lifetime parameter: `'a`
+  --> lifetimes_excess.rs:15:12
+   |
+LL | pub struct M<'a>(&'a u8);
+   |            ^ --
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0107`.

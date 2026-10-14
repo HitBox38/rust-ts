@@ -1,0 +1,19 @@
+error[E0107]: missing generics for trait `T`
+  --> trait_impl_missing.rs:16:6
+   |
+LL | impl T for S {}
+   |      ^ expected 1 generic argument
+   |
+note: trait defined here, with 1 generic parameter: `A`
+  --> trait_impl_missing.rs:14:11
+   |
+LL | pub trait T<A> {}
+   |           ^ -
+help: add missing generic argument
+   |
+LL | impl T<A> for S {}
+   |       +++
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0107`.

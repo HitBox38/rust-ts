@@ -1,0 +1,15 @@
+error[E0107]: trait takes 0 generic arguments but 1 generic argument was supplied
+  --> trait_impl_assoc.rs:16:6
+   |
+LL | impl Tr<u8> for S { type Assoc = u8; }
+   |      ^^ expected 0 generic arguments
+   |
+note: trait defined here, with 0 generic parameters
+  --> trait_impl_assoc.rs:14:11
+   |
+LL | pub trait Tr { type Assoc; }
+   |           ^^
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0107`.

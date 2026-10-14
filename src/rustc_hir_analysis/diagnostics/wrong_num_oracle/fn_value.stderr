@@ -1,0 +1,17 @@
+error[E0107]: function takes 1 generic argument but 2 generic arguments were supplied
+  --> fn_value.rs:16:14
+   |
+LL | pub fn h() { g::<u8, u16>(0); }
+   |              ^     ----- help: remove the unnecessary generic argument
+   |              |
+   |              expected 1 generic argument
+   |
+note: function defined here, with 1 generic parameter: `T`
+  --> fn_value.rs:15:4
+   |
+LL | fn g<T>(_: T) {}
+   |    ^ -
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0107`.

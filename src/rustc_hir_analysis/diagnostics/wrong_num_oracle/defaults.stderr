@@ -1,0 +1,33 @@
+error[E0107]: missing generics for struct `D`
+  --> defaults.rs:16:14
+   |
+LL | pub type X = D;
+   |              ^ expected at least 1 generic argument
+   |
+note: struct defined here, with at least 1 generic parameter: `A`
+  --> defaults.rs:15:12
+   |
+LL | pub struct D<A, B = u8>(A, B);
+   |            ^ -
+help: add missing generic argument
+   |
+LL | pub type X = D<A>;
+   |               +++
+
+error[E0107]: struct takes at most 2 generic arguments but 3 generic arguments were supplied
+  --> defaults.rs:17:14
+   |
+LL | pub type Y = D<u8, u8, u8>;
+   |              ^       ---- help: remove the unnecessary generic argument
+   |              |
+   |              expected at most 2 generic arguments
+   |
+note: struct defined here, with at most 2 generic parameters: `A`, `B`
+  --> defaults.rs:15:12
+   |
+LL | pub struct D<A, B = u8>(A, B);
+   |            ^ -  ------
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0107`.
