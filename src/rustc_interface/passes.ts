@@ -49,10 +49,10 @@ import "../rustc_middle/lib.ts";
 import { hir } from "../rustc_middle/lib.ts";
 import * as rustc_ast_lowering from "../rustc_ast_lowering/lib.ts";
 import type { ResolverAstLowering, ResolverGlobalCtxt } from "../rustc_middle/middle/resolve.ts";
-import { type GlobalCtxt, provide as ty_context_provide, TyCtxt } from "../rustc_middle/ty/context.ts";
-import { provide as ty_print_provide } from "../rustc_middle/ty/print/pretty.ts";
+import { type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
+import { provide as ty_provide } from "../rustc_middle/ty/mod.ts";
 import { clone_ExternProviders, clone_Providers, ExternProviders_default, Providers_default } from "../rustc_middle/query/query_api.ts";
-import type { Providers as QueryProviders } from "../rustc_middle/queries.gen.ts";
+import { type Providers as QueryProviders, QUERY_DECLS, QUERY_NAMES } from "../rustc_middle/queries.gen.ts";
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
 import { provide as rustc_passes_provide } from "../rustc_passes/lib.ts";
 import { provide as query_impl_provide, query_system } from "../rustc_query_impl/lib.ts";
@@ -912,9 +912,28 @@ function rustc_incremental_provide(providers: MiddleProviders): void {
     });
 }
 
+/**
+ * PORT: port-side placeholder providers (merge-w15b). Upstream, every crate in `DEFAULT_QUERY_PROVIDERS` installs its
+ * providers, so a query reaching `Providers::default()`'s `default_query` / `default_extern_query` is a compiler bug
+ * (an ICE). Here most of those crates' `provide` fns are not ported, so their queries would land on that ICE: a
+ * missing port, not a rustc bug. Each local and extern provider therefore starts as `unported("<query> provider (not
+ * ported)")` (exit 70, UNPORTED); the ported `provide` fns below replace the ones they own, as upstream's do.
+ */
+function install_unported_providers(providers: MiddleProviders): void {
+  const queries = providers.queries as unknown as Record<string, unknown>;
+  const extern_queries = providers.extern_queries as unknown as Record<string, unknown>;
+  for (const name of QUERY_NAMES) {
+    queries[name] = (): never => unported(`${name} provider (not ported)`);
+    if (QUERY_DECLS[name].separate_provide_extern) {
+      extern_queries[name] = (): never => unported(`${name} extern provider (not ported)`);
+    }
+  }
+}
+
 /** `DEFAULT_QUERY_PROVIDERS` (passes.rs:894): the `LazyLock`'s initializer; see `DEFAULT_QUERY_PROVIDERS`. */
 function default_query_providers(): MiddleProviders {
   const providers: MiddleProviders = { queries: Providers_default(), extern_queries: ExternProviders_default(), hooks: HookProviders_default() };
+  install_unported_providers(providers);
   providers.queries.analysis = () => unported("rustc_interface::passes::analysis (M3+)");
   providers.queries.resolver_for_lowering_raw = resolver_for_lowering_raw;
   providers.queries.stripped_cfg_items = (tcx, _) => tcx.resolutions(null).stripped_cfg_items;
@@ -928,17 +947,14 @@ function default_query_providers(): MiddleProviders {
   // rustc_const_eval, rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
   // rustc_monomorphize, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck, traits, solve,
   // rustc_traits, rustc_symbol_mangling, rustc_codegen_ssa (rustc_ty_utils, rustc_metadata and rustc_lint are provided below).
-  // Their queries keep upstream's `default_query` ICE.
+  // Their queries stop as UNPORTED (`install_unported_providers`).
   limits.provide(providers.queries);
   hir.provide(providers.queries);
   rustc_incremental_provide(providers);
   query_impl_provide(providers);
   rustc_resolve.provide(providers.queries);
+  ty_provide(providers.queries);
   rustc_passes_provide(providers.queries);
-  ty_context_provide(providers.queries);
-  // PORT: `ty::provide` (ty/mod.rs:2377) is not ported; of its sub-providers, `context::provide` (above) and
-  // `print::provide` (ty/print/pretty.rs:3594, `trimmed_def_paths`) are (merge-w15a).
-  ty_print_provide(providers.queries);
   rustc_ty_utils.provide(providers.queries);
   // PORT: `rustc_metadata::provide` is `rmeta::provide`, i.e. `encoder::provide` (metadata encoding, M5, not
   // ported) then `decoder::provide`; rustc_metadata/lib.ts exports `cstore_impl::provide` (the decoder half).

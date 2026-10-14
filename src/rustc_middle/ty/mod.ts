@@ -2787,11 +2787,13 @@ function closure_provide(providers: Providers): void {
   // PORT: ty/closure.ts is reached through `require` (like `print_provide`).
   (require("./closure.ts") as typeof import("./closure.ts")).provide(providers);
 }
+// PORT (merge-w15b): the sub-providers below whose files are not ported install nothing: their queries keep the
+// port-side placeholder providers (rustc_interface passes.rs `install_unported_providers`) and stop as UNPORTED there.
 function erase_regions_provide(_providers: Providers): void {
-  unported("rustc_middle::ty::erase_regions::provide (lane ty-results)");
+  // rustc_middle::ty::erase_regions::provide (ty/erase_regions.rs, not ported)
 }
 function inhabitedness_provide(_providers: Providers): void {
-  unported("rustc_middle::ty::inhabitedness::provide");
+  // rustc_middle::ty::inhabitedness::provide (ty/inhabitedness/mod.rs, not ported)
 }
 function util_provide(providers: Providers): void {
   // PORT: ty/util.ts is an extension module: reached through `require` (like `print_provide`).
@@ -2802,7 +2804,7 @@ function print_provide(providers: Providers): void {
   (require("./print/pretty.ts") as typeof import("./print/pretty.ts")).provide(providers);
 }
 function util_bug_provide(_providers: Providers): void {
-  unported("rustc_middle::util::bug::provide");
+  // rustc_middle::util::bug::provide (util/bug.rs, not ported)
 }
 // PORT: ty/trait_def.ts is reached through `require` (it imports this module back).
 const trait_def_trait_impls_of_provider: Providers["trait_impls_of"] = (tcx, k) => trait_def().trait_impls_of_provider(tcx, k);
