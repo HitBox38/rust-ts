@@ -3,8 +3,8 @@
 // Port of compiler/rustc_trait_selection/src/traits/misc.rs (lane trait-sel-traits-a). The three error enums are
 // generated (misc.gen.ts); `&'tcx ty::FieldDef` is the `FieldDef` object.
 //
-// PORT: `find_attr!(tcx, def_id, Pat => e)` is `find_attr(tcx.get_all_attrs(def_id), ..)` (`HasAttrs::get_attrs` of a
-// `DefId`, rustc_attr_ir lib.ts). `Unnormalized<Ty>::references_error()` is the inner type's (the `TypeVisitable` of
+// PORT: `find_attr!(tcx, def_id, Pat => e)` is `find_attr(HasAttrs_DefId.get_attrs(def_id, tcx), ..)` (rustc_attr_ir
+// lib.ts). `Unnormalized<Ty>::references_error()` is the inner type's (the `TypeVisitable` of
 // `Unnormalized<T>` visits `T`).
 
 export * from "./misc.gen.ts";
@@ -19,7 +19,7 @@ import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { GenericArgs, ParamEnv, Predicate } from "../../rustc_middle/ty/decls.ts";
 import { RawList } from "../../rustc_middle/ty/list.ts";
-import { type FieldDef, Ty } from "../../rustc_middle/ty/mod.ts";
+import { type FieldDef, HasAttrs_DefId, Ty } from "../../rustc_middle/ty/mod.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { Predicate_upcast_from_ClauseKind } from "../../rustc_middle/ty/predicate.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
@@ -171,7 +171,7 @@ export function type_allowed_to_implement_const_param_ty(
       if (!tcx.features().adt_const_params()) {
         for (const variant of adt.variants()) {
           if (variant.is_field_list_non_exhaustive()) {
-            const sp = find_attr(tcx.get_all_attrs(variant.def_id), (a) => (a.$ === "NonExhaustive" ? a._0 : undefined));
+            const sp = find_attr(HasAttrs_DefId.get_attrs(variant.def_id, tcx), (a) => (a.$ === "NonExhaustive" ? a._0 : undefined));
             let attr_span: Span;
             if (sp !== undefined) {
               attr_span = sp;
