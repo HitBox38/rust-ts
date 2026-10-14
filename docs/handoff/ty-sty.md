@@ -50,11 +50,8 @@ No fn was left out as MIR/codegen-bound; all of them are ported. The MIR-bound o
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`. Full run on the first commit: 4288 pass, 1 skip
-  (pre-existing linux-only), 4 fail. The 4 failures were the stub-pinning expectations listed above, which are now
-  updated. After the fixes: `bun test src/rustc_middle/ty src/rustc_type_ir` 226 pass / 0 fail, and
-  `RUST_TS_REQUIRE_PROBES=1 bun test src/rustc_middle/ty/print` 24 pass / 0 fail. The other suites did not change
-  after the first run.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools` (final tree): 4305 pass, 1 skip (the pre-existing
+  linux-only one), 0 fail.
 - Fresh-process `import()` of every module under `rustc_type_ir/`, `rustc_middle/ty/` and `rustc_middle/traits/` works.
   Three modules fail, and they fail the same way on the base commit: `print/mod.ts` and `print_oracle/test_printer.ts`
   (documented TDZ), and `pretty_oracle/run.ts` (a script that needs arguments).
