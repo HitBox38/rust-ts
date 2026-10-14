@@ -7,12 +7,7 @@
 // The fixture infer_core_oracle/infer_core.stdout is its output (`REGEN=1` rebuilds the probe and rewrites it);
 // `oracle_dump` below runs the same script on the port.
 //
-// PORT(test): the raw `InferCtxtLike` ops (`equate_ty_vids_raw`, `instantiate_ty_var_raw`, ... of infer/context.rs, lane
-// infer-relate) and `InferCtxt::probe` (infer/snapshot/mod.rs, lane infer-opaque-snapshot) are not ported here; the
-// script calls what they do upstream on the ported tables (`inner.type_variables().equate(a, b)`, ...). `lower_universe`
-// (in `instantiate_*_var_raw`) is the identity on the script's values (no placeholders, no variables of a higher universe
-// than the target's). `probe` is `start_snapshot` / `f` / `rollback_to` (the region-constraint snapshot is untouched: the
-// script makes no region variables).
+// The raw `InferCtxtLike` ops (infer/context.rs) and `InferCtxt::probe` (infer/snapshot/mod.rs) are the real ports.
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -44,7 +39,6 @@ import type { InferCtxt } from "./decls.ts";
 import { ToTrace_GenericArg, ToTrace_Region, ToTrace_Ty } from "./infer/at.ts";
 import { TypeFreshener } from "./infer/freshen.ts";
 import { BoundRegionConversionTime, debug_FixupError, display_FixupError, RegionVariableOrigin, SubregionOrigin, TypeTrace, ValuePairs } from "./infer/mod.ts";
-import { ConstVidKey_from } from "./infer/unify_key.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 
 const DIR = join(import.meta.dir, "infer_core_oracle");
@@ -99,15 +93,6 @@ const sg = (f: (tcx: TyCtxt) => void) => () =>
     tls.enter_context(new tls.ImplicitCtxt(tcx, undefined, 0), () => f(tcx));
   });
 
-/**
- * PORT(test): `impl InferCtxtLike for InferCtxt`'s `cx` (infer/context.rs:21, lane infer-relate) is still a placeholder;
- * `deeply_resolve_via_unification_table`'s `DeepVariableResolver` reads it. Upstream it is `self.tcx`.
- */
-function serve_cx(infcx: InferCtxt): InferCtxt {
-  (infcx as unknown as { cx: () => TyCtxt }).cx = () => infcx.tcx;
-  return infcx;
-}
-
 const d = (ty: Ty): string => debug_Ty(ty, PLAIN);
 const dc = (ct: Const): string => debug_Const(ct, PLAIN);
 function res<T, E>(r: Result<T, E>, dt: Debug<T>, de: Debug<E>): string {
@@ -136,34 +121,28 @@ function unresolved(infcx: InferCtxt): string {
   return `(${debug_vec(t, PLAIN, debug_TyVid)}, ${debug_vec(i, PLAIN, debug_IntVid)}, ${debug_vec(f, PLAIN, debug_FloatVid)})`;
 }
 
-// The raw `InferCtxtLike` ops of infer/context.rs (see the module comment).
+// The raw `InferCtxtLike` ops of infer/context.rs, and `InferCtxt::probe` (snapshot/mod.rs:101).
 const raw = {
   equate_ty_vids(infcx: InferCtxt, a: TyVid, b: TyVid): void {
-    infcx.inner.type_variables().equate(a, b);
+    infcx.equate_ty_vids_raw(a, b);
   },
   instantiate_ty_var(infcx: InferCtxt, vid: TyVid, ty: Ty): void {
-    infcx.inner.type_variables().instantiate(vid, ty);
+    infcx.instantiate_ty_var_raw(vid, ty);
   },
   equate_int_vids(infcx: InferCtxt, a: IntVid, b: IntVid): void {
-    infcx.inner.int_unification_table().union(a, b);
+    infcx.equate_int_vids_raw(a, b);
   },
   equate_float_vids(infcx: InferCtxt, a: FloatVid, b: FloatVid): void {
-    infcx.inner.float_unification_table().union(a, b);
+    infcx.equate_float_vids_raw(a, b);
   },
   equate_const_vids(infcx: InferCtxt, a: ConstVid, b: ConstVid): void {
-    infcx.inner.const_unification_table().union(ConstVidKey_from(a), ConstVidKey_from(b));
+    infcx.equate_const_vids_raw(a, b);
   },
   instantiate_const_var(infcx: InferCtxt, vid: ConstVid, value: Const): void {
-    infcx.inner.const_unification_table().union_value(ConstVidKey_from(vid), { $: "Known", value });
+    infcx.instantiate_const_var_raw(vid, value);
   },
-  /** `InferCtxt::probe` (snapshot/mod.rs:101): `start_snapshot`, `f`, `rollback_to`. */
   probe<R>(infcx: InferCtxt, f: () => R): R {
-    const universe = infcx.universe();
-    const undo_snapshot = infcx.inner.undo_log.start_snapshot();
-    const r = f();
-    infcx.universe_ = universe;
-    infcx.inner.rollback_to(undo_snapshot);
-    return r;
+    return infcx.probe(() => f());
   },
 };
 
@@ -201,7 +180,7 @@ function oracle_dump(tcx: TyCtxt): string {
   let out = "";
   const t = tcx.types;
   const sp = DUMMY_SP;
-  const infcx = serve_cx(tcx.infer_ctxt().build(TypingMode.non_body_analysis()));
+  const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
   const U = (u: UniverseIndexT): string => debug_UniverseIndex(u, PLAIN);
 
   // == variables
@@ -254,8 +233,8 @@ function oracle_dump(tcx: TyCtxt): string {
   // == instantiation
   raw.instantiate_ty_var(infcx, tv(t1), Ty.new_tup(tcx, [t.u8, i0]));
   raw.instantiate_ty_var(infcx, tv(t3), t.bool);
-  infcx.inner.int_unification_table().union_value(iv(i2), { $: "UintType", _0: "U16" });
-  infcx.inner.float_unification_table().union_value(fv(f0), { $: "Known", _0: "F32" });
+  infcx.instantiate_int_var_raw(iv(i2), { $: "UintType", _0: "U16" });
+  infcx.instantiate_float_var_raw(fv(f0), { $: "Known", _0: "F32" });
   raw.instantiate_const_var(infcx, cv(c1), Const.new_param(tcx, ParamConst.new(0, Symbol.intern("N"))));
   out += `shallow t2: ${d(infcx.shallow_resolve(t2))} t4: ${d(infcx.shallow_resolve(t4))} i1: ${d(infcx.shallow_resolve(i1))} f1: ${d(infcx.shallow_resolve(f1))}\n`;
   out += `shallow c0: ${dc(infcx.shallow_resolve_const(c0))} try c0: ${res(infcx.try_resolve_const_var(cv(c0)), debug_Const, debug_UniverseIndex)}\n`;
@@ -276,7 +255,7 @@ function oracle_dump(tcx: TyCtxt): string {
     const t5 = infcx.next_ty_var(sp);
     const u2 = infcx.create_next_universe();
     raw.instantiate_ty_var(infcx, tv(t0), t.char);
-    infcx.inner.int_unification_table().union_value(iv(i0), { $: "IntType", _0: "I8" });
+    infcx.instantiate_int_var_raw(iv(i0), { $: "IntType", _0: "I8" });
     raw.equate_ty_vids(infcx, tv(t5), tv(t0));
     return `${d(t5)} ${U(u2)} ${d(infcx.shallow_resolve(t0))} ${d(infcx.shallow_resolve(i0))} ${d(infcx.deeply_resolve_ignoring_regions(tup, fold_Ty))} ${infcx.num_ty_vars()} ${unresolved(infcx)}`;
   });
@@ -284,20 +263,13 @@ function oracle_dump(tcx: TyCtxt): string {
   out += `after probe: ${d(infcx.shallow_resolve(t0))} ${d(infcx.shallow_resolve(i0))} ${infcx.num_ty_vars()} ${U(infcx.universe())} ${unresolved(infcx)}\n`;
 
   // == fork
-  // PENDING: `fork` clones `InferCtxtInner`, whose `ProjectionCacheStorage` clone is generated `unported_clone`
-  // (`SnapshotMapStorage`, infcx-contract "unported left"); the fork lines of the fixture are checked once it is real.
-  try {
-    const forked = infcx.fork();
-    raw.instantiate_ty_var(forked, tv(t0), t.str_);
-    const t6 = forked.next_ty_var(sp);
-    out += `fork: ${d(t6)} ${d(forked.shallow_resolve(t0))} ${forked.num_ty_vars()} | ${d(infcx.shallow_resolve(t0))} ${infcx.num_ty_vars()}\n`;
-    out += `fork deep: ${d(forked.deeply_resolve_ignoring_regions(tup, fold_Ty))}\n`;
-    const forked2 = infcx.fork_with_typing_mode(TypingMode.Coherence);
-    out += `fork_with_typing_mode: ${debug_mode(forked2.typing_mode_raw())} ${d(forked2.shallow_resolve(t2))}\n`;
-  } catch (e) {
-    if (!(e instanceof Unported)) throw e;
-    out += `fork: UNPORTED ${e.message}\n`;
-  }
+  const forked = infcx.fork();
+  raw.instantiate_ty_var(forked, tv(t0), t.str_);
+  const t6 = forked.next_ty_var(sp);
+  out += `fork: ${d(t6)} ${d(forked.shallow_resolve(t0))} ${forked.num_ty_vars()} | ${d(infcx.shallow_resolve(t0))} ${infcx.num_ty_vars()}\n`;
+  out += `fork deep: ${d(forked.deeply_resolve_ignoring_regions(tup, fold_Ty))}\n`;
+  const forked2 = infcx.fork_with_typing_mode(TypingMode.Coherence);
+  out += `fork_with_typing_mode: ${debug_mode(forked2.typing_mode_raw())} ${d(forked2.shallow_resolve(t2))}\n`;
 
   // == instantiate_binder_with_fresh_vars
   const bound_vars = tcx.mk_bound_variable_kinds([{ $: "Ty", _0: { $: "Anon" } }, { $: "Const" }]);
@@ -321,15 +293,8 @@ function oracle_dump(tcx: TyCtxt): string {
 test(
   "infer_core_oracle: variables, unification, resolution, freshening, probe and fork agree with rustc's InferCtxt",
   sg((tcx) => {
-    let want = readFileSync(FIXTURE, "utf8").split("\n");
-    let got = oracle_dump(tcx).split("\n");
-    // The fork section (3 lines) stops at the pending `ProjectionCacheStorage` clone (see `oracle_dump`).
-    const pending = got.filter((l) => l.startsWith("fork: UNPORTED "));
-    if (pending.length > 0) {
-      expect(pending).toEqual(["fork: UNPORTED unported: Clone without a TS impl (see types report)"]);
-      want = want.filter((l) => !l.startsWith("fork"));
-      got = got.filter((l) => !l.startsWith("fork"));
-    }
+    const want = readFileSync(FIXTURE, "utf8").split("\n");
+    const got = oracle_dump(tcx).split("\n");
     for (let i = 0; i < Math.max(want.length, got.length); i++) {
       // first difference (line number in the fixture)
       if (got[i] !== want[i]) expect(`${i + 1}: ${got[i]}`).toBe(`${i + 1}: ${want[i]}`);

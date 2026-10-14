@@ -1,12 +1,7 @@
-// Port of compiler/rustc_infer/src/traits/engine.rs (lane infer-opaque-snapshot).
-//
-// Contract stub (lane infcx-contract): every fn of this file that ../decls.ts declares is an `unported`
-// placeholder below. Fill them per docs/handoff/infcx-contract.md "How to fill a stub": port each fn in upstream
-// order with its `// rustc:` marker, then delete its name from the `unported_methods` list (and the call when
-// the list is empty) or replace the stub `export const`. Init order: top-level code here may touch only
-// ../decls.ts (or ../../decls.ts), this file's .gen.ts and other crates.
+// Port of compiler/rustc_infer/src/traits/engine.rs (lane infer-opaque-snapshot). The enums `ScrubbedTraitError` and
+// `TraitErrors` are generated (engine.gen.ts); their methods are on the companions below (PORTING §8). Init order: other
+// rustc_infer modules are read inside function bodies only.
 
-import { unported_methods } from "../../rust_ts/stubs.ts";
 import type { Companions } from "../decls.ts";
 import * as gen from "./engine.gen.ts";
 
@@ -16,9 +11,12 @@ import type { DefId } from "../../rustc_span/def_id.ts";
 import type { ParamEnv, Ty } from "../../rustc_middle/ty/decls.ts";
 import type { ObligationCause } from "../../rustc_middle/traits/mod.ts";
 import type { TyVid } from "../../rustc_type_ir/decls.ts";
-import { unported } from "../../std/panic.ts";
+import { TraitRef } from "../../rustc_type_ir/predicate.ts";
+import { as_interner } from "../../rustc_type_ir/predicate.ts";
+import { GenericArg } from "../../rustc_middle/ty/generic_args.ts";
+import { Predicate_upcast_from_TraitRef } from "../../rustc_middle/ty/predicate.ts";
 import type { InferCtxt } from "../decls.ts";
-import type { PredicateObligation, PredicateObligations } from "./mod.gen.ts";
+import { Obligation, type PredicateObligation, type PredicateObligations } from "./mod.ts";
 
 // PORT: `dyn TraitEngine<'tcx, E>` is this interface (implemented by rustc_trait_selection's `FulfillmentCtxt`s); its
 // provided methods live in `TraitEngine_provided` (PORTING §8): an implementor assigns them.
@@ -88,22 +86,58 @@ export interface TraitEngine<E> {
   drain_stalled_obligations_for_coroutines(infcx: InferCtxt): PredicateObligations;
 }
 
-/** The provided methods of `TraitEngine` (stubs until lane infer-opaque-snapshot ports them; `self` first). */
+/** The provided methods of `TraitEngine` (PORTING §8; `self` first). */
 export const TraitEngine_provided = {
-  register_bound<E>(_self: TraitEngine<E>, _infcx: InferCtxt, _param_env: ParamEnv, _ty: Ty, _def_id: DefId, _cause: ObligationCause): void {
-    return unported("rustc_infer::traits::engine::TraitEngine::register_bound");
+  /// Requires that `ty` must implement the trait with `def_id` in
+  /// the given environment. This trait must not have any type
+  /// parameters (except for `Self`).
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:125 register_bound
+  register_bound<E>(self: TraitEngine<E>, infcx: InferCtxt, param_env: ParamEnv, ty: Ty, def_id: DefId, cause: ObligationCause): void {
+    const trait_ref = TraitRef.new(as_interner(infcx.tcx), def_id, [GenericArg.from_Ty(ty)]);
+    self.register_predicate_obligation(infcx, new Obligation(cause, param_env, Predicate_upcast_from_TraitRef(trait_ref, infcx.tcx), 0));
   },
-  register_predicate_obligations<E>(_self: TraitEngine<E>, _infcx: InferCtxt, _obligations: PredicateObligations): void {
-    return unported("rustc_infer::traits::engine::TraitEngine::register_predicate_obligations");
+
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:151 register_predicate_obligations
+  register_predicate_obligations<E>(self: TraitEngine<E>, infcx: InferCtxt, obligations: PredicateObligations): void {
+    for (const obligation of obligations) {
+      self.register_predicate_obligation(infcx, obligation);
+    }
   },
-  evaluate_obligations_error_on_ambiguity<E>(_self: TraitEngine<E>, _infcx: InferCtxt): TraitErrors<E> {
-    return unported("rustc_infer::traits::engine::TraitEngine::evaluate_obligations_error_on_ambiguity");
+
+  /// Evaluate all pending obligations, return error if they can't be evaluated.
+  ///
+  /// For each result:
+  /// Ok: remove the obligation from the list
+  /// Ambiguous: remove the obligation from the list and return an error
+  /// Err: remove the obligation from the list and return an error
+  ///
+  /// Returns a list of errors from obligations that evaluated to Ambiguous or Err.
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:183 evaluate_obligations_error_on_ambiguity
+  evaluate_obligations_error_on_ambiguity<E>(self: TraitEngine<E>, infcx: InferCtxt): TraitErrors<E> {
+    const errors = self.try_evaluate_obligations(infcx);
+    if (TraitErrors.has_errors(errors)) {
+      return errors;
+    }
+
+    return self.collect_remaining_errors(infcx);
   },
-  pending_obligations_potentially_referencing_sub_root<E>(_self: TraitEngine<E>, _infcx: InferCtxt, _sub_root: TyVid): PredicateObligations {
-    return unported("rustc_infer::traits::engine::TraitEngine::pending_obligations_potentially_referencing_sub_root");
+
+  /// Pending obligations potentially referencing an inference variable whose
+  /// sub-unification root is `_sub_root`. May be conservative: implementations
+  /// can return obligations that don't actually reference `_sub_root` (the
+  /// default just returns everything).
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:203 pending_obligations_potentially_referencing_sub_root
+  pending_obligations_potentially_referencing_sub_root<E>(self: TraitEngine<E>, _infcx: InferCtxt, _sub_root: TyVid): PredicateObligations {
+    return self.pending_obligations();
   },
-  pending_obligations_potentially_referencing_float_infer<E>(_self: TraitEngine<E>, _infcx: InferCtxt): PredicateObligations {
-    return unported("rustc_infer::traits::engine::TraitEngine::pending_obligations_potentially_referencing_float_infer");
+
+  /// Pending obligations potentially referencing float inference variables.
+  ///
+  /// FIXME: use a generic filter for `pending_obligations_potentially_referencing_sub_root`
+  /// and this after `TraitEngine` doesn't need to be dyn compatible.
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:215 pending_obligations_potentially_referencing_float_infer
+  pending_obligations_potentially_referencing_float_infer<E>(self: TraitEngine<E>, _infcx: InferCtxt): PredicateObligations {
+    return self.pending_obligations();
   },
 };
 
@@ -117,9 +151,120 @@ export interface FromSolverError<Self, E> {
 
 
 export type ScrubbedTraitError = gen.ScrubbedTraitError;
-export const ScrubbedTraitError = { ...gen.ScrubbedTraitError } as typeof gen.ScrubbedTraitError & Companions["ScrubbedTraitError"];
-unported_methods(ScrubbedTraitError, "rustc_infer::traits::engine::ScrubbedTraitError", ["is_true_error"]);
+export const ScrubbedTraitError: typeof gen.ScrubbedTraitError & Companions["ScrubbedTraitError"] = {
+  ...gen.ScrubbedTraitError,
+
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:29 is_true_error
+  is_true_error(self: ScrubbedTraitError): boolean {
+    switch (self.$) {
+      case "TrueError":
+        return true;
+      case "Ambiguity":
+      case "Cycle":
+        return false;
+    }
+  },
+};
 
 export type TraitErrors<E> = gen.TraitErrors<E>;
-export const TraitErrors = { ...gen.TraitErrors } as typeof gen.TraitErrors & Companions["TraitErrors"];
-unported_methods(TraitErrors, "rustc_infer::traits::engine::TraitErrors", ["from_iter", "has_errors", "no_errors", "as_slice", "as_mut_slice", "into_thin_vec", "push", "len", "into_iter"]);
+export const TraitErrors: typeof gen.TraitErrors &
+  Companions["TraitErrors"] & {
+    /** `impl IntoIterator for &TraitErrors` (engine.rs:111). */
+    into_iter_ref<E>(self: TraitErrors<E>): Iterable<E>;
+  } = {
+  ...gen.TraitErrors,
+
+  // PORT: `impl ExactSizeIterator<Item = E>` is an array (decls.ts).
+  // #[inline]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:46 from_iter
+  from_iter<E>(iter: readonly E[]): TraitErrors<E> {
+    if (iter.length === 0) {
+      return TraitErrors.NoErrors;
+    } else {
+      return { $: "HasErrors", _0: [...iter] };
+    }
+  },
+
+  // #[inline]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:51 has_errors
+  has_errors<E>(self: TraitErrors<E>): boolean {
+    return self.$ === "HasErrors";
+  },
+
+  // #[inline]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:56 no_errors
+  no_errors<E>(self: TraitErrors<E>): boolean {
+    return self.$ === "NoErrors";
+  },
+
+  // #[inline]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:61 as_slice
+  as_slice<E>(self: TraitErrors<E>): readonly E[] {
+    switch (self.$) {
+      case "HasErrors":
+        return self._0;
+      case "NoErrors":
+        return [];
+    }
+  },
+
+  // #[inline]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:69 as_mut_slice
+  as_mut_slice<E>(self: TraitErrors<E>): E[] {
+    switch (self.$) {
+      case "HasErrors":
+        return self._0;
+      case "NoErrors":
+        return [];
+    }
+  },
+
+  // #[inline]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:77 into_thin_vec
+  into_thin_vec<E>(self: TraitErrors<E>): E[] {
+    switch (self.$) {
+      case "HasErrors":
+        return self._0;
+      case "NoErrors":
+        return [];
+    }
+  },
+
+  // PORT: `&mut self`: the new value is returned and the caller stores it (decls.ts).
+  // #[cold]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:85 push
+  push<E>(self: TraitErrors<E>, err: E): TraitErrors<E> {
+    switch (self.$) {
+      case "HasErrors":
+        self._0.push(err);
+        return self;
+      case "NoErrors":
+        return { $: "HasErrors", _0: [err] };
+    }
+  },
+
+  // #[inline]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:93 len
+  len<E>(self: TraitErrors<E>): number {
+    switch (self.$) {
+      case "HasErrors":
+        return self._0.length;
+      case "NoErrors":
+        return 0;
+    }
+  },
+
+  /** `impl IntoIterator for TraitErrors` */
+  // #[inline]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:106 into_iter
+  into_iter<E>(self: TraitErrors<E>): Iterable<E> {
+    return TraitErrors.into_thin_vec(self);
+  },
+
+  /** `impl<'a, E> IntoIterator for &'a TraitErrors<E>` */
+  // #[inline]
+  // rustc: compiler/rustc_infer/src/traits/engine.rs:116 into_iter
+  into_iter_ref<E>(self: TraitErrors<E>): Iterable<E> {
+    return TraitErrors.as_slice(self);
+  },
+};

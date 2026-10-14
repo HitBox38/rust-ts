@@ -4,18 +4,10 @@
 // `TypeRelating`) and relate/lattice.rs.
 //
 // Expectations are upstream semantics read off the pinned sources (vids, universes, `TypeError` variants, obligations).
-//
-// PORT(test): the `InferCtxt` methods of other wave-16 lanes these paths call (infer-core: mod.rs's resolvers and
-// variable constructors, `TypeTrace::span`, `instantiate_binder_with_fresh_vars`; infer-opaque-snapshot:
-// `Obligation::new`) are still `unported` placeholders here. While a method is a placeholder, the test installs its
-// upstream body (a transcription of the pinned source, cited per shim) and restores it afterwards; once the owning lane
-// lands, the real port is used and the shims are skipped.
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import "../../lib.ts";
-import { unported_stub_path } from "../../../rust_ts/stubs.ts";
 import { ObligationCause } from "../../../rustc_middle/traits/mod.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../../../rustc_middle/ty/context.ts";
-import { GenericArg } from "../../../rustc_middle/ty/generic_args.ts";
 import { ParamEnv, Term, Ty } from "../../../rustc_middle/ty/mod.ts";
 import { fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import { DUMMY_SP } from "../../../rustc_span/lib.ts";
@@ -29,11 +21,9 @@ import { Const } from "../../../rustc_type_ir/sty/consts.ts";
 import { Panic } from "../../../std/panic.ts";
 import { Err, Ok } from "../../../std/result.ts";
 import { InferCtxt } from "../../decls.ts";
-import { Obligation } from "../../traits/mod.ts";
 import { DefineOpaqueTypes } from "../at.ts";
 import { TypeTrace } from "../mod.ts";
 import { TypeVariableValue } from "../type_variable.ts";
-import { ConstVidKey_from } from "../unify_key.ts";
 import { TermVid, TermVid_eq } from "./generalize.ts";
 import { LatticeOp, LatticeOpKind } from "./lattice.ts";
 import { TypeRelating } from "./type_relating.ts";
@@ -78,117 +68,6 @@ function mk_trace(a: Ty, b: Ty): TypeTrace {
 function relating(infcx: InferCtxt, variance: Variance, a: Ty, b: Ty): TypeRelating {
   return TypeRelating.new(infcx, mk_trace(a, b), ParamEnv.empty(), DefineOpaqueTypes.Yes, variance);
 }
-
-// ---- PORT(test) shims of other lanes' placeholders (upstream bodies) ---------------------------------------------
-
-const restores: (() => void)[] = [];
-function shim<O extends object>(obj: O, name: string, impl: (...args: never[]) => unknown): void {
-  const cur = (obj as Record<string, unknown>)[name];
-  if (unported_stub_path(cur) === undefined) return; // ported by its lane: use the real one
-  const spy = spyOn(obj as Record<string, (...args: never[]) => unknown>, name).mockImplementation(impl);
-  restores.push(() => spy.mockRestore());
-}
-
-beforeAll(() => {
-  const P = InferCtxt.prototype;
-  // mod.rs:734
-  shim(P, "next_trait_solver", function (this: InferCtxt) {
-    return this.next_trait_solver_;
-  });
-  // mod.rs:759
-  shim(P, "typing_mode_raw", function (this: InferCtxt) {
-    return this.typing_mode;
-  });
-  // mod.rs:904 / :908 / :912 / :917 / :921 / :926
-  shim(P, "next_ty_var", function (this: InferCtxt, span: never) {
-    return Ty.new_var(this.tcx, this.inner.type_variables().new_var(this.universe(), { span, param_def_id: undefined }));
-  });
-  shim(P, "next_ty_var_in_universe", function (this: InferCtxt, span: never, universe: never) {
-    return Ty.new_var(this.tcx, this.inner.type_variables().new_var(universe, { span, param_def_id: undefined }));
-  });
-  // mod.rs:931 / :945
-  shim(P, "next_const_var", function (this: InferCtxt, span: never) {
-    return Const.new_var(this.tcx, this.inner.const_unification_table().new_key({ $: "Unknown", origin: { span, param_def_id: undefined }, universe: this.universe() }).vid);
-  });
-  // mod.rs:1236
-  shim(P, "try_resolve_ty_var", function (this: InferCtxt, vid: never) {
-    const v = this.inner.type_variables().probe(vid);
-    return v.$ === "Known" ? Ok(v.value) : Err(v.universe);
-  });
-  // mod.rs:1274 (the `TyVar` arm; the int/float arms are not reached by these tests)
-  shim(P, "shallow_resolve", function (this: InferCtxt, ty: Ty): Ty {
-    const k = ty.kind();
-    if (k.$ === "Infer" && k._0.$ === "TyVar") {
-      const v = k._0._0;
-      const [root_vid, value] = this.inner.type_variables().probe_with_root_vid(v);
-      const t = TypeVariableValue.known(value);
-      return t === undefined ? (root_vid === v ? ty : Ty.new_var(this.tcx, root_vid)) : this.shallow_resolve(t);
-    }
-    if (k.$ === "Infer") throw new Error("PORT(test): shallow_resolve shim covers TyVar only");
-    return ty;
-  });
-  // mod.rs:1341 (only non-infer consts reach it here)
-  shim(P, "shallow_resolve_const", function (this: InferCtxt, ct: Const): Const {
-    if (ct.kind().$ === "Infer") throw new Error("PORT(test): shallow_resolve_const shim covers non-infer consts only");
-    return ct;
-  });
-  // mod.rs:1376
-  shim(P, "root_var", function (this: InferCtxt, var__: never) {
-    return this.inner.type_variables().root_var(var__);
-  });
-  // mod.rs:1399
-  shim(P, "root_const_var", function (this: InferCtxt, var__: never) {
-    return this.inner.const_unification_table().find(ConstVidKey_from(var__)).vid;
-  });
-  // mod.rs:1493
-  shim(P, "try_resolve_const_var", function (this: InferCtxt, vid: never) {
-    const v = this.inner.const_unification_table().probe_value(ConstVidKey_from(vid));
-    return v.$ === "Known" ? Ok(v.value) : Err(v.universe);
-  });
-  // mod.rs:1539 (type-only binders here: `next_region_var` would need the region constraints of lane infer-regions)
-  shim(P, "instantiate_binder_with_fresh_vars", function <T>(this: InferCtxt, span: never, _lbrct: unknown, value: Binder<T>, d_T: never): T {
-    if (Binder.no_bound_vars(Binder.as_ref(value), d_T) !== undefined) return Binder.skip_binder(value);
-    const args: GenericArg[] = [];
-    for (const k of Binder.bound_vars(value)) {
-      if (k.$ !== "Ty") throw new Error("PORT(test): instantiate_binder_with_fresh_vars shim covers bound types only");
-      args.push(this.next_ty_var(span));
-    }
-    return this.tcx.replace_bound_vars_uncached(
-      value,
-      {
-        replace_region: () => {
-          throw new Error("unreachable");
-        },
-        replace_ty: (bt) => GenericArg.expect_ty(args[bt.var]!),
-        replace_const: () => {
-          throw new Error("unreachable");
-        },
-      },
-      d_T,
-    );
-  });
-  // mod.rs:1662 / :1668
-  shim(P, "universe", function (this: InferCtxt) {
-    return this.universe_;
-  });
-  shim(P, "create_next_universe", function (this: InferCtxt) {
-    const u = UniverseIndex.next_universe(this.universe_);
-    this.universe_ = u;
-    return u;
-  });
-  // mod.rs:1810
-  shim(TypeTrace.prototype, "span", function (this: TypeTrace) {
-    return this.cause.span;
-  });
-  // traits/mod.rs:130 + :147 (`Obligation::new` = `with_depth(.., 0, ..)`)
-  shim(Obligation, "new", function (tcx_: never, cause: never, param_env: never, predicate: unknown, upcast: (p: unknown, tcx: unknown) => unknown) {
-    return new Obligation(cause, param_env, upcast(predicate, tcx_), 0);
-  });
-});
-
-afterAll(() => {
-  for (const r of restores) r();
-});
 
 // ---- tests --------------------------------------------------------------------------------------------------------
 
