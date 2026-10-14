@@ -65,13 +65,15 @@ This API is completely unstable and subject to change.
 // - Consumers outside the crate import this module only.
 
 // ---- lane collect-a imports (lib.rs fns other than `provide`) ----
-import type { ExternAbi } from "../rustc_abi/extern_abi.ts";
+import { display_ExternAbi, ExternAbi } from "../rustc_abi/extern_abi.ts";
 import type * as hir from "../rustc_hir/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Const } from "../rustc_middle/ty/decls.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
+import { feature_err } from "../rustc_session/diagnostics.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { unported } from "../std/panic.ts";
+import { VariadicFunctionCompatibleConvention_diagnostic } from "./diagnostics.ts";
 // ---- shared ----
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as collect from "./collect.ts";
@@ -98,9 +100,28 @@ export { suggest_impl_trait } from "./collect.ts";
 export { HirTyLowerer, ItemCtxt } from "./decls.ts";
 export type { GenericArgsLowerer, HirTyLowererImpl } from "./decls.ts";
 
-// lib.rs:97 (stub, lane collect-a; final signature: decls.ts `Fns_lib`)
-export function check_c_variadic_abi(_tcx: TyCtxt, _decl: hir.FnDecl, _abi: ExternAbi, _span: Span): void {
-  return unported("rustc_hir_analysis::check_c_variadic_abi");
+// rustc: compiler/rustc_hir_analysis/src/lib.rs:97 check_c_variadic_abi
+export function check_c_variadic_abi(tcx: TyCtxt, decl: hir.FnDecl, abi: ExternAbi, span: Span): void {
+  if (!decl.c_variadic()) {
+    // Not even a variadic function.
+    return;
+  }
+
+  const status = ExternAbi.supports_c_variadic(abi);
+  switch (status.$) {
+    case "Stable":
+      break;
+    case "NotSupported":
+      tcx.dcx().emit_err(VariadicFunctionCompatibleConvention_diagnostic({ span, convention: display_ExternAbi(abi) }));
+      break;
+    case "Unstable": {
+      const feature = status.feature;
+      if (!tcx.features().enabled(feature)) {
+        feature_err(tcx.sess, feature, span, `C-variadic functions with the ${display_ExternAbi(abi)} calling convention are unstable`).emit();
+      }
+      break;
+    }
+  }
 }
 
 /// Adds query implementations to the [Providers] vtable, see [`rustc_middle::query`]
@@ -127,7 +148,6 @@ export function check_crate(_tcx: TyCtxt): void {
   return unported("rustc_hir_analysis::check_crate");
 }
 
-// lib.rs:242 (stub, lane collect-a; final signature: decls.ts `Fns_lib`)
 /// Lower a [`hir::Ty`] to a [`Ty`].
 ///
 /// <div class="warning">
@@ -138,13 +158,19 @@ export function check_crate(_tcx: TyCtxt): void {
 /// It's used in rustdoc and Clippy.
 ///
 /// </div>
-export function lower_ty(_tcx: TyCtxt, _hir_ty: hir.Ty): Ty {
-  return unported("rustc_hir_analysis::lower_ty");
+// rustc: compiler/rustc_hir_analysis/src/lib.rs:242 lower_ty
+export function lower_ty(tcx: TyCtxt, hir_ty: hir.Ty): Ty {
+  // In case there are any projections, etc., find the "environment"
+  // def-ID that will be used to determine the traits/predicates in
+  // scope. This is derived from the enclosing item-like thing.
+  const env_def_id = tcx.hir_get_parent_item(hir_ty.hir_id);
+  return collect.ItemCtxt.new(tcx, env_def_id.def_id).lowerer().lower_ty_maybe_return_type_notation(hir_ty);
 }
 
-// lib.rs:254 (stub, lane collect-a; final signature: decls.ts `Fns_lib`)
 /// This is for rustdoc.
 // FIXME(const_generics): having special methods for rustdoc in `rustc_hir_analysis` is cursed
-export function lower_const_arg_for_rustdoc(_tcx: TyCtxt, _hir_ct: hir.ConstArg, _ty: Ty): Const {
-  return unported("rustc_hir_analysis::lower_const_arg_for_rustdoc");
+// rustc: compiler/rustc_hir_analysis/src/lib.rs:254 lower_const_arg_for_rustdoc
+export function lower_const_arg_for_rustdoc(tcx: TyCtxt, hir_ct: hir.ConstArg, ty: Ty): Const {
+  const env_def_id = tcx.hir_get_parent_item(hir_ct.hir_id);
+  return collect.ItemCtxt.new(tcx, env_def_id.def_id).lowerer().lower_const_arg(hir_ct, ty);
 }
