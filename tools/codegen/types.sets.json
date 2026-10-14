@@ -252,6 +252,7 @@
     "discriminant": [],
     "skip": [],
     "auto_class": true,
+    "derive_stable_hash": true,
     "derive_clone": true,
     "derive_decodable": true
   },

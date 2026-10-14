@@ -19,6 +19,7 @@ import { stable_hash_DefId } from "../rustc_span/def_id.ts";
 import { stable_hash_Span } from "../rustc_span/lib.ts";
 import { stable_hash_ErrorGuaranteed, stable_hash_Ident, stable_hash_Transparency } from "../rustc_span/stable_hash.gen.ts";
 import { stable_hash_Symbol } from "../rustc_span/symbol.ts";
+import { stable_hash_CollapseMacroDebuginfo, stable_hash_CrateType, stable_hash_Limit, stable_hash_NativeLibKind, stable_hash_SanitizerSet } from "../rustc_structures/stable_hash.gen.ts";
 import { unported } from "../std/panic.ts";
 function unported_stable_hash(..._a: unknown[]): void {
   unported("StableHash without a TS impl (see types report)");
@@ -338,7 +339,7 @@ export function stable_hash_PeImportNameType(self: PeImportNameType, __hcx: Stab
 // rustc-derive: compiler/rustc_attr_ir/src/data_structures.rs:353 StableHash for LinkEntry
 export function stable_hash_LinkEntry(self: LinkEntry, __hcx: StableHashCtxt, __hasher: StableHasher): void {
   stable_hash_Span(self.span, __hcx, __hasher);
-  unported_stable_hash(self.kind);
+  stable_hash_NativeLibKind(self.kind, __hcx, __hasher);
   stable_hash_Symbol(self.name, __hcx, __hasher);
   stable_hash_Option(self.cfg, __hcx, __hasher, (__v, __hcx, __hasher) => unported_stable_hash(__v));
   stable_hash_Option(self.verbatim, __hcx, __hasher, stable_hash_bool);
@@ -541,7 +542,7 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
     case "Cold":
       break;
     case "CollapseDebugInfo":
-      unported_stable_hash(self._0);
+      stable_hash_CollapseMacroDebuginfo(self._0, __hcx, __hasher);
       break;
     case "CompilerBuiltins":
       break;
@@ -559,7 +560,7 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
       stable_hash_Span(self.attr_span, __hcx, __hasher);
       break;
     case "CrateType":
-      stable_hash_ThinVec(self._0, __hcx, __hasher, (__v, __hcx, __hasher) => unported_stable_hash(__v));
+      stable_hash_ThinVec(self._0, __hcx, __hasher, stable_hash_CrateType);
       break;
     case "CustomMir":
       stable_hash_Option(self._0, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_MirDialect, stable_hash_Span));
@@ -663,7 +664,7 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
       stable_hash_Span(self._0, __hcx, __hasher);
       break;
     case "MoveSizeLimit":
-      unported_stable_hash(self.limit);
+      stable_hash_Limit(self.limit, __hcx, __hasher);
       break;
     case "MustNotSupend":
       stable_hash_Option(self.reason, __hcx, __hasher, stable_hash_Symbol);
@@ -735,7 +736,7 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
       stable_hash_Span(self._1, __hcx, __hasher);
       break;
     case "PatternComplexityLimit":
-      unported_stable_hash(self.limit);
+      stable_hash_Limit(self.limit, __hcx, __hasher);
       break;
     case "PinV2":
       stable_hash_Span(self._0, __hcx, __hasher);
@@ -753,7 +754,7 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
     case "ProfilerRuntime":
       break;
     case "RecursionLimit":
-      unported_stable_hash(self.limit);
+      stable_hash_Limit(self.limit, __hcx, __hasher);
       break;
     case "ReexportTestHarnessMain":
       stable_hash_Symbol(self._0, __hcx, __hasher);
@@ -984,7 +985,7 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
     case "RustcShouldNotBeCalledOnConstItems":
       break;
     case "RustcSimdMonomorphizeLaneLimit":
-      unported_stable_hash(self._0);
+      stable_hash_Limit(self._0, __hcx, __hasher);
       break;
     case "RustcSkipDuringMethodDispatch":
       stable_hash_bool(self.array, __hcx, __hasher);
@@ -1006,8 +1007,8 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
     case "RustcTrivialFieldReads":
       break;
     case "Sanitize":
-      unported_stable_hash(self.on_set);
-      unported_stable_hash(self.off_set);
+      stable_hash_SanitizerSet(self.on_set, __hcx, __hasher);
+      stable_hash_SanitizerSet(self.off_set, __hcx, __hasher);
       stable_hash_Option(self.rtsan, __hcx, __hasher, stable_hash_RtsanSetting);
       stable_hash_Span(self.span, __hcx, __hasher);
       break;
@@ -1035,7 +1036,7 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
       stable_hash_Span(self._0, __hcx, __hasher);
       break;
     case "TypeLengthLimit":
-      unported_stable_hash(self.limit);
+      stable_hash_Limit(self.limit, __hcx, __hasher);
       break;
     case "Unroll":
       stable_hash_UnrollAttr(self._0, __hcx, __hasher);
