@@ -13,7 +13,7 @@
 import type { Span } from "../../../rustc_span/lib.ts";
 import type { Predicate } from "../../../rustc_middle/ty/predicate.ts";
 import type { Goal, GoalStalledOn, MaybeInfo } from "../../../rustc_type_ir/solve/mod.ts";
-import { debug_MaybeInfo } from "../../../rustc_type_ir/solve/mod.gen.ts";
+import { debug_MaybeInfo } from "../../../rustc_type_ir/solve/mod.ts";
 import { type Debug, debug_tuple } from "../../../std/fmt.ts";
 import { unported } from "../../../std/panic.ts";
 import type { SolverDelegate } from "../../delegate.ts";

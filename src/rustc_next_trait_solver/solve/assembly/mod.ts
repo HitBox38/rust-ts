@@ -39,7 +39,7 @@ import type {
   RerunNonErased,
   SizedTraitKind,
 } from "../../../rustc_type_ir/solve/mod.ts";
-import { debug_CandidateSource, debug_Response } from "../../../rustc_type_ir/solve/mod.gen.ts";
+import { debug_CandidateSource, debug_Response } from "../../../rustc_type_ir/solve/mod.ts";
 import { debug_Canonical } from "../../../rustc_type_ir/canonical.ts";
 import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "../../../rustc_type_ir/visit.ts";
 import { type ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../../../rustc_ast_ir/visit.ts";

@@ -29,7 +29,7 @@ import {
   type ProbeStep,
 } from "../../../rustc_type_ir/solve/inspect.ts";
 import type { Certainty, Goal, GoalSource, QueryResult } from "../../../rustc_type_ir/solve/mod.ts";
-import { debug_Certainty, debug_Goal, debug_GoalSource } from "../../../rustc_type_ir/solve/mod.gen.ts";
+import { debug_Certainty, debug_Goal, debug_GoalSource } from "../../../rustc_type_ir/solve/mod.ts";
 import { type Debug, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../../std/fmt.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
 import { unported } from "../../../std/panic.ts";

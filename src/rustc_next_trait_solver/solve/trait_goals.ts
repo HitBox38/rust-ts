@@ -34,7 +34,7 @@ import { EvalCtxt } from "../decls.ts";
 import { type Candidate, type GoalKind, GoalKind_provided } from "./assembly/mod.ts";
 import type { Binder, TraitClause } from "../../rustc_type_ir/decls.ts";
 import { display_TraitClause } from "../../rustc_type_ir/ir_print.ts";
-import { fold_with_TraitClause, try_fold_with_TraitClause, visit_with_TraitClause } from "../../rustc_type_ir/predicate.gen.ts";
+import { fold_with_TraitClause, try_fold_with_TraitClause, visit_with_TraitClause } from "../../rustc_type_ir/predicate.ts";
 import type { Debug } from "../../std/fmt.ts";
 
 /** `impl<D, I> assembly::GoalKind<D> for TraitClause<I>` (header). */

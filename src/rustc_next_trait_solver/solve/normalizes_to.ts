@@ -34,12 +34,12 @@ import {
   fold_with_NormalizesTo,
   try_fold_with_NormalizesTo,
   visit_with_NormalizesTo,
-} from "../../rustc_type_ir/predicate.gen.ts";
+} from "../../rustc_type_ir/predicate.ts";
 import {
   fold_with_AliasTermKind,
   try_fold_with_AliasTermKind,
   visit_with_AliasTermKind,
-} from "../../rustc_type_ir/term_kind.gen.ts";
+} from "../../rustc_type_ir/term_kind.ts";
 
 /** `impl<D, I> assembly::GoalKind<D> for NormalizesTo<I>` (header). */
 export const GoalKind_NormalizesTo: GoalKind<NormalizesTo> = {

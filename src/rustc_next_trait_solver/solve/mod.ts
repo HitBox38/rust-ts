@@ -25,7 +25,7 @@
 import { debug_Predicate } from "../../rustc_middle/ty/structural_impls.ts";
 import type { Predicate } from "../../rustc_middle/ty/predicate.ts";
 import type { CanonicalResponse, Certainty, Goal, GoalStalledOn, Response } from "../../rustc_type_ir/solve/mod.ts";
-import { debug_Certainty, debug_Goal, debug_GoalStalledOn } from "../../rustc_type_ir/solve/mod.gen.ts";
+import { debug_Certainty, debug_Goal, debug_GoalStalledOn } from "../../rustc_type_ir/solve/mod.ts";
 import type { Canonical } from "../../rustc_type_ir/canonical.ts";
 import { type Debug, debug_int, debug_option, debug_struct, debug_tuple } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";

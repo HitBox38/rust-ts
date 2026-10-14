@@ -36,7 +36,7 @@ import {
   fold_with_HostEffectClause,
   try_fold_with_HostEffectClause,
   visit_with_HostEffectClause,
-} from "../../rustc_type_ir/predicate.gen.ts";
+} from "../../rustc_type_ir/predicate.ts";
 
 /** `impl<D, I> assembly::GoalKind<D> for ty::HostEffectClause<I>` (header). */
 export const GoalKind_HostEffectClause: GoalKind<HostEffectClause> = {
