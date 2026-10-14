@@ -1,7 +1,6 @@
 // Port of compiler/rustc_ty_utils/src/structural_match.rs (lane ty-utils).
 import type { Providers } from "../rustc_middle/queries.gen.ts";
-import { clone_ObligationCause } from "../rustc_middle/traits/mod.gen.ts";
-import { ObligationCause, type ObligationCause as ObligationCauseT } from "../rustc_middle/traits/mod.ts";
+import { clone_ObligationCause, ObligationCause, type ObligationCause as ObligationCauseT } from "../rustc_middle/traits/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { ParamEnv, type Ty } from "../rustc_middle/ty/mod.ts";
 import type { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
