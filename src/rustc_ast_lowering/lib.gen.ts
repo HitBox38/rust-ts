@@ -2,7 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in lib.ts next to this file.
 import { type NodeId } from "../rustc_ast/node_id.ts";
 import { type DelayedLint } from "./hir_shim.ts";
-import { type LoweringContext } from "./lib.ts";
+import { type LoweringContext, type RelaxedBoundPolicy } from "./lib.ts";
 import { type Attribute } from "../rustc_attr_ir/lib.ts";
 import { type SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import { type AssocItemConstraint, type Body, debug_OpaqueTyOrigin, type GenericArg, type GenericArgsParentheses, type GenericParam, type MaybeOwner, type OpaqueTyOrigin, type TraitCandidate, type WherePredicate } from "../rustc_hir/lib.ts";
@@ -70,14 +70,7 @@ export class SpanLowerer {
 }
 
 // rustc-type: compiler/rustc_ast_lowering/src/lib.rs:451 RelaxedBoundPolicy
-/// How relaxed bounds `?Trait` should be treated.
-///
-/// Relaxed bounds should only be allowed in places where we later
-/// (namely during HIR ty lowering) perform *sized elaboration*.
-export type RelaxedBoundPolicy =
-  /// The `DefId` refers to the trait that is being relaxed.
-  | { readonly $: "Allowed"; _0: Map<DefId, Span> }
-  | { readonly $: "Forbidden"; _0: RelaxedBoundForbiddenReason };
+export type { RelaxedBoundPolicy } from "./lib.ts";
 export const debug_RelaxedBoundPolicy: Debug<RelaxedBoundPolicy> = (v, f) => {
   switch (v.$) {
     case "Allowed":

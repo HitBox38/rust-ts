@@ -50,27 +50,27 @@ import { type Attribute as AstAttribute, type AssocItem, clone_Path, clone_Trait
 import { mut_visit, node_id as ast_node_id_mod, tokenstream, type visit } from "../rustc_ast/lib.ts";
 import { type Attribute as HirAttribute, type AttributeKind, find_attr } from "../rustc_attr_ir/lib.ts";
 import { LangItem } from "../rustc_attr_ir/lang_items.ts";
-import type { Target } from "../rustc_attr_ir/target.ts";
+import { Target } from "../rustc_attr_ir/target.ts";
 import { AttributeParser } from "../rustc_attr_parsing/lib.ts";
 import { Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import { TaggedRef } from "../rustc_data_structures/tagged_ptr.ts";
 import { SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import { stable_hash_Fingerprint, StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { Steal } from "../rustc_data_structures/steal.ts";
-import type { DiagCtxtHandle, Diagnostic } from "../rustc_errors/lib.ts";
+import type { DiagCtxtHandle } from "../rustc_errors/lib.ts";
 import { DefKind, PerNS, Res } from "../rustc_hir/def.ts";
 import * as rustc_hir from "../rustc_hir/lib.ts";
-import { CRATE_HIR_ID, debug_OwnerId, HirId, type ItemLocalId, OwnerId, OwnerId_eq } from "../rustc_hir_id/lib.ts";
-import type { PerParentDisambiguatorState as PerParentDisambiguatorStateT } from "../rustc_hir_id/definitions.ts";
+import { CRATE_HIR_ID, debug_OwnerId, HirId, OwnerId, OwnerId_eq } from "../rustc_hir_id/lib.ts";
 import { PerParentDisambiguatorState } from "../rustc_hir_id/definitions.ts";
 import type { RegisteredTools } from "../rustc_lint_defs/lib.ts";
 import { type AstOwner, PartialRes, type PerOwnerResolverData, type ResolverAstLowering } from "../rustc_middle/middle/resolve.ts";
 import type { Providers as QueryProviders } from "../rustc_middle/queries.gen.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import { DiagArgFromDisplay } from "../rustc_error_messages/diagnostic_impls.ts";
 import { add_feature_diagnostics } from "../rustc_session/diagnostics.ts";
 import { Session } from "../rustc_session/session.ts";
 import { type DefId, DefIdMap, debug_LocalDefId, LOCAL_CRATE, LocalDefId } from "../rustc_span/def_id.ts";
-import type { DesugaringKind } from "../rustc_span/hygiene.ts";
+import { DesugaringKind } from "../rustc_span/hygiene.ts";
 import { type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import { span_bug } from "../rustc_span/macros.ts";
 import { Ident, kw, sym, type Symbol } from "../rustc_span/symbol.ts";
@@ -85,27 +85,15 @@ import { index_hir } from "./index.ts";
 import * as ast from "../rustc_ast/lib.ts";
 import type { ControlFlow } from "../rustc_ast_ir/visit.ts";
 import type * as attr_ir from "../rustc_attr_ir/lib.ts";
-import { Target } from "../rustc_attr_ir/target.ts";
-import type { SortedMap } from "../rustc_data_structures/sorted_map.ts";
-import { TaggedRef } from "../rustc_data_structures/tagged_ptr.ts";
-import { type DiagCtxtHandle, E0203 } from "../rustc_errors/lib.ts";
-import { debug_DefKind, DefKind, DefKind_eq, type Res } from "../rustc_hir/def.ts";
-import * as rustc_hir from "../rustc_hir/lib.ts";
-import type { HirId, ItemLocalId } from "../rustc_hir_id/lib.ts";
-import type { PerOwnerResolverData } from "../rustc_middle/middle/resolve.ts";
-import { DesugaringKind } from "../rustc_span/hygiene.ts";
-import { debug_Span, DUMMY_SP, type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
-import { span_bug } from "../rustc_span/macros.ts";
-import { debug_Ident, debug_Symbol, display_Symbol, Ident, kw } from "../rustc_span/symbol.ts";
-import { type Debug, debug_bool, debug_struct, debug_tuple, PLAIN } from "../std/fmt.ts";
-import { assert, assert_eq, panic, unreachable, unwrap } from "../std/panic.ts";
-import { Err, Ok, type Result, unwrap_result } from "../std/result.ts";
-import { to_writer } from "../vendor/bitflags/parser.ts";
-import { flags_companion } from "../vendor/bitflags/traits.ts";
+import { E0203 } from "../rustc_errors/lib.ts";
+import { debug_DefKind, DefKind_eq } from "../rustc_hir/def.ts";
+import { debug_Span, DUMMY_SP } from "../rustc_span/lib.ts";
+import { debug_Ident, debug_Symbol, display_Symbol } from "../rustc_span/symbol.ts";
+import { unreachable } from "../std/panic.ts";
+import { unwrap_result } from "../std/result.ts";
 import * as diagnostics from "./diagnostics.ts";
 import * as expr from "./expr.ts";
 // ---- shared ----
-import { unported_methods } from "../rust_ts/stubs.ts";
 import { LoweringContext } from "./decls.ts";
 
 // mod asm;
@@ -135,6 +123,47 @@ export * as stability from "./stability.ts";
 
 export { DelegationResolver, LoweringContext } from "./decls.ts";
 export type { FreeFns } from "./decls.ts";
+export * from "./lib.gen.ts";
+import {
+  DirectConstArgContext as DirectConstArgContext_flags,
+  type DiscardParams,
+  FnDeclKind,
+  GenericArgsCtor,
+  ImplTraitContext,
+  ImplTraitPosition,
+  ParamMode,
+  PerOwnerLoweringState,
+  type RelaxedBoundForbiddenReason,
+  SpanLowerer,
+  TryBlockScope,
+  UnrepresentableConstArgError,
+} from "./lib.gen.ts";
+
+// Methods of lib.gen.ts's types, attached below in upstream order.
+declare module "./lib.gen.ts" {
+  interface PerOwnerLoweringState {
+    owner_id(): OwnerId;
+    into_owner_info(tcx: TyCtxt, node: hir.OwnerNode): hir.OwnerInfo;
+  }
+  namespace PerOwnerLoweringState {
+    function new_(resolver: ResolverAstLowering, owner_: NodeId): PerOwnerLoweringState;
+    export { new_ as new };
+  }
+  interface SpanLowerer {
+    lower(span: Span): Span;
+  }
+  interface GenericArgsCtor {
+    is_empty(): boolean;
+    into_generic_args(this_: LoweringContext): hir.GenericArgs;
+  }
+  interface UnrepresentableConstArgError {
+    emit(lowering_context: LoweringContext): hir.ConstArg;
+  }
+  namespace UnrepresentableConstArgError {
+    function new_(expr: ast.Expr): UnrepresentableConstArgError;
+    export { new_ as new };
+  }
+}
 
 // ==== lane lower-lib-a: lib.rs:1..1756 ====
 
@@ -153,45 +182,14 @@ export function provide(providers: QueryProviders): void {
 // rustc-skip: compiler/rustc_ast_lowering/src/lib.rs:124 assert_node_is_not_relowered #[cfg(debug_assertions)]-only: the oracle is a release build without debug_assertions
 // rustc-skip: compiler/rustc_ast_lowering/src/lib.rs:135 allow_relowering #[cfg(debug_assertions)]-only: the oracle is a release build without debug_assertions
 
-// PORT: the data types of lib.rs are written here in the exact shape `tools/codegen/types.ts` gives them (checked
-// against a scratch run of a `rustc_ast_lowering` set over lib.rs); codegen set rustc_ast_lowering is not in
-// types.sets.json yet. When root adds it, move the type declarations to lib.gen.ts (`export * from "./lib.gen.ts"`)
-// and keep the methods/companions here. The derived `Debug` impls are left to the generator (nothing prints them:
-// `debug!`/`trace!`/`#[instrument]` are not ported).
+// PORT: the data types of lib.rs come from lib.gen.ts (codegen set rustc_ast_lowering, merge-w14); the methods and
+// companions are attached here. `RelaxedBoundPolicy` stays hand-written (a `hand` entry): its `&mut FxIndexMap<DefId,
+// Span>` is a `DefIdMap`, which the generator cannot express.
 
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:155 PerOwnerLoweringState
-export class PerOwnerLoweringState {
-  constructor(
-    // -- Identity --
-    public owner: PerOwnerResolverData,
-    public disambiguator: PerParentDisambiguatorStateT,
-
-    // -- HirId allocation --
-    public item_local_id_counter: ItemLocalId,
-    /// NodeIds of pattern identifiers and labelled nodes that are lowered inside the current HIR
-    /// owner.
-    public ident_and_label_to_local_id: Map<NodeId, ItemLocalId>,
-    // (`relowering_checker: re_lowering::ReloweringChecker`: #[cfg(debug_assertions)], see above)
-
-    // -- Accumulated outputs --
-    /// Attributes inside the owner being lowered.
-    public attrs: SortedMap<ItemLocalId, readonly HirAttribute[]>,
-    /// Bodies inside the owner being lowered.
-    public bodies: [ItemLocalId, hir.Body][],
-    /// `#[define_opaque]` attributes
-    public define_opaque: readonly [Span, LocalDefId][] | undefined,
-    public trait_map: Map<ItemLocalId, readonly hir.TraitCandidate[]>,
-    public delayed_lints: hir.DelayedLint[],
-    /// Collect items that were created by lowering the current owner.
-    public children: Map<LocalDefId, hir.MaybeOwner>,
-
-    // -- Transient --
-    public impl_trait_defs: hir.GenericParam[],
-    public impl_trait_bounds: hir.WherePredicate[],
-  ) {}
-
+// (lib.rs:155 `struct PerOwnerLoweringState`: lib.gen.ts)
+Object.assign(PerOwnerLoweringState, {
   // rustc: compiler/rustc_ast_lowering/src/lib.rs:188 new
-  static new(resolver: ResolverAstLowering, owner_: NodeId): PerOwnerLoweringState {
+  new(resolver: ResolverAstLowering, owner_: NodeId): PerOwnerLoweringState {
     const owner = map_index(resolver.owners, owner_);
 
     const s = resolver.disambiguators.get(owner.def_id);
@@ -214,69 +212,69 @@ export class PerOwnerLoweringState {
       [],
       [],
     );
-  }
+  },
+});
 
-  // rustc: compiler/rustc_ast_lowering/src/lib.rs:217 owner_id
-  owner_id(): OwnerId {
-    return new OwnerId(this.owner.def_id);
-  }
+// rustc: compiler/rustc_ast_lowering/src/lib.rs:217 owner_id
+PerOwnerLoweringState.prototype.owner_id = function (this: PerOwnerLoweringState): OwnerId {
+  return new OwnerId(this.owner.def_id);
+};
 
-  // rustc: compiler/rustc_ast_lowering/src/lib.rs:221 into_owner_info
-  into_owner_info(tcx: TyCtxt, node: hir.OwnerNode): hir.OwnerInfo {
-    assert_eq(this.owner_id(), rustc_hir.OwnerNode.def_id(node), (v) => format_debug(v, debug_OwnerId, PLAIN), OwnerId_eq);
-    assert(this.impl_trait_defs.length === 0, "assertion failed: self.impl_trait_defs.is_empty()");
-    assert(this.impl_trait_bounds.length === 0, "assertion failed: self.impl_trait_bounds.is_empty()");
+// rustc: compiler/rustc_ast_lowering/src/lib.rs:221 into_owner_info
+PerOwnerLoweringState.prototype.into_owner_info = function (this: PerOwnerLoweringState, tcx: TyCtxt, node: hir.OwnerNode): hir.OwnerInfo {
+  assert_eq(this.owner_id(), rustc_hir.OwnerNode.def_id(node), (v) => format_debug(v, debug_OwnerId, PLAIN), OwnerId_eq);
+  assert(this.impl_trait_defs.length === 0, "assertion failed: self.impl_trait_defs.is_empty()");
+  assert(this.impl_trait_bounds.length === 0, "assertion failed: self.impl_trait_bounds.is_empty()");
 
-    const attrs = this.attrs;
-    const bodies = this.bodies;
-    const define_opaque = this.define_opaque;
-    const trait_map = this.trait_map;
-    const delayed_lints = Steal.new(this.delayed_lints, "alloc::boxed::Box<[rustc_hir::lints::DelayedLint]>");
-    const children = this.children;
+  const attrs = this.attrs;
+  const bodies = this.bodies;
+  const define_opaque = this.define_opaque;
+  const trait_map = this.trait_map;
+  const delayed_lints = Steal.new(this.delayed_lints, "alloc::boxed::Box<[rustc_hir::lints::DelayedLint]>");
+  const children = this.children;
 
-    // #[cfg(debug_assertions)]
-    // for (id, attrs) in attrs.iter() {
-    //     // Verify that we do not store empty slices in the map.
-    //     if attrs.is_empty() {
-    //         panic!("Stored empty attributes for {:?}", id);
-    //     }
-    // }
+  // #[cfg(debug_assertions)]
+  // for (id, attrs) in attrs.iter() {
+  //     // Verify that we do not store empty slices in the map.
+  //     if attrs.is_empty() {
+  //         panic!("Stored empty attributes for {:?}", id);
+  //     }
+  // }
 
-    // `bodies.sort_by_key(|(k, _)| *k)` (a stable sort, as JS's)
-    bodies.sort((a, b) => a[0] - b[0]);
-    const bodies_ = SortedMap.from_presorted_elements(bodies, rustc_hir.ItemLocalId_cmp);
+  // `bodies.sort_by_key(|(k, _)| *k)` (a stable sort, as JS's)
+  bodies.sort((a, b) => a[0] - b[0]);
+  const bodies_ = SortedMap.from_presorted_elements(bodies, rustc_hir.ItemLocalId_cmp);
 
-    // Don't hash unless necessary, because it's expensive.
-    // PORT: `tcx.hash_owner_nodes(node, &bodies, &attrs, define_opaque)` (rustc_middle hir/mod.rs:175, lane
-    // middle-hir) is not on `TyCtxt` yet.
-    const hashes: { bodies_hash: Fingerprint | undefined; attrs_hash: Fingerprint | undefined } = unported(
-      "rustc_middle::hir::TyCtxt::hash_owner_nodes (hir/mod.rs:175)",
-    );
-    const { bodies_hash, attrs_hash } = hashes;
-    const num_nodes = rustc_hir.ItemLocalId.as_usize(this.item_local_id_counter);
-    const [nodes, parenting] = index_hir(tcx, node, bodies_, num_nodes);
-    const nodes_ = new rustc_hir.OwnerNodes(bodies_hash, nodes, bodies_);
-    const attrs_ = new rustc_hir.AttributeMap(attrs, define_opaque, attrs_hash);
+  // Don't hash unless necessary, because it's expensive.
+  // PORT: `tcx.hash_owner_nodes(node, &bodies, &attrs, define_opaque)` (rustc_middle hir/mod.rs:175, lane
+  // middle-hir) is not on `TyCtxt` yet.
+  const hashes: { bodies_hash: Fingerprint | undefined; attrs_hash: Fingerprint | undefined } = unported(
+    "rustc_middle::hir::TyCtxt::hash_owner_nodes (hir/mod.rs:175)",
+  );
+  const { bodies_hash, attrs_hash } = hashes;
+  const num_nodes = rustc_hir.ItemLocalId.as_usize(this.item_local_id_counter);
+  const [nodes, parenting] = index_hir(tcx, node, bodies_, num_nodes);
+  const nodes_ = new rustc_hir.OwnerNodes(bodies_hash, nodes, bodies_);
+  const attrs_ = new rustc_hir.AttributeMap(attrs, define_opaque, attrs_hash);
 
-    // PORT: `tcx.needs_owner_info_hash()` (rustc_middle ty/context.rs:1175) is not on `TyCtxt` yet.
-    const needs_owner_info_hash: boolean = unported("rustc_middle::ty::TyCtxt::needs_owner_info_hash (context.rs:1175)");
-    const opt_hash = needs_owner_info_hash
-      ? tcx.with_stable_hashing_context((hcx) => {
-          const stable_hasher = StableHasher.new();
-          stable_hash_Fingerprint(unwrap(bodies_hash), hcx, stable_hasher);
-          stable_hash_Fingerprint(unwrap(attrs_hash), hcx, stable_hasher);
-          // Do not hash delayed_lints.
-          // PORT: `parenting` / `trait_map` / `children` are `UnordMap`s; `StableHash for UnordMap`
-          // (rustc_data_structures unord.rs) is not ported yet.
-          unported("rustc_data_structures::unord::UnordMap: StableHash (OwnerInfo::opt_hash)");
-          return stable_hasher.finish(Fingerprint);
-        })
-      : undefined;
+  // PORT: `tcx.needs_owner_info_hash()` (rustc_middle ty/context.rs:1175) is not on `TyCtxt` yet.
+  const needs_owner_info_hash: boolean = unported("rustc_middle::ty::TyCtxt::needs_owner_info_hash (context.rs:1175)");
+  const opt_hash = needs_owner_info_hash
+    ? tcx.with_stable_hashing_context((hcx) => {
+        const stable_hasher = StableHasher.new();
+        stable_hash_Fingerprint(unwrap(bodies_hash), hcx, stable_hasher);
+        stable_hash_Fingerprint(unwrap(attrs_hash), hcx, stable_hasher);
+        // Do not hash delayed_lints.
+        // PORT: `parenting` / `trait_map` / `children` are `UnordMap`s; `StableHash for UnordMap`
+        // (rustc_data_structures unord.rs) is not ported yet.
+        unported("rustc_data_structures::unord::UnordMap: StableHash (OwnerInfo::opt_hash)");
+        return stable_hasher.finish(Fingerprint);
+      })
+    : undefined;
 
-    // `tcx.hir_arena.alloc(..)` (arenas are erased: `HIR_ARENA`)
-    return HIR_ARENA.alloc(new rustc_hir.OwnerInfo(nodes_, parenting, attrs_, trait_map, children, delayed_lints, opt_hash));
-  }
-}
+  // `tcx.hir_arena.alloc(..)` (arenas are erased: `HIR_ARENA`)
+  return HIR_ARENA.alloc(new rustc_hir.OwnerInfo(nodes_, parenting, attrs_, trait_map, children, delayed_lints, opt_hash));
+};
 
 /** `map[&key]` on a `HashMap` (std's `Index`: `self.get(key).expect("no entry found for key")`). */
 function map_index<K, V>(map: Map<K, V>, key: K): V {
@@ -381,23 +379,17 @@ LoweringContext.prototype.allow_gen_future = function (this: LoweringContext): r
   }
 };
 
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:396 SpanLowerer
-export class SpanLowerer {
-  constructor(
-    public is_incremental: boolean,
-    public def_id: LocalDefId,
-  ) {}
+// (lib.rs:396 `struct SpanLowerer`: lib.gen.ts)
 
-  // rustc: compiler/rustc_ast_lowering/src/lib.rs:402 lower
-  lower(span: Span): Span {
-    if (this.is_incremental) {
-      return Span.with_parent(span, this.def_id);
-    } else {
-      // Do not make spans relative when not using incremental compilation.
-      return span;
-    }
+// rustc: compiler/rustc_ast_lowering/src/lib.rs:402 lower
+SpanLowerer.prototype.lower = function (this: SpanLowerer, span: Span): Span {
+  if (this.is_incremental) {
+    return Span.with_parent(span, this.def_id);
+  } else {
+    // Do not make spans relative when not using incremental compilation.
+    return span;
   }
-}
+};
 
 // `#[extension(trait ResolverAstLoweringExt<'tcx>)] impl<'tcx> ResolverAstLowering<'tcx>`: a free fn taking `self`.
 // rustc: compiler/rustc_ast_lowering/src/lib.rs:414 legacy_const_generic_args
@@ -461,74 +453,8 @@ export const RelaxedBoundPolicy = {
   },
 };
 
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:466 RelaxedBoundForbiddenReason
-export type RelaxedBoundForbiddenReason =
-  | "TraitObjectTy"
-  | "SuperTrait"
-  | "TraitAlias"
-  | "AssocTyBounds"
-  /// We do not allow where bounds doing relaxed bounds,
-  /// except if it's for generic parameters of the current item.
-  | "WhereBound";
-export const RelaxedBoundForbiddenReason = { TraitObjectTy: "TraitObjectTy", SuperTrait: "SuperTrait", TraitAlias: "TraitAlias", AssocTyBounds: "AssocTyBounds", WhereBound: "WhereBound" } as const;
+// (lib.rs:466 `RelaxedBoundForbiddenReason`, lib.rs:479 `ImplTraitContext`, lib.rs:510 `ImplTraitPosition`: lib.gen.ts)
 
-/// Context of `impl Trait` in code, which determines whether it is allowed in an HIR subtree,
-/// and if so, what meaning it has.
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:479 ImplTraitContext
-export type ImplTraitContext =
-  /// Treat `impl Trait` as shorthand for a new universal generic parameter.
-  /// Example: `fn foo(x: impl Debug)`, where `impl Debug` is conceptually
-  /// equivalent to a fresh universal parameter like `fn foo<T: Debug>(x: T)`.
-  ///
-  /// Newly generated parameters should be inserted into the given `Vec`.
-  | { readonly $: "Universal" }
-  /// Treat `impl Trait` as shorthand for a new opaque type.
-  /// Example: `fn foo() -> impl Debug`, where `impl Debug` is conceptually
-  /// equivalent to a new opaque type like `type T = impl Debug; fn foo() -> T`.
-  ///
-  | { readonly $: "OpaqueTy"; origin: hir.OpaqueTyOrigin<LocalDefId> }
-  /// Treat `impl Trait` as a "trait ascription", which is like a type
-  /// variable but that also enforces that a set of trait goals hold.
-  ///
-  /// This is useful to guide inference for unnameable types.
-  | { readonly $: "InBinding" }
-  /// `impl Trait` is unstably accepted in this position.
-  | { readonly $: "FeatureGated"; _0: ImplTraitPosition; _1: Symbol }
-  /// `impl Trait` is not accepted in this position.
-  | { readonly $: "Disallowed"; _0: ImplTraitPosition }
-  /// An error has already been emitted for this type.
-  | { readonly $: "AlreadyErrored"; _0: ErrorGuaranteed };
-/** Unit variants of `ImplTraitContext`, shared frozen singletons. */
-export const ImplTraitContext = {
-  Universal: Object.freeze({ $: "Universal" as const }),
-  InBinding: Object.freeze({ $: "InBinding" as const }),
-};
-
-/// Position in which `impl Trait` is disallowed.
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:510 ImplTraitPosition
-export type ImplTraitPosition =
-  | "Path"
-  | "Variable"
-  | "Trait"
-  | "Bound"
-  | "Generic"
-  | "ExternFnParam"
-  | "ClosureParam"
-  | "PointerParam"
-  | "FnTraitParam"
-  | "ExternFnReturn"
-  | "ClosureReturn"
-  | "PointerReturn"
-  | "FnTraitReturn"
-  | "GenericDefault"
-  | "ConstTy"
-  | "StaticTy"
-  | "AssocTy"
-  | "FieldTy"
-  | "Cast"
-  | "ImplSelf"
-  | "OffsetOf";
-export const ImplTraitPosition = { Path: "Path", Variable: "Variable", Trait: "Trait", Bound: "Bound", Generic: "Generic", ExternFnParam: "ExternFnParam", ClosureParam: "ClosureParam", PointerParam: "PointerParam", FnTraitParam: "FnTraitParam", ExternFnReturn: "ExternFnReturn", ClosureReturn: "ClosureReturn", PointerReturn: "PointerReturn", FnTraitReturn: "FnTraitReturn", GenericDefault: "GenericDefault", ConstTy: "ConstTy", StaticTy: "StaticTy", AssocTy: "AssocTy", FieldTy: "FieldTy", Cast: "Cast", ImplSelf: "ImplSelf", OffsetOf: "OffsetOf" } as const;
 
 /** `impl std::fmt::Display for ImplTraitPosition` */
 // rustc: compiler/rustc_ast_lowering/src/lib.rs:535 fmt
@@ -603,31 +529,7 @@ export function display_ImplTraitPosition(self: ImplTraitPosition): string {
   return `${name}`;
 }
 
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:565 FnDeclKind
-export type FnDeclKind =
-  | "Fn"
-  | "Inherent"
-  | "ExternFn"
-  | "Closure"
-  | "Pointer"
-  | "Trait"
-  | "Impl";
-export const FnDeclKind = { Fn: "Fn", Inherent: "Inherent", ExternFn: "ExternFn", Closure: "Closure", Pointer: "Pointer", Trait: "Trait", Impl: "Impl" } as const;
-
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:576 TryBlockScope
-export type TryBlockScope =
-  /// There isn't a `try` block, so a `?` will use `return`.
-  | { readonly $: "Function" }
-  /// We're inside a `try { … }` block, so a `?` will block-break
-  /// from that block using a type depending only on the argument.
-  | { readonly $: "Homogeneous"; _0: HirId }
-  /// We're inside a `try as _ { … }` block, so a `?` will block-break
-  /// from that block using the type specified.
-  | { readonly $: "Heterogeneous"; _0: HirId };
-/** Unit variants of `TryBlockScope`, shared frozen singletons. */
-export const TryBlockScope = {
-  Function: Object.freeze({ $: "Function" as const }),
-};
+// (lib.rs:565 `FnDeclKind`, lib.rs:576 `TryBlockScope`: lib.gen.ts)
 
 // rustc: compiler/rustc_ast_lowering/src/lib.rs:587 index_ast
 export function index_ast(tcx: TyCtxt, _: null): readonly (Steal<[ResolverAstLowering, AstOwner]> | undefined)[] {
@@ -857,73 +759,7 @@ export function lower_to_hir(tcx: TyCtxt, def_id: LocalDefId): hir.MaybeOwner {
 /** `Target::Crate` */
 const TARGET_CRATE: Target = { $: "Crate" };
 
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:785 ParamMode
-export type ParamMode =
-  /// Any path in a type context.
-  | "Explicit"
-  /// The `module::Type` in `module::Type::method` in an expression.
-  | "Optional";
-export const ParamMode = { Explicit: "Explicit", Optional: "Optional" } as const;
-
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:793 AllowReturnTypeNotation
-export type AllowReturnTypeNotation =
-  /// Only in types, since RTN is denied later during HIR lowering.
-  | "Yes"
-  /// All other positions (path expr, method, use tree).
-  | "No";
-export const AllowReturnTypeNotation = { Yes: "Yes", No: "No" } as const;
-
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:800 GenericArgsMode
-export type GenericArgsMode =
-  /// Allow paren sugar, don't allow RTN.
-  | "ParenSugar"
-  /// Allow RTN, don't allow paren sugar.
-  | "ReturnTypeNotation"
-  /// Error if parenthesized generics or RTN are encountered.
-  | "Err"
-  /// Silence errors when lowering generics. Only used with `Res::Err`.
-  | "Silence";
-export const GenericArgsMode = { ParenSugar: "ParenSugar", ReturnTypeNotation: "ReturnTypeNotation", Err: "Err", Silence: "Silence" } as const;
-
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:812 DiscardParams
-export type DiscardParams =
-  /// Should be used for functions without a body. Lowers the attributes on the parameter and then discards them.
-  | "Yes"
-  /// Should be used for functions with a body. Does not lower the attributes, as lowering of the parameters is done by `lower_body`.
-  | "No";
-export const DiscardParams = { Yes: "Yes", No: "No" } as const;
-
-/**
- * PORT: the `#[derive(Diagnostic)]` structs of diagnostics.rs (`BadReturnTypeNotation`, `MisplacedAssocTyBinding`,
- * `AssocTyParentheses`, `NoPreciseCapturesOnApit`, `MisplacedImplTrait`) are generated into diagnostics.gen.ts by lane
- * lower-index-diag; until that merges, building one stops here as UNPORTED. `_fields` are the struct's fields as
- * upstream builds them. Root: replace each `diagnostic_pending("X", f)` with the generated constructor.
- */
-function diagnostic_pending(name: string, _fields: object): Diagnostic {
-  return unported(`rustc_ast_lowering::diagnostics::${name} (diagnostics.gen.ts, lane lower-index-diag)`);
-}
-
-/**
- * PORT: `GenericArgsCtor` (lib.rs:3296) and `UnrepresentableConstArgError` (lib.rs:3371) are lane lower-lib-b's
- * types (the other region of this file), still `unknown` on this branch. Until both lanes merge, the three uses in
- * this region stop as UNPORTED. Root: replace `GenericArgsCtor_new(a, c, p, s)` with `new GenericArgsCtor(a, c, p, s)`
- * (or lower-lib-b's constructor), `GenericArgsCtor_into_generic_args(g, this)` with `g.into_generic_args(this)` and
- * `UnrepresentableConstArgError_emit(e, this)` with `e.emit(this)`, then delete these helpers.
- */
-function GenericArgsCtor_new(
-  _args: hir.GenericArg[],
-  _constraints: readonly hir.AssocItemConstraint[],
-  _parenthesized: hir.GenericArgsParentheses,
-  _span: Span,
-): GenericArgsCtor {
-  return unported("rustc_ast_lowering::GenericArgsCtor (lib.rs:3296, lane lower-lib-b; merge pending)");
-}
-function GenericArgsCtor_into_generic_args(_self: GenericArgsCtor, _this_: LoweringContext): hir.GenericArgs {
-  return unported("rustc_ast_lowering::GenericArgsCtor::into_generic_args (lib.rs:3310, lane lower-lib-b; merge pending)");
-}
-function UnrepresentableConstArgError_emit(_self: UnrepresentableConstArgError, _lowering_context: LoweringContext): hir.ConstArg {
-  return unported("rustc_ast_lowering::UnrepresentableConstArgError::emit (lib.rs:3384, lane lower-lib-b; merge pending)");
-}
+// (lib.rs:785..812 `ParamMode`, `AllowReturnTypeNotation`, `GenericArgsMode`, `DiscardParams`: lib.gen.ts)
 
 // impl<'hir> LoweringContext<'_, 'hir>
 
@@ -1383,7 +1219,7 @@ LoweringContext.prototype.lower_assoc_item_constraint = function (
         const data = gen_args_._0;
         const first_char = constraint.ident.as_str().codePointAt(0);
         if (first_char !== undefined && first_char >= 0x61 && first_char <= 0x7a) {
-          let err: object;
+          let err: diagnostics.BadReturnTypeNotation;
           const output = data.output;
           if (data.inputs.length > 0 && output.$ === "Default") {
             err = { $: "Inputs", span: data.inputs_span };
@@ -1395,12 +1231,12 @@ LoweringContext.prototype.lower_assoc_item_constraint = function (
             const span = Span.to(Span.shrink_to_hi(data.inputs_span), ty.span);
             err = { $: "Output", span, suggestion: { output: span, input: data.inputs_span } };
           }
-          const err_ = this.dcx().create_err(diagnostic_pending("BadReturnTypeNotation", err));
+          const err_ = this.dcx().create_err(diagnostics.BadReturnTypeNotation_diagnostic(err));
           if (!this.tcx.features().return_type_notation() && this.tcx.sess.is_nightly_build()) {
             add_feature_diagnostics(err_, this.tcx.sess, sym.return_type_notation);
           }
           err_.emit();
-          gen_args_ctor = GenericArgsCtor_new([], [], "ReturnTypeNotation", data.span);
+          gen_args_ctor = new GenericArgsCtor([], [], "ReturnTypeNotation", data.span);
         } else {
           const guar = this.emit_bad_parenthesized_trait_in_assoc_ty(data);
           gen_args_ctor = this.lower_angle_bracketed_parameter_data(data.as_angle_bracketed_args(), "Explicit", {
@@ -1412,11 +1248,11 @@ LoweringContext.prototype.lower_assoc_item_constraint = function (
       }
       case "ParenthesizedElided": {
         const span = gen_args_._0;
-        gen_args_ctor = GenericArgsCtor_new([], [], "ReturnTypeNotation", span);
+        gen_args_ctor = new GenericArgsCtor([], [], "ReturnTypeNotation", span);
         break;
       }
     }
-    gen_args = GenericArgsCtor_into_generic_args(gen_args_ctor, this);
+    gen_args = gen_args_ctor.into_generic_args(this);
   } else {
     gen_args = rustc_hir.GenericArgs.NONE;
   }
@@ -1459,7 +1295,7 @@ LoweringContext.prototype.lower_assoc_item_constraint = function (
         }
 
         const guar = this.dcx().emit_err(
-          diagnostic_pending("MisplacedAssocTyBinding", { span: constraint.span, suggestion }),
+          diagnostics.MisplacedAssocTyBinding_diagnostic({ span: constraint.span, suggestion }),
         );
         const err_ty = this.arena.alloc(this.ty(constraint.span, { $: "Err", _0: guar }));
         kind = { $: "Equality", term: rustc_hir.Term.from_Ty(err_ty) };
@@ -1486,7 +1322,7 @@ LoweringContext.prototype.emit_bad_parenthesized_trait_in_assoc_ty = function (
   data: ParenthesizedArgs,
 ): ErrorGuaranteed {
   // Suggest removing empty parentheses: "Trait()" -> "Trait"
-  let sub: object;
+  let sub: diagnostics.AssocTyParenthesesSub;
   if (data.inputs.length === 0) {
     const parentheses_span = Span.to(Span.shrink_to_lo(data.inputs_span), Span.shrink_to_hi(data.inputs_span));
     sub = { $: "Empty", parentheses_span };
@@ -1502,7 +1338,7 @@ LoweringContext.prototype.emit_bad_parenthesized_trait_in_assoc_ty = function (
     );
     sub = { $: "NotEmpty", open_param, close_param };
   }
-  return this.dcx().emit_err(diagnostic_pending("AssocTyParentheses", { span: data.span, sub }));
+  return this.dcx().emit_err(diagnostics.AssocTyParentheses_diagnostic({ span: data.span, sub }));
 };
 
 // #[instrument(level = "debug", skip(self))]
@@ -1563,7 +1399,7 @@ LoweringContext.prototype.lower_generic_arg = function (
             ct = this.lower_expr_to_const_arg_direct(expr, undefined);
             break;
           case "Err":
-            ct = UnrepresentableConstArgError_emit(r._0, this);
+            ct = r._0.emit(this);
             break;
         }
         const ct_ = this.arena.alloc(ct);
@@ -1819,7 +1655,7 @@ LoweringContext.prototype.lower_ty = function (this: LoweringContext, t: AstTy, 
             }
           }
           if (use_span !== undefined) {
-            this.tcx.dcx().emit_err(diagnostic_pending("NoPreciseCapturesOnApit", { span: use_span }));
+            this.tcx.dcx().emit_err(diagnostics.NoPreciseCapturesOnApit_diagnostic({ span: use_span }));
           }
 
           const def_id = this.local_def_id(def_node_id);
@@ -1846,7 +1682,7 @@ LoweringContext.prototype.lower_ty = function (this: LoweringContext, t: AstTy, 
           const guar = this.tcx.sess
             .create_feature_err(
               // `position: DiagArgFromDisplay(&position)`
-              diagnostic_pending("MisplacedImplTrait", { span: t.span, position: display_ImplTraitPosition(position) }),
+              diagnostics.MisplacedImplTrait_diagnostic({ span: t.span, position: new DiagArgFromDisplay(() => display_ImplTraitPosition(position)) }),
               feature,
             )
             .emit_err();
@@ -1856,7 +1692,7 @@ LoweringContext.prototype.lower_ty = function (this: LoweringContext, t: AstTy, 
         case "Disallowed": {
           const position = itctx._0;
           const guar = this.dcx().emit_err(
-            diagnostic_pending("MisplacedImplTrait", { span: t.span, position: display_ImplTraitPosition(position) }),
+            diagnostics.MisplacedImplTrait_diagnostic({ span: t.span, position: new DiagArgFromDisplay(() => display_ImplTraitPosition(position)) }),
           );
           kind = { $: "Err", _0: guar };
           break;
@@ -1920,26 +1756,13 @@ LoweringContext.prototype.lower_ty = function (this: LoweringContext, t: AstTy, 
 
 // ==== lane lower-lib-b: lib.rs:1757..3401 ====
 
-// PORT(types): views of the lib.rs types of lane lower-lib-a's region that this region reads. lib.ts aliases them to
-// `unknown` until codegen set rustc_ast_lowering generates lib.gen.ts; the views have the generated shapes (scratch run
-// of that set) and are used only as parameter types and in casts. Root: delete them once the aliases are replaced and
-// write the real names (`RelaxedBoundPolicyView` -> `RelaxedBoundPolicy`, ...).
-/** lib.rs:155 `PerOwnerLoweringState`: the two fields read here. */
-type PerOwnerLoweringStateView = { owner: PerOwnerResolverData; attrs: SortedMap<ItemLocalId, readonly attr_ir.Attribute[]> };
-/** lib.rs:451 `RelaxedBoundPolicy<'a>` (`Allowed(&'a mut FxIndexMap<DefId, Span>)`, see `relaxed_bound_policy_allowed`). */
-type RelaxedBoundPolicyView = { readonly $: "Allowed"; _0: rustc_hir.def_id.DefIdMap<Span> } | { readonly $: "Forbidden"; _0: RelaxedBoundForbiddenReasonView };
-/** lib.rs:466 `RelaxedBoundForbiddenReason` */
-type RelaxedBoundForbiddenReasonView = "TraitObjectTy" | "SuperTrait" | "TraitAlias" | "AssocTyBounds" | "WhereBound";
-/** lib.rs:565 `FnDeclKind` */
-type FnDeclKindView = "Fn" | "Inherent" | "ExternFn" | "Closure" | "Pointer" | "Trait" | "Impl";
-
 /**
  * `RelaxedBoundPolicy::Allowed(&mut Default::default())`.
  * PORT: the `FxIndexMap<DefId, Span>` is a `DefIdMap` (keyed by `DefId` value, insertion-ordered like an `IndexMap`;
  * a plain `Map` would key `DefId` objects by identity). Not a port of an upstream fn.
  */
-function relaxed_bound_policy_allowed(): RelaxedBoundPolicyView {
-  return { $: "Allowed", _0: new rustc_hir.def_id.DefIdMap<Span>() };
+function relaxed_bound_policy_allowed(): RelaxedBoundPolicy {
+  return { $: "Allowed", _0: new DefIdMap<Span>() };
 }
 
 /**
@@ -1953,21 +1776,6 @@ function WillCreateDefIdsVisitor(): { visit_expr(ex: ast.Expr): ControlFlow<Span
   const V = (expr as Record<string, unknown>)["WillCreateDefIdsVisitor"] as (new () => { visit_expr(ex: ast.Expr): ControlFlow<Span> }) | undefined;
   if (V === undefined) return unported("rustc_ast_lowering::expr::WillCreateDefIdsVisitor");
   return new V();
-}
-
-/**
- * `diagnostics::GenericParamDefaultInBinder { span }` (diagnostics.rs:473, `#[derive(Diagnostic)]`, generated as
- * `GenericParamDefaultInBinder_diagnostic`).
- * PORT(codegen): diagnostics.ts has no generated diagnostics yet (lane lower-index-diag), so it is looked up at
- * call time and stops as UNPORTED until then. Root: replace the calls with
- * `diagnostics.GenericParamDefaultInBinder_diagnostic({ span })` at integration. Not a port of an upstream fn.
- */
-function GenericParamDefaultInBinder(span: Span): Parameters<DiagCtxtHandle["emit_err"]>[0] {
-  const mk = (diagnostics as Record<string, unknown>)["GenericParamDefaultInBinder_diagnostic"] as
-    | ((args: { span: Span }) => Parameters<DiagCtxtHandle["emit_err"]>[0])
-    | undefined;
-  if (mk === undefined) return unported("rustc_ast_lowering::diagnostics::GenericParamDefaultInBinder");
-  return mk({ span });
 }
 
 // rustc: compiler/rustc_ast_lowering/src/lib.rs:1757 emit_bad_gca_macro
@@ -1989,7 +1797,7 @@ LoweringContext.prototype.lower_ty_direct_lifetime = function (this: LoweringCon
   if (region_ !== undefined) {
     [region, syntax] = [region_, rustc_hir.LifetimeSyntax.from(region_.ident)];
   } else {
-    const res = (this.curr_owner as PerOwnerLoweringStateView).owner.get_lifetime_res(t.id);
+    const res = this.curr_owner.owner.get_lifetime_res(t.id);
     let id: NodeId;
     if (res !== undefined && res.$ === "ElidedAnchor") {
       const { start, end } = res;
@@ -2158,7 +1966,7 @@ LoweringContext.prototype.lower_fn_decl = function (
   decl: ast.FnDecl,
   fn_node_id: NodeId,
   fn_hir_id: HirId,
-  kind: FnDeclKindView,
+  kind: FnDeclKind,
   coro: ast.CoroutineMarker | undefined,
   discard_params: DiscardParams,
 ): hir.FnDecl {
@@ -2204,7 +2012,7 @@ LoweringContext.prototype.lower_fn_decl = function (
 
   let output: hir.FnRetTy;
   if (coro !== undefined) {
-    const fn_def_id = (this.curr_owner as PerOwnerLoweringStateView).owner.def_id;
+    const fn_def_id = this.curr_owner.owner.def_id;
     output = this.lower_coroutine_fn_ret_ty(decl.output, fn_def_id, coro, kind);
   } else {
     const decl_output = decl.output;
@@ -2219,7 +2027,7 @@ LoweringContext.prototype.lower_fn_decl = function (
               $: "OpaqueTy",
               origin: {
                 $: "FnReturn",
-                parent: (this.curr_owner as PerOwnerLoweringStateView).owner.def_id,
+                parent: this.curr_owner.owner.def_id,
                 in_trait_or_impl: undefined,
               },
             };
@@ -2229,7 +2037,7 @@ LoweringContext.prototype.lower_fn_decl = function (
               $: "OpaqueTy",
               origin: {
                 $: "FnReturn",
-                parent: (this.curr_owner as PerOwnerLoweringStateView).owner.def_id,
+                parent: this.curr_owner.owner.def_id,
                 in_trait_or_impl: "Trait",
               },
             };
@@ -2239,7 +2047,7 @@ LoweringContext.prototype.lower_fn_decl = function (
               $: "OpaqueTy",
               origin: {
                 $: "FnReturn",
-                parent: (this.curr_owner as PerOwnerLoweringStateView).owner.def_id,
+                parent: this.curr_owner.owner.def_id,
                 in_trait_or_impl: "TraitImpl",
               },
             };
@@ -2264,7 +2072,7 @@ LoweringContext.prototype.lower_fn_decl = function (
   }
 
   const arg = decl.inputs[0];
-  const owner = (this.curr_owner as PerOwnerLoweringStateView).owner;
+  const owner = this.curr_owner.owner;
   const fn_decl_kind = unwrap_result(
     rustc_hir.FnDeclFlags.default_()
       .set_implicit_self(
@@ -2318,7 +2126,7 @@ LoweringContext.prototype.lower_coroutine_fn_ret_ty = function (
   output: ast.FnRetTy,
   fn_def_id: LocalDefId,
   coro: ast.CoroutineMarker,
-  fn_kind: FnDeclKindView,
+  fn_kind: FnDeclKind,
 ): hir.FnRetTy {
   const span = this.lower_span(ast.FnRetTy.span(output));
 
@@ -2436,7 +2244,7 @@ LoweringContext.prototype.lower_coroutine_fn_output_type_to_bound = function (
 LoweringContext.prototype.lower_param_bound = function (
   this: LoweringContext,
   tpb: ast.GenericBound,
-  rbp: RelaxedBoundPolicyView,
+  rbp: RelaxedBoundPolicy,
   itctx: ImplTraitContext,
 ): hir.GenericBound {
   switch (tpb.$) {
@@ -2489,7 +2297,7 @@ LoweringContext.prototype.new_named_lifetime = function (
   syntax: hir.LifetimeSyntax,
 ): hir.Lifetime {
   let res_: hir.LifetimeKind;
-  const res = (this.curr_owner as PerOwnerLoweringStateView).owner.get_lifetime_res(id);
+  const res = this.curr_owner.owner.get_lifetime_res(id);
   if (res !== undefined) {
     switch (res.$) {
       case "Param":
@@ -2587,7 +2395,7 @@ LoweringContext.prototype.lower_generic_param_kind = function (
       // AST resolution emitted an error on those parameters, so we lower them using
       // `ParamName::Error`.
       const ident = this.lower_ident(param.ident);
-      const res = (this.curr_owner as PerOwnerLoweringStateView).owner.get_lifetime_res(param.id);
+      const res = this.curr_owner.owner.get_lifetime_res(param.id);
       let param_name: hir.ParamName;
       if (res !== undefined && res.$ === "Error") {
         param_name = { $: "Error", _0: ident };
@@ -2611,7 +2419,7 @@ LoweringContext.prototype.lower_generic_param_kind = function (
             keep = true;
             break;
           case "Binder": {
-            this.dcx().emit_err(GenericParamDefaultInBinder(param.span()));
+            this.dcx().emit_err(diagnostics.GenericParamDefaultInBinder_diagnostic({ span: param.span() }));
 
             keep = false;
             break;
@@ -2644,7 +2452,7 @@ LoweringContext.prototype.lower_generic_param_kind = function (
             keep = true;
             break;
           case "Binder": {
-            const err = GenericParamDefaultInBinder(param.span());
+            const err = diagnostics.GenericParamDefaultInBinder_diagnostic({ span: param.span() });
             if (WillCreateDefIdsVisitor().visit_expr(anon_const.value).$ === "Break") {
               // FIXME(mgca): make this non-fatal once we have a better way
               // to handle nested items in anno const from binder
@@ -2690,7 +2498,7 @@ LoweringContext.prototype.lower_trait_ref = function (
 LoweringContext.prototype.lower_poly_trait_ref = function (
   this: LoweringContext,
   _0: ast.PolyTraitRef,
-  rbp: RelaxedBoundPolicyView,
+  rbp: RelaxedBoundPolicy,
   itctx: ImplTraitContext,
 ): hir.PolyTraitRef {
   // `PolyTraitRef { bound_generic_params, modifiers, trait_ref, span, parens: _ }: &PolyTraitRef`
@@ -2716,7 +2524,7 @@ LoweringContext.prototype.validate_relaxed_bound = function (
   this: LoweringContext,
   trait_ref: hir.TraitRef,
   span: Span,
-  rbp: RelaxedBoundPolicyView,
+  rbp: RelaxedBoundPolicy,
 ): void {
   // Even though feature `more_maybe_bounds` enables the user to relax all default bounds
   // other than `Sized` in a lot more positions (thereby bypassing the given policy), we don't
@@ -2798,7 +2606,7 @@ LoweringContext.prototype.validate_relaxed_bound = function (
 LoweringContext.prototype.lower_param_bounds = function (
   this: LoweringContext,
   bounds: readonly ast.GenericBound[],
-  rbp: RelaxedBoundPolicyView,
+  rbp: RelaxedBoundPolicy,
   itctx: ImplTraitContext,
 ): hir.GenericBounds {
   return this.arena.alloc_from_iter(this.lower_param_bounds_mut(bounds, rbp, itctx));
@@ -2808,14 +2616,11 @@ LoweringContext.prototype.lower_param_bounds = function (
 LoweringContext.prototype.lower_param_bounds_mut = function* (
   this: LoweringContext,
   bounds: readonly ast.GenericBound[],
-  rbp: RelaxedBoundPolicyView,
+  rbp: RelaxedBoundPolicy,
   itctx: ImplTraitContext,
 ): Generator<hir.GenericBound> {
   // PORT: `impl Iterator` (lazy `map`) -> a generator, so callers interleave the lowering as upstream does.
-  // PORT(lane lower-lib-a): `rbp.reborrow()` (lib.rs:457) re-borrows the `&mut` map of `Allowed` and copies the
-  // `Forbidden` reason, i.e. the same map and reason in TS; this branch has no value `RelaxedBoundPolicy` yet, so
-  // `rbp` is passed as is. Root: at integration write `RelaxedBoundPolicy.reborrow(rbp)` (lower-lib-a's companion).
-  for (const bound of bounds) yield this.lower_param_bound(bound, rbp, itctx);
+  for (const bound of bounds) yield this.lower_param_bound(bound, RelaxedBoundPolicy.reborrow(rbp), itctx);
 };
 
 // #[instrument(level = "debug", skip(self), ret)]
@@ -3358,7 +3163,7 @@ LoweringContext.prototype.stmt_let_pat = function (
   if (attrs !== undefined) {
     const a = attrs;
     assert(!(a.length === 0), "assertion failed: !a.is_empty()");
-    (this.curr_owner as PerOwnerLoweringStateView).attrs.insert(hir_id.local_id, a);
+    this.curr_owner.attrs.insert(hir_id.local_id, a);
   }
   const local: hir.LetStmt = {
     super_: undefined,
@@ -3532,26 +3337,7 @@ LoweringContext.prototype.elided_dyn_bound = function (this: LoweringContext, sp
   return r;
 };
 
-// PORT(codegen): the three types below are written out as codegen set rustc_ast_lowering generates them into
-// lib.gen.ts (scratch run of that set), followed by their hand-written impls. Root: once lib.gen.ts exists, delete the
-// generated part here (class bodies, the `flags_companion` call, the Debug fns), re-export it from lib.gen.ts and
-// attach the impls through `declare module "./lib.gen.ts"`.
-
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:3296 GenericArgsCtor
-/// Helper struct for the delayed construction of [`hir::GenericArgs`].
-export class GenericArgsCtor {
-  constructor(
-    public args: hir.GenericArg[],
-    public constraints: readonly hir.AssocItemConstraint[],
-    public parenthesized: hir.GenericArgsParentheses,
-    public span: Span,
-  ) {}
-}
-
-export interface GenericArgsCtor {
-  is_empty(): boolean;
-  into_generic_args(this_: LoweringContext): hir.GenericArgs;
-}
+// (lib.rs:3296 `struct GenericArgsCtor`: lib.gen.ts)
 
 // rustc: compiler/rustc_ast_lowering/src/lib.rs:3304 is_empty
 GenericArgsCtor.prototype.is_empty = function (this: GenericArgsCtor): boolean {
@@ -3564,61 +3350,7 @@ GenericArgsCtor.prototype.into_generic_args = function (this: GenericArgsCtor, t
   return ga;
 };
 
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:3321 DirectConstArgContext
-// PORT: `bitflags!` (compiler/rustc_ast_lowering/src/lib.rs:3321, `struct DirectConstArgContext: u16`) -> branded number; flags + `Flags` API on the companion.
-export type DirectConstArgContext = number & { readonly __brand: "DirectConstArgContext" };
-const DirectConstArgContext_flags = flags_companion<
-  DirectConstArgContext,
-  {
-    TUPLE_CALL: DirectConstArgContext;
-    TUPLE: DirectConstArgContext;
-    PATH_PLAIN_PARAM: DirectConstArgContext;
-    PATH_CONST_CTOR: DirectConstArgContext;
-    PATH_ANY: DirectConstArgContext;
-    STRUCT: DirectConstArgContext;
-    ARRAY: DirectConstArgContext;
-    UNDERSCORE: DirectConstArgContext;
-    PAREN: DirectConstArgContext;
-    BLOCK: DirectConstArgContext;
-    LIT: DirectConstArgContext;
-    CONST_BLOCK: DirectConstArgContext;
-    GCA_MACRO: DirectConstArgContext;
-  }
->(
-  16,
-  {
-    TUPLE_CALL: 0x1 as DirectConstArgContext,
-    TUPLE: 0x2 as DirectConstArgContext,
-    PATH_PLAIN_PARAM: 0x4 as DirectConstArgContext,
-    PATH_CONST_CTOR: 0x8 as DirectConstArgContext,
-    PATH_ANY: 0x10 as DirectConstArgContext,
-    STRUCT: 0x20 as DirectConstArgContext,
-    ARRAY: 0x40 as DirectConstArgContext,
-    UNDERSCORE: 0x80 as DirectConstArgContext,
-    PAREN: 0x100 as DirectConstArgContext,
-    BLOCK: 0x200 as DirectConstArgContext,
-    LIT: 0x400 as DirectConstArgContext,
-    CONST_BLOCK: 0x800 as DirectConstArgContext,
-    GCA_MACRO: 0x1000 as DirectConstArgContext,
-  },
-  [
-    ["TUPLE_CALL", 0x1 as DirectConstArgContext],
-    ["TUPLE", 0x2 as DirectConstArgContext],
-    ["PATH_PLAIN_PARAM", 0x4 as DirectConstArgContext],
-    ["PATH_CONST_CTOR", 0x8 as DirectConstArgContext],
-    ["PATH_ANY", 0x10 as DirectConstArgContext],
-    ["STRUCT", 0x20 as DirectConstArgContext],
-    ["ARRAY", 0x40 as DirectConstArgContext],
-    ["UNDERSCORE", 0x80 as DirectConstArgContext],
-    ["PAREN", 0x100 as DirectConstArgContext],
-    ["BLOCK", 0x200 as DirectConstArgContext],
-    ["LIT", 0x400 as DirectConstArgContext],
-    ["CONST_BLOCK", 0x800 as DirectConstArgContext],
-    ["GCA_MACRO", 0x1000 as DirectConstArgContext],
-  ],
-);
-export const debug_DirectConstArgContext: Debug<DirectConstArgContext> = (v, f) =>
-  debug_tuple(f, "DirectConstArgContext", [DirectConstArgContext.is_empty(v) ? "0x0" : to_writer(DirectConstArgContext.FLAGS_DESC, v)]);
+// (lib.rs:3321 `bitflags! struct DirectConstArgContext`: lib.gen.ts, re-exported below with the `impl` consts)
 
 // impl DirectConstArgContext (lib.rs:3340): associated consts, on the companion.
 /// The only allowed direct const arg representation is simple paths that nameres to generic
@@ -3651,6 +3383,9 @@ const DirectConstArgContext_GCA_ADTS: DirectConstArgContext = [
   DirectConstArgContext_flags.ARRAY,
 ].reduce((acc, x) => DirectConstArgContext_flags.union(acc, x), DirectConstArgContext_flags.PATH_CONST_CTOR);
 
+export type DirectConstArgContext = DirectConstArgContext_flags;
+// PORT: this companion shadows lib.gen.ts's (an explicit export wins over `export *`): the generated flags plus the
+// associated consts of the `impl`.
 export const DirectConstArgContext = {
   ...DirectConstArgContext_flags,
   STABLE: DirectConstArgContext_STABLE,
@@ -3660,26 +3395,7 @@ export const DirectConstArgContext = {
   GCA_ADTS: DirectConstArgContext_GCA_ADTS,
 };
 
-// rustc-type: compiler/rustc_ast_lowering/src/lib.rs:3371 UnrepresentableConstArgError
-export class UnrepresentableConstArgError {
-  constructor(
-    public span: Span,
-    public will_create_def_ids: boolean,
-  ) {}
-}
-export const debug_UnrepresentableConstArgError: Debug<UnrepresentableConstArgError> = (v, f) =>
-  debug_struct(f, "UnrepresentableConstArgError", [
-    ["span", debug_Span(v.span, f)],
-    ["will_create_def_ids", debug_bool(v.will_create_def_ids, f)],
-  ]);
-
-export interface UnrepresentableConstArgError {
-  emit(lowering_context: LoweringContext): hir.ConstArg;
-}
-export declare namespace UnrepresentableConstArgError {
-  function new_(expr: ast.Expr): UnrepresentableConstArgError;
-  export { new_ as new };
-}
+// (lib.rs:3371 `struct UnrepresentableConstArgError`: lib.gen.ts)
 
 Object.assign(UnrepresentableConstArgError, {
   // rustc: compiler/rustc_ast_lowering/src/lib.rs:3377 new

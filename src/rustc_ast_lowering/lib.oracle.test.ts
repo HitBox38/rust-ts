@@ -44,6 +44,8 @@ function rustc_at_pin(): boolean {
   }
 }
 
+// PORT: rustc hashes a source file by its absolute (embeddable) path, so `opt_hash` depends on the checkout's
+// location; remapping the case directory keeps the fixture valid in every worktree (as hir.oracle.test.ts, merge-w14).
 const args = (sysroot: string): string[] => [
   "--target",
   "x86_64-unknown-linux-gnu",
@@ -52,6 +54,7 @@ const args = (sysroot: string): string[] => [
   "--crate-type",
   "lib",
   "--edition=2021",
+  `--remap-path-prefix=${DIR}=/lib_oracle`,
   `${CASE}.rs`,
 ];
 
