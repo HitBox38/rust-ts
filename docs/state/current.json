@@ -1,5 +1,5 @@
 {
-  "milestone": "M2a",
+  "milestone": "M2b",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
     "lex": 25780,
@@ -9,18 +9,21 @@
     "escape-synthetic": 11,
     "tokens": 25780,
     "fluent-format": 4210,
-    "resdump-nocore": 21480,
+    "resdump": 21470,
+    "resdump-nocore": 21488,
     "fluent-parse": 4210,
     "parse": 21523,
     "tokens-str": 39,
-    "unpretty-expanded-nocore": 21471,
+    "unpretty-expanded-nocore": 21479,
     "escape": 25780,
-    "expanded-nocore": 21471
+    "expanded": 21460,
+    "unpretty-expanded": 21460,
+    "expanded-nocore": 21479
   },
-  "updated": "2026-10-13T22:34:37.872Z",
+  "updated": "2026-10-14T01:42:21.342Z",
   "open_stops": [],
   "coverage": {
-    "ported": 6247,
+    "ported": 7481,
     "total": 25518
   }
 }

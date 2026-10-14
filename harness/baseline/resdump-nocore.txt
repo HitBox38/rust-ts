@@ -4273,6 +4273,7 @@ tests/ui/const-generics/method-instantiation.rs
 tests/ui/const-generics/method-instatiation-from-const.rs
 tests/ui/const-generics/mgca/adt_expr_arg_simple.rs
 tests/ui/const-generics/mgca/adt_expr_arg_tuple_expr_fail.rs
+tests/ui/const-generics/mgca/adt_expr_erroneuous_inits.rs
 tests/ui/const-generics/mgca/adt_expr_fields_type_check.rs
 tests/ui/const-generics/mgca/adt_expr_infers_from_value.rs
 tests/ui/const-generics/mgca/adt_expr_unit_enum_extra_field.rs
@@ -4384,6 +4385,7 @@ tests/ui/const-generics/mgca/type-const-suggestion.rs
 tests/ui/const-generics/mgca/type-const-used-in-trait.rs
 tests/ui/const-generics/mgca/type-const-value-type-mismatch.rs
 tests/ui/const-generics/mgca/type_as_const_in_array_len.rs
+tests/ui/const-generics/mgca/type_const-adt-expr-missing-field.rs
 tests/ui/const-generics/mgca/type_const-array-return.rs
 tests/ui/const-generics/mgca/type_const-generic-param-in-type.rs
 tests/ui/const-generics/mgca/type_const-incemental-compile.rs
@@ -4422,6 +4424,7 @@ tests/ui/const-generics/min_const_generics/complex-expression.rs
 tests/ui/const-generics/min_const_generics/complex-types.rs
 tests/ui/const-generics/min_const_generics/const-evaluatable-unchecked.rs
 tests/ui/const-generics/min_const_generics/const-expression-suggest-missing-braces-without-turbofish.rs
+tests/ui/const-generics/min_const_generics/const-expression-suggest-missing-braces.rs
 tests/ui/const-generics/min_const_generics/const_default_first.rs
 tests/ui/const-generics/min_const_generics/const_fn_in_generics.rs
 tests/ui/const-generics/min_const_generics/default_function_param.rs
@@ -10529,6 +10532,7 @@ tests/ui/lint/dropping_references.rs
 tests/ui/lint/empty-lint-attributes.rs
 tests/ui/lint/enable-unstable-lib-feature.rs
 tests/ui/lint/expansion-time-include.rs
+tests/ui/lint/expansion-time.rs
 tests/ui/lint/expect-future_breakage-crash-issue-126521.rs
 tests/ui/lint/expect-unused-imports.rs
 tests/ui/lint/explicit-outlives-unsized-object-lifetime.rs
@@ -11481,6 +11485,7 @@ tests/ui/macros/macro-crate-use.rs
 tests/ui/macros/macro-deep_expansion.rs
 tests/ui/macros/macro-def-site-super.rs
 tests/ui/macros/macro-delimiter-significance.rs
+tests/ui/macros/macro-deprecation.rs
 tests/ui/macros/macro-doc-comments.rs
 tests/ui/macros/macro-doc-escapes.rs
 tests/ui/macros/macro-doc-raw-str-hashes.rs
@@ -11579,6 +11584,7 @@ tests/ui/macros/macro-shadowing-relaxed.rs
 tests/ui/macros/macro-shadowing.rs
 tests/ui/macros/macro-span-issue-116502.rs
 tests/ui/macros/macro-stability-rpass.rs
+tests/ui/macros/macro-stability.rs
 tests/ui/macros/macro-stmt-2.rs
 tests/ui/macros/macro-stmt-matchers.rs
 tests/ui/macros/macro-stmt.rs
@@ -14809,6 +14815,7 @@ tests/ui/privacy/priv-in-bad-locations.rs
 tests/ui/privacy/privacy-in-paths.rs
 tests/ui/privacy/privacy-ns.rs
 tests/ui/privacy/privacy-ns1.rs
+tests/ui/privacy/privacy-ns2.rs
 tests/ui/privacy/privacy-reexport.rs
 tests/ui/privacy/privacy-sanity.rs
 tests/ui/privacy/privacy-ufcs.rs
@@ -15912,6 +15919,7 @@ tests/ui/resolve/ice-on-shadowing-std-with-attr.rs
 tests/ui/resolve/ice-on-shadowing-std-with-macro.rs
 tests/ui/resolve/impl-items-vis-unresolved.rs
 tests/ui/resolve/impl-method-cant-capture-env.rs
+tests/ui/resolve/impl-on-non-type.rs
 tests/ui/resolve/impl-trait-for-type-cant-capture-env.rs
 tests/ui/resolve/impl-trait-for-undeclared-type.rs
 tests/ui/resolve/import-suggestion-duplicated-importing-same-item.rs
