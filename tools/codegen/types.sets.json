@@ -625,6 +625,20 @@
     "discriminant": [],
     "skip": []
   },
+  "rustc_passes_check_attr": {
+    "files": ["compiler/rustc_passes/src/check_attr.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": ["CheckAttrVisitor", "ProcMacroKind"],
+    "skip_notes": {
+      "CheckAttrVisitor": "intravisit Visitor impl (a `TyCtxt` + `Cell<bool>`): hand class extending rustc_hir intravisit Visitor in src/rustc_passes/check_attr.ts (lane passes-b)",
+      "ProcMacroKind": "fieldless enum with a manual `impl IntoDiagArg`: hand-written in src/rustc_passes/check_attr.ts (lane passes-b)"
+    },
+    "hand_notes": {
+      "*": "check_attr.rs (lane passes-b): only the file-local #[derive(Diagnostic)] DiagnosticOnConstOnlyForNonConstTraitImpls is generated (src/rustc_passes/check_attr.gen.ts); the hand port is src/rustc_passes/check_attr.ts."
+    }
+  },
   "rustc_middle_diagnostics": {
     "files": ["compiler/rustc_middle/src/diagnostics.rs"],
     "diag_args_skip": ["rustc_middle::ty::Ty"],
