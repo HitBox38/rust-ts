@@ -1,7 +1,7 @@
-// Port of compiler/rustc_index/src/bit_set/tests.rs (subset: the `DenseBitSet` tests whose API is ported,
-// see ../bit_set.ts; the `ChunkedBitSet` / `MixedBitSet` / `BitMatrix` tests and the benches are not).
+// Port of compiler/rustc_index/src/bit_set/tests.rs (subset: the `DenseBitSet` and `BitMatrix` tests whose API is
+// ported, see ../bit_set.ts; the `ChunkedBitSet` / `MixedBitSet` / `SparseBitMatrix` tests and the benches are not).
 import { expect, test } from "bun:test";
-import { DenseBitSet } from "../bit_set.ts";
+import { BitMatrix, DenseBitSet } from "../bit_set.ts";
 
 // rustc: compiler/rustc_index/src/bit_set/tests.rs:9 test_new_filled
 test("test_new_filled", () => {
@@ -37,4 +37,69 @@ test("bitset_iter_works_2", () => {
   bitset.insert(255);
   bitset.insert(319);
   expect([...bitset.iter()]).toEqual([0, 127, 191, 255, 319]);
+});
+
+// rustc: compiler/rustc_index/src/bit_set/tests.rs:587 matrix_intersection
+test("matrix_intersection", () => {
+  const matrix: BitMatrix<number, number> = BitMatrix.new(200, 200);
+
+  // (*) Elements reachable from both 2 and 65.
+
+  matrix.insert(2, 3);
+  matrix.insert(2, 6);
+  matrix.insert(2, 10); // (*)
+  matrix.insert(2, 64); // (*)
+  matrix.insert(2, 65);
+  matrix.insert(2, 130);
+  matrix.insert(2, 160); // (*)
+
+  matrix.insert(64, 133);
+
+  matrix.insert(65, 2);
+  matrix.insert(65, 8);
+  matrix.insert(65, 10); // (*)
+  matrix.insert(65, 64); // (*)
+  matrix.insert(65, 68);
+  matrix.insert(65, 133);
+  matrix.insert(65, 160); // (*)
+
+  let intersection = matrix.intersect_rows(2, 64);
+  expect(intersection).toEqual([]);
+
+  intersection = matrix.intersect_rows(2, 65);
+  expect(intersection).toEqual([10, 64, 160]);
+});
+
+// rustc: compiler/rustc_index/src/bit_set/tests.rs:618 matrix_iter
+test("matrix_iter", () => {
+  const matrix: BitMatrix<number, number> = BitMatrix.new(64, 100);
+  matrix.insert(3, 22);
+  matrix.insert(3, 75);
+  matrix.insert(2, 99);
+  matrix.insert(4, 0);
+  matrix.union_rows(3, 5);
+  matrix.insert_all_into_row(6);
+
+  expect([...matrix.iter(2)]).toEqual([99]);
+
+  expect(matrix.count(3)).toBe(2);
+  expect([...matrix.iter(3)]).toEqual([22, 75]);
+
+  expect(matrix.count(4)).toBe(1);
+  expect([...matrix.iter(4)]).toEqual([0]);
+
+  expect(matrix.count(5)).toBe(2);
+  expect([...matrix.iter(5)]).toEqual([22, 75]);
+
+  expect(matrix.count(6)).toBe(100);
+  let count = 0;
+  let idx = 0;
+  for (const i of matrix.iter(6)) {
+    expect(i).toBe(idx);
+    idx += 1;
+    count += 1;
+  }
+  expect(count).toBe(100);
+
+  expect(matrix.iter(7).next().done).toBe(true);
 });
