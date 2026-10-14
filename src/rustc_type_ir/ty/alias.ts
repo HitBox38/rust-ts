@@ -9,9 +9,10 @@ import type { Alias as AliasT } from "./alias.gen.ts";
 
 export * from "./alias.gen.ts";
 
+export type Alias<K> = AliasT<K>;
 export const Alias = {
   // rustc: compiler/rustc_type_ir/src/ty/alias.rs:47 kind
-  kind<K>(self: AliasT<K>, _interner: Interner): K {
+  kind<K>(self: Alias<K>, _interner: Interner): K {
     return self.kind;
   },
 };
