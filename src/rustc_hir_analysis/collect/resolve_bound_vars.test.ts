@@ -93,10 +93,11 @@ const ERR_CASES = [
   { c: "err_closure", edition: "2021" },
   // `deny_non_region_late_bound` on `for<T> fn(T)` with `feature(non_lifetime_binders)`
   { c: "err_nlb", edition: "2021" },
+  // resolve_lifetime_ref's `anonymous_lifetime_in_impl_trait` feature error (E0658; `tcx.asyncness(..)` is ported since
+  // merge-w16a, lane ty-utils)
+  { c: "err_anon", edition: "2021" },
 ] as const;
 const UNPORTED_CASES = [
-  // resolve_lifetime_ref's `anonymous_lifetime_in_impl_trait` feature error (E0658) asks `tcx.asyncness(..)` first
-  { c: "err_anon", edition: "2021", what: "asyncness provider (not ported)" },
   // visit_precise_capturing_arg: `BadPreciseCapture` is in diagnostics/precise_captures.rs (no codegen set yet)
   { c: "err_precise", edition: "2021", what: "rustc_hir_analysis::diagnostics::precise_captures::BadPreciseCapture" },
 ] as const;
