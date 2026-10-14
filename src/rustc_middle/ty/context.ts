@@ -643,8 +643,12 @@ export class TyCtxtFeed<K> {
 /// reduce the number of top-level fields in [`GlobalCtxt`].
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:669 GlobalCaches
 // PORT: `Lock<..>` is the inner value (PORTING §5). infer's `CanonicalParamEnvCache` is not ported (lane
-// infcx-contract), so `#[derive(Default)]` stops as UNPORTED at `canonical_param_env_cache` and `GlobalCtxt.caches`
-// is built on first read.
+// infcx-contract): it is a `pending_cache(..)` value (lane rmeta-ty) that stops as UNPORTED on first *use* (any
+// property access), so `ty_rcache` (crate metadata's type shorthands) works before infer/ lands.
+/** PORT: a not-yet-ported cache's `Default` value: stops as UNPORTED (`what`) on first use (GlobalCaches comment). */
+function pending_cache<T>(what: string): T {
+  return new Proxy({}, { get: () => unported(what) }) as T;
+}
 export class GlobalCaches {
   constructor(
     // Internal caches for metadata decoding. No need to track deps on this.
@@ -681,7 +685,7 @@ export class GlobalCaches {
     const evaluation_cache: EvaluationCache<TypingEnv> = WithDepNodeCache.default_();
     const new_solver_evaluation_cache: GlobalCache = GlobalCache_.default_();
     const new_solver_canonical_param_env_cache: CanonicalParamEnvCache = CanonicalParamEnvCache_.default_();
-    const canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache"> = unported("rustc_middle::infer::canonical::CanonicalParamEnvCache: Default (lane infcx-contract)");
+    const canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache"> = pending_cache("rustc_middle::infer::canonical::CanonicalParamEnvCache: Default (lane infcx-contract)");
     return new GlobalCaches(
       ty_rcache,
       selection_cache,

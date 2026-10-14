@@ -2,11 +2,13 @@
 // Hand-written additions (methods, manual Debug impls) go in mod.ts next to this file.
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { fold_with_ExternalConstraints, try_fold_with_ExternalConstraints, visit_with_ExternalConstraints } from "../../rustc_middle/traits/solve.ts";
+import { decode_ParamEnv, type TyDecoder } from "../../rustc_middle/ty/codec.ts";
 import { type ExternalConstraints, type ParamEnv, type PredefinedOpaques } from "../../rustc_middle/ty/decls.ts";
 import { debug_GenericArgs, fold_with_GenericArgs, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { debug_Ty, fold_with_ParamEnv, fold_with_Ty, try_fold_with_ParamEnv, try_fold_with_Ty, type Ty, visit_with_ParamEnv, visit_with_Ty } from "../../rustc_middle/ty/mod.ts";
 import { debug_Predicate, fold_with_Predicate, type Predicate, try_fold_with_Predicate, visit_with_Predicate } from "../../rustc_middle/ty/predicate.ts";
 import { fold_with_PredefinedOpaques, try_fold_with_PredefinedOpaques, visit_with_PredefinedOpaques } from "../../rustc_middle/ty/structural_impls.ts";
+import { type Decodable, decode_usize } from "../../rustc_serialize/serialize.ts";
 import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../../rustc_span/def_id.ts";
 import { debug_ErrorGuaranteed, type ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { type Canonical, type CanonicalQueryInput } from "../canonical.ts";
@@ -18,9 +20,13 @@ import { debug_RegionConstraint, fold_with_RegionConstraint, type RegionConstrai
 import { debug_RegionConstraint as debug_region_constraint_RegionConstraint, fold_with_RegionConstraint as fold_with_region_constraint_RegionConstraint, type RegionConstraint as region_constraint_RegionConstraint, try_fold_with_RegionConstraint as try_fold_with_region_constraint_RegionConstraint, visit_with_RegionConstraint as visit_with_region_constraint_RegionConstraint } from "../region_constraint.ts";
 import { debug_FloatVid, debug_IntVid, debug_TyVid, type FloatVid, type IntVid, type TyVid } from "../ty_kind.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
+import { panic } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
 import { unported } from "../../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
+function unported_decodable(..._a: unknown[]): never {
+  return unported("Decodable without a TS impl (see types report)");
+}
 function unported_type_fold(..._a: unknown[]): never {
   return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");
 }
@@ -309,6 +315,13 @@ export function debug_Goal<P>(v: Goal<P>, f: Fmt, debug_P: Debug<P>): string {
     ["predicate", debug_P(v.predicate, f)],
   ]);
 }
+// rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:393 Decodable_NoContext for Goal
+export function decode_Goal<P, __D extends TyDecoder = TyDecoder>(__decoder: __D, decode_P: Decodable<P, __D>): Goal<P> {
+  return {
+    param_env: decode_ParamEnv(__decoder),
+    predicate: decode_P(__decoder),
+  };
+}
 // rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:393 TypeVisitable_Generic for Goal
 export function visit_with_Goal<P, R>(self: Goal<P>, __visitor: TypeVisitor<R>, visit_with_P: VisitWith<P>): R {
   let r: R | undefined;
@@ -365,6 +378,13 @@ export function debug_QueryInput<P>(v: QueryInput<P>, f: Fmt, debug_P: Debug<P>)
     ["goal", debug_Goal(v.goal, f, debug_P)],
     ["predefined_opaques_in_body", unported_debug(v.predefined_opaques_in_body)],
   ]);
+}
+// rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:444 Decodable_NoContext for QueryInput
+export function decode_QueryInput<P, __D extends TyDecoder = TyDecoder>(__decoder: __D, decode_P: Decodable<P, __D>): QueryInput<P> {
+  return {
+    goal: decode_Goal(__decoder, decode_P),
+    predefined_opaques_in_body: unported_decodable(__decoder),
+  };
 }
 // rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:444 TypeVisitable_Generic for QueryInput
 export function visit_with_QueryInput<P, R>(self: QueryInput<P>, __visitor: TypeVisitor<R>, visit_with_P: VisitWith<P>): R {
@@ -535,6 +555,22 @@ export const debug_BuiltinImplSource: Debug<BuiltinImplSource> = (v, f) => {
       return v.$;
   }
 };
+// rustc-derive: compiler/rustc_type_ir/src/solve/mod.rs:560 Decodable_NoContext for BuiltinImplSource
+export function decode_BuiltinImplSource(__decoder: TyDecoder): BuiltinImplSource {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return BuiltinImplSource.Trivial;
+    case 1:
+      return BuiltinImplSource.Misc;
+    case 2:
+      return { $: "Object", _0: decode_usize(__decoder) };
+    case 3:
+      return { $: "TraitUpcasting", _0: decode_usize(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`BuiltinImplSource\`, expected 0..4, actual ${__tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_type_ir/src/solve/mod.rs:578 FetchEligibleAssocItemResponse
 export type FetchEligibleAssocItemResponse =

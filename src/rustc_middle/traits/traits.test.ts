@@ -137,8 +137,12 @@ describe("cache.rs", () => {
     expect(n.get(tcx)).toBe(5);
   });
 
-  test("GlobalCaches::default builds the traits caches (the first stop is now infer's CanonicalParamEnvCache)", () => {
-    expect(() => GlobalCaches.default_()).toThrow(/CanonicalParamEnvCache: Default \(lane infcx-contract\)/);
+  test("GlobalCaches::default builds the traits caches (infer's CanonicalParamEnvCache stops on first use)", () => {
+    // merge-w15b: rmeta-ty's `pending_cache` defers the infer cache's stop from `default` to its first use.
+    const caches = GlobalCaches.default_();
+    expect(caches.selection_cache).toBeInstanceOf(WithDepNodeCache);
+    expect(caches.evaluation_cache).toBeInstanceOf(WithDepNodeCache);
+    expect(() => (caches.canonical_param_env_cache as unknown as { get(): unknown }).get()).toThrow(/CanonicalParamEnvCache: Default \(lane infcx-contract\)/);
   });
 });
 

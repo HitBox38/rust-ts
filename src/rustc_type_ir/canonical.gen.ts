@@ -2,13 +2,16 @@
 // Hand-written additions (methods, manual Debug impls) go in canonical.ts next to this file.
 import { debug_HashMap } from "../rust_ts/hash_map.ts";
 import { try_visit } from "../rustc_ast_ir/visit.ts";
+import { decode_CanonicalVarKinds, decode_GenericArgs, type TyDecoder } from "../rustc_middle/ty/codec.ts";
 import { type CanonicalVarKinds, type ParamEnv } from "../rustc_middle/ty/decls.ts";
 import { debug_GenericArg, debug_GenericArgs, fold_with_GenericArgs, type GenericArg, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../rustc_middle/ty/generic_args.ts";
-import { type BoundConst, type BoundRegion, type BoundTy, debug_BoundConst, debug_BoundRegion, debug_BoundTy, debug_Placeholder, type Placeholder, type PlaceholderConst, type PlaceholderRegion, type PlaceholderType } from "./binder.ts";
+import { type Decodable } from "../rustc_serialize/serialize.ts";
+import { type BoundConst, type BoundRegion, type BoundTy, debug_BoundConst, debug_BoundRegion, debug_BoundTy, debug_Placeholder, decode_BoundConst, decode_BoundRegion, decode_BoundTy, decode_Placeholder, type Placeholder, type PlaceholderConst, type PlaceholderRegion, type PlaceholderType } from "./binder.ts";
 import { type FallibleTypeFolder, type FoldWith, type TryFoldWith, type TypeFolder, type TypeVisitor, type VisitWith } from "./fold.ts";
-import { debug_TypingModeEqWrapper, type TypingModeEqWrapper } from "./infer_ctxt.ts";
-import { type BoundVar, debug_BoundVar, debug_UniverseIndex, type UniverseIndex } from "./lib.ts";
+import { debug_TypingModeEqWrapper, decode_TypingModeEqWrapper, type TypingModeEqWrapper } from "./infer_ctxt.ts";
+import { type BoundVar, debug_BoundVar, debug_UniverseIndex, decode_BoundVar, decode_UniverseIndex, type UniverseIndex } from "./lib.ts";
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
+import { panic } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
 import { unported } from "../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
@@ -23,6 +26,13 @@ export function debug_CanonicalQueryInput<V>(v: CanonicalQueryInput<V>, f: Fmt, 
     ["canonical", debug_Canonical(v.canonical, f, debug_V)],
     ["typing_mode", debug_TypingModeEqWrapper(v.typing_mode, f)],
   ]);
+}
+// rustc-derive: compiler/rustc_type_ir/src/canonical.rs:22 Decodable_NoContext for CanonicalQueryInput
+export function decode_CanonicalQueryInput<V, __D extends TyDecoder = TyDecoder>(__decoder: __D, decode_V: Decodable<V, __D>): CanonicalQueryInput<V> {
+  return {
+    canonical: decode_Canonical(__decoder, decode_V),
+    typing_mode: decode_TypingModeEqWrapper(__decoder),
+  };
 }
 
 // rustc-type: compiler/rustc_type_ir/src/canonical.rs:38 Canonical
@@ -40,6 +50,14 @@ export function debug_Canonical<V>(v: Canonical<V>, f: Fmt, debug_V: Debug<V>): 
     ["max_universe", debug_UniverseIndex(v.max_universe, f)],
     ["var_kinds", unported_debug(v.var_kinds)],
   ]);
+}
+// rustc-derive: compiler/rustc_type_ir/src/canonical.rs:38 Decodable_NoContext for Canonical
+export function decode_Canonical<V, __D extends TyDecoder = TyDecoder>(__decoder: __D, decode_V: Decodable<V, __D>): Canonical<V> {
+  return {
+    value: decode_V(__decoder),
+    max_universe: decode_UniverseIndex(__decoder),
+    var_kinds: decode_CanonicalVarKinds(__decoder),
+  };
 }
 
 // rustc-type: compiler/rustc_type_ir/src/canonical.rs:96 CanonicalVarKind
@@ -97,6 +115,30 @@ export const debug_CanonicalVarKind: Debug<CanonicalVarKind> = (v, f) => {
       return v.$;
   }
 };
+// rustc-derive: compiler/rustc_type_ir/src/canonical.rs:96 Decodable_NoContext for CanonicalVarKind
+export function decode_CanonicalVarKind(__decoder: TyDecoder): CanonicalVarKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Ty", ui: decode_UniverseIndex(__decoder), sub_root: decode_BoundVar(__decoder) };
+    case 1:
+      return CanonicalVarKind.Int;
+    case 2:
+      return CanonicalVarKind.Float;
+    case 3:
+      return { $: "PlaceholderTy", _0: decode_Placeholder(__decoder, decode_BoundTy) };
+    case 4:
+      return { $: "Region", _0: decode_UniverseIndex(__decoder) };
+    case 5:
+      return { $: "PlaceholderRegion", _0: decode_Placeholder(__decoder, decode_BoundRegion) };
+    case 6:
+      return { $: "Const", _0: decode_UniverseIndex(__decoder) };
+    case 7:
+      return { $: "PlaceholderConst", _0: decode_Placeholder(__decoder, decode_BoundConst) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`CanonicalVarKind\`, expected 0..8, actual ${__tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_type_ir/src/canonical.rs:226 CanonicalVarValues
 /// A set of values corresponding to the canonical variables from some
@@ -115,6 +157,12 @@ export const debug_CanonicalVarValues: Debug<CanonicalVarValues> = (v, f) =>
   debug_struct(f, "CanonicalVarValues", [
     ["var_values", debug_GenericArgs(v.var_values, f)],
   ]);
+// rustc-derive: compiler/rustc_type_ir/src/canonical.rs:226 Decodable_NoContext for CanonicalVarValues
+export function decode_CanonicalVarValues(__decoder: TyDecoder): CanonicalVarValues {
+  return {
+    var_values: decode_GenericArgs(__decoder),
+  };
+}
 // rustc-derive: compiler/rustc_type_ir/src/canonical.rs:226 TypeVisitable_Generic for CanonicalVarValues
 export function visit_with_CanonicalVarValues<R>(self: CanonicalVarValues, __visitor: TypeVisitor<R>): R {
   let r: R | undefined;

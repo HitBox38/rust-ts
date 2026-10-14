@@ -409,6 +409,7 @@
     "derive_decodable": true,
     "decodable_types": [
       "rustc_middle::ty::Visibility",
+      "rustc_middle::ty::RestrictionKind",
       "rustc_middle::middle::resolve::Reexport",
       "rustc_middle::middle::resolve::ModChild",
       "rustc_middle::middle::resolve::AmbigModChild",
@@ -421,7 +422,7 @@
     },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a) module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b) module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_middle_stability": {
@@ -729,12 +730,9 @@
       "rustc_type_ir::ty_kind::closure::HasRegionsBoundAt",
       "rustc_type_ir::ty_kind::closure::FoldEscapingRegions",
       "rustc_type_ir::canonical::CanonicalParamEnvCache",
-      "rustc_type_ir::canonical::CanonicalizerState",
-      "rustc_middle::ty::adjustment::CoerceUnsizedInfo"
+      "rustc_type_ir::canonical::CanonicalizerState"
     ],
-    "skip_notes": {
-      "rustc_middle::ty::adjustment::CoerceUnsizedInfo": "value of query coerce_unsized_info: once generated, tools/codegen/queries.ts types the query with it and rmeta's cstore_impl.ts provider (decode_unported) no longer type-checks; lane rmeta-ty opts it in with its TyDecodable decoder and regenerates queries.gen.ts"
-    },
+    "skip_notes": {},
     "resolve_files": [
       "compiler/rustc_type_ir/src/ty/mod.rs",
       "compiler/rustc_type_ir/src/data_structures/mod.rs",
@@ -744,7 +742,12 @@
     "erase_params": ["I"],
     "typemap_extra": ["tyir.typemap.json"],
     "bitflags_debug": true,
-    "derive_type_fold": true
+    "derive_type_fold": true,
+    "derive_decodable": true,
+    "decodable_import_gen": ["rustc_middle/ty/assoc.ts", "rustc_middle/ty/consts.ts", "rustc_middle/ty/sty.ts"],
+    "decoders": {
+      "Decodable_NoContext": { "type": "TyDecoder", "import": "src/rustc_middle/ty/codec.ts", "note": "lane rmeta-ty: upstream `impl<I: Interner, D: Decoder> Decodable<D>` with `where I::Ty: Decodable<D>, ..` bounds that only a `TyDecoder` meets (codec.rs); every caller decodes with a TyDecoder" }
+    }
   },
   "rustc_ast_lowering": {
     "files": [

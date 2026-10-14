@@ -8,8 +8,8 @@
 // - `LazyTable::get` / `size` (table.rs:505) are in the `LazyTable` class body in mod.ts.
 // - `ByteArray`s are `Uint8Array`s of length `BYTE_LEN`; u64 values are `bigint` (the table holds full 64-bit
 //   hashes and positions).
-// - `hir::Defaultness`, `hir::Constness`, `hir::CoroutineKind` (+ `CoroutineDesugaring`, `CoroutineSource`) and
-//   `ty::Asyncness` live in hir.rs / rustc_middle ty/mod.rs (M3, not ported): their upstream definitions are
+// - `hir::Defaultness`, `hir::Constness`, `hir::CoroutineKind` (+ `CoroutineDesugaring`, `CoroutineSource`)
+//   live in hir.rs (not ported here): their upstream definitions are
 //   transcribed below as stand-ins. Move them to src/rustc_hir/hir.ts / src/rustc_middle/ty when those are ported.
 import type { Movability, Mutability } from "../../rustc_ast_ir/lib.ts";
 import type { CtorKind, CtorOf, DefKind, Safety } from "../../rustc_hir/def.ts";
@@ -33,8 +33,9 @@ export const Constness = {
   NotConst: Object.freeze({ $: "NotConst" as const }) as Constness,
 };
 
-// rustc-type: compiler/rustc_middle/src/ty/mod.rs:236 Asyncness
-export type Asyncness = "Yes" | "No";
+// `ty::Asyncness` is rustc_middle ty/mod.ts's (merge-w15b), re-exported for this module's users.
+import type { Asyncness } from "../../rustc_middle/ty/mod.ts";
+export type { Asyncness };
 
 // rustc-type: compiler/rustc_hir/src/hir.rs:2028 CoroutineSource
 export type CoroutineSource = "Block" | "Closure" | "Fn";

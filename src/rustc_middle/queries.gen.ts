@@ -34,6 +34,7 @@ import { type CodegenObligationError, type DynCompatibilityViolation, type Oblig
 import { type CanonicalAliasGoal, type CanonicalDropckOutlivesGoal, type CanonicalImpliedOutlivesBoundsGoal, type CanonicalMethodAutoderefStepsGoal, type CanonicalPredicateGoal, type CanonicalTypeOpAscribeUserTypeGoal, type CanonicalTypeOpNormalizeGoal, type CanonicalTypeOpProvePredicateGoal, type DropckConstraint, type DropckOutlivesResult, type MethodAutoderefStepsResult, type MirBorrowckImpliedOutlivesBounds, type NormalizationResult, type OutlivesBound, debug_DropckConstraint, debug_MethodAutoderefStepsResult } from "./traits/query.ts";
 import { type CanonicalInput } from "./traits/solve.ts";
 import { type Graph, debug_Graph } from "./traits/specialization_graph.ts";
+import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type Visibility, debug_Visibility } from "./ty/mod.ts";
 import { type CrateNum, type DefId, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
@@ -799,8 +800,7 @@ export interface QueryTypes {
   /**
    * Caches `CoerceUnsized` kinds for impls on custom types.
    */
-  // PORT: value `Result<ty::adjustment::CoerceUnsizedInfo, ErrorGuaranteed>` not ported (`unknown`)
-  coerce_unsized_info: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<unknown, ErrorGuaranteed>; ProvidedValue: Result<unknown, ErrorGuaranteed> };
+  coerce_unsized_info: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<CoerceUnsizedInfo, ErrorGuaranteed>; ProvidedValue: Result<CoerceUnsizedInfo, ErrorGuaranteed> };
   // PORT: value `&'tcx ty::TypeckResults<'tcx>` not ported (`unknown`)
   typeck_root: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: unknown; ProvidedValue: unknown };
   used_trait_imports: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Set<LocalDefId>; ProvidedValue: Set<LocalDefId> };
@@ -3959,7 +3959,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: true,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing CoerceUnsized info for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_result(v, f, ((x, f) => debug_CoerceUnsizedInfo(x, f)), ((x, f) => debug_ErrorGuaranteed(x, f))),
     stable_hash_value: undefined,
   },
   typeck_root: {
