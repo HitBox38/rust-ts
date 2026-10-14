@@ -134,10 +134,12 @@ import type { Expr } from "./consts/kind.ts";
 import type { AssocItem } from "./assoc.ts";
 export type { AssocItem, CanonicalPolyFnSig, EarlyParamRegion, Expr, InlineConstArgs, LateParamRegionKind, ParamConst, ParamTy };
 
-// re-exported by merge-w15b: ty/mod.rs types (lanes ty-mod-a, ty-mod-b) and `hir::Attribute` (rustc_attr_ir)
+// re-exported by merge-w15b: ty/mod.rs types (lanes ty-mod-a, ty-mod-b), ty/util.rs types (ty-util) and
+// `hir::Attribute` (rustc_attr_ir)
 import type { AsyncDestructor, Destructor, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef } from "./mod.ts";
 import type { Attribute } from "../../rustc_attr_ir/lib.ts";
-export type { AsyncDestructor, Attribute, Destructor, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef };
+import type { CheckRegions, Discr, NotUniqueParam } from "./util.ts";
+export type { AsyncDestructor, Attribute, CheckRegions, Destructor, Discr, NotUniqueParam, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef };
 
 // ---- 2. pending rustc_middle types (and other crates') ----
 // newtype indices (rustc_abi): final shapes
@@ -155,9 +157,6 @@ export type ScalarInt = Pending<"ScalarInt">;
 export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
 export type CapturedPlace = Pending<"CapturedPlace">;
-export type Discr = Pending<"Discr">;
-export type CheckRegions = Pending<"CheckRegions">;
-export type NotUniqueParam = Pending<"NotUniqueParam">;
 export type SizedTraitKind = Pending<"SizedTraitKind">;
 export type NumScalableVectors = Pending<"NumScalableVectors">;
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
@@ -1252,7 +1251,7 @@ declare module "./context.ts" {
     // ty/util.rs:231
     type_has_metadata(ty: Ty, typing_env: TypingEnv): boolean;
     // ty/util.rs:256
-    struct_tail_raw(ty: Ty, cause: ObligationCause, normalize: (_0: Unnormalized<Ty>) => Ty): Ty;
+    struct_tail_raw(ty: Ty, cause: ObligationCause, normalize: (_0: Unnormalized<Ty>) => Ty, f: () => void): Ty;
     // ty/util.rs:323
     struct_lockstep_tails_for_codegen(source: Ty, target: Ty, typing_env: TypingEnv): [Ty, Ty];
     // ty/util.rs:343
