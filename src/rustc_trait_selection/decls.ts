@@ -40,10 +40,12 @@ import type { Result } from "../std/result.ts";
 export type ObligationCtxt = Pending<"rustc_trait_selection::traits::ObligationCtxt">;
 /** `traits::FulfillmentError<'tcx>` (traits/mod.rs, wave 17). */
 export type FulfillmentError = Pending<"rustc_trait_selection::traits::FulfillmentError">;
-/** `solve::NextSolverError<'tcx>` (solve/fulfill.rs, wave 17). */
-export type NextSolverError = Pending<"rustc_trait_selection::solve::NextSolverError">;
-/** `solve::inspect::ProofTreeVisitor<'tcx>` (solve/inspect/analyse.rs, wave 17): `V: ProofTreeVisitor` with its `V::Result`. */
-export type ProofTreeVisitor = Pending<"rustc_trait_selection::solve::inspect::ProofTreeVisitor">;
+/** `solve::NextSolverError<'tcx>` (solve/fulfill.rs, lane trait-sel-solve). */
+export type { NextSolverError } from "./solve/fulfill.ts";
+/** `solve::inspect::ProofTreeVisitor<'tcx>` (solve/inspect/analyse.rs, lane trait-sel-solve): `V: ProofTreeVisitor` with its `V::Result`. */
+export type { ProofTreeVisitor } from "./solve/inspect/analyse.ts";
+import type { NextSolverError } from "./solve/fulfill.ts";
+import type { ProofTreeVisitor } from "./solve/inspect/analyse.ts";
 /** `error_reporting::TypeErrCtxt<'_, 'tcx>` (error_reporting/mod.rs, wave 19 errctxt-contract). */
 export type TypeErrCtxt = Pending<"rustc_trait_selection::error_reporting::TypeErrCtxt">;
 

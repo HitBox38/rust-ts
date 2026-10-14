@@ -216,7 +216,7 @@ describe("rustc_infer contract", () => {
     expect(names.filter((n) => typeof proto[n] !== "function")).toEqual([]);
   });
 
-  test("rustc_trait_selection's extension methods are its placeholders and collide with no inherent method", async () => {
+  test("rustc_trait_selection's extension methods are ported or its placeholders and collide with no inherent method", async () => {
     const ts = parse_decls(join(HERE, "../rustc_trait_selection/decls.ts"));
     const inherent = new Set(DECLS.decls.filter((d) => d.module === undefined).map((d) => `${d.ctx}.${d.name}`));
     const bad: string[] = [];
@@ -230,7 +230,8 @@ describe("rustc_infer contract", () => {
       const f = obj[d.name];
       const path = unported_stub_path(f);
       const mod = ["rustc_trait_selection", ...d.file.replace(/\.rs$/, "").split("/").filter((p) => p !== "mod")].join("::");
-      if (path === undefined || !path.startsWith(mod + "::")) bad.push(`${d.file}:${d.line} ${d.name}: ${path ?? typeof f}`);
+      // A ported method is a plain function (its lane replaced the placeholder); a placeholder names its module.
+      if (typeof f !== "function" || (path !== undefined && !path.startsWith(mod + "::"))) bad.push(`${d.file}:${d.line} ${d.name}: ${path ?? typeof f}`);
     }
     expect(bad).toEqual([]);
     expect(ts.decls.length).toBe(29);
