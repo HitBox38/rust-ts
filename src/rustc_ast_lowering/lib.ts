@@ -2354,9 +2354,7 @@ LoweringContext.prototype.lower_generic_param = function (
     colon_span === undefined ? undefined : this.lower_span(colon_span),
     source,
   );
-  // PORT(rustc_hir): `Target::from(&param)` is `impl From<&hir::GenericParam<'_>> for Target`
-  // (rustc_hir/src/target_impls.rs:19), which no lane has ported (see handoff lower-lib-b).
-  const target: Target = unported("rustc_hir::target_impls::<impl From<&GenericParam> for Target>::from");
+  const target = rustc_hir.Target_from_GenericParam(param_);
   this.lower_attrs(hir_id, param_attrs, param_span, target);
   return param_;
 };
