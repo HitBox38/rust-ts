@@ -552,6 +552,92 @@ SUITES.push(
   },
 );
 
+// M3a (plan-m3 §1a and §4, lane harness-w13): HIR. `-Zunpretty=hir-tree` and `-Zunpretty=hir` lower the
+// expanded crate to HIR (rustc_ast_lowering) and print it. They run no analysis: `needs_analysis()` is false
+// for both (rustc_session/src/config.rs:3334), so there is no typeck.
+// - hir-tree prints `{owner:#?} => {hir_owner_nodes(owner):#?}\n` for every owner of `hir_crate_items`
+//   (rustc_driver_impl/src/pretty.rs:298).
+// - hir prints `rustc_hir_pretty::print_crate` (pretty.rs:271, `PpHirMode::Normal`).
+// Both first run expansion, name resolution and the early lints, as the M2 suites do. Their diagnostics are
+// therefore the expanded suites' diagnostics, plus whatever AST lowering reports.
+// The setups mirror the M2 suites; only the -Zunpretty mode changes:
+// - hir-tree-nocore uses expanded-nocore's argv (`nocoreArgs`);
+// - hir-tree and unpretty-hir use expanded's argv (`stdArgs`, std injected);
+// - env is NOCORE_ENV, one process per file, subject timeout 60 s, oracle 300 s (plus the 4x retry).
+// Each suite has its own measured skip list (below); no file is left out only to share a case list.
+//
+// Skips, measured on the oracle by harness-w13 (stdout counted and discarded; the host was heavily loaded
+// during most runs, so wall times are upper bounds and CPU times are given where they decide):
+// - The 3 `NOCORE_SKIPPED` files: -Zunpretty=hir-tree was killed at 1560 s with 0 bytes of stdout, both
+//   without and with std. 1560 s exceeds the oracle's 300 s + 4 x 300 s, so each would be ORACLE_TIMEOUT
+//   on every run (never cached), at up to 25 min per file per run.
+// - tests/ui/try-trait/deep-try-chain-issue-153583.rs, with std only: -Zunpretty=hir-tree used 1754 s of
+//   CPU (the last ~20 min on an idle host) without printing anything, and was then stopped. Without std it
+//   fails in 0.1 s (no `Result`; lowering `?` reports "requires `branch` lang_item"), so hir-tree-nocore
+//   keeps it.
+// - Kept: tests/ui/suggestions/fn-to-method-deeply-nested.rs with std takes 182 s of CPU (641 s wall under
+//   load) and prints 164 MB; that is within the oracle's retry, and the result is cached once per oracle
+//   build. Without std it fails the same way as the previous file, in 0.05 s.
+// - unpretty-hir skips nothing: all 4 files above take < 0.2 s with -Zunpretty=hir (with and without std).
+// - 231 other heavy candidates (as harness-w12: top files by size, bracket depth, std macro count and
+//   recursion_limit, plus paths mentioning deep/stack-overflow/blowup/slow/hang/huge/...) all finish:
+//   hir-tree-nocore at most 9.7 s (mir/issue-29227.rs, 22 MB), hir-tree at most 9.2 s apart from the
+//   two files above, unpretty-hir at most 0.23 s. None exits with an ICE.
+const HIR_TREE_NOCORE_SKIPPED: SkippedCase[] = NOCORE_SKIPPED.map((k) => ({
+  id: k.id,
+  reason: "oracle -Zunpretty=hir-tree (no_core) was killed at 1560 s without output; the oracle allows 300 s + 4 x 300 s",
+}));
+const HIR_TREE_SKIPPED: SkippedCase[] = [
+  ...NOCORE_SKIPPED.map((k) => ({
+    id: k.id,
+    reason: "oracle -Zunpretty=hir-tree (with std) was killed at 1560 s without output; the oracle allows 300 s + 4 x 300 s",
+  })),
+  {
+    id: "tests/ui/try-trait/deep-try-chain-issue-153583.rs",
+    reason: "oracle -Zunpretty=hir-tree (with std) used 1754 s of CPU without output; the oracle allows 300 s + 4 x 300 s",
+  },
+].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+const hirSuite = (name: string, args: (f: string) => string[], unpretty: string, skipped: SkippedCase[], description: string): Suite => ({
+  name,
+  milestone: "M3a",
+  description,
+  mode: "single",
+  timeoutMs: 60_000,
+  oracleTimeoutMs: 300_000,
+  cases: () => {
+    const skip = new Set(skipped.map((k) => k.id));
+    return corpus("tests/ui")
+      .filter((f) => !skip.has(f))
+      .map((f) => ({ id: f, file: f, args: [...args(f), `-Zunpretty=${unpretty}`, f], env: NOCORE_ENV }));
+  },
+  skipped: () => skipped,
+  oracle: ([c]) => oracleRustcCmd(c!.args),
+  subject: ([c]) => [...bunCmd("src/rust_ts/main.ts"), ...c!.args],
+});
+SUITES.push(
+  hirSuite(
+    "hir-tree-nocore",
+    nocoreArgs,
+    "hir-tree",
+    HIR_TREE_NOCORE_SKIPPED,
+    "rustc -Zunpretty=hir-tree ({:#?} of every HIR owner's OwnerNodes after AST lowering, no analysis, plus the expansion/resolution/early-lint/lowering diagnostics) on every .rs in tests/ui as a #![no_core] crate, args as expanded-nocore",
+  ),
+  hirSuite(
+    "hir-tree",
+    stdArgs,
+    "hir-tree",
+    HIR_TREE_SKIPPED,
+    "hir-tree-nocore with std injected (metadata of std/core/alloc/... loaded from the oracle sysroot's target libs), args as expanded",
+  ),
+  hirSuite(
+    "unpretty-hir",
+    stdArgs,
+    "hir",
+    [],
+    "hir-tree with -Zunpretty=hir (rustc_hir_pretty::print_crate, the pretty-printed HIR, instead of the HIR tree); no skips",
+  ),
+);
+
 export function suite(name: string): Suite {
   const s = SUITES.find((s) => s.name === name);
   if (!s) throw new Error(`unknown suite '${name}' (have: ${SUITES.map((s) => s.name).join(", ")})`);
