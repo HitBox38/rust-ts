@@ -229,7 +229,7 @@ export abstract class Printer {
             // on top of the same path, but without its own generics.
             default: {
               if (!generics.is_own_empty() && args.length >= generics.count()) {
-                const args_ = Generics_own_args_no_defaults(generics, this.tcx(), args);
+                const args_ = generics.own_args_no_defaults(this.tcx(), args);
                 return this.print_path_with_generic_args((p) => p.print_def_path(def_id, parent_args), args_);
               }
             }
@@ -556,8 +556,4 @@ function Instance_def_id(_self: Instance): DefId {
 /** `AdtDef::did` (ty/adt.rs; `AdtDef` is `Pending`). */
 function AdtDef_did(_adt_def: unknown): DefId {
   return unported("rustc_middle::ty::adt::AdtDef::did (ty/adt.rs)");
-}
-/** `Generics::own_args_no_defaults` (ty/generics.rs:322; not ported). */
-function Generics_own_args_no_defaults(_self: Generics, _tcx: TyCtxt, _args: readonly GenericArg[]): readonly GenericArg[] {
-  return unported("rustc_middle::ty::generics::Generics::own_args_no_defaults (ty/generics.rs)");
 }

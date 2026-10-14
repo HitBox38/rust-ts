@@ -44,28 +44,14 @@ export function Goal_new<P, T>(cx: TyCtxt, param_env: ParamEnv, predicate: T, up
 /** PORT: the `TypeVisitable` impl fn of `PredicateKind` (generated) as a D4 descriptor. */
 export const d_PredicateKind: TypeVisitable<PredicateKind> = { visit_with: visit_with_PredicateKind };
 
-// PORT: stand-ins for the `UpcastFrom` impls of rustc_middle ty/predicate.rs (lane ty-args), named
-// `upcast_<From>_<To>`. Bodies are upstream's.
-
-/** `impl UpcastFrom<TyCtxt, PredicateKind> for Predicate` (rustc_middle ty/predicate.rs:455). */
-export function upcast_PredicateKind_Predicate(from: PredicateKind, tcx: TyCtxt): Predicate {
-  return upcast_Binder_PredicateKind_Predicate(Binder.dummy(from, d_PredicateKind), tcx);
-}
-
-/** `impl UpcastFrom<TyCtxt, Binder<PredicateKind>> for Predicate` (rustc_middle ty/predicate.rs:461). */
-export function upcast_Binder_PredicateKind_Predicate(from: Binder<PredicateKind>, tcx: TyCtxt): Predicate {
-  return tcx.mk_predicate(from);
-}
-
-/** `impl UpcastFrom<TyCtxt, ClauseKind> for Predicate` (rustc_middle ty/predicate.rs:467). */
-export function upcast_ClauseKind_Predicate(from: ClauseKind, tcx: TyCtxt): Predicate {
-  return tcx.mk_predicate(Binder.dummy<PredicateKind>({ $: "Clause", _0: from }, d_PredicateKind));
-}
-
-/** `impl UpcastFrom<TyCtxt, ProjectionClause> for Predicate` (rustc_middle ty/predicate.rs:575). */
-export function upcast_ProjectionClause_Predicate(from: ProjectionClause, tcx: TyCtxt): Predicate {
-  return upcast_Binder_PredicateKind_Predicate(Binder.dummy<PredicateKind>({ $: "Clause", _0: { $: "Projection", _0: from } }, d_PredicateKind), tcx);
-}
+// merge-w15b: the `UpcastFrom` impls of rustc_middle ty/predicate.rs (lane ty-args) under relate's names.
+import {
+  Predicate_upcast_from_Binder_PredicateKind as upcast_Binder_PredicateKind_Predicate,
+  Predicate_upcast_from_ClauseKind as upcast_ClauseKind_Predicate,
+  Predicate_upcast_from_PredicateKind as upcast_PredicateKind_Predicate,
+  Predicate_upcast_from_ProjectionClause as upcast_ProjectionClause_Predicate,
+} from "../../rustc_middle/ty/predicate.ts";
+export { upcast_Binder_PredicateKind_Predicate, upcast_ClauseKind_Predicate, upcast_PredicateKind_Predicate, upcast_ProjectionClause_Predicate };
 
 // ---- combine.rs ---------------------------------------------------------------------------------------------------
 

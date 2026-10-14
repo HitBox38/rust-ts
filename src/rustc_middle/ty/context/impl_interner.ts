@@ -28,6 +28,7 @@ import type {
   DebruijnIndex,
   EarlyBinder,
   GlobalCache,
+  PolyTraitRef,
   RegionVid,
   SolverAdtLangItem,
   SolverProjectionLangItem,
@@ -41,6 +42,7 @@ import type { CanonicalInput, Tracked } from "../decls.ts";
 import type { GenericArg, GenericArgs } from "../generic_args.ts";
 import type { List } from "../list.ts";
 import type { Clause } from "../predicate.ts";
+import type { ConstConditions, GenericClauses } from "../generics.ts";
 
 // `impl Interner for TyCtxt` (impl_interner.rs:31)
 
@@ -58,9 +60,7 @@ import type { Clause } from "../predicate.ts";
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:95 with_cached_task
 TyCtxt.prototype.with_cached_task = function <T>(this: TyCtxt, task: () => T): [T, DepNodeIndex] {
-  // self.dep_graph.with_anon_task(self, DepKind::TraitSelect, task)
-  void task;
-  return unported("rustc_middle::dep_graph::graph::DepGraph::with_anon_task (dep_graph/graph.rs)");
+  return this.dep_graph.with_anon_task(this, "TraitSelect", task);
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:133 mk_tracked
@@ -250,18 +250,20 @@ TyCtxt.prototype.ir_recursion_limit = function (this: TyCtxt): number {
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:373 clauses_of
 TyCtxt.prototype.ir_clauses_of = function (this: TyCtxt, def_id: DefId): EarlyBinder<Iterable<Clause>> {
-  // ty::EarlyBinder::bind_iter(self.clauses_of(def_id).instantiate_identity(self).clauses.into_iter()
-  //     .map(Unnormalized::skip_normalization))
-  void def_id;
-  return unported("rustc_middle::ty::generics::GenericPredicates::instantiate_identity / EarlyBinder::bind_iter (ty/generics.rs, binder.rs)");
+  const { EarlyBinder } = tyir_binder();
+  const { Unnormalized } = tyir_unnormalized();
+  // PORT: the `clauses_of` query value is `unknown` in queries.gen.ts: it is a `GenericClauses`.
+  const clauses = middle_generics().GenericClauses.instantiate_identity(this.clauses_of(def_id) as GenericClauses, this).clauses;
+  return EarlyBinder.bind_iter(map_iter(clauses, (c) => Unnormalized.skip_normalization(c)));
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:386 own_clauses_of
 TyCtxt.prototype.own_clauses_of = function (this: TyCtxt, def_id: DefId): EarlyBinder<Iterable<Clause>> {
-  // ty::EarlyBinder::bind_iter(self.clauses_of(def_id).instantiate_own_identity()
-  //     .map(|(clause, _)| clause.skip_normalization()))
-  void def_id;
-  return unported("rustc_middle::ty::generics::GenericPredicates::instantiate_own_identity / EarlyBinder::bind_iter (ty/generics.rs, binder.rs)");
+  const { EarlyBinder } = tyir_binder();
+  const { Unnormalized } = tyir_unnormalized();
+  // PORT: the `clauses_of` query value is `unknown` in queries.gen.ts: it is a `GenericClauses`.
+  const own = middle_generics().GenericClauses.instantiate_own_identity(this.clauses_of(def_id) as GenericClauses);
+  return EarlyBinder.bind_iter(map_iter(own, ([clause, _]) => Unnormalized.skip_normalization(clause)));
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:397 explicit_super_clauses_of
@@ -306,11 +308,12 @@ TyCtxt.prototype.alias_has_const_conditions = function (this: TyCtxt, def_id: De
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:445 const_conditions
-TyCtxt.prototype.ir_const_conditions = function (this: TyCtxt, def_id: DefId): EarlyBinder<Iterable<never>> {
-  // ty::EarlyBinder::bind_iter(self.const_conditions(def_id).instantiate_identity(self).into_iter()
-  //     .map(|(c, _)| c.skip_normalization()))
-  void def_id;
-  return unported("rustc_middle::ty::generics::ConstConditions::instantiate_identity / EarlyBinder::bind_iter (ty/generics.rs, binder.rs)");
+TyCtxt.prototype.ir_const_conditions = function (this: TyCtxt, def_id: DefId): EarlyBinder<Iterable<PolyTraitRef>> {
+  const { EarlyBinder } = tyir_binder();
+  const { Unnormalized } = tyir_unnormalized();
+  // PORT: the `const_conditions` query value is `unknown` in queries.gen.ts: it is a `ConstConditions`.
+  const conds = middle_generics().ConstConditions.instantiate_identity(this.const_conditions(def_id) as ConstConditions, this);
+  return EarlyBinder.bind_iter(map_iter(conds, ([c, _]) => Unnormalized.skip_normalization(c)));
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:457 explicit_implied_const_bounds
@@ -713,3 +716,17 @@ export const SOLVER_LANG_ITEM_MAPS = {
   solver_trait_lang_item_to_lang_item,
 };
 
+// ---- merge-w15b: lazy loads (this is an extension module: its top-level code must not touch other modules) ----
+function tyir_binder(): typeof import("../../../rustc_type_ir/binder.ts") {
+  return require("../../../rustc_type_ir/binder.ts") as typeof import("../../../rustc_type_ir/binder.ts");
+}
+function tyir_unnormalized(): typeof import("../../../rustc_type_ir/unnormalized.ts") {
+  return require("../../../rustc_type_ir/unnormalized.ts") as typeof import("../../../rustc_type_ir/unnormalized.ts");
+}
+function middle_generics(): typeof import("../generics.ts") {
+  return require("../generics.ts") as typeof import("../generics.ts");
+}
+/** PORT: `Iterator::map` over an `IntoIterator` (lazy, like upstream's adapter). */
+function* map_iter<T, U>(it: Iterable<T>, f: (t: T) => U): Generator<U> {
+  for (const t of it) yield f(t);
+}

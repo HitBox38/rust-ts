@@ -141,6 +141,10 @@ export function GenericArg_into_diag_arg(self: GenericArg, _: MutRef<PathBuf | u
 function pretty(): typeof import("./print/pretty.ts") {
   return require("./print/pretty.ts") as typeof import("./print/pretty.ts");
 }
+/** PORT (init order): ty/util.ts is an extension module that imports this file; reached lazily. */
+function ty_util(): typeof import("./util.ts") {
+  return require("./util.ts") as typeof import("./util.ts");
+}
 
 export const GenericArg = {
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:196 from
@@ -608,52 +612,6 @@ RawList.prototype.print_as_list = function (this: GenericArgs): string {
   return `[${v.join(", ")}]`;
 };
 
-/** PORT: `ty::util::fold_list` (ty/util.rs:1607, lane ty-util): stand-in with the upstream body; root repoints it. */
-function fold_list<L extends readonly T[], T>(list: L, folder: TypeFolder, intern: (tcx: TyCtxt, v: readonly T[]) => L, d_T: TypeFoldable<T>): L {
-  const slice = list;
-  // Look for the first element that changed
-  let i = 0;
-  for (; i < slice.length; i++) {
-    const t = slice[i]!;
-    const new_t = d_T.fold_with(t, folder);
-    if (new_t !== t) {
-      // An element changed, prepare to intern the resulting list
-      const new_list: T[] = slice.slice(0, i);
-      new_list.push(new_t);
-      for (let j = i + 1; j < slice.length; j++) {
-        new_list.push(d_T.fold_with(slice[j]!, folder));
-      }
-      return intern(folder.cx(), new_list);
-    }
-  }
-  return list;
-}
-
-/** PORT: `ty::util::try_fold_list` (ty/util.rs:1643, lane ty-util): stand-in with the upstream body; root repoints it. */
-function try_fold_list<L extends readonly T[], T, E>(list: L, folder: FallibleTypeFolder<E>, intern: (tcx: TyCtxt, v: readonly T[]) => L, d_T: TypeFoldable<T>): Result<L, E> {
-  const slice = list;
-  // Look for the first element that changed
-  for (let i = 0; i < slice.length; i++) {
-    const t = slice[i]!;
-    const new_t = d_T.try_fold_with(t, folder);
-    if (new_t.$ === "Ok" && new_t._0 === t) continue;
-    if (new_t.$ === "Ok") {
-      // An element changed, prepare to intern the resulting list
-      const new_list: T[] = slice.slice(0, i);
-      new_list.push(new_t._0);
-      for (let j = i + 1; j < slice.length; j++) {
-        const r = d_T.try_fold_with(slice[j]!, folder);
-        if (r.$ === "Err") return r;
-        new_list.push(r._0);
-      }
-      return Ok(intern(folder.cx(), new_list));
-    } else {
-      return new_t;
-    }
-  }
-  return Ok(list);
-}
-
 /** D4 descriptor: `impl TypeFoldable for GenericArgsRef` (generic_args.rs:611) + `TypeVisitable for &List<T>` (:714). */
 export const fold_GenericArgs: TypeFoldable<GenericArgs> = {
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:612 try_fold_with
@@ -688,7 +646,7 @@ export const fold_GenericArgs: TypeFoldable<GenericArgs> = {
       case 0:
         return Ok(self);
       default:
-        return try_fold_list(self, folder, (tcx, v) => tcx.mk_args(v), fold_GenericArg);
+        return ty_util().try_fold_list(self, folder, (tcx, v) => tcx.mk_args(v), fold_GenericArg);
     }
   },
 
@@ -716,7 +674,7 @@ export const fold_GenericArgs: TypeFoldable<GenericArgs> = {
       case 0:
         return self;
       default:
-        return fold_list(self, folder, (tcx, v) => tcx.mk_args(v), fold_GenericArg);
+        return ty_util().fold_list(self, folder, (tcx, v) => tcx.mk_args(v), fold_GenericArg);
     }
   },
 
@@ -757,7 +715,7 @@ export const fold_List_Ty: TypeFoldable<List<Ty>> = {
         }
       }
       default:
-        return try_fold_list(self, folder, (tcx, v) => tcx.mk_type_list(v), standin_fold_Ty);
+        return ty_util().try_fold_list(self, folder, (tcx, v) => tcx.mk_type_list(v), standin_fold_Ty);
     }
   },
 
@@ -775,7 +733,7 @@ export const fold_List_Ty: TypeFoldable<List<Ty>> = {
         }
       }
       default:
-        return fold_list(self, folder, (tcx, v) => tcx.mk_type_list(v), standin_fold_Ty);
+        return ty_util().fold_list(self, folder, (tcx, v) => tcx.mk_type_list(v), standin_fold_Ty);
     }
   },
 

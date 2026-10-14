@@ -113,10 +113,19 @@ describe("RestrictionKind", () => {
 });
 
 describe("ImplTraitHeader::is_fully_generic_for_reflection", () => {
-  test("stops as UNPORTED at the trait ref's args (`TypeVisitable for GenericArgs`, lane ty-args)", () => {
-    // PORT: once `visit_with_GenericArgs` lands: [early_re(0), early_re(1)] and [] -> true; [early_re(0), early_re(0)],
-    // ['static] and [alias] -> false; [ReErased] -> bug.
-    expect(() => header([early_re(0), early_re(1)]).is_fully_generic_for_reflection()).toThrow(Unported);
+  // merge-w15b: `TypeVisitable for GenericArgs` (lane ty-args) is ported, so the visitor runs.
+  test("distinct generic lifetimes (or none) are fully generic", () => {
+    expect(header([early_re(0), early_re(1)]).is_fully_generic_for_reflection()).toBe(true);
+    expect(header([]).is_fully_generic_for_reflection()).toBe(true);
+  });
+
+  test("a repeated lifetime or 'static is not", () => {
+    expect(header([early_re(0), early_re(0)]).is_fully_generic_for_reflection()).toBe(false);
+    expect(header([tcx.lifetimes.re_static]).is_fully_generic_for_reflection()).toBe(false);
+  });
+
+  test("ReErased is a bug", () => {
+    expect(() => header([tcx.lifetimes.re_erased]).is_fully_generic_for_reflection()).toThrow(Panic);
   });
 });
 

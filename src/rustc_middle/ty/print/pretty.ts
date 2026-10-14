@@ -1368,7 +1368,7 @@ export abstract class PrettyPrinter extends Printer {
             if ((r = print_TraitRefPrintOnlyTraitName(TraitRef_print_only_trait_name(trait_pred.trait_ref), p)).$ === "Err") return r;
 
             const generics = tcx.generics_of(TraitClause.def_id(trait_pred)) as Generics;
-            const own_args = Generics_own_args_no_defaults(generics, tcx, trait_pred.trait_ref.args);
+            const own_args = generics.own_args_no_defaults(tcx, trait_pred.trait_ref.args);
 
             if (own_args.length !== 0 || assoc_items.size !== 0) {
               let first = true;
@@ -1617,7 +1617,7 @@ export abstract class PrettyPrinter extends Printer {
             if (!resugared) {
               const principal_with_self = ExistentialTraitRef.with_self_ty(principal, as_interner(p.tcx()), p.tcx().types.trait_object_dummy_self);
 
-              const args = Generics_own_args_no_defaults(p.tcx().generics_of(principal_with_self.def_id) as Generics, p.tcx(), principal_with_self.args);
+              const args = (p.tcx().generics_of(principal_with_self.def_id) as Generics).own_args_no_defaults(p.tcx(), principal_with_self.args);
 
               const bound_principal_with_self = PolyExistentialTraitRef.with_self_ty(bound_principal, as_interner(p.tcx()), p.tcx().types.trait_object_dummy_self);
 
@@ -2040,10 +2040,6 @@ const fold_ListTy_Ty_: TypeFoldable<[List<Ty>, Ty]> = descriptor<[List<Ty>, Ty]>
 );
 
 // -- rustc_middle ty/generics.rs, ty/assoc.rs, ty/adt.rs, ty/pattern.rs, ty/consts/kind.rs, mir --
-/** `Generics::own_args_no_defaults` (ty/generics.rs). */
-function Generics_own_args_no_defaults(_self: Generics, _tcx: TyCtxt, _args: readonly GenericArg[]): readonly GenericArg[] {
-  return unported("rustc_middle::ty::generics::Generics::own_args_no_defaults (ty/generics.rs)");
-}
 /** `AssocItem::name` (ty/assoc.rs). */
 function AssocItem_name(_self: AssocItem): Symbol {
   return unported("rustc_middle::ty::assoc::AssocItem::name (ty/assoc.rs)");

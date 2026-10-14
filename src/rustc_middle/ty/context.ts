@@ -64,7 +64,7 @@ import type { AdtDef, AdtDefData, Allocation, AssocItem, Attribute, Body, BodyId
 import { GenericArg, type GenericArgs } from "./generic_args.ts";
 import { type Clauses, type List, RawList, TypeInfo } from "./list.ts";
 import { Ty } from "./mod.ts";
-import { type Clause, Predicate } from "./predicate.ts";
+import { type Clause, ExistentialPredicate_stable_cmp, Predicate } from "./predicate.ts";
 import type { Ident } from "../../rustc_span/symbol.ts";
 import type { Namespace, DefKind as DefKindT, Res } from "../../rustc_hir/def.ts";
 import { type Attribute as Attribute_, find_attr } from "../../rustc_attr_ir/lib.ts";
@@ -93,7 +93,7 @@ import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { AliasTermKind, CanonicalParamEnvCache, GlobalCache, Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
 import type { EarlyParamRegion, LateParamRegionKind, VariantIdx } from "./decls.ts";
 import { debug_GenericArg, debug_GenericArgs } from "./generic_args.ts";
-import type { GenericParamDef, Generics } from "./generics.ts";
+import { GenericParamDef, type Generics } from "./generics.ts";
 import type { ListWithCachedTypeInfo } from "./list.ts";
 
 /**
@@ -1151,7 +1151,7 @@ export class TyCtxt {
   /// Whether this is a projection const marked with `#[always_gca]`
   // rustc: compiler/rustc_middle/src/ty/context.rs:1043 is_always_gca
   is_always_gca(def_id: DefId): boolean {
-    return find_attr(HasAttrs_DefId_get_attrs(def_id, this), (k) => (k.$ === "AlwaysGca" ? null : undefined)) !== undefined;
+    return find_attr(ty_mod.HasAttrs_DefId.get_attrs(def_id, this), (k) => (k.$ === "AlwaysGca" ? null : undefined)) !== undefined;
   }
 
   /// Returns the movability of the coroutine of `def_id`, or panics
@@ -2149,7 +2149,7 @@ export class TyCtxt {
       return panic(
         `args not compatible with generics for ${this.def_path_str(def_id)}: args=${debug_vec(args, PRETTY, debug_GenericArg)}, generics=${debug_GenericArgs(
           // Make `[Self, GAT_ARGS...]` (this could be simplified)
-          this.mk_args_from_iter(chain_once<GenericArg>(GenericArg.from_Ty(this.types.self_param), Generics_own_args(this.generics_of(def_id) as Generics, RawList.identity_for_item(this, def_id)))),
+          this.mk_args_from_iter(chain_once<GenericArg>(GenericArg.from_Ty(this.types.self_param), (this.generics_of(def_id) as Generics).own_args(RawList.identity_for_item(this, def_id)))),
           PRETTY,
         )}`,
       );
@@ -2183,7 +2183,7 @@ export class TyCtxt {
   mk_param_from_def(param: GenericParamDef): GenericArg {
     switch (param.kind.$) {
       case "Lifetime":
-        return GenericArg.from_Region(Region.new_early_param(this, GenericParamDef_to_early_bound_region_data(param)));
+        return GenericArg.from_Region(Region.new_early_param(this, GenericParamDef.to_early_bound_region_data(param)));
       case "Type":
         return GenericArg.from_Ty(Ty.new_param(this, param.index, param.name));
       case "Const":
@@ -2677,7 +2677,7 @@ export class TyCtxt {
   /// Whether this is a trait implementation that has `#[diagnostic::do_not_recommend]`
   // rustc: compiler/rustc_middle/src/ty/context.rs:2927 do_not_recommend_impl
   do_not_recommend_impl(def_id: DefId): boolean {
-    return find_attr(HasAttrs_DefId_get_attrs(def_id, this), (k) => (k.$ === "DoNotRecommend" ? null : undefined)) !== undefined;
+    return find_attr(ty_mod.HasAttrs_DefId.get_attrs(def_id, this), (k) => (k.$ === "DoNotRecommend" ? null : undefined)) !== undefined;
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2931 is_trivial_const
@@ -3039,37 +3039,9 @@ function middle_hir(): typeof import("../hir/mod.ts") {
 
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
 
-/** PORT: stand-in for `impl HasAttrs for DefId` (ty/mod.rs:2349, lane ty-mod): the upstream body. */
-function HasAttrs_DefId_get_attrs(self: DefId, tcx: TyCtxt): readonly Attribute_[] {
-  const did = self.as_local();
-  if (did !== undefined) {
-    return tcx.hir_attrs(tcx.local_def_id_to_hir_id(did));
-  } else {
-    return tcx.attrs_for_def(self) as readonly Attribute_[];
-  }
-}
-
 /** PORT: stand-in for `AssocItem::is_method` (ty/assoc.rs:156, lane ty-adt-assoc): the upstream body. */
 function AssocItem_is_method(self: AssocItem): boolean {
   return self.kind.$ === "Fn" && self.kind.has_self === true;
 }
 
-/** PORT: stand-in for `GenericParamDef::to_early_bound_region_data` (ty/generics.rs, lane ty-args): the upstream body. */
-function GenericParamDef_to_early_bound_region_data(self: GenericParamDef): EarlyParamRegion {
-  if (self.kind.$ === "Lifetime") {
-    return { index: self.index, name: self.name };
-  } else {
-    return panic("cannot convert a non-lifetime parameter def to an early bound region");
-  }
-}
-
-/** PORT: stand-in for `Generics::own_args` (ty/generics.rs, lane ty-args). */
-function Generics_own_args(_self: Generics, _args: GenericArgs): readonly GenericArg[] {
-  return unported("rustc_middle::ty::generics::Generics::own_args (ty/generics.rs, lane ty-args)");
-}
-
-/** PORT: stand-in for `ExistentialPredicateStableCmpExt::stable_cmp` (ty/predicate.rs, lane ty-args). */
-function ExistentialPredicate_stable_cmp(_self: unknown, _tcx: TyCtxt, _other: unknown): Ordering {
-  return unported("rustc_middle::ty::predicate::ExistentialPredicateStableCmpExt::stable_cmp (ty/predicate.rs, lane ty-args)");
-}
 

@@ -72,10 +72,6 @@ function LateParamRegionKind_is_named(_self: LateParamRegionKind, _interner: TyC
 function LateParamRegionKind_get_def_id(_self: LateParamRegionKind): DefId | undefined {
   return unported("rustc_middle::ty::region::LateParamRegionKind: DefIdGetter::get_def_id");
 }
-/** PORT: stand-in for `impl inherent::GenericsOf for &Generics` `param_region_def_id` (rustc_middle ty/generics.rs:154). */
-function Generics_param_region_def_id(_self: Generics, _tcx: TyCtxt, _ebr: EarlyParamRegion): DefId {
-  return unported("rustc_middle::ty::generics::Generics: GenericsOf::param_region_def_id");
-}
 /** PORT: stand-in for `impl Debug for LateParamRegionKind` (rustc_middle ty/structural_impls.rs:67). */
 function debug_LateParamRegionKind(_v: LateParamRegionKind, _f: Fmt): string {
   return unported("rustc_middle::ty::structural_impls: Debug for LateParamRegionKind");
@@ -148,7 +144,7 @@ Region.prototype.opt_param_def_id = function (this: Region, interner: TyCtxt, bi
   switch (k.$) {
     case "ReEarlyParam": {
       const ebr = k._0;
-      return Generics_param_region_def_id(interner.generics_of(binding_item) as Generics, interner, ebr);
+      return (interner.generics_of(binding_item) as Generics).param_region_def_id(interner, ebr);
     }
     case "ReLateParam":
       return LateParamRegionKind_get_def_id(k._0.kind);

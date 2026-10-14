@@ -35,7 +35,7 @@ import type { TyCtxt } from "./context.ts";
 import type { EarlyParamRegion, ParamConst, ParamTy } from "./decls.ts";
 import { fold_GenericArg, GenericArg, type GenericArgsRef } from "./generic_args.ts";
 import type { Clauses } from "./list.ts";
-import { Ty } from "./mod.ts";
+import { InstantiatedClauses, Ty } from "./mod.ts";
 import { type Clause, debug_Clause, fold_with_Clause, try_fold_with_Clause, visit_with_Clause } from "./predicate.ts";
 
 export type GenericParamDefKind =
@@ -580,19 +580,6 @@ const d_TraitRef: TypeFoldable<TraitRef> = { visit_with: visit_with_TraitRef, tr
 const d_PolyTraitRef: TypeFoldable<PolyTraitRef> = fold_Binder(d_TraitRef);
 
 /**
- * PORT: `InstantiatedClauses` (ty/mod.rs:790, lane ty-mod): stand-in with the upstream fields and `empty()`; root
- * repoints it at the real type when ty/mod.rs lands.
- */
-export interface InstantiatedClauses {
-  clauses: Unnormalized<Clause>[];
-  spans: Span[];
-}
-/** PORT: stand-in for `InstantiatedClauses::empty` (ty/mod.rs:796): the upstream body. */
-function InstantiatedClauses_empty(): InstantiatedClauses {
-  return { clauses: [], spans: [] };
-}
-
-/**
  * PORT: `iter.map(|u| { let (x, span) = u.unzip(); (x, span.skip_normalization()) })` over `IterInstantiatedCopied` /
  * `IterIdentityCopied` of `(T, Span)`: lazy, double-ended, exact-size and `Clone`, as upstream's `Map`.
  */
@@ -639,7 +626,7 @@ export const GenericClauses = {
 
   // rustc: compiler/rustc_middle/src/ty/generics.rs:394 instantiate
   instantiate(self: GenericClauses, tcx: TyCtxt, args: GenericArgsRef): InstantiatedClauses {
-    const instantiated = InstantiatedClauses_empty();
+    const instantiated = InstantiatedClauses.empty();
     GenericClauses.instantiate_into(self, tcx, instantiated, args);
     return instantiated;
   },
@@ -667,7 +654,7 @@ export const GenericClauses = {
 
   // rustc: compiler/rustc_middle/src/ty/generics.rs:446 instantiate_identity
   instantiate_identity(self: GenericClauses, tcx: TyCtxt): InstantiatedClauses {
-    const instantiated = InstantiatedClauses_empty();
+    const instantiated = InstantiatedClauses.empty();
     GenericClauses.instantiate_identity_into(self, tcx, instantiated);
     return instantiated;
   },

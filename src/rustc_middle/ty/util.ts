@@ -586,7 +586,7 @@ TyCtxt.prototype.destructor_constraints = function (this: TyCtxt, def: AdtDef): 
         const region_kind = k._0.kind();
         if (region_kind.$ === "ReEarlyParam") {
           const ebr = region_kind._0;
-          keep = !Generics_region_param(impl_generics, ebr, this).pure_wrt_drop;
+          keep = !impl_generics.region_param(ebr, this).pure_wrt_drop;
         } else {
           // Error: not a region param
           keep = false;
@@ -597,7 +597,7 @@ TyCtxt.prototype.destructor_constraints = function (this: TyCtxt, def: AdtDef): 
         const ty_kind = k._0.kind();
         if (ty_kind.$ === "Param") {
           const pt = ty_kind._0;
-          keep = !Generics_type_param(impl_generics, pt, this).pure_wrt_drop;
+          keep = !impl_generics.type_param(pt, this).pure_wrt_drop;
         } else {
           // Error: not a type param
           keep = false;
@@ -608,7 +608,7 @@ TyCtxt.prototype.destructor_constraints = function (this: TyCtxt, def: AdtDef): 
         const ct_kind = k._0.kind();
         if (ct_kind.$ === "Param") {
           const pc = ct_kind._0;
-          keep = !Generics_const_param(impl_generics, pc, this).pure_wrt_drop;
+          keep = !impl_generics.const_param(pc, this).pure_wrt_drop;
         } else {
           // Error: not a const param
           keep = false;
@@ -2175,20 +2175,6 @@ function FieldDef_safety_is_unsafe(_self: FieldDefT): boolean {
 /** PORT: stand-in for `AssocItem::is_method` (ty/assoc.rs:156, lane ty-adt-assoc): the upstream body. */
 function AssocItem_is_method(self: AssocItem): boolean {
   return self.kind.$ === "Fn" && self.kind.has_self === true;
-}
-
-// ---- lane ty-args (ty/generics.rs) ----
-/** PORT: pending ty-args: `Generics::region_param` (generics.rs). */
-function Generics_region_param(_self: Generics, _param: EarlyParamRegion, _tcx: TyCtxt): GenericParamDef {
-  return unported("rustc_middle::ty::generics::Generics::region_param (lane ty-args)");
-}
-/** PORT: pending ty-args: `Generics::type_param` (generics.rs). */
-function Generics_type_param(_self: Generics, _param: ParamTy, _tcx: TyCtxt): GenericParamDef {
-  return unported("rustc_middle::ty::generics::Generics::type_param (lane ty-args)");
-}
-/** PORT: pending ty-args: `Generics::const_param` (generics.rs). */
-function Generics_const_param(_self: Generics, _param: ParamConst, _tcx: TyCtxt): GenericParamDef {
-  return unported("rustc_middle::ty::generics::Generics::const_param (lane ty-args)");
 }
 
 // ---- lane middle-traits-thir (traits/mod.rs) ----
