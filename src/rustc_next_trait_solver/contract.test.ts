@@ -191,10 +191,11 @@ test("every declared EvalCtxt method and static exists once lib.ts is loaded; st
   expect(absent).toEqual([]);
   expect(typeof EvalCtxt.enter_root).toBe("function");
   expect(typeof EvalCtxt.enter_canonical).toBe("function");
-  // a placeholder of the owning stub file (nts-eval ported eval_ctxt/mod.rs's `cx`; the example is now trait_goals.rs's)
-  const stub = (EvalCtxt.prototype as unknown as { compute_trait_goal(): unknown }).compute_trait_goal;
+  // a placeholder of the owning stub file (eval_ctxt/mod.rs's `cx` and trait_goals.rs's `compute_trait_goal` are ported;
+  // the example is now assembly/mod.rs's, lane nts-assembly: move it again when that lane merges)
+  const stub = (EvalCtxt.prototype as unknown as { assemble_and_evaluate_candidates(): unknown }).assemble_and_evaluate_candidates;
   expect(() => stub.call({})).toThrow(Unported);
-  expect(() => stub.call({})).toThrow("rustc_next_trait_solver::solve::trait_goals::EvalCtxt::compute_trait_goal");
+  expect(() => stub.call({})).toThrow("rustc_next_trait_solver::solve::assembly::EvalCtxt::assemble_and_evaluate_candidates");
 });
 
 test("the GoalKind impl tables implement every trait item and every upstream impl fn", () => {
