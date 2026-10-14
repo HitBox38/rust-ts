@@ -126,13 +126,24 @@ defining module, with the upstream accessor functions ported (`with_session_glob
 `create_session_globals_then(edition, ..., f)` sets the global, runs `f`, restores it in `finally`).
 
 ### Interned handles
-`Symbol`, `NodeId`, `DefIndex`, `CrateNum`, `LocalDefId`, `ItemLocalId`, `newtype_index!` types,
-`Ty<'tcx>`, and `Span` → branded numbers (`type Symbol = number & { readonly __brand: "Symbol" }`)
-indexing interners owned by the session globals / `TyCtxt`. Equality is `===`, maps key on them
-directly. Multi-field ids (`DefId { krate, index }`, `HirId`) stay small immutable classes until a
-lane proves interning them pays off. `newtype_index!` types get `from_u32`/`as_u32`/`as_usize`/
-`MAX`/`ZERO` helpers on a companion const; the generated Debug output must match upstream's
-(often a custom format, e.g. `NodeId(4294967040)`).
+`Symbol`, `NodeId`, `DefIndex`, `CrateNum`, `LocalDefId`, `ItemLocalId`, `newtype_index!` types and `Span` →
+branded numbers (`type Symbol = number & { readonly __brand: "Symbol" }`) indexing interners owned by the session
+globals. Equality is `===`, maps key on them directly. `newtype_index!` types get `from_u32`/`as_u32`/`as_usize`/
+`MAX`/`ZERO` helpers on a companion const; the generated Debug output must match upstream's (often a custom
+format, e.g. `NodeId(4294967040)`).
+
+**Hash-consed type-system values** (`Interned<'tcx, T>` and the lists): `Ty`, `Region`, `Const`, `Predicate`/
+`Clause`, `ValTree`, `Pattern`, `AdtDef`, ... and `&'tcx List<T>` are **frozen class instances, unique per
+value**, made only by the `CtxtInterners` of `TyCtxt` (rustc_middle ty/context.ts). Each extends
+`rustc_data_structures/intern.ts`'s `Interned` (lists: `RawList`, a frozen `Array` subclass, so a `List<T>` is a
+`readonly T[]`) and carries a sequential `id` used only inside intern keys. Equality is `===`, `Map`/`Set` key on
+the object, methods live on the prototype (`ty.kind()`); `Interned` has no `Ord`, so nothing orders on them.
+Interning looks the value up by its canonical key (rust_ts/intern_key.ts: the derived `Hash`+`Eq` as a string,
+interned children by `id`). Packed pointers (`GenericArg`, `Term`) are unions of the objects (`Ty | Region |
+Const`), dispatched with `instanceof`. Multi-field ids (`DefId`, `HirId`) stay small immutable classes; as map
+keys use `DefIdMap`/`DefIdSet` (rustc_span) and `HirIdMap`/`HirIdSet` (rustc_hir_id), keyed
+`krate * 2^32 + index` / `owner * 2^32 + local_id`; other composite keys use `KeyedMap`/`KeyedSet` with a key
+function (generated `key_<T>` or `intern_key`).
 
 ## 5b. External crates
 External crates used by in-scope compiler crates are ported to `src/vendor/<crate>/` at the

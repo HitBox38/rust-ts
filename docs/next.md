@@ -181,3 +181,14 @@ Known stops: Location::caller (-Ztrack-diagnostics, decision: unported), Variant
 proc-macro quote! (M6). Next: gate protecting the with-std suites (= M2b), then wave 12 ui-expanded harness
 (compiletest flags, aux crates by the oracle) toward gate M2, then M3 planning (typeck on mini_core).
 
+## M2b — DONE 2026-10-14 (gate-20261013-223511-root-kxdx): expanded 21460, unpretty-expanded 21460, resdump 21470 / 21523.
+
+## Wave 13 — M3 foundations (merged 2026-10-14, see docs/plan-m3.md)
+Merged: plan-m3, vendor-ena, hir-types, hir-visit, lowering-contract, ty-contract, codegen-tyir, probe-tydump (reviewed).
+Pending review: harness-w13 (hir-tree suites + sparse tests/auxiliary; must handle the oracle cache for files that
+include tests/auxiliary). Follow-ups: rustc_data_structures lib.ts ena re-exports; wire rustc_ast_lowering.provide +
+codegen set rustc_ast_lowering; ena oracle probe; probe-tydump review notes L1-L3; bundle the port (startup ~0.44 s
+of 0.55 s per case) to speed up the gate (harness batch).
+Next: wave 14 = lowering lanes (lower-lib-a/-b, lower-item, lower-expr, lower-pat-path-block, lower-asm-format-contract,
+lower-delegation, lower-index-diag, middle-hir, hir-pretty-a/-b) -> gate M3a (hir-tree); + tyir lanes.
+
