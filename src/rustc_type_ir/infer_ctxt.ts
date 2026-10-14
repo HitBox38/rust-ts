@@ -1,6 +1,10 @@
 // Port of compiler/rustc_type_ir/src/infer_ctxt.rs (lane tyir-misc, sub-lane infer). The types with their derived
 // Debug / TypeVisitable / TypeFoldable impls are generated into infer_ctxt.gen.ts (set rustc_ty of tools/codegen/types.ts).
 //
+// PORT: the 8 trait methods whose name rustc_infer's `InferCtxt` also uses for an inherent method with another signature are
+// `ir_<name>` (lane infcx-contract; as `Interner`'s `ir_` methods on `TyCtxt`): `ir_get_solver_region_constraint`,
+// `ir_overwrite_solver_region_constraint`, `ir_universe_of_region`, `ir_fresh_args_for_item`, `ir_sub_regions`,
+// `ir_equate_regions`, `ir_register_solver_region_constraint`, `ir_register_hidden_type_in_storage`.
 // PORT (D3): `I: Interner` is erased; `Self::Interner` is `TyCtxt` (as in fold.ts's `TypeFolder::cx`), the associated
 // types are fixed as in the interner.ts header. `trait InferCtxtLike` is the TS interface `InferCtxtLike`, implemented by
 // rustc_infer's `InferCtxt` (lane infcx-contract); its provided methods live in `InferCtxtLike_provided` (PORTING §8).
@@ -380,15 +384,18 @@ export interface InferCtxtLike {
   get_placeholder_assumptions(u: UniverseIndex): Assumptions;
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:417 has_placeholder_assumptions
   has_placeholder_assumptions(range: RangeInclusive<UniverseIndex>): boolean;
+  // PORT: `ir_get_solver_region_constraint`: rustc_infer's `InferCtxt` has an inherent `get_solver_region_constraint` with another signature (infcx-contract).
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:418 get_solver_region_constraint
-  get_solver_region_constraint(): RegionConstraint;
+  ir_get_solver_region_constraint(): RegionConstraint;
+  // PORT: `ir_overwrite_solver_region_constraint`: rustc_infer's `InferCtxt` has an inherent `overwrite_solver_region_constraint` with another signature (infcx-contract).
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:421 overwrite_solver_region_constraint
-  overwrite_solver_region_constraint(constraint: RegionConstraint, span: Span): void;
+  ir_overwrite_solver_region_constraint(constraint: RegionConstraint, span: Span): void;
 
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:427 universe_of_ty
   universe_of_ty(ty: TyVid): UniverseIndex | undefined;
+  // PORT: `ir_universe_of_region`: rustc_infer's `InferCtxt` has an inherent `universe_of_region` with another signature (infcx-contract).
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:428 universe_of_region
-  universe_of_region(lt: RegionVid): UniverseIndex | undefined;
+  ir_universe_of_region(lt: RegionVid): UniverseIndex | undefined;
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:429 universe_of_const
   universe_of_const(ct: ConstVid): UniverseIndex | undefined;
 
@@ -421,8 +428,9 @@ export interface InferCtxtLike {
   next_ty_infer(): Ty;
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:446 next_const_infer
   next_const_infer(): Const;
+  // PORT: `ir_fresh_args_for_item`: rustc_infer's `InferCtxt` has an inherent `fresh_args_for_item` with another signature (infcx-contract).
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:447 fresh_args_for_item
-  fresh_args_for_item(def_id: DefId): GenericArgs;
+  ir_fresh_args_for_item(def_id: DefId): GenericArgs;
 
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:452 instantiate_binder_with_infer
   instantiate_binder_with_infer<T>(value: Binder<T>, d_T: TypeFoldable<T>): T;
@@ -492,14 +500,17 @@ export interface InferCtxtLike {
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:516 commit_if_ok
   commit_if_ok<T, E>(f: () => Result<T, E>): Result<T, E>;
 
+  // PORT: `ir_sub_regions`: rustc_infer's `InferCtxt` has an inherent `sub_regions` with another signature (infcx-contract).
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:518 sub_regions
-  sub_regions(sub: Region, sup: Region, vis: VisibleForLeakCheck, span: Span): void;
+  ir_sub_regions(sub: Region, sup: Region, vis: VisibleForLeakCheck, span: Span): void;
 
+  // PORT: `ir_equate_regions`: rustc_infer's `InferCtxt` has an inherent `equate_regions` with another signature (infcx-contract).
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:526 equate_regions
-  equate_regions(a: Region, b: Region, vis: VisibleForLeakCheck, span: Span): void;
+  ir_equate_regions(a: Region, b: Region, vis: VisibleForLeakCheck, span: Span): void;
 
+  // PORT: `ir_register_solver_region_constraint`: rustc_infer's `InferCtxt` has an inherent `register_solver_region_constraint` with another signature (infcx-contract).
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:534 register_solver_region_constraint
-  register_solver_region_constraint(c: RegionConstraint, span: Span): void;
+  ir_register_solver_region_constraint(c: RegionConstraint, span: Span): void;
 
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:540 register_ty_outlives
   register_ty_outlives(ty: Ty, r: Region, span: Span): void;
@@ -516,8 +527,9 @@ export interface InferCtxtLike {
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:559 opaques_with_sub_unified_hidden_type
   opaques_with_sub_unified_hidden_type(ty: TyVid): OpaqueAliasTy[];
 
+  // PORT: `ir_register_hidden_type_in_storage`: rustc_infer's `InferCtxt` has an inherent `register_hidden_type_in_storage` with another signature (infcx-contract).
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:564 register_hidden_type_in_storage
-  register_hidden_type_in_storage(opaque_type_key: OpaqueTypeKey, hidden_ty: Ty, span: Span): Ty | undefined;
+  ir_register_hidden_type_in_storage(opaque_type_key: OpaqueTypeKey, hidden_ty: Ty, span: Span): Ty | undefined;
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:570 add_duplicate_opaque_type
   add_duplicate_opaque_type(opaque_type_key: OpaqueTypeKey, hidden_ty: Ty, span: Span): void;
 
