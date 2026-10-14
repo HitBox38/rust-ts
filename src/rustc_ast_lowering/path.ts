@@ -13,20 +13,17 @@ import type {
   TraitBoundModifiers,
 } from "../rustc_ast/lib.ts";
 import { NodeId } from "../rustc_ast/node_id.ts";
-import type { LanguageItems } from "../rustc_attr_ir/lang_items.ts";
 import { DefKind, type PerNS, Res } from "../rustc_hir/def.ts";
 import * as hir from "../rustc_hir/lib.ts";
 import { debug_LifetimeRes, PartialRes } from "../rustc_middle/middle/resolve.ts";
-import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { add_feature_diagnostics } from "../rustc_session/diagnostics.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
 import { DesugaringKind } from "../rustc_span/hygiene.ts";
 import { BytePos, DUMMY_SP, Span } from "../rustc_span/lib.ts";
 import { span_bug } from "../rustc_span/macros.ts";
 import { Ident, sym, type Symbol } from "../rustc_span/symbol.ts";
-import type { ClosureKind } from "../rustc_type_ir/lib.ts";
 import { PLAIN } from "../std/fmt.ts";
-import { assert, unported, unwrap } from "../std/panic.ts";
+import { assert, unwrap } from "../std/panic.ts";
 import { LoweringContext } from "./decls.ts";
 import * as diagnostics from "./diagnostics.ts";
 import * as lib from "./lib.ts";
@@ -39,28 +36,6 @@ import {
   type ParamMode,
 } from "./lib.ts";
 
-// ---- PORT(pending-gen): bridge to rustc_middle lang items ------------------------------------------------------
-// The `TyCtxt` lang-item methods (rustc_middle middle/lang_items.rs, ty/context.rs:995) are not ported yet;
-// `tcx_method` stops as UNPORTED until `TyCtxt` has them.
-
-/** The `TyCtxt` lang-item methods this file uses (not ported yet, see above). */
-interface TyCtxtLangItemsView {
-  /** ty/context.rs:995 */
-  lang_items(): LanguageItems;
-  /** middle/lang_items.rs:38 */
-  fn_trait_kind_from_def_id(id: DefId): ClosureKind | undefined;
-  /** middle/lang_items.rs:50 */
-  async_fn_trait_kind_from_def_id(id: DefId): ClosureKind | undefined;
-}
-function tcx_method<K extends keyof TyCtxtLangItemsView>(tcx: TyCtxt, name: K): TyCtxtLangItemsView[K] {
-  const f = (tcx as unknown as Record<string, unknown>)[name];
-  if (typeof f !== "function") {
-    const at = name === "lang_items" ? "ty::context" : "middle::lang_items";
-    return unported(`rustc_middle::${at}::TyCtxt::${name}`);
-  }
-  return (f as (...a: unknown[]) => unknown).bind(tcx) as TyCtxtLangItemsView[K];
-}
-// ---- end PORT(pending-gen) ---------------------------------------------------------------------------------------
 
 // #[instrument(level = "trace", skip(self))] (tracing only)
 // rustc: compiler/rustc_ast_lowering/src/path.rs:26 lower_qpath
@@ -114,7 +89,7 @@ LoweringContext.prototype.lower_qpath = function (
   if (
     res.$ === "Def" &&
     res._0.$ === "Trait" &&
-    tcx_method(this.tcx, "async_fn_trait_kind_from_def_id")(res._1) !== undefined
+    this.tcx.async_fn_trait_kind_from_def_id(res._1) !== undefined
   ) {
     bound_modifier_allowed_features = ALLOW_ASYNC_FN_TRAITS;
   } else {
@@ -584,8 +559,8 @@ LoweringContext.prototype.assoc_ty_binding = function (
 /// lowering of `async Fn()` bounds to desugar to another trait like `LendingFn`.
 // rustc: compiler/rustc_ast_lowering/src/path.rs:603 map_trait_to_async_trait
 LoweringContext.prototype.map_trait_to_async_trait = function (this: LoweringContext, def_id: DefId): DefId | undefined {
-  const lang_items = tcx_method(this.tcx, "lang_items")();
-  const kind = tcx_method(this.tcx, "fn_trait_kind_from_def_id")(def_id);
+  const lang_items = this.tcx.lang_items();
+  const kind = this.tcx.fn_trait_kind_from_def_id(def_id);
   if (kind === undefined) return undefined;
   switch (kind) {
     case "Fn":

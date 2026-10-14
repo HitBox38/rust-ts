@@ -380,13 +380,20 @@ describe("path.rs", () => {
     expect(seg.infer_args).toBe(true);
   });
 
-  test("trait paths need the TyCtxt lang-item methods (path.rs:75-76, 603-610)", () => {
+  test("trait paths ask the TyCtxt lang-item methods (path.rs:75-76, 603-610)", () => {
     const res: Res<NodeId> = { $: "Def", _0: DefKind.Trait, _1: STRUCT_DEF };
     const { lctx } = fake({ partial_res: [[1, res]] });
+    const asked: string[] = [];
+    const ASYNC_FN_MUT = new DefId(9 as DefIndex, CrateNum.from_u32(0));
+    Object.assign(lctx.tcx, {
+      async_fn_trait_kind_from_def_id: (id: DefId) => (asked.push(`async_fn_trait_kind_from_def_id ${id.index}`), undefined),
+      fn_trait_kind_from_def_id: (id: DefId) => (asked.push(`fn_trait_kind_from_def_id ${id.index}`), "FnMut"),
+      lang_items: () => ({ async_fn_mut_trait: () => ASYNC_FN_MUT }),
+    });
     const p = { span: sp(0), segments: [], tokens: undefined } as never;
-    expect(stops(() => lctx.lower_qpath(nid(1), undefined, p, "Explicit", "No", { $: "Disallowed", _0: "Path" }, undefined))).toContain(
-      "rustc_middle::middle::lang_items::TyCtxt::async_fn_trait_kind_from_def_id",
-    );
-    expect(stops(() => lctx.map_trait_to_async_trait(STRUCT_DEF))).toContain("rustc_middle::ty::context::TyCtxt::lang_items");
+    lctx.lower_qpath(nid(1), undefined, p, "Explicit", "No", { $: "Disallowed", _0: "Path" }, undefined);
+    expect(asked).toEqual(["async_fn_trait_kind_from_def_id 5"]);
+    expect(lctx.map_trait_to_async_trait(STRUCT_DEF)).toBe(ASYNC_FN_MUT);
+    expect(asked).toEqual(["async_fn_trait_kind_from_def_id 5", "fn_trait_kind_from_def_id 5"]);
   });
 });

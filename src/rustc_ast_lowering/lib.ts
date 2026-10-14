@@ -69,7 +69,7 @@ import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { DiagArgFromDisplay } from "../rustc_error_messages/diagnostic_impls.ts";
 import { add_feature_diagnostics } from "../rustc_session/diagnostics.ts";
 import { Session } from "../rustc_session/session.ts";
-import { type DefId, DefIdMap, debug_LocalDefId, LOCAL_CRATE, LocalDefId } from "../rustc_span/def_id.ts";
+import { DefIdMap, debug_LocalDefId, LOCAL_CRATE, LocalDefId } from "../rustc_span/def_id.ts";
 import { DesugaringKind } from "../rustc_span/hygiene.ts";
 import { type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import { span_bug } from "../rustc_span/macros.ts";
@@ -945,8 +945,7 @@ LoweringContext.prototype.make_lang_item_path = function (
   span: Span,
   args: hir.GenericArgs | undefined,
 ): hir.Path {
-  // PORT: `TyCtxt::require_lang_item` (rustc_middle middle/lang_items.rs:20) is not ported yet.
-  const def_id: DefId = unported("rustc_middle::middle::lang_items::TyCtxt::require_lang_item (lang_items.rs:20)");
+  const def_id = this.tcx.require_lang_item(lang_item, span);
   const def_kind = this.tcx.def_kind(def_id);
   const res: Res = { $: "Def", _0: def_kind, _1: def_id };
   return this.arena.alloc(
@@ -2538,8 +2537,7 @@ LoweringContext.prototype.validate_relaxed_bound = function (
       const gate = (context: string, subject: string): void => {
         const extended = this.tcx.features().more_maybe_bounds();
         const def_id = trait_ref.trait_def_id();
-        // PORT: `TyCtxt::is_lang_item` (rustc_middle/src/middle/lang_items.rs) is not ported yet.
-        const is_sized = def_id !== undefined && unported("rustc_middle::middle::lang_items::TyCtxt::is_lang_item");
+        const is_sized = def_id !== undefined && this.tcx.is_lang_item(def_id, LangItem.Sized);
 
         if (extended && !is_sized) {
           return;

@@ -881,8 +881,7 @@ LoweringContext.prototype.check_pin_drop_sugar_impl_item = function (
 ): Ident {
   if (i.kind.$ === "Fn" && i.kind._0.is_pin_drop_sugar()) {
     if (trait_item.$ === "Ok") {
-      // PORT: `TyCtxt::lang_items` (rustc_middle ty/context.rs:995) is not ported yet.
-      const drop_trait: DefId | undefined = unported("rustc_middle::ty::context::TyCtxt::lang_items");
+      const drop_trait: DefId | undefined = this.tcx.lang_items().drop_trait();
       if (drop_trait === undefined || !DefId_eq(this.tcx.parent(trait_item._0), drop_trait)) {
         this.dcx()
           .struct_span_err(i.span, "method `drop` with `&pin mut self` is only supported for the `Drop` trait")
