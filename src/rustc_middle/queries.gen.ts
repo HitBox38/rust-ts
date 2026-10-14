@@ -26,7 +26,7 @@ import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLower
 import { type DeprecationEntry, debug_DeprecationEntry } from "./middle/stability.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
-import { KEY_CrateNum, KEY_CrateNum_DefId, KEY_DefId, KEY_DefId_DefId, KEY_LocalDefId, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OwnerId, KEY_Symbol, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
+import { KEY_AliasTyKind, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
 import { stable_hash_Visibility } from "./stable_hash.gen.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
@@ -1348,7 +1348,7 @@ export interface QueryTypes {
    * This query is only used to get the data necessary for that query.
    */
   // PORT: key `(CrateNum, SimplifiedType)` not ported (`unknown`)
-  crate_incoherent_impls: { Key: [CrateNum, unknown]; KeyArg: [CrateNum, unknown]; LocalKey: unknown; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
+  crate_incoherent_impls: { Key: [CrateNum, unknown]; KeyArg: [CrateNum, unknown]; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum_SimplifiedType>; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
   /**
    * Get the corresponding native library from the `native_libraries` query
    */
@@ -1912,7 +1912,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   env_var_os: {
     name: "env_var_os",
-    key: key_unported("&'tcx OsStr"),
+    key: KEY_OsStr,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -2632,7 +2632,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   check_representability_adt_ty: {
     name: "check_representability_adt_ty",
-    key: key_unported("Ty<'tcx>"),
+    key: KEY_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -2992,7 +2992,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   erase_and_anonymize_regions_ty: {
     name: "erase_and_anonymize_regions_ty",
-    key: key_unported("Ty<'tcx>"),
+    key: KEY_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -3118,7 +3118,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   explicit_supertraits_containing_assoc_item: {
     name: "explicit_supertraits_containing_assoc_item",
-    key: key_unported("(DefId, rustc_span::Ident)"),
+    key: KEY_DefId_Ident,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -3172,7 +3172,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   type_param_clauses: {
     name: "type_param_clauses",
-    key: key_unported("(LocalDefId, LocalDefId, rustc_span::Ident)"),
+    key: KEY_LocalDefId_LocalDefId_Ident,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -3262,7 +3262,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   adt_sizedness_constraint: {
     name: "adt_sizedness_constraint",
-    key: key_unported("(DefId, SizedTraitKind)"),
+    key: KEY_DefId_SizedTraitKind,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -3640,7 +3640,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   incoherent_impls: {
     name: "incoherent_impls",
-    key: key_unported("SimplifiedType"),
+    key: KEY_SimplifiedType,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -4774,7 +4774,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   vtable_entries: {
     name: "vtable_entries",
-    key: key_unported("ty::TraitRef<'tcx>"),
+    key: KEY_TraitRef,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -4792,7 +4792,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   first_method_vtable_slot: {
     name: "first_method_vtable_slot",
-    key: key_unported("ty::TraitRef<'tcx>"),
+    key: KEY_TraitRef,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -4810,7 +4810,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   supertrait_vtable_slot: {
     name: "supertrait_vtable_slot",
-    key: key_unported("(Ty<'tcx>, Ty<'tcx>)"),
+    key: KEY_Ty_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -4828,7 +4828,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   vtable_allocation: {
     name: "vtable_allocation",
-    key: key_unported("(Ty<'tcx>, Option<ty::ExistentialTraitRef<'tcx>>)"),
+    key: KEY_Ty_Option_ExistentialTraitRef,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5188,7 +5188,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   has_structural_eq_impl: {
     name: "has_structural_eq_impl",
-    key: key_unported("Ty<'tcx>"),
+    key: KEY_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5782,7 +5782,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   upstream_drop_glue_for: {
     name: "upstream_drop_glue_for",
-    key: key_unported("GenericArgsRef<'tcx>"),
+    key: KEY_GenericArgsRef,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5800,7 +5800,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   upstream_async_drop_glue_for: {
     name: "upstream_async_drop_glue_for",
-    key: key_unported("GenericArgsRef<'tcx>"),
+    key: KEY_GenericArgsRef,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5980,7 +5980,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   crate_incoherent_impls: {
     name: "crate_incoherent_impls",
-    key: key_unported("(CrateNum, SimplifiedType)"),
+    key: KEY_CrateNum_SimplifiedType,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -6160,7 +6160,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   live_args_for_alias_from_outlives_bounds: {
     name: "live_args_for_alias_from_outlives_bounds",
-    key: key_unported("ty::AliasTyKind<'tcx>"),
+    key: KEY_AliasTyKind,
     into_key: into_query_key_identity,
     arena_cache: true,
     cache_on_disk: false,
@@ -6232,7 +6232,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   inhabited_predicate_type: {
     name: "inhabited_predicate_type",
-    key: key_unported("Ty<'tcx>"),
+    key: KEY_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -7204,7 +7204,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   instantiate_and_check_impossible_clauses: {
     name: "instantiate_and_check_impossible_clauses",
-    key: key_unported("(DefId, GenericArgsRef<'tcx>)"),
+    key: KEY_DefId_GenericArgsRef,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -7366,7 +7366,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   reveal_opaque_types_in_bounds: {
     name: "reveal_opaque_types_in_bounds",
-    key: key_unported("ty::Clauses<'tcx>"),
+    key: KEY_Clauses,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,

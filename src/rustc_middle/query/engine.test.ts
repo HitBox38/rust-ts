@@ -39,6 +39,8 @@ import { CurrentGcx, type Limits, TyCtxt } from "../ty/context.ts";
 import { query_system } from "../../rustc_query_impl/lib.ts";
 import { ExternProviders_default, Providers_default } from "./query_api.ts";
 import { with_context } from "../ty/context/tls.ts";
+import { KEY_DefId_Ident, KEY_Ty, KEY_Ty_Ty } from "./keys.ts";
+import { Ident } from "../../rustc_span/symbol.ts";
 
 const test_ = (name: string, f: () => void): void => {
   test(name, () => create_default_session_globals_then(f));
@@ -384,4 +386,42 @@ test_("cycle handler `variances_of` (handle_cycle_error modifier): delays the cy
   expect(generics_calls).toBe(1);
   // nothing is emitted: the cycle error became a delayed bug
   expect(out()).toBe("");
+});
+
+test_("QueryKey for Ty (keys.rs:276): `default_span` through `def_id_of_type`; equal types share a cache slot", () => {
+  const { r, err } = with_tcx(
+    "fn f() {}\n",
+    () => {},
+    (tcx, sp) => {
+      const root = tcx.create_local_crate_def_id(sp("fn f() {}"));
+      root.def_kind(DefKind.Mod);
+      const f = tcx.at(sp("fn f()")).create_def(CRATE_DEF_ID, Symbol.intern("f"), DefKind.Fn, undefined, PerParentDisambiguatorState.new(CRATE_DEF_ID));
+      const f_id = LocalDefId.to_def_id(f.def_id());
+      const bool = tcx.mk_ty_from_kind({ $: "Bool" });
+      const foreign = tcx.mk_ty_from_kind({ $: "Foreign", _0: f_id });
+      const tup = tcx.mk_ty_from_kind({ $: "Tuple", _0: tcx.mk_type_list([bool, bool, foreign]) });
+      const slice = tcx.mk_ty_from_kind({ $: "Slice", _0: tup });
+      return {
+        bool: KEY_Ty.default_span(bool, tcx) === DUMMY_SP,
+        foreign: KEY_Ty.default_span(foreign, tcx) === sp("fn f()"),
+        // `[(bool, bool, f)]`: the slice's element, then the first tuple field with a `DefId` (`bool` is visited once)
+        slice: KEY_Ty.default_span(slice, tcx) === sp("fn f()"),
+        same_key: KEY_Ty.hash_key(tcx.mk_ty_from_kind({ $: "Bool" })) === KEY_Ty.hash_key(bool),
+        other_key: KEY_Ty.hash_key(foreign) !== KEY_Ty.hash_key(bool),
+        pair_key: KEY_Ty_Ty.hash_key([bool, foreign]) !== KEY_Ty_Ty.hash_key([foreign, bool]),
+      };
+    },
+  );
+  expect(err).toBeUndefined();
+  expect(r).toEqual({ bool: true, foreign: true, slice: true, same_key: true, other_key: true, pair_key: true });
+});
+
+test_("QueryKey for (DefId, Ident) (keys.rs:203): `Hash`/`Eq` of `Ident` see the name and the span's context only", () => {
+  const d = new DefId(DefIndex.from_u32(3), LOCAL_CRATE);
+  const a = new Ident(Symbol.intern("x"), Span.with_root_ctxt(BytePos(0), BytePos(1)));
+  const b = new Ident(Symbol.intern("x"), Span.with_root_ctxt(BytePos(5), BytePos(6)));
+  const c = new Ident(Symbol.intern("y"), Span.with_root_ctxt(BytePos(0), BytePos(1)));
+  expect(KEY_DefId_Ident.hash_key([d, a])).toBe(KEY_DefId_Ident.hash_key([d, b]));
+  expect(KEY_DefId_Ident.hash_key([d, a])).not.toBe(KEY_DefId_Ident.hash_key([d, c]));
+  expect(KEY_DefId_Ident.key_as_def_id([d, a])).toBe(d);
 });
