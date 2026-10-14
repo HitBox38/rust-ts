@@ -282,7 +282,7 @@ DelegationResolver.prototype.resolve_delegation = function (
   const cycles = this.check_for_cycles(sig_id, span);
   if (cycles.$ === "Err") return cycles;
 
-  const is_method = TyCtxt_is_method(tcx, sig_id);
+  const is_method = tcx.is_method(sig_id);
   const sig = fn_sig_skip_binders(tcx, sig_id);
   const param_count = sig.inputs().length + (sig.c_variadic() ? 1 : 0);
   const parent = tcx.local_parent(def_id);
