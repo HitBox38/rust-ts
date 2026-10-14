@@ -13,6 +13,7 @@
 // - `debug!` is tracing only and stays as a comment.
 // - `crate::check::always_applicable` is lane check-region-intrinsic's (wave 17, parallel); `check_negative_auto_trait_impl`
 //   is the local stand-in below, which stops as UNPORTED until that lane merges (root repoints it).
+// - The private fns are exported for coherence_test/run.ts (it runs `coherent_trait`'s per-impl checks one by one).
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies.
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { E0322, E0328, E0371, E0715, struct_span_code_err } from "../../rustc_errors/lib.ts";
@@ -64,7 +65,7 @@ function check_negative_auto_trait_impl(_tcx: TyCtxt, _impl_def_id: LocalDefId, 
 }
 
 // rustc: compiler/rustc_hir_analysis/src/coherence/mod.rs:27 check_impl
-function check_impl(tcx: TyCtxt, impl_def_id: LocalDefId, trait_ref: TraitRef, trait_def: TraitDef, polarity: ImplPolarity): Result<null, ErrorGuaranteed> {
+export function check_impl(tcx: TyCtxt, impl_def_id: LocalDefId, trait_ref: TraitRef, trait_def: TraitDef, polarity: ImplPolarity): Result<null, ErrorGuaranteed> {
   // debug!(
   //     "(checking implementation) adding impl for trait '{:?}', item '{}'",
   //     trait_ref,
@@ -83,7 +84,7 @@ function check_impl(tcx: TyCtxt, impl_def_id: LocalDefId, trait_ref: TraitRef, t
 }
 
 // rustc: compiler/rustc_hir_analysis/src/coherence/mod.rs:54 enforce_trait_manually_implementable
-function enforce_trait_manually_implementable(tcx: TyCtxt, impl_def_id: LocalDefId, trait_def_id: DefId, trait_def: TraitDef): Result<null, ErrorGuaranteed> {
+export function enforce_trait_manually_implementable(tcx: TyCtxt, impl_def_id: LocalDefId, trait_def_id: DefId, trait_def: TraitDef): Result<null, ErrorGuaranteed> {
   const impl_header_span = tcx.def_span(impl_def_id);
 
   if (tcx.is_lang_item(trait_def_id, LangItem.Freeze) && !tcx.features().freeze_impls()) {
@@ -136,7 +137,7 @@ function enforce_trait_manually_implementable(tcx: TyCtxt, impl_def_id: LocalDef
 /// We allow impls of marker traits to overlap, so they can't override impls
 /// as that could make it ambiguous which associated item to use.
 // rustc: compiler/rustc_hir_analysis/src/coherence/mod.rs:118 enforce_empty_impls_for_marker_traits
-function enforce_empty_impls_for_marker_traits(tcx: TyCtxt, impl_def_id: LocalDefId, trait_def_id: DefId, trait_def: TraitDef): Result<null, ErrorGuaranteed> {
+export function enforce_empty_impls_for_marker_traits(tcx: TyCtxt, impl_def_id: LocalDefId, trait_def_id: DefId, trait_def: TraitDef): Result<null, ErrorGuaranteed> {
   if (!trait_def.is_marker) {
     return Ok(null);
   }
@@ -173,7 +174,7 @@ export function provide(providers: Providers): void {
 }
 
 // rustc: compiler/rustc_hir_analysis/src/coherence/mod.rs:164 coherent_trait
-function coherent_trait(tcx: TyCtxt, def_id: DefId): Result<null, ErrorGuaranteed> {
+export function coherent_trait(tcx: TyCtxt, def_id: DefId): Result<null, ErrorGuaranteed> {
   const impls = tcx.local_trait_impls(def_id);
   // If there are no impls for the trait, then "all impls" are trivially coherent and we won't check anything
   // anyway. Thus we bail out even before the specialization graph, avoiding the dep_graph edge.
@@ -202,7 +203,7 @@ function coherent_trait(tcx: TyCtxt, def_id: DefId): Result<null, ErrorGuarantee
 
 /// Checks whether an impl overlaps with the automatic `impl Trait for dyn Trait`.
 // rustc: compiler/rustc_hir_analysis/src/coherence/mod.rs:192 check_object_overlap
-function check_object_overlap(tcx: TyCtxt, impl_def_id: LocalDefId, trait_ref: TraitRef): Result<null, ErrorGuaranteed> {
+export function check_object_overlap(tcx: TyCtxt, impl_def_id: LocalDefId, trait_ref: TraitRef): Result<null, ErrorGuaranteed> {
   const trait_def_id = trait_ref.def_id;
 
   const r = TypeVisitableExt.error_reported(trait_ref, d_TraitRef);
