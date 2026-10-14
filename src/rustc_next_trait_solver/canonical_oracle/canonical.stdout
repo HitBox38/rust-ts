@@ -1,0 +1,21 @@
+response all-u1
+  Canonical { value: State { var_values: [^c_0, '^c_1], data: (^c_2, &'^c_3 ^c_0, ^c_4, ^c_5, ^c_6, [u8; ^c_BoundConst { var: 7, .. }], &'^c_1 ^c_8, &'static u8, &'{erased} u8, &'^c_9 u8, &'^c_10 u8, [u8; ^c_BoundConst { var: 11, .. }], (^c_2, u8), (^c_2, u8), ^c_0, &'^c_3 u8) }, max_universe: U1, var_kinds: [Ty { ui: U1, sub_root: 0 }, Region(U1), Ty { ui: U0, sub_root: 2 }, Region(U0), Ty { ui: U0, sub_root: 2 }, Int, Float, Const(U1), PlaceholderTy(!1_0), PlaceholderRegion(!1_1), PlaceholderRegion(!3), PlaceholderConst(!1_BoundConst { var: 2, .. })] }
+response all-u2
+  Canonical { value: State { var_values: [], data: (^c_0, ^c_1, ^c_2, &'^c_3 ^c_0, [u8; ^c_BoundConst { var: 4, .. }]) }, max_universe: U0, var_kinds: [Ty { ui: U0, sub_root: 0 }, Ty { ui: U0, sub_root: 1 }, Ty { ui: U0, sub_root: 0 }, Region(U0), Const(U0)] }
+response root
+  Canonical { value: State { var_values: [^c_0], data: (^c_1, ^c_2, ^c_0, &'^c_3 ^c_4, ^c_5) }, max_universe: U2, var_kinds: [Ty { ui: U0, sub_root: 0 }, Ty { ui: U2, sub_root: 1 }, Ty { ui: U1, sub_root: 0 }, Region(U2), PlaceholderTy(!2_0), Int] }
+response placeholder-in-input-universe
+  panic: new placeholder in universe U2: '!2_1
+response many
+  Canonical { value: State { var_values: [^c_0], data: (^c_1, ^c_2, ^c_3, ^c_4, ^c_5, ^c_6, ^c_7, ^c_0, ^c_8, ^c_9, ^c_10, ^c_11, ^c_12, ^c_13, ^c_14, ^c_15, ^c_16, ^c_17, ^c_18, ^c_19, ^c_1, ^c_19, ^c_6, &'^c_20 ^c_3) }, max_universe: U1, var_kinds: [Ty { ui: U1, sub_root: 0 }, Ty { ui: U0, sub_root: 1 }, Ty { ui: U0, sub_root: 1 }, Ty { ui: U1, sub_root: 3 }, Ty { ui: U1, sub_root: 4 }, Ty { ui: U1, sub_root: 5 }, Ty { ui: U1, sub_root: 6 }, Ty { ui: U1, sub_root: 7 }, Ty { ui: U1, sub_root: 8 }, Ty { ui: U1, sub_root: 9 }, Ty { ui: U1, sub_root: 10 }, Ty { ui: U1, sub_root: 11 }, Ty { ui: U1, sub_root: 12 }, Ty { ui: U1, sub_root: 13 }, Ty { ui: U1, sub_root: 14 }, Ty { ui: U1, sub_root: 15 }, Ty { ui: U1, sub_root: 16 }, Ty { ui: U1, sub_root: 17 }, Ty { ui: U1, sub_root: 18 }, Ty { ui: U1, sub_root: 19 }, Region(U0)] }
+input all
+  max_universe: U0
+  var_kinds: [Ty { ui: U0, sub_root: 0 }, PlaceholderRegion(!1), Ty { ui: U0, sub_root: 2 }, Ty { ui: U0, sub_root: 0 }, Int, Float, Const(U0), PlaceholderRegion(!7), PlaceholderTy(!8), PlaceholderRegion(!9), PlaceholderRegion(!10), PlaceholderRegion(!11), PlaceholderRegion(!12)]
+  term: Term::Ty((^c_0, &'^c_1 ^c_2, ^c_3, ^c_4, ^c_5, [u8; ^c_BoundConst { var: 6, .. }], &'^c_7 ^c_8, &'^c_9 u8, &'^c_10 u8, &'^c_11 u8, (^c_0, u8), (^c_0, u8), ^c_2, &'^c_1 ^c_8, &'^c_9 ^c_3, &'^c_12 u8))
+  opaques: []
+  orig_values: [?0t, '?0, ?1t, ?2t, ?0i, ?0f, ?0c, '?1, !2_0, 'static, '{erased}, '!2_1, '!3]
+input params
+  max_universe: U0
+  var_kinds: [PlaceholderTy(!0), Ty { ui: U0, sub_root: 1 }, PlaceholderConst(!BoundConst { var: 2, .. }), PlaceholderRegion(!3), PlaceholderConst(!BoundConst { var: 4, .. })]
+  term: Term::Ty((^c_0, ^c_1, [u8; ^c_BoundConst { var: 2, .. }], &'^c_3 ^c_0, ^c_0, [u8; ^c_BoundConst { var: 4, .. }]))
+  opaques: []
