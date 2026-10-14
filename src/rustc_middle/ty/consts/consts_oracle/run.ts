@@ -4,13 +4,9 @@
 // Subject side of ./probe.rs (its header documents the output): runs the ported driver and, in `after_expansion`,
 // prints the same sections with lane ty-results' `ScalarInt` / `ConstInt` / `ValTree` / `Value` / `Const` ports, then
 // stops (`Compilation::Stop`).
-// One difference from the probe, forced by rustc_interface/limits.ts (its `hir_krate_attrs` stand-in, a merge-w14 root
-// item; lane ty-print-b's pretty_oracle/run.ts has the same one): `FmtPrinter::new` is replaced in this process by
-// `FmtPrinter::new_with_limit(tcx, ns, Limit::new(2^24))`, the `type_length_limit` limits.rs:24 gives a crate without
-// `#![type_length_limit]`, instead of reading the `limits` query. No case comes near the limit. The sections
-// `display_int`, `valtree_consts` (printing an integer `Const` needs `Ty::is_ptr_sized_integral`) and `value_preds`
-// (`Ty::is_bool`) are not printed (the first two are under `-Zverbose-internals`): those `Ty` predicates are lane
-// ty-sty's stubs; consts.test.ts checks those lines.
+// No difference from the probe is left (merge-w15b): `FmtPrinter::new` reads the `limits` query (limits.ts's
+// `hir_krate_attrs` stand-in is gone) and the `Ty` predicates the `display_int` / `value_preds` / `valtree_consts`
+// sections need are ported (lane ty-sty).
 //
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
 import type { Compiler, Config } from "../../../../rustc_interface/interface.ts";
@@ -30,12 +26,9 @@ async function main(): Promise<number> {
   const { PLAIN, PRETTY, debug_option, debug_char } = await import("../../../../std/fmt.ts");
   const int = await import("../int.ts");
   const { ScalarInt, ConstInt, debug_ConstInt, debug_ScalarInt, lower_hex_ScalarInt, upper_hex_ScalarInt, display_ScalarInt, ScalarInt_eq } = int;
-  const { ValTree, debug_ValTree, debug_Value, display_Value } = await import("../valtree.ts");
+  const { ValTree, Value, debug_ValTree, debug_Value, display_Value } = await import("../valtree.ts");
   const { Const } = await import("../../../../rustc_type_ir/sty/consts.ts");
   const { display_Const } = await import("../../../../rustc_type_ir/ir_print.ts");
-  const { FmtPrinter } = await import("../../print/pretty.ts");
-  const { Limit } = await import("../../../../rustc_structures/limit.ts");
-  (FmtPrinter as unknown as { new: unknown }).new = (tcx: TyCtxt, ns: import("../../../../rustc_hir/def.ts").Namespace) => FmtPrinter.new_with_limit(tcx, ns, Limit.new(2 ** 24));
   type ScalarIntT = import("../int.ts").ScalarInt;
   type Ty = import("../../mod.ts").Ty;
   type ValTreeT = import("../valtree.ts").ValTree;
@@ -142,9 +135,8 @@ async function main(): Promise<number> {
       out += `${display_Const(tcx.consts.true_)} ${display_Const(tcx.consts.false_)} ${display_Const(tcx.consts.unit)} ${display_Const(ca)} ${display_Const(cq)} ${display_Const(cn)}\n`;
       out += `${display_Value(value_of(tcx.consts.true_))} ${display_Value(value_of(ca))}\n`;
 
-      // `display_int` / `valtree_consts` print integers through `Ty::is_ptr_sized_integral` (lane ty-sty's stub) except under
-      // `-Zverbose-internals`, where a value const prints as `ValTree(..: ty)`.
-      if (tcx.sess.verbose_internals()) {
+      // merge-w15b: `Ty::is_ptr_sized_integral` / `Ty::is_bool` are ported (lane ty-sty), so every section is printed.
+      {
         out += "== display_int\n";
         const ints: [ScalarIntT, Ty][] = [
           [ScalarInt.from_u8(42), tcx.types.u8],
@@ -160,6 +152,10 @@ async function main(): Promise<number> {
           const c = new_value(tcx, ValTree.from_scalar_int(tcx, i), t);
           out += `${display_Const(c)} ${display_Value(value_of(c))}\n`;
         }
+
+        out += "== value_preds\n";
+        const b = (v: boolean | undefined): string => (v === undefined ? "None" : `Some(${v})`);
+        out += `${b(Value.try_to_bool(value_of(tcx.consts.true_)))} ${b(Value.try_to_bool(value_of(c42)))}\n`;
 
         out += "== valtree_consts\n";
         const raw = ValTree.from_raw_bytes(tcx, new TextEncoder().encode("hi"));

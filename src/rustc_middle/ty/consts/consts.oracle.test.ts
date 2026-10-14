@@ -54,8 +54,9 @@ function drop_sections(stdout: string, blocked: readonly string[]): string {
 const SOURCE = '#![feature(no_core)]\n#![no_core]\n#![crate_type = "lib"]\n';
 
 const CASES: { name: string; args: string[]; blocked: string[] }[] = [
-  { name: "plain", args: ["c.rs"], blocked: ["display_int", "value_preds", "valtree_consts"] },
-  { name: "verbose", args: ["c.rs", "-Zverbose-internals"], blocked: ["value_preds"] },
+  // merge-w15b: nothing is blocked any more (the `Ty` predicates of lane ty-sty are ported).
+  { name: "plain", args: ["c.rs"], blocked: [] },
+  { name: "verbose", args: ["c.rs", "-Zverbose-internals"], blocked: [] },
 ];
 
 let sysroot = "";

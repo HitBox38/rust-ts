@@ -1,9 +1,8 @@
 // Lane ty-results: rustc_middle ty/consts.rs, ty/consts/{int,kind,lit,valtree}.rs unit tests.
 //
-// - The probe lines the oracle test (consts.oracle.test.ts) cannot compare yet (`display_int`, `value_preds`,
-//   `valtree_consts`: printing an integer `Const` reads `Ty::is_ptr_sized_integral`, `Value::try_to_bool` reads
-//   `Ty::is_bool`, both lane ty-sty's stubs) are checked here against consts_oracle/expected.json, with those two `Ty`
-//   predicates mocked with upstream's bodies (ty/sty.rs). The printer is `FmtPrinter::new_with_limit` (run.ts header).
+// - The probe lines `display_int`, `value_preds`, `valtree_consts` are also checked here against
+//   consts_oracle/expected.json (written while lane ty-sty's `Ty` predicates were stubs, which these tests mocked with
+//   upstream's bodies; since merge-w15b the oracle test compares them end to end too).
 // - Panics and the hand-written decode of `ScalarInt`.
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import "../../lib.ts";
