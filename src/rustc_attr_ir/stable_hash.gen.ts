@@ -4,7 +4,7 @@
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
 import { stable_hash_Path } from "../rustc_ast/lib.ts";
-import { stable_hash_AttrStyle, stable_hash_DelimArgs } from "../rustc_ast/stable_hash.gen.ts";
+import { stable_hash_AssocCtxt, stable_hash_AttrStyle, stable_hash_DelimArgs, stable_hash_DocFragmentKind, stable_hash_MetaItemLit, stable_hash_RustcVersion } from "../rustc_ast/stable_hash.gen.ts";
 import { stable_hash_IntTy, stable_hash_UintTy } from "../rustc_ast_ir/stable_hash.gen.ts";
 import { type AttrArgs, type Attribute, type AttrItem, type AttrPath, stable_hash_HashIgnoredAttrId } from "./attr.ts";
 import { type CanonicalSymbol, type CanonicalSymbols } from "./canonical_symbols.ts";
@@ -37,7 +37,7 @@ export function stable_hash_AttrArgs(self: AttrArgs, __hcx: StableHashCtxt, __ha
       break;
     case "Eq":
       stable_hash_Span(self.eq_span, __hcx, __hasher);
-      unported_stable_hash(self.expr);
+      stable_hash_MetaItemLit(self.expr, __hcx, __hasher);
       break;
   }
 }
@@ -249,7 +249,7 @@ export function stable_hash_DeprecatedSince(self: DeprecatedSince, __hcx: Stable
   stable_hash_Discriminant(DeprecatedSince__discriminant[self.$], __hcx, __hasher);
   switch (self.$) {
     case "RustcVersion":
-      unported_stable_hash(self._0);
+      stable_hash_RustcVersion(self._0, __hcx, __hasher);
       break;
     case "Future":
       break;
@@ -511,7 +511,7 @@ export function stable_hash_UnstableRemovedFeature(self: UnstableRemovedFeature,
   stable_hash_Symbol(self.feature, __hcx, __hasher);
   stable_hash_Symbol(self.reason, __hcx, __hasher);
   stable_hash_Symbol(self.link, __hcx, __hasher);
-  unported_stable_hash(self.since);
+  stable_hash_RustcVersion(self.since, __hcx, __hasher);
 }
 
 // rustc-derive: compiler/rustc_attr_ir/src/data_structures.rs:779 StableHash for AttributeKind
@@ -582,7 +582,7 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
       break;
     case "DocComment":
       stable_hash_AttrStyle(self.style, __hcx, __hasher);
-      unported_stable_hash(self.kind);
+      stable_hash_DocFragmentKind(self.kind, __hcx, __hasher);
       stable_hash_Span(self.span, __hcx, __hasher);
       stable_hash_Symbol(self.comment, __hcx, __hasher);
       break;
@@ -1252,7 +1252,7 @@ export function stable_hash_StableSince(self: StableSince, __hcx: StableHashCtxt
   stable_hash_Discriminant(StableSince__discriminant[self.$], __hcx, __hasher);
   switch (self.$) {
     case "Version":
-      unported_stable_hash(self._0);
+      stable_hash_RustcVersion(self._0, __hcx, __hasher);
       break;
     case "Current":
       break;
@@ -1347,13 +1347,13 @@ export function stable_hash_Target(self: Target, __hcx: StableHashCtxt, __hasher
     case "Arm":
       break;
     case "AssocConst":
-      unported_stable_hash(self._0);
+      stable_hash_AssocCtxt(self._0, __hcx, __hasher);
       break;
     case "Method":
       stable_hash_MethodKind(self._0, __hcx, __hasher);
       break;
     case "AssocTy":
-      unported_stable_hash(self._0);
+      stable_hash_AssocCtxt(self._0, __hcx, __hasher);
       break;
     case "ForeignFn":
       break;

@@ -4,9 +4,11 @@
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
 import { stable_hash_FloatTy, stable_hash_IntTy, stable_hash_Mutability, stable_hash_Pinnedness, stable_hash_UintTy } from "../rustc_ast_ir/stable_hash.gen.ts";
-import { type AsmMacro, type AssignOpKind, type AttrStyle, type BindingMode, type BinOpKind, type BorrowKind, type BoundConstness, type BoundPolarity, type ByRef, type CaptureBy, type DelimArgs, type EiiDecl, type ImplPolarity, type InlineAsmOptions, type InlineAsmTemplatePiece, type IsAuto, type Label, type LitFloatType, type LitIntType, type LitKind, type MacroDef, type Recovered, stable_hash_Path, type StrStyle, type TraitObjectSyntax, type UnOp, type UnsafeBinderCastKind } from "./ast.ts";
-import { type CommentKind, type Delimiter, type IdentKind, type InvisibleOrigin, type Lit, type LitKind as token_LitKind, type MetaVarKind, type NtExprKind, type NtPatKind, type Token, type TokenKind } from "./token.ts";
+import { type AsmMacro, type AssignOpKind, type AttrStyle, type BindingMode, type BinOpKind, type BorrowKind, type BoundConstness, type BoundPolarity, type ByRef, type CaptureBy, type DelimArgs, type EiiDecl, type ImplPolarity, type InlineAsmOptions, type InlineAsmTemplatePiece, type IsAuto, type Label, type LitFloatType, type LitIntType, type LitKind, type MacroDef, type MetaItemLit, type Recovered, stable_hash_Path, type StrStyle, type TraitObjectSyntax, type UnOp, type UnsafeBinderCastKind } from "./ast.ts";
+import { type RustcVersion } from "./attr/version.ts";
+import { type CommentKind, type Delimiter, type DocFragmentKind, type IdentKind, type InvisibleOrigin, type Lit, type LitKind as token_LitKind, type MetaVarKind, type NtExprKind, type NtPatKind, type Token, type TokenKind } from "./token.ts";
 import { type DelimSpacing, type DelimSpan, type Spacing, stable_hash_TokenStream, type TokenTree } from "./tokenstream.ts";
+import { type AssocCtxt } from "./visit.ts";
 import { stable_hash_bool, stable_hash_char, stable_hash_Discriminant, stable_hash_Option, stable_hash_str, stable_hash_u128, stable_hash_u16, stable_hash_u8, stable_hash_usize, type StableHash, type StableHashCtxt, type StableHasher } from "../rustc_data_structures/stable_hash.ts";
 import { stable_hash_Span } from "../rustc_span/lib.ts";
 import { stable_hash_ErrorGuaranteed, stable_hash_Ident } from "../rustc_span/stable_hash.gen.ts";
@@ -114,6 +116,14 @@ export function stable_hash_StrStyle(self: StrStyle, __hcx: StableHashCtxt, __ha
       stable_hash_u8(self._0, __hcx, __hasher);
       break;
   }
+}
+
+// rustc-derive: compiler/rustc_ast/src/ast.rs:2205 StableHash for MetaItemLit
+export function stable_hash_MetaItemLit(self: MetaItemLit, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Symbol(self.symbol, __hcx, __hasher);
+  stable_hash_Option(self.suffix, __hcx, __hasher, stable_hash_Symbol);
+  stable_hash_ast_LitKind(self.kind, __hcx, __hasher);
+  stable_hash_Span(self.span, __hcx, __hasher);
 }
 
 // rustc-derive: compiler/rustc_ast/src/ast.rs:2242 StableHash for LitIntType
@@ -284,6 +294,27 @@ export function stable_hash_Recovered(self: Recovered, __hcx: StableHashCtxt, __
       break;
     case "Yes":
       stable_hash_ErrorGuaranteed(self._0, __hcx, __hasher);
+      break;
+  }
+}
+
+// rustc-derive: compiler/rustc_ast/src/attr/version.rs:8 StableHash for RustcVersion
+export function stable_hash_RustcVersion(self: RustcVersion, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_u16(self.major, __hcx, __hasher);
+  stable_hash_u16(self.minor, __hcx, __hasher);
+  stable_hash_u16(self.patch, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_ast/src/token.rs:18 StableHash for DocFragmentKind
+const DocFragmentKind__discriminant = { Sugared: 0, Raw: 1 } as const;
+export function stable_hash_DocFragmentKind(self: DocFragmentKind, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(DocFragmentKind__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "Sugared":
+      stable_hash_CommentKind(self._0, __hcx, __hasher);
+      break;
+    case "Raw":
+      stable_hash_Span(self._0, __hcx, __hasher);
       break;
   }
 }
@@ -627,4 +658,17 @@ export function stable_hash_DelimSpan(self: DelimSpan, __hcx: StableHashCtxt, __
 export function stable_hash_DelimSpacing(self: DelimSpacing, __hcx: StableHashCtxt, __hasher: StableHasher): void {
   stable_hash_Spacing(self.open, __hcx, __hasher);
   stable_hash_Spacing(self.close, __hcx, __hasher);
+}
+
+// rustc-derive: compiler/rustc_ast/src/visit.rs:26 StableHash for AssocCtxt
+const AssocCtxt__discriminant = { Trait: 0, Impl: 1 } as const;
+export function stable_hash_AssocCtxt(self: AssocCtxt, __hcx: StableHashCtxt, __hasher: StableHasher): void {
+  stable_hash_Discriminant(AssocCtxt__discriminant[self.$], __hcx, __hasher);
+  switch (self.$) {
+    case "Trait":
+      break;
+    case "Impl":
+      stable_hash_bool(self.of_trait, __hcx, __hasher);
+      break;
+  }
 }

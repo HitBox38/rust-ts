@@ -115,7 +115,11 @@
       "rustc_ast::tokenstream::DelimSpacing",
       "rustc_ast::tokenstream::DelimSpan",
       "rustc_ast::tokenstream::Spacing",
-      "rustc_ast::tokenstream::TokenTree"
+      "rustc_ast::tokenstream::TokenTree",
+      "rustc_ast::attr::version::RustcVersion",
+      "rustc_ast::ast::MetaItemLit",
+      "rustc_ast::token::DocFragmentKind",
+      "rustc_ast::visit::AssocCtxt"
     ],
     "derive_decodable": true
   },
