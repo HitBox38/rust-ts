@@ -81,8 +81,11 @@ import * as collect from "./collect.ts";
 // mod check_unused;         (wave 17)
 // mod coherence;            (wave 17: coherence)
 // mod collect;
-// mod constrained_generic_params;  (wave 17)
-// pub mod delegation;       (wave 17: variance-outlives-implwf)
+// mod constrained_generic_params;
+import "./constrained_generic_params.ts";
+// pub mod delegation;
+import * as delegation from "./delegation.ts";
+export { delegation };
 // pub mod diagnostics;
 export * as diagnostics from "./diagnostics.ts";
 // pub mod hir_ty_lowering;
