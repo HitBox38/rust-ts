@@ -16,7 +16,7 @@
   nested_bodies_within = []
 ::g (Fn)
   asyncness = No
-  nested_bodies_within = UNPORTED: anon_const_kind provider (not ported)
+  nested_bodies_within = [::g::{constant#0}]
 ::Tr::required (AssocFn)
   asyncness = No
   defaultness = Default { has_value: false }
@@ -36,6 +36,6 @@
 ::{impl#1}::inherent (AssocFn)
   asyncness = No
   nested_bodies_within = []
-param_env(::f): UNPORTED: clauses_of provider (not ported)
-opaque_types_defined_by(::f): UNPORTED: fn_sig provider (not ported)
-assumed_wf_types(::{impl#1}): UNPORTED: type_of provider (not ported)
+param_env(::f): UNPORTED: inferred_outlives_of provider (not ported)
+opaque_types_defined_by(::f): ok
+assumed_wf_types(::{impl#1}): ok

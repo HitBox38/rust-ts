@@ -1,10 +1,10 @@
 // Lane ty-utils: the rustc_ty_utils providers that only read the HIR (`asyncness`, `defaultness` from ty.rs,
-// `nested_bodies_within` from nested_bodies.rs) through the ported driver (ty_test/run.ts), and where the providers
-// that read rustc_hir_analysis queries stop today (`param_env` at `clauses_of`, `opaque_types_defined_by` at `fn_sig`
-// via rustc_ty_walk's `walk_types`, `assumed_wf_types` of an inherent impl at `type_of`). The expected report
-// (ty_test/ty.expected.txt) was checked by reading ty.rs / nested_bodies.rs: trait items without a default are
-// `Default { has_value: false }`, trait impls and their items `Final`; nested bodies come before their parent; nested
-// items (`f::inner`) are not visited; an inline const (`g`) needs `anon_const_kind` (rustc_hir_analysis, not ported).
+// `nested_bodies_within` from nested_bodies.rs) through the ported driver (ty_test/run.ts), and the providers that read
+// rustc_hir_analysis queries (`opaque_types_defined_by`, `assumed_wf_types` run to the end since merge-w16a; `param_env`
+// stops at `clauses_of`'s `inferred_outlives_of`, wave 17). The expected report (ty_test/ty.expected.txt) was checked by
+// reading ty.rs / nested_bodies.rs: trait items without a default are `Default { has_value: false }`, trait impls and
+// their items `Final`; nested bodies come before their parent; nested items (`f::inner`) are not visited; the inline
+// const of `g` is its nested body.
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
