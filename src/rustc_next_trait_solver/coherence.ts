@@ -13,7 +13,12 @@ import type { DefId } from "../rustc_span/def_id.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Clauses, Ty } from "../rustc_middle/ty/decls.ts";
 import { debug_Ty } from "../rustc_middle/ty/structural_impls.ts";
-import { type ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../rustc_ast_ir/visit.ts";
+import { ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../rustc_ast_ir/visit.ts";
+import { fold_GenericArgs } from "../rustc_middle/ty/generic_args.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { debug_TraitRef, visit_with_TraitRef } from "../rustc_type_ir/predicate.ts";
+import { TypeFlags } from "../rustc_type_ir/flags.ts";
+import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
 import type { Binder, TraitRef } from "../rustc_type_ir/decls.ts";
 import type { PredicateProxy, TypeFoldable } from "../rustc_type_ir/fold.ts";
 import type { InferCtxtLike } from "../rustc_type_ir/infer_ctxt.ts";
@@ -23,8 +28,9 @@ import type { Region } from "../rustc_type_ir/sty/mod.ts";
 import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "../rustc_type_ir/visit.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { type Debug, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
-import type { Result } from "../std/result.ts";
+import { panic, unreachable } from "../std/panic.ts";
+import { Err, Ok, type Result } from "../std/result.ts";
+import { PLAIN } from "../std/fmt.ts";
 
 /// Whether we do the orphan check relative to this crate or to some remote crate.
 // PORT: `#[derive(Copy, Clone, Debug)]`.
@@ -68,16 +74,50 @@ export const debug_Conflict: Debug<Conflict> = (v) => v;
 /// This both checks whether any downstream or sibling crates could
 /// implement it and whether an upstream crate can add this impl
 /// without breaking backwards compatibility.
+// #[instrument(level = "debug", skip(infcx, lazily_normalize_ty), ret)]
+// rustc: compiler/rustc_next_trait_solver/src/coherence.rs:48 trait_ref_is_knowable
 export function trait_ref_is_knowable<E>(
-  _infcx: InferCtxtLike,
-  _trait_ref: TraitRef,
-  _lazily_normalize_ty: (ty: Ty) => Result<Ty, E>,
+  infcx: InferCtxtLike,
+  trait_ref: TraitRef,
+  lazily_normalize_ty: (ty: Ty) => Result<Ty, E>,
 ): Result<Result<undefined, Conflict>, E> {
-  return unported("rustc_next_trait_solver::coherence::trait_ref_is_knowable");
+  const remote = orphan_check_trait_ref(infcx, trait_ref, InCrate.Remote, lazily_normalize_ty);
+  if (remote.$ === "Err") return remote;
+  if (remote._0.$ === "Ok") {
+    // A downstream or cousin crate is allowed to implement some
+    // generic parameters of this trait-ref.
+    return Ok(Err(Conflict.Downstream));
+  }
+
+  if (trait_ref_is_local_or_fundamental(infcx.cx(), trait_ref)) {
+    // This is a local or fundamental trait, so future-compatibility
+    // is no concern. We know that downstream/cousin crates are not
+    // allowed to implement a generic parameter of this trait ref,
+    // which means impls could only come from dependencies of this
+    // crate, which we already know about.
+    return Ok(Ok(undefined));
+  }
+
+  // This is a remote non-fundamental trait, so if another crate
+  // can be the "final owner" of the generic parameters of this trait-ref,
+  // they are allowed to implement it future-compatibly.
+  //
+  // However, if we are a final owner, then nobody else can be,
+  // and if we are an intermediate owner, then we don't care
+  // about future-compatibility, which means that we're OK if
+  // we are an owner.
+  const local = orphan_check_trait_ref(infcx, trait_ref, { $: "Local", mode: OrphanCheckMode.Proper }, lazily_normalize_ty);
+  if (local.$ === "Err") return local;
+  if (local._0.$ === "Ok") {
+    return Ok(Ok(undefined));
+  } else {
+    return Ok(Err(Conflict.Upstream));
+  }
 }
 
-export function trait_ref_is_local_or_fundamental(_tcx: TyCtxt, _trait_ref: TraitRef): boolean {
-  return unported("rustc_next_trait_solver::coherence::trait_ref_is_local_or_fundamental");
+// rustc: compiler/rustc_next_trait_solver/src/coherence.rs:96 trait_ref_is_local_or_fundamental
+export function trait_ref_is_local_or_fundamental(tcx: TyCtxt, trait_ref: TraitRef): boolean {
+  return trait_ref.def_id.is_local() || tcx.trait_is_fundamental(trait_ref.def_id);
 }
 
 // PORT: `#[derive(Debug, Copy, Clone)]` fieldless enum; `impl From<bool>` is on the companion.
@@ -86,8 +126,14 @@ export const IsFirstInputType = {
   No: "No",
   Yes: "Yes",
 
-  from(_b: boolean): IsFirstInputType {
-    return unported("rustc_next_trait_solver::coherence::IsFirstInputType::from");
+  // rustc: compiler/rustc_next_trait_solver/src/coherence.rs:109 from
+  from(b: boolean): IsFirstInputType {
+    switch (b) {
+      case false:
+        return "No";
+      case true:
+        return "Yes";
+    }
   },
 } as const;
 export const debug_IsFirstInputType: Debug<IsFirstInputType> = (v) => v;
@@ -213,13 +259,45 @@ export function debug_UncoveredTyParams<T>(v: UncoveredTyParams<T>, f: Fmt, debu
 ///    type-system requirement, crate owners might also go for "semantic
 ///    future-compatibility" involving things such as sealed traits, but
 ///    the above requirement is sufficient, and is necessary in "open world"
+///    cases).
+///
+/// Note that this function is never called for types that have both type
+/// parameters and inference variables.
+// #[instrument(level = "trace", skip(infcx, lazily_normalize_ty), ret)]
+// rustc: compiler/rustc_next_trait_solver/src/coherence.rs:222 orphan_check_trait_ref
 export function orphan_check_trait_ref<E>(
-  _infcx: InferCtxtLike,
-  _trait_ref: TraitRef,
-  _in_crate: InCrate,
-  _lazily_normalize_ty: (ty: Ty) => Result<Ty, E>,
+  infcx: InferCtxtLike,
+  trait_ref: TraitRef,
+  in_crate: InCrate,
+  lazily_normalize_ty: (ty: Ty) => Result<Ty, E>,
 ): Result<Result<undefined, OrphanCheckErr<Ty>>, E> {
-  return unported("rustc_next_trait_solver::coherence::orphan_check_trait_ref");
+  if (TypeVisitableExt.has_param(trait_ref, visit_TraitRef)) {
+    return panic(`orphan check only expects inference variables: ${debug_TraitRef(trait_ref, PLAIN)}`);
+  }
+
+  const checker = OrphanChecker.new(infcx, in_crate, lazily_normalize_ty);
+  const cf = visit_with_TraitRef(trait_ref, checker);
+  switch (cf.$) {
+    case "Continue":
+      return Ok(Err({ $: "NonLocalInputType", _0: checker.non_local_tys }));
+    case "Break": {
+      const residual = cf._0;
+      switch (residual.$) {
+        case "NormalizationFailure":
+          return Err(residual._0);
+        case "UncoveredTyParam": {
+          const ty = residual._0;
+          // Does there exist some local type after the `ParamTy`.
+          checker.search_first_local_ty = true;
+          const again = visit_with_TraitRef(trait_ref, checker);
+          const local_ty = again.$ === "Break" && again._0.$ === "LocalTy" ? again._0._0 : undefined;
+          return Ok(Err({ $: "UncoveredTyParams", _0: { uncovered: ty, local_ty } }));
+        }
+        case "LocalTy":
+          return Ok(Ok(undefined));
+      }
+    }
+  }
 }
 
 export class OrphanChecker<E> implements TypeVisitor<ControlFlow<OrphanCheckEarlyExit<E>>> {
@@ -236,33 +314,227 @@ export class OrphanChecker<E> implements TypeVisitor<ControlFlow<OrphanCheckEarl
     public non_local_tys: [Ty, IsFirstInputType][],
   ) {}
 
-  static new<E>(_infcx: InferCtxtLike, _in_crate: InCrate, _lazily_normalize_ty: (ty: Ty) => Result<Ty, E>): OrphanChecker<E> {
-    return unported("rustc_next_trait_solver::coherence::OrphanChecker::new");
+  // rustc: compiler/rustc_next_trait_solver/src/coherence.rs:275 new
+  static new<E>(infcx: InferCtxtLike, in_crate: InCrate, lazily_normalize_ty: (ty: Ty) => Result<Ty, E>): OrphanChecker<E> {
+    return new OrphanChecker(infcx, in_crate, true, lazily_normalize_ty, false, []);
   }
 
-  found_non_local_ty(_t: Ty): ControlFlow<OrphanCheckEarlyExit<E>> {
-    return unported("rustc_next_trait_solver::coherence::OrphanChecker::found_non_local_ty");
+  // rustc: compiler/rustc_next_trait_solver/src/coherence.rs:286 found_non_local_ty
+  found_non_local_ty(t: Ty): ControlFlow<OrphanCheckEarlyExit<E>> {
+    this.non_local_tys.push([t, IsFirstInputType.from(this.in_self_ty)]);
+    return ControlFlow.CONTINUE;
   }
 
-  found_uncovered_ty_param(_ty: Ty): ControlFlow<OrphanCheckEarlyExit<E>> {
-    return unported("rustc_next_trait_solver::coherence::OrphanChecker::found_uncovered_ty_param");
+  // rustc: compiler/rustc_next_trait_solver/src/coherence.rs:291 found_uncovered_ty_param
+  found_uncovered_ty_param(ty: Ty): ControlFlow<OrphanCheckEarlyExit<E>> {
+    if (this.search_first_local_ty) {
+      return ControlFlow.CONTINUE;
+    }
+
+    return ControlFlow.Break({ $: "UncoveredTyParam", _0: ty });
   }
 
-  def_id_is_local(_def_id: DefId): boolean {
-    return unported("rustc_next_trait_solver::coherence::OrphanChecker::def_id_is_local");
+  // rustc: compiler/rustc_next_trait_solver/src/coherence.rs:299 def_id_is_local
+  def_id_is_local(def_id: DefId): boolean {
+    switch (this.in_crate.$) {
+      case "Local":
+        return def_id.is_local();
+      case "Remote":
+        return false;
+    }
   }
 
   // ---- impl TypeVisitor for OrphanChecker ----
+  // rustc: compiler/rustc_next_trait_solver/src/coherence.rs:321 visit_region
   visit_region(_r: Region): ControlFlow<OrphanCheckEarlyExit<E>> {
-    return unported("rustc_next_trait_solver::coherence::OrphanChecker::visit_region");
+    return ControlFlow.CONTINUE;
   }
 
-  visit_ty(_ty: Ty): ControlFlow<OrphanCheckEarlyExit<E>> {
-    return unported("rustc_next_trait_solver::coherence::OrphanChecker::visit_ty");
+  // rustc: compiler/rustc_next_trait_solver/src/coherence.rs:325 visit_ty
+  visit_ty(ty: Ty): ControlFlow<OrphanCheckEarlyExit<E>> {
+    ty = this.infcx.shallow_resolve(ty);
+    const norm = this.lazily_normalize_ty(ty);
+    if (norm.$ === "Ok") {
+      const norm_ty = norm._0;
+      if (!norm_ty.is_ty_var()) {
+        ty = norm_ty;
+      }
+    } else {
+      return ControlFlow.Break({ $: "NormalizationFailure", _0: norm._0 });
+    }
+
+    let result: ControlFlow<OrphanCheckEarlyExit<E>>;
+    const k = ty.kind();
+    switch (k.$) {
+      case "Bool":
+      case "Char":
+      case "Int":
+      case "Uint":
+      case "Float":
+      case "Str":
+      case "Pat":
+      case "FnPtr":
+      case "Array":
+      case "Slice":
+      case "RawPtr":
+      case "Never":
+      case "Tuple":
+      // FIXME(unsafe_binders): Non-local?
+      case "UnsafeBinder":
+        result = this.found_non_local_ty(ty);
+        break;
+
+      case "Param":
+        return panic("unexpected ty param");
+
+      case "Placeholder":
+      case "Bound":
+      case "Infer":
+        switch (this.in_crate.$) {
+          case "Local":
+            result = this.found_uncovered_ty_param(ty);
+            break;
+          // The inference variable might be unified with a local
+          // type in that remote crate.
+          case "Remote":
+            result = ControlFlow.Break({ $: "LocalTy", _0: ty });
+            break;
+        }
+        break;
+
+      // A rigid alias may normalize to anything.
+      // * If it references an infer var, placeholder or bound ty, it may
+      //   normalize to that, so we have to treat it as an uncovered ty param.
+      // * Otherwise it may normalize to any non-type-generic type
+      //   be it local or non-local.
+      case "Alias": {
+        const kind = k._1.kind;
+        if (
+          TypeVisitableExt.has_type_flags(
+            ty,
+            (TypeFlags.HAS_TY_PLACEHOLDER | TypeFlags.HAS_TY_BOUND | TypeFlags.HAS_TY_INFER) as TypeFlags,
+            fold_Ty,
+          )
+        ) {
+          switch (this.in_crate.$) {
+            case "Local": {
+              const mode = this.in_crate.mode;
+              if (kind.$ === "Projection") {
+                if (mode === "Compat") {
+                  result = ControlFlow.CONTINUE;
+                } else {
+                  result = this.found_uncovered_ty_param(ty);
+                }
+              } else {
+                result = this.found_uncovered_ty_param(ty);
+              }
+              break;
+            }
+            case "Remote":
+              // The inference variable might be unified with a local
+              // type in that remote crate.
+              result = ControlFlow.Break({ $: "LocalTy", _0: ty });
+              break;
+          }
+        } else {
+          // Regarding *opaque types* specifically, we choose to treat them as non-local,
+          // even those that appear within the same crate. This seems somewhat surprising
+          // at first, but makes sense when you consider that opaque types are supposed
+          // to hide the underlying type *within the same crate*. When an opaque type is
+          // used from outside the module where it is declared, it should be impossible to
+          // observe anything about it other than the traits that it implements.
+          //
+          // The alternative would be to look at the underlying type to determine whether
+          // or not the opaque type itself should be considered local.
+          //
+          // However, this could make it a breaking change to switch the underlying hidden
+          // type from a local type to a remote type. This would violate the rule that
+          // opaque types should be completely opaque apart from the traits that they
+          // implement, so we don't use this behavior.
+          // Addendum: Moreover, revealing the underlying type is likely to cause cycle
+          // errors as we rely on coherence / the specialization graph during typeck.
+          result = this.found_non_local_ty(ty);
+        }
+        break;
+      }
+
+      // For fundamental types, we just look inside of them.
+      // Certain lang items (currently, `Box`) have special behaviour here
+      // and so are special cased.
+      case "Ref":
+        result = fold_Ty.visit_with(k._1, this);
+        break;
+      case "Adt": {
+        const def = k._0;
+        const args = k._1;
+        if (this.def_id_is_local(def.def_id())) {
+          result = ControlFlow.Break({ $: "LocalTy", _0: ty });
+        } else if (def.is_fundamental()) {
+          const item = this.infcx.cx().as_adt_lang_item(def.def_id());
+          if (item === "OwnedBox") {
+            result = fold_Ty.visit_with(args.type_at(0), this);
+          } else {
+            result = fold_GenericArgs.visit_with(args, this);
+          }
+        } else {
+          result = this.found_non_local_ty(ty);
+        }
+        break;
+      }
+      case "Foreign": {
+        const def_id = k._0;
+        if (this.def_id_is_local(def_id)) {
+          result = ControlFlow.Break({ $: "LocalTy", _0: ty });
+        } else {
+          result = this.found_non_local_ty(ty);
+        }
+        break;
+      }
+      case "Dynamic": {
+        const tt = k._0;
+        const principal = tt.principal_def_id();
+        if (principal !== undefined && this.def_id_is_local(principal)) {
+          result = ControlFlow.Break({ $: "LocalTy", _0: ty });
+        } else {
+          result = this.found_non_local_ty(ty);
+        }
+        break;
+      }
+      case "Error":
+        result = ControlFlow.Break({ $: "LocalTy", _0: ty });
+        break;
+
+      case "FnDef":
+      case "Closure":
+      case "CoroutineClosure":
+      case "Coroutine":
+      case "CoroutineWitness":
+        return unreachable(`internal error: entered unreachable code: unnameable type in coherence: ${debug_Ty(ty, PLAIN)}`);
+    }
+    // A bit of a hack, the `OrphanChecker` is only used to visit a `TraitRef`, so
+    // the first type we visit is always the self type.
+    this.in_self_ty = false;
+    return result;
   }
 
+  /// All possible values for a constant parameter already exist
+  /// in the crate defining the trait, so they are always non-local[^1].
+  ///
+  /// Because there's no way to have an impl where the first local
+  /// generic argument is a constant, we also don't have to fail
+  /// the orphan check when encountering a parameter or a generic constant.
+  ///
+  /// This means that we can completely ignore constants during the orphan check.
+  ///
+  /// See `tests/ui/coherence/const-generics-orphan-check-ok.rs` for examples.
+  ///
+  /// [^1]: This might not hold for function pointers or trait objects in the future.
+  /// As these should be quite rare as const arguments and especially rare as impl
+  /// parameters, allowing uncovered const parameters in impls seems more useful
+  /// than allowing `impl<T> Trait<local_fn_ptr, T> for i32` to compile.
+  // rustc: compiler/rustc_next_trait_solver/src/coherence.rs:472 visit_const
   visit_const(_c: Const): ControlFlow<OrphanCheckEarlyExit<E>> {
-    return unported("rustc_next_trait_solver::coherence::OrphanChecker::visit_const");
+    return ControlFlow.CONTINUE;
   }
 
   visit_binder<T>(t: Binder<T>, d: TypeVisitable<T>): ControlFlow<OrphanCheckEarlyExit<E>> {
@@ -287,3 +559,6 @@ export type OrphanCheckEarlyExit<E> =
   | { readonly $: "NormalizationFailure"; readonly _0: E }
   | { readonly $: "UncoveredTyParam"; readonly _0: Ty }
   | { readonly $: "LocalTy"; readonly _0: Ty };
+
+/** PORT: D4 descriptor of `TraitRef<I>` (derived `TypeVisitable`, rustc_type_ir predicate.gen.ts). */
+const visit_TraitRef: TypeVisitable<TraitRef> = { visit_with: visit_with_TraitRef };
