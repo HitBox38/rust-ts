@@ -177,6 +177,7 @@ export function instantiate_and_apply_query_response(
       break;
     case "NextGen":
       // PORT: `r.clone()`: region constraints are immutable values here.
+      // PORT(merge): ir_register_solver_region_constraint after infcx-contract
       delegate.deref().register_solver_region_constraint(region_constraints._0, span);
       break;
   }
@@ -450,6 +451,7 @@ export class ResponseRelating implements TypeRelation {
   // #[instrument(skip(self), level = "trace")]
   // rustc: compiler/rustc_next_trait_solver/src/canonical/mod.rs:417 regions
   regions(a: Region, b: Region): RelateResult<Region> {
+    // PORT(merge): ir_equate_regions after infcx-contract
     this.infcx.equate_regions(a, b, "Yes", this.span);
 
     return Ok(a);
@@ -548,6 +550,7 @@ export function register_region_constraints(
         const lk = GenericArg.kind(lhs);
         switch (lk.$) {
           case "Lifetime":
+            // PORT(merge): ir_sub_regions after infcx-contract
             delegate.deref().sub_regions(rhs, lk._0, vis, span);
             break;
           case "Type":
@@ -561,6 +564,7 @@ export function register_region_constraints(
       case "Eq": {
         const lhs = constraint._0._0;
         const rhs = constraint._0._1;
+        // PORT(merge): ir_equate_regions after infcx-contract
         delegate.deref().equate_regions(lhs, rhs, vis, span);
         break;
       }
@@ -575,6 +579,7 @@ export function register_new_opaque_types(
   span: Span,
 ): void {
   for (const [key, ty] of opaque_types) {
+    // PORT(merge): ir_register_hidden_type_in_storage after infcx-contract
     const prev = delegate.deref().register_hidden_type_in_storage(key, ty, span);
     // We eagerly resolve inference variables when computing the query response.
     // This can cause previously distinct opaque type keys to now be structurally equal.
