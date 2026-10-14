@@ -304,6 +304,8 @@ export interface StableHashMapEntry {
   u8_seq?: boolean;
   /** module of the `stable_hash_*` names the template uses (default: the map's `module`) */
   import?: string;
+  /** other names the template uses, by repo-relative module (e.g. an external type alias `BinOp = Spanned<BinOpKind>`) */
+  imports?: Record<string, string[]>;
   note?: string;
 }
 export interface StableHashMap {
@@ -844,6 +846,22 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     if (hasDerive(r, "StableHash") || hasDerive(r, "StableHash_NoContext")) deriveStableHash.add(r.key);
     if (r.mac?.kind === "newtype" && r.mac.def.attrs.some((a) => a.name === "stable_hash")) deriveStableHash.add(r.key);
   }
+  /**
+   * Exported name of a derived `stable_hash_<T>`: `stable_hash_<T>` unless another derived item of the crate has the
+   * same name (`ast::LitKind` / `token::LitKind`), then `stable_hash_<module>_<T>` for each of them.
+   */
+  const shDup = new Set<string>();
+  {
+    const seen = new Set<string>();
+    for (const r of items.values()) {
+      if (!deriveStableHash.has(r.key)) continue;
+      const k = `${r.mf.crate}::${r.item.name}`;
+      if (seen.has(k)) shDup.add(k);
+      seen.add(k);
+    }
+  }
+  const shExportName = (r: ItemRef): string =>
+    shDup.has(`${r.mf.crate}::${r.item.name}`) ? `stable_hash_${r.mod[r.mod.length - 1]}_${r.item.name}` : `stable_hash_${r.item.name}`;
   const manualStableHash = new Map<string, ModFile>(); // item key -> file with the impl
   if (set.derive_stable_hash)
     for (const mf of mfs)
@@ -1622,6 +1640,11 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       shAliasOwner.set(alias, r.key);
       const name = `stable_hash_${r.item.name}`;
       if (deriveStableHash.has(r.key)) {
+        const exported = shExportName(r);
+        if (exported !== name) {
+          if (r.mf.crate !== mf.crate) imp(`gen:${r.mf.crate}/stable_hash.gen.ts`, "values", exported, exported);
+          return exported;
+        }
         if (r.mf.crate !== mf.crate) imp(`gen:${r.mf.crate}/stable_hash.gen.ts`, "values", name, alias);
         else if (alias !== name) report.errors.push(`${at}: two derive(StableHash) types named ${r.item.name} in ${mf.crate}`);
         return alias;
@@ -1699,7 +1722,9 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             return `unported_stable_hash(${v})`;
           }
           const mod = e.import ? `src:${e.import.replace(/^src\//, "")}` : shModule;
-          for (const m of tmpl.matchAll(/\b(stable_hash_\w+)\(/g)) shUse(m[1]!, mod);
+          const named = new Set<string>();
+          for (const [m, ns] of Object.entries(e.imports ?? {})) for (const n of ns) named.add(shUse(n, `src:${m.replace(/^src\//, "")}`));
+          for (const m of tmpl.matchAll(/\b(stable_hash_\w+)\(/g)) if (!named.has(m[1]!)) shUse(m[1]!, mod);
           let out = tmpl.replaceAll("$hcx", "__hcx").replaceAll("$h", "__hasher").replaceAll("$v", v);
           for (const n of new Set(tmpl.match(/\$s\d/g) ?? [])) {
             const a = args[Number(n.slice(2))];
@@ -1778,12 +1803,23 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         const gen = ps.length ? `<${ps.join(", ")}>` : "";
         const self = `${tname}${gen}`;
         const extra = ps.map((p) => `, stable_hash_${p}: StableHash<${p}>`).join("");
+        const fname = shExportName(r);
         out.push("");
         if (r.mac?.kind === "newtype") {
           // rustc_index_macros/src/newtype.rs `#[stable_hash]`: `self.as_u32().stable_hash(hcx, hasher)`
           out.push(`// rustc-derive: ${at} newtype_index! #[stable_hash] for ${it.name}`);
-          out.push(`export function stable_hash_${it.name}(self: ${tname}, __hcx: StableHashCtxt, __hasher: StableHasher): void {`);
+          out.push(`export function ${fname}(self: ${tname}, __hcx: StableHashCtxt, __hasher: StableHasher): void {`);
           out.push(`  ${shUse("stable_hash_u32")}(self, ${H});`);
+          out.push("}");
+          fileStableHash++;
+          continue;
+        }
+        if (r.mac?.kind === "bitflags" && r.mac.def.form === "impl" && it.kind === "struct" && it.fields?.style === "unnamed" && it.fields.fields.length === 1) {
+          // `#[derive(StableHash)] struct Flags(u8);` + `bitflags! { impl Flags: u8 { .. } }`: the derive hashes the
+          // single field, and the TS value (a branded number) is that field
+          out.push(`// rustc-derive: ${r.mf.file.path}:${it.line} StableHash for ${it.name}`);
+          out.push(`export function ${fname}(self: ${tname}, __hcx: StableHashCtxt, __hasher: StableHasher): void {`);
+          out.push(`  ${shExpr(it.fields.fields[0]!.ty, "self", sc, at)};`);
           out.push("}");
           fileStableHash++;
           continue;
@@ -1824,7 +1860,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         if (it.kind === "struct") {
           const stmts = fieldStmts(it.fields!, "self", at);
           const selfName = stmts.length ? "self" : "_self";
-          out.push(`export function stable_hash_${it.name}${gen}(${selfName}: ${self}, __hcx: StableHashCtxt, __hasher: StableHasher${extra}): void {`);
+          out.push(`export function ${fname}${gen}(${selfName}: ${self}, __hcx: StableHashCtxt, __hasher: StableHasher${extra}): void {`);
           out.push(...stmts.map((st) => `  ${st}`));
           out.push("}");
           fileStableHash++;
@@ -1848,12 +1884,12 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           discr.push(`${unraw(v.name)}: ${next}`);
           next++;
         }
-        const table = `${it.name}__discriminant`;
+        const table = `${fname.slice("stable_hash_".length)}__discriminant`;
         out.push(`const ${table} = { ${discr.join(", ")} } as const;`);
         const tag = fieldless ? "self" : "self.$";
         const arms: [string, string[]][] = [];
         if (!fieldless) for (const v of variants) arms.push([unraw(v.name), fieldStmts(v.fields, "self", at)]);
-        out.push(`export function stable_hash_${it.name}${gen}(self: ${self}, __hcx: StableHashCtxt, __hasher: StableHasher${extra}): void {`);
+        out.push(`export function ${fname}${gen}(self: ${self}, __hcx: StableHashCtxt, __hasher: StableHasher${extra}): void {`);
         out.push(`  ${shUse("stable_hash_Discriminant")}(${table}[${tag}], ${H}${repr ? `, ${JSON.stringify(repr)}` : ""});`);
         if (arms.some(([, st]) => st.length)) {
           out.push("  switch (self.$) {");
