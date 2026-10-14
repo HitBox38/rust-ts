@@ -7,6 +7,9 @@ import { debug_Symbol } from "../rustc_span/symbol.ts";
 import { debug_bool, debug_struct, type Debug } from "../std/fmt.ts";
 import { assert, panic } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
+import { utf8 } from "../std/str.ts";
+import type { StableHashCtxt, StableHasher } from "../rustc_data_structures/stable_hash.ts";
+import type { Hasher } from "../vendor/rustc_stable_hash/stable_hasher.ts";
 import type { CVariadicStatus } from "./lib.ts";
 
 export type { CVariadicStatus };
@@ -260,8 +263,21 @@ export const ExternAbi = {
     return ExternAbi.cmp(self, rhs) === 0;
   },
 
-  // impl Hash for ExternAbi, impl StableHash for ExternAbi
-  // PORT: not ported (no marker; extern_abi.rs:245 hash, :255 stable_hash): nothing in the port hashes an `ExternAbi` yet.
+  // impl Hash for ExternAbi
+  // rustc: compiler/rustc_abi/src/extern_abi.rs:245 hash
+  hash(self: ExternAbi, state: Hasher): void {
+    // `self.as_str().hash(state)`: `impl Hash for str` is `state.write_str(self)`
+    state.write_str(utf8(ExternAbi.as_str(self)));
+    // double-assurance of a prefix breaker
+    // `u32::from_be_bytes(*b"ABI\0").hash(state)`
+    state.write_u32(0x41424900);
+  },
+
+  // impl StableHash for ExternAbi (#[cfg(feature = "nightly")])
+  // rustc: compiler/rustc_abi/src/extern_abi.rs:255 stable_hash
+  stable_hash(self: ExternAbi, _: StableHashCtxt, hasher: StableHasher): void {
+    ExternAbi.hash(self, hasher);
+  },
 
   /// An ABI "like Rust"
   ///
@@ -380,6 +396,11 @@ export function display_ExternAbi(self: ExternAbi): string {
 
 // #[cfg(feature = "nightly")]
 // rustc_error_messages::into_diag_arg_using_display!(ExternAbi);
+/** `StableHash for ExternAbi` as a free fn (the derive(StableHash) generator's call form, tools/codegen/stable_hash.json). */
+export function stable_hash_ExternAbi(self: ExternAbi, hcx: StableHashCtxt, hasher: StableHasher): void {
+  ExternAbi.stable_hash(self, hcx, hasher);
+}
+
 export const ExternAbi_into_diag_arg = into_diag_arg_using_display(display_ExternAbi);
 
 /** `#[derive(Debug)]` */

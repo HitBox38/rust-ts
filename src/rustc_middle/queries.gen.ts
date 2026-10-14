@@ -7,16 +7,18 @@
 import { type Align, debug_Align } from "../rustc_abi/lib.ts";
 import { type AllocatorKind, debug_AllocatorKind } from "../rustc_ast/expand/allocator.ts";
 import { type AttrVec, type Crate, clone_Attribute as clone_Attribute_1, debug_Attribute as debug_Attribute_1, debug_Crate } from "../rustc_ast/lib.ts";
-import { type TokenStream, debug_TokenStream } from "../rustc_ast/tokenstream.ts";
+import { type TokenStream, debug_TokenStream, stable_hash_TokenStream } from "../rustc_ast/tokenstream.ts";
 import { type DiagnosticItems, debug_DiagnosticItems } from "../rustc_attr_ir/diagnostic_items.ts";
 import { type LangItem, type LanguageItems, debug_LangItem, debug_LanguageItems } from "../rustc_attr_ir/lang_items.ts";
 import { type Attribute, clone_Attribute, debug_Attribute } from "../rustc_attr_ir/lib.ts";
-import { stable_hash_IndexMap, stable_hash_IndexSet, stable_hash_Option, stable_hash_Path, stable_hash_String, stable_hash_Vec, stable_hash_bool, stable_hash_slice, stable_hash_str, stable_hash_unit, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
+import { type SortedMap } from "../rustc_data_structures/sorted_map.ts";
+import { stable_hash_IndexMap, stable_hash_IndexSet, stable_hash_Option, stable_hash_Path, stable_hash_Result, stable_hash_String, stable_hash_Vec, stable_hash_bool, stable_hash_slice, stable_hash_str, stable_hash_unit, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
 import { type Steal, debug_Steal } from "../rustc_data_structures/steal.ts";
 import { type Features } from "../rustc_feature/unstable.ts";
 import { type DefKind, debug_DefKind } from "../rustc_hir/def.ts";
-import { type SortedMap } from "../rustc_hir_id/definitions.ts";
+import { stable_hash_DefKind } from "../rustc_hir/stable_hash.gen.ts";
 import { type ItemLocalId, type OwnerId, debug_ItemLocalId } from "../rustc_hir_id/lib.ts";
+import { stable_hash_ItemLocalId } from "../rustc_hir_id/stable_hash.gen.ts";
 import { type HirId, type LintId, type StableLintExpectationId, debug_HirId } from "../rustc_lint_defs/lib.ts";
 import { type EffectiveVisibilities, debug_EffectiveVisibilities, stable_hash_EffectiveVisibilities } from "./middle/privacy.ts";
 import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLowering, type ResolverGlobalCtxt, debug_DocLinkResMap, debug_ModChild, debug_ResolverAstLowering, debug_ResolverGlobalCtxt } from "./middle/resolve.ts";
@@ -1833,7 +1835,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `expanding a derive (proc) macro`,
     debug_value: (v, f) => debug_result(v, f, ((x, f) => debug_TokenStream(x, f)), ((x, f) => "()")),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Result(v, hcx, h, stable_hash_TokenStream, stable_hash_unit),
   },
   trigger_delayed_bug: {
     name: "trigger_delayed_bug",
@@ -4407,7 +4409,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `looking up definition kind of \`${__0}\``; },
     debug_value: (v, f) => debug_DefKind(v, f),
-    stable_hash_value: undefined,
+    stable_hash_value: stable_hash_DefKind,
   },
   def_span: {
     name: "def_span",
@@ -6099,7 +6101,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, owner_id) => { const __0 = tcx.def_path_str(owner_id); return `testing if a region is late bound inside \`${__0}\``; },
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_set(f, [...x].map((x) => ((x, f) => debug_ItemLocalId(x, f))(x, f))))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, (v, hcx, h) => stable_hash_IndexSet(v, hcx, h, stable_hash_ItemLocalId)),
   },
   object_lifetime_default: {
     name: "object_lifetime_default",
