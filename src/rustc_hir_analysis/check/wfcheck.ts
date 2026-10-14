@@ -836,7 +836,7 @@ function lint_item_shadowing_supertrait_item(tcx: TyCtxt, trait_item_def_id: Loc
 }
 
 // rustc: compiler/rustc_hir_analysis/src/check/wfcheck.rs:787 check_param_wf
-function check_param_wf(tcx: TyCtxt, param: GenericParamDef): Result<null, ErrorGuaranteed> {
+export function check_param_wf(tcx: TyCtxt, param: GenericParamDef): Result<null, ErrorGuaranteed> {
   switch (param.kind.$) {
     // We currently only check wf of const params here.
     case "Lifetime":
