@@ -195,6 +195,11 @@ export interface TypeMapEntry {
   default_values?: string[];
   /** type arguments of a type written without them (defaulted generic params, `DiagSymbolList` = `DiagSymbolList<Symbol>`) */
   default_args?: PType[];
+  /**
+   * The path names an item of the set being generated (key `mod::Name`), e.g. `I::Probe` -> `rustc_type_ir::solve::inspect::Probe`
+   * (an `Interner` associated type that TyCtxt sets to a type of the set): it resolves to that item, the other fields are unused.
+   */
+  item?: string;
   /** manual `impl Subdiagnostic` of an external type: the TS fns (`<T>_add_to_diag`, `<T>_subdiagnostic`), imported from `import` */
   subdiagnostic?: { add_to_diag: string; subdiagnostic: string };
   note?: string;
@@ -272,6 +277,18 @@ export interface SetConfig {
   derive_type_fold?: boolean;
   /** derive(TypeVisitable/TypeFoldable): emit only these items (names or keys); absent = every derived item of the set. */
   type_fold_types?: string[];
+  /**
+   * Upstream files probed for their `use` / `mod` declarations only (path resolution through their re-exports, e.g.
+   * rustc_middle's ty/mod.rs `pub use self::sty::*;`): nothing is generated from them and their items do not resolve.
+   */
+  resolve_files?: string[];
+  /** Emit `debug_<T>` for `bitflags! { #[derive(Debug)] struct T: uN { .. } }` (bitflags-2.10.0's internal Debug). */
+  bitflags_debug?: boolean;
+  /**
+   * Type-map files (under tools/codegen, not named `typemap.*.json`) merged after the global type map for this set only:
+   * their entries win over global ones for the same path (e.g. `rustc_middle::ty::Ty`, an `unknown` placeholder for other sets).
+   */
+  typemap_extra?: string[];
 }
 
 /** tools/codegen/type_fold.json: `TypeVisitable` / `TypeFoldable` impls of external types and the trait shapes. */
@@ -650,6 +667,11 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
   for (const e of tm.types) for (const p of e.paths) tmIndex.set(p, e);
   const helperModule = new Map<string, string>();
   for (const [m, names] of Object.entries(tm.helpers)) for (const n of names) helperModule.set(n, m);
+  for (const name of set.typemap_extra ?? []) {
+    const extra: Partial<TypeMap> = JSON.parse(readFileSync(join(HERE, name), "utf8"));
+    for (const e of extra.types ?? []) for (const p of e.paths) tmIndex.set(p, e);
+    for (const [m, names] of Object.entries(extra.helpers ?? {})) for (const n of names) helperModule.set(n, m);
+  }
 
   // modules and items
   const mfs: ModFile[] = [];
@@ -663,7 +685,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     }
     const { crate, mod, rel } = fileModule(file.path);
     const mf: ModFile = { file, crate, mod, gen: `${crate}/${rel}.gen.ts`, hand: `${crate}/${rel}.ts` };
-    mfs.push(mf);
+    const resolveOnly = set.resolve_files?.includes(file.path) === true;
+    if (!resolveOnly) mfs.push(mf);
     for (let i = 1; i <= mod.length; i++) modsWithChildren.add(mod.slice(0, i).join("::"));
     for (const m of file.mods) modsWithChildren.add([...mod, ...m.module, m.name].join("::"));
     for (const u of file.uses) {
@@ -671,7 +694,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (!usesByMod.has(k)) usesByMod.set(k, []);
       usesByMod.get(k)!.push(u);
     }
-    for (const item of file.items) {
+    for (const item of resolveOnly ? [] : file.items) {
       const at = `${file.path}:${item.line}`;
       if (!enabled(item.attrs, at)) continue;
       const imod = [...mod, ...item.module];
@@ -859,6 +882,9 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           const ga = absolutize(g.path, sc.mod, 0);
           if (ga) keys.push(extAbs([...ga, ...segs]).join("::"));
         }
+      const alias = tmLookup(keys)?.item;
+      const ar = alias === undefined ? undefined : items.get(alias);
+      if (ar) return { k: "item", ref: ar };
       return { k: "ext", keys, display: e.join("::") };
     }
     return { k: "ext", keys: [], display: segs.join("::") };
@@ -1085,6 +1111,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
 
   // `newtype_index!` always generates `impl Debug` (rustc_index_macros/src/newtype.rs)
   for (const r of items.values()) if (r.mac?.kind === "newtype") deriveDebug.add(r.key);
+  // `bitflags! { #[derive(Debug)] struct X: uN { .. } }` with `bitflags_debug`
+  if (set.bitflags_debug)
+    for (const r of items.values())
+      if (r.mac?.kind === "bitflags" && r.mac.def.form === "struct" && r.mac.def.attrs.some((a) => /^derive\s*\(.*\bDebug\b/s.test(a.name))) deriveDebug.add(r.key);
   // auto_class: structs with an inherent impl that has fns (PORTING §5 "Structs")
   const autoClass = new Set<string>();
   if (set.auto_class)
@@ -2481,6 +2511,15 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       return undefined;
     };
     const tfHolder = (kind: TfKind) => (kind === "visit" ? "__visitor" : "__folder");
+    /**
+     * Explicit type arguments of a call to a generic impl fn (`visit_with_X<T1, .., R>`): TS cannot infer `T` from an impl fn
+     * argument that is itself generic (`visit_with_trivial`), so the types of the arguments are spelled out, then `R` / `E`
+     * (the enclosing fn's, or the typed closure's of `tfFn`).
+     */
+    const tfTypeArgs = (kind: TfKind, tys: string[]): string => {
+      const all = kind === "visit" ? [...tys, "R"] : kind === "try_fold" ? [...tys, "E"] : tys;
+      return all.length ? `<${all.join(", ")}>` : "";
+    };
     /** An external impl (type_fold.json) applied to `v`, with the impls of `args` (`null`: trivial). */
     const tfExt = (kind: TfKind, e: TypeFoldMapEntry, display: string, args: PType[], v: string, sc: Scope, at: string): string | null => {
       if (e.trivial) return null;
@@ -2490,11 +2529,22 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         push(report.missing_type_fold, `${display} (${e.note ?? `no ${kind} in type_fold.json`})`, at);
         return `unported_type_fold(${v})`;
       }
-      const n = new Set(fn.match(/\$\d/g) ?? []).size;
+      // `name($1, $0)`: the impls of these type arguments, in this order
       const name = fn.replace(/\(.*$/s, "");
       tfUse(name, e.import ? `src:${e.import.replace(/^src\//, "")}` : tfModule);
-      const fns = args.slice(0, n).map((a) => tfFn(kind, a, sc, at));
-      return `${name}(${v}, ${tfHolder(kind)}${fns.map((f) => `, ${f}`).join("")})`;
+      const fns: string[] = [];
+      const tys: string[] = [];
+      for (const m of fn.matchAll(/\$(\d)/g)) {
+        const a = args[Number(m[1])];
+        if (!a) {
+          report.errors.push(`${at}: ${display} needs type arg ${m[1]} for ${kind}`);
+          return `unported_type_fold(${v})`;
+        }
+        fns.push(tfFn(kind, a, sc, at));
+        tys.push(tsType(a, sc, at));
+      }
+      const targs = tys.length ? tfTypeArgs(kind, tys) : "";
+      return `${name}${targs}(${v}, ${tfHolder(kind)}${fns.map((f) => `, ${f}`).join("")})`;
     };
     /** `TypeVisitable::visit_with(v, __visitor)` / `try_fold_with(v, __folder)` / `fold_with(v, __folder)`; `null`: trivial. */
     const tfExpr = (kind: TfKind, ty: PType, v: string, sc: Scope, at: string): string | null => {
@@ -2525,17 +2575,30 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           }
           if (r.k === "item") {
             const it = r.ref.item;
+            // an alias with its own impl entry (`GenericArgsRef<'tcx>`, whose fold differs per `List` element type)
+            const ae = it.kind === "type" ? tfEntry([r.ref.key]) : undefined;
+            if (ae) return tfExt(kind, ae, r.ref.key, args, v, sc, at);
             if (it.kind === "type" && !matches(set.hand, r.ref)) return tfExpr(kind, it.ty!, v, aliasScope(r.ref, args, sc), at);
             const fn = tfItemName(kind, r.ref, at);
             if (fn === null) return null;
+            if (fn === "unported_type_fold") return `unported_type_fold(${v})`;
+            const tys: string[] = [];
             const fns = tsParams(it).map((p, i) => {
               const a = args[i];
-              if (a) return tfFn(kind, a, sc, at);
-              if (p.default) return tfFn(kind, p.default, itemScope(r.ref), at);
+              if (a) {
+                tys.push(tsType(a, sc, at));
+                return tfFn(kind, a, sc, at);
+              }
+              if (p.default) {
+                tys.push(tsType(p.default, itemScope(r.ref), at));
+                return tfFn(kind, p.default, itemScope(r.ref), at);
+              }
               report.errors.push(`${at}: missing type argument ${p.name} for ${r.ref.key}`);
+              tys.push("never");
               return "unported_type_fold";
             });
-            return `${fn}(${v}, ${tfHolder(kind)}${fns.map((f) => `, ${f}`).join("")})`;
+            const targs = tys.length ? tfTypeArgs(kind, tys) : "";
+            return `${fn}${targs}(${v}, ${tfHolder(kind)}${fns.map((f) => `, ${f}`).join("")})`;
           }
           if (r.keys.some((k) => tfTrivial.has(k))) return null;
           const e = tfEntry(r.keys);
@@ -2570,7 +2633,14 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       }
       const e = tfExpr(kind, ty, "__v", sc, at);
       if (e === null) return tfUse(tfMap.trivial_fns[kind]);
-      return `(__v, ${tfHolder(kind)}) => ${e}`;
+      // a typed closure: its own `R` / `E` (TS does not make an unannotated closure generic)
+      const T = tsType(ty, sc, at);
+      if (kind === "visit") return `<R>(__v: ${T}, __visitor: ${tfType(tfMap.names.visitor)}<R>): R => ${e}`;
+      if (kind === "try_fold") {
+        imp("src:std/result.ts", "types", "Result", "Result");
+        return `<E>(__v: ${T}, __folder: ${tfType(tfMap.names.fallible_folder)}<E>): Result<${T}, E> => ${e}`;
+      }
+      return `(__v: ${T}, __folder: ${tfType(tfMap.names.folder)}): ${T} => ${e}`;
     };
     /** `#[type_visitable(ignore)]` / `#[type_foldable(identity)]` of a field (`has_ignore_attr`). */
     const tfAttr = (fl: PField, name: string, meta: string, at: string): boolean =>
@@ -2640,17 +2710,23 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           /** `vi.construct(..)`: statements ending in `return`. */
           const construct = (v: V, indent: string): string[] => {
             const st: string[] = [];
-            const vals = v.fields.map((fl, i) => {
+            const vals: string[] = [];
+            for (const [i, fl] of v.fields.entries()) {
               const read = `self.${fieldName(fl)}`;
               // retain value of fields with #[type_foldable(identity)]
-              if (tfAttr(fl, "type_foldable", "identity", fat(fl))) return read;
-              const e = tfExpr(kind, fl.ty, read, sc, fat(fl));
-              if (e === null) return read;
-              if (kind === "fold") return e;
-              // `::rustc_type_ir::TypeFoldable::try_fold_with(#bind, __folder)?`
-              st.push(`${indent}const __${i} = ${e};`, `${indent}if (__${i}.$ === "Err") return __${i};`);
-              return `__${i}._0`;
-            });
+              const e = tfAttr(fl, "type_foldable", "identity", fat(fl)) ? null : tfExpr(kind, fl.ty, read, sc, fat(fl));
+              if (e === null) vals.push(read);
+              else if (kind === "fold") vals.push(e);
+              else if (e.startsWith("unported_type_fold(")) {
+                // no impl upstream either (the derived impl's where-clause never holds): the fn ends here
+                st.push(`${indent}return ${e};`);
+                return st;
+              } else {
+                // `::rustc_type_ir::TypeFoldable::try_fold_with(#bind, __folder)?`
+                st.push(`${indent}const __${i} = ${e};`, `${indent}if (__${i}.$ === "Err") return __${i};`);
+                vals.push(`__${i}._0`);
+              }
+            }
             let value: string;
             if (v.name !== undefined) {
               if (v.style === "unit") value = "self";
@@ -2674,7 +2750,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           const used = lines.some((l) => /\bself\b/.test(l));
           out.push(`// rustc-derive: ${at} ${deriveFold.get(r.key)} for ${it.name} (${kind === "fold" ? "fold_with" : "try_fold_with"})`);
           out.push(
-            `export function ${TF_PREFIX[kind]}_${it.name}<${[...ps, ...(kind === "fold" ? [] : ["E"])].join(", ")}>(${used ? "self" : "_self"}: ${self}, __folder: ${folder}${kind === "fold" ? "" : "<E>"}${ps.map((p) => `, ${TF_PREFIX[kind]}_${p}: ${ffn}<${p}>`).join("")}): ${ret} {`,
+            `export function ${TF_PREFIX[kind]}_${it.name}${kind === "fold" && !ps.length ? "" : `<${[...ps, ...(kind === "fold" ? [] : ["E"])].join(", ")}>`}(${used ? "self" : "_self"}: ${self}, __folder: ${folder}${kind === "fold" ? "" : "<E>"}${ps.map((p) => `, ${TF_PREFIX[kind]}_${p}: ${ffn}<${p}>`).join("")}): ${ret} {`,
           );
           out.push(...lines, "}");
           fileTypeFold++;
@@ -3149,16 +3225,32 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         const known = new Map<string, bigint>();
         const flags: [string, string, string[]][] = [];
         if (width === undefined) report.errors.push(`${r.mac.at}: bitflags over ${def.bits} not supported (number-backed flags are at most u32)`);
-        else
-          for (const c of def.flags) {
-            try {
-              const v = evalFlagExpr(c.expr, known, width);
-              known.set(c.name, v);
-              flags.push([c.name === "_" ? "" : c.name, `0x${v.toString(16)}`, c.docs]);
-            } catch (e) {
-              report.errors.push(`${r.mac.at}: ${(e as Error).message}`);
+        else {
+          // Rust consts may name flags declared later (rustc_type_ir `TypeFlags::STILL_FURTHER_SPECIALIZABLE` reads
+          // `HAS_TY_FRESH`): evaluate until no flag is added, then emit in declaration order.
+          const vals = new Map<(typeof def.flags)[number], bigint>();
+          const failed = new Map<(typeof def.flags)[number], Error>();
+          for (let progress = true; progress; ) {
+            progress = false;
+            for (const c of def.flags) {
+              if (vals.has(c)) continue;
+              try {
+                const v = evalFlagExpr(c.expr, known, width);
+                known.set(c.name, v);
+                vals.set(c, v);
+                failed.delete(c);
+                progress = true;
+              } catch (e) {
+                failed.set(c, e as Error);
+              }
             }
           }
+          for (const c of def.flags) {
+            const v = vals.get(c);
+            if (v === undefined) report.errors.push(`${r.mac.at}: ${failed.get(c)!.message}`);
+            else flags.push([c.name === "_" ? "" : c.name, `0x${v.toString(16)}`, c.docs]);
+          }
+        }
         if (def.form === "struct") body.push(...docLines(def.docs, ""));
         else body.push(...docLines(it.docs, ""));
         body.push(`// PORT: \`bitflags!\` (${r.mac.at}, \`${def.form} ${name}: ${def.bits}\`) -> branded number; flags + \`Flags\` API on the companion.`);
@@ -3176,14 +3268,21 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         body.push("  },");
         body.push(`  [${flags.map(([n, v]) => `[${JSON.stringify(n)}, ${v} as ${name}]`).join(", ")}],`);
         body.push(");");
-        if (def.form === "struct" && def.attrs.some((a) => /^derive\s*\(.*\bDebug\b/s.test(a.name)))
-          report.notes.push(`${r.key}: derive(Debug) inside bitflags! is not generated yet`);
+        if (def.form === "struct" && def.attrs.some((a) => /^derive\s*\(.*\bDebug\b/s.test(a.name))) {
+          if (set.bitflags_debug) {
+            // bitflags-2.10.0 internal.rs: `struct X(<X as PublicFlags>::Internal)` derives Debug over the internal
+            // flags, whose Debug writes `{:#x}` of the empty bits (`0x0`) or else `parser::to_writer` (`A | B | 0x..`).
+            imp("src:vendor/bitflags/parser.ts", "values", "to_writer", "to_writer");
+            body.push(`export const debug_${name}: Debug<${name}> = (v, f) => debug_tuple(f, ${JSON.stringify(name)}, [${name}.is_empty(v) ? "0x0" : to_writer(${name}.FLAGS_DESC, v)]);`);
+            fileDebug++;
+          } else report.notes.push(`${r.key}: derive(Debug) inside bitflags! is not generated yet`);
+        }
         if (hasDebug && def.form === "impl") {
           // `#[derive(Debug)] struct X(uN);` + `bitflags! { impl X: uN { .. } }`: the derive sees a plain
           // tuple struct, so its Debug is `X(<bits>)` (e.g. rustc_hir::def::MacroKinds).
           body.push(`export const debug_${name}: Debug<${name}> = (v, f) => debug_tuple(f, ${JSON.stringify(name)}, [debug_int(v, f)]);`);
           fileDebug++;
-        } else if (hasDebug) report.errors.push(`${at}: derive(Debug) on a bitflags struct is not supported`);
+        } else if (hasDebug && !(set.bitflags_debug && def.form === "struct")) report.errors.push(`${at}: derive(Debug) on a bitflags struct is not supported`);
         body.push(...serLines(r));
         continue;
       }
@@ -3641,7 +3740,7 @@ if (import.meta.main) {
   }
   const set = loadSet(setName);
   const tm = loadTypeMap();
-  const probe: ProbeJson = jsonIn ? JSON.parse(readFileSync(jsonIn, "utf8")) : await runProbe(set.files);
+  const probe: ProbeJson = jsonIn ? JSON.parse(readFileSync(jsonIn, "utf8")) : await runProbe([...set.files, ...(set.resolve_files ?? [])]);
   if (saveJson) writeFileSync(saveJson, JSON.stringify(probe, null, 1) + "\n");
   const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust.commit.slice(0, 12);
   const { UPSTREAM, DATA } = await import("../../scripts/lib/common.ts");
