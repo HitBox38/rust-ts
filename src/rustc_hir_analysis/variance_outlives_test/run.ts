@@ -13,9 +13,13 @@
 //   Differences from the probe (documented, not ports): the prefix is not run (facts are computed on demand), and
 //   the `generics_of` / `type_of` / `fn_sig` / ... facts are not printed.
 //
-//   bun run.ts dump|facts <rustc arguments...>
+// - `implwf <rustc arguments...>`: calls `impl_wf_check::check_impl_wf` for every impl among the free items, as
+//   check/wfcheck.rs:278 does; on a crate whose only wfcheck errors are E0207, stderr equals the oracle rustc's.
+//
+//   bun run.ts dump|facts|implwf <rustc arguments...>
 import { def } from "../../rustc_hir/lib.ts";
 import type { Compiler } from "../../rustc_interface/interface.ts";
+import type { ModuleItems } from "../../rustc_middle/hir/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { debug_GenericClauses, type GenericClauses } from "../../rustc_middle/ty/generics.ts";
 import { with_no_trimmed_paths } from "../../rustc_middle/ty/print/pretty.ts";
@@ -132,6 +136,23 @@ async function main(args: string[]): Promise<number> {
         // lib.rs:220-221, in this order.
         outlives_dump.inferred_outlives(tcx);
         variance_dump.variances(tcx);
+        return "Stop" as const;
+      },
+    };
+    return catch_with_exit_code(() => compiler_entrypoint(["rustc", ...args.slice(1)], callbacks));
+  }
+  if (mode === "implwf") {
+    const { check_impl_wf } = await import("../impl_wf_check.ts");
+    const callbacks = {
+      config(): void {},
+      after_expansion(_compiler: Compiler, tcx: TyCtxt): "Stop" | "Continue" {
+        // check/wfcheck.rs:278 (`check_item`, `ItemKind::Impl`), for every free item in `hir_crate_items` order.
+        for (const id of (tcx.hir_crate_items(null) as ModuleItems).free_items()) {
+          const item = tcx.hir_item(id);
+          if (item.kind.$ === "Impl") {
+            check_impl_wf(tcx, id.owner_id.def_id, item.kind._0.of_trait !== undefined);
+          }
+        }
         return "Stop" as const;
       },
     };

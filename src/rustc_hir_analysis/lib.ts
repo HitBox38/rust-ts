@@ -95,7 +95,8 @@ export * as wrong_number_of_generic_args from "./diagnostics/wrong_number_of_gen
 // pub mod hir_ty_lowering;
 export * as hir_ty_lowering from "./hir_ty_lowering/mod.ts";
 // pub mod hir_wf_check;     (wave 17)
-// mod impl_wf_check;        (wave 17: variance-outlives-implwf)
+// mod impl_wf_check;
+import * as impl_wf_check from "./impl_wf_check.ts";
 // mod outlives;
 import * as outlives from "./outlives/mod.ts";
 // mod variance;
@@ -145,7 +146,7 @@ export function provide(providers: Providers): void {
   providers.inferred_outlives_of = outlives.inferred_outlives_of;
   providers.inherit_sig_for_delegation_item = delegation.inherit_sig_for_delegation_item;
   providers.delegation_user_specified_args = delegation.delegation_user_specified_args;
-  // providers.enforce_impl_non_lifetime_params_are_constrained = impl_wf_check.enforce_impl_non_lifetime_params_are_constrained;
+  providers.enforce_impl_non_lifetime_params_are_constrained = impl_wf_check.enforce_impl_non_lifetime_params_are_constrained;
   providers.crate_variances = variance.crate_variances;
   providers.variances_of = variance.variances_of;
 }

@@ -8,6 +8,8 @@
 //    it). A fact that stops must stop at one of `PENDING_FACTS` (other lanes' stubs).
 // 3. pending.rs: fn pointer, `dyn` and projection types reach other lanes' stubs while lowering field types; the dump
 //    equals the oracle's or stops at one of `PENDING_DUMP`. When those lanes land, the case turns into an oracle match.
+// 4. `implwf`: `check_impl_wf` on every impl (as wfcheck.rs:278) prints exactly the oracle's E0207 errors (implwf.rs is
+//    otherwise clean). implwf_spec.rs (`min_specialization`) equals the oracle's or stops at one of `PENDING_DUMP`.
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -57,6 +59,8 @@ const PENDING_DUMP = new Set([
   "rustc_hir_analysis::check::check::check_abi", // fn pointer types (check/check.rs, wave 17 check-check)
   "rustc_trait_selection::traits::util::expand_trait_aliases", // `dyn Trait` (rustc_trait_selection, wave 17)
   "rustc_infer::traits::util::transitive_bounds_that_define_assoc_item", // `T::Item` (rustc_infer)
+  "specialization_graph_of provider (not ported)", // `TraitDef::ancestors` (rustc_trait_selection, wave 17)
+  "rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics", // min_specialization.ts stand-in
 ]);
 
 for (const file of ["variances.rs", "outlives.rs"]) {
@@ -73,17 +77,31 @@ for (const file of ["variances.rs", "outlives.rs"]) {
   }, 120_000);
 }
 
-test("variance_outlives_test/pending.rs: the dumps print as the oracle, or stop as PENDING", () => {
+for (const [mode, file] of [["dump", "pending.rs"], ["implwf", "implwf_spec.rs"]] as const) {
+  test(`variance_outlives_test/${file}: ${mode} prints as the oracle, or stops as PENDING`, () => {
+    const s = sysroot();
+    if (s === undefined) {
+      if (REQUIRE) throw new Error("ERROR: oracle sysroot missing");
+      return;
+    }
+    const oracle = run(["rustc", `+${PIN.toolchain}`, ...dump_args(s, file)]);
+    const ours = run(["bun", join(DIR, "run.ts"), mode, ...dump_args(s, file)]);
+    const m = /unported: (.*)\n/.exec(ours.stderr);
+    if (m !== null) expect(PENDING_DUMP).toContain(m[1]!);
+    else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
+  }, 120_000);
+}
+
+test("variance_outlives_test/implwf.rs: check_impl_wf prints the oracle's E0207 errors", () => {
   const s = sysroot();
   if (s === undefined) {
     if (REQUIRE) throw new Error("ERROR: oracle sysroot missing");
     return;
   }
-  const oracle = run(["rustc", `+${PIN.toolchain}`, ...dump_args(s, "pending.rs")]);
-  const ours = run(["bun", join(DIR, "run.ts"), "dump", ...dump_args(s, "pending.rs")]);
-  const m = /unported: (.*)\n/.exec(ours.stderr);
-  if (m !== null) expect(PENDING_DUMP).toContain(m[1]!);
-  else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
+  const oracle = run(["rustc", `+${PIN.toolchain}`, ...dump_args(s, "implwf.rs")]);
+  const ours = run(["bun", join(DIR, "run.ts"), "implwf", ...dump_args(s, "implwf.rs")]);
+  expect(oracle.stderr.split("error[E0207]").length - 1).toBe(7);
+  expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
 }, 120_000);
 
 /** `{ header -> { fact name -> value } }` and the header order, from a report or the probe's dump. */
