@@ -353,26 +353,12 @@ describe("GoalKind tables", () => {
       expect(GoalKind_HostEffectClause.self_ty(goal.predicate as never)).toBe(u8());
     }));
 
-  // PENDING (nts-assembly): structural_traits.rs is that lane's; until it lands these stop UNPORTED with its stub text.
-  test("PENDING: builtin Fn candidates stop at structural_traits", () =>
+  // structural_traits.rs (nts-assembly) is merged: a non-callable self type has no Fn candidate.
+  test("NormalizesTo: builtin Fn candidates on a non-callable self type have no solution", () =>
     in_globals(() => {
       const ecx = fake_ecx({});
-      expect(() => GoalKind_NormalizesTo.consider_builtin_fn_trait_candidates(ecx, ne_goal, "Fn")).toThrow(
-        new Unported("rustc_next_trait_solver::solve::assembly::structural_traits::extract_tupled_inputs_and_output_from_callable"),
-      );
-      const goal = { param_env, predicate: { trait_ref: { def_id: did(1), args: tcx.mk_args([u8()]) }, constness: "Const" } } as unknown as Goal<never>;
-      expect(() => GoalKind_HostEffectClause.consider_builtin_destruct_candidate(ecx, goal)).toThrow(
-        new Unported("rustc_next_trait_solver::solve::assembly::structural_traits::const_conditions_for_destruct"),
-      );
+      expect(GoalKind_NormalizesTo.consider_builtin_fn_trait_candidates(ecx, ne_goal, "Fn")).toEqual(Err({ $: "NoSolution", _0: {} }) as never);
     }));
-
-  // PENDING (nts-eval): `EvalCtxt::probe` is that lane's stub.
-  test("PENDING: compute_host_effect_goal / compute_normalizes_to_goal stop at EvalCtxt::probe", () =>
-    in_globals(() => {
-      const ecx = fake_ecx({});
-      const goal = { param_env, predicate: { trait_ref: { def_id: did(1), args: tcx.mk_args([u8()]) }, constness: "Const" } } as unknown as Goal<never>;
-      expect(() => ecx.compute_host_effect_goal(goal)).toThrow(
-        new Unported("rustc_next_trait_solver::solve::eval_ctxt::probe::EvalCtxt::probe"),
-      );
-    }));
+  // `consider_builtin_destruct_candidate` and `compute_host_effect_goal` now run the real structural_traits.rs /
+  // EvalCtxt::probe (merge-w16a); they need a real crate's queries and a `SolverDelegate` (wave 17), not this fake.
 });

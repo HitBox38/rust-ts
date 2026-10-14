@@ -5,8 +5,7 @@
 // `forced_ambiguity`, `add_goal(s)`, `enter_forall_with_assumptions`, `try_merge_candidates`, `bail_with_ambiguity`,
 // `filter_specialized_impls`) are faked per test on an `Object.create(EvalCtxt.prototype)` object: they record their
 // calls and build a recognizable `Candidate`. Interner queries the tests need are faked on the `TyCtxt` instance.
-// Paths that need another lane's real code (structural_traits.rs, assembly/mod.rs) are PENDING and asserted to stop
-// as UNPORTED with the exact stub text.
+// Since merge-w16a every rustc_next_trait_solver file is ported; real goals end to end need a `SolverDelegate` (wave 17).
 import { describe, expect, test } from "bun:test";
 import "../rustc_middle/lib.ts";
 import "./lib.ts";
@@ -244,13 +243,13 @@ describe("builtin candidates", () => {
     );
   });
 
-  test("Sized of a primitive: PENDING (structural_traits.rs, lane nts-assembly)", () => {
+  test("Sized of a primitive holds trivially (no constituent goals)", () => {
     const { ecx, log } = mk_ecx(tcx);
-    expect(() => GoalKind_TraitClause.consider_builtin_sizedness_candidates(ecx, trait_goal(tcx, [tcx.types.u8]), "Sized")).toThrow(
-      new Unported("rustc_next_trait_solver::solve::assembly::structural_traits::instantiate_constituent_tys_for_sizedness_trait"),
-    );
+    const r = GoalKind_TraitClause.consider_builtin_sizedness_candidates(ecx, trait_goal(tcx, [tcx.types.u8]), "Sized");
+    expect(certainty_of(r)).toEqual(Certainty.Yes);
     // the probe was entered with the trivial builtin source
     expect(log.probes).toEqual([{ $: "BuiltinImpl", _0: { $: "Trivial" } }]);
+    expect(log.goals).toEqual([]);
   });
 
   test("probe_and_evaluate_goal_for_constituent_tys adds one goal per constituent type with the self type replaced", () => {
@@ -299,13 +298,18 @@ describe("auto traits", () => {
     );
   });
 
-  test("auto trait on a tuple: PENDING (structural_traits.rs, lane nts-assembly)", () => {
+  test("auto trait on a tuple: one ImplWhereBound goal per element", () => {
     const tcx = mk_tcx({ ir_for_each_relevant_impl: () => undefined, trait_is_unsafe: () => false, is_default_trait: () => false });
-    const { ecx } = mk_ecx(tcx);
+    const { ecx, log } = mk_ecx(tcx);
     const goal = trait_goal(tcx, [Ty.new_tup(tcx, [tcx.types.u8, tcx.types.bool])]);
-    expect(() => GoalKind_TraitClause.consider_auto_trait_candidate(ecx, goal)).toThrow(
-      new Unported("rustc_next_trait_solver::solve::assembly::structural_traits::instantiate_constituent_tys_for_auto_trait"),
-    );
+    const r = GoalKind_TraitClause.consider_auto_trait_candidate(ecx, goal);
+    expect(certainty_of(r)).toEqual(Certainty.Yes);
+    expect(log.probes).toEqual([{ $: "BuiltinImpl", _0: { $: "Misc" } }]);
+    expect(log.goals.map(([s]) => s)).toEqual(["ImplWhereBound", "ImplWhereBound"]);
+    expect(log.goals.map(([, g]) => g.predicate)).toEqual([
+      Predicate_upcast_from_TraitClause(trait_goal(tcx, [tcx.types.u8]).predicate, tcx),
+      Predicate_upcast_from_TraitClause(trait_goal(tcx, [tcx.types.bool]).predicate, tcx),
+    ]);
   });
 
   test("try_stall_coroutine: only coroutines being inferred in `Typeck` stall", () => {
@@ -380,10 +384,5 @@ describe("merging trait candidates", () => {
     expect(log.bailed).toBe(1);
   });
 
-  test("compute_trait_goal: PENDING (assemble_and_evaluate_candidates, lane nts-assembly)", () => {
-    const { ecx } = mk_ecx(tcx);
-    expect(() => ecx.compute_trait_goal(trait_goal(tcx, [tcx.types.u8]))).toThrow(
-      new Unported("rustc_next_trait_solver::solve::assembly::EvalCtxt::assemble_and_evaluate_candidates"),
-    );
-  });
+  // compute_trait_goal end to end needs a real `SolverDelegate` (wave 17 trait-sel-solve); the fake EvalCtxt has none.
 });
