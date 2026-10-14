@@ -10,14 +10,15 @@ import { fold_GenericArg, type GenericArg, type GenericArgs } from "../../rustc_
 import { Term, Ty } from "../../rustc_middle/ty/mod.ts";
 import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { panic, unported, unwrap } from "../../std/panic.ts";
+import { panic, unwrap } from "../../std/panic.ts";
 import { Err, Ok } from "../../std/result.ts";
-import type { Binder } from "../binder.ts";
+import { Binder } from "../binder.ts";
 import type { ConstVid } from "../const_kind.ts";
 import { ExpectedFound } from "../error.ts";
-import type { TypeFoldable, VisitWith } from "../fold.ts";
+import type { TypeFoldable } from "../fold.ts";
 import type { TypingMode } from "../infer_ctxt.ts";
 import { CollectAndApply_Result } from "../interner.ts";
+import { type TypeVisitable, TypeVisitableExt } from "../visit.ts";
 import type { Variance } from "../lib.ts";
 import type { ProjectionClause } from "../predicate.ts";
 import { type ClauseKind, type PredicateKind, visit_with_PredicateKind } from "../predicate_kind.ts";
@@ -67,17 +68,6 @@ export function Goal_new<P, T>(cx: TyCtxt, param_env: ParamEnv, predicate: T, up
   return { param_env, predicate: upcast(predicate, cx) };
 }
 
-/** PORT: stand-in for `Binder::dummy` (binder.rs:47, lane tyir-binder): its `assert!` needs
- *  `TypeVisitableExt::has_escaping_bound_vars`. */
-export function Binder_dummy<T>(_value: T, _visit_with_T: VisitWith<T>): Binder<T> {
-  return unported("rustc_type_ir::binder::Binder::dummy (TypeVisitableExt::has_escaping_bound_vars, lane tyir-binder)");
-}
-
-/** PORT: stand-in for `TypeVisitableExt::has_non_region_infer` on `GenericArg` (visit.rs, lane tyir-binder). */
-function GenericArg_has_non_region_infer(_self: GenericArg): boolean {
-  return unported("rustc_type_ir::visit::TypeVisitableExt::has_non_region_infer (lane tyir-binder)");
-}
-
 /** PORT: stand-in for `TypingMode::assert_not_erased` (infer_ctxt.rs:285, lane tyir-misc). */
 function TypingMode_assert_not_erased(self: TypingMode): TypingMode {
   if (self.$ === "ErasedNotCoherence") {
@@ -88,12 +78,15 @@ function TypingMode_assert_not_erased(self: TypingMode): TypingMode {
   return self;
 }
 
+/** PORT: the `TypeVisitable` impl fn of `PredicateKind` (generated) as a D4 descriptor. */
+export const d_PredicateKind: TypeVisitable<PredicateKind> = { visit_with: visit_with_PredicateKind };
+
 // PORT: stand-ins for the `UpcastFrom` impls of rustc_middle ty/predicate.rs (lane ty-args), named
 // `upcast_<From>_<To>`. Bodies are upstream's.
 
 /** `impl UpcastFrom<TyCtxt, PredicateKind> for Predicate` (rustc_middle ty/predicate.rs:455). */
 export function upcast_PredicateKind_Predicate(from: PredicateKind, tcx: TyCtxt): Predicate {
-  return upcast_Binder_PredicateKind_Predicate(Binder_dummy(from, visit_with_PredicateKind), tcx);
+  return upcast_Binder_PredicateKind_Predicate(Binder.dummy(from, d_PredicateKind), tcx);
 }
 
 /** `impl UpcastFrom<TyCtxt, Binder<PredicateKind>> for Predicate` (rustc_middle ty/predicate.rs:461). */
@@ -103,12 +96,12 @@ export function upcast_Binder_PredicateKind_Predicate(from: Binder<PredicateKind
 
 /** `impl UpcastFrom<TyCtxt, ClauseKind> for Predicate` (rustc_middle ty/predicate.rs:467). */
 export function upcast_ClauseKind_Predicate(from: ClauseKind, tcx: TyCtxt): Predicate {
-  return tcx.mk_predicate(Binder_dummy<PredicateKind>({ $: "Clause", _0: from }, visit_with_PredicateKind));
+  return tcx.mk_predicate(Binder.dummy<PredicateKind>({ $: "Clause", _0: from }, d_PredicateKind));
 }
 
 /** `impl UpcastFrom<TyCtxt, ProjectionClause> for Predicate` (rustc_middle ty/predicate.rs:575). */
 export function upcast_ProjectionClause_Predicate(from: ProjectionClause, tcx: TyCtxt): Predicate {
-  return upcast_Binder_PredicateKind_Predicate(Binder_dummy<PredicateKind>({ $: "Clause", _0: { $: "Projection", _0: from } }, visit_with_PredicateKind), tcx);
+  return upcast_Binder_PredicateKind_Predicate(Binder.dummy<PredicateKind>({ $: "Clause", _0: { $: "Projection", _0: from } }, d_PredicateKind), tcx);
 }
 
 // ---- combine.rs ---------------------------------------------------------------------------------------------------
@@ -205,7 +198,7 @@ export function super_combine_tys(infcx: InferCtxtLike, relation: PredicateEmitt
       // extremely heavy hammer, but can be relaxed in a forwards-compatible
       // way later.
       case "Coherence":
-        relation.register_predicates([Binder_dummy<PredicateKind>({ $: "Ambiguous" }, visit_with_PredicateKind)], upcast_Binder_PredicateKind_Predicate);
+        relation.register_predicates([Binder.dummy<PredicateKind>({ $: "Ambiguous" }, d_PredicateKind)], upcast_Binder_PredicateKind_Predicate);
         return Ok(a);
       case "Typeck":
       case "Reflection":
@@ -316,7 +309,7 @@ export function combine_ty_args(
           break;
         case "Bivariant": {
           const has_non_region_infer = (arg: GenericArg): boolean =>
-            GenericArg_has_non_region_infer(arg) && GenericArg_has_non_region_infer(infcx.deeply_resolve_ignoring_regions(arg, fold_GenericArg));
+            TypeVisitableExt.has_non_region_infer(arg, fold_GenericArg) && TypeVisitableExt.has_non_region_infer(infcx.deeply_resolve_ignoring_regions(arg, fold_GenericArg), fold_GenericArg);
           if (has_non_region_infer(a) || has_non_region_infer(b)) {
             has_unconstrained_bivariant_arg = true;
           }

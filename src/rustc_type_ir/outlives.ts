@@ -17,9 +17,9 @@ import { GenericArg, type GenericArgs, visit_with_GenericArg, visit_with_Generic
 import type { Clauses } from "../rustc_middle/ty/list.ts";
 import { type Ty, visit_with_Ty } from "../rustc_middle/ty/mod.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
-import { unported, unwrap } from "../std/panic.ts";
-import type { Binder, EarlyBinder } from "./binder.ts";
-import type { PredicateProxy, VisitWith } from "./fold.ts";
+import { unwrap } from "../std/panic.ts";
+import { Binder, EarlyBinder } from "./binder.ts";
+import type { PredicateProxy } from "./fold.ts";
 import { visit_with_OutlivesClause } from "./predicate.ts";
 import { interner } from "./relate.ts";
 import type { Const } from "./sty/consts.ts";
@@ -28,7 +28,11 @@ import { AliasTermKind } from "./term_kind.ts";
 import type { AliasTy } from "./ty/alias.ts";
 import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs } from "./ty_kind/closure.ts";
 import type { Unnormalized } from "./unnormalized.ts";
-import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "./visit.ts";
+import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "./visit.ts";
+import { standin_fold_Ty, type TypeFoldable } from "./fold.ts";
+import { visit_with_Alias } from "./ty/alias.ts";
+import { visit_with_AliasTyKind } from "./ty_kind.ts";
+import { fold_with_Clause, try_fold_with_Clause, visit_with_Clause } from "../rustc_middle/ty/predicate.ts";
 import type { Component } from "./outlives.gen.ts";
 
 export * from "./outlives.gen.ts";
@@ -36,33 +40,13 @@ export * from "./outlives.gen.ts";
 // ---- PORT stand-ins for fns of other files that are not ported yet -------------------------------------------------
 // Not markers. One-liners keep their upstream body; the rest call `unported`. Root repoints them at the real ports.
 
-/** PORT: stand-in for `Binder::no_bound_vars` (binder.rs:203, lane tyir-binder). */
-function Binder_no_bound_vars<T>(_self: Binder<T>, _visit_with_T: VisitWith<T>): T | undefined {
-  return unported("rustc_type_ir::binder::Binder::no_bound_vars (TypeVisitableExt::has_escaping_bound_vars, lane tyir-binder)");
-}
-
-/** PORT: stand-in for `TypeVisitableExt::has_escaping_bound_vars` on `AliasTy` (visit.rs, lane tyir-binder). */
-function AliasTy_has_escaping_bound_vars(_self: AliasTy): boolean {
-  return unported("rustc_type_ir::visit::TypeVisitableExt::has_escaping_bound_vars (lane tyir-binder)");
-}
-
-/** PORT: stand-in for `impl TypeSuperVisitable for Ty` (rustc_middle ty/structural_impls.rs, lane tyir-binder). */
-function Ty_super_visit_with<R>(_self: Ty, _visitor: TypeVisitor<R>): R {
-  return unported("rustc_middle::ty::Ty: TypeSuperVisitable::super_visit_with (structural_impls.rs)");
-}
-
-/** PORT: stand-in for `EarlyBinder::iter_instantiated` + `IterInstantiated::next` (binder.rs:448 / :476, lane
- *  tyir-binder): `EarlyBinder::instantiate` (the `ArgFolder`) is not ported, so each item stops as UNPORTED. */
-function* EarlyBinder_iter_instantiated<T>(self: EarlyBinder<Iterable<T>>, _cx: TyCtxt, _args: GenericArgs): Generator<Unnormalized<T>> {
-  for (const _value of self.value) {
-    yield unported("rustc_type_ir::binder::EarlyBinder::instantiate (ArgFolder, lane tyir-binder)");
-  }
-}
-
 /** PORT: stand-in for `Unnormalized::skip_norm_wip` (unnormalized.rs:71): the field read. */
 function Unnormalized_skip_norm_wip<T>(self: Unnormalized<T>): T {
   return self.value;
 }
+
+/** PORT: the `TypeFoldable` impl fns of `Clause` (rustc_middle ty/predicate.rs) as a D4 descriptor. */
+const d_Clause: TypeFoldable<Clause> = { visit_with: visit_with_Clause, try_fold_with: try_fold_with_Clause, fold_with: fold_with_Clause };
 
 // ---- outlives.rs --------------------------------------------------------------------------------------------------
 
@@ -98,7 +82,7 @@ export class OutlivesCollector implements TypeVisitor<undefined> {
     const k = ty.kind();
     switch (k.$) {
       case "FnDef": {
-        const args = unwrap(Binder_no_bound_vars(k._1, visit_with_GenericArgs));
+        const args = unwrap(Binder.no_bound_vars(k._1, { visit_with: visit_with_GenericArgs }));
         // HACK(eddyb) ignore lifetimes found shallowly in `args`.
         // This is inconsistent with `ty::Adt` (including all args)
         // and with `ty::Closure` (ignoring all args other than
@@ -171,7 +155,7 @@ export class OutlivesCollector implements TypeVisitor<undefined> {
       // requires that `Pi: 'a` for all `i`.
       case "Alias": {
         const [is_rigid, alias_ty] = [k._0, k._1];
-        if (!AliasTy_has_escaping_bound_vars(alias_ty)) {
+        if (!TypeVisitableExt.has_escaping_bound_vars(alias_ty, { visit_with: (self, visitor) => visit_with_Alias(self, visitor, visit_with_AliasTyKind) })) {
           // best case: no escaping regions, so push the
           // projection and skip the subtree (thus generating no
           // constraints for Pi). This defers the choice between
@@ -228,7 +212,7 @@ export class OutlivesCollector implements TypeVisitor<undefined> {
       case "UnsafeBinder":
       case "Dynamic":
       case "Tuple":
-        Ty_super_visit_with(ty, this);
+        standin_fold_Ty.super_visit_with(ty, this);
         break;
     }
     return undefined;
@@ -323,13 +307,15 @@ export function declared_bounds_from_definition(cx: TyCtxt, alias_ty: AliasTy): 
   }
 
   const bounds = interner(cx).item_self_bounds(def_id);
-  const it = EarlyBinder_iter_instantiated<Clause>(bounds, cx, alias_ty.args);
+  // PORT(merge-w15a): `Interner::item_self_bounds` is declared `impl IntoIterator`; `TyCtxt`'s is the `Clauses` list
+  // (a `readonly Clause[]`), which `iter_instantiated`'s double-ended iterator needs.
+  const it = EarlyBinder.iter_instantiated<Clause>(bounds as EarlyBinder<readonly Clause[]>, cx, alias_ty.args, d_Clause);
   return (function* () {
     for (const u of it) {
       const c = Unnormalized_skip_norm_wip(u);
       const o = c.as_type_outlives_clause();
       if (o === undefined) continue;
-      const nb = Binder_no_bound_vars(o, (self, visitor) => visit_with_OutlivesClause(self, visitor, visit_with_Ty));
+      const nb = Binder.no_bound_vars(o, { visit_with: (self, visitor) => visit_with_OutlivesClause(self, visitor, visit_with_Ty) });
       if (nb === undefined) continue;
       yield nb._1;
     }

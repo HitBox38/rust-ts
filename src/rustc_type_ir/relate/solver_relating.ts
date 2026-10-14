@@ -10,17 +10,16 @@ import type { ParamEnv, Predicate } from "../../rustc_middle/ty/decls.ts";
 import type { GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { Term, type Ty } from "../../rustc_middle/ty/mod.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
-import { KeyedSet } from "../../rust_ts/keyed.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP, type Span } from "../../rustc_span/lib.ts";
-import { assert, unported, unreachable } from "../../std/panic.ts";
+import { assert, unreachable } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
-import type { Binder } from "../binder.ts";
+import { Binder } from "../binder.ts";
+import { DelayedSet } from "../data_structures/delayed_map.ts";
 import type { TypeError } from "../error.ts";
-import type { VisitWith } from "../fold.ts";
 import { Variance } from "../lib.ts";
 import type { ProjectionClause } from "../predicate.ts";
-import { type PredicateKind, visit_with_PredicateKind } from "../predicate_kind.ts";
+import type { PredicateKind } from "../predicate_kind.ts";
 import {
   interner,
   type Relate,
@@ -37,7 +36,7 @@ import type { Const } from "../sty/consts.ts";
 import type { Region } from "../sty/mod.ts";
 import { AliasTerm } from "../term_kind.ts";
 import {
-  Binder_dummy,
+  d_PredicateKind,
   combine_ty_args,
   Goal_new,
   type InferCtxtLike,
@@ -50,53 +49,6 @@ import {
 } from "./combine.ts";
 
 // ---- PORT stand-ins for fns of other files that are not ported yet -------------------------------------------------
-
-/** PORT: stand-in for `Binder::no_bound_vars` (binder.rs:203, lane tyir-binder): needs
- *  `TypeVisitableExt::has_escaping_bound_vars`. */
-function Binder_no_bound_vars<T>(_self: Binder<T>, _visit_with_T: VisitWith<T>): T | undefined {
-  return unported("rustc_type_ir::binder::Binder::no_bound_vars (TypeVisitableExt::has_escaping_bound_vars, lane tyir-binder)");
-}
-
-const CACHE_CUTOFF = 32;
-
-/**
- * PORT: stand-in for `DelayedSet<T>` (data_structures/delayed_map.rs:60, not ported yet), with upstream's bodies.
- * `HashSet<T>` is a `KeyedSet` keyed by `intern_key` (its order is never observed).
- */
-class DelayedSet<T> {
-  constructor(
-    public cache: KeyedSet<T>,
-    public count: number,
-  ) {}
-
-  /** `impl Default for DelayedSet` */
-  static default_<T>(): DelayedSet<T> {
-    return new DelayedSet<T>(new KeyedSet<T>(intern_key), 0);
-  }
-
-  insert(value: T): boolean {
-    if (this.count >= CACHE_CUTOFF) {
-      return this.cold_insert(value);
-    } else {
-      this.count += 1;
-      return true;
-    }
-  }
-
-  cold_insert(value: T): boolean {
-    const had = this.cache.has(value);
-    this.cache.add(value);
-    return !had;
-  }
-
-  contains(value: T): boolean {
-    return this.cache.size !== 0 && this.cold_contains(value);
-  }
-
-  cold_contains(value: T): boolean {
-    return this.cache.has(value);
-  }
-}
 
 // ---- solver_relating.rs -------------------------------------------------------------------------------------------
 
@@ -155,7 +107,7 @@ export class SolverRelating implements PredicateEmittingRelation {
   // rustc: compiler/rustc_type_ir/src/relate/solver_relating.rs:81 new
   static new(infcx: InferCtxtLike, ambient_variance: Variance, param_env: ParamEnv, span: Span): SolverRelating {
     // debug_assert!(infcx.next_trait_solver());
-    return new SolverRelating(infcx, param_env, span, ambient_variance, [], DelayedSet.default_());
+    return new SolverRelating(infcx, param_env, span, ambient_variance, [], DelayedSet.default<[Variance, Ty, Ty]>(intern_key));
   }
 
   // ---- impl TypeRelation for SolverRelating ----
@@ -224,7 +176,7 @@ export class SolverRelating implements PredicateEmittingRelation {
             Goal_new(
               this.cx(),
               this.param_env_,
-              Binder_dummy<PredicateKind>({ $: "Subtype", _0: { a_is_expected: true, a, b } }, visit_with_PredicateKind),
+              Binder.dummy<PredicateKind>({ $: "Subtype", _0: { a_is_expected: true, a, b } }, d_PredicateKind),
               upcast_Binder_PredicateKind_Predicate,
             ),
           );
@@ -236,7 +188,7 @@ export class SolverRelating implements PredicateEmittingRelation {
             Goal_new(
               this.cx(),
               this.param_env_,
-              Binder_dummy<PredicateKind>({ $: "Subtype", _0: { a_is_expected: false, a: b, b: a } }, visit_with_PredicateKind),
+              Binder.dummy<PredicateKind>({ $: "Subtype", _0: { a_is_expected: false, a: b, b: a } }, d_PredicateKind),
               upcast_Binder_PredicateKind_Predicate,
             ),
           );
@@ -314,9 +266,9 @@ export class SolverRelating implements PredicateEmittingRelation {
     }
 
     // If they have no bound vars, relate normally.
-    const a_inner = Binder_no_bound_vars(a, d.visit_with);
+    const a_inner = Binder.no_bound_vars(a, d);
     if (a_inner !== undefined) {
-      const b_inner = Binder_no_bound_vars(b, d.visit_with);
+      const b_inner = Binder.no_bound_vars(b, d);
       if (b_inner !== undefined) {
         const r = this.relate(a_inner, b_inner, d);
         if (r.$ === "Err") return r;

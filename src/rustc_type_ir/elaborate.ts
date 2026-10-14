@@ -17,24 +17,19 @@ import { intern_key } from "../rust_ts/intern_key.ts";
 import { KeyedSet } from "../rust_ts/keyed.ts";
 import { type DefId, DefIdSet } from "../rustc_span/def_id.ts";
 import type { Span } from "../rustc_span/lib.ts";
-import type { Binder } from "./binder.ts";
+import { Binder, EarlyBinder } from "./binder.ts";
 import type { TypeFoldable } from "./fold.ts";
 import { SolverTraitLangItem } from "./lang_items.ts";
 import { type Component, push_outlives_components } from "./outlives.ts";
 import type { BoundConstness, OutlivesClause, TraitClause, TraitRef } from "./predicate.ts";
 import { type ClauseKind, fold_with_PredicateKind, type PredicateKind, try_fold_with_PredicateKind, visit_with_PredicateKind } from "./predicate_kind.ts";
-import { Binder_rebind, interner } from "./relate.ts";
+import { interner } from "./relate.ts";
 import type { Region } from "./sty/mod.ts";
-import { AliasTy, Binder_map_bound, Binder_skip_binder } from "./ty_kind.ts";
+import { AliasTy } from "./ty_kind.ts";
 import type { Unnormalized } from "./unnormalized.ts";
 
 // ---- PORT stand-ins for fns of other files that are not ported yet -------------------------------------------------
 // Not markers. Upstream bodies (all one-liners); root repoints them at the real ports.
-
-/** PORT: stand-in for `EarlyBinder::iter_identity` (binder.rs:457, lane tyir-binder): `map(Unnormalized::new)`. */
-function* EarlyBinder_iter_identity<T>(self: { value: Iterable<T> }): Generator<Unnormalized<T>> {
-  for (const value of self.value) yield { value, _tcx: undefined };
-}
 
 /** PORT: stand-in for `Unnormalized::skip_norm_wip` (unnormalized.rs:71): the field read. */
 function Unnormalized_skip_norm_wip<T>(self: Unnormalized<T>): T {
@@ -49,26 +44,26 @@ function trait_ref_def_id(self: { trait_ref: TraitRef }): DefId {
 /** PORT: stand-in for `Binder<TraitClause>::def_id` (predicate.rs:228): `self.skip_binder().def_id()`. */
 function PolyTraitClause_def_id(self: Binder<TraitClause>): DefId {
   // Ok to skip binder since trait `DefId` does not care about regions.
-  return trait_ref_def_id(Binder_skip_binder(self));
+  return trait_ref_def_id(Binder.skip_binder(self));
 }
 
 /** PORT: stand-in for `impl UpcastFrom<TyCtxt, Binder<ClauseKind>> for Clause` (rustc_middle ty/predicate.rs:491). */
 function upcast_Binder_ClauseKind_Clause(from: Binder<ClauseKind>, tcx: TyCtxt): Clause {
-  return tcx.mk_predicate(Binder_map_bound<ClauseKind, PredicateKind>(from, (clause) => ({ $: "Clause", _0: clause }))).expect_clause();
+  return tcx.mk_predicate(Binder.map_bound<ClauseKind, PredicateKind>(from, (clause) => ({ $: "Clause", _0: clause }))).expect_clause();
 }
 
 /** PORT: stand-in for `impl UpcastFrom<TyCtxt, PolyTraitClause> for Predicate` (rustc_middle ty/predicate.rs:530). */
 function upcast_PolyTraitClause_Predicate(from: Binder<TraitClause>, tcx: TyCtxt): Predicate {
   // `map_bound_no_validate_bound_vars` (binder.rs) maps the value and keeps the bound vars, like `map_bound` without
   // its debug-only validation.
-  return tcx.mk_predicate(Binder_map_bound<TraitClause, PredicateKind>(from, (p) => ({ $: "Clause", _0: { $: "Trait", _0: p } })));
+  return tcx.mk_predicate(Binder.map_bound<TraitClause, PredicateKind>(from, (p) => ({ $: "Clause", _0: { $: "Trait", _0: p } })));
 }
 
 /** PORT: stand-in for `impl UpcastFrom<TyCtxt, Binder<TraitRef>> for Clause` (rustc_middle ty/predicate.rs:510), through
  *  `impl UpcastFrom<I, Binder<TraitRef>> for Binder<TraitClause>` (predicate.rs:249) and
  *  `impl UpcastFrom<TyCtxt, PolyTraitClause> for Clause` (rustc_middle ty/predicate.rs:544). */
 function upcast_PolyTraitRef_Clause(from: Binder<TraitRef>, tcx: TyCtxt): Clause {
-  const pred: Binder<TraitClause> = Binder_map_bound(from, (trait_ref) => ({ trait_ref, polarity: "Positive" as const }));
+  const pred: Binder<TraitClause> = Binder.map_bound(from, (trait_ref) => ({ trait_ref, polarity: "Positive" as const }));
   const p: Predicate = upcast_PolyTraitClause_Predicate(pred, tcx);
   return p.expect_clause();
 }
@@ -76,7 +71,7 @@ function upcast_PolyTraitRef_Clause(from: Binder<TraitRef>, tcx: TyCtxt): Clause
 /** PORT: stand-in for `Unnormalized<Binder<TraitRef>>::to_host_effect_clause` (unnormalized.rs:150, lane tyir-misc). */
 function Unnormalized_to_host_effect_clause(self: Unnormalized<Binder<TraitRef>>, cx: TyCtxt, constness: BoundConstness): Unnormalized<Clause> {
   const inner = upcast_Binder_ClauseKind_Clause(
-    Binder_map_bound<TraitRef, ClauseKind>(self.value, (trait_ref) => ({ $: "HostEffect", _0: { trait_ref, constness } })),
+    Binder.map_bound<TraitRef, ClauseKind>(self.value, (trait_ref) => ({ $: "HostEffect", _0: { trait_ref, constness } })),
     cx,
   );
   return { value: inner, _tcx: undefined };
@@ -244,7 +239,7 @@ export class Elaborator<O> implements Iterable<O> {
     }
 
     const bound_clause = clause.kind();
-    const k = Binder_skip_binder(bound_clause);
+    const k = Binder.skip_binder(bound_clause);
     switch (k.$) {
       case "Trait": {
         const data = k._0;
@@ -254,13 +249,13 @@ export class Elaborator<O> implements Iterable<O> {
         }
 
         const map_to_child_clause = (index: number, [clause, span]: [Clause, Span]): O =>
-          d.child_with_derived_cause(elaboratable, clause.instantiate_supertrait(cx, Binder_rebind(bound_clause, data.trait_ref)), span, Binder_rebind(bound_clause, data), index);
+          d.child_with_derived_cause(elaboratable, clause.instantiate_supertrait(cx, Binder.rebind(bound_clause, data.trait_ref)), span, Binder.rebind(bound_clause, data), index);
 
         // Get clauses implied by the trait, or only super clauses if we only care
         // about self clauses.
         switch (this.mode) {
           case "All": {
-            const it = EarlyBinder_iter_identity(interner(cx).explicit_implied_clauses_of(trait_ref_def_id(data)));
+            const it = EarlyBinder.iter_identity(interner(cx).explicit_implied_clauses_of(trait_ref_def_id(data)));
             this.extend_deduped(
               (function* () {
                 let index = 0;
@@ -270,7 +265,7 @@ export class Elaborator<O> implements Iterable<O> {
             break;
           }
           case "OnlySelf": {
-            const it = EarlyBinder_iter_identity(interner(cx).explicit_super_clauses_of(trait_ref_def_id(data)));
+            const it = EarlyBinder.iter_identity(interner(cx).explicit_super_clauses_of(trait_ref_def_id(data)));
             this.extend_deduped(
               (function* () {
                 let index = 0;
@@ -285,13 +280,13 @@ export class Elaborator<O> implements Iterable<O> {
       // `T: [const] Trait` implies `T: [const] Supertrait`.
       case "HostEffect": {
         const data = k._0;
-        const it = EarlyBinder_iter_identity(interner(cx).ir_explicit_implied_const_bounds(trait_ref_def_id(data)));
+        const it = EarlyBinder.iter_identity(interner(cx).ir_explicit_implied_const_bounds(trait_ref_def_id(data)));
         this.extend_deduped(
           (function* () {
             for (const trait_ref of it) {
               yield d.child(
                 elaboratable,
-                Unnormalized_skip_norm_wip(Unnormalized_to_host_effect_clause(trait_ref, cx, data.constness)).instantiate_supertrait(cx, Binder_rebind(bound_clause, data.trait_ref)),
+                Unnormalized_skip_norm_wip(Unnormalized_to_host_effect_clause(trait_ref, cx, data.constness)).instantiate_supertrait(cx, Binder.rebind(bound_clause, data.trait_ref)),
               );
             }
           })(),
@@ -325,7 +320,7 @@ export class Elaborator<O> implements Iterable<O> {
             for (const component of components) {
               const clause = elaborate_component_to_clause(cx, component, r_min);
               if (clause === undefined) continue;
-              yield d.child(elaboratable, upcast_Binder_ClauseKind_Clause(Binder_rebind(bound_clause, clause), cx));
+              yield d.child(elaboratable, upcast_Binder_ClauseKind_Clause(Binder.rebind(bound_clause, clause), cx));
             }
           })(),
         );
@@ -452,9 +447,9 @@ export function supertrait_def_ids(cx: TyCtxt, trait_def_id: DefId): Iterable<De
       const trait_def_id = stack.pop();
       if (trait_def_id === undefined) return;
 
-      for (const u of EarlyBinder_iter_identity(interner(cx).explicit_super_clauses_of(trait_def_id))) {
+      for (const u of EarlyBinder.iter_identity(interner(cx).explicit_super_clauses_of(trait_def_id))) {
         const [clause, _] = Unnormalized_skip_norm_wip(u);
-        const k = Binder_skip_binder(clause.kind());
+        const k = Binder.skip_binder(clause.kind());
         if (k.$ === "Trait") {
           const fresh = !set.has(trait_ref_def_id(k._0));
           set.add(trait_ref_def_id(k._0));
@@ -489,7 +484,7 @@ export class FilterToTraits implements Iterable<Binder<TraitRef>> {
     for (let pred = this.base_iterator.next(); pred !== undefined; pred = this.base_iterator.next()) {
       const data = pred.as_trait_clause();
       if (data !== undefined) {
-        return Binder_map_bound(data, (t) => t.trait_ref);
+        return Binder.map_bound(data, (t) => t.trait_ref);
       }
     }
     return undefined;

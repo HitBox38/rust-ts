@@ -41,7 +41,7 @@ import { type DefId, DefId_eq } from "../rustc_span/def_id.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { panic, unported, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
-import { type Binder, fold_with_Binder, try_fold_with_Binder, visit_with_Binder } from "./binder.ts";
+import { Binder, fold_with_Binder, try_fold_with_Binder, visit_with_Binder } from "./binder.ts";
 import { AliasConst, type AliasConstKind, fold_with_AliasConstKind, try_fold_with_AliasConstKind, visit_with_AliasConstKind, type ValTreeKind } from "./const_kind.ts";
 import { ExpectedFound, TypeError } from "./error.ts";
 import type { TypeFoldable } from "./fold.ts";
@@ -73,7 +73,6 @@ import { type AliasConst as AliasConstT, type AliasTerm as AliasTermT, type Alia
 import {
   AliasTy,
   type AliasTyKind,
-  Binder_skip_binder,
   FnSig,
   fold_with_AliasTyKind,
   fold_with_FnSig,
@@ -110,12 +109,6 @@ export function Variance_xform(self: Variance, v: Variance): Variance {
 
   // Figure 1, column 4.
   return Variance.Bivariant;
-}
-
-/** PORT: stand-in for `Binder::rebind` (binder.rs:186, lane tyir-binder): `bind_with_vars` without its
- *  `cfg!(debug_assertions)` validation (the oracle is a release build). */
-export function Binder_rebind<T, U>(self: Binder<T>, value: U): Binder<U> {
-  return { value, bound_vars: self.bound_vars };
 }
 
 /** PORT: stand-in for `inherent::AdtDef::def_id` (rustc_middle ty/adt.rs, lane ty-adt-assoc; `AdtDef` is pending). */
@@ -802,13 +795,13 @@ export function structurally_relate_tys(relation: TypeRelation, a: Ty, b: Ty): R
   if (ak.$ === "FnDef" && bk.$ === "FnDef" && DefId_eq(ak._0, bk._0)) {
     const [a_def_id, a_args] = [ak._0, ak._1];
     const b_args = bk._1;
-    if (Binder_skip_binder(a_args).length === 0) {
+    if (Binder.skip_binder(a_args).length === 0) {
       return Ok(a);
     } else {
       // FIXME: this behavior is wrong; relations with binders needs fixing.
       //        need to relate the bound vars first.
-      const x = relation.relate_ty_args(a, b, a_def_id, Binder_skip_binder(a_args), Binder_skip_binder(b_args), (args) =>
-        Ty.new_fn_def(cx, a_def_id, Binder_rebind(a_args, args)),
+      const x = relation.relate_ty_args(a, b, a_def_id, Binder.skip_binder(a_args), Binder.skip_binder(b_args), (args) =>
+        Ty.new_fn_def(cx, a_def_id, Binder.rebind(a_args, args)),
       );
       return x;
     }
