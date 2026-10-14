@@ -27,7 +27,7 @@ import { type Canonical, type CanonicalQueryInput, type CanonicalVarValues, Cano
 import type { AliasConst, CanonicalVarKind, TraitRef, UniverseIndex } from "../rustc_type_ir/decls.ts";
 import type { TypeFoldable } from "../rustc_type_ir/fold.ts";
 import type { InferCtxtLike, InferCtxtLike_OpaqueTypeStorageEntries } from "../rustc_type_ir/infer_ctxt.ts";
-import type { RegionConstraint } from "../rustc_type_ir/region_constraint.ts";
+import type { RegionConstraint } from "../rustc_type_ir/predicate.ts";
 import type {
   Certainty,
   ComputeGoalFastPathOutcome,

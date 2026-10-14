@@ -149,8 +149,7 @@ EvalCtxt.prototype.region_assumptions_for_placeholders_in_universe = function <T
 // #[instrument(level = "debug", skip(self), ret)]
 // rustc: compiler/rustc_next_trait_solver/src/solve/eval_ctxt/solver_region_constraints.rs:114 eagerly_handle_placeholders
 EvalCtxt.prototype.eagerly_handle_placeholders = function (this: EvalCtxt): Result<Certainty, NoSolution> {
-  // PORT(merge): ir_get_solver_region_constraint after infcx-contract
-  let constraint: RegionConstraint = this.delegate.deref().get_solver_region_constraint();
+  let constraint: RegionConstraint = this.delegate.deref().ir_get_solver_region_constraint();
 
   const smallest_universe = this.max_input_universe;
   const largest_universe = this.delegate.deref().universe();
@@ -177,8 +176,7 @@ EvalCtxt.prototype.eagerly_handle_placeholders = function (this: EvalCtxt): Resu
   }
 
   // debug!("final constraint={:?}", constraint);
-  // PORT(merge): ir_overwrite_solver_region_constraint after infcx-contract
-  this.delegate.deref().overwrite_solver_region_constraint(constraint, this.origin_span);
+  this.delegate.deref().ir_overwrite_solver_region_constraint(constraint, this.origin_span);
 
   if (RegionConstraint.is_false(constraint)) {
     return Err(NoSolution);
