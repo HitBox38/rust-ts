@@ -1,0 +1,37 @@
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+  --> ev_macro.rs:1:12
+   |
+LL | #![feature(rustc_attrs, decl_macro)]
+   |            ^^^^^^^^^^^
+   |
+   = note: using it is strongly discouraged
+   = note: `#[warn(internal_features)]` on by default
+
+warning: unused import: `crate::ty`
+  --> ev_macro.rs:13:13
+   |
+LL |         use crate::ty;
+   |             ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error: Direct: pub(in crate::ty::print), Reexported: pub, Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_macro.rs:7:13
+   |
+LL |             pub macro with_no_queries() {}
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: Direct: pub(self), Reexported: pub(self), Reachable: pub(self), ReachableThroughImplTrait: pub(self)
+  --> ev_macro.rs:17:5
+   |
+LL |     mod sty {
+   |     ^^^^^^^
+
+error: Direct: pub(in crate::ty), Reexported: pub(in crate::ty), Reachable: pub, ReachableThroughImplTrait: pub
+  --> ev_macro.rs:20:9
+   |
+LL |         pub type Placeholder = ();
+   |         ^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 3 previous errors; 2 warnings emitted
+

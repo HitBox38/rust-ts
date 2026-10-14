@@ -1067,5 +1067,13 @@
     "discriminant": [],
     "skip": [],
     "typemap_extra": ["tyir.typemap.json"]
+  },
+  "rustc_privacy": {
+    "files": ["compiler/rustc_privacy/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "typemap_extra": ["tyir.typemap.json", "ast_lowering.typemap.json"]
   }
 }
