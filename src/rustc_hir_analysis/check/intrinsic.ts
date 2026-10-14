@@ -386,8 +386,7 @@ export function check_intrinsic_type(tcx: TyCtxt, intrinsic_id: LocalDefId, span
     case sym.type_id_fields:
       r = [0, 0, [type_id_ty(), tcx.types.usize], tcx.types.usize];
       break;
-    case sym.type_id_function_ptr:
-{
+    case sym.type_id_function_ptr: {
       const fn_ptr = tcx.require_lang_item(LangItem.FnPtr, span);
       const fn_ptr_adt_ref = tcx.adt_def(fn_ptr) as AdtDef;
       const fn_ptr_ty = Ty.new_adt(tcx, fn_ptr_adt_ref, RawList.empty());
@@ -417,8 +416,7 @@ export function check_intrinsic_type(tcx: TyCtxt, intrinsic_id: LocalDefId, span
     case sym.type_id_variant_non_exhaustive:
       r = [0, 0, [type_id_ty(), tcx.types.usize], tcx.types.bool];
       break;
-    case sym.type_id_vtable:
-{
+    case sym.type_id_vtable: {
       const dyn_metadata = tcx.require_lang_item(LangItem.DynMetadata, span);
       const dyn_metadata_adt_ref = tcx.adt_def(dyn_metadata) as AdtDef;
       const dyn_metadata_args = tcx.mk_args([GenericArg.from_Ty(Ty.new_ptr(tcx, tcx.types.unit, "Not"))]);
@@ -495,8 +493,7 @@ export function check_intrinsic_type(tcx: TyCtxt, intrinsic_id: LocalDefId, span
     case sym.volatile_copy_nonoverlapping_memory:
       r = [1, 0, [Ty.new_mut_ptr(tcx, param(0)), Ty.new_imm_ptr(tcx, param(0)), tcx.types.usize], tcx.types.unit];
       break;
-    case sym.compare_bytes:
-{
+    case sym.compare_bytes: {
       const byte_ptr = Ty.new_imm_ptr(tcx, tcx.types.u8);
       r = [0, 0, [byte_ptr, byte_ptr, tcx.types.usize], tcx.types.i32];
       break;
@@ -818,8 +815,7 @@ export function check_intrinsic_type(tcx: TyCtxt, intrinsic_id: LocalDefId, span
     case sym.write_via_move:
       r = [1, 0, [Ty.new_mut_ptr(tcx, param(0)), param(0)], tcx.types.unit];
       break;
-    case sym.write_box_via_move:
-{
+    case sym.write_box_via_move: {
       const t = param(0);
       const maybe_uninit_t = Ty.new_maybe_uninit(tcx, t);
       const box_mu_t = Ty.new_box(tcx, maybe_uninit_t);
@@ -828,15 +824,13 @@ export function check_intrinsic_type(tcx: TyCtxt, intrinsic_id: LocalDefId, span
       break;
     }
 
-    case sym.typed_swap_nonoverlapping:
-{
+    case sym.typed_swap_nonoverlapping: {
       // `vec![Ty::new_mut_ptr(tcx, param(0)); 2]`: one call, cloned
       const p = Ty.new_mut_ptr(tcx, param(0));
       r = [1, 0, [p, p], tcx.types.unit];
       break;
     }
-    case sym.discriminant_value:
-{
+    case sym.discriminant_value: {
       const assoc_items = tcx.associated_item_def_ids(tcx.require_lang_item(LangItem.DiscriminantKind, span)) as readonly DefId[];
       const discriminant_def_id = assoc_items[0]!;
 
@@ -850,8 +844,7 @@ export function check_intrinsic_type(tcx: TyCtxt, intrinsic_id: LocalDefId, span
       break;
     }
 
-    case sym.catch_unwind:
-{
+    case sym.catch_unwind: {
       const mut_data = Ty.new_mut_ptr(tcx, param(0));
       const mut_u8 = Ty.new_mut_ptr(tcx, tcx.types.u8);
       const try_fn_ty = Binder.dummy(tcx.mk_fn_sig_unsafe_rust_abi([mut_data], tcx.types.unit), fold_FnSig);
@@ -860,8 +853,7 @@ export function check_intrinsic_type(tcx: TyCtxt, intrinsic_id: LocalDefId, span
       break;
     }
 
-    case sym.va_copy:
-{
+    case sym.va_copy: {
       const [va_list_ref_ty, va_list_ty] = mk_va_list_ty("Not");
       r = [0, 0, [va_list_ref_ty], va_list_ty];
       break;
@@ -878,8 +870,7 @@ export function check_intrinsic_type(tcx: TyCtxt, intrinsic_id: LocalDefId, span
     case sym.nontemporal_store:
       r = [1, 0, [Ty.new_mut_ptr(tcx, param(0)), param(0)], tcx.types.unit];
       break;
-    case sym.raw_eq:
-{
+    case sym.raw_eq: {
       const br = { var: BoundVar.ZERO, kind: BoundRegionKind.Anon };
       const param_ty_lhs = Ty.new_imm_ref(tcx, Region.new_bound(tcx, INNERMOST, br), param(0));
       const br1 = { var: BoundVar.from_u32(1), kind: BoundRegionKind.Anon };
