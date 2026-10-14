@@ -1055,7 +1055,7 @@ export const debug_UserTypeKind: Debug<UserTypeKind> = (v, f) => {
   }
 };
 
-// rustc-skip: compiler/rustc_middle/src/ty/typeck_results.rs:855 Lift for UserTypeKind (derive(Lift); PORTING §3)
+// `#[derive(Lift)]` of `UserTypeKind`: skipped (PORTING §3).
 
 export interface IsIdentity<T> {
   // rustc: compiler/rustc_middle/src/ty/typeck_results.rs:865 is_identity
