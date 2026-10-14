@@ -134,8 +134,7 @@ module that root repoints at merge (section 5).
 
 ## 8. Evidence
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see the final report of this lane (first full run: 3898 pass,
-  1 skip, 2 fails that were then fixed: the rustc_ty golden counts and queries.gen.ts staleness from `CoerceUnsizedInfo`).
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 3899 pass, 1 skip (the existing linux-only one), 0 fail.
 - `bun scripts/coverage.ts --check`: ok.
 - `RUST_TS_AGENT=codegen-tyir bun scripts/difftest.ts --suite parse --sample 200`: 200/200 MATCH (run 20261014-012442-codegen-tyir-l3t6).
 - Fresh-process `import()` of all 72 new modules: ok (no init-time cycle).
