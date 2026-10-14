@@ -314,7 +314,7 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
     const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
     expect(() => infcx.next_ty_var(DUMMY_SP)).toThrow(Unported);
     expect(() => infcx.next_ty_var(DUMMY_SP)).toThrow(/rustc_infer::infer::InferCtxt::next_ty_var/);
-    expect(() => infcx.inner.unwrap_region_constraints()).toThrow(/rustc_infer::infer::region_constraints::RegionConstraintStorage::with_log/);
+    // (`unwrap_region_constraints` stopped at `RegionConstraintStorage::with_log` until lane infer-regions ported it.)
     expect(() => infcx.can_eq(undefined as never, undefined, undefined, undefined as never)).toThrow(/rustc_trait_selection::infer::InferCtxt::can_eq/);
   });
 
