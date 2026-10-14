@@ -46,7 +46,7 @@
 //   split lib.rs's `impl LoweringContext` methods at line 1757.
 
 // ---- lane lower-lib-a imports ----
-import { type Attribute as AstAttribute, type AssocItem, clone_Path, clone_TraitBoundModifiers, CRATE_NODE_ID, DelimArgs, DUMMY_NODE_ID, type Expr, type ForeignItem, type GenericArg as AstGenericArg, GenericArgs as AstGenericArgs, type GenericParam as AstGenericParam, Item, type ItemKind, MacCall, NodeId, TraitBoundModifiers, type ParenthesizedArgs, Path as AstPath, PolyTraitRef, type QSelf, type Ty as AstTy, type AssocItemConstraint as AstAssocItemConstraint } from "../rustc_ast/lib.ts";
+import { type Attribute as AstAttribute, type AssocItem, clone_Path, clone_TraitBoundModifiers, CRATE_NODE_ID, DelimArgs, DUMMY_NODE_ID, type Expr, type ForeignItem, type GenericArg as AstGenericArg, GenericArgs as AstGenericArgs, type GenericParam as AstGenericParam, Item, MacCall, NodeId, TraitBoundModifiers, type ParenthesizedArgs, Path as AstPath, PolyTraitRef, type QSelf, type Ty as AstTy, type AssocItemConstraint as AstAssocItemConstraint } from "../rustc_ast/lib.ts";
 import { mut_visit, node_id as ast_node_id_mod, tokenstream, type visit } from "../rustc_ast/lib.ts";
 import { type Attribute as HirAttribute, type AttributeKind, find_attr } from "../rustc_attr_ir/lib.ts";
 import { LangItem } from "../rustc_attr_ir/lang_items.ts";
@@ -228,7 +228,6 @@ export class PerOwnerLoweringState {
     // Don't hash unless necessary, because it's expensive.
     // PORT: `tcx.hash_owner_nodes(node, &bodies, &attrs, define_opaque)` (rustc_middle hir/mod.rs:175, lane
     // middle-hir) is not on `TyCtxt` yet.
-    void define_opaque;
     const hashes: { bodies_hash: Fingerprint | undefined; attrs_hash: Fingerprint | undefined } = unported(
       "rustc_middle::hir::TyCtxt::hash_owner_nodes (hir/mod.rs:175)",
     );
@@ -248,7 +247,6 @@ export class PerOwnerLoweringState {
           // Do not hash delayed_lints.
           // PORT: `parenting` / `trait_map` / `children` are `UnordMap`s; `StableHash for UnordMap`
           // (rustc_data_structures unord.rs) is not ported yet.
-          void [parenting, trait_map, children];
           unported("rustc_data_structures::unord::UnordMap: StableHash (OwnerInfo::opt_hash)");
           return stable_hasher.finish(Fingerprint);
         })
@@ -1099,7 +1097,6 @@ LoweringContext.prototype.make_lang_item_path = function (
   args: hir.GenericArgs | undefined,
 ): hir.Path {
   // PORT: `TyCtxt::require_lang_item` (rustc_middle middle/lang_items.rs:20) is not ported yet.
-  void lang_item;
   const def_id: DefId = unported("rustc_middle::middle::lang_items::TyCtxt::require_lang_item (lang_items.rs:20)");
   const def_kind = this.tcx.def_kind(def_id);
   const res: Res = { $: "Def", _0: def_kind, _1: def_id };
