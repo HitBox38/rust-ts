@@ -203,7 +203,8 @@ describe("rustc_infer contract", () => {
     }
     expect(bad).toEqual([]);
     expect(DECLS.decls.length).toBeGreaterThan(300);
-    expect(stubs).toBeGreaterThan(250);
+    // The wave-16 lanes fill placeholders, so their count only falls (it was > 250 at the contract).
+    expect(stubs).toBeLessThanOrEqual(DECLS.decls.length);
   });
 
   test("InferCtxt has every InferCtxtLike method", () => {
