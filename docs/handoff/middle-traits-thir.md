@@ -40,7 +40,7 @@ structural_impls.rs 2/2, thir.rs 16/16, thir/visit.rs 12/12, middle/region.rs 11
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Results" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4310 pass, 1 skip (the pre-existing linux-only one), 0 fail.
 - Fresh-process loads: every new hand module, `rustc_middle/lib.ts`, `ty/context.ts`, `ty/decls.ts`, `ty/mod.ts`,
   `rustc_type_ir/solve/mod.ts` and `interner.ts` load as entry points (the `.gen.ts` files, like every existing
   `.gen.ts`, are not entry points: they import their hand module).
