@@ -96,8 +96,10 @@ export * as wrong_number_of_generic_args from "./diagnostics/wrong_number_of_gen
 export * as hir_ty_lowering from "./hir_ty_lowering/mod.ts";
 // pub mod hir_wf_check;     (wave 17)
 // mod impl_wf_check;        (wave 17: variance-outlives-implwf)
-// mod outlives;             (wave 17: variance-outlives-implwf)
-// mod variance;             (wave 17: variance-outlives-implwf)
+// mod outlives;
+import * as outlives from "./outlives/mod.ts";
+// mod variance;
+import * as variance from "./variance/mod.ts";
 
 // pub use crate::collect::suggest_impl_trait;
 export { suggest_impl_trait } from "./collect.ts";
@@ -139,13 +141,13 @@ export function provide(providers: Providers): void {
   // check::provide(providers);
   // providers.check_unused_traits = check_unused.check_unused_traits;
   // providers.diagnostic_hir_wf_check = hir_wf_check.diagnostic_hir_wf_check;
-  // providers.inferred_outlives_crate = outlives.inferred_outlives_crate;
-  // providers.inferred_outlives_of = outlives.inferred_outlives_of;
+  providers.inferred_outlives_crate = outlives.inferred_outlives_crate;
+  providers.inferred_outlives_of = outlives.inferred_outlives_of;
   providers.inherit_sig_for_delegation_item = delegation.inherit_sig_for_delegation_item;
   providers.delegation_user_specified_args = delegation.delegation_user_specified_args;
   // providers.enforce_impl_non_lifetime_params_are_constrained = impl_wf_check.enforce_impl_non_lifetime_params_are_constrained;
-  // providers.crate_variances = variance.crate_variances;
-  // providers.variances_of = variance.variances_of;
+  providers.crate_variances = variance.crate_variances;
+  providers.variances_of = variance.variances_of;
 }
 
 // lib.rs:145 (stub, wave 17 lane check-check; final signature: decls.ts `Fns_lib`)
