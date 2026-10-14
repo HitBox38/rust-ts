@@ -24,7 +24,7 @@ import type { Const, Region } from "../sty/mod.ts";
 import { Binder_map_bound, Binder_skip_binder, DebruijnIndex_shifted_in, DebruijnIndex_shifted_out, debug_TyKind, FnSigTys, PolyFnSigTys, type FnSig } from "../ty_kind.ts";
 import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "../visit.ts";
 import * as gen from "./closure.gen.ts";
-import { visit_with_FnSigTys } from "../ty_kind.gen.ts";
+import { visit_with_FnSigTys } from "../ty_kind.ts";
 
 export * from "./closure.gen.ts";
 
