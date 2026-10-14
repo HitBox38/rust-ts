@@ -51,7 +51,12 @@ Oracle: the pinned rustc on each `errors_oracle/cases/<name>.rs` with `--edition
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
 - `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src/rustc_hir_analysis`: 29 pass (contract.test.ts 10/10, oracle 19/19).
-- Full run and sample difftest: see "Test run" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4516 pass, 1 skip (pre-existing linux-only), 1 fail:
+  `src/std/fmt.test.ts` "format_debug of a deep chain is linear in the output size", a timing test that flaked under load
+  (file untouched; re-run alone: 3/3 pass).
+- `RUST_TS_AGENT=hir-ty-lowering-d bun scripts/difftest.ts --suite hir-tree-nocore --sample 100`: 99 MATCH / 0 DIFF /
+  1 UNPORTED / 0 CRASH (run `20261014-124305-hir-ty-lowering-d-dn4z`); the UNPORTED is the pre-existing
+  `StableHash without a TS impl` (transmutability/references/reject_extension.rs), not protected-set relevant to this lane.
 
 ## `unported(...)` left
 All in stand-in fns at the end of each file (`// ==== stand-ins ..`); root replaces each when its owner lands.
