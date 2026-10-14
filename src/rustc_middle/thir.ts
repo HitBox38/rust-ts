@@ -292,7 +292,7 @@ PatRange.prototype.is_full_range = function (this: PatRange, tcx: TyCtxt): boole
       lo_is_min = true;
       break;
     case "Finite": {
-      const lo = ScalarInt_to_bits(ValTree_to_leaf(this.lo._0), size) ^ bias;
+      const lo = const_kind().ValTreeKind.to_leaf(this.lo._0.kind()).to_bits(size) ^ bias;
       lo_is_min = lo <= min;
       break;
     }
@@ -307,7 +307,7 @@ PatRange.prototype.is_full_range = function (this: PatRange, tcx: TyCtxt): boole
         hi_is_max = false;
         break;
       case "Finite": {
-        const hi = ScalarInt_to_bits(ValTree_to_leaf(this.hi._0), size) ^ bias;
+        const hi = const_kind().ValTreeKind.to_leaf(this.hi._0.kind()).to_bits(size) ^ bias;
         hi_is_max = hi > max || (hi === max && this.end === "Included");
         break;
       }
@@ -326,7 +326,7 @@ PatRange.prototype.is_full_range = function (this: PatRange, tcx: TyCtxt): boole
 PatRange.prototype.contains = function (this: PatRange, value: Value, tcx: TyCtxt): boolean | undefined {
   // debug_assert_eq!(value.ty, self.ty);
   const ty = this.ty;
-  const value_: gen.PatRangeBoundary = { $: "Finite", _0: Value_valtree(value) };
+  const value_: gen.PatRangeBoundary = { $: "Finite", _0: value.valtree };
   // For performance, it's important to only do the second comparison if necessary.
   const c1 = PatRangeBoundary.compare_with(this.lo, value_, ty, tcx);
   if (c1 === undefined) return undefined;
@@ -390,12 +390,12 @@ export function display_PatRange(self: PatRange): string {
   let out = "";
   if (self.lo.$ === "Finite") {
     const valtree = self.lo._0;
-    out += display_Value(self.ty, valtree);
+    out += valtree_().display_Value({ ty: self.ty, valtree });
   }
   if (self.hi.$ === "Finite") {
     const valtree = self.hi._0;
     out += display_RangeEnd(self.end);
-    out += display_Value(self.ty, valtree);
+    out += valtree_().display_Value({ ty: self.ty, valtree });
   } else {
     // `0..` is parsed as an inclusive range, we must display it correctly.
     out += "..";
@@ -429,7 +429,7 @@ export const PatRangeBoundary = {
   to_bits(self: PatRangeBoundary, ty: Ty, tcx: TyCtxt): bigint {
     switch (self.$) {
       case "Finite":
-        return ScalarInt_to_bits_unchecked(ValTree_to_leaf(self._0));
+        return const_kind().ValTreeKind.to_leaf(self._0.kind()).to_bits_unchecked();
       case "NegInfinity": {
         // Unwrap is ok because the type is known to be numeric.
         const mm = ty.numeric_min_and_max_as_bits(tcx);
@@ -461,18 +461,18 @@ export const PatRangeBoundary = {
     // in this way.
     const tk = ty.kind();
     if (self.$ === "Finite" && other.$ === "Finite" && (tk.$ === "Int" || tk.$ === "Uint" || tk.$ === "Char")) {
-      const a = ValTree_try_to_leaf(self._0);
-      const b = ValTree_try_to_leaf(other._0);
+      const a = const_kind().ValTreeKind.try_to_leaf(self._0.kind());
+      const b = const_kind().ValTreeKind.try_to_leaf(other._0.kind());
       if (a !== undefined && b !== undefined) {
         const sz = ty.primitive_size(tcx);
         let cmp: Ordering;
         switch (tk.$) {
           case "Uint":
           case "Char":
-            cmp = cmp_bigint(ScalarInt_to_uint(a, sz), ScalarInt_to_uint(b, sz));
+            cmp = cmp_bigint(a.to_uint(sz), b.to_uint(sz));
             break;
           case "Int":
-            cmp = cmp_bigint(ScalarInt_to_int(a, sz), ScalarInt_to_int(b, sz));
+            cmp = cmp_bigint(a.to_int(sz), b.to_int(sz));
             break;
         }
         return cmp;
@@ -543,36 +543,12 @@ function Size_unsigned_int_max(_self: Size): bigint {
 function Size_sign_extend(_self: Size, _value: bigint): bigint {
   return unported("rustc_abi::Size::sign_extend");
 }
-/** PORT: stand-in for `ValTree::to_leaf` (ty/consts/valtree.rs, lane ty-results). */
-function ValTree_to_leaf(_self: ValTree): ScalarInt {
-  return unported("rustc_middle::ty::consts::valtree::ValTree::to_leaf (lane ty-results)");
-}
-/** PORT: stand-in for `ValTree::try_to_leaf` (ty/consts/valtree.rs, lane ty-results). */
-function ValTree_try_to_leaf(_self: ValTree): ScalarInt | undefined {
-  return unported("rustc_middle::ty::consts::valtree::ValTree::try_to_leaf (lane ty-results)");
-}
-/** PORT: stand-in for the `valtree` field of `ty::Value` (ty/consts/valtree.rs, lane ty-results). */
-function Value_valtree(_self: Value): ValTree {
-  return unported("rustc_middle::ty::consts::valtree::Value::valtree (lane ty-results)");
-}
-/** PORT: stand-in for `Display for ty::Value { ty, valtree }` (ty/print/pretty.rs, `ty::Value` lane ty-results). */
-function display_Value(_ty: Ty, _valtree: ValTree): string {
-  return unported("rustc_middle::ty::consts::valtree::Value: Display (lane ty-results)");
-}
-/** PORT: stand-in for `ScalarInt::to_bits` (ty/consts/int.rs, lane ty-results). */
-function ScalarInt_to_bits(_self: ScalarInt, _size: Size): bigint {
-  return unported("rustc_middle::ty::consts::int::ScalarInt::to_bits (lane ty-results)");
-}
-/** PORT: stand-in for `ScalarInt::to_bits_unchecked` (ty/consts/int.rs, lane ty-results). */
-function ScalarInt_to_bits_unchecked(_self: ScalarInt): bigint {
-  return unported("rustc_middle::ty::consts::int::ScalarInt::to_bits_unchecked (lane ty-results)");
-}
-/** PORT: stand-in for `ScalarInt::to_uint` (ty/consts/int.rs, lane ty-results). */
-function ScalarInt_to_uint(_self: ScalarInt, _size: Size): bigint {
-  return unported("rustc_middle::ty::consts::int::ScalarInt::to_uint (lane ty-results)");
-}
-/** PORT: stand-in for `ScalarInt::to_int` (ty/consts/int.rs, lane ty-results). */
-function ScalarInt_to_int(_self: ScalarInt, _size: Size): bigint {
-  return unported("rustc_middle::ty::consts::int::ScalarInt::to_int (lane ty-results)");
-}
 
+/** PORT (merge-w15b): `ValTreeKind`'s leaf accessors (rustc_type_ir const_kind.rs; `ValTree` derefs to it) and
+ * `Display for ty::Value` (ty/consts/valtree.rs), reached lazily (init order). */
+function const_kind(): typeof import("../rustc_type_ir/const_kind.ts") {
+  return require("../rustc_type_ir/const_kind.ts") as typeof import("../rustc_type_ir/const_kind.ts");
+}
+function valtree_(): typeof import("./ty/consts/valtree.ts") {
+  return require("./ty/consts/valtree.ts") as typeof import("./ty/consts/valtree.ts");
+}

@@ -24,7 +24,7 @@ import { debug_TraitRef, TraitClause } from "../../rustc_type_ir/predicate.ts";
 import { debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
 import { Const, debug_Region, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
+
 import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "../../rustc_type_ir/visit.ts";
 import { type Debug, debug_bool, debug_int, debug_list, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN, PRETTY } from "../../std/fmt.ts";
 import { panic, unwrap } from "../../std/panic.ts";
@@ -37,6 +37,7 @@ import { fold_GenericArg, GenericArg, type GenericArgsRef } from "./generic_args
 import type { Clauses } from "./list.ts";
 import { InstantiatedClauses, Ty } from "./mod.ts";
 import { type Clause, debug_Clause, fold_with_Clause, try_fold_with_Clause, visit_with_Clause } from "./predicate.ts";
+import { fold_Clause, fold_Span, fold_Ty } from "./structural_impls.ts";
 
 export type GenericParamDefKind =
   | { readonly $: "Lifetime" }
@@ -559,21 +560,6 @@ export const debug_GenericClauses: Debug<GenericClauses> = (v, f) =>
     ["clauses", debug_list(f, v.clauses.map(([c, sp]) => debug_tuple(f, "", [debug_Clause(c, f), debug_Span(sp, f)])))],
   ]);
 
-/** PORT: the D4 descriptor of `Clause` (structural_impls.rs, lane ty-results) over predicate.ts's impl fns. */
-const d_Clause: TypeFoldable<Clause> = { visit_with: visit_with_Clause, try_fold_with: try_fold_with_Clause, fold_with: fold_with_Clause };
-
-/** PORT: `TrivialTypeTraversalImpls! { Span }` (rustc_middle ty/structural_impls.rs): a no-op traversal. */
-const d_Span: TypeFoldable<Span> = {
-  try_fold_with(self) {
-    return Ok(self);
-  },
-  fold_with(self) {
-    return self;
-  },
-  visit_with(_self, visitor) {
-    return visitor.Result.output();
-  },
-};
 
 /** PORT: `TypeFoldable for TraitRef` (generated) as a D4 descriptor; `PolyTraitRef`'s is `fold_Binder` of it. */
 const d_TraitRef: TypeFoldable<TraitRef> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
@@ -633,7 +619,7 @@ export const GenericClauses = {
 
   // rustc: compiler/rustc_middle/src/ty/generics.rs:404 instantiate_own
   instantiate_own(self: GenericClauses, tcx: TyCtxt, args: GenericArgsRef): MapUnzipIter<Clause> {
-    return new MapUnzipIter(EarlyBinder.iter_instantiated_copied(EarlyBinder.bind_iter(self.clauses as readonly [Clause, Span][]), tcx, args, fold_tuple2(d_Clause, d_Span)));
+    return new MapUnzipIter(EarlyBinder.iter_instantiated_copied(EarlyBinder.bind_iter(self.clauses as readonly [Clause, Span][]), tcx, args, fold_tuple2(fold_Clause, fold_Span)));
   },
 
   // rustc: compiler/rustc_middle/src/ty/generics.rs:418 instantiate_own_identity
@@ -648,7 +634,7 @@ export const GenericClauses = {
       const def_id = self.parent;
       GenericClauses.instantiate_into(tcx.clauses_of(def_id) as GenericClauses, tcx, instantiated, args);
     }
-    instantiated.clauses.push(...self.clauses.map(([p, _]) => EarlyBinder.instantiate(EarlyBinder.bind(tcx, p, d_Clause), tcx, args, d_Clause)));
+    instantiated.clauses.push(...self.clauses.map(([p, _]) => EarlyBinder.instantiate(EarlyBinder.bind(tcx, p, fold_Clause), tcx, args, fold_Clause)));
     instantiated.spans.push(...self.clauses.map(([_, sp]) => sp));
   },
 
@@ -746,7 +732,7 @@ class ParamChecker implements TypeVisitor<ControlFlow<null>> {
       default:
         break;
     }
-    return standin_fold_Ty.super_visit_with(t, this);
+    return fold_Ty.super_visit_with(t, this);
   }
 
   visit_binder<T>(t: Binder<T>, d: TypeVisitable<T>): ControlFlow<null> {
@@ -807,7 +793,7 @@ export const ConstConditions = {
 
   // rustc: compiler/rustc_middle/src/ty/generics.rs:556 instantiate_own
   instantiate_own(self: ConstConditions, tcx: TyCtxt, args: GenericArgsRef): MapUnzipIter<PolyTraitRef> {
-    return new MapUnzipIter(EarlyBinder.iter_instantiated_copied(EarlyBinder.bind_iter(self.clauses as readonly [PolyTraitRef, Span][]), tcx, args, fold_tuple2(d_PolyTraitRef, d_Span)));
+    return new MapUnzipIter(EarlyBinder.iter_instantiated_copied(EarlyBinder.bind_iter(self.clauses as readonly [PolyTraitRef, Span][]), tcx, args, fold_tuple2(d_PolyTraitRef, fold_Span)));
   },
 
   // rustc: compiler/rustc_middle/src/ty/generics.rs:570 instantiate_own_identity

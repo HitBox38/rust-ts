@@ -7,11 +7,11 @@
 // unions, data enums tagged by `$`, `CapturedPlace` (inherent methods) as a class, the data structs as interfaces.
 // Their `#[derive(Debug)]` impls are `debug_<T>`; `TypeFoldable` / `TypeVisitable` / `StableHash` / `TyEncodable` /
 // `TyDecodable` derives are not written (tools/codegen; PORTING §5).
-// PORT(decls): pending. `hir::place::{Place, PlaceBase, ProjectionKind, Projection}` (hir/place.rs), `TypeckResults`
-// (ty/typeck_results.rs, lane ty-results), `mir::Local` (M4) are not ported: the members read here are typed by the
-// `*View` types below (upstream names, PORTING §5 shapes); methods that are not field reads go through `unported`
-// stand-ins at the end of the file. decls.ts still has `CapturedPlace` / `HirPlace` as `Pending`: the `TyCtxt`
-// methods declared there cast at the boundary.
+// PORT(decls): pending. `hir::place::{Place, PlaceBase, ProjectionKind, Projection}` (hir/place.rs) and `mir::Local`
+// (M4) are not ported: the members read here are typed by the `*View` types below (upstream names, PORTING §5 shapes);
+// methods that are not field reads go through `unported` stand-ins at the end of the file. decls.ts still has
+// `HirPlace` as `Pending`: the `TyCtxt` methods declared there cast at the boundary. (`TypeckResults` is
+// typeck_results.ts's since merge-w15b.)
 // PORT: `closure_typeinfo` (the provider) and `provide` are exported; ty/mod.rs `provide` (lane ty-mod) calls
 // `closure::provide`.
 import { TyCtxt } from "./context.ts";
@@ -283,11 +283,11 @@ export interface ClosureTypeInfo {
 export function closure_typeinfo(tcx: TyCtxt, def: LocalDefId): ClosureTypeInfo {
   // debug_assert!(tcx.is_closure_like(def.to_def_id()));
   const typeck_results = tcx.typeck(def) as TypeckResults;
-  const user_provided_sig = unwrap(view_TypeckResults(typeck_results).user_provided_sigs.get(def), "index out of bounds");
-  const captures_ = TypeckResults_closure_min_captures_flattened(typeck_results, def);
+  const user_provided_sig = unwrap(typeck_results.user_provided_sigs.get(def), "index out of bounds");
+  const captures_ = typeck_results.closure_min_captures_flattened(def);
   const captures = tcx.mk_captures_from_iter(captures_ as Iterable<unknown> as Iterable<PendingCapturedPlace>) as unknown as List<CapturedPlace>;
   const hir_id = tcx.local_def_id_to_hir_id(def);
-  const kind_origin = TypeckResults_closure_kind_origins_get(typeck_results, hir_id);
+  const kind_origin = typeck_results.closure_kind_origins().get(hir_id);
   return { user_provided_sig, captures, kind_origin };
 }
 
@@ -649,13 +649,6 @@ function view_HirPlace(p: HirPlace): HirPlaceView {
   return p as unknown as HirPlaceView;
 }
 
-/** The members of `TypeckResults` (ty/typeck_results.rs) read here. PORT(decls): pending lane ty-results. */
-interface TypeckResultsView {
-  readonly user_provided_sigs: Map<LocalDefId, CanonicalPolyFnSig>;
-}
-function view_TypeckResults(r: TypeckResults): TypeckResultsView {
-  return r as unknown as TypeckResultsView;
-}
 
 /** `Peekable<Enumerate<I>>` */
 class Peekable<T> {
@@ -694,12 +687,4 @@ function debug_PlaceBase(_v: HirPlaceBase, _f: Fmt): string {
 /** PORT: stand-in for `#[derive(Debug)]` of `hir::place::ProjectionKind` (hir/place.rs:23). */
 function debug_ProjectionKind(_v: HirProjectionKind, _f: Fmt): string {
   return unported("rustc_middle::hir::place::ProjectionKind Debug (hir/place.rs)");
-}
-/** PORT: stand-in for `TypeckResults::closure_min_captures_flattened` (ty/typeck_results.rs, lane ty-results). */
-function TypeckResults_closure_min_captures_flattened(_self: TypeckResults, _closure_def_id: LocalDefId): Iterable<CapturedPlace> {
-  return unported("rustc_middle::ty::TypeckResults::closure_min_captures_flattened (lane ty-results)");
-}
-/** PORT: stand-in for `TypeckResults::closure_kind_origins().get(hir_id)` (ty/typeck_results.rs, lane ty-results). */
-function TypeckResults_closure_kind_origins_get(_self: TypeckResults, _hir_id: HirId): [Span, HirPlace] | undefined {
-  return unported("rustc_middle::ty::TypeckResults::closure_kind_origins (lane ty-results)");
 }

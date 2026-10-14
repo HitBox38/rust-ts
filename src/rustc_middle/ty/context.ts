@@ -10,9 +10,7 @@
 // - Type interning (lane ty-contract, docs/plan-m3.md D2): `CtxtInterners` (eager, in `create_global_ctxt`), the
 //   `direct_interners!` / `slice_interners!` methods and the `mk_*` entry points that only intern. `CommonTypes`,
 //   `CommonLifetimes` and `CommonConsts` are built on the first read of `types` / `lifetimes` / `consts` instead of
-//   in `create_global_ctxt`: `CommonTypes::new` needs `FlagComputation::for_kind` (lane tyir-kind) and
-//   `CommonConsts::new` needs `ValTree`/`ScalarInt`; building them eagerly would make every run UNPORTED.
-//   Nothing observable depends on when they are built.
+//   in `create_global_ctxt` (ty-contract decision 3); nothing observable depends on when they are built.
 // - No dep graph (D3): `dep_graph` is the disabled graph (dep_graph/graph.ts).
 // - `data_layout` (`sess.target.parse_data_layout()`) is computed on first read, pending rustc_target /
 //   rustc_abi (lane target-cfg); upstream computes it eagerly in `create_global_ctxt` and can only fail
@@ -60,7 +58,9 @@ import { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { CollectAndApply_Result, CollectAndApply_T } from "../../rustc_type_ir/interner.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { kw } from "../../rustc_span/symbol.ts";
-import type { Allocation, AssocItem, Attribute, Body, BodyId, CapturedPlace, ConstAllocation, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, ValTree, VariantDef } from "./decls.ts";
+import type { Allocation, AssocItem, Attribute, Body, BodyId, CapturedPlace, ConstAllocation, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, VariantDef } from "./decls.ts";
+import { ValTree } from "./consts/valtree.ts";
+import { ScalarInt } from "./consts/int.ts";
 import { GenericArg, type GenericArgs } from "./generic_args.ts";
 import { type Clauses, type List, RawList, TypeInfo } from "./list.ts";
 import { Ty } from "./mod.ts";
@@ -93,13 +93,14 @@ import { CanonicalInput, ExternalConstraints } from "../traits/solve.ts";
 import { WithDepNodeCache } from "../traits/cache.ts";
 import type { EvaluationCache, SelectionCache } from "../traits/select.ts";
 import { CanonicalParamEnvCache as CanonicalParamEnvCache_ } from "../../rustc_type_ir/canonical.ts";
-import { standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
+
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { AliasTermKind, CanonicalParamEnvCache, GlobalCache, Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
 import type { EarlyParamRegion, LateParamRegionKind, TypingEnv, VariantIdx } from "./decls.ts";
 import { debug_GenericArg, debug_GenericArgs } from "./generic_args.ts";
 import { GenericParamDef, type Generics } from "./generics.ts";
 import type { ListWithCachedTypeInfo } from "./list.ts";
+import { fold_Ty } from "./structural_impls.ts";
 
 /**
  * PORT: `rustc_session::Limits` (session.rs:62; `#[derive(Copy, Clone, Debug, ..)]`) is not ported; this is its
@@ -249,7 +250,7 @@ export class CtxtInterners {
     public fields: InternedSet<List<FieldIdx>>,
     public local_def_ids: InternedSet<List<LocalDefId>>,
     public captures: InternedSet<List<CapturedPlace>>,
-    public valtree: InternedSet<unknown>,
+    public valtree: InternedSet<ValTree>,
     public patterns: InternedSet<List<Pattern>>,
     public outlives: InternedSet<List<ArgOutlivesClause>>,
     public canonical_inputs: InternedSet<CanonicalInput>,
@@ -534,25 +535,25 @@ export class CommonConsts {
     public true_: Const,
     public false_: Const,
     /// Use [`ty::ValTree::zst`] instead.
-    public valtree_zst: unknown,
+    public valtree_zst: ValTree,
   ) {}
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:532 new
   static new(interners: CtxtInterners, types: CommonTypes): CommonConsts {
     const mk_const = (c: ConstKind): Const => interners.intern_const(c);
 
-    // PORT: `ty::ValTree(Interned::new_unchecked(interners.valtree.intern(v, ..)))`: the `ValTree` class and
-    // `ScalarInt::TRUE` / `FALSE` are lane ty-results' (ty/consts/valtree.rs, ty/consts/int.rs).
-    const mk_valtree = (_v: ValTreeKind): ValTree => unported("rustc_middle::ty::context::CommonConsts::new: ValTree interning (ValTree class, ty/consts/valtree.rs)");
+    const mk_valtree = (v: ValTreeKind): ValTree => {
+      return Interned.new_unchecked(interners.valtree.intern(v, intern_key(v), (v) => new ValTree(v)));
+    };
 
     const valtree_zst = mk_valtree({ $: "Branch", _0: RawList.empty() } as unknown as ValTreeKind);
-    const valtree_true = mk_valtree(unported("rustc_middle::ty::consts::int::ScalarInt::TRUE"));
-    const valtree_false = mk_valtree(unported("rustc_middle::ty::consts::int::ScalarInt::FALSE"));
+    const valtree_true = mk_valtree({ $: "Leaf", _0: ScalarInt.TRUE } as unknown as ValTreeKind);
+    const valtree_false = mk_valtree({ $: "Leaf", _0: ScalarInt.FALSE } as unknown as ValTreeKind);
 
     return new CommonConsts(
-      mk_const({ $: "Value", _0: { ty: types.unit, valtree: valtree_zst } } as unknown as ConstKind),
-      mk_const({ $: "Value", _0: { ty: types.bool, valtree: valtree_true } } as unknown as ConstKind),
-      mk_const({ $: "Value", _0: { ty: types.bool, valtree: valtree_false } } as unknown as ConstKind),
+      mk_const({ $: "Value", _0: { ty: types.unit, valtree: valtree_zst } }),
+      mk_const({ $: "Value", _0: { ty: types.bool, valtree: valtree_true } }),
+      mk_const({ $: "Value", _0: { ty: types.bool, valtree: valtree_false } }),
       valtree_zst,
     );
   }
@@ -1110,7 +1111,7 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:1001 ty_ordering_enum
   ty_ordering_enum(span: Span): Ty {
     const ordering_enum = this.require_lang_item("OrderingEnum", span);
-    return unwrap(EarlyBinder.no_bound_vars(this.type_of(ordering_enum) as EarlyBinder<Ty>, standin_fold_Ty));
+    return unwrap(EarlyBinder.no_bound_vars(this.type_of(ordering_enum) as EarlyBinder<Ty>, fold_Ty));
   }
 
   /// Obtain the given diagnostic item's `DefId`. Use `is_diagnostic_item` if you just want to
@@ -1691,7 +1692,7 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:1553 caller_location_ty
   caller_location_ty(): Ty {
     const location = this.type_of(this.require_lang_item("PanicLocation", DUMMY_SP)) as EarlyBinder<Ty>;
-    return Ty.new_imm_ref(this, this.lifetimes.re_static, Unnormalized.skip_norm_wip(EarlyBinder.instantiate(location, this, this.mk_args([GenericArg.from_Region(this.lifetimes.re_static)]), standin_fold_Ty)));
+    return Ty.new_imm_ref(this, this.lifetimes.re_static, Unnormalized.skip_norm_wip(EarlyBinder.instantiate(location, this, this.mk_args([GenericArg.from_Region(this.lifetimes.re_static)]), fold_Ty)));
   }
 
   /// Returns a displayable description and article for the given `def_id` (e.g. `("a", "struct")`).
@@ -1857,9 +1858,9 @@ export class TyCtxt {
   intern_region(v: RegionKind): Region {
     return Interned.new_unchecked(this.interners.region.intern(v, intern_key(v), (v) => new Region(v)));
   }
-  /** Stub (`direct_interners!` `intern_valtree`, context.rs:2016): the `ValTree` class is lane ty-results'. */
-  intern_valtree(_v: ValTreeKind): ValTree {
-    return unported("rustc_middle::ty::context::TyCtxt::intern_valtree (ValTree class)");
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2016 direct_interners! intern_valtree
+  intern_valtree(v: ValTreeKind): ValTree {
+    return Interned.new_unchecked(this.interners.valtree.intern(v, intern_key(v), (v) => new ValTree(v)));
   }
   /** Stub (`direct_interners!` `mk_pat`, context.rs:2017): the `Pattern` class is lane ty-results'. */
   mk_pat(_v: PatternKind): Pattern {

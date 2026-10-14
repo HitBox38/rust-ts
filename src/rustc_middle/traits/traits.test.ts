@@ -30,6 +30,8 @@ import { FirstStatementIndex, Scope, ScopeData, ScopeTree, debug_Scope, Scope_eq
 import { ArmId, debug_ExprId, ExprId, Pat, PatRange, StmtId, Thir, type Expr, type PatKind } from "../thir.ts";
 import { Visitor, walk_expr } from "../thir/visit.ts";
 import type { Ty } from "../ty/mod.ts";
+import { ValTree } from "../ty/consts/valtree.ts";
+import { ScalarInt } from "../ty/consts/int.ts";
 
 const did = (i: number): DefId => new DefId(DefIndex.from_u32(i), LOCAL_CRATE);
 const debug_num = (v: number): string => String(v);
@@ -270,7 +272,13 @@ describe("thir.rs + thir/visit.rs", () => {
 });
 
 test("an unported dependency stops as UNPORTED, not as a TypeError", () => {
+  // merge-w15b: `ValTree` / `ScalarInt` are ported (lane ty-results): a `char` range from 0 is computed, an `i32` range
+  // stops at `IntegerExt::from_int_ty` (ty/layout.rs, M4).
+  const tcx = new TyCtxt({ interners: CtxtInterners.new(undefined) } as unknown as GlobalCtxt);
+  const zero = ValTree.from_scalar_int(tcx, ScalarInt.from_u32(0));
   const char_ty = { kind: () => ({ $: "Char" }) } as unknown as Ty;
-  const range = new PatRange({ $: "Finite", _0: 0 as never }, { $: "PosInfinity" }, "Included", char_ty);
-  expect(() => range.is_full_range({} as TyCtxt)).toThrow(Unported);
+  expect(new PatRange({ $: "Finite", _0: zero }, { $: "PosInfinity" }, "Included", char_ty).is_full_range(tcx)).toBe(true);
+  const i32_ty = { kind: () => ({ $: "Int", _0: "I32" }) } as unknown as Ty;
+  const range = new PatRange({ $: "Finite", _0: zero }, { $: "PosInfinity" }, "Included", i32_ty);
+  expect(() => range.is_full_range(tcx)).toThrow(Unported);
 });

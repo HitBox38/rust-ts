@@ -23,7 +23,7 @@ import { Binder } from "./binder.ts";
 import { DelayedMap } from "./data_structures/mod.ts";
 import type { OpaqueTypeStorageEntries } from "./inherent.ts";
 import type { Interner } from "./interner.ts";
-import { type PredicateProxy, standin_fold_Clauses, standin_fold_Ty, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "./fold.ts";
+import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "./fold.ts";
 import type { PredicateEmittingRelation } from "./relate/combine.ts";
 import { TypeVisitableExt } from "./visit.ts";
 import * as gen from "./infer_ctxt.gen.ts";
@@ -38,6 +38,7 @@ import { fold_Const, type Const } from "./sty/consts.ts";
 import type { Region } from "./sty/mod.ts";
 import type { OpaqueAliasTy } from "./ty/alias.ts";
 import { type FloatVarValue, type FloatVid, type IntVarValue, type IntVid, type TyVid } from "./ty_kind.ts";
+import { fold_Clauses, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 
 export * from "./infer_ctxt.gen.ts";
 
@@ -636,7 +637,7 @@ class DeepVariableResolver implements TypeFolder {
     if (kind.$ === "Infer" && kind._0.$ === "TyVar") {
       const vid = kind._0._0;
       const resolved = this.delegate.shallow_resolve_ty_var(vid);
-      if (t !== resolved && TypeVisitableExt.has_infer(resolved, standin_fold_Ty)) {
+      if (t !== resolved && TypeVisitableExt.has_infer(resolved, fold_Ty)) {
         return fold_with_Ty(resolved, this);
       } else {
         return resolved;
@@ -646,12 +647,12 @@ class DeepVariableResolver implements TypeFolder {
     } else if (kind.$ === "Infer" && kind._0.$ === "FloatVar") {
       return this.delegate.shallow_resolve_float_var(kind._0._0);
     } else {
-      if (TypeVisitableExt.has_infer(t, standin_fold_Ty)) {
+      if (TypeVisitableExt.has_infer(t, fold_Ty)) {
         const ty = this.cache.get(t);
         if (ty !== undefined) {
           return ty;
         }
-        const res = standin_fold_Ty.super_fold_with(t, this);
+        const res = fold_Ty.super_fold_with(t, this);
         assert(this.cache.insert(t, res), "assertion failed: self.cache.insert(t, res)");
         return res;
       } else {
@@ -701,8 +702,8 @@ class DeepVariableResolver implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:720 fold_clauses
   fold_clauses(c: Clauses): Clauses {
-    if (TypeVisitableExt.has_infer(c, standin_fold_Clauses)) {
-      return standin_fold_Clauses.super_fold_with(c, this);
+    if (TypeVisitableExt.has_infer(c, fold_Clauses)) {
+      return fold_Clauses.super_fold_with(c, this);
     } else {
       return c;
     }

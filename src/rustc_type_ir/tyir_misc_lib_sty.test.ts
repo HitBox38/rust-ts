@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import "../rustc_middle/lib.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
-import { CRATE_DEF_ID, LocalDefId } from "../rustc_span/def_id.ts";
+import { CRATE_DEF_ID, debug_DefId, LocalDefId } from "../rustc_span/def_id.ts";
 import { create_default_session_globals_then, ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { kw, sym, Symbol } from "../rustc_span/symbol.ts";
 import { type Debug, format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
@@ -229,8 +229,11 @@ describe("sty/mod.rs: Region", () => {
       bound2env: "'^2_1.Env",
       canon3: "'^c_3",
       placeholder: "'!1_0",
-      late_anon: "ReLateParam(DefId(0:0 ~ empty[152e]), LateAnon(2))",
-      late_env: "ReLateParam(DefId(0:0 ~ empty[152e]), LateEnv)",
+      // merge-w15b: `Debug for LateParamRegionKind` is ported (structural_impls.rs). The oracle's `DefId(0:0 ~ empty[152e])`
+      // is rustc_interface's `def_id_debug` hook reading the TLS `tcx`; this bare interner `TyCtxt` installs neither, so
+      // `DefId` prints its default (rustc_span `default_def_id_debug`).
+      late_anon: `ReLateParam(${debug_DefId(LocalDefId.to_def_id(CRATE_DEF_ID), PLAIN)}, LateAnon(2))`,
+      late_env: `ReLateParam(${debug_DefId(LocalDefId.to_def_id(CRATE_DEF_ID), PLAIN)}, LateEnv)`,
       early_anon: "'_/#2",
     };
     for (const [n, r] of regions(tcx)) {

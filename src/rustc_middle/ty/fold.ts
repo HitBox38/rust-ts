@@ -16,7 +16,7 @@ import { assert, assert_eq, unported } from "../../std/panic.ts";
 import { Binder, type BoundConst, BoundConst as BoundConstC, type BoundRegion, type BoundTy, BoundVariableKind, debug_BoundTy, fold_Binder } from "../../rustc_type_ir/binder.ts";
 import { debug_BoundConst } from "../../rustc_type_ir/binder.gen.ts";
 import { DelayedMap } from "../../rustc_type_ir/data_structures/delayed_map.ts";
-import { type PredicateProxy, shift_vars, standin_fold_Clauses, standin_fold_Ty, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
+import { type PredicateProxy, shift_vars, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
 import { BoundVar, DebruijnIndex, debug_DebruijnIndex, INNERMOST } from "../../rustc_type_ir/lib.ts";
 import { Const, fold_Const, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
@@ -24,6 +24,7 @@ import { TyCtxt } from "./context.ts";
 import type { Clauses } from "./decls.ts";
 import { Ty } from "./mod.ts";
 import type { LateParamRegionKind } from "./region.ts";
+import { fold_Clauses, fold_Ty } from "./structural_impls.ts";
 
 ///////////////////////////////////////////////////////////////////////////
 // Some sample folders
@@ -44,7 +45,7 @@ export class BottomUpFolder implements TypeFolder {
 
   // rustc: compiler/rustc_middle/src/ty/fold.rs:37 fold_ty
   fold_ty(ty: Ty): Ty {
-    const t = standin_fold_Ty.super_fold_with(ty, this);
+    const t = fold_Ty.super_fold_with(ty, this);
     return this.ty_op(t);
   }
 
@@ -159,16 +160,16 @@ class BoundVarReplacer implements TypeFolder {
       const bound_ty = k._1;
       const ty = this.delegate.replace_ty(bound_ty);
       // debug_assert!(!ty.has_vars_bound_above(ty::INNERMOST));
-      return shift_vars(this.tcx, ty, this.current_index, standin_fold_Ty);
+      return shift_vars(this.tcx, ty, this.current_index, fold_Ty);
     } else {
-      if (!TypeVisitableExt.has_vars_bound_at_or_above(t, this.current_index, standin_fold_Ty)) {
+      if (!TypeVisitableExt.has_vars_bound_at_or_above(t, this.current_index, fold_Ty)) {
         return t;
       }
       const t_ = this.cache.get([this.current_index, t]);
       if (t_ !== undefined) {
         return t_;
       } else {
-        const res = standin_fold_Ty.super_fold_with(t, this);
+        const res = fold_Ty.super_fold_with(t, this);
         assert(this.cache.insert([this.current_index, t], res), "assertion failed: self.cache.insert((self.current_index, t), res)");
         return res;
       }
@@ -224,8 +225,8 @@ class BoundVarReplacer implements TypeFolder {
 
   // rustc: compiler/rustc_middle/src/ty/fold.rs:189 fold_clauses
   fold_clauses(c: Clauses): Clauses {
-    if (TypeVisitableExt.has_vars_bound_at_or_above(c, this.current_index, standin_fold_Clauses)) {
-      return standin_fold_Clauses.super_fold_with(c, this);
+    if (TypeVisitableExt.has_vars_bound_at_or_above(c, this.current_index, fold_Clauses)) {
+      return fold_Clauses.super_fold_with(c, this);
     } else {
       return c;
     }

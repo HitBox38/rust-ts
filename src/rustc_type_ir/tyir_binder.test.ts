@@ -11,7 +11,8 @@
 //   (interning `ReBound`);
 // - `fold_Region`'s `TypeVisitable` / `TypeFoldable` one-liners (sty/mod.rs:296-:309);
 // - the `TypeSuper*` impls of `Ty` (rustc_middle ty/structural_impls.rs:330-:440) for the kinds used here
-//   (`RawPtr`, `Slice`, `Tuple`, `Ref`, `FnPtr`, `Error`, leaves), installed on fold.ts's `standin_fold_Ty`.
+//   (`RawPtr`, `Slice`, `Tuple`, `Ref`, `FnPtr`, `Error`, leaves), installed on structural_impls.ts's `fold_Ty`
+//   (its `Tuple` arm reaches the `&List<Ty>` fold of lane ty-args).
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import "../rustc_middle/lib.ts";
 import { type ControlFlow, ControlFlow as ControlFlowC, VisitorResult } from "../rustc_ast_ir/visit.ts";
@@ -52,7 +53,6 @@ import {
   set_aliases_to_rigid,
   shift_region,
   shift_vars,
-  standin_fold_Ty,
   try_fold_with_Option,
   try_fold_with_tuple2,
   try_fold_with_Vec,
@@ -68,6 +68,7 @@ import { FnHeader } from "./ty_kind.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided, visit_with_Option, visit_with_Vec } from "./visit.ts";
 import { TypeWalker } from "./walk.ts";
 import { BottomUpFolder } from "../rustc_middle/ty/fold.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 
 // ---- mocks (see the module comment) --------------------------------------------------------------------------------
 
@@ -219,9 +220,9 @@ beforeAll(() => {
   patch(fold_Region, "visit_with", (self, visitor) => visitor.visit_region(self));
   patch(fold_Region, "fold_with", (self, folder) => folder.fold_region(self));
   patch(fold_Region, "try_fold_with", (self, folder) => folder.try_fold_region(self));
-  patch(standin_fold_Ty, "super_fold_with", ty_super_fold);
-  patch(standin_fold_Ty, "try_super_fold_with", ty_try_super_fold);
-  patch(standin_fold_Ty, "super_visit_with", ty_super_visit);
+  patch(fold_Ty, "super_fold_with", ty_super_fold);
+  patch(fold_Ty, "try_super_fold_with", ty_try_super_fold);
+  patch(fold_Ty, "super_visit_with", ty_super_visit);
 });
 afterAll(() => {
   for (const r of restores.reverse()) r();
@@ -257,7 +258,6 @@ const early_re = (index: number): Region => tcx.intern_region({ $: "ReEarlyParam
 const bound_re = (debruijn: number, var_: number): Region =>
   tcx.intern_region({ $: "ReBound", _0: { $: "Bound", _0: D(debruijn) }, _1: { var: V(var_), kind: { $: "Anon" } } });
 const no_vars = <T>(value: T): Binder<T> => ({ value, bound_vars: RawList.empty() });
-const fold_Ty = standin_fold_Ty;
 const binder_ty = fold_Binder(fold_Ty);
 const guar = ErrorGuaranteed.unchecked_error_guaranteed();
 
@@ -511,12 +511,23 @@ describe("EarlyBinder::instantiate (ArgFolder)", () => {
     expect(EarlyBinder.instantiate(eb2, tcx, [bound_ty(0, 0), bound_re(0, 0)], fold_Ty).value).toBe(tup(bound_ty(0, 0), ref(bound_re(0, 0), u8)));
   });
 
-  test("a missing or mismatched arg is an ICE; params with no args stop on the assert's Debug", () => {
-    // The panic messages print `ParamTy`'s Debug (rustc_middle, not ported yet): UNPORTED.
-    expect(() => EarlyBinder.instantiate(EarlyBinder.bind_unchecked(param(3)), tcx, [u8], fold_Ty)).toThrow(Unported);
+  test("a missing or mismatched arg is an ICE with upstream's text; params with no args stop on the assert's Debug", () => create_default_session_globals_then(() => {
+    // The panic messages print `ParamTy`'s and `Ty`'s Debug (structural_impls.rs; it reads the symbol interner, hence
+    // the session globals). merge-w15b: `debug_Ty` is structural_impls.ts's, so these are ICEs with upstream's text.
+    const msg = (f: () => unknown): string => {
+      try {
+        f();
+      } catch (e) {
+        expect(e).toBeInstanceOf(Panic);
+        return (e as Panic).message;
+      }
+      throw new Error("expected a panic");
+    };
+    expect(msg(() => EarlyBinder.instantiate(EarlyBinder.bind_unchecked(param(3)), tcx, [u8], fold_Ty))).toBe("type parameter `Self/#3` (Self/#3/3) out of range when instantiating, args=[u8]");
+    // With no args the `assert!` message needs `{:?}` of a generic `T` (a D4 descriptor has no Debug): still UNPORTED.
     expect(() => EarlyBinder.instantiate(EarlyBinder.bind_unchecked(param(0)), tcx, [], fold_Ty)).toThrow(Unported);
     expect(() => EarlyBinder.instantiate(EarlyBinder.bind_unchecked(slice(param(0))), tcx, [], fold_Ty)).toThrow(Unported);
-  });
+  }));
 
   test("no_bound_vars / instantiate_identity / iterators", () => {
     expect(EarlyBinder.no_bound_vars(EarlyBinder.bind_unchecked(param(0)), fold_Ty)).toBeUndefined();

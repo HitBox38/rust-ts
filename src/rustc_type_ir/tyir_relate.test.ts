@@ -426,8 +426,10 @@ describe("SolverRelating", () => {
     expect(co.tys(ty_var(3), t.bool)).toEqual(Ok(ty_var(3)));
     expect(co.tys(t.bool, ty_var(4))).toEqual(Ok(t.bool));
     expect(infcx2.log).toEqual(["instantiate_ty_var(true, 3, Covariant, bool)", "instantiate_ty_var(false, 4, Contravariant, bool)"]);
-    // Two type variables under co-/contravariance record a `Subtype` goal (`Binder::dummy`, lane tyir-binder).
-    expect(() => co.tys(ty_var(5), ty_var(6))).toThrow(Unported);
+    // Two type variables under co-/contravariance record a `Subtype` goal (merge-w15b: `Binder::dummy` runs).
+    expect(co.goals).toEqual([]);
+    expect(co.tys(ty_var(5), ty_var(6))).toEqual(Ok(ty_var(5)));
+    expect(co.goals.length).toBe(1);
   });
 
   test("relate_with_variance composes and restores the ambient variance; bivariance is a no-op", () => {
@@ -467,8 +469,8 @@ describe("SolverRelating", () => {
     const [r] = solver(Variance.Covariant);
     const b = no_vars(t.bool);
     expect(r.binders(b, no_vars(t.bool), relate_Ty)).toEqual(Ok(b));
-    // Otherwise `Binder::no_bound_vars` (lane tyir-binder) decides the path.
-    expect(() => r.binders(b, no_vars(t.char), relate_Ty)).toThrow(Unported);
+    // Otherwise `Binder::no_bound_vars` decides the path (merge-w15b: it runs): no bound vars relate the contents.
+    expect(r.binders(b, no_vars(t.char), relate_Ty)).toEqual(sorts(t.bool, t.char));
   });
 
   test("RelateExt::relate returns the goals of a successful relation", () => {
@@ -525,8 +527,12 @@ describe("outlives", () => {
       { $: "Param", _0: { index: 0, name: kw.SelfUpper } },
       { $: "UnresolvedInferenceVariable", _0: { $: "IntVar", _0: 3 as IntVid } },
     ]);
-    // Structural types descend with `Ty::super_visit_with` (lane tyir-binder).
-    expect(() => c.visit_ty(tup(t.bool))).toThrow(Unported);
+    // Structural types descend with `Ty::super_visit_with` (merge-w15b: structural_impls.rs's `fold_Ty`).
+    c.visit_ty(tup(t.bool));
+    expect(out.length).toBe(2);
+    c.visit_ty(tup(param(1)));
+    expect(out.length).toBe(3);
+    expect(out[2]).toEqual({ $: "Param", _0: { index: 1, name: kw.SelfUpper } });
   });
 
   test("OutlivesCollector::visit_region skips bound regions", () => {
@@ -545,8 +551,10 @@ describe("outlives", () => {
     expect(out).toEqual([{ $: "Region", _0: tcx.lifetimes.re_static }]);
   });
 
-  test("push_outlives_components starts with `Ty::visit_with` (structural_impls.rs, not ported yet)", () => {
-    expect(() => push_outlives_components(tcx, param(0), [])).toThrow(Unported);
+  test("push_outlives_components starts with `Ty::visit_with` (structural_impls.rs)", () => {
+    const out: Component[] = [];
+    push_outlives_components(tcx, param(0), out);
+    expect(out).toEqual([{ $: "Param", _0: { index: 0, name: kw.SelfUpper } }]);
   });
 });
 
@@ -627,8 +635,8 @@ describe("elaborate", () => {
     const a1 = { _0: GenericArg.from_Region(v), _1: s };
     const set = elaborate_outlives_assumptions(tcx, [a1, { _0: GenericArg.from_Region(v), _1: s }, { _0: GenericArg.from_Region(s), _1: v }]);
     expect([...set]).toEqual([a1, { _0: GenericArg.from_Region(s), _1: v }]);
-    // A type argument is decomposed with `push_outlives_components` (needs `Ty::visit_with`).
-    expect(() => elaborate_outlives_assumptions(tcx, [{ _0: GenericArg.from_Ty(param(0)), _1: s }])).toThrow(Unported);
+    // A type argument is decomposed with `push_outlives_components` (`Ty::visit_with`, merge-w15b): a param stays.
+    expect([...elaborate_outlives_assumptions(tcx, [{ _0: GenericArg.from_Ty(param(0)), _1: s }])]).toEqual([{ _0: GenericArg.from_Ty(param(0)), _1: s }]);
   });
 
   test("Elaboratable for Clause is the identity on clauses", () => {

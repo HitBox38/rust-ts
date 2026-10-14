@@ -135,7 +135,7 @@ import type { AssocItem } from "./assoc.ts";
 export type { AssocItem, CanonicalPolyFnSig, EarlyParamRegion, Expr, InlineConstArgs, LateParamRegionKind, ParamConst, ParamTy };
 
 // re-exported by merge-w15b: ty/mod.rs types (lanes ty-mod-a, ty-mod-b), ty/util.rs types (ty-util), ty/adt.rs / ty/closure.rs
-// types (ty-adt-assoc), rustc_data_structures' `SortedIndexMultiMap` and
+// types (ty-adt-assoc), ty/consts/{valtree,int}.rs / ty/typeck_results.rs types (ty-results), rustc_data_structures' `SortedIndexMultiMap` and
 // `hir::Attribute` (rustc_attr_ir)
 import type { AsyncDestructor, Destructor, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef } from "./mod.ts";
 import type { Attribute } from "../../rustc_attr_ir/lib.ts";
@@ -146,6 +146,10 @@ import type { SortedIndexMultiMap } from "../../rustc_data_structures/sorted_map
 export type { AdtDef, AdtDefData, CapturedPlace, SortedIndexMultiMap };
 import type { SizedTraitKind } from "../../rustc_type_ir/solve/mod.ts";
 export type { SizedTraitKind };
+import type { ValTree, Value } from "./consts/valtree.ts";
+import type { ScalarInt } from "./consts/int.ts";
+import type { TypeckResults } from "./typeck_results.ts";
+export type { ScalarInt, TypeckResults, ValTree, Value };
 export type { AsyncDestructor, Attribute, CheckRegions, Destructor, Discr, NotUniqueParam, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef };
 
 // ---- 2. pending rustc_middle types (and other crates') ----
@@ -155,15 +159,11 @@ export type VariantIdx = number & { readonly __brand: "VariantIdx" };
 export type ReprOptions = Pending<"ReprOptions">;
 // ty/pattern.rs:16, ty/consts/valtree.rs:34, :103, ty/consts/int.rs:147 (D2: hash-consed)
 export type Pattern = Pending<"Pattern">;
-export type ValTree = Pending<"ValTree">;
-export type Value = Pending<"ty::Value">;
-export type ScalarInt = Pending<"ScalarInt">;
 export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
 export type NumScalableVectors = Pending<"NumScalableVectors">;
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
 export type NormalizationError = Pending<"NormalizationError">;
-export type TypeckResults = Pending<"TypeckResults">;
 export type Instance = Pending<"Instance">;
 export type InstanceKind = Pending<"InstanceKind">;
 // traits/solve.rs:33, :44 (D2: hash-consed; lane middle-traits-thir)

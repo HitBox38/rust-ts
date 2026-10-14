@@ -29,7 +29,7 @@ import { DUMMY_SP } from "../../rustc_span/span_encoding.ts";
 import { kw, sym, type Symbol } from "../../rustc_span/symbol.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import type { BoundTy, BoundVar, ClosureKind, DebruijnIndex, FloatVid, InferTy, IntVid, IsRigid, Pending, PlaceholderType, PolyExistentialPredicate, TyVid } from "../../rustc_type_ir/decls.ts";
-import { fold_tuple2, type PredicateProxy, standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
+import { fold_tuple2, type PredicateProxy } from "../../rustc_type_ir/fold.ts";
 import type { Symbol_static } from "../../rustc_type_ir/inherent.ts";
 import { CollectAndApply_T, type CollectAndApply_Result } from "../../rustc_type_ir/interner.ts";
 import { SizedTraitKind } from "../../rustc_type_ir/solve/mod.ts";
@@ -43,7 +43,7 @@ import { type Fmt, PLAIN, PRETTY } from "../../std/fmt.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { TyCtxt } from "./context.ts";
-import type { AdtDef, Discr, FieldIdx, NumScalableVectors, ObligationCause, ParamEnv, Pattern, Range, ValTree, VariantIdx } from "./decls.ts";
+import type { AdtDef, Discr, FieldIdx, NumScalableVectors, ObligationCause, ParamEnv, Pattern, Range, VariantIdx } from "./decls.ts";
 import { GenericArg, type GenericArgs } from "./generic_args.ts";
 import type { GenericParamDef, Generics } from "./generics.ts";
 import { type Clauses, type List, RawList } from "./list.ts";
@@ -53,6 +53,10 @@ import type { IntegerType } from "./util.ts";
 import type { Clause } from "./predicate.ts";
 import * as gen from "./sty.gen.ts";
 import type { TyKind } from "./sty.gen.ts";
+import { fold_Ty } from "./structural_impls.ts";
+import { ValTree } from "./consts/valtree.ts";
+import { ScalarInt } from "./consts/int.ts";
+import { debug_ParamConst } from "./structural_impls.ts";
 
 // The types of this file with their derived Debug / TypeVisitable / TypeFoldable impls are generated into sty.gen.ts
 // (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
@@ -188,7 +192,7 @@ export const CoroutineArgsExt = {
               yield CoroutineLayout_field_ty(layout, field);
             } else {
               yield Unnormalized.skip_norm_wip(
-                EarlyBinder.instantiate(EarlyBinder.bind(tcx, CoroutineLayout_field_ty(layout, field), standin_fold_Ty), tcx, self.args, standin_fold_Ty),
+                EarlyBinder.instantiate(EarlyBinder.bind(tcx, CoroutineLayout_field_ty(layout, field), fold_Ty), tcx, self.args, fold_Ty),
               );
             }
           }
@@ -342,7 +346,7 @@ export const ParamConst = {
         if (k.$ === "ConstArgHasType") {
           const param_ct = k._0;
           const ty = k._1;
-          assert(!TypeVisitableExt.has_escaping_bound_vars<[Const, Ty]>([param_ct, ty], fold_tuple2(fold_Const, standin_fold_Ty)), "assertion failed: !(param_ct, ty).has_escaping_bound_vars()");
+          assert(!TypeVisitableExt.has_escaping_bound_vars<[Const, Ty]>([param_ct, ty], fold_tuple2(fold_Const, fold_Ty)), "assertion failed: !(param_ct, ty).has_escaping_bound_vars()");
 
           const ck = param_ct.kind();
           if (ck.$ === "Param" && ck._0.index === self.index) {
@@ -483,8 +487,8 @@ Ty.new_field_representing_type = function (tcx: TyCtxt, base: Ty, variant: Varia
   const def = tcx.adt_def(did) as AdtDef;
   const args = tcx.mk_args([
     GenericArg.from_Ty(base),
-    GenericArg.from_Const(Const.new_value(tcx, ValTree_from_scalar_int(tcx, ScalarInt_from_u32(variant)), tcx.types.u32)),
-    GenericArg.from_Const(Const.new_value(tcx, ValTree_from_scalar_int(tcx, ScalarInt_from_u32(field)), tcx.types.u32)),
+    GenericArg.from_Const(Const.new_value(tcx, ValTree.from_scalar_int(tcx, ScalarInt.from_u32(variant)), tcx.types.u32)),
+    GenericArg.from_Const(Const.new_value(tcx, ValTree.from_scalar_int(tcx, ScalarInt.from_u32(field)), tcx.types.u32)),
   ]);
   return Ty.new_adt(tcx, def, args);
 };
@@ -773,7 +777,7 @@ Ty.new_generic_adt = function (tcx: TyCtxt, wrapper_def_id: DefId, ty_param: Ty)
         } else {
           assert(has_default, "assertion failed: has_default");
           // PORT: the `type_of` query value is typed `unknown` by queries.gen.ts (merge-w15a note).
-          return GenericArg.from_Ty(Unnormalized.skip_norm_wip(EarlyBinder.instantiate(tcx.type_of(param.def_id) as EarlyBinder<Ty>, tcx, args, standin_fold_Ty)));
+          return GenericArg.from_Ty(Unnormalized.skip_norm_wip(EarlyBinder.instantiate(tcx.type_of(param.def_id) as EarlyBinder<Ty>, tcx, args, fold_Ty)));
         }
       }
     }
@@ -1357,7 +1361,7 @@ Ty.prototype.contains = function (this: Ty, other: Ty): boolean {
       if (this._0 === t) {
         return ControlFlowC.Break(null);
       } else {
-        return standin_fold_Ty.super_visit_with(t, this);
+        return fold_Ty.super_visit_with(t, this);
       }
     }
 
@@ -1381,7 +1385,7 @@ Ty.prototype.contains = function (this: Ty, other: Ty): boolean {
     }
   }
 
-  const cf = standin_fold_Ty.visit_with(this, new ContainsTyVisitor(other));
+  const cf = fold_Ty.visit_with(this, new ContainsTyVisitor(other));
   return cf.$ === "Break";
 };
 
@@ -1398,7 +1402,7 @@ Ty.prototype.contains_closure = function (this: Ty): boolean {
       if (t.kind().$ === "Closure") {
         return ControlFlowC.Break(null);
       } else {
-        return standin_fold_Ty.super_visit_with(t, this);
+        return fold_Ty.super_visit_with(t, this);
       }
     }
 
@@ -1422,7 +1426,7 @@ Ty.prototype.contains_closure = function (this: Ty): boolean {
     }
   }
 
-  const cf = standin_fold_Ty.visit_with(this, new ContainsClosureVisitor());
+  const cf = fold_Ty.visit_with(this, new ContainsClosureVisitor());
   return cf.$ === "Break";
 };
 
@@ -1558,7 +1562,7 @@ Ty.prototype.variant_range = function (this: Ty, tcx: TyCtxt): Range<VariantIdx>
     case "Coroutine":
       return CoroutineArgsExt.variant_range(k._1.as_coroutine(), k._0, tcx);
     case "UnsafeBinder":
-      return tcx.instantiate_bound_regions_with_erased(UnsafeBinderInner.into_Binder(k._0), standin_fold_Ty).variant_range(tcx);
+      return tcx.instantiate_bound_regions_with_erased(UnsafeBinderInner.into_Binder(k._0), fold_Ty).variant_range(tcx);
     default:
       return undefined;
   }
@@ -1576,7 +1580,7 @@ Ty.prototype.discriminant_for_variant = function (this: Ty, tcx: TyCtxt, variant
   } else if (k.$ === "Coroutine") {
     return CoroutineArgsExt.discriminant_for_variant(k._1.as_coroutine(), k._0, tcx, variant_index);
   } else if (k.$ === "UnsafeBinder") {
-    return tcx.instantiate_bound_regions_with_erased(UnsafeBinderInner.into_Binder(k._0), standin_fold_Ty).discriminant_for_variant(tcx, variant_index);
+    return tcx.instantiate_bound_regions_with_erased(UnsafeBinderInner.into_Binder(k._0), fold_Ty).discriminant_for_variant(tcx, variant_index);
   } else {
     return undefined;
   }
@@ -1606,7 +1610,7 @@ Ty.prototype.discriminant_ty = function (this: Ty, tcx: TyCtxt): Ty {
     case "Pat":
       return k._0.discriminant_ty(tcx);
     case "UnsafeBinder":
-      return tcx.instantiate_bound_regions_with_erased(UnsafeBinderInner.into_Binder(k._0), standin_fold_Ty).discriminant_ty(tcx);
+      return tcx.instantiate_bound_regions_with_erased(UnsafeBinderInner.into_Binder(k._0), fold_Ty).discriminant_ty(tcx);
 
     case "Bool":
     case "Char":
@@ -1694,7 +1698,7 @@ Ty.prototype.ptr_metadata_ty_or_tail = function (this: Ty, tcx: TyCtxt, normaliz
 
     case "Dynamic": {
       const dyn_metadata = tcx.require_lang_item(LangItem.DynMetadata, DUMMY_SP);
-      return Ok(Unnormalized.skip_norm_wip(EarlyBinder.instantiate(tcx.type_of(dyn_metadata) as EarlyBinder<Ty>, tcx, [GenericArg.from_Ty(tail)], standin_fold_Ty)));
+      return Ok(Unnormalized.skip_norm_wip(EarlyBinder.instantiate(tcx.type_of(dyn_metadata) as EarlyBinder<Ty>, tcx, [GenericArg.from_Ty(tail)], fold_Ty)));
     }
 
     // We don't know the metadata of `self`, but it must be equal to the
@@ -1938,7 +1942,7 @@ Ty.prototype.has_trivial_sizedness = function (this: Ty, tcx: TyCtxt, sizedness_
 
     case "Adt": {
       const ty = k._0.sizedness_constraint(tcx, sizedness);
-      return ty === undefined || Unnormalized.skip_norm_wip(EarlyBinder.instantiate(ty, tcx, k._1, standin_fold_Ty)).has_trivial_sizedness(tcx, sizedness_);
+      return ty === undefined || Unnormalized.skip_norm_wip(EarlyBinder.instantiate(ty, tcx, k._1, fold_Ty)).has_trivial_sizedness(tcx, sizedness_);
     }
 
     case "Alias":
@@ -2068,7 +2072,7 @@ Ty.prototype.is_trivially_wf = function (this: Ty, tcx: TyCtxt): boolean {
       return Binder.skip_binder(k._0).inputs_and_output.every((ty) => ty.is_trivially_wf(tcx));
     case "Ref": {
       const ty = k._1;
-      return TypeVisitableExt.is_global(ty, standin_fold_Ty) && ty.is_trivially_wf(tcx);
+      return TypeVisitableExt.is_global(ty, fold_Ty) && ty.is_trivially_wf(tcx);
     }
 
     case "Infer": {
@@ -2251,7 +2255,6 @@ function unwrap_layout(r: Result<CoroutineLayout, unknown>): CoroutineLayout {
 type CoroutineLayout = Pending<"CoroutineLayout">;
 type CoroutineSavedLocal = number & { readonly __brand: "CoroutineSavedLocal" };
 type ReprOptions = Pending<"ReprOptions">;
-type ScalarInt = Pending<"ScalarInt">;
 /** `rustc_abi::ScalableElt` (rustc_abi is not ported yet; PORTING §5 shape). */
 type ScalableElt = { readonly $: "ElementCount"; readonly _0: number } | { readonly $: "Container" };
 
@@ -2278,18 +2281,6 @@ function NumScalableVectors_for_non_tuple(): NumScalableVectors {
 /** PORT: stand-in for `NumScalableVectors::from_field_count` (rustc_abi, not ported). */
 function NumScalableVectors_from_field_count(_count: number): NumScalableVectors | undefined {
   return unported("rustc_abi::NumScalableVectors::from_field_count");
-}
-/** PORT: stand-in for `ValTree::from_scalar_int` (ty/consts/valtree.rs, lane ty-results). */
-function ValTree_from_scalar_int(_tcx: TyCtxt, _i: ScalarInt): ValTree {
-  return unported("rustc_middle::ty::consts::valtree::ValTree::from_scalar_int (ty/consts/valtree.rs)");
-}
-/** PORT: stand-in for `impl From<u32> for ScalarInt` (ty/consts/int.rs, lane ty-results). */
-function ScalarInt_from_u32(_v: number): ScalarInt {
-  return unported("rustc_middle::ty::consts::int::ScalarInt: From<u32> (ty/consts/int.rs)");
-}
-/** PORT: stand-in for `impl fmt::Debug for ParamConst` (ty/structural_impls.rs, lane ty-results). */
-function debug_ParamConst(_v: ParamConst, _f: Fmt): string {
-  return unported("rustc_middle::ty::structural_impls: Debug for ParamConst");
 }
 /** PORT: stand-in for the `CoroutineLayout::variant_fields` field (mir/query.rs; MIR, M4). */
 function CoroutineLayout_variant_fields(_self: CoroutineLayout): readonly (readonly CoroutineSavedLocal[])[] {

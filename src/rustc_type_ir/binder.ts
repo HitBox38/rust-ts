@@ -25,7 +25,7 @@ import { debug_Ty, Ty } from "../rustc_middle/ty/mod.ts";
 import type { Clause } from "../rustc_middle/ty/predicate.ts";
 import { debug_EarlyParamRegion, type EarlyParamRegion } from "../rustc_middle/ty/region.ts";
 import type { ParamConst, ParamTy } from "../rustc_middle/ty/sty.ts";
-import { debug_ParamTy } from "../rustc_middle/ty/structural_impls.ts";
+import { debug_ParamConst, debug_ParamTy } from "../rustc_middle/ty/structural_impls.ts";
 import { debug_DefId, DefId_eq, type DefId } from "../rustc_span/def_id.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { debug_Symbol, kw, type Symbol } from "../rustc_span/symbol.ts";
@@ -34,26 +34,14 @@ import { type Debug, type Fmt, PLAIN } from "../std/fmt.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
 import * as gen from "./binder.gen.ts";
-import {
-  type FallibleTypeFolder,
-  type FoldWith,
-  type PredicateProxy,
-  set_aliases_to_non_rigid,
-  shift_region,
-  shift_vars,
-  standin_fold_Clauses,
-  standin_fold_Ty,
-  type TryFoldWith,
-  type TypeFoldable,
-  type TypeFolder,
-  type TypeSuperFoldable,
-} from "./fold.ts";
+import { type FallibleTypeFolder, type FoldWith, type PredicateProxy, set_aliases_to_non_rigid, shift_region, shift_vars, type TryFoldWith, type TypeFoldable, type TypeFolder, type TypeSuperFoldable } from "./fold.ts";
 import { debug_GenericArgKind, type GenericArgKind } from "./generic_arg.ts";
 import { type BoundVar, DebruijnIndex, debug_BoundVar, INNERMOST, UniverseIndex } from "./lib.ts";
 import type { TraitRef } from "./predicate.ts";
 import { type Const, debug_Const, debug_Region, fold_Const, fold_Region, type Region } from "./sty/mod.ts";
 import { Unnormalized } from "./unnormalized.ts";
 import { type TypeSuperVisitable, type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided, type VisitWith, visit_with_tuple2 } from "./visit.ts";
+import { fold_Clauses, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 
 export * from "./binder.gen.ts";
 
@@ -319,7 +307,7 @@ export class ValidateBoundVars implements TypeVisitor<ControlFlow<null>> {
       BoundTy.assert_eq(bound_ty, unwrap(this.bound_vars[idx]));
     }
 
-    return standin_fold_Ty.super_visit_with(t, this);
+    return fold_Ty.super_visit_with(t, this);
   }
 
   // rustc: compiler/rustc_type_ir/src/binder.rs:277 visit_const
@@ -793,7 +781,7 @@ class ArgFolder implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/binder.rs:745 fold_ty
   fold_ty(t: Ty): Ty {
-    if (!TypeVisitableExt.has_param(t, standin_fold_Ty)) {
+    if (!TypeVisitableExt.has_param(t, fold_Ty)) {
       return t;
     }
 
@@ -802,7 +790,7 @@ class ArgFolder implements TypeFolder {
       const p = k._0;
       return this.ty_for_param(p, t);
     } else {
-      return standin_fold_Ty.super_fold_with(t, this);
+      return fold_Ty.super_fold_with(t, this);
     }
   }
 
@@ -828,8 +816,8 @@ class ArgFolder implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/binder.rs:768 fold_clauses
   fold_clauses(c: Clauses): Clauses {
-    if (TypeVisitableExt.has_param(c, standin_fold_Clauses)) {
-      return standin_fold_Clauses.super_fold_with(c, this);
+    if (TypeVisitableExt.has_param(c, fold_Clauses)) {
+      return fold_Clauses.super_fold_with(c, this);
     } else {
       return c;
     }
@@ -850,7 +838,7 @@ class ArgFolder implements TypeFolder {
       ty = this.type_param_out_of_range(p, source_ty);
     }
 
-    return this.shift_vars_through_binders(ty, standin_fold_Ty);
+    return this.shift_vars_through_binders(ty, fold_Ty);
   }
 
   // rustc: compiler/rustc_type_ir/src/binder.rs:788 type_param_expected
@@ -1351,11 +1339,7 @@ function Placeholder_eq_BoundConst(a: PlaceholderConst, b: PlaceholderConst): bo
 
 /** PORT: the visit descriptor of `(Const, Ty)` (visit.rs:136 over `fold_Const` and the `Ty` stand-in). */
 const visit_Const_Ty: TypeVisitable<[Const, Ty]> = {
-  visit_with: (self, visitor) => visit_with_tuple2(self, visitor, fold_Const.visit_with, standin_fold_Ty.visit_with),
+  visit_with: (self, visitor) => visit_with_tuple2(self, visitor, fold_Const.visit_with, fold_Ty.visit_with),
 };
 
-/** PORT: stand-in for `impl fmt::Debug for ty::ParamConst` (rustc_middle ty/structural_impls.rs, not ported yet). */
-function debug_ParamConst(_v: ParamConst, _f: Fmt): string {
-  return unported("rustc_middle::ty::ParamConst: Debug (structural_impls.rs)");
-}
 

@@ -20,7 +20,7 @@ import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { type DefId, DefId_eq } from "../rustc_span/def_id.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { panic, unported, unwrap } from "../std/panic.ts";
-import { standin_fold_Ty } from "./fold.ts";
+
 import { TypeVisitableExt } from "./visit.ts";
 import { Binder } from "./binder.ts";
 import * as gen from "./fast_reject.gen.ts";
@@ -29,6 +29,7 @@ import { Ty_provided } from "./inherent.ts";
 import type { Interner } from "./interner.ts";
 import type { Const } from "./sty/consts.ts";
 import { FnSigTys, type InferTy, UnsafeBinderInner_deref } from "./ty_kind.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 
 export * from "./fast_reject.gen.ts";
 
@@ -119,7 +120,7 @@ export function simplify_type(cx: Interner, ty: Ty, treat_params: TreatParams): 
     case "Alias":
       // When treating `ty::Param` as a placeholder, projections also
       // don't unify with anything else as long as they are fully normalized.
-      if (treat_params === "AsRigid" && (!TypeVisitableExt.has_non_region_infer(ty, standin_fold_Ty) || cx.next_trait_solver_globally())) {
+      if (treat_params === "AsRigid" && (!TypeVisitableExt.has_non_region_infer(ty, fold_Ty) || cx.next_trait_solver_globally())) {
         return SimplifiedType.Placeholder;
       } else {
         return undefined;

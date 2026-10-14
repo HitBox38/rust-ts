@@ -11,7 +11,7 @@ import type { SimplifiedType } from "../../rustc_type_ir/fast_reject.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import type { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { EarlyBinder as EarlyBinderC } from "../../rustc_type_ir/binder.ts";
-import { standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
+
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { panic } from "../../std/panic.ts";
@@ -24,6 +24,7 @@ import { debug_DefId } from "../../rustc_span/def_id.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import * as gen from "./specialization_graph.gen.ts";
 import { Ancestors, Graph, LeafDef } from "./specialization_graph.gen.ts";
+import { fold_Ty } from "../ty/structural_impls.ts";
 
 export * from "./specialization_graph.gen.ts";
 
@@ -235,7 +236,7 @@ export function ancestors(tcx: TyCtxt, trait_def_id: DefId, start_from_impl: Def
   const type_of = tcx.type_of(start_from_impl) as EarlyBinder<Ty>;
   const r = TypeVisitableExt.error_reported(
     Unnormalized.skip_normalization(EarlyBinderC.instantiate_identity(type_of)),
-    standin_fold_Ty,
+    fold_Ty,
   );
   if (r.$ === "Err") {
     const reported = r._0;

@@ -13,7 +13,7 @@ import type { Span } from "../rustc_span/lib.ts";
 import { type Debug, PLAIN } from "../std/fmt.ts";
 import { panic, unported } from "../std/panic.ts";
 import { debug_BoundConst, debug_Placeholder, EarlyBinder } from "./binder.ts";
-import { standin_fold_Ty } from "./fold.ts";
+
 import * as gen from "./const_kind.gen.ts";
 import { debug_AliasConstKind, debug_ConstVid, debug_ValTreeKind, type InferConst } from "./const_kind.gen.ts";
 import type { Interner } from "./interner.ts";
@@ -21,6 +21,8 @@ import { type AliasConst as AliasConstT, debug_Alias } from "./ty/alias.ts";
 import { debug_IsRigid } from "./ty_kind.ts";
 import { debug_bound_var } from "./lib.ts";
 import type { Unnormalized } from "./unnormalized.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { debug_Value } from "../rustc_middle/ty/consts/valtree.ts";
 
 export * from "./const_kind.gen.ts";
 
@@ -42,8 +44,7 @@ export const debug_ConstKind: Debug<gen.ConstKind> = (self, _f) => {
     }
     case "Value":
       // write!(f, "{val:?}")
-      // PORT: `impl Debug for ty::Value` (rustc_middle ty/consts/valtree.rs, lane ty-results) is not ported yet.
-      return unported("rustc_type_ir::const_kind::ConstKind Debug (Value: Debug for rustc_middle::ty::Value)");
+      return debug_Value(self._0, PLAIN);
     case "Error":
       return "{const error}";
     case "Expr":
@@ -83,7 +84,7 @@ export const AliasConst = {
     }
     // PORT: queries.gen.ts types the `type_of` query's value `unknown` until its type is generated; it is
     // `EarlyBinder<Ty>` (`Interner::type_of`).
-    return EarlyBinder.instantiate(interner.type_of(def_id) as EarlyBinder<Ty>, interner, self.args, standin_fold_Ty);
+    return EarlyBinder.instantiate(interner.type_of(def_id) as EarlyBinder<Ty>, interner, self.args, fold_Ty);
   },
 };
 

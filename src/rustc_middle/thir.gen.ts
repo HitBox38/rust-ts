@@ -8,12 +8,14 @@ import { debug_HirId, debug_ItemLocalId, type HirId, type ItemLocalId } from "..
 import { clone_Scope, debug_Scope, type Scope } from "./middle/region.ts";
 import { type ArmId, type BlockId, debug_ArmId, debug_BlockId, debug_ExprId, debug_StmtId, type ExprId, type StmtId } from "./thir.ts";
 import { debug_PointerCoercion, type PointerCoercion } from "./ty/adjustment.gen.ts";
-import { visit_with_Value } from "./ty/consts/valtree.ts";
-import { type AdtDef, type BinOp, type FieldIdx, type ScalarInt, type UnOp, type ValTree, type Value, type VariantIdx } from "./ty/decls.ts";
+import { debug_ScalarInt, type ScalarInt } from "./ty/consts/int.ts";
+import { debug_Value, type Value, visit_with_Value } from "./ty/consts/valtree.ts";
+import { type AdtDef, type BinOp, type FieldIdx, type UnOp, type ValTree, type VariantIdx } from "./ty/decls.ts";
 import { debug_GenericArgs, type GenericArgs, visit_with_GenericArgs } from "./ty/generic_args.ts";
 import { debug_Ty, type Ty, visit_with_Ty } from "./ty/mod.ts";
 import { visit_with_AdtDef, visit_with_ErrorGuaranteed } from "./ty/structural_impls.ts";
 import { debug_UpvarArgs, type ParamConst, type UpvarArgs } from "./ty/sty.gen.ts";
+import { type CanonicalUserType, type CanonicalUserTypeAnnotation, debug_CanonicalUserTypeAnnotation } from "./ty/typeck_results.ts";
 import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../rustc_span/def_id.ts";
 import { debug_ErrorGuaranteed, debug_Span, type ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../rustc_span/symbol.ts";
@@ -127,7 +129,7 @@ export function clone_Block(v: Block): Block {
 }
 
 // rustc-type: compiler/rustc_middle/src/thir.rs:142 UserTy
-export type UserTy = unknown | undefined;
+export type UserTy = CanonicalUserType | undefined;
 
 // rustc-type: compiler/rustc_middle/src/thir.rs:145 AdtExpr
 export interface AdtExpr {
@@ -710,7 +712,7 @@ export const debug_ExprKind: Debug<ExprKind> = (v, f) => {
       ]);
     case "NonHirLiteral":
       return debug_struct(f, "NonHirLiteral", [
-        ["lit", unported_debug(v.lit)],
+        ["lit", debug_ScalarInt(v.lit, f)],
         ["user_ty", debug_option(v.user_ty, f, ((x, f) => unported_debug(x)))],
       ]);
     case "ZstLiteral":
@@ -1118,7 +1120,7 @@ export function visit_with_Pat<R>(self: Pat, __visitor: TypeVisitor<R>): R {
 
 // rustc-type: compiler/rustc_middle/src/thir.rs:743 Ascription
 export interface Ascription {
-  annotation: unknown;
+  annotation: CanonicalUserTypeAnnotation;
   /// Variance to use when relating the `user_ty` to the **type of the value being
   /// matched**. Typically, this is `Variance::Covariant`, since the value being matched must
   /// have a type that is some subtype of the ascribed type.
@@ -1141,7 +1143,7 @@ export interface Ascription {
 }
 export const debug_Ascription: Debug<Ascription> = (v, f) =>
   debug_struct(f, "Ascription", [
-    ["annotation", unported_debug(v.annotation)],
+    ["annotation", debug_CanonicalUserTypeAnnotation(v.annotation, f)],
     ["variance", debug_Variance(v.variance, f)],
   ]);
 export function clone_Ascription(v: Ascription): Ascription {
@@ -1249,7 +1251,7 @@ export const debug_PatKind: Debug<PatKind> = (v, f) => {
       ]);
     case "Constant":
       return debug_struct(f, "Constant", [
-        ["value", unported_debug(v.value)],
+        ["value", debug_Value(v.value, f)],
       ]);
     case "Range":
       return debug_tuple(f, "Range", [debug_PatRange(v._0, f)]);

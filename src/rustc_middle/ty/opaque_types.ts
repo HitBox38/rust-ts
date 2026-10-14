@@ -8,7 +8,7 @@ import type { DefId } from "../../rustc_span/def_id.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { type Binder } from "../../rustc_type_ir/binder.ts";
-import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided, standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
+import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
 import { debug_GenericArgKind } from "../../rustc_type_ir/generic_arg.gen.ts";
 import { display_Const, display_Region } from "../../rustc_type_ir/ir_print.ts";
 import type { OpaqueTypeKey as OpaqueTypeKeyIr } from "../../rustc_type_ir/opaque_ty.ts";
@@ -21,6 +21,7 @@ import { fold_GenericArg, GenericArg, type GenericArgs } from "./generic_args.ts
 import type { Clauses } from "./list.ts";
 import { Ty } from "./mod.ts";
 import { display_Ty } from "./print/pretty.ts";
+import { fold_Ty } from "./structural_impls.ts";
 
 export type OpaqueTypeKey = OpaqueTypeKeyIr;
 
@@ -220,7 +221,7 @@ export class ReverseMapper implements TypeFolder {
       }
 
       default:
-        return standin_fold_Ty.super_fold_with(ty, this);
+        return fold_Ty.super_fold_with(ty, this);
     }
   }
 

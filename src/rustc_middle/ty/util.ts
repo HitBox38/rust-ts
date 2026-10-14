@@ -26,7 +26,7 @@ import { sym } from "../../rustc_span/symbol.ts";
 import { Limit, Limit_mul } from "../../rustc_structures/limit.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import type { AnonConstKind } from "../../rustc_type_ir/const_kind.ts";
-import { type FallibleTypeFolder, type PredicateProxy, standin_fold_Clauses, standin_fold_Ty, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
+import { type FallibleTypeFolder, type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
 import { TypeFlags } from "../../rustc_type_ir/flags.ts";
 import { SizedTraitKind } from "../../rustc_type_ir/solve/mod.ts";
 import type { BoundRegion } from "../../rustc_type_ir/binder.gen.ts";
@@ -37,7 +37,7 @@ import { Const, fold_Const, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { fold_with_AliasTermKind } from "../../rustc_type_ir/term_kind.ts";
 import { fold_with_Alias } from "../../rustc_type_ir/ty/alias.gen.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
+import { TypeVisitableExt, visit_with_tuple2 } from "../../rustc_type_ir/visit.ts";
 import { debug_struct, debug_tuple, debug_int, type Debug, type Fmt, PLAIN } from "../../std/fmt.ts";
 import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
@@ -62,6 +62,7 @@ import { RawList } from "./list.ts";
 import { Asyncness, debug_Ty, HasAttrs_DefId, HasAttrs_LocalDefId, Ty, TypingEnv as TypingEnvC } from "./mod.ts";
 import type { EarlyParamRegion } from "./region.ts";
 import type { ParamConst, ParamTy } from "./sty.ts";
+import { fold_Clauses, fold_Ty } from "./structural_impls.ts";
 
 // rustc-type: compiler/rustc_middle/src/ty/util.rs:37 Discr
 // #[derive(Copy, Clone, Debug)]
@@ -190,7 +191,7 @@ export const IntTypeExt = {
 TyCtxt.prototype.type_id_hash = function (this: TyCtxt, ty: Ty): Hash128 {
   // We don't have region information, so we erase all free regions. Equal types
   // must have the same `TypeId`, so we must anonymize all bound regions as well.
-  const ty_ = this.erase_and_anonymize_regions(ty, standin_fold_Ty);
+  const ty_ = this.erase_and_anonymize_regions(ty, fold_Ty);
 
   return this.with_stable_hashing_context((_hcx) => {
     // let mut hasher = StableHasher::new();
@@ -268,11 +269,11 @@ TyCtxt.prototype.type_is_use_cloned_modulo_regions = function (this: TyCtxt, typ
 /// normalization attempt may cause compiler bugs.
 // rustc: compiler/rustc_middle/src/ty/util.rs:216 struct_tail_for_codegen
 TyCtxt.prototype.struct_tail_for_codegen = function (this: TyCtxt, ty: Ty, typing_env: TypingEnv): Ty {
-  this.assert_fully_normalized(typing_env, ty, standin_fold_Ty);
+  this.assert_fully_normalized(typing_env, ty, fold_Ty);
   return this.struct_tail_raw(
     ty,
     traits_mod().ObligationCause.dummy(),
-    (ty) => this.normalize_erasing_regions(typing_env, ty, standin_fold_Ty),
+    (ty) => this.normalize_erasing_regions(typing_env, ty, fold_Ty),
     () => {},
   );
 };
@@ -391,7 +392,7 @@ TyCtxt.prototype.struct_tail_raw = function (
 // rustc: compiler/rustc_middle/src/ty/util.rs:323 struct_lockstep_tails_for_codegen
 TyCtxt.prototype.struct_lockstep_tails_for_codegen = function (this: TyCtxt, source: Ty, target: Ty, typing_env: TypingEnv): [Ty, Ty] {
   this.assert_fully_normalized(typing_env, [source, target], fold_Ty_Ty);
-  return this.struct_lockstep_tails_raw(source, target, (ty) => this.normalize_erasing_regions(typing_env, ty, standin_fold_Ty));
+  return this.struct_lockstep_tails_raw(source, target, (ty) => this.normalize_erasing_regions(typing_env, ty, fold_Ty));
 };
 
 /// Same as applying `struct_tail` on `source` and `target`, but only
@@ -869,7 +870,7 @@ TyCtxt.prototype.thread_local_ptr_ty = function (this: TyCtxt, def_id: DefId): T
 // rustc: compiler/rustc_middle/src/ty/util.rs:755 static_ptr_ty
 TyCtxt.prototype.static_ptr_ty = function (this: TyCtxt, def_id: DefId, typing_env: TypingEnv): Ty {
   // Make sure that any constants in the static's type are evaluated.
-  const static_ty = this.normalize_erasing_regions(typing_env, EarlyBinder.instantiate_identity(this.type_of(def_id) as EarlyBinder<Ty>), standin_fold_Ty);
+  const static_ty = this.normalize_erasing_regions(typing_env, EarlyBinder.instantiate_identity(this.type_of(def_id) as EarlyBinder<Ty>), fold_Ty);
 
   // Make sure that accesses to unsafe statics end up using raw pointers.
   // For thread-locals, this needs to be kept in sync with `Rvalue::ty`.
@@ -1055,7 +1056,7 @@ TyCtxt.prototype.peel_off_free_alias_tys = function (this: TyCtxt, ty_: Ty): Ty 
       return Ty.new_error(this, guar);
     }
 
-    ty = Unnormalized.skip_normalization(EarlyBinder.instantiate(this.type_of(def_id) as EarlyBinder<Ty>, this, args, standin_fold_Ty));
+    ty = Unnormalized.skip_normalization(EarlyBinder.instantiate(this.type_of(def_id) as EarlyBinder<Ty>, this, args, fold_Ty));
     depth += 1;
   }
 
@@ -1125,7 +1126,7 @@ class OpaqueTypeExpander implements TypeFolder {
         expanded_ty = cached;
       } else {
         const generic_ty = this.tcx.type_of(def_id) as EarlyBinder<Ty>;
-        const concrete_ty = Unnormalized.skip_normalization(EarlyBinder.instantiate(generic_ty, this.tcx, args, standin_fold_Ty));
+        const concrete_ty = Unnormalized.skip_normalization(EarlyBinder.instantiate(generic_ty, this.tcx, args, fold_Ty));
         const expanded_ty_ = this.fold_ty(concrete_ty);
         this.expanded_cache.set([def_id, args], expanded_ty_);
         expanded_ty = expanded_ty_;
@@ -1155,8 +1156,8 @@ class OpaqueTypeExpander implements TypeFolder {
       const def_id = k._1.kind.def_id;
       const args = k._1.args;
       return this.expand_opaque_ty(def_id, args) ?? t;
-    } else if (TypeVisitableExt.has_opaque_types(t, standin_fold_Ty)) {
-      return standin_fold_Ty.super_fold_with(t, this);
+    } else if (TypeVisitableExt.has_opaque_types(t, fold_Ty)) {
+      return fold_Ty.super_fold_with(t, this);
     } else {
       return t;
     }
@@ -1212,12 +1213,12 @@ class FreeAliasTypeExpander implements TypeFolder {
 
   // rustc: compiler/rustc_middle/src/ty/util.rs:1073 fold_ty
   fold_ty(ty: Ty): Ty {
-    if (!TypeVisitableExt.has_type_flags(ty, TypeFlags.HAS_TY_FREE_ALIAS, standin_fold_Ty)) {
+    if (!TypeVisitableExt.has_type_flags(ty, TypeFlags.HAS_TY_FREE_ALIAS, fold_Ty)) {
       return ty;
     }
     const k = ty.kind();
     if (!(k.$ === "Alias" && k._1.kind.$ === "Free")) {
-      return standin_fold_Ty.super_fold_with(ty, this);
+      return fold_Ty.super_fold_with(ty, this);
     }
     const def_id = k._1.kind.def_id;
     const args = k._1.args;
@@ -1227,7 +1228,7 @@ class FreeAliasTypeExpander implements TypeFolder {
     }
 
     this.depth += 1;
-    const ty_ = standin_fold_Ty.fold_with(Unnormalized.skip_normalization(EarlyBinder.instantiate(this.tcx.type_of(def_id) as EarlyBinder<Ty>, this.tcx, args, standin_fold_Ty)), this);
+    const ty_ = fold_Ty.fold_with(Unnormalized.skip_normalization(EarlyBinder.instantiate(this.tcx.type_of(def_id) as EarlyBinder<Ty>, this.tcx, args, fold_Ty)), this);
     this.depth -= 1;
     return ty_;
   }
@@ -1570,8 +1571,8 @@ Ty.prototype.needs_drop = function (this: Ty, tcx: TyCtxt, typing_env: TypingEnv
     // This doesn't depend on regions, so try to minimize distinct
     // query keys used. If normalization fails, we just use `query_ty`.
     // debug_assert!(!typing_env.param_env.has_infer());
-    const n = tcx.try_normalize_erasing_regions(typing_env, Unnormalized.new_wip(query_ty), standin_fold_Ty);
-    const query_ty_ = n.$ === "Ok" ? n._0 : tcx.erase_and_anonymize_regions(query_ty, standin_fold_Ty);
+    const n = tcx.try_normalize_erasing_regions(typing_env, Unnormalized.new_wip(query_ty), fold_Ty);
+    const query_ty_ = n.$ === "Ok" ? n._0 : tcx.erase_and_anonymize_regions(query_ty, fold_Ty);
 
     return tcx.needs_drop_raw(typing_env.as_query_input(query_ty_));
   }
@@ -1611,8 +1612,8 @@ Ty.prototype.needs_async_drop = function (this: Ty, tcx: TyCtxt, typing_env: Typ
     // query keys used.
     // If normalization fails, we just use `query_ty`.
     // debug_assert!(!typing_env.has_infer());
-    const n = tcx.try_normalize_erasing_regions(typing_env, Unnormalized.new_wip(query_ty), standin_fold_Ty);
-    const query_ty_ = n.$ === "Ok" ? n._0 : tcx.erase_and_anonymize_regions(query_ty, standin_fold_Ty);
+    const n = tcx.try_normalize_erasing_regions(typing_env, Unnormalized.new_wip(query_ty), fold_Ty);
+    const query_ty_ = n.$ === "Ok" ? n._0 : tcx.erase_and_anonymize_regions(query_ty, fold_Ty);
 
     return tcx.needs_async_drop_raw(typing_env.as_query_input(query_ty_));
   }
@@ -1652,14 +1653,14 @@ Ty.prototype.has_significant_drop = function (this: Ty, tcx: TyCtxt, typing_env:
     // but for now just avoid passing inference variables
     // to queries that can't cope with them.
     // Instead, conservatively return "true" (may change drop order).
-    if (TypeVisitableExt.has_infer(query_ty, standin_fold_Ty)) {
+    if (TypeVisitableExt.has_infer(query_ty, fold_Ty)) {
       return true;
     }
 
     // This doesn't depend on regions, so try to minimize distinct
     // query keys used.
     // FIX: Use try_normalize to avoid crashing. If it fails, return true.
-    const n = tcx.try_normalize_erasing_regions(typing_env, Unnormalized.new_wip(query_ty), standin_fold_Ty);
+    const n = tcx.try_normalize_erasing_regions(typing_env, Unnormalized.new_wip(query_ty), fold_Ty);
     if (n.$ === "Ok") {
       const erased = n._0;
       return tcx.has_significant_drop_raw(typing_env.as_query_input(erased));
@@ -1974,7 +1975,7 @@ export const debug_AlwaysRequiresDrop: Debug<AlwaysRequiresDrop> = (v) => v;
 export function reveal_opaque_types_in_bounds(tcx: TyCtxt, val: Clauses): Clauses {
   assert(!tcx.next_trait_solver_globally(), "assertion failed: !tcx.next_trait_solver_globally()");
   const visitor = new OpaqueTypeExpander(new DefIdSet(), new KeyedMap<[DefId, GenericArgs], Ty>(intern_key), undefined, false, false, false, tcx);
-  return standin_fold_Clauses.fold_with(val, visitor);
+  return fold_Clauses.fold_with(val, visitor);
 }
 
 /// Determines whether an item is directly annotated with `doc(hidden)`.
@@ -2048,20 +2049,20 @@ function u128_wrapping(v: bigint): bigint {
   return BigInt.asUintN(128, v);
 }
 
-/** `(Ty, Ty): TypeFoldable` (fold.rs's tuple impl) over `standin_fold_Ty`. */
+/** `(Ty, Ty): TypeFoldable` / `TypeVisitable` (fold.rs's / visit.rs's tuple impls) over `fold_Ty`. */
 const fold_Ty_Ty: TypeFoldable<[Ty, Ty]> = {
   try_fold_with(self, folder) {
-    const a = standin_fold_Ty.try_fold_with(self[0], folder);
+    const a = fold_Ty.try_fold_with(self[0], folder);
     if (a.$ === "Err") return a;
-    const b = standin_fold_Ty.try_fold_with(self[1], folder);
+    const b = fold_Ty.try_fold_with(self[1], folder);
     if (b.$ === "Err") return b;
     return Ok([a._0, b._0]);
   },
   fold_with(self, folder) {
-    return [standin_fold_Ty.fold_with(self[0], folder), standin_fold_Ty.fold_with(self[1], folder)];
+    return [fold_Ty.fold_with(self[0], folder), fold_Ty.fold_with(self[1], folder)];
   },
-  visit_with(_self, _visitor) {
-    return unported("rustc_type_ir::visit: TypeVisitable for (Ty, Ty) (tuple impl over the Ty stand-in)");
+  visit_with(self, visitor) {
+    return visit_with_tuple2(self, visitor, fold_Ty.visit_with, fold_Ty.visit_with);
   },
 };
 

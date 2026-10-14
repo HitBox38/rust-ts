@@ -19,7 +19,7 @@ import { String_into_diag_arg } from "../../rustc_error_messages/diagnostic_impl
 import type { DefId } from "../../rustc_span/def_id.ts";
 import type { Decoder } from "../../rustc_serialize/serialize.ts";
 import type { ClosureArgs, ClosureArgsParts, CoroutineArgs, CoroutineArgsParts, CoroutineClosureArgs, CoroutineClosureArgsParts, GenericArgKind } from "../../rustc_type_ir/decls.ts";
-import { standin_fold_Ty, type TypeFoldable } from "../../rustc_type_ir/fold.ts";
+import { type TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { Const, fold_Const, fold_Region, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { TypeWalker } from "../../rustc_type_ir/walk.ts";
 import { type Fmt, PLAIN, PRETTY } from "../../std/fmt.ts";
@@ -38,6 +38,7 @@ import type { Result } from "../../std/result.ts";
 import type { TyCtxt } from "./context.ts";
 import { debug_Generics, type GenericParamDef, GenericParamDef as GenericParamDefC, type Generics } from "./generics.ts";
 import type { InlineConstArgs } from "./sty.gen.ts";
+import { debug_GenericArg, fold_Ty } from "./structural_impls.ts";
 
 // The other types of generic_args.rs with their derived impls are generated into generic_args.gen.ts (set rustc_ty of
 // tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
@@ -294,14 +295,12 @@ function panic_unreachable(): never {
 
 // rustc-skip: compiler/rustc_middle/src/ty/generic_args.rs:325 lift_to_interner Lift impl (rustc's Lift: skipped per PORTING §3)
 
-/** Stub: `impl Debug for GenericArg` (structural_impls.rs:145). */
-export function debug_GenericArg(_v: GenericArg, _f: Fmt): string {
-  return unported("rustc_middle::ty::GenericArg: Debug");
-}
+/** `impl Debug for GenericArg` (structural_impls.rs:145, lane ty-results), re-exported for generated code. */
+export { debug_GenericArg };
 
 /** D4 descriptor: `impl TypeFoldable for GenericArg` (generic_args.rs:334) + `TypeVisitable` (:355).
- *  PORT: `ty.try_fold_with(folder)` etc. are the `Ty` impls of structural_impls.rs (`standin_fold_Ty`, fold.ts, until
- *  lane ty-results lands); `Region` / `Const` are rustc_type_ir sty's `fold_Region` / `fold_Const`. */
+ *  PORT: `ty.try_fold_with(folder)` etc. are the `Ty` impls of structural_impls.rs (`fold_Ty`); `Region` / `Const`
+ *  are rustc_type_ir sty's `fold_Region` / `fold_Const`. */
 export const fold_GenericArg: TypeFoldable<GenericArg> = {
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:335 try_fold_with
   try_fold_with<E>(self: GenericArg, folder: FallibleTypeFolder<E>): Result<GenericArg, E> {
@@ -312,7 +311,7 @@ export const fold_GenericArg: TypeFoldable<GenericArg> = {
         return r.$ === "Err" ? r : Ok(GenericArg.from_Region(r._0));
       }
       case "Type": {
-        const r = standin_fold_Ty.try_fold_with(k._0, folder);
+        const r = fold_Ty.try_fold_with(k._0, folder);
         return r.$ === "Err" ? r : Ok(GenericArg.from_Ty(r._0));
       }
       case "Const": {
@@ -329,7 +328,7 @@ export const fold_GenericArg: TypeFoldable<GenericArg> = {
       case "Lifetime":
         return GenericArg.from_Region(fold_Region.fold_with(k._0, folder));
       case "Type":
-        return GenericArg.from_Ty(standin_fold_Ty.fold_with(k._0, folder));
+        return GenericArg.from_Ty(fold_Ty.fold_with(k._0, folder));
       case "Const":
         return GenericArg.from_Const(fold_Const.fold_with(k._0, folder));
     }
@@ -342,7 +341,7 @@ export const fold_GenericArg: TypeFoldable<GenericArg> = {
       case "Lifetime":
         return fold_Region.visit_with(k._0, visitor);
       case "Type":
-        return standin_fold_Ty.visit_with(k._0, visitor);
+        return fold_Ty.visit_with(k._0, visitor);
       case "Const":
         return fold_Const.visit_with(k._0, visitor);
     }
@@ -704,9 +703,9 @@ export const fold_List_Ty: TypeFoldable<List<Ty>> = {
     // sometimes.
     switch (self.length) {
       case 2: {
-        const param0 = standin_fold_Ty.try_fold_with(self[0]!, folder);
+        const param0 = fold_Ty.try_fold_with(self[0]!, folder);
         if (param0.$ === "Err") return param0;
-        const param1 = standin_fold_Ty.try_fold_with(self[1]!, folder);
+        const param1 = fold_Ty.try_fold_with(self[1]!, folder);
         if (param1.$ === "Err") return param1;
         if (param0._0 === self[0] && param1._0 === self[1]) {
           return Ok(self);
@@ -715,7 +714,7 @@ export const fold_List_Ty: TypeFoldable<List<Ty>> = {
         }
       }
       default:
-        return ty_util().try_fold_list(self, folder, (tcx, v) => tcx.mk_type_list(v), standin_fold_Ty);
+        return ty_util().try_fold_list(self, folder, (tcx, v) => tcx.mk_type_list(v), fold_Ty);
     }
   },
 
@@ -724,8 +723,8 @@ export const fold_List_Ty: TypeFoldable<List<Ty>> = {
     // See comment justifying behavior in `try_fold_with`.
     switch (self.length) {
       case 2: {
-        const param0 = standin_fold_Ty.fold_with(self[0]!, folder);
-        const param1 = standin_fold_Ty.fold_with(self[1]!, folder);
+        const param0 = fold_Ty.fold_with(self[0]!, folder);
+        const param1 = fold_Ty.fold_with(self[1]!, folder);
         if (param0 === self[0] && param1 === self[1]) {
           return self;
         } else {
@@ -733,12 +732,12 @@ export const fold_List_Ty: TypeFoldable<List<Ty>> = {
         }
       }
       default:
-        return ty_util().fold_list(self, folder, (tcx, v) => tcx.mk_type_list(v), standin_fold_Ty);
+        return ty_util().fold_list(self, folder, (tcx, v) => tcx.mk_type_list(v), fold_Ty);
     }
   },
 
   visit_with<R>(self: List<Ty>, visitor: TypeVisitor<R>): R {
-    return visit_List(standin_fold_Ty).visit_with(self, visitor);
+    return visit_List(fold_Ty).visit_with(self, visitor);
   },
 };
 

@@ -340,14 +340,14 @@ export class AdtDef extends Interned {
     let variant_idx: VariantIdx;
     const k1 = args.const_at(1).kind();
     if (k1.$ === "Value") {
-      variant_idx = ScalarInt_to_u32(Value_to_leaf(k1._0)) as VariantIdx;
+      variant_idx = valtree_().Value.to_leaf(k1._0).to_u32() as VariantIdx;
     } else {
       return undefined;
     }
     let field_idx: FieldIdx;
     const k2 = args.const_at(2).kind();
     if (k2.$ === "Value") {
-      field_idx = ScalarInt_to_u32(Value_to_leaf(k2._0)) as FieldIdx;
+      field_idx = valtree_().Value.to_leaf(k2._0).to_u32() as FieldIdx;
     } else {
       return undefined;
     }
@@ -896,6 +896,9 @@ export function DataTypeKind_from_AdtKind(val: AdtKind): DataTypeKind {
 function ty_mod(): typeof import("./mod.ts") {
   return require("./mod.ts") as typeof import("./mod.ts");
 }
+function valtree_(): typeof import("./consts/valtree.ts") {
+  return require("./consts/valtree.ts") as typeof import("./consts/valtree.ts");
+}
 function ty_util(): typeof import("./util.ts") {
   return require("./util.ts") as typeof import("./util.ts");
 }
@@ -917,14 +920,6 @@ function ReprOptions_packed(_self: ReprOptions): boolean {
 /** PORT: stand-in for `ReprOptions::discr_type` (rustc_abi lib.rs). */
 function ReprOptions_discr_type(_self: ReprOptions): IntegerType {
   return unported("rustc_abi::ReprOptions::discr_type");
-}
-/** PORT: stand-in for `ty::Value::to_leaf` (ty/consts/valtree.rs, lane ty-results). */
-function Value_to_leaf(_self: Value): ScalarInt {
-  return unported("rustc_middle::ty::Value::to_leaf (lane ty-results)");
-}
-/** PORT: stand-in for `ScalarInt::to_u32` (ty/consts/int.rs, lane ty-results). */
-function ScalarInt_to_u32(_self: ScalarInt): number {
-  return unported("rustc_middle::ty::ScalarInt::to_u32 (lane ty-results)");
 }
 /** `mir::ConstValue` (pending, M4). */
 type ConstValue = { readonly __pending: "mir::ConstValue" };

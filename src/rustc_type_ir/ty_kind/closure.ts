@@ -4,7 +4,7 @@
 // `FoldEscapingRegions`, skipped by codegen), in upstream order.
 // PORT (D3): `I: Interner` is erased; `cx: I` is `TyCtxt`. The inherent methods of the generated structs live on a
 // same-named companion const taking `self` first (`ClosureArgs.kind(args)`).
-// PORT: `Ty`'s traversal impls (rustc_middle structural_impls.rs, not ported yet) are fold.ts's `standin_fold_Ty`.
+// PORT: `Ty`'s traversal impls (rustc_middle structural_impls.rs, not ported yet) are fold.ts's `fold_Ty`.
 import { type ControlFlow, ControlFlow as ControlFlowC, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { GenericArg, type GenericArgsSlice, type Tys } from "../../rustc_middle/ty/generic_args.ts";
@@ -16,13 +16,14 @@ import { PLAIN } from "../../std/fmt.ts";
 import { assert, panic, unwrap } from "../../std/panic.ts";
 import { DelayedMap } from "../data_structures/delayed_map.ts";
 import { Binder, visit_Binder, fold_Binder } from "../binder.ts";
-import { type PredicateProxy, shift_region, standin_fold_Ty, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../fold.ts";
+import { type PredicateProxy, shift_region, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../fold.ts";
 import { type ClosureKind, DebruijnIndex, INNERMOST } from "../lib.ts";
 import type { Const, Region } from "../sty/mod.ts";
 import { debug_TyKind, FnSigTys, PolyFnSigTys, type FnSig } from "../ty_kind.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "../visit.ts";
 import * as gen from "./closure.gen.ts";
 import { visit_with_FnSigTys } from "../ty_kind.ts";
+import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 
 export * from "./closure.gen.ts";
 
@@ -422,14 +423,14 @@ class FoldEscapingRegions implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/ty_kind/closure.rs:515 fold_ty
   fold_ty(t: Ty): Ty {
-    if (!TypeVisitableExt.has_vars_bound_at_or_above(t, this.debruijn, standin_fold_Ty)) {
+    if (!TypeVisitableExt.has_vars_bound_at_or_above(t, this.debruijn, fold_Ty)) {
       return t;
     } else {
       const t_ = this.cache.get([this.debruijn, t]);
       if (t_ !== undefined) {
         return t_;
       } else {
-        const res = standin_fold_Ty.super_fold_with(t, this);
+        const res = fold_Ty.super_fold_with(t, this);
         assert(this.cache.insert([this.debruijn, t], res), "assertion failed: self.cache.insert((self.debruijn, t), res)");
         return res;
       }

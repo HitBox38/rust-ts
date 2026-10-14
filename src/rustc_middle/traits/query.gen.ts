@@ -8,6 +8,7 @@ import { debug_RawList, type List } from "../ty/list.ts";
 import { debug_Term, debug_Ty, fold_with_Term, fold_with_Ty, type ParamEnvAnd, type Term, try_fold_with_Term, try_fold_with_Ty, type Ty, visit_with_Term, visit_with_Ty } from "../ty/mod.ts";
 import { debug_Predicate, fold_with_Predicate, type Predicate, try_fold_with_Predicate, visit_with_Predicate } from "../ty/predicate.ts";
 import { type AliasTy, type ParamTy } from "../ty/sty.gen.ts";
+import { debug_UserType, type UserType } from "../ty/typeck_results.ts";
 import { type Canonical, type CanonicalQueryInput, debug_Canonical } from "../../rustc_type_ir/canonical.ts";
 import { type FallibleTypeFolder, fold_with_Vec, type FoldWith, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Vec, type VisitWith } from "../../rustc_type_ir/fold.ts";
 import { debug_OpaqueTypeKey, type OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.ts";
@@ -27,12 +28,12 @@ export namespace type_op {
 // rustc-type: compiler/rustc_middle/src/traits/query.rs:23 AscribeUserType
 export interface AscribeUserType {
   mir_ty: Ty;
-  user_ty: unknown;
+  user_ty: UserType;
 }
 export const debug_AscribeUserType: Debug<AscribeUserType> = (v, f) =>
   debug_struct(f, "AscribeUserType", [
     ["mir_ty", debug_Ty(v.mir_ty, f)],
-    ["user_ty", unported_debug(v.user_ty)],
+    ["user_ty", debug_UserType(v.user_ty, f)],
   ]);
 export function clone_AscribeUserType(v: AscribeUserType): AscribeUserType {
   return {

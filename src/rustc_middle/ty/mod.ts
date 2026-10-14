@@ -88,6 +88,7 @@ import type { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
 import type { Interner } from "../../rustc_type_ir/interner.ts";
 import type { SimplifiedType } from "../../rustc_type_ir/fast_reject.ts";
 import type { Providers } from "../queries.gen.ts";
+import { debug_Ty, fold_Ty } from "./structural_impls.ts";
 
 export type Ordering = "Less" | "Equal" | "Greater";
 
@@ -126,10 +127,9 @@ function middle_pretty(): typeof import("./print/pretty.ts") {
   return require("./print/pretty.ts") as typeof import("./print/pretty.ts");
 }
 
-/** PORT: the visit descriptor of `(Ty, Ty)` (rustc_type_ir visit.rs:136 over the `Ty` stand-in, merge-w15a decision 3). */
+/** PORT: the visit descriptor of `(Ty, Ty)` (rustc_type_ir visit.rs:136 over `fold_Ty`). */
 function visit_Ty_Ty(): TypeVisitable<[Ty, Ty]> {
-  const { standin_fold_Ty } = tyir_fold();
-  return { visit_with: (self, visitor) => tyir_visit().visit_with_tuple2(self, visitor, standin_fold_Ty.visit_with, standin_fold_Ty.visit_with) };
+  return { visit_with: (self, visitor) => tyir_visit().visit_with_tuple2(self, visitor, fold_Ty.visit_with, fold_Ty.visit_with) };
 }
 
 /** PORT (merge-w15b): ty/opaque_types.ts imports print/pretty.ts (an extension module): reached lazily. */
@@ -213,7 +213,7 @@ export class ImplTraitHeader {
           default:
             break;
         }
-        return tyir_fold().standin_fold_Ty.super_visit_with(t, this);
+        return fold_Ty.super_visit_with(t, this);
       }
 
       visit_const(c: Const): ControlFlow<null> {
@@ -773,7 +773,7 @@ export const fold_Term: TypeFoldable<Term> = {
     const k = Term.kind(self);
     switch (k.$) {
       case "Ty": {
-        const r = tyir_fold().standin_fold_Ty.try_fold_with(k._0, folder);
+        const r = fold_Ty.try_fold_with(k._0, folder);
         return r.$ === "Ok" ? Ok(Term.from_Ty(r._0)) : r;
       }
       case "Const": {
@@ -788,7 +788,7 @@ export const fold_Term: TypeFoldable<Term> = {
     const k = Term.kind(self);
     switch (k.$) {
       case "Ty":
-        return Term.from_Ty(tyir_fold().standin_fold_Ty.fold_with(k._0, folder));
+        return Term.from_Ty(fold_Ty.fold_with(k._0, folder));
       case "Const":
         return Term.from_Const(fold_Const.fold_with(k._0, folder));
     }
@@ -799,7 +799,7 @@ export const fold_Term: TypeFoldable<Term> = {
     const k = Term.kind(self);
     switch (k.$) {
       case "Ty":
-        return tyir_fold().standin_fold_Ty.visit_with(k._0, visitor);
+        return fold_Ty.visit_with(k._0, visitor);
       case "Const":
         return fold_Const.visit_with(k._0, visitor);
     }
@@ -976,20 +976,20 @@ export class ProvisionalHiddenType {
     //
     // We erase regions when doing this during HIR typeck. We manually use `fold_regions`
     // here as we do not want to anonymize bound variables.
-    const { fold_regions, standin_fold_Ty } = tyir_fold();
+    const { fold_regions } = tyir_fold();
     let ty: Ty;
     switch (defining_scope_kind) {
       case "HirTypeck":
-        ty = fold_regions(tcx, this.ty, () => tcx.lifetimes.re_erased, standin_fold_Ty);
+        ty = fold_regions(tcx, this.ty, () => tcx.lifetimes.re_erased, fold_Ty);
         break;
       case "MirBorrowck":
         ty = this.ty;
         break;
     }
-    const result_ty = standin_fold_Ty.fold_with(ty, middle_opaque_types().ReverseMapper.new(tcx, map, this.span));
+    const result_ty = fold_Ty.fold_with(ty, middle_opaque_types().ReverseMapper.new(tcx, map, this.span));
     // PORT: `if cfg!(debug_assertions) && .. { assert_eq!(result_ty, fold_regions(..)) }`: rustc ships without
     // debug assertions.
-    return new DefinitionSiteHiddenType(this.span, tyir_binder().EarlyBinder.bind(tcx, result_ty, standin_fold_Ty));
+    return new DefinitionSiteHiddenType(this.span, tyir_binder().EarlyBinder.bind(tcx, result_ty, fold_Ty));
   }
 }
 
@@ -1037,7 +1037,7 @@ export class DefinitionSiteHiddenType {
 
   // rustc: compiler/rustc_middle/src/ty/mod.rs:969 new_error
   static new_error(tcx: TyCtxt, guar: ErrorGuaranteed): DefinitionSiteHiddenType {
-    return new DefinitionSiteHiddenType(DUMMY_SP, tyir_binder().EarlyBinder.bind(tcx, Ty.new_error(tcx, guar), tyir_fold().standin_fold_Ty));
+    return new DefinitionSiteHiddenType(DUMMY_SP, tyir_binder().EarlyBinder.bind(tcx, Ty.new_error(tcx, guar), fold_Ty));
   }
 
   // rustc: compiler/rustc_middle/src/ty/mod.rs:976 build_mismatch_error
@@ -1346,8 +1346,7 @@ export const debug_TypingEnv: Debug<TypingEnv> = (v, f) =>
 // ---- tools/codegen's view of the traversal / Debug impls (merge-w13) ----
 // PORT: generated code calls `visit_with_<T>` / `try_fold_with_<T>` / `fold_with_<T>` free fns and `debug_<T>`
 // (tools/codegen type_fold.json / tyir.typemap.json). For `Term` they are the methods of the D4 descriptor above;
-// `Ty`'s impls (structural_impls.rs) are stubs until lane ty-print / tyir-binder ports them (then: a D4 descriptor
-// `fold_Ty`, which these wrap). `I::FnInputTys` = `&[Ty]` (rustc_type_ir/interner.ts header).
+// `Ty`'s impls are structural_impls.rs's D4 descriptor `fold_Ty` (lane ty-results), which these wrap. `I::FnInputTys` = `&[Ty]` (rustc_type_ir/interner.ts header).
 export type FnInputTys = readonly Ty[];
 
 export function visit_with_Term<R>(self: Term, visitor: TypeVisitor<R>): R {
@@ -1360,20 +1359,16 @@ export function fold_with_Term(self: Term, folder: TypeFolder): Term {
   return fold_Term.fold_with(self, folder);
 }
 
-/** Stub: `impl fmt::Debug for Ty` (structural_impls.rs:82). */
-export function debug_Ty(_v: Ty, _f: Fmt): string {
-  return unported("rustc_middle::ty::Ty: Debug (structural_impls.rs:82)");
+/** `impl fmt::Debug for Ty` (structural_impls.rs:82, lane ty-results), re-exported for generated code. */
+export { debug_Ty };
+export function visit_with_Ty<R>(self: Ty, visitor: TypeVisitor<R>): R {
+  return fold_Ty.visit_with(self, visitor);
 }
-/** Stub: `impl TypeVisitable for Ty` (structural_impls.rs:324). */
-export function visit_with_Ty<R>(_self: Ty, _visitor: TypeVisitor<R>): R {
-  return unported("rustc_middle::ty::Ty: TypeVisitable::visit_with (structural_impls.rs:324)");
+export function try_fold_with_Ty<E>(self: Ty, folder: FallibleTypeFolder<E>): Result<Ty, E> {
+  return fold_Ty.try_fold_with(self, folder);
 }
-/** Stub: `impl TypeFoldable for Ty` (structural_impls.rs:311). */
-export function try_fold_with_Ty<E>(_self: Ty, _folder: FallibleTypeFolder<E>): Result<Ty, E> {
-  return unported("rustc_middle::ty::Ty: TypeFoldable::try_fold_with (structural_impls.rs:311)");
-}
-export function fold_with_Ty(_self: Ty, _folder: TypeFolder): Ty {
-  return unported("rustc_middle::ty::Ty: TypeFoldable::fold_with (structural_impls.rs:311)");
+export function fold_with_Ty(self: Ty, folder: TypeFolder): Ty {
+  return fold_Ty.fold_with(self, folder);
 }
 /** `Debug for &[Ty]`: the slice's Debug. */
 export function debug_FnInputTys(v: FnInputTys, f: Fmt): string {
@@ -1749,11 +1744,11 @@ export class FieldDef {
 
   /// Returns the type of this field. The `args` are typically obtained via
   /// the second field of [`TyKind::Adt`].
-  // PORT: the `type_of` query value is `unknown` in queries.gen.ts; `Ty`'s fold descriptor is the stand-in
-  // `fold().standin_fold_Ty` (merge-w15a decision 3).
+  // PORT: the `type_of` query value is `unknown` in queries.gen.ts; `Ty`'s fold descriptor is
+  // `fold_Ty` (structural_impls.rs, lane ty-results).
   // rustc: compiler/rustc_middle/src/ty/mod.rs:1546 ty
   ty(tcx: TyCtxt, args: GenericArgs): Unnormalized<Ty> {
-    return binder().EarlyBinder.instantiate(tcx.type_of(this.did) as EarlyBinder<Ty>, tcx, args, fold().standin_fold_Ty);
+    return binder().EarlyBinder.instantiate(tcx.type_of(this.did) as EarlyBinder<Ty>, tcx, args, fold_Ty);
   }
 
   /// Computes the `Ident` of this variant by looking up the `Span`

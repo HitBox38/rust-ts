@@ -4,8 +4,10 @@ import { decode_ParamConst } from "../rustc_middle/ty/sty.gen.ts";
 import { try_visit } from "../rustc_ast_ir/visit.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
 import { decode_List_Const, type TyDecoder } from "../rustc_middle/ty/codec.ts";
+import { debug_ScalarInt, type ScalarInt } from "../rustc_middle/ty/consts/int.ts";
 import { decode_Expr, type Expr } from "../rustc_middle/ty/consts/kind.ts";
-import { type Consts, type ScalarInt, type Value } from "../rustc_middle/ty/decls.ts";
+import { type Value } from "../rustc_middle/ty/consts/valtree.ts";
+import { type Consts } from "../rustc_middle/ty/decls.ts";
 import { fold_with_Consts, try_fold_with_Consts, visit_with_Consts } from "../rustc_middle/ty/structural_impls.ts";
 import { type ParamConst } from "../rustc_middle/ty/sty.ts";
 import { decode_u32 } from "../rustc_serialize/serialize.ts";
@@ -264,7 +266,7 @@ export type ValTreeKind =
 export const debug_ValTreeKind: Debug<ValTreeKind> = (v, f) => {
   switch (v.$) {
     case "Leaf":
-      return debug_tuple(f, "Leaf", [unported_debug(v._0)]);
+      return debug_tuple(f, "Leaf", [debug_ScalarInt(v._0, f)]);
     case "Branch":
       return debug_tuple(f, "Branch", [unported_debug(v._0)]);
   }

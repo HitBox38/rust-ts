@@ -19,7 +19,7 @@ import type { BoundVar, ConstVid, DebruijnIndex, FloatVid, IntVid, TyVid, Univer
 import { CollectAndApply_Result } from "../../rustc_type_ir/interner.ts";
 import { INNERMOST } from "../../rustc_type_ir/lib.ts";
 import { Const } from "../../rustc_type_ir/sty/mod.ts";
-import { standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
+
 import { FnSigKind, UnsafeBinderInner } from "../../rustc_type_ir/ty_kind.ts";
 import { debug_Mutability } from "../../rustc_ast_ir/lib.ts";
 import { Panic, Unported } from "../../std/panic.ts";
@@ -35,6 +35,7 @@ import { FmtPrinter } from "./print/pretty.ts";
 import { TestPrinter } from "./print/print_oracle/test_printer.ts";
 import type { ReprOptions, VariantIdx } from "./decls.ts";
 import { Article_TyKind, CoroutineArgsExt, InlineConstArgs, ParamConst, ParamTy } from "./sty.ts";
+import { fold_Ty } from "./structural_impls.ts";
 
 const DIR = join(import.meta.dir, "sty_oracle");
 const FIXTURE = join(DIR, "sty.stdout");
@@ -367,8 +368,8 @@ describe("constructors", () => {
       expect([...Binder.skip_binder(sig).inputs_and_output]).toEqual([t.i32, t.bool]);
       expect(() => t.bool.fn_sig(tcx)).toThrow(new Panic("Ty::fn_sig() called on non-fn type: bool"));
       // `unsafe<> i32` (not in the oracle fixture: neither printer prints `unsafe<..>` binders yet).
-      const ub = Ty.new_unsafe_binder(tcx, Binder.dummy(t.i32, standin_fold_Ty));
-      expect(ub.kind() as unknown).toEqual({ $: "UnsafeBinder", _0: UnsafeBinderInner.from_Binder(Binder.dummy(t.i32, standin_fold_Ty)) });
+      const ub = Ty.new_unsafe_binder(tcx, Binder.dummy(t.i32, fold_Ty));
+      expect(ub.kind() as unknown).toEqual({ $: "UnsafeBinder", _0: UnsafeBinderInner.from_Binder(Binder.dummy(t.i32, fold_Ty)) });
       expect(ub.discriminant_ty(tcx)).toBe(t.u8);
       expect(ub.has_trivial_sizedness(tcx, Sized)).toBe(true);
       expect(ub.is_trivially_pure_clone_copy()).toBe(false);
@@ -402,8 +403,9 @@ describe("helpers", () => {
       const tcx = mk_tcx();
       for (const k of ["Fn", "FnMut", "FnOnce"] as const) expect(Ty.from_closure_kind(tcx, k).to_opt_closure_kind()).toBe(k);
       expect(Ty.from_coroutine_closure_kind(tcx, "Fn").to_opt_closure_kind()).toBe("FnMut");
-      expect(() => tcx.types.i64.to_opt_closure_kind()).toThrow(Unported); // the ICE message needs `{:?}` of `Ty`
-      expect(() => tcx.types.bool.to_opt_closure_kind()).toThrow(Unported);
+      // merge-w15b: `{:?}` of `Ty` is ported (structural_impls.rs), so these are ICEs with upstream's text.
+      expect(() => tcx.types.i64.to_opt_closure_kind()).toThrow("cannot convert type `i64` to a closure kind");
+      expect(() => tcx.types.bool.to_opt_closure_kind()).toThrow("cannot convert type `bool` to a closure kind");
     }),
   );
 
@@ -416,14 +418,15 @@ describe("helpers", () => {
   );
 
   test(
-    "contains / contains_closure stop UNPORTED below the top level (structural_impls.rs, lane ty-results)",
+    "contains / contains_closure visit below the top level (structural_impls.rs, merge-w15b)",
     sg(() => {
       const tcx = mk_tcx();
       const t = tcx.types;
       const tup = Ty.new_tup(tcx, [t.u8]);
       expect(tup.contains(tup)).toBe(true);
-      expect(() => tup.contains(t.u8)).toThrow(Unported);
-      expect(() => t.i32.contains_closure()).toThrow(Unported);
+      expect(tup.contains(t.u8)).toBe(true);
+      expect(tup.contains(t.i8)).toBe(false);
+      expect(t.i32.contains_closure()).toBe(false);
     }),
   );
 

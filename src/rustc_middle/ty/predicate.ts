@@ -39,6 +39,7 @@ import type { FallibleTypeFolder, TypeFolder } from "../../rustc_type_ir/fold.ts
 import type { TypeVisitor } from "../../rustc_type_ir/visit.ts";
 import type { Fmt } from "../../std/fmt.ts";
 import type { Result } from "../../std/result.ts";
+import { debug_Clause, debug_Predicate, fold_Clause, fold_Predicate } from "./structural_impls.ts";
 
 // The other types of predicate.rs with their derived impls are generated into predicate.gen.ts (set rustc_ty of
 // tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
@@ -749,35 +750,24 @@ Predicate.prototype.expect_clause = function (this: Predicate): Clause {
 
 // ---- tools/codegen's view of the Debug / traversal impls (merge-w13) ----
 // PORT: generated code calls `debug_<T>` and the `visit_with_<T>` / `try_fold_with_<T>` / `fold_with_<T>` free fns
-// (tools/codegen type_fold.json). The impls are structural_impls.rs's; stubs until lane ty-print / tyir-binder ports
-// them (then: D4 descriptors `fold_Predicate` / `fold_Clause`, which these wrap).
-/** Stub: `impl fmt::Debug for ty::Predicate` (structural_impls.rs:100). */
-export function debug_Predicate(_v: Predicate, _f: Fmt): string {
-  return unported("rustc_middle::ty::Predicate: Debug (structural_impls.rs:100)");
+// (tools/codegen type_fold.json). The impls are structural_impls.rs's (lane ty-results): the Debug fns are re-exported
+// and these wrap its D4 descriptors `fold_Predicate` / `fold_Clause` (merge-w15b).
+export { debug_Clause, debug_Predicate };
+export function visit_with_Predicate<R>(self: Predicate, visitor: TypeVisitor<R>): R {
+  return fold_Predicate.visit_with(self, visitor);
 }
-/** Stub: `impl fmt::Debug for ty::Clause` (structural_impls.rs:106). */
-export function debug_Clause(_v: Clause, _f: Fmt): string {
-  return unported("rustc_middle::ty::Clause: Debug (structural_impls.rs:106)");
+export function try_fold_with_Predicate<E>(self: Predicate, folder: FallibleTypeFolder<E>): Result<Predicate, E> {
+  return fold_Predicate.try_fold_with(self, folder);
 }
-/** Stub: `impl TypeVisitable for ty::Predicate` (structural_impls.rs:577). */
-export function visit_with_Predicate<R>(_self: Predicate, _visitor: TypeVisitor<R>): R {
-  return unported("rustc_middle::ty::Predicate: TypeVisitable::visit_with (structural_impls.rs:577)");
+export function fold_with_Predicate(self: Predicate, folder: TypeFolder): Predicate {
+  return fold_Predicate.fold_with(self, folder);
 }
-/** Stub: `impl TypeFoldable for ty::Predicate` (structural_impls.rs:470). */
-export function try_fold_with_Predicate<E>(_self: Predicate, _folder: FallibleTypeFolder<E>): Result<Predicate, E> {
-  return unported("rustc_middle::ty::Predicate: TypeFoldable::try_fold_with (structural_impls.rs:470)");
+export function visit_with_Clause<R>(self: Clause, visitor: TypeVisitor<R>): R {
+  return fold_Clause.visit_with(self, visitor);
 }
-export function fold_with_Predicate(_self: Predicate, _folder: TypeFolder): Predicate {
-  return unported("rustc_middle::ty::Predicate: TypeFoldable::fold_with (structural_impls.rs:470)");
+export function try_fold_with_Clause<E>(self: Clause, folder: FallibleTypeFolder<E>): Result<Clause, E> {
+  return fold_Clause.try_fold_with(self, folder);
 }
-/** Stub: `impl TypeVisitable for ty::Clause` (structural_impls.rs:583). */
-export function visit_with_Clause<R>(_self: Clause, _visitor: TypeVisitor<R>): R {
-  return unported("rustc_middle::ty::Clause: TypeVisitable::visit_with (structural_impls.rs:583)");
-}
-/** Stub: `impl TypeFoldable for ty::Clause` (structural_impls.rs:502). */
-export function try_fold_with_Clause<E>(_self: Clause, _folder: FallibleTypeFolder<E>): Result<Clause, E> {
-  return unported("rustc_middle::ty::Clause: TypeFoldable::try_fold_with (structural_impls.rs:502)");
-}
-export function fold_with_Clause(_self: Clause, _folder: TypeFolder): Clause {
-  return unported("rustc_middle::ty::Clause: TypeFoldable::fold_with (structural_impls.rs:502)");
+export function fold_with_Clause(self: Clause, folder: TypeFolder): Clause {
+  return fold_Clause.fold_with(self, folder);
 }
