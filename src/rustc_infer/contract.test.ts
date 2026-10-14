@@ -203,7 +203,8 @@ describe("rustc_infer contract", () => {
     }
     expect(bad).toEqual([]);
     expect(DECLS.decls.length).toBeGreaterThan(300);
-    expect(stubs).toBeGreaterThan(250);
+    // The placeholder count falls as the wave-16 lanes fill their stubs (infer-core: 200 left after it).
+    expect(stubs).toBeGreaterThan(0);
   });
 
   test("InferCtxt has every InferCtxtLike method", () => {
@@ -312,8 +313,6 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
   test("the contract's placeholders stop as UNPORTED", () => {
     const tcx = mk_tcx();
     const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-    expect(() => infcx.next_ty_var(DUMMY_SP)).toThrow(Unported);
-    expect(() => infcx.next_ty_var(DUMMY_SP)).toThrow(/rustc_infer::infer::InferCtxt::next_ty_var/);
     expect(() => infcx.inner.unwrap_region_constraints()).toThrow(/rustc_infer::infer::region_constraints::RegionConstraintStorage::with_log/);
     expect(() => infcx.can_eq(undefined as never, undefined, undefined, undefined as never)).toThrow(/rustc_trait_selection::infer::InferCtxt::can_eq/);
   });

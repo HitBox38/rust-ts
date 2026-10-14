@@ -1,0 +1,61 @@
+vars: ?0t ?1t ?2t ?3t ?4t ?0i ?1i ?2i ?0f ?1f ?0c ?1c
+universe: U1 U1 num_ty_vars: 5
+try_resolve_ty_var t0: Err(U0)
+try_resolve_ty_var t1: Err(U0)
+try_resolve_ty_var t2: Err(U0)
+try_resolve_ty_var t3: Err(U0)
+try_resolve_ty_var t4: Err(U1)
+try_resolve_const_var c0: Err(U1)
+try_resolve_const_var c1: Err(U0)
+unresolved: ([?0t, ?1t, ?2t, ?3t, ?4t], [?0i, ?1i, ?2i], [?0f, ?1f])
+root_var t2: ?1t t4: ?3t
+root_vid t2: Some(?1t) i0: None
+shallow t1: ?1t t2: ?1t t4: ?3t
+shallow_ty_var t2: ?1t
+shallow_or_root t2: Err(?1t)
+try_resolve_ty_var t4: Err(U0)
+sub_root t0: ?3t t3: ?3t t4: ?3t
+shallow i1: ?2i i2: ?2i int_var i2: ?2i
+root_float f1: ?0f shallow f0: ?0f float_var f0: ?0f
+root_const c0: ?0c shallow c0: ?0c const_var c0: ?0c
+shallow_term t2: Term::Ty(?1t) c0: Term::Const(?0c)
+unresolved: ([?0t, ?1t, ?3t], [?0i, ?2i], [?0f])
+freshen1: (FreshTy(0), FreshTy(1), FreshTy(1), FreshTy(0), FreshIntTy(2), FreshIntTy(3), FreshFloatTy(4), FreshFloatTy(4), &'{erased} FreshTy(1), [u8; Fresh(0)], FreshTy(5))
+deep1: (?0t, ?1t, ?1t, ?0t, ?0i, ?2i, ?0f, ?0f, &'static ?1t, [u8; ?0c], ?3t)
+unification_table1: (?0t, ?1t, ?1t, ?0t, ?0i, ?2i, ?0f, ?0f, &'static ?1t, [u8; ?0c], ?3t)
+literals1: (?0t, ?1t, ?2t, ?0t, i32, i32, f64, f64, &'static ?2t, [u8; ?0c], ?3t)
+region_graph1: Err(FixupError { unresolved: Ty(?0t) }) unconstrained type
+ty_to_string1: (_, _, _, _, {integer}, {integer}, {float}, {float}, &'static _, [u8; _], _)
+shallow t2: (u8, ?0i) t4: bool i1: u16 f1: f32
+shallow c0: N/#0 try c0: Ok(N/#0)
+root_vid t2: None t0: Some(?0t)
+unresolved: ([?0t], [?0i], [])
+freshen2: (FreshTy(0), (u8, FreshIntTy(1)), (u8, FreshIntTy(1)), FreshTy(0), FreshIntTy(1), u16, f32, f32, &'{erased} (u8, FreshIntTy(1)), [u8; N/#0], bool)
+deep2: (?0t, (u8, ?0i), (u8, ?0i), ?0t, ?0i, u16, f32, f32, &'static (u8, ?0i), [u8; N/#0], bool)
+unification_table2: (?0t, (u8, ?0i), (u8, ?0i), ?0t, ?0i, u16, f32, f32, &'static (u8, ?0i), [u8; N/#0], bool)
+literals2: (?0t, ?1t, ?2t, ?0t, i32, i32, f64, f64, &'static ?2t, [u8; ?0c], ?3t)
+region_graph2: Err(FixupError { unresolved: Ty(?0t) }) unconstrained type
+ty_to_string2: (_, (u8, {integer}), (u8, {integer}), _, {integer}, u16, f32, f32, &'static (u8, {integer}), [u8; N], bool)
+freshen3: ((u8, FreshIntTy(0)), u16, f32, [u8; N/#0])
+deep3: ((u8, ?0i), u16, f32, [u8; N/#0])
+unification_table3: ((u8, ?0i), u16, f32, [u8; N/#0])
+literals3: (?2t, i32, f64, [u8; ?0c])
+region_graph3: Err(FixupError { unresolved: TyInt(?0i) }) cannot determine the type of this integer; add a suffix to specify the type explicitly
+ty_to_string3: ((u8, {integer}), u16, f32, [u8; N])
+freshen4: (u16, f32, [u8; N/#0])
+deep4: (u16, f32, [u8; N/#0])
+unification_table4: (u16, f32, [u8; N/#0])
+literals4: (i32, f64, [u8; ?0c])
+region_graph4: Ok((u16, f32, [u8; N/#0]))
+ty_to_string4: (u16, f32, [u8; N])
+changed: t0 false t1 true t2 true i0 false i1 true i2 true f0 true f1 true c0 true c1 true
+unchanged: t0 true t1 false t2 false i0 false
+in probe: ?5t U2 char i8 (char, (u8, i8), (u8, i8), char, i8, u16, f32, f32, &'static (u8, i8), [u8; N/#0], bool) 6 ([], [], [])
+after probe: ?0t ?0i 5 U1 ([?0t], [?0i], [])
+fork: ?5t str 6 | ?0t 5
+fork deep: (str, (u8, ?0i), (u8, ?0i), str, ?0i, u16, f32, f32, &'static (u8, ?0i), [u8; N/#0], bool)
+fork_with_typing_mode: Coherence (u8, ?0i)
+instantiated: (?5t, [u8; ?2c], ?2t) 6
+instantiated dummy: (u8, ?2t)
+typing_env: Typeck { defining_opaque_types_and_generators: [] }
+tainted: None next_trait_solver: true
