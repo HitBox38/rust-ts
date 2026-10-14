@@ -221,3 +221,8 @@ All new, all under `src/rustc_ast_lowering/`:
      the markers. This is a new skip category (PORTING §3 lists the allowed ones).
 5. **Record the PORT decisions above.** Then point the wave-14 lowering lanes at "How to fill a stub" and at
    their split rows.
+
+## Test run
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 3900 pass, 1 skip (pre-existing), 0 fail.
+- `RUST_TS_AGENT=lowering-contract bun scripts/difftest.ts --suite parse --sample 200`: 200/200 MATCH (run
+  `20261014-011229-lowering-contract-dzqg`). Nothing reaches the new crate yet, so no suite output changes.
