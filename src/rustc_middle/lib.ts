@@ -25,6 +25,8 @@ import "./ty/trait_def.ts";
 import "./ty/util.ts";
 import "./ty/visit.ts";
 import "./ty/context/impl_interner.ts";
+// hir/mod.rs + hir/map.rs (lane middle-hir): the `impl TyCtxt` blocks of HIR access, attached to the prototype.
+import "./hir/mod.ts";
 import { define_hooks } from "./hooks.ts";
 import { define_query_api } from "./query/query_api.ts";
 
@@ -32,6 +34,7 @@ define_query_api();
 define_hooks();
 
 export * as dep_graph from "./dep_graph/graph.ts";
+export * as hir from "./hir/mod.ts";
 export * as hooks from "./hooks.ts";
 export * as ich from "./ich.ts";
 export * as queries from "./queries.ts";
