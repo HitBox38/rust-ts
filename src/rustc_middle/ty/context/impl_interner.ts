@@ -36,6 +36,7 @@ import type {
 } from "../../../rustc_type_ir/decls.ts";
 import type { Const, Region } from "../../../rustc_type_ir/sty/mod.ts";
 import type { DepNodeIndex } from "../../dep_graph/graph.ts";
+import { WithDepNode } from "../../traits/cache.ts";
 import { TyCtxt } from "../context.ts";
 import type { CanonicalInput, Tracked } from "../decls.ts";
 import type { GenericArg, GenericArgs } from "../generic_args.ts";
@@ -65,16 +66,12 @@ TyCtxt.prototype.with_cached_task = function <T>(this: TyCtxt, task: () => T): [
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:133 mk_tracked
 TyCtxt.prototype.mk_tracked = function <T>(this: TyCtxt, data: T, dep_node: DepNodeIndex): Tracked<T> {
-  // WithDepNode::new(dep_node, data)
-  void [data, dep_node];
-  return unported("rustc_middle::traits::cache::WithDepNode::new (traits/cache.rs, lane middle-traits-thir)");
+  return WithDepNode.new(dep_node, data);
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:140 get_tracked
 TyCtxt.prototype.get_tracked = function <T>(this: TyCtxt, tracked: Tracked<T>): T {
-  // tracked.get(self)
-  void tracked;
-  return unported("rustc_middle::traits::cache::WithDepNode::get (traits/cache.rs, lane middle-traits-thir)");
+  return tracked.get(this);
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:144 with_global_cache
