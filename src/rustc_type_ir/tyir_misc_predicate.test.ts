@@ -77,8 +77,11 @@ function mk_tcx(): TyCtxt {
 const did = (index: number) => new DefId(index as DefIndex, 0 as CrateNum);
 const pretty = <T>(v: T, d: (v: T, f: typeof PLAIN) => string) => format_debug(v, d, PRETTY);
 
+// merge-w15a: rustc_middle (ty/print/mod.ts) fills the registry at load; tests that install a stand-in restore it.
+const REGISTERED_TRAIT_REF = IR_PRINT.TraitRef;
 afterEach(() => {
-  delete IR_PRINT.TraitRef;
+  if (REGISTERED_TRAIT_REF === undefined) delete IR_PRINT.TraitRef;
+  else IR_PRINT.TraitRef = REGISTERED_TRAIT_REF;
 });
 
 /** Stand-in for rustc_middle's `IrPrint<TraitRef>` (lane ty-print): the oracle's `{:?}` / `{}` of the probe's TraitRef. */
@@ -187,12 +190,15 @@ describe("Debug of ClauseKind / PredicateKind (oracle)", () => {
 });
 
 describe("ir_print registry", () => {
-  test("an empty slot stops as UNPORTED; generic impls are parameters", () => {
+  test("an empty slot stops as UNPORTED; a filled slot prints through rustc_middle; generic impls are parameters", () => {
     const tcx = mk_tcx();
     const tr: TraitRef = { def_id: did(1), args: tcx.mk_args([]), _use_trait_ref_new_instead: null };
+    delete IR_PRINT.TraitRef;
     expect(() => display_TraitRef(tr)).toThrow(Unported);
     expect(() => debug_TraitRef(tr, PLAIN)).toThrow(Unported);
-    expect(() => display_Region(tcx.lifetimes.re_static)).toThrow(Unported);
+    // merge-w15a: `IR_PRINT.Region` is rustc_middle's blanket `IrPrint` impl (print/mod.rs:427), which prints with the
+    // `TyCtxt` of `tls::with`; outside one it panics like upstream.
+    expect(() => display_Region(tcx.lifetimes.re_static)).toThrow("no ImplicitCtxt stored in tls");
     const seen: unknown[] = [];
     const ir_print: IrPrint<{ value: number; bound_vars: never }> = {
       print: (t) => (seen.push(t), "for<> 7"),

@@ -2,7 +2,7 @@
 // ty-print-b's `FmtPrinter` (pretty.rs:2072) lands. It is a reduced `FmtPrinter`: the same `Printer` /
 // `PrettyPrinter` overrides (pretty.rs:2210-2635) for what the tests print (paths without generic args, types
 // without regions other than `'static` / erased, no type length limit, no region naming), each following the
-// upstream body; everything else is `unported`. Replace it with `FmtPrinter` once ty-print-b is merged.
+// upstream body; everything else is `unported`. Used only by run.ts now (merge-w15a; see its header).
 import { DefPathData, type DisambiguatedDefPathData } from "../../../../rustc_hir_id/definitions.ts";
 import { type CrateNum, type DefId, LOCAL_CRATE } from "../../../../rustc_span/def_id.ts";
 import { display_Symbol, Ident, kw } from "../../../../rustc_span/symbol.ts";

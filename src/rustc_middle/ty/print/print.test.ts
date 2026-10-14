@@ -28,7 +28,13 @@ import {
   with_resolve_crate_name,
 } from "./pretty.ts";
 import { install_scaffolding } from "./print_oracle/run.ts";
-import { TestPrinter } from "./print_oracle/test_printer.ts";
+import { FmtPrinter } from "./pretty.ts";
+import { Limit } from "../../../rustc_structures/limit.ts";
+
+// merge-w15a: the tests print with ty-print-b's `FmtPrinter` (ty-print-a's reduced `TestPrinter` is gone). Printers are
+// made with `new_with_limit(.., 2^24)` because `FmtPrinter::new` reads the `limits` query (rustc_interface/limits.ts's
+// `hir_krate_attrs` stand-in, see ty-print-b's handoff).
+const new_printer = (tcx: TyCtxt): FmtPrinter => FmtPrinter.new_with_limit(tcx, "TypeNS", Limit.new(2 ** 24));
 
 interface FakeOpts {
   trim_diagnostic_paths: boolean;
@@ -189,7 +195,11 @@ describe("characteristic_def_id_of_type", () => {
 });
 
 describe("PrettyPrinter helpers", () => {
-  const print = (tcx: TyCtxt, f: (p: TestPrinter) => PrintResult): string => TestPrinter.print_string(tcx, f);
+  const print = (tcx: TyCtxt, f: (p: FmtPrinter) => PrintResult): string => {
+    const p = new_printer(tcx);
+    if (f(p).$ === "Err") throw new Error("ERROR: fmt::Error");
+    return p.into_buffer();
+  };
 
   test("comma_sep, typed_value, parenthesized, maybe_parenthesized", () => {
     const tcx = mk_tcx();
@@ -215,11 +225,11 @@ describe("PrettyPrinter helpers", () => {
   test("a fmt::Error from write_str stops printing and propagates", () => {
     const tcx = mk_tcx();
     const t = tcx.types;
-    const p = new TestPrinter(tcx);
+    const p = new_printer(tcx);
     let writes = 0;
-    p.write_str = (s: string) => (++writes === 2 ? Err({ $: "Error" as const }) : ((p.fmt += s), PRINT_OK));
+    p.write_str = (s: string) => (++writes === 2 ? Err({ $: "Error" as const }) : ((p._0.fmt += s), PRINT_OK));
     expect(p.comma_sep([t.u8, t.bool, t.char], print_Ty)).toEqual(Err({ $: "Error" }));
-    expect([p.fmt, writes]).toEqual(["u8", 2]);
+    expect([p.into_buffer(), writes]).toEqual(["u8", 2]);
   });
 });
 
@@ -232,13 +242,13 @@ describe("try_print_trimmed_def_path / try_print_visible_def_path", () => {
     // `fn` is reserved in every edition (`async` only from 2018; the default session edition is 2015).
     const kw_fn = Symbol.intern("fn");
     const tcx = mk_tcx(undefined, new Map([[1, vec], [2, kw_fn]]));
-    const p = new TestPrinter(tcx);
+    const p = new_printer(tcx);
     expect(p.try_print_trimmed_def_path(def(1))).toEqual(Ok(true));
     expect(p.try_print_trimmed_def_path(def(2))).toEqual(Ok(true));
-    expect(p.fmt).toBe("Vecr#fn");
+    expect(p.into_buffer()).toBe("Vecr#fn");
     // Not in the map: nothing is printed.
     expect(p.try_print_trimmed_def_path(def(3))).toEqual(Ok(false));
-    expect(p.fmt).toBe("Vecr#fn");
+    expect(p.into_buffer()).toBe("Vecr#fn");
   });
 
   sg_test("trimming is off under with_no_trimmed_paths!, with_crate_prefix!, or either option off", () => {
@@ -250,16 +260,16 @@ describe("try_print_trimmed_def_path / try_print_visible_def_path", () => {
       [mk_tcx({ trim_diagnostic_paths: false, trimmed_def_paths: true }, map), (f: () => unknown) => f()],
       [mk_tcx({ trim_diagnostic_paths: true, trimmed_def_paths: false }, map), (f: () => unknown) => f()],
     ] as const) {
-      const p = new TestPrinter(tcx);
+      const p = new_printer(tcx);
       expect(wrap(() => p.try_print_trimmed_def_path(def(1)))).toEqual(Ok(false));
-      expect(p.fmt).toBe("");
+      expect(p.into_buffer()).toBe("");
     }
   });
 
   test("with_no_visible_paths! disables visible paths", () => {
-    const p = new TestPrinter(mk_tcx());
+    const p = new_printer(mk_tcx());
     expect(with_no_visible_paths(() => p.try_print_visible_def_path(def(1)))).toEqual(Ok(false));
-    expect(p.fmt).toBe("");
+    expect(p.into_buffer()).toBe("");
   });
 });
 

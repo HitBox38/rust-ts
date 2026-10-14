@@ -1,6 +1,9 @@
 // Subject side of print.oracle.test.ts (lane ty-print-a; not a port): runs the ported driver on its arguments and,
 // in `after_expansion`, prints what probe.rs prints (its header documents the sections and line formats) with the
 // ported printer (ty/print/{mod,pretty}.ts) through test_printer.ts's `TestPrinter` (a reduced `FmtPrinter`).
+// merge-w15a: kept on `TestPrinter` instead of ty-print-b's `FmtPrinter`: `FmtPrinter` names the regions of binders
+// (`prepare_region_info` visits them), and the `fn(..)` rows then stop UNPORTED at `impl TypeVisitable for &List<Ty>`
+// (rustc_middle generic_args.rs:714, not ported). Switch to `FmtPrinter` and delete test_printer.ts when it lands.
 //   bun run.ts <rustc arguments...>
 //
 // Scaffolding: four methods the printer reaches are still `unported` stubs of other lanes' files; this script

@@ -916,11 +916,7 @@ export class TyCtxt {
   }
   // hir/mod.rs, hir/map.rs: attached to `TyCtxt.prototype` by rustc_middle/hir/{mod,map}.ts (lane middle-hir), which
   // rustc_middle/lib.ts loads after this module.
-  // ty/print/pretty.rs
-  def_path_str(def_id: IntoQueryKey<DefId>): string {
-    void def_id;
-    return unported("rustc_middle::ty::print::pretty::TyCtxt::def_path_str (ty::print, M3)");
-  }
+  // ty/print/pretty.rs: `def_path_str` is attached to `TyCtxt.prototype` by ty/print/pretty.ts (ty/decls.ts declares it).
 
   /// Can only be fed before queries are run, and is thus exempt from any
   /// incremental issues. Do not use except for the initial query feeding.

@@ -19,7 +19,11 @@ import { type CrateNum, DefId, DefId_eq } from "../../../rustc_span/def_id.ts";
 import { assert, panic, unported, unwrap } from "../../../std/panic.ts";
 import { Ok, type Result } from "../../../std/result.ts";
 import { type Fmt } from "../../../std/fmt.ts";
-import type { EarlyBinder, PolyExistentialPredicate, TraitRef, Unnormalized } from "../../../rustc_type_ir/decls.ts";
+import type { PolyExistentialPredicate } from "../../../rustc_type_ir/decls.ts";
+import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
+import { standin_fold_Ty, type TypeFoldable } from "../../../rustc_type_ir/fold.ts";
+import { as_interner, fold_with_TraitRef, TraitRef, try_fold_with_TraitRef, visit_with_TraitRef } from "../../../rustc_type_ir/predicate.ts";
+import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import type { Const, Region } from "../../../rustc_type_ir/sty/mod.ts";
 import type { TyCtxt } from "../context.ts";
 import { with_ } from "../context/tls.ts";
@@ -27,7 +31,22 @@ import { GenericArg } from "../generic_args.ts";
 import type { Generics } from "../generics.ts";
 import type { List } from "../list.ts";
 import type { Instance, InstanceKind, Ty } from "../decls.ts";
-import { type PrettyPrinter, with_no_trimmed_paths } from "./pretty.ts";
+import { display_Ty, FmtPrinter, type PrettyPrinter, with_no_trimmed_paths } from "./pretty.ts";
+import {
+  print_AliasTerm as pretty_print_AliasTerm,
+  print_AliasTy as pretty_print_AliasTy,
+  print_CoercePredicate as pretty_print_CoercePredicate,
+  print_ExistentialProjection as pretty_print_ExistentialProjection,
+  print_ExistentialTraitRef as pretty_print_ExistentialTraitRef,
+  print_FnSig as pretty_print_FnSig,
+  print_HostEffectClause as pretty_print_HostEffectClause,
+  print_NormalizesTo as pretty_print_NormalizesTo,
+  print_ProjectionClause as pretty_print_ProjectionClause,
+  print_SubtypePredicate as pretty_print_SubtypePredicate,
+  print_TraitClause as pretty_print_TraitClause,
+  print_TraitRef as pretty_print_TraitRef,
+} from "./pretty.ts";
+import { IR_PRINT, type IrPrint } from "../../../rustc_type_ir/ir_print.ts";
 
 // `pretty` is a separate module only for organization.
 // mod pretty;
@@ -76,15 +95,15 @@ export abstract class Printer {
     let impl_trait_ref_: TraitRef | undefined;
     if ((tcx.generics_of(impl_def_id) as Generics).count() <= args.length) {
       [self_ty, impl_trait_ref_] = [
-        Unnormalized_skip_norm_wip(EarlyBinder_instantiate(self_ty_, tcx, args)),
-        impl_trait_ref === undefined ? undefined : Unnormalized_skip_norm_wip(EarlyBinder_instantiate(impl_trait_ref, tcx, args)),
+        Unnormalized.skip_norm_wip(EarlyBinder.instantiate(self_ty_, tcx, args, standin_fold_Ty)),
+        impl_trait_ref === undefined ? undefined : Unnormalized.skip_norm_wip(EarlyBinder.instantiate(impl_trait_ref, tcx, args, d_TraitRef)),
       ];
     } else {
       // We are probably printing a nested item inside of an impl.
       // Use the identity substitutions for the impl.
       [self_ty, impl_trait_ref_] = [
-        Unnormalized_skip_norm_wip(EarlyBinder_instantiate_identity(self_ty_)),
-        impl_trait_ref === undefined ? undefined : Unnormalized_skip_norm_wip(EarlyBinder_instantiate_identity(impl_trait_ref)),
+        Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(self_ty_)),
+        impl_trait_ref === undefined ? undefined : Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(impl_trait_ref)),
       ];
     }
 
@@ -234,8 +253,8 @@ export abstract class Printer {
             if (r.$ === "Err") return r;
             return PRINT_OK;
           } else if (trait_qualify_parent) {
-            const trait_ref = TraitRef_new(p.tcx(), parent_def_id, parent_args);
-            return p.print_path_with_qualified(TraitRef_self_ty(trait_ref), trait_ref);
+            const trait_ref = TraitRef.new(as_interner(p.tcx()), parent_def_id, parent_args);
+            return p.print_path_with_qualified(TraitRef.self_ty(trait_ref), trait_ref);
           } else {
             return p.print_def_path(parent_def_id, parent_args);
           }
@@ -457,9 +476,9 @@ export function print_Const(self: Const, p: Printer): PrintResult {
 // convention of std/fmt.ts); `tcx.lift(*t)` is the identity (`Lift` impls are skipped, PORTING §3). A
 // `fmt::Error` from the printer has no string form: it panics as `ToString::to_string` does.
 // rustc: compiler/rustc_middle/src/ty/print/mod.rs:427 print
-export function IrPrint_print<T>(t: T, _fmt: Fmt, print_T: Print<T, FmtPrinterT>): string {
+export function IrPrint_print<T>(t: T, _fmt: Fmt, print_T: Print<T, FmtPrinter>): string {
   return with_((tcx) => {
-    const p = FmtPrinter_new(tcx, "TypeNS" satisfies Namespace);
+    const p = FmtPrinter.new(tcx, "TypeNS" satisfies Namespace);
     const r = print_T(t, p);
     if (r.$ === "Err") panic("a Display implementation returned an error unexpectedly: Error");
     return p.into_buffer();
@@ -467,9 +486,37 @@ export function IrPrint_print<T>(t: T, _fmt: Fmt, print_T: Print<T, FmtPrinterT>
 }
 
 // rustc: compiler/rustc_middle/src/ty/print/mod.rs:436 print_debug
-export function IrPrint_print_debug<T>(t: T, fmt: Fmt, print_T: Print<T, FmtPrinterT>): string {
+export function IrPrint_print_debug<T>(t: T, fmt: Fmt, print_T: Print<T, FmtPrinter>): string {
   return with_no_trimmed_paths(() => IrPrint_print(t, fmt, print_T));
 }
+
+// PORT(merge-w15a): the blanket impl above serves every non-generic `X` of rustc_type_ir's `IR_PRINT` registry
+// (ir_print.ts header) whose `Print` impl is ported: `IR_PRINT.X = { print, print_debug }` over `print_X`. The entries
+// read `print_X` at call time (pretty.ts is evaluated after this module). `PatternKind`'s impl is ty/pattern.rs's
+// own (not ported), so its slot stays empty.
+function ir_print_impl<T>(print_T: () => Print<T, FmtPrinter>): IrPrint<T> {
+  return {
+    print: (t, fmt) => IrPrint_print(t, fmt, print_T()),
+    print_debug: (t, fmt) => IrPrint_print_debug(t, fmt, print_T()),
+  };
+}
+IR_PRINT.TraitRef = ir_print_impl(() => pretty_print_TraitRef);
+IR_PRINT.TraitClause = ir_print_impl(() => pretty_print_TraitClause);
+IR_PRINT.ExistentialTraitRef = ir_print_impl(() => pretty_print_ExistentialTraitRef);
+IR_PRINT.ExistentialProjection = ir_print_impl(() => pretty_print_ExistentialProjection);
+IR_PRINT.ProjectionClause = ir_print_impl(() => pretty_print_ProjectionClause);
+IR_PRINT.NormalizesTo = ir_print_impl(() => pretty_print_NormalizesTo);
+IR_PRINT.SubtypePredicate = ir_print_impl(() => pretty_print_SubtypePredicate);
+IR_PRINT.CoercePredicate = ir_print_impl(() => pretty_print_CoercePredicate);
+IR_PRINT.HostEffectClause = ir_print_impl(() => pretty_print_HostEffectClause);
+IR_PRINT.AliasTy = ir_print_impl(() => pretty_print_AliasTy);
+IR_PRINT.AliasTerm = ir_print_impl(() => pretty_print_AliasTerm);
+IR_PRINT.FnSig = ir_print_impl(() => pretty_print_FnSig);
+IR_PRINT.Region = ir_print_impl(() => print_Region);
+IR_PRINT.Const = ir_print_impl(() => print_Const);
+
+/** PORT: the `TypeFoldable` impl fns of `TraitRef` (generated) as a D4 descriptor (merge-w15a). */
+const d_TraitRef: TypeFoldable<TraitRef> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
 
 // ---- PORT(stand-in): upstream fns and types of files not ported yet that this file calls. ----
 // Each is replaced by a call to the real port when its file lands (docs/handoff/ty-print-a.md).
@@ -502,45 +549,15 @@ export type ShimKindView =
   | { readonly $: "AsyncDropGlue"; _0: DefId; _1: Ty }
   | { readonly $: "AsyncDropGlueCtor"; _0: DefId; _1: Ty };
 
-/** `FmtPrinter` (pretty.rs:2072, lane ty-print-b): the surface `IrPrint` uses. Replace with the real class at merge. */
-type FmtPrinterT = PrettyPrinter & { into_buffer(): string };
-/** `FmtPrinter::new` (pretty.rs:2110, lane ty-print-b). */
-function FmtPrinter_new(_tcx: TyCtxt, _ns: Namespace): FmtPrinterT {
-  return unported("rustc_middle::ty::print::pretty::FmtPrinter::new (lane ty-print-b)");
-}
 /** `Instance::def_id` (ty/instance.rs; not ported). */
 function Instance_def_id(_self: Instance): DefId {
   return unported("rustc_middle::ty::instance::Instance::def_id (ty/instance.rs)");
-}
-/** `impl Display for Ty` (`format!("{ty}")`; pretty.rs `forward_display_to_print!`, lane ty-print-b). */
-function display_Ty(_ty: Ty): string {
-  return unported("rustc_middle::ty::print::pretty `impl Display for Ty` (forward_display_to_print!, lane ty-print-b)");
 }
 /** `AdtDef::did` (ty/adt.rs; `AdtDef` is `Pending`). */
 function AdtDef_did(_adt_def: unknown): DefId {
   return unported("rustc_middle::ty::adt::AdtDef::did (ty/adt.rs)");
 }
-/** `EarlyBinder::instantiate` (rustc_type_ir binder.rs, lane tyir-binder). */
-function EarlyBinder_instantiate<T>(_self: EarlyBinder<T>, _tcx: TyCtxt, _args: readonly GenericArg[]): Unnormalized<T> {
-  return unported("rustc_type_ir::binder::EarlyBinder::instantiate (binder.rs)");
-}
-/** `EarlyBinder::instantiate_identity` (rustc_type_ir binder.rs, lane tyir-binder). */
-function EarlyBinder_instantiate_identity<T>(_self: EarlyBinder<T>): Unnormalized<T> {
-  return unported("rustc_type_ir::binder::EarlyBinder::instantiate_identity (binder.rs)");
-}
-/** `Unnormalized::skip_norm_wip` (rustc_type_ir unnormalized.rs): `self.value`. */
-function Unnormalized_skip_norm_wip<T>(self: Unnormalized<T>): T {
-  return self.value;
-}
 /** `Generics::own_args_no_defaults` (ty/generics.rs:322; not ported). */
 function Generics_own_args_no_defaults(_self: Generics, _tcx: TyCtxt, _args: readonly GenericArg[]): readonly GenericArg[] {
   return unported("rustc_middle::ty::generics::Generics::own_args_no_defaults (ty/generics.rs)");
-}
-/** `TraitRef::new` (rustc_type_ir predicate.rs; not ported). */
-function TraitRef_new(_tcx: TyCtxt, _trait_def_id: DefId, _args: readonly GenericArg[]): TraitRef {
-  return unported("rustc_type_ir::predicate::TraitRef::new (predicate.rs)");
-}
-/** `TraitRef::self_ty` (rustc_type_ir predicate.rs): `self.args.type_at(0)`. */
-function TraitRef_self_ty(self: TraitRef): Ty {
-  return self.args.type_at(0);
 }

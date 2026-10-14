@@ -258,5 +258,5 @@ test("every item of `trait Interner` is in the Interner interface; TyCtxt has it
 // Pinned counts (update together with the declarations).
 const COUNT_MIDDLE = 608;
 const COUNT_TYPE_IR = 66;
-const COUNT_DECLARED = 408;
+const COUNT_DECLARED = 409; // merge-w15a: + `def_path_str` (ty/print/pretty.rs:2171, was a context.ts class-body placeholder)
 const INHERENT_CONTEXT_RS: string[] = [];
