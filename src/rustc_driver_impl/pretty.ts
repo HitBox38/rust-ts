@@ -1,7 +1,7 @@
 //! The various pretty-printing routines.
 // Partial port of compiler/rustc_driver_impl/src/pretty.rs: the AST modes (`normal`, `ast-tree`, and the
-// `NeedsAstMap` ones: `expanded`, `expanded,identified`, `expanded,hygiene`, `ast-tree,expanded`) and `hir-tree`.
-// The `hir` (rustc_hir_pretty), MIR and THIR modes need later crates and call `unported`.
+// `NeedsAstMap` ones: `expanded`, `expanded,identified`, `expanded,hygiene`, `ast-tree,expanded`), `hir` and
+// `hir-tree`. `hir,identified` / `hir,typed` (the HIR annotators), MIR and THIR modes call `unported`.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import type { Crate } from "../rustc_ast/ast.gen.ts";
 import { debug_Crate } from "../rustc_ast/ast.gen.ts";
@@ -10,6 +10,8 @@ import type { AnnNode, State } from "../rustc_ast_pretty/pprust/state.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { hir } from "../rustc_middle/lib.ts";
 import { debug_OwnerNodes } from "../rustc_hir/hir.ts";
+import type { HirId } from "../rustc_hir_id/lib.ts";
+import * as pprust_hir from "../rustc_hir_pretty/lib.ts";
 import { debug_OwnerId } from "../rustc_hir_id/lib.ts";
 import { debug_hygiene_data, debug_SyntaxContext } from "../rustc_span/hygiene.ts";
 import { Span } from "../rustc_span/lib.ts";
@@ -196,10 +198,29 @@ export function print(sess: Session, ppm: PpMode, ex: PrintExtra): void {
       // debug!("pretty-printing expanded AST");
       out = format_debug(PrintExtra.tcx(ex).resolver_for_lowering()[1].borrow(), debug_Crate, PRETTY);
       break;
-    case "Hir":
+    case "Hir": {
+      const s = ppm._0;
       // debug!("pretty printing HIR {:?}", s);
-      // PORT: `rustc_hir_pretty::print_crate` and the HIR annotators are a later lane (hir-pretty).
-      return unported(`rustc_driver_impl::pretty::print (Hir: rustc_hir_pretty, pending)`);
+      const tcx = PrintExtra.tcx(ex);
+      const f = (annotation: pprust_hir.PpAnn): string => {
+        const sm = sess.source_map();
+        const attrs = (id: HirId) => tcx.hir_attrs(id);
+        return pprust_hir.print_crate(sm, tcx.hir_root_module(), src_name, src, attrs, annotation);
+      };
+      switch (s) {
+        case "Normal":
+          // `f(&(&tcx as &dyn intravisit::HirTyCtxt<'_>) as &dyn PpAnn)`
+          out = f(pprust_hir.HirTyCtxt_as_PpAnn(hir.map.TyCtxt_as_HirTyCtxt(tcx)));
+          break;
+        case "Identified":
+          // PORT: `HirIdentifiedAnn` (pretty.rs:88) is not ported yet.
+          return unported(`rustc_driver_impl::pretty::HirIdentifiedAnn`);
+        case "Typed":
+          // PORT: `HirTypedAnn` (pretty.rs:149) is not ported yet (typeck, M3).
+          return unported(`rustc_driver_impl::pretty::HirTypedAnn`);
+      }
+      break;
+    }
     case "HirTree": {
       // debug!("pretty printing HIR tree");
       // PORT: the `hir_crate_items` query value is `unknown` in queries.gen.ts.
