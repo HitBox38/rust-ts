@@ -18,7 +18,7 @@ import {
 import type { ClauseKind, PredicateKind } from "./predicate_kind.gen.ts";
 import { debug_Const } from "./sty/consts.ts";
 import { debug_Region } from "./sty/mod.ts";
-import { debug_AliasTermKind } from "./term_kind.gen.ts";
+import { debug_AliasTermKind } from "./term_kind.ts";
 
 export * from "./predicate_kind.gen.ts";
 

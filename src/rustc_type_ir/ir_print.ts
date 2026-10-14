@@ -27,7 +27,7 @@ import type { MutRef } from "../std/mut_ref.ts";
 import { type Fmt, PLAIN } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
 import type { Binder, Placeholder } from "./binder.gen.ts";
-import { type AliasConstKind, debug_AliasConstKind } from "./const_kind.gen.ts";
+import { type AliasConstKind, debug_AliasConstKind } from "./const_kind.ts";
 import { ClosureKind } from "./lib.ts";
 import type { PatternKind } from "./pattern.gen.ts";
 import type {
@@ -44,7 +44,8 @@ import type {
 } from "./predicate.gen.ts";
 import type { Const } from "./sty/consts.ts";
 import type { Region } from "./sty/mod.ts";
-import { type Alias, type AliasTerm, type AliasTy, debug_Alias } from "./ty/alias.gen.ts";
+import type { Alias, AliasTerm, AliasTy } from "./ty/alias.gen.ts";
+import { debug_Alias } from "./ty/alias.ts";
 import { Binder_skip_binder, debug_FnSig, type FnSig } from "./ty_kind.ts";
 
 // rustc-trait: compiler/rustc_type_ir/src/ir_print.rs:11 IrPrint

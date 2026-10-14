@@ -34,10 +34,9 @@ import type { ExistentialPredicate, OutlivesClause } from "./predicate.gen.ts";
 import { debug_ClausePolarity } from "./predicate.gen.ts";
 import type { ClauseKind } from "./predicate_kind.gen.ts";
 import { debug_ExistentialTraitRef, debug_TraitRef } from "./ir_print.ts";
-import { AliasTerm, type AliasTermKind } from "./term_kind.ts";
+import { AliasTerm, type AliasTermKind, debug_AliasTermKind } from "./term_kind.ts";
 import { debug_Alias, type AliasTerm as AliasTermT } from "./ty/alias.ts";
 import { Binder_map_bound, Binder_skip_binder } from "./ty_kind.ts";
-import { debug_AliasTermKind } from "./term_kind.gen.ts";
 
 export * from "./predicate.gen.ts";
 
