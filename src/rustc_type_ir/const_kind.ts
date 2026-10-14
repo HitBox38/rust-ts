@@ -22,6 +22,7 @@ import { debug_IsRigid } from "./ty_kind.ts";
 import { debug_bound_var } from "./lib.ts";
 import type { Unnormalized } from "./unnormalized.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { debug_Value, from_pending_Value } from "../rustc_middle/ty/consts/valtree.ts";
 
 export * from "./const_kind.gen.ts";
 
@@ -43,8 +44,7 @@ export const debug_ConstKind: Debug<gen.ConstKind> = (self, _f) => {
     }
     case "Value":
       // write!(f, "{val:?}")
-      // PORT: `impl Debug for ty::Value` (rustc_middle ty/consts/valtree.rs, lane ty-results) is not ported yet.
-      return unported("rustc_type_ir::const_kind::ConstKind Debug (Value: Debug for rustc_middle::ty::Value)");
+      return debug_Value(from_pending_Value(self._0), PLAIN);
     case "Error":
       return "{const error}";
     case "Expr":
