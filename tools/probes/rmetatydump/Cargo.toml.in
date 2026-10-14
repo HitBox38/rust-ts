@@ -1,0 +1,20 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (lane rmeta-ty): runs the oracle compiler itself (`rustc_driver::compiler_entrypoint`) on a tiny
+# crate that loads sysroot crates, and after expansion prints, through the oracle's queries, the typed values the
+# extern providers of cstore_impl.rs decode from crate metadata (`type_of`, `fn_sig`, `generics_of`, the clause
+# tables, `variances_of`, `associated_item`) for a sample of DefIds of the listed crates.
+[package]
+name = "rmetatydump"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "rmetatydump"
+path = "@SRC@/main.rs"
+
+[workspace]
