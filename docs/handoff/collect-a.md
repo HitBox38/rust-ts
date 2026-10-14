@@ -122,4 +122,5 @@ From collect_test/*.expected.txt:
 - `bun scripts/coverage.ts --check`: ok.
 
 ## Test run
-(filled in below)
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4500 pass, 1 skip (pre-existing linux-only), 0 fail
+  (4501 tests, 272 files, 1403 s), including contract.test.ts 10/10 and collect.test.ts 2/2.
