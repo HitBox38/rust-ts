@@ -21,7 +21,7 @@ import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { FloatTy, IntTy, Mutability, Pinnedness, UintTy } from "../../rustc_ast_ir/lib.ts";
 import { FloatTy as FloatTyC, IntTy as IntTyC, UintTy as UintTyC } from "../../rustc_ast_ir/lib.ts";
 import { type ControlFlow, ControlFlow as ControlFlowC, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
-import type { MultiSpan } from "../../rustc_error_messages/lib.ts";
+import { into_MultiSpan, type MultiSpan } from "../../rustc_error_messages/lib.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
@@ -36,8 +36,7 @@ import { SizedTraitKind } from "../../rustc_type_ir/solve/mod.ts";
 import { Const, fold_Const, type Region } from "../../rustc_type_ir/sty/mod.ts";
 import { AliasTy, debug_TyKind, PolyFnSig as PolyFnSigC, TyKind as TyKindC, UnsafeBinderInner } from "../../rustc_type_ir/ty_kind.ts";
 import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs } from "../../rustc_type_ir/ty_kind/closure.ts";
-import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { debug_Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
+import { debug_Unnormalized, Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "../../rustc_type_ir/visit.ts";
 import { TypeWalker } from "../../rustc_type_ir/walk.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
@@ -363,10 +362,10 @@ export const ParamConst = {
       return bug(`cannot find \`${debug_ParamConst(self, PLAIN)}\` in param-env: ${debug_ParamEnv_pretty(env)}`);
     }
     const ty = first.value;
-    assert(
-      candidates.next().done === true,
-      `did not expect duplicate \`ConstParamHasTy\` for \`${debug_ParamConst(self, PLAIN)}\` in param-env: ${debug_ParamEnv_pretty(env)}`,
-    );
+    if (candidates.next().done !== true) {
+      // `assert!(candidates.next().is_none(), ..)`: the message is formatted only when the assertion fails.
+      return panic(`did not expect duplicate \`ConstParamHasTy\` for \`${debug_ParamConst(self, PLAIN)}\` in param-env: ${debug_ParamEnv_pretty(env)}`);
+    }
     return ty;
   },
 };
@@ -504,7 +503,7 @@ Ty.new_error = function (tcx: TyCtxt, guar: ErrorGuaranteed): Ty {
 /// Constructs a `TyKind::Error` type and registers a `span_delayed_bug` to ensure it gets used.
 // rustc: compiler/rustc_middle/src/ty/sty.rs:531 new_misc_error
 Ty.new_misc_error = function (tcx: TyCtxt): Ty {
-  return Ty.new_error_with_message(tcx, DUMMY_SP as unknown as MultiSpan, "TyKind::Error constructed but no error reported");
+  return Ty.new_error_with_message(tcx, into_MultiSpan(DUMMY_SP), "TyKind::Error constructed but no error reported");
 };
 
 /// Constructs a `TyKind::Error` type and registers a `span_delayed_bug` with the given `msg` to
@@ -1895,7 +1894,7 @@ Ty.prototype.has_trivial_sizedness = function (this: Ty, tcx: TyCtxt, sizedness_
         case "FreshFloatTy":
           return bug(`\`has_trivial_sizedness\` applied to unexpected type: ${debug_Ty(this, PLAIN)}`);
       }
-    // falls through (unreachable: every `InferTy` returns above)
+    // PORT: the arms `Infer(IntVar | FloatVar)` (true), `Infer(TyVar)` (false) and `Infer(Fresh*)` (bug) are this one case.
     case "Uint":
     case "Int":
     case "Bool":
@@ -1925,16 +1924,13 @@ Ty.prototype.has_trivial_sizedness = function (this: Ty, tcx: TyCtxt, sizedness_
         case "MetaSized":
           return true;
       }
-    // falls through (unreachable)
     case "Foreign":
       switch (sizedness) {
         case "Sized":
         case "MetaSized":
           return false;
       }
-    // falls through (unreachable)
     case "Tuple": {
-      if (k.$ !== "Tuple") return unreachable_arm();
       const tys = k._0;
       const last = tys[tys.length - 1];
       return last === undefined || last.has_trivial_sizedness(tcx, sizedness_);
@@ -2017,7 +2013,6 @@ Ty.prototype.is_trivially_pure_clone_copy = function (this: Ty): boolean {
         case "Not":
           return true;
       }
-    // falls through (unreachable)
     case "RawPtr":
       return true;
 
@@ -2090,7 +2085,6 @@ Ty.prototype.is_trivially_wf = function (this: Ty, tcx: TyCtxt): boolean {
           return true;
       }
     }
-    // falls through (unreachable)
     case "Adt":
     case "Tuple":
     case "Array":
@@ -2243,11 +2237,6 @@ function index_slice<T>(xs: readonly T[], i: number): T {
   const x = xs[i];
   if (x === undefined) panic(`index out of bounds: the len is ${xs.length} but the index is ${i}`);
   return x;
-}
-
-/// A `match` arm the arms above make unreachable (exhaustiveness for TS).
-function unreachable_arm(): never {
-  return panic("internal error: entered unreachable code");
 }
 
 /// `Discr { val, ty }` (ty/util.rs:39; `Discr` is pending in ty/decls.ts).
