@@ -5,7 +5,7 @@
 //!
 //! This API is completely unstable and subject to change.
 import type { Providers } from "../rustc_middle/queries.gen.ts";
-import { unported } from "../std/panic.ts";
+import * as debugger_visualizer from "./debugger_visualizer.ts";
 import * as lang_items from "./lang_items.ts";
 
 // pub mod abi_test;            (not ported)
@@ -13,7 +13,7 @@ import * as lang_items from "./lang_items.ts";
 // mod check_attr;              (not ported)
 // mod check_export;            (not ported)
 // pub mod dead;                (not ported, M4)
-// mod debugger_visualizer;     (not ported)
+export * as debugger_visualizer from "./debugger_visualizer.ts";
 // pub mod delegation;          (not ported)
 // mod diagnostic_items;        (not ported)
 export * as diagnostics from "./diagnostics.ts";
@@ -32,12 +32,11 @@ export * as weak_lang_items from "./weak_lang_items.ts";
 
 // rustc: compiler/rustc_passes/src/lib.rs:36 provide
 export function provide(providers: Providers): void {
-  // PORT: the `provide` fns of the modules not ported yet are skipped (their queries keep the default provider),
-  // except `debugger_visualizer::provide`, whose query the driver reaches (`write_out_deps`): a placeholder.
+  // PORT: the `provide` fns of the modules not ported yet are skipped (their queries keep the default provider).
   // canonical_symbols::provide(providers);
   // check_attr::provide(providers);
   // dead::provide(providers);
-  providers.debugger_visualizers = () => unported("rustc_passes::debugger_visualizer::debugger_visualizers (HIR, M3)");
+  debugger_visualizer.provide(providers);
   // diagnostic_items::provide(providers);
   // entry::provide(providers);
   lang_items.provide(providers);
