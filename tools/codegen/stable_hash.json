@@ -46,6 +46,7 @@
 
     { "paths": ["rustc_span::RelativeBytePos", "RelativeBytePos"], "stable_hash": "stable_hash_u32($v, $hcx, $h)", "note": "`#[derive(StableHash)] pub struct RelativeBytePos(pub u32)` inside impl_pos! (lib.rs), which the typedefs probe does not expand" },
     { "paths": ["rustc_span::Span", "rustc_span::span_encoding::Span"], "stable_hash": "stable_hash_Span($v, $hcx, $h)", "import": "src/rustc_span/lib.ts" },
+    { "paths": ["rustc_abi::Align"], "stable_hash": "stable_hash_u8($v.pow2, $hcx, $h)", "note": "derive(StableHash) on `struct Align { pow2: u8 }` (rustc_abi lib.rs) (repr-options; merge-w16a)" },
     { "paths": ["rustc_span::Symbol", "rustc_span::symbol::Symbol"], "stable_hash": "stable_hash_Symbol($v, $hcx, $h)", "import": "src/rustc_span/symbol.ts" },
     { "paths": ["rustc_span::ByteSymbol", "rustc_span::symbol::ByteSymbol"], "stable_hash": "stable_hash_ByteSymbol($v, $hcx, $h)", "import": "src/rustc_span/symbol.ts" },
     { "paths": ["rustc_span::Ident", "rustc_span::symbol::Ident"], "stable_hash": "stable_hash_Ident($v, $hcx, $h)", "import": "src/rustc_span/stable_hash.gen.ts" },

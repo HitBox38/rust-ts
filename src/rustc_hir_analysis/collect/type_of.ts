@@ -16,8 +16,7 @@ import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
 import type { BoundVariableKind } from "../../rustc_type_ir/decls.ts";
 import { DefiningScopeKind, Ty } from "../../rustc_middle/ty/mod.ts";
 import type { TypeckResults } from "../../rustc_middle/ty/typeck_results.ts";
-import type { ReprOptions } from "../../rustc_middle/ty/decls.ts";
-import { type IntegerType, IntTypeExt } from "../../rustc_middle/ty/util.ts";
+import { IntTypeExt } from "../../rustc_middle/ty/util.ts";
 import { IsSuggestable } from "../../rustc_middle/ty/diagnostics.ts";
 import { display_Ty, with_forced_trimmed_paths, with_types_for_suggestion } from "../../rustc_middle/ty/print/pretty.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
@@ -436,7 +435,7 @@ export function anon_const_type_of(icx: ItemCtxt, def_id: LocalDefId): Ty {
   }
 
   if (parent_node.$ === "Variant" && parent_node._0.disr_expr !== undefined && HirId_eq(parent_node._0.disr_expr.hir_id, hir_id)) {
-    return IntTypeExt.to_ty(ReprOptions_discr_type((tcx.adt_def(tcx.hir_get_parent_item(hir_id)) as AdtDef).repr()), tcx);
+    return IntTypeExt.to_ty((tcx.adt_def(tcx.hir_get_parent_item(hir_id)) as AdtDef).repr().discr_type(), tcx);
   }
 
   if (parent_node.$ === "Field" && parent_node._0.default !== undefined && HirId_eq(parent_node._0.default.hir_id, hir_id)) {
@@ -596,9 +595,4 @@ export function type_alias_is_checked(tcx: TyCtxt, def_id: LocalDefId): boolean 
 /** `crate::check::wfcheck::check_static_item` (check/wfcheck.rs, wave 17). */
 function check_static_item(_tcx: TyCtxt, _item_id: LocalDefId, _ty: Ty, _should_check_for_sync: boolean): { $: "Ok" } | { $: "Err"; _0: ErrorGuaranteed } {
   return unported("rustc_hir_analysis::check::wfcheck::check_static_item (wave 17)");
-}
-
-/** `ReprOptions::discr_type` (rustc_abi lib.rs; rustc_abi's `ReprOptions` is not ported, as rustc_middle ty/adt.ts). */
-function ReprOptions_discr_type(_self: ReprOptions): IntegerType {
-  return unported("rustc_abi::ReprOptions::discr_type");
 }

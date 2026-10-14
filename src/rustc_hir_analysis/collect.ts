@@ -37,7 +37,7 @@ import { REPR_C_ENUMS_LARGER_THAN_INT } from "../rustc_lint_defs/builtin.gen.ts"
 import type { DynCompatibilityViolation } from "../rustc_middle/traits/mod.ts";
 import type { AdtDef, AdtKind } from "../rustc_middle/ty/adt.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { Const, Region, ReprOptions } from "../rustc_middle/ty/decls.ts";
+import type { Const, Region } from "../rustc_middle/ty/decls.ts";
 import { fold_List_Ty, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { GenericClauses, type GenericParamDef } from "../rustc_middle/ty/generics.ts";
 import type { Providers } from "../rustc_middle/queries.gen.ts";
@@ -46,7 +46,7 @@ import { FieldDef, HasAttrs_LocalDefId, ImplTraitHeader, type ParamEnv, Restrict
 import type { Clause } from "../rustc_middle/ty/predicate.ts";
 import { TraitDef } from "../rustc_middle/ty/trait_def.ts";
 import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
-import { type Discr, display_Discr, type IntegerType, IntTypeExt } from "../rustc_middle/ty/util.ts";
+import { type Discr, display_Discr, IntTypeExt } from "../rustc_middle/ty/util.ts";
 import { Size_sign_extend } from "../rustc_middle/ty/consts/int.ts";
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { IsSuggestable } from "../rustc_middle/ty/diagnostics.ts";
@@ -783,7 +783,7 @@ export function check_enum_variant_types(tcx: TyCtxt, def_id: LocalDefId): void 
   const ReprCIssue_diagnostic = (self: ReprCIssue): Diagnostic => ({ into_diag: (dcx, level) => ReprCIssue_into_diag(self, dcx, level) });
 
   const def = tcx.adt_def(def_id) as AdtDef;
-  const repr_type = ReprOptions_discr_type(def.repr());
+  const repr_type = def.repr().discr_type();
   const initial = IntTypeExt.initial_discriminant(repr_type, tcx);
   let prev_discr: Discr | undefined = undefined;
   // Some of the logic below relies on `i128` being able to hold all c_int and c_uint values.
@@ -818,9 +818,9 @@ export function check_enum_variant_types(tcx: TyCtxt, def_id: LocalDefId): void 
     }
     const cur_discr: Discr = cur_discr_ ?? wrapped_discr;
 
-    if (ReprOptions_c(def.repr())) {
+    if (def.repr().c()) {
       const c_int = Size.from_bits(tcx.sess.target.c_int_width);
-      const c_uint_max = Size_unsigned_int_max(c_int); // `i128::try_from(..).unwrap()`: < 2^127 (c_int_width < 128)
+      const c_uint_max = c_int.unsigned_int_max(); // `i128::try_from(..).unwrap()`: < 2^127 (c_int_width < 128)
       // c_int is a signed type, so get a proper signed version of the discriminant
       const discr_size = cur_discr.ty.int_size_and_signed(tcx)[0];
       const discr_val = Size_sign_extend(discr_size, cur_discr.val);
@@ -828,10 +828,10 @@ export function check_enum_variant_types(tcx: TyCtxt, def_id: LocalDefId): void 
       max_discr = max_discr > discr_val ? max_discr : discr_val;
 
       // The discriminant range must either fit into c_int or c_uint.
-      if (!(min_discr >= Size_signed_int_min(c_int) && max_discr <= Size_signed_int_max(c_int)) && !(min_discr >= 0n && max_discr <= c_uint_max)) {
+      if (!(min_discr >= c_int.signed_int_min() && max_discr <= c_int.signed_int_max()) && !(min_discr >= 0n && max_discr <= c_uint_max)) {
         const span = tcx.def_span(variant.def_id);
         let msg: string;
-        if (discr_val < Size_signed_int_min(c_int) || discr_val > c_uint_max) {
+        if (discr_val < c_int.signed_int_min() || discr_val > c_uint_max) {
           msg = "`repr(C)` enum discriminant does not fit into C `int` nor into C `unsigned int`";
         } else if (discr_val < 0n) {
           msg = "`repr(C)` enum discriminant does not fit into C `unsigned int`, and a previous discriminant does not fit into C `int`";
@@ -1634,25 +1634,3 @@ function Ident_key(ident: Ident): string {
   return `${ident.name}:${Span.ctxt(ident.span)}`;
 }
 
-// PORT(stand-in): rustc_abi's `ReprOptions` / `Size` methods are not ported (rustc_abi is partly ported; as
-// rustc_middle ty/util.ts and ty/adt.ts). Each stops when reached.
-/** `ReprOptions::discr_type` (rustc_abi lib.rs). */
-function ReprOptions_discr_type(_self: ReprOptions): IntegerType {
-  return unported("rustc_abi::ReprOptions::discr_type");
-}
-/** `ReprOptions::c` (rustc_abi lib.rs). */
-function ReprOptions_c(_self: ReprOptions): boolean {
-  return unported("rustc_abi::ReprOptions::c");
-}
-/** `Size::signed_int_min` (rustc_abi lib.rs:985). */
-function Size_signed_int_min(_self: Size): bigint {
-  return unported("rustc_abi::Size::signed_int_min (rustc_abi is partly ported)");
-}
-/** `Size::signed_int_max` (rustc_abi lib.rs:990). */
-function Size_signed_int_max(_self: Size): bigint {
-  return unported("rustc_abi::Size::signed_int_max (rustc_abi is partly ported)");
-}
-/** `Size::unsigned_int_max` (rustc_abi lib.rs:995). */
-function Size_unsigned_int_max(_self: Size): bigint {
-  return unported("rustc_abi::Size::unsigned_int_max (rustc_abi is partly ported)");
-}

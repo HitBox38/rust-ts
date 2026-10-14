@@ -13,7 +13,7 @@ import { type LangItem, type LanguageItems, debug_LangItem, debug_LanguageItems,
 import { type Attribute, clone_Attribute, debug_Attribute } from "../rustc_attr_ir/lib.ts";
 import { stable_hash_Attribute, stable_hash_DiagnosticItems, stable_hash_LanguageItems } from "../rustc_attr_ir/stable_hash.gen.ts";
 import { type SortedMap } from "../rustc_data_structures/sorted_map.ts";
-import { stable_hash_IndexMap, stable_hash_IndexSet, stable_hash_Option, stable_hash_Path, stable_hash_Result, stable_hash_String, stable_hash_Vec, stable_hash_bool, stable_hash_slice, stable_hash_str, stable_hash_tuple2, stable_hash_unit, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
+import { stable_hash_IndexMap, stable_hash_IndexSet, stable_hash_Option, stable_hash_Path, stable_hash_Result, stable_hash_String, stable_hash_Vec, stable_hash_bool, stable_hash_slice, stable_hash_str, stable_hash_tuple2, stable_hash_u8, stable_hash_unit, stable_hash_usize } from "../rustc_data_structures/stable_hash.ts";
 import { type Steal, debug_Steal } from "../rustc_data_structures/steal.ts";
 import { type Features } from "../rustc_feature/unstable.ts";
 import { type DefKind, debug_DefKind } from "../rustc_hir/def.ts";
@@ -4548,7 +4548,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `computing inherited_align of \`${__0}\``; },
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_Align(x, f))),
-    stable_hash_value: undefined,
+    stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, (v, hcx, h) => stable_hash_u8(v.pow2, hcx, h)),
   },
   lookup_deprecation_entry: {
     name: "lookup_deprecation_entry",
