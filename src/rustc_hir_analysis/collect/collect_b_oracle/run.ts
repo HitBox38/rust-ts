@@ -5,7 +5,7 @@
 //   go to stderr as rustc's do, so on a crate that is otherwise clean, stderr equals the oracle rustc's;
 // - `queries`: for every `hir_crate_items(()).definitions()` DefId prints `<def_id:?> <DefKind:?>` and, per query of
 //   this lane, a line `  <query> <value:?>` or `  <query> UNPORTED <what>` (the stop of an unported path): `clauses_of`
-//   for every DefId, `explicit_item_bounds` / `item_bounds` for `AssocTy`, `OpaqueTy` and `TyAlias`.
+//   for every DefId the tydump probe dumps it for (not the crate root, not lifetime params), `explicit_item_bounds` / `item_bounds` for `AssocTy`, `OpaqueTy` and `TyAlias`.
 //
 //   bun src/rustc_hir_analysis/collect/collect_b_oracle/run.ts dump def_parents <rustc arguments...>
 //   bun src/rustc_hir_analysis/collect/collect_b_oracle/run.ts queries <rustc arguments...>
@@ -44,7 +44,10 @@ function queries(tcx: TyCtxt): string {
     const kind = tcx.def_kind(def_id);
     out += `${debug_LocalDefId(def_id, PLAIN)} ${debug_DefKind(kind, PLAIN)}\n`;
     const did = LocalDefId.to_def_id(def_id);
-    out += `  clauses_of ${attempt(() => debug_GenericClauses(tcx.clauses_of(did) as GenericClauses, PLAIN))}\n`;
+    // As the tydump probe: no `clauses_of` for the crate root and lifetime params (it ICEs on a node without generics).
+    if (kind.$ !== "Mod" && kind.$ !== "LifetimeParam") {
+      out += `  clauses_of ${attempt(() => debug_GenericClauses(tcx.clauses_of(did) as GenericClauses, PLAIN))}\n`;
+    }
     if (kind.$ === "AssocTy" || kind.$ === "OpaqueTy" || kind.$ === "TyAlias") {
       const ib = attempt(() =>
         debug_EarlyBinder(tcx.explicit_item_bounds(did) as EarlyBinder<readonly [Clause, Span][]>, PLAIN, (v, f) =>

@@ -371,12 +371,13 @@ test("dump.rs: no #[rustc_dump_*] attribute, no output", () => {
 }, 120_000);
 
 /**
- * Where the queries stop today: stubs of lanes collect-a (`ItemCtxt::new`, `generics_of`) and of files nobody owns yet.
- * Each entry is the exact `unported(..)` text.
+ * Where the queries stop today (after merge-w16a: collect-a / hir-ty-lowering are in): `clauses_of` reads
+ * `inferred_outlives_of` (rustc_hir_analysis outlives/, wave 17), and the Debug of an assoc type's
+ * `explicit_item_bounds` value reaches a generated `unported_debug`. Each entry is the exact `unported(..)` text.
  */
 const PENDING = new Set([
-  "rustc_hir_analysis::collect::ItemCtxt::new",
-  "rustc_hir_analysis::collect::generics_of::generics_of",
+  "inferred_outlives_of provider (not ported)",
+  "Debug without a TS impl (see types report)",
 ]);
 
 test("queries.rs: clauses_of / explicit_item_bounds / item_bounds agree with the tydump probe, or stop as PENDING", () => {
@@ -424,6 +425,6 @@ test("queries.rs: clauses_of / explicit_item_bounds / item_bounds agree with the
   }
   expect(stops.filter((w) => !PENDING.has(w))).toEqual([]);
   // The probe dumps `explicit_item_bounds` only for associated / opaque types; a type alias has none (item_bounds.rs:486).
-  expect(ours.stdout).toContain("TyAlias\n  clauses_of UNPORTED rustc_hir_analysis::collect::ItemCtxt::new\n  explicit_item_bounds EarlyBinder { value: [], .. }\n  item_bounds EarlyBinder { value: [], .. }\n");
+  expect(ours.stdout).toContain("TyAlias\n  clauses_of UNPORTED inferred_outlives_of provider (not ported)\n  explicit_item_bounds EarlyBinder { value: [], .. }\n  item_bounds EarlyBinder { value: [], .. }\n");
   void compared;
 }, 120_000);
