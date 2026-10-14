@@ -25,8 +25,9 @@ import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { AdtDef, BoundExistentialPredicates, Pattern, Value } from "../rustc_middle/ty/decls.ts";
 import type { Expr } from "../rustc_middle/ty/consts/kind.ts";
 import { fold_with_Expr, try_fold_with_Expr, visit_with_Expr } from "../rustc_middle/ty/consts/kind.ts";
-import { fold_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
-import { debug_Ty, fold_Term, fold_with_Ty, Term, try_fold_with_Ty, Ty, visit_with_Ty } from "../rustc_middle/ty/mod.ts";
+import { debug_GenericArg, fold_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
+import { bug } from "../rustc_span/macros.ts";
+import { fold_Term, fold_with_Ty, Term, try_fold_with_Ty, Ty, visit_with_Ty } from "../rustc_middle/ty/mod.ts";
 import {
   fold_with_BoundExistentialPredicates,
   fold_with_Pattern,
@@ -239,7 +240,7 @@ export const relate_GenericArg: Relate<GenericArg> = {
       if (r.$ === "Err") return r;
       return Ok(r._0);
     }
-    return unported("rustc_middle::ty::relate: bug! `impossible case reached` (needs Debug for GenericArg)");
+    return bug(`impossible case reached: can't relate: ${debug_GenericArg(a, PLAIN)} with ${debug_GenericArg(b, PLAIN)}`);
   },
 };
 
