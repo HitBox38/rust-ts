@@ -1,0 +1,17 @@
+error[E0658]: anonymous lifetimes in `impl Trait` are unstable
+  --> err_anon.rs:17:22
+   |
+17 | pub fn f(_x: impl Tr<'_>) {}
+   |                      ^^ expected named lifetime parameter
+   |
+   = help: add `#![feature(anonymous_lifetime_in_impl_trait)]` to the crate attributes to enable
+   = note: this compiler was built on 2026-10-10; consider upgrading it if it is out of date
+help: consider introducing a named lifetime parameter
+   |
+17 - pub fn f(_x: impl Tr<'_>) {}
+17 + pub fn f<'a>(_x: impl Tr<'a>) {}
+   |
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0658`.

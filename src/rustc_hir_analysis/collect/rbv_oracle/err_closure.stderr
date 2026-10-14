@@ -1,0 +1,10 @@
+error: implicit types in closure signatures are forbidden when `for<...>` is present
+  --> err_closure.rs:18:47
+   |
+18 | pub fn f() { let _c = for<'a> |_x: &'a u8| -> _ {}; }
+   |                       -------                 ^
+   |                       |
+   |                       `for<...>` is here
+
+error: aborting due to 1 previous error
+

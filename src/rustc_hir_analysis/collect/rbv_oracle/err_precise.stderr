@@ -1,0 +1,8 @@
+error: expected lifetime parameter in `use<...>` precise captures list, found `'static`
+  --> err_precise.rs:17:32
+   |
+17 | pub fn f() -> impl Sized + use<'static> {}
+   |                                ^^^^^^^
+
+error: aborting due to 1 previous error
+

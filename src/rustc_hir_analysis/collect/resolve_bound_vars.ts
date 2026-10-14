@@ -3153,17 +3153,19 @@ class ConstrainedCollector extends Visitor {
       if (last !== undefined && last.args !== undefined) {
         const args = last.args;
         const tcx = this.tcx;
-        const constrained: hir.GenericArg[] = [];
+        // `args.args.iter().enumerate().flat_map(..)` is lazy: each arg is checked, then visited, in turn.
         args.args.forEach((arg, n) => {
+          let constrained_arg: hir.GenericArg | undefined;
           if (n < walker.arg_is_constrained.length) {
-            if (walker.arg_is_constrained[n]) constrained.push(arg);
+            constrained_arg = walker.arg_is_constrained[n] ? arg : undefined;
           } else {
             tcx.dcx().span_delayed_bug(span, `Incorrect generic arg count for alias ${debug_DefId(alias_def, PLAIN)}`);
+            constrained_arg = undefined;
+          }
+          if (constrained_arg !== undefined) {
+            this.visit_generic_arg(constrained_arg);
           }
         });
-        for (const constrained_arg of constrained) {
-          this.visit_generic_arg(constrained_arg);
-        }
       } else if (last !== undefined) {
         // Some(_) => (),
       } else {
