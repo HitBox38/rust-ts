@@ -94,38 +94,16 @@ import { type DefId, DefIdMap, DefId_eq, debug_LocalDefId, LocalDefId, type Loca
 import { find_best_match_for_name } from "../rustc_span/edit_distance.ts";
 import { DesugaringKind } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, debug_Span, type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
-import { Ident, kw, Symbol, sym } from "../rustc_span/symbol.ts";
+import { display_Symbol, Ident, kw, Symbol, sym } from "../rustc_span/symbol.ts";
 import { debug_option, debug_tuple, debug_vec, PLAIN } from "../std/fmt.ts";
 import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { LoweringContext } from "./decls.ts";
 import type { DelegationResults } from "./delegation/mod.ts";
+import * as diagnostics from "./diagnostics.ts";
 import type { ResolvingRestrictionKind } from "./diagnostics.ts";
 import type { DiscardParams, FnDeclKind, ImplTraitContext, RelaxedBoundPolicy } from "./lib.ts";
 import { enabled_names, gate_unstable_abi } from "./stability.ts";
-
-/**
- * PORT(decls): pending root. `PerOwnerLoweringState` (lib.rs:155, lane lower-lib-a) is an `unknown` alias until
- * codegen set rustc_ast_lowering runs; this is the view of the fields and the method item.rs uses, with their
- * upstream types (PORTING §5). Not a port of any upstream item: drop it once the real type exists.
- */
-interface PerOwnerLoweringStateView {
-  owner: PerOwnerResolverData;
-  /// Attributes inside the owner being lowered.
-  attrs: SortedMap<ItemLocalId, readonly attr_ir.Attribute[]>;
-  /// Bodies inside the owner being lowered.
-  bodies: [ItemLocalId, hir.Body][];
-  /// `#[define_opaque]` attributes
-  define_opaque: readonly [Span, LocalDefId][] | undefined;
-  impl_trait_defs: hir.GenericParam[];
-  impl_trait_bounds: hir.WherePredicate[];
-  owner_id(): OwnerId;
-}
-
-/** PORT(decls): pending root. `self.curr_owner` typed as `PerOwnerLoweringStateView` (see above). */
-function curr_owner(this_: LoweringContext): PerOwnerLoweringStateView {
-  return this_.curr_owner as PerOwnerLoweringStateView;
-}
 
 /**
  * PORT(decls): pending root. `DelegationResults` (delegation/mod.rs:67, lane lower-delegation) is an `unknown`
@@ -231,7 +209,7 @@ LoweringContext.prototype.generate_extra_attrs_for_item_kind = function (this: L
 
 // rustc: compiler/rustc_ast_lowering/src/item.rs:157 lower_item
 LoweringContext.prototype.lower_item = function (this: LoweringContext, i: Item): hir.Item {
-  const owner_id = curr_owner(this).owner_id();
+  const owner_id = this.curr_owner.owner_id();
   const hir_id: HirId = HirId_from_OwnerId(owner_id);
   const vis_span = this.lower_span(i.vis.span);
 
@@ -380,7 +358,7 @@ LoweringContext.prototype.lower_item_kind = function (
             $: "OpaqueTy",
             origin: {
               $: "TyAlias",
-              parent: curr_owner(this_).owner.def_id,
+              parent: this_.curr_owner.owner.def_id,
               in_assoc_ty: false,
             },
           });
@@ -495,7 +473,7 @@ LoweringContext.prototype.lower_item_kind = function (
       const { body: body_, macro_rules } = i._1;
       const ident = this.lower_ident(i._0);
       const body = clone_DelimArgs(body_);
-      const def_id = curr_owner(this).owner.def_id;
+      const def_id = this.curr_owner.owner.def_id;
       const def_kind = this.tcx.def_kind(def_id);
       if (def_kind.$ !== "Macro") {
         return unreachable(
@@ -599,9 +577,9 @@ LoweringContext.prototype.lower_use_tree = function (
       const items = trees.map((use_tree): [hir.UseTree, HirId, LocalDefId] => {
         const id = use_tree.id;
         const hir_id = this.lower_node_id(id);
-        const def_id = unwrap(curr_owner(this).owner.node_id_to_def_id.get(id));
+        const def_id = unwrap(this.curr_owner.owner.node_id_to_def_id.get(id));
         if (attrs.length !== 0) {
-          curr_owner(this).attrs.insert(hir_id.local_id, attrs);
+          this.curr_owner.attrs.insert(hir_id.local_id, attrs);
         }
         return [this.lower_use_tree(use_tree.inner, id, vis_span, attrs), hir_id, def_id];
       });
@@ -613,7 +591,7 @@ LoweringContext.prototype.lower_use_tree = function (
 
 // rustc: compiler/rustc_ast_lowering/src/item.rs:614 lower_foreign_item
 LoweringContext.prototype.lower_foreign_item = function (this: LoweringContext, i: ForeignItem): hir.ForeignItem {
-  const owner_id = curr_owner(this).owner_id();
+  const owner_id = this.curr_owner.owner_id();
   const hir_id: HirId = HirId_from_OwnerId(owner_id);
   const attrs = this.lower_attrs(hir_id, i.attrs, i.span, Target.from_foreign_item_kind(i.kind));
   let ident: Ident;
@@ -708,9 +686,7 @@ LoweringContext.prototype.lower_variant_data = function (this: LoweringContext, 
             // field values of unions if that was supported. Therefore, blanket reject
             // trying to use field values with unions.
             if (this.tcx.features().default_field_values()) {
-              // PORT: `UnionWithDefault` is `#[derive(Diagnostic)]` (diagnostics.rs:541); generated by codegen set
-              // rustc_ast_lowering (lane lower-index-diag), not there yet.
-              unported("rustc_ast_lowering::diagnostics::UnionWithDefault");
+              this.dcx().emit_err(diagnostics.UnionWithDefault_diagnostic({ span: default_.span }));
             } else {
               this.dcx().span_delayed_bug(
                 default_.span,
@@ -737,9 +713,7 @@ was produced",
           // expression. We could in the future allow `struct S(i32 = 0);` and force
           // users to construct the value with `let _ = S { .. };`.
           if (this.tcx.features().default_field_values()) {
-            // PORT: `TupleStructWithDefault` is `#[derive(Diagnostic)]` (diagnostics.rs:40); generated by codegen
-            // set rustc_ast_lowering (lane lower-index-diag), not there yet.
-            unported("rustc_ast_lowering::diagnostics::TupleStructWithDefault");
+            this.dcx().emit_err(diagnostics.TupleStructWithDefault_diagnostic({ span: default_.span }));
           } else {
             this.dcx().span_delayed_bug(
               default_.span,
@@ -783,7 +757,7 @@ LoweringContext.prototype.lower_field_def = function (this: LoweringContext, _0:
 
 // rustc: compiler/rustc_ast_lowering/src/item.rs:803 lower_trait_item
 LoweringContext.prototype.lower_trait_item = function (this: LoweringContext, i: AssocItem): hir.TraitItem {
-  const trait_item_def_id = curr_owner(this).owner_id();
+  const trait_item_def_id = this.curr_owner.owner_id();
   const hir_id: HirId = HirId_from_OwnerId(trait_item_def_id);
   const attrs = this.lower_attrs(hir_id, i.attrs, i.span, Target.from_assoc_item_kind(i.kind, visit.AssocCtxt.Trait));
 
@@ -941,7 +915,7 @@ LoweringContext.prototype.check_pin_drop_sugar_impl_item = function (
 
 // rustc: compiler/rustc_ast_lowering/src/item.rs:1057 lower_impl_item
 LoweringContext.prototype.lower_impl_item = function (this: LoweringContext, i: AssocItem): hir.ImplItem {
-  const owner_id = curr_owner(this).owner_id();
+  const owner_id = this.curr_owner.owner_id();
   const hir_id: HirId = HirId_from_OwnerId(owner_id);
   const parent_id = this.tcx.local_parent(owner_id.def_id);
   const pk = this.tcx.def_kind(parent_id);
@@ -1001,7 +975,7 @@ LoweringContext.prototype.lower_impl_item = function (this: LoweringContext, i: 
             $: "OpaqueTy",
             origin: {
               $: "TyAlias",
-              parent: curr_owner(this_).owner.def_id,
+              parent: this_.curr_owner.owner.def_id,
               in_assoc_ty: true,
             },
           });
@@ -1071,8 +1045,8 @@ LoweringContext.prototype.lower_defaultness = function (
 LoweringContext.prototype.record_body = function (this: LoweringContext, params: readonly hir.Param[], value: hir.Expr): hir.BodyId {
   const body = new hir.Body(params, value);
   const id = body.id();
-  assert_eq(id.hir_id.owner, curr_owner(this).owner_id(), (v) => debug_OwnerId(v, PLAIN), OwnerId_eq);
-  curr_owner(this).bodies.push([id.hir_id.local_id, body]);
+  assert_eq(id.hir_id.owner, this.curr_owner.owner_id(), (v) => debug_OwnerId(v, PLAIN), OwnerId_eq);
+  this.curr_owner.bodies.push([id.hir_id.local_id, body]);
   return id;
 };
 
@@ -1272,7 +1246,7 @@ LoweringContext.prototype.lower_coroutine_body_with_moved_arguments = function (
     //
     // If this is the simple case, this parameter will end up being the same as the
     // original parameter, but with a different pattern id.
-    const stmt_attrs = curr_owner(this).attrs.get(parameter.hir_id.local_id);
+    const stmt_attrs = this.curr_owner.attrs.get(parameter.hir_id.local_id);
     const [new_parameter_pat, new_parameter_id] = this.pat_ident(desugared_span, ident);
     const new_parameter: hir.Param = {
       hir_id: parameter.hir_id,
@@ -1483,13 +1457,14 @@ LoweringContext.prototype.lower_extern = function (this: LoweringContext, ext: E
 LoweringContext.prototype.error_on_invalid_abi = function (this: LoweringContext, abi: StrLit): void {
   const abi_names = enabled_names(this.tcx.features(), abi.span).map((s) => Symbol.intern(s));
   const suggested_name = find_best_match_for_name(abi_names, abi.symbol_unescaped, undefined);
-  void suggested_name;
-  // PORT: `InvalidAbi` / `InvalidAbiSuggestion` are `#[derive(Diagnostic)]` / `#[derive(Subdiagnostic)]`
-  // (diagnostics.rs:28/:53); generated by codegen set rustc_ast_lowering (lane lower-index-diag), not there yet.
-  // Upstream: `self.dcx().emit_err(InvalidAbi { abi: abi.symbol_unescaped, span: abi.span, suggestion:
-  // suggested_name.map(|suggested_name| InvalidAbiSuggestion { span: abi.span, suggestion:
-  // suggested_name.to_string() }), command: "rustc --print=calling-conventions".to_string() })`.
-  unported("rustc_ast_lowering::diagnostics::InvalidAbi");
+  this.dcx().emit_err(
+    diagnostics.InvalidAbi_diagnostic({
+      abi: abi.symbol_unescaped,
+      span: abi.span,
+      suggestion: suggested_name === undefined ? undefined : { span: abi.span, suggestion: display_Symbol(suggested_name) },
+      command: "rustc --print=calling-conventions",
+    }),
+  );
 };
 
 /// Lowers constness or comptime attribute.
@@ -1510,11 +1485,7 @@ LoweringContext.prototype.lower_constness = function (this: LoweringContext, att
       // A function can't be `const` and `comptime` at the same time
       if (c.$ !== "Yes") return unreachable();
       const span = c._0;
-      void span;
-      // PORT: `ConstComptimeFn` is `#[derive(Diagnostic)]` (diagnostics.rs:127); generated by codegen set
-      // rustc_ast_lowering (lane lower-index-diag), not there yet.
-      // Upstream: `self.dcx().emit_err(ConstComptimeFn { span, attr_span })`.
-      unported("rustc_ast_lowering::diagnostics::ConstComptimeFn");
+      this.dcx().emit_err(diagnostics.ConstComptimeFn_diagnostic({ span, attr_span }));
     } else {
       // Good
     }
@@ -1555,11 +1526,8 @@ LoweringContext.prototype.lower_restriction_kind = function (
         if (!this.tcx.is_descendant_of(parent_module, did)) {
           // If the restriction path is not an ancestor of the item,
           // emit an error and recover by lowering the restriction to `Unrestricted`.
-          // PORT: `RestrictionAncestorOnly` is `#[derive(Diagnostic)]` (diagnostics.rs:616); generated by codegen
-          // set rustc_ast_lowering (lane lower-index-diag), not there yet.
-          // Upstream: `self.dcx().emit_err(RestrictionAncestorOnly { span: path.span, kind: resolving_kind })`.
-          void resolving_kind;
-          unported("rustc_ast_lowering::diagnostics::RestrictionAncestorOnly");
+          this.dcx().emit_err(diagnostics.RestrictionAncestorOnly_diagnostic({ span: path.span, kind: resolving_kind }));
+          return hir.RestrictionKind.Unrestricted;
         } else {
           const segments = path.segments.map((segment) =>
             this.lower_path_segment(path.span, segment, "Explicit", "Err", { $: "Disallowed", _0: "Path" }, undefined),
@@ -1596,13 +1564,13 @@ LoweringContext.prototype.lower_generics = function <T>(
   itctx: ImplTraitContext,
   f: (this_: LoweringContext) => T,
 ): [hir.Generics, T] {
-  assert(curr_owner(this).impl_trait_defs.length === 0, "assertion failed: self.curr_owner.impl_trait_defs.is_empty()");
-  assert(curr_owner(this).impl_trait_bounds.length === 0, "assertion failed: self.curr_owner.impl_trait_bounds.is_empty()");
+  assert(this.curr_owner.impl_trait_defs.length === 0, "assertion failed: self.curr_owner.impl_trait_defs.is_empty()");
+  assert(this.curr_owner.impl_trait_bounds.length === 0, "assertion failed: self.curr_owner.impl_trait_bounds.is_empty()");
 
   const predicates: hir.WherePredicate[] = [];
   // We need to make sure that generic params don't have multiple relaxed bounds for the same trait
   // across generic param bounds and where bounds.
-  const dedup_map = new Map<LocalDefId, Map<DefId, Span>>();
+  const dedup_map = new Map<LocalDefId, DefIdMap<Span>>();
   for (const param of generics.params) {
     const key = this.local_def_id(param.id);
     // `entry(..).or_default()`
@@ -1631,7 +1599,7 @@ LoweringContext.prototype.lower_generics = function <T>(
   const params: hir.GenericParam[] = [...this.lower_generic_params_mut(generics.params, "Generics")];
 
   // Introduce extra lifetimes if late resolution tells us to.
-  const extra_lifetimes = curr_owner(this).owner.extra_lifetime_params(curr_owner(this).owner.id);
+  const extra_lifetimes = this.curr_owner.owner.extra_lifetime_params(this.curr_owner.owner.id);
   for (const [ident, node_id, kind] of extra_lifetimes) {
     // PORT: the resolver's `MissingLifetimeKind` is still `unknown` (rustc_middle middle/resolve.ts).
     params.push(this.lifetime_res_to_generic_param(ident, node_id, kind as hir.MissingLifetimeKind, "Generics"));
@@ -1643,12 +1611,12 @@ LoweringContext.prototype.lower_generics = function <T>(
   const res = f(this);
 
   // `std::mem::take`
-  const impl_trait_defs = curr_owner(this).impl_trait_defs;
-  curr_owner(this).impl_trait_defs = [];
+  const impl_trait_defs = this.curr_owner.impl_trait_defs;
+  this.curr_owner.impl_trait_defs = [];
   params.push(...impl_trait_defs);
 
-  const impl_trait_bounds = curr_owner(this).impl_trait_bounds;
-  curr_owner(this).impl_trait_bounds = [];
+  const impl_trait_bounds = this.curr_owner.impl_trait_bounds;
+  this.curr_owner.impl_trait_bounds = [];
   predicates.push(...impl_trait_bounds);
 
   const lowered_generics = new hir.Generics(params, predicates, has_where_clause_predicates, where_clause_span, span);
@@ -1659,7 +1627,7 @@ LoweringContext.prototype.lower_generics = function <T>(
 // rustc: compiler/rustc_ast_lowering/src/item.rs:1835 lower_define_opaque
 LoweringContext.prototype.lower_define_opaque = function (this: LoweringContext, hir_id: HirId, define_opaque: [NodeId, Path][] | undefined): void {
   assert_eq(
-    curr_owner(this).define_opaque,
+    this.curr_owner.define_opaque,
     undefined,
     (v) =>
       debug_option(v, PLAIN, (x, f) =>
@@ -1685,7 +1653,7 @@ LoweringContext.prototype.lower_define_opaque = function (this: LoweringContext,
     }
     define_opaque_.push([this.lower_span(path.span), did_]);
   }
-  curr_owner(this).define_opaque = define_opaque_;
+  this.curr_owner.define_opaque = define_opaque_;
 };
 
 // rustc: compiler/rustc_ast_lowering/src/item.rs:1864 lower_generic_bound_predicate
@@ -1754,7 +1722,7 @@ LoweringContext.prototype.lower_where_predicate = function (
   this: LoweringContext,
   pred: WherePredicate,
   params: readonly GenericParam[],
-  dedup_map: Map<LocalDefId, Map<DefId, Span>>,
+  dedup_map: Map<LocalDefId, DefIdMap<Span>>,
 ): hir.WherePredicate {
   const hir_id = this.lower_node_id(pred.id);
   const span = this.lower_span(pred.span);
@@ -1814,7 +1782,7 @@ LoweringContext.prototype.lower_test_binder_body = function (this: LoweringConte
   const foralls = body.foralls.map((forall) => this.lower_test_binder_forall(forall));
   const exists = body.exists.map((exists) => this.lower_test_binder_exists(exists));
   const constraints = this.lower_test_binder_constraints_as_and(body.constraints);
-  const dedup_map = new Map<LocalDefId, Map<DefId, Span>>();
+  const dedup_map = new Map<LocalDefId, DefIdMap<Span>>();
   const predicates = body.predicates.map((predicate) => this.lower_where_predicate(predicate, [], dedup_map));
   return { foralls, exists, constraints, predicates };
 };

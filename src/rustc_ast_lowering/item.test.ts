@@ -42,7 +42,7 @@ function fake_cx(): LoweringContext & { owner_: FakeOwner } {
     owner_id: () => OWNER,
   };
   cx.owner_ = owner;
-  cx.curr_owner = owner;
+  cx.curr_owner = owner as unknown as LoweringContext["curr_owner"]; // a fake with only the fields item.rs reads
   cx.coroutine_kind = undefined;
   cx.task_context = undefined;
   let next = 1;

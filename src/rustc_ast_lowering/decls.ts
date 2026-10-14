@@ -137,7 +137,7 @@ import type { Providers as QueryProviders } from "../rustc_middle/queries.gen.ts
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { GenericParamDef } from "../rustc_middle/ty/generics.ts";
 import type { Session } from "../rustc_session/session.ts";
-import type { DefId, LocalDefId } from "../rustc_span/def_id.ts";
+import type { DefId, DefIdMap, LocalDefId } from "../rustc_span/def_id.ts";
 import type { DesugaringKind } from "../rustc_span/hygiene.ts";
 import type { ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import type { ByteSymbol, Ident, Symbol } from "../rustc_span/symbol.ts";
@@ -515,7 +515,7 @@ export interface LoweringContext {
   // item.rs:1864
   lower_generic_bound_predicate(ident: Ident, id: NodeId, kind: GenericParamKind, bounds: readonly GenericBound[], colon_span: Span | undefined, parent_span: Span, rbp: RelaxedBoundPolicy, itctx: ImplTraitContext, origin: hir.PredicateOrigin): hir.WherePredicate | undefined;
   // item.rs:1933
-  lower_where_predicate(pred: WherePredicate, params: readonly GenericParam[], dedup_map: Map<LocalDefId, Map<DefId, Span>>): hir.WherePredicate;
+  lower_where_predicate(pred: WherePredicate, params: readonly GenericParam[], dedup_map: Map<LocalDefId, DefIdMap<Span>>): hir.WherePredicate;
   // item.rs:1994
   lower_test_binder_body(body: TestBinderBody): hir.TestBinderBody;
   // item.rs:2011
