@@ -40,6 +40,9 @@ Branch `lane/repr-options`, based on 00ce463 (merge-w15b handoff).
   - The nested `Size::bits::overflow` (:914) is never reached (see the PORT note).
 - rustc_middle ty/mod.rs: no missing fns.
 
+## Checks
+- `bunx tsc --noEmit -p .`: clean. `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4500 pass, 1 skip, 0 fail.
+
 ## Sample runs
 - `difftest --suite hir-tree-nocore --sample 200` (run `20261014-150745-repr-options-5z4i`): 199 MATCH, 1 UNPORTED. The UNPORTED case is `delegation/target-expression-removal-pass.rs` (`fn_sig provider`); it is not protected and was already unported.
 
