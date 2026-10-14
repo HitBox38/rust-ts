@@ -16,10 +16,12 @@ import "./regions.ts";
 import "./solve/select.ts";
 import "./solve/inspect/analyse.ts";
 // pub mod traits;
+import "./traits/dyn_compatibility.ts";
 import "./traits/normalize.ts";
 import "./traits/outlives_bounds.ts";
 import "./traits/query/evaluate_obligation.ts";
 import "./traits/query/normalize.ts";
 import "./traits/structural_normalize.ts";
+import "./traits/wf.ts";
 
 export * as infer from "./infer.ts";
