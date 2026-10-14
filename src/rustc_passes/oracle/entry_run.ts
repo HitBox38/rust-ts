@@ -3,7 +3,9 @@
 //
 // Runs the ported driver and, in `after_expansion`, runs the misc_checking_1 queries of this lane in the order of
 // `run_required_analyses` (rustc_interface/src/passes.rs): `entry_fn`, then (with RUST_TS_PASSES_QUERIES=all)
-// `check_externally_implementable_items`, `exportable_items`, `stable_order_of_exportable_impls`. Then it aborts if
+// `check_externally_implementable_items`, `exportable_items`, `stable_order_of_exportable_impls`; with
+// RUST_TS_PASSES_QUERIES=all,diagnostic_items / all,lib_features also `all_diagnostic_items` (the local items, by
+// name) / `lib_features(LOCAL_CRATE)` (`to_sorted_vec`), which rustc reaches from lints. Then it aborts if
 // there were errors, prints the values to stdout and stops (`Compilation::Stop`). rustc's own stderr (diagnostics,
 // `aborting due to ..`) is what the test compares with the oracle rustc.
 //
@@ -24,7 +26,10 @@ async function main(): Promise<number> {
   const { debug_EntryFnType } = await import("../entry.ts");
   const { LOCAL_CRATE } = await import("../../rustc_span/def_id.ts");
   const { PLAIN } = await import("../../std/fmt.ts");
-  const all = process.env.RUST_TS_PASSES_QUERIES === "all";
+  const { Symbol } = await import("../../rustc_span/symbol.ts");
+  const { lib_features } = await import("../../rustc_middle/middle/mod.ts");
+  const queries = (process.env.RUST_TS_PASSES_QUERIES ?? "").split(",");
+  const all = queries.includes("all");
 
   const callbacks = {
     config(_config: Config): void {},
@@ -36,6 +41,15 @@ async function main(): Promise<number> {
         tcx.check_externally_implementable_items(null);
         out += `exportable_items: [${tcx.exportable_items(LOCAL_CRATE).map((d) => tcx.def_path_str(d)).join(", ")}]\n`;
         out += `stable_order_of_exportable_impls: [${[...tcx.stable_order_of_exportable_impls(LOCAL_CRATE)].map(([d, i]) => `${tcx.def_path_str(d)}: ${i}`).join(", ")}]\n`;
+      }
+      if (queries.includes("diagnostic_items")) {
+        const items = tcx.all_diagnostic_items(null);
+        const local = [...items.name_to_id].filter(([, d]) => d.is_local());
+        out += `all_diagnostic_items (local): [${local.map(([n, d]) => `${Symbol.as_str(n)} = ${tcx.def_path_str(d)}`).join(", ")}]\n`;
+      }
+      if (queries.includes("lib_features")) {
+        const lf = lib_features.LibFeatures.to_sorted_vec(tcx.lib_features(LOCAL_CRATE) as import("../../rustc_middle/middle/mod.ts").lib_features.LibFeatures);
+        out += `lib_features: [${lf.map(([n, s]) => `${Symbol.as_str(n)}: ${lib_features.debug_FeatureStability(s, PLAIN)}`).join(", ")}]\n`;
       }
       tcx.dcx().abort_if_errors();
       std_print(out);

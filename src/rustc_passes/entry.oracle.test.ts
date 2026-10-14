@@ -11,7 +11,7 @@
 //
 // The oracle rustc (`scripts/lib/oracle.ts`) is required, as for the difftest suites.
 import { beforeAll, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO } from "../../scripts/lib/common.ts";
 import { oracleRustcCmd, oracleSysroot } from "../../scripts/lib/oracle.ts";
@@ -24,18 +24,20 @@ const ENV: Record<string, string> = {};
 for (const [k, v] of Object.entries(process.env)) {
   if (v !== undefined && !["MAKEFLAGS", "CARGO_MAKEFLAGS", "MFLAGS", "RUSTC_LOG", "RUSTC_BOOTSTRAP", "RUSTC_ICE"].includes(k)) ENV[k] = v;
 }
-ENV.RUST_TS_PASSES_QUERIES = "all";
 
 interface Out {
   stdout: string;
   stderr: string;
   code: number;
 }
-async function run(cmd: string[], cwd: string): Promise<Out> {
-  const p = Bun.spawn(cmd, { cwd, env: ENV, stdout: "pipe", stderr: "pipe" });
+async function run(cmd: string[], cwd: string, queries = "all"): Promise<Out> {
+  const p = Bun.spawn(cmd, { cwd, env: { ...ENV, RUST_TS_PASSES_QUERIES: queries }, stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
   return { stdout, stderr, code };
 }
+
+/** `sym::env_CFG_RELEASE` (`StableSince::Current`): the pinned release. */
+const CFG_RELEASE = (JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")) as { rust: { release: string } }).rust.release;
 
 const NONE_REST = "exportable_items: []\nstable_order_of_exportable_impls: []\n";
 
@@ -43,6 +45,8 @@ interface Case {
   name: string;
   src: string;
   args?: string[];
+  /** The subject's RUST_TS_PASSES_QUERIES (default `all`). */
+  queries?: string;
   /** The subject's stdout when the compilation has no errors (it aborts before printing otherwise). */
   stdout?: string;
 }
@@ -85,6 +89,43 @@ const CASES: Case[] = [
     src: "#![feature(extern_item_impls)]\n#![allow(dead_code)]\n#[eii(eii1)]\nfn decl1(_x: u64) {}\nfn main() {}\n",
     stdout: "entry_fn: main Main { sigpipe: 0 }\n" + NONE_REST,
   },
+  // diagnostic_items.rs: a duplicate local diagnostic item, and the local items of `all_diagnostic_items`
+  {
+    name: "diag_item_dup",
+    src: '#![feature(rustc_attrs)]\n#![allow(internal_features, dead_code)]\n#[rustc_diagnostic_item = "Foo"]\nstruct A;\n#[rustc_diagnostic_item = "Foo"]\nstruct B;\nfn main() {}\n',
+    queries: "all,diagnostic_items",
+  },
+  {
+    name: "diag_items",
+    src: '#![feature(rustc_attrs)]\n#![allow(internal_features, dead_code)]\n#[rustc_diagnostic_item = "Foo"]\nstruct A;\nmod m {\n    #[rustc_diagnostic_item = "Bar"]\n    pub fn f() {}\n}\nfn main() {}\n',
+    queries: "all,diagnostic_items",
+    stdout: "entry_fn: main Main { sigpipe: 0 }\n" + NONE_REST + "all_diagnostic_items (local): [Foo = A, Bar = m::f]\n",
+  },
+  // lib_features.rs: E0711 (stable twice with different versions; stable after unstable), and the collected features
+  {
+    name: "lib_features_err",
+    src:
+      "#![feature(staged_api)]\n#![allow(internal_features)]\n#![stable(feature = \"a\", since = \"1.0.0\")]\n" +
+      '#[stable(feature = "f", since = "1.0.0")]\npub fn a() {}\n#[stable(feature = "f", since = "1.1.0")]\npub fn b() {}\n' +
+      '#[unstable(feature = "g", issue = "none")]\npub fn c() {}\n#[stable(feature = "g", since = "1.0.0")]\npub fn d() {}\n' +
+      '#[stable(feature = "h", since = "1.0.0")]\npub fn e() {}\n#[unstable(feature = "h", issue = "none")]\npub fn f() {}\n',
+    args: ["--crate-type", "lib"],
+    queries: "all,lib_features",
+  },
+  {
+    name: "lib_features",
+    src:
+      "#![feature(staged_api)]\n#![allow(internal_features)]\n#![stable(feature = \"a\", since = \"1.0.0\")]\n" +
+      '#[stable(feature = "f", since = "1.2.0")]\npub fn a() {}\n#[stable(feature = "f", since = "1.2.0")]\npub fn b() {}\n' +
+      '#[unstable(feature = "g", issue = "none")]\npub fn c() {}\n#[unstable(feature = "g", issue = "none")]\npub fn d() {}\n' +
+      '#[stable(feature = "cur", since = "CURRENT_RUSTC_VERSION")]\npub fn e() {}\n',
+    args: ["--crate-type", "lib"],
+    queries: "all,lib_features",
+    stdout:
+      "entry_fn: None\n" +
+      NONE_REST +
+      `lib_features: [a: AcceptedSince("1.0.0"), cur: AcceptedSince("${CFG_RELEASE}"), f: AcceptedSince("1.2.0"), g: Unstable { old_name: None }]\n`,
+  },
 ];
 
 let sysroot = "";
@@ -100,7 +141,7 @@ for (const c of CASES) {
     const common = [`${c.name}.rs`, "--edition", "2021", "--emit=metadata", ...(c.args ?? [])];
     const [ora, ours] = await Promise.all([
       run(oracleRustcCmd([...common, "-o", `out/oracle_${c.name}.rmeta`]), WORK),
-      run([process.execPath, RUNNER, ...common, "--sysroot", sysroot, "-o", `out/ours_${c.name}.rmeta`], WORK),
+      run([process.execPath, RUNNER, ...common, "--sysroot", sysroot, "-o", `out/ours_${c.name}.rmeta`], WORK, c.queries),
     ]);
     expect(ours.stderr).toBe(ora.stderr);
     expect(ours.code).toBe(ora.code);
