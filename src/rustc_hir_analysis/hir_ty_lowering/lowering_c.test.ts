@@ -331,7 +331,10 @@ describe("generics.rs", () => {
     expect(prohibit_explicit_late_bound_lifetimes(cx, generics([]), gen_args([lifetime_arg(DUMMY_SP, kw.StaticLifetime)]), { $: "Type" })).toBe("No");
   });
 
-  test_("check_generic_arg_count: correct counts; wrong counts stop at WrongNumberOfGenericArgs (unported)", () => {
+  // Wrong counts (E0107 through `WrongNumberOfGenericArgs`) are compared with the oracle end to end, through this real
+  // `check_generic_arg_count`, in diagnostics/wrong_number_of_generic_args.oracle.test.ts (merge-w16a); this fake tcx has
+  // no `def_path_str`.
+  test_("check_generic_arg_count: correct counts", () => {
     const { sm, dcx } = setup("x.rs", "\n");
     const defs = generics([param("'a", 0, LT), param("T", 1, TY), param("N", 2, CT)]);
     const cx = lowerer(fake_tcx(sm, defs, { hir_parent_owner_iter: () => ({ next: () => undefined }) }), dcx);
@@ -339,14 +342,6 @@ describe("generics.rs", () => {
     const seg = (args: hir.GenericArg[], infer_args = false) => new hir.PathSegment(new Ident(Symbol.intern("S"), DUMMY_SP), hid(), { $: "Err" }, gen_args(args), infer_args, false);
     const ok = check_generic_arg_count(cx, did(1), seg([lifetime_arg(DUMMY_SP, kw.StaticLifetime), ty_arg, const_lit_arg(DUMMY_SP)]), defs, { $: "Type" }, false);
     expect(ok).toEqual({ explicit_late_bound: "No", correct: { $: "Ok", _0: null } });
-    // Too few type/const args in a type position.
-    expect(() => check_generic_arg_count(cx, did(1), seg([lifetime_arg(DUMMY_SP, kw.StaticLifetime), ty_arg]), defs, { $: "Type" }, false)).toThrow(
-      new Unported("rustc_hir_analysis::diagnostics::wrong_number_of_generic_args::WrongNumberOfGenericArgs::new (E0107, types/consts)"),
-    );
-    // A missing lifetime in a type position (no inference there).
-    expect(() => check_generic_arg_count(cx, did(1), seg([ty_arg, const_lit_arg(DUMMY_SP)]), defs, { $: "Type" }, false)).toThrow(
-      new Unported("rustc_hir_analysis::diagnostics::wrong_number_of_generic_args::WrongNumberOfGenericArgs::new (E0107, lifetimes)"),
-    );
     // `infer_args` lets the lifetime and type/const args be elided.
     expect(check_generic_arg_count(cx, did(1), seg([], true), defs, { $: "Type" }, false).correct.$).toBe("Ok");
   });
