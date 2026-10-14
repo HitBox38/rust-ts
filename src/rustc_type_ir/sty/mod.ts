@@ -30,7 +30,6 @@ import type { BoundRegion, BoundRegionKind, BoundVar, DebruijnIndex, Placeholder
 import type { FallibleTypeFolder, TypeFoldable, TypeFolder } from "../fold.ts";
 import { TypeFlags } from "../flags.gen.ts";
 import { DebruijnIndex as DebruijnIndexC, INNERMOST } from "../lib.ts";
-import { debug_RegionKind } from "../region_kind.ts";
 import type { RelateResult } from "../relate.ts";
 import type { TypeVisitor } from "../visit.ts";
 import type { LateParamRegion } from "./mod.gen.ts";
@@ -39,6 +38,13 @@ export * from "./consts.ts";
 // The other types of sty/mod.rs (`LateParamRegion`) with their derived impls are generated into mod.gen.ts (set rustc_ty
 // of tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
 export * from "./mod.gen.ts";
+
+// PORT (init order): this is a defining module (rustc_middle ty/mod.ts imports it, ty-contract "Init order"), and
+// region_kind.ts reaches the extension module rustc_middle ty/sty.ts (through ty_kind.ts), so a static import throws a
+// TDZ `ReferenceError` (`Ty`) when rustc_middle/lib.ts loads. `debug_RegionKind` is required lazily, at call time.
+function region_kind(): typeof import("../region_kind.ts") {
+  return require("../region_kind.ts") as typeof import("../region_kind.ts");
+}
 
 // ---- PORT stand-ins for fns of other lanes' files that are not ported yet (convention 6) -------------------------
 
@@ -405,7 +411,7 @@ export function relate_Region(relation: TypeRelation_regions, a: Region, b: Regi
 
 // rustc: compiler/rustc_type_ir/src/sty/mod.rs:291 fmt
 export function debug_Region(self: Region, _f: Fmt): string {
-  return debug_RegionKind(self.kind(), PLAIN);
+  return region_kind().debug_RegionKind(self.kind(), PLAIN);
 }
 
 /** D4 descriptor: `impl TypeVisitable for Region` (sty/mod.rs:296) + `impl TypeFoldable for Region` (:302). */
