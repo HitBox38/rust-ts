@@ -58,6 +58,11 @@ export interface Range<T> {
   readonly end: T;
 }
 
+/** PORT: `S::Key`, `S::Value` and `<S::Value as UnifyValue>::Error` of a store type `S`. */
+export type StoreKey<S> = S extends { readonly Key: UnifyKey<infer K, infer _V, infer _E> } ? K : never;
+export type StoreValue<S> = S extends { readonly Key: UnifyKey<infer _K, infer V, infer _E> } ? V : never;
+export type StoreError<S> = S extends { readonly Key: UnifyKey<infer _K, infer _V, infer E> } ? E : never;
+
 /** `Some(v)` of an `Option<T>` whose `T` may itself be `undefined`. */
 export interface Some<T> {
   readonly $: "Some";
@@ -275,9 +280,11 @@ export class UnificationTable<K, V, E, S extends UnificationStoreBase<K, V, E> =
 
   // PORT: `S: Default` is `S_default`.
   // crate: ena-0.14.4/src/unify/mod.rs:257 new
-  static new<K, V, E, S extends UnificationStoreBase<K, V, E>>(S_default: () => S): UnificationTable<K, V, E, S> {
+  static new<S extends UnificationStoreBase<StoreKey<S>, StoreValue<S>, StoreError<S>>>(
+    S_default: () => S,
+  ): UnificationTable<StoreKey<S>, StoreValue<S>, StoreError<S>, S> {
     // `Self::default()` (derived: `values: S::default()`)
-    return new UnificationTable<K, V, E, S>(S_default());
+    return new UnificationTable(S_default());
   }
 
   // ---- impl<S: UnificationStore> UnificationTable<S> ----

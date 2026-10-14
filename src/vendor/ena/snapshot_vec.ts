@@ -284,7 +284,7 @@ export class SnapshotVec<Value, Undo, L = VecLog<UndoLog<Value, Undo>>> {
 
   // ---- impl Index / IndexMut<usize> ----
 
-  // crate: ena-0.14.4/src/snapshot_vec.rs:317 index
+  // crate: ena-0.14.4/src/snapshot_vec.rs:318 index
   index(index: number): Value {
     return this.get(index);
   }
