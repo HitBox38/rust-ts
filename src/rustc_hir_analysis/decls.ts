@@ -110,10 +110,12 @@ import type {
 } from "./hir_ty_lowering/mod.gen.ts";
 
 // ---- pending types (crates / files not ported yet); root replaces each with a re-export when it lands ----
-/** rustc_infer infer/mod.rs `InferCtxt<'tcx>` (lane infcx-contract, wave 16). */
-export type InferCtxt = Pending<"rustc_infer::infer::InferCtxt">;
-/** rustc_infer infer/region_constraints `SolverRegionConstraint<'tcx>` (`ItemCtxt::lower_test_binder_constraint`; lane infcx-contract). */
-export type SolverRegionConstraint = Pending<"rustc_infer::infer::SolverRegionConstraint">;
+/** rustc_infer infer/mod.rs `InferCtxt<'tcx>` (lane infcx-contract; re-exported by merge-w16a). */
+import type { InferCtxt } from "../rustc_infer/decls.ts";
+export type { InferCtxt };
+/** rustc_infer infer/solver_region_constraints.rs `SolverRegionConstraint<'tcx>` (`ItemCtxt::lower_test_binder_constraint`; re-exported by merge-w16a). */
+import type { SolverRegionConstraint } from "../rustc_infer/infer/solver_region_constraints.ts";
+export type { SolverRegionConstraint };
 /** rustc_trait_selection traits `FulfillmentError<'tcx>` (wave 17, trait-sel-solve). */
 export type FulfillmentError = Pending<"rustc_trait_selection::traits::FulfillmentError">;
 /** check/wfcheck.rs `TestBinderBody` / `TestBinderForall` / `TestBinderExists` (`#[rustc_test_binder]` lowering; wave 17, check-wf). */

@@ -41,27 +41,19 @@ import { bug } from "../rustc_span/macros.ts";
 import { PLAIN } from "../std/fmt.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { unported } from "../std/panic.ts";
+import "../rustc_infer/lib.ts";
+import type { InferCtxt } from "../rustc_infer/decls.ts";
 import { Ok } from "../std/result.ts";
 
-// ---- PORT(stand-in): rustc_infer / rustc_trait_selection are not ported --------------------------------------------
-// Repoint on merge: `tcx.infer_ctxt()` (rustc_infer `TyCtxtInferExt`, lane infcx-contract), `traits::ObligationCtxt`
-// (rustc_trait_selection traits/engine.rs) and `traits::normalize_param_env_or_error` (rustc_trait_selection
-// traits/mod.rs), wave 17. Until then the three entry points stop as UNPORTED; the code after them is the upstream logic
-// typed against these minimal interfaces.
-interface InferCtxtBuilder_ {
-  ignoring_regions(): InferCtxtBuilder_;
-  build(typing_mode: TypingMode): InferCtxt_;
-}
-interface InferCtxt_ {
-  readonly tcx: TyCtxt;
-}
+// ---- PORT(stand-in): rustc_trait_selection is not ported ------------------------------------------------------------
+// `tcx.infer_ctxt()` is the real rustc_infer `TyCtxtInferExt` (repointed by merge-w16a). Repoint on merge:
+// `traits::ObligationCtxt` (rustc_trait_selection traits/engine.rs) and `traits::normalize_param_env_or_error`
+// (rustc_trait_selection traits/mod.rs), wave 17. Until then these two entry points stop as UNPORTED; the code after
+// them is the upstream logic typed against these minimal interfaces.
 interface ObligationCtxt_ {
   normalize<T>(cause: ObligationCauseT, param_env: ParamEnv, value: Unnormalized<T>, d: TypeFoldable<T>): T;
 }
-function TyCtxt_infer_ctxt(_tcx: TyCtxt): InferCtxtBuilder_ {
-  return unported("rustc_infer::infer::TyCtxtInferExt::infer_ctxt (lane infcx-contract)");
-}
-function ObligationCtxt_new(_infcx: InferCtxt_): ObligationCtxt_ {
+function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxt_ {
   return unported("rustc_trait_selection::traits::ObligationCtxt::new");
 }
 function normalize_param_env_or_error(_tcx: TyCtxt, _unnormalized_env: ParamEnv, _cause: ObligationCauseT): ParamEnv {
@@ -477,7 +469,7 @@ function unsizing_params_for_adt(tcx: TyCtxt, def_id: DefId): DenseBitSet<number
 function impl_self_is_guaranteed_unsized(tcx: TyCtxt, impl_def_id: DefId): boolean {
   // debug_assert_eq!(tcx.def_kind(impl_def_id), DefKind::Impl { of_trait: true });
 
-  const infcx = TyCtxt_infer_ctxt(tcx).ignoring_regions().build(TypingModeC.non_body_analysis());
+  const infcx = tcx.infer_ctxt().ignoring_regions().build(TypingModeC.non_body_analysis());
 
   const ocx = ObligationCtxt_new(infcx);
   const cause = ObligationCause.dummy();

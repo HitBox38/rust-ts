@@ -7,17 +7,13 @@ import type { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
 import { TypingMode as TypingModeC } from "../rustc_type_ir/infer_ctxt.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
 import { unported } from "../std/panic.ts";
+import "../rustc_infer/lib.ts";
+import type { InferCtxt } from "../rustc_infer/decls.ts";
 
-// ---- PORT(stand-in): rustc_infer / rustc_trait_selection are not ported --------------------------------------------
-// Repoint on merge: `tcx.infer_ctxt()` (rustc_infer `TyCtxtInferExt`, lane infcx-contract) and `ObligationCtxt`
-// (rustc_trait_selection traits/engine.rs, wave 17). `infer_ctxt` stops as UNPORTED; the code after it is the
+// ---- PORT(stand-in): rustc_trait_selection is not ported ------------------------------------------------------------
+// `tcx.infer_ctxt()` is the real rustc_infer `TyCtxtInferExt` (repointed by merge-w16a). Repoint on merge:
+// `ObligationCtxt` (rustc_trait_selection traits/engine.rs, wave 17), which stops as UNPORTED; the code after it is the
 // upstream logic typed against these minimal interfaces.
-interface InferCtxtBuilder_ {
-  build(typing_mode: TypingMode): InferCtxt_;
-}
-interface InferCtxt_ {
-  readonly tcx: TyCtxt;
-}
 interface FulfillmentErrors_ {
   no_errors(): boolean;
 }
@@ -25,10 +21,7 @@ interface ObligationCtxt_ {
   register_bound(cause: ObligationCauseT, param_env: ParamEnv, ty: Ty, def_id: DefId): void;
   evaluate_obligations_error_on_ambiguity(): FulfillmentErrors_;
 }
-function TyCtxt_infer_ctxt(_tcx: TyCtxt): InferCtxtBuilder_ {
-  return unported("rustc_infer::infer::TyCtxtInferExt::infer_ctxt (lane infcx-contract)");
-}
-function ObligationCtxt_new(_infcx: InferCtxt_): ObligationCtxt_ {
+function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxt_ {
   return unported("rustc_trait_selection::traits::ObligationCtxt::new");
 }
 // ---- end stand-ins ------------------------------------------------------------------------------------------------
@@ -41,7 +34,7 @@ function ObligationCtxt_new(_infcx: InferCtxt_): ObligationCtxt_ {
 /// implements the trait.
 // rustc: compiler/rustc_ty_utils/src/structural_match.rs:13 has_structural_eq_impl
 function has_structural_eq_impl(tcx: TyCtxt, adt_ty: Ty): boolean {
-  const infcx = TyCtxt_infer_ctxt(tcx).build(TypingModeC.non_body_analysis());
+  const infcx = tcx.infer_ctxt().build(TypingModeC.non_body_analysis());
   const cause = ObligationCause.dummy();
 
   const ocx = ObligationCtxt_new(infcx);
