@@ -103,7 +103,7 @@ import { DefPath as DefPath_, DefPathData } from "../../rustc_hir_id/definitions
 import { decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
 import { debug_Visibility, Visibility as ty_Visibility } from "../../rustc_middle/ty/mod.ts";
 import { decode_u32 } from "../../rustc_serialize/serialize.ts";
-import { CRATE_DEF_INDEX, debug_DefId, ModId as ModId_ } from "../../rustc_span/def_id.ts";
+import { CRATE_DEF_INDEX, DefIdMap, debug_DefId, ModId as ModId_ } from "../../rustc_span/def_id.ts";
 import { decode_ExpnData, decode_ExpnHash, decode_Transparency } from "../../rustc_span/decodable.gen.ts";
 import { decode_expn_id as hygiene_decode_expn_id, decode_syntax_context as hygiene_decode_syntax_context, type ExpnData, HygieneDecodeContext as HygieneDecodeContext_, type SyntaxContextKey } from "../../rustc_span/hygiene.ts";
 import { type BlobDecoder, type SpanDecoder, BytePos, DUMMY_SP, decode_BytePos, decode_CrateNum, decode_DefId, decode_ExpnId, decode_Span, decode_SyntaxContext, type SourceFile as SourceFile_, Span as Span_, SpanData as SpanData_ } from "../../rustc_span/lib.ts";
@@ -1686,8 +1686,9 @@ CrateMetadata.prototype.get_stripped_cfg_items = function (this: CrateMetadata, 
 /// Iterates over the diagnostic items in the given crate.
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1304 get_diagnostic_items
 CrateMetadata.prototype.get_diagnostic_items = function (this: CrateMetadata, tcx: TyCtxt): DiagnosticItems {
-  // PORT: `DefIdMap` (an `UnordMap` keyed by `DefId`) is the generated `Map<DefId, Symbol>`.
-  const id_to_name = new Map<DefId, Symbol>();
+  // PORT: `DefIdMap` (an `UnordMap` keyed by `DefId`) is rustc_span's `DefIdMap` (D5; the generated field type is
+  // `Map<DefId, Symbol>`, which it extends), so `get_diagnostic_name` finds extern items by value (merge-w15a).
+  const id_to_name = new DefIdMap<Symbol>();
   const name_to_id = new Map<Symbol, DefId>();
   for (const [name, id0] of this.root.diagnostic_items.decode([this, tcx], (d) => decode_tuple_(d, (d) => d.decode_symbol(), (d) => d.decode_local_def_id()))) {
     const id = this.local_def_id(LocalDefId.local_def_index(id0));

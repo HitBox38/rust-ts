@@ -8,12 +8,11 @@
 // spread the generated ones and take `self` first (tyir-kind decision 1).
 // PORT: fns of other files that are not ported yet are module-local stand-ins at the end of this file (each with a
 // `// PORT: stand-in` comment); they call `unported`.
-import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import { inherent_Features, type TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { LocalDefIds, ParamEnv } from "../rustc_middle/ty/decls.ts";
 import type { GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { type Clauses, RawList } from "../rustc_middle/ty/list.ts";
 import { fold_with_Ty, type Ty } from "../rustc_middle/ty/mod.ts";
-import type { Features } from "../rustc_feature/unstable.ts";
 import type { DefId, LocalDefId } from "../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
@@ -597,7 +596,7 @@ export function may_use_unstable_feature(infcx: InferCtxtLike, param_env: ParamE
     case "Reflection":
     case "PostBorrowck":
     case "PostAnalysis":
-      return Features_feature_bound_holds_in_crate(infcx.cx().features(), symbol);
+      return inherent_Features.feature_bound_holds_in_crate(infcx.cx().features(), symbol);
     case "Codegen":
       return true;
     case "ErasedNotCoherence":
@@ -715,11 +714,5 @@ class DeepVariableResolver implements TypeFolder {
 /** PORT: stand-in for `inherent::ParamEnv::caller_bounds` of rustc_middle's `ParamEnv` (ty/mod.rs, pending). */
 function ParamEnv_caller_bounds(_param_env: ParamEnv): Clauses {
   return unported("rustc_middle::ty::ParamEnv::caller_bounds");
-}
-
-/** PORT: stand-in for `impl inherent::Features for &rustc_feature::Features` `feature_bound_holds_in_crate`
- *  (rustc_middle ty/context.rs, lane ty-ctxt). */
-function Features_feature_bound_holds_in_crate(_features: Features, _symbol: Symbol): boolean {
-  return unported("rustc_middle::ty::context: inherent::Features::feature_bound_holds_in_crate");
 }
 

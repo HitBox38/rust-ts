@@ -274,9 +274,14 @@ describe("TraitRef / ExistentialTraitRef / ExistentialProjection logic", () => {
     } as unknown as Interner;
   }
 
-  test("TraitRef::new_from_args reaches TyCtxt's debug_assert_args_compatible (lane ty-ctxt)", () => {
+  // merge-w15a: `TyCtxt::debug_assert_args_compatible` is real (lane ty-ctxt): a no-op without debug assertions, like the
+  // release oracle, so `new_from_args` builds the struct.
+  test("TraitRef::new_from_args on a real TyCtxt (debug_assert_args_compatible is a release no-op)", () => {
     const tcx = mk_tcx();
-    expect(() => TraitRef.new_from_args(tcx as unknown as Interner, did(1), tcx.mk_args([]))).toThrow(Unported);
+    const args = tcx.mk_args([]);
+    const tr = TraitRef.new_from_args(tcx as unknown as Interner, did(1), args);
+    expect(tr.def_id).toEqual(did(1));
+    expect(tr.args).toBe(args);
   });
 
   test("from_assoc keeps or truncates the args; with_replaced_self_ty; with_self_ty", () => {

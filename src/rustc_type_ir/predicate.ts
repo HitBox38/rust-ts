@@ -82,10 +82,9 @@ export function Clause_upcast_from_PolyProjectionClause(from: Binder<ProjectionC
 
 /**
  * PORT (D3): `TyCtxt` is the only `Interner` (`impl Interner for TyCtxt`, rustc_middle ty/context/impl_interner.rs).
- * Until lane ty-ctxt completes that impl the TS class does not satisfy the interface structurally (14 methods are
- * `unported_methods` placeholders, several queries are typed `unknown`), so a fn that needs `TyCtxt`'s inherent API
- * and passes its `cx` on to `Interner` code views it through this cast. Root: drop it once `TyCtxt` implements
- * `Interner`.
+ * The impl is complete since ty-ctxt (merge-w15a), but queries.gen.ts still types several query values `unknown`, so the
+ * TS class does not satisfy the interface structurally; a fn that needs `TyCtxt`'s inherent API and passes its `cx` on
+ * to `Interner` code views it through this cast. Root: drop it when the query types are generated.
  */
 export function as_interner(tcx: TyCtxt): Interner {
   return tcx as unknown as Interner;

@@ -212,7 +212,8 @@ test("every declared method exists on its prototype (or constructor) once rustc_
 
 test("a stub stops as UNPORTED", () => {
   expect(() => (Ty.prototype as unknown as { is_bool(): boolean }).is_bool.call(undefined)).toThrow(Unported);
-  expect(() => (TyCtxt.prototype as unknown as { trait_is_marker(): boolean }).trait_is_marker.call(undefined)).toThrow(Unported);
+  // `trait_is_marker` is ported now (lane ty-ctxt); a ty/util.rs stub stands in.
+  expect(() => (TyCtxt.prototype as unknown as { typeck_root_def_id_local(): unknown }).typeck_root_def_id_local.call(undefined)).toThrow(Unported);
   // `Region::new_static` (sty/mod.rs:135) is ported now (lane tyir-misc): it is the interner's pre-interned `'static`; a
   // rustc_middle `Const` static stands in as the static-stub example.
   const re_static = {} as Region;
@@ -258,19 +259,4 @@ test("every item of `trait Interner` is in the Interner interface; TyCtxt has it
 const COUNT_MIDDLE = 608;
 const COUNT_TYPE_IR = 66;
 const COUNT_DECLARED = 408;
-const INHERENT_CONTEXT_RS = [
-  "assumptions_on_binders",
-  "check_alias_term_args_compatible",
-  "coroutine_is_async",
-  "coroutine_is_async_gen",
-  "coroutine_is_gen",
-  "coroutine_movability",
-  "debug_assert_alias_term_args_compatible",
-  "debug_assert_args_compatible",
-  "is_default_trait",
-  "is_general_coroutine",
-  "is_impl_trait_in_trait",
-  "is_sizedness_trait",
-  "next_trait_solver_globally",
-  "renormalize_rigid_aliases",
-];
+const INHERENT_CONTEXT_RS: string[] = [];

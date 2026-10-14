@@ -48,14 +48,14 @@ import type { TypeFoldable } from "./fold.ts";
 import { CollectAndApply_Result, type Interner } from "./interner.ts";
 import { Variance } from "./lib.ts";
 import {
-  type ExistentialProjection,
-  type ExistentialTraitRef,
+  ExistentialProjection,
+  ExistentialTraitRef,
   fold_with_ExistentialProjection,
   fold_with_ExistentialTraitRef,
   fold_with_TraitClause,
   fold_with_TraitRef,
   type TraitClause,
-  type TraitRef,
+  TraitRef,
   try_fold_with_ExistentialProjection,
   try_fold_with_ExistentialTraitRef,
   try_fold_with_TraitClause,
@@ -101,38 +101,9 @@ function Value_valtree_kind(_self: Value): ValTreeKind {
   return unported("rustc_middle::ty::Value: valtree().kind() (ty::Value is pending)");
 }
 
-/** PORT: stand-in for `TraitRef::new_from_args` (predicate.rs:124, lane tyir-misc). */
-function TraitRef_new_from_args(tcx: TyCtxt, trait_def_id: DefId, args: GenericArgs): TraitRef {
-  interner(tcx).debug_assert_args_compatible(trait_def_id, args);
-  return { def_id: trait_def_id, args, _use_trait_ref_new_instead: null };
-}
-
-/** PORT: stand-in for `ExistentialTraitRef::new_from_args` (predicate.rs:400, lane tyir-misc). */
-function ExistentialTraitRef_new_from_args(tcx: TyCtxt, trait_def_id: DefId, args: GenericArgs): ExistentialTraitRef {
-  interner(tcx).debug_assert_existential_args_compatible(trait_def_id, args);
-  return { def_id: trait_def_id, args, _use_existential_trait_ref_new_instead: null };
-}
-
-/** PORT: stand-in for `ExistentialProjection::new_from_args` (predicate.rs:469, lane tyir-misc). */
-function ExistentialProjection_new_from_args(tcx: TyCtxt, def_id: DefId, args: GenericArgs, term: Term): ExistentialProjection {
-  interner(tcx).debug_assert_existential_args_compatible(def_id, args);
-  return { def_id, args, term, use_existential_projection_new_instead: null };
-}
-
-/** PORT: stand-in for `ExistentialProjection::alias_kind` (predicate.rs:501, lane tyir-misc). */
-function ExistentialProjection_alias_kind(self: ExistentialProjection): AliasTermKind {
-  const k = Term.kind(self.term);
-  switch (k.$) {
-    case "Ty":
-      return { $: "ProjectionTy", def_id: self.def_id };
-    case "Const":
-      return { $: "ProjectionConst", def_id: self.def_id };
-  }
-}
-
-/** PORT: `I = TyCtxt` seen through its `impl Interner`. The `TyCtxt` class type does not declare the 14 inherent
- *  methods that serve `Interner` yet (lane ty-ctxt; at runtime they are `unported` placeholders), so it is not
- *  assignable to `Interner`: calls of `Interner` methods go through this view. */
+/** PORT: `I = TyCtxt` seen through its `impl Interner`. Every `Interner` method is real since ty-ctxt (merge-w15a), but
+ *  queries.gen.ts still types several query values `unknown` (`generics_of`, ..), so the `TyCtxt` class type is not
+ *  assignable to `Interner`: calls of `Interner` methods go through this view. Drop it when the query types land. */
 export function interner(tcx: TyCtxt): Interner {
   return tcx as unknown as Interner;
 }
@@ -535,13 +506,13 @@ export const relate_ExistentialProjection: Relate<ExistentialProjection> = {
   // rustc: compiler/rustc_type_ir/src/relate.rs:278 relate
   relate(relation, a, b) {
     if (!DefId_eq(a.def_id, b.def_id)) {
-      return Err({ $: "ProjectionMismatched", _0: ExpectedFound.new(ExistentialProjection_alias_kind(a), ExistentialProjection_alias_kind(b)) });
+      return Err({ $: "ProjectionMismatched", _0: ExpectedFound.new(ExistentialProjection.alias_kind(a), ExistentialProjection.alias_kind(b)) });
     } else {
       const term = relation.relate_with_variance(Variance.Invariant, VarianceDiagInfo.None, a.term, b.term, relate_Term);
       if (term.$ === "Err") return term;
       const args = relation.relate_with_variance(Variance.Invariant, VarianceDiagInfo.None, a.args, b.args, relate_GenericArgs);
       if (args.$ === "Err") return args;
-      return Ok(ExistentialProjection_new_from_args(relation.cx(), a.def_id, args._0, term._0));
+      return Ok(ExistentialProjection.new_from_args(interner(relation.cx()), a.def_id, args._0, term._0));
     }
   },
 };
@@ -566,7 +537,7 @@ export const relate_TraitRef: Relate<TraitRef> = {
     } else {
       const args = relate_args_invariantly(relation, a.args, b.args);
       if (args.$ === "Err") return args;
-      return Ok(TraitRef_new_from_args(relation.cx(), a.def_id, args._0));
+      return Ok(TraitRef.new_from_args(interner(relation.cx()), a.def_id, args._0));
     }
   },
 };
@@ -591,7 +562,7 @@ export const relate_ExistentialTraitRef: Relate<ExistentialTraitRef> = {
     } else {
       const args = relate_args_invariantly(relation, a.args, b.args);
       if (args.$ === "Err") return args;
-      return Ok(ExistentialTraitRef_new_from_args(relation.cx(), a.def_id, args._0));
+      return Ok(ExistentialTraitRef.new_from_args(interner(relation.cx()), a.def_id, args._0));
     }
   },
 };
