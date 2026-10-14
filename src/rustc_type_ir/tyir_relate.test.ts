@@ -188,10 +188,10 @@ class RecordingInfcx {
   deeply_resolve_ignoring_regions<T>(value: T): T {
     return value;
   }
-  sub_regions(sub: Region, sup: Region): void {
+  ir_sub_regions(sub: Region, sup: Region): void {
     this.log.push(`sub_regions(${sub === tcx.lifetimes.re_static ? "'static" : "'?"}, ${sup === tcx.lifetimes.re_static ? "'static" : "'?"})`);
   }
-  equate_regions(): void {
+  ir_equate_regions(): void {
     this.log.push("equate_regions");
   }
 }

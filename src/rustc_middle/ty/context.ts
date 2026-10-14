@@ -93,6 +93,7 @@ import { CanonicalInput, ExternalConstraints } from "../traits/solve.ts";
 import { WithDepNodeCache } from "../traits/cache.ts";
 import type { EvaluationCache, SelectionCache } from "../traits/select.ts";
 import { CanonicalParamEnvCache as CanonicalParamEnvCache_ } from "../../rustc_type_ir/canonical.ts";
+import { CanonicalParamEnvCache as InferCanonicalParamEnvCache } from "../infer/canonical.ts";
 
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { AliasTermKind, CanonicalParamEnvCache, GlobalCache, Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
@@ -643,13 +644,8 @@ export class TyCtxtFeed<K> {
 /// The individual fields are mostly unrelated to each other, but have been grouped together to
 /// reduce the number of top-level fields in [`GlobalCtxt`].
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:669 GlobalCaches
-// PORT: `Lock<..>` is the inner value (PORTING §5). infer's `CanonicalParamEnvCache` is not ported (lane
-// infcx-contract): it is a `pending_cache(..)` value (lane rmeta-ty) that stops as UNPORTED on first *use* (any
-// property access), so `ty_rcache` (crate metadata's type shorthands) works before infer/ lands.
-/** PORT: a not-yet-ported cache's `Default` value: stops as UNPORTED (`what`) on first use (GlobalCaches comment). */
-function pending_cache<T>(what: string): T {
-  return new Proxy({}, { get: () => unported(what) }) as T;
-}
+// PORT: `Lock<..>` is the inner value (PORTING §5). infer's `CanonicalParamEnvCache` is rustc_middle infer/canonical.ts's
+// (lane infcx-contract).
 export class GlobalCaches {
   constructor(
     // Internal caches for metadata decoding. No need to track deps on this.
@@ -668,7 +664,7 @@ export class GlobalCaches {
     public new_solver_evaluation_cache: GlobalCache,
     public new_solver_canonical_param_env_cache: CanonicalParamEnvCache,
 
-    public canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache">,
+    public canonical_param_env_cache: InferCanonicalParamEnvCache,
 
     /// Caches the index of the highest bound var in clauses in a canonical binder.
     public highest_var_in_clauses_cache: Map<Clauses, number>,
@@ -677,16 +673,16 @@ export class GlobalCaches {
     public clauses_cache: Map<string, Clauses>,
   ) {}
 
-  /** `#[derive(Default)]`: every field's `Default`, in field order (PORT: see the type comment; merge-w15a wired the
-   *  search graph's `GlobalCache` and rustc_type_ir's `CanonicalParamEnvCache`, lane middle-traits-thir the traits
-   *  caches; infer's `CanonicalParamEnvCache` still stops). */
+  /** `#[derive(Default)]`: every field's `Default`, in field order (merge-w15a wired the search graph's `GlobalCache` and
+   *  rustc_type_ir's `CanonicalParamEnvCache`, lane middle-traits-thir the traits caches, lane infcx-contract infer's
+   *  `CanonicalParamEnvCache`). */
   static default_(): GlobalCaches {
     const ty_rcache = new Map<string, Ty>();
     const selection_cache: SelectionCache<TypingEnv> = WithDepNodeCache.default_();
     const evaluation_cache: EvaluationCache<TypingEnv> = WithDepNodeCache.default_();
     const new_solver_evaluation_cache: GlobalCache = GlobalCache_.default_();
     const new_solver_canonical_param_env_cache: CanonicalParamEnvCache = CanonicalParamEnvCache_.default_();
-    const canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache"> = pending_cache("rustc_middle::infer::canonical::CanonicalParamEnvCache: Default (lane infcx-contract)");
+    const canonical_param_env_cache: InferCanonicalParamEnvCache = InferCanonicalParamEnvCache.default_();
     return new GlobalCaches(
       ty_rcache,
       selection_cache,

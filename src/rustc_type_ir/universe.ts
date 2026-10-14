@@ -160,7 +160,7 @@ class MaxUniverse implements TypeVisitor<undefined> {
         this.max_universe_ = UniverseIndex_max(this.max_universe_, p.universe);
       } else if (k2.$ === "ReVar" && this.VISIT_INFER) {
         const var2 = k2._0;
-        const u = unwrap(this.infcx.universe_of_region(var2));
+        const u = unwrap(this.infcx.ir_universe_of_region(var2));
         // debug!("var {var:?} in universe {u:?}");
         this.max_universe_ = UniverseIndex_max(this.max_universe_, u);
       }

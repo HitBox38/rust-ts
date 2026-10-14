@@ -32,6 +32,7 @@
     "rustc_type_ir::Variance",
     "rustc_type_ir::solve::BuiltinImplSource",
     "rustc_type_ir::solve::Certainty",
+    "rustc_middle::infer::canonical::Certainty",
     "rustc_type_ir::solve::GoalSource",
     "rustc_type_ir::solve::VisibleForLeakCheck",
     "rustc_abi::ExternAbi",
