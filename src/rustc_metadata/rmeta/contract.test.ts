@@ -44,9 +44,7 @@ test("the CrateMetadata contract: every declared method exists after loading lib
 });
 
 test("stubs stop as UNPORTED with their path", () => {
-  const cm = Object.create(CrateMetadata.prototype) as CrateMetadata;
-  // rmeta-decoder-b's region has no stubs left; `get_associated_item` stops on M3 types (ty::AssocItem).
-  expect(() => cm.get_associated_item(undefined as never, 0 as never)).toThrow("rustc_metadata::rmeta::decoder::CrateMetadata::get_associated_item");
+  // rmeta-decoder-b's region has no stubs left (lane rmeta-ty ported `get_associated_item`, its last M3 stop).
   // rmeta-decoder-a: `def_kind` is ported; an M3 stop of its region instead.
   const dcx = Object.create(MetadataDecodeContext.prototype) as MetadataDecodeContext;
   expect(() => dcx.decode_alloc_id()).toThrow("rustc_metadata::rmeta::decoder::MetadataDecodeContext::decode_alloc_id");
