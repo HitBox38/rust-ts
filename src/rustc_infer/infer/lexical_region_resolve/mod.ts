@@ -25,10 +25,11 @@ import { RegionVid } from "../../../rustc_type_ir/region_kind.ts";
 import { debug_Region, fold_Region, Region } from "../../../rustc_type_ir/sty/mod.ts";
 import { type Debug, debug_vec, type Fmt, PLAIN, PRETTY } from "../../../std/fmt.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../../../std/panic.ts";
+import { assert, panic, unreachable, unwrap } from "../../../std/panic.ts";
 import type { Companions } from "../../decls.ts";
 import type { RegionRelations } from "../free_regions.ts";
 import { clone_SubregionOrigin, debug_SubregionOrigin, RegionVariableOrigin, type SubregionOrigin } from "../mod.ts";
+import * as test_type_match from "../outlives/test_type_match.ts";
 import {
   Constraint,
   GenericKind,
@@ -125,14 +126,6 @@ const fold_Binder_VerifyIfEq: TypeFoldable<Binder<VerifyIfEq>> = fold_Binder<Ver
   try_fold_with: try_fold_with_VerifyIfEq,
   fold_with: fold_with_VerifyIfEq,
 });
-
-/**
- * PORT(merge): stand-in for `test_type_match::extract_verify_if_eq` (outlives/test_type_match.rs, lane
- * infer-canonical-outlives, which picks its TS form). Repoint when that lane lands.
- */
-function extract_verify_if_eq(_tcx: TyCtxt, _verify_if_eq_b: Binder<VerifyIfEq>, _test_ty: Ty): Region | undefined {
-  return unported("rustc_infer::infer::outlives::test_type_match::extract_verify_if_eq");
-}
 
 /// This function performs lexical region resolution given a complete
 /// set of constraints and variable origins. It performs a fixed-point
@@ -975,7 +968,7 @@ LexicalResolver.prototype.bound_is_met = function (
   switch (bound.$) {
     case "IfEq": {
       const verify_if_eq_b = var_values.normalize(this.region_rels.tcx, bound._0, fold_Binder_VerifyIfEq);
-      const r = extract_verify_if_eq(this.tcx(), verify_if_eq_b, generic_ty);
+      const r = test_type_match.extract_verify_if_eq(this.tcx(), verify_if_eq_b, generic_ty);
       if (r !== undefined) {
         return this.bound_is_met({ $: "OutlivedBy", _0: r }, var_values, generic_ty, min);
       } else {

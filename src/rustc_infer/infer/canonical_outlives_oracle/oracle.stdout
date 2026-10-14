@@ -1,0 +1,53 @@
+response mixed
+  Canonical { value: (^c_0, ^c_1, ^c_2, ^c_1, u8, ^c_3, i32, ^c_4, [u8; ^c_BoundConst { var: 5, .. }], [u8; N/#0], ^c_6, &'^c_7 u8, [u8; ^c_BoundConst { var: 8, .. }], &'static ^c_0, &'{erased} u8, (^c_2, ^c_0)), max_universe: U2, var_kinds: [Ty { ui: U0, sub_root: 0 }, Ty { ui: U1, sub_root: 1 }, Ty { ui: U1, sub_root: 0 }, Int, Float, Const(U2), PlaceholderTy(!2_0), PlaceholderRegion(!1_1), PlaceholderConst(!1_BoundConst { var: 2, .. })] }
+response root-only
+  Canonical { value: (^c_0, ^c_1, u8, ^c_2, ^c_0), max_universe: U0, var_kinds: [Ty { ui: U0, sub_root: 0 }, Int, Float] }
+response many
+  Canonical { value: (^c_0, ^c_1, ^c_2, ^c_3, ^c_4, ^c_5, ^c_6, ^c_7, ^c_8, ^c_9, ^c_10, ^c_11, ^c_0, ^c_11, ^c_4, ^c_12, ^c_0), max_universe: U2, var_kinds: [Ty { ui: U1, sub_root: 0 }, Ty { ui: U0, sub_root: 1 }, Ty { ui: U2, sub_root: 2 }, Ty { ui: U2, sub_root: 3 }, Ty { ui: U2, sub_root: 4 }, Ty { ui: U2, sub_root: 5 }, Ty { ui: U2, sub_root: 6 }, Ty { ui: U2, sub_root: 7 }, Ty { ui: U2, sub_root: 8 }, Ty { ui: U2, sub_root: 9 }, Ty { ui: U2, sub_root: 10 }, Ty { ui: U2, sub_root: 11 }, PlaceholderTy(!2_0)] }
+user vars
+  Canonical { value: (^c_0, &'^c_1 u8, &'static ^c_2, ^c_3, ^c_4, [u8; ^c_BoundConst { var: 5, .. }], ^c_6, &'^c_7 ^c_0, &'^c_1 u8, &'{erased} u8), max_universe: U0, var_kinds: [Ty { ui: U0, sub_root: 0 }, Region(U0), Ty { ui: U0, sub_root: 2 }, Int, Float, Const(U0), PlaceholderTy(!0), Region(U0)] }
+user placeholder-const
+  panic: assertion failed: self.canonicalize_mode.preserve_universes()
+query all
+  max_universe: U0
+  var_kinds: [Ty { ui: U0, sub_root: 0 }, Ty { ui: U0, sub_root: 1 }, Region(U0), Ty { ui: U0, sub_root: 0 }, Region(U0), Region(U0), PlaceholderTy(!0), Region(U0), Const(U0), Int, Float]
+  value: (^c_0, ^c_1, &'^c_2 ^c_3, &'^c_4 u8, &'^c_5 u8, &'{erased} u8, ^c_6, &'^c_7 u8, [u8; ^c_BoundConst { var: 8, .. }], ^c_9, ^c_10, &'^c_2 u8, ^c_1, [u8; N/#0])
+  query_state: OriginalQueryValues { universe_map: [U0], var_values: [?0t, ?1t, '?0, ?2t, '?1, 'static, !2_0, '!1_1, ?0c, ?0i, ?0f] }
+query placeholder-const
+  panic: assertion failed: self.canonicalize_mode.preserve_universes()
+instantiate mixed
+  value: (?0t, ?1t, ?2t, ?1t, u8, ?0i, i32, ?0f, [u8; ?0c], [u8; N/#0], !2_0, &'!1_1 u8, [u8; !1_BoundConst { var: 2, .. }], &'static ?0t, &'{erased} u8, (?2t, ?0t))
+  var_values: [?0t, ?1t, ?2t, ?0i, ?0f, ?0c, !2_0, '!1_1, !1_BoundConst { var: 2, .. }]
+  universe: U2
+  sub_roots: ["?0t sub_root ?0t", "?1t sub_root ?1t", "?2t sub_root ?0t"]
+outlives ref-param
+  push_sub_region_constraint('!2, '!0)
+  push_verify(T/#0, '!2, IsEmpty)
+  push_sub_region_constraint('!2, '!1)
+  push_verify(U/#1, '!2, IsEmpty)
+outlives implicit
+  push_verify(T/#0, '!2, OutlivedBy('static))
+outlives placeholder
+  push_verify(!1_7, '!3, IsEmpty)
+  push_sub_region_constraint('!3, 'static)
+outlives static-only
+  push_sub_region_constraint('static, 'static)
+  push_verify(T/#0, 'static, IsEmpty)
+outlives fn-ptr
+  push_verify(T/#0, '!2, IsEmpty)
+  push_sub_region_constraint('!2, '!4)
+  push_verify(U/#1, '!2, IsEmpty)
+verify_if_eq bound-static
+  Some('static)
+verify_if_eq bound-placeholder
+  Some('!5)
+verify_if_eq mismatch
+  None
+verify_if_eq free-bound
+  Some('!6)
+verify_if_eq unconstrained
+  Some('static)
+verify_if_eq twice-same
+  Some('!5)
+verify_if_eq twice-different
+  None
