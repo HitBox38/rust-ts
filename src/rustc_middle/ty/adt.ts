@@ -443,7 +443,7 @@ export class AdtDef extends Interned {
     const c = tcx.constness(view_Destructor(d).did) as Constness;
     switch (c.$) {
       case "Const":
-        if (c.always === true) return unported("FIXME(comptime)"); // `unimplemented!("FIXME(comptime)")`
+        if (c.always === true) panic("not implemented: FIXME(comptime)"); // `unimplemented!("FIXME(comptime)")`
         return "Const";
       case "NotConst":
         return "NotConst";

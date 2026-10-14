@@ -15,8 +15,8 @@ import { TyCtxt } from "./context.ts";
 import * as gen from "./assoc.gen.ts";
 import type { AssocItem as AssocItemT, AssocKind as AssocKindT, AssocTag as AssocTagT } from "./assoc.gen.ts";
 import { SortedIndexMultiMap } from "../../rustc_data_structures/sorted_map/index_map.ts";
-import type { DefKind, Namespace } from "../../rustc_hir/def.ts";
-import type { Defaultness } from "../../rustc_hir/hir.ts";
+import { DefKind, type Namespace } from "../../rustc_hir/def.ts";
+import { Defaultness } from "../../rustc_hir/hir.ts";
 import type { DefId, ModId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
@@ -83,7 +83,7 @@ export const AssocItem = {
   defaultness(self: AssocItem, tcx: TyCtxt): Defaultness {
     switch (self.container.$) {
       case "InherentImpl":
-        return { $: "Final" };
+        return Defaultness.Final;
       case "Trait":
       case "TraitImpl":
         // PORT: the `defaultness` query value is `unknown` in queries.gen.ts (`hir::Defaultness`).
@@ -263,11 +263,11 @@ export const AssocKind = {
   as_def_kind(self: AssocKind): DefKind {
     switch (self.$) {
       case "Const":
-        return { $: "AssocConst" };
+        return DefKind.AssocConst;
       case "Fn":
-        return { $: "AssocFn" };
+        return DefKind.AssocFn;
       case "Type":
-        return { $: "AssocTy" };
+        return DefKind.AssocTy;
     }
   },
 
