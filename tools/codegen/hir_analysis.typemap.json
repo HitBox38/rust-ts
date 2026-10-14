@@ -1,0 +1,17 @@
+{
+  "//": [
+    "Set-local type map of set rustc_hir_analysis (lane hirtylowerer-contract; types.sets.json `typemap_extra`, after tyir.typemap.json,",
+    "middle_traits_thir.typemap.json and ast_lowering.typemap.json): the rustc_hir / rustc_middle types the crate's types reach that no",
+    "earlier map names under the path the crate uses. Entries here override global paths for this set only."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    {"paths": ["rustc_hir::PathSegment", "rustc_hir::hir::PathSegment"], "ts": "PathSegment", "import": "src/rustc_hir/lib.ts", "types": ["PathSegment"], "values": ["debug_PathSegment"], "debug": "debug_PathSegment($v, $f)", "clone": null},
+    {"paths": ["rustc_hir::PrimTy", "rustc_hir::hir::PrimTy"], "ts": "PrimTy", "import": "src/rustc_hir/lib.ts", "types": ["PrimTy"], "values": ["debug_PrimTy"], "debug": "debug_PrimTy($v, $f)", "clone": "copy"},
+    {"paths": ["rustc_middle::ty::GenericParamDefKind", "rustc_middle::ty::generics::GenericParamDefKind"], "ts": "GenericParamDefKind", "import": "src/rustc_middle/ty/generics.ts", "types": ["GenericParamDefKind"], "values": ["debug_GenericParamDefKind"], "debug": "debug_GenericParamDefKind($v, $f)", "clone": "copy", "note": "Copy data enum (immutable objects)"},
+    {"paths": ["rustc_hir::def::Res", "rustc_hir::Res"], "ts": "Res<$0>", "import": "src/rustc_hir/def.ts", "types": ["Res"], "values": ["debug_Res"], "debug": "debug_Res($v, $f, $d0)", "clone": "copy",
+      "default_args": [{ "kind": "path", "path": { "global": false, "segments": [{ "name": "rustc_hir_id", "args": [] }, { "name": "HirId", "args": [] }] }, "text": "rustc_hir_id::HirId" }],
+      "note": "typemap.middle.json's entry plus the declared default `Res<Id = hir::HirId>` (rustc_hir def.rs), for `Result<Res, ErrorGuaranteed>` (hir_ty_lowering/mod.rs:129)"}
+  ]
+}

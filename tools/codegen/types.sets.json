@@ -856,5 +856,57 @@
       "compiler/rustc_middle/src/ty/mod.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
+  },
+  "rustc_hir_analysis": {
+    "files": [
+      "compiler/rustc_hir_analysis/src/diagnostics.rs",
+      "compiler/rustc_hir_analysis/src/collect.rs",
+      "compiler/rustc_hir_analysis/src/collect/generics_of.rs",
+      "compiler/rustc_hir_analysis/src/collect/type_of.rs",
+      "compiler/rustc_hir_analysis/src/collect/type_of/opaque.rs",
+      "compiler/rustc_hir_analysis/src/collect/clauses_of.rs",
+      "compiler/rustc_hir_analysis/src/collect/item_bounds.rs",
+      "compiler/rustc_hir_analysis/src/collect/dump.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/generics.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs"
+    ],
+    "files_note": "collect/resolve_bound_vars.rs is not in the set: the typedefs probe (syn) cannot parse its `gen { .. }` block (resolve_bound_vars.rs:2500, `#![feature(gen_blocks)]`); lane collect-rbv hand-writes its types or root extends the probe (hirtylowerer-contract)",
+    "class": [],
+    "hand": [
+      "rustc_hir_analysis::collect::ItemCtxt",
+      "rustc_hir_analysis::collect::HirPlaceholderCollector",
+      "rustc_hir_analysis::collect::type_of::opaque::TaitConstraintLocator",
+      "rustc_hir_analysis::collect::item_bounds::MapAndCompressBoundVars",
+      "rustc_hir_analysis::collect::item_bounds::AssocTyToOpaque",
+      "rustc_hir_analysis::collect::generics_of::AnonConstInParamTyDetector",
+      "rustc_hir_analysis::hir_ty_lowering::ForbidParamUsesFolder",
+      "rustc_hir_analysis::hir_ty_lowering::bounds::GenericParamAndBoundVarCollector",
+      "rustc_hir_analysis::hir_ty_lowering::errors::GenericsArgsErrExtend"
+    ],
+    "hand_notes": {
+      "rustc_hir_analysis::collect::ItemCtxt": "the shared contract (hirtylowerer-contract): class with all fields + every method declared in decls.ts; methods assigned by collect.ts / collect/clauses_of.ts",
+      "rustc_hir_analysis::collect::HirPlaceholderCollector": "intravisit Visitor impl: hand class extending rustc_hir intravisit Visitor (collect.ts, lane collect-a)",
+      "rustc_hir_analysis::collect::type_of::opaque::TaitConstraintLocator": "intravisit Visitor impl: hand class extending rustc_hir intravisit Visitor (collect/type_of/opaque.ts, lane collect-a)",
+      "rustc_hir_analysis::collect::item_bounds::MapAndCompressBoundVars": "TypeFolder impl: hand class (collect/item_bounds.ts, lane collect-b)",
+      "rustc_hir_analysis::collect::item_bounds::AssocTyToOpaque": "TypeFolder impl: hand class (collect/item_bounds.ts, lane collect-b)",
+      "rustc_hir_analysis::collect::generics_of::AnonConstInParamTyDetector": "intravisit Visitor impl: hand class extending rustc_hir intravisit Visitor (collect/generics_of.ts, lane collect-a)",
+      "rustc_hir_analysis::hir_ty_lowering::ForbidParamUsesFolder": "TypeFolder impl: hand class (hir_ty_lowering/mod.ts, lane hir-ty-lowering-a)",
+      "rustc_hir_analysis::hir_ty_lowering::bounds::GenericParamAndBoundVarCollector": "TypeVisitor impl with a `&dyn HirTyLowerer` field: hand class (hir_ty_lowering/bounds.ts, lane hir-ty-lowering-c)",
+      "rustc_hir_analysis::hir_ty_lowering::errors::GenericsArgsErrExtend": "no derives; its variants name both `hir::Ty` and `ty::Ty`, which the generator would import under the same TS name `Ty`: hand-written in hir_ty_lowering/errors.ts"
+    },
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_hir/src/lib.rs"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "hir_analysis.typemap.json"]
   }
 }

@@ -48,6 +48,7 @@ import { clone_Providers as clone_HookProviders, Providers_default as HookProvid
 import "../rustc_middle/lib.ts";
 import { hir } from "../rustc_middle/lib.ts";
 import * as rustc_ast_lowering from "../rustc_ast_lowering/lib.ts";
+import * as rustc_hir_analysis from "../rustc_hir_analysis/lib.ts";
 import type { ResolverAstLowering, ResolverGlobalCtxt } from "../rustc_middle/middle/resolve.ts";
 import { type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
 import { provide as ty_provide } from "../rustc_middle/ty/mod.ts";
@@ -945,14 +946,16 @@ function default_query_providers(): MiddleProviders {
   rustc_ast_lowering.provide(providers.queries);
   // PORT: pending crates (their `provide` fns are not ported): rustc_expand_queries,
   // rustc_const_eval, rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
-  // rustc_monomorphize, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck, traits, solve,
-  // rustc_traits, rustc_symbol_mangling, rustc_codegen_ssa (rustc_ty_utils, rustc_metadata and rustc_lint are provided below).
+  // rustc_monomorphize, rustc_privacy, rustc_hir_typeck, traits, solve,
+  // rustc_traits, rustc_symbol_mangling, rustc_codegen_ssa (rustc_hir_analysis, rustc_ty_utils, rustc_metadata and rustc_lint
+  // are provided below).
   // Their queries stop as UNPORTED (`install_unported_providers`).
   limits.provide(providers.queries);
   hir.provide(providers.queries);
   rustc_incremental_provide(providers);
   query_impl_provide(providers);
   rustc_resolve.provide(providers.queries);
+  rustc_hir_analysis.provide(providers.queries);
   ty_provide(providers.queries);
   rustc_passes_provide(providers.queries);
   rustc_ty_utils.provide(providers.queries);
