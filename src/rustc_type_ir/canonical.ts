@@ -14,9 +14,10 @@ import type { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import { debug_RawList } from "../rustc_middle/ty/list.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { PLAIN } from "../std/fmt.ts";
-import { assert, panic, unported } from "../std/panic.ts";
+import { assert, panic } from "../std/panic.ts";
 import type { BoundRegion, Placeholder, PlaceholderConst, PlaceholderRegion, PlaceholderType } from "./binder.ts";
 import * as gen from "./canonical.gen.ts";
+import { DelayedMap } from "./data_structures/mod.ts";
 import { debug_CanonicalVarKind } from "./canonical.gen.ts";
 import type { Interner } from "./interner.ts";
 import { type BoundVar, debug_UniverseIndex, UniverseIndex } from "./lib.ts";
@@ -259,7 +260,7 @@ export class CanonicalizerState {
 
   /** `#[derive_where(Default)]` */
   static default_(): CanonicalizerState {
-    return new CanonicalizerState([], [], new Map(), new Map(), new DelayedMap<Ty, Ty>());
+    return new CanonicalizerState([], [], new Map(), new Map(), DelayedMap.default_<Ty, Ty>());
   }
 
   // rustc: compiler/rustc_type_ir/src/canonical.rs:307 clear
@@ -321,15 +322,3 @@ function Placeholder_with_universe<T>(self: Placeholder<T>, ui: UniverseIndex): 
   return { universe: ui, bound: self.bound, _tcx: undefined };
 }
 
-/** PORT: stand-in for `rustc_type_ir::data_structures::DelayedMap` (data_structures/delayed_map.rs, sub-lane lib-sty). */
-class DelayedMap<K, V> {
-  get(_key: K): V | undefined {
-    return unported("rustc_type_ir::data_structures::DelayedMap::get");
-  }
-  insert(_key: K, _value: V): boolean {
-    return unported("rustc_type_ir::data_structures::DelayedMap::insert");
-  }
-  clear(): void {
-    return unported("rustc_type_ir::data_structures::DelayedMap::clear");
-  }
-}

@@ -21,6 +21,7 @@ import {
   Canonical,
   CanonicalVarKind,
   CanonicalVarValues,
+  CanonicalizerState,
   debug_CanonicalVarKind,
   display_Canonical,
 } from "./canonical.ts";
@@ -278,6 +279,20 @@ describe("canonical.rs", () => {
       expect(values.var_values).toBe(tcx.mk_args(Array.from({ length: n }, (_, i) => GenericArg.from_Ty(t.ty_vars[i]!))));
     }
   });
+});
+
+test("CanonicalizerState::clear empties every table", () => {
+  const tcx = mk_tcx();
+  const t = tcx.types;
+  const s = CanonicalizerState.default_();
+  s.variables.push(GenericArg.from_Ty(t.ty_vars[0]!));
+  s.var_kinds.push(CanonicalVarKind.Int);
+  s.variable_lookup_table.set(GenericArg.from_Ty(t.ty_vars[0]!), 0);
+  s.sub_root_lookup_table.set(0 as never, 0);
+  expect(s.cache.insert(t.ty_vars[0]!, t.i32)).toBe(true);
+  s.clear();
+  expect([s.variables.length, s.var_kinds.length, s.variable_lookup_table.size, s.sub_root_lookup_table.size]).toEqual([0, 0, 0, 0]);
+  expect(s.cache.get(t.ty_vars[0]!)).toBeUndefined();
 });
 
 describe("fast_reject.rs", () => {

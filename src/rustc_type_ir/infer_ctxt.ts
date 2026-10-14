@@ -21,6 +21,7 @@ import { assert, panic, unported } from "../std/panic.ts";
 import type { Result } from "../std/result.ts";
 import type { FxHasher } from "../vendor/rustc_hash/lib.ts";
 import type { Binder } from "./binder.ts";
+import { DelayedMap } from "./data_structures/mod.ts";
 import type { Pending } from "./decls.ts";
 import type { OpaqueTypeStorageEntries } from "./inherent.ts";
 import type { Interner } from "./interner.ts";
@@ -617,7 +618,7 @@ class DeepVariableResolver implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:650 new
   static new(delegate: InferCtxtLike): DeepVariableResolver {
-    return new DeepVariableResolver(delegate, new DelayedMap<Ty, Ty>());
+    return new DeepVariableResolver(delegate, DelayedMap.default_<Ty, Ty>());
   }
 
   // rustc: compiler/rustc_type_ir/src/infer_ctxt.rs:658 cx
@@ -749,12 +750,3 @@ function Features_feature_bound_holds_in_crate(_features: Features, _symbol: Sym
   return unported("rustc_middle::ty::context: inherent::Features::feature_bound_holds_in_crate");
 }
 
-/** PORT: stand-in for `rustc_type_ir::data_structures::DelayedMap` (data_structures/delayed_map.rs, sub-lane lib-sty). */
-class DelayedMap<K, V> {
-  get(_key: K): V | undefined {
-    return unported("rustc_type_ir::data_structures::DelayedMap::get");
-  }
-  insert(_key: K, _value: V): boolean {
-    return unported("rustc_type_ir::data_structures::DelayedMap::insert");
-  }
-}
