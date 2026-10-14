@@ -121,4 +121,6 @@ No declaration was wrong or missing; no local `declare module` was needed.
 4. When collect-rbv ports middle/resolve_bound_vars.rs, drop dump.ts's local `ObjectLifetimeDefault_` view.
 
 ## Full test run
-(see below)
+`RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4516 pass, 1 skip (pre-existing linux-only), 0 fail
+(4517 tests, 272 files, 1385 s), including collect_b.test.ts 18/18 and contract.test.ts 10/10. Run at `4cd97e0`; the two
+later commits change only a panic text and dump.ts imports (`tsc` clean, `bun test src/rustc_hir_analysis` 28 pass after them).
