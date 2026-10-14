@@ -1,0 +1,76 @@
+== types
+bool: bool
+char: char
+i8: i8
+isize: isize
+u128: u128
+usize: usize
+f16: f16
+f32: f32
+f64: f64
+f128: f128
+str: str
+never: !
+unit: ()
+tuple1: (u8,)
+tuple2: (i32, bool)
+tuple_nested: ((), (char,), !)
+ref_erased: &i32
+ref_static: &'static str
+mut_ref_static: &'static mut u8
+mut_ref_erased: &mut (u8, u16)
+ptr_const: *const u8
+ptr_mut: *mut ()
+slice: [u8]
+slice_of_refs: [&'static str]
+fn_unit: fn()
+fn_i32_bool: fn(i32) -> bool
+fn_two: fn(i32, &'static str) -> (u8,)
+fn_unsafe_c_variadic: unsafe extern "C" fn(u8, ...) -> !
+fn_system_unwind: extern "system-unwind" fn()
+fn_returning_fn: fn(char) -> fn() -> i64
+ty_var: _
+int_var: {integer}
+float_var: {float}
+fresh: FreshTy(1)
+fresh_int: FreshIntTy(2)
+fresh_float: FreshFloatTy(0)
+error: {type error}
+== local
+1 ExternCrate | std | crate::std | std
+2 Use | {use#0} | crate::{use#0} | {use#0}
+3 Mod | m | crate::m | m
+4 Struct | m::S | crate::m::S | S
+5 Ctor(Struct, Const) | m::S | crate::m::S | S
+6 Mod | m::n | crate::m::n | m::n
+7 Enum | m::n::E | crate::m::n::E | E
+8 Variant | m::n::E::A | crate::m::n::E::A | -
+9 Ctor(Variant, Const) | m::n::E::A | crate::m::n::E::A | -
+10 Variant | m::n::E::B | crate::m::n::E::B | -
+11 Ctor(Variant, Fn) | m::n::E::B | crate::m::n::E::B | -
+12 Field | m::n::E::B::0 | crate::m::n::E::B::0 | -
+13 Trait | m::n::Tr | crate::m::n::Tr | Tr
+14 AssocFn | m::n::Tr::f | crate::m::n::Tr::f | Tr::f
+15 AssocTy | m::n::Tr::Assoc | crate::m::n::Tr::Assoc | Tr::Assoc
+16 Union | m::n::U | crate::m::n::U | U
+17 Field | m::n::U::x | crate::m::n::U::x | U::x
+18 Static { safety: Safe, mutability: Not, nested: false } | m::n::ST | crate::m::n::ST | ST
+19 Const | m::n::C | crate::m::n::C | C
+20 TyAlias | m::n::Alias | crate::m::n::Alias | Alias
+21 Struct | Top | crate::Top | Top
+22 Ctor(Struct, Fn) | Top | crate::Top | Top
+23 Field | Top::0 | crate::Top::0 | Top::0
+24 Fn | free | crate::free | free
+25 Closure | free::{closure#0} | crate::free::{closure#0} | free::{closure#0}
+26 Mod | r#async | crate::r#async | r#async
+27 Struct | r#async::Fn | crate::r#async::Fn | Fn
+28 Ctor(Struct, Const) | r#async::Fn | crate::r#async::Fn | Fn
+== lang
+OwnedBox Struct | std::boxed::Box | std::boxed::Box | Box
+Option Enum | std::option::Option | std::option::Option | Option
+OptionSome Variant | std::prelude::v1::Some | std::prelude::v1::Some | -
+String Struct | std::string::String | std::string::String | String
+Sized Trait | std::marker::Sized | std::marker::Sized | Sized
+Iterator Trait | std::iter::Iterator | std::iter::Iterator | Iterator
+FnOnce Trait | std::ops::FnOnce | std::ops::FnOnce | FnOnce
+FnOnceOutput AssocTy | std::ops::FnOnce::Output | std::ops::FnOnce::Output | FnOnce::Output
