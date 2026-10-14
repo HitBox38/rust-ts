@@ -82,20 +82,6 @@ import { TypeRelating } from "./relate/type_relating.ts";
 
 export * from "./at.gen.ts";
 
-// PORT(decls): pending root. `TypeRelating` / `LatticeOp` implement `TypeRelation` (relate/type_relating.rs,
-// relate/lattice.rs; lane infer-relate); `op.relate(a, b)` is the provided `TypeRelation::relate`, which the contract
-// does not declare on the two hand classes.
-declare module "./relate/type_relating.ts" {
-  interface TypeRelating {
-    relate<T>(a: T, b: T, d: Relate<T>): RelateResult<T>;
-  }
-}
-declare module "./relate/lattice.ts" {
-  interface LatticeOp {
-    relate<T>(a: T, b: T, d: Relate<T>): RelateResult<T>;
-  }
-}
-
 // rustc-type: compiler/rustc_infer/src/infer/at.rs:50 At (class in ../decls.ts)
 export { At } from "../decls.ts";
 
