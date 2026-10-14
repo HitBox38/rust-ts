@@ -35,7 +35,7 @@ probe_inherent_assoc_item(S::Assoc, Type) without inherent_associated_types: Ok(
 probe_assoc_item_unchecked(Assoc, Type, Tr): Some(Assoc, Type, scope is crate root: true)
 probe_assoc_item_unchecked(Assoc, Const, Tr): undefined
 probe_assoc_item_unchecked(Item, Type, m::Inner): Some(Item, scope is crate root: true)
-PENDING probe_assoc_item(C, Const, Tr): unported: lookup_deprecation_entry provider (not ported)
+probe_assoc_item(C, Const, Tr): Some(C)
 PENDING probe_traits_that_match_assoc_ty(u8, Assoc): unported: rustc_trait_selection::infer::InferCtxt::can_eq
 PENDING lower_resolved_assoc_ty_path(None, Tr::Assoc): unported: rustc_middle::ty::erase_regions::TyCtxt::erase_and_anonymize_regions
 lower_resolved_assoc_ty_path(Some(u8), Tr::Assoc): Alias

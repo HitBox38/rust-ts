@@ -5,6 +5,7 @@
 //!
 //! This API is completely unstable and subject to change.
 import type { Providers } from "../rustc_middle/queries.gen.ts";
+import * as check_attr from "./check_attr.ts";
 import * as check_export from "./check_export.ts";
 import * as debugger_visualizer from "./debugger_visualizer.ts";
 import * as diagnostic_items from "./diagnostic_items.ts";
@@ -12,10 +13,11 @@ import * as eii from "./eii.ts";
 import * as entry from "./entry.ts";
 import * as lang_items from "./lang_items.ts";
 import * as lib_features from "./lib_features.ts";
+import * as stability from "./stability.ts";
 
 // pub mod abi_test;            (not ported)
 // mod canonical_symbols;       (not ported)
-// mod check_attr;              (not ported)
+// mod check_attr;             (private: imported above for `provide`)
 // mod check_export;           (private: imported above for `provide`)
 // pub mod dead;                (not ported, M4)
 export * as debugger_visualizer from "./debugger_visualizer.ts";
@@ -32,7 +34,7 @@ export * as lang_items from "./lang_items.ts";
 // pub mod layout_test;         (not ported)
 // mod lib_features;           (private: imported above for `provide`)
 // mod reachable;               (not ported, M4)
-// pub mod stability;           (not ported)
+export * as stability from "./stability.ts";
 // mod upvars;                  (not ported)
 export * as weak_lang_items from "./weak_lang_items.ts";
 
@@ -40,7 +42,7 @@ export * as weak_lang_items from "./weak_lang_items.ts";
 export function provide(providers: Providers): void {
   // PORT: the `provide` fns of the modules not ported yet are skipped (their queries keep the default provider).
   // canonical_symbols::provide(providers);
-  // check_attr::provide(providers);
+  check_attr.provide(providers);
   // dead::provide(providers);
   debugger_visualizer.provide(providers);
   diagnostic_items.provide(providers);
@@ -48,7 +50,7 @@ export function provide(providers: Providers): void {
   lang_items.provide(providers);
   lib_features.provide(providers);
   // reachable::provide(providers);
-  // stability::provide(providers);
+  stability.provide(providers);
   // upvars::provide(providers);
   check_export.provide(providers);
   // fake_doc_items::provide(providers);
