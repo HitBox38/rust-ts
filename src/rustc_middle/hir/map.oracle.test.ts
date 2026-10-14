@@ -9,7 +9,8 @@
 // - `accessors`: `tcx.hir_*` results (parents, ancestor walks, spans, module items) on the same HIR, against
 //   `<case>.accessors.txt`, whose values were derived by reading hir/map.rs and hir/mod.rs (the oracle prints none of
 //   them in hir-tree mode).
-// Bin crates: `opt_hash` is `None`, so the fixture does not depend on `hash_owner_nodes` (lowering computes it).
+// The stand-in computes `OwnerNodes::opt_hash` with `TyCtxt::hash_owner_nodes` as lowering does: `None` for the bin case,
+// `Some(Fingerprint(..))` for the lib case (hir/mod.rs:175 over the generated derive(StableHash) of the HIR).
 import { expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -20,7 +21,11 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const REGEN = process.env.REGEN === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
-const CASES = ["mods"] as const;
+const CASES = [
+  { c: "mods", crate_type: "bin" },
+  { c: "mods", crate_type: "lib" },
+] as const;
+type Case = (typeof CASES)[number];
 
 function sysroot(): string | undefined {
   try {
@@ -40,13 +45,13 @@ function rustc_at_pin(): boolean {
   }
 }
 
-const args = (sysroot: string, c: string): string[] => [
+const args = (sysroot: string, { c, crate_type }: Case): string[] => [
   "--target",
   "x86_64-unknown-linux-gnu",
   "--sysroot",
   sysroot,
   "--crate-type",
-  "bin",
+  crate_type,
   "--edition=2021",
   `--remap-path-prefix=${DIR}=/hir_tree_oracle`,
   `${c}.rs`,
@@ -57,15 +62,15 @@ function run(cmd: string[]): { exit: number; stdout: string } {
   return { exit: r.exitCode, stdout: r.stdout.toString() };
 }
 
-const fixture_path = (c: string): string => join(DIR, `${c}.hir-tree.stdout`);
-const accessors_path = (c: string): string => join(DIR, `${c}.accessors.txt`);
+const fixture_path = ({ c, crate_type }: Case): string => join(DIR, `${c}.${crate_type}.hir-tree.stdout`);
+const accessors_path = ({ c, crate_type }: Case): string => join(DIR, `${c}.${crate_type}.accessors.txt`);
 
 if (REGEN) {
   const s = sysroot();
   if (s === undefined || !rustc_at_pin()) throw new Error("ERROR: REGEN needs the pinned toolchain");
   for (const c of CASES) {
     const r = run(["rustc", `+${PIN.toolchain}`, "-Zunpretty=hir-tree", ...args(s, c)]);
-    if (r.exit !== 0) throw new Error(`ERROR: oracle exit ${r.exit} on ${c}.rs`);
+    if (r.exit !== 0) throw new Error(`ERROR: oracle exit ${r.exit} on ${c.c}.rs`);
     writeFileSync(fixture_path(c), r.stdout);
   }
 }
@@ -82,15 +87,18 @@ test("hir_tree_oracle fixtures are the current oracle output", () => {
   }
 }, 120_000);
 
-test("the hir_tree_oracle fixture exercises nested modules", () => {
-  const f = readFileSync(fixture_path("mods"), "utf8");
+test("the hir_tree_oracle fixtures exercise nested modules and opt_hash", () => {
+  const f = readFileSync(fixture_path(CASES[0]), "utf8");
   // Owner order: the crate root, then free items in visit order (`m`, its nested `n`, then `k`).
   expect([...f.matchAll(/^DefId\(0:(\d+) ~ [^)]*\) => /gm)].map((m) => m[1])).toEqual(["0", "1", "2", "3"]);
   expect(f).toContain("::m::n) => OwnerNodes");
+  expect(f).toContain("opt_hash: None");
+  const l = readFileSync(fixture_path(CASES[1]), "utf8");
+  expect(l.match(/opt_hash: Some\(\n *Fingerprint\(/g)?.length).toBe(4);
 });
 
 for (const c of CASES) {
-  test(`hir_tree_oracle/${c}.rs: -Zunpretty=hir-tree over the stand-in lowering prints as the oracle`, () => {
+  test(`hir_tree_oracle/${c.c}.rs (${c.crate_type}): -Zunpretty=hir-tree over the stand-in lowering prints as the oracle`, () => {
     const s = sysroot();
     if (s === undefined) {
       if (REQUIRE) throw new Error("ERROR: oracle sysroot missing");
@@ -100,7 +108,8 @@ for (const c of CASES) {
     expect({ c, exit: r.exit, stdout: r.stdout }).toEqual({ c, exit: 0, stdout: readFileSync(fixture_path(c), "utf8") });
   }, 120_000);
 
-  test(`hir_tree_oracle/${c}.rs: tcx.hir_* accessors`, () => {
+  if (c.crate_type !== "bin") continue;
+  test(`hir_tree_oracle/${c.c}.rs (${c.crate_type}): tcx.hir_* accessors`, () => {
     const s = sysroot();
     if (s === undefined) {
       if (REQUIRE) throw new Error("ERROR: oracle sysroot missing");

@@ -12,7 +12,8 @@ import type { Crate, Item as AstItem } from "../../../rustc_ast/ast.gen.ts";
 import type { NodeId } from "../../../rustc_ast/node_id.ts";
 import { SortedMap } from "../../../rustc_data_structures/sorted_map.ts";
 import { Steal } from "../../../rustc_data_structures/steal.ts";
-import { AttributeMap, Item, ItemId, ItemLocalId_cmp, type MaybeOwner, type Mod, OwnerInfo, OwnerNodes, type ParentedNode } from "../../../rustc_hir/hir.ts";
+import type { Attribute } from "../../../rustc_attr_ir/lib.ts";
+import { AttributeMap, type Body, Item, ItemId, ItemLocalId_cmp, type MaybeOwner, type Mod, Node, OwnerInfo, type OwnerNode, OwnerNodes, type ParentedNode } from "../../../rustc_hir/hir.ts";
 import { HirId_make_owner, ItemLocalId, OwnerId, debug_HirId, debug_OwnerId } from "../../../rustc_hir_id/lib.ts";
 import type { Compiler, Config } from "../../../rustc_interface/interface.ts";
 import { CRATE_DEF_ID, type LocalDefId, LocalModId, debug_LocalDefId, debug_LocalModId } from "../../../rustc_span/def_id.ts";
@@ -21,6 +22,12 @@ import { Symbol } from "../../../rustc_span/symbol.ts";
 import { PLAIN, format_debug } from "../../../std/fmt.ts";
 import type { TyCtxt } from "../../ty/context.ts";
 import type { ModuleItems } from "../mod.ts";
+
+function OwnerNode_of(node: ParentedNode): OwnerNode {
+  const o = Node.as_owner(node.node);
+  if (o === undefined) throw new Error("ERROR: not an owner node");
+  return o;
+}
 
 /** The stand-in `lower_to_hir`: every owner of a crate whose items are all inline `mod`s. */
 function build_owners(tcx: TyCtxt): Map<LocalDefId, MaybeOwner> {
@@ -35,10 +42,16 @@ function build_owners(tcx: TyCtxt): Map<LocalDefId, MaybeOwner> {
 
   const out = new Map<LocalDefId, MaybeOwner>();
   const owner_info = (node: ParentedNode, children: LocalDefId[]): OwnerInfo => {
-    const nodes = new OwnerNodes(undefined, [node], SortedMap.new(ItemLocalId_cmp));
+    const bodies = SortedMap.new<ItemLocalId, Body>(ItemLocalId_cmp);
+    const attrs = SortedMap.new<ItemLocalId, readonly Attribute[]>(ItemLocalId_cmp);
+    // As `LoweringContext::make_owner_info` (rustc_ast_lowering lib.rs:248): `tcx.hash_owner_nodes(..)` gives
+    // `OwnerNodes::opt_hash` (`Some` for lib crates). PORT: the stand-in has no attributes (the crate root's
+    // `#![no_core]` is not lowered), which hir-tree does not print.
+    const { bodies_hash, attrs_hash } = tcx.hash_owner_nodes(OwnerNode_of(node), bodies, attrs, undefined);
+    const nodes = new OwnerNodes(bodies_hash, [node], bodies);
     // Each child item is referenced from the owner's node 0 (`Mod::item_ids`).
     const parenting = new Map(children.map((c) => [c, ItemLocalId.ZERO] as const));
-    return new OwnerInfo(nodes, parenting, AttributeMap.EMPTY, new Map(), new Map(), Steal.new(undefined as unknown, "DelayedLints"), undefined);
+    return new OwnerInfo(nodes, parenting, new AttributeMap(attrs, undefined, attrs_hash), new Map(), new Map(), Steal.new(undefined as unknown, "DelayedLints"), undefined);
   };
   const lower_items = (items: readonly AstItem[]): LocalDefId[] =>
     items.map((item) => {
