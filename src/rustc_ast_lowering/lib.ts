@@ -69,7 +69,6 @@ import { debug_DefKind, DefKind, DefKind_eq, type Res } from "../rustc_hir/def.t
 import * as rustc_hir from "../rustc_hir/lib.ts";
 import type { HirId, ItemLocalId } from "../rustc_hir_id/lib.ts";
 import type { PerOwnerResolverData } from "../rustc_middle/middle/resolve.ts";
-import type { DefId } from "../rustc_span/def_id.ts";
 import { DesugaringKind } from "../rustc_span/hygiene.ts";
 import { debug_Span, DUMMY_SP, type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import { span_bug } from "../rustc_span/macros.ts";
@@ -233,7 +232,7 @@ export function lower_to_hir(_tcx: TyCtxt, _def_id: LocalDefId): hir.MaybeOwner 
 /** lib.rs:155 `PerOwnerLoweringState`: the two fields read here. */
 type PerOwnerLoweringStateView = { owner: PerOwnerResolverData; attrs: SortedMap<ItemLocalId, readonly attr_ir.Attribute[]> };
 /** lib.rs:451 `RelaxedBoundPolicy<'a>` (`Allowed(&'a mut FxIndexMap<DefId, Span>)`, see `relaxed_bound_policy_allowed`). */
-type RelaxedBoundPolicyView = { readonly $: "Allowed"; _0: Map<DefId, Span> } | { readonly $: "Forbidden"; _0: RelaxedBoundForbiddenReasonView };
+type RelaxedBoundPolicyView = { readonly $: "Allowed"; _0: rustc_hir.def_id.DefIdMap<Span> } | { readonly $: "Forbidden"; _0: RelaxedBoundForbiddenReasonView };
 /** lib.rs:466 `RelaxedBoundForbiddenReason` */
 type RelaxedBoundForbiddenReasonView = "TraitObjectTy" | "SuperTrait" | "TraitAlias" | "AssocTyBounds" | "WhereBound";
 /** lib.rs:565 `FnDeclKind` */
@@ -1119,8 +1118,8 @@ LoweringContext.prototype.lower_param_bounds_mut = function* (
 ): Generator<hir.GenericBound> {
   // PORT: `impl Iterator` (lazy `map`) -> a generator, so callers interleave the lowering as upstream does.
   // PORT(lane lower-lib-a): `rbp.reborrow()` (lib.rs:457) re-borrows the `&mut` map of `Allowed` and copies the
-  // `Forbidden` reason: in TS that is the same value, so `rbp` is passed as is. Root: call lower-lib-a's port of
-  // `reborrow` here once it exists.
+  // `Forbidden` reason, i.e. the same map and reason in TS; this branch has no value `RelaxedBoundPolicy` yet, so
+  // `rbp` is passed as is. Root: at integration write `RelaxedBoundPolicy.reborrow(rbp)` (lower-lib-a's companion).
   for (const bound of bounds) yield this.lower_param_bound(bound, rbp, itctx);
 };
 
