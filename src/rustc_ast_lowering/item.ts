@@ -94,7 +94,7 @@ import { DesugaringKind } from "../rustc_span/hygiene.ts";
 import { DUMMY_SP, debug_Span, type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import { display_Symbol, Ident, kw, Symbol, sym } from "../rustc_span/symbol.ts";
 import { debug_option, debug_tuple, debug_vec, PLAIN } from "../std/fmt.ts";
-import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../std/panic.ts";
+import { assert, assert_eq, panic, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { LoweringContext } from "./decls.ts";
 import * as diagnostics from "./diagnostics.ts";
@@ -1111,8 +1111,7 @@ LoweringContext.prototype.lower_maybe_coroutine_body = function (
     return this.lower_fn_body(decl, contract, (this_) => {
       if (
         find_attr(attrs, (k) => (k.$ === "RustcIntrinsic" ? null : undefined)) !== undefined ||
-        // PORT: `TyCtxt::is_sdylib_interface_build` (rustc_middle ty/context.rs:2807) is not ported yet.
-        unported("rustc_middle::ty::context::TyCtxt::is_sdylib_interface_build")
+        this_.tcx.is_sdylib_interface_build()
       ) {
         const span_ = this_.lower_span(span);
         const empty_block = new hir.Block([], undefined, this_.next_id(), hir.BlockCheckMode.DefaultBlock, span_, false);

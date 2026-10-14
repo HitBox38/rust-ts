@@ -8,9 +8,7 @@
 // - `&mut Option<_>` out-parameters are `MutRef`s; `&mut` places inside `NativeLibKind::Static { .. }`
 //   etc. are `field_mut` views.
 // - `macro report_unstable_modifier` is expanded at its single use.
-// - `ExternAbi` (rustc_abi/src/extern_abi.rs) is not ported: `LinkParser::finalize_check` handles
-//   `extern { .. }` without an ABI string (`ExternAbi::FALLBACK`, i.e. `C { unwind: false }`, which
-//   is not `Rust`) and reaches `unported` when it has to parse an ABI string.
+import { ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import type { CfgEntry } from "../../rustc_ast/attr/data_structures.ts";
 import { type LinkEntry, type Linkage, type PeImportNameType, target as target_mod } from "../../rustc_attr_ir/lib.ts";
 import { msg, str_trim } from "../../rustc_errors/lib.ts";
@@ -22,7 +20,7 @@ import type { Span } from "../../rustc_span/lib.ts";
 import { display_Symbol, kw, Symbol, sym } from "../../rustc_span/symbol.ts";
 import type { NativeLibKind } from "../../rustc_structures/native_lib_kind.ts";
 import { field_mut, type MutRef } from "../../std/mut_ref.ts";
-import { panic, unported, unwrap } from "../../std/panic.ts";
+import { panic, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { utf8_len } from "../../std/str.ts";
 import { type AcceptContext, ExpectNameValue, ExpectStringLiteral, type FinalizeCheckContext } from "../context.ts";
@@ -336,15 +334,24 @@ export const LinkParser: CombineAttributeParser<LinkEntry> & LinkParserInherent 
         panic("expected foreign module AST target item for Target::ForeignMod");
       }
       const fm = item.kind._0;
-      // `fm.abi.map_or(ExternAbi::FALLBACK, |abi| abi.symbol_unescaped.as_str().parse().unwrap_or_else(..))`
-      // PORT: `ExternAbi::FALLBACK` (`C { unwind: false }`) is not `ExternAbi::Rust`.
-      let abi_is_rust: boolean;
+      let abi: ExternAbi;
       if (fm.abi === undefined) {
-        abi_is_rust = false;
+        abi = ExternAbi.FALLBACK;
       } else {
-        abi_is_rust = unported("rustc_abi::ExternAbi::from_str (LinkParser::finalize_check)");
+        const abi_ = fm.abi;
+        const parsed = ExternAbi.from_str(Symbol.as_str(abi_.symbol_unescaped));
+        if (parsed.$ === "Ok") {
+          abi = parsed._0;
+        } else {
+          // `cx.dcx()`: FinalizeCheckContext -> SharedContext -> AttributeParser (Deref)
+          cx.shared.cx.dcx().span_delayed_bug(
+            abi_.span,
+            "LinkParser::finalize_check was unable to pre-detect the ABI, so it continues to use the recovery value solely to check for unused_attributes in the lint; a user error E0703 will be reported later in lower_abi",
+          );
+          abi = ExternAbi.Rust;
+        }
       }
-      if (abi_is_rust) {
+      if (abi.$ === "Rust") {
         cx.shared.emit_lint(UNUSED_ATTRIBUTES, Link_diagnostic({}), attr_span);
       }
     },

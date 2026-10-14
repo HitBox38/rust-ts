@@ -1349,6 +1349,11 @@ export class TyCtxt {
     return collect_and_apply(iter, c, (xs: readonly ArgOutlivesClause[]) => this.mk_outlives(xs));
   }
 
+  // rustc: compiler/rustc_middle/src/ty/context.rs:2807 is_sdylib_interface_build
+  is_sdylib_interface_build(): boolean {
+    return this.sess.opts.unstable_opts.build_sdylib_interface;
+  }
+
   /// In addition to regular items this list also includes struct and variant constructors, and
   /// items inside `extern {}` blocks because all of them introduce names into parent module.
   ///
