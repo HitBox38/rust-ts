@@ -8,7 +8,8 @@
 //   rustc +nightly --edition 2021 -Zui-testing cycle.rs           (rustc 1.101.0-nightly (6f5da406b 2026-10-10))
 // quoted in CYCLE_ORACLE below. The providers play the parts of rustc_hir_analysis (`check_well_formed(A)`
 // asks for `type_of(A)`, whose alias body `B` asks for `type_of(B)` at the span of `B`, and so on).
-// `TyCtxt::def_path_str` (ty::print, not ported yet) is stubbed with the items' names for this test only.
+// The descriptions print paths with the real `TyCtxt::def_path_str` (ty::print). The same cycle through the real
+// driver (HIR lowering included) is in rustc_query_impl/cycle.oracle.test.ts.
 import { expect, test } from "bun:test";
 import "../../rustc_query_impl/lib.ts";
 import { provide as query_impl_provide, print_query_stack } from "../../rustc_query_impl/lib.ts";
@@ -300,15 +301,9 @@ const CYCLE_ORACLE =
 
 test_("cycle detection: `type A = B; type B = A;` gives rustc's exact E0391 report", () => {
   const names = new Map<number, string>();
-  const saved = TyCtxt.prototype.def_path_str;
-  // Test-only stand-in for ty::print's `def_path_str` (see the module comment).
-  TyCtxt.prototype.def_path_str = function (this: TyCtxt, def_id: unknown): string {
-    const id = def_id instanceof DefId ? def_id.index : (def_id as number);
-    return names.get(id)!;
-  };
   let type_of_calls = 0;
   let stack: string[] = [];
-  try {
+  {
     const { out, err, print_error_count } = with_tcx(
       CYCLE_SRC,
       (p) => {
@@ -346,8 +341,6 @@ test_("cycle detection: `type A = B; type B = A;` gives rustc's exact E0391 repo
     // the driver prints the error count after the fatal error unwinds (rustc_driver_impl)
     print_error_count();
     expect(out()).toBe(CYCLE_ORACLE);
-  } finally {
-    TyCtxt.prototype.def_path_str = saved;
   }
   expect(stack).toEqual([
     "\n\nquery stack during panic:",
@@ -361,3 +354,34 @@ test_("cycle detection: `type A = B; type B = A;` gives rustc's exact E0391 repo
 const defs = new Map<string, LocalDefId>();
 const def_of = (n: string): LocalDefId => defs.get(n)!;
 let sp_of: (n: string, i: number) => Span = () => DUMMY_SP;
+
+test_("cycle handler `variances_of` (handle_cycle_error modifier): delays the cycle error as a bug and returns `Bivariant` per parameter", () => {
+  let generics_calls = 0;
+  const { r, err, out } = with_tcx(
+    "struct S<T, U>(T, U);\n",
+    (p) => {
+      // A provider that needs its own result: the query cycles on itself.
+      p.variances_of = (tcx, def_id) => tcx.variances_of(def_id);
+      // PORT (test): `generics_of` plays rustc_hir_analysis; the handler reads only `Generics::count`.
+      p.generics_of = () => {
+        generics_calls++;
+        return { count: () => 2 };
+      };
+    },
+    (tcx, sp) => {
+      const root = tcx.create_local_crate_def_id(sp("struct S<T, U>(T, U);"));
+      root.def_kind(DefKind.Mod);
+      const feed = tcx.at(sp("struct S<T, U>")).create_def(CRATE_DEF_ID, Symbol.intern("S"), DefKind.Struct, undefined, PerParentDisambiguatorState.new(CRATE_DEF_ID));
+      const variances = tcx.variances_of(feed.def_id());
+      return { variances, again: tcx.variances_of(feed.def_id()) === variances, delayed: tcx.dcx().has_errors_or_delayed_bugs() !== undefined, errors: tcx.dcx().has_errors() };
+    },
+  );
+  expect(err).toBeUndefined();
+  expect(r!.variances).toEqual(["Bivariant", "Bivariant"]);
+  expect(r!.again).toBe(true);
+  expect(r!.delayed).toBe(true);
+  expect(r!.errors).toBeUndefined();
+  expect(generics_calls).toBe(1);
+  // nothing is emitted: the cycle error became a delayed bug
+  expect(out()).toBe("");
+});

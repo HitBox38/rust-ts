@@ -1,0 +1,23 @@
+error[E0391]: cycle detected when computing the implied clauses of `A`
+  --> trait_alias.rs:2:11
+   |
+LL | trait A = B;
+   |           ^
+   |
+note: ...which requires computing the implied clauses of `B`...
+  --> trait_alias.rs:3:11
+   |
+LL | trait B = A;
+   |           ^
+   = note: ...which again requires computing the implied clauses of `A`, completing the cycle
+   = note: trait aliases cannot be recursive
+note: cycle used when checking that `A` is well-formed
+  --> trait_alias.rs:2:1
+   |
+LL | trait A = B;
+   | ^^^^^^^
+   = note: for more information, see <https://rustc-dev-guide.rust-lang.org/overview.html#queries> and <https://rustc-dev-guide.rust-lang.org/query.html>
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0391`.
