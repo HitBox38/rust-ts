@@ -5,9 +5,6 @@
 // Extension module (docs/handoff/ty-contract.md "Init order"): rustc_middle/lib.ts loads it after the classes; its
 // top-level code touches only `TyCtxt.prototype`.
 // PORT (D4): the generic methods take the descriptor `d_T` of `T` last (decls.ts signatures).
-// PORT(decls): pending root. ty/decls.ts declares `BoundVarReplacerDelegate` as `Pending<..>`; the trait is the
-// interface below, and the declared methods receive it through that alias (cast once, in
-// `replace_escaping_bound_vars_uncached` / `replace_bound_vars_uncached`). Root: re-export this interface from decls.ts.
 // PORT: `FxIndexMap<BoundRegion, Region>` (keyed by a struct) is a `KeyedMap` over `intern_key`; `FxIndexMap<BoundVar,
 // BoundVariableKind>` is a `Map` (insertion order is the index order upstream relies on).
 import { KeyedMap } from "../../rust_ts/keyed.ts";
@@ -25,7 +22,7 @@ import { Const, fold_Const, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { DebruijnIndex_shifted_in, DebruijnIndex_shifted_out } from "../../rustc_type_ir/ty_kind.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { TyCtxt } from "./context.ts";
-import type { BoundVarReplacerDelegate as BoundVarReplacerDelegatePending, Clauses } from "./decls.ts";
+import type { Clauses } from "./decls.ts";
 import { Ty } from "./mod.ts";
 import type { LateParamRegionKind } from "./region.ts";
 
@@ -299,13 +296,13 @@ TyCtxt.prototype.instantiate_bound_regions_uncached = function <T>(
 TyCtxt.prototype.replace_escaping_bound_vars_uncached = function <T>(
   this: TyCtxt,
   value: T,
-  delegate: BoundVarReplacerDelegatePending,
+  delegate: BoundVarReplacerDelegate,
   d_T: TypeFoldable<T>,
 ): T {
   if (!TypeVisitableExt.has_escaping_bound_vars(value, d_T)) {
     return value;
   } else {
-    const replacer = BoundVarReplacer.new(this, delegate as unknown as BoundVarReplacerDelegate);
+    const replacer = BoundVarReplacer.new(this, delegate);
     return d_T.fold_with(value, replacer);
   }
 };
@@ -317,7 +314,7 @@ TyCtxt.prototype.replace_escaping_bound_vars_uncached = function <T>(
 TyCtxt.prototype.replace_bound_vars_uncached = function <T>(
   this: TyCtxt,
   value: Binder<T>,
-  delegate: BoundVarReplacerDelegatePending,
+  delegate: BoundVarReplacerDelegate,
   d_T: TypeFoldable<T>,
 ): T {
   return this.replace_escaping_bound_vars_uncached(Binder.skip_binder(value), delegate, d_T);
@@ -346,7 +343,7 @@ TyCtxt.prototype.shift_bound_var_indices = function <T>(this: TyCtxt, bound_vars
     (t: BoundTy) => Ty.new_bound(this, INNERMOST, { var: shift_bv(t.var), kind: t.kind }),
     (c) => Const.new_bound(this, INNERMOST, BoundConstC.new(shift_bv(c.var))),
   );
-  return this.replace_escaping_bound_vars_uncached(value, delegate as unknown as BoundVarReplacerDelegatePending, d_T);
+  return this.replace_escaping_bound_vars_uncached(value, delegate, d_T);
 };
 
 /// Replaces any late-bound regions bound in `value` with `'erased`. Useful in codegen but also
@@ -361,7 +358,7 @@ TyCtxt.prototype.instantiate_bound_regions_with_erased = function <T>(this: TyCt
 TyCtxt.prototype.anonymize_bound_vars = function <T>(this: TyCtxt, value: Binder<T>, d_T: TypeFoldable<T>): Binder<T> {
   const map = new Map<BoundVar, BoundVariableKind>();
   const delegate = new Anonymize(this, map);
-  const inner = this.replace_escaping_bound_vars_uncached(Binder.skip_binder(value), delegate as unknown as BoundVarReplacerDelegatePending, d_T);
+  const inner = this.replace_escaping_bound_vars_uncached(Binder.skip_binder(value), delegate, d_T);
   const bound_vars = this.mk_bound_variable_kinds_from_iter(map.values());
   return Binder.bind_with_vars(inner, bound_vars);
 };

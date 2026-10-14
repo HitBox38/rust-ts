@@ -81,6 +81,8 @@ import type { Probe } from "./solve/inspect.ts";
 export type { Probe };
 import type { SolverAdtLangItem, SolverProjectionLangItem, SolverTraitLangItem } from "./lang_items.ts";
 export type { SolverAdtLangItem, SolverProjectionLangItem, SolverTraitLangItem };
+import type { TypeWalker } from "./walk.ts";
+export type { TypeWalker };
 
 // rustc_middle predicate.rs:28 and ff. (`pub type TypeOutlivesClause<'tcx> = ir::OutlivesClause<TyCtxt<'tcx>, Ty<'tcx>>`)
 export type TypeOutlivesClause = OutlivesClause<Ty>;
@@ -88,8 +90,6 @@ export type RegionOutlivesClause = OutlivesClause<Region>;
 export type ArgOutlivesClause = OutlivesClause<GenericArg>;
 
 // ---- pending (not generated: working structs and files outside set rustc_ty) ----
-// walk.rs
-export type TypeWalker = Pending<"TypeWalker">;
 // canonical.rs:271 (skipped by set rustc_ty: canonicalizer state)
 export type CanonicalParamEnvCache = Pending<"CanonicalParamEnvCache">;
 // search_graph

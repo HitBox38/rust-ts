@@ -199,7 +199,8 @@ export type Range<T> = { readonly start: T; readonly end: T };
 // ty/print/mod.rs `trait Print<P>` as a descriptor (lane ty-print decides its shape)
 export type Print<T> = Pending1<"Print", T>;
 // ty/fold.rs `trait BoundVarReplacerDelegate`
-export type BoundVarReplacerDelegate = Pending<"BoundVarReplacerDelegate">;
+import type { BoundVarReplacerDelegate } from "./fold.ts";
+export type { BoundVarReplacerDelegate };
 // the search graph's `Tracked<T>` (`I::Tracked<T>`, impl_interner.rs: `WithDepNode<T>`)
 export type Tracked<T> = Pending1<"Tracked", T>;
 
