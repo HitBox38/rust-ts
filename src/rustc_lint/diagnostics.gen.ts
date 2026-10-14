@@ -8,6 +8,7 @@ import { BuiltinClashingExternSub_add_to_diag, BuiltinClashingExternSub_subdiagn
 import { type Applicability } from "../rustc_lint_defs/lib.ts";
 import { type TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
+import { type Ty } from "../rustc_middle/ty/mod.ts";
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { type Session } from "../rustc_session/session.ts";
 import { type DefId } from "../rustc_span/def_id.ts";
@@ -301,7 +302,7 @@ export function ShadowedIntoIterDiagSub_subdiagnostic(self: ShadowedIntoIterDiag
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:194 ImplicitUnsafeAutorefsDiag
 export interface ImplicitUnsafeAutorefsDiag {
   raw_ptr_span: Span;
-  raw_ptr_ty: unknown;
+  raw_ptr_ty: Ty;
   origin: ImplicitUnsafeAutorefsOrigin;
   method: ImplicitUnsafeAutorefsMethodNote | undefined;
   suggestion: ImplicitUnsafeAutorefsSuggestion;
@@ -328,7 +329,7 @@ export function ImplicitUnsafeAutorefsDiag_diagnostic(self: ImplicitUnsafeAutore
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:207 ImplicitUnsafeAutorefsOrigin
 export type ImplicitUnsafeAutorefsOrigin =
-  | { readonly $: "Autoref"; autoref_span: Span; autoref_ty: unknown }
+  | { readonly $: "Autoref"; autoref_span: Span; autoref_ty: Ty }
   | { readonly $: "OverloadedDeref" };
 /** Unit variants of `ImplicitUnsafeAutorefsOrigin`, shared frozen singletons. */
 export const ImplicitUnsafeAutorefsOrigin = {
@@ -954,7 +955,7 @@ export function BuiltinFeatureIssueNote_subdiagnostic(self: BuiltinFeatureIssueN
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:610 BuiltinUnpermittedTypeInit
 export interface BuiltinUnpermittedTypeInit {
   msg: DiagMessage;
-  ty: unknown;
+  ty: Ty;
   label: Span;
   sub: BuiltinUnpermittedTypeInitSub;
   tcx: TyCtxt;
@@ -1003,8 +1004,8 @@ export function BuiltinClashingExtern_diagnostic(self: BuiltinClashingExtern): D
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:685 BuiltinClashingExternSub
 export interface BuiltinClashingExternSub {
   tcx: TyCtxt;
-  expected: unknown;
-  found: unknown;
+  expected: Ty;
+  found: Ty;
 }
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:703 BuiltinDerefNullptr
@@ -1092,7 +1093,7 @@ export function ExternCVoidReturn_diagnostic(self: ExternCVoidReturn): Diagnosti
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:749 SupertraitAsDerefTarget
 export interface SupertraitAsDerefTarget {
-  self_ty: unknown;
+  self_ty: Ty;
   supertrait_principal: unknown;
   target_principal: unknown;
   label: Span;
@@ -1120,7 +1121,7 @@ export function SupertraitAsDerefTarget_diagnostic(self: SupertraitAsDerefTarget
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:763 SupertraitAsDerefTargetLabel
 export interface SupertraitAsDerefTargetLabel {
   label: Span;
-  self_ty: unknown;
+  self_ty: Ty;
 }
 /** `#[derive(Subdiagnostic)]`: `impl Subdiagnostic for SupertraitAsDerefTargetLabel` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:763 Subdiagnostic SupertraitAsDerefTargetLabel
@@ -1138,7 +1139,7 @@ export function SupertraitAsDerefTargetLabel_subdiagnostic(self: SupertraitAsDer
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:772 EnumIntrinsicsMemDiscriminate
 export interface EnumIntrinsicsMemDiscriminate {
-  ty_param: unknown;
+  ty_param: Ty;
   note: Span;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for EnumIntrinsicsMemDiscriminate` */
@@ -1157,7 +1158,7 @@ export function EnumIntrinsicsMemDiscriminate_diagnostic(self: EnumIntrinsicsMem
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:785 EnumIntrinsicsMemVariant
 export interface EnumIntrinsicsMemVariant {
-  ty_param: unknown;
+  ty_param: Ty;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for EnumIntrinsicsMemVariant` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:785 Diagnostic EnumIntrinsicsMemVariant
@@ -1216,8 +1217,8 @@ export function ExpectationNote_subdiagnostic(self: ExpectationNote): Subdiagnos
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:809 UselessPtrNullChecksDiag
 export type UselessPtrNullChecksDiag =
-  | { readonly $: "FnPtr"; orig_ty: unknown; label: Span }
-  | { readonly $: "Ref"; orig_ty: unknown; label: Span }
+  | { readonly $: "FnPtr"; orig_ty: Ty; label: Span }
+  | { readonly $: "Ref"; orig_ty: Ty; label: Span }
   | { readonly $: "FnRet"; fn_name: Ident };
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for UselessPtrNullChecksDiag` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:809 Diagnostic UselessPtrNullChecksDiag
@@ -1426,8 +1427,8 @@ export function UseLetUnderscoreIgnoreSuggestion_subdiagnostic(self: UseLetUnder
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:942 RedefiningRuntimeSymbolsDiag
 export type RedefiningRuntimeSymbolsDiag =
-  | { readonly $: "Invalid"; symbol_name: string; expected_fn_sig: unknown; found_fn_sig: unknown }
-  | { readonly $: "Suspicious"; symbol_name: string; expected_fn_sig: unknown; found_fn_sig: unknown };
+  | { readonly $: "Invalid"; symbol_name: string; expected_fn_sig: Ty; found_fn_sig: Ty }
+  | { readonly $: "Suspicious"; symbol_name: string; expected_fn_sig: Ty; found_fn_sig: Ty };
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for RedefiningRuntimeSymbolsDiag` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:942 Diagnostic RedefiningRuntimeSymbolsDiag
 export function RedefiningRuntimeSymbolsDiag_into_diag(self: RedefiningRuntimeSymbolsDiag, dcx: DiagCtxtHandle, level: Level): Diag {
@@ -1462,7 +1463,7 @@ export function RedefiningRuntimeSymbolsDiag_diagnostic(self: RedefiningRuntimeS
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:969 DropRefDiag
 export interface DropRefDiag {
-  arg_ty: unknown;
+  arg_ty: Ty;
   label: Span;
   sugg: UseLetUnderscoreIgnoreSuggestion;
 }
@@ -1483,7 +1484,7 @@ export function DropRefDiag_diagnostic(self: DropRefDiag): Diagnostic {
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:979 DropCopyDiag
 export interface DropCopyDiag {
-  arg_ty: unknown;
+  arg_ty: Ty;
   label: Span;
   sugg: UseLetUnderscoreIgnoreSuggestion;
 }
@@ -1505,7 +1506,7 @@ export function DropCopyDiag_diagnostic(self: DropCopyDiag): Diagnostic {
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:994 DropInPlaceRefDiag
 export interface DropInPlaceRefDiag {
   from_fn: boolean;
-  arg_ty: unknown;
+  arg_ty: Ty;
   label: Span;
   sugg: UseLetUnderscoreIgnoreSuggestion;
 }
@@ -1528,7 +1529,7 @@ export function DropInPlaceRefDiag_diagnostic(self: DropInPlaceRefDiag): Diagnos
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1010 DropInPlaceCopyDiag
 export interface DropInPlaceCopyDiag {
   from_fn: boolean;
-  arg_ty: unknown;
+  arg_ty: Ty;
   label: Span;
   sugg: UseLetUnderscoreIgnoreSuggestion;
 }
@@ -1550,7 +1551,7 @@ export function DropInPlaceCopyDiag_diagnostic(self: DropInPlaceCopyDiag): Diagn
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1021 ForgetRefDiag
 export interface ForgetRefDiag {
-  arg_ty: unknown;
+  arg_ty: Ty;
   label: Span;
   sugg: UseLetUnderscoreIgnoreSuggestion;
 }
@@ -1571,7 +1572,7 @@ export function ForgetRefDiag_diagnostic(self: ForgetRefDiag): Diagnostic {
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1031 ForgetCopyDiag
 export interface ForgetCopyDiag {
-  arg_ty: unknown;
+  arg_ty: Ty;
   label: Span;
   sugg: UseLetUnderscoreIgnoreSuggestion;
 }
@@ -1593,7 +1594,7 @@ export function ForgetCopyDiag_diagnostic(self: ForgetCopyDiag): Diagnostic {
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1043 UndroppedManuallyDropsDiag
 export interface UndroppedManuallyDropsDiag {
   krate: string;
-  arg_ty: unknown;
+  arg_ty: Ty;
   label: Span;
   suggestion: UndroppedManuallyDropsSuggestion;
 }
@@ -1641,7 +1642,7 @@ export function UndroppedManuallyDropsSuggestion_subdiagnostic(self: UndroppedMa
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1069 UndroppedManuallyDropsInPlaceDiag
 export interface UndroppedManuallyDropsInPlaceDiag {
   krate: string;
-  arg_ty: unknown;
+  arg_ty: Ty;
   label: Span;
   suggestion: UndroppedManuallyDropsInPlaceSuggestion;
 }
@@ -1721,7 +1722,7 @@ export function InvalidFromUtf8Diag_diagnostic(self: InvalidFromUtf8Diag): Diagn
 export interface ConstItemInteriorMutationsDiag {
   method_name: Ident;
   const_name: Ident;
-  const_ty: unknown;
+  const_ty: Ty;
   receiver_span: Span;
   sugg_static: ConstItemInteriorMutationsSuggestionStatic | undefined;
 }
@@ -1783,7 +1784,7 @@ export function ConstItemInteriorMutationsSuggestionStatic_subdiagnostic(self: C
 export type InvalidReferenceCastingDiag =
   | { readonly $: "BorrowAsMut"; orig_cast: Span | undefined }
   | { readonly $: "AssignToRef"; orig_cast: Span | undefined }
-  | { readonly $: "BiggerLayout"; orig_cast: Span | undefined; alloc: Span; from_ty: unknown; from_size: number; to_ty: unknown; to_size: number };
+  | { readonly $: "BiggerLayout"; orig_cast: Span | undefined; alloc: Span; from_ty: Ty; from_size: number; to_ty: Ty; to_size: number };
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for InvalidReferenceCastingDiag` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:1148 Diagnostic InvalidReferenceCastingDiag
 export function InvalidReferenceCastingDiag_into_diag(self: InvalidReferenceCastingDiag, dcx: DiagCtxtHandle, level: Level): Diag {
@@ -2463,7 +2464,7 @@ export function IgnoredUnlessCrateSpecified_diagnostic(self: IgnoredUnlessCrateS
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1545 DanglingPointersFromTemporaries
 export interface DanglingPointersFromTemporaries {
   callee: Ident;
-  ty: unknown;
+  ty: Ty;
   ptr_span: Span;
   temporary_span: Span;
 }
@@ -2489,12 +2490,12 @@ export function DanglingPointersFromTemporaries_diagnostic(self: DanglingPointer
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1558 DanglingPointersFromLocals
 export interface DanglingPointersFromLocals {
-  ret_ty: unknown;
+  ret_ty: Ty;
   ret_ty_span: Span;
   fn_kind: string;
   local_var: Span;
   local_var_name: Ident;
-  local_var_ty: unknown;
+  local_var_ty: Ty;
   created_at: Span | undefined;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for DanglingPointersFromLocals` */
@@ -2802,7 +2803,7 @@ export function NonUpperCaseGlobalSubTool_subdiagnostic(self: NonUpperCaseGlobal
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1833 NoopMethodCallDiag
 export interface NoopMethodCallDiag {
   method: Ident;
-  orig_ty: unknown;
+  orig_ty: Ty;
   trait_: Symbol;
   label: Span;
   suggest_derive: Span | undefined;
@@ -2831,7 +2832,7 @@ export function NoopMethodCallDiag_diagnostic(self: NoopMethodCallDiag): Diagnos
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1851 SuspiciousDoubleRefDerefDiag
 export interface SuspiciousDoubleRefDerefDiag {
-  ty: unknown;
+  ty: Ty;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for SuspiciousDoubleRefDerefDiag` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:1851 Diagnostic SuspiciousDoubleRefDerefDiag
@@ -2848,7 +2849,7 @@ export function SuspiciousDoubleRefDerefDiag_diagnostic(self: SuspiciousDoubleRe
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:1859 SuspiciousDoubleRefCloneDiag
 export interface SuspiciousDoubleRefCloneDiag {
-  ty: unknown;
+  ty: Ty;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for SuspiciousDoubleRefCloneDiag` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:1859 Diagnostic SuspiciousDoubleRefCloneDiag
@@ -3077,8 +3078,8 @@ export function IntegerToPtrWithoutProvHelp_subdiagnostic(self: IntegerToPtrWith
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:2103 IntegerToPtrTransmutesSuggestion
 export type IntegerToPtrTransmutesSuggestion =
-  | { readonly $: "ToPtr"; krate: string; dst: unknown; suffix: string; start_call: Span }
-  | { readonly $: "ToRef"; krate: string; dst: unknown; suffix: string; ref_mutbl: string; start_call: Span };
+  | { readonly $: "ToPtr"; krate: string; dst: Ty; suffix: string; start_call: Span }
+  | { readonly $: "ToRef"; krate: string; dst: Ty; suffix: string; ref_mutbl: string; start_call: Span };
 /** `#[derive(Subdiagnostic)]`: `impl Subdiagnostic for IntegerToPtrTransmutesSuggestion` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:2103 Subdiagnostic IntegerToPtrTransmutesSuggestion
 export function IntegerToPtrTransmutesSuggestion_add_to_diag(self: IntegerToPtrTransmutesSuggestion, diag: Diag): void {
@@ -3805,7 +3806,7 @@ export function UnpredictableFunctionPointerComparisonsSuggestion_subdiagnostic(
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:2528 ImproperCTypes
 export interface ImproperCTypes {
-  ty: unknown;
+  ty: Ty;
   desc: string;
   label: Span;
   help: DiagMessage | undefined;
@@ -3815,7 +3816,7 @@ export interface ImproperCTypes {
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:2562 ImproperGpuKernelArg
 export interface ImproperGpuKernelArg {
-  ty: unknown;
+  ty: Ty;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for ImproperGpuKernelArg` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:2562 Diagnostic ImproperGpuKernelArg
@@ -3987,7 +3988,7 @@ export function UnusedOpSuggestion_subdiagnostic(self: UnusedOpSuggestion): Subd
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:2642 UnusedResult
 export interface UnusedResult {
-  ty: unknown;
+  ty: Ty;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for UnusedResult` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:2642 Diagnostic UnusedResult
@@ -4466,7 +4467,7 @@ export function FunctionCastsAsIntegerDiag_diagnostic(self: FunctionCastsAsInteg
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:2955 FunctionCastsAsIntegerSugg
 export interface FunctionCastsAsIntegerSugg {
   suggestion: Span;
-  cast_to_ty: unknown;
+  cast_to_ty: Ty;
 }
 /** `#[derive(Subdiagnostic)]`: `impl Subdiagnostic for FunctionCastsAsIntegerSugg` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:2955 Subdiagnostic FunctionCastsAsIntegerSugg
@@ -4539,8 +4540,8 @@ export function EqInternalMethodImplemented_diagnostic(self: EqInternalMethodImp
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:3165 ImplicitProvenanceCastsInt2Ptr
 export interface ImplicitProvenanceCastsInt2Ptr {
-  expr_ty: unknown;
-  cast_ty: unknown;
+  expr_ty: Ty;
+  cast_ty: Ty;
   sugg: Int2PtrSuggestion | undefined;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for ImplicitProvenanceCastsInt2Ptr` */
@@ -4587,8 +4588,8 @@ export function Int2PtrSuggestion_subdiagnostic(self: Int2PtrSuggestion): Subdia
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:3188 ImplicitProvenanceCastsPtr2Int
 export interface ImplicitProvenanceCastsPtr2Int {
-  cast_from_ty: unknown;
-  cast_to_ty: unknown;
+  cast_from_ty: Ty;
+  cast_to_ty: Ty;
   sugg: Ptr2IntSuggestion | undefined;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for ImplicitProvenanceCastsPtr2Int` */
@@ -4612,9 +4613,9 @@ export function ImplicitProvenanceCastsPtr2Int_diagnostic(self: ImplicitProvenan
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:3196 Ptr2IntSuggestion
 export type Ptr2IntSuggestion =
-  | { readonly $: "NeedsParensCast"; expr_span: Span; cast_span: Span; cast_to_ty: unknown }
+  | { readonly $: "NeedsParensCast"; expr_span: Span; cast_span: Span; cast_to_ty: Ty }
   | { readonly $: "NeedsParens"; expr_span: Span; cast_span: Span }
-  | { readonly $: "NeedsCast"; cast_span: Span; cast_to_ty: unknown }
+  | { readonly $: "NeedsCast"; cast_span: Span; cast_to_ty: Ty }
   | { readonly $: "Other"; cast_span: Span };
 /** `#[derive(Subdiagnostic)]`: `impl Subdiagnostic for Ptr2IntSuggestion` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:3196 Subdiagnostic Ptr2IntSuggestion

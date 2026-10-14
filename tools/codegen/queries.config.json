@@ -63,7 +63,8 @@
     "str": { "ts": "$v" },
     "rustc_span::Symbol": { "ts": "display_Symbol($v)", "imports": { "src/rustc_span/symbol.ts": ["display_Symbol"] } },
     "rustc_span::Ident": { "ts": "display_Ident($v)", "imports": { "src/rustc_span/symbol.ts": ["display_Ident"] } },
-    "rustc_span::def_id::CrateNum": { "ts": "display_CrateNum($v)", "imports": { "src/rustc_span/def_id.ts": ["display_CrateNum"] } }
+    "rustc_span::def_id::CrateNum": { "ts": "display_CrateNum($v)", "imports": { "src/rustc_span/def_id.ts": ["display_CrateNum"] } },
+    "rustc_middle::ty::Ty": { "ts": "display_Ty($v)", "imports": { "src/rustc_middle/ty/print/pretty.ts": ["display_Ty"] } }
   },
   "methods": {
     "def_path_str": "String",

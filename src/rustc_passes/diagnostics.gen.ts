@@ -6,6 +6,7 @@ import { type DiagSymbolList } from "../rustc_errors/diagnostic_impls.ts";
 import { Diag, type DiagArgMap, type DiagCtxtHandle, type Diagnostic, E0137, E0518, E0549, E0557, E0566, E0635, E0692, E0711, E0718, format_diag_message, IntoDiagArg, type Level, type Subdiagnostic } from "../rustc_errors/lib.ts";
 import { type MainDefinition } from "../rustc_middle/middle/resolve.ts";
 import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
+import { type Ty } from "../rustc_middle/ty/mod.ts";
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { type Duplicate } from "./lang_items.ts";
 import { type Span } from "../rustc_span/lib.ts";
@@ -767,7 +768,7 @@ export function IncorrectCrateType_diagnostic(self: IncorrectCrateType): Diagnos
 // rustc-type: compiler/rustc_passes/src/diagnostics.rs:491 UselessAssignment
 export interface UselessAssignment {
   is_field_assign: boolean;
-  ty: unknown;
+  ty: Ty;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for UselessAssignment` */
 // rustc-derive: compiler/rustc_passes/src/diagnostics.rs:491 Diagnostic UselessAssignment

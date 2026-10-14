@@ -627,6 +627,8 @@
   },
   "rustc_middle_diagnostics": {
     "files": ["compiler/rustc_middle/src/diagnostics.rs"],
+    "diag_args_skip": ["rustc_middle::ty::Ty"],
+    "diag_args_skip_note": "merge-w16a: rustc_middle/ty/mod.ts imports this set's diagnostics.gen.ts, so the .gen.ts must not import ty/diagnostics.ts (Ty_into_diag_arg) or ty/print/pretty.ts: loading them reads ty/mod.ts bindings before they are initialised (TDZ). The Ty args stay unported_into_diag_arg until the init order allows it.",
     "class": [],
     "hand": [],
     "discriminant": [],

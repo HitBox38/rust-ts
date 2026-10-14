@@ -36,7 +36,8 @@ import { type CanonicalInput } from "./traits/solve.ts";
 import { type Graph, debug_Graph } from "./traits/specialization_graph.ts";
 import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
-import { type Visibility, debug_Visibility } from "./ty/mod.ts";
+import { type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
+import { display_Ty } from "./ty/print/pretty.ts";
 import { type CrateNum, type DefId, type DefIdMap, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
 import { type ExpnId, type LocalExpnId, debug_ExpnId, stable_hash_ExpnId } from "../rustc_span/hygiene.ts";
 import { type ErrorGuaranteed, type Span, type Spanned, debug_ErrorGuaranteed, debug_Span, stable_hash_Span } from "../rustc_span/lib.ts";
@@ -348,8 +349,7 @@ export interface QueryTypes {
    * An implementation detail for the `check_representability` query. See that query for more
    * details, particularly on the modifiers.
    */
-  // PORT: key `Ty<'tcx>` not ported (`unknown`)
-  check_representability_adt_ty: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: null; ProvidedValue: null };
+  check_representability_adt_ty: { Key: Ty; KeyArg: Ty; LocalKey: Ty; Value: null; ProvidedValue: null };
   /**
    * Set of param indexes for type params that are in the type's representation
    */
@@ -469,8 +469,7 @@ export interface QueryTypes {
    * Normally you would just use `tcx.erase_and_anonymize_regions(value)`,
    * however, which uses this query as a kind of cache.
    */
-  // PORT: key `Ty<'tcx>` not ported; value `Ty<'tcx>` not ported (`unknown`)
-  erase_and_anonymize_regions_ty: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  erase_and_anonymize_regions_ty: { Key: Ty; KeyArg: Ty; LocalKey: Ty; Value: Ty; ProvidedValue: Ty };
   wasm_import_module_map: { Key: CrateNum; KeyArg: CrateNum; LocalKey: CrateNum; Value: DefIdMap<string>; ProvidedValue: DefIdMap<string> };
   /**
    * Returns the explicitly user-written *clauses and bounds* of the trait given by `DefId`.
@@ -761,14 +760,12 @@ export interface QueryTypes {
    * Note that we've liberated the late bound regions of function signatures, so
    * this can not be used to check whether these types are well formed.
    */
-  // PORT: value `&'tcx [(Ty<'tcx>, Span)]` not ported (`unknown`)
-  assumed_wf_types: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: readonly [unknown, Span][]; ProvidedValue: readonly [unknown, Span][] };
+  assumed_wf_types: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: readonly [Ty, Span][]; ProvidedValue: readonly [Ty, Span][] };
   /**
    * We need to store the assumed_wf_types for an RPITIT so that impls of foreign
    * traits with return-position impl trait in traits can inherit the right wf types.
    */
-  // PORT: value `&'tcx [(Ty<'tcx>, Span)]` not ported (`unknown`)
-  assumed_wf_types_for_rpitit: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: readonly [unknown, Span][]; ProvidedValue: readonly [unknown, Span][] };
+  assumed_wf_types_for_rpitit: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: readonly [Ty, Span][]; ProvidedValue: readonly [Ty, Span][] };
   /**
    * Computes the signature of the function.
    */
@@ -1012,10 +1009,9 @@ export interface QueryTypes {
   vtable_entries: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: readonly unknown[]; ProvidedValue: readonly unknown[] };
   // PORT: key `ty::TraitRef<'tcx>` not ported (`unknown`)
   first_method_vtable_slot: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: number; ProvidedValue: number };
-  // PORT: key `(Ty<'tcx>, Ty<'tcx>)` not ported (`unknown`)
-  supertrait_vtable_slot: { Key: [unknown, unknown]; KeyArg: [unknown, unknown]; LocalKey: [unknown, unknown]; Value: number | undefined; ProvidedValue: number | undefined };
+  supertrait_vtable_slot: { Key: [Ty, Ty]; KeyArg: [Ty, Ty]; LocalKey: [Ty, Ty]; Value: number | undefined; ProvidedValue: number | undefined };
   // PORT: key `(Ty<'tcx>, Option<ty::ExistentialTraitRef<'tcx>>)` not ported; value `mir::interpret::AllocId` not ported (`unknown`)
-  vtable_allocation: { Key: [unknown, unknown | undefined]; KeyArg: [unknown, unknown | undefined]; LocalKey: [unknown, unknown | undefined]; Value: unknown; ProvidedValue: unknown };
+  vtable_allocation: { Key: [Ty, unknown | undefined]; KeyArg: [Ty, unknown | undefined]; LocalKey: [Ty, unknown | undefined]; Value: unknown; ProvidedValue: unknown };
   // PORT: key `PseudoCanonicalInput<'tcx, ty::TraitRef<'tcx>>` not ported; value `Result<&'tcx ImplSource<'tcx, ()>, CodegenObligationError>` not ported (`unknown`)
   codegen_select_candidate: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, CodegenObligationError>; ProvidedValue: Result<unknown, CodegenObligationError> };
   /**
@@ -1111,8 +1107,7 @@ export interface QueryTypes {
    * This is only correct for ADTs. Call `is_structural_eq_shallow` to handle all types
    * correctly.
    */
-  // PORT: key `Ty<'tcx>` not ported (`unknown`)
-  has_structural_eq_impl: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  has_structural_eq_impl: { Key: Ty; KeyArg: Ty; LocalKey: Ty; Value: boolean; ProvidedValue: boolean };
   /**
    * A list of types where the ADT requires drop if and only if any of
    * those types require drop. If the ADT is known to always need drop
@@ -1355,8 +1350,7 @@ export interface QueryTypes {
    */
   // PORT: value `Option<&'tcx NativeLib>` not ported (`unknown`)
   native_library: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: DefId; Value: unknown | undefined; ProvidedValue: unknown | undefined };
-  // PORT: value `&'tcx [Ty<'tcx>]` not ported (`unknown`)
-  inherit_sig_for_delegation_item: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: readonly unknown[]; ProvidedValue: readonly unknown[] };
+  inherit_sig_for_delegation_item: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: readonly Ty[]; ProvidedValue: readonly Ty[] };
   // PORT: value `(&'tcx [GenericArg<'tcx>], &'tcx [GenericArg<'tcx>])` not ported (`unknown`)
   delegation_user_specified_args: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: [readonly unknown[], readonly unknown[]]; ProvidedValue: [readonly unknown[], readonly unknown[]] };
   /**
@@ -1454,8 +1448,8 @@ export interface QueryTypes {
   /**
    * Do not call this query directly: invoke `Ty::inhabited_predicate` instead.
    */
-  // PORT: key `Ty<'tcx>` not ported; value `ty::inhabitedness::InhabitedPredicate<'tcx>` not ported (`unknown`)
-  inhabited_predicate_type: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  // PORT: value `ty::inhabitedness::InhabitedPredicate<'tcx>` not ported (`unknown`)
+  inhabited_predicate_type: { Key: Ty; KeyArg: Ty; LocalKey: Ty; Value: unknown; ProvidedValue: unknown };
   /**
    * Do not call this query directly: invoke `Ty::is_opsem_inhabited` instead.
    */
@@ -1691,8 +1685,8 @@ export interface QueryTypes {
   /**
    * Do not call this query directly: part of the `Normalize` type-op
    */
-  // PORT: key `CanonicalTypeOpNormalizeGoal<'tcx, Ty<'tcx>>` not ported; value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, Ty<'tcx>>>, NoSolution,>` not ported (`unknown`)
-  type_op_normalize_ty: { Key: CanonicalTypeOpNormalizeGoal<unknown>; KeyArg: CanonicalTypeOpNormalizeGoal<unknown>; LocalKey: CanonicalTypeOpNormalizeGoal<unknown>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, Ty<'tcx>>>, NoSolution,>` not ported (`unknown`)
+  type_op_normalize_ty: { Key: CanonicalTypeOpNormalizeGoal<Ty>; KeyArg: CanonicalTypeOpNormalizeGoal<Ty>; LocalKey: CanonicalTypeOpNormalizeGoal<Ty>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Do not call this query directly: part of the `Normalize` type-op
    */
@@ -1790,7 +1784,7 @@ export interface QueryTypes {
   // PORT: value `ty::AnonConstKind` not ported (`unknown`)
   anon_const_kind: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
   // PORT: value `Option<(mir::ConstValue, Ty<'tcx>)>` not ported (`unknown`)
-  trivial_const: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: [unknown, unknown] | undefined; ProvidedValue: [unknown, unknown] | undefined };
+  trivial_const: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: [unknown, Ty] | undefined; ProvidedValue: [unknown, Ty] | undefined };
   /**
    * Checks for the nearest `#[sanitize(xyz = "off")]` or
    * `#[sanitize(xyz = "on")]` on this def and any enclosing defs, up to the
@@ -2644,7 +2638,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `check_representability_adt_ty` (Display of `rustc_middle::ty::Ty`)"),
+    desc: (_tcx, key) => { const __0 = key; return `checking if \`${display_Ty(__0)}\` is representable`; },
     debug_value: (v, f) => "()",
     stable_hash_value: stable_hash_unit,
   },
@@ -3004,8 +2998,8 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: true,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `erase_and_anonymize_regions_ty` (Display of `rustc_middle::ty::Ty`)"),
-    debug_value: undefined,
+    desc: (_tcx, ty) => { const __0 = ty; return `erasing regions from \`${display_Ty(__0)}\``; },
+    debug_value: (v, f) => debug_Ty(v, f),
     stable_hash_value: undefined,
   },
   wasm_import_module_map: {
@@ -3743,7 +3737,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied bounds of \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_Ty(x[0], f), debug_Span(x[1], f)])),
     stable_hash_value: undefined,
   },
   assumed_wf_types_for_rpitit: {
@@ -3761,7 +3755,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `computing the implied bounds of \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_Ty(x[0], f), debug_Span(x[1], f)])),
     stable_hash_value: undefined,
   },
   fn_sig: {
@@ -4822,7 +4816,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `supertrait_vtable_slot` (Display of `rustc_middle::ty::Ty`)"),
+    desc: (_tcx, key) => { const __0 = key[1]; const __1 = key[0]; return `finding the slot within vtable for trait object \`${display_Ty(__0)}\` vtable ptr during trait upcasting coercion from \`${display_Ty(__1)}\` vtable`; },
     debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_int(x, f))),
     stable_hash_value: (v, hcx, h) => stable_hash_Option(v, hcx, h, stable_hash_usize),
   },
@@ -5200,7 +5194,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `has_structural_eq_impl` (Display of `rustc_middle::ty::Ty`)"),
+    desc: (_tcx, ty) => { const __0 = ty; return `computing whether \`${display_Ty(__0)}\` implements \`StructuralPartialEq\``; },
     debug_value: (v, f) => debug_bool(v, f),
     stable_hash_value: stable_hash_bool,
   },
@@ -6029,7 +6023,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (_tcx, _def_id) => `inheriting delegation signature`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_Ty(x, f)),
     stable_hash_value: undefined,
   },
   delegation_user_specified_args: {
@@ -6244,7 +6238,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `inhabited_predicate_type` (Display of `rustc_middle::ty::Ty`)"),
+    desc: (_tcx, key) => { const __0 = key; return `computing the uninhabited predicate of \`${display_Ty(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },

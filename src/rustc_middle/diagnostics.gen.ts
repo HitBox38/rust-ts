@@ -2,8 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in diagnostics.ts next to this file.
 import { number_into_diag_arg, Path_into_diag_arg, String_into_diag_arg, Symbol_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
 import { Diag, type DiagArgMap, type DiagCtxtHandle, type Diagnostic, E0320, format_diag_message, IntoDiagArg, type Level, type Subdiagnostic } from "../rustc_errors/lib.ts";
-import { Ty_into_diag_arg } from "./ty/diagnostics.ts";
-import { display_Ty } from "./ty/print/pretty.ts";
+import { type Ty } from "./ty/mod.ts";
 import { type Span } from "../rustc_span/lib.ts";
 import { display_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { display_Limit, type Limit, Limit_into_diag_arg } from "../rustc_structures/limit.ts";
@@ -13,8 +12,8 @@ const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported(
 // rustc-type: compiler/rustc_middle/src/diagnostics.rs:13 DropCheckOverflow
 export interface DropCheckOverflow {
   span: Span;
-  ty: unknown;
-  overflow_ty: unknown;
+  ty: Ty;
+  overflow_ty: Ty;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for DropCheckOverflow` */
 // rustc-derive: compiler/rustc_middle/src/diagnostics.rs:13 Diagnostic DropCheckOverflow
@@ -23,8 +22,8 @@ export function DropCheckOverflow_into_diag(self: DropCheckOverflow, dcx: DiagCt
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "overflow while adding drop-check rules for `{$ty}`" });
   diag.code(E0320);
   diag.note({ $: "Inline", _0: "overflowed on `{$overflow_ty}`" });
-  diag.arg("ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
-  diag.arg("overflow_ty", IntoDiagArg.of(__binding_2, Ty_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("overflow_ty", IntoDiagArg.of(__binding_2, unported_into_diag_arg));
   diag.span(__binding_0);
   return diag;
 }
@@ -54,8 +53,8 @@ export function FailedWritingFile_diagnostic(self: FailedWritingFile): Diagnosti
 
 // rustc-type: compiler/rustc_middle/src/diagnostics.rs:29 OpaqueHiddenTypeMismatch
 export interface OpaqueHiddenTypeMismatch {
-  self_ty: unknown;
-  other_ty: unknown;
+  self_ty: Ty;
+  other_ty: Ty;
   other_span: Span;
   sub: TypeMismatchReason;
 }
@@ -64,8 +63,8 @@ export interface OpaqueHiddenTypeMismatch {
 export function OpaqueHiddenTypeMismatch_into_diag(self: OpaqueHiddenTypeMismatch, dcx: DiagCtxtHandle, level: Level): Diag {
   const { self_ty: __binding_0, other_ty: __binding_1, other_span: __binding_2, sub: __binding_3 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "concrete type differs from previous defining opaque type use" });
-  diag.arg("self_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
-  diag.arg("other_ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
+  diag.arg("self_ty", IntoDiagArg.of(__binding_0, unported_into_diag_arg));
+  diag.arg("other_ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
   diag.span(__binding_2);
   diag.span_label(__binding_2, { $: "Inline", _0: "expected `{$self_ty}`, got `{$other_ty}`" });
   diag.subdiagnostic(TypeMismatchReason_subdiagnostic(__binding_3));
@@ -108,7 +107,7 @@ export function TypeMismatchReason_subdiagnostic(self: TypeMismatchReason): Subd
 // rustc-type: compiler/rustc_middle/src/diagnostics.rs:58 RecursionLimitReached
 export interface RecursionLimitReached {
   span: Span;
-  ty: unknown;
+  ty: Ty;
   suggested_limit: Limit;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for RecursionLimitReached` */
@@ -117,7 +116,7 @@ export function RecursionLimitReached_into_diag(self: RecursionLimitReached, dcx
   const { span: __binding_0, ty: __binding_1, suggested_limit: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "reached the recursion limit finding the struct tail for `{$ty}`" });
   diag.help({ $: "Inline", _0: "consider increasing the recursion limit by adding a `#![recursion_limit = \"{$suggested_limit}\"]`" });
-  diag.arg("ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
   diag.arg("suggested_limit", IntoDiagArg.of(__binding_2, Limit_into_diag_arg));
   diag.span(__binding_0);
   return diag;
@@ -130,7 +129,7 @@ export function RecursionLimitReached_diagnostic(self: RecursionLimitReached): D
 // rustc-type: compiler/rustc_middle/src/diagnostics.rs:70 RecursionLimitReachedSizeSkeleton
 export interface RecursionLimitReachedSizeSkeleton {
   span: Span;
-  ty: unknown;
+  ty: Ty;
   suggested_limit: Limit;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for RecursionLimitReachedSizeSkeleton` */
@@ -139,7 +138,7 @@ export function RecursionLimitReachedSizeSkeleton_into_diag(self: RecursionLimit
   const { span: __binding_0, ty: __binding_1, suggested_limit: __binding_2 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "reached the recursion limit while computing the size of `{$ty}`" });
   diag.help({ $: "Inline", _0: "consider increasing the recursion limit by adding a `#![recursion_limit = \"{$suggested_limit}\"]`" });
-  diag.arg("ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
   diag.arg("suggested_limit", IntoDiagArg.of(__binding_2, Limit_into_diag_arg));
   diag.span(__binding_0);
   return diag;

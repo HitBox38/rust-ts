@@ -298,6 +298,12 @@ export interface SetConfig {
    * their entries win over global ones for the same path (e.g. `rustc_middle::ty::Ty`, an `unknown` placeholder for other sets).
    */
   typemap_extra?: string[];
+  /**
+   * Rust paths whose diag_args.json entries this set does not use: its derives keep `unported_into_diag_arg` /
+   * `unported_display` for them (reported as missing). For a `.gen.ts` that a defining module imports, where the
+   * entry's import would evaluate modules that read that defining module's bindings at load (init order, TDZ).
+   */
+  diag_args_skip?: string[];
 }
 
 /** tools/codegen/type_fold.json: `TypeVisitable` / `TypeFoldable` impls of external types and the trait shapes. */
@@ -3109,6 +3115,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       if (r.k !== "ext") return undefined;
       for (const k of r.keys) for (const e of daIndex.get(k) ?? []) {
         if (e[which] === undefined) continue;
+        if (e.paths.some((p) => set.diag_args_skip?.includes(p))) continue;
         // impls for one instantiation only (`impl IntoDiagArg for Vec<char>`)
         if (e.arg0 !== undefined && t.path!.segments.at(-1)!.args.find((a) => a.kind === "type")?.ty?.text !== e.arg0) continue;
         let expr = e[which]!;

@@ -9,7 +9,7 @@
     { "paths": ["rustc_lint_defs::Level", "rustc_lint::Level", "rustc_session::lint::Level"], "ts": "LintLevel", "import": "src/rustc_errors/lib.ts", "types": ["LintLevel"], "debug": "$v", "clone": "copy", "note": "rustc_errors' re-export `LintLevel` (= rustc_lint_defs Level), so it does not clash with rustc_errors::Level; Debug of a fieldless enum is its variant name" },
     { "paths": ["rustc_session::Session", "rustc_session::session::Session"], "ts": "Session", "import": "src/rustc_session/session.ts", "types": ["Session"], "debug": null, "clone": null },
     { "paths": ["rustc_lint::LateContext", "rustc_lint::context::LateContext"], "ts": "LateContext", "import": "src/rustc_lint/context.ts", "types": ["LateContext"], "debug": null, "clone": null, "note": "hand-written in context.ts (late lints: M3)" },
-    { "paths": ["rustc_middle::ty::Ty"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty (M3)" },
+    { "paths": ["rustc_middle::ty::Ty"], "ts": "Ty", "import": "src/rustc_middle/ty/mod.ts", "types": ["Ty"], "values": ["debug_Ty"], "debug": "debug_Ty($v, $f)", "clone": "copy", "note": "rustc_middle ty (wave 15) as in tyir.typemap.json (merge-w16a: was `unknown`, which blocked query descs displaying a `Ty`)" },
     { "paths": ["rustc_middle::ty::Clause"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty (M3)" },
     { "paths": ["rustc_middle::ty::PolyExistentialTraitRef"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty (M3)" },
     { "paths": ["rustc_middle::ty::PolyFnSig"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty (M3)" },
