@@ -41,20 +41,23 @@ import type { LateParamRegionKind, FieldIdx, VariantIdx } from "../../rustc_midd
 import { GenericArg, type GenericArgs, fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { debug_GenericParamDefKind, GenericParamDef, type Generics } from "../../rustc_middle/ty/generics.ts";
 import { RawList, type Clauses, type List } from "../../rustc_middle/ty/list.ts";
-import { type ImplTraitHeader, Ty, Visibility, type FieldDef, type VariantDef } from "../../rustc_middle/ty/mod.ts";
+import { type ImplTraitHeader, ParamEnv, Ty, Visibility, type FieldDef, type VariantDef } from "../../rustc_middle/ty/mod.ts";
 import { type Clause, Clause_upcast_from_Binder_ClauseKind } from "../../rustc_middle/ty/predicate.ts";
 import { fold_Ty, debug_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { feature_err } from "../../rustc_session/diagnostics.ts";
 import { DefId_eq, DefIdMap, DefIdSet, debug_DefId, type DefId, LocalDefId, type LocalModId, type ModId } from "../../rustc_span/def_id.ts";
-import { type ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
+import { DUMMY_SP, type ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { type Ident, kw, Symbol as Sym, sym, debug_Symbol, display_Ident, display_Symbol } from "../../rustc_span/symbol.ts";
 import { Binder, EarlyBinder, BoundConst, BoundRegionKind, fold_Binder } from "../../rustc_type_ir/binder.ts";
 import type { BoundRegion, ClauseKind, EarlyBinder as EarlyBinderT, PolyTraitRef as PolyTraitRefT, TraitRef as TraitRefT, AnonConstKind, DebruijnIndex, BoundTy, PolyFnSig } from "../../rustc_type_ir/decls.ts";
 import { supertrait_def_ids, supertraits } from "../../rustc_type_ir/elaborate.ts";
-import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided, fold_Vec } from "../../rustc_type_ir/fold.ts";
+import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided, fold_Vec, fold_regions } from "../../rustc_type_ir/fold.ts";
 import { BoundVar } from "../../rustc_type_ir/lib.ts";
-import { as_interner, PolyTraitRef, TraitRef, visit_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
+import { as_interner, PolyTraitRef, TraitRef, visit_with_TraitRef, try_fold_with_TraitRef, fold_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
+import { TypingMode as TypingModeC } from "../../rustc_type_ir/infer_ctxt.ts";
+import * as rustc_infer from "../../rustc_infer/lib.ts";
+import "../../rustc_trait_selection/lib.ts";
 import { Const, fold_Const } from "../../rustc_type_ir/sty/consts.ts";
 import { fold_Region, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { AliasTerm, type AliasTermKind } from "../../rustc_type_ir/term_kind.ts";
@@ -1170,10 +1173,7 @@ HirTyLowerer.prototype.probe_single_ty_param_bound_for_assoc_item = function (
           yield Binder.map_bound(trait_clause, (t) => t.trait_ref);
         }
       })();
-      void trait_refs;
-      void tcx;
-      // traits::transitive_bounds_that_define_assoc_item(tcx, trait_refs, assoc_ident)
-      return unported("rustc_infer::traits::util::transitive_bounds_that_define_assoc_item");
+      return rustc_infer.traits.util.transitive_bounds_that_define_assoc_item(tcx, trait_refs, assoc_ident);
     },
     { $: "TyParam", _0: ty_param_def_id, _1: ty_param_span },
     assoc_tag,
@@ -1772,8 +1772,7 @@ HirTyLowerer.prototype.probe_traits_that_match_assoc_ty = function (this: HirTyL
     infcx = infcx_opt;
   } else {
     assert(!TypeVisitableExt.has_infer(qself_ty, fold_Ty), "assertion failed: !qself_ty.has_infer()");
-    // infcx_ = tcx.infer_ctxt().build(TypingMode::non_body_analysis());
-    infcx = unported("rustc_infer::infer::TyCtxtInferExt::infer_ctxt (InferCtxtBuilder::build)");
+    infcx = tcx.infer_ctxt().build(TypingModeC.non_body_analysis());
   }
 
   const out: string[] = [];
@@ -1793,15 +1792,18 @@ HirTyLowerer.prototype.probe_traits_that_match_assoc_ty = function (this: HirTyL
       ((): boolean => {
         for (const impl_def_id of tcx.all_impls(trait_def_id)) {
           const header = tcx.impl_trait_header(impl_def_id) as ImplTraitHeader;
-          // PORT: `InferCtxt` is pending (lane infcx-contract). The rest of the closure is:
-          //   let trait_ref = header.trait_ref.instantiate(tcx, infcx.fresh_args_for_item(DUMMY_SP, impl_def_id)).skip_norm_wip();
-          //   let value = fold_regions(tcx, qself_ty, |_, _| tcx.lifetimes.re_erased);
-          //   // FIXME: Don't bother dealing with non-lifetime binders here...
-          //   if value.has_escaping_bound_vars() { return false; }
-          //   infcx.can_eq(ty::ParamEnv::empty(), trait_ref.self_ty(), value) && header.polarity != ty::ImplPolarity::Negative
-          void header;
-          void infcx;
-          return unported("rustc_infer::infer::InferCtxt::fresh_args_for_item");
+          const trait_ref = Unnormalized.skip_norm_wip(
+            EarlyBinder.instantiate(header.trait_ref, tcx, infcx.fresh_args_for_item(DUMMY_SP, impl_def_id), d_TraitRef_),
+          );
+
+          const value = fold_regions(tcx, qself_ty, () => tcx.lifetimes.re_erased, fold_Ty);
+          // FIXME: Don't bother dealing with non-lifetime binders here...
+          if (TypeVisitableExt.has_escaping_bound_vars(value, fold_Ty)) {
+            continue;
+          }
+          if (infcx.can_eq(ParamEnv.empty(), TraitRef.self_ty(trait_ref), value, rustc_infer.infer.at.ToTrace_Ty) && header.polarity !== "Negative") {
+            return true;
+          }
         }
         return false;
       })();
@@ -2079,6 +2081,9 @@ HirTyLowerer.prototype.probe_generic_path_segments = function (
 
   return generic_segments;
 };
+
+/** D4 descriptor of `TraitRef` (`EarlyBinder<TraitRef>::instantiate` in `probe_traits_that_match_assoc_ty`). */
+const d_TraitRef_: TypeFoldable<TraitRefT> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
 
 // ==== lane hir-ty-lowering-b: mod.rs:2186..3915 ====
 

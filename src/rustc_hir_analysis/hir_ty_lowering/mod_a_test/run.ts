@@ -21,7 +21,7 @@ import { Ident, Symbol } from "../../../rustc_span/symbol.ts";
 import type { Region } from "../../../rustc_type_ir/sty/mod.ts";
 import { fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import { FatalErrorMarker } from "../../../rustc_errors/lib.ts";
-import { Unported } from "../../../std/panic.ts";
+import { Panic, Unported } from "../../../std/panic.ts";
 import { unported } from "../../../std/panic.ts";
 import { HirTyLowerer, type HirTyLowererImpl, type ResolvedArg } from "../../decls.ts";
 import { HirTyLowerer_provided, AssocItemQSelf, ForbidParamUsesFolder, LowerTypeRelativePathMode } from "../mod.ts";
@@ -80,6 +80,9 @@ function report(tcx: TyCtxt): string {
     } catch (e) {
       if (e instanceof Unported) {
         out(`PENDING ${name}: ${e.message}`);
+      } else if (e instanceof Panic) {
+        // An ICE of the ported code on a case the test fabricates (e.g. `EarlyBound` for a late-bound lifetime).
+        out(`PANIC ${name}: ${e.message}`);
       } else if (e instanceof FatalErrorMarker) {
         // A query that stopped as UNPORTED in an earlier case is poisoned: rustc raises `FatalError` on its next use.
         out(`PENDING ${name}: FatalError (a query poisoned by an earlier UNPORTED case)`);
@@ -261,7 +264,16 @@ function report(tcx: TyCtxt): string {
     show_segments(lowerer.probe_generic_path_segments(segs(1), undefined, DefKind.AssocConst, did("Tr"), DUMMY_SP)),
   );
   run("probe_generic_path_segments([s0, s1], AssocFn, Tr::f)", () =>
-    show_segments(lowerer.probe_generic_path_segments(segs(2), undefined, DefKind.AssocFn, did("Tr"), DUMMY_SP)),
+    show_segments(
+      lowerer.probe_generic_path_segments(
+        segs(2),
+        undefined,
+        DefKind.AssocFn,
+        // `Tr::f` (merge-w16a: was `Tr`, whose `generics_of` has no parent, an ICE upstream too)
+        (tcx.associated_item_def_ids(did("Tr")) as readonly DefId[]).find((d) => name_of(d) === "f")!,
+        DUMMY_SP,
+      ),
+    ),
   );
   // Any `DefId` not queried by an earlier case (`generics_of(S)` is poisoned by `lower_path_segment(S)`).
   run("probe_generic_path_segments([s0], Ctor(Struct, Const), Other)", () =>
