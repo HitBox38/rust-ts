@@ -94,4 +94,5 @@ None in these files.
 4. Record the PORT decisions above.
 
 ## Full test run
-(filled in below)
+`RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4509 pass, 1 skip (the linux-only skip that was already
+there), 0 fail (4510 tests, 272 files, 1124 s), including hira_misc.test.ts 11/11 and contract.test.ts 10/10. Run at `1a555dd`.
