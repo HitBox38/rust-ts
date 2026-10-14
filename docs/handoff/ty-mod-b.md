@@ -35,7 +35,8 @@ Branch `lane/ty-mod-b` (from main `ab2cdfc`, no merges). Commits: the port; unit
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see the final note at the end of this file.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools` (on the port commit `c5f499d`, before the new test
+  file): 4292 pass, 1 skip (the pre-existing linux-only one), 0 fail.
 - `bun test src/rustc_middle/ty/ty_mod_b.test.ts`: 13 pass.
 - Fresh-entry loads of every non-test module under `src/rustc_middle` and `src/rustc_type_ir`: the same set loads as
   on base `ab2cdfc`. Every module that failed before still fails, for the same pre-existing reasons, and nothing new
