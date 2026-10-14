@@ -1,13 +1,16 @@
 //! The various pretty-printing routines.
 // Partial port of compiler/rustc_driver_impl/src/pretty.rs: the AST modes (`normal`, `ast-tree`, and the
-// `NeedsAstMap` ones: `expanded`, `expanded,identified`, `expanded,hygiene`, `ast-tree,expanded`). The
-// HIR/MIR/THIR modes need HIR and later crates and call `unported`.
+// `NeedsAstMap` ones: `expanded`, `expanded,identified`, `expanded,hygiene`, `ast-tree,expanded`) and `hir-tree`.
+// The `hir` (rustc_hir_pretty), MIR and THIR modes need later crates and call `unported`.
 import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import type { Crate } from "../rustc_ast/ast.gen.ts";
 import { debug_Crate } from "../rustc_ast/ast.gen.ts";
 import { PpAnn, print_crate } from "../rustc_ast_pretty/pprust/mod.ts";
 import type { AnnNode, State } from "../rustc_ast_pretty/pprust/state.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import { hir } from "../rustc_middle/lib.ts";
+import { debug_OwnerNodes } from "../rustc_hir/hir.ts";
+import { debug_OwnerId } from "../rustc_hir_id/lib.ts";
 import { debug_hygiene_data, debug_SyntaxContext } from "../rustc_span/hygiene.ts";
 import { Span } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
@@ -194,7 +197,21 @@ export function print(sess: Session, ppm: PpMode, ex: PrintExtra): void {
       out = format_debug(PrintExtra.tcx(ex).resolver_for_lowering()[1].borrow(), debug_Crate, PRETTY);
       break;
     case "Hir":
-    case "HirTree":
+      // debug!("pretty printing HIR {:?}", s);
+      // PORT: `rustc_hir_pretty::print_crate` and the HIR annotators are a later lane (hir-pretty).
+      return unported(`rustc_driver_impl::pretty::print (Hir: rustc_hir_pretty, pending)`);
+    case "HirTree": {
+      // debug!("pretty printing HIR tree");
+      // PORT: the `hir_crate_items` query value is `unknown` in queries.gen.ts.
+      const owners = (PrintExtra.tcx(ex).hir_crate_items(null) as hir.ModuleItems).owners();
+      // `.map(|owner| format!("{:#?} => {:#?}\n", owner, ex.tcx().hir_owner_nodes(owner))).collect()`
+      let s = "";
+      for (const owner of owners) {
+        s += `${format_debug(owner, debug_OwnerId, PRETTY)} => ${format_debug(PrintExtra.tcx(ex).hir_owner_nodes(owner), debug_OwnerNodes, PRETTY)}\n`;
+      }
+      out = s;
+      break;
+    }
     case "Mir":
     case "MirCFG":
     case "StableMir":
