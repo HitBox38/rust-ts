@@ -43,6 +43,8 @@ import type { GenericArg, GenericArgs } from "../generic_args.ts";
 import type { List } from "../list.ts";
 import type { Clause } from "../predicate.ts";
 import type { ConstConditions, GenericClauses } from "../generics.ts";
+import type { AssocItems as AssocItemsT } from "../assoc.ts";
+import type { TraitDef } from "../trait_def.ts";
 
 // `impl Interner for TyCtxt` (impl_interner.rs:31)
 
@@ -391,10 +393,12 @@ TyCtxt.prototype.as_adt_lang_item = function (this: TyCtxt, def_id: DefId): Solv
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:521 associated_type_def_ids
 TyCtxt.prototype.associated_type_def_ids = function (this: TyCtxt, def_id: DefId): Iterable<DefId> {
-  // self.associated_items(def_id).in_definition_order().filter(|assoc_item| assoc_item.is_type())
-  //     .map(|assoc_item| assoc_item.def_id)
-  void def_id;
-  return unported("rustc_middle::ty::assoc::AssocItems::in_definition_order (ty/assoc.rs, lane ty-adt-assoc)");
+  const { AssocItem, AssocItems } = middle_assoc();
+  // PORT: the `associated_items` query value is `unknown` in queries.gen.ts: it is an `AssocItems`.
+  const items = AssocItems.in_definition_order(this.associated_items(def_id) as AssocItemsT);
+  return (function* () {
+    for (const assoc_item of items) if (AssocItem.is_type(assoc_item)) yield assoc_item.def_id;
+  })();
 };
 
 // This signature is a bit different from `TyCtxt::for_each_relevant_impl`.
@@ -448,16 +452,11 @@ TyCtxt.prototype.is_fully_generic_for_reflection = function (this: TyCtxt, impl_
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:579 trait_is_auto
 // served by the inherent `trait_is_auto` (ty/mod.rs:1916)
 
-// PORT: `TraitDef` (ty/trait_def.rs, lane ty-adt-assoc) is pending; these read its fields.
-interface TraitDefFields {
-  safety: Safety;
-  is_marker: boolean;
-  is_fundamental: boolean;
-}
+// PORT: the `trait_def` query value is `unknown` in queries.gen.ts: these cast it to `TraitDef` (ty/trait_def.rs).
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:583 trait_is_marker
 TyCtxt.prototype.trait_is_marker = function (this: TyCtxt, trait_def_id: DefId): boolean {
-  return (this.trait_def(trait_def_id) as TraitDefFields).is_marker;
+  return (this.trait_def(trait_def_id) as TraitDef).is_marker;
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:587 trait_is_coinductive
@@ -473,12 +472,12 @@ TyCtxt.prototype.trait_is_dyn_compatible = function (this: TyCtxt, trait_def_id:
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:599 trait_is_fundamental
 TyCtxt.prototype.trait_is_fundamental = function (this: TyCtxt, def_id: DefId): boolean {
-  return (this.trait_def(def_id) as TraitDefFields).is_fundamental;
+  return (this.trait_def(def_id) as TraitDef).is_fundamental;
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:603 trait_is_unsafe
 TyCtxt.prototype.trait_is_unsafe = function (this: TyCtxt, trait_def_id: DefId): boolean {
-  return Safety.is_unsafe((this.trait_def(trait_def_id) as TraitDefFields).safety);
+  return Safety.is_unsafe((this.trait_def(trait_def_id) as TraitDef).safety);
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:607 is_impl_trait_in_trait
@@ -722,6 +721,9 @@ function tyir_binder(): typeof import("../../../rustc_type_ir/binder.ts") {
 }
 function tyir_unnormalized(): typeof import("../../../rustc_type_ir/unnormalized.ts") {
   return require("../../../rustc_type_ir/unnormalized.ts") as typeof import("../../../rustc_type_ir/unnormalized.ts");
+}
+function middle_assoc(): typeof import("../assoc.ts") {
+  return require("../assoc.ts") as typeof import("../assoc.ts");
 }
 function middle_generics(): typeof import("../generics.ts") {
   return require("../generics.ts") as typeof import("../generics.ts");

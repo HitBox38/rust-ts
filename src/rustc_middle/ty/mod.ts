@@ -65,6 +65,7 @@ import type { Clause } from "./predicate.ts";
 // ty-mod-b imports
 import type { AdtDef, VariantIdx } from "./decls.ts";
 import type { AssocItems } from "./assoc.ts";
+import type { TraitDef } from "./trait_def.ts";
 import { type Attribute as AttrIrAttribute, AttributeExt, find_attr, type HasAttrs } from "../../rustc_attr_ir/lib.ts";
 import * as hir_def from "../../rustc_hir/def.ts";
 import { type CtorKind, debug_CtorKind, debug_Res } from "../../rustc_hir/def.ts";
@@ -1856,8 +1857,8 @@ export function TyCtxt_typeck_body(tcx: TyCtxt, body: BodyId): TypeckResults {
 export function TyCtxt_provided_trait_methods(tcx: TyCtxt, id: DefIdT): Iterable<AssocItem> {
   const items = tcx.associated_items(id) as AssocItems;
   return (function* () {
-    for (const item of AssocItems_in_definition_order(items)) {
-      if (AssocItem_is_fn(item) && Defaultness.has_value(AssocItem_defaultness(item, tcx))) yield item;
+    for (const item of assoc().AssocItems.in_definition_order(items)) {
+      if (assoc().AssocItem.is_fn(item) && Defaultness.has_value(assoc().AssocItem.defaultness(item, tcx))) yield item;
     }
   })();
 }
@@ -1968,7 +1969,7 @@ export function TyCtxt_find_field_index(tcx: TyCtxt, ident: Ident, variant: Vari
 /// Returns `Some` if the impls are the same polarity and the trait either
 /// has no items or is annotated `#[marker]` and prevents item overrides.
 // PORT: `#[instrument(level = "debug", skip(self), ret)]` (tracing) is dropped. The `impl_trait_header` /
-// `trait_def` query values are `unknown` in queries.gen.ts (read as `ImplTraitHeader` / through `TraitDefFields`).
+// `trait_def` query values are `unknown` in queries.gen.ts (cast to `ImplTraitHeader` / `TraitDef`).
 // rustc: compiler/rustc_middle/src/ty/mod.rs:1770 impls_are_allowed_to_overlap
 export function TyCtxt_impls_are_allowed_to_overlap(tcx: TyCtxt, def_id1: DefIdT, def_id2: DefIdT): ImplOverlapKind | undefined {
   const impl1 = tcx.impl_trait_header(def_id1) as ImplTraitHeader;
@@ -1992,7 +1993,7 @@ export function TyCtxt_impls_are_allowed_to_overlap(tcx: TyCtxt, def_id1: DefIdT
     // (ImplPolarity::Positive, ImplPolarity::Positive) | (ImplPolarity::Negative, ImplPolarity::Negative) => {}
   }
 
-  const is_marker_impl = (trait_ref: TraitRef): boolean => (tcx.trait_def(trait_ref.def_id) as TraitDefFields).is_marker;
+  const is_marker_impl = (trait_ref: TraitRef): boolean => (tcx.trait_def(trait_ref.def_id) as TraitDef).is_marker;
   const is_marker_overlap = is_marker_impl(trait_ref1) && is_marker_impl(trait_ref2);
 
   if (is_marker_overlap) {
@@ -2011,22 +2012,22 @@ export function TyCtxt_expect_variant_res(tcx: TyCtxt, res: Res): VariantDef {
     if (kind.$ === "Variant") {
       const did = res._1;
       const enum_did = tcx.parent(did);
-      return to_pending(AdtDef_variant_with_id(tcx.adt_def(enum_did) as AdtDef, did));
+      return to_pending((tcx.adt_def(enum_did) as AdtDef).variant_with_id(did));
     }
     if (kind.$ === "Struct" || kind.$ === "Union") {
       const did = res._1;
-      return to_pending(AdtDef_non_enum_variant(tcx.adt_def(did) as AdtDef));
+      return to_pending((tcx.adt_def(did) as AdtDef).non_enum_variant());
     }
     if (kind.$ === "Ctor" && kind._0 === "Variant") {
       const variant_ctor_did = res._1;
       const variant_did = tcx.parent(variant_ctor_did);
       const enum_did = tcx.parent(variant_did);
-      return to_pending(AdtDef_variant_with_ctor_id(tcx.adt_def(enum_did) as AdtDef, variant_ctor_did));
+      return to_pending((tcx.adt_def(enum_did) as AdtDef).variant_with_ctor_id(variant_ctor_did));
     }
     if (kind.$ === "Ctor" && kind._0 === "Struct") {
       const ctor_did = res._1;
       const struct_did = tcx.parent(ctor_did);
-      return to_pending(AdtDef_non_enum_variant(tcx.adt_def(struct_did) as AdtDef));
+      return to_pending((tcx.adt_def(struct_did) as AdtDef).non_enum_variant());
     }
   }
   return panic(`expect_variant_res used with unexpected res ${debug_Res(res, PLAIN, debug_HirId)}`);
@@ -2130,17 +2131,17 @@ export function TyCtxt_get_attrs_by_path(tcx: TyCtxt, did: DefIdT, attr: readonl
 }
 
 /// Returns `true` if this is an `auto trait`.
-// PORT: the `trait_def` query value is `unknown` in queries.gen.ts (`TraitDefFields`).
+// PORT: the `trait_def` query value is `unknown` in queries.gen.ts (cast to `TraitDef`).
 // rustc: compiler/rustc_middle/src/ty/mod.rs:1916 trait_is_auto
 export function TyCtxt_trait_is_auto(tcx: TyCtxt, trait_def_id: DefIdT): boolean {
-  return (tcx.trait_def(trait_def_id) as TraitDefFields).has_auto_impl;
+  return (tcx.trait_def(trait_def_id) as TraitDef).has_auto_impl;
 }
 
 /// Returns `true` if this is coinductive, either because it is
 /// an auto trait or because it has the `#[rustc_coinductive]` attribute.
 // rustc: compiler/rustc_middle/src/ty/mod.rs:1922 trait_is_coinductive
 export function TyCtxt_trait_is_coinductive(tcx: TyCtxt, trait_def_id: DefIdT): boolean {
-  return (tcx.trait_def(trait_def_id) as TraitDefFields).is_coinductive;
+  return (tcx.trait_def(trait_def_id) as TraitDef).is_coinductive;
 }
 
 /// Returns `true` if this is a trait alias.
@@ -2251,7 +2252,7 @@ export function TyCtxt_trait_item_of(tcx: TyCtxt, def_id_: IntoQueryKey<DefIdT>)
   const def_id = into_query_key_DefId(def_id_);
   const item = tcx.opt_associated_item(def_id);
   if (item === undefined) return undefined;
-  return AssocItem_trait_item_def_id(item);
+  return assoc().AssocItem.trait_item_def_id(item);
 }
 
 /// If the given `DefId` is an associated item of a trait,
@@ -2532,10 +2533,10 @@ export function TyCtxt_is_conditionally_const(tcx: TyCtxt, def_id_: DefIdT | Loc
   }
 }
 
-// PORT: the `trait_def` query value is `unknown` in queries.gen.ts (`TraitDefFields`).
+// PORT: the `trait_def` query value is `unknown` in queries.gen.ts (cast to `TraitDef`).
 // rustc: compiler/rustc_middle/src/ty/mod.rs:2298 is_const_trait
 export function TyCtxt_is_const_trait(tcx: TyCtxt, def_id: DefIdT): boolean {
-  return (tcx.trait_def(def_id) as TraitDefFields).constness.$ === "Const";
+  return (tcx.trait_def(def_id) as TraitDef).constness.$ === "Const";
 }
 
 // rustc: compiler/rustc_middle/src/ty/mod.rs:2302 impl_method_has_trait_impl_trait_tys
@@ -2770,14 +2771,6 @@ function ok_or_else<T, E>(v: T | undefined, err: () => E): Result<T, E> {
 /** `hir::BodyId` (decls.ts aliases it `Pending`). */
 type hir_BodyId = import("../../rustc_hir/hir.gen.ts").BodyId;
 
-/** PORT: the fields of `ty::TraitDef` (trait_def.rs:20, lane ty-adt-assoc) read here; the query value is `unknown`. */
-interface TraitDefFields {
-  has_auto_impl: boolean;
-  is_marker: boolean;
-  is_coinductive: boolean;
-  constness: Constness;
-}
-
 /** PORT: `ty::InstanceKind` (instance.rs, M4) in its PORTING §5 shape, as far as `instance_mir` reads it. */
 type InstanceKindView =
   | { readonly $: "Item"; readonly _0: DefIdT }
@@ -2791,49 +2784,15 @@ interface BodyView {
   phase: { readonly $: string };
 }
 
-/** PORT: stand-in for `AssocItem::is_fn` (ty/assoc.rs:152, lane ty-adt-assoc): the upstream body. */
-function AssocItem_is_fn(self: AssocItem): boolean {
-  return self.kind.$ === "Fn";
-}
-/** PORT: stand-in for `AssocItem::defaultness` (ty/assoc.rs:54, lane ty-adt-assoc): the upstream body. */
-function AssocItem_defaultness(self: AssocItem, tcx: TyCtxt): hir_Defaultness {
-  switch (self.container.$) {
-    case "InherentImpl":
-      return { $: "Final" };
-    case "Trait":
-    case "TraitImpl":
-      return tcx.defaultness(self.def_id) as hir_Defaultness;
-  }
-}
-/** PORT: stand-in for `AssocItem::trait_item_def_id` (ty/assoc.rs:78, lane ty-adt-assoc): the upstream body. */
-function AssocItem_trait_item_def_id(self: AssocItem): DefIdT | undefined {
-  if (self.container.$ === "TraitImpl" && self.container._0.$ === "Ok") return self.container._0._0;
-  return undefined;
-}
-/** PORT: stand-in for `AssocItems::in_definition_order` (ty/assoc.rs:267, lane ty-adt-assoc; `SortedIndexMultiMap`). */
-function AssocItems_in_definition_order(_self: AssocItems): Iterable<AssocItem> {
-  return unported("rustc_middle::ty::AssocItems::in_definition_order (lane ty-adt-assoc)");
-}
-/** PORT: stand-in for `AdtDef::variant_with_id` (ty/adt.rs:582, lane ty-adt-assoc). */
-function AdtDef_variant_with_id(_self: AdtDef, _vid: DefIdT): VariantDef {
-  return unported("rustc_middle::ty::AdtDef::variant_with_id (lane ty-adt-assoc)");
-}
-/** PORT: stand-in for `AdtDef::variant_with_ctor_id` (ty/adt.rs:587, lane ty-adt-assoc). */
-function AdtDef_variant_with_ctor_id(_self: AdtDef, _cid: DefIdT): VariantDef {
-  return unported("rustc_middle::ty::AdtDef::variant_with_ctor_id (lane ty-adt-assoc)");
-}
-/** PORT: stand-in for `AdtDef::non_enum_variant` (ty/adt.rs:544, lane ty-adt-assoc). */
-function AdtDef_non_enum_variant(_self: AdtDef): VariantDef {
-  return unported("rustc_middle::ty::AdtDef::non_enum_variant (lane ty-adt-assoc)");
-}
 /** PORT: stand-in for `mir::Body::coroutine_layout_raw` (mir/mod.rs, M4). */
 function Body_coroutine_layout_raw(_self: unknown): CoroutineLayout | undefined {
   return unported("rustc_middle::mir::Body::coroutine_layout_raw (M4)");
 }
 
 /** PORT: stand-ins for the sub-providers `ty::provide` calls (see `provide`). */
-function closure_provide(_providers: Providers): void {
-  unported("rustc_middle::ty::closure::provide (lane ty-adt-assoc)");
+function closure_provide(providers: Providers): void {
+  // PORT: ty/closure.ts is reached through `require` (like `print_provide`).
+  (require("./closure.ts") as typeof import("./closure.ts")).provide(providers);
 }
 function erase_regions_provide(_providers: Providers): void {
   unported("rustc_middle::ty::erase_regions::provide (lane ty-results)");
@@ -2841,8 +2800,9 @@ function erase_regions_provide(_providers: Providers): void {
 function inhabitedness_provide(_providers: Providers): void {
   unported("rustc_middle::ty::inhabitedness::provide");
 }
-function util_provide(_providers: Providers): void {
-  unported("rustc_middle::ty::util::provide (lane ty-util)");
+function util_provide(providers: Providers): void {
+  // PORT: ty/util.ts is an extension module: reached through `require` (like `print_provide`).
+  (require("./util.ts") as typeof import("./util.ts")).provide(providers);
 }
 function print_provide(providers: Providers): void {
   // PORT: `print::provide` is ported (ty/print/pretty.ts, an extension module): reached through `require`.
@@ -2851,10 +2811,18 @@ function print_provide(providers: Providers): void {
 function util_bug_provide(_providers: Providers): void {
   unported("rustc_middle::util::bug::provide");
 }
-const trait_def_trait_impls_of_provider: Providers["trait_impls_of"] = () => unported("rustc_middle::ty::trait_def::trait_impls_of_provider (lane ty-adt-assoc)");
-const trait_def_incoherent_impls_provider: Providers["incoherent_impls"] = () =>
-  unported("rustc_middle::ty::trait_def::incoherent_impls_provider (lane ty-adt-assoc)");
-const trait_def_trait_impls_in_crate_provider: Providers["trait_impls_in_crate"] = () =>
-  unported("rustc_middle::ty::trait_def::trait_impls_in_crate_provider (lane ty-adt-assoc)");
-const trait_def_traits_provider: Providers["traits"] = () => unported("rustc_middle::ty::trait_def::traits_provider (lane ty-adt-assoc)");
+// PORT: ty/trait_def.ts is reached through `require` (it imports this module back).
+const trait_def_trait_impls_of_provider: Providers["trait_impls_of"] = (tcx, k) => trait_def().trait_impls_of_provider(tcx, k);
+const trait_def_incoherent_impls_provider: Providers["incoherent_impls"] = (tcx, k) => trait_def().incoherent_impls_provider(tcx, k as SimplifiedType<DefIdT>);
+const trait_def_trait_impls_in_crate_provider: Providers["trait_impls_in_crate"] = (tcx, k) => trait_def().trait_impls_in_crate_provider(tcx, k);
+const trait_def_traits_provider: Providers["traits"] = (tcx, k) => trait_def().traits_provider(tcx, k);
 const vtable_vtable_allocation_provider: Providers["vtable_allocation"] = () => unported("rustc_middle::ty::vtable::vtable_allocation_provider (M4)");
+
+/** PORT (init order): ty/assoc.ts and ty/trait_def.ts import this defining module back (assoc.ts is an extension
+ * module of `TyCtxt`); they are reached lazily, as `binder()` / `visit()` above. */
+function assoc(): typeof import("./assoc.ts") {
+  return require("./assoc.ts") as typeof import("./assoc.ts");
+}
+function trait_def(): typeof import("./trait_def.ts") {
+  return require("./trait_def.ts") as typeof import("./trait_def.ts");
+}

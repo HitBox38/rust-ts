@@ -134,20 +134,22 @@ import type { Expr } from "./consts/kind.ts";
 import type { AssocItem } from "./assoc.ts";
 export type { AssocItem, CanonicalPolyFnSig, EarlyParamRegion, Expr, InlineConstArgs, LateParamRegionKind, ParamConst, ParamTy };
 
-// re-exported by merge-w15b: ty/mod.rs types (lanes ty-mod-a, ty-mod-b), ty/util.rs types (ty-util) and
+// re-exported by merge-w15b: ty/mod.rs types (lanes ty-mod-a, ty-mod-b), ty/util.rs types (ty-util), ty/adt.rs / ty/closure.rs
+// types (ty-adt-assoc), rustc_data_structures' `SortedIndexMultiMap` and
 // `hir::Attribute` (rustc_attr_ir)
 import type { AsyncDestructor, Destructor, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef } from "./mod.ts";
 import type { Attribute } from "../../rustc_attr_ir/lib.ts";
 import type { CheckRegions, Discr, NotUniqueParam } from "./util.ts";
+import type { AdtDef, AdtDefData } from "./adt.ts";
+import type { CapturedPlace } from "./closure.ts";
+import type { SortedIndexMultiMap } from "../../rustc_data_structures/sorted_map/index_map.ts";
+export type { AdtDef, AdtDefData, CapturedPlace, SortedIndexMultiMap };
 export type { AsyncDestructor, Attribute, CheckRegions, Destructor, Discr, NotUniqueParam, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef };
 
 // ---- 2. pending rustc_middle types (and other crates') ----
 // newtype indices (rustc_abi): final shapes
 export type FieldIdx = number & { readonly __brand: "FieldIdx" };
 export type VariantIdx = number & { readonly __brand: "VariantIdx" };
-// ty/adt.rs:187 (D2: hash-consed `AdtDef(Interned<AdtDefData>)`, lane ty-adt-assoc)
-export type AdtDef = Pending<"AdtDef">;
-export type AdtDefData = Pending<"AdtDefData">;
 export type ReprOptions = Pending<"ReprOptions">;
 // ty/pattern.rs:16, ty/consts/valtree.rs:34, :103, ty/consts/int.rs:147 (D2: hash-consed)
 export type Pattern = Pending<"Pattern">;
@@ -156,7 +158,6 @@ export type Value = Pending<"ty::Value">;
 export type ScalarInt = Pending<"ScalarInt">;
 export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
-export type CapturedPlace = Pending<"CapturedPlace">;
 export type SizedTraitKind = Pending<"SizedTraitKind">;
 export type NumScalableVectors = Pending<"NumScalableVectors">;
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
@@ -215,7 +216,6 @@ export type CastKind = Pending<"abstract_const::CastKind">;
 export type BinOp = Pending<"mir::BinOp">;
 export type UnOp = Pending<"mir::UnOp">;
 // rustc_data_structures sorted_map/index_map.rs, transitive_relation.rs (not ported yet)
-export type SortedIndexMultiMap<I, K, V> = Pending1<"SortedIndexMultiMap", [I, K, V]>;
 export type TransitiveRelation<T> = Pending1<"TransitiveRelation", T>;
 
 // ---- 3. method declarations ----

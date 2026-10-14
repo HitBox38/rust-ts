@@ -9,8 +9,7 @@
 // top-level code may touch only the classes it imports, never another extension module.
 //
 // PORT: `AssocItems.items` is a `SortedIndexMultiMap<u32, Option<Symbol>, AssocItem>`
-// (rustc_data_structures/sorted_map/index_map.ts). decls.ts still has `SortedIndexMultiMap` as `Pending1`, so the
-// generated field type is the pending alias: `items_of` casts (PORT(decls): pending root, see the handoff).
+// (rustc_data_structures/sorted_map/index_map.ts; decls.ts re-exports it since merge-w15b).
 import { TyCtxt } from "./context.ts";
 import * as gen from "./assoc.gen.ts";
 import type { AssocItem as AssocItemT, AssocKind as AssocKindT, AssocTag as AssocTagT } from "./assoc.gen.ts";
@@ -316,11 +315,8 @@ function cmp_Option_Symbol(a: Symbol | undefined, b: Symbol | undefined): number
   return a - b;
 }
 
-/** PORT(decls): pending root: the real type of `AssocItems.items` (module comment). */
+/** The type of `AssocItems.items` (module comment). */
 type AssocItemsMap = SortedIndexMultiMap<number, Symbol | undefined, AssocItem>;
-function items_of(self: AssocItems): AssocItemsMap {
-  return self.items as unknown as AssocItemsMap;
-}
 
 /// A list of `ty::AssocItem`s in definition order that allows for efficient lookup by name.
 ///
@@ -336,7 +332,7 @@ export const AssocItems = {
       for (const item of items_in_def_order) yield [AssocItem.opt_name(item), item];
     };
     const items: AssocItemsMap = SortedIndexMultiMap.from_iter(pairs(), cmp_Option_Symbol);
-    return { items: items as unknown as AssocItems["items"] };
+    return { items };
   },
 
   /// Returns an iterator over associated items in the order they were defined.
@@ -345,12 +341,12 @@ export const AssocItems = {
   /// for a known trait, make that trait a lang item instead of indexing this array.
   // rustc: compiler/rustc_middle/src/ty/assoc.rs:267 in_definition_order
   *in_definition_order(self: AssocItems): Generator<AssocItem> {
-    for (const [, v] of items_of(self).iter()) yield v;
+    for (const [, v] of self.items.iter()) yield v;
   },
 
   // rustc: compiler/rustc_middle/src/ty/assoc.rs:271 len
   len(self: AssocItems): number {
-    return items_of(self).len();
+    return self.items.len();
   },
 
   /// Returns an iterator over all associated items with the given name, ignoring hygiene.
@@ -359,7 +355,7 @@ export const AssocItems = {
   // rustc: compiler/rustc_middle/src/ty/assoc.rs:278 filter_by_name_unhygienic
   filter_by_name_unhygienic(self: AssocItems, name: Symbol): Generator<AssocItem> {
     assert(!Symbol.is_empty(name), "assertion failed: !name.is_empty()");
-    return items_of(self).get_by_key(name);
+    return self.items.get_by_key(name);
   },
 
   /// Returns the associated item with the given identifier and `AssocKind`, if one exists.

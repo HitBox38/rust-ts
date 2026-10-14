@@ -25,7 +25,6 @@ import { type Debug, debug_option, debug_struct, debug_tuple, type Fmt, format_d
 import { panic, unported, unwrap } from "../../std/panic.ts";
 import { debug_TyKind } from "../../rustc_type_ir/ty_kind.ts";
 import type { Providers } from "../queries.gen.ts";
-import { as_AdtDef, view_VariantDef } from "./adt.ts";
 import type { CanonicalPolyFnSig, CapturedPlace as PendingCapturedPlace, FieldIdx, HirPlace, TypeckResults, VariantIdx } from "./decls.ts";
 import type { List } from "./list.ts";
 import type { Ordering, Ty } from "./mod.ts";
@@ -155,8 +154,8 @@ export class CapturedPlace {
               symbol += `__${idx}`;
               break;
             case "Adt": {
-              const def = as_AdtDef(k._0);
-              symbol += `__${Symbol.as_str(unwrap(view_VariantDef(def.variant(variant)).fields[idx], "index out of bounds").name)}`;
+              const def = k._0;
+              symbol += `__${Symbol.as_str(unwrap(def.variant(variant).fields[idx], "index out of bounds").name)}`;
               break;
             }
             default:
@@ -411,8 +410,8 @@ export function place_to_string_for_capture(tcx: TyCtxt, place_: HirPlace): stri
         const k = place.ty_before_projection(i).kind();
         switch (k.$) {
           case "Adt": {
-            const def = as_AdtDef(k._0);
-            curr_string = `${curr_string}.${Symbol.as_str(unwrap(view_VariantDef(def.variant(variant)).fields[idx], "index out of bounds").name)}`;
+            const def = k._0;
+            curr_string = `${curr_string}.${Symbol.as_str(unwrap(def.variant(variant).fields[idx], "index out of bounds").name)}`;
             break;
           }
           case "Tuple":

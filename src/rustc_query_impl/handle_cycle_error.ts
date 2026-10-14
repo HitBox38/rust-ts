@@ -104,7 +104,7 @@ function check_representability_inner(tcx: TyCtxt, cycle: QueryCycle): never {
       const key = k._0 as Ty;
       const adt = key.ty_adt_def();
       if (adt !== undefined) {
-        const def_id = AdtDef_did(adt).as_local();
+        const def_id = adt.did().as_local();
         if (def_id !== undefined && !item_and_field_ids.some(([id, _]) => id === def_id)) {
           representable_ids.add(def_id);
         }
@@ -429,10 +429,6 @@ export const CUSTOM: Partial<Record<QueryName, (tcx: TyCtxt, key: unknown, cycle
 
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
 
-/** PORT: stand-in for `AdtDef::did` (ty/adt.rs, lane ty-adt-assoc): `AdtDef` is still `Pending` in ty/decls.ts. */
-function AdtDef_did(adt: AdtDef): DefId {
-  return (adt as unknown as { did(): DefId }).did();
-}
 
 /** PORT: stand-in for the `pub value: T` field of `ty::PseudoCanonicalInput` (ty/mod.rs, lane ty-mod): the type is
  * still `Pending` in ty/decls.ts. */

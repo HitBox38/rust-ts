@@ -60,10 +60,12 @@ import { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { CollectAndApply_Result, CollectAndApply_T } from "../../rustc_type_ir/interner.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { kw } from "../../rustc_span/symbol.ts";
-import type { AdtDef, AdtDefData, Allocation, AssocItem, Attribute, Body, BodyId, CanonicalInput, CapturedPlace, ConstAllocation, CoroutineLayout, ExternalConstraints, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, ValTree, VariantDef } from "./decls.ts";
+import type { Allocation, AssocItem, Attribute, Body, BodyId, CanonicalInput, CapturedPlace, ConstAllocation, CoroutineLayout, ExternalConstraints, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, ValTree, VariantDef } from "./decls.ts";
 import { GenericArg, type GenericArgs } from "./generic_args.ts";
 import { type Clauses, type List, RawList, TypeInfo } from "./list.ts";
 import { Ty } from "./mod.ts";
+import { AdtDef, AdtDefData, type AdtKind } from "./adt.ts";
+import type { AssocItems as AssocItemsT } from "./assoc.ts";
 import { type Clause, ExistentialPredicate_stable_cmp, Predicate } from "./predicate.ts";
 import type { Ident } from "../../rustc_span/symbol.ts";
 import type { Namespace, DefKind as DefKindT, Res } from "../../rustc_hir/def.ts";
@@ -192,7 +194,6 @@ export const inherent_Span = {
 // `CodegenFnAttrs` / `TargetFeature` (middle/codegen_fn_attrs.rs) and `Place` (mir/syntax.rs) list only the fields this
 // file reads.
 type Thir = Pending<"thir::Thir">;
-type AdtKind = Pending<"ty::AdtKind">;
 type AllocId = Pending<"mir::interpret::AllocId">;
 type IntrinsicDef = Pending<"ty::IntrinsicDef">;
 type DepNode = Pending<"dep_graph::DepNode">;
@@ -239,7 +240,7 @@ export class CtxtInterners {
     public const_allocation: InternedSet<unknown>,
     public bound_variable_kinds: InternedSet<List<BoundVariableKind>>,
     public layout: InternedSet<unknown>,
-    public adt_def: InternedSet<unknown>,
+    public adt_def: InternedSet<AdtDef>,
     public external_constraints: InternedSet<unknown>,
     public predefined_opaques_in_body: InternedSet<List<[OpaqueTypeKey, Ty]>>,
     public fields: InternedSet<List<FieldIdx>>,
@@ -1014,8 +1015,7 @@ export class TyCtxt {
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:890 mk_adt_def
   mk_adt_def(did: DefId, kind: AdtKind, variants: VariantDef[], repr: ReprOptions): AdtDef {
-    void [did, kind, variants, repr];
-    return this.mk_adt_def_from_data(unported("rustc_middle::ty::adt::AdtDefData::new (ty/adt.rs, lane ty-adt-assoc)"));
+    return this.mk_adt_def_from_data(AdtDefData.new(this, did, kind, variants, repr));
   }
 
   /// Allocates a read-only byte or string literal for `mir::interpret` with alignment 1.
@@ -1419,7 +1419,7 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:1295 is_method
   is_method(id: DefId): boolean {
     const item = this.opt_associated_item(id);
-    return item !== undefined && AssocItem_is_method(item);
+    return item !== undefined && middle_assoc().AssocItem.is_method(item);
   }
 
   /// `tcx`-dependent operations performed for every created definition.
@@ -1865,9 +1865,10 @@ export class TyCtxt {
   mk_layout(_v: LayoutData): Layout {
     return unported("rustc_middle::ty::context::TyCtxt::mk_layout (Layout, M4)");
   }
-  /** Stub (`direct_interners!` `mk_adt_def_from_data`, context.rs:2020): the `AdtDef` class is lane ty-adt-assoc's. */
-  mk_adt_def_from_data(_v: AdtDefData): AdtDef {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_adt_def_from_data (AdtDef class)");
+  // PORT: the key is `impl Hash for AdtDefData` (adt.rs:154: only `did`), not the derived key of every field.
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2020 direct_interners! mk_adt_def_from_data
+  mk_adt_def_from_data(v: AdtDefData): AdtDef {
+    return Interned.new_unchecked(this.interners.adt_def.intern(v, v.hash(), (v) => new AdtDef(v)));
   }
   /** Stub (`direct_interners!` `mk_external_constraints`, context.rs:2021): the class is lane middle-traits-thir's. */
   mk_external_constraints(_v: ExternalConstraintsData): ExternalConstraints {
@@ -1978,13 +1979,13 @@ export class TyCtxt {
   /// returns true if the `trait_def_id` defines an associated item of name `assoc_name`.
   // rustc: compiler/rustc_middle/src/ty/context.rs:2090 trait_may_define_assoc_item
   trait_may_define_assoc_item(trait_def_id: DefId, assoc_name: Ident): boolean {
+    const { AssocItem, AssocItems } = middle_assoc();
     for (const trait_did of supertrait_def_ids(this, trait_def_id)) {
-      void trait_did;
-      // self.associated_items(trait_did).filter_by_name_unhygienic(assoc_name.name)
-      //     .any(|item| self.hygienic_eq(assoc_name, item.ident(self), trait_did))
-      return unported("rustc_middle::ty::assoc::AssocItems::filter_by_name_unhygienic (ty/assoc.rs, lane ty-adt-assoc)");
+      // PORT: the `associated_items` query value is `unknown` in queries.gen.ts: it is an `AssocItems`.
+      for (const item of AssocItems.filter_by_name_unhygienic(this.associated_items(trait_did) as AssocItemsT, assoc_name.name)) {
+        if (this.hygienic_eq(assoc_name, AssocItem.ident(item, this), trait_did)) return true;
+      }
     }
-    void assoc_name;
     return false;
   }
 
@@ -2203,9 +2204,8 @@ export class TyCtxt {
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2388 mk_place_downcast
   mk_place_downcast(place: Place, adt_def: AdtDef, variant_index: VariantIdx): Place {
-    void [place, adt_def, variant_index];
-    // self.mk_place_elem(place, PlaceElem::Downcast(Some(adt_def.variant(variant_index).name), variant_index))
-    return unported("rustc_middle::ty::adt::AdtDef::variant (ty/adt.rs, lane ty-adt-assoc)");
+    // PORT: `PlaceElem` (mir) is pending: its `Downcast` variant in PORTING §5 shape.
+    return this.mk_place_elem(place, { $: "Downcast", _0: adt_def.variant(variant_index).name, _1: variant_index } as unknown as PlaceElem);
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2400 mk_place_downcast_unnamed
@@ -3037,11 +3037,13 @@ function middle_hir(): typeof import("../hir/mod.ts") {
   return require("../hir/mod.ts") as typeof import("../hir/mod.ts");
 }
 
+/** PORT: ty/assoc.ts is an extension module of `TyCtxt` (it attaches `associated_types_for_impl_traits_in_associated_fn`),
+ * so `is_method` reaches its `AssocItem` companion lazily, as `middle_lint()` (decision 5). */
+function middle_assoc(): typeof import("./assoc.ts") {
+  return require("./assoc.ts") as typeof import("./assoc.ts");
+}
+
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
 
-/** PORT: stand-in for `AssocItem::is_method` (ty/assoc.rs:156, lane ty-adt-assoc): the upstream body. */
-function AssocItem_is_method(self: AssocItem): boolean {
-  return self.kind.$ === "Fn" && self.kind.has_self === true;
-}
 
 

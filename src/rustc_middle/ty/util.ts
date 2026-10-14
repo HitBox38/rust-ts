@@ -17,6 +17,7 @@ import { find_attr, type Attribute } from "../../rustc_attr_ir/lib.ts";
 import type { ExternCrate } from "../../rustc_crate_store/cstore.ts";
 import type { Hash128 } from "../../rustc_hashes/lib.ts";
 import { DefKind, type Res } from "../../rustc_hir/def.ts";
+import { Safety } from "../../rustc_hir/lib.ts";
 import type { CoroutineKind } from "../../rustc_hir/hir.ts";
 import { type CrateNum, type DefId, DefId_eq, DefIdSet, LocalDefId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
@@ -41,7 +42,7 @@ import { assert, assert_eq, panic, unported, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { RecursionLimitReached_diagnostic } from "../diagnostics.ts";
 import type { Providers } from "../queries.gen.ts";
-import type { AssocItem } from "./assoc.ts";
+import { AssocItem as AssocItemC, type AssocItem } from "./assoc.ts";
 import { TyCtxt } from "./context.ts";
 import { with_ } from "./context/tls.ts";
 import type {
@@ -338,13 +339,13 @@ TyCtxt.prototype.struct_tail_raw = function (
       case "Adt": {
         const def = k._0;
         const args = k._1;
-        if (!AdtDef_is_struct(def)) {
+        if (!def.is_struct()) {
           break loop;
         }
-        const field = VariantDef_tail_opt(AdtDef_non_enum_variant(def));
+        const field = def.non_enum_variant().tail_opt();
         if (field !== undefined) {
           f();
-          ty = normalize(FieldDef_ty(field, this, args));
+          ty = normalize(field.ty(this, args));
         } else {
           break loop;
         }
@@ -407,14 +408,14 @@ TyCtxt.prototype.struct_lockstep_tails_raw = function (this: TyCtxt, source: Ty,
   for (;;) {
     const ak = a.kind();
     const bk = b.kind();
-    if (ak.$ === "Adt" && bk.$ === "Adt" && ak._0 === bk._0 && AdtDef_is_struct(ak._0)) {
+    if (ak.$ === "Adt" && bk.$ === "Adt" && ak._0 === bk._0 && ak._0.is_struct()) {
       const a_def = ak._0;
       const a_args = ak._1;
       const b_args = bk._1;
-      const f = VariantDef_tail_opt(AdtDef_non_enum_variant(a_def));
+      const f = a_def.non_enum_variant().tail_opt();
       if (f !== undefined) {
-        a = normalize(FieldDef_ty(f, this, a_args));
-        b = normalize(FieldDef_ty(f, this, b_args));
+        a = normalize(f.ty(this, a_args));
+        b = normalize(f.ty(this, b_args));
       } else {
         break;
       }
@@ -451,7 +452,7 @@ TyCtxt.prototype.calculate_dtor = function (
   for (const impl_did of this.local_trait_impls(drop_trait)) {
     const adt_def = EarlyBinder.skip_binder(this.type_of(impl_did) as EarlyBinder<Ty>).ty_adt_def();
     if (adt_def === undefined) continue;
-    if (!DefId_eq(AdtDef_did(adt_def), LocalDefId.to_def_id(adt_did))) {
+    if (!DefId_eq(adt_def.did(), LocalDefId.to_def_id(adt_did))) {
       continue;
     }
 
@@ -500,7 +501,7 @@ TyCtxt.prototype.calculate_async_dtor = function (
   for (const impl_did of this.local_trait_impls(async_drop_trait)) {
     const adt_def = EarlyBinder.skip_binder(this.type_of(impl_did) as EarlyBinder<Ty>).ty_adt_def();
     if (adt_def === undefined) continue;
-    if (!DefId_eq(AdtDef_did(adt_def), LocalDefId.to_def_id(adt_did))) {
+    if (!DefId_eq(adt_def.did(), LocalDefId.to_def_id(adt_did))) {
       continue;
     }
 
@@ -530,7 +531,7 @@ TyCtxt.prototype.calculate_async_dtor = function (
 /// contents, you need `adt_dtorck_constraint`.
 // rustc: compiler/rustc_middle/src/ty/util.rs:466 destructor_constraints
 TyCtxt.prototype.destructor_constraints = function (this: TyCtxt, def: AdtDef): GenericArg[] {
-  const dtor0 = AdtDef_destructor(def, this);
+  const dtor0 = def.destructor(this);
   let dtor: DefId;
   if (dtor0 === undefined) {
     // debug!("destructor_constraints({:?}) - no dtor", def.did());
@@ -571,7 +572,7 @@ TyCtxt.prototype.destructor_constraints = function (this: TyCtxt, def: AdtDef): 
     return span_bug(this.def_span(impl_def_id), "expected ADT for self type of `Drop` impl");
   }
 
-  const item_args = RawList.identity_for_item(this, AdtDef_did(def));
+  const item_args = RawList.identity_for_item(this, def.did());
 
   const result: GenericArg[] = [];
   // iter::zip(item_args, impl_args).filter(..).map(|(item_param, _)| item_param).collect()
@@ -904,7 +905,7 @@ TyCtxt.prototype.def_descr = function (this: TyCtxt, def_id: DefId): string {
 /// Get an English description for the item's kind.
 // rustc: compiler/rustc_middle/src/ty/util.rs:798 def_kind_descr
 TyCtxt.prototype.def_kind_descr = function (this: TyCtxt, def_kind: DefKind, def_id: DefId): string {
-  if (def_kind.$ === "AssocFn" && AssocItem_is_method(this.associated_item(def_id) as AssocItem)) {
+  if (def_kind.$ === "AssocFn" && AssocItemC.is_method(this.associated_item(def_id) as AssocItem)) {
     return "method";
   }
   if (def_kind.$ === "AssocTy" && this.opt_rpitit_info(def_id) !== undefined) {
@@ -942,7 +943,7 @@ TyCtxt.prototype.def_descr_article = function (this: TyCtxt, def_id: DefId): str
 /// Gets an English article for the [`TyCtxt::def_kind_descr`].
 // rustc: compiler/rustc_middle/src/ty/util.rs:853 def_kind_descr_article
 TyCtxt.prototype.def_kind_descr_article = function (this: TyCtxt, def_kind: DefKind, def_id: DefId): string {
-  if (def_kind.$ === "AssocFn" && AssocItem_is_method(this.associated_item(def_id) as AssocItem)) {
+  if (def_kind.$ === "AssocFn" && AssocItemC.is_method(this.associated_item(def_id) as AssocItem)) {
     return "a";
   }
   if (def_kind.$ === "Closure") {
@@ -1477,7 +1478,8 @@ Ty.prototype.has_unsafe_fields = function (this: Ty): boolean {
   const k = this.kind();
   if (k.$ === "Adt") {
     const adt_def = k._0;
-    return AdtDef_all_fields(adt_def).some((x) => FieldDef_safety_is_unsafe(x));
+    for (const x of adt_def.all_fields()) if (Safety.is_unsafe(x.safety)) return true;
+    return false;
   } else {
     return false;
   }
@@ -2137,46 +2139,6 @@ export interface IntrinsicDefView {
   /// Whether the intrinsic can be invoked from stable const fn (`#[rustc_intrinsic_const_stable_indirect]`).
   const_stable_indirect: boolean;
 }
-// ---- lane ty-adt-assoc (ty/adt.rs, ty/mod.rs VariantDef / FieldDef, ty/assoc.rs) ----
-type VariantDefT = import("./decls.ts").VariantDef;
-type FieldDefT = { readonly __pending: "ty::FieldDef" };
-/** PORT: pending ty-adt-assoc: `AdtDef::is_struct` (adt.rs). */
-function AdtDef_is_struct(_self: AdtDef): boolean {
-  return unported("rustc_middle::ty::adt::AdtDef::is_struct (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `AdtDef::non_enum_variant` (adt.rs). */
-function AdtDef_non_enum_variant(_self: AdtDef): VariantDefT {
-  return unported("rustc_middle::ty::adt::AdtDef::non_enum_variant (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `AdtDef::did` (adt.rs). */
-function AdtDef_did(_self: AdtDef): DefId {
-  return unported("rustc_middle::ty::adt::AdtDef::did (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `AdtDef::destructor` (adt.rs). */
-function AdtDef_destructor(_self: AdtDef, _tcx: TyCtxt): Destructor | undefined {
-  return unported("rustc_middle::ty::adt::AdtDef::destructor (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `AdtDef::all_fields` (adt.rs). */
-function AdtDef_all_fields(_self: AdtDef): readonly FieldDefT[] {
-  return unported("rustc_middle::ty::adt::AdtDef::all_fields (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `VariantDef::tail_opt` (ty/mod.rs). */
-function VariantDef_tail_opt(_self: VariantDefT): FieldDefT | undefined {
-  return unported("rustc_middle::ty::VariantDef::tail_opt (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `FieldDef::ty` (ty/mod.rs). */
-function FieldDef_ty(_self: FieldDefT, _tcx: TyCtxt, _args: GenericArgs): Unnormalized<Ty> {
-  return unported("rustc_middle::ty::FieldDef::ty (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `field.safety.is_unsafe()` (ty/mod.rs `FieldDef`). */
-function FieldDef_safety_is_unsafe(_self: FieldDefT): boolean {
-  return unported("rustc_middle::ty::FieldDef::safety (lane ty-adt-assoc)");
-}
-/** PORT: stand-in for `AssocItem::is_method` (ty/assoc.rs:156, lane ty-adt-assoc): the upstream body. */
-function AssocItem_is_method(self: AssocItem): boolean {
-  return self.kind.$ === "Fn" && self.kind.has_self === true;
-}
-
 // ---- lane middle-traits-thir (traits/mod.rs) ----
 /** PORT: pending middle-traits-thir: `ObligationCause::dummy` (traits/mod.rs). */
 function ObligationCause_dummy(): ObligationCause {

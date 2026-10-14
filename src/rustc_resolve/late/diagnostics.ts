@@ -67,7 +67,6 @@ import { type CtorKind, DefKind, MacroKinds } from "../../rustc_hir/def.ts";
 import { SINGLE_USE_LIFETIMES, UNUSED_LIFETIMES } from "../../rustc_lint_defs/builtin.gen.ts";
 import type { LifetimeRes } from "../../rustc_middle/middle/resolve.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import { as_AdtDef } from "../../rustc_middle/ty/adt.ts";
 import { AssocItem, AssocItems } from "../../rustc_middle/ty/assoc.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { type FnSig, PolyFnSig } from "../../rustc_type_ir/ty_kind.ts";
@@ -2591,7 +2590,7 @@ LateResolutionVisitor.prototype.suggest_alternative_construction_methods = funct
       const ret_ty = Binder.skip_binder(PolyFnSig.output(fn_sig));
       const ret_kind = ret_ty.kind();
       if (ret_kind.$ !== "Adt") continue;
-      const def = as_AdtDef(ret_kind._0);
+      const def = ret_kind._0;
       const input_len = Binder.skip_binder(PolyFnSig.inputs(fn_sig)).length;
       if (!DefId_eq(def.did(), def_id)) continue;
       const name = AssocItem.name(item);

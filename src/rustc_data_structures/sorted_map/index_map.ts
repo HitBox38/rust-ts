@@ -6,8 +6,8 @@
 // PORT: `I: Idx` is a number (PORTING §5: `IndexVec<I, T>` is `T[]` indexed by the handle number). `K: Ord` is a
 // `cmp` function (as in ../sorted_map.ts), passed to `new` / `from_iter`; `K: PartialEq` (`k == &key`) is
 // `cmp(k, key) === 0`, which agrees with `==` for every key type used (`Option<Symbol>`). The iterators are
-// generators (lazy, like upstream). `sorted_map.rs`'s `pub use index_map::SortedIndexMultiMap` re-export is not
-// added to ../sorted_map.ts (not this lane's file): import this module directly.
+// generators (lazy, like upstream). `sorted_map.rs`'s `pub use index_map::SortedIndexMultiMap` is a re-export in
+// ../sorted_map.ts (merge-w15b).
 import type { Cmp } from "../sorted_map.ts";
 import { type Debug, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 

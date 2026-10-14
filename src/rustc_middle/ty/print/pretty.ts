@@ -53,7 +53,8 @@ import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../../.
 import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
 import { type Str, utf8_len } from "../../../std/str.ts";
 import { TyCtxt } from "../context.ts";
-import type { AdtDef, Allocation, AssocItem, BinOp, ConstAllocation, Expr, Instance, Pattern, Scalar, ScalarInt, ValTree, Value } from "../decls.ts";
+import type { AdtDef, Allocation, AssocItem, BinOp, ConstAllocation, Expr, Instance, Pattern, Scalar, ScalarInt, ValTree, Value, VariantIdx } from "../decls.ts";
+import type { TraitDef } from "../trait_def.ts";
 import { fold_GenericArgs, fold_with_Tys, GenericArg, type GenericArgs, try_fold_with_Tys, visit_with_Tys } from "../generic_args.ts";
 import type { Generics } from "../generics.ts";
 import type { Clauses, List } from "../list.ts";
@@ -996,7 +997,7 @@ export abstract class PrettyPrinter extends Printer {
       }
       case "Adt": {
         const [def, args] = [kind._0, kind._1];
-        const field_info = AdtDef_field_representing_type_info(def, this.tcx(), args);
+        const field_info = def.field_representing_type_info(this.tcx(), args);
         if (field_info !== undefined) {
           const { base, variant, name } = field_info;
           if (variant !== undefined) {
@@ -1005,7 +1006,7 @@ export abstract class PrettyPrinter extends Printer {
             if ((r = this.write_str(`field_of!(${display_Ty(base)}, ${display_Symbol(name)})`)).$ === "Err") return r;
           }
         } else {
-          if ((r = this.print_def_path(AdtDef_did(def), args)).$ === "Err") return r;
+          if ((r = this.print_def_path(def.did(), args)).$ === "Err") return r;
         }
         break;
       }
@@ -1392,7 +1393,7 @@ export abstract class PrettyPrinter extends Printer {
                 }
 
                 // PORT: the `associated_item` query value is `unknown` in queries.gen.ts.
-                if ((r = p.write_str(`${display_Symbol(AssocItem_name(tcx.associated_item(assoc_item_def_id) as AssocItem))} = `)).$ === "Err") return r;
+                if ((r = p.write_str(`${display_Symbol(middle_assoc().AssocItem.name(tcx.associated_item(assoc_item_def_id) as AssocItem))} = `)).$ === "Err") return r;
 
                 const tk = Term.kind(Binder.skip_binder(term));
                 switch (tk.$) {
@@ -1520,8 +1521,8 @@ export abstract class PrettyPrinter extends Printer {
     // PORT: the `let` chain as nested `if`s; `fn_args` stays `None` unless every condition holds.
     let fn_args: [DefId, readonly GenericArg[]] | undefined = undefined;
     if (this.tcx().features().return_type_notation()) {
-      // PORT: `ImplTraitInTraitData` is `Pending` in ty/decls.ts; the `fn_sig` query value is `unknown`.
-      const rpitit_info = this.tcx().opt_rpitit_info(def_id) as unknown as ImplTraitInTraitDataView | undefined;
+      // PORT: the `fn_sig` query value is `unknown`.
+      const rpitit_info = this.tcx().opt_rpitit_info(def_id);
       if (rpitit_info !== undefined && rpitit_info.$ === "Trait") {
         const fn_def_id = rpitit_info.fn_def_id;
         const output_kind = Binder.skip_binder(PolyFnSig_.output(EarlyBinder.skip_binder(this.tcx().fn_sig(fn_def_id) as EarlyBinder<PolyFnSig>))).kind();
@@ -1993,8 +1994,6 @@ function opt_def_id_eq(a: DefId | undefined, b: DefId): boolean {
 interface CodegenFnAttrsView {
   safe_target_features: boolean;
 }
-/** `ty::ImplTraitInTraitData` (ty/mod.rs; `Pending` in ty/decls.ts) in its PORTING §5 shape. */
-type ImplTraitInTraitDataView = { readonly $: "Trait"; fn_def_id: DefId; opaque_def_id: DefId } | { readonly $: "Impl"; fn_def_id: DefId };
 /** `mir::UnOp` (mir/syntax.rs; `Pending` in ty/decls.ts): fieldless. */
 type UnOpT = "Not" | "Neg" | "PtrMetadata";
 /** `ty::abstract_const::CastKind` (ty/abstract_const.rs; `Pending` in ty/decls.ts): fieldless. */
@@ -2040,18 +2039,6 @@ const fold_ListTy_Ty_: TypeFoldable<[List<Ty>, Ty]> = descriptor<[List<Ty>, Ty]>
 );
 
 // -- rustc_middle ty/generics.rs, ty/assoc.rs, ty/adt.rs, ty/pattern.rs, ty/consts/kind.rs, mir --
-/** `AssocItem::name` (ty/assoc.rs). */
-function AssocItem_name(_self: AssocItem): Symbol {
-  return unported("rustc_middle::ty::assoc::AssocItem::name (ty/assoc.rs)");
-}
-/** `AdtDef::did` (ty/adt.rs; `AdtDef` is `Pending`). */
-function AdtDef_did(_self: unknown): DefId {
-  return unported("rustc_middle::ty::adt::AdtDef::did (ty/adt.rs)");
-}
-/** `AdtDef::field_representing_type_info` (ty/adt.rs). */
-function AdtDef_field_representing_type_info(_self: unknown, _tcx: TyCtxt, _args: GenericArgs): FieldInfo | undefined {
-  return unported("rustc_middle::ty::adt::AdtDef::field_representing_type_info (ty/adt.rs)");
-}
 /** `impl Debug for Pattern` (ty/pattern.rs). */
 function debug_Pattern(_pat: Pattern): string {
   return unported("rustc_middle::ty::pattern `impl Debug for Pattern` (ty/pattern.rs)");
@@ -2401,7 +2388,7 @@ PrettyPrinter.prototype.pretty_print_const_valtree = function (this: PrettyPrint
     const contents = Value_destructure_adt_const(cv_);
     const fields = contents.fields;
 
-    if (AdtDef_variants(def).length === 0) {
+    if (def.variants().length === 0) {
       if (
         (r = this.typed_value(
           (this_) => {
@@ -2416,9 +2403,9 @@ PrettyPrinter.prototype.pretty_print_const_valtree = function (this: PrettyPrint
         return r;
     } else {
       const variant_idx = contents.variant;
-      const variant_def = AdtDef_variant(def, variant_idx);
+      const variant_def = def.variant(variant_idx);
       if ((r = this.pretty_print_value_path(variant_def.def_id, args)).$ === "Err") return r;
-      const ctor_kind = VariantDef_ctor_kind(variant_def);
+      const ctor_kind = variant_def.ctor_kind();
       if (ctor_kind === "Const") {
         // nothing
       } else if (ctor_kind === "Fn") {
@@ -2767,7 +2754,7 @@ export class FmtPrinter extends PrettyPrinter {
           return true;
         }
       })() &&
-      utf8_len(Symbol.as_str(this._0.tcx.item_name(AdtDef_did(k._0)))) < 7
+      utf8_len(Symbol.as_str(this._0.tcx.item_name(k._0.did()))) < 7
     ) {
       // Don't fully truncate types that have "short names" and at most one type or const
       // param. We do use the short path for them (only item name instead of full path).
@@ -3887,7 +3874,7 @@ export function print_ExistentialTraitRef(self: ExistentialTraitRef, p: PrettyPr
 export function print_ExistentialProjection(self: ExistentialProjection, p: PrettyPrinter): PrintResult {
   let r: PrintResult;
   // PORT: the `associated_item` / `generics_of` query values are `unknown` in queries.gen.ts.
-  const name = AssocItem_name(p.tcx().associated_item(self.def_id) as AssocItem);
+  const name = middle_assoc().AssocItem.name(p.tcx().associated_item(self.def_id) as AssocItem);
   // The args don't contain the self ty (as it has been erased) but the corresp.
   // generics do as the trait always has a self ty param. We need to offset.
   const args = self.args.slice((p.tcx().generics_of(self.def_id) as Generics).parent_count - 1);
@@ -3986,7 +3973,7 @@ export function print_TraitRefPrintSugared(self: TraitRefPrintSugared, p: Pretty
   if (
     !with_reduced_queries() &&
     // PORT: the `trait_def` query value is `unknown` in queries.gen.ts.
-    TraitDef_paren_sugar(p.tcx().trait_def(self._0.def_id)) &&
+    (p.tcx().trait_def(self._0.def_id) as TraitDef).paren_sugar &&
     (args_ty = self._0.args[1] === undefined ? undefined : GenericArg.as_type(self._0.args[1])) !== undefined &&
     (tk = args_ty.kind()).$ === "Tuple"
   ) {
@@ -4442,27 +4429,6 @@ function LateParamRegionKind_get_name(self: LateParamRegionKind, tcx: TyCtxt): S
       return undefined;
   }
 }
-/** PORT: pending ty-adt-assoc: `AdtDef::variants` (adt.rs). */
-function AdtDef_variants(_def: AdtDef): readonly VariantDefShape[] {
-  return unported("rustc_middle::ty::adt::AdtDef::variants (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `AdtDef::variant` (adt.rs). */
-function AdtDef_variant(_def: AdtDef, _idx: number): VariantDefShape {
-  return unported("rustc_middle::ty::adt::AdtDef::variant (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `VariantDef::ctor_kind` (mod.rs). */
-function VariantDef_ctor_kind(_v: VariantDefShape): "Fn" | "Const" | undefined {
-  return unported("rustc_middle::ty::VariantDef::ctor_kind (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: the fields of `VariantDef` read here (ty/mod.rs). */
-interface VariantDefShape {
-  def_id: DefId;
-  fields: readonly { name: Symbol }[];
-}
-/** PORT: pending ty-adt-assoc: `TraitDef::paren_sugar` (trait_def.rs; the `trait_def` query value is `unknown`). */
-function TraitDef_paren_sugar(trait_def: unknown): boolean {
-  return (trait_def as { paren_sugar: boolean }).paren_sugar;
-}
 // `ty::Value` (valtree.rs:103) is `Pending` in decls.ts; its fields read here.
 interface ValueShape {
   valtree: ValTree;
@@ -4485,7 +4451,7 @@ function Value_try_to_raw_bytes(_cv: ValueShape, _tcx: TyCtxt): Uint8Array | und
   return unported("rustc_middle::ty::consts::valtree::Value::try_to_raw_bytes (lane ty-results)");
 }
 /** PORT: pending ty-results: `Value::destructure_adt_const` (valtree.rs). */
-function Value_destructure_adt_const(_cv: ValueShape): { variant: number; fields: readonly Const[] } {
+function Value_destructure_adt_const(_cv: ValueShape): { variant: VariantIdx; fields: readonly Const[] } {
   return unported("rustc_middle::ty::consts::valtree::Value::destructure_adt_const (lane ty-results)");
 }
 /** PORT: pending ty-results: `ScalarInt == ScalarInt` (int.rs, derived). */
@@ -4605,4 +4571,9 @@ function Instance_def_id(_self: Instance): DefId {
 }
 function Instance_args(_instance: Instance): GenericArgs {
   return unported("rustc_middle::ty::instance::Instance::args (M4)");
+}
+
+/** PORT (merge-w15b): ty/assoc.ts is another extension module of `TyCtxt`: reached lazily. */
+function middle_assoc(): typeof import("../assoc.ts") {
+  return require("../assoc.ts") as typeof import("../assoc.ts");
 }

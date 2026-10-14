@@ -522,7 +522,7 @@ function def_id_of_type_cached(ty: Ty, visited: Set<Ty>): DefId | undefined {
   const kind = ty.kind();
   switch (kind.$) {
     case "Adt":
-      return AdtDef_did(kind._0);
+      return kind._0.did();
 
     case "Dynamic":
       return kind._0.principal_def_id();
@@ -592,10 +592,6 @@ function def_id_of_type(ty: Ty): DefId | undefined {
   return def_id_of_type_cached(ty, new Set());
 }
 
-/** PORT: stand-in for `AdtDef::did` (ty/adt.rs, lane ty-adt-assoc): `AdtDef` is still `Pending` in ty/decls.ts. */
-function AdtDef_did(adt: AdtDef): DefId {
-  return (adt as unknown as { did(): DefId }).did();
-}
 
 /**
  * PORT: the `QueryKey` impl of a key type that is not ported yet (`rust_type` as written in queries.rs).

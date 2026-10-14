@@ -68,7 +68,7 @@ export function simplify_type(cx: Interner, ty: Ty, treat_params: TreatParams): 
     case "Float":
       return { $: "Float", _0: kind._0 };
     case "Adt":
-      return { $: "Adt", _0: AdtDef_def_id(kind._0) };
+      return { $: "Adt", _0: kind._0.def_id() };
     case "Str":
       return SimplifiedType.Str;
     case "Array":
@@ -676,10 +676,6 @@ function Option_DefId_eq(a: DefId | undefined, b: DefId | undefined): boolean {
 
 // ---- PORT stand-ins for fns of other files that are not ported yet (module header) -----------------------------------
 
-/** PORT: stand-in for `impl inherent::AdtDef for AdtDef` `def_id` (rustc_middle ty/adt.rs, lane ty-adt-assoc). */
-function AdtDef_def_id(_def: AdtDef): DefId {
-  return unported("rustc_middle::ty::adt: inherent::AdtDef::def_id");
-}
 
 /** PORT: stand-in for `impl inherent::ValueConst for ty::Value` `valtree` (rustc_middle ty/consts/valtree.rs). */
 function Value_valtree(_v: Value): ValTree {

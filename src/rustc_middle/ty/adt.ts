@@ -41,7 +41,6 @@ import { intern_key } from "../../rust_ts/intern_key.ts";
 import { ConstEvalNonIntError_diagnostic } from "../diagnostics.gen.ts";
 import type { TyCtxt } from "./context.ts";
 import type {
-  AdtDef as PendingAdtDef,
   AsyncDestructor,
   Destructor,
   Discr,
@@ -55,7 +54,8 @@ import type {
   VariantIdx,
 } from "./decls.ts";
 import type { GenericArgs } from "./generic_args.ts";
-import type { Ty } from "./mod.ts";
+import type { FieldDef, Ty } from "./mod.ts";
+import type { IntegerType } from "./util.ts";
 
 // rustc_abi `FIRST_VARIANT` (`VariantIdx::ZERO`)
 const FIRST_VARIANT = 0 as VariantIdx;
@@ -226,11 +226,11 @@ export class AdtDefData {
     // debug!("AdtDef::new({:?}, {:?}, {:?}, {:?})", did, kind, variants, repr);
     let flags = AdtFlags.NO_ADT_FLAGS;
 
-    if (kind === "Enum" && find_attr(HasAttrs_DefId_get_attrs(did, tcx), (k) => (k.$ === "NonExhaustive" ? null : undefined)) !== undefined) {
+    if (kind === "Enum" && find_attr(ty_mod().HasAttrs_DefId.get_attrs(did, tcx), (k) => (k.$ === "NonExhaustive" ? null : undefined)) !== undefined) {
       // debug!("found non-exhaustive variant list for {:?}", did);
       flags = AdtFlags.union(flags, AdtFlags.IS_VARIANT_LIST_NON_EXHAUSTIVE);
     }
-    if (find_attr(HasAttrs_DefId_get_attrs(did, tcx), (k) => (k.$ === "PinV2" ? null : undefined)) !== undefined) {
+    if (find_attr(ty_mod().HasAttrs_DefId.get_attrs(did, tcx), (k) => (k.$ === "PinV2" ? null : undefined)) !== undefined) {
       // debug!("found pin-project type {:?}", did);
       flags = AdtFlags.union(flags, AdtFlags.IS_PIN_PROJECT);
     }
@@ -249,11 +249,11 @@ export class AdtDefData {
     }
     flags = AdtFlags.union(flags, kind_flag);
 
-    if (kind === "Struct" && view_VariantDef(unwrap(variants[FIRST_VARIANT], "index out of bounds")).ctor !== undefined) {
+    if (kind === "Struct" && unwrap(variants[FIRST_VARIANT], "index out of bounds").ctor !== undefined) {
       flags = AdtFlags.union(flags, AdtFlags.HAS_CTOR);
     }
 
-    if (find_attr(HasAttrs_DefId_get_attrs(did, tcx), (k) => (k.$ === "Fundamental" ? null : undefined)) !== undefined) {
+    if (find_attr(ty_mod().HasAttrs_DefId.get_attrs(did, tcx), (k) => (k.$ === "Fundamental" ? null : undefined)) !== undefined) {
       flags = AdtFlags.union(flags, AdtFlags.IS_FUNDAMENTAL);
     }
     let lang_flag: AdtFlags;
@@ -357,9 +357,9 @@ export class AdtDef extends Interned {
     const base_kind = base.kind();
     switch (base_kind.$) {
       case "Adt": {
-        const base_def = as_AdtDef(base_kind._0);
+        const base_def = base_kind._0;
         const base_args = base_kind._1;
-        const variant_ = view_VariantDef(base_def.variant(variant_idx));
+        const variant_ = base_def.variant(variant_idx);
         const field = unwrap(variant_.fields[field_idx], "index out of bounds");
         ty = Unnormalized.skip_norm_wip(field.ty(tcx, base_args));
         variant = base_def.is_enum() ? variant_.name : undefined;
@@ -404,7 +404,7 @@ export class AdtDef extends Interned {
 
   // rustc: compiler/rustc_middle/src/ty/adt.rs:275 struct_tail_ty
   struct_tail_ty(interner: TyCtxt): EarlyBinder<Ty> | undefined {
-    const tail = view_VariantDef(this.non_enum_variant()).tail_opt();
+    const tail = this.non_enum_variant().tail_opt();
     if (tail === undefined) return undefined;
     // PORT: the `type_of` query value is `unknown` in queries.gen.ts (`EarlyBinder<Ty>`).
     return interner.type_of(tail.did) as EarlyBinder<Ty>;
@@ -440,7 +440,7 @@ export class AdtDef extends Interned {
     const d = this.destructor(tcx);
     if (d === undefined) return undefined;
     // PORT: the `constness` query value is `unknown` in queries.gen.ts (`hir::Constness`).
-    const c = tcx.constness(view_Destructor(d).did) as Constness;
+    const c = tcx.constness(d.did) as Constness;
     switch (c.$) {
       case "Const":
         if (c.always === true) panic("not implemented: FIXME(comptime)"); // `unimplemented!("FIXME(comptime)")`
@@ -619,8 +619,8 @@ export class AdtDef extends Interned {
   /// Returns an iterator over all fields contained
   /// by this ADT (nested unnamed fields are not expanded).
   // rustc: compiler/rustc_middle/src/ty/adt.rs:557 all_fields
-  *all_fields(): Generator<FieldDefView> {
-    for (const v of this.variants()) yield* view_VariantDef(v).fields;
+  *all_fields(): Generator<FieldDef> {
+    for (const v of this.variants()) yield* v.fields;
   }
 
   /// Whether the ADT lacks fields. Note that this includes uninhabited enums,
@@ -638,19 +638,19 @@ export class AdtDef extends Interned {
     // ```
     if (
       this.variants().some((v_) => {
-        const v = view_VariantDef(v_);
+        const v = v_;
         return v.discr.$ === "Explicit" && v.ctor_kind() !== "Const";
       })
     ) {
       return false;
     }
-    return this.variants().every((v) => view_VariantDef(v).fields.length === 0);
+    return this.variants().every((v) => v.fields.length === 0);
   }
 
   /// Return a `VariantDef` given a variant id.
   // rustc: compiler/rustc_middle/src/ty/adt.rs:582 variant_with_id
   variant_with_id(vid: DefId): VariantDef {
-    const v = this.variants().find((v) => DefId_eq(view_VariantDef(v).def_id, vid));
+    const v = this.variants().find((v) => DefId_eq(v.def_id, vid));
     if (v === undefined) panic("variant_with_id: unknown variant");
     return v;
   }
@@ -658,7 +658,7 @@ export class AdtDef extends Interned {
   /// Return a `VariantDef` given a constructor id.
   // rustc: compiler/rustc_middle/src/ty/adt.rs:587 variant_with_ctor_id
   variant_with_ctor_id(cid: DefId): VariantDef {
-    const v = this.variants().find((v) => eq_Option_DefId(view_VariantDef(v).ctor_def_id(), cid));
+    const v = this.variants().find((v) => eq_Option_DefId(v.ctor_def_id(), cid));
     if (v === undefined) panic("variant_with_ctor_id: unknown variant");
     return v;
   }
@@ -666,7 +666,7 @@ export class AdtDef extends Interned {
   /// Return the index of `VariantDef` given a variant id.
   // rustc: compiler/rustc_middle/src/ty/adt.rs:596 variant_index_with_id
   variant_index_with_id(vid: DefId): VariantIdx {
-    const i = this.variants().findIndex((v) => DefId_eq(view_VariantDef(v).def_id, vid));
+    const i = this.variants().findIndex((v) => DefId_eq(v.def_id, vid));
     if (i === -1) panic("variant_index_with_id: unknown variant");
     return i as VariantIdx;
   }
@@ -674,7 +674,7 @@ export class AdtDef extends Interned {
   /// Return the index of `VariantDef` given a constructor id.
   // rustc: compiler/rustc_middle/src/ty/adt.rs:605 variant_index_with_ctor_id
   variant_index_with_ctor_id(cid: DefId): VariantIdx {
-    const i = this.variants().findIndex((v) => eq_Option_DefId(view_VariantDef(v).ctor_def_id(), cid));
+    const i = this.variants().findIndex((v) => eq_Option_DefId(v.ctor_def_id(), cid));
     if (i === -1) panic("variant_index_with_ctor_id: unknown variant");
     return i as VariantIdx;
   }
@@ -711,12 +711,12 @@ export class AdtDef extends Interned {
     switch (r.$) {
       case "Ok": {
         const val = r._0;
-        const typing_env = TypingEnv_post_analysis(tcx, expr_did);
-        const ty = IntTypeExt_to_ty(repr_type, tcx);
+        const typing_env = ty_mod().TypingEnv.post_analysis(tcx, expr_did);
+        const ty = ty_util().IntTypeExt.to_ty(repr_type, tcx);
         const b = ConstValue_try_to_bits_for_ty(val, tcx, typing_env, ty);
         if (b !== undefined) {
           // trace!("discriminants: {} ({:?})", b, repr_type);
-          return Ok(Discr_new(b, ty));
+          return Ok(new (ty_util().Discr)(b, ty));
         } else {
           // info!("invalid enum discriminant: {:#?}", val);
           const guar = tcx.dcx().emit_err(
@@ -747,12 +747,12 @@ export class AdtDef extends Interned {
   *discriminants(tcx: TyCtxt): Generator<[VariantIdx, Discr]> {
     assert(this.is_enum(), "assertion failed: self.is_enum()");
     const repr_type = ReprOptions_discr_type(this.repr());
-    const initial = IntTypeExt_initial_discriminant(repr_type, tcx);
+    const initial = ty_util().IntTypeExt.initial_discriminant(repr_type, tcx);
     let prev_discr: Discr | undefined = undefined;
     const variants = this.variants();
     for (let i = 0; i < variants.length; i++) {
-      const v = view_VariantDef(variants[i]!);
-      let discr: Discr = prev_discr === undefined ? initial : Discr_wrap_incr(prev_discr, tcx);
+      const v = (variants[i]!);
+      let discr: Discr = prev_discr === undefined ? initial : prev_discr.wrap_incr(tcx);
       if (v.discr.$ === "Explicit") {
         const expr_did = v.discr._0;
         const new_discr = this.eval_explicit_discr(tcx, expr_did);
@@ -790,9 +790,9 @@ export class AdtDef extends Interned {
     if (ok !== undefined) {
       explicit_value = ok;
     } else {
-      explicit_value = IntTypeExt_initial_discriminant(ReprOptions_discr_type(this.repr()), tcx);
+      explicit_value = ty_util().IntTypeExt.initial_discriminant(ReprOptions_discr_type(this.repr()), tcx);
     }
-    return Discr_checked_add(explicit_value, tcx, BigInt(offset))[0];
+    return explicit_value.checked_add(tcx, BigInt(offset))[0];
   }
 
   /// Yields a `DefId` for the discriminant and an offset to add to it
@@ -804,7 +804,7 @@ export class AdtDef extends Interned {
     let explicit_index: number = variant_index;
     let expr_did: DefId | undefined;
     for (;;) {
-      const discr = view_VariantDef(this.variant(explicit_index as VariantIdx)).discr;
+      const discr = this.variant(explicit_index as VariantIdx).discr;
       if (discr.$ === "Relative" && discr._0 === 0) {
         expr_did = undefined;
         break;
@@ -891,42 +891,13 @@ export function DataTypeKind_from_AdtKind(val: AdtKind): DataTypeKind {
 
 // ---- views of pending types (module comment) ----------------------------------------------------------------------
 
-/** `ty::VariantDiscr` (ty/mod.rs:1474). PORT(decls): pending ty-mod-a/-b. */
-export type VariantDiscr = { readonly $: "Explicit"; readonly _0: DefId } | { readonly $: "Relative"; readonly _0: number };
-
-/** The members of `ty::VariantDef` (ty/mod.rs:1278) read by this lane. PORT(decls): pending ty-mod-a/-b. */
-export interface VariantDefView {
-  readonly def_id: DefId;
-  readonly ctor: readonly [CtorKind, DefId] | undefined;
-  readonly name: Symbol;
-  readonly discr: VariantDiscr;
-  readonly fields: readonly FieldDefView[];
-  ctor_kind(): CtorKind | undefined;
-  ctor_def_id(): DefId | undefined;
-  tail_opt(): FieldDefView | undefined;
+/** PORT (init order): ty/mod.ts imports modules that import this one back, and ty/util.ts is an extension module;
+ * both are reached lazily (merge-w15b). */
+function ty_mod(): typeof import("./mod.ts") {
+  return require("./mod.ts") as typeof import("./mod.ts");
 }
-export function view_VariantDef(v: VariantDef): VariantDefView {
-  return v as unknown as VariantDefView;
-}
-
-/** The members of `ty::FieldDef` (ty/mod.rs:1487) read by this lane. PORT(decls): pending ty-mod-a/-b. */
-export interface FieldDefView {
-  readonly did: DefId;
-  readonly name: Symbol;
-  ty(tcx: TyCtxt, args: GenericArgs): Unnormalized<Ty>;
-}
-
-/** `ty::Destructor` (ty/mod.rs:1253). PORT(decls): pending ty-mod-a/-b. */
-interface DestructorView {
-  readonly did: DefId;
-}
-function view_Destructor(d: Destructor): DestructorView {
-  return d as unknown as DestructorView;
-}
-
-/** PORT(decls): `ty::AdtDef` is `Pending` in decls.ts until root re-exports this class. */
-export function as_AdtDef(d: PendingAdtDef): AdtDef {
-  return d as unknown as AdtDef;
+function ty_util(): typeof import("./util.ts") {
+  return require("./util.ts") as typeof import("./util.ts");
 }
 
 /** `Option<DefId> == Some(cid)` */
@@ -937,17 +908,7 @@ function eq_Option_DefId(a: DefId | undefined, b: DefId): boolean {
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
 
 /** PORT: stand-in for `impl HasAttrs for DefId` (ty/mod.rs:2349, lane ty-mod): the upstream body. */
-export function HasAttrs_DefId_get_attrs(self: DefId, tcx: TyCtxt): readonly Attribute_[] {
-  const did = self.as_local();
-  if (did !== undefined) {
-    return tcx.hir_attrs(tcx.local_def_id_to_hir_id(did));
-  } else {
-    return tcx.attrs_for_def(self) as readonly Attribute_[];
-  }
-}
-
-/** `rustc_abi::IntegerType` (pending). */
-type IntegerType = { readonly __pending: "IntegerType" };
+export 
 
 /** PORT: stand-in for `ReprOptions::packed` (rustc_abi lib.rs). */
 function ReprOptions_packed(_self: ReprOptions): boolean {
@@ -956,26 +917,6 @@ function ReprOptions_packed(_self: ReprOptions): boolean {
 /** PORT: stand-in for `ReprOptions::discr_type` (rustc_abi lib.rs). */
 function ReprOptions_discr_type(_self: ReprOptions): IntegerType {
   return unported("rustc_abi::ReprOptions::discr_type");
-}
-/** PORT: stand-in for `IntTypeExt::to_ty` (ty/util.rs, lane ty-util). */
-function IntTypeExt_to_ty(_self: IntegerType, _tcx: TyCtxt): Ty {
-  return unported("rustc_middle::ty::util::IntTypeExt::to_ty (lane ty-util)");
-}
-/** PORT: stand-in for `IntTypeExt::initial_discriminant` (ty/util.rs, lane ty-util). */
-function IntTypeExt_initial_discriminant(_self: IntegerType, _tcx: TyCtxt): Discr {
-  return unported("rustc_middle::ty::util::IntTypeExt::initial_discriminant (lane ty-util)");
-}
-/** PORT: stand-in for `Discr { val, ty }` (ty/util.rs:37, lane ty-util). */
-function Discr_new(_val: bigint, _ty: Ty): Discr {
-  return unported("rustc_middle::ty::util::Discr (lane ty-util)");
-}
-/** PORT: stand-in for `Discr::wrap_incr` (ty/util.rs, lane ty-util). */
-function Discr_wrap_incr(_self: Discr, _tcx: TyCtxt): Discr {
-  return unported("rustc_middle::ty::util::Discr::wrap_incr (lane ty-util)");
-}
-/** PORT: stand-in for `Discr::checked_add` (ty/util.rs, lane ty-util). */
-function Discr_checked_add(_self: Discr, _tcx: TyCtxt, _n: bigint): [Discr, boolean] {
-  return unported("rustc_middle::ty::util::Discr::checked_add (lane ty-util)");
 }
 /** PORT: stand-in for `ty::Value::to_leaf` (ty/consts/valtree.rs, lane ty-results). */
 function Value_to_leaf(_self: Value): ScalarInt {
@@ -1001,8 +942,4 @@ function ConstValue_try_to_bits_for_ty(_self: ConstValue, _tcx: TyCtxt, _typing_
 /** PORT: stand-in for `impl From<ReportedErrorInfo> for ErrorGuaranteed` (mir/interpret/error.rs, M4). */
 function ReportedErrorInfo_into_ErrorGuaranteed(_self: ReportedErrorInfo): ErrorGuaranteed {
   return unported("rustc_middle::mir::interpret::ReportedErrorInfo: Into<ErrorGuaranteed> (M4)");
-}
-/** PORT: stand-in for `TypingEnv::post_analysis` (ty/mod.rs, lane ty-mod). */
-function TypingEnv_post_analysis(_tcx: TyCtxt, _def_id: DefId): TypingEnv {
-  return unported("rustc_middle::ty::TypingEnv::post_analysis (lane ty-mod)");
 }

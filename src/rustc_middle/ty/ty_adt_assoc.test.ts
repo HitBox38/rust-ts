@@ -12,7 +12,8 @@ import { Ident, Symbol, sym } from "../../rustc_span/symbol.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { Err, Ok } from "../../std/result.ts";
 import { SortedIndexMultiMap } from "../../rustc_data_structures/sorted_map/index_map.ts";
-import { AdtDef, AdtDefData, AdtFlags, AdtKind, DataTypeKind_from_AdtKind, debug_AdtFlags, type FieldDefView, type VariantDefView } from "./adt.ts";
+import { AdtDef, AdtDefData, AdtFlags, AdtKind, DataTypeKind_from_AdtKind, debug_AdtFlags } from "./adt.ts";
+import { FieldDef, RestrictionKind, VariantDef as VariantDefC, VariantFlags, Visibility, type VariantDiscr } from "./mod.ts";
 import { AssocItem, AssocItems, AssocKind, AssocTag, display_AssocKind } from "./assoc.ts";
 import {
   analyze_coroutine_closure_captures,
@@ -153,20 +154,11 @@ describe("AssocItem / AssocItems", () => {
 
 // ---- adt.rs --------------------------------------------------------------------------------------------------------
 
-function variant(def_id: DefId, discr: VariantDefView["discr"], nfields: number, ctor?: ["Fn" | "Const", DefId]): VariantDef {
-  const fields: FieldDefView[] = [];
-  for (let i = 0; i < nfields; i++) fields.push({ did: did(1000 + i), name: sym.integer(i), ty: () => ({}) as never });
-  const v: VariantDefView = {
-    def_id,
-    ctor,
-    name: sym.clone,
-    discr,
-    fields,
-    ctor_kind: () => ctor?.[0],
-    ctor_def_id: () => ctor?.[1],
-    tail_opt: () => fields.at(-1),
-  };
-  return v as unknown as VariantDef;
+// merge-w15b: real `VariantDef` / `FieldDef` (ty/mod.rs, lanes ty-mod-a/-b) in place of the lane's views.
+function variant(def_id: DefId, discr: VariantDiscr, nfields: number, ctor?: ["Fn" | "Const", DefId]): VariantDef {
+  const fields: FieldDef[] = [];
+  for (let i = 0; i < nfields; i++) fields.push(new FieldDef(did(1000 + i), sym.integer(i), Visibility.Public, RestrictionKind.Unrestricted, "Safe", undefined));
+  return new VariantDefC(def_id, ctor, sym.clone, discr, fields, undefined, VariantFlags.NO_VARIANT_FLAGS);
 }
 const REPR = {} as ReprOptions;
 

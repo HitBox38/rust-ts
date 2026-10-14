@@ -90,10 +90,6 @@ export * from "./relate.gen.ts";
 // ---- PORT stand-ins for fns of other files that are not ported yet ------------------------------------------------
 // Not markers. One-liners keep their upstream body; the rest call `unported`. Root repoints them at the real ports.
 
-/** PORT: stand-in for `inherent::AdtDef::def_id` (rustc_middle ty/adt.rs, lane ty-adt-assoc; `AdtDef` is pending). */
-function AdtDef_def_id(_self: AdtDef): DefId {
-  return unported("rustc_middle::ty::AdtDef: inherent::AdtDef::def_id (AdtDef is pending)");
-}
 
 /** PORT: stand-in for `inherent::ValueConst::valtree` + `ValTree::kind` (rustc_middle ty/consts/valtree.rs; `ty::Value`
  *  is pending). */
@@ -605,7 +601,7 @@ export function structurally_relate_tys(relation: TypeRelation, a: Ty, b: Ty): R
     if (ak._1.length === 0) {
       return Ok(a);
     } else {
-      return relation.relate_ty_args(a, b, AdtDef_def_id(a_def), ak._1, bk._1, (args) => Ty.new_adt(cx, a_def, args));
+      return relation.relate_ty_args(a, b, a_def.def_id(), ak._1, bk._1, (args) => Ty.new_adt(cx, a_def, args));
     }
   }
 

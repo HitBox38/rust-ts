@@ -309,7 +309,7 @@ function characteristic_def_id_of_type_cached(ty: Ty, visited: Set<Ty>): DefId |
   const kind = ty.kind();
   switch (kind.$) {
     case "Adt":
-      return AdtDef_did(kind._0);
+      return kind._0.did();
 
     case "Dynamic":
       return kind._0.principal_def_id();
@@ -552,8 +552,4 @@ export type ShimKindView =
 /** `Instance::def_id` (ty/instance.rs; not ported). */
 function Instance_def_id(_self: Instance): DefId {
   return unported("rustc_middle::ty::instance::Instance::def_id (ty/instance.rs)");
-}
-/** `AdtDef::did` (ty/adt.rs; `AdtDef` is `Pending`). */
-function AdtDef_did(_adt_def: unknown): DefId {
-  return unported("rustc_middle::ty::adt::AdtDef::did (ty/adt.rs)");
 }

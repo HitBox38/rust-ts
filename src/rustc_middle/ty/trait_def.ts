@@ -12,6 +12,7 @@
 // `TyCtxt` through `as_interner` (rustc_type_ir/predicate.ts).
 // PORT: the query providers of this file (`trait_impls_of_provider`, ..) are `pub(super)` upstream, installed by
 // ty/mod.rs `provide` (lane ty-mod): exported here, not wired.
+import type { LocalCrate } from "../query/keys.ts";
 import { TyCtxt } from "./context.ts";
 import { type VisitorResult, try_visit } from "../../rustc_ast_ir/visit.ts";
 import { find_attr } from "../../rustc_attr_ir/lib.ts";
@@ -29,8 +30,7 @@ import { simplify_type } from "../../rustc_type_ir/fast_reject.ts";
 import { as_interner } from "../../rustc_type_ir/predicate.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { debug_SimplifiedType, SimplifiedType, SimplifiedType_key } from "./fast_reject.ts";
-import { HasAttrs_DefId_get_attrs } from "./adt.ts";
-import { debug_Ty, type Ty } from "./mod.ts";
+import { debug_Ty, HasAttrs_DefId, type Ty } from "./mod.ts";
 
 /** `ty::RestrictionKind` (ty/mod.rs:277). PORT(decls): pending lane ty-mod-a/-b (PORTING §5 shape). */
 export type RestrictionKind = { readonly $: "Unrestricted" } | { readonly $: "Restricted"; readonly _0: DefId; readonly _1: Span };
@@ -382,7 +382,7 @@ export function trait_impls_of_provider(tcx: TyCtxt, trait_id: DefId): TraitImpl
 // rustc: compiler/rustc_middle/src/ty/trait_def.rs:347 incoherent_impls_provider
 export function incoherent_impls_provider(tcx: TyCtxt, simp: SimplifiedType): readonly DefId[] {
   const def_id = SimplifiedType.def(simp);
-  if (def_id !== undefined && !(find_attr(HasAttrs_DefId_get_attrs(def_id, tcx), (k) => (k.$ === "RustcHasIncoherentInherentImpls" ? null : undefined)) !== undefined)) {
+  if (def_id !== undefined && !(find_attr(HasAttrs_DefId.get_attrs(def_id, tcx), (k) => (k.$ === "RustcHasIncoherentInherentImpls" ? null : undefined)) !== undefined)) {
     return [];
   }
 
@@ -399,7 +399,7 @@ export function incoherent_impls_provider(tcx: TyCtxt, simp: SimplifiedType): re
 }
 
 // rustc: compiler/rustc_middle/src/ty/trait_def.rs:365 traits_provider
-export function traits_provider(tcx: TyCtxt, _: null): readonly DefId[] {
+export function traits_provider(tcx: TyCtxt, _: LocalCrate): readonly DefId[] {
   const traits: DefId[] = [];
   for (const id of tcx.hir_free_items()) {
     const k = tcx.def_kind(id.owner_id);
@@ -412,7 +412,7 @@ export function traits_provider(tcx: TyCtxt, _: null): readonly DefId[] {
 }
 
 // rustc: compiler/rustc_middle/src/ty/trait_def.rs:376 trait_impls_in_crate_provider
-export function trait_impls_in_crate_provider(tcx: TyCtxt, _: null): readonly DefId[] {
+export function trait_impls_in_crate_provider(tcx: TyCtxt, _: LocalCrate): readonly DefId[] {
   const trait_impls: DefId[] = [];
   for (const id of tcx.hir_free_items()) {
     const k = tcx.def_kind(id.owner_id);
