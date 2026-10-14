@@ -67,6 +67,10 @@ import { type CtorKind, DefKind, MacroKinds } from "../../rustc_hir/def.ts";
 import { SINGLE_USE_LIFETIMES, UNUSED_LIFETIMES } from "../../rustc_lint_defs/builtin.gen.ts";
 import type { LifetimeRes } from "../../rustc_middle/middle/resolve.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
+import { as_AdtDef } from "../../rustc_middle/ty/adt.ts";
+import { AssocItem, AssocItems } from "../../rustc_middle/ty/assoc.ts";
+import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
+import { type FnSig, PolyFnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Visibility } from "../../rustc_middle/ty/mod.ts";
 import { edit_distance, find_best_match_for_name } from "../../rustc_span/edit_distance.ts";
 import { SyntaxContext } from "../../rustc_span/hygiene.ts";
@@ -2573,11 +2577,28 @@ LateResolutionVisitor.prototype.suggest_alternative_construction_methods = funct
   }
   // Look at all the associated functions without receivers in the type's
   // inherent impls to look for builders that return `Self`
-  const items: [boolean, Symbol, number][] = this.r.tcx_.inherent_impls(def_id).flatMap((_i): [boolean, Symbol, number][] =>
-    // PORT: `tcx.associated_items(i).in_definition_order()`, `item.is_fn()` / `is_method()`, `tcx.fn_sig(..)` and
-    // `ty::Adt` belong to rustc_middle's type system (M3), not ported: the queries' values are `unknown`.
-    unported("rustc_middle::ty::AssocItems::in_definition_order (inherent impl items; fn_sig / ty::Adt, M3)"),
-  );
+  const tcx = this.r.tcx_;
+  const items: [boolean, Symbol, number][] = [];
+  for (const i of tcx.inherent_impls(def_id)) {
+    // PORT: the `associated_items` / `fn_sig` query values are `unknown` in queries.gen.ts (`&AssocItems`,
+    // `EarlyBinder<PolyFnSig>`).
+    for (const item of AssocItems.in_definition_order(tcx.associated_items(i) as AssocItems)) {
+      // Only assoc fn with no receivers.
+      if (!(AssocItem.is_fn(item) && !AssocItem.is_method(item))) continue;
+      // Only assoc fns that return `Self`
+      const fn_sig = EarlyBinder.skip_binder(tcx.fn_sig(item.def_id) as EarlyBinder<Binder<FnSig>>);
+      // Don't normalize the return type, because that can cause cycle errors.
+      const ret_ty = Binder.skip_binder(PolyFnSig.output(fn_sig));
+      const ret_kind = ret_ty.kind();
+      if (ret_kind.$ !== "Adt") continue;
+      const def = as_AdtDef(ret_kind._0);
+      const input_len = Binder.skip_binder(PolyFnSig.inputs(fn_sig)).length;
+      if (!DefId_eq(def.did(), def_id)) continue;
+      const name = AssocItem.name(item);
+      const order = !Symbol.as_str(name).startsWith("new");
+      items.push([order, name, input_len]);
+    }
+  }
   // `sort_by_key(|(order, _, _)| *order)` (stable; `false < true`).
   items.sort((a, b) => Number(a[0]) - Number(b[0]));
   const suggestion = (name: Symbol, args: number): string => `::${display_Symbol(name)}(${new Array<string>(args).fill("_").join(", ")})`;
