@@ -7,7 +7,7 @@ import { type Debug, PLAIN } from "../std/fmt.ts";
 import { debug_BoundRegion, debug_Placeholder } from "./binder.ts";
 import { debug_RegionVid, type RegionKind } from "./region_kind.gen.ts";
 import { debug_LateParamRegion } from "./sty/mod.ts";
-import { debug_bound_var } from "./ty_kind.ts";
+import { debug_bound_var } from "./lib.ts";
 
 export * from "./region_kind.gen.ts";
 

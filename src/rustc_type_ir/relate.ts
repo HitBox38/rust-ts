@@ -66,8 +66,8 @@ import {
   visit_with_TraitRef,
 } from "./predicate.ts";
 import * as gen from "./relate.gen.ts";
-import { Const, debug_Const, fold_Const } from "./sty/consts.ts";
-import { fold_Region, type Region } from "./sty/mod.ts";
+import { Const, debug_Const, fold_Const, relate_Const as sty_relate_Const } from "./sty/consts.ts";
+import { fold_Region, type Region, relate_Region as sty_relate_Region } from "./sty/mod.ts";
 import { AliasTerm, AliasTermKind, fold_with_AliasTermKind, try_fold_with_AliasTermKind, visit_with_AliasTermKind } from "./term_kind.ts";
 import { type AliasConst as AliasConstT, type AliasTerm as AliasTermT, type AliasTy as AliasTyT, fold_with_Alias, try_fold_with_Alias, visit_with_Alias } from "./ty/alias.ts";
 import {
@@ -89,27 +89,6 @@ export * from "./relate.gen.ts";
 
 // ---- PORT stand-ins for fns of other files that are not ported yet ------------------------------------------------
 // Not markers. One-liners keep their upstream body; the rest call `unported`. Root repoints them at the real ports.
-
-/** PORT: stand-in for `Variance::xform` (lib.rs:306, not ported yet). */
-export function Variance_xform(self: Variance, v: Variance): Variance {
-  // Figure 1, column 1.
-  if (self === "Covariant" && v === "Covariant") return Variance.Covariant;
-  if (self === "Covariant" && v === "Contravariant") return Variance.Contravariant;
-  if (self === "Covariant" && v === "Invariant") return Variance.Invariant;
-  if (self === "Covariant" && v === "Bivariant") return Variance.Bivariant;
-
-  // Figure 1, column 2.
-  if (self === "Contravariant" && v === "Covariant") return Variance.Contravariant;
-  if (self === "Contravariant" && v === "Contravariant") return Variance.Covariant;
-  if (self === "Contravariant" && v === "Invariant") return Variance.Invariant;
-  if (self === "Contravariant" && v === "Bivariant") return Variance.Bivariant;
-
-  // Figure 1, column 3.
-  if (self === "Invariant") return Variance.Invariant;
-
-  // Figure 1, column 4.
-  return Variance.Bivariant;
-}
 
 /** PORT: stand-in for `inherent::AdtDef::def_id` (rustc_middle ty/adt.rs, lane ty-adt-assoc; `AdtDef` is pending). */
 function AdtDef_def_id(_self: AdtDef): DefId {
@@ -168,8 +147,8 @@ function eq_interned<T>(a: T, b: T): boolean {
   return a === b;
 }
 
-// ---- PORT stand-ins: the `Relate` impls of other files (rustc_middle ty/relate.rs; sty/mod.rs:281 and
-// sty/consts.rs:240, whose declared homes are `relate_Region` / `relate_Const` in sty/{mod,consts}.ts). Not markers. --
+// ---- PORT stand-ins: the `Relate` impls of rustc_middle ty/relate.rs (not ported yet), and the `Relate` descriptors
+// of sty/{mod,consts}.ts's `relate_Region` / `relate_Const`. Not markers. --
 
 /** PORT: stand-in for `impl Relate for Ty` (rustc_middle ty/relate.rs:12): `relation.tys(a, b)`. */
 export const relate_Ty: Relate<Ty> = {
@@ -182,24 +161,20 @@ export const relate_Ty: Relate<Ty> = {
   },
 };
 
-/** PORT: stand-in for `impl Relate for Region` (sty/mod.rs:281): `relation.regions(a, b)`. */
+/** PORT: `impl Relate for Region` (sty/mod.rs:281, sty/mod.ts's `relate_Region` fn) as a `Relate` descriptor. */
 export const relate_Region: Relate<Region> = {
   ...fold_Region,
   eq: eq_interned,
-  relate(relation, a, b) {
-    return relation.regions(a, b);
-  },
+  relate: sty_relate_Region,
 };
 
-/** PORT: stand-in for `impl Relate for Const` (sty/consts.rs:240): `relation.consts(a, b)`. */
+/** PORT: `impl Relate for Const` (sty/consts.rs:240, sty/consts.ts's `relate_Const` fn) as a `Relate` descriptor. */
 export const relate_Const: Relate<Const> = {
   visit_with: fold_Const.visit_with,
   try_fold_with: fold_Const.try_fold_with,
   fold_with: fold_Const.fold_with,
   eq: eq_interned,
-  relate(relation, a, b) {
-    return relation.consts(a, b);
-  },
+  relate: sty_relate_Const,
 };
 
 /** PORT: stand-in for `impl Relate for GenericArgsRef` (rustc_middle ty/relate.rs:92). */

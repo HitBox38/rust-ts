@@ -61,8 +61,8 @@ import type { AliasTermKind, TermKind } from "./term_kind.ts";
 export type { AliasTermKind, TermKind };
 import type { PatternKind } from "./pattern.ts";
 export type { PatternKind };
-import type { CanonicalVarKind } from "./canonical.ts";
-export type { CanonicalVarKind };
+import type { CanonicalParamEnvCache, CanonicalVarKind } from "./canonical.ts";
+export type { CanonicalParamEnvCache, CanonicalVarKind };
 import type { ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, HostEffectClause, ImplPolarity, NormalizesTo, OutlivesClause, ProjectionClause, TraitClause, TraitRef } from "./predicate.ts";
 export type { ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, HostEffectClause, ImplPolarity, NormalizesTo, OutlivesClause, ProjectionClause, TraitClause, TraitRef };
 import type { AliasConst, AliasTy } from "./ty/alias.ts";
@@ -90,8 +90,6 @@ export type RegionOutlivesClause = OutlivesClause<Region>;
 export type ArgOutlivesClause = OutlivesClause<GenericArg>;
 
 // ---- pending (not generated: working structs and files outside set rustc_ty) ----
-// canonical.rs:271 (skipped by set rustc_ty: canonicalizer state)
-export type CanonicalParamEnvCache = Pending<"CanonicalParamEnvCache">;
 // search_graph
 export type GlobalCache = Pending<"GlobalCache">;
 export type RequiredDepth = Pending<"RequiredDepth">;

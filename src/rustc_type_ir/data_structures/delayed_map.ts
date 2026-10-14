@@ -1,9 +1,10 @@
-// Port of compiler/rustc_type_ir/src/data_structures/delayed_map.rs (lane tyir-binder: needed by rustc_middle ty/fold.rs's
-// `BoundVarReplacer` and ty_kind/closure.rs's `FoldEscapingRegions`).
+// Port of compiler/rustc_type_ir/src/data_structures/delayed_map.rs (lanes tyir-misc (sub-lane lib-sty) and tyir-binder; merge-w15a kept tyir-misc's).
 //
-// PORT: `HashMap<K, V>` / `HashSet<T>` with `K: Hash + Eq` are a `KeyedMap` / `KeyedSet` over a key function given at
-// construction (the keys are tuples of interned values, `(DebruijnIndex, Ty)`); they are only probed, never iterated,
-// so their order is not observable (D6).
+// PORT: `HashMap<K, V>` / `HashSet<T>` (FxHashMap / FxHashSet) are a `Map` / `Set` (PORTING §5). A key that is a
+// composite value (e.g. `(DebruijnIndex, Ty)` in `FoldEscapingRegions`) needs a key fn: `default_(key)` then uses
+// rust_ts/keyed.ts's `KeyedMap` / `KeyedSet` (PORTING §5 "other composite keys"); primitives and interned objects
+// need none. The caches are never iterated, so their order does not matter.
+// PORT: `#[derive(Debug)]` of both structs is not used by rustc's output and is not ported.
 import { KeyedMap, KeyedSet } from "../../rust_ts/keyed.ts";
 
 const CACHE_CUTOFF = 32;
@@ -16,14 +17,14 @@ const CACHE_CUTOFF = 32;
 // rustc-type: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:13 DelayedMap
 export class DelayedMap<K, V> {
   constructor(
-    public cache: KeyedMap<K, V>,
+    public cache: Map<K, V>,
     public count: number,
   ) {}
 
-  /** PORT: `K: Hash + Eq` is the key function. */
+  // PORT: `impl Default for DelayedMap` (tyir-kind decision 2: `default_()`); `key` per the module comment.
   // rustc: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:19 default
-  static default<K, V>(key: (k: K) => string | number): DelayedMap<K, V> {
-    return new DelayedMap(new KeyedMap<K, V>(key), 0);
+  static default_<K, V>(key?: (k: K) => string | number): DelayedMap<K, V> {
+    return new DelayedMap<K, V>(key === undefined ? new Map() : new KeyedMap(key), 0);
   }
 
   // rustc: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:26 insert
@@ -38,6 +39,7 @@ export class DelayedMap<K, V> {
 
   // rustc: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:37 cold_insert
   cold_insert(key: K, value: V): boolean {
+    // `self.cache.insert(key, value).is_none()`
     const had = this.cache.has(key);
     this.cache.set(key, value);
     return !had;
@@ -67,14 +69,14 @@ export class DelayedMap<K, V> {
 // rustc-type: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:60 DelayedSet
 export class DelayedSet<T> {
   constructor(
-    public cache: KeyedSet<T>,
+    public cache: Set<T>,
     public count: number,
   ) {}
 
-  /** PORT: `T: Hash + Eq` is the key function. */
+  // PORT: `impl Default for DelayedSet` (`default_()`); `key` per the module comment.
   // rustc: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:66 default
-  static default<T>(key: (t: T) => string | number): DelayedSet<T> {
-    return new DelayedSet(new KeyedSet<T>(key), 0);
+  static default_<T>(key?: (v: T) => string | number): DelayedSet<T> {
+    return new DelayedSet<T>(key === undefined ? new Set() : new KeyedSet(key), 0);
   }
 
   // rustc: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:73 insert
@@ -89,14 +91,15 @@ export class DelayedSet<T> {
 
   // rustc: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:84 cold_insert
   cold_insert(value: T): boolean {
-    if (this.cache.has(value)) return false;
+    // `self.cache.insert(value)`: `true` if it was not present
+    const had = this.cache.has(value);
     this.cache.add(value);
-    return true;
+    return !had;
   }
 
   // rustc: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:89 contains
   contains(value: T): boolean {
-    return !(this.cache.size === 0) && this.cold_contains(value);
+    return this.cache.size !== 0 && this.cold_contains(value);
   }
 
   // rustc: compiler/rustc_type_ir/src/data_structures/delayed_map.rs:95 cold_contains

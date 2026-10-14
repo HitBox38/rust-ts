@@ -17,9 +17,9 @@ import { assert, panic, unwrap } from "../../std/panic.ts";
 import { DelayedMap } from "../data_structures/delayed_map.ts";
 import { Binder, visit_Binder, fold_Binder } from "../binder.ts";
 import { type PredicateProxy, shift_region, standin_fold_Ty, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../fold.ts";
-import { type ClosureKind, type DebruijnIndex, INNERMOST } from "../lib.ts";
+import { type ClosureKind, DebruijnIndex, INNERMOST } from "../lib.ts";
 import type { Const, Region } from "../sty/mod.ts";
-import { DebruijnIndex_shifted_in, DebruijnIndex_shifted_out, debug_TyKind, FnSigTys, PolyFnSigTys, type FnSig } from "../ty_kind.ts";
+import { debug_TyKind, FnSigTys, PolyFnSigTys, type FnSig } from "../ty_kind.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "../visit.ts";
 import * as gen from "./closure.gen.ts";
 import { visit_with_FnSigTys } from "../ty_kind.ts";
@@ -245,10 +245,10 @@ class HasRegionsBoundAt implements TypeVisitor<ControlFlow<null>> {
   // FIXME: Could be optimized to not walk into components with no escaping bound vars.
   // rustc: compiler/rustc_type_ir/src/ty_kind/closure.rs:339 visit_binder
   visit_binder<T>(t: Binder<T>, d: TypeVisitable<T>): ControlFlow<null> {
-    this.binder = DebruijnIndex_shifted_in(this.binder, 1);
+    this.binder = DebruijnIndex.shifted_in(this.binder, 1);
     const r = visit_Binder(d).super_visit_with(t, this);
     if (r.$ === "Break") return r;
-    this.binder = DebruijnIndex_shifted_out(this.binder, 1);
+    this.binder = DebruijnIndex.shifted_out(this.binder, 1);
     return ControlFlowC.CONTINUE;
   }
 
@@ -388,7 +388,7 @@ export const CoroutineClosureSignature = {
         const sig_tys = k._0;
         const coroutine_captures_by_ref_ty_ = fold_with_Ty(
           Binder.skip_binder(PolyFnSigTys.output(sig_tys)),
-          new FoldEscapingRegions(cx, INNERMOST, env_region, DelayedMap.default(([d, t]) => `${d}#${t.id}`)),
+          new FoldEscapingRegions(cx, INNERMOST, env_region, DelayedMap.default_(([d, t]) => `${d}#${t.id}`)),
         );
         return Ty.new_tup_from_iter(cx, [...tupled_inputs_ty.tuple_fields(), ...coroutine_captures_by_ref_ty_.tuple_fields()]);
       }
@@ -438,9 +438,9 @@ class FoldEscapingRegions implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/ty_kind/closure.rs:527 fold_binder
   fold_binder<T>(t: Binder<T>, d: TypeFoldable<T>): Binder<T> {
-    this.debruijn = DebruijnIndex_shifted_in(this.debruijn, 1);
+    this.debruijn = DebruijnIndex.shifted_in(this.debruijn, 1);
     const result = fold_Binder(d).super_fold_with(t, this);
-    this.debruijn = DebruijnIndex_shifted_out(this.debruijn, 1);
+    this.debruijn = DebruijnIndex.shifted_out(this.debruijn, 1);
     return result;
   }
 

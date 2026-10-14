@@ -15,50 +15,22 @@ import { Err, Ok } from "../../std/result.ts";
 import { Binder } from "../binder.ts";
 import type { ConstVid } from "../const_kind.ts";
 import { ExpectedFound } from "../error.ts";
-import type { TypeFoldable } from "../fold.ts";
-import type { TypingMode } from "../infer_ctxt.ts";
+import { TypingMode } from "../infer_ctxt.ts";
 import { CollectAndApply_Result } from "../interner.ts";
 import { type TypeVisitable, TypeVisitableExt } from "../visit.ts";
 import type { Variance } from "../lib.ts";
 import type { ProjectionClause } from "../predicate.ts";
 import { type ClauseKind, type PredicateKind, visit_with_PredicateKind } from "../predicate_kind.ts";
 import { interner, relate_GenericArg, type RelateResult, structurally_relate_consts, structurally_relate_tys, type TypeRelation, VarianceDiagInfo } from "../relate.ts";
-import type { Goal, VisibleForLeakCheck } from "../solve/mod.ts";
+import type { Goal } from "../solve/mod.ts";
 import { type Const, debug_Const } from "../sty/consts.ts";
-import type { Region } from "../sty/mod.ts";
 import { AliasTerm } from "../term_kind.ts";
-import type { FloatVarValue, FloatVid, IntVarValue, IntVid, TyVid } from "../ty_kind.ts";
 
 // ---- PORT(pending): contract pieces of other lanes' files that do not exist yet ------------------------------------
 
-/**
- * PORT(pending): the slice of `trait InferCtxtLike` (infer_ctxt.rs:387, lane tyir-misc) that the relate code calls,
- * with the D4 conventions (descriptors last, `R: PredicateEmittingRelation` as the interface, `I` erased).
- * Root replaces it with the real interface when infer_ctxt.rs lands.
- */
-export interface InferCtxtLike {
-  cx(): TyCtxt;
-  /** (provided upstream: `self.cx().next_trait_solver_globally()`) */
-  next_trait_solver(): boolean;
-  typing_mode_raw(): TypingMode;
-  next_ty_infer(): Ty;
-  instantiate_binder_with_infer<T>(value: Binder<T>, d_T: TypeFoldable<T>): T;
-  enter_forall_with_empty_assumptions<T, U>(value: Binder<T>, f: (value: T) => U, d_T: TypeFoldable<T>): U;
-  equate_ty_vids_raw(a: TyVid, b: TyVid): void;
-  equate_int_vids_raw(a: IntVid, b: IntVid): void;
-  equate_float_vids_raw(a: FloatVid, b: FloatVid): void;
-  equate_const_vids_raw(a: ConstVid, b: ConstVid): void;
-  instantiate_ty_var(relation: PredicateEmittingRelation, target_is_expected: boolean, target_vid: TyVid, instantiation_variance: Variance, source_ty: Ty): RelateResult<null>;
-  instantiate_int_var_raw(vid: IntVid, value: IntVarValue): void;
-  instantiate_float_var_raw(vid: FloatVid, value: FloatVarValue): void;
-  instantiate_const_var(relation: PredicateEmittingRelation, target_is_expected: boolean, target_vid: ConstVid, source_ct: Const): RelateResult<null>;
-  set_tainted_by_errors(e: ErrorGuaranteed): void;
-  shallow_resolve(ty: Ty): Ty;
-  shallow_resolve_const(ty: Const): Const;
-  deeply_resolve_ignoring_regions<T>(value: T, d_T: TypeFoldable<T>): T;
-  sub_regions(sub: Region, sup: Region, vis: VisibleForLeakCheck, span: Span): void;
-  equate_regions(a: Region, b: Region, vis: VisibleForLeakCheck, span: Span): void;
-}
+// PORT(merge-w15a): `InferCtxtLike` is infer_ctxt.ts's interface (tyir-misc), re-exported for the relate modules.
+import type { InferCtxtLike } from "../infer_ctxt.ts";
+export type { InferCtxtLike };
 
 /** PORT(pending): `trait Upcast<I, T>` (upcast.rs:2, lane tyir-misc) as the function its `UpcastFrom` impl provides. */
 export type Upcast<T, U> = (from: T, interner: TyCtxt) => U;
@@ -66,16 +38,6 @@ export type Upcast<T, U> = (from: T, interner: TyCtxt) => U;
 /** PORT: stand-in for `Goal::new` (solve/mod.rs:401, lane tyir-solve). */
 export function Goal_new<P, T>(cx: TyCtxt, param_env: ParamEnv, predicate: T, upcast: Upcast<T, P>): Goal<P> {
   return { param_env, predicate: upcast(predicate, cx) };
-}
-
-/** PORT: stand-in for `TypingMode::assert_not_erased` (infer_ctxt.rs:285, lane tyir-misc). */
-function TypingMode_assert_not_erased(self: TypingMode): TypingMode {
-  if (self.$ === "ErasedNotCoherence") {
-    return panic(
-      "Called `assert_not_erased` from a place that can be called by the trait solver in `TypingMode::ErasedNotCoherence`. `TypingMode` is `ErasedNotCoherence` in a place where that should be impossible",
-    );
-  }
-  return self;
 }
 
 /** PORT: the `TypeVisitable` impl fn of `PredicateKind` (generated) as a D4 descriptor. */
@@ -191,7 +153,7 @@ export function super_combine_tys(infcx: InferCtxtLike, relation: PredicateEmitt
   if (ak.$ === "Infer" || bk.$ === "Infer") return Err({ $: "Sorts", _0: ExpectedFound.new(a, b) });
 
   if (((ak.$ === "Alias" && ak._1.kind.$ === "Opaque") || (bk.$ === "Alias" && bk._1.kind.$ === "Opaque")) && !infcx.next_trait_solver()) {
-    const mode = TypingMode_assert_not_erased(infcx.typing_mode_raw());
+    const mode = TypingMode.assert_not_erased(infcx.typing_mode_raw());
     switch (mode.$) {
       // During coherence, opaque types should be treated as *possibly*
       // equal to any other type. This is an

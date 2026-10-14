@@ -28,7 +28,6 @@ import {
   type TypeRelation,
   TypeRelation_provided,
   type VarianceDiagInfo,
-  Variance_xform,
 } from "../relate.ts";
 import type { Goal } from "../solve/mod.ts";
 import { VisibleForLeakCheck } from "../solve/mod.ts";
@@ -107,7 +106,7 @@ export class SolverRelating implements PredicateEmittingRelation {
   // rustc: compiler/rustc_type_ir/src/relate/solver_relating.rs:81 new
   static new(infcx: InferCtxtLike, ambient_variance: Variance, param_env: ParamEnv, span: Span): SolverRelating {
     // debug_assert!(infcx.next_trait_solver());
-    return new SolverRelating(infcx, param_env, span, ambient_variance, [], DelayedSet.default<[Variance, Ty, Ty]>(intern_key));
+    return new SolverRelating(infcx, param_env, span, ambient_variance, [], DelayedSet.default_<[Variance, Ty, Ty]>(intern_key));
   }
 
   // ---- impl TypeRelation for SolverRelating ----
@@ -140,7 +139,7 @@ export class SolverRelating implements PredicateEmittingRelation {
   // rustc: compiler/rustc_type_ir/src/relate/solver_relating.rs:129 relate_with_variance
   relate_with_variance<T>(variance: Variance, _info: VarianceDiagInfo, a: T, b: T, d: Relate<T>): RelateResult<T> {
     const old_ambient_variance = this.ambient_variance;
-    this.ambient_variance = Variance_xform(this.ambient_variance, variance);
+    this.ambient_variance = Variance.xform(this.ambient_variance, variance);
     // debug!(?self.ambient_variance, "new ambient variance");
 
     const r: RelateResult<T> = this.ambient_variance === Variance.Bivariant ? Ok(a) : this.relate(a, b, d);
@@ -217,7 +216,7 @@ export class SolverRelating implements PredicateEmittingRelation {
       const r = infcx.instantiate_ty_var(this, true, ak._0._0, this.ambient_variance, b);
       if (r.$ === "Err") return r;
     } else if (bk.$ === "Infer" && bk._0.$ === "TyVar") {
-      const r = infcx.instantiate_ty_var(this, false, bk._0._0, Variance_xform(this.ambient_variance, Variance.Contravariant), a);
+      const r = infcx.instantiate_ty_var(this, false, bk._0._0, Variance.xform(this.ambient_variance, Variance.Contravariant), a);
       if (r.$ === "Err") return r;
     } else {
       const r = super_combine_tys(this.infcx, this, a, b);

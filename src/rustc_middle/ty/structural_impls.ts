@@ -11,12 +11,18 @@
 import type { FallibleTypeFolder, TypeFolder } from "../../rustc_type_ir/fold.ts";
 import type { TypeVisitor } from "../../rustc_type_ir/visit.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
+import type { Debug } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
+import type { ParamTy } from "./sty.gen.ts";
 import type { Result } from "../../std/result.ts";
 import type { AdtDef, BoundExistentialPredicates, Consts, LocalDefIds, PatList, Pattern, PredefinedOpaques, RegionAssumptions } from "./decls.ts";
 import type { Clauses } from "./list.ts";
 
 const stub = (what: string): never => unported(`rustc_middle::ty::structural_impls: ${what}`);
+
+// `impl fmt::Debug for ty::ParamTy` (structural_impls.rs:88): ported by the later ty lanes (codegen-tyir stub; moved here
+// from ty/sty.ts by merge-w15a, so that defining modules do not import that extension module).
+export const debug_ParamTy: Debug<ParamTy> = (_v, _f) => unported("Debug for ParamTy (`impl fmt::Debug for ty::ParamTy` (structural_impls.rs:88))");
 
 /** Stub: `impl TypeVisitable for ty::AdtDef` (structural_impls.rs:284); no TypeFoldable impl. */
 export function visit_with_AdtDef<R>(_self: AdtDef, _visitor: TypeVisitor<R>): R {

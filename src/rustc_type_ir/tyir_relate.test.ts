@@ -46,7 +46,6 @@ import {
   structurally_relate_tys,
   type TypeRelation,
   TypeRelation_provided,
-  Variance_xform,
   VarianceDiagInfo,
 } from "./relate.ts";
 import { combine_ty_args, type InferCtxtLike, type PredicateEmittingRelation } from "./relate/combine.ts";
@@ -126,8 +125,12 @@ class StructRelation implements TypeRelation {
   }
 }
 
-/** An `InferCtxtLike` double that records the calls the relation makes. */
-class RecordingInfcx implements InferCtxtLike {
+/** An `InferCtxtLike` double that records the calls the relation makes. It implements only the members the relate
+ *  code calls; the interface merge below types the rest of infer_ctxt.ts's `InferCtxtLike` (merge-w15a). */
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: test double
+interface RecordingInfcx extends InferCtxtLike {}
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: test double
+class RecordingInfcx {
   log: string[] = [];
   next_solver = true;
   cx(): TyCtxt {
@@ -230,7 +233,7 @@ describe("error.rs", () => {
     expect(VarianceDiagInfo.xform(VarianceDiagInfo.None, inv)).toBe(inv);
     expect(VarianceDiagInfo.xform(inv, VarianceDiagInfo.None)).toBe(inv);
     const vs = [Variance.Covariant, Variance.Contravariant, Variance.Invariant, Variance.Bivariant];
-    const table = vs.map((a) => vs.map((b) => Variance_xform(a, b)).join(" "));
+    const table = vs.map((a) => vs.map((b) => Variance.xform(a, b)).join(" "));
     expect(table).toEqual([
       "Covariant Contravariant Invariant Bivariant",
       "Contravariant Covariant Invariant Bivariant",

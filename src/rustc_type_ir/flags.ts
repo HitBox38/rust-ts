@@ -5,8 +5,6 @@
 // `for_const_kind`, `for_predicate` and `for_clauses`. `TypeFlags` is a branded `u32`: `|` is the bitflags union.
 // PORT: the private methods of upstream are public here (TS `private` would not let the closures of
 // `bound_computation` reach them); nothing outside this file calls them.
-// PORT: `DebruijnIndex::shifted_in` / `shifted_out` (lib.rs:189 / :204, not ported yet) are the stand-ins
-// `DebruijnIndex_shifted_in` / `DebruijnIndex_shifted_out` of ty_kind.ts.
 import { unported } from "../std/panic.ts";
 import type { Clause } from "../rustc_middle/ty/predicate.ts";
 import type { GenericArg as GenericArgT, GenericArgs } from "../rustc_middle/ty/generic_args.ts";
@@ -19,7 +17,8 @@ import { INNERMOST, TypeFlags_empty } from "./decls.ts";
 import { TypeFlags } from "./flags.gen.ts";
 import type { Const, Region } from "./sty/mod.ts";
 import type { AliasTerm } from "./ty/alias.ts";
-import { DebruijnIndex_shifted_in, DebruijnIndex_shifted_out, UnsafeBinderInner } from "./ty_kind.ts";
+import { UnsafeBinderInner } from "./ty_kind.ts";
+import { DebruijnIndex as DebruijnIndexC } from "./lib.ts";
 
 // `TypeFlags` (bitflags) is generated into flags.gen.ts (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir).
 export * from "./flags.gen.ts";
@@ -76,7 +75,7 @@ export class FlagComputation {
   /// indicates that `self` refers to something at binding level `binder`
   // rustc: compiler/rustc_type_ir/src/flags.rs:216 add_bound_var
   add_bound_var(binder: DebruijnIndex): void {
-    const exclusive_binder = DebruijnIndex_shifted_in(binder, 1);
+    const exclusive_binder = DebruijnIndexC.shifted_in(binder, 1);
     this.add_exclusive_binder(exclusive_binder);
   }
 
@@ -109,7 +108,7 @@ export class FlagComputation {
     // within when adding the depth to `self`.
     const outer_exclusive_binder = computation.outer_exclusive_binder;
     if (outer_exclusive_binder > INNERMOST) {
-      this.add_exclusive_binder(DebruijnIndex_shifted_out(outer_exclusive_binder, 1));
+      this.add_exclusive_binder(DebruijnIndexC.shifted_out(outer_exclusive_binder, 1));
     } // otherwise, this binder captures nothing
   }
 

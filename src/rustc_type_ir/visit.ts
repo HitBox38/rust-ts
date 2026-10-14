@@ -67,9 +67,8 @@ import { Err, Ok, type Result } from "../std/result.ts";
 import { Binder, visit_Binder } from "./binder.ts";
 import { type PredicateProxy, standin_fold_Clauses, standin_fold_Ty } from "./fold.ts";
 import { debug_TypeFlags, TypeFlags } from "./flags.ts";
-import { type DebruijnIndex, INNERMOST } from "./lib.ts";
+import { DebruijnIndex, INNERMOST } from "./lib.ts";
 import { type Const, fold_Const, type Region } from "./sty/mod.ts";
-import { DebruijnIndex_shifted_in, DebruijnIndex_shifted_out } from "./ty_kind.ts";
 
 /// This trait is implemented for every type that can be visited,
 /// providing the skeleton of the traversal.
@@ -352,7 +351,7 @@ export const TypeVisitableExt = {
   /// hence are not bound by it).
   // rustc: compiler/rustc_type_ir/src/visit.rs:257 has_vars_bound_above
   has_vars_bound_above<T>(self: T, binder: DebruijnIndex, d: TypeVisitable<T>): boolean {
-    return TypeVisitableExt.has_vars_bound_at_or_above(self, DebruijnIndex_shifted_in(binder, 1), d);
+    return TypeVisitableExt.has_vars_bound_at_or_above(self, DebruijnIndex.shifted_in(binder, 1), d);
   },
 
   /// Returns `true` if this type has regions that are not a part of the
@@ -673,9 +672,9 @@ class HasEscapingVarsVisitor implements TypeVisitor<ControlFlow<FoundEscapingVar
 
   // rustc: compiler/rustc_type_ir/src/visit.rs:554 visit_binder
   visit_binder<T>(t: Binder<T>, d: TypeVisitable<T>): ControlFlow<FoundEscapingVars> {
-    this.outer_index = DebruijnIndex_shifted_in(this.outer_index, 1);
+    this.outer_index = DebruijnIndex.shifted_in(this.outer_index, 1);
     const result = visit_Binder(d).super_visit_with(t, this);
-    this.outer_index = DebruijnIndex_shifted_out(this.outer_index, 1);
+    this.outer_index = DebruijnIndex.shifted_out(this.outer_index, 1);
     return result;
   }
 

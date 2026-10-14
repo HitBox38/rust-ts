@@ -24,7 +24,8 @@ import { debug_RawList, type BoundVarKinds, type Clauses, RawList } from "../rus
 import { debug_Ty, Ty } from "../rustc_middle/ty/mod.ts";
 import type { Clause } from "../rustc_middle/ty/predicate.ts";
 import { debug_EarlyParamRegion, type EarlyParamRegion } from "../rustc_middle/ty/region.ts";
-import { debug_ParamTy, type ParamConst, type ParamTy } from "../rustc_middle/ty/sty.ts";
+import type { ParamConst, ParamTy } from "../rustc_middle/ty/sty.ts";
+import { debug_ParamTy } from "../rustc_middle/ty/structural_impls.ts";
 import { debug_DefId, DefId_eq, type DefId } from "../rustc_span/def_id.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { debug_Symbol, kw, type Symbol } from "../rustc_span/symbol.ts";
@@ -46,14 +47,12 @@ import {
   type TypeFoldable,
   type TypeFolder,
   type TypeSuperFoldable,
-  Unnormalized_new,
 } from "./fold.ts";
 import { debug_GenericArgKind, type GenericArgKind } from "./generic_arg.ts";
-import { type BoundVar, type DebruijnIndex, debug_BoundVar, INNERMOST, UniverseIndex } from "./lib.ts";
+import { type BoundVar, DebruijnIndex, debug_BoundVar, INNERMOST, UniverseIndex } from "./lib.ts";
 import type { TraitRef } from "./predicate.ts";
 import { type Const, debug_Const, debug_Region, fold_Const, fold_Region, type Region } from "./sty/mod.ts";
-import { DebruijnIndex_shifted_in, DebruijnIndex_shifted_out } from "./ty_kind.ts";
-import type { Unnormalized } from "./unnormalized.ts";
+import { Unnormalized } from "./unnormalized.ts";
 import { type TypeSuperVisitable, type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided, type VisitWith, visit_with_tuple2 } from "./visit.ts";
 
 export * from "./binder.gen.ts";
@@ -299,9 +298,9 @@ export class ValidateBoundVars implements TypeVisitor<ControlFlow<null>> {
 
   // rustc: compiler/rustc_type_ir/src/binder.rs:248 visit_binder
   visit_binder<T>(t: Binder<T>, d: TypeVisitable<T>): ControlFlow<null> {
-    this.binder_index = DebruijnIndex_shifted_in(this.binder_index, 1);
+    this.binder_index = DebruijnIndex.shifted_in(this.binder_index, 1);
     const result = visit_Binder(d).super_visit_with(t, this);
-    this.binder_index = DebruijnIndex_shifted_out(this.binder_index, 1);
+    this.binder_index = DebruijnIndex.shifted_out(this.binder_index, 1);
     return result;
   }
 
@@ -495,7 +494,7 @@ export const EarlyBinder = {
   /// but on an iterator of `TypeFoldable` values.
   // rustc: compiler/rustc_type_ir/src/binder.rs:457 iter_identity
   *iter_identity<T>(self: EarlyBinder<Iterable<T>>): Generator<Unnormalized<T>> {
-    for (const v of self.value) yield Unnormalized_new(v);
+    for (const v of self.value) yield Unnormalized.new(v);
   },
 
   // PORT: D4 descriptor `d` of the item type (`<Iter::Item as Deref>::Target`; the deref copy is the identity).
@@ -527,10 +526,10 @@ export const EarlyBinder = {
       if (TypeVisitableExt.has_param(self.value, d)) {
         return unported("rustc_type_ir::binder::EarlyBinder::instantiate: assert! message needs `{:?}` of the value (`T: Debug` of a D4 descriptor): .. has parameters, but no args were provided in instantiate");
       }
-      return Unnormalized_new(self.value);
+      return Unnormalized.new(self.value);
     }
     const folder = new ArgFolder(cx, args, 0);
-    return Unnormalized_new(d.fold_with(self.value, folder));
+    return Unnormalized.new(d.fold_with(self.value, folder));
   },
 
   /// Makes the identity replacement `T0 => T0, ..., TN => TN`.
@@ -551,7 +550,7 @@ export const EarlyBinder = {
     //
     // This is annoying, as e.g. `type_of` for opaque types is normalized,
     // while `type_of` for free type aliases is not.
-    return Unnormalized_new(self.value);
+    return Unnormalized.new(self.value);
   },
 
   /// Returns the inner value, but only if it contains no bound vars.
@@ -674,7 +673,7 @@ export class IterIdentityCopied<T> implements Iterable<Unnormalized<T>> {
   // rustc: compiler/rustc_type_ir/src/binder.rs:600 next
   next(): Unnormalized<T> | undefined {
     const i = this.it.next();
-    return i === undefined ? undefined : Unnormalized_new(i);
+    return i === undefined ? undefined : Unnormalized.new(i);
   }
 
   // rustc: compiler/rustc_type_ir/src/binder.rs:604 size_hint
@@ -686,7 +685,7 @@ export class IterIdentityCopied<T> implements Iterable<Unnormalized<T>> {
   // rustc: compiler/rustc_type_ir/src/binder.rs:615 next_back
   next_back(): Unnormalized<T> | undefined {
     const i = this.it.next_back();
-    return i === undefined ? undefined : Unnormalized_new(i);
+    return i === undefined ? undefined : Unnormalized.new(i);
   }
 
   // impl ExactSizeIterator for IterIdentityCopied (no methods)

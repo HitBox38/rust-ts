@@ -4,7 +4,7 @@
 // (`impl Interner for TyCtxt`, rustc_middle ty/context/impl_interner.ts). `I: Interner` is erased everywhere:
 // code generic over `I` is written against the concrete rustc_middle types and receives `cx: Interner` (or
 // `TyCtxt`). So the associated types are fixed:
-//   `I::Ty` = `Ty`, `I::Tys` = `List<Ty>`, `I::Region`/`InternedRegionKind` = `Region`, `Const`/
+//   `I::Ty` = `Ty`, `I::Tys` = `List<Ty>`, `I::FnInputTys` = `FnInputTys` (`readonly Ty[]`, rustc_middle ty/mod.ts), `I::Region`/`InternedRegionKind` = `Region`, `Const`/
 //   `InternedConstKind` = `Const`, `I::GenericArg` = `GenericArg`, `I::GenericArgs` = `GenericArgs`,
 //   `I::GenericArgsSlice` = `readonly GenericArg[]`, `I::Term` = `Term`, `I::Predicate` = `Predicate`,
 //   `I::Clause` = `Clause`, `I::Clauses` = `Clauses`, `I::BoundVarKinds` = `List<BoundVariableKind>`,
@@ -19,15 +19,16 @@
 //   `I::ExternalConstraints`, `I::CanonicalInput`, `I::Probe` = `&inspect::Probe`, `I::UnsizingParams` =
 //   `DenseBitSet`, `I::RegionAssumptions` = `List<ArgOutlivesClause>`, `I::BoundExistentialPredicates` =
 //   `List<PolyExistentialPredicate>`, `I::Safety` = hir `Safety`, `I::AllocId` = `AllocId`.
-// The `IrPrint<..>` supertraits are rustc_middle ty/print's (lane ty-print).
+// The `IrPrint<..>` supertraits are rustc_middle ty/print's (lane ty-print); ir_print.ts says how they are reached.
+// The inherent traits the associated types satisfy (`I::Ty: inherent::Ty<I>`, ...) are inherent.ts.
 // PORT: an `Interner` method whose name `TyCtxt` already uses for an *incompatible* inherent method or query is
 // `ir_<name>` here and in impl_interner.ts (`is_direct_const`, `const_of_item`, `recursion_limit`, `clauses_of`,
 // `const_conditions`, `explicit_implied_const_bounds`, `for_each_relevant_impl`,
 // `evaluate_root_goal_for_proof_tree_raw`); for compatible collisions the inherent method / query serves.
 // PORT: generic methods over `T: TypeFoldable` take the D4 descriptor last; `R: VisitorResult` takes the
 // `VisitorResult` impl object; `T: CollectAndApply<..>` is an overload pair (see `CollectAndApply` below).
-// `declare_lift_into!` / `LiftInto` (Lift, PORTING §3) and `impl search_graph::Cx for I` (lane tyir-solve) are
-// not here.
+// `declare_lift_into!` / `LiftInto` (Lift, PORTING §3) are not here. `impl search_graph::Cx for I` is the object
+// `Cx_for_Interner` at the end (lane tyir-misc).
 import type { VisitorResult } from "../rustc_ast_ir/visit.ts";
 import type { Features } from "../rustc_feature/unstable.ts";
 import type { DenseBitSet } from "../rustc_index/bit_set.ts";
@@ -379,3 +380,33 @@ export const CollectAndApply_Result = {
   },
 };
 export type CollectAndApply_Result = typeof CollectAndApply_Result;
+
+/**
+ * `impl<I: Interner> search_graph::Cx for I`: the search graph's context is the interner.
+ * PORT (D3): `I` is erased, so the impl is one object of functions over `self: Interner` (the `Cx` trait is
+ * search_graph/mod.rs, lane tyir-solve). Its associated types: `Input` = `I::CanonicalInput` (`CanonicalInput`),
+ * `Result` = `(QueryResult<I>, AccessedOpaques<I>)`, `AmbiguityKind` = `Certainty`, `DepNodeIndex` =
+ * `I::DepNodeIndex`, `Tracked<T>` = `I::Tracked<T>`.
+ */
+export const Cx_for_Interner = {
+  // rustc: compiler/rustc_type_ir/src/interner.rs:759 mk_tracked
+  mk_tracked<T>(self: Interner, data: T, dep_node_index: DepNodeIndex): Tracked<T> {
+    return self.mk_tracked(data, dep_node_index);
+  },
+  // rustc: compiler/rustc_type_ir/src/interner.rs:766 get_tracked
+  get_tracked<T>(self: Interner, tracked: Tracked<T>): T {
+    return self.get_tracked(tracked);
+  },
+  // rustc: compiler/rustc_type_ir/src/interner.rs:769 with_cached_task
+  with_cached_task<T>(self: Interner, task: () => T): [T, DepNodeIndex] {
+    return self.with_cached_task(task);
+  },
+  // rustc: compiler/rustc_type_ir/src/interner.rs:772 with_global_cache
+  with_global_cache<R>(self: Interner, f: (cache: GlobalCache) => R): R {
+    return self.with_global_cache(f);
+  },
+  // rustc: compiler/rustc_type_ir/src/interner.rs:775 assert_evaluation_is_concurrent
+  assert_evaluation_is_concurrent(self: Interner): void {
+    self.assert_evaluation_is_concurrent();
+  },
+};

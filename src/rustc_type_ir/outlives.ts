@@ -27,7 +27,7 @@ import type { Region } from "./sty/mod.ts";
 import { AliasTermKind } from "./term_kind.ts";
 import type { AliasTy } from "./ty/alias.ts";
 import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs } from "./ty_kind/closure.ts";
-import type { Unnormalized } from "./unnormalized.ts";
+import { Unnormalized } from "./unnormalized.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "./visit.ts";
 import { standin_fold_Ty, type TypeFoldable } from "./fold.ts";
 import { visit_with_Alias } from "./ty/alias.ts";
@@ -36,14 +36,6 @@ import { fold_with_Clause, try_fold_with_Clause, visit_with_Clause } from "../ru
 import type { Component } from "./outlives.gen.ts";
 
 export * from "./outlives.gen.ts";
-
-// ---- PORT stand-ins for fns of other files that are not ported yet -------------------------------------------------
-// Not markers. One-liners keep their upstream body; the rest call `unported`. Root repoints them at the real ports.
-
-/** PORT: stand-in for `Unnormalized::skip_norm_wip` (unnormalized.rs:71): the field read. */
-function Unnormalized_skip_norm_wip<T>(self: Unnormalized<T>): T {
-  return self.value;
-}
 
 /** PORT: the `TypeFoldable` impl fns of `Clause` (rustc_middle ty/predicate.rs) as a D4 descriptor. */
 const d_Clause: TypeFoldable<Clause> = { visit_with: visit_with_Clause, try_fold_with: try_fold_with_Clause, fold_with: fold_with_Clause };
@@ -312,7 +304,7 @@ export function declared_bounds_from_definition(cx: TyCtxt, alias_ty: AliasTy): 
   const it = EarlyBinder.iter_instantiated<Clause>(bounds as EarlyBinder<readonly Clause[]>, cx, alias_ty.args, d_Clause);
   return (function* () {
     for (const u of it) {
-      const c = Unnormalized_skip_norm_wip(u);
+      const c = Unnormalized.skip_norm_wip(u);
       const o = c.as_type_outlives_clause();
       if (o === undefined) continue;
       const nb = Binder.no_bound_vars(o, { visit_with: (self, visitor) => visit_with_OutlivesClause(self, visitor, visit_with_Ty) });

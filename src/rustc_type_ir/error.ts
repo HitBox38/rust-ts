@@ -1,4 +1,4 @@
-// Port of compiler/rustc_type_ir/src/error.rs (lane tyir-relate). The types with their derived Debug / TypeVisitable /
+// Port of compiler/rustc_type_ir/src/error.rs (lanes tyir-relate and tyir-misc, identical ports; merge-w15a kept one). The types with their derived Debug / TypeVisitable /
 // TypeFoldable impls are generated into error.gen.ts (set rustc_ty of tools/codegen/types.ts); this file holds the fns
 // and manual impls.
 // PORT: the inherent methods of the generated `ExpectedFound` / `TypeError` live on same-named companion consts

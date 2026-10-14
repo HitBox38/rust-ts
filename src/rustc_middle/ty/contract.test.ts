@@ -213,7 +213,11 @@ test("every declared method exists on its prototype (or constructor) once rustc_
 test("a stub stops as UNPORTED", () => {
   expect(() => (Ty.prototype as unknown as { is_bool(): boolean }).is_bool.call(undefined)).toThrow(Unported);
   expect(() => (TyCtxt.prototype as unknown as { trait_is_marker(): boolean }).trait_is_marker.call(undefined)).toThrow(Unported);
-  expect(() => (Region as unknown as { new_static(): unknown }).new_static()).toThrow(Unported);
+  // `Region::new_static` (sty/mod.rs:135) is ported now (lane tyir-misc): it is the interner's pre-interned `'static`; a
+  // rustc_middle `Const` static stands in as the static-stub example.
+  const re_static = {} as Region;
+  expect(Region.new_static({ get_re_static_lifetime: () => re_static } as unknown as TyCtxt)).toBe(re_static);
+  expect(() => (Const as unknown as { zero_sized(): unknown }).zero_sized()).toThrow(Unported);
 });
 
 test("every TyCtxt fn of ty/mod.rs is a TyCtxt method delegating to TyCtxt_<name> in mod.ts (decision 6)", () => {

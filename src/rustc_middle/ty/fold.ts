@@ -17,9 +17,8 @@ import { Binder, type BoundConst, BoundConst as BoundConstC, type BoundRegion, t
 import { debug_BoundConst } from "../../rustc_type_ir/binder.gen.ts";
 import { DelayedMap } from "../../rustc_type_ir/data_structures/delayed_map.ts";
 import { type PredicateProxy, shift_vars, standin_fold_Clauses, standin_fold_Ty, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
-import { BoundVar, type DebruijnIndex, debug_DebruijnIndex, INNERMOST } from "../../rustc_type_ir/lib.ts";
+import { BoundVar, DebruijnIndex, debug_DebruijnIndex, INNERMOST } from "../../rustc_type_ir/lib.ts";
 import { Const, fold_Const, Region } from "../../rustc_type_ir/sty/mod.ts";
-import { DebruijnIndex_shifted_in, DebruijnIndex_shifted_out } from "../../rustc_type_ir/ty_kind.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { TyCtxt } from "./context.ts";
 import type { Clauses } from "./decls.ts";
@@ -137,7 +136,7 @@ class BoundVarReplacer implements TypeFolder {
 
   // rustc: compiler/rustc_middle/src/ty/fold.rs:105 new
   static new(tcx: TyCtxt, delegate: BoundVarReplacerDelegate): BoundVarReplacer {
-    return new BoundVarReplacer(tcx, INNERMOST, delegate, DelayedMap.default(([d, t]) => `${d}#${t.id}`));
+    return new BoundVarReplacer(tcx, INNERMOST, delegate, DelayedMap.default_(([d, t]) => `${d}#${t.id}`));
   }
 
   // rustc: compiler/rustc_middle/src/ty/fold.rs:114 cx
@@ -147,9 +146,9 @@ class BoundVarReplacer implements TypeFolder {
 
   // rustc: compiler/rustc_middle/src/ty/fold.rs:118 fold_binder
   fold_binder<T>(t_: Binder<T>, d: TypeFoldable<T>): Binder<T> {
-    this.current_index = DebruijnIndex_shifted_in(this.current_index, 1);
+    this.current_index = DebruijnIndex.shifted_in(this.current_index, 1);
     const t = fold_Binder(d).super_fold_with(t_, this);
-    this.current_index = DebruijnIndex_shifted_out(this.current_index, 1);
+    this.current_index = DebruijnIndex.shifted_out(this.current_index, 1);
     return t;
   }
 

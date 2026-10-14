@@ -19,16 +19,16 @@ import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { debug_GenericArg, debug_GenericArgs, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { debug_RawList, type List, RawList } from "../rustc_middle/ty/list.ts";
 import { debug_Ty, type FnInputTys, Ty } from "../rustc_middle/ty/mod.ts";
-import { debug_ParamTy } from "../rustc_middle/ty/sty.ts";
+import { debug_ParamTy } from "../rustc_middle/ty/structural_impls.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
 import { debug_DefId } from "../rustc_span/def_id.ts";
 import { type Debug, debug_str, debug_tuple, type Fmt, PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { NoError, type UnifyKey, UnifyKey_provided, type UnifyValue } from "../vendor/ena/unify/mod.ts";
-import { Binder, type BoundVarIndexKind, debug_Binder, debug_BoundTy, debug_Placeholder, EarlyBinder, fold_Binder } from "./binder.ts";
+import { Binder, debug_Binder, debug_BoundTy, debug_Placeholder, EarlyBinder, fold_Binder } from "./binder.ts";
 import type { Interner } from "./interner.ts";
-import { DebruijnIndex, INNERMOST } from "./lib.ts";
+import { debug_bound_var } from "./lib.ts";
 import { debug_ExistentialPredicate, type ExistentialPredicate, type TraitRef } from "./predicate.ts";
 import { debug_Const } from "./sty/consts.ts";
 import { debug_Region } from "./sty/mod.ts";
@@ -37,7 +37,7 @@ import * as gen from "./ty_kind.gen.ts";
 import type { FloatVid, InferTy, IntVid, SplattedArgIndexError } from "./ty_kind.gen.ts";
 import type { TypeFoldable } from "./fold.ts";
 import { debug_AliasTyKind, debug_FloatVid, debug_IntVid, debug_IsRigid, debug_TyVid, FloatVid as FloatVidC, IntVid as IntVidC } from "./ty_kind.gen.ts";
-import type { Unnormalized } from "./unnormalized.ts";
+import { Unnormalized } from "./unnormalized.ts";
 
 export * from "./ty_kind.gen.ts";
 
@@ -49,41 +49,6 @@ declare module "../rustc_middle/ty/list.ts" {
     inputs(this: List<Ty>): readonly Ty[];
     output(this: List<Ty>): Ty;
   }
-}
-
-// ---- PORT stand-ins for fns of other rustc_type_ir files that are not ported yet ----------------------------------
-// They do exactly what the upstream fn does; root replaces them by the real ports when those land.
-
-/** PORT: stand-in for `DebruijnIndex::shifted_in` (lib.rs:189, not ported yet). */
-export function DebruijnIndex_shifted_in(self: DebruijnIndex, amount: number): DebruijnIndex {
-  return DebruijnIndex.from_u32(self + amount);
-}
-
-/** PORT: stand-in for `DebruijnIndex::shifted_out` (lib.rs:204, not ported yet). */
-export function DebruijnIndex_shifted_out(self: DebruijnIndex, amount: number): DebruijnIndex {
-  return DebruijnIndex.from_u32(self - amount);
-}
-
-/** PORT: stand-in for `rustc_type_ir::debug_bound_var` (lib.rs:240, not ported yet); returns the written text. */
-export function debug_bound_var<T>(bound_index: BoundVarIndexKind, var_: T, debug_T: Debug<T>): string {
-  switch (bound_index.$) {
-    case "Bound": {
-      const debruijn = bound_index._0;
-      if (debruijn === INNERMOST) {
-        return `^${debug_T(var_, PLAIN)}`;
-      } else {
-        return `^${DebruijnIndex.index(debruijn)}_${debug_T(var_, PLAIN)}`;
-      }
-    }
-    case "Canonical": {
-      return `^c_${debug_T(var_, PLAIN)}`;
-    }
-  }
-}
-
-/** PORT: stand-in for `Unnormalized::new_wip` / `Unnormalized::dummy` (unnormalized.rs:57 / :51, not ported yet). */
-function Unnormalized_new<T>(value: T): Unnormalized<T> {
-  return { value, _tcx: undefined } as Unnormalized<T>;
 }
 
 // ---- AliasTyKind ---------------------------------------------------------------------------------------------------
@@ -169,16 +134,14 @@ export const TyKind = {
 
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:364 fn_sig
   fn_sig(self: TyKind, interner: TyCtxt): Binder<FnSig> {
-    return TyKind.unnormalized_fn_sig(self, interner).value;
+    return Unnormalized.skip_normalization(TyKind.unnormalized_fn_sig(self, interner));
   },
 
-  // PORT: `Unnormalized::new_wip` / `dummy` / `skip_normalization` (unnormalized.rs, not ported yet) are the
-  // object literal / field read.
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:368 unnormalized_fn_sig
   unnormalized_fn_sig(self: TyKind, interner: TyCtxt): Unnormalized<Binder<FnSig>> {
     switch (self.$) {
       case "FnPtr":
-        return Unnormalized_new(PolyFnSigTys.with(self._0, self._1));
+        return Unnormalized.new_wip(PolyFnSigTys.with(self._0, self._1));
       case "FnDef": {
         const def_id = self._0;
         const args = self._1;
@@ -188,7 +151,7 @@ export const TyKind = {
       }
       case "Error": {
         // ignore errors (#54954)
-        return Unnormalized_new(Binder.dummy(FnSig.dummy(), fold_FnSig));
+        return Unnormalized.dummy(Binder.dummy(FnSig.dummy(), fold_FnSig));
       }
       case "Closure":
         return panic("to get the signature of a closure, use `args.as_closure().sig()` not `fn_sig()`");

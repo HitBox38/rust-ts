@@ -18,7 +18,8 @@ import * as gen from "./const_kind.gen.ts";
 import { debug_AliasConstKind, debug_ConstVid, debug_ValTreeKind, type InferConst } from "./const_kind.gen.ts";
 import type { Interner } from "./interner.ts";
 import { type AliasConst as AliasConstT, debug_Alias } from "./ty/alias.ts";
-import { debug_bound_var, debug_IsRigid } from "./ty_kind.ts";
+import { debug_IsRigid } from "./ty_kind.ts";
+import { debug_bound_var } from "./lib.ts";
 import type { Unnormalized } from "./unnormalized.ts";
 
 export * from "./const_kind.gen.ts";

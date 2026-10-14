@@ -81,11 +81,11 @@ import { Ok, type Result } from "../std/result.ts";
 import { Binder, fold_Binder, visit_Binder } from "./binder.ts";
 import type { ClauseKind, ProjectionClause } from "./decls.ts";
 import { TypeFlags } from "./flags.ts";
-import { type DebruijnIndex, INNERMOST } from "./lib.ts";
+import { DebruijnIndex, INNERMOST } from "./lib.ts";
 import { Const, fold_Const, Region } from "./sty/mod.ts";
 import { fold_with_Alias } from "./ty/alias.ts";
-import { type AliasTyKind, DebruijnIndex_shifted_in, DebruijnIndex_shifted_out, fold_with_AliasTyKind, IsRigid } from "./ty_kind.ts";
-import type { Unnormalized } from "./unnormalized.ts";
+import { type AliasTyKind, fold_with_AliasTyKind, IsRigid } from "./ty_kind.ts";
+import { Unnormalized } from "./unnormalized.ts";
 import { type Flags, type TypeSuperVisitable, type TypeVisitable, TypeVisitableExt, type TypeVisitor, visit_with_Option, visit_with_tuple2, visit_with_tuple3, visit_with_Vec } from "./visit.ts";
 
 /// This trait is implemented for every type that can be folded,
@@ -550,9 +550,9 @@ class Shifter implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:418 fold_binder
   fold_binder<T>(t: Binder<T>, d: TypeFoldable<T>): Binder<T> {
-    this.current_index = DebruijnIndex_shifted_in(this.current_index, 1);
+    this.current_index = DebruijnIndex.shifted_in(this.current_index, 1);
     const t_ = fold_Binder(d).super_fold_with(t, this);
-    this.current_index = DebruijnIndex_shifted_out(this.current_index, 1);
+    this.current_index = DebruijnIndex.shifted_out(this.current_index, 1);
     return t_;
   }
 
@@ -561,7 +561,7 @@ class Shifter implements TypeFolder {
     const k = r.kind();
     if (k.$ === "ReBound" && k._0.$ === "Bound" && k._0._0 >= this.current_index) {
       const br = k._1;
-      const debruijn = DebruijnIndex_shifted_in(k._0._0, this.amount);
+      const debruijn = DebruijnIndex.shifted_in(k._0._0, this.amount);
       return Region.new_bound(this.cx_, debruijn, br);
     } else {
       return r;
@@ -573,7 +573,7 @@ class Shifter implements TypeFolder {
     const k = ty.kind();
     if (k.$ === "Bound" && k._0.$ === "Bound" && k._0._0 >= this.current_index) {
       const bound_ty = k._1;
-      const debruijn = DebruijnIndex_shifted_in(k._0._0, this.amount);
+      const debruijn = DebruijnIndex.shifted_in(k._0._0, this.amount);
       return Ty.new_bound(this.cx_, debruijn, bound_ty);
     } else if (TypeVisitableExt.has_vars_bound_at_or_above(ty, this.current_index, standin_fold_Ty)) {
       return standin_fold_Ty.super_fold_with(ty, this);
@@ -587,7 +587,7 @@ class Shifter implements TypeFolder {
     const k = ct.kind();
     if (k.$ === "Bound" && k._0.$ === "Bound" && k._0._0 >= this.current_index) {
       const bound_ct = k._1;
-      const debruijn = DebruijnIndex_shifted_in(k._0._0, this.amount);
+      const debruijn = DebruijnIndex.shifted_in(k._0._0, this.amount);
       return Const.new_bound(this.cx_, debruijn, bound_ct);
     } else {
       return fold_Const.super_fold_with(ct, this);
@@ -618,7 +618,7 @@ export function shift_region(cx: TyCtxt, region: Region, amount: number): Region
   const k = region.kind();
   if (k.$ === "ReBound" && k._0.$ === "Bound" && amount > 0) {
     const br = k._1;
-    return Region.new_bound(cx, DebruijnIndex_shifted_in(k._0._0, amount), br);
+    return Region.new_bound(cx, DebruijnIndex.shifted_in(k._0._0, amount), br);
   } else {
     return region;
   }
@@ -678,9 +678,9 @@ export class RegionFolder implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:544 fold_binder
   fold_binder<T>(t: Binder<T>, d: TypeFoldable<T>): Binder<T> {
-    this.current_index = DebruijnIndex_shifted_in(this.current_index, 1);
+    this.current_index = DebruijnIndex.shifted_in(this.current_index, 1);
     const t_ = fold_Binder(d).super_fold_with(t, this);
-    this.current_index = DebruijnIndex_shifted_out(this.current_index, 1);
+    this.current_index = DebruijnIndex.shifted_out(this.current_index, 1);
     return t_;
   }
 
@@ -746,13 +746,13 @@ export class RegionFolder implements TypeFolder {
 // rustc: compiler/rustc_type_ir/src/fold.rs:594 set_aliases_to_non_rigid
 export function set_aliases_to_non_rigid<T>(cx: TyCtxt, value: T, d: TypeFoldable<T>): Unnormalized<T> {
   const folded = set_aliases_rigidness_with_mode(cx, value, RigidnessFoldMode.AllToNonRigid, d);
-  return Unnormalized_new(folded);
+  return Unnormalized.new(folded);
 }
 
 // rustc: compiler/rustc_type_ir/src/fold.rs:602 set_opaques_to_non_rigid
 export function set_opaques_to_non_rigid<T>(cx: TyCtxt, value: T, d: TypeFoldable<T>): Unnormalized<T> {
   const folded = set_aliases_rigidness_with_mode(cx, value, RigidnessFoldMode.OpaqueToNonRigid, d);
-  return Unnormalized_new(folded);
+  return Unnormalized.new(folded);
 }
 
 // rustc: compiler/rustc_type_ir/src/fold.rs:610 set_aliases_to_rigid
@@ -898,11 +898,6 @@ class RigidnessFolder implements TypeFolder {
 }
 
 // ---- PORT stand-ins for items of files that are not ported yet ----------------------------------------------------
-
-/** PORT: stand-in for `Unnormalized::new` (unnormalized.rs:44, not ported yet): the struct literal. */
-export function Unnormalized_new<T>(value: T): Unnormalized<T> {
-  return { value, _tcx: undefined };
-}
 
 // PORT: stand-ins for the D4 descriptors of `I::Ty` (`impl TypeFoldable / TypeVisitable / TypeSuperFoldable /
 // TypeSuperVisitable for Ty`, rustc_middle ty/structural_impls.rs:311-:425) and `I::Clauses` (`:564`, `:618-:640`),
