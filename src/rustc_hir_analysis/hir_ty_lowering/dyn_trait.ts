@@ -23,7 +23,7 @@ import { BottomUpFolder } from "../../rustc_middle/ty/fold.ts";
 import { GenericArg } from "../../rustc_middle/ty/generic_args.ts";
 import { GenericParamDef, type Generics } from "../../rustc_middle/ty/generics.ts";
 import type { List } from "../../rustc_middle/ty/list.ts";
-import { fold_Term, Term, Ty } from "../../rustc_middle/ty/mod.ts";
+import { debug_Ty, fold_Term, Term, Ty } from "../../rustc_middle/ty/mod.ts";
 import { type Clause, Clause_upcast_from_TraitRef, ExistentialPredicate_stable_cmp } from "../../rustc_middle/ty/predicate.ts";
 import { IrPrint_print, IrPrint_print_debug } from "../../rustc_middle/ty/print/mod.ts";
 import { print_Binder, print_Term } from "../../rustc_middle/ty/print/pretty.ts";
@@ -32,7 +32,6 @@ import { type DefId, DefId_eq, DefIdSet } from "../../rustc_span/def_id.ts";
 import { find_best_match_for_name } from "../../rustc_span/edit_distance.ts";
 import { type ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { display_Symbol, Symbol } from "../../rustc_span/symbol.ts";
-import { Binder } from "../../rustc_type_ir/binder.ts";
 import type {
   BoundRegionKind,
   ExistentialPredicate,
@@ -43,16 +42,29 @@ import type {
   TraitClause,
   TraitRef as TraitRefT,
 } from "../../rustc_type_ir/decls.ts";
-import { fold_Binder } from "../../rustc_type_ir/binder.ts";
-import { fold_with_ProjectionClause, fold_with_TraitRef, try_fold_with_ProjectionClause, try_fold_with_TraitRef, visit_with_ProjectionClause, visit_with_TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
+import { Binder, fold_Binder } from "../../rustc_type_ir/binder.ts";
+import {
+  type ClausePolarity,
+  debug_ClausePolarity,
+  fold_with_ExistentialPredicate,
+  fold_with_ProjectionClause,
+  fold_with_TraitClause,
+  fold_with_TraitRef,
+  try_fold_with_ExistentialPredicate,
+  try_fold_with_ProjectionClause,
+  try_fold_with_TraitClause,
+  try_fold_with_TraitRef,
+  visit_with_ExistentialPredicate,
+  visit_with_ProjectionClause,
+  visit_with_TraitClause,
+  visit_with_TraitRef,
+} from "../../rustc_type_ir/predicate.gen.ts";
 import { Edition } from "../../rustc_span/edition.ts";
 import type { GenericParamDefKind as GenericParamDefKindT } from "../../rustc_middle/ty/generics.ts";
 import { ClauseWithSupertraitSpan, elaborate, Elaboratable_ClauseWithSupertraitSpan } from "../../rustc_type_ir/elaborate.ts";
 import { fold_tuple2, fold_Vec, type TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { display_Binder } from "../../rustc_type_ir/ir_print.ts";
-import { fold_with_TraitClause, try_fold_with_TraitClause, visit_with_TraitClause } from "../../rustc_type_ir/predicate.gen.ts";
 import { as_interner, ExistentialProjection, ExistentialTraitRef, PolyProjectionClause as PolyProjectionClauseC, PolyTraitClause as PolyTraitClauseC, TraitRef } from "../../rustc_type_ir/predicate.ts";
-import { fold_with_ExistentialPredicate, try_fold_with_ExistentialPredicate, visit_with_ExistentialPredicate } from "../../rustc_type_ir/predicate.gen.ts";
 import { relate_AliasTerm } from "../../rustc_type_ir/relate.ts";
 import { AliasTerm } from "../../rustc_type_ir/term_kind.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
@@ -60,8 +72,6 @@ import { intern_key } from "../../rust_ts/intern_key.ts";
 import { KeyedMap, KeyedSet } from "../../rust_ts/keyed.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { assert_eq, unported, unwrap } from "../../std/panic.ts";
-import { type ClausePolarity, debug_ClausePolarity } from "../../rustc_type_ir/predicate.gen.ts";
-import { debug_Ty } from "../../rustc_middle/ty/mod.ts";
 import {
   AmbiguousLifetimeBound_diagnostic,
   DynTraitAssocItemBindingMentionsSelf_diagnostic,
