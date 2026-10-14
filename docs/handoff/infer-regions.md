@@ -75,9 +75,11 @@ The total is 82 fns, `--missing` is 0 for every file, and `coverage.ts --check` 
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see the end of this file.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4762 pass, 1 skip (the pre-existing linux-only one),
+  0 fail (4763 tests, 294 files).
 - `bun scripts/coverage.ts --check`: `markers ok (13417; vendor 3888)`.
-- Sample difftest: see the end of this file.
+- `RUST_TS_AGENT=infer-regions bun scripts/difftest.ts --suite hir-tree-nocore --sample 100`: 100 MATCH, 0 DIFF,
+  0 UNPORTED, 0 CRASH (run `20261014-163041-infer-regions-epkq`). Nothing in a driver path calls rustc_infer yet.
 
 ## `unported(...)` left
 - **rustc_data_structures, which no lane owns** (see "For root" 1):
