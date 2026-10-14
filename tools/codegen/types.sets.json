@@ -608,6 +608,20 @@
       "*": "the test types of opaque/tests.rs (derive(Encodable_NoContext, Decodable_NoContext)), imported by src/rustc_serialize/opaque/tests.test.ts; the fn-local test types are not visible to the typedefs probe"
     }
   },
+  "rustc_passes": {
+    "files": ["compiler/rustc_passes/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  },
+  "rustc_middle_diagnostics": {
+    "files": ["compiler/rustc_middle/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  },
   "rustc_metadata": {
     "files": ["compiler/rustc_metadata/src/diagnostics.rs"],
     "class": [],

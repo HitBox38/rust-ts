@@ -25,6 +25,8 @@ import "./ty/trait_def.ts";
 import "./ty/util.ts";
 import "./ty/visit.ts";
 import "./ty/context/impl_interner.ts";
+// rustc_middle/src/middle extension modules (`impl TyCtxt` in middle/*.rs).
+import "./middle/lang_items.ts";
 import { define_hooks } from "./hooks.ts";
 import { define_query_api } from "./query/query_api.ts";
 
@@ -36,6 +38,8 @@ export * as hooks from "./hooks.ts";
 export * as ich from "./ich.ts";
 export * as queries from "./queries.ts";
 export * as query from "./query/mod.ts";
+export * as diagnostics from "./diagnostics.ts";
+export * as lang_items from "./middle/lang_items.ts";
 export * as resolve from "./middle/resolve.ts";
 export * as privacy from "./middle/privacy.ts";
 export * as stability from "./middle/stability.ts";

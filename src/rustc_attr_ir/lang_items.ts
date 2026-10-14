@@ -14,9 +14,9 @@
 // PORT: the fns the macro generates are ported here over those rows (markers on the macro's fn lines);
 // `LangItem` methods live on its companion const (PORTING §8), including `is_weak` / `link_name`
 // from weak_lang_items.rs.
-import type { DefId } from "../rustc_span/def_id.ts";
+import { type DefId, DefIdMap } from "../rustc_span/def_id.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
-import { unported, unwrap } from "../std/panic.ts";
+import { panic, unwrap } from "../std/panic.ts";
 import * as gen from "./lang_items.gen.ts";
 import { type GenericRequirement, language_item_table, type LanguageItemTableRow, LangItem_discriminant, type LanguageItemsGetters } from "./lang_items.gen.ts";
 import { clone_Target, type Target } from "./target.ts";
@@ -45,7 +45,9 @@ export const LanguageItems = gen.LanguageItems as typeof gen.LanguageItems & {
 /// Construct an empty collection of lang items and no missing ones.
 // rustc: compiler/rustc_attr_ir/src/lang_items.rs:33 new
 LanguageItems.new = function (): LanguageItems {
-  return new gen.LanguageItems(new Array<DefId | undefined>(LANG_ITEM_VARIANT_COUNT).fill(undefined), new Map(), []);
+  // PORT: `reverse_items: FxIndexMap<DefId, LangItem>` is a `DefIdMap` (keyed by `DefId_key`, insertion-ordered
+  // like the `IndexMap`; docs/plan-m3.md D5/D6).
+  return new gen.LanguageItems(new Array<DefId | undefined>(LANG_ITEM_VARIANT_COUNT).fill(undefined), new DefIdMap<LangItem>(), []);
 };
 
 // rustc: compiler/rustc_attr_ir/src/lang_items.rs:41 get
@@ -54,16 +56,25 @@ LanguageItems.prototype.get = function (this: LanguageItems, item: LangItem): De
 };
 
 // rustc: compiler/rustc_attr_ir/src/lang_items.rs:45 set
-LanguageItems.prototype.set = function (this: LanguageItems, _item: LangItem, _def_id: DefId): void {
-  // PORT: `reverse_items: FxIndexMap<DefId, LangItem>` is keyed by `DefId`, which is not a JS `Map`
-  // key (root decision pending, see rustc_span/def_id.ts `define_id_collections!`).
-  unported("rustc_attr_ir::lang_items::LanguageItems::set (FxIndexMap keyed by DefId)");
+LanguageItems.prototype.set = function (this: LanguageItems, item: LangItem, def_id: DefId): void {
+  this.items[LangItem_discriminant[item]] = def_id;
+  // `FxIndexMap::insert` returns the previous value.
+  const preexisting = this.reverse_items.get(def_id);
+  this.reverse_items.set(def_id, item);
+
+  // This needs to be a bijection.
+  if (preexisting !== undefined) {
+    panic(
+      "For the bijection of LangItem <=> DefId to work," +
+        "one item DefId may only be assigned one LangItem. " +
+        `Separate the LangItem definitions for ${item} and ${preexisting}.`,
+    );
+  }
 };
 
 // rustc: compiler/rustc_attr_ir/src/lang_items.rs:59 from_def_id
-LanguageItems.prototype.from_def_id = function (this: LanguageItems, _def_id: DefId): LangItem | undefined {
-  // PORT: see `set`.
-  return unported("rustc_attr_ir::lang_items::LanguageItems::from_def_id (FxIndexMap keyed by DefId)");
+LanguageItems.prototype.from_def_id = function (this: LanguageItems, def_id: DefId): LangItem | undefined {
+  return this.reverse_items.get(def_id);
 };
 
 // rustc: compiler/rustc_attr_ir/src/lang_items.rs:63 iter

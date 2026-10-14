@@ -50,6 +50,7 @@ import { type GlobalCtxt, provide as ty_context_provide, TyCtxt } from "../rustc
 import { clone_ExternProviders, clone_Providers, ExternProviders_default, Providers_default } from "../rustc_middle/query/query_api.ts";
 import type { Providers as QueryProviders } from "../rustc_middle/queries.gen.ts";
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
+import { provide as rustc_passes_provide } from "../rustc_passes/lib.ts";
 import { provide as query_impl_provide, query_system } from "../rustc_query_impl/lib.ts";
 import { feature_err } from "../rustc_session/diagnostics.ts";
 import { filename_for_input, invalid_output_for_target, validate_crate_name } from "../rustc_session/output.ts";
@@ -919,7 +920,7 @@ function default_query_providers(): MiddleProviders {
   providers.queries.proc_macro_decls_static = () => unported("tcx.hir_crate_items(()).proc_macro_decls() (HIR, M3)");
   // PORT: pending crates (their `provide` fns are not ported): rustc_ast_lowering, rustc_expand_queries,
   // rustc_const_eval, rustc_middle::hir, rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
-  // rustc_monomorphize, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck, traits, solve, rustc_passes,
+  // rustc_monomorphize, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck, traits, solve,
   // rustc_traits, rustc_ty_utils, rustc_symbol_mangling, rustc_codegen_ssa (rustc_metadata and rustc_lint are provided below).
   // Their queries keep upstream's `default_query` ICE.
   limits.provide(providers.queries);
@@ -1195,14 +1196,6 @@ function clone_MiddleProviders(p: MiddleProviders): MiddleProviders {
 // ---- Pending-lane shims ------------------------------------------------------------------------------------
 // Each is named and typed as upstream; its body calls `unported` with the upstream path and the lane that
 // ports it. Root replaces each by the import when the lane lands (handoff driver-m2).
-
-/**
- * `rustc_passes::provide` (lib.rs): only the query this file reaches (`write_out_deps`).
- * PORT: rustc_passes has no lane yet (HIR, M3).
- */
-function rustc_passes_provide(providers: QueryProviders): void {
-  providers.debugger_visualizers = () => unported("rustc_passes::debugger_visualizer::debugger_visualizers (HIR, M3)");
-}
 
 /** `rustc_passes::input_stats::print_ast_stats` (input_stats.rs:71). PORT: no lane yet (-Zinput-stats). */
 function rustc_passes_input_stats_print_ast_stats(_tcx: TyCtxt, _krate: Crate): void {
