@@ -768,9 +768,9 @@ declare module "./list.ts" {
 
     // ---- ty/sty.rs ----
     // ty/sty.rs:2181
-    inputs(this: List<PolyExistentialPredicate>): readonly Ty[];
+    inputs(this: List<Ty>): readonly Ty[];
     // ty/sty.rs:2185
-    output(this: List<PolyExistentialPredicate>): Ty;
+    output(this: List<Ty>): Ty;
   }
   namespace RawList {
     // ---- ty/list.rs ----

@@ -65,6 +65,7 @@ import { Ty } from "./mod.ts";
 import { type Clause, Predicate } from "./predicate.ts";
 import type { Ident } from "../../rustc_span/symbol.ts";
 import type { Namespace, DefKind as DefKindT, Res } from "../../rustc_hir/def.ts";
+import { unported_methods } from "../../rust_ts/stubs.ts";
 
 /**
  * PORT: `rustc_session::Limits` (session.rs:62; `#[derive(Copy, Clone, Debug, ..)]`) is not ported; this is its
@@ -1366,6 +1367,27 @@ export class TyCtxt {
     return [resolver, krate];
   }
 }
+
+// PORT: the inherent `TyCtxt` methods of context.rs that serve `impl Interner for TyCtxt` (impl_interner.rs) and are
+// not ported yet (lane ty-ctxt). Placeholders so the generic rustc_type_ir code that calls them through the
+// `Interner` (e.g. `AliasTy::new_projection_from_args`, `IsRigid::yes_if_next_solver`) stops as UNPORTED instead of a
+// TypeError (merge-w14). contract.test.ts still counts them as missing.
+unported_methods(TyCtxt.prototype, "rustc_middle::ty::context::TyCtxt", [
+  "assumptions_on_binders",
+  "check_alias_term_args_compatible",
+  "coroutine_is_async",
+  "coroutine_is_async_gen",
+  "coroutine_is_gen",
+  "coroutine_movability",
+  "debug_assert_alias_term_args_compatible",
+  "debug_assert_args_compatible",
+  "is_default_trait",
+  "is_general_coroutine",
+  "is_impl_trait_in_trait",
+  "is_sizedness_trait",
+  "next_trait_solver_globally",
+  "renormalize_rigid_aliases",
+]);
 
 
 /// Create a new definition within the incr. comp. engine.
