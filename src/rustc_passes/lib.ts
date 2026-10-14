@@ -8,6 +8,8 @@ import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as check_attr from "./check_attr.ts";
 import * as debugger_visualizer from "./debugger_visualizer.ts";
 import * as lang_items from "./lang_items.ts";
+import * as lib_features from "./lib_features.ts";
+import * as stability from "./stability.ts";
 
 // pub mod abi_test;            (not ported)
 // mod canonical_symbols;       (not ported)
@@ -25,9 +27,9 @@ export * as diagnostics from "./diagnostics.ts";
 // pub mod input_stats;         (not ported)
 export * as lang_items from "./lang_items.ts";
 // pub mod layout_test;         (not ported)
-// mod lib_features;            (not ported)
+export * as lib_features from "./lib_features.ts";
 // mod reachable;               (not ported, M4)
-// pub mod stability;           (not ported)
+export * as stability from "./stability.ts";
 // mod upvars;                  (not ported)
 export * as weak_lang_items from "./weak_lang_items.ts";
 
@@ -41,9 +43,9 @@ export function provide(providers: Providers): void {
   // diagnostic_items::provide(providers);
   // entry::provide(providers);
   lang_items.provide(providers);
-  // lib_features::provide(providers);
+  lib_features.provide(providers);
   // reachable::provide(providers);
-  // stability::provide(providers);
+  stability.provide(providers);
   // upvars::provide(providers);
   // check_export::provide(providers);
   // fake_doc_items::provide(providers);
