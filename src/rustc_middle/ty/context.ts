@@ -86,6 +86,8 @@ import { unwrap } from "../../std/panic.ts";
 import { FnSig, FnSigKind, PolyFnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { supertrait_def_ids } from "../../rustc_type_ir/elaborate.ts";
+import { GlobalCache as GlobalCache_ } from "../../rustc_type_ir/search_graph/mod.ts";
+import { CanonicalParamEnvCache as CanonicalParamEnvCache_ } from "../../rustc_type_ir/canonical.ts";
 import { standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { AliasTermKind, CanonicalParamEnvCache, GlobalCache, Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
@@ -624,10 +626,9 @@ export class TyCtxtFeed<K> {
 /// The individual fields are mostly unrelated to each other, but have been grouped together to
 /// reduce the number of top-level fields in [`GlobalCtxt`].
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:669 GlobalCaches
-// PORT: `Lock<..>` is the inner value (PORTING §5). The cache types of traits/ (`SelectionCache`, `EvaluationCache`),
-// the new solver's `search_graph::GlobalCache` / `CanonicalParamEnvCache` and infer's `CanonicalParamEnvCache` are not
-// ported (lanes middle-traits-thir, tyir-solve, infcx-contract), so `#[derive(Default)]` stops as UNPORTED and
-// `GlobalCtxt.caches` is built on first read.
+// PORT: `Lock<..>` is the inner value (PORTING §5). The cache types of traits/ (`SelectionCache`, `EvaluationCache`)
+// and infer's `CanonicalParamEnvCache` are not ported (lanes middle-traits-thir, infcx-contract), so
+// `#[derive(Default)]` stops as UNPORTED at `selection_cache` and `GlobalCtxt.caches` is built on first read.
 export class GlobalCaches {
   constructor(
     // Internal caches for metadata decoding. No need to track deps on this.
@@ -655,9 +656,25 @@ export class GlobalCaches {
     public clauses_cache: Map<string, Clauses>,
   ) {}
 
-  /** `#[derive(Default)]` (PORT: see the type comment). */
+  /** `#[derive(Default)]`: every field's `Default`, in field order (PORT: see the type comment; merge-w15a wired the
+   *  search graph's `GlobalCache` and rustc_type_ir's `CanonicalParamEnvCache`; traits' caches still stop). */
   static default_(): GlobalCaches {
-    return unported("rustc_middle::ty::context::GlobalCaches: Default (traits::SelectionCache / EvaluationCache, search_graph::GlobalCache, CanonicalParamEnvCache)");
+    const ty_rcache = new Map<string, Ty>();
+    const selection_cache: Pending<"traits::SelectionCache"> = unported("rustc_middle::traits::SelectionCache: Default (lane middle-traits-thir)");
+    const evaluation_cache: Pending<"traits::EvaluationCache"> = unported("rustc_middle::traits::EvaluationCache: Default (lane middle-traits-thir)");
+    const new_solver_evaluation_cache: GlobalCache = GlobalCache_.default_();
+    const new_solver_canonical_param_env_cache: CanonicalParamEnvCache = CanonicalParamEnvCache_.default_();
+    const canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache"> = unported("rustc_middle::infer::canonical::CanonicalParamEnvCache: Default (lane infcx-contract)");
+    return new GlobalCaches(
+      ty_rcache,
+      selection_cache,
+      evaluation_cache,
+      new_solver_evaluation_cache,
+      new_solver_canonical_param_env_cache,
+      canonical_param_env_cache,
+      new Map(),
+      new Map(),
+    );
   }
 }
 

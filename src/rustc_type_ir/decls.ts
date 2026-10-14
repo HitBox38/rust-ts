@@ -90,9 +90,11 @@ export type RegionOutlivesClause = OutlivesClause<Region>;
 export type ArgOutlivesClause = OutlivesClause<GenericArg>;
 
 // ---- pending (not generated: working structs and files outside set rustc_ty) ----
-// search_graph
-export type GlobalCache = Pending<"GlobalCache">;
-export type RequiredDepth = Pending<"RequiredDepth">;
+// search_graph (lane tyir-solve): `I::GlobalCache` is the search graph's cache over `impl Cx for I` (interner.ts).
+import type { GlobalCache as GlobalCache_, RequiredDepth } from "./search_graph/mod.ts";
+import type { InternerCx } from "./interner.ts";
+export type GlobalCache = GlobalCache_<InternerCx>;
+export type { RequiredDepth };
 
 // ---- `type Poly* = Binder<*>` (rustc_middle aliases of rustc_type_ir structs) ----
 export type PolyFnSig = Binder<FnSig>;

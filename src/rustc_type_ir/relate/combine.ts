@@ -22,7 +22,7 @@ import type { Variance } from "../lib.ts";
 import type { ProjectionClause } from "../predicate.ts";
 import { type ClauseKind, type PredicateKind, visit_with_PredicateKind } from "../predicate_kind.ts";
 import { interner, relate_GenericArg, type RelateResult, structurally_relate_consts, structurally_relate_tys, type TypeRelation, VarianceDiagInfo } from "../relate.ts";
-import type { Goal } from "../solve/mod.ts";
+import { Goal, type UpcastFn } from "../solve/mod.ts";
 import { type Const, debug_Const } from "../sty/consts.ts";
 import { AliasTerm } from "../term_kind.ts";
 
@@ -35,9 +35,10 @@ export type { InferCtxtLike };
 /** PORT(pending): `trait Upcast<I, T>` (upcast.rs:2, lane tyir-misc) as the function its `UpcastFrom` impl provides. */
 export type Upcast<T, U> = (from: T, interner: TyCtxt) => U;
 
-/** PORT: stand-in for `Goal::new` (solve/mod.rs:401, lane tyir-solve). */
+/** PORT(merge-w15a): `Goal::new` (solve/mod.ts) called with relate's `TyCtxt`-typed upcast fns (`I = TyCtxt`: the
+ *  interner passed to `upcast` is this `TyCtxt`). */
 export function Goal_new<P, T>(cx: TyCtxt, param_env: ParamEnv, predicate: T, upcast: Upcast<T, P>): Goal<P> {
-  return { param_env, predicate: upcast(predicate, cx) };
+  return Goal.new(interner(cx), param_env, predicate, upcast as unknown as UpcastFn<T, P>);
 }
 
 /** PORT: the `TypeVisitable` impl fn of `PredicateKind` (generated) as a D4 descriptor. */
