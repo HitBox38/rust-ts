@@ -11,9 +11,11 @@ import "../rustc_session/options.ts"; // LOAD ORDER: see rustc_session/config.ts
 import "../rustc_session/lib.ts";
 import "../rustc_middle/lib.ts";
 // LOAD ORDER: rustc_hir_analysis is imported through its lib.ts first; collect/dump.ts (crate-private upstream, as
-// in the probe) is then imported directly.
+// in the probe) and the outlives / variance dump modules are then imported directly.
 import "../rustc_hir_analysis/lib.ts";
 import * as collect_dump from "../rustc_hir_analysis/collect/dump.ts";
+import * as outlives_dump from "../rustc_hir_analysis/outlives/dump.ts";
+import * as variance_dump from "../rustc_hir_analysis/variance/dump.ts";
 import { emit_delayed_lints } from "../rustc_interface/passes.ts";
 import { creader } from "../rustc_metadata/lib.ts";
 import { par_fns } from "../rustc_data_structures/sync/parallel.ts";
@@ -204,14 +206,14 @@ export function check_crate_typecks(tcx: TyCtxt, item_def_id: LocalDefId): boole
   );
 }
 
-/** prefix.rs `outlives_dump::inferred_outlives` (rustc_hir_analysis/src/outlives/dump.rs:5, not ported). */
-function outlives_dump_inferred_outlives(_tcx: TyCtxt): void {
-  unported("rustc_hir_analysis::outlives::dump::inferred_outlives (wave 17: variance-outlives-implwf)");
+/** prefix.rs `outlives_dump::inferred_outlives` (rustc_hir_analysis/src/outlives/dump.rs). */
+function outlives_dump_inferred_outlives(tcx: TyCtxt): void {
+  outlives_dump.inferred_outlives(tcx);
 }
 
-/** prefix.rs `variance_dump::variances` (rustc_hir_analysis/src/variance/dump.rs:26, not ported). */
-function variance_dump_variances(_tcx: TyCtxt): void {
-  unported("rustc_hir_analysis::variance::dump::variances (wave 17: variance-outlives-implwf)");
+/** prefix.rs `variance_dump::variances` (rustc_hir_analysis/src/variance/dump.rs). */
+function variance_dump_variances(tcx: TyCtxt): void {
+  variance_dump.variances(tcx);
 }
 
 // ---------------------------------------------------------------------------------------------------------------

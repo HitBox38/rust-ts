@@ -519,14 +519,18 @@ test("provide installs the collect providers (and leaves the others)", () => {
   expect(providers.item_bounds).toBe(ItemBounds.item_bounds);
   expect(providers.fn_sig).toBe(Collect.fn_sig);
   expect(providers.const_of_item).toBe(Collect.const_of_item);
-  // collect.rs:65 assigns 32 queries, resolve_bound_vars::provide (resolve_bound_vars.rs:234, lane collect-rbv) 6 and
-  // lib.rs the 2 delegation queries (lane hira-misc); the wave-17 modules none yet
-  expect(Object.keys(providers).length).toBe(40);
+  // collect.rs:65 assigns 32 queries, resolve_bound_vars::provide (resolve_bound_vars.rs:234, lane collect-rbv) 6,
+  // lib.rs the 2 delegation queries (lane hira-misc) and the 5 outlives / impl_wf_check / variance queries (lane
+  // variance-outlives); the other wave-17 modules none yet
+  expect(Object.keys(providers).length).toBe(45);
   expect(providers.inherit_sig_for_delegation_item).toBe(Lib.delegation.inherit_sig_for_delegation_item);
   expect(providers.delegation_user_specified_args).toBe(Lib.delegation.delegation_user_specified_args);
   expect(providers.resolve_bound_vars).toBe(Rbv.resolve_bound_vars);
   expect(providers.is_late_bound_map).toBe(Rbv.is_late_bound_map);
   expect(providers.object_lifetime_default).toBe(Rbv.object_lifetime_default);
   for (const q of ["named_variable_map", "late_bound_vars_map", "opaque_captured_lifetimes"]) expect([q, typeof providers[q]]).toEqual([q, "function"]);
-  expect(providers.variances_of).toBeUndefined();
+  for (const q of ["inferred_outlives_crate", "inferred_outlives_of", "enforce_impl_non_lifetime_params_are_constrained", "crate_variances", "variances_of"]) {
+    expect([q, typeof providers[q]]).toEqual([q, "function"]);
+  }
+  expect(providers.check_unused_traits).toBeUndefined();
 });
