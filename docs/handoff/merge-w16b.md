@@ -1,4 +1,4 @@
-# Handoff: merge-w16b (fixer): rustc_infer fill lanes, tydump-subject, rds-graph, passes-a, passes-b
+# Handoff: merge-w16b (fixer): rustc_infer fill lanes, tydump-subject, rds-graph, passes-a, passes-b, variance-outlives
 
 Worktree `.data/integ`, branch `integ`, based on main `816b5c5`. Every merge is `git merge --no-ff lane/<name>`, in this
 order:
@@ -11,8 +11,9 @@ order:
 7. rds-graph
 8. passes-a
 9. passes-b
+10. variance-outlives
 
-Root added steps 7-9 while this lane was running. Each merge and each fix is its own commit; see
+Root added steps 7-10 while this lane was running. Each merge and each fix is its own commit; see
 `git log --first-parent 816b5c5..integ`.
 
 ## Merge resolutions
@@ -53,6 +54,13 @@ Root added steps 7-9 while this lane was running. Each merge and each fix is its
   - `mod_a_test/lower.expected.txt` takes passes-b's `probe_assoc_item(C, Const, Tr): Some(C)` and keeps infer-core's
     `can_eq` stop for `probe_traits_that_match_assoc_ty`.
   - The new set `rustc_passes_check_attr` is kept and regenerated (no diff).
+- **variance-outlives** merged without conflicts. Its re-pins are kept: `collect_b.test.ts`, the `contract.test.ts`
+  provider count (45), and `ty.expected.txt`. Its own test is tightened:
+  - `PENDING_FACTS` is now empty. tydump-subject's `EarlyParamRegion` and `Binder.bound_vars` Debug impls are merged,
+    and every fact matches.
+  - `transitive_bounds_that_define_assoc_item` is dropped from `PENDING_DUMP`; infer-opaque-snapshot ported it.
+  - tydump_dump.ts's prefix now calls the real `outlives::dump::inferred_outlives` and `variance::dump::variances`.
+    Their stand-ins are gone.
 
 ## Codegen requests and repoints
 - **`AliasTerm` / `ParamEnv` Debug:**
@@ -106,10 +114,10 @@ Root added steps 7-9 while this lane was running. Each merge and each fix is its
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean.
-- `bun scripts/coverage.ts --check`: markers ok. TOTAL 13694/25518 (53.66%). rustc_infer 644/644; transitive_relation,
+- `bun scripts/coverage.ts --check`: markers ok (14276). TOTAL 13757/25518 (53.91%). rustc_infer 644/644; transitive_relation,
   graph/scc, check_attr, stability, entry, delegation and sync/parallel are all complete.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Unit tests" below.
-- Difftests, `--seed m16b` (integ against main 816b5c5, same seed):
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools` at 4e0ff56: **4938 pass, 1 skip (the pre-existing linux-only test), 0 fail** (4939 tests, 307 files). It was also green at ecbdf7c: 4931 pass, 1 skip, 0 fail.
+- Difftests at 4e0ff56, `--seed m16b` (integ against main 816b5c5, same seed):
 
 | suite | integ | main |
 |---|---|---|
@@ -120,7 +128,7 @@ Root added steps 7-9 while this lane was running. Each merge and each fix is its
 
   The UNPORTED id sets are identical to main's: no new UNPORTED. The delegation cases among them now stop at
   `codegen_fn_attrs` instead of `fn_sig`.
-- **tydump** (after passes-a + passes-b):
+- **tydump** (after passes-a, passes-b and variance-outlives; the counts did not change with variance-outlives):
   - `tydump-nocore --sample 300 --seed m16b`: **46 MATCH / 0 DIFF / 254 UNPORTED**. Stops:
     - 236 `check_type_wf provider`;
     - 7 `shallow_lint_levels_on`;
