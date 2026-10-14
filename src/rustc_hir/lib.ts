@@ -7,9 +7,11 @@
 // pub mod def;
 export * as def from "./def.ts";
 // mod hir;
-// pub mod intravisit; (lane hir-visit)
+// pub mod intravisit;
+export * as intravisit from "./intravisit.ts";
 // pub mod lints; (not ported yet)
-// pub mod pat_util; (lane hir-visit)
+// pub mod pat_util;
+export * as pat_util from "./pat_util.ts";
 // mod stable_hash_impls;
 // PORT: the `impl StableHash` fns of the private module are re-exported (trait impls are crate-global upstream).
 export * from "./stable_hash_impls.ts";

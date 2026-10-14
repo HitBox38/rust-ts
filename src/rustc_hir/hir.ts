@@ -8,9 +8,8 @@
 //
 // PORT: the `Unambig` parameter (`()` or the uninhabited `AmbigArg`) is erased to `null` / `never`; the
 // `as_unambig_*` / `try_as_ambig_*` transmutes are casts.
-// PORT: the fns that need `intravisit` are left to lane hir-visit (they stay unmarked): `ConstItemRhs::span`
-// (`HirTyCtxt`, hir.rs:430), `Ty::find_self_aliases` (a `Visitor`, hir.rs:3261 + its `visit_ty` at :3265) and
-// `Node::fn_kind` (`intravisit::FnKind`, hir.rs:5204).
+// The fns that need `intravisit` (`ConstItemRhs::span`, hir.rs:430; `Ty::find_self_aliases`, :3261 + its
+// `visit_ty`, :3265; `Node::fn_kind`, :5204) are lane hir-visit's, merged in by merge-w13.
 import type { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import {
   BinOpKind,
@@ -29,7 +28,7 @@ import type { Attribute } from "../rustc_attr_ir/lib.ts";
 import { debug_Fingerprint, Fingerprint } from "../rustc_data_structures/fingerprint.ts";
 import { debug_SortedMap, SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import type { DiagArgValue, PathBuf } from "../rustc_error_messages/lib.ts";
-import { CRATE_HIR_ID, debug_HirId, debug_ItemLocalId, HirId_INVALID, HirId_make_owner, type HirId, ItemLocalId, type OwnerId } from "../rustc_hir_id/lib.ts";
+import { CRATE_HIR_ID, debug_HirId, debug_ItemLocalId, HirId_eq, HirId_INVALID, HirId_make_owner, type HirId, ItemLocalId, type OwnerId } from "../rustc_hir_id/lib.ts";
 import { type DefId, DefId_eq, LocalDefId } from "../rustc_span/def_id.ts";
 import { DesugaringKind } from "../rustc_span/hygiene.ts";
 import { BytePos, DUMMY_SP, type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
@@ -41,6 +40,7 @@ import { assert, panic, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { CtorKind, debug_Res, type DefKind, type MacroKinds, type PerNS, type Res, Res_eq } from "./def.ts";
 import * as gen from "./hir.gen.ts";
+import { FnKind, type HirTyCtxt, Visitor, walk_ty } from "./intravisit.ts";
 import {
   AttributeMap,
   type Block,
@@ -128,7 +128,7 @@ export const LifetimeSyntax = {
     const name = ident.name;
 
     if (name === sym.empty) {
-      return unreachable("A lifetime name should never be empty");
+      return unreachable("internal error: entered unreachable code: A lifetime name should never be empty");
     } else if (name === kw.UnderscoreLifetime) {
       return gen.LifetimeSyntax.ExplicitAnonymous;
     } else {
@@ -271,7 +271,7 @@ Lifetime.prototype.suggestion = function (this: Lifetime, new_lifetime: string):
     return [this.ident.span, `${new_lifetime} `];
   }
 
-  return unreachable(`can't suggest for a implicit lifetime of ${format_debug(source, gen.debug_LifetimeSource, PLAIN)}`);
+  return unreachable(`internal error: entered unreachable code: can't suggest for a implicit lifetime of ${format_debug(source, gen.debug_LifetimeSource, PLAIN)}`);
 };
 
 // ---- Path / PathSegment -----------------------------------------------------------------------------------------
@@ -334,7 +334,15 @@ export const ConstItemRhs = {
     }
   },
 
-  // PORT: `span` (hir.rs:430) takes an `intravisit::HirTyCtxt`: lane hir-visit.
+  // rustc: compiler/rustc_hir/src/hir.rs:430 span
+  span(self: ConstItemRhs, tcx: HirTyCtxt): Span {
+    switch (self.$) {
+      case "Body":
+        return tcx.hir_body(self._0).value.span;
+      case "Direct":
+        return self._0.span;
+    }
+  },
 };
 
 // ---- ConstArg ---------------------------------------------------------------------------------------------------
@@ -529,7 +537,7 @@ GenericArgs.prototype.paren_sugar_inputs_output = function (this: GenericArgs): 
 
 /// Obtain the output type if the generic arguments are parenthesized.
 ///
-/// Returns the `Ty1` in `Trait(Ty0) -> Ty1`.
+/// Returns the `RetTy` in `Trait(Ty0, Ty1, ...) -> RetTy`.
 /// Panics if the parenthesized arguments have an incorrect form (this shouldn't happen).
 // rustc: compiler/rustc_hir/src/hir.rs:699 paren_sugar_output
 GenericArgs.prototype.paren_sugar_output = function (this: GenericArgs): Ty | undefined {
@@ -583,7 +591,7 @@ GenericArgs.prototype.num_generic_params = function (this: GenericArgs): number 
 ///
 /// Returns `None` if the span is empty (i.e., no brackets) or dummy.
 ///
-/// [^1]: A constraint is either an associated item constraint or a parenthesized output type.
+/// [^1]: Unless of the form `-> Ty` (see [`GenericArgsParentheses`]).
 // rustc: compiler/rustc_hir/src/hir.rs:748 span
 GenericArgs.prototype.span = function (this: GenericArgs): Span | undefined {
   const span_ext = this.span_ext_();
@@ -1137,8 +1145,6 @@ declare module "./hir.gen.ts" {
   }
 }
 
-/// If this is a block with no statements, but a trailing expression that is itself a block,
-/// return the innermost block.
 // rustc: compiler/rustc_hir/src/hir.rs:1504 innermost_block
 gen.Block.prototype.innermost_block = function (this: Block): Block {
   let block: Block = this;
@@ -1969,7 +1975,7 @@ Expr.prototype.equivalent_for_indexing = function (this: Expr, other: Expr): boo
     return ast_LitKind_eq(a._0.node, b._0.node);
   }
   if (a.$ === "Path" && a._0.$ === "Resolved" && a._0._0 === undefined && b.$ === "Path" && b._0.$ === "Resolved" && b._0._0 === undefined) {
-    return Res_eq(a._0._1.res, b._0._1.res, (x, y) => x === y);
+    return Res_eq(a._0._1.res, b._0._1.res, HirId_eq);
   }
   if (
     a.$ === "Struct" &&
@@ -2347,6 +2353,7 @@ declare module "./hir.gen.ts" {
     try_as_ambig_ty(this: Ty): Ty<AmbigArg> | undefined;
     peel_refs(): Ty;
     as_generic_param(this: Ty): [DefId, Ident] | undefined;
+    find_self_aliases(this: Ty): Span[];
     is_suggestable_infer_ty(this: Ty): boolean;
   }
 }
@@ -2418,8 +2425,27 @@ Ty.prototype.as_generic_param = function (this: Ty): [DefId, Ident] | undefined 
   }
 };
 
-// PORT: `find_self_aliases` (hir.rs:3261, with its `MyVisitor::visit_ty` at :3265) uses `intravisit::Visitor`:
-// lane hir-visit.
+// rustc: compiler/rustc_hir/src/hir.rs:3261 find_self_aliases
+Ty.prototype.find_self_aliases = function (this: Ty): Span[] {
+  class MyVisitor extends Visitor {
+    constructor(public _0: Span[]) {
+      super();
+    }
+    // rustc: compiler/rustc_hir/src/hir.rs:3265 visit_ty
+    override visit_ty(t: Ty<AmbigArg>): undefined {
+      const kind = t.kind;
+      if (kind.$ === "Path" && kind._0.$ === "Resolved" && kind._0._1.res.$ === "SelfTyAlias") {
+        this._0.push(t.span);
+        return undefined;
+      }
+      return walk_ty(this, t);
+    }
+  }
+
+  const my_visitor = new MyVisitor([]);
+  my_visitor.visit_ty_unambig(this);
+  return my_visitor._0;
+};
 
 // rustc: compiler/rustc_hir/src/hir.rs:3287 is_suggestable_infer_ty
 Ty.prototype.is_suggestable_infer_ty = function (this: Ty): boolean {
@@ -2770,8 +2796,9 @@ Object.assign(FnDeclFlags, {
   /// Must have the same value as `FnSigKind::NO_SPLATTED_ARG_INDEX` and `rustc_ast::FnDecl::NO_SPLATTED_ARG_INDEX`.
   NO_SPLATTED_ARG_INDEX: 0xff,
 
-  /// Create a new FnDeclKind with no implicit self, no lifetime elision, no C-style variadic argument,
-  /// and no splatted argument.
+  /// Create a new FnDeclKind with no implicit self, no lifetime elision, no C-style variadic
+  /// argument, and no splatting.
+  /// To modify these flags, use the `set_*` methods, for readability.
   // FIXME: use Default instead when that trait is const stable.
   // rustc: compiler/rustc_hir/src/hir.rs:3805 default
   default_(): FnDeclFlags {
@@ -2836,7 +2863,7 @@ FnDeclFlags.prototype.set_lifetime_elision_allowed = function (this: FnDeclFlags
 };
 
 /// Set the splatted argument index.
-/// Returns an error if the index is `u8::MAX`, or is out of bounds.
+/// The number of function arguments is used for error checking.
 // rustc: compiler/rustc_hir/src/hir.rs:3856 set_splatted
 FnDeclFlags.prototype.set_splatted = function (
   this: FnDeclFlags,
@@ -2867,7 +2894,7 @@ FnDeclFlags.prototype.set_splatted = function (
   return Ok(self);
 };
 
-/// Set the "no splatted arguments" flag.
+/// Set "no splatted arguments" for the function declaration.
 // rustc: compiler/rustc_hir/src/hir.rs:3883 set_no_splatted_args
 FnDeclFlags.prototype.set_no_splatted_args = function (this: FnDeclFlags): FnDeclFlags {
   const self = clone_FnDeclFlags(this);
@@ -3094,6 +3121,7 @@ declare module "./hir.gen.ts" {
   }
 }
 
+/// Gets the `DefId` of the referenced trait. It _must_ actually be a trait or trait alias.
 // rustc: compiler/rustc_hir/src/hir.rs:4172 trait_def_id
 TraitRef.prototype.trait_def_id = function (this: TraitRef): DefId | undefined {
   const res = this.path.res;
@@ -3146,7 +3174,6 @@ export const VariantData = {
     }
   },
 
-  /// Return the `CtorKind` of this variant.
   // rustc: compiler/rustc_hir/src/hir.rs:4253 ctor_kind
   ctor_kind(self: VariantData): CtorKind | undefined {
     const c = VariantData.ctor(self);
@@ -3372,6 +3399,8 @@ export const Constness = {
     return a.$ === b.$ && (a.$ !== "Const" || a.always === (b as typeof a).always);
   },
 
+  /// This impl exists as an optimization so that metadata deserialization can
+  /// store the value directly and not have to encode it wrapped in another `Option`.
   // impl Default for Constness
   // rustc: compiler/rustc_hir/src/hir.rs:4441 default
   default(): Constness {
@@ -3590,8 +3619,18 @@ export const OwnerNode = {
 
   // rustc: compiler/rustc_hir/src/hir.rs:4847 fn_decl
   fn_decl(self: OwnerNode): FnDecl | undefined {
-    const fn_sig = OwnerNode.fn_sig(self);
-    return fn_sig === undefined ? undefined : fn_sig.decl;
+    switch (self.$) {
+      case "TraitItem":
+        return self._0.kind.$ === "Fn" ? self._0.kind._0.decl : undefined;
+      case "ImplItem":
+        return self._0.kind.$ === "Fn" ? self._0.kind._0.decl : undefined;
+      case "Item":
+        return self._0.kind.$ === "Fn" ? self._0.kind.sig.decl : undefined;
+      case "ForeignItem":
+        return self._0.kind.$ === "Fn" ? self._0.kind._0.decl : undefined;
+      default:
+        return undefined;
+    }
   },
 
   // rustc: compiler/rustc_hir/src/hir.rs:4859 body_id
@@ -4000,8 +4039,49 @@ export const Node = {
     }
   },
 
-  // PORT: `fn_kind` (hir.rs:5204) returns an `intravisit::FnKind`: lane hir-visit.
+  // rustc: compiler/rustc_hir/src/hir.rs:5204 fn_kind
+  fn_kind(self: Node): FnKind | undefined {
+    switch (self.$) {
+      case "Item": {
+        const i = self._0;
+        const kind = i.kind;
+        if (kind.$ === "Fn") {
+          const { ident, sig, generics } = kind;
+          return { $: "ItemFn", _0: ident, _1: generics, _2: sig.header };
+        }
+        return undefined;
+      }
+      case "TraitItem": {
+        const ti = self._0;
+        const kind = ti.kind;
+        if (kind.$ === "Fn") {
+          const sig = kind._0;
+          return { $: "Method", _0: ti.ident, _1: sig };
+        }
+        return undefined;
+      }
+      case "ImplItem": {
+        const ii = self._0;
+        const kind = ii.kind;
+        if (kind.$ === "Fn") {
+          const sig = kind._0;
+          return { $: "Method", _0: ii.ident, _1: sig };
+        }
+        return undefined;
+      }
+      case "Expr": {
+        const e = self._0;
+        if (e.kind.$ === "Closure") {
+          return FnKind.Closure;
+        }
+        return undefined;
+      }
+      default:
+        return undefined;
+    }
+  },
 
+  /// For expressions, patterns, and types return the path if it's a path expr/pat/ty.
   // rustc: compiler/rustc_hir/src/hir.rs:5229 path
   path(self: Node): QPath | undefined {
     switch (self.$) {
