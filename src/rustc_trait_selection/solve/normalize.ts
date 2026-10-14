@@ -11,18 +11,17 @@ import type { At, InferCtxt } from "../../rustc_infer/decls.ts";
 import { Obligation, type PredicateObligation, type PredicateObligations } from "../../rustc_infer/traits/mod.ts";
 import type { FromSolverError } from "../../rustc_infer/traits/engine.ts";
 import { Normalized } from "../../rustc_infer/traits/project.ts";
-import { ObligationCause } from "../../rustc_middle/traits/mod.ts";
+import { clone_ObligationCause, ObligationCause } from "../../rustc_middle/traits/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { ParamEnv } from "../../rustc_middle/ty/decls.ts";
 import type { Clauses } from "../../rustc_middle/ty/list.ts";
-import { Term, type Ty } from "../../rustc_middle/ty/mod.ts";
+import { fold_Term, Term, type Ty } from "../../rustc_middle/ty/mod.ts";
 import { Predicate_upcast_from_ProjectionClause, type Predicate } from "../../rustc_middle/ty/predicate.ts";
 import { debug_Predicate, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
-import { normalize as nts_normalize, placeholder } from "../../rustc_next_trait_solver/lib.ts";
-import { solve } from "../../rustc_next_trait_solver/lib.ts";
+import { normalize as nts_normalize, placeholder, solve } from "../../rustc_next_trait_solver/lib.ts";
 import { type Binder, fold_Binder } from "../../rustc_type_ir/binder.ts";
 import type { UniverseIndex } from "../../rustc_type_ir/decls.ts";
-import { type AliasConstKind, fold_with_AliasConstKind, try_fold_with_AliasConstKind, visit_with_AliasConstKind } from "../../rustc_type_ir/const_kind.ts";
+import { fold_with_AliasConstKind, try_fold_with_AliasConstKind, visit_with_AliasConstKind } from "../../rustc_type_ir/const_kind.ts";
 import { type FallibleTypeFolder, type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../rustc_type_ir/fold.ts";
 import { as_interner, type ProjectionClause } from "../../rustc_type_ir/predicate.ts";
 import { debug_Goal, type Goal } from "../../rustc_type_ir/solve/mod.ts";
@@ -30,8 +29,8 @@ import { Goal as GoalC } from "../../rustc_type_ir/solve/mod.ts";
 import { type Const, fold_Const } from "../../rustc_type_ir/sty/consts.ts";
 import type { Region } from "../../rustc_type_ir/sty/mod.ts";
 import { AliasTerm } from "../../rustc_type_ir/term_kind.ts";
-import { type Alias, type AliasConst, type AliasTerm as AliasTermT, type AliasTy, fold_with_Alias, try_fold_with_Alias, visit_with_Alias } from "../../rustc_type_ir/ty/alias.ts";
-import { type AliasTyKind, fold_with_AliasTyKind, try_fold_with_AliasTyKind, visit_with_AliasTyKind } from "../../rustc_type_ir/ty_kind.ts";
+import { type AliasConst, type AliasTerm as AliasTermT, type AliasTy, fold_with_Alias, try_fold_with_Alias, visit_with_Alias } from "../../rustc_type_ir/ty/alias.ts";
+import { fold_with_AliasTyKind, try_fold_with_AliasTyKind, visit_with_AliasTyKind } from "../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt, type TypeVisitor } from "../../rustc_type_ir/visit.ts";
 import { debug_vec, PLAIN } from "../../std/fmt.ts";
@@ -364,13 +363,11 @@ function Predicate_identity(p: Predicate, _tcx: TyCtxt): Predicate {
 function ObligationCause_clone(c: ObligationCause): ObligationCause {
   return clone_ObligationCause(c);
 }
-import { clone_ObligationCause } from "../../rustc_middle/traits/mod.ts";
 
 // PORT (D4): descriptors, built on call (the generated fns are read lazily).
 function fold_Term_(): TypeFoldable<Term> {
   return fold_Term;
 }
-import { fold_Term } from "../../rustc_middle/ty/mod.ts";
 /** `ty::AliasTy<'tcx>` */
 function fold_AliasTy(): TypeFoldable<AliasTy> {
   return {
@@ -388,5 +385,3 @@ function fold_AliasConst(): TypeFoldable<AliasConst> {
   };
 }
 
-/** PORT: names this module uses only in type positions. */
-export type NormalizeUnused = Alias<AliasTyKind> | AliasConstKind | PredicateObligation;

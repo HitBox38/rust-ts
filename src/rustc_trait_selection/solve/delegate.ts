@@ -26,13 +26,15 @@ import { ObligationCause } from "../../rustc_middle/traits/mod.ts";
 import type { PredicateObligation } from "../../rustc_infer/traits/mod.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { ParamEnv } from "../../rustc_middle/ty/decls.ts";
-import { fold_GenericArg, GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
-import { Term, type Ty } from "../../rustc_middle/ty/mod.ts";
+import { GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
+import { fold_Term, Term, type Ty } from "../../rustc_middle/ty/mod.ts";
+import { Symbol } from "../../rustc_span/symbol.ts";
+import { utf8_len } from "../../std/str.ts";
 import type { Predicate } from "../../rustc_middle/ty/predicate.ts";
 import { display_Predicate, FmtPrinter, print_Predicate } from "../../rustc_middle/ty/print/pretty.ts";
 import { fold_Predicate, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
-import { type SolverDelegate as SolverDelegateTrait, type SolverDelegate_static, SolverDelegate_provided } from "../../rustc_next_trait_solver/delegate.ts";
-import { DefId_eq, type DefId, LOCAL_CRATE, CRATE_DEF_ID } from "../../rustc_span/def_id.ts";
+import type { SolverDelegate as SolverDelegateTrait, SolverDelegate_static } from "../../rustc_next_trait_solver/delegate.ts";
+import { type DefId, LOCAL_CRATE, CRATE_DEF_ID } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
 import { Limit, Limit_mul, display_Limit } from "../../rustc_structures/limit.ts";
 import { Binder } from "../../rustc_type_ir/binder.ts";
@@ -41,7 +43,7 @@ import type { AliasConst, CanonicalVarKind, TraitRef, TyVid, UniverseIndex } fro
 import { TypeFlags } from "../../rustc_type_ir/flags.ts";
 import { type FallibleTypeFolder, fold_tuple2, type TypeFoldable, type TypeFolder } from "../../rustc_type_ir/fold.ts";
 import { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
-import { PolyTraitClause, type RegionConstraint, type TraitClause } from "../../rustc_type_ir/predicate.ts";
+import { PolyTraitClause, type RegionConstraint } from "../../rustc_type_ir/predicate.ts";
 import { fold_with_TraitRef, type OutlivesClause, try_fold_with_TraitRef, visit_with_OutlivesClause, visit_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
 import {
   type Certainty,
@@ -66,7 +68,7 @@ import type { Clauses } from "../../rustc_middle/ty/list.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { panic, unwrap, unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
-import { fold_Goal_Predicate, type InspectConfig, type InspectGoal, type ProofTreeVisitor, ProofTreeVisitor_provided } from "./inspect/analyse.ts";
+import { fold_Goal_Predicate, type InspectConfig, type InspectGoal, type ProofTreeVisitor } from "./inspect/analyse.ts";
 
 // rustc-type: compiler/rustc_trait_selection/src/solve/delegate.rs:38 SolverDelegate
 export class SolverDelegate implements SolverDelegateTrait {
@@ -232,7 +234,7 @@ export class SolverDelegate implements SolverDelegateTrait {
       }
     } else if (kind.$ === "Clause" && kind._0.$ === "WellFormed") {
       const arg0 = kind._0._0;
-      if (TypeVisitableExt.has_escaping_bound_vars(arg0, fold_Term_)) {
+      if (TypeVisitableExt.has_escaping_bound_vars(arg0, fold_Term)) {
         return Outcome.NoFastPath;
       }
 
@@ -434,8 +436,7 @@ export class SolverDelegate implements SolverDelegateTrait {
         // FIXME: share this with overflow error in fulfillment instead of duplicating.
         const pred_str = (pred: Predicate): string => {
           const s = display_Predicate(pred);
-          // PORT: `s.len()` is the UTF-8 length.
-          if (Buffer.byteLength(s, "utf8") > 80) {
+          if (utf8_len(s) > 80) {
             const p = FmtPrinter.new_with_limit(tcx, "TypeNS" as Namespace, Limit.new(10));
             const r = print_Predicate(pred, p);
             if (r.$ === "Err") return panic("called `Result::unwrap()` on an `Err` value: Error");
@@ -453,7 +454,7 @@ export class SolverDelegate implements SolverDelegateTrait {
           "consider adding a manual `impl` of auto traits like `Send` for intermediate types, if auto traits are involved",
         );
         diag.help(
-          `or consider increasing the recursion limit by adding a \`#![recursion_limit = "${display_Limit(Limit_mul(tcx.recursion_limit(), 2))}"]\` attribute to your crate (\`${tcx.crate_name(LOCAL_CRATE)}\`)`,
+          `or consider increasing the recursion limit by adding a \`#![recursion_limit = "${display_Limit(Limit_mul(tcx.recursion_limit(), 2))}"]\` attribute to your crate (\`${Symbol.as_str(tcx.crate_name(LOCAL_CRATE))}\`)`,
         );
         diag.note("this lint is attached to the whole crate and can't be disabled on a per-function basis");
       }),
@@ -663,9 +664,6 @@ function specialization_graph_assoc_def(_tcx: TyCtxt, _impl_def_id: DefId, _asso
 }
 
 // PORT: descriptors used above.
-const fold_Term_: TypeVisitable<Term> = {
-  visit_with: <R>(s: Term, v: TypeVisitor<R>): R => (s instanceof Const ? fold_Const.visit_with(s, v) : fold_Ty.visit_with(s as Ty, v)),
-};
 const fold_TraitRef_: TypeFoldable<TraitRef> = {
   visit_with: <R>(s: TraitRef, v: TypeVisitor<R>): R => visit_with_TraitRef(s, v),
   try_fold_with: <E>(s: TraitRef, f: FallibleTypeFolder<E>): Result<TraitRef, E> => try_fold_with_TraitRef(s, f),
@@ -676,5 +674,3 @@ function fold_Ty_Ty(): TypeFoldable<[Ty, Ty]> {
   return fold_tuple2(fold_Ty, fold_Ty);
 }
 
-/** PORT: names this module uses only in type positions. */
-export type DelegateUnused = ControlFlowT<null> | PredicateObligation | TraitClause | GoalStalledOn | DefId | typeof DefId_eq | typeof ProofTreeVisitor_provided | typeof SolverDelegate_provided | typeof fold_GenericArg;

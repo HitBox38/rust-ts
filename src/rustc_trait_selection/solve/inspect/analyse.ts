@@ -24,14 +24,13 @@
 
 import { try_visit, type VisitorResult } from "../../../rustc_ast_ir/visit.ts";
 import { InferCtxt } from "../../../rustc_infer/decls.ts";
-import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { fold_GenericArgs, type GenericArg, type GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
 import type { Predicate } from "../../../rustc_middle/ty/predicate.ts";
 import { fold_Predicate } from "../../../rustc_middle/ty/structural_impls.ts";
 import type { Span } from "../../../rustc_span/lib.ts";
 import { Binder } from "../../../rustc_type_ir/binder.ts";
 import type { UniverseIndex } from "../../../rustc_type_ir/decls.ts";
-import type { FallibleTypeFolder, FoldWith, TryFoldWith, TypeFoldable, TypeFolder, VisitWith } from "../../../rustc_type_ir/fold.ts";
+import type { FallibleTypeFolder, TypeFoldable, TypeFolder } from "../../../rustc_type_ir/fold.ts";
 import { fold_with_PredicateKind, type PredicateKind, try_fold_with_PredicateKind, visit_with_PredicateKind } from "../../../rustc_type_ir/predicate_kind.ts";
 import type { RequiredDepth } from "../../../rustc_type_ir/search_graph/mod.ts";
 import type { CanonicalState, GoalEvaluation as inspect_GoalEvaluation, Probe, ProbeKind, ProbeStep } from "../../../rustc_type_ir/solve/inspect.ts";
@@ -118,7 +117,8 @@ export class InspectGoal {
           assert_matches(
             prev,
             prev === undefined || (prev.$ === "Maybe" && prev._0.cause.$ === "Ambiguity"),
-            "None | Some(Certainty::Maybe(MaybeInfo {\n            cause: MaybeCause::Ambiguity, opaque_types_jank: _, stalled_on_coroutines: _ }))",
+            // PORT: `stringify!` of the pattern (only an ICE prints it).
+            "None | Some(Certainty::Maybe(MaybeInfo { cause: MaybeCause::Ambiguity, opaque_types_jank: _, stalled_on_coroutines: _ }))",
             (v) => debug_option(v, PLAIN, debug_Certainty),
           );
           break;
@@ -313,7 +313,8 @@ export class InspectCandidate {
       }
     }
 
-    const _: null = canonical.instantiate_canonical_state(infcx, span, this.goal_.prev_universe, orig_values, this.final_state, fold_unit);
+    // `let () = instantiate_canonical_state(..)`
+    canonical.instantiate_canonical_state(infcx, span, this.goal_.prev_universe, orig_values, this.final_state, fold_unit);
 
     return instantiated_goals.map(([source, goal]) => this.instantiate_proof_tree_for_nested_goal(source, goal, span));
   }
@@ -339,7 +340,8 @@ export class InspectCandidate {
             fold_GenericArgs,
           );
 
-          const _: null = canonical.instantiate_canonical_state(infcx, span, this.goal_.prev_universe, orig_values, this.final_state, fold_unit);
+          // `let () = instantiate_canonical_state(..)`
+          canonical.instantiate_canonical_state(infcx, span, this.goal_.prev_universe, orig_values, this.final_state, fold_unit);
 
           return infcx.deref().deeply_resolve_via_unification_table(impl_args, fold_GenericArgs);
         }
@@ -454,5 +456,3 @@ const fold_PredicateKind_: TypeFoldable<PredicateKind> = {
   fold_with: (s: PredicateKind, f: TypeFolder): PredicateKind => fold_with_PredicateKind(s, f),
 };
 
-/** PORT: names this module uses only in type positions. */
-export type AnalyseUnused = TyCtxt | FoldWith<null> | TryFoldWith<null> | VisitWith<null>;

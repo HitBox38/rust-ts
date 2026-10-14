@@ -11,7 +11,7 @@
 // PORT(merge): `FulfillmentError` (traits/mod.rs) belongs to lane trait-sel-traits-a; see derive_errors.ts.
 
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
-import { clone_Obligation, Obligation, visit_with_Obligation, type PredicateObligation, type PredicateObligations, ScrubbedTraitError, TraitEngine_provided, TraitErrors } from "../../rustc_infer/traits/mod.ts";
+import { clone_Obligation, visit_with_Obligation, type PredicateObligation, type PredicateObligations, ScrubbedTraitError, TraitEngine_provided, TraitErrors } from "../../rustc_infer/traits/mod.ts";
 import type { FromSolverError, TraitEngine } from "../../rustc_infer/traits/engine.ts";
 import { debug_Obligation } from "../../rustc_infer/traits/structural_impls.ts";
 import type { ObligationCause } from "../../rustc_middle/traits/mod.ts";
@@ -28,7 +28,7 @@ import { type TypeVisitable, TypeVisitableExt, type TypeVisitor } from "../../ru
 import { debug_option, debug_struct, debug_tuple, debug_vec, type Debug } from "../../std/fmt.ts";
 import { assert, assert_eq } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
-import type { NextSolverError as NextSolverErrorDecl, FulfillmentError } from "../decls.ts";
+import type { FulfillmentError } from "../decls.ts";
 import { SolverDelegate } from "./delegate.ts";
 import { fulfillment_error_for_no_solution, fulfillment_error_for_stalled } from "./fulfill/derive_errors.ts";
 
@@ -308,6 +308,7 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
       case "Codegen":
         return [];
       case "ErasedNotCoherence":
+        // PORT: `TypingMode<CantBeErased>` has no such value (its payload is `!`); the arm only satisfies the TS switch.
         return mode._0;
     }
 
@@ -460,5 +461,3 @@ function Obligation_visit<R>(s: PredicateObligation, v: TypeVisitor<R>): R {
   return visit_with_Obligation(s, v, fold_Predicate.visit_with);
 }
 
-/** PORT: names this module uses only in type positions. */
-export type FulfillUnused = NextSolverErrorDecl | typeof Obligation;

@@ -25,7 +25,7 @@ import { Symbol } from "../../rustc_span/symbol.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP } from "../../rustc_span/lib.ts";
 import { FatalErrorMarker } from "../../rustc_span/fatal_error.ts";
-import { ControlFlow, VisitorResult } from "../../rustc_ast_ir/visit.ts";
+import { VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
 import { as_interner } from "../../rustc_type_ir/predicate.ts";
 import { debug_CandidateSource, debug_Certainty, debug_GoalSource, debug_NoSolution, Goal, type Certainty, type NoSolution } from "../../rustc_type_ir/solve/mod.ts";
@@ -38,7 +38,6 @@ import { debug_result, type Result } from "../../std/result.ts";
 type Lib = typeof import("../lib.ts");
 type Fulfill = typeof import("../solve/fulfill.ts");
 type Analyse = typeof import("../solve/inspect/analyse.ts");
-type DeriveErrors = typeof import("../solve/fulfill/derive_errors.ts");
 
 function kind_str(kind: ProbeKind): string {
   switch (kind.$) {
@@ -208,7 +207,5 @@ async function main(args: string[]): Promise<number> {
   return catch_with_exit_code(() => compiler_entrypoint(["rustc", ...args], callbacks));
 }
 
-/** PORT: names this module uses only in type positions. */
-export type RunUnused = DeriveErrors | typeof ControlFlow;
 
 process.exitCode = await main(process.argv.slice(2));
