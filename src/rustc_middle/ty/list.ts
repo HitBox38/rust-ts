@@ -17,7 +17,6 @@ import { INTERNED, next_intern_id } from "../../rustc_data_structures/intern.ts"
 import type { BoundVariableKind, DebruijnIndex, TypeFlags } from "../../rustc_type_ir/decls.ts";
 import { INNERMOST, TypeFlags_empty } from "../../rustc_type_ir/decls.ts";
 import type { FlagComputation } from "../../rustc_type_ir/flags.ts";
-import { debug_BoundVariableKind } from "../../rustc_type_ir/binder.gen.ts";
 import { type Debug, debug_list, type Fmt } from "../../std/fmt.ts";
 import { assert } from "../../std/panic.ts";
 import type { FxHasher } from "../../vendor/rustc_hash/lib.ts";
@@ -267,10 +266,14 @@ export type BoundVarKinds = List<BoundVariableKind>;
 
 /**
  * `{:?}` of `BoundVarKinds` (`&List<BoundVariableKind>`): `debug_RawList` (list.rs:192) over the element's derived Debug.
- * PORT: the hand alias the codegen type map (tools/codegen/tyir.typemap.json `I::BoundVarKinds`) names; a function
- * declaration, so the import cycle with rustc_type_ir/binder.gen.ts (which imports this module) is safe at load.
+ * PORT: the hand alias the codegen type map (tools/codegen/tyir.typemap.json `I::BoundVarKinds`) names. rustc_type_ir
+ * binder.gen.ts (the element's Debug) is read lazily: a static value import of it here evaluates binder.gen.ts's
+ * imports before `RawList` exists, and `rustc_next_trait_solver/lib.ts` then fails to load (merge-w16b).
  */
 export function debug_BoundVarKinds(v: BoundVarKinds, f: Fmt): string {
-  return debug_RawList(v, f, debug_BoundVariableKind);
+  return debug_RawList(v, f, tyir_binder_gen().debug_BoundVariableKind);
+}
+function tyir_binder_gen(): typeof import("../../rustc_type_ir/binder.gen.ts") {
+  return require("../../rustc_type_ir/binder.gen.ts") as typeof import("../../rustc_type_ir/binder.gen.ts");
 }
 

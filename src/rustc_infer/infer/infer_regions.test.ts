@@ -1,11 +1,7 @@
 // Lane infer-regions: region_constraints/{mod,leak_check}.rs, lexical_region_resolve/{mod,indexed_edges}.rs,
 // free_regions.rs and outlives/env.rs, on a real `InferCtxt` (`tcx.infer_ctxt().build(..)` over a bare `TyCtxt`, as
 // contract.test.ts). Expected values are read off the upstream code paths named in each test.
-//
-// PORT(test): rustc_data_structures `TransitiveRelation` and `graph::scc::Sccs` are not ported. The free-region and
-// leak-check tests therefore build test-local stand-ins of the views (`TransitiveRelationView`, `Sccs`): a relation with
-// no edges (so `contains` is false and `postdom_upper_bound` is `None`), and a Tarjan SCC computation that numbers
-// SCCs in post order (the `Sccs` contract: successors before predecessors).
+
 import { describe, expect, test } from "bun:test";
 import "../lib.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -21,12 +17,12 @@ import { RegionVid } from "../../rustc_type_ir/region_kind.ts";
 import { fold_Region, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { Panic } from "../../std/panic.ts";
-import { FreeRegionMap, RegionRelations, type TransitiveRelationView } from "./free_regions.ts";
+import { FreeRegionMap, RegionRelations } from "./free_regions.ts";
 import { IndexedConstraintEdges } from "./lexical_region_resolve/indexed_edges.ts";
 import { LexicalResolver, RegionResolutionError, resolve } from "./lexical_region_resolve/mod.ts";
 import { type RegionVariableOrigin, SubregionOrigin } from "./mod.ts";
 import { OutlivesEnvironment, new_RegionBoundPairs } from "./outlives/env.ts";
-import { LeakCheck, LeakCheckNode, type LeakCheckScc, MiniGraph, type Sccs } from "./region_constraints/leak_check.ts";
+import { LeakCheck, LeakCheckNode, MiniGraph } from "./region_constraints/leak_check.ts";
 import {
   Constraint,
   debug_GenericKind,
@@ -36,7 +32,8 @@ import {
   type RegionVariableInfo,
   VerifyBound,
 } from "./region_constraints/mod.ts";
-import type { TransitiveRelation } from "../../rustc_middle/ty/decls.ts";
+import { type TransitiveRelation, TransitiveRelationBuilder } from "../../rustc_data_structures/transitive_relation.ts";
+import { ParamEnv } from "../../rustc_middle/ty/mod.ts";
 
 function mk_tcx(): TyCtxt {
   const interners = CtxtInterners.new(undefined);
@@ -82,15 +79,9 @@ function kinds(data: RegionConstraintData): [string, Region, Region][] {
   return data.constraints.map(([c]) => [c.kind, c.sub, c.sup]);
 }
 
-/** PORT(test): a `TransitiveRelation<Region>` with no edges (module comment). */
+/** A `TransitiveRelation<Region>` with no edges. */
 function empty_relation(): TransitiveRelation<Region> {
-  const view: TransitiveRelationView<Region> = {
-    elements: () => [],
-    is_empty: () => true,
-    contains: () => false,
-    postdom_upper_bound: () => undefined,
-  };
-  return view as unknown as TransitiveRelation<Region>;
+  return TransitiveRelationBuilder.default<Region>().freeze();
 }
 
 describe("RegionConstraintCollector (region_constraints/mod.rs)", () => {
@@ -497,36 +488,32 @@ describe("lexical region resolution (lexical_region_resolve/mod.rs)", () => {
 describe("FreeRegionMap / RegionRelations (free_regions.rs) and OutlivesEnvironment (outlives/env.rs)", () => {
   test("sub_free_regions: reflexive, 'static on the right, the relation otherwise", () => {
     const { tcx, early, re_static } = setup();
-    const contains: [Region, Region][] = [];
-    const rel: TransitiveRelationView<Region> = {
-      elements: () => [early(0), early(1)],
-      is_empty: () => false,
-      contains: (x, y) => {
-        contains.push([x, y]);
-        return x === early(0) && y === early(1);
-      },
-      postdom_upper_bound: (x, y) => (x === early(0) && y === early(2) ? early(1) : undefined),
-    };
-    const m = new FreeRegionMap(rel as unknown as TransitiveRelation<Region>);
-    expect(m.elements()).toEqual([early(0), early(1)]);
+    // `'0 <= '1`, `'2 <= '1`, `'static <= '4`
+    const b = TransitiveRelationBuilder.default<Region>();
+    b.add(early(0), early(1));
+    b.add(early(2), early(1));
+    b.add(re_static, early(4));
+    const m = new FreeRegionMap(b.freeze());
+    expect(m.elements()).toEqual([early(0), early(1), early(2), re_static, early(4)]);
     expect(m.is_empty()).toBe(false);
+    expect(new FreeRegionMap(empty_relation()).is_empty()).toBe(true);
     expect(m.sub_free_regions(tcx, early(0), re_static)).toBe(true);
-    expect(contains).toEqual([]); // `'static == 'static` short-circuits
     expect(m.sub_free_regions(tcx, early(0), early(1))).toBe(true);
-    expect(contains).toEqual([
-      [re_static, early(1)],
-      [early(0), early(1)],
-    ]);
     expect(m.sub_free_regions(tcx, early(1), early(0))).toBe(false);
+    // `'static <= '4`, so every region is a sub-region of `'4` (the `check_relation(re_static, r_b)` arm)
+    expect(m.sub_free_regions(tcx, early(3), early(4))).toBe(true);
+    expect(m.sub_free_regions(tcx, early(4), early(3))).toBe(false);
     expect(() => m.sub_free_regions(tcx, early(0), Region.new_var(tcx, 0 as RegionVid))).toThrow(Panic);
     const rels = RegionRelations.new(tcx, m);
     expect(rels.lub_param_regions(early(0), early(0))).toBe(early(0));
     expect(rels.lub_param_regions(early(0), early(2))).toBe(early(1));
-    expect(rels.lub_param_regions(early(1), early(2))).toBe(re_static);
+    expect(rels.lub_param_regions(early(1), early(2))).toBe(early(1));
+    // `'3` is not in the relation: no upper bound, so `'static`
+    expect(rels.lub_param_regions(early(1), early(3))).toBe(re_static);
     expect(() => rels.lub_param_regions(re_static, early(2))).toThrow(Panic);
   });
 
-  test("OutlivesEnvironment: accessors; from_normalized_bounds stops at TransitiveRelationBuilder", () => {
+  test("OutlivesEnvironment: accessors; from_normalized_bounds", () => {
     const { tcx, early } = setup();
     const m = new FreeRegionMap(empty_relation());
     const pairs = new_RegionBoundPairs();
@@ -540,76 +527,29 @@ describe("FreeRegionMap / RegionRelations (free_regions.rs) and OutlivesEnvironm
     expect(env.region_bound_pairs()).toBe(pairs);
     expect(env.known_type_outlives()).toEqual([]);
     expect(env.higher_ranked_assumptions()).toBe(hra);
-    expect(() => OutlivesEnvironment.from_normalized_bounds(undefined as never, [], [], new Set())).toThrow(
-      /TransitiveRelationBuilder::default/,
+    // from_normalized_bounds: free-region pairs go into the relation, `R: T` into the region-bound pairs
+    const env2 = OutlivesEnvironment.from_normalized_bounds(
+      ParamEnv.empty(),
+      [],
+      [
+        { $: "RegionSubRegion", _0: early(0), _1: early(1) },
+        { $: "RegionSubParam", _0: early(2), _1: ParamTy.new(0, kw.SelfUpper) },
+        { $: "RegionSubRegion", _0: Region.new_var(tcx, 0 as RegionVid), _1: early(1) },
+      ],
+      hra,
     );
-    void tcx;
+    expect(env2.free_region_map().elements()).toEqual([early(0), early(1)]);
+    expect(env2.free_region_map().sub_free_regions(tcx, early(0), early(1))).toBe(true);
+    expect([...env2.region_bound_pairs()]).toEqual([{ _0: kind, _1: early(2) }]);
+    expect(env2.higher_ranked_assumptions()).toBe(hra);
   });
 });
 
 // ---- leak check ---------------------------------------------------------------------------------------------------------
 
-/** PORT(test): Tarjan SCCs over `n` nodes; SCC indices in completion (post) order, successors deduplicated. */
-function test_sccs(n: number, edges: [LeakCheckNode, LeakCheckNode][]): Sccs {
-  const succ: number[][] = Array.from({ length: n }, () => []);
-  for (const [s, t] of edges) succ[s]!.push(t);
-  const index: number[] = new Array(n).fill(-1);
-  const low: number[] = new Array(n).fill(0);
-  const on: boolean[] = new Array(n).fill(false);
-  const stack: number[] = [];
-  const scc_of: number[] = new Array(n).fill(-1);
-  let next = 0;
-  let nsccs = 0;
-  const visit = (v: number): void => {
-    index[v] = low[v] = next++;
-    stack.push(v);
-    on[v] = true;
-    for (const w of succ[v]!) {
-      if (index[w] === -1) {
-        visit(w);
-        low[v] = Math.min(low[v]!, low[w]!);
-      } else if (on[w]) low[v] = Math.min(low[v]!, index[w]!);
-    }
-    if (low[v] === index[v]) {
-      let w: number;
-      do {
-        w = stack.pop()!;
-        on[w] = false;
-        scc_of[w] = nsccs;
-      } while (w !== v);
-      nsccs++;
-    }
-  };
-  for (let v = 0; v < n; v++) if (index[v] === -1) visit(v);
-  const scc_succ: number[][] = Array.from({ length: nsccs }, () => []);
-  for (const [s, t] of edges) {
-    const a = scc_of[s]!;
-    const b = scc_of[t]!;
-    if (a !== b && !scc_succ[a]!.includes(b)) scc_succ[a]!.push(b);
-  }
-  return {
-    num_sccs: () => nsccs,
-    scc: (r) => scc_of[r]! as LeakCheckScc,
-    all_sccs: () => Array.from({ length: nsccs }, (_, i) => i as LeakCheckScc),
-    successors: (s) => scc_succ[s]! as LeakCheckScc[],
-  };
-}
-
-/** `MiniGraph::new` with the test-local `Sccs` (the real one stops at `VecGraph::new`). */
-function mini_graph(rcc: ReturnType<ReturnType<typeof setup>["rcc"]>): MiniGraph {
-  const nodes = new Map<Region, LeakCheckNode>();
-  const edges: [LeakCheckNode, LeakCheckNode][] = [];
-  MiniGraph.iterate_region_constraints(rcc, undefined, (target, source) => {
-    const source_node = MiniGraph.add_node(nodes, source);
-    const target_node = MiniGraph.add_node(nodes, target);
-    edges.push([source_node, target_node]);
-  });
-  return new MiniGraph(nodes, test_sccs(nodes.size, edges));
-}
-
 function run_leak_check(s: ReturnType<typeof setup>, outer: UniverseIndex, max: UniverseIndex) {
   const rcc = s.rcc();
-  const lc = LeakCheck.new(s.tcx, outer, max, mini_graph(rcc), rcc);
+  const lc = LeakCheck.new(s.tcx, outer, max, MiniGraph.new(rcc, undefined), rcc);
   const r = lc.assign_placeholder_values();
   if (r.$ === "Err") return r;
   return lc.propagate_scc_value();
@@ -622,10 +562,14 @@ describe("leak check (region_constraints/leak_check.rs)", () => {
     expect(s.rcc().leak_check(s.tcx, U1, U1, undefined)).toEqual({ $: "Ok", _0: null });
   });
 
-  test("otherwise the graph is collected, then building the SCCs stops (graph::scc not ported)", () => {
+  test("otherwise the SCC graph is built and checked: P2: P1 between placeholders is an error", () => {
     const s = setup();
-    s.rcc().make_subregion(ORIGIN, s.re_placeholder(U1, 0), s.re_placeholder(U1, 1), "Yes");
-    expect(() => s.rcc().leak_check(s.tcx, U0, U1, undefined)).toThrow(/VecGraph::new/);
+    s.rcc().make_subregion(ORIGIN, s.re_placeholder(U1, 0), s.re_placeholder(U1, 1), "Yes"); // !1: !0 (edge !1 -> !0)
+    // post order visits `!0`'s SCC first; `!1`'s SCC then meets its successor's placeholder: placeholder_error(!1, !0)
+    expect(s.rcc().leak_check(s.tcx, U0, U1, undefined)).toEqual({
+      $: "Err",
+      _0: { $: "RegionsInsufficientlyPolymorphic", _0: s.placeholder(U1, 1).bound, _1: s.re_placeholder(U1, 0) },
+    });
   });
 
   test("iterate_region_constraints: R2: R1 gives each_edge(R1, R2); invisible constraints are skipped; snapshot-only", () => {

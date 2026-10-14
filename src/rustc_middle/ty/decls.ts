@@ -220,8 +220,8 @@ export type PredefinedOpaques = List<[OpaqueTypeKey, Ty]>;
 export type CastKind = Pending<"abstract_const::CastKind">;
 export type BinOp = Pending<"mir::BinOp">;
 export type UnOp = Pending<"mir::UnOp">;
-// rustc_data_structures sorted_map/index_map.rs, transitive_relation.rs (not ported yet)
-export type TransitiveRelation<T> = Pending1<"TransitiveRelation", T>;
+// rustc_data_structures transitive_relation.rs (lane rds-graph)
+export type { TransitiveRelation } from "../../rustc_data_structures/transitive_relation.ts";
 
 // ---- 3. method declarations ----
 declare module "./mod.ts" {

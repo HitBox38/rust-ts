@@ -8,9 +8,10 @@
 // `rustc_data_structures::transitive_relation`.
 import { describe, expect, test } from "bun:test";
 import "../rustc_middle/lib.ts";
+import { TransitiveRelationBuilder } from "../rustc_data_structures/transitive_relation.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
 import { type Debug, debug_vec, format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
-import { Panic, Unported } from "../std/panic.ts";
+import { Panic } from "../std/panic.ts";
 import type { BoundRegion, BoundVar, DebruijnIndex, RegionVid, UniverseIndex } from "./decls.ts";
 import type { InferCtxtLike } from "./infer_ctxt.ts";
 import { DebruijnIndex as DebruijnIndexC, INNERMOST } from "./lib.ts";
@@ -69,62 +70,13 @@ const dbg_rc = (c: RegionConstraint, f = PLAIN) => format_debug(c, (v, f) => deb
 const dbg_regions = (rs: Region[]) => format_debug(rs, (v, f) => debug_vec(v, f, debug_Region), PLAIN);
 
 /**
- * Test-only relation with `rustc_data_structures::transitive_relation`'s semantics (that file is not ported yet; the
- * port reaches the relation only through `reachable_from` / `base_edges`): elements are numbered in first-insertion
- * order (`FxIndexSet`), the closure is the fixpoint of `freeze`, and `reachable_from(a)` lists every `b` with `a -> b`
- * in the closure in element order (`BitMatrix::iter`).
+ * `Assumptions::new_unelaborated(vec![], builder.freeze())` over a relation with the `'a: 'b` edges `region_outlives`
+ * (added in this order), as the oracle program built them; the inverse relation comes from the real `base_edges()`.
  */
-class TestRelation<T> {
-  readonly elements: T[] = [];
-  readonly edges: [number, number][] = [];
-  readonly closure: boolean[][];
-  constructor(edges: [T, T][]) {
-    const index = (t: T): number => {
-      const i = this.elements.indexOf(t);
-      if (i >= 0) return i;
-      this.elements.push(t);
-      return this.elements.length - 1;
-    };
-    for (const [a, b] of edges) {
-      const e: [number, number] = [index(a), index(b)];
-      if (!this.edges.some(([s, t]) => s === e[0] && t === e[1])) this.edges.push(e);
-    }
-    const n = this.elements.length;
-    this.closure = Array.from({ length: n }, () => new Array<boolean>(n).fill(false));
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const [s, t] of this.edges) {
-        if (!this.closure[s]![t]) {
-          this.closure[s]![t] = true;
-          changed = true;
-        }
-        for (let j = 0; j < n; j++) {
-          if (this.closure[t]![j] && !this.closure[s]![j]) {
-            this.closure[s]![j] = true;
-            changed = true;
-          }
-        }
-      }
-    }
-  }
-  reachable_from(a: T): T[] {
-    const i = this.elements.indexOf(a);
-    if (i < 0) return [];
-    return this.elements.filter((_, j) => this.closure[i]![j]);
-  }
-  base_edges(): [T, T][] {
-    return this.edges.map(([s, t]) => [this.elements[s]!, this.elements[t]!]);
-  }
-}
-
-/** `Assumptions { type_outlives: [], region_outlives, inverse_region_outlives }` over test relations. */
-function assumptions_of(region_outlives: [Region, Region][], inverse_region_outlives: [Region, Region][]): Assumptions {
-  return {
-    type_outlives: [],
-    region_outlives: new TestRelation(region_outlives) as unknown as Assumptions["region_outlives"],
-    inverse_region_outlives: new TestRelation(inverse_region_outlives) as unknown as Assumptions["inverse_region_outlives"],
-  };
+function assumptions_of(region_outlives: [Region, Region][]): Assumptions {
+  const builder = TransitiveRelationBuilder.default<Region>();
+  for (const [a, b] of region_outlives) builder.add(a, b);
+  return AssumptionsC.new_unelaborated([], builder.freeze());
 }
 
 describe("Debug (oracle)", () => {
@@ -142,7 +94,7 @@ describe("Debug (oracle)", () => {
   });
 
   test("Assumptions", () => {
-    const a = assumptions_of([], []);
+    const a = assumptions_of([]);
     expect(format_debug(a, debug_Assumptions, PLAIN)).toBe('Assumptions { type_outlives: [], region_graph: "elided" }');
     expect(format_debug(a, debug_Assumptions, PRETTY)).toBe('Assumptions {\n    type_outlives: [],\n    region_graph: "elided",\n}');
   });
@@ -336,21 +288,13 @@ describe("RegionConstraint combinators (oracle)", () => {
 describe("graph queries (oracle)", () => {
   // `'a: 'b` edges ('?1: '?2, '?2: '?3, '?4: '?2, '?3: 'static). `Assumptions::new_unelaborated` builds the inverse
   // relation from `base_edges()`, which iterates an `FxHashSet` (hashbrown order); the oracle's element order of the
-  // inverse relation ('static, '?3, '?2, '?4, '?1) corresponds to visiting the edges as listed here.
-  const a = assumptions_of(
-    [
-      [r1, r2],
-      [r2, r3],
-      [r4, r2],
-      [r3, st],
-    ],
-    [
-      [st, r3],
-      [r3, r2],
-      [r2, r4],
-      [r2, r1],
-    ],
-  );
+  // inverse relation is ('static, '?3, '?2, '?4, '?1).
+  const a = assumptions_of([
+    [r1, r2],
+    [r2, r3],
+    [r4, r2],
+    [r3, st],
+  ]);
 
   test("regions_outlived_by / regions_outliving", () => {
     const cases: [Region, string, string][] = [
@@ -368,18 +312,11 @@ describe("graph queries (oracle)", () => {
   });
 
   test("with a cycle", () => {
-    const c = assumptions_of(
-      [
-        [r3, r1],
-        [r1, r2],
-        [r2, r1],
-      ],
-      [
-        [r2, r1],
-        [r1, r3],
-        [r1, r2],
-      ],
-    );
+    const c = assumptions_of([
+      [r3, r1],
+      [r1, r2],
+      [r2, r1],
+    ]);
     const cases: [Region, string, string][] = [
       [r1, "['?1, '?2, '?1]", "['?2, '?1, '?3, '?1, 'static]"],
       [r2, "['?1, '?2, '?2]", "['?2, '?1, '?3, '?2, 'static]"],
@@ -399,8 +336,12 @@ describe("upstream semantics", () => {
     );
   });
 
-  test("Assumptions::empty needs TransitiveRelationBuilder (not ported)", () => {
-    expect(() => AssumptionsC.empty()).toThrow(Unported);
+  test("Assumptions::empty: no type-outlives clauses, empty region relations", () => {
+    const a = AssumptionsC.empty();
+    expect(a.type_outlives).toEqual([]);
+    expect(a.region_outlives.is_empty()).toBe(true);
+    expect(a.inverse_region_outlives.is_empty()).toBe(true);
+    expect([...a.region_outlives.base_edges()]).toEqual([]);
   });
 
   test("PlaceholderReplacer replaces placeholders of its universe with fresh bound vars", () => {

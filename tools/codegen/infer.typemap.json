@@ -587,10 +587,14 @@
       "paths": [
         "rustc_data_structures::graph::scc::Sccs"
       ],
-      "ts": "unknown",
+      "ts": "Sccs<$0, $1>",
+      "import": "src/rustc_data_structures/graph/scc/mod.ts",
+      "types": [
+        "Sccs"
+      ],
       "debug": null,
       "clone": null,
-      "note": "PORT: pending rustc_data_structures graph/scc (lane infer-regions)"
+      "note": "rustc_data_structures graph/scc (lane rds-graph); `MiniGraph` (its only field user) derives neither Debug nor Clone"
     },
     {
       "paths": [

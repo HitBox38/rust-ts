@@ -2,22 +2,19 @@
 //
 // `OutlivesEnvironment` is a hand class (field renames, below); `RegionBoundPairs` is generated into env.gen.ts.
 //
-// PORT: rustc_data_structures `transitive_relation.rs` is not ported (no lane owns it): `TransitiveRelationBuilder`
-// is a stand-in whose `default` stops as UNPORTED, so `from_normalized_bounds` stops before reading any bound.
-//
 // Init order: top-level code here may touch only ../../decls.ts, this file's .gen.ts and other crates; every other
 // rustc_infer export is read inside function bodies only.
 
 import { intern_key } from "../../../rust_ts/intern_key.ts";
 import { KeyedSet } from "../../../rust_ts/keyed.ts";
 import type { OutlivesBound } from "../../../rustc_middle/traits/query.gen.ts";
-import type { ParamEnv, TransitiveRelation } from "../../../rustc_middle/ty/decls.ts";
+import { TransitiveRelationBuilder } from "../../../rustc_data_structures/transitive_relation.ts";
+import type { ParamEnv } from "../../../rustc_middle/ty/decls.ts";
 import { bug } from "../../../rustc_span/macros.ts";
 import type { ArgOutlivesClause, PolyTypeOutlivesClause } from "../../../rustc_type_ir/decls.ts";
 import type { OutlivesClause } from "../../../rustc_type_ir/predicate.ts";
 import { debug_Region, type Region } from "../../../rustc_type_ir/sty/mod.ts";
 import { PLAIN } from "../../../std/fmt.ts";
-import { unported } from "../../../std/panic.ts";
 import { clone_FreeRegionMap, FreeRegionMap } from "../free_regions.ts";
 import type { GenericKind } from "../region_constraints/mod.ts";
 import type { RegionBoundPairs } from "./env.gen.ts";
@@ -86,23 +83,6 @@ export function new_RegionBoundPairs(values?: Iterable<OutlivesClause<GenericKin
   return new KeyedSet<OutlivesClause<GenericKind>>(intern_key, values);
 }
 
-// ---- PORT stand-ins for rustc_data_structures transitive_relation.rs (not ported) ----------------------------------------
-
-/** PORT: stand-in for `rustc_data_structures::transitive_relation::TransitiveRelationBuilder<T>`. */
-type TransitiveRelationBuilder<T> = { readonly __pending: "TransitiveRelationBuilder"; readonly __T?: T };
-/** PORT: stand-in for `<TransitiveRelationBuilder<T> as Default>::default`. */
-function TransitiveRelationBuilder_default<T>(): TransitiveRelationBuilder<T> {
-  return unported("rustc_data_structures::transitive_relation::TransitiveRelationBuilder::default");
-}
-/** PORT: stand-in for `TransitiveRelationBuilder::add`. */
-function TransitiveRelationBuilder_add<T>(_self: TransitiveRelationBuilder<T>, _a: T, _b: T): void {
-  unported("rustc_data_structures::transitive_relation::TransitiveRelationBuilder::add");
-}
-/** PORT: stand-in for `TransitiveRelationBuilder::freeze`. */
-function TransitiveRelationBuilder_freeze<T>(_self: TransitiveRelationBuilder<T>): TransitiveRelation<T> {
-  return unported("rustc_data_structures::transitive_relation::TransitiveRelationBuilder::freeze");
-}
-
 // ---- impl OutlivesEnvironment ------------------------------------------------------------------------------------------
 
 /** `ReStatic | ReEarlyParam(_) | ReLateParam(_)` */
@@ -119,7 +99,7 @@ OutlivesEnvironment.from_normalized_bounds = function (
   extra_bounds: Iterable<OutlivesBound>,
   higher_ranked_assumptions: Set<ArgOutlivesClause>,
 ): OutlivesEnvironment {
-  const region_relation = TransitiveRelationBuilder_default<Region>();
+  const region_relation = TransitiveRelationBuilder.default<Region>();
   const region_bound_pairs = new_RegionBoundPairs();
 
   // Record relationships such as `T:'x` that don't go into the
@@ -145,7 +125,7 @@ OutlivesEnvironment.from_normalized_bounds = function (
       case "RegionSubRegion": {
         const [r_a, r_b] = [outlives_bound._0, outlives_bound._1];
         if (is_free_kind(r_a) && is_free_kind(r_b)) {
-          TransitiveRelationBuilder_add(region_relation, r_a, r_b);
+          region_relation.add(r_a, r_b);
         } else if (r_a.kind().$ === "ReError" || r_b.kind().$ === "ReError") {
           // nothing
         } else if (r_a.kind().$ === "ReVar" || r_b.kind().$ === "ReVar") {
@@ -161,7 +141,7 @@ OutlivesEnvironment.from_normalized_bounds = function (
 
   return new OutlivesEnvironment(
     param_env,
-    new FreeRegionMap(TransitiveRelationBuilder_freeze(region_relation)),
+    new FreeRegionMap(region_relation.freeze()),
     region_bound_pairs,
     known_type_outlives,
     higher_ranked_assumptions,

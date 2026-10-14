@@ -7,9 +7,9 @@
 // (docs/handoff/evalctxt-contract.md "Init order").
 // PORT: `#[instrument]` / `debug!` (tracing) produce no output in the oracle: kept as comments.
 // PORT: `#[cfg(feature = "nightly")]` selects rustc_data_structures' `TransitiveRelationBuilder` (the oracle is the
-// nightly build); that file is not ported yet, so `TransitiveRelationBuilder::default().freeze()` is a local
-// `unported` stand-in (only reached under `-Zassumptions-on-binders`).
+// nightly build).
 import { type VisitorResult, VisitorResult as VisitorResultC } from "../../../rustc_ast_ir/visit.ts";
+import { TransitiveRelationBuilder } from "../../../rustc_data_structures/transitive_relation.ts";
 import type { ParamEnv } from "../../../rustc_middle/ty/decls.ts";
 import type { Clauses } from "../../../rustc_middle/ty/list.ts";
 import { Term, Ty } from "../../../rustc_middle/ty/mod.ts";
@@ -38,7 +38,7 @@ import { type AliasTy, visit_with_Alias } from "../../../rustc_type_ir/ty/alias.
 import { visit_with_AliasTyKind } from "../../../rustc_type_ir/ty_kind.ts";
 import type { UpcastFrom } from "../../../rustc_type_ir/upcast.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided, visit_with_tuple2 } from "../../../rustc_type_ir/visit.ts";
-import { assert, panic, unported } from "../../../std/panic.ts";
+import { assert, panic } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
 import { EvalCtxt } from "../../decls.ts";
 import { fold_Predicate } from "../../../rustc_middle/ty/structural_impls.ts";
@@ -143,7 +143,7 @@ EvalCtxt.prototype.region_assumptions_for_placeholders_in_universe = function <T
     }
   })();
 
-  return Assumptions.new(this.delegate.deref(), clauses, TransitiveRelationBuilder_default_freeze(), u);
+  return Assumptions.new(this.delegate.deref(), clauses, TransitiveRelationBuilder.default<Region>().freeze(), u);
 };
 
 // #[instrument(level = "debug", skip(self), ret)]
@@ -268,11 +268,3 @@ const visit_AliasTy_Region: TypeVisitable<[AliasTy, Region]> = {
   visit_with: <R>(s: [AliasTy, Region], v: TypeVisitor<R>): R =>
     visit_with_tuple2(s, v, <R2>(a: AliasTy, v2: TypeVisitor<R2>): R2 => visit_with_Alias(a, v2, visit_with_AliasTyKind), visit_with_Region),
 };
-
-/**
- * PORT: stand-in for `TransitiveRelationBuilder::default().freeze()` (rustc_data_structures transitive_relation.rs,
- * not ported yet; rustc_type_ir region_constraint.ts has the same stand-ins, module-private).
- */
-function TransitiveRelationBuilder_default_freeze(): Parameters<typeof Assumptions.new>[2] {
-  return unported("rustc_data_structures::transitive_relation::TransitiveRelationBuilder::default");
-}

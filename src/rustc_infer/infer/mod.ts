@@ -9,6 +9,7 @@
 // export (the submodules) is read inside function bodies only.
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { KeyedSet } from "../../rust_ts/keyed.ts";
+import { debug_TransitiveRelation } from "../../rustc_data_structures/transitive_relation.ts";
 import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
 import type * as hir from "../../rustc_hir/lib.ts";
 import { type HirId, HirIdMap } from "../../rustc_hir_id/lib.ts";
@@ -49,7 +50,7 @@ import {
 import { type Assumptions, debug_RegionConstraint, visit_with_RegionConstraint } from "../../rustc_type_ir/region_constraint.ts";
 import type { TyOrConstInferVar, VisibleForLeakCheck } from "../../rustc_type_ir/solve/mod.ts";
 import { Const } from "../../rustc_type_ir/sty/consts.ts";
-import { Region } from "../../rustc_type_ir/sty/mod.ts";
+import { debug_Region, fold_Region, Region } from "../../rustc_type_ir/sty/mod.ts";
 import type { AliasTerm, OpaqueAliasTy as OpaqueAliasTyT } from "../../rustc_type_ir/ty/alias.ts";
 import type { ConstVid, OpaqueTypeKey, RegionVid } from "../../rustc_type_ir/decls.ts";
 import {
@@ -1350,10 +1351,19 @@ InferCtxt.prototype.insert_placeholder_assumptions = function (this: InferCtxt, 
       `assumptions has escaping bound vars, which is indicative of a bug in how assumptions are handled: ${format_debug(assumptions.type_outlives, debug_Vec_PolyTypeOutlivesClause, PLAIN)}`,
     );
   }
-  // assert!(assumptions.region_outlives.base_edges().all(|r| !r.has_escaping_bound_vars()), ..)
-  // PORT: `rustc_data_structures::transitive_relation::TransitiveRelation` is not ported (rustc_type_ir
-  // region_constraint.ts holds only stand-ins), so `base_edges` stops here.
-  unported("rustc_data_structures::transitive_relation::TransitiveRelation::base_edges");
+  // PORT: `r` is a `(Region, Region)` edge; the tuple's `TypeVisitable` visits both fields in order.
+  let all = true;
+  for (const [a, b] of assumptions.region_outlives.base_edges()) {
+    if (TypeVisitableExt.has_escaping_bound_vars(a, fold_Region) || TypeVisitableExt.has_escaping_bound_vars(b, fold_Region)) {
+      all = false;
+      break;
+    }
+  }
+  if (!all) {
+    panic(
+      `assumptions has escaping bound vars, which is indicative of a bug in how assumptions are handled: ${format_debug(assumptions.region_outlives, (v, f) => debug_TransitiveRelation(v, f, debug_Region), PLAIN)}`,
+    );
+  }
   this.placeholder_assumptions_for_next_solver.set(u, assumptions);
 };
 

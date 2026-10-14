@@ -7,40 +7,14 @@
 //
 // `RegionRelations` and `FreeRegionMap` are generated into free_regions.gen.ts; their methods are assigned here.
 //
-// PORT: rustc_data_structures `transitive_relation.rs` is not ported (no lane owns it; `TransitiveRelation<T>` is
-// rustc_middle ty/decls.ts's `Pending1`). `FreeRegionMap.relation` is seen through the `TransitiveRelation` view below
-// (the methods this file calls), as rustc_type_ir region_constraint.ts does. No relation can be built yet
-// (`TransitiveRelationBuilder` stops UNPORTED in outlives/env.ts), so these calls reach only relations built elsewhere.
-//
 // Init order: top-level code here may touch only ../decls.ts, this file's .gen.ts and other crates.
 
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { TransitiveRelation as TransitiveRelationPending } from "../../rustc_middle/ty/decls.ts";
 import type { Region } from "../../rustc_type_ir/sty/mod.ts";
 import { assert } from "../../std/panic.ts";
 import { FreeRegionMap, RegionRelations } from "./free_regions.gen.ts";
 
 export * from "./free_regions.gen.ts";
-
-/**
- * PORT: the `TransitiveRelation<Region>` methods this file calls (rustc_data_structures transitive_relation.rs, not
- * ported), as a view of the pending relation object.
- */
-export interface TransitiveRelationView<T> {
-  // transitive_relation.rs `elements`
-  elements(): Iterable<T>;
-  // transitive_relation.rs `is_empty`
-  is_empty(): boolean;
-  // transitive_relation.rs `contains`
-  contains(a: T, b: T): boolean;
-  // transitive_relation.rs `postdom_upper_bound`
-  postdom_upper_bound(a: T, b: T): T | undefined;
-}
-
-/** `self.relation` through the view. */
-function relation(self: FreeRegionMap): TransitiveRelationView<Region> {
-  return self.relation as TransitiveRelationPending<Region> as unknown as TransitiveRelationView<Region>;
-}
 
 // ---- impl RegionRelations ----------------------------------------------------------------------------------------------
 
@@ -59,12 +33,12 @@ RegionRelations.prototype.lub_param_regions = function (this: RegionRelations, r
 // PORT: `impl Iterator<Item = Region>` is an array (the relation's elements, in its order).
 // rustc: compiler/rustc_infer/src/infer/free_regions.rs:41 elements
 FreeRegionMap.prototype.elements = function (this: FreeRegionMap): Region[] {
-  return [...relation(this).elements()];
+  return [...this.relation.elements()];
 };
 
 // rustc: compiler/rustc_infer/src/infer/free_regions.rs:45 is_empty
 FreeRegionMap.prototype.is_empty = function (this: FreeRegionMap): boolean {
-  return relation(this).is_empty();
+  return this.relation.is_empty();
 };
 
 /// Tests whether `r_a <= r_b`.
@@ -92,7 +66,7 @@ FreeRegionMap.prototype.sub_free_regions = function (this: FreeRegionMap, tcx: T
 /// Check whether `r_a <= r_b` is found in the relation.
 // rustc: compiler/rustc_infer/src/infer/free_regions.rs:76 check_relation
 FreeRegionMap.prototype.check_relation = function (this: FreeRegionMap, r_a: Region, r_b: Region): boolean {
-  return r_a === r_b || relation(this).contains(r_a, r_b);
+  return r_a === r_b || this.relation.contains(r_a, r_b);
 };
 
 /// Computes the least-upper-bound of two free regions. In some
@@ -108,7 +82,7 @@ FreeRegionMap.prototype.lub_param_regions = function (this: FreeRegionMap, tcx: 
   if (r_a === r_b) {
     result = r_a;
   } else {
-    const r = relation(this).postdom_upper_bound(r_a, r_b);
+    const r = this.relation.postdom_upper_bound(r_a, r_b);
     result = r === undefined ? tcx.lifetimes.re_static : r;
   }
   // debug!("lub_param_regions(r_a={:?}, r_b={:?}) = {:?}", r_a, r_b, result);

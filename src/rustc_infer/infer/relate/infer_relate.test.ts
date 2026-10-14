@@ -246,23 +246,25 @@ describe("relate/higher_ranked.rs and context.rs: binders", () => {
     expect(infcx.universe()).toBe(U(1));
   });
 
-  test("enter_forall_with_empty_assumptions enters the universe, then stops at `Assumptions::empty` (PENDING)", () => {
-    // PENDING: `Assumptions::empty()` builds a `TransitiveRelationBuilder`, still a stand-in of rustc_data_structures
-    // (merge-w16a "Other"); upstream inserts `(U1, Assumptions::empty())` and calls `f`.
+  test("enter_forall_with_empty_assumptions enters the universe, records empty assumptions for it and calls `f`", () => {
     const infcx = mk_infcx();
     const forall = Binder.bind_with_vars(tup(bound_ty(0, 0)), vars);
-    let called = false;
-    expect(() =>
-      infcx.enter_forall_with_empty_assumptions(
-        forall,
-        () => {
-          called = true;
-        },
-        fold_Ty,
-      ),
-    ).toThrow(/TransitiveRelationBuilder::default/);
+    let seen: Ty | undefined;
+    const r = infcx.enter_forall_with_empty_assumptions(
+      forall,
+      (value) => {
+        seen = value;
+        return 7;
+      },
+      fold_Ty,
+    );
+    expect(r).toBe(7);
     expect(infcx.universe()).toBe(U(1));
-    expect(called).toBe(false);
+    expect(seen).toBe(tup(Ty.new_placeholder(tcx, PlaceholderType.new_anon(U(1), V(0)))));
+    const a = infcx.placeholder_assumptions_for_next_solver.get(U(1))!;
+    expect(a.type_outlives).toEqual([]);
+    expect(a.region_outlives.is_empty()).toBe(true);
+    expect(a.inverse_region_outlives.is_empty()).toBe(true);
   });
 
   test("instantiate_binder_with_infer instantiates bound types with fresh variables", () => {

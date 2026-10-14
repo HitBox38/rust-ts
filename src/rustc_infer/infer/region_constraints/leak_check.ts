@@ -3,14 +3,11 @@
 // `LeakCheck`, `SccUniverse`, `LeakCheckNode`, `LeakCheckScc` and `MiniGraph` are generated into leak_check.gen.ts; their
 // methods are assigned onto the generated classes here (`new` / `iterate_region_constraints` / `add_node` as statics).
 //
-// PORT: rustc_data_structures `graph::scc::Sccs` and `graph::vec_graph::VecGraph` are not ported (no lane owns them):
-// `MiniGraph.sccs` is seen through the `Sccs` view below, and building one (`VecGraph::new` / `Sccs::new`) stops as
-// UNPORTED. So `leak_check` is complete when `outer_universe == max_universe`; otherwise it stops after collecting the
-// graph's nodes and edges.
-//
 // Init order: top-level code here may touch only ../../decls.ts, this file's .gen.ts and other crates.
 
 import { intern_key } from "../../../rust_ts/intern_key.ts";
+import { Sccs } from "../../../rustc_data_structures/graph/scc/mod.ts";
+import { VecGraph } from "../../../rustc_data_structures/graph/vec_graph/mod.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { span_bug } from "../../../rustc_span/macros.ts";
 import { debug_BoundRegion, debug_Placeholder, type PlaceholderRegion } from "../../../rustc_type_ir/binder.ts";
@@ -19,7 +16,7 @@ import type { TypeError } from "../../../rustc_type_ir/error.ts";
 import { UniverseIndex } from "../../../rustc_type_ir/lib.ts";
 import { Region } from "../../../rustc_type_ir/sty/mod.ts";
 import { PLAIN } from "../../../std/fmt.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../../../std/panic.ts";
+import { assert, panic, unreachable, unwrap } from "../../../std/panic.ts";
 import { Err, Ok } from "../../../std/result.ts";
 import { SubregionOrigin } from "../mod.ts";
 import type { CombinedSnapshot } from "../snapshot/mod.ts";
@@ -61,32 +58,6 @@ declare module "./leak_check.gen.ts" {
     // leak_check.rs:428
     export let add_node: (nodes: Map<Region, LeakCheckNode>, r: Region) => LeakCheckNode;
   }
-}
-
-/**
- * PORT: the `Sccs<LeakCheckNode, LeakCheckScc>` methods this file calls (rustc_data_structures graph/scc/mod.rs, not
- * ported), as a view of `MiniGraph.sccs`. `all_sccs` is in dependency (post) order: if `S1 -> S2`, `S2` comes first.
- */
-export interface Sccs {
-  num_sccs(): number;
-  scc(r: LeakCheckNode): LeakCheckScc;
-  all_sccs(): Iterable<LeakCheckScc>;
-  successors(scc: LeakCheckScc): readonly LeakCheckScc[];
-}
-
-/** `mini_graph.sccs` through the `Sccs` view. */
-function sccs_of(mini_graph: MiniGraph): Sccs {
-  return mini_graph.sccs as Sccs;
-}
-
-/** PORT: stand-in for `VecGraph::<LeakCheckNode, false>::new(num_nodes, edges)` (rustc_data_structures graph/vec_graph). */
-function VecGraph_new(_num_nodes: number, _edge_pairs: [LeakCheckNode, LeakCheckNode][]): unknown {
-  return unported("rustc_data_structures::graph::vec_graph::VecGraph::new");
-}
-
-/** PORT: stand-in for `Sccs::<LeakCheckNode, LeakCheckScc>::new(&graph)` (rustc_data_structures graph/scc). */
-function Sccs_new(_graph: unknown): Sccs {
-  return unported("rustc_data_structures::graph::scc::Sccs::new");
 }
 
 /** `IndexVec` indexing (panics out of bounds). */
@@ -188,7 +159,7 @@ RegionConstraintCollector.prototype.leak_check = function (
   mini_graph: MiniGraph,
   rcc: RegionConstraintCollector,
 ): LeakCheck {
-  const num_sccs = sccs_of(mini_graph).num_sccs();
+  const num_sccs = mini_graph.sccs.num_sccs();
   // `IndexVec::from_elem_n(dummy_scc_universe, num_sccs)`: each element is a copy of the `Copy` value.
   const scc_universes: SccUniverse[] = [];
   for (let i = 0; i < num_sccs; i++) scc_universes.push(new SccUniverse(max_universe, undefined));
@@ -202,7 +173,7 @@ RegionConstraintCollector.prototype.leak_check = function (
 LeakCheck.prototype.assign_placeholder_values = function (this: LeakCheck): RelateResult<null> {
   // First walk: find each placeholder that is from a newly created universe.
   for (const [region, leak_check_node] of this.mini_graph.nodes) {
-    const scc = sccs_of(this.mini_graph).scc(leak_check_node);
+    const scc = this.mini_graph.sccs.scc(leak_check_node);
 
     // Set the universe of each SCC to be the minimum of its constituent universes
     const universe = this.rcc.universe(region);
@@ -261,7 +232,7 @@ LeakCheck.prototype.propagate_scc_value = function (this: LeakCheck): RelateResu
   //   `scc2: P` (if any)
   // * `scc_universes[scc2]` contains the minimum universe of the
   //   constituents of `scc2` and any of its successors
-  const sccs = sccs_of(this.mini_graph);
+  const sccs = this.mini_graph.sccs;
   for (const scc1 of sccs.all_sccs()) {
     // debug!("propagate_scc_value: scc={:?} with universe {:?}", scc1, self.scc_universes[scc1]);
 
@@ -392,8 +363,8 @@ SccUniverse.prototype.take_min = function (this: SccUniverse, universe: Universe
     const target_node = MiniGraph.add_node(nodes, target);
     edges.push([source_node, target_node]);
   });
-  const graph = VecGraph_new(nodes.size, edges);
-  const sccs = Sccs_new(graph);
+  const graph = VecGraph.new<LeakCheckNode>(nodes.size, edges);
+  const sccs = Sccs.new<LeakCheckNode, LeakCheckScc>(graph);
   return new MiniGraph(nodes, sccs);
 };
 

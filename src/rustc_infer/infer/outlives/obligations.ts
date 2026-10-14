@@ -67,9 +67,8 @@
 // `impl TypeOutlivesDelegate for &InferCtxt` (obligations.rs:720) is the delegate object built by
 // `InferCtxt_TypeOutlivesDelegate(infcx)`.
 // PORT: `mir::ConstraintCategory` is not ported (M4): it is `unknown`, produced and passed through untouched.
-// PORT: `TransitiveRelation` / `TransitiveRelationBuilder` (rustc_data_structures transitive_relation.rs) are not ported:
-// the two `-Zassumptions-on-binders` entry points stop UNPORTED there (as rustc_type_ir region_constraint.ts).
 // PORT: other rustc_infer modules are read inside function bodies only (infcx-contract "How to fill a stub" 6).
+import { TransitiveRelationBuilder } from "../../../rustc_data_structures/transitive_relation.ts";
 import type { ObligationCause } from "../../../rustc_middle/traits/mod.ts";
 import { ObligationCauseCode } from "../../../rustc_middle/traits/mod.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
@@ -89,14 +88,14 @@ import { type Component, declared_bounds_from_definition, push_outlives_componen
 import { type RegionEqPredicate, visit_with_OutlivesClause } from "../../../rustc_type_ir/predicate.ts";
 import { Assumptions, destructure_type_outlives_constraints_in_root, RegionConstraint } from "../../../rustc_type_ir/region_constraint.ts";
 import type { VisibleForLeakCheck } from "../../../rustc_type_ir/solve/mod.ts";
-import { fold_Region, type Region } from "../../../rustc_type_ir/sty/mod.ts";
+import { fold_Region, Region } from "../../../rustc_type_ir/sty/mod.ts";
 import { AliasTermKind } from "../../../rustc_type_ir/term_kind.ts";
 import type { AliasTy } from "../../../rustc_type_ir/ty/alias.ts";
 import { visit_with_Alias } from "../../../rustc_type_ir/ty/alias.gen.ts";
 import { debug_InferTy, visit_with_AliasTyKind } from "../../../rustc_type_ir/ty_kind.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor } from "../../../rustc_type_ir/visit.ts";
 import { debug_vec, PLAIN, PRETTY } from "../../../std/fmt.ts";
-import { assert, panic, unported, unreachable } from "../../../std/panic.ts";
+import { assert, panic, unported, unreachable, unwrap } from "../../../std/panic.ts";
 import { InferCtxt } from "../../decls.ts";
 import type { SubregionOrigin, TypeOutlivesConstraint } from "../mod.ts";
 import * as infer_mod from "../mod.ts";
@@ -240,22 +239,21 @@ InferCtxt.prototype.take_registered_region_assumptions = function (this: InferCt
 };
 
 // rustc: compiler/rustc_infer/src/infer/outlives/obligations.rs:232 destructure_solver_region_constraints_for_regionck
-InferCtxt.prototype.destructure_solver_region_constraints_for_regionck = function (this: InferCtxt, _outlives_env: OutlivesEnvironment): void {
+InferCtxt.prototype.destructure_solver_region_constraints_for_regionck = function (this: InferCtxt, outlives_env: OutlivesEnvironment): void {
   // `FreeRegionMap::relation` stores `'sub <= 'sup` edges while
   // `Assumptions::region_outlives` expects `'longer: 'shorter` ones, so the
   // edges have to be inverted here.
-  // let mut region_outlives = TransitiveRelationBuilder::default();
-  // for (r1, r2) in outlives_env.free_region_map().relation.base_edges() {
-  //     region_outlives.add(r2, r1);
-  // }
-  // let assumptions = rustc_type_ir::region_constraint::Assumptions::new(
-  //     self,
-  //     assumed_type_outlives(self.tcx, outlives_env.known_type_outlives(), outlives_env.region_bound_pairs()),
-  //     region_outlives.freeze(),
-  //     ty::UniverseIndex::ROOT,
-  // );
-  // self.destructure_solver_region_constraints(assumptions, self);
-  unported("rustc_data_structures::transitive_relation::TransitiveRelationBuilder::default");
+  const region_outlives = TransitiveRelationBuilder.default<Region>();
+  for (const [r1, r2] of outlives_env.free_region_map().relation.base_edges()) {
+    region_outlives.add(r2, r1);
+  }
+  const assumptions = Assumptions.new(
+    this,
+    assumed_type_outlives(this.tcx, outlives_env.known_type_outlives(), outlives_env.region_bound_pairs()),
+    region_outlives.freeze(),
+    UniverseIndex.ROOT,
+  );
+  this.destructure_solver_region_constraints(assumptions, InferCtxt_TypeOutlivesDelegate(this));
 };
 
 // rustc: compiler/rustc_infer/src/infer/outlives/obligations.rs:256 destructure_solver_region_constraints_for_borrowck
@@ -269,15 +267,10 @@ InferCtxt.prototype.destructure_solver_region_constraints_for_borrowck = functio
 ): void {
   const clauses = assumed_type_outlives(this.tcx, known_type_outlives, region_bound_pairs);
   // `region_outlives.maybe_map(|r| Some(Region::new_var(self.tcx, r))).unwrap()`
-  const region_outlives_ = TransitiveRelation_maybe_map(region_outlives);
+  const region_outlives_ = unwrap(region_outlives.maybe_map((r) => Region.new_var(this.tcx, r)));
   const assumptions = Assumptions.new(this, clauses, region_outlives_, UniverseIndex.ROOT);
   this.destructure_solver_region_constraints(assumptions, conversion);
 };
-
-/** PORT: stand-in for `TransitiveRelation::maybe_map` (rustc_data_structures transitive_relation.rs, not ported). */
-function TransitiveRelation_maybe_map(_self: TransitiveRelation<RegionVid>): TransitiveRelation<Region> {
-  return unported("rustc_data_structures::transitive_relation::TransitiveRelation::maybe_map");
-}
 
 // #[instrument(level = "debug", skip(self, conversion))]
 // rustc: compiler/rustc_infer/src/infer/outlives/obligations.rs:274 destructure_solver_region_constraints
