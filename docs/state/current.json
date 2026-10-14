@@ -20,10 +20,10 @@
     "unpretty-expanded": 21460,
     "expanded-nocore": 21479
   },
-  "updated": "2026-10-14T02:20:57.208Z",
+  "updated": "2026-10-14T05:24:12.114Z",
   "open_stops": [],
   "coverage": {
-    "ported": 7481,
+    "ported": 9547,
     "total": 25518
   }
 }
