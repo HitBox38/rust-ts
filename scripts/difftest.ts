@@ -19,6 +19,7 @@ import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
 import { ORACLE_CACHE, PIN, RUNS, UPSTREAM, die, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run } from "./lib/common.ts";
+import { caseDeps, type Dep } from "./lib/deps.ts";
 import { rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
 import { isRustcDevProbe } from "./probes.ts";
 
@@ -106,6 +107,13 @@ const cwdOf = (s: Suite): string => s.cwd ?? UPSTREAM;
 const fileHash = (s: Suite, c: Case): string => (c.file === "" ? "" : hash(readFileSync(join(cwdOf(s), c.file))));
 
 /**
+ * Every other path the case may make the oracle read or probe, with its state (scripts/lib/deps.ts: `#[path]`,
+ * out-of-line `mod`, the include macros, ...); `[]` for most cases, for synthetic ones and in suites whose
+ * tools read only the case files (`Suite.readsOnlyCaseFile`).
+ */
+export const depsOf = (s: Suite, c: Case): Dep[] => (c.file === "" || s.readsOnlyCaseFile ? [] : caseDeps(cwdOf(s), c.file, c.env));
+
+/**
  * Oracle cache entries are JSON `Output`s. Entries larger than this (UTF-8 bytes) are stored gzipped (token
  * stream dumps are ~20x their source); a reader tells them apart by the gzip magic bytes, which
  * JSON text never starts with. 4 KiB (one filesystem block; was 64 KiB): the M2 suites
@@ -142,10 +150,14 @@ function writeCached(p: string, o: Output): void {
   renameSync(tmp, p);
 }
 
-function cachePath(s: Suite, c: Case, fileHash: string): string {
-  // `env` joins the key only when a case has one, so the keys of env-less suites are unchanged.
+export function cachePath(s: Suite, c: Case, fileHash: string, deps: Dep[]): string {
+  // `env` joins the key only when a case has one, so the keys of env-less suites are unchanged. The
+  // dependencies (`depsOf`) join it only when there are any, so the keys of cases that can read no other
+  // file are unchanged too; a file appearing, disappearing or changing at a path a case may read changes
+  // that case's key.
   const parts: unknown[] = [PIN.commit, oracleVersion(s), s.name, c.id, c.args, fileHash];
   if (c.env !== undefined) parts.push(c.env);
+  if (deps.length > 0) parts.push({ deps });
   const key = hash(JSON.stringify(parts));
   return join(ensureDir(join(ORACLE_CACHE, key.slice(0, 2))), key);
 }
@@ -155,7 +167,7 @@ async function runOracle(s: Suite, cases: Case[]): Promise<Map<string, Output>> 
   const todo: Case[] = [];
   const paths = new Map<string, string>();
   for (const c of cases) {
-    const p = cachePath(s, c, fileHash(s, c));
+    const p = cachePath(s, c, fileHash(s, c), depsOf(s, c));
     paths.set(c.id, p);
     const cached = existsSync(p) ? readCached(p) : undefined;
     if (cached) out.set(c.id, cached);
