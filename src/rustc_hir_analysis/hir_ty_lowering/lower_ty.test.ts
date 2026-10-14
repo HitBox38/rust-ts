@@ -66,8 +66,9 @@ pub type E1 = (!, *const Missing);
  * P6: lane-a's path / lifetime lowering, collect-rbv's `named_variable_map`, collect-a's `generics_of`, all merged by
  * merge-w16a) must equal the oracle's `type_of` line. */
 const PENDING: Record<string, string> = {
-  // `lower_ty` (FnPtr) -> `lower_fn_ty` -> check/check.rs `check_abi` (wave 17)
-  P2: "rustc_hir_analysis::check::check::check_abi",
+  // `lower_ty` (FnPtr) -> `lower_fn_ty` -> check/check.rs `check_abi` now runs (lane check-check); the lowered `fn()` then
+  // stops when printed: `debug_EarlyBinder` -> `debug_Binder` (rustc_type_ir binder.gen.ts, no TS Debug impl yet)
+  P2: "Debug without a TS impl (see types report)",
   // `lower_const_arg` (array length `3`, an anon const) -> feeds its `type_of`, `lower_const_arg_anon` ->
   // `try_lower_anon_const_lit` -> `tcx.at(..).lit_to_const(..)`: the query key `LitToConstInput` has no TS `QueryKey`
   // (rustc_middle query/keys.rs)

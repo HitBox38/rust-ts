@@ -88,6 +88,7 @@ import { PatternKind } from "../../rustc_type_ir/pattern.ts";
 import { debug_SplattedArgIndexError } from "../../rustc_type_ir/ty_kind.gen.ts";
 import type { KeyedSet } from "../../rust_ts/keyed.ts";
 import { check_c_variadic_abi } from "../lib.ts";
+import { check_abi } from "../check/mod.ts";
 import { BadReturnTypeNotation_diagnostic, ComplexConstArg_diagnostic, NoFieldOnType_diagnostic, NoVariantNamed_diagnostic, OnlyStructsCanBeViewedAdt_diagnostic, OnlyStructsCanBeViewedNonAdt_diagnostic, ViewedFieldIsAlreadyPartOfTheView_diagnostic } from "../diagnostics.gen.ts";
 import { validate_cmse_abi } from "./cmse.ts";
 // ---- shared ----
@@ -3546,11 +3547,6 @@ HirTyLowerer.prototype.lower_fn_ty = function (
 
   return fn_ptr_ty;
 };
-
-/** `crate::check::check_abi` (check/check.rs). PORT: check/check.rs is wave 17 (not ported, no TS module yet). */
-function check_abi(_tcx: TyCtxt, _hir_id: HirId, _span: Span, _abi: ExternAbi): void {
-  return unported("rustc_hir_analysis::check::check::check_abi");
-}
 
 /// Given a fn_hir_id for a impl function, suggest the type that is found on the
 /// corresponding function in the trait that the impl implements, if it exists.
