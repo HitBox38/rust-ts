@@ -21,10 +21,10 @@ import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import type { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
 import { UniverseIndex } from "../../rustc_type_ir/lib.ts";
 import { UnifyKey_FloatVid, UnifyKey_IntVid } from "../../rustc_type_ir/ty_kind.ts";
-import { unwrap } from "../../std/panic.ts";
+import { unported, unwrap } from "../../std/panic.ts";
 import type { UndoLogs } from "../../vendor/ena/undo_log.ts";
 import * as ut from "../../vendor/ena/unify/mod.ts";
-import type { Companions } from "../decls.ts";
+import type { Companions, FreeFns } from "../decls.ts";
 import { InferCtxt, InferCtxtBuilder, InferCtxtInner } from "../decls.ts";
 import { default_ProjectionCacheStorage } from "../traits/project.ts";
 import { clone_Obligation } from "../traits/mod.ts";
@@ -278,6 +278,5 @@ export type RegionVariableOrigin = gen.RegionVariableOrigin;
 export const RegionVariableOrigin = {} as Companions["RegionVariableOrigin"];
 unported_methods(RegionVariableOrigin, "rustc_infer::infer::RegionVariableOrigin", ["span"]);
 
-export type FixupError = gen.FixupError;
-export const FixupError = {} as Companions["FixupError"];
-unported_methods(FixupError, "rustc_infer::infer::FixupError", ["to_string"]);
+// stub: infer/mod.rs:569
+export const display_FixupError = ((): never => unported("rustc_infer::infer::<FixupError as Display>::fmt")) as FreeFns["display_FixupError"];

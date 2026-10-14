@@ -1292,10 +1292,6 @@ export interface Companions {
     // infer/mod.rs:1899
     span(self: RegionVariableOrigin): Span;
   };
-  FixupError: {
-    // infer/mod.rs:569 (`impl Display for FixupError`)
-    to_string(self: FixupError): string;
-  };
   GenericKind: {
     // infer/region_constraints/mod.rs:806
     to_ty(self: GenericKind, tcx: TyCtxt): Ty;
@@ -1340,6 +1336,8 @@ export interface Companions {
 
 /** The pub free fns of the crate (stubs in the owning modules until ported). */
 export interface FreeFns {
+  // infer/mod.rs:569 (`impl fmt::Display for FixupError`: `fmt` is `display_FixupError`, as rustc_type_ir's `display_InferTy`)
+  display_FixupError(self: FixupError): string;
   // infer/canonical/instantiate.rs:55
   instantiate_value<T>(tcx: TyCtxt, var_values: CanonicalVarValues, value: T, d_T: TypeFoldable<T>): T;
   // infer/canonical/instantiate.rs:24 (`CanonicalExt::instantiate`, extension trait on `Canonical`: a free fn)
