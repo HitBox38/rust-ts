@@ -312,7 +312,7 @@ test("validate_relaxed_bound: duplicates under `Allowed` are E0203, `Forbidden` 
     const [l, calls] = lctx();
     const trait_res: Res = { $: "Def", _0: DefKind.Trait, _1: new DefId(3 as never, 0 as never) };
     const tr = new rustc_hir.TraitRef(new rustc_hir.Path(span(1), trait_res, []), hid(1));
-    const allowed = { $: "Allowed", _0: new rustc_hir.def_id.DefIdMap<Span>() };
+    const allowed = { $: "Allowed" as const, _0: new rustc_hir.def_id.DefIdMap<Span>() };
     l.validate_relaxed_bound(tr, span(10), allowed);
     expect(calls).toEqual([]);
     // a second relaxed bound on the same trait (an equal `DefId`, not the same object)
