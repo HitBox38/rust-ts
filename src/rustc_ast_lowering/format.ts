@@ -18,6 +18,8 @@ import { Ok } from "../std/result.ts";
 import { Str, str_floor_char_boundary } from "../std/str.ts";
 import { LoweringContext } from "./decls.ts";
 import type * as hir from "./hir_shim.ts";
+export * from "./format.gen.ts";
+import { ArgumentType } from "./format.gen.ts";
 
 /**
  * PORT: `std::borrow::Cow<'_, FormatArgs>` (format.rs `inline_literals` / `flatten_format_args`). The AST must
@@ -371,14 +373,7 @@ export function flatten_format_args(fmt_: Cow<format.FormatArgs>): Cow<format.Fo
   return fmt;
 }
 
-// rustc-type: compiler/rustc_ast_lowering/src/format.rs:221 ArgumentType
-// PORT: hand-written until codegen set rustc_ast_lowering generates format.gen.ts (then replace this type, the
-// companion and `key_ArgumentType` with the generated ones). `#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]`:
-// Debug is never printed; Hash/Eq are the `argmap` key (`key_ArgumentType`).
-export type ArgumentType = { readonly $: "Format"; readonly _0: format.FormatTrait } | { readonly $: "Usize" };
-export const ArgumentType = {
-  Usize: Object.freeze({ $: "Usize" as const }) as ArgumentType,
-};
+// (format.rs:221 `ArgumentType`: format.gen.ts. `#[derive(Hash, PartialEq, Eq)]` is the `argmap` key, `key_argmap`.)
 /** Canonical key of the derived `Hash + Eq` of `(usize, ArgumentType)` (the `argmap` key). */
 function key_argmap(k: readonly [number, ArgumentType]): string {
   const ty = k[1];
