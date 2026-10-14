@@ -58,7 +58,7 @@ import {
 import { display_Clause, display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { debug_Ty, fold_Clause, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { feature_err } from "../../rustc_session/diagnostics.ts";
-import { type DefId, DefId_eq, debug_DefId, LocalDefId } from "../../rustc_span/def_id.ts";
+import { type DefId, DefId_eq, DefIdSet, debug_DefId, LocalDefId } from "../../rustc_span/def_id.ts";
 import { debug_Span, type ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
 import { DUMMY_SP } from "../../rustc_span/span_encoding.ts";
@@ -352,12 +352,16 @@ export function check_impl(tcx: TyCtxt, item: hir.Item, impl_: hir.Impl): Result
           // We already have a better span.
           continue;
         }
+        // PORT: each Rust obligation owns its `cause`; it is cloned before the span is set, so a cause object shared
+        // between obligations in TS is not changed through another one.
         const pred = obligation.predicate.as_trait_clause();
         if (pred !== undefined && TraitClauseC.self_ty(Binder.skip_binder(pred)) === TraitRefC.self_ty(trait_ref)) {
+          obligation.cause = clone_ObligationCause(obligation.cause);
           obligation.cause.span = impl_.self_ty.span;
         }
         const pred_ = obligation.predicate.as_projection_clause();
         if (pred_ !== undefined && ProjectionClauseC.self_ty(Binder.skip_binder(pred_)) === TraitRefC.self_ty(trait_ref)) {
+          obligation.cause = clone_ObligationCause(obligation.cause);
           obligation.cause.span = impl_.self_ty.span;
         }
       }
@@ -1049,7 +1053,7 @@ export function check_variances_for_type_defn(tcx: TyCtxt, def_id: LocalDefId): 
     }
 
     // Look for `ErrorGuaranteed` deeply within this type.
-    if (fold_Ty.visit_with(Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.type_of(def_id) as EarlyBinder<Ty>)), new HasErrorDeep(tcx, new Set())).$ === "Break") {
+    if (fold_Ty.visit_with(Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.type_of(def_id) as EarlyBinder<Ty>)), new HasErrorDeep(tcx, new DefIdSet())).$ === "Break") {
       continue;
     }
 
@@ -1074,8 +1078,7 @@ class HasErrorDeep implements TypeVisitor<ControlFlow<ErrorGuaranteed>> {
 
   constructor(
     public tcx: TyCtxt,
-    // PORT: `FxHashSet<DefId>` keyed by `DefId` value (`DefIdSet`-like string key).
-    public seen: Set<string>,
+    public seen: DefIdSet,
   ) {}
 
   visit_binder<T>(t: Binder<T>, d: TypeVisitable<T>): ControlFlow<ErrorGuaranteed> {
@@ -1088,7 +1091,7 @@ class HasErrorDeep implements TypeVisitor<ControlFlow<ErrorGuaranteed>> {
     switch (k.$) {
       case "Adt": {
         const def = k._0 as AdtDef;
-        if (set_insert(this.seen, def_id_key(def.did()))) {
+        if (set_insert(this.seen, def.did())) {
           for (const field of def.all_fields()) {
             const r = fold_Ty.visit_with(Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(this.tcx.type_of(field.did) as EarlyBinder<Ty>)), this);
             if (r.$ === "Break") return r;
@@ -1170,7 +1173,7 @@ function report_bivariance(tcx: TyCtxt, param: hir.GenericParam, has_explicit_bo
     // not actually looking into substitutions, just walking through fields / the "RHS".
     // We don't recurse into the hidden types of opaques or anything else fancy.
     const item_def_id = LocalDefId.to_def_id(item.owner_id.def_id);
-    const is_probably_cyclical = new IsProbablyCyclical(tcx, item_def_id, new Set()).visit_def(item_def_id).$ === "Break";
+    const is_probably_cyclical = new IsProbablyCyclical(tcx, item_def_id, new DefIdSet()).visit_def(item_def_id).$ === "Break";
     // If the ADT/LTA is cyclical, then if at least one usage of the type parameter or
     // the `Self` alias is present in the, then it's probably a cyclical struct/ type
     // alias, and we should call those parameter usages recursive rather than just saying
@@ -1226,8 +1229,7 @@ class IsProbablyCyclical implements TypeVisitor<ControlFlow<null, null>> {
   constructor(
     public tcx: TyCtxt,
     public item_def_id: DefId,
-    // PORT: `FxHashSet<DefId>` keyed by `DefId` value.
-    public seen: Set<string>,
+    public seen: DefIdSet,
   ) {}
 
   // rustc: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2238 visit_def
@@ -1259,7 +1261,7 @@ class IsProbablyCyclical implements TypeVisitor<ControlFlow<null, null>> {
       if (DefId_eq(adt_def.did(), this.item_def_id)) {
         return ControlFlowC.Break(null);
       }
-      if (set_insert(this.seen, def_id_key(adt_def.did()))) {
+      if (set_insert(this.seen, adt_def.did())) {
         const r = this.visit_def(adt_def.did());
         if (r.$ === "Break") return r;
       }
@@ -1573,7 +1575,8 @@ WfCheckingCtxt.prototype.check_test_binder_region_constraints = function (
       const actual_span = actual._1;
       const expected_anon = this.tcx().anonymize_bound_vars(expected_, d_AliasTyOutlivesViaEnv);
       const actual_anon = this.tcx().anonymize_bound_vars(actual_, d_AliasTyOutlivesViaEnv);
-      if (expected_anon !== actual_anon) {
+      // PORT: `Binder`'s derived `PartialEq` is `intern_key` equality.
+      if (intern_key(expected_anon) !== intern_key(actual_anon)) {
         const err = this.tcx().dcx().struct_span_err(expected_span, "forall expect clause failed");
         err.span_note(actual_span, "constraint from here");
         err.note(`expected: ${debug_alt_AliasTyOutlivesViaEnv(expected_)}`);
@@ -1856,11 +1859,6 @@ function set_insert<T>(set: Set<T>, v: T): boolean {
   if (set.has(v)) return false;
   set.add(v);
   return true;
-}
-
-/** The `FxHashSet<DefId>` key of a `DefId` (equality by value). */
-function def_id_key(def_id: DefId): string {
-  return `${def_id.krate}:${def_id.index}`;
 }
 
 /** An `UpcastFrom` impl of rustc_middle ty/predicate.ts (over `TyCtxt`) at `Obligation::new`'s `Interner` type. */
