@@ -2070,8 +2070,9 @@ const fold_Ty_Ty: TypeFoldable<[Ty, Ty]> = {
 // the real port; bodies are upstream's where they only read fields / build a struct, `unported` otherwise. ====
 
 // ---- rustc_abi (lib.rs) and rustc_middle ty/layout.rs (M4) ----
-/** PORT: pending rustc_abi: `IntegerType` (abi/lib.rs:123) in its PORTING §5 shape. */
-export type IntegerType = { readonly $: "Pointer"; _0: boolean } | { readonly $: "Fixed"; _0: Integer; _1: boolean };
+// lane repr-options: `IntegerType` is the real rustc_abi type (abi/lib.rs:123).
+import type { IntegerType } from "../../rustc_abi/lib.ts";
+export type { IntegerType };
 /** PORT: pending ty/layout.rs (M4): `IntegerExt::from_int_ty` (layout.rs:47). */
 function IntegerExt_from_int_ty(_cx: TyCtxt, _ity: IntTy): Integer {
   return unported("rustc_middle::ty::layout::IntegerExt::from_int_ty (ty/layout.rs, M4)");

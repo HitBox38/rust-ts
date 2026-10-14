@@ -13,8 +13,8 @@
 // Defining module (docs/handoff/ty-contract.md "Init order"): it never imports an extension module and its top-level
 // code touches nothing but its own classes. context.ts may import it.
 //
-// PORT(decls): pending. `ReprOptions` (rustc_abi) and `ErrorHandled` / `const_eval_poly` (mir/interpret, M4) are not
-// ported: their methods go through the `unported` stand-ins at the end of the file. (merge-w15b: `VariantDef`,
+// PORT(decls): pending. `ErrorHandled` / `const_eval_poly` (mir/interpret, M4) are not ported: their methods go
+// through the `unported` stand-ins at the end of the file (lane repr-options: `ReprOptions` is rustc_abi's). (merge-w15b: `VariantDef`,
 // `FieldDef`, `Destructor` are ty/mod.ts's, `Discr` / `IntTypeExt` ty/util.ts's, `ty::Value` / `ScalarInt`
 // ty/consts/*.ts's; ty/mod.ts / util.ts / valtree.ts are reached lazily.)
 import { Interned } from "../../rustc_data_structures/intern.ts";
@@ -53,7 +53,6 @@ import type {
 } from "./decls.ts";
 import type { GenericArgs } from "./generic_args.ts";
 import type { FieldDef, Ty } from "./mod.ts";
-import type { IntegerType } from "./util.ts";
 
 // rustc_abi `FIRST_VARIANT` (`VariantIdx::ZERO`)
 const FIRST_VARIANT = 0 as VariantIdx;
@@ -397,7 +396,7 @@ export class AdtDef extends Interned {
 
   // rustc: compiler/rustc_middle/src/ty/adt.rs:271 is_packed
   is_packed(): boolean {
-    return ReprOptions_packed(this.repr());
+    return this.repr().packed();
   }
 
   // rustc: compiler/rustc_middle/src/ty/adt.rs:275 struct_tail_ty
@@ -704,7 +703,7 @@ export class AdtDef extends Interned {
   eval_explicit_discr(tcx: TyCtxt, expr_did: DefId): Result<Discr, ErrorGuaranteed> {
     assert(this.is_enum(), "assertion failed: self.is_enum()");
 
-    const repr_type = ReprOptions_discr_type(this.repr());
+    const repr_type = this.repr().discr_type();
     const r = TyCtxt_const_eval_poly(tcx, expr_did);
     switch (r.$) {
       case "Ok": {
@@ -744,7 +743,7 @@ export class AdtDef extends Interned {
   // rustc: compiler/rustc_middle/src/ty/adt.rs:666 discriminants
   *discriminants(tcx: TyCtxt): Generator<[VariantIdx, Discr]> {
     assert(this.is_enum(), "assertion failed: self.is_enum()");
-    const repr_type = ReprOptions_discr_type(this.repr());
+    const repr_type = this.repr().discr_type();
     const initial = ty_util().IntTypeExt.initial_discriminant(repr_type, tcx);
     let prev_discr: Discr | undefined = undefined;
     const variants = this.variants();
@@ -788,7 +787,7 @@ export class AdtDef extends Interned {
     if (ok !== undefined) {
       explicit_value = ok;
     } else {
-      explicit_value = ty_util().IntTypeExt.initial_discriminant(ReprOptions_discr_type(this.repr()), tcx);
+      explicit_value = ty_util().IntTypeExt.initial_discriminant(this.repr().discr_type(), tcx);
     }
     return explicit_value.checked_add(tcx, BigInt(offset))[0];
   }
@@ -911,14 +910,6 @@ function eq_Option_DefId(a: DefId | undefined, b: DefId): boolean {
 /** PORT: stand-in for `impl HasAttrs for DefId` (ty/mod.rs:2349, lane ty-mod): the upstream body. */
 export 
 
-/** PORT: stand-in for `ReprOptions::packed` (rustc_abi lib.rs). */
-function ReprOptions_packed(_self: ReprOptions): boolean {
-  return unported("rustc_abi::ReprOptions::packed");
-}
-/** PORT: stand-in for `ReprOptions::discr_type` (rustc_abi lib.rs). */
-function ReprOptions_discr_type(_self: ReprOptions): IntegerType {
-  return unported("rustc_abi::ReprOptions::discr_type");
-}
 /** `mir::ConstValue` (pending, M4). */
 type ConstValue = { readonly __pending: "mir::ConstValue" };
 /** `mir::interpret::ErrorHandled` (pending, M4). */

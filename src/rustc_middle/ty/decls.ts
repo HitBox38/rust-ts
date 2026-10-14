@@ -156,7 +156,8 @@ export type { AsyncDestructor, Attribute, CheckRegions, Destructor, Discr, NotUn
 // newtype indices (rustc_abi): final shapes
 export type FieldIdx = number & { readonly __brand: "FieldIdx" };
 export type VariantIdx = number & { readonly __brand: "VariantIdx" };
-export type ReprOptions = Pending<"ReprOptions">;
+// lane repr-options: the real rustc_abi type
+export type { ReprOptions } from "../../rustc_abi/lib.ts";
 // ty/pattern.rs:16, ty/consts/valtree.rs:34, :103, ty/consts/int.rs:147 (D2: hash-consed)
 export type Pattern = Pending<"Pattern">;
 export type Scalar = Pending<"Scalar">;

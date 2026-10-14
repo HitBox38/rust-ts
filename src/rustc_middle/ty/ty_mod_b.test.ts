@@ -12,6 +12,10 @@ import { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
 import { PLAIN, PRETTY } from "../../std/fmt.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 import { CtxtInterners, type GlobalCtxt, TyCtxt } from "./context.ts";
+import { Align, debug_ReprOptions } from "../../rustc_abi/lib.ts";
+import { ReprAttr } from "../../rustc_attr_ir/data_structures.gen.ts";
+import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
+import { DefPathHash, LocalDefId } from "../../rustc_span/def_id.ts";
 import {
   debug_ImplOverlapKind,
   debug_VariantDiscr,
@@ -196,8 +200,55 @@ describe("impl TyCtxt", () => {
     expect(t.hygienic_eq(new Ident(sym.main, DUMMY_SP), new Ident(sym.test, DUMMY_SP), did(1))).toBe(false);
   });
 
-  test("repr_options_of_def stops UNPORTED (rustc_abi ReprOptions)", () => {
-    expect(() => tcx.repr_options_of_def(DefIndex.from_u32(1) as never)).toThrow(Unported);
+  test("repr_options_of_def: reprs, packed min, align max, Box, seeds (lane repr-options)", () => {
+    const sp = DUMMY_SP;
+    const a = (n: number) => new Align(n);
+    const repr_tcx = (kinds: unknown[], opts: { layout_seed?: bigint; randomize_layout?: boolean } = {}, box = false) => {
+      const t = mk_tcx({
+        def_path_hash: () => DefPathHash.of(Fingerprint.new(2n, 5n)),
+        local_def_id_to_hir_id: () => ({}),
+        hir_attrs: () => kinds.map((k) => ({ $: "Parsed", _0: k })),
+        is_lang_item: (_d: DefId, l: string) => box && l === "OwnedBox",
+      });
+      // `sess` is an accessor of `TyCtxt`: shadow it with an own property.
+      const sess = { opts: { unstable_opts: { layout_seed: opts.layout_seed, randomize_layout: opts.randomize_layout ?? false } } };
+      Object.defineProperty(t, "sess", { value: sess });
+      return t;
+    };
+    const dbg = (t: TyCtxt) => debug_ReprOptions(t.repr_options_of_def(LocalDefId.new(1)), PLAIN);
+
+    // seed: `Fingerprint(2, 5).to_smaller_hash()` = 2 * 3 + 5
+    expect(dbg(repr_tcx([]))).toBe("ReprOptions { int: None, align: None, pack: None, flags: , scalable: None, field_shuffle_seed: 11 }");
+    expect(dbg(repr_tcx([], { layout_seed: 6n, randomize_layout: true }))).toBe(
+      "ReprOptions { int: None, align: None, pack: None, flags: RANDOMIZE_LAYOUT, scalable: None, field_shuffle_seed: 13 }",
+    );
+    const reprs = [
+      [ReprAttr.ReprC, sp],
+      [{ $: "ReprInt", _0: { $: "UnsignedInt", _0: "U8" } }, sp],
+      [{ $: "ReprPacked", _0: a(2) }, sp],
+      [{ $: "ReprPacked", _0: a(1) }, sp],
+      [{ $: "ReprAlign", _0: a(3) }, sp],
+      [{ $: "ReprAlign", _0: a(4) }, sp],
+      [{ $: "ReprInt", _0: { $: "SignedInt", _0: "Isize" } }, sp],
+    ];
+    const r = repr_tcx([{ $: "Repr", reprs, first_span: sp }]).repr_options_of_def(LocalDefId.new(1));
+    expect(debug_ReprOptions(r, PLAIN)).toBe(
+      "ReprOptions { int: Some(Pointer(true)), align: Some(Align(16 bytes)), pack: Some(Align(2 bytes)), flags: IS_C, scalable: None, field_shuffle_seed: 11 }",
+    );
+    expect([r.c(), r.packed(), r.rust(), r.inhibit_enum_layout_opt(), r.inhibit_struct_field_reordering()]).toEqual([true, true, false, true, true]);
+    const t = repr_tcx(
+      [
+        { $: "Repr", reprs: [[ReprAttr.ReprTransparent, sp]], first_span: sp },
+        { $: "RustcScalableVector", element_count: 4 },
+        { $: "RustcPassIndirectlyInNonRusticAbis", _0: sp },
+      ],
+      {},
+      true,
+    );
+    expect(dbg(t)).toBe(
+      "ReprOptions { int: None, align: None, pack: None, flags: IS_TRANSPARENT | IS_LINEAR | PASS_INDIRECTLY_IN_NON_RUSTIC_ABIS | IS_SCALABLE, scalable: Some(ElementCount(4)), field_shuffle_seed: 11 }",
+    );
+    expect(dbg(repr_tcx([{ $: "RustcScalableVector", element_count: undefined }]))).toContain("scalable: Some(Container)");
   });
 });
 
