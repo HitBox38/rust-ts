@@ -40,7 +40,7 @@ function did(index: number): DefId {
 }
 
 function param(tcx: TyCtxt, index: number): Ty {
-  const p: ParamTy = { index, name: sym.T };
+  const p: ParamTy = { index, name: sym.Abi };
   return tcx.mk_ty_from_kind({ $: "Param", _0: p });
 }
 
@@ -184,7 +184,7 @@ describe("TyCtxt helpers", () => {
     ]);
     const t = with_methods(tcx, {
       coroutine_kind: (d: DefId) => coroutine.get(d.index as number),
-      associated_item: (d: DefId) => ({ def_id: d, kind: { $: "Fn", name: sym.T, has_self: (d.index as number) === 5 } }),
+      associated_item: (d: DefId) => ({ def_id: d, kind: { $: "Fn", name: sym.Abi, has_self: (d.index as number) === 5 } }),
     });
     const closure = { $: "Closure" } as const;
     expect(t.def_kind_descr(closure, did(1))).toBe("async fn");
