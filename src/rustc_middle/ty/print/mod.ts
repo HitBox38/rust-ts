@@ -42,6 +42,9 @@ export type PrintResult = Result<undefined, PrintError>;
 /** `Ok(())`. */
 export const PRINT_OK: PrintResult = Ok(undefined);
 
+/** `P: Printer<'tcx> + std::fmt::Write`. */
+export type PrinterWrite = Printer & { write_str(s: string): PrintResult };
+
 // rustc: compiler/rustc_middle/src/ty/print/mod.rs:19 print
 /** `pub trait Print<P> { fn print(&self, p: &mut P) -> Result<(), PrintError>; }`: the impl for `T` is a function. */
 export type Print<T, P extends Printer = PrettyPrinter> = (self: T, p: P) => PrintResult;
@@ -365,7 +368,7 @@ export function print_Ty(self: Ty, p: Printer): PrintResult {
 
 // impl<'tcx, P: Printer<'tcx> + std::fmt::Write> Print<P> for ty::Instance<'tcx>
 // rustc: compiler/rustc_middle/src/ty/print/mod.rs:366 print
-export function print_Instance(self: Instance, cx: PrettyPrinter): PrintResult {
+export function print_Instance(self: Instance, cx: PrinterWrite): PrintResult {
   const self_ = self as unknown as InstanceView;
   let r = cx.print_def_path(Instance_def_id(self), self_.args);
   if (r.$ === "Err") return r;
@@ -401,7 +404,7 @@ export function print_Instance(self: Instance, cx: PrettyPrinter): PrintResult {
 
 // impl<'tcx, P: Printer<'tcx> + std::fmt::Write> Print<P> for ty::ShimKind<'tcx>
 // rustc: compiler/rustc_middle/src/ty/print/mod.rs:383 print
-export function print_ShimKind(self: ShimKindView, cx: PrettyPrinter): PrintResult {
+export function print_ShimKind(self: ShimKindView, cx: PrinterWrite): PrintResult {
   switch (self.$) {
     case "VTable":
       return cx.write_str("shim(vtable)");
@@ -537,7 +540,7 @@ function Generics_own_args_no_defaults(_self: Generics, _tcx: TyCtxt, _args: rea
 function TraitRef_new(_tcx: TyCtxt, _trait_def_id: DefId, _args: readonly GenericArg[]): TraitRef {
   return unported("rustc_type_ir::predicate::TraitRef::new (predicate.rs)");
 }
-/** `TraitRef::self_ty` (rustc_type_ir predicate.rs; not ported). */
-function TraitRef_self_ty(_self: TraitRef): Ty {
-  return unported("rustc_type_ir::predicate::TraitRef::self_ty (predicate.rs)");
+/** `TraitRef::self_ty` (rustc_type_ir predicate.rs): `self.args.type_at(0)`. */
+function TraitRef_self_ty(self: TraitRef): Ty {
+  return self.args.type_at(0);
 }
