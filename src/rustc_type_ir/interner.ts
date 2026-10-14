@@ -4,7 +4,7 @@
 // (`impl Interner for TyCtxt`, rustc_middle ty/context/impl_interner.ts). `I: Interner` is erased everywhere:
 // code generic over `I` is written against the concrete rustc_middle types and receives `cx: Interner` (or
 // `TyCtxt`). So the associated types are fixed:
-//   `I::Ty` = `Ty`, `I::Tys` = `List<Ty>`, `I::Region`/`InternedRegionKind` = `Region`, `Const`/
+//   `I::Ty` = `Ty`, `I::Tys` = `List<Ty>`, `I::FnInputTys` = `FnInputTys` (`readonly Ty[]`, rustc_middle ty/mod.ts), `I::Region`/`InternedRegionKind` = `Region`, `Const`/
 //   `InternedConstKind` = `Const`, `I::GenericArg` = `GenericArg`, `I::GenericArgs` = `GenericArgs`,
 //   `I::GenericArgsSlice` = `readonly GenericArg[]`, `I::Term` = `Term`, `I::Predicate` = `Predicate`,
 //   `I::Clause` = `Clause`, `I::Clauses` = `Clauses`, `I::BoundVarKinds` = `List<BoundVariableKind>`,
@@ -19,15 +19,16 @@
 //   `I::ExternalConstraints`, `I::CanonicalInput`, `I::Probe` = `&inspect::Probe`, `I::UnsizingParams` =
 //   `DenseBitSet`, `I::RegionAssumptions` = `List<ArgOutlivesClause>`, `I::BoundExistentialPredicates` =
 //   `List<PolyExistentialPredicate>`, `I::Safety` = hir `Safety`, `I::AllocId` = `AllocId`.
-// The `IrPrint<..>` supertraits are rustc_middle ty/print's (lane ty-print).
+// The `IrPrint<..>` supertraits are rustc_middle ty/print's (lane ty-print); ir_print.ts says how they are reached.
+// The inherent traits the associated types satisfy (`I::Ty: inherent::Ty<I>`, ...) are inherent.ts.
 // PORT: an `Interner` method whose name `TyCtxt` already uses for an *incompatible* inherent method or query is
 // `ir_<name>` here and in impl_interner.ts (`is_direct_const`, `const_of_item`, `recursion_limit`, `clauses_of`,
 // `const_conditions`, `explicit_implied_const_bounds`, `for_each_relevant_impl`,
 // `evaluate_root_goal_for_proof_tree_raw`); for compatible collisions the inherent method / query serves.
 // PORT: generic methods over `T: TypeFoldable` take the D4 descriptor last; `R: VisitorResult` takes the
 // `VisitorResult` impl object; `T: CollectAndApply<..>` is an overload pair (see `CollectAndApply` below).
-// `declare_lift_into!` / `LiftInto` (Lift, PORTING §3) and `impl search_graph::Cx for I` (lane tyir-solve) are
-// not here.
+// `declare_lift_into!` / `LiftInto` (Lift, PORTING §3) is not here. `impl search_graph::Cx for I` is the fn table
+// `Cx_for_Interner` at the end (search_graph/mod.ts header).
 import type { VisitorResult } from "../rustc_ast_ir/visit.ts";
 import type { Features } from "../rustc_feature/unstable.ts";
 import type { DenseBitSet } from "../rustc_index/bit_set.ts";
@@ -40,6 +41,14 @@ import type { DefId, LocalDefId } from "../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
+import { debug_result } from "../std/result.ts";
+import { debug_tuple, type Fmt } from "../std/fmt.ts";
+import { unported } from "../std/panic.ts";
+import { intern_key } from "../rust_ts/intern_key.ts";
+import { debug_Canonical } from "./canonical.ts";
+import type { Cx, CxTypes, GlobalCache as GlobalCache_ } from "./search_graph/mod.ts";
+import type { AccessedOpaques, Certainty } from "./solve/mod.ts";
+import { debug_AccessedOpaques, debug_NoSolution, debug_Response } from "./solve/mod.ts";
 import type {
   AliasConstKind,
   AliasTermKind,
@@ -379,3 +388,55 @@ export const CollectAndApply_Result = {
   },
 };
 export type CollectAndApply_Result = typeof CollectAndApply_Result;
+
+/** The associated types of `impl<I: Interner> search_graph::Cx for I` (search_graph/mod.ts `CxTypes`). */
+export interface InternerCx extends CxTypes {
+  Self: Interner;
+  Input: CanonicalInput;
+  Result: [QueryResult, AccessedOpaques];
+  AmbiguityKind: Certainty;
+  DepNodeIndex: DepNodeIndex;
+  Tracked: Tracked<unknown>;
+}
+
+// PORT: `impl<I: Interner> search_graph::Cx for I` is the fn table `Cx_for_Interner` (search_graph/mod.ts header).
+// The associated types' bounds: `Input`'s `Eq + Hash` is the interned `CanonicalInput`'s identity; the derived
+// `PartialEq` of `Result` (`(QueryResult<I>, AccessedOpaques<I>)`) and `AmbiguityKind` (`Certainty`) compare the
+// canonical intern keys (rust_ts/intern_key.ts: the derived `Hash + Eq` with interned children by id), which is
+// the derived `Eq` of these plain data types over interned pointers. The table's entries read imported fns only
+// when called (no init-order dependency on solve/ or canonical.ts).
+export const Cx_for_Interner: Cx<InternerCx> = {
+  debug_Input: (_v: CanonicalInput, _f: Fmt): string =>
+    unported("rustc_middle::traits::solve::CanonicalInput Debug (derived; only for search graph assertion messages)"),
+  debug_Result: (v: [QueryResult, AccessedOpaques], f: Fmt): string =>
+    debug_tuple(f, "", [
+      debug_result(v[0], f, (c, f) => debug_Canonical(c, f, debug_Response), debug_NoSolution),
+      debug_AccessedOpaques(v[1], f),
+    ]),
+  Result_eq: (a: [QueryResult, AccessedOpaques], b: [QueryResult, AccessedOpaques]): boolean =>
+    intern_key(a) === intern_key(b),
+  AmbiguityKind_eq: (a: Certainty, b: Certainty): boolean => intern_key(a) === intern_key(b),
+
+  // PORT: `I::Tracked<T>` is erased to `Tracked<unknown>` in the table (no higher-kinded types); `get_tracked::<T>`
+  // names the `T` back.
+  // rustc: compiler/rustc_type_ir/src/interner.rs:759 mk_tracked
+  mk_tracked<T>(self: Interner, data: T, dep_node_index: DepNodeIndex): Tracked<unknown> {
+    return self.mk_tracked(data, dep_node_index);
+  },
+  // rustc: compiler/rustc_type_ir/src/interner.rs:766 get_tracked
+  get_tracked<T>(self: Interner, tracked: Tracked<unknown>): T {
+    return self.get_tracked(tracked) as T;
+  },
+  // rustc: compiler/rustc_type_ir/src/interner.rs:769 with_cached_task
+  with_cached_task<T>(self: Interner, task: () => T): [T, DepNodeIndex] {
+    return self.with_cached_task(task);
+  },
+  // rustc: compiler/rustc_type_ir/src/interner.rs:772 with_global_cache
+  with_global_cache<R>(self: Interner, f: (cache: GlobalCache_<InternerCx>) => R): R {
+    return self.with_global_cache(f);
+  },
+  // rustc: compiler/rustc_type_ir/src/interner.rs:775 assert_evaluation_is_concurrent
+  assert_evaluation_is_concurrent(self: Interner): void {
+    self.assert_evaluation_is_concurrent();
+  },
+};

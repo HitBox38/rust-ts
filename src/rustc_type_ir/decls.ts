@@ -61,8 +61,8 @@ import type { AliasTermKind, TermKind } from "./term_kind.ts";
 export type { AliasTermKind, TermKind };
 import type { PatternKind } from "./pattern.ts";
 export type { PatternKind };
-import type { CanonicalVarKind } from "./canonical.ts";
-export type { CanonicalVarKind };
+import type { CanonicalParamEnvCache, CanonicalVarKind } from "./canonical.ts";
+export type { CanonicalParamEnvCache, CanonicalVarKind };
 import type { ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, HostEffectClause, ImplPolarity, NormalizesTo, OutlivesClause, ProjectionClause, TraitClause, TraitRef } from "./predicate.ts";
 export type { ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, HostEffectClause, ImplPolarity, NormalizesTo, OutlivesClause, ProjectionClause, TraitClause, TraitRef };
 import type { AliasConst, AliasTy } from "./ty/alias.ts";
@@ -81,6 +81,8 @@ import type { Probe } from "./solve/inspect.ts";
 export type { Probe };
 import type { SolverAdtLangItem, SolverProjectionLangItem, SolverTraitLangItem } from "./lang_items.ts";
 export type { SolverAdtLangItem, SolverProjectionLangItem, SolverTraitLangItem };
+import type { TypeWalker } from "./walk.ts";
+export type { TypeWalker };
 
 // rustc_middle predicate.rs:28 and ff. (`pub type TypeOutlivesClause<'tcx> = ir::OutlivesClause<TyCtxt<'tcx>, Ty<'tcx>>`)
 export type TypeOutlivesClause = OutlivesClause<Ty>;
@@ -88,13 +90,11 @@ export type RegionOutlivesClause = OutlivesClause<Region>;
 export type ArgOutlivesClause = OutlivesClause<GenericArg>;
 
 // ---- pending (not generated: working structs and files outside set rustc_ty) ----
-// walk.rs
-export type TypeWalker = Pending<"TypeWalker">;
-// canonical.rs:271 (skipped by set rustc_ty: canonicalizer state)
-export type CanonicalParamEnvCache = Pending<"CanonicalParamEnvCache">;
-// search_graph
-export type GlobalCache = Pending<"GlobalCache">;
-export type RequiredDepth = Pending<"RequiredDepth">;
+// search_graph (lane tyir-solve): `I::GlobalCache` is the search graph's cache over `impl Cx for I` (interner.ts).
+import type { GlobalCache as GlobalCache_, RequiredDepth } from "./search_graph/mod.ts";
+import type { InternerCx } from "./interner.ts";
+export type GlobalCache = GlobalCache_<InternerCx>;
+export type { RequiredDepth };
 
 // ---- `type Poly* = Binder<*>` (rustc_middle aliases of rustc_type_ir structs) ----
 export type PolyFnSig = Binder<FnSig>;

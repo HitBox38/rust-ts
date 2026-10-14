@@ -150,10 +150,14 @@ describe("interning simple TyKinds", () => {
     }
   });
 
-  test("kinds whose flags need unported types stop as UNPORTED", () => {
+  test("Ref interns with the region's flags (Region::flags, ported by tyir-misc), as the oracle", () => {
     const tcx = mk_tcx();
-    // `Region::flags` (rustc_type_ir sty/mod.rs) is not ported yet.
-    expect(() => tcx.mk_ty_from_kind({ $: "Ref", _0: tcx.lifetimes.re_static, _1: tcx.types.u8, _2: "Not" })).toThrow(Unported);
+    // Oracle (/tmp/tyir-misc-lib-sty probe): `Ty::new_ref(tcx, 'static, u8, Not)` and `'?5`.
+    const r = tcx.mk_ty_from_kind({ $: "Ref", _0: tcx.lifetimes.re_static, _1: tcx.types.u8, _2: "Not" });
+    expect(tcx.mk_ty_from_kind({ $: "Ref", _0: tcx.lifetimes.re_static, _1: tcx.types.u8, _2: "Not" })).toBe(r);
+    expect([flags(r), oeb(r)]).toEqual(["TypeFlags(HAS_FREE_REGIONS)", "DebruijnIndex(0)"]);
+    const v = tcx.mk_ty_from_kind({ $: "Ref", _0: tcx.intern_re_var(5 as RegionVid), _1: tcx.types.u8, _2: "Not" });
+    expect([flags(v), oeb(v)]).toEqual(["TypeFlags(HAS_RE_INFER | HAS_FREE_LOCAL_REGIONS | HAS_FREE_REGIONS)", "DebruijnIndex(0)"]);
   });
 
   test("Const interning: flags of const kinds", () => {

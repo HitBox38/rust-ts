@@ -196,10 +196,12 @@ export type BodyId = Pending<"hir::BodyId">;
 export type Arena = Pending<"Arena">;
 // core::ops::Range<T>
 export type Range<T> = { readonly start: T; readonly end: T };
-// ty/print/mod.rs `trait Print<P>` as a descriptor (lane ty-print decides its shape)
-export type Print<T> = Pending1<"Print", T>;
+// ty/print/mod.rs `trait Print<P>` as a descriptor (lane ty-print-a decision 1)
+import type { Print } from "./print/mod.ts";
+export type { Print };
 // ty/fold.rs `trait BoundVarReplacerDelegate`
-export type BoundVarReplacerDelegate = Pending<"BoundVarReplacerDelegate">;
+import type { BoundVarReplacerDelegate } from "./fold.ts";
+export type { BoundVarReplacerDelegate };
 // the search graph's `Tracked<T>` (`I::Tracked<T>`, impl_interner.rs: `WithDepNode<T>`)
 export type Tracked<T> = Pending1<"Tracked", T>;
 
@@ -1225,7 +1227,8 @@ declare module "./context.ts" {
     try_instantiate_and_normalize_erasing_regions<T>(param_args: GenericArgs, typing_env: TypingEnv, value: EarlyBinder<T>, d_T: TypeFoldable<T>): Result<T, NormalizationError>;
 
     // ---- ty/print/pretty.rs ----
-    // ty/print/pretty.rs:2171 def_path_str (already a TyCtxt method `def_path_str` serves)
+    // ty/print/pretty.rs:2171
+    def_path_str(def_id: IntoQueryKey<DefId>): string;
     // ty/print/pretty.rs:2177
     def_path_str_with_args(def_id: IntoQueryKey<DefId>, args: readonly GenericArg[]): string;
     // ty/print/pretty.rs:2190

@@ -49,6 +49,7 @@ import { hir } from "../rustc_middle/lib.ts";
 import * as rustc_ast_lowering from "../rustc_ast_lowering/lib.ts";
 import type { ResolverAstLowering, ResolverGlobalCtxt } from "../rustc_middle/middle/resolve.ts";
 import { type GlobalCtxt, provide as ty_context_provide, TyCtxt } from "../rustc_middle/ty/context.ts";
+import { provide as ty_print_provide } from "../rustc_middle/ty/print/pretty.ts";
 import { clone_ExternProviders, clone_Providers, ExternProviders_default, Providers_default } from "../rustc_middle/query/query_api.ts";
 import type { Providers as QueryProviders } from "../rustc_middle/queries.gen.ts";
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
@@ -934,6 +935,9 @@ function default_query_providers(): MiddleProviders {
   rustc_resolve.provide(providers.queries);
   rustc_passes_provide(providers.queries);
   ty_context_provide(providers.queries);
+  // PORT: `ty::provide` (ty/mod.rs:2377) is not ported; of its sub-providers, `context::provide` (above) and
+  // `print::provide` (ty/print/pretty.rs:3594, `trimmed_def_paths`) are (merge-w15a).
+  ty_print_provide(providers.queries);
   // PORT: `rustc_metadata::provide` is `rmeta::provide`, i.e. `encoder::provide` (metadata encoding, M5, not
   // ported) then `decoder::provide`; rustc_metadata/lib.ts exports `cstore_impl::provide` (the decoder half).
   rustc_metadata_provide(providers);
