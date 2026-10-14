@@ -598,8 +598,8 @@ export function explicit_clauses_of(tcx: TyCtxt, def_id: LocalDefId): GenericCla
             switch (ck.$) {
               case "Param": {
                 const param_const = ck._0;
-                // PORT: `HashMap` indexing panics on a missing key (std's `expect("key not found")`).
-                const defaulted_param_idx = unwrap((tcx.generics_of(parent_def_id) as Generics).param_def_id_to_index.get(LocalDefId.to_def_id(defaulted_param_def_id)), "key not found");
+                // PORT: `HashMap`'s `Index` is `self.get(key).expect("no entry found for key")` (std map.rs).
+                const defaulted_param_idx = unwrap((tcx.generics_of(parent_def_id) as Generics).param_def_id_to_index.get(LocalDefId.to_def_id(defaulted_param_def_id)), "no entry found for key");
                 return param_const.index < defaulted_param_idx;
               }
               default:

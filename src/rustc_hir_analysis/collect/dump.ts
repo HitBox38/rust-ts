@@ -22,7 +22,7 @@ import type { Clauses } from "../../rustc_middle/ty/list.ts";
 import { HasAttrs_LocalDefId, type Ty, TypingEnv } from "../../rustc_middle/ty/mod.ts";
 import { debug_Clause } from "../../rustc_middle/ty/structural_impls.ts";
 import { visit_with_Ty } from "../../rustc_middle/ty/mod.ts";
-import { CRATE_DEF_ID, debug_DefId, debug_LocalDefId, LocalDefId } from "../../rustc_span/def_id.ts";
+import { CRATE_DEF_ID, type DefId, debug_DefId, debug_LocalDefId, LocalDefId } from "../../rustc_span/def_id.ts";
 import { Symbol, sym } from "../../rustc_span/symbol.ts";
 import { EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import type { TraitRef } from "../../rustc_type_ir/decls.ts";
@@ -34,7 +34,7 @@ import { type TypeVisitable, TypeVisitableExt } from "../../rustc_type_ir/visit.
 import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
-import { TypeOf_diagnostic } from "../diagnostics.gen.ts";
+import { TypeOf_diagnostic } from "../diagnostics.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import type { AnonConst } from "../../rustc_hir/hir.gen.ts";
 
@@ -75,7 +75,7 @@ type ObjectLifetimeDefault_ =
   | { readonly $: "Empty" }
   | { readonly $: "Static" }
   | { readonly $: "Ambiguous" }
-  | { readonly $: "Param"; _0: import("../../rustc_span/def_id.ts").DefId };
+  | { readonly $: "Param"; _0: DefId };
 
 // rustc: compiler/rustc_hir_analysis/src/collect/dump.rs:30 object_lifetime_defaults
 export function object_lifetime_defaults(tcx: TyCtxt): void {
