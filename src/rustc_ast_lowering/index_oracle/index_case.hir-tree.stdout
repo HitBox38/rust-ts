@@ -1,0 +1,1275 @@
+DefId(0:0 ~ index_case[a97b]) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Crate(
+            Mod {
+                spans: ModSpans {
+                    inner_span: index_case.rs:1:1: 11:2 (#0),
+                    inject_use_span: index_case.rs:3:1: 3:1 (#0),
+                },
+                item_ids: [
+                    ItemId {
+                        owner_id: DefId(0:1 ~ index_case[a97b]::P),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:3 ~ index_case[a97b]::T),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:6 ~ index_case[a97b]::E),
+                    },
+                    ItemId {
+                        owner_id: DefId(0:12 ~ index_case[a97b]::f),
+                    },
+                ],
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            10153366061614781977,
+            2710625975040195459,
+        ),
+    ),
+}
+DefId(0:1 ~ index_case[a97b]::P) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:1 ~ index_case[a97b]::P),
+                kind: Struct(
+                    P#0,
+                    Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: index_case.rs:3:13: 3:13 (#0),
+                        span: index_case.rs:3:13: 3:13 (#0),
+                    },
+                    Struct {
+                        fields: [
+                            FieldDef {
+                                span: index_case.rs:3:16: 3:25 (#0),
+                                vis_span: index_case.rs:3:16: 3:19 (#0),
+                                mut_restriction: MutRestriction {
+                                    kind: Unrestricted,
+                                    span: no-location (#0),
+                                },
+                                ident: x#0,
+                                hir_id: HirId(DefId(0:1 ~ index_case[a97b]::P).3),
+                                def_id: DefId(0:2 ~ index_case[a97b]::P::x),
+                                ty: Ty {
+                                    hir_id: HirId(DefId(0:1 ~ index_case[a97b]::P).1),
+                                    span: index_case.rs:3:23: 3:25 (#0),
+                                    kind: Path(
+                                        Resolved(
+                                            None,
+                                            Path {
+                                                span: index_case.rs:3:23: 3:25 (#0),
+                                                res: PrimTy(
+                                                    Uint(
+                                                        u8,
+                                                    ),
+                                                ),
+                                                segments: [
+                                                    PathSegment {
+                                                        ident: u8#0,
+                                                        hir_id: HirId(DefId(0:1 ~ index_case[a97b]::P).2),
+                                                        res: PrimTy(
+                                                            Uint(
+                                                                u8,
+                                                            ),
+                                                        ),
+                                                        args: None,
+                                                        infer_args: false,
+                                                        delegation_child_segment: false,
+                                                    },
+                                                ],
+                                            },
+                                        ),
+                                    ),
+                                },
+                                safety: Safe,
+                                default: None,
+                            },
+                        ],
+                        recovered: No,
+                    },
+                ),
+                span: index_case.rs:3:1: 3:27 (#0),
+                vis_span: index_case.rs:3:1: 3:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 3),
+        (2, 1),
+        (3, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            13836792487542550671,
+            6852719934985831221,
+        ),
+    ),
+}
+DefId(0:3 ~ index_case[a97b]::T) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:3 ~ index_case[a97b]::T),
+                kind: Struct(
+                    T#0,
+                    Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: index_case.rs:4:17: 4:17 (#0),
+                        span: index_case.rs:4:13: 4:13 (#0),
+                    },
+                    Tuple(
+                        [
+                            FieldDef {
+                                span: index_case.rs:4:14: 4:16 (#0),
+                                vis_span: index_case.rs:4:14: 4:14 (#0),
+                                mut_restriction: MutRestriction {
+                                    kind: Unrestricted,
+                                    span: no-location (#0),
+                                },
+                                ident: 0#0,
+                                hir_id: HirId(DefId(0:3 ~ index_case[a97b]::T).4),
+                                def_id: DefId(0:5 ~ index_case[a97b]::T::0),
+                                ty: Ty {
+                                    hir_id: HirId(DefId(0:3 ~ index_case[a97b]::T).2),
+                                    span: index_case.rs:4:14: 4:16 (#0),
+                                    kind: Path(
+                                        Resolved(
+                                            None,
+                                            Path {
+                                                span: index_case.rs:4:14: 4:16 (#0),
+                                                res: PrimTy(
+                                                    Uint(
+                                                        u8,
+                                                    ),
+                                                ),
+                                                segments: [
+                                                    PathSegment {
+                                                        ident: u8#0,
+                                                        hir_id: HirId(DefId(0:3 ~ index_case[a97b]::T).3),
+                                                        res: PrimTy(
+                                                            Uint(
+                                                                u8,
+                                                            ),
+                                                        ),
+                                                        args: None,
+                                                        infer_args: false,
+                                                        delegation_child_segment: false,
+                                                    },
+                                                ],
+                                            },
+                                        ),
+                                    ),
+                                },
+                                safety: Safe,
+                                default: None,
+                            },
+                        ],
+                        HirId(DefId(0:3 ~ index_case[a97b]::T).1),
+                        DefId(0:4 ~ index_case[a97b]::T::{constructor#0}),
+                    ),
+                ),
+                span: index_case.rs:4:1: 4:18 (#0),
+                vis_span: index_case.rs:4:1: 4:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 4),
+        (3, 2),
+        (4, 0),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            15802290685273798855,
+            15888554172307971121,
+        ),
+    ),
+}
+DefId(0:6 ~ index_case[a97b]::E) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:6 ~ index_case[a97b]::E),
+                kind: Enum(
+                    E#0,
+                    Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: index_case.rs:5:11: 5:11 (#0),
+                        span: index_case.rs:5:11: 5:11 (#0),
+                    },
+                    EnumDef {
+                        variants: [
+                            Variant {
+                                ident: A#0,
+                                hir_id: HirId(DefId(0:6 ~ index_case[a97b]::E).1),
+                                def_id: DefId(0:7 ~ index_case[a97b]::E::A),
+                                data: Unit(
+                                    HirId(DefId(0:6 ~ index_case[a97b]::E).2),
+                                    DefId(0:8 ~ index_case[a97b]::E::A::{constructor#0}),
+                                ),
+                                disr_expr: None,
+                                span: index_case.rs:5:14: 5:15 (#0),
+                            },
+                            Variant {
+                                ident: B#0,
+                                hir_id: HirId(DefId(0:6 ~ index_case[a97b]::E).3),
+                                def_id: DefId(0:9 ~ index_case[a97b]::E::B),
+                                data: Tuple(
+                                    [
+                                        FieldDef {
+                                            span: index_case.rs:5:19: 5:21 (#0),
+                                            vis_span: index_case.rs:5:19: 5:19 (#0),
+                                            mut_restriction: MutRestriction {
+                                                kind: Unrestricted,
+                                                span: no-location (#0),
+                                            },
+                                            ident: 0#0,
+                                            hir_id: HirId(DefId(0:6 ~ index_case[a97b]::E).7),
+                                            def_id: DefId(0:11 ~ index_case[a97b]::E::B::0),
+                                            ty: Ty {
+                                                hir_id: HirId(DefId(0:6 ~ index_case[a97b]::E).5),
+                                                span: index_case.rs:5:19: 5:21 (#0),
+                                                kind: Path(
+                                                    Resolved(
+                                                        None,
+                                                        Path {
+                                                            span: index_case.rs:5:19: 5:21 (#0),
+                                                            res: PrimTy(
+                                                                Uint(
+                                                                    u8,
+                                                                ),
+                                                            ),
+                                                            segments: [
+                                                                PathSegment {
+                                                                    ident: u8#0,
+                                                                    hir_id: HirId(DefId(0:6 ~ index_case[a97b]::E).6),
+                                                                    res: PrimTy(
+                                                                        Uint(
+                                                                            u8,
+                                                                        ),
+                                                                    ),
+                                                                    args: None,
+                                                                    infer_args: false,
+                                                                    delegation_child_segment: false,
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                ),
+                                            },
+                                            safety: Safe,
+                                            default: None,
+                                        },
+                                    ],
+                                    HirId(DefId(0:6 ~ index_case[a97b]::E).4),
+                                    DefId(0:10 ~ index_case[a97b]::E::B::{constructor#0}),
+                                ),
+                                disr_expr: None,
+                                span: index_case.rs:5:17: 5:22 (#0),
+                            },
+                        ],
+                    },
+                ),
+                span: index_case.rs:5:1: 5:24 (#0),
+                vis_span: index_case.rs:5:1: 5:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 1),
+        (3, 0),
+        (4, 3),
+        (5, 7),
+        (6, 5),
+        (7, 3),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            17999687878499679718,
+            10233046576753814165,
+        ),
+    ),
+}
+DefId(0:12 ~ index_case[a97b]::f) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:12 ~ index_case[a97b]::f),
+                kind: Fn {
+                    sig: FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [
+                                Ty {
+                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).54),
+                                    span: index_case.rs:6:20: 6:25 (#0),
+                                    kind: Ref(
+                                        Lifetime {
+                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).51),
+                                            ident: 'a#0,
+                                            kind: Param(
+                                                DefId(0:13 ~ index_case[a97b]::f::'a),
+                                            ),
+                                            source: Reference,
+                                            syntax: ExplicitBound,
+                                        },
+                                        Ty {
+                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).52),
+                                            span: index_case.rs:6:24: 6:25 (#0),
+                                            kind: Path(
+                                                Resolved(
+                                                    None,
+                                                    Path {
+                                                        span: index_case.rs:6:24: 6:25 (#0),
+                                                        res: Def(
+                                                            TyParam,
+                                                            DefId(0:14 ~ index_case[a97b]::f::U),
+                                                        ),
+                                                        segments: [
+                                                            PathSegment {
+                                                                ident: U#0,
+                                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).53),
+                                                                res: Def(
+                                                                    TyParam,
+                                                                    DefId(0:14 ~ index_case[a97b]::f::U),
+                                                                ),
+                                                                args: None,
+                                                                infer_args: false,
+                                                                delegation_child_segment: false,
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                            ),
+                                        },
+                                        Not,
+                                    ),
+                                },
+                                Ty {
+                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).59),
+                                    span: index_case.rs:6:35: 6:43 (#0),
+                                    kind: Tup(
+                                        [
+                                            Ty {
+                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).55),
+                                                span: index_case.rs:6:36: 6:38 (#0),
+                                                kind: Path(
+                                                    Resolved(
+                                                        None,
+                                                        Path {
+                                                            span: index_case.rs:6:36: 6:38 (#0),
+                                                            res: PrimTy(
+                                                                Uint(
+                                                                    u8,
+                                                                ),
+                                                            ),
+                                                            segments: [
+                                                                PathSegment {
+                                                                    ident: u8#0,
+                                                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).56),
+                                                                    res: PrimTy(
+                                                                        Uint(
+                                                                            u8,
+                                                                        ),
+                                                                    ),
+                                                                    args: None,
+                                                                    infer_args: false,
+                                                                    delegation_child_segment: false,
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                ),
+                                            },
+                                            Ty {
+                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).57),
+                                                span: index_case.rs:6:40: 6:42 (#0),
+                                                kind: Path(
+                                                    Resolved(
+                                                        None,
+                                                        Path {
+                                                            span: index_case.rs:6:40: 6:42 (#0),
+                                                            res: PrimTy(
+                                                                Uint(
+                                                                    u8,
+                                                                ),
+                                                            ),
+                                                            segments: [
+                                                                PathSegment {
+                                                                    ident: u8#0,
+                                                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).58),
+                                                                    res: PrimTy(
+                                                                        Uint(
+                                                                            u8,
+                                                                        ),
+                                                                    ),
+                                                                    args: None,
+                                                                    infer_args: false,
+                                                                    delegation_child_segment: false,
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                ),
+                                            },
+                                        ],
+                                    ),
+                                },
+                            ],
+                            output: Return(
+                                Ty {
+                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).65),
+                                    span: index_case.rs:6:48: 6:55 (#0),
+                                    kind: Array(
+                                        Ty {
+                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).60),
+                                            span: index_case.rs:6:49: 6:51 (#0),
+                                            kind: Path(
+                                                Resolved(
+                                                    None,
+                                                    Path {
+                                                        span: index_case.rs:6:49: 6:51 (#0),
+                                                        res: PrimTy(
+                                                            Uint(
+                                                                u8,
+                                                            ),
+                                                        ),
+                                                        segments: [
+                                                            PathSegment {
+                                                                ident: u8#0,
+                                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).61),
+                                                                res: PrimTy(
+                                                                    Uint(
+                                                                        u8,
+                                                                    ),
+                                                                ),
+                                                                args: None,
+                                                                infer_args: false,
+                                                                delegation_child_segment: false,
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                            ),
+                                        },
+                                        ConstArg {
+                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).64),
+                                            kind: Anon(
+                                                AnonConst {
+                                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).62),
+                                                    def_id: DefId(0:15 ~ index_case[a97b]::f::{constant#0}),
+                                                    body: BodyId {
+                                                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).63),
+                                                    },
+                                                    span: index_case.rs:6:53: 6:54 (#0),
+                                                },
+                                            ),
+                                            span: index_case.rs:6:53: 6:54 (#0),
+                                        },
+                                    ),
+                                },
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(None)",
+                                "LifetimeElisionAllowed",
+                            ),
+                        },
+                        span: index_case.rs:6:1: 6:67 (#0),
+                    },
+                    ident: f#0,
+                    generics: Generics {
+                        params: [
+                            GenericParam {
+                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).49),
+                                def_id: DefId(0:13 ~ index_case[a97b]::f::'a),
+                                name: Plain(
+                                    'a#0,
+                                ),
+                                span: index_case.rs:6:10: 6:12 (#0),
+                                pure_wrt_drop: false,
+                                kind: Lifetime {
+                                    kind: Explicit,
+                                },
+                                colon_span: None,
+                                source: Generics,
+                            },
+                            GenericParam {
+                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).50),
+                                def_id: DefId(0:14 ~ index_case[a97b]::f::U),
+                                name: Plain(
+                                    U#0,
+                                ),
+                                span: index_case.rs:6:14: 6:15 (#0),
+                                pure_wrt_drop: false,
+                                kind: Type {
+                                    default: None,
+                                    synthetic: false,
+                                },
+                                colon_span: None,
+                                source: Generics,
+                            },
+                        ],
+                        predicates: [
+                            WherePredicate {
+                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).45),
+                                span: index_case.rs:6:62: 6:67 (#0),
+                                kind: BoundPredicate(
+                                    WhereBoundPredicate {
+                                        origin: WhereClause,
+                                        bound_generic_params: [],
+                                        bounded_ty: Ty {
+                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).46),
+                                            span: index_case.rs:6:62: 6:63 (#0),
+                                            kind: Path(
+                                                Resolved(
+                                                    None,
+                                                    Path {
+                                                        span: index_case.rs:6:62: 6:63 (#0),
+                                                        res: Def(
+                                                            TyParam,
+                                                            DefId(0:14 ~ index_case[a97b]::f::U),
+                                                        ),
+                                                        segments: [
+                                                            PathSegment {
+                                                                ident: U#0,
+                                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).47),
+                                                                res: Def(
+                                                                    TyParam,
+                                                                    DefId(0:14 ~ index_case[a97b]::f::U),
+                                                                ),
+                                                                args: None,
+                                                                infer_args: false,
+                                                                delegation_child_segment: false,
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                            ),
+                                        },
+                                        bounds: [
+                                            Outlives(
+                                                Lifetime {
+                                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).48),
+                                                    ident: 'a#0,
+                                                    kind: Param(
+                                                        DefId(0:13 ~ index_case[a97b]::f::'a),
+                                                    ),
+                                                    source: OutlivesBound,
+                                                    syntax: ExplicitBound,
+                                                },
+                                            ),
+                                        ],
+                                    },
+                                ),
+                            },
+                        ],
+                        has_where_clause_predicates: true,
+                        where_clause_span: index_case.rs:6:56: 6:67 (#0),
+                        span: index_case.rs:6:9: 6:16 (#0),
+                    },
+                    body: BodyId {
+                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).44),
+                    },
+                    has_body: true,
+                },
+                span: index_case.rs:6:1: 11:2 (#0),
+                vis_span: index_case.rs:6:1: 6:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 1),
+        (3, 0),
+        (4, 3),
+        (5, 4),
+        (6, 4),
+        (7, 44),
+        (8, 7),
+        (9, 7),
+        (10, 15),
+        (11, 10),
+        (12, 10),
+        (13, 12),
+        (14, 13),
+        (15, 9),
+        (16, 15),
+        (17, 16),
+        (18, 16),
+        (19, 18),
+        (20, 7),
+        (21, 24),
+        (22, 24),
+        (23, 22),
+        (24, 20),
+        (25, 24),
+        (26, 7),
+        (27, 26),
+        (28, 27),
+        (29, 31),
+        (30, 29),
+        (31, 26),
+        (32, 31),
+        (33, 32),
+        (34, 33),
+        (35, 32),
+        (36, 35),
+        (37, 38),
+        (38, 26),
+        (39, 38),
+        (40, 39),
+        (41, 40),
+        (42, 39),
+        (43, 42),
+        (44, 0),
+        (45, 0),
+        (46, 45),
+        (47, 46),
+        (48, 45),
+        (49, 0),
+        (50, 0),
+        (51, 54),
+        (52, 54),
+        (53, 52),
+        (54, 0),
+        (55, 59),
+        (56, 55),
+        (57, 59),
+        (58, 57),
+        (59, 0),
+        (60, 65),
+        (61, 60),
+        (62, 64),
+        (63, 62),
+        (64, 65),
+        (65, 0),
+    ],
+    bodies: {
+        44: Body {
+            params: [
+                Param {
+                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).1),
+                    pat: Pat {
+                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).2),
+                        kind: Binding(
+                            BindingMode(
+                                No,
+                                Not,
+                            ),
+                            HirId(DefId(0:12 ~ index_case[a97b]::f).2),
+                            r#0,
+                            None,
+                        ),
+                        span: index_case.rs:6:17: 6:18 (#0),
+                        default_binding_modes: true,
+                    },
+                    ty_span: index_case.rs:6:20: 6:25 (#0),
+                    span: index_case.rs:6:17: 6:25 (#0),
+                },
+                Param {
+                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).3),
+                    pat: Pat {
+                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).4),
+                        kind: Tuple(
+                            [
+                                Pat {
+                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                    kind: Binding(
+                                        BindingMode(
+                                            No,
+                                            Not,
+                                        ),
+                                        HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                        a#0,
+                                        None,
+                                    ),
+                                    span: index_case.rs:6:28: 6:29 (#0),
+                                    default_binding_modes: true,
+                                },
+                                Pat {
+                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).6),
+                                    kind: Wild,
+                                    span: index_case.rs:6:31: 6:32 (#0),
+                                    default_binding_modes: true,
+                                },
+                            ],
+                            None,
+                        ),
+                        span: index_case.rs:6:27: 6:33 (#0),
+                        default_binding_modes: true,
+                    },
+                    ty_span: index_case.rs:6:35: 6:43 (#0),
+                    span: index_case.rs:6:27: 6:43 (#0),
+                },
+            ],
+            value: Expr {
+                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).44),
+                kind: Block(
+                    Block {
+                        stmts: [
+                            Stmt {
+                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).8),
+                                kind: Item(
+                                    ItemId {
+                                        owner_id: DefId(0:16 ~ index_case[a97b]::f::inner),
+                                    },
+                                ),
+                                span: index_case.rs:7:5: 7:18 (#0),
+                            },
+                            Stmt {
+                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).9),
+                                kind: Let(
+                                    LetStmt {
+                                        super_: None,
+                                        pat: Pat {
+                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).16),
+                                            kind: Struct(
+                                                Resolved(
+                                                    None,
+                                                    Path {
+                                                        span: index_case.rs:8:9: 8:10 (#0),
+                                                        res: Def(
+                                                            Struct,
+                                                            DefId(0:1 ~ index_case[a97b]::P),
+                                                        ),
+                                                        segments: [
+                                                            PathSegment {
+                                                                ident: P#0,
+                                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).17),
+                                                                res: Def(
+                                                                    Struct,
+                                                                    DefId(0:1 ~ index_case[a97b]::P),
+                                                                ),
+                                                                args: None,
+                                                                infer_args: true,
+                                                                delegation_child_segment: false,
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                                [
+                                                    PatField {
+                                                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).18),
+                                                        ident: x#0,
+                                                        pat: Pat {
+                                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).19),
+                                                            kind: Binding(
+                                                                BindingMode(
+                                                                    No,
+                                                                    Not,
+                                                                ),
+                                                                HirId(DefId(0:12 ~ index_case[a97b]::f).19),
+                                                                x#0,
+                                                                None,
+                                                            ),
+                                                            span: index_case.rs:8:13: 8:14 (#0),
+                                                            default_binding_modes: true,
+                                                        },
+                                                        is_shorthand: true,
+                                                        span: index_case.rs:8:13: 8:14 (#0),
+                                                    },
+                                                ],
+                                                Some(
+                                                    index_case.rs:8:16: 8:18 (#0),
+                                                ),
+                                            ),
+                                            span: index_case.rs:8:9: 8:20 (#0),
+                                            default_binding_modes: true,
+                                        },
+                                        ty: None,
+                                        init: Some(
+                                            Expr {
+                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).10),
+                                                kind: Struct(
+                                                    Resolved(
+                                                        None,
+                                                        Path {
+                                                            span: index_case.rs:8:23: 8:24 (#0),
+                                                            res: Def(
+                                                                Struct,
+                                                                DefId(0:1 ~ index_case[a97b]::P),
+                                                            ),
+                                                            segments: [
+                                                                PathSegment {
+                                                                    ident: P#0,
+                                                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).11),
+                                                                    res: Def(
+                                                                        Struct,
+                                                                        DefId(0:1 ~ index_case[a97b]::P),
+                                                                    ),
+                                                                    args: None,
+                                                                    infer_args: true,
+                                                                    delegation_child_segment: false,
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    [
+                                                        ExprField {
+                                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).12),
+                                                            ident: x#0,
+                                                            expr: Expr {
+                                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).13),
+                                                                kind: Path(
+                                                                    Resolved(
+                                                                        None,
+                                                                        Path {
+                                                                            span: index_case.rs:8:30: 8:31 (#0),
+                                                                            res: Local(
+                                                                                HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                                                            ),
+                                                                            segments: [
+                                                                                PathSegment {
+                                                                                    ident: a#0,
+                                                                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).14),
+                                                                                    res: Local(
+                                                                                        HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                                                                    ),
+                                                                                    args: None,
+                                                                                    infer_args: true,
+                                                                                    delegation_child_segment: false,
+                                                                                },
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                ),
+                                                                span: index_case.rs:8:30: 8:31 (#0),
+                                                            },
+                                                            span: index_case.rs:8:27: 8:31 (#0),
+                                                            is_shorthand: false,
+                                                        },
+                                                    ],
+                                                    None,
+                                                ),
+                                                span: index_case.rs:8:23: 8:33 (#0),
+                                            },
+                                        ),
+                                        els: None,
+                                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).15),
+                                        span: index_case.rs:8:5: 8:34 (#0),
+                                        source: Normal,
+                                    },
+                                ),
+                                span: index_case.rs:8:5: 8:34 (#0),
+                            },
+                            Stmt {
+                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).20),
+                                kind: Let(
+                                    LetStmt {
+                                        super_: None,
+                                        pat: Pat {
+                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).25),
+                                            kind: Binding(
+                                                BindingMode(
+                                                    No,
+                                                    Not,
+                                                ),
+                                                HirId(DefId(0:12 ~ index_case[a97b]::f).25),
+                                                _w#0,
+                                                None,
+                                            ),
+                                            span: index_case.rs:9:9: 9:11 (#0),
+                                            default_binding_modes: true,
+                                        },
+                                        ty: Some(
+                                            Ty {
+                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).21),
+                                                span: index_case.rs:9:13: 9:14 (#0),
+                                                kind: Infer(
+                                                    (),
+                                                ),
+                                            },
+                                        ),
+                                        init: Some(
+                                            Expr {
+                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).22),
+                                                kind: Path(
+                                                    Resolved(
+                                                        None,
+                                                        Path {
+                                                            span: index_case.rs:9:17: 9:18 (#0),
+                                                            res: Local(
+                                                                HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                                            ),
+                                                            segments: [
+                                                                PathSegment {
+                                                                    ident: a#0,
+                                                                    hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).23),
+                                                                    res: Local(
+                                                                        HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                                                    ),
+                                                                    args: None,
+                                                                    infer_args: true,
+                                                                    delegation_child_segment: false,
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                ),
+                                                span: index_case.rs:9:17: 9:18 (#0),
+                                            },
+                                        ),
+                                        els: None,
+                                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).24),
+                                        span: index_case.rs:9:5: 9:19 (#0),
+                                        source: Normal,
+                                    },
+                                ),
+                                span: index_case.rs:9:5: 9:19 (#0),
+                            },
+                        ],
+                        expr: Some(
+                            Expr {
+                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).26),
+                                kind: Match(
+                                    Expr {
+                                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).27),
+                                        kind: Path(
+                                            Resolved(
+                                                None,
+                                                Path {
+                                                    span: index_case.rs:10:11: 10:12 (#0),
+                                                    res: Local(
+                                                        HirId(DefId(0:12 ~ index_case[a97b]::f).19),
+                                                    ),
+                                                    segments: [
+                                                        PathSegment {
+                                                            ident: x#0,
+                                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).28),
+                                                            res: Local(
+                                                                HirId(DefId(0:12 ~ index_case[a97b]::f).19),
+                                                            ),
+                                                            args: None,
+                                                            infer_args: true,
+                                                            delegation_child_segment: false,
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                        ),
+                                        span: index_case.rs:10:11: 10:12 (#0),
+                                    },
+                                    [
+                                        Arm {
+                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).31),
+                                            span: index_case.rs:10:15: 10:26 (#0),
+                                            pat: Pat {
+                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).29),
+                                                kind: Expr(
+                                                    PatExpr {
+                                                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).30),
+                                                        span: index_case.rs:10:15: 10:16 (#0),
+                                                        kind: Lit {
+                                                            lit: Spanned {
+                                                                node: Int(
+                                                                    Pu128(
+                                                                        0,
+                                                                    ),
+                                                                    Unsuffixed,
+                                                                ),
+                                                                span: index_case.rs:10:15: 10:16 (#0),
+                                                            },
+                                                            negated: false,
+                                                        },
+                                                    },
+                                                ),
+                                                span: index_case.rs:10:15: 10:16 (#0),
+                                                default_binding_modes: true,
+                                            },
+                                            guard: None,
+                                            body: Expr {
+                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).32),
+                                                kind: Array(
+                                                    [
+                                                        Expr {
+                                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).33),
+                                                            kind: Path(
+                                                                Resolved(
+                                                                    None,
+                                                                    Path {
+                                                                        span: index_case.rs:10:21: 10:22 (#0),
+                                                                        res: Local(
+                                                                            HirId(DefId(0:12 ~ index_case[a97b]::f).19),
+                                                                        ),
+                                                                        segments: [
+                                                                            PathSegment {
+                                                                                ident: x#0,
+                                                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).34),
+                                                                                res: Local(
+                                                                                    HirId(DefId(0:12 ~ index_case[a97b]::f).19),
+                                                                                ),
+                                                                                args: None,
+                                                                                infer_args: true,
+                                                                                delegation_child_segment: false,
+                                                                            },
+                                                                        ],
+                                                                    },
+                                                                ),
+                                                            ),
+                                                            span: index_case.rs:10:21: 10:22 (#0),
+                                                        },
+                                                        Expr {
+                                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).35),
+                                                            kind: Path(
+                                                                Resolved(
+                                                                    None,
+                                                                    Path {
+                                                                        span: index_case.rs:10:24: 10:25 (#0),
+                                                                        res: Local(
+                                                                            HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                                                        ),
+                                                                        segments: [
+                                                                            PathSegment {
+                                                                                ident: a#0,
+                                                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).36),
+                                                                                res: Local(
+                                                                                    HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                                                                ),
+                                                                                args: None,
+                                                                                infer_args: true,
+                                                                                delegation_child_segment: false,
+                                                                            },
+                                                                        ],
+                                                                    },
+                                                                ),
+                                                            ),
+                                                            span: index_case.rs:10:24: 10:25 (#0),
+                                                        },
+                                                    ],
+                                                ),
+                                                span: index_case.rs:10:20: 10:26 (#0),
+                                            },
+                                        },
+                                        Arm {
+                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).38),
+                                            span: index_case.rs:10:28: 10:39 (#0),
+                                            pat: Pat {
+                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).37),
+                                                kind: Wild,
+                                                span: index_case.rs:10:28: 10:29 (#0),
+                                                default_binding_modes: true,
+                                            },
+                                            guard: None,
+                                            body: Expr {
+                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).39),
+                                                kind: Array(
+                                                    [
+                                                        Expr {
+                                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).40),
+                                                            kind: Path(
+                                                                Resolved(
+                                                                    None,
+                                                                    Path {
+                                                                        span: index_case.rs:10:34: 10:35 (#0),
+                                                                        res: Local(
+                                                                            HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                                                        ),
+                                                                        segments: [
+                                                                            PathSegment {
+                                                                                ident: a#0,
+                                                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).41),
+                                                                                res: Local(
+                                                                                    HirId(DefId(0:12 ~ index_case[a97b]::f).5),
+                                                                                ),
+                                                                                args: None,
+                                                                                infer_args: true,
+                                                                                delegation_child_segment: false,
+                                                                            },
+                                                                        ],
+                                                                    },
+                                                                ),
+                                                            ),
+                                                            span: index_case.rs:10:34: 10:35 (#0),
+                                                        },
+                                                        Expr {
+                                                            hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).42),
+                                                            kind: Path(
+                                                                Resolved(
+                                                                    None,
+                                                                    Path {
+                                                                        span: index_case.rs:10:37: 10:38 (#0),
+                                                                        res: Local(
+                                                                            HirId(DefId(0:12 ~ index_case[a97b]::f).19),
+                                                                        ),
+                                                                        segments: [
+                                                                            PathSegment {
+                                                                                ident: x#0,
+                                                                                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).43),
+                                                                                res: Local(
+                                                                                    HirId(DefId(0:12 ~ index_case[a97b]::f).19),
+                                                                                ),
+                                                                                args: None,
+                                                                                infer_args: true,
+                                                                                delegation_child_segment: false,
+                                                                            },
+                                                                        ],
+                                                                    },
+                                                                ),
+                                                            ),
+                                                            span: index_case.rs:10:37: 10:38 (#0),
+                                                        },
+                                                    ],
+                                                ),
+                                                span: index_case.rs:10:33: 10:39 (#0),
+                                            },
+                                        },
+                                    ],
+                                    Normal,
+                                ),
+                                span: index_case.rs:10:5: 10:41 (#0),
+                            },
+                        ),
+                        hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).7),
+                        rules: DefaultBlock,
+                        span: index_case.rs:6:68: 11:2 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: index_case.rs:6:68: 11:2 (#0),
+            },
+        },
+        63: Body {
+            params: [],
+            value: Expr {
+                hir_id: HirId(DefId(0:12 ~ index_case[a97b]::f).63),
+                kind: Lit(
+                    Spanned {
+                        node: Int(
+                            Pu128(
+                                2,
+                            ),
+                            Unsuffixed,
+                        ),
+                        span: index_case.rs:6:53: 6:54 (#0),
+                    },
+                ),
+                span: index_case.rs:6:53: 6:54 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            7649048802423575185,
+            10072180649800997350,
+        ),
+    ),
+}
+DefId(0:16 ~ index_case[a97b]::f::inner) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:16 ~ index_case[a97b]::f::inner),
+                kind: Fn {
+                    sig: FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [],
+                            output: DefaultReturn(
+                                index_case.rs:7:15: 7:15 (#0),
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(None)",
+                                "NoLifetimeElision",
+                            ),
+                        },
+                        span: index_case.rs:7:5: 7:15 (#0),
+                    },
+                    ident: inner#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: index_case.rs:7:15: 7:15 (#0),
+                        span: index_case.rs:7:13: 7:13 (#0),
+                    },
+                    body: BodyId {
+                        hir_id: HirId(DefId(0:16 ~ index_case[a97b]::f::inner).2),
+                    },
+                    has_body: true,
+                },
+                span: index_case.rs:7:5: 7:18 (#0),
+                vis_span: index_case.rs:7:5: 7:5 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 2),
+        (2, 0),
+    ],
+    bodies: {
+        2: Body {
+            params: [],
+            value: Expr {
+                hir_id: HirId(DefId(0:16 ~ index_case[a97b]::f::inner).2),
+                kind: Block(
+                    Block {
+                        stmts: [],
+                        expr: None,
+                        hir_id: HirId(DefId(0:16 ~ index_case[a97b]::f::inner).1),
+                        rules: DefaultBlock,
+                        span: index_case.rs:7:16: 7:18 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: index_case.rs:7:16: 7:18 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            7173183341017891853,
+            9374554958000767413,
+        ),
+    ),
+}

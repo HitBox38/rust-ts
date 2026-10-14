@@ -19,6 +19,7 @@
 //   for custom target specs.
 // - Query methods (`tcx.$query(..)`) are installed by query/query_api.ts and hook methods by hooks.ts.
 import type { Crate } from "../../rustc_ast/ast.gen.ts";
+import type { LanguageItems } from "../../rustc_attr_ir/lang_items.ts";
 import type { Untracked, CrateStoreDyn } from "../../rustc_crate_store/cstore.ts";
 import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
 import type { Features } from "../../rustc_feature/unstable.ts";
@@ -46,7 +47,6 @@ import { type IntoQueryKey, into_query_key_DefId } from "../query/into_query_key
 import type { QuerySystem } from "../query/system.ts";
 import * as calls from "../query/calls.ts";
 import type { TyCtxtAt, TyCtxtEnsureDone, TyCtxtEnsureOk, TyCtxtEnsureResult } from "../query/calls.ts";
-import * as hir_mod from "../hir/mod.ts";
 import * as ty_mod from "./mod.ts";
 import { enter_context, ImplicitCtxt } from "./context/tls.ts";
 import { Visibility } from "./mod.ts";
@@ -66,6 +66,7 @@ import { Ty } from "./mod.ts";
 import { type Clause, Predicate } from "./predicate.ts";
 import type { Ident } from "../../rustc_span/symbol.ts";
 import type { Namespace, DefKind as DefKindT, Res } from "../../rustc_hir/def.ts";
+import { unported_methods } from "../../rust_ts/stubs.ts";
 
 /**
  * PORT: `rustc_session::Limits` (session.rs:62; `#[derive(Copy, Clone, Debug, ..)]`) is not ported; this is its
@@ -682,10 +683,8 @@ export class TyCtxt {
   fn_abi_of_instance(query: PseudoCanonicalInput<[Instance, List<Ty>]>): Result<FnAbi<Ty>, FnAbiError> {
     return ty_mod.TyCtxt_fn_abi_of_instance(this, query);
   }
-  // hir/mod.rs
-  parent_module_from_def_id(id: LocalDefId): LocalModId {
-    return hir_mod.TyCtxt_parent_module_from_def_id(this, id);
-  }
+  // hir/mod.rs, hir/map.rs: attached to `TyCtxt.prototype` by rustc_middle/hir/{mod,map}.ts (lane middle-hir), which
+  // rustc_middle/lib.ts loads after this module.
   // ty/print/pretty.rs
   def_path_str(def_id: IntoQueryKey<DefId>): string {
     void def_id;
@@ -770,6 +769,12 @@ export class TyCtxt {
     return gcx.enter(f);
   }
 
+  /// Obtain all lang items of this crate and all dependencies (recursively)
+  // rustc: compiler/rustc_middle/src/ty/context.rs:995 lang_items
+  lang_items(): LanguageItems {
+    return this.get_lang_items(null);
+  }
+
   // rustc: compiler/rustc_middle/src/ty/context.rs:1089 features
   features(): Features {
     return this.features_query(null) as Features;
@@ -836,6 +841,49 @@ export class TyCtxt {
         }
       }) && !this.sess.opts.actually_rustdoc
     );
+  }
+
+  // rustc: compiler/rustc_middle/src/ty/context.rs:1142 needs_hir_hash
+  needs_hir_hash(): boolean {
+    // Why is the hir hash needed for these configurations?
+    // - debug_assertions: for the "fingerprint the result" check in
+    //   `rustc_query_impl::execution::execute_job`.
+    // - incremental: for query lookups.
+    // - needs_metadata: it is included in the crate metadata through the crate_hash query
+    // - instrument_coverage: for putting into coverage data (see
+    //   `hash_mir_source`).
+    // - metrics_dir: metrics use the strict version hash in the filenames
+    //   for dumped metrics files to prevent overwriting distinct metrics
+    //   for similar source builds (may change in the future, this is part
+    //   of the proof of concept impl for the metrics initiative project goal)
+    // PORT: `cfg!(debug_assertions)` is false (the oracle is a release build).
+    return (
+      false ||
+      this.sess.opts.incremental !== undefined ||
+      this.needs_metadata() ||
+      this.sess.instrument_coverage() ||
+      this.sess.opts.unstable_opts.metrics_dir !== undefined
+    );
+  }
+
+  /// Whether the combined per-owner HIR hash (`OwnerInfo::opt_hash`, which folds `parenting`,
+  /// `trait_map` and `children` on top of the node/attr hashes) needs to be computed during
+  /// lowering.
+  ///
+  /// This is a strict subset of [`Self::needs_hir_hash`]: notably it drops the plain
+  /// `needs_metadata` case. With metadata-based crate hashing (the default) the crate hash is
+  /// built from the encoded metadata plus each owner's cheaper `OwnerInfo::fingerprint` (just the
+  /// node and attr sub-hashes), so the combined hash is never read and computing it is wasted
+  /// work. It is still required for:
+  /// - `-Z metadata-crate-hash=no`, where `crate_hash` falls back to hashing each `OwnerInfo`;
+  /// - incremental, where the `lower_to_hir` result is fingerprinted for red/green tracking;
+  /// - debug assertions, where every query result is fingerprinted to catch nondeterminism.
+  ///
+  /// The `needs_hir_hash()` conjunct guarantees the node/attr sub-hashes it folds in are present.
+  // rustc: compiler/rustc_middle/src/ty/context.rs:1175 needs_owner_info_hash
+  needs_owner_info_hash(): boolean {
+    // PORT: `cfg!(debug_assertions)` is false (the oracle is a release build).
+    return this.needs_hir_hash() && (!this.sess.opts.unstable_opts.metadata_crate_hash || this.sess.opts.incremental !== undefined || false);
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:1183 stable_crate_id
@@ -1301,6 +1349,11 @@ export class TyCtxt {
     return collect_and_apply(iter, c, (xs: readonly ArgOutlivesClause[]) => this.mk_outlives(xs));
   }
 
+  // rustc: compiler/rustc_middle/src/ty/context.rs:2807 is_sdylib_interface_build
+  is_sdylib_interface_build(): boolean {
+    return this.sess.opts.unstable_opts.build_sdylib_interface;
+  }
+
   /// In addition to regular items this list also includes struct and variant constructors, and
   /// items inside `extern {}` blocks because all of them introduce names into parent module.
   ///
@@ -1326,6 +1379,27 @@ export class TyCtxt {
     return [resolver, krate];
   }
 }
+
+// PORT: the inherent `TyCtxt` methods of context.rs that serve `impl Interner for TyCtxt` (impl_interner.rs) and are
+// not ported yet (lane ty-ctxt). Placeholders so the generic rustc_type_ir code that calls them through the
+// `Interner` (e.g. `AliasTy::new_projection_from_args`, `IsRigid::yes_if_next_solver`) stops as UNPORTED instead of a
+// TypeError (merge-w14). contract.test.ts still counts them as missing.
+unported_methods(TyCtxt.prototype, "rustc_middle::ty::context::TyCtxt", [
+  "assumptions_on_binders",
+  "check_alias_term_args_compatible",
+  "coroutine_is_async",
+  "coroutine_is_async_gen",
+  "coroutine_is_gen",
+  "coroutine_movability",
+  "debug_assert_alias_term_args_compatible",
+  "debug_assert_args_compatible",
+  "is_default_trait",
+  "is_general_coroutine",
+  "is_impl_trait_in_trait",
+  "is_sizedness_trait",
+  "next_trait_solver_globally",
+  "renormalize_rigid_aliases",
+]);
 
 
 /// Create a new definition within the incr. comp. engine.

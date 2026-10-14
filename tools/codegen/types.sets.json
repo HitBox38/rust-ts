@@ -115,7 +115,11 @@
       "rustc_ast::tokenstream::DelimSpacing",
       "rustc_ast::tokenstream::DelimSpan",
       "rustc_ast::tokenstream::Spacing",
-      "rustc_ast::tokenstream::TokenTree"
+      "rustc_ast::tokenstream::TokenTree",
+      "rustc_ast::attr::version::RustcVersion",
+      "rustc_ast::ast::MetaItemLit",
+      "rustc_ast::token::DocFragmentKind",
+      "rustc_ast::visit::AssocCtxt"
     ],
     "derive_decodable": true
   },
@@ -252,6 +256,7 @@
     "discriminant": [],
     "skip": [],
     "auto_class": true,
+    "derive_stable_hash": true,
     "derive_clone": true,
     "derive_decodable": true
   },
@@ -340,6 +345,7 @@
     "skip": [],
     "auto_class": true,
     "derive_clone": true,
+    "derive_stable_hash": true,
     "derive_default": true,
     "derive_decodable": true
   },
@@ -608,6 +614,20 @@
       "*": "the test types of opaque/tests.rs (derive(Encodable_NoContext, Decodable_NoContext)), imported by src/rustc_serialize/opaque/tests.test.ts; the fn-local test types are not visible to the typedefs probe"
     }
   },
+  "rustc_passes": {
+    "files": ["compiler/rustc_passes/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  },
+  "rustc_middle_diagnostics": {
+    "files": ["compiler/rustc_middle/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": []
+  },
   "rustc_metadata": {
     "files": ["compiler/rustc_metadata/src/diagnostics.rs"],
     "class": [],
@@ -725,5 +745,55 @@
     "typemap_extra": ["tyir.typemap.json"],
     "bitflags_debug": true,
     "derive_type_fold": true
+  },
+  "rustc_ast_lowering": {
+    "files": [
+      "compiler/rustc_ast_lowering/src/lib.rs",
+      "compiler/rustc_ast_lowering/src/asm.rs",
+      "compiler/rustc_ast_lowering/src/block.rs",
+      "compiler/rustc_ast_lowering/src/contract.rs",
+      "compiler/rustc_ast_lowering/src/delegation/mod.rs",
+      "compiler/rustc_ast_lowering/src/delegation/attributes.rs",
+      "compiler/rustc_ast_lowering/src/delegation/generics.rs",
+      "compiler/rustc_ast_lowering/src/delegation/resolution.rs",
+      "compiler/rustc_ast_lowering/src/diagnostics.rs",
+      "compiler/rustc_ast_lowering/src/expr.rs",
+      "compiler/rustc_ast_lowering/src/expr/closure.rs",
+      "compiler/rustc_ast_lowering/src/format.rs",
+      "compiler/rustc_ast_lowering/src/index.rs",
+      "compiler/rustc_ast_lowering/src/item.rs",
+      "compiler/rustc_ast_lowering/src/pat.rs",
+      "compiler/rustc_ast_lowering/src/path.rs",
+      "compiler/rustc_ast_lowering/src/stability.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_ast_lowering::LoweringContext",
+      "rustc_ast_lowering::index::NodeCollector",
+      "rustc_ast_lowering::RelaxedBoundPolicy",
+      "rustc_ast_lowering::expr::WillCreateDefIdsVisitor",
+      "rustc_ast_lowering::expr::MoveExprInitializerFinder",
+      "rustc_ast_lowering::delegation::SelfResolver",
+      "rustc_ast_lowering::delegation::attributes::AdditionInfo",
+      "rustc_ast_lowering::delegation::attributes::AdditionKind"
+    ],
+    "hand_notes": {
+      "rustc_ast_lowering::LoweringContext": "the shared contract (lowering-contract): class with all fields + every method declared in decls.ts; methods assigned by each file",
+      "rustc_ast_lowering::index::NodeCollector": "intravisit Visitor impl: hand-written class extending rustc_hir intravisit Visitor (index.ts)",
+      "rustc_ast_lowering::RelaxedBoundPolicy": "`Allowed(&mut FxIndexMap<DefId, Span>)` is a `DefIdMap<Span>` (keyed by DefId value); the generator would say `Map<DefId, Span>` (merge-w14)",
+      "rustc_ast_lowering::expr::WillCreateDefIdsVisitor": "ast Visitor impl: hand class extending rustc_ast visit.Visitor (expr.ts, lane lower-expr)",
+      "rustc_ast_lowering::expr::MoveExprInitializerFinder": "ast Visitor impl: hand class extending rustc_ast visit.Visitor (expr.ts, lane lower-expr)",
+      "rustc_ast_lowering::delegation::SelfResolver": "ast Visitor impl: hand class extending rustc_ast visit.Visitor (delegation/mod.ts, lane lower-delegation)",
+      "rustc_ast_lowering::delegation::attributes::AdditionInfo": "typed fn-pointer fields (the generator has no fn-pointer types) (delegation/attributes.ts)",
+      "rustc_ast_lowering::delegation::attributes::AdditionKind": "typed fn-pointer fields (the generator has no fn-pointer types) (delegation/attributes.ts)"
+    },
+    "discriminant": [],
+    "skip": ["rustc_ast_lowering::delegation::resolution::resolver::DelegationResolver"],
+    "skip_notes": {
+      "rustc_ast_lowering::delegation::resolution::resolver::DelegationResolver": "the shared contract: class in decls.ts (tuple struct as `_0`), exposed by resolution.ts as `resolver.DelegationResolver`; no derives. Not `hand`: a hand type inside an inline module is imported by name from the mirrored hand module, which does not export it"
+    },
+    "auto_class": true,
+    "bitflags_debug": true,
+    "typemap_extra": ["ast_lowering.typemap.json"]
   }
 }

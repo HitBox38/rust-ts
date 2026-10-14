@@ -18,6 +18,7 @@ import { upstreamFns } from "../../../scripts/coverage.ts";
 import { UPSTREAM } from "../../../scripts/lib/common.ts";
 import { FrontmatterAllowed, tokenize } from "../../rustc_lexer/lib.ts";
 import { Unported } from "../../std/panic.ts";
+import { unported_stub_path } from "../../rust_ts/stubs.ts";
 import { Str } from "../../std/str.ts";
 import "../lib.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
@@ -238,7 +239,11 @@ test("every item of `trait Interner` is in the Interner interface; TyCtxt has it
     if (!marked) missing.push(`interner.rs:${x.line} ${x.name}`);
     const name = new RegExp(`\\n {2}(ir_${x.name}|${x.name})[<(]`).exec(iface)?.[1];
     if (name === undefined) missing.push(`interface member ${x.name}`);
-    else if (typeof (TyCtxt.prototype as unknown as Record<string, unknown>)[name] !== "function") lacking.push(name);
+    else {
+      const f = (TyCtxt.prototype as unknown as Record<string, unknown>)[name];
+      // context.ts's placeholders for the inherent methods (merge-w14) still count as missing
+      if (typeof f !== "function" || unported_stub_path(f) === "rustc_middle::ty::context::TyCtxt") lacking.push(name);
+    }
   }
   expect(missing).toEqual([]);
   // served by inherent `TyCtxt` methods of context.rs that lane ty-ctxt ports into the class body
