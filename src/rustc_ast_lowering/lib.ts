@@ -237,8 +237,8 @@ export class PerOwnerLoweringState {
     const nodes_ = new rustc_hir.OwnerNodes(bodies_hash, nodes, bodies_);
     const attrs_ = new rustc_hir.AttributeMap(attrs, define_opaque, attrs_hash);
 
-    // PORT: `tcx.needs_owner_info_hash()` (rustc_middle ty/context.rs:1167) is not on `TyCtxt` yet.
-    const needs_owner_info_hash: boolean = unported("rustc_middle::ty::TyCtxt::needs_owner_info_hash (context.rs:1167)");
+    // PORT: `tcx.needs_owner_info_hash()` (rustc_middle ty/context.rs:1175) is not on `TyCtxt` yet.
+    const needs_owner_info_hash: boolean = unported("rustc_middle::ty::TyCtxt::needs_owner_info_hash (context.rs:1175)");
     const opt_hash = needs_owner_info_hash
       ? tcx.with_stable_hashing_context((hcx) => {
           const stable_hasher = StableHasher.new();
