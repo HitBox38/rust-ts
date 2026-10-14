@@ -84,12 +84,10 @@ import { display_ExternAbi, ExternAbi } from "../rustc_abi/extern_abi.ts";
 import type * as attr_ir from "../rustc_attr_ir/lib.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
 import { Target } from "../rustc_attr_ir/target.ts";
-import type { SortedMap } from "../rustc_data_structures/sorted_map.ts";
 import { E0570, struct_span_code_err } from "../rustc_errors/lib.ts";
 import { DefKind, Res } from "../rustc_hir/def.ts";
 import * as hir from "../rustc_hir/lib.ts";
-import { HirId_from_OwnerId, type HirId, type ItemLocalId, OwnerId, OwnerId_eq, debug_OwnerId } from "../rustc_hir_id/lib.ts";
-import type { PerOwnerResolverData } from "../rustc_middle/middle/resolve.ts";
+import { HirId_from_OwnerId, type HirId, OwnerId_eq, debug_OwnerId } from "../rustc_hir_id/lib.ts";
 import { type DefId, DefIdMap, DefId_eq, debug_LocalDefId, LocalDefId, type LocalModId } from "../rustc_span/def_id.ts";
 import { find_best_match_for_name } from "../rustc_span/edit_distance.ts";
 import { DesugaringKind } from "../rustc_span/hygiene.ts";
@@ -99,26 +97,11 @@ import { debug_option, debug_tuple, debug_vec, PLAIN } from "../std/fmt.ts";
 import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { LoweringContext } from "./decls.ts";
-import type { DelegationResults } from "./delegation/mod.ts";
 import * as diagnostics from "./diagnostics.ts";
 import type { ResolvingRestrictionKind } from "./diagnostics.ts";
 import type { DiscardParams, FnDeclKind, ImplTraitContext, RelaxedBoundPolicy } from "./lib.ts";
 import { enabled_names, gate_unstable_abi } from "./stability.ts";
 
-/**
- * PORT(decls): pending root. `DelegationResults` (delegation/mod.rs:67, lane lower-delegation) is an `unknown`
- * alias; this is its field list (`body_id`, `sig`, `ident`, `generics`).
- */
-interface DelegationResultsView {
-  body_id: hir.BodyId;
-  sig: hir.FnSig;
-  ident: Ident;
-  generics: hir.Generics;
-}
-
-function delegation_results(r: DelegationResults): DelegationResultsView {
-  return r as DelegationResultsView;
-}
 
 /// When we have a ty alias we *may* have two where clauses. To give the best diagnostics, we set
 /// the span to the where clause that is preferred, if it exists. Otherwise, it sets the span to
@@ -490,7 +473,7 @@ LoweringContext.prototype.lower_item_kind = function (
     }
     case "Delegation": {
       const delegation = i._0;
-      const delegation_results_ = delegation_results(this.lower_delegation(delegation));
+      const delegation_results_ = this.lower_delegation(delegation);
       return {
         $: "Fn",
         sig: delegation_results_.sig,
@@ -825,7 +808,7 @@ LoweringContext.prototype.lower_trait_item = function (this: LoweringContext, i:
     [ident, generics, kind, has_value] = [ident_, generics__, kind_, ty !== undefined];
   } else if (ik.$ === "Delegation") {
     const delegation = ik._0;
-    const delegation_results_ = delegation_results(this.lower_delegation(delegation));
+    const delegation_results_ = this.lower_delegation(delegation);
     const item_kind: hir.TraitItemKind = {
       $: "Fn",
       _0: delegation_results_.sig,
@@ -986,7 +969,7 @@ LoweringContext.prototype.lower_impl_item = function (this: LoweringContext, i: 
     }
     case "Delegation": {
       const delegation = ik._0;
-      const delegation_results_ = delegation_results(this.lower_delegation(delegation));
+      const delegation_results_ = this.lower_delegation(delegation);
       [ident, generics, kind] = [
         delegation.ident,
         delegation_results_.generics,

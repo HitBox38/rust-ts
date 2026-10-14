@@ -11,7 +11,6 @@ import {
   GenericArg as AstGenericArg,
   type PathSegment as AstPathSegment,
 } from "../../rustc_ast/lib.ts";
-import type { Diagnostic } from "../../rustc_errors/lib.ts";
 import { DefKind, debug_DefKind, Res } from "../../rustc_hir/def.ts";
 import * as hir from "../../rustc_hir/lib.ts";
 import { type HirId, HirId_INVALID } from "../../rustc_hir_id/lib.ts";
@@ -22,148 +21,38 @@ import type { EarlyBinder } from "../../rustc_type_ir/binder.gen.ts";
 import { type DefId, LocalDefId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
-import { Ident, kw, sym, type Symbol } from "../../rustc_span/symbol.ts";
+import { Ident, kw, sym } from "../../rustc_span/symbol.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { assert_matches, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { replace_in_place } from "../../std/mut_ref.ts";
 import { slice_from, slice_to } from "../../std/slice.ts";
 import { DelegationResolver, LoweringContext } from "../decls.ts";
+import * as diagnostics from "../diagnostics.ts";
 
-// ---- Types of this file ----
-// PORT(gen): stand-ins for delegation/generics.gen.ts. Codegen set rustc_ast_lowering (root; see
-// docs/handoff/lowering-contract.md "For root" 3) is not committed yet; these are the shapes a scratch run of that
-// set generates (generics.rs:22..295, Debug fns left to the generator). Replace this block with
-// `export * from "./generics.gen.ts"` once it exists (the `interface X` method merges below then become
-// `declare module "./generics.gen.ts" { interface X .. }`).
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:22 GenericsPosition
-export type GenericsPosition = "Parent" | "Child";
-export const GenericsPosition = { Parent: "Parent", Child: "Child" } as const;
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:28 GenericArgSlot
-export type GenericArgSlot<T> =
-  | { readonly $: "UserSpecified" }
-  | { readonly $: "Generate"; _0: T; _1: number | undefined /* Infer arg index from AST */ };
-/** Unit variants of `GenericArgSlot`, shared frozen singletons. */
-export const GenericArgSlot = {
-  UserSpecified: Object.freeze({ $: "UserSpecified" as const }),
-};
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:34 DelegationGenerics
-export class DelegationGenerics<T> {
-  constructor(
-    public data: T,
-    public pos: GenericsPosition,
-    public trait_impl: boolean,
-    public has_implicit_self: boolean,
-  ) {}
-}
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:41 TyGenerics
-export type TyGenerics = GenericArgSlot<GenericParamDef>[];
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:70 HirOrTyGenerics
-/// Used for storing either ty generics or their uplifted HIR version. First we obtain
-/// ty generics. Next, at some point of generics processing we need to uplift those
-/// generics to HIR, for this purpose we use `into_hir_generics` that uplifts ty generics
-/// and replaces Ty variant with Hir. Such approach is useful as we can call this method
-/// at any time knowing that uplifting will occur at most only once. Then, in order to obtain generic
-/// params or args we use `hir_generics_or_empty` or `into_generic_args` functions.
-/// There also may be situations when we obtained ty generics but never uplifted them to HIR,
-/// meaning we did not propagate them and thus we do not need to generate generic params
-/// (i.e., method call scenarios), in such a case this approach helps
-/// a lot as if `into_hir_generics` will not be called then uplifting will not happen.
-export type HirOrTyGenerics =
-  | { readonly $: "Ty"; _0: DelegationGenerics<TyGenerics> }
-  | { readonly $: "Hir"; _0: DelegationGenerics<hir.Generics> };
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:76 GenericsGenerationResult
-export class GenericsGenerationResult {
-  constructor(
-    public generics: HirOrTyGenerics,
-    public args_segment_id: HirId,
-    public use_for_sig_inheritance: boolean,
-  ) {}
-}
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:88 GenericsGenerationResults
-export class GenericsGenerationResults {
-  constructor(
-    public parent: GenericsGenerationResult,
-    public child: GenericsGenerationResult,
-    public self_ty_propagation_kind: hir.DelegationSelfTyPropagationKind | undefined,
-  ) {}
-}
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:95 DelegationGenericArgsIterator
-export class DelegationGenericArgsIterator {
-  constructor(
-    public index: number,
-    public params: readonly hir.GenericParam[],
-    public has_implicit_self: boolean,
-  ) {}
-}
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:259 ParentSegmentArgs
-export type ParentSegmentArgs =
-  /// Parent segment is valid and generic args are specified:
-  /// `reuse Trait::<'static, ()>::foo;`.
-  | { readonly $: "Specified"; _0: AngleBracketedArgs }
-  /// Parent segment is valid and args are not specified:
-  /// `reuse Trait::foo;`.
-  | { readonly $: "NotSpecified" }
-  /// Parent segment does not exist (`reuse foo`) or we can not
-  /// add generics to it:
-  /// ```rust
-  /// mod to_reuse {
-  ///     fn foo() {}
-  /// }
-  ///
-  /// // Can't add generic args to module.
-  /// reuse to_reuse::foo;
-  /// ```
-  | { readonly $: "Invalid" };
-/** Unit variants of `ParentSegmentArgs`, shared frozen singletons. */
-export const ParentSegmentArgs = {
-  NotSpecified: Object.freeze({ $: "NotSpecified" as const }),
-  Invalid: Object.freeze({ $: "Invalid" as const }),
-};
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/generics.rs:279 GenericsResolution
-export interface GenericsResolution {
-  trait_impl: boolean;
-  parent_args: ParentSegmentArgs;
-  child_args: AngleBracketedArgs | undefined;
-  sig_parent_params: readonly GenericParamDef[];
-  sig_child_params: readonly GenericParamDef[];
-  free_to_trait_delegation: boolean;
-  /// `reuse Trait::foo;`.
-  qself_is_none: boolean;
-  /// `reuse <_ as Trait>::foo;`.
-  qself_is_infer: boolean;
-  /// Whether we should generate `Self` generic param.
-  generate_free_to_trait_self: boolean;
-}
+// ---- Types of this file: generics.gen.ts (codegen set rustc_ast_lowering); methods attached below ----
+export * from "./generics.gen.ts";
+import {
+  DelegationGenericArgsIterator,
+  DelegationGenerics,
+  GenericArgSlot,
+  GenericsGenerationResult,
+  GenericsGenerationResults,
+  GenericsPosition,
+  type GenericsResolution,
+  ParentSegmentArgs,
+  type TyGenerics,
+} from "./generics.gen.ts";
+import type { HirOrTyGenerics as HirOrTyGenericsT } from "./generics.gen.ts";
+// PORT: the generated `HirOrTyGenerics` has no companion; its methods live on the hand companion below (PORTING §8),
+// which shadows the `export *` together with this type alias.
+export type HirOrTyGenerics = HirOrTyGenericsT;
 
 // ---- PORT(stand-in): upstream APIs this file calls that are not ported yet. Each stops as UNPORTED. ----
 /** `AdtDef::did` (rustc_middle ty/adt.rs; `AdtDef` is pending, lane ty-adt-assoc). */
 function AdtDef_did(_def: unknown): DefId {
   return unported("rustc_middle::ty::adt::AdtDef::did");
 }
-/** The `#[derive(Diagnostic)]` builders of ../diagnostics.rs this file uses. PORT(diag): see resolution.ts. */
-const diagnostics = {
-  DelegationInfersMismatch_diagnostic(_: { span: Span; actual: Symbol; expected: Symbol }): Diagnostic {
-    return unported("rustc_ast_lowering::diagnostics::DelegationInfersMismatch (diagnostics.gen.ts)");
-  },
-  DelegationToInherentImplMustContainParentGenerics_diagnostic(_: { span: Span }): Diagnostic {
-    return unported("rustc_ast_lowering::diagnostics::DelegationToInherentImplMustContainParentGenerics (diagnostics.gen.ts)");
-  },
-  DelegationToInherentImplParentContainsInfer_diagnostic(_: { span: Span }): Diagnostic {
-    return unported("rustc_ast_lowering::diagnostics::DelegationToInherentImplParentContainsInfer (diagnostics.gen.ts)");
-  },
-};
-
 // ---- impl DelegationGenerics<TyGenerics> ----
 // PORT: the associated fns `DelegationGenerics::generate_all` and `GenericsGenerationResult::new` (no `self`) are
 // module-level fns of this file (`generate_all`, `GenericsGenerationResult_new`): both types are private to the
@@ -184,8 +73,10 @@ function generate_all(
 }
 
 // ---- impl GenericsGenerationResult ----
-export interface GenericsGenerationResult {
-  segment_id_for_sig(): HirId | undefined;
+declare module "./generics.gen.ts" {
+  interface GenericsGenerationResult {
+    segment_id_for_sig(): HirId | undefined;
+  }
 }
 // rustc: compiler/rustc_ast_lowering/src/delegation/generics.rs:83 segment_id_for_sig
 GenericsGenerationResult.prototype.segment_id_for_sig = function (this: GenericsGenerationResult): HirId | undefined {
@@ -199,9 +90,11 @@ GenericsGenerationResult.prototype.segment_id_for_sig = function (this: Generics
 /// when replacing infers with generated generic params we should reuse existing
 /// `HirId` of replaced infer, thus this iterator abstracts the way `HirId`s are
 /// created for new generic args.
-export interface DelegationGenericArgsIterator {
-  next(ctx: LoweringContext, hir_id_factory: (this_: LoweringContext) => HirId): hir.GenericArg | undefined;
-  consume_all(ctx: LoweringContext): hir.GenericArg[];
+declare module "./generics.gen.ts" {
+  interface DelegationGenericArgsIterator {
+    next(ctx: LoweringContext, hir_id_factory: (this_: LoweringContext) => HirId): hir.GenericArg | undefined;
+    consume_all(ctx: LoweringContext): hir.GenericArg[];
+  }
 }
 // rustc: compiler/rustc_ast_lowering/src/delegation/generics.rs:108 next
 DelegationGenericArgsIterator.prototype.next = function (
@@ -624,9 +517,11 @@ DelegationResolver.create_slots_from_args = function (
 };
 
 // ---- impl GenericsGenerationResults ----
-export interface GenericsGenerationResults {
-  all_params(): Iterable<hir.GenericParam>;
-  all_predicates(): Iterable<hir.WherePredicate>;
+declare module "./generics.gen.ts" {
+  interface GenericsGenerationResults {
+    all_params(): Iterable<hir.GenericParam>;
+    all_predicates(): Iterable<hir.WherePredicate>;
+  }
 }
 // rustc: compiler/rustc_ast_lowering/src/delegation/generics.rs:593 all_params
 GenericsGenerationResults.prototype.all_params = function (this: GenericsGenerationResults): Iterable<hir.GenericParam> {

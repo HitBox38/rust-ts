@@ -16,7 +16,7 @@ import type { GenericParamDef } from "../../rustc_middle/ty/generics.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Attribute } from "../../rustc_attr_ir/lib.ts";
 import { Panic, Unported } from "../../std/panic.ts";
-import { DelegationResolver, HIR_ARENA, LoweringContext } from "../lib.ts";
+import { DelegationResolver, HIR_ARENA, LoweringContext, type PerOwnerLoweringState } from "../lib.ts";
 import {
   DelegationGenericArgsIterator,
   DelegationGenerics,
@@ -28,7 +28,7 @@ import {
   HirOrTyGenerics,
 } from "./generics.ts";
 import { SelfResolver } from "./mod.ts";
-import type { DelegationResolution, PerOwnerLoweringStateFields } from "./resolution.ts";
+import type { DelegationResolution } from "./resolution.ts";
 
 const OWNER = new OwnerId(LocalDefId.new(1));
 
@@ -88,7 +88,10 @@ const fake_tcx = (log: string[], extra: Record<string, unknown> = {}): TyCtxt =>
         log.push(`delayed_bug ${msg}`);
         return null;
       },
-      emit_err: () => null,
+      emit_err: () => {
+        log.push("emit_err");
+        return null;
+      },
     }),
     ...extra,
   }) as unknown as TyCtxt;
@@ -126,8 +129,9 @@ test("create_slots_from_args: `'_` for a type param reports DelegationInfersMism
       span: DUMMY_SP,
       args: [{ $: "Arg", _0: { $: "Lifetime", _0: { id: NodeId.from_u32(2), ident: Ident.with_dummy_span(kw.UnderscoreLifetime) } } }],
     };
-    // The diagnostic builder is a stand-in until diagnostics.gen.ts lands.
-    expect(() => DelegationResolver.create_slots_from_args(fake_tcx([]), args, [t], false)).toThrow(Unported);
+    const log: string[] = [];
+    DelegationResolver.create_slots_from_args(fake_tcx(log), args, [t], false);
+    expect(log).toEqual(["emit_err"]);
   });
 });
 
@@ -303,7 +307,7 @@ test("create_new_attrs / add_attrs_if_needed: #[inline] by default, #[must_use] 
     let sig_attrs: Attribute[] = [must_use];
     const tcx = fake_tcx([], { get_all_attrs: () => sig_attrs });
     const attrs = SortedMap.new<ItemLocalId, readonly Attribute[]>(ItemLocalId_cmp);
-    const ctx = fake_ctx([], { tcx, curr_owner: { attrs } satisfies Partial<PerOwnerLoweringStateFields> });
+    const ctx = fake_ctx([], { tcx, curr_owner: { attrs } satisfies Partial<PerOwnerLoweringState> });
     const sig_id = def_id(3);
 
     expect(ctx.create_new_attrs(DUMMY_SP, sig_id, undefined)).toEqual([

@@ -56,7 +56,7 @@ import { unwrap_result } from "../../std/result.ts";
 import { DelegationResolver, LoweringContext } from "../decls.ts";
 import type { AllowReturnTypeNotation, ImplTraitContext, ParamMode } from "../lib.ts";
 import { type GenericsGenerationResult, type GenericsGenerationResults, GenericsPosition, HirOrTyGenerics } from "./generics.ts";
-import { type DelegationResolution, fn_sig_skip_binders, type ParamInfo, type PerOwnerLoweringStateFields } from "./resolution.ts";
+import { type DelegationResolution, fn_sig_skip_binders, type ParamInfo } from "./resolution.ts";
 
 // mod attributes;
 import "./attributes.ts";
@@ -66,15 +66,10 @@ import "./generics.ts";
 export * as resolution from "./resolution.ts";
 
 // ---- Types of this file ----
-// PORT(gen): stand-in for delegation/mod.gen.ts (codegen set rustc_ast_lowering is not committed yet; this is the
-// shape a scratch run of that set generates). Replace with `export * from "./mod.gen.ts"` once it exists.
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/mod.rs:67 DelegationResults
-export interface DelegationResults {
-  body_id: hir.BodyId;
-  sig: hir.FnSig;
-  ident: Ident;
-  generics: hir.Generics;
-}
+// `DelegationResults` (mod.rs:67): mod.gen.ts. `SelfResolver` (mod.rs:625) is a hand class below (it extends the ast
+// `Visitor`; a `hand` entry of the codegen set).
+export * from "./mod.gen.ts";
+import type { DelegationResults } from "./mod.gen.ts";
 
 // ---- PORT(stand-in): upstream values this file reads whose types are not ported yet. ----
 /** `rustc_middle::ty::Asyncness` (rustc_middle ty/mod.rs; a fieldless enum, PORTING §5): the `asyncness` query
@@ -151,7 +146,7 @@ LoweringContext.prototype.lower_delegation_decl = function (
       id = source._0;
       break;
     case "Glob":
-      id = this.tcx.expn_that_defined((this.curr_owner as PerOwnerLoweringStateFields).owner.def_id).expect_local();
+      id = this.tcx.expn_that_defined(this.curr_owner.owner.def_id).expect_local();
       break;
   }
   const output = this.arena.alloc(
@@ -321,7 +316,7 @@ LoweringContext.prototype.lower_block_maybe_more_than_once = function (
   const overwrites = self_resolver.overwrites;
 
   // Target expr needs to lower `self` path.
-  (this.curr_owner as PerOwnerLoweringStateFields).ident_and_label_to_local_id.set(pat_node_id, param_local_id);
+  this.curr_owner.ident_and_label_to_local_id.set(pat_node_id, param_local_id);
 
   // PORT: `cfg_select! { debug_assertions => ReloweringChecker::allow_relowering(..), _ => .. }`: the oracle is a
   // release build without debug_assertions (root decision, merge-w13), so the `_` arm.

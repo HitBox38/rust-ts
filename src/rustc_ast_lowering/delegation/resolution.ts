@@ -5,19 +5,14 @@
 // Init order: top-level code here may touch only `../decls.ts`, this file's `.gen.ts` and other crates;
 // every other rustc_ast_lowering export (lib.ts, ...) is read inside function bodies only.
 import type { ExternAbi } from "../../rustc_abi/extern_abi.ts";
-import { type Block, type Delegation, type DelegationSource, type NodeId, visit } from "../../rustc_ast/lib.ts";
+import { type Block, type Delegation, type NodeId, visit } from "../../rustc_ast/lib.ts";
 import { ControlFlow, VisitorResult } from "../../rustc_ast_ir/visit.ts";
-import type { Attribute } from "../../rustc_attr_ir/lib.ts";
-import type { SortedMap } from "../../rustc_data_structures/sorted_map.ts";
 import type { Steal } from "../../rustc_data_structures/steal.ts";
-import type { Diagnostic } from "../../rustc_errors/lib.ts";
 import { DefKind, DefKind_eq, Res } from "../../rustc_hir/def.ts";
 import type { Safety } from "../../rustc_hir/lib.ts";
-import type { ItemLocalId } from "../../rustc_hir_id/lib.ts";
 import type {
   AstOwner,
   DelegationInherentFnKind,
-  PerOwnerResolverData,
   ResolverAstLowering,
   TypeRelativeDelegationRes,
 } from "../../rustc_middle/middle/resolve.ts";
@@ -35,52 +30,12 @@ import { PLAIN } from "../../std/fmt.ts";
 import { unported, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { DelegationResolver, type LoweringContext } from "../decls.ts";
+import * as diagnostics from "../diagnostics.ts";
 import type { GenericsGenerationResults } from "./generics.ts";
 
-// ---- Types of this file ----
-// PORT(gen): stand-ins for delegation/resolution.gen.ts. Codegen set rustc_ast_lowering (root; see
-// docs/handoff/lowering-contract.md "For root" 3) is not committed yet; these are the shapes a scratch run of that
-// set generates (ParamInfo/SigMapping/DelegationResolution, resolution.rs:144/156/161). Replace this block with
-// `export * from "./resolution.gen.ts"` once it exists.
-
-/// Summary info about function parameters.
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/resolution.rs:144 ParamInfo
-export interface ParamInfo {
-  /// The number of function parameters, including any C variadic `...` parameter.
-  param_count: number;
-  /// Whether the function arguments end in a C variadic `...` parameter.
-  c_variadic: boolean;
-  /// The index of the splatted parameter, if any.
-  splatted: number | undefined;
-}
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/resolution.rs:156 SigMapping
-export interface SigMapping {
-  map_return: boolean;
-  /** PORT: `FxIndexSet<usize>`: a JS `Set` (insertion order). */
-  arguments_to_map: Set<number>;
-}
-
-// rustc-type: compiler/rustc_ast_lowering/src/delegation/resolution.rs:161 DelegationResolution
-export interface DelegationResolution {
-  sig_id: DefId;
-  is_method: boolean;
-  param_info: ParamInfo;
-  span: Span;
-  call_path_res: DefId;
-  source: DelegationSource;
-  parent: LocalDefId;
-  sig_mapping: SigMapping;
-}
-
-// ---- PORT(decls): pending root. lib.ts's `PerOwnerLoweringState` (lib.rs:155) is `unknown` until lib.gen.ts
-// exists; these are the fields the delegation files read, typed as the scratch codegen run generates them. ----
-/** @internal the `PerOwnerLoweringState` fields used by delegation/*.ts */
-export interface PerOwnerLoweringStateFields {
-  owner: PerOwnerResolverData;
-  ident_and_label_to_local_id: Map<NodeId, ItemLocalId>;
-  attrs: SortedMap<ItemLocalId, readonly Attribute[]>;
-}
+// ---- Types of this file: resolution.gen.ts (codegen set rustc_ast_lowering) ----
+export * from "./resolution.gen.ts";
+import type { DelegationResolution, ParamInfo, SigMapping } from "./resolution.gen.ts";
 
 // ---- PORT(stand-in): upstream APIs this file calls that are not ported yet. Each stops as UNPORTED; replace the
 // call sites with the real API when it lands. ----
@@ -112,29 +67,6 @@ function AssocItems_filter_by_name_unhygienic(_self: AssocItems, _name: unknown)
 function Ty_super_visit_with<R>(_t: Ty, _visitor: TypeVisitor<R>): R {
   return unported("rustc_middle::ty::Ty: TypeSuperVisitable::super_visit_with (structural_impls.rs:420)");
 }
-/** The `#[derive(Diagnostic)]` builders of ../diagnostics.rs this file uses. PORT(diag): diagnostics.gen.ts (codegen
- *  set rustc_ast_lowering, lane lower-index-diag / root) is not committed yet; replace with
- *  `import * as diagnostics from "../diagnostics.ts"` once it exports the generated `<Name>_diagnostic` fns. */
-const diagnostics = {
-  AmbiguousDelegationToInherentImpl_diagnostic(_: { span: Span }): Diagnostic {
-    return unported("rustc_ast_lowering::diagnostics::AmbiguousDelegationToInherentImpl (diagnostics.gen.ts)");
-  },
-  CycleInDelegationSignatureResolution_diagnostic(_: { span: Span }): Diagnostic {
-    return unported("rustc_ast_lowering::diagnostics::CycleInDelegationSignatureResolution (diagnostics.gen.ts)");
-  },
-  DelegationAttemptedBlockWithDefsDeletion_diagnostic(_: { span: Span }): Diagnostic {
-    return unported("rustc_ast_lowering::diagnostics::DelegationAttemptedBlockWithDefsDeletion (diagnostics.gen.ts)");
-  },
-  DelegationAttemptedBlockWithDefsRelowering_diagnostic(_: { span: Span }): Diagnostic {
-    return unported("rustc_ast_lowering::diagnostics::DelegationAttemptedBlockWithDefsRelowering (diagnostics.gen.ts)");
-  },
-  DelegationBlockSpecifiedWhenNoParams_diagnostic(_: { span: Span }): Diagnostic {
-    return unported("rustc_ast_lowering::diagnostics::DelegationBlockSpecifiedWhenNoParams (diagnostics.gen.ts)");
-  },
-  UnresolvedDelegationCallee_diagnostic(_: { span: Span }): Diagnostic {
-    return unported("rustc_ast_lowering::diagnostics::UnresolvedDelegationCallee (diagnostics.gen.ts)");
-  },
-};
 
 /// Simple (hack or heuristic) resolution of some delegations to inherent impls
 /// while correct resolution through `ProbeContext` is not available
@@ -273,7 +205,7 @@ DelegationResolver.prototype.tcx = function (this: DelegationResolver): TyCtxt {
 
 // rustc: compiler/rustc_ast_lowering/src/delegation/resolution.rs:196 owner_id
 DelegationResolver.prototype.owner_id = function (this: DelegationResolver): LocalDefId {
-  return (this._0.curr_owner as PerOwnerLoweringStateFields).owner.def_id;
+  return this._0.curr_owner.owner.def_id;
 };
 
 /// (from `tests\ui\delegation\target-expr-removal-defs-inside.rs`):
@@ -290,7 +222,7 @@ DelegationResolver.prototype.owner_id = function (this: DelegationResolver): Loc
 /// both have `LocalDefId`, so we check those two maps.
 // rustc: compiler/rustc_ast_lowering/src/delegation/resolution.rs:213 is_definition
 DelegationResolver.prototype.is_definition = function (this: DelegationResolver, id: NodeId): boolean {
-  return this._0.resolver.owners.has(id) || (this._0.curr_owner as PerOwnerLoweringStateFields).owner.node_id_to_def_id.has(id);
+  return this._0.resolver.owners.has(id) || this._0.curr_owner.owner.node_id_to_def_id.has(id);
 };
 
 // rustc: compiler/rustc_ast_lowering/src/delegation/resolution.rs:219 get_resolution_id

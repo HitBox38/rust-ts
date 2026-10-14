@@ -9,19 +9,19 @@ import { ItemLocalId } from "../../rustc_hir_id/lib.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import { LoweringContext } from "../decls.ts";
-import type { DelegationResolution, PerOwnerLoweringStateFields } from "./resolution.ts";
+import type { DelegationResolution } from "./resolution.ts";
 
 // ---- Types of this file ----
-// PORT(gen): codegen set rustc_ast_lowering generates these with `unknown` fn-pointer fields; the hand types below
-// give the fn pointers their signatures. Keep them hand-written (list them under `hand` in the set).
+// PORT: codegen set rustc_ast_lowering would generate these with `unknown` fn-pointer fields; the hand types below
+// give the fn pointers their signatures (`hand` entries of the set; attributes.gen.ts re-exports them).
 // rustc-type: compiler/rustc_ast_lowering/src/delegation/attributes.rs:9 AdditionInfo
-interface AdditionInfo {
+export interface AdditionInfo {
   equals: (a: Attribute) => boolean;
   kind: AdditionKind;
 }
 
 // rustc-type: compiler/rustc_ast_lowering/src/delegation/attributes.rs:14 AdditionKind
-type AdditionKind =
+export type AdditionKind =
   | { readonly $: "Default"; factory: (span: Span) => Attribute }
   | { readonly $: "Inherit"; factory: (span: Span, original_attr: Attribute) => Attribute };
 
@@ -51,7 +51,7 @@ LoweringContext.prototype.add_attrs_if_needed = function (this: LoweringContext,
   const { span, sig_id } = resolution;
 
   const PARENT_ID: ItemLocalId = ItemLocalId.ZERO;
-  const curr_owner = this.curr_owner as PerOwnerLoweringStateFields;
+  const curr_owner = this.curr_owner;
   const new_attrs = this.create_new_attrs(span, sig_id, curr_owner.attrs.get(PARENT_ID));
 
   if (new_attrs.length !== 0) {
