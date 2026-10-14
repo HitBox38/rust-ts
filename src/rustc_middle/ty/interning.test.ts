@@ -132,11 +132,14 @@ describe("Ty", () => {
     expect(tcx.types.bool.outer_exclusive_binder()).toBe(INNERMOST);
   });
 
-  test("an unported FlagComputation makes interning UNPORTED (no guessed flags)", () => {
+  // Lane tyir-kind ported `FlagComputation::for_kind`: this used to pin it as UNPORTED; it now pins the real flags.
+  test("the real FlagComputation computes the flags while interning", () => {
     const tcx = mk_tcx();
     spies[0]!.mockRestore();
     try {
-      expect(() => tcx.mk_ty_from_kind({ $: "Never" })).toThrow(Unported);
+      const never = tcx.mk_ty_from_kind({ $: "Never" });
+      expect(never.flags()).toBe(TypeFlags_empty);
+      expect(never.outer_exclusive_binder()).toBe(INNERMOST);
     } finally {
       spies[0] = spyOn(FlagComputation, "for_kind").mockImplementation(() => FlagComputation.new());
     }
