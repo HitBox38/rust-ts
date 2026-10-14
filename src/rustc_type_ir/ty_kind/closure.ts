@@ -4,10 +4,8 @@
 // `FoldEscapingRegions`, skipped by codegen), in upstream order.
 // PORT (D3): `I: Interner` is erased; `cx: I` is `TyCtxt`. The inherent methods of the generated structs live on a
 // same-named companion const taking `self` first (`ClosureArgs.kind(args)`).
-// PORT: fns of other rustc_type_ir files that are not ported yet are module-local stand-ins at the end of this file:
-// the one-line `Binder` super-traversals (binder.rs, lane tyir-binder) do what upstream does; `shift_region`
-// (fold.rs), `TypeVisitableExt::has_vars_bound_at_or_above` (visit.rs), `TypeSuperFoldable for Ty` (rustc_middle
-// structural_impls.rs) and `DelayedMap` (data_structures/delayed_map.rs) call `unported`.
+// PORT: `DelayedMap` (data_structures/delayed_map.rs, not ported yet) is a module-local stand-in at the end of this
+// file that calls `unported`; `Ty`'s traversal impls (rustc_middle structural_impls.rs) are fold.ts's `standin_fold_Ty`.
 import { type ControlFlow, ControlFlow as ControlFlowC, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { GenericArg, type GenericArgsSlice, type Tys } from "../../rustc_middle/ty/generic_args.ts";
@@ -17,12 +15,12 @@ import type { DefId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
 import { assert, panic, unported, unwrap } from "../../std/panic.ts";
-import type { Binder } from "../binder.ts";
-import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../fold.ts";
+import { Binder, visit_Binder, fold_Binder } from "../binder.ts";
+import { type PredicateProxy, shift_region, standin_fold_Ty, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../fold.ts";
 import { type ClosureKind, type DebruijnIndex, INNERMOST } from "../lib.ts";
 import type { Const, Region } from "../sty/mod.ts";
-import { Binder_map_bound, Binder_skip_binder, DebruijnIndex_shifted_in, DebruijnIndex_shifted_out, debug_TyKind, FnSigTys, PolyFnSigTys, type FnSig } from "../ty_kind.ts";
-import { type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "../visit.ts";
+import { DebruijnIndex_shifted_in, DebruijnIndex_shifted_out, debug_TyKind, FnSigTys, PolyFnSigTys, type FnSig } from "../ty_kind.ts";
+import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "../visit.ts";
 import * as gen from "./closure.gen.ts";
 import { visit_with_FnSigTys } from "../ty_kind.ts";
 
@@ -192,7 +190,7 @@ export const CoroutineClosureArgs = {
     if (k.$ !== "FnPtr") return panic("explicit panic");
     const sig_tys = k._0;
     const hdr = k._1;
-    return Binder_map_bound(sig_tys, (sig_tys) => {
+    return Binder.map_bound(sig_tys, (sig_tys) => {
       const inputs = FnSigTys.inputs(sig_tys);
       if (inputs.length !== 2) {
         return panic("explicit panic");
@@ -224,7 +222,7 @@ export const CoroutineClosureArgs = {
     switch (k.$) {
       case "FnPtr": {
         const sig_tys = k._0;
-        return visit_with_FnSigTys(Binder_skip_binder(sig_tys), new HasRegionsBoundAt(INNERMOST)).$ === "Break";
+        return visit_with_FnSigTys(Binder.skip_binder(sig_tys), new HasRegionsBoundAt(INNERMOST)).$ === "Break";
       }
       case "Error":
         return true;
@@ -248,7 +246,7 @@ class HasRegionsBoundAt implements TypeVisitor<ControlFlow<null>> {
   // rustc: compiler/rustc_type_ir/src/ty_kind/closure.rs:339 visit_binder
   visit_binder<T>(t: Binder<T>, d: TypeVisitable<T>): ControlFlow<null> {
     this.binder = DebruijnIndex_shifted_in(this.binder, 1);
-    const r = Binder_super_visit_with(t, this, d);
+    const r = visit_Binder(d).super_visit_with(t, this);
     if (r.$ === "Break") return r;
     this.binder = DebruijnIndex_shifted_out(this.binder, 1);
     return ControlFlowC.CONTINUE;
@@ -389,7 +387,7 @@ export const CoroutineClosureSignature = {
         }
         const sig_tys = k._0;
         const coroutine_captures_by_ref_ty_ = fold_with_Ty(
-          Binder_skip_binder(PolyFnSigTys.output(sig_tys)),
+          Binder.skip_binder(PolyFnSigTys.output(sig_tys)),
           new FoldEscapingRegions(cx, INNERMOST, env_region, DelayedMap_default()),
         );
         return Ty.new_tup_from_iter(cx, [...tupled_inputs_ty.tuple_fields(), ...coroutine_captures_by_ref_ty_.tuple_fields()]);
@@ -424,14 +422,14 @@ class FoldEscapingRegions implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/ty_kind/closure.rs:515 fold_ty
   fold_ty(t: Ty): Ty {
-    if (!Ty_has_vars_bound_at_or_above(t, this.debruijn)) {
+    if (!TypeVisitableExt.has_vars_bound_at_or_above(t, this.debruijn, standin_fold_Ty)) {
       return t;
     } else {
       const t_ = this.cache.get([this.debruijn, t]);
       if (t_ !== undefined) {
         return t_;
       } else {
-        const res = Ty_super_fold_with(t, this);
+        const res = standin_fold_Ty.super_fold_with(t, this);
         assert(this.cache.insert([this.debruijn, t], res), "assertion failed: self.cache.insert((self.debruijn, t), res)");
         return res;
       }
@@ -441,7 +439,7 @@ class FoldEscapingRegions implements TypeFolder {
   // rustc: compiler/rustc_type_ir/src/ty_kind/closure.rs:527 fold_binder
   fold_binder<T>(t: Binder<T>, d: TypeFoldable<T>): Binder<T> {
     this.debruijn = DebruijnIndex_shifted_in(this.debruijn, 1);
-    const result = Binder_super_fold_with(t, this, d);
+    const result = fold_Binder(d).super_fold_with(t, this);
     this.debruijn = DebruijnIndex_shifted_out(this.debruijn, 1);
     return result;
   }
@@ -566,34 +564,6 @@ export const CoroutineArgs = {
 };
 
 // ---- PORT stand-ins for fns of other files that are not ported yet (module header) -----------------------------------
-
-/** PORT: stand-in for `impl TypeSuperVisitable for Binder` (binder.rs, lane tyir-binder):
- *  `self.as_ref().skip_binder().visit_with(visitor)`. */
-function Binder_super_visit_with<T, R>(self: Binder<T>, visitor: TypeVisitor<R>, d: TypeVisitable<T>): R {
-  return d.visit_with(Binder_skip_binder(self), visitor);
-}
-
-/** PORT: stand-in for `impl TypeSuperFoldable for Binder` (binder.rs, lane tyir-binder):
- *  `self.map_bound(|t| t.fold_with(folder))`. */
-function Binder_super_fold_with<T>(self: Binder<T>, folder: TypeFolder, d: TypeFoldable<T>): Binder<T> {
-  return Binder_map_bound(self, (t) => d.fold_with(t, folder));
-}
-
-/** PORT: stand-in for `TypeVisitableExt::has_vars_bound_at_or_above` on `Ty` (visit.rs, lane tyir-binder). */
-function Ty_has_vars_bound_at_or_above(_t: Ty, _binder: DebruijnIndex): boolean {
-  return unported("rustc_type_ir::visit::TypeVisitableExt::has_vars_bound_at_or_above");
-}
-
-/** PORT: stand-in for `impl TypeSuperFoldable for Ty` (rustc_middle ty/structural_impls.rs). */
-function Ty_super_fold_with(_t: Ty, _folder: TypeFolder): Ty {
-  return unported("rustc_middle::ty::structural_impls: TypeSuperFoldable::super_fold_with for Ty");
-}
-
-/** PORT: stand-in for `rustc_type_ir::fold::shift_region` (fold.rs, lane tyir-binder); `amount` is
- *  `self.debruijn.as_u32()`. */
-function shift_region(_cx: TyCtxt, _region: Region, _amount: number): Region {
-  return unported("rustc_type_ir::fold::shift_region");
-}
 
 /** PORT: stand-in for `rustc_type_ir::data_structures::DelayedMap` (data_structures/delayed_map.rs, not ported). */
 interface DelayedMap<K, V> {
