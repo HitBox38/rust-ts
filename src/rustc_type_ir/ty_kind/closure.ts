@@ -4,8 +4,7 @@
 // `FoldEscapingRegions`, skipped by codegen), in upstream order.
 // PORT (D3): `I: Interner` is erased; `cx: I` is `TyCtxt`. The inherent methods of the generated structs live on a
 // same-named companion const taking `self` first (`ClosureArgs.kind(args)`).
-// PORT: `DelayedMap` (data_structures/delayed_map.rs, not ported yet) is a module-local stand-in at the end of this
-// file that calls `unported`; `Ty`'s traversal impls (rustc_middle structural_impls.rs) are fold.ts's `standin_fold_Ty`.
+// PORT: `Ty`'s traversal impls (rustc_middle structural_impls.rs, not ported yet) are fold.ts's `standin_fold_Ty`.
 import { type ControlFlow, ControlFlow as ControlFlowC, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { GenericArg, type GenericArgsSlice, type Tys } from "../../rustc_middle/ty/generic_args.ts";
@@ -14,7 +13,8 @@ import { fold_with_Ty, Ty } from "../../rustc_middle/ty/mod.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed } from "../../rustc_span/lib.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { assert, panic, unported, unwrap } from "../../std/panic.ts";
+import { assert, panic, unwrap } from "../../std/panic.ts";
+import { DelayedMap } from "../data_structures/delayed_map.ts";
 import { Binder, visit_Binder, fold_Binder } from "../binder.ts";
 import { type PredicateProxy, shift_region, standin_fold_Ty, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../fold.ts";
 import { type ClosureKind, type DebruijnIndex, INNERMOST } from "../lib.ts";
@@ -388,7 +388,7 @@ export const CoroutineClosureSignature = {
         const sig_tys = k._0;
         const coroutine_captures_by_ref_ty_ = fold_with_Ty(
           Binder.skip_binder(PolyFnSigTys.output(sig_tys)),
-          new FoldEscapingRegions(cx, INNERMOST, env_region, DelayedMap_default()),
+          new FoldEscapingRegions(cx, INNERMOST, env_region, DelayedMap.default(([d, t]) => `${d}#${t.id}`)),
         );
         return Ty.new_tup_from_iter(cx, [...tupled_inputs_ty.tuple_fields(), ...coroutine_captures_by_ref_ty_.tuple_fields()]);
       }
@@ -562,17 +562,3 @@ export const CoroutineArgs = {
     return { resume_ty: parts.resume_ty, yield_ty: parts.yield_ty, return_ty: parts.return_ty };
   },
 };
-
-// ---- PORT stand-ins for fns of other files that are not ported yet (module header) -----------------------------------
-
-/** PORT: stand-in for `rustc_type_ir::data_structures::DelayedMap` (data_structures/delayed_map.rs, not ported). */
-interface DelayedMap<K, V> {
-  get(key: K): V | undefined;
-  insert(key: K, value: V): boolean;
-}
-function DelayedMap_default<K, V>(): DelayedMap<K, V> {
-  return {
-    get: () => unported("rustc_type_ir::data_structures::DelayedMap::get"),
-    insert: () => unported("rustc_type_ir::data_structures::DelayedMap::insert"),
-  };
-}

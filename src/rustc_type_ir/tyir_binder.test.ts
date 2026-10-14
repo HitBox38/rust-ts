@@ -1,7 +1,7 @@
 // Lane tyir-binder: binder.rs (Binder, EarlyBinder, ArgFolder / instantiate, the iterators, the manual Debug impls),
 // fold.rs (container impls, Shifter / shift_vars, RegionFolder / fold_regions, the rigidness folders), visit.rs
-// (TypeVisitableExt, HasTypeFlags / HasEscapingVars / HasError visitors), walk.rs (TypeWalker) and generic_visit.rs,
-// on interned types.
+// (TypeVisitableExt, HasTypeFlags / HasEscapingVars / HasError visitors), walk.rs (TypeWalker), generic_visit.rs and
+// rustc_middle ty/fold.rs (BoundVarReplacer, BottomUpFolder), on interned types.
 //
 // The expectations follow upstream semantics (De Bruijn shifting, instantiation, flag queries, pre-order walk with
 // dedup); the Debug strings are the `write!` formats of binder.rs's manual impls.
@@ -67,6 +67,7 @@ import type { FnSigTys, TyKind } from "./ty_kind.ts";
 import { FnHeader } from "./ty_kind.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided, visit_with_Option, visit_with_Vec } from "./visit.ts";
 import { TypeWalker } from "./walk.ts";
+import { BottomUpFolder } from "../rustc_middle/ty/fold.ts";
 
 // ---- mocks (see the module comment) --------------------------------------------------------------------------------
 
@@ -620,3 +621,55 @@ describe("generic_visit", () => {
   });
 });
 
+
+// ---- rustc_middle ty/fold.rs (BoundVarReplacer) ----------------------------------------------------------------------
+
+describe("rustc_middle ty/fold.rs: BoundVarReplacer", () => {
+  const { u8, i8 } = tcx.types;
+  const st = tcx.lifetimes.re_static;
+  const er = tcx.lifetimes.re_erased;
+
+  test("instantiate_bound_regions calls the closure once per bound region and keeps inner binders", () => {
+    const calls: number[] = [];
+    const fld_r = (br: BoundRegion) => {
+      calls.push(br.var);
+      return br.var === 0 ? st : er;
+    };
+    const value = no_vars(tup(ref(bound_re(0, 0), u8), ref(bound_re(0, 1), i8), ref(bound_re(0, 0), i8)));
+    const [out, map] = tcx.instantiate_bound_regions(value, fld_r, fold_Ty);
+    expect(out).toBe(tup(ref(st, u8), ref(er, i8), ref(st, i8)));
+    expect(calls).toEqual([0, 1]);
+    expect([...map.values()]).toEqual([st, er]);
+    // Inside a fn pointer's binder the outer var is `'^1` and the fn's own `'^0` stays bound.
+    const sig = (a: Region, b: Region) =>
+      tcx.mk_ty_from_kind({ $: "FnPtr", _0: no_vars({ inputs_and_output: tcx.mk_type_list([ref(a, u8), ref(b, u8)]) }), _1: FnHeader.dummy() });
+    expect(tcx.instantiate_bound_regions_with_erased(no_vars(sig(bound_re(1, 0), bound_re(0, 0))), fold_Ty)).toBe(sig(er, bound_re(0, 0)));
+    // Nothing escapes: the value itself.
+    expect(tcx.instantiate_bound_regions_uncached(no_vars(u8), () => st, fold_Ty)).toBe(u8);
+    // A bound type is an ICE (`bug!`).
+    expect(() => tcx.instantiate_bound_regions_uncached(no_vars(bound_ty(0, 0)), () => st, fold_Ty)).toThrow();
+  });
+
+  test("anonymize_bound_vars renumbers vars in first-use order", () => {
+    const vars = tcx.mk_bound_variable_kinds([
+      { $: "Region", _0: { $: "Anon" } },
+      { $: "Ty", _0: { $: "Anon" } },
+    ]);
+    const b: Binder<Ty> = { value: tup(bound_ty(0, 1), ref(bound_re(0, 0), u8)), bound_vars: vars };
+    const out = tcx.anonymize_bound_vars(b, fold_Ty);
+    expect(out.value).toBe(tup(bound_ty(0, 0), ref(bound_re(0, 1), u8)));
+    expect([...out.bound_vars]).toEqual([
+      { $: "Ty", _0: { $: "Anon" } },
+      { $: "Region", _0: { $: "Anon" } },
+    ]);
+  });
+
+  test("shift_bound_var_indices adds to the var of every escaping bound var", () => {
+    expect(tcx.shift_bound_var_indices(2, tup(bound_ty(0, 0), ref(bound_re(0, 1), u8)), fold_Ty)).toBe(tup(bound_ty(0, 2), ref(bound_re(0, 3), u8)));
+  });
+
+  test("BottomUpFolder rebuilds bottom-up", () => {
+    const f = new BottomUpFolder(tcx, (t) => (t === u8 ? i8 : t), (r) => r, (c) => c);
+    expect(fold_Ty.fold_with(tup(u8, slice(u8)), f)).toBe(tup(i8, slice(i8)));
+  });
+});
