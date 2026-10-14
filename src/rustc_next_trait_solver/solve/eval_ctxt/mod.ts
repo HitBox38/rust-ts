@@ -585,6 +585,7 @@ EvalCtxt.enter_canonical = function <T>(
   const [delegate, input, var_values_] = D.build_with_canonical(cx, CanonicalInput_deref(canonical_input), fold_QueryInput_Predicate);
   const var_values = var_values_.var_values;
   for (const [key, ty] of input.predefined_opaques_in_body) {
+    // PORT(merge): ir_register_hidden_type_in_storage after infcx-contract
     const prev = delegate.deref().register_hidden_type_in_storage(key, ty, DUMMY_SP);
     // It may be possible that two entries in the opaque type storage end up
     // with the same key after resolving contained inference variables.
@@ -1621,6 +1622,7 @@ EvalCtxt.prototype.eager_resolve_region = function (this: EvalCtxt, r: Region): 
 
 // rustc: compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs:1413 fresh_args_for_item
 EvalCtxt.prototype.fresh_args_for_item = function (this: EvalCtxt, def_id: DefId): GenericArgs {
+  // PORT(merge): ir_fresh_args_for_item after infcx-contract
   const args = this.delegate.deref().fresh_args_for_item(def_id);
   for (const arg of args) {
     this.inspect.add_var_value(arg);
@@ -1630,6 +1632,7 @@ EvalCtxt.prototype.fresh_args_for_item = function (this: EvalCtxt, def_id: DefId
 
 // rustc: compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs:1421 register_solver_region_constraint
 EvalCtxt.prototype.register_solver_region_constraint = function (this: EvalCtxt, c: RegionConstraint): void {
+  // PORT(merge): ir_register_solver_region_constraint after infcx-contract
   this.delegate.deref().register_solver_region_constraint(c, this.origin_span);
 };
 
@@ -1641,6 +1644,7 @@ EvalCtxt.prototype.register_ty_outlives = function (this: EvalCtxt, ty: Ty, lt: 
 // rustc: compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs:1429 register_region_outlives
 EvalCtxt.prototype.register_region_outlives = function (this: EvalCtxt, a: Region, b: Region, vis: VisibleForLeakCheck): void {
   // `'a: 'b` ==> `'b <= 'a`
+  // PORT(merge): ir_sub_regions after infcx-contract
   this.delegate.deref().sub_regions(b, a, vis, this.origin_span);
 };
 
@@ -1680,6 +1684,7 @@ EvalCtxt.prototype.register_hidden_type_in_storage = function (
   opaque_type_key: OpaqueTypeKey,
   hidden_ty: Ty,
 ): Ty | undefined {
+  // PORT(merge): ir_register_hidden_type_in_storage after infcx-contract
   return this.delegate.deref().register_hidden_type_in_storage(opaque_type_key, hidden_ty, this.origin_span);
 };
 
@@ -1961,6 +1966,7 @@ EvalCtxt.prototype.compute_external_query_constraints = function (
   if (this.cx().assumptions_on_binders()) {
     let c: RegionConstraint;
     if (certainty.$ === "Yes") {
+      // PORT(merge): ir_get_solver_region_constraint after infcx-contract
       const constraint = this.delegate.deref().get_solver_region_constraint();
       c = constraint;
     } else {
@@ -2128,6 +2134,7 @@ export function filter_irrelevant_region_constraints(
             const vid = rk._0;
             // This is only safe if we call `eager_resolve_vars` before calling,
             // this function, which we do.
+            // PORT(merge): ir_universe_of_region after infcx-contract
             if (UniverseIndex.can_name(unwrap(delegate.deref().universe_of_region(vid)), max_universe(delegate.deref(), sup_re, fold_Region))) {
               return vis.vars.has(vid);
             }
