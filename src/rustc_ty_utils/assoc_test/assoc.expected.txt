@@ -1,0 +1,19 @@
+trait Tr: associated_item_def_ids = [C, T, by_ref, by_val, assoc_fn, provided]
+  rpitit = {by_ref: [0], by_val: [0], assoc_fn: [0], provided: [0]}
+  C: Const { name: C }, Trait, def_id matches: true
+  T: Type { data: Normal(T) }, Trait, def_id matches: true
+  by_ref: Fn { name: by_ref, has_self: true }, Trait, def_id matches: true
+  by_val: Fn { name: by_val, has_self: true }, Trait, def_id matches: true
+  assoc_fn: Fn { name: assoc_fn, has_self: false }, Trait, def_id matches: true
+  provided: Fn { name: provided, has_self: true }, Trait, def_id matches: true
+impl (trait): associated_item_def_ids = [C, T, by_ref, by_val, assoc_fn]
+  rpitit = {by_ref: [0], by_val: [0], assoc_fn: [0]}
+  C: Const { name: C }, TraitImpl(Ok(C)), def_id matches: true
+  T: Type { data: Normal(T) }, TraitImpl(Ok(T)), def_id matches: true
+  by_ref: Fn { name: by_ref, has_self: true }, TraitImpl(Ok(by_ref)), def_id matches: true
+  by_val: Fn { name: by_val, has_self: true }, TraitImpl(Ok(by_val)), def_id matches: true
+  assoc_fn: Fn { name: assoc_fn, has_self: false }, TraitImpl(Ok(assoc_fn)), def_id matches: true
+impl: associated_item_def_ids = [method, new]
+  rpitit = {}
+  method: Fn { name: method, has_self: true }, InherentImpl, def_id matches: true
+  new: Fn { name: new, has_self: false }, InherentImpl, def_id matches: true

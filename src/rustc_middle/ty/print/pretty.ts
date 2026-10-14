@@ -36,7 +36,7 @@ import { type AliasConst, type AliasTy, type BoundRegion, type ClauseKind, type 
 import { Elaboratable_Clause, elaborate } from "../../../rustc_type_ir/elaborate.ts";
 import { fold_with_trivial, try_fold_with_trivial, visit_with_trivial } from "../../../rustc_type_ir/macros.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
-import { type FallibleTypeFolder, fold_tuple2, fold_with_tuple2, type PredicateProxy, standin_fold_Ty, try_fold_with_tuple2, type TypeFoldable, type TypeFolder, TypeFolder_provided, visit_with_tuple2 } from "../../../rustc_type_ir/fold.ts";
+import { type FallibleTypeFolder, fold_tuple2, fold_with_tuple2, type PredicateProxy, try_fold_with_tuple2, type TypeFoldable, type TypeFolder, TypeFolder_provided, visit_with_tuple2 } from "../../../rustc_type_ir/fold.ts";
 import { BoundVar, ClosureKind, DebruijnIndex, debug_bound_var, debug_BoundVar, display_ClosureKind, type FieldInfo } from "../../../rustc_type_ir/lib.ts";
 import { as_interner, type BoundConstness, Clause_upcast_from_PolyTraitRef, type CoercePredicate, ExistentialProjection, ExistentialTraitRef, fold_with_ExistentialProjection, fold_with_ExistentialTraitRef, fold_with_TraitClause, PolyExistentialTraitRef, PolyProjectionClause, type SubtypePredicate, TraitClause, TraitRef, try_fold_with_ExistentialProjection, try_fold_with_ExistentialTraitRef, try_fold_with_TraitClause, visit_with_ExistentialProjection, visit_with_ExistentialTraitRef, visit_with_TraitClause } from "../../../rustc_type_ir/predicate.ts";
 import { Const, debug_Const, debug_Region, Region } from "../../../rustc_type_ir/sty/mod.ts";
@@ -53,7 +53,8 @@ import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../../.
 import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
 import { type Str, utf8_len } from "../../../std/str.ts";
 import { TyCtxt } from "../context.ts";
-import type { AdtDef, Allocation, AssocItem, BinOp, ConstAllocation, Expr, Instance, Pattern, Scalar, ScalarInt, ValTree, Value } from "../decls.ts";
+import type { AdtDef, Allocation, AssocItem, BinOp, ConstAllocation, Expr, Instance, Pattern, Scalar, ScalarInt, ValTree, Value, VariantIdx } from "../decls.ts";
+import type { TraitDef } from "../trait_def.ts";
 import { fold_GenericArgs, fold_with_Tys, GenericArg, type GenericArgs, try_fold_with_Tys, visit_with_Tys } from "../generic_args.ts";
 import type { Generics } from "../generics.ts";
 import type { Clauses, List } from "../list.ts";
@@ -74,6 +75,11 @@ import { with_ } from "../context/tls.ts";
 import type { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
 import type { ParamConst, ParamTy } from "../sty.ts";
 import { into_query_key_DefId, type IntoQueryKey } from "../../query/into_query_key.ts";
+import { fold_Ty } from "../structural_impls.ts";
+import { ConstInt, debug_ConstInt, lower_hex_ScalarInt as lower_hex_ScalarIntC, ScalarInt as ScalarIntC, ScalarInt_eq as ScalarInt_eqC, TargetDataLayout_pointer_size } from "../consts/int.ts";
+import { Expr as ExprC } from "../consts/kind.ts";
+import { debug_ValTree as debug_ValTreeC, ValTree as ValTreeC, type Value as ValueT, Value as ValueC } from "../consts/valtree.ts";
+import type { UserTypeKind } from "../typeck_results.ts";
 
 /** A `thread_local!` `Cell<T>` (PORTING §5 "Global state": module-level state; `get`/`set`/`replace` as `Cell`). */
 class TlCell<T> {
@@ -996,7 +1002,7 @@ export abstract class PrettyPrinter extends Printer {
       }
       case "Adt": {
         const [def, args] = [kind._0, kind._1];
-        const field_info = AdtDef_field_representing_type_info(def, this.tcx(), args);
+        const field_info = def.field_representing_type_info(this.tcx(), args);
         if (field_info !== undefined) {
           const { base, variant, name } = field_info;
           if (variant !== undefined) {
@@ -1005,7 +1011,7 @@ export abstract class PrettyPrinter extends Printer {
             if ((r = this.write_str(`field_of!(${display_Ty(base)}, ${display_Symbol(name)})`)).$ === "Err") return r;
           }
         } else {
-          if ((r = this.print_def_path(AdtDef_did(def), args)).$ === "Err") return r;
+          if ((r = this.print_def_path(def.did(), args)).$ === "Err") return r;
         }
         break;
       }
@@ -1368,7 +1374,7 @@ export abstract class PrettyPrinter extends Printer {
             if ((r = print_TraitRefPrintOnlyTraitName(TraitRef_print_only_trait_name(trait_pred.trait_ref), p)).$ === "Err") return r;
 
             const generics = tcx.generics_of(TraitClause.def_id(trait_pred)) as Generics;
-            const own_args = Generics_own_args_no_defaults(generics, tcx, trait_pred.trait_ref.args);
+            const own_args = generics.own_args_no_defaults(tcx, trait_pred.trait_ref.args);
 
             if (own_args.length !== 0 || assoc_items.size !== 0) {
               let first = true;
@@ -1392,7 +1398,7 @@ export abstract class PrettyPrinter extends Printer {
                 }
 
                 // PORT: the `associated_item` query value is `unknown` in queries.gen.ts.
-                if ((r = p.write_str(`${display_Symbol(AssocItem_name(tcx.associated_item(assoc_item_def_id) as AssocItem))} = `)).$ === "Err") return r;
+                if ((r = p.write_str(`${display_Symbol(middle_assoc().AssocItem.name(tcx.associated_item(assoc_item_def_id) as AssocItem))} = `)).$ === "Err") return r;
 
                 const tk = Term.kind(Binder.skip_binder(term));
                 switch (tk.$) {
@@ -1520,8 +1526,8 @@ export abstract class PrettyPrinter extends Printer {
     // PORT: the `let` chain as nested `if`s; `fn_args` stays `None` unless every condition holds.
     let fn_args: [DefId, readonly GenericArg[]] | undefined = undefined;
     if (this.tcx().features().return_type_notation()) {
-      // PORT: `ImplTraitInTraitData` is `Pending` in ty/decls.ts; the `fn_sig` query value is `unknown`.
-      const rpitit_info = this.tcx().opt_rpitit_info(def_id) as unknown as ImplTraitInTraitDataView | undefined;
+      // PORT: the `fn_sig` query value is `unknown`.
+      const rpitit_info = this.tcx().opt_rpitit_info(def_id);
       if (rpitit_info !== undefined && rpitit_info.$ === "Trait") {
         const fn_def_id = rpitit_info.fn_def_id;
         const output_kind = Binder.skip_binder(PolyFnSig_.output(EarlyBinder.skip_binder(this.tcx().fn_sig(fn_def_id) as EarlyBinder<PolyFnSig>))).kind();
@@ -1617,7 +1623,7 @@ export abstract class PrettyPrinter extends Printer {
             if (!resugared) {
               const principal_with_self = ExistentialTraitRef.with_self_ty(principal, as_interner(p.tcx()), p.tcx().types.trait_object_dummy_self);
 
-              const args = Generics_own_args_no_defaults(p.tcx().generics_of(principal_with_self.def_id) as Generics, p.tcx(), principal_with_self.args);
+              const args = (p.tcx().generics_of(principal_with_self.def_id) as Generics).own_args_no_defaults(p.tcx(), principal_with_self.args);
 
               const bound_principal_with_self = PolyExistentialTraitRef.with_self_ty(bound_principal, as_interner(p.tcx()), p.tcx().types.trait_object_dummy_self);
 
@@ -1993,8 +1999,6 @@ function opt_def_id_eq(a: DefId | undefined, b: DefId): boolean {
 interface CodegenFnAttrsView {
   safe_target_features: boolean;
 }
-/** `ty::ImplTraitInTraitData` (ty/mod.rs; `Pending` in ty/decls.ts) in its PORTING §5 shape. */
-type ImplTraitInTraitDataView = { readonly $: "Trait"; fn_def_id: DefId; opaque_def_id: DefId } | { readonly $: "Impl"; fn_def_id: DefId };
 /** `mir::UnOp` (mir/syntax.rs; `Pending` in ty/decls.ts): fieldless. */
 type UnOpT = "Not" | "Neg" | "PtrMetadata";
 /** `ty::abstract_const::CastKind` (ty/abstract_const.rs; `Pending` in ty/decls.ts): fieldless. */
@@ -2008,9 +2012,9 @@ function descriptor<T>(
 ): TypeFoldable<T> {
   return { visit_with, try_fold_with, fold_with };
 }
-// merge-w15a: `Ty`'s descriptor is fold.ts's `standin_fold_Ty` (the one-line impls are upstream's; the super impls are
+// merge-w15a: `Ty`'s descriptor is fold.ts's `fold_Ty` (the one-line impls are upstream's; the super impls are
 // structural_impls.rs's, not ported); `Binder<T>`'s is binder.ts's `fold_Binder`.
-const fold_Ty_: TypeFoldable<Ty> = standin_fold_Ty;
+const fold_Ty_: TypeFoldable<Ty> = fold_Ty;
 const fold_Clause_: TypeFoldable<Clause> = descriptor<Clause>(visit_with_Clause, try_fold_with_Clause, fold_with_Clause);
 /** `(Clause, Span): TypeFoldable` (fold.rs's tuple impl; `Span` is trivially traversable). */
 const fold_Clause_Span_: TypeFoldable<[Clause, Span]> = fold_tuple2(
@@ -2040,42 +2044,15 @@ const fold_ListTy_Ty_: TypeFoldable<[List<Ty>, Ty]> = descriptor<[List<Ty>, Ty]>
 );
 
 // -- rustc_middle ty/generics.rs, ty/assoc.rs, ty/adt.rs, ty/pattern.rs, ty/consts/kind.rs, mir --
-/** `Generics::own_args_no_defaults` (ty/generics.rs). */
-function Generics_own_args_no_defaults(_self: Generics, _tcx: TyCtxt, _args: readonly GenericArg[]): readonly GenericArg[] {
-  return unported("rustc_middle::ty::generics::Generics::own_args_no_defaults (ty/generics.rs)");
-}
-/** `AssocItem::name` (ty/assoc.rs). */
-function AssocItem_name(_self: AssocItem): Symbol {
-  return unported("rustc_middle::ty::assoc::AssocItem::name (ty/assoc.rs)");
-}
-/** `AdtDef::did` (ty/adt.rs; `AdtDef` is `Pending`). */
-function AdtDef_did(_self: unknown): DefId {
-  return unported("rustc_middle::ty::adt::AdtDef::did (ty/adt.rs)");
-}
-/** `AdtDef::field_representing_type_info` (ty/adt.rs). */
-function AdtDef_field_representing_type_info(_self: unknown, _tcx: TyCtxt, _args: GenericArgs): FieldInfo | undefined {
-  return unported("rustc_middle::ty::adt::AdtDef::field_representing_type_info (ty/adt.rs)");
-}
 /** `impl Debug for Pattern` (ty/pattern.rs). */
 function debug_Pattern(_pat: Pattern): string {
   return unported("rustc_middle::ty::pattern `impl Debug for Pattern` (ty/pattern.rs)");
 }
-/** `Expr::binop_args` (ty/consts/kind.rs). */
-function Expr_binop_args(_self: Expr): [Ty, Ty, Const, Const] {
-  return unported("rustc_middle::ty::consts::kind::Expr::binop_args (ty/consts/kind.rs)");
-}
-/** `Expr::unop_args` (ty/consts/kind.rs). */
-function Expr_unop_args(_self: Expr): [Ty, Const] {
-  return unported("rustc_middle::ty::consts::kind::Expr::unop_args (ty/consts/kind.rs)");
-}
-/** `Expr::call_args` (ty/consts/kind.rs). */
-function Expr_call_args(_self: Expr): [Ty, Const, Iterable<Const>] {
-  return unported("rustc_middle::ty::consts::kind::Expr::call_args (ty/consts/kind.rs)");
-}
-/** `Expr::cast_args` (ty/consts/kind.rs). */
-function Expr_cast_args(_self: Expr): [Ty, Const, Ty] {
-  return unported("rustc_middle::ty::consts::kind::Expr::cast_args (ty/consts/kind.rs)");
-}
+/** `Expr::binop_args` / `unop_args` / `call_args` / `cast_args` (ty/consts/kind.rs, lane ty-results). */
+const Expr_binop_args = (self: Expr): [Ty, Ty, Const, Const] => ExprC.binop_args(self);
+const Expr_unop_args = (self: Expr): [Ty, Const] => ExprC.unop_args(self);
+const Expr_call_args = (self: Expr): [Ty, Const, Iterable<Const>] => ExprC.call_args(self);
+const Expr_cast_args = (self: Expr): [Ty, Const, Ty] => ExprC.cast_args(self);
 /** `mir::BinOp::to_hir_binop` (mir/syntax.rs; `BinOp` is `Pending`). */
 function BinOp_to_hir_binop(_self: BinOp): BinOpKind {
   return unported("rustc_middle::mir::BinOp::to_hir_binop (mir/mod.rs)");
@@ -2405,7 +2382,7 @@ PrettyPrinter.prototype.pretty_print_const_valtree = function (this: PrettyPrint
     const contents = Value_destructure_adt_const(cv_);
     const fields = contents.fields;
 
-    if (AdtDef_variants(def).length === 0) {
+    if (def.variants().length === 0) {
       if (
         (r = this.typed_value(
           (this_) => {
@@ -2420,9 +2397,9 @@ PrettyPrinter.prototype.pretty_print_const_valtree = function (this: PrettyPrint
         return r;
     } else {
       const variant_idx = contents.variant;
-      const variant_def = AdtDef_variant(def, variant_idx);
+      const variant_def = def.variant(variant_idx);
       if ((r = this.pretty_print_value_path(variant_def.def_id, args)).$ === "Err") return r;
-      const ctor_kind = VariantDef_ctor_kind(variant_def);
+      const ctor_kind = variant_def.ctor_kind();
       if (ctor_kind === "Const") {
         // nothing
       } else if (ctor_kind === "Fn") {
@@ -2729,7 +2706,7 @@ export class FmtPrinter extends PrettyPrinter {
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2289 print_type
   print_type(ty: Ty): PrintResult {
     let r: PrintResult;
-    const has_regions = this._0.region_highlight_mode.keep_regions && TypeVisitableExt.has_type_flags(ty, TypeFlags.HAS_REGIONS, standin_fold_Ty);
+    const has_regions = this._0.region_highlight_mode.keep_regions && TypeVisitableExt.has_type_flags(ty, TypeFlags.HAS_REGIONS, fold_Ty);
     const k = ty.kind();
     if (k.$ === "Tuple" && k._0.length === 0) {
       // Don't truncate `()`.
@@ -2771,7 +2748,7 @@ export class FmtPrinter extends PrettyPrinter {
           return true;
         }
       })() &&
-      utf8_len(Symbol.as_str(this._0.tcx.item_name(AdtDef_did(k._0)))) < 7
+      utf8_len(Symbol.as_str(this._0.tcx.item_name(k._0.did()))) < 7
     ) {
       // Don't fully truncate types that have "short names" and at most one type or const
       // param. We do use the short path for them (only item name instead of full path).
@@ -3327,7 +3304,7 @@ export class FmtPrinter extends PrettyPrinter {
         const not_previously_inserted = !this.type_collector.has(ty);
         this.type_collector.add(ty);
         if (not_previously_inserted) {
-          standin_fold_Ty.super_visit_with(ty, this);
+          fold_Ty.super_visit_with(ty, this);
         }
         return undefined;
       }
@@ -3446,8 +3423,8 @@ class RegionFolder implements TypeFolder {
 
   // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:2728 fold_ty
   fold_ty(t: Ty): Ty {
-    if (TypeVisitableExt.has_vars_bound_at_or_above(t, this.current_index, standin_fold_Ty) || TypeVisitableExt.has_placeholders(t, standin_fold_Ty)) {
-      return standin_fold_Ty.super_fold_with(t, this);
+    if (TypeVisitableExt.has_vars_bound_at_or_above(t, this.current_index, fold_Ty) || TypeVisitableExt.has_placeholders(t, fold_Ty)) {
+      return fold_Ty.super_fold_with(t, this);
     }
     return t;
   }
@@ -3891,7 +3868,7 @@ export function print_ExistentialTraitRef(self: ExistentialTraitRef, p: PrettyPr
 export function print_ExistentialProjection(self: ExistentialProjection, p: PrettyPrinter): PrintResult {
   let r: PrintResult;
   // PORT: the `associated_item` / `generics_of` query values are `unknown` in queries.gen.ts.
-  const name = AssocItem_name(p.tcx().associated_item(self.def_id) as AssocItem);
+  const name = middle_assoc().AssocItem.name(p.tcx().associated_item(self.def_id) as AssocItem);
   // The args don't contain the self ty (as it has been erased) but the corresp.
   // generics do as the trait always has a self ty param. We need to offset.
   const args = self.args.slice((p.tcx().generics_of(self.def_id) as Generics).parent_count - 1);
@@ -3990,7 +3967,7 @@ export function print_TraitRefPrintSugared(self: TraitRefPrintSugared, p: Pretty
   if (
     !with_reduced_queries() &&
     // PORT: the `trait_def` query value is `unknown` in queries.gen.ts.
-    TraitDef_paren_sugar(p.tcx().trait_def(self._0.def_id)) &&
+    (p.tcx().trait_def(self._0.def_id) as TraitDef).paren_sugar &&
     (args_ty = self._0.args[1] === undefined ? undefined : GenericArg.as_type(self._0.args[1])) !== undefined &&
     (tk = args_ty.kind()).$ === "Tuple"
   ) {
@@ -4446,89 +4423,65 @@ function LateParamRegionKind_get_name(self: LateParamRegionKind, tcx: TyCtxt): S
       return undefined;
   }
 }
-/** PORT: pending ty-adt-assoc: `AdtDef::variants` (adt.rs). */
-function AdtDef_variants(_def: AdtDef): readonly VariantDefShape[] {
-  return unported("rustc_middle::ty::adt::AdtDef::variants (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `AdtDef::variant` (adt.rs). */
-function AdtDef_variant(_def: AdtDef, _idx: number): VariantDefShape {
-  return unported("rustc_middle::ty::adt::AdtDef::variant (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: `VariantDef::ctor_kind` (mod.rs). */
-function VariantDef_ctor_kind(_v: VariantDefShape): "Fn" | "Const" | undefined {
-  return unported("rustc_middle::ty::VariantDef::ctor_kind (lane ty-adt-assoc)");
-}
-/** PORT: pending ty-adt-assoc: the fields of `VariantDef` read here (ty/mod.rs). */
-interface VariantDefShape {
-  def_id: DefId;
-  fields: readonly { name: Symbol }[];
-}
-/** PORT: pending ty-adt-assoc: `TraitDef::paren_sugar` (trait_def.rs; the `trait_def` query value is `unknown`). */
-function TraitDef_paren_sugar(trait_def: unknown): boolean {
-  return (trait_def as { paren_sugar: boolean }).paren_sugar;
-}
-// `ty::Value` (valtree.rs:103) is `Pending` in decls.ts; its fields read here.
+// `ty::Value` (valtree.rs:103): its fields read here.
 interface ValueShape {
   valtree: ValTree;
   ty: Ty;
 }
-/** PORT: pending ty-results: `Deref for ValTree` (valtree.rs). */
-function ValTree_deref(_v: ValTree): ValTreeKind {
-  return unported("rustc_middle::ty::consts::valtree::ValTree: Deref (lane ty-results)");
+// ---- ty-results (ty/consts/{valtree,int}.rs): thin forwarders to the ports, named as this file calls them (decls.ts
+// re-exports the real `ValTree` / `Value` / `ScalarInt` since merge-w15b, so the casts below are identities).
+/** `Deref for ValTree` (valtree.rs:71). */
+function ValTree_deref(v: ValTree): ValTreeKind {
+  return (v as unknown as ValTreeC).kind();
 }
-/** PORT: pending ty-results: `ValTree::is_zst` (valtree.rs). */
-function ValTree_is_zst(_v: ValTree): boolean {
-  return unported("rustc_middle::ty::consts::valtree::ValTree::is_zst (lane ty-results)");
+/** `ValTree::is_zst` (valtree.rs:42). */
+function ValTree_is_zst(v: ValTree): boolean {
+  return (v as unknown as ValTreeC).is_zst();
 }
-/** PORT: pending ty-results: `Debug for ValTree` (valtree.rs). */
-function debug_ValTree(_v: ValTree, _f: Fmt): string {
-  return unported("rustc_middle::ty::consts::valtree::ValTree: Debug (lane ty-results)");
+/** `Debug for ValTree` (valtree.rs:77). */
+function debug_ValTree(v: ValTree, f: Fmt): string {
+  return debug_ValTreeC(v as unknown as ValTreeC, f);
 }
-/** PORT: pending ty-results: `Value::try_to_raw_bytes` (valtree.rs). */
-function Value_try_to_raw_bytes(_cv: ValueShape, _tcx: TyCtxt): Uint8Array | undefined {
-  return unported("rustc_middle::ty::consts::valtree::Value::try_to_raw_bytes (lane ty-results)");
+/** `Value::try_to_raw_bytes` (valtree.rs:140). */
+function Value_try_to_raw_bytes(cv: ValueShape, tcx: TyCtxt): Uint8Array | undefined {
+  return ValueC.try_to_raw_bytes(cv as unknown as ValueT, tcx);
 }
-/** PORT: pending ty-results: `Value::destructure_adt_const` (valtree.rs). */
-function Value_destructure_adt_const(_cv: ValueShape): { variant: number; fields: readonly Const[] } {
-  return unported("rustc_middle::ty::consts::valtree::Value::destructure_adt_const (lane ty-results)");
+/** `Value::destructure_adt_const` (valtree.rs:211). */
+function Value_destructure_adt_const(cv: ValueShape): { variant: VariantIdx; fields: readonly Const[] } {
+  return ValueC.destructure_adt_const(cv as unknown as ValueT);
 }
-/** PORT: pending ty-results: `ScalarInt == ScalarInt` (int.rs, derived). */
-function ScalarInt_eq(_a: ScalarInt, _b: ScalarInt): boolean {
-  return unported("rustc_middle::ty::consts::int::ScalarInt: PartialEq (lane ty-results)");
+/** `ScalarInt == ScalarInt` (int.rs:145, derived). */
+function ScalarInt_eq(a: ScalarInt, b: ScalarInt): boolean {
+  return ScalarInt_eqC(a as unknown as ScalarIntC, b as unknown as ScalarIntC);
 }
-/** PORT: pending ty-results: `ScalarInt::FALSE` (int.rs). */
+/** `ScalarInt::FALSE` (int.rs:190). */
 function ScalarInt_FALSE(): ScalarInt {
-  return unported("rustc_middle::ty::consts::int::ScalarInt::FALSE (lane ty-results)");
+  return ScalarIntC.FALSE as unknown as ScalarInt;
 }
-/** PORT: pending ty-results: `ScalarInt::TRUE` (int.rs). */
+/** `ScalarInt::TRUE` (int.rs:189). */
 function ScalarInt_TRUE(): ScalarInt {
-  return unported("rustc_middle::ty::consts::int::ScalarInt::TRUE (lane ty-results)");
+  return ScalarIntC.TRUE as unknown as ScalarInt;
 }
-/** PORT: pending ty-results: `ScalarInt::size` (int.rs). */
-function ScalarInt_size(_int: ScalarInt): Size {
-  return unported("rustc_middle::ty::consts::int::ScalarInt::size (lane ty-results)");
+/** `ScalarInt::size` (int.rs:197). */
+function ScalarInt_size(int: ScalarInt): Size {
+  return (int as unknown as ScalarIntC).size();
 }
-/** PORT: pending ty-results: `ScalarInt::to_bits` (int.rs). */
-function ScalarInt_to_bits(_int: ScalarInt, _size: Size): bigint {
-  return unported("rustc_middle::ty::consts::int::ScalarInt::to_bits (lane ty-results)");
+/** `ScalarInt::to_bits` (int.rs:266). */
+function ScalarInt_to_bits(int: ScalarInt, size: Size): bigint {
+  return (int as unknown as ScalarIntC).to_bits(size);
 }
-/** PORT: pending ty-results: `LowerHex for ScalarInt` (int.rs). */
-function lower_hex_ScalarInt(_int: ScalarInt): string {
-  return unported("rustc_middle::ty::consts::int::ScalarInt: LowerHex (lane ty-results)");
+/** `LowerHex for ScalarInt` (int.rs:628), with `{:x}`'s default options. */
+function lower_hex_ScalarInt(int: ScalarInt): string {
+  return lower_hex_ScalarIntC(int as unknown as ScalarIntC, PLAIN);
 }
-/** PORT: pending ty-results: `char::try_from(ScalarInt)` (int.rs); `Err` is `undefined`. */
-function char_try_from_ScalarInt(_int: ScalarInt): number | undefined {
-  return unported("rustc_middle::ty::consts::int::<char as TryFrom<ScalarInt>>::try_from (lane ty-results)");
+/** `char::try_from(ScalarInt)` (int.rs:552); `Err` is `undefined`. */
+function char_try_from_ScalarInt(int: ScalarInt): number | undefined {
+  const r = ScalarIntC.try_into_char(int as unknown as ScalarIntC);
+  return r.$ === "Ok" ? r._0 : undefined;
 }
-/** PORT: pending ty-results: `ConstInt` (int.rs). */
-type ConstInt = Pending<"ConstInt">;
-/** PORT: pending ty-results: `ConstInt::new` (int.rs). */
-function ConstInt_new(_int: ScalarInt, _signed: boolean, _is_ptr_sized_integral: boolean): ConstInt {
-  return unported("rustc_middle::ty::consts::int::ConstInt::new (lane ty-results)");
-}
-/** PORT: pending ty-results: `Debug for ConstInt` (int.rs). */
-function debug_ConstInt(_v: ConstInt, _f: Fmt): string {
-  return unported("rustc_middle::ty::consts::int::ConstInt: Debug (lane ty-results)");
+/** `ConstInt::new` (int.rs:25). */
+function ConstInt_new(int: ScalarInt, signed: boolean, is_ptr_sized_integral: boolean): ConstInt {
+  return ConstInt.new(int as unknown as ScalarIntC, signed, is_ptr_sized_integral);
 }
 /** PORT: pending (rustc_apfloat, not ported): `Half`/`Single`/`Double`/`Quad::try_from(ScalarInt)` (int.rs). */
 type IeeeFloat = Pending<"rustc_apfloat::ieee::IeeeFloat">;
@@ -4551,20 +4504,8 @@ function display_IeeeFloat(_v: IeeeFloat): string {
 function TyCtxt_validate_scalar_in_layout(_tcx: TyCtxt, _int: ScalarInt, _ty: Ty): boolean {
   return unported("rustc_const_eval::util::check_validity_requirement::validate_scalar_in_layout (not ported)");
 }
-/** PORT: pending (rustc_abi / target data layout): `TargetDataLayout::pointer_size` of `tcx.data_layout`. */
-function TargetDataLayout_pointer_size(_dl: unknown): Size {
-  return unported("rustc_abi::TargetDataLayout::pointer_size (tcx.data_layout is pending)");
-}
-/** PORT: pending ty-results (`UserTypeKind`, typeck_results.rs): the shape per PORTING §5. */
-export type UserTypeKind = { readonly $: "Ty"; _0: Ty } | { readonly $: "TypeOf"; _0: DefId; _1: UserArgs };
-interface UserArgs {
-  args: GenericArgs;
-  user_self_ty: UserSelfTy | undefined;
-}
-interface UserSelfTy {
-  impl_def_id: DefId;
-  self_ty: Ty;
-}
+/** `UserTypeKind` (typeck_results.rs, lane ty-results). */
+export type { UserTypeKind } from "../typeck_results.ts";
 
 // ---- pending mir-interpret (M4): mir/interpret's `Scalar`, `Pointer`, `GlobalAlloc`, `AllocRange` ----
 // `Scalar` is `Pending` in decls.ts; `ScalarShape` is mir/interpret/value.rs:25 per PORTING §5.
@@ -4609,4 +4550,9 @@ function Instance_def_id(_self: Instance): DefId {
 }
 function Instance_args(_instance: Instance): GenericArgs {
   return unported("rustc_middle::ty::instance::Instance::args (M4)");
+}
+
+/** PORT (merge-w15b): ty/assoc.ts is another extension module of `TyCtxt`: reached lazily. */
+function middle_assoc(): typeof import("../assoc.ts") {
+  return require("../assoc.ts") as typeof import("../assoc.ts");
 }

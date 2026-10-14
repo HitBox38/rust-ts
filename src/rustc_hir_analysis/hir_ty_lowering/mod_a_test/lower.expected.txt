@@ -1,0 +1,49 @@
+LowerTypeRelativePathMode::Type(Yes): assoc_tag=Type def_kind_for_diagnostics=AssocTy permit_variants=Yes
+LowerTypeRelativePathMode::Type(No): assoc_tag=Type def_kind_for_diagnostics=AssocTy permit_variants=No
+LowerTypeRelativePathMode::Const: assoc_tag=Const def_kind_for_diagnostics=AssocConst permit_variants=No
+AssocItemQSelf::Trait(Tr).to_string: Tr
+AssocItemQSelf::Trait(m::Inner).to_string: m::Inner
+AssocItemQSelf::TyParam(T).to_string: T
+AssocItemQSelf::SelfTyAlias.to_string: Self
+ForbidParamUsesFolder.cx: true
+ForbidParamUsesFolder.fold_ty(u8): true
+ForbidParamUsesFolder.fold_region('static): true
+anon_const_forbids_generic_params(with_lt): undefined
+check_param_res_if_mcg_for_instantiate_value_path(ConstParam): Ok
+check_param_uses_if_mcg(u8): true
+lower_resolved_lifetime(StaticLifetime): ReStatic interned=true
+lower_resolved_lifetime(LateBound(INNERMOST, 0, 'a)): ReBound(Bound(0), var=0, Named('a))
+lower_resolved_lifetime(Free(with_lt, 'a)): ReLateParam(scope=with_lt)
+PANIC lower_resolved_lifetime(EarlyBound('a)): key not found
+lower_lifetime('a): ReBound(Bound(0), var=0, Named('a))
+lower_generic_args_of_path_segment(Wrap<S>): 1
+lower_path_segment(S): Adt
+lower_impl_trait_ref(impl Tr for S): Tr
+lower_poly_trait_ref(Sub: Tr): Ok
+lower_mono_trait_ref(Tr): Tr
+probe_trait_that_defines_assoc_item(Tr, Type, Assoc): true
+probe_trait_that_defines_assoc_item(Tr, Const, Assoc): false
+probe_trait_that_defines_assoc_item(Tr, Const, C): true
+probe_trait_that_defines_assoc_item(Tr, Fn, f): true
+probe_trait_that_defines_assoc_item(Other, Type, Assoc): false
+probe_trait_that_defines_assoc_item(Inner, Type, Item): true
+collapse_candidates_to_subtrait_pick (no supertrait_item_shadowing): undefined
+probe_single_bound_for_assoc_item(no candidates): Err
+PENDING lower_type_relative_ty_path(<u8>::Assoc): unported: rustc_infer::infer::InferCtxt::fresh_args_for_item
+lower_type_relative_const_path(<u8>::C): Err
+probe_inherent_assoc_item(S::Assoc, Type) without inherent_associated_types: Ok(None)
+probe_assoc_item_unchecked(Assoc, Type, Tr): Some(Assoc, Type, scope is crate root: true)
+probe_assoc_item_unchecked(Assoc, Const, Tr): undefined
+probe_assoc_item_unchecked(Item, Type, m::Inner): Some(Item, scope is crate root: true)
+PENDING probe_assoc_item(C, Const, Tr): unported: lookup_deprecation_entry provider (not ported)
+PENDING probe_traits_that_match_assoc_ty(u8, Assoc): unported: rustc_infer::infer::InferCtxt::fresh_args_for_item
+PENDING lower_resolved_assoc_ty_path(None, Tr::Assoc): unported: rustc_middle::ty::erase_regions::TyCtxt::erase_and_anonymize_regions
+lower_resolved_assoc_ty_path(Some(u8), Tr::Assoc): Alias
+prohibit_generic_args([]): Ok
+prohibit_generic_args([Tr]): Ok
+prohibit_generic_args([Wrap<S>]): Err
+probe_generic_path_segments([s0], Fn, with_lt): [GenericPathSegment(with_lt, 0)]
+probe_generic_path_segments([s0, s1, s2], Const, with_lt): [GenericPathSegment(with_lt, 2)]
+probe_generic_path_segments([s0], AssocConst, Tr::C): [GenericPathSegment(Tr, 0)]
+probe_generic_path_segments([s0, s1], AssocFn, Tr::f): [GenericPathSegment(Tr, 0), GenericPathSegment(f, 1)]
+probe_generic_path_segments([s0], Ctor(Struct, Const), Other): [GenericPathSegment(Other, 0)]

@@ -19,6 +19,7 @@ import type { Const, Region } from "./sty/mod.ts";
 import type { AliasTerm } from "./ty/alias.ts";
 import { UnsafeBinderInner } from "./ty_kind.ts";
 import { DebruijnIndex as DebruijnIndexC } from "./lib.ts";
+import { Value } from "../rustc_middle/ty/consts/valtree.ts";
 
 // `TypeFlags` (bitflags) is generated into flags.gen.ts (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir).
 export * from "./flags.gen.ts";
@@ -460,13 +461,21 @@ export class FlagComputation {
         break;
       }
       case "Value": {
-        // PORT: `ty::Value` / `ValTree` (rustc_middle ty/consts/valtree.rs, lane ty-results) are not ported yet:
-        // self.add_ty(cv.ty());
-        // match cv.valtree().kind() {
-        //     ty::ValTreeKind::Leaf(_) => (),
-        //     ty::ValTreeKind::Branch(cts) => { for ct in cts.iter() { self.add_const(ct); } }
-        // }
-        return unported("rustc_type_ir::flags::FlagComputation::add_const_kind (ConstKind::Value: ty::Value / ValTree)");
+        const cv = c._0;
+        this.add_ty(Value.ty(cv));
+        const vk = Value.valtree(cv).kind();
+        switch (vk.$) {
+          case "Leaf":
+            break;
+          case "Branch": {
+            const cts = vk._0;
+            for (const ct of cts) {
+              this.add_const(ct);
+            }
+            break;
+          }
+        }
+        break;
       }
       case "Expr": {
         // PORT: `inherent::ExprConst::args` (rustc_middle ty/consts/kind.rs:27) is the field read `e.args`.

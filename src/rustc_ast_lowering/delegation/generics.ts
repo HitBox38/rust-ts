@@ -49,10 +49,6 @@ import type { HirOrTyGenerics as HirOrTyGenericsT } from "./generics.gen.ts";
 export type HirOrTyGenerics = HirOrTyGenericsT;
 
 // ---- PORT(stand-in): upstream APIs this file calls that are not ported yet. Each stops as UNPORTED. ----
-/** `AdtDef::did` (rustc_middle ty/adt.rs; `AdtDef` is pending, lane ty-adt-assoc). */
-function AdtDef_did(_def: unknown): DefId {
-  return unported("rustc_middle::ty::adt::AdtDef::did");
-}
 // ---- impl DelegationGenerics<TyGenerics> ----
 // PORT: the associated fns `DelegationGenerics::generate_all` and `GenericsGenerationResult::new` (no `self`) are
 // module-level fns of this file (`generate_all`, `GenericsGenerationResult_new`): both types are private to the
@@ -451,7 +447,7 @@ DelegationResolver.prototype.check_delegation_to_inherent_impl = function (
         : Err(this.tcx().dcx().emit_err(diagnostics.DelegationToInherentImplParentContainsInfer_diagnostic({ span })));
     }
     case "NotSpecified":
-      switch ((tcx.generics_of(AdtDef_did(def)) as TyGenericsOf).own_params.length) {
+      switch ((tcx.generics_of(def.did()) as TyGenericsOf).own_params.length) {
         case 0:
           return Ok(undefined);
         default:

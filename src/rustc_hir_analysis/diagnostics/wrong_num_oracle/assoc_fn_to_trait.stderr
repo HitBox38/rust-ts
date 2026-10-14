@@ -1,0 +1,25 @@
+error[E0107]: associated function takes 0 generic arguments but 1 generic argument was supplied
+  --> assoc_fn_to_trait.rs:16:18
+   |
+LL | pub fn h() { Tr::f::<u8>(); }
+   |                  ^ expected 0 generic arguments
+   |
+note: associated function defined here, with 0 generic parameters
+  --> assoc_fn_to_trait.rs:15:22
+   |
+LL | pub trait Tr<T> { fn f(); }
+   |                      ^
+help: consider moving this generic argument to the `Tr` trait, which takes up to 1 argument
+   |
+LL - pub fn h() { Tr::f::<u8>(); }
+LL + pub fn h() { Tr::<u8>::f(); }
+   |
+help: remove the unnecessary generics
+   |
+LL - pub fn h() { Tr::f::<u8>(); }
+LL + pub fn h() { Tr::f(); }
+   |
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0107`.

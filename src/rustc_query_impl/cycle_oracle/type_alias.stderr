@@ -1,0 +1,25 @@
+error[E0391]: cycle detected when expanding type alias `A`
+  --> type_alias.rs:1:10
+   |
+LL | type A = B;
+   |          ^
+   |
+note: ...which requires expanding type alias `B`...
+  --> type_alias.rs:2:10
+   |
+LL | type B = A;
+   |          ^
+   = note: ...which again requires expanding type alias `A`, completing the cycle
+   = note: type aliases cannot be recursive
+   = help: consider using a struct, enum, or union instead to break the cycle
+   = help: see <https://doc.rust-lang.org/reference/types.html#recursive-types> for more information
+note: cycle used when checking that `A` is well-formed
+  --> type_alias.rs:1:1
+   |
+LL | type A = B;
+   | ^^^^^^
+   = note: for more information, see <https://rustc-dev-guide.rust-lang.org/overview.html#queries> and <https://rustc-dev-guide.rust-lang.org/query.html>
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0391`.

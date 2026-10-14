@@ -1,0 +1,117 @@
+DefId(0:0 ~ late_bound[0558])
+  is_late_bound_map None
+DefId(0:1 ~ late_bound[0558]::PointeeSized)
+  is_late_bound_map None
+  late_bound_vars 0 []
+DefId(0:2 ~ late_bound[0558]::MetaSized)
+  is_late_bound_map None
+  late_bound_vars 0 []
+  late_bound_vars 2 []
+DefId(0:3 ~ late_bound[0558]::Sized)
+  is_late_bound_map None
+  late_bound_vars 0 []
+  late_bound_vars 2 []
+DefId(0:4 ~ late_bound[0558]::Copy)
+  is_late_bound_map None
+  late_bound_vars 0 []
+DefId(0:5 ~ late_bound[0558]::Tr)
+  is_late_bound_map None
+  late_bound_vars 0 []
+DefId(0:6 ~ late_bound[0558]::{impl#0})
+  is_late_bound_map None
+  late_bound_vars 0 []
+  late_bound_vars 2 []
+DefId(0:7 ~ late_bound[0558]::f)
+  is_late_bound_map [17]
+  def 11 EarlyBound(DefId(0:9 ~ late_bound[0558]::f::'b))
+  def 13 EarlyBound(DefId(0:9 ~ late_bound[0558]::f::'b))
+  def 15 EarlyBound(DefId(0:10 ~ late_bound[0558]::f::'c))
+  def 16 EarlyBound(DefId(0:10 ~ late_bound[0558]::f::'c))
+  def 20 LateBound(DebruijnIndex(0), 0, DefId(0:8 ~ late_bound[0558]::f::'a))
+  def 24 EarlyBound(DefId(0:9 ~ late_bound[0558]::f::'b))
+  def 28 EarlyBound(DefId(0:10 ~ late_bound[0558]::f::'c))
+  def 32 LateBound(DebruijnIndex(0), 0, DefId(0:8 ~ late_bound[0558]::f::'a))
+  late_bound_vars 0 [Region(BrNamed(DefId(0:8 ~ late_bound[0558]::f::'a)))]
+DefId(0:11 ~ late_bound[0558]::g)
+  is_late_bound_map []
+  def 6 EarlyBound(DefId(0:12 ~ late_bound[0558]::g::'x))
+  late_bound_vars 0 []
+DefId(0:13 ~ late_bound[0558]::h)
+  is_late_bound_map []
+  def 7 LateBound(DebruijnIndex(0), 0, DefId(0:14 ~ late_bound[0558]::h::'q))
+  def 13 LateBound(DebruijnIndex(0), 0, DefId(0:15 ~ late_bound[0558]::h::'r))
+  def 17 LateBound(DebruijnIndex(1), 0, DefId(0:14 ~ late_bound[0558]::h::'q))
+  def 21 LateBound(DebruijnIndex(0), 0, DefId(0:14 ~ late_bound[0558]::h::'q))
+  late_bound_vars 0 []
+  late_bound_vars 5 [Region(BrNamed(DefId(0:14 ~ late_bound[0558]::h::'q)))]
+  late_bound_vars 11 [Region(BrNamed(DefId(0:15 ~ late_bound[0558]::h::'r)))]
+DefId(0:16 ~ late_bound[0558]::d)
+  is_late_bound_map [9, 10]
+  def 11 LateBound(DebruijnIndex(0), 0, DefId(0:17 ~ late_bound[0558]::d::'o))
+  def 14 LateBound(DebruijnIndex(0), 0, DefId(0:17 ~ late_bound[0558]::d::'o))
+  def 17 LateBound(DebruijnIndex(0), 1, DefId(0:43 ~ late_bound[0558]::d::'_))
+  def 20 LateBound(DebruijnIndex(0), 1, DefId(0:43 ~ late_bound[0558]::d::'_))
+  def 23 LateBound(DebruijnIndex(0), 0, DefId(0:17 ~ late_bound[0558]::d::'o))
+  def 26 StaticLifetime
+  late_bound_vars 0 [Region(BrNamed(DefId(0:17 ~ late_bound[0558]::d::'o))), Region(BrNamed(DefId(0:43 ~ late_bound[0558]::d::'_)))]
+  late_bound_vars 13 []
+  late_bound_vars 19 []
+  late_bound_vars 25 []
+DefId(0:18 ~ late_bound[0558]::op)
+  is_late_bound_map [10, 11]
+  def 12 LateBound(DebruijnIndex(0), 0, DefId(0:19 ~ late_bound[0558]::op::'p))
+  def 16 LateBound(DebruijnIndex(0), 1, DefId(0:20 ~ late_bound[0558]::op::'u))
+  def 23 EarlyBound(DefId(0:45 ~ late_bound[0558]::op::{opaque#0}::'p))
+  late_bound_vars 0 [Region(BrNamed(DefId(0:19 ~ late_bound[0558]::op::'p))), Region(BrNamed(DefId(0:20 ~ late_bound[0558]::op::'u)))]
+  late_bound_vars 22 []
+  opaque DefId(0:21 ~ late_bound[0558]::op::{opaque#0}) [(LateBound(DebruijnIndex(0), 0, DefId(0:19 ~ late_bound[0558]::op::'p)), DefId(0:45 ~ late_bound[0558]::op::{opaque#0}::'p))]
+DefId(0:22 ~ late_bound[0558]::st)
+  is_late_bound_map []
+  def 7 StaticLifetime
+  def 11 StaticLifetime
+  late_bound_vars 0 []
+DefId(0:23 ~ late_bound[0558]::body)
+  is_late_bound_map [14]
+  def 5 Free(DefId(0:23 ~ late_bound[0558]::body), DefId(0:24 ~ late_bound[0558]::body::'m))
+  def 15 LateBound(DebruijnIndex(0), 0, DefId(0:24 ~ late_bound[0558]::body::'m))
+  late_bound_vars 0 [Region(BrNamed(DefId(0:24 ~ late_bound[0558]::body::'m)))]
+DefId(0:25 ~ late_bound[0558]::S)
+  is_late_bound_map None
+  def 3 EarlyBound(DefId(0:27 ~ late_bound[0558]::S::'s))
+  late_bound_vars 0 []
+DefId(0:29 ~ late_bound[0558]::A)
+  is_late_bound_map None
+  def 2 EarlyBound(DefId(0:30 ~ late_bound[0558]::A::'t))
+  def 5 EarlyBound(DefId(0:30 ~ late_bound[0558]::A::'t))
+  late_bound_vars 0 []
+  late_bound_vars 4 []
+DefId(0:31 ~ late_bound[0558]::w)
+  is_late_bound_map []
+  def 7 LateBound(DebruijnIndex(0), 0, DefId(0:33 ~ late_bound[0558]::w::'b))
+  def 14 EarlyBound(DefId(0:32 ~ late_bound[0558]::w::'a))
+  def 21 EarlyBound(DefId(0:32 ~ late_bound[0558]::w::'a))
+  late_bound_vars 0 []
+  late_bound_vars 5 [Region(BrNamed(DefId(0:33 ~ late_bound[0558]::w::'b)))]
+  late_bound_vars 12 [Region(BrNamed(DefId(0:33 ~ late_bound[0558]::w::'b)))]
+  late_bound_vars 13 []
+  late_bound_vars 19 []
+DefId(0:34 ~ late_bound[0558]::O)
+  is_late_bound_map None
+  def 3 EarlyBound(DefId(0:36 ~ late_bound[0558]::O::'a))
+  def 6 EarlyBound(DefId(0:36 ~ late_bound[0558]::O::'a))
+  def 10 EarlyBound(DefId(0:36 ~ late_bound[0558]::O::'a))
+  def 13 EarlyBound(DefId(0:36 ~ late_bound[0558]::O::'a))
+  def 17 StaticLifetime
+  def 20 StaticLifetime
+  late_bound_vars 0 []
+  late_bound_vars 5 []
+  late_bound_vars 12 []
+  late_bound_vars 19 []
+DefId(0:40 ~ late_bound[0558]::cl)
+  is_late_bound_map [30]
+  def 15 LateBound(DebruijnIndex(0), 0, DefId(0:44 ~ late_bound[0558]::cl::'_))
+  def 19 Free(DefId(0:40 ~ late_bound[0558]::cl), DefId(0:41 ~ late_bound[0558]::cl::'k))
+  def 23 Free(DefId(0:40 ~ late_bound[0558]::cl), DefId(0:41 ~ late_bound[0558]::cl::'k))
+  def 31 LateBound(DebruijnIndex(0), 0, DefId(0:41 ~ late_bound[0558]::cl::'k))
+  late_bound_vars 0 [Region(BrNamed(DefId(0:41 ~ late_bound[0558]::cl::'k)))]
+  late_bound_vars 5 [Region(BrNamed(DefId(0:44 ~ late_bound[0558]::cl::'_)))]

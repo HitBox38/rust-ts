@@ -21,13 +21,14 @@ import type { DiagArgValue, ErrCode } from "../rustc_errors/lib.ts";
 import type { Namespace } from "../rustc_hir/def.ts";
 import type { LifetimeRes } from "../rustc_middle/middle/resolve.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import { AssocItems, type AssocItem as ty_AssocItem } from "../rustc_middle/ty/assoc.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { unported } from "../std/panic.ts";
 import { Resolver } from "./decls.ts";
 import { LateResolutionVisitor } from "./decls.ts";
 // res-late-b imports
-import { type AssocItem, type AssocItemKind, attr as ast_attr, BindingMode, BindingMode_eq, clone_BindingMode, clone_Pat, clone_TraitRef, clone_Ty, ConstBlockItem, CRATE_NODE_ID, type Crate, type Delegation, type EiiImpl, type ExprField, type FnDecl, type Label, type Param, type PatFieldsRest, type Path, type QSelf, type RestrictionKind, type TestBinderConstraints, type TraitImplHeader, type TraitRef } from "../rustc_ast/lib.ts";
+import { type AssocItem, AssocItemKind, attr as ast_attr, BindingMode, BindingMode_eq, clone_BindingMode, clone_Pat, clone_TraitRef, clone_Ty, ConstBlockItem, CRATE_NODE_ID, type Crate, type Delegation, type EiiImpl, type ExprField, type FnDecl, type Label, type Param, type PatFieldsRest, type Path, type QSelf, type RestrictionKind, type TestBinderConstraints, type TraitImplHeader, type TraitRef } from "../rustc_ast/lib.ts";
 import { AssocCtxt, walk_assoc_item, walk_crate, walk_expr, walk_trait_ref } from "../rustc_ast/visit.ts";
 import { type Applicability, E0323, E0324, E0325, StashKey } from "../rustc_errors/lib.ts";
 import { debug_Res, DefKind, type PrimTy, Res as hir_Res } from "../rustc_hir/def.ts";
@@ -1963,10 +1964,20 @@ LateResolutionVisitor.prototype.resolve_anonymous_lifetime = function (
             } else {
               let decl: MultiSpan;
               const assoc = this.diag_metadata.current_impl_item;
-              if (!trait_id.is_local() && assoc !== undefined && assoc.kind.$ === "Type") {
-                // `let assocs = self.r.tcx.associated_items(trait_id) && let Some(ident) =
-                // assoc.kind.ident() && let Some(assoc) = assocs.find_by_ident_and_kind(..)`
-                decl = unported("rustc_middle::ty::AssocItems::find_by_ident_and_kind (tcx.associated_items of an extern trait, M3)");
+              let assocs: AssocItems | undefined;
+              let ident: Ident | undefined;
+              let ty_assoc: ty_AssocItem | undefined;
+              if (
+                !trait_id.is_local() &&
+                assoc !== undefined &&
+                assoc.kind.$ === "Type" &&
+                // PORT: the `associated_items` query value is `unknown` in queries.gen.ts (`&AssocItems`).
+                ((assocs = this.r.tcx_.associated_items(trait_id) as AssocItems), true) &&
+                (ident = AssocItemKind.ident(assoc.kind)) !== undefined &&
+                (ty_assoc = AssocItems.find_by_ident_and_kind(assocs, this.r.tcx_, ident, "Type", trait_id)) !== undefined
+              ) {
+                decl = into_MultiSpan(this.r.tcx_.def_span(ty_assoc.def_id));
+                decl.push_span_label(this.r.tcx_.def_span(trait_id), "");
               } else {
                 decl = into_MultiSpan(DUMMY_SP);
               }

@@ -409,6 +409,10 @@
     "derive_decodable": true,
     "decodable_types": [
       "rustc_middle::ty::Visibility",
+      "rustc_middle::ty::RestrictionKind",
+      "rustc_middle::ty::ImplTraitInTraitData",
+      "rustc_middle::ty::Destructor",
+      "rustc_middle::ty::AsyncDestructor",
       "rustc_middle::middle::resolve::Reexport",
       "rustc_middle::middle::resolve::ModChild",
       "rustc_middle::middle::resolve::AmbigModChild",
@@ -421,7 +425,7 @@
     },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility table (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a) module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_middle_stability": {
@@ -623,6 +627,8 @@
   },
   "rustc_middle_diagnostics": {
     "files": ["compiler/rustc_middle/src/diagnostics.rs"],
+    "diag_args_skip": ["rustc_middle::ty::Ty"],
+    "diag_args_skip_note": "merge-w16a: rustc_middle/ty/mod.ts imports this set's diagnostics.gen.ts, so the .gen.ts must not import ty/diagnostics.ts (Ty_into_diag_arg) or ty/print/pretty.ts: loading them reads ty/mod.ts bindings before they are initialised (TDZ). The Ty args stay unported_into_diag_arg until the init order allows it.",
     "class": [],
     "hand": [],
     "discriminant": [],
@@ -729,12 +735,9 @@
       "rustc_type_ir::ty_kind::closure::HasRegionsBoundAt",
       "rustc_type_ir::ty_kind::closure::FoldEscapingRegions",
       "rustc_type_ir::canonical::CanonicalParamEnvCache",
-      "rustc_type_ir::canonical::CanonicalizerState",
-      "rustc_middle::ty::adjustment::CoerceUnsizedInfo"
+      "rustc_type_ir::canonical::CanonicalizerState"
     ],
-    "skip_notes": {
-      "rustc_middle::ty::adjustment::CoerceUnsizedInfo": "value of query coerce_unsized_info: once generated, tools/codegen/queries.ts types the query with it and rmeta's cstore_impl.ts provider (decode_unported) no longer type-checks; lane rmeta-ty opts it in with its TyDecodable decoder and regenerates queries.gen.ts"
-    },
+    "skip_notes": {},
     "resolve_files": [
       "compiler/rustc_type_ir/src/ty/mod.rs",
       "compiler/rustc_type_ir/src/data_structures/mod.rs",
@@ -744,7 +747,12 @@
     "erase_params": ["I"],
     "typemap_extra": ["tyir.typemap.json"],
     "bitflags_debug": true,
-    "derive_type_fold": true
+    "derive_type_fold": true,
+    "derive_decodable": true,
+    "decodable_import_gen": ["rustc_middle/ty/assoc.ts", "rustc_middle/ty/consts.ts", "rustc_middle/ty/sty.ts"],
+    "decoders": {
+      "Decodable_NoContext": { "type": "TyDecoder", "import": "src/rustc_middle/ty/codec.ts", "note": "lane rmeta-ty: upstream `impl<I: Interner, D: Decoder> Decodable<D>` with `where I::Ty: Decodable<D>, ..` bounds that only a `TyDecoder` meets (codec.rs); every caller decodes with a TyDecoder" }
+    }
   },
   "rustc_ast_lowering": {
     "files": [
@@ -795,5 +803,251 @@
     "auto_class": true,
     "bitflags_debug": true,
     "typemap_extra": ["ast_lowering.typemap.json"]
+  },
+  "rustc_middle_traits_thir": {
+    "files": [
+      "compiler/rustc_middle/src/middle/region.rs",
+      "compiler/rustc_middle/src/traits/mod.rs",
+      "compiler/rustc_middle/src/traits/cache.rs",
+      "compiler/rustc_middle/src/traits/select.rs",
+      "compiler/rustc_middle/src/traits/query.rs",
+      "compiler/rustc_middle/src/traits/specialization_graph.rs",
+      "compiler/rustc_middle/src/traits/solve.rs",
+      "compiler/rustc_middle/src/thir.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_middle::traits::solve::CanonicalInput",
+      "rustc_middle::traits::solve::ExternalConstraints",
+      "rustc_middle::traits::cache::WithDepNodeCache"
+    ],
+    "hand_notes": {
+      "rustc_middle::traits::solve::CanonicalInput": "hash-consed (`Interned<'tcx, CanonicalInputData>`, D2): a frozen class extending Interned, made only by `TyCtxt::intern_canonical_input` (traits/solve.ts)",
+      "rustc_middle::traits::solve::ExternalConstraints": "hash-consed (`Interned<'tcx, ExternalConstraintsData>`, D2): a frozen class extending Interned, made only by `TyCtxt::mk_external_constraints` (traits/solve.ts)",
+      "rustc_middle::traits::cache::WithDepNodeCache": "`Lock<FxHashMap<Key, ..>>` keyed by tuples of interned values: a KeyedMap with the key fn passed at construction (traits/cache.ts)"
+    },
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::traits::solve::Goal",
+      "rustc_middle::traits::solve::QueryInput",
+      "rustc_middle::traits::solve::QueryResult",
+      "rustc_middle::traits::solve::CandidateSource",
+      "rustc_middle::traits::solve::CanonicalResponse",
+      "rustc_middle::traits::solve::FetchEligibleAssocItemResponse",
+      "rustc_middle::traits::solve::ComputeGoalFastPathOutcome",
+      "rustc_middle::traits::solve::GoalStalledOn",
+      "rustc_middle::traits::solve::GoalStalledOnOpaques",
+      "rustc_middle::traits::solve::SucceededInErased"
+    ],
+    "skip_notes": {
+      "rustc_middle::traits::solve::Goal": "`pub type Goal<..> = ir::solve::Goal<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::QueryInput": "`pub type QueryInput<..> = ir::solve::QueryInput<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::QueryResult": "`pub type QueryResult<..> = ir::solve::QueryResult<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::CandidateSource": "`pub type CandidateSource<..> = ir::solve::CandidateSource<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::CanonicalResponse": "`pub type CanonicalResponse<..> = ir::solve::CanonicalResponse<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::FetchEligibleAssocItemResponse": "`pub type FetchEligibleAssocItemResponse<..> = ir::solve::FetchEligibleAssocItemResponse<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::ComputeGoalFastPathOutcome": "`pub type ComputeGoalFastPathOutcome<..> = ir::solve::ComputeGoalFastPathOutcome<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::GoalStalledOn": "`pub type GoalStalledOn<..> = ir::solve::GoalStalledOn<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::GoalStalledOnOpaques": "`pub type GoalStalledOnOpaques<..> = ir::solve::GoalStalledOnOpaques<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts",
+      "rustc_middle::traits::solve::SucceededInErased": "`pub type SucceededInErased<..> = ir::solve::SucceededInErased<TyCtxt<'tcx>, ..>`: the same TS type as the glob re-export of rustc_type_ir::solve (D3 erases the interner); hand alias in traits/solve.ts"
+    },
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
+  },
+  "rustc_infer": {
+    "files": [
+      "compiler/rustc_infer/src/diagnostics.rs",
+      "compiler/rustc_infer/src/infer/at.rs",
+      "compiler/rustc_infer/src/infer/canonical/canonicalizer.rs",
+      "compiler/rustc_infer/src/infer/canonical/instantiate.rs",
+      "compiler/rustc_infer/src/infer/canonical/mod.rs",
+      "compiler/rustc_infer/src/infer/canonical/query_response.rs",
+      "compiler/rustc_infer/src/infer/context.rs",
+      "compiler/rustc_infer/src/infer/free_regions.rs",
+      "compiler/rustc_infer/src/infer/freshen.rs",
+      "compiler/rustc_infer/src/infer/lexical_region_resolve/indexed_edges.rs",
+      "compiler/rustc_infer/src/infer/lexical_region_resolve/mod.rs",
+      "compiler/rustc_infer/src/infer/mod.rs",
+      "compiler/rustc_infer/src/infer/opaque_types/mod.rs",
+      "compiler/rustc_infer/src/infer/opaque_types/table.rs",
+      "compiler/rustc_infer/src/infer/outlives/env.rs",
+      "compiler/rustc_infer/src/infer/outlives/mod.rs",
+      "compiler/rustc_infer/src/infer/outlives/obligations.rs",
+      "compiler/rustc_infer/src/infer/outlives/test_type_match.rs",
+      "compiler/rustc_infer/src/infer/outlives/verify.rs",
+      "compiler/rustc_infer/src/infer/projection.rs",
+      "compiler/rustc_infer/src/infer/region_constraints/leak_check.rs",
+      "compiler/rustc_infer/src/infer/region_constraints/mod.rs",
+      "compiler/rustc_infer/src/infer/relate/generalize.rs",
+      "compiler/rustc_infer/src/infer/relate/higher_ranked.rs",
+      "compiler/rustc_infer/src/infer/relate/lattice.rs",
+      "compiler/rustc_infer/src/infer/relate/mod.rs",
+      "compiler/rustc_infer/src/infer/relate/type_relating.rs",
+      "compiler/rustc_infer/src/infer/resolve.rs",
+      "compiler/rustc_infer/src/infer/snapshot/fudge.rs",
+      "compiler/rustc_infer/src/infer/snapshot/mod.rs",
+      "compiler/rustc_infer/src/infer/snapshot/undo_log.rs",
+      "compiler/rustc_infer/src/infer/solver_region_constraints.rs",
+      "compiler/rustc_infer/src/infer/type_variable.rs",
+      "compiler/rustc_infer/src/infer/unify_key.rs",
+      "compiler/rustc_infer/src/lib.rs",
+      "compiler/rustc_infer/src/traits/engine.rs",
+      "compiler/rustc_infer/src/traits/mod.rs",
+      "compiler/rustc_infer/src/traits/project.rs",
+      "compiler/rustc_infer/src/traits/structural_impls.rs",
+      "compiler/rustc_infer/src/traits/util.rs",
+      "compiler/rustc_middle/src/infer/canonical.rs"
+    ],
+    "class": [
+      "rustc_infer::infer::opaque_types::table::OpaqueTypeStorageEntries"
+    ],
+    "hand": [
+      "rustc_infer::infer::InferCtxt",
+      "rustc_infer::infer::InferCtxtInner",
+      "rustc_infer::infer::InferCtxtBuilder",
+      "rustc_infer::infer::at::At",
+      "rustc_infer::infer::snapshot::undo_log::InferCtxtUndoLogs",
+      "rustc_infer::infer::type_variable::TypeVariableStorage",
+      "rustc_infer::infer::region_constraints::RegionConstraintStorage",
+      "rustc_infer::infer::outlives::env::OutlivesEnvironment",
+      "rustc_infer::traits::project::ProjectionCache",
+      "rustc_infer::infer::relate::lattice::LatticeOp",
+      "rustc_infer::infer::relate::type_relating::TypeRelating",
+      "rustc_middle::infer::canonical::CanonicalParamEnvCache",
+      "rustc_middle::infer::canonical::CanonicalQueryInput",
+      "rustc_middle::infer::canonical::Canonical",
+      "rustc_middle::infer::canonical::CanonicalVarKind",
+      "rustc_middle::infer::canonical::CanonicalVarValues"
+    ],
+    "discriminant": [],
+    "skip": [
+      "rustc_infer::infer::UnificationTable",
+      "rustc_infer::infer::snapshot::undo_log::UndoLog",
+      "rustc_infer::infer::type_variable::UndoLog",
+      "rustc_infer::traits::ObligationInspector",
+      "rustc_infer::traits::project::UndoLog",
+      "rustc_infer::infer::solver_region_constraints::SolverRegionConstraint",
+      "rustc_infer::infer::solver_region_constraints::SolverRegionConstraintStorage"
+    ],
+    "skip_notes": {
+      "rustc_infer::infer::UnificationTable": "`ut::UnificationTable<ut::InPlace<T, &mut UnificationStorage<T>, &mut InferCtxtUndoLogs>>`: the value/error types of `T: UnifyKey` are not expressible in the type map; hand alias in infer/mod.ts",
+      "rustc_infer::infer::snapshot::undo_log::UndoLog": "variants hold `sv::UndoLog<ut::Delegate<K>>` (ena `UndoLog<VarValue<K, V>, undefined>`), not expressible in the type map; hand-written in snapshot/undo_log.ts (ported by infcx-contract)",
+      "rustc_infer::infer::type_variable::UndoLog": "variants hold `sv::UndoLog<ut::Delegate<K>>`; hand-written in type_variable.ts (ported by infcx-contract)",
+      "rustc_infer::traits::ObligationInspector": "a `fn` pointer type; hand-written in traits/mod.ts",
+      "rustc_infer::traits::project::UndoLog": "`snapshot_map::UndoLog<ProjectionCacheKey, ProjectionCacheEntry>` under the same name; hand-written in traits/project.ts",
+      "rustc_infer::infer::solver_region_constraints::SolverRegionConstraint": "`RegionConstraint<TyCtxt<'tcx>, Span>`: the type map cannot drop the interner argument; hand-written in solver_region_constraints.ts (ported by infcx-contract)",
+      "rustc_infer::infer::solver_region_constraints::SolverRegionConstraintStorage": "holds `Option<SolverRegionConstraint>`; hand-written in solver_region_constraints.ts (ported by infcx-contract)"
+    },
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json",
+      "infer.typemap.json"
+    ],
+    "resolve_files": [
+      "compiler/rustc_type_ir/src/ty/mod.rs",
+      "compiler/rustc_type_ir/src/data_structures/mod.rs",
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_middle/src/ty/relate.rs",
+      "compiler/rustc_middle/src/traits/solve.rs",
+      "compiler/rustc_type_ir/src/lib.rs"
+    ],
+    "derive_default": true,
+    "hand_notes": {
+      "rustc_infer::infer::InferCtxt": "the contract class (src/rustc_infer/decls.ts, re-exported by infer/mod.ts): fields `tainted_by_errors_`, `universe_`, `next_trait_solver_`, `enable_next_solver_overflow_fcw_` renamed (methods of the same name)",
+      "rustc_infer::infer::InferCtxtInner": "contract class (decls.ts): fields `projection_cache_`, `region_obligations_`, `region_assumptions_` renamed (methods of the same name)",
+      "rustc_infer::infer::InferCtxtBuilder": "contract class (decls.ts): fields `in_hir_typeck_`, `skip_leak_check_`, `enable_next_solver_overflow_fcw_` renamed (builder methods of the same name)",
+      "rustc_infer::infer::at::At": "contract class (decls.ts), extended by rustc_trait_selection's NormalizeExt / QueryNormalizeExt / StructurallyNormalizeExt",
+      "rustc_infer::infer::snapshot::undo_log::InferCtxtUndoLogs": "field `num_open_snapshots_` renamed (`UndoLogs::num_open_snapshots`); snapshot/undo_log.ts",
+      "rustc_infer::infer::type_variable::TypeVariableStorage": "holds `ut::UnificationTableStorage<K>` (value types not expressible in the type map); type_variable.ts",
+      "rustc_infer::infer::region_constraints::RegionConstraintStorage": "holds `ut::UnificationTableStorage<RegionVidKey>`; region_constraints/mod.ts",
+      "rustc_infer::infer::outlives::env::OutlivesEnvironment": "fields `free_region_map_`, `region_bound_pairs_`, `known_type_outlives_`, `higher_ranked_assumptions_` renamed (accessor methods of the same name); outlives/env.ts",
+      "rustc_infer::traits::project::ProjectionCache": "field `map_` renamed (method `map()`); traits/project.ts",
+      "rustc_infer::infer::relate::lattice::LatticeOp": "field `param_env_` renamed (`PredicateEmittingRelation::param_env`); relate/lattice.ts",
+      "rustc_infer::infer::relate::type_relating::TypeRelating": "field `param_env_` renamed (`PredicateEmittingRelation::param_env`); relate/type_relating.ts",
+      "rustc_middle::infer::canonical::CanonicalParamEnvCache": "`Lock<FxHashMap<ParamEnv, ..>>` keyed by an interned-list struct: a KeyedMap on intern_key; rustc_middle/infer/canonical.ts",
+      "rustc_middle::infer::canonical::CanonicalQueryInput": "`pub type CanonicalQueryInput<'tcx, V> = ir::CanonicalQueryInput<TyCtxt<'tcx>, V>`: the same TS type as rustc_type_ir's (D3); hand alias in rustc_middle/infer/canonical.ts",
+      "rustc_middle::infer::canonical::Canonical": "`pub type Canonical<'tcx, V> = ir::Canonical<TyCtxt<'tcx>, V>` (D3); hand alias in rustc_middle/infer/canonical.ts",
+      "rustc_middle::infer::canonical::CanonicalVarKind": "`ir::CanonicalVarKind<TyCtxt<'tcx>>` (D3); hand alias in rustc_middle/infer/canonical.ts",
+      "rustc_middle::infer::canonical::CanonicalVarValues": "`ir::CanonicalVarValues<TyCtxt<'tcx>>` (D3); hand alias in rustc_middle/infer/canonical.ts"
+    },
+    "type_fold_types": [
+      "GenericKind",
+      "MismatchedProjectionTypes",
+      "Obligation",
+      "QueryRegionConstraint",
+      "QueryRegionConstraints",
+      "ValuePairs",
+      "VerifyBound",
+      "VerifyIfEq"
+    ],
+    "type_fold_notes": "QueryResponse is left out: its type parameter `R` clashes with the visitor result parameter `R` of the generated visit_with_QueryResponse<R, R> (generator bug, reported in docs/handoff/infcx-contract.md)"
+  },
+  "rustc_hir_analysis": {
+    "files": [
+      "compiler/rustc_hir_analysis/src/diagnostics.rs",
+      "compiler/rustc_hir_analysis/src/collect.rs",
+      "compiler/rustc_hir_analysis/src/collect/generics_of.rs",
+      "compiler/rustc_hir_analysis/src/collect/type_of.rs",
+      "compiler/rustc_hir_analysis/src/collect/type_of/opaque.rs",
+      "compiler/rustc_hir_analysis/src/collect/clauses_of.rs",
+      "compiler/rustc_hir_analysis/src/collect/item_bounds.rs",
+      "compiler/rustc_hir_analysis/src/collect/dump.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/generics.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs",
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs"
+    ],
+    "files_note": "collect/resolve_bound_vars.rs is not in the set: the typedefs probe (syn) cannot parse its `gen { .. }` block (resolve_bound_vars.rs:2500, `#![feature(gen_blocks)]`); lane collect-rbv hand-writes its types or root extends the probe (hirtylowerer-contract)",
+    "class": [],
+    "hand": [
+      "rustc_hir_analysis::collect::ItemCtxt",
+      "rustc_hir_analysis::collect::HirPlaceholderCollector",
+      "rustc_hir_analysis::collect::type_of::opaque::TaitConstraintLocator",
+      "rustc_hir_analysis::collect::item_bounds::MapAndCompressBoundVars",
+      "rustc_hir_analysis::collect::item_bounds::AssocTyToOpaque",
+      "rustc_hir_analysis::collect::generics_of::AnonConstInParamTyDetector",
+      "rustc_hir_analysis::hir_ty_lowering::ForbidParamUsesFolder",
+      "rustc_hir_analysis::hir_ty_lowering::bounds::GenericParamAndBoundVarCollector",
+      "rustc_hir_analysis::hir_ty_lowering::errors::GenericsArgsErrExtend"
+    ],
+    "hand_notes": {
+      "rustc_hir_analysis::collect::ItemCtxt": "the shared contract (hirtylowerer-contract): class with all fields + every method declared in decls.ts; methods assigned by collect.ts / collect/clauses_of.ts",
+      "rustc_hir_analysis::collect::HirPlaceholderCollector": "intravisit Visitor impl: hand class extending rustc_hir intravisit Visitor (collect.ts, lane collect-a)",
+      "rustc_hir_analysis::collect::type_of::opaque::TaitConstraintLocator": "intravisit Visitor impl: hand class extending rustc_hir intravisit Visitor (collect/type_of/opaque.ts, lane collect-a)",
+      "rustc_hir_analysis::collect::item_bounds::MapAndCompressBoundVars": "TypeFolder impl: hand class (collect/item_bounds.ts, lane collect-b)",
+      "rustc_hir_analysis::collect::item_bounds::AssocTyToOpaque": "TypeFolder impl: hand class (collect/item_bounds.ts, lane collect-b)",
+      "rustc_hir_analysis::collect::generics_of::AnonConstInParamTyDetector": "intravisit Visitor impl: hand class extending rustc_hir intravisit Visitor (collect/generics_of.ts, lane collect-a)",
+      "rustc_hir_analysis::hir_ty_lowering::ForbidParamUsesFolder": "TypeFolder impl: hand class (hir_ty_lowering/mod.ts, lane hir-ty-lowering-a)",
+      "rustc_hir_analysis::hir_ty_lowering::bounds::GenericParamAndBoundVarCollector": "TypeVisitor impl with a `&dyn HirTyLowerer` field: hand class (hir_ty_lowering/bounds.ts, lane hir-ty-lowering-c)",
+      "rustc_hir_analysis::hir_ty_lowering::errors::GenericsArgsErrExtend": "no derives; its variants name both `hir::Ty` and `ty::Ty`, which the generator would import under the same TS name `Ty`: hand-written in hir_ty_lowering/errors.ts"
+    },
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_hir/src/lib.rs"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "hir_analysis.typemap.json"]
+  },
+  "rustc_ty_utils": {
+    "files": ["compiler/rustc_ty_utils/src/diagnostics.rs"],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "typemap_extra": ["tyir.typemap.json"]
   }
 }

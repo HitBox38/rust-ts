@@ -12,7 +12,8 @@
 // - `trait IntoArgs`: each impl is a value (`IntoArgs_<Key>`).
 // - Arenas are erased (`tcx.arena.alloc(x)` is `x`, `alloc_from_iter` collects into an array), as in
 //   rustc_middle's queries.gen.ts (`ProvidedValue` = `Value`).
-// - `DefIdMap` / `FxIndexMap<DefId, _>` values are `KeyedMap(DefId_hash_key)` (src/rust_ts/keyed.ts).
+// - `DefIdMap` / `FxIndexMap<DefId, _>` values are keyed by `DefId` value: rustc_span's `DefIdMap` or
+//   `KeyedMap(DefId_hash_key)` (src/rust_ts/keyed.ts).
 // - Element types with no TS `Decodable` yet decode through `decode_unported(<type>)`, which stops at
 //   `unported(..)` naming the type.
 // - The `impl CStore` block (line 629) and `impl CrateStore for CStore` (line 737) are attached to creader.ts's
@@ -33,7 +34,7 @@ import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { Visibility } from "../../../rustc_middle/ty/mod.ts";
 import type { Providers } from "../../../rustc_middle/util/mod.ts";
 import { type Decodable, decode_Option, decode_String, decode_Vec } from "../../../rustc_serialize/serialize.ts";
-import { CrateNum, DefId, DefId_eq, LOCAL_CRATE, type ModId, type StableCrateId, debug_CrateNum, debug_DefId, debug_StableCrateId } from "../../../rustc_span/def_id.ts";
+import { CrateNum, DefId, DefId_eq, DefIdMap, LOCAL_CRATE, type ModId, type StableCrateId, debug_CrateNum, debug_DefId, debug_StableCrateId } from "../../../rustc_span/def_id.ts";
 import { decode_Ident } from "../../../rustc_span/decodable.gen.ts";
 import type { ExpnId } from "../../../rustc_span/hygiene.ts";
 import { decode_Span, type Span } from "../../../rustc_span/lib.ts";
@@ -43,10 +44,23 @@ import { KeyedMap } from "../../../rust_ts/keyed.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { assert, panic, unported } from "../../../std/panic.ts";
 import { Ok } from "../../../std/result.ts";
+// rmeta-ty imports
+import { decode_Clause, decode_List_BoundVariableKind, decode_Ty } from "../../../rustc_middle/ty/codec.ts";
+import { type CoerceUnsizedInfo, decode_CoerceUnsizedInfo } from "../../../rustc_middle/ty/adjustment.ts";
+import type { Clause } from "../../../rustc_middle/ty/predicate.ts";
+import { decode_tuple } from "../../../rustc_serialize/serialize.ts";
+import { type Binder, decode_EarlyBinder, EarlyBinder } from "../../../rustc_type_ir/binder.ts";
+import { decode_AnonConstKind, decode_ConstKind } from "../../../rustc_type_ir/const_kind.ts";
+import { decode_Variance } from "../../../rustc_type_ir/lib.ts";
+import { decode_TraitRef } from "../../../rustc_type_ir/predicate.ts";
+import { decode_Binder, decode_Const } from "../../../rustc_type_ir/serialize.ts";
+import type { Const } from "../../../rustc_type_ir/sty/consts.ts";
+import { decode_FnSig, type FnSig } from "../../../rustc_type_ir/ty_kind.ts";
+// end rmeta-ty imports
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
 import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
-import { decode_Generics } from "../../../rustc_middle/decodable.gen.ts";
+import { decode_AsyncDestructor, decode_Destructor, decode_Generics } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
@@ -109,9 +123,8 @@ export const ProcessQueryValue_T: ProcessQueryValue<unknown, unknown> = {
 export const ProcessQueryValue_EarlyBinder: ProcessQueryValue<unknown, unknown> = {
   // #[inline(always)]
   // rustc: compiler/rustc_metadata/src/rmeta/decoder/cstore_impl.rs:46 process_decoded
-  process_decoded(_self: unknown, _tcx: TyCtxt, _err: () => never): unknown {
-    // ty::EarlyBinder::bind_no_rigid_aliases(self)
-    return unported("rustc_middle::ty::EarlyBinder::bind_no_rigid_aliases (M3)");
+  process_decoded(self: unknown, _tcx: TyCtxt, _err: () => never): unknown {
+    return EarlyBinder.bind_no_rigid_aliases(self);
   },
 };
 
@@ -227,6 +240,13 @@ const raw_def_id: DecodeLazy = { lazy: "RawDefId", what: "RawDefId", decode: (la
 function decode_unported(what: string): Decodable<never, MetadataDecodeContext> {
   return (): never => unported(`rustc_metadata::rmeta::decoder::cstore_impl: Decodable for ${what}`);
 }
+
+/** `(ty::Clause<'static>, Span)`: the tuple impl over `Decodable for Clause` (rustc_middle ty/codec.rs:226) and `Span`. */
+const decode_Clause_Span: Decodable<[Clause, Span], MetadataDecodeContext> = (d) => decode_tuple(d, decode_Clause, decode_Span);
+/** `ty::PolyFnSig` = `Binder<FnSig>`: rustc_type_ir serialize.rs `impl_binder_encode_decode!`. */
+const decode_PolyFnSig: Decodable<Binder<FnSig>, MetadataDecodeContext> = (d) => decode_Binder(d, decode_FnSig, decode_List_BoundVariableKind);
+/** `Decodable for ty::Const` (rustc_type_ir serialize.rs:130). */
+const decode_Const_: Decodable<Const, MetadataDecodeContext> = (d) => decode_Const(d, decode_ConstKind);
 
 /** `impl Decodable for Symbol` (rustc_span): `d.decode_symbol()`. */
 const decode_Symbol: Decodable<Symbol, MetadataDecodeContext> = (d) => d.decode_symbol();
@@ -408,23 +428,23 @@ type ExportedSymbol = { readonly $: "NonGeneric"; readonly _0: DefId } | { reado
 
 /** The `provide!` invocation (cstore_impl.rs:230), in upstream order. Exported for cstore_impl.test.ts. */
 export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } = {
-  explicit_item_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
-  explicit_item_self_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
+  explicit_item_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_EarlyBinder)],
+  explicit_item_self_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_EarlyBinder)],
   explicit_clauses_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::GenericClauses<'static>", decode_unported("ty::GenericClauses<'static>")), ProcessQueryValue_Option_T)],
   generics_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Generics", decode_Generics), ProcessQueryValue_Option_T)],
-  inferred_outlives_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_T)],
-  explicit_super_clauses_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
-  explicit_implied_clauses_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_unported("(ty::Clause<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
-  type_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, Ty<'static>>", decode_unported("ty::EarlyBinder<'static, Ty<'static>>")), ProcessQueryValue_Option_T)],
+  inferred_outlives_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_T)],
+  explicit_super_clauses_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_EarlyBinder)],
+  explicit_implied_clauses_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_EarlyBinder)],
+  type_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, Ty<'static>>", (d) => decode_EarlyBinder(d, decode_Ty)), ProcessQueryValue_Option_T)],
   type_alias_is_checked: [IntoArgs_DefId, table_direct(fse_bool, ProcessQueryValue_T)],
-  variances_of: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("ty::Variance", decode_unported("ty::Variance")), ProcessQueryValue_DecodeIterator_slice)],
-  fn_sig: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, ty::PolyFnSig<'static>>", decode_unported("ty::EarlyBinder<'static, ty::PolyFnSig<'static>>")), ProcessQueryValue_Option_T)],
+  variances_of: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("ty::Variance", decode_Variance), ProcessQueryValue_DecodeIterator_slice)],
+  fn_sig: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, ty::PolyFnSig<'static>>", (d) => decode_EarlyBinder(d, decode_PolyFnSig)), ProcessQueryValue_Option_T)],
   codegen_fn_attrs: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("CodegenFnAttrs", decode_unported("CodegenFnAttrs")), ProcessQueryValue_Option_T)],
   impl_trait_header: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ImplTraitHeader<'static>", decode_unported("ty::ImplTraitHeader<'static>")), ProcessQueryValue_Option_T)],
   impl_is_fully_generic_for_reflection: [IntoArgs_DefId, table_direct(fse_bool, ProcessQueryValue_T)],
-  const_param_default: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, rustc_middle::ty::Const<'static>>", decode_unported("ty::EarlyBinder<'static, rustc_middle::ty::Const<'static>>")), ProcessQueryValue_Option_T)],
+  const_param_default: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, rustc_middle::ty::Const<'static>>", (d) => decode_EarlyBinder(d, decode_Const_)), ProcessQueryValue_Option_T)],
   object_lifetime_default: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ObjectLifetimeDefault", decode_unported("ObjectLifetimeDefault")), ProcessQueryValue_Option_T)],
-  thir_abstract_const: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, ty::Const<'static>>", decode_unported("ty::EarlyBinder<'static, ty::Const<'static>>")), ProcessQueryValue_Option_Result)],
+  thir_abstract_const: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, ty::Const<'static>>", (d) => decode_EarlyBinder(d, decode_Const_)), ProcessQueryValue_Option_Result)],
   optimized_mir: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::Body<'static>", decode_unported("mir::Body<'static>")), ProcessQueryValue_Option_ref_T)],
   mir_for_ctfe: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("mir::Body<'static>", decode_unported("mir::Body<'static>")), ProcessQueryValue_Option_ref_T)],
   trivial_const: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("(ConstValue, Ty<'static>)", decode_unported("(ConstValue, Ty<'static>)")), ProcessQueryValue_T)],
@@ -447,15 +467,15 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   defaultness: [IntoArgs_DefId, table_direct(fse_Defaultness, ProcessQueryValue_T)],
   constness: [IntoArgs_DefId, table_direct(fse_Constness, ProcessQueryValue_T)],
   const_conditions: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ConstConditions<'static>", decode_unported("ty::ConstConditions<'static>")), ProcessQueryValue_Option_T)],
-  explicit_implied_const_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::PolyTraitRef<'static>, Span)", decode_unported("(ty::PolyTraitRef<'static>, Span)")), ProcessQueryValue_EarlyBinder)],
+  explicit_implied_const_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::PolyTraitRef<'static>, Span)", (d) => decode_tuple(d, (d) => decode_Binder(d, decode_TraitRef, decode_List_BoundVariableKind), decode_Span)), ProcessQueryValue_EarlyBinder)],
   coerce_unsized_info: [
     IntoArgs_DefId,
     (tcx, def_id, _other, cdata) => {
-      const lazy = cdata.root.tables.coerce_unsized_info.get(fse_Option_LazyValue, cdata, def_id.index);
+      const lazy = cdata.root.tables.coerce_unsized_info.get(fse_Option_LazyValue, cdata, def_id.index) as LazyValue<CoerceUnsizedInfo> | undefined;
       return Ok(
-        ProcessQueryValue_Option_T.process_decoded(lazy === undefined ? undefined : lazy.decode([cdata, tcx], decode_unported("ty::adjustment::CoerceUnsizedInfo")), tcx, () =>
+        ProcessQueryValue_Option_T.process_decoded(lazy === undefined ? undefined : lazy.decode([cdata, tcx], decode_CoerceUnsizedInfo), tcx, () =>
           panic(`${debug_DefId(def_id, PLAIN)} does not have coerce_unsized_info`),
-        ),
+        ) as CoerceUnsizedInfo,
       );
     },
   ],
@@ -488,7 +508,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
     },
   ],
   opaque_ty_origin: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("hir::OpaqueTyOrigin<DefId>", decode_unported("hir::OpaqueTyOrigin<DefId>")), ProcessQueryValue_Option_T)],
-  assumed_wf_types_for_rpitit: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("(Ty<'static>, Span)", decode_unported("(Ty<'static>, Span)")), ProcessQueryValue_DecodeIterator_slice)],
+  assumed_wf_types_for_rpitit: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("(Ty<'static>, Span)", (d) => decode_tuple(d, decode_Ty, decode_Span)), ProcessQueryValue_DecodeIterator_slice)],
   collect_return_position_impl_trait_in_trait_tys: [
     IntoArgs_DefId,
     (tcx, def_id, _other, cdata) => {
@@ -496,7 +516,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
       return Ok(
         ProcessQueryValue_Option_ref_T.process_decoded(lazy === undefined ? undefined : lazy.decode([cdata, tcx], decode_unported("DefIdMap<ty::EarlyBinder<'static, Ty<'static>>>")), tcx, () =>
           panic(`${debug_DefId(def_id, PLAIN)} does not have collect_return_position_impl_trait_in_trait_tys`),
-        ) as Map<DefId, unknown>,
+        ) as DefIdMap<unknown>,
       );
     },
   ],
@@ -505,8 +525,8 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
 
   visibility: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_visibility(tcx, def_id.index)],
   adt_def: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_adt_def(tcx, def_id.index)],
-  adt_destructor: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Destructor", decode_unported("ty::Destructor")), ProcessQueryValue_T)],
-  adt_async_destructor: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::AsyncDestructor", decode_unported("ty::AsyncDestructor")), ProcessQueryValue_T)],
+  adt_destructor: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Destructor", decode_Destructor), ProcessQueryValue_T)],
+  adt_async_destructor: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::AsyncDestructor", decode_AsyncDestructor), ProcessQueryValue_T)],
   associated_item_def_ids: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => [...cdata.get_associated_item_or_field_def_ids(tcx, def_id.index)]],
   associated_item: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_associated_item(tcx, def_id.index)],
   inherent_impls: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_inherent_implementations_for_type(tcx, def_id.index)],
@@ -623,8 +643,8 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   is_doc_hidden: [IntoArgs_DefId, (_tcx, def_id, _other, cdata) => AttrFlags.contains(cdata.get_attr_flags(def_id.index), AttrFlags.IS_DOC_HIDDEN)],
   doc_link_resolutions: [IntoArgs_ModId, (tcx, def_id, _other, cdata) => cdata.get_doc_link_resolutions(tcx, def_id.index)],
   doc_link_traits_in_scope: [IntoArgs_ModId, (tcx, def_id, _other, cdata) => [...cdata.get_doc_link_traits_in_scope(tcx, def_id.index)]],
-  anon_const_kind: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::AnonConstKind", decode_unported("ty::AnonConstKind")), ProcessQueryValue_Option_T)],
-  const_of_item: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Option<ty::EarlyBinder<'static, ty::Const<'static>>>", decode_unported("Option<ty::EarlyBinder<'static, ty::Const<'static>>>")), ProcessQueryValue_Option_T)],
+  anon_const_kind: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::AnonConstKind", decode_AnonConstKind), ProcessQueryValue_Option_T)],
+  const_of_item: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Option<ty::EarlyBinder<'static, ty::Const<'static>>>", (d) => decode_Option(d, (d) => decode_EarlyBinder(d, decode_Const_))), ProcessQueryValue_Option_T)],
   args_known_to_outlive_alias_params: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Vec<(usize, DenseBitSet<u32>)>", decode_unported("Vec<(usize, DenseBitSet<u32>)>")), ProcessQueryValue_Option_T)],
 };
 
@@ -672,7 +692,7 @@ export function provide(providers: Providers): void {
       // use std::collections::hash_map::Entry;
       // use std::collections::vec_deque::VecDeque;
 
-      const visible_parent_map: Map<DefId, DefId> = new KeyedMap<DefId, DefId>(DefId_hash_key);
+      const visible_parent_map: DefIdMap<DefId> = new DefIdMap<DefId>();
       // This is a secondary visible_parent_map, storing the DefId of
       // parents that re-export the child as `_`, module parents
       // which are `#[doc(hidden)]`, or `use` items that are themselves

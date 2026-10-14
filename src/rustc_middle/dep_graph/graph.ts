@@ -22,6 +22,11 @@ export function hash_result<R>(hcx: StableHashState, result: R, stable_hash_R: S
   return stable_hasher.finish(Fingerprint);
 }
 
+/** PORT: `DepKind` (dep_node.rs, generated from the query list plus the non-query kinds such as `TraitSelect`)
+ * is not ported (D3): its variant name, as `check_feedable_consistency` prints it. The disabled graph never
+ * reads it. */
+export type DepKind = string;
+
 /** PORT: `DepGraphData` is not ported (D3); a `DepGraph` never has one. */
 export type DepGraphData = never;
 
@@ -64,6 +69,30 @@ export class DepGraph {
     // PORT: no dep graph (D3): `with_deps(TaskDepsRef::Ignore, op)` only swaps the implicit context's
     // task deps, which do not exist here.
     return op();
+  }
+
+  /** PORT: no dep graph (D3): `DepNode` is not ported, so `dep_node` is `undefined` (as in `with_feed_task`);
+   * the disabled graph never reads it. `hash_result` is kept for the signature only. */
+  // rustc: compiler/rustc_middle/src/dep_graph/graph.rs:330 with_task
+  with_task<R>(dep_node: undefined, tcx: TyCtxt, op: () => R, hash_result: HashValueFn<R> | undefined): [R, DepNodeIndex] {
+    if (this.data_ !== undefined) {
+      void [dep_node, tcx, hash_result];
+      return unported("rustc_middle::dep_graph::DepGraphData::with_task (D3)");
+    } else {
+      return [op(), this.next_virtual_depnode_index()];
+    }
+  }
+
+  // rustc: compiler/rustc_middle/src/dep_graph/graph.rs:346 with_anon_task
+  with_anon_task<R>(tcx: TyCtxt, dep_kind: DepKind, op: () => R): [R, DepNodeIndex] {
+    if (this.data_ !== undefined) {
+      // let (result, index) = data.with_anon_task_inner(tcx, dep_kind, op);
+      // self.read_index(index);
+      void [tcx, dep_kind];
+      return unported("rustc_middle::dep_graph::DepGraphData::with_anon_task_inner (D3)");
+    } else {
+      return [op(), this.next_virtual_depnode_index()];
+    }
   }
 
   // rustc: compiler/rustc_middle/src/dep_graph/graph.rs:507 read_index

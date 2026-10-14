@@ -4,10 +4,12 @@
 //
 // PORT: `K: Ord` is a `cmp` function (PORTING section 5: trait bounds become function tables), passed to the
 // constructor (and so to `default`/`new`, which take no arguments upstream). The rest of the file (remove, range,
-// `SortedIndexMultiMap`, ...) is not ported.
+// ...) is not ported. `SortedIndexMultiMap` is sorted_map/index_map.ts (re-exported below, as upstream's `pub use`).
 import { type StableHash, type StableHashCtxt, type StableHasher, stable_hash_tuple2, stable_hash_Vec } from "./stable_hash.ts";
 import { type Debug, debug_map, type Fmt } from "../std/fmt.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
+
+export { SortedIndexMultiMap } from "./sorted_map/index_map.ts";
 
 /** `Ord::cmp` as a number (< 0, 0, > 0). */
 export type Cmp<K> = (a: K, b: K) => number;

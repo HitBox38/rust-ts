@@ -1,0 +1,33 @@
+error[E0107]: enum takes 1 generic argument but 2 generic arguments were supplied
+  --> enum_alias.rs:15:17
+   |
+LL | pub type A<T> = E<T, T>;
+   |                 ^  --- help: remove the unnecessary generic argument
+   |                 |
+   |                 expected 1 generic argument
+   |
+note: enum defined here, with 1 generic parameter: `T`
+  --> enum_alias.rs:14:10
+   |
+LL | pub enum E<T> { A(T) }
+   |          ^ -
+
+error[E0107]: missing generics for type alias `A`
+  --> enum_alias.rs:16:14
+   |
+LL | pub type B = A;
+   |              ^ expected 1 generic argument
+   |
+note: type alias defined here, with 1 generic parameter: `T`
+  --> enum_alias.rs:15:10
+   |
+LL | pub type A<T> = E<T, T>;
+   |          ^ -
+help: add missing generic argument
+   |
+LL | pub type B = A<T>;
+   |               +++
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0107`.

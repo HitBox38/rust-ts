@@ -29,7 +29,7 @@
 //   `T: ParameterizedOverTcx` value type is `T` (parameterized.ts).
 // - `DecodeIterator`'s `Iterator::next` is the JS iterator protocol `next` (the `IteratorResult` is the
 //   `Option`), so it is `Iterable`. `CrateRoot::decode_*` collect it into arrays (creader's call sites index them).
-// - `forward_all_decoder_methods_to!` (rustc_middle ty/codec.rs:318) is expanded by hand in the two `Decoder` impls.
+// - `forward_all_decoder_methods_to!` (rustc_middle ty/codec.rs:318) is rustc_middle ty/codec.ts's `forward_all_decoder_methods_to`, called for the two `Decoder` impls.
 // - `rustc_span::{BlobDecoder, SpanDecoder}` (lib.rs:1501 / 1528) are rustc_span's (lane span-decode), re-exported.
 // - `Svh` (rustc_data_structures svh.rs, not ported) stays the creader stand-in: the hash's `Display` text.
 // PORT: crate roots first, for their load order (decodable.gen.ts reaches rustc_target/spec/mod.ts and
@@ -100,7 +100,8 @@ import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { DiagnosticItems } from "../../rustc_attr_ir/diagnostic_items.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { DefPath as DefPath_, DefPathData } from "../../rustc_hir_id/definitions.ts";
-import { decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { decode_ImplTraitInTraitData, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import type { RestrictionKind } from "../../rustc_middle/ty/mod.ts";
 import { debug_Visibility, Visibility as ty_Visibility } from "../../rustc_middle/ty/mod.ts";
 import { decode_u32 } from "../../rustc_serialize/serialize.ts";
 import { CRATE_DEF_INDEX, DefIdMap, debug_DefId, ModId as ModId_ } from "../../rustc_span/def_id.ts";
@@ -141,6 +142,13 @@ import { decode_StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import { decode_LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { decode_DeniedPartialMitigation } from "../../rustc_session/options/mitigation_coverage.ts";
 // end decode-elems imports
+// rmeta-ty imports
+import { forward_all_decoder_methods_to, type TyDecoder, TyDecoder_provided } from "../../rustc_middle/ty/codec.ts";
+import type { Ty } from "../../rustc_middle/ty/mod.ts";
+import type { Pending } from "../../rustc_type_ir/decls.ts";
+import { type AssocContainer, type AssocItem, type AssocKind, type AssocTypeData, decode_AssocContainer } from "../../rustc_middle/ty/assoc.gen.ts";
+import type { ImplTraitInTraitData } from "../../rustc_middle/ty/decls.ts";
+// end rmeta-ty imports
 
 // pub(super) use cstore_impl::provide;  (../lib.ts exports it; mod cstore_impl; is loaded by ../lib.ts)
 
@@ -180,6 +188,7 @@ export type { BlobDecoder, SpanDecoder };
 export type ProcMacroClient = unknown; // rustc_proc_macro::bridge::client::Client (M6)
 export type AllocDecodingState = unknown; // rustc_middle::mir::interpret (M3)
 export type AllocDecodingSession = unknown; // rustc_middle::mir::interpret (M3)
+type AllocId = Pending<"mir::interpret::AllocId">; // rustc_middle::mir::interpret (M4)
 export type HygieneDecodeContext = unknown; // rustc_span::hygiene (lane hygiene-decode)
 // `rustc_middle::ty::fast_reject::SimplifiedType` (rustc_type_ir fast_reject.rs at `DefId`, lane decode-elems).
 export type { SimplifiedType };
@@ -406,8 +415,7 @@ export interface CrateMetadata {
   /** `-> ty::AdtDef<'tcx>` (M3) */
   get_adt_def(tcx: TyCtxt, item_id: DefIndex): unknown;
   get_visibility(tcx: TyCtxt, id: DefIndex): Visibility<ModId>;
-  /** `-> RestrictionKind` (rustc_middle ty, M3) */
-  get_mut_restriction(tcx: TyCtxt, id: DefIndex): unknown;
+  get_mut_restriction(tcx: TyCtxt, id: DefIndex): RestrictionKind;
   get_safety(id: DefIndex): Safety;
   get_default_field(tcx: TyCtxt, id: DefIndex): DefId | undefined;
   get_expn_that_defined(tcx: TyCtxt, id: DefIndex): ExpnId;
@@ -433,7 +441,7 @@ export interface CrateMetadata {
   get_fn_has_self_parameter(tcx: TyCtxt, id: DefIndex): boolean;
   get_associated_item_or_field_def_ids(tcx: TyCtxt, id: DefIndex): Iterable<DefId>;
   /** `-> ty::AssocItem` (M3) */
-  get_associated_item(tcx: TyCtxt, id: DefIndex): unknown;
+  get_associated_item(tcx: TyCtxt, id: DefIndex): AssocItem;
   get_ctor(tcx: TyCtxt, node_id: DefIndex): [CtorKind, DefId] | undefined;
   get_item_attrs(tcx: TyCtxt, id: DefIndex): Iterable<Attribute>;
   get_inherent_implementations_for_type(tcx: TyCtxt, id: DefIndex): DefId[];
@@ -629,7 +637,7 @@ export class MetadataDecodeContext {
     readonly alloc_decoding_session: AllocDecodingSession,
   ) {}
 }
-export interface MetadataDecodeContext extends LazyDecoder, SpanDecoder {
+export interface MetadataDecodeContext extends LazyDecoder, SpanDecoder, TyDecoder {
   // impl LazyDecoder for MetadataDecodeContext (decoder.rs:243) + its provided methods
   read_lazy<T>(): LazyValue<T>;
   read_lazy_array<T>(len: number): LazyArray<T>;
@@ -638,11 +646,11 @@ export interface MetadataDecodeContext extends LazyDecoder, SpanDecoder {
   // impl MetadataDecodeContext (decoder.rs:359)
   map_encoded_cnum_to_current(cnum: CrateNum): CrateNum;
   // impl TyDecoder<'tcx> for MetadataDecodeContext (decoder.rs:395); `const CLEAR_CROSS_CRATE: bool = true;`
-  /** `-> Ty<'tcx>` (M3) */
-  cached_ty_for_shorthand(shorthand: number, or_insert_with: (this_: MetadataDecodeContext) => unknown): unknown;
+  // PORT(decls) (lane rmeta-ty): `Ty` / `AllocId` now that rustc_middle ty/codec.ts declares `TyDecoder`.
+  cached_ty_for_shorthand(shorthand: number, or_insert_with: (this_: MetadataDecodeContext) => Ty): Ty;
   with_position<R>(pos: number, f: (this_: MetadataDecodeContext) => R): R;
-  /** `-> AllocId` (M3) */
-  decode_alloc_id(): unknown;
+  positioned_at_shorthand(): boolean; // (provided, ty/codec.rs:55)
+  decode_alloc_id(): AllocId;
   // impl InternerDecoder for MetadataDecodeContext (decoder.rs:434)
   interner(): TyCtxt;
 }
@@ -844,15 +852,30 @@ BlobDecodeContext.prototype.decode_symbol_or_byte_symbol = function <S>(
 // ---- lane rmeta-decoder-a: decoder.rs:395..576 (TyDecoder, InternerDecoder, SpanDecoder, SpanData) ----
 // impl<'a, 'tcx> TyDecoder<'tcx> for MetadataDecodeContext<'a, 'tcx>
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:398 cached_ty_for_shorthand
-MetadataDecodeContext.prototype.cached_ty_for_shorthand = function (this: MetadataDecodeContext, _shorthand: number, _or_insert_with: (this_: MetadataDecodeContext) => unknown): unknown {
-  // let tcx = self.tcx;
-  // let key = ty::CReaderCacheKey { cnum: Some(self.cdata.cnum), pos: shorthand };
-  // if let Some(&ty) = tcx.caches.ty_rcache.borrow().get(&key) { return ty; }
-  // let ty = or_insert_with(self);
-  // tcx.caches.ty_rcache.borrow_mut().insert(key, ty);
-  // ty
-  return unported("rustc_metadata::rmeta::decoder::MetadataDecodeContext::cached_ty_for_shorthand (TyCtxt::caches.ty_rcache, Ty: M3)");
+MetadataDecodeContext.prototype.cached_ty_for_shorthand = function (this: MetadataDecodeContext, shorthand: number, or_insert_with: (this_: MetadataDecodeContext) => Ty): Ty {
+  const tcx = this.tcx;
+
+  const key = CReaderCacheKey_key({ cnum: this.cdata.cnum, pos: shorthand });
+
+  {
+    const ty = tcx.caches.ty_rcache.get(key);
+    if (ty !== undefined) {
+      return ty;
+    }
+  }
+
+  const ty = or_insert_with(this);
+  tcx.caches.ty_rcache.set(key, ty);
+  return ty;
 };
+
+/**
+ * PORT (lane rmeta-ty): `ty::CReaderCacheKey { cnum: Option<CrateNum>, pos: usize }` (ty/mod.rs:508, derive(Hash, Eq))
+ * as the string key of `GlobalCaches.ty_rcache` (a `Map<string, Ty>`, context.ts): `<cnum>:<pos>`, `-` for `None`.
+ */
+function CReaderCacheKey_key(k: { cnum: CrateNum | undefined; pos: number }): string {
+  return `${k.cnum === undefined ? "-" : k.cnum}:${k.pos}`;
+}
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:415 with_position
 MetadataDecodeContext.prototype.with_position = function <R>(this: MetadataDecodeContext, pos: number, f: (this_: MetadataDecodeContext) => R): R {
@@ -868,10 +891,15 @@ MetadataDecodeContext.prototype.with_position = function <R>(this: MetadataDecod
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:428 decode_alloc_id
-MetadataDecodeContext.prototype.decode_alloc_id = function (this: MetadataDecodeContext): unknown {
+MetadataDecodeContext.prototype.decode_alloc_id = function (this: MetadataDecodeContext): AllocId {
   // let ads = self.alloc_decoding_session;
   // ads.decode_alloc_id(self)
   return unported("rustc_metadata::rmeta::decoder::MetadataDecodeContext::decode_alloc_id (AllocDecodingSession::decode_alloc_id, M3)");
+};
+
+// the provided `TyDecoder::positioned_at_shorthand` (ty/codec.rs:55)
+MetadataDecodeContext.prototype.positioned_at_shorthand = function (this: MetadataDecodeContext): boolean {
+  return TyDecoder_provided.positioned_at_shorthand(this);
 };
 
 // impl<'a, 'tcx> rustc_middle::ty::InternerDecoder for MetadataDecodeContext<'a, 'tcx>
@@ -1114,18 +1142,11 @@ export function decode_SpanData(decoder: MetadataDecodeContext): SpanData_ {
 
 // impl<'a, 'tcx> Decoder for MetadataDecodeContext<'a, 'tcx> { forward_all_decoder_methods_to!(|self| self.blob_decoder.opaque); }
 // impl<'a> Decoder for BlobDecodeContext<'a> { forward_all_decoder_methods_to!(|self| self.opaque); }
-// rustc-macro: compiler/rustc_middle/src/ty/codec.rs:318 forward_all_decoder_methods_to! (read_usize .. position)
-for (const [Ctx, inner] of [
-  [BlobDecodeContext, (self: BlobDecodeContext) => self.opaque],
-  [MetadataDecodeContext, (self: MetadataDecodeContext) => self.blob_decoder.opaque],
-] as const) {
+// PORT (lane rmeta-ty): rustc_middle ty/codec.ts's `forward_all_decoder_methods_to` (the macro, with its markers).
+forward_all_decoder_methods_to(BlobDecodeContext.prototype, (self: BlobDecodeContext) => self.opaque);
+forward_all_decoder_methods_to(MetadataDecodeContext.prototype, (self: MetadataDecodeContext) => self.blob_decoder.opaque);
+for (const Ctx of [BlobDecodeContext, MetadataDecodeContext] as const) {
   const proto = Ctx.prototype as unknown as Record<string, unknown>;
-  const get = inner as (self: unknown) => MemDecoder;
-  for (const m of ["read_usize", "read_u128", "read_u64", "read_u32", "read_u16", "read_u8", "read_isize", "read_i128", "read_i64", "read_i32", "read_i16", "read_raw_bytes", "peek_byte", "position"] as const) {
-    proto[m] = function (this: unknown, ...a: unknown[]): unknown {
-      return (get(this)[m] as (...a: unknown[]) => unknown).apply(get(this), a);
-    };
-  }
   // the provided `Decoder` methods (not forwarded by the macro)
   proto.read_i8 = function (this: Decoder): number {
     return Decoder_provided.read_i8(this);
@@ -1613,9 +1634,9 @@ CrateMetadata.prototype.get_visibility = function (this: CrateMetadata, tcx: TyC
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1231 get_mut_restriction
-CrateMetadata.prototype.get_mut_restriction = function (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): unknown {
-  const lazy = (this.root.tables.mut_restriction.get(fse_Option_LazyValue, this, id) as LazyValue<unknown> | undefined) ?? this.missing("mut_restriction", id);
-  return lazy.decode([this, tcx], decode_unported("rustc_middle::ty::RestrictionKind (M3)"));
+CrateMetadata.prototype.get_mut_restriction = function (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): RestrictionKind {
+  const lazy = (this.root.tables.mut_restriction.get(fse_Option_LazyValue, this, id) as LazyValue<RestrictionKind> | undefined) ?? this.missing("mut_restriction", id);
+  return lazy.decode([this, tcx], decode_RestrictionKind);
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1240 get_safety
@@ -1686,8 +1707,8 @@ CrateMetadata.prototype.get_stripped_cfg_items = function (this: CrateMetadata, 
 /// Iterates over the diagnostic items in the given crate.
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1304 get_diagnostic_items
 CrateMetadata.prototype.get_diagnostic_items = function (this: CrateMetadata, tcx: TyCtxt): DiagnosticItems {
-  // PORT: `DefIdMap` (an `UnordMap` keyed by `DefId`) is rustc_span's `DefIdMap` (D5; the generated field type is
-  // `Map<DefId, Symbol>`, which it extends), so `get_diagnostic_name` finds extern items by value (merge-w15a).
+  // PORT: `DefIdMap` (an `UnordMap` keyed by `DefId`) is rustc_span's `DefIdMap` (D5; also the generated field type
+  // since merge-w15b), so `get_diagnostic_name` finds extern items by value (merge-w15a).
   const id_to_name = new DefIdMap<Symbol>();
   const name_to_id = new Map<Symbol, DefId>();
   for (const [name, id0] of this.root.diagnostic_items.decode([this, tcx], (d) => decode_tuple_(d, (d) => d.decode_symbol(), (d) => d.decode_local_def_id()))) {
@@ -1852,13 +1873,38 @@ CrateMetadata.prototype.get_associated_item_or_field_def_ids = function (this: C
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1432 get_associated_item
-CrateMetadata.prototype.get_associated_item = function (this: CrateMetadata, _tcx: TyCtxt, _id: DefIndex): unknown {
-  // PORT: builds a `ty::AssocItem { kind: ty::AssocKind::{Const, Fn, Type { data: ty::AssocTypeData::.. }}, def_id,
-  // container: ty::AssocContainer }` (rustc_middle ty/assoc.rs) from `def_kind`, `item_name`,
-  // `get_fn_has_self_parameter`, the `opt_rpitit_info` (`ty::ImplTraitInTraitData`) and `assoc_container` tables;
-  // none of those rustc_middle types is ported (M3).
-  return unported("rustc_metadata::rmeta::decoder::CrateMetadata::get_associated_item (ty::AssocItem / AssocKind / AssocContainer, M3)");
+CrateMetadata.prototype.get_associated_item = function (this: CrateMetadata, tcx: TyCtxt, id: DefIndex): AssocItem {
+  let kind: AssocKind;
+  switch (this.def_kind(id).$) {
+    case "AssocConst":
+      kind = { $: "Const", name: this.item_name(id) };
+      break;
+    case "AssocFn":
+      kind = {
+        $: "Fn",
+        name: this.item_name(id),
+        has_self: this.get_fn_has_self_parameter(tcx, id),
+      };
+      break;
+    case "AssocTy": {
+      let data: AssocTypeData;
+      const rpitit_info = this.root.tables.opt_rpitit_info.get(fse_Option_LazyValue, this, id) as LazyValue<ImplTraitInTraitData> | undefined;
+      if (rpitit_info !== undefined) {
+        data = { $: "Rpitit", _0: rpitit_info.decode([this, tcx], decode_ImplTraitInTraitData) };
+      } else {
+        data = { $: "Normal", _0: this.item_name(id) };
+      }
+      kind = { $: "Type", data };
+      break;
+    }
+    default:
+      return bug(`cannot get associated-item of \`${debug_DefKey(this.def_key(id), PLAIN)}\``);
+  }
+  const container = unwrap(this.root.tables.assoc_container.get(fse_Option_LazyValue, this, id) as LazyValue<AssocContainer> | undefined).decode([this, tcx], decode_AssocContainer);
+
+  return { kind, def_id: this.local_def_id(id), container };
 };
+
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1455 get_ctor
 CrateMetadata.prototype.get_ctor = function (this: CrateMetadata, tcx: TyCtxt, node_id: DefIndex): [CtorKind, DefId] | undefined {

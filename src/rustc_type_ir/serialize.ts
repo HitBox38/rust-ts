@@ -6,16 +6,30 @@
 // are ported here, with the `Decodable` impls of their parts passed as fns (`decode_T`, `decode_BoundVarKinds`,
 // `decode_RegionKind`, `decode_ConstKind`): those are derived impls that tools/codegen generates. Nothing calls these
 // yet (no TS decoder decodes types so far).
+// (Since lane rmeta-ty, the generated decoders and rustc_middle ty/codec.ts call them.)
 // PORT: `D: Decoder` / `D: InternerDecoder<Interner = I>` are the decoder object; `I` is erased to `TyCtxt` (D3).
+// PORT (lane rmeta-ty): tools/codegen's serialize.json entries for `Binder`, `UnsafeBinderInner`, `Region` and `Const`
+// call these from the generated type modules, so the callees are loaded lazily (rustc_middle ty/codec.ts module
+// comment): importing this module must not change the evaluation order of binder.ts / sty / ty_kind.ts.
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import type { Decoder } from "../rustc_serialize/serialize.ts";
-import { Binder } from "./binder.ts";
+import type { Binder } from "./binder.ts";
 import type { BoundVariableKind, ConstKind, RegionKind } from "./decls.ts";
 import type { List } from "../rustc_middle/ty/list.ts";
-import { Const } from "./sty/consts.ts";
+import type { Const } from "./sty/consts.ts";
 import type { Region } from "./sty/mod.ts";
-import { UnsafeBinderInner } from "./ty_kind.ts";
+import type { UnsafeBinderInner } from "./ty_kind.ts";
+
+function binder_(): typeof import("./binder.ts") {
+  return require("./binder.ts") as typeof import("./binder.ts");
+}
+function consts_(): typeof import("./sty/consts.ts") {
+  return require("./sty/consts.ts") as typeof import("./sty/consts.ts");
+}
+function ty_kind_(): typeof import("./ty_kind.ts") {
+  return require("./ty_kind.ts") as typeof import("./ty_kind.ts");
+}
 
 /// A decoder that can reconstruct interned type IR values by supplying the
 /// interner that owns the decoded data.
@@ -42,7 +56,7 @@ export function decode_Binder<D extends Decoder, T>(
   decode_BoundVarKinds: (d: D) => List<BoundVariableKind>,
 ): Binder<T> {
   const bound_vars = decode_BoundVarKinds(decoder);
-  return Binder.bind_with_vars(decode_T(decoder), bound_vars);
+  return binder_().Binder.bind_with_vars(decode_T(decoder), bound_vars);
 }
 
 // `impl<T: GenericArgs<I>, ..> Encodable<E> / Decodable<D> for ty::Binder<I, T>` (`T` = `I::GenericArgs`).
@@ -55,7 +69,7 @@ export function decode_Binder_GenericArgs<D extends Decoder, T>(
   decode_BoundVarKinds: (d: D) => List<BoundVariableKind>,
 ): Binder<T> {
   const bound_vars = decode_BoundVarKinds(decoder);
-  return Binder.bind_with_vars(decode_T(decoder), bound_vars);
+  return binder_().Binder.bind_with_vars(decode_T(decoder), bound_vars);
 }
 
 // rustc-skip: compiler/rustc_type_ir/src/serialize.rs:84 encode Encodable impl (metadata encoding, M5)
@@ -67,7 +81,7 @@ export function decode_UnsafeBinderInner<D extends Decoder>(
   decode_BoundVarKinds: (d: D) => List<BoundVariableKind>,
 ): UnsafeBinderInner {
   const bound_vars = decode_BoundVarKinds(decoder);
-  return UnsafeBinderInner.from_Binder(Binder.bind_with_vars(decode_Ty(decoder), bound_vars));
+  return ty_kind_().UnsafeBinderInner.from_Binder(binder_().Binder.bind_with_vars(decode_Ty(decoder), bound_vars));
 }
 
 // rustc-skip: compiler/rustc_type_ir/src/serialize.rs:105 encode Encodable impl (metadata encoding, M5)
@@ -83,5 +97,5 @@ export function decode_Region<D extends InternerDecoder>(decoder: D, decode_Regi
 
 // rustc: compiler/rustc_type_ir/src/serialize.rs:134 decode
 export function decode_Const<D extends InternerDecoder>(decoder: D, decode_ConstKind: (d: D) => ConstKind): Const {
-  return Const.new(decoder.interner(), decode_ConstKind(decoder));
+  return consts_().Const.new(decoder.interner(), decode_ConstKind(decoder));
 }

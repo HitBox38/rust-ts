@@ -134,45 +134,45 @@ import type { Expr } from "./consts/kind.ts";
 import type { AssocItem } from "./assoc.ts";
 export type { AssocItem, CanonicalPolyFnSig, EarlyParamRegion, Expr, InlineConstArgs, LateParamRegionKind, ParamConst, ParamTy };
 
+// re-exported by merge-w15b: ty/mod.rs types (lanes ty-mod-a, ty-mod-b), ty/util.rs types (ty-util), ty/adt.rs / ty/closure.rs
+// types (ty-adt-assoc), ty/consts/{valtree,int}.rs / ty/typeck_results.rs types (ty-results), rustc_data_structures' `SortedIndexMultiMap` and
+// `hir::Attribute` (rustc_attr_ir)
+import type { AsyncDestructor, Destructor, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef } from "./mod.ts";
+import type { Attribute } from "../../rustc_attr_ir/lib.ts";
+import type { CheckRegions, Discr, NotUniqueParam } from "./util.ts";
+import type { AdtDef, AdtDefData } from "./adt.ts";
+import type { CapturedPlace } from "./closure.ts";
+import type { SortedIndexMultiMap } from "../../rustc_data_structures/sorted_map/index_map.ts";
+export type { AdtDef, AdtDefData, CapturedPlace, SortedIndexMultiMap };
+import type { SizedTraitKind } from "../../rustc_type_ir/solve/mod.ts";
+export type { SizedTraitKind };
+import type { ValTree, Value } from "./consts/valtree.ts";
+import type { ScalarInt } from "./consts/int.ts";
+import type { TypeckResults } from "./typeck_results.ts";
+export type { ScalarInt, TypeckResults, ValTree, Value };
+export type { AsyncDestructor, Attribute, CheckRegions, Destructor, Discr, NotUniqueParam, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef };
+
 // ---- 2. pending rustc_middle types (and other crates') ----
 // newtype indices (rustc_abi): final shapes
 export type FieldIdx = number & { readonly __brand: "FieldIdx" };
 export type VariantIdx = number & { readonly __brand: "VariantIdx" };
-// ty/adt.rs:187 (D2: hash-consed `AdtDef(Interned<AdtDefData>)`, lane ty-adt-assoc)
-export type AdtDef = Pending<"AdtDef">;
-export type AdtDefData = Pending<"AdtDefData">;
-export type VariantDef = Pending<"VariantDef">;
-export type ReprOptions = Pending<"ReprOptions">;
-export type Destructor = Pending<"Destructor">;
-export type AsyncDestructor = Pending<"AsyncDestructor">;
+// lane repr-options: the real rustc_abi type
+export type { ReprOptions } from "../../rustc_abi/lib.ts";
 // ty/pattern.rs:16, ty/consts/valtree.rs:34, :103, ty/consts/int.rs:147 (D2: hash-consed)
 export type Pattern = Pending<"Pattern">;
-export type ValTree = Pending<"ValTree">;
-export type Value = Pending<"ty::Value">;
-export type ScalarInt = Pending<"ScalarInt">;
 export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
-export type ParamEnv = Pending<"ParamEnv">;
-export type TypingEnv = Pending<"TypingEnv">;
-export type PseudoCanonicalInput<T> = Pending1<"PseudoCanonicalInput", T>;
-export type CapturedPlace = Pending<"CapturedPlace">;
-export type Discr = Pending<"Discr">;
-export type CheckRegions = Pending<"CheckRegions">;
-export type NotUniqueParam = Pending<"NotUniqueParam">;
-export type SizedTraitKind = Pending<"SizedTraitKind">;
 export type NumScalableVectors = Pending<"NumScalableVectors">;
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
-export type ImplOverlapKind = Pending<"ImplOverlapKind">;
-export type ImplTraitInTraitData = Pending<"ImplTraitInTraitData">;
 export type NormalizationError = Pending<"NormalizationError">;
-export type TypeckResults = Pending<"TypeckResults">;
 export type Instance = Pending<"Instance">;
 export type InstanceKind = Pending<"InstanceKind">;
-// traits/solve.rs:33, :44 (D2: hash-consed)
-export type CanonicalInput = Pending<"CanonicalInput">;
-export type ExternalConstraints = Pending<"ExternalConstraints">;
-// traits/mod.rs
-export type ObligationCause = Pending<"ObligationCause">;
+// traits/solve.rs:33, :44 (D2: hash-consed; lane middle-traits-thir)
+import type { CanonicalInput, ExternalConstraints } from "../traits/solve.ts";
+export type { CanonicalInput, ExternalConstraints };
+// traits/mod.rs (lane middle-traits-thir)
+import type { ObligationCause } from "../traits/mod.ts";
+export type { ObligationCause };
 // hir/place.rs, mir/syntax.rs, mir/interpret/allocation.rs, mir/mod.rs
 export type HirPlace = Pending<"hir::place::Place">;
 export type ProjectionKind = Pending<"ProjectionKind">;
@@ -190,7 +190,6 @@ export type PointeeInfo = Pending<"PointeeInfo">;
 export type FnAbi<T> = Pending1<"FnAbi", T>;
 export type FnAbiError = Pending<"FnAbiError">;
 // rustc_hir (lane hir-types)
-export type Attribute = Pending<"hir::Attribute">;
 export type BodyId = Pending<"hir::BodyId">;
 // the arenas are erased (PORTING §5); `Arena` only appears as a parameter type
 export type Arena = Pending<"Arena">;
@@ -202,8 +201,10 @@ export type { Print };
 // ty/fold.rs `trait BoundVarReplacerDelegate`
 import type { BoundVarReplacerDelegate } from "./fold.ts";
 export type { BoundVarReplacerDelegate };
-// the search graph's `Tracked<T>` (`I::Tracked<T>`, impl_interner.rs: `WithDepNode<T>`)
-export type Tracked<T> = Pending1<"Tracked", T>;
+// the search graph's `Tracked<T>` (`I::Tracked<T>`, impl_interner.rs: `WithDepNode<T>`; lane middle-traits-thir)
+import type { WithDepNode as Tracked } from "../traits/cache.ts";
+import type { KeyedSet } from "../../rust_ts/keyed.ts";
+export type { Tracked };
 
 // TyCtxt's `Interner` associated list types (rustc_type_ir/interner.ts header; `&'tcx List<T>`), named for
 // tools/codegen's type map (merge-w13)
@@ -220,7 +221,6 @@ export type CastKind = Pending<"abstract_const::CastKind">;
 export type BinOp = Pending<"mir::BinOp">;
 export type UnOp = Pending<"mir::UnOp">;
 // rustc_data_structures sorted_map/index_map.rs, transitive_relation.rs (not ported yet)
-export type SortedIndexMultiMap<I, K, V> = Pending1<"SortedIndexMultiMap", [I, K, V]>;
 export type TransitiveRelation<T> = Pending1<"TransitiveRelation", T>;
 
 // ---- 3. method declarations ----
@@ -1256,7 +1256,7 @@ declare module "./context.ts" {
     // ty/util.rs:231
     type_has_metadata(ty: Ty, typing_env: TypingEnv): boolean;
     // ty/util.rs:256
-    struct_tail_raw(ty: Ty, cause: ObligationCause, normalize: (_0: Unnormalized<Ty>) => Ty): Ty;
+    struct_tail_raw(ty: Ty, cause: ObligationCause, normalize: (_0: Unnormalized<Ty>) => Ty, f: () => void): Ty;
     // ty/util.rs:323
     struct_lockstep_tails_for_codegen(source: Ty, target: Ty, typing_env: TypingEnv): [Ty, Ty];
     // ty/util.rs:343
@@ -1326,11 +1326,11 @@ declare module "./context.ts" {
     // ty/visit.rs:37
     any_free_region_meets<T>(value: T, callback: (r: Region) => boolean, d_T: TypeVisitable<T>): boolean;
     // ty/visit.rs:114
-    collect_constrained_late_bound_regions<T>(value: Binder<T>, d_T: TypeFoldable<T>): Set<BoundRegionKind>;
+    collect_constrained_late_bound_regions<T>(value: Binder<T>, d_T: TypeFoldable<T>): KeyedSet<BoundRegionKind>;
     // ty/visit.rs:125
-    collect_referenced_late_bound_regions<T>(value: Binder<T>, d_T: TypeFoldable<T>): Set<BoundRegionKind>;
+    collect_referenced_late_bound_regions<T>(value: Binder<T>, d_T: TypeFoldable<T>): KeyedSet<BoundRegionKind>;
     // ty/visit.rs:135
-    collect_late_bound_regions<T>(value: Binder<T>, just_constrained: boolean, d_T: TypeFoldable<T>): Set<BoundRegionKind>;
+    collect_late_bound_regions<T>(value: Binder<T>, just_constrained: boolean, d_T: TypeFoldable<T>): KeyedSet<BoundRegionKind>;
   }
   // statics:
     // ---- ty/pattern.rs ----

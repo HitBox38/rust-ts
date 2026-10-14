@@ -38,18 +38,9 @@ import type { FloatVid, InferTy, IntVid, SplattedArgIndexError } from "./ty_kind
 import type { TypeFoldable } from "./fold.ts";
 import { debug_AliasTyKind, debug_FloatVid, debug_IntVid, debug_IsRigid, debug_TyVid, FloatVid as FloatVidC, IntVid as IntVidC } from "./ty_kind.gen.ts";
 import { Unnormalized } from "./unnormalized.ts";
+import { debug_AdtDef } from "../rustc_middle/ty/structural_impls.ts";
 
 export * from "./ty_kind.gen.ts";
-
-// PORT(decls): pending root. rustc_middle/ty/decls.ts declares `inputs` / `output` of ty/sty.rs:2181 / :2185
-// (`impl inherent::Tys for &'tcx List<Ty<'tcx>>`) with `this: List<PolyExistentialPredicate>`; the impl is on
-// `&List<Ty>`. These overloads make the calls on `I::Tys` type-check.
-declare module "../rustc_middle/ty/list.ts" {
-  interface RawList<H, T> {
-    inputs(this: List<Ty>): readonly Ty[];
-    output(this: List<Ty>): Ty;
-  }
-}
 
 // ---- AliasTyKind ---------------------------------------------------------------------------------------------------
 
@@ -215,8 +206,7 @@ export const debug_TyKind: Debug<TyKind> = (self, f) => {
       return debug_FloatTy(self._0, PLAIN);
     case "Adt": {
       // write!(f, "{d:?}")?;
-      // PORT: `impl Debug for AdtDef` (rustc_middle ty/adt.rs, lane ty-adt-assoc) is not ported yet.
-      let out = unported("rustc_type_ir::ty_kind::TyKind Debug (Adt: Debug for rustc_middle::ty::AdtDef)") as string;
+      let out = debug_AdtDef(self._0, PLAIN);
       const s = self._1[Symbol.iterator]();
       const first = s.next();
       if (!first.done) {

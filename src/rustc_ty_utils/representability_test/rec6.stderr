@@ -1,0 +1,26 @@
+error[E0072]: recursive types `S6`, `S1`, `S2`, `S3`, `S4` and 1 more have infinite size
+  --> rec6.rs:1:1
+   |
+LL | struct S6 { s: S1 }
+   | ^^^^^^^^^      -- recursive without indirection
+LL | struct S1 { s: S2 }
+   | ^^^^^^^^^      -- recursive without indirection
+LL | struct S2 { s: S3 }
+   | ^^^^^^^^^      -- recursive without indirection
+LL | struct S3 { s: S4 }
+   | ^^^^^^^^^      -- recursive without indirection
+LL | struct S4 { s: S5 }
+   | ^^^^^^^^^      -- recursive without indirection
+   |
+help: insert some indirection (e.g., a `Box`, `Rc`, or `&`) to break the cycle
+   |
+LL ~ struct S6 { s: Box<S1> }
+LL ~ struct S1 { s: Box<S2> }
+LL ~ struct S2 { s: Box<S3> }
+LL ~ struct S3 { s: Box<S4> }
+LL ~ struct S4 { s: Box<S5> }
+   |
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0072`.

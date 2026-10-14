@@ -56,29 +56,10 @@ export type BoundConstness = gen.BoundConstness;
 // Root repoints them at the real ports when binder.rs (lane tyir-binder) and rustc_middle ty/predicate.rs (lane ty-args)
 // land. Exported so that unnormalized.ts uses the same ones.
 
-// PORT(merge-w15a): the three `UpcastFrom` stand-ins run upstream's bodies (tyir-relate's elaborate.ts stand-ins did;
-// both lanes' copies are merged here). `.upcast(tcx)` chains are spelled out per the impls they select.
-
-/** PORT: stand-in for `impl UpcastFrom<TyCtxt, Binder<ClauseKind>> for Clause` (rustc_middle ty/predicate.rs:491, lane ty-args). */
-export function Clause_upcast_from_Binder_ClauseKind(from: Binder<ClauseKind>, tcx: TyCtxt): Clause {
-  return tcx.mk_predicate(Binder.map_bound(from, (clause): PredicateKind => ({ $: "Clause", _0: clause }))).expect_clause();
-}
-
-/** PORT: stand-in for `impl UpcastFrom<TyCtxt, PolyTraitRef> for Clause` (rustc_middle ty/predicate.rs:517, lane ty-args):
- *  `PolyTraitClause::upcast_from` (predicate.rs:249), then `UpcastFrom<PolyTraitClause> for Clause` (:544) through
- *  `UpcastFrom<PolyTraitClause> for Predicate` (:530). */
-export function Clause_upcast_from_PolyTraitRef(from: Binder<TraitRef>, tcx: TyCtxt): Clause {
-  const pred: Binder<TraitClause> = PolyTraitClause.upcast_from_PolyTraitRef(from, as_interner(tcx));
-  const p = tcx.mk_predicate(Binder.map_bound_no_validate_bound_vars(pred, (p): PredicateKind => ({ $: "Clause", _0: { $: "Trait", _0: p } })));
-  return p.expect_clause();
-}
-
-/** PORT: stand-in for `impl UpcastFrom<TyCtxt, PolyProjectionClause> for Clause` (rustc_middle ty/predicate.rs:588, lane ty-args)
- *  through `UpcastFrom<PolyProjectionClause> for Predicate` (:575). */
-export function Clause_upcast_from_PolyProjectionClause(from: Binder<ProjectionClause>, tcx: TyCtxt): Clause {
-  const p = tcx.mk_predicate(Binder.map_bound(from, (p): PredicateKind => ({ $: "Clause", _0: { $: "Projection", _0: p } })));
-  return p.expect_clause();
-}
+// merge-w15b: the three `UpcastFrom` impls are rustc_middle ty/predicate.rs's (lane ty-args), re-exported here for
+// unnormalized.ts and this file's callers.
+import { Clause_upcast_from_Binder_ClauseKind, Clause_upcast_from_PolyProjectionClause, Clause_upcast_from_PolyTraitRef } from "../rustc_middle/ty/predicate.ts";
+export { Clause_upcast_from_Binder_ClauseKind, Clause_upcast_from_PolyProjectionClause, Clause_upcast_from_PolyTraitRef };
 
 /**
  * PORT (D3): `TyCtxt` is the only `Interner` (`impl Interner for TyCtxt`, rustc_middle ty/context/impl_interner.rs).

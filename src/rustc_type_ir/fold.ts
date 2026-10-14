@@ -70,12 +70,13 @@
 // - Upstream has no blanket `impl<F: TypeFolder> FallibleTypeFolder for F` at the pin: a `try_fold_with` takes
 //   a `FallibleTypeFolder` only.
 // PORT (D4): `I::Ty` and `I::Clauses` impls live in rustc_middle (ty/structural_impls.rs), not ported yet:
-// `standin_fold_Ty` / `standin_fold_Clauses` at the end of this file stand in for their descriptors.
+// `fold_Ty` / `fold_Clauses` at the end of this file stand in for their descriptors.
 // PORT: `#[instrument]` / `debug!` (tracing) produce no output in the oracle and are left out.
 import { type AliasConstKind, fold_with_AliasConstKind } from "./const_kind.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Clauses } from "../rustc_middle/ty/list.ts";
 import { Ty } from "../rustc_middle/ty/mod.ts";
+import { fold_Clauses, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { unported } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
 import { Binder, fold_Binder, visit_Binder } from "./binder.ts";
@@ -182,7 +183,7 @@ export const TypeFolder_provided = {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:137 fold_ty
   fold_ty(self: TypeFolder, t: Ty): Ty {
-    return standin_fold_Ty.super_fold_with(t, self);
+    return fold_Ty.super_fold_with(t, self);
   },
 
   // The default region folder is a no-op because `Region` is non-recursive
@@ -204,7 +205,7 @@ export const TypeFolder_provided = {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:155 fold_clauses
   fold_clauses(self: TypeFolder, c: Clauses): Clauses {
-    return standin_fold_Clauses.super_fold_with(c, self);
+    return fold_Clauses.super_fold_with(c, self);
   },
 };
 
@@ -269,7 +270,7 @@ export const FallibleTypeFolder_provided = {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:206 try_fold_ty
   try_fold_ty<E>(self: FallibleTypeFolder<E>, t: Ty): Result<Ty, E> {
-    return standin_fold_Ty.try_super_fold_with(t, self);
+    return fold_Ty.try_super_fold_with(t, self);
   },
 
   // The default region folder is a no-op because `Region` is non-recursive
@@ -291,7 +292,7 @@ export const FallibleTypeFolder_provided = {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:224 try_fold_clauses
   try_fold_clauses<E>(self: FallibleTypeFolder<E>, c: Clauses): Result<Clauses, E> {
-    return standin_fold_Clauses.try_super_fold_with(c, self);
+    return fold_Clauses.try_super_fold_with(c, self);
   },
 };
 
@@ -575,8 +576,8 @@ class Shifter implements TypeFolder {
       const bound_ty = k._1;
       const debruijn = DebruijnIndex.shifted_in(k._0._0, this.amount);
       return Ty.new_bound(this.cx_, debruijn, bound_ty);
-    } else if (TypeVisitableExt.has_vars_bound_at_or_above(ty, this.current_index, standin_fold_Ty)) {
-      return standin_fold_Ty.super_fold_with(ty, this);
+    } else if (TypeVisitableExt.has_vars_bound_at_or_above(ty, this.current_index, fold_Ty)) {
+      return fold_Ty.super_fold_with(ty, this);
     } else {
       return ty;
     }
@@ -605,8 +606,8 @@ class Shifter implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:467 fold_clauses
   fold_clauses(c: Clauses): Clauses {
-    if (TypeVisitableExt.has_vars_bound_at_or_above(c, this.current_index, standin_fold_Clauses)) {
-      return standin_fold_Clauses.super_fold_with(c, this);
+    if (TypeVisitableExt.has_vars_bound_at_or_above(c, this.current_index, fold_Clauses)) {
+      return fold_Clauses.super_fold_with(c, this);
     } else {
       return c;
     }
@@ -701,8 +702,8 @@ export class RegionFolder implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:571 fold_ty
   fold_ty(t: Ty): Ty {
-    if (TypeVisitableExt.has_regions(t, standin_fold_Ty)) {
-      return standin_fold_Ty.super_fold_with(t, this);
+    if (TypeVisitableExt.has_regions(t, fold_Ty)) {
+      return fold_Ty.super_fold_with(t, this);
     } else {
       return t;
     }
@@ -728,8 +729,8 @@ export class RegionFolder implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:583 fold_clauses
   fold_clauses(c: Clauses): Clauses {
-    if (TypeVisitableExt.has_regions(c, standin_fold_Clauses)) {
-      return standin_fold_Clauses.super_fold_with(c, this);
+    if (TypeVisitableExt.has_regions(c, fold_Clauses)) {
+      return fold_Clauses.super_fold_with(c, this);
     } else {
       return c;
     }
@@ -823,7 +824,7 @@ class RigidnessFolder implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:673 fold_ty
   fold_ty(t: Ty): Ty {
-    if (!RigidnessFoldMode.needs_change(this.mode, t, standin_fold_Ty)) {
+    if (!RigidnessFoldMode.needs_change(this.mode, t, fold_Ty)) {
       return t;
     }
 
@@ -846,7 +847,7 @@ class RigidnessFolder implements TypeFolder {
         }
       }
     } else {
-      return standin_fold_Ty.super_fold_with(t, this);
+      return fold_Ty.super_fold_with(t, this);
     }
   }
 
@@ -885,8 +886,8 @@ class RigidnessFolder implements TypeFolder {
 
   // rustc: compiler/rustc_type_ir/src/fold.rs:729 fold_clauses
   fold_clauses(c: Clauses): Clauses {
-    if (RigidnessFoldMode.needs_change(this.mode, c, standin_fold_Clauses)) {
-      return standin_fold_Clauses.super_fold_with(c, this);
+    if (RigidnessFoldMode.needs_change(this.mode, c, fold_Clauses)) {
+      return fold_Clauses.super_fold_with(c, this);
     } else {
       return c;
     }
@@ -896,58 +897,3 @@ class RigidnessFolder implements TypeFolder {
     return TypeFolder_provided.fold_region(this, r);
   }
 }
-
-// ---- PORT stand-ins for items of files that are not ported yet ----------------------------------------------------
-
-// PORT: stand-ins for the D4 descriptors of `I::Ty` (`impl TypeFoldable / TypeVisitable / TypeSuperFoldable /
-// TypeSuperVisitable for Ty`, rustc_middle ty/structural_impls.rs:311-:425) and `I::Clauses` (`:564`, `:618-:640`),
-// not ported yet (ty/mod.ts and ty/structural_impls.ts carry `unported` stubs of the gen-shaped fns). The one-line
-// `TypeFoldable` / `TypeVisitable` impls do what upstream does; the `TypeSuper*` impls call `unported`. Root
-// replaces both objects by the real `fold_Ty` / `fold_Clauses` descriptors when they land.
-export const standin_fold_Ty: TypeSuperFoldable<Ty> & TypeSuperVisitable<Ty> & Flags<Ty> = {
-  try_fold_with(self, folder) {
-    return folder.try_fold_ty(self);
-  },
-  fold_with(self, folder) {
-    return folder.fold_ty(self);
-  },
-  visit_with(self, visitor) {
-    return visitor.visit_ty(self);
-  },
-  try_super_fold_with(_self, _folder) {
-    return unported("rustc_middle::ty::structural_impls: TypeSuperFoldable::try_super_fold_with for Ty (:331)");
-  },
-  super_fold_with(_self, _folder) {
-    return unported("rustc_middle::ty::structural_impls: TypeSuperFoldable::super_fold_with for Ty (:379)");
-  },
-  super_visit_with(_self, _visitor) {
-    return unported("rustc_middle::ty::structural_impls: TypeSuperVisitable::super_visit_with for Ty (:420)");
-  },
-  flags(self) {
-    return self.flags();
-  },
-  outer_exclusive_binder(self) {
-    return self.outer_exclusive_binder();
-  },
-};
-
-export const standin_fold_Clauses: TypeSuperFoldable<Clauses> & TypeSuperVisitable<Clauses> = {
-  try_fold_with(self, folder) {
-    return folder.try_fold_clauses(self);
-  },
-  fold_with(self, folder) {
-    return folder.fold_clauses(self);
-  },
-  visit_with(self, visitor) {
-    return visitor.visit_clauses(self);
-  },
-  try_super_fold_with(_self, _folder) {
-    return unported("rustc_middle::ty::structural_impls: TypeSuperFoldable::try_super_fold_with for Clauses (:631)");
-  },
-  super_fold_with(_self, _folder) {
-    return unported("rustc_middle::ty::structural_impls: TypeSuperFoldable::super_fold_with for Clauses (:638)");
-  },
-  super_visit_with(_self, _visitor) {
-    return unported("rustc_middle::ty::structural_impls: TypeSuperVisitable::super_visit_with for Clauses (:625)");
-  },
-};

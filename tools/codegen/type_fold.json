@@ -32,6 +32,7 @@
     "rustc_type_ir::Variance",
     "rustc_type_ir::solve::BuiltinImplSource",
     "rustc_type_ir::solve::Certainty",
+    "rustc_middle::infer::canonical::Certainty",
     "rustc_type_ir::solve::GoalSource",
     "rustc_type_ir::solve::VisibleForLeakCheck",
     "rustc_abi::ExternAbi",
@@ -54,7 +55,11 @@
     "I::AnonConstId", "I::TraitAssocTyId", "I::TraitAssocConstId", "I::TraitAssocTermId", "I::OpaqueTyId", "I::FreeTyAliasId", "I::FreeConstAliasId",
     "I::FreeTermAliasId", "I::ImplOrTraitAssocTyId", "I::ImplOrTraitAssocConstId", "I::ImplOrTraitAssocTermId", "I::InherentAssocTyId",
     "I::InherentAssocConstId", "I::InherentAssocTermId",
-    "rustc_middle::mir::BinOp", "rustc_middle::mir::UnOp", "rustc_middle::ty::abstract_const::CastKind"
+    "rustc_middle::mir::BinOp", "rustc_middle::mir::UnOp", "rustc_middle::ty::abstract_const::CastKind",
+    "rustc_middle::traits::IsConstable", "rustc_middle::traits::select::OverflowError", "rustc_middle::ty::AdtKind", "rustc_middle::ty::AssocKind",
+    "rustc_middle::ty::AssocItem", "rustc_middle::ty::abstract_const::NotConstEvaluatable", "rustc_middle::traits::solve::BuiltinImplSource",
+    "rustc_middle::ty::Variance", "rustc_middle::mir::BorrowKind", "rustc_middle::mir::FakeReadCause", "rustc_hir::MatchSource", "rustc_hir::RangeEnd",
+    "rustc_ast::InlineAsmOptions", "rustc_ast::InlineAsmTemplatePiece", "rustc_attr_ir::UnrollAttr", "rustc_target::asm::InlineAsmRegOrRegClass"
   ],
   "types": [
     { "paths": ["Option"], "visit": "visit_with_Option($0)", "try_fold": "try_fold_with_Option($0)", "fold": "fold_with_Option($0)", "note": "visit.rs:153 / fold.rs:261" },
@@ -89,6 +94,17 @@
     { "paths": ["I::LocalDefIds"], "import": "src/rustc_middle/ty/structural_impls.ts", "visit": "visit_with_LocalDefIds", "try_fold": "try_fold_with_LocalDefIds", "fold": "fold_with_LocalDefIds", "note": "structural_impls.rs:726 (fold: self), generic_args.rs:714 (visit)" },
     { "paths": ["I::ValueConst", "rustc_middle::ty::Value"], "import": "src/rustc_middle/ty/consts/valtree.ts", "visit": "visit_with_Value", "try_fold": "try_fold_with_Value", "fold": "fold_with_Value", "note": "consts/valtree.rs:103 derive(TypeFoldable, TypeVisitable)" },
     { "paths": ["I::ErrorGuaranteed", "rustc_span::ErrorGuaranteed"], "import": "src/rustc_middle/ty/structural_impls.ts", "visit": "visit_with_ErrorGuaranteed", "try_fold": "try_fold_with_ErrorGuaranteed", "fold": "fold_with_ErrorGuaranteed", "note": "structural_impls.rs:674/680 (visit_error)" },
-    { "paths": ["I::AdtDef", "rustc_middle::ty::AdtDef"], "import": "src/rustc_middle/ty/structural_impls.ts", "visit": "visit_with_AdtDef", "note": "structural_impls.rs:284; no TypeFoldable impl" }
+    { "paths": ["I::AdtDef", "rustc_middle::ty::AdtDef"], "import": "src/rustc_middle/ty/structural_impls.ts", "visit": "visit_with_AdtDef", "note": "structural_impls.rs:284; no TypeFoldable impl" },
+    { "paths": ["rustc_middle::ty::region::Region", "rustc_middle::ty::Region"], "import": "src/rustc_type_ir/sty/mod.ts", "visit": "visit_with_Region", "try_fold": "try_fold_with_Region", "fold": "fold_with_Region", "note": "`ty::Region<'tcx>` (lane middle-traits-thir): the descriptor wrappers of rustc_type_ir sty/mod.ts" },
+    { "paths": ["rustc_middle::ty::consts::Const", "rustc_middle::ty::Const"], "import": "src/rustc_type_ir/sty/consts.ts", "visit": "visit_with_Const", "try_fold": "try_fold_with_Const", "fold": "fold_with_Const", "note": "`ty::Const<'tcx>` (lane middle-traits-thir)" },
+    { "paths": ["rustc_middle::ty::sty::Binder", "rustc_middle::ty::Binder"], "import": "src/rustc_type_ir/binder.ts", "visit": "visit_with_Binder($0)", "try_fold": "try_fold_with_Binder($0)", "fold": "fold_with_Binder($0)", "note": "`ty::Binder<'tcx, T> = ir::Binder<TyCtxt<'tcx>, T>` (lane middle-traits-thir)" },
+    { "paths": ["rustc_middle::ty::predicate::PolyTraitClause", "rustc_middle::ty::PolyTraitClause"], "import": "src/rustc_middle/traits/mod.ts", "visit": "visit_with_PolyTraitClause", "try_fold": "try_fold_with_PolyTraitClause", "fold": "fold_with_PolyTraitClause", "note": "`Binder<'tcx, TraitClause<'tcx>>`: the Binder impls applied to TraitClause's (lane middle-traits-thir; traits/mod.ts, as no alias carries an impl)" },
+    { "paths": ["rustc_middle::ty::predicate::HostEffectClause", "rustc_middle::ty::HostEffectClause"], "import": "src/rustc_type_ir/predicate.ts", "visit": "visit_with_HostEffectClause", "try_fold": "try_fold_with_HostEffectClause", "fold": "fold_with_HostEffectClause", "note": "`ty::HostEffectClause<'tcx> = ir::HostEffectClause<TyCtxt<'tcx>>` (lane middle-traits-thir)" },
+    { "paths": ["rustc_middle::ty::predicate::TraitRef", "rustc_middle::ty::TraitRef"], "import": "src/rustc_type_ir/predicate.ts", "visit": "visit_with_TraitRef", "try_fold": "try_fold_with_TraitRef", "fold": "fold_with_TraitRef", "note": "`ty::TraitRef<'tcx> = ir::TraitRef<TyCtxt<'tcx>>` (lane middle-traits-thir)" },
+    { "paths": ["rustc_middle::ty::error::TypeError", "rustc_middle::ty::TypeError"], "import": "src/rustc_type_ir/error.ts", "visit": "visit_with_TypeError", "note": "`ty::error::TypeError<'tcx>` (lane middle-traits-thir); TypeVisitable only" },
+    { "paths": ["rustc_type_ir::solve::AliasBoundKind"], "import": "src/rustc_type_ir/solve/mod.ts", "visit": "visit_with_AliasBoundKind", "try_fold": "try_fold_with_AliasBoundKind", "fold": "fold_with_AliasBoundKind", "note": "derive in rustc_type_ir solve/mod.rs (lane middle-traits-thir)" },
+    { "paths": ["rustc_middle::ty::sty::Unnormalized", "rustc_middle::ty::Unnormalized"], "import": "src/rustc_type_ir/unnormalized.ts", "visit": "visit_with_Unnormalized($0)", "try_fold": "try_fold_with_Unnormalized($0)", "fold": "fold_with_Unnormalized($0)", "note": "`ty::Unnormalized<'tcx, T>` (lane middle-traits-thir)" },
+    { "paths": ["rustc_middle::ty::sty::AliasTy", "rustc_middle::ty::AliasTy"], "import": "src/rustc_middle/traits/mod.ts", "visit": "visit_with_AliasTy", "try_fold": "try_fold_with_AliasTy", "fold": "fold_with_AliasTy", "note": "`ty::AliasTy<'tcx> = ir::Alias<TyCtxt<'tcx>, AliasTyKind>`: the Alias impls applied to AliasTyKind's (lane middle-traits-thir; traits/mod.ts, as no alias carries an impl)" },
+    { "paths": ["rustc_middle::ty::consts::AliasConstKind", "rustc_middle::ty::AliasConstKind"], "import": "src/rustc_type_ir/const_kind.ts", "visit": "visit_with_AliasConstKind", "try_fold": "try_fold_with_AliasConstKind", "fold": "fold_with_AliasConstKind", "note": "`ty::AliasConstKind<'tcx>` (lane middle-traits-thir)" }
   ]
 }

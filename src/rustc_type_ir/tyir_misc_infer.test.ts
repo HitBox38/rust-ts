@@ -5,7 +5,7 @@
 // The oracle strings / booleans below were printed by the pinned nightly (rustc 1.101.0-nightly 6f5da406b) through a
 // throwaway rustc-dev program (`after_expansion` callback building the same values with rustc's own `TyCtxt`, printing
 // them with `{:?}` / `{:#?}` / `{}`; described in the tyir-misc handoff, "infer" probe). Lines are copied verbatim.
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import "../rustc_middle/lib.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
@@ -15,7 +15,6 @@ import { CRATE_DEF_ID, debug_DefId, LocalDefId } from "../rustc_span/def_id.ts";
 import { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { kw } from "../rustc_span/symbol.ts";
 import { debug_option, format_debug, PLAIN, PRETTY } from "../std/fmt.ts";
-import { Unported } from "../std/panic.ts";
 import type { BoundVar, UniverseIndex as UniverseIndexT } from "./decls.ts";
 import {
   Canonical,
@@ -38,19 +37,6 @@ import {
 } from "./infer_ctxt.ts";
 import type { Interner } from "./interner.ts";
 import { FnHeader, type FloatVid, type IntVid } from "./ty_kind.ts";
-
-// `impl inherent::Tys for &List<Ty>` (rustc_middle ty/sty.rs:2180, lane ty-sty) is not ported yet; `simplify_type`'s
-// `FnPtr` arm needs `inputs()`, so these tests provide upstream's one-liner (`split_last().unwrap().1`), as
-// tyir_kind.test.ts does.
-const spies: { mockRestore(): void }[] = [];
-beforeAll(() => {
-  spies.push(spyOn(RawList.prototype as unknown as { inputs(): readonly Ty[] }, "inputs").mockImplementation(function (this: readonly Ty[]) {
-    return this.slice(0, this.length - 1);
-  }));
-});
-afterAll(() => {
-  for (const s of spies) s.mockRestore();
-});
 
 /** A `TyCtxt` over a fresh `CtxtInterners` (as in rustc_middle/ty/interning.test.ts). */
 function mk_tcx(): TyCtxt {

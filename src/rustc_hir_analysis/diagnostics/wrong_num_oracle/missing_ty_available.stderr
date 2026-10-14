@@ -1,0 +1,21 @@
+error[E0107]: struct takes 2 generic arguments but 1 generic argument was supplied
+  --> missing_ty_available.rs:16:14
+   |
+LL | pub type Z = Two<u8>;
+   |              ^^^ -- supplied 1 generic argument
+   |              |
+   |              expected 2 generic arguments
+   |
+note: struct defined here, with 2 generic parameters: `A`, `B`
+  --> missing_ty_available.rs:15:12
+   |
+LL | pub struct Two<A, B>(A, B);
+   |            ^^^ -  -
+help: add missing generic argument
+   |
+LL | pub type Z = Two<u8, B>;
+   |                    +++
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0107`.

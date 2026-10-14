@@ -16,7 +16,7 @@ import type {
   ResolverAstLowering,
   TypeRelativeDelegationRes,
 } from "../../rustc_middle/middle/resolve.ts";
-import type { AssocItem, AssocItems } from "../../rustc_middle/ty/assoc.ts";
+import { AssocItems } from "../../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { GenericArg } from "../../rustc_middle/ty/generic_args.ts";
 import { type Ty, visit_with_Ty } from "../../rustc_middle/ty/mod.ts";
@@ -54,14 +54,6 @@ export interface TyFnSigView {
 export function fn_sig_skip_binders(tcx: TyCtxt, def_id: DefId): TyFnSigView {
   void tcx.fn_sig(def_id);
   return unported("rustc_type_ir::binder::{EarlyBinder, Binder}::skip_binder of `tcx.fn_sig(..)` (ty::FnSig, wave 15)");
-}
-/** `TyCtxt::is_method` (rustc_middle ty/context.rs:1295) is not ported. */
-export function TyCtxt_is_method(_tcx: TyCtxt, _id: DefId): boolean {
-  return unported("rustc_middle::ty::context::TyCtxt::is_method");
-}
-/** `AssocItems::filter_by_name_unhygienic` (rustc_middle ty/assoc.rs) is not ported. */
-function AssocItems_filter_by_name_unhygienic(_self: AssocItems, _name: unknown): Iterable<AssocItem> {
-  return unported("rustc_middle::ty::assoc::AssocItems::filter_by_name_unhygienic");
 }
 /** `impl TypeSuperVisitable for Ty` (rustc_middle ty/structural_impls.rs:420) is not ported. */
 function Ty_super_visit_with<R>(_t: Ty, _visitor: TypeVisitor<R>): R {
@@ -158,7 +150,7 @@ export function resolve_type_relative_delegations(tcx: TyCtxt, _: null): Map<Loc
               const assoc_items = tcx.associated_items(inh_impl_id) as AssocItems;
 
               // FIXME(fn_delegation): use correct identifier hygiene
-              const candidates = AssocItems_filter_by_name_unhygienic(assoc_items, ident.name);
+              const candidates = AssocItems.filter_by_name_unhygienic(assoc_items, ident.name);
 
               for (const candidate of candidates) {
                 if (!(candidate.kind.$ === "Fn")) continue;
@@ -282,7 +274,7 @@ DelegationResolver.prototype.resolve_delegation = function (
   const cycles = this.check_for_cycles(sig_id, span);
   if (cycles.$ === "Err") return cycles;
 
-  const is_method = TyCtxt_is_method(tcx, sig_id);
+  const is_method = tcx.is_method(sig_id);
   const sig = fn_sig_skip_binders(tcx, sig_id);
   const param_count = sig.inputs().length + (sig.c_variadic() ? 1 : 0);
   const parent = tcx.local_parent(def_id);

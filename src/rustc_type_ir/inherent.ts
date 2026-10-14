@@ -847,8 +847,10 @@ export interface AdtDef {
   // rustc: compiler/rustc_type_ir/src/inherent.rs:579 is_fundamental
   is_fundamental(): boolean;
 
+  // PORT: renamed `ir_destructor`: rustc_middle's `AdtDef` has an incompatible inherent `destructor` (ty-contract
+  // decision 5).
   // rustc: compiler/rustc_type_ir/src/inherent.rs:581 destructor
-  destructor(interner: TyCtxt): AdtDestructorKind | undefined;
+  ir_destructor(interner: TyCtxt): AdtDestructorKind | undefined;
 }
 
 /** `inherent::ParamEnv` (prototype methods of rustc_middle's `ParamEnv`). */

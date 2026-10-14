@@ -1,0 +1,17 @@
+error[E0107]: struct takes 1 generic argument but 2 generic arguments were supplied
+  --> excess_ty.rs:16:14
+   |
+LL | pub type X = S<u8, u16>;
+   |              ^   ----- help: remove the unnecessary generic argument
+   |              |
+   |              expected 1 generic argument
+   |
+note: struct defined here, with 1 generic parameter: `T`
+  --> excess_ty.rs:15:12
+   |
+LL | pub struct S<T>(T);
+   |            ^ -
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0107`.

@@ -1,0 +1,8 @@
+error: late-bound type parameter not allowed on function pointer types
+  --> err_nlb.rs:19:18
+   |
+19 | pub type F = for<T> fn(T);
+   |                  ^
+
+error: aborting due to 1 previous error
+

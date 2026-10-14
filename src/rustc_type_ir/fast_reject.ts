@@ -20,7 +20,7 @@ import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { type DefId, DefId_eq } from "../rustc_span/def_id.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { panic, unported, unwrap } from "../std/panic.ts";
-import { standin_fold_Ty } from "./fold.ts";
+
 import { TypeVisitableExt } from "./visit.ts";
 import { Binder } from "./binder.ts";
 import * as gen from "./fast_reject.gen.ts";
@@ -29,6 +29,7 @@ import { Ty_provided } from "./inherent.ts";
 import type { Interner } from "./interner.ts";
 import type { Const } from "./sty/consts.ts";
 import { FnSigTys, type InferTy, UnsafeBinderInner_deref } from "./ty_kind.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 
 export * from "./fast_reject.gen.ts";
 
@@ -68,7 +69,7 @@ export function simplify_type(cx: Interner, ty: Ty, treat_params: TreatParams): 
     case "Float":
       return { $: "Float", _0: kind._0 };
     case "Adt":
-      return { $: "Adt", _0: AdtDef_def_id(kind._0) };
+      return { $: "Adt", _0: kind._0.def_id() };
     case "Str":
       return SimplifiedType.Str;
     case "Array":
@@ -119,7 +120,7 @@ export function simplify_type(cx: Interner, ty: Ty, treat_params: TreatParams): 
     case "Alias":
       // When treating `ty::Param` as a placeholder, projections also
       // don't unify with anything else as long as they are fully normalized.
-      if (treat_params === "AsRigid" && (!TypeVisitableExt.has_non_region_infer(ty, standin_fold_Ty) || cx.next_trait_solver_globally())) {
+      if (treat_params === "AsRigid" && (!TypeVisitableExt.has_non_region_infer(ty, fold_Ty) || cx.next_trait_solver_globally())) {
         return SimplifiedType.Placeholder;
       } else {
         return undefined;
@@ -676,10 +677,6 @@ function Option_DefId_eq(a: DefId | undefined, b: DefId | undefined): boolean {
 
 // ---- PORT stand-ins for fns of other files that are not ported yet (module header) -----------------------------------
 
-/** PORT: stand-in for `impl inherent::AdtDef for AdtDef` `def_id` (rustc_middle ty/adt.rs, lane ty-adt-assoc). */
-function AdtDef_def_id(_def: AdtDef): DefId {
-  return unported("rustc_middle::ty::adt: inherent::AdtDef::def_id");
-}
 
 /** PORT: stand-in for `impl inherent::ValueConst for ty::Value` `valtree` (rustc_middle ty/consts/valtree.rs). */
 function Value_valtree(_v: Value): ValTree {

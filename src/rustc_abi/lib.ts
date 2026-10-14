@@ -1,12 +1,17 @@
 // compiler/rustc_abi/src/lib.rs (subset). PORT: only what rustc_target's spec and rustc_session's
 // `default_configuration` need is ported here: the data layout (`TargetDataLayout` and its parser),
-// `Endian`, `Size`, `Align`/`AbiAlign`, `Integer::from_size` and `AddressSpace`. Everything else in the
-// crate (layout, reprs, scalars, ...) is not ported yet (`bun scripts/coverage.ts --missing`).
+// `Endian`, `Size`, `Align`/`AbiAlign`, `Integer` and `AddressSpace`; lane repr-options added `ReprFlags`,
+// `IntegerType`, `ScalableElt`, `ReprOptions` and the `Size` / `Align` / `Integer` / `TargetDataLayout` helpers
+// they and their users need. Everything else in the crate (layout, scalars, ...) is not ported yet
+// (`bun scripts/coverage.ts --missing`).
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { is_alphabetic } from "../std/char.ts";
-import type { Debug } from "../std/fmt.ts";
-import { panic, unported } from "../std/panic.ts";
+import { debug_Hash64, type Hash64 } from "../rustc_hashes/lib.ts";
+import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple } from "../std/fmt.ts";
+import { assert, panic, unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
+import { to_writer } from "../vendor/bitflags/parser.ts";
+import { flags_companion } from "../vendor/bitflags/traits.ts";
 
 export * from "./canon_abi.ts";
 
@@ -48,6 +53,283 @@ function parse_u32(s: string): Result<number, ParseIntError> {
 function parse_u64(s: string): Result<number, ParseIntError> {
   const r = parse_uint(s, 0xffff_ffff_ffff_ffffn);
   return r.$ === "Ok" ? Ok(Number(r._0)) : r;
+}
+
+// #[derive(Clone, Copy, PartialEq, Eq, Default)]
+// #[cfg_attr(feature = "nightly", derive(Encodable_NoContext, Decodable_NoContext, StableHash))]
+// PORT: `bitflags!` (`impl ReprFlags: u8`) -> branded number; flags + `Flags` API on the companion (as
+// rustc_middle ty/adt.ts's `AdtFlags`). Equality is `===`.
+export type ReprFlags = number & { readonly __brand: "ReprFlags" };
+export const ReprFlags = flags_companion<
+  ReprFlags,
+  {
+    IS_C: ReprFlags;
+    IS_SIMD: ReprFlags;
+    IS_TRANSPARENT: ReprFlags;
+    IS_LINEAR: ReprFlags;
+    RANDOMIZE_LAYOUT: ReprFlags;
+    PASS_INDIRECTLY_IN_NON_RUSTIC_ABIS: ReprFlags;
+    IS_SCALABLE: ReprFlags;
+    FIELD_ORDER_UNOPTIMIZABLE: ReprFlags;
+    ABI_UNOPTIMIZABLE: ReprFlags;
+  }
+>(
+  8,
+  {
+    IS_C: (1 << 0) as ReprFlags,
+    IS_SIMD: (1 << 1) as ReprFlags,
+    IS_TRANSPARENT: (1 << 2) as ReprFlags,
+    /// Internal only for now. If true, don't reorder fields.
+    /// On its own it does not prevent ABI optimizations.
+    IS_LINEAR: (1 << 3) as ReprFlags,
+    /// If true, the type's crate has opted into layout randomization.
+    /// Other flags can still inhibit reordering and thus randomization.
+    /// The seed stored in `ReprOptions.field_shuffle_seed`.
+    ///
+    /// `repr(Rust)` structs with only zero-sized fields, single-variant `repr(Rust)` enums with only
+    /// zero-sized fields, and zero-variant `repr(Rust)` enums must remain zero-sized as per
+    /// T-lang decisions in https://github.com/rust-lang/reference/pull/2262 and https://github.com/rust-lang/reference/pull/2293
+    RANDOMIZE_LAYOUT: (1 << 4) as ReprFlags,
+    /// If true, the type is always passed indirectly by non-Rustic ABIs.
+    /// See [`TyAndLayout::pass_indirectly_in_non_rustic_abis`] for details.
+    PASS_INDIRECTLY_IN_NON_RUSTIC_ABIS: (1 << 5) as ReprFlags,
+    IS_SCALABLE: (1 << 6) as ReprFlags,
+    // Any of these flags being set prevent field reordering optimisation.
+    FIELD_ORDER_UNOPTIMIZABLE: ((1 << 0) | (1 << 1) | (1 << 6) | (1 << 3)) as ReprFlags,
+    ABI_UNOPTIMIZABLE: ((1 << 0) | (1 << 1)) as ReprFlags,
+  },
+  [
+    ["IS_C", (1 << 0) as ReprFlags],
+    ["IS_SIMD", (1 << 1) as ReprFlags],
+    ["IS_TRANSPARENT", (1 << 2) as ReprFlags],
+    ["IS_LINEAR", (1 << 3) as ReprFlags],
+    ["RANDOMIZE_LAYOUT", (1 << 4) as ReprFlags],
+    ["PASS_INDIRECTLY_IN_NON_RUSTIC_ABIS", (1 << 5) as ReprFlags],
+    ["IS_SCALABLE", (1 << 6) as ReprFlags],
+    ["FIELD_ORDER_UNOPTIMIZABLE", ((1 << 0) | (1 << 1) | (1 << 6) | (1 << 3)) as ReprFlags],
+    ["ABI_UNOPTIMIZABLE", ((1 << 0) | (1 << 1)) as ReprFlags],
+  ],
+);
+
+// This is the same as `rustc_data_structures::external_bitflags_debug` but without the
+// `rustc_data_structures` to make it build on stable.
+// impl std::fmt::Debug for ReprFlags
+// rustc: compiler/rustc_abi/src/lib.rs:116 fmt
+export const debug_ReprFlags: Debug<ReprFlags> = (v) => to_writer(ReprFlags.FLAGS_DESC, v);
+
+// #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+// #[cfg_attr(feature = "nightly", derive(Encodable_NoContext, Decodable_NoContext, StableHash))]
+export type IntegerType =
+  /// Pointer-sized integer type, i.e. `isize` and `usize`. The field shows signedness, e.g.
+  /// `Pointer(true)` means `isize`.
+  | { readonly $: "Pointer"; readonly _0: boolean }
+  /// Fixed-sized integer type, e.g. `i8`, `u32`, `i128`. The bool field shows signedness, e.g.
+  /// `Fixed(I8, false)` means `u8`.
+  | { readonly $: "Fixed"; readonly _0: Integer; readonly _1: boolean };
+export const IntegerType = {
+  // rustc: compiler/rustc_abi/src/lib.rs:133 is_signed
+  is_signed(self: IntegerType): boolean {
+    switch (self.$) {
+      case "Pointer":
+        return self._0;
+      case "Fixed":
+        return self._1;
+    }
+  },
+};
+// derive(Debug)
+export const debug_IntegerType: Debug<IntegerType> = (v, f) => {
+  switch (v.$) {
+    case "Pointer":
+      return debug_tuple(f, "Pointer", [debug_bool(v._0, f)]);
+    case "Fixed":
+      return debug_tuple(f, "Fixed", [debug_Integer(v._0, f), debug_bool(v._1, f)]);
+  }
+};
+// derive(PartialEq)
+export function IntegerType_eq(a: IntegerType, b: IntegerType): boolean {
+  switch (a.$) {
+    case "Pointer":
+      return b.$ === "Pointer" && a._0 === b._0;
+    case "Fixed":
+      return b.$ === "Fixed" && a._0 === b._0 && a._1 === b._1;
+  }
+}
+
+// #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+// #[cfg_attr(feature = "nightly", derive(Encodable_NoContext, Decodable_NoContext, StableHash))]
+export type ScalableElt =
+  /// `N` in `rustc_scalable_vector(N)` - the element count of the scalable vector
+  | { readonly $: "ElementCount"; readonly _0: number }
+  /// `rustc_scalable_vector` w/out `N`, used for tuple types of scalable vectors that only
+  /// contain other scalable vectors
+  | { readonly $: "Container" };
+/** Unit variants of `ScalableElt`, shared frozen singletons. */
+export const ScalableElt = {
+  Container: Object.freeze({ $: "Container" }) as ScalableElt,
+};
+// derive(Debug)
+export const debug_ScalableElt: Debug<ScalableElt> = (v, f) => {
+  switch (v.$) {
+    case "ElementCount":
+      return debug_tuple(f, "ElementCount", [debug_int(v._0, f)]);
+    case "Container":
+      return "Container";
+  }
+};
+// derive(PartialEq)
+export function ScalableElt_eq(a: ScalableElt, b: ScalableElt): boolean {
+  switch (a.$) {
+    case "ElementCount":
+      return b.$ === "ElementCount" && a._0 === b._0;
+    case "Container":
+      return b.$ === "Container";
+  }
+}
+
+/// Represents the repr options provided by the user.
+// #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+// #[cfg_attr(feature = "nightly", derive(Encodable_NoContext, Decodable_NoContext, StableHash))]
+export class ReprOptions {
+  constructor(
+    public int: IntegerType | undefined,
+    public align: Align | undefined,
+    public pack: Align | undefined,
+    public flags: ReprFlags,
+    /// `#[rustc_scalable_vector]`
+    public scalable: ScalableElt | undefined,
+    /// The seed to be used for randomizing a type's layout
+    ///
+    /// Note: This could technically be a `u128` which would
+    /// be the "most accurate" hash as it'd encompass the item and crate
+    /// hash without loss, but it does pay the price of being larger.
+    /// Everything's a tradeoff, a 64-bit seed should be sufficient for our
+    /// purposes (primarily `-Z randomize-layout`)
+    public field_shuffle_seed: Hash64,
+  ) {}
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:173 simd
+  simd(): boolean {
+    return ReprFlags.contains(this.flags, ReprFlags.IS_SIMD);
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:178 scalable
+  // PORT: the method is `is_scalable` because the field `scalable` takes the name (a TS class cannot have both).
+  is_scalable(): boolean {
+    return ReprFlags.contains(this.flags, ReprFlags.IS_SCALABLE);
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:183 c
+  c(): boolean {
+    return ReprFlags.contains(this.flags, ReprFlags.IS_C);
+  }
+
+  /// Returns whether this is (implicitly or explicitly) `repr(Rust)`, i.e., its layout
+  /// is defined by Rust and we make no stable commitments.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:190 rust
+  rust(): boolean {
+    // `linear` is currently just an internal flag we set on Box; that's still `repr(Rust)`.
+    return !this.c() && !this.simd() && !this.is_scalable() && !this.transparent();
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:196 packed
+  packed(): boolean {
+    return this.pack !== undefined;
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:201 transparent
+  transparent(): boolean {
+    return ReprFlags.contains(this.flags, ReprFlags.IS_TRANSPARENT);
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:206 linear
+  linear(): boolean {
+    return ReprFlags.contains(this.flags, ReprFlags.IS_LINEAR);
+  }
+
+  /// Returns the discriminant type, given these `repr` options.
+  /// This must only be called on enums!
+  ///
+  /// This is the "typeck type" of the discriminant, which is effectively the maximum size:
+  /// discriminant values will be wrapped to fit (with a lint). Layout can later decide to use a
+  /// smaller type for the tag that stores the discriminant at runtime and that will work just
+  /// fine, it just induces casts when getting/setting the discriminant.
+  // rustc: compiler/rustc_abi/src/lib.rs:217 discr_type
+  discr_type(): IntegerType {
+    return this.int ?? { $: "Pointer", _0: true };
+  }
+
+  /// Returns `true` if this `#[repr()]` should inhabit "smart enum
+  /// layout" optimizations, such as representing `Foo<&T>` as a
+  /// single pointer.
+  // rustc: compiler/rustc_abi/src/lib.rs:224 inhibit_enum_layout_opt
+  inhibit_enum_layout_opt(): boolean {
+    return this.c() || this.int !== undefined;
+  }
+
+  // rustc: compiler/rustc_abi/src/lib.rs:228 inhibit_newtype_abi_optimization
+  inhibit_newtype_abi_optimization(): boolean {
+    return ReprFlags.intersects(this.flags, ReprFlags.ABI_UNOPTIMIZABLE);
+  }
+
+  /// Returns `true` if this `#[repr()]` guarantees a fixed field order,
+  /// e.g. `repr(C)` or `repr(<int>)`.
+  // rustc: compiler/rustc_abi/src/lib.rs:234 inhibit_struct_field_reordering
+  inhibit_struct_field_reordering(): boolean {
+    return ReprFlags.intersects(this.flags, ReprFlags.FIELD_ORDER_UNOPTIMIZABLE) || this.int !== undefined;
+  }
+
+  /// Returns `true` if this type is valid for reordering and `-Z randomize-layout`
+  /// was enabled for its declaration crate.
+  // rustc: compiler/rustc_abi/src/lib.rs:240 can_randomize_type_layout
+  can_randomize_type_layout(): boolean {
+    return !this.inhibit_struct_field_reordering() && ReprFlags.contains(this.flags, ReprFlags.RANDOMIZE_LAYOUT);
+  }
+
+  /// Returns `true` if this `#[repr()]` should inhibit union ABI optimisations.
+  // rustc: compiler/rustc_abi/src/lib.rs:245 inhibits_union_abi_opt
+  inhibits_union_abi_opt(): boolean {
+    return this.c();
+  }
+
+  /// Ensures two `repr` are equal up to the seed.
+  // rustc: compiler/rustc_abi/src/lib.rs:250 equal_up_to_seed
+  equal_up_to_seed(other: ReprOptions): boolean {
+    const { int, align, pack, flags, scalable } = this;
+    return (
+      option_eq(int, other.int, IntegerType_eq) &&
+      option_eq(align, other.align, Align_eq) &&
+      option_eq(pack, other.pack, Align_eq) &&
+      flags === other.flags &&
+      option_eq(scalable, other.scalable, ScalableElt_eq)
+    );
+  }
+}
+// derive(Debug)
+export const debug_ReprOptions: Debug<ReprOptions> = (v, f) =>
+  debug_struct(f, "ReprOptions", [
+    ["int", debug_option(v.int, f, debug_IntegerType)],
+    ["align", debug_option(v.align, f, debug_Align)],
+    ["pack", debug_option(v.pack, f, debug_Align)],
+    ["flags", debug_ReprFlags(v.flags, f)],
+    ["scalable", debug_option(v.scalable, f, debug_ScalableElt)],
+    ["field_shuffle_seed", debug_Hash64(v.field_shuffle_seed, f)],
+  ]);
+// derive(PartialEq)
+export function ReprOptions_eq(a: ReprOptions, b: ReprOptions): boolean {
+  return a.equal_up_to_seed(b) && a.field_shuffle_seed === b.field_shuffle_seed;
+}
+
+/** `PartialEq for Option<T>` with the given `T` equality. */
+function option_eq<T>(a: T | undefined, b: T | undefined, eq: (a: T, b: T) => boolean): boolean {
+  return a === undefined || b === undefined ? a === b : eq(a, b);
 }
 
 /// How pointers are represented in a given address space
@@ -401,6 +683,116 @@ export class TargetDataLayout {
     return Ok(dl);
   }
 
+  /// Returns **exclusive** upper bound on object size in bytes, in the default data address
+  /// space.
+  ///
+  /// The theoretical maximum object size is defined as the maximum positive `isize` value.
+  /// This ensures that the `offset` semantics remain well-defined by allowing it to correctly
+  /// index every address within an object along with one byte past the end, along with allowing
+  /// `isize` to store the difference between any two pointers into an object.
+  ///
+  /// LLVM uses a 64-bit integer to represent object size in *bits*, but we care only for bytes,
+  /// so we adopt such a more-constrained size bound due to its technical limitations.
+  // #[inline]
+  // PORT: `u64` -> `number`: the bounds are powers of two (exact as doubles).
+  // rustc: compiler/rustc_abi/src/lib.rs:668 obj_size_bound
+  obj_size_bound(): number {
+    const bits = this.pointer_size().bits();
+    switch (bits) {
+      case 16:
+        return 2 ** 15;
+      case 32:
+        return 2 ** 31;
+      case 64:
+        return 2 ** 61;
+      default:
+        return panic(`obj_size_bound: unknown pointer bit size ${bits}`);
+    }
+  }
+
+  /// Returns **exclusive** upper bound on object size in bytes.
+  ///
+  /// The theoretical maximum object size is defined as the maximum positive `isize` value.
+  /// This ensures that the `offset` semantics remain well-defined by allowing it to correctly
+  /// index every address within an object along with one byte past the end, along with allowing
+  /// `isize` to store the difference between any two pointers into an object.
+  ///
+  /// LLVM uses a 64-bit integer to represent object size in *bits*, but we care only for bytes,
+  /// so we adopt such a more-constrained size bound due to its technical limitations.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:687 obj_size_bound_in
+  obj_size_bound_in(address_space: AddressSpace): number {
+    const bits = this.pointer_size_in(address_space).bits();
+    switch (bits) {
+      case 16:
+        return 2 ** 15;
+      case 32:
+        return 2 ** 31;
+      case 64:
+        return 2 ** 61;
+      default:
+        return panic(`obj_size_bound: unknown pointer bit size ${bits}`);
+    }
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:697 ptr_sized_integer
+  ptr_sized_integer(): Integer {
+    const bits = this.pointer_offset().bits();
+    switch (bits) {
+      case 16:
+        return "I16";
+      case 32:
+        return "I32";
+      case 64:
+        return "I64";
+      default:
+        return panic(`ptr_sized_integer: unknown pointer bit size ${bits}`);
+    }
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:708 ptr_sized_integer_in
+  ptr_sized_integer_in(address_space: AddressSpace): Integer {
+    const bits = this.pointer_offset_in(address_space).bits();
+    switch (bits) {
+      case 16:
+        return "I16";
+      case 32:
+        return "I32";
+      case 64:
+        return "I64";
+      default:
+        return panic(`ptr_sized_integer: unknown pointer bit size ${bits}`);
+    }
+  }
+
+  /// psABI-mandated alignment for a vector type, if any
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:720 c_vector_align
+  private c_vector_align(vec_size: Size): Align | undefined {
+    const e = this.vector_align.find(([size, _align]) => size.bytes() === vec_size.bytes());
+    return e === undefined ? undefined : e[1];
+  }
+
+  /// Rust-assigned alignment of any vector type
+  ///
+  /// When the shape of a vector matches that in a C psABI, we *must* agree when performing FFI.
+  /// This currently answers correctly for C compatibility purposes as it is a useful default.
+  /// Otherwise this choice is arbitrary, as vector types do not necessarily match hardware so
+  /// this can conjure "imaginary" answers that just happen to be convenient for us.
+  ///
+  /// Importantly, Rust vector alignment is not required to be monotonic between vector sizes,
+  /// even though it currently is.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:737 rust_vector_align
+  rust_vector_align(vec_size: Size): Align {
+    // PORT: `unwrap_or` evaluates its argument eagerly; so does this.
+    const fallback = Align.from_bytes(next_power_of_two(vec_size.bytes()));
+    if (fallback.$ === "Err") return panic("called `Result::unwrap()` on an `Err` value");
+    return this.c_vector_align(vec_size) ?? fallback._0;
+  }
+
   /// Get the pointer size in the default data address space.
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:744 pointer_size
@@ -419,6 +811,29 @@ export class TargetDataLayout {
     const e = this.address_space_info.find(([a]) => a === c);
     if (e !== undefined) {
       return e[1].pointer_size;
+    } else {
+      return panic(`Use of unknown address space AddressSpace(${c})`);
+    }
+  }
+
+  /// Get the pointer index in the default data address space.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:764 pointer_offset
+  pointer_offset(): Size {
+    return this.default_address_space_pointer_spec.pointer_offset;
+  }
+
+  /// Get the pointer index in a specific address space.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:770 pointer_offset_in
+  pointer_offset_in(c: AddressSpace): Size {
+    if (c === this.default_address_space) {
+      return this.default_address_space_pointer_spec.pointer_offset;
+    }
+
+    const e = this.address_space_info.find(([a]) => a === c);
+    if (e !== undefined) {
+      return e[1].pointer_offset;
     } else {
       return panic(`Use of unknown address space AddressSpace(${c})`);
     }
@@ -448,6 +863,26 @@ export class TargetDataLayout {
     }
     return AbiAlign.new(align);
   }
+
+  // impl HasDataLayout for TargetDataLayout (PORTING §8: a later impl block's method in the class body)
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:807 data_layout
+  data_layout(): TargetDataLayout {
+    return this;
+  }
+}
+
+// PORT: the trait is an interface; generic `C: HasDataLayout` parameters take any object with `data_layout()`.
+export interface HasDataLayout {
+  // rustc: compiler/rustc_abi/src/lib.rs:802 data_layout
+  data_layout(): TargetDataLayout;
+}
+
+/** `u64::next_power_of_two` (the sizes here stay far below 2^53). */
+function next_power_of_two(n: number): number {
+  let p = 1;
+  while (p < n) p *= 2;
+  return p;
 }
 
 /** `p.starts_with(char::is_alphabetic)` */
@@ -547,12 +982,114 @@ export class Size {
   }
 
   // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:907 bytes_usize
+  bytes_usize(): number {
+    return this.bytes();
+  }
+
+  // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:912 bits
   bits(): number {
-    // PORT: `checked_mul(8)` cannot overflow for the sizes rust-ts handles (< 2^53 / 8).
+    // PORT: `checked_mul(8)` cannot overflow for the sizes rust-ts handles (< 2^53 / 8), so the nested
+    // `#[cold] fn overflow` (lib.rs:914) is never called and not ported.
     return this.bytes() * 8;
   }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:922 bits_usize
+  bits_usize(): number {
+    return this.bits();
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:927 align_to
+  align_to(align: Align): Size {
+    // PORT: the mask arithmetic in `bigint` (JS bitwise operators are 32-bit).
+    const mask = BigInt(align.bytes()) - 1n;
+    return Size.from_bytes(Number((BigInt(this.bytes()) + mask) & ~mask));
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:933 is_aligned
+  is_aligned(align: Align): boolean {
+    const mask = BigInt(align.bytes()) - 1n;
+    return (BigInt(this.bytes()) & mask) === 0n;
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:939 checked_add
+  checked_add(offset: Size, cx: HasDataLayout): Size | undefined {
+    const dl = cx.data_layout();
+
+    // PORT: `u64::checked_add` cannot overflow for byte counts below 2^53.
+    const bytes = this.bytes() + offset.bytes();
+
+    return bytes < dl.obj_size_bound() ? Size.from_bytes(bytes) : undefined;
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:948 checked_mul
+  checked_mul(count: number, cx: HasDataLayout): Size | undefined {
+    const dl = cx.data_layout();
+
+    // PORT: `u64::checked_mul` in `bigint`; a product of 2^64 or more is `None` as upstream.
+    const bytes = BigInt(this.bytes()) * BigInt(count);
+    if (bytes > U64_MAX) return undefined;
+    return bytes < BigInt(dl.obj_size_bound()) ? Size.from_bytes(Number(bytes)) : undefined;
+  }
+
+  /// Truncates `value` to `self` bits and then sign-extends it to 128 bits
+  /// (i.e., if it is negative, fill with 1's on the left).
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:958 sign_extend
+  sign_extend(value: bigint): bigint {
+    const size = this.bits();
+    if (size === 0) {
+      // Truncated until nothing is left.
+      return 0n;
+    }
+    // Sign-extend it.
+    const shift = BigInt(128 - size);
+    // Shift the unsigned value to the left, then shift back to the right as signed
+    // (essentially fills with sign bit on the left).
+    return BigInt.asIntN(128, (value << shift) & U128_MAX) >> shift;
+  }
+
+  /// Truncates `value` to `self` bits.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:973 truncate
+  truncate(value: bigint): bigint {
+    const size = this.bits();
+    if (size === 0) {
+      // Truncated until nothing is left.
+      return 0n;
+    }
+    const shift = BigInt(128 - size);
+    // Truncate (shift left to drop out leftover values, shift right to fill with zeroes).
+    return ((value << shift) & U128_MAX) >> shift;
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:985 signed_int_min
+  signed_int_min(): bigint {
+    return this.sign_extend(1n << BigInt(this.bits() - 1));
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:990 signed_int_max
+  signed_int_max(): bigint {
+    return I128_MAX >> BigInt(128 - this.bits());
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:995 unsigned_int_max
+  unsigned_int_max(): bigint {
+    return U128_MAX >> BigInt(128 - this.bits());
+  }
 }
+const U64_MAX = (1n << 64n) - 1n;
+const U128_MAX = (1n << 128n) - 1n;
+const I128_MAX = (1n << 127n) - 1n;
 // This is debug-printed a lot in larger structs, don't waste too much space there
 // impl fmt::Debug for Size
 // rustc: compiler/rustc_abi/src/lib.rs:880 fmt
@@ -567,6 +1104,15 @@ export class Align {
   static readonly EIGHT: Align = new Align(3);
   // LLVM has a maximal supported alignment of 2^29, we inherit that.
   static readonly MAX: Align = new Align(29);
+
+  /// Either `1 << (pointer_bits - 1)` or [`Align::MAX`], whichever is smaller.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1142 max_for_target
+  static max_for_target(tdl: TargetDataLayout): Align {
+    const pointer_bits = tdl.pointer_size().bits();
+    assert(pointer_bits <= 255, "called `Result::unwrap()` on an `Err` value");
+    return Align_min(new Align(pointer_bits - 1), Align.MAX);
+  }
 
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:1148 from_bits
@@ -613,10 +1159,58 @@ export class Align {
   }
 
   // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1188 bytes_usize
+  bytes_usize(): number {
+    return this.bytes();
+  }
+
+  // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:1193 bits
   bits(): number {
     return this.bytes() * 8;
   }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1198 bits_usize
+  bits_usize(): number {
+    return this.bits();
+  }
+
+  /// Obtain the greatest factor of `size` that is an alignment
+  /// (the largest power of two the Size is a multiple of).
+  ///
+  /// Note that all numbers are factors of 0
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1207 max_aligned_factor
+  static max_aligned_factor(size: Size): Align {
+    // `size.bytes().trailing_zeros() as u8` (`u64::trailing_zeros(0)` is 64)
+    let b = BigInt(size.bytes());
+    if (b === 0n) return new Align(64);
+    let tz = 0;
+    while ((b & 1n) === 0n) {
+      b >>= 1n;
+      tz++;
+    }
+    return new Align(tz);
+  }
+
+  /// Reduces Align to an aligned factor of `size`.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1213 restrict_for_offset
+  restrict_for_offset(size: Size): Align {
+    return Align_min(this, Align.max_aligned_factor(size));
+  }
+}
+// derive(PartialEq): `Align { pow2 }` (instances are not unique, so compare the field).
+export function Align_eq(a: Align, b: Align): boolean {
+  return a.pow2 === b.pow2;
+}
+// derive(Ord): `Ord::min` / `Ord::max` (`max` returns `other` on ties, `min` returns `self`).
+export function Align_min(a: Align, b: Align): Align {
+  return b.pow2 < a.pow2 ? b : a;
+}
+export function Align_max(a: Align, b: Align): Align {
+  return b.pow2 >= a.pow2 ? b : a;
 }
 // This is debug-printed a lot in larger structs, don't waste too much space there
 // impl fmt::Debug for Align
@@ -659,7 +1253,21 @@ export class AbiAlign {
   static new(align: Align): AbiAlign {
     return new AbiAlign(align);
   }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1240 min
+  min(other: AbiAlign): AbiAlign {
+    return new AbiAlign(Align_min(this.abi, other.abi));
+  }
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1245 max
+  max(other: AbiAlign): AbiAlign {
+    return new AbiAlign(Align_max(this.abi, other.abi));
+  }
 }
+// derive(Debug)
+export const debug_AbiAlign: Debug<AbiAlign> = (v, f) => debug_struct(f, "AbiAlign", [["abi", debug_Align(v.abi, f)]]);
 
 /// Integers, also used for enum discriminants.
 // #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -670,6 +1278,168 @@ export const Integer = {
   I32: "I32",
   I64: "I64",
   I128: "I128",
+
+  // rustc: compiler/rustc_abi/src/lib.rs:1270 int_ty_str
+  int_ty_str(self: Integer): string {
+    switch (self) {
+      case "I8":
+        return "i8";
+      case "I16":
+        return "i16";
+      case "I32":
+        return "i32";
+      case "I64":
+        return "i64";
+      case "I128":
+        return "i128";
+    }
+  },
+
+  // rustc: compiler/rustc_abi/src/lib.rs:1281 uint_ty_str
+  uint_ty_str(self: Integer): string {
+    switch (self) {
+      case "I8":
+        return "u8";
+      case "I16":
+        return "u16";
+      case "I32":
+        return "u32";
+      case "I64":
+        return "u64";
+      case "I128":
+        return "u128";
+    }
+  },
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1293 size
+  size(self: Integer): Size {
+    switch (self) {
+      case "I8":
+        return Size.from_bytes(1);
+      case "I16":
+        return Size.from_bytes(2);
+      case "I32":
+        return Size.from_bytes(4);
+      case "I64":
+        return Size.from_bytes(8);
+      case "I128":
+        return Size.from_bytes(16);
+    }
+  },
+
+  /// Gets the Integer type from an IntegerType.
+  // rustc: compiler/rustc_abi/src/lib.rs:1305 from_attr
+  from_attr(cx: HasDataLayout, ity: IntegerType): Integer {
+    const dl = cx.data_layout();
+
+    switch (ity.$) {
+      case "Pointer":
+        return dl.ptr_sized_integer();
+      case "Fixed":
+        return ity._0;
+    }
+  },
+
+  // rustc: compiler/rustc_abi/src/lib.rs:1314 align
+  align(self: Integer, cx: HasDataLayout): AbiAlign {
+    const dl = cx.data_layout();
+
+    switch (self) {
+      case "I8":
+        return AbiAlign.new(dl.i8_align);
+      case "I16":
+        return AbiAlign.new(dl.i16_align);
+      case "I32":
+        return AbiAlign.new(dl.i32_align);
+      case "I64":
+        return AbiAlign.new(dl.i64_align);
+      case "I128":
+        return AbiAlign.new(dl.i128_align);
+    }
+  },
+
+  /// Returns the largest signed value that can be represented by this Integer.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1329 signed_max
+  signed_max(self: Integer): bigint {
+    switch (self) {
+      case "I8":
+        return 0x7fn;
+      case "I16":
+        return 0x7fffn;
+      case "I32":
+        return 0x7fff_ffffn;
+      case "I64":
+        return 0x7fff_ffff_ffff_ffffn;
+      case "I128":
+        return (1n << 127n) - 1n;
+    }
+  },
+
+  /// Returns the smallest signed value that can be represented by this Integer.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1342 signed_min
+  signed_min(self: Integer): bigint {
+    switch (self) {
+      case "I8":
+        return -0x80n;
+      case "I16":
+        return -0x8000n;
+      case "I32":
+        return -0x8000_0000n;
+      case "I64":
+        return -0x8000_0000_0000_0000n;
+      case "I128":
+        return -(1n << 127n);
+    }
+  },
+
+  /// Finds the smallest Integer type which can represent the signed value.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1355 fit_signed
+  fit_signed(x: bigint): Integer {
+    if (x >= -0x80n && x <= 0x7fn) return "I8";
+    if (x >= -0x8000n && x <= 0x7fffn) return "I16";
+    if (x >= -0x8000_0000n && x <= 0x7fff_ffffn) return "I32";
+    if (x >= -0x8000_0000_0000_0000n && x <= 0x7fff_ffff_ffff_ffffn) return "I64";
+    return "I128";
+  },
+
+  /// Finds the smallest Integer type which can represent the unsigned value.
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1368 fit_unsigned
+  fit_unsigned(x: bigint): Integer {
+    if (x >= 0n && x <= 0xffn) return "I8";
+    if (x >= 0n && x <= 0xffffn) return "I16";
+    if (x >= 0n && x <= 0xffff_ffffn) return "I32";
+    if (x >= 0n && x <= 0xffff_ffff_ffff_ffffn) return "I64";
+    return "I128";
+  },
+
+  /// Finds the smallest integer with the given alignment.
+  // rustc: compiler/rustc_abi/src/lib.rs:1380 for_align
+  for_align(cx: HasDataLayout, wanted: Align): Integer | undefined {
+    const dl = cx.data_layout();
+
+    return (["I8", "I16", "I32", "I64", "I128"] as const).find(
+      (candidate) => Align_eq(wanted, Integer.align(candidate, dl).abi) && wanted.bytes() === Integer.size(candidate).bytes(),
+    );
+  },
+
+  /// Find the largest integer with the given alignment or less.
+  // rustc: compiler/rustc_abi/src/lib.rs:1390 approximate_align
+  approximate_align(cx: HasDataLayout, wanted: Align): Integer {
+    const dl = cx.data_layout();
+
+    // FIXME(eddyb) maybe include I128 in the future, when it works everywhere.
+    for (const candidate of ["I64", "I32", "I16"] as const) {
+      if (wanted.pow2 >= Integer.align(candidate, dl).abi.pow2 && wanted.bytes() >= Integer.size(candidate).bytes()) {
+        return candidate;
+      }
+    }
+    return "I8";
+  },
 
   // FIXME(eddyb) consolidate this and other methods that find the appropriate
   // `Integer` given some requirements.
@@ -692,6 +1462,8 @@ export const Integer = {
     }
   },
 } as const;
+// derive(Debug)
+export const debug_Integer: Debug<Integer> = (v) => v;
 
 /// An identifier that specifies the address space that some operation
 /// should operate on. Special address spaces have an effect on code generation,

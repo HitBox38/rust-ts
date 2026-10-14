@@ -33,6 +33,7 @@ import { DebruijnIndex as DebruijnIndexC, INNERMOST } from "../lib.ts";
 import type { RelateResult, TypeRelation } from "../relate.ts";
 import type { TypeVisitor } from "../visit.ts";
 import type { LateParamRegion } from "./mod.gen.ts";
+import { debug_LateParamRegionKind } from "../../rustc_middle/ty/structural_impls.ts";
 
 export * from "./consts.ts";
 // The other types of sty/mod.rs (`LateParamRegion`) with their derived impls are generated into mod.gen.ts (set rustc_ty
@@ -71,14 +72,6 @@ function LateParamRegionKind_is_named(_self: LateParamRegionKind, _interner: TyC
 /** PORT: stand-in for `impl DefIdGetter for LateParamRegionKind` `get_def_id` (rustc_middle ty/region.rs:139). */
 function LateParamRegionKind_get_def_id(_self: LateParamRegionKind): DefId | undefined {
   return unported("rustc_middle::ty::region::LateParamRegionKind: DefIdGetter::get_def_id");
-}
-/** PORT: stand-in for `impl inherent::GenericsOf for &Generics` `param_region_def_id` (rustc_middle ty/generics.rs:154). */
-function Generics_param_region_def_id(_self: Generics, _tcx: TyCtxt, _ebr: EarlyParamRegion): DefId {
-  return unported("rustc_middle::ty::generics::Generics: GenericsOf::param_region_def_id");
-}
-/** PORT: stand-in for `impl Debug for LateParamRegionKind` (rustc_middle ty/structural_impls.rs:67). */
-function debug_LateParamRegionKind(_v: LateParamRegionKind, _f: Fmt): string {
-  return unported("rustc_middle::ty::structural_impls: Debug for LateParamRegionKind");
 }
 /// Use this rather than `RegionKind`, whenever possible.
 // rustc-type: compiler/rustc_type_ir/src/sty/mod.rs:26 Region
@@ -148,7 +141,7 @@ Region.prototype.opt_param_def_id = function (this: Region, interner: TyCtxt, bi
   switch (k.$) {
     case "ReEarlyParam": {
       const ebr = k._0;
-      return Generics_param_region_def_id(interner.generics_of(binding_item) as Generics, interner, ebr);
+      return (interner.generics_of(binding_item) as Generics).param_region_def_id(interner, ebr);
     }
     case "ReLateParam":
       return LateParamRegionKind_get_def_id(k._0.kind);

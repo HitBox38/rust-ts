@@ -38,7 +38,21 @@
     "rustc_span::Symbol": "Symbol",
     "Option<rustc_span::Symbol>": "Option_Symbol",
     "(rustc_span::def_id::DefId, rustc_span::def_id::DefId)": "DefId_DefId",
-    "(rustc_span::def_id::CrateNum, rustc_span::def_id::DefId)": "CrateNum_DefId"
+    "(rustc_span::def_id::CrateNum, rustc_span::def_id::DefId)": "CrateNum_DefId",
+    "std::ffi::OsStr": "OsStr",
+    "rustc_middle::ty::Ty": "Ty",
+    "(rustc_middle::ty::Ty, Option<rustc_middle::ty::ExistentialTraitRef>)": "Ty_Option_ExistentialTraitRef",
+    "rustc_middle::ty::fast_reject::SimplifiedType": "SimplifiedType",
+    "(rustc_span::def_id::DefId, rustc_span::Ident)": "DefId_Ident",
+    "(rustc_span::def_id::LocalDefId, rustc_span::def_id::LocalDefId, rustc_span::Ident)": "LocalDefId_LocalDefId_Ident",
+    "(rustc_span::def_id::CrateNum, rustc_middle::ty::fast_reject::SimplifiedType)": "CrateNum_SimplifiedType",
+    "(rustc_span::def_id::DefId, rustc_middle::ty::SizedTraitKind)": "DefId_SizedTraitKind",
+    "rustc_middle::ty::GenericArgsRef": "GenericArgsRef",
+    "(rustc_span::def_id::DefId, rustc_middle::ty::GenericArgsRef)": "DefId_GenericArgsRef",
+    "rustc_middle::ty::TraitRef": "TraitRef",
+    "(rustc_middle::ty::Ty, rustc_middle::ty::Ty)": "Ty_Ty",
+    "rustc_middle::ty::Clauses": "Clauses",
+    "rustc_middle::ty::AliasTyKind": "AliasTyKind"
   },
   "into_key": {
     "rustc_span::def_id::DefId": "into_query_key_DefId",
@@ -49,10 +63,12 @@
     "str": { "ts": "$v" },
     "rustc_span::Symbol": { "ts": "display_Symbol($v)", "imports": { "src/rustc_span/symbol.ts": ["display_Symbol"] } },
     "rustc_span::Ident": { "ts": "display_Ident($v)", "imports": { "src/rustc_span/symbol.ts": ["display_Ident"] } },
-    "rustc_span::def_id::CrateNum": { "ts": "display_CrateNum($v)", "imports": { "src/rustc_span/def_id.ts": ["display_CrateNum"] } }
+    "rustc_span::def_id::CrateNum": { "ts": "display_CrateNum($v)", "imports": { "src/rustc_span/def_id.ts": ["display_CrateNum"] } },
+    "rustc_middle::ty::Ty": { "ts": "display_Ty($v)", "imports": { "src/rustc_middle/ty/print/pretty.ts": ["display_Ty"] } }
   },
   "methods": {
-    "def_path_str": "String"
+    "def_path_str": "String",
+    "hir_ty_param_name": "Symbol"
   },
   "fns": {
     "describe_as_module": { "ts": "describe_as_module", "module": "src/rustc_middle/queries.ts", "ret": "String" }

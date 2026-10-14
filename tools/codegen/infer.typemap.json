@@ -1,0 +1,719 @@
+{
+  "//": [
+    "Set-local type map of set rustc_infer (lane infcx-contract; types.sets.json `typemap_extra`, after tyir.typemap.json and",
+    "middle_traits_thir.typemap.json): the types that rustc_infer and rustc_middle's infer/canonical.rs reach outside the set,",
+    "mostly `rustc_middle::ty` re-exports of rustc_type_ir. `PORT: pending` entries are `unknown` until their lane lands."
+  ],
+  "cfg": {
+    "true": [],
+    "false": []
+  },
+  "helpers": {
+    "src/rustc_type_ir/binder.ts": [
+      "debug_Binder",
+      "debug_Placeholder",
+      "debug_BoundRegion",
+      "debug_BoundTy"
+    ],
+    "src/rustc_type_ir/predicate.ts": [
+      "debug_OutlivesClause"
+    ],
+    "src/rustc_middle/ty/mod.ts": [
+      "debug_Ty"
+    ],
+    "src/rustc_middle/ty/generic_args.ts": [
+      "debug_GenericArg"
+    ],
+    "src/rustc_type_ir/sty/mod.ts": [
+      "debug_Region"
+    ],
+    "src/rustc_span/lib.ts": [
+      "debug_Span"
+    ],
+    "src/rustc_middle/traits/mod.ts": [
+      "clone_ObligationCause"
+    ]
+  },
+  "types": [
+    {
+      "paths": [
+        "rustc_infer::traits::ObligationCause",
+        "ObligationCause",
+        "rustc_middle::traits::ObligationCause"
+      ],
+      "ts": "ObligationCause",
+      "import": "src/rustc_middle/traits/mod.ts",
+      "types": [
+        "ObligationCause"
+      ],
+      "values": [
+        "debug_ObligationCause",
+        "clone_ObligationCause"
+      ],
+      "debug": "debug_ObligationCause($v, $f)",
+      "clone": "clone_ObligationCause($v)",
+      "note": "`pub use rustc_middle::traits::*` (rustc_infer traits/mod.rs)"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::BoundVar"
+      ],
+      "ts": "BoundVar",
+      "import": "src/rustc_type_ir/lib.ts",
+      "types": [
+        "BoundVar"
+      ],
+      "values": [
+        "debug_BoundVar"
+      ],
+      "debug": "debug_BoundVar($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_data_structures::sso::SsoHashMap"
+      ],
+      "ts": "SsoHashMap<$0, $1>",
+      "import": "src/rustc_data_structures/sso/mod.ts",
+      "types": [
+        "SsoHashMap"
+      ],
+      "debug": null,
+      "clone": null
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::TypeFlags"
+      ],
+      "ts": "TypeFlags",
+      "import": "src/rustc_type_ir/flags.gen.ts",
+      "types": [
+        "TypeFlags"
+      ],
+      "values": [
+        "debug_TypeFlags"
+      ],
+      "debug": "debug_TypeFlags($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_type_ir::data_structures::delayed_map::DelayedMap",
+        "rustc_middle::ty::DelayedMap"
+      ],
+      "ts": "DelayedMap<$0, $1>",
+      "import": "src/rustc_type_ir/data_structures/mod.ts",
+      "types": [
+        "DelayedMap"
+      ],
+      "debug": null,
+      "clone": null
+    },
+    {
+      "paths": [
+        "rustc_type_ir::data_structures::delayed_map::DelayedSet",
+        "rustc_middle::ty::DelayedSet"
+      ],
+      "ts": "DelayedSet<$0>",
+      "import": "src/rustc_type_ir/data_structures/mod.ts",
+      "types": [
+        "DelayedSet"
+      ],
+      "debug": null,
+      "clone": null
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::UniverseIndex"
+      ],
+      "ts": "UniverseIndex",
+      "import": "src/rustc_type_ir/lib.ts",
+      "types": [
+        "UniverseIndex"
+      ],
+      "values": [
+        "debug_UniverseIndex"
+      ],
+      "debug": "debug_UniverseIndex($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::DebruijnIndex"
+      ],
+      "ts": "DebruijnIndex",
+      "import": "src/rustc_type_ir/lib.ts",
+      "types": [
+        "DebruijnIndex"
+      ],
+      "values": [
+        "debug_DebruijnIndex"
+      ],
+      "debug": "debug_DebruijnIndex($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::InferTy"
+      ],
+      "ts": "InferTy",
+      "import": "src/rustc_type_ir/ty_kind.ts",
+      "types": [
+        "InferTy"
+      ],
+      "values": [
+        "debug_InferTy"
+      ],
+      "debug": "debug_InferTy($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::TyVid"
+      ],
+      "ts": "TyVid",
+      "import": "src/rustc_type_ir/ty_kind.ts",
+      "types": [
+        "TyVid"
+      ],
+      "values": [
+        "debug_TyVid"
+      ],
+      "debug": "debug_TyVid($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::IntVid"
+      ],
+      "ts": "IntVid",
+      "import": "src/rustc_type_ir/ty_kind.ts",
+      "types": [
+        "IntVid"
+      ],
+      "values": [
+        "debug_IntVid"
+      ],
+      "debug": "debug_IntVid($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::FloatVid"
+      ],
+      "ts": "FloatVid",
+      "import": "src/rustc_type_ir/ty_kind.ts",
+      "types": [
+        "FloatVid"
+      ],
+      "values": [
+        "debug_FloatVid"
+      ],
+      "debug": "debug_FloatVid($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::InferConst"
+      ],
+      "ts": "InferConst",
+      "import": "src/rustc_type_ir/const_kind.ts",
+      "types": [
+        "InferConst"
+      ],
+      "values": [
+        "debug_InferConst"
+      ],
+      "debug": "debug_InferConst($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::ConstVid"
+      ],
+      "ts": "ConstVid",
+      "import": "src/rustc_type_ir/const_kind.ts",
+      "types": [
+        "ConstVid"
+      ],
+      "values": [
+        "debug_ConstVid"
+      ],
+      "debug": "debug_ConstVid($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::region::RegionVid",
+        "rustc_middle::ty::RegionVid"
+      ],
+      "ts": "RegionVid",
+      "import": "src/rustc_type_ir/region_kind.ts",
+      "types": [
+        "RegionVid"
+      ],
+      "values": [
+        "debug_RegionVid"
+      ],
+      "debug": "debug_RegionVid($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::predicate::PolyTypeOutlivesClause",
+        "rustc_middle::ty::PolyTypeOutlivesClause"
+      ],
+      "ts": "PolyTypeOutlivesClause",
+      "import": "src/rustc_middle/ty/predicate.ts",
+      "types": [
+        "PolyTypeOutlivesClause"
+      ],
+      "debug": "debug_Binder($v, $f, (x, f) => debug_OutlivesClause(x, f, debug_Ty))",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::predicate::ArgOutlivesClause",
+        "rustc_middle::ty::ArgOutlivesClause"
+      ],
+      "ts": "ArgOutlivesClause",
+      "import": "src/rustc_middle/ty/predicate.ts",
+      "types": [
+        "ArgOutlivesClause"
+      ],
+      "debug": "debug_OutlivesClause($v, $f, debug_GenericArg)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::predicate::TypeOutlivesClause",
+        "rustc_middle::ty::TypeOutlivesClause"
+      ],
+      "ts": "TypeOutlivesClause",
+      "import": "src/rustc_middle/ty/predicate.ts",
+      "types": [
+        "TypeOutlivesClause"
+      ],
+      "debug": "debug_OutlivesClause($v, $f, debug_Ty)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::predicate::RegionOutlivesClause",
+        "rustc_middle::ty::RegionOutlivesClause"
+      ],
+      "ts": "RegionOutlivesClause",
+      "import": "src/rustc_middle/ty/predicate.ts",
+      "types": [
+        "RegionOutlivesClause"
+      ],
+      "debug": "debug_OutlivesClause($v, $f, debug_Region)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::predicate::OutlivesClause",
+        "rustc_middle::ty::OutlivesClause"
+      ],
+      "ts": "OutlivesClause<$0>",
+      "import": "src/rustc_type_ir/predicate.ts",
+      "types": [
+        "OutlivesClause"
+      ],
+      "debug": "debug_OutlivesClause($v, $f, $d0)",
+      "clone": "copy",
+      "note": "`ty::OutlivesClause<'tcx, A> = ir::OutlivesClause<TyCtxt<'tcx>, A>` (D3 erases I)"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::predicate::RegionConstraint",
+        "rustc_middle::ty::RegionConstraint"
+      ],
+      "ts": "RegionConstraint",
+      "import": "src/rustc_middle/ty/predicate.ts",
+      "types": [
+        "RegionConstraint"
+      ],
+      "debug": null,
+      "clone": "copy",
+      "note": "`ty::RegionConstraint<'tcx> = ir::RegionConstraint<TyCtxt<'tcx>>` (predicate.rs; Debug is ir_print's)"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::sty::TypingMode",
+        "rustc_middle::ty::TypingMode"
+      ],
+      "ts": "TypingMode",
+      "import": "src/rustc_type_ir/infer_ctxt.ts",
+      "types": [
+        "TypingMode"
+      ],
+      "values": [
+        "debug_TypingMode"
+      ],
+      "debug": "debug_TypingMode($v, $f, debug_MayBeErased)",
+      "clone": "copy",
+      "note": "`ty::TypingMode<'tcx> = ir::TypingMode<TyCtxt<'tcx>>` (S = MayBeErased)"
+    },
+    {
+      "paths": [
+        "rustc_middle::traits::select::SelectionCache"
+      ],
+      "ts": "SelectionCache<$0>",
+      "import": "src/rustc_middle/traits/mod.ts",
+      "types": [
+        "SelectionCache"
+      ],
+      "debug": null,
+      "clone": null
+    },
+    {
+      "paths": [
+        "rustc_middle::traits::select::EvaluationCache"
+      ],
+      "ts": "EvaluationCache<$0>",
+      "import": "src/rustc_middle/traits/mod.ts",
+      "types": [
+        "EvaluationCache"
+      ],
+      "debug": null,
+      "clone": null
+    },
+    {
+      "paths": [
+        "rustc_middle::traits::solve::Goal"
+      ],
+      "ts": "Goal<$0>",
+      "import": "src/rustc_type_ir/solve/mod.ts",
+      "types": [
+        "Goal"
+      ],
+      "values": [
+        "debug_Goal"
+      ],
+      "debug": "debug_Goal($v, $f, $d0)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_type_ir::region_constraint::Assumptions"
+      ],
+      "ts": "Assumptions",
+      "import": "src/rustc_type_ir/region_constraint.ts",
+      "types": [
+        "Assumptions"
+      ],
+      "values": [
+        "debug_Assumptions"
+      ],
+      "debug": "debug_Assumptions($v, $f)",
+      "clone": null
+    },
+    {
+      "paths": [
+        "rustc_type_ir::region_constraint::RegionConstraint"
+      ],
+      "ts": "RegionConstraint<$0>",
+      "import": "src/rustc_type_ir/region_constraint.ts",
+      "types": [
+        "RegionConstraint"
+      ],
+      "values": [
+        "debug_RegionConstraint"
+      ],
+      "debug": "debug_RegionConstraint($v, $f, $d0)",
+      "clone": null,
+      "note": "`RegionConstraint<I, S = ()>` (D3 erases I); `SolverRegionConstraint<'tcx> = RegionConstraint<TyCtxt<'tcx>, Span>`"
+    },
+    {
+      "paths": [
+        "rustc_type_ir::CanonicalizerState"
+      ],
+      "ts": "CanonicalizerState",
+      "import": "src/rustc_type_ir/canonical.ts",
+      "types": [
+        "CanonicalizerState"
+      ],
+      "debug": null,
+      "clone": null
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::predicate::PolyExistentialProjection",
+        "rustc_middle::ty::PolyExistentialProjection"
+      ],
+      "ts": "PolyExistentialProjection",
+      "import": "src/rustc_middle/ty/predicate.ts",
+      "types": [
+        "PolyExistentialProjection"
+      ],
+      "debug": null,
+      "clone": "copy",
+      "note": "`Binder<'tcx, ExistentialProjection<'tcx>>` (Debug: binder.rs derive + ir_print's ExistentialProjection)"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::error::ExpectedFound"
+      ],
+      "ts": "ExpectedFound<$0>",
+      "import": "src/rustc_type_ir/error.ts",
+      "types": [
+        "ExpectedFound"
+      ],
+      "values": [
+        "debug_ExpectedFound"
+      ],
+      "debug": "debug_ExpectedFound($v, $f, $d0)",
+      "clone": "copy",
+      "note": "`ty::error::ExpectedFound<T> = ir::error::ExpectedFound<T>`"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::sty::BoundRegionKind",
+        "rustc_middle::ty::BoundRegionKind"
+      ],
+      "ts": "BoundRegionKind",
+      "import": "src/rustc_type_ir/binder.ts",
+      "types": [
+        "BoundRegionKind"
+      ],
+      "values": [
+        "debug_BoundRegionKind"
+      ],
+      "debug": "debug_BoundRegionKind($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::sty::BoundRegion",
+        "rustc_middle::ty::BoundRegion"
+      ],
+      "ts": "BoundRegion",
+      "import": "src/rustc_type_ir/binder.ts",
+      "types": [
+        "BoundRegion"
+      ],
+      "values": [
+        "debug_BoundRegion"
+      ],
+      "debug": "debug_BoundRegion($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::sty::PlaceholderRegion",
+        "rustc_middle::ty::PlaceholderRegion"
+      ],
+      "ts": "PlaceholderRegion",
+      "import": "src/rustc_type_ir/binder.ts",
+      "types": [
+        "PlaceholderRegion"
+      ],
+      "debug": "debug_Placeholder($v, $f, debug_BoundRegion)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::sty::PlaceholderType",
+        "rustc_middle::ty::PlaceholderType"
+      ],
+      "ts": "PlaceholderType",
+      "import": "src/rustc_type_ir/binder.ts",
+      "types": [
+        "PlaceholderType"
+      ],
+      "debug": "debug_Placeholder($v, $f, debug_BoundTy)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::closure::UpvarId",
+        "rustc_middle::ty::UpvarId"
+      ],
+      "ts": "UpvarId",
+      "import": "src/rustc_middle/ty/closure.ts",
+      "types": [
+        "UpvarId"
+      ],
+      "debug": null,
+      "clone": "copy",
+      "note": "manual Debug in closure.rs (needs tcx; not ported)"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::solve::TyOrConstInferVar",
+        "rustc_type_ir::solve::TyOrConstInferVar"
+      ],
+      "ts": "TyOrConstInferVar",
+      "import": "src/rustc_type_ir/solve/mod.ts",
+      "types": [
+        "TyOrConstInferVar"
+      ],
+      "values": [
+        "debug_TyOrConstInferVar"
+      ],
+      "debug": "debug_TyOrConstInferVar($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_type_ir::solve::VisibleForLeakCheck",
+        "rustc_middle::ty::VisibleForLeakCheck"
+      ],
+      "ts": "VisibleForLeakCheck",
+      "import": "src/rustc_type_ir/solve/mod.ts",
+      "types": [
+        "VisibleForLeakCheck"
+      ],
+      "values": [
+        "debug_VisibleForLeakCheck"
+      ],
+      "debug": "debug_VisibleForLeakCheck($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::ty::ProvisionalHiddenType"
+      ],
+      "ts": "ProvisionalHiddenType",
+      "import": "src/rustc_middle/ty/mod.ts",
+      "types": [
+        "ProvisionalHiddenType"
+      ],
+      "values": [
+        "debug_ProvisionalHiddenType"
+      ],
+      "debug": "debug_ProvisionalHiddenType($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_data_structures::graph::scc::Sccs"
+      ],
+      "ts": "unknown",
+      "debug": null,
+      "clone": null,
+      "note": "PORT: pending rustc_data_structures graph/scc (lane infer-regions)"
+    },
+    {
+      "paths": [
+        "ImplSource",
+        "rustc_middle::traits::ImplSource"
+      ],
+      "ts": "ImplSource<$0>",
+      "import": "src/rustc_middle/traits/mod.ts",
+      "types": [
+        "ImplSource"
+      ],
+      "values": [
+        "debug_ImplSource"
+      ],
+      "debug": "debug_ImplSource($v, $f, $d0)",
+      "clone": null
+    },
+    {
+      "paths": [
+        "rustc_middle::traits::EvaluationResult",
+        "rustc_middle::traits::select::EvaluationResult"
+      ],
+      "ts": "EvaluationResult",
+      "import": "src/rustc_middle/traits/select.ts",
+      "types": [
+        "EvaluationResult"
+      ],
+      "values": [
+        "debug_EvaluationResult"
+      ],
+      "debug": "debug_EvaluationResult($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_data_structures::snapshot_map::SnapshotMapStorage"
+      ],
+      "ts": "SnapshotMapStorage<$0, $1>",
+      "import": "src/rustc_data_structures/snapshot_map/mod.ts",
+      "types": [
+        "SnapshotMapStorage"
+      ],
+      "debug": null,
+      "clone": null,
+      "values": [
+        "SnapshotMap"
+      ],
+      "default": "SnapshotMap.default(() => undefined)",
+      "default_values": [
+        "SnapshotMap"
+      ]
+    },
+    {
+      "paths": [
+        "rustc_type_ir::CanonicalQueryInput"
+      ],
+      "ts": "CanonicalQueryInput<$0>",
+      "import": "src/rustc_type_ir/canonical.ts",
+      "types": [
+        "CanonicalQueryInput"
+      ],
+      "values": [
+        "debug_CanonicalQueryInput"
+      ],
+      "debug": "debug_CanonicalQueryInput($v, $f, $d0)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_type_ir::Canonical"
+      ],
+      "ts": "Canonical<$0>",
+      "import": "src/rustc_type_ir/canonical.ts",
+      "types": [
+        "Canonical"
+      ],
+      "values": [
+        "debug_Canonical"
+      ],
+      "debug": "debug_Canonical($v, $f, $d0)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_type_ir::CanonicalVarKind"
+      ],
+      "ts": "CanonicalVarKind",
+      "import": "src/rustc_type_ir/canonical.ts",
+      "types": [
+        "CanonicalVarKind"
+      ],
+      "values": [
+        "debug_CanonicalVarKind"
+      ],
+      "debug": "debug_CanonicalVarKind($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_type_ir::CanonicalVarValues"
+      ],
+      "ts": "CanonicalVarValues",
+      "import": "src/rustc_type_ir/canonical.ts",
+      "types": [
+        "CanonicalVarValues"
+      ],
+      "values": [
+        "debug_CanonicalVarValues"
+      ],
+      "debug": "debug_CanonicalVarValues($v, $f)",
+      "clone": "copy"
+    },
+    {
+      "paths": [
+        "rustc_middle::mir::ConstraintCategory"
+      ],
+      "ts": "unknown",
+      "debug": null,
+      "clone": "copy",
+      "note": "PORT: pending rustc_middle mir (M4)"
+    }
+  ]
+}

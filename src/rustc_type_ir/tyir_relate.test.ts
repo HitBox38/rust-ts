@@ -13,11 +13,10 @@ import { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
-import { RawList } from "../rustc_middle/ty/list.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { Clause, Predicate } from "../rustc_middle/ty/predicate.ts";
 import { type DefIndex, DefId, LOCAL_CRATE } from "../rustc_span/def_id.ts";
-import { DUMMY_SP, ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
+import { create_default_session_globals_then, DUMMY_SP, ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
 import { kw } from "../rustc_span/symbol.ts";
 import { Panic, Unported } from "../std/panic.ts";
 import { Err, Ok } from "../std/result.ts";
@@ -189,24 +188,16 @@ class RecordingInfcx {
   deeply_resolve_ignoring_regions<T>(value: T): T {
     return value;
   }
-  sub_regions(sub: Region, sup: Region): void {
+  ir_sub_regions(sub: Region, sup: Region): void {
     this.log.push(`sub_regions(${sub === tcx.lifetimes.re_static ? "'static" : "'?"}, ${sup === tcx.lifetimes.re_static ? "'static" : "'?"})`);
   }
-  equate_regions(): void {
+  ir_equate_regions(): void {
     this.log.push("equate_regions");
   }
 }
 
-// `impl inherent::Tys for &List<Ty>` (rustc_middle ty/sty.rs:2180, lane ty-sty) is not ported yet; `FnSig::inputs` /
-// `output` need it: upstream's two one-liners (`split_last().unwrap()`).
 const spies: { mockRestore(): void }[] = [];
 beforeAll(() => {
-  spies.push(spyOn(RawList.prototype as unknown as { inputs(): readonly Ty[] }, "inputs").mockImplementation(function (this: readonly Ty[]) {
-    return this.slice(0, this.length - 1);
-  }));
-  spies.push(spyOn(RawList.prototype as unknown as { output(): Ty }, "output").mockImplementation(function (this: readonly Ty[]) {
-    return this[this.length - 1]!;
-  }));
   // `TyCtxt::features` needs a session; these relations run without `generic_const_exprs`.
   spies.push(spyOn(TyCtxt.prototype, "features").mockImplementation(() => ({ generic_const_exprs: () => false }) as unknown as ReturnType<TyCtxt["features"]>));
 });
@@ -281,15 +272,16 @@ describe("structurally_relate_tys", () => {
     const a = ptr(t.bool, "Mut");
     expect(structurally_relate_tys(rel, a, ptr(t.char, "Mut"))).toEqual(sorts(t.bool, t.char));
     expect(rel.calls).toEqual([[Variance.Invariant, { $: "Invariant", ty: a, param_index: 0 }]]);
-    // Rebuilding the pointer needs `Ty::new_ptr` (rustc_middle ty/sty.rs, lane ty-sty).
-    expect(() => structurally_relate_tys(rel, ptr(t.bool, "Not"), ptr(t.bool, "Not"))).toThrow(Unported);
+    // Equal pointees rebuild the pointer with `Ty::new_ptr` (rustc_middle ty/sty.rs): the same interned type.
+    expect(structurally_relate_tys(rel, ptr(t.bool, "Not"), ptr(t.bool, "Not"))).toEqual(Ok(ptr(t.bool, "Not")));
   });
 
   test("tuples: TupleSize when both are non-empty, Sorts when one is empty", () => {
     expect(structurally_relate_tys(rel, tup(t.bool, t.char), tup(t.bool))).toEqual(Err({ $: "TupleSize", _0: ExpectedFound.new(2, 1) }));
     expect(structurally_relate_tys(rel, t.unit, tup(t.bool))).toEqual(sorts(t.unit, tup(t.bool)));
-    // Equal lengths rebuild the tuple through `Ty::new_tup_from_iter` (lane ty-sty).
-    expect(() => structurally_relate_tys(rel, tup(t.bool), tup(t.char))).toThrow(Unported);
+    // Equal lengths rebuild the tuple through `Ty::new_tup_from_iter`, which stops at the first `Err`.
+    expect(structurally_relate_tys(rel, tup(t.bool), tup(t.char))).toEqual(sorts(t.bool, t.char));
+    expect(structurally_relate_tys(rel, tup(t.bool, t.char), tup(t.bool, t.char))).toEqual(Ok(tup(t.bool, t.char)));
   });
 
   test("inference and bound variables are the caller's job", () => {
@@ -302,8 +294,9 @@ describe("structurally_relate_tys", () => {
   test("foreign types relate by DefId", () => {
     const f = (i: number) => tcx.mk_ty_from_kind({ $: "Foreign", _0: def(i) });
     expect(structurally_relate_tys(rel, f(1), f(2))).toEqual(sorts(f(1), f(2)));
-    expect(() => structurally_relate_tys(rel, f(1), f(1))).toThrow(Unported); // `Ty::new_foreign`
-    expect(() => structurally_relate_tys(rel, t.bool, tcx.mk_ty_from_kind({ $: "Error", _0: guar }))).toThrow(Unported); // `Ty::new_error`
+    expect(structurally_relate_tys(rel, f(1), f(1))).toEqual(Ok(f(1))); // `Ty::new_foreign`
+    const err = tcx.mk_ty_from_kind({ $: "Error", _0: guar });
+    expect(structurally_relate_tys(rel, t.bool, err)).toEqual(Ok(err)); // `Ty::new_error`
   });
 });
 
@@ -387,8 +380,11 @@ describe("structurally_relate_consts", () => {
     const err = tcx.mk_ct_from_kind({ $: "Error", _0: guar });
     expect(structurally_relate_consts(rel, err, ct_param(1))).toEqual(Ok(err));
     expect(structurally_relate_consts(rel, ct_param(1), err)).toEqual(Ok(err));
-    // the panic message formats both consts with `{:?}` (`Debug for Const` is not ported yet).
-    expect(() => structurally_relate_consts(rel, ct_var(0), ct_param(1))).toThrow(Unported);
+    // the panic message formats both consts with `{:?}` (merge-w15b: `Debug for ParamConst` is ported; it reads the
+    // symbol interner, hence the session globals).
+    create_default_session_globals_then(() => {
+      expect(() => structurally_relate_consts(rel, ct_var(0), ct_param(1))).toThrow("var types encountered in structurally_relate_consts: ?0c Self/#1");
+    });
     expect(relate_Const.relate(rel, ct_param(2), ct_param(2))).toEqual(Ok(ct_param(2)));
   });
 });
@@ -433,8 +429,10 @@ describe("SolverRelating", () => {
     expect(co.tys(ty_var(3), t.bool)).toEqual(Ok(ty_var(3)));
     expect(co.tys(t.bool, ty_var(4))).toEqual(Ok(t.bool));
     expect(infcx2.log).toEqual(["instantiate_ty_var(true, 3, Covariant, bool)", "instantiate_ty_var(false, 4, Contravariant, bool)"]);
-    // Two type variables under co-/contravariance record a `Subtype` goal (`Binder::dummy`, lane tyir-binder).
-    expect(() => co.tys(ty_var(5), ty_var(6))).toThrow(Unported);
+    // Two type variables under co-/contravariance record a `Subtype` goal (merge-w15b: `Binder::dummy` runs).
+    expect(co.goals).toEqual([]);
+    expect(co.tys(ty_var(5), ty_var(6))).toEqual(Ok(ty_var(5)));
+    expect(co.goals.length).toBe(1);
   });
 
   test("relate_with_variance composes and restores the ambient variance; bivariance is a no-op", () => {
@@ -474,8 +472,8 @@ describe("SolverRelating", () => {
     const [r] = solver(Variance.Covariant);
     const b = no_vars(t.bool);
     expect(r.binders(b, no_vars(t.bool), relate_Ty)).toEqual(Ok(b));
-    // Otherwise `Binder::no_bound_vars` (lane tyir-binder) decides the path.
-    expect(() => r.binders(b, no_vars(t.char), relate_Ty)).toThrow(Unported);
+    // Otherwise `Binder::no_bound_vars` decides the path (merge-w15b: it runs): no bound vars relate the contents.
+    expect(r.binders(b, no_vars(t.char), relate_Ty)).toEqual(sorts(t.bool, t.char));
   });
 
   test("RelateExt::relate returns the goals of a successful relation", () => {
@@ -532,8 +530,12 @@ describe("outlives", () => {
       { $: "Param", _0: { index: 0, name: kw.SelfUpper } },
       { $: "UnresolvedInferenceVariable", _0: { $: "IntVar", _0: 3 as IntVid } },
     ]);
-    // Structural types descend with `Ty::super_visit_with` (lane tyir-binder).
-    expect(() => c.visit_ty(tup(t.bool))).toThrow(Unported);
+    // Structural types descend with `Ty::super_visit_with` (merge-w15b: structural_impls.rs's `fold_Ty`).
+    c.visit_ty(tup(t.bool));
+    expect(out.length).toBe(2);
+    c.visit_ty(tup(param(1)));
+    expect(out.length).toBe(3);
+    expect(out[2]).toEqual({ $: "Param", _0: { index: 1, name: kw.SelfUpper } });
   });
 
   test("OutlivesCollector::visit_region skips bound regions", () => {
@@ -552,8 +554,10 @@ describe("outlives", () => {
     expect(out).toEqual([{ $: "Region", _0: tcx.lifetimes.re_static }]);
   });
 
-  test("push_outlives_components starts with `Ty::visit_with` (structural_impls.rs, not ported yet)", () => {
-    expect(() => push_outlives_components(tcx, param(0), [])).toThrow(Unported);
+  test("push_outlives_components starts with `Ty::visit_with` (structural_impls.rs)", () => {
+    const out: Component[] = [];
+    push_outlives_components(tcx, param(0), out);
+    expect(out).toEqual([{ $: "Param", _0: { index: 0, name: kw.SelfUpper } }]);
   });
 });
 
@@ -634,8 +638,8 @@ describe("elaborate", () => {
     const a1 = { _0: GenericArg.from_Region(v), _1: s };
     const set = elaborate_outlives_assumptions(tcx, [a1, { _0: GenericArg.from_Region(v), _1: s }, { _0: GenericArg.from_Region(s), _1: v }]);
     expect([...set]).toEqual([a1, { _0: GenericArg.from_Region(s), _1: v }]);
-    // A type argument is decomposed with `push_outlives_components` (needs `Ty::visit_with`).
-    expect(() => elaborate_outlives_assumptions(tcx, [{ _0: GenericArg.from_Ty(param(0)), _1: s }])).toThrow(Unported);
+    // A type argument is decomposed with `push_outlives_components` (`Ty::visit_with`, merge-w15b): a param stays.
+    expect([...elaborate_outlives_assumptions(tcx, [{ _0: GenericArg.from_Ty(param(0)), _1: s }])]).toEqual([{ _0: GenericArg.from_Ty(param(0)), _1: s }]);
   });
 
   test("Elaboratable for Clause is the identity on clauses", () => {

@@ -1,0 +1,41 @@
+::std (ExternCrate)
+::{use#0} (Use)
+::Tr (Trait)
+::S (Struct)
+::{impl#0} (Impl)
+  defaultness = Final
+::{impl#1} (Impl)
+::af (Fn)
+  asyncness = Yes
+  nested_bodies_within = [::af::{closure#0}]
+::f (Fn)
+  asyncness = No
+  nested_bodies_within = [::f::{closure#0}::{closure#0}, ::f::{closure#0}]
+::f::inner (Fn)
+  asyncness = No
+  nested_bodies_within = []
+::g (Fn)
+  asyncness = No
+  nested_bodies_within = [::g::{constant#0}]
+::Tr::required (AssocFn)
+  asyncness = No
+  defaultness = Default { has_value: false }
+::Tr::provided (AssocFn)
+  asyncness = No
+  defaultness = Default { has_value: true }
+  nested_bodies_within = []
+::Tr::C (AssocConst)
+  defaultness = Default { has_value: false }
+::{impl#0}::required (AssocFn)
+  asyncness = No
+  defaultness = Final
+  nested_bodies_within = []
+::{impl#0}::C (AssocConst)
+  defaultness = Final
+  nested_bodies_within = []
+::{impl#1}::inherent (AssocFn)
+  asyncness = No
+  nested_bodies_within = []
+param_env(::f): UNPORTED: inferred_outlives_of provider (not ported)
+opaque_types_defined_by(::f): ok
+assumed_wf_types(::{impl#1}): ok

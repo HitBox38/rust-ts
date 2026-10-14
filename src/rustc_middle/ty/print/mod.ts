@@ -21,7 +21,7 @@ import { Ok, type Result } from "../../../std/result.ts";
 import { type Fmt } from "../../../std/fmt.ts";
 import type { PolyExistentialPredicate } from "../../../rustc_type_ir/decls.ts";
 import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
-import { standin_fold_Ty, type TypeFoldable } from "../../../rustc_type_ir/fold.ts";
+import { type TypeFoldable } from "../../../rustc_type_ir/fold.ts";
 import { as_interner, fold_with_TraitRef, TraitRef, try_fold_with_TraitRef, visit_with_TraitRef } from "../../../rustc_type_ir/predicate.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import type { Const, Region } from "../../../rustc_type_ir/sty/mod.ts";
@@ -47,6 +47,7 @@ import {
   print_TraitRef as pretty_print_TraitRef,
 } from "./pretty.ts";
 import { IR_PRINT, type IrPrint } from "../../../rustc_type_ir/ir_print.ts";
+import { fold_Ty } from "../structural_impls.ts";
 
 // `pretty` is a separate module only for organization.
 // mod pretty;
@@ -95,7 +96,7 @@ export abstract class Printer {
     let impl_trait_ref_: TraitRef | undefined;
     if ((tcx.generics_of(impl_def_id) as Generics).count() <= args.length) {
       [self_ty, impl_trait_ref_] = [
-        Unnormalized.skip_norm_wip(EarlyBinder.instantiate(self_ty_, tcx, args, standin_fold_Ty)),
+        Unnormalized.skip_norm_wip(EarlyBinder.instantiate(self_ty_, tcx, args, fold_Ty)),
         impl_trait_ref === undefined ? undefined : Unnormalized.skip_norm_wip(EarlyBinder.instantiate(impl_trait_ref, tcx, args, d_TraitRef)),
       ];
     } else {
@@ -229,7 +230,7 @@ export abstract class Printer {
             // on top of the same path, but without its own generics.
             default: {
               if (!generics.is_own_empty() && args.length >= generics.count()) {
-                const args_ = Generics_own_args_no_defaults(generics, this.tcx(), args);
+                const args_ = generics.own_args_no_defaults(this.tcx(), args);
                 return this.print_path_with_generic_args((p) => p.print_def_path(def_id, parent_args), args_);
               }
             }
@@ -309,7 +310,7 @@ function characteristic_def_id_of_type_cached(ty: Ty, visited: Set<Ty>): DefId |
   const kind = ty.kind();
   switch (kind.$) {
     case "Adt":
-      return AdtDef_did(kind._0);
+      return kind._0.did();
 
     case "Dynamic":
       return kind._0.principal_def_id();
@@ -552,12 +553,4 @@ export type ShimKindView =
 /** `Instance::def_id` (ty/instance.rs; not ported). */
 function Instance_def_id(_self: Instance): DefId {
   return unported("rustc_middle::ty::instance::Instance::def_id (ty/instance.rs)");
-}
-/** `AdtDef::did` (ty/adt.rs; `AdtDef` is `Pending`). */
-function AdtDef_did(_adt_def: unknown): DefId {
-  return unported("rustc_middle::ty::adt::AdtDef::did (ty/adt.rs)");
-}
-/** `Generics::own_args_no_defaults` (ty/generics.rs:322; not ported). */
-function Generics_own_args_no_defaults(_self: Generics, _tcx: TyCtxt, _args: readonly GenericArg[]): readonly GenericArg[] {
-  return unported("rustc_middle::ty::generics::Generics::own_args_no_defaults (ty/generics.rs)");
 }

@@ -210,14 +210,14 @@ export function stable_hash_ReprAttr(self: ReprAttr, __hcx: StableHashCtxt, __ha
     case "ReprC":
       break;
     case "ReprPacked":
-      unported_stable_hash(self._0);
+      stable_hash_u8(self._0.pow2, __hcx, __hasher);
       break;
     case "ReprSimd":
       break;
     case "ReprTransparent":
       break;
     case "ReprAlign":
-      unported_stable_hash(self._0);
+      stable_hash_u8(self._0.pow2, __hcx, __hasher);
       break;
   }
 }
@@ -772,7 +772,7 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
       stable_hash_RustcAbiAttrKind(self.kind, __hcx, __hasher);
       break;
     case "RustcAlign":
-      unported_stable_hash(self.align);
+      stable_hash_u8(self.align.pow2, __hcx, __hasher);
       stable_hash_Span(self.span, __hcx, __hasher);
       break;
     case "RustcAllocator":

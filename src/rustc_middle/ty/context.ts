@@ -10,9 +10,7 @@
 // - Type interning (lane ty-contract, docs/plan-m3.md D2): `CtxtInterners` (eager, in `create_global_ctxt`), the
 //   `direct_interners!` / `slice_interners!` methods and the `mk_*` entry points that only intern. `CommonTypes`,
 //   `CommonLifetimes` and `CommonConsts` are built on the first read of `types` / `lifetimes` / `consts` instead of
-//   in `create_global_ctxt`: `CommonTypes::new` needs `FlagComputation::for_kind` (lane tyir-kind) and
-//   `CommonConsts::new` needs `ValTree`/`ScalarInt`; building them eagerly would make every run UNPORTED.
-//   Nothing observable depends on when they are built.
+//   in `create_global_ctxt` (ty-contract decision 3); nothing observable depends on when they are built.
 // - No dep graph (D3): `dep_graph` is the disabled graph (dep_graph/graph.ts).
 // - `data_layout` (`sess.target.parse_data_layout()`) is computed on first read, pending rustc_target /
 //   rustc_abi (lane target-cfg); upstream computes it eagerly in `create_global_ctxt` and can only fail
@@ -60,11 +58,15 @@ import { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { CollectAndApply_Result, CollectAndApply_T } from "../../rustc_type_ir/interner.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { kw } from "../../rustc_span/symbol.ts";
-import type { AdtDef, AdtDefData, Allocation, AssocItem, Attribute, Body, BodyId, CanonicalInput, CapturedPlace, ConstAllocation, CoroutineLayout, ExternalConstraints, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, ValTree, VariantDef } from "./decls.ts";
+import type { Allocation, AssocItem, Attribute, Body, BodyId, CapturedPlace, ConstAllocation, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, VariantDef } from "./decls.ts";
+import { ValTree } from "./consts/valtree.ts";
+import { ScalarInt } from "./consts/int.ts";
 import { GenericArg, type GenericArgs } from "./generic_args.ts";
 import { type Clauses, type List, RawList, TypeInfo } from "./list.ts";
 import { Ty } from "./mod.ts";
-import { type Clause, Predicate } from "./predicate.ts";
+import { AdtDef, AdtDefData, type AdtKind } from "./adt.ts";
+import type { AssocItems as AssocItemsT } from "./assoc.ts";
+import { type Clause, ExistentialPredicate_stable_cmp, Predicate } from "./predicate.ts";
 import type { Ident } from "../../rustc_span/symbol.ts";
 import type { Namespace, DefKind as DefKindT, Res } from "../../rustc_hir/def.ts";
 import { type Attribute as Attribute_, find_attr } from "../../rustc_attr_ir/lib.ts";
@@ -73,7 +75,7 @@ import type { ConstStability } from "../../rustc_attr_ir/stability.ts";
 import type { Diag, Diagnostic } from "../../rustc_errors/lib.ts";
 import { into_MultiSpan, type IntoMultiSpan } from "../../rustc_error_messages/lib.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
-import { type Constness, CoroutineKind, Node, type OpaqueTyOrigin, type TraitCandidate, type Ty as HirTy } from "../../rustc_hir/lib.ts";
+import { AttributeMap, type Constness, CoroutineKind, Node, type OpaqueTyOrigin, OwnerNodes, type TraitCandidate, type Ty as HirTy } from "../../rustc_hir/lib.ts";
 import type { DefPathToIndexMap } from "../../rustc_hir_id/definitions.ts";
 import { CRATE_HIR_ID, type HirId } from "../../rustc_hir_id/lib.ts";
 import type { Lint } from "../../rustc_lint_defs/lib.ts";
@@ -87,14 +89,19 @@ import { FnSig, FnSigKind, PolyFnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { supertrait_def_ids } from "../../rustc_type_ir/elaborate.ts";
 import { GlobalCache as GlobalCache_ } from "../../rustc_type_ir/search_graph/mod.ts";
+import { CanonicalInput, ExternalConstraints } from "../traits/solve.ts";
+import { WithDepNodeCache } from "../traits/cache.ts";
+import type { EvaluationCache, SelectionCache } from "../traits/select.ts";
 import { CanonicalParamEnvCache as CanonicalParamEnvCache_ } from "../../rustc_type_ir/canonical.ts";
-import { standin_fold_Ty } from "../../rustc_type_ir/fold.ts";
+import { CanonicalParamEnvCache as InferCanonicalParamEnvCache } from "../infer/canonical.ts";
+
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { AliasTermKind, CanonicalParamEnvCache, GlobalCache, Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
-import type { EarlyParamRegion, LateParamRegionKind, VariantIdx } from "./decls.ts";
+import type { EarlyParamRegion, LateParamRegionKind, TypingEnv, VariantIdx } from "./decls.ts";
 import { debug_GenericArg, debug_GenericArgs } from "./generic_args.ts";
-import type { GenericParamDef, Generics } from "./generics.ts";
+import { GenericParamDef, type Generics } from "./generics.ts";
 import type { ListWithCachedTypeInfo } from "./list.ts";
+import { fold_Ty } from "./structural_impls.ts";
 
 /**
  * PORT: `rustc_session::Limits` (session.rs:62; `#[derive(Copy, Clone, Debug, ..)]`) is not ported; this is its
@@ -192,12 +199,11 @@ export const inherent_Span = {
 // `CodegenFnAttrs` / `TargetFeature` (middle/codegen_fn_attrs.rs) and `Place` (mir/syntax.rs) list only the fields this
 // file reads.
 type Thir = Pending<"thir::Thir">;
-type AdtKind = Pending<"ty::AdtKind">;
 type AllocId = Pending<"mir::interpret::AllocId">;
 type IntrinsicDef = Pending<"ty::IntrinsicDef">;
 type DepNode = Pending<"dep_graph::DepNode">;
 type Local = Pending<"mir::Local">;
-type ResolvedArg = PendingEnum<"middle::resolve_bound_vars::ResolvedArg">;
+import type { ResolvedArg } from "../middle/resolve_bound_vars.ts";
 interface TargetFeature {
   name: Symbol;
 }
@@ -239,16 +245,16 @@ export class CtxtInterners {
     public const_allocation: InternedSet<unknown>,
     public bound_variable_kinds: InternedSet<List<BoundVariableKind>>,
     public layout: InternedSet<unknown>,
-    public adt_def: InternedSet<unknown>,
-    public external_constraints: InternedSet<unknown>,
+    public adt_def: InternedSet<AdtDef>,
+    public external_constraints: InternedSet<ExternalConstraints>,
     public predefined_opaques_in_body: InternedSet<List<[OpaqueTypeKey, Ty]>>,
     public fields: InternedSet<List<FieldIdx>>,
     public local_def_ids: InternedSet<List<LocalDefId>>,
     public captures: InternedSet<List<CapturedPlace>>,
-    public valtree: InternedSet<unknown>,
+    public valtree: InternedSet<ValTree>,
     public patterns: InternedSet<List<Pattern>>,
     public outlives: InternedSet<List<ArgOutlivesClause>>,
-    public canonical_inputs: InternedSet<unknown>,
+    public canonical_inputs: InternedSet<CanonicalInput>,
   ) {}
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:173 new
@@ -530,25 +536,25 @@ export class CommonConsts {
     public true_: Const,
     public false_: Const,
     /// Use [`ty::ValTree::zst`] instead.
-    public valtree_zst: unknown,
+    public valtree_zst: ValTree,
   ) {}
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:532 new
   static new(interners: CtxtInterners, types: CommonTypes): CommonConsts {
     const mk_const = (c: ConstKind): Const => interners.intern_const(c);
 
-    // PORT: `ty::ValTree(Interned::new_unchecked(interners.valtree.intern(v, ..)))`: the `ValTree` class and
-    // `ScalarInt::TRUE` / `FALSE` are lane ty-results' (ty/consts/valtree.rs, ty/consts/int.rs).
-    const mk_valtree = (_v: ValTreeKind): ValTree => unported("rustc_middle::ty::context::CommonConsts::new: ValTree interning (ValTree class, ty/consts/valtree.rs)");
+    const mk_valtree = (v: ValTreeKind): ValTree => {
+      return Interned.new_unchecked(interners.valtree.intern(v, intern_key(v), (v) => new ValTree(v)));
+    };
 
     const valtree_zst = mk_valtree({ $: "Branch", _0: RawList.empty() } as unknown as ValTreeKind);
-    const valtree_true = mk_valtree(unported("rustc_middle::ty::consts::int::ScalarInt::TRUE"));
-    const valtree_false = mk_valtree(unported("rustc_middle::ty::consts::int::ScalarInt::FALSE"));
+    const valtree_true = mk_valtree({ $: "Leaf", _0: ScalarInt.TRUE } as unknown as ValTreeKind);
+    const valtree_false = mk_valtree({ $: "Leaf", _0: ScalarInt.FALSE } as unknown as ValTreeKind);
 
     return new CommonConsts(
-      mk_const({ $: "Value", _0: { ty: types.unit, valtree: valtree_zst } } as unknown as ConstKind),
-      mk_const({ $: "Value", _0: { ty: types.bool, valtree: valtree_true } } as unknown as ConstKind),
-      mk_const({ $: "Value", _0: { ty: types.bool, valtree: valtree_false } } as unknown as ConstKind),
+      mk_const({ $: "Value", _0: { ty: types.unit, valtree: valtree_zst } }),
+      mk_const({ $: "Value", _0: { ty: types.bool, valtree: valtree_true } }),
+      mk_const({ $: "Value", _0: { ty: types.bool, valtree: valtree_false } }),
       valtree_zst,
     );
   }
@@ -616,8 +622,20 @@ export class TyCtxtFeed<K> {
   // Fills in all the important parts needed by HIR queries
   // rustc: compiler/rustc_middle/src/ty/context.rs:652 feed_hir
   feed_hir(this: TyCtxtFeed<LocalDefId>): void {
-    // `self.hir_owner(ProjectedMaybeOwner::Owner(..))` + `hir_attr_map(hir::AttributeMap::EMPTY)`
-    unported("rustc_middle::ty::context::TyCtxtFeed::feed_hir (HIR, M3)");
+    // PORT: `self.tcx.arena.alloc(..)` is the value itself (arenas are erased, PORTING §5); `Default::default()`
+    // of `LocalDefIdMap` / `ItemLocalMap` is an empty `Map`, of `DelayedLints` (`Box<[DelayedLint]>`) `[]`.
+    const { ProjectedOwnerInfo } = middle_hir();
+    this.hir_owner({
+      $: "Owner",
+      _0: ProjectedOwnerInfo.new(
+        OwnerNodes.synthetic(),
+        new Map(),
+        new Map(),
+        Steal.new([], "alloc::boxed::Box<[rustc_hir::lints::DelayedLint]>"),
+      ),
+    });
+
+    this.feed_owner_id().hir_attr_map(AttributeMap.EMPTY);
   }
 }
 
@@ -626,9 +644,8 @@ export class TyCtxtFeed<K> {
 /// The individual fields are mostly unrelated to each other, but have been grouped together to
 /// reduce the number of top-level fields in [`GlobalCtxt`].
 // rustc-type: compiler/rustc_middle/src/ty/context.rs:669 GlobalCaches
-// PORT: `Lock<..>` is the inner value (PORTING §5). The cache types of traits/ (`SelectionCache`, `EvaluationCache`)
-// and infer's `CanonicalParamEnvCache` are not ported (lanes middle-traits-thir, infcx-contract), so
-// `#[derive(Default)]` stops as UNPORTED at `selection_cache` and `GlobalCtxt.caches` is built on first read.
+// PORT: `Lock<..>` is the inner value (PORTING §5). infer's `CanonicalParamEnvCache` is rustc_middle infer/canonical.ts's
+// (lane infcx-contract).
 export class GlobalCaches {
   constructor(
     // Internal caches for metadata decoding. No need to track deps on this.
@@ -636,18 +653,18 @@ export class GlobalCaches {
 
     /// Caches the results of trait selection. This cache is used
     /// for things that do not have to do with the parameters in scope.
-    public selection_cache: Pending<"traits::SelectionCache">,
+    public selection_cache: SelectionCache<TypingEnv>,
 
     /// Caches the results of trait evaluation. This cache is used
     /// for things that do not have to do with the parameters in scope.
     /// Merge this with `selection_cache`?
-    public evaluation_cache: Pending<"traits::EvaluationCache">,
+    public evaluation_cache: EvaluationCache<TypingEnv>,
 
     /// Caches the results of goal evaluation in the new solver.
     public new_solver_evaluation_cache: GlobalCache,
     public new_solver_canonical_param_env_cache: CanonicalParamEnvCache,
 
-    public canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache">,
+    public canonical_param_env_cache: InferCanonicalParamEnvCache,
 
     /// Caches the index of the highest bound var in clauses in a canonical binder.
     public highest_var_in_clauses_cache: Map<Clauses, number>,
@@ -656,15 +673,16 @@ export class GlobalCaches {
     public clauses_cache: Map<string, Clauses>,
   ) {}
 
-  /** `#[derive(Default)]`: every field's `Default`, in field order (PORT: see the type comment; merge-w15a wired the
-   *  search graph's `GlobalCache` and rustc_type_ir's `CanonicalParamEnvCache`; traits' caches still stop). */
+  /** `#[derive(Default)]`: every field's `Default`, in field order (merge-w15a wired the search graph's `GlobalCache` and
+   *  rustc_type_ir's `CanonicalParamEnvCache`, lane middle-traits-thir the traits caches, lane infcx-contract infer's
+   *  `CanonicalParamEnvCache`). */
   static default_(): GlobalCaches {
     const ty_rcache = new Map<string, Ty>();
-    const selection_cache: Pending<"traits::SelectionCache"> = unported("rustc_middle::traits::SelectionCache: Default (lane middle-traits-thir)");
-    const evaluation_cache: Pending<"traits::EvaluationCache"> = unported("rustc_middle::traits::EvaluationCache: Default (lane middle-traits-thir)");
+    const selection_cache: SelectionCache<TypingEnv> = WithDepNodeCache.default_();
+    const evaluation_cache: EvaluationCache<TypingEnv> = WithDepNodeCache.default_();
     const new_solver_evaluation_cache: GlobalCache = GlobalCache_.default_();
     const new_solver_canonical_param_env_cache: CanonicalParamEnvCache = CanonicalParamEnvCache_.default_();
-    const canonical_param_env_cache: Pending<"infer::canonical::CanonicalParamEnvCache"> = unported("rustc_middle::infer::canonical::CanonicalParamEnvCache: Default (lane infcx-contract)");
+    const canonical_param_env_cache: InferCanonicalParamEnvCache = InferCanonicalParamEnvCache.default_();
     return new GlobalCaches(
       ty_rcache,
       selection_cache,
@@ -1002,8 +1020,7 @@ export class TyCtxt {
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:890 mk_adt_def
   mk_adt_def(did: DefId, kind: AdtKind, variants: VariantDef[], repr: ReprOptions): AdtDef {
-    void [did, kind, variants, repr];
-    return this.mk_adt_def_from_data(unported("rustc_middle::ty::adt::AdtDefData::new (ty/adt.rs, lane ty-adt-assoc)"));
+    return this.mk_adt_def_from_data(AdtDefData.new(this, did, kind, variants, repr));
   }
 
   /// Allocates a read-only byte or string literal for `mir::interpret` with alignment 1.
@@ -1090,7 +1107,7 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:1001 ty_ordering_enum
   ty_ordering_enum(span: Span): Ty {
     const ordering_enum = this.require_lang_item("OrderingEnum", span);
-    return unwrap(EarlyBinder.no_bound_vars(this.type_of(ordering_enum) as EarlyBinder<Ty>, standin_fold_Ty));
+    return unwrap(EarlyBinder.no_bound_vars(this.type_of(ordering_enum) as EarlyBinder<Ty>, fold_Ty));
   }
 
   /// Obtain the given diagnostic item's `DefId`. Use `is_diagnostic_item` if you just want to
@@ -1139,7 +1156,7 @@ export class TyCtxt {
   /// Whether this is a projection const marked with `#[always_gca]`
   // rustc: compiler/rustc_middle/src/ty/context.rs:1043 is_always_gca
   is_always_gca(def_id: DefId): boolean {
-    return find_attr(HasAttrs_DefId_get_attrs(def_id, this), (k) => (k.$ === "AlwaysGca" ? null : undefined)) !== undefined;
+    return find_attr(ty_mod.HasAttrs_DefId.get_attrs(def_id, this), (k) => (k.$ === "AlwaysGca" ? null : undefined)) !== undefined;
   }
 
   /// Returns the movability of the coroutine of `def_id`, or panics
@@ -1407,7 +1424,7 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:1295 is_method
   is_method(id: DefId): boolean {
     const item = this.opt_associated_item(id);
-    return item !== undefined && AssocItem_is_method(item);
+    return item !== undefined && middle_assoc().AssocItem.is_method(item);
   }
 
   /// `tcx`-dependent operations performed for every created definition.
@@ -1623,9 +1640,9 @@ export class TyCtxt {
     }
     const hir_output = decl.output._0;
 
-    void hir_output;
-    // let mut v = TraitObjectVisitor(vec![]); v.visit_ty_unambig(hir_output); v.0
-    return unported("rustc_middle::ty::diagnostics::TraitObjectVisitor (ty/diagnostics.rs, lane ty-results)");
+    const v = new (middle_ty_diagnostics().TraitObjectVisitor)([]);
+    v.visit_ty_unambig(hir_output);
+    return v._0;
   }
 
   /// Given a `DefId` for an `fn`, return all the `dyn` and `impl` traits in
@@ -1634,7 +1651,7 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:1519 return_type_impl_or_dyn_traits_with_type_alias
   return_type_impl_or_dyn_traits_with_type_alias(scope_def_id: LocalDefId): [HirTy[], Span, Span | undefined] | undefined {
     const hir_id = this.local_def_id_to_hir_id(scope_def_id);
-    // let mut v = TraitObjectVisitor(vec![]);
+    const v = new (middle_ty_diagnostics().TraitObjectVisitor)([]);
     // when the return type is a type alias
     const decl = this.hir_fn_decl_by_hir_id(hir_id);
     if (decl !== undefined && decl.output.$ === "Return") {
@@ -1648,9 +1665,10 @@ export class TyCtxt {
             if (alias_ty !== undefined) {
               const alias_generics = Node.generics(this.hir_node_by_def_id(local_id));
               if (alias_generics !== undefined) {
-                // v.visit_ty_unambig(alias_ty); if !v.0.is_empty() { return Some((v.0, alias_generics.span,
-                // alias_generics.span_for_lifetime_suggestion())); }
-                return unported("rustc_middle::ty::diagnostics::TraitObjectVisitor (ty/diagnostics.rs, lane ty-results)");
+                v.visit_ty_unambig(alias_ty);
+                if (v._0.length !== 0) {
+                  return [v._0, alias_generics.span, alias_generics.span_for_lifetime_suggestion()];
+                }
               }
             }
           }
@@ -1671,7 +1689,7 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:1553 caller_location_ty
   caller_location_ty(): Ty {
     const location = this.type_of(this.require_lang_item("PanicLocation", DUMMY_SP)) as EarlyBinder<Ty>;
-    return Ty.new_imm_ref(this, this.lifetimes.re_static, Unnormalized.skip_norm_wip(EarlyBinder.instantiate(location, this, this.mk_args([GenericArg.from_Region(this.lifetimes.re_static)]), standin_fold_Ty)));
+    return Ty.new_imm_ref(this, this.lifetimes.re_static, Unnormalized.skip_norm_wip(EarlyBinder.instantiate(location, this, this.mk_args([GenericArg.from_Region(this.lifetimes.re_static)]), fold_Ty)));
   }
 
   /// Returns a displayable description and article for the given `def_id` (e.g. `("a", "struct")`).
@@ -1837,9 +1855,9 @@ export class TyCtxt {
   intern_region(v: RegionKind): Region {
     return Interned.new_unchecked(this.interners.region.intern(v, intern_key(v), (v) => new Region(v)));
   }
-  /** Stub (`direct_interners!` `intern_valtree`, context.rs:2016): the `ValTree` class is lane ty-results'. */
-  intern_valtree(_v: ValTreeKind): ValTree {
-    return unported("rustc_middle::ty::context::TyCtxt::intern_valtree (ValTree class)");
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2016 direct_interners! intern_valtree
+  intern_valtree(v: ValTreeKind): ValTree {
+    return Interned.new_unchecked(this.interners.valtree.intern(v, intern_key(v), (v) => new ValTree(v)));
   }
   /** Stub (`direct_interners!` `mk_pat`, context.rs:2017): the `Pattern` class is lane ty-results'. */
   mk_pat(_v: PatternKind): Pattern {
@@ -1853,17 +1871,22 @@ export class TyCtxt {
   mk_layout(_v: LayoutData): Layout {
     return unported("rustc_middle::ty::context::TyCtxt::mk_layout (Layout, M4)");
   }
-  /** Stub (`direct_interners!` `mk_adt_def_from_data`, context.rs:2020): the `AdtDef` class is lane ty-adt-assoc's. */
-  mk_adt_def_from_data(_v: AdtDefData): AdtDef {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_adt_def_from_data (AdtDef class)");
+  // PORT: the key is `impl Hash for AdtDefData` (adt.rs:154: only `did`), not the derived key of every field.
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2020 direct_interners! mk_adt_def_from_data
+  mk_adt_def_from_data(v: AdtDefData): AdtDef {
+    return Interned.new_unchecked(this.interners.adt_def.intern(v, v.hash(), (v) => new AdtDef(v)));
   }
-  /** Stub (`direct_interners!` `mk_external_constraints`, context.rs:2021): the class is lane middle-traits-thir's. */
-  mk_external_constraints(_v: ExternalConstraintsData): ExternalConstraints {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_external_constraints (ExternalConstraints class)");
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2021 direct_interners! mk_external_constraints
+  mk_external_constraints(v: ExternalConstraintsData): ExternalConstraints {
+    return Interned.new_unchecked(
+      this.interners.external_constraints.intern(v, intern_key(v), (v) => new ExternalConstraints(v)),
+    );
   }
-  /** Stub (`direct_interners!` `intern_canonical_input`, context.rs:2023): the class is lane middle-traits-thir's. */
-  intern_canonical_input(_v: CanonicalInputData): CanonicalInput {
-    return unported("rustc_middle::ty::context::TyCtxt::intern_canonical_input (CanonicalInput class)");
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2023 direct_interners! intern_canonical_input
+  intern_canonical_input(v: CanonicalInputData): CanonicalInput {
+    return Interned.new_unchecked(
+      this.interners.canonical_inputs.intern(v, intern_key(v), (v) => new CanonicalInput(v)),
+    );
   }
 
   // PORT: `slice_interners!` (context.rs:2026) expands, per entry, `fn $method(self, v: &[$ty]) -> &List<$ty>`:
@@ -1966,13 +1989,13 @@ export class TyCtxt {
   /// returns true if the `trait_def_id` defines an associated item of name `assoc_name`.
   // rustc: compiler/rustc_middle/src/ty/context.rs:2090 trait_may_define_assoc_item
   trait_may_define_assoc_item(trait_def_id: DefId, assoc_name: Ident): boolean {
+    const { AssocItem, AssocItems } = middle_assoc();
     for (const trait_did of supertrait_def_ids(this, trait_def_id)) {
-      void trait_did;
-      // self.associated_items(trait_did).filter_by_name_unhygienic(assoc_name.name)
-      //     .any(|item| self.hygienic_eq(assoc_name, item.ident(self), trait_did))
-      return unported("rustc_middle::ty::assoc::AssocItems::filter_by_name_unhygienic (ty/assoc.rs, lane ty-adt-assoc)");
+      // PORT: the `associated_items` query value is `unknown` in queries.gen.ts: it is an `AssocItems`.
+      for (const item of AssocItems.filter_by_name_unhygienic(this.associated_items(trait_did) as AssocItemsT, assoc_name.name)) {
+        if (this.hygienic_eq(assoc_name, AssocItem.ident(item, this), trait_did)) return true;
+      }
     }
-    void assoc_name;
     return false;
   }
 
@@ -2137,7 +2160,7 @@ export class TyCtxt {
       return panic(
         `args not compatible with generics for ${this.def_path_str(def_id)}: args=${debug_vec(args, PRETTY, debug_GenericArg)}, generics=${debug_GenericArgs(
           // Make `[Self, GAT_ARGS...]` (this could be simplified)
-          this.mk_args_from_iter(chain_once<GenericArg>(GenericArg.from_Ty(this.types.self_param), Generics_own_args(this.generics_of(def_id) as Generics, RawList.identity_for_item(this, def_id)))),
+          this.mk_args_from_iter(chain_once<GenericArg>(GenericArg.from_Ty(this.types.self_param), (this.generics_of(def_id) as Generics).own_args(RawList.identity_for_item(this, def_id)))),
           PRETTY,
         )}`,
       );
@@ -2171,7 +2194,7 @@ export class TyCtxt {
   mk_param_from_def(param: GenericParamDef): GenericArg {
     switch (param.kind.$) {
       case "Lifetime":
-        return GenericArg.from_Region(Region.new_early_param(this, GenericParamDef_to_early_bound_region_data(param)));
+        return GenericArg.from_Region(Region.new_early_param(this, GenericParamDef.to_early_bound_region_data(param)));
       case "Type":
         return GenericArg.from_Ty(Ty.new_param(this, param.index, param.name));
       case "Const":
@@ -2191,9 +2214,8 @@ export class TyCtxt {
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2388 mk_place_downcast
   mk_place_downcast(place: Place, adt_def: AdtDef, variant_index: VariantIdx): Place {
-    void [place, adt_def, variant_index];
-    // self.mk_place_elem(place, PlaceElem::Downcast(Some(adt_def.variant(variant_index).name), variant_index))
-    return unported("rustc_middle::ty::adt::AdtDef::variant (ty/adt.rs, lane ty-adt-assoc)");
+    // PORT: `PlaceElem` (mir) is pending: its `Downcast` variant in PORTING §5 shape.
+    return this.mk_place_elem(place, { $: "Downcast", _0: adt_def.variant(variant_index).name, _1: variant_index } as unknown as PlaceElem);
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2400 mk_place_downcast_unnamed
@@ -2665,7 +2687,7 @@ export class TyCtxt {
   /// Whether this is a trait implementation that has `#[diagnostic::do_not_recommend]`
   // rustc: compiler/rustc_middle/src/ty/context.rs:2927 do_not_recommend_impl
   do_not_recommend_impl(def_id: DefId): boolean {
-    return find_attr(HasAttrs_DefId_get_attrs(def_id, this), (k) => (k.$ === "DoNotRecommend" ? null : undefined)) !== undefined;
+    return find_attr(ty_mod.HasAttrs_DefId.get_attrs(def_id, this), (k) => (k.$ === "DoNotRecommend" ? null : undefined)) !== undefined;
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2931 is_trivial_const
@@ -3019,39 +3041,24 @@ function middle_lint(): typeof import("../lint.ts") {
   return require("../lint.ts") as typeof import("../lint.ts");
 }
 
+/** PORT: hir/mod.ts is an extension module of `TyCtxt` (it defines `ProjectedOwnerInfo` and attaches the HIR
+ * `impl TyCtxt` blocks), so `feed_hir` reaches it lazily, as `middle_lint()` (decision 5). */
+function middle_hir(): typeof import("../hir/mod.ts") {
+  return require("../hir/mod.ts") as typeof import("../hir/mod.ts");
+}
+
+/** PORT: ty/diagnostics.ts imports rustc_hir's visitor and attaches `TyCtxt` methods: reached lazily (merge-w15b). */
+function middle_ty_diagnostics(): typeof import("./diagnostics.ts") {
+  return require("./diagnostics.ts") as typeof import("./diagnostics.ts");
+}
+
+/** PORT: ty/assoc.ts is an extension module of `TyCtxt` (it attaches `associated_types_for_impl_traits_in_associated_fn`),
+ * so `is_method` reaches its `AssocItem` companion lazily, as `middle_lint()` (decision 5). */
+function middle_assoc(): typeof import("./assoc.ts") {
+  return require("./assoc.ts") as typeof import("./assoc.ts");
+}
+
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
 
-/** PORT: stand-in for `impl HasAttrs for DefId` (ty/mod.rs:2349, lane ty-mod): the upstream body. */
-function HasAttrs_DefId_get_attrs(self: DefId, tcx: TyCtxt): readonly Attribute_[] {
-  const did = self.as_local();
-  if (did !== undefined) {
-    return tcx.hir_attrs(tcx.local_def_id_to_hir_id(did));
-  } else {
-    return tcx.attrs_for_def(self) as readonly Attribute_[];
-  }
-}
 
-/** PORT: stand-in for `AssocItem::is_method` (ty/assoc.rs:156, lane ty-adt-assoc): the upstream body. */
-function AssocItem_is_method(self: AssocItem): boolean {
-  return self.kind.$ === "Fn" && self.kind.has_self === true;
-}
-
-/** PORT: stand-in for `GenericParamDef::to_early_bound_region_data` (ty/generics.rs, lane ty-args): the upstream body. */
-function GenericParamDef_to_early_bound_region_data(self: GenericParamDef): EarlyParamRegion {
-  if (self.kind.$ === "Lifetime") {
-    return { index: self.index, name: self.name };
-  } else {
-    return panic("cannot convert a non-lifetime parameter def to an early bound region");
-  }
-}
-
-/** PORT: stand-in for `Generics::own_args` (ty/generics.rs, lane ty-args). */
-function Generics_own_args(_self: Generics, _args: GenericArgs): readonly GenericArg[] {
-  return unported("rustc_middle::ty::generics::Generics::own_args (ty/generics.rs, lane ty-args)");
-}
-
-/** PORT: stand-in for `ExistentialPredicateStableCmpExt::stable_cmp` (ty/predicate.rs, lane ty-args). */
-function ExistentialPredicate_stable_cmp(_self: unknown, _tcx: TyCtxt, _other: unknown): Ordering {
-  return unported("rustc_middle::ty::predicate::ExistentialPredicateStableCmpExt::stable_cmp (ty/predicate.rs, lane ty-args)");
-}
 

@@ -17,10 +17,12 @@ import { INTERNED, next_intern_id } from "../../rustc_data_structures/intern.ts"
 import type { BoundVariableKind, DebruijnIndex, TypeFlags } from "../../rustc_type_ir/decls.ts";
 import { INNERMOST, TypeFlags_empty } from "../../rustc_type_ir/decls.ts";
 import type { FlagComputation } from "../../rustc_type_ir/flags.ts";
-import { unported_methods } from "../../rust_ts/stubs.ts";
 import { type Debug, debug_list, type Fmt } from "../../std/fmt.ts";
 import { assert } from "../../std/panic.ts";
+import type { FxHasher } from "../../vendor/rustc_hash/lib.ts";
+import type { TyCtxt } from "./context.ts";
 import type { Arena } from "./decls.ts";
+import type { Ordering } from "./mod.ts";
 
 /// A list type stored in the arena with a header and a length; see `List` for docs.
 // rustc-type: compiler/rustc_middle/src/ty/list.rs:38 RawList
@@ -44,12 +46,20 @@ export class RawList<H, T> extends Array<T> {
     return Object.freeze(list) as RawList<H, T>;
   }
 
+  // PORT: `impl<T> Default for &List<T>`; `T` is a phantom here (see `empty`).
+  // rustc: compiler/rustc_middle/src/ty/list.rs:67 default
+  static default<T>(): List<T> {
+    return RawList.empty();
+  }
+
   // rustc: compiler/rustc_middle/src/ty/list.rs:78 len
   len(): number {
     return this.length;
   }
 
+  // PORT: also `impl SliceLike for &RawList` `as_slice` (list.rs:151, `(*self).as_slice()`): one method.
   // rustc: compiler/rustc_middle/src/ty/list.rs:83 as_slice
+  // rustc: compiler/rustc_middle/src/ty/list.rs:151 as_slice
   as_slice(): readonly T[] {
     return this;
   }
@@ -75,8 +85,37 @@ export class RawList<H, T> extends Array<T> {
   // deref coercion.
   //
   // This would be weird, as `self.into_iter` iterates over `T` directly.
+  // PORT: also `impl SliceLike for &RawList` `iter` (list.rs:147, `(*self).iter()`): one method.
   // rustc: compiler/rustc_middle/src/ty/list.rs:134 iter
+  // rustc: compiler/rustc_middle/src/ty/list.rs:147 iter
   iter(): IterableIterator<T> {
+    return this[globalThis.Symbol.iterator]();
+  }
+
+  // rustc: compiler/rustc_middle/src/ty/list.rs:206 eq
+  /** `impl<H, T: PartialEq> PartialEq for RawList<H, T>` */
+  eq(other: RawList<H, T>): boolean {
+    // Pointer equality implies list equality (due to the unique contents
+    // assumption).
+    return this === other;
+  }
+
+  // rustc: compiler/rustc_middle/src/ty/list.rs:253 deref
+  /** `impl<H, T> Deref for RawList<H, T>` (`Target = [T]`) */
+  deref(): readonly T[] {
+    return this.as_ref();
+  }
+
+  // PORT: the list *is* its slice (module comment): no raw-parts reconstruction.
+  // rustc: compiler/rustc_middle/src/ty/list.rs:260 as_ref
+  /** `impl<H, T> AsRef<[T]> for RawList<H, T>` */
+  as_ref(): readonly T[] {
+    return this;
+  }
+
+  // rustc: compiler/rustc_middle/src/ty/list.rs:274 into_iter
+  /** `impl<'a, H, T: Copy> IntoIterator for &'a RawList<H, T>` (`self[..].iter().copied()`) */
+  into_iter(): IterableIterator<T> {
     return this[globalThis.Symbol.iterator]();
   }
 
@@ -151,16 +190,77 @@ export const TypeInfo = {
 const EMPTY_LIST = RawList.of_slice<null, unknown>(null, []);
 const EMPTY_LIST_WITH_TYPE_INFO = RawList.of_slice<TypeInfo, unknown>(TypeInfo.empty(), []);
 
+/** `impl BoundVarKinds<TyCtxt> for &RawList<(), BoundVariableKind>` */
+// rustc: compiler/rustc_middle/src/ty/list.rs:159 from_vars
+RawList.from_vars = function (tcx: TyCtxt, iter: Iterable<BoundVariableKind>): List<BoundVariableKind> {
+  return tcx.mk_bound_variable_kinds_from_iter(iter);
+};
+
 // rustc: compiler/rustc_middle/src/ty/list.rs:192 fmt
 /** `impl<H, T: Debug> Debug for RawList<H, T>`: the slice's Debug. */
 export function debug_RawList<H, T>(v: RawList<H, T>, f: Fmt, debug_T: Debug<T>): string {
   return debug_list(f, v.map((x) => debug_T(x, f)));
 }
 
-unported_methods(RawList, "rustc_middle::ty::list::RawList", [
-  // `impl BoundVarKinds for &RawList<(), BoundVariableKind>` (list.rs:159)
-  "from_vars",
-]);
+// rustc-skip: compiler/rustc_middle/src/ty/list.rs:199 encode Encodable impl (metadata encoding, M5)
+
+/** `impl<H, T: Ord> Ord for RawList<H, T>`.
+ *  PORT: `T: Ord` is `cmp_T` (PORTING §5 "pass function tables"); `<[T] as Ord>::cmp` is the lexicographic slice order
+ *  (elements first, then length). Interned element types have no `Ord` (D2): only callers with an `Ord` element type
+ *  may use this. */
+// rustc: compiler/rustc_middle/src/ty/list.rs:219 cmp
+export function cmp_RawList<H, T>(self: RawList<H, T>, other: RawList<H, T>, cmp_T: (a: T, b: T) => Ordering): Ordering {
+  // Pointer equality implies list equality (due to the unique contents
+  // assumption), but the contents must be compared otherwise.
+  if (self.eq(other)) {
+    return "Equal";
+  } else {
+    return cmp_slice(self, other, cmp_T);
+  }
+}
+
+/** `impl<H, T: PartialOrd> PartialOrd for RawList<H, T>`. PORT: `T: PartialOrd` is `partial_cmp_T` (see `cmp_RawList`). */
+// rustc: compiler/rustc_middle/src/ty/list.rs:230 partial_cmp
+export function partial_cmp_RawList<H, T>(self: RawList<H, T>, other: RawList<H, T>, partial_cmp_T: (a: T, b: T) => Ordering | undefined): Ordering | undefined {
+  // Pointer equality implies list equality (due to the unique contents
+  // assumption), but the contents must be compared otherwise.
+  if (self.eq(other)) {
+    return "Equal";
+  } else {
+    return partial_cmp_slice(self, other, partial_cmp_T);
+  }
+}
+
+/** PORT: `<[T] as Ord>::cmp` (core `SliceOrd`): the first non-equal element decides, else the lengths. */
+function cmp_slice<T>(a: readonly T[], b: readonly T[], cmp_T: (a: T, b: T) => Ordering): Ordering {
+  const l = Math.min(a.length, b.length);
+  for (let i = 0; i < l; i++) {
+    const c = cmp_T(a[i]!, b[i]!);
+    if (c !== "Equal") return c;
+  }
+  return a.length < b.length ? "Less" : a.length > b.length ? "Greater" : "Equal";
+}
+
+/** PORT: `<[T] as PartialOrd>::partial_cmp` (core `SlicePartialOrd`): as `cmp_slice`, stopping at a `None`. */
+function partial_cmp_slice<T>(a: readonly T[], b: readonly T[], partial_cmp_T: (a: T, b: T) => Ordering | undefined): Ordering | undefined {
+  const l = Math.min(a.length, b.length);
+  for (let i = 0; i < l; i++) {
+    const c = partial_cmp_T(a[i]!, b[i]!);
+    if (c !== "Equal") return c;
+  }
+  return a.length < b.length ? "Less" : a.length > b.length ? "Greater" : "Equal";
+}
+
+/** `impl<Hdr, T> Hash for RawList<Hdr, T>`.
+ *  PORT: `ptr::from_ref(self).hash(s)` writes the address; the port writes the intern `id` (as `hash_Interned`,
+ *  rustc_data_structures/intern.ts). As a `Map`/`Set` key the list itself is used (D2). */
+// rustc: compiler/rustc_middle/src/ty/list.rs:243 hash
+export function hash_RawList<H, T>(self: RawList<H, T>, s: Pick<FxHasher, "write_usize">): void {
+  // Pointer hashing is sufficient (due to the unique contents
+  // assumption).
+  s.write_usize(self.id);
+}
 
 /** (decls) `RawList::from_vars` is `impl BoundVarKinds<TyCtxt> for &List<BoundVariableKind>` (list.rs:154). */
 export type BoundVarKinds = List<BoundVariableKind>;
+

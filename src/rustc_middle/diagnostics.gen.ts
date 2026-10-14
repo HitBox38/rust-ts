@@ -2,6 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in diagnostics.ts next to this file.
 import { number_into_diag_arg, Path_into_diag_arg, String_into_diag_arg, Symbol_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
 import { Diag, type DiagArgMap, type DiagCtxtHandle, type Diagnostic, E0320, format_diag_message, IntoDiagArg, type Level, type Subdiagnostic } from "../rustc_errors/lib.ts";
+import { type Ty } from "./ty/mod.ts";
 import { type Span } from "../rustc_span/lib.ts";
 import { display_Symbol, type Symbol } from "../rustc_span/symbol.ts";
 import { display_Limit, type Limit, Limit_into_diag_arg } from "../rustc_structures/limit.ts";
@@ -11,8 +12,8 @@ const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported(
 // rustc-type: compiler/rustc_middle/src/diagnostics.rs:13 DropCheckOverflow
 export interface DropCheckOverflow {
   span: Span;
-  ty: unknown;
-  overflow_ty: unknown;
+  ty: Ty;
+  overflow_ty: Ty;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for DropCheckOverflow` */
 // rustc-derive: compiler/rustc_middle/src/diagnostics.rs:13 Diagnostic DropCheckOverflow
@@ -52,8 +53,8 @@ export function FailedWritingFile_diagnostic(self: FailedWritingFile): Diagnosti
 
 // rustc-type: compiler/rustc_middle/src/diagnostics.rs:29 OpaqueHiddenTypeMismatch
 export interface OpaqueHiddenTypeMismatch {
-  self_ty: unknown;
-  other_ty: unknown;
+  self_ty: Ty;
+  other_ty: Ty;
   other_span: Span;
   sub: TypeMismatchReason;
 }
@@ -106,7 +107,7 @@ export function TypeMismatchReason_subdiagnostic(self: TypeMismatchReason): Subd
 // rustc-type: compiler/rustc_middle/src/diagnostics.rs:58 RecursionLimitReached
 export interface RecursionLimitReached {
   span: Span;
-  ty: unknown;
+  ty: Ty;
   suggested_limit: Limit;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for RecursionLimitReached` */
@@ -128,7 +129,7 @@ export function RecursionLimitReached_diagnostic(self: RecursionLimitReached): D
 // rustc-type: compiler/rustc_middle/src/diagnostics.rs:70 RecursionLimitReachedSizeSkeleton
 export interface RecursionLimitReachedSizeSkeleton {
   span: Span;
-  ty: unknown;
+  ty: Ty;
   suggested_limit: Limit;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for RecursionLimitReachedSizeSkeleton` */

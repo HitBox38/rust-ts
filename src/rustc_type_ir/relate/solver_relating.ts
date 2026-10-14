@@ -234,14 +234,14 @@ export class SolverRelating implements PredicateEmittingRelation {
     switch (this.ambient_variance) {
       // Subtype(&'a u8, &'b u8) => Outlives('a: 'b) => SubRegion('b, 'a)
       case "Covariant":
-        this.infcx.sub_regions(b, a, VisibleForLeakCheck.Yes, this.span_);
+        this.infcx.ir_sub_regions(b, a, VisibleForLeakCheck.Yes, this.span_);
         break;
       // Suptype(&'a u8, &'b u8) => Outlives('b: 'a) => SubRegion('a, 'b)
       case "Contravariant":
-        this.infcx.sub_regions(a, b, VisibleForLeakCheck.Yes, this.span_);
+        this.infcx.ir_sub_regions(a, b, VisibleForLeakCheck.Yes, this.span_);
         break;
       case "Invariant":
-        this.infcx.equate_regions(a, b, VisibleForLeakCheck.Yes, this.span_);
+        this.infcx.ir_equate_regions(a, b, VisibleForLeakCheck.Yes, this.span_);
         break;
       case "Bivariant":
         return unreachable("internal error: entered unreachable code: Expected bivariance to be handled in relate_with_variance");

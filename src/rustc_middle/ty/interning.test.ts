@@ -20,6 +20,8 @@ import { Err, Ok, type Result } from "../../std/result.ts";
 import { CommonConsts, CommonLifetimes, CommonTypes, CtxtInterners, type GlobalCtxt, TyCtxt } from "./context.ts";
 import { GenericArg } from "./generic_args.ts";
 import { RawList } from "./list.ts";
+import { ScalarInt } from "./consts/int.ts";
+import { ValTree, Value } from "./consts/valtree.ts";
 import { Term, Ty } from "./mod.ts";
 import { Clause, Predicate } from "./predicate.ts";
 
@@ -156,9 +158,22 @@ describe("Const and Predicate", () => {
     expect(c.kind()).toEqual({ $: "Infer", _0: { $: "Var", _0: 1 as ConstVid } });
   });
 
-  test("CommonConsts is UNPORTED until ValTree/ScalarInt land", () => {
+  test("CommonConsts interns the unit / true / false values and the zst valtree (lane ty-results)", () => {
     const tcx = mk_tcx();
-    expect(() => CommonConsts.new(tcx.interners, tcx.types)).toThrow(Unported);
+    const cc = CommonConsts.new(tcx.interners, tcx.types);
+    expect(cc.valtree_zst).toBeInstanceOf(ValTree);
+    expect(cc.valtree_zst.kind()).toEqual({ $: "Branch", _0: RawList.empty() } as never);
+    expect(cc.valtree_zst.is_zst()).toBe(true);
+    // Interning again (a second `CommonConsts`) hands out the same objects.
+    const cc2 = CommonConsts.new(tcx.interners, tcx.types);
+    expect(cc2.valtree_zst).toBe(cc.valtree_zst);
+    expect(cc2.true_).toBe(cc.true_);
+    const vt_true = (cc.true_.kind() as unknown as { _0: Value })._0.valtree;
+    expect(tcx.intern_valtree({ $: "Leaf", _0: ScalarInt.TRUE } as never)).toBe(vt_true);
+    expect(Value.to_leaf(cc.true_.to_value() as never)).toBe(ScalarInt.TRUE);
+    expect(Value.to_leaf(cc.false_.to_value() as never)).toBe(ScalarInt.FALSE);
+    expect((cc.unit.kind() as unknown as { _0: Value })._0.ty).toBe(tcx.types.unit);
+    expect((cc.true_.kind() as unknown as { _0: Value })._0.ty).toBe(tcx.types.bool);
   });
 
   test("Predicate and its Clause twin", () => {

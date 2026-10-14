@@ -5,6 +5,9 @@ import { bool_into_diag_arg, into_diag_arg_using_display, number_into_diag_arg, 
 import { type DiagSymbolList } from "../rustc_errors/diagnostic_impls.ts";
 import { Diag, type DiagArgMap, type DiagCtxtHandle, type Diagnostic, E0137, E0518, E0549, E0557, E0566, E0635, E0692, E0711, E0718, format_diag_message, IntoDiagArg, type Level, type Subdiagnostic } from "../rustc_errors/lib.ts";
 import { type MainDefinition } from "../rustc_middle/middle/resolve.ts";
+import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
+import { type Ty } from "../rustc_middle/ty/mod.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { type Duplicate } from "./lang_items.ts";
 import { type Span } from "../rustc_span/lib.ts";
 import { display_Ident, display_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
@@ -765,7 +768,7 @@ export function IncorrectCrateType_diagnostic(self: IncorrectCrateType): Diagnos
 // rustc-type: compiler/rustc_passes/src/diagnostics.rs:491 UselessAssignment
 export interface UselessAssignment {
   is_field_assign: boolean;
-  ty: unknown;
+  ty: Ty;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for UselessAssignment` */
 // rustc-derive: compiler/rustc_passes/src/diagnostics.rs:491 Diagnostic UselessAssignment
@@ -773,7 +776,7 @@ export function UselessAssignment_into_diag(self: UselessAssignment, dcx: DiagCt
   const { is_field_assign: __binding_0, ty: __binding_1 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "useless assignment of {$is_field_assign ->\n        [true] field\n        *[false] variable\n    } of type `{$ty}` to itself" });
   diag.arg("is_field_assign", IntoDiagArg.of(__binding_0, bool_into_diag_arg));
-  diag.arg("ty", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("ty", IntoDiagArg.of(__binding_1, Ty_into_diag_arg));
   return diag;
 }
 /** `UselessAssignment` as a `Diagnostic` trait object. */

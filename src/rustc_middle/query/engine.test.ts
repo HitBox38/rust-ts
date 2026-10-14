@@ -8,7 +8,8 @@
 //   rustc +nightly --edition 2021 -Zui-testing cycle.rs           (rustc 1.101.0-nightly (6f5da406b 2026-10-10))
 // quoted in CYCLE_ORACLE below. The providers play the parts of rustc_hir_analysis (`check_well_formed(A)`
 // asks for `type_of(A)`, whose alias body `B` asks for `type_of(B)` at the span of `B`, and so on).
-// `TyCtxt::def_path_str` (ty::print, not ported yet) is stubbed with the items' names for this test only.
+// The descriptions print paths with the real `TyCtxt::def_path_str` (ty::print). The same cycle through the real
+// driver (HIR lowering included) is in rustc_query_impl/cycle.oracle.test.ts.
 import { expect, test } from "bun:test";
 import "../../rustc_query_impl/lib.ts";
 import { provide as query_impl_provide, print_query_stack } from "../../rustc_query_impl/lib.ts";
@@ -38,6 +39,11 @@ import { CurrentGcx, type Limits, TyCtxt } from "../ty/context.ts";
 import { query_system } from "../../rustc_query_impl/lib.ts";
 import { ExternProviders_default, Providers_default } from "./query_api.ts";
 import { with_context } from "../ty/context/tls.ts";
+import { KEY_DefId_Ident, KEY_Ty, KEY_Ty_Ty } from "./keys.ts";
+import { Ident } from "../../rustc_span/symbol.ts";
+import { AttributeMap, type OwnerNodes } from "../../rustc_hir/lib.ts";
+import { OwnerId } from "../../rustc_hir_id/lib.ts";
+import { Fingerprint } from "../../rustc_data_structures/fingerprint.ts";
 
 const test_ = (name: string, f: () => void): void => {
   test(name, () => create_default_session_globals_then(f));
@@ -300,15 +306,9 @@ const CYCLE_ORACLE =
 
 test_("cycle detection: `type A = B; type B = A;` gives rustc's exact E0391 report", () => {
   const names = new Map<number, string>();
-  const saved = TyCtxt.prototype.def_path_str;
-  // Test-only stand-in for ty::print's `def_path_str` (see the module comment).
-  TyCtxt.prototype.def_path_str = function (this: TyCtxt, def_id: unknown): string {
-    const id = def_id instanceof DefId ? def_id.index : (def_id as number);
-    return names.get(id)!;
-  };
   let type_of_calls = 0;
   let stack: string[] = [];
-  try {
+  {
     const { out, err, print_error_count } = with_tcx(
       CYCLE_SRC,
       (p) => {
@@ -346,8 +346,6 @@ test_("cycle detection: `type A = B; type B = A;` gives rustc's exact E0391 repo
     // the driver prints the error count after the fatal error unwinds (rustc_driver_impl)
     print_error_count();
     expect(out()).toBe(CYCLE_ORACLE);
-  } finally {
-    TyCtxt.prototype.def_path_str = saved;
   }
   expect(stack).toEqual([
     "\n\nquery stack during panic:",
@@ -361,3 +359,121 @@ test_("cycle detection: `type A = B; type B = A;` gives rustc's exact E0391 repo
 const defs = new Map<string, LocalDefId>();
 const def_of = (n: string): LocalDefId => defs.get(n)!;
 let sp_of: (n: string, i: number) => Span = () => DUMMY_SP;
+
+test_("cycle handler `variances_of` (handle_cycle_error modifier): delays the cycle error as a bug and returns `Bivariant` per parameter", () => {
+  let generics_calls = 0;
+  const { r, err, out } = with_tcx(
+    "struct S<T, U>(T, U);\n",
+    (p) => {
+      // A provider that needs its own result: the query cycles on itself.
+      p.variances_of = (tcx, def_id) => tcx.variances_of(def_id);
+      // PORT (test): `generics_of` plays rustc_hir_analysis; the handler reads only `Generics::count`.
+      p.generics_of = () => {
+        generics_calls++;
+        return { count: () => 2 };
+      };
+    },
+    (tcx, sp) => {
+      const root = tcx.create_local_crate_def_id(sp("struct S<T, U>(T, U);"));
+      root.def_kind(DefKind.Mod);
+      const feed = tcx.at(sp("struct S<T, U>")).create_def(CRATE_DEF_ID, Symbol.intern("S"), DefKind.Struct, undefined, PerParentDisambiguatorState.new(CRATE_DEF_ID));
+      const variances = tcx.variances_of(feed.def_id());
+      return { variances, again: tcx.variances_of(feed.def_id()) === variances, delayed: tcx.dcx().has_errors_or_delayed_bugs() !== undefined, errors: tcx.dcx().has_errors() };
+    },
+  );
+  expect(err).toBeUndefined();
+  expect(r!.variances).toEqual(["Bivariant", "Bivariant"]);
+  expect(r!.again).toBe(true);
+  expect(r!.delayed).toBe(true);
+  expect(r!.errors).toBeUndefined();
+  expect(generics_calls).toBe(1);
+  // nothing is emitted: the cycle error became a delayed bug
+  expect(out()).toBe("");
+});
+
+test_("QueryKey for Ty (keys.rs:276): `default_span` through `def_id_of_type`; equal types share a cache slot", () => {
+  const { r, err } = with_tcx(
+    "fn f() {}\n",
+    () => {},
+    (tcx, sp) => {
+      const root = tcx.create_local_crate_def_id(sp("fn f() {}"));
+      root.def_kind(DefKind.Mod);
+      const f = tcx.at(sp("fn f()")).create_def(CRATE_DEF_ID, Symbol.intern("f"), DefKind.Fn, undefined, PerParentDisambiguatorState.new(CRATE_DEF_ID));
+      const f_id = LocalDefId.to_def_id(f.def_id());
+      const bool = tcx.mk_ty_from_kind({ $: "Bool" });
+      const foreign = tcx.mk_ty_from_kind({ $: "Foreign", _0: f_id });
+      const tup = tcx.mk_ty_from_kind({ $: "Tuple", _0: tcx.mk_type_list([bool, bool, foreign]) });
+      const slice = tcx.mk_ty_from_kind({ $: "Slice", _0: tup });
+      return {
+        bool: KEY_Ty.default_span(bool, tcx) === DUMMY_SP,
+        foreign: KEY_Ty.default_span(foreign, tcx) === sp("fn f()"),
+        // `[(bool, bool, f)]`: the slice's element, then the first tuple field with a `DefId` (`bool` is visited once)
+        slice: KEY_Ty.default_span(slice, tcx) === sp("fn f()"),
+        same_key: KEY_Ty.hash_key(tcx.mk_ty_from_kind({ $: "Bool" })) === KEY_Ty.hash_key(bool),
+        other_key: KEY_Ty.hash_key(foreign) !== KEY_Ty.hash_key(bool),
+        pair_key: KEY_Ty_Ty.hash_key([bool, foreign]) !== KEY_Ty_Ty.hash_key([foreign, bool]),
+      };
+    },
+  );
+  expect(err).toBeUndefined();
+  expect(r).toEqual({ bool: true, foreign: true, slice: true, same_key: true, other_key: true, pair_key: true });
+});
+
+test_("QueryKey for (DefId, Ident) (keys.rs:203): `Hash`/`Eq` of `Ident` see the name and the span's context only", () => {
+  const d = new DefId(DefIndex.from_u32(3), LOCAL_CRATE);
+  const a = new Ident(Symbol.intern("x"), Span.with_root_ctxt(BytePos(0), BytePos(1)));
+  const b = new Ident(Symbol.intern("x"), Span.with_root_ctxt(BytePos(5), BytePos(6)));
+  const c = new Ident(Symbol.intern("y"), Span.with_root_ctxt(BytePos(0), BytePos(1)));
+  expect(KEY_DefId_Ident.hash_key([d, a])).toBe(KEY_DefId_Ident.hash_key([d, b]));
+  expect(KEY_DefId_Ident.hash_key([d, a])).not.toBe(KEY_DefId_Ident.hash_key([d, c]));
+  expect(KEY_DefId_Ident.key_as_def_id([d, a])).toBe(d);
+});
+
+test_("ensure_result (calls.rs:178): `Ok(())` / the `ErrorGuaranteed` of the cached or computed `Result`", () => {
+  let calls = 0;
+  const { r, err } = with_tcx(
+    "",
+    (p) => {
+      p.check_well_formed = (tcx, def_id) => {
+        calls++;
+        return LocalDefId.index(def_id) === 1 ? { $: "Ok", _0: null } : { $: "Err", _0: tcx.dcx().delayed_bug("test error") };
+      };
+    },
+    (tcx) => {
+      const ok = tcx.ensure_result().check_well_formed(LocalDefId.new(1));
+      const bad = tcx.ensure_result().check_well_formed(LocalDefId.new(2));
+      // cached: no new provider call, same results
+      const ok2 = tcx.ensure_result().check_well_formed(LocalDefId.new(1));
+      const bad2 = tcx.ensure_result().check_well_formed(LocalDefId.new(2));
+      return { ok, bad: bad.$, ok2, bad2: bad2.$ };
+    },
+  );
+  expect(err).toBeUndefined();
+  expect(r).toEqual({ ok: { $: "Ok", _0: null }, bad: "Err", ok2: { $: "Ok", _0: null }, bad2: "Err" });
+  expect(calls).toBe(2);
+});
+
+test_("feed_hir (context.rs:652): a synthetic owner gets `OwnerNodes::synthetic()` and an empty attribute map without providers", () => {
+  const { r, err } = with_tcx(
+    "",
+    () => {},
+    (tcx, sp) => {
+      const root = tcx.create_local_crate_def_id(sp(""));
+      root.def_kind(DefKind.Mod);
+      const feed = tcx.at(DUMMY_SP).create_def(CRATE_DEF_ID, undefined, DefKind.SyntheticCoroutineBody, undefined, PerParentDisambiguatorState.new(CRATE_DEF_ID));
+      feed.feed_hir();
+      const owner = tcx.hir_owner(feed.def_id()) as { $: string; _0: { nodes: OwnerNodes; parenting: Map<unknown, unknown>; trait_map: Map<unknown, unknown>; delayed_lints: Steal<unknown> } };
+      const attrs = tcx.hir_attr_map(new OwnerId(feed.def_id()));
+      return {
+        owner: owner.$,
+        node: owner._0.nodes.node().$,
+        opt_hash: owner._0.nodes.opt_hash,
+        maps: [owner._0.parenting.size, owner._0.trait_map.size],
+        lints: owner._0.delayed_lints.borrow(),
+        attrs_empty: attrs === AttributeMap.EMPTY,
+      };
+    },
+  );
+  expect(err).toBeUndefined();
+  expect(r).toEqual({ owner: "Owner", node: "Synthetic", opt_hash: Fingerprint.ZERO, maps: [0, 0], lints: [], attrs_empty: true });
+});

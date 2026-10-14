@@ -6,10 +6,8 @@
 // Differences from the probe:
 // - regions are interned with `tcx.intern_region(kind)` (the `Region::new_*` statics are stubs);
 // - `ty::print::trimmed_def_paths(tcx, ())` is called directly, as in the probe.
-// One more, forced by rustc_interface/limits.ts (its `hir_krate_attrs` stand-in, a merge-w14 root item): the printers
-// are made with `FmtPrinter::new_with_limit(tcx, ns, Limit::new(2^24))` (`print_string` likewise), i.e. with the
-// `type_length_limit` that limits.rs:24 gives a crate without `#![type_length_limit]`, instead of `FmtPrinter::new`
-// reading the `limits` query. No case comes near the limit.
+// The printers are made with `FmtPrinter::new` (it reads the `limits` query; limits.ts's `hir_krate_attrs` stand-in is
+// gone since lane query-growth, merge-w15b).
 //
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
 import type { Compiler, Config } from "../../../../rustc_interface/interface.ts";
@@ -30,10 +28,9 @@ async function main(): Promise<number> {
   const { INNERMOST } = await import("../../../../rustc_type_ir/decls.ts");
   const pretty = await import("../pretty.ts");
   const { FmtPrinter, trimmed_def_paths, with_crate_prefix, with_resolve_crate_name } = pretty;
-  const { Limit } = await import("../../../../rustc_structures/limit.ts");
   type Ns = import("../../../../rustc_hir/def.ts").Namespace;
   type FmtPrinterT = import("../pretty.ts").FmtPrinter;
-  const new_printer = (tcx: TyCtxt, ns: Ns): FmtPrinterT => FmtPrinter.new_with_limit(tcx, ns, Limit.new(2 ** 24));
+  const new_printer = (tcx: TyCtxt, ns: Ns): FmtPrinterT => FmtPrinter.new(tcx, ns);
   // (`PrintResult` / `Print` live in ty/print/mod.ts once lane ty-print-a lands: spelled structurally here)
   type PrintResult = ReturnType<FmtPrinterT["write_str"]>;
   const print_string = (tcx: TyCtxt, ns: Ns, f: (p: FmtPrinterT) => PrintResult): string => {
