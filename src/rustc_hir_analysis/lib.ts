@@ -85,6 +85,8 @@ import * as collect from "./collect.ts";
 // pub mod delegation;       (wave 17: variance-outlives-implwf)
 // pub mod diagnostics;
 export * as diagnostics from "./diagnostics.ts";
+// PORT: `diagnostics::wrong_number_of_generic_args` (declared in diagnostics.rs upstream; lane wrong-num-args).
+export * as wrong_number_of_generic_args from "./diagnostics/wrong_number_of_generic_args.ts";
 // pub mod hir_ty_lowering;
 export * as hir_ty_lowering from "./hir_ty_lowering/mod.ts";
 // pub mod hir_wf_check;     (wave 17)
