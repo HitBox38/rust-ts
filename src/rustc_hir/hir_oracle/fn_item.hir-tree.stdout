@@ -1,0 +1,225 @@
+DefId(0:0 ~ fn_item[505a]) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Crate(
+            Mod {
+                spans: ModSpans {
+                    inner_span: fn_item.rs:1:1: 3:28 (#0),
+                    inject_use_span: fn_item.rs:3:1: 3:1 (#0),
+                },
+                item_ids: [
+                    ItemId {
+                        owner_id: DefId(0:1 ~ fn_item[505a]::f),
+                    },
+                ],
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+    ],
+    bodies: {},
+    opt_hash: Some(
+        Fingerprint(
+            3040178313148332218,
+            32051121281709581,
+        ),
+    ),
+}
+DefId(0:1 ~ fn_item[505a]::f) => OwnerNodes {
+    node: ParentedNode {
+        parent: 4294967040,
+        node: Item(
+            Item {
+                owner_id: DefId(0:1 ~ fn_item[505a]::f),
+                kind: Fn {
+                    sig: FnSig {
+                        header: FnHeader {
+                            safety: Normal(
+                                Safe,
+                            ),
+                            constness: NotConst,
+                            asyncness: NotAsync,
+                            abi: Rust,
+                        },
+                        decl: FnDecl {
+                            inputs: [
+                                Ty {
+                                    hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).7),
+                                    span: fn_item.rs:3:13: 3:15 (#0),
+                                    kind: Path(
+                                        Resolved(
+                                            None,
+                                            Path {
+                                                span: fn_item.rs:3:13: 3:15 (#0),
+                                                res: PrimTy(
+                                                    Uint(
+                                                        u8,
+                                                    ),
+                                                ),
+                                                segments: [
+                                                    PathSegment {
+                                                        ident: u8#0,
+                                                        hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).8),
+                                                        res: PrimTy(
+                                                            Uint(
+                                                                u8,
+                                                            ),
+                                                        ),
+                                                        args: None,
+                                                        infer_args: false,
+                                                        delegation_child_segment: false,
+                                                    },
+                                                ],
+                                            },
+                                        ),
+                                    ),
+                                },
+                            ],
+                            output: Return(
+                                Ty {
+                                    hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).9),
+                                    span: fn_item.rs:3:20: 3:22 (#0),
+                                    kind: Path(
+                                        Resolved(
+                                            None,
+                                            Path {
+                                                span: fn_item.rs:3:20: 3:22 (#0),
+                                                res: PrimTy(
+                                                    Uint(
+                                                        u8,
+                                                    ),
+                                                ),
+                                                segments: [
+                                                    PathSegment {
+                                                        ident: u8#0,
+                                                        hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).10),
+                                                        res: PrimTy(
+                                                            Uint(
+                                                                u8,
+                                                            ),
+                                                        ),
+                                                        args: None,
+                                                        infer_args: false,
+                                                        delegation_child_segment: false,
+                                                    },
+                                                ],
+                                            },
+                                        ),
+                                    ),
+                                },
+                            ),
+                            fn_decl_kind: FnDeclFlags(
+                                "ImplicitSelfKind(None)",
+                                "NoLifetimeElision",
+                            ),
+                        },
+                        span: fn_item.rs:3:1: 3:22 (#0),
+                    },
+                    ident: f#0,
+                    generics: Generics {
+                        params: [],
+                        predicates: [],
+                        has_where_clause_predicates: false,
+                        where_clause_span: fn_item.rs:3:22: 3:22 (#0),
+                        span: fn_item.rs:3:9: 3:9 (#0),
+                    },
+                    body: BodyId {
+                        hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).6),
+                    },
+                    has_body: true,
+                },
+                span: fn_item.rs:3:1: 3:28 (#0),
+                vis_span: fn_item.rs:3:1: 3:4 (#0),
+                eii: false,
+            },
+        ),
+    },
+    parents: [
+        (0, 4294967040),
+        (1, 0),
+        (2, 1),
+        (3, 6),
+        (4, 3),
+        (5, 4),
+        (6, 0),
+        (7, 0),
+        (8, 7),
+        (9, 0),
+        (10, 9),
+    ],
+    bodies: {
+        6: Body {
+            params: [
+                Param {
+                    hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).1),
+                    pat: Pat {
+                        hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).2),
+                        kind: Binding(
+                            BindingMode(
+                                No,
+                                Not,
+                            ),
+                            HirId(DefId(0:1 ~ fn_item[505a]::f).2),
+                            x#0,
+                            None,
+                        ),
+                        span: fn_item.rs:3:10: 3:11 (#0),
+                        default_binding_modes: true,
+                    },
+                    ty_span: fn_item.rs:3:13: 3:15 (#0),
+                    span: fn_item.rs:3:10: 3:15 (#0),
+                },
+            ],
+            value: Expr {
+                hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).6),
+                kind: Block(
+                    Block {
+                        stmts: [],
+                        expr: Some(
+                            Expr {
+                                hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).4),
+                                kind: Path(
+                                    Resolved(
+                                        None,
+                                        Path {
+                                            span: fn_item.rs:3:25: 3:26 (#0),
+                                            res: Local(
+                                                HirId(DefId(0:1 ~ fn_item[505a]::f).2),
+                                            ),
+                                            segments: [
+                                                PathSegment {
+                                                    ident: x#0,
+                                                    hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).5),
+                                                    res: Local(
+                                                        HirId(DefId(0:1 ~ fn_item[505a]::f).2),
+                                                    ),
+                                                    args: None,
+                                                    infer_args: true,
+                                                    delegation_child_segment: false,
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                ),
+                                span: fn_item.rs:3:25: 3:26 (#0),
+                            },
+                        ),
+                        hir_id: HirId(DefId(0:1 ~ fn_item[505a]::f).3),
+                        rules: DefaultBlock,
+                        span: fn_item.rs:3:23: 3:28 (#0),
+                        targeted_by_break: false,
+                    },
+                    None,
+                ),
+                span: fn_item.rs:3:23: 3:28 (#0),
+            },
+        },
+    },
+    opt_hash: Some(
+        Fingerprint(
+            3577428761486781027,
+            7519562984534191355,
+        ),
+    ),
+}
