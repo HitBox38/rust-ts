@@ -35,7 +35,7 @@ import { Limit } from "../../../rustc_structures/limit.ts";
 import { BoundVar } from "../../../rustc_type_ir/lib.ts";
 import { debug_BoundVariableKind } from "../../../rustc_type_ir/binder.gen.ts";
 import { debug_BoundTy, debug_Placeholder, visit_with_Binder } from "../../../rustc_type_ir/binder.ts";
-import type { AliasTerm } from "../../../rustc_type_ir/ty/alias.ts";
+import type { AliasTerm as AliasTermT } from "../../../rustc_type_ir/ty/alias.ts";
 import type { BoundConstness, CoercePredicate, SubtypePredicate } from "../../../rustc_type_ir/predicate.ts";
 import type {
   AliasTy,
@@ -360,7 +360,7 @@ export abstract class PrettyPrinter extends Printer {
   pretty_print_type(_ty: Ty): PrintResult {
     return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_type (lane ty-print-a)");
   }
-  pretty_print_inherent_projection(_alias_term: AliasTerm): PrintResult {
+  pretty_print_inherent_projection(_alias_term: AliasTermT): PrintResult {
     return unported("rustc_middle::ty::print::pretty::PrettyPrinter::pretty_print_inherent_projection (lane ty-print-a)");
   }
   pretty_print_rpitit(_def_id: DefId, _args: GenericArgs): PrintResult {
@@ -438,10 +438,6 @@ function AdtDef_did(_self: unknown): DefId {
 /** Lane a's `debug_Pattern` (ty/pattern.rs). */
 function debug_Pattern(_pat: Pattern): string {
   return unported("rustc_middle::ty::pattern `impl Debug for Pattern` (ty/pattern.rs)");
-}
-/** Lane a's `Instance_def_id` (its mod.ts; ty/instance.rs). */
-function Instance_def_id(_self: Instance): DefId {
-  return unported("rustc_middle::ty::instance::Instance::def_id (ty/instance.rs)");
 }
 // ==== end of DELETE AT MERGE ====
 
@@ -2042,13 +2038,13 @@ export function print_TraitRef(self: TraitRef, p: PrettyPrinter): PrintResult {
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
 export function print_AliasTy(self: AliasTy, p: PrettyPrinter): PrintResult {
   let r: PrintResult;
-  const alias_term: AliasTerm = AliasTermC.from_AliasTy(self);
+  const alias_term: AliasTermT = AliasTermC.from_AliasTy(self);
   if ((r = print_AliasTerm(alias_term, p)).$ === "Err") return r;
   return PRINT_OK;
 }
 
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3127 print
-export function print_AliasTerm(self: AliasTerm, p: PrettyPrinter): PrintResult {
+export function print_AliasTerm(self: AliasTermT, p: PrettyPrinter): PrintResult {
   let r: PrintResult;
   const kind = self.kind;
   switch (kind.$) {
@@ -3020,6 +3016,10 @@ function ConstAllocation_inner(_alloc: ConstAllocation): Allocation {
 /** `Ok(bytes)` is the bytes, `Err(_)` is `undefined`. */
 function Allocation_get_bytes_strip_provenance(_alloc: Allocation, _tcx: TyCtxt, _range: AllocRange): Uint8Array | undefined {
   return unported("rustc_middle::mir::interpret::Allocation::get_bytes_strip_provenance (M4)");
+}
+/** PORT: pending (ty/instance.rs, not ported; lane ty-print-a's mod.ts has the same module-local stand-in). */
+function Instance_def_id(_self: Instance): DefId {
+  return unported("rustc_middle::ty::instance::Instance::def_id (ty/instance.rs)");
 }
 function Instance_args(_instance: Instance): GenericArgs {
   return unported("rustc_middle::ty::instance::Instance::args (M4)");

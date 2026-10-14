@@ -34,7 +34,8 @@ async function main(): Promise<number> {
   type Ns = import("../../../../rustc_hir/def.ts").Namespace;
   type FmtPrinterT = import("../pretty.ts").FmtPrinter;
   const new_printer = (tcx: TyCtxt, ns: Ns): FmtPrinterT => FmtPrinter.new_with_limit(tcx, ns, Limit.new(2 ** 24));
-  type PrintResult = import("../pretty.ts").PrintResult;
+  // (`PrintResult` / `Print` live in ty/print/mod.ts once lane ty-print-a lands: spelled structurally here)
+  type PrintResult = ReturnType<FmtPrinterT["write_str"]>;
   const print_string = (tcx: TyCtxt, ns: Ns, f: (p: FmtPrinterT) => PrintResult): string => {
     const c = new_printer(tcx, ns);
     if (f(c).$ === "Err") throw new Error("fmt::Error");
@@ -148,14 +149,14 @@ async function main(): Promise<number> {
       if (!verbose) {
         // `{x}`: `Display` (`forward_display_to_print!` / `IrPrint::print`) is `FmtPrinter::new(tcx, TypeNS)` + `x.print(p)`;
         // here through `print_string` (see the header about `FmtPrinter::new`).
-        const d = <T>(pr: import("../pretty.ts").Print<T>, v: T): string => print_string(tcx, "TypeNS", (p) => pr(v, p));
+        const d = <T>(pr: (self: T, p: FmtPrinterT) => PrintResult, v: T): string => print_string(tcx, "TypeNS", (p) => pr(v, p));
         const pt = d(pretty.print_ParamTy, { index: 0, name: Symbol.intern("T") });
         const pc = d(pretty.print_ParamConst, { index: 1, name: Symbol.intern("N") });
         const empty = d(pretty.print_List_Ty, tcx.mk_type_list([]));
         const ga = d(pretty.print_GenericArg, tcx.lifetimes.re_static);
         const ck = d(pretty.print_ClauseKind, { $: "UnstableFeature", _0: Symbol.intern("foo") });
         const pk = d(pretty.print_PredicateKind, { $: "Ambiguous" });
-        const oc = d((self: import("../../../../rustc_type_ir/decls.ts").OutlivesClause<Region>, p: import("../pretty.ts").PrettyPrinter) => pretty.print_OutlivesClause(self, p, pretty.print_Region), { _0: tcx.lifetimes.re_static, _1: tcx.lifetimes.re_erased });
+        const oc = d((self: import("../../../../rustc_type_ir/decls.ts").OutlivesClause<Region>, p: FmtPrinterT) => pretty.print_OutlivesClause(self, p, (r: Region, p: FmtPrinterT) => p.print_region(r)), { _0: tcx.lifetimes.re_static, _1: tcx.lifetimes.re_erased });
         out += `${pt} ${pc} ${empty} ${ga} [${ck}] [${pk}] [${oc}]\n`;
       }
 
