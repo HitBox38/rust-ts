@@ -66,7 +66,8 @@
     "rustc_span::def_id::CrateNum": { "ts": "display_CrateNum($v)", "imports": { "src/rustc_span/def_id.ts": ["display_CrateNum"] } }
   },
   "methods": {
-    "def_path_str": "String"
+    "def_path_str": "String",
+    "hir_ty_param_name": "Symbol"
   },
   "fns": {
     "describe_as_module": { "ts": "describe_as_module", "module": "src/rustc_middle/queries.ts", "ret": "String" }

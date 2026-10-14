@@ -3184,7 +3184,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `type_param_clauses` (TyCtxt method `hir_ty_param_name`)"),
+    desc: (tcx, key) => { const __0 = tcx.hir_ty_param_name(key[1]); return `computing the bounds for type parameter \`${display_Symbol(__0)}\``; },
     debug_value: undefined,
     stable_hash_value: undefined,
   },
