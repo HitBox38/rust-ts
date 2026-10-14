@@ -1,7 +1,5 @@
-// Contract stub for compiler/rustc_next_trait_solver/src/placeholder.rs (lane evalctxt-contract; the file belongs to lane
-// nts-canonical). The folder classes are final; their methods (inherent statics and `TypeFolder`) are stubs with final
-// signatures: fill each in place and add the `// rustc:` marker. Extension module (docs/handoff/evalctxt-contract.md
-// "Init order").
+// Port of compiler/rustc_next_trait_solver/src/placeholder.rs (lane nts-canonical; the contract stub was lane
+// evalctxt-contract's). Extension module (docs/handoff/evalctxt-contract.md "Init order").
 //
 // PORT: generic over `Infcx: InferCtxtLike` (the `InferCtxtLike` interface). The `IndexMap<Placeholder*, Bound*>` maps
 // are keyed by structs compared by value: build them as `KeyedMap`s over `intern_key` (rust_ts/keyed.ts; they are

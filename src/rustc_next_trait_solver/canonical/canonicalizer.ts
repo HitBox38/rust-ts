@@ -1,7 +1,5 @@
-// Contract stub for compiler/rustc_next_trait_solver/src/canonical/canonicalizer.rs (lane evalctxt-contract; the file
-// belongs to lane nts-canonical). The consts and types are final; `Canonicalizer`'s methods (inherent and `TypeFolder`)
-// are stubs with final signatures: fill each in place and add the `// rustc:` marker. Extension module
-// (docs/handoff/evalctxt-contract.md "Init order").
+// Port of compiler/rustc_next_trait_solver/src/canonical/canonicalizer.rs (lane nts-canonical; the contract stub was lane
+// evalctxt-contract's). Extension module (docs/handoff/evalctxt-contract.md "Init order").
 //
 // PORT: `Canonicalizer<'a, D, I>`: `D` is erased (`delegate: SolverDelegate`). The associated fns `new`,
 // `canonicalize_response`, `canonicalize_param_env` and `canonicalize_input` are class statics; generic ones take the

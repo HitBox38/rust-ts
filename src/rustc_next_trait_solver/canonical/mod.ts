@@ -9,10 +9,8 @@
 //!
 //! [c]: https://rustc-dev-guide.rust-lang.org/solve/canonicalization.html
 //
-// Contract stub for compiler/rustc_next_trait_solver/src/canonical/mod.rs (lane evalctxt-contract; the file belongs to
-// lane nts-canonical). The `ResponseT` trait is final (marker in the interface); its two impls, the free fns and
-// `ResponseRelating`'s methods are stubs with final signatures: fill each in place and add the `// rustc:` marker.
-// Extension module (docs/handoff/evalctxt-contract.md "Init order").
+// Port of compiler/rustc_next_trait_solver/src/canonical/mod.rs (lane nts-canonical; the contract stub was lane
+// evalctxt-contract's). Extension module (docs/handoff/evalctxt-contract.md "Init order").
 //
 // PORT: `trait ResponseT<I>` is a descriptor over the response type `T` (D4 style): `T: ResponseT<I>` takes `d_T`
 // last. Its impls are `ResponseT_Response` and `ResponseT_State` (`impl<I, T> ResponseT<I> for inspect::State<I, T>`,

@@ -1,8 +1,6 @@
-// Contract stub for compiler/rustc_next_trait_solver/src/coherence.rs (lane evalctxt-contract; the file belongs to lane
-// nts-canonical). The types are final (`TrivialTypeTraversalImpls! { IsFirstInputType }` is the trivial descriptor
-// `fold_IsFirstInputType`); the free fns, `IsFirstInputType`'s `From<bool>` and `OrphanChecker`'s methods are stubs
-// with final signatures: fill each in place and add the `// rustc:` marker. Extension module
-// (docs/handoff/evalctxt-contract.md "Init order").
+// Port of compiler/rustc_next_trait_solver/src/coherence.rs (lane nts-canonical; the contract stub was lane
+// evalctxt-contract's). `TrivialTypeTraversalImpls! { IsFirstInputType }` is the trivial descriptor
+// `fold_IsFirstInputType`. Extension module (docs/handoff/evalctxt-contract.md "Init order").
 //
 // PORT: generic over `Infcx: InferCtxtLike` (the `InferCtxtLike` interface), not over `SolverDelegate`: rustc_trait_selection
 // calls these with an `InferCtxt`. `E: Debug` (the normalization error) is erased: only tracing formats it.

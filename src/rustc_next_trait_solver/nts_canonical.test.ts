@@ -36,11 +36,12 @@ import { Const, fold_Const } from "../rustc_type_ir/sty/consts.ts";
 import { Region } from "../rustc_type_ir/sty/mod.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { Panic, Unported } from "../std/panic.ts";
-import { Err, Ok } from "../std/result.ts";
+import { Err, Ok, type Result } from "../std/result.ts";
 import { Canonicalizer } from "./canonical/canonicalizer.ts";
 import { instantiate_and_apply_query_response, make_canonical_state, response_no_constraints_raw } from "./canonical/mod.ts";
 import {
   debug_OrphanCheckErr,
+  type OrphanCheckErr,
   IsFirstInputType,
   OrphanCheckMode,
   orphan_check_trait_ref,
@@ -458,7 +459,10 @@ describe("placeholder.rs (upstream semantics)", () => {
 
 describe("coherence.rs (upstream semantics)", () => {
   const local_trait = new DefId(DefIndex.from_u32(7), LOCAL_CRATE);
-  const ok_or = <E>(r: { $: "Ok"; _0: { $: string; _0?: E } } | { $: "Err"; _0: unknown }) => r;
+  const orphan_err = <E>(r: Result<Result<undefined, OrphanCheckErr<Ty>>, E>): OrphanCheckErr<Ty> => {
+    if (r.$ !== "Ok" || r._0.$ !== "Err") throw new Error("expected Ok(Err(..))");
+    return r._0._0;
+  };
 
   test("IsFirstInputType::from", () => {
     expect(IsFirstInputType.from(true)).toBe("Yes");
@@ -471,17 +475,13 @@ describe("coherence.rs (upstream semantics)", () => {
       const { tcx, infcx, v } = setup();
       const trait_ref = { def_id: local_trait, args: tcx.mk_args([tcx.types.u8, v.t0]), _use_trait_ref_new_instead: null } as never;
       const norm = (t: Ty) => Ok(t);
-      expect(ok_or(orphan_check_trait_ref(infcx, trait_ref, { $: "Remote" }, norm) as never)).toEqual(Ok(Ok(undefined)) as never);
+      expect(orphan_check_trait_ref(infcx, trait_ref, { $: "Remote" }, norm)).toEqual(Ok(Ok(undefined)));
       const local = orphan_check_trait_ref(infcx, trait_ref, { $: "Local", mode: OrphanCheckMode.Proper }, norm);
-      expect(local.$).toBe("Ok");
-      const err = (local as { _0: { $: "Err"; _0: never } })._0;
-      expect(err.$).toBe("Err");
-      expect(debug_OrphanCheckErr(err._0, PLAIN, debug_Ty)).toBe("UncoveredTyParams(UncoveredTyParams { uncovered: ?0t, local_ty: None })");
+      expect(debug_OrphanCheckErr(orphan_err(local), PLAIN, debug_Ty)).toBe("UncoveredTyParams(UncoveredTyParams { uncovered: ?0t, local_ty: None })");
 
       const concrete = { def_id: local_trait, args: tcx.mk_args([tcx.types.u8, tcx.types.i32]), _use_trait_ref_new_instead: null } as never;
       const r = orphan_check_trait_ref(infcx, concrete, { $: "Remote" }, norm);
-      const e = (r as { _0: { $: "Err"; _0: never } })._0;
-      expect(debug_OrphanCheckErr(e._0, PLAIN, debug_Ty)).toBe("NonLocalInputType([(u8, Yes), (i32, No)])");
+      expect(debug_OrphanCheckErr(orphan_err(r), PLAIN, debug_Ty)).toBe("NonLocalInputType([(u8, Yes), (i32, No)])");
       // A normalization failure is returned as is.
       expect(orphan_check_trait_ref(infcx, concrete, { $: "Remote" }, () => Err("boom"))).toEqual(Err("boom"));
     }),

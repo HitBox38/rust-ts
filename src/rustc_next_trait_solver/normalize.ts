@@ -1,7 +1,5 @@
-// Contract stub for compiler/rustc_next_trait_solver/src/normalize.rs (lane evalctxt-contract; the file belongs to lane
-// nts-canonical). The types are final; `NormalizationFolder`'s methods (inherent and `FallibleTypeFolder`) are stubs
-// with final signatures: fill each in place and add the `// rustc:` marker. Extension module
-// (docs/handoff/evalctxt-contract.md "Init order").
+// Port of compiler/rustc_next_trait_solver/src/normalize.rs (lane nts-canonical; the contract stub was lane
+// evalctxt-contract's). Extension module (docs/handoff/evalctxt-contract.md "Init order").
 //
 // PORT: `NormalizationFolder<'a, Infcx, I, F>`: `Infcx` is the `InferCtxtLike` interface; `F: FnMut(AliasTerm<I>) ->
 // Result<(I::Term, NormalizationWasAmbiguous), E>` is the closure type of `normalize`, and `E` (`type Error = E`) is the

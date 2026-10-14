@@ -4,9 +4,8 @@
 //! mostly ignored. For a general overview of how it works,
 //! see the comment on [ProofTreeBuilder].
 //
-// Contract stub for compiler/rustc_next_trait_solver/src/solve/inspect/build.rs (lane evalctxt-contract; the file
-// belongs to lane nts-canonical, docs/handoff/evalctxt-contract.md split table). The types are final; their methods are stubs with final signatures: fill each in place and
-// add the `// rustc:` marker. Extension module (docs/handoff/evalctxt-contract.md "Init order").
+// Port of compiler/rustc_next_trait_solver/src/solve/inspect/build.rs (lane nts-canonical; the contract stub was lane
+// evalctxt-contract's). Extension module (docs/handoff/evalctxt-contract.md "Init order").
 //
 // PORT: `ProofTreeBuilder<D>` / `EvaluationStepBuilder<D>`: `D` is erased and so is `_infcx: PhantomData<D>`; their
 // constructors take the remaining field. `ProofTreeBuilder::state: Option<Box<Option<inspect::Probe<I>>>>` is
