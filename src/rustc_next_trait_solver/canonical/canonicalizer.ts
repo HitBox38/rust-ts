@@ -566,8 +566,7 @@ export class Canonicalizer implements TypeFolder {
             };
             break;
           case "Response":
-            // PORT(merge): ir_universe_of_region after infcx-contract
-            kind = { $: "Region", _0: unwrap(this.delegate.deref().universe_of_region(vid)) };
+            kind = { $: "Region", _0: unwrap(this.delegate.deref().ir_universe_of_region(vid)) };
             break;
         }
         break;

@@ -134,7 +134,7 @@ function fake_infcx(tcx: TyCtxt, log: Log): InferCtxtLike {
     },
     sub_unification_table_root_var: (v: TyVid) => (v === 2 ? (0 as TyVid) : v),
     universe_of_ty: (v: TyVid) => ty_universe(v),
-    universe_of_region: (v: RegionVid) => (v === 0 ? U(0) : U(2)),
+    ir_universe_of_region: (v: RegionVid) => (v === 0 ? U(0) : U(2)),
     universe_of_const: (_v: ConstVid) => U(2),
     shallow_resolve_ty_var: (v: TyVid) => Ty.new_var(tcx, v),
     shallow_resolve_int_var: (v: number) => Ty.new_int_var(tcx, v as never),
@@ -148,8 +148,8 @@ function fake_infcx(tcx: TyCtxt, log: Log): InferCtxtLike {
     equate_int_vids_raw: (a: number, b: number) => log.calls.push(`equate_int_vids_raw(?${a}i, ?${b}i)`),
     equate_float_vids_raw: (a: number, b: number) => log.calls.push(`equate_float_vids_raw(?${a}f, ?${b}f)`),
     equate_const_vids_raw: (a: number, b: number) => log.calls.push(`equate_const_vids_raw(?${a}c, ?${b}c)`),
-    equate_regions: (a: Region, b: Region) => log.calls.push(`equate_regions(${debug_GenericArg(a, PLAIN)}, ${debug_GenericArg(b, PLAIN)})`),
-    register_hidden_type_in_storage: () => undefined,
+    ir_equate_regions: (a: Region, b: Region) => log.calls.push(`equate_regions(${debug_GenericArg(a, PLAIN)}, ${debug_GenericArg(b, PLAIN)})`),
+    ir_register_hidden_type_in_storage: () => undefined,
     deeply_resolve_via_unification_table<T>(value: T, d_T: TypeFoldable<T>): T {
       return InferCtxtLike_provided.deeply_resolve_via_unification_table(infcx as unknown as InferCtxtLike, value, d_T);
     },
