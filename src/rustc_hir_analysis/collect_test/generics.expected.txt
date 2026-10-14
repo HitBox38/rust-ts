@@ -8,130 +8,129 @@ DefId(0:3 ~ generics[21d0]::Sized) Trait
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "Self", def_id: DefId(0:3 ~ generics[21d0]::Sized), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:3 ~ generics[21d0]::Sized), 0)], has_self: true, has_late_bound_regions: None }
 DefId(0:4 ~ generics[21d0]::S) Struct
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "T", def_id: DefId(0:6 ~ generics[21d0]::S::T), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }, GenericParamDef { name: "N", def_id: DefId(0:7 ~ generics[21d0]::S::N), index: 1, pure_wrt_drop: false, kind: Const { has_default: false } }], param_def_id_to_index: [(DefId(0:6 ~ generics[21d0]::S::T), 0), (DefId(0:7 ~ generics[21d0]::S::N), 1)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::ty::TyCtxt::repr_options_of_def (rustc_abi ReprOptions/ReprFlags/IntegerType/ScalableElt)
+  type_of EarlyBinder { value: S<T/#0, N/#1>, .. }
 DefId(0:5 ~ generics[21d0]::S::{constructor#0}) Ctor(Struct, Fn)
   generics_of Generics { parent: Some(DefId(0:4 ~ generics[21d0]::S)), parent_count: 2, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: late_bound_vars_map provider (not ported)
+  type_of STOP UNPORTED: Debug without a TS impl (see types report)
 DefId(0:6 ~ generics[21d0]::S::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:7 ~ generics[21d0]::S::N) ConstParam
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: usize, .. }
 DefId(0:8 ~ generics[21d0]::S::0) Field
   generics_of Generics { parent: Some(DefId(0:4 ~ generics[21d0]::S)), parent_count: 2, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: T/#0, .. }
 DefId(0:9 ~ generics[21d0]::Unit) Struct
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::ty::TyCtxt::repr_options_of_def (rustc_abi ReprOptions/ReprFlags/IntegerType/ScalableElt)
+  type_of EarlyBinder { value: Unit, .. }
 DefId(0:10 ~ generics[21d0]::Unit::{constructor#0}) Ctor(Struct, Const)
   generics_of Generics { parent: Some(DefId(0:9 ~ generics[21d0]::Unit)), parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP FATAL
+  type_of EarlyBinder { value: Unit, .. }
 DefId(0:11 ~ generics[21d0]::E) Enum
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "T", def_id: DefId(0:12 ~ generics[21d0]::E::T), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:12 ~ generics[21d0]::E::T), 0)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::ty::TyCtxt::repr_options_of_def (rustc_abi ReprOptions/ReprFlags/IntegerType/ScalableElt)
+  type_of EarlyBinder { value: E<T/#0>, .. }
 DefId(0:12 ~ generics[21d0]::E::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:13 ~ generics[21d0]::E::A) Variant
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: late_bound_vars_map provider (not ported)
+  type_of STOP UNPORTED: Debug without a TS impl (see types report)
 DefId(0:14 ~ generics[21d0]::E::A::{constructor#0}) Ctor(Variant, Fn)
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP FATAL
+  type_of STOP UNPORTED: Debug without a TS impl (see types report)
 DefId(0:15 ~ generics[21d0]::E::A::0) Field
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: T/#0, .. }
 DefId(0:16 ~ generics[21d0]::E::B) Variant
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP FATAL
+  type_of EarlyBinder { value: E<T/#0>, .. }
 DefId(0:17 ~ generics[21d0]::E::B::x) Field
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: T/#0, .. }
 DefId(0:18 ~ generics[21d0]::E::C) Variant
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP FATAL
+  type_of EarlyBinder { value: E<T/#0>, .. }
 DefId(0:19 ~ generics[21d0]::E::C::{constructor#0}) Ctor(Variant, Const)
   generics_of Generics { parent: Some(DefId(0:11 ~ generics[21d0]::E)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP FATAL
+  type_of EarlyBinder { value: E<T/#0>, .. }
 DefId(0:20 ~ generics[21d0]::U) Union
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "T", def_id: DefId(0:21 ~ generics[21d0]::U::T), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:21 ~ generics[21d0]::U::T), 0)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::ty::TyCtxt::repr_options_of_def (rustc_abi ReprOptions/ReprFlags/IntegerType/ScalableElt)
+  type_of EarlyBinder { value: U<T/#0>, .. }
 DefId(0:21 ~ generics[21d0]::U::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:22 ~ generics[21d0]::U::a) Field
   generics_of Generics { parent: Some(DefId(0:20 ~ generics[21d0]::U)), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: *const T/#0, .. }
 DefId(0:23 ~ generics[21d0]::Tr) Trait
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "Self", def_id: DefId(0:23 ~ generics[21d0]::Tr), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }, GenericParamDef { name: "X", def_id: DefId(0:24 ~ generics[21d0]::Tr::X), index: 1, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:23 ~ generics[21d0]::Tr), 0), (DefId(0:24 ~ generics[21d0]::Tr::X), 1)], has_self: true, has_late_bound_regions: None }
 DefId(0:24 ~ generics[21d0]::Tr::X) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:25 ~ generics[21d0]::Tr::A) AssocTy
   generics_of Generics { parent: Some(DefId(0:23 ~ generics[21d0]::Tr)), parent_count: 2, own_params: [], param_def_id_to_index: [], has_self: true, has_late_bound_regions: None }
-  type_of STOP UNPORTED: defaultness provider (not ported)
 DefId(0:26 ~ generics[21d0]::Tr::K) AssocConst
   generics_of Generics { parent: Some(DefId(0:23 ~ generics[21d0]::Tr)), parent_count: 2, own_params: [], param_def_id_to_index: [], has_self: true, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: usize, .. }
 DefId(0:27 ~ generics[21d0]::Tr::f) AssocFn
   generics_of Generics { parent: Some(DefId(0:23 ~ generics[21d0]::Tr)), parent_count: 2, own_params: [GenericParamDef { name: "U", def_id: DefId(0:28 ~ generics[21d0]::Tr::f::U), index: 2, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:28 ~ generics[21d0]::Tr::f::U), 2)], has_self: true, has_late_bound_regions: None }
-  type_of STOP UNPORTED: late_bound_vars_map provider (not ported)
+  type_of STOP UNPORTED: Debug without a TS impl (see types report)
 DefId(0:28 ~ generics[21d0]::Tr::f::U) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:29 ~ generics[21d0]::Alias2) Trait
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "Self", def_id: DefId(0:29 ~ generics[21d0]::Alias2), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }, GenericParamDef { name: "Y", def_id: DefId(0:30 ~ generics[21d0]::Alias2::Y), index: 1, pure_wrt_drop: false, kind: Type { has_default: true, synthetic: false } }], param_def_id_to_index: [(DefId(0:29 ~ generics[21d0]::Alias2), 0), (DefId(0:30 ~ generics[21d0]::Alias2::Y), 1)], has_self: true, has_late_bound_regions: None }
 DefId(0:30 ~ generics[21d0]::Alias2::Y) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: Unit, .. }
 DefId(0:31 ~ generics[21d0]::Al) TyAlias
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "T", def_id: DefId(0:32 ~ generics[21d0]::Al::T), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:32 ~ generics[21d0]::Al::T), 0)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of STOP UNPORTED: rustc_middle::query::keys: QueryKey for `LitToConstInput<'tcx>` (cache)
 DefId(0:32 ~ generics[21d0]::Al::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:33 ~ generics[21d0]::Al::{constant#0}) AnonConst
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:34 ~ generics[21d0]::{impl#0}) Impl { of_trait: true }
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "T", def_id: DefId(0:35 ~ generics[21d0]::{impl#0}::T), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:35 ~ generics[21d0]::{impl#0}::T), 0)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of STOP UNPORTED: rustc_middle::query::keys: QueryKey for `LitToConstInput<'tcx>` (cache)
 DefId(0:35 ~ generics[21d0]::{impl#0}::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:36 ~ generics[21d0]::{impl#0}::{constant#0}) AnonConst
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:37 ~ generics[21d0]::{impl#0}::A) AssocTy
   generics_of Generics { parent: Some(DefId(0:34 ~ generics[21d0]::{impl#0})), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: T/#0, .. }
 DefId(0:38 ~ generics[21d0]::{impl#0}::K) AssocConst
   generics_of Generics { parent: Some(DefId(0:34 ~ generics[21d0]::{impl#0})), parent_count: 1, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: usize, .. }
 DefId(0:39 ~ generics[21d0]::{impl#0}::f) AssocFn
   generics_of Generics { parent: Some(DefId(0:34 ~ generics[21d0]::{impl#0})), parent_count: 1, own_params: [GenericParamDef { name: "U", def_id: DefId(0:40 ~ generics[21d0]::{impl#0}::f::U), index: 1, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:40 ~ generics[21d0]::{impl#0}::f::U), 1)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: late_bound_vars_map provider (not ported)
+  type_of STOP UNPORTED: Debug without a TS impl (see types report)
 DefId(0:40 ~ generics[21d0]::{impl#0}::f::U) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:41 ~ generics[21d0]::{impl#1}) Impl { of_trait: false }
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "T", def_id: DefId(0:42 ~ generics[21d0]::{impl#1}::T), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:42 ~ generics[21d0]::{impl#1}::T), 0)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of STOP UNPORTED: rustc_middle::query::keys: QueryKey for `LitToConstInput<'tcx>` (cache)
 DefId(0:42 ~ generics[21d0]::{impl#1}::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:43 ~ generics[21d0]::{impl#1}::{constant#0}) AnonConst
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:44 ~ generics[21d0]::{impl#1}::g) AssocFn
   generics_of Generics { parent: Some(DefId(0:41 ~ generics[21d0]::{impl#1})), parent_count: 1, own_params: [GenericParamDef { name: "V", def_id: DefId(0:45 ~ generics[21d0]::{impl#1}::g::V), index: 1, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:45 ~ generics[21d0]::{impl#1}::g::V), 1)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: late_bound_vars_map provider (not ported)
+  type_of STOP UNPORTED: Debug without a TS impl (see types report)
 DefId(0:45 ~ generics[21d0]::{impl#1}::g::V) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:46 ~ generics[21d0]::h) Fn
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "A", def_id: DefId(0:47 ~ generics[21d0]::h::A), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }, GenericParamDef { name: "B", def_id: DefId(0:48 ~ generics[21d0]::h::B), index: 1, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }, GenericParamDef { name: "C", def_id: DefId(0:49 ~ generics[21d0]::h::C), index: 2, pure_wrt_drop: false, kind: Const { has_default: false } }], param_def_id_to_index: [(DefId(0:47 ~ generics[21d0]::h::A), 0), (DefId(0:48 ~ generics[21d0]::h::B), 1), (DefId(0:49 ~ generics[21d0]::h::C), 2)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: late_bound_vars_map provider (not ported)
+  type_of STOP UNPORTED: Debug without a TS impl (see types report)
 DefId(0:47 ~ generics[21d0]::h::A) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:48 ~ generics[21d0]::h::B) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:49 ~ generics[21d0]::h::C) ConstParam
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of EarlyBinder { value: bool, .. }
 DefId(0:50 ~ generics[21d0]::{extern#0}) ForeignMod
 DefId(0:51 ~ generics[21d0]::{extern#0}::Foreign) ForeignTy
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
   type_of EarlyBinder { value: Foreign(DefId(0:51 ~ generics[21d0]::{extern#0}::Foreign)), .. }
 DefId(0:52 ~ generics[21d0]::{extern#0}::ext) Fn
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: late_bound_vars_map provider (not ported)
+  type_of STOP UNPORTED: Debug without a TS impl (see types report)
 DefId(0:53 ~ generics[21d0]::{extern#0}::X) Static { safety: Unsafe, mutability: Not, nested: false }
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::hir_ty_lowering::HirTyLowerer::lower_ty
+  type_of STOP UNPORTED: rustc_hir_analysis::check::wfcheck::check_static_item (wave 17)
