@@ -85,3 +85,8 @@ None in this lane's files.
 - `check_export.rs` `visit_item`: the second `match` keeps the "handled above" `Impl` arm as `unreachable()`; the `Mod`
   arm is a comment because TS has already narrowed `Mod` out of the type.
 - `eii.rs`: `tracing::debug!` is a comment.
+
+## Checks
+- `bunx tsc --noEmit -p .`: clean.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: 4753 pass, 1 skip, 0 fail (4754 tests, 294 files).
+- `bun scripts/coverage.ts --check`: markers ok; `--missing` is 0 for every file above.
