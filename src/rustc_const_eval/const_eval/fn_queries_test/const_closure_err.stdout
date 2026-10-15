@@ -1,0 +1,2 @@
+DefId(0:4 ~ const_closure_err[30c8]::outside) Fn NotConst promotable=false
+DefId(0:5 ~ const_closure_err[30c8]::outside::{closure#0}) Closure NotConst promotable=false
