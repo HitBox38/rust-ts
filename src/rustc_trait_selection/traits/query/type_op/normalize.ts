@@ -19,7 +19,7 @@ import { fold_Clause, fold_Ty } from "../../../../rustc_middle/ty/structural_imp
 import { fold_Binder } from "../../../../rustc_type_ir/binder.ts";
 import type { PolyFnSig } from "../../../../rustc_type_ir/decls.ts";
 import type { TypeFoldable } from "../../../../rustc_type_ir/fold.ts";
-import { fold_with_OutlivesClause, type OutlivesClause, try_fold_with_OutlivesClause, visit_with_OutlivesClause } from "../../../../rustc_type_ir/predicate.gen.ts";
+import { fold_with_OutlivesClause, type OutlivesClause, try_fold_with_OutlivesClause, visit_with_OutlivesClause } from "../../../../rustc_type_ir/predicate.ts";
 import type { NoSolution } from "../../../../rustc_type_ir/solve/mod.ts";
 import { type FnSig, fold_with_FnSig, try_fold_with_FnSig, visit_with_FnSig } from "../../../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../../../rustc_type_ir/unnormalized.ts";
