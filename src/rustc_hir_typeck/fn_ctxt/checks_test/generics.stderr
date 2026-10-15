@@ -1,0 +1,200 @@
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> generics.rs:1:21
+  |
+1 | #![feature(no_core, lang_items)]
+  |                     ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error[E0061]: this function takes 3 arguments but 2 arguments were supplied
+  --> generics.rs:17:15
+   |
+17 | pub fn g1() { same(1u32, 2u32); }
+   |               ^^^^------------
+   |                   ||     |
+   |                   ||     expected some other arguments to be an `u32` type to match the type of this parameter
+   |                   |expected some other arguments to be an `u32` type to match the type of this parameter
+   |                   argument #3 of type `u32` is missing
+   |
+note: function defined here
+  --> generics.rs:12:8
+   |
+12 | pub fn same<T>(a: T, b: T, c: T) {}
+   |        ^^^^ -  ----  ----  ---- this parameter needs to match the `u32` type of `a` and `b`
+   |             |  |     |
+   |             |  |     `c` needs to match the `u32` type of this parameter
+   |             |  `c` needs to match the `u32` type of this parameter
+   |             `a`, `b` and `c` all reference this parameter `T`
+help: provide the argument
+   |
+17 | pub fn g1() { same(1u32, 2u32, /* u32 */); }
+   |                              +++++++++++
+
+error[E0061]: this function takes 4 arguments but 3 arguments were supplied
+  --> generics.rs:18:15
+   |
+18 | pub fn g2() { pair(1u32, true, 3u32); }
+   |               ^^^^------------------
+   |                   |      |
+   |                   |      expected some other arguments to be a `bool` type to match the type of this parameter
+   |                   argument #4 of type `bool` is missing
+   |
+note: function defined here
+  --> generics.rs:13:8
+   |
+13 | pub fn pair<T, U>(a: T, b: U, c: T, _: U) {}
+   |        ^^^^    -        ----        ---- this parameter needs to match the `bool` type of `b`
+   |                |        |
+   |                |        parameter #4 needs to match the `bool` type of this parameter
+   |                `b` and parameter #4 both reference this parameter `U`
+help: provide the argument
+   |
+18 | pub fn g2() { pair(1u32, true, 3u32, /* bool */); }
+   |                                    ++++++++++++
+
+error[E0061]: this function takes 3 arguments but 0 arguments were supplied
+  --> generics.rs:19:15
+   |
+19 | pub fn g3() { same(); }
+   |               ^^^^-- three arguments are missing
+   |
+note: function defined here
+  --> generics.rs:12:8
+   |
+12 | pub fn same<T>(a: T, b: T, c: T) {}
+   |        ^^^^    ----  ----  ----
+help: provide the arguments
+   |
+19 | pub fn g3() { same(/* a */, /* b */, /* c */); }
+   |                    +++++++++++++++++++++++++
+
+error[E0061]: this function takes 4 arguments but 5 arguments were supplied
+  --> generics.rs:20:17
+   |
+20 | pub fn perm() { pair(true, 1u32, false, 2u32, 9u32); }
+   |                 ^^^^                          ---- unexpected argument #5 of type `u32`
+   |
+note: function defined here
+  --> generics.rs:13:8
+   |
+13 | pub fn pair<T, U>(a: T, b: U, c: T, _: U) {}
+   |        ^^^^
+help: remove the extra argument
+   |
+20 - pub fn perm() { pair(true, 1u32, false, 2u32, 9u32); }
+20 + pub fn perm() { pair(true, 1u32, false, 2u32); }
+   |
+
+error[E0308]: arguments to this function are incorrect
+  --> generics.rs:22:14
+   |
+22 | pub fn r() { reorder((1u32,), 2u32, false); }
+   |              ^^^^^^^ -------  ----  ----- expected `(u32,)`, found `bool`
+   |                      |        |
+   |                      |        expected `bool`, found `u32`
+   |                      expected `u32`, found `(u32,)`
+   |
+note: function defined here
+  --> generics.rs:21:8
+   |
+21 | pub fn reorder(a: u32, b: bool, c: (u32,)) {}
+   |        ^^^^^^^
+help: reorder these arguments
+   |
+22 - pub fn r() { reorder((1u32,), 2u32, false); }
+22 + pub fn r() { reorder(2u32, false, (1u32,)); }
+   |
+
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+  --> generics.rs:23:24
+   |
+23 | pub fn ex() { unsafe { ext(1); } }
+   |                        ^^^--- argument #2 of type `bool` is missing
+   |
+note: function defined here
+  --> generics.rs:15:17
+   |
+15 | extern "C" { fn ext(p: u32, q: bool); fn var(p: u32, ...); }
+   |                 ^^^         -
+help: provide the argument
+   |
+23 | pub fn ex() { unsafe { ext(1, /* bool */); } }
+   |                             ++++++++++++
+
+error[E0060]: this function takes at least 1 argument but 0 arguments were supplied
+  --> generics.rs:24:24
+   |
+24 | pub fn va() { unsafe { var(); } }
+   |                        ^^^-- argument #1 of type `u32` is missing
+   |
+note: function defined here
+  --> generics.rs:15:42
+   |
+15 | extern "C" { fn ext(p: u32, q: bool); fn var(p: u32, ...); }
+   |                                          ^^^ -
+help: provide the argument
+   |
+24 | pub fn va() { unsafe { var(/* u32 */); } }
+   |                            +++++++++
+
+error[E0061]: this function takes 3 arguments but 2 arguments were supplied
+  --> generics.rs:26:5
+   |
+26 |       reorder(
+   |  _____^^^^^^^-
+27 | |         1u32,
+28 | |         true,
+29 | |     );
+   | |_____- argument #3 of type `(u32,)` is missing
+   |
+note: function defined here
+  --> generics.rs:21:8
+   |
+21 | pub fn reorder(a: u32, b: bool, c: (u32,)) {}
+   |        ^^^^^^^                  ---------
+help: provide the argument
+   |
+26 |     reorder(
+27 |         1u32,
+28 |         true,
+29 ~         /* (u32,) */,
+30 ~     );
+   |
+
+error[E0061]: this function takes 4 arguments but 0 arguments were supplied
+  --> generics.rs:32:17
+   |
+32 | pub fn many() { four(); }
+   |                 ^^^^-- multiple arguments are missing
+   |
+note: function defined here
+  --> generics.rs:31:8
+   |
+31 | pub fn four(a: u32, b: u32, c: u32, d: u32) {}
+   |        ^^^^ ------  ------  ------  ------
+help: provide the arguments
+   |
+32 | pub fn many() { four(/* u32 */, /* u32 */, /* u32 */, /* u32 */); }
+   |                      ++++++++++++++++++++++++++++++++++++++++++
+
+error[E0061]: this function takes 4 arguments but 2 arguments were supplied
+  --> generics.rs:33:24
+   |
+33 | pub fn two_missing() { four(1, 2); }
+   |                        ^^^^------ two arguments of type `u32` and `u32` are missing
+   |
+note: function defined here
+  --> generics.rs:31:8
+   |
+31 | pub fn four(a: u32, b: u32, c: u32, d: u32) {}
+   |        ^^^^                 ------  ------
+help: provide the arguments
+   |
+33 | pub fn two_missing() { four(1, 2, /* u32 */, /* u32 */); }
+   |                                 ++++++++++++++++++++++
+
+error: aborting due to 10 previous errors; 1 warning emitted
+
+Some errors have detailed explanations: E0060, E0061, E0308.
+For more information about an error, try `rustc --explain E0060`.

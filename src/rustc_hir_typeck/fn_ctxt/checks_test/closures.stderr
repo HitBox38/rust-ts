@@ -1,0 +1,112 @@
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> closures.rs:1:21
+  |
+1 | #![feature(no_core, lang_items, unboxed_closures, fundamental)]
+  |                     ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error[E0057]: this function takes 1 argument but 2 arguments were supplied
+  --> closures.rs:34:36
+   |
+34 | pub fn c1() { let c = |x: u32| {}; c(1, 2); }
+   |                                    ^    - unexpected argument #2 of type `{integer}`
+   |
+note: closure defined here
+  --> closures.rs:34:23
+   |
+34 | pub fn c1() { let c = |x: u32| {}; c(1, 2); }
+   |                       ^^^^^^^^
+help: remove the extra argument
+   |
+34 - pub fn c1() { let c = |x: u32| {}; c(1, 2); }
+34 + pub fn c1() { let c = |x: u32| {}; c(1); }
+   |
+
+error[E0057]: this function takes 2 arguments but 1 argument was supplied
+  --> closures.rs:35:45
+   |
+35 | pub fn c2() { let c = |x: u32, y: bool| {}; c(1); }
+   |                                             ^--- argument #2 of type `bool` is missing
+   |
+note: closure defined here
+  --> closures.rs:35:23
+   |
+35 | pub fn c2() { let c = |x: u32, y: bool| {}; c(1); }
+   |                       ^^^^^^^^^^^^^^^^^
+help: provide the argument
+   |
+35 | pub fn c2() { let c = |x: u32, y: bool| {}; c(1, /* bool */); }
+   |                                                ++++++++++++
+
+error[E0057]: this function takes 1 argument but 2 arguments were supplied
+  --> closures.rs:36:31
+   |
+36 | pub fn c3<F: Fn(u32)>(f: F) { f(1, 2); }
+   |                               ^    - unexpected argument #2 of type `{integer}`
+   |
+note: callable defined here
+  --> closures.rs:36:14
+   |
+36 | pub fn c3<F: Fn(u32)>(f: F) { f(1, 2); }
+   |              ^^^^^^^
+help: remove the extra argument
+   |
+36 - pub fn c3<F: Fn(u32)>(f: F) { f(1, 2); }
+36 + pub fn c3<F: Fn(u32)>(f: F) { f(1); }
+   |
+
+error[E0057]: this function takes 1 argument but 0 arguments were supplied
+  --> closures.rs:37:30
+   |
+37 | pub fn c4(f: impl Fn(u32)) { f(); }
+   |                              ^-- argument #1 of type `u32` is missing
+   |
+note: type parameter defined here
+  --> closures.rs:37:14
+   |
+37 | pub fn c4(f: impl Fn(u32)) { f(); }
+   |              ^^^^^^^^^^^^
+help: provide the argument
+   |
+37 | pub fn c4(f: impl Fn(u32)) { f(/* u32 */); }
+   |                                +++++++++
+
+error[E0061]: this enum variant takes 2 arguments but 1 argument was supplied
+  --> closures.rs:42:23
+   |
+42 | pub fn e1() { let _ = E::V(1); }
+   |                       ^^^^--- argument #2 of type `bool` is missing
+   |
+note: tuple variant defined here
+  --> closures.rs:41:14
+   |
+41 | pub enum E { V(u32, bool) }
+   |              ^
+help: provide the argument
+   |
+42 | pub fn e1() { let _ = E::V(1, /* bool */); }
+   |                             ++++++++++++
+
+error[E0057]: this function takes 1 argument but 2 arguments were supplied
+  --> closures.rs:43:42
+   |
+43 | pub fn trailing() { let c = |x: u32| {}; c(1, 2,); }
+   |                                          ^    - unexpected argument #2 of type `{integer}`
+   |
+note: closure defined here
+  --> closures.rs:43:29
+   |
+43 | pub fn trailing() { let c = |x: u32| {}; c(1, 2,); }
+   |                             ^^^^^^^^
+help: remove the extra argument
+   |
+43 - pub fn trailing() { let c = |x: u32| {}; c(1, 2,); }
+43 + pub fn trailing() { let c = |x: u32| {}; c(1,); }
+   |
+
+error: aborting due to 6 previous errors; 1 warning emitted
+
+Some errors have detailed explanations: E0057, E0061.
+For more information about an error, try `rustc --explain E0057`.
