@@ -24,6 +24,9 @@ Branch `lane/check-region-intrinsic` (from main `3e4773f`, no merges).
   - `check/region_test/scopedump/{main.rs,Cargo.toml.in}`: the rustc-dev probe source (see "For root" 2)
 - Edited: `src/rustc_hir_analysis/lib.ts`. It now imports `./check/region.ts` and sets
   `providers.region_scope_tree` in `provide`. Both lines are marked `PORT`.
+- Edited (call-site re-pin): `src/rustc_hir_analysis/contract.test.ts`. "provide installs the collect providers"
+  counted 45 providers; with `region_scope_tree` it is 46, and the test now also asserts that the provider is set.
+  When `check::provide` merges, that test's count changes again.
 - No `check/mod.ts`. Lane check-check owns it, and it is not in this lane's base.
 
 ## Provider wiring and merge with check-check (for root)
@@ -144,4 +147,8 @@ Other checks:
    thirdump suites exercise `region_scope_tree` end to end.
 
 ## Test run
-`RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: RESULT_PLACEHOLDER
+`RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools` at 4448b56: 4970 pass, 1 skip (the pre-existing linux-only
+test), 1 fail (4972 tests, 310 files, 1206 s).
+- The failure was contract.test.ts's provider count (45 → 46), which this lane's provider changes.
+- It is re-pinned in the final commit, and contract.test.ts passes 10/10 after the re-pin.
+- The full suite was not rerun after the re-pin.
