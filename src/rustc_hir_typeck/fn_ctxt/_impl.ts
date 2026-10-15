@@ -703,7 +703,7 @@ FnCtxt.prototype.report_ambiguity_errors = function (this: FnCtxt): void {
   if (errors.$ === "HasErrors") {
     const errs = errors._0;
     this.adjust_fulfillment_errors_for_expr_obligation(errs);
-    err_ctxt_view(this).report_fulfillment_errors(errs);
+    this.err_ctxt().report_fulfillment_errors(errs);
   }
 };
 
@@ -715,7 +715,7 @@ FnCtxt.prototype.select_obligations_where_possible = function (this: FnCtxt, mut
     const errs = result._0;
     mutate_fulfillment_errors(errs);
     this.adjust_fulfillment_errors_for_expr_obligation(errs);
-    err_ctxt_view(this).report_fulfillment_errors(errs);
+    this.err_ctxt().report_fulfillment_errors(errs);
   }
 };
 
@@ -1383,7 +1383,7 @@ FnCtxt.prototype.try_structurally_resolve_const = function (this: FnCtxt, sp: Sp
       case "Ok":
         return result._0;
       case "Err": {
-        const guar = err_ctxt_view(this).report_fulfillment_errors(result._0);
+        const guar = this.err_ctxt().report_fulfillment_errors(result._0);
         return ConstC.new_error(this.tcx, guar);
       }
     }
@@ -1418,7 +1418,7 @@ FnCtxt.prototype.structurally_resolve_type = function (this: FnCtxt, sp: SpanT, 
 FnCtxt.prototype.type_must_be_known_at_this_point = function (this: FnCtxt, sp: SpanT, ty: Ty): Ty {
   let guar = this.tainted_by_errors();
   if (guar === undefined) {
-    guar = err_ctxt_view(this).emit_inference_failure_err(this.body_def_id, sp, GenericArg.from_Ty(ty), "E0282", true).emit_err();
+    guar = this.err_ctxt().emit_inference_failure_err(this.body_def_id, sp, ty, "E0282", true).emit_err();
   }
   const err = Ty.new_error(this.tcx, guar!);
   this.demand_suptype(sp, err, ty);
@@ -1434,7 +1434,7 @@ FnCtxt.prototype.structurally_resolve_const = function (this: FnCtxt, sp: SpanT,
   } else {
     let e = this.tainted_by_errors();
     if (e === undefined) {
-      e = err_ctxt_view(this).emit_inference_failure_err(this.body_def_id, sp, GenericArg.from_Const(ct), "E0282", true).emit_err();
+      e = this.err_ctxt().emit_inference_failure_err(this.body_def_id, sp, ct, "E0282", true).emit_err();
     }
     // FIXME: Infer `?ct = {const error}`?
     return ConstC.new_error(this.tcx, e!);
@@ -1509,14 +1509,3 @@ const d_UserArgsTuple: TypeVisitable<[GenericArgs, UserSelfTy | undefined]> = {
     visit_with_tuple2(self, visitor, fold_GenericArgs.visit_with, (o, v) => visit_with_Option(o, v, visit_with_UserSelfTy)),
 };
 
-/**
- * PORT: `TypeErrCtxt` (rustc_trait_selection error_reporting) is `Pending` until errctxt-contract (wave 19); this is the
- * slice of its API this file calls. `FnCtxt::err_ctxt` itself stops at `unported(..)`, so these are never reached yet.
- */
-interface TypeErrCtxtView {
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-  emit_inference_failure_err(body_def_id: LocalDefIdT, failure_span: SpanT, arg: GenericArg, error_code: "E0282", should_label_span: boolean): Diag;
-}
-function err_ctxt_view(fcx: FnCtxt): TypeErrCtxtView {
-  return fcx.err_ctxt() satisfies TypeErrCtxt as unknown as TypeErrCtxtView;
-}

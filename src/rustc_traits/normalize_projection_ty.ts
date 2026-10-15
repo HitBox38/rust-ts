@@ -2,7 +2,7 @@
 //
 // PORT: `ParamEnvAnd { param_env, value: goal }` closure patterns destructure the key; the lazy `.map(..)` over
 // `instantiate_own` that feeds `register_obligations` is a generator (registration interleaves with instantiation, as
-// upstream). `err_ctxt()` is traits/mod.ts's `TypeErrCtxtView` (error reporting is wave 19).
+// upstream). `infcx.err_ctxt()` is error_reporting's `TypeErrCtxt` (errctxt-contract).
 
 import type { Canonical, QueryResponse } from "../rustc_middle/infer/canonical.ts";
 import type { Providers } from "../rustc_middle/queries.gen.ts";
@@ -33,7 +33,7 @@ import { Err, Ok, type Result } from "../std/result.ts";
 import { Obligation, type PredicateObligation, type PredicateObligations } from "../rustc_infer/traits/mod.ts";
 import { type ScrubbedTraitError, TraitErrors } from "../rustc_infer/traits/engine.ts";
 import type { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
-import { err_ctxt, normalize_inherent_projection, normalize_projection_term, SelectionContext } from "../rustc_trait_selection/traits/mod.ts";
+import { normalize_inherent_projection, normalize_projection_term, SelectionContext } from "../rustc_trait_selection/traits/mod.ts";
 import { const_of_item_or_delayed_bug } from "../rustc_trait_selection/traits/project.ts";
 import { fold_ParamEnvAnd } from "../rust_ts/fold_param_env_and.ts";
 
@@ -99,7 +99,7 @@ function normalize_canonicalized_projection(tcx: TyCtxt, goal: CanonicalAliasGoa
           for (const error of TraitErrors.into_iter_ref(errors)) {
             if (error.$ === "Cycle") {
               const cycle = error._0;
-              err_ctxt(ocx.infcx).report_overflow_obligation_cycle(cycle);
+              ocx.infcx.err_ctxt().report_overflow_obligation_cycle(cycle);
             }
           }
         }

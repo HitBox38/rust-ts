@@ -163,7 +163,7 @@ export function compare_eii_function_types(
   // version.
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    const reported = err_ctxt(infcx).report_fulfillment_errors(errors._0);
+    const reported = infcx.err_ctxt().report_fulfillment_errors(errors._0);
     return Err(reported);
   }
 
@@ -171,7 +171,7 @@ export function compare_eii_function_types(
   // lifetime parameters.
   const errors_ = infcx.resolve_regions(external_impl, param_env, wf_tys);
   if (!(errors_.length === 0)) {
-    return Err(infcx.tainted_by_errors() ?? err_ctxt(infcx).report_region_errors(external_impl, errors_));
+    return Err(infcx.tainted_by_errors() ?? infcx.err_ctxt().report_region_errors(external_impl, errors_));
   }
 
   return Ok(null);
@@ -227,7 +227,7 @@ export function compare_eii_statics(
   // version.
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    const reported = err_ctxt(infcx).report_fulfillment_errors(errors._0);
+    const reported = infcx.err_ctxt().report_fulfillment_errors(errors._0);
     return Err(reported);
   }
 
@@ -235,7 +235,7 @@ export function compare_eii_statics(
   // lifetime parameters.
   const errors_ = infcx.resolve_regions(external_impl, param_env, []);
   if (!(errors_.length === 0)) {
-    return Err(infcx.tainted_by_errors() ?? err_ctxt(infcx).report_region_errors(external_impl, errors_));
+    return Err(infcx.tainted_by_errors() ?? infcx.err_ctxt().report_region_errors(external_impl, errors_));
   }
 
   return Ok(null);
@@ -516,7 +516,7 @@ function report_eii_mismatch(
   }
 
   cause.span = impl_err_span;
-  err_ctxt(infcx).note_type_err(
+  infcx.err_ctxt().note_type_err(
     diag,
     cause,
     trait_err_span === undefined ? undefined : [trait_err_span, "type in declaration", false],
@@ -592,22 +592,4 @@ function upcast_tcx<T, P>(f: (from: T, tcx: TyCtxt) => P): (from: T, tcx: Intern
 
 type ParamEnvAndValuePairs = ReturnType<ParamEnv["and"]>;
 
-/** `TypeErrCtxt<'_, 'tcx>` (rustc_trait_selection error_reporting, wave 19): the methods this file calls. */
-interface TypeErrCtxtView {
-  report_fulfillment_errors(errors: unknown[]): ErrorGuaranteed;
-  note_type_err(
-    diag: import("../../rustc_errors/lib.ts").Diag,
-    cause: ObligationCause,
-    secondary_span: [Span, string, boolean] | undefined,
-    values: ParamEnvAndValuePairs | undefined,
-    terr: TypeError,
-    prefer_label: boolean,
-    override_span: Span | undefined,
-  ): void;
-  report_region_errors(generic_param_scope: LocalDefId, errors: readonly unknown[]): ErrorGuaranteed;
-}
 
-/** `infcx.err_ctxt()` (`InferCtxtErrorExt`, wave 19): its stub stops as UNPORTED; `TypeErrCtxt` is still `Pending`. */
-function err_ctxt(infcx: InferCtxt): TypeErrCtxtView {
-  return infcx.err_ctxt() as unknown as TypeErrCtxtView;
-}

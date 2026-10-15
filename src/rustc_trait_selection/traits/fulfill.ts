@@ -22,6 +22,7 @@
 // Init order: top-level code here touches only ./fulfill.gen.ts and other crates; the other rustc_trait_selection modules
 // are read inside function bodies only.
 
+import { upcast_from_self } from "../../rustc_type_ir/upcast.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { ControlFlow, VisitorResult as VisitorResultC, type VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import {
@@ -682,7 +683,7 @@ FulfillProcessor.prototype.process_obligation = function (
     // the recursion limit themselves. Also don't check some
     // predicate kinds that don't give further obligations.
     if (!this.selcx.tcx().recursion_limit().value_within_limit(obligation.recursion_depth)) {
-      return traits.err_ctxt(this.selcx.infcx).report_overflow_obligation(obligation, false);
+      return this.selcx.infcx.err_ctxt().report_overflow_obligation(obligation, false, upcast_from_self);
     }
 
     if (pred.$ === "Clause") {

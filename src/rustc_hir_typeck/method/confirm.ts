@@ -507,11 +507,7 @@ ConfirmContext.prototype.unify_receivers = function (this: ConfirmContext, self_
   } else {
     const terr = r._0;
     if (this.tcx.features().arbitrary_self_types()) {
-      // PORT: `self.err_ctxt().report_mismatched_types(&cause, self.param_env, method_self_ty, self_ty, terr).emit()`:
-      // `err_ctxt` stops (TypeErrCtxt is wave 19); `report_mismatched_types` is not declared on the pending type yet.
-      this.err_ctxt();
-      void terr;
-      unported("rustc_trait_selection::error_reporting::TypeErrCtxt::report_mismatched_types");
+      this.err_ctxt().report_mismatched_types(cause, this.param_env, method_self_ty, self_ty, terr).emit();
     } else {
       // This has/will have errored in wfcheck, which we cannot depend on from here, as typeck on functions
       // may run before wfcheck if the function is used in const eval.

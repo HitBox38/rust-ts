@@ -477,7 +477,7 @@ function check_opaque_meets_bounds(tcx: TyCtxt, def_id: LocalDefId, origin: hir.
   // version.
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    const guar = TypeErrCtxt_(infcx).report_fulfillment_errors(errors._0);
+    const guar = infcx.err_ctxt().report_fulfillment_errors(errors._0);
     return Err(guar);
   }
 
@@ -2521,7 +2521,7 @@ export function check_coroutine_obligations(tcx: TyCtxt, def_id: LocalDefId): Re
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   // debug!(?errors);
   if (errors.$ === "HasErrors") {
-    return Err(TypeErrCtxt_(infcx).report_fulfillment_errors(errors._0));
+    return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
   }
 
   if (!tcx.next_trait_solver_globally()) {
@@ -2562,7 +2562,7 @@ export function check_potentially_region_dependent_goals(tcx: TyCtxt, def_id: Lo
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   // debug!(?errors);
   if (errors.$ === "HasErrors") {
-    return Err(TypeErrCtxt_(infcx).report_fulfillment_errors(errors._0));
+    return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
   } else {
     return Ok(null);
   }
@@ -2584,14 +2584,6 @@ function collect(): typeof import("../collect.ts") {
   return require("../collect.ts") as typeof import("../collect.ts");
 }
 
-/** `TypeErrCtxt` (rustc_trait_selection error_reporting, wave 19): the method this file uses. */
-interface TypeErrCtxt_ {
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-}
-/** `infcx.err_ctxt()` (`InferCtxtErrorExt`, rustc_trait_selection error_reporting/mod.rs). */
-function TypeErrCtxt_(infcx: InferCtxt): TypeErrCtxt_ {
-  return infcx.err_ctxt() as unknown as TypeErrCtxt_;
-}
 /** `#[derive(TypeFoldable, TypeVisitable)] for OpaqueTypeKey` (rustc_type_ir opaque_ty.gen.ts). */
 const fold_OpaqueTypeKey: TypeFoldable<OpaqueTypeKey> = {
   visit_with: visit_with_OpaqueTypeKey,

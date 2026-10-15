@@ -78,6 +78,7 @@ import {
   UnusedAssociatedTypeBounds_diagnostic,
 } from "../diagnostics.gen.ts";
 import type { ImpliedBoundsContext, OverlappingAsssocItemConstraints, PredicateFilter, RegionInferReason } from "./mod.gen.ts";
+import { report_dyn_incompatibility } from "../../rustc_trait_selection/error_reporting/traits/mod.ts";
 
 /** PORT: D4 descriptors of the generated `TypeFoldable` impls used below. */
 const d_TraitClause: TypeFoldable<TraitClause> = { visit_with: visit_with_TraitClause, try_fold_with: try_fold_with_TraitClause, fold_with: fold_with_TraitClause };
@@ -226,8 +227,7 @@ HirTyLowerer.prototype.lower_trait_object_ty = function (
     if (trait_pred !== undefined) {
       const violations = this.dyn_compatibility_violations(PolyTraitClauseC.def_id(trait_pred));
       if (violations.length !== 0) {
-        // `report_dyn_incompatibility(tcx, span, Some(hir_id), trait_pred.def_id(), &violations).emit_err()`
-        const reported: ErrorGuaranteed = unported("rustc_trait_selection::error_reporting::traits::report_dyn_incompatibility");
+        const reported: ErrorGuaranteed = report_dyn_incompatibility(tcx, span, hir_id, PolyTraitClauseC.def_id(trait_pred), violations).emit_err();
         return Ty.new_error(tcx, reported);
       }
     }

@@ -20,7 +20,6 @@ import { ObligationCause } from "../rustc_middle/traits/mod.ts";
 import { ParamEnv, Ty } from "../rustc_middle/ty/mod.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
-import { err_ctxt } from "../rustc_trait_selection/traits/mod.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../rustc_type_ir/binder.ts";
 import { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
 import { FnSig, fold_FnSig } from "../rustc_type_ir/ty_kind.ts";
@@ -1370,9 +1369,7 @@ class CheckAttrVisitor extends Visitor {
         }
       }
 
-      // PORT: `TypeErrCtxt::note_type_err` (rustc_trait_selection error_reporting, wave 19) through the pending
-      // `infcx.err_ctxt()` (its placeholder stops as UNPORTED).
-      (infcx.err_ctxt() as unknown as { note_type_err(diag: unknown, cause: ObligationCause, secondary_span: undefined, values: unknown, terr: unknown, prefer_label: boolean, override_span: undefined): void }).note_type_err(
+      infcx.err_ctxt().note_type_err(
         diag,
         cause,
         undefined,
@@ -1387,7 +1384,7 @@ class CheckAttrVisitor extends Visitor {
 
     const errors2 = ocx.evaluate_obligations_error_on_ambiguity();
     if (errors2.$ === "HasErrors") {
-      err_ctxt(infcx).report_fulfillment_errors(errors2._0);
+      infcx.err_ctxt().report_fulfillment_errors(errors2._0);
       this.abort = true;
     }
   }

@@ -21,7 +21,7 @@
 //   `ProvisionalHiddenType`) get `unported` descriptors (precedent rustc_hir_analysis check/check.ts).
 // - `UnordMap::to_sorted(hcx, _)` over `LocalDefId` keys sorts by the keys' stable hash key, the `DefPathHash`
 //   (precedent rustc_resolve late/diagnostics.ts).
-// - `FnCtxt::err_ctxt()` returns the `Pending` `TypeErrCtxt` (wave 19); `TypeErrCtxtView` lists the methods called here.
+// - `FnCtxt::err_ctxt()` returns rustc_trait_selection's `TypeErrCtxt` (errctxt-contract).
 // - `debug!` / `#[instrument]` are tracing only and stay as comments.
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates.
 export * from "./writeback.gen.ts";
@@ -986,7 +986,7 @@ export class Resolver implements TypeFolder {
     if (guar !== undefined) {
       return guar;
     } else {
-      return err_ctxt(this.fcx)
+      return this.fcx.err_ctxt()
         .emit_inference_failure_err(this.fcx.tcx.hir_body_owner_def_id(this.body.id()), Locatable_to_span(this.span, this.fcx.tcx), p, "E0282", false)
         .emit_err();
     }
@@ -1022,7 +1022,7 @@ export class Resolver implements TypeFolder {
         value = v;
       } else {
         const errors = r._0;
-        const guar = err_ctxt(this.fcx).report_fulfillment_errors(errors);
+        const guar = this.fcx.err_ctxt().report_fulfillment_errors(errors);
         value = new_err(tcx, guar);
       }
     } else {
@@ -1199,19 +1199,6 @@ export class HasRecursiveOpaque implements TypeVisitor<ControlFlow<null>> {
 
 // ---- helpers ---------------------------------------------------------------------------------------------------------
 
-/**
- * PORT(wave 19): `error_reporting::TypeErrCtxt` is a `Pending` type (rustc_trait_selection decls.ts); these are the
- * methods this file calls on `FnCtxt::err_ctxt()`. Root drops the view when the errctxt contract lands.
- */
-interface TypeErrCtxtView {
-  // error_reporting/infer/need_type_info.rs `emit_inference_failure_err` (`TypeAnnotationNeeded::E0282` is `"E0282"`)
-  emit_inference_failure_err(body_def_id: LocalDefId, failure_span: Span, term: Ty | Const, error_code: "E0282" | "E0283" | "E0284", should_label_span: boolean): Diag;
-  // error_reporting/traits/fulfillment_errors.rs `report_fulfillment_errors`
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-}
-function err_ctxt(fcx: FnCtxt): TypeErrCtxtView {
-  return fcx.err_ctxt() as unknown as TypeErrCtxtView;
-}
 
 /** `ControlFlow::is_break` */
 function is_break<B>(r: ControlFlow<B>): boolean {

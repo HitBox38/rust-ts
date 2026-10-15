@@ -411,7 +411,7 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
   // version.
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    const reported = err_ctxt(infcx).report_fulfillment_errors(errors._0);
+    const reported = infcx.err_ctxt().report_fulfillment_errors(errors._0);
     return Err(reported);
   }
 
@@ -419,7 +419,7 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
   // lifetime parameters.
   const region_errors = infcx.resolve_regions(impl_m_def_id, param_env, wf_tys);
   if (region_errors.length !== 0) {
-    return Err(infcx.tainted_by_errors() ?? err_ctxt(infcx).report_region_errors(impl_m_def_id, region_errors));
+    return Err(infcx.tainted_by_errors() ?? infcx.err_ctxt().report_region_errors(impl_m_def_id, region_errors));
   }
 
   return Ok(null);
@@ -649,7 +649,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
       const diag = struct_span_code_err(tcx.dcx(), cause.span, E0053, `method \`${display_Symbol(AssocItem.name(trait_m))}\` has an incompatible return type for trait`);
       const node = tcx.hir_get_if_local(impl_m.def_id);
       const decl = node === undefined ? undefined : Node.fn_decl(node);
-      err_ctxt(infcx).note_type_err(
+      infcx.err_ctxt().note_type_err(
         diag,
         cause,
         decl === undefined ? undefined : [FnRetTy.span(decl.output), "return type in trait", false],
@@ -703,7 +703,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
       return Err(r._0);
     }
 
-    const guar = err_ctxt(infcx).report_fulfillment_errors(errors._0);
+    const guar = infcx.err_ctxt().report_fulfillment_errors(errors._0);
     return Err(guar);
   }
 
@@ -1081,7 +1081,7 @@ function report_trait_method_mismatch(
   }
 
   cause.span = impl_err_span;
-  err_ctxt(infcx).note_type_err(
+  infcx.err_ctxt().note_type_err(
     diag,
     cause,
     trait_err_span === undefined ? undefined : [trait_err_span, "type in trait", false],
@@ -2065,7 +2065,7 @@ function compare_const_generic_param_types(tcx: TyCtxt, impl_item: AssocItem, tr
           E0053,
           `${AssocItem.descr(trait_item)} \`${display_Symbol(AssocItem.name(trait_item))}\` has an incompatible type for const generic parameter`,
         );
-        err_ctxt(infcx).note_type_err(
+        infcx.err_ctxt().note_type_err(
           diag,
           cause,
           param_trait_ty_span === undefined ? undefined : [param_trait_ty_span, "type in trait", false],
@@ -2082,7 +2082,7 @@ function compare_const_generic_param_types(tcx: TyCtxt, impl_item: AssocItem, tr
 
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    return Err(err_ctxt(infcx).report_fulfillment_errors(errors._0));
+    return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
   } else {
     return Ok(null);
   }
@@ -2217,7 +2217,7 @@ function compare_const_clause_entailment(tcx: TyCtxt, impl_ct: AssocItem, trait_
             return ty.span;
           })();
 
-    err_ctxt(infcx).note_type_err(
+    infcx.err_ctxt().note_type_err(
       diag,
       cause,
       trait_c_span === undefined ? undefined : [trait_c_span, "type in trait", false],
@@ -2233,7 +2233,7 @@ function compare_const_clause_entailment(tcx: TyCtxt, impl_ct: AssocItem, trait_
   // version.
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    return Err(err_ctxt(infcx).report_fulfillment_errors(errors._0));
+    return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
   }
 
   return ocx.resolve_regions_and_report_errors(impl_ct_def_id, param_env, []);
@@ -2345,7 +2345,7 @@ function compare_type_clause_entailment(tcx: TyCtxt, impl_ty: AssocItem, trait_t
   // version.
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    const reported = err_ctxt(infcx).report_fulfillment_errors(errors._0);
+    const reported = infcx.err_ctxt().report_fulfillment_errors(errors._0);
     return Err(reported);
   }
 
@@ -2469,7 +2469,7 @@ export function check_type_bounds(tcx: TyCtxt, trait_ty: AssocItem, impl_ty: Ass
         break;
       case "Err": {
         const e = r._0;
-        return Err(err_ctxt(infcx).report_fulfillment_errors(e));
+        return Err(infcx.err_ctxt().report_fulfillment_errors(e));
       }
     }
   }
@@ -2479,7 +2479,7 @@ export function check_type_bounds(tcx: TyCtxt, trait_ty: AssocItem, impl_ty: Ass
   ocx.register_obligations(obligations);
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    const reported = err_ctxt(infcx).report_fulfillment_errors(errors._0);
+    const reported = infcx.err_ctxt().report_fulfillment_errors(errors._0);
     return Err(reported);
   }
 
@@ -2703,22 +2703,4 @@ const d_ProjectionClause: TypeFoldable<ProjectionClause> = { visit_with: visit_w
 
 // ==== Stand-ins (PORT: other wave-17 lanes and wave 19; see the file header) =========================================
 
-/** `TypeErrCtxt<'_, 'tcx>` (rustc_trait_selection error_reporting, wave 19): the methods this file calls. */
-interface TypeErrCtxtView {
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-  note_type_err(
-    diag: Diag,
-    cause: ObligationCause,
-    secondary_span: [Span, string, boolean] | undefined,
-    values: ParamEnvAndValuePairs | undefined,
-    terr: TypeError,
-    prefer_label: boolean,
-    override_span: Span | undefined,
-  ): void;
-  report_region_errors(generic_param_scope: LocalDefId, errors: readonly unknown[]): ErrorGuaranteed;
-}
 
-/** `infcx.err_ctxt()` (`InferCtxtErrorExt`, wave 19): its stub stops as UNPORTED; `TypeErrCtxt` is still `Pending`. */
-function err_ctxt(infcx: InferCtxt): TypeErrCtxtView {
-  return infcx.err_ctxt() as unknown as TypeErrCtxtView;
-}

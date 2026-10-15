@@ -54,7 +54,6 @@ import type { BinOpCategory as BinOpCategoryT, Op as OpT } from "./op.gen.ts";
 // Read inside function bodies only (Init order).
 import { maybe_emit_plus_equals_diagnostic, ExprParenthesesNeeded_surrounding } from "./diagnostics.ts";
 import { ExprParenthesesNeeded_subdiagnostic } from "./diagnostics.gen.ts";
-import { err_ctxt_methods } from "./expr.ts";
 import { Expectation as ExpectationC } from "./expectation.ts";
 
 export * from "./op.gen.ts";
@@ -212,7 +211,7 @@ FnCtxt.prototype.check_overloaded_binop = function (this: FnCtxt, expr: hir.Expr
 
   // see `NB` above
   const rhs_ty_ = this.check_expr_coercible_to_type_or_error(rhs_expr, rhs_ty_var, lhs_expr, (err, ty) => {
-    err_ctxt_methods(this).note_field_shadowed_by_private_candidate(err, rhs_expr.hir_id, this.param_env);
+    this.err_ctxt().note_field_shadowed_by_private_candidate(err, rhs_expr.hir_id, this.param_env);
     if (op.$ === "BinOp" && op._0.node === "Eq") {
       this.suggest_swapping_lhs_and_rhs(err, ty, lhs_ty, rhs_expr, lhs_expr);
     }
@@ -299,7 +298,7 @@ FnCtxt.prototype.report_binop_fulfillment_errors = function (this: FnCtxt, expr:
         const s = AssignOpKind.as_str(assign_op.node);
         const err_ = struct_span_code_err(this.dcx(), expr.span, E0368, `binary assignment operation \`${s}\` cannot be applied to type \`${lhs_ty_str}\``);
         err_.span_label(lhs_expr.span, `cannot use \`${s}\` on type \`${lhs_ty_str}\``);
-        const err_ctxt = err_ctxt_methods(this);
+        const err_ctxt = this.err_ctxt();
         err_ctxt.note_field_shadowed_by_private_candidate(err_, lhs_expr.hir_id, this.param_env);
         err_ctxt.note_field_shadowed_by_private_candidate(err_, rhs_expr.hir_id, this.param_env);
         this.note_unmet_impls_on_type(err_, errors, false);
@@ -348,7 +347,7 @@ FnCtxt.prototype.report_binop_fulfillment_errors = function (this: FnCtxt, expr:
         err_.span_label(lhs_expr.span, lhs_ty_str);
         err_.span_label(rhs_expr.span, rhs_ty_str);
       }
-      const err_ctxt = err_ctxt_methods(this);
+      const err_ctxt = this.err_ctxt();
       err_ctxt.note_field_shadowed_by_private_candidate(err_, lhs_expr.hir_id, this.param_env);
       err_ctxt.note_field_shadowed_by_private_candidate(err_, rhs_expr.hir_id, this.param_env);
       const suggest_derive = this.infcx.can_eq(this.param_env, lhs_ty, rhs_ty, ToTrace_Ty);
@@ -404,7 +403,7 @@ FnCtxt.prototype.report_binop_fulfillment_errors = function (this: FnCtxt, expr:
               output_associated_item = undefined;
             }
 
-            err_ctxt_methods(this).suggest_restricting_param_bound(err, trait_pred, output_associated_item, this.body_def_id);
+            this.err_ctxt().suggest_restricting_param_bound(err, trait_pred, output_associated_item, this.body_def_id);
           }
         }
       } else {
@@ -709,7 +708,7 @@ FnCtxt.prototype.check_user_unop = function (this: FnCtxt, ex: hir.Expr, operand
             if (TypeVisitableExt.has_non_region_param(operand_ty, fold_Ty)) {
               const predicates = errors.map((error) => error.obligation.predicate.as_trait_clause()).filter((p) => p !== undefined);
               for (const pred of predicates) {
-                err_ctxt_methods(this).suggest_restricting_param_bound(err, pred, undefined, this.body_def_id);
+                this.err_ctxt().suggest_restricting_param_bound(err, pred, undefined, this.body_def_id);
               }
             }
 

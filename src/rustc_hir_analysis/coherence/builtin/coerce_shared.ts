@@ -36,7 +36,6 @@ import * as diagnostics from "../../diagnostics.ts";
 import {
   assert_field_type_is_copy,
   collect_reborrow_data_fields,
-  err_ctxt,
   field_type_is_copy,
   field_type_is_reborrow,
   LayoutData_is_zst,
@@ -339,11 +338,11 @@ export function coerce_shared_info(tcx: TyCtxt, impl_did: LocalDefId): Result<nu
     Unnormalized.new_wip<[Ty, Ty]>([source0, trait_ref.args.type_at(1)]),
     fold_tuple2(fold_Ty, fold_Ty),
   );
-  if (n.$ === "Err") return Err(err_ctxt(infcx).report_fulfillment_errors(n._0));
+  if (n.$ === "Err") return Err(infcx.err_ctxt().report_fulfillment_errors(n._0));
   const [source, target] = n._0;
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    return Err(err_ctxt(infcx).report_fulfillment_errors(errors._0));
+    return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
   }
 
   assert(!TypeVisitableExt.has_escaping_bound_vars(source, fold_Ty), "assertion failed: !source.has_escaping_bound_vars()");
@@ -660,7 +659,7 @@ function validate_coerce_shared_unpaired_source_field(
   const tcx = infcx.tcx;
   const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   const n = ocx.deeply_normalize(ObligationCause.misc(source.span, impl_did), param_env, Unnormalized.new_wip(source.ty), fold_Ty);
-  if (n.$ === "Err") return Err(err_ctxt(infcx).report_fulfillment_errors(n._0));
+  if (n.$ === "Err") return Err(infcx.err_ctxt().report_fulfillment_errors(n._0));
   source.ty = n._0;
 
   if (

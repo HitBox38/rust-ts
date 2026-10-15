@@ -47,8 +47,7 @@
 // - `commit_if_ok(|_| ..)` / `probe(|_| ..)` take a closure that ignores the snapshot argument.
 // - `coerce_unsized_old_solver` uses the old solver's `SelectionContext` (traits/select/mod.ts; its `select` is filled by
 //   the wave-18b old-solver lanes).
-// - `TypeErrCtxt` (error reporting, wave 19) is `Pending`: the error paths call it through the local view
-//   `TypeErrCtxtView` (`FnCtxt::err_ctxt` itself stops as UNPORTED today).
+// - `self.err_ctxt()` is rustc_trait_selection's `TypeErrCtxt` (errctxt-contract; its methods are placeholders until wave 19).
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
 export * from "./coercion.gen.ts";
@@ -135,16 +134,7 @@ function upcast_tcx<T, P>(f: (from: T, tcx: TyCtxt) => P): (from: T, tcx: Intern
   return (from, tcx) => f(from, tcx as unknown as TyCtxt);
 }
 
-/** PORT(stub): `error_reporting::TypeErrCtxt` (wave 19): the methods called in this file. */
-interface TypeErrCtxtView {
-  report_selection_error(obligation: PredicateObligation, root_obligation: PredicateObligation, error: SelectionError): ErrorGuaranteed;
-  report_mismatched_types(cause: ObligationCause, param_env: ParamEnv, expected: Ty, actual: Ty, err: TypeError): Diag;
-  ty_kind_suggestion(param_env: ParamEnv, ty: Ty): string | undefined;
-}
 
-function err_ctxt_view(fcx: FnCtxt): TypeErrCtxtView {
-  return fcx.err_ctxt() as unknown as TypeErrCtxtView;
-}
 
 // coercion.rs:92 `impl Deref for Coerce { type Target = FnCtxt }` (`&self.fcx`): forwarders installed by lib.ts (decls.ts `register_deref`).
 register_deref(Coerce, "fcx", FnCtxt);
@@ -817,7 +807,7 @@ Coerce.prototype.coerce_unsized_old_solver = function (
       this.fcx.set_tainted_by_errors(this.fcx.dcx().span_delayed_bug(this.cause.span, "dyn compatibility during coercion"));
     } else if (sel.$ === "Err") {
       const err = sel._0;
-      const guar = err_ctxt_view(this.fcx).report_selection_error(obligation, obligation, err);
+      const guar = this.fcx.err_ctxt().report_selection_error(obligation, obligation, err);
       this.fcx.set_tainted_by_errors(guar);
       // Treat this like an obligation and follow through
       // with the unsizing - the lack of a coercion should
@@ -1794,7 +1784,7 @@ CoerceMany.prototype.coerce_inner = function (
       const code = cause.code_();
       if (code.$ === "ReturnNoExpression") {
         err = struct_span_code_err(fcx.dcx(), cause.span, E0069, "`return;` in a function whose return type is not `()`");
-        const value = err_ctxt_view(fcx).ty_kind_suggestion(fcx.param_env, found);
+        const value = fcx.err_ctxt().ty_kind_suggestion(fcx.param_env, found);
         if (value !== undefined) {
           err.span_suggestion_verbose(Span.shrink_to_hi(cause.span), "give the `return` a value of the expected type", ` ${value}`, "HasPlaceholders");
         }
@@ -1810,7 +1800,7 @@ CoerceMany.prototype.coerce_inner = function (
       } else if (code.$ === "MatchExpressionArm" && code._0.tail_defines_return_position_impl_trait !== undefined) {
         const { arm_span, arm_ty, prior_arm_ty, prior_non_diverging_arms } = code._0;
         const rpit_def_id = code._0.tail_defines_return_position_impl_trait;
-        err = err_ctxt_view(fcx).report_mismatched_types(cause, fcx.param_env, expected, found, coercion_error);
+        err = fcx.err_ctxt().report_mismatched_types(cause, fcx.param_env, expected, found, coercion_error);
         // Check that we're actually in the second or later arm
         if (prior_non_diverging_arms.length > 0) {
           this.suggest_boxing_tail_for_return_position_impl_trait(fcx, err, rpit_def_id, arm_ty, prior_arm_ty, [...prior_non_diverging_arms, arm_span]);
@@ -1823,7 +1813,7 @@ CoerceMany.prototype.coerce_inner = function (
           return unreachable();
         }
         const [then_expr, else_expr] = [node._0.kind._1, node._0.kind._2];
-        err = err_ctxt_view(fcx).report_mismatched_types(cause, fcx.param_env, expected, found, coercion_error);
+        err = fcx.err_ctxt().report_mismatched_types(cause, fcx.param_env, expected, found, coercion_error);
         const then_span = fcx.find_block_span_from_hir_id(then_expr.hir_id);
         const else_span = fcx.find_block_span_from_hir_id(else_expr.hir_id);
         // Don't suggest wrapping whole block in `Box::new`.
@@ -1833,7 +1823,7 @@ CoerceMany.prototype.coerce_inner = function (
           this.suggest_boxing_tail_for_return_position_impl_trait(fcx, err, rpit_def_id, then_ty, else_ty, [then_span, else_span]);
         }
       } else {
-        err = err_ctxt_view(fcx).report_mismatched_types(cause, fcx.param_env, expected, found, coercion_error);
+        err = fcx.err_ctxt().report_mismatched_types(cause, fcx.param_env, expected, found, coercion_error);
       }
 
       augment_error(err);
@@ -1933,7 +1923,7 @@ CoerceMany.prototype.report_return_mismatched_types = function (
   block_or_return_id: HirId,
   expression: hir.Expr | undefined,
 ): Diag {
-  const err = err_ctxt_view(fcx).report_mismatched_types(cause, fcx.param_env, expected, found, ty_err);
+  const err = fcx.err_ctxt().report_mismatched_types(cause, fcx.param_env, expected, found, ty_err);
 
   const due_to_block = fcx.tcx.hir_node(block_or_return_id).$ === "Block";
   const parent = fcx.tcx.parent_hir_node(block_or_return_id);

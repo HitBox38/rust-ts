@@ -60,7 +60,6 @@ import { bug, span_bug } from "../rustc_span/macros.ts";
 import { sym } from "../rustc_span/symbol.ts";
 import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
 import type { FulfillmentError } from "../rustc_trait_selection/traits/mod.gen.ts";
-import type { TypeErrCtxtView } from "../rustc_trait_selection/traits/mod.ts";
 import { Binder, fold_Binder } from "../rustc_type_ir/binder.ts";
 import { fold_FnSig } from "../rustc_type_ir/ty_kind.ts";
 import type { TypeError } from "../rustc_type_ir/error.ts";
@@ -738,8 +737,7 @@ CastCheck.prototype.try_report_ambiguous_binop_for_infer_cast = function (this: 
   if (errors.length === 0) {
     return undefined;
   } else {
-    // PORT(wave 19): `TypeErrCtxt` is `Pending`; the method is read through rustc_trait_selection's `TypeErrCtxtView`.
-    return (fcx.err_ctxt() as unknown as TypeErrCtxtView).report_fulfillment_errors(errors);
+    return fcx.err_ctxt().report_fulfillment_errors(errors);
   }
 };
 

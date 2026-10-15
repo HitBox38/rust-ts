@@ -17,8 +17,7 @@
 // - `tcx.arena.alloc(sg)` is `sg` (arenas are erased).
 // - Iterators that upstream feeds lazily into `ObligationCtxt::register_obligations` (which normalizes as it goes) are
 //   generators here, so normalization and registration interleave as upstream.
-// - The items this file calls that are not ported yet (`to_pretty_impl_header`, wave 19; `NegativePositiveConflict`,
-//   unassigned) are local stand-ins at the end of the file that stop as UNPORTED.
+// - The items this file calls that are not ported yet (`NegativePositiveConflict`, unassigned) are local stand-ins at the end of the file that stop as UNPORTED.
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
@@ -61,6 +60,7 @@ import { Err, Ok, type Result } from "../../../std/result.ts";
 import type { NoSolution } from "../../../rustc_type_ir/solve/mod.ts";
 import { IntercrateAmbiguityCause } from "../select/mod.ts";
 import { type FutureCompatOverlapErrorKind, Graph, type Node, OverlapMode } from "./specialization_graph.ts";
+import { to_pretty_impl_header } from "../../error_reporting/traits/mod.ts";
 
 // `pub mod specialization_graph;`
 export * as specialization_graph from "./specialization_graph.ts";
@@ -649,10 +649,6 @@ function coherence_mod(): typeof import("../coherence.ts") {
 
 // ---- stand-ins for items that are not ported yet (each stops as UNPORTED) ------------------------------------------
 
-/** stand-in for `error_reporting::traits::to_pretty_impl_header` (error_reporting/traits/mod.rs:569, wave 19). */
-function to_pretty_impl_header(_tcx: TyCtxt, _impl_def_id: DefId): string | undefined {
-  return unported("rustc_trait_selection::error_reporting::traits::to_pretty_impl_header");
-}
 
 /** the fields of `diagnostics::NegativePositiveConflict` (diagnostics.rs:31). */
 interface NegativePositiveConflict {

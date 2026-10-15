@@ -119,12 +119,6 @@ function DefId_eqA_opt(a: DefIdA | undefined, b: DefIdA): boolean {
   return a !== undefined && DefId_eqA(a, b);
 }
 
-// PORT(decls): pending root. `TypeErrCtxt` is `Pending` (rustc_trait_selection decls.ts) until errctxt-contract
-// (wave 19); these are its two methods reached from `check_expr_block` (error_reporting/infer/suggest.rs:434 / :1020).
-interface TypeErrCtxt_suggest {
-  consider_removing_semicolon(blk: hirA.Block, expected_ty: TyA, diag: DiagA): boolean;
-  consider_returning_binding(blk: hirA.Block, expected_ty: TyA, err: DiagA): boolean;
-}
 
 // impl<'a, 'tcx> FnCtxt<'a, 'tcx>
 
@@ -1441,8 +1435,8 @@ FnCtxt.prototype.check_expr_block = function (this: FnCtxt, blk: hirA.Block, exp
               if (blk.stmts.length === 0 && blk.expr === undefined) {
                 this.suggest_boxing_when_appropriate(err, blk.span, blk.hir_id, expected_ty, this.tcx.types.unit);
               }
-              if (!(this.err_ctxt() as unknown as TypeErrCtxt_suggest).consider_removing_semicolon(blk, expected_ty, err)) {
-                (this.err_ctxt() as unknown as TypeErrCtxt_suggest).consider_returning_binding(blk, expected_ty, err);
+              if (!this.err_ctxt().consider_removing_semicolon(blk, expected_ty, err)) {
+                this.err_ctxt().consider_returning_binding(blk, expected_ty, err);
               }
               if (expected_ty === this.tcx.types.bool) {
                 // If this is caused by a missing `let` in a `while let`,

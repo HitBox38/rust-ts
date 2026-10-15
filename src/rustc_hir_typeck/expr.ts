@@ -118,21 +118,6 @@ import {
 } from "./diagnostics.gen.ts";
 import { ExprParenthesesNeeded_surrounding } from "./diagnostics.ts";
 
-/**
- * PORT(decls): pending root. `TypeErrCtxt` is `Pending` (rustc_trait_selection decls.ts, wave 19): the methods of it
- * that expr.rs / op.rs call, with their upstream signatures (error_reporting/traits/suggestions.rs:
- * `suggest_restricting_param_bound`, `note_field_shadowed_by_private_candidate`; error_reporting/infer/mod.rs
- * (`TypeErrCtxtExt`): `ty_kind_suggestion`). Reached only after `FnCtxt::err_ctxt`'s `unported` stop.
- */
-export interface TypeErrCtxtMethods {
-  ty_kind_suggestion(param_env: ParamEnv, ty: Ty): string | undefined;
-  note_field_shadowed_by_private_candidate(err: Diag, hir_id: HirId, param_env: ParamEnv): void;
-  suggest_restricting_param_bound(err: Diag, trait_pred: unknown, associated_ty: [string, Ty] | undefined, body_id: unknown): void;
-}
-/** `self.err_ctxt()` with the methods of `TypeErrCtxtMethods` (see above). */
-export function err_ctxt_methods(fcx: FnCtxt): TypeErrCtxtMethods {
-  return fcx.err_ctxt() as unknown as TypeErrCtxtMethods;
-}
 
 /** `impl TypeVisitable for (Ty, Ty)` (`(a, b).error_reported()`). */
 export const d_Ty_Ty_visitable: TypeVisitable<[Ty, Ty]> = {
@@ -791,7 +776,7 @@ FnCtxt.prototype.check_expr_break = function (this: FnCtxt, destination: hir.Des
             this.suggest_mismatched_types_on_tail(err, expr, ty, e_ty, target_id);
             const error: TypeError | undefined = { $: "Sorts", _0: { expected: ty, found: e_ty } } as TypeError;
             this.annotate_loop_expected_due_to_inference(err, expr, error);
-            const val = err_ctxt_methods(this).ty_kind_suggestion(this.param_env, ty);
+            const val = this.err_ctxt().ty_kind_suggestion(this.param_env, ty);
             if (val !== undefined) {
               err.span_suggestion_verbose(Span.shrink_to_hi(expr.span), "give the `break` a value of the expected type", ` ${val}`, "HasPlaceholders");
             }
@@ -2247,7 +2232,7 @@ FnCtxt.prototype.report_unknown_field = function (
   if (has_errors.$ === "Err") {
     return has_errors._0;
   }
-  const err = err_ctxt_view(this).type_error_struct_with_diag(
+  const err = this.err_ctxt().type_error_struct_with_diag(
     field.ident.span,
     (actual: string): Diag => {
       const k = ty.kind();
@@ -3207,7 +3192,7 @@ FnCtxt.prototype.find_and_report_unsatisfied_index_impl = function (
     // There should be at least one error reported. If not, we
     // will still delay a span bug in `report_fulfillment_errors`.
     return Ok<[ErrorGuaranteed, Ty, Ty]>([
-      err_ctxt_view(this).report_fulfillment_errors(TraitErrors.into_thin_vec(true_errors)),
+      this.err_ctxt().report_fulfillment_errors(TraitErrors.into_thin_vec(true_errors)),
       impl_trait_ref.args.type_at(1),
       element_ty,
     ]);
@@ -3612,16 +3597,4 @@ function str_from_byte(s: string, from: number): string {
   return Str.from(s).slice(from).toString();
 }
 
-/**
- * `TypeErrCtxt<'_, 'tcx>` (rustc_trait_selection error_reporting, wave 19): the methods this file calls on
- * `self.err_ctxt()`. PORT: a view over `FnCtxt::err_ctxt` (its stub stops as UNPORTED), as rustc_hir_analysis
- * check/entry.ts; root drops it when `TypeErrCtxt` is ported.
- */
-interface TypeErrCtxtView {
-  type_error_struct_with_diag(sp: Span, mk_diag: (actual: string) => Diag, actual_ty: Ty): Diag;
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-}
 
-function err_ctxt_view(fcx: FnCtxt): TypeErrCtxtView {
-  return fcx.err_ctxt() as unknown as TypeErrCtxtView;
-}

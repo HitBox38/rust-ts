@@ -130,8 +130,9 @@ import type { WritebackCx } from "./writeback.gen.ts";
 export type { Place, PlaceBase, PlaceWithHirId, Projection };
 /** rustc_middle ty/layout.rs `SizeSkeleton<'tcx>` (intrinsicck.rs; M4 layout). */
 export type SizeSkeleton = Pending<"rustc_middle::ty::layout::SizeSkeleton">;
-/** rustc_trait_selection error_reporting/traits/suggestions.rs `DefIdOrName` (fn_ctxt/suggestions.rs; wave 19). */
-export type DefIdOrName = Pending<"rustc_trait_selection::error_reporting::traits::DefIdOrName">;
+/** rustc_trait_selection error_reporting/traits/mod.rs `DefIdOrName` (generated; errctxt-contract). */
+export type { DefIdOrName } from "../rustc_trait_selection/error_reporting/traits/mod.gen.ts";
+import type { DefIdOrName } from "../rustc_trait_selection/error_reporting/traits/mod.gen.ts";
 /** writeback.rs:900 `trait Locatable` (`impl Locatable for Span / HirId`): `Span | HirId` is enough for `to_span`. */
 export type Locatable = Span | HirId;
 

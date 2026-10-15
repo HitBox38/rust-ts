@@ -21,7 +21,7 @@ import { Obligation } from "../rustc_infer/traits/mod.ts";
 import { ObligationCause, debug_SelectionError } from "../rustc_middle/traits/mod.ts";
 import { TraitErrors } from "../rustc_infer/traits/engine.ts";
 import { debug_TraitRef } from "../rustc_type_ir/ir_print.ts";
-import { err_ctxt, ObligationCtxt, SelectionContext } from "../rustc_trait_selection/traits/mod.ts";
+import { ObligationCtxt, SelectionContext } from "../rustc_trait_selection/traits/mod.ts";
 import type { TypeFoldable } from "../rustc_type_ir/fold.ts";
 
 const d_TraitRef: TypeFoldable<TraitRef> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
@@ -84,7 +84,7 @@ export function codegen_select_candidate(tcx: TyCtxt, key: PseudoCanonicalInput<
     // `rustc_ty_utils::resolve_associated_item` doesn't return `None` post-monomorphization.
     for (const err of TraitErrors.into_iter(errors)) {
       if (err.$ === "Cycle") {
-        err_ctxt(infcx).report_overflow_obligation_cycle(err._0);
+        infcx.err_ctxt().report_overflow_obligation_cycle(err._0);
       }
     }
     return Err({ $: "Unimplemented" });

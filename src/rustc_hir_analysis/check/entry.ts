@@ -156,13 +156,13 @@ function check_main_fn_ty(tcx: TyCtxt, main_def_id: DefId): Result<null, ErrorGu
     ocx.register_bound(cause, param_env, norm_return_ty, term_did);
     const errors = ocx.evaluate_obligations_error_on_ambiguity();
     if (errors.$ === "HasErrors") {
-      return Err(err_ctxt(infcx).report_fulfillment_errors(errors._0));
+      return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
     }
 
     const region_errors = infcx.resolve_regions(main_diagnostics_def_id, param_env, RawList.empty<Ty>());
 
     if (!(region_errors.length === 0)) {
-      return Err(err_ctxt(infcx).report_region_errors(main_diagnostics_def_id, region_errors));
+      return Err(infcx.err_ctxt().report_region_errors(main_diagnostics_def_id, region_errors));
     }
     // now we can take the return type of the given main function
     expected_return_type = norm_return_ty;
@@ -216,13 +216,4 @@ interface CodegenFnAttrsView {
   target_features: readonly unknown[];
 }
 
-/** `TypeErrCtxt<'_, 'tcx>` (rustc_trait_selection error_reporting, wave 19): the methods this file calls. */
-interface TypeErrCtxtView {
-  report_fulfillment_errors(errors: unknown[]): ErrorGuaranteed;
-  report_region_errors(generic_param_scope: LocalDefId, errors: readonly unknown[]): ErrorGuaranteed;
-}
 
-/** `infcx.err_ctxt()` (`InferCtxtErrorExt`, wave 19): its stub stops as UNPORTED; `TypeErrCtxt` is still `Pending`. */
-function err_ctxt(infcx: InferCtxt): TypeErrCtxtView {
-  return infcx.err_ctxt() as unknown as TypeErrCtxtView;
-}
