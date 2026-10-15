@@ -79,7 +79,8 @@ import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as collect from "./collect.ts";
 
 // pub mod check;            (wave 17: check-wf-a/-b, check-check, check-compare, check-region-intrinsic)
-// pub mod autoderef;        (wave 17/18)
+// pub mod autoderef;
+export * as autoderef from "./autoderef.ts";
 // mod check_unused;         (wave 17)
 // mod coherence;            (wave 17: coherence)
 // mod collect;
