@@ -223,3 +223,4 @@ Wave-18b follow-ups found by lanes (for a `typeck-gaps` lane after the 13 lanes 
 - rustc_passes upvars.rs (`upvars_mentioned` provider, ~100 lines, no owner): needed by closure analysis / typeck-euv.
 - decls.ts `Fns_upvar.truncate_place_to_len_and_update_capture_kind` curr_mode -> MutRef<UpvarCapture>; drop upvar.ts's PORT(decls) overload.
 - After typeck-euv merges: replace upvar.ts place stand-ins (Place_new, PlaceWithHirId_new, clone_Place, fold_Place, Debug helpers, as_HirPlace casts).
+- typeck-euv follow-ups: point rustc_middle/ty/decls.ts HirPlace/ProjectionKind at hir/place.ts (drop casts and stand-in views in ty/closure.ts, thir/cx/expr.ts, tydump_dump.ts); `pub mod place` in hir/mod.ts; codegen TypeFoldable/TypeVisitable for place types (writeback needs them).
