@@ -43,8 +43,8 @@
 // - `UnordSet<&'static str>` is `Set<string>`; `FxIndexMap<UpvarMigrationInfo, _>` / `FxIndexSet<UpvarMigrationInfo>`
 //   are `KeyedMap` / `KeyedSet` keyed by `intern_key` (the derived `Hash`/`Eq` of a data enum).
 // - `ty::CaptureInfo` is `Copy`: every Rust copy that is later mutated is `copy_CaptureInfo(..)`.
-// - `hir::place` items are rustc_middle hir/place.ts's (merge-w18). Their `TypeFoldable` / `TypeVisitable` derives are
-//   not generated yet (tools/codegen): `fold_Place` at the end of this file is an `unported` stand-in.
+// - `hir::place` items are rustc_middle hir/place.ts's (merge-w18). `fold_Place` at the end of this file is the D4
+//   descriptor of their generated `TypeFoldable` / `TypeVisitable` derives (hir/place.gen.ts).
 // Init order: top-level code here touches only ./decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
 export * from "./upvar.gen.ts";
@@ -96,6 +96,7 @@ import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../std/
 import { str_lines, utf8_len } from "../std/str.ts";
 import { Delegate_provided, ExprUseVisitor, TypeInformationCtxt_FnCtxt } from "./expr_use_visitor.ts";
 import { type Delegate, FnCtxt, TypeInformationCtxt } from "./decls.ts";
+import { fold_with_Place, try_fold_with_Place, visit_with_Place } from "../rustc_middle/hir/place.ts";
 import { clone_Place, debug_PlaceBase, debug_Projection, debug_ProjectionKind, Place, type PlaceBase, PlaceBase_eq, PlaceWithHirId, type Projection, type ProjectionKind, ProjectionKind_eq } from "../rustc_middle/hir/place.ts";
 import { MigrationWarningReason, type NeededMigration, PlaceAncestryRelation, type UpvarMigrationInfo } from "./upvar.gen.ts";
 import type { InferredCaptureInformation, MigrationLintNote } from "./upvar.gen.ts";
@@ -2778,9 +2779,9 @@ function debug_LocalDefId_str(v: LocalDefId): string {
 
 // ---- PORT stand-ins (not markers) ----------------------------------------------------------------------------------
 
-/** `#[derive(TypeFoldable, TypeVisitable)]` of `hir::place::Place` (D4 descriptor; not generated yet). */
+/** `#[derive(TypeFoldable, TypeVisitable)]` of `hir::place::Place` (generated: hir/place.gen.ts) as a D4 descriptor. */
 const fold_Place: TypeFoldable<Place> = {
-  visit_with: () => unported("rustc_middle::hir::place::Place TypeVisitable (hir/place.rs derive; tools/codegen)"),
-  try_fold_with: () => unported("rustc_middle::hir::place::Place TypeFoldable (hir/place.rs derive; tools/codegen)"),
-  fold_with: () => unported("rustc_middle::hir::place::Place TypeFoldable (hir/place.rs derive; tools/codegen)"),
+  visit_with: visit_with_Place,
+  try_fold_with: try_fold_with_Place,
+  fold_with: fold_with_Place,
 };
