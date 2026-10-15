@@ -34,7 +34,7 @@ import type { LocalCrate } from "../../../rustc_middle/query/keys.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { Visibility } from "../../../rustc_middle/ty/mod.ts";
 import type { Providers } from "../../../rustc_middle/util/mod.ts";
-import { type Decodable, decode_Option, decode_String, decode_Vec } from "../../../rustc_serialize/serialize.ts";
+import { type Decodable, decode_HashMap, decode_Option, decode_String, decode_Vec } from "../../../rustc_serialize/serialize.ts";
 import { CrateNum, DefId, DefId_eq, DefIdMap, LOCAL_CRATE, type ModId, type StableCrateId, debug_CrateNum, debug_DefId, debug_StableCrateId } from "../../../rustc_span/def_id.ts";
 import { decode_Ident } from "../../../rustc_span/decodable.gen.ts";
 import type { ExpnId } from "../../../rustc_span/hygiene.ts";
@@ -61,7 +61,7 @@ import { decode_FnSig, type FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
 import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
-import { decode_AsyncDestructor, decode_Destructor, decode_Generics } from "../../../rustc_middle/decodable.gen.ts";
+import { decode_AsyncDestructor, decode_Destructor, decode_GenericClauses, decode_Generics, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
@@ -240,6 +240,15 @@ const raw_def_id: DecodeLazy = { lazy: "RawDefId", what: "RawDefId", decode: (la
 /** The `Decodable` of an element type that has no TS port yet. */
 function decode_unported(what: string): Decodable<never, MetadataDecodeContext> {
   return (): never => unported(`rustc_metadata::rmeta::decoder::cstore_impl: Decodable for ${what}`);
+}
+
+/**
+ * `DefIdMap<T>` = `UnordMap<DefId, T>` (rustc_span def_id.rs `define_id_collections!`): the `derive(Decodable_NoContext)`
+ * of `UnordMap { inner: FxHashMap<K, V> }` (rustc_data_structures unord.rs:683), i.e. `HashMap`'s `Decodable`
+ * (rustc_serialize serialize.rs: `read_usize` entries, each key then value), into the `DefId`-keyed `DefIdMap`.
+ */
+function decode_DefIdMap<T>(d: MetadataDecodeContext, decode_T: Decodable<T, MetadataDecodeContext>): DefIdMap<T> {
+  return new DefIdMap(decode_HashMap(d, (d: MetadataDecodeContext) => d.decode_def_id(), decode_T));
 }
 
 /** `(ty::Clause<'static>, Span)`: the tuple impl over `Decodable for Clause` (rustc_middle ty/codec.rs:226) and `Span`. */
@@ -431,7 +440,7 @@ type ExportedSymbol = { readonly $: "NonGeneric"; readonly _0: DefId } | { reado
 export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } = {
   explicit_item_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_EarlyBinder)],
   explicit_item_self_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_EarlyBinder)],
-  explicit_clauses_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::GenericClauses<'static>", decode_unported("ty::GenericClauses<'static>")), ProcessQueryValue_Option_T)],
+  explicit_clauses_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::GenericClauses<'static>", decode_GenericClauses), ProcessQueryValue_Option_T)],
   generics_of: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::Generics", decode_Generics), ProcessQueryValue_Option_T)],
   inferred_outlives_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_T)],
   explicit_super_clauses_of: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::Clause<'static>, Span)", decode_Clause_Span), ProcessQueryValue_EarlyBinder)],
@@ -496,7 +505,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
       return Ok(lazy.decode([cdata, tcx], decode_unported("mir::interpret::ConstAllocation<'static>")));
     },
   ],
-  trait_def: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::TraitDef", decode_unported("ty::TraitDef")), ProcessQueryValue_Option_T)],
+  trait_def: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::TraitDef", decode_TraitDef), ProcessQueryValue_Option_T)],
   deduced_param_attrs: [
     IntoArgs_DefId,
     (tcx, def_id, _other, cdata) => {
@@ -515,14 +524,14 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
     (tcx, def_id, _other, cdata) => {
       const lazy = cdata.root.tables.collect_return_position_impl_trait_in_trait_tys.get(fse_Option_LazyValue, cdata, def_id.index);
       return Ok(
-        ProcessQueryValue_Option_ref_T.process_decoded(lazy === undefined ? undefined : lazy.decode([cdata, tcx], decode_unported("DefIdMap<ty::EarlyBinder<'static, Ty<'static>>>")), tcx, () =>
+        ProcessQueryValue_Option_ref_T.process_decoded(lazy === undefined ? undefined : lazy.decode([cdata, tcx], (d) => decode_DefIdMap(d, (d) => decode_EarlyBinder(d, decode_Ty))), tcx, () =>
           panic(`${debug_DefId(def_id, PLAIN)} does not have collect_return_position_impl_trait_in_trait_tys`),
         ) as DefIdMap<unknown>,
       );
     },
   ],
 
-  associated_types_for_impl_traits_in_trait_or_impl: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DefIdMap<Vec<DefId>>", decode_unported("DefIdMap<Vec<DefId>>")), ProcessQueryValue_Option_T)],
+  associated_types_for_impl_traits_in_trait_or_impl: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DefIdMap<Vec<DefId>>", (d) => decode_DefIdMap(d, (d) => decode_Vec(d, (d: MetadataDecodeContext) => d.decode_def_id()))), ProcessQueryValue_Option_T)],
 
   visibility: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_visibility(tcx, def_id.index)],
   adt_def: [IntoArgs_DefId, (tcx, def_id, _other, cdata) => cdata.get_adt_def(tcx, def_id.index)],

@@ -2185,10 +2185,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     /** `Decodable::decode(__decoder)` of a field of type `ty` (serialize.rs `decode_field`). */
     const decExpr = (ty: PType, sc: Scope, at: string): string => {
       switch (ty.kind) {
-        case "ref":
-          // `::rustc_middle::ty::codec::RefDecodable::decode(__decoder)` for reference fields
+        case "ref": {
+          // `::rustc_middle::ty::codec::RefDecodable::decode(__decoder)` for reference fields. A serialize.json entry
+          // keyed `&<referent>` (the `renderKey` text, e.g. `&[(Clause, Span)]`) names the referent's `RefDecodable`
+          // impl (rustc_middle arena.rs `impl_ref_decodable_into_arena!`, ty/codec/ref_decodable.rs); for a slice
+          // referent its `$d0` is the element's Decodable fn.
+          const re = serIndex.get(`&${renderKey(ty.elem!)}`);
+          if (re !== undefined) return decTemplate(re, `RefDecodable for ${ty.text}`, ty.elem!.kind === "slice" ? [ty.elem!.elem!] : [ty.elem!], sc, at);
           push(report.missing_decodable, `RefDecodable (reference field ${ty.text})`, at);
           return `unported_decodable(${DEC})`;
+        }
         case "slice":
           // only reachable through `Box<[T]>` / `Rc<[T]>` / `Arc<[T]>`, which decode a `Vec<T>`
           return `${serUse("decode_Vec")}(${DEC}, ${decFn(ty.elem!, sc, at)})`;

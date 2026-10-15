@@ -293,7 +293,8 @@
       "rustc_hir::def::Res",
       "rustc_hir::def::Namespace",
       "rustc_hir::hir::PrimTy",
-      "rustc_hir::hir::Safety"
+      "rustc_hir::hir::Safety",
+      "rustc_hir::hir::Constness"
     ],
     "hand_notes": {
       "decodable_types": "crate metadata's def_keys table (rmeta decoder.rs `CrateMetadata::def_key`, lane rmeta-decoder-b)",
@@ -396,7 +397,8 @@
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs",
       "compiler/rustc_middle/src/ty/generics.rs",
-      "compiler/rustc_middle/src/middle/resolve.rs"
+      "compiler/rustc_middle/src/middle/resolve.rs",
+      "compiler/rustc_middle/src/ty/trait_def.rs"
     ],
     "class": [],
     "hand": [],
@@ -419,10 +421,14 @@
       "rustc_middle::middle::resolve::AmbigModChild",
       "rustc_middle::ty::generics::GenericParamDefKind",
       "rustc_middle::ty::generics::GenericParamDef",
-      "rustc_middle::ty::generics::Generics"
+      "rustc_middle::ty::generics::Generics",
+      "rustc_middle::ty::trait_def::TraitSpecializationKind",
+      "rustc_middle::ty::trait_def::TraitDef",
+      "rustc_middle::ty::generics::GenericClauses"
     ],
     "decodable_construct": {
-      "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] }
+      "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] },
+      "rustc_middle::ty::trait_def::TraitDef": { "expr": "new TraitDef($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)", "import": ["TraitDef"] }
     },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
