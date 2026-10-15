@@ -3,12 +3,13 @@
 // - `UsageKind` is generated (opaque_types.gen.ts); `UsageKind::merge(&mut self, ..)` is `UsageKind_merge(self_:
 //   MutRef<UsageKind>, other)` (PORTING §8: an enum method; `&mut self` assigns through the cell).
 // - rustc_trait_selection's opaque_types.rs (`opaque_type_has_defining_use_args`, `NonDefiningUseReason`,
-//   `report_item_does_not_constrain_error`) is not ported: the shims at the end stop as `unported`.
+//   `report_item_does_not_constrain_error`) is rustc_trait_selection/opaque_types.ts (lane typeck-gaps).
 // - `FnCtxt::err_ctxt()` returns the `Pending` `TypeErrCtxt` (wave 19): `TypeErrCtxtView` lists the methods called here.
 // - `debug!` / `#[instrument]` are tracing only and stay as comments.
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates.
 export * from "./opaque_types.gen.ts";
 import * as middle_ty from "../rustc_middle/ty/mod.ts";
+import { opaque_type_has_defining_use_args, report_item_does_not_constrain_error } from "../rustc_trait_selection/opaque_types.ts";
 import type { Diag } from "../rustc_errors/diagnostic.ts";
 import { ObligationCause } from "../rustc_middle/traits/mod.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
@@ -31,10 +32,8 @@ import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { PLAIN } from "../std/fmt.ts";
 import type { MutRef } from "../std/mut_ref.ts";
-import { unported, unreachable, unwrap } from "../std/panic.ts";
+import { unreachable, unwrap } from "../std/panic.ts";
 import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
-import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { InferCtxt } from "../rustc_infer/decls.ts";
 import { FnCtxt } from "./decls.ts";
 import type { UsageKind } from "./opaque_types.gen.ts";
 
@@ -231,8 +230,8 @@ FnCtxt.prototype.consider_opaque_type_use = function (this: FnCtxt, opaque_type_
   const r = opaque_type_has_defining_use_args(this.infcx, opaque_type_key, hidden_type_.span, "HirTypeck");
   if (r.$ === "Err") {
     const err = r._0;
-    const guar = NonDefiningUseReason_tainted(err);
-    if (guar !== undefined) {
+    if (err.$ === "Tainted") {
+      const guar = err._0;
       return { $: "HasDefiningUse", _0: DefinitionSiteHiddenType.new_error(this.tcx, guar) };
     } else {
       return { $: "NonDefiningUse", _0: opaque_type_key, _1: hidden_type_ };
@@ -300,39 +299,6 @@ interface TypeErrCtxtView {
 }
 function err_ctxt(fcx: FnCtxt): TypeErrCtxtView {
   return fcx.err_ctxt() as unknown as TypeErrCtxtView;
-}
-
-/** rustc_trait_selection opaque_types.rs `NonDefiningUseReason<'tcx>` (not ported). */
-export type NonDefiningUseReason = Pending<"rustc_trait_selection::opaque_types::NonDefiningUseReason">;
-
-/** PORT: rustc_trait_selection opaque_types.rs `opaque_type_has_defining_use_args` (not ported; no lane owns the file). */
-export function opaque_type_has_defining_use_args(
-  _infcx: InferCtxt,
-  _opaque_type_key: OpaqueTypeKey,
-  _span: Span,
-  _defining_scope_kind: DefiningScopeKind,
-): { $: "Ok"; _0: null } | { $: "Err"; _0: NonDefiningUseReason } {
-  return unported("rustc_trait_selection::opaque_types::opaque_type_has_defining_use_args");
-}
-
-/** PORT: `NonDefiningUseReason::report(&self, infcx)` (rustc_trait_selection opaque_types.rs, not ported). */
-export function NonDefiningUseReason_report(_self: NonDefiningUseReason, _infcx: InferCtxt): ErrorGuaranteed {
-  return unported("rustc_trait_selection::opaque_types::NonDefiningUseReason::report");
-}
-
-/** PORT: `if let NonDefiningUseReason::Tainted(guar) = err` (rustc_trait_selection opaque_types.rs, not ported). */
-function NonDefiningUseReason_tainted(_self: NonDefiningUseReason): ErrorGuaranteed | undefined {
-  return unported("rustc_trait_selection::opaque_types::NonDefiningUseReason");
-}
-
-/** PORT: rustc_trait_selection opaque_types.rs `report_item_does_not_constrain_error` (not ported). */
-function report_item_does_not_constrain_error(
-  _tcx: TyCtxt,
-  _item_def_id: LocalDefId,
-  _def_id: LocalDefId,
-  _non_defining_use: [OpaqueTypeKey, Span] | undefined,
-): ErrorGuaranteed {
-  return unported("rustc_trait_selection::opaque_types::report_item_does_not_constrain_error");
 }
 
 /** PORT: typeck_results.ts types `hidden_types` with a local `Pending` alias of `ty::DefinitionSiteHiddenType`. */

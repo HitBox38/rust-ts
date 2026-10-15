@@ -72,7 +72,7 @@ import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_pro
 import { PLAIN } from "../std/fmt.ts";
 import { assert, unported, unwrap } from "../std/panic.ts";
 import { FnCtxt, type Locatable } from "./decls.ts";
-import { NonDefiningUseReason_report, opaque_type_has_defining_use_args } from "./opaque_types.ts";
+import { NonDefiningUseReason, opaque_type_has_defining_use_args } from "../rustc_trait_selection/opaque_types.ts";
 
 ///////////////////////////////////////////////////////////////////////////
 // Entry point
@@ -685,7 +685,7 @@ WritebackCx.prototype.visit_opaque_types = function (this: WritebackCx): void {
     const r = opaque_type_has_defining_use_args(this.fcx.infcx, opaque_type_key, hidden_type.span, "HirTypeck");
     if (r.$ === "Err") {
       const err = r._0;
-      hidden_types.set(opaque_type_key.def_id, DefinitionSiteHiddenType.new_error(tcx, NonDefiningUseReason_report(err, this.fcx.infcx)));
+      hidden_types.set(opaque_type_key.def_id, DefinitionSiteHiddenType.new_error(tcx, NonDefiningUseReason.report(err, this.fcx.infcx)));
     }
 
     const remapped = hidden_type.remap_generic_params_to_declaration_params(opaque_type_key, tcx, "HirTypeck");
