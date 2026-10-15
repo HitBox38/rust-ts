@@ -1,0 +1,23 @@
+{
+  "//": [
+    "Set-local type map of set rustc_trait_selection_traits_a (lane trait-sel-traits-a; types.sets.json `typemap_extra`, after",
+    "tyir.typemap.json, middle_traits_thir.typemap.json and infer.typemap.json): the rustc_infer / rustc_middle types the set reaches.",
+    "The bare paths (`PredicateObligation`, `SelectionError`) are the names traits/mod.rs gets from `pub use rustc_infer::traits::*`",
+    "(the generator does not resolve glob imports)."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {
+    "src/rustc_middle/ty/predicate.ts": ["debug_Predicate"],
+    "src/rustc_middle/traits/mod.ts": ["clone_SelectionError"],
+    "src/rustc_infer/traits/project.ts": ["clone_MismatchedProjectionTypes"]
+  },
+  "types": [
+    {"paths": ["PredicateObligation", "rustc_infer::traits::PredicateObligation"], "ts": "PredicateObligation", "import": "src/rustc_infer/traits/mod.ts", "types": ["PredicateObligation"], "values": ["debug_Obligation", "clone_Obligation"], "debug": "debug_Obligation($v, $f, debug_Predicate)", "clone": "clone_Obligation($v, (p) => p)", "note": "`Obligation<'tcx, ty::Predicate<'tcx>>` (rustc_infer traits/mod.rs); Debug: structural_impls.rs:17"},
+    {"paths": ["PredicateObligations", "rustc_infer::traits::PredicateObligations"], "ts": "PredicateObligations", "import": "src/rustc_infer/traits/mod.ts", "types": ["PredicateObligations"], "values": ["debug_Obligation", "clone_Obligation"], "debug": "debug_vec($v, $f, (o, f) => debug_Obligation(o, f, debug_Predicate))", "clone": "$v.map((o) => clone_Obligation(o, (p) => p))", "note": "`ThinVec<PredicateObligation<'tcx>>`"},
+    {"paths": ["SelectionError", "rustc_infer::traits::SelectionError", "rustc_middle::traits::SelectionError"], "ts": "SelectionError", "import": "src/rustc_middle/traits/mod.ts", "types": ["SelectionError"], "values": ["debug_SelectionError", "clone_SelectionError"], "debug": "debug_SelectionError($v, $f)", "clone": "clone_SelectionError($v)"},
+    {"paths": ["rustc_infer::traits::project::MismatchedProjectionTypes", "MismatchedProjectionTypes"], "ts": "MismatchedProjectionTypes", "import": "src/rustc_infer/traits/project.ts", "types": ["MismatchedProjectionTypes"], "values": ["debug_MismatchedProjectionTypes", "clone_MismatchedProjectionTypes"], "debug": "debug_MismatchedProjectionTypes($v, $f)", "clone": "clone_MismatchedProjectionTypes($v)"},
+    {"paths": ["rustc_middle::ty::FieldDef"], "ts": "FieldDef", "import": "src/rustc_middle/ty/mod.ts", "types": ["FieldDef"], "debug": null, "clone": "copy", "note": "`&'tcx ty::FieldDef` (arena reference)"},
+    {"paths": ["rustc_infer::infer::lexical_region_resolve::RegionResolutionError", "rustc_infer::infer::RegionResolutionError"], "ts": "RegionResolutionError", "import": "src/rustc_infer/infer/lexical_region_resolve/mod.ts", "types": ["RegionResolutionError"], "values": ["debug_RegionResolutionError"], "debug": "debug_RegionResolutionError($v, $f)", "clone": null},
+    {"paths": ["rustc_trait_selection::traits::ScrubbedTraitError", "rustc_infer::traits::ScrubbedTraitError"], "ts": "ScrubbedTraitError", "import": "src/rustc_infer/traits/engine.ts", "types": ["ScrubbedTraitError"], "debug": null, "clone": null}
+  ]
+}

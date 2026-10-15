@@ -4,8 +4,8 @@
 // - at runtime every real declaration exists (ported, or an `unported` placeholder of the owning stub module), the
 //   placeholders stop as UNPORTED and name their own file's module;
 // - `InferCtxt` has every `InferCtxtLike` method (`implements` is also checked by tsc in decls.ts);
-// - rustc_trait_selection's extension methods exist, are placeholders of rustc_trait_selection, and no extension name
-//   collides with an inherent `InferCtxt` / `At` / `InferCtxtBuilder` method;
+// - rustc_trait_selection's extension methods exist, are ported or placeholders of rustc_trait_selection, and no
+//   extension name collides with an inherent `InferCtxt` / `At` / `InferCtxtBuilder` method;
 // - `tcx.infer_ctxt().build(..)` builds an empty `InferCtxt` whose ena tables and undo log work (type_variable.rs,
 //   unify_key.rs, snapshot/undo_log.rs and the `InferCtxtInner` glue of mod.rs).
 //
@@ -216,7 +216,7 @@ describe("rustc_infer contract", () => {
     expect(names.filter((n) => typeof proto[n] !== "function")).toEqual([]);
   });
 
-  test("rustc_trait_selection's extension methods are its placeholders and collide with no inherent method", async () => {
+  test("rustc_trait_selection's extension methods are ported or its placeholders and collide with no inherent method", async () => {
     const ts = parse_decls(join(HERE, "../rustc_trait_selection/decls.ts"));
     const inherent = new Set(DECLS.decls.filter((d) => d.module === undefined).map((d) => `${d.ctx}.${d.name}`));
     const bad: string[] = [];
@@ -230,7 +230,8 @@ describe("rustc_infer contract", () => {
       const f = obj[d.name];
       const path = unported_stub_path(f);
       const mod = ["rustc_trait_selection", ...d.file.replace(/\.rs$/, "").split("/").filter((p) => p !== "mod")].join("::");
-      if (path === undefined || !path.startsWith(mod + "::")) bad.push(`${d.file}:${d.line} ${d.name}: ${path ?? typeof f}`);
+      // A ported method is a plain function (wave 17 lanes fill the stubs); a placeholder names its own module.
+      if (typeof f !== "function" || (path !== undefined && !path.startsWith(mod + "::"))) bad.push(`${d.file}:${d.line} ${d.name}: ${path ?? typeof f}`);
     }
     expect(bad).toEqual([]);
     expect(ts.decls.length).toBe(29);
@@ -314,7 +315,8 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
     const tcx = mk_tcx();
     const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
     // (`next_ty_var` and `unwrap_region_constraints` stopped here until lanes infer-core / infer-regions ported them.)
-    expect(() => infcx.can_eq(undefined as never, undefined, undefined, undefined as never)).toThrow(/rustc_trait_selection::infer::InferCtxt::can_eq/);
+    // (`can_eq` stopped here until lane trait-sel-traits-a ported rustc_trait_selection infer.rs.)
+    expect(() => infcx.predicate_may_hold(undefined as never)).toThrow(/rustc_trait_selection::traits::query::evaluate_obligation::InferCtxt::predicate_may_hold/);
   });
 
   test("rustc_middle infer/canonical.rs: CanonicalParamEnvCache and OriginalQueryValues defaults", () => {

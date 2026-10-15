@@ -36,10 +36,12 @@ import type { Goal, NoSolution } from "../rustc_type_ir/solve/mod.ts";
 import type { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import type { Result } from "../std/result.ts";
 
-/** `traits::ObligationCtxt<'a, 'tcx, E>` (traits/engine.rs, wave 17). */
-export type ObligationCtxt = Pending<"rustc_trait_selection::traits::ObligationCtxt">;
-/** `traits::FulfillmentError<'tcx>` (traits/mod.rs, wave 17). */
-export type FulfillmentError = Pending<"rustc_trait_selection::traits::FulfillmentError">;
+/** `traits::ObligationCtxt<'a, 'tcx, E>` (traits/engine.rs, lane trait-sel-traits-a). */
+export type { ObligationCtxt } from "./traits/engine.ts";
+/** `traits::FulfillmentError<'tcx>` (traits/mod.rs, lane trait-sel-traits-a). */
+export type { FulfillmentError } from "./traits/mod.gen.ts";
+import type { FulfillmentError } from "./traits/mod.gen.ts";
+import type { ObligationCtxt } from "./traits/engine.ts";
 /** `solve::NextSolverError<'tcx>` (solve/fulfill.rs, wave 17). */
 export type NextSolverError = Pending<"rustc_trait_selection::solve::NextSolverError">;
 /** `solve::inspect::ProofTreeVisitor<'tcx>` (solve/inspect/analyse.rs, wave 17): `V: ProofTreeVisitor` with its `V::Result`. */

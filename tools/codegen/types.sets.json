@@ -1075,5 +1075,44 @@
     "discriminant": [],
     "skip": [],
     "typemap_extra": ["tyir.typemap.json", "ast_lowering.typemap.json"]
+  },
+  "rustc_trait_selection_traits_a": {
+    "files": [
+      "compiler/rustc_trait_selection/src/infer.rs",
+      "compiler/rustc_trait_selection/src/regions.rs",
+      "compiler/rustc_trait_selection/src/traits/engine.rs",
+      "compiler/rustc_trait_selection/src/traits/misc.rs",
+      "compiler/rustc_trait_selection/src/traits/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/normalize.rs",
+      "compiler/rustc_trait_selection/src/traits/outlives_bounds.rs",
+      "compiler/rustc_trait_selection/src/traits/structural_normalize.rs",
+      "compiler/rustc_trait_selection/src/traits/util.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_trait_selection::traits::engine::FulfillmentEngine",
+      "rustc_trait_selection::traits::engine::ObligationCtxt",
+      "rustc_trait_selection::traits::normalize::AssocTypeNormalizer"
+    ],
+    "hand_notes": {
+      "rustc_trait_selection::traits::engine::FulfillmentEngine": "enum over the old `FulfillmentContext` (wave 20) and the next solver's `FulfillmentCtxt` (lane trait-sel-solve): hand union of `TraitEngine` objects in traits/engine.ts",
+      "rustc_trait_selection::traits::engine::ObligationCtxt": "class with `RefCell<FulfillmentEngine>`; methods in traits/engine.ts",
+      "rustc_trait_selection::traits::normalize::AssocTypeNormalizer": "TypeFolder impl: hand class (traits/normalize.ts)"
+    },
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "derive_default": true,
+    "resolve_files": [
+      "compiler/rustc_type_ir/src/ty/mod.rs",
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_middle/src/traits/solve.rs",
+      "compiler/rustc_type_ir/src/lib.rs",
+      "compiler/rustc_infer/src/traits/mod.rs",
+      "compiler/rustc_infer/src/infer/mod.rs"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "infer.typemap.json", "trait_selection.typemap.json"]
   }
 }
