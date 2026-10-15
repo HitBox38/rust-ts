@@ -119,7 +119,9 @@ import * as diagnostics from "../diagnostics.ts";
 import type { MissingTraitItemLabel, MissingTraitItemSuggestion, MissingTraitItemSuggestionNone, MissingTraitItemSuggestionUnstable } from "../diagnostics.ts";
 import * as check from "./check.ts";
 import * as always_applicable from "./always_applicable.ts";
+import "./compare_eii.ts";
 import * as compare_impl_item from "./compare_impl_item.ts";
+import "./entry.ts";
 import * as intrinsic from "./intrinsic.ts";
 import * as region from "./region.ts";
 import * as wfcheck from "./wfcheck.ts";
@@ -128,9 +130,9 @@ import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 // pub mod always_applicable;
 export { always_applicable };
 // mod check;
-// mod compare_eii;             (not ported: EII is out of M3 scope)
+// mod compare_eii;
 // mod compare_impl_item;
-// mod entry;                   (not ported yet: `check_for_entry_fn` is a wfcheck.ts stand-in)
+// mod entry;
 // pub mod intrinsic;
 export { intrinsic };
 // mod region;

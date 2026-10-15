@@ -50,6 +50,7 @@ import { clone_Providers as clone_HookProviders, Providers_default as HookProvid
 import "../rustc_middle/lib.ts";
 import { hir } from "../rustc_middle/lib.ts";
 import * as rustc_ast_lowering from "../rustc_ast_lowering/lib.ts";
+import * as rustc_const_eval from "../rustc_const_eval/lib.ts";
 import * as rustc_hir_analysis from "../rustc_hir_analysis/lib.ts";
 import * as rustc_trait_selection from "../rustc_trait_selection/lib.ts";
 import type { ResolverAstLowering, ResolverGlobalCtxt } from "../rustc_middle/middle/resolve.ts";
@@ -948,12 +949,13 @@ function default_query_providers(): MiddleProviders {
   providers.queries.proc_macro_decls_static = (tcx, _) => (tcx.hir_crate_items(null) as hir.ModuleItems).proc_macro_decls();
   rustc_ast_lowering.provide(providers.queries);
   // PORT: pending crates (their `provide` fns are not ported): rustc_expand_queries,
-  // rustc_const_eval, rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
+  // rustc_borrowck, rustc_mir_build, rustc_mir_dataflow, rustc_mir_transform,
   // rustc_monomorphize, rustc_hir_typeck,
-  // rustc_traits, rustc_symbol_mangling, rustc_codegen_ssa (rustc_privacy, rustc_hir_analysis, rustc_ty_utils,
-  // rustc_metadata and rustc_lint are provided below).
+  // rustc_traits, rustc_symbol_mangling, rustc_codegen_ssa (rustc_const_eval, rustc_privacy, rustc_hir_analysis,
+  // rustc_ty_utils, rustc_metadata and rustc_lint are provided below).
   // Their queries stop as UNPORTED (`install_unported_providers`).
   limits.provide(providers.queries);
+  rustc_const_eval.provide(providers);
   hir.provide(providers.queries);
   rustc_incremental_provide(providers);
   rustc_privacy.provide(providers.queries);

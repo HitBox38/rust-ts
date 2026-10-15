@@ -1,0 +1,8 @@
+error: cannot use `const` closures outside of const contexts
+  --> const_closure_err.rs:14:14
+   |
+14 |     let _c = const || {};
+   |              ^^^^^^^^
+
+error: aborting due to 1 previous error
+

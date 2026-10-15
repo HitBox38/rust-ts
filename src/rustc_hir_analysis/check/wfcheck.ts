@@ -21,10 +21,8 @@
 // - `T: TypeFoldable` arguments take the D4 descriptor last (`wfcx.normalize(span, loc, value, d_T)`).
 // - `Result<(), ErrorGuaranteed>` is `Result<null, ErrorGuaranteed>`; `?` is `if (r.$ === "Err") return r;`.
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
-// - The items of other lanes / files that are not ported yet (`ObligationCtxt`, `traits::wf`, `Autoderef`,
-//   `compare_eii`, `check::entry`, the codegen'd derives of this file's types) are stand-ins at the end of the
-//   check-wf-b region ("check-wf-b stand-ins"), each naming its owner; they stop as UNPORTED and are repointed when the
-//   owner merges.
+// - The items that are not ported yet (`LateParamRegionKind::from_bound`, `Display for Binder<TypeOutlivesClause>`,
+//   `impl Elaboratable for (Clause, Span)`) are stand-ins at the end of the check-wf-b region ("check-wf-b stand-ins").
 //
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies.
 
@@ -87,6 +85,9 @@ import { type_allowed_to_implement_const_param_ty } from "../../rustc_trait_sele
 import { clause_obligations as wf_clause_obligations, trait_obligations as wf_trait_obligations, unnormalized_obligations as wf_unnormalized_obligations } from "../../rustc_trait_selection/traits/wf.ts";
 import { region_known_to_outlive, ty_known_to_outlive } from "../../rustc_trait_selection/regions.ts";
 import { check_item_type } from "./check.ts";
+import * as compare_eii from "./compare_eii.ts";
+import * as entry from "./entry.ts";
+import { Autoderef } from "../autoderef.ts";
 import {
   ArbitrarySelfTypesLevel,
   fold_with_TestBinderBody,
@@ -1330,7 +1331,7 @@ function check_eiis_fn(tcx: TyCtxt, def_id: LocalDefId): void {
         return;
     }
 
-    compare_eii_function_types(tcx, def_id, foreign_item, name, span);
+    compare_eii.compare_eii_function_types(tcx, def_id, foreign_item, name, span);
   }
 }
 
@@ -1366,7 +1367,7 @@ function check_eiis_static(tcx: TyCtxt, def_id: LocalDefId, ty: Ty): void {
         return;
     }
 
-    compare_eii_statics(tcx, def_id, ty, foreign_item, name, span);
+    compare_eii.compare_eii_statics(tcx, def_id, ty, foreign_item, name, span);
   }
 }
 
@@ -2024,7 +2025,7 @@ function receiver_is_valid(
   const r = confirm_type_is_not_a_method_generic_param(receiver_ty, method_generics);
   if (r.$ === "Err") return r;
 
-  let autoderef = Autoderef_new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty);
+  let autoderef = Autoderef.new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty);
 
   // The `arbitrary_self_types` feature allows custom smart pointer
   // types to be method receivers, as identified by following the Receiver<Target=T>
@@ -2756,7 +2757,7 @@ export function check_type_wf(tcx: TyCtxt, _: null): Result<null, ErrorGuarantee
   const r6 = items.par_opaques((item) => tcx.ensure_result().check_well_formed(item));
   const res = and(and(and(and(and(r1, r2), r3), r4), r5), r6);
 
-  const r = check_for_entry_fn(tcx);
+  const r = entry.check_for_entry_fn(tcx);
   if (r.$ === "Err") return r;
 
   return res;
@@ -2948,34 +2949,6 @@ function cgp(): typeof import("../constrained_generic_params.ts") {
 }
 
 // ---- check-wf-b stand-ins for items that are not ported yet (each stops as UNPORTED; not markers) --------------------
-
-/** `crate::autoderef::Autoderef` (rustc_hir_analysis autoderef.rs, not ported): the members this file uses. */
-interface AutoderefView {
-  use_receiver_trait(): AutoderefView;
-  include_raw_pointers(): AutoderefView;
-  next(): [Ty, number] | undefined;
-  into_obligations(): PredicateObligation[];
-}
-
-/** PORT(stand-in): `Autoderef::new` (rustc_hir_analysis autoderef.rs, not ported; no wave-17 lane). */
-function Autoderef_new(_infcx: InferCtxt, _param_env: ParamEnv, _body_def_id: LocalDefId, _span: Span, _base_ty: Ty): AutoderefView {
-  return unported("rustc_hir_analysis::autoderef::Autoderef::new");
-}
-
-/** PORT(stand-in): `compare_eii::compare_eii_function_types` (check/compare_eii.rs, not ported: EII is out of M3 scope). */
-function compare_eii_function_types(_tcx: TyCtxt, _external_impl: LocalDefId, _foreign_item: DefId, _eii_name: unknown, _eii_attr_span: Span): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::compare_eii::compare_eii_function_types");
-}
-
-/** PORT(stand-in): `compare_eii::compare_eii_statics` (check/compare_eii.rs, not ported: EII is out of M3 scope). */
-function compare_eii_statics(_tcx: TyCtxt, _external_impl: LocalDefId, _external_impl_ty: Ty, _foreign_item: DefId, _eii_name: unknown, _eii_attr_span: Span): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::compare_eii::compare_eii_statics");
-}
-
-/** PORT(stand-in): `super::entry::check_for_entry_fn` (check/entry.rs, not ported). */
-function check_for_entry_fn(_tcx: TyCtxt): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::entry::check_for_entry_fn");
-}
 
 /**
  * PORT(stand-in): `impl Elaboratable<TyCtxt> for (ty::Clause, Span)` (rustc_middle ty/elaborate_impl.rs:66, not ported);

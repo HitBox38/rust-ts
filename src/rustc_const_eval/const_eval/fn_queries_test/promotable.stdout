@@ -1,0 +1,4 @@
+DefId(0:4 ~ promotable[fbe5]::promotable) Fn Const { always: false } promotable=true
+DefId(0:5 ~ promotable[fbe5]::stable_not_promotable) Fn Const { always: false } promotable=false
+DefId(0:6 ~ promotable[fbe5]::const_unstable) Fn Const { always: false } promotable=false
+DefId(0:7 ~ promotable[fbe5]::not_const) Fn NotConst promotable=false

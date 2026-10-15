@@ -82,10 +82,11 @@ import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as collect from "./collect.ts";
 
 // pub mod check;            (check/mod.rs, check/check.rs: lane check-check; the other check/ files are wave 17: check-wf-a/-b,
-//                           check-compare, check-region-intrinsic)
+//                           check-compare, check-region-intrinsic, small-gaps-17)
 import * as check from "./check/mod.ts";
 export { check };
-// pub mod autoderef;        (wave 17/18)
+// pub mod autoderef;
+export * as autoderef from "./autoderef.ts";
 // mod check_unused;         (wave 17)
 // mod coherence;
 import * as coherence from "./coherence/mod.ts";
