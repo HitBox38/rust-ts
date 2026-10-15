@@ -25,6 +25,7 @@ import { FulfillmentError } from "./mod.gen.ts";
 export * from "./mod.gen.ts";
 
 // pub mod auto_trait;
+export * as auto_trait from "./auto_trait.ts";
 // pub(crate) mod coherence;
 // pub mod const_evaluatable;
 export * as const_evaluatable from "./const_evaluatable.ts";
@@ -33,7 +34,9 @@ export * as const_evaluatable from "./const_evaluatable.ts";
 export * as effects from "./effects.ts";
 // mod engine;
 // mod fulfill;
+import "./fulfill.ts";
 // pub mod implied_outlives_bounds;
+export * as implied_outlives_bounds from "./implied_outlives_bounds.ts";
 // pub mod misc;
 export * as misc from "./misc.ts";
 // pub mod normalize;
@@ -41,9 +44,13 @@ export * as normalize from "./normalize.ts";
 // pub mod outlives_bounds;
 export * as outlives_bounds from "./outlives_bounds.ts";
 // pub mod outlives_for_liveness;
+export * as outlives_for_liveness from "./outlives_for_liveness.ts";
 // pub mod project;
+export * as project from "./project.ts";
 // pub mod query;
+export * as query from "./query/mod.ts";
 // pub mod select;
+export * as select from "./select/mod.ts";
 // pub mod specialize;
 export * as specialize from "./specialize/mod.ts";
 // mod structural_normalize;
@@ -51,6 +58,7 @@ import "./structural_normalize.ts";
 // pub mod util;
 export * as util from "./util.ts";
 // pub mod vtable;
+export * as vtable from "./vtable.ts";
 // pub mod wf;
 export * as wf from "./wf.ts";
 
@@ -78,13 +86,14 @@ export {
 } from "./dyn_compatibility.ts";
 // `pub use self::engine::{FulfillmentEngine, ObligationCtxt};`
 export { FulfillmentEngine, ObligationCtxt } from "./engine.ts";
-// pub use self::fulfill::{FulfillmentContext, OldSolverError, PendingPredicateObligation};
+// `pub use self::fulfill::{FulfillmentContext, OldSolverError, PendingPredicateObligation};`
+export { FulfillmentContext, OldSolverError, type PendingPredicateObligation } from "./fulfill.ts";
 // `pub use self::normalize::NormalizeExt;` (the methods are on `At.prototype`, normalize.ts)
-// pub use self::project::{normalize_inherent_projection, normalize_projection_term};
-// pub use self::select::{
-//     EvaluationCache, EvaluationResult, IntercrateAmbiguityCause, OverflowError, SelectionCache,
-//     SelectionContext,
-// };
+// `pub use self::project::{normalize_inherent_projection, normalize_projection_term};`
+export { normalize_inherent_projection, normalize_projection_term } from "./project.ts";
+// `pub use self::select::{EvaluationCache, EvaluationResult, IntercrateAmbiguityCause, OverflowError, SelectionCache,
+// SelectionContext};`
+export { type EvaluationCache, EvaluationResult, IntercrateAmbiguityCause, OverflowError, type SelectionCache, SelectionContext } from "./select/mod.ts";
 // `pub use self::specialize::specialization_graph::{FutureCompatOverlapError, FutureCompatOverlapErrorKind};`
 export { type FutureCompatOverlapError, FutureCompatOverlapErrorKind } from "./specialize/specialization_graph.ts";
 // `pub use self::specialize::{OverlapError, specialization_graph, translate_args, translate_args_with_cause};`
@@ -1176,6 +1185,11 @@ export interface TypeErrCtxtView {
     suggest_increasing_limit: boolean,
     mutate: (err: { note(msg: string): unknown }) => void,
   ): never;
+  // error_reporting/traits/overflow.rs `report_overflow_obligation` (`T: Upcast<TyCtxt, Predicate> + Clone`, `-> !`;
+  // lane selcx-contract: the old solver's fulfill.rs / select)
+  report_overflow_obligation<T>(obligation: import("../../rustc_infer/traits/mod.ts").Obligation<T>, suggest_increasing_limit: boolean): never;
+  // error_reporting/traits/overflow.rs `report_overflow_obligation_cycle` (`-> !`; rustc_traits's providers)
+  report_overflow_obligation_cycle(cycle: readonly import("../../rustc_infer/traits/mod.ts").PredicateObligation[]): never;
 }
 
 /** `crate::error_reporting::InferCtxtErrorExt::err_ctxt` (wave 19): the methods this crate calls on `TypeErrCtxt`. */

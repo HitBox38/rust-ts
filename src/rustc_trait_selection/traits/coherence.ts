@@ -13,8 +13,8 @@
 //   (no codegen set covers rustc_trait_selection yet; see the handoff).
 // - `FxIndexSet<IntercrateAmbiguityCause>` / `FxHashSet<Goal<Predicate>>` are `KeyedSet`s on `intern_key` (the derived
 //   `Hash` + `Eq` of values holding interned handles), insertion-ordered as an `IndexSet`.
-// - The items this file calls that are not ported yet (`IntercrateAmbiguityCause`, wave 20; `suggest_new_overflow_limit`,
-//   wave 19) are local stand-ins at the end of the file that stop as UNPORTED.
+// - The one item this file calls that is not ported yet (`suggest_new_overflow_limit`, wave 19) is a local stand-in at
+//   the end of the file that stops as UNPORTED.
 // - `#[instrument]` / `debug!` / `warn!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
@@ -818,10 +818,9 @@ function UniverseIndex_debug(u: UniverseIndex): string {
 
 // ---- stand-ins for items that are not ported yet (each stops as UNPORTED) ------------------------------------------
 
-/** `traits::select::IntercrateAmbiguityCause` (traits/select/mod.rs:57, wave 20 selcx-contract): the type only. */
-export type IntercrateAmbiguityCause =
-  | { readonly $: "DownstreamCrate"; trait_ref: TraitRef; self_ty: Ty | undefined }
-  | { readonly $: "UpstreamCrateUpdate"; trait_ref: TraitRef; self_ty: Ty | undefined };
+/** `traits::select::IntercrateAmbiguityCause` (traits/select/mod.ts). */
+export type { IntercrateAmbiguityCause } from "./select/mod.ts";
+import type { IntercrateAmbiguityCause } from "./select/mod.ts";
 
 /** Stand-in for `error_reporting::traits::suggest_new_overflow_limit` (error_reporting/traits/overflow.rs:20, wave 19). */
 function suggest_new_overflow_limit(_tcx: TyCtxt, _err: Diag): void {

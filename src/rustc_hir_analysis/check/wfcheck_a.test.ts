@@ -41,7 +41,7 @@ const PENDING = new Set([
   "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt", // field_bound.rs: E0277 report (wave 19)
   "rustc_middle::ty::region::EarlyParamRegion: RegionName::is_named", // unused.rs (rustc_middle ty/region.rs)
   "rustc_middle::ty::region::LateParamRegionKind::from_bound", // gat.rs: `liberate_late_bound_regions` (rustc_middle)
-  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)", // marker.rs (wave 20)
+  "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation", // marker.rs (implied_outlives_bounds provider -> query response region constraints; selcx-contract)
 ]);
 
 /** Cases that print the oracle's stderr since merge-w17: they must not stop. */

@@ -234,7 +234,9 @@ describe("rustc_infer contract", () => {
       if (typeof f !== "function" || (path !== undefined && !path.startsWith(mod + "::"))) bad.push(`${d.file}:${d.line} ${d.name}: ${path ?? typeof f}`);
     }
     expect(bad).toEqual([]);
-    expect(ts.decls.length).toBe(29);
+    // 29 extension methods (infcx-contract) + the old solver's `SelectionContext` contract (lane selcx-contract: 96
+    // methods of traits/select/{mod,candidate_assembly,confirmation}.rs and the statics `new` / `with_query_mode`).
+    expect(ts.decls.length).toBe(127);
   });
 });
 
@@ -316,7 +318,9 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
     const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
     // (`next_ty_var` and `unwrap_region_constraints` stopped here until lanes infer-core / infer-regions ported them.)
     // (`can_eq` stopped here until lane trait-sel-traits-a ported rustc_trait_selection infer.rs.)
-    expect(() => infcx.predicate_may_hold(undefined as never)).toThrow(/rustc_trait_selection::traits::query::evaluate_obligation::InferCtxt::predicate_may_hold/);
+    // (`predicate_may_hold` stopped here until lane selcx-contract ported traits/query/evaluate_obligation.rs.)
+    const at = new At(infcx, undefined as never, undefined as never);
+    expect(() => at.query_normalize(undefined as never, undefined as never)).toThrow(/rustc_trait_selection::traits::query::normalize::At::query_normalize/);
   });
 
   test("rustc_middle infer/canonical.rs: CanonicalParamEnvCache and OriginalQueryValues defaults", () => {

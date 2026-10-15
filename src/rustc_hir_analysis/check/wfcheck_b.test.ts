@@ -38,7 +38,7 @@ const PENDING_WF = new Set([
   // (rustc_trait_selection error_reporting, not ported)
   "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt",
   // receiver.rs: `assumed_wf_types_and_report_errors` -> rustc_traits' `implied_outlives_bounds` query (wave 20)
-  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
+  "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation" /* implied_outlives_bounds provider (selcx-contract) */,
 ]);
 
 for (const [file, n] of [

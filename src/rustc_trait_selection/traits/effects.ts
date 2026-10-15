@@ -2,12 +2,12 @@
 //
 // PORT notes (file-wide):
 // - `ThinVec` is an array; `thin_vec![]` is `[]`.
-// - The old solver's `SelectionContext` (traits/select/mod.rs, wave 20 selcx-contract) is not ported: the members this
-//   file uses are a local interface extending normalize.ts's view, which the real class will satisfy.
+// - The old solver's `SelectionContext` is traits/select/mod.ts's class (lane selcx-contract).
 // - `infcx.probe(|_| ..)` / `commit_if_ok(|_| ..)` take a closure that ignores the snapshot argument.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
-import { normalize_with_depth_to, type SelectionContext as NormalizeSelectionContext } from "./normalize.ts";
+import { normalize_with_depth_to } from "./normalize.ts";
+import type { SelectionContext } from "./select/mod.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { Constness } from "../../rustc_hir/lib.ts";
 import type { InferCtxt } from "../../rustc_infer/infer/mod.ts";
@@ -827,12 +827,4 @@ function unwrap_<T>(v: T | undefined): T {
 /** `unreachable!(msg)`. */
 function unreachable_(msg: string): never {
   return panic(`internal error: entered unreachable code: ${msg}`);
-}
-
-// ---- the old solver's `SelectionContext` (wave 20), the members used here --------------------------------------------
-
-/** `traits::SelectionContext` (traits/select/mod.rs, wave 20 selcx-contract): normalize.ts's view plus the members used here. */
-export interface SelectionContext extends NormalizeSelectionContext {
-  should_stall_coroutine(def_id: DefId): boolean;
-  select(obligation: Obligation<TraitClause>): Result<ImplSource<PredicateObligation> | undefined, SelectionError>;
 }

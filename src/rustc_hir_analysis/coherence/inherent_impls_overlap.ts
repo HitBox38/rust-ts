@@ -6,10 +6,10 @@
 // - `IndexVec<RegionId, Option<ConnectedRegion>>` is an array with `undefined` holes: `insert(i, v)` grows the vector
 //   to `i + 1` and stores `v`, `remove(i)` takes the value out (`Option::take`), `next_index()` is the length.
 // - The `debug!` over the connected regions is tracing only; its arguments are not evaluated, so it stays a comment.
-// - `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint` (traits/select, wave 20) is specialize/mod.ts's stand-in.
+// - `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint` is rustc_trait_selection traits/select/mod.ts's.
 // Init order: top-level code here touches only other crates.
 import { add_placeholder_note, type OverlapResult, overlapping_inherent_impls } from "../../rustc_trait_selection/traits/coherence.ts";
-import { IntercrateAmbiguityCause_add_intercrate_ambiguity_hint } from "../../rustc_trait_selection/traits/specialize/mod.ts";
+import { IntercrateAmbiguityCause } from "../../rustc_trait_selection/traits/select/mod.ts";
 import { type Diag, E0592, struct_span_code_err } from "../../rustc_errors/lib.ts";
 import type * as hir from "../../rustc_hir/lib.ts";
 import { OverlapMode } from "../../rustc_middle/traits/specialization_graph.ts";
@@ -141,7 +141,7 @@ class InherentOverlapChecker {
         err.span_label(this.tcx.def_span(item2.def_id), `other definition for \`${display_Ident(name)}\``);
 
         for (const cause of overlap.intercrate_ambiguity_causes) {
-          IntercrateAmbiguityCause_add_intercrate_ambiguity_hint(cause, err);
+          IntercrateAmbiguityCause.add_intercrate_ambiguity_hint(cause, err);
         }
 
         if (overlap.involves_placeholder) {

@@ -41,7 +41,7 @@ const ERR_CTXT = "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt";
 const IN_PROCESS_PENDING: Record<string, string> = {
   e0053_sig: ERR_CTXT,
   e0326: ERR_CTXT,
-  refine_rpitit: "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
+  refine_rpitit: "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation" /* implied_outlives_bounds provider (selcx-contract) */,
 };
 
 const ENV: Record<string, string> = {};

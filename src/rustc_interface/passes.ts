@@ -63,6 +63,7 @@ import { type Providers as QueryProviders, QUERY_DECLS, QUERY_NAMES } from "../r
 import type { Providers as MiddleProviders } from "../rustc_middle/util/mod.ts";
 import { provide as rustc_passes_provide } from "../rustc_passes/lib.ts";
 import { provide as rustc_mir_build_provide } from "../rustc_mir_build/lib.ts";
+import { provide as rustc_traits_provide } from "../rustc_traits/lib.ts";
 import { provide as query_impl_provide, query_system } from "../rustc_query_impl/lib.ts";
 import { feature_err } from "../rustc_session/diagnostics.ts";
 import { filename_for_input, invalid_output_for_target, validate_crate_name } from "../rustc_session/output.ts";
@@ -954,7 +955,7 @@ function default_query_providers(): MiddleProviders {
   // PORT: pending crates (their `provide` fns are not ported): rustc_expand_queries,
   // rustc_borrowck, rustc_mir_dataflow, rustc_mir_transform,
   // rustc_monomorphize,
-  // rustc_traits, rustc_symbol_mangling (rustc_const_eval, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck,
+  // rustc_symbol_mangling (rustc_const_eval, rustc_privacy, rustc_hir_analysis, rustc_hir_typeck, rustc_traits,
   // rustc_ty_utils, rustc_metadata, rustc_lint, rustc_codegen_ssa and rustc_mir_build's THIR half are provided below).
   // Their queries stop as UNPORTED (`install_unported_providers`).
   limits.provide(providers.queries);
@@ -971,6 +972,7 @@ function default_query_providers(): MiddleProviders {
   rustc_trait_selection.traits.provide(providers.queries);
   rustc_trait_selection.solve.provide(providers.queries);
   rustc_passes_provide(providers.queries);
+  rustc_traits_provide(providers.queries);
   rustc_ty_utils.provide(providers.queries);
   // PORT: `rustc_metadata::provide` is `rmeta::provide`, i.e. `encoder::provide` (metadata encoding, M5, not
   // ported) then `decoder::provide`; rustc_metadata/lib.ts exports `cstore_impl::provide` (the decoder half).

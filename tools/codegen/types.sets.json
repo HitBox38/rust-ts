@@ -1373,5 +1373,56 @@
       "tyir.typemap.json",
       "middle_traits_thir.typemap.json"
     ]
+  },
+  "rustc_trait_selection_old_solver": {
+    "files": [
+      "compiler/rustc_trait_selection/src/traits/select/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs",
+      "compiler/rustc_trait_selection/src/traits/select/confirmation.rs",
+      "compiler/rustc_trait_selection/src/traits/select/_match.rs",
+      "compiler/rustc_trait_selection/src/traits/project.rs",
+      "compiler/rustc_trait_selection/src/traits/fulfill.rs",
+      "compiler/rustc_trait_selection/src/traits/query/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/query/normalize.rs",
+      "compiler/rustc_trait_selection/src/traits/query/evaluate_obligation.rs",
+      "compiler/rustc_trait_selection/src/traits/query/dropck_outlives.rs",
+      "compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/query/type_op/custom.rs",
+      "compiler/rustc_trait_selection/src/traits/implied_outlives_bounds.rs",
+      "compiler/rustc_trait_selection/src/traits/vtable.rs",
+      "compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs",
+      "compiler/rustc_trait_selection/src/traits/auto_trait.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_trait_selection::traits::fulfill::FulfillmentContext",
+      "rustc_trait_selection::traits::fulfill::OldSolverError",
+      "rustc_trait_selection::traits::query::type_op::TypeOpOutput",
+      "rustc_trait_selection::traits::query::type_op::custom::CustomTypeOp",
+      "rustc_trait_selection::traits::select::TraitObligationStackList"
+    ],
+    "hand_notes": {
+      "rustc_trait_selection::traits::fulfill::FulfillmentContext": "`ObligationForest<PendingPredicateObligation>` + `PhantomData<E>`: hand class implementing `TraitEngine<E>` (traits/fulfill.ts), with its `FromSolverError<E, OldSolverError>` descriptor",
+      "rustc_trait_selection::traits::fulfill::OldSolverError": "newtype over obligation_forest's `Error<PendingPredicateObligation, FulfillmentErrorCode>` (traits/fulfill.ts)",
+      "rustc_trait_selection::traits::query::type_op::TypeOpOutput": "generic over `Op::Output` / `Op::ErrorInfo` (associated types): hand interface in traits/query/type_op/mod.ts",
+      "rustc_trait_selection::traits::query::type_op::custom::CustomTypeOp": "closure-carrying struct with a manual Debug: hand class in traits/query/type_op/custom.ts",
+      "rustc_trait_selection::traits::select::TraitObligationStackList": "field `head` collides with the method `head()`: hand class with field `head_` (traits/select/mod.ts)"
+    },
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "derive_default": true,
+    "resolve_files": [
+      "compiler/rustc_type_ir/src/ty/mod.rs",
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_middle/src/traits/solve.rs",
+      "compiler/rustc_type_ir/src/lib.rs",
+      "compiler/rustc_infer/src/traits/mod.rs",
+      "compiler/rustc_infer/src/infer/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/mod.rs"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "infer.typemap.json", "trait_selection.typemap.json", "old_solver.typemap.json"]
   }
 }

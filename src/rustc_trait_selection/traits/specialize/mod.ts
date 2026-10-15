@@ -18,8 +18,7 @@
 // - Iterators that upstream feeds lazily into `ObligationCtxt::register_obligations` (which normalizes as it goes) are
 //   generators here, so normalization and registration interleave as upstream.
 // - The items this file calls that are not ported yet (`to_pretty_impl_header`, wave 19; `NegativePositiveConflict`,
-//   unassigned; `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint`, wave 20) are local stand-ins at the end of the
-//   file that stop as UNPORTED.
+//   unassigned) are local stand-ins at the end of the file that stop as UNPORTED.
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
@@ -60,7 +59,7 @@ import { TypeVisitableExt } from "../../../rustc_type_ir/visit.ts";
 import { unported } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
 import type { NoSolution } from "../../../rustc_type_ir/solve/mod.ts";
-import type { IntercrateAmbiguityCause } from "../coherence.ts";
+import { IntercrateAmbiguityCause } from "../select/mod.ts";
 import { type FutureCompatOverlapErrorKind, Graph, type Node, OverlapMode } from "./specialization_graph.ts";
 
 // `pub mod specialization_graph;`
@@ -518,7 +517,7 @@ function report_negative_positive_conflict(
   );
 
   for (const cause of overlap.intercrate_ambiguity_causes) {
-    IntercrateAmbiguityCause_add_intercrate_ambiguity_hint(cause, diag);
+    IntercrateAmbiguityCause.add_intercrate_ambiguity_hint(cause, diag);
   }
 
   return diag.emit_err();
@@ -604,7 +603,7 @@ function decorate(tcx: TyCtxt, overlap: OverlapError, impl_span: Span, err: Diag
   }
 
   for (const cause of overlap.intercrate_ambiguity_causes) {
-    IntercrateAmbiguityCause_add_intercrate_ambiguity_hint(cause, err);
+    IntercrateAmbiguityCause.add_intercrate_ambiguity_hint(cause, err);
   }
 
   if (overlap.involves_placeholder) {
@@ -668,7 +667,3 @@ function NegativePositiveConflict_diagnostic(_d: NegativePositiveConflict): Diag
   return unported("rustc_trait_selection::diagnostics::NegativePositiveConflict");
 }
 
-/** stand-in for `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint` (traits/select/mod.rs:65, wave 20). */
-export function IntercrateAmbiguityCause_add_intercrate_ambiguity_hint(_self: IntercrateAmbiguityCause, _err: Diag): void {
-  unported("rustc_trait_selection::traits::select::IntercrateAmbiguityCause::add_intercrate_ambiguity_hint");
-}
