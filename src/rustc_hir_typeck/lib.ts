@@ -108,7 +108,7 @@ import { AssocItem } from "../rustc_middle/ty/assoc.ts";
 import type { ParamEnv } from "../rustc_middle/ty/mod.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { display_HirId } from "../rustc_hir_id/lib.ts";
-import type { ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
+import { type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import { bug, span_bug } from "../rustc_span/macros.ts";
 import { EarlyBinder, Binder } from "../rustc_type_ir/binder.ts";
 import type { FnSig as FnSigT, PolyFnSig } from "../rustc_type_ir/decls.ts";
@@ -118,8 +118,13 @@ import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
 import type { Mutability } from "../rustc_ast_ir/lib.ts";
 import type { ErrCode } from "../rustc_errors/lib.ts";
+import { E0164 } from "../rustc_errors/error_codes.gen.ts";
+import { Res as ResC } from "../rustc_hir/def.ts";
+import { qpath_to_string } from "../rustc_hir_pretty/lib.ts";
+import { HirId_eq } from "../rustc_hir_id/lib.ts";
+import { display_Ident, Symbol } from "../rustc_span/symbol.ts";
+import { FnCtxt_as_PpAnn } from "./fn_ctxt/mod.ts";
 import { assert, unported, unwrap } from "../std/panic.ts";
-import { unported_methods } from "../rust_ts/stubs.ts";
 import { FnCtxt, TypeckRootCtxt, type Companions } from "./decls.ts";
 import * as gen from "./lib.gen.ts";
 import { type BreakableCtxt, EnclosingBreakables, type Needs as NeedsT, type TupleArgumentsFlag as TupleArgumentsFlagT } from "./lib.gen.ts";
@@ -538,9 +543,110 @@ EnclosingBreakables.prototype.opt_find_breakable = function (this: EnclosingBrea
   }
 };
 
-// impl<'a, 'tcx> FnCtxt<'a, 'tcx> { fn report_unexpected_variant_res (lib.rs:479) }: an error path; lane typeck-pat-a
-// ports it here (pat.rs and expr.rs call it).
-unported_methods(FnCtxt.prototype, "rustc_hir_typeck::FnCtxt", ["report_unexpected_variant_res"]);
+// impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
+// rustc: compiler/rustc_hir_typeck/src/lib.rs:479 report_unexpected_variant_res
+FnCtxt.prototype.report_unexpected_variant_res = function (
+  this: FnCtxt,
+  res: Res,
+  expr: hir.Expr | undefined,
+  sub_pats: readonly hir.Pat[],
+  qpath: hir.QPath,
+  span: Span,
+  err_code: ErrCode,
+  expected: string,
+): ErrorGuaranteed {
+  const tcx = this.tcx;
+  const res_descr = res.$ === "Def" && res._0.$ === "Variant" ? "struct variant" : ResC.descr(res);
+  const path_str = qpath_to_string(FnCtxt_as_PpAnn(this), qpath);
+  const err = tcx.dcx().struct_span_err(span, `expected ${expected}, found ${res_descr} \`${path_str}\``).with_code(err_code);
+  let d: Diag;
+  if (res.$ === "Def" && (res._0.$ === "Fn" || res._0.$ === "AssocFn") && err_code === E0164) {
+    const patterns_url = "https://doc.rust-lang.org/book/ch19-00-patterns.html";
+    d = err.with_span_label(span, "`fn` calls are not allowed in patterns").with_help(`for more information, visit ${patterns_url}`);
+  } else if (res.$ === "Def" && res._0.$ === "Variant" && expr !== undefined) {
+    err.span_label(span, `not a ${expected}`);
+    const variant = tcx.expect_variant_res(res);
+    const sugg =
+      variant.fields.length === 0 ? " {}" : ` { ${variant.fields.map((f) => `${Symbol.as_str(f.name)}: /* value */`).join(", ")} }`;
+    const descr = "you might have meant to create a new value of the struct";
+    const suggestion: [Span, string][] = [];
+    const parent = tcx.parent_hir_node(expr.hir_id);
+    if (parent.$ === "Expr" && parent._0.kind.$ === "Call") {
+      const call_span = parent._0.span;
+      suggestion.push([Span.with_hi(Span.shrink_to_hi(span), Span.hi(call_span)), sugg]);
+    } else if (parent.$ === "Expr" && parent._0.kind.$ === "Binary") {
+      const hir_id = parent._0.hir_id;
+      suggestion.push([Span.shrink_to_lo(expr.span), "("]);
+      let parent_: hir.Node;
+      let block: hir.Block;
+      let expr_: hir.Expr | undefined;
+      if (
+        (parent_ = tcx.parent_hir_node(hir_id)).$ === "Expr" &&
+        parent_._0.kind.$ === "If" &&
+        parent_._0.kind._2 === undefined &&
+        HirId_eq(parent_._0.kind._0.hir_id, hir_id) &&
+        parent_._0.kind._1.kind.$ === "Block" &&
+        (block = parent_._0.kind._1.kind._0).stmts.length === 0 &&
+        (expr_ = block.expr) !== undefined &&
+        expr_.kind.$ === "Path"
+      ) {
+        // Special case: you can incorrectly write an equality condition:
+        // if foo == Struct { field } { /* if body */ }
+        // which should have been written
+        // if foo == (Struct { field }) { /* if body */ }
+        suggestion.push([Span.shrink_to_hi(block.span), ")"]);
+      } else {
+        suggestion.push([Span.with_hi(Span.shrink_to_hi(span), Span.hi(expr.span)), sugg]);
+      }
+    } else {
+      suggestion.push([Span.shrink_to_hi(span), sugg]);
+    }
+
+    err.multipart_suggestion(descr, suggestion, "HasPlaceholders");
+    d = err;
+  } else if (res.$ === "Def" && res._0.$ === "Variant" && expr === undefined) {
+    err.span_label(span, `not a ${expected}`);
+
+    const fields = tcx.expect_variant_res(res).fields;
+    // PORT: upstream shadows `span` here; the suggestion below reads the shadowed one.
+    const span_ = Span.to(Span.shrink_to_hi(hir.QPath.span(qpath)), Span.shrink_to_hi(span));
+    let msg: string;
+    let sugg: string;
+    if (fields.length === 0) {
+      [msg, sugg] = ["use the struct variant pattern syntax", " {}"];
+    } else {
+      const msg_ = fields.length === 0 ? "use struct variant pattern syntax" : "add the names to match a struct variant's fields";
+      const fields_sugg = fields
+        .map((field, i) => {
+          const field_name = display_Ident(field.ident(tcx));
+
+          let pat_snippet: string | undefined;
+          const sub_pat = sub_pats[i];
+          if (sub_pat !== undefined) {
+            const r = tcx.sess.source_map().span_to_snippet(sub_pat.span);
+            pat_snippet = r.$ === "Ok" ? r._0.toString() : undefined;
+          }
+          pat_snippet ??= "_";
+
+          if (field_name === pat_snippet) {
+            return field_name;
+          } else {
+            return `${field_name}: ${pat_snippet}`;
+          }
+        })
+        .join(", ");
+      const sugg_ = ` { ${fields_sugg} }`;
+      [msg, sugg] = [msg_, sugg_];
+    }
+
+    err.span_suggestion_verbose(Span.to(Span.shrink_to_hi(hir.QPath.span(qpath)), Span.shrink_to_hi(span_)), msg, sugg, "HasPlaceholders");
+    d = err;
+  } else {
+    d = err.with_span_label(span, `not a ${expected}`);
+  }
+  return d.emit_err();
+};
+// }
 
 /// Controls whether all arguments are tupled. This is used for the call operator only.
 ///
