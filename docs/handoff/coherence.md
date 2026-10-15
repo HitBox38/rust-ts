@@ -136,4 +136,5 @@ Sample difftests (lane HEAD, `RUST_TS_AGENT=coherence`):
 - `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Test run".
 
 ## Test run
-(filled in below)
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools` at `10cd69f`: **4977 pass, 1 skip (the pre-existing
+  linux-only test), 0 fail** (4978 tests, 310 files, 997 s), including coherence.test.ts 17/17 and contract.test.ts 10/10.
