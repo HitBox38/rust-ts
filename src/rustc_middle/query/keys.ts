@@ -29,6 +29,7 @@ import { intern_key } from "../../rust_ts/intern_key.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { debug_Ty, type Ty } from "../ty/mod.ts";
 import type { AdtDef } from "../ty/decls.ts";
+import { debug_LitToConstInput, type LitToConstInput } from "../ty/consts/lit.ts";
 import { debug_SimplifiedType, type SimplifiedType, SimplifiedType_key } from "../ty/fast_reject.ts";
 import { debug_GenericArg, debug_GenericArgs, type GenericArg, type GenericArgsRef } from "../ty/generic_args.ts";
 import { type Clauses, debug_RawList } from "../ty/list.ts";
@@ -133,7 +134,18 @@ export const KEY_Ty_Option_ExistentialTraitRef: QueryKey<[Ty, ExistentialTraitRe
   hash_key: intern_key,
 };
 
-// PORT: `LitToConstInput` (keys.rs:96) is not ported yet (`key_unported`).
+export const KEY_LitToConstInput: QueryKey<LitToConstInput> = {
+  make_cache: default_cache<LitToConstInput>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:98 default_span
+  default_span(_self: LitToConstInput, _tcx: TyCtxt): Span {
+    return DUMMY_SP;
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: debug_LitToConstInput,
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
 
 export const KEY_CrateNum: QueryKey<CrateNum, LocalCrate> = {
   make_cache: <V>(track_present: boolean) => (track_present ? VecCache.default<CrateNum, V>() : VecCache.without_track_present<CrateNum, V>()),

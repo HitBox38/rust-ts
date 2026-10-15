@@ -33,14 +33,13 @@ const CASES = readdirSync(CASES_DIR)
 const PENDING: Record<string, string> = Object.fromEntries(CASES.map((c) => [c, "rustc_interface::passes::analysis (M3+)"]));
 
 /**
- * In-process stops (re-pinned by merge-w17; e0050 / e0185 / e0186 / e0643 now equal the oracle): E0053 (signature) and
- * E0326 stop at the type-error report (`err_ctxt`, wave 19), E0195 at `liberate_late_bound_regions` (rustc_middle
- * `LateParamRegionKind::from_bound`), refine_rpitit at rustc_traits' `implied_outlives_bounds` query (wave 20).
+ * In-process stops (re-pinned by merge-w17; e0050 / e0185 / e0186 / e0643 now equal the oracle, e0195 since small-gaps-18
+ * ported `LateParamRegionKind::from_bound`): E0053 (signature) and E0326 stop at the type-error report (`err_ctxt`,
+ * wave 19), refine_rpitit at rustc_traits' `implied_outlives_bounds` query (wave 20).
  */
 const ERR_CTXT = "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt";
 const IN_PROCESS_PENDING: Record<string, string> = {
   e0053_sig: ERR_CTXT,
-  e0195: "rustc_middle::ty::region::LateParamRegionKind::from_bound",
   e0326: ERR_CTXT,
   refine_rpitit: "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
 };

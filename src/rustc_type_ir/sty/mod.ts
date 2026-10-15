@@ -24,7 +24,7 @@ import { debug_DefId } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
 import { kw, sym, type Symbol } from "../../rustc_span/symbol.ts";
 import { type Fmt, PLAIN } from "../../std/fmt.ts";
-import { panic, unported } from "../../std/panic.ts";
+import { panic } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import type { BoundRegion, BoundVar, DebruijnIndex, PlaceholderRegion, RegionKind, RegionVid } from "../decls.ts";
 import type { FallibleTypeFolder, TypeFoldable, TypeFolder } from "../fold.ts";
@@ -34,6 +34,11 @@ import type { RelateResult, TypeRelation } from "../relate.ts";
 import type { TypeVisitor } from "../visit.ts";
 import type { LateParamRegion } from "./mod.gen.ts";
 import { debug_LateParamRegionKind } from "../../rustc_middle/ty/structural_impls.ts";
+import {
+  DefIdGetter_LateParamRegionKind,
+  RegionName_EarlyParamRegion,
+  RegionName_LateParamRegionKind,
+} from "../../rustc_middle/ty/region.ts";
 
 export * from "./consts.ts";
 // The other types of sty/mod.rs (`LateParamRegion`) with their derived impls are generated into mod.gen.ts (set rustc_ty
@@ -51,28 +56,6 @@ function binder(): typeof import("../binder.ts") {
   return require("../binder.ts") as typeof import("../binder.ts");
 }
 
-// ---- PORT stand-ins for fns of other lanes' files that are not ported yet (convention 6) -------------------------
-
-/** PORT: stand-in for `impl RegionName for EarlyParamRegion` `get_name` (rustc_middle ty/region.rs:44). */
-function EarlyParamRegion_get_name(_self: EarlyParamRegion, _interner: TyCtxt): Symbol | undefined {
-  return unported("rustc_middle::ty::region::EarlyParamRegion: RegionName::get_name");
-}
-/** PORT: stand-in for `impl RegionName for EarlyParamRegion` `is_named` (rustc_middle ty/region.rs:51). */
-function EarlyParamRegion_is_named(_self: EarlyParamRegion, _interner: TyCtxt): boolean {
-  return unported("rustc_middle::ty::region::EarlyParamRegion: RegionName::is_named");
-}
-/** PORT: stand-in for `impl RegionName for LateParamRegionKind` `get_name` (rustc_middle ty/region.rs:128). */
-function LateParamRegionKind_get_name(_self: LateParamRegionKind, _interner: TyCtxt): Symbol | undefined {
-  return unported("rustc_middle::ty::region::LateParamRegionKind: RegionName::get_name");
-}
-/** PORT: stand-in for `impl RegionName for LateParamRegionKind` `is_named` (rustc_middle ty/region.rs:133). */
-function LateParamRegionKind_is_named(_self: LateParamRegionKind, _interner: TyCtxt): boolean {
-  return unported("rustc_middle::ty::region::LateParamRegionKind: RegionName::is_named");
-}
-/** PORT: stand-in for `impl DefIdGetter for LateParamRegionKind` `get_def_id` (rustc_middle ty/region.rs:139). */
-function LateParamRegionKind_get_def_id(_self: LateParamRegionKind): DefId | undefined {
-  return unported("rustc_middle::ty::region::LateParamRegionKind: DefIdGetter::get_def_id");
-}
 /// Use this rather than `RegionKind`, whenever possible.
 // rustc-type: compiler/rustc_type_ir/src/sty/mod.rs:26 Region
 export class Region extends Interned {
@@ -106,11 +89,11 @@ Region.prototype.get_name = function (this: Region, interner: TyCtxt): Symbol | 
   const k = this.kind();
   switch (k.$) {
     case "ReEarlyParam":
-      return EarlyParamRegion_get_name(k._0, interner);
+      return RegionName_EarlyParamRegion.get_name(k._0, interner);
     case "ReBound":
       return binder().BoundRegionKind.get_name(k._1.kind, interner);
     case "ReLateParam":
-      return LateParamRegionKind_get_name(k._0.kind, interner);
+      return RegionName_LateParamRegionKind.get_name(k._0.kind, interner);
     // PORT: `I::Symbol::KW_STATIC_LIFETIME` is `kw::StaticLifetime` (`impl inherent::Symbol for Symbol`,
     // rustc_middle ty/sty.rs:2192).
     case "ReStatic":
@@ -144,7 +127,7 @@ Region.prototype.opt_param_def_id = function (this: Region, interner: TyCtxt, bi
       return (interner.generics_of(binding_item) as Generics).param_region_def_id(interner, ebr);
     }
     case "ReLateParam":
-      return LateParamRegionKind_get_def_id(k._0.kind);
+      return DefIdGetter_LateParamRegionKind.get_def_id(k._0.kind);
     default:
       return undefined;
   }
@@ -156,11 +139,11 @@ Region.prototype.is_named = function (this: Region, interner: TyCtxt): boolean {
   const k = this.kind();
   switch (k.$) {
     case "ReEarlyParam":
-      return EarlyParamRegion_is_named(k._0, interner);
+      return RegionName_EarlyParamRegion.is_named(k._0, interner);
     case "ReBound":
       return binder().BoundRegionKind.is_named(k._1.kind, interner);
     case "ReLateParam":
-      return LateParamRegionKind_is_named(k._0.kind, interner);
+      return RegionName_LateParamRegionKind.is_named(k._0.kind, interner);
     case "ReStatic":
       return true;
     case "ReVar":

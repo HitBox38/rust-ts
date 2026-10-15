@@ -36,6 +36,7 @@ import * as DynTrait from "./hir_ty_lowering/dyn_trait.ts";
 import * as Errors from "./hir_ty_lowering/errors.ts";
 import * as Generics from "./hir_ty_lowering/generics.ts";
 import * as Lib from "./lib.ts";
+import * as CheckUnused from "./check_unused.ts";
 import { HirTyLowerer, ItemCtxt } from "./lib.ts";
 
 const SRC = "compiler/rustc_hir_analysis/src/";
@@ -522,8 +523,9 @@ test("provide installs the collect providers (and leaves the others)", () => {
   // collect.rs:65 assigns 32 queries, resolve_bound_vars::provide (resolve_bound_vars.rs:234, lane collect-rbv) 6,
   // lib.rs the 2 delegation queries (lane hira-misc), the 5 outlives / impl_wf_check / variance queries (lane
   // variance-outlives), coherence::provide's 8 (coherence/mod.rs:142, lane coherence) and check::provide's 9
-  // (check/mod.rs:112: lanes check-check, check-region-intrinsic, check-compare, check-wf-a/-b)
-  expect(Object.keys(providers).length).toBe(62);
+  // (check/mod.rs:112: lanes check-check, check-region-intrinsic, check-compare, check-wf-a/-b), and lib.rs's
+  // check_unused_traits / diagnostic_hir_wf_check (lane small-gaps-18)
+  expect(Object.keys(providers).length).toBe(64);
   for (const q of [
     "coherent_trait",
     "crate_inherent_impls",
@@ -557,5 +559,6 @@ test("provide installs the collect providers (and leaves the others)", () => {
   for (const q of ["coherent_trait", "crate_inherent_impls", "crate_incoherent_impls", "inherent_impls", "crate_inherent_impls_validity_check", "crate_inherent_impls_overlap_check", "coerce_unsized_info", "orphan_check_impl"]) {
     expect([q, typeof providers[q]]).toEqual([q, "function"]);
   }
-  expect(providers.check_unused_traits).toBeUndefined();
+  expect(providers.check_unused_traits).toBe(CheckUnused.check_unused_traits);
+  expect(providers.diagnostic_hir_wf_check).toBe(Lib.hir_wf_check.diagnostic_hir_wf_check);
 });

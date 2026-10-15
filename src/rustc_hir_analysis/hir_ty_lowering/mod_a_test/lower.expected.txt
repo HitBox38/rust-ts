@@ -37,7 +37,7 @@ probe_assoc_item_unchecked(Assoc, Const, Tr): undefined
 probe_assoc_item_unchecked(Item, Type, m::Inner): Some(Item, scope is crate root: true)
 probe_assoc_item(C, Const, Tr): Some(C)
 probe_traits_that_match_assoc_ty(u8, Assoc): 
-PENDING lower_resolved_assoc_ty_path(None, Tr::Assoc): unported: rustc_middle::ty::erase_regions::TyCtxt::erase_and_anonymize_regions
+lower_resolved_assoc_ty_path(None, Tr::Assoc): Error
 lower_resolved_assoc_ty_path(Some(u8), Tr::Assoc): Alias
 prohibit_generic_args([]): Ok
 prohibit_generic_args([Tr]): Ok

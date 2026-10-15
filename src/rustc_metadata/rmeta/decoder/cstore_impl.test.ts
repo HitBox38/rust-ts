@@ -356,10 +356,10 @@ describe("provide_extern", () => {
 
   test("unported element types stop at unported(..) naming the type", () => {
     const lazy = { decode: (_m: unknown, decode_T: (d: unknown) => unknown) => decode_T({}) };
-    // (`generics_of` decodes since lane decode-elems; `trait_def`'s `ty::TraitDef` is M3)
-    const f = fake({ 1: tables({ trait_def: lazy }) });
-    expect(() => ext.trait_def!(f.tcx, did(1, 1))).toThrow(Unported);
-    expect(() => ext.trait_def!(f.tcx, did(1, 1))).toThrow("Decodable for ty::TraitDef");
+    // (`generics_of` decodes since lane decode-elems, `trait_def` since lane small-gaps-18; `mir::ConstQualifs` is M4)
+    const f = fake({ 1: tables({ mir_const_qualif: lazy }) });
+    expect(() => ext.mir_const_qualif!(f.tcx, did(1, 1))).toThrow(Unported);
+    expect(() => ext.mir_const_qualif!(f.tcx, did(1, 1))).toThrow("Decodable for mir::ConstQualifs");
   });
 });
 

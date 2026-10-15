@@ -31,8 +31,9 @@ const CASES = readdirSync(CASES_DIR)
 
 /** Mode `abi`: cases that stop at another lane's stub (abi_cdecl matches since lint-levels-hir, merge-w17). */
 const PENDING_ABI: Record<string, string> = {
-  // after `check_abi`, `validate_cmse_abi` (hir_ty_lowering/cmse.rs) erases the signature's regions (rustc_middle)
-  abi_cmse_fn_ptr: "rustc_middle::ty::erase_regions::TyCtxt::erase_and_anonymize_regions",
+  // after `check_abi`, `validate_cmse_abi` (hir_ty_lowering/cmse.rs) erases the signature's regions, then asks the
+  // `layout_of` query, whose key `PseudoCanonicalInput<Ty>` has no TS `QueryKey` (layout: M4; re-pinned by small-gaps-18)
+  abi_cmse_fn_ptr: "rustc_middle::query::keys: QueryKey for `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` (cache)",
 };
 /** Mode `wf`: since merge-w17 (variance-outlives, wfcheck), `check_item_type` runs as mode `abi`. */
 const PENDING_WF: Record<string, string> = { ...PENDING_ABI };

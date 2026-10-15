@@ -37,6 +37,7 @@ import type { FieldIdx, Pattern } from "../../rustc_middle/ty/decls.ts";
 import { suggest_constraining_type_params } from "../../rustc_middle/ty/diagnostics.ts";
 import { GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import type { Generics } from "../../rustc_middle/ty/generics.ts";
+import { EarlyParamRegion } from "../../rustc_middle/ty/region.ts";
 import { type FieldDef, type ImplTraitHeader, type ParamEnv, Ty, TypingEnv, Visibility } from "../../rustc_middle/ty/mod.ts";
 import { display_Predicate, display_TraitRefPrintSugared, display_Ty, TraitRef_print_trait_sugared } from "../../rustc_middle/ty/print/pretty.ts";
 import { type Predicate, Predicate_upcast_from_TraitRef } from "../../rustc_middle/ty/predicate.ts";
@@ -998,7 +999,7 @@ function infringing_fields_error(
             const predicate = `${display_Region(b)}: ${display_Region(a)}`;
             entry([ty_s, predicate]).push(SubregionOrigin.span(origin));
             const bk = b.kind();
-            if (bk.$ === "ReEarlyParam" && EarlyParamRegion_is_named(bk._0)) {
+            if (bk.$ === "ReEarlyParam" && EarlyParamRegion.is_named(bk._0)) {
               bounds.push([display_Region(b), display_Region(a), undefined]);
             }
           } else if (error.$ === "GenericBoundFailure") {
@@ -1107,10 +1108,6 @@ function cmp_String(a: string, b: string): number {
   return x.length - y.length;
 }
 
-/** PORT: as rustc_middle print/pretty.ts (pending ty-results): `EarlyParamRegion::is_named` (region.rs:31). */
-function EarlyParamRegion_is_named(self: { name: Symbol }): boolean {
-  return self.name !== kw.UnderscoreLifetime;
-}
 
 // ---- stand-ins: pending types and other lanes' items -----------------------------------------------------------------
 

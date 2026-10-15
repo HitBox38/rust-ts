@@ -87,7 +87,8 @@ import * as check from "./check/mod.ts";
 export { check };
 // pub mod autoderef;
 export * as autoderef from "./autoderef.ts";
-// mod check_unused;         (wave 17)
+// mod check_unused;
+import * as check_unused from "./check_unused.ts";
 // mod coherence;
 import * as coherence from "./coherence/mod.ts";
 // mod collect;
@@ -102,7 +103,9 @@ export * as diagnostics from "./diagnostics.ts";
 export * as wrong_number_of_generic_args from "./diagnostics/wrong_number_of_generic_args.ts";
 // pub mod hir_ty_lowering;
 export * as hir_ty_lowering from "./hir_ty_lowering/mod.ts";
-// pub mod hir_wf_check;     (wave 17)
+// pub mod hir_wf_check;
+import * as hir_wf_check from "./hir_wf_check.ts";
+export { hir_wf_check };
 // mod impl_wf_check;
 import * as impl_wf_check from "./impl_wf_check.ts";
 // mod outlives;
@@ -146,10 +149,8 @@ export function provide(providers: Providers): void {
   collect.provide(providers);
   coherence.provide(providers);
   check.provide(providers);
-  // PORT: the modules below are not ported yet (wave 17), so their queries keep the placeholder providers of
-  // rustc_interface's `install_unported_providers` (UNPORTED). Each lane uncomments its lines.
-  // providers.check_unused_traits = check_unused.check_unused_traits;
-  // providers.diagnostic_hir_wf_check = hir_wf_check.diagnostic_hir_wf_check;
+  providers.check_unused_traits = check_unused.check_unused_traits;
+  providers.diagnostic_hir_wf_check = hir_wf_check.diagnostic_hir_wf_check;
   providers.inferred_outlives_crate = outlives.inferred_outlives_crate;
   providers.inferred_outlives_of = outlives.inferred_outlives_of;
   providers.inherit_sig_for_delegation_item = delegation.inherit_sig_for_delegation_item;

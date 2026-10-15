@@ -67,11 +67,12 @@ pub type E1 = (!, *const Missing);
  * merge-w16a) must equal the oracle's `type_of` line. */
 const PENDING: Record<string, string> = {
   // `lower_const_arg` (array length `3`, an anon const) -> feeds its `type_of`, `lower_const_arg_anon` ->
-  // `try_lower_anon_const_lit` -> `tcx.at(..).lit_to_const(..)`: the query key `LitToConstInput` has no TS `QueryKey`
-  // (rustc_middle query/keys.rs)
-  P4: "rustc_middle::query::keys: QueryKey for `LitToConstInput<'tcx>` (cache)",
-  // `{ 3 }`: `try_lower_anon_const_lit` unwraps the block, then as P4
-  P7: "rustc_middle::query::keys: QueryKey for `LitToConstInput<'tcx>` (cache)",
+  // `try_lower_anon_const_lit` -> `tcx.at(..).lit_to_const(..)`: the `lit_to_const` provider is rustc_mir_build's
+  // (thir/constant.rs, lane thir-cx-print; re-pinned by small-gaps-18 when the `LitToConstInput` QueryKey landed)
+  P4: "lit_to_const provider (not ported)",
+  // `{ 4 }`: `try_lower_anon_const_lit` unwraps the block, then as P4. PORT: a literal other than P4's, because a
+  // query whose provider stopped stays started (the same key would then report a cycle, not the stop)
+  P7: "lit_to_const provider (not ported)",
 };
 const PENDING_SRC = `${PRELUDE}
 pub struct S;
@@ -83,7 +84,7 @@ pub type P4 = [!; 3];
 const N: usize = 3;
 pub type P5 = [!; N];
 pub type P6<const M: usize> = [!; M];
-pub type P7 = [!; { 3 }];
+pub type P7 = [!; { 4 }];
 `;
 
 class CaptureConfig extends Error {}
