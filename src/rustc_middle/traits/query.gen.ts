@@ -14,6 +14,7 @@ import { type FallibleTypeFolder, fold_with_Vec, type FoldWith, try_fold_with_Ve
 import { debug_OpaqueTypeKey, type OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.ts";
 import { debug_Region, fold_with_Region, type Region, try_fold_with_Region, visit_with_Region } from "../../rustc_type_ir/sty/mod.ts";
 import { type AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
+import { debug_AliasTy } from "../../rustc_type_ir/ty_kind.ts";
 import { debug_Unnormalized, fold_with_Unnormalized, try_fold_with_Unnormalized, type Unnormalized, visit_with_Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 import { Ok, type Result } from "../../std/result.ts";
@@ -534,7 +535,7 @@ export const debug_OutlivesBound: Debug<OutlivesBound> = (v, f) => {
     case "RegionSubParam":
       return debug_tuple(f, "RegionSubParam", [debug_Region(v._0, f), unported_debug(v._1)]);
     case "RegionSubAlias":
-      return debug_tuple(f, "RegionSubAlias", [debug_Region(v._0, f), unported_debug(v._1)]);
+      return debug_tuple(f, "RegionSubAlias", [debug_Region(v._0, f), debug_AliasTy(v._1, f)]);
   }
 };
 export function clone_OutlivesBound(v: OutlivesBound): OutlivesBound {

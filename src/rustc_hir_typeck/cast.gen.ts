@@ -5,20 +5,16 @@ import { debug_Expr, type Expr } from "../rustc_hir/lib.ts";
 import { fold_with_AliasTy, try_fold_with_AliasTy, visit_with_AliasTy } from "../rustc_middle/traits/mod.ts";
 import { debug_RawList, type List } from "../rustc_middle/ty/list.ts";
 import { debug_Ty, type Ty } from "../rustc_middle/ty/mod.ts";
-import { debug_ParamTy } from "../rustc_middle/ty/structural_impls.ts";
+import { debug_ParamTy, fold_with_BoundExistentialPredicates, try_fold_with_BoundExistentialPredicates, visit_with_BoundExistentialPredicates } from "../rustc_middle/ty/structural_impls.ts";
 import { type AliasTy, type ParamTy } from "../rustc_middle/ty/sty.gen.ts";
 import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../rustc_span/def_id.ts";
 import { debug_ErrorGuaranteed, debug_Span, type ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
 import { type Binder, debug_Binder } from "../rustc_type_ir/binder.ts";
 import { type FallibleTypeFolder, type FoldWith, type TryFoldWith, type TypeFolder, type TypeVisitor, type VisitWith } from "../rustc_type_ir/fold.ts";
 import { debug_ExistentialPredicate, type ExistentialPredicate } from "../rustc_type_ir/predicate.gen.ts";
+import { debug_AliasTy } from "../rustc_type_ir/ty_kind.ts";
 import { type Debug, debug_option, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
 import { Ok, type Result } from "../std/result.ts";
-import { unported } from "../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
-function unported_type_fold(..._a: unknown[]): never {
-  return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_hir_typeck/src/cast.rs:58 CastKind
 /// Cast Kind. See [RFC 401](https://rust-lang.github.io/rfcs/0401-coercions.html)
@@ -93,7 +89,7 @@ export const debug_PointerKind: Debug<PointerKind> = (v, f) => {
     case "VTable":
       return debug_tuple(f, "VTable", [debug_RawList(v._0, f, ((x, f) => debug_Binder(x, f, debug_ExistentialPredicate)))]);
     case "OfAlias":
-      return debug_tuple(f, "OfAlias", [unported_debug(v._0)]);
+      return debug_tuple(f, "OfAlias", [debug_AliasTy(v._0, f)]);
     case "OfParam":
       return debug_tuple(f, "OfParam", [debug_ParamTy(v._0, f)]);
     case "Thin":
@@ -119,7 +115,7 @@ export function visit_with_PointerKind<R>(self: PointerKind, __visitor: TypeVisi
   let r: R | undefined;
   switch (self.$) {
     case "VTable":
-      if ((r = try_visit(__visitor.Result, unported_type_fold(self._0))) !== undefined) return r;
+      if ((r = try_visit(__visitor.Result, visit_with_BoundExistentialPredicates(self._0, __visitor))) !== undefined) return r;
       break;
     case "OfAlias":
       if ((r = try_visit(__visitor.Result, visit_with_AliasTy(self._0, __visitor))) !== undefined) return r;
@@ -131,7 +127,9 @@ export function visit_with_PointerKind<R>(self: PointerKind, __visitor: TypeVisi
 export function try_fold_with_PointerKind<E>(self: PointerKind, __folder: FallibleTypeFolder<E>): Result<PointerKind, E> {
   switch (self.$) {
     case "VTable": {
-      return unported_type_fold(self._0);
+      const __0 = try_fold_with_BoundExistentialPredicates(self._0, __folder);
+      if (__0.$ === "Err") return __0;
+      return Ok({ $: "VTable" as const, _0: __0._0 });
     }
     case "OfAlias": {
       const __0 = try_fold_with_AliasTy(self._0, __folder);
@@ -150,7 +148,7 @@ export function try_fold_with_PointerKind<E>(self: PointerKind, __folder: Fallib
 export function fold_with_PointerKind(self: PointerKind, __folder: TypeFolder): PointerKind {
   switch (self.$) {
     case "VTable": {
-      return { $: "VTable" as const, _0: unported_type_fold(self._0) };
+      return { $: "VTable" as const, _0: fold_with_BoundExistentialPredicates(self._0, __folder) };
     }
     case "OfAlias": {
       return { $: "OfAlias" as const, _0: fold_with_AliasTy(self._0, __folder) };

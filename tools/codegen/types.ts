@@ -2680,6 +2680,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             return `${fn}${targs}(${v}, ${tfHolder(kind)}${fns.map((f) => `, ${f}`).join("")})`;
           }
           if (r.keys.some((k) => tfTrivial.has(k))) return null;
+          // an impl of one instance of a generic type (`&List<Binder<ExistentialPredicate>>`: `list_fold!` impls differ per
+          // element type): the entry keyed `<path><<arg keys>>`, before the generic entry
+          const inst = args.length ? tfEntry(r.keys.map((k) => `${k}<${args.map((a) => tfTypeKey(a, sc)).join(", ")}>`)) : undefined;
+          if (inst) return tfExt(kind, inst, r.display, args, v, sc, at);
           const e = tfEntry(r.keys);
           if (!e) {
             push(report.missing_type_fold, r.display, at);
@@ -2694,6 +2698,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       }
       push(report.missing_type_fold, `${ty.kind}: ${ty.text}`, at);
       return `unported_type_fold(${v})`;
+    };
+    /** A type as an instance key of type_fold.json (`rustc_middle::ty::Binder<rustc_middle::ty::ExistentialPredicate>`):
+     *  paths by their first resolved key (items by item key), type arguments in `<..>`, references by their referent. */
+    const tfTypeKey = (ty: PType, sc: Scope): string => {
+      if (ty.kind === "ref") return tfTypeKey(ty.elem!, sc);
+      if (ty.kind !== "path" || ty.qself) return ty.text;
+      const r = resolvePath(ty.path!, sc);
+      const head = r.k === "param" ? r.name : r.k === "item" ? r.ref.key : (r.keys[0] ?? r.display);
+      const args = argsOf(r, ty.path!);
+      return args.length ? `${head}<${args.map((a) => tfTypeKey(a, sc)).join(", ")}>` : head;
     };
     /** The impl of a type as a value (`VisitWith<T>` / `TryFoldWith<T>` / `FoldWith<T>`). */
     const tfFn = (kind: TfKind, ty: PType, sc: Scope, at: string): string => {
