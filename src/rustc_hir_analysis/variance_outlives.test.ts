@@ -54,8 +54,8 @@ const PENDING_FACTS = new Set<string>([
 /** The exact `unported(..)` texts these runs stop at today. pending.rs's dump matches the oracle since merge-w17;
  *  implwf_spec.rs stops in min_specialization's `ocx.assumed_wf_types_and_report_errors` (rustc_traits'
  *  `implied_outlives_bounds` query, wave 20). */
-const PENDING_DUMP = new Set([
-  "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation" /* implied_outlives_bounds provider (selcx-contract) */,
+const PENDING_DUMP = new Set<string>([
+  // (none since lane typeck-gaps ported `ConstraintCategory`)
 ]);
 
 for (const file of ["variances.rs", "outlives.rs"]) {

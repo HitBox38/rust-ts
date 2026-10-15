@@ -2,6 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in canonical.ts next to this file.
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { type Canonical, type CanonicalParamEnvCache, type CanonicalQueryInput, type CanonicalVarKind, type CanonicalVarValues } from "./canonical.ts";
+import { type ConstraintCategory, debug_ConstraintCategory, fold_with_ConstraintCategory, visit_with_ConstraintCategory } from "../mir/query.ts";
 import { debug_GenericArg, debug_GenericArgs, type GenericArg, type GenericArgs } from "../ty/generic_args.ts";
 import { type List } from "../ty/list.ts";
 import { debug_Ty, type Ty } from "../ty/mod.ts";
@@ -156,13 +157,13 @@ export function clone_Certainty(v: Certainty): Certainty {
 // rustc-type: compiler/rustc_middle/src/infer/canonical.rs:139 QueryRegionConstraint
 export interface QueryRegionConstraint {
   constraint: RegionConstraint;
-  category: unknown;
+  category: ConstraintCategory;
   visible_for_leak_check: VisibleForLeakCheck;
 }
 export const debug_QueryRegionConstraint: Debug<QueryRegionConstraint> = (v, f) =>
   debug_struct(f, "QueryRegionConstraint", [
     ["constraint", unported_debug(v.constraint)],
-    ["category", unported_debug(v.category)],
+    ["category", debug_ConstraintCategory(v.category, f)],
     ["visible_for_leak_check", debug_VisibleForLeakCheck(v.visible_for_leak_check, f)],
   ]);
 export function clone_QueryRegionConstraint(v: QueryRegionConstraint): QueryRegionConstraint {
@@ -176,7 +177,7 @@ export function clone_QueryRegionConstraint(v: QueryRegionConstraint): QueryRegi
 export function visit_with_QueryRegionConstraint<R>(self: QueryRegionConstraint, __visitor: TypeVisitor<R>): R {
   let r: R | undefined;
   if ((r = try_visit(__visitor.Result, unported_type_fold(self.constraint))) !== undefined) return r;
-  if ((r = try_visit(__visitor.Result, unported_type_fold(self.category))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_ConstraintCategory(self.category, __visitor))) !== undefined) return r;
   return __visitor.Result.output();
 }
 // rustc-derive: compiler/rustc_middle/src/infer/canonical.rs:139 TypeFoldable for QueryRegionConstraint (try_fold_with)
@@ -185,7 +186,7 @@ export function try_fold_with_QueryRegionConstraint<E>(self: QueryRegionConstrai
 }
 // rustc-derive: compiler/rustc_middle/src/infer/canonical.rs:139 TypeFoldable for QueryRegionConstraint (fold_with)
 export function fold_with_QueryRegionConstraint(self: QueryRegionConstraint, __folder: TypeFolder): QueryRegionConstraint {
-  return { constraint: unported_type_fold(self.constraint), category: unported_type_fold(self.category), visible_for_leak_check: self.visible_for_leak_check };
+  return { constraint: unported_type_fold(self.constraint), category: fold_with_ConstraintCategory(self.category, __folder), visible_for_leak_check: self.visible_for_leak_check };
 }
 
 // rustc-type: compiler/rustc_middle/src/infer/canonical.rs:146 CanonicalParamEnvCache

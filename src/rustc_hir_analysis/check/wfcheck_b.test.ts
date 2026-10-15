@@ -37,8 +37,7 @@ const PENDING_WF = new Set([
   // static_wf.rs: `check_static_item` -> the `Sync` obligation's E0277 report needs `InferCtxt::err_ctxt`
   // (rustc_trait_selection error_reporting, not ported)
   "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt",
-  // receiver.rs: `assumed_wf_types_and_report_errors` -> rustc_traits' `implied_outlives_bounds` query (wave 20)
-  "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation" /* implied_outlives_bounds provider (selcx-contract) */,
+  // (receiver.rs prints the oracle's E0307 since lane typeck-gaps: `ConstraintCategory` ported, impl items checked)
 ]);
 
 for (const [file, n] of [

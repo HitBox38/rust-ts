@@ -5,7 +5,8 @@
 //   among the free items, in `hir_crate_items` order, as check/check.rs:828 / :923 do from `check_well_formed`. On a
 //   crate whose only errors are E0392, stderr equals the oracle rustc's;
 // - `wf <rustc arguments...>`: calls the wfcheck entry points of this lane on every free item, as check/check.rs and
-//   wfcheck.rs `check_item` do: `check_static_item` (statics), `check_item_fn` (fns), `check_impl` (impls). They stop
+//   wfcheck.rs `check_item` do: `check_static_item` (statics), `check_item_fn` (fns), `check_impl` (impls), then
+//   `check_associated_item` on every impl item (their owners come after the free items in `check_type_wf`). They stop
 //   at the stand-ins of other lanes today; the test checks the stop text.
 //
 //   bun run.ts variances|wf <rustc arguments...>
@@ -62,6 +63,12 @@ async function main(args: string[]): Promise<number> {
             default:
               break;
           }
+        }
+        // the impl items' owners after the free items, as `check_type_wf`'s owner loop (wfcheck.rs:2614) reaches them:
+        // `check_well_formed` -> `check_item_type` -> `check_associated_item` (wfcheck.rs; e.g. the method receiver
+        // check, E0307). Lane typeck-gaps: reachable since `ConstraintCategory` is ported.
+        for (const id of (tcx.hir_crate_items(null) as ModuleItems).impl_items()) {
+          wfcheck.check_associated_item(tcx, id.owner_id.def_id);
         }
         return "Stop" as const;
       },

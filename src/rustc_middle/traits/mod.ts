@@ -35,6 +35,7 @@ import {
   ObligationCause,
 } from "./mod.gen.ts";
 import { SelectionError_from_OverflowError } from "./select.ts";
+import { ConstraintCategory } from "../mir/query.ts";
 
 export * as cache from "./cache.ts";
 export * as query from "./query.ts";
@@ -60,7 +61,7 @@ declare module "./mod.gen.ts" {
       variant: (d: DerivedHostCause) => ObligationCauseCode,
     ): ObligationCause;
     /** PORT: returns `mir::ConstraintCategory` (mir, M4; not ported). */
-    to_constraint_category(): unknown;
+    to_constraint_category(): ConstraintCategory;
   }
   namespace ObligationCause {
     function new_(span: Span, body_def_id: LocalDefId, code: ObligationCauseCode): ObligationCause;
@@ -159,17 +160,15 @@ ObligationCause.prototype.derived_host_cause = function (
 };
 
 // rustc: compiler/rustc_middle/src/traits/mod.rs:137 to_constraint_category
-ObligationCause.prototype.to_constraint_category = function (this: ObligationCause): unknown {
+ObligationCause.prototype.to_constraint_category = function (this: ObligationCause): ConstraintCategory {
   const code = this.code_();
   switch (code.$) {
     case "MatchImpl":
       return code._0.to_constraint_category();
     case "AscribeUserTypeProvePredicate":
-      // ConstraintCategory::Predicate(*predicate_span, *def_id)
-      return unported("rustc_middle::mir::ConstraintCategory (mir, M4): Predicate");
+      return { $: "Predicate", _0: code._0, _1: code._1 };
     default:
-      // ConstraintCategory::BoringNoLocation
-      return unported("rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation");
+      return ConstraintCategory.BoringNoLocation;
   }
 };
 

@@ -1083,6 +1083,32 @@
       "middle_traits_thir.typemap.json"
     ]
   },
+  "rustc_middle_mir_query": {
+    "files": [
+      "compiler/rustc_middle/src/mir/query.rs"
+    ],
+    "files_note": "lane typeck-gaps: only `ConstraintCategory` / `ReturnConstraint` / `AnnotationSource` (region-constraint categories that typeck / regionck already produce: ObligationCause::to_constraint_category, SubregionOrigin::to_constraint_category, QueryRegionConstraint) are generated; the coroutine-layout / const-qualif types are skipped until the MIR lane (M4)",
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::mir::query::CoroutineSavedLocal",
+      "rustc_middle::mir::query::CoroutineSavedTy",
+      "rustc_middle::mir::query::CoroutineLayout",
+      "rustc_middle::mir::query::ConstQualifs",
+      "rustc_middle::mir::query::DestructuredConstant"
+    ],
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json",
+      "infer.typemap.json"
+    ]
+  },
   "rustc_infer": {
     "files": [
       "compiler/rustc_infer/src/diagnostics.rs",
