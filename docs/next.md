@@ -200,3 +200,17 @@ Next: tydump-subject (port side of tydump suites), delegation fn_sig_skip_binder
 check-compare, check-region-intrinsic, coherence, variance-outlives-implwf, lint-levels-hir).
 Follow-ups: scripts tests pollute env when run with src (run separately); coverage can't mark two fns on one line; cache-deps notes N1-N3.
 
+
+## Wave 17 merged 2026-10-15 (main 4750f7d): trait-sel-traits-a/-b/-c, trait-sel-solve, check-check, check-wf-a/-b, check-compare,
+check-region-intrinsic, coherence, small-gaps-17 (+ merge-w17 fixer), thir-cx-print. Review review-w17 (sampled, independent): all lanes
+ACCEPT-WITH-NOTES so far; MED: tracked oracle rlib (fixed 6ed33da). Decision: compiletest passes -Znext-solver=coherence, so ui-derived
+suites need the old solver -> pulled forward to wave 18.
+
+## Wave 18 (running)
+18a: fnctxt-contract (rustc_hir_typeck contract), selcx-contract (old solver contract + obligation_forest + rustc_traits),
+codegen-fn-attrs (top tydump stop), small-gaps-18, thir-pattern (pattern lowering, mir_build diagnostics, THIR Debug typemap).
+18b (after contracts): typeck fill lanes and old-solver fill lanes per the contracts' split tables -> gate M3b.
+Follow-ups from review-w17 (LOW): stale PORT/header comments (wfcheck.ts, coherence/mod.ts, check/mod.ts, lib.ts, refine.ts,
+diagnostics.ts:153); traits_a.test.ts solver-default comment + old-solver stop tests; bug!() text in analyse.ts:157;
+min_specialization.ts:393 has_infer assert; dropped assert messages (check.ts:762, normalize.ts:228); util.ts:157 index panic;
+compare_impl_item oracle should use --out-dir; collect.test.ts min facts 69->70; set-based PENDING tests -> per-case maps.
