@@ -37,7 +37,7 @@ const PENDING_WF = new Set([
   // static_wf.rs: `check_static_item` -> `codegen_fn_attrs` of the static (rustc_codegen_ssa, not ported)
   "codegen_fn_attrs provider (not ported)",
   // receiver.rs: `assumed_wf_types_and_report_errors` -> rustc_traits' `implied_outlives_bounds` query (wave 20)
-  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
+  "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation" /* implied_outlives_bounds provider (selcx-contract) */,
 ]);
 
 for (const [file, n] of [

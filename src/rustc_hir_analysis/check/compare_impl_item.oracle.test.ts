@@ -42,7 +42,7 @@ const IN_PROCESS_PENDING: Record<string, string> = {
   e0053_sig: ERR_CTXT,
   e0195: "rustc_middle::ty::region::LateParamRegionKind::from_bound",
   e0326: ERR_CTXT,
-  refine_rpitit: "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
+  refine_rpitit: "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation" /* implied_outlives_bounds provider (selcx-contract) */,
 };
 
 const ENV: Record<string, string> = {};

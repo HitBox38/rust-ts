@@ -55,7 +55,7 @@ const PENDING_FACTS = new Set<string>([
  *  implwf_spec.rs stops in min_specialization's `ocx.assumed_wf_types_and_report_errors` (rustc_traits'
  *  `implied_outlives_bounds` query, wave 20). */
 const PENDING_DUMP = new Set([
-  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
+  "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation" /* implied_outlives_bounds provider (selcx-contract) */,
 ]);
 
 for (const file of ["variances.rs", "outlives.rs"]) {

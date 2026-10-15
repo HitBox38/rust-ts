@@ -26,7 +26,8 @@ import { Binder } from "../rustc_type_ir/binder.ts";
 import { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
 import { as_interner, TraitRef } from "../rustc_type_ir/predicate.ts";
 import { AliasTerm } from "../rustc_type_ir/term_kind.ts";
-import { Unported } from "../std/panic.ts";
+import { Panic, Unported } from "../std/panic.ts";
+import { FulfillmentContext } from "./traits/fulfill.ts";
 import { FulfillmentEngine, ObligationCtxt } from "./traits/engine.ts";
 import type { FulfillmentError } from "./traits/mod.gen.ts";
 import { expand_trait_aliases } from "./traits/util.ts";
@@ -54,8 +55,10 @@ function mk_tcx(): TyCtxt {
     },
   };
   const tcx = new TyCtxt(gcx as unknown as GlobalCtxt);
-  // PORT(test): `next_trait_solver_globally` / `renormalize_rigid_aliases` read the session; the test has none (the
-  // oracle's default is the next solver, without `-Zrenormalize-rigid-aliases`).
+  // PORT(test): `next_trait_solver_globally` / `renormalize_rigid_aliases` read the session; the test has none. The next
+  // solver is the default only for bare rustc at this pin (`NextSolverConfig::default()`); the compiletest-argv suites
+  // pass `-Znext-solver=coherence`, i.e. the old solver outside coherence (see the "old solver" tests below, which
+  // override `next_trait_solver_globally`). No `-Zrenormalize-rigid-aliases`.
   (tcx as unknown as { next_trait_solver_globally: () => boolean }).next_trait_solver_globally = () => true;
   (tcx as unknown as { renormalize_rigid_aliases: () => boolean }).renormalize_rigid_aliases = () => false;
   return tcx;
@@ -198,6 +201,48 @@ describe("ObligationCtxt on a real InferCtxt", () => {
       expect(infcx.can_eq(ParamEnv.empty(), tcx.types.u8, tcx.types.bool, ToTrace_Ty)).toBe(false);
       const _typed: ObligationCtxt<FulfillmentError> | undefined = undefined;
       void _typed;
+    }),
+  );
+});
+
+/** `sg` with `-Znext-solver=coherence` (compiletest's argv): `next_trait_solver_globally()` is false. */
+const sg_old = (f: (tcx: TyCtxt) => void) => () =>
+  create_default_session_globals_then(() => {
+    const tcx = mk_tcx();
+    (tcx as unknown as { next_trait_solver_globally: () => boolean }).next_trait_solver_globally = () => false;
+    tls.enter_context(new tls.ImplicitCtxt(tcx, undefined, 0), () => f(tcx));
+  });
+
+describe("ObligationCtxt and the old solver (review-w17)", () => {
+  test(
+    "next_trait_solver_globally = false: ObligationCtxt::new on a non-coherence InferCtxt uses the old FulfillmentContext",
+    sg_old((tcx) => {
+      // PORT(test): `-Zdisable-fast-paths` keeps `sizedness_fast_path` (lang items, not in this mock) out of the way.
+      (tcx.sess.opts.unstable_opts as { disable_fast_paths: boolean }).disable_fast_paths = true;
+      const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
+      expect(infcx.next_trait_solver()).toBe(false);
+      const ocx = ObligationCtxt.new(infcx);
+      expect(ocx.engine.$).toBe("Old");
+      expect(ocx.engine._0).toBeInstanceOf(FulfillmentContext);
+      expect(ObligationCtxt.new_with_diagnostics(infcx).engine._0).toBeInstanceOf(FulfillmentContext);
+
+      // `?0: Trait`: not global, so `process_trait_obligation` goes straight to `SelectionContext::poly_select`.
+      const v = infcx.next_ty_var(DUMMY_SP);
+      ocx.register_bound(ObligationCause.dummy(), ParamEnv.empty(), v, def(5));
+      expect(ocx.engine.has_pending_obligations()).toBe(true);
+      expect(ocx.engine.pending_obligations().length).toBe(1);
+      // The forest drives the obligation into the (wave-18b) selection stub.
+      expect(() => ocx.try_evaluate_obligations()).toThrow(/rustc_trait_selection::traits::select::SelectionContext::poly_select/);
+    }),
+  );
+
+  test(
+    "next_trait_solver_globally = true with an InferCtxt built with_next_trait_solver(false) panics in FulfillmentEngine::new",
+    sg((tcx) => {
+      const infcx = tcx.infer_ctxt().with_next_trait_solver(false).build(TypingMode.non_body_analysis());
+      expect(infcx.next_trait_solver()).toBe(false);
+      expect(() => ObligationCtxt.new(infcx)).toThrow(Panic);
+      expect(() => ObligationCtxt.new(infcx)).toThrow("using old solver even though new solver is enabled globally");
     }),
   );
 });
