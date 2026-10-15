@@ -35,6 +35,8 @@ register_deref(FnCallDiagCtxt, "arg_matching_ctxt", ArgMatchingCtxt);
 //   `self.deferred_cast_checks.borrow_mut().drain(..)` empties the array.
 // - Closures stay closures; `debug!` stays a comment.
 // - `GenericIdx` / `TupledArgCheckOutcome` are generated (checks.gen.ts).
+// PORT: this lane's imports sit here with an `A` suffix (`TyA`, `hirA`, ...) so that they cannot collide with the
+// imports lane typeck-checks-b adds for checks.rs:1669.. when both lanes merge into this one file.
 import { Applicability as ApplicabilityA } from "../../rustc_errors/lib.ts";
 import type { Diag as DiagA } from "../../rustc_errors/lib.ts";
 import { struct_span_code_err as struct_span_code_errA } from "../../rustc_errors/diagnostic.ts";
