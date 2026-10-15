@@ -12,6 +12,20 @@
 // `Visitor` (`type NestedFilter = nested_filter::OnlyBodies`); its `abort: Cell<bool>` is a mutable field.
 // `find_attr!(attrs, Pat => e)` is `find_attr(attrs, (k) => ...)` (rustc_attr_ir/lib.ts); the `find_attr!(tcx, id, ..)`
 // form goes through the `HasAttrs_*` tables of rustc_middle/ty/mod.ts.
+import "../rustc_trait_selection/lib.ts";
+import { FnRetTy } from "../rustc_hir/hir.ts";
+import { TraitErrors } from "../rustc_infer/traits/engine.ts";
+import { ToTrace_FnSig } from "../rustc_infer/infer/at.ts";
+import { ObligationCause } from "../rustc_middle/traits/mod.ts";
+import { ParamEnv, Ty } from "../rustc_middle/ty/mod.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
+import { err_ctxt } from "../rustc_trait_selection/traits/mod.ts";
+import { Binder, EarlyBinder, fold_Binder } from "../rustc_type_ir/binder.ts";
+import { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
+import { FnSig, fold_FnSig } from "../rustc_type_ir/ty_kind.ts";
+import type { PolyFnSig } from "../rustc_type_ir/decls.ts";
+import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import type { MetaItemInner } from "../rustc_ast/lib.ts";
 import { MetaItemInner as MetaItemInnerC } from "../rustc_ast/attr/mod.ts";
 import { ExternAbi } from "../rustc_abi/extern_abi.ts";
@@ -1271,18 +1285,111 @@ class CheckAttrVisitor extends Visitor {
     if (token_stream_def_id === undefined) {
       return;
     }
-    // PORT: `kind` is read by the part below that is not ported yet.
-    void kind;
-    // PORT: the rest (`type_of(..).no_bound_vars()`, the `InferCtxt` and the `ObligationCtxt` that compares the
-    // signature with `mk_fn_sig_safe_rust_abi`, `ProcMacroBadSig`, `note_type_err`, `report_fulfillment_errors`) needs
-    // rustc_trait_selection's `ObligationCtxt` and error reporting (wave 17). Upstream continues:
-    //   let Some(token_stream) = tcx.type_of(token_stream_def_id).no_bound_vars() else { return; };
-    //   let def_id = hir_id.expect_owner().def_id;
-    //   let param_env = ty::ParamEnv::empty();
-    //   let infcx = tcx.infer_ctxt().build(TypingMode::non_body_analysis());
-    //   let ocx = ObligationCtxt::new_with_diagnostics(&infcx);
-    //   ... (check_attr.rs:1237-1323)
-    return unported("rustc_passes::check_attr::CheckAttrVisitor::check_proc_macro (ObligationCtxt, error reporting; wave 17)");
+    const token_stream = EarlyBinder.no_bound_vars(tcx.type_of(token_stream_def_id) as EarlyBinder<Ty>, fold_Ty);
+    if (token_stream === undefined) {
+      return;
+    }
+
+    const def_id = hir_id.expect_owner().def_id;
+    const param_env = ParamEnv.empty();
+
+    const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
+    const ocx = ObligationCtxt.new_with_diagnostics(infcx);
+
+    const span = tcx.def_span(def_id);
+    const fresh_args = infcx.fresh_args_for_item(span, LocalDefId.to_def_id(def_id));
+    const sig_ = tcx.liberate_late_bound_regions(
+      LocalDefId.to_def_id(def_id),
+      Unnormalized.skip_norm_wip(EarlyBinder.instantiate(tcx.fn_sig(def_id) as EarlyBinder<PolyFnSig>, tcx, fresh_args, fold_Binder(fold_FnSig))),
+      fold_FnSig,
+    );
+
+    // PORT: `let mut cause`: a fresh value, mutated below.
+    const cause = ObligationCause.misc(span, def_id);
+    const sig = ocx.normalize(cause, param_env, Unnormalized.new_wip(sig_), fold_FnSig);
+
+    // proc macro is not WF.
+    const errors = ocx.try_evaluate_obligations();
+    if (!TraitErrors.no_errors(errors)) {
+      return;
+    }
+
+    let n: number;
+    switch (kind) {
+      case "Attribute":
+        n = 2;
+        break;
+      case "Derive":
+      case "FunctionLike":
+        n = 1;
+        break;
+    }
+    const expected_sig = tcx.mk_fn_sig_safe_rust_abi(Array.from({ length: n }, () => token_stream), token_stream);
+
+    const eq = ocx.eq(cause, param_env, expected_sig, sig, ToTrace_FnSig);
+    if (eq.$ === "Err") {
+      const terr = eq._0;
+      const diag = tcx.dcx().create_err(diagnostics.ProcMacroBadSig_diagnostic({ span, kind }));
+
+      const hir_sig = tcx.hir_fn_sig_by_hir_id(hir_id);
+      if (hir_sig !== undefined) {
+        switch (terr.$) {
+          case "ArgumentMutability":
+          case "ArgumentSorts": {
+            const idx = terr.$ === "ArgumentMutability" ? terr._0 : terr._1;
+            const ty = hir_sig.decl.inputs[idx];
+            if (ty !== undefined) {
+              diag.span(ty.span);
+              cause.span = ty.span;
+            } else if (idx === hir_sig.decl.inputs.length) {
+              const span = FnRetTy.span(hir_sig.decl.output);
+              diag.span(span);
+              cause.span = span;
+            }
+            break;
+          }
+          case "ArgCount": {
+            const ty = hir_sig.decl.inputs[FnSig.inputs(expected_sig).length];
+            if (ty !== undefined) {
+              diag.span(ty.span);
+              cause.span = ty.span;
+            }
+            break;
+          }
+          case "SafetyMismatch":
+            // FIXME: Would be nice if we had a span here..
+            break;
+          case "AbiMismatch":
+            // FIXME: Would be nice if we had a span here..
+            break;
+          case "VariadicMismatch":
+            // FIXME: Would be nice if we had a span here..
+            break;
+          default:
+            break;
+        }
+      }
+
+      // PORT: `TypeErrCtxt::note_type_err` (rustc_trait_selection error_reporting, wave 19) through the pending
+      // `infcx.err_ctxt()` (its placeholder stops as UNPORTED).
+      (infcx.err_ctxt() as unknown as { note_type_err(diag: unknown, cause: ObligationCause, secondary_span: undefined, values: unknown, terr: unknown, prefer_label: boolean, override_span: undefined): void }).note_type_err(
+        diag,
+        cause,
+        undefined,
+        param_env.and({ $: "PolySigs", _0: { expected: Binder.dummy(expected_sig, fold_FnSig), found: Binder.dummy(sig, fold_FnSig) } }),
+        terr,
+        false,
+        undefined,
+      );
+      diag.emit();
+      this.abort = true;
+    }
+
+    const errors2 = ocx.evaluate_obligations_error_on_ambiguity();
+    if (errors2.$ === "HasErrors") {
+      err_ctxt(infcx).report_fulfillment_errors(errors2._0);
+      this.abort = true;
+    }
   }
 
   // rustc: compiler/rustc_passes/src/check_attr.rs:1327 check_rustc_force_inline

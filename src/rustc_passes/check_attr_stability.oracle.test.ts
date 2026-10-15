@@ -113,9 +113,7 @@ const CASES: Case[] = [
 
 /** Cases that stop at a piece another lane ports, with the `unported(..)` text they must reach. */
 const SHALLOW = "rustc_lint::levels::shallow_lint_levels_on (tcx.hir_attr_map / hir_owner_node: HIR, M3)";
-const PENDING: Record<string, string> = {
-  staged_api: "constness provider (not ported)",
-};
+const PENDING: Record<string, string> = {};
 
 const ARGS = ["--edition", "2021", "-Zui-testing"];
 

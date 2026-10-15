@@ -36,14 +36,18 @@ import type { Goal, NoSolution } from "../rustc_type_ir/solve/mod.ts";
 import type { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import type { Result } from "../std/result.ts";
 
-/** `traits::ObligationCtxt<'a, 'tcx, E>` (traits/engine.rs, wave 17). */
-export type ObligationCtxt = Pending<"rustc_trait_selection::traits::ObligationCtxt">;
-/** `traits::FulfillmentError<'tcx>` (traits/mod.rs, wave 17). */
-export type FulfillmentError = Pending<"rustc_trait_selection::traits::FulfillmentError">;
-/** `solve::NextSolverError<'tcx>` (solve/fulfill.rs, wave 17). */
-export type NextSolverError = Pending<"rustc_trait_selection::solve::NextSolverError">;
-/** `solve::inspect::ProofTreeVisitor<'tcx>` (solve/inspect/analyse.rs, wave 17): `V: ProofTreeVisitor` with its `V::Result`. */
-export type ProofTreeVisitor = Pending<"rustc_trait_selection::solve::inspect::ProofTreeVisitor">;
+/** `traits::ObligationCtxt<'a, 'tcx, E>` (traits/engine.rs, lane trait-sel-traits-a). */
+export type { ObligationCtxt } from "./traits/engine.ts";
+/** `traits::FulfillmentError<'tcx>` (traits/mod.rs, lane trait-sel-traits-a). */
+export type { FulfillmentError } from "./traits/mod.gen.ts";
+/** `solve::NextSolverError<'tcx>` (solve/fulfill.rs, lane trait-sel-solve). */
+export type { NextSolverError } from "./solve/fulfill.ts";
+/** `solve::inspect::ProofTreeVisitor<'tcx>` (solve/inspect/analyse.rs, lane trait-sel-solve): `V: ProofTreeVisitor` with its `V::Result`. */
+export type { ProofTreeVisitor } from "./solve/inspect/analyse.ts";
+import type { FulfillmentError } from "./traits/mod.gen.ts";
+import type { ObligationCtxt } from "./traits/engine.ts";
+import type { NextSolverError } from "./solve/fulfill.ts";
+import type { ProofTreeVisitor } from "./solve/inspect/analyse.ts";
 /** `error_reporting::TypeErrCtxt<'_, 'tcx>` (error_reporting/mod.rs, wave 19 errctxt-contract). */
 export type TypeErrCtxt = Pending<"rustc_trait_selection::error_reporting::TypeErrCtxt">;
 
@@ -75,9 +79,9 @@ declare module "../rustc_infer/decls.ts" {
 
     // ---- solve/inspect/analyse.rs: `#[extension(pub trait InferCtxtProofTreeExt)] impl InferCtxt` (lane trait-sel-solve) ----
     // solve/inspect/analyse.rs:395 (`V: ProofTreeVisitor`, returns `V::Result`)
-    visit_proof_tree(goal: Goal<Predicate>, visitor: ProofTreeVisitor): unknown;
+    visit_proof_tree<R>(goal: Goal<Predicate>, visitor: ProofTreeVisitor<R>): R;
     // solve/inspect/analyse.rs:403
-    visit_proof_tree_at_depth(goal: Goal<Predicate>, depth: number, visitor: ProofTreeVisitor): unknown;
+    visit_proof_tree_at_depth<R>(goal: Goal<Predicate>, depth: number, visitor: ProofTreeVisitor<R>): R;
 
     // ---- traits/outlives_bounds.rs: `#[extension(pub trait InferCtxtExt)] impl InferCtxt` (lane trait-sel-traits-b) ----
     // traits/outlives_bounds.rs:104

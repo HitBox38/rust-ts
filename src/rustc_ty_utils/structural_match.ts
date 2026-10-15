@@ -6,25 +6,11 @@ import { ParamEnv, type Ty } from "../rustc_middle/ty/mod.ts";
 import type { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
 import { TypingMode as TypingModeC } from "../rustc_type_ir/infer_ctxt.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
-import { unported } from "../std/panic.ts";
 import "../rustc_infer/lib.ts";
-import type { InferCtxt } from "../rustc_infer/decls.ts";
+import { TraitErrors } from "../rustc_infer/traits/engine.ts";
+import "../rustc_trait_selection/lib.ts";
+import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
 
-// ---- PORT(stand-in): rustc_trait_selection is not ported ------------------------------------------------------------
-// `tcx.infer_ctxt()` is the real rustc_infer `TyCtxtInferExt` (repointed by merge-w16a). Repoint on merge:
-// `ObligationCtxt` (rustc_trait_selection traits/engine.rs, wave 17), which stops as UNPORTED; the code after it is the
-// upstream logic typed against these minimal interfaces.
-interface FulfillmentErrors_ {
-  no_errors(): boolean;
-}
-interface ObligationCtxt_ {
-  register_bound(cause: ObligationCauseT, param_env: ParamEnv, ty: Ty, def_id: DefId): void;
-  evaluate_obligations_error_on_ambiguity(): FulfillmentErrors_;
-}
-function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxt_ {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new");
-}
-// ---- end stand-ins ------------------------------------------------------------------------------------------------
 
 /// This method returns true if and only if `adt_ty` itself has been marked as
 /// eligible for structural-match: namely, if it implements
@@ -37,7 +23,7 @@ function has_structural_eq_impl(tcx: TyCtxt, adt_ty: Ty): boolean {
   const infcx = tcx.infer_ctxt().build(TypingModeC.non_body_analysis());
   const cause = ObligationCause.dummy();
 
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
   // require `#[derive(PartialEq)]`
   const structural_peq_def_id = infcx.tcx.require_lang_item("StructuralPeq", cause.span);
   ocx.register_bound(clone_ObligationCause(cause), ParamEnv.empty(), adt_ty, structural_peq_def_id);
@@ -51,7 +37,7 @@ function has_structural_eq_impl(tcx: TyCtxt, adt_ty: Ty): boolean {
   //
   // 2. We are sometimes doing future-incompatibility lints for
   //    now, so we do not want unconditional errors here.
-  return ocx.evaluate_obligations_error_on_ambiguity().no_errors();
+  return TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity());
 }
 
 // rustc: compiler/rustc_ty_utils/src/structural_match.rs:34 provide

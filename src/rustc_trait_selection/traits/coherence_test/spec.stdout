@@ -1,0 +1,41 @@
+== trait DefId(0:1 ~ spec[3260]::PointeeSized)
+== trait DefId(0:2 ~ spec[3260]::MetaSized)
+== trait DefId(0:3 ~ spec[3260]::Sized)
+== trait DefId(0:12 ~ spec[3260]::Tr)
+  graph parent DefId(0:13 ~ spec[3260]::{impl#0}) -> DefId(0:12 ~ spec[3260]::Tr)
+  graph parent DefId(0:14 ~ spec[3260]::{impl#1}) -> DefId(0:12 ~ spec[3260]::Tr)
+  graph parent DefId(0:15 ~ spec[3260]::{impl#2}) -> DefId(0:12 ~ spec[3260]::Tr)
+  graph children DefId(0:12 ~ spec[3260]::Tr) blanket []
+    Adt(DefId(0:4 ~ spec[3260]::A)) => [DefId(0:13 ~ spec[3260]::{impl#0})]
+    Adt(DefId(0:6 ~ spec[3260]::B)) => [DefId(0:14 ~ spec[3260]::{impl#1})]
+    Adt(DefId(0:8 ~ spec[3260]::C)) => [DefId(0:15 ~ spec[3260]::{impl#2})]
+  overlap DefId(0:13 ~ spec[3260]::{impl#0}) DefId(0:14 ~ spec[3260]::{impl#1}) false
+  overlap DefId(0:13 ~ spec[3260]::{impl#0}) DefId(0:15 ~ spec[3260]::{impl#2}) false
+  overlap DefId(0:14 ~ spec[3260]::{impl#1}) DefId(0:15 ~ spec[3260]::{impl#2}) false
+  specializes DefId(0:13 ~ spec[3260]::{impl#0}) DefId(0:14 ~ spec[3260]::{impl#1}) false
+  specializes DefId(0:13 ~ spec[3260]::{impl#0}) DefId(0:15 ~ spec[3260]::{impl#2}) false
+  specializes DefId(0:14 ~ spec[3260]::{impl#1}) DefId(0:13 ~ spec[3260]::{impl#0}) false
+  specializes DefId(0:14 ~ spec[3260]::{impl#1}) DefId(0:15 ~ spec[3260]::{impl#2}) false
+  specializes DefId(0:15 ~ spec[3260]::{impl#2}) DefId(0:13 ~ spec[3260]::{impl#0}) false
+  specializes DefId(0:15 ~ spec[3260]::{impl#2}) DefId(0:14 ~ spec[3260]::{impl#1}) false
+== impl DefId(0:13 ~ spec[3260]::{impl#0})
+  orphan local-proper Ok(Ok(()))
+  orphan local-compat Ok(Ok(()))
+  orphan remote Ok(Err(NonLocalInputType([(A, Yes)])))
+  knowable Ok(Ok(()))
+  translate_args trait [A]
+  translate_args self []
+== impl DefId(0:14 ~ spec[3260]::{impl#1})
+  orphan local-proper Ok(Ok(()))
+  orphan local-compat Ok(Ok(()))
+  orphan remote Ok(Err(NonLocalInputType([(B, Yes)])))
+  knowable Ok(Ok(()))
+  translate_args trait [B]
+  translate_args self []
+== impl DefId(0:15 ~ spec[3260]::{impl#2})
+  orphan local-proper Ok(Ok(()))
+  orphan local-compat Ok(Ok(()))
+  orphan remote Ok(Err(NonLocalInputType([(C<?0t>, Yes)])))
+  knowable Ok(Ok(()))
+  translate_args trait [C<T/#0>]
+  translate_args self [T/#0]

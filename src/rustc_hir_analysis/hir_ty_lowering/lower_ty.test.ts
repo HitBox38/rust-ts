@@ -62,12 +62,10 @@ pub type E0 = Missing;
 pub type E1 = (!, *const Missing);
 `;
 
-/** Cases that stop at a stub: alias name -> the exact `unported(..)` text. The other aliases of PENDING_SRC (P0, P1, P3, P5,
- * P6: lane-a's path / lifetime lowering, collect-rbv's `named_variable_map`, collect-a's `generics_of`, all merged by
+/** Cases that stop at a stub: alias name -> the exact `unported(..)` text. The other aliases of PENDING_SRC (P0, P1, P2
+ * (`fn()`: check_abi, lane check-check), P3, P5, P6: lane-a's path / lifetime lowering, collect-rbv's `named_variable_map`, collect-a's `generics_of`, all merged by
  * merge-w16a) must equal the oracle's `type_of` line. */
 const PENDING: Record<string, string> = {
-  // `lower_ty` (FnPtr) -> `lower_fn_ty` -> check/check.rs `check_abi` (wave 17)
-  P2: "rustc_hir_analysis::check::check::check_abi",
   // `lower_const_arg` (array length `3`, an anon const) -> feeds its `type_of`, `lower_const_arg_anon` ->
   // `try_lower_anon_const_lit` -> `tcx.at(..).lit_to_const(..)`: the query key `LitToConstInput` has no TS `QueryKey`
   // (rustc_middle query/keys.rs)
@@ -197,6 +195,6 @@ test.skipIf(SKIP)("lower_ty through ItemCtxt of the once-PENDING paths matches t
   const oracle = oracle_type_ofs(file);
   const ours = port_type_ofs(file);
   const names = [...oracle.keys()].filter((n) => !(n in PENDING)).sort();
-  expect(names).toEqual(["P0", "P1", "P3", "P5", "P6"]);
+  expect(names).toEqual(["P0", "P1", "P2", "P3", "P5", "P6"]);
   for (const name of names) expect(`${name} ${ours.get(name)}`).toBe(`${name} ${oracle.get(name)}`);
 });

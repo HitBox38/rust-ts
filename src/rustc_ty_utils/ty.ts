@@ -40,26 +40,12 @@ import { DUMMY_SP, type ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { bug } from "../rustc_span/macros.ts";
 import { PLAIN } from "../std/fmt.ts";
 import type { MutRef } from "../std/mut_ref.ts";
-import { unported } from "../std/panic.ts";
 import "../rustc_infer/lib.ts";
-import type { InferCtxt } from "../rustc_infer/decls.ts";
+import "../rustc_trait_selection/lib.ts";
+import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
+import { normalize_param_env_or_error } from "../rustc_trait_selection/traits/mod.ts";
 import { Ok } from "../std/result.ts";
 
-// ---- PORT(stand-in): rustc_trait_selection is not ported ------------------------------------------------------------
-// `tcx.infer_ctxt()` is the real rustc_infer `TyCtxtInferExt` (repointed by merge-w16a). Repoint on merge:
-// `traits::ObligationCtxt` (rustc_trait_selection traits/engine.rs) and `traits::normalize_param_env_or_error`
-// (rustc_trait_selection traits/mod.rs), wave 17. Until then these two entry points stop as UNPORTED; the code after
-// them is the upstream logic typed against these minimal interfaces.
-interface ObligationCtxt_ {
-  normalize<T>(cause: ObligationCauseT, param_env: ParamEnv, value: Unnormalized<T>, d: TypeFoldable<T>): T;
-}
-function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxt_ {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new");
-}
-function normalize_param_env_or_error(_tcx: TyCtxt, _unnormalized_env: ParamEnv, _cause: ObligationCauseT): ParamEnv {
-  return unported("rustc_trait_selection::traits::normalize_param_env_or_error");
-}
-// ---- end stand-ins ------------------------------------------------------------------------------------------------
 
 /// If `ty` implements the given `sizedness` trait, returns `None`. Otherwise, returns the type
 /// that must implement the given `sizedness` for `ty` to implement it.
@@ -471,7 +457,7 @@ function impl_self_is_guaranteed_unsized(tcx: TyCtxt, impl_def_id: DefId): boole
 
   const infcx = tcx.infer_ctxt().ignoring_regions().build(TypingModeC.non_body_analysis());
 
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
   const cause = ObligationCause.dummy();
   const param_env = tcx.param_env(impl_def_id) as ParamEnv;
 

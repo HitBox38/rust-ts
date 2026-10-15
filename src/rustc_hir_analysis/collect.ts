@@ -20,10 +20,12 @@
 // in collect/clauses_of.ts), its `impl HirTyLowerer` is the vtable object `HirTyLowerer_ItemCtxt` below.
 // Init order: top-level code here may touch only ./decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
-// PORT: `InferCtxt`, `SolverRegionConstraint` (lane infcx-contract), `TestBinderBody` / `TestBinderForall` /
-// `TestBinderExists` (check/wfcheck.rs, wave 17) and rustc_trait_selection are pending: the code that builds or uses
-// them stops with `unported(..)` at the first use, after the upstream statements before it.
+// PORT: `TestBinderBody` / `TestBinderForall` / `TestBinderExists` / `WithWhereClauses` are check/wfcheck.rs's
+// generated types (check/wfcheck.gen.ts, types only here).
+import { hir_ty_lowering_dyn_compatibility_violations } from "../rustc_trait_selection/traits/dyn_compatibility.ts";
 import { ItemCtxt, type HirTyLowerer, type HirTyLowererImpl, type InferCtxt, type SolverRegionConstraint, type TestBinderBody, type TestBinderExists, type TestBinderForall } from "./decls.ts";
+import type { WithWhereClauses } from "./check/wfcheck.gen.ts";
+import type { ClauseKind } from "../rustc_middle/ty/predicate.gen.ts";
 import { Size } from "../rustc_abi/lib.ts";
 import type { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
@@ -34,11 +36,14 @@ import { debug_Node } from "../rustc_hir/lib.ts";
 import { type HirId, HirId_eq } from "../rustc_hir_id/lib.ts";
 import { pluralize } from "../rustc_lint_defs/lib.ts";
 import { REPR_C_ENUMS_LARGER_THAN_INT } from "../rustc_lint_defs/builtin.gen.ts";
-import type { DynCompatibilityViolation } from "../rustc_middle/traits/mod.ts";
+import { type DynCompatibilityViolation, ObligationCause } from "../rustc_middle/traits/mod.ts";
+import { EvaluationResult } from "../rustc_middle/traits/select.ts";
+import { TraitErrors } from "../rustc_infer/traits/engine.ts";
+import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
 import type { AdtDef, AdtKind } from "../rustc_middle/ty/adt.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Const, Region } from "../rustc_middle/ty/decls.ts";
-import { fold_List_Ty, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
+import { fold_GenericArgs, fold_List_Ty, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { GenericClauses, type GenericParamDef } from "../rustc_middle/ty/generics.ts";
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import { type List, RawList } from "../rustc_middle/ty/list.ts";
@@ -54,7 +59,7 @@ import { debug_LateParamRegionKind, fold_Ty } from "../rustc_middle/ty/structura
 import { type DefId, DefId_eq, debug_LocalDefId, LocalDefId, type LocalModId } from "../rustc_span/def_id.ts";
 import { type ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import { DUMMY_SP } from "../rustc_span/span_encoding.ts";
-import { type Ident, kw, Symbol } from "../rustc_span/symbol.ts";
+import { type Ident, kw, sym, Symbol } from "../rustc_span/symbol.ts";
 import { bug, span_bug } from "../rustc_span/macros.ts";
 import { TypingMode as TypingModeC } from "../rustc_type_ir/infer_ctxt.ts";
 import "../rustc_infer/lib.ts";
@@ -327,10 +332,8 @@ ItemCtxt.prototype.lower_test_binder_body = function (this: ItemCtxt, item: hir.
   for (const predicate of predicates) {
     clauses_of.where_predicate_clauses(this, predicate, clauses);
   }
-  const predicates_ = [...clauses].map(([c, span]) => [c.kind(), span] as const);
-  void [foralls_, exists_, constraints_, predicates_];
-  // `TestBinderBody { foralls, exists, constraints, predicates }`
-  return unported("rustc_hir_analysis::check::wfcheck::TestBinderBody (pending, wave 17)");
+  const predicates_ = [...clauses].map(([c, span]): [Binder<ClauseKind>, Span] => [c.kind(), span]);
+  return { foralls: foralls_, exists: exists_, constraints: constraints_, predicates: predicates_ };
 };
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:344 lower_test_binder_forall
@@ -342,10 +345,10 @@ ItemCtxt.prototype.lower_test_binder_forall = function (this: ItemCtxt, forall: 
   for (const predicate of forall.generics.predicates) {
     this.lower_test_binder_assumptions(predicate, type_outlives, region_outlives);
   }
-  void [bound_vars, value];
-  // `crate::check::wfcheck::WithWhereClauses { value, type_outlives, region_outlives }`, then
-  // `TestBinderForall { span, binder: Binder::bind_with_vars(body, bound_vars), assert_on_exit }`
-  return unported("rustc_hir_analysis::check::wfcheck::WithWhereClauses / TestBinderForall (pending, wave 17)");
+  const body: WithWhereClauses<TestBinderBody> = { value, type_outlives, region_outlives };
+  const binder = Binder.bind_with_vars(body, bound_vars);
+  const assert_on_exit = forall.assert_on_exit !== undefined ? this.lower_test_binder_constraint(forall.assert_on_exit) : undefined;
+  return { span: forall.span, binder, assert_on_exit };
 };
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:365 lower_test_binder_exists
@@ -353,9 +356,7 @@ ItemCtxt.prototype.lower_test_binder_exists = function (this: ItemCtxt, exists: 
   const bound_vars = this.tcx.late_bound_vars(exists.hir_id);
   const body = this.lower_test_binder_body(exists.body);
   const binder = Binder.bind_with_vars(body, bound_vars);
-  void binder;
-  // `TestBinderExists { span: exists.span, binder }`
-  return unported("rustc_hir_analysis::check::wfcheck::TestBinderExists (pending, wave 17)");
+  return { span: exists.span, binder };
 };
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:375 lower_test_binder_assumptions
@@ -716,9 +717,7 @@ export const HirTyLowerer_ItemCtxt: HirTyLowererImpl<ItemCtxt> = {
 
   // rustc: compiler/rustc_hir_analysis/src/collect.rs:760 dyn_compatibility_violations
   dyn_compatibility_violations(this: ItemCtxt, trait_def_id: DefId): DynCompatibilityViolation[] {
-    void trait_def_id;
-    // `hir_ty_lowering_dyn_compatibility_violations(self.tcx, trait_def_id)`
-    return unported("rustc_trait_selection::traits::hir_ty_lowering_dyn_compatibility_violations");
+    return hir_ty_lowering_dyn_compatibility_violations(this.tcx, trait_def_id);
   },
 };
 
@@ -1338,13 +1337,66 @@ export function suggest_impl_trait(infcx: InferCtxt, param_env: ParamEnv, ret_ty
     const maybe_ret = item_ty.is_unit() ? "" : ` -> ${display_Ty(item_ty)}`;
     return `impl ${trait_name}(${types.map((ty) => display_Ty(ty)).join(", ")})${maybe_ret}`;
   };
-  void [format_as_assoc, format_as_parenthesized, param_env, ret_ty];
+  type Formatter = (tcx: TyCtxt, args: GenericArgs, trait_def_id: DefId, assoc_item_def_id: DefId, item_ty: Ty) => string | undefined;
 
-  // PORT: the candidate loop (`infcx.probe`, `GenericArgs::for_item` with `infcx.var_for_def`, `type_implements_trait`,
-  // `ObligationCtxt`, `deeply_resolve_ignoring_regions`) needs rustc_trait_selection's `ObligationCtxt` (wave 17), so the
-  // fn stops before it (after merge-w16a `infcx` is the real `InferCtxt`).
-  void infcx;
-  return unported("rustc_hir_analysis::collect::suggest_impl_trait (ObligationCtxt pending: wave 17)");
+  const candidates: [DefId | undefined, DefId | undefined, Formatter][] = [
+    [infcx.tcx.get_diagnostic_item(sym.Iterator), infcx.tcx.get_diagnostic_item(sym.IteratorItem), format_as_assoc],
+    [infcx.tcx.lang_items().future_trait(), infcx.tcx.lang_items().future_output(), format_as_assoc],
+    [infcx.tcx.lang_items().async_fn_trait(), infcx.tcx.lang_items().async_fn_once_output(), format_as_parenthesized],
+    [infcx.tcx.lang_items().async_fn_mut_trait(), infcx.tcx.lang_items().async_fn_once_output(), format_as_parenthesized],
+    [infcx.tcx.lang_items().async_fn_once_trait(), infcx.tcx.lang_items().async_fn_once_output(), format_as_parenthesized],
+    [infcx.tcx.lang_items().fn_trait(), infcx.tcx.lang_items().fn_once_output(), format_as_parenthesized],
+    [infcx.tcx.lang_items().fn_mut_trait(), infcx.tcx.lang_items().fn_once_output(), format_as_parenthesized],
+    [infcx.tcx.lang_items().fn_once_trait(), infcx.tcx.lang_items().fn_once_output(), format_as_parenthesized],
+  ];
+  for (const [trait_def_id, assoc_item_def_id, formatter] of candidates) {
+    if (trait_def_id === undefined) {
+      continue;
+    }
+    if (assoc_item_def_id === undefined) {
+      continue;
+    }
+    if (infcx.tcx.def_kind(assoc_item_def_id).$ !== "AssocTy") {
+      continue;
+    }
+    const sugg = infcx.probe((_): string | undefined => {
+      const args = RawList.for_item(infcx.tcx, trait_def_id, (param, _) => {
+        if (param.index === 0) {
+          return GenericArg.from_Ty(ret_ty);
+        } else {
+          return infcx.var_for_def(DUMMY_SP, param);
+        }
+      });
+      if (!EvaluationResult.must_apply_modulo_regions(infcx.type_implements_trait(trait_def_id, args, param_env))) {
+        return undefined;
+      }
+      const ocx = ObligationCtxt.new(infcx);
+      const item_ty = ocx.normalize(
+        ObligationCause.dummy(),
+        param_env,
+        Unnormalized.new(Ty.new_projection_from_args(infcx.tcx, "No", assoc_item_def_id, args)),
+        fold_Ty,
+      );
+      // FIXME(compiler-errors): We may benefit from resolving regions here.
+      if (TraitErrors.no_errors(ocx.try_evaluate_obligations())) {
+        const item_ty_ = infcx.deeply_resolve_ignoring_regions(item_ty, fold_Ty);
+        const item_ty__ = IsSuggestable.make_suggestable(item_ty_, infcx.tcx, false, undefined, fold_Ty);
+        if (item_ty__ !== undefined) {
+          const sugg = formatter(infcx.tcx, infcx.deeply_resolve_ignoring_regions(args, fold_GenericArgs), trait_def_id, assoc_item_def_id, item_ty__);
+          if (sugg !== undefined) {
+            return sugg;
+          }
+        }
+      }
+
+      return undefined;
+    });
+
+    if (sugg !== undefined) {
+      return sugg;
+    }
+  }
+  return undefined;
 }
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:1561 impl_is_fully_generic_for_reflection

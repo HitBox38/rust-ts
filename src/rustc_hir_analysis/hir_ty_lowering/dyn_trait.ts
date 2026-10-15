@@ -4,10 +4,11 @@
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
 //
-// PORT: rustc_trait_selection is not ported. Its fns called here stop at `unported(..)` where upstream calls them:
-// `traits::expand_trait_aliases` (traits/util.rs), `error_reporting::traits::report_dyn_incompatibility`,
-// `traits::wf::object_region_bounds`, `diagnostics::AssocTypeWithSameName` and
-// `error_reporting::traits::suggestions::NextTypeParamName::next_type_param_name`.
+// PORT: rustc_trait_selection's error reporting (wave 19) is not ported. Its items called here stop at `unported(..)`
+// where upstream calls them: `error_reporting::traits::report_dyn_incompatibility`, `diagnostics::AssocTypeWithSameName`
+// and `error_reporting::traits::suggestions::NextTypeParamName::next_type_param_name`.
+import { expand_trait_aliases } from "../../rustc_trait_selection/traits/util.ts";
+import { object_region_bounds } from "../../rustc_trait_selection/traits/wf.ts";
 import { HirTyLowerer } from "../decls.ts";
 // PORT: init order: rustc_middle is loaded through its crate root before the ty/print modules below are imported directly
 // (importing ty/print/mod.ts first in a fresh process hits a TDZ inside rustc_middle).
@@ -174,8 +175,9 @@ HirTyLowerer.prototype.lower_trait_object_ty = function (
     span,
   );
 
-  const [elaborated_trait_bounds_, elaborated_projection_bounds]: [[PolyTraitClause, Span[]][], [PolyProjectionClause, Span][]] = unported(
-    "rustc_trait_selection::traits::util::expand_trait_aliases",
+  const [elaborated_trait_bounds_, elaborated_projection_bounds]: [[PolyTraitClause, Span[]][], [PolyProjectionClause, Span][]] = expand_trait_aliases(
+    tcx,
+    user_written_bounds,
   );
   let elaborated_trait_bounds = elaborated_trait_bounds_;
 
@@ -598,8 +600,7 @@ HirTyLowerer.prototype.compute_object_lifetime_bound = function (
 
   // No explicit region bound specified. Therefore, examine trait
   // bounds and see if we can derive region bounds from those.
-  // `traits::wf::object_region_bounds(tcx, existential_predicates)`
-  const derived_region_bounds: Region[] = unported("rustc_trait_selection::traits::wf::object_region_bounds");
+  const derived_region_bounds: Region[] = object_region_bounds(tcx, existential_predicates);
 
   // If there are no derived region bounds, then report back that we
   // can find no region bound. The caller will use the default.

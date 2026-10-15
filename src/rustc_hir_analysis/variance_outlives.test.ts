@@ -51,12 +51,11 @@ const PENDING_FACTS = new Set<string>([
   // (none since merge-w16b: tydump-subject's `EarlyParamRegion` and `Binder.bound_vars` Debug impls are merged)
 ]);
 
-/** The exact `unported(..)` texts pending.rs's dump stops at today, while lowering field types. */
+/** The exact `unported(..)` texts these runs stop at today. pending.rs's dump matches the oracle since merge-w17;
+ *  implwf_spec.rs stops in min_specialization's `ocx.assumed_wf_types_and_report_errors` (rustc_traits'
+ *  `implied_outlives_bounds` query, wave 20). */
 const PENDING_DUMP = new Set([
-  "rustc_hir_analysis::check::check::check_abi", // fn pointer types (check/check.rs, wave 17 check-check)
-  "rustc_trait_selection::traits::util::expand_trait_aliases", // `dyn Trait` (rustc_trait_selection, wave 17)
-  "specialization_graph_of provider (not ported)", // `TraitDef::ancestors` (rustc_trait_selection, wave 17)
-  "rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics", // min_specialization.ts stand-in
+  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
 ]);
 
 for (const file of ["variances.rs", "outlives.rs"]) {
@@ -83,6 +82,8 @@ for (const [mode, file] of [["dump", "pending.rs"], ["implwf", "implwf_spec.rs"]
     const oracle = run(["rustc", `+${PIN.toolchain}`, ...dump_args(s, file)]);
     const ours = run(["bun", join(DIR, "run.ts"), mode, ...dump_args(s, file)]);
     const m = /unported: (.*)\n/.exec(ours.stderr);
+    // pending.rs matches the oracle since merge-w17: it must not stop.
+    if (file === "pending.rs") expect(m).toBeNull();
     if (m !== null) expect(PENDING_DUMP).toContain(m[1]!);
     else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
   }, 120_000);

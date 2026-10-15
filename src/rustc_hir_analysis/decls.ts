@@ -117,12 +117,12 @@ export type { InferCtxt };
 /** rustc_infer infer/solver_region_constraints.rs `SolverRegionConstraint<'tcx>` (`ItemCtxt::lower_test_binder_constraint`; re-exported by merge-w16a). */
 import type { SolverRegionConstraint } from "../rustc_infer/infer/solver_region_constraints.ts";
 export type { SolverRegionConstraint };
-/** rustc_trait_selection traits `FulfillmentError<'tcx>` (wave 17, trait-sel-solve). */
-export type FulfillmentError = Pending<"rustc_trait_selection::traits::FulfillmentError">;
-/** check/wfcheck.rs `TestBinderBody` / `TestBinderForall` / `TestBinderExists` (`#[rustc_test_binder]` lowering; wave 17, check-wf). */
-export type TestBinderBody = Pending<"rustc_hir_analysis::check::wfcheck::TestBinderBody">;
-export type TestBinderForall = Pending<"rustc_hir_analysis::check::wfcheck::TestBinderForall">;
-export type TestBinderExists = Pending<"rustc_hir_analysis::check::wfcheck::TestBinderExists">;
+/** rustc_trait_selection traits `FulfillmentError<'tcx>` (traits/mod.gen.ts). */
+export type { FulfillmentError } from "../rustc_trait_selection/traits/mod.gen.ts";
+import type { FulfillmentError } from "../rustc_trait_selection/traits/mod.gen.ts";
+/** check/wfcheck.rs `TestBinderBody` / `TestBinderForall` / `TestBinderExists` (`#[rustc_test_binder]` lowering; generated). */
+export type { TestBinderBody, TestBinderExists, TestBinderForall } from "./check/wfcheck.gen.ts";
+import type { TestBinderBody, TestBinderExists, TestBinderForall } from "./check/wfcheck.gen.ts";
 /**
  * rustc_middle middle/resolve_bound_vars.rs (ported by lane collect-rbv): `ResolvedArg`, `ObjectLifetimeDefault`,
  * `ResolveBoundVars<'tcx>`.

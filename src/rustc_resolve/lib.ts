@@ -68,7 +68,7 @@ import {
 import type { TyCtxt, TyCtxtFeed } from "../rustc_middle/ty/context.ts";
 import type { Generics } from "../rustc_middle/ty/generics.ts";
 import { Visibility } from "../rustc_middle/ty/mod.ts";
-import { CRATE_DEF_ID, CrateNum, type DefId, debug_LocalDefId, LOCAL_CRATE, LocalDefId, type LocalModId, ModId, ModId_eq } from "../rustc_span/def_id.ts";
+import { CRATE_DEF_ID, CrateNum, type DefId, DefIdMap, debug_LocalDefId, LOCAL_CRATE, LocalDefId, type LocalModId, ModId, ModId_eq } from "../rustc_span/def_id.ts";
 import { debug_SyntaxContext, ExpnId, ExpnId_eq, LocalExpnId, type MacroKind, SyntaxContext } from "../rustc_span/hygiene.ts";
 import { FatalError } from "../rustc_span/fatal_error.ts";
 import { DUMMY_SP, Span } from "../rustc_span/lib.ts";
@@ -1595,8 +1595,8 @@ Resolver.prototype.into_outputs = function (this: Resolver): ResolverOutputs {
     glob_map,
     maybe_unused_trait_imports,
     main_def,
-    // PORT: rustc_middle's `trait_impls` is keyed by `DefId_hash_key` with the `DefId` kept in the entry.
-    trait_impls: new Map([...this.trait_impls].map(([def_id, impls]) => [DefId_hash_key(def_id), [def_id, impls]] as const)),
+    // PORT: rustc_middle's `trait_impls` is a `DefIdMap` (the resolver's map in insertion order).
+    trait_impls: new DefIdMap(this.trait_impls),
     proc_macros,
     confused_type_with_std_module,
     paths_matching_assoc_types,

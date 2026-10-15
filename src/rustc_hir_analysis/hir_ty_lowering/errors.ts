@@ -8,6 +8,7 @@
 // `impl_trait_header`, `type_of`, `fn_sig`, `generics_of`) are cast at the call to the type the query returns upstream.
 // PORT: `Vec<String>::sort()` is a stable sort with `str_cmp` (byte order); `Vec<Symbol>::sort()` compares the interned
 // index (`Symbol`'s derived `Ord`), i.e. numerically.
+import { dyn_compatibility_violations_for_assoc_item } from "../../rustc_trait_selection/traits/dyn_compatibility.ts";
 import { type FulfillmentError, HirTyLowerer } from "../decls.ts";
 import {
   Applicability,
@@ -1001,7 +1002,7 @@ HirTyLowerer.prototype.report_unresolved_inherent_assoc_item = function (
   // I would do the same here if it didn't mean more code duplication.
   let bounds_: string[] = [];
   for (const error of fulfillment_errors) {
-    const p = format_pred(FulfillmentError_root_obligation_predicate(error));
+    const p = format_pred(error.root_obligation.predicate);
     if (p !== undefined) bounds_.push(`\`${p}\``);
   }
   bounds_.sort(str_cmp);
@@ -2096,16 +2097,6 @@ function as_decls_print<T>(d: Print<T>): import("../../rustc_middle/ty/decls.ts"
 }
 
 // ==== stand-ins (PORT: pending other lanes). Root deletes each when its owner lands and points the uses at the real port. ====
-
-/** `FulfillmentError::root_obligation.predicate` (rustc_trait_selection, wave 17; `FulfillmentError` is pending). */
-function FulfillmentError_root_obligation_predicate(_e: FulfillmentError): Predicate {
-  return unported("rustc_trait_selection::traits::FulfillmentError::root_obligation");
-}
-
-/** rustc_trait_selection traits/dyn_compatibility.rs `dyn_compatibility_violations_for_assoc_item` (crate not ported). */
-function dyn_compatibility_violations_for_assoc_item(_tcx: TyCtxt, _trait_def_id: DefId, _item: AssocItem): unknown[] {
-  return unported("rustc_trait_selection::traits::dyn_compatibility_violations_for_assoc_item");
-}
 
 /** rustc_trait_selection error_reporting/traits/mod.rs `report_dyn_incompatibility` (crate not ported). */
 function report_dyn_incompatibility(_tcx: TyCtxt, _span: Span, _hir_id: HirId | undefined, _trait_def_id: DefId, _violations: unknown[]): Diag {

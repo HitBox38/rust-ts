@@ -4,3 +4,5 @@ node_modules
 *.log
 /target/
 tools/**/target/
+src/rustc_hir_analysis/check/check_oracle/cases/*.rlib
+src/rustc_hir_analysis/check/compare_impl_item_oracle/cases/*.rlib

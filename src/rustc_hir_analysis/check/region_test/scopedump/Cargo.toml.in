@@ -1,0 +1,19 @@
+# Template in the format of tools/probes/<name>/Cargo.toml.in (scripts/probes.ts substitutes @SRC@). Lane
+# check-region-intrinsic keeps it next to its test because porting lanes do not edit tools/; root may move it to
+# tools/probes/scopedump (see docs/handoff/check-region-intrinsic.md).
+#
+# A rustc-dev probe: it links the pinned nightly's own compiler crates through `#![feature(rustc_private)]`.
+[package]
+name = "scopedump"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+
+[[bin]]
+name = "scopedump"
+path = "@SRC@/main.rs"
+
+[workspace]

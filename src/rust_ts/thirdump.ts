@@ -3,7 +3,8 @@
 // documents the setup, the steps and the output; tools/probes/tydump/prefix.rs is the analysis prefix
 // both probes run, D1/D1a). This file mirrors the probe step by step; the prefix is
 // tydump_dump.ts's. `THIRDUMP_FORMAT=tree` selects the
-// probe's `thir_tree` output instead of `thir_flat` (the suites use the default).
+// probe's `thir_tree` output instead of `thir_flat` (the suites use the default). Both are the ported
+// `rustc_mir_build::thir::print::{thir_flat, thir_tree}` (src/rustc_mir_build/thir/print.ts).
 //   bun src/rust_ts/thirdump.ts <rustc arguments...>
 //
 // RUST_TS_IMPL as src/rust_ts/main.ts: `port` (default), `shim` (runs the oracle probe itself, so the
@@ -12,16 +13,26 @@
 import type { Compiler, Config } from "../rustc_interface/interface.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { LocalDefId } from "../rustc_span/def_id.ts";
-import { Panic, Unported, unported } from "../std/panic.ts";
+import { Panic, Unported } from "../std/panic.ts";
 import { ensure_stack } from "./stack.ts";
 
 const EXIT_UNPORTED = 70;
 
+/** `rustc_mir_build::thir::print::{thir_tree, thir_flat}`'s signature. */
+type ThirPrintFn = (tcx: TyCtxt, owner_def: LocalDefId) => string;
+
 /**
- * The probe's `ThirDump` callbacks; `prefix` is tydump_dump.ts's `run_required_analyses_prefix` and `debug_did` the
- * `{:?}` of a LocalDefId (both loaded with the driver).
+ * The probe's `ThirDump` callbacks; `prefix` is tydump_dump.ts's `run_required_analyses_prefix`, `debug_did` the
+ * `{:?}` of a LocalDefId and `thir_tree` / `thir_flat` rustc_mir_build's printers (all loaded with the driver).
  */
-function make_callbacks(tree: boolean, prefix: (tcx: TyCtxt) => number, debug_did: (did: LocalDefId) => string, print: (s: string) => void) {
+function make_callbacks(
+  tree: boolean,
+  prefix: (tcx: TyCtxt) => number,
+  debug_did: (did: LocalDefId) => string,
+  print: (s: string) => void,
+  thir_tree: ThirPrintFn,
+  thir_flat: ThirPrintFn,
+) {
   return {
     // As rustc's `TimePassesCallbacks::config` (rustc_driver_impl/src/lib.rs), minus time-passes.
     config(config: Config): void {
@@ -45,16 +56,6 @@ function make_callbacks(tree: boolean, prefix: (tcx: TyCtxt) => number, debug_di
   };
 }
 
-/** `rustc_mir_build::thir::print::thir_tree` (THIR building is wave 18). */
-function thir_tree(_tcx: TyCtxt, _owner_def: LocalDefId): string {
-  return unported("rustc_mir_build::thir::print::thir_tree (THIR building, wave 18)");
-}
-
-/** `rustc_mir_build::thir::print::thir_flat` (THIR building is wave 18). */
-function thir_flat(_tcx: TyCtxt, _owner_def: LocalDefId): string {
-  return unported("rustc_mir_build::thir::print::thir_flat (THIR building, wave 18)");
-}
-
 async function main(args: string[]): Promise<number> {
   const impl = process.env.RUST_TS_IMPL ?? "port";
   if (impl === "shim") {
@@ -72,6 +73,7 @@ async function main(args: string[]): Promise<number> {
   const { run_required_analyses_prefix } = await import("./tydump_dump.ts");
   const { debug_LocalDefId } = await import("../rustc_span/def_id.ts");
   const { PLAIN } = await import("../std/fmt.ts");
+  const { thir } = await import("../rustc_mir_build/lib.ts");
   // The probe's `main`: `EarlyDiagCtxt::new(ErrorOutputType::default())`,
   // `install_ice_hook(DEFAULT_BUG_REPORT_URL, |_| ())` (not ported, as in rustc_driver_impl/lib.ts),
   // `catch_with_exit_code(|| compiler_entrypoint(&raw_args(&early_dcx), &mut callbacks))`.
@@ -79,7 +81,14 @@ async function main(args: string[]): Promise<number> {
   // `THIRDUMP_FORMAT=tree` selects `thir_tree`. `after_expansion` writes with `stdout.write_all` (`std_print`).
   const early_dcx = EarlyDiagCtxt.new(ErrorOutputType.default());
   const tree = process.env.THIRDUMP_FORMAT === "tree";
-  const callbacks = make_callbacks(tree, run_required_analyses_prefix, (did) => debug_LocalDefId(did, PLAIN), std_print);
+  const callbacks = make_callbacks(
+    tree,
+    run_required_analyses_prefix,
+    (did) => debug_LocalDefId(did, PLAIN),
+    std_print,
+    thir.print.thir_tree,
+    thir.print.thir_flat,
+  );
   return catch_with_exit_code(() => compiler_entrypoint(raw_args(early_dcx), callbacks));
 }
 

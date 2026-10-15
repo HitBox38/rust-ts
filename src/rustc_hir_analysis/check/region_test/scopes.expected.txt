@@ -1,0 +1,1122 @@
+DefId(0:18 ~ scopes[3fe9]::id):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:18 ~ scopes[3fe9]::id).6),
+    ),
+    parent_map: {
+        Arguments(6): CallSite(6),
+        Destruction(6): Arguments(6),
+        Node(6): Destruction(6),
+        Node(3): Node(6),
+        Node(4): Node(3),
+    },
+    var_map: {
+        2: Arguments(6),
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:19 ~ scopes[3fe9]::tmp):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:19 ~ scopes[3fe9]::tmp).10),
+    ),
+    parent_map: {
+        Arguments(10): CallSite(10),
+        Destruction(10): Arguments(10),
+        Node(10): Destruction(10),
+        Node(1): Node(10),
+        Node(2): Node(1),
+        Node(5): Node(2),
+        Node(7): Node(2),
+        Node(8): Node(7),
+        Node(9): Node(7),
+    },
+    var_map: {},
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:20 ~ scopes[3fe9]::empty):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:20 ~ scopes[3fe9]::empty).2),
+    ),
+    parent_map: {
+        Arguments(2): CallSite(2),
+        Destruction(2): Arguments(2),
+        Node(2): Destruction(2),
+        Node(1): Node(2),
+    },
+    var_map: {},
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:21 ~ scopes[3fe9]::lets):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:21 ~ scopes[3fe9]::lets).38),
+    ),
+    parent_map: {
+        Arguments(38): CallSite(38),
+        Destruction(38): Arguments(38),
+        Node(38): Destruction(38),
+        Node(5): Node(38),
+        Remainder { block: 5, first_statement_index: 0}: Node(5),
+        Destruction(6): Remainder { block: 5, first_statement_index: 0},
+        Node(6): Destruction(6),
+        Node(7): Node(6),
+        Remainder { block: 5, first_statement_index: 1}: Remainder { block: 5, first_statement_index: 0},
+        Destruction(11): Remainder { block: 5, first_statement_index: 1},
+        Node(11): Destruction(11),
+        Destruction(19): Remainder { block: 5, first_statement_index: 1},
+        Node(19): Destruction(19),
+        Node(14): Node(19),
+        Node(17): Node(14),
+        Node(15): Node(14),
+        Remainder { block: 5, first_statement_index: 3}: Remainder { block: 5, first_statement_index: 1},
+        Destruction(20): Remainder { block: 5, first_statement_index: 3},
+        Node(20): Destruction(20),
+        Node(21): Node(20),
+        Node(22): Node(21),
+        Node(24): Node(21),
+        Destruction(35): Remainder { block: 5, first_statement_index: 3},
+        Node(35): Destruction(35),
+        Node(30): Node(35),
+        Node(31): Node(30),
+        Node(33): Node(30),
+        Node(36): Remainder { block: 5, first_statement_index: 3},
+    },
+    var_map: {
+        2: Arguments(38),
+        4: Arguments(38),
+        10: Remainder { block: 5, first_statement_index: 0},
+        13: Remainder { block: 5, first_statement_index: 1},
+        28: Remainder { block: 5, first_statement_index: 3},
+        29: Remainder { block: 5, first_statement_index: 3},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:22 ~ scopes[3fe9]::let_else):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:22 ~ scopes[3fe9]::let_else).22),
+    ),
+    parent_map: {
+        Arguments(22): CallSite(22),
+        Destruction(22): Arguments(22),
+        Node(22): Destruction(22),
+        Node(3): Node(22),
+        Remainder { block: 3, first_statement_index: 0}: Node(3),
+        Destruction(4): Remainder { block: 3, first_statement_index: 0},
+        Node(4): Destruction(4),
+        Node(5): Node(4),
+        Destruction(12): Node(3),
+        Node(12): Destruction(12),
+        Node(13): Node(12),
+        Node(14): Node(13),
+        Remainder { block: 3, first_statement_index: 1}: Remainder { block: 3, first_statement_index: 0},
+        Destruction(15): Remainder { block: 3, first_statement_index: 1},
+        Node(15): Destruction(15),
+        Node(16): Node(15),
+        Node(20): Remainder { block: 3, first_statement_index: 1},
+    },
+    var_map: {
+        2: Arguments(22),
+        11: Remainder { block: 3, first_statement_index: 0},
+        19: Remainder { block: 3, first_statement_index: 1},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:23 ~ scopes[3fe9]::ifs):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:23 ~ scopes[3fe9]::ifs).48),
+    ),
+    parent_map: {
+        Arguments(48): CallSite(48),
+        Destruction(48): Arguments(48),
+        Node(48): Destruction(48),
+        Node(5): Node(48),
+        Destruction(15): Node(5),
+        Node(15): Destruction(15),
+        Node(6): Node(15),
+        IfThen(11): Node(6),
+        Destruction(7): IfThen(11),
+        Node(7): Destruction(7),
+        Destruction(11): IfThen(11),
+        Node(11): Destruction(11),
+        Node(9): Node(11),
+        Node(10): Node(9),
+        Destruction(12): Node(6),
+        Node(12): Destruction(12),
+        Node(13): Node(12),
+        Node(14): Node(13),
+        Destruction(26): Node(5),
+        Node(26): Destruction(26),
+        Node(16): Node(26),
+        IfThen(25): Node(16),
+        Destruction(17): IfThen(25),
+        Node(17): Destruction(17),
+        Destruction(25): IfThen(25),
+        Node(25): Destruction(25),
+        Node(19): Node(25),
+        Destruction(24): Node(19),
+        Node(24): Destruction(24),
+        Node(20): Node(24),
+        Node(21): Node(20),
+        Node(23): Node(20),
+        Node(27): Node(5),
+        IfThen(38): Node(27),
+        Node(28): IfThen(38),
+        Node(33): Node(28),
+        Destruction(38): IfThen(38),
+        Node(38): Destruction(38),
+        Node(35): Node(38),
+        Node(36): Node(35),
+        Destruction(39): Node(27),
+        Node(39): Destruction(39),
+        IfThen(44): Node(39),
+        Destruction(40): IfThen(44),
+        Node(40): Destruction(40),
+        Destruction(44): IfThen(44),
+        Node(44): Destruction(44),
+        Node(42): Node(44),
+        Node(43): Node(42),
+        Destruction(45): Node(39),
+        Node(45): Destruction(45),
+        Node(46): Node(45),
+        Node(47): Node(46),
+    },
+    var_map: {
+        2: Arguments(48),
+        4: Arguments(48),
+        32: IfThen(38),
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:24 ~ scopes[3fe9]::matches):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:24 ~ scopes[3fe9]::matches).41),
+    ),
+    parent_map: {
+        Arguments(41): CallSite(41),
+        Destruction(41): Arguments(41),
+        Node(41): Destruction(41),
+        Node(5): Node(41),
+        Node(6): Node(5),
+        Node(7): Node(6),
+        Destruction(15): Node(6),
+        Node(15): Destruction(15),
+        MatchGuard(15): Node(15),
+        Destruction(13): MatchGuard(15),
+        Node(13): Destruction(13),
+        Node(16): MatchGuard(15),
+        Destruction(28): Node(6),
+        Node(28): Destruction(28),
+        MatchGuard(28): Node(28),
+        Node(22): MatchGuard(28),
+        Node(26): Node(22),
+        Node(29): MatchGuard(28),
+        Destruction(35): Node(6),
+        Node(35): Destruction(35),
+        Node(36): Node(35),
+        Destruction(39): Node(6),
+        Node(39): Destruction(39),
+        Node(40): Node(39),
+    },
+    var_map: {
+        2: Arguments(41),
+        4: Arguments(41),
+        12: Node(15),
+        21: Node(28),
+        34: Node(35),
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:25 ~ scopes[3fe9]::loops):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:25 ~ scopes[3fe9]::loops).30),
+    ),
+    parent_map: {
+        Arguments(30): CallSite(30),
+        Destruction(30): Arguments(30),
+        Node(30): Destruction(30),
+        Node(3): Node(30),
+        Destruction(13): Node(3),
+        Node(13): Destruction(13),
+        Node(4): Node(13),
+        Destruction(5): Node(4),
+        Node(5): Destruction(5),
+        Node(6): Node(5),
+        IfThen(12): Node(6),
+        Destruction(7): IfThen(12),
+        Node(7): Destruction(7),
+        Destruction(12): IfThen(12),
+        Node(12): Destruction(12),
+        Node(9): Node(12),
+        Destruction(11): Node(9),
+        Node(11): Destruction(11),
+        Node(10): Node(11),
+        Node(14): Node(3),
+        Destruction(29): Node(14),
+        Node(29): Destruction(29),
+        Node(28): Node(29),
+        IfThen(23): Node(28),
+        Destruction(15): IfThen(23),
+        Node(15): Destruction(15),
+        Destruction(23): IfThen(23),
+        Node(23): Destruction(23),
+        Node(17): Node(23),
+        Destruction(22): Node(17),
+        Node(22): Destruction(22),
+        Node(18): Node(22),
+        Node(19): Node(18),
+        Node(21): Node(18),
+        Destruction(27): Node(28),
+        Node(27): Destruction(27),
+        Node(26): Node(27),
+        Destruction(25): Node(26),
+        Node(25): Destruction(25),
+        Node(24): Node(25),
+    },
+    var_map: {
+        2: Arguments(30),
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:26 ~ scopes[3fe9]::chains):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:26 ~ scopes[3fe9]::chains).36),
+    ),
+    parent_map: {
+        Arguments(36): CallSite(36),
+        Destruction(36): Arguments(36),
+        Node(36): Destruction(36),
+        Node(7): Node(36),
+        Remainder { block: 7, first_statement_index: 0}: Node(7),
+        Destruction(8): Remainder { block: 7, first_statement_index: 0},
+        Node(8): Destruction(8),
+        Node(9): Node(8),
+        Node(10): Node(9),
+        Destruction(11): Node(10),
+        Node(11): Destruction(11),
+        Destruction(13): Node(10),
+        Node(13): Destruction(13),
+        Destruction(15): Node(9),
+        Node(15): Destruction(15),
+        Destruction(33): Remainder { block: 7, first_statement_index: 0},
+        Node(33): Destruction(33),
+        Node(19): Node(33),
+        IfThen(32): Node(19),
+        Node(20): IfThen(32),
+        Destruction(21): Node(20),
+        Node(21): Destruction(21),
+        Destruction(23): Node(20),
+        Node(23): Destruction(23),
+        Destruction(24): Node(23),
+        Node(24): Destruction(24),
+        Destruction(26): Node(23),
+        Node(26): Destruction(26),
+        Destruction(32): IfThen(32),
+        Node(32): Destruction(32),
+        Node(28): Node(32),
+        Destruction(31): Node(28),
+        Node(31): Destruction(31),
+        Node(29): Node(31),
+        Node(30): Node(29),
+        Node(34): Remainder { block: 7, first_statement_index: 0},
+    },
+    var_map: {
+        2: Arguments(36),
+        4: Arguments(36),
+        6: Arguments(36),
+        18: Remainder { block: 7, first_statement_index: 0},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:27 ~ scopes[3fe9]::assign_op):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:27 ~ scopes[3fe9]::assign_op).37),
+    ),
+    parent_map: {
+        Arguments(37): CallSite(37),
+        Destruction(37): Arguments(37),
+        Node(37): Destruction(37),
+        Node(3): Node(37),
+        Remainder { block: 3, first_statement_index: 0}: Node(3),
+        Destruction(4): Remainder { block: 3, first_statement_index: 0},
+        Node(4): Destruction(4),
+        Node(5): Node(4),
+        Node(6): Node(5),
+        Destruction(15): Remainder { block: 3, first_statement_index: 0},
+        Node(15): Destruction(15),
+        Node(10): Node(15),
+        Node(14): Node(10),
+        Node(11): Node(10),
+        Node(12): Node(11),
+        Destruction(36): Remainder { block: 3, first_statement_index: 0},
+        Node(36): Destruction(36),
+        Node(16): Node(36),
+        Node(28): Node(16),
+        Node(29): Node(28),
+        Remainder { block: 29, first_statement_index: 0}: Node(29),
+        Destruction(30): Remainder { block: 29, first_statement_index: 0},
+        Node(30): Destruction(30),
+        Node(31): Node(30),
+        Node(34): Remainder { block: 29, first_statement_index: 0},
+        Node(17): Node(16),
+        Node(18): Node(17),
+        Node(19): Node(18),
+        Remainder { block: 19, first_statement_index: 0}: Node(19),
+        Destruction(20): Remainder { block: 19, first_statement_index: 0},
+        Node(20): Destruction(20),
+        Node(21): Node(20),
+        Node(22): Node(21),
+        Node(26): Remainder { block: 19, first_statement_index: 0},
+    },
+    var_map: {
+        2: Arguments(37),
+        9: Remainder { block: 3, first_statement_index: 0},
+        33: Remainder { block: 29, first_statement_index: 0},
+        25: Remainder { block: 19, first_statement_index: 0},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {
+            22: Some(
+                Remainder { block: 19, first_statement_index: 0},
+            ),
+            6: Some(
+                Remainder { block: 3, first_statement_index: 0},
+            ),
+        },
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:28 ~ scopes[3fe9]::closures):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:28 ~ scopes[3fe9]::closures).29),
+    ),
+    parent_map: {
+        Arguments(29): CallSite(29),
+        Destruction(29): Arguments(29),
+        Node(29): Destruction(29),
+        Node(3): Node(29),
+        Remainder { block: 3, first_statement_index: 0}: Node(3),
+        Destruction(4): Remainder { block: 3, first_statement_index: 0},
+        Node(4): Destruction(4),
+        Node(5): Node(4),
+        CallSite(8): Node(5),
+        Arguments(8): CallSite(8),
+        Destruction(8): Arguments(8),
+        Node(8): Destruction(8),
+        Node(9): Node(8),
+        Remainder { block: 9, first_statement_index: 0}: Node(9),
+        Destruction(10): Remainder { block: 9, first_statement_index: 0},
+        Node(10): Destruction(10),
+        Node(11): Node(10),
+        Node(15): Remainder { block: 9, first_statement_index: 0},
+        Remainder { block: 3, first_statement_index: 1}: Remainder { block: 3, first_statement_index: 0},
+        Destruction(21): Remainder { block: 3, first_statement_index: 1},
+        Node(21): Destruction(21),
+        Node(22): Node(21),
+        CallSite(23): Node(22),
+        Arguments(23): CallSite(23),
+        Destruction(23): Arguments(23),
+        Node(23): Destruction(23),
+        Node(27): Remainder { block: 3, first_statement_index: 1},
+    },
+    var_map: {
+        2: Arguments(29),
+        7: Arguments(8),
+        14: Remainder { block: 9, first_statement_index: 0},
+        20: Remainder { block: 3, first_statement_index: 0},
+        26: Remainder { block: 3, first_statement_index: 1},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:29 ~ scopes[3fe9]::closures::{closure#0}):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:28 ~ scopes[3fe9]::closures).29),
+    ),
+    parent_map: {
+        Arguments(29): CallSite(29),
+        Destruction(29): Arguments(29),
+        Node(29): Destruction(29),
+        Node(3): Node(29),
+        Remainder { block: 3, first_statement_index: 0}: Node(3),
+        Destruction(4): Remainder { block: 3, first_statement_index: 0},
+        Node(4): Destruction(4),
+        Node(5): Node(4),
+        CallSite(8): Node(5),
+        Arguments(8): CallSite(8),
+        Destruction(8): Arguments(8),
+        Node(8): Destruction(8),
+        Node(9): Node(8),
+        Remainder { block: 9, first_statement_index: 0}: Node(9),
+        Destruction(10): Remainder { block: 9, first_statement_index: 0},
+        Node(10): Destruction(10),
+        Node(11): Node(10),
+        Node(15): Remainder { block: 9, first_statement_index: 0},
+        Remainder { block: 3, first_statement_index: 1}: Remainder { block: 3, first_statement_index: 0},
+        Destruction(21): Remainder { block: 3, first_statement_index: 1},
+        Node(21): Destruction(21),
+        Node(22): Node(21),
+        CallSite(23): Node(22),
+        Arguments(23): CallSite(23),
+        Destruction(23): Arguments(23),
+        Node(23): Destruction(23),
+        Node(27): Remainder { block: 3, first_statement_index: 1},
+    },
+    var_map: {
+        2: Arguments(29),
+        7: Arguments(8),
+        14: Remainder { block: 9, first_statement_index: 0},
+        20: Remainder { block: 3, first_statement_index: 0},
+        26: Remainder { block: 3, first_statement_index: 1},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:30 ~ scopes[3fe9]::closures::{closure#1}):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:28 ~ scopes[3fe9]::closures).29),
+    ),
+    parent_map: {
+        Arguments(29): CallSite(29),
+        Destruction(29): Arguments(29),
+        Node(29): Destruction(29),
+        Node(3): Node(29),
+        Remainder { block: 3, first_statement_index: 0}: Node(3),
+        Destruction(4): Remainder { block: 3, first_statement_index: 0},
+        Node(4): Destruction(4),
+        Node(5): Node(4),
+        CallSite(8): Node(5),
+        Arguments(8): CallSite(8),
+        Destruction(8): Arguments(8),
+        Node(8): Destruction(8),
+        Node(9): Node(8),
+        Remainder { block: 9, first_statement_index: 0}: Node(9),
+        Destruction(10): Remainder { block: 9, first_statement_index: 0},
+        Node(10): Destruction(10),
+        Node(11): Node(10),
+        Node(15): Remainder { block: 9, first_statement_index: 0},
+        Remainder { block: 3, first_statement_index: 1}: Remainder { block: 3, first_statement_index: 0},
+        Destruction(21): Remainder { block: 3, first_statement_index: 1},
+        Node(21): Destruction(21),
+        Node(22): Node(21),
+        CallSite(23): Node(22),
+        Arguments(23): CallSite(23),
+        Destruction(23): Arguments(23),
+        Node(23): Destruction(23),
+        Node(27): Remainder { block: 3, first_statement_index: 1},
+    },
+    var_map: {
+        2: Arguments(29),
+        7: Arguments(8),
+        14: Remainder { block: 9, first_statement_index: 0},
+        20: Remainder { block: 3, first_statement_index: 0},
+        26: Remainder { block: 3, first_statement_index: 1},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:31 ~ scopes[3fe9]::inline_const):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:31 ~ scopes[3fe9]::inline_const).7),
+    ),
+    parent_map: {
+        Arguments(7): CallSite(7),
+        Destruction(7): Arguments(7),
+        Node(7): Destruction(7),
+        Node(1): Node(7),
+        Node(2): Node(1),
+        CallSite(4): Node(2),
+        Arguments(4): CallSite(4),
+        Destruction(4): Arguments(4),
+        Node(4): Destruction(4),
+        Node(5): Node(4),
+        Node(6): Node(5),
+    },
+    var_map: {},
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:32 ~ scopes[3fe9]::inline_const::{constant#0}):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:31 ~ scopes[3fe9]::inline_const).7),
+    ),
+    parent_map: {
+        Arguments(7): CallSite(7),
+        Destruction(7): Arguments(7),
+        Node(7): Destruction(7),
+        Node(1): Node(7),
+        Node(2): Node(1),
+        CallSite(4): Node(2),
+        Arguments(4): CallSite(4),
+        Destruction(4): Arguments(4),
+        Node(4): Destruction(4),
+        Node(5): Node(4),
+        Node(6): Node(5),
+    },
+    var_map: {},
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:33 ~ scopes[3fe9]::extension):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:33 ~ scopes[3fe9]::extension).139),
+    ),
+    parent_map: {
+        Arguments(139): CallSite(139),
+        Destruction(139): Arguments(139),
+        Node(139): Destruction(139),
+        Node(1): Node(139),
+        Remainder { block: 1, first_statement_index: 0}: Node(1),
+        Destruction(2): Remainder { block: 1, first_statement_index: 0},
+        Node(2): Destruction(2),
+        Node(3): Node(2),
+        Node(4): Node(3),
+        Node(5): Node(4),
+        Remainder { block: 1, first_statement_index: 1}: Remainder { block: 1, first_statement_index: 0},
+        Destruction(9): Remainder { block: 1, first_statement_index: 1},
+        Node(9): Destruction(9),
+        Node(10): Node(9),
+        Node(11): Node(10),
+        Node(12): Node(11),
+        Node(13): Node(12),
+        Remainder { block: 1, first_statement_index: 2}: Remainder { block: 1, first_statement_index: 1},
+        Destruction(17): Remainder { block: 1, first_statement_index: 2},
+        Node(17): Destruction(17),
+        Node(18): Node(17),
+        Node(21): Node(18),
+        Node(23): Node(18),
+        Node(24): Node(23),
+        Node(25): Node(23),
+        Remainder { block: 1, first_statement_index: 3}: Remainder { block: 1, first_statement_index: 2},
+        Destruction(28): Remainder { block: 1, first_statement_index: 3},
+        Node(28): Destruction(28),
+        Node(29): Node(28),
+        Node(30): Node(29),
+        Remainder { block: 1, first_statement_index: 4}: Remainder { block: 1, first_statement_index: 3},
+        Destruction(34): Remainder { block: 1, first_statement_index: 4},
+        Node(34): Destruction(34),
+        Node(35): Node(34),
+        Node(36): Node(35),
+        Node(37): Node(36),
+        Node(39): Node(35),
+        Remainder { block: 1, first_statement_index: 5}: Remainder { block: 1, first_statement_index: 4},
+        Destruction(44): Remainder { block: 1, first_statement_index: 5},
+        Node(44): Destruction(44),
+        Node(45): Node(44),
+        Node(46): Node(45),
+        Node(47): Node(46),
+        Node(48): Node(47),
+        Node(50): Node(45),
+        Node(51): Node(50),
+        Node(52): Node(51),
+        Remainder { block: 1, first_statement_index: 6}: Remainder { block: 1, first_statement_index: 5},
+        Destruction(56): Remainder { block: 1, first_statement_index: 6},
+        Node(56): Destruction(56),
+        Node(57): Node(56),
+        Node(58): Node(57),
+        Node(59): Node(58),
+        Node(60): Node(59),
+        Node(62): Node(57),
+        Remainder { block: 1, first_statement_index: 7}: Remainder { block: 1, first_statement_index: 6},
+        Destruction(65): Remainder { block: 1, first_statement_index: 7},
+        Node(65): Destruction(65),
+        Node(66): Node(65),
+        Node(67): Node(66),
+        Node(68): Node(67),
+        Node(69): Node(68),
+        Node(70): Node(69),
+        Remainder { block: 1, first_statement_index: 8}: Remainder { block: 1, first_statement_index: 7},
+        Destruction(74): Remainder { block: 1, first_statement_index: 8},
+        Node(74): Destruction(74),
+        Node(75): Node(74),
+        IfThen(82): Node(75),
+        Destruction(76): IfThen(82),
+        Node(76): Destruction(76),
+        Destruction(82): IfThen(82),
+        Node(82): Destruction(82),
+        Node(77): Node(82),
+        Node(78): Node(77),
+        Node(79): Node(78),
+        Node(80): Node(79),
+        Destruction(83): Node(75),
+        Node(83): Destruction(83),
+        Node(84): Node(83),
+        Node(85): Node(84),
+        Node(86): Node(85),
+        Node(87): Node(86),
+        Remainder { block: 1, first_statement_index: 9}: Remainder { block: 1, first_statement_index: 8},
+        Destruction(91): Remainder { block: 1, first_statement_index: 9},
+        Node(91): Destruction(91),
+        Node(92): Node(91),
+        Node(93): Node(92),
+        Destruction(95): Node(92),
+        Node(95): Destruction(95),
+        Node(96): Node(95),
+        Node(97): Node(96),
+        Node(98): Node(97),
+        Remainder { block: 1, first_statement_index: 10}: Remainder { block: 1, first_statement_index: 9},
+        Destruction(102): Remainder { block: 1, first_statement_index: 10},
+        Node(102): Destruction(102),
+        Node(103): Node(102),
+        Node(104): Node(103),
+        Node(106): Node(103),
+        Node(107): Node(103),
+        Remainder { block: 1, first_statement_index: 11}: Remainder { block: 1, first_statement_index: 10},
+        Destruction(110): Remainder { block: 1, first_statement_index: 11},
+        Node(110): Destruction(110),
+        Node(111): Node(110),
+        Node(112): Node(111),
+        Node(113): Node(112),
+        Node(114): Node(113),
+        Node(116): Node(113),
+        Node(117): Node(113),
+        Remainder { block: 1, first_statement_index: 12}: Remainder { block: 1, first_statement_index: 11},
+        Destruction(120): Remainder { block: 1, first_statement_index: 12},
+        Node(120): Destruction(120),
+        Node(121): Node(120),
+        Node(122): Node(121),
+        Node(124): Node(121),
+        Node(125): Node(124),
+        Node(126): Node(125),
+        Remainder { block: 1, first_statement_index: 13}: Remainder { block: 1, first_statement_index: 12},
+        Destruction(130): Remainder { block: 1, first_statement_index: 13},
+        Node(130): Destruction(130),
+        Node(131): Node(130),
+        Node(132): Node(131),
+        Node(133): Node(132),
+        Node(134): Node(133),
+        Node(135): Node(134),
+    },
+    var_map: {
+        8: Remainder { block: 1, first_statement_index: 0},
+        16: Remainder { block: 1, first_statement_index: 1},
+        27: Remainder { block: 1, first_statement_index: 2},
+        33: Remainder { block: 1, first_statement_index: 3},
+        42: Remainder { block: 1, first_statement_index: 4},
+        43: Remainder { block: 1, first_statement_index: 4},
+        55: Remainder { block: 1, first_statement_index: 5},
+        64: Remainder { block: 1, first_statement_index: 6},
+        73: Remainder { block: 1, first_statement_index: 7},
+        90: Remainder { block: 1, first_statement_index: 8},
+        101: Remainder { block: 1, first_statement_index: 9},
+        109: Remainder { block: 1, first_statement_index: 10},
+        119: Remainder { block: 1, first_statement_index: 11},
+        129: Remainder { block: 1, first_statement_index: 12},
+        138: Remainder { block: 1, first_statement_index: 13},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {
+            11: Some(
+                Remainder { block: 1, first_statement_index: 1},
+            ),
+            132: Some(
+                Remainder { block: 1, first_statement_index: 13},
+            ),
+            47: Some(
+                Remainder { block: 1, first_statement_index: 5},
+            ),
+            69: Some(
+                Remainder { block: 1, first_statement_index: 7},
+            ),
+            113: Some(
+                Remainder { block: 1, first_statement_index: 11},
+            ),
+            86: Some(
+                Remainder { block: 1, first_statement_index: 8},
+            ),
+            12: Some(
+                Remainder { block: 1, first_statement_index: 1},
+            ),
+            97: Some(
+                Remainder { block: 1, first_statement_index: 9},
+            ),
+            4: Some(
+                Remainder { block: 1, first_statement_index: 0},
+            ),
+            59: Some(
+                Remainder { block: 1, first_statement_index: 6},
+            ),
+            133: Some(
+                Remainder { block: 1, first_statement_index: 13},
+            ),
+            125: Some(
+                Remainder { block: 1, first_statement_index: 12},
+            ),
+            29: Some(
+                Remainder { block: 1, first_statement_index: 3},
+            ),
+            51: Some(
+                Remainder { block: 1, first_statement_index: 5},
+            ),
+            35: Some(
+                Remainder { block: 1, first_statement_index: 4},
+            ),
+            79: Some(
+                Remainder { block: 1, first_statement_index: 8},
+            ),
+            112: Some(
+                Remainder { block: 1, first_statement_index: 11},
+            ),
+            134: Some(
+                Remainder { block: 1, first_statement_index: 13},
+            ),
+        },
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:42 ~ scopes[3fe9]::super_lets):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:42 ~ scopes[3fe9]::super_lets).30),
+    ),
+    parent_map: {
+        Arguments(30): CallSite(30),
+        Destruction(30): Arguments(30),
+        Node(30): Destruction(30),
+        Node(1): Node(30),
+        Remainder { block: 1, first_statement_index: 0}: Node(1),
+        Destruction(2): Remainder { block: 1, first_statement_index: 0},
+        Node(2): Destruction(2),
+        Node(3): Node(2),
+        Node(4): Node(3),
+        Remainder { block: 4, first_statement_index: 0}: Node(4),
+        Node(6): Remainder { block: 4, first_statement_index: 0},
+        Node(7): Node(6),
+        Node(11): Remainder { block: 4, first_statement_index: 0},
+        Node(12): Node(11),
+        Remainder { block: 1, first_statement_index: 1}: Remainder { block: 1, first_statement_index: 0},
+        Destruction(16): Remainder { block: 1, first_statement_index: 1},
+        Node(16): Destruction(16),
+        Node(17): Node(16),
+        Node(18): Node(17),
+        Node(20): Node(17),
+        Node(21): Node(20),
+        Remainder { block: 21, first_statement_index: 0}: Node(21),
+        Node(23): Remainder { block: 21, first_statement_index: 0},
+        Node(26): Remainder { block: 21, first_statement_index: 0},
+    },
+    var_map: {
+        10: Remainder { block: 1, first_statement_index: 0},
+        15: Remainder { block: 1, first_statement_index: 0},
+        25: Node(16),
+        29: Remainder { block: 1, first_statement_index: 1},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {
+            12: Some(
+                Remainder { block: 1, first_statement_index: 0},
+            ),
+        },
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:43 ~ scopes[3fe9]::nested_blocks):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:43 ~ scopes[3fe9]::nested_blocks).25),
+    ),
+    parent_map: {
+        Arguments(25): CallSite(25),
+        Destruction(25): Arguments(25),
+        Node(25): Destruction(25),
+        Node(3): Node(25),
+        Remainder { block: 3, first_statement_index: 0}: Node(3),
+        Destruction(4): Remainder { block: 3, first_statement_index: 0},
+        Node(4): Destruction(4),
+        Node(5): Node(4),
+        Node(6): Node(5),
+        Remainder { block: 6, first_statement_index: 0}: Node(6),
+        Destruction(7): Remainder { block: 6, first_statement_index: 0},
+        Node(7): Destruction(7),
+        Node(8): Node(7),
+        Node(11): Remainder { block: 6, first_statement_index: 0},
+        Node(12): Node(11),
+        Remainder { block: 12, first_statement_index: 0}: Node(12),
+        Destruction(13): Remainder { block: 12, first_statement_index: 0},
+        Node(13): Destruction(13),
+        Node(14): Node(13),
+        Node(18): Remainder { block: 12, first_statement_index: 0},
+        Node(23): Remainder { block: 3, first_statement_index: 0},
+    },
+    var_map: {
+        2: Arguments(25),
+        10: Remainder { block: 6, first_statement_index: 0},
+        17: Remainder { block: 12, first_statement_index: 0},
+        21: Remainder { block: 3, first_statement_index: 0},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:44 ~ scopes[3fe9]::nested_blocks::inner):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:44 ~ scopes[3fe9]::nested_blocks::inner).3),
+    ),
+    parent_map: {
+        Arguments(3): CallSite(3),
+        Destruction(3): Arguments(3),
+        Node(3): Destruction(3),
+        Node(1): Node(3),
+        Node(2): Node(1),
+    },
+    var_map: {},
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:45 ~ scopes[3fe9]::C):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:45 ~ scopes[3fe9]::C).5),
+    ),
+    parent_map: {
+        Arguments(5): CallSite(5),
+        Destruction(5): Arguments(5),
+        Node(5): Destruction(5),
+        Node(6): Node(5),
+        Node(9): Node(6),
+        Node(11): Node(6),
+        Node(12): Node(11),
+        Node(13): Node(11),
+    },
+    var_map: {},
+    extended_temp_scopes: UnordMap {
+        inner: {
+            6: None,
+        },
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:46 ~ scopes[3fe9]::ST):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:46 ~ scopes[3fe9]::ST).3),
+    ),
+    parent_map: {
+        Arguments(3): CallSite(3),
+        Destruction(3): Arguments(3),
+        Node(3): Destruction(3),
+        Node(4): Node(3),
+        Remainder { block: 4, first_statement_index: 0}: Node(4),
+        Destruction(5): Remainder { block: 4, first_statement_index: 0},
+        Node(5): Destruction(5),
+        Node(6): Node(5),
+        Node(9): Remainder { block: 4, first_statement_index: 0},
+    },
+    var_map: {
+        8: Remainder { block: 4, first_statement_index: 0},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:47 ~ scopes[3fe9]::D):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:47 ~ scopes[3fe9]::D).3),
+    ),
+    parent_map: {
+        Arguments(3): CallSite(3),
+        Destruction(3): Arguments(3),
+        Node(3): Destruction(3),
+        Node(4): Node(3),
+        Node(6): Node(3),
+    },
+    var_map: {},
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:49 ~ scopes[3fe9]::{impl#0}::method):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:49 ~ scopes[3fe9]::{impl#0}::method).14),
+    ),
+    parent_map: {
+        Arguments(14): CallSite(14),
+        Destruction(14): Arguments(14),
+        Node(14): Destruction(14),
+        Node(5): Node(14),
+        Remainder { block: 5, first_statement_index: 0}: Node(5),
+        Destruction(6): Remainder { block: 5, first_statement_index: 0},
+        Node(6): Destruction(6),
+        Node(7): Node(6),
+        Node(11): Remainder { block: 5, first_statement_index: 0},
+        Node(12): Node(11),
+    },
+    var_map: {
+        2: Arguments(14),
+        4: Arguments(14),
+        10: Remainder { block: 5, first_statement_index: 0},
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:51 ~ scopes[3fe9]::Tr::provided):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:51 ~ scopes[3fe9]::Tr::provided).5),
+    ),
+    parent_map: {
+        Arguments(5): CallSite(5),
+        Destruction(5): Arguments(5),
+        Node(5): Destruction(5),
+        Node(3): Node(5),
+        Node(4): Node(3),
+    },
+    var_map: {
+        2: Arguments(5),
+    },
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
+DefId(0:52 ~ scopes[3fe9]::Tr::K):
+ScopeTree {
+    root_body: Some(
+        HirId(DefId(0:52 ~ scopes[3fe9]::Tr::K).3),
+    ),
+    parent_map: {
+        Arguments(3): CallSite(3),
+        Destruction(3): Arguments(3),
+        Node(3): Destruction(3),
+    },
+    var_map: {},
+    extended_temp_scopes: UnordMap {
+        inner: {},
+    },
+    backwards_incompatible_scope: UnordMap {
+        inner: {},
+    },
+}
+
