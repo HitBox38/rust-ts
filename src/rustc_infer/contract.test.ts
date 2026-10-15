@@ -230,7 +230,7 @@ describe("rustc_infer contract", () => {
       const f = obj[d.name];
       const path = unported_stub_path(f);
       const mod = ["rustc_trait_selection", ...d.file.replace(/\.rs$/, "").split("/").filter((p) => p !== "mod")].join("::");
-      // A ported method is a plain function (wave 17 lanes fill the stubs); a placeholder names its own module.
+      // A ported method is a plain function (its lane replaced the placeholder); a placeholder names its module.
       if (typeof f !== "function" || (path !== undefined && !path.startsWith(mod + "::"))) bad.push(`${d.file}:${d.line} ${d.name}: ${path ?? typeof f}`);
     }
     expect(bad).toEqual([]);

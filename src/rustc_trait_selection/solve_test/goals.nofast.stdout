@@ -1,0 +1,169 @@
+case sized
+  env: [Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }]
+  args: [T/#0]
+  goal 0: Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(ParamEnv(NonGlobal)) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceParamData([])))
+  goal 1: Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(BuiltinImpl(Trivial)) Ok(Yes) shallow=Yes
+    select: Ok(Some(Builtin(Trivial, [])))
+  goal 2: Binder { value: TraitClause(<W<T> as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(BuiltinImpl(Trivial)) Ok(Yes) shallow=Yes
+    select: Ok(Some(Builtin(Trivial, [])))
+  goal 3: Binder { value: TraitClause(<Pair<S, T> as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(BuiltinImpl(Trivial)) Ok(Yes) shallow=Yes
+    select: Ok(Some(Builtin(Trivial, [])))
+  try_evaluate: []
+  pending: 0
+  remaining: []
+  resolved: [T/#0]
+case unsized
+  env: [Binder { value: TraitClause(<T as MetaSized>, polarity:Positive), bound_vars: [] }]
+  args: [T/#0]
+  goal 0: Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }
+    result: Err(NoSolution)
+    select: Err(Unimplemented)
+  try_evaluate: Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }
+  pending: 0
+  remaining: []
+  resolved: [T/#0]
+case impls
+  env: []
+  args: []
+  goal 0: Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(Impl(DefId(0:22 ~ goals[227f]::{impl#0}))) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:22 ~ goals[227f]::{impl#0}), args=[], nested=[])))
+  goal 1: Binder { value: TraitClause(<W<S> as Tr>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(Impl(DefId(0:23 ~ goals[227f]::{impl#1}))) Ok(Yes) shallow=Yes
+    nested: ImplWhereBound Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    nested: ImplWhereBound Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:23 ~ goals[227f]::{impl#1}), args=[S], nested=[])))
+  goal 2: Binder { value: TraitClause(<W<W<S>> as Tr>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(Impl(DefId(0:23 ~ goals[227f]::{impl#1}))) Ok(Yes) shallow=Yes
+    nested: ImplWhereBound Binder { value: TraitClause(<W<S> as Sized>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    nested: ImplWhereBound Binder { value: TraitClause(<W<S> as Tr>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:23 ~ goals[227f]::{impl#1}), args=[W<S>], nested=[])))
+  try_evaluate: []
+  pending: 0
+  remaining: []
+  resolved: []
+case impl_fails
+  env: []
+  args: []
+  goal 0: Binder { value: TraitClause(<U as Tr>, polarity:Positive), bound_vars: [] }
+    result: Err(NoSolution)
+    select: Err(Unimplemented)
+  goal 1: Binder { value: TraitClause(<W<U> as Tr>, polarity:Positive), bound_vars: [] }
+    result: Err(NoSolution)
+    candidate: TraitCandidate(Impl(DefId(0:23 ~ goals[227f]::{impl#1}))) Err(NoSolution) shallow=Yes
+    select: Err(Unimplemented)
+  goal 2: Binder { value: TraitClause(<W<W<U>> as Tr>, polarity:Positive), bound_vars: [] }
+    result: Err(NoSolution)
+    candidate: TraitCandidate(Impl(DefId(0:23 ~ goals[227f]::{impl#1}))) Err(NoSolution) shallow=Yes
+    select: Err(Unimplemented)
+  try_evaluate: Binder { value: TraitClause(<U as Tr>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<U as Tr>, polarity:Positive), bound_vars: [] }
+  try_evaluate: Binder { value: TraitClause(<U as Tr>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<W<U> as Tr>, polarity:Positive), bound_vars: [] }
+  try_evaluate: Binder { value: TraitClause(<U as Tr>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<W<W<U>> as Tr>, polarity:Positive), bound_vars: [] }
+  pending: 0
+  remaining: []
+  resolved: []
+case param
+  env: [Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }, Binder { value: TraitClause(<T as Tr>, polarity:Positive), bound_vars: [] }]
+  args: [T/#0]
+  goal 0: Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(ParamEnv(NonGlobal)) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceParamData([])))
+  goal 1: Binder { value: TraitClause(<T as Tr>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(ParamEnv(NonGlobal)) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceParamData([])))
+  goal 2: Binder { value: TraitClause(<T as Tr>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(ParamEnv(NonGlobal)) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceParamData([])))
+  goal 3: Binder { value: TraitClause(<W<T> as Tr>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(Impl(DefId(0:23 ~ goals[227f]::{impl#1}))) Ok(Yes) shallow=Yes
+    nested: ImplWhereBound Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    nested: ImplWhereBound Binder { value: TraitClause(<T as Tr>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:23 ~ goals[227f]::{impl#1}), args=[T/#0], nested=[])))
+  goal 4: Binder { value: TraitClause(<T as Other>, polarity:Positive), bound_vars: [] }
+    result: Err(NoSolution)
+    select: Err(Unimplemented)
+  try_evaluate: Binder { value: TraitClause(<T as Other>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<T as Other>, polarity:Positive), bound_vars: [] }
+  pending: 0
+  remaining: []
+  resolved: [T/#0]
+case auto
+  env: []
+  args: []
+  goal 0: Binder { value: TraitClause(<S as Au>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(BuiltinImpl(Misc)) Ok(Yes) shallow=Yes
+    select: Ok(Some(Builtin(Misc, [])))
+  goal 1: Binder { value: TraitClause(<W<S> as Au>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(BuiltinImpl(Misc)) Ok(Yes) shallow=Yes
+    nested: ImplWhereBound Binder { value: TraitClause(<S as Au>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    select: Ok(Some(Builtin(Misc, [])))
+  goal 2: Binder { value: TraitClause(<Pair<S, U> as Au>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(BuiltinImpl(Misc)) Ok(Yes) shallow=Yes
+    nested: ImplWhereBound Binder { value: TraitClause(<S as Au>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    nested: ImplWhereBound Binder { value: TraitClause(<U as Au>, polarity:Positive), bound_vars: [] } Ok(Yes)
+    select: Ok(Some(Builtin(Misc, [])))
+  goal 3: Binder { value: TraitClause(<NotAu as Au>, polarity:Positive), bound_vars: [] }
+    result: Err(NoSolution)
+    select: Err(Unimplemented)
+  goal 4: Binder { value: TraitClause(<W<NotAu> as Au>, polarity:Positive), bound_vars: [] }
+    result: Err(NoSolution)
+    candidate: TraitCandidate(BuiltinImpl(Misc)) Err(NoSolution) shallow=Yes
+    select: Err(Unimplemented)
+  try_evaluate: Binder { value: TraitClause(<NotAu as Au>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<NotAu as Au>, polarity:Positive), bound_vars: [] }
+  try_evaluate: Binder { value: TraitClause(<NotAu as Au>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<W<NotAu> as Au>, polarity:Positive), bound_vars: [] }
+  pending: 0
+  remaining: []
+  resolved: []
+case infer
+  env: []
+  args: [?0t, ?1t, ?2t]
+  goal 0: Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No }))
+    candidate: TraitCandidate(BuiltinImpl(Misc)) Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })) shallow=Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })
+    select: Ok(None)
+  goal 1: Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No }))
+    candidate: TraitCandidate(BuiltinImpl(Misc)) Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })) shallow=Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })
+    select: Ok(None)
+  goal 2: Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] }
+    result: Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No }))
+    candidate: TraitCandidate(BuiltinImpl(Misc)) Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })) shallow=Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })
+    select: Ok(None)
+  goal 3: Binder { value: TraitClause(<_ as Tr>, polarity:Positive), bound_vars: [] }
+    result: Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No }))
+    candidate: TraitCandidate(BuiltinImpl(Misc)) Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })) shallow=Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No })
+    select: Ok(None)
+  goal 4: Binder { value: TraitClause(<U as Gen<_>>, polarity:Positive), bound_vars: [] }
+    result: Ok(Maybe(MaybeInfo { cause: Ambiguity, opaque_types_jank: AllGood, stalled_on_coroutines: No }))
+    candidate: TraitCandidate(Impl(DefId(0:26 ~ goals[227f]::{impl#3}))) Ok(Yes) shallow=Yes
+    candidate: TraitCandidate(Impl(DefId(0:27 ~ goals[227f]::{impl#4}))) Ok(Yes) shallow=Yes
+    select: Ok(None)
+  goal 5: Binder { value: TraitClause(<S as Gen<_>>, polarity:Positive), bound_vars: [] }
+    result: Ok(Yes)
+    candidate: TraitCandidate(Impl(DefId(0:28 ~ goals[227f]::{impl#5}))) Ok(Yes) shallow=Yes
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:28 ~ goals[227f]::{impl#5}), args=[], nested=[])))
+  try_evaluate: []
+  pending: 4
+  remaining: Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] } code=Ambiguity(overflow=None) root=Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] }
+  remaining: Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] } code=Ambiguity(overflow=None) root=Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] }
+  remaining: Binder { value: TraitClause(<_ as Tr>, polarity:Positive), bound_vars: [] } code=Ambiguity(overflow=None) root=Binder { value: TraitClause(<_ as Tr>, polarity:Positive), bound_vars: [] }
+  remaining: Binder { value: TraitClause(<U as Gen<_>>, polarity:Positive), bound_vars: [] } code=Ambiguity(overflow=None) root=Binder { value: TraitClause(<U as Gen<_>>, polarity:Positive), bound_vars: [] }
+  resolved: [?0t, ?1t, W<S>]
