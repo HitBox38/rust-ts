@@ -19,7 +19,7 @@ import { GenericArg } from "../../rustc_middle/ty/generic_args.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { type Ident, STDLIB_STABLE_CRATES, type Symbol, sym } from "../../rustc_span/symbol.ts";
-import { unported } from "../../std/panic.ts";
+import { unported, unwrap } from "../../std/panic.ts";
 import { unported_methods } from "../../rust_ts/stubs.ts";
 import { FnCtxt } from "../decls.ts";
 import type { AmbiguousTraitMethod, AmbiguousTraitMethodCall } from "./prelude_edition_lints.gen.ts";
@@ -59,7 +59,7 @@ FnCtxt.prototype.lint_edition_dependent_dot_call = function (this: FnCtxt, self_
     (k = self_ty.kind()).$ === "Adt" &&
     this.tcx.is_lang_item(k._0.did(), "Pin") &&
     (() => {
-      const ak = GenericArg.as_type(k._1[0]!)!.kind();
+      const ak = unwrap(GenericArg.as_type(k._1[0]!)).kind();
       return ak.$ === "Ref" && ak._2 === "Mut";
     })()
   ) {

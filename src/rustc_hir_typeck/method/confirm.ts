@@ -44,7 +44,7 @@ import { debug_TyKind, fold_FnSig, FnSig } from "../../rustc_type_ir/ty_kind.ts"
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { debug_vec, PLAIN } from "../../std/fmt.ts";
-import { assert, panic, unported } from "../../std/panic.ts";
+import { assert, panic, unported, unwrap } from "../../std/panic.ts";
 import { check_legal_trait_for_method_call } from "../callee.ts";
 import { FnCtxt, register_deref } from "../decls.ts";
 import type { SupertraitItemShadowee, SupertraitItemShadower } from "../diagnostics.gen.ts";
@@ -283,7 +283,9 @@ ConfirmContext.prototype.fresh_receiver_args = function (this: ConfirmContext, s
   switch (pick.kind.$) {
     case "InherentImplPick": {
       const impl_def_id = AssocItem.container_id(pick.item, this.tcx);
-      assert(pick.item.container.$ === "InherentImpl", `impl ${debug_DefId(impl_def_id, PLAIN)} is not an inherent impl`);
+      if (!(pick.item.container.$ === "InherentImpl")) {
+        panic(`impl ${debug_DefId(impl_def_id, PLAIN)} is not an inherent impl`);
+      }
       return this.fresh_args_for_item(this.span, impl_def_id);
     }
 
@@ -631,20 +633,20 @@ ConfirmContext.prototype.lint_shadowed_supertrait_items = function (this: Confir
   }
 
   const shadower_span = this.tcx.def_span(pick.item.def_id);
-  const subtrait = this.tcx.item_name(AssocItem.trait_container(pick.item, this.tcx)!);
+  const subtrait = this.tcx.item_name(unwrap(AssocItem.trait_container(pick.item, this.tcx)));
   const shadower: SupertraitItemShadower = { span: shadower_span, subtrait };
 
   let shadowee: SupertraitItemShadowee;
   if (pick.shadowed_candidates.length === 1) {
     const shadowee_ = pick.shadowed_candidates[0]!;
     const shadowee_span = this.tcx.def_span(shadowee_.def_id);
-    const supertrait = this.tcx.item_name(AssocItem.trait_container(shadowee_, this.tcx)!);
+    const supertrait = this.tcx.item_name(unwrap(AssocItem.trait_container(shadowee_, this.tcx)));
     shadowee = { $: "Labeled", span: shadowee_span, supertrait };
   } else {
     const traits: Symbol[] = [];
     const spans: Span[] = [];
     for (const item of pick.shadowed_candidates) {
-      traits.push(this.tcx.item_name(AssocItem.trait_container(item, this.tcx)!));
+      traits.push(this.tcx.item_name(unwrap(AssocItem.trait_container(item, this.tcx))));
       spans.push(this.tcx.def_span(item.def_id));
     }
     shadowee = { $: "Several", traits: DiagSymbolList_from(traits), spans: MultiSpan.from_Vec(spans) };
@@ -664,7 +666,7 @@ ConfirmContext.prototype.lint_ambiguously_glob_imported_traits = function (this:
     return;
   }
   const trait_name = this.tcx.item_name(AssocItem.container_id(pick.item, this.tcx));
-  const import_span = this.tcx.hir_span_if_local(LocalDefId.to_def_id(pick.import_ids[0]!))!;
+  const import_span = unwrap(this.tcx.hir_span_if_local(LocalDefId.to_def_id(pick.import_ids[0]!)));
 
   this.tcx.emit_node_lint(
     AMBIGUOUS_GLOB_IMPORTED_TRAITS,
