@@ -25,7 +25,9 @@ import type { Safety } from "../../rustc_hir/def.ts";
 import type { DefKey } from "../../rustc_hir_id/definitions.ts";
 import type { AmbigModChild, DocLinkResMap, ModChild } from "../../rustc_middle/middle/resolve.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { Visibility } from "../../rustc_middle/ty/mod.ts";
+import type { Visibility, VariantDiscr } from "../../rustc_middle/ty/mod.ts";
+import type { VariantIdx } from "../../rustc_middle/ty/decls.ts";
+import type { ReprOptions } from "../../rustc_abi/lib.ts";
 import type { Providers } from "../../rustc_middle/util/mod.ts";
 import type { FileEncoder } from "../../rustc_serialize/opaque.ts";
 import type { SymbolManglingVersion } from "../../rustc_session/config.ts";
@@ -603,7 +605,7 @@ export interface LazyTables {
   /** `LazyTable<LocalDefId, DefIndex, Option<LazyValue<DenseBitSet<u32>>>>` */
   params_in_repr: LazyTable<LocalDefId, DefIndex, LazyValue<unknown> | undefined>;
   /** `LazyTable<LocalDefId, DefIndex, Option<LazyValue<ReprOptions>>>` */
-  repr_options: LazyTable<LocalDefId, DefIndex, LazyValue<unknown> | undefined>;
+  repr_options: LazyTable<LocalDefId, DefIndex, LazyValue<ReprOptions> | undefined>;
   // `def_keys` and `def_path_hashes` represent a lazy version of a
   // `DefPathTable`. This allows us to avoid deserializing an entire
   // `DefPathTable` up front, since we may only ever use a few
@@ -803,7 +805,7 @@ export interface TableBuilders {
   expn_that_defined: TableBuilder<LocalDefId, DefIndex, LazyValue<ExpnId> | undefined>;
   default_fields: TableBuilder<LocalDefId, DefIndex, LazyValue<DefId> | undefined>;
   params_in_repr: TableBuilder<LocalDefId, DefIndex, LazyValue<unknown> | undefined>;
-  repr_options: TableBuilder<LocalDefId, DefIndex, LazyValue<unknown> | undefined>;
+  repr_options: TableBuilder<LocalDefId, DefIndex, LazyValue<ReprOptions> | undefined>;
   def_keys: TableBuilder<LocalDefId, DefIndex, LazyValue<DefKey> | undefined>;
   variant_data: TableBuilder<LocalDefId, DefIndex, LazyValue<VariantData> | undefined>;
   assoc_container: TableBuilder<LocalDefId, DefIndex, LazyValue<unknown> | undefined>;
@@ -1004,8 +1006,8 @@ export function TableBuilders_encode(self: TableBuilders, buf: FileEncoder): Laz
 
 // #[derive(TyEncodable, TyDecodable)]
 export interface VariantData {
-  idx: number /* VariantIdx */;
-  discr: unknown /* ty::VariantDiscr */;
+  idx: VariantIdx;
+  discr: VariantDiscr;
   /// If this is unit or tuple-variant/struct, then this is the index of the ctor id.
   ctor: [CtorKind, LocalDefId] | undefined;
   is_non_exhaustive: boolean;

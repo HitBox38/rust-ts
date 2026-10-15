@@ -25,6 +25,7 @@
 // The stub file of each upstream file installs `unported(..)` placeholders for its declared names
 // (rust_ts/stubs.ts `unported_methods`); docs/handoff/ty-contract.md "How to fill a stub".
 import type { Size, TargetDataLayout } from "../../rustc_abi/lib.ts";
+import { newtype_index } from "../../rustc_index/newtype_index.ts";
 import type { FloatTy, IntTy, Movability, Mutability, Pinnedness, UintTy } from "../../rustc_ast_ir/lib.ts";
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { DiagArgValue, MultiSpan } from "../../rustc_error_messages/lib.ts";
@@ -156,6 +157,8 @@ export type { AsyncDestructor, Attribute, CheckRegions, Destructor, Discr, NotUn
 // newtype indices (rustc_abi): final shapes
 export type FieldIdx = number & { readonly __brand: "FieldIdx" };
 export type VariantIdx = number & { readonly __brand: "VariantIdx" };
+/** `newtype_index!` helpers of rustc_abi `VariantIdx` (layout.rs:79). */
+export const VariantIdx = newtype_index<VariantIdx>((n) => `${n}`);
 // lane repr-options: the real rustc_abi type
 export type { ReprOptions } from "../../rustc_abi/lib.ts";
 // ty/pattern.rs:16, ty/consts/valtree.rs:34, :103, ty/consts/int.rs:147 (D2: hash-consed)

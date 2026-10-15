@@ -37,6 +37,7 @@ import { type Graph, debug_Graph } from "./traits/specialization_graph.ts";
 import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment.ts";
 import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
+import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
 import { type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
 import { display_Ty } from "./ty/print/pretty.ts";
 import { type CrateNum, type DefId, type DefIdMap, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
@@ -737,8 +738,7 @@ export interface QueryTypes {
    * Methods in these implementations don't need to be exported.
    */
   inherent_impls: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
-  // PORT: key `SimplifiedType` not ported (`unknown`)
-  incoherent_impls: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
+  incoherent_impls: { Key: SimplifiedType; KeyArg: SimplifiedType; LocalKey: SimplifiedType; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
   /**
    * Unsafety-check this `LocalDefId`.
    */
@@ -1336,16 +1336,14 @@ export interface QueryTypes {
    * Given a crate and a trait, look up all impls of that trait in the crate.
    * Return `(impl_id, self_ty)`.
    */
-  // PORT: value `&'tcx [(DefId, Option<SimplifiedType>)]` not ported (`unknown`)
-  implementations_of_trait: { Key: [CrateNum, DefId]; KeyArg: [CrateNum, DefId]; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum_DefId>; Value: readonly ([DefId, unknown | undefined])[]; ProvidedValue: readonly ([DefId, unknown | undefined])[] };
+  implementations_of_trait: { Key: [CrateNum, DefId]; KeyArg: [CrateNum, DefId]; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum_DefId>; Value: readonly ([DefId, SimplifiedType | undefined])[]; ProvidedValue: readonly ([DefId, SimplifiedType | undefined])[] };
   /**
    * Collects all incoherent impls for the given crate and type.
    *
    * Do not call this directly, but instead use the `incoherent_impls` query.
    * This query is only used to get the data necessary for that query.
    */
-  // PORT: key `(CrateNum, SimplifiedType)` not ported (`unknown`)
-  crate_incoherent_impls: { Key: [CrateNum, unknown]; KeyArg: [CrateNum, unknown]; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum_SimplifiedType>; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
+  crate_incoherent_impls: { Key: [CrateNum, SimplifiedType]; KeyArg: [CrateNum, SimplifiedType]; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum_SimplifiedType>; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
   /**
    * Get the corresponding native library from the `native_libraries` query
    */
@@ -3647,7 +3645,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `incoherent_impls` (Debug of `rustc_middle::ty::fast_reject::SimplifiedType`)"),
+    desc: (_tcx, key) => { const __0 = key; return `collecting all inherent impls for \`${debug_SimplifiedType(__0, PLAIN)}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
     stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
@@ -5970,7 +5968,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up implementations of a trait in a crate`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_DefId(x[0], f), debug_option(x[1], f, ((x, f) => debug_SimplifiedType(x, f)))])),
     stable_hash_value: undefined,
   },
   crate_incoherent_impls: {

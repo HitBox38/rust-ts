@@ -4,9 +4,13 @@
 // Only function declarations: hand modules may import from here inside an import cycle.
 import { decode_LangItem } from "../rustc_attr_ir/lang_items.ts";
 import { decode_CrateDepKind, decode_LinkagePreference } from "../rustc_crate_store/lib.ts";
+import { decode_CtorKind } from "../rustc_hir/def.ts";
 import { decode_Svh, type LazyDecoder } from "./rmeta/decoder.ts";
 import { decode_DefPathHashMapRef } from "./rmeta/def_path_hash_map.ts";
-import { type CrateDep, type CrateHeader, CrateRoot, type CrateRootUnhashed, decode_LazyArray, decode_LazyTable, decode_LazyTables, decode_LazyValue, type IncoherentImpls, type ProcMacroData, type ProcMacroKind, RawDefId, SpanTag, type TraitImpls } from "./rmeta/mod.ts";
+import { type CrateDep, type CrateHeader, CrateRoot, type CrateRootUnhashed, decode_LazyArray, decode_LazyTable, decode_LazyTables, decode_LazyValue, type IncoherentImpls, type ProcMacroData, type ProcMacroKind, RawDefId, SpanTag, type TraitImpls, type VariantData } from "./rmeta/mod.ts";
+import { decode_VariantDiscr } from "../rustc_middle/decodable.gen.ts";
+import { type TyDecoder } from "../rustc_middle/ty/codec.ts";
+import { VariantIdx } from "../rustc_middle/ty/decls.ts";
 import { decode_bool, decode_Option, decode_String, decode_tuple, decode_u32, decode_u64, decode_u8, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
 import { decode_SymbolManglingVersion } from "../rustc_session/config.ts";
 import { decode_Edition, decode_StableCrateId } from "../rustc_span/decodable.gen.ts";
@@ -96,6 +100,16 @@ export function decode_IncoherentImpls(__decoder: LazyDecoder): IncoherentImpls 
   return {
     self_ty: decode_LazyValue(__decoder, (__decoder) => unported_decodable(__decoder)),
     impls: decode_LazyArray(__decoder, (__decoder) => __decoder.decode_local_def_id()),
+  };
+}
+
+// rustc-derive: compiler/rustc_metadata/src/rmeta/mod.rs:526 TyDecodable for VariantData
+export function decode_VariantData(__decoder: TyDecoder): VariantData {
+  return {
+    idx: VariantIdx.from_u32(__decoder.read_u32()),
+    discr: decode_VariantDiscr(__decoder),
+    ctor: decode_Option(__decoder, (__decoder) => decode_tuple(__decoder, decode_CtorKind, (__decoder) => __decoder.decode_local_def_id())),
+    is_non_exhaustive: decode_bool(__decoder),
   };
 }
 
