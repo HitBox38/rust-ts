@@ -62,20 +62,12 @@ pub type E0 = Missing;
 pub type E1 = (!, *const Missing);
 `;
 
-/** Cases that stop at a stub: alias name -> the exact `unported(..)` text. The other aliases of PENDING_SRC (P0, P1, P2
- * (`fn()`: check_abi, lane check-check), P3, P5, P6: lane-a's path / lifetime lowering, collect-rbv's `named_variable_map`, collect-a's `generics_of`, all merged by
- * merge-w16a) must equal the oracle's `type_of` line. */
-const PENDING: Record<string, string> = {
-  // `lower_const_arg` (array length `3`, an anon const) -> feeds its `type_of`, `lower_const_arg_anon` ->
-  // `try_lower_anon_const_lit` -> `tcx.at(..).lit_to_const(..)`: the `lit_to_const` provider is rustc_mir_build's
-  // (thir/constant.rs, lane thir-cx-print; re-pinned by small-gaps-18 when the `LitToConstInput` QueryKey landed).
-  // Re-pinned by merge-w18: `lit_to_const` is ported; `3usize` is truncated to `usize`'s size, which reads
-  // `tcx.data_layout` (rustc_target's `parse_data_layout`, not ported).
-  P4: "rustc_target::spec::Target::parse_data_layout (GlobalCtxt::data_layout; pending target-cfg / rustc_abi)",
-  // `{ 4 }`: `try_lower_anon_const_lit` unwraps the block, then as P4. PORT: a literal other than P4's, because a
-  // query whose provider stopped stays started (the same key would then report a cycle, not the stop)
-  P7: "rustc_target::spec::Target::parse_data_layout (GlobalCtxt::data_layout; pending target-cfg / rustc_abi)",
-};
+/** Cases that stop at a stub: alias name -> the exact `unported(..)` text. None since merge-w18d: P4 / P7 (array lengths
+ * `3` / `{ 4 }`: `lower_const_arg` -> `lit_to_const`, which truncates to `usize`'s size through `tcx.data_layout`) stopped
+ * at rustc_target's `parse_data_layout` until lane typeck-gaps ported it; every alias of PENDING_SRC (P0, P1, P2 (`fn()`:
+ * check_abi, lane check-check), P3..P7: lane-a's path / lifetime lowering, collect-rbv's `named_variable_map`, collect-a's
+ * `generics_of`, merged by merge-w16a; `lit_to_const`, merge-w18) must equal the oracle's `type_of` line. */
+const PENDING: Record<string, string> = {};
 const PENDING_SRC = `${PRELUDE}
 pub struct S;
 pub type P0 = S;
@@ -187,9 +179,10 @@ test.skipIf(SKIP)("lower_ty of an unresolved path is a type error, as the tydump
   for (const [name, line] of oracle) expect(`${name} ${ours.get(name)}`).toBe(`${name} ${line}`);
 });
 
-test("lower_ty stops at the remaining stubs with their exact unported text", () => {
+test("lower_ty stops at the remaining stubs with their exact unported text, and nowhere else", () => {
   const ours = port_type_ofs(source_file("pending.rs", PENDING_SRC));
   for (const [name, what] of Object.entries(PENDING)) expect(`${name} ${ours.get(name)}`).toBe(`${name} UNPORTED(${what})`);
+  for (const [name, got] of ours) if (!(name in PENDING)) expect(`${name} ${got}`).not.toContain("UNPORTED(");
 });
 
 test.skipIf(SKIP)("lower_ty through ItemCtxt of the once-PENDING paths matches the tydump probe's type_of", () => {
@@ -198,6 +191,6 @@ test.skipIf(SKIP)("lower_ty through ItemCtxt of the once-PENDING paths matches t
   const oracle = oracle_type_ofs(file);
   const ours = port_type_ofs(file);
   const names = [...oracle.keys()].filter((n) => !(n in PENDING)).sort();
-  expect(names).toEqual(["P0", "P1", "P2", "P3", "P5", "P6"]);
+  expect(names).toEqual(["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"]);
   for (const name of names) expect(`${name} ${ours.get(name)}`).toBe(`${name} ${oracle.get(name)}`);
 });

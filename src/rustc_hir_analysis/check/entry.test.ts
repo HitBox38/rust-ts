@@ -12,6 +12,9 @@
 //    stand-ins (`ObligationCtxt` when a `termination` lang item exists, `check_function_signature`), and the cases turn
 //    into oracle matches once those lanes are integrated. Re-pinned by merge-w18: `ty::TraitDef` decodes (small-gaps-18);
 //    the next stop is the std crate's metadata decode of `ty::ImplTraitHeader` (impl_trait_header, not generated yet).
+//    Re-pinned by merge-w18d: `ty::ImplTraitHeader` decodes (merge-w18c); generic_main.rs, where_main.rs and plain_main.rs
+//    now print the oracle's stderr exactly (NOW_EXACT); args_main.rs's E0580 is a type-error report through
+//    `InferCtxt::err_ctxt` (rustc_trait_selection error_reporting, wave 19).
 import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,8 +26,11 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
 const PENDING = new Set([
-  "rustc_metadata::rmeta::decoder::cstore_impl: Decodable for ty::ImplTraitHeader<'static>",
+  "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt", // args_main.rs: E0580 report (wave 19)
 ]);
+
+/** Cases that print the oracle's stderr since merge-w18d: they must not stop. */
+const NOW_EXACT = new Set(["generic_main.rs", "where_main.rs", "plain_main.rs"]);
 
 function sysroot(): string | undefined {
   try {
@@ -93,6 +99,7 @@ for (const [file, code] of [
     if (code !== undefined) expect(r.oracle.stderr).toContain(code);
     else expect({ exit: r.oracle.exit, stderr: r.oracle.stderr }).toEqual({ exit: 0, stderr: "" });
     const m = /^UNPORTED: (.*)\n/m.exec(r.ours.stderr);
+    if (NOW_EXACT.has(file)) expect(m).toBeNull();
     if (m !== null) {
       expect(r.ours.exit).toBe(70);
       expect(PENDING).toContain(m[1]!);
