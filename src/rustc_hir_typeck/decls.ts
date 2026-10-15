@@ -904,7 +904,7 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // fn_ctxt/adjust_fulfillment_errors.rs:875
   blame_specific_part_of_expr_corresponding_to_generic_param(param: GenericArg, expr: hir.Expr, in_ty: GenericArg): Result<hir.Expr, hir.Expr>;
 
-  // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1..1667 (lane typeck-checks-a) ----
+  // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1..1668 (lane typeck-checks-a) ----
   // fn_ctxt/checks.rs:72
   check_casts(): void;
   // fn_ctxt/checks.rs:82
@@ -948,7 +948,7 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // fn_ctxt/checks.rs:1622
   adjust_fulfillment_errors_for_expr_obligation(errors: FulfillmentError[]): void;
 
-  // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1668..3710 (lane typeck-checks-b) ----
+  // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1669..3710 (lane typeck-checks-b) ----
   // fn_ctxt/checks.rs:1670
   label_fn_like(err: Diag, callable_id: SplatLoweringInfo, callee_ty: Ty | undefined, call_expr: hir.Expr, expected_ty: Ty | undefined, expected_idx: number | undefined, matched_inputs: (ProvidedIdx | undefined)[], formal_and_expected_inputs: [Ty, Ty][], is_method: boolean, tuple_arguments: TupleArgumentsFlag): void;
   // fn_ctxt/checks.rs:2022
@@ -1282,7 +1282,7 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // opaque_types.rs:277
   detect_opaque_types_added_during_writeback(): void;
 
-  // ---- compiler/rustc_hir_typeck/src/pat.rs, lines 1..1778 (lane typeck-pat-a) ----
+  // ---- compiler/rustc_hir_typeck/src/pat.rs, lines 1..1779 (lane typeck-pat-a) ----
   // pat.rs:104
   pattern_cause(ti: TopInfo, cause_span: Span): ObligationCause;
   // pat.rs:135
@@ -1346,7 +1346,7 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // pat.rs:1697
   emit_bad_pat_path(e: Diag, hir_id: HirId, pat_span: Span, resolved_pat: ResolvedPat): void;
 
-  // ---- compiler/rustc_hir_typeck/src/pat.rs, lines 1779..3388 (lane typeck-pat-b) ----
+  // ---- compiler/rustc_hir_typeck/src/pat.rs, lines 1780..3388 (lane typeck-pat-b) ----
   // pat.rs:1781
   resolve_pat_tuple_struct(pat: hir.Pat, qpath: hir.QPath): Result<ResolvedPat, ErrorGuaranteed>;
   // pat.rs:1833
@@ -1892,7 +1892,7 @@ export type ArgMatchingCtxt_shadowed = "deref" | "drop" | "provided_arg_tys";
 export type FnCallDiagCtxt_shadowed = "deref" | "drop" | "label_generic_mismatches";
 declare module "./fn_ctxt/checks.gen.ts" {
   interface CallCtxt extends Omit<FnCtxt, CallCtxt_shadowed> {
-    // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1668..3710 (lane typeck-checks-b) ----
+    // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1669..3710 (lane typeck-checks-b) ----
     // fn_ctxt/checks.rs:3449
     deref(): FnCtxt;
     // fn_ctxt/checks.rs:3504
@@ -1910,7 +1910,7 @@ declare module "./fn_ctxt/checks.gen.ts" {
     export { new_ as new };
   }
   interface ArgsCtxt extends Omit<CallCtxt, ArgsCtxt_shadowed> {
-    // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1668..3710 (lane typeck-checks-b) ----
+    // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1669..3710 (lane typeck-checks-b) ----
     // fn_ctxt/checks.rs:3304
     deref(): CallCtxt;
     // fn_ctxt/checks.rs:3348
@@ -1928,7 +1928,7 @@ declare module "./fn_ctxt/checks.gen.ts" {
     export { new_ as new };
   }
   interface ArgMatchingCtxt extends Omit<ArgsCtxt, ArgMatchingCtxt_shadowed> {
-    // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1668..3710 (lane typeck-checks-b) ----
+    // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1669..3710 (lane typeck-checks-b) ----
     // fn_ctxt/checks.rs:3154
     deref(): ArgsCtxt;
     // fn_ctxt/checks.rs:3190
@@ -1944,7 +1944,7 @@ declare module "./fn_ctxt/checks.gen.ts" {
     export { new_ as new };
   }
   interface FnCallDiagCtxt extends Omit<ArgMatchingCtxt, FnCallDiagCtxt_shadowed> {
-    // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1668..3710 (lane typeck-checks-b) ----
+    // ---- compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs, lines 1669..3710 (lane typeck-checks-b) ----
     // fn_ctxt/checks.rs:2252
     deref(): ArgMatchingCtxt;
     // fn_ctxt/checks.rs:2306

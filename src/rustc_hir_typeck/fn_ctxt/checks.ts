@@ -30,9 +30,9 @@ register_deref(ArgsCtxt, "call_ctxt", CallCtxt);
 register_deref(ArgMatchingCtxt, "args_ctxt", ArgsCtxt);
 // fn_ctxt/checks.rs:2252 `impl Deref for FnCallDiagCtxt { type Target = ArgMatchingCtxt }` (`&self.arg_matching_ctxt`): forwarders installed by lib.ts (decls.ts `register_deref`).
 register_deref(FnCallDiagCtxt, "arg_matching_ctxt", ArgMatchingCtxt);
-// ==== lane typeck-checks-a: checks.rs:1..1667 ====
+// ==== lane typeck-checks-a: checks.rs:1..1668 ====
 unported_methods(FnCtxt.prototype, "rustc_hir_typeck::fn_ctxt::checks::FnCtxt", ["check_casts", "check_asms", "check_repeat_exprs", "check_argument_types", "check_tupled_arguments", "check_place_expr_if_unsized", "report_arg_errors", "suggest_mut_addr", "check_expr_lit", "check_struct_path", "check_decl_initializer", "check_decl", "check_decl_local", "check_stmt", "check_block_no_value", "check_expr_block", "parent_item_span", "get_expr_coercion_span", "overwrite_local_ty_if_err", "finish_resolving_struct_path", "adjust_fulfillment_errors_for_expr_obligation"]);
-// ==== lane typeck-checks-b: checks.rs:1668..3710 ====
+// ==== lane typeck-checks-b: checks.rs:1669..3710 ====
 unported_methods(FnCtxt.prototype, "rustc_hir_typeck::fn_ctxt::checks::FnCtxt", ["label_fn_like", "label_generic_mismatches", "get_hir_param_info"]);
 unported_methods(CallCtxt.prototype, "rustc_hir_typeck::fn_ctxt::checks::CallCtxt", ["deref", "call_metadata", "mk_trace", "ty_to_snippet", "first_incompatible_error"]);
 unported_methods(CallCtxt, "rustc_hir_typeck::fn_ctxt::checks::CallCtxt", ["new"]);
