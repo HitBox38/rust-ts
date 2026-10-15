@@ -8,7 +8,7 @@ import { debug_RawList, type List } from "../ty/list.ts";
 import { debug_Term, debug_Ty, fold_with_Term, fold_with_Ty, type ParamEnvAnd, type Term, try_fold_with_Term, try_fold_with_Ty, type Ty, visit_with_Term, visit_with_Ty } from "../ty/mod.ts";
 import { debug_Predicate, fold_with_Predicate, type Predicate, try_fold_with_Predicate, visit_with_Predicate } from "../ty/predicate.ts";
 import { type AliasTy, type ParamTy } from "../ty/sty.gen.ts";
-import { debug_UserType, type UserType } from "../ty/typeck_results.ts";
+import { debug_UserType, fold_with_UserType, try_fold_with_UserType, type UserType, visit_with_UserType } from "../ty/typeck_results.ts";
 import { type Canonical, type CanonicalQueryInput, debug_Canonical } from "../../rustc_type_ir/canonical.ts";
 import { type FallibleTypeFolder, fold_with_Vec, type FoldWith, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Vec, type VisitWith } from "../../rustc_type_ir/fold.ts";
 import { debug_OpaqueTypeKey, type OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.ts";
@@ -45,18 +45,20 @@ export function clone_AscribeUserType(v: AscribeUserType): AscribeUserType {
 export function visit_with_AscribeUserType<R>(self: AscribeUserType, __visitor: TypeVisitor<R>): R {
   let r: R | undefined;
   if ((r = try_visit(__visitor.Result, visit_with_Ty(self.mir_ty, __visitor))) !== undefined) return r;
-  if ((r = try_visit(__visitor.Result, unported_type_fold(self.user_ty))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_UserType(self.user_ty, __visitor))) !== undefined) return r;
   return __visitor.Result.output();
 }
 // rustc-derive: compiler/rustc_middle/src/traits/query.rs:23 TypeFoldable for AscribeUserType (try_fold_with)
 export function try_fold_with_AscribeUserType<E>(self: AscribeUserType, __folder: FallibleTypeFolder<E>): Result<AscribeUserType, E> {
   const __0 = try_fold_with_Ty(self.mir_ty, __folder);
   if (__0.$ === "Err") return __0;
-  return unported_type_fold(self.user_ty);
+  const __1 = try_fold_with_UserType(self.user_ty, __folder);
+  if (__1.$ === "Err") return __1;
+  return Ok({ mir_ty: __0._0, user_ty: __1._0 });
 }
 // rustc-derive: compiler/rustc_middle/src/traits/query.rs:23 TypeFoldable for AscribeUserType (fold_with)
 export function fold_with_AscribeUserType(self: AscribeUserType, __folder: TypeFolder): AscribeUserType {
-  return { mir_ty: fold_with_Ty(self.mir_ty, __folder), user_ty: unported_type_fold(self.user_ty) };
+  return { mir_ty: fold_with_Ty(self.mir_ty, __folder), user_ty: fold_with_UserType(self.user_ty, __folder) };
 }
 
 // rustc-type: compiler/rustc_middle/src/traits/query.rs:29 Eq

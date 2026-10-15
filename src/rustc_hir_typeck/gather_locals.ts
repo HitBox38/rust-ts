@@ -11,11 +11,10 @@
 import * as hir from "../rustc_hir/lib.ts";
 import type { HirId } from "../rustc_hir_id/lib.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
-import { UserType } from "../rustc_middle/ty/typeck_results.ts";
+import { fold_UserType, UserType } from "../rustc_middle/ty/typeck_results.ts";
 import type { LocalDefId } from "../rustc_span/def_id.ts";
 import { DefId as DefIdC, LocalDefId as LocalDefIdC } from "../rustc_span/def_id.ts";
 import type { Span } from "../rustc_span/lib.ts";
-import { unported } from "../std/panic.ts";
 import type { FnCtxt } from "./decls.ts";
 import * as gen from "./gather_locals.gen.ts";
 import type { Declaration, DeclOrigin as DeclOriginT } from "./gather_locals.gen.ts";
@@ -220,11 +219,10 @@ GatherLocalsVisitor.prototype.declare = function (this: GatherLocalsVisitor, dec
     const ty = decl.ty;
     const o_ty = this.fcx.lower_ty(ty);
 
-    const user_ty = UserType.new_with_bounds({ $: "Ty", _0: o_ty.raw }, this.fcx.collect_impl_trait_clauses_from_hir_ty(ty));
-    // PORT: `canonicalize_user_type_annotation<V: TypeFoldable>` needs `UserType`'s derived `TypeFoldable`, which
-    // codegen does not generate yet (rustc_middle ty/typeck_results.rs `UserType` / `UserTypeKind`).
-    void user_ty;
-    const c_ty = unported("TypeFoldable for rustc_middle::ty::typeck_results::UserType (derive not generated)") as never;
+    const c_ty = this.fcx.infcx.canonicalize_user_type_annotation(
+      UserType.new_with_bounds({ $: "Ty", _0: o_ty.raw }, this.fcx.collect_impl_trait_clauses_from_hir_ty(ty)),
+      fold_UserType,
+    );
     // debug!("visit_local: ty.hir_id={:?} o_ty={:?} c_ty={:?}", ty.hir_id, o_ty, c_ty);
     this.fcx.typeck_results.user_provided_types_mut().insert(ty.hir_id, c_ty);
 

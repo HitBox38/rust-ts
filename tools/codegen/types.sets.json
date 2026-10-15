@@ -922,6 +922,49 @@
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
   },
+  "rustc_middle_typeck_results": {
+    "files": [
+      "compiler/rustc_middle/src/ty/typeck_results.rs"
+    ],
+    "files_note": "lane typeck-gaps: generated for the derived TypeVisitable / TypeFoldable of UserType / UserTypeKind / CanonicalUserTypeAnnotation (and their types + Debug); every other type of the file is hand-written in typeck_results.ts",
+    "class": [],
+    "hand": [
+      "rustc_middle::ty::typeck_results::CanonicalUserType"
+    ],
+    "hand_notes": {"rustc_middle::ty::typeck_results::CanonicalUserType": "type alias `Canonical<UserType>` hand-written in typeck_results.ts"},
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::ty::typeck_results::TypeckResults",
+      "rustc_middle::ty::typeck_results::SplattedDef",
+      "rustc_middle::ty::typeck_results::LocalTableInContext",
+      "rustc_middle::ty::typeck_results::LocalTableInContextMut",
+      "rustc_middle::ty::typeck_results::LocalSetInContext",
+      "rustc_middle::ty::typeck_results::LocalSetInContextMut",
+      "rustc_middle::ty::typeck_results::UserTypeAnnotationIndex",
+      "rustc_middle::ty::typeck_results::CanonicalUserTypeAnnotations",
+      "rustc_middle::ty::typeck_results::Rust2024IncompatiblePatInfo"
+    ],
+    "skip_notes": {
+      "rustc_middle::ty::typeck_results::TypeckResults": "hand-written in typeck_results.ts (lane ty-results): a class over Map/Set tables, private fields renamed `<name>_`; derived Debug only for debug! logs",
+      "rustc_middle::ty::typeck_results::SplattedDef": "hand-written in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::LocalTableInContext": "hand-written class in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::LocalTableInContextMut": "hand-written class in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::LocalSetInContext": "hand-written class in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::LocalSetInContextMut": "hand-written class in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::UserTypeAnnotationIndex": "newtype_index! hand-written in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::CanonicalUserTypeAnnotations": "type alias hand-written in typeck_results.ts",
+      "rustc_middle::ty::typeck_results::Rust2024IncompatiblePatInfo": "hand-written in typeck_results.ts (lane ty-results)"
+    },
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json",
+      "typeck_results.typemap.json"
+    ]
+  },
   "rustc_infer": {
     "files": [
       "compiler/rustc_infer/src/diagnostics.rs",
