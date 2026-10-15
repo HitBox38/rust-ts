@@ -121,10 +121,10 @@ import type { ErrCode } from "../rustc_errors/lib.ts";
 import { E0164 } from "../rustc_errors/error_codes.gen.ts";
 import { Res as ResC } from "../rustc_hir/def.ts";
 import { qpath_to_string } from "../rustc_hir_pretty/lib.ts";
-import { HirId_eq } from "../rustc_hir_id/lib.ts";
+import { debug_OwnerId, HirId_eq, OwnerId_eq } from "../rustc_hir_id/lib.ts";
 import { display_Ident, Symbol } from "../rustc_span/symbol.ts";
 import { FnCtxt_as_PpAnn } from "./fn_ctxt/mod.ts";
-import { assert, unported, unwrap } from "../std/panic.ts";
+import { assert, assert_eq, unported, unwrap } from "../std/panic.ts";
 import { FnCtxt, TypeckRootCtxt, type Companions } from "./decls.ts";
 import * as gen from "./lib.gen.ts";
 import { type BreakableCtxt, EnclosingBreakables, type Needs as NeedsT, type TupleArgumentsFlag as TupleArgumentsFlagT } from "./lib.gen.ts";
@@ -342,7 +342,7 @@ export function typeck_with_inspect(tcx: TyCtxt, def_id: LocalDefId, inspector: 
 
   // Consistency check our TypeckResults instance can hold all ItemLocalIds
   // it will need to hold.
-  assert(typeck_results.hir_owner === id.owner, "assertion failed: `(left == right)`: typeck_results.hir_owner == id.owner");
+  assert_eq(typeck_results.hir_owner, id.owner, (v) => debug_OwnerId(v, PLAIN), OwnerId_eq);
 
   return typeck_results;
 }
