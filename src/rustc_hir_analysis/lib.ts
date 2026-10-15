@@ -239,10 +239,8 @@ export function check_crate(tcx: TyCtxt): void {
       collect.dump.object_lifetime_defaults(tcx);
       collect.dump.opaque_hidden_types(tcx);
       collect.dump.vtables(tcx);
-      // outlives::dump::inferred_outlives(tcx);
-      // variance::dump::variances(tcx);
-      // PORT: outlives/dump.rs and variance/dump.rs are lane variance-outlives-implwf's (not in this lane's base).
-      unported("rustc_hir_analysis::outlives::dump::inferred_outlives / variance::dump::variances (lane variance-outlives-implwf)");
+      outlives.dump.inferred_outlives(tcx);
+      variance.dump.variances(tcx);
       // tidy-alphabetical-end
     });
   }
