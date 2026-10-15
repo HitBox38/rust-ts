@@ -4,11 +4,12 @@
 // docs/handoff/hirtylowerer-contract.md for the owners of the two manual impls).
 
 import { number_into_diag_arg, str_into_diag_arg, String_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
-import { Diag, type DiagCtxtHandle, type Diagnostic, E0393, IntoDiagArg, type Level, listify, msg } from "../rustc_errors/lib.ts";
+import { Diag, type DiagCtxtHandle, type Diagnostic, E0210, E0393, IntoDiagArg, type Level, listify, msg } from "../rustc_errors/lib.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { Span } from "../rustc_span/lib.ts";
-import { display_Symbol } from "../rustc_span/symbol.ts";
+import { display_Ident, display_Symbol } from "../rustc_span/symbol.ts";
 import { panic } from "../std/panic.ts";
-import type { MissingGenericParams } from "./diagnostics.gen.ts";
+import type { MissingGenericParams, UncoveredTyParam } from "./diagnostics.gen.ts";
 
 export * from "./diagnostics.gen.ts";
 
@@ -117,5 +118,36 @@ export function MissingGenericParams_diagnostic(self: MissingGenericParams): Dia
   return { into_diag: (dcx, level) => MissingGenericParams_into_diag(self, dcx, level) };
 }
 
-// impl<'tcx> Diagnostic<'tcx> for UncoveredTyParam<'tcx>
+// impl<'tcx> Diagnostic<'tcx> for UncoveredTyParam<'tcx> (lane coherence)
+// rustc: compiler/rustc_hir_analysis/src/diagnostics.rs:2078 into_diag
+export function UncoveredTyParam_into_diag(self: UncoveredTyParam, dcx: DiagCtxtHandle, level: Level): Diag {
+  const { param, local_ty } = self;
+
+  const diag = Diag.new(dcx, level, "").with_span(param.span).with_span_label(param.span, "uncovered type parameter");
+  if (diag.deref().is_error()) {
+    diag.code(E0210);
+  }
+
+  const note = "implementing a foreign trait is only possible if at least one of the types for which it is implemented is local";
+
+  if (local_ty !== undefined) {
+    diag.primary_message(
+      `type parameter \`${display_Ident(param)}\` must be covered by another type when it appears before the first local type (\`${display_Ty(local_ty)}\`)`,
+    );
+
+    diag.note(`${note},\nand no uncovered type parameters appear before that first local type`);
+    diag.note("in this case, 'before' refers to the following order: `impl<..> ForeignTrait<T1, ..., Tn> for T0`,\nwhere `T0` is the first and `Tn` is the last");
+  } else {
+    diag.primary_message(`type parameter \`${display_Ident(param)}\` must be used as an argument to some local type (e.g., \`MyStruct<${display_Ident(param)}>\`)`);
+
+    diag.note(note);
+    diag.note("only traits defined in the current crate can be implemented for a type parameter");
+  }
+
+  return diag;
+}
+/** `UncoveredTyParam` as a `Diagnostic` trait object. */
+export function UncoveredTyParam_diagnostic(self: UncoveredTyParam): Diagnostic {
+  return { into_diag: (dcx, level) => UncoveredTyParam_into_diag(self, dcx, level) };
+}
 // (diagnostics.rs:2078 into_diag: not ported; coherence/orphan.rs is wave 17, lane coherence)

@@ -87,7 +87,8 @@ import * as check from "./check/mod.ts";
 export { check };
 // pub mod autoderef;        (wave 17/18)
 // mod check_unused;         (wave 17)
-// mod coherence;            (wave 17: coherence)
+// mod coherence;
+import * as coherence from "./coherence/mod.ts";
 // mod collect;
 // mod constrained_generic_params;
 import "./constrained_generic_params.ts";
@@ -142,10 +143,10 @@ export function check_c_variadic_abi(tcx: TyCtxt, decl: hir.FnDecl, abi: ExternA
 // rustc: compiler/rustc_hir_analysis/src/lib.rs:126 provide
 export function provide(providers: Providers): void {
   collect.provide(providers);
+  coherence.provide(providers);
+  check.provide(providers);
   // PORT: the modules below are not ported yet (wave 17), so their queries keep the placeholder providers of
   // rustc_interface's `install_unported_providers` (UNPORTED). Each lane uncomments its lines.
-  // coherence::provide(providers);
-  check.provide(providers);
   // providers.check_unused_traits = check_unused.check_unused_traits;
   // providers.diagnostic_hir_wf_check = hir_wf_check.diagnostic_hir_wf_check;
   providers.inferred_outlives_crate = outlives.inferred_outlives_crate;
