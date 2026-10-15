@@ -56,6 +56,14 @@ import { IntTypeExt } from "../../../rustc_middle/ty/util.ts";
 import { Size } from "../../../rustc_abi/lib.ts";
 import { debug_DefId, type DefId, LocalDefId } from "../../../rustc_span/def_id.ts";
 import { Span } from "../../../rustc_span/lib.ts";
+import {
+  ConstContinueMissingLabelOrValue_diagnostic,
+  LoopMatchBadRhs_diagnostic,
+  LoopMatchBadStatements_diagnostic,
+  LoopMatchInvalidMatch_diagnostic,
+  LoopMatchInvalidUpdate_diagnostic,
+  LoopMatchMissingAssignment_diagnostic,
+} from "../../diagnostics.ts";
 import { bug, span_bug } from "../../../rustc_span/macros.ts";
 import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
@@ -1148,9 +1156,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
         if (target_id.$ === "Ok") {
           if (!(value !== undefined && dest.label !== undefined)) {
             const span = expr.span;
-            void span;
-            // `self.tcx.dcx().emit_fatal(ConstContinueMissingLabelOrValue { span })`
-            return unported("rustc_mir_build::errors::ConstContinueMissingLabelOrValue (diagnostics.rs not ported)");
+            return this.tcx.dcx().emit_fatal(ConstContinueMissingLabelOrValue_diagnostic({ span }));
           }
 
           kind = {
@@ -1219,9 +1225,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
     case "Loop": {
       const body = ek._0;
       if (find_attr(HasAttrs_HirId.get_attrs(expr.hir_id, this.tcx), (k) => (k.$ === "LoopMatch" ? true : undefined)) !== undefined) {
-        // PORT: `dcx.emit_fatal(LoopMatch* { .. })`: the diagnostic structs are in diagnostics.rs (`#[derive(Diagnostic)]`,
-        // not generated yet), so each fatal error stops as UNPORTED (`emit_loop_match_fatal` below).
-        // const dcx = this.tcx.dcx();
+        const dcx = this.tcx.dcx();
 
         // Accept either `state = expr` or `state = expr;`.
         let loop_body_expr: HirExpr;
@@ -1229,27 +1233,29 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
           if (body.expr !== undefined) {
             loop_body_expr = body.expr;
           } else {
-            return emit_loop_match_fatal("LoopMatchMissingAssignment");
+            return dcx.emit_fatal(LoopMatchMissingAssignment_diagnostic({ span: body.span }));
           }
         } else if (body.stmts.length === 1 && body.expr === undefined) {
           const single = body.stmts[0]!;
           if (single.kind.$ === "Expr" || single.kind.$ === "Semi") {
             loop_body_expr = single.kind._0;
           } else {
-            return emit_loop_match_fatal("LoopMatchMissingAssignment");
+            return dcx.emit_fatal(LoopMatchMissingAssignment_diagnostic({ span: body.span }));
           }
         } else {
-          // `[first @ last] | [first, .., last]`: `LoopMatchBadStatements { span: first.span.to(last.span) }`
-          return emit_loop_match_fatal("LoopMatchBadStatements");
+          // `[first @ last] | [first, .., last]`
+          const first = body.stmts[0]!;
+          const last = body.stmts[body.stmts.length - 1]!;
+          return dcx.emit_fatal(LoopMatchBadStatements_diagnostic({ span: Span.to(first.span, last.span) }));
         }
 
         if (loop_body_expr.kind.$ !== "Assign") {
-          return emit_loop_match_fatal("LoopMatchMissingAssignment");
+          return dcx.emit_fatal(LoopMatchMissingAssignment_diagnostic({ span: loop_body_expr.span }));
         }
         const [state, rhs_expr] = [loop_body_expr.kind._0, loop_body_expr.kind._1];
 
         if (rhs_expr.kind.$ !== "Block") {
-          return emit_loop_match_fatal("LoopMatchBadRhs");
+          return dcx.emit_fatal(LoopMatchBadRhs_diagnostic({ span: rhs_expr.span }));
         }
         const block_body = rhs_expr.kind._0;
 
@@ -1257,28 +1263,33 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
         // allowed.
         for (const stmt of block_body.stmts) {
           if (!(stmt.kind.$ === "Item")) {
-            return emit_loop_match_fatal("LoopMatchBadStatements");
+            dcx.emit_fatal(LoopMatchBadStatements_diagnostic({ span: stmt.span }));
           }
         }
 
         const block_body_expr = block_body.expr;
         if (block_body_expr === undefined) {
-          return emit_loop_match_fatal("LoopMatchBadRhs");
+          return dcx.emit_fatal(LoopMatchBadRhs_diagnostic({ span: block_body.span }));
         }
 
         if (block_body_expr.kind.$ !== "Match") {
-          return emit_loop_match_fatal("LoopMatchBadRhs");
+          return dcx.emit_fatal(LoopMatchBadRhs_diagnostic({ span: block_body_expr.span }));
         }
         const [scrutinee, arms] = [block_body_expr.kind._0, block_body_expr.kind._1];
 
         const scrutinee_hir_id = local(this, scrutinee);
         if (scrutinee_hir_id === undefined) {
-          return emit_loop_match_fatal("LoopMatchInvalidMatch");
+          return dcx.emit_fatal(LoopMatchInvalidMatch_diagnostic({ span: scrutinee.span }));
         }
 
         const state_local = local(this, state);
         if (!(state_local !== undefined && HirId_eq(state_local, scrutinee_hir_id))) {
-          return emit_loop_match_fatal("LoopMatchInvalidUpdate");
+          dcx.emit_fatal(
+            LoopMatchInvalidUpdate_diagnostic({
+              scrutinee: scrutinee.span,
+              lhs: state.span,
+            }),
+          );
         }
 
         const state_ = this.mirror_expr(state);
@@ -1436,11 +1447,6 @@ function local(cx: ThirBuildCx, expr: HirExpr): HirId | undefined {
   }
 
   return undefined;
-}
-
-/** `self.tcx.dcx().emit_fatal(<name> { .. })` for the `LoopMatch*` diagnostics of diagnostics.rs (not ported). */
-function emit_loop_match_fatal(name: string): never {
-  return unported(`rustc_mir_build::errors::${name} (diagnostics.rs not ported)`);
 }
 
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1203 user_args_applied_to_res
