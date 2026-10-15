@@ -109,7 +109,7 @@ function fold_ParamEnvAnd<T>(d_T: TypeFoldable<T>): TypeFoldable<ParamEnvAnd<T>>
  * query.gen.ts impls stop at `unported_type_fold` for `predefined_opaques_in_body` (its `PredefinedOpaques` comes from
  * traits/solve.gen.ts, not mapped to structural_impls' `fold_PredefinedOpaques`): codegen typemap follow-up for root.
  */
-const fold_MethodAutoderefSteps: TypeFoldable<MethodAutoderefSteps> = {
+export const fold_MethodAutoderefSteps: TypeFoldable<MethodAutoderefSteps> = {
   visit_with<R>(self: MethodAutoderefSteps, visitor: TypeVisitor<R>): R {
     let r: R | undefined;
     if ((r = try_visit(visitor.Result, fold_PredefinedOpaques.visit_with(self.predefined_opaques_in_body, visitor))) !== undefined) return r;
