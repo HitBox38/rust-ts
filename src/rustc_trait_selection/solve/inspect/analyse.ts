@@ -42,9 +42,8 @@ import { Ok, type Result } from "../../../std/result.ts";
 import { canonical, solve } from "../../../rustc_next_trait_solver/lib.ts";
 import { SolverDelegate } from "../delegate.ts";
 
-// PORT(decls): decls.ts declares `visit_proof_tree(goal, visitor: ProofTreeVisitor): unknown` (written while
-// `ProofTreeVisitor` was a `Pending` alias); `V::Result` is the visitor's `R`, so callers cast the result to it. Root may
-// make the two declarations generic (`<R>(.., visitor: ProofTreeVisitor<R>): R`).
+// PORT(decls): decls.ts declares `visit_proof_tree<R>(goal, visitor: ProofTreeVisitor<R>): R`; `V::Result` is the
+// visitor's `R`.
 
 export interface InspectConfig {
   max_depth: number;
@@ -420,7 +419,7 @@ export const ProofTreeVisitor_provided = {
 
 // rustc: compiler/rustc_trait_selection/src/solve/inspect/analyse.rs:395 visit_proof_tree
 InferCtxt.prototype.visit_proof_tree = function <R>(this: InferCtxt, goal: Goal<Predicate>, visitor: ProofTreeVisitor<R>): R {
-  return this.visit_proof_tree_at_depth(goal, 0, visitor) as R;
+  return this.visit_proof_tree_at_depth(goal, 0, visitor);
 };
 
 // rustc: compiler/rustc_trait_selection/src/solve/inspect/analyse.rs:403 visit_proof_tree_at_depth

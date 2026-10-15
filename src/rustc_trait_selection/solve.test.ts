@@ -30,11 +30,7 @@ const RUNS: { file: string; flags: string[]; fixture: string }[] = [
 ];
 
 /** The exact `unported(..)` texts a case may stop at today (stand-ins for other lanes' ports). */
-const PENDING = new Set([
-  // delegate.ts `compute_goal_fast_path` for `Sized` / `MetaSized` goals (traits/util.rs, lane trait-sel-traits-a)
-  "UNPORTED: rustc_trait_selection::traits::util::sizedness_fast_path",
-  // delegate.ts `fetch_eligible_assoc_item` (impl candidates of `NormalizesTo`; traits/specialize, lane trait-sel-traits-b)
-  "UNPORTED: rustc_trait_selection::traits::specialize::specialization_graph::assoc_def",
+const PENDING = new Set<string>([
 ]);
 
 function sysroot(): string | undefined {

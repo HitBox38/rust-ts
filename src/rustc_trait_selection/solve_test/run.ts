@@ -7,8 +7,6 @@
 //
 //   bun run.ts <rustc arguments...>
 import type { Compiler } from "../../rustc_interface/interface.ts";
-import type { Providers } from "../../rustc_middle/queries.gen.ts";
-import type { CanonicalInput } from "../../rustc_middle/traits/solve.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
 import { Obligation, type PredicateObligation, type Selection, type TraitErrors } from "../../rustc_infer/traits/mod.ts";
 import { debug_Obligation } from "../../rustc_infer/traits/structural_impls.ts";
@@ -35,7 +33,6 @@ import { debug_option, debug_vec, PLAIN } from "../../std/fmt.ts";
 import { Panic, Unported } from "../../std/panic.ts";
 import { debug_result, type Result } from "../../std/result.ts";
 
-type Lib = typeof import("../lib.ts");
 type Fulfill = typeof import("../solve/fulfill.ts");
 type Analyse = typeof import("../solve/inspect/analyse.ts");
 
@@ -55,7 +52,7 @@ function kind_str(kind: ProbeKind): string {
   }
 }
 
-function code_str(code: import("../solve/fulfill/derive_errors.ts").FulfillmentErrorCode): string {
+function code_str(code: import("../traits/mod.gen.ts").FulfillmentErrorCode): string {
   switch (code.$) {
     case "Select":
       return `Select(${debug_SelectionError(code._0, PLAIN)})`;
@@ -121,7 +118,7 @@ function errors(out: string[], label: string, errs: TraitErrors<unknown>): void 
     return;
   }
   for (const e0 of errs._0) {
-    const e = e0 as import("../solve/fulfill/derive_errors.ts").FulfillmentError_;
+    const e = e0 as import("../traits/mod.gen.ts").FulfillmentError;
     out.push(`  ${label}: ${debug_Predicate(e.obligation.predicate, PLAIN)} code=${code_str(e.code)} root=${debug_Predicate(e.root_obligation.predicate, PLAIN)}`);
   }
 }
@@ -187,19 +184,11 @@ function dump(tcx: TyCtxt, an: Analyse, fu: Fulfill): string {
 async function main(args: string[]): Promise<number> {
   const { catch_with_exit_code, compiler_entrypoint } = await import("../../rustc_driver_impl/lib.ts");
   const { std_print } = await import("../../rustc_session/config.ts");
-  const { solve }: Lib = await import("../lib.ts");
   const an: Analyse = await import("../solve/inspect/analyse.ts");
   const fu: Fulfill = await import("../solve/fulfill.ts");
   const callbacks = {
     config(): void {},
     after_expansion(_compiler: Compiler, tcx: TyCtxt): "Stop" | "Continue" {
-      // PORT(test): the query `evaluate_root_goal_for_proof_tree_raw` has no QueryKey yet (queries.gen.ts `key_unported`
-      // for `(CanonicalInput, usize)`), and rustc_interface does not install `solve::provide` yet (handoff "For root").
-      // The test calls this crate's provider directly (uncached; the query is `no_hash` and only memoizes).
-      const providers = {} as Providers;
-      solve.provide(providers);
-      (tcx as unknown as { evaluate_root_goal_for_proof_tree_raw: (key: [CanonicalInput, number]) => unknown }).evaluate_root_goal_for_proof_tree_raw = (key) =>
-        providers.evaluate_root_goal_for_proof_tree_raw(tcx, key);
       std_print(dump(tcx, an, fu));
       return "Stop" as const;
     },

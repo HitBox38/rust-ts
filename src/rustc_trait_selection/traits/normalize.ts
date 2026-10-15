@@ -10,8 +10,7 @@
 // const_of_item_or_delayed_bug}`, traits/project.rs, wave 20) are not ported. `SelectionContext` is the view
 // `SelectionContext` below (the members `AssocTypeNormalizer` reads); `SelectionContext::new` and the `project` fns are
 // `pending_*` stand-ins that stop as UNPORTED. With the next solver (the default outside the ui suites),
-// `normalize` / `deeply_normalize` go to `crate::solve::{normalize, deeply_normalize}` (solve/normalize.rs, lane
-// trait-sel-solve), also `pending_*` stand-ins here (root repoints them at merge).
+// `normalize` / `deeply_normalize` go to `crate::solve::{normalize, deeply_normalize}` (solve/normalize.ts).
 //
 // Init order: top-level code here touches only rustc_infer (loaded first by ../lib.ts) and other crates.
 
@@ -61,6 +60,7 @@ import { Err, Ok, type Result } from "../../std/result.ts";
 import type { NextSolverError } from "../decls.ts";
 import { BoundVarReplacer, PlaceholderReplacer } from "./util.ts";
 import { err_ctxt, evaluate_const, with_replaced_escaping_bound_vars } from "./mod.ts";
+import { deeply_normalize as solve_deeply_normalize, normalize as solve_normalize } from "../solve/normalize.ts";
 import { GenericClauses } from "../../rustc_middle/ty/generics.ts";
 import { Clause_upcast_from_ClauseKind } from "../../rustc_middle/ty/predicate.ts";
 
@@ -87,7 +87,7 @@ export interface SelectionContext {
 // rustc: compiler/rustc_trait_selection/src/traits/normalize.rs:30 normalize
 At.prototype.normalize = function <T>(this: At, value: Unnormalized<T>, d_T: TypeFoldable<T>): InferOk<T> {
   if (this.infcx.next_trait_solver()) {
-    const { value: value_, obligations } = pending_solve_normalize(this, value, d_T);
+    const { value: value_, obligations } = solve_normalize(this, value, d_T);
     return new InferOk(value_, obligations);
   } else {
     const selcx = pending_SelectionContext_new(this.infcx);
@@ -117,7 +117,7 @@ At.prototype.deeply_normalize = function <T, E>(
   from_solver_error_E: FromSolverError<E, NextSolverError>,
 ): Result<T, E[]> {
   if (this.infcx.next_trait_solver()) {
-    return pending_solve_deeply_normalize(this, value, d_T, from_solver_error_E);
+    return solve_deeply_normalize(this, value, from_solver_error_E, d_T);
   } else {
     if (fulfill_cx.has_pending_obligations()) {
       const pending_obligations = fulfill_cx.pending_obligations();
@@ -542,20 +542,10 @@ function d_GenericArgs(): TypeFoldable<import("../../rustc_middle/ty/decls.ts").
   return fold_GenericArgs;
 }
 
-// ---- PORT(merge): stand-ins for other lanes' items (each stops as UNPORTED; root repoints them) ------------------------
-
-/** `crate::solve::normalize(at, value)` (solve/normalize.rs, lane trait-sel-solve). */
-function pending_solve_normalize<T>(_at: At, _value: Unnormalized<T>, _d_T: TypeFoldable<T>): Normalized<T> {
-  return unported("rustc_trait_selection::solve::normalize::normalize (solve/normalize.rs, lane trait-sel-solve)");
-}
-
-/** `crate::solve::deeply_normalize(at, value)` (solve/normalize.rs, lane trait-sel-solve). */
-function pending_solve_deeply_normalize<T, E>(_at: At, _value: Unnormalized<T>, _d_T: TypeFoldable<T>, _from_solver_error_E: FromSolverError<E, NextSolverError>): Result<T, E[]> {
-  return unported("rustc_trait_selection::solve::normalize::deeply_normalize (solve/normalize.rs, lane trait-sel-solve)");
-}
+// ---- stand-ins for the old solver (wave 20); each stops as UNPORTED ---------------------------------------------------
 
 /** `SelectionContext::new(infcx)` (traits/select/mod.rs; old solver, wave 20). */
-function pending_SelectionContext_new(_infcx: InferCtxt): SelectionContext {
+export function pending_SelectionContext_new(_infcx: InferCtxt): SelectionContext {
   return unported("rustc_trait_selection::traits::select::SelectionContext::new (old solver, wave 20)");
 }
 

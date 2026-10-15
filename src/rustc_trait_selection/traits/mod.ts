@@ -18,6 +18,8 @@
 // Init order: the extension modules (normalize.ts, structural_normalize.ts, ...) assign onto rustc_infer's classes at
 // load; ../lib.ts loads rustc_infer first. Other modules of this crate are read inside function bodies only.
 
+import * as dyn_compatibility from "./dyn_compatibility.ts";
+import * as specialize from "./specialize/mod.ts";
 import { FulfillmentError } from "./mod.gen.ts";
 
 export * from "./mod.gen.ts";
@@ -25,8 +27,10 @@ export * from "./mod.gen.ts";
 // pub mod auto_trait;
 // pub(crate) mod coherence;
 // pub mod const_evaluatable;
+export * as const_evaluatable from "./const_evaluatable.ts";
 // mod dyn_compatibility;
 // pub mod effects;
+export * as effects from "./effects.ts";
 // mod engine;
 // mod fulfill;
 // pub mod implied_outlives_bounds;
@@ -41,24 +45,37 @@ export * as outlives_bounds from "./outlives_bounds.ts";
 // pub mod query;
 // pub mod select;
 // pub mod specialize;
+export * as specialize from "./specialize/mod.ts";
 // mod structural_normalize;
 import "./structural_normalize.ts";
 // pub mod util;
 export * as util from "./util.ts";
 // pub mod vtable;
 // pub mod wf;
+export * as wf from "./wf.ts";
 
 // `pub use rustc_infer::traits::*;`
 export * from "../../rustc_infer/traits/mod.ts";
-// pub use self::coherence::{
-//     InCrate, IsFirstInputType, OrphanCheckErr, OrphanCheckMode, OverlapResult, UncoveredTyParams,
-//     add_placeholder_note, orphan_check_trait_ref, overlapping_inherent_impls,
-//     overlapping_trait_impls,
-// };
-// pub use self::dyn_compatibility::{
-//     DynCompatibilityViolation, dyn_compatibility_violations_for_assoc_item,
-//     hir_ty_lowering_dyn_compatibility_violations, is_vtable_safe_method,
-// };
+// `pub use self::coherence::{..}`
+export {
+  InCrate,
+  IsFirstInputType,
+  type OrphanCheckErr,
+  OrphanCheckMode,
+  type OverlapResult,
+  type UncoveredTyParams,
+  add_placeholder_note,
+  orphan_check_trait_ref,
+  overlapping_inherent_impls,
+  overlapping_trait_impls,
+} from "./coherence.ts";
+// `pub use self::dyn_compatibility::{..}` (`DynCompatibilityViolation` is rustc_middle's, re-exported through
+// `rustc_infer::traits::*` above)
+export {
+  dyn_compatibility_violations_for_assoc_item,
+  hir_ty_lowering_dyn_compatibility_violations,
+  is_vtable_safe_method,
+} from "./dyn_compatibility.ts";
 // `pub use self::engine::{FulfillmentEngine, ObligationCtxt};`
 export { FulfillmentEngine, ObligationCtxt } from "./engine.ts";
 // pub use self::fulfill::{FulfillmentContext, OldSolverError, PendingPredicateObligation};
@@ -68,12 +85,10 @@ export { FulfillmentEngine, ObligationCtxt } from "./engine.ts";
 //     EvaluationCache, EvaluationResult, IntercrateAmbiguityCause, OverflowError, SelectionCache,
 //     SelectionContext,
 // };
-// pub use self::specialize::specialization_graph::{
-//     FutureCompatOverlapError, FutureCompatOverlapErrorKind,
-// };
-// pub use self::specialize::{
-//     OverlapError, specialization_graph, translate_args, translate_args_with_cause,
-// };
+// `pub use self::specialize::specialization_graph::{FutureCompatOverlapError, FutureCompatOverlapErrorKind};`
+export { type FutureCompatOverlapError, FutureCompatOverlapErrorKind } from "./specialize/specialization_graph.ts";
+// `pub use self::specialize::{OverlapError, specialization_graph, translate_args, translate_args_with_cause};`
+export { type OverlapError, specialization_graph, translate_args, translate_args_with_cause } from "./specialize/mod.ts";
 // `pub use self::structural_normalize::StructurallyNormalizeExt;` (methods on `At.prototype`)
 // `pub use self::util::{..}`
 export {
@@ -1126,16 +1141,16 @@ class ReferencesOnlyParentGenerics implements TypeVisitor<ControlFlow<null>> {
 
 // rustc: compiler/rustc_trait_selection/src/traits/mod.rs:982 provide
 export function provide(providers: Providers): void {
-  // PORT(merge): `dyn_compatibility::provide(providers)` and `vtable::provide(providers)` (lane trait-sel-traits-b / a
-  // later lane) and the `specialize` / `outlives_for_liveness` providers below are other lanes' modules; root adds
-  // them when those land. Until then those queries keep the driver's `unported` placeholder providers.
-  // dyn_compatibility::provide(providers);
+  dyn_compatibility.provide(providers);
+  // PORT: `vtable::provide(providers)`: traits/vtable.rs is not ported yet (no lane); its queries keep the driver's
+  // `unported` placeholder providers.
   // vtable::provide(providers);
-  // specialization_graph_of: specialize::specialization_graph_provider,
-  // specializes: specialize::specializes,
-  // specialization_enabled_in: specialize::specialization_enabled_in,
+  providers.specialization_graph_of = specialize.specialization_graph_provider;
+  providers.specializes = specialize.specializes;
+  providers.specialization_enabled_in = specialize.specialization_enabled_in;
   providers.instantiate_and_check_impossible_clauses = (tcx, key) => instantiate_and_check_impossible_clauses(tcx, key as [DefId, GenericArgs]);
   providers.is_impossible_associated_item = is_impossible_associated_item;
+  // PORT: traits/outlives_for_liveness.rs is not ported yet (no lane); these two keep the placeholder providers.
   // live_args_for_alias_from_outlives_bounds:
   //     outlives_for_liveness::live_args_for_alias_from_outlives_bounds,
   // args_known_to_outlive_alias_params:

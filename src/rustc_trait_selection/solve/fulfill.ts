@@ -8,7 +8,7 @@
 // `pending` from the kept entries.
 // PORT: `PendingObligations` entries are `[obligation, stalled_on]` pairs; `obligation.predicate = ..` /
 // `obligation.recursion_depth += 1` write to the `Obligation` object (the pair owns it).
-// PORT(merge): `FulfillmentError` (traits/mod.rs) belongs to lane trait-sel-traits-a; see derive_errors.ts.
+// `FulfillmentError` is traits/mod.gen.ts's generated type (re-exported by decls.ts).
 
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
 import { clone_Obligation, visit_with_Obligation, type PredicateObligation, type PredicateObligations, ScrubbedTraitError, TraitEngine_provided, TraitErrors } from "../../rustc_infer/traits/mod.ts";

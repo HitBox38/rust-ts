@@ -79,9 +79,9 @@ declare module "../rustc_infer/decls.ts" {
 
     // ---- solve/inspect/analyse.rs: `#[extension(pub trait InferCtxtProofTreeExt)] impl InferCtxt` (lane trait-sel-solve) ----
     // solve/inspect/analyse.rs:395 (`V: ProofTreeVisitor`, returns `V::Result`)
-    visit_proof_tree(goal: Goal<Predicate>, visitor: ProofTreeVisitor): unknown;
+    visit_proof_tree<R>(goal: Goal<Predicate>, visitor: ProofTreeVisitor<R>): R;
     // solve/inspect/analyse.rs:403
-    visit_proof_tree_at_depth(goal: Goal<Predicate>, depth: number, visitor: ProofTreeVisitor): unknown;
+    visit_proof_tree_at_depth<R>(goal: Goal<Predicate>, depth: number, visitor: ProofTreeVisitor<R>): R;
 
     // ---- traits/outlives_bounds.rs: `#[extension(pub trait InferCtxtExt)] impl InferCtxt` (lane trait-sel-traits-b) ----
     // traits/outlives_bounds.rs:104

@@ -17,12 +17,14 @@
 // - `tcx.arena.alloc(sg)` is `sg` (arenas are erased).
 // - Iterators that upstream feeds lazily into `ObligationCtxt::register_obligations` (which normalizes as it goes) are
 //   generators here, so normalization and registration interleave as upstream.
-// - The items of other files / lanes this file calls that are not ported yet (`ObligationCtxt`, `predicates_for_generics`,
-//   `to_pretty_impl_header`, `NegativePositiveConflict`, `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint`) are
-//   local stand-ins at the end of the file that stop as UNPORTED; each is marked `PORT(merge)` with its owner.
+// - The items this file calls that are not ported yet (`to_pretty_impl_header`, wave 19; `NegativePositiveConflict`,
+//   unassigned; `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint`, wave 20) are local stand-ins at the end of the
+//   file that stop as UNPORTED.
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
+import { predicates_for_generics } from "../mod.ts";
+import { ObligationCtxt } from "../engine.ts";
 import { type Diag, type Diagnostic, DiagDecorator, E0119 } from "../../../rustc_errors/lib.ts";
 import type { InferCtxt } from "../../../rustc_infer/infer/mod.ts";
 import { ToTrace_TraitRef } from "../../../rustc_infer/infer/at.ts";
@@ -194,7 +196,7 @@ function fulfill_implication(
   //     param_env, source_trait_ref, target_impl
   // );
 
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
   const source_trait_ref = ocx.normalize(cause, param_env, Unnormalized.new_wip(source_trait_ref_), d_TraitRef);
 
   if (!TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity())) {
@@ -312,7 +314,7 @@ export function specializes(tcx: TyCtxt, [specializing_impl_def_id, parent_impl_
 
   // Attempt to prove that the parent impl applies, given all of the above.
 
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
   const specializing_impl_trait_ref = ocx.normalize(cause, param_env, specializing_impl_trait_ref_, d_TraitRef);
 
   if (!TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity())) {
@@ -646,37 +648,14 @@ function coherence_mod(): typeof import("../coherence.ts") {
   return require("../coherence.ts") as typeof import("../coherence.ts");
 }
 
-// ---- PORT(merge) stand-ins for items of other files / lanes that are not ported yet ---------------------------------
+// ---- stand-ins for items that are not ported yet (each stops as UNPORTED) ------------------------------------------
 
-/** PORT(merge): the `ObligationCtxt` methods used here (traits/engine.rs, lane trait-sel-traits-a). */
-interface ObligationCtxt<E> {
-  register_obligations(obligations: Iterable<PredicateObligation>): void;
-  normalize<T>(cause: ObligationCause, param_env: ParamEnv, value: Unnormalized<T>, d_T: TypeFoldable<T>): T;
-  eq<T>(cause: ObligationCause, param_env: ParamEnv, expected: T, actual: T, d_T: import("../../../rustc_infer/infer/at.ts").ToTrace<T>): Result<null, TypeError>;
-  evaluate_obligations_error_on_ambiguity(): TraitErrors<E>;
-}
-
-/** PORT(merge): stand-in for `ObligationCtxt::new` (traits/engine.rs:162, lane trait-sel-traits-a). */
-function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxt<ScrubbedTraitError> {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new");
-}
-
-/** PORT(merge): stand-in for `traits::predicates_for_generics` (traits/mod.rs:185, lane trait-sel-traits-a). */
-function predicates_for_generics(
-  _cause: (idx: number, span: Span) => ObligationCause,
-  _normalize_clause: (clause: Unnormalized<Clause>) => Clause,
-  _param_env: ParamEnv,
-  _generic_bounds: InstantiatedClauses,
-): Iterable<PredicateObligation> {
-  return unported("rustc_trait_selection::traits::predicates_for_generics");
-}
-
-/** PORT(merge): stand-in for `error_reporting::traits::to_pretty_impl_header` (error_reporting/traits/mod.rs:569, wave 19). */
+/** stand-in for `error_reporting::traits::to_pretty_impl_header` (error_reporting/traits/mod.rs:569, wave 19). */
 function to_pretty_impl_header(_tcx: TyCtxt, _impl_def_id: DefId): string | undefined {
   return unported("rustc_trait_selection::error_reporting::traits::to_pretty_impl_header");
 }
 
-/** PORT(merge): the fields of `diagnostics::NegativePositiveConflict` (diagnostics.rs:31). */
+/** the fields of `diagnostics::NegativePositiveConflict` (diagnostics.rs:31). */
 interface NegativePositiveConflict {
   impl_span: Span;
   trait_desc: TraitRef;
@@ -684,12 +663,12 @@ interface NegativePositiveConflict {
   negative_impl_span: Result<Span, Symbol>;
   positive_impl_span: Result<Span, Symbol>;
 }
-/** PORT(merge): stand-in for `impl Diagnostic for NegativePositiveConflict` (diagnostics.rs:39, not assigned yet). */
+/** stand-in for `impl Diagnostic for NegativePositiveConflict` (diagnostics.rs:39, not assigned yet). */
 function NegativePositiveConflict_diagnostic(_d: NegativePositiveConflict): Diagnostic {
   return unported("rustc_trait_selection::diagnostics::NegativePositiveConflict");
 }
 
-/** PORT(merge): stand-in for `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint` (traits/select/mod.rs:65, wave 20). */
+/** stand-in for `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint` (traits/select/mod.rs:65, wave 20). */
 function IntercrateAmbiguityCause_add_intercrate_ambiguity_hint(_self: IntercrateAmbiguityCause, _err: Diag): void {
   unported("rustc_trait_selection::traits::select::IntercrateAmbiguityCause::add_intercrate_ambiguity_hint");
 }

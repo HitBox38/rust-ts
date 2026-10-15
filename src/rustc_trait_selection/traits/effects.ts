@@ -3,11 +3,11 @@
 // PORT notes (file-wide):
 // - `ThinVec` is an array; `thin_vec![]` is `[]`.
 // - The old solver's `SelectionContext` (traits/select/mod.rs, wave 20 selcx-contract) is not ported: the members this
-//   file uses are a local interface (`PORT(merge)`), which the real class will satisfy. `normalize_with_depth_to`
-//   (traits/normalize.rs, lane trait-sel-traits-a) is a local stand-in that stops as UNPORTED.
+//   file uses are a local interface extending normalize.ts's view, which the real class will satisfy.
 // - `infcx.probe(|_| ..)` / `commit_if_ok(|_| ..)` take a closure that ignores the snapshot argument.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
+import { normalize_with_depth_to, type SelectionContext as NormalizeSelectionContext } from "./normalize.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { Constness } from "../../rustc_hir/lib.ts";
 import type { InferCtxt } from "../../rustc_infer/infer/mod.ts";
@@ -829,26 +829,10 @@ function unreachable_(msg: string): never {
   return panic(`internal error: entered unreachable code: ${msg}`);
 }
 
-// ---- PORT(merge) stand-ins for items of other files / lanes that are not ported yet ---------------------------------
+// ---- the old solver's `SelectionContext` (wave 20), the members used here --------------------------------------------
 
-/** PORT(merge): the `SelectionContext` members used here (traits/select/mod.rs, wave 20 selcx-contract). */
-export interface SelectionContext {
-  infcx: InferCtxt;
-  typing_mode(): TypingMode;
-  tcx(): TyCtxt;
+/** `traits::SelectionContext` (traits/select/mod.rs, wave 20 selcx-contract): normalize.ts's view plus the members used here. */
+export interface SelectionContext extends NormalizeSelectionContext {
   should_stall_coroutine(def_id: DefId): boolean;
   select(obligation: Obligation<TraitClause>): Result<ImplSource<PredicateObligation> | undefined, SelectionError>;
-}
-
-/** PORT(merge): stand-in for `traits::normalize::normalize_with_depth_to` (traits/normalize.rs, lane trait-sel-traits-a). */
-function normalize_with_depth_to<T>(
-  _selcx: SelectionContext,
-  _param_env: import("../../rustc_middle/ty/mod.ts").ParamEnv,
-  _cause: ObligationCause,
-  _depth: number,
-  _value: Unnormalized<T>,
-  _obligations: PredicateObligation[],
-  _d_T: TypeFoldable<T>,
-): T {
-  return unported("rustc_trait_selection::traits::normalize::normalize_with_depth_to");
 }

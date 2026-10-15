@@ -8,12 +8,13 @@
 // PORT: `debug!` / `#[instrument]` (tracing) are dropped. `WfPredicates` is a class implementing rustc_type_ir's
 // `TypeVisitor<()>` (`R = undefined`); `impl FnMut(&mut Self, PredicateObligation)` callbacks are closures taking the
 // `WfPredicates` first. `traits::Obligation::with_depth(.., value)` takes the `Upcast` impl fn of the value's type to
-// `Predicate` last (rustc_infer decls.ts). Fns of other wave-17 lanes' files that are not on this branch
-// (`SelectionContext::new`, `normalize::normalize_with_depth_to`, `project::compute_inherent_assoc_term_args`) are
-// `PORT(merge)` stand-ins at the end of the file that stop as UNPORTED; root repoints them at merge.
+// `Predicate` last (rustc_infer decls.ts). The old solver's `SelectionContext::new` (wave 20) is
+// normalize.ts's `pending_SelectionContext_new` stand-in; `project::compute_inherent_assoc_term_args` (traits/project.rs,
+// wave 20) is a stand-in at the end of the file. Both stop as UNPORTED.
 //
 // Init order: rustc_infer is loaded through its crate root; other rustc_infer / rustc_middle modules are read inside
 // function bodies only.
+import { normalize_with_depth_to, pending_SelectionContext_new, type SelectionContext } from "./normalize.ts";
 import "../../rustc_infer/lib.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
 import { Obligation, type PredicateObligation, type PredicateObligations, visit_with_Obligation } from "../../rustc_infer/traits/mod.ts";
@@ -424,7 +425,7 @@ class WfPredicates implements TypeVisitor<undefined> {
     const obligations: PredicateObligations = [];
     for (const obligation of this.out) {
       assert(!TypeVisitableExt.has_escaping_bound_vars(obligation, d_PredicateObligation), "assertion failed: !obligation.has_escaping_bound_vars()");
-      const selcx = SelectionContext_new(infcx);
+      const selcx = pending_SelectionContext_new(infcx);
       // Don't normalize the whole obligation, the param env is either
       // already normalized, or we're currently normalizing the
       // param_env. Either way we should only normalize the predicate.
@@ -435,6 +436,7 @@ class WfPredicates implements TypeVisitor<undefined> {
         this.recursion_depth,
         Unnormalized.new_wip(obligation.predicate),
         obligations,
+        fold_Predicate,
       );
       obligation.predicate = normalized_predicate;
       obligations.push(obligation);
@@ -570,7 +572,7 @@ class WfPredicates implements TypeVisitor<undefined> {
       // FIXME(inherent_associated_types): Should this happen inside of a snapshot?
       // FIXME(inherent_associated_types): This is incompatible with the new solver and lazy norm!
       const args = compute_inherent_assoc_term_args(
-        SelectionContext_new(this.infcx),
+        pending_SelectionContext_new(this.infcx),
         this.param_env,
         data,
         this.cause({ $: "WellFormed", _0: WellFormedLoc.None }),
@@ -1374,29 +1376,9 @@ function Pattern_deref(_pat: Pattern): PatternKind {
   return unported("rustc_middle::ty::Pattern: Deref (ty/pattern.rs not ported yet)");
 }
 
-// ---- PORT(merge): fns of parallel wave-17 lanes' files (not on this branch); root repoints them at merge ----------
+// ---- stand-ins for the old solver's project.rs (wave 20); each stops as UNPORTED -------------------------------
 
-/** PORT(merge): `traits::SelectionContext<'_, 'tcx>` (traits/select/mod.rs). */
-type SelectionContext = Pending<"rustc_trait_selection::traits::select::SelectionContext">;
-
-/** PORT(merge): `traits::SelectionContext::new(infcx)` (traits/select/mod.rs). */
-function SelectionContext_new(_infcx: InferCtxt): SelectionContext {
-  return unported("rustc_trait_selection::traits::select::SelectionContext::new");
-}
-
-/** PORT(merge): `traits::normalize::normalize_with_depth_to` (traits/normalize.rs). */
-function normalize_with_depth_to(
-  _selcx: SelectionContext,
-  _param_env: ParamEnv,
-  _cause: ObligationCause,
-  _depth: number,
-  _value: Unnormalized<Predicate>,
-  _obligations: PredicateObligations,
-): Predicate {
-  return unported("rustc_trait_selection::traits::normalize::normalize_with_depth_to");
-}
-
-/** PORT(merge): `traits::project::compute_inherent_assoc_term_args` (traits/project.rs). */
+/** `traits::project::compute_inherent_assoc_term_args` (traits/project.rs, wave 20). */
 function compute_inherent_assoc_term_args(
   _selcx: SelectionContext,
   _param_env: ParamEnv,

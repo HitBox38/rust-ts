@@ -10,10 +10,10 @@
 // `contains_illegal_self_type_reference<T: TypeVisitable>` takes `T`'s D4 descriptor last. The visitors / the folder are
 // classes implementing rustc_type_ir's `TypeVisitor` / `TypeFolder`. Derived `PartialEq` of the non-interned `TraitRef`
 // / `AliasTy` values (`supertraits.contains(&trait_ref)`, `Some(proj) != self.allowed`) compares their `intern_key`s
-// (rust_ts/intern_key.ts: the derived `Hash` + `Eq` as a string). `normalize_param_env_or_error` (traits/mod.rs, lane
-// trait-sel-traits-a) is a `PORT(merge)` stand-in at the end of the file that stops as UNPORTED.
+// (rust_ts/intern_key.ts: the derived `Hash` + `Eq` as a string). `normalize_param_env_or_error` is traits/mod.ts's.
 //
 // Init order: rustc_infer is loaded through its crate root; other modules are read inside function bodies only.
+import { normalize_param_env_or_error } from "./mod.ts";
 import "../../rustc_infer/lib.ts";
 import { Obligation } from "../../rustc_infer/traits/mod.ts";
 import { ControlFlow, VisitorResult as VisitorResultC, type VisitorResult } from "../../rustc_ast_ir/visit.ts";
@@ -1066,11 +1066,4 @@ function GenericArgFrom(ty: Ty): GenericArg {
  */
 function upcast_via_tcx<P>(f: (from: P, tcx: TyCtxt) => Predicate): (from: P, interner: Interner) => Predicate {
   return (from, interner) => f(from, interner as unknown as TyCtxt);
-}
-
-// ---- PORT(merge): fns of parallel wave-17 lanes' files (not on this branch); root repoints them at merge ----------
-
-/** PORT(merge): `traits::normalize_param_env_or_error` (traits/mod.rs, lane trait-sel-traits-a). */
-function normalize_param_env_or_error(_tcx: TyCtxt, _unnormalized_env: ParamEnv, _cause: ObligationCause): ParamEnv {
-  return unported("rustc_trait_selection::traits::normalize_param_env_or_error");
 }

@@ -13,13 +13,18 @@
 //   (no codegen set covers rustc_trait_selection yet; see the handoff).
 // - `FxIndexSet<IntercrateAmbiguityCause>` / `FxHashSet<Goal<Predicate>>` are `KeyedSet`s on `intern_key` (the derived
 //   `Hash` + `Eq` of values holding interned handles), insertion-ordered as an `IndexSet`.
-// - The items of other files / lanes this file calls that are not ported yet (`ObligationCtxt`, `SolverDelegate`,
-//   `deeply_normalize_for_diagnostics`, the proof tree visitor, `IntercrateAmbiguityCause`, `suggest_new_overflow_limit`,
-//   `impl Elaboratable for (Clause, Span)`) are local stand-ins at the end of the file that stop as UNPORTED; each is
-//   marked `PORT(merge)` with its owner, for root to repoint.
+// - The items this file calls that are not ported yet (`IntercrateAmbiguityCause`, wave 20; `suggest_new_overflow_limit`,
+//   wave 19; `impl Elaboratable for (Clause, Span)`) are local stand-ins at the end of the file that stop as UNPORTED.
 // - `#[instrument]` / `debug!` / `warn!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
+import { SkipLeakCheck_ } from "./mod.ts";
+import type { FulfillmentError, SkipLeakCheck } from "./mod.gen.ts";
+import { ObligationCtxt } from "./engine.ts";
+import { SolverDelegate } from "../solve/delegate.ts";
+import { solve } from "../../rustc_next_trait_solver/lib.ts";
+import { deeply_normalize_for_diagnostics } from "../solve/normalize.ts";
+import { type InspectConfig, type InspectGoal, type ProofTreeVisitor, ProofTreeVisitor_provided } from "../solve/inspect/analyse.ts";
 import type { Diag } from "../../rustc_errors/lib.ts";
 import type { InferCtxt } from "../../rustc_infer/infer/mod.ts";
 import { ToTrace_Const, ToTrace_Region, ToTrace_TraitRef, ToTrace_Ty } from "../../rustc_infer/infer/at.ts";
@@ -256,7 +261,7 @@ function overlap(
 
   const infcx = tcx
     .infer_ctxt()
-    .skip_leak_check(SkipLeakCheck_is_yes(skip_leak_check))
+    .skip_leak_check(SkipLeakCheck_.is_yes(skip_leak_check))
     .with_next_trait_solver(true)
     .enable_next_solver_overflow_fcw(false)
     .build(TypingMode.Coherence);
@@ -383,11 +388,11 @@ function impl_intersection_has_impossible_obligation(infcx: InferCtxt, obligatio
   // A fast path optimization, try evaluating all goals with
   // a very low recursion depth and bail if any of them don't
   // hold.
-  if (!obligations.every((o) => SolverDelegate_root_goal_may_hold_with_depth(infcx, 8, Goal.new(as_interner(infcx.tcx), o.param_env, o.predicate, upcast_from_self)))) {
+  if (!obligations.every((o) => solve.SolverDelegateEvalExt_for_D.root_goal_may_hold_with_depth(SolverDelegate.from(infcx), 8, Goal.new(as_interner(infcx.tcx), o.param_env, o.predicate, upcast_from_self)))) {
     return { $: "Yes" };
   }
 
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
   ocx.register_obligations(obligations.map((o) => clone_Obligation(o, (p) => p)));
   const hard_errors = ocx.try_evaluate_obligations();
   if (hard_errors.$ === "HasErrors") {
@@ -402,7 +407,7 @@ function impl_intersection_has_impossible_obligation(infcx: InferCtxt, obligatio
   // `FulfillmentError`. This is so that we can detect overflowing obligations
   // without needing to run the `BestObligation` visitor on true errors.
   const ambiguities = ocx.into_pending_obligations();
-  const ocx2 = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx2 = ObligationCtxt.new_with_diagnostics(infcx);
   ocx2.register_obligations(ambiguities);
   const errors_and_ambiguities = ocx2.evaluate_obligations_error_on_ambiguity();
   // We only care about the obligations that are *definitely* true errors.
@@ -606,7 +611,7 @@ function try_prove_negated_where_clause(root_infcx: InferCtxt, clause: Clause, p
   // FIXME(#132279): `TypingMode::non_body_analysis` is a bit questionable here as it
   // would cause us to reveal opaque types to leak their auto traits.
   const infcx = root_infcx.fork_with_typing_mode(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
   ocx.register_obligation(Obligation.new(infcx.tcx, ObligationCause.dummy(), param_env, negative_predicate, upcast_from_self));
   if (!TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity())) {
     return false;
@@ -637,9 +642,9 @@ function compute_intercrate_ambiguity_causes(infcx: InferCtxt, obligations: read
 }
 
 // rustc-type: compiler/rustc_trait_selection/src/traits/coherence.rs:614 AmbiguityCausesVisitor
-// PORT(merge): `impl ProofTreeVisitor for AmbiguityCausesVisitor`. The provided `config` / `on_recursion_limit` come from
-// trait-sel-solve's `ProofTreeVisitor` (solve/inspect/analyse.rs); root adds their delegations on merge.
-class AmbiguityCausesVisitor {
+// PORT: `impl ProofTreeVisitor for AmbiguityCausesVisitor`; the provided `config` / `on_recursion_limit` forward to
+// `ProofTreeVisitor_provided`.
+class AmbiguityCausesVisitor implements ProofTreeVisitor<undefined> {
   /** `type Result = ();` */
   readonly Result = VisitorResult.unit;
 
@@ -651,6 +656,14 @@ class AmbiguityCausesVisitor {
   // rustc: compiler/rustc_trait_selection/src/traits/coherence.rs:620 span
   span(): Span {
     return DUMMY_SP;
+  }
+
+  config(): InspectConfig {
+    return ProofTreeVisitor_provided.config(this);
+  }
+
+  on_recursion_limit(): undefined {
+    return ProofTreeVisitor_provided.on_recursion_limit(this);
   }
 
   // rustc: compiler/rustc_trait_selection/src/traits/coherence.rs:624 visit_goal
@@ -711,7 +724,7 @@ class AmbiguityCausesVisitor {
     const lazily_normalize_ty = (ty_: Ty): Result<Ty, null> => {
       let ty = ty_;
       if (ty.kind().$ === "Alias") {
-        const ocx = ObligationCtxt_new(infcx);
+        const ocx = ObligationCtxt.new(infcx);
         const r = ocx.structurally_normalize_ty(ObligationCause.dummy(), param_env, Unnormalized.new_wip(ty));
         // `.map_err(|_| ())?`
         if (r.$ === "Err") return Err(null);
@@ -765,8 +778,7 @@ class AmbiguityCausesVisitor {
 // rustc: compiler/rustc_trait_selection/src/traits/coherence.rs:733 search_ambiguity_causes
 function search_ambiguity_causes(infcx: InferCtxt, goal: Goal<Predicate>, causes: KeyedSet<IntercrateAmbiguityCause>): void {
   infcx.probe((_) => {
-    // PORT(merge): `visit_proof_tree` takes a `V: ProofTreeVisitor` (trait-sel-solve; decls.ts types it `Pending`).
-    infcx.visit_proof_tree(goal, new AmbiguityCausesVisitor(new KeyedSet<Goal<Predicate>>(intern_key), causes) as unknown as ProofTreeVisitor);
+    infcx.visit_proof_tree(goal, new AmbiguityCausesVisitor(new KeyedSet<Goal<Predicate>>(intern_key), causes));
   });
 }
 
@@ -803,82 +815,20 @@ function UniverseIndex_debug(u: UniverseIndex): string {
   return `U${UniverseIndex.as_u32(u)}`;
 }
 
-// ---- PORT(merge) stand-ins for items of other files / lanes that are not ported yet ---------------------------------
+// ---- stand-ins for items that are not ported yet (each stops as UNPORTED) ------------------------------------------
 
-/** PORT(merge): `traits::SkipLeakCheck` (traits/mod.rs:158, lane trait-sel-traits-a); `#[derive(Default)]` is `No`. */
-export type SkipLeakCheck = "Yes" | "No";
-/** PORT(merge): `SkipLeakCheck::is_yes` (traits/mod.rs:166, lane trait-sel-traits-a): `self == SkipLeakCheck::Yes`. */
-function SkipLeakCheck_is_yes(self: SkipLeakCheck): boolean {
-  return self === "Yes";
-}
-
-/** PORT(merge): `traits::select::IntercrateAmbiguityCause` (traits/select/mod.rs:57, wave 20 selcx-contract). */
+/** `traits::select::IntercrateAmbiguityCause` (traits/select/mod.rs:57, wave 20 selcx-contract): the type only. */
 export type IntercrateAmbiguityCause =
   | { readonly $: "DownstreamCrate"; trait_ref: TraitRef; self_ty: Ty | undefined }
   | { readonly $: "UpstreamCrateUpdate"; trait_ref: TraitRef; self_ty: Ty | undefined };
 
-/** PORT(merge): the `FulfillmentError` fields / methods used here (traits/mod.rs, lane trait-sel-traits-a). */
-interface FulfillmentError {
-  obligation: PredicateObligation;
-  code: { readonly $: "Ambiguity"; overflow: boolean | undefined } | { readonly $: "Cycle" | "Select" | "Project" | "Outlives" | "Subtype" | "ConstEquate" };
-  is_true_error(): boolean;
-}
-
-/** PORT(merge): the `ObligationCtxt` methods used here (traits/engine.rs, lane trait-sel-traits-a). */
-interface ObligationCtxt<E> {
-  register_obligation(obligation: PredicateObligation): void;
-  register_obligations(obligations: Iterable<PredicateObligation>): void;
-  try_evaluate_obligations(): TraitErrors<E>;
-  evaluate_obligations_error_on_ambiguity(): TraitErrors<E>;
-  into_pending_obligations(): PredicateObligation[];
-  resolve_regions(body_def_id: import("../../rustc_span/def_id.ts").LocalDefId, param_env: ParamEnv, assumed_wf_tys: Iterable<Ty>): unknown[];
-  structurally_normalize_ty(cause: ObligationCause, param_env: ParamEnv, value: Unnormalized<Ty>): Result<Ty, E[]>;
-}
-
-/** PORT(merge): stand-in for `ObligationCtxt::new` (traits/engine.rs:162, lane trait-sel-traits-a). */
-function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxt<ScrubbedTraitError> {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new");
-}
-
-/** PORT(merge): stand-in for `ObligationCtxt::new_with_diagnostics` (traits/engine.rs:156, lane trait-sel-traits-a). */
-function ObligationCtxt_new_with_diagnostics(_infcx: InferCtxt): ObligationCtxt<FulfillmentError> {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics");
-}
-
-/** PORT(merge): stand-in for `<&SolverDelegate>::from(infcx).root_goal_may_hold_with_depth(depth, goal)` (solve/delegate.rs +
- *  rustc_next_trait_solver `SolverDelegateEvalExt`, lane trait-sel-solve). */
-function SolverDelegate_root_goal_may_hold_with_depth(_infcx: InferCtxt, _depth: number, _goal: Goal<Predicate>): boolean {
-  return unported("rustc_trait_selection::solve::SolverDelegate::root_goal_may_hold_with_depth");
-}
-
-/** PORT(merge): stand-in for `solve::deeply_normalize_for_diagnostics` (solve/normalize.rs:268, lane trait-sel-solve). */
-function deeply_normalize_for_diagnostics<T>(_infcx: InferCtxt, _param_env: ParamEnv, _t: T, _d_T: TypeFoldable<T>): T {
-  return unported("rustc_trait_selection::solve::normalize::deeply_normalize_for_diagnostics");
-}
-
-/** PORT(merge): stand-in for `error_reporting::traits::suggest_new_overflow_limit` (error_reporting/traits/overflow.rs:20,
- *  wave 19). */
+/** Stand-in for `error_reporting::traits::suggest_new_overflow_limit` (error_reporting/traits/overflow.rs:20, wave 19). */
 function suggest_new_overflow_limit(_tcx: TyCtxt, _err: Diag): void {
   unported("rustc_trait_selection::error_reporting::traits::overflow::suggest_new_overflow_limit");
 }
 
-/** PORT(merge): stand-in for `util::elaborate(tcx, iter)` over `(Clause, Span)` (`impl Elaboratable for (Clause, Span)`,
+/** Stand-in for `util::elaborate(tcx, iter)` over `(Clause, Span)` (`impl Elaboratable for (Clause, Span)`,
  *  rustc_middle ty/elaborate_impl.rs:66, not ported). */
 function elaborate_clause_span(_tcx: TyCtxt, _obligations: Iterable<[Clause, Span]>): Elaborator<[Clause, Span]> {
   return unported("rustc_middle::ty::elaborate_impl: impl Elaboratable for (Clause, Span)");
 }
-
-/** PORT(merge): the `solve::inspect::InspectGoal` methods used here (solve/inspect/analyse.rs, lane trait-sel-solve). */
-interface InspectGoal {
-  infcx(): InferCtxt;
-  goal(): Goal<Predicate>;
-  result(): Result<Certainty, NoSolution>;
-  candidates(): InspectCandidate[];
-}
-/** PORT(merge): the `solve::inspect::InspectCandidate` methods used here (solve/inspect/analyse.rs, lane trait-sel-solve). */
-interface InspectCandidate {
-  kind(): ProbeKind;
-  visit_nested_in_probe(visitor: AmbiguityCausesVisitor): unknown;
-}
-type ProofTreeVisitor = import("../decls.ts").ProofTreeVisitor;
-

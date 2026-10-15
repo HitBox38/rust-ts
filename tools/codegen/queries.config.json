@@ -52,7 +52,8 @@
     "rustc_middle::ty::TraitRef": "TraitRef",
     "(rustc_middle::ty::Ty, rustc_middle::ty::Ty)": "Ty_Ty",
     "rustc_middle::ty::Clauses": "Clauses",
-    "rustc_middle::ty::AliasTyKind": "AliasTyKind"
+    "rustc_middle::ty::AliasTyKind": "AliasTyKind",
+    "(rustc_middle::traits::solve::CanonicalInput, usize)": "CanonicalInput_usize"
   },
   "into_key": {
     "rustc_span::def_id::DefId": "into_query_key_DefId",

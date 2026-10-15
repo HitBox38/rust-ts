@@ -31,7 +31,7 @@ InferCtxt.prototype.select_in_new_trait_solver = function (this: InferCtxt, obli
   const r = this.visit_proof_tree(
     Goal.new(as_interner(this.tcx), obligation.param_env, obligation.predicate, solve.upcast_fn(Predicate_upcast_from_PolyTraitClause)),
     new Select(obligation.cause.span),
-  ) as ControlFlowT<SelectionResult<Selection>>;
+  );
   // `.break_value().unwrap()`
   return unwrap(r.$ === "Break" ? r._0 : undefined);
 };

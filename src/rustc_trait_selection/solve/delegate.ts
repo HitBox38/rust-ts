@@ -7,10 +7,7 @@
 // `SolverDelegate_static_impl`, reached through `Self`. `impl From<&InferCtxt> for &SolverDelegate` (a transmute) is
 // `SolverDelegate.from(infcx)`: a fresh wrapper over the same `InferCtxt` (the wrapper has no state of its own).
 // PORT: an auto-deref `self.tcx` / `self.shallow_resolve(..)` is `this._0.tcx` / `this._0.shallow_resolve(..)`.
-// PORT(merge): rustc_trait_selection `traits/*` is ported by the parallel lanes trait-sel-traits-a/-b. The fns this file
-// calls from there (`sizedness_fast_path`, `try_evaluate_const` / `EvaluateConstErr`, `wf::unnormalized_obligations`,
-// `specialization_graph::assoc_def`) are module-local stand-ins at the end of this file that stop as UNPORTED; root
-// repoints them at merge. `ObligationCause` is rustc_middle's (`crate::traits::ObligationCause` re-exports it).
+// `ObligationCause` is rustc_middle's (`crate::traits::ObligationCause` re-exports it).
 
 import { ControlFlow, type ControlFlow as ControlFlowT, VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { DiagDecorator, type Diag } from "../../rustc_errors/lib.ts";
@@ -69,6 +66,10 @@ import { intern_key } from "../../rust_ts/intern_key.ts";
 import { panic, unwrap, unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { fold_Goal_Predicate, type InspectConfig, type InspectGoal, type ProofTreeVisitor } from "./inspect/analyse.ts";
+import { sizedness_fast_path } from "../traits/util.ts";
+import { try_evaluate_const } from "../traits/mod.ts";
+import { unnormalized_obligations as wf_unnormalized_obligations } from "../traits/wf.ts";
+import { assoc_def as specialization_graph_assoc_def } from "../traits/specialize/specialization_graph.ts";
 
 // rustc-type: compiler/rustc_trait_selection/src/solve/delegate.rs:38 SolverDelegate
 export class SolverDelegate implements SolverDelegateTrait {
@@ -622,46 +623,6 @@ const visit_OutlivesClause_Region: TypeVisitable<OutlivesClause<Region>> = {
 const visit_OutlivesClause_Ty: TypeVisitable<OutlivesClause<Ty>> = {
   visit_with: <R>(s: OutlivesClause<Ty>, v: TypeVisitor<R>): R => visit_with_OutlivesClause(s, v, fold_Ty.visit_with),
 };
-
-// ---- PORT(merge): stand-ins for rustc_trait_selection `traits/*` (lanes trait-sel-traits-a/-b) ----------------------
-
-/** `traits::EvaluateConstErr<E>` (traits/mod.rs:582, lane trait-sel-traits-a). */
-type EvaluateConstErr<E> =
-  | { readonly $: "HasGenericsOrInfers" }
-  | { readonly $: "InvalidConstParamTy"; _0: ErrorGuaranteed }
-  | { readonly $: "EvaluationFailure"; _0: ErrorGuaranteed }
-  | { readonly $: "FailedNormalization"; _0: E };
-
-/** PORT(merge): `crate::traits::sizedness_fast_path` (traits/util.rs:220, lane trait-sel-traits-a). */
-function sizedness_fast_path(_tcx: TyCtxt, _predicate: Predicate, _param_env: ParamEnv): boolean {
-  return unported("rustc_trait_selection::traits::util::sizedness_fast_path");
-}
-
-/** PORT(merge): `crate::traits::try_evaluate_const` (traits/mod.rs:629, lane trait-sel-traits-a). */
-function try_evaluate_const<E>(
-  _infcx: InferCtxt,
-  _ct: Const,
-  _param_env: ParamEnv,
-  _normalize_ty: (ty: Unnormalized<Ty>) => Result<Ty, E>,
-): Result<Const, EvaluateConstErr<E>> {
-  return unported("rustc_trait_selection::traits::try_evaluate_const");
-}
-
-/** PORT(merge): `crate::traits::wf::unnormalized_obligations` (traits/wf.rs:95, lane trait-sel-traits-b). */
-function wf_unnormalized_obligations(
-  _infcx: InferCtxt,
-  _param_env: ParamEnv,
-  _term: Term,
-  _span: Span,
-  _body_id: typeof CRATE_DEF_ID,
-): PredicateObligation[] | undefined {
-  return unported("rustc_trait_selection::traits::wf::unnormalized_obligations");
-}
-
-/** PORT(merge): `crate::traits::specialization_graph::assoc_def` (traits/specialize/specialization_graph.rs:352, lane trait-sel-traits-b). */
-function specialization_graph_assoc_def(_tcx: TyCtxt, _impl_def_id: DefId, _assoc_def_id: DefId): Result<LeafDef, ErrorGuaranteed> {
-  return unported("rustc_trait_selection::traits::specialize::specialization_graph::assoc_def");
-}
 
 // PORT: descriptors used above.
 const fold_TraitRef_: TypeFoldable<TraitRef> = {

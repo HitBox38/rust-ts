@@ -14,11 +14,11 @@
 // PORT notes (file-wide):
 // - `rustc_middle::ty::abstract_const::NotConstEvaluatable` is not ported in rustc_middle yet (abstract_const.rs only has
 //   its `TyCtxt` stub); its shape is declared here (`PORT(merge)`) for root to move.
-// - `crate::traits::{try_evaluate_const, evaluate_const, EvaluateConstErr}` (traits/mod.rs) and `ObligationCtxt`
-//   (traits/engine.rs) belong to lane trait-sel-traits-a: local stand-ins at the end of the file stop as UNPORTED.
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
+import { evaluate_const, try_evaluate_const } from "./mod.ts";
+import { ObligationCtxt } from "./engine.ts";
 import { VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { Applicability } from "../../rustc_errors/lib.ts";
 import type { InferCtxt } from "../../rustc_infer/infer/mod.ts";
@@ -190,7 +190,7 @@ function satisfied_from_param_env(tcx: TyCtxt, infcx: InferCtxt, ct: Const, para
 
   if (single_match !== undefined && single_match.$ === "Ok") {
     const c = single_match._0;
-    const ocx = ObligationCtxt_new(infcx);
+    const ocx = ObligationCtxt.new(infcx);
     assert(ocx.eq(ObligationCause.dummy(), param_env, c, ct, ToTrace_Const).$ === "Ok", "assertion failed: ocx.eq(&ObligationCause::dummy(), param_env, c, ct).is_ok()");
     assert(TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity()), "assertion failed: ocx.evaluate_obligations_error_on_ambiguity().no_errors()");
     return true;
@@ -221,7 +221,7 @@ class Visitor implements TypeVisitor<undefined> {
     // debug!("is_const_evaluatable: candidate={:?}", c);
     if (
       this.infcx.probe((_) => {
-        const ocx = ObligationCtxt_new(this.infcx);
+        const ocx = ObligationCtxt.new(this.infcx);
         return ocx.eq(ObligationCause.dummy(), this.param_env, c, this.ct, ToTrace_Const).$ === "Ok" && TraitErrors.no_errors(ocx.evaluate_obligations_error_on_ambiguity());
       })
     ) {
@@ -283,39 +283,3 @@ function fold_Expr(): TypeVisitable<import("../../rustc_middle/ty/consts/kind.ts
   const m = require("../../rustc_middle/ty/consts/kind.ts") as typeof import("../../rustc_middle/ty/consts/kind.ts");
   return { visit_with: m.visit_with_Expr };
 }
-
-// ---- PORT(merge) stand-ins for items of other files / lanes that are not ported yet ---------------------------------
-
-/** PORT(merge): `traits::EvaluateConstErr<E>` (traits/mod.rs:582, lane trait-sel-traits-a). */
-type EvaluateConstErr<E> =
-  | { readonly $: "HasGenericsOrInfers" }
-  | { readonly $: "InvalidConstParamTy"; readonly _0: ErrorGuaranteed }
-  | { readonly $: "EvaluationFailure"; readonly _0: ErrorGuaranteed }
-  | { readonly $: "FailedNormalization"; readonly _0: E };
-
-/** PORT(merge): stand-in for `traits::try_evaluate_const` (traits/mod.rs, lane trait-sel-traits-a). */
-function try_evaluate_const<E>(
-  _infcx: InferCtxt,
-  _ct: Const,
-  _param_env: ParamEnv,
-  _normalize: (ty: Unnormalized<Ty>) => Result<Ty, E>,
-): Result<Const, EvaluateConstErr<E>> {
-  return unported("rustc_trait_selection::traits::try_evaluate_const");
-}
-
-/** PORT(merge): stand-in for `traits::evaluate_const` (traits/mod.rs, lane trait-sel-traits-a). */
-function evaluate_const(_infcx: InferCtxt, _ct: Const, _param_env: ParamEnv): Const {
-  return unported("rustc_trait_selection::traits::evaluate_const");
-}
-
-/** PORT(merge): the `ObligationCtxt` methods used here (traits/engine.rs, lane trait-sel-traits-a). */
-interface ObligationCtxt<E> {
-  eq<T>(cause: ObligationCause, param_env: ParamEnv, expected: T, actual: T, d_T: import("../../rustc_infer/infer/at.ts").ToTrace<T>): Result<null, TypeError>;
-  evaluate_obligations_error_on_ambiguity(): TraitErrors<E>;
-}
-
-/** PORT(merge): stand-in for `ObligationCtxt::new` (traits/engine.rs:162, lane trait-sel-traits-a). */
-function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxt<ScrubbedTraitError> {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new");
-}
-

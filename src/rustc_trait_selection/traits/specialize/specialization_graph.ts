@@ -13,6 +13,7 @@
 // Init order: top-level code here touches only other crates (and `Graph.prototype` of rustc_middle); this crate's modules
 // are read inside function bodies only.
 
+import type { SkipLeakCheck } from "../mod.gen.ts";
 import type { TraitDef } from "../../../rustc_middle/ty/trait_def.ts";
 import type { AssocItem } from "../../../rustc_middle/ty/assoc.gen.ts";
 import { AssocItem as AssocItemC } from "../../../rustc_middle/ty/assoc.ts";
@@ -40,8 +41,6 @@ export * from "../../../rustc_middle/traits/specialization_graph.ts";
 
 const d_TraitRef: TypeFoldable<TraitRef> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
 
-/** PORT(merge): `traits::SkipLeakCheck` (traits/mod.rs:158, lane trait-sel-traits-a), its `#[derive(Default)]` is `No`. */
-type SkipLeakCheck = "Yes" | "No";
 
 // rustc-type: compiler/rustc_trait_selection/src/traits/specialize/specialization_graph.rs:14 FutureCompatOverlapErrorKind
 export type FutureCompatOverlapErrorKind = "LeakCheck";

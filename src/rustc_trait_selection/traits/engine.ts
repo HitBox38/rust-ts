@@ -13,10 +13,9 @@
 //   TS type parameter carries the restriction).
 // - `FxIndexSet<Ty>` is a `Set<Ty>` (interned keys, insertion-ordered); `ThinVec<E>` is `E[]`.
 //
-// PORT(merge): the engines are other lanes' types: `solve::FulfillmentCtxt` (solve/fulfill.rs, lane trait-sel-solve)
-// and the old solver's `FulfillmentContext` (traits/fulfill.rs, wave 20, plan-m3 D9), as are the `FromSolverError`
-// impls of `ScrubbedTraitError` / `FulfillmentError` (solve/fulfill.rs and traits/fulfill.rs). Their stand-ins are the
-// `pending_*` values at the end of this file; each stops as UNPORTED. Root repoints them at merge.
+// The next solver's engine is `solve::FulfillmentCtxt` (solve/fulfill.ts) with its `FromSolverError` impls. The old
+// solver's `FulfillmentContext` and its `FromSolverError` impls (traits/fulfill.rs, wave 20, plan-m3 D9) are the
+// `pending_*` values at the end of this file; each stops as UNPORTED.
 
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
 import type { ToTrace } from "../../rustc_infer/infer/at.ts";
@@ -45,6 +44,7 @@ import { Err, Ok, type Result } from "../../std/result.ts";
 import type { NextSolverError } from "../decls.ts";
 import type { FulfillmentError } from "./mod.gen.ts";
 import { err_ctxt } from "./mod.ts";
+import { FromSolverError_FulfillmentError, FromSolverError_ScrubbedTraitError, FulfillmentCtxt as NextFulfillmentCtxt } from "../solve/fulfill.ts";
 
 /** `traits::fulfill::OldSolverError<'tcx>` (traits/fulfill.rs, old solver: wave 20). */
 export type OldSolverError = Pending<"rustc_trait_selection::traits::fulfill::OldSolverError">;
@@ -75,7 +75,7 @@ export class FulfillmentEngine<E> implements TraitEngine<E> {
   // rustc: compiler/rustc_trait_selection/src/traits/engine.rs:43 new
   static new<E>(infcx: InferCtxt, d_E: FulfillmentErrorKinds<E>): FulfillmentEngine<E> {
     if (infcx.next_trait_solver()) {
-      return new FulfillmentEngine<E>("Next", pending_NextFulfillmentCtxt_new(infcx, d_E.from_next));
+      return new FulfillmentEngine<E>("Next", NextFulfillmentCtxt.new(infcx, d_E.from_next));
     } else {
       assert(!infcx.tcx.next_trait_solver_globally(), "using old solver even though new solver is enabled globally");
       return new FulfillmentEngine<E>("Old", pending_FulfillmentContext_new(infcx, d_E.from_old));
@@ -445,12 +445,7 @@ export class ObligationCtxt<E = ScrubbedTraitError> {
 
 }
 
-// ---- PORT(merge): stand-ins for other lanes' items (each stops as UNPORTED; root repoints them) ------------------------
-
-/** `solve::FulfillmentCtxt::new(infcx)` (solve/fulfill.rs, lane trait-sel-solve). */
-function pending_NextFulfillmentCtxt_new<E>(_infcx: InferCtxt, _from_next: FromSolverError<E, NextSolverError>): TraitEngine<E> {
-  return unported("rustc_trait_selection::solve::FulfillmentCtxt::new (solve/fulfill.rs, lane trait-sel-solve)");
-}
+// ---- stand-ins for the old solver (traits/fulfill.rs, wave 20); each stops as UNPORTED ------------------------------
 
 /** `traits::fulfill::FulfillmentContext::new(infcx)` (traits/fulfill.rs; the old solver, wave 20). */
 function pending_FulfillmentContext_new<E>(_infcx: InferCtxt, _from_old: FromSolverError<E, OldSolverError>): TraitEngine<E> {
@@ -458,13 +453,13 @@ function pending_FulfillmentContext_new<E>(_infcx: InferCtxt, _from_old: FromSol
 }
 
 /**
- * `impl FromSolverError<'tcx, NextSolverError<'tcx>> for ScrubbedTraitError<'tcx>` (solve/fulfill.rs, lane
- * trait-sel-solve) and `impl FromSolverError<'tcx, OldSolverError<'tcx>> for ScrubbedTraitError<'tcx>`
- * (traits/fulfill.rs, wave 20).
+ * `impl FromSolverError<'tcx, NextSolverError<'tcx>> for ScrubbedTraitError<'tcx>` (solve/fulfill.ts) and
+ * `impl FromSolverError<'tcx, OldSolverError<'tcx>> for ScrubbedTraitError<'tcx>` (traits/fulfill.rs, wave 20).
+ * PORT: `from_next` is a getter so the import is read lazily (solve/fulfill.ts may evaluate after this module).
  */
 export const FulfillmentErrorKinds_ScrubbedTraitError: FulfillmentErrorKinds<ScrubbedTraitError> = {
-  from_next: {
-    from_solver_error: () => unported("rustc_trait_selection::solve::fulfill::<ScrubbedTraitError as FromSolverError<NextSolverError>>::from_solver_error (lane trait-sel-solve)"),
+  get from_next() {
+    return FromSolverError_ScrubbedTraitError;
   },
   from_old: {
     from_solver_error: () => unported("rustc_trait_selection::traits::fulfill::<ScrubbedTraitError as FromSolverError<OldSolverError>>::from_solver_error (wave 20)"),
@@ -472,13 +467,13 @@ export const FulfillmentErrorKinds_ScrubbedTraitError: FulfillmentErrorKinds<Scr
 };
 
 /**
- * `impl FromSolverError<'tcx, NextSolverError<'tcx>> for FulfillmentError<'tcx>` (solve/fulfill.rs, lane
- * trait-sel-solve) and `impl FromSolverError<'tcx, OldSolverError<'tcx>> for FulfillmentError<'tcx>`
- * (traits/fulfill.rs, wave 20).
+ * `impl FromSolverError<'tcx, NextSolverError<'tcx>> for FulfillmentError<'tcx>` (solve/fulfill.ts) and
+ * `impl FromSolverError<'tcx, OldSolverError<'tcx>> for FulfillmentError<'tcx>` (traits/fulfill.rs, wave 20).
+ * PORT: `from_next` is a getter (see above).
  */
 export const FulfillmentErrorKinds_FulfillmentError: FulfillmentErrorKinds<FulfillmentError> = {
-  from_next: {
-    from_solver_error: () => unported("rustc_trait_selection::solve::fulfill::<FulfillmentError as FromSolverError<NextSolverError>>::from_solver_error (lane trait-sel-solve)"),
+  get from_next() {
+    return FromSolverError_FulfillmentError;
   },
   from_old: {
     from_solver_error: () => unported("rustc_trait_selection::traits::fulfill::<FulfillmentError as FromSolverError<OldSolverError>>::from_solver_error (wave 20)"),

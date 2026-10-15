@@ -25,7 +25,9 @@ import type { TypeOutlivesClause } from "../rustc_middle/ty/predicate.gen.ts";
 import type { Region } from "../rustc_type_ir/sty/mod.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
-import { unported } from "../std/panic.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { FromSolverError_ScrubbedTraitError } from "./solve/fulfill.ts";
+import { deeply_normalize } from "./solve/normalize.ts";
 
 // ---- #[extension(pub trait OutlivesEnvironmentBuildExt<'tcx>)] impl<'tcx> OutlivesEnvironment<'tcx> ------------------
 
@@ -106,7 +108,7 @@ export function ty_known_to_outlive(
     // Types in region obligations should be normalized.
     let ty: Ty;
     if (infcx.next_trait_solver()) {
-      const r = pending_solve_deeply_normalize_ScrubbedTraitError(infcx.at(ObligationCause.dummy_with_span(DUMMY_SP), param_env), ty_);
+      const r = deeply_normalize<Ty, ScrubbedTraitError>(infcx.at(ObligationCause.dummy_with_span(DUMMY_SP), param_env), ty_, FromSolverError_ScrubbedTraitError, fold_Ty);
       if (r.$ !== "Ok") {
         return Err(null);
       }
@@ -169,14 +171,4 @@ export function test_region_obligations(
   // If we were able to prove that the type outlives the region without
   // an error, it must be because of the implied or explicit bounds...
   return errors.length === 0;
-}
-
-// ---- PORT(merge): stand-ins for other lanes' items (each stops as UNPORTED; root repoints them) ------------------------
-
-/** `crate::solve::deeply_normalize::<_, ScrubbedTraitError>(at, ty)` (solve/normalize.rs, lane trait-sel-solve). */
-function pending_solve_deeply_normalize_ScrubbedTraitError(
-  _at: import("../rustc_infer/decls.ts").At,
-  _ty: Unnormalized<Ty>,
-): Result<Ty, ScrubbedTraitError[]> {
-  return unported("rustc_trait_selection::solve::normalize::deeply_normalize (solve/normalize.rs, lane trait-sel-solve)");
 }

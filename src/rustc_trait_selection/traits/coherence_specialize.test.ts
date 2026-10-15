@@ -39,10 +39,10 @@ const PENDING_FACTS = new Set([
   "rustc_trait_selection::traits::normalize_param_env_or_error",
 ]);
 
-/** The exact `unported(..)` texts the coherence runs stop at today (this lane's `PORT(merge)` stand-ins). */
+/** The exact `unported(..)` texts the coherence runs stop at today (overlap.rs matches the oracle since merge-w17). */
 const PENDING_COHERENCE = new Set([
-  "rustc_trait_selection::solve::SolverDelegate::root_goal_may_hold_with_depth", // trait-sel-solve
-  "rustc_trait_selection::traits::ObligationCtxt::new", // trait-sel-traits-a
+  // negpos.rs: `impl Diagnostic for NegativePositiveConflict` (diagnostics.rs, a manual impl; unassigned)
+  "rustc_trait_selection::diagnostics::NegativePositiveConflict",
 ]);
 
 const FACTS: [string, number][] = [
@@ -92,6 +92,8 @@ for (const [file, code] of [
     expect(oracle.stderr).toContain(`error[${code}]`);
     const ours = run(["bun", join(DIR, "run.ts"), "coherence", ...coherence_args(s, file)]);
     const m = /unported: (.*)\n/.exec(ours.stderr);
+    // overlap.rs matches the oracle since merge-w17: it must not stop.
+    if (file === "overlap.rs") expect(m).toBeNull();
     if (m !== null) expect(PENDING_COHERENCE).toContain(m[1]!);
     else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
   }, 120_000);

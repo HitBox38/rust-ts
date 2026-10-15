@@ -37,6 +37,8 @@ import type { ExistentialTraitRef, TraitRef } from "../ty/predicate.gen.ts";
 import type { AliasTyKind } from "../ty/sty.gen.ts";
 import { type Debug, debug_option, debug_tuple, type Fmt } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
+import type { CanonicalInput } from "../traits/solve.ts";
+import { debug_CanonicalInput } from "../traits/solve.gen.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import { DefaultCache, DefId_hash_key, DefIdCache, type QueryCache, SingleCache, VecCache } from "./caches.ts";
 
@@ -508,7 +510,22 @@ export const KEY_OsStr: QueryKey<string> = {
   hash_key: (k) => k,
 };
 
-// PORT: the canonical inputs (keys.rs:336-376), `(Ty, VariantIdx)`, `(Predicate, WellFormedLoc)`,
+// PORT: the canonical query inputs (keys.rs:336-366) are not ported yet (`key_unported`).
+
+export const KEY_CanonicalInput_usize: QueryKey<[CanonicalInput, number]> = {
+  make_cache: default_cache<[CanonicalInput, number]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:368 default_span
+  default_span(_self: [CanonicalInput, number], _tcx: TyCtxt): Span {
+    return DUMMY_SP;
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  debug: (v, f) => debug_tuple(f, "", [debug_CanonicalInput(v[0], f), `${v[1]}`]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+
+// PORT: the other canonical inputs (keys.rs:355-366), `(Ty, VariantIdx)`, `(Predicate, WellFormedLoc)`,
 // `(PolyFnSig, &List<Ty>)`, `(Instance, &List<Ty>)`, `ty::Value`, `(LocalExpnId, &TokenStream)`,
 // `(ValidityRequirement, PseudoCanonicalInput<Ty>)` and `(Instance, CollectionMode)` (:378-422) are not ported yet
 // (`key_unported`).

@@ -189,12 +189,13 @@ describe("ObligationCtxt on a real InferCtxt", () => {
   );
 
   test(
-    "ObligationCtxt::new on the next solver stops at the trait-sel-solve FulfillmentCtxt stand-in",
+    "ObligationCtxt::new on the next solver uses solve::FulfillmentCtxt",
     sg((tcx) => {
       const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-      expect(() => ObligationCtxt.new(infcx)).toThrow(new Unported("rustc_trait_selection::solve::FulfillmentCtxt::new (solve/fulfill.rs, lane trait-sel-solve)"));
-      expect(() => ObligationCtxt.new_with_diagnostics(infcx)).toThrow(Unported);
-      expect(() => infcx.can_eq(ParamEnv.empty(), tcx.types.u8, tcx.types.u8, ToTrace_Ty)).toThrow(Unported);
+      expect(ObligationCtxt.new(infcx).engine.$).toBe("Next");
+      expect(ObligationCtxt.new_with_diagnostics(infcx).engine.$).toBe("Next");
+      expect(infcx.can_eq(ParamEnv.empty(), tcx.types.u8, tcx.types.u8, ToTrace_Ty)).toBe(true);
+      expect(infcx.can_eq(ParamEnv.empty(), tcx.types.u8, tcx.types.bool, ToTrace_Ty)).toBe(false);
       const _typed: ObligationCtxt<FulfillmentError> | undefined = undefined;
       void _typed;
     }),
