@@ -83,9 +83,10 @@ Worktree `.data/integ`, branch `integ`, based on main `3e4773f`. Not pushed; mai
 
 ## Remaining stops worth a lane (by tydump impact)
 1. `codegen_fn_attrs` provider (217/300 nocore): wfcheck `check_item_fn` / statics reach it.
-2. The pin's default is `-Znext-solver=coherence`, so typeck-side obligations use the **old solver** (27/46 minicore):
-   wave 20 `FulfillmentContext` / `SelectionContext` / `project`. (trait-sel-traits-a's note that plain runs use the next
-   solver globally is wrong at this pin.)
+2. compiletest passes `-Znext-solver=coherence` (harness/compiletest.ts), so in the ui-derived suites typeck-side
+   obligations use the **old solver** (27/46 minicore): `FulfillmentContext` / `SelectionContext` / `project`.
+   [Root correction, decision 4447fa3: a bare rustc at this pin defaults to `globally` (options.oracle.test.ts), so
+   trait-sel-traits-a's note is right for bare runs; the old solver matters for the compiletest-argv suites.]
 3. rustc_traits `implied_outlives_bounds` query (+ its `(CanonicalImpliedOutlivesBoundsGoal, bool)` QueryKey).
 4. `check_unused_traits` provider (check_unused.rs, no lane), `LitToConstInput` QueryKey.
 5. Small rustc_middle items: `LateParamRegionKind::from_bound`, `EarlyParamRegion::is_named`, `try_normalize_erasing_regions`,
