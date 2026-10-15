@@ -69,7 +69,7 @@ import { EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_provided } from "../rustc_type_ir/visit.ts";
 import { PLAIN } from "../std/fmt.ts";
-import { assert, unported, unwrap } from "../std/panic.ts";
+import { assert, panic, unported, unwrap } from "../std/panic.ts";
 import { FnCtxt, type Locatable } from "./decls.ts";
 import { NonDefiningUseReason_report, opaque_type_has_defining_use_args } from "./opaque_types.ts";
 
@@ -329,10 +329,10 @@ WritebackCx.prototype.tcx = function (this: WritebackCx): TyCtxt {
 // rustc: compiler/rustc_hir_typeck/src/writeback.rs:139 write_ty_to_typeck_results
 WritebackCx.prototype.write_ty_to_typeck_results = function (this: WritebackCx, hir_id: HirId, ty: Ty): void {
   // debug!("write_ty_to_typeck_results({:?}, {:?})", hir_id, ty);
-  assert(
-    !TypeVisitableExt.has_infer(ty, fold_Ty) && !TypeVisitableExt.has_placeholders(ty, fold_Ty) && !TypeVisitableExt.has_free_regions(ty, fold_Ty),
-    `${display_Ty(ty)} can't be put into typeck results`,
-  );
+  // PORT: `assert!`'s message is formatted only on failure (display_Ty records trimmed def paths).
+  if (!(!TypeVisitableExt.has_infer(ty, fold_Ty) && !TypeVisitableExt.has_placeholders(ty, fold_Ty) && !TypeVisitableExt.has_free_regions(ty, fold_Ty))) {
+    panic(`${display_Ty(ty)} can't be put into typeck results`);
+  }
   this.typeck_results.node_types_mut().insert(hir_id, ty);
 };
 

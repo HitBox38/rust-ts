@@ -68,11 +68,13 @@ pub type E1 = (!, *const Missing);
 const PENDING: Record<string, string> = {
   // `lower_const_arg` (array length `3`, an anon const) -> feeds its `type_of`, `lower_const_arg_anon` ->
   // `try_lower_anon_const_lit` -> `tcx.at(..).lit_to_const(..)`: the `lit_to_const` provider is rustc_mir_build's
-  // (thir/constant.rs, lane thir-cx-print; re-pinned by small-gaps-18 when the `LitToConstInput` QueryKey landed)
-  P4: "lit_to_const provider (not ported)",
+  // (thir/constant.rs, lane thir-cx-print; re-pinned by small-gaps-18 when the `LitToConstInput` QueryKey landed).
+  // Re-pinned by merge-w18: `lit_to_const` is ported; `3usize` is truncated to `usize`'s size, which reads
+  // `tcx.data_layout` (rustc_target's `parse_data_layout`, not ported).
+  P4: "rustc_target::spec::Target::parse_data_layout (GlobalCtxt::data_layout; pending target-cfg / rustc_abi)",
   // `{ 4 }`: `try_lower_anon_const_lit` unwraps the block, then as P4. PORT: a literal other than P4's, because a
   // query whose provider stopped stays started (the same key would then report a cycle, not the stop)
-  P7: "lit_to_const provider (not ported)",
+  P7: "rustc_target::spec::Target::parse_data_layout (GlobalCtxt::data_layout; pending target-cfg / rustc_abi)",
 };
 const PENDING_SRC = `${PRELUDE}
 pub struct S;

@@ -10,7 +10,8 @@
 //    (exact `unported(..)` texts). Re-pinned by lane codegen-fn-attrs: with `codegen_fn_attrs` ported, the std crate's
 //    metadata decode of `ty::TraitDef` (rustc_metadata, not ported) is the first stop; after it come this file's
 //    stand-ins (`ObligationCtxt` when a `termination` lang item exists, `check_function_signature`), and the cases turn
-//    into oracle matches once those lanes are integrated.
+//    into oracle matches once those lanes are integrated. Re-pinned by merge-w18: `ty::TraitDef` decodes (small-gaps-18);
+//    the next stop is the std crate's metadata decode of `ty::ImplTraitHeader` (impl_trait_header, not generated yet).
 import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,7 +23,7 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
 const PENDING = new Set([
-  "rustc_metadata::rmeta::decoder::cstore_impl: Decodable for ty::TraitDef",
+  "rustc_metadata::rmeta::decoder::cstore_impl: Decodable for ty::ImplTraitHeader<'static>",
 ]);
 
 function sysroot(): string | undefined {

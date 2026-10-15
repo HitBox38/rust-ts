@@ -47,7 +47,7 @@ DefId(0:19 ~ misc[c6e0]::Arr::{constructor#0}) Ctor(Struct, Fn)
   type_of EarlyBinder { value: FnDef(DefId(0:19 ~ misc[c6e0]::Arr::{constructor#0}), Binder { value: [], bound_vars: [] }), .. }
 DefId(0:20 ~ misc[c6e0]::Arr::0) Field
   generics_of Generics { parent: Some(DefId(0:18 ~ misc[c6e0]::Arr)), parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: lit_to_const provider (not ported)
+  type_of STOP UNPORTED: rustc_target::spec::Target::parse_data_layout (GlobalCtxt::data_layout; pending target-cfg / rustc_abi)
 DefId(0:21 ~ misc[c6e0]::Arr::0::{constant#0}) AnonConst
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:22 ~ misc[c6e0]::D) Enum
