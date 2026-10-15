@@ -64,7 +64,7 @@ class Select implements ProofTreeVisitor<ControlFlowT<SelectionResult<Selection>
 
     // Don't winnow until `Certainty::Yes` -- we don't need to winnow until
     // codegen, and only on the good path.
-    if (unwrap_result(goal.result()).$ === "Maybe") {
+    if (unwrap_certainty(goal.result()).$ === "Maybe") {
       return ControlFlow.Break(Ok(undefined));
     }
 
@@ -109,7 +109,7 @@ class Select implements ProofTreeVisitor<ControlFlowT<SelectionResult<Selection>
 function candidate_should_be_dropped_in_favor_of(victim: InspectCandidate, other: InspectCandidate): boolean {
   // Don't winnow until `Certainty::Yes` -- we don't need to winnow until constant evaluation or
   // codegen.
-  if (unwrap_result(other.result()).$ === "Maybe") {
+  if (unwrap_certainty(other.result()).$ === "Maybe") {
     return false;
   }
 
@@ -221,7 +221,7 @@ function to_selection(span: Span, cand: InspectCandidate): Selection | undefined
 }
 
 /** `Result::unwrap` on `Result<Certainty, NoSolution>` (`NoSolution`'s Debug is `NoSolution`). */
-function unwrap_result(r: Result<Certainty, NoSolution>): Certainty {
+function unwrap_certainty(r: Result<Certainty, NoSolution>): Certainty {
   return expect_result(r, "called `Result::unwrap()` on an `Err` value", () => "NoSolution");
 }
 
