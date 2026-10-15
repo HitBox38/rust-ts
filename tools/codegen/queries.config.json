@@ -53,7 +53,9 @@
     "(rustc_middle::ty::Ty, rustc_middle::ty::Ty)": "Ty_Ty",
     "rustc_middle::ty::Clauses": "Clauses",
     "rustc_middle::ty::AliasTyKind": "AliasTyKind",
-    "(rustc_middle::traits::solve::CanonicalInput, usize)": "CanonicalInput_usize"
+    "(rustc_middle::traits::solve::CanonicalInput, usize)": "CanonicalInput_usize",
+    "rustc_middle::traits::query::CanonicalPredicateGoal": "CanonicalPredicateGoal",
+    "(rustc_middle::traits::query::CanonicalImpliedOutlivesBoundsGoal, bool)": "CanonicalImpliedOutlivesBoundsGoal_bool"
   },
   "into_key": {
     "rustc_span::def_id::DefId": "into_query_key_DefId",

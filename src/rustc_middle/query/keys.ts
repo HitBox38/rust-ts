@@ -27,7 +27,7 @@ import { debug_AliasTyKind } from "../../rustc_type_ir/ty_kind.ts";
 import { debug_ExistentialTraitRef, debug_TraitRef } from "../../rustc_type_ir/ir_print.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { debug_str } from "../../std/fmt.ts";
-import { debug_Ty, type Ty } from "../ty/mod.ts";
+import { debug_ParamEnvAnd, debug_Ty, type ParamEnvAnd, type Ty } from "../ty/mod.ts";
 import type { AdtDef } from "../ty/decls.ts";
 import { debug_SimplifiedType, type SimplifiedType, SimplifiedType_key } from "../ty/fast_reject.ts";
 import { debug_GenericArg, debug_GenericArgs, type GenericArg, type GenericArgsRef } from "../ty/generic_args.ts";
@@ -38,6 +38,10 @@ import type { AliasTyKind } from "../ty/sty.gen.ts";
 import { type Debug, debug_option, debug_tuple, type Fmt } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
 import type { CanonicalInput } from "../traits/solve.ts";
+import type { CanonicalImpliedOutlivesBoundsGoal, CanonicalPredicateGoal, type_op } from "../traits/query.ts";
+import type { CanonicalQueryInput } from "../../rustc_type_ir/canonical.ts";
+import { debug_CanonicalQueryInput } from "../../rustc_type_ir/canonical.gen.ts";
+import type { Predicate } from "../ty/predicate.ts";
 import { debug_CanonicalInput } from "../traits/solve.gen.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import { DefaultCache, DefId_hash_key, DefIdCache, type QueryCache, SingleCache, VecCache } from "./caches.ts";
@@ -510,7 +514,54 @@ export const KEY_OsStr: QueryKey<string> = {
   hash_key: (k) => k,
 };
 
-// PORT: the canonical query inputs (keys.rs:336-366) are not ported yet (`key_unported`).
+// PORT: the canonical query inputs (keys.rs:336-366). `impl<T: QueryKeyBounds> QueryKey for CanonicalQueryInput<T>` and
+// `.. for (CanonicalQueryInput<T>, bool)` are generic: each key type a query uses is one `KEY_<goal>` value below
+// (its `Debug` is the instance's), built by `canonical_query_input_key` / `canonical_query_input_bool_key` (lane
+// selcx-contract: `CanonicalPredicateGoal` and `(CanonicalImpliedOutlivesBoundsGoal, bool)`). The other goals
+// (`CanonicalAliasGoal`, `CanonicalDropckOutlivesGoal`, `CanonicalTypeOp*Goal`, `CanonicalMethodAutoderefStepsGoal`) and
+// `(CanonicalQueryInput<T>, usize)` (:349) are not wired yet (`key_unported`).
+
+/// Canonical query goals correspond to abstract trait operations that
+/// are not tied to any crate in particular.
+function canonical_query_input_key<V>(debug_V: Debug<V>): QueryKey<CanonicalQueryInput<V>> {
+  return {
+    make_cache: default_cache<CanonicalQueryInput<V>>(intern_key),
+    // rustc: compiler/rustc_middle/src/query/keys.rs:338 default_span
+    default_span(_self: CanonicalQueryInput<V>, _tcx: TyCtxt): Span {
+      return DUMMY_SP;
+    },
+    key_as_def_id: QueryKey_provided.key_as_def_id,
+    as_local_key: QueryKey_provided.as_local_key,
+    debug: (v, f) => debug_CanonicalQueryInput(v, f, debug_V),
+    debug_local: no_local_key,
+    hash_key: intern_key,
+  };
+}
+
+function canonical_query_input_bool_key<V>(debug_V: Debug<V>): QueryKey<[CanonicalQueryInput<V>, boolean]> {
+  return {
+    make_cache: default_cache<[CanonicalQueryInput<V>, boolean]>(intern_key),
+    // rustc: compiler/rustc_middle/src/query/keys.rs:344 default_span
+    default_span(_self: [CanonicalQueryInput<V>, boolean], _tcx: TyCtxt): Span {
+      return DUMMY_SP;
+    },
+    key_as_def_id: QueryKey_provided.key_as_def_id,
+    as_local_key: QueryKey_provided.as_local_key,
+    debug: (v, f) => debug_tuple(f, "", [debug_CanonicalQueryInput(v[0], f, debug_V), v[1] ? "true" : "false"]),
+    debug_local: no_local_key,
+    hash_key: intern_key,
+  };
+}
+
+/** `CanonicalPredicateGoal` (`CanonicalQueryInput<ParamEnvAnd<Predicate>>`). */
+export const KEY_CanonicalPredicateGoal: QueryKey<CanonicalPredicateGoal> = canonical_query_input_key<ParamEnvAnd<Predicate>>((v, f) =>
+  debug_ParamEnvAnd(v, f, (p, f) => (require("../ty/predicate.ts") as typeof import("../ty/predicate.ts")).debug_Predicate(p, f)),
+);
+
+/** `(CanonicalImpliedOutlivesBoundsGoal, bool)`. */
+export const KEY_CanonicalImpliedOutlivesBoundsGoal_bool: QueryKey<[CanonicalImpliedOutlivesBoundsGoal, boolean]> = canonical_query_input_bool_key<
+  ParamEnvAnd<type_op.ImpliedOutlivesBounds>
+>((v, f) => debug_ParamEnvAnd(v, f, (x, f) => (require("../traits/query.ts") as typeof import("../traits/query.ts")).type_op.debug_ImpliedOutlivesBounds(x, f)));
 
 export const KEY_CanonicalInput_usize: QueryKey<[CanonicalInput, number]> = {
   make_cache: default_cache<[CanonicalInput, number]>(intern_key),
