@@ -6,10 +6,10 @@
     "symbols": 10,
     "emit": 1466,
     "parse-ui": 991,
-    "hir-tree": 21332,
+    "hir-tree": 21336,
     "escape-synthetic": 11,
     "tokens": 25780,
-    "hir-tree-nocore": 21355,
+    "hir-tree-nocore": 21363,
     "fluent-format": 4210,
     "resdump": 21475,
     "resdump-nocore": 21488,
@@ -18,15 +18,15 @@
     "tokens-str": 39,
     "unpretty-expanded-nocore": 21479,
     "escape": 25780,
-    "unpretty-hir": 21336,
+    "unpretty-hir": 21340,
     "expanded": 21465,
     "unpretty-expanded": 21465,
     "expanded-nocore": 21479
   },
-  "updated": "2026-10-14T23:11:05.485Z",
+  "updated": "2026-10-15T07:30:14.410Z",
   "open_stops": [],
   "coverage": {
-    "ported": 13757,
+    "ported": 14519,
     "total": 25518
   }
 }
