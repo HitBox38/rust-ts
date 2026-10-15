@@ -69,7 +69,7 @@ The region-B `export interface ObligationCtxt { eq(..) }` is a deliberate interf
 - `bun scripts/coverage.ts --check`: `markers ok (14399; vendor 3888)`.
 - `bun scripts/coverage.ts --missing compiler/rustc_hir_analysis/src/check/wfcheck.rs`: 34/57 ported; every missing fn
   is in 1..1139 (check-wf-a). Nothing in 1140..end is missing.
-- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: see "Test run" below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: green (see "Test run").
 - Sample difftests were not run: the file is not reachable from the driver (see "Files").
 
 ## `unported(...)` left (all stand-ins at the end of the file, each naming its owner)
@@ -137,4 +137,5 @@ The region-B `export interface ObligationCtxt { eq(..) }` is a deliberate interf
    - rustc_middle `LateParamRegionKind::from_bound` (region.rs:92, 10 lines).
 
 ## Test run
-(filled in below)
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools` at `ec7ed3c`: **4964 pass, 1 skip (the pre-existing
+  linux-only test), 0 fail** (4965 tests, 310 files, 1202 s), including `wfcheck_b.test.ts` 4/4.
