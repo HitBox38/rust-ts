@@ -168,6 +168,7 @@ import type {
 } from "./traits/project.ts";
 import type { MismatchedProjectionTypes, Normalized } from "./traits/project.ts";
 import type { SnapshotMap } from "../rustc_data_structures/snapshot_map/mod.ts";
+import type { ConstraintCategory } from "../rustc_middle/mir/query.ts";
 
 // ======================================================================================================================
 // InferCtxtInner (infer/mod.rs:98)
@@ -1282,7 +1283,7 @@ export interface Companions {
   };
   SubregionOrigin: {
     // infer/mod.rs:483
-    to_constraint_category(self: SubregionOrigin): unknown;
+    to_constraint_category(self: SubregionOrigin): ConstraintCategory;
     // infer/mod.rs:1842
     span(self: SubregionOrigin): Span;
     // infer/mod.rs:1857
