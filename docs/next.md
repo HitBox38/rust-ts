@@ -214,3 +214,9 @@ Follow-ups from review-w17 (LOW): stale PORT/header comments (wfcheck.ts, cohere
 diagnostics.ts:153); traits_a.test.ts solver-default comment + old-solver stop tests; bug!() text in analyse.ts:157;
 min_specialization.ts:393 has_infer assert; dropped assert messages (check.ts:762, normalize.ts:228); util.ts:157 index panic;
 compare_impl_item oracle should use --out-dir; collect.test.ts min facts 69->70; set-based PENDING tests -> per-case maps.
+Wave-18b follow-ups found by lanes (for a `typeck-gaps` lane after the 13 lanes merge):
+- checks.rs:3615 `same_type_modulo_vars` + `SameModuloVars` (:3620..3700) are on the success path (check_argument_types) — pull out of typeck-checks-b.
+- fn_ctxt/suggestions.rs `is_field_suggestable` reached for valid `Foo { a, .. }` patterns — pull forward.
+- rustc_middle ty/cast.rs (`CastTy`, 73 lines, no owner) — every non-coercion `as` cast stops there.
+- codegen: `PointerKind::VTable` TypeVisitable/TypeFoldable (map to BoundExistentialPredicates fold fns); `AliasTy` Debug.
+- decls.ts BinOp/UnOp -> rustc_middle/mir/syntax.ts; typeck_results.ts DerefPatBorrowMode/FakeReadCause real types.
