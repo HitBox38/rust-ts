@@ -68,7 +68,6 @@ a type parameter).
 //
 // PORT: as check.ts, code that needs a wave-17 lane outside this lane's base stops with `unported(..)` at its first use;
 // the stand-ins are at the end of this file ("Stand-ins"):
-// - check/always_applicable.rs, check/region.rs (lane check-region-intrinsic): `check_drop_impl`, `region_scope_tree`;
 // - rustc_trait_selection error reporting (wave 19): `ReturnsVisitor`, `TypeErrCtxt::ty_kind_suggestion`.
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { type GateIssue } from "../../rustc_feature/lib.ts";
@@ -119,17 +118,22 @@ import type { InferCtxt } from "../decls.ts";
 import * as diagnostics from "../diagnostics.ts";
 import type { MissingTraitItemLabel, MissingTraitItemSuggestion, MissingTraitItemSuggestionNone, MissingTraitItemSuggestionUnstable } from "../diagnostics.ts";
 import * as check from "./check.ts";
+import * as always_applicable from "./always_applicable.ts";
 import * as compare_impl_item from "./compare_impl_item.ts";
+import * as intrinsic from "./intrinsic.ts";
+import * as region from "./region.ts";
 import * as wfcheck from "./wfcheck.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 
-// pub mod always_applicable;   (wave 17: check-region-intrinsic)
+// pub mod always_applicable;
+export { always_applicable };
 // mod check;
 // mod compare_eii;             (not ported: EII is out of M3 scope)
 // mod compare_impl_item;
-// mod entry;                   (wave 17)
-// pub mod intrinsic;           (wave 17: check-region-intrinsic)
-// mod region;                  (wave 17: check-region-intrinsic)
+// mod entry;                   (not ported yet: `check_for_entry_fn` is a wfcheck.ts stand-in)
+// pub mod intrinsic;
+export { intrinsic };
+// mod region;
 // pub mod wfcheck;
 export { wfcheck };
 
@@ -144,7 +148,7 @@ export function provide(providers: Providers): void {
   providers.adt_async_destructor = adt_async_destructor;
   // PORT: the providers below are fns of other wave-17 lanes' files (not in this lane's base); each lane's merge
   // uncomments its line(s).
-  // providers.region_scope_tree = region::region_scope_tree;                (check/region.rs, lane check-region-intrinsic)
+  providers.region_scope_tree = region.region_scope_tree;
   providers.collect_return_position_impl_trait_in_trait_tys = compare_impl_item.collect_return_position_impl_trait_in_trait_tys;
   providers.compare_impl_item = compare_impl_item.compare_impl_item;
   providers.check_coroutine_obligations = check.check_coroutine_obligations;
@@ -155,7 +159,7 @@ export function provide(providers: Providers): void {
 
 // rustc: compiler/rustc_hir_analysis/src/check/mod.rs:127 adt_destructor
 function adt_destructor(tcx: TyCtxt, def_id: LocalDefId): Destructor | undefined {
-  const dtor = tcx.calculate_dtor(def_id, always_applicable_check_drop_impl);
+  const dtor = tcx.calculate_dtor(def_id, always_applicable.check_drop_impl);
   if (dtor === undefined && tcx.features().async_drop()) {
     const async_dtor = adt_async_destructor(tcx, def_id);
     if (async_dtor !== undefined) {
@@ -169,7 +173,7 @@ function adt_destructor(tcx: TyCtxt, def_id: LocalDefId): Destructor | undefined
 
 // rustc: compiler/rustc_hir_analysis/src/check/mod.rs:139 adt_async_destructor
 function adt_async_destructor(tcx: TyCtxt, def_id: LocalDefId): AsyncDestructor | undefined {
-  const result = tcx.calculate_async_dtor(def_id, always_applicable_check_drop_impl);
+  const result = tcx.calculate_async_dtor(def_id, always_applicable.check_drop_impl);
   // Async drop in libstd/libcore would become insta-stable — catch that mistake.
   if (result !== undefined && tcx.features().staged_api()) {
     return span_bug(tcx.def_span(def_id), "don't use async drop in libstd, it becomes insta-stable");
@@ -703,10 +707,6 @@ export function check_function_signature(tcx: TyCtxt, cause_: ObligationCause, f
 
 // ==== Stand-ins (PORT: other wave-17 lanes; see the file header) ====
 
-/** `always_applicable::check_drop_impl` (check/always_applicable.rs, lane check-region-intrinsic). */
-function always_applicable_check_drop_impl(_tcx: TyCtxt, _drop_impl_did: LocalDefId): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::always_applicable::check_drop_impl (lane check-region-intrinsic)");
-}
 /** `rustc_trait_selection::error_reporting::traits::suggestions::ReturnsVisitor` (an `intravisit::Visitor`). */
 interface ReturnsVisitor {
   returns: hir.Expr[];

@@ -6,10 +6,10 @@
 // PORT: the code that needs another wave-17 lane that is not in this lane's base stops with `unported(..)` at the first
 // use, after the upstream statements before it. The stand-ins are at the end of this file ("Stand-ins"), one per upstream
 // item, each naming the lane that ports it; the merge repoints them to the real ports:
-// - check/intrinsic.rs (lane check-region-intrinsic): `check_intrinsic_type`;
 // - rustc_trait_selection error reporting (wave 19): `TypeErrCtxt`, `ReturnsVisitor`;
 // - layout (M4): `TyAndLayout` / `LayoutError`, the values of `tcx.layout_of(..)`.
 import * as compare_impl_item from "./compare_impl_item.ts";
+import * as intrinsic from "./intrinsic.ts";
 import * as wfcheck from "./wfcheck.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 import { impl_item_is_final } from "../../rustc_trait_selection/traits/util.ts";
@@ -994,7 +994,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
       tcx.ensure_ok().codegen_fn_attrs(def_id);
       const i = tcx.intrinsic(def_id);
       if (i !== undefined) {
-        intrinsic_check_intrinsic_type(tcx, def_id, unwrap(tcx.def_ident_span(def_id)), (i as unknown as IntrinsicDefView).name);
+        intrinsic.check_intrinsic_type(tcx, def_id, unwrap(tcx.def_ident_span(def_id)), (i as unknown as IntrinsicDefView).name);
       }
       break;
     }
@@ -2583,10 +2583,6 @@ function collect(): typeof import("../collect.ts") {
   return require("../collect.ts") as typeof import("../collect.ts");
 }
 
-/** `intrinsic::check_intrinsic_type` (check/intrinsic.rs, lane check-region-intrinsic). */
-function intrinsic_check_intrinsic_type(_tcx: TyCtxt, _intrinsic_id: LocalDefId, _span: Span, _intrinsic_name: Symbol): void {
-  return unported("rustc_hir_analysis::check::intrinsic::check_intrinsic_type (lane check-region-intrinsic)");
-}
 /** `TypeErrCtxt` (rustc_trait_selection error_reporting, wave 19): the method this file uses. */
 interface TypeErrCtxt_ {
   report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;

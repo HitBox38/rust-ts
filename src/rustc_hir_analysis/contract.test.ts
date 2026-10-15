@@ -521,13 +521,22 @@ test("provide installs the collect providers (and leaves the others)", () => {
   expect(providers.const_of_item).toBe(Collect.const_of_item);
   // collect.rs:65 assigns 32 queries, resolve_bound_vars::provide (resolve_bound_vars.rs:234, lane collect-rbv) 6,
   // lib.rs the 2 delegation queries (lane hira-misc), the 5 outlives / impl_wf_check / variance queries (lane
-  // variance-outlives) and check::provide (check/mod.rs:112, lane check-check) the 4 of its 9 whose fns are in
-  // check/mod.rs and check/check.rs; the other wave-17 modules none yet
-  expect(Object.keys(providers).length).toBe(49);
-  expect(providers.adt_destructor).toBeTypeOf("function");
-  expect(providers.adt_async_destructor).toBeTypeOf("function");
-  expect(providers.check_coroutine_obligations).toBeTypeOf("function");
-  expect(providers.check_potentially_region_dependent_goals).toBeTypeOf("function");
+  // variance-outlives) and check::provide's 9 (check/mod.rs:112: lanes check-check, check-region-intrinsic,
+  // check-compare, check-wf-a/-b); the other wave-17 modules none yet
+  expect(Object.keys(providers).length).toBe(54);
+  for (const q of [
+    "region_scope_tree",
+    "collect_return_position_impl_trait_in_trait_tys",
+    "compare_impl_item",
+    "check_coroutine_obligations",
+    "check_potentially_region_dependent_goals",
+    "check_type_wf",
+    "check_well_formed",
+    "adt_destructor",
+    "adt_async_destructor",
+  ] as const) {
+    expect(providers[q]).toBeTypeOf("function");
+  }
   expect(providers.inherit_sig_for_delegation_item).toBe(Lib.delegation.inherit_sig_for_delegation_item);
   expect(providers.delegation_user_specified_args).toBe(Lib.delegation.delegation_user_specified_args);
   expect(providers.resolve_bound_vars).toBe(Rbv.resolve_bound_vars);
