@@ -17,6 +17,7 @@ import { debug_Res } from "../../../rustc_hir/def.ts";
 import {
   type Arm as HirArm,
   debug_Expr as debug_HirExpr,
+  debug_ExprKind as debug_HirExprKind,
   display_LoopIdError,
   type Expr as HirExpr,
   type ExprField as HirExprField,
@@ -58,8 +59,8 @@ import { Span } from "../../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../../rustc_span/macros.ts";
 import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
-import type { SplattedDef } from "../../../rustc_middle/ty/typeck_results.ts";
-import { debug_int, debug_struct, debug_tuple, type Fmt, PLAIN } from "../../../std/fmt.ts";
+import { SplattedDef } from "../../../rustc_middle/ty/typeck_results.ts";
+import { debug_int, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
 import { assert, assert_matches, panic, unported } from "../../../std/panic.ts";
 import { push_idx, ThirBuildCx } from "./mod.ts";
 
@@ -193,12 +194,12 @@ ThirBuildCx.prototype.mirror_expr = function (this: ThirBuildCx, hir_expr: HirEx
       // `for` loop desugaring puts us pretty deep down the HIR tree
       const arm = Node.expect_arm(this.tcx.parent_hir_node(hir_expr.hir_id));
       const expr_ = Node.expect_expr(this.tcx.parent_hir_node(arm.hir_id));
-      assert_matches(expr_.kind, expr_.kind.$ === "Match", "hir::ExprKind::Match(..)", () => debug_HirExpr(expr_, PLAIN));
+      assert_matches(expr_.kind, expr_.kind.$ === "Match", "hir::ExprKind::Match(..)", (k) => debug_HirExprKind(k, PLAIN));
       // ignore async for loops
       const parent = this.tcx.parent_hir_node(expr_.hir_id);
       if (parent.$ === "Expr") {
         const expr__ = parent._0;
-        assert_matches(expr__.kind, expr__.kind.$ === "DropTemps", "hir::ExprKind::DropTemps(..)", () => debug_HirExpr(expr__, PLAIN));
+        assert_matches(expr__.kind, expr__.kind.$ === "DropTemps", "hir::ExprKind::DropTemps(..)", (k) => debug_HirExprKind(k, PLAIN));
         loop_hint_attrs = filter_loop_hint_attrs(expr__.hir_id, this.tcx);
       }
     } else if ((dk !== undefined && dk.$ === "WhileLoop") || dk === undefined) {
@@ -876,7 +877,11 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
           if (res.$ === "Def" && res._0.$ === "Variant") {
             const variant_id = res._1;
             const base0: StructTailExpr = base;
-            assert(base.$ === "None" || base.$ === "DefaultFields" || base.$ === "NoneWithError", "assertion failed: matches!(base, hir::StructTailExpr::None | hir::StructTailExpr::DefaultFields(_) |\n        hir::StructTailExpr::NoneWithError(_))");
+            // PORT: the message is `stringify!` of the condition (tokens on one line); only reached as an ICE.
+            assert(
+              base.$ === "None" || base.$ === "DefaultFields" || base.$ === "NoneWithError",
+              "assertion failed: matches!(base, hir::StructTailExpr::None | hir::StructTailExpr::DefaultFields(_) | hir::StructTailExpr::NoneWithError(_))",
+            );
 
             const index = adt.variant_index_with_id(variant_id);
             const user_provided_types = this.typeck_results.user_provided_types();
@@ -1511,15 +1516,15 @@ ThirBuildCx.prototype.convert_splatted_callee = function (
     return span_bug(call_expr.span, "no splatted def for function or method callee");
   }
 
-  const tupled_arg_index = splatted_def.arg_index;
-  const tupled_args_count = splatted_def.arg_count;
+  const tupled_arg_index = SplattedDef.arg_index(splatted_def);
+  const tupled_args_count = SplattedDef.arg_count(splatted_def);
 
   // Splatting an empty tuple is permitted: `a.f() -> Trait::f(a, #[rustc_splat] ())`.
   // In that case, the tupled arg index is one past the end of the args.
   if (tupled_arg_index + tupled_args_count > args.length) {
     return span_bug(
       call_expr.span,
-      `splatted arg index out of bounds of function args: ${tupled_arg_index} + ${tupled_args_count} > ${args.length} for function call: ${debug_SplattedFunc(receiver_or_func)}, args [${args.map((a) => debug_HirExpr(a, PLAIN)).join(", ")}]`,
+      `splatted arg index out of bounds of function args: ${tupled_arg_index} + ${tupled_args_count} > ${args.length} for function call: ${debug_SplattedFunc(receiver_or_func)}, args ${debug_vec(args, PLAIN, debug_HirExpr)}`,
     );
   }
 

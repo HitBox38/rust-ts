@@ -96,8 +96,9 @@ function print_indented(writer: ThirPrinter, s: string, indent_lvl: number): voi
   writer.write_str(`${s}\n`);
 }
 
+// PORT: exported (private upstream) so that print.test.ts can print a hand-built `Thir`.
 // rustc-type: compiler/rustc_mir_build/src/thir/print.rs:29 ThirPrinter
-class ThirPrinter {
+export class ThirPrinter {
   constructor(
     public thir: Thir,
     public fmt: string,
