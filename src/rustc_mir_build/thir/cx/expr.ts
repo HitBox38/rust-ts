@@ -1,11 +1,9 @@
 // Port of compiler/rustc_mir_build/src/thir/cx/expr.rs (lane thir-cx-print).
 // PORT: the `impl ThirBuildCx` block of this file is attached to the prototype (loaded by lib.ts after cx/mod.ts).
 //
-// PORT: rustc_middle `mir/syntax.rs` is not ported, so its `BorrowKind`, `MutBorrowKind`, `BinOp`, `UnOp` and
-// `AssignOp` (the operator / borrow kinds THIR stores) have no TS types yet: `ExprKind` types those fields as
-// `Pending<"mir::BinOp">` / `unknown` (thir.gen.ts). The values built here use PORTING §5's representation of those
-// enums (fieldless -> the variant name string; `BorrowKind` -> `{ $: "Shared" }` / `{ $: "Mut", kind }`) through the
-// local `Mir*` aliases below, so repointing them to the real types when mir/syntax.rs lands is mechanical.
+// The rustc_middle `mir/syntax.rs` enums THIR stores (`BorrowKind`, `MutBorrowKind`, `BinOp`, `UnOp`, `AssignOp`,
+// `FakeReadCause`) come from the partial rustc_middle mir/syntax.ts (codegen set rustc_middle_mir_syntax; lane
+// thir-pattern).
 // Likewise rustc_middle `hir/place.rs` is pending (`HirPlace = Pending<..>`): `HirPlaceView` reads its fields with the
 // shapes ty/closure.ts already uses (`HirPlaceBase`, `HirProjectionKind`).
 import { find_attr, type UnrollAttr } from "../../../rustc_attr_ir/lib.ts";
@@ -44,7 +42,8 @@ import type { CapturedPlace } from "../../../rustc_middle/ty/closure.ts";
 import { type Adjustment, OverloadedDeref } from "../../../rustc_middle/ty/adjustment.ts";
 import type { AutoBorrowMutability } from "../../../rustc_middle/ty/adjustment.gen.ts";
 import { ScalarInt } from "../../../rustc_middle/ty/consts/int.ts";
-import type { AdtDef, BinOp, FieldIdx, HirPlace, UnOp, VariantIdx } from "../../../rustc_middle/ty/decls.ts";
+import type { AdtDef, FieldIdx, HirPlace, VariantIdx } from "../../../rustc_middle/ty/decls.ts";
+import { type AssignOp, BinOp, type BorrowKind, type FakeReadCause, type MutBorrowKind, UnOp } from "../../../rustc_middle/mir/syntax.ts";
 import type { CanonicalUserType } from "../../../rustc_middle/ty/typeck_results.ts";
 import { fold_GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
 import { RawList } from "../../../rustc_middle/ty/list.ts";
@@ -73,17 +72,6 @@ import { assert, assert_matches, panic, unported } from "../../../std/panic.ts";
 import { push_idx, ThirBuildCx } from "./mod.ts";
 
 // ---- PORT stand-ins for pending upstream types (see the module comment; not markers) -------------------------------
-
-/** `mir::MutBorrowKind` (mir/syntax.rs), fieldless. */
-type MirMutBorrowKind = "Default" | "TwoPhaseBorrow" | "ClosureCapture";
-/** `mir::BorrowKind` (mir/syntax.rs); `Fake(FakeBorrowKind)` is never built by THIR. */
-type MirBorrowKind = { readonly $: "Shared" } | { readonly $: "Mut"; kind: MirMutBorrowKind };
-/** `mir::BinOp` (mir/syntax.rs), fieldless: the variants `bin_op` produces. */
-type MirBinOp = "Add" | "Sub" | "Mul" | "Div" | "Rem" | "BitXor" | "BitAnd" | "BitOr" | "Shl" | "Shr" | "Eq" | "Lt" | "Le" | "Ne" | "Ge" | "Gt";
-/** `mir::AssignOp` (mir/syntax.rs), fieldless. */
-type MirAssignOp = "AddAssign" | "SubAssign" | "MulAssign" | "DivAssign" | "RemAssign" | "BitXorAssign" | "BitAndAssign" | "BitOrAssign" | "ShlAssign" | "ShrAssign";
-const as_bin_op = (op: MirBinOp): BinOp => op as unknown as BinOp;
-const as_un_op = (op: "Not" | "Neg"): UnOp => op as unknown as UnOp;
 
 /** The members of `hir::place::Place` (hir/place.rs:69) read here (pending; see the module comment). */
 interface HirPlaceView {
@@ -373,7 +361,7 @@ ThirBuildCx.prototype.apply_adjustment = function (this: ThirBuildCx, hir_expr: 
         case "Pin": {
           const mutbl = ab._0;
           // expr = &pin (mut|const|) arget
-          let borrow_kind: MirBorrowKind;
+          let borrow_kind: BorrowKind;
           switch (mutbl) {
             case "Mut":
               borrow_kind = { $: "Mut", kind: "Default" };
@@ -504,7 +492,7 @@ ThirBuildCx.prototype.mirror_expr_cast = function (this: ThirBuildCx, source: Hi
       this.tcx.debug_assert_args_compatible(did, args);
       const kind: ExprKind = { $: "NamedConst", def_id: did, args, user_ty: undefined };
       const lhs = push_idx<ExprId, Expr>(this.thir.exprs, { temp_scope_id, ty: discr_ty, span, kind });
-      const bin: ExprKind = { $: "Binary", op: as_bin_op("Add"), lhs, rhs: offset };
+      const bin: ExprKind = { $: "Binary", op: BinOp.Add, lhs, rhs: offset };
       source_ = push_idx<ExprId, Expr>(this.thir.exprs, { temp_scope_id, ty: discr_ty, span, kind: bin });
     } else {
       source_ = offset;
@@ -817,7 +805,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
             const arg_ = this.mirror_expr(arg);
             kind = this.overloaded_operator(expr, [arg_]);
           } else {
-            kind = { $: "Unary", op: as_un_op("Not"), arg: this.mirror_expr(arg) };
+            kind = { $: "Unary", op: UnOp.Not, arg: this.mirror_expr(arg) };
           }
           break;
         case "Neg":
@@ -827,7 +815,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
           } else if (arg.kind.$ === "Lit") {
             kind = { $: "Literal", lit: arg.kind._0, neg: true };
           } else {
-            kind = { $: "Unary", op: as_un_op("Neg"), arg: this.mirror_expr(arg) };
+            kind = { $: "Unary", op: UnOp.Neg, arg: this.mirror_expr(arg) };
           }
           break;
       }
@@ -963,11 +951,12 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
 
       // Convert the closure fake reads, if any, from hir `Place` to ExprRef
       const fake_reads_ = this.typeck_results.closure_fake_reads.get(def_id);
-      const fake_reads: [ExprId, unknown, HirId][] = [];
+      const fake_reads: [ExprId, FakeReadCause, HirId][] = [];
       if (fake_reads_ !== undefined) {
         for (const [place, cause, hir_id] of fake_reads_) {
           const expr_ = this.convert_captured_hir_place(expr, place);
-          fake_reads.push([push_idx<ExprId, Expr>(this.thir.exprs, expr_), cause, hir_id]);
+          // PORT: typeck_results.ts types the cause `mir::FakeReadCause` as pending (`unknown`); it is mir/syntax.ts's.
+          fake_reads.push([push_idx<ExprId, Expr>(this.thir.exprs, expr_), cause as FakeReadCause, hir_id]);
         }
       }
 
@@ -1107,7 +1096,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
         } else {
           const last_: ExprId = push_idx<ExprId, Expr>(this.thir.exprs, mk_expr(last, tcx.types.usize));
           const next_: ExprId = push_idx<ExprId, Expr>(this.thir.exprs, mk_expr(next, tcx.types.usize));
-          expr_ = { $: "Binary", op: as_bin_op("Add"), lhs: last_, rhs: next_ };
+          expr_ = { $: "Binary", op: BinOp.Add, lhs: last_, rhs: next_ };
         }
       }
 
@@ -1891,7 +1880,7 @@ ThirBuildCx.prototype.capture_upvar = function (this: ThirBuildCx, closure_expr:
     }
     case "ByRef": {
       const upvar_borrow = upvar_capture._0;
-      let borrow_kind: MirBorrowKind;
+      let borrow_kind: BorrowKind;
       switch (upvar_borrow) {
         case "Immutable":
           borrow_kind = { $: "Shared" };
@@ -1939,17 +1928,17 @@ ThirBuildCx.prototype.field_refs = function (this: ThirBuildCx, fields: readonly
 // rustc-trait: compiler/rustc_mir_build/src/thir/cx/expr.rs:1701 ToBorrowKind
 interface ToBorrowKind {
   // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1702 to_borrow_kind
-  to_borrow_kind(): MirBorrowKind;
+  to_borrow_kind(): BorrowKind;
 }
 export type { ToBorrowKind };
 
 // `impl ToBorrowKind for AutoBorrowMutability`
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1706 to_borrow_kind
-function AutoBorrowMutability_to_borrow_kind(self: AutoBorrowMutability): MirBorrowKind {
+function AutoBorrowMutability_to_borrow_kind(self: AutoBorrowMutability): BorrowKind {
   // use rustc_middle::ty::adjustment::AllowTwoPhase;
   switch (self.$) {
     case "Mut": {
-      let kind: MirMutBorrowKind;
+      let kind: MutBorrowKind;
       switch (self.allow_two_phase_borrow) {
         case "Yes":
           kind = "TwoPhaseBorrow";
@@ -1967,7 +1956,7 @@ function AutoBorrowMutability_to_borrow_kind(self: AutoBorrowMutability): MirBor
 
 // `impl ToBorrowKind for hir::Mutability`
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1721 to_borrow_kind
-function Mutability_to_borrow_kind(self: Mutability): MirBorrowKind {
+function Mutability_to_borrow_kind(self: Mutability): BorrowKind {
   switch (self) {
     case "Mut":
       return { $: "Mut", kind: "Default" };
@@ -1980,44 +1969,44 @@ function Mutability_to_borrow_kind(self: Mutability): MirBorrowKind {
 function bin_op(op: BinOpKind): BinOp {
   switch (op) {
     case "Add":
-      return as_bin_op("Add");
+      return BinOp.Add;
     case "Sub":
-      return as_bin_op("Sub");
+      return BinOp.Sub;
     case "Mul":
-      return as_bin_op("Mul");
+      return BinOp.Mul;
     case "Div":
-      return as_bin_op("Div");
+      return BinOp.Div;
     case "Rem":
-      return as_bin_op("Rem");
+      return BinOp.Rem;
     case "BitXor":
-      return as_bin_op("BitXor");
+      return BinOp.BitXor;
     case "BitAnd":
-      return as_bin_op("BitAnd");
+      return BinOp.BitAnd;
     case "BitOr":
-      return as_bin_op("BitOr");
+      return BinOp.BitOr;
     case "Shl":
-      return as_bin_op("Shl");
+      return BinOp.Shl;
     case "Shr":
-      return as_bin_op("Shr");
+      return BinOp.Shr;
     case "Eq":
-      return as_bin_op("Eq");
+      return BinOp.Eq;
     case "Lt":
-      return as_bin_op("Lt");
+      return BinOp.Lt;
     case "Le":
-      return as_bin_op("Le");
+      return BinOp.Le;
     case "Ne":
-      return as_bin_op("Ne");
+      return BinOp.Ne;
     case "Ge":
-      return as_bin_op("Ge");
+      return BinOp.Ge;
     case "Gt":
-      return as_bin_op("Gt");
+      return BinOp.Gt;
     default:
       return bug(`no equivalent for ast binop ${op}`);
   }
 }
 
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1751 assign_op
-function assign_op(op: AssignOpKind): MirAssignOp {
+function assign_op(op: AssignOpKind): AssignOp {
   switch (op) {
     case "AddAssign":
       return "AddAssign";

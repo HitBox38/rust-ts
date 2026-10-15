@@ -15,6 +15,7 @@
 //   in predicate.rs) are declared in decls.ts and filled by those files.
 import { INTERNED, next_intern_id } from "../../rustc_data_structures/intern.ts";
 import type { BoundVariableKind, DebruijnIndex, TypeFlags } from "../../rustc_type_ir/decls.ts";
+import type { CanonicalVarKind } from "../../rustc_type_ir/canonical.gen.ts";
 import { INNERMOST, TypeFlags_empty } from "../../rustc_type_ir/decls.ts";
 import type { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { type Debug, debug_list, type Fmt } from "../../std/fmt.ts";
@@ -277,3 +278,16 @@ function tyir_binder_gen(): typeof import("../../rustc_type_ir/binder.gen.ts") {
   return require("../../rustc_type_ir/binder.gen.ts") as typeof import("../../rustc_type_ir/binder.gen.ts");
 }
 
+
+/**
+ * `{:?}` of `CanonicalVarKinds` (`&List<CanonicalVarKind>`, ty/decls.ts): `debug_RawList` (list.rs:192) over the
+ * element's derived Debug (rustc_type_ir canonical.gen.ts).
+ * PORT: the hand alias the codegen type map (tools/codegen/tyir.typemap.json `I::CanonicalVarKinds`) names (lane
+ * thir-pattern); canonical.gen.ts is read lazily, as `debug_BoundVarKinds` reads binder.gen.ts.
+ */
+export function debug_CanonicalVarKinds(v: List<CanonicalVarKind>, f: Fmt): string {
+  return debug_RawList(v, f, tyir_canonical_gen().debug_CanonicalVarKind);
+}
+function tyir_canonical_gen(): typeof import("../../rustc_type_ir/canonical.gen.ts") {
+  return require("../../rustc_type_ir/canonical.gen.ts") as typeof import("../../rustc_type_ir/canonical.gen.ts");
+}
