@@ -8,6 +8,7 @@ import { decode_Constness } from "../rustc_hir/hir.ts";
 import { decode_RefDecodable_slice_into_arena } from "./arena.ts";
 import { type FeatureStability } from "./middle/mod.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
+import { ObjectLifetimeDefault } from "./middle/resolve_bound_vars.ts";
 import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
 import { decode_Clause, type TyDecoder } from "./ty/codec.ts";
 import { type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
@@ -253,5 +254,22 @@ export function decode_FeatureStability(__decoder: BlobDecoder): FeatureStabilit
       return { $: "Unstable", old_name: decode_Option(__decoder, (__decoder) => __decoder.decode_symbol()) };
     default:
       return panic(`invalid enum variant tag while decoding \`FeatureStability\`, expected 0..2, actual ${__tag}`);
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/resolve_bound_vars.rs:42 Decodable for ObjectLifetimeDefault
+export function decode_ObjectLifetimeDefault(__decoder: SpanDecoder): ObjectLifetimeDefault {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return ObjectLifetimeDefault.Empty;
+    case 1:
+      return ObjectLifetimeDefault.Static;
+    case 2:
+      return ObjectLifetimeDefault.Ambiguous;
+    case 3:
+      return { $: "Param", _0: __decoder.decode_def_id() };
+    default:
+      return panic(`invalid enum variant tag while decoding \`ObjectLifetimeDefault\`, expected 0..4, actual ${__tag}`);
   }
 }

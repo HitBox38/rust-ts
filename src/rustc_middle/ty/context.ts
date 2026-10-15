@@ -335,7 +335,8 @@ export class CtxtInterners {
     if (clauses.length === 0) {
       return RawList.empty_with_type_info();
     } else {
-      return this.clauses.intern_ref(clauses, intern_key(clauses), () => {
+      // PORT (lane small-gaps-18): element-wise key even for an interned list (as `slice_intern`).
+      return this.clauses.intern_ref(clauses, intern_key(clauses instanceof RawList ? Array.from(clauses) : clauses), () => {
         const flags = FlagComputation.for_clauses(clauses);
 
         return RawList.from_arena(undefined, TypeInfo.from(flags), clauses);
@@ -1898,7 +1899,9 @@ export class TyCtxt {
     if (v.length === 0) {
       return RawList.empty<T>();
     } else {
-      return set.intern_ref(v, intern_key(v), () => RawList.from_arena(undefined, null, v));
+      // PORT (lane small-gaps-18): the key is element-wise even when `v` is itself an interned `List` (`intern_key`
+      // keys an interned object by its id): `tcx.mk_args(args)` of an interned `args` must return that same list.
+      return set.intern_ref(v, intern_key(v instanceof RawList ? Array.from(v) : v), () => RawList.from_arena(undefined, null, v));
     }
   }
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2045 slice_interners! mk_const_list

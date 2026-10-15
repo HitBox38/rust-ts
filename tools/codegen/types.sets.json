@@ -426,7 +426,8 @@
       "compiler/rustc_middle/src/middle/resolve.rs",
       "compiler/rustc_middle/src/ty/trait_def.rs",
       "compiler/rustc_middle/src/ty/adt.rs",
-      "compiler/rustc_middle/src/middle/mod.rs"
+      "compiler/rustc_middle/src/middle/mod.rs",
+      "compiler/rustc_middle/src/middle/resolve_bound_vars.rs"
     ],
     "class": [],
     "hand": [],
@@ -459,7 +460,8 @@
       "rustc_middle::ty::VariantDef",
       "rustc_middle::ty::adt::AdtFlags",
       "rustc_middle::ty::adt::AdtDefData",
-      "rustc_middle::middle::lib_features::FeatureStability"
+      "rustc_middle::middle::lib_features::FeatureStability",
+      "rustc_middle::middle::resolve_bound_vars::ObjectLifetimeDefault"
     ],
     "decodable_construct": {
       "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] },
