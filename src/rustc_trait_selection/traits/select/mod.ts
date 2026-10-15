@@ -47,7 +47,7 @@ import { type CantBeErased, TypingMode } from "../../../rustc_type_ir/infer_ctxt
 import { debug_TraitClause } from "../../../rustc_type_ir/predicate.ts";
 import { type Fmt, PLAIN } from "../../../std/fmt.ts";
 import { assert } from "../../../std/panic.ts";
-import { TraitQueryMode } from "../mod.gen.ts";
+import type { TraitQueryMode } from "../mod.gen.ts";
 import {
   type IntercrateAmbiguityCause as IntercrateAmbiguityCauseT,
   type ProvisionalEvaluation,
@@ -57,6 +57,8 @@ import {
 } from "./mod.gen.ts";
 
 export * from "./mod.gen.ts";
+// `pub use rustc_middle::traits::select::*;`
+export * from "../../../rustc_middle/traits/select.ts";
 
 // ---- impl<'tcx> IntercrateAmbiguityCause<'tcx> (mod.rs:62) ----------------------------------------------------------
 
@@ -95,7 +97,7 @@ export const IntercrateAmbiguityCause = {
 Object.assign(SelectionContext, {
   // rustc: compiler/rustc_trait_selection/src/traits/select/mod.rs:181 new
   new(infcx: InferCtxt): SelectionContext {
-    return new SelectionContext(infcx, TypeFreshener.new(infcx), TraitQueryMode.Standard);
+    return new SelectionContext(infcx, TypeFreshener.new(infcx), "Standard" satisfies TraitQueryMode);
   },
 
   // rustc: compiler/rustc_trait_selection/src/traits/select/mod.rs:193 with_query_mode

@@ -8,13 +8,15 @@
 // PORT: `debug!` / `#[instrument]` (tracing) are dropped. `WfPredicates` is a class implementing rustc_type_ir's
 // `TypeVisitor<()>` (`R = undefined`); `impl FnMut(&mut Self, PredicateObligation)` callbacks are closures taking the
 // `WfPredicates` first. `traits::Obligation::with_depth(.., value)` takes the `Upcast` impl fn of the value's type to
-// `Predicate` last (rustc_infer decls.ts). The old solver's `SelectionContext::new` (wave 20) is
-// normalize.ts's `pending_SelectionContext_new` stand-in; `project::compute_inherent_assoc_term_args` (traits/project.rs,
-// wave 20) is a stand-in at the end of the file. Both stop as UNPORTED.
+// `Predicate` last (rustc_infer decls.ts). The old solver's `SelectionContext` (traits/select/mod.ts) and
+// `project::compute_inherent_assoc_term_args` (traits/project.ts) are lane selcx-contract's contract (the latter a stub
+// until wave 18b's old-project lane).
 //
 // Init order: rustc_infer is loaded through its crate root; other rustc_infer / rustc_middle modules are read inside
 // function bodies only.
-import { normalize_with_depth_to, pending_SelectionContext_new, type SelectionContext } from "./normalize.ts";
+import { normalize_with_depth_to } from "./normalize.ts";
+import { SelectionContext } from "./select/mod.ts";
+import { compute_inherent_assoc_term_args } from "./project.ts";
 import "../../rustc_infer/lib.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
 import { Obligation, type PredicateObligation, type PredicateObligations, visit_with_Obligation } from "../../rustc_infer/traits/mod.ts";
@@ -425,7 +427,7 @@ class WfPredicates implements TypeVisitor<undefined> {
     const obligations: PredicateObligations = [];
     for (const obligation of this.out) {
       assert(!TypeVisitableExt.has_escaping_bound_vars(obligation, d_PredicateObligation), "assertion failed: !obligation.has_escaping_bound_vars()");
-      const selcx = pending_SelectionContext_new(infcx);
+      const selcx = SelectionContext.new(infcx);
       // Don't normalize the whole obligation, the param env is either
       // already normalized, or we're currently normalizing the
       // param_env. Either way we should only normalize the predicate.
@@ -572,7 +574,7 @@ class WfPredicates implements TypeVisitor<undefined> {
       // FIXME(inherent_associated_types): Should this happen inside of a snapshot?
       // FIXME(inherent_associated_types): This is incompatible with the new solver and lazy norm!
       const args = compute_inherent_assoc_term_args(
-        pending_SelectionContext_new(this.infcx),
+        SelectionContext.new(this.infcx),
         this.param_env,
         data,
         this.cause({ $: "WellFormed", _0: WellFormedLoc.None }),
@@ -1374,18 +1376,4 @@ function Binder_no_bound_vars_unwrap(b: Binder<GenericArgs>): GenericArgs {
  *  yet, as rustc_middle structural_impls.ts's `Pattern_deref`). */
 function Pattern_deref(_pat: Pattern): PatternKind {
   return unported("rustc_middle::ty::Pattern: Deref (ty/pattern.rs not ported yet)");
-}
-
-// ---- stand-ins for the old solver's project.rs (wave 20); each stops as UNPORTED -------------------------------
-
-/** `traits::project::compute_inherent_assoc_term_args` (traits/project.rs, wave 20). */
-function compute_inherent_assoc_term_args(
-  _selcx: SelectionContext,
-  _param_env: ParamEnv,
-  _alias_term: AliasTermT,
-  _cause: ObligationCause,
-  _depth: number,
-  _obligations: PredicateObligations,
-): GenericArgs {
-  return unported("rustc_trait_selection::traits::project::compute_inherent_assoc_term_args");
 }
