@@ -49,6 +49,7 @@ import type { ClosureSignatures, ExpectedSig } from "./closure.gen.ts";
 import { FnCtxt } from "./decls.ts";
 import { Expectation } from "./expectation.ts";
 import type { CoroutineTypes } from "./lib.gen.ts";
+import { Elaboratable_Clause_Span } from "../rustc_middle/ty/elaborate_impl.ts";
 
 export * from "./closure.gen.ts";
 
@@ -80,22 +81,6 @@ const fold_ExpectedSig: TypeFoldable<ExpectedSig> = {
   },
   fold_with(self, folder) {
     return { cause_span: self.cause_span, sig: fold_PolyFnSig.fold_with(self.sig, folder) };
-  },
-};
-
-/**
- * PORT(stand-in): `impl Elaboratable<TyCtxt> for (ty::Clause, Span)` (rustc_middle ty/elaborate_impl.rs:66, not ported);
- * a faithful copy without markers, as rustc_hir_analysis check/wfcheck.ts's `Elaboratable_Clause_Span`.
- */
-const Elaboratable_Clause_Span: Elaboratable<[Clause, Span]> = {
-  predicate(self) {
-    return self[0].as_predicate();
-  },
-  child(self, clause) {
-    return [clause, self[1]];
-  },
-  child_with_derived_cause(self, clause, _span, _parent_trait_pred, _index) {
-    return [clause, self[1]];
   },
 };
 

@@ -165,7 +165,7 @@ FnCtxt.prototype.compute_definition_site_hidden_types = function (
       // previous call to this function we did an insert, but this
       // should be just fine, since they all get equated anyways and
       // we shouldn't ever go from `HasDefiningUse` to anyway else.
-      hidden_types_of(this.typeck_results).set(def_id, ty);
+      this.typeck_results.hidden_types.set(def_id, ty);
     }
 
     // If we're in `fn try_handle_opaque_type_uses_next` then do not
@@ -219,7 +219,7 @@ FnCtxt.prototype.compute_definition_site_hidden_types = function (
       }
     }
 
-    hidden_types_of(this.typeck_results).set(def_id, DefinitionSiteHiddenType.new_error(tcx, guar));
+    this.typeck_results.hidden_types.set(def_id, DefinitionSiteHiddenType.new_error(tcx, guar));
     this.set_tainted_by_errors(guar);
   }
 };
@@ -334,10 +334,6 @@ function report_item_does_not_constrain_error(
   return unported("rustc_trait_selection::opaque_types::report_item_does_not_constrain_error");
 }
 
-/** PORT: typeck_results.ts types `hidden_types` with a local `Pending` alias of `ty::DefinitionSiteHiddenType`. */
-function hidden_types_of(r: TypeckResults): Map<LocalDefId, DefinitionSiteHiddenType> {
-  return r.hidden_types as unknown as Map<LocalDefId, DefinitionSiteHiddenType>;
-}
 
 /** The derived `TypeFoldable` of `OpaqueTypeKey<'tcx>`. */
 const fold_OpaqueTypeKey: TypeFoldable<OpaqueTypeKey> = {

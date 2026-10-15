@@ -131,11 +131,7 @@ FnCtxt.prototype.check_asms = function (this: FnCtxt): void {
   // debug!("FnCtxt::check_asm: {} deferred checks", deferred_asm_checks.len());
   for (const [asm, hir_id] of deferred_asm_checks.splice(0)) {
     const enclosing_id = this.tcx.hir_enclosing_body_owner(hir_id);
-    // PORT(decls): `InlineAsmCtxt::new` / `check_asm` (inline_asm.rs:38 / :57) are comment-only declarations owned by
-    // lane typeck-expr-b; called as the associated fn `InlineAsmCtxt.new` (the contract's static convention).
-    (InlineAsmCtxt as unknown as { new: (fcx: FnCtxt, def_id: LocalDefIdA) => { check_asm(asm: hirA.InlineAsm): void } })
-      .new(this, enclosing_id)
-      .check_asm(asm);
+    InlineAsmCtxt.new(this, enclosing_id).check_asm(asm);
   }
 };
 

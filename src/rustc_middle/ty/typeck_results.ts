@@ -49,10 +49,9 @@ import type { FakeReadCause } from "../mir/syntax.ts";
 export type { FakeReadCause };
 /** `crate::thir::DerefPatBorrowMode` (thir.rs:886): `Borrow(Mutability) | Box`, built per PORTING §5. */
 export type DerefPatBorrowMode = PendingEnum<"thir::DerefPatBorrowMode">;
-/** `ty::ClosureSizeProfileData` (ty/mod.rs:338) */
-export type ClosureSizeProfileData = Pending<"ClosureSizeProfileData">;
-/** `ty::DefinitionSiteHiddenType` (ty/mod.rs:949) */
-export type DefinitionSiteHiddenType = Pending<"DefinitionSiteHiddenType">;
+/** `ty::ClosureSizeProfileData` (ty/mod.rs:338), `ty::DefinitionSiteHiddenType` (ty/mod.rs:949): ty/mod.ts's (merge-w18). */
+import type { ClosureSizeProfileData, DefinitionSiteHiddenType } from "./mod.ts";
+export type { ClosureSizeProfileData, DefinitionSiteHiddenType };
 /** `ty::MinCaptureInformationMap` = `LocalDefIdMap<RootVariableMinCaptureList>`, `RootVariableMinCaptureList` =
  *  `FxIndexMap<HirId, MinCaptureList>`, `MinCaptureList` = `Vec<CapturedPlace>` (ty/closure.rs:80-91, type aliases). */
 export type MinCaptureInformationMap = Map<LocalDefId, HirIdMap<CapturedPlace[]>>;

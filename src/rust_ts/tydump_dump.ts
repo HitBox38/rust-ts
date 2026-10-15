@@ -551,7 +551,7 @@ function dump_typeck(out: string[], tcx: TyCtxt, r: TypeckResults): void {
     out.push(`    used_trait_imports ${dbg(id, debug_LocalDefId)}\n`);
   }
   for (const [id, h] of r.hidden_types) {
-    out.push(`    hidden_types ${dbg(id, debug_LocalDefId)} ${dbg(h as unknown as Parameters<typeof debug_DefinitionSiteHiddenType>[0], debug_DefinitionSiteHiddenType)}\n`);
+    out.push(`    hidden_types ${dbg(id, debug_LocalDefId)} ${dbg(h, debug_DefinitionSiteHiddenType)}\n`);
   }
   for (const [id, roots] of [...r.closure_min_captures].sort(([a], [b]) => di(a) - di(b))) {
     for (const [root, places] of roots) {

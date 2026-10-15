@@ -462,13 +462,13 @@ WritebackCx.prototype.eval_closure_size = function (this: WritebackCx): void {
     const fcx_typeck_results = this.fcx.typeck_results;
 
     const closure_size_eval = new Map(
-      to_sorted_by_def_path_hash(this.tcx(), closure_size_eval_of(fcx_typeck_results)).map(([closure_def_id, data_]) => {
+      to_sorted_by_def_path_hash(this.tcx(), fcx_typeck_results.closure_size_eval).map(([closure_def_id, data_]) => {
         const closure_hir_id = this.tcx().local_def_id_to_hir_id(closure_def_id);
         const data = this.resolve(data_, closure_hir_id, fold_ClosureSizeProfileData);
         return [closure_def_id, data] as const;
       }),
     );
-    this.typeck_results.closure_size_eval = closure_size_eval as unknown as TypeckResults["closure_size_eval"];
+    this.typeck_results.closure_size_eval = closure_size_eval;
   });
 };
 
@@ -667,7 +667,7 @@ WritebackCx.prototype.visit_opaque_types = function (this: WritebackCx): void {
   this.fcx.checked_opaque_types_storage_entries = num_entries;
   // debug_assert_eq!(prev, None);
   void prev;
-  const hidden_types = hidden_types_of(this.typeck_results);
+  const hidden_types = this.typeck_results.hidden_types;
   for (const [opaque_type_key0, hidden_type0] of opaque_types) {
     const hidden_type = this.resolve(hidden_type0, hidden_type0.span, fold_ProvisionalHiddenType);
     const opaque_type_key = this.resolve(opaque_type_key0, hidden_type.span, fold_OpaqueTypeKey);
@@ -1216,14 +1216,6 @@ function is_break<B>(r: ControlFlow<B>): boolean {
   return r.$ === "Break";
 }
 
-/** PORT: typeck_results.ts types `hidden_types` with a local `Pending` alias of `ty::DefinitionSiteHiddenType`. */
-function hidden_types_of(r: TypeckResults): Map<LocalDefId, DefinitionSiteHiddenType> {
-  return r.hidden_types as unknown as Map<LocalDefId, DefinitionSiteHiddenType>;
-}
-/** PORT: typeck_results.ts types `closure_size_eval` with a local `Pending` alias of `ty::ClosureSizeProfileData`. */
-function closure_size_eval_of(r: TypeckResults): Map<LocalDefId, ClosureSizeProfileData> {
-  return r.closure_size_eval as unknown as Map<LocalDefId, ClosureSizeProfileData>;
-}
 
 /** `assert_eq!(fcx_typeck_results.hir_owner, self.typeck_results.hir_owner)` */
 function assert_owner_eq(a: TypeckResults, b: TypeckResults): void {
