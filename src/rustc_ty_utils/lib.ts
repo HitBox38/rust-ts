@@ -6,6 +6,7 @@
 //! This API is completely unstable and subject to change.
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as assoc from "./assoc.ts";
+import * as common_traits from "./common_traits.ts";
 import * as implied_bounds from "./implied_bounds.ts";
 import * as needs_drop from "./needs_drop.ts";
 import * as nested_bodies from "./nested_bodies.ts";
@@ -16,7 +17,7 @@ import * as ty from "./ty.ts";
 
 // mod abi;                 (not ported: codegen-era, M4+)
 // mod assoc;
-// mod common_traits;       (not ported)
+// mod common_traits;
 // mod consts;              (not ported)
 // mod diagnostics;         (generated: diagnostics.gen.ts, re-exported by diagnostics.ts)
 // mod implied_bounds;
@@ -34,7 +35,7 @@ export function provide(providers: Providers): void {
   // PORT: the `provide` fns of the modules not ported yet are skipped (their queries keep the default provider).
   // abi::provide(providers);
   assoc.provide(providers);
-  // common_traits::provide(providers);
+  common_traits.provide(providers);
   // consts::provide(providers);
   implied_bounds.provide(providers);
   // layout::provide(providers);

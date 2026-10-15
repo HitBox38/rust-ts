@@ -61,12 +61,11 @@ function oracle_rmeta(s: string, file: string): string {
 /** The exact `unported(..)` texts the PENDING crates stop at today (other lanes' stubs; re-pinned by merge-w17). */
 const PENDING = new Set([
   "rustc_metadata::rmeta::decoder::cstore_impl: Decodable for ty::TraitDef", // an extern trait
-  "is_sized_raw provider (not ported)", // orphan_local_auto.rs (the PseudoCanonicalInput<Ty> key is ported: small-gaps-19)
   "rustc_middle::ty::normalize_erasing_regions::TyCtxt::try_normalize_erasing_regions", // coerce_unsized.rs
 ]);
 
-/** PENDING_CRATES cases that print the oracle's stderr since merge-w17: they must not stop. */
-const NOW_EXACT = new Set(["unsafety.rs", "object_overlap.rs", "inherent_dyn.rs"]);
+/** PENDING_CRATES cases that print the oracle's stderr since merge-w17 (orphan_local_auto.rs: small-gaps-19): they must not stop. */
+const NOW_EXACT = new Set(["unsafety.rs", "object_overlap.rs", "inherent_dyn.rs", "orphan_local_auto.rs"]);
 
 const EXACT: [string, string, number][] = [
   // [mode, file, number of errors the oracle reports]
