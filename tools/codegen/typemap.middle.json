@@ -9,6 +9,7 @@
   "cfg": { "true": [], "false": [] },
   "helpers": {},
   "types": [
+    { "paths": ["rustc_middle::ty::PseudoCanonicalInput"], "ts": "PseudoCanonicalInput<$0>", "import": "src/rustc_middle/ty/mod.ts", "types": ["PseudoCanonicalInput"], "values": ["debug_PseudoCanonicalInput"], "debug": "debug_PseudoCanonicalInput($v, $f, $d0)", "clone": null, "note": "hand-written in ty/mod.ts (small-gaps-19: the keys of layout_of / is_*_raw / ...)" },
     { "paths": ["rustc_middle::ty::fast_reject::SimplifiedType"], "ts": "SimplifiedType", "import": "src/rustc_middle/ty/fast_reject.ts", "types": ["SimplifiedType"], "values": ["debug_SimplifiedType"], "debug": "debug_SimplifiedType($v, $f)", "clone": "copy", "note": "`ty::fast_reject::SimplifiedType = ir::fast_reject::SimplifiedType<DefId>` (small-gaps-19: the `implementations_of_trait` value, read by rustc_resolve's Default suggestion)" },
     { "paths": ["rustc_hir::def_id::DefId", "rustc_hir::DefId"], "ts": "DefId", "import": "src/rustc_span/def_id.ts", "types": ["DefId"], "values": ["debug_DefId"], "debug": "debug_DefId($v, $f)", "clone": "copy" },
     { "paths": ["rustc_hir::def_id::LocalDefId"], "ts": "LocalDefId", "import": "src/rustc_span/def_id.ts", "types": ["LocalDefId"], "values": ["debug_LocalDefId"], "debug": "debug_LocalDefId($v, $f)", "clone": "copy" },
