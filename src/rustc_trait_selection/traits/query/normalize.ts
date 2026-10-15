@@ -15,9 +15,7 @@
 //   `cache: SsoHashMap<Ty, Ty>` is a `Map` keyed by the interned `Ty`; `cause: &ObligationCause` is the At's cause
 //   (shared, not cloned).
 // - `std::any::type_name::<T>()` only feeds `debug!` / `info!` (tracing produces no output in the oracle): left out.
-// - `infcx.err_ctxt()` (error_reporting, wave 19) is read through `err_ctxt` (../mod.ts); `build_overflow_error` is not
-//   in its `TypeErrCtxtView` yet, so this file reads it through the local view `OverflowErrCtxtView`
-//   (PORT(decls): pending root: add it to `TypeErrCtxtView`).
+// - `infcx.err_ctxt()` (error_reporting, wave 19) is read through `err_ctxt` (../mod.ts) and its `TypeErrCtxtView`.
 // Init order: top-level code here may touch only rustc_infer (loaded first by ../../lib.ts), ./normalize.gen.ts and other
 // crates; this crate's other modules are read inside function bodies.
 
@@ -39,7 +37,7 @@ import type { Clauses, Region, Term } from "../../../rustc_middle/ty/decls.ts";
 import { debug_ParamEnvAnd, fold_Term, type ParamEnvAnd, Term as TermC, Ty } from "../../../rustc_middle/ty/mod.ts";
 import { fold_GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
 import { fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
-import { DUMMY_SP, type ErrorGuaranteed, type Span } from "../../../rustc_span/lib.ts";
+import { DUMMY_SP, type ErrorGuaranteed } from "../../../rustc_span/lib.ts";
 import { type Binder, EarlyBinder, fold_Binder, visit_Binder } from "../../../rustc_type_ir/binder.ts";
 import { debug_Canonical, debug_CanonicalQueryInput } from "../../../rustc_type_ir/canonical.gen.ts";
 import { TypeFlags } from "../../../rustc_type_ir/flags.gen.ts";
@@ -290,7 +288,8 @@ QueryNormalizer.prototype.try_fold_ty = function (this: QueryNormalizer, ty: Ty)
           const recursion_limit = this.cx().recursion_limit();
 
           if (!recursion_limit.value_within_limit(this.anon_depth)) {
-            const guar = (traits_mod().err_ctxt(this.infcx) as unknown as OverflowErrCtxtView)
+            const guar = traits_mod()
+              .err_ctxt(this.infcx)
               .build_overflow_error({ $: "DeeplyNormalize", _0: AliasTermC.from_AliasTy(data) }, this.cause.span, true)
               .delay_as_bug();
             return Ok(Ty.new_error(this.cx(), guar));
@@ -469,18 +468,6 @@ QueryNormalizer.prototype.try_fold_free_or_assoc = function (this: QueryNormaliz
 };
 
 // ---- PORT: views, descriptors and lazily read modules ------------------------------------------------------------------
-
-/**
- * PORT(decls): pending root. `TypeErrCtxt::build_overflow_error` (error_reporting/traits/overflow.rs, wave 19) is not in
- * ../mod.ts's `TypeErrCtxtView`; `Diag::delay_as_bug` returns the `ErrorGuaranteed`.
- */
-interface OverflowErrCtxtView {
-  build_overflow_error(
-    cause: { $: "DeeplyNormalize"; _0: AliasTerm },
-    span: Span,
-    suggest_increasing_limit: boolean,
-  ): { delay_as_bug(): ErrorGuaranteed };
-}
 
 /** The placeholder maps of `BoundVarReplacer::replace_bound_vars`. */
 type PlaceholderMaps = [

@@ -206,7 +206,7 @@ export class FulfillmentContext<E> implements TraitEngine<E> {
       case "Codegen":
         return [];
       case "Coherence":
-        return unreachable("old solver coherence");
+        return unreachable("internal error: entered unreachable code: old solver coherence");
       case "ErasedNotCoherence":
         // PORT: `TypingMode<CantBeErased>` has no such value (its payload is `!`); the arm only satisfies the TS switch.
         return mode._0;
@@ -538,7 +538,7 @@ FulfillProcessor.prototype.process_obligation = function (
             return { $: "Changed", _0: mk_pending(obligation, obligations) };
           }
           case "UnstableFeature":
-            return unreachable("unexpected higher ranked `UnstableFeature` goal");
+            return unreachable("internal error: entered unreachable code: unexpected higher ranked `UnstableFeature` goal");
         }
         break;
       case "DynCompatible":
