@@ -24,6 +24,7 @@ import "./solve/normalize.ts";
 import "./solve/select.ts";
 // pub mod traits;
 import "./traits/mod.ts";
+import "./traits/dyn_compatibility.ts";
 import "./traits/engine.ts";
 import "./traits/misc.ts";
 import "./traits/normalize.ts";
@@ -32,6 +33,7 @@ import "./traits/query/evaluate_obligation.ts";
 import "./traits/query/normalize.ts";
 import "./traits/structural_normalize.ts";
 import "./traits/util.ts";
+import "./traits/wf.ts";
 
 export * as infer from "./infer.ts";
 export * as regions from "./regions.ts";
