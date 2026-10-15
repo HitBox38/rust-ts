@@ -72,7 +72,8 @@ import type { AdtDef } from "../rustc_middle/ty/adt.ts";
 import type { AssocItem, AssocKind } from "../rustc_middle/ty/assoc.ts";
 import type { BorrowKind, CaptureInfo, CapturedPlace, RootVariableMinCaptureList, UpvarCapture } from "../rustc_middle/ty/closure.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { Const, FieldIdx, LayoutError, ParamTy, ProjectionKind, Region, VariantIdx } from "../rustc_middle/ty/decls.ts";
+import type { Const, FieldIdx, LayoutError, ParamTy, Region, VariantIdx } from "../rustc_middle/ty/decls.ts";
+import type { Place, PlaceBase, PlaceWithHirId, Projection, ProjectionKind } from "../rustc_middle/hir/place.ts";
 import type { GenericArg, GenericArgs, UserArgs, UserSelfTy } from "../rustc_middle/ty/generic_args.ts";
 import type { Clauses } from "../rustc_middle/ty/list.ts";
 import type { FieldDef, InstantiatedClauses, ParamEnv, ProvisionalHiddenType, Term, Ty, TypingEnv, VariantDef } from "../rustc_middle/ty/mod.ts";
@@ -123,14 +124,9 @@ import type { InferredCaptureInformation, MigrationWarningReason, NeededMigratio
 import type { WritebackCx } from "./writeback.gen.ts";
 
 // ---- pending types (crates / files not ported yet); root replaces each with a re-export when it lands ----
-/** rustc_middle hir/place.rs `PlaceWithHirId<'tcx>` (4 fns; not ported: expr_use_visitor.rs / upvar.rs need it, lane typeck-euv). */
-export type PlaceWithHirId = Pending<"rustc_middle::hir::place::PlaceWithHirId">;
-/** rustc_middle hir/place.rs `Place<'tcx>` (`ty::closure`'s `HirPlace`). */
-export type Place = Pending<"rustc_middle::hir::place::Place">;
-/** rustc_middle hir/place.rs `PlaceBase`. */
-export type PlaceBase = Pending<"rustc_middle::hir::place::PlaceBase">;
-/** rustc_middle hir/place.rs `Projection<'tcx>`. */
-export type Projection = Pending<"rustc_middle::hir::place::Projection">;
+// rustc_middle hir/place.rs (lane typeck-euv): `PlaceWithHirId<'tcx>`, `Place<'tcx>` (`ty::closure`'s `HirPlace`),
+// `PlaceBase`, `Projection<'tcx>` (re-exported by expr_use_visitor.rs as `pub use`).
+export type { Place, PlaceBase, PlaceWithHirId, Projection };
 /** rustc_middle ty/layout.rs `SizeSkeleton<'tcx>` (intrinsicck.rs; M4 layout). */
 export type SizeSkeleton = Pending<"rustc_middle::ty::layout::SizeSkeleton">;
 /** rustc_trait_selection error_reporting/traits/suggestions.rs `DefIdOrName` (fn_ctxt/suggestions.rs; wave 19). */
