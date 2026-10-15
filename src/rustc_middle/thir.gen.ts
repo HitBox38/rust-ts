@@ -1150,7 +1150,7 @@ export const debug_Ascription: Debug<Ascription> = (v, f) =>
   ]);
 export function clone_Ascription(v: Ascription): Ascription {
   return {
-    annotation: unported_clone(v.annotation),
+    annotation: { user_ty: v.annotation.user_ty, span: v.annotation.span, inferred_ty: v.annotation.inferred_ty },
     variance: v.variance,
   };
 }
