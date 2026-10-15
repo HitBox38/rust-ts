@@ -1188,6 +1188,8 @@ export interface TypeErrCtxtView {
   // error_reporting/traits/overflow.rs `report_overflow_obligation` (`T: Upcast<TyCtxt, Predicate> + Clone`, `-> !`;
   // lane selcx-contract: the old solver's fulfill.rs / select)
   report_overflow_obligation<T>(obligation: import("../../rustc_infer/traits/mod.ts").Obligation<T>, suggest_increasing_limit: boolean): never;
+  // error_reporting/traits/overflow.rs `report_overflow_obligation_cycle` (`-> !`; rustc_traits's providers)
+  report_overflow_obligation_cycle(cycle: readonly import("../../rustc_infer/traits/mod.ts").PredicateObligation[]): never;
 }
 
 /** `crate::error_reporting::InferCtxtErrorExt::err_ctxt` (wave 19): the methods this crate calls on `TypeErrCtxt`. */
