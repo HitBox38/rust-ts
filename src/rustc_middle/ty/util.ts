@@ -63,6 +63,7 @@ import { Asyncness, debug_Ty, HasAttrs_DefId, HasAttrs_LocalDefId, Ty, TypingEnv
 import type { EarlyParamRegion } from "./region.ts";
 import type { ParamConst, ParamTy } from "./sty.ts";
 import { fold_Clauses, fold_Ty } from "./structural_impls.ts";
+import { CodegenFnAttrFlags, type CodegenFnAttrs } from "../middle/codegen_fn_attrs.ts";
 
 // rustc-type: compiler/rustc_middle/src/ty/util.rs:37 Discr
 // #[derive(Copy, Clone, Debug)]
@@ -2127,9 +2128,9 @@ function mir_Const_from_bits(_tcx: TyCtxt, _bits: bigint, _typing_env: TypingEnv
 }
 
 // ---- rustc_middle middle/codegen_fn_attrs.rs ----
-/** PORT: pending middle/codegen_fn_attrs.rs: `codegen_fn_attrs(def_id).flags.contains(CodegenFnAttrFlags::THREAD_LOCAL)`. */
-function CodegenFnAttrs_flags_contains_THREAD_LOCAL(_attrs: unknown): boolean {
-  return unported("rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrFlags::THREAD_LOCAL (middle/codegen_fn_attrs.rs)");
+/** `codegen_fn_attrs(def_id).flags.contains(CodegenFnAttrFlags::THREAD_LOCAL)` (the query value is `unknown` in queries.gen.ts). */
+function CodegenFnAttrs_flags_contains_THREAD_LOCAL(attrs: unknown): boolean {
+  return CodegenFnAttrFlags.contains((attrs as CodegenFnAttrs).flags, CodegenFnAttrFlags.THREAD_LOCAL);
 }
 
 // ---- lane ty-mod (ty/mod.rs) ----

@@ -32,10 +32,11 @@ function run(cmd: string[]): { exit: number; stdout: string; stderr: string } {
 
 const args = (s: string, file: string): string[] => ["--sysroot", s, "--edition=2021", "--crate-type", "lib", "--emit=metadata", "-o", "/dev/null", file];
 
-/** The exact `unported(..)` texts the `wf` mode stops at today (re-pinned by merge-w17). */
+/** The exact `unported(..)` texts the `wf` mode stops at today (re-pinned by merge-w17, codegen-fn-attrs). */
 const PENDING_WF = new Set([
-  // static_wf.rs: `check_static_item` -> `codegen_fn_attrs` of the static (rustc_codegen_ssa, not ported)
-  "codegen_fn_attrs provider (not ported)",
+  // static_wf.rs: `check_static_item` -> the `Sync` obligation's E0277 report needs `InferCtxt::err_ctxt`
+  // (rustc_trait_selection error_reporting, not ported)
+  "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt",
   // receiver.rs: `assumed_wf_types_and_report_errors` -> rustc_traits' `implied_outlives_bounds` query (wave 20)
   "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
 ]);

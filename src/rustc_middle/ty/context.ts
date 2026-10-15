@@ -102,6 +102,7 @@ import { debug_GenericArg, debug_GenericArgs } from "./generic_args.ts";
 import { GenericParamDef, type Generics } from "./generics.ts";
 import type { ListWithCachedTypeInfo } from "./list.ts";
 import { fold_Ty } from "./structural_impls.ts";
+import { CodegenFnAttrs as CodegenFnAttrsC } from "../middle/codegen_fn_attrs.ts";
 
 /**
  * PORT: `rustc_session::Limits` (session.rs:62; `#[derive(Copy, Clone, Debug, ..)]`) is not ported; this is its
@@ -997,7 +998,7 @@ export class TyCtxt {
     if (DefKind.has_codegen_attrs(def_kind)) {
       return this.codegen_fn_attrs(def_id) as CodegenFnAttrs;
     } else if (def_kind.$ === "AnonConst" || def_kind.$ === "AssocConst" || def_kind.$ === "Const" || def_kind.$ === "GlobalAsm") {
-      return unported("rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs::EMPTY (middle/codegen_fn_attrs.rs)");
+      return CodegenFnAttrsC.EMPTY;
     } else {
       return panic(`body_codegen_fn_attrs called on unexpected definition: ${debug_DefId(def_id, PLAIN)} ${debug_DefKind(def_kind, PLAIN)}`);
     }

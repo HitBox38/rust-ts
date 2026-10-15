@@ -6,11 +6,11 @@
 //    equal the oracle's first diagnostic and stop after it.
 // 3. A lib crate has no entry fn: nothing is checked.
 // 4. The remaining signature errors (E0580 wrong arguments, E0131 generic `main`, E0646 `where` clause; and a clean
-//    `fn main() {}`) are not reachable yet: before the signature check, `check_main_fn_ty` reads
-//    `codegen_fn_attrs(main).target_features` (rustc_codegen_ssa's provider, not ported). The test checks the oracle's
-//    error and that ours stops at one of `PENDING` (exact `unported(..)` texts); when the provider lands, the next stops
-//    are this file's stand-ins (`ObligationCtxt` when a `termination` lang item exists, `check_function_signature`), and
-//    the cases turn into oracle matches once those lanes are integrated.
+//    `fn main() {}`) are not reachable yet. The test checks the oracle's error and that ours stops at one of `PENDING`
+//    (exact `unported(..)` texts). Re-pinned by lane codegen-fn-attrs: with `codegen_fn_attrs` ported, the std crate's
+//    metadata decode of `ty::TraitDef` (rustc_metadata, not ported) is the first stop; after it come this file's
+//    stand-ins (`ObligationCtxt` when a `termination` lang item exists, `check_function_signature`), and the cases turn
+//    into oracle matches once those lanes are integrated.
 import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,7 +22,7 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
 const PENDING = new Set([
-  "codegen_fn_attrs provider (not ported)",
+  "rustc_metadata::rmeta::decoder::cstore_impl: Decodable for ty::TraitDef",
 ]);
 
 function sysroot(): string | undefined {
