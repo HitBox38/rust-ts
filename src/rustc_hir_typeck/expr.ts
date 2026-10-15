@@ -61,7 +61,7 @@ import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
 import { predicates_for_generics } from "../rustc_trait_selection/traits/mod.ts";
 import type { FulfillmentError } from "../rustc_trait_selection/traits/mod.gen.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../rustc_type_ir/binder.ts";
-import type { PolyFnSig, TraitClause, TraitRef as TraitRefT } from "../rustc_type_ir/decls.ts";
+import type { PolyFnSig as PolyFnSigT, TraitClause, TraitRef as TraitRefT } from "../rustc_type_ir/decls.ts";
 import { NoSolution_from_TypeError, type TypeError } from "../rustc_type_ir/error.ts";
 import {
   ClausePolarity,
@@ -665,7 +665,7 @@ FnCtxt.prototype.report_private_fields = function (
         // Only assoc fns that return `Self`
         const fn_sig = Unnormalized.skip_norm_wip(
           EarlyBinder.instantiate(
-            this.tcx.fn_sig(item.def_id) as EarlyBinder<PolyFnSig>,
+            this.tcx.fn_sig(item.def_id) as EarlyBinder<PolyFnSigT>,
             this.tcx,
             this.fresh_args_for_item(span, item.def_id),
             fold_Binder(fold_FnSig),
@@ -767,7 +767,7 @@ FnCtxt.prototype.report_unknown_field = function (
     if (k.$ === "Adt" && k._0.is_enum()) {
       err.span_label(variant_ident_span, `\`${display_Ty(ty)}::${Symbol.as_str(variant.name)}\` defined here`);
       err.span_label(field.ident.span, "field does not exist");
-      const fn_sig = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(this.tcx.fn_sig(def_id) as EarlyBinder<PolyFnSig>));
+      const fn_sig = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(this.tcx.fn_sig(def_id) as EarlyBinder<PolyFnSigT>));
       const inputs = Binder.skip_binder(PolyFnSigC.inputs(fn_sig));
       const fields = `(${inputs.map((i) => `/* ${display_Ty(i)} */`).join(", ")})`;
       let replace_span: Span;
@@ -787,7 +787,7 @@ FnCtxt.prototype.report_unknown_field = function (
     } else {
       err.span_label(variant_ident_span, `\`${display_Ty(ty)}\` defined here`);
       err.span_label(field.ident.span, "field does not exist");
-      const fn_sig = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(this.tcx.fn_sig(def_id) as EarlyBinder<PolyFnSig>));
+      const fn_sig = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(this.tcx.fn_sig(def_id) as EarlyBinder<PolyFnSigT>));
       const inputs = Binder.skip_binder(PolyFnSigC.inputs(fn_sig));
       const fields = `(${inputs.map((i) => `/* ${display_Ty(i)} */`).join(", ")})`;
       err.span_suggestion_verbose(
