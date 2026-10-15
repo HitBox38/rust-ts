@@ -79,6 +79,10 @@ import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as collect from "./collect.ts";
 
 // pub mod check;            (wave 17: check-wf-a/-b, check-check, check-compare, check-region-intrinsic)
+// PORT: check/entry.rs and check/compare_eii.rs (lane small-gaps-17) are `mod`s of check/mod.rs (lane check-check);
+// until check/mod.ts declares them (`mod compare_eii; mod entry;`) they are loaded here.
+import "./check/compare_eii.ts";
+import "./check/entry.ts";
 // pub mod autoderef;
 export * as autoderef from "./autoderef.ts";
 // mod check_unused;         (wave 17)
