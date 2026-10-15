@@ -3,8 +3,8 @@
 import { decode_ParamConst } from "../rustc_middle/ty/sty.gen.ts";
 import { try_visit } from "../rustc_ast_ir/visit.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
-import { decode_List_Const, type TyDecoder } from "../rustc_middle/ty/codec.ts";
-import { debug_ScalarInt, type ScalarInt } from "../rustc_middle/ty/consts/int.ts";
+import { decode_List_Const, decode_Value, type TyDecoder } from "../rustc_middle/ty/codec.ts";
+import { debug_ScalarInt, decode_ScalarInt, type ScalarInt } from "../rustc_middle/ty/consts/int.ts";
 import { decode_Expr, type Expr } from "../rustc_middle/ty/consts/kind.ts";
 import { type Value } from "../rustc_middle/ty/consts/valtree.ts";
 import { type Consts } from "../rustc_middle/ty/decls.ts";
@@ -22,9 +22,6 @@ import { panic } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
 import { unported } from "../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
-function unported_decodable(..._a: unknown[]): never {
-  return unported("Decodable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_type_ir/src/const_kind.rs:21 ConstKind
 /// Represents a constant in Rust.
@@ -64,7 +61,7 @@ export function decode_ConstKind(__decoder: TyDecoder): ConstKind {
     case 4:
       return { $: "Alias", _0: decode_IsRigid(__decoder), _1: decode_Alias(__decoder, decode_AliasConstKind) };
     case 5:
-      return { $: "Value", _0: unported_decodable(__decoder) };
+      return { $: "Value", _0: decode_Value(__decoder) };
     case 6:
       return { $: "Error", _0: decode_ErrorGuaranteed(__decoder) };
     case 7:
@@ -276,7 +273,7 @@ export function decode_ValTreeKind(__decoder: TyDecoder): ValTreeKind {
   const __tag = __decoder.read_u8();
   switch (__tag) {
     case 0:
-      return { $: "Leaf", _0: unported_decodable(__decoder) };
+      return { $: "Leaf", _0: decode_ScalarInt(__decoder) };
     case 1:
       return { $: "Branch", _0: decode_List_Const(__decoder) };
     default:

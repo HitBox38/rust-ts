@@ -10,7 +10,8 @@ import { type FeatureStability } from "./middle/mod.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { ObjectLifetimeDefault } from "./middle/resolve_bound_vars.ts";
 import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
-import { decode_Clause, type TyDecoder } from "./ty/codec.ts";
+import { decode_Clause, decode_Ty, decode_ValTree, type TyDecoder } from "./ty/codec.ts";
+import { type Value } from "./ty/consts/valtree.ts";
 import { type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
 import { type AsyncDestructor, type Destructor, FieldDef, ImplTraitHeader, type ImplTraitInTraitData, RestrictionKind, VariantDef, type VariantDiscr, type VariantFlags, Visibility } from "./ty/mod.ts";
 import { TraitDef, type TraitSpecializationKind } from "./ty/trait_def.ts";
@@ -283,4 +284,12 @@ export function decode_ObjectLifetimeDefault(__decoder: SpanDecoder): ObjectLife
     default:
       return panic(`invalid enum variant tag while decoding \`ObjectLifetimeDefault\`, expected 0..4, actual ${__tag}`);
   }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/consts/valtree.rs:103 TyDecodable for Value
+export function decode_Value(__decoder: TyDecoder): Value {
+  return {
+    ty: decode_Ty(__decoder),
+    valtree: decode_ValTree(__decoder),
+  };
 }
