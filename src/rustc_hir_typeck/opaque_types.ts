@@ -32,6 +32,8 @@ import { PLAIN } from "../std/fmt.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { unported, unreachable, unwrap } from "../std/panic.ts";
 import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
+import type { TyCtxt } from "../rustc_middle/ty/context.ts";
+import type { InferCtxt } from "../rustc_infer/decls.ts";
 import { FnCtxt } from "./decls.ts";
 import type { UsageKind } from "./opaque_types.gen.ts";
 
@@ -225,7 +227,7 @@ FnCtxt.prototype.compute_definition_site_hidden_types = function (
 // #[tracing::instrument(skip(self), ret)]
 // rustc: compiler/rustc_hir_typeck/src/opaque_types.rs:219 consider_opaque_type_use
 FnCtxt.prototype.consider_opaque_type_use = function (this: FnCtxt, opaque_type_key: OpaqueTypeKey, hidden_type_: ProvisionalHiddenType): UsageKind {
-  const r = opaque_type_has_defining_use_args(this, opaque_type_key, hidden_type_.span, "HirTypeck");
+  const r = opaque_type_has_defining_use_args(this.infcx, opaque_type_key, hidden_type_.span, "HirTypeck");
   if (r.$ === "Err") {
     const err = r._0;
     const guar = NonDefiningUseReason_tainted(err);
@@ -304,7 +306,7 @@ export type NonDefiningUseReason = Pending<"rustc_trait_selection::opaque_types:
 
 /** PORT: rustc_trait_selection opaque_types.rs `opaque_type_has_defining_use_args` (not ported; no lane owns the file). */
 export function opaque_type_has_defining_use_args(
-  _infcx: FnCtxt,
+  _infcx: InferCtxt,
   _opaque_type_key: OpaqueTypeKey,
   _span: Span,
   _defining_scope_kind: DefiningScopeKind,
@@ -313,7 +315,7 @@ export function opaque_type_has_defining_use_args(
 }
 
 /** PORT: `NonDefiningUseReason::report(&self, infcx)` (rustc_trait_selection opaque_types.rs, not ported). */
-export function NonDefiningUseReason_report(_self: NonDefiningUseReason, _infcx: FnCtxt): ErrorGuaranteed {
+export function NonDefiningUseReason_report(_self: NonDefiningUseReason, _infcx: InferCtxt): ErrorGuaranteed {
   return unported("rustc_trait_selection::opaque_types::NonDefiningUseReason::report");
 }
 
@@ -324,7 +326,7 @@ function NonDefiningUseReason_tainted(_self: NonDefiningUseReason): ErrorGuarant
 
 /** PORT: rustc_trait_selection opaque_types.rs `report_item_does_not_constrain_error` (not ported). */
 function report_item_does_not_constrain_error(
-  _tcx: unknown,
+  _tcx: TyCtxt,
   _item_def_id: LocalDefId,
   _def_id: LocalDefId,
   _non_defining_use: [OpaqueTypeKey, Span] | undefined,

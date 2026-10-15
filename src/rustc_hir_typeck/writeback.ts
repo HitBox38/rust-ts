@@ -681,10 +681,10 @@ WritebackCx.prototype.visit_opaque_types = function (this: WritebackCx): void {
       continue;
     }
 
-    const r = opaque_type_has_defining_use_args(this.fcx, opaque_type_key, hidden_type.span, "HirTypeck");
+    const r = opaque_type_has_defining_use_args(this.fcx.infcx, opaque_type_key, hidden_type.span, "HirTypeck");
     if (r.$ === "Err") {
       const err = r._0;
-      hidden_types.set(opaque_type_key.def_id, DefinitionSiteHiddenType.new_error(tcx, NonDefiningUseReason_report(err, this.fcx)));
+      hidden_types.set(opaque_type_key.def_id, DefinitionSiteHiddenType.new_error(tcx, NonDefiningUseReason_report(err, this.fcx.infcx)));
     }
 
     const remapped = hidden_type.remap_generic_params_to_declaration_params(opaque_type_key, tcx, "HirTypeck");
