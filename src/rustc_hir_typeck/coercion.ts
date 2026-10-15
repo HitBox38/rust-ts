@@ -45,8 +45,8 @@
 //   implementing `ProofTreeVisitor`.
 // - `debug!` / `#[instrument]` are tracing only and stay as comments; `debug_assert!` is a comment (PORTING §3).
 // - `commit_if_ok(|_| ..)` / `probe(|_| ..)` take a closure that ignores the snapshot argument.
-// - The old solver's `SelectionContext` (traits/select, wave 20 selcx-contract) is not ported: `coerce_unsized_old_solver`
-//   uses the local view `SelectionContextView` over normalize.ts's `pending_SelectionContext_new` (stops as UNPORTED).
+// - `coerce_unsized_old_solver` uses the old solver's `SelectionContext` (traits/select/mod.ts; its `select` is filled by
+//   the wave-18b old-solver lanes).
 // - `TypeErrCtxt` (error reporting, wave 19) is `Pending`: the error paths call it through the local view
 //   `TypeErrCtxtView` (`FnCtxt::err_ctxt` itself stops as UNPORTED today).
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every
@@ -89,7 +89,7 @@ import { span_bug } from "../rustc_span/macros.ts";
 import type { InspectGoal, InspectConfig, ProofTreeVisitor } from "../rustc_trait_selection/solve/inspect/analyse.ts";
 import { ProofTreeVisitor_provided } from "../rustc_trait_selection/solve/inspect/analyse.ts";
 import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
-import { pending_SelectionContext_new, type SelectionContext as NormalizeSelectionContext } from "../rustc_trait_selection/traits/normalize.ts";
+import { SelectionContext } from "../rustc_trait_selection/traits/select/mod.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../rustc_type_ir/binder.ts";
 import type { RelateResult } from "../rustc_type_ir/decls.ts";
 import { ExpectedFound, TypeError } from "../rustc_type_ir/error.ts";
@@ -133,15 +133,6 @@ const fold_PolyFnSig = (): TypeFoldable<PolyFnSigT> => fold_Binder(fold_FnSig);
 /** `Obligation::new`'s `Upcast` from a `TyCtxt` upcast fn (the interner is the `TyCtxt`). */
 function upcast_tcx<T, P>(f: (from: T, tcx: TyCtxt) => P): (from: T, tcx: Interner) => P {
   return (from, tcx) => f(from, tcx as unknown as TyCtxt);
-}
-
-/**
- * PORT(stub): `traits::SelectionContext` (traits/select/mod.rs; old solver, wave 20 selcx-contract): normalize.ts's view
- * plus the members `coerce_unsized_old_solver` uses. `SelectionContext::new` is normalize.ts's
- * `pending_SelectionContext_new` (stops as UNPORTED).
- */
-interface SelectionContextView extends NormalizeSelectionContext {
-  select(obligation: Obligation<Binder<TraitClause>>): Result<ImplSource<PredicateObligation> | undefined, SelectionError>;
 }
 
 /** PORT(stub): `error_reporting::TypeErrCtxt` (wave 19): the methods called in this file. */
@@ -761,8 +752,8 @@ Coerce.prototype.coerce_unsized_old_solver = function (
   coerce_unsized_did: DefId,
   unsize_did: DefId,
 ): Result<undefined, TypeError> {
-  // PORT: `traits::SelectionContext::new(self)` (`&InferCtxt`, the deref coercion of `self`); see the file header.
-  const selcx = pending_SelectionContext_new(this.infcx) as SelectionContextView;
+  // PORT: `traits::SelectionContext::new(self)`: `&InferCtxt` is the deref coercion of `self`.
+  const selcx = SelectionContext.new(this.infcx);
   // Use a FIFO queue for this custom fulfillment procedure.
   //
   // A Vec (or SmallVec) is not a natural choice for a queue. However,
@@ -787,7 +778,7 @@ Coerce.prototype.coerce_unsized_old_solver = function (
       continue;
     }
     // debug!("coerce_unsized resolve step: {:?}", trait_pred);
-    const sel = selcx.select(obligation.with(selcx.tcx(), trait_pred, (p: TraitClause) => Binder.dummy(p, d_TraitClause)));
+    const sel = selcx.select(obligation.with(selcx.tcx(), trait_pred, (p: TraitClause) => p));
     if (sel.$ === "Ok" && sel._0 === undefined) {
       // Uncertain or unimplemented.
       if (DefId_eq(TraitClause.def_id(trait_pred), unsize_did)) {
