@@ -38,7 +38,7 @@ import { relate_AliasConst } from "../../../rustc_type_ir/relate.ts";
 import { type Const, debug_Const, fold_Const } from "../../../rustc_type_ir/sty/consts.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { PLAIN } from "../../../std/fmt.ts";
-import { assert, unported, unreachable } from "../../../std/panic.ts";
+import { assert, panic, unported, unreachable } from "../../../std/panic.ts";
 import { Ok } from "../../../std/result.ts";
 import {
   ConstPatternDependsOnGenericParameter_diagnostic,
@@ -397,7 +397,7 @@ export class ConstToPat {
     } else if (tk.$ === "Adt" && tk._0.is_enum()) {
       const [adt_def, args] = [tk._0, tk._1];
       const branch = ValTreeKind.to_branch(valtree.kind());
-      if (branch.length === 0) return unreachable("called `Option::unwrap()` on a `None` value");
+      if (branch.length === 0) return panic("called `Option::unwrap()` on a `None` value");
       const [variant_index_c, ...fields] = branch;
       const variant_index = variant_index_c!.to_leaf().to_u32();
       kind = {
