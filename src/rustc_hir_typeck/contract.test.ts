@@ -478,13 +478,15 @@ test("placeholders stop as UNPORTED with the upstream path", () => {
     const fn = (obj as Record<string, () => unknown>)[name]!;
     if (unported_stub_path(fn) !== undefined) expect(stop(() => fn.call(obj))).toContain(path);
   }
-  for (const [f, path] of [
-    [() => (CastCheck.new as (...a: unknown[]) => unknown)(), "rustc_hir_typeck::cast::CastCheck::new"],
-    [() => (M_check.check_fn as (...a: unknown[]) => unknown)(), "rustc_hir_typeck::check::check_fn"],
-    [() => (M_loops.check as (...a: unknown[]) => unknown)(), "rustc_hir_typeck::loops::check"],
+  // Each free fn / associated fn is probed only while it is still a stub (its own body is `unported("<path>")` or it is a
+  // registered placeholder); a ported one is skipped.
+  for (const [target, path] of [
+    [(CastCheck as unknown as Record<string, unknown>).new, "rustc_hir_typeck::cast::CastCheck::new"],
+    [M_check.check_fn, "rustc_hir_typeck::check::check_fn"],
+    [M_loops.check, "rustc_hir_typeck::loops::check"],
   ] as const) {
-    const text = f.toString();
-    if (text.includes("unported") || unported_stub_path((CastCheck as unknown as Record<string, unknown>).new) !== undefined) expect(stop(f)).toContain(path);
+    const f = () => (target as (...a: unknown[]) => unknown)();
+    if (String(target).includes(`unported("${path}")`) || unported_stub_path(target) !== undefined) expect(stop(f)).toContain(path);
   }
 });
 
