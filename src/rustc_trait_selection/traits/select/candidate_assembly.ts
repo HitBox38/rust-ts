@@ -845,12 +845,12 @@ SelectionContext.prototype.reject_fn_ptr_impls = function (
       clone_ObligationCause(obligation.cause),
       obligation.param_env,
       tcx.mk_predicate(
-        Binder.map_bound(obligation.predicate, (pred_) => {
+        Binder.map_bound(obligation.predicate, (pred_): import("../../../rustc_middle/ty/predicate.gen.ts").PredicateKind => {
           const pred: TraitClause = {
             ...pred_,
             trait_ref: TraitRef.new(as_interner(tcx), fn_ptr_trait, [GenericArg.from_Ty(TraitRef.self_ty(pred_.trait_ref))]),
           };
-          return { $: "Clause", _0: { $: "Trait", _0: pred } } as import("../../../rustc_middle/ty/predicate.gen.ts").PredicateKind;
+          return { $: "Clause", _0: { $: "Trait", _0: pred } };
         }),
       ),
       upcast_identity_Predicate,
