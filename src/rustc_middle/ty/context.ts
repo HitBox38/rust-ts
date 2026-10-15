@@ -97,6 +97,7 @@ import { CanonicalParamEnvCache as InferCanonicalParamEnvCache } from "../infer/
 
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { AliasTermKind, CanonicalParamEnvCache, GlobalCache, Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
+import type { IntrinsicDef } from "./intrinsic.ts";
 import type { EarlyParamRegion, LateParamRegionKind, TypingEnv, VariantIdx } from "./decls.ts";
 import { debug_GenericArg, debug_GenericArgs } from "./generic_args.ts";
 import { GenericParamDef, type Generics } from "./generics.ts";
@@ -201,7 +202,6 @@ export const inherent_Span = {
 // file reads.
 type Thir = Pending<"thir::Thir">;
 type AllocId = Pending<"mir::interpret::AllocId">;
-type IntrinsicDef = Pending<"ty::IntrinsicDef">;
 type DepNode = Pending<"dep_graph::DepNode">;
 type Local = Pending<"mir::Local">;
 import type { ResolvedArg } from "../middle/resolve_bound_vars.ts";
