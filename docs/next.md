@@ -226,3 +226,5 @@ Wave-18b follow-ups found by lanes (for a `typeck-gaps` lane after the 13 lanes 
 - typeck-euv follow-ups: point rustc_middle/ty/decls.ts HirPlace/ProjectionKind at hir/place.ts (drop casts and stand-in views in ty/closure.ts, thir/cx/expr.ts, tydump_dump.ts); `pub mod place` in hir/mod.ts; codegen TypeFoldable/TypeVisitable for place types (writeback needs them).
 - decls.ts CoerceMany: import the hand class from ./coercion.ts (not coercion.gen.ts), stop codegen emitting it; drop expr.ts casts ret_coercion_of / as_gen_CoerceMany.
 - diagnostics.ts `ReturnLikeStatementKind` IntoDiagArg stub (return/become outside fn body).
+- QueryKey for `CanonicalMethodAutoderefStepsGoal` (method_autoderef_steps; first stop of every `x.method()` once typeck runs).
+- probe.ts: codegen the two probe_op lint diagnostics; move local fold_MethodAutoderefSteps / ParamEnvAnd fold descriptor into codegen; type CandidateStep.self_ty; debug_Canonical var_kinds.
