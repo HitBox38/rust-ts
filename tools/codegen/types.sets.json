@@ -117,6 +117,7 @@
       "rustc_ast::tokenstream::Spacing",
       "rustc_ast::tokenstream::TokenTree",
       "rustc_ast::attr::version::RustcVersion",
+      "rustc_ast::attr::data_structures::CfgEntry",
       "rustc_ast::ast::MetaItemLit",
       "rustc_ast::token::DocFragmentKind",
       "rustc_ast::visit::AssocCtxt"
