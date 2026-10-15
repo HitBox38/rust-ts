@@ -26,7 +26,8 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
 const PENDING = new Set([
-  "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt", // args_main.rs: E0580 report (wave 19)
+  // args_main.rs: E0580 report (wave 19); re-pinned by errctxt-contract (`err_ctxt` and `ObligationCauseExt` ported)
+  "rustc_trait_selection::error_reporting::infer::TypeErrCtxt::note_type_err",
 ]);
 
 /** Cases that print the oracle's stderr since merge-w18d: they must not stop. */
