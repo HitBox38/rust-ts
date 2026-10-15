@@ -1,0 +1,12 @@
+{
+  "//": [
+    "Set-local type map of set rustc_mir_build (lane thir-pattern; types.sets.json `typemap_extra`): the types that",
+    "rustc_mir_build's diagnostics.rs reaches outside the set. rustc_pattern_analysis is not ported (lane check_match /",
+    "pattern-analysis): its types are `unknown` until it lands."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    {"paths": ["rustc_pattern_analysis::rustc::RustcPatCtxt"], "ts": "unknown", "debug": null, "clone": null, "note": "PORT: pending rustc_pattern_analysis (not ported; check_match lane)"}
+  ]
+}

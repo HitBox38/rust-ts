@@ -1125,5 +1125,20 @@
       "compiler/rustc_infer/src/infer/mod.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "infer.typemap.json", "trait_selection.typemap.json"]
+  },
+  "rustc_mir_build": {
+    "files": [
+      "compiler/rustc_mir_build/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [
+      "rustc_mir_build::diagnostics::PatternNotCovered"
+    ],
+    "skip_notes": {
+      "rustc_mir_build::diagnostics::PatternNotCovered": "its `#[subdiagnostic] uncovered: Uncovered` is rustc_pattern_analysis::diagnostics::Uncovered (crate not ported): generated with check_match (rustc_pattern_analysis lane)"
+    },
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "mir_build.typemap.json"]
   }
 }
