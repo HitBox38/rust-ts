@@ -6,7 +6,8 @@ import { expect, test } from "bun:test";
 import "./lib.ts";
 import { HirId, ItemLocalId, OwnerId } from "../rustc_hir_id/lib.ts";
 import type { CaptureInfo, CapturedPlace as CapturedPlaceT, UpvarCapture } from "../rustc_middle/ty/closure.ts";
-import { Place, type PlaceBase, type Projection } from "../rustc_middle/hir/place.ts";
+import { fold_with_Place, Place, Place_eq, type PlaceBase, type Projection, try_fold_with_Place, visit_with_Place } from "../rustc_middle/hir/place.ts";
+import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { CapturedPlace, UpvarId } from "../rustc_middle/ty/closure.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { FieldIdx, VariantIdx } from "../rustc_middle/ty/decls.ts";
@@ -252,10 +253,18 @@ test("construct_*_string / migration_suggestion_for_2229 / migration_message", (
   });
 });
 
-test("InferBorrowKind ignores non-upvar places and stops at the pending TypeVisitable of hir::place::Place for upvars", () => {
+test("InferBorrowKind ignores non-upvar places and records upvar captures through the generated hir::place::Place folds", () => {
   create_default_session_globals_then(() => {
-    // `normalize` stub: the real one first visits the value (`has_aliases`), through the place's TypeVisitable.
-    const fcx = { tcx: { hir_span: () => DUMMY_SP }, normalize: (_s: unknown, _v: unknown, d: { visit_with: () => unknown }) => d.visit_with() } as never;
+    // `normalize` stub: returns the value as given and records the `TypeFoldable` descriptor it was handed (since
+    // small-gaps-19 the generated `hir::place::Place` derives of hir/place.gen.ts, no longer an `unported` stand-in).
+    const seen: { visit_with: unknown; try_fold_with: unknown; fold_with: unknown }[] = [];
+    const fcx = {
+      tcx: { hir_span: () => DUMMY_SP },
+      normalize: (_s: unknown, v: Unnormalized<Place>, d: { visit_with: unknown; try_fold_with: unknown; fold_with: unknown }) => {
+        seen.push(d);
+        return Unnormalized.skip_norm_wip(v);
+      },
+    } as never;
     const d = new InferBorrowKind(fcx, CLOSURE, [], []);
     const local = { hir_id: X, place: new Place(STRUCT, { $: "Local", _0: X }, []) } as unknown as PlaceWithHirId;
     d.consume(local, X);
@@ -267,13 +276,14 @@ test("InferBorrowKind ignores non-upvar places and stops at the pending TypeVisi
     expect(d.fake_reads).toEqual([]);
 
     const up = { hir_id: X, place: place(STRUCT, []) } as unknown as PlaceWithHirId;
-    let msg = "";
-    try {
-      d.consume(up, X);
-    } catch (e) {
-      expect(e).toBeInstanceOf(Unported);
-      msg = (e as Error).message;
-    }
-    expect(msg).toContain("rustc_middle::hir::place::Place TypeVisitable");
+    d.consume(up, X);
+    expect(seen.length).toBe(1);
+    expect(seen[0]!.visit_with).toBe(visit_with_Place);
+    expect(seen[0]!.try_fold_with).toBe(try_fold_with_Place);
+    expect(seen[0]!.fold_with).toBe(fold_with_Place);
+    expect(d.capture_information.length).toBe(1);
+    const [captured, capture_info] = d.capture_information[0]!;
+    expect(Place_eq(captured, up.place)).toBe(true);
+    expect(capture_info).toEqual({ capture_kind_expr_id: X, path_expr_id: X, capture_kind: { $: "ByValue" } });
   });
 });
