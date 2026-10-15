@@ -530,7 +530,7 @@ function visit_implementation_of_dispatch_from_dyn(checker: Checker): Result<nul
             ),
           );
         } else {
-          return Err(err_ctxt(infcx).report_fulfillment_errors(errs));
+          return Err(infcx.err_ctxt().report_fulfillment_errors(errs));
         }
       }
 
@@ -604,7 +604,7 @@ export function reborrow_info(tcx: TyCtxt, impl_did: LocalDefId): Result<null, E
   // We've found some data fields. They must all be either be Copy or Reborrow.
   for (const field of data_fields) {
     const n = ocx.deeply_normalize(ObligationCause.misc(field.span, impl_did), param_env, Unnormalized.new_wip(field.ty), fold_Ty);
-    if (n.$ === "Err") return Err(err_ctxt(infcx).report_fulfillment_errors(n._0));
+    if (n.$ === "Err") return Err(infcx.err_ctxt().report_fulfillment_errors(n._0));
     field.ty = n._0;
     if (field_type_is_reborrow(tcx, infcx, reborrow_trait, impl_did, param_env, field.ty, field.span)) {
       // Field implements Reborrow, check remaining fields.
@@ -702,7 +702,7 @@ export function assert_field_type_is_copy(tcx: TyCtxt, infcx: InferCtxt, impl_di
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
 
   if (errors.$ === "HasErrors") {
-    return Err(err_ctxt(infcx).report_fulfillment_errors(errors._0));
+    return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
   } else {
     return Ok(null);
   }
@@ -733,7 +733,7 @@ export function coerce_unsized_info(tcx: TyCtxt, impl_did: LocalDefId): Result<C
   const cause = ObligationCause.misc(span, impl_did);
   const check_mutbl = (mt_a: TypeAndMut, mt_b: TypeAndMut, mk_ptr: (ty: Ty) => Ty): [Ty, Ty, DefId, CustomCoerceUnsized | undefined, Span] => {
     if (Mutability_lt(mt_a.mutbl, mt_b.mutbl)) {
-      err_ctxt(infcx).report_mismatched_types(cause, param_env, mk_ptr(mt_b.ty), target0, TypeError.Mutability).emit();
+      infcx.err_ctxt().report_mismatched_types(cause, param_env, mk_ptr(mt_b.ty), target0, TypeError.Mutability).emit();
     }
     return [mt_a.ty, mt_b.ty, unsize_trait, undefined, span];
   };
@@ -916,7 +916,7 @@ export function coerce_unsized_info(tcx: TyCtxt, impl_did: LocalDefId): Result<C
         ),
       );
     } else {
-      return Err(err_ctxt(infcx).report_fulfillment_errors(errors._0));
+      return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
     }
   }
 
@@ -1123,13 +1123,4 @@ export function LayoutData_is_1zst(_layout: unknown): boolean {
   return unported("rustc_abi::LayoutData::is_1zst");
 }
 
-/** PORT(stub): `error_reporting::TypeErrCtxt` (wave 19): the methods called here and in coerce_shared.ts. */
-interface TypeErrCtxtView {
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-  report_mismatched_types(cause: ObligationCause, param_env: ParamEnv, expected: Ty, actual: Ty, err: TypeError): Diag;
-}
 
-/** `infcx.err_ctxt()` (`InferCtxtErrorExt`, error_reporting/mod.rs:42): its placeholder stops as UNPORTED today. */
-export function err_ctxt(infcx: InferCtxt): TypeErrCtxtView {
-  return infcx.err_ctxt() as unknown as TypeErrCtxtView;
-}

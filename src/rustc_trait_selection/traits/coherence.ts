@@ -13,8 +13,6 @@
 //   (no codegen set covers rustc_trait_selection yet; see the handoff).
 // - `FxIndexSet<IntercrateAmbiguityCause>` / `FxHashSet<Goal<Predicate>>` are `KeyedSet`s on `intern_key` (the derived
 //   `Hash` + `Eq` of values holding interned handles), insertion-ordered as an `IndexSet`.
-// - The one item this file calls that is not ported yet (`suggest_new_overflow_limit`, wave 19) is a local stand-in at
-//   the end of the file that stops as UNPORTED.
 // - `#[instrument]` / `debug!` / `warn!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
@@ -821,9 +819,6 @@ function UniverseIndex_debug(u: UniverseIndex): string {
 /** `traits::select::IntercrateAmbiguityCause` (traits/select/mod.ts). */
 export type { IntercrateAmbiguityCause } from "./select/mod.ts";
 import type { IntercrateAmbiguityCause } from "./select/mod.ts";
+import { suggest_new_overflow_limit } from "../error_reporting/traits/overflow.ts";
 
-/** Stand-in for `error_reporting::traits::suggest_new_overflow_limit` (error_reporting/traits/overflow.rs:20, wave 19). */
-function suggest_new_overflow_limit(_tcx: TyCtxt, _err: Diag): void {
-  unported("rustc_trait_selection::error_reporting::traits::overflow::suggest_new_overflow_limit");
-}
 

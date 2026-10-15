@@ -38,7 +38,8 @@ const args = (s: string, file: string): string[] => [
 
 /** The exact `unported(..)` texts the cases stop at today (re-pinned by merge-w17, merge-w18c). */
 const PENDING = new Set([
-  "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt", // field_bound.rs: E0277 report (wave 19)
+  // field_bound.rs: E0277 report (wave 19); re-pinned by errctxt-contract (`err_ctxt` ported)
+  "rustc_trait_selection::error_reporting::traits::TypeErrCtxt::report_fulfillment_errors",
 ]);
 
 /** Cases that print the oracle's stderr since merge-w17 (const_param.rs) / merge-w18c (`mir::ConstraintCategory`

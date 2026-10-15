@@ -130,8 +130,9 @@ import type { WritebackCx } from "./writeback.gen.ts";
 export type { Place, PlaceBase, PlaceWithHirId, Projection };
 /** rustc_middle ty/layout.rs `SizeSkeleton<'tcx>` (intrinsicck.rs; M4 layout). */
 export type SizeSkeleton = Pending<"rustc_middle::ty::layout::SizeSkeleton">;
-/** rustc_trait_selection error_reporting/traits/suggestions.rs `DefIdOrName` (fn_ctxt/suggestions.rs; wave 19). */
-export type DefIdOrName = Pending<"rustc_trait_selection::error_reporting::traits::DefIdOrName">;
+/** rustc_trait_selection error_reporting/traits/mod.rs `DefIdOrName` (generated; errctxt-contract). */
+export type { DefIdOrName } from "../rustc_trait_selection/error_reporting/traits/mod.gen.ts";
+import type { DefIdOrName } from "../rustc_trait_selection/error_reporting/traits/mod.gen.ts";
 /** writeback.rs:900 `trait Locatable` (`impl Locatable for Span / HirId`): `Span | HirId` is enough for `to_span`. */
 export type Locatable = Span | HirId;
 
@@ -141,88 +142,9 @@ export type Locatable = Span | HirId;
 // and fn_ctxt/checks.rs's `FnCallDiagCtxt -> ArgMatchingCtxt -> ArgsCtxt -> CallCtxt -> FnCtxt`.
 // ======================================================================================================================
 
-interface DerefEntry {
-  outer: Function;
-  field: string;
-  inner: Function;
-  installed: boolean;
-}
-const DEREFS: DerefEntry[] = [];
-
-/**
- * Registers `impl Deref for <outer> { type Target = <inner>; fn deref(&self) { &self.<field> } }`. Every member the
- * inner type has and the outer one does not (the inner instance fields, the inner prototype's methods and accessors,
- * including the inner type's own deref forwarders) becomes a forwarding member of `outer.prototype` when
- * `install_derefs()` runs: a field is a getter/setter on `this.<field>.<name>`, a method calls
- * `this.<field>.<name>(..args)` (so `this` inside it is the inner value, as after Rust's auto-deref). A member that the
- * outer type declares itself (its own fields, its methods, its `unported_methods` placeholders) shadows the inner one,
- * as Rust's method lookup tries the outer type first. The TS side is `interface Outer extends Omit<Inner, shadowed>`.
- * Called at module top level by the module that defines `outer`; lib.ts calls `install_derefs()` once every module
- * (and so every prototype method and placeholder of the crate) is loaded.
- */
-export function register_deref(outer: Function, field: string, inner: Function): void {
-  DEREFS.push({ outer, field, inner, installed: false });
-}
-
-/** Installs the forwarders of every `register_deref` (inner types first). Idempotent. */
-export function install_derefs(): void {
-  for (const e of DEREFS) install_deref(e);
-}
-
-function install_deref(e: DerefEntry): void {
-  if (e.installed) return;
-  const inner_entry = DEREFS.find((x) => x.outer === e.inner);
-  if (inner_entry) install_deref(inner_entry);
-  const proto = e.outer.prototype as Record<string, unknown>;
-  const field = e.field;
-  const own = (name: string) => Object.prototype.hasOwnProperty.call(proto, name);
-  // The inner type's instance fields: its constructor assigns every parameter property, so a no-argument
-  // construction lists them (the constructors of these classes only store their arguments).
-  const fields = Object.keys(Reflect.construct(e.inner, []) as object);
-  for (const name of fields) {
-    if (name === field || own(name)) continue;
-    Object.defineProperty(proto, name, {
-      get(this: Record<string, Record<string, unknown>>) {
-        return this[field]![name];
-      },
-      set(this: Record<string, Record<string, unknown>>, v: unknown) {
-        this[field]![name] = v;
-      },
-      configurable: true,
-    });
-  }
-  for (let p = e.inner.prototype as object | null; p !== null && p !== Object.prototype; p = Object.getPrototypeOf(p)) {
-    for (const name of Object.getOwnPropertyNames(p)) {
-      if (name === "constructor" || name === "deref" || own(name)) continue;
-      const desc = Object.getOwnPropertyDescriptor(p, name)!;
-      if (desc.get || desc.set) {
-        Object.defineProperty(proto, name, {
-          get(this: Record<string, Record<string, unknown>>) {
-            return this[field]![name];
-          },
-          set(this: Record<string, Record<string, unknown>>, v: unknown) {
-            this[field]![name] = v;
-          },
-          configurable: true,
-        });
-      } else if (typeof desc.value === "function") {
-        Object.defineProperty(proto, name, {
-          value: function (this: Record<string, Record<string, (...a: unknown[]) => unknown>>, ...args: unknown[]): unknown {
-            return this[field]![name]!(...args);
-          },
-          writable: true,
-          configurable: true,
-        });
-      }
-    }
-  }
-  e.installed = true;
-}
-
-/** The registered derefs (contract.test.ts). */
-export function registered_derefs(): readonly { outer: Function; field: string; inner: Function }[] {
-  return DEREFS;
-}
+// PORT(errctxt-contract): the registry moved to rust_ts/deref.ts, shared with rustc_trait_selection's
+// `TypeErrCtxt -> InferCtxt` (error_reporting/mod.ts); this module re-exports it under the same names.
+export { install_derefs, register_deref, registered_derefs } from "../rust_ts/deref.ts";
 
 // ======================================================================================================================
 // TypeckRootCtxt (typeck_root_ctxt.rs:26)

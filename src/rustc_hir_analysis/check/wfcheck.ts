@@ -80,7 +80,6 @@ import { check_impl_wf } from "../impl_wf_check.ts";
 import { ToTrace_Ty } from "../../rustc_infer/infer/at.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 import type { FulfillmentError } from "../../rustc_trait_selection/traits/mod.gen.ts";
-import { err_ctxt } from "../../rustc_trait_selection/traits/mod.ts";
 import { type_allowed_to_implement_const_param_ty } from "../../rustc_trait_selection/traits/misc.ts";
 import { clause_obligations as wf_clause_obligations, trait_obligations as wf_trait_obligations, unnormalized_obligations as wf_unnormalized_obligations } from "../../rustc_trait_selection/traits/wf.ts";
 import { region_known_to_outlive, ty_known_to_outlive } from "../../rustc_trait_selection/regions.ts";
@@ -247,7 +246,7 @@ export class WfCheckingCtxt {
         return r._0;
       } else {
         const errors = r._0;
-        err_ctxt(this.infcx).report_fulfillment_errors(errors);
+        this.infcx.err_ctxt().report_fulfillment_errors(errors);
         return Unnormalized.skip_norm_wip(value);
       }
     } else {
@@ -293,7 +292,7 @@ export function enter_wf_checking_ctxt(
 
   const errors = wfcx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    return Err(err_ctxt(infcx).report_fulfillment_errors(errors._0));
+    return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
   }
 
   const assumed_wf_types_r = wfcx.ocx.assumed_wf_types_and_report_errors(param_env, body_def_id);
@@ -335,7 +334,7 @@ export function enter_wf_checking_ctxt(
     // to upgrade bevy.
     return Ok(null);
   } else {
-    return Err(err_ctxt(infcx_compat).report_region_errors(body_def_id, errors_compat));
+    return Err(infcx_compat.err_ctxt().report_region_errors(body_def_id, errors_compat));
   }
 }
 
@@ -2527,7 +2526,7 @@ WfCheckingCtxt.prototype.check_test_binder_body = function (this: WfCheckingCtxt
       case "NoErrors":
         break;
       case "HasErrors":
-        err_ctxt(this.infcx).report_fulfillment_errors(errors._0);
+        this.infcx.err_ctxt().report_fulfillment_errors(errors._0);
         return;
     }
   }

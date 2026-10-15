@@ -77,9 +77,6 @@ const fold_CoroutineClosureSignature: TypeFoldable<CoroutineClosureSignatureT> =
   fold_with: (self, folder) => fold_with_CoroutineClosureSignature(self, folder),
 };
 
-/** PORT: `DefIdOrName` (rustc_trait_selection error_reporting/traits/mod.rs) is `Pending` in decls.ts (wave 19); its
- *  standard representation (PORTING §5 enums with data), read only after `extract_callable_info` returned it. */
-type DefIdOrNameRepr = { readonly $: "DefId"; _0: DefId } | { readonly $: "Name"; _0: string };
 
 /// Checks that it is legal to call methods of the trait corresponding
 /// to `trait_id` (this only cares about the trait, not the specific
@@ -932,7 +929,7 @@ the local binding");
     const info = this.extract_callable_info(callee_ty);
     if (info !== undefined && !this.type_is_sized_modulo_regions(this.param_env, info[1])) {
       const [maybe_def_, output_ty, _] = info;
-      const maybe_def = maybe_def_ as unknown as DefIdOrNameRepr;
+      const maybe_def = maybe_def_;
       const descr = maybe_def.$ === "DefId" ? this.tcx.def_descr(maybe_def._0) : maybe_def._0;
       err.span_label(callee_expr.span, `this ${descr} returns an unsized value \`${display_Ty(output_ty)}\`, so it cannot be called`);
       let def_span: Span | undefined;

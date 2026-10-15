@@ -217,7 +217,11 @@ describe("rustc_infer contract", () => {
   });
 
   test("rustc_trait_selection's extension methods are ported or its placeholders and collide with no inherent method", async () => {
-    const ts = parse_decls(join(HERE, "../rustc_trait_selection/decls.ts"));
+    // The error-reporting contract of that file (lane errctxt-contract: `TypeErrCtxt`, `NiceRegionError`, `ObligationCause`,
+    // `Fns_*` of error_reporting/** and diagnostics.rs) is checked by rustc_trait_selection/errctxt_contract.test.ts; its
+    // one extension method on rustc_infer's types (`InferCtxt::err_ctxt`, error_reporting/mod.rs:42) stays here.
+    const ts_all = parse_decls(join(HERE, "../rustc_trait_selection/decls.ts"));
+    const ts = { decls: ts_all.decls.filter((d) => !/^(error_reporting\/|diagnostics)/.test(d.file) || d.module === "../rustc_infer/decls.ts") };
     const inherent = new Set(DECLS.decls.filter((d) => d.module === undefined).map((d) => `${d.ctx}.${d.name}`));
     const bad: string[] = [];
     for (const d of ts.decls) {
@@ -320,7 +324,10 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
     // (`can_eq` stopped here until lane trait-sel-traits-a ported rustc_trait_selection infer.rs.)
     // (`predicate_may_hold` stopped here until lane selcx-contract ported traits/query/evaluate_obligation.rs.)
     // (`At::query_normalize` stopped here until lane old-query-typeops ported traits/query/normalize.rs.)
-    expect(() => infcx.err_ctxt()).toThrow(/rustc_trait_selection::error_reporting::InferCtxt::err_ctxt/);
+    // (`err_ctxt` stopped here until lane errctxt-contract ported error_reporting/mod.rs; its `TypeErrCtxt` methods are
+    // the error-reporting lanes' placeholders.)
+    const ecx = infcx.err_ctxt();
+    expect(() => ecx.report_fulfillment_errors([])).toThrow(/rustc_trait_selection::error_reporting::traits::TypeErrCtxt::report_fulfillment_errors/);
   });
 
   test("rustc_middle infer/canonical.rs: CanonicalParamEnvCache and OriginalQueryValues defaults", () => {

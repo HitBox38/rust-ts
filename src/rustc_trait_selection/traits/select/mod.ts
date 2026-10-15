@@ -1308,7 +1308,7 @@ SelectionContext.prototype.check_recursion_depth = function <T>(
   this: SelectionContext,
   depth: number,
   error_obligation: Obligation<T>,
-  _upcast_from_T: (from: T, tcx: Interner) => Predicate,
+  upcast_from_T: (from: T, tcx: Interner) => Predicate,
 ): Result<null, OverflowError> {
   if (!this.infcx.tcx.recursion_limit().value_within_limit(depth)) {
     switch (this.query_mode) {
@@ -1317,7 +1317,7 @@ SelectionContext.prototype.check_recursion_depth = function <T>(
         if (e !== undefined) {
           return Err({ $: "Error", _0: e });
         }
-        traits_mod().err_ctxt(this.infcx).report_overflow_obligation(error_obligation, true);
+        this.infcx.err_ctxt().report_overflow_obligation(error_obligation, true, upcast_from_T);
         break;
       }
       case "Canonical": {

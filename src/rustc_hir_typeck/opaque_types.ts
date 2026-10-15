@@ -4,7 +4,7 @@
 //   MutRef<UsageKind>, other)` (PORTING §8: an enum method; `&mut self` assigns through the cell).
 // - rustc_trait_selection's opaque_types.rs (`opaque_type_has_defining_use_args`, `NonDefiningUseReason`,
 //   `report_item_does_not_constrain_error`) is rustc_trait_selection/opaque_types.ts (lane typeck-gaps).
-// - `FnCtxt::err_ctxt()` returns the `Pending` `TypeErrCtxt` (wave 19): `TypeErrCtxtView` lists the methods called here.
+// - `FnCtxt::err_ctxt()` returns rustc_trait_selection's `TypeErrCtxt` (errctxt-contract).
 // - `debug!` / `#[instrument]` are tracing only and stay as comments.
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates.
 export * from "./opaque_types.gen.ts";
@@ -207,7 +207,7 @@ FnCtxt.prototype.compute_definition_site_hidden_types = function (
               break;
             }
           }
-          guar = err_ctxt(this)
+          guar = this.err_ctxt()
             .emit_inference_failure_err(this.body_def_id, hidden_type.span, infer_var ?? hidden_type.ty, "E0282", false)
             // The shared E0282 label only says "cannot infer type", which gives no
             // hint that the ambiguity is in an opaque's hidden type rather than an
@@ -254,7 +254,7 @@ FnCtxt.prototype.consider_opaque_type_use = function (this: FnCtxt, opaque_type_
     hidden_type = n._0;
   } else {
     const errors = n._0;
-    const guar = err_ctxt(this).report_fulfillment_errors(errors);
+    const guar = this.err_ctxt().report_fulfillment_errors(errors);
     hidden_type = ProvisionalHiddenType.new_error(this.tcx, guar);
   }
   const hidden_type2 = hidden_type.remap_generic_params_to_declaration_params(opaque_type_key, this.tcx, "HirTypeck");
@@ -287,19 +287,6 @@ FnCtxt.prototype.detect_opaque_types_added_during_writeback = function (this: Fn
 
 // ---- helpers ---------------------------------------------------------------------------------------------------------
 
-/**
- * PORT(wave 19): `error_reporting::TypeErrCtxt` is a `Pending` type (rustc_trait_selection decls.ts); these are the
- * methods this file calls on `FnCtxt::err_ctxt()`. Root drops the view when the errctxt contract lands.
- */
-interface TypeErrCtxtView {
-  // error_reporting/infer/need_type_info.rs `emit_inference_failure_err` (`TypeAnnotationNeeded::E0282` is `"E0282"`)
-  emit_inference_failure_err(body_def_id: LocalDefId, failure_span: Span, term: Term, error_code: "E0282" | "E0283" | "E0284", should_label_span: boolean): Diag;
-  // error_reporting/traits/fulfillment_errors.rs `report_fulfillment_errors`
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-}
-function err_ctxt(fcx: FnCtxt): TypeErrCtxtView {
-  return fcx.err_ctxt() as unknown as TypeErrCtxtView;
-}
 
 /** PORT: typeck_results.ts types `hidden_types` with a local `Pending` alias of `ty::DefinitionSiteHiddenType`. */
 function hidden_types_of(r: TypeckResults): Map<LocalDefId, DefinitionSiteHiddenType> {

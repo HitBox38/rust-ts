@@ -24,6 +24,7 @@ import { fold_Clause, fold_Span, fold_Ty } from "../rustc_middle/ty/structural_i
 import type { DefId, LocalDefId } from "../rustc_span/def_id.ts";
 import { LocalDefId as LocalDefIdC } from "../rustc_span/def_id.ts";
 import { DUMMY_SP, type ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
+import { ArgKind, type ArgKind as ArgKindT } from "../rustc_trait_selection/error_reporting/traits/mod.ts";
 import { MultiSpan } from "../rustc_error_messages/lib.ts";
 import { span_bug } from "../rustc_span/macros.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../rustc_type_ir/binder.ts";
@@ -683,15 +684,18 @@ FnCtxt.prototype.sig_of_closure_with_expectation = function (this: FnCtxt, expr_
 // rustc: compiler/rustc_hir_typeck/src/closure.rs:714 sig_of_closure_with_mismatched_number_of_arguments
 FnCtxt.prototype.sig_of_closure_with_mismatched_number_of_arguments = function (this: FnCtxt, expr_def_id: LocalDefId, decl: hir.FnDecl, expected_sig: ExpectedSig): ClosureSignatures {
   const expr_map_node = this.tcx.hir_node_by_def_id(expr_def_id);
-  const expected_args = FnSig.inputs(Binder.skip_binder(expected_sig.sig)).map((ty) => ArgKind_from_expected_ty(ty, undefined));
-  // PORT: error path (wave 19): `self.err_ctxt()` stops (`TypeErrCtxt` is pending); its
-  // `get_fn_like_arguments(expr_map_node)` / `report_arg_count_mismatch(..).emit_err()` and then
-  // `self.error_sig_of_closure(decl, guar)` / `self.closure_sigs(expr_def_id, error_sig)` follow upstream.
-  this.err_ctxt();
-  void expr_map_node;
-  void expected_args;
-  void decl;
-  return unported("rustc_trait_selection::error_reporting::TypeErrCtxt::{get_fn_like_arguments, report_arg_count_mismatch}");
+  const expected_args = FnSig.inputs(Binder.skip_binder(expected_sig.sig)).map((ty) => ArgKind.from_expected_ty(ty, undefined));
+  const fn_like = this.err_ctxt().get_fn_like_arguments(expr_map_node);
+  const [closure_span, closure_arg_span, found_args]: [Span | undefined, Span | undefined, ArgKindT[]] =
+    fn_like !== undefined ? [fn_like[0], fn_like[1], fn_like[2]] : [undefined, undefined, []];
+  const expected_span = expected_sig.cause_span ?? this.tcx.def_span(expr_def_id);
+  const guar = this.err_ctxt()
+    .report_arg_count_mismatch(expected_span, closure_span, expected_args, found_args, true, closure_arg_span)
+    .emit_err();
+
+  const error_sig = this.error_sig_of_closure(decl, guar);
+
+  return this.closure_sigs(expr_def_id, error_sig);
 };
 
 /// Enforce the user's types against the expectation. See
@@ -967,7 +971,3 @@ FnCtxt.prototype.closure_sigs = function (this: FnCtxt, expr_def_id: LocalDefId,
 };
 // }
 
-/** PORT(stand-in): `ArgKind::from_expected_ty` (rustc_trait_selection error_reporting/traits/mod.rs, wave 19, not ported). */
-function ArgKind_from_expected_ty(_t: Ty, _span: Span | undefined): never {
-  return unported("rustc_trait_selection::error_reporting::traits::ArgKind::from_expected_ty");
-}

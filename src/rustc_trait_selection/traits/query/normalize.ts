@@ -15,10 +15,11 @@
 //   `cache: SsoHashMap<Ty, Ty>` is a `Map` keyed by the interned `Ty`; `cause: &ObligationCause` is the At's cause
 //   (shared, not cloned).
 // - `std::any::type_name::<T>()` only feeds `debug!` / `info!` (tracing produces no output in the oracle): left out.
-// - `infcx.err_ctxt()` (error_reporting, wave 19) is read through `err_ctxt` (../mod.ts) and its `TypeErrCtxtView`.
+// - `infcx.err_ctxt()` is error_reporting's `TypeErrCtxt` (errctxt-contract; its methods are placeholders until wave 19).
 // Init order: top-level code here may touch only rustc_infer (loaded first by ../../lib.ts), ./normalize.gen.ts and other
 // crates; this crate's other modules are read inside function bodies.
 
+import { upcast_from_self } from "../../../rustc_type_ir/upcast.ts";
 import { At, type InferCtxt } from "../../../rustc_infer/decls.ts";
 import type { PredicateObligation, PredicateObligations } from "../../../rustc_infer/traits/mod.ts";
 import { Normalized } from "../../../rustc_infer/traits/project.ts";
@@ -144,7 +145,7 @@ At.prototype.query_normalize = function <T>(this: At, value: T, d_T: TypeFoldabl
         }
         if (found !== undefined) {
           const [overflowed_obligation, suggest_higher_limit] = found;
-          traits_mod().err_ctxt(this.infcx).report_overflow_obligation(overflowed_obligation, suggest_higher_limit);
+          this.infcx.err_ctxt().report_overflow_obligation(overflowed_obligation, suggest_higher_limit, upcast_from_self);
         } else {
           return Err(NO_SOLUTION);
         }
@@ -288,8 +289,8 @@ QueryNormalizer.prototype.try_fold_ty = function (this: QueryNormalizer, ty: Ty)
           const recursion_limit = this.cx().recursion_limit();
 
           if (!recursion_limit.value_within_limit(this.anon_depth)) {
-            const guar = traits_mod()
-              .err_ctxt(this.infcx)
+            const guar = this.infcx
+              .err_ctxt()
               .build_overflow_error({ $: "DeeplyNormalize", _0: AliasTermC.from_AliasTy(data) }, this.cause.span, true)
               .delay_as_bug();
             return Ok(Ty.new_error(this.cx(), guar));

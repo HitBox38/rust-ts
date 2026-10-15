@@ -43,7 +43,6 @@ import { assert, unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { NextSolverError } from "../decls.ts";
 import type { FulfillmentError } from "./mod.gen.ts";
-import { err_ctxt } from "./mod.ts";
 import { FromSolverError_FulfillmentError, FromSolverError_ScrubbedTraitError, FulfillmentCtxt as NextFulfillmentCtxt } from "../solve/fulfill.ts";
 
 /** `traits::fulfill::OldSolverError<'tcx>` (traits/fulfill.ts). */
@@ -351,7 +350,7 @@ export class ObligationCtxt<E = ScrubbedTraitError> {
     if (errors.length === 0) {
       return Ok(null);
     } else {
-      return Err(err_ctxt(this.infcx).report_region_errors(body_def_id, errors));
+      return Err(this.infcx.err_ctxt().report_region_errors(body_def_id, errors));
     }
   }
 
@@ -370,7 +369,7 @@ export class ObligationCtxt<E = ScrubbedTraitError> {
   // rustc: compiler/rustc_trait_selection/src/traits/engine.rs:377 assumed_wf_types_and_report_errors
   assumed_wf_types_and_report_errors(this: ObligationCtxt<FulfillmentError>, param_env: ParamEnv, def_id: LocalDefId): Result<Set<Ty>, ErrorGuaranteed> {
     const r = this.assumed_wf_types(param_env, def_id);
-    return r.$ === "Ok" ? r : Err(err_ctxt(this.infcx).report_fulfillment_errors(r._0));
+    return r.$ === "Ok" ? r : Err(this.infcx.err_ctxt().report_fulfillment_errors(r._0));
   }
 
   // ---- impl<'tcx> ObligationCtxt<'_, 'tcx, ScrubbedTraitError<'tcx>> ----

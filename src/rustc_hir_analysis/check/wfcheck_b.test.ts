@@ -34,9 +34,9 @@ const args = (s: string, file: string): string[] => ["--sysroot", s, "--edition=
 
 /** The exact `unported(..)` texts the `wf` mode stops at today (re-pinned by merge-w17, codegen-fn-attrs). */
 const PENDING_WF = new Set([
-  // static_wf.rs: `check_static_item` -> the `Sync` obligation's E0277 report needs `InferCtxt::err_ctxt`
-  // (rustc_trait_selection error_reporting, not ported)
-  "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt",
+  // static_wf.rs: `check_static_item` -> the `Sync` obligation's E0277 report (rustc_trait_selection error_reporting,
+  // wave 19); re-pinned by errctxt-contract (`err_ctxt` ported)
+  "rustc_trait_selection::error_reporting::traits::TypeErrCtxt::report_fulfillment_errors",
   // (receiver.rs prints the oracle's E0307 since merge-w18c: `mir::ConstraintCategory` is generated and the harness runs
   // `check_associated_item` on impl items)
 ]);

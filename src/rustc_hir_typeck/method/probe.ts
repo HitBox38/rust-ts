@@ -380,12 +380,7 @@ FnCtxt.prototype.probe_op = function <R>(
 
         const raw_ptr_call = bad_ty.reached_raw_pointer && !this.tcx.features().arbitrary_self_types();
 
-        const err_ctxt = this.err_ctxt();
-        // PORT: `TypeErrCtxt::emit_inference_failure_err` / `TypeAnnotationNeeded` (rustc_trait_selection
-        // error_reporting/infer/need_type_info.rs, wave 19) are not ported.
-        void err_ctxt;
-        void err_span;
-        const err: Diag = unported("rustc_trait_selection::error_reporting::infer::need_type_info::emit_inference_failure_err");
+        const err: Diag = this.err_ctxt().emit_inference_failure_err(this.body_def_id, err_span, ty, "E0282", !raw_ptr_call);
         if (raw_ptr_call) {
           err.span_label(span, "cannot call a method on a raw pointer with an unknown pointee type");
         }

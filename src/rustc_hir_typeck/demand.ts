@@ -13,8 +13,7 @@
 // other rustc_hir_typeck export is read inside function bodies only.
 //
 // PORT notes (lane typeck-coerce):
-// - `TypeErrCtxt` (error reporting, wave 19) is `Pending`: `report_mismatched_types` is called through the local view
-//   `TypeErrCtxtView` (`FnCtxt::err_ctxt` itself stops as UNPORTED today).
+// - `self.err_ctxt()` is rustc_trait_selection's `TypeErrCtxt` (errctxt-contract; its methods are placeholders until wave 19).
 // - `#[instrument]` is tracing only and stays as a comment.
 export * from "./demand.gen.ts";
 import { unported_methods } from "../rust_ts/stubs.ts";
@@ -31,14 +30,7 @@ import type { MutRef } from "../std/mut_ref.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { FnCtxt } from "./decls.ts";
 
-/** PORT(stub): `error_reporting::TypeErrCtxt` (wave 19): the method called in this file. */
-interface TypeErrCtxtView {
-  report_mismatched_types(cause: ObligationCause, param_env: ParamEnv, expected: Ty, actual: Ty, err: TypeError): Diag;
-}
 
-function err_ctxt_view(fcx: FnCtxt): TypeErrCtxtView {
-  return fcx.err_ctxt() as unknown as TypeErrCtxtView;
-}
 
 // impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
@@ -67,7 +59,7 @@ FnCtxt.prototype.demand_suptype_with_origin = function (this: FnCtxt, cause: Obl
     return Ok(undefined);
   }
   const e = r._0;
-  return Err(err_ctxt_view(this).report_mismatched_types(cause, this.param_env, expected, actual, e));
+  return Err(this.err_ctxt().report_mismatched_types(cause, this.param_env, expected, actual, e));
 };
 
 // rustc: compiler/rustc_hir_typeck/src/demand.rs:201 demand_eqtype
@@ -92,7 +84,7 @@ FnCtxt.prototype.demand_eqtype_with_origin = function (this: FnCtxt, cause: Obli
     return Ok(undefined);
   }
   const e = r._0;
-  return Err(err_ctxt_view(this).report_mismatched_types(cause, this.param_env, expected, actual, e));
+  return Err(this.err_ctxt().report_mismatched_types(cause, this.param_env, expected, actual, e));
 };
 
 // rustc: compiler/rustc_hir_typeck/src/demand.rs:230 demand_coerce
@@ -151,7 +143,7 @@ FnCtxt.prototype.demand_coerce_diag = function (
   const expr = expr_ref.value.peel_drop_temps();
   const cause = this.misc(expr.span);
   const expr_ty = this.deeply_resolve_ignoring_regions(checked_ty, fold_Ty);
-  const err = err_ctxt_view(this).report_mismatched_types(cause, this.param_env, expected, expr_ty, e);
+  const err = this.err_ctxt().report_mismatched_types(cause, this.param_env, expected, expr_ty, e);
 
   this.emit_coerce_suggestions(err, expr, expr_ty, expected, expected_ty_expr, e);
 

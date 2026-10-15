@@ -509,7 +509,7 @@ function do_normalize_clauses(tcx: TyCtxt, cause: ObligationCause, elaborated_en
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
     // debug!("do_normalize_clauses: failed to normalize clauses");
-    const guar = err_ctxt(infcx).report_fulfillment_errors(errors._0);
+    const guar = infcx.err_ctxt().report_fulfillment_errors(errors._0);
     clauses = replace_infer_and_non_rigid_alias_with_error(infcx, clauses, guar, "No", d_clauses);
   }
 
@@ -1167,42 +1167,6 @@ export function provide(providers: Providers): void {
 }
 
 // ---- helpers ---------------------------------------------------------------------------------------------------------
-
-/**
- * PORT(wave 19): `error_reporting::TypeErrCtxt` (error_reporting/mod.rs, wave 19 errctxt-contract) is a `Pending` type in
- * ../decls.ts; these are the methods this lane's files call on it (`infcx.err_ctxt().<method>(..)`). Root drops the view
- * when the contract lands.
- */
-export interface TypeErrCtxtView {
-  // error_reporting/traits/fulfillment_errors.rs `report_fulfillment_errors`
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-  // error_reporting/infer/region.rs `report_region_errors`
-  report_region_errors(generic_param_scope: import("../../rustc_span/def_id.ts").LocalDefId, errors: import("../../rustc_infer/infer/lexical_region_resolve/mod.ts").RegionResolutionError[]): ErrorGuaranteed;
-  // error_reporting/traits/overflow.rs `report_overflow_error` (`-> !`)
-  report_overflow_error(
-    cause: { $: "DeeplyNormalize"; _0: import("../../rustc_type_ir/ty/alias.ts").AliasTerm },
-    span: Span,
-    suggest_increasing_limit: boolean,
-    mutate: (err: { note(msg: string): unknown }) => void,
-  ): never;
-  // error_reporting/traits/overflow.rs `build_overflow_error` (`-> Diag<'a>`; traits/query/normalize.rs: only
-  // `.delay_as_bug()`, which returns the `ErrorGuaranteed`)
-  build_overflow_error(
-    cause: { $: "DeeplyNormalize"; _0: import("../../rustc_type_ir/ty/alias.ts").AliasTerm },
-    span: Span,
-    suggest_increasing_limit: boolean,
-  ): { delay_as_bug(): ErrorGuaranteed };
-  // error_reporting/traits/overflow.rs `report_overflow_obligation` (`T: Upcast<TyCtxt, Predicate> + Clone`, `-> !`;
-  // lane selcx-contract: the old solver's fulfill.rs / select)
-  report_overflow_obligation<T>(obligation: import("../../rustc_infer/traits/mod.ts").Obligation<T>, suggest_increasing_limit: boolean): never;
-  // error_reporting/traits/overflow.rs `report_overflow_obligation_cycle` (`-> !`; rustc_traits's providers)
-  report_overflow_obligation_cycle(cycle: readonly import("../../rustc_infer/traits/mod.ts").PredicateObligation[]): never;
-}
-
-/** `crate::error_reporting::InferCtxtErrorExt::err_ctxt` (wave 19): the methods this crate calls on `TypeErrCtxt`. */
-export function err_ctxt(infcx: InferCtxt): TypeErrCtxtView {
-  return infcx.err_ctxt() as unknown as TypeErrCtxtView;
-}
 
 /** The `TypeFoldable` impl of `Term` (rustc_middle ty/mod.ts), read lazily (init order). */
 function fold_Term(): TypeFoldable<import("../../rustc_middle/ty/decls.ts").Term> {

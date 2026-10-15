@@ -112,6 +112,7 @@ import { ProjectAndUnifyResult as ProjectAndUnifyResultC, ProjectionError as Pro
 import type { SelectionContext } from "./select/mod.ts";
 import type { ProjectionMatchesProjection } from "./select/mod.ts";
 import type { TupleArgumentsFlag } from "./util.gen.ts";
+import { report_dyn_incompatibility } from "../error_reporting/traits/mod.ts";
 
 export * from "./project.gen.ts";
 
@@ -778,10 +779,8 @@ function project(selcx: SelectionContext, obligation: ProjectionTermObligation):
         if (Span.is_dummy(span) || obligation.cause.code_().$ === "CheckAssociatedTypeBounds") {
           guar = tcx.dcx().span_delayed_bug(span, `projection from non-dyn-compatible trait \`${tcx.def_path_str(def_id)}\``);
         } else {
-          // let violations = tcx.dyn_compatibility_violations(def_id);
-          // report_dyn_incompatibility(tcx, span, None, def_id, &violations).emit_err()
-          void tcx.dyn_compatibility_violations(def_id);
-          guar = unported("rustc_trait_selection::error_reporting::traits::report_dyn_incompatibility");
+          const violations = tcx.dyn_compatibility_violations(def_id);
+          guar = report_dyn_incompatibility(tcx, span, undefined, def_id, violations).emit_err();
         }
         return Ok({ $: "Progress", _0: Progress.error_for_term(tcx, obligation.predicate, guar) });
       }

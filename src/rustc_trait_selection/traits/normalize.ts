@@ -57,7 +57,7 @@ import { span_bug } from "../../rustc_span/macros.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { NextSolverError } from "../decls.ts";
 import { BoundVarReplacer, PlaceholderReplacer } from "./util.ts";
-import { err_ctxt, evaluate_const, with_replaced_escaping_bound_vars } from "./mod.ts";
+import { evaluate_const, with_replaced_escaping_bound_vars } from "./mod.ts";
 import { deeply_normalize as solve_deeply_normalize, normalize as solve_normalize } from "../solve/normalize.ts";
 import { GenericClauses } from "../../rustc_middle/ty/generics.ts";
 import { Clause_upcast_from_ClauseKind } from "../../rustc_middle/ty/predicate.ts";
@@ -292,7 +292,7 @@ export class AssocTypeNormalizer implements TypeFolder {
   normalize_free_alias(free: AliasTerm): Term {
     const recursion_limit = this.cx().recursion_limit();
     if (!recursion_limit.value_within_limit(this.depth)) {
-      err_ctxt(this.selcx.infcx).report_overflow_error({ $: "DeeplyNormalize", _0: free }, this.cause.span, false, (diag) => {
+      this.selcx.infcx.err_ctxt().report_overflow_error({ $: "DeeplyNormalize", _0: free }, this.cause.span, false, (diag) => {
         diag.note("in case this is a recursive type alias, consider using a struct, enum, or union instead");
       });
     }
@@ -415,7 +415,7 @@ export class AssocTypeNormalizer implements TypeFolder {
           case "Codegen": {
             const recursion_limit = this.cx().recursion_limit();
             if (!recursion_limit.value_within_limit(this.depth)) {
-              err_ctxt(this.selcx.infcx).report_overflow_error({ $: "DeeplyNormalize", _0: AliasTermC.from_AliasTy(data) }, this.cause.span, true, (_) => {});
+              this.selcx.infcx.err_ctxt().report_overflow_error({ $: "DeeplyNormalize", _0: AliasTermC.from_AliasTy(data) }, this.cause.span, true, (_) => {});
             }
 
             const args = d_GenericArgs().fold_with(data.args, this);

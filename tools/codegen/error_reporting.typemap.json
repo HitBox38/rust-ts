@@ -1,0 +1,27 @@
+{
+  "//": [
+    "Set-local type map of set rustc_trait_selection_error_reporting (lane errctxt-contract; types.sets.json `typemap_extra`,",
+    "after tyir/middle_traits_thir/ast_lowering/infer/hir_analysis/trait_selection/old_solver/hir_typeck.typemap.json): the",
+    "rustc_hir / rustc_middle / rustc_infer / rustc_errors types that error_reporting/** and diagnostics.rs reach under the paths",
+    "they use (`hir::Ty` as diagnostics.ts's `hir_Ty`). `UnderspecifiedArgKind` is hand-written in error_reporting/infer/need_type_info.ts (need_type_info.rs is not in",
+    "the set: the typedefs probe (syn) cannot parse its `do yeet ()`)."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {
+    "src/rustc_middle/ty/structural_impls.ts": ["debug_LateParamRegionKind"],
+    "src/rustc_type_ir/lib.gen.ts": ["debug_ClosureKind"]
+  },
+  "types": [
+    {"paths": ["rustc_hir::Ty", "rustc_hir::hir::Ty"], "ts": "hir_Ty", "import": "src/rustc_trait_selection/diagnostics.ts", "types": ["hir_Ty"], "debug": null, "clone": "copy", "note": "`&'a hir::Ty<'a>` fields of diagnostics.rs structs: diagnostics.ts re-exports rustc_hir's `Ty` as `hir_Ty` (the generator imports `hir::Ty` and `ty::Ty` under one TS name otherwise); no derive(Debug) reaches it"},
+    {"paths": ["rustc_hir::CoroutineKind", "rustc_hir::hir::CoroutineKind"], "ts": "CoroutineKind", "import": "src/rustc_hir/lib.ts", "types": ["CoroutineKind"], "values": ["debug_CoroutineKind"], "debug": "debug_CoroutineKind($v, $f)", "clone": "copy", "note": "Copy enum (immutable value)"},
+    {"paths": ["rustc_trait_selection::infer::RegionResolutionError", "rustc_trait_selection::infer::lexical_region_resolve::RegionResolutionError"], "ts": "RegionResolutionError", "import": "src/rustc_infer/infer/lexical_region_resolve/mod.ts", "types": ["RegionResolutionError"], "values": ["debug_RegionResolutionError"], "debug": "debug_RegionResolutionError($v, $f)", "clone": null, "note": "`crate::infer` re-exports rustc_infer's `infer` module"},
+    {"paths": ["rustc_middle::ty::print::RegionHighlightMode", "rustc_middle::ty::print::pretty::RegionHighlightMode"], "ts": "RegionHighlightMode", "import": "src/rustc_middle/ty/print/pretty.ts", "types": ["RegionHighlightMode"], "debug": null, "clone": "new RegionHighlightMode([...$v.highlight_regions], $v.keep_regions, $v.highlight_bound_region)", "clone_values": ["RegionHighlightMode"], "note": "derive(Copy, Clone, Default), no Debug; a Copy is a field-wise copy of the class"},
+    {"paths": ["rustc_middle::ty::region::LateParamRegionKind", "rustc_middle::ty::LateParamRegionKind"], "ts": "LateParamRegionKind", "import": "src/rustc_middle/ty/region.ts", "types": ["LateParamRegionKind"], "debug": "debug_LateParamRegionKind($v, $f)", "clone": "copy"},
+    {"paths": ["rustc_middle::ty::typeck_results::TypeckResults", "rustc_middle::ty::TypeckResults"], "ts": "TypeckResults", "import": "src/rustc_middle/ty/typeck_results.ts", "types": ["TypeckResults"], "debug": null, "clone": "copy", "note": "`&'a TypeckResults` (shared reference); hand class without a Debug impl (debug! only)"},
+    {"paths": ["rustc_middle::ty::consts::AliasConst", "rustc_middle::ty::AliasConst"], "ts": "AliasConst", "import": "src/rustc_middle/ty/consts.gen.ts", "types": ["AliasConst"], "debug": null, "clone": "copy", "note": "interned alias value (Copy)"},
+    {"paths": ["rustc_middle::ty::ClosureKind", "rustc_type_ir::ClosureKind"], "ts": "ClosureKind", "import": "src/rustc_type_ir/lib.ts", "types": ["ClosureKind"], "debug": "debug_ClosureKind($v, $f)", "clone": "copy"},
+    {"paths": ["rustc_trait_selection::error_reporting::infer::need_type_info::UnderspecifiedArgKind"], "ts": "UnderspecifiedArgKind", "import": "src/rustc_trait_selection/error_reporting/infer/need_type_info.ts", "types": ["UnderspecifiedArgKind"], "debug": null, "clone": "clone_UnderspecifiedArgKind($v)", "clone_values": ["clone_UnderspecifiedArgKind"], "note": "hand-written (need_type_info.rs is not in the set); derive(Clone)"},
+    {"paths": ["rustc_errors::DiagStyledString", "rustc_errors::diagnostic::DiagStyledString"], "ts": "DiagStyledString", "import": "src/rustc_errors/lib.ts", "types": ["DiagStyledString"], "values": ["debug_DiagStyledString"], "debug": "debug_DiagStyledString($v, $f)", "clone": null},
+    {"paths": ["rustc_middle::ty::print::TraitRefPrintOnlyTraitPath", "rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitPath"], "ts": "TraitRefPrintOnlyTraitPath", "import": "src/rustc_middle/ty/print/pretty.ts", "types": ["TraitRefPrintOnlyTraitPath"], "values": ["debug_TraitRefPrintOnlyTraitPath"], "debug": "debug_TraitRefPrintOnlyTraitPath($v, $f)", "clone": "copy"}
+  ]
+}

@@ -84,7 +84,6 @@ import type { PredicateObligation } from "../../rustc_infer/traits/mod.ts";
 import { Elaboratable_PredicateObligation } from "../../rustc_infer/traits/util.ts";
 import { fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
-import { err_ctxt } from "../../rustc_trait_selection/traits/mod.ts";
 import { translate_args_with_cause } from "../../rustc_trait_selection/traits/specialize/mod.ts";
 import * as wf from "../../rustc_trait_selection/traits/wf.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -213,7 +212,7 @@ function get_impl_args(tcx: TyCtxt, impl1_def_id: LocalDefId, impl2_node: Node):
 
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    const guar = err_ctxt(ocx.infcx).report_fulfillment_errors(errors._0);
+    const guar = ocx.infcx.err_ctxt().report_fulfillment_errors(errors._0);
     return Err(guar);
   }
 

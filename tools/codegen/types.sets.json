@@ -1618,5 +1618,87 @@
       "compiler/rustc_trait_selection/src/traits/mod.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "infer.typemap.json", "trait_selection.typemap.json", "old_solver.typemap.json"]
+  },
+  "rustc_trait_selection_error_reporting": {
+    "files": [
+      "compiler/rustc_trait_selection/src/error_reporting/mod.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/region.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/different_lifetimes.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/find_anon_type.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mismatched_static_lifetime.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/named_anon_conflict.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_error.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_relation.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/static_impl_trait.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/trait_impl_difference.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/util.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/call_kind.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/on_unimplemented.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/overflow.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs",
+      "compiler/rustc_trait_selection/src/diagnostics.rs",
+      "compiler/rustc_trait_selection/src/diagnostics/note_and_explain.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_trait_selection::error_reporting::TypeErrCtxt",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::NiceRegionError",
+      "rustc_trait_selection::error_reporting::infer::SameTypeModuloInfer",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::find_anon_type::FindNestedTypeVisitor",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::find_anon_type::TyPathVisitor",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::static_impl_trait::TraitObjectVisitor",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::static_impl_trait::HirTraitObjectVisitor",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::trait_impl_difference::TypeParamSpanVisitor",
+      "rustc_trait_selection::error_reporting::traits::FindExprBySpan",
+      "rustc_trait_selection::error_reporting::traits::ambiguity::HasNumericInferVisitor",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReturnsVisitor",
+      "rustc_trait_selection::error_reporting::traits::suggestions::AwaitsVisitor",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReplaceImplTraitVisitor",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReplaceImplTraitFolder",
+      "rustc_trait_selection::error_reporting::traits::suggestions::FindTypeParam",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ParamFinder"
+    ],
+    "hand_notes": {
+      "rustc_trait_selection::error_reporting::TypeErrCtxt": "the shared contract (errctxt-contract): class with all fields in rustc_trait_selection decls.ts, `Deref<Target = InferCtxt>` forwarders; every method declared in decls.ts and assigned by its file",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::NiceRegionError": "field `regions` collides with the method `regions()`: hand class with field `regions_` (error_reporting/infer/nice_region_error/mod.ts); methods / associated fns declared in rustc_trait_selection decls.ts",
+      "rustc_trait_selection::error_reporting::infer::SameTypeModuloInfer": "`TypeRelation` impl over `&InferCtxt`: hand class (error_reporting/infer/mod.ts, lane errrep-infer-a)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::find_anon_type::FindNestedTypeVisitor": "intravisit Visitor impl: hand class (nice_region_error/find_anon_type.ts, lane errrep-region)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::find_anon_type::TyPathVisitor": "intravisit Visitor impl: hand class (nice_region_error/find_anon_type.ts, lane errrep-region)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::static_impl_trait::TraitObjectVisitor": "TypeVisitor impl (tuple struct over FxIndexSet<DefId>): hand class (nice_region_error/static_impl_trait.ts, lane errrep-nice-region)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::static_impl_trait::HirTraitObjectVisitor": "intravisit Visitor impl (tuple struct): hand class (nice_region_error/static_impl_trait.ts, lane errrep-nice-region)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::trait_impl_difference::TypeParamSpanVisitor": "intravisit Visitor impl: hand class (nice_region_error/trait_impl_difference.ts, lane errrep-nice-region)",
+      "rustc_trait_selection::error_reporting::traits::FindExprBySpan": "intravisit Visitor impl with `new`: hand class in error_reporting/traits/mod.ts (ported by errctxt-contract)",
+      "rustc_trait_selection::error_reporting::traits::ambiguity::HasNumericInferVisitor": "TypeVisitor impl (unit struct): hand class (traits/ambiguity.ts, lane errrep-need-type-info)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReturnsVisitor": "intravisit Visitor impl, derive(Default): hand class in traits/suggestions.ts (ported by errctxt-contract; used by rustc_hir_analysis check)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::AwaitsVisitor": "intravisit Visitor impl, derive(Default): hand class in traits/suggestions.ts (ported by errctxt-contract)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReplaceImplTraitVisitor": "intravisit Visitor impl: hand class (traits/suggestions.ts, lane errrep-sugg-c)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReplaceImplTraitFolder": "TypeFolder impl: hand class (traits/suggestions.ts, lane errrep-sugg-c)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::FindTypeParam": "intravisit Visitor impl: hand class (traits/suggestions.ts, lane errrep-sugg-c)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ParamFinder": "TypeVisitor impl with an inherent method, derive(Default): hand class (traits/suggestions.ts, lane errrep-sugg-c)"
+    },
+    "discriminant": [],
+    "skip": [
+      "rustc_trait_selection::error_reporting::traits::suggestions::SelfVisitor"
+    ],
+    "skip_notes": {
+      "rustc_trait_selection::error_reporting::traits::suggestions::SelfVisitor": "intravisit Visitor impl with derive(Debug) over `Vec<&hir::Ty>`: the generator imports `hir::Ty`'s and `ty::Ty`'s Debug under one TS name (`debug_Ty`), so the class and its Debug are hand-written in traits/suggestions.ts (precedent rustc_hir_typeck SelfSource)"
+    },
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_hir/src/lib.rs",
+      "compiler/rustc_infer/src/infer/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/mod.rs"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "infer.typemap.json", "hir_analysis.typemap.json", "trait_selection.typemap.json", "old_solver.typemap.json", "hir_typeck.typemap.json", "error_reporting.typemap.json"]
   }
 }

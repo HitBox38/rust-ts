@@ -104,6 +104,7 @@ import * as bounds from "./bounds.ts";
 import type { AmbiguityBetweenVariantAndAssocItem } from "./errors.gen.ts";
 import type { InherentAssocCandidate } from "./mod.gen.ts";
 import { AssocItemQSelf, LowerTypeRelativePathMode } from "./mod.ts";
+import { report_dyn_incompatibility } from "../../rustc_trait_selection/error_reporting/traits/mod.ts";
 
 export * from "./errors.gen.ts";
 
@@ -2098,10 +2099,6 @@ function as_decls_print<T>(d: Print<T>): import("../../rustc_middle/ty/decls.ts"
 
 // ==== stand-ins (PORT: pending other lanes). Root deletes each when its owner lands and points the uses at the real port. ====
 
-/** rustc_trait_selection error_reporting/traits/mod.rs `report_dyn_incompatibility` (crate not ported). */
-function report_dyn_incompatibility(_tcx: TyCtxt, _span: Span, _hir_id: HirId | undefined, _trait_def_id: DefId, _violations: unknown[]): Diag {
-  return unported("rustc_trait_selection::error_reporting::traits::report_dyn_incompatibility");
-}
 
 /** pretty.rs:2981 `#[derive(TypeFoldable, TypeVisitable)]` of `TraitRefPrintOnlyTraitPath` (codegen pending, ty-print-b "For root"). */
 const fold_TraitRefPrintOnlyTraitPath_: TypeFoldable<TraitRefPrintOnlyTraitPath> = {

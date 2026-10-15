@@ -495,6 +495,8 @@ test("Deref: FnCtxt -> TypeckRootCtxt -> InferCtxt forwarders, own members shado
   expect(derefs.sort()).toEqual(
     [
       "TypeckRootCtxt.infcx -> InferCtxt",
+      // rustc_trait_selection error_reporting/mod.ts (errctxt-contract): the registry is shared (rust_ts/deref.ts)
+      "TypeErrCtxt.infcx -> InferCtxt",
       "FnCtxt.root_ctxt -> TypeckRootCtxt",
       "Coerce.fcx -> FnCtxt",
       "ProbeContext.fcx -> FnCtxt",
