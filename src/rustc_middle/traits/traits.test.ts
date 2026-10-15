@@ -275,12 +275,12 @@ describe("thir.rs + thir/visit.rs", () => {
 
 test("an unported dependency stops as UNPORTED, not as a TypeError", () => {
   // merge-w15b: `ValTree` / `ScalarInt` are ported (lane ty-results): a `char` range from 0 is computed, an `i32` range
-  // stops at `IntegerExt::from_int_ty` (ty/layout.rs, M4).
+  // stopped at `IntegerExt::from_int_ty` (ty/layout.rs) until lane typeck-gaps ported it: `0..` is not the full i32 range.
   const tcx = new TyCtxt({ interners: CtxtInterners.new(undefined) } as unknown as GlobalCtxt);
   const zero = ValTree.from_scalar_int(tcx, ScalarInt.from_u32(0));
   const char_ty = { kind: () => ({ $: "Char" }) } as unknown as Ty;
   expect(new PatRange({ $: "Finite", _0: zero }, { $: "PosInfinity" }, "Included", char_ty).is_full_range(tcx)).toBe(true);
   const i32_ty = { kind: () => ({ $: "Int", _0: "I32" }) } as unknown as Ty;
   const range = new PatRange({ $: "Finite", _0: zero }, { $: "PosInfinity" }, "Included", i32_ty);
-  expect(() => range.is_full_range(tcx)).toThrow(Unported);
+  expect(range.is_full_range(tcx)).toBe(false);
 });

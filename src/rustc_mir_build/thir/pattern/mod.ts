@@ -6,6 +6,7 @@
 // module for `pat_from_hir` (a value read inside a function body only), so this module must not read cx/ values at
 // load time; it imports cx types only.
 import { Integer } from "../../../rustc_abi/lib.ts";
+import { IntegerExt } from "../../../rustc_middle/ty/layout.ts";
 import type { IntTy, UintTy } from "../../../rustc_ast_ir/lib.ts";
 import { E0030 } from "../../../rustc_errors/lib.ts";
 import { DefKind, type Res } from "../../../rustc_hir/def.ts";
@@ -857,11 +858,10 @@ PatCtxt.prototype.lower_pat_expr = function (
 
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
 
-/** PORT: stand-in for `IntegerExt::from_int_ty` (rustc_middle ty/layout.rs, M4). */
-function Integer_from_int_ty(_tcx: TyCtxt, _ity: IntTy): Integer {
-  return unported("rustc_middle::ty::layout::IntegerExt::from_int_ty (ty/layout.rs, M4)");
+// `IntegerExt::{from_int_ty, from_uint_ty}` (rustc_middle ty/layout.ts, lane typeck-gaps).
+function Integer_from_int_ty(tcx: TyCtxt, ity: IntTy): Integer {
+  return IntegerExt.from_int_ty(tcx, ity);
 }
-/** PORT: stand-in for `IntegerExt::from_uint_ty` (rustc_middle ty/layout.rs, M4). */
-function Integer_from_uint_ty(_tcx: TyCtxt, _uty: UintTy): Integer {
-  return unported("rustc_middle::ty::layout::IntegerExt::from_uint_ty (ty/layout.rs, M4)");
+function Integer_from_uint_ty(tcx: TyCtxt, uty: UintTy): Integer {
+  return IntegerExt.from_uint_ty(tcx, uty);
 }
