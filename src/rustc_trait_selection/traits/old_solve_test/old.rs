@@ -90,3 +90,31 @@ where
     I1: Copy,
 {
 }
+
+// Object candidates (with a supertrait) and builtin `Copy` of pointers and fn pointers. (No arrays: lowering the
+// length const needs the target data layout, not ported yet.)
+pub trait Super {}
+pub trait Sub: Super {}
+pub fn env_object() {}
+pub fn goals_object()
+where
+    dyn Sub: Sub,
+    dyn Sub: Super,
+    dyn Sub: Tr,
+    &'static S: Copy,
+    &'static mut S: Copy,
+    *const U: Copy,
+    fn(U) -> U: Copy,
+{
+}
+
+// Param-env candidates feeding impl where-clauses, auto traits and projections over a parameter.
+pub fn env_param_nested<T: Tr + Au>() {}
+pub fn goals_param_nested<T: Tr + Au>()
+where
+    W<W<T>>: Tr,
+    W<T>: Au,
+    W<T>: Assoc<Out = T>,
+    <W<T> as Assoc>::Out: Tr,
+{
+}
