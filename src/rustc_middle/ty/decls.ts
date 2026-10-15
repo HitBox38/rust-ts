@@ -164,7 +164,8 @@ export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
 export type NumScalableVectors = Pending<"NumScalableVectors">;
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
-export type NormalizationError = Pending<"NormalizationError">;
+import type { NormalizationError } from "./normalize_erasing_regions.ts";
+export type { NormalizationError };
 export type Instance = Pending<"Instance">;
 export type InstanceKind = Pending<"InstanceKind">;
 // traits/solve.rs:33, :44 (D2: hash-consed; lane middle-traits-thir)

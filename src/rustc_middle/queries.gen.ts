@@ -27,7 +27,7 @@ import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLower
 import { type DeprecationEntry, debug_DeprecationEntry } from "./middle/stability.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
-import { KEY_AliasTyKind, KEY_CanonicalInput_usize, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
+import { KEY_AliasTyKind, KEY_CanonicalInput_usize, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
 import { stable_hash_Visibility } from "./stable_hash.gen.ts";
 import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause } from "./traits/mod.ts";
@@ -35,6 +35,7 @@ import { type CanonicalAliasGoal, type CanonicalDropckOutlivesGoal, type Canonic
 import { type CanonicalInput } from "./traits/solve.ts";
 import { type Graph, debug_Graph } from "./traits/specialization_graph.ts";
 import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment.ts";
+import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
 import { display_Ty } from "./ty/print/pretty.ts";
@@ -909,8 +910,8 @@ export interface QueryTypes {
    */
   // PORT: key `ty::Value<'tcx>` not ported; value `mir::ConstValue` not ported (`unknown`)
   valtree_to_const_val: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
-  // PORT: key `LitToConstInput<'tcx>` not ported; value `Option<ty::Value<'tcx>>` not ported (`unknown`)
-  lit_to_const: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  // PORT: value `Option<ty::Value<'tcx>>` not ported (`unknown`)
+  lit_to_const: { Key: LitToConstInput; KeyArg: LitToConstInput; LocalKey: LitToConstInput; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   check_match: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
   /**
    * Performs part of the privacy check and computes effective visibilities.
@@ -4246,7 +4247,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   lit_to_const: {
     name: "lit_to_const",
-    key: key_unported("LitToConstInput<'tcx>"),
+    key: KEY_LitToConstInput,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,

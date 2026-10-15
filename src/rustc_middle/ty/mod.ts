@@ -2926,8 +2926,9 @@ function closure_provide(providers: Providers): void {
 }
 // PORT (merge-w15b): the sub-providers below whose files are not ported install nothing: their queries keep the
 // port-side placeholder providers (rustc_interface passes.rs `install_unported_providers`) and stop as UNPORTED there.
-function erase_regions_provide(_providers: Providers): void {
-  // rustc_middle::ty::erase_regions::provide (ty/erase_regions.rs, not ported)
+function erase_regions_provide(providers: Providers): void {
+  // PORT: ty/erase_regions.ts is an extension module: reached through `require` (like `print_provide`).
+  (require("./erase_regions.ts") as typeof import("./erase_regions.ts")).provide(providers);
 }
 function inhabitedness_provide(_providers: Providers): void {
   // rustc_middle::ty::inhabitedness::provide (ty/inhabitedness/mod.rs, not ported)
