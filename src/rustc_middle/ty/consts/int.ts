@@ -44,8 +44,8 @@ export function Size_truncate(self: Size, value: bigint): bigint {
   return BigInt.asUintN(128, value << shift) >> shift;
 }
 
-/** PORT: stand-in for `TargetDataLayout::pointer_size` (rustc_abi/src/lib.rs:744); `tcx.gcx.data_layout` is still typed
- *  `unknown` (and stops UNPORTED on first read, context.ts). */
+/** PORT: `TargetDataLayout::pointer_size` (rustc_abi/src/lib.rs:744) of `tcx.gcx.data_layout` (typed `TargetDataLayout`
+ *  since lane typeck-gaps; this helper predates it). */
 export function TargetDataLayout_pointer_size(dl: unknown): Size {
   return (dl as { pointer_size(): Size }).pointer_size();
 }
