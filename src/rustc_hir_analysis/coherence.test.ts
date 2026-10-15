@@ -58,13 +58,16 @@ function oracle_rmeta(s: string, file: string): string {
   return out;
 }
 
-/** The exact `unported(..)` texts the PENDING crates stop at today (other lanes' stubs). */
+/** The exact `unported(..)` texts the PENDING crates stop at today (other lanes' stubs; re-pinned by merge-w17). */
 const PENDING = new Set([
-  "specialization_graph_of provider (not ported)", // rustc_trait_selection specialize (wave 17)
   "rustc_metadata::rmeta::decoder::cstore_impl: Decodable for ty::TraitDef", // an extern trait
-  "rustc_trait_selection::traits::normalize_param_env_or_error", // `param_env` (rustc_trait_selection, wave 17)
-  "rustc_trait_selection::traits::util::expand_trait_aliases", // `dyn Trait` lowering (rustc_trait_selection, wave 17)
+  "rustc_middle::query::keys: QueryKey for `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` (cache)", // orphan_local_auto.rs
+  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)", // copy.rs (wave 20)
+  "rustc_middle::ty::normalize_erasing_regions::TyCtxt::try_normalize_erasing_regions", // coerce_unsized.rs
 ]);
+
+/** PENDING_CRATES cases that print the oracle's stderr since merge-w17: they must not stop. */
+const NOW_EXACT = new Set(["unsafety.rs", "object_overlap.rs", "inherent_dyn.rs"]);
 
 const EXACT: [string, string, number][] = [
   // [mode, file, number of errors the oracle reports]
@@ -115,6 +118,7 @@ for (const [mode, file, codes, aux] of PENDING_CRATES) {
     expect([...oracle.stderr.matchAll(/^error\[(E\d+)\]/gm)].map((m) => m[1])).toEqual(codes);
     const ours = run(["bun", join(DIR, "run.ts"), mode, ...args(s, file, extra)]);
     const m = /unported: (.*)\n/.exec(ours.stderr);
+    if (NOW_EXACT.has(file)) expect(m).toBeNull();
     if (m !== null) expect(PENDING).toContain(m[1]!);
     else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
   }, 120_000);

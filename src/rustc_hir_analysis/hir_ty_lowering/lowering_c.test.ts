@@ -582,21 +582,28 @@ describe("dyn_trait.rs", () => {
     expect(k._0[1]).toBe(tcx.types.u8);
   });
 
-  test_("lower_trait_object_ty: lowers each bound, adds default traits, stops at expand_trait_aliases (unported)", () => {
+  test_("lower_trait_object_ty: lowers each bound, adds default traits, expands aliases, reports an object with no traits", () => {
     const tcx = interning_tcx();
     const cx = lowerer(tcx, undefined as never);
     const calls: string[] = [];
+    const guar = { __guar: true } as never;
     Object.assign(cx, {
       lower_poly_trait_ref: (_p: unknown, self_ty: Ty, _b: unknown, filter: { $: string }, overlap: string) => {
         calls.push(`${self_ty === tcx.types.trait_object_dummy_self} ${filter.$} ${overlap}`);
         return OK_COUNT;
       },
+      // The stubbed `lower_poly_trait_ref` pushes no bound, so `expand_trait_aliases` (rustc_trait_selection
+      // traits/util.rs) yields no trait and lowering reports E0224 (errors.rs `report_trait_object_with_no_traits`).
+      report_trait_object_with_no_traits: (_span: unknown, bounds: unknown[]) => {
+        calls.push(`no traits (${bounds.length} bounds)`);
+        return guar;
+      },
     });
     const b = trait_bound(did(60), "Positive", sp_n(1));
     if (b.$ !== "Trait") throw new Error();
     const lt = new hir.Lifetime(hid(), new Ident(kw.UnderscoreLifetime, DUMMY_SP), { $: "ImplicitObjectLifetimeDefault" }, { $: "Other" } as never, "Implicit");
-    expect(() => cx.lower_trait_object_ty(DUMMY_SP, hid(), [b._0], lt, "Dyn")).toThrow(new Unported("rustc_trait_selection::traits::util::expand_trait_aliases"));
-    expect(calls).toEqual(["true SelfOnly Forbidden"]);
+    expect(cx.lower_trait_object_ty(DUMMY_SP, hid(), [b._0], lt, "Dyn").kind().$).toBe("Error");
+    expect(calls).toEqual(["true SelfOnly Forbidden", "no traits (0 bounds)"]);
   });
 
   test_("prohibit_or_lint_bare_trait_object_ty: no bounds, nothing to do", () => {
@@ -615,13 +622,13 @@ describe("dyn_trait.rs", () => {
       },
     });
     const lt = (kind: hir.Lifetime["kind"]) => new hir.Lifetime(hid(), new Ident(kw.StaticLifetime, DUMMY_SP), kind, { $: "Other" } as never, "ExplicitBound");
-    // `compute_object_lifetime_bound` stops before it reads the predicates.
+    // No existential predicates: `object_region_bounds` derives no bound.
     const preds = [] as never;
     expect(cx.lower_trait_object_lifetime(lt({ $: "Static" }), preds, DUMMY_SP)).toBe(tcx.lifetimes.re_static);
     expect(reasons).toEqual(["ExplicitObjectLifetime"]);
-    // An elided object lifetime asks `object_region_bounds` first (rustc_trait_selection, unported).
-    expect(() => cx.lower_trait_object_lifetime(lt({ $: "ImplicitObjectLifetimeDefault" }), preds, DUMMY_SP)).toThrow(
-      new Unported("rustc_trait_selection::traits::wf::object_region_bounds"),
-    );
+    // An elided object lifetime asks `object_region_bounds` first (rustc_trait_selection traits/wf.rs); with no derived
+    // bound it falls back to the object lifetime default.
+    expect(cx.lower_trait_object_lifetime(lt({ $: "ImplicitObjectLifetimeDefault" }), preds, DUMMY_SP)).toBe(tcx.lifetimes.re_static);
+    expect(reasons).toEqual(["ExplicitObjectLifetime", "ObjectLifetimeDefault"]);
   });
 });

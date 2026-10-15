@@ -133,4 +133,4 @@ DefId(0:52 ~ generics[21d0]::{extern#0}::ext) Fn
   type_of EarlyBinder { value: FnDef(DefId(0:52 ~ generics[21d0]::{extern#0}::ext), Binder { value: [], bound_vars: [] }), .. }
 DefId(0:53 ~ generics[21d0]::{extern#0}::X) Static { safety: Unsafe, mutability: Not, nested: false }
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_hir_analysis::check::wfcheck::check_static_item (wave 17)
+  type_of EarlyBinder { value: Unit, .. }
