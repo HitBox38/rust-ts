@@ -15,6 +15,10 @@
 // crates; other rustc_trait_selection modules are read inside function bodies only.
 export * from "./mod.gen.ts";
 import { ObligationCause } from "../../../rustc_middle/traits/mod.ts";
+import type { Span } from "../../../rustc_span/lib.ts";
+import type { TypeError } from "../../../rustc_type_ir/error.ts";
+import type { ObligationCauseFailureCode, TypeErrorAdditionalDiags } from "../../diagnostics.gen.ts";
+import type { FailureCode } from "./mod.gen.ts";
 import { unported_methods } from "../../../rust_ts/stubs.ts";
 import { unported } from "../../../std/panic.ts";
 import { TypeErrCtxt } from "../../decls.ts";
@@ -31,7 +35,113 @@ unported_methods(TypeErrCtxt.prototype, "rustc_trait_selection::error_reporting:
 ]);
 
 // `#[extension(pub trait ObligationCauseExt<'tcx>)] impl<'tcx> ObligationCause<'tcx>` (declared in the crate decls.ts on
-// rustc_middle's `ObligationCause`): the methods go onto `ObligationCause.prototype`.
-unported_methods(ObligationCause.prototype, "rustc_trait_selection::error_reporting::infer::ObligationCauseExt", [
-  "as_failure_code", "as_failure_code_diag", "as_requirement_str",
-]);
+// rustc_middle's `ObligationCause`): the methods are on `ObligationCause.prototype`. Ported here by lane errctxt-contract
+// (the first stop of `check_function_signature` errors).
+
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs:2572 as_failure_code
+ObligationCause.prototype.as_failure_code = function (this: ObligationCause, terr: TypeError): FailureCode {
+  const code = this.code_();
+  switch (code.$) {
+    case "IfExpressionWithNoElse":
+      return "Error0317";
+    case "MainFunctionType":
+      return "Error0580";
+    case "CompareImplItem":
+    case "MatchExpressionArm":
+    case "IfExpression":
+    case "LetElse":
+    case "LangFunctionType":
+    case "IntrinsicType":
+    case "MethodReceiver":
+      return "Error0308";
+
+    // In the case where we have no more specific thing to
+    // say, also take a look at the error code, maybe we can
+    // tailor to that.
+    default:
+      if (terr.$ === "CyclicTy" && (terr._0.is_closure() || terr._0.is_coroutine() || terr._0.is_coroutine_closure())) {
+        return "Error0644";
+      } else if (terr.$ === "IntrinsicCast" || terr.$ === "ForceInlineCast") {
+        return "Error0308";
+      } else {
+        return "Error0308";
+      }
+  }
+};
+
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs:2599 as_failure_code_diag
+ObligationCause.prototype.as_failure_code_diag = function (
+  this: ObligationCause,
+  terr: TypeError,
+  span: Span,
+  subdiags: TypeErrorAdditionalDiags[],
+): ObligationCauseFailureCode {
+  const code = this.code_();
+  if (code.$ === "CompareImplItem" && code.kind.$ === "Fn") {
+    return { $: "MethodCompat", span, subdiags };
+  } else if (code.$ === "CompareImplItem" && code.kind.$ === "Type") {
+    return { $: "TypeCompat", span, subdiags };
+  } else if (code.$ === "CompareImplItem" && code.kind.$ === "Const") {
+    return { $: "ConstCompat", span, subdiags };
+  } else if (code.$ === "BlockTailExpression" && code._1.$ === "TryDesugar") {
+    return { $: "TryCompat", span, subdiags };
+  } else if (code.$ === "MatchExpressionArm") {
+    const source = code._0.source;
+    switch (source.$) {
+      case "TryDesugar":
+        return { $: "TryCompat", span, subdiags };
+      default:
+        return { $: "MatchCompat", span, subdiags };
+    }
+  } else if (code.$ === "IfExpression") {
+    return { $: "IfElseDifferent", span, subdiags };
+  } else if (code.$ === "IfExpressionWithNoElse") {
+    return { $: "NoElse", span };
+  } else if (code.$ === "LetElse") {
+    return { $: "NoDiverge", span, subdiags };
+  } else if (code.$ === "MainFunctionType") {
+    return { $: "FnMainCorrectType", span };
+  } else if (code.$ === "LangFunctionType") {
+    const lang_item_name = code._0;
+    return { $: "FnLangCorrectType", span, subdiags, lang_item_name };
+  } else if (code.$ === "IntrinsicType") {
+    return { $: "IntrinsicCorrectType", span, subdiags };
+  } else if (code.$ === "MethodReceiver") {
+    return { $: "MethodCorrectType", span, subdiags };
+  } else {
+    // In the case where we have no more specific thing to
+    // say, also take a look at the error code, maybe we can
+    // tailor to that.
+    if (terr.$ === "CyclicTy" && (terr._0.is_closure() || terr._0.is_coroutine() || terr._0.is_coroutine_closure())) {
+      return { $: "ClosureSelfref", span };
+    } else if (terr.$ === "ForceInlineCast") {
+      return { $: "CantCoerceForceInline", span, subdiags };
+    } else if (terr.$ === "IntrinsicCast") {
+      return { $: "CantCoerceIntrinsic", span, subdiags };
+    } else {
+      return { $: "Generic", span, subdiags };
+    }
+  }
+};
+
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs:2668 as_requirement_str
+ObligationCause.prototype.as_requirement_str = function (this: ObligationCause): string {
+  const code = this.code_();
+  if (code.$ === "CompareImplItem" && code.kind.$ === "Fn") {
+    return "method type is compatible with trait";
+  } else if (code.$ === "CompareImplItem" && code.kind.$ === "Type") {
+    return "associated type is compatible with trait";
+  } else if (code.$ === "CompareImplItem" && code.kind.$ === "Const") {
+    return "const is compatible with trait";
+  } else if (code.$ === "MainFunctionType") {
+    return "`main` function has the correct type";
+  } else if (code.$ === "LangFunctionType") {
+    return "lang item function has the correct type";
+  } else if (code.$ === "IntrinsicType") {
+    return "intrinsic has the correct type";
+  } else if (code.$ === "MethodReceiver") {
+    return "method receiver has the correct type";
+  } else {
+    return "types are compatible";
+  }
+};
