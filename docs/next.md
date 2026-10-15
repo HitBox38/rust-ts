@@ -228,3 +228,10 @@ Wave-18b follow-ups found by lanes (for a `typeck-gaps` lane after the 13 lanes 
 - diagnostics.ts `ReturnLikeStatementKind` IntoDiagArg stub (return/become outside fn body).
 - QueryKey for `CanonicalMethodAutoderefStepsGoal` (method_autoderef_steps; first stop of every `x.method()` once typeck runs).
 - probe.ts: codegen the two probe_op lint diagnostics; move local fold_MethodAutoderefSteps / ParamEnvAnd fold descriptor into codegen; type CandidateStep.self_ty; debug_Canonical var_kinds.
+- QueryKeys for canonical old-solver queries (normalize_canonicalized_{projection,free_alias,inherent_projection}, type_op_ascribe_user_type, type_op_normalize_*, type_op_prove_predicate, dropck_outlives); their key label "(LocalExpnId, &TokenStream)" looks like a queries codegen bug.
+- traits/mod.ts TypeErrCtxtView.build_overflow_error (drop query/normalize.ts OverflowErrCtxtView).
+- fulfill.ts:209 unreachable("old solver coherence") must yield "internal error: entered unreachable code: old solver coherence".
+- AutoImplConstituents fold: ArgOutlivesClause unported_type_fold (CoroutineWitness assumptions).
+- rustc_lint/context.ts:693 LateContext::data_layout still unported (data_layout is ported).
+- probe_op's two fn-local lint diagnostics need the typedefs probe to look inside fn bodies.
+- CapturedPlace TypeFoldable (ty/closure.rs derive) still unported in writeback.ts.
