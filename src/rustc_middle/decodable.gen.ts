@@ -2,17 +2,19 @@
 // `decode_<T>(__decoder[, decode_<P>...])`: a struct decodes its fields in declaration order; an enum reads the variant
 // index (`read_u8`, or `read_usize` from 255 variants on), then that variant's fields. `encode_<T>` writes the same.
 // Only function declarations: hand modules may import from here inside an import cycle.
-import { decode_Res, decode_Safety } from "../rustc_hir/def.ts";
+import { decode_ReprOptions } from "../rustc_abi/decodable.gen.ts";
+import { decode_CtorKind, decode_Res, decode_Safety } from "../rustc_hir/def.ts";
 import { decode_Constness } from "../rustc_hir/hir.ts";
 import { decode_RefDecodable_slice_into_arena } from "./arena.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
+import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
 import { decode_Clause, type TyDecoder } from "./ty/codec.ts";
 import { type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
-import { type AsyncDestructor, type Destructor, type ImplTraitInTraitData, RestrictionKind, Visibility } from "./ty/mod.ts";
+import { type AsyncDestructor, type Destructor, FieldDef, type ImplTraitInTraitData, RestrictionKind, VariantDef, type VariantDiscr, type VariantFlags, Visibility } from "./ty/mod.ts";
 import { TraitDef, type TraitSpecializationKind } from "./ty/trait_def.ts";
-import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_tuple, decode_u32, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
+import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_tuple, decode_u16, decode_u32, decode_u8, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
 import { decode_Ident, decode_ModId } from "../rustc_span/decodable.gen.ts";
-import { type BlobDecoder, type SpanDecoder } from "../rustc_span/lib.ts";
+import { type BlobDecoder, decode_ErrorGuaranteed, type SpanDecoder } from "../rustc_span/lib.ts";
 import { panic } from "../std/panic.ts";
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:249 BlobDecodable for Visibility
@@ -53,6 +55,47 @@ export function decode_AsyncDestructor(__decoder: SpanDecoder): AsyncDestructor 
   return {
     impl_did: __decoder.decode_def_id(),
   };
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1267 TyDecodable for VariantFlags
+export function decode_VariantFlags(__decoder: TyDecoder): VariantFlags {
+  return decode_u8(__decoder) as VariantFlags;
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1278 TyDecodable for VariantDef
+export function decode_VariantDef(__decoder: TyDecoder): VariantDef {
+  const __0 = __decoder.decode_def_id();
+  const __1 = decode_Option(__decoder, (__decoder) => decode_tuple(__decoder, decode_CtorKind, (__decoder) => __decoder.decode_def_id()));
+  const __2 = __decoder.decode_symbol();
+  const __3 = decode_VariantDiscr(__decoder);
+  const __4 = decode_Vec(__decoder, decode_FieldDef);
+  const __5 = decode_Option(__decoder, decode_ErrorGuaranteed);
+  const __6 = decode_VariantFlags(__decoder);
+  return new VariantDef(__0, __1, __2, __3, __4, __5, __6);
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1474 TyDecodable for VariantDiscr
+export function decode_VariantDiscr(__decoder: TyDecoder): VariantDiscr {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Explicit", _0: __decoder.decode_def_id() };
+    case 1:
+      return { $: "Relative", _0: decode_u32(__decoder) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`VariantDiscr\`, expected 0..2, actual ${__tag}`);
+  }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1487 TyDecodable for FieldDef
+export function decode_FieldDef(__decoder: TyDecoder): FieldDef {
+  const __0 = __decoder.decode_def_id();
+  const __1 = __decoder.decode_symbol();
+  const __2 = decode_Visibility(__decoder, decode_ModId);
+  const __3 = decode_RestrictionKind(__decoder);
+  const __4 = decode_Safety(__decoder);
+  const __5 = decode_Option(__decoder, (__decoder) => __decoder.decode_def_id());
+  return new FieldDef(__0, __1, __2, __3, __4, __5);
 }
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1572 Decodable for ImplTraitInTraitData
@@ -183,4 +226,18 @@ export function decode_TraitSpecializationKind(__decoder: SpanDecoder): TraitSpe
     default:
       return panic(`invalid enum variant tag while decoding \`TraitSpecializationKind\`, expected 0..3, actual ${__tag}`);
   }
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/adt.rs:36 TyDecodable for AdtFlags
+export function decode_AdtFlags(__decoder: TyDecoder): AdtFlags {
+  return decode_u16(__decoder) as AdtFlags;
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/adt.rs:110 TyDecodable for AdtDefData
+export function decode_AdtDefData(__decoder: TyDecoder): AdtDefData {
+  const __0 = __decoder.decode_def_id();
+  const __1 = decode_Vec(__decoder, decode_VariantDef);
+  const __2 = decode_AdtFlags(__decoder);
+  const __3 = decode_ReprOptions(__decoder);
+  return new AdtDefData(__0, __1, __2, __3);
 }

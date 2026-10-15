@@ -393,12 +393,39 @@
       "decodable_construct": "branded newtypes are built with their `of` companion (LocalModId: new_unchecked); SourceFileHash is a class holding its `[u8; 32]` as a Uint8Array; ExpnData, ModId, RealFileName, Ident are classes (constructor takes every field in declaration order); StableSourceFileId.of wraps a decoded Hash128"
     }
   },
+  "rustc_abi": {
+    "files": [
+      "compiler/rustc_abi/src/lib.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_decodable": true,
+    "decodable_types": [
+      "rustc_abi::Integer",
+      "rustc_abi::IntegerType",
+      "rustc_abi::ScalableElt",
+      "rustc_abi::ReprFlags",
+      "rustc_abi::ReprOptions"
+    ],
+    "decodable_construct": {
+      "rustc_abi::ReprFlags": { "expr": "$0 as ReprFlags" },
+      "rustc_abi::ReprOptions": { "expr": "new ReprOptions($0, $1, $2, $3, $4, $5)", "import": ["ReprOptions"] }
+    },
+    "hand_notes": {
+      "*": "rustc_abi's types are hand-written (src/rustc_abi/lib.ts, a subset); this set only generates rustc_abi/decodable.gen.ts.",
+      "decodable_types": "`ReprOptions` and its field types: crate metadata's `AdtDefData.repr` (rustc_middle ty/codec.rs `Decodable for AdtDef`; lane small-gaps-18)"
+    }
+  },
   "rustc_middle": {
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs",
       "compiler/rustc_middle/src/ty/generics.rs",
       "compiler/rustc_middle/src/middle/resolve.rs",
-      "compiler/rustc_middle/src/ty/trait_def.rs"
+      "compiler/rustc_middle/src/ty/trait_def.rs",
+      "compiler/rustc_middle/src/ty/adt.rs"
     ],
     "class": [],
     "hand": [],
@@ -424,11 +451,22 @@
       "rustc_middle::ty::generics::Generics",
       "rustc_middle::ty::trait_def::TraitSpecializationKind",
       "rustc_middle::ty::trait_def::TraitDef",
-      "rustc_middle::ty::generics::GenericClauses"
+      "rustc_middle::ty::generics::GenericClauses",
+      "rustc_middle::ty::VariantDiscr",
+      "rustc_middle::ty::VariantFlags",
+      "rustc_middle::ty::FieldDef",
+      "rustc_middle::ty::VariantDef",
+      "rustc_middle::ty::adt::AdtFlags",
+      "rustc_middle::ty::adt::AdtDefData"
     ],
     "decodable_construct": {
       "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] },
-      "rustc_middle::ty::trait_def::TraitDef": { "expr": "new TraitDef($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)", "import": ["TraitDef"] }
+      "rustc_middle::ty::trait_def::TraitDef": { "expr": "new TraitDef($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)", "import": ["TraitDef"] },
+      "rustc_middle::ty::VariantFlags": { "expr": "$0 as VariantFlags" },
+      "rustc_middle::ty::FieldDef": { "expr": "new FieldDef($0, $1, $2, $3, $4, $5)", "import": ["FieldDef"] },
+      "rustc_middle::ty::VariantDef": { "expr": "new VariantDef($0, $1, $2, $3, $4, $5, $6)", "import": ["VariantDef"] },
+      "rustc_middle::ty::adt::AdtFlags": { "expr": "$0 as AdtFlags" },
+      "rustc_middle::ty::adt::AdtDefData": { "expr": "new AdtDefData($0, $1, $2, $3)", "import": ["AdtDefData"] }
     },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
