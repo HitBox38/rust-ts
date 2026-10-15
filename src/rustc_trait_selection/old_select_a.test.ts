@@ -1,6 +1,6 @@
 // Tests of lane old-select-a (wave 18c): the selection / evaluation entry path of the old solver's `SelectionContext`
-// (traits/select/mod.rs:223..1633) on a real `InferCtxt` over fresh interners (as traits_a.test.ts), and the stops the
-// ported code reaches until lanes old-select-b (`push_stack`, winnowing) and old-candidates-confirm land.
+// (traits/select/mod.rs:223..1633) on a real `InferCtxt` over fresh interners (as traits_a.test.ts). Paths that need the
+// query system (trait goals: caches, candidate assembly, winnowing) are checked against rustc in traits/old_solve.test.ts.
 import { describe, expect, test } from "bun:test";
 import "./lib.ts";
 import { Obligation, type PredicateObligation } from "../rustc_infer/traits/mod.ts";
@@ -18,7 +18,6 @@ import { Binder } from "../rustc_type_ir/binder.ts";
 import { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
 import type { PredicateKind } from "../rustc_type_ir/predicate_kind.ts";
 import { TraitRef, as_interner } from "../rustc_type_ir/predicate.ts";
-import { Unported } from "../std/panic.ts";
 import { SelectionContext, TraitObligationStackList, ProvisionalEvaluationCache } from "./traits/select/mod.ts";
 
 /** A `TyCtxt` over fresh interners (as traits_a.test.ts), on the old solver, with a recursion limit. */
@@ -86,20 +85,16 @@ describe("SelectionContext evaluation (old-select-a)", () => {
   );
 
   test(
-    "evaluate_root_obligation runs in an evaluation probe; trait goals reach the old-select-b stop push_stack",
+    "evaluate_root_obligation runs in an evaluation probe",
     sg((tcx) => {
       const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
       const selcx = SelectionContext.new(infcx);
       const re = tcx.lifetimes.re_static;
       const region_outlives = pred(tcx, { $: "Clause", _0: { $: "RegionOutlives", _0: { _0: re, _1: re } } });
       expect(selcx.evaluate_root_obligation(oblig(region_outlives))).toEqual({ $: "Ok", _0: "EvaluatedToOkModuloRegions" });
-
-      // `?0: Trait`: `evaluate_trait_predicate_recursively` -> `push_stack` (lane old-select-b).
-      const v = infcx.next_ty_var(DUMMY_SP);
-      const trait_ref = TraitRef.new(as_interner(tcx), new DefId(DefIndex.from_u32(5), LOCAL_CRATE), [GenericArg.from_Ty(v)]);
-      const trait_pred = pred(tcx, { $: "Clause", _0: { $: "Trait", _0: { trait_ref, polarity: "Positive" } } });
-      expect(() => selcx.evaluate_root_obligation(oblig(trait_pred))).toThrow(Unported);
-      expect(() => selcx.evaluate_root_obligation(oblig(trait_pred))).toThrow(/rustc_trait_selection::traits::select::SelectionContext::push_stack/);
+      // Trait goals (`?0: Trait` is `EvaluatedToAmbig`, impl / param-env / builtin / auto-trait candidates, ...) need the
+      // query system (caches, lang items, impls): traits/old_solve.test.ts runs `evaluate_root_obligation` on a real
+      // compiler session and checks every result against rustc's (old_solve_test/probe.rs).
     }),
   );
 

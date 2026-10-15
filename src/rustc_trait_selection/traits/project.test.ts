@@ -1,6 +1,6 @@
 // Tests of lane old-project: traits/project.rs on a real `InferCtxt` over fresh interners (as ../traits_a.test.ts):
 // `ProjectionCandidateSet::push_candidate`, the projection-cache paths of `opt_normalize_projection_term`, `Progress`,
-// `ProjectionCacheKey::from_poly_projection_obligation`, and the stop `project` reaches until the old-select lanes land.
+// `ProjectionCacheKey::from_poly_projection_obligation` (`project` itself: traits/old_solve.test.ts, against the oracle).
 import { describe, expect, test } from "bun:test";
 import "../lib.ts";
 import { Obligation, type PredicateObligation } from "../../rustc_infer/traits/mod.ts";
@@ -153,19 +153,10 @@ describe("opt_normalize_projection_term: the projection cache", () => {
     }),
   );
 
-  test(
-    "an unstarted projection with an empty param-env reaches `project`'s trait-def assembly (old-select-a stop)",
-    sg((tcx) => {
-      // PORT(test): no crate attrs; `recursion_limit` is answered directly.
-      (tcx as unknown as { recursion_limit: () => unknown }).recursion_limit = () => ({ value_within_limit: () => true });
-      const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-      const selcx = SelectionContext.new(infcx);
-      const t = projection(tcx, 7, tcx.types.u8);
-      expect(() => opt_normalize_projection_term(selcx, ParamEnv.empty(), t, ObligationCause.dummy(), 0, [])).toThrow(
-        /rustc_trait_selection::traits::select::SelectionContext::for_each_item_bound/,
-      );
-    }),
-  );
+  // An unstarted projection runs `project` (candidate assembly from the param env, the trait def's item bounds and the
+  // impls, then confirmation): that needs the query system, so traits/old_solve.test.ts drives
+  // `normalize_projection_term` -> `opt_normalize_projection_term` on a real compiler session and checks the normalized
+  // terms and obligations against rustc's (old_solve_test/probe.rs).
 });
 
 describe("Progress and ProjectionCacheKey::from_poly_projection_obligation", () => {

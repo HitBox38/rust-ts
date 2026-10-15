@@ -1,8 +1,8 @@
 // Unit tests of the old solver's candidate assembly (select/candidate_assembly.rs) and confirmation
-// (select/confirmation.rs) (lane old-candidates-confirm). Their callers (`candidate_from_obligation_no_cache`,
-// `evaluate_candidate`, ...: select/mod.rs, lanes old-select-a/-b) are still placeholders on this branch, so the
-// difftest suites cannot reach this code yet; these tests drive it directly over a fresh `TyCtxt` (as traits_a.test.ts),
-// with the few queries the code reads stubbed on the instance. Expected values follow upstream's match arms.
+// (select/confirmation.rs) (lane old-candidates-confirm), driven directly over a fresh `TyCtxt` (as traits_a.test.ts),
+// with the few queries the code reads stubbed on the instance. Expected values follow upstream's match arms. The same
+// code on a real compiler session, through `poly_select` / `evaluate_root_obligation` and against rustc:
+// traits/old_solve.test.ts.
 
 import { describe, expect, test } from "bun:test";
 import "../../lib.ts";
@@ -20,7 +20,7 @@ import { TypingMode } from "../../../rustc_type_ir/infer_ctxt.ts";
 import type { LangItem } from "../../../rustc_attr_ir/lang_items.ts";
 import { as_interner, TraitRef, visit_with_TraitClause } from "../../../rustc_type_ir/predicate.ts";
 import type { TraitClause } from "../../../rustc_type_ir/decls.ts";
-import { Panic, Unported } from "../../../std/panic.ts";
+import { Panic } from "../../../std/panic.ts";
 import { type SelectionCandidateSet, SelectionContext, TraitObligationStack } from "./mod.ts";
 import { ProvisionalEvaluationCache, TraitObligationStackList } from "./mod.ts";
 
@@ -196,14 +196,15 @@ describe("confirmation (old solver)", () => {
   );
 
   test(
-    "confirm_candidate(SizedCandidate) reaches `sizedness_conditions` (select/mod.rs, lane old-select-b)",
+    "confirm_candidate(SizedCandidate) of `u32: Sized` is `Builtin(Misc, [])`",
     sg((tcx) => {
       const selcx = selcx_of(tcx);
       const o = obligation(tcx, SIZED, tcx.types.u32);
-      expect(() => selcx.confirm_candidate(o, SelectionCandidate.SizedCandidate)).toThrow(Unported);
-      expect(() => selcx.confirm_candidate(o, SelectionCandidate.SizedCandidate)).toThrow(
-        /rustc_trait_selection::traits::select::SelectionContext::sizedness_conditions/,
-      );
+      // confirmation.rs:41 `SizedCandidate => ImplSource::Builtin(BuiltinImplSource::Misc, confirm_builtin_candidate(..))`;
+      // `confirm_builtin_candidate` -> `sizedness_conditions(u32, Sized)` (select/mod.rs:2031, `ty::Uint(_)` ->
+      // `Binder::dummy(vec![])`), so `collect_predicates_for_types` has no types: no nested obligations. Tuples (the last
+      // field) and the other builtin traits on a real session: traits/old_solve.test.ts.
+      expect(selcx.confirm_candidate(o, SelectionCandidate.SizedCandidate)).toEqual({ $: "Ok", _0: { $: "Builtin", _0: { $: "Misc" }, _1: [] } });
     }),
   );
 

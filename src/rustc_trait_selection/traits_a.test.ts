@@ -26,7 +26,7 @@ import { Binder } from "../rustc_type_ir/binder.ts";
 import { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
 import { as_interner, TraitRef } from "../rustc_type_ir/predicate.ts";
 import { AliasTerm } from "../rustc_type_ir/term_kind.ts";
-import { Panic, Unported } from "../std/panic.ts";
+import { Panic } from "../std/panic.ts";
 import { FulfillmentContext } from "./traits/fulfill.ts";
 import { FulfillmentEngine, ObligationCtxt } from "./traits/engine.ts";
 import type { FulfillmentError } from "./traits/mod.gen.ts";
@@ -226,14 +226,15 @@ describe("ObligationCtxt and the old solver (review-w17)", () => {
       expect(ocx.engine._0).toBeInstanceOf(FulfillmentContext);
       expect(ObligationCtxt.new_with_diagnostics(infcx).engine._0).toBeInstanceOf(FulfillmentContext);
 
-      // `?0: Trait`: not global, so `process_trait_obligation` goes straight to `SelectionContext::poly_select`
-      // (old-select-a: `poly_select` -> `select_from_obligation` -> the lane old-select-b stub `push_stack`).
+      // `?0: Trait` is registered with the old `FulfillmentContext`'s obligation forest.
       const v = infcx.next_ty_var(DUMMY_SP);
       ocx.register_bound(ObligationCause.dummy(), ParamEnv.empty(), v, def(5));
       expect(ocx.engine.has_pending_obligations()).toBe(true);
       expect(ocx.engine.pending_obligations().length).toBe(1);
-      // The forest drives the obligation into the (wave-18c) selection stub.
-      expect(() => ocx.try_evaluate_obligations()).toThrow(/rustc_trait_selection::traits::select::SelectionContext::push_stack/);
+      // Processing it (`process_trait_obligation` -> `SelectionContext::poly_select`) needs the query system: the old
+      // `FulfillmentContext`'s `try_evaluate_obligations` / `pending_obligations` / `collect_remaining_errors` on a real
+      // compiler session are checked against rustc's in traits/old_solve.test.ts (`?0: Tr` stays pending, then is an
+      // `Ambiguity` error).
     }),
   );
 

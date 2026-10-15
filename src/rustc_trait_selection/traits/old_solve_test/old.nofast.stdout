@@ -1,0 +1,184 @@
+case builtin
+  env: []
+  args: []
+  goal 0: Binder { value: TraitClause(<(S, U) as Sized>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<(S, U) as Sized>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(Builtin(Misc, [Obligation(predicate=Binder { value: TraitClause(<U as Sized>, polarity:Positive), bound_vars: [] }, depth=0)])))
+  goal 1: Binder { value: TraitClause(<[S] as Sized>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToErr)
+    evaluate: Ok(EvaluatedToErr)
+    query_normalize: Ok(Binder { value: TraitClause(<[S] as Sized>, polarity:Positive), bound_vars: [] } [])
+    select: Err(Unimplemented)
+  goal 2: Binder { value: TraitClause(<str as Sized>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToErr)
+    evaluate: Ok(EvaluatedToErr)
+    query_normalize: Ok(Binder { value: TraitClause(<str as Sized>, polarity:Positive), bound_vars: [] } [])
+    select: Err(Unimplemented)
+  goal 3: Binder { value: TraitClause(<(S, S) as Copy>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<(S, S) as Copy>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(Builtin(Misc, [Obligation(predicate=Binder { value: TraitClause(<S as Copy>, polarity:Positive), bound_vars: [] }, depth=0), Obligation(predicate=Binder { value: TraitClause(<S as Copy>, polarity:Positive), bound_vars: [] }, depth=0)])))
+  goal 4: Binder { value: TraitClause(<(S, U) as Copy>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToErr)
+    evaluate: Ok(EvaluatedToErr)
+    query_normalize: Ok(Binder { value: TraitClause(<(S, U) as Copy>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(Builtin(Misc, [Obligation(predicate=Binder { value: TraitClause(<S as Copy>, polarity:Positive), bound_vars: [] }, depth=0), Obligation(predicate=Binder { value: TraitClause(<U as Copy>, polarity:Positive), bound_vars: [] }, depth=0)])))
+  goal 5: Binder { value: TraitClause(<U as Copy>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToErr)
+    evaluate: Ok(EvaluatedToErr)
+    query_normalize: Ok(Binder { value: TraitClause(<U as Copy>, polarity:Positive), bound_vars: [] } [])
+    select: Err(Unimplemented)
+  try_evaluate: Binder { value: TraitClause(<[S] as Sized>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<[S] as Sized>, polarity:Positive), bound_vars: [] }
+  try_evaluate: Binder { value: TraitClause(<str as Sized>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<str as Sized>, polarity:Positive), bound_vars: [] }
+  try_evaluate: Binder { value: TraitClause(<U as Copy>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<U as Copy>, polarity:Positive), bound_vars: [] }
+  pending: 0
+  remaining: []
+  resolved: []
+case impl_proj
+  env: []
+  args: []
+  goal 0: Binder { value: TraitClause(<W<S> as Assoc>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<W<S> as Assoc>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:20 ~ old[f228]::{impl#3}), args=[?0t], nested=[Obligation(predicate=Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] }, depth=1), Obligation(predicate=Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] }, depth=1)])))
+  goal 1: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<S>], .. }, Term::Ty(S)), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<S>], .. }, Term::Ty(S)), bound_vars: [] } [])
+    normalize: Term::Ty(S) [Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] }, Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] }]
+  goal 2: Binder { value: TraitClause(<<W<S> as Assoc>::Out as Tr>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] } [])
+    select: Err(Unimplemented)
+  goal 3: Binder { value: TraitClause(<W<U> as Assoc>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToErr)
+    evaluate: Ok(EvaluatedToErr)
+    query_normalize: Ok(Binder { value: TraitClause(<W<U> as Assoc>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:20 ~ old[f228]::{impl#3}), args=[?0t], nested=[Obligation(predicate=Binder { value: TraitClause(<U as Sized>, polarity:Positive), bound_vars: [] }, depth=1), Obligation(predicate=Binder { value: TraitClause(<U as Tr>, polarity:Positive), bound_vars: [] }, depth=1)])))
+  goal 4: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<U>], .. }, Term::Ty(U)), bound_vars: [] }
+    eval_root: Ok(EvaluatedToErr)
+    evaluate: Ok(EvaluatedToErr)
+    query_normalize: Ok(Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<U>], .. }, Term::Ty(U)), bound_vars: [] } [])
+    normalize: Term::Ty(U) [Binder { value: TraitClause(<U as Sized>, polarity:Positive), bound_vars: [] }, Binder { value: TraitClause(<U as Tr>, polarity:Positive), bound_vars: [] }]
+  goal 5: Binder { value: TraitClause(<W<S> as Assoc>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<W<S> as Assoc>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:20 ~ old[f228]::{impl#3}), args=[?0t], nested=[Obligation(predicate=Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] }, depth=1), Obligation(predicate=Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] }, depth=1)])))
+  goal 6: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<S>], .. }, Term::Ty(U)), bound_vars: [] }
+    eval_root: Ok(EvaluatedToErr)
+    evaluate: Ok(EvaluatedToErr)
+    query_normalize: Ok(Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<S>], .. }, Term::Ty(U)), bound_vars: [] } [])
+    normalize: Term::Ty(S) [Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] }, Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] }]
+  try_evaluate: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<S>], .. }, Term::Ty(U)), bound_vars: [] } code=Project(Sorts(ExpectedFound { expected: S, found: U })) root=Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<S>], .. }, Term::Ty(U)), bound_vars: [] }
+  try_evaluate: Binder { value: TraitClause(<U as Tr>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<W<U> as Assoc>, polarity:Positive), bound_vars: [] }
+  pending: 0
+  remaining: []
+  resolved: []
+case env_proj
+  env: [Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }, Binder { value: TraitClause(<T as Assoc>, polarity:Positive), bound_vars: [] }, Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [T/#0], .. }, Term::Ty(S)), bound_vars: [] }]
+  args: [T/#0]
+  goal 0: Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<T as Sized>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(ImplSourceParamData([])))
+  goal 1: Binder { value: TraitClause(<T as Assoc>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<T as Assoc>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(ImplSourceParamData([])))
+  goal 2: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [T/#0], .. }, Term::Ty(S)), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [T/#0], .. }, Term::Ty(S)), bound_vars: [] } [])
+    normalize: Term::Ty(S) []
+  goal 3: Binder { value: TraitClause(<T as Assoc>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<T as Assoc>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(ImplSourceParamData([])))
+  goal 4: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [T/#0], .. }, Term::Ty(S)), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [T/#0], .. }, Term::Ty(S)), bound_vars: [] } [])
+    normalize: Term::Ty(S) []
+  goal 5: Binder { value: TraitClause(<<T as Assoc>::Out as Tr>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToErr)
+    evaluate: Ok(EvaluatedToErr)
+    query_normalize: Ok(Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] } [])
+    select: Err(Unimplemented)
+  goal 6: Binder { value: TraitClause(<W<<T as Assoc>::Out> as Tr>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<W<S> as Tr>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:18 ~ old[f228]::{impl#2}), args=[?0t], nested=[Obligation(predicate=Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] }, depth=1), Obligation(predicate=Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] }, depth=1)])))
+  try_evaluate: []
+  pending: 0
+  remaining: []
+  resolved: [T/#0]
+case auto_cycle
+  env: []
+  args: []
+  goal 0: Binder { value: TraitClause(<Node as Au>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<Node as Au>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(Builtin(Misc, [Obligation(predicate=Binder { value: TraitClause(<*const Node as Au>, polarity:Positive), bound_vars: [] }, depth=0), Obligation(predicate=Binder { value: TraitClause(<W<S> as Au>, polarity:Positive), bound_vars: [] }, depth=0)])))
+  goal 1: Binder { value: TraitClause(<*const NotAu as Au>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToErr)
+    evaluate: Ok(EvaluatedToErr)
+    query_normalize: Ok(Binder { value: TraitClause(<*const NotAu as Au>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(Builtin(Misc, [Obligation(predicate=Binder { value: TraitClause(<NotAu as Au>, polarity:Positive), bound_vars: [] }, depth=0)])))
+  goal 2: Binder { value: TraitClause(<W<Node> as Au>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<W<Node> as Au>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(Builtin(Misc, [Obligation(predicate=Binder { value: TraitClause(<Node as Au>, polarity:Positive), bound_vars: [] }, depth=0)])))
+  try_evaluate: Binder { value: TraitClause(<NotAu as Au>, polarity:Positive), bound_vars: [] } code=Select(Unimplemented) root=Binder { value: TraitClause(<*const NotAu as Au>, polarity:Positive), bound_vars: [] }
+  pending: 0
+  remaining: []
+  resolved: []
+case infer
+  env: []
+  args: [?0t, ?1t]
+  goal 0: Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToAmbig)
+    evaluate: Ok(EvaluatedToAmbig)
+    query_normalize: Ok(Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(None)
+  goal 1: Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToAmbig)
+    evaluate: Ok(EvaluatedToAmbig)
+    query_normalize: Ok(Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(None)
+  goal 2: Binder { value: TraitClause(<_ as Tr>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToAmbig)
+    evaluate: Ok(EvaluatedToAmbig)
+    query_normalize: Ok(Binder { value: TraitClause(<_ as Tr>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(None)
+  goal 3: Binder { value: TraitClause(<W<S> as Assoc>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToOk)
+    evaluate: Ok(EvaluatedToOk)
+    query_normalize: Ok(Binder { value: TraitClause(<W<S> as Assoc>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(Some(ImplSourceUserDefinedData(impl_def_id=DefId(0:20 ~ old[f228]::{impl#3}), args=[?2t], nested=[Obligation(predicate=Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] }, depth=1), Obligation(predicate=Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] }, depth=1)])))
+  goal 4: Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<S>], .. }, Term::Ty(?1t)), bound_vars: [] }
+    eval_root: Ok(EvaluatedToAmbig)
+    evaluate: Ok(EvaluatedToAmbig)
+    query_normalize: Ok(Binder { value: ProjectionClause(Alias { kind: ProjectionTy { def_id: DefId(0:7 ~ old[f228]::Assoc::Out) }, args: [W<S>], .. }, Term::Ty(?1t)), bound_vars: [] } [])
+    normalize: Term::Ty(S) [Binder { value: TraitClause(<S as Sized>, polarity:Positive), bound_vars: [] }, Binder { value: TraitClause(<S as Tr>, polarity:Positive), bound_vars: [] }]
+  goal 5: Binder { value: TraitClause(<_ as Copy>, polarity:Positive), bound_vars: [] }
+    eval_root: Ok(EvaluatedToAmbig)
+    evaluate: Ok(EvaluatedToAmbig)
+    query_normalize: Ok(Binder { value: TraitClause(<_ as Copy>, polarity:Positive), bound_vars: [] } [])
+    select: Ok(None)
+  try_evaluate: []
+  pending: 2
+  remaining: Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] } code=Ambiguity(overflow=None) root=Binder { value: TraitClause(<_ as Sized>, polarity:Positive), bound_vars: [] }
+  remaining: Binder { value: TraitClause(<_ as Tr>, polarity:Positive), bound_vars: [] } code=Ambiguity(overflow=None) root=Binder { value: TraitClause(<_ as Tr>, polarity:Positive), bound_vars: [] }
+  resolved: [?0t, S]
