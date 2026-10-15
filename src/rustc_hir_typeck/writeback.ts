@@ -43,7 +43,8 @@ import type { HirPlace } from "../rustc_middle/ty/decls.ts";
 import { fold_GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import { type ClosureSizeProfileData, DefinitionSiteHiddenType, HasAttrs_LocalDefId, type ProvisionalHiddenType, Ty, type TypingEnv } from "../rustc_middle/ty/mod.ts";
 import type { Predicate } from "../rustc_middle/ty/predicate.ts";
-import { fold_Predicate, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { debug_Predicate, fold_Predicate, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
 import { debug_UserArgs } from "../rustc_middle/ty/generic_args.gen.ts";
 import type { Clauses } from "../rustc_middle/ty/list.ts";
@@ -330,7 +331,7 @@ WritebackCx.prototype.write_ty_to_typeck_results = function (this: WritebackCx, 
   // debug!("write_ty_to_typeck_results({:?}, {:?})", hir_id, ty);
   assert(
     !TypeVisitableExt.has_infer(ty, fold_Ty) && !TypeVisitableExt.has_placeholders(ty, fold_Ty) && !TypeVisitableExt.has_free_regions(ty, fold_Ty),
-    `${ty.toString()} can't be put into typeck results`,
+    `${display_Ty(ty)} can't be put into typeck results`,
   );
   this.typeck_results.node_types_mut().insert(hir_id, ty);
 };
@@ -871,7 +872,7 @@ WritebackCx.prototype.visit_potentially_region_dependent_goals = function (this:
       );
       let cause = cause_;
       if (TypeVisitableExt.has_non_region_infer(predicate, fold_Predicate)) {
-        this.fcx.dcx().span_delayed_bug(cause.span, `unexpected inference variable after writeback: ${predicate.toString()}`);
+        this.fcx.dcx().span_delayed_bug(cause.span, `unexpected inference variable after writeback: ${debug_Predicate(predicate, PLAIN)}`);
       } else {
         const predicate_ = this.tcx().erase_and_anonymize_regions(predicate, fold_Predicate);
         if (TypeVisitableExt.has_infer(cause, fold_ObligationCause()) || TypeVisitableExt.has_placeholders(cause, fold_ObligationCause())) {

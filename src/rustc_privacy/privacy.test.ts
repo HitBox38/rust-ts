@@ -123,5 +123,5 @@ test("privacy_test/clean_pub.rs (--mod-privacy): check_mod_privacy stops UNPORTE
     return;
   }
   const r = run(["bun", join(DIR, "run.ts"), "--mod-privacy", ...args(s, "clean_pub")]);
-  expect({ exit: r.exit, tail: r.stderr.trim().split("\n").at(-1) }).toEqual({ exit: 70, tail: "rust-ts: unported: rustc_hir_typeck::loops::check" });
+  expect({ exit: r.exit, tail: r.stderr.trim().split("\n").at(-1) }).toEqual({ exit: 70, tail: "rust-ts: unported: rustc_middle::ty::region::LateParamRegionKind::from_bound" });
 }, 120_000);
