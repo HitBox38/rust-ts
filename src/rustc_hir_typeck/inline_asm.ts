@@ -21,8 +21,6 @@ import { debug_Ty, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { fold_Const } from "../rustc_type_ir/sty/consts.ts";
 import { display_Const } from "../rustc_type_ir/ir_print.ts";
 import { Article_TyKind } from "../rustc_middle/ty/sty.ts";
-import type { Session } from "../rustc_session/session.ts";
-import type { RelocModel } from "../rustc_target/spec/mod.ts";
 import type { LocalDefId } from "../rustc_span/def_id.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { bug } from "../rustc_span/macros.ts";
@@ -37,7 +35,7 @@ import {
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
 import { PLAIN } from "../std/fmt.ts";
-import { unported, unwrap } from "../std/panic.ts";
+import { unwrap } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import type { FnCtxt } from "./decls.ts";
 import { AsmConstPtrUnstable_diagnostic, RegisterTypeUnstable_diagnostic } from "./diagnostics.gen.ts";
@@ -529,7 +527,7 @@ InlineAsmCtxt.prototype.check_asm = function (this: InlineAsmCtxt, asm: hir.Inli
         const r = InlineAsmReg.validate(
           reg_,
           asm_arch,
-          Session_relocation_model(this.tcx().sess),
+          this.tcx().sess.relocation_model(),
           this.target_features,
           this.tcx().sess.target,
           hir.InlineAsmOperand.is_clobber(op),
@@ -669,10 +667,3 @@ InlineAsmCtxt.prototype.check_asm = function (this: InlineAsmCtxt, asm: hir.Inli
   }
 };
 
-/**
- * `Session::relocation_model` (rustc_session session.rs:362): not ported on `Session` (only on `EarlySession`); it is
- * reached only for explicit-register operands (`in("reg") x`).
- */
-function Session_relocation_model(_sess: Session): RelocModel {
-  return unported("rustc_session::Session::relocation_model");
-}

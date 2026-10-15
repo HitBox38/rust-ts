@@ -39,7 +39,7 @@ import type { AliasTyKind } from "../ty/sty.gen.ts";
 import { type Debug, debug_option, debug_tuple, type Fmt } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
 import type { CanonicalInput } from "../traits/solve.ts";
-import type { CanonicalImpliedOutlivesBoundsGoal, CanonicalPredicateGoal, type_op } from "../traits/query.ts";
+import type { CanonicalImpliedOutlivesBoundsGoal, CanonicalMethodAutoderefStepsGoal, CanonicalPredicateGoal, MethodAutoderefSteps, type_op } from "../traits/query.ts";
 import type { CanonicalQueryInput } from "../../rustc_type_ir/canonical.ts";
 import { debug_CanonicalQueryInput } from "../../rustc_type_ir/canonical.gen.ts";
 import type { Predicate } from "../ty/predicate.ts";
@@ -529,8 +529,9 @@ export const KEY_OsStr: QueryKey<string> = {
 // PORT: the canonical query inputs (keys.rs:336-366). `impl<T: QueryKeyBounds> QueryKey for CanonicalQueryInput<T>` and
 // `.. for (CanonicalQueryInput<T>, bool)` are generic: each key type a query uses is one `KEY_<goal>` value below
 // (its `Debug` is the instance's), built by `canonical_query_input_key` / `canonical_query_input_bool_key` (lane
-// selcx-contract: `CanonicalPredicateGoal` and `(CanonicalImpliedOutlivesBoundsGoal, bool)`). The other goals
-// (`CanonicalAliasGoal`, `CanonicalDropckOutlivesGoal`, `CanonicalTypeOp*Goal`, `CanonicalMethodAutoderefStepsGoal`) and
+// selcx-contract: `CanonicalPredicateGoal` and `(CanonicalImpliedOutlivesBoundsGoal, bool)`; typeck-gaps:
+// `CanonicalMethodAutoderefStepsGoal`). The other goals
+// (`CanonicalAliasGoal`, `CanonicalDropckOutlivesGoal`, `CanonicalTypeOp*Goal`) and
 // `(CanonicalQueryInput<T>, usize)` (:349) are not wired yet (`key_unported`).
 
 /// Canonical query goals correspond to abstract trait operations that
@@ -574,6 +575,11 @@ export const KEY_CanonicalPredicateGoal: QueryKey<CanonicalPredicateGoal> = cano
 export const KEY_CanonicalImpliedOutlivesBoundsGoal_bool: QueryKey<[CanonicalImpliedOutlivesBoundsGoal, boolean]> = canonical_query_input_bool_key<
   ParamEnvAnd<type_op.ImpliedOutlivesBounds>
 >((v, f) => debug_ParamEnvAnd(v, f, (x, f) => (require("../traits/query.ts") as typeof import("../traits/query.ts")).type_op.debug_ImpliedOutlivesBounds(x, f)));
+
+/** `CanonicalMethodAutoderefStepsGoal` (`CanonicalQueryInput<ParamEnvAnd<MethodAutoderefSteps>>`; lane typeck-gaps). */
+export const KEY_CanonicalMethodAutoderefStepsGoal: QueryKey<CanonicalMethodAutoderefStepsGoal> = canonical_query_input_key<
+  ParamEnvAnd<MethodAutoderefSteps>
+>((v, f) => debug_ParamEnvAnd(v, f, (x, f) => (require("../traits/query.ts") as typeof import("../traits/query.ts")).debug_MethodAutoderefSteps(x, f)));
 
 export const KEY_CanonicalInput_usize: QueryKey<[CanonicalInput, number]> = {
   make_cache: default_cache<[CanonicalInput, number]>(intern_key),

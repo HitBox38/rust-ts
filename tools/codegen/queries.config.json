@@ -56,7 +56,8 @@
     "(rustc_middle::traits::solve::CanonicalInput, usize)": "CanonicalInput_usize",
     "rustc_middle::ty::LitToConstInput": "LitToConstInput",
     "rustc_middle::traits::query::CanonicalPredicateGoal": "CanonicalPredicateGoal",
-    "(rustc_middle::traits::query::CanonicalImpliedOutlivesBoundsGoal, bool)": "CanonicalImpliedOutlivesBoundsGoal_bool"
+    "(rustc_middle::traits::query::CanonicalImpliedOutlivesBoundsGoal, bool)": "CanonicalImpliedOutlivesBoundsGoal_bool",
+    "rustc_middle::traits::query::CanonicalMethodAutoderefStepsGoal": "CanonicalMethodAutoderefStepsGoal"
   },
   "into_key": {
     "rustc_span::def_id::DefId": "into_query_key_DefId",

@@ -113,6 +113,7 @@ import {
   TyVidEqKey_from,
 } from "./type_variable.ts";
 import { type ConstVariableOrigin, ConstVariableValue, ConstVidKey_from, UnifyKey_ConstVidKey } from "./unify_key.ts";
+import { ConstraintCategory } from "../../rustc_middle/mir/query.ts";
 
 export * from "./mod.gen.ts";
 
@@ -294,22 +295,17 @@ export const ValuePairs: Companions["ValuePairs"] = {
 
 export type SubregionOrigin = gen.SubregionOrigin;
 export const SubregionOrigin = {
-  // PORT: `ConstraintCategory` (rustc_middle::mir, M4) is not ported: its arms stop as UNPORTED, as
-  // rustc_middle traits/mod.ts `ObligationCause::to_constraint_category` (the contract types the result `unknown`).
   // rustc: compiler/rustc_infer/src/infer/mod.rs:483 to_constraint_category
-  to_constraint_category(self: SubregionOrigin): unknown {
+  to_constraint_category(self: SubregionOrigin): ConstraintCategory {
     switch (self.$) {
       case "Subtype":
         return self._0.cause.to_constraint_category();
       case "AscribeUserTypeProvePredicate":
-        // ConstraintCategory::Predicate(*span, *def_id)
-        return unported("rustc_middle::mir::ConstraintCategory (mir, M4): Predicate");
+        return { $: "Predicate", _0: self._0, _1: self._1 };
       case "SolverRegionConstraint":
-        // ConstraintCategory::SolverRegionConstraint(*span)
-        return unported("rustc_middle::mir::ConstraintCategory (mir, M4): SolverRegionConstraint");
+        return { $: "SolverRegionConstraint", _0: self._0 };
       default:
-        // ConstraintCategory::BoringNoLocation
-        return unported("rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation");
+        return ConstraintCategory.BoringNoLocation;
     }
   },
 } as Companions["SubregionOrigin"];

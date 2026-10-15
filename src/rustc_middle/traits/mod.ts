@@ -15,14 +15,14 @@ import { fold_with_Binder, try_fold_with_Binder, visit_with_Binder } from "../..
 import type { FallibleTypeFolder, TypeFolder } from "../../rustc_type_ir/fold.ts";
 import { fold_with_TraitClause, try_fold_with_TraitClause, visit_with_TraitClause } from "../../rustc_type_ir/predicate.ts";
 import { fold_with_Alias, try_fold_with_Alias, visit_with_Alias } from "../../rustc_type_ir/ty/alias.ts";
-import { fold_with_AliasTyKind, try_fold_with_AliasTyKind, visit_with_AliasTyKind } from "../../rustc_type_ir/ty_kind.ts";
+import { fold_with_AliasTyKind, fold_with_FnSig, try_fold_with_AliasTyKind, try_fold_with_FnSig, visit_with_AliasTyKind, visit_with_FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import type { TypeVisitor } from "../../rustc_type_ir/visit.ts";
 import type { Fmt } from "../../std/fmt.ts";
 import type { Hasher } from "../../vendor/rustc_stable_hash/lib.ts";
 import { unported } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import type { HostEffectClause, PolyTraitClause } from "../ty/predicate.ts";
-import type { AliasTy } from "../ty/sty.gen.ts";
+import type { AliasTy, PolyFnSig } from "../ty/sty.gen.ts";
 import type { Binder } from "../../rustc_type_ir/binder.ts";
 import * as gen from "./mod.gen.ts";
 import {
@@ -35,6 +35,7 @@ import {
   ObligationCause,
 } from "./mod.gen.ts";
 import { SelectionError_from_OverflowError } from "./select.ts";
+import { ConstraintCategory } from "../mir/query.ts";
 
 export * as cache from "./cache.ts";
 export * as query from "./query.ts";
@@ -60,7 +61,7 @@ declare module "./mod.gen.ts" {
       variant: (d: DerivedHostCause) => ObligationCauseCode,
     ): ObligationCause;
     /** PORT: returns `mir::ConstraintCategory` (mir, M4; not ported). */
-    to_constraint_category(): unknown;
+    to_constraint_category(): ConstraintCategory;
   }
   namespace ObligationCause {
     function new_(span: Span, body_def_id: LocalDefId, code: ObligationCauseCode): ObligationCause;
@@ -159,17 +160,15 @@ ObligationCause.prototype.derived_host_cause = function (
 };
 
 // rustc: compiler/rustc_middle/src/traits/mod.rs:137 to_constraint_category
-ObligationCause.prototype.to_constraint_category = function (this: ObligationCause): unknown {
+ObligationCause.prototype.to_constraint_category = function (this: ObligationCause): ConstraintCategory {
   const code = this.code_();
   switch (code.$) {
     case "MatchImpl":
       return code._0.to_constraint_category();
     case "AscribeUserTypeProvePredicate":
-      // ConstraintCategory::Predicate(*predicate_span, *def_id)
-      return unported("rustc_middle::mir::ConstraintCategory (mir, M4): Predicate");
+      return { $: "Predicate", _0: code._0, _1: code._1 };
     default:
-      // ConstraintCategory::BoringNoLocation
-      return unported("rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation");
+      return ConstraintCategory.BoringNoLocation;
   }
 };
 
@@ -533,6 +532,18 @@ export function try_fold_with_PolyTraitClause<E>(self: PolyTraitClause, folder: 
 }
 export function fold_with_PolyTraitClause(self: PolyTraitClause, folder: TypeFolder): PolyTraitClause {
   return fold_with_Binder(self, folder, fold_with_TraitClause);
+}
+
+/** PORT: `impl TypeVisitable for Binder<FnSig>` (`ty::PolyFnSig<'tcx>`): binder.rs's impl applied to FnSig's derived
+ *  one. type_fold.json points the alias here (lane typeck-gaps; e.g. hir_typeck closure.rs `ExpectedSig`). */
+export function visit_with_PolyFnSig<R>(self: PolyFnSig, visitor: TypeVisitor<R>): R {
+  return visit_with_Binder(self, visitor, visit_with_FnSig);
+}
+export function try_fold_with_PolyFnSig<E>(self: PolyFnSig, folder: FallibleTypeFolder<E>): Result<PolyFnSig, E> {
+  return try_fold_with_Binder(self, folder, try_fold_with_FnSig);
+}
+export function fold_with_PolyFnSig(self: PolyFnSig, folder: TypeFolder): PolyFnSig {
+  return fold_with_Binder(self, folder, fold_with_FnSig);
 }
 
 /** PORT: `impl TypeVisitable for ty::AliasTy<'tcx>` (`ir::Alias<TyCtxt, AliasTyKind>`): alias.rs's derived impl applied

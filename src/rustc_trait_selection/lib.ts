@@ -10,6 +10,8 @@ import "./decls.ts";
 import "./error_reporting/mod.ts";
 // pub mod infer;
 import "./infer.ts";
+// pub mod opaque_types;
+import "./opaque_types.ts";
 // pub mod regions;
 import "./regions.ts";
 // pub mod solve;

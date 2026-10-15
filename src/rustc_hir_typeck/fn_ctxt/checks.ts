@@ -98,6 +98,21 @@ import { DeclOrigin as DeclOriginA } from "../gather_locals.ts";
 import { type Compatibility as CompatibilityA } from "./arg_matrix.ts";
 import { LoweredTy as LoweredTyA } from "./mod.ts";
 import type { TupledArgCheckOutcome } from "./checks.gen.ts";
+import { Binder as BinderR } from "../../rustc_type_ir/binder.ts";
+import type { Variance as VarianceR } from "../../rustc_type_ir/decls.ts";
+import { ExpectedFound as ExpectedFoundR, TypeError as TypeErrorR } from "../../rustc_type_ir/error.ts";
+import {
+  type Relate as RelateR,
+  relate_args_invariantly as relate_args_invariantlyR,
+  relate_Ty as relate_TyR,
+  type RelateResult as RelateResultR,
+  structurally_relate_consts as structurally_relate_constsR,
+  structurally_relate_tys as structurally_relate_tysR,
+  type TypeRelation as TypeRelationR,
+  TypeRelation_provided as TypeRelation_providedR,
+  type VarianceDiagInfo as VarianceDiagInfoR,
+} from "../../rustc_type_ir/relate.ts";
+import type { Region as RegionR } from "../../rustc_type_ir/sty/mod.ts";
 
 /** `Option<DefId> == Some(def_id)`. */
 function DefId_eqA_opt(a: DefIdA | undefined, b: DefIdA): boolean {
@@ -1663,7 +1678,98 @@ unported_methods(ArgMatchingCtxt, "rustc_hir_typeck::fn_ctxt::checks::ArgMatchin
 unported_methods(FnCallDiagCtxt.prototype, "rustc_hir_typeck::fn_ctxt::checks::FnCallDiagCtxt", ["deref", "check_wrap_args_in_tuple", "ensure_has_errors", "detect_dotdot", "filter_out_invalid_arguments", "check_single_incompatible", "maybe_optimize_extra_arg_suggestion", "initial_final_diagnostic", "labels_and_suggestion_text", "label_generic_mismatches", "append_arguments_changes", "arguments_formatting", "suggestion_code", "maybe_suggest_expect_for_unwrap"]);
 unported_methods(FnCallDiagCtxt, "rustc_hir_typeck::fn_ctxt::checks::FnCallDiagCtxt", ["new", "format_suggestion_text"]);
 
-// fn_ctxt/checks.rs:3615 (stub; final signature: decls.ts `Fns_fn_ctxt_checks`)
+// rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3615 same_type_modulo_vars
 export function same_type_modulo_vars(tcx: TyCtxt, a: Ty, b: Ty): boolean {
-  return unported("rustc_hir_typeck::fn_ctxt::checks::same_type_modulo_vars");
+  // PORT: the fn-local `struct SameModuloVars` and its `TypeRelation` impl are a module-level class (below).
+  return new SameModuloVars(tcx).relate(a, b, relate_TyR).$ === "Ok";
+}
+
+// `struct SameModuloVars<'tcx> { tcx: TyCtxt<'tcx> }` (fn-local in `same_type_modulo_vars`)
+class SameModuloVars implements TypeRelationR {
+  constructor(public tcx: TyCtxt) {}
+
+  // ---- impl<'tcx> TypeRelation<TyCtxt<'tcx>> for SameModuloVars<'tcx> ----
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3620 cx
+  cx(): TyCtxt {
+    return this.tcx;
+  }
+
+  // (provided) `TypeRelation::relate`.
+  relate<T>(a: T, b: T, d: RelateR<T>): RelateResultR<T> {
+    return TypeRelation_providedR.relate(this, a, b, d);
+  }
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3624 relate_ty_args
+  relate_ty_args(a_ty: Ty, _b_ty: Ty, _ty_def_id: DefIdA, a_args: GenericArgsA, b_args: GenericArgsA, _mk: (args: GenericArgsA) => Ty): RelateResultR<Ty> {
+    const r = relate_args_invariantlyR(this, a_args, b_args);
+    if (r.$ === "Err") return r;
+    return OkA(a_ty);
+  }
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3637 relate_with_variance
+  relate_with_variance<T>(_variance: VarianceR, _info: VarianceDiagInfoR, a: T, b: T, d: RelateR<T>): RelateResultR<T> {
+    return this.relate(a, b, d);
+  }
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3647 tys
+  tys(a: Ty, b: Ty): RelateResultR<Ty> {
+    if (a === b) {
+      return OkA(a);
+    }
+
+    const ak = a.kind();
+    const bk = b.kind();
+    if (
+      (ak.$ === "Infer" && ak._0.$ === "TyVar" && bk.$ === "Infer" && bk._0.$ === "TyVar") ||
+      (ak.$ === "Infer" && ak._0.$ === "FloatVar" && bk.$ === "Infer" && bk._0.$ === "FloatVar") ||
+      (ak.$ === "Infer" && ak._0.$ === "IntVar" && bk.$ === "Infer" && bk._0.$ === "IntVar")
+    ) {
+      return OkA(a);
+    } else if (ak.$ === "Infer" || bk.$ === "Infer") {
+      return ErrA(TypeErrorR.Mismatch);
+    } else if (ak.$ === "Error") {
+      return OkA(TyA.new_error(this.cx(), ak._0));
+    } else if (bk.$ === "Error") {
+      return OkA(TyA.new_error(this.cx(), bk._0));
+    } else {
+      return structurally_relate_tysR(this, a, b);
+    }
+  }
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3662 regions
+  regions(a: RegionR, _b: RegionR): RelateResultR<RegionR> {
+    return OkA(a);
+  }
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3670 consts
+  consts(a: ConstA, b: ConstA): RelateResultR<ConstA> {
+    if (a === b) {
+      return OkA(a);
+    }
+
+    // Avoid ICEs when in gce, and `structurally_relate_consts`
+    // turns a non-infer const into an infer const
+    if (this.tcx.features().generic_const_exprs()) {
+      a = this.tcx.expand_abstract_consts(a, fold_ConstA);
+      b = this.tcx.expand_abstract_consts(b, fold_ConstA);
+    }
+
+    const ak = a.kind();
+    const bk = b.kind();
+    if (ak.$ === "Infer" && bk.$ === "Infer") {
+      return OkA(a);
+    } else if (ak.$ === "Infer" || bk.$ === "Infer") {
+      return ErrA({ $: "ConstMismatch", _0: ExpectedFoundR.new(a, b) });
+    }
+
+    return structurally_relate_constsR(this, a, b);
+  }
+
+  // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs:3697 binders
+  binders<T>(a: BinderR<T>, b: BinderR<T>, d: RelateR<T>): RelateResultR<BinderR<T>> {
+    const r = this.relate(BinderR.skip_binder(a), BinderR.skip_binder(b), d);
+    if (r.$ === "Err") return r;
+    return OkA(BinderR.rebind(a, r._0));
+  }
 }

@@ -2,6 +2,7 @@
 //
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
+import { report_item_does_not_constrain_error } from "../../../rustc_trait_selection/opaque_types.ts";
 import * as hir from "../../../rustc_hir/lib.ts";
 import { All } from "../../../rustc_middle/hir/nested_filter.ts";
 import type { AssocItem } from "../../../rustc_middle/ty/assoc.ts";
@@ -15,7 +16,7 @@ import { bug } from "../../../rustc_span/macros.ts";
 import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { TypeVisitableExt } from "../../../rustc_type_ir/visit.ts";
 import { PLAIN } from "../../../std/fmt.ts";
-import { assert, unported } from "../../../std/panic.ts";
+import { assert } from "../../../std/panic.ts";
 import type { Result } from "../../../std/result.ts";
 import * as diagnostics from "../../diagnostics.ts";
 
@@ -326,9 +327,3 @@ export function find_opaque_ty_constraints_for_rpit(tcx: TyCtxt, def_id: LocalDe
   }
 }
 
-// ---- PORT(stand-in): upstream fns of crates not ported yet (not markers; repoint when they land) ----
-
-/** `rustc_trait_selection::opaque_types::report_item_does_not_constrain_error` (rustc_trait_selection is not ported). */
-function report_item_does_not_constrain_error(_tcx: TyCtxt, _item_def_id: LocalDefId, _def_id: LocalDefId, _non_defining_use: undefined): ErrorGuaranteed {
-  return unported("rustc_trait_selection::opaque_types::report_item_does_not_constrain_error");
-}

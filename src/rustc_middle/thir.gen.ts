@@ -16,7 +16,7 @@ import { debug_GenericArgs, type GenericArgs, visit_with_GenericArgs } from "./t
 import { debug_Ty, type Ty, visit_with_Ty } from "./ty/mod.ts";
 import { debug_AdtDef, debug_ParamConst, visit_with_AdtDef, visit_with_ErrorGuaranteed } from "./ty/structural_impls.ts";
 import { debug_UpvarArgs, type ParamConst, type UpvarArgs } from "./ty/sty.gen.ts";
-import { type CanonicalUserType, type CanonicalUserTypeAnnotation, debug_CanonicalUserTypeAnnotation, debug_UserType } from "./ty/typeck_results.ts";
+import { type CanonicalUserType, type CanonicalUserTypeAnnotation, debug_CanonicalUserTypeAnnotation, debug_UserType, visit_with_CanonicalUserTypeAnnotation } from "./ty/typeck_results.ts";
 import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../rustc_span/def_id.ts";
 import { debug_ErrorGuaranteed, debug_Span, debug_Spanned, type ErrorGuaranteed, type Span } from "../rustc_span/lib.ts";
 import { debug_Symbol, type Symbol } from "../rustc_span/symbol.ts";
@@ -1157,7 +1157,7 @@ export function clone_Ascription(v: Ascription): Ascription {
 // rustc-derive: compiler/rustc_middle/src/thir.rs:743 TypeVisitable for Ascription
 export function visit_with_Ascription<R>(self: Ascription, __visitor: TypeVisitor<R>): R {
   let r: R | undefined;
-  if ((r = try_visit(__visitor.Result, unported_type_fold(self.annotation))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_CanonicalUserTypeAnnotation(self.annotation, __visitor))) !== undefined) return r;
   return __visitor.Result.output();
 }
 

@@ -25,6 +25,8 @@
 // - `debug!` / `#[instrument]` are tracing only and stay as comments.
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates.
 export * from "./writeback.gen.ts";
+import * as hir_place from "../rustc_middle/hir/place.ts";
+import * as middle_ty from "../rustc_middle/ty/mod.ts";
 import { ControlFlow, VisitorResult as VisitorResultC, type VisitorResult } from "../rustc_ast_ir/visit.ts";
 import { BinOpKind } from "../rustc_ast/lib.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
@@ -71,7 +73,7 @@ import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_pro
 import { PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported, unwrap } from "../std/panic.ts";
 import { FnCtxt, type Locatable } from "./decls.ts";
-import { NonDefiningUseReason_report, opaque_type_has_defining_use_args } from "./opaque_types.ts";
+import { NonDefiningUseReason, opaque_type_has_defining_use_args } from "../rustc_trait_selection/opaque_types.ts";
 
 ///////////////////////////////////////////////////////////////////////////
 // Entry point
@@ -684,7 +686,7 @@ WritebackCx.prototype.visit_opaque_types = function (this: WritebackCx): void {
     const r = opaque_type_has_defining_use_args(this.fcx.infcx, opaque_type_key, hidden_type.span, "HirTypeck");
     if (r.$ === "Err") {
       const err = r._0;
-      hidden_types.set(opaque_type_key.def_id, DefinitionSiteHiddenType.new_error(tcx, NonDefiningUseReason_report(err, this.fcx.infcx)));
+      hidden_types.set(opaque_type_key.def_id, DefinitionSiteHiddenType.new_error(tcx, NonDefiningUseReason.report(err, this.fcx.infcx)));
     }
 
     const remapped = hidden_type.remap_generic_params_to_declaration_params(opaque_type_key, tcx, "HirTypeck");
@@ -1251,17 +1253,17 @@ const fold_OpaqueTypeKey: TypeFoldable<OpaqueTypeKey> = {
   try_fold_with: try_fold_with_OpaqueTypeKey,
   fold_with: fold_with_OpaqueTypeKey,
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for ty::ProvisionalHiddenType` (rustc_middle ty/mod.rs): not generated. */
+/** The derived `TypeFoldable` of `ty::ProvisionalHiddenType` (rustc_middle ty/mod.rs, generated; built on use: init order). */
 const fold_ProvisionalHiddenType: TypeFoldable<ProvisionalHiddenType> = {
-  visit_with: () => unported("TypeVisitable for ty::ProvisionalHiddenType (tools/codegen)"),
-  try_fold_with: () => unported("TypeFoldable for ty::ProvisionalHiddenType (tools/codegen)"),
-  fold_with: () => unported("TypeFoldable for ty::ProvisionalHiddenType (tools/codegen)"),
+  visit_with: (self, visitor) => middle_ty.visit_with_ProvisionalHiddenType(self, visitor),
+  try_fold_with: (self, folder) => middle_ty.try_fold_with_ProvisionalHiddenType(self, folder),
+  fold_with: (self, folder) => middle_ty.fold_with_ProvisionalHiddenType(self, folder),
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for ty::ClosureSizeProfileData` (rustc_middle ty/mod.rs): not generated. */
+/** The derived `TypeFoldable` of `ty::ClosureSizeProfileData` (rustc_middle ty/mod.rs, generated; built on use: init order). */
 const fold_ClosureSizeProfileData: TypeFoldable<ClosureSizeProfileData> = {
-  visit_with: () => unported("TypeVisitable for ty::ClosureSizeProfileData (tools/codegen)"),
-  try_fold_with: () => unported("TypeFoldable for ty::ClosureSizeProfileData (tools/codegen)"),
-  fold_with: () => unported("TypeFoldable for ty::ClosureSizeProfileData (tools/codegen)"),
+  visit_with: (self, visitor) => middle_ty.visit_with_ClosureSizeProfileData(self, visitor),
+  try_fold_with: (self, folder) => middle_ty.try_fold_with_ClosureSizeProfileData(self, folder),
+  fold_with: (self, folder) => middle_ty.fold_with_ClosureSizeProfileData(self, folder),
 };
 /** `#[derive(TypeFoldable, TypeVisitable)] for ty::CapturedPlace` (rustc_middle ty/closure.rs; not generated yet). */
 const fold_CapturedPlace: TypeFoldable<CapturedPlace> = {
@@ -1269,10 +1271,10 @@ const fold_CapturedPlace: TypeFoldable<CapturedPlace> = {
   try_fold_with: () => unported("TypeFoldable for ty::CapturedPlace (derive; tools/codegen)"),
   fold_with: () => unported("TypeFoldable for ty::CapturedPlace (derive; tools/codegen)"),
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for hir::place::Place` (rustc_middle hir/place.rs; not generated yet). */
+/** `#[derive(TypeFoldable, TypeVisitable)] for hir::place::Place` (generated into rustc_middle hir/place.ts). */
 const fold_HirPlace: TypeFoldable<HirPlace> = {
-  visit_with: () => unported("TypeVisitable for hir::place::Place (hir/place.rs derive; tools/codegen)"),
-  try_fold_with: () => unported("TypeFoldable for hir::place::Place (hir/place.rs derive; tools/codegen)"),
-  fold_with: () => unported("TypeFoldable for hir::place::Place (hir/place.rs derive; tools/codegen)"),
+  visit_with: (self, visitor) => hir_place.visit_with_Place(self, visitor),
+  try_fold_with: (self, folder) => hir_place.try_fold_with_Place(self, folder),
+  fold_with: (self, folder) => hir_place.fold_with_Place(self, folder),
 };
 

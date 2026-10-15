@@ -30,9 +30,20 @@ import type {
   TypeMismatchFruTypo,
 } from "./diagnostics.gen.ts";
 
-// diagnostics.rs:99 (stub) `impl IntoDiagArg for ReturnLikeStatementKind`
-export function ReturnLikeStatementKind_into_diag_arg(_self: ReturnLikeStatementKind, _path: MutRef<PathBuf | undefined>): DiagArgValue {
-  return unported("rustc_hir_typeck::diagnostics::<ReturnLikeStatementKind as IntoDiagArg>::into_diag_arg");
+// `impl IntoDiagArg for ReturnLikeStatementKind`
+// rustc: compiler/rustc_hir_typeck/src/diagnostics.rs:99 into_diag_arg
+export function ReturnLikeStatementKind_into_diag_arg(self: ReturnLikeStatementKind, _: MutRef<PathBuf | undefined>): DiagArgValue {
+  let kind: string;
+  switch (self) {
+    case "Return":
+      kind = "return";
+      break;
+    case "Become":
+      kind = "become";
+      break;
+  }
+
+  return { $: "Str", _0: kind };
 }
 
 // diagnostics.rs:278 (stub) `impl Subdiagnostic for SuggestAnnotations`

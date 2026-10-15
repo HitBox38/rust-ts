@@ -96,7 +96,7 @@ const CASES: Case[] = [
   {
     name: "mut_ref_to_ref_with_unsize",
     items: `${UNSIZE}pub type A = &'static mut u8; pub type B = &'static u8;`,
-    expect: "UNPORTED(rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation)",
+    expect: "true",
     oracle: true,
   },
 ];

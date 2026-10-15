@@ -289,6 +289,15 @@ export const debug_TyKind: Debug<TyKind> = (self, f) => {
 
 // ---- AliasTy -------------------------------------------------------------------------------------------------------
 
+/**
+ * `{:?}` of `AliasTy` (`Alias<I, AliasTyKind>`): the derived Debug of `Alias` (alias.rs:15) over `AliasTyKind`'s.
+ * PORT: the hand alias the codegen type map names for `rustc_middle::ty::AliasTy` (middle_traits_thir.typemap.json;
+ * lane typeck-gaps), as ty/alias.ts's `debug_AliasTerm`.
+ */
+export function debug_AliasTy(v: AliasTyT, f: Fmt): string {
+  return debug_Alias(v, f, debug_AliasTyKind);
+}
+
 export const AliasTy = {
   // rustc: compiler/rustc_type_ir/src/ty_kind.rs:496 new_from_args
   new_from_args(_interner: TyCtxt, kind: AliasTyKind, args: GenericArgs): AliasTyT {

@@ -37,15 +37,17 @@ import { debug_Canonical } from "../../rustc_type_ir/canonical.gen.ts";
 import { clone_ObligationCause, ImplSource, ObligationCause, type ObligationCauseCode, type SelectionResult } from "../../rustc_middle/traits/mod.ts";
 import { SelectionError } from "../../rustc_middle/traits/mod.gen.ts";
 import { type CandidateStep, type CanonicalMethodAutoderefStepsGoal, type MethodAutoderefBadTy, type MethodAutoderefSteps, type MethodAutoderefStepsResult } from "../../rustc_middle/traits/query.ts";
+import * as middle_query from "../../rustc_middle/traits/query.ts";
+import { fold_ParamEnvAnd } from "../../rust_ts/fold_param_env_and.ts";
 import { AssocItem, AssocItems, type AssocKind } from "../../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { RawList } from "../../rustc_middle/ty/list.ts";
 import { GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { GenericClauses, type GenericClauses as GenericClausesT, type Generics } from "../../rustc_middle/ty/generics.ts";
-import { fold_with_Ty, try_fold_with_Ty, visit_with_Ty, fold_with_ParamEnv, HasAttrs_DefId, try_fold_with_ParamEnv, visit_with_ParamEnv, ProvisionalHiddenType, Ty, Visibility, type ParamEnvAnd } from "../../rustc_middle/ty/mod.ts";
+import { HasAttrs_DefId, ProvisionalHiddenType, Ty, Visibility, type ParamEnvAnd } from "../../rustc_middle/ty/mod.ts";
 import { Clause_upcast_from_TraitRef, Predicate_upcast_from_PolyTraitRef, Predicate_upcast_from_TraitRef, type Predicate } from "../../rustc_middle/ty/predicate.ts";
-import { debug_Ty, fold_Clause, fold_PredefinedOpaques, fold_Predicate, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
+import { debug_Ty, fold_Clause, fold_Predicate, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import type { TraitDef } from "../../rustc_middle/ty/trait_def.ts";
 import type { EvalResult } from "../../rustc_middle/middle/stability.gen.ts";
@@ -63,12 +65,11 @@ import { Binder, EarlyBinder, fold_Binder } from "../../rustc_type_ir/binder.ts"
 import type { PolyTraitRef, TraitRef as TraitRefT, Variance } from "../../rustc_type_ir/decls.ts";
 import { supertrait_def_ids, supertraits } from "../../rustc_type_ir/elaborate.ts";
 import { DeepRejectCtxt, simplify_type, TreatParams } from "../../rustc_type_ir/fast_reject.ts";
-import type { FallibleTypeFolder, TypeFoldable, TypeFolder } from "../../rustc_type_ir/fold.ts";
+import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { as_interner, TraitClause, type TraitClause as TraitClauseT, PolyExistentialTraitRef, PolyTraitClause, PolyTraitRef as PolyTraitRefC, TraitRef, visit_with_TraitRef, try_fold_with_TraitRef, fold_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
 import { FnSig, fold_FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { TypeVisitableExt, type TypeVisitor } from "../../rustc_type_ir/visit.ts";
-import { try_visit } from "../../rustc_ast_ir/visit.ts";
+import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import type { Interner } from "../../rustc_type_ir/interner.ts";
 import { KeyedSet } from "../../rust_ts/keyed.ts";
 import { assert, assert_eq, assert_matches, panic, unported, unreachable } from "../../std/panic.ts";
@@ -82,53 +83,12 @@ register_deref(ProbeContext, "fcx", FnCtxt);
 
 // ---- D4 descriptors (PORT) -------------------------------------------------------------------------------------------
 
-/** PORT: `#[derive(TypeFoldable, TypeVisitable)] ParamEnvAnd<T>` (rustc_middle ty/mod.rs) has no generated descriptor. */
-function fold_ParamEnvAnd<T>(d_T: TypeFoldable<T>): TypeFoldable<ParamEnvAnd<T>> {
-  return {
-    visit_with<R>(self: ParamEnvAnd<T>, visitor: TypeVisitor<R>): R {
-      let r: R | undefined;
-      if ((r = try_visit(visitor.Result, visit_with_ParamEnv(self.param_env, visitor))) !== undefined) return r;
-      if ((r = try_visit(visitor.Result, d_T.visit_with(self.value, visitor))) !== undefined) return r;
-      return visitor.Result.output();
-    },
-    try_fold_with<E>(self: ParamEnvAnd<T>, folder: FallibleTypeFolder<E>): Result<ParamEnvAnd<T>, E> {
-      const param_env = try_fold_with_ParamEnv(self.param_env, folder);
-      if (param_env.$ === "Err") return param_env;
-      const value = d_T.try_fold_with(self.value, folder);
-      if (value.$ === "Err") return value;
-      return Ok({ param_env: param_env._0, value: value._0 });
-    },
-    fold_with(self: ParamEnvAnd<T>, folder: TypeFolder): ParamEnvAnd<T> {
-      return { param_env: fold_with_ParamEnv(self.param_env, folder), value: d_T.fold_with(self.value, folder) };
-    },
-  };
-}
-
-/**
- * PORT: `#[derive(TypeFoldable, TypeVisitable)] MethodAutoderefSteps` (rustc_middle traits/query.rs). The generated
- * query.gen.ts impls stop at `unported_type_fold` for `predefined_opaques_in_body` (its `PredefinedOpaques` comes from
- * traits/solve.gen.ts, not mapped to structural_impls' `fold_PredefinedOpaques`): codegen typemap follow-up for root.
- */
+/** The derived `TypeVisitable` / `TypeFoldable` of `MethodAutoderefSteps` (rustc_middle traits/query.rs:67, generated in
+ *  traits/query.gen.ts) as a descriptor (built on use: init order). */
 export const fold_MethodAutoderefSteps: TypeFoldable<MethodAutoderefSteps> = {
-  visit_with<R>(self: MethodAutoderefSteps, visitor: TypeVisitor<R>): R {
-    let r: R | undefined;
-    if ((r = try_visit(visitor.Result, fold_PredefinedOpaques.visit_with(self.predefined_opaques_in_body, visitor))) !== undefined) return r;
-    if ((r = try_visit(visitor.Result, visit_with_Ty(self.self_ty, visitor))) !== undefined) return r;
-    return visitor.Result.output();
-  },
-  try_fold_with<E>(self: MethodAutoderefSteps, folder: FallibleTypeFolder<E>): Result<MethodAutoderefSteps, E> {
-    const predefined_opaques_in_body = fold_PredefinedOpaques.try_fold_with(self.predefined_opaques_in_body, folder);
-    if (predefined_opaques_in_body.$ === "Err") return predefined_opaques_in_body;
-    const self_ty = try_fold_with_Ty(self.self_ty, folder);
-    if (self_ty.$ === "Err") return self_ty;
-    return Ok({ predefined_opaques_in_body: predefined_opaques_in_body._0, self_ty: self_ty._0 });
-  },
-  fold_with(self: MethodAutoderefSteps, folder: TypeFolder): MethodAutoderefSteps {
-    return {
-      predefined_opaques_in_body: fold_PredefinedOpaques.fold_with(self.predefined_opaques_in_body, folder),
-      self_ty: fold_with_Ty(self.self_ty, folder),
-    };
-  },
+  visit_with: (self, visitor) => middle_query.visit_with_MethodAutoderefSteps(self, visitor),
+  try_fold_with: (self, folder) => middle_query.try_fold_with_MethodAutoderefSteps(self, folder),
+  fold_with: (self, folder) => middle_query.fold_with_MethodAutoderefSteps(self, folder),
 };
 
 const fold_ParamEnvAnd_MethodAutoderefSteps = fold_ParamEnvAnd(fold_MethodAutoderefSteps);

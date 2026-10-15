@@ -8,7 +8,7 @@
 //   `error_sig_of_closure` the argument types are lowered inside `mk_fn_sig`, i.e. *after* the return type.
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates.
 import { ExternAbi } from "../rustc_abi/extern_abi.ts";
-import { ControlFlow, try_visit, type VisitorResult, VisitorResult as VisitorResultC } from "../rustc_ast_ir/visit.ts";
+import { ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../rustc_ast_ir/visit.ts";
 import * as hir from "../rustc_hir/lib.ts";
 import { ToTrace_Ty } from "../rustc_infer/infer/at.ts";
 import { BoundRegionConversionTime, InferOk, type InferResult } from "../rustc_infer/infer/mod.ts";
@@ -31,7 +31,6 @@ import type { ClosureKind, PolyFnSig, PolyProjectionClause, ProjectionClause } f
 import { type Elaboratable, elaborate } from "../rustc_type_ir/elaborate.ts";
 import { fold_Option, fold_tuple2, type PredicateProxy, type TypeFoldable } from "../rustc_type_ir/fold.ts";
 import { INNERMOST } from "../rustc_type_ir/lib.gen.ts";
-import { visit_with_trivial } from "../rustc_type_ir/macros.ts";
 import { as_interner, fold_with_ProjectionClause, PolyExistentialProjection, PolyProjectionClause as PolyProjectionClauseC, ProjectionClause as ProjectionClauseC, TraitClause, try_fold_with_ProjectionClause, visit_with_ProjectionClause } from "../rustc_type_ir/predicate.ts";
 import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs, CoroutineClosureSignature as CoroutineClosureSignatureC, type CoroutineClosureSignature } from "../rustc_type_ir/ty_kind/closure.ts";
 import { AliasTerm } from "../rustc_type_ir/term_kind.ts";
@@ -39,13 +38,14 @@ import { debug_AliasTermKind } from "../rustc_type_ir/term_kind.gen.ts";
 import { debug_DefId, DefId_eq } from "../rustc_span/def_id.ts";
 import { fold_FnSig, FnSig, FnSigKind, PolyFnSig as PolyFnSigC, PolyFnSigTys } from "../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
-import { TypeVisitableExt, type TypeVisitable, type TypeVisitor, TypeVisitor_provided, visit_with_Option } from "../rustc_type_ir/visit.ts";
+import { TypeVisitableExt, type TypeVisitable, type TypeVisitor, TypeVisitor_provided } from "../rustc_type_ir/visit.ts";
 import { debug_Ty } from "../rustc_middle/ty/mod.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { assert, panic, unported } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
 import { check_fn } from "./check.ts";
 import type { ClosureSignatures, ExpectedSig } from "./closure.gen.ts";
+import * as gen_closure from "./closure.gen.ts";
 import { FnCtxt } from "./decls.ts";
 import { Expectation } from "./expectation.ts";
 import type { CoroutineTypes } from "./lib.gen.ts";
@@ -60,28 +60,11 @@ const fold_ProjectionClause: TypeFoldable<ProjectionClause> = { visit_with: visi
 /** The `TypeFoldable` descriptor of `ty::PolyProjectionClause`. */
 const fold_PolyProjectionClause = fold_Binder(fold_ProjectionClause);
 
-/**
- * PORT: `#[derive(TypeFoldable, TypeVisitable)] struct ExpectedSig` (closure.rs:28) as a descriptor. The generated
- * impls (closure.gen.ts) stop `unported` on the field `sig: ty::PolyFnSig` (codegen has no `type_fold.json` entry for the
- * alias `PolyFnSig`, fnctxt-contract report "2 missing TypeFoldable"); this is the derive's field-by-field traversal
- * with `Binder<FnSig>`'s impls (`cause_span: Option<Span>` is trivial). Root: replace with the generated impls once
- * codegen knows `PolyFnSig`.
- */
+/** The `TypeFoldable` descriptor of `ExpectedSig` (closure.rs:28, its derived impls in closure.gen.ts; built on use: init order). */
 const fold_ExpectedSig: TypeFoldable<ExpectedSig> = {
-  visit_with<R>(self: ExpectedSig, visitor: TypeVisitor<R>): R {
-    let r: R | undefined;
-    if ((r = try_visit(visitor.Result, visit_with_Option<Span, R>(self.cause_span, visitor, visit_with_trivial))) !== undefined) return r;
-    if ((r = try_visit(visitor.Result, fold_PolyFnSig.visit_with(self.sig, visitor))) !== undefined) return r;
-    return visitor.Result.output();
-  },
-  try_fold_with(self, folder) {
-    const sig = fold_PolyFnSig.try_fold_with(self.sig, folder);
-    if (sig.$ === "Err") return sig;
-    return Ok({ cause_span: self.cause_span, sig: sig._0 });
-  },
-  fold_with(self, folder) {
-    return { cause_span: self.cause_span, sig: fold_PolyFnSig.fold_with(self.sig, folder) };
-  },
+  visit_with: (self, visitor) => gen_closure.visit_with_ExpectedSig(self, visitor),
+  try_fold_with: (self, folder) => gen_closure.try_fold_with_ExpectedSig(self, folder),
+  fold_with: (self, folder) => gen_closure.fold_with_ExpectedSig(self, folder),
 };
 
 /** `FnSigKind::default().set_abi(ExternAbi::RustCall).set_safety(hir::Safety::Safe).set_c_variadic(c_variadic)` */

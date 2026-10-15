@@ -41,11 +41,32 @@ const PENDING = new Set([
   "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt", // field_bound.rs: E0277 report (wave 19)
   "rustc_middle::ty::region::EarlyParamRegion: RegionName::is_named", // unused.rs (rustc_middle ty/region.rs)
   "rustc_middle::ty::region::LateParamRegionKind::from_bound", // gat.rs: `liberate_late_bound_regions` (rustc_middle)
-  "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation", // marker.rs (implied_outlives_bounds provider -> query response region constraints; selcx-contract)
 ]);
 
 /** Cases that print the oracle's stderr since merge-w17: they must not stop. */
 const NOW_EXACT = new Set(["const_param.rs"]);
+
+/**
+ * `lint` mode makes only the calls that build no `ObligationCtxt`, so the oracle diagnostics of the other calls are out of
+ * its reach (lane typeck-gaps: gat.rs ran to the end once `ConstraintCategory` was ported). Per file: the first line of
+ * each such oracle diagnostic; the expected stderr is the oracle's without those diagnostics and with the error count
+ * adjusted. gat.rs: `requires \`legacy_receiver\` lang_item` comes from `check_associated_item`'s receiver check (`wf`
+ * mode; the full tydump pipeline prints both errors as the oracle does).
+ */
+const LINT_NOT_MADE: Record<string, string[]> = { "gat.rs": ["error: requires `legacy_receiver` lang_item"] };
+
+/** The oracle's stderr without the diagnostics starting with one of `heads` (blank-line separated blocks). */
+function without_diagnostics(stderr: string, heads: string[]): string {
+  const blocks = stderr.split("\n\n");
+  const kept = blocks.filter((b) => !heads.some((h) => b.startsWith(h)));
+  const removed = blocks.length - kept.length;
+  return kept
+    .join("\n\n")
+    .replace(/error: aborting due to (\d+) previous errors/, (_, n: string) => {
+      const left = Number(n) - removed;
+      return left === 1 ? "error: aborting due to 1 previous error" : `error: aborting due to ${left} previous errors`;
+    });
+}
 
 for (const [file, contains] of [
   ["shadow.rs", "warning: trait item `f` from `Both` shadows identically named item from supertrait"],
@@ -83,7 +104,10 @@ for (const [mode, file, contains] of [
     expect(oracle.stderr).toContain(contains);
     const m = /unported: (.*)\n/.exec(ours.stderr);
     if (NOW_EXACT.has(file)) expect(m).toBeNull();
+    const not_made = mode === "lint" ? LINT_NOT_MADE[file] : undefined;
+    if (not_made !== undefined) for (const h of not_made) expect(oracle.stderr).toContain(h);
+    const want = not_made !== undefined ? without_diagnostics(oracle.stderr, not_made) : oracle.stderr;
     if (m !== null) expect(PENDING).toContain(m[1]!);
-    else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
+    else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: want });
   }, 120_000);
 }

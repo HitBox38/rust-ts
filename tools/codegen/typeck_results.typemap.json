@@ -1,0 +1,10 @@
+{
+  "//": ["Type-map additions of set rustc_middle_typeck_results (lane typeck-gaps): rustc_middle ty/typeck_results.rs's field types that the global",
+         "and tyir maps leave without a usable Debug (`Clauses`: list.rs:192 `Debug for &List<T>` over Clause's Debug, as the hand debug_UserType did)."],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {"src/rustc_middle/ty/predicate.ts": ["debug_Clause"]},
+  "types": [
+    {"paths": ["I::Clauses", "rustc_middle::ty::Clauses"], "ts": "Clauses", "import": "src/rustc_middle/ty/list.ts", "types": ["Clauses"], "values": ["debug_RawList"], "debug": "debug_RawList($v, $f, debug_Clause)", "clone": "copy", "note": "list.rs:192 `Debug for &List<T>` (`f.debug_list()` over the elements)"},
+    {"paths": ["rustc_middle::ty::UserArgs", "rustc_middle::ty::generic_args::UserArgs"], "ts": "UserArgs", "import": "src/rustc_middle/ty/generic_args.ts", "types": ["UserArgs"], "values": ["debug_UserArgs"], "debug": "debug_UserArgs($v, $f)", "clone": "copy", "note": "generic_args.rs:726 (set rustc_ty)"}
+  ]
+}

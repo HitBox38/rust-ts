@@ -1367,6 +1367,17 @@ export function fold_with_Term(self: Term, folder: TypeFolder): Term {
 
 /** `impl fmt::Debug for Ty` (structural_impls.rs:82, lane ty-results), re-exported for generated code. */
 export { debug_Ty };
+// The derived `TypeVisitable` / `TypeFoldable` of the hand-written `ClosureSizeProfileData` / `ProvisionalHiddenType`
+// (tools/codegen set rustc_middle_ty_mod, `type_fold_hand`; lane typeck-gaps). Only these: mod.gen.ts's Debug of the
+// hand types is not used.
+export {
+  fold_with_ClosureSizeProfileData,
+  fold_with_ProvisionalHiddenType,
+  try_fold_with_ClosureSizeProfileData,
+  try_fold_with_ProvisionalHiddenType,
+  visit_with_ClosureSizeProfileData,
+  visit_with_ProvisionalHiddenType,
+} from "./mod.gen.ts";
 export function visit_with_Ty<R>(self: Ty, visitor: TypeVisitor<R>): R {
   return fold_Ty.visit_with(self, visitor);
 }

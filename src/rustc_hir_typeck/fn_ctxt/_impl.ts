@@ -42,7 +42,7 @@ import { Ty } from "../../rustc_middle/ty/mod.ts";
 import { Predicate_upcast_from_ClauseKind, type Clause } from "../../rustc_middle/ty/predicate.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { debug_Adjustment, debug_Ty, fold_Clause, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
-import { IsIdentity_CanonicalUserType, type CanonicalUserType, type SplattedDef } from "../../rustc_middle/ty/typeck_results.ts";
+import { fold_UserType, IsIdentity_CanonicalUserType, type CanonicalUserType, type SplattedDef, UserType } from "../../rustc_middle/ty/typeck_results.ts";
 import { DefId_eq, LocalDefId, debug_LocalDefId, type DefId, type LocalDefId as LocalDefIdT } from "../../rustc_span/def_id.ts";
 import { Edition } from "../../rustc_span/edition.ts";
 import { display_Ident, Symbol } from "../../rustc_span/symbol.ts";
@@ -58,7 +58,7 @@ import { FnSig, type FnSig as FnSigT } from "../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt, type TypeVisitable, visit_with_Option, visit_with_tuple2 } from "../../rustc_type_ir/visit.ts";
 import { debug_vec, PLAIN } from "../../std/fmt.ts";
-import { assert, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { assert, panic, unreachable, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { FnCtxt } from "../decls.ts";
 import type { TypeErrCtxt } from "../../rustc_trait_selection/decls.ts";
@@ -331,7 +331,7 @@ FnCtxt.prototype.write_args = function (this: FnCtxt, node_id: HirId, args: Gene
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs:302 write_user_type_annotation_from_args
 FnCtxt.prototype.write_user_type_annotation_from_args = function (
   this: FnCtxt,
-  _hir_id: HirId,
+  hir_id: HirId,
   def_id: DefId,
   args: GenericArgs,
   user_self_ty: UserSelfTy | undefined,
@@ -346,10 +346,12 @@ FnCtxt.prototype.write_user_type_annotation_from_args = function (
   }
 
   if (FnCtxt.can_contain_user_lifetime_bounds([args, user_self_ty], d_UserArgsTuple)) {
-    // PORT: `canonicalize_user_type_annotation(ty::UserType::new(ty::UserTypeKind::TypeOf(def_id, UserArgs { args,
-    // user_self_ty })))` needs the derived `TypeFoldable` of rustc_middle `UserType` / `UserTypeKind`
-    // (ty/typeck_results.rs), which codegen does not generate yet (same stop as `GatherLocalsVisitor::declare`).
-    return unported("TypeFoldable for rustc_middle::ty::typeck_results::UserType (FnCtxt::write_user_type_annotation_from_args)");
+    const canonicalized = this.canonicalize_user_type_annotation(
+      UserType.new({ $: "TypeOf", _0: def_id, _1: { args, user_self_ty } }),
+      fold_UserType,
+    );
+    // debug!(?canonicalized);
+    this.write_user_type_annotation(hir_id, canonicalized);
   }
 };
 
@@ -567,9 +569,9 @@ FnCtxt.prototype.lower_ty_saving_user_provided_ty = function (this: FnCtxt, hir_
   // debug!(?ty);
 
   if (FnCtxt.can_contain_user_lifetime_bounds(ty.raw, fold_Ty)) {
-    // PORT: `canonicalize_response(ty::UserType::new(ty::UserTypeKind::Ty(ty.raw)))` needs the derived `TypeFoldable`
-    // of rustc_middle `UserType` / `UserTypeKind` (ty/typeck_results.rs), which codegen does not generate yet.
-    return unported("TypeFoldable for rustc_middle::ty::typeck_results::UserType (FnCtxt::lower_ty_saving_user_provided_ty)");
+    const c_ty = this.canonicalize_response(UserType.new({ $: "Ty", _0: ty.raw }), fold_UserType);
+    // debug!(?c_ty);
+    this.typeck_results.user_provided_types_mut().insert(hir_ty.hir_id, c_ty);
   }
 
   return ty.normalized;

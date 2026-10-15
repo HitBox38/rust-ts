@@ -419,8 +419,8 @@ describe("InferCtxt (infer/mod.rs)", () => {
       expect(() => RegionVariableOrigin.span({ $: "Nll", _0: { $: "FreeRegion" } })).toThrow(/NLL variable used with `span`/);
       expect(display_FixupError({ unresolved: { $: "TyFloat", _0: 0 as FloatVid } })).toBe("cannot determine the type of this number; add a suffix to specify the type explicitly");
       expect(display_FixupError({ unresolved: { $: "Const", _0: 0 as ConstVid } })).toBe("unconstrained const value");
-      // `ConstraintCategory` (rustc_middle::mir) is M4.
-      expect(() => SubregionOrigin.to_constraint_category(parent)).toThrow(Unported);
+      // `ConstraintCategory` (rustc_middle mir/query.rs, generated; lane typeck-gaps): a `Misc` cause is `BoringNoLocation`.
+      expect(SubregionOrigin.to_constraint_category(parent)).toEqual({ $: "BoringNoLocation" });
     }),
   );
 });

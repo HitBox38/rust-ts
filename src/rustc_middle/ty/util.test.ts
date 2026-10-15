@@ -219,7 +219,9 @@ describe("TyCtxt helpers", () => {
 
   test("unported dependencies stop as UNPORTED, not TypeError", () => {
     const tcx = mk_tcx();
-    expect(() => tcx.types.i32.int_size_and_signed(tcx)).toThrow(Unported);
+    // `IntegerExt::from_int_ty` + `Integer::size` (ported since lane typeck-gaps): i32 is 4 bytes, signed.
+    const [size, signed] = tcx.types.i32.int_size_and_signed(tcx);
+    expect([size.bytes(), signed]).toEqual([4, true]);
     expect(() => tcx.types.char.numeric_min_and_max_as_bits(tcx)).not.toThrow();
     expect(tcx.types.char.numeric_min_and_max_as_bits(tcx)).toEqual([0n, 0x10ffffn]);
     expect(tcx.types.bool.numeric_min_and_max_as_bits(tcx)).toBeUndefined();

@@ -5,8 +5,9 @@
 // `Projection` (data only) as an interface, `Place` / `PlaceWithHirId` (inherent methods) as classes. Their
 // `#[derive(Debug)]` impls are `debug_<T>`, `#[derive(PartialEq)]` is `<T>_eq`, `#[derive(Clone)]` is `clone_<T>`
 // (the `projections` vector is copied; `Ty` / `HirId` / `UpvarId` / `ProjectionKind` values are immutable and shared).
-// `Hash`, `TyEncodable`, `TyDecodable`, `StableHash`, `TypeFoldable` and `TypeVisitable` derives are not written
-// (tools/codegen; PORTING §5).
+// `Hash`, `TyEncodable`, `TyDecodable` and `StableHash` derives are not written (tools/codegen; PORTING §5). The
+// `TypeFoldable` / `TypeVisitable` derives are generated into place.gen.ts (set rustc_middle_hir_place, `type_fold_hand`;
+// lane typeck-gaps) and re-exported below (only those: the .gen.ts's Debug of these hand types is not used).
 // hir/mod.ts re-exports this module as `place` (`pub mod place;`, merge-w18).
 import { debug_HirId, type HirId, HirId_eq } from "../../rustc_hir_id/lib.ts";
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
@@ -15,6 +16,21 @@ import type { UpvarId } from "../ty/closure.ts";
 import type { FieldIdx, VariantIdx } from "../ty/decls.ts";
 import type { Ty } from "../ty/mod.ts";
 import { debug_Ty, debug_UpvarId } from "../ty/structural_impls.ts";
+
+export {
+  fold_with_Place,
+  fold_with_PlaceBase,
+  fold_with_Projection,
+  fold_with_ProjectionKind,
+  try_fold_with_Place,
+  try_fold_with_PlaceBase,
+  try_fold_with_Projection,
+  try_fold_with_ProjectionKind,
+  visit_with_Place,
+  visit_with_PlaceBase,
+  visit_with_Projection,
+  visit_with_ProjectionKind,
+} from "./place.gen.ts";
 
 // rustc-type: compiler/rustc_middle/src/hir/place.rs:10 PlaceBase
 export type PlaceBase =

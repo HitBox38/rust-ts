@@ -33,8 +33,6 @@
 // the generated class's prototype (cast.gen.ts), `CastCheck::new` as its associated fn.
 // - `impl From<ErrorGuaranteed> for CastError` is `CastError_from` (decls.ts comment-only declaration).
 // - `#[derive(PartialEq)] PointerKind` is `PointerKind_eq` (PORTING §5 "on data → a `<type>_eq` function").
-// - `rustc_middle::ty::cast::CastTy` is not ported yet: `CastTy` below is a local stand-in alias in PORTING's standard
-//   representation and `CastTy_from_ty` stops `unported` (precedent: thir-cx-print's MIR stand-ins).
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates; every other
 // rustc_hir_typeck export is read inside function bodies only.
 export * from "./cast.gen.ts";
@@ -53,6 +51,7 @@ import { AllowTwoPhase } from "../rustc_middle/ty/adjustment.gen.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import { debug_Ty, type ParamEnv, Ty } from "../rustc_middle/ty/mod.ts";
+import { CastTy } from "../rustc_middle/ty/cast.ts";
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { fold_Predicate, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { DefId_eq, type DefId } from "../rustc_span/def_id.ts";
@@ -100,15 +99,6 @@ function PointerKind_eq(a: PointerKind, b: PointerKind): boolean {
     case "OfParam":
       return b.$ === "OfParam" && a._0.index === b._0.index && a._0.name === b._0.name;
   }
-}
-
-/** PORT: stand-in for `rustc_middle::ty::cast::CastTy` (rustc_middle/src/ty/cast.rs:10, not ported yet), in PORTING's
- *  standard representation. */
-type CastTy = { readonly $: "Int" } | { readonly $: "CEnum" } | { readonly $: "Bool" } | { readonly $: "Char" } | { readonly $: "Float" } | { readonly $: "FnPtr" } | { readonly $: "Ptr"; _0: TypeAndMut };
-
-/** `CastTy::from_ty` (rustc_middle/src/ty/cast.rs:28): pending the port of rustc_middle ty/cast.rs. */
-function CastTy_from_ty(_t: Ty): CastTy | undefined {
-  return unported("rustc_middle::ty::cast::CastTy::from_ty");
 }
 
 // impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
@@ -762,8 +752,8 @@ CastCheck.prototype.do_check = function (this: CastCheck, fcx: FnCtxt): Result<C
 
   let t_from: CastTy;
   let t_cast: CastTy;
-  const from = CastTy_from_ty(this.expr_ty);
-  const cast = CastTy_from_ty(this.cast_ty);
+  const from = CastTy.from_ty(this.expr_ty);
+  const cast = CastTy.from_ty(this.cast_ty);
   if (from !== undefined && cast !== undefined) {
     [t_from, t_cast] = [from, cast];
   } else if (from === undefined && cast !== undefined) {
@@ -781,7 +771,7 @@ CastCheck.prototype.do_check = function (this: CastCheck, fcx: FnCtxt): Result<C
         if (res.$ === "Err") {
           return Err(CastError.NonScalar);
         }
-        [t_from, t_cast] = [{ $: "FnPtr" }, t_cast_];
+        [t_from, t_cast] = [CastTy.FnPtr, t_cast_];
         break;
       }
       // Special case some errors for references, and check for

@@ -3,7 +3,7 @@
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { type InferCtxt, type InferCtxtBuilder, type InferCtxtInner } from "./mod.ts";
 import { debug_Obligation, type Obligation, type PredicateObligations } from "../traits/mod.ts";
-import { clone_ObligationCause, debug_ObligationCause, type ObligationCause } from "../../rustc_middle/traits/mod.ts";
+import { clone_ObligationCause, debug_ObligationCause, fold_with_PolyFnSig, type ObligationCause, try_fold_with_PolyFnSig, visit_with_PolyFnSig } from "../../rustc_middle/traits/mod.ts";
 import { type UpvarId } from "../../rustc_middle/ty/closure.ts";
 import { type TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { debug_Term, debug_Ty, fold_with_Term, type Term, try_fold_with_Term, type Ty, visit_with_Term } from "../../rustc_middle/ty/mod.ts";
@@ -123,7 +123,7 @@ export function visit_with_ValuePairs<R>(self: ValuePairs, __visitor: TypeVisito
       if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<TraitRef, R>(self._0, __visitor, visit_with_TraitRef))) !== undefined) return r;
       break;
     case "PolySigs":
-      if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<unknown, R>(self._0, __visitor, <R>(__v: unknown, __visitor: TypeVisitor<R>): R => unported_type_fold(__v)))) !== undefined) return r;
+      if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<unknown, R>(self._0, __visitor, visit_with_PolyFnSig))) !== undefined) return r;
       break;
     case "ExistentialTraitRef":
       if ((r = try_visit(__visitor.Result, visit_with_ExpectedFound<unknown, R>(self._0, __visitor, <R>(__v: unknown, __visitor: TypeVisitor<R>): R => unported_type_fold(__v)))) !== undefined) return r;
@@ -158,7 +158,7 @@ export function try_fold_with_ValuePairs<E>(self: ValuePairs, __folder: Fallible
       return Ok({ $: "TraitRefs" as const, _0: __0._0 });
     }
     case "PolySigs": {
-      const __0 = try_fold_with_ExpectedFound<unknown, E>(self._0, __folder, <E>(__v: unknown, __folder: FallibleTypeFolder<E>): Result<unknown, E> => unported_type_fold(__v));
+      const __0 = try_fold_with_ExpectedFound<unknown, E>(self._0, __folder, try_fold_with_PolyFnSig);
       if (__0.$ === "Err") return __0;
       return Ok({ $: "PolySigs" as const, _0: __0._0 });
     }
@@ -190,7 +190,7 @@ export function fold_with_ValuePairs(self: ValuePairs, __folder: TypeFolder): Va
       return { $: "TraitRefs" as const, _0: fold_with_ExpectedFound<TraitRef>(self._0, __folder, fold_with_TraitRef) };
     }
     case "PolySigs": {
-      return { $: "PolySigs" as const, _0: fold_with_ExpectedFound<unknown>(self._0, __folder, (__v: unknown, __folder: TypeFolder): unknown => unported_type_fold(__v)) };
+      return { $: "PolySigs" as const, _0: fold_with_ExpectedFound<unknown>(self._0, __folder, fold_with_PolyFnSig) };
     }
     case "ExistentialTraitRef": {
       return { $: "ExistentialTraitRef" as const, _0: fold_with_ExpectedFound<unknown>(self._0, __folder, (__v: unknown, __folder: TypeFolder): unknown => unported_type_fold(__v)) };

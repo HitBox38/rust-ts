@@ -12,10 +12,10 @@
 //   `CommonLifetimes` and `CommonConsts` are built on the first read of `types` / `lifetimes` / `consts` instead of
 //   in `create_global_ctxt` (ty-contract decision 3); nothing observable depends on when they are built.
 // - No dep graph (D3): `dep_graph` is the disabled graph (dep_graph/graph.ts).
-// - `data_layout` (`sess.target.parse_data_layout()`) is computed on first read, pending rustc_target /
-//   rustc_abi (lane target-cfg); upstream computes it eagerly in `create_global_ctxt` and can only fail
-//   for custom target specs.
+// - `data_layout` (`sess.target.parse_data_layout()`) is computed on first read (lane typeck-gaps); upstream computes
+//   it eagerly in `create_global_ctxt` and can only fail for custom target specs (that error path stops `unported`).
 // - Query methods (`tcx.$query(..)`) are installed by query/query_api.ts and hook methods by hooks.ts.
+import type { TargetDataLayout } from "../../rustc_abi/lib.ts";
 import type { Crate } from "../../rustc_ast/ast.gen.ts";
 import type { LanguageItems } from "../../rustc_attr_ir/lang_items.ts";
 import type { Untracked, CrateStoreDyn } from "../../rustc_crate_store/cstore.ts";
@@ -97,6 +97,7 @@ import { CanonicalParamEnvCache as InferCanonicalParamEnvCache } from "../infer/
 
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { AliasTermKind, CanonicalParamEnvCache, GlobalCache, Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
+import type { IntrinsicDef } from "./intrinsic.ts";
 import type { EarlyParamRegion, LateParamRegionKind, TypingEnv, VariantIdx } from "./decls.ts";
 import { debug_GenericArg, debug_GenericArgs } from "./generic_args.ts";
 import { GenericParamDef, type Generics } from "./generics.ts";
@@ -201,7 +202,6 @@ export const inherent_Span = {
 // file reads.
 type Thir = Pending<"thir::Thir">;
 type AllocId = Pending<"mir::interpret::AllocId">;
-type IntrinsicDef = Pending<"ty::IntrinsicDef">;
 type DepNode = Pending<"dep_graph::DepNode">;
 type Local = Pending<"mir::Local">;
 import type { ResolvedArg } from "../middle/resolve_bound_vars.ts";
@@ -2863,7 +2863,7 @@ export function TyCtxtAt_create_def(
 
 /// See [TyCtxt] for details about this type.
 export class GlobalCtxt {
-  private data_layout_: unknown = undefined;
+  private data_layout_: TargetDataLayout | undefined = undefined;
   private types_: CommonTypes | undefined = undefined;
   private lifetimes_: CommonLifetimes | undefined = undefined;
   private consts_: CommonConsts | undefined = undefined;
@@ -2927,9 +2927,15 @@ export class GlobalCtxt {
   }
 
   /// Data layout specification for the current target.
-  get data_layout(): unknown {
+  get data_layout(): TargetDataLayout {
     if (this.data_layout_ === undefined) {
-      this.data_layout_ = unported("rustc_target::spec::Target::parse_data_layout (GlobalCtxt::data_layout; pending target-cfg / rustc_abi)");
+      // `create_global_ctxt` (context.rs:960): `sess.target.parse_data_layout().unwrap_or_else(|err| {
+      //     sess.dcx().emit_fatal(err); })`, on first read (module comment).
+      const r = this.sess.target.parse_data_layout();
+      if (r.$ === "Err") {
+        return unported("rustc_errors::diagnostic_impls: Diagnostic for rustc_abi::TargetDataLayoutErrors (GlobalCtxt::data_layout: emit_fatal)");
+      }
+      this.data_layout_ = r._0;
     }
     return this.data_layout_;
   }

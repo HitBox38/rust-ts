@@ -15,7 +15,8 @@ import { clone_UnrollAttr, debug_UnrollAttr } from "../rustc_attr_ir/lib.ts";
 import { display_RangeEnd } from "../rustc_hir/lib.ts";
 import type { ByRef } from "../rustc_ast/lib.ts";
 import { newtype_index } from "../rustc_index/newtype_index.ts";
-import { type Integer, Size } from "../rustc_abi/lib.ts";
+import { Integer as IntegerC, type Integer, Size } from "../rustc_abi/lib.ts";
+import type { IntTy, UintTy } from "../rustc_ast_ir/lib.ts";
 import type { ErrorGuaranteed, Span } from "../rustc_span/lib.ts";
 import type { Symbol } from "../rustc_span/symbol.ts";
 import { bug } from "../rustc_span/macros.ts";
@@ -519,29 +520,28 @@ function cmp_bigint(a: bigint, b: bigint): Ordering {
 
 // ---- stand-ins for fns of other upstream files that are not ported yet (not markers; repoint when they land) ----
 
-/** PORT: stand-in for `IntegerExt::from_int_ty` (ty/layout.rs, M4). */
-function Integer_from_int_ty(_tcx: TyCtxt, _ity: unknown): Integer {
-  return unported("rustc_middle::ty::layout::IntegerExt::from_int_ty (ty/layout.rs, M4)");
+// `IntegerExt::{from_int_ty, from_uint_ty}` (ty/layout.ts) and rustc_abi's `Integer::size` / `Size::{truncate,
+// unsigned_int_max, sign_extend}` are ported (lane typeck-gaps): these names forward to them (read on use: init order).
+function Integer_from_int_ty(tcx: TyCtxt, ity: unknown): Integer {
+  return layout_().IntegerExt.from_int_ty(tcx, ity as IntTy);
 }
-/** PORT: stand-in for `IntegerExt::from_uint_ty` (ty/layout.rs, M4). */
-function Integer_from_uint_ty(_tcx: TyCtxt, _uty: unknown): Integer {
-  return unported("rustc_middle::ty::layout::IntegerExt::from_uint_ty (ty/layout.rs, M4)");
+function Integer_from_uint_ty(tcx: TyCtxt, uty: unknown): Integer {
+  return layout_().IntegerExt.from_uint_ty(tcx, uty as UintTy);
 }
-/** PORT: stand-in for `Integer::size` (rustc_abi, not ported). */
-function Integer_size(_self: Integer): Size {
-  return unported("rustc_abi::Integer::size");
+function Integer_size(self: Integer): Size {
+  return IntegerC.size(self);
 }
-/** PORT: stand-in for `Size::truncate` (rustc_abi, not ported). */
-function Size_truncate(_self: Size, _value: bigint): bigint {
-  return unported("rustc_abi::Size::truncate");
+function Size_truncate(self: Size, value: bigint): bigint {
+  return self.truncate(value);
 }
-/** PORT: stand-in for `Size::unsigned_int_max` (rustc_abi, not ported). */
-function Size_unsigned_int_max(_self: Size): bigint {
-  return unported("rustc_abi::Size::unsigned_int_max");
+function Size_unsigned_int_max(self: Size): bigint {
+  return self.unsigned_int_max();
 }
-/** PORT: stand-in for `Size::sign_extend` (rustc_abi, not ported); `as i128`. */
-function Size_sign_extend(_self: Size, _value: bigint): bigint {
-  return unported("rustc_abi::Size::sign_extend");
+function Size_sign_extend(self: Size, value: bigint): bigint {
+  return self.sign_extend(value);
+}
+function layout_(): typeof import("./ty/layout.ts") {
+  return require("./ty/layout.ts") as typeof import("./ty/layout.ts");
 }
 
 /** PORT (merge-w15b): `ValTreeKind`'s leaf accessors (rustc_type_ir const_kind.rs; `ValTree` derefs to it) and

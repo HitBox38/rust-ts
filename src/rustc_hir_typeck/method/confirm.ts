@@ -26,7 +26,7 @@ import { type InstantiatedClauses, Ty } from "../../rustc_middle/ty/mod.ts";
 import type { Clause } from "../../rustc_middle/ty/predicate.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { fold_Clause, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
-import { UserType } from "../../rustc_middle/ty/typeck_results.ts";
+import { fold_UserType, UserType } from "../../rustc_middle/ty/typeck_results.ts";
 import { debug_DefId, type DefId, DefId_eq, LocalDefId } from "../../rustc_span/def_id.ts";
 import { MultiSpan } from "../../rustc_error_messages/lib.ts";
 import { DiagSymbolList_from } from "../../rustc_errors/diagnostic_impls.ts";
@@ -479,12 +479,7 @@ ConfirmContext.prototype.instantiate_method_args = function (this: ConfirmContex
         user_self_ty: undefined, // not relevant here
       };
 
-      const user_type = UserType.new({ $: "TypeOf", _0: pick.item.def_id, _1: user_args });
-      void user_type;
-      // PORT: `canonicalize_user_type_annotation<V: TypeFoldable>` needs `UserType`'s derived `TypeFoldable`, which
-      // codegen does not generate yet (rustc_middle ty/typeck_results.rs `UserType` / `UserTypeKind`; as
-      // gather_locals.ts `GatherLocalsVisitor::declare`).
-      return unported("TypeFoldable for rustc_middle::ty::typeck_results::UserType (derive not generated)") as never;
+      return this.fcx.canonicalize_user_type_annotation(UserType.new({ $: "TypeOf", _0: pick.item.def_id, _1: user_args }), fold_UserType);
     });
 
     // debug!("instantiate_method_args: user_type_annotation={:?}", user_type_annotation);
