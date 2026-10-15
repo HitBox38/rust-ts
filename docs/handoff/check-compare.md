@@ -112,4 +112,8 @@ Branch `lane/check-compare` (from main `3e4773f`, no merges).
 - Difftest: not affected (no driver path reaches the module); see "Test run" for the sample.
 
 ## Test run
-(filled in below)
+- `RUST_TS_REQUIRE_PROBES=1 bun test --timeout=300000 src tools`: **5003 pass, 1 skip (the pre-existing linux-only test),
+  0 fail** (5004 tests, 310 files, 1202 s), including compare_impl_item.oracle.test.ts 43/43.
+- `RUST_TS_AGENT=check-compare bun scripts/difftest.ts --suite hir-tree-nocore --sample 100`: 98 MATCH / 0 DIFF /
+  2 UNPORTED / 0 CRASH (run `20261015-000312-check-compare-ad37`). The module is not in the driver path, so this only
+  confirms no load-order regression.
