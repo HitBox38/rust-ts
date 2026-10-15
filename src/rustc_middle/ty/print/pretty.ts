@@ -72,7 +72,7 @@ import { debug_RegionVid } from "../../../rustc_type_ir/region_kind.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
 import type { Providers } from "../../queries.gen.ts";
 import { with_ } from "../context/tls.ts";
-import type { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
+import { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
 import type { ParamConst, ParamTy } from "../sty.ts";
 import { into_query_key_DefId, type IntoQueryKey } from "../../query/into_query_key.ts";
 import { fold_Ty } from "../structural_impls.ts";
@@ -3010,10 +3010,10 @@ export class FmtPrinter extends PrettyPrinter {
     const k = region.kind();
     switch (k.$) {
       case "ReEarlyParam":
-        return EarlyParamRegion_is_named(k._0);
+        return EarlyParamRegion.is_named(k._0);
 
       case "ReLateParam":
-        return LateParamRegionKind_is_named(k._0.kind, this._0.tcx);
+        return LateParamRegionKind.is_named(k._0.kind, this._0.tcx);
       case "ReBound":
       case "RePlaceholder": {
         const br = k.$ === "ReBound" ? k._1.kind : k._0.bound.kind;
@@ -3090,7 +3090,7 @@ export class FmtPrinter extends PrettyPrinter {
       }
       case "ReLateParam": {
         const kind = k._0.kind;
-        const name = LateParamRegionKind_get_name(kind, this._0.tcx);
+        const name = LateParamRegionKind.get_name(kind, this._0.tcx);
         if (name !== undefined) {
           if ((r = this.write_str(display_Symbol(name))).$ === "Err") return r;
           return PRINT_OK;
@@ -4402,27 +4402,6 @@ function BoundRegionKind_eq(a: BoundRegionKind, b: BoundRegionKind): boolean {
 }
 
 // ---- pending ty-results / ty-adt-assoc (rustc_middle ty/*) ----
-/** PORT: pending ty-results: `EarlyParamRegion::is_named` (region.rs:31). */
-function EarlyParamRegion_is_named(self: EarlyParamRegion): boolean {
-  return self.name !== kw.UnderscoreLifetime;
-}
-/** PORT: pending ty-results: `LateParamRegionKind::is_named` (region.rs:103). */
-function LateParamRegionKind_is_named(self: LateParamRegionKind, tcx: TyCtxt): boolean {
-  return LateParamRegionKind_get_name(self, tcx) !== undefined;
-}
-/** PORT: pending ty-results: `LateParamRegionKind::get_name` (region.rs:107). */
-function LateParamRegionKind_get_name(self: LateParamRegionKind, tcx: TyCtxt): Symbol | undefined {
-  switch (self.$) {
-    case "Named": {
-      const name = tcx.item_name(self._0);
-      return name !== kw.UnderscoreLifetime ? name : undefined;
-    }
-    case "NamedAnon":
-      return self._1;
-    default:
-      return undefined;
-  }
-}
 // `ty::Value` (valtree.rs:103): its fields read here.
 interface ValueShape {
   valtree: ValTree;

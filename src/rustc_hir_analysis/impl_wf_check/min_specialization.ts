@@ -74,9 +74,8 @@
 //   interned `args` by identity; `_use_trait_ref_new_instead` is `()`).
 // - `<[T]>::partition_dedup` is std's algorithm (`partition_dedup` below): which duplicate comes first depends on its
 //   swaps, so it is ported, not approximated.
-// - `impl Elaboratable for (Clause, Span)` (rustc_middle ty/elaborate_impl.rs, not ported) is a local stand-in at the
-//   end of the file that stops as UNPORTED. `traits::elaborate(..)` over `Clause` / `PredicateObligation` uses
-//   rustc_type_ir elaborate.ts's `Elaboratable_Clause` / rustc_infer's `Elaboratable_PredicateObligation`;
+// - `traits::elaborate(..)` over `(Clause, Span)` / `Clause` / `PredicateObligation` uses rustc_middle
+//   elaborate_impl.ts's `Elaboratable_Clause_Span` / `Elaboratable_Clause` / rustc_infer's `Elaboratable_PredicateObligation`;
 //   `InferCtxtErrorExt::err_ctxt` (wave 19) is rustc_trait_selection traits/mod.ts's view.
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies.
@@ -104,7 +103,8 @@ import { type DefId, DefId_eq, LocalDefId } from "../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { fold_Vec } from "../../rustc_type_ir/fold.ts";
-import { Elaboratable_Clause, elaborate } from "../../rustc_type_ir/elaborate.ts";
+import { elaborate } from "../../rustc_type_ir/elaborate.ts";
+import { Elaboratable_Clause, Elaboratable_Clause_Span } from "../../rustc_middle/ty/elaborate_impl.ts";
 import { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
 import { display_AliasTerm } from "../../rustc_type_ir/ir_print.ts";
 import type { TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
@@ -346,10 +346,13 @@ function check_predicates(
   impl2_args: GenericArgs,
   span: Span,
 ): Result<null, ErrorGuaranteed> {
-  const impl1_clauses: [Clause, Span][] = elaborate_Clause_Span(
-    tcx,
-    [...GenericClauses.instantiate(tcx.clauses_of(impl1_def_id) as GenericClausesT, tcx, impl1_args)].map(([c, s]) => [Unnormalized.skip_norm_wip(c), s] as [Clause, Span]),
-  );
+  const impl1_clauses: [Clause, Span][] = [
+    ...elaborate(
+      tcx,
+      [...GenericClauses.instantiate(tcx.clauses_of(impl1_def_id) as GenericClausesT, tcx, impl1_args)].map(([c, s]) => [Unnormalized.skip_norm_wip(c), s] as [Clause, Span]),
+      Elaboratable_Clause_Span,
+    ),
+  ];
 
   let impl2_clauses: Clause[];
   if (Node.is_from_trait(impl2_node)) {
@@ -505,12 +508,8 @@ function partition_dedup<T>(self: T[]): [T[], T[]] {
 
 // ---- PORT stand-ins for items of files / lanes that are not ported yet -------------------------------------------------
 
-/** PORT: stand-in for `traits::elaborate(tcx, iter).collect()` over `(Clause, Span)` (`impl Elaboratable for (Clause, Span)`, rustc_middle ty/elaborate_impl.rs:66, not ported). */
-function elaborate_Clause_Span(_tcx: TyCtxt, _obligations: Iterable<[Clause, Span]>): [Clause, Span][] {
-  return unported("rustc_middle::ty::elaborate_impl: impl Elaboratable for (Clause, Span)");
-}
 
-/** `traits::elaborate(tcx, iter).collect()` over `Clause` (rustc_type_ir elaborate.ts's `Elaboratable_Clause`). */
+/** `traits::elaborate(tcx, iter).collect()` over `Clause` (rustc_middle elaborate_impl.ts's `Elaboratable_Clause`). */
 function elaborate_Clause(tcx: TyCtxt, obligations: Iterable<Clause>): Clause[] {
   return [...elaborate(tcx, obligations, Elaboratable_Clause)];
 }

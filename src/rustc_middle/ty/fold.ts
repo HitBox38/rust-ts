@@ -12,7 +12,7 @@ import { intern_key } from "../../rust_ts/intern_key.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { PLAIN } from "../../std/fmt.ts";
-import { assert, assert_eq, unported } from "../../std/panic.ts";
+import { assert, assert_eq } from "../../std/panic.ts";
 import { Binder, type BoundConst, BoundConst as BoundConstC, type BoundRegion, type BoundTy, BoundVariableKind, debug_BoundTy, fold_Binder } from "../../rustc_type_ir/binder.ts";
 import { debug_BoundConst } from "../../rustc_type_ir/binder.gen.ts";
 import { DelayedMap } from "../../rustc_type_ir/data_structures/delayed_map.ts";
@@ -23,7 +23,7 @@ import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { TyCtxt } from "./context.ts";
 import type { Clauses } from "./decls.ts";
 import { Ty } from "./mod.ts";
-import type { LateParamRegionKind } from "./region.ts";
+import { LateParamRegionKind } from "./region.ts";
 import { fold_Clauses, fold_Ty } from "./structural_impls.ts";
 
 ///////////////////////////////////////////////////////////////////////////
@@ -327,7 +327,7 @@ TyCtxt.prototype.liberate_late_bound_regions = function <T>(this: TyCtxt, all_ou
   return this.instantiate_bound_regions_uncached(
     value,
     (br) => {
-      const kind = LateParamRegionKind_from_bound(br.var, br.kind);
+      const kind = LateParamRegionKind.from_bound(br.var, br.kind);
       return Region.new_late_param(this, all_outlive_scope, kind);
     },
     d_T,
@@ -409,7 +409,3 @@ class Anonymize implements BoundVarReplacerDelegate {
 
 // ---- PORT stand-ins for items of files that are not ported yet ----------------------------------------------------
 
-/** PORT: stand-in for `LateParamRegionKind::from_bound` (rustc_middle ty/region.rs:92, not ported yet). */
-function LateParamRegionKind_from_bound(_var: BoundVar, _br: BoundRegion["kind"]): LateParamRegionKind {
-  return unported("rustc_middle::ty::region::LateParamRegionKind::from_bound");
-}

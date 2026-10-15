@@ -27,13 +27,14 @@ import { type ControlFlow, ControlFlow as ControlFlowC, type VisitorResult, Visi
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { Clause, Clauses, GenericArg, ParamEnv, Predicate, Ty } from "../../../rustc_middle/ty/decls.ts";
 import { Clause_upcast_from_PolyTraitRef, Predicate_upcast_from_TraitRef } from "../../../rustc_middle/ty/predicate.ts";
+import { Elaboratable_Predicate } from "../../../rustc_middle/ty/elaborate_impl.ts";
 import { debug_Ty, fold_Clause, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import type { DefId } from "../../../rustc_span/def_id.ts";
-import type { ErrorGuaranteed, Span } from "../../../rustc_span/lib.ts";
+import type { ErrorGuaranteed } from "../../../rustc_span/lib.ts";
 import { Binder as BinderC, EarlyBinder, PlaceholderConst, PlaceholderRegion, PlaceholderType, visit_Binder } from "../../../rustc_type_ir/binder.ts";
 import { debug_Canonical } from "../../../rustc_type_ir/canonical.ts";
 import type { AliasTy, Binder, ClosureKind, TraitRef, UniverseIndex } from "../../../rustc_type_ir/decls.ts";
-import { type Elaboratable, elaborate, supertraits } from "../../../rustc_type_ir/elaborate.ts";
+import { elaborate, supertraits } from "../../../rustc_type_ir/elaborate.ts";
 import { TypeFlags } from "../../../rustc_type_ir/flags.ts";
 import { type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../../rustc_type_ir/fold.ts";
 import { Ty_provided } from "../../../rustc_type_ir/inherent.ts";
@@ -1783,21 +1784,6 @@ function* iter_bounds(cx: TyCtxt, bounds: EarlyBinder<Iterable<Clause>>, args: r
   }
 }
 
-/**
- * PORT: stand-in for `impl Elaboratable<TyCtxt> for ty::Predicate` (rustc_middle ty/elaborate_impl.rs:26), which is
- * not ported; rustc_type_ir elaborate.ts has the same stand-in for `ty::Clause` (`Elaboratable_Clause`).
- */
-const Elaboratable_Predicate: Elaboratable<Predicate> = {
-  predicate(self) {
-    return self;
-  },
-  child(_self, clause) {
-    return clause.as_predicate();
-  },
-  child_with_derived_cause(_self, clause, _span: Span, _parent_trait_pred, _index) {
-    return clause.as_predicate();
-  },
-};
 
 /** D4 descriptor of `Goal<I, G>` from the `GoalKind<G>` table (whose `TypeFoldable` supertrait is `G`'s). */
 function fold_Goal<G>(G: GoalKind<G>): TypeFoldable<Goal<G>> {

@@ -11,6 +11,7 @@
 // - `smallvec![]` is `[]`.
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Clause, Predicate } from "../rustc_middle/ty/decls.ts";
+import { Elaboratable_Clause } from "../rustc_middle/ty/elaborate_impl.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import { Ty } from "../rustc_middle/ty/mod.ts";
 import { intern_key } from "../rust_ts/intern_key.ts";
@@ -92,18 +93,12 @@ export const Elaboratable_ClauseWithSupertraitSpan: Elaboratable<ClauseWithSuper
   },
 };
 
-/** PORT: stand-in for `impl Elaboratable<TyCtxt> for ty::Clause` (rustc_middle ty/elaborate_impl.rs:6). */
-export const Elaboratable_Clause: Elaboratable<Clause> = {
-  predicate(self) {
-    return self.as_predicate();
-  },
-  child(_self, clause) {
-    return clause;
-  },
-  child_with_derived_cause(_self, clause, _span, _parent_trait_pred, _index) {
-    return clause;
-  },
-};
+/**
+ * PORT: `impl Elaboratable<TyCtxt> for ty::Clause` is rustc_middle ty/elaborate_impl.rs (ported in elaborate_impl.ts);
+ * re-exported here for the modules that import it from this file (it was a stand-in here before lane small-gaps-18).
+ */
+export { Elaboratable_Clause };
+
 
 // rustc: compiler/rustc_type_ir/src/elaborate.rs:86 elaborate
 export function elaborate<O>(cx: TyCtxt, obligations: Iterable<O>, d_O: Elaboratable<O>): Elaborator<O> {

@@ -21,8 +21,8 @@
 // - `T: TypeFoldable` arguments take the D4 descriptor last (`wfcx.normalize(span, loc, value, d_T)`).
 // - `Result<(), ErrorGuaranteed>` is `Result<null, ErrorGuaranteed>`; `?` is `if (r.$ === "Err") return r;`.
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
-// - The items that are not ported yet (`LateParamRegionKind::from_bound`, `Display for Binder<TypeOutlivesClause>`,
-//   `impl Elaboratable for (Clause, Span)`) are stand-ins at the end of the check-wf-b region ("check-wf-b stand-ins").
+// - The items that are not ported yet (`Display for Binder<TypeOutlivesClause>`) are stand-ins at the end of the
+//   check-wf-b region ("check-wf-b stand-ins").
 //
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies.
 
@@ -134,7 +134,8 @@ import { DefIdSet, debug_DefId } from "../../rustc_span/def_id.ts";
 import { debug_Span, Span as SpanC } from "../../rustc_span/lib.ts";
 import { DUMMY_SP } from "../../rustc_span/span_encoding.ts";
 import { fold_Binder } from "../../rustc_type_ir/binder.ts";
-import { elaborate, type Elaboratable, Elaboratable_Clause } from "../../rustc_type_ir/elaborate.ts";
+import { elaborate } from "../../rustc_type_ir/elaborate.ts";
+import { Elaboratable_Clause, Elaboratable_Clause_Span } from "../../rustc_middle/ty/elaborate_impl.ts";
 import { TypeFlags } from "../../rustc_type_ir/flags.ts";
 import { fold_with_TraitRef, try_fold_with_TraitRef, visit_with_TraitRef, type TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
 import { as_interner, PolyTraitRef as PolyTraitRefC, ProjectionClause as ProjectionClauseC, type TraitClause, TraitClause as TraitClauseC, TraitRef as TraitRefC } from "../../rustc_type_ir/predicate.ts";
@@ -148,8 +149,7 @@ import { debug_Binder } from "../../rustc_type_ir/binder.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { And, Assumptions, debug_And, debug_LeafRegionConstraint, debug_Or, eagerly_handle_placeholders_in_universe, LeafRegionConstraint, type Or, RegionConstraint } from "../../rustc_type_ir/region_constraint.ts";
 import { debug_Region, fold_Const, fold_Region } from "../../rustc_type_ir/sty/mod.ts";
-import type { BoundRegion } from "../../rustc_type_ir/binder.ts";
-import type { LateParamRegionKind } from "../../rustc_middle/ty/region.ts";
+import { LateParamRegionKind } from "../../rustc_middle/ty/region.ts";
 import { fold_FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import type { BoundVar } from "../../rustc_type_ir/lib.gen.ts";
 import type { PolyFnSig, PolyTypeOutlivesClause, RegionOutlivesClause } from "../../rustc_type_ir/decls.ts";
@@ -2828,7 +2828,7 @@ function lint_redundant_lifetimes(tcx: TyCtxt, owner_id: LocalDefId, outlives_en
     bound_vars.forEach((var_, idx) => {
       if (var_.$ !== "Region") return;
       const kind = var_._0;
-      const kind_ = LateParamRegionKind_from_bound(idx as BoundVar, kind);
+      const kind_ = LateParamRegionKind.from_bound(idx as BoundVar, kind);
       lifetimes.push(RegionC.new_late_param(tcx, LocalDefIdC.to_def_id(owner_id), kind_));
     });
   }
@@ -2948,26 +2948,7 @@ function cgp(): typeof import("../constrained_generic_params.ts") {
 
 // ---- check-wf-b stand-ins for items that are not ported yet (each stops as UNPORTED; not markers) --------------------
 
-/**
- * PORT(stand-in): `impl Elaboratable<TyCtxt> for (ty::Clause, Span)` (rustc_middle ty/elaborate_impl.rs:66, not ported);
- * a faithful copy without markers, like rustc_type_ir elaborate.ts's `Elaboratable_Clause`.
- */
-const Elaboratable_Clause_Span: Elaboratable<[Clause, Span]> = {
-  predicate(self) {
-    return self[0].as_predicate();
-  },
-  child(self, clause) {
-    return [clause, self[1]];
-  },
-  child_with_derived_cause(self, clause, _span, _parent_trait_pred, _index) {
-    return [clause, self[1]];
-  },
-};
 
-/** PORT(stand-in): `LateParamRegionKind::from_bound` (rustc_middle ty/region.rs:92, not ported; as rustc_middle fold.ts). */
-function LateParamRegionKind_from_bound(_var: BoundVar, _br: BoundRegion["kind"]): LateParamRegionKind {
-  return unported("rustc_middle::ty::region::LateParamRegionKind::from_bound");
-}
 
 /** PORT(stand-in): `Display for ty::Binder<'tcx, ty::TypeOutlivesClause<'tcx>>` (rustc_middle ty/print/pretty.rs `forward_display_to_print!`, not ported). */
 function display_PolyTypeOutlivesClause(_clause: PolyTypeOutlivesClause): string {

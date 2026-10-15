@@ -14,7 +14,7 @@
 // - `FxIndexSet<IntercrateAmbiguityCause>` / `FxHashSet<Goal<Predicate>>` are `KeyedSet`s on `intern_key` (the derived
 //   `Hash` + `Eq` of values holding interned handles), insertion-ordered as an `IndexSet`.
 // - The items this file calls that are not ported yet (`IntercrateAmbiguityCause`, wave 20; `suggest_new_overflow_limit`,
-//   wave 19; `impl Elaboratable for (Clause, Span)`) are local stand-ins at the end of the file that stop as UNPORTED.
+//   wave 19) are local stand-ins at the end of the file that stop as UNPORTED.
 // - `#[instrument]` / `debug!` / `warn!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
@@ -50,7 +50,8 @@ import { BoundConst, BoundRegionKind, BoundTyKind, EarlyBinder, PlaceholderConst
 import type { Binder } from "../../rustc_type_ir/binder.ts";
 import { DeepRejectCtxt } from "../../rustc_type_ir/fast_reject.ts";
 import { type FallibleTypeFolder, fold_Option, fold_Vec, type TypeFoldable, type TypeFolder } from "../../rustc_type_ir/fold.ts";
-import type { Elaborator } from "../../rustc_type_ir/elaborate.ts";
+import { elaborate } from "../../rustc_type_ir/elaborate.ts";
+import { Elaboratable_Clause_Span } from "../../rustc_middle/ty/elaborate_impl.ts";
 import { TypingMode } from "../../rustc_type_ir/infer_ctxt.ts";
 import { BoundVar, UniverseIndex } from "../../rustc_type_ir/lib.ts";
 import { as_interner, fold_with_TraitRef, TraitRef, try_fold_with_TraitRef, visit_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
@@ -487,7 +488,7 @@ function impl_intersection_has_negative_obligation(tcx: TyCtxt, impl1_def_id: De
   );
 
   const clauses = [...clauses_of_instantiate(tcx, impl2_def_id, impl2_header.impl_args).into_iter()].map(([c, s]): [Clause, Span] => [Unnormalized.skip_norm_wip(c), s]);
-  for (const [clause] of elaborate_clause_span(tcx, clauses).elaborate_sized()) {
+  for (const [clause] of elaborate(tcx, clauses, Elaboratable_Clause_Span).elaborate_sized()) {
     if (try_prove_negated_where_clause(infcx, clause, param_env)) return true;
   }
   return false;
@@ -827,8 +828,3 @@ function suggest_new_overflow_limit(_tcx: TyCtxt, _err: Diag): void {
   unported("rustc_trait_selection::error_reporting::traits::overflow::suggest_new_overflow_limit");
 }
 
-/** Stand-in for `util::elaborate(tcx, iter)` over `(Clause, Span)` (`impl Elaboratable for (Clause, Span)`,
- *  rustc_middle ty/elaborate_impl.rs:66, not ported). */
-function elaborate_clause_span(_tcx: TyCtxt, _obligations: Iterable<[Clause, Span]>): Elaborator<[Clause, Span]> {
-  return unported("rustc_middle::ty::elaborate_impl: impl Elaboratable for (Clause, Span)");
-}
