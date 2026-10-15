@@ -1,4 +1,4 @@
-// Port of compiler/rustc_middle/src/mir/query.rs: PARTIAL (lane typeck-gaps). Only `ConstraintCategory`,
+// Port of compiler/rustc_middle/src/mir/query.rs: PARTIAL (lane typeck-gaps; the duplicate set of fixer lane merge-w18c was folded into this one by merge-w18d). Only `ConstraintCategory`,
 // `ReturnConstraint` and `AnnotationSource` (the region-constraint categories that typeck / regionck produce:
 // `ObligationCause::to_constraint_category`, `SubregionOrigin::to_constraint_category`, `QueryRegionConstraint`) are
 // generated, with their derived Debug / Clone / TypeVisitable / TypeFoldable, into query.gen.ts (tools/codegen/types.ts,

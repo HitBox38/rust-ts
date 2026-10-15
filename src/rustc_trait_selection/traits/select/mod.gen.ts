@@ -7,7 +7,7 @@ import { type PolyTraitObligation } from "../../../rustc_infer/traits/mod.ts";
 import { clone_SelectionCandidate, debug_EvaluationResult, debug_SelectionCandidate, type EvaluationResult, type SelectionCandidate } from "../../../rustc_middle/traits/select.ts";
 import { debug_GenericArg } from "../../../rustc_middle/ty/generic_args.ts";
 import { debug_Ty, fold_with_Ty, type Term, try_fold_with_Ty, type Ty, visit_with_Ty } from "../../../rustc_middle/ty/mod.ts";
-import { type ArgOutlivesClause, type PolyTraitClause } from "../../../rustc_middle/ty/predicate.ts";
+import { type ArgOutlivesClause, fold_with_ArgOutlivesClause, type PolyTraitClause, try_fold_with_ArgOutlivesClause, visit_with_ArgOutlivesClause } from "../../../rustc_middle/ty/predicate.ts";
 import { type TraitQueryMode } from "../mod.ts";
 import { type TraitObligationStackList } from "./mod.ts";
 import { type FallibleTypeFolder, fold_with_Vec, type FoldWith, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Vec, type VisitWith } from "../../../rustc_type_ir/fold.ts";
@@ -15,10 +15,6 @@ import { debug_TraitRef } from "../../../rustc_type_ir/ir_print.ts";
 import { debug_OutlivesClause, type TraitRef } from "../../../rustc_type_ir/predicate.ts";
 import { type Debug, debug_int, debug_option, debug_struct, debug_vec } from "../../../std/fmt.ts";
 import { Ok, type Result } from "../../../std/result.ts";
-import { unported } from "../../../std/panic.ts";
-function unported_type_fold(..._a: unknown[]): never {
-  return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_trait_selection/src/traits/select/mod.rs:57 IntercrateAmbiguityCause
 export type IntercrateAmbiguityCause =
@@ -275,18 +271,18 @@ export function clone_AutoImplConstituents(v: AutoImplConstituents): AutoImplCon
 export function visit_with_AutoImplConstituents<R>(self: AutoImplConstituents, __visitor: TypeVisitor<R>): R {
   let r: R | undefined;
   if ((r = try_visit(__visitor.Result, visit_with_Vec<Ty, R>(self.types, __visitor, visit_with_Ty))) !== undefined) return r;
-  if ((r = try_visit(__visitor.Result, visit_with_Vec<ArgOutlivesClause, R>(self.assumptions, __visitor, <R>(__v: ArgOutlivesClause, __visitor: TypeVisitor<R>): R => unported_type_fold(__v)))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_Vec<ArgOutlivesClause, R>(self.assumptions, __visitor, visit_with_ArgOutlivesClause))) !== undefined) return r;
   return __visitor.Result.output();
 }
 // rustc-derive: compiler/rustc_trait_selection/src/traits/select/mod.rs:3109 TypeFoldable for AutoImplConstituents (try_fold_with)
 export function try_fold_with_AutoImplConstituents<E>(self: AutoImplConstituents, __folder: FallibleTypeFolder<E>): Result<AutoImplConstituents, E> {
   const __0 = try_fold_with_Vec<Ty, E>(self.types, __folder, try_fold_with_Ty);
   if (__0.$ === "Err") return __0;
-  const __1 = try_fold_with_Vec<ArgOutlivesClause, E>(self.assumptions, __folder, <E>(__v: ArgOutlivesClause, __folder: FallibleTypeFolder<E>): Result<ArgOutlivesClause, E> => unported_type_fold(__v));
+  const __1 = try_fold_with_Vec<ArgOutlivesClause, E>(self.assumptions, __folder, try_fold_with_ArgOutlivesClause);
   if (__1.$ === "Err") return __1;
   return Ok({ types: __0._0, assumptions: __1._0 });
 }
 // rustc-derive: compiler/rustc_trait_selection/src/traits/select/mod.rs:3109 TypeFoldable for AutoImplConstituents (fold_with)
 export function fold_with_AutoImplConstituents(self: AutoImplConstituents, __folder: TypeFolder): AutoImplConstituents {
-  return { types: fold_with_Vec<Ty>(self.types, __folder, fold_with_Ty), assumptions: fold_with_Vec<ArgOutlivesClause>(self.assumptions, __folder, (__v: ArgOutlivesClause, __folder: TypeFolder): ArgOutlivesClause => unported_type_fold(__v)) };
+  return { types: fold_with_Vec<Ty>(self.types, __folder, fold_with_Ty), assumptions: fold_with_Vec<ArgOutlivesClause>(self.assumptions, __folder, fold_with_ArgOutlivesClause) };
 }

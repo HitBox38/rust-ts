@@ -12,12 +12,23 @@ import { ObjectLifetimeDefault } from "./middle/resolve_bound_vars.ts";
 import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
 import { decode_Clause, type TyDecoder } from "./ty/codec.ts";
 import { type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
-import { type AsyncDestructor, type Destructor, FieldDef, type ImplTraitInTraitData, RestrictionKind, VariantDef, type VariantDiscr, type VariantFlags, Visibility } from "./ty/mod.ts";
+import { type AsyncDestructor, type Destructor, FieldDef, ImplTraitHeader, type ImplTraitInTraitData, RestrictionKind, VariantDef, type VariantDiscr, type VariantFlags, Visibility } from "./ty/mod.ts";
 import { TraitDef, type TraitSpecializationKind } from "./ty/trait_def.ts";
 import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_tuple, decode_u16, decode_u32, decode_u8, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
 import { decode_Ident, decode_ModId } from "../rustc_span/decodable.gen.ts";
 import { type BlobDecoder, decode_ErrorGuaranteed, type SpanDecoder } from "../rustc_span/lib.ts";
+import { decode_EarlyBinder } from "../rustc_type_ir/binder.ts";
+import { decode_ImplPolarity, decode_TraitRef } from "../rustc_type_ir/predicate.ts";
 import { panic } from "../std/panic.ts";
+
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:169 TyDecodable for ImplTraitHeader
+export function decode_ImplTraitHeader(__decoder: TyDecoder): ImplTraitHeader {
+  const __0 = decode_EarlyBinder(__decoder, decode_TraitRef);
+  const __1 = decode_ImplPolarity(__decoder);
+  const __2 = decode_Safety(__decoder);
+  const __3 = decode_Constness(__decoder);
+  return new ImplTraitHeader(__0, __1, __2, __3);
+}
 
 // rustc-derive: compiler/rustc_middle/src/ty/mod.rs:249 BlobDecodable for Visibility
 export function decode_Visibility<Id, __D extends BlobDecoder = BlobDecoder>(__decoder: __D, decode_Id: Decodable<Id, __D>): Visibility<Id> {

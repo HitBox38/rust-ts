@@ -86,7 +86,7 @@ const CASES: Case[] = [
   { name: "fn_item_to_unsafe_fn_ptr", items: "pub fn g(_: u8) {} pub type B = unsafe fn(u8);", a: "fn:g", expect: "true" },
   { name: "unsafe_fn_item_to_fn_ptr", items: "pub unsafe fn g() {} pub type B = fn();", a: "fn:g", expect: "false" },
   { name: "fn_item_wrong_arg", items: "pub fn g(_: u8) {} pub type B = fn(u16);", a: "fn:g", expect: "false" },
-  // Unsizing through the next solver's proof tree (`CoerceVisitor`): stops in other lanes' code today.
+  // Unsizing through the next solver's proof tree (`CoerceVisitor`); `ref_to_dyn` stops in other lanes' code today.
   {
     name: "ref_to_dyn",
     items: `${UNSIZE}pub type A = &'static S; pub type B = &'static dyn Tr;`,
@@ -97,7 +97,6 @@ const CASES: Case[] = [
     name: "mut_ref_to_ref_with_unsize",
     items: `${UNSIZE}pub type A = &'static mut u8; pub type B = &'static u8;`,
     expect: "true",
-    oracle: true,
   },
 ];
 

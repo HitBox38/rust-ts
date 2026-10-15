@@ -61,7 +61,7 @@ import { decode_FnSig, type FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
 import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
-import { decode_AsyncDestructor, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
+import { decode_AsyncDestructor, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ImplTraitHeader, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
@@ -450,7 +450,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   variances_of: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("ty::Variance", decode_Variance), ProcessQueryValue_DecodeIterator_slice)],
   fn_sig: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, ty::PolyFnSig<'static>>", (d) => decode_EarlyBinder(d, decode_PolyFnSig)), ProcessQueryValue_Option_T)],
   codegen_fn_attrs: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("CodegenFnAttrs", decode_unported("CodegenFnAttrs")), ProcessQueryValue_Option_T)],
-  impl_trait_header: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ImplTraitHeader<'static>", decode_unported("ty::ImplTraitHeader<'static>")), ProcessQueryValue_Option_T)],
+  impl_trait_header: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ImplTraitHeader<'static>", decode_ImplTraitHeader), ProcessQueryValue_Option_T)],
   impl_is_fully_generic_for_reflection: [IntoArgs_DefId, table_direct(fse_bool, ProcessQueryValue_T)],
   const_param_default: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, rustc_middle::ty::Const<'static>>", (d) => decode_EarlyBinder(d, decode_Const_)), ProcessQueryValue_Option_T)],
   object_lifetime_default: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ObjectLifetimeDefault", decode_ObjectLifetimeDefault), ProcessQueryValue_Option_T)],

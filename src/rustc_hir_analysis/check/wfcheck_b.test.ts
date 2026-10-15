@@ -4,10 +4,10 @@
 // 1. `variances`: `check_variances_for_type_defn` on every ADT (as check/check.rs does from `check_well_formed`) prints
 //    exactly the oracle's E0392 / "only used recursively" errors, with and without a `phantom_data` lang item (the
 //    crates are otherwise clean, so these errors are rustc's whole stderr).
-// 2. `wf`: static WF (E0277 `Sync`) and the receiver check (E0307) are not reachable yet: `check_static_item`,
-//    `check_item_fn` and `check_impl` run inside `enter_wf_checking_ctxt` (lane check-wf-a) over `ObligationCtxt`
-//    (lane trait-sel-traits-a). The test checks that the oracle reports the error and that ours stops at one of
-//    `PENDING_WF` (exact `unported(..)` texts). When those lanes land, these cases turn into oracle matches.
+// 2. `wf`: static WF (E0277 `Sync`) and the receiver check (E0307): `check_static_item`, `check_item_fn`, `check_impl`
+//    and `check_associated_item` run inside `enter_wf_checking_ctxt` (lane check-wf-a) over `ObligationCtxt`
+//    (lane trait-sel-traits-a). The test checks that the oracle reports the error and that ours prints the oracle's
+//    stderr, or stops at one of `PENDING_WF` (exact `unported(..)` texts).
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { PIN } from "../../../scripts/lib/common.ts";
@@ -37,7 +37,8 @@ const PENDING_WF = new Set([
   // static_wf.rs: `check_static_item` -> the `Sync` obligation's E0277 report needs `InferCtxt::err_ctxt`
   // (rustc_trait_selection error_reporting, not ported)
   "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt",
-  // (receiver.rs prints the oracle's E0307 since lane typeck-gaps: `ConstraintCategory` ported, impl items checked)
+  // (receiver.rs prints the oracle's E0307 since merge-w18c: `mir::ConstraintCategory` is generated and the harness runs
+  // `check_associated_item` on impl items)
 ]);
 
 for (const [file, n] of [
@@ -58,11 +59,14 @@ for (const [file, n] of [
   }, 120_000);
 }
 
+/** `wf` cases that print the oracle's stderr since merge-w18c: they must not stop. */
+const NOW_EXACT = new Set(["receiver.rs"]);
+
 for (const [file, code] of [
   ["static_wf.rs", "error[E0277]"],
   ["receiver.rs", "error[E0307]"],
 ] as const) {
-  test(`wfcheck_b_test/${file}: the oracle reports ${code}; ours stops as PENDING`, () => {
+  test(`wfcheck_b_test/${file}: the oracle reports ${code}; ours prints the same, or stops as PENDING`, () => {
     const s = sysroot();
     if (s === undefined) {
       if (REQUIRE) throw new Error("ERROR: oracle sysroot missing");
@@ -72,6 +76,7 @@ for (const [file, code] of [
     expect(oracle.stderr).toContain(code);
     const ours = run(["bun", join(DIR, "run.ts"), "wf", ...args(s, file)]);
     const m = /unported: (.*)\n/.exec(ours.stderr);
+    if (NOW_EXACT.has(file)) expect(m).toBeNull();
     if (m !== null) expect(PENDING_WF).toContain(m[1]!);
     else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
   }, 120_000);

@@ -33,7 +33,7 @@ import { Const, debug_Const } from "../rustc_type_ir/sty/consts.ts";
 import { debug_FloatVid, debug_IntVid, debug_TyVid } from "../rustc_type_ir/ty_kind.ts";
 import { debug_ConstVid } from "../rustc_type_ir/const_kind.ts";
 import { type Debug, debug_option, debug_vec, PLAIN } from "../std/fmt.ts";
-import { Panic, Unported } from "../std/panic.ts";
+import { Panic } from "../std/panic.ts";
 import type { Result } from "../std/result.ts";
 import type { InferCtxt } from "./decls.ts";
 import { ToTrace_GenericArg, ToTrace_Region, ToTrace_Ty } from "./infer/at.ts";
@@ -419,8 +419,13 @@ describe("InferCtxt (infer/mod.rs)", () => {
       expect(() => RegionVariableOrigin.span({ $: "Nll", _0: { $: "FreeRegion" } })).toThrow(/NLL variable used with `span`/);
       expect(display_FixupError({ unresolved: { $: "TyFloat", _0: 0 as FloatVid } })).toBe("cannot determine the type of this number; add a suffix to specify the type explicitly");
       expect(display_FixupError({ unresolved: { $: "Const", _0: 0 as ConstVid } })).toBe("unconstrained const value");
-      // `ConstraintCategory` (rustc_middle mir/query.rs, generated; lane typeck-gaps): a `Misc` cause is `BoringNoLocation`.
+      // `to_constraint_category` (infer/mod.rs:483): a `Subtype` origin asks its cause (a `Misc` cause is
+      // `BoringNoLocation`, rustc_middle traits/mod.rs:137), the two span-carrying arms keep their data, the rest is
+      // `BoringNoLocation`.
       expect(SubregionOrigin.to_constraint_category(parent)).toEqual({ $: "BoringNoLocation" });
+      expect(SubregionOrigin.to_constraint_category({ $: "Subtype", _0: trace })).toEqual({ $: "BoringNoLocation" });
+      expect(SubregionOrigin.to_constraint_category({ $: "AscribeUserTypeProvePredicate", _0: DUMMY_SP, _1: did })).toEqual({ $: "Predicate", _0: DUMMY_SP, _1: did });
+      expect(SubregionOrigin.to_constraint_category({ $: "SolverRegionConstraint", _0: DUMMY_SP })).toEqual({ $: "SolverRegionConstraint", _0: DUMMY_SP });
     }),
   );
 });

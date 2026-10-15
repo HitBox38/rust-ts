@@ -1185,6 +1185,13 @@ export interface TypeErrCtxtView {
     suggest_increasing_limit: boolean,
     mutate: (err: { note(msg: string): unknown }) => void,
   ): never;
+  // error_reporting/traits/overflow.rs `build_overflow_error` (`-> Diag<'a>`; traits/query/normalize.rs: only
+  // `.delay_as_bug()`, which returns the `ErrorGuaranteed`)
+  build_overflow_error(
+    cause: { $: "DeeplyNormalize"; _0: import("../../rustc_type_ir/ty/alias.ts").AliasTerm },
+    span: Span,
+    suggest_increasing_limit: boolean,
+  ): { delay_as_bug(): ErrorGuaranteed };
   // error_reporting/traits/overflow.rs `report_overflow_obligation` (`T: Upcast<TyCtxt, Predicate> + Clone`, `-> !`;
   // lane selcx-contract: the old solver's fulfill.rs / select)
   report_overflow_obligation<T>(obligation: import("../../rustc_infer/traits/mod.ts").Obligation<T>, suggest_increasing_limit: boolean): never;

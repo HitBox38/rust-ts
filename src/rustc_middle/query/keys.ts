@@ -33,13 +33,28 @@ import { debug_LitToConstInput, type LitToConstInput } from "../ty/consts/lit.ts
 import { debug_SimplifiedType, type SimplifiedType, SimplifiedType_key } from "../ty/fast_reject.ts";
 import { debug_GenericArg, debug_GenericArgs, type GenericArg, type GenericArgsRef } from "../ty/generic_args.ts";
 import { type Clauses, debug_RawList } from "../ty/list.ts";
-import { debug_Clause } from "../ty/predicate.ts";
+import { type Clause, debug_Clause } from "../ty/predicate.ts";
 import type { ExistentialTraitRef, TraitRef } from "../ty/predicate.gen.ts";
 import type { AliasTyKind } from "../ty/sty.gen.ts";
 import { type Debug, debug_option, debug_tuple, type Fmt } from "../../std/fmt.ts";
 import { unported } from "../../std/panic.ts";
 import type { CanonicalInput } from "../traits/solve.ts";
-import type { CanonicalImpliedOutlivesBoundsGoal, CanonicalMethodAutoderefStepsGoal, CanonicalPredicateGoal, MethodAutoderefSteps, type_op } from "../traits/query.ts";
+import type {
+  CanonicalAliasGoal,
+  CanonicalDropckOutlivesGoal,
+  CanonicalImpliedOutlivesBoundsGoal,
+  CanonicalMethodAutoderefStepsGoal,
+  CanonicalPredicateGoal,
+  CanonicalTypeOpAscribeUserTypeGoal,
+  CanonicalTypeOpNormalizeGoal,
+  CanonicalTypeOpProvePredicateGoal,
+  MethodAutoderefSteps,
+  type_op,
+} from "../traits/query.ts";
+import type { AliasTerm } from "../../rustc_type_ir/ty/alias.ts";
+import { type Binder } from "../../rustc_type_ir/binder.ts";
+import { debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
+import { debug_FnSig, type FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import type { CanonicalQueryInput } from "../../rustc_type_ir/canonical.ts";
 import { debug_CanonicalQueryInput } from "../../rustc_type_ir/canonical.gen.ts";
 import type { Predicate } from "../ty/predicate.ts";
@@ -529,10 +544,9 @@ export const KEY_OsStr: QueryKey<string> = {
 // PORT: the canonical query inputs (keys.rs:336-366). `impl<T: QueryKeyBounds> QueryKey for CanonicalQueryInput<T>` and
 // `.. for (CanonicalQueryInput<T>, bool)` are generic: each key type a query uses is one `KEY_<goal>` value below
 // (its `Debug` is the instance's), built by `canonical_query_input_key` / `canonical_query_input_bool_key` (lane
-// selcx-contract: `CanonicalPredicateGoal` and `(CanonicalImpliedOutlivesBoundsGoal, bool)`; typeck-gaps:
-// `CanonicalMethodAutoderefStepsGoal`). The other goals
-// (`CanonicalAliasGoal`, `CanonicalDropckOutlivesGoal`, `CanonicalTypeOp*Goal`) and
-// `(CanonicalQueryInput<T>, usize)` (:349) are not wired yet (`key_unported`).
+// selcx-contract: `CanonicalPredicateGoal` and `(CanonicalImpliedOutlivesBoundsGoal, bool)`; merge-w18c: `CanonicalAliasGoal`,
+// `CanonicalDropckOutlivesGoal`, `CanonicalTypeOp{AscribeUserType,ProvePredicate,Normalize<T>}Goal`; typeck-gaps:
+// `CanonicalMethodAutoderefStepsGoal`). `(CanonicalQueryInput<T>, usize)` (:349) is not wired yet (`key_unported`).
 
 /// Canonical query goals correspond to abstract trait operations that
 /// are not tied to any crate in particular.
@@ -575,6 +589,54 @@ export const KEY_CanonicalPredicateGoal: QueryKey<CanonicalPredicateGoal> = cano
 export const KEY_CanonicalImpliedOutlivesBoundsGoal_bool: QueryKey<[CanonicalImpliedOutlivesBoundsGoal, boolean]> = canonical_query_input_bool_key<
   ParamEnvAnd<type_op.ImpliedOutlivesBounds>
 >((v, f) => debug_ParamEnvAnd(v, f, (x, f) => (require("../traits/query.ts") as typeof import("../traits/query.ts")).type_op.debug_ImpliedOutlivesBounds(x, f)));
+
+/** The `type_op` namespace of traits/query.ts, read at call time (init order). */
+const type_op_ = (): typeof type_op => (require("../traits/query.ts") as typeof import("../traits/query.ts")).type_op;
+
+/** `CanonicalAliasGoal` (`CanonicalQueryInput<ParamEnvAnd<AliasTerm>>`). */
+export const KEY_CanonicalAliasGoal: QueryKey<CanonicalAliasGoal> = canonical_query_input_key<ParamEnvAnd<AliasTerm>>((v, f) =>
+  debug_ParamEnvAnd(v, f, (t, f) => (require("../../rustc_type_ir/ty/alias.ts") as typeof import("../../rustc_type_ir/ty/alias.ts")).debug_AliasTerm(t, f)),
+);
+
+/** `CanonicalDropckOutlivesGoal` (`CanonicalQueryInput<ParamEnvAnd<type_op::DropckOutlives>>`). */
+export const KEY_CanonicalDropckOutlivesGoal: QueryKey<CanonicalDropckOutlivesGoal> = canonical_query_input_key<ParamEnvAnd<type_op.DropckOutlives>>(
+  (v, f) => debug_ParamEnvAnd(v, f, (x, f) => type_op_().debug_DropckOutlives(x, f)),
+);
+
+/** `CanonicalTypeOpAscribeUserTypeGoal` (`CanonicalQueryInput<ParamEnvAnd<type_op::AscribeUserType>>`). */
+export const KEY_CanonicalTypeOpAscribeUserTypeGoal: QueryKey<CanonicalTypeOpAscribeUserTypeGoal> = canonical_query_input_key<
+  ParamEnvAnd<type_op.AscribeUserType>
+>((v, f) => debug_ParamEnvAnd(v, f, (x, f) => type_op_().debug_AscribeUserType(x, f)));
+
+/** `CanonicalTypeOpProvePredicateGoal` (`CanonicalQueryInput<ParamEnvAnd<type_op::ProvePredicate>>`). */
+export const KEY_CanonicalTypeOpProvePredicateGoal: QueryKey<CanonicalTypeOpProvePredicateGoal> = canonical_query_input_key<
+  ParamEnvAnd<type_op.ProvePredicate>
+>((v, f) => debug_ParamEnvAnd(v, f, (x, f) => type_op_().debug_ProvePredicate(x, f)));
+
+/** `CanonicalTypeOpNormalizeGoal<T>` (`CanonicalQueryInput<ParamEnvAnd<type_op::Normalize<T>>>`), one key per `T`. */
+function canonical_type_op_normalize_key<T>(debug_T: () => Debug<T>): QueryKey<CanonicalTypeOpNormalizeGoal<T>> {
+  return canonical_query_input_key<ParamEnvAnd<type_op.Normalize<T>>>((v, f) =>
+    debug_ParamEnvAnd(v, f, (x, f) => type_op_().debug_Normalize(x, f, debug_T())),
+  );
+}
+
+/** `CanonicalTypeOpNormalizeGoal<Ty>`. */
+export const KEY_CanonicalTypeOpNormalizeGoal_Ty: QueryKey<CanonicalTypeOpNormalizeGoal<Ty>> = canonical_type_op_normalize_key<Ty>(() => debug_Ty);
+
+/** `CanonicalTypeOpNormalizeGoal<Clause>`. */
+export const KEY_CanonicalTypeOpNormalizeGoal_Clause: QueryKey<CanonicalTypeOpNormalizeGoal<Clause>> = canonical_type_op_normalize_key<Clause>(
+  () => debug_Clause,
+);
+
+/** `CanonicalTypeOpNormalizeGoal<PolyFnSig>` (`Binder<FnSig>`). */
+export const KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig: QueryKey<CanonicalTypeOpNormalizeGoal<Binder<FnSig>>> = canonical_type_op_normalize_key<
+  Binder<FnSig>
+>(() => (v, f) => debug_Binder(v, f, debug_FnSig));
+
+/** `CanonicalTypeOpNormalizeGoal<FnSig>`. */
+export const KEY_CanonicalTypeOpNormalizeGoal_FnSig: QueryKey<CanonicalTypeOpNormalizeGoal<FnSig>> = canonical_type_op_normalize_key<FnSig>(
+  () => debug_FnSig,
+);
 
 /** `CanonicalMethodAutoderefStepsGoal` (`CanonicalQueryInput<ParamEnvAnd<MethodAutoderefSteps>>`; lane typeck-gaps). */
 export const KEY_CanonicalMethodAutoderefStepsGoal: QueryKey<CanonicalMethodAutoderefStepsGoal> = canonical_query_input_key<

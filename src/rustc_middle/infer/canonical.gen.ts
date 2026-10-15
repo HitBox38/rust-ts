@@ -2,23 +2,20 @@
 // Hand-written additions (methods, manual Debug impls) go in canonical.ts next to this file.
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import { type Canonical, type CanonicalParamEnvCache, type CanonicalQueryInput, type CanonicalVarKind, type CanonicalVarValues } from "./canonical.ts";
-import { type ConstraintCategory, debug_ConstraintCategory, fold_with_ConstraintCategory, visit_with_ConstraintCategory } from "../mir/query.ts";
+import { type ConstraintCategory, debug_ConstraintCategory, fold_with_ConstraintCategory, try_fold_with_ConstraintCategory, visit_with_ConstraintCategory } from "../mir/query.ts";
 import { debug_GenericArg, debug_GenericArgs, type GenericArg, type GenericArgs } from "../ty/generic_args.ts";
 import { type List } from "../ty/list.ts";
 import { debug_Ty, type Ty } from "../ty/mod.ts";
-import { type ArgOutlivesClause, type RegionConstraint } from "../ty/predicate.ts";
+import { type ArgOutlivesClause, fold_with_ArgOutlivesClause, type RegionConstraint, try_fold_with_ArgOutlivesClause, visit_with_ArgOutlivesClause } from "../ty/predicate.ts";
 import { type FallibleTypeFolder, fold_with_Vec, type FoldWith, try_fold_with_Vec, type TryFoldWith, type TypeFolder, type TypeVisitor, visit_with_Vec, type VisitWith } from "../../rustc_type_ir/fold.ts";
 import { debug_UniverseIndex, type UniverseIndex } from "../../rustc_type_ir/lib.ts";
 import { debug_OpaqueTypeKey, type OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.ts";
-import { debug_OutlivesClause } from "../../rustc_type_ir/predicate.ts";
+import { debug_OutlivesClause, fold_with_RegionConstraint, try_fold_with_RegionConstraint, visit_with_RegionConstraint } from "../../rustc_type_ir/predicate.ts";
 import { debug_VisibleForLeakCheck, type VisibleForLeakCheck } from "../../rustc_type_ir/solve/mod.ts";
 import { type Debug, debug_struct, debug_tuple, debug_vec, type Fmt } from "../../std/fmt.ts";
 import { Ok, type Result } from "../../std/result.ts";
 import { unported } from "../../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
-function unported_type_fold(..._a: unknown[]): never {
-  return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");
-}
 
 // rustc-type: compiler/rustc_middle/src/infer/canonical.rs:35 CanonicalQueryInput
 export type { CanonicalQueryInput } from "./canonical.ts";
@@ -110,20 +107,20 @@ export function default_QueryRegionConstraints(): QueryRegionConstraints {
 export function visit_with_QueryRegionConstraints<R>(self: QueryRegionConstraints, __visitor: TypeVisitor<R>): R {
   let r: R | undefined;
   if ((r = try_visit(__visitor.Result, visit_with_Vec<QueryRegionConstraint, R>(self.constraints, __visitor, visit_with_QueryRegionConstraint))) !== undefined) return r;
-  if ((r = try_visit(__visitor.Result, visit_with_Vec<ArgOutlivesClause, R>(self.assumptions, __visitor, <R>(__v: ArgOutlivesClause, __visitor: TypeVisitor<R>): R => unported_type_fold(__v)))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_Vec<ArgOutlivesClause, R>(self.assumptions, __visitor, visit_with_ArgOutlivesClause))) !== undefined) return r;
   return __visitor.Result.output();
 }
 // rustc-derive: compiler/rustc_middle/src/infer/canonical.rs:81 TypeFoldable for QueryRegionConstraints (try_fold_with)
 export function try_fold_with_QueryRegionConstraints<E>(self: QueryRegionConstraints, __folder: FallibleTypeFolder<E>): Result<QueryRegionConstraints, E> {
   const __0 = try_fold_with_Vec<QueryRegionConstraint, E>(self.constraints, __folder, try_fold_with_QueryRegionConstraint);
   if (__0.$ === "Err") return __0;
-  const __1 = try_fold_with_Vec<ArgOutlivesClause, E>(self.assumptions, __folder, <E>(__v: ArgOutlivesClause, __folder: FallibleTypeFolder<E>): Result<ArgOutlivesClause, E> => unported_type_fold(__v));
+  const __1 = try_fold_with_Vec<ArgOutlivesClause, E>(self.assumptions, __folder, try_fold_with_ArgOutlivesClause);
   if (__1.$ === "Err") return __1;
   return Ok(new QueryRegionConstraints(__0._0, __1._0));
 }
 // rustc-derive: compiler/rustc_middle/src/infer/canonical.rs:81 TypeFoldable for QueryRegionConstraints (fold_with)
 export function fold_with_QueryRegionConstraints(self: QueryRegionConstraints, __folder: TypeFolder): QueryRegionConstraints {
-  return new QueryRegionConstraints(fold_with_Vec<QueryRegionConstraint>(self.constraints, __folder, fold_with_QueryRegionConstraint), fold_with_Vec<ArgOutlivesClause>(self.assumptions, __folder, (__v: ArgOutlivesClause, __folder: TypeFolder): ArgOutlivesClause => unported_type_fold(__v)));
+  return new QueryRegionConstraints(fold_with_Vec<QueryRegionConstraint>(self.constraints, __folder, fold_with_QueryRegionConstraint), fold_with_Vec<ArgOutlivesClause>(self.assumptions, __folder, fold_with_ArgOutlivesClause));
 }
 
 // rustc-type: compiler/rustc_middle/src/infer/canonical.rs:99 CanonicalQueryResponse
@@ -176,17 +173,21 @@ export function clone_QueryRegionConstraint(v: QueryRegionConstraint): QueryRegi
 // rustc-derive: compiler/rustc_middle/src/infer/canonical.rs:139 TypeVisitable for QueryRegionConstraint
 export function visit_with_QueryRegionConstraint<R>(self: QueryRegionConstraint, __visitor: TypeVisitor<R>): R {
   let r: R | undefined;
-  if ((r = try_visit(__visitor.Result, unported_type_fold(self.constraint))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_RegionConstraint(self.constraint, __visitor))) !== undefined) return r;
   if ((r = try_visit(__visitor.Result, visit_with_ConstraintCategory(self.category, __visitor))) !== undefined) return r;
   return __visitor.Result.output();
 }
 // rustc-derive: compiler/rustc_middle/src/infer/canonical.rs:139 TypeFoldable for QueryRegionConstraint (try_fold_with)
 export function try_fold_with_QueryRegionConstraint<E>(self: QueryRegionConstraint, __folder: FallibleTypeFolder<E>): Result<QueryRegionConstraint, E> {
-  return unported_type_fold(self.constraint);
+  const __0 = try_fold_with_RegionConstraint(self.constraint, __folder);
+  if (__0.$ === "Err") return __0;
+  const __1 = try_fold_with_ConstraintCategory(self.category, __folder);
+  if (__1.$ === "Err") return __1;
+  return Ok({ constraint: __0._0, category: __1._0, visible_for_leak_check: self.visible_for_leak_check });
 }
 // rustc-derive: compiler/rustc_middle/src/infer/canonical.rs:139 TypeFoldable for QueryRegionConstraint (fold_with)
 export function fold_with_QueryRegionConstraint(self: QueryRegionConstraint, __folder: TypeFolder): QueryRegionConstraint {
-  return { constraint: unported_type_fold(self.constraint), category: fold_with_ConstraintCategory(self.category, __folder), visible_for_leak_check: self.visible_for_leak_check };
+  return { constraint: fold_with_RegionConstraint(self.constraint, __folder), category: fold_with_ConstraintCategory(self.category, __folder), visible_for_leak_check: self.visible_for_leak_check };
 }
 
 // rustc-type: compiler/rustc_middle/src/infer/canonical.rs:146 CanonicalParamEnvCache

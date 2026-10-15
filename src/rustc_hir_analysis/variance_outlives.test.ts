@@ -51,12 +51,10 @@ const PENDING_FACTS = new Set<string>([
   // (none since merge-w16b: tydump-subject's `EarlyParamRegion` and `Binder.bound_vars` Debug impls are merged)
 ]);
 
-/** The exact `unported(..)` texts these runs stop at today. pending.rs's dump matches the oracle since merge-w17;
- *  implwf_spec.rs stops in min_specialization's `ocx.assumed_wf_types_and_report_errors` (rustc_traits'
- *  `implied_outlives_bounds` query, wave 20). */
-const PENDING_DUMP = new Set<string>([
-  // (none since lane typeck-gaps ported `ConstraintCategory`)
-]);
+/** The exact `unported(..)` texts these runs stop at today. pending.rs's dump matches the oracle since merge-w17,
+ *  implwf_spec.rs since merge-w18c (`mir::ConstraintCategory` generated: min_specialization's
+ *  `ocx.assumed_wf_types_and_report_errors` runs through rustc_traits' `implied_outlives_bounds`). */
+const PENDING_DUMP = new Set<string>([]);
 
 for (const file of ["variances.rs", "outlives.rs"]) {
   test(`variance_outlives_test/${file}: the dumps print as the oracle`, () => {

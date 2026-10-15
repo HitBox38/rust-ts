@@ -131,8 +131,7 @@ test("intrinsic_test/mismatch.rs: every computed signature differs (the oracle r
 const DROP = join(import.meta.dir, "drop_test");
 
 /** The exact `unported(..)` texts drop_test may stop at today (stand-ins for other wave-17 lanes). */
-// implied.rs reaches region resolution after `ObligationCtxt` (merge-w17); it stopped at mir's `ConstraintCategory` until
-// lane typeck-gaps ported it.
+// (none: implied.rs ran into mir's `ConstraintCategory` (M4) until it was generated (lanes typeck-gaps / merge-w18c))
 const PENDING = new Set<string>([]);
 
 for (const [file, code, n] of [

@@ -60,7 +60,6 @@ declare module "./mod.gen.ts" {
       parent_host_clause: Binder<HostEffectClause>,
       variant: (d: DerivedHostCause) => ObligationCauseCode,
     ): ObligationCause;
-    /** PORT: returns `mir::ConstraintCategory` (mir, M4; not ported). */
     to_constraint_category(): ConstraintCategory;
   }
   namespace ObligationCause {

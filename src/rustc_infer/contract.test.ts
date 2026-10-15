@@ -319,8 +319,8 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
     // (`next_ty_var` and `unwrap_region_constraints` stopped here until lanes infer-core / infer-regions ported them.)
     // (`can_eq` stopped here until lane trait-sel-traits-a ported rustc_trait_selection infer.rs.)
     // (`predicate_may_hold` stopped here until lane selcx-contract ported traits/query/evaluate_obligation.rs.)
-    const at = new At(infcx, undefined as never, undefined as never);
-    expect(() => at.query_normalize(undefined as never, undefined as never)).toThrow(/rustc_trait_selection::traits::query::normalize::At::query_normalize/);
+    // (`At::query_normalize` stopped here until lane old-query-typeops ported traits/query/normalize.rs.)
+    expect(() => infcx.err_ctxt()).toThrow(/rustc_trait_selection::error_reporting::InferCtxt::err_ctxt/);
   });
 
   test("rustc_middle infer/canonical.rs: CanonicalParamEnvCache and OriginalQueryValues defaults", () => {
