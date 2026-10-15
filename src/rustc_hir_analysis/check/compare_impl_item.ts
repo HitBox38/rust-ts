@@ -9,11 +9,12 @@
 // - `?` on a `Result<_, ErrorGuaranteed>` is `if (r.$ === "Err") return r;`.
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // - `struct_span_code_err!` is rustc_errors' `struct_span_code_err` with the message formatted here.
-// - The items of other wave-17 lanes this file calls (rustc_trait_selection's `ObligationCtxt`,
-//   `normalize_param_env_or_error`; `TypeErrCtxt`'s `report_fulfillment_errors` / `note_type_err` /
-//   `report_region_errors` (wave 19); check/mod.rs `potentially_plural_count` (lane check-check)) are stand-ins at the end
-//   of this file ("Stand-ins"). The rustc_trait_selection ones stop as UNPORTED at their first use;
-//   `potentially_plural_count` is a copy of upstream's body for root to repoint at check/mod.ts.
+// - `TypeErrCtxt`'s `report_fulfillment_errors` / `note_type_err` / `report_region_errors` (wave 19) are a view over
+//   `infcx.err_ctxt()` at the end of this file ("Stand-ins"); its stub stops as UNPORTED.
+import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
+import type { FulfillmentError } from "../../rustc_trait_selection/traits/mod.gen.ts";
+import { normalize_param_env_or_error } from "../../rustc_trait_selection/traits/mod.ts";
+import { potentially_plural_count } from "./mod.ts";
 import { ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import {
   Applicability,
@@ -307,7 +308,7 @@ function compare_method_clause_entailment(tcx: TyCtxt, impl_m: AssocItem, trait_
   // debug!(?param_env);
 
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
 
   // Create obligations for each clause declared by the impl
   // definition in the context of the hybrid param-env. This makes
@@ -541,7 +542,7 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
   param_env = normalize_param_env_or_error(tcx, param_env, ObligationCause.misc(tcx.def_span(impl_m_def_id), impl_m_def_id));
 
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
 
   // Check that the where clauses of the impl are satisfied by the hybrid param env.
   // You might ask -- what does this have to do with RPITIT inference? Nothing.
@@ -795,9 +796,9 @@ export function collect_return_position_impl_trait_in_trait_tys(tcx: TyCtxt, imp
 }
 
 // rustc-type: compiler/rustc_hir_analysis/src/check/compare_impl_item.rs:796 ImplTraitInTraitCollector
-class ImplTraitInTraitCollector implements TypeFolder {
+class ImplTraitInTraitCollector<E> implements TypeFolder {
   constructor(
-    public ocx: ObligationCtxt,
+    public ocx: ObligationCtxt<E>,
     /** PORT: `FxIndexMap<DefId, (Ty, GenericArgsRef)>`: a `DefIdMap` (insertion-ordered). */
     public types: DefIdMap<[Ty, GenericArgs]>,
     public span: Span,
@@ -806,8 +807,8 @@ class ImplTraitInTraitCollector implements TypeFolder {
   ) {}
 
   // rustc: compiler/rustc_hir_analysis/src/check/compare_impl_item.rs:809 new
-  static new(ocx: ObligationCtxt, span: Span, param_env: ParamEnv, impl_m_id: LocalDefId): ImplTraitInTraitCollector {
-    return new ImplTraitInTraitCollector(ocx, new DefIdMap(), span, param_env, impl_m_id);
+  static new<E>(ocx: ObligationCtxt<E>, span: Span, param_env: ParamEnv, impl_m_id: LocalDefId): ImplTraitInTraitCollector<E> {
+    return new ImplTraitInTraitCollector<E>(ocx, new DefIdMap(), span, param_env, impl_m_id);
   }
 
   // ---- impl<'tcx, E> TypeFolder<TyCtxt<'tcx>> for ImplTraitInTraitCollector<'_, 'tcx, E> ----
@@ -1244,7 +1245,7 @@ function check_region_late_boundedness(tcx: TyCtxt, impl_m: AssocItem, trait_m: 
   const trait_m_sig_ = Unnormalized.skip_norm_wip(EarlyBinder.instantiate(fn_sig_of(tcx, trait_m.def_id), tcx, trait_m_args, fold_Binder(fold_FnSig)));
   const trait_m_sig = tcx.liberate_late_bound_regions(impl_m.def_id, trait_m_sig_, fold_FnSig);
 
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
 
   // Equate the signatures so that we can infer whether a late-bound param was present where
   // an early-bound param was expected, since we replace the late-bound lifetimes with
@@ -2025,7 +2026,7 @@ function compare_const_generic_param_types(tcx: TyCtxt, impl_item: AssocItem, tr
   // Map the trait item's generic parameters into the impl item's generic context.
   const trait_to_impl_args = RawList.identity_for_item(tcx, impl_item.def_id).rebase_onto(tcx, AssocItem.container_id(impl_item, tcx), impl_trait_ref.args);
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   const param_env = tcx.param_env(impl_item.def_id) as ParamEnv;
 
   const impl_params = const_params_of(impl_item.def_id);
@@ -2176,7 +2177,7 @@ function compare_const_clause_entailment(tcx: TyCtxt, impl_ct: AssocItem, trait_
   param_env = normalize_param_env_or_error(tcx, param_env, ObligationCause.misc(impl_ct_span, impl_ct_def_id));
 
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
 
   const impl_ct_own_bounds = GenericClauses.instantiate_own_identity(impl_ct_clauses);
   for (const [clause_, span] of impl_ct_own_bounds) {
@@ -2308,7 +2309,7 @@ function compare_type_clause_entailment(tcx: TyCtxt, impl_ty: AssocItem, trait_t
   // debug!(?param_env);
 
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
 
   for (const [clause_, span] of impl_ty_own_bounds) {
     const cause = ObligationCause.misc(span, impl_ty_def_id);
@@ -2383,7 +2384,7 @@ export function check_type_bounds(tcx: TyCtxt, trait_ty: AssocItem, impl_ty: Ass
   const rebased_args = impl_ty_args.rebase_onto(tcx, container_id, impl_trait_ref.args);
 
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
 
   // A synthetic impl Trait for RPITIT desugaring or assoc type for effects desugaring has no HIR,
   // which we currently use to get the span for an impl's associated type. Instead, for these,
@@ -2637,7 +2638,7 @@ function param_env_with_gat_bounds(tcx: TyCtxt, impl_ty: AssocItem, impl_trait_r
 function try_report_async_mismatch(
   tcx: TyCtxt,
   infcx: InferCtxt,
-  errors: readonly FulfillmentErrorView[],
+  errors: readonly FulfillmentError[],
   trait_m: AssocItem,
   impl_m: AssocItem,
   impl_sig: FnSig,
@@ -2702,52 +2703,9 @@ const d_ProjectionClause: TypeFoldable<ProjectionClause> = { visit_with: visit_w
 
 // ==== Stand-ins (PORT: other wave-17 lanes and wave 19; see the file header) =========================================
 
-/** check/mod.rs:652 `potentially_plural_count` (lane check-check): a copy of its body; root repoints at check/mod.ts. */
-function potentially_plural_count(count: number, word: string): string {
-  return `${count} ${word}${pluralize(count)}`;
-}
-
-/** `FulfillmentError<'tcx>` (rustc_trait_selection traits/mod.rs, wave 17): the field this file reads. */
-interface FulfillmentErrorView {
-  root_obligation: PredicateObligation;
-}
-
-/**
- * `ObligationCtxt<'_, 'tcx, E>` (rustc_trait_selection traits/engine.rs, lanes trait-sel-*): the methods this file calls,
- * with D4 descriptors last (`T: TypeFoldable` -> `d_T`, `T: ToTrace` -> `d_T`).
- */
-interface ObligationCtxt {
-  infcx: InferCtxt;
-  register_obligation(obligation: PredicateObligation): void;
-  register_obligations(obligations: Iterable<PredicateObligation>): void;
-  normalize<T>(cause: ObligationCause, param_env: ParamEnv, value: Unnormalized<T>, d_T: TypeFoldable<T>): T;
-  eq<T>(cause: ObligationCause, param_env: ParamEnv, expected: T, actual: T, d_T: ToTrace<T>): Result<null, TypeError>;
-  sup<T>(cause: ObligationCause, param_env: ParamEnv, expected: T, actual: T, d_T: ToTrace<T>): Result<null, TypeError>;
-  try_evaluate_obligations(): TraitErrors<unknown>;
-  evaluate_obligations_error_on_ambiguity(): TraitErrors<FulfillmentErrorView>;
-  resolve_regions_and_report_errors(body_def_id: LocalDefId, param_env: ParamEnv, assumed_wf_tys: Iterable<Ty>): Result<null, ErrorGuaranteed>;
-  assumed_wf_types_and_report_errors(param_env: ParamEnv, def_id: LocalDefId): Result<Ty[], ErrorGuaranteed>;
-  deeply_normalize<T>(cause: ObligationCause, param_env: ParamEnv, value: Unnormalized<T>, d_T: TypeFoldable<T>): Result<T, FulfillmentErrorView[]>;
-}
-
-/** `ObligationCtxt::new_with_diagnostics` (rustc_trait_selection traits/engine.rs:156, lanes trait-sel-*). */
-function ObligationCtxt_new_with_diagnostics(_infcx: InferCtxt): ObligationCtxt {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics");
-}
-
-/** `ObligationCtxt::new` (rustc_trait_selection traits/engine.rs:162, lanes trait-sel-*). */
-function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxt {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new");
-}
-
-/** `traits::normalize_param_env_or_error` (rustc_trait_selection traits/mod.rs, lanes trait-sel-*). */
-function normalize_param_env_or_error(_tcx: TyCtxt, _unnormalized_env: ParamEnv, _cause: ObligationCause): ParamEnv {
-  return unported("rustc_trait_selection::traits::normalize_param_env_or_error");
-}
-
 /** `TypeErrCtxt<'_, 'tcx>` (rustc_trait_selection error_reporting, wave 19): the methods this file calls. */
 interface TypeErrCtxtView {
-  report_fulfillment_errors(errors: FulfillmentErrorView[]): ErrorGuaranteed;
+  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
   note_type_err(
     diag: Diag,
     cause: ObligationCause,

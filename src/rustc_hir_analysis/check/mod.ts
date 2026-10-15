@@ -69,7 +69,6 @@ a type parameter).
 // PORT: as check.ts, code that needs a wave-17 lane outside this lane's base stops with `unported(..)` at its first use;
 // the stand-ins are at the end of this file ("Stand-ins"):
 // - check/always_applicable.rs, check/region.rs (lane check-region-intrinsic): `check_drop_impl`, `region_scope_tree`;
-// - check/compare_impl_item.rs (lane check-compare): `compare_impl_item`, `collect_return_position_impl_trait_in_trait_tys`;
 // - rustc_trait_selection error reporting (wave 19): `ReturnsVisitor`, `TypeErrCtxt::ty_kind_suggestion`.
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { type GateIssue } from "../../rustc_feature/lib.ts";
@@ -120,13 +119,14 @@ import type { InferCtxt } from "../decls.ts";
 import * as diagnostics from "../diagnostics.ts";
 import type { MissingTraitItemLabel, MissingTraitItemSuggestion, MissingTraitItemSuggestionNone, MissingTraitItemSuggestionUnstable } from "../diagnostics.ts";
 import * as check from "./check.ts";
+import * as compare_impl_item from "./compare_impl_item.ts";
 import * as wfcheck from "./wfcheck.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 
 // pub mod always_applicable;   (wave 17: check-region-intrinsic)
 // mod check;
-// mod compare_eii;             (wave 17: check-compare)
-// mod compare_impl_item;       (wave 17: check-compare)
+// mod compare_eii;             (not ported: EII is out of M3 scope)
+// mod compare_impl_item;
 // mod entry;                   (wave 17)
 // pub mod intrinsic;           (wave 17: check-region-intrinsic)
 // mod region;                  (wave 17: check-region-intrinsic)
@@ -145,9 +145,8 @@ export function provide(providers: Providers): void {
   // PORT: the providers below are fns of other wave-17 lanes' files (not in this lane's base); each lane's merge
   // uncomments its line(s).
   // providers.region_scope_tree = region::region_scope_tree;                (check/region.rs, lane check-region-intrinsic)
-  // providers.collect_return_position_impl_trait_in_trait_tys =
-  //   compare_impl_item::collect_return_position_impl_trait_in_trait_tys;   (check/compare_impl_item.rs, lane check-compare)
-  // providers.compare_impl_item = compare_impl_item::compare_impl_item;     (lane check-compare)
+  providers.collect_return_position_impl_trait_in_trait_tys = compare_impl_item.collect_return_position_impl_trait_in_trait_tys;
+  providers.compare_impl_item = compare_impl_item.compare_impl_item;
   providers.check_coroutine_obligations = check.check_coroutine_obligations;
   providers.check_potentially_region_dependent_goals = check.check_potentially_region_dependent_goals;
   providers.check_type_wf = wfcheck.check_type_wf;

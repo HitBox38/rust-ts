@@ -6,11 +6,10 @@
 // PORT: the code that needs another wave-17 lane that is not in this lane's base stops with `unported(..)` at the first
 // use, after the upstream statements before it. The stand-ins are at the end of this file ("Stand-ins"), one per upstream
 // item, each naming the lane that ports it; the merge repoints them to the real ports:
-// - check/compare_impl_item.rs (+ refine.rs) (lane check-compare): `check_type_bounds`, `compare_const_directness`,
-//   `check_refining_return_position_impl_trait_in_trait`;
 // - check/intrinsic.rs (lane check-region-intrinsic): `check_intrinsic_type`;
 // - rustc_trait_selection error reporting (wave 19): `TypeErrCtxt`, `ReturnsVisitor`;
 // - layout (M4): `TyAndLayout` / `LayoutError`, the values of `tcx.layout_of(..)`.
+import * as compare_impl_item from "./compare_impl_item.ts";
 import * as wfcheck from "./wfcheck.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 import { impl_item_is_final } from "../../rustc_trait_selection/traits/util.ts";
@@ -1031,12 +1030,12 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
           case "Type":
             if (Defaultness.has_value(AssocItem.defaultness(assoc_item, tcx))) {
               const trait_args = RawList.identity_for_item(tcx, LocalDefId.to_def_id(def_id));
-              void compare_impl_item_check_type_bounds(tcx, assoc_item, assoc_item, TraitRefC.new_from_args(as_interner(tcx), LocalDefId.to_def_id(def_id), trait_args));
+              void compare_impl_item.check_type_bounds(tcx, assoc_item, assoc_item, TraitRefC.new_from_args(as_interner(tcx), LocalDefId.to_def_id(def_id), trait_args));
             }
             break;
           case "Const":
             if (Defaultness.has_value(AssocItem.defaultness(assoc_item, tcx))) {
-              void compare_impl_item_compare_const_directness(tcx, assoc_item, assoc_item);
+              void compare_impl_item.compare_const_directness(tcx, assoc_item, assoc_item);
             }
             break;
           default:
@@ -1533,7 +1532,7 @@ function check_impl_items_against_trait(tcx: TyCtxt, impl_id: LocalDefId, impl_t
     if (res.$ === "Ok") {
       switch (ty_impl_item.kind.$) {
         case "Fn": {
-          compare_impl_item_refine_check_refining_return_position_impl_trait_in_trait(
+          compare_impl_item.refine.check_refining_return_position_impl_trait_in_trait(
             tcx,
             ty_impl_item,
             ty_trait_item,
@@ -2584,18 +2583,6 @@ function collect(): typeof import("../collect.ts") {
   return require("../collect.ts") as typeof import("../collect.ts");
 }
 
-/** `super::compare_impl_item::check_type_bounds` (check/compare_impl_item.rs, lane check-compare). */
-function compare_impl_item_check_type_bounds(_tcx: TyCtxt, _ty: AssocItem, _trait_ty: AssocItem, _impl_trait_ref: TraitRef): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::compare_impl_item::check_type_bounds (lane check-compare)");
-}
-/** `super::compare_impl_item::compare_const_directness` (check/compare_impl_item.rs, lane check-compare). */
-function compare_impl_item_compare_const_directness(_tcx: TyCtxt, _impl_const: AssocItem, _trait_const: AssocItem): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::compare_impl_item::compare_const_directness (lane check-compare)");
-}
-/** `compare_impl_item::refine::check_refining_return_position_impl_trait_in_trait` (check/compare_impl_item/refine.rs, lane check-compare). */
-function compare_impl_item_refine_check_refining_return_position_impl_trait_in_trait(_tcx: TyCtxt, _impl_m: AssocItem, _trait_m: AssocItem, _impl_trait_ref: TraitRef): void {
-  return unported("rustc_hir_analysis::check::compare_impl_item::refine::check_refining_return_position_impl_trait_in_trait (lane check-compare)");
-}
 /** `intrinsic::check_intrinsic_type` (check/intrinsic.rs, lane check-region-intrinsic). */
 function intrinsic_check_intrinsic_type(_tcx: TyCtxt, _intrinsic_id: LocalDefId, _span: Span, _intrinsic_name: Symbol): void {
   return unported("rustc_hir_analysis::check::intrinsic::check_intrinsic_type (lane check-region-intrinsic)");

@@ -11,6 +11,8 @@
 //   their first use: rustc_trait_selection's `ObligationCtxt` / `normalize_param_env_or_error` (lanes trait-sel-*),
 //   rustc_middle's `LateParamRegionKind::from_bound` (ty/region.rs) and `impl Elaboratable for (Clause, Span)`
 //   (ty/elaborate_impl.rs).
+import { ObligationCtxt } from "../../../rustc_trait_selection/traits/engine.ts";
+import { normalize_param_env_or_error } from "../../../rustc_trait_selection/traits/mod.ts";
 import { type VisitorResult, VisitorResult as VisitorResultC } from "../../../rustc_ast_ir/visit.ts";
 import type { ErrorGuaranteed } from "../../../rustc_errors/lib.ts";
 import { Node } from "../../../rustc_hir/hir.ts";
@@ -175,7 +177,7 @@ export function check_refining_return_position_impl_trait_in_trait(tcx: TyCtxt, 
   param_env = normalize_param_env_or_error(tcx, param_env, ObligationCause.dummy());
 
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
 
   // Normalize the bounds. This has two purposes:
   //
@@ -619,23 +621,6 @@ const d_Bounds = fold_tuple2(d_Bounds_0, d_Bounds_1) as TypeFoldable<Bounds>;
 const d_ClauseKind: TypeVisitable<import("../../../rustc_type_ir/predicate_kind.gen.ts").ClauseKind> = { visit_with: visit_with_ClauseKind };
 
 // ==== Stand-ins (PORT: other lanes; see the file header) ============================================================
-
-/** `ObligationCtxt<'_, 'tcx, ScrubbedTraitError>` (rustc_trait_selection traits/engine.rs, lanes trait-sel-*): the methods this file calls. */
-interface ObligationCtxt {
-  normalize<T>(cause: ObligationCause, param_env: ParamEnv, value: Unnormalized<T>, d_T: TypeFoldable<T>): T;
-  evaluate_obligations_error_on_ambiguity(): TraitErrors<unknown>;
-  deeply_normalize<T>(cause: ObligationCause, param_env: ParamEnv, value: Unnormalized<T>, d_T: TypeFoldable<T>): Result<T, unknown[]>;
-}
-
-/** `ObligationCtxt::new` (rustc_trait_selection traits/engine.rs:162, lanes trait-sel-*). */
-function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxt {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new");
-}
-
-/** `traits::normalize_param_env_or_error` (rustc_trait_selection traits/mod.rs, lanes trait-sel-*). */
-function normalize_param_env_or_error(_tcx: TyCtxt, _unnormalized_env: ParamEnv, _cause: ObligationCause): ParamEnv {
-  return unported("rustc_trait_selection::traits::normalize_param_env_or_error");
-}
 
 /** `elaborate(tcx, iter).collect()` over `(Clause, Span)` (`impl Elaboratable for (Clause, Span)`, rustc_middle ty/elaborate_impl.rs, not ported). */
 function elaborate_Clause_Span(_tcx: TyCtxt, _obligations: Iterable<[Clause, Span]>): [Clause, Span][] {
