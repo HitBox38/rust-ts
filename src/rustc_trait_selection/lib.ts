@@ -5,9 +5,35 @@
 // decls.ts (types only), then the modules in upstream `mod` order. A module's top-level code touches only rustc_infer and
 // other crates. Consumers outside the crate import this file.
 import "../rustc_infer/lib.ts";
+import { install_derefs } from "../rust_ts/deref.ts";
 import "./decls.ts";
+// pub mod diagnostics;
+import "./diagnostics.ts";
+import "./diagnostics/note_and_explain.ts";
 // pub mod error_reporting;
 import "./error_reporting/mod.ts";
+import "./error_reporting/infer/mod.ts";
+import "./error_reporting/infer/note_and_explain.ts";
+import "./error_reporting/infer/suggest.ts";
+import "./error_reporting/infer/need_type_info.ts";
+import "./error_reporting/infer/nice_region_error/mod.ts";
+import "./error_reporting/infer/nice_region_error/different_lifetimes.ts";
+import "./error_reporting/infer/nice_region_error/find_anon_type.ts";
+import "./error_reporting/infer/nice_region_error/mismatched_static_lifetime.ts";
+import "./error_reporting/infer/nice_region_error/named_anon_conflict.ts";
+import "./error_reporting/infer/nice_region_error/placeholder_error.ts";
+import "./error_reporting/infer/nice_region_error/placeholder_relation.ts";
+import "./error_reporting/infer/nice_region_error/static_impl_trait.ts";
+import "./error_reporting/infer/nice_region_error/trait_impl_difference.ts";
+import "./error_reporting/infer/nice_region_error/util.ts";
+import "./error_reporting/infer/region.ts";
+import "./error_reporting/traits/mod.ts";
+import "./error_reporting/traits/ambiguity.ts";
+import "./error_reporting/traits/call_kind.ts";
+import "./error_reporting/traits/fulfillment_errors.ts";
+import "./error_reporting/traits/on_unimplemented.ts";
+import "./error_reporting/traits/overflow.ts";
+import "./error_reporting/traits/suggestions.ts";
 // pub mod infer;
 import "./infer.ts";
 // pub mod opaque_types;
@@ -61,6 +87,12 @@ import "./traits/util.ts";
 import "./traits/vtable.ts";
 import "./traits/wf.ts";
 
+// The `Deref` forwarders of `TypeErrCtxt -> InferCtxt` (error_reporting/mod.ts): every `InferCtxt` prototype method
+// (rustc_infer's and this crate's extension methods) and every `TypeErrCtxt` method / placeholder exists by now.
+install_derefs();
+
+export * as diagnostics from "./diagnostics.ts";
+export * as error_reporting from "./error_reporting/mod.ts";
 export * as infer from "./infer.ts";
 export * as regions from "./regions.ts";
 export * as solve from "./solve.ts";

@@ -21,7 +21,7 @@ import type { HirId } from "../../rustc_hir_id/lib.ts";
 import { HirIdMap } from "../../rustc_hir_id/lib.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
 import type { RegionVariableOrigin } from "../../rustc_infer/infer/mod.ts";
-import { Obligation } from "../../rustc_infer/traits/mod.ts";
+import { Obligation, type PredicateObligations } from "../../rustc_infer/traits/mod.ts";
 import type { FulfillmentError } from "../../rustc_trait_selection/traits/mod.gen.ts";
 import { TyCtxt_as_HirTyCtxt } from "../../rustc_middle/hir/map.ts";
 import { type DynCompatibilityViolation, ObligationCause, type ObligationCauseCode } from "../../rustc_middle/traits/mod.ts";
@@ -36,9 +36,9 @@ import { fold_Clause, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts"
 import type { Session } from "../../rustc_session/session.ts";
 import type { LocalDefId, LocalModId, DefId } from "../../rustc_span/def_id.ts";
 import { LocalDefId as LocalDefIdC } from "../../rustc_span/def_id.ts";
-import type { ErrorGuaranteed, Span } from "../../rustc_span/lib.ts";
+import { DUMMY_SP, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
 import type { Ident } from "../../rustc_span/symbol.ts";
-import type { TypeErrCtxt } from "../../rustc_trait_selection/decls.ts";
+import { TypeErrCtxt } from "../../rustc_trait_selection/decls.ts";
 import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import type { PolyTraitRef, TraitRef } from "../../rustc_type_ir/decls.ts";
 import { fold_with_TraitRef, TraitClause, try_fold_with_TraitRef, visit_with_TraitRef } from "../../rustc_type_ir/predicate.ts";
@@ -110,11 +110,24 @@ FnCtxt.prototype.sess = function (this: FnCtxt): Session {
 /// [`InferCtxtErrorExt::err_ctxt`]: rustc_trait_selection::error_reporting::InferCtxtErrorExt::err_ctxt
 // rustc: compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs:192 err_ctxt
 FnCtxt.prototype.err_ctxt = function (this: FnCtxt): TypeErrCtxt {
-  // PORT: `TypeErrCtxt` (rustc_trait_selection error_reporting) is pending (wave 19, errctxt-contract). Upstream builds
-  // `TypeErrCtxt { infcx: &self.infcx, param_env: Some(self.param_env), typeck_results: Some(self.typeck_results.borrow()),
-  // diverging_fallback_has_occurred, autoderef_steps: <closure over self.autoderef(DUMMY_SP, ty).silence_errors()>,
-  // infer_closure_kind: <closure over self.infer_closure_kind_for_diagnostic(closure_def_id)> }`.
-  return unported("rustc_trait_selection::error_reporting::TypeErrCtxt (FnCtxt::err_ctxt; errctxt-contract, wave 19)");
+  // PORT: `&self.infcx` is the `InferCtxt` itself; `self.typeck_results.borrow()` the `TypeckResults` (PORTING §5).
+  return new TypeErrCtxt(
+    this.infcx,
+    this.param_env,
+    this.typeck_results,
+    this.diverging_fallback_has_occurred,
+    (ty: Ty): [Ty, PredicateObligations][] => {
+      const autoderef = this.autoderef(DUMMY_SP, ty).silence_errors();
+      const steps: [Ty, PredicateObligations][] = [];
+      let step: [Ty, number] | undefined;
+      while ((step = autoderef.next()) !== undefined) {
+        const [ty] = step;
+        steps.push([ty, autoderef.current_obligations()]);
+      }
+      return steps;
+    },
+    (closure_def_id: LocalDefId) => this.infer_closure_kind_for_diagnostic(closure_def_id),
+  );
 };
 
 // impl<'a, 'tcx> Deref for FnCtxt<'a, 'tcx> { type Target = TypeckRootCtxt<'tcx>; }
