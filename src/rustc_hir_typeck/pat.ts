@@ -175,12 +175,6 @@ export const MutblCap = {
 };
 // }
 
-/** Derived `PartialEq` for `MutblCap`. */
-function MutblCap_eq(a: MutblCap, b: MutblCap): boolean {
-  if (a.$ === "WeaklyNot" && b.$ === "WeaklyNot") return a._0 === b._0;
-  return a.$ === b.$;
-}
-
 declare module "./pat.gen.ts" {
   interface ResolvedPat {
     adjust_mode(): gen.AdjustMode;
