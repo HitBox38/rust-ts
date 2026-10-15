@@ -132,10 +132,17 @@ errrep-sugg-* far higher.
 - In ported code: `call_kind` `DerefCoercion` arm → `Instance::try_resolve` (rustc_middle ty/instance.rs, not ported).
 - Generated: diagnostics.gen.ts `Binder<FnSig>` IntoDiagArg / Display (`unported_into_diag_arg` / `unported_display`).
 
-## Re-pinned tests (no matching assertion weakened)
-- `src/rustc_hir_typeck/contract.test.ts` "Deref ..." : the registered-derefs list gains `"TypeErrCtxt.infcx -> InferCtxt"`
+## Re-pinned tests (no matching assertion weakened; each now pins the exact new stop)
+- `src/rustc_hir_typeck/contract.test.ts` "Deref ...": the registered-derefs list gains `"TypeErrCtxt.infcx -> InferCtxt"`
   (shared registry).
-- TODO-ROOT if the full run below lists more: see "Checks".
+- `src/rustc_infer/contract.test.ts`: (a) "rustc_trait_selection's extension methods ..." scans only the extension-trait /
+  SelectionContext part of rustc_trait_selection/decls.ts (count 127 unchanged); the error-reporting declarations are
+  checked by the new errctxt_contract.test.ts; (b) "the contract's placeholders stop as UNPORTED": `infcx.err_ctxt()` is
+  ported, the example moves to `err_ctxt().report_fulfillment_errors([])` (traits::TypeErrCtxt placeholder).
+- `src/rustc_hir_analysis/check/entry.test.ts` (args_main.rs, E0580) and `compare_impl_item.oracle.test.ts` (in-process
+  e0053_sig, e0326): `InferCtxt::err_ctxt` → `error_reporting::infer::TypeErrCtxt::note_type_err`.
+- `src/rustc_hir_analysis/check/wfcheck_a.test.ts` (field_bound.rs) and `wfcheck_b.test.ts` (static_wf.rs, E0277):
+  `InferCtxt::err_ctxt` → `error_reporting::traits::TypeErrCtxt::report_fulfillment_errors`.
 
 ## Checks
 - `bunx tsc --noEmit -p .`: clean. `bun scripts/coverage.ts --check`: markers ok (16397; vendor 3888).
@@ -146,17 +153,17 @@ errrep-sugg-* far higher.
   placeholders name their own module; `Fns_*` (tsc `satisfies`) and their UNPORTED paths; Deref forwarders / shadowing /
   `@ts-expect-error`; `InferCtxt::err_ctxt` fields; ported small items.
 - Every error_reporting / diagnostics module loads as a fresh entry point.
-- `RUST_TS_REQUIRE_PROBES=1 bun test src tools --timeout=120000`: see the result line appended below.
+- `RUST_TS_REQUIRE_PROBES=1 bun test src tools --timeout=120000`: 5284 pass, 1 skip, 0 fail (348 files).
 
 ## Samples (lane vs base; base = this worktree before any runtime change, `RUST_TS_AGENT=errctxt-base`)
 | suite | lane run | M / D / U / C | base run | M / D / U / C |
 |---|---|---|---|---|
 | tydump-minicore (46) | `20261015-124405-errctxt-contract-ixz1` | 21 / 0 / 25 / 0 | `20261015-112826-errctxt-base-utu4` | 21 / 0 / 25 / 0 |
-| thirdump-minicore (46) | `20261015-124233-errctxt-contract-hr9x` | 21 / 0 / 25 / 0 | `20261015-112837-errctxt-base-5nzw` | 21 / 0 / 25 / 0 |
+| thirdump-minicore (46) | `20261015-131517-errctxt-contract-uxyn` | 21 / 0 / 25 / 0 | `20261015-112837-errctxt-base-5nzw` | 21 / 0 / 25 / 0 |
 | tydump-nocore `--sample 300 --seed m17` | `20261015-124429-errctxt-contract-xteq` | 287 / 0 / 13 / 0 | `20261015-112848-errctxt-base-vjl6` | 287 / 0 / 13 / 0 |
 
-No new DIFF; statuses identical; only the stops of the 14 err_ctxt cases moved (to the methods listed above; thirdump run
-predates the ObligationCauseExt port, where they stopped at `as_failure_code_diag`). tydump-nocore: identical stops.
+No new DIFF; statuses identical; only the stops of the 14 err_ctxt cases moved (to the methods listed above).
+tydump-nocore: identical stops.
 
 ## For root
 1. Record the decisions above (1 shared Deref registry + re-runnable install, 3 hand types / `regions_`, 4 no re-exports in
