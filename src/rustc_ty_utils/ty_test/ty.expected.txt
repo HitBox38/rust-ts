@@ -36,6 +36,6 @@
 ::{impl#1}::inherent (AssocFn)
   asyncness = No
   nested_bodies_within = []
-param_env(::f): UNPORTED: constness provider (not ported)
+param_env(::f): UNPORTED: rustc_trait_selection::traits::normalize_param_env_or_error
 opaque_types_defined_by(::f): ok
 assumed_wf_types(::{impl#1}): ok
