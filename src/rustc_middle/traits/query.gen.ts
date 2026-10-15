@@ -7,6 +7,7 @@ import { debug_GenericArg, fold_with_GenericArg, type GenericArg, try_fold_with_
 import { debug_RawList, type List } from "../ty/list.ts";
 import { debug_Term, debug_Ty, fold_with_Term, fold_with_Ty, type ParamEnvAnd, type Term, try_fold_with_Term, try_fold_with_Ty, type Ty, visit_with_Term, visit_with_Ty } from "../ty/mod.ts";
 import { debug_Predicate, fold_with_Predicate, type Predicate, try_fold_with_Predicate, visit_with_Predicate } from "../ty/predicate.ts";
+import { fold_with_PredefinedOpaques, try_fold_with_PredefinedOpaques, visit_with_PredefinedOpaques } from "../ty/structural_impls.ts";
 import { type AliasTy, type ParamTy } from "../ty/sty.gen.ts";
 import { debug_UserType, fold_with_UserType, try_fold_with_UserType, type UserType, visit_with_UserType } from "../ty/typeck_results.ts";
 import { type Canonical, type CanonicalQueryInput, debug_Canonical } from "../../rustc_type_ir/canonical.ts";
@@ -20,9 +21,6 @@ import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tu
 import { Ok, type Result } from "../../std/result.ts";
 import { unported } from "../../std/panic.ts";
 const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
-function unported_type_fold(..._a: unknown[]): never {
-  return unported("TypeVisitable/TypeFoldable without a TS impl (see types report)");
-}
 
 export namespace type_op {
 
@@ -285,17 +283,21 @@ export function clone_MethodAutoderefSteps(v: MethodAutoderefSteps): MethodAutod
 // rustc-derive: compiler/rustc_middle/src/traits/query.rs:68 TypeVisitable for MethodAutoderefSteps
 export function visit_with_MethodAutoderefSteps<R>(self: MethodAutoderefSteps, __visitor: TypeVisitor<R>): R {
   let r: R | undefined;
-  if ((r = try_visit(__visitor.Result, unported_type_fold(self.predefined_opaques_in_body))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_PredefinedOpaques(self.predefined_opaques_in_body, __visitor))) !== undefined) return r;
   if ((r = try_visit(__visitor.Result, visit_with_Ty(self.self_ty, __visitor))) !== undefined) return r;
   return __visitor.Result.output();
 }
 // rustc-derive: compiler/rustc_middle/src/traits/query.rs:68 TypeFoldable for MethodAutoderefSteps (try_fold_with)
 export function try_fold_with_MethodAutoderefSteps<E>(self: MethodAutoderefSteps, __folder: FallibleTypeFolder<E>): Result<MethodAutoderefSteps, E> {
-  return unported_type_fold(self.predefined_opaques_in_body);
+  const __0 = try_fold_with_PredefinedOpaques(self.predefined_opaques_in_body, __folder);
+  if (__0.$ === "Err") return __0;
+  const __1 = try_fold_with_Ty(self.self_ty, __folder);
+  if (__1.$ === "Err") return __1;
+  return Ok({ predefined_opaques_in_body: __0._0, self_ty: __1._0 });
 }
 // rustc-derive: compiler/rustc_middle/src/traits/query.rs:68 TypeFoldable for MethodAutoderefSteps (fold_with)
 export function fold_with_MethodAutoderefSteps(self: MethodAutoderefSteps, __folder: TypeFolder): MethodAutoderefSteps {
-  return { predefined_opaques_in_body: unported_type_fold(self.predefined_opaques_in_body), self_ty: fold_with_Ty(self.self_ty, __folder) };
+  return { predefined_opaques_in_body: fold_with_PredefinedOpaques(self.predefined_opaques_in_body, __folder), self_ty: fold_with_Ty(self.self_ty, __folder) };
 }
 
 // rustc-type: compiler/rustc_middle/src/traits/query.rs:76 CanonicalPredicateGoal
