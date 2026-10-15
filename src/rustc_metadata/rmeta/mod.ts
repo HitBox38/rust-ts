@@ -27,6 +27,7 @@ import type { AmbigModChild, DocLinkResMap, ModChild } from "../../rustc_middle/
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { Visibility, VariantDiscr } from "../../rustc_middle/ty/mod.ts";
 import type { VariantIdx } from "../../rustc_middle/ty/decls.ts";
+import type { IntrinsicDef } from "../../rustc_middle/ty/intrinsic.ts";
 import type { ReprOptions } from "../../rustc_abi/lib.ts";
 import type { Providers } from "../../rustc_middle/util/mod.ts";
 import type { FileEncoder } from "../../rustc_serialize/opaque.ts";
@@ -462,7 +463,7 @@ export interface IncoherentImpls {
 export interface LazyTables {
   // - defaulted:
   /** `LazyTable<LocalDefId, DefIndex, Option<LazyValue<ty::IntrinsicDef>>>` */
-  intrinsic: LazyTable<LocalDefId, DefIndex, LazyValue<unknown> | undefined>;
+  intrinsic: LazyTable<LocalDefId, DefIndex, LazyValue<IntrinsicDef> | undefined>;
   /** `LazyTable<LocalDefId, DefIndex, bool>` */
   is_macro_rules: LazyTable<LocalDefId, DefIndex, boolean>;
   /** `LazyTable<LocalDefId, DefIndex, bool>` */
@@ -739,7 +740,7 @@ export function decode_LazyTables(__decoder: LazyDecoder): LazyTables {
 // #[derive(Default)]
 export interface TableBuilders {
   // - defaulted:
-  intrinsic: TableBuilder<LocalDefId, DefIndex, LazyValue<unknown> | undefined>;
+  intrinsic: TableBuilder<LocalDefId, DefIndex, LazyValue<IntrinsicDef> | undefined>;
   is_macro_rules: TableBuilder<LocalDefId, DefIndex, boolean>;
   type_alias_is_checked: TableBuilder<LocalDefId, DefIndex, boolean>;
   attr_flags: TableBuilder<LocalDefId, DefIndex, AttrFlags>;

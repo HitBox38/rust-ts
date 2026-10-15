@@ -100,7 +100,8 @@ import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { DiagnosticItems } from "../../rustc_attr_ir/diagnostic_items.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { DefPath as DefPath_, DefPathData } from "../../rustc_hir_id/definitions.ts";
-import { decode_FeatureStability, decode_ImplTraitInTraitData, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { decode_FeatureStability, decode_ImplTraitInTraitData, decode_IntrinsicDef, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import type { IntrinsicDef } from "../../rustc_middle/ty/intrinsic.ts";
 import type { FeatureStability } from "../../rustc_middle/middle/mod.ts";
 import type { RestrictionKind } from "../../rustc_middle/ty/mod.ts";
 import { debug_Visibility, Visibility as ty_Visibility } from "../../rustc_middle/ty/mod.ts";
@@ -474,8 +475,7 @@ export interface CrateMetadata {
   expn_hash_to_expn_id(tcx: TyCtxt, index_guess: number, hash: ExpnHash): ExpnId;
   imported_source_file(tcx: TyCtxt, source_file_index: number): ImportedSourceFile;
   get_attr_flags(index: DefIndex): AttrFlags;
-  /** `-> Option<ty::IntrinsicDef>` (M3) */
-  get_intrinsic(tcx: TyCtxt, index: DefIndex): unknown | undefined;
+  get_intrinsic(tcx: TyCtxt, index: DefIndex): IntrinsicDef | undefined;
   get_doc_link_resolutions(tcx: TyCtxt, index: DefIndex): DocLinkResMap;
   get_doc_link_traits_in_scope(tcx: TyCtxt, index: DefIndex): Iterable<DefId>;
 
@@ -1829,10 +1829,6 @@ function decode_EiiMapEncodedKeyValue(_d: MetadataDecodeContext): unknown {
 function decode_ExportedSymbol_SymbolExportInfo(_d: MetadataDecodeContext): unknown {
   return unported("Decodable for (rustc_middle::middle::exported_symbols::ExportedSymbol, SymbolExportInfo) (M3)");
 }
-/** `Decodable` of `rustc_middle::ty::IntrinsicDef` (M3). */
-function decode_IntrinsicDef(_d: MetadataDecodeContext): unknown {
-  return unported("Decodable for rustc_middle::ty::IntrinsicDef (M3)");
-}
 /** `Decodable` of `DocLinkResMap` (`UnordMap<(Symbol, Namespace), Option<Res<NodeId>>>`). */
 function decode_DocLinkResMap(_d: MetadataDecodeContext): DocLinkResMap {
   return unported("Decodable for rustc_hir::def::DocLinkResMap (derive(Decodable) of Res / Namespace not generated)");
@@ -2483,7 +2479,7 @@ CrateMetadata.prototype.get_attr_flags = function (this: CrateMetadata, index: D
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1949 get_intrinsic
-CrateMetadata.prototype.get_intrinsic = function (this: CrateMetadata, tcx: TyCtxt, index: DefIndex): unknown | undefined {
+CrateMetadata.prototype.get_intrinsic = function (this: CrateMetadata, tcx: TyCtxt, index: DefIndex): IntrinsicDef | undefined {
   const d = this.root.tables.intrinsic.get(fse_Option_LazyValue, this, index);
   return d === undefined ? undefined : d.decode([this, tcx], decode_IntrinsicDef);
 };

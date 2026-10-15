@@ -13,6 +13,7 @@ import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
 import { decode_Clause, decode_Ty, decode_ValTree, type TyDecoder } from "./ty/codec.ts";
 import { type Value } from "./ty/consts/valtree.ts";
 import { type GenericClauses, type GenericParamDef, GenericParamDefKind, Generics } from "./ty/generics.ts";
+import { type IntrinsicDef } from "./ty/intrinsic.ts";
 import { type AsyncDestructor, type Destructor, FieldDef, ImplTraitHeader, type ImplTraitInTraitData, RestrictionKind, VariantDef, type VariantDiscr, type VariantFlags, Visibility } from "./ty/mod.ts";
 import { TraitDef, type TraitSpecializationKind } from "./ty/trait_def.ts";
 import { type Decodable, decode_bool, decode_HashMap, decode_never, decode_Option, decode_SmallVec, decode_tuple, decode_u16, decode_u32, decode_u8, decode_usize, decode_Vec } from "../rustc_serialize/serialize.ts";
@@ -291,5 +292,14 @@ export function decode_Value(__decoder: TyDecoder): Value {
   return {
     ty: decode_Ty(__decoder),
     valtree: decode_ValTree(__decoder),
+  };
+}
+
+// rustc-derive: compiler/rustc_middle/src/ty/intrinsic.rs:8 Decodable for IntrinsicDef
+export function decode_IntrinsicDef(__decoder: SpanDecoder): IntrinsicDef {
+  return {
+    name: __decoder.decode_symbol(),
+    must_be_overridden: decode_bool(__decoder),
+    const_stable_indirect: decode_bool(__decoder),
   };
 }

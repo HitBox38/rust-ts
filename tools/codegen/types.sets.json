@@ -428,7 +428,8 @@
       "compiler/rustc_middle/src/ty/adt.rs",
       "compiler/rustc_middle/src/middle/mod.rs",
       "compiler/rustc_middle/src/middle/resolve_bound_vars.rs",
-      "compiler/rustc_middle/src/ty/consts/valtree.rs"
+      "compiler/rustc_middle/src/ty/consts/valtree.rs",
+      "compiler/rustc_middle/src/ty/intrinsic.rs"
     ],
     "class": [],
     "hand": [],
@@ -464,7 +465,8 @@
       "rustc_middle::middle::lib_features::FeatureStability",
       "rustc_middle::middle::resolve_bound_vars::ObjectLifetimeDefault",
       "rustc_middle::ty::ImplTraitHeader",
-      "rustc_middle::ty::consts::valtree::Value"
+      "rustc_middle::ty::consts::valtree::Value",
+      "rustc_middle::ty::intrinsic::IntrinsicDef"
     ],
     "decodable_construct": {
       "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] },
