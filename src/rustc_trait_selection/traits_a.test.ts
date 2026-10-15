@@ -226,13 +226,14 @@ describe("ObligationCtxt and the old solver (review-w17)", () => {
       expect(ocx.engine._0).toBeInstanceOf(FulfillmentContext);
       expect(ObligationCtxt.new_with_diagnostics(infcx).engine._0).toBeInstanceOf(FulfillmentContext);
 
-      // `?0: Trait`: not global, so `process_trait_obligation` goes straight to `SelectionContext::poly_select`.
+      // `?0: Trait`: not global, so `process_trait_obligation` goes straight to `SelectionContext::poly_select`
+      // (old-select-a: `poly_select` -> `select_from_obligation` -> the lane old-select-b stub `push_stack`).
       const v = infcx.next_ty_var(DUMMY_SP);
       ocx.register_bound(ObligationCause.dummy(), ParamEnv.empty(), v, def(5));
       expect(ocx.engine.has_pending_obligations()).toBe(true);
       expect(ocx.engine.pending_obligations().length).toBe(1);
-      // The forest drives the obligation into the (wave-18b) selection stub.
-      expect(() => ocx.try_evaluate_obligations()).toThrow(/rustc_trait_selection::traits::select::SelectionContext::poly_select/);
+      // The forest drives the obligation into the (wave-18c) selection stub.
+      expect(() => ocx.try_evaluate_obligations()).toThrow(/rustc_trait_selection::traits::select::SelectionContext::push_stack/);
     }),
   );
 
