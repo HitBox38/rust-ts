@@ -51,7 +51,6 @@ import { type Debug, debug_list, debug_option, debug_struct, format_debug, PLAIN
 import { assert_eq, panic, unported, unreachable } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import type { Providers } from "../queries.gen.ts";
-import { DefId_hash_key } from "../query/caches.ts";
 import { type IntoQueryKey, into_query_key_DefId } from "../query/into_query_key.ts";
 import { TyCtxt } from "../ty/context.ts";
 import * as map from "./map.ts";
@@ -619,12 +618,8 @@ export function provide(providers: Providers): void {
       return span_bug(tcx.hir_span(tcx.local_def_id_to_hir_id(def_id)), `fn_arg_idents: unexpected item ${debug_LocalDefId(def_id, PLAIN)}`);
     }
   };
-  // PORT: the resolver's `trait_impls` (`FxIndexMap<DefId, Vec<LocalDefId>>`) is keyed by `DefId_hash_key` with the
-  // `DefId` kept in the entry (middle/resolve.ts); queries.gen.ts types this query's value as `Map<DefId, ..>`.
-  providers.all_local_trait_impls = (tcx, _) => tcx.resolutions(null).trait_impls as unknown as Map<DefId, LocalDefId[]>;
-  providers.local_trait_impls = (tcx, trait_id) => {
-    const xs = tcx.resolutions(null).trait_impls.get(DefId_hash_key(trait_id));
-    return xs === undefined ? [] : xs[1];
-  };
+  // PORT: the resolver's `trait_impls` (`FxIndexMap<DefId, Vec<LocalDefId>>`) is a `DefIdMap` (middle/resolve.ts).
+  providers.all_local_trait_impls = (tcx, _) => tcx.resolutions(null).trait_impls;
+  providers.local_trait_impls = (tcx, trait_id) => tcx.resolutions(null).trait_impls.get(trait_id) ?? [];
   providers.expn_that_defined = (tcx, id) => tcx.resolutions(null).expn_that_defined.get(id) ?? ExpnId.root();
 }

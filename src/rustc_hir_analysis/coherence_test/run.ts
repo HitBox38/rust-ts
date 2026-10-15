@@ -35,13 +35,9 @@ import { as_interner, fold_with_TraitRef, try_fold_with_TraitRef, visit_with_Tra
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 
-/**
- * `tcx.all_local_trait_impls(()).keys()`. PORT: rustc_middle hir/mod.ts's provider returns the resolver's map, which is
- * keyed by `DefId_hash_key` with `[DefId, impls]` entries (not the `Map<DefId, ..>` queries.gen.ts declares), so the
- * keys are read from the entries (reported in docs/handoff/coherence.md).
- */
+/** `tcx.all_local_trait_impls(()).keys()`. */
 function all_local_trait_impls_keys(tcx: TyCtxt): DefId[] {
-  return [...(tcx.all_local_trait_impls(null) as unknown as Map<string, [DefId, LocalDefId[]]>).values()].map(([d]) => d);
+  return [...tcx.all_local_trait_impls(null).keys()];
 }
 
 type SimplifyType = typeof import("../../rustc_type_ir/fast_reject.ts").simplify_type;

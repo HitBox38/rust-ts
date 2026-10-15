@@ -158,7 +158,7 @@ export function dump(tcx: TyCtxt): string {
   out.push(`${debug_option(g.main_def, PLAIN, debug_MainDefinition)}\n`);
 
   // FxIndexMap: insertion order; each Vec in upstream order.
-  section(out, "trait_impls", [...g.trait_impls.values()].map(([id, impls]) => `${dbg(id, debug_DefId)} ${debug_vec(impls, PLAIN, debug_LocalDefId)}`));
+  section(out, "trait_impls", [...g.trait_impls].map(([id, impls]) => `${dbg(id, debug_DefId)} ${debug_vec(impls, PLAIN, debug_LocalDefId)}`));
 
   section(out, "proc_macros", g.proc_macros.map((id) => dbg(id, debug_LocalDefId)));
 

@@ -6,10 +6,10 @@
 // - `IndexVec<RegionId, Option<ConnectedRegion>>` is an array with `undefined` holes: `insert(i, v)` grows the vector
 //   to `i + 1` and stores `v`, `remove(i)` takes the value out (`Option::take`), `next_index()` is the length.
 // - The `debug!` over the connected regions is tracing only; its arguments are not evaluated, so it stays a comment.
-// - `rustc_trait_selection::traits::{overlapping_inherent_impls, add_placeholder_note, OverlapResult, SkipLeakCheck}`
-//   (traits/coherence.rs) belong to the parallel rustc_trait_selection lanes (wave 17): the stand-ins below stop as
-//   UNPORTED until root repoints them.
+// - `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint` (traits/select, wave 20) is specialize/mod.ts's stand-in.
 // Init order: top-level code here touches only other crates.
+import { add_placeholder_note, type OverlapResult, overlapping_inherent_impls } from "../../rustc_trait_selection/traits/coherence.ts";
+import { IntercrateAmbiguityCause_add_intercrate_ambiguity_hint } from "../../rustc_trait_selection/traits/specialize/mod.ts";
 import { type Diag, E0592, struct_span_code_err } from "../../rustc_errors/lib.ts";
 import type * as hir from "../../rustc_hir/lib.ts";
 import { OverlapMode } from "../../rustc_middle/traits/specialization_graph.ts";
@@ -25,28 +25,6 @@ import { Ok, type Result } from "../../std/result.ts";
 /** `Result::and` (the argument is already evaluated). */
 function and(self: Result<null, ErrorGuaranteed>, res: Result<null, ErrorGuaranteed>): Result<null, ErrorGuaranteed> {
   return self.$ === "Ok" ? res : self;
-}
-
-// ---- stand-ins: rustc_trait_selection traits/coherence.rs (wave 17 lanes, parallel) ----
-
-/** PORT(stub): `rustc_trait_selection::traits::SkipLeakCheck` (traits/mod.rs). */
-type SkipLeakCheck = "Yes" | "No";
-/** PORT(stub): `rustc_trait_selection::traits::select::IntercrateAmbiguityCause` (only its hint method is used here). */
-interface IntercrateAmbiguityCause {
-  add_intercrate_ambiguity_hint(err: Diag): void;
-}
-/** PORT(stub): `rustc_trait_selection::traits::coherence::OverlapResult` (the fields read here). */
-interface OverlapResult {
-  intercrate_ambiguity_causes: Iterable<IntercrateAmbiguityCause>;
-  involves_placeholder: boolean;
-}
-/** PORT(stub): `rustc_trait_selection::traits::coherence::overlapping_inherent_impls` (traits/coherence.rs:85). */
-function overlapping_inherent_impls(_tcx: TyCtxt, _impl1_def_id: DefId, _impl2_def_id: DefId, _skip_leak_check: SkipLeakCheck, _overlap_mode: OverlapMode): OverlapResult | undefined {
-  return unported("rustc_trait_selection::traits::coherence::overlapping_inherent_impls");
-}
-/** PORT(stub): `rustc_trait_selection::traits::coherence::add_placeholder_note` (traits/coherence.rs:62). */
-function add_placeholder_note(_err: Diag): void {
-  unported("rustc_trait_selection::traits::coherence::add_placeholder_note");
 }
 
 /** `impl Hash for Ident` / `impl PartialEq for Ident` (symbol.rs:2574/2580): the name and the span's syntax context. */
@@ -163,7 +141,7 @@ class InherentOverlapChecker {
         err.span_label(this.tcx.def_span(item2.def_id), `other definition for \`${display_Ident(name)}\``);
 
         for (const cause of overlap.intercrate_ambiguity_causes) {
-          cause.add_intercrate_ambiguity_hint(err);
+          IntercrateAmbiguityCause_add_intercrate_ambiguity_hint(cause, err);
         }
 
         if (overlap.involves_placeholder) {

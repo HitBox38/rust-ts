@@ -10,12 +10,13 @@
 //   diagnostics) happen in the same order as upstream's.
 // - `BTreeMap<(String, String), Vec<Span>>` (`infringing_fields_error`) is a `Map` iterated in key order: keys are
 //   compared as Rust's `(String, String)` `Ord` (byte-wise, `cmp_String`).
-// - The items of rustc_trait_selection this file calls (`ObligationCtxt` (traits/engine.rs), `traits::misc`'s
-//   `type_allowed_to_implement_copy` / `_const_param_ty` and their error types) belong to parallel wave-17 lanes, and
-//   `TypeErrCtxt` (`err_ctxt()`, wave 19) is pending: the stand-ins at the end of this file stop as UNPORTED until root
-//   repoints them. `ty::Pattern` is pending in rustc_middle (ty/decls.ts): its `Display` is a stand-in too.
+// - `TypeErrCtxt` (`err_ctxt()`, wave 19) is pending: a view at the end of this file, whose placeholder stops as
+//   UNPORTED. `ty::Pattern` is pending in rustc_middle (ty/decls.ts): its `Display` is a stand-in too.
 // - Layout (`tcx.layout_of`, `LayoutData::is_1zst`) is M4: the query stops at its placeholder provider.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies.
+import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
+import type { FulfillmentError } from "../../rustc_trait_selection/traits/mod.gen.ts";
+import { type InfringingFieldsReason, type_allowed_to_implement_const_param_ty, type_allowed_to_implement_copy } from "../../rustc_trait_selection/traits/misc.ts";
 import { VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { MultiSpan } from "../../rustc_error_messages/lib.ts";
@@ -509,7 +510,7 @@ function visit_implementation_of_dispatch_from_dyn(checker: Checker): Result<nul
       );
     } else if (coerced_fields.length === 1) {
       const [, ty_a, ty_b, field_span] = coerced_fields[0]!;
-      const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+      const ocx = ObligationCtxt.new_with_diagnostics(infcx);
       ocx.register_obligation(Obligation.new(tcx, clone_ObligationCause(cause), param_env, TraitRef.new(as_interner(tcx), trait_ref.def_id, [GenericArg.from_Ty(ty_a), GenericArg.from_Ty(ty_b)]), upcast_TraitRef));
       const errors = ocx.evaluate_obligations_error_on_ambiguity();
       if (errors.$ === "HasErrors") {
@@ -597,7 +598,7 @@ export function reborrow_info(tcx: TyCtxt, impl_did: LocalDefId): Result<null, E
     return Ok(null);
   }
 
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   // We've found some data fields. They must all be either be Copy or Reborrow.
   for (const field of data_fields) {
     const n = ocx.deeply_normalize(ObligationCause.misc(field.span, impl_did), param_env, Unnormalized.new_wip(field.ty), fold_Ty);
@@ -674,7 +675,7 @@ export function field_type_is_reborrow(tcx: TyCtxt, infcx: InferCtxt, reborrow_t
     return true;
   }
 
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
   const cause = ObligationCause.misc(span, impl_did);
   ocx.register_obligation(Obligation.new(tcx, cause, param_env, TraitRef.new(as_interner(tcx), reborrow_trait, [GenericArg.from_Ty(ty)]), upcast_TraitRef));
   return ocx.evaluate_obligations_error_on_ambiguity().$ === "NoErrors";
@@ -683,7 +684,7 @@ export function field_type_is_reborrow(tcx: TyCtxt, infcx: InferCtxt, reborrow_t
 // rustc: compiler/rustc_hir_analysis/src/coherence/builtin.rs:621 field_type_is_copy
 export function field_type_is_copy(tcx: TyCtxt, infcx: InferCtxt, impl_did: LocalDefId, param_env: ParamEnv, ty: Ty, span: Span): boolean {
   const copy_trait = tcx.require_lang_item(LangItem.Copy, span);
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
   const cause = ObligationCause.misc(span, impl_did);
   ocx.register_obligation(Obligation.new(tcx, cause, param_env, TraitRef.new(as_interner(tcx), copy_trait, [GenericArg.from_Ty(ty)]), upcast_TraitRef));
   return ocx.evaluate_obligations_error_on_ambiguity().$ === "NoErrors";
@@ -692,7 +693,7 @@ export function field_type_is_copy(tcx: TyCtxt, infcx: InferCtxt, impl_did: Loca
 // rustc: compiler/rustc_hir_analysis/src/coherence/builtin.rs:641 assert_field_type_is_copy
 export function assert_field_type_is_copy(tcx: TyCtxt, infcx: InferCtxt, impl_did: LocalDefId, param_env: ParamEnv, ty: Ty, span: Span): Result<null, ErrorGuaranteed> {
   const copy_trait = tcx.require_lang_item(LangItem.Copy, span);
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   const cause = ObligationCause.misc(span, impl_did);
   const obligation = Obligation.new(tcx, cause, param_env, TraitRef.new(as_interner(tcx), copy_trait, [GenericArg.from_Ty(ty)]), upcast_TraitRef);
   ocx.register_obligation(obligation);
@@ -893,7 +894,7 @@ export function coerce_unsized_info(tcx: TyCtxt, impl_did: LocalDefId): Result<C
   }
 
   // Register an obligation for `A: Trait<B>`.
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   const cause2 = ObligationCause.misc(span, impl_did);
   const obligation = Obligation.new(tcx, cause2, param_env, TraitRef.new(as_interner(tcx), trait_def_id, [GenericArg.from_Ty(source), GenericArg.from_Ty(target)]), upcast_TraitRef);
   ocx.register_obligation(obligation);
@@ -1128,63 +1129,9 @@ export function LayoutData_is_1zst(_layout: unknown): boolean {
   return unported("rustc_abi::LayoutData::is_1zst");
 }
 
-/** PORT(stub): `traits::FulfillmentError<'tcx>` (rustc_trait_selection traits/mod.rs): the fields read here. */
-interface FulfillmentErrorView {
-  obligation: PredicateObligation;
-  root_obligation: PredicateObligation;
-}
-
-/** PORT(stub): `traits::misc::InfringingFieldsReason` (rustc_trait_selection traits/misc.rs). */
-export type InfringingFieldsReason = { $: "Fulfill"; _0: FulfillmentErrorView[] } | { $: "Regions"; _0: RegionResolutionError[] };
-
-/** PORT(stub): `traits::misc::CopyImplementationError` (rustc_trait_selection traits/misc.rs). */
-type CopyImplementationError =
-  | { $: "InfringingFields"; _0: [FieldDef, Ty, InfringingFieldsReason][] }
-  | { $: "NotAnAdt" }
-  | { $: "HasDestructor"; _0: DefId }
-  | { $: "HasUnsafeFields" };
-
-/** PORT(stub): `traits::misc::ConstParamTyImplementationError` (rustc_trait_selection traits/misc.rs). */
-type ConstParamTyImplementationError =
-  | { $: "UnsizedConstParamsFeatureRequired" }
-  | { $: "InvalidInnerTyOfBuiltinTy"; _0: [Ty, InfringingFieldsReason][] }
-  | { $: "InfrigingFields"; _0: [FieldDef, Ty, InfringingFieldsReason][] }
-  | { $: "NotAnAdtOrBuiltinAllowed" }
-  | { $: "NonExhaustive"; _0: Span };
-
-/** PORT(stub): `traits::misc::type_allowed_to_implement_copy` (rustc_trait_selection traits/misc.rs:47). */
-function type_allowed_to_implement_copy(_tcx: TyCtxt, _param_env: ParamEnv, _self_type: Ty, _parent_cause: ObligationCause, _impl_safety: Safety): Result<null, CopyImplementationError> {
-  return unported("rustc_trait_selection::traits::misc::type_allowed_to_implement_copy");
-}
-
-/** PORT(stub): `traits::misc::type_allowed_to_implement_const_param_ty` (rustc_trait_selection traits/misc.rs:92). */
-function type_allowed_to_implement_const_param_ty(_tcx: TyCtxt, _param_env: ParamEnv, _self_type: Ty, _parent_cause: ObligationCause): Result<null, ConstParamTyImplementationError> {
-  return unported("rustc_trait_selection::traits::misc::type_allowed_to_implement_const_param_ty");
-}
-
-/** PORT(stub): `traits::ObligationCtxt<'_, '_, E>` (rustc_trait_selection traits/engine.rs): the methods called here and in coerce_shared.ts. */
-export interface ObligationCtxtView {
-  register_obligation(obligation: PredicateObligation): void;
-  evaluate_obligations_error_on_ambiguity(): TraitErrors<FulfillmentErrorView>;
-  resolve_regions_and_report_errors(generic_param_scope: LocalDefId, param_env: ParamEnv, assumed_wf_tys: Iterable<Ty>): Result<null, ErrorGuaranteed>;
-  resolve_regions(generic_param_scope: LocalDefId, param_env: ParamEnv, assumed_wf_tys: Iterable<Ty>): RegionResolutionError[];
-  deeply_normalize<T>(cause: ObligationCause, param_env: ParamEnv, value: Unnormalized<T>, d_T: TypeFoldable<T>): Result<T, FulfillmentErrorView[]>;
-  sup(cause: ObligationCause, param_env: ParamEnv, expected: Ty, actual: Ty): Result<null, unknown>;
-}
-
-/** PORT(stub): `traits::ObligationCtxt::new` (rustc_trait_selection traits/engine.rs). */
-export function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxtView {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new");
-}
-
-/** PORT(stub): `traits::ObligationCtxt::new_with_diagnostics` (rustc_trait_selection traits/engine.rs). */
-export function ObligationCtxt_new_with_diagnostics(_infcx: InferCtxt): ObligationCtxtView {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics");
-}
-
 /** PORT(stub): `error_reporting::TypeErrCtxt` (wave 19): the methods called here and in coerce_shared.ts. */
 interface TypeErrCtxtView {
-  report_fulfillment_errors(errors: FulfillmentErrorView[]): ErrorGuaranteed;
+  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
   report_mismatched_types(cause: ObligationCause, param_env: ParamEnv, expected: Ty, actual: Ty, err: TypeError): Diag;
 }
 

@@ -3,10 +3,11 @@
 // PORT notes (file-wide):
 // - `debug!` is tracing only and stays as a comment; `?` is an early return of the `Err`.
 // - `Option::or_else` chains are `??` chains (`undefined` is `None`; no value here is `undefined` otherwise).
-// - `ObligationCtxt`, `err_ctxt()` and the layout predicates are builtin.ts's stand-ins (other lanes / M4).
+// - `err_ctxt()` (wave 19) and the layout predicates (M4) are builtin.ts's stand-ins.
 // - `CoerceSharedDiagnosticContext` and `ReborrowDataField` are `Copy`: they are passed by reference here because no
 //   callee mutates them except `validate_coerce_shared_unpaired_source_field` (`mut source`), which copies.
 // Init order: top-level code here touches only other crates; builtin.ts's exports are read inside function bodies.
+import { ObligationCtxt } from "../../../rustc_trait_selection/traits/engine.ts";
 import { LangItem } from "../../../rustc_attr_ir/lang_items.ts";
 import type * as hir from "../../../rustc_hir/lib.ts";
 import { DefineOpaqueTypes } from "../../../rustc_infer/infer/at.gen.ts";
@@ -39,8 +40,6 @@ import {
   field_type_is_copy,
   field_type_is_reborrow,
   LayoutData_is_zst,
-  ObligationCtxt_new,
-  ObligationCtxt_new_with_diagnostics,
   type ReborrowDataField,
   trait_impl_lifetime_params_count,
   upcast_TraitRef,
@@ -332,7 +331,7 @@ export function coerce_shared_info(tcx: TyCtxt, impl_did: LocalDefId): Result<nu
   }
 
   assert_eq(trait_ref.def_id, coerce_shared_trait, (v) => debug_DefId(v, PLAIN), DefId_eq);
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   const param_env = tcx.param_env(impl_did) as ParamEnv;
   const n = ocx.deeply_normalize(
     ObligationCause.misc(span, impl_did),
@@ -659,7 +658,7 @@ function validate_coerce_shared_unpaired_source_field(
 ): Result<null, ErrorGuaranteed> {
   const source = { ...source_ };
   const tcx = infcx.tcx;
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   const n = ocx.deeply_normalize(ObligationCause.misc(source.span, impl_did), param_env, Unnormalized.new_wip(source.ty), fold_Ty);
   if (n.$ === "Err") return Err(err_ctxt(infcx).report_fulfillment_errors(n._0));
   source.ty = n._0;
@@ -697,7 +696,7 @@ function validate_field_tys_satisfy_coerce_shared_relation(
   target: ReborrowDataField,
 ): Result<null, ErrorGuaranteed> {
   const tcx = infcx.tcx;
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   const cause = ObligationCause.misc(span, impl_did);
   ocx.register_obligation(
     Obligation.new(tcx, cause, param_env, TraitRef.new(as_interner(tcx), coerce_shared_trait, [GenericArg.from_Ty(source.ty), GenericArg.from_Ty(target.ty)]), upcast_TraitRef),
@@ -755,7 +754,7 @@ function field_tys_satisfy_relation_after_normalization_and_resolution(
 ): boolean {
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
   const cause = ObligationCause.misc(span, impl_did);
-  const ocx = ObligationCtxt_new(infcx);
+  const ocx = ObligationCtxt.new(infcx);
 
   const n = ocx.deeply_normalize(cause, param_env, Unnormalized.new_wip<[Ty, Ty]>([source_ty0, target_ty0]), fold_tuple2(fold_Ty, fold_Ty));
   if (n.$ !== "Ok") {
@@ -784,7 +783,7 @@ function field_tys_satisfy_relation_after_normalization_and_resolution(
       if (source_region !== target_region) {
         return false;
       }
-      if (ocx.sup(cause, param_env, target_referent_ty, source_referent_ty).$ === "Err") {
+      if (ocx.sup(cause, param_env, target_referent_ty, source_referent_ty, ToTrace_Ty).$ === "Err") {
         return false;
       }
       break;

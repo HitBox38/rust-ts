@@ -10,9 +10,9 @@
 // - `FxIndexSet<DefId>` is a `DefIdSet` (a `KeyedSet`, insertion-ordered).
 // - `#[instrument]` and `debug!` are tracing only and stay as comments.
 // - `lazily_normalize_ty` has error type `!`, so `.into_ok()` takes the `Ok`.
-// - `traits::ObligationCtxt` (rustc_trait_selection traits/engine.rs) belongs to a parallel wave-17 lane: the local
-//   stand-in `ObligationCtxt_new` stops as UNPORTED (reached only for alias types in the trait ref) until root repoints it.
 // Init order: top-level code here touches only other crates.
+import { TraitErrors } from "../../rustc_infer/traits/engine.ts";
+import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 import { type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import { DefineOpaqueTypes } from "../../rustc_infer/infer/at.gen.ts";
@@ -49,18 +49,6 @@ import { Err, Ok, type Result } from "../../std/result.ts";
 import * as diagnostics from "../diagnostics.ts";
 
 const d_TraitRef: TypeFoldable<TraitRefT> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
-
-// ---- stand-ins: rustc_trait_selection (wave 17 lanes, parallel) ----
-
-/** PORT(stub): `traits::ObligationCtxt<'_, '_, ScrubbedTraitError>` (rustc_trait_selection traits/engine.rs): the methods called here. */
-interface ObligationCtxtView {
-  normalize(cause: ObligationCause, param_env: ParamEnv, value: Unnormalized<Ty>): Ty;
-  try_evaluate_obligations(): { no_errors(): boolean };
-}
-/** PORT(stub): `traits::ObligationCtxt::new` (rustc_trait_selection traits/engine.rs). */
-function ObligationCtxt_new(_infcx: InferCtxt): ObligationCtxtView {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new");
-}
 
 // #[instrument(level = "debug", skip(tcx))]
 // rustc: compiler/rustc_hir_analysis/src/coherence/orphan.rs:22 orphan_check_impl
@@ -393,11 +381,11 @@ function orphan_check(tcx: TyCtxt, impl_def_id: LocalDefId, mode: OrphanCheckMod
   const lazily_normalize_ty = (user_ty: Ty): Result<Ty, never> => {
     if (user_ty.kind().$ !== "Alias") return Ok(user_ty);
 
-    const ocx = ObligationCtxt_new(infcx);
-    let ty = ocx.normalize(cause, ParamEnv.empty(), Unnormalized.new_wip(user_ty));
+    const ocx = ObligationCtxt.new(infcx);
+    let ty = ocx.normalize(cause, ParamEnv.empty(), Unnormalized.new_wip(user_ty), fold_Ty);
     ty = infcx.deeply_resolve_ignoring_regions(ty, fold_Ty);
     const errors = ocx.try_evaluate_obligations();
-    if (!errors.no_errors()) {
+    if (!TraitErrors.no_errors(errors)) {
       return Ok(user_ty);
     }
 

@@ -669,6 +669,6 @@ function NegativePositiveConflict_diagnostic(_d: NegativePositiveConflict): Diag
 }
 
 /** stand-in for `IntercrateAmbiguityCause::add_intercrate_ambiguity_hint` (traits/select/mod.rs:65, wave 20). */
-function IntercrateAmbiguityCause_add_intercrate_ambiguity_hint(_self: IntercrateAmbiguityCause, _err: Diag): void {
+export function IntercrateAmbiguityCause_add_intercrate_ambiguity_hint(_self: IntercrateAmbiguityCause, _err: Diag): void {
   unported("rustc_trait_selection::traits::select::IntercrateAmbiguityCause::add_intercrate_ambiguity_hint");
 }

@@ -15,6 +15,7 @@
 //   is the local stand-in below, which stops as UNPORTED until that lane merges (root repoints it).
 // - The private fns are exported for coherence_test/run.ts (it runs `coherent_trait`'s per-impl checks one by one).
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies.
+import { check_negative_auto_trait_impl } from "../check/always_applicable.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { E0322, E0328, E0371, E0715, struct_span_code_err } from "../../rustc_errors/lib.ts";
 import type { Providers } from "../../rustc_middle/queries.gen.ts";
@@ -56,13 +57,6 @@ function and(self: Result<null, ErrorGuaranteed>, res: Result<null, ErrorGuarant
   return self.$ === "Ok" ? res : self;
 }
 
-/**
- * PORT(stub): `crate::check::always_applicable::check_negative_auto_trait_impl` (check/always_applicable.rs:85), lane
- * check-region-intrinsic (wave 17, parallel). Root repoints this to the real fn when that lane merges.
- */
-function check_negative_auto_trait_impl(_tcx: TyCtxt, _impl_def_id: LocalDefId, _impl_trait_ref: TraitRef, _polarity: ImplPolarity): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::always_applicable::check_negative_auto_trait_impl");
-}
 
 // rustc: compiler/rustc_hir_analysis/src/coherence/mod.rs:27 check_impl
 export function check_impl(tcx: TyCtxt, impl_def_id: LocalDefId, trait_ref: TraitRef, trait_def: TraitDef, polarity: ImplPolarity): Result<null, ErrorGuaranteed> {
