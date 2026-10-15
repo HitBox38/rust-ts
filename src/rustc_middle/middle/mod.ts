@@ -69,3 +69,7 @@ export namespace lib_features {
     },
   };
 }
+
+// PORT (lane small-gaps-18): `lib_features::FeatureStability` at the module's top level too, for the generated
+// `derive(BlobDecodable)` (rustc_middle/decodable.gen.ts imports item types from the module of their file).
+export type FeatureStability = lib_features.FeatureStability;

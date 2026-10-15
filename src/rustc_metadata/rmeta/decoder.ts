@@ -100,7 +100,8 @@ import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { DiagnosticItems } from "../../rustc_attr_ir/diagnostic_items.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { DefPath as DefPath_, DefPathData } from "../../rustc_hir_id/definitions.ts";
-import { decode_ImplTraitInTraitData, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { decode_FeatureStability, decode_ImplTraitInTraitData, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import type { FeatureStability } from "../../rustc_middle/middle/mod.ts";
 import type { RestrictionKind } from "../../rustc_middle/ty/mod.ts";
 import { debug_Visibility, Visibility as ty_Visibility } from "../../rustc_middle/ty/mod.ts";
 import { decode_u32 } from "../../rustc_serialize/serialize.ts";
@@ -1324,9 +1325,16 @@ MetadataBlob.prototype.list_crate_metadata = function (this: MetadataBlob, out: 
         // derive(BlobDecodable) is not generated yet (rustc_attr_ir lang_items.rs, `language_item_table!`).
         return unported("rustc_metadata::rmeta::decoder::MetadataBlob::list_crate_metadata (-Zls=lang_items: Decodable for LangItem)");
 
-      case "features":
-        // PORT: `root.lib_features` decodes `(Symbol, FeatureStability)`; rustc_middle lib_features is not ported.
-        return unported("rustc_metadata::rmeta::decoder::MetadataBlob::list_crate_metadata (-Zls=features: Decodable for FeatureStability)");
+      case "features": {
+        if ((r = w(out, "=Lib features=\n")).$ === "Err") return r;
+        for (const [feature, since] of (root.lib_features as LazyArray<[Symbol, FeatureStability]>).decode(this, (d) =>
+          decode_tuple_(d, (d) => d.decode_symbol(), decode_FeatureStability),
+        )) {
+          if ((r = w(out, `${Symbol.as_str(feature)}${since.$ === "AcceptedSince" ? ` since ${Symbol.as_str(since._0)}` : ""}\n`)).$ === "Err") return r;
+        }
+        if ((r = w(out, "\n")).$ === "Err") return r;
+        break;
+      }
 
       case "items": {
         if ((r = w(out, "=Items=\n")).$ === "Err") return r;
@@ -1670,7 +1678,7 @@ CrateMetadata.prototype.get_lib_features = function (this: CrateMetadata, tcx: T
   // ported): a record with that field.
   return {
     stability: new Map(
-      [...this.root.lib_features.decode([this, tcx], (d) => decode_tuple_(d, (d) => d.decode_symbol(), decode_unported("rustc_middle::middle::lib_features::FeatureStability")))].map(
+      [...this.root.lib_features.decode([this, tcx], (d) => decode_tuple_(d, (d) => d.decode_symbol(), decode_FeatureStability))].map(
         ([sym, stab]): [Symbol, [unknown, Span]] => [sym, [stab, DUMMY_SP]],
       ),
     ),

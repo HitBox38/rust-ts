@@ -6,6 +6,7 @@ import { decode_ReprOptions } from "../rustc_abi/decodable.gen.ts";
 import { decode_CtorKind, decode_Res, decode_Safety } from "../rustc_hir/def.ts";
 import { decode_Constness } from "../rustc_hir/hir.ts";
 import { decode_RefDecodable_slice_into_arena } from "./arena.ts";
+import { type FeatureStability } from "./middle/mod.ts";
 import { type AmbigModChild, type ModChild, Reexport } from "./middle/resolve.ts";
 import { AdtDefData, type AdtFlags } from "./ty/adt.ts";
 import { decode_Clause, type TyDecoder } from "./ty/codec.ts";
@@ -240,4 +241,17 @@ export function decode_AdtDefData(__decoder: TyDecoder): AdtDefData {
   const __2 = decode_AdtFlags(__decoder);
   const __3 = decode_ReprOptions(__decoder);
   return new AdtDefData(__0, __1, __2, __3);
+}
+
+// rustc-derive: compiler/rustc_middle/src/middle/mod.rs:15 BlobDecodable for FeatureStability
+export function decode_FeatureStability(__decoder: BlobDecoder): FeatureStability {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "AcceptedSince", _0: __decoder.decode_symbol() };
+    case 1:
+      return { $: "Unstable", old_name: decode_Option(__decoder, (__decoder) => __decoder.decode_symbol()) };
+    default:
+      return panic(`invalid enum variant tag while decoding \`FeatureStability\`, expected 0..2, actual ${__tag}`);
+  }
 }
