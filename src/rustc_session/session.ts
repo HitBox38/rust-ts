@@ -344,6 +344,10 @@ export class Session {
   code_model(): CodeModel | undefined {
     return this.early_sess.code_model();
   }
+  /** `EarlySession::relocation_model` through `Deref`. */
+  relocation_model(): RelocModel {
+    return this.early_sess.relocation_model();
+  }
 
   // ---- impl Session (session.rs:604) ----
 
