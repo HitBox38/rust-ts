@@ -1003,6 +1003,43 @@
       "middle_traits_thir.typemap.json"
     ]
   },
+  "rustc_middle_ty_closure": {
+    "files": [
+      "compiler/rustc_middle/src/ty/closure.rs"
+    ],
+    "files_note": "lane small-gaps-19: only the derived TypeVisitable / TypeFoldable of the hand-written types of ty/closure.ts are generated (`type_fold_hand`), into ty/closure.gen.ts (writeback's `CapturedPlace` resolve)",
+    "class": [
+      "rustc_middle::ty::closure::CapturedPlace"
+    ],
+    "hand": [
+      "rustc_middle::ty::closure::UpvarPath",
+      "rustc_middle::ty::closure::UpvarId",
+      "rustc_middle::ty::closure::UpvarCapture",
+      "rustc_middle::ty::closure::CapturedPlace",
+      "rustc_middle::ty::closure::ClosureTypeInfo",
+      "rustc_middle::ty::closure::CaptureInfo",
+      "rustc_middle::ty::closure::BorrowKind"
+    ],
+    "hand_notes": "ty/closure.ts hand-writes every type of the file (Debug / PartialEq / Clone included)",
+    "type_fold_hand": [
+      "rustc_middle::ty::closure::UpvarPath",
+      "rustc_middle::ty::closure::UpvarId",
+      "rustc_middle::ty::closure::UpvarCapture",
+      "rustc_middle::ty::closure::CapturedPlace",
+      "rustc_middle::ty::closure::CaptureInfo",
+      "rustc_middle::ty::closure::BorrowKind"
+    ],
+    "discriminant": [],
+    "skip": [],
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json"
+    ]
+  },
   "rustc_middle_ty_mod": {
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs"
