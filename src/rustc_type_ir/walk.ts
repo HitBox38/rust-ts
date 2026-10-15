@@ -266,7 +266,7 @@ function push_inner(stack: TypeWalkerStack, parent: GenericArg): void {
 
 // rustc: compiler/rustc_type_ir/src/walk.rs:172 push_ty_pat
 function push_ty_pat(stack: TypeWalkerStack, pat: Pattern): void {
-  const k = Pattern_kind(pat);
+  const k = pat.kind();
   switch (k.$) {
     case "Range": {
       const start = k.start;
@@ -288,11 +288,6 @@ function push_ty_pat(stack: TypeWalkerStack, pat: Pattern): void {
 }
 
 // ---- PORT stand-ins for items of files that are not ported yet ----------------------------------------------------
-
-/** PORT: stand-in for `Pattern::kind` (`impl IntoKind for Pattern`, rustc_middle ty/pattern.rs; `Pattern` is pending). */
-function Pattern_kind(_pat: Pattern): PatternKind {
-  return unported("rustc_middle::ty::Pattern::kind (Pattern not ported yet)");
-}
 
 /** `inherent::ValueConst::ty` (rustc_middle ty/consts/valtree.rs:231, lane ty-results). */
 function Value_ty(cv: Value): Ty {

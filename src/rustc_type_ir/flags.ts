@@ -291,11 +291,9 @@ export class FlagComputation {
   }
 
   // rustc: compiler/rustc_type_ir/src/flags.rs:378 add_ty_pat
-  add_ty_pat(_pat: Pattern): void {
-    // PORT: `Pattern` (rustc_middle ty/pattern.rs, its `impl Flags`) is not ported yet:
-    // self.add_flags(pat.flags());
-    // self.add_exclusive_binder(pat.outer_exclusive_binder());
-    return unported("rustc_type_ir::flags::FlagComputation::add_ty_pat (Flags for rustc_middle::ty::Pattern)");
+  add_ty_pat(pat: Pattern): void {
+    this.add_flags(pat.flags());
+    this.add_exclusive_binder(pat.outer_exclusive_binder());
   }
 
   // rustc: compiler/rustc_type_ir/src/flags.rs:383 add_predicate

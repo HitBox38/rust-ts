@@ -58,8 +58,9 @@ import { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { CollectAndApply_Result, CollectAndApply_T } from "../../rustc_type_ir/interner.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { kw } from "../../rustc_span/symbol.ts";
-import type { Allocation, AssocItem, Attribute, Body, BodyId, CapturedPlace, ConstAllocation, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, VariantDef } from "./decls.ts";
+import type { Allocation, AssocItem, Attribute, Body, BodyId, CapturedPlace, ConstAllocation, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, VariantDef } from "./decls.ts";
 import { ValTree } from "./consts/valtree.ts";
+import { Pattern } from "./pattern.ts";
 import { ScalarInt } from "./consts/int.ts";
 import { GenericArg, type GenericArgs } from "./generic_args.ts";
 import { type Clauses, type List, RawList, TypeInfo } from "./list.ts";
@@ -242,7 +243,7 @@ export class CtxtInterners {
     public projs: InternedSet<List<ProjectionKind>>,
     public place_elems: InternedSet<List<PlaceElem>>,
     public const_: InternedSet<Const>,
-    public pat: InternedSet<unknown>,
+    public pat: InternedSet<Pattern>,
     public const_allocation: InternedSet<unknown>,
     public bound_variable_kinds: InternedSet<List<BoundVariableKind>>,
     public layout: InternedSet<unknown>,
@@ -1861,9 +1862,9 @@ export class TyCtxt {
   intern_valtree(v: ValTreeKind): ValTree {
     return Interned.new_unchecked(this.interners.valtree.intern(v, intern_key(v), (v) => new ValTree(v)));
   }
-  /** Stub (`direct_interners!` `mk_pat`, context.rs:2017): the `Pattern` class is lane ty-results'. */
-  mk_pat(_v: PatternKind): Pattern {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_pat (Pattern class)");
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2017 direct_interners! mk_pat
+  mk_pat(v: PatternKind): Pattern {
+    return Interned.new_unchecked(this.interners.pat.intern(v, intern_key(v), (v) => new Pattern(v)));
   }
   /** Stub (`direct_interners!` `mk_const_alloc`, context.rs:2018): MIR allocations (M4). */
   mk_const_alloc(_v: Allocation): ConstAllocation {

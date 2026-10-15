@@ -162,7 +162,8 @@ export const VariantIdx = newtype_index<VariantIdx>((n) => `${n}`);
 // lane repr-options: the real rustc_abi type
 export type { ReprOptions } from "../../rustc_abi/lib.ts";
 // ty/pattern.rs:16, ty/consts/valtree.rs:34, :103, ty/consts/int.rs:147 (D2: hash-consed)
-export type Pattern = Pending<"Pattern">;
+import type { Pattern } from "./pattern.ts";
+export type { Pattern };
 export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
 export type NumScalableVectors = Pending<"NumScalableVectors">;

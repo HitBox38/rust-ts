@@ -53,7 +53,9 @@ import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../../.
 import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
 import { type Str, utf8_len } from "../../../std/str.ts";
 import { TyCtxt } from "../context.ts";
-import type { AdtDef, Allocation, AssocItem, BinOp, ConstAllocation, Expr, Instance, Pattern, Scalar, ScalarInt, ValTree, Value, VariantIdx } from "../decls.ts";
+import type { AdtDef, Allocation, AssocItem, BinOp, ConstAllocation, Expr, Instance, Scalar, ScalarInt, ValTree, Value, VariantIdx } from "../decls.ts";
+import { debug_Pattern as debug_Pattern_ } from "../pattern.ts";
+import type { Pattern } from "../pattern.ts";
 import type { TraitDef } from "../trait_def.ts";
 import { fold_GenericArgs, fold_with_Tys, GenericArg, type GenericArgs, try_fold_with_Tys, visit_with_Tys } from "../generic_args.ts";
 import type { Generics } from "../generics.ts";
@@ -885,7 +887,7 @@ export abstract class PrettyPrinter extends Printer {
         const [ty, pat] = [kind._0, kind._1];
         if ((r = this.write_str("pattern_type!(")).$ === "Err") return r;
         if ((r = print_Ty(ty, this)).$ === "Err") return r;
-        if ((r = this.write_str(` is ${debug_Pattern(pat)})`)).$ === "Err") return r;
+        if ((r = this.write_str(` is ${debug_Pattern_(pat, PLAIN)})`)).$ === "Err") return r;
         break;
       }
       case "RawPtr": {
@@ -2042,10 +2044,6 @@ const fold_ListTy_Ty_: TypeFoldable<[List<Ty>, Ty]> = descriptor<[List<Ty>, Ty]>
 );
 
 // -- rustc_middle ty/generics.rs, ty/assoc.rs, ty/adt.rs, ty/pattern.rs, ty/consts/kind.rs, mir --
-/** `impl Debug for Pattern` (ty/pattern.rs). */
-function debug_Pattern(_pat: Pattern): string {
-  return unported("rustc_middle::ty::pattern `impl Debug for Pattern` (ty/pattern.rs)");
-}
 /** `Expr::binop_args` / `unop_args` / `call_args` / `cast_args` (ty/consts/kind.rs, lane ty-results). */
 const Expr_binop_args = (self: Expr): [Ty, Ty, Const, Const] => ExprC.binop_args(self);
 const Expr_unop_args = (self: Expr): [Ty, Const] => ExprC.unop_args(self);
@@ -2258,7 +2256,7 @@ PrettyPrinter.prototype.pretty_print_const_scalar_int = function (this: PrettyPr
     const base_ty = k._0;
     const pat = k._1;
     if ((r = this.pretty_print_const_scalar_int(int, base_ty, print_ty)).$ === "Err") return r;
-    if ((r = this.write_str(` is ${debug_Pattern(pat)}`)).$ === "Err") return r;
+    if ((r = this.write_str(` is ${debug_Pattern_(pat, PLAIN)}`)).$ === "Err") return r;
   }
   // Nontrivial types with scalar bit representation
   else {
