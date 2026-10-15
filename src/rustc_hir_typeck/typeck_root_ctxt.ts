@@ -14,6 +14,7 @@ import { span_bug } from "../rustc_span/macros.ts";
 import { FulfillmentEngine, FulfillmentErrorKinds_FulfillmentError } from "../rustc_trait_selection/traits/engine.ts";
 import { visit_with_PredicateObligation } from "../rustc_trait_selection/traits/mod.ts";
 import { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
+import { as_interner } from "../rustc_type_ir/predicate.ts";
 import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
 import { InferCtxt as InferCtxtC } from "../rustc_infer/decls.ts";
 import { debug_Obligation } from "../rustc_infer/traits/structural_impls.ts";
@@ -37,7 +38,7 @@ TypeckRootCtxt.new = function (tcx: TyCtxt, def_id: LocalDefId): TypeckRootCtxt 
   const mod_id = tcx.parent_module_from_def_id(def_id);
   const hir_owner = tcx.local_def_id_to_hir_id(def_id).owner;
 
-  const infcx = tcx.infer_ctxt().ignoring_regions().in_hir_typeck().build(TypingMode.typeck_for_body(tcx, def_id));
+  const infcx = tcx.infer_ctxt().ignoring_regions().in_hir_typeck().build(TypingMode.typeck_for_body(as_interner(tcx), def_id));
   const typeck_results = TypeckResults.new(hir_owner);
   const fulfillment_cx = FulfillmentEngine.new(infcx, FulfillmentErrorKinds_FulfillmentError);
 

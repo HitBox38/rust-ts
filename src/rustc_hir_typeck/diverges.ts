@@ -15,6 +15,7 @@ import type { Diverges as DivergesT } from "./diverges.gen.ts";
 
 export * from "./diverges.gen.ts";
 
+export type Diverges = DivergesT;
 export const Diverges: typeof gen.Diverges & Companions["Diverges"] = {
   ...gen.Diverges,
 

@@ -17,6 +17,7 @@ export * from "./expectation.gen.ts";
 // PORT: `use super::Expectation::*;` -- the variants are written `{ $: "ExpectHasType", _0: ety }` /
 // `Expectation.NoExpectation`.
 
+export type Expectation = ExpectationT;
 export const Expectation: typeof gen.Expectation & Companions["Expectation"] = {
   ...gen.Expectation,
 
@@ -41,7 +42,7 @@ export const Expectation: typeof gen.Expectation & Companions["Expectation"] = {
   try_structurally_resolve_and_adjust_for_branches(self_: ExpectationT, fcx: FnCtxt): ExpectationT {
     switch (self_.$) {
       case "ExpectHasType": {
-        const ety = fcx.deeply_resolve_ignoring_regions_with_obligations(self_._0);
+        const ety = fcx.deeply_resolve_ignoring_regions_with_obligations(self_._0, fold_Ty);
         if (!ety.is_ty_var()) {
           return { $: "ExpectHasType", _0: ety };
         } else {

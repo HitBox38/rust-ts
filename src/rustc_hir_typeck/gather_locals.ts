@@ -25,6 +25,7 @@ export * from "./gather_locals.gen.ts";
 /// Provides context for checking patterns in declarations. More specifically this
 /// allows us to infer array types if the pattern is irrefutable and allows us to infer
 /// the size of the array. See issue #76342.
+export type DeclOrigin = DeclOriginT;
 export const DeclOrigin = {
   ...gen.DeclOrigin,
 
@@ -64,7 +65,7 @@ export function Declaration_from_LetExpr([let_expr, hir_id]: [hir.LetExpr, HirId
 /// resolved. Visiting locals twice will ICE in the `GatherLocalsVisitor`, since it
 /// will overwrite the type previously stored in the local.
 // PORT: hand class (types.sets.json `hand`): `impl Visitor for GatherLocalsVisitor` overrides intravisit's defaults
-// (the four methods in the class body, gather_locals.rs:181..240).
+// (the four methods in the class body, gather_locals.rs:168..240).
 export class GatherLocalsVisitor extends hir.intravisit.Visitor {
   constructor(
     public fcx: FnCtxt,
@@ -79,13 +80,13 @@ export class GatherLocalsVisitor extends hir.intravisit.Visitor {
   // ---- impl<'a, 'tcx> Visitor<'tcx> for GatherLocalsVisitor<'a, 'tcx> ----
 
   // Add explicitly-declared locals.
-  // rustc: compiler/rustc_hir_typeck/src/gather_locals.rs:183 visit_local
+  // rustc: compiler/rustc_hir_typeck/src/gather_locals.rs:170 visit_local
   override visit_local(local: hir.LetStmt): undefined {
     this.declare(Declaration_from_LetStmt(local));
     return hir.intravisit.walk_local(this, local);
   }
 
-  // rustc: compiler/rustc_hir_typeck/src/gather_locals.rs:188 visit_expr
+  // rustc: compiler/rustc_hir_typeck/src/gather_locals.rs:175 visit_expr
   override visit_expr(expr: hir.Expr): undefined {
     if (expr.kind.$ === "Let") {
       const let_expr = expr.kind._0;
@@ -95,7 +96,7 @@ export class GatherLocalsVisitor extends hir.intravisit.Visitor {
   }
 
   // Add pattern bindings.
-  // rustc: compiler/rustc_hir_typeck/src/gather_locals.rs:196 visit_pat
+  // rustc: compiler/rustc_hir_typeck/src/gather_locals.rs:183 visit_pat
   override visit_pat(p: hir.Pat): undefined {
     if (p.kind.$ === "Binding") {
       const ident = p.kind._2;
@@ -140,7 +141,7 @@ export class GatherLocalsVisitor extends hir.intravisit.Visitor {
   }
 
   // Don't descend into the bodies of nested closures.
-  // rustc: compiler/rustc_hir_typeck/src/gather_locals.rs:234 visit_fn
+  // rustc: compiler/rustc_hir_typeck/src/gather_locals.rs:231 visit_fn
   override visit_fn(_0: hir.intravisit.FnKind, _1: hir.FnDecl, _2: hir.BodyId, _3: Span, _4: LocalDefId): undefined {
     return undefined;
   }

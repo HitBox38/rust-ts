@@ -54,7 +54,7 @@ import type { VecGraph } from "../rustc_data_structures/graph/vec_graph/mod.ts";
 import type { DiagMessage } from "../rustc_error_messages/lib.ts";
 import type { Applicability, Diag, DiagCtxtHandle, ErrCode } from "../rustc_errors/lib.ts";
 import type { Autoderef } from "../rustc_hir_analysis/autoderef.ts";
-import type { HirTyLowererImpl } from "../rustc_hir_analysis/decls.ts";
+import type { HirTyLowerer, HirTyLowererImpl } from "../rustc_hir_analysis/decls.ts";
 import type { HirId, HirIdMap, ItemLocalId } from "../rustc_hir_id/lib.ts";
 import type { DefKind, Res } from "../rustc_hir/def.ts";
 import type * as hir from "../rustc_hir/lib.ts";
@@ -94,6 +94,7 @@ import type { TypeFoldable } from "../rustc_type_ir/fold.ts";
 import type { CantBeErased, TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
 import type { TypeAndMut } from "../rustc_type_ir/ty_kind.gen.ts";
 import type { TypeVisitable } from "../rustc_type_ir/visit.ts";
+import type { MutRef } from "../std/mut_ref.ts";
 import type { Result } from "../std/result.ts";
 import type { CallStep, DeferredCallResolution, SplatLoweringInfo } from "./callee.gen.ts";
 import type { CastCheck, CastError, CastKind, PointerKind } from "./cast.gen.ts";
@@ -104,7 +105,7 @@ import type { ReturnLikeStatementKind, SuggestAnnotations } from "./diagnostics.
 import type { Diverges } from "./diverges.gen.ts";
 import type { Expectation } from "./expectation.gen.ts";
 import type { UnsafeUseReason } from "./fallback.gen.ts";
-import type { Compatibility, Error as ArgMatrixError, ExpectedIdx, ProvidedIdx } from "./fn_ctxt/arg_matrix.gen.ts";
+import type { Compatibility, ExpectedIdx, ProvidedIdx } from "./fn_ctxt/arg_matrix.gen.ts";
 import type { ArgMatchingCtxt, ArgsCtxt, ArgumentsFormatting, CallCtxt, CallMetadata, FnParam, GenericIdx, SuggestionText, TupledArgCheckOutcome } from "./fn_ctxt/checks.gen.ts";
 import type { UseSubtyping } from "./fn_ctxt/inspect_obligations.gen.ts";
 import type { LoweredTy } from "./fn_ctxt/mod.gen.ts";
@@ -1470,6 +1471,9 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // ---- compiler/rustc_hir_typeck/src/writeback.rs (lane typeck-lib-wb) ----
   // writeback.rs:41
   resolve_type_vars_in_body(body: hir.Body): TypeckResults;
+
+  // ---- the provided `HirTyLowerer::lowerer` (rustc_hir_analysis hir_ty_lowering/mod.rs:239; fn_ctxt/mod.ts assigns it) ----
+  lowerer(): HirTyLowerer;
 }
 
 // ======================================================================================================================
@@ -1785,87 +1789,87 @@ declare module "./expr_use_visitor.gen.ts" {
   interface ExprUseVisitor<Cx, D> {
     // ---- compiler/rustc_hir_typeck/src/expr_use_visitor.rs (lane typeck-euv) ----
     // expr_use_visitor.rs:308
-    consume_body(body: hir.Body): Result<undefined, ArgMatrixError>;
+    consume_body(body: hir.Body): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:325
     consume_or_copy(place_with_id: PlaceWithHirId, diag_expr_id: HirId): void;
     // expr_use_visitor.rs:334
     consume_clone_or_copy(place_with_id: PlaceWithHirId, diag_expr_id: HirId): void;
     // expr_use_visitor.rs:350
-    consume_exprs(exprs: readonly hir.Expr[]): Result<undefined, ArgMatrixError>;
+    consume_exprs(exprs: readonly hir.Expr[]): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:360
-    consume_expr(expr: hir.Expr): Result<undefined, ArgMatrixError>;
+    consume_expr(expr: hir.Expr): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:368
-    consume_or_clone_expr(expr: hir.Expr): Result<undefined, ArgMatrixError>;
+    consume_or_clone_expr(expr: hir.Expr): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:375
-    mutate_expr(expr: hir.Expr): Result<undefined, ArgMatrixError>;
+    mutate_expr(expr: hir.Expr): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:383
-    borrow_expr(expr: hir.Expr, bk: BorrowKind): Result<undefined, ArgMatrixError>;
+    borrow_expr(expr: hir.Expr, bk: BorrowKind): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:390
-    walk_expr(expr: hir.Expr): Result<undefined, ArgMatrixError>;
+    walk_expr(expr: hir.Expr): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:576
-    walk_stmt(stmt: hir.Stmt): Result<undefined, ArgMatrixError>;
+    walk_stmt(stmt: hir.Stmt): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:598
-    fake_read_scrutinee(discr_place: PlaceWithHirId, refutable: boolean): Result<undefined, ArgMatrixError>;
+    fake_read_scrutinee(discr_place: PlaceWithHirId, refutable: boolean): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:619
-    walk_local(expr: hir.Expr, pat: hir.Pat, els: hir.Block | undefined): Result<undefined, ArgMatrixError>;
+    walk_local(expr: hir.Expr, pat: hir.Pat, els: hir.Block | undefined): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:638
-    walk_block(blk: hir.Block): Result<undefined, ArgMatrixError>;
+    walk_block(blk: hir.Block): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:650
-    walk_struct_expr(fields: readonly hir.ExprField[], opt_with: hir.StructTailExpr): Result<undefined, ArgMatrixError>;
+    walk_struct_expr(fields: readonly hir.ExprField[], opt_with: hir.StructTailExpr): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:720
-    walk_adjustment(expr: hir.Expr): Result<undefined, ArgMatrixError>;
+    walk_adjustment(expr: hir.Expr): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:768
     walk_autoref(expr: hir.Expr, base_place: PlaceWithHirId, autoref: AutoBorrow): void;
     // expr_use_visitor.rs:800
-    walk_arm(discr_place: PlaceWithHirId, arm: hir.Arm): Result<undefined, ArgMatrixError>;
+    walk_arm(discr_place: PlaceWithHirId, arm: hir.Arm): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:828
-    walk_pat(discr_place: PlaceWithHirId, pat: hir.Pat, has_guard: boolean): Result<undefined, ArgMatrixError>;
+    walk_pat(discr_place: PlaceWithHirId, pat: hir.Pat, has_guard: boolean): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:991
-    walk_captures(closure_expr: hir.Closure): Result<undefined, ArgMatrixError>;
+    walk_captures(closure_expr: hir.Closure): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:1121
-    expect_and_resolve_type(id: HirId, ty: Ty | undefined): Result<Ty, ArgMatrixError>;
+    expect_and_resolve_type(id: HirId, ty: Ty | undefined): Result<Ty, ErrorGuaranteed>;
     // expr_use_visitor.rs:1140
-    node_ty(hir_id: HirId): Result<Ty, ArgMatrixError>;
+    node_ty(hir_id: HirId): Result<Ty, ErrorGuaranteed>;
     // expr_use_visitor.rs:1144
-    expr_ty(expr: hir.Expr): Result<Ty, ArgMatrixError>;
+    expr_ty(expr: hir.Expr): Result<Ty, ErrorGuaranteed>;
     // expr_use_visitor.rs:1148
-    expr_ty_adjusted(expr: hir.Expr): Result<Ty, ArgMatrixError>;
+    expr_ty_adjusted(expr: hir.Expr): Result<Ty, ErrorGuaranteed>;
     // expr_use_visitor.rs:1165
-    pat_ty_adjusted(pat: hir.Pat): Result<Ty, ArgMatrixError>;
+    pat_ty_adjusted(pat: hir.Pat): Result<Ty, ErrorGuaranteed>;
     // expr_use_visitor.rs:1185
-    pat_ty_unadjusted(pat: hir.Pat): Result<Ty, ArgMatrixError>;
+    pat_ty_unadjusted(pat: hir.Pat): Result<Ty, ErrorGuaranteed>;
     // expr_use_visitor.rs:1230
-    cat_expr(expr: hir.Expr): Result<PlaceWithHirId, ArgMatrixError>;
+    cat_expr(expr: hir.Expr): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1236
-    cat_expr_(expr: hir.Expr, adjustments: readonly Adjustment[]): Result<PlaceWithHirId, ArgMatrixError>;
+    cat_expr_(expr: hir.Expr, adjustments: readonly Adjustment[]): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1249
-    cat_expr_adjusted(expr: hir.Expr, previous: PlaceWithHirId, adjustment: Adjustment): Result<PlaceWithHirId, ArgMatrixError>;
+    cat_expr_adjusted(expr: hir.Expr, previous: PlaceWithHirId, adjustment: Adjustment): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1258
-    cat_expr_adjusted_with(expr: hir.Expr, previous: () => Result<PlaceWithHirId, ArgMatrixError>, adjustment: Adjustment): Result<PlaceWithHirId, ArgMatrixError>;
+    cat_expr_adjusted_with(expr: hir.Expr, previous: () => Result<PlaceWithHirId, ErrorGuaranteed>, adjustment: Adjustment): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1295
-    cat_expr_unadjusted(expr: hir.Expr): Result<PlaceWithHirId, ArgMatrixError>;
+    cat_expr_unadjusted(expr: hir.Expr): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1393
-    cat_res(hir_id: HirId, span: Span, expr_ty: Ty, res: Res): Result<PlaceWithHirId, ArgMatrixError>;
+    cat_res(hir_id: HirId, span: Span, expr_ty: Ty, res: Res): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1433
-    cat_upvar(hir_id: HirId, var_id: HirId): Result<PlaceWithHirId, ArgMatrixError>;
+    cat_upvar(hir_id: HirId, var_id: HirId): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1445
     cat_rvalue(hir_id: HirId, expr_ty: Ty): PlaceWithHirId;
     // expr_use_visitor.rs:1449
     cat_projection(node: HirId, base_place: PlaceWithHirId, ty: Ty, kind: ProjectionKind): PlaceWithHirId;
     // expr_use_visitor.rs:1477
-    cat_overloaded_place(expr: hir.Expr, base: hir.Expr): Result<PlaceWithHirId, ArgMatrixError>;
+    cat_overloaded_place(expr: hir.Expr, base: hir.Expr): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1499
-    cat_deref(node: HirId, base_place: PlaceWithHirId): Result<PlaceWithHirId, ArgMatrixError>;
+    cat_deref(node: HirId, base_place: PlaceWithHirId): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1523
-    variant_index_for_adt(qpath: hir.QPath, pat_hir_id: HirId, span: Span): Result<VariantIdx, ArgMatrixError>;
+    variant_index_for_adt(qpath: hir.QPath, pat_hir_id: HirId, span: Span): Result<VariantIdx, ErrorGuaranteed>;
     // expr_use_visitor.rs:1556
-    total_fields_in_adt_variant(pat_hir_id: HirId, variant_index: VariantIdx, span: Span): Result<number, ArgMatrixError>;
+    total_fields_in_adt_variant(pat_hir_id: HirId, variant_index: VariantIdx, span: Span): Result<number, ErrorGuaranteed>;
     // expr_use_visitor.rs:1576
-    total_fields_in_tuple(pat_hir_id: HirId, span: Span): Result<number, ArgMatrixError>;
+    total_fields_in_tuple(pat_hir_id: HirId, span: Span): Result<number, ErrorGuaranteed>;
     // expr_use_visitor.rs:1590
-    cat_pattern(place_with_id: PlaceWithHirId, pat: hir.Pat, op: (_1: PlaceWithHirId, _2: hir.Pat) => Result<undefined, ArgMatrixError>): Result<undefined, ArgMatrixError>;
+    cat_pattern(place_with_id: PlaceWithHirId, pat: hir.Pat, op: (_1: PlaceWithHirId, _2: hir.Pat) => Result<undefined, ErrorGuaranteed>): Result<undefined, ErrorGuaranteed>;
     // expr_use_visitor.rs:1826
-    pat_deref_place(hir_id: HirId, base_place: PlaceWithHirId, inner: hir.Pat, target_ty: Ty): Result<PlaceWithHirId, ArgMatrixError>;
+    pat_deref_place(hir_id: HirId, base_place: PlaceWithHirId, inner: hir.Pat, target_ty: Ty): Result<PlaceWithHirId, ErrorGuaranteed>;
     // expr_use_visitor.rs:1851
     is_multivariant_adt(ty: Ty, span: Span): boolean;
   }
@@ -2203,9 +2207,9 @@ export interface Companions {
     // diverges.rs:56 (`impl ops :: BitOr`)
     bitor(self_: Diverges, other: Diverges): Diverges;
     // diverges.rs:69 (`impl ops :: BitAndAssign`)
-    bitand_assign(self_: Diverges, other: Diverges): void;
+    bitand_assign(self_: MutRef<Diverges>, other: Diverges): void;
     // diverges.rs:75 (`impl ops :: BitOrAssign`)
-    bitor_assign(self_: Diverges, other: Diverges): void;
+    bitor_assign(self_: MutRef<Diverges>, other: Diverges): void;
     // diverges.rs:82
     always(span: Span): Diverges;
     // diverges.rs:86
@@ -2323,9 +2327,9 @@ export interface Fns_intrinsicck {
   // intrinsicck.rs:137
   check_offload(tcx: TyCtxt, typing_env: TypingEnv, kernel_ty: Ty, args_ty: Ty, ret_ty: Ty, hir_id: HirId): Result<undefined, ErrorGuaranteed>;
   // intrinsicck.rs:240
-  check_transmutes(tcx: TyCtxt, owner: LocalDefId): Result<undefined, ErrorGuaranteed>;
+  check_transmutes(tcx: TyCtxt, owner: LocalDefId): Result<null, ErrorGuaranteed>;
   // intrinsicck.rs:256
-  check_offloads(tcx: TyCtxt, owner: LocalDefId): Result<undefined, ErrorGuaranteed>;
+  check_offloads(tcx: TyCtxt, owner: LocalDefId): Result<null, ErrorGuaranteed>;
 }
 
 /** The free fns of compiler/rustc_hir_typeck/src/lib.rs (lane fnctxt-contract). */

@@ -34,7 +34,7 @@ export type SelfSource =
 export const debug_SelfSource: Debug<SelfSource> = (v, f) => {
   switch (v.$) {
     case "QPath":
-      return debug_tuple(f, "QPath", [debug_hir_Ty(v._0, f)]);
+      return debug_tuple(f, "QPath", [debug_hir_Ty(v._0, f, (_x, _f) => "()")]);
     case "MethodCall":
       return debug_tuple(f, "MethodCall", [debug_Expr(v._0, f)]);
   }

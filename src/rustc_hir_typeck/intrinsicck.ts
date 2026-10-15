@@ -43,11 +43,11 @@ export function check_offload(tcx: TyCtxt, typing_env: TypingEnv, kernel_ty: Ty,
 }
 
 // intrinsicck.rs:240 (stub; final signature: decls.ts `Fns_intrinsicck`)
-export function check_transmutes(tcx: TyCtxt, owner: LocalDefId): Result<undefined, ErrorGuaranteed> {
+export function check_transmutes(tcx: TyCtxt, owner: LocalDefId): Result<null, ErrorGuaranteed> {
   return unported("rustc_hir_typeck::intrinsicck::check_transmutes");
 }
 
 // intrinsicck.rs:256 (stub; final signature: decls.ts `Fns_intrinsicck`)
-export function check_offloads(tcx: TyCtxt, owner: LocalDefId): Result<undefined, ErrorGuaranteed> {
+export function check_offloads(tcx: TyCtxt, owner: LocalDefId): Result<null, ErrorGuaranteed> {
   return unported("rustc_hir_typeck::intrinsicck::check_offloads");
 }
