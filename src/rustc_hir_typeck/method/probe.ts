@@ -20,7 +20,6 @@ import { find_attr } from "../../rustc_attr_ir/lib.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { Mutability } from "../../rustc_ast_ir/lib.ts";
 import { Applicability, Diag, type DiagCtxtHandle, type Diagnostic, type Level } from "../../rustc_errors/lib.ts";
-import type { DefKind } from "../../rustc_hir/def.ts";
 import type { HirId } from "../../rustc_hir_id/lib.ts";
 import { Autoderef, report_autoderef_recursion_limit_error } from "../../rustc_hir_analysis/autoderef.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
@@ -30,9 +29,11 @@ import { fold_QueryResponse } from "../../rustc_infer/infer/canonical/query_resp
 import { BoundRegionConversionTime } from "../../rustc_infer/infer/mod.gen.ts";
 import { clone_Obligation, Obligation, type PredicateObligation, type Selection } from "../../rustc_infer/traits/mod.ts";
 import { TraitErrors } from "../../rustc_infer/traits/engine.ts";
+import { debug_TraitErrors } from "../../rustc_infer/traits/engine.gen.ts";
 import { METHOD_CALL_ON_DIVERGING_INFER_VAR, TYVAR_BEHIND_RAW_POINTER, UNSTABLE_NAME_COLLISIONS } from "../../rustc_lint_defs/builtin.gen.ts";
 import { OriginalQueryValues, type Canonical } from "../../rustc_middle/infer/canonical.ts";
-import type { QueryResponse } from "../../rustc_middle/infer/canonical.gen.ts";
+import { debug_QueryResponse, type QueryResponse } from "../../rustc_middle/infer/canonical.gen.ts";
+import { debug_Canonical } from "../../rustc_type_ir/canonical.gen.ts";
 import { clone_ObligationCause, ImplSource, ObligationCause, type ObligationCauseCode, type SelectionResult } from "../../rustc_middle/traits/mod.ts";
 import { SelectionError } from "../../rustc_middle/traits/mod.gen.ts";
 import { type CandidateStep, type CanonicalMethodAutoderefStepsGoal, type MethodAutoderefBadTy, type MethodAutoderefSteps, type MethodAutoderefStepsResult } from "../../rustc_middle/traits/query.ts";
@@ -42,9 +43,9 @@ import { RawList } from "../../rustc_middle/ty/list.ts";
 import type { GenericArg, GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { GenericClauses, type GenericClauses as GenericClausesT, type Generics } from "../../rustc_middle/ty/generics.ts";
-import { fold_with_Ty, try_fold_with_Ty, visit_with_Ty, fold_with_ParamEnv, HasAttrs_DefId, try_fold_with_ParamEnv, visit_with_ParamEnv, ProvisionalHiddenType, Ty, Visibility, type ParamEnv, type ParamEnvAnd } from "../../rustc_middle/ty/mod.ts";
+import { fold_with_Ty, try_fold_with_Ty, visit_with_Ty, fold_with_ParamEnv, HasAttrs_DefId, try_fold_with_ParamEnv, visit_with_ParamEnv, ProvisionalHiddenType, Ty, Visibility, type ParamEnvAnd } from "../../rustc_middle/ty/mod.ts";
 import { Clause_upcast_from_TraitRef, Predicate_upcast_from_PolyTraitRef, Predicate_upcast_from_TraitRef, type Predicate } from "../../rustc_middle/ty/predicate.ts";
-import { fold_Clause, fold_PredefinedOpaques, fold_Predicate, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
+import { debug_Ty, fold_Clause, fold_PredefinedOpaques, fold_Predicate, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import type { TraitDef } from "../../rustc_middle/ty/trait_def.ts";
 import type { EvalResult } from "../../rustc_middle/middle/stability.gen.ts";
@@ -57,7 +58,7 @@ import { str_cmp } from "../../rustc_session/options.ts";
 import { expand_trait_aliases } from "../../rustc_trait_selection/traits/util.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 import { predicates_for_generics } from "../../rustc_trait_selection/traits/mod.ts";
-import type { FulfillmentError } from "../../rustc_trait_selection/traits/mod.gen.ts";
+import { debug_FulfillmentError, type FulfillmentError } from "../../rustc_trait_selection/traits/mod.gen.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../../rustc_type_ir/binder.ts";
 import type { PolyTraitRef, TraitRef as TraitRefT, Variance } from "../../rustc_type_ir/decls.ts";
 import { supertrait_def_ids, supertraits } from "../../rustc_type_ir/elaborate.ts";
@@ -70,7 +71,8 @@ import { TypeVisitableExt, type TypeVisitor } from "../../rustc_type_ir/visit.ts
 import { try_visit } from "../../rustc_ast_ir/visit.ts";
 import type { Interner } from "../../rustc_type_ir/interner.ts";
 import { KeyedSet } from "../../rust_ts/keyed.ts";
-import { assert, assert_eq, assert_matches, unported, unreachable } from "../../std/panic.ts";
+import { assert, assert_eq, assert_matches, panic, unported, unreachable } from "../../std/panic.ts";
+import { PLAIN } from "../../std/fmt.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import { utf8_len } from "../../std/str.ts";
 import { all_traits } from "./suggest.ts";
@@ -140,6 +142,10 @@ function step_self_ty(step: CandidateStep): Canonical<QueryResponse<Ty>> {
 /** PORT: `MethodAutoderefBadTy.ty` is `Canonical<'tcx, QueryResponse<'tcx, Ty<'tcx>>>` upstream (see the file header). */
 function bad_ty_ty(bad_ty: MethodAutoderefBadTy): Canonical<QueryResponse<Ty>> {
   return bad_ty.ty as Canonical<QueryResponse<Ty>>;
+}
+/** `{:?}` of a `Canonical<QueryResponse<Ty>>` (for `span_bug!` messages). */
+function debug_canonical_ty(c: Canonical<QueryResponse<Ty>>): string {
+  return debug_Canonical(c, PLAIN, (x, f) => debug_QueryResponse(x, f, debug_Ty));
 }
 /** `Ident`'s `Eq`/`Hash` (name + `SyntaxContext`), the key of an `FxHashSet<Ident>`. */
 function Ident_key(ident: Ident): string {
@@ -346,7 +352,7 @@ FnCtxt.prototype.probe_op = function <R>(
       const last = steps.steps[steps.steps.length - 1];
       const ty_ = last !== undefined ? step_self_ty(last) : span_bug(span, "reached the recursion limit in 0 steps?");
       const r = this.probe_instantiate_query_response(span, orig_values, ty_);
-      const ty = r.$ === "Ok" ? r._0 : span_bug(span, `instantiating ${"{:?}"} failed?`);
+      const ty = r.$ === "Ok" ? r._0 : span_bug(span, `instantiating ${debug_canonical_ty(ty_)} failed?`);
       report_autoderef_recursion_limit_error(this.tcx, span, ty.value);
     });
   }
@@ -360,17 +366,19 @@ FnCtxt.prototype.probe_op = function <R>(
     // potentially making inference progress.
     const ty__ = bad_ty_ty(bad_ty);
     const r = this.probe_instantiate_query_response(span, orig_values, ty__);
-    const ty_ = r.$ === "Ok" ? r._0 : span_bug(span, `instantiating ${"{:?}"} failed?`);
+    const ty_ = r.$ === "Ok" ? r._0 : span_bug(span, `instantiating ${debug_canonical_ty(ty__)} failed?`);
     const ty = ty_.value;
 
     const k = ty.kind();
-    let diverging_ty_vid: boolean;
-    if (k.$ === "Infer" && k._0.$ === "TyVar") {
-      const ty_id = this.sub_unification_table_root_var(k._0._0);
-      diverging_ty_vid = this.diverging_type_vars.some((candidate_id) => this.sub_unification_table_root_var(candidate_id) === ty_id);
-    } else {
-      diverging_ty_vid = false;
-    }
+    // `else if let ty::Infer(ty::TyVar(ty_id)) = *ty.kind() && let ty_id = .. && self.diverging_type_vars..any(..)`
+    // (evaluated only when the earlier branches did not match).
+    const is_diverging_infer_var = (): boolean => {
+      if (k.$ === "Infer" && k._0.$ === "TyVar") {
+        const ty_id = this.sub_unification_table_root_var(k._0._0);
+        return this.diverging_type_vars.some((candidate_id) => this.sub_unification_table_root_var(candidate_id) === ty_id);
+      }
+      return false;
+    };
 
     if (is_suggestion._0) {
       // Ambiguity was encountered during a suggestion. There's really
@@ -391,7 +399,7 @@ FnCtxt.prototype.probe_op = function <R>(
       // If `ty` is an inference variable that was created by being adjusted from the never type,
       // We demand the type to be equal to the never type, so we can probe the never type for methods
       // (see https://github.com/rust-lang/rust/issues/143349)
-    } else if (diverging_ty_vid) {
+    } else if (is_diverging_infer_var()) {
       this.tcx.emit_node_span_lint(
         METHOD_CALL_ON_DIVERGING_INFER_VAR,
         scope_expr_id,
@@ -818,7 +826,7 @@ ProbeContext.prototype.assemble_probe = function (this: ProbeContext, self_ty: C
 ProbeContext.prototype.assemble_inherent_candidates_for_incoherent_ty = function (this: ProbeContext, self_ty: Ty, receiver_steps: number): void {
   const simp = simplify_type(as_interner(this.tcx), self_ty, TreatParams.InstantiateWithInfer);
   if (simp === undefined) {
-    bug(`unexpected incoherent type: ${"{:?}"}`);
+    bug(`unexpected incoherent type: ${debug_Ty(self_ty, PLAIN)}`);
   }
   for (const impl_def_id of this.tcx.incoherent_impls(simp)) {
     this.assemble_inherent_impl_probe(impl_def_id, receiver_steps);
@@ -857,7 +865,7 @@ ProbeContext.prototype.assemble_inherent_candidates_from_object = function (this
   const k = self_ty.kind();
   const principal = k.$ === "Dynamic" ? k._0.principal() : undefined;
   if (principal === undefined) {
-    span_bug(this.span, `non-object ${"{:?}"} in assemble_inherent_candidates_from_object`);
+    span_bug(this.span, `non-object ${debug_Ty(self_ty, PLAIN)} in assemble_inherent_candidates_from_object`);
   }
 
   // It is illegal to invoke a method on a trait instance that refers to
@@ -1167,7 +1175,7 @@ ProbeContext.prototype.pick_all_method = function (this: ProbeContext, pick_diag
     // `.find_map(|step| ..)`
     const r = ((): PickResult | undefined => {
       const ir = this.fcx.probe_instantiate_query_response(this.span, this.orig_steps_var_values, step_self_ty(step));
-      const { value: self_ty, obligations: instantiate_self_ty_obligations } = ir.$ === "Ok" ? ir._0 : span_bug(this.span, `${"{:?}"} was applicable but now isn't?`);
+      const { value: self_ty, obligations: instantiate_self_ty_obligations } = ir.$ === "Ok" ? ir._0 : span_bug(this.span, `${debug_canonical_ty(step_self_ty(step))} was applicable but now isn't?`);
 
       const by_value_pick = this.pick_by_value_method(step, self_ty, instantiate_self_ty_obligations, pick_diag_hints);
 
@@ -1743,7 +1751,7 @@ ProbeContext.prototype.consider_probe = function (
       ocx.register_obligations(instantiate_self_ty_obligations.map((o) => clone_Obligation(o, (p) => p)));
       const errors = ocx.try_evaluate_obligations();
       if (!TraitErrors.no_errors(errors)) {
-        unreachable(`unexpected autoderef error ${"{errors:?}"}`);
+        unreachable(`internal error: entered unreachable code: unexpected autoderef error ${debug_TraitErrors(errors, PLAIN, debug_FulfillmentError)}`);
       }
     }
 
@@ -2228,7 +2236,10 @@ ProbeContext.prototype.record_static_candidate = function (this: ProbeContext, s
 ProbeContext.prototype.xform_self_ty = function (this: ProbeContext, item: AssocItem, impl_ty: Ty, args: GenericArgs): [Ty, Ty | undefined] {
   if (AssocItem.is_fn(item) && this.mode === "MethodCall") {
     const sig = this.xform_method_sig(item.def_id, args);
-    return [this.self_ty_override ?? FnSig.inputs(sig)[0]!, FnSig.output(sig)];
+    // `self.self_ty_override.unwrap_or(sig.inputs()[0])`: the index is evaluated (and bounds-checked) eagerly.
+    const inputs = FnSig.inputs(sig);
+    const input0 = inputs.length > 0 ? inputs[0]! : panic(`index out of bounds: the len is ${inputs.length} but the index is 0`);
+    return [this.self_ty_override ?? input0, FnSig.output(sig)];
   } else {
     return [impl_ty, undefined];
   }
