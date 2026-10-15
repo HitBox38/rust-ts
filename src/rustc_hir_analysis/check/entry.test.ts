@@ -23,8 +23,6 @@ const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
 const PENDING = new Set([
   "codegen_fn_attrs provider (not ported)",
-  "rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics",
-  "rustc_hir_analysis::check::check_function_signature",
 ]);
 
 function sysroot(): string | undefined {

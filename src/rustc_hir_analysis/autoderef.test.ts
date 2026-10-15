@@ -18,7 +18,6 @@ const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 /** The exact `unported(..)` texts the overloaded case stops at today (other lanes' stubs / stand-ins). */
 const PENDING = new Set([
   "rustc_trait_selection::traits::query::evaluate_obligation::InferCtxt::predicate_may_hold_opaque_types_jank",
-  "rustc_trait_selection::traits::ObligationCtxt::new",
 ]);
 
 function sysroot(): string | undefined {

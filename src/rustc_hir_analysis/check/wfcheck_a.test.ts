@@ -36,15 +36,16 @@ const args = (s: string, file: string): string[] => [
   "--sysroot", s, "--edition=2021", "--crate-type", "lib", "--emit=metadata", "-o", join(OUT, `${file}.rmeta`), file,
 ];
 
-/** The exact `unported(..)` texts the `wf` cases stop at today (other lanes' items). */
+/** The exact `unported(..)` texts the cases stop at today (re-pinned by merge-w17). */
 const PENDING = new Set([
-  "rustc_trait_selection::traits::normalize_param_env_or_error", // `param_env` (rustc_ty_utils ty.rs), lane trait-sel-traits-a
-  "constness provider (not ported)", // `param_env` of an associated fn (`is_conditionally_const`)
-  "rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics", // wfcheck.ts stand-in, lane trait-sel-traits-a
-  "rustc_trait_selection::regions::ty_known_to_outlive", // wfcheck.ts stand-in, lane trait-sel-traits-a
-  "rustc_trait_selection::regions::region_known_to_outlive", // wfcheck.ts stand-in, lane trait-sel-traits-a
-  "rustc_trait_selection::traits::misc::type_allowed_to_implement_const_param_ty", // wfcheck.ts stand-in, lane trait-sel-traits-a
+  "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt", // field_bound.rs: E0277 report (wave 19)
+  "rustc_middle::ty::region::EarlyParamRegion: RegionName::is_named", // unused.rs (rustc_middle ty/region.rs)
+  "rustc_middle::ty::region::LateParamRegionKind::from_bound", // gat.rs: `liberate_late_bound_regions` (rustc_middle)
+  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)", // marker.rs (wave 20)
 ]);
+
+/** Cases that print the oracle's stderr since merge-w17: they must not stop. */
+const NOW_EXACT = new Set(["const_param.rs"]);
 
 for (const [file, contains] of [
   ["shadow.rs", "warning: trait item `f` from `Both` shadows identically named item from supertrait"],
@@ -81,6 +82,7 @@ for (const [mode, file, contains] of [
     const ours = run(["bun", join(DIR, "run.ts"), mode, ...args(s, file)]);
     expect(oracle.stderr).toContain(contains);
     const m = /unported: (.*)\n/.exec(ours.stderr);
+    if (NOW_EXACT.has(file)) expect(m).toBeNull();
     if (m !== null) expect(PENDING).toContain(m[1]!);
     else expect({ exit: ours.exit, stderr: ours.stderr }).toEqual({ exit: oracle.exit, stderr: oracle.stderr });
   }, 120_000);

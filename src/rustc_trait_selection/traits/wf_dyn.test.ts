@@ -32,9 +32,9 @@ const PENDING = new Set([
   "UNPORTED: rustc_middle::ty::erase_regions::TyCtxt::erase_and_anonymize_regions",
 ]);
 
-/** The exact stop of dyn_e0038.rs today: hir_ty_lowering dyn_trait.rs lowers `dyn Trait` through `expand_trait_aliases`
- *  (traits/util.rs, lane trait-sel-traits-a) before it asks for the dyn-compatibility violations. */
-const PENDING_E0038 = new Set(["type_of STOP UNPORTED: rustc_trait_selection::traits::util::expand_trait_aliases"]);
+/** The exact stop of dyn_e0038.rs today: hir_ty_lowering dyn_trait.rs finds the dyn-compatibility violations and stops at
+ *  the report (`report_dyn_incompatibility`, error_reporting/traits/mod.rs, wave 19). */
+const PENDING_E0038 = new Set(["type_of STOP UNPORTED: rustc_trait_selection::error_reporting::traits::report_dyn_incompatibility"]);
 
 function sysroot(): string | undefined {
   try {

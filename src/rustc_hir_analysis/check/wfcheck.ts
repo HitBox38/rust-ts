@@ -540,7 +540,7 @@ export function check_gat_where_clauses(tcx: TyCtxt, trait_def_id: LocalDefId): 
             const sig: FnSig = tcx.liberate_late_bound_regions(
               LocalDefIdC.to_def_id(item_def_id),
               Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.fn_sig(item_def_id) as EarlyBinder<Binder<FnSig>>)),
-              d_FnSig,
+              fold_FnSig,
             );
             item_required_bounds = gather_gat_bounds(
               tcx,
@@ -1272,8 +1272,6 @@ function check_associated_type_bounds(wfcx: WfCheckingCtxt, item: AssocItemT, _s
 /** `WellFormedLoc::None`. */
 const WellFormedLoc_None: WellFormedLoc = { $: "None" };
 
-/** D4 descriptor of `ty::FnSig` (for `liberate_late_bound_regions`). */
-const d_FnSig: TypeFoldable<FnSig> = FnSigC as unknown as TypeFoldable<FnSig>;
 
 /** D4 descriptor of `Vec<(Clause, Span)>` (`explicit_item_bounds(..).iter_identity_copied().collect()`). */
 const d_Vec_Clause_Span: TypeFoldable<readonly [Clause, Span][]> = fold_Vec(fold_tuple2(fold_Clause, fold_Span));

@@ -29,16 +29,13 @@ const CASES = readdirSync(CASES_DIR)
   .map((f) => f.slice(0, -3))
   .sort();
 
-/** Mode `abi`: cases that stop at another lane's stub. */
+/** Mode `abi`: cases that stop at another lane's stub (abi_cdecl matches since lint-levels-hir, merge-w17). */
 const PENDING_ABI: Record<string, string> = {
-  // `emit_node_span_lint(UNSUPPORTED_CALLING_CONVENTIONS, ..)` needs the HIR lint levels (lane lint-levels-hir)
-  abi_cdecl: "rustc_lint::levels::shallow_lint_levels_on (tcx.hir_attr_map / hir_owner_node: HIR, M3)",
   // after `check_abi`, `validate_cmse_abi` (hir_ty_lowering/cmse.rs) erases the signature's regions (rustc_middle)
   abi_cmse_fn_ptr: "rustc_middle::ty::erase_regions::TyCtxt::erase_and_anonymize_regions",
 };
-/** Mode `wf`: `check_item_type` asks for `clauses_of` (of the lang-item traits first), whose provider needs
- * `inferred_outlives_of` (outlives/, lane variance-outlives-implwf). */
-const PENDING_WF: Record<string, string> = Object.fromEntries(CASES.map((c) => [c, "inferred_outlives_of provider (not ported)"]));
+/** Mode `wf`: since merge-w17 (variance-outlives, wfcheck), `check_item_type` runs as mode `abi`. */
+const PENDING_WF: Record<string, string> = { ...PENDING_ABI };
 
 const ENV: Record<string, string> = {};
 for (const [k, v] of Object.entries(process.env)) {

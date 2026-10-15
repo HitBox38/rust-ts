@@ -32,21 +32,17 @@ const CASES = readdirSync(CASES_DIR)
 /** Where the port's driver stops today (main.ts): before `rustc_hir_analysis::check_crate`. */
 const PENDING: Record<string, string> = Object.fromEntries(CASES.map((c) => [c, "rustc_interface::passes::analysis (M3+)"]));
 
-const OCX = "rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics";
 /**
- * In-process stops. Every method comparison reaches `compare_const_generic_param_types`, which builds an `ObligationCtxt`
- * (lanes trait-sel-*) before E0050 / E0643 / E0195 / E0053 (signature) / E0326 and the RPITIT checks; E0185 / E0186 stop
- * earlier, in `compare_self_type`'s `TypingEnv::non_body_analysis` -> `param_env` -> `is_conditionally_const`.
+ * In-process stops (re-pinned by merge-w17; e0050 / e0185 / e0186 / e0643 now equal the oracle): E0053 (signature) and
+ * E0326 stop at the type-error report (`err_ctxt`, wave 19), E0195 at `liberate_late_bound_regions` (rustc_middle
+ * `LateParamRegionKind::from_bound`), refine_rpitit at rustc_traits' `implied_outlives_bounds` query (wave 20).
  */
+const ERR_CTXT = "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt";
 const IN_PROCESS_PENDING: Record<string, string> = {
-  e0050: OCX,
-  e0053_sig: OCX,
-  e0185: "constness provider (not ported)",
-  e0186: "constness provider (not ported)",
-  e0195: OCX,
-  e0326: OCX,
-  e0643: OCX,
-  refine_rpitit: OCX,
+  e0053_sig: ERR_CTXT,
+  e0195: "rustc_middle::ty::region::LateParamRegionKind::from_bound",
+  e0326: ERR_CTXT,
+  refine_rpitit: "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
 };
 
 const ENV: Record<string, string> = {};

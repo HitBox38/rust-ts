@@ -32,16 +32,12 @@ function run(cmd: string[]): { exit: number; stdout: string; stderr: string } {
 
 const args = (s: string, file: string): string[] => ["--sysroot", s, "--edition=2021", "--crate-type", "lib", "--emit=metadata", "-o", "/dev/null", file];
 
-/** The exact `unported(..)` texts the `wf` mode stops at today (other lanes' stand-ins). */
+/** The exact `unported(..)` texts the `wf` mode stops at today (re-pinned by merge-w17). */
 const PENDING_WF = new Set([
-  // collect/type_of.ts's stand-in for `check_static_item` (`type_of` of a static; repoint to this lane's port)
-  "rustc_hir_analysis::check::wfcheck::check_static_item (wave 17)",
-  // check-wf-b's stand-in for check-wf-a's region (wfcheck.rs:151)
-  "rustc_hir_analysis::check::wfcheck::enter_wf_checking_ctxt (lane check-wf-a)",
-  // check-wf-a's `enter_wf_checking_ctxt` once merged: `tcx.param_env(..)` (checked on a simulated merge with
-  // lane/check-wf-a 5b60494), then `ObligationCtxt::new_with_diagnostics` (lane trait-sel-traits-a)
-  "constness provider (not ported)",
-  "rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics",
+  // static_wf.rs: `check_static_item` -> `codegen_fn_attrs` of the static (rustc_codegen_ssa, not ported)
+  "codegen_fn_attrs provider (not ported)",
+  // receiver.rs: `assumed_wf_types_and_report_errors` -> rustc_traits' `implied_outlives_bounds` query (wave 20)
+  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
 ]);
 
 for (const [file, n] of [

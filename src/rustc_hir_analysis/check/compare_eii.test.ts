@@ -19,10 +19,11 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
 const PENDING = new Set([
-  "rustc_hir_analysis::check::compare_impl_item::check_number_of_early_bound_regions",
-  "rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics",
-  "rustc_hir_analysis::check::wfcheck::check_static_item (wave 17)",
+  // same_count.rs: `assumed_wf_types_and_report_errors` -> rustc_traits' `implied_outlives_bounds` query (wave 20)
+  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
 ]);
+/** Cases that equal the oracle since merge-w17: they must not stop. */
+const NOW_EXACT = new Set(["static_wrong_ty.rs"]);
 
 function sysroot(): string | undefined {
   try {
@@ -72,6 +73,7 @@ for (const [file, code] of [
     if (code !== undefined) expect(r.oracle.stderr).toContain(code);
     else expect({ exit: r.oracle.exit, stderr: r.oracle.stderr }).toEqual({ exit: 0, stderr: "" });
     const m = /^UNPORTED: (.*)\n/m.exec(r.ours.stderr);
+    if (NOW_EXACT.has(file)) expect(m).toBeNull();
     if (m !== null) {
       expect(r.ours.exit).toBe(70);
       expect(PENDING).toContain(m[1]!);

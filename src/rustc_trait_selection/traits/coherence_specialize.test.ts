@@ -34,9 +34,8 @@ const facts_args = (s: string, file: string): string[] => ["--sysroot", s, "--ed
 const coherence_args = (s: string, file: string): string[] => ["--sysroot", s, "--edition=2021", "--crate-type", "lib", "--emit=metadata", "-o", "/dev/null", file];
 
 /** The exact `unported(..)` texts a fact may stop at today (other lanes' stand-ins). */
-const PENDING_FACTS = new Set([
-  // `specializes` of two impls of one polarity reads `param_env` (rustc_ty_utils' stand-in, lane trait-sel-traits-a).
-  "rustc_trait_selection::traits::normalize_param_env_or_error",
+const PENDING_FACTS = new Set<string>([
+  // (none since merge-w17: spec.rs's `specializes` of two negative impls reads the real `param_env`)
 ]);
 
 /** The exact `unported(..)` texts the coherence runs stop at today (overlap.rs matches the oracle since merge-w17). */
@@ -48,7 +47,7 @@ const PENDING_COHERENCE = new Set([
 const FACTS: [string, number][] = [
   // [crate, lines that must equal the probe's]
   ["graph.rs", 619],
-  ["spec.rs", 39],
+  ["spec.rs", 41],
 ];
 
 for (const [file, min_match] of FACTS) {

@@ -131,7 +131,8 @@ test("intrinsic_test/mismatch.rs: every computed signature differs (the oracle r
 const DROP = join(import.meta.dir, "drop_test");
 
 /** The exact `unported(..)` texts drop_test may stop at today (stand-ins for other wave-17 lanes). */
-const PENDING = new Set(["rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics"]);
+// implied.rs reaches region resolution after `ObligationCtxt` (merge-w17) and stops at mir's `ConstraintCategory` (M4).
+const PENDING = new Set(["rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation"]);
 
 for (const [file, code, n] of [
   ["specialized.rs", "error[E0366]", 5],
