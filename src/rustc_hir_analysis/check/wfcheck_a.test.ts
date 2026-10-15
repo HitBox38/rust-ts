@@ -36,16 +36,14 @@ const args = (s: string, file: string): string[] => [
   "--sysroot", s, "--edition=2021", "--crate-type", "lib", "--emit=metadata", "-o", join(OUT, `${file}.rmeta`), file,
 ];
 
-/** The exact `unported(..)` texts the cases stop at today (re-pinned by merge-w17). */
+/** The exact `unported(..)` texts the cases stop at today (re-pinned by merge-w17, merge-w18c). */
 const PENDING = new Set([
   "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt", // field_bound.rs: E0277 report (wave 19)
-  "rustc_middle::ty::region::EarlyParamRegion: RegionName::is_named", // unused.rs (rustc_middle ty/region.rs)
-  "rustc_middle::ty::region::LateParamRegionKind::from_bound", // gat.rs: `liberate_late_bound_regions` (rustc_middle)
-  "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation", // marker.rs (implied_outlives_bounds provider -> query response region constraints; selcx-contract)
 ]);
 
-/** Cases that print the oracle's stderr since merge-w17: they must not stop. */
-const NOW_EXACT = new Set(["const_param.rs"]);
+/** Cases that print the oracle's stderr since merge-w17 (const_param.rs) / merge-w18c (`mir::ConstraintCategory`
+ *  generated: gat.rs, marker.rs, unused.rs in `wf` mode): they must not stop. */
+const NOW_EXACT = new Set(["const_param.rs", "gat.rs", "marker.rs", "unused.rs"]);
 
 for (const [file, contains] of [
   ["shadow.rs", "warning: trait item `f` from `Both` shadows identically named item from supertrait"],
@@ -68,7 +66,8 @@ for (const [mode, file, contains] of [
   ["wf", "field_bound.rs", "error[E0277]: the trait bound `T: Tr` is not satisfied"],
   ["wf", "unused.rs", "error[E0392]: type parameter `T` is never used"],
   ["wf", "gat.rs", "error: missing required bound on `Item`"],
-  ["lint", "gat.rs", "error: missing required bound on `Item`"],
+  // (no `lint` case for gat.rs since merge-w18c: lint mode does not run `check_associated_item`, whose receiver check
+  // reports the oracle's second error, "requires `legacy_receiver` lang_item"; `wf` mode prints both)
   ["wf", "marker.rs", "error[E0714]: marker traits cannot have associated items"],
   ["wf", "const_param.rs", "error: using raw pointers as const generic parameters is forbidden"],
 ] as const) {

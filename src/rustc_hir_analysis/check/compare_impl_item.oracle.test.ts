@@ -34,14 +34,13 @@ const PENDING: Record<string, string> = Object.fromEntries(CASES.map((c) => [c, 
 
 /**
  * In-process stops (re-pinned by merge-w17; e0050 / e0185 / e0186 / e0643 now equal the oracle, e0195 since small-gaps-18
- * ported `LateParamRegionKind::from_bound`): E0053 (signature) and E0326 stop at the type-error report (`err_ctxt`,
- * wave 19), refine_rpitit at rustc_traits' `implied_outlives_bounds` query (wave 20).
+ * ported `LateParamRegionKind::from_bound`, refine_rpitit since merge-w18c generated `mir::ConstraintCategory`): E0053
+ * (signature) and E0326 stop at the type-error report (`err_ctxt`, wave 19).
  */
 const ERR_CTXT = "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt";
 const IN_PROCESS_PENDING: Record<string, string> = {
   e0053_sig: ERR_CTXT,
   e0326: ERR_CTXT,
-  refine_rpitit: "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation" /* implied_outlives_bounds provider (selcx-contract) */,
 };
 
 const ENV: Record<string, string> = {};
@@ -109,9 +108,12 @@ for (const c of CASES) {
     }
     if (oracle_cmd === undefined) return;
     const want = oracle_out.get(c)!;
-    // the oracle reported an error (guards against a case that tests nothing)
-    expect(want.code).toBe(1);
-    expect(want.stderr).toContain("error[E");
+    // the oracle reported an error, or (the lint case, refine_rpitit) a warning: guards against a case that tests nothing
+    if (want.code === 0) expect(want.stderr).toContain("warning: ");
+    else {
+      expect(want.code).toBe(1);
+      expect(want.stderr).toContain("error[E");
+    }
     expect(got.stderr).toBe(want.stderr);
     expect(got.code).toBe(want.code);
   }, 120_000);

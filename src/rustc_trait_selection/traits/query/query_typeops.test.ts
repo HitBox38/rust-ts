@@ -185,7 +185,7 @@ describe("type_op/{mod,custom,prove_predicate,ascribe_user_type}.rs", () => {
   );
 
   test(
-    "CustomTypeOp: equating `&'?0 u8` with `&'?1 u8` reaches make_query_region_constraints (pinned M4 stop)",
+    "CustomTypeOp: equating `&'?0 u8` with `&'?1 u8` scrapes one region equality into the query region constraints",
     sg((tcx) => {
       const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
       const r0 = infcx.next_region_var(misc);
@@ -197,11 +197,24 @@ describe("type_op/{mod,custom,prove_predicate,ascribe_user_type}.rs", () => {
         return e.$ === "Ok" ? Ok(null) : (e as never);
       }, "eq refs");
       const d_unit = { visit_with: (_s: null, v: { Result: { output(): unknown } }) => v.Result.output(), try_fold_with: (s: null) => Ok(s), fold_with: (s: null) => s };
-      // The op succeeds and its region constraints are scraped; turning them into query region constraints needs
-      // `SubregionOrigin::to_constraint_category` (rustc_middle `mir::ConstraintCategory`, M4): the pinned stop.
-      expect(() => TypeOp_CustomTypeOp(d_unit as never).fully_perform(op, infcx, 0 as never, DUMMY_SP)).toThrow(
-        /rustc_middle::mir::ConstraintCategory \(mir, M4\): BoringNoLocation/,
-      );
+      // The op succeeds and its region constraints are scraped (custom.rs `scrape_region_constraints`): equating two
+      // region variables is one `VarEqVar` constraint (region_constraints/mod.rs:496 `make_eqregion`), which
+      // `make_query_region_constraints` (query_response.rs:617) turns into a `RegionConstraint::Eq` between them; its
+      // origin is a `Subtype` trace of the misc cause, so the category is `BoringNoLocation` (infer/mod.rs:483 ->
+      // rustc_middle traits/mod.rs:137); no outlives obligations, no assumptions.
+      const r = TypeOp_CustomTypeOp(d_unit as never).fully_perform(op, infcx, 0 as never, DUMMY_SP);
+      expect(r.$).toBe("Ok");
+      if (r.$ !== "Ok") return;
+      expect(r._0.output).toBe(null);
+      expect(r._0.error_info).toBeUndefined();
+      const qrc = r._0.constraints!;
+      expect(qrc.assumptions).toEqual([]);
+      expect(qrc.constraints.length).toBe(1);
+      const c = qrc.constraints[0]!;
+      expect(c.category).toEqual({ $: "BoringNoLocation" });
+      expect(c.visible_for_leak_check).toBe("Yes");
+      expect(c.constraint.$).toBe("Eq");
+      if (c.constraint.$ === "Eq") expect(new Set([c.constraint._0._0, c.constraint._0._1])).toEqual(new Set([r0, r1]));
     }),
   );
 

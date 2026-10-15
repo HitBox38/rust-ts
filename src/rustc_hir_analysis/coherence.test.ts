@@ -62,7 +62,6 @@ function oracle_rmeta(s: string, file: string): string {
 const PENDING = new Set([
   "rustc_metadata::rmeta::decoder::cstore_impl: Decodable for ty::TraitDef", // an extern trait
   "rustc_middle::query::keys: QueryKey for `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` (cache)", // orphan_local_auto.rs
-  "rustc_middle::mir::ConstraintCategory (mir, M4): BoringNoLocation", // copy.rs (implied_outlives_bounds provider -> query response region constraints; selcx-contract)
   "rustc_middle::ty::normalize_erasing_regions::TyCtxt::try_normalize_erasing_regions", // coerce_unsized.rs
 ]);
 
