@@ -287,6 +287,12 @@ export interface SetConfig {
   /** derive(TypeVisitable/TypeFoldable): emit only these items (names or keys); absent = every derived item of the set. */
   type_fold_types?: string[];
   /**
+   * derive(TypeVisitable/TypeFoldable) of these `hand` items is generated too (next to the re-export of the hand type in the
+   * file's `.gen.ts`): for hand-written types whose derives are still codegen's (PORTING §5). A hand class (`class`) is
+   * rebuilt with `new` (its constructor takes every field in declaration order, as the generated classes'), imported as a value.
+   */
+  type_fold_hand?: string[];
+  /**
    * Upstream files probed for their `use` / `mod` declarations only (path resolution through their re-exports, e.g.
    * rustc_middle's ty/mod.rs `pub use self::sty::*;`): nothing is generated from them and their items do not resolve.
    */
@@ -2552,7 +2558,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     };
     const tfAliasOwner = new Map<string, string>();
     /** Whether this set generates the impl of `r` (hand types bring their own). */
-    const tfGenerated = (kind: TfKind, r: ItemRef): boolean => (kind === "visit" ? deriveVisit : deriveFold).has(r.key) && !matches(set.hand, r) && !r.mac;
+    const tfGenerated = (kind: TfKind, r: ItemRef): boolean =>
+      (kind === "visit" ? deriveVisit : deriveFold).has(r.key) && (!matches(set.hand, r) || matches(set.type_fold_hand ?? [], r)) && !r.mac;
     /** `visit_with_<T>` / `try_fold_with_<T>` / `fold_with_<T>` of an item as seen from this file; `null`: trivially traversable. */
     const tfItemName = (kind: TfKind, r: ItemRef, at: string): string | null => {
       const name = `${TF_PREFIX[kind]}_${r.item.name}`;
@@ -2753,6 +2760,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       }
       const sc = itemScope(r);
       const tname = refName(r);
+      // a hand class rebuilt by the fold (`type_fold_hand`): its constructor is a value of the hand module
+      if (wantF && isClass(r) && matches(set.hand, r)) imp(`src:${r.mf.hand}`, "values", it.name, tname);
       const ps = tsParams(it).map((p) => p.name);
       const self = `${tname}${ps.length ? `<${ps.join(", ")}>` : ""}`;
       type V = { name: string | undefined; style: string; fields: PField[] };

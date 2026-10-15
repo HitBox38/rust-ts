@@ -965,6 +965,124 @@
       "typeck_results.typemap.json"
     ]
   },
+  "rustc_middle_hir_place": {
+    "files": [
+      "compiler/rustc_middle/src/hir/place.rs"
+    ],
+    "files_note": "lane typeck-gaps: only the derived TypeVisitable / TypeFoldable of the hand-written types of hir/place.ts (lane typeck-euv) are generated (`type_fold_hand`), into hir/place.gen.ts",
+    "class": [
+      "rustc_middle::hir::place::Place",
+      "rustc_middle::hir::place::PlaceWithHirId"
+    ],
+    "hand": [
+      "rustc_middle::hir::place::PlaceBase",
+      "rustc_middle::hir::place::ProjectionKind",
+      "rustc_middle::hir::place::Projection",
+      "rustc_middle::hir::place::Place",
+      "rustc_middle::hir::place::PlaceWithHirId"
+    ],
+    "hand_notes": "hir/place.ts (lane typeck-euv) hand-writes every type of the file (Debug / PartialEq / Clone included)",
+    "type_fold_hand": [
+      "rustc_middle::hir::place::PlaceBase",
+      "rustc_middle::hir::place::ProjectionKind",
+      "rustc_middle::hir::place::Projection",
+      "rustc_middle::hir::place::Place",
+      "rustc_middle::hir::place::PlaceWithHirId"
+    ],
+    "discriminant": [],
+    "skip": [],
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json"
+    ]
+  },
+  "rustc_middle_ty_mod": {
+    "files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "files_note": "lane typeck-gaps: only the derived TypeVisitable / TypeFoldable of the hand-written `ProvisionalHiddenType` / `ClosureSizeProfileData` (ty/mod.ts) are generated (`type_fold_hand`), into ty/mod.gen.ts; every other type of the file is skipped (hand-written in ty/mod.ts)",
+    "class": [
+      "rustc_middle::ty::ProvisionalHiddenType"
+    ],
+    "hand": [
+      "rustc_middle::ty::ProvisionalHiddenType",
+      "rustc_middle::ty::ClosureSizeProfileData",
+      "rustc_middle::ty::Ty"
+    ],
+    "hand_notes": "ty/mod.ts hand-writes both (ProvisionalHiddenType a class with inherent methods, ClosureSizeProfileData an interface), with their Debug; `Ty` (D2: the hash-consed class) is hand so that its fields resolve to ty/mod.ts's `Ty` impls (visit_with_Ty, ..)",
+    "type_fold_hand": [
+      "rustc_middle::ty::ProvisionalHiddenType",
+      "rustc_middle::ty::ClosureSizeProfileData"
+    ],
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::ty::ImplTraitHeader",
+      "rustc_middle::ty::Asyncness",
+      "rustc_middle::ty::Visibility",
+      "rustc_middle::ty::RestrictionKind",
+      "rustc_middle::ty::CrateVariancesMap",
+      "rustc_middle::ty::CReaderCacheKey",
+      "rustc_middle::ty::CrateClausesMap",
+      "rustc_middle::ty::Term",
+      "rustc_middle::ty::InstantiatedClauses",
+      "rustc_middle::ty::DefiningScopeKind",
+      "rustc_middle::ty::DefinitionSiteHiddenType",
+      "rustc_middle::ty::Clauses",
+      "rustc_middle::ty::ParamEnv",
+      "rustc_middle::ty::ParamEnvAnd",
+      "rustc_middle::ty::TypingEnv",
+      "rustc_middle::ty::PseudoCanonicalInput",
+      "rustc_middle::ty::Destructor",
+      "rustc_middle::ty::AsyncDestructor",
+      "rustc_middle::ty::VariantFlags",
+      "rustc_middle::ty::VariantDef",
+      "rustc_middle::ty::VariantDiscr",
+      "rustc_middle::ty::FieldDef",
+      "rustc_middle::ty::ImplOverlapKind",
+      "rustc_middle::ty::ImplTraitInTraitData",
+      "rustc_middle::ty::CrateInherentImpls",
+      "rustc_middle::ty::SymbolName",
+      "rustc_middle::ty::DestructuredAdtConst"
+    ],
+    "skip_notes": {
+      "rustc_middle::ty::ImplTraitHeader": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Asyncness": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Visibility": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::RestrictionKind": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::CrateVariancesMap": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::CReaderCacheKey": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::CrateClausesMap": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Term": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::InstantiatedClauses": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::DefiningScopeKind": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::DefinitionSiteHiddenType": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Clauses": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::ParamEnv": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::ParamEnvAnd": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::TypingEnv": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::PseudoCanonicalInput": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Destructor": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::AsyncDestructor": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::VariantFlags": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::VariantDef": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::VariantDiscr": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::FieldDef": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::ImplOverlapKind": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::ImplTraitInTraitData": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::CrateInherentImpls": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::SymbolName": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::DestructuredAdtConst": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)"
+    },
+    "derive_type_fold": true,
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json"
+    ]
+  },
   "rustc_infer": {
     "files": [
       "compiler/rustc_infer/src/diagnostics.rs",

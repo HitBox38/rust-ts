@@ -8,6 +8,7 @@
 // item, each naming the lane that ports it; the merge repoints them to the real ports:
 // - rustc_trait_selection error reporting (wave 19): `TypeErrCtxt`, `ReturnsVisitor`;
 // - layout (M4): `TyAndLayout` / `LayoutError`, the values of `tcx.layout_of(..)`.
+import * as middle_ty from "../../rustc_middle/ty/mod.ts";
 import * as compare_impl_item from "./compare_impl_item.ts";
 import * as intrinsic from "./intrinsic.ts";
 import * as wfcheck from "./wfcheck.ts";
@@ -2597,11 +2598,11 @@ const fold_OpaqueTypeKey: TypeFoldable<OpaqueTypeKey> = {
   try_fold_with: try_fold_with_OpaqueTypeKey,
   fold_with: fold_with_OpaqueTypeKey,
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for ty::ProvisionalHiddenType` (rustc_middle ty/mod.rs): not generated. */
+/** The derived `TypeFoldable` of `ty::ProvisionalHiddenType` (rustc_middle ty/mod.rs, generated; built on use: init order). */
 const fold_ProvisionalHiddenType: TypeFoldable<ProvisionalHiddenType> = {
-  visit_with: () => unported("TypeVisitable for ty::ProvisionalHiddenType (tools/codegen)"),
-  try_fold_with: () => unported("TypeFoldable for ty::ProvisionalHiddenType (tools/codegen)"),
-  fold_with: () => unported("TypeFoldable for ty::ProvisionalHiddenType (tools/codegen)"),
+  visit_with: (self, visitor) => middle_ty.visit_with_ProvisionalHiddenType(self, visitor),
+  try_fold_with: (self, folder) => middle_ty.try_fold_with_ProvisionalHiddenType(self, folder),
+  fold_with: (self, folder) => middle_ty.fold_with_ProvisionalHiddenType(self, folder),
 };
 /** `TypeVisitable for PredicateKind` (derived). */
 const d_PredicateKind: TypeVisitable<PredicateKind> = { visit_with: visit_with_PredicateKind };

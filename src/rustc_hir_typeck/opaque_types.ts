@@ -8,6 +8,7 @@
 // - `debug!` / `#[instrument]` are tracing only and stay as comments.
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates.
 export * from "./opaque_types.gen.ts";
+import * as middle_ty from "../rustc_middle/ty/mod.ts";
 import type { Diag } from "../rustc_errors/diagnostic.ts";
 import { ObligationCause } from "../rustc_middle/traits/mod.ts";
 import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
@@ -345,11 +346,11 @@ const fold_OpaqueTypeKey: TypeFoldable<OpaqueTypeKey> = {
   try_fold_with: try_fold_with_OpaqueTypeKey,
   fold_with: fold_with_OpaqueTypeKey,
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for ty::ProvisionalHiddenType` (rustc_middle ty/mod.rs): not generated. */
+/** The derived `TypeFoldable` of `ty::ProvisionalHiddenType` (rustc_middle ty/mod.rs, generated; built on use: init order). */
 const fold_ProvisionalHiddenType: TypeFoldable<ProvisionalHiddenType> = {
-  visit_with: () => unported("TypeVisitable for ty::ProvisionalHiddenType (tools/codegen)"),
-  try_fold_with: () => unported("TypeFoldable for ty::ProvisionalHiddenType (tools/codegen)"),
-  fold_with: () => unported("TypeFoldable for ty::ProvisionalHiddenType (tools/codegen)"),
+  visit_with: (self, visitor) => middle_ty.visit_with_ProvisionalHiddenType(self, visitor),
+  try_fold_with: (self, folder) => middle_ty.try_fold_with_ProvisionalHiddenType(self, folder),
+  fold_with: (self, folder) => middle_ty.fold_with_ProvisionalHiddenType(self, folder),
 };
 /** `(OpaqueTypeKey<'tcx>, ProvisionalHiddenType<'tcx>)` */
 function fold_OpaqueTypeKey_ProvisionalHiddenType(): TypeFoldable<[OpaqueTypeKey, ProvisionalHiddenType]> {

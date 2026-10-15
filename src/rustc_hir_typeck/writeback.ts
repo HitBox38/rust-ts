@@ -25,6 +25,7 @@
 // - `debug!` / `#[instrument]` are tracing only and stay as comments.
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates.
 export * from "./writeback.gen.ts";
+import * as middle_ty from "../rustc_middle/ty/mod.ts";
 import { ControlFlow, VisitorResult as VisitorResultC, type VisitorResult } from "../rustc_ast_ir/visit.ts";
 import { BinOpKind } from "../rustc_ast/lib.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
@@ -1259,17 +1260,17 @@ const fold_OpaqueTypeKey: TypeFoldable<OpaqueTypeKey> = {
   try_fold_with: try_fold_with_OpaqueTypeKey,
   fold_with: fold_with_OpaqueTypeKey,
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for ty::ProvisionalHiddenType` (rustc_middle ty/mod.rs): not generated. */
+/** The derived `TypeFoldable` of `ty::ProvisionalHiddenType` (rustc_middle ty/mod.rs, generated; built on use: init order). */
 const fold_ProvisionalHiddenType: TypeFoldable<ProvisionalHiddenType> = {
-  visit_with: () => unported("TypeVisitable for ty::ProvisionalHiddenType (tools/codegen)"),
-  try_fold_with: () => unported("TypeFoldable for ty::ProvisionalHiddenType (tools/codegen)"),
-  fold_with: () => unported("TypeFoldable for ty::ProvisionalHiddenType (tools/codegen)"),
+  visit_with: (self, visitor) => middle_ty.visit_with_ProvisionalHiddenType(self, visitor),
+  try_fold_with: (self, folder) => middle_ty.try_fold_with_ProvisionalHiddenType(self, folder),
+  fold_with: (self, folder) => middle_ty.fold_with_ProvisionalHiddenType(self, folder),
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for ty::ClosureSizeProfileData` (rustc_middle ty/mod.rs): not generated. */
+/** The derived `TypeFoldable` of `ty::ClosureSizeProfileData` (rustc_middle ty/mod.rs, generated; built on use: init order). */
 const fold_ClosureSizeProfileData: TypeFoldable<ClosureSizeProfileData> = {
-  visit_with: () => unported("TypeVisitable for ty::ClosureSizeProfileData (tools/codegen)"),
-  try_fold_with: () => unported("TypeFoldable for ty::ClosureSizeProfileData (tools/codegen)"),
-  fold_with: () => unported("TypeFoldable for ty::ClosureSizeProfileData (tools/codegen)"),
+  visit_with: (self, visitor) => middle_ty.visit_with_ClosureSizeProfileData(self, visitor),
+  try_fold_with: (self, folder) => middle_ty.try_fold_with_ClosureSizeProfileData(self, folder),
+  fold_with: (self, folder) => middle_ty.fold_with_ClosureSizeProfileData(self, folder),
 };
 /** `#[derive(TypeFoldable, TypeVisitable)] for ty::CapturedPlace` (rustc_middle ty/closure.rs; `hir::place::Place` pending). */
 const fold_CapturedPlace: TypeFoldable<CapturedPlace> = {
@@ -1277,7 +1278,10 @@ const fold_CapturedPlace: TypeFoldable<CapturedPlace> = {
   try_fold_with: () => unported("TypeFoldable for ty::CapturedPlace (rustc_middle hir/place.rs pending)"),
   fold_with: () => unported("TypeFoldable for ty::CapturedPlace (rustc_middle hir/place.rs pending)"),
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for hir::place::Place` (rustc_middle hir/place.rs, pending). */
+/** `#[derive(TypeFoldable, TypeVisitable)] for hir::place::Place`. PORT: the impls are generated (rustc_middle hir/place.ts
+ *  `visit_with_Place` / `try_fold_with_Place` / `fold_with_Place`), but `HirPlace` here is still rustc_middle ty/decls.ts's
+ *  `Pending<"hir::place::Place">` (the decls seam, fixer merge-w18): wire them when decls.ts points `HirPlace` at
+ *  hir/place.ts's `Place` (and `CapturedPlace` gets its generated impls over it). */
 const fold_HirPlace: TypeFoldable<HirPlace> = {
   visit_with: () => unported("TypeVisitable for hir::place::Place (rustc_middle hir/place.rs pending)"),
   try_fold_with: () => unported("TypeFoldable for hir::place::Place (rustc_middle hir/place.rs pending)"),

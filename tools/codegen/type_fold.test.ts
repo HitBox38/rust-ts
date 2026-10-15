@@ -59,14 +59,14 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
   expect([res.files.size, sum("types"), sum("debug_fns"), sum("type_fold"), sum("decodable")]).toEqual([35, 255, 128, 204, 94]);
   for (const [file, content] of res.files) expect(content).toBe(readFileSync(file, "utf8"));
   // no stale generated file of the set left on disk (fast_reject.gen.ts / stable_hash.gen.ts belong to set rustc_type_ir,
-  // typeck_results.gen.ts to set rustc_middle_typeck_results)
+  // typeck_results.gen.ts to set rustc_middle_typeck_results, mod.gen.ts to set rustc_middle_ty_mod)
   const onDisk: string[] = [];
   for (const dir of ["rustc_type_ir", "rustc_middle/ty"])
     for (const f of readdirSync(join(SRC, dir), { recursive: true }) as string[])
       if (
         f.endsWith(".gen.ts") &&
         !(dir === "rustc_type_ir" && (f === "fast_reject.gen.ts" || f === "stable_hash.gen.ts")) &&
-        !(dir === "rustc_middle/ty" && f === "typeck_results.gen.ts")
+        !(dir === "rustc_middle/ty" && (f === "typeck_results.gen.ts" || f === "mod.gen.ts"))
       )
         onDisk.push(resolve(SRC, dir, f));
   expect(onDisk.sort()).toEqual([...res.files.keys()].map((f) => resolve(f)).sort());
@@ -302,4 +302,22 @@ test("Debug of generated type_ir values matches rustc's {:?} / {:#?}", () => {
     "Maybe(MaybeInfo { cause: Overflow { suggest_increasing_limit: true, keep_constraints: false }, opaque_types_jank: AllGood, stalled_on_coroutines: No })|Maybe(\n    MaybeInfo {\n        cause: Overflow {\n            suggest_increasing_limit: true,\n            keep_constraints: false,\n        },\n        opaque_types_jank: AllGood,\n        stalled_on_coroutines: No,\n    },\n)",
   );
   expect(format_debug(Certainty.Yes as Certainty, debug_Certainty, PLAIN)).toBe("Yes");
+});
+
+test("type_fold_hand: hand types get generated impls; a hand class is rebuilt with `new` (lane typeck-gaps)", () => {
+  const { res, text } = synth(
+    [
+      item({ kind: "struct", name: "H", line: 1, attrs: GEN, fields: { style: "named", fields: [field("ty", 0, path("I::Ty")), field("n", 1, path("u32"))] } }),
+      item({ kind: "struct", name: "C", line: 2, attrs: GEN, fields: { style: "named", fields: [field("h", 0, path("H")), field("ty", 1, path("I::Ty"))] } }),
+      item({ kind: "struct", name: "N", line: 3, attrs: GEN, fields: { style: "named", fields: [field("ty", 0, path("I::Ty"))] } }),
+    ],
+    { hand: ["H", "C", "N"], class: ["C"], type_fold_hand: ["H", "C"] },
+  );
+  expect(res.report.errors).toEqual([]);
+  expect(res.report.missing_type_fold).toEqual({});
+  expect(text).toContain("export function fold_with_H(self: H, __folder: TypeFolder): H {\n  return { ty: fold_with_Ty(self.ty, __folder), n: self.n };\n}");
+  expect(text).toContain("export function fold_with_C(self: C, __folder: TypeFolder): C {\n  return new C(fold_with_H(self.h, __folder), fold_with_Ty(self.ty, __folder));\n}");
+  // the class is imported as a value from the hand module; a hand type not listed gets no impls
+  expect(text).toMatch(/import \{[^}]*\bC\b[^}]*\} from "\.\/lib\.ts";/);
+  expect(text).not.toContain("visit_with_N");
 });
