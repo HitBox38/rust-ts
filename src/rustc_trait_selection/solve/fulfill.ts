@@ -185,7 +185,7 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
         // a `recursion_depth` number of times. This mostly happens in bugs or with
         // `Subtype` obligations because we no longer use the `sub_unification_table`
         // in generalization.
-        // PORT(merge): `TypeErrCtxt::report_overflow_obligation` (error_reporting, wave 19 errctxt-contract):
+        // PORT(wave 19): `TypeErrCtxt::report_overflow_obligation` (error_reporting, wave 19 errctxt-contract):
         // `TypeErrCtxt` is a `Pending` alias in decls.ts until then.
         (infcx.err_ctxt() as unknown as { report_overflow_obligation(o: PredicateObligation, suggest_increasing_limit: boolean): never }).report_overflow_obligation(
           obligation,

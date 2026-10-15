@@ -1160,7 +1160,7 @@ export function provide(providers: Providers): void {
 // ---- helpers ---------------------------------------------------------------------------------------------------------
 
 /**
- * PORT(merge): `error_reporting::TypeErrCtxt` (error_reporting/mod.rs, wave 19 errctxt-contract) is a `Pending` type in
+ * PORT(wave 19): `error_reporting::TypeErrCtxt` (error_reporting/mod.rs, wave 19 errctxt-contract) is a `Pending` type in
  * ../decls.ts; these are the methods this lane's files call on it (`infcx.err_ctxt().<method>(..)`). Root drops the view
  * when the contract lands.
  */

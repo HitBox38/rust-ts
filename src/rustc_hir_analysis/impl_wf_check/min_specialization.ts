@@ -74,14 +74,20 @@
 //   interned `args` by identity; `_use_trait_ref_new_instead` is `()`).
 // - `<[T]>::partition_dedup` is std's algorithm (`partition_dedup` below): which duplicate comes first depends on its
 //   swaps, so it is ported, not approximated.
-// - The rustc_trait_selection / rustc_infer items this file calls that are not ported yet (`ObligationCtxt`,
-//   `translate_args_with_cause`, `wf::obligations`, `InferCtxtErrorExt::err_ctxt`, `deeply_resolve_via_region_graph`,
-//   the `Elaboratable` impls of `(Clause, Span)` and `PredicateObligation`) are local stand-ins at the end of the file
-//   that stop as UNPORTED. `traits::elaborate(..).collect()` over `Clause` uses rustc_type_ir elaborate.ts's
-//   `Elaboratable_Clause`.
+// - `impl Elaboratable for (Clause, Span)` (rustc_middle ty/elaborate_impl.rs, not ported) is a local stand-in at the
+//   end of the file that stops as UNPORTED. `traits::elaborate(..)` over `Clause` / `PredicateObligation` uses
+//   rustc_type_ir elaborate.ts's `Elaboratable_Clause` / rustc_infer's `Elaboratable_PredicateObligation`;
+//   `InferCtxtErrorExt::err_ctxt` (wave 19) is rustc_trait_selection traits/mod.ts's view.
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies.
 import type { InferCtxt } from "../../rustc_infer/infer/mod.ts";
+import type { PredicateObligation } from "../../rustc_infer/traits/mod.ts";
+import { Elaboratable_PredicateObligation } from "../../rustc_infer/traits/util.ts";
+import { fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
+import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
+import { err_ctxt } from "../../rustc_trait_selection/traits/mod.ts";
+import { translate_args_with_cause } from "../../rustc_trait_selection/traits/specialize/mod.ts";
+import * as wf from "../../rustc_trait_selection/traits/wf.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { fold_GenericArg, GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { RawList } from "../../rustc_middle/ty/list.ts";
@@ -106,7 +112,7 @@ import { AliasTerm } from "../../rustc_type_ir/term_kind.ts";
 import { as_interner } from "../../rustc_type_ir/predicate.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
-import { unported } from "../../std/panic.ts";
+import { unported, unwrap } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import * as cgp from "../constrained_generic_params.ts";
 import { EmptySpecialization_diagnostic, GenericArgsOnOverriddenImpl_diagnostic, StaticSpecialize_diagnostic } from "../diagnostics.ts";
@@ -198,7 +204,7 @@ function check_has_items(tcx: TyCtxt, impl1_def_id: LocalDefId, impl2_node: Node
 // rustc: compiler/rustc_hir_analysis/src/impl_wf_check/min_specialization.rs:166 get_impl_args
 function get_impl_args(tcx: TyCtxt, impl1_def_id: LocalDefId, impl2_node: Node): Result<[GenericArgs, GenericArgs], ErrorGuaranteed> {
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   const param_env = tcx.param_env(impl1_def_id) as ParamEnv;
   const impl1_span = tcx.def_span(impl1_def_id);
 
@@ -207,7 +213,7 @@ function get_impl_args(tcx: TyCtxt, impl1_def_id: LocalDefId, impl2_node: Node):
 
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
   if (errors.$ === "HasErrors") {
-    const guar = InferCtxt_err_ctxt(ocx.infcx).report_fulfillment_errors(errors._0);
+    const guar = err_ctxt(ocx.infcx).report_fulfillment_errors(errors._0);
     return Err(guar);
   }
 
@@ -215,7 +221,7 @@ function get_impl_args(tcx: TyCtxt, impl1_def_id: LocalDefId, impl2_node: Node):
   if (assumed_wf_types.$ === "Err") return assumed_wf_types;
   const r = ocx.resolve_regions_and_report_errors(impl1_def_id, param_env, assumed_wf_types._0);
   if (r.$ === "Err") return r;
-  const impl2_args = deeply_resolve_via_region_graph(infcx, impl2_args_);
+  const impl2_args = infcx.deeply_resolve_via_region_graph(impl2_args_, fold_GenericArgs);
   if (impl2_args.$ === "Err") {
     const span = tcx.def_span(impl1_def_id);
     const guar = tcx.dcx().emit_err(GenericArgsOnOverriddenImpl_diagnostic({ span }));
@@ -382,7 +388,7 @@ function check_predicates(
       continue;
     }
     const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-    const obligations = wf_obligations(infcx, tcx.param_env(impl1_def_id) as ParamEnv, impl1_def_id, 0, term, span);
+    const obligations = unwrap(wf.obligations(infcx, tcx.param_env(impl1_def_id) as ParamEnv, impl1_def_id, 0, term, span));
 
     // assert!(!obligations.has_infer());
     impl2_clauses.push(...elaborate_PredicateObligation_as_clause(tcx, obligations));
@@ -499,39 +505,6 @@ function partition_dedup<T>(self: T[]): [T[], T[]] {
 
 // ---- PORT stand-ins for items of files / lanes that are not ported yet -------------------------------------------------
 
-/** `ObligationCtxt<'_, '_, FulfillmentError>` (rustc_trait_selection traits/engine.rs, wave 17): the methods this file calls. */
-interface ObligationCtxtView {
-  infcx: InferCtxt;
-  evaluate_obligations_error_on_ambiguity(): { $: "HasErrors"; _0: unknown } | { $: "Ok" };
-  assumed_wf_types_and_report_errors(param_env: ParamEnv, def_id: LocalDefId): Result<unknown, ErrorGuaranteed>;
-  resolve_regions_and_report_errors(def_id: LocalDefId, param_env: ParamEnv, assumed_wf_types: unknown): Result<null, ErrorGuaranteed>;
-}
-
-/** PORT: stand-in for `ObligationCtxt::new_with_diagnostics` (rustc_trait_selection traits/engine.rs, wave 17). */
-function ObligationCtxt_new_with_diagnostics(_infcx: InferCtxt): ObligationCtxtView {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics");
-}
-
-/** PORT: stand-in for `traits::translate_args_with_cause` (rustc_trait_selection traits/specialize/mod.rs, wave 17). */
-function translate_args_with_cause(_infcx: InferCtxt, _param_env: ParamEnv, _source_impl: DefId, _source_args: GenericArgs, _target_node: Node, _cause: ObligationCause): GenericArgs {
-  return unported("rustc_trait_selection::traits::specialize::translate_args_with_cause");
-}
-
-/** PORT: stand-in for `InferCtxtErrorExt::err_ctxt(..).report_fulfillment_errors` (rustc_trait_selection error_reporting). */
-function InferCtxt_err_ctxt(_infcx: InferCtxt): { report_fulfillment_errors(errors: unknown): ErrorGuaranteed } {
-  return unported("rustc_trait_selection::error_reporting::InferCtxtErrorExt::err_ctxt");
-}
-
-/** PORT: stand-in for `InferCtxt::deeply_resolve_via_region_graph` (rustc_infer infer/resolve.rs). */
-function deeply_resolve_via_region_graph(_infcx: InferCtxt, _value: GenericArgs): Result<GenericArgs, unknown> {
-  return unported("rustc_infer::infer::InferCtxt::deeply_resolve_via_region_graph");
-}
-
-/** PORT: stand-in for `traits::wf::obligations(..).unwrap()` (rustc_trait_selection traits/wf.rs, wave 17). */
-function wf_obligations(_infcx: InferCtxt, _param_env: ParamEnv, _body_id: LocalDefId, _recursion_depth: number, _term: unknown, _span: Span): unknown[] {
-  return unported("rustc_trait_selection::traits::wf::obligations");
-}
-
 /** PORT: stand-in for `traits::elaborate(tcx, iter).collect()` over `(Clause, Span)` (`impl Elaboratable for (Clause, Span)`, rustc_middle ty/elaborate_impl.rs:66, not ported). */
 function elaborate_Clause_Span(_tcx: TyCtxt, _obligations: Iterable<[Clause, Span]>): [Clause, Span][] {
   return unported("rustc_middle::ty::elaborate_impl: impl Elaboratable for (Clause, Span)");
@@ -542,7 +515,12 @@ function elaborate_Clause(tcx: TyCtxt, obligations: Iterable<Clause>): Clause[] 
   return [...elaborate(tcx, obligations, Elaboratable_Clause)];
 }
 
-/** PORT: stand-in for `traits::elaborate(tcx, obligations).filter_map(|o| o.predicate.as_clause())` (`impl Elaboratable for PredicateObligation`, rustc_infer traits/util.rs:68). */
-function elaborate_PredicateObligation_as_clause(_tcx: TyCtxt, _obligations: unknown[]): Clause[] {
-  return unported("rustc_infer::traits::util: impl Elaboratable for PredicateObligation");
+/** `traits::elaborate(tcx, obligations).filter_map(|o| o.predicate.as_clause())` (`impl Elaboratable for PredicateObligation`, rustc_infer traits/util.ts). */
+function elaborate_PredicateObligation_as_clause(tcx: TyCtxt, obligations: Iterable<PredicateObligation>): Clause[] {
+  const out: Clause[] = [];
+  for (const obligation of elaborate(tcx, obligations, Elaboratable_PredicateObligation)) {
+    const c = obligation.predicate.as_clause();
+    if (c !== undefined) out.push(c);
+  }
+  return out;
 }

@@ -13,7 +13,7 @@
 //
 // PORT notes (file-wide):
 // - `rustc_middle::ty::abstract_const::NotConstEvaluatable` is not ported in rustc_middle yet (abstract_const.rs only has
-//   its `TyCtxt` stub); its shape is declared here (`PORT(merge)`) for root to move.
+//   its `TyCtxt` stub); its shape is declared here (`PORT`; it moves to rustc_middle when abstract_const.rs is ported).
 // - `#[instrument]` / `debug!` are tracing only and stay as comments.
 // Init order: top-level code here touches only other crates; this crate's modules are read inside function bodies only.
 
@@ -48,7 +48,7 @@ import { PLAIN } from "../../std/fmt.ts";
 import { assert, unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 
-/** PORT(merge): `rustc_middle::ty::abstract_const::NotConstEvaluatable` (abstract_const.rs:14, not ported in rustc_middle). */
+/** PORT: `rustc_middle::ty::abstract_const::NotConstEvaluatable` (abstract_const.rs:14, not ported in rustc_middle). */
 export type NotConstEvaluatable = { readonly $: "Error"; readonly _0: ErrorGuaranteed } | { readonly $: "MentionsInfer" } | { readonly $: "MentionsParam" };
 const NotConstEvaluatable = {
   MentionsInfer: Object.freeze({ $: "MentionsInfer" as const }),
