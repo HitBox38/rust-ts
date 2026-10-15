@@ -427,7 +427,9 @@
       "compiler/rustc_middle/src/ty/trait_def.rs",
       "compiler/rustc_middle/src/ty/adt.rs",
       "compiler/rustc_middle/src/middle/mod.rs",
-      "compiler/rustc_middle/src/middle/resolve_bound_vars.rs"
+      "compiler/rustc_middle/src/middle/resolve_bound_vars.rs",
+      "compiler/rustc_middle/src/ty/consts/valtree.rs",
+      "compiler/rustc_middle/src/ty/intrinsic.rs"
     ],
     "class": [],
     "hand": [],
@@ -462,7 +464,9 @@
       "rustc_middle::ty::adt::AdtDefData",
       "rustc_middle::middle::lib_features::FeatureStability",
       "rustc_middle::middle::resolve_bound_vars::ObjectLifetimeDefault",
-      "rustc_middle::ty::ImplTraitHeader"
+      "rustc_middle::ty::ImplTraitHeader",
+      "rustc_middle::ty::consts::valtree::Value",
+      "rustc_middle::ty::intrinsic::IntrinsicDef"
     ],
     "decodable_construct": {
       "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] },
@@ -736,11 +740,12 @@
       "rustc_metadata::rmeta::CrateDep",
       "rustc_metadata::rmeta::TraitImpls",
       "rustc_metadata::rmeta::IncoherentImpls",
-      "rustc_metadata::rmeta::SpanTag"
+      "rustc_metadata::rmeta::SpanTag",
+      "rustc_metadata::rmeta::VariantData"
     ],
     "hand_notes": {
       "*": "rmeta/{mod,table,def_path_hash_map}.rs types are hand-written (src/rustc_metadata/rmeta/*.ts: classes whose fields clash with methods, e.g. CrateRoot.stable_crate_id_); this set only generates rustc_metadata/decodable.gen.ts (derive(LazyDecodable/BlobDecodable/Decodable)). The `impl Decodable for LazyValue/LazyArray/LazyTable` are in decoder.rs (syn cannot parse its `gen` blocks), exported by decoder.ts and re-exported by mod.ts: hence `hand`. LazyTables is defined by `define_tables!` (invisible to the probe): its decode is hand-expanded in mod.ts and reached through serialize.json.",
-      "decodable_types": "VariantData (TyDecodable) waits for rustc_middle's TyDecoder (M3)",
+      "decodable_types": "VariantData (TyDecodable; `get_variant` / `get_ctor`, lane small-gaps-19)",
       "class": "constructed with `new T(fields in declaration order)`"
     }
   },

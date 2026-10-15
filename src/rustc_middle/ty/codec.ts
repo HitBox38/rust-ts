@@ -34,7 +34,7 @@ import type { Pending } from "../../rustc_type_ir/decls.ts";
 import type { List } from "./list.ts";
 import { assert, unported } from "../../std/panic.ts";
 import type { TyCtxt } from "./context.ts";
-import type { AdtDef, Allocation, CanonicalVarKinds, ConstAllocation, ParamEnv, Pattern, PlaceElem, ValTree } from "./decls.ts";
+import type { AdtDef, Allocation, CanonicalVarKinds, ConstAllocation, ParamEnv, Pattern, PlaceElem, ValTree, Value } from "./decls.ts";
 import type { GenericArg, GenericArgs } from "./generic_args.ts";
 import type { Term, Ty } from "./mod.ts";
 import type { Clause, Predicate } from "./predicate.ts";
@@ -308,6 +308,12 @@ export function decode_Pattern<D extends TyDecoder>(decoder: D): Pattern {
 // rustc: compiler/rustc_middle/src/ty/codec.rs:296 decode
 export function decode_ValTree<D extends TyDecoder>(decoder: D): ValTree {
   return decoder.interner().intern_valtree(const_kind_().decode_ValTreeKind(decoder));
+}
+
+/** PORT: the generated `derive(TyDecodable)` of `ty::Value` (decodable.gen.ts), reached lazily (init order: decodable.gen.ts
+ *  imports the extension module ty/trait_def.ts; rustc_type_ir's const_kind.gen.ts decodes `ConstKind::Value` through here). */
+export function decode_Value(decoder: TyDecoder): Value {
+  return decodable_().decode_Value(decoder);
 }
 
 // impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for ConstAllocation<'tcx>

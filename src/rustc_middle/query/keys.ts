@@ -27,7 +27,7 @@ import { debug_AliasTyKind } from "../../rustc_type_ir/ty_kind.ts";
 import { debug_ExistentialTraitRef, debug_TraitRef } from "../../rustc_type_ir/ir_print.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { debug_str } from "../../std/fmt.ts";
-import { debug_ParamEnvAnd, debug_Ty, type ParamEnvAnd, type Ty } from "../ty/mod.ts";
+import { debug_ParamEnvAnd, debug_PseudoCanonicalInput, debug_Ty, type ParamEnvAnd, type PseudoCanonicalInput, type Ty } from "../ty/mod.ts";
 import type { AdtDef } from "../ty/decls.ts";
 import { debug_LitToConstInput, type LitToConstInput } from "../ty/consts/lit.ts";
 import { debug_SimplifiedType, type SimplifiedType, SimplifiedType_key } from "../ty/fast_reject.ts";
@@ -498,8 +498,31 @@ export const KEY_AliasTyKind: QueryKey<AliasTyKind> = {
   hash_key: intern_key,
 };
 
-// PORT: `PseudoCanonicalInput<T>` (keys.rs:304) and `(AdtDef, GenericArgsRef)` (:310) are not ported yet
-// (`key_unported`).
+/** `impl<'tcx, T: QueryKey> QueryKey for ty::PseudoCanonicalInput<'tcx, T>`, instantiated per key type below
+ * (PORTING §5: the `T: QueryKey` bound is the `key_T` table). */
+function pseudo_canonical_input_key<T>(key_T: QueryKey<T, unknown>): QueryKey<PseudoCanonicalInput<T>> {
+  return {
+    make_cache: default_cache<PseudoCanonicalInput<T>>(intern_key),
+    // rustc: compiler/rustc_middle/src/query/keys.rs:306 default_span
+    default_span(self: PseudoCanonicalInput<T>, tcx: TyCtxt): Span {
+      return key_T.default_span(self.value, tcx);
+    },
+    key_as_def_id: QueryKey_provided.key_as_def_id,
+    as_local_key: QueryKey_provided.as_local_key,
+    debug: (v, f) => debug_PseudoCanonicalInput(v, f, key_T.debug),
+    debug_local: no_local_key,
+    hash_key: intern_key,
+  };
+}
+
+/** `PseudoCanonicalInput<Ty>` (`layout_of`, `is_*_raw`, `needs_drop_raw`, ...). */
+export const KEY_PseudoCanonicalInput_Ty: QueryKey<PseudoCanonicalInput<Ty>> = pseudo_canonical_input_key(KEY_Ty);
+/** `PseudoCanonicalInput<GenericArg>` (`try_normalize_generic_arg_after_erasing_regions`). */
+export const KEY_PseudoCanonicalInput_GenericArg: QueryKey<PseudoCanonicalInput<GenericArg>> = pseudo_canonical_input_key(KEY_GenericArg);
+/** `PseudoCanonicalInput<TraitRef>` (`codegen_select_candidate`). */
+export const KEY_PseudoCanonicalInput_TraitRef: QueryKey<PseudoCanonicalInput<TraitRef>> = pseudo_canonical_input_key(KEY_TraitRef);
+
+// PORT: `(AdtDef, GenericArgsRef)` (keys.rs:311) is not ported yet (`key_unported`).
 
 export const KEY_Symbol: QueryKey<Symbol> = {
   make_cache: default_cache<Symbol>((k) => k),

@@ -30,6 +30,7 @@ import { Binder, debug_Binder, debug_BoundTy, debug_Placeholder, EarlyBinder, fo
 import type { Interner } from "./interner.ts";
 import { debug_bound_var } from "./lib.ts";
 import { debug_ExistentialPredicate, type ExistentialPredicate, type TraitRef } from "./predicate.ts";
+import { debug_PatternKind } from "./ir_print.ts";
 import { debug_Const } from "./sty/consts.ts";
 import { debug_Region } from "./sty/mod.ts";
 import { type AliasTy as AliasTyT, debug_Alias, type FreeAliasTy as FreeAliasTyT, type InherentAliasTy as InherentAliasTyT, type OpaqueAliasTy as OpaqueAliasTyT, type ProjectionAliasTy as ProjectionAliasTyT } from "./ty/alias.ts";
@@ -228,9 +229,8 @@ export const debug_TyKind: Debug<TyKind> = (self, f) => {
     case "Array":
       return `[${debug_Ty(self._0, PLAIN)}; ${debug_Const(self._1, PLAIN)}]`;
     case "Pat":
-      // write!(f, "pattern_type!({t:?} is {p:?})")
-      // PORT: `impl Debug for Pattern` (rustc_middle ty/pattern.rs) is not ported yet.
-      return unported("rustc_type_ir::ty_kind::TyKind Debug (Pat: Debug for rustc_middle::ty::Pattern)");
+      // PORT: `{p:?}` is `impl Debug for Pattern` (rustc_middle ty/pattern.rs): the `PatternKind`'s Debug.
+      return `pattern_type!(${debug_Ty(self._0, PLAIN)} is ${debug_PatternKind(self._1.kind(), PLAIN)})`;
     case "Slice":
       return `[${debug_Ty(self._0, PLAIN)}]`;
     case "RawPtr":

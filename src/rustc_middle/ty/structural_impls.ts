@@ -44,6 +44,7 @@ import { panic, unported } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
 import type { TyCtxt } from "./context.ts";
 import type { TraitDef } from "./trait_def.ts";
+import { Pattern_deref } from "./pattern.ts";
 import type { UpvarId } from "./closure.ts";
 import type { AdtDef, BoundExistentialPredicates, CastKind, Consts, LocalDefIds, PatList, Pattern, PlaceElem, PredefinedOpaques, RegionAssumptions } from "./decls.ts";
 import { debug_BinOp, debug_UnOp } from "../mir/syntax.ts";
@@ -125,10 +126,6 @@ function adjustment_gen(): typeof import("./adjustment.gen.ts") {
 
 // ---- PORT stand-ins for items of other lanes' files that are not ported yet ----------------------------------------
 
-/** PORT: stand-in for `Deref for Pattern` (`*self`, the interned `PatternKind`; ty/pattern.rs, not ported yet). */
-function Pattern_deref(_self: Pattern): PatternKind {
-  return unported("rustc_middle::ty::Pattern: Deref (ty/pattern.rs not ported yet)");
-}
 /** PORT: stand-in for the derived `Debug` of `ty::abstract_const::CastKind` (pending in decls.ts). */
 function debug_CastKind(_v: CastKind): string {
   return unported("rustc_middle::ty::abstract_const::CastKind: Debug (pending)");

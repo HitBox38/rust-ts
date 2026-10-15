@@ -718,7 +718,7 @@ class WfPredicates implements TypeVisitor<undefined> {
   // rustc: compiler/rustc_trait_selection/src/traits/wf.rs:694 add_wf_preds_for_pat_ty
   add_wf_preds_for_pat_ty(base_ty: Ty, pat: Pattern): void {
     const tcx = this.tcx();
-    const p = Pattern_deref(pat);
+    const p = pat.kind();
     switch (p.$) {
       case "Range": {
         const { start, end } = p;
@@ -1372,8 +1372,3 @@ function Binder_no_bound_vars_unwrap(b: Binder<GenericArgs>): GenericArgs {
   return unwrap(Binder.no_bound_vars(b, fold_GenericArgs));
 }
 
-/** PORT: stand-in for `Deref for Pattern` (`*pat`, the interned `PatternKind`; rustc_middle ty/pattern.rs is not ported
- *  yet, as rustc_middle structural_impls.ts's `Pattern_deref`). */
-function Pattern_deref(_pat: Pattern): PatternKind {
-  return unported("rustc_middle::ty::Pattern: Deref (ty/pattern.rs not ported yet)");
-}

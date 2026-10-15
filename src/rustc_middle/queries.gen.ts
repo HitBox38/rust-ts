@@ -27,7 +27,7 @@ import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLower
 import { type DeprecationEntry, debug_DeprecationEntry } from "./middle/stability.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
-import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
+import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
 import { type QueryDecl } from "./query/query_api.ts";
 import { stable_hash_Visibility } from "./stable_hash.gen.ts";
 import { type CodegenObligationError, type DynCompatibilityViolation, type ObligationCause, type WellFormedLoc, debug_DynCompatibilityViolation, debug_ObligationCause } from "./traits/mod.ts";
@@ -37,7 +37,8 @@ import { type Graph, debug_Graph } from "./traits/specialization_graph.ts";
 import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment.ts";
 import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
-import { type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
+import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
+import { type PseudoCanonicalInput, type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
 import { display_Ty } from "./ty/print/pretty.ts";
 import { type CrateNum, type DefId, type DefIdMap, type LocalDefId, type LocalModId, type ModId, debug_CrateNum, debug_DefId, debug_LocalDefId, debug_ModId, display_CrateNum, stable_hash_CrateNum, stable_hash_DefId, stable_hash_LocalDefId } from "../rustc_span/def_id.ts";
 import { type ExpnId, type LocalExpnId, debug_ExpnId, stable_hash_ExpnId } from "../rustc_span/hygiene.ts";
@@ -737,8 +738,7 @@ export interface QueryTypes {
    * Methods in these implementations don't need to be exported.
    */
   inherent_impls: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
-  // PORT: key `SimplifiedType` not ported (`unknown`)
-  incoherent_impls: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
+  incoherent_impls: { Key: SimplifiedType; KeyArg: SimplifiedType; LocalKey: SimplifiedType; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
   /**
    * Unsafety-check this `LocalDefId`.
    */
@@ -865,7 +865,7 @@ export interface QueryTypes {
    * This query will panic for uninhabited variants and if the passed type is not an enum.
    */
   // PORT: key `PseudoCanonicalInput<'tcx, (Ty<'tcx>, abi::VariantIdx)>` not ported; value `Option<ty::ScalarInt>` not ported (`unknown`)
-  tag_for_variant: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  tag_for_variant: { Key: PseudoCanonicalInput<[Ty, unknown]>; KeyArg: PseudoCanonicalInput<[Ty, unknown]>; LocalKey: PseudoCanonicalInput<[Ty, unknown]>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   /**
    * Evaluates a constant and returns the computed allocation.
    *
@@ -877,7 +877,7 @@ export interface QueryTypes {
    * </div>
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>` not ported; value `EvalToAllocationRawResult<'tcx>` not ported (`unknown`)
-  eval_to_allocation_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  eval_to_allocation_raw: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: unknown; ProvidedValue: unknown };
   /**
    * Evaluate a static's initializer, returning the allocation of the initializer's memory.
    */
@@ -898,13 +898,13 @@ export interface QueryTypes {
    * [^1]: Such as enum variant explicit discriminants or array lengths.
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>` not ported; value `EvalToConstValueResult<'tcx>` not ported (`unknown`)
-  eval_to_const_value_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  eval_to_const_value_raw: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: unknown; ProvidedValue: unknown };
   /**
    * Evaluate a constant and convert it to a type level constant or
    * return `None` if that is not possible.
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>` not ported; value `EvalToValTreeResult<'tcx>` not ported (`unknown`)
-  eval_to_valtree: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  eval_to_valtree: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: unknown; ProvidedValue: unknown };
   /**
    * Converts a type-level constant value into a MIR constant value.
    */
@@ -1014,7 +1014,7 @@ export interface QueryTypes {
   // PORT: key `(Ty<'tcx>, Option<ty::ExistentialTraitRef<'tcx>>)` not ported; value `mir::interpret::AllocId` not ported (`unknown`)
   vtable_allocation: { Key: [Ty, unknown | undefined]; KeyArg: [Ty, unknown | undefined]; LocalKey: [Ty, unknown | undefined]; Value: unknown; ProvidedValue: unknown };
   // PORT: key `PseudoCanonicalInput<'tcx, ty::TraitRef<'tcx>>` not ported; value `Result<&'tcx ImplSource<'tcx, ()>, CodegenObligationError>` not ported (`unknown`)
-  codegen_select_candidate: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, CodegenObligationError>; ProvidedValue: Result<unknown, CodegenObligationError> };
+  codegen_select_candidate: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: Result<unknown, CodegenObligationError>; ProvidedValue: Result<unknown, CodegenObligationError> };
   /**
    * Return all `impl` blocks in the current crate.
    */
@@ -1054,54 +1054,44 @@ export interface QueryTypes {
    * Trait selection queries. These are best used by invoking `ty.is_copy_modulo_regions()`,
    * `ty.is_copy()`, etc, since that will prune the environment where possible.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  is_copy_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  is_copy_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Trait selection queries. These are best used by invoking `ty.is_use_cloned_modulo_regions()`,
    * `ty.is_use_cloned()`, etc, since that will prune the environment where possible.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  is_use_cloned_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  is_use_cloned_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Query backing `Ty::is_sized`.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  is_sized_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  is_sized_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Query backing `Ty::is_freeze`.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  is_freeze_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  is_freeze_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Query backing `Ty::is_unsafe_unpin`.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  is_unsafe_unpin_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  is_unsafe_unpin_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Query backing `Ty::is_unpin`.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  is_unpin_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  is_unpin_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Query backing `Ty::is_async_drop`.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  is_async_drop_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  is_async_drop_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Query backing `Ty::needs_drop`.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  needs_drop_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  needs_drop_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Query backing `Ty::needs_async_drop`.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  needs_async_drop_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  needs_async_drop_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Query backing `Ty::has_significant_drop_raw`.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported (`unknown`)
-  has_significant_drop_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  has_significant_drop_raw: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: boolean; ProvidedValue: boolean };
   /**
    * Query backing `Ty::is_structural_eq_shallow`.
    *
@@ -1152,14 +1142,14 @@ export interface QueryTypes {
    * because this query partially depends on that query.
    * Otherwise, there is a risk of query cycles.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported; value `&'tcx ty::List<Ty<'tcx>>` not ported (`unknown`)
-  list_significant_drop_tys: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  // PORT: value `&'tcx ty::List<Ty<'tcx>>` not ported (`unknown`)
+  list_significant_drop_tys: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: unknown; ProvidedValue: unknown };
   /**
    * Computes the layout of a type. Note that this implicitly
    * executes in `TypingMode::PostAnalysis`, and will normalize the input type.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>` not ported; value `Result<ty::layout::TyAndLayout<'tcx>, &'tcx ty::layout::LayoutError<'tcx>>` not ported (`unknown`)
-  layout_of: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  // PORT: value `Result<ty::layout::TyAndLayout<'tcx>, &'tcx ty::layout::LayoutError<'tcx>>` not ported (`unknown`)
+  layout_of: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Compute a `FnAbi` suitable for indirect calls, i.e. to `fn` pointers.
    *
@@ -1167,7 +1157,7 @@ export interface QueryTypes {
    * instead, where the instance is an `InstanceKind::Virtual`.
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::PolyFnSig<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_fn_ptr: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  fn_abi_of_fn_ptr: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Compute a `FnAbi` suitable for declaring/defining an `fn` instance, and for direct calls*
    * to an `fn`. Indirectly-passed parameters in the returned ABI might not include all possible
@@ -1182,7 +1172,7 @@ export interface QueryTypes {
    *   `InstanceKind::Virtual` instance (of `<dyn Trait as Trait>::fn`).
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::Instance<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_instance_no_deduced_attrs: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  fn_abi_of_instance_no_deduced_attrs: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   /**
    * Compute a `FnAbi` suitable for declaring/defining an `fn` instance, and for direct calls*
    * to an `fn`. Indirectly-passed parameters in the returned ABI will include applicable
@@ -1200,7 +1190,7 @@ export interface QueryTypes {
    *   `InstanceKind::Virtual` instance (of `<dyn Trait as Trait>::fn`).
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::Instance<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_instance_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  fn_abi_of_instance_raw: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   // PORT: value `&'tcx [(CrateNum, LinkagePreference)]` not ported (`unknown`)
   dylib_dependency_formats: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [CrateNum, unknown][]; ProvidedValue: readonly [CrateNum, unknown][] };
   // PORT: value `&'tcx Arc<crate::middle::dependency_format::Dependencies>` not ported (`unknown`)
@@ -1336,16 +1326,14 @@ export interface QueryTypes {
    * Given a crate and a trait, look up all impls of that trait in the crate.
    * Return `(impl_id, self_ty)`.
    */
-  // PORT: value `&'tcx [(DefId, Option<SimplifiedType>)]` not ported (`unknown`)
-  implementations_of_trait: { Key: [CrateNum, DefId]; KeyArg: [CrateNum, DefId]; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum_DefId>; Value: readonly ([DefId, unknown | undefined])[]; ProvidedValue: readonly ([DefId, unknown | undefined])[] };
+  implementations_of_trait: { Key: [CrateNum, DefId]; KeyArg: [CrateNum, DefId]; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum_DefId>; Value: readonly ([DefId, SimplifiedType | undefined])[]; ProvidedValue: readonly ([DefId, SimplifiedType | undefined])[] };
   /**
    * Collects all incoherent impls for the given crate and type.
    *
    * Do not call this directly, but instead use the `incoherent_impls` query.
    * This query is only used to get the data necessary for that query.
    */
-  // PORT: key `(CrateNum, SimplifiedType)` not ported (`unknown`)
-  crate_incoherent_impls: { Key: [CrateNum, unknown]; KeyArg: [CrateNum, unknown]; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum_SimplifiedType>; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
+  crate_incoherent_impls: { Key: [CrateNum, SimplifiedType]; KeyArg: [CrateNum, SimplifiedType]; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum_SimplifiedType>; Value: readonly DefId[]; ProvidedValue: readonly DefId[] };
   /**
    * Get the corresponding native library from the `native_libraries` query
    */
@@ -1455,7 +1443,7 @@ export interface QueryTypes {
    * Do not call this query directly: invoke `Ty::is_opsem_inhabited` instead.
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::AdtDef<'tcx>, ty::GenericArgsRef<'tcx>)>` not ported (`unknown`)
-  is_opsem_inhabited_adt_cached: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: boolean; ProvidedValue: boolean };
+  is_opsem_inhabited_adt_cached: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: boolean; ProvidedValue: boolean };
   // PORT: value `CrateDepKind` not ported (`unknown`)
   crate_dep_kind: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: unknown; ProvidedValue: unknown };
   /**
@@ -1656,7 +1644,7 @@ export interface QueryTypes {
    * Do not call this query directly: invoke `try_normalize_erasing_regions` instead.
    */
   // PORT: key `PseudoCanonicalInput<'tcx, GenericArg<'tcx>>` not ported; value `Result<GenericArg<'tcx>, NoSolution>` not ported (`unknown`)
-  try_normalize_generic_arg_after_erasing_regions: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  try_normalize_generic_arg_after_erasing_regions: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, Vec<OutlivesBound<'tcx>>>>, NoSolution,>` not ported (`unknown`)
   implied_outlives_bounds: { Key: [CanonicalImpliedOutlivesBoundsGoal, boolean]; KeyArg: [CanonicalImpliedOutlivesBoundsGoal, boolean]; LocalKey: [CanonicalImpliedOutlivesBoundsGoal, boolean]; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
   // PORT: value `Result<&'tcx Canonical<'tcx, canonical::QueryResponse<'tcx, MirBorrowckImpliedOutlivesBounds<'tcx>>>, NoSolution,>` not ported (`unknown`)
@@ -1733,7 +1721,7 @@ export interface QueryTypes {
    *    has already been/will be emitted, for the original cause.
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (DefId, GenericArgsRef<'tcx>)>` not ported; value `Result<Option<ty::Instance<'tcx>>, ErrorGuaranteed>` not ported (`unknown`)
-  resolve_instance_raw: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Result<unknown | undefined, ErrorGuaranteed>; ProvidedValue: Result<unknown | undefined, ErrorGuaranteed> };
+  resolve_instance_raw: { Key: PseudoCanonicalInput<[DefId, unknown]>; KeyArg: PseudoCanonicalInput<[DefId, unknown]>; LocalKey: PseudoCanonicalInput<[DefId, unknown]>; Value: Result<unknown | undefined, ErrorGuaranteed>; ProvidedValue: Result<unknown | undefined, ErrorGuaranteed> };
   // PORT: key `ty::Clauses<'tcx>` not ported; value `ty::Clauses<'tcx>` not ported (`unknown`)
   reveal_opaque_types_in_bounds: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
   limits: { Key: null; KeyArg: null; LocalKey: null; Value: Limits; ProvidedValue: Limits };
@@ -1750,7 +1738,7 @@ export interface QueryTypes {
   // PORT: key `(ty::Predicate<'tcx>, WellFormedLoc)` not ported (`unknown`)
   diagnostic_hir_wf_check: { Key: [unknown, WellFormedLoc]; KeyArg: [unknown, WellFormedLoc]; LocalKey: [unknown, WellFormedLoc]; Value: ObligationCause | undefined; ProvidedValue: ObligationCause | undefined };
   // PORT: key `(ValidityRequirement, ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>)` not ported; value `Result<bool, &'tcx ty::layout::LayoutError<'tcx>>` not ported (`unknown`)
-  check_validity_requirement: { Key: [unknown, unknown]; KeyArg: [unknown, unknown]; LocalKey: [unknown, unknown]; Value: Result<boolean, unknown>; ProvidedValue: Result<boolean, unknown> };
+  check_validity_requirement: { Key: [unknown, PseudoCanonicalInput<Ty>]; KeyArg: [unknown, PseudoCanonicalInput<Ty>]; LocalKey: [unknown, PseudoCanonicalInput<Ty>]; Value: Result<boolean, unknown>; ProvidedValue: Result<boolean, unknown> };
   /**
    * This takes the def-id of an associated item from a impl of a trait,
    * and checks its validity against the trait item it corresponds to.
@@ -3647,7 +3635,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     no_hash: false,
     separate_provide_extern: false,
     returns_error_guaranteed: false,
-    desc: () => unported("desc of query `incoherent_impls` (Debug of `rustc_middle::ty::fast_reject::SimplifiedType`)"),
+    desc: (_tcx, key) => { const __0 = key; return `collecting all inherent impls for \`${debug_SimplifiedType(__0, PLAIN)}\``; },
     debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_DefId(x, f)),
     stable_hash_value: (v, hcx, h) => stable_hash_slice(v, hcx, h, stable_hash_DefId),
   },
@@ -4841,7 +4829,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   codegen_select_candidate: {
     name: "codegen_select_candidate",
-    key: key_unported("PseudoCanonicalInput<'tcx, ty::TraitRef<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_TraitRef,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: true,
@@ -5003,7 +4991,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   is_copy_raw: {
     name: "is_copy_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5021,7 +5009,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   is_use_cloned_raw: {
     name: "is_use_cloned_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5039,7 +5027,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   is_sized_raw: {
     name: "is_sized_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5057,7 +5045,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   is_freeze_raw: {
     name: "is_freeze_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5075,7 +5063,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   is_unsafe_unpin_raw: {
     name: "is_unsafe_unpin_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5093,7 +5081,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   is_unpin_raw: {
     name: "is_unpin_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5111,7 +5099,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   is_async_drop_raw: {
     name: "is_async_drop_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5129,7 +5117,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   needs_drop_raw: {
     name: "needs_drop_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5147,7 +5135,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   needs_async_drop_raw: {
     name: "needs_async_drop_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5165,7 +5153,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   has_significant_drop_raw: {
     name: "has_significant_drop_raw",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5255,7 +5243,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   list_significant_drop_tys: {
     name: "list_significant_drop_tys",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5273,7 +5261,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   layout_of: {
     name: "layout_of",
-    key: key_unported("ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_Ty,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,
@@ -5970,7 +5958,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `looking up implementations of a trait in a crate`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, (x, f) => debug_tuple(f, "", [debug_DefId(x[0], f), debug_option(x[1], f, ((x, f) => debug_SimplifiedType(x, f)))])),
     stable_hash_value: undefined,
   },
   crate_incoherent_impls: {
@@ -7001,7 +6989,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
   },
   try_normalize_generic_arg_after_erasing_regions: {
     name: "try_normalize_generic_arg_after_erasing_regions",
-    key: key_unported("PseudoCanonicalInput<'tcx, GenericArg<'tcx>>"),
+    key: KEY_PseudoCanonicalInput_GenericArg,
     into_key: into_query_key_identity,
     arena_cache: false,
     cache_on_disk: false,

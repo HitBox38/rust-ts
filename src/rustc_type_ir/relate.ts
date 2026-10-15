@@ -48,6 +48,7 @@ import type { TypeFoldable } from "./fold.ts";
 import { CollectAndApply_Result, type Interner } from "./interner.ts";
 import { Variance } from "./lib.ts";
 import {
+  type ExistentialPredicate,
   ExistentialProjection,
   ExistentialTraitRef,
   fold_with_ExistentialProjection,
@@ -200,26 +201,93 @@ export const relate_Term: Relate<Term> = {
   },
 };
 
-/** PORT: stand-in for `impl Relate for Pattern` (rustc_middle ty/relate.rs:22; `Pattern` is pending). */
+/** `impl Relate for Pattern` (rustc_middle ty/relate.rs:21), kept beside the other rustc_middle stand-ins of this
+ *  module. */
 export const relate_Pattern: Relate<Pattern> = {
   visit_with: visit_with_Pattern,
   try_fold_with: try_fold_with_Pattern,
   fold_with: fold_with_Pattern,
   eq: eq_interned,
-  relate(_relation, _a, _b) {
-    return unported("rustc_middle::ty::relate: Relate for Pattern (Pattern is pending)");
+  // rustc: compiler/rustc_middle/src/ty/relate.rs:23 relate
+  relate(relation, a, b) {
+    const tcx = relation.cx();
+    const ak = a.kind();
+    const bk = b.kind();
+    if (ak.$ === "Range" && bk.$ === "Range") {
+      const [start_a, end_a] = [ak.start, ak.end];
+      const [start_b, end_b] = [bk.start, bk.end];
+      const start = relation.relate(start_a, start_b, relate_Const);
+      if (start.$ === "Err") return start;
+      const end = relation.relate(end_a, end_b, relate_Const);
+      if (end.$ === "Err") return end;
+      return Ok(tcx.mk_pat({ $: "Range", start: start._0, end: end._0 }));
+    } else if (ak.$ === "NotNull" && bk.$ === "NotNull") {
+      return Ok(a);
+    } else if (ak.$ === "Or" && bk.$ === "Or") {
+      const [a_, b_] = [ak._0, bk._0];
+      if (a_.length !== b_.length) {
+        return Err(TypeError.Mismatch);
+      }
+      const v = (function* (): Generator<RelateResult<Pattern>> {
+        const n = Math.min(a_.length, b_.length);
+        for (let i = 0; i < n; i++) {
+          yield relation.relate(a_[i]!, b_[i]!, relate_Pattern);
+        }
+      })();
+      const patterns = tcx.mk_patterns_from_iter(v, CollectAndApply_Result);
+      if (patterns.$ === "Err") return patterns;
+      return Ok(tcx.mk_pat({ $: "Or", _0: patterns._0 }));
+    } else {
+      return Err(TypeError.Mismatch);
+    }
   },
 };
 
-/** PORT: stand-in for `impl Relate for &List<PolyExistentialPredicate>` (rustc_middle ty/relate.rs:56; needs
- *  `mk_poly_existential_predicates_from_iter`, itself unported). */
+/** `impl Relate for &List<PolyExistentialPredicate>` (rustc_middle ty/relate.rs:55), kept beside the other
+ *  rustc_middle stand-ins of this module. */
 export const relate_BoundExistentialPredicates: Relate<BoundExistentialPredicates> = {
   visit_with: visit_with_BoundExistentialPredicates,
   try_fold_with: try_fold_with_BoundExistentialPredicates,
   fold_with: fold_with_BoundExistentialPredicates,
   eq: eq_interned,
-  relate(_relation, _a, _b) {
-    return unported("rustc_middle::ty::relate: Relate for &List<PolyExistentialPredicate>");
+  // rustc: compiler/rustc_middle/src/ty/relate.rs:56 relate
+  relate(relation, a, b) {
+    const tcx = relation.cx();
+    // Fast path for when the auto traits do not match, or if the principals
+    // are from different traits and therefore the projections definitely don't
+    // match up.
+    if (a.length !== b.length) {
+      return Err({ $: "ExistentialMismatch", _0: ExpectedFound.new(a, b) });
+    }
+    const v = (function* (): Generator<RelateResult<Binder<ExistentialPredicate>>> {
+      const n = Math.min(a.length, b.length);
+      for (let i = 0; i < n; i++) {
+        const ep_a = a[i]!;
+        const ep_b = b[i]!;
+        const ea = Binder.skip_binder(ep_a);
+        const eb = Binder.skip_binder(ep_b);
+        if (ea.$ === "Trait" && eb.$ === "Trait") {
+          const r = relation.relate(Binder.rebind(ep_a, ea._0), Binder.rebind(ep_b, eb._0), relate_Binder(relate_ExistentialTraitRef));
+          if (r.$ === "Err") {
+            yield r;
+            continue;
+          }
+          yield Ok(Binder.rebind(ep_a, { $: "Trait", _0: Binder.skip_binder(r._0) }));
+        } else if (ea.$ === "Projection" && eb.$ === "Projection") {
+          const r = relation.relate(Binder.rebind(ep_a, ea._0), Binder.rebind(ep_b, eb._0), relate_Binder(relate_ExistentialProjection));
+          if (r.$ === "Err") {
+            yield r;
+            continue;
+          }
+          yield Ok(Binder.rebind(ep_a, { $: "Projection", _0: Binder.skip_binder(r._0) }));
+        } else if (ea.$ === "AutoTrait" && eb.$ === "AutoTrait" && DefId_eq(ea._0, eb._0)) {
+          yield Ok(Binder.rebind(ep_a, { $: "AutoTrait", _0: ea._0 }));
+        } else {
+          yield Err({ $: "ExistentialMismatch", _0: ExpectedFound.new(a, b) });
+        }
+      }
+    })();
+    return tcx.mk_poly_existential_predicates_from_iter(v, CollectAndApply_Result);
   },
 };
 

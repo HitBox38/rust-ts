@@ -46,8 +46,6 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("golden: the rustc_ty set reprodu
     "I::LocalDefIds",
     "I::PredefinedOpaques",
     "I::RegionAssumptions",
-    "I::ScalarInt",
-    "I::ValueConst",
     "rustc_abi::FieldIdx",
     "rustc_middle::mir::BinOp",
     "rustc_middle::mir::UnOp",

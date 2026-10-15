@@ -10,8 +10,7 @@
 // - `match (*v1, *v2)` in `xform` keeps the arm order as an if-chain.
 // - `map[&key]` (`Index`) is `unwrap(map.get(key), "key not found")`, the message of std's `HashMap` `Index` panic.
 // - `#[instrument]` and `debug!` are tracing only and stay as comments.
-// - `ty::Pattern` is pending in rustc_middle (ty/decls.ts), so `*pat` goes through the local stand-in `Pattern_kind`
-//   (as rustc_type_ir walk.ts does), which stops as UNPORTED.
+// - `*pat` (`impl Deref for Pattern`) is `pat.kind()` (rustc_middle ty/pattern.ts).
 // - The fields `contravariant` / `invariant` share their names with the methods `contravariant()` / `invariant()`, so the
 //   fields are `contravariant_` / `invariant_` (`covariant` / `bivariant` keep their names).
 // Init order: top-level code here touches only other crates.
@@ -320,7 +319,7 @@ export class ConstraintContext {
 
   // rustc: compiler/rustc_hir_analysis/src/variance/constraints.rs:327 add_constraints_from_pat
   add_constraints_from_pat(current: CurrentItem, variance: VarianceTermPtr, pat: Pattern): void {
-    const k = Pattern_kind(pat);
+    const k = pat.kind();
     switch (k.$) {
       case "Range": {
         const [start, end] = [k.start, k.end];
@@ -544,7 +543,3 @@ export function add_constraints_from_crate(terms_cx: TermsContext): ConstraintCo
 
 // ---- PORT stand-ins for items of files that are not ported yet ----------------------------------------------------
 
-/** PORT: stand-in for `*pat` (`impl Deref for Pattern`, rustc_middle ty/pattern.rs; `Pattern` is pending). */
-function Pattern_kind(_pat: Pattern): PatternKind {
-  return unported("rustc_middle::ty::Pattern (deref to PatternKind; ty/pattern.rs not ported)");
-}

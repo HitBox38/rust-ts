@@ -8,6 +8,7 @@ import { type MainDefinition } from "../rustc_middle/middle/resolve.ts";
 import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
 import { type Ty } from "../rustc_middle/ty/mod.ts";
 import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
+import { type ProcMacroKind, ProcMacroKind_into_diag_arg } from "./check_attr.ts";
 import { type Duplicate } from "./lang_items.ts";
 import { type Span } from "../rustc_span/lib.ts";
 import { display_Ident, display_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
@@ -1342,14 +1343,14 @@ export function ChangeFields_subdiagnostic(self: ChangeFields): Subdiagnostic {
 // rustc-type: compiler/rustc_passes/src/diagnostics.rs:807 ProcMacroBadSig
 export interface ProcMacroBadSig {
   span: Span;
-  kind: unknown;
+  kind: ProcMacroKind;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for ProcMacroBadSig` */
 // rustc-derive: compiler/rustc_passes/src/diagnostics.rs:807 Diagnostic ProcMacroBadSig
 export function ProcMacroBadSig_into_diag(self: ProcMacroBadSig, dcx: DiagCtxtHandle, level: Level): Diag {
   const { span: __binding_0, kind: __binding_1 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "{$kind} has incorrect signature" });
-  diag.arg("kind", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("kind", IntoDiagArg.of(__binding_1, ProcMacroKind_into_diag_arg));
   diag.span(__binding_0);
   return diag;
 }

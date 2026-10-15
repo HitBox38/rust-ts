@@ -33,7 +33,8 @@ import { ObligationCause, clone_ObligationCause } from "../../rustc_middle/trait
 import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
 import type { CoerceUnsizedInfo, CustomCoerceUnsized } from "../../rustc_middle/ty/adjustment.gen.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { FieldIdx, Pattern } from "../../rustc_middle/ty/decls.ts";
+import type { FieldIdx } from "../../rustc_middle/ty/decls.ts";
+import { display_Pattern } from "../../rustc_middle/ty/pattern.ts";
 import { suggest_constraining_type_params } from "../../rustc_middle/ty/diagnostics.ts";
 import { GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import type { Generics } from "../../rustc_middle/ty/generics.ts";
@@ -1111,10 +1112,6 @@ function cmp_String(a: string, b: string): number {
 
 // ---- stand-ins: pending types and other lanes' items -----------------------------------------------------------------
 
-/** PORT(stub): `<ty::Pattern as Display>::fmt` (`ty::Pattern` is pending in rustc_middle ty/decls.ts). */
-function display_Pattern(_p: Pattern): string {
-  return unported("rustc_middle::ty::pattern::Pattern: Display");
-}
 
 /** PORT(stub): `rustc_abi::LayoutData::is_zst` (layout is M4). */
 export function LayoutData_is_zst(_layout: unknown): boolean {
