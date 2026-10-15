@@ -104,7 +104,6 @@ import { Diverges } from "./diverges.ts";
 import { Expectation } from "./expectation.ts";
 import { Needs, TupleArgumentsFlag, fatally_break_rust } from "./lib.ts";
 import { CoerceMany } from "./coercion.ts";
-import type { CoerceMany as CoerceManyGen } from "./coercion.gen.ts";
 import { CastCheck } from "./cast.ts";
 import { Declaration_from_LetExpr, GatherLocalsVisitor } from "./gather_locals.ts";
 import { contains_let_in_chain } from "./op.ts";
@@ -139,19 +138,6 @@ export function err_ctxt_methods(fcx: FnCtxt): TypeErrCtxtMethods {
 export const d_Ty_Ty_visitable: TypeVisitable<[Ty, Ty]> = {
   visit_with: (self, visitor) => visit_with_tuple2(self, visitor, fold_Ty.visit_with, fold_Ty.visit_with),
 };
-
-/**
- * PORT(decls): pending root. decls.ts types `FnCtxt.ret_coercion` (and `if_fallback_coercion`'s `coercion`) with the
- * generated `CoerceMany` of coercion.gen.ts, but the class instantiated at runtime, which carries the methods, is
- * coercion.ts's hand class (`CoerceMany.new`): the same object seen with the right type.
- */
-export function ret_coercion_of(fcx: FnCtxt): CoerceMany | undefined {
-  return fcx.ret_coercion as unknown as CoerceMany | undefined;
-}
-/** The converse of `ret_coercion_of` (PORT(decls): pending root). */
-export function as_gen_CoerceMany(c: CoerceMany): CoerceManyGen {
-  return c as unknown as CoerceManyGen;
-}
 
 // ==== lane typeck-expr-a: expr.rs:1..1854 ====
 
@@ -880,7 +866,7 @@ FnCtxt.prototype.check_expr_continue = function (this: FnCtxt, destination: hir.
 
 // rustc: compiler/rustc_hir_typeck/src/expr.rs:887 check_expr_return
 FnCtxt.prototype.check_expr_return = function (this: FnCtxt, expr_opt: hir.Expr | undefined, expr: hir.Expr): Ty {
-  if (ret_coercion_of(this) === undefined) {
+  if (this.ret_coercion === undefined) {
     this.emit_return_outside_of_fn_body(expr, "Return");
 
     if (expr_opt !== undefined) {
@@ -896,7 +882,7 @@ FnCtxt.prototype.check_expr_return = function (this: FnCtxt, expr_opt: hir.Expr 
     }
     this.check_return_or_body_tail(e, true);
   } else {
-    const coercion = unwrap(ret_coercion_of(this));
+    const coercion = unwrap(this.ret_coercion);
     if (this.ret_coercion_span === undefined) {
       this.ret_coercion_span = expr.span;
     }
@@ -925,7 +911,7 @@ FnCtxt.prototype.check_expr_return = function (this: FnCtxt, expr_opt: hir.Expr 
 
 // rustc: compiler/rustc_hir_typeck/src/expr.rs:933 check_expr_become
 FnCtxt.prototype.check_expr_become = function (this: FnCtxt, call: hir.Expr, expr: hir.Expr): Ty {
-  const ret_coercion = ret_coercion_of(this);
+  const ret_coercion = this.ret_coercion;
   if (ret_coercion !== undefined) {
     const ret_ty = ret_coercion.expected_ty();
     const call_expr_ty = this.check_expr_with_hint(call, ret_ty);
@@ -954,7 +940,7 @@ FnCtxt.prototype.check_expr_become = function (this: FnCtxt, call: hir.Expr, exp
 /// and `false` if we're checking a trailing expression.
 // rustc: compiler/rustc_hir_typeck/src/expr.rs:967 check_return_or_body_tail
 FnCtxt.prototype.check_return_or_body_tail = function (this: FnCtxt, return_expr: hir.Expr, explicit_return: boolean): void {
-  const ret_coercion = ret_coercion_of(this) ?? span_bug(return_expr.span, "check_return_expr called outside fn body");
+  const ret_coercion = this.ret_coercion ?? span_bug(return_expr.span, "check_return_expr called outside fn body");
 
   const ret_ty = ret_coercion.expected_ty();
   const return_expr_ty = this.check_expr_with_hint(return_expr, ret_ty);
@@ -1159,7 +1145,7 @@ FnCtxt.prototype.check_expr_if = function (this: FnCtxt, expr_id: HirId, cond_ex
     // We won't diverge unless both branches do (or the condition does).
     this.diverges = Diverges.bitor(cond_diverges, Diverges.bitand(then_diverges, else_diverges));
   } else {
-    this.if_fallback_coercion(sp, cond_expr, then_expr, as_gen_CoerceMany(coerce));
+    this.if_fallback_coercion(sp, cond_expr, then_expr, coerce);
 
     // If the condition is false we can't diverge.
     this.diverges = cond_diverges;

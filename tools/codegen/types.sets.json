@@ -1267,6 +1267,7 @@
       "rustc_hir_typeck::fn_ctxt::inspect_obligations::NestedObligationsForSelfTy",
       "rustc_hir_typeck::fn_ctxt::inspect_obligations::FindFromFloatForF32RootVids",
       "rustc_hir_typeck::coercion::CoerceVisitor",
+      "rustc_hir_typeck::coercion::CoerceMany",
       "rustc_hir_typeck::upvar::InferBorrowKindVisitor",
       "rustc_hir_typeck::upvar::InferBorrowKind",
       "rustc_hir_typeck::expr_use_visitor::ExprPlaceDelegate"
@@ -1287,6 +1288,7 @@
       "rustc_hir_typeck::fn_ctxt::inspect_obligations::NestedObligationsForSelfTy": "ProofTreeVisitor impl: hand class (fn_ctxt/inspect_obligations.ts, lane typeck-checks-a)",
       "rustc_hir_typeck::fn_ctxt::inspect_obligations::FindFromFloatForF32RootVids": "ProofTreeVisitor impl: hand class (fn_ctxt/inspect_obligations.ts, lane typeck-checks-a)",
       "rustc_hir_typeck::coercion::CoerceVisitor": "ProofTreeVisitor impl: hand class (coercion.ts, lane typeck-coerce)",
+      "rustc_hir_typeck::coercion::CoerceMany": "hand class (coercion.ts, lane typeck-coerce): field `expected_ty` is `expected_ty_` (the method `expected_ty()` has the same name); methods / associated fns declared in decls.ts",
       "rustc_hir_typeck::upvar::InferBorrowKindVisitor": "intravisit Visitor impl: hand class (upvar.ts, lane typeck-upvar)",
       "rustc_hir_typeck::upvar::InferBorrowKind": "expr_use_visitor `Delegate` implementor: hand class implementing decls.ts `Delegate` (upvar.ts, lane typeck-upvar)",
       "rustc_hir_typeck::expr_use_visitor::ExprPlaceDelegate": "unit struct implementing `Delegate`: hand (expr_use_visitor.ts, lane typeck-euv)"

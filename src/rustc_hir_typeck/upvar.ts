@@ -2539,16 +2539,9 @@ export function determine_capture_info(capture_info_a: CaptureInfo, capture_info
 ///
 /// Note: Capture kind changes from `MutBorrow` to `UniqueImmBorrow` if the truncated part of the `place`
 /// contained `Deref` of `&mut`.
-// PORT(decls): pending root. `curr_mode: &mut ty::UpvarCapture` is overwritten as a whole, so it is a
-// `MutRef<UpvarCapture>` (PORTING §8); decls.ts `Fns_upvar` declares it by value (`UpvarCapture`). The second overload
-// below only keeps that declaration (and contract.test.ts) type-checking until root fixes `Fns_upvar`; it is never
-// called.
-export function truncate_place_to_len_and_update_capture_kind(place: Place, curr_mode: MutRef<UpvarCapture>, len: number): void;
-export function truncate_place_to_len_and_update_capture_kind(place: Place, curr_mode: UpvarCapture, len: number): void;
+// PORT: `curr_mode: &mut ty::UpvarCapture` is overwritten as a whole, so it is a `MutRef<UpvarCapture>` (PORTING §8).
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2633 truncate_place_to_len_and_update_capture_kind
-export function truncate_place_to_len_and_update_capture_kind(place: Place, curr_mode_: MutRef<UpvarCapture> | UpvarCapture, len: number): void {
-  if (!("value" in curr_mode_)) return unreachable("truncate_place_to_len_and_update_capture_kind: `curr_mode` must be a MutRef");
-  const curr_mode = curr_mode_;
+export function truncate_place_to_len_and_update_capture_kind(place: Place, curr_mode: MutRef<UpvarCapture>, len: number): void {
   const is_mut_ref = (ty: Ty): boolean => {
     const k = ty.kind();
     return k.$ === "Ref" && k._2 === "Mut";

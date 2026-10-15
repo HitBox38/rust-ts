@@ -31,15 +31,6 @@ import type { MutRef } from "../std/mut_ref.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { FnCtxt } from "./decls.ts";
 
-// PORT(decls): pending root. decls.ts declares `adjust_expr_for_assert_eq_macro(found_expr: hir.Expr, expected_expr:
-// hir.Expr | undefined): void`, but upstream (demand.rs:112) takes `&mut &hir::Expr` / `&mut Option<&hir::Expr>`
-// out-parameters, which `demand_coerce_diag` reads back. The `MutRef` overload below is the signature it needs.
-declare module "./decls.ts" {
-  interface FnCtxt {
-    adjust_expr_for_assert_eq_macro(found_expr: MutRef<hir.Expr>, expected_expr: MutRef<hir.Expr | undefined>): void;
-  }
-}
-
 /** PORT(stub): `error_reporting::TypeErrCtxt` (wave 19): the method called in this file. */
 interface TypeErrCtxtView {
   report_mismatched_types(cause: ObligationCause, param_env: ParamEnv, expected: Ty, actual: Ty, err: TypeError): Diag;
@@ -150,7 +141,7 @@ FnCtxt.prototype.demand_coerce_diag = function (
   }
   const e = c._0;
 
-  // PORT: `&mut expr` / `&mut expected_ty_expr` (see the `PORT(decls)` note above).
+  // PORT: `&mut expr` / `&mut expected_ty_expr` are `MutRef` cells (PORTING §8).
   const expr_ref: MutRef<hir.Expr> = { value: expr0 };
   const expected_ty_expr_ref: MutRef<hir.Expr | undefined> = { value: expected_ty_expr0 };
   this.adjust_expr_for_assert_eq_macro(expr_ref, expected_ty_expr_ref);

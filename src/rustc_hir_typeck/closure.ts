@@ -37,7 +37,6 @@ import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs, CoroutineClosureSigna
 import { AliasTerm } from "../rustc_type_ir/term_kind.ts";
 import { debug_AliasTermKind } from "../rustc_type_ir/term_kind.gen.ts";
 import { debug_DefId, DefId_eq } from "../rustc_span/def_id.ts";
-import type { CoerceMany as CoerceManyHand } from "./coercion.ts";
 import { fold_FnSig, FnSig, FnSigKind, PolyFnSig as PolyFnSigC, PolyFnSigTys } from "../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt, type TypeVisitable, type TypeVisitor, TypeVisitor_provided, visit_with_Option } from "../rustc_type_ir/visit.ts";
@@ -860,10 +859,7 @@ FnCtxt.prototype.deduce_future_output_from_obligations = function (this: FnCtxt,
   const ret_coercion = this.ret_coercion ?? span_bug(this.tcx.def_span(body_def_id), "async fn coroutine outside of a fn");
 
   const closure_span = this.tcx.def_span(body_def_id);
-  // PORT(decls): pending root: decls.ts types `FnCtxt.ret_coercion` with the generated `CoerceMany` (coercion.gen.ts,
-  // field `expected_ty`) instead of the hand class of coercion.ts (field `expected_ty_`, method `expected_ty()`), which is
-  // what the field holds at runtime.
-  const ret_ty_ = (ret_coercion as unknown as CoerceManyHand).expected_ty();
+  const ret_ty_ = ret_coercion.expected_ty();
   const ret_ty = this.deeply_resolve_ignoring_regions_with_obligations(ret_ty_, fold_Ty);
 
   const get_future_output = (clause: Clause, span: Span): Ty | undefined => {

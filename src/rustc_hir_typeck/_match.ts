@@ -23,7 +23,6 @@ import { Span, type Span as SpanT } from "../rustc_span/lib.ts";
 import { sym } from "../rustc_span/symbol.ts";
 import type { MutRef } from "../std/mut_ref.ts";
 import { FnCtxt } from "./decls.ts";
-import type { CoerceMany as CoerceManyDecl } from "./coercion.gen.ts";
 import { CoerceMany } from "./coercion.ts";
 import { RemoveSemiForCoerce_subdiagnostic } from "./diagnostics.ts";
 import { Diverges } from "./diverges.ts";
@@ -263,7 +262,7 @@ FnCtxt.prototype.suggest_removing_semicolon_for_coerce = function (
   let can_coerce_to_return_ty: boolean;
   const ret_coercion = this.ret_coercion;
   if (ret_coercion !== undefined) {
-    const ret_ty_ = as_hand_CoerceMany(ret_coercion).expected_ty();
+    const ret_ty_ = ret_coercion.expected_ty();
     const ret_ty = this.infcx.shallow_resolve(ret_ty_);
     const k = ret_ty.kind();
     can_coerce_to_return_ty =
@@ -296,14 +295,14 @@ FnCtxt.prototype.warn_arms_when_scrutinee_diverges = function (this: FnCtxt, arm
 ///
 /// Returns `true` if there was an error forcing the coercion to the `()` type.
 // rustc: compiler/rustc_hir_typeck/src/_match.rs:272 if_fallback_coercion
-FnCtxt.prototype.if_fallback_coercion = function (this: FnCtxt, if_span: SpanT, cond_expr: hir.Expr, then_expr: hir.Expr, coercion: CoerceManyDecl): boolean {
+FnCtxt.prototype.if_fallback_coercion = function (this: FnCtxt, if_span: SpanT, cond_expr: hir.Expr, then_expr: hir.Expr, coercion: CoerceMany): boolean {
   // If this `if` expr is the parent's function return expr,
   // the cause of the type coercion is the return type, point at it. (#25228)
   const hir_id = this.tcx.parent_hir_id(this.tcx.parent_hir_id(then_expr.hir_id));
   const ret_reason = this.maybe_get_coercion_reason(hir_id, if_span);
   const cause = this.cause(if_span, { $: "IfExpressionWithNoElse" });
   const error: MutRef<boolean> = { value: false };
-  as_hand_CoerceMany(coercion).coerce_forced_unit(this, cause, (err) => explain_if_expr(this, err, ret_reason, if_span, cond_expr, then_expr, error), false);
+  coercion.coerce_forced_unit(this, cause, (err) => this.explain_if_expr(err, ret_reason, if_span, cond_expr, then_expr, error), false);
   return error.value;
 };
 
@@ -326,9 +325,7 @@ FnCtxt.prototype.is_from_assert_macro = function (this: FnCtxt, span: SpanT): bo
 
 /// Explain why `if` expressions without `else` evaluate to `()` and detect likely irrefutable
 /// `if let PAT = EXPR {}` expressions that could be turned into `let PAT = EXPR;`.
-// PORT(decls): pending root. decls.ts declares the out-parameter `error: &mut bool` as `error: boolean`; PORTING §8 makes
-// it a `MutRef<boolean>` cell. The method is assigned with that parameter (cast below) and called through the typed
-// helper `explain_if_expr`; the declaration should become `error: MutRef<boolean>`.
+// PORT: the out-parameter `error: &mut bool` is a `MutRef<boolean>` cell (PORTING §8).
 // rustc: compiler/rustc_hir_typeck/src/_match.rs:313 explain_if_expr
 FnCtxt.prototype.explain_if_expr = function (
   this: FnCtxt,
@@ -407,7 +404,7 @@ FnCtxt.prototype.explain_if_expr = function (
       err.multipart_suggestion("consider using an irrefutable `let` binding instead", sugg, "MaybeIncorrect");
     }
   }
-} as unknown as FnCtxt["explain_if_expr"];
+};
 
 // rustc: compiler/rustc_hir_typeck/src/_match.rs:407 maybe_get_coercion_reason
 FnCtxt.prototype.maybe_get_coercion_reason = function (this: FnCtxt, hir_id: HirId, sp: SpanT): [SpanT, string] | undefined {
@@ -576,33 +573,4 @@ export function arms_contain_ref_bindings(arms: readonly hir.Arm[]): Mutability 
   return max;
 }
 
-/** The typed call of `explain_if_expr` (see the PORT(decls) note on its assignment). */
-function explain_if_expr(
-  fcx: FnCtxt,
-  err: Diag,
-  ret_reason: [SpanT, string] | undefined,
-  if_span: SpanT,
-  cond_expr: hir.Expr,
-  then_expr: hir.Expr,
-  error: MutRef<boolean>,
-): void {
-  (fcx.explain_if_expr as unknown as (err: Diag, ret_reason: [SpanT, string] | undefined, if_span: SpanT, cond_expr: hir.Expr, then_expr: hir.Expr, error: MutRef<boolean>) => void).call(
-    fcx,
-    err,
-    ret_reason,
-    if_span,
-    cond_expr,
-    then_expr,
-    error,
-  );
-}
 
-/**
- * PORT(decls): pending root. decls.ts types `FnCtxt::ret_coercion` and the `coercion` parameter of
- * `if_fallback_coercion` with the generated `CoerceMany` of coercion.gen.ts (field `expected_ty`), while the contract
- * class is the hand-written one of coercion.ts (field `expected_ty_`, the methods). Both are the same runtime class
- * once lane typeck-coerce lands; this converts the declared type to the hand class.
- */
-function as_hand_CoerceMany(c: CoerceManyDecl): CoerceMany {
-  return c as unknown as CoerceMany;
-}

@@ -55,9 +55,7 @@ export function check_fn(
   );
 
   fcx.coroutine_types = coroutine_types;
-  // PORT(decls): pending root: decls.ts types `FnCtxt.ret_coercion` with coercion.gen.ts's `CoerceMany` instead of the hand
-  // class of coercion.ts (codegen `hand`); the casts here and below go away when decls.ts imports `./coercion.ts`.
-  fcx.ret_coercion = CoerceMany.new(ret_ty) as unknown as FnCtxt["ret_coercion"];
+  fcx.ret_coercion = CoerceMany.new(ret_ty);
 
   const span = body.value.span;
 
@@ -146,7 +144,7 @@ export function check_fn(
   // we saw and assigning it to the expected return type. This isn't
   // really expected to fail, since the coercions would have failed
   // earlier when trying to find a LUB.
-  const coercion = unwrap(fcx.ret_coercion) as unknown as CoerceMany;
+  const coercion = unwrap(fcx.ret_coercion);
   fcx.ret_coercion = undefined;
   let actual_return_ty = coercion.complete(fcx);
   // debug!("actual_return_ty = {:?}", actual_return_ty);

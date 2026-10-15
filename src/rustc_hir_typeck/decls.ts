@@ -100,7 +100,8 @@ import type { Result } from "../std/result.ts";
 import type { CallStep, DeferredCallResolution, SplatLoweringInfo } from "./callee.gen.ts";
 import type { CastCheck, CastError, CastKind, PointerKind } from "./cast.gen.ts";
 import type { ClosureSignatures, ExpectedSig } from "./closure.gen.ts";
-import type { CoerceMany, CoerceMaybePinnedRef, CoerceResult, ForceLeakCheck } from "./coercion.gen.ts";
+import type { CoerceMaybePinnedRef, CoerceResult, ForceLeakCheck } from "./coercion.gen.ts";
+import type { CoerceMany } from "./coercion.ts";
 import type { TypeMismatchSource } from "./demand.gen.ts";
 import type { ReturnLikeStatementKind, SuggestAnnotations } from "./diagnostics.gen.ts";
 import type { Diverges } from "./diverges.gen.ts";
@@ -446,7 +447,7 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // _match.rs:295
   is_from_assert_macro(span: Span): boolean;
   // _match.rs:313
-  explain_if_expr(err: Diag, ret_reason: [Span, string] | undefined, if_span: Span, cond_expr: hir.Expr, then_expr: hir.Expr, error: boolean): void;
+  explain_if_expr(err: Diag, ret_reason: [Span, string] | undefined, if_span: Span, cond_expr: hir.Expr, then_expr: hir.Expr, error: MutRef<boolean>): void;
   // _match.rs:407
   maybe_get_coercion_reason(hir_id: HirId, sp: Span): [Span, string] | undefined;
   // _match.rs:437
@@ -562,7 +563,7 @@ export interface FnCtxt extends Omit<TypeckRootCtxt, FnCtxt_shadowed> {
   // demand.rs:73
   emit_coerce_suggestions(err: Diag, expr: hir.Expr, expr_ty: Ty, expected: Ty, expected_ty_expr: hir.Expr | undefined, error: TypeError | undefined): void;
   // demand.rs:112
-  adjust_expr_for_assert_eq_macro(found_expr: hir.Expr, expected_expr: hir.Expr | undefined): void;
+  adjust_expr_for_assert_eq_macro(found_expr: MutRef<hir.Expr>, expected_expr: MutRef<hir.Expr | undefined>): void;
   // demand.rs:171
   demand_suptype(sp: Span, expected: Ty, actual: Ty): void;
   // demand.rs:177
@@ -2439,7 +2440,7 @@ export interface Fns_upvar {
   // upvar.rs:2608
   determine_capture_info(capture_info_a: CaptureInfo, capture_info_b: CaptureInfo): CaptureInfo;
   // upvar.rs:2633
-  truncate_place_to_len_and_update_capture_kind(place: Place, curr_mode: UpvarCapture, len: number): void;
+  truncate_place_to_len_and_update_capture_kind(place: Place, curr_mode: MutRef<UpvarCapture>, len: number): void;
   // upvar.rs:2668
   determine_place_ancestry_relation(place_a: Place, place_b: Place): PlaceAncestryRelation;
   // upvar.rs:2730
