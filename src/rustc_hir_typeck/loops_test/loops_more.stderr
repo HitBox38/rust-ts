@@ -1,0 +1,67 @@
+warning: the feature `loop_match` is incomplete and may not be safe to use and/or cause compiler crashes
+  --> loops_more.rs:1:33
+   |
+LL | #![feature(no_core, lang_items, loop_match)]
+   |                                 ^^^^^^^^^^
+   |
+   = note: see issue #132306 <https://github.com/rust-lang/rust/issues/132306> for more information
+   = note: `#[warn(incomplete_features)]` on by default
+
+warning: unnecessary braces around block return value
+  --> loops_more.rs:10:14
+   |
+LL | pub fn c() { { if true { break; } } }
+   |              ^^                  ^^
+   |
+   = note: `#[warn(unused_braces)]` (part of `#[warn(unused)]`) on by default
+help: remove these braces
+   |
+LL - pub fn c() { { if true { break; } } }
+LL + pub fn c() { if true { break; } }
+   |
+
+error[E0590]: `break` or `continue` with no label in the condition of a `while` loop
+  --> loops_more.rs:8:20
+   |
+LL | pub fn a() { while break {} }
+   |                    ^^^^^ unlabeled `break` in the condition of a `while` loop
+
+error[E0590]: `break` or `continue` with no label in the condition of a `while` loop
+  --> loops_more.rs:9:27
+   |
+LL | pub fn b() { loop { while continue {} } }
+   |                           ^^^^^^^^ unlabeled `continue` in the condition of a `while` loop
+
+error[E0268]: `break` outside of a loop or labeled block
+  --> loops_more.rs:10:26
+   |
+LL | pub fn c() { { if true { break; } } }
+   |                          ^^^^^ cannot `break` outside of a loop or labeled block
+   |
+help: consider labeling this block to be able to break within it
+   |
+LL | pub fn c() { 'block: { if true { break 'block; } } }
+   |              +++++++                   ++++++
+
+error[E0268]: `break` outside of a loop or labeled block
+  --> loops_more.rs:11:31
+   |
+LL | pub fn d() { let _x = const { break; }; }
+   |                               ^^^^^ cannot `break` outside of a loop or labeled block
+
+error[E0268]: `break` outside of a loop or labeled block
+  --> loops_more.rs:12:23
+   |
+LL | pub fn e() { unsafe { break; } }
+   |                       ^^^^^ cannot `break` outside of a loop or labeled block
+
+error: `#[const_continue]` must break to a labeled block that participates in a `#[loop_match]`
+  --> loops_more.rs:30:15
+   |
+LL |         break 'outer;
+   |               ^^^^^^
+
+error: aborting due to 6 previous errors; 2 warnings emitted
+
+Some errors have detailed explanations: E0268, E0590.
+For more information about an error, try `rustc --explain E0268`.
