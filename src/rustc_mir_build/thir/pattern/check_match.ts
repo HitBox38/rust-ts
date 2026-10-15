@@ -1,9 +1,20 @@
-// Port of compiler/rustc_mir_build/src/thir/pattern/check_match.rs: STUB (lane thir-pattern; "How to fill a stub" in
-// pattern/mod.ts).
+// Port of compiler/rustc_mir_build/src/thir/pattern/check_match.rs: STUB (lanes thir-cx-print / thir-pattern; ported
+// with rustc_pattern_analysis in a later lane).
+//
+// ## How to fill this stub
+// 1. The types and signatures here are final: `check_match(tcx, def_id)` is what lib.ts registers. Keep them; a wrong
+//    one goes in your handoff.
+// 2. Methods: write `MatchVisitor.prototype.<name> = function (this: MatchVisitor, ..) { .. }` in upstream order with
+//    the marker `// rustc: compiler/rustc_mir_build/src/thir/pattern/check_match.rs:<line> <name>` directly above it,
+//    then delete the name from the `unported_methods(..)` list (and the call when the list is empty).
+// 3. Free fns: replace the `unported(..)` body of the exported stub function with the port and add the marker.
+// 4. diagnostics.rs is generated (tools/codegen set rustc_mir_build; manual impls in diagnostics.ts) except
+//    `PatternNotCovered`, skipped in the set until rustc_pattern_analysis's `Uncovered` (its `#[subdiagnostic]`) exists:
+//    drop the skip and add a type-map entry for `Uncovered` then.
 //
 // PORT (stub): rustc_pattern_analysis (`DeconstructedPat`, `RustcPatCtxt` imported as `PatCtxt`, `MatchArm`,
-// `UsefulnessReport`, `WitnessPat`, `RedundancyExplanation`, `RevealedTy`), rustc_arena and this crate's
-// diagnostics.rs are not ported: the signatures below type them `unknown`.
+// `UsefulnessReport`, `WitnessPat`, `RedundancyExplanation`, `RevealedTy`) and rustc_arena are not ported: the
+// signatures below type them `unknown`.
 import type { MatchSource } from "../../../rustc_hir/hir.ts";
 import type { HirId } from "../../../rustc_hir_id/lib.ts";
 import type { ArmId, Expr, ExprId, Pat, Thir } from "../../../rustc_middle/thir.ts";
