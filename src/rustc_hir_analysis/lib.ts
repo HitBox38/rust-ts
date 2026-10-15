@@ -70,6 +70,9 @@ import type * as hir from "../rustc_hir/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Const } from "../rustc_middle/ty/decls.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
+import type { Generics } from "../rustc_middle/ty/generics.ts";
+import { LocalDefId } from "../rustc_span/def_id.ts";
+import type { AnonConstKind } from "../rustc_type_ir/const_kind.gen.ts";
 import { feature_err } from "../rustc_session/diagnostics.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { unported } from "../std/panic.ts";
@@ -78,7 +81,10 @@ import { VariadicFunctionCompatibleConvention_diagnostic } from "./diagnostics.t
 import type { Providers } from "../rustc_middle/queries.gen.ts";
 import * as collect from "./collect.ts";
 
-// pub mod check;            (wave 17: check-wf-a/-b, check-check, check-compare, check-region-intrinsic)
+// pub mod check;            (check/mod.rs, check/check.rs: lane check-check; the other check/ files are wave 17: check-wf-a/-b,
+//                           check-compare, check-region-intrinsic)
+import * as check from "./check/mod.ts";
+export { check };
 // pub mod autoderef;        (wave 17/18)
 // mod check_unused;         (wave 17)
 // mod coherence;            (wave 17: coherence)
@@ -139,7 +145,7 @@ export function provide(providers: Providers): void {
   // PORT: the modules below are not ported yet (wave 17), so their queries keep the placeholder providers of
   // rustc_interface's `install_unported_providers` (UNPORTED). Each lane uncomments its lines.
   // coherence::provide(providers);
-  // check::provide(providers);
+  check.provide(providers);
   // providers.check_unused_traits = check_unused.check_unused_traits;
   // providers.diagnostic_hir_wf_check = hir_wf_check.diagnostic_hir_wf_check;
   providers.inferred_outlives_crate = outlives.inferred_outlives_crate;
@@ -151,9 +157,95 @@ export function provide(providers: Providers): void {
   providers.variances_of = variance.variances_of;
 }
 
-// lib.rs:145 (stub, wave 17 lane check-check; final signature: decls.ts `Fns_lib`)
-export function check_crate(_tcx: TyCtxt): void {
-  return unported("rustc_hir_analysis::check_crate");
+// rustc: compiler/rustc_hir_analysis/src/lib.rs:145 check_crate
+export function check_crate(tcx: TyCtxt): void {
+  const _prof_timer = tcx.sess.timer("type_check_crate");
+
+  tcx.sess.time("coherence_checking", () => {
+    // When discarding query call results, use an explicit type to indicate
+    // what we are intending to discard, to help future type-based refactoring.
+    // type R = Result<(), ErrorGuaranteed>;
+
+    void tcx.ensure_result().check_type_wf(null);
+
+    for (const trait_def_id of tcx.all_local_trait_impls(null).keys()) {
+      void tcx.ensure_result().coherent_trait(trait_def_id);
+    }
+    // these queries are executed for side-effects (error reporting):
+    void tcx.ensure_result().crate_inherent_impls_validity_check(null);
+    void tcx.ensure_result().crate_inherent_impls_overlap_check(null);
+  });
+
+  tcx.par_hir_body_owners((item_def_id) => {
+    const def_kind = tcx.def_kind(item_def_id);
+    // Make sure we evaluate all static and (non-associated) const items, even if unused.
+    // If any of these fail to evaluate, we do not want this crate to pass compilation.
+    if (def_kind.$ === "Static") {
+      tcx.ensure_ok().eval_static_initializer(item_def_id);
+      check.maybe_check_static_with_link_section(tcx, item_def_id);
+    } else if (
+      def_kind.$ === "Const" &&
+      !(tcx.generics_of(item_def_id) as Generics).own_requires_monomorphization() &&
+      tcx.const_of_item(item_def_id) === undefined
+    ) {
+      // FIXME(generic_const_items): Passing empty instead of identity args is fishy but
+      //                             seems to be fine for now. Revisit this!
+      // let instance = ty::Instance::new_raw(item_def_id.into(), ty::GenericArgs::empty());
+      // let cid = GlobalId { instance, promoted: None };
+      // let typing_env = ty::TypingEnv::fully_monomorphized();
+      // tcx.ensure_ok().eval_to_const_value_raw(typing_env.as_query_input(cid));
+      // PORT: `ty::Instance` / `mir::interpret::GlobalId` are not ported (M4).
+      return unported("rustc_middle::mir::interpret::GlobalId / ty::Instance::new_raw (M4)");
+    }
+    // Skip `AnonConst`s and type system `InlineConst`s because we feed their `type_of` in
+    // `feed_anon_const_type`.
+    // Also skip items for which typeck forwards to parent typeck.
+    if (
+      !(
+        (def_kind.$ === "AnonConst" && (tcx.anon_const_kind(item_def_id) as AnonConstKind) !== "NonTypeSystemInline") ||
+        tcx.is_typeck_child(LocalDefId.to_def_id(item_def_id))
+      )
+    ) {
+      tcx.ensure_ok().typeck(item_def_id);
+    }
+  });
+
+  // This has to be a second pass over the body owners, after every body has been
+  // type-checked above. `needs_coroutine_by_move_body_def_id` asks for `type_of`, and for a
+  // body owner nested inside a const argument's anon const that goes through `typeck` of the
+  // anon const, which needs the anon const's own type. That type is never computed, only fed
+  // while the enclosing body is type-checked. Doing this in the pass above lets the parallel
+  // front end reach the nested body owner first, computing (and caching) an error type for
+  // the anon const that then conflicts with the type fed later on.
+  //
+  // This must not be parallelized since `coroutine_by_move_body_def_id` creates new `DefId`-s
+  // inside, which must be done in deterministic order to have reproducible binaries.
+  for (const item_def_id of tcx.hir_body_owners()) {
+    // Ensure we generate the new `DefId` before finishing `check_crate`.
+    // Afterwards we freeze the list of `DefId`s.
+    if (tcx.needs_coroutine_by_move_body_def_id(LocalDefId.to_def_id(item_def_id))) {
+      tcx.ensure_done().coroutine_by_move_body_def_id(item_def_id);
+    }
+  }
+
+  if (tcx.features().rustc_attrs()) {
+    tcx.sess.time("dumping_rustc_attr_data", () => {
+      // tidy-alphabetical-start
+      collect.dump.clauses_and_item_bounds(tcx);
+      collect.dump.def_parents(tcx);
+      collect.dump.generics(tcx);
+      collect.dump.object_lifetime_defaults(tcx);
+      collect.dump.opaque_hidden_types(tcx);
+      collect.dump.vtables(tcx);
+      // outlives::dump::inferred_outlives(tcx);
+      // variance::dump::variances(tcx);
+      // PORT: outlives/dump.rs and variance/dump.rs are lane variance-outlives-implwf's (not in this lane's base).
+      unported("rustc_hir_analysis::outlives::dump::inferred_outlives / variance::dump::variances (lane variance-outlives-implwf)");
+      // tidy-alphabetical-end
+    });
+  }
+
+  tcx.ensure_ok().check_unused_traits(null);
 }
 
 /// Lower a [`hir::Ty`] to a [`Ty`].
