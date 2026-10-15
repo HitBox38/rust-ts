@@ -79,7 +79,7 @@ export const CastTy = {
     }
   },
 
-  // rustc: compiler/rustc_middle/src/ty/cast.rs:42 is_int_like
+  // rustc: compiler/rustc_middle/src/ty/cast.rs:41 is_int_like
   is_int_like(self: CastTy): boolean {
     switch (self.$) {
       case "Int":
@@ -96,7 +96,7 @@ export const CastTy = {
 };
 
 /// Returns `mir::CastKind` from the given parameters.
-// rustc: compiler/rustc_middle/src/ty/cast.rs:51 mir_cast_kind
+// rustc: compiler/rustc_middle/src/ty/cast.rs:50 mir_cast_kind
 export function mir_cast_kind(from_ty: Ty, cast_ty: Ty): CastKind {
   const from = CastTy.from_ty(from_ty);
   const cast = CastTy.from_ty(cast_ty);
