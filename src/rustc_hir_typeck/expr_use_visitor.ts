@@ -20,8 +20,6 @@
 // - PORT: the `Place` moves of `cat_projection` / `cat_deref` (`let mut projections = base_place.place.projections;
 //   projections.push(..)`) copy the vector before pushing: the moved-from place is unobservable in Rust, but a TS caller
 //   (or a delegate that kept the reference) still holds it.
-// - PORT(decls): `HirPlace` (rustc_middle ty/decls.ts, the type of `TypeckResults::closure_fake_reads` and
-//   `CapturedPlace::place`) is still `Pending`: `as_place` casts it to rustc_middle hir/place.ts's `Place` (same shape).
 // Init order: top-level code here touches only ./decls.ts, this file's .gen.ts and other crates.
 export * from "./expr_use_visitor.gen.ts";
 // Export these here so that Clippy can use them.
@@ -36,7 +34,7 @@ import { clone_Place, clone_PlaceWithHirId, debug_PlaceBase, Place, PlaceBase, P
 import { type Adjustment, type AutoBorrow, Mutability_from_AutoBorrowMutability } from "../rustc_middle/ty/adjustment.ts";
 import { BorrowKind, UpvarId } from "../rustc_middle/ty/closure.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { FieldIdx, HirPlace, VariantIdx } from "../rustc_middle/ty/decls.ts";
+import type { FieldIdx, VariantIdx } from "../rustc_middle/ty/decls.ts";
 import { Ty } from "../rustc_middle/ty/mod.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import type { FakeReadCause, TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
@@ -54,11 +52,6 @@ import { ExprUseVisitor } from "./expr_use_visitor.gen.ts";
 
 /** `rustc_abi::FIRST_VARIANT` (`VariantIdx::ZERO`). PORT: local, as in rustc_middle ty/adt.ts. */
 const FIRST_VARIANT = 0 as VariantIdx;
-
-/** PORT(decls): `HirPlace` is `Pending` in rustc_middle ty/decls.ts; its values are hir/place.ts `Place`s. */
-function as_place(p: HirPlace): Place {
-  return p as unknown as Place;
-}
 
 /** The `ExprUseVisitor` every method below runs on (`Cx: TypeInformationCtxt`, `D: Delegate`). */
 type Euv = ExprUseVisitor<TypeInformationCtxt, Delegate>;
@@ -1226,8 +1219,7 @@ ExprUseVisitor.prototype.walk_captures = function (this: Euv, closure_expr: hir.
   // closure.
   const fake_reads = this.cx.typeck_results().closure_fake_reads.get(closure_def_id);
   if (fake_reads !== undefined) {
-    for (const [fake_read_, cause, hir_id] of fake_reads) {
-      const fake_read = as_place(fake_read_);
+    for (const [fake_read, cause, hir_id] of fake_reads) {
       const base = fake_read.base;
       if (base.$ === "Upvar") {
         const upvar_id = base._0;
@@ -1267,7 +1259,7 @@ ExprUseVisitor.prototype.walk_captures = function (this: Euv, closure_expr: hir.
         continue;
       }
       for (const captured_place of min_list) {
-        const place = as_place(captured_place.place);
+        const place = captured_place.place;
         const capture_info = captured_place.info;
 
         const place_base: PlaceBase = body_owner_is_closure

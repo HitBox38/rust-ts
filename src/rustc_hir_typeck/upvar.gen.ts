@@ -2,6 +2,7 @@
 // Hand-written additions (methods, manual Debug impls) go in upvar.ts next to this file.
 import { debug_HirId, type HirId } from "../rustc_hir_id/lib.ts";
 import { type InferBorrowKind, type InferBorrowKindVisitor } from "./upvar.ts";
+import { type Place } from "../rustc_middle/hir/place.ts";
 import { type CaptureInfo } from "../rustc_middle/ty/closure.ts";
 import { debug_Span, type Span } from "../rustc_span/lib.ts";
 import { type Debug, debug_bool, debug_option, debug_str, debug_struct, debug_vec } from "../std/fmt.ts";
@@ -23,7 +24,7 @@ export const PlaceAncestryRelation = { Ancestor: "Ancestor", Descendant: "Descen
 /// Intermediate format to store a captured `Place` and associated `ty::CaptureInfo`
 /// during capture analysis. Information in this map feeds into the minimum capture
 /// analysis pass.
-export type InferredCaptureInformation = ([unknown, CaptureInfo])[];
+export type InferredCaptureInformation = ([Place, CaptureInfo])[];
 
 // rustc-type: compiler/rustc_hir_typeck/src/upvar.rs:167 UpvarMigrationInfo
 /// Intermediate format to store the hir_id pointing to the use that resulted in the

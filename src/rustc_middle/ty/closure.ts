@@ -7,11 +7,9 @@
 // unions, data enums tagged by `$`, `CapturedPlace` (inherent methods) as a class, the data structs as interfaces.
 // Their `#[derive(Debug)]` impls are `debug_<T>`; `TypeFoldable` / `TypeVisitable` / `StableHash` / `TyEncodable` /
 // `TyDecodable` derives are not written (tools/codegen; PORTING §5).
-// PORT(decls): pending. `hir::place::{Place, PlaceBase, ProjectionKind, Projection}` (hir/place.rs) and `mir::Local`
-// (M4) are not ported: the members read here are typed by the `*View` types below (upstream names, PORTING §5 shapes);
-// methods that are not field reads go through `unported` stand-ins at the end of the file. decls.ts still has
-// `HirPlace` as `Pending`: the `TyCtxt` methods declared there cast at the boundary. (`TypeckResults` is
-// typeck_results.ts's since merge-w15b.)
+// PORT(decls): pending. `mir::Local` (M4) is not ported (a branded number below). `hir::place` items are
+// rustc_middle hir/place.ts's (`HirPlace` = `hir::place::Place`, merge-w18). (`TypeckResults` is typeck_results.ts's
+// since merge-w15b.)
 // PORT: `closure_typeinfo` (the provider) and `provide` are exported; ty/mod.rs `provide` (lane ty-mod) calls
 // `closure::provide`.
 import { TyCtxt } from "./context.ts";
@@ -21,12 +19,13 @@ import { LocalDefId } from "../../rustc_span/def_id.ts";
 import type { Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { debug_Ident, display_Ident, type Ident, Symbol } from "../../rustc_span/symbol.ts";
-import { type Debug, debug_option, debug_struct, debug_tuple, type Fmt, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
-import { panic, unported, unwrap } from "../../std/panic.ts";
+import { type Debug, debug_option, debug_struct, debug_tuple, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
+import { panic, unwrap } from "../../std/panic.ts";
 import { debug_TyKind } from "../../rustc_type_ir/ty_kind.ts";
 import type { Providers } from "../queries.gen.ts";
-import type { CanonicalPolyFnSig, CapturedPlace as PendingCapturedPlace, FieldIdx, HirPlace, TypeckResults, VariantIdx } from "./decls.ts";
+import type { CanonicalPolyFnSig, CapturedPlace as PendingCapturedPlace, HirPlace, TypeckResults } from "./decls.ts";
 import type { List } from "./list.ts";
+import { debug_Place, debug_PlaceBase, debug_ProjectionKind, type ProjectionKind, ProjectionKind_eq } from "../hir/place.ts";
 import type { Ordering, Ty } from "./mod.ts";
 
 /** `mir::Local` (mir/mod.rs, M4). PORT(decls): pending (a `newtype_index!`: a branded number). */
@@ -140,7 +139,7 @@ export class CapturedPlace {
   to_symbol(): Symbol {
     let symbol = display_Ident(this.var_ident);
 
-    const place = view_HirPlace(this.place);
+    const place = this.place;
     let ty = place.base_ty;
     for (const proj of place.projections) {
       const kind = proj.kind;
@@ -188,7 +187,7 @@ export class CapturedPlace {
   /// e.g., if `a.b.c` was captured, would return the hir-id for `a`.
   // rustc: compiler/rustc_middle/src/ty/closure.rs:156 get_root_variable
   get_root_variable(): HirId {
-    const base = view_HirPlace(this.place).base;
+    const base = this.place.base;
     switch (base.$) {
       case "Upvar":
         return base._0.var_path.hir_id;
@@ -200,7 +199,7 @@ export class CapturedPlace {
   /// Returns the `LocalDefId` of the closure that captured this Place
   // rustc: compiler/rustc_middle/src/ty/closure.rs:164 get_closure_local_def_id
   get_closure_local_def_id(): LocalDefId {
-    const base = view_HirPlace(this.place).base;
+    const base = this.place.base;
     switch (base.$) {
       case "Upvar":
         return base._0.closure_expr_id;
@@ -258,7 +257,7 @@ export class CapturedPlace {
 export const debug_CapturedPlace: Debug<CapturedPlace> = (v, f) =>
   debug_struct(f, "CapturedPlace", [
     ["var_ident", debug_Ident(v.var_ident, f)],
-    ["place", debug_HirPlace(v.place, f)],
+    ["place", debug_Place(v.place, f)],
     ["info", debug_CaptureInfo(v.info, f)],
     ["mutability", debug_Mutability(v.mutability, f)],
   ]);
@@ -324,7 +323,7 @@ TyCtxt.prototype.closure_captures = function (this: TyCtxt, def_id: LocalDefId):
 ///        ancestor of `foo.x.y`. It's the caller's responsibility to ensure that both projections
 ///        list are being applied to the same root variable.
 // rustc: compiler/rustc_middle/src/ty/closure.rs:259 is_ancestor_or_same_capture
-export function is_ancestor_or_same_capture(proj_possible_ancestor: readonly HirProjectionKind[], proj_capture: readonly HirProjectionKind[]): boolean {
+export function is_ancestor_or_same_capture(proj_possible_ancestor: readonly ProjectionKind[], proj_capture: readonly ProjectionKind[]): boolean {
   // We want to make sure `is_ancestor_or_same_capture("x.0.0", "x.0")` to return false.
   // Therefore we can't just check if all projections are same in the zipped iterator below.
   if (proj_possible_ancestor.length > proj_capture.length) {
@@ -388,7 +387,7 @@ export const debug_CaptureInfo: Debug<CaptureInfo> = (v, f) =>
 
 // rustc: compiler/rustc_middle/src/ty/closure.rs:318 place_to_string_for_capture
 export function place_to_string_for_capture(tcx: TyCtxt, place_: HirPlace): string {
-  const place = view_HirPlace(place_);
+  const place = place_;
   let curr_string: string;
   if (place.base.$ === "Upvar") {
     const upvar_id = place.base._0;
@@ -566,7 +565,7 @@ export function* analyze_coroutine_closure_captures<T>(
       // This analysis only makes sense if the parent capture is a
       // prefix of the child capture.
       // PORT: `assert!(cond, msg)` with the message formatted only on failure.
-      if (!(view_HirPlace(child_capture.place).projections.length >= view_HirPlace(parent_capture.place).projections.length)) {
+      if (!(child_capture.place.projections.length >= parent_capture.place.projections.length)) {
         panic(
           `parent capture (${format_debug(parent_capture, debug_CapturedPlace, PRETTY)}) expected to be prefix of child capture (${format_debug(child_capture, debug_CapturedPlace, PRETTY)})`,
         );
@@ -594,8 +593,8 @@ export function* analyze_coroutine_closure_captures<T>(
 
 // rustc: compiler/rustc_middle/src/ty/closure.rs:505 child_prefix_matches_parent_projections
 function child_prefix_matches_parent_projections(parent_capture: CapturedPlace, child_capture: CapturedPlace): boolean {
-  const parent_place = view_HirPlace(parent_capture.place);
-  const child_place = view_HirPlace(child_capture.place);
+  const parent_place = parent_capture.place;
+  const child_place = child_capture.place;
   if (parent_place.base.$ !== "Upvar") {
     bug("expected capture to be an upvar");
   }
@@ -618,36 +617,8 @@ export function provide(providers: Providers): void {
   providers.closure_typeinfo = closure_typeinfo;
 }
 
-// ---- views of pending types and helpers (module comment; not markers) ----------------------------------------------
+// ---- helpers (not markers) ----------------------------------------------------------------------
 
-/** `hir::place::ProjectionKind` (hir/place.rs:23). PORT(decls): pending. */
-export type HirProjectionKind =
-  | { readonly $: "Deref" }
-  | { readonly $: "Field"; readonly _0: FieldIdx; readonly _1: VariantIdx }
-  | { readonly $: "Index" }
-  | { readonly $: "Subslice" }
-  | { readonly $: "OpaqueCast" }
-  | { readonly $: "UnwrapUnsafeBinder" };
-/** `#[derive(PartialEq)]` of `hir::place::ProjectionKind` */
-function ProjectionKind_eq(a: HirProjectionKind, b: HirProjectionKind): boolean {
-  if (a.$ !== b.$) return false;
-  if (a.$ === "Field" && b.$ === "Field") return a._0 === b._0 && a._1 === b._1;
-  return true;
-}
-
-/** `hir::place::PlaceBase` (hir/place.rs:10). PORT(decls): pending. */
-export type HirPlaceBase = { readonly $: "Rvalue" } | { readonly $: "StaticItem" } | { readonly $: "Local"; readonly _0: HirId } | { readonly $: "Upvar"; readonly _0: UpvarId };
-
-/** The members of `hir::place::Place` (hir/place.rs:69) read here. PORT(decls): pending. */
-interface HirPlaceView {
-  readonly base_ty: Ty;
-  readonly base: HirPlaceBase;
-  readonly projections: readonly { readonly ty: Ty; readonly kind: HirProjectionKind }[];
-  ty_before_projection(projection_index: number): Ty;
-}
-function view_HirPlace(p: HirPlace): HirPlaceView {
-  return p as unknown as HirPlaceView;
-}
 
 
 /** `Peekable<Enumerate<I>>` */
@@ -676,15 +647,3 @@ function* enumerate<T>(it: Iterable<T>): Generator<[number, T]> {
   for (const v of it) yield [i++, v];
 }
 
-/** PORT: stand-in for `#[derive(Debug)]` of `hir::place::Place` (hir/place.rs:69). */
-function debug_HirPlace(_v: HirPlace, _f: Fmt): string {
-  return unported("rustc_middle::hir::place::Place Debug (hir/place.rs)");
-}
-/** PORT: stand-in for `#[derive(Debug)]` of `hir::place::PlaceBase` (hir/place.rs:10). */
-function debug_PlaceBase(_v: HirPlaceBase, _f: Fmt): string {
-  return unported("rustc_middle::hir::place::PlaceBase Debug (hir/place.rs)");
-}
-/** PORT: stand-in for `#[derive(Debug)]` of `hir::place::ProjectionKind` (hir/place.rs:23). */
-function debug_ProjectionKind(_v: HirProjectionKind, _f: Fmt): string {
-  return unported("rustc_middle::hir::place::ProjectionKind Debug (hir/place.rs)");
-}

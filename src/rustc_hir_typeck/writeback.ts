@@ -1271,16 +1271,16 @@ const fold_ClosureSizeProfileData: TypeFoldable<ClosureSizeProfileData> = {
   try_fold_with: () => unported("TypeFoldable for ty::ClosureSizeProfileData (tools/codegen)"),
   fold_with: () => unported("TypeFoldable for ty::ClosureSizeProfileData (tools/codegen)"),
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for ty::CapturedPlace` (rustc_middle ty/closure.rs; `hir::place::Place` pending). */
+/** `#[derive(TypeFoldable, TypeVisitable)] for ty::CapturedPlace` (rustc_middle ty/closure.rs; not generated yet). */
 const fold_CapturedPlace: TypeFoldable<CapturedPlace> = {
-  visit_with: () => unported("TypeVisitable for ty::CapturedPlace (rustc_middle hir/place.rs pending)"),
-  try_fold_with: () => unported("TypeFoldable for ty::CapturedPlace (rustc_middle hir/place.rs pending)"),
-  fold_with: () => unported("TypeFoldable for ty::CapturedPlace (rustc_middle hir/place.rs pending)"),
+  visit_with: () => unported("TypeVisitable for ty::CapturedPlace (derive; tools/codegen)"),
+  try_fold_with: () => unported("TypeFoldable for ty::CapturedPlace (derive; tools/codegen)"),
+  fold_with: () => unported("TypeFoldable for ty::CapturedPlace (derive; tools/codegen)"),
 };
-/** `#[derive(TypeFoldable, TypeVisitable)] for hir::place::Place` (rustc_middle hir/place.rs, pending). */
+/** `#[derive(TypeFoldable, TypeVisitable)] for hir::place::Place` (rustc_middle hir/place.rs; not generated yet). */
 const fold_HirPlace: TypeFoldable<HirPlace> = {
-  visit_with: () => unported("TypeVisitable for hir::place::Place (rustc_middle hir/place.rs pending)"),
-  try_fold_with: () => unported("TypeFoldable for hir::place::Place (rustc_middle hir/place.rs pending)"),
-  fold_with: () => unported("TypeFoldable for hir::place::Place (rustc_middle hir/place.rs pending)"),
+  visit_with: () => unported("TypeVisitable for hir::place::Place (hir/place.rs derive; tools/codegen)"),
+  try_fold_with: () => unported("TypeFoldable for hir::place::Place (hir/place.rs derive; tools/codegen)"),
+  fold_with: () => unported("TypeFoldable for hir::place::Place (hir/place.rs derive; tools/codegen)"),
 };
 

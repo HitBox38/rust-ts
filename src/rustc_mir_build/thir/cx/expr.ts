@@ -4,8 +4,6 @@
 // The rustc_middle `mir/syntax.rs` enums THIR stores (`BorrowKind`, `MutBorrowKind`, `BinOp`, `UnOp`, `AssignOp`,
 // `FakeReadCause`) come from the partial rustc_middle mir/syntax.ts (codegen set rustc_middle_mir_syntax; lane
 // thir-pattern).
-// Likewise rustc_middle `hir/place.rs` is pending (`HirPlace = Pending<..>`): `HirPlaceView` reads its fields with the
-// shapes ty/closure.ts already uses (`HirPlaceBase`, `HirProjectionKind`).
 import { find_attr, type UnrollAttr } from "../../../rustc_attr_ir/lib.ts";
 import { clone_UnrollAttr } from "../../../rustc_attr_ir/lib.ts";
 import type { AssignOpKind, BinOpKind } from "../../../rustc_ast/lib.ts";
@@ -37,7 +35,7 @@ import type {
   InlineAsmOperand,
   UserTy,
 } from "../../../rustc_middle/thir.ts";
-import type { HirPlaceBase, HirProjectionKind } from "../../../rustc_middle/ty/closure.ts";
+import { debug_PlaceBase } from "../../../rustc_middle/hir/place.ts";
 import type { CapturedPlace } from "../../../rustc_middle/ty/closure.ts";
 import { type Adjustment, OverloadedDeref } from "../../../rustc_middle/ty/adjustment.ts";
 import type { AutoBorrowMutability } from "../../../rustc_middle/ty/adjustment.gen.ts";
@@ -67,18 +65,11 @@ import { bug, span_bug } from "../../../rustc_span/macros.ts";
 import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { SplattedDef } from "../../../rustc_middle/ty/typeck_results.ts";
-import { debug_int, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
+import { debug_int, debug_struct, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
 import { assert, assert_matches, panic, unported } from "../../../std/panic.ts";
 import { push_idx, ThirBuildCx } from "./mod.ts";
 
 // ---- PORT stand-ins for pending upstream types (see the module comment; not markers) -------------------------------
-
-/** The members of `hir::place::Place` (hir/place.rs:69) read here (pending; see the module comment). */
-interface HirPlaceView {
-  readonly base_ty: Ty;
-  readonly base: HirPlaceBase;
-  readonly projections: readonly { readonly ty: Ty; readonly kind: HirProjectionKind }[];
-}
 
 // rustc_abi `FIRST_VARIANT` (`VariantIdx::ZERO`) and `FieldIdx::ZERO`
 const FIRST_VARIANT = 0 as VariantIdx;
@@ -1797,8 +1788,7 @@ ThirBuildCx.prototype.overloaded_place = function (
 };
 
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1582 convert_captured_hir_place
-ThirBuildCx.prototype.convert_captured_hir_place = function (this: ThirBuildCx, closure_expr: HirExpr, place_: HirPlace): Expr {
-  const place = place_ as unknown as HirPlaceView;
+ThirBuildCx.prototype.convert_captured_hir_place = function (this: ThirBuildCx, closure_expr: HirExpr, place: HirPlace): Expr {
   const temp_scope_id = closure_expr.hir_id.local_id;
   const var_ty = place.base_ty;
 
@@ -1811,7 +1801,7 @@ ThirBuildCx.prototype.convert_captured_hir_place = function (this: ThirBuildCx, 
   if (place.base.$ === "Upvar") {
     var_hir_id = place.base._0.var_path.hir_id;
   } else {
-    return bug(`Expected an upvar, found ${debug_HirPlaceBase(place.base, PLAIN)}`);
+    return bug(`Expected an upvar, found ${debug_PlaceBase(place.base, PLAIN)}`);
   }
 
   let captured_place_expr: Expr = {
@@ -2041,20 +2031,6 @@ function with_type_of_did(u_ty: CanonicalUserType, did: DefId): CanonicalUserTyp
     return { ...u_ty, value: { ...u_ty.value, kind: { $: "TypeOf", _0: did, _1: k._1 } } };
   }
   return u_ty;
-}
-
-/** `#[derive(Debug)]` of `hir::place::PlaceBase` (hir/place.rs:9; pending, see the module comment). */
-function debug_HirPlaceBase(v: HirPlaceBase, f: Fmt): string {
-  switch (v.$) {
-    case "Rvalue":
-    case "StaticItem":
-      return v.$;
-    case "Local":
-      return debug_tuple(f, "Local", [debug_HirId(v._0, f)]);
-    case "Upvar":
-      // PORT: `UpvarId` has a manual Debug impl (ty/structural_impls.rs, reads the tcx) that is not ported.
-      return unported("Debug for ty::UpvarId (manual impl, not ported)");
-  }
 }
 
 /** `#[derive(Debug)]` of `ty::SplattedDef` (ty/typeck_results.rs:602). */

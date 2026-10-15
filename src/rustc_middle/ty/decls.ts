@@ -174,8 +174,10 @@ export type { CanonicalInput, ExternalConstraints };
 // traits/mod.rs (lane middle-traits-thir)
 import type { ObligationCause } from "../traits/mod.ts";
 export type { ObligationCause };
-// hir/place.rs, mir/syntax.rs, mir/interpret/allocation.rs, mir/mod.rs
-export type HirPlace = Pending<"hir::place::Place">;
+// hir/place.rs (lane typeck-euv): `ty::closure`'s `HirPlace` is `hir::place::Place`
+import type { Place as HirPlace } from "../hir/place.ts";
+export type { HirPlace };
+// mir/statement.rs (`mir::ProjectionKind = ProjectionElem<(), ()>`), mir/syntax.rs, mir/interpret/allocation.rs, mir/mod.rs
 export type ProjectionKind = Pending<"ProjectionKind">;
 export type PlaceElem = Pending<"PlaceElem">;
 export type Allocation = Pending<"Allocation">;

@@ -7,8 +7,7 @@
 // (the `projections` vector is copied; `Ty` / `HirId` / `UpvarId` / `ProjectionKind` values are immutable and shared).
 // `Hash`, `TyEncodable`, `TyDecodable`, `StableHash`, `TypeFoldable` and `TypeVisitable` derives are not written
 // (tools/codegen; PORTING §5).
-// PORT: rustc_middle hir/mod.rs's `pub mod place;` is not wired in hir/mod.ts (not this lane's file): consumers import
-// this module directly.
+// hir/mod.ts re-exports this module as `place` (`pub mod place;`, merge-w18).
 import { debug_HirId, type HirId, HirId_eq } from "../../rustc_hir_id/lib.ts";
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
 import { assert } from "../../std/panic.ts";

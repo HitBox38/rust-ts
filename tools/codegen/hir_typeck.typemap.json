@@ -4,7 +4,7 @@
     "middle_traits_thir.typemap.json, ast_lowering.typemap.json, infer.typemap.json, hir_analysis.typemap.json and",
     "trait_selection.typemap.json): the rustc_hir / rustc_middle / rustc_infer types the crate's types reach under the paths",
     "rustc_hir_typeck uses. Entries here override global paths for this set only. `rustc_middle::hir::place::Place` is",
-    "`unknown` until rustc_middle hir/place.rs is ported (lane typeck-euv)."
+    "rustc_middle hir/place.ts's hand-written class (merge-w18)."
   ],
   "cfg": { "true": [], "false": [] },
   "helpers": {
@@ -50,6 +50,6 @@
     {"paths": ["rustc_middle::ty::sty::ParamTy", "rustc_middle::ty::ParamTy"], "ts": "ParamTy", "import": "src/rustc_middle/ty/sty.gen.ts", "types": ["ParamTy"], "debug": "debug_ParamTy($v, $f)", "clone": "copy", "note": "middle_traits_thir.typemap.json's entry with structural_impls.ts's Debug (ported since)"},
     {"paths": ["rustc_middle::ty::sty::ParamConst", "rustc_middle::ty::ParamConst"], "ts": "ParamConst", "import": "src/rustc_middle/ty/sty.gen.ts", "types": ["ParamConst"], "debug": "debug_ParamConst($v, $f)", "clone": "copy", "note": "as ParamTy"},
     {"paths": ["rustc_middle::ty::sty::PolyFnSig", "rustc_middle::ty::PolyFnSig"], "ts": "PolyFnSig", "import": "src/rustc_type_ir/decls.ts", "types": ["PolyFnSig"], "debug": "debug_Binder($v, $f, debug_FnSig)", "clone": "copy", "note": "`ty::PolyFnSig<'tcx> = Binder<FnSig>` (immutable)"},
-    {"paths": ["rustc_middle::hir::place::Place"], "ts": "unknown", "debug": null, "clone": null, "note": "PORT: pending rustc_middle hir/place.rs (lane typeck-euv)"}
+    {"paths": ["rustc_middle::hir::place::Place"], "ts": "Place", "import": "src/rustc_middle/hir/place.ts", "types": ["Place"], "values": ["debug_Place", "clone_Place"], "debug": "debug_Place($v, $f)", "clone": "clone_Place($v)", "note": "rustc_middle hir/place.rs (lane typeck-euv; hand-written module)"}
   ]
 }

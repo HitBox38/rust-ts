@@ -44,8 +44,9 @@ import { debug_Ty, type Ty } from "./mod.ts";
 import { type Clause, debug_Clause, type Predicate } from "./predicate.ts";
 
 // PORT: pending types of other files (not ported yet), as `decls.ts`-style aliases (ty-contract "Pending types"):
-/** `crate::mir::FakeReadCause` (mir/syntax.rs:509) */
-export type FakeReadCause = PendingEnum<"mir::FakeReadCause">;
+/** `crate::mir::FakeReadCause` (mir/syntax.rs:509): mir/syntax.ts's (merge-w18). */
+import type { FakeReadCause } from "../mir/syntax.ts";
+export type { FakeReadCause };
 /** `crate::thir::DerefPatBorrowMode` (thir.rs:886): `Borrow(Mutability) | Box`, built per PORTING §5. */
 export type DerefPatBorrowMode = PendingEnum<"thir::DerefPatBorrowMode">;
 /** `ty::ClosureSizeProfileData` (ty/mod.rs:338) */

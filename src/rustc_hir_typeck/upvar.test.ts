@@ -1,22 +1,22 @@
 // Unit tests of compiler/rustc_hir_typeck/src/upvar.rs's free fns (lane typeck-upvar).
 //
-// rustc_middle hir/place.rs is pending (lane typeck-euv): the places here are `FakePlace`s with upstream's fields and
-// the three `Place` methods (hir/place.rs:111 `deref_tys`, :122 `ty`, :128 `ty_before_projection`) written after
-// upstream; the types are stubs answering only `kind()` / `is_raw_ptr()` / `is_union()` / `is_ref()`.
+// The places are rustc_middle hir/place.ts `Place`s (merge-w18); the types are stubs answering only `kind()` /
+// `is_raw_ptr()` / `is_union()` / `is_ref()`.
 import { expect, test } from "bun:test";
 import "./lib.ts";
 import { HirId, ItemLocalId, OwnerId } from "../rustc_hir_id/lib.ts";
-import type { CaptureInfo, CapturedPlace as CapturedPlaceT, HirPlaceBase, HirProjectionKind, UpvarCapture } from "../rustc_middle/ty/closure.ts";
+import type { CaptureInfo, CapturedPlace as CapturedPlaceT, UpvarCapture } from "../rustc_middle/ty/closure.ts";
+import { Place, type PlaceBase, type Projection } from "../rustc_middle/hir/place.ts";
 import { CapturedPlace, UpvarId } from "../rustc_middle/ty/closure.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import type { FieldIdx, HirPlace, VariantIdx } from "../rustc_middle/ty/decls.ts";
+import type { FieldIdx, VariantIdx } from "../rustc_middle/ty/decls.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import type { LocalDefId } from "../rustc_span/def_id.ts";
 import { create_default_session_globals_then, DUMMY_SP } from "../rustc_span/lib.ts";
 import { Ident, Symbol } from "../rustc_span/symbol.ts";
 import { Unported } from "../std/panic.ts";
 import type { MutRef } from "../std/mut_ref.ts";
-import type { Place, PlaceWithHirId } from "./decls.ts";
+import type { PlaceWithHirId } from "./decls.ts";
 import {
   adjust_for_move_closure,
   adjust_for_non_move_closure,
@@ -63,38 +63,15 @@ const REF_NOT = ty({ $: "Ref", _0: undefined, _1: STRUCT, _2: "Not" });
 const RAW = ty({ $: "RawPtr", _0: STRUCT, _1: "Not" });
 const ARRAY = ty({ $: "Array", _0: INT, _1: undefined });
 
-interface Proj {
-  ty: Ty;
-  kind: HirProjectionKind;
-}
-/** hir/place.rs `Place` (fields + the three methods, after upstream). */
-class FakePlace {
-  constructor(
-    public base_ty: Ty,
-    public base: HirPlaceBase,
-    public projections: Proj[],
-  ) {}
-  *deref_tys(): Generator<Ty> {
-    for (let index = this.projections.length - 1; index >= 0; index--) {
-      if (this.projections[index]!.kind.$ === "Deref") yield this.ty_before_projection(index);
-    }
-  }
-  ty(): Ty {
-    return this.projections.length === 0 ? this.base_ty : this.projections[this.projections.length - 1]!.ty;
-  }
-  ty_before_projection(i: number): Ty {
-    if (!(i < this.projections.length)) throw new Error("assertion failed: projection_index < self.projections.len()");
-    return i === 0 ? this.base_ty : this.projections[i - 1]!.ty;
-  }
-}
+type Proj = Projection;
 
 const CLOSURE = 7 as LocalDefId;
 const hir = (owner: number, local: number): HirId => new HirId(new OwnerId(owner as LocalDefId), ItemLocalId.from_u32(local));
 const X = hir(1, 2);
 const Y = hir(1, 3);
-const upvar = (v: HirId): HirPlaceBase => ({ $: "Upvar", _0: UpvarId.new(v, CLOSURE) });
-const place = (base_ty: Ty, projs: Proj[], root: HirId = X): Place => new FakePlace(base_ty, upvar(root), projs) as unknown as Place;
-const fp = (p: Place): FakePlace => p as unknown as FakePlace;
+const upvar = (v: HirId): PlaceBase => ({ $: "Upvar", _0: UpvarId.new(v, CLOSURE) });
+const place = (base_ty: Ty, projs: Proj[], root: HirId = X): Place => new Place(base_ty, upvar(root), projs);
+const fp = (p: Place): Place => p;
 const field = (i: number, t: Ty = INT): Proj => ({ ty: t, kind: { $: "Field", _0: i as FieldIdx, _1: 0 as VariantIdx } });
 const deref = (t: Ty): Proj => ({ ty: t, kind: { $: "Deref" } });
 const index = (t: Ty): Proj => ({ ty: t, kind: { $: "Index" } });
@@ -231,7 +208,7 @@ test("apply_capture_kind_on_capture_ty: by-value captures keep the type", () => 
 });
 
 test("should_reborrow_from_env_of_parent_coroutine_closure", () => {
-  const cap = (p: Place, k: UpvarCapture): CapturedPlaceT => new CapturedPlace(Ident.new(Symbol.intern("x"), DUMMY_SP), p as unknown as HirPlace, info(k), "Not");
+  const cap = (p: Place, k: UpvarCapture): CapturedPlaceT => new CapturedPlace(Ident.new(Symbol.intern("x"), DUMMY_SP), p, info(k), "Not");
   create_default_session_globals_then(() => {
     // (1.) parent by move, child borrows through no `&T` deref
     expect(should_reborrow_from_env_of_parent_coroutine_closure(cap(place(STRUCT, []), BY_VALUE), cap(place(STRUCT, [field(0)]), IMM))).toBe(true);
@@ -275,11 +252,12 @@ test("construct_*_string / migration_suggestion_for_2229 / migration_message", (
   });
 });
 
-test("InferBorrowKind ignores non-upvar places and stops at the pending hir::place::Place for upvars", () => {
+test("InferBorrowKind ignores non-upvar places and stops at the pending TypeVisitable of hir::place::Place for upvars", () => {
   create_default_session_globals_then(() => {
-    const fcx = { tcx: { hir_span: () => DUMMY_SP } } as never;
+    // `normalize` stub: the real one first visits the value (`has_aliases`), through the place's TypeVisitable.
+    const fcx = { tcx: { hir_span: () => DUMMY_SP }, normalize: (_s: unknown, _v: unknown, d: { visit_with: () => unknown }) => d.visit_with() } as never;
     const d = new InferBorrowKind(fcx, CLOSURE, [], []);
-    const local = { hir_id: X, place: new FakePlace(STRUCT, { $: "Local", _0: X }, []) } as unknown as PlaceWithHirId;
+    const local = { hir_id: X, place: new Place(STRUCT, { $: "Local", _0: X }, []) } as unknown as PlaceWithHirId;
     d.consume(local, X);
     d.use_cloned(local, X);
     d.borrow(local, X, "Mutable");
@@ -296,6 +274,6 @@ test("InferBorrowKind ignores non-upvar places and stops at the pending hir::pla
       expect(e).toBeInstanceOf(Unported);
       msg = (e as Error).message;
     }
-    expect(msg).toContain("rustc_middle::hir::place::Place Clone");
+    expect(msg).toContain("rustc_middle::hir::place::Place TypeVisitable");
   });
 });

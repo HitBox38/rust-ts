@@ -43,13 +43,8 @@
 // - `UnordSet<&'static str>` is `Set<string>`; `FxIndexMap<UpvarMigrationInfo, _>` / `FxIndexSet<UpvarMigrationInfo>`
 //   are `KeyedMap` / `KeyedSet` keyed by `intern_key` (the derived `Hash`/`Eq` of a data enum).
 // - `ty::CaptureInfo` is `Copy`: every Rust copy that is later mutated is `copy_CaptureInfo(..)`.
-// - PORT(decls): pending. rustc_middle hir/place.rs (`Place`, `PlaceBase`, `Projection`, `ProjectionKind`,
-//   `PlaceWithHirId`) is ported by lane typeck-euv in parallel; decls.ts still has them `Pending`. The members read here
-//   go through the views at the end of this file (`pv(place)`, upstream names and PORTING §5 shapes, as
-//   rustc_middle/ty/closure.ts does); the constructors, `Clone`, `PartialEq`, `Debug` and `TypeFoldable` of the
-//   pending types are `unported` stand-ins (`Place_new`, `PlaceWithHirId_new`, `clone_Place`, `fold_Place`,
-//   `debug_PlaceBase`, `debug_Projections`) that root replaces with the real items when both lanes are merged.
-//   `PlaceBase_eq` / `ProjectionKind_eq` are the derived `PartialEq`s written against the views.
+// - `hir::place` items are rustc_middle hir/place.ts's (merge-w18). Their `TypeFoldable` / `TypeVisitable` derives are
+//   not generated yet (tools/codegen): `fold_Place` at the end of this file is an `unported` stand-in.
 // Init order: top-level code here touches only ./decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
 export * from "./upvar.gen.ts";
@@ -69,8 +64,6 @@ import {
   BorrowKind,
   type CaptureInfo,
   CapturedPlace,
-  type HirPlaceBase,
-  type HirProjectionKind,
   type RootVariableMinCaptureList,
   UpvarCapture,
   UpvarId,
@@ -102,14 +95,15 @@ import { field_mut, type MutRef } from "../std/mut_ref.ts";
 import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../std/panic.ts";
 import { str_lines, utf8_len } from "../std/str.ts";
 import { Delegate_provided, ExprUseVisitor, TypeInformationCtxt_FnCtxt } from "./expr_use_visitor.ts";
-import { type Delegate, FnCtxt, type Place, type PlaceBase, type PlaceWithHirId, type Projection, TypeInformationCtxt } from "./decls.ts";
+import { type Delegate, FnCtxt, TypeInformationCtxt } from "./decls.ts";
+import { clone_Place, debug_PlaceBase, debug_Projection, debug_ProjectionKind, Place, type PlaceBase, PlaceBase_eq, PlaceWithHirId, type Projection, type ProjectionKind, ProjectionKind_eq } from "../rustc_middle/hir/place.ts";
 import { MigrationWarningReason, type NeededMigration, PlaceAncestryRelation, type UpvarMigrationInfo } from "./upvar.gen.ts";
 import type { InferredCaptureInformation, MigrationLintNote } from "./upvar.gen.ts";
 import { debug_HirId } from "../rustc_hir_id/lib.ts";
 import { debug_LocalDefId } from "../rustc_span/def_id.ts";
 import { debug_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { debug_TyKind, type TyKind } from "../rustc_type_ir/ty_kind.ts";
-import { format_debug, PLAIN } from "../std/fmt.ts";
+import { debug_vec, format_debug, PLAIN } from "../std/fmt.ts";
 
 // impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
@@ -165,7 +159,7 @@ FnCtxt.prototype.infer_closure_kind_for_diagnostic = function (this: FnCtxt, clo
 
   for (const capture of explicit_captures) {
     const place = closure_fcx.place_for_root_variable(closure_def_id, capture.var_hir_id);
-    delegate.consume(PlaceWithHirId_new(capture.var_hir_id, place), hir_id);
+    delegate.consume(new PlaceWithHirId(capture.var_hir_id, place), hir_id);
   }
 
   const [, closure_kind, origin] = this.process_collected_capture_information(capture_clause, delegate.capture_information);
@@ -174,7 +168,7 @@ FnCtxt.prototype.infer_closure_kind_for_diagnostic = function (this: FnCtxt, clo
   // fallback might later resolve the type to `Copy` (making the closure `Fn`).
   if (closure_kind === ClosureKind.FnOnce) {
     for (const [place, capture_info] of delegate.capture_information) {
-      if (capture_info.capture_kind.$ === "ByValue" && TypeVisitableExt.has_infer(pv(place as Place).ty(), fold_Ty)) {
+      if (capture_info.capture_kind.$ === "ByValue" && TypeVisitableExt.has_infer(place.ty(), fold_Ty)) {
         return undefined;
       }
     }
@@ -183,7 +177,7 @@ FnCtxt.prototype.infer_closure_kind_for_diagnostic = function (this: FnCtxt, clo
   if (!enable_precise_capture(expr.span)) {
     if (origin !== undefined) {
       const place = origin[1];
-      pv(place).projections.length = 0;
+      place.projections.length = 0;
     }
   }
 
@@ -480,10 +474,10 @@ FnCtxt.prototype.analyze_closure = function (
       if (!enable_precise_capture(span)) {
         // Without precise captures, we just capture the base and ignore
         // the projections.
-        pv(origin[1]).projections.length = 0;
+        origin[1].projections.length = 0;
       }
 
-      this.typeck_results.closure_kind_origins_mut().insert(closure_hir_id, [origin[0], as_HirPlace(origin[1])]);
+      this.typeck_results.closure_kind_origins_mut().insert(closure_hir_id, [origin[0], origin[1]]);
     }
   }
 
@@ -524,7 +518,7 @@ FnCtxt.prototype.analyze_closure = function (
             // This is subtle. See documentation on function.
             const needs_ref = should_reborrow_from_env_of_parent_coroutine_closure(parent_capture, child_capture);
 
-            const upvar_ty = pv(child_capture.place as unknown as Place).ty();
+            const upvar_ty = child_capture.place.ty();
             const capture = child_capture.info.capture_kind;
             // Not all upvars are captured by ref, so use
             // `apply_capture_kind_on_capture_ty` to ensure that we
@@ -579,7 +573,7 @@ FnCtxt.prototype.analyze_closure = function (
   if (this.tcx.features().unsized_fn_params()) {
     for (const capture of this.typeck_results.closure_min_captures_flattened(closure_def_id)) {
       if (capture.info.capture_kind.$ === "ByValue") {
-        this.require_type_is_sized(pv(capture.place as unknown as Place).ty(), capture.get_path_span(this.tcx), { $: "SizedClosureCapture", _0: closure_def_id });
+        this.require_type_is_sized(capture.place.ty(), capture.get_path_span(this.tcx), { $: "SizedClosureCapture", _0: closure_def_id });
       }
     }
   }
@@ -591,7 +585,7 @@ FnCtxt.prototype.analyze_closure = function (
 
   const fake_reads = delegate.fake_reads;
 
-  this.typeck_results.closure_fake_reads.set(closure_def_id, fake_reads.map(([p, c, h]) => [as_HirPlace(p), c, h]));
+  this.typeck_results.closure_fake_reads.set(closure_def_id, fake_reads.map(([p, c, h]) => [p, c, h]));
 
   if (this.tcx.sess.opts.unstable_opts.profile_closures) {
     const data: ClosureSizeProfileData = {
@@ -652,7 +646,7 @@ FnCtxt.prototype.coroutine_body_consumes_upvars = function (this: FnCtxt, corout
 FnCtxt.prototype.final_upvar_tys = function (this: FnCtxt, closure_id: LocalDefId): Ty[] {
   const out: Ty[] = [];
   for (const captured_place of this.typeck_results.closure_min_captures_flattened(closure_id)) {
-    const upvar_ty = pv(captured_place.place as unknown as Place).ty();
+    const upvar_ty = captured_place.place.ty();
     const capture = captured_place.info.capture_kind;
 
     // debug!(?captured_place.place, ?upvar_ty, ?capture, ?captured_place.mutability);
@@ -863,20 +857,20 @@ FnCtxt.prototype.compute_min_captures = function (this: FnCtxt, closure_def_id: 
   for (const [place_, capture_info] of capture_information) {
     const place = place_ as Place;
     let var_hir_id: HirId;
-    const base = pv(place).base;
+    const base = place.base;
     switch (base.$) {
       case "Upvar":
         var_hir_id = base._0.var_path.hir_id;
         break;
       default:
-        return bug(`Expected upvar, found=${debug_PlaceBase(base)}`);
+        return bug(`Expected upvar, found=${debug_PlaceBase(base, PLAIN)}`);
     }
     const var_ident = this.tcx.hir_ident(var_hir_id);
 
     const min_cap_list = root_var_min_capture_list.get(var_hir_id);
     if (min_cap_list === undefined) {
       const mutability = this.determine_capture_mutability(typeck_results, place);
-      const min_cap_list = [new CapturedPlace(var_ident, as_HirPlace(place), capture_info, mutability)];
+      const min_cap_list = [new CapturedPlace(var_ident, place, capture_info, mutability)];
       root_var_min_capture_list.set(var_hir_id, min_cap_list);
       continue;
     }
@@ -895,7 +889,7 @@ FnCtxt.prototype.compute_min_captures = function (this: FnCtxt, closure_def_id: 
     let descendant_found = false;
     let updated_capture_info = copy_CaptureInfo(capture_info);
     vec_retain(min_cap_list, (possible_descendant_) => {
-      switch (determine_place_ancestry_relation(place, possible_descendant_.place as unknown as Place)) {
+      switch (determine_place_ancestry_relation(place, possible_descendant_.place)) {
         // current place is ancestor of possible_descendant
         case "Ancestor": {
           descendant_found = true;
@@ -906,9 +900,9 @@ FnCtxt.prototype.compute_min_captures = function (this: FnCtxt, closure_def_id: 
           // Truncate the descendant (already in min_captures) to be same as the ancestor to handle any
           // possible change in capture mode.
           truncate_place_to_len_and_update_capture_kind(
-            possible_descendant.place as unknown as Place,
+            possible_descendant.place,
             field_mut(possible_descendant.info, "capture_kind"),
-            pv(place).projections.length,
+            place.projections.length,
           );
 
           updated_capture_info = determine_capture_info(updated_capture_info, possible_descendant.info);
@@ -926,7 +920,7 @@ FnCtxt.prototype.compute_min_captures = function (this: FnCtxt, closure_def_id: 
     let ancestor_found = false;
     if (!descendant_found) {
       for (const possible_ancestor of min_cap_list) {
-        const relation = determine_place_ancestry_relation(place, possible_ancestor.place as unknown as Place);
+        const relation = determine_place_ancestry_relation(place, possible_ancestor.place);
         if (relation === "SamePlace") {
           ancestor_found = true;
           possible_ancestor.info = determine_capture_info(possible_ancestor.info, updated_capture_info);
@@ -944,7 +938,7 @@ FnCtxt.prototype.compute_min_captures = function (this: FnCtxt, closure_def_id: 
           truncate_place_to_len_and_update_capture_kind(
             place,
             field_mut(updated_capture_info, "capture_kind"),
-            pv(possible_ancestor.place as unknown as Place).projections.length,
+            possible_ancestor.place.projections.length,
           );
 
           possible_ancestor.info = determine_capture_info(possible_ancestor.info, updated_capture_info);
@@ -961,7 +955,7 @@ FnCtxt.prototype.compute_min_captures = function (this: FnCtxt, closure_def_id: 
     // Only need to insert when we don't have an ancestor in the existing min capture list
     if (!ancestor_found) {
       const mutability = this.determine_capture_mutability(typeck_results, place);
-      const captured_place = new CapturedPlace(var_ident, as_HirPlace(place), updated_capture_info, mutability);
+      const captured_place = new CapturedPlace(var_ident, place, updated_capture_info, mutability);
       min_cap_list.push(captured_place);
     }
   }
@@ -983,7 +977,7 @@ FnCtxt.prototype.compute_min_captures = function (this: FnCtxt, closure_def_id: 
     captures.sort((capture1, capture2) => {
       // rustc: compiler/rustc_hir_typeck/src/upvar.rs:1017 is_field
       function is_field(p: Projection): boolean {
-        const kind = pv_proj(p).kind;
+        const kind = p.kind;
         switch (kind.$) {
           case "Field":
             return true;
@@ -993,15 +987,15 @@ FnCtxt.prototype.compute_min_captures = function (this: FnCtxt, closure_def_id: 
             return false;
           case "Subslice":
           case "Index":
-            return bug(`ProjectionKind ${debug_ProjectionKind(kind)} was unexpected`);
+            return bug(`ProjectionKind ${debug_ProjectionKind(kind, PLAIN)} was unexpected`);
         }
       }
 
       // Need to sort only by Field projections, so filter away others.
       // A previous implementation considered other projection types too
       // but that caused ICE #118144
-      const capture1_field_projections = pv(capture1.place as unknown as Place).projections.filter((p) => is_field(p as unknown as Projection));
-      const capture2_field_projections = pv(capture2.place as unknown as Place).projections.filter((p) => is_field(p as unknown as Projection));
+      const capture1_field_projections = capture1.place.projections.filter((p) => is_field(p));
+      const capture2_field_projections = capture2.place.projections.filter((p) => is_field(p));
 
       const n = Math.min(capture1_field_projections.length, capture2_field_projections.length);
       for (let i = 0; i < n; i++) {
@@ -1024,13 +1018,13 @@ FnCtxt.prototype.compute_min_captures = function (this: FnCtxt, closure_def_id: 
         }
         // Given the filter above, this arm should never be hit
         else {
-          return bug(`ProjectionKinds ${debug_ProjectionKind(l)} or ${debug_ProjectionKind(r)} were unexpected`);
+          return bug(`ProjectionKinds ${debug_ProjectionKind(l, PLAIN)} or ${debug_ProjectionKind(r, PLAIN)} were unexpected`);
         }
       }
 
       this.dcx().span_delayed_bug(
         closure_span,
-        `two identical projections: (${debug_Projections(pv(capture1.place as unknown as Place).projections)}, ${debug_Projections(pv(capture2.place as unknown as Place).projections)})`,
+        `two identical projections: (${debug_vec(capture1.place.projections, PLAIN, debug_Projection)}, ${debug_vec(capture2.place.projections, PLAIN, debug_Projection)})`,
       );
       return 0;
     });
@@ -1298,7 +1292,7 @@ FnCtxt.prototype.compute_2229_migrations_for_trait = function (
   const problematic_captures = new KeyedMap<UpvarMigrationInfo, Set<string>>(intern_key);
   // Check whether captured fields also implement the trait
   for (const capture of root_var_min_capture_list) {
-    const ty = apply_capture_kind_on_capture_ty(this.tcx, pv(capture.place as unknown as Place).ty(), capture.info.capture_kind, this.tcx.lifetimes.re_erased);
+    const ty = apply_capture_kind_on_capture_ty(this.tcx, capture.place.ty(), capture.info.capture_kind, this.tcx.lifetimes.re_erased);
 
     // Checks if a capture implements any of the auto traits
     const obligations_holds_for_capture: boolean[] = [];
@@ -1406,7 +1400,7 @@ FnCtxt.prototype.compute_2229_migrations_for_drop = function (
       // Only care about captures that are moved into the closure
       case "ByValue":
       case "ByUse":
-        projections_list.push(pv(captured_place.place as unknown as Place).projections as unknown as Projection[]);
+        projections_list.push(captured_place.place.projections);
         diagnostics_info.add({
           $: "CapturingPrecise",
           source_expr: captured_place.info.path_expr_id,
@@ -1424,7 +1418,7 @@ FnCtxt.prototype.compute_2229_migrations_for_drop = function (
   const is_moved = projections_list.length !== 0;
   // debug!(?is_moved);
 
-  const is_not_completely_captured = root_var_min_capture_list.some((capture) => pv(capture.place as unknown as Place).projections.length !== 0);
+  const is_not_completely_captured = root_var_min_capture_list.some((capture) => capture.place.projections.length !== 0);
   // debug!(?is_not_completely_captured);
 
   if (is_moved && is_not_completely_captured && this.has_significant_drop_outside_of_captures(closure_def_id, closure_span, ty, projections_list)) {
@@ -1704,14 +1698,14 @@ FnCtxt.prototype.has_significant_drop_outside_of_captures = function (
 
     // Only Field projections can be applied to a non-box Adt.
     assert(
-      captured_by_move_projs.every((projs) => pv_proj(unwrap(projs[0])).kind.$ === "Field"),
+      captured_by_move_projs.every((projs) => unwrap(projs[0]).kind.$ === "Field"),
       "assertion failed: captured_by_move_projs.iter().all(|projs|\n        matches!(projs.first().unwrap().kind, ProjectionKind::Field(..)))",
     );
     const fields = unwrap(def.variants()[FIRST_VARIANT]).fields;
     return fields.some((field, i) => {
       const paths_using_field: Projection[][] = [];
       for (const projs of captured_by_move_projs) {
-        const kind = pv_proj(unwrap(projs[0])).kind;
+        const kind = unwrap(projs[0]).kind;
         if (kind.$ === "Field") {
           const field_idx = kind._0;
           if (field_idx === i) paths_using_field.push(projs.slice(1));
@@ -1727,14 +1721,14 @@ FnCtxt.prototype.has_significant_drop_outside_of_captures = function (
     const fields = k._0;
     // Only Field projections can be applied to a tuple.
     assert(
-      captured_by_move_projs.every((projs) => pv_proj(unwrap(projs[0])).kind.$ === "Field"),
+      captured_by_move_projs.every((projs) => unwrap(projs[0]).kind.$ === "Field"),
       "assertion failed: captured_by_move_projs.iter().all(|projs|\n        matches!(projs.first().unwrap().kind, ProjectionKind::Field(..)))",
     );
 
     return fields.some((element_ty, i) => {
       const paths_using_field: Projection[][] = [];
       for (const projs of captured_by_move_projs) {
-        const kind = pv_proj(unwrap(projs[0])).kind;
+        const kind = unwrap(projs[0]).kind;
         if (kind.$ === "Field") {
           const field_idx = kind._0;
           if (field_idx === i) paths_using_field.push(projs.slice(1));
@@ -1778,9 +1772,9 @@ FnCtxt.prototype.init_capture_kind_for_place = function (this: FnCtxt, place: Pl
   // Otherwise you'd get an error in 2021 immediately because you'd be trying to take
   // ownership of the (borrowed) String or else you'd take ownership of b, as in 2018 and
   // before, which is also an error.
-  if (capture_clause.$ === "Value" && !iter_any(pv(place).deref_tys(), (t) => t.is_ref())) {
+  if (capture_clause.$ === "Value" && !iter_any(place.deref_tys(), (t) => t.is_ref())) {
     return UpvarCapture.ByValue;
-  } else if (capture_clause.$ === "Use" && !iter_any(pv(place).deref_tys(), (t) => t.is_ref())) {
+  } else if (capture_clause.$ === "Use" && !iter_any(place.deref_tys(), (t) => t.is_ref())) {
     return UpvarCapture.ByUse;
   } else {
     return { $: "ByRef", _0: BorrowKind.Immutable };
@@ -1791,7 +1785,7 @@ FnCtxt.prototype.init_capture_kind_for_place = function (this: FnCtxt, place: Pl
 FnCtxt.prototype.place_for_root_variable = function (this: FnCtxt, closure_def_id: LocalDefId, var_hir_id: HirId): Place {
   const upvar_id = UpvarId.new(var_hir_id, closure_def_id);
 
-  const place = Place_new(this.node_ty(var_hir_id), { $: "Upvar", _0: upvar_id } as unknown as PlaceBase, []);
+  const place = new Place(this.node_ty(var_hir_id), { $: "Upvar", _0: upvar_id }, []);
 
   // Normalize eagerly when inserting into `capture_information`, so all downstream
   // capture analysis can assume a normalized `Place`.
@@ -1827,7 +1821,7 @@ FnCtxt.prototype.log_closure_min_capture_info = function (this: FnCtxt, closure_
 
       for (const [, min_captures_for_var] of min_captures) {
         for (const capture of min_captures_for_var) {
-          const place = capture.place as unknown as Place;
+          const place = capture.place;
           const capture_info = capture.info;
 
           const capture_str = construct_capture_info_string(this.tcx, place, capture_info);
@@ -1864,7 +1858,7 @@ FnCtxt.prototype.log_closure_min_capture_info = function (this: FnCtxt, closure_
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2011 determine_capture_mutability
 FnCtxt.prototype.determine_capture_mutability = function (this: FnCtxt, typeck_results: TypeckResults, place: Place): Mutability {
   let var_hir_id: HirId;
-  const base = pv(place).base;
+  const base = place.base;
   switch (base.$) {
     case "Upvar":
       var_hir_id = base._0.var_path.hir_id;
@@ -1878,7 +1872,7 @@ FnCtxt.prototype.determine_capture_mutability = function (this: FnCtxt, typeck_r
 
   let is_mutbl = bm._1;
 
-  for (const pointer_ty of pv(place).deref_tys()) {
+  for (const pointer_ty of place.deref_tys()) {
     const k = this.structurally_resolve_type(this.tcx.hir_span(var_hir_id), pointer_ty).kind();
     // We don't capture derefs of raw ptrs
     if (k.$ === "RawPtr") {
@@ -1950,8 +1944,8 @@ FnCtxt.prototype.determine_capture_mutability = function (this: FnCtxt, typeck_r
 /// may receive unnecessary borrowck errors.
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2094 should_reborrow_from_env_of_parent_coroutine_closure
 export function should_reborrow_from_env_of_parent_coroutine_closure(parent_capture: CapturedPlace, child_capture: CapturedPlace): boolean {
-  const child_place = pv(child_capture.place as unknown as Place);
-  const parent_len = pv(parent_capture.place as unknown as Place).projections.length;
+  const child_place = child_capture.place;
+  const parent_len = parent_capture.place.projections.length;
   // (1.)
   return (
     (!parent_capture.is_by_ref() &&
@@ -1974,7 +1968,7 @@ export function should_reborrow_from_env_of_parent_coroutine_closure(parent_capt
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2122 restrict_repr_packed_field_ref_capture
 export function restrict_repr_packed_field_ref_capture(place: Place, curr_borrow_kind_: UpvarCapture): [Place, UpvarCapture] {
   const curr_borrow_kind: MutRef<UpvarCapture> = { value: curr_borrow_kind_ };
-  const p_ = pv(place);
+  const p_ = place;
   const pos_ = p_.projections.findIndex((p, i) => {
     const ty = p_.ty_before_projection(i);
 
@@ -2082,14 +2076,14 @@ export class InferBorrowKind implements Delegate {
   // #[instrument(skip(self), level = "debug")]
   // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2216 fake_read
   fake_read(place_with_id: PlaceWithHirId, cause: FakeReadCause, diag_expr_id: HirId): void {
-    if (pv(pvh(place_with_id).place).base.$ !== "Upvar") return;
+    if (place_with_id.place.base.$ !== "Upvar") return;
 
     // We need to restrict Fake Read precision to avoid fake reading unsafe code,
     // such as deref of a raw pointer.
     const dummy_capture_kind: UpvarCapture = { $: "ByRef", _0: BorrowKind.Immutable };
 
     const span = this.fcx.tcx.hir_span(diag_expr_id);
-    let place = this.fcx.normalize(span, Unnormalized.new_wip(clone_Place(pvh(place_with_id).place)), fold_Place);
+    let place = this.fcx.normalize(span, Unnormalized.new_wip(clone_Place(place_with_id.place)), fold_Place);
 
     [place] = restrict_capture_precision(place, dummy_capture_kind);
 
@@ -2100,13 +2094,13 @@ export class InferBorrowKind implements Delegate {
   // #[instrument(skip(self), level = "debug")]
   // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2238 consume
   consume(place_with_id: PlaceWithHirId, diag_expr_id: HirId): void {
-    const base = pv(pvh(place_with_id).place).base;
+    const base = place_with_id.place.base;
     if (base.$ !== "Upvar") return;
     const upvar_id = base._0;
     assert_eq(this.closure_def_id, upvar_id.closure_expr_id, (v) => debug_LocalDefId_str(v));
 
     const span = this.fcx.tcx.hir_span(diag_expr_id);
-    const place = this.fcx.normalize(span, Unnormalized.new_wip(clone_Place(pvh(place_with_id).place)), fold_Place);
+    const place = this.fcx.normalize(span, Unnormalized.new_wip(clone_Place(place_with_id.place)), fold_Place);
 
     this.capture_information.push([
       place,
@@ -2121,13 +2115,13 @@ export class InferBorrowKind implements Delegate {
   // #[instrument(skip(self), level = "debug")]
   // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2256 use_cloned
   use_cloned(place_with_id: PlaceWithHirId, diag_expr_id: HirId): void {
-    const base = pv(pvh(place_with_id).place).base;
+    const base = place_with_id.place.base;
     if (base.$ !== "Upvar") return;
     const upvar_id = base._0;
     assert_eq(this.closure_def_id, upvar_id.closure_expr_id, (v) => debug_LocalDefId_str(v));
 
     const span = this.fcx.tcx.hir_span(diag_expr_id);
-    const place = this.fcx.normalize(span, Unnormalized.new_wip(clone_Place(pvh(place_with_id).place)), fold_Place);
+    const place = this.fcx.normalize(span, Unnormalized.new_wip(clone_Place(place_with_id.place)), fold_Place);
 
     this.capture_information.push([
       place,
@@ -2142,7 +2136,7 @@ export class InferBorrowKind implements Delegate {
   // #[instrument(skip(self), level = "debug")]
   // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2274 borrow
   borrow(place_with_id: PlaceWithHirId, diag_expr_id: HirId, bk: BorrowKind): void {
-    const base = pv(pvh(place_with_id).place).base;
+    const base = place_with_id.place.base;
     if (base.$ !== "Upvar") return;
     const upvar_id = base._0;
     assert_eq(this.closure_def_id, upvar_id.closure_expr_id, (v) => debug_LocalDefId_str(v));
@@ -2151,7 +2145,7 @@ export class InferBorrowKind implements Delegate {
     let capture_kind: UpvarCapture = { $: "ByRef", _0: bk };
 
     const span = this.fcx.tcx.hir_span(diag_expr_id);
-    let place = this.fcx.normalize(span, Unnormalized.new_wip(clone_Place(pvh(place_with_id).place)), fold_Place);
+    let place = this.fcx.normalize(span, Unnormalized.new_wip(clone_Place(place_with_id.place)), fold_Place);
 
     // We only want repr packed restriction to be applied to reading references into a packed
     // struct, and not when the data is being moved. Therefore we call this method here instead
@@ -2159,7 +2153,7 @@ export class InferBorrowKind implements Delegate {
     [place, capture_kind] = restrict_repr_packed_field_ref_capture(place, capture_kind);
 
     // Raw pointers don't inherit mutability
-    if (iter_any(pv(place).deref_tys(), (t) => t.is_raw_ptr())) {
+    if (iter_any(place.deref_tys(), (t) => t.is_raw_ptr())) {
       capture_kind = { $: "ByRef", _0: BorrowKind.Immutable };
     }
 
@@ -2195,9 +2189,9 @@ export class InferBorrowKind implements Delegate {
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2317 restrict_precision_for_drop_types
 export function restrict_precision_for_drop_types(fcx: FnCtxt, place: Place, curr_mode_: UpvarCapture): [Place, UpvarCapture] {
   const curr_mode: MutRef<UpvarCapture> = { value: curr_mode_ };
-  if (curr_mode.value.$ === "ByValue" && !fcx.infcx.type_is_copy_modulo_regions(fcx.param_env, pv(place).ty())) {
-    for (let i = 0; i < pv(place).projections.length; i++) {
-      const k = pv(place).ty_before_projection(i).kind();
+  if (curr_mode.value.$ === "ByValue" && !fcx.infcx.type_is_copy_modulo_regions(fcx.param_env, place.ty())) {
+    for (let i = 0; i < place.projections.length; i++) {
+      const k = place.ty_before_projection(i).kind();
       if (k.$ === "Adt" && k._0.destructor(fcx.tcx) !== undefined) {
         truncate_place_to_len_and_update_capture_kind(place, curr_mode, i);
         break;
@@ -2215,15 +2209,15 @@ export function restrict_precision_for_drop_types(fcx: FnCtxt, place: Place, cur
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2343 restrict_precision_for_unsafe
 export function restrict_precision_for_unsafe(place: Place, curr_mode_: UpvarCapture): [Place, UpvarCapture] {
   const curr_mode: MutRef<UpvarCapture> = { value: curr_mode_ };
-  if (pv(place).base_ty.is_raw_ptr()) {
+  if (place.base_ty.is_raw_ptr()) {
     truncate_place_to_len_and_update_capture_kind(place, curr_mode, 0);
   }
 
-  if (pv(place).base_ty.is_union()) {
+  if (place.base_ty.is_union()) {
     truncate_place_to_len_and_update_capture_kind(place, curr_mode, 0);
   }
 
-  const projections = pv(place).projections;
+  const projections = place.projections;
   for (let i = 0; i < projections.length; i++) {
     const proj = projections[i]!;
     if (proj.ty.is_raw_ptr()) {
@@ -2253,12 +2247,12 @@ export function restrict_capture_precision(place_: Place, curr_mode_: UpvarCaptu
   const [place, curr_mode_1] = restrict_precision_for_unsafe(place_, curr_mode_);
   const curr_mode: MutRef<UpvarCapture> = { value: curr_mode_1 };
 
-  if (pv(place).projections.length === 0) {
+  if (place.projections.length === 0) {
     // Nothing to do here
     return [place, curr_mode.value];
   }
 
-  const projections = pv(place).projections;
+  const projections = place.projections;
   for (let i = 0; i < projections.length; i++) {
     const proj = projections[i]!;
     switch (proj.kind.$) {
@@ -2286,7 +2280,7 @@ export function restrict_capture_precision(place_: Place, curr_mode_: UpvarCaptu
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2408 adjust_for_move_closure
 export function adjust_for_move_closure(place: Place, kind_: UpvarCapture): [Place, UpvarCapture] {
   const kind: MutRef<UpvarCapture> = { value: kind_ };
-  const first_deref_ = pv(place).projections.findIndex((proj) => proj.kind.$ === "Deref");
+  const first_deref_ = place.projections.findIndex((proj) => proj.kind.$ === "Deref");
   const first_deref = first_deref_ < 0 ? undefined : first_deref_;
 
   if (first_deref !== undefined) {
@@ -2302,7 +2296,7 @@ export function adjust_for_move_closure(place: Place, kind_: UpvarCapture): [Pla
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2423 adjust_for_use_closure
 export function adjust_for_use_closure(place: Place, kind_: UpvarCapture): [Place, UpvarCapture] {
   const kind: MutRef<UpvarCapture> = { value: kind_ };
-  const first_deref_ = pv(place).projections.findIndex((proj) => proj.kind.$ === "Deref");
+  const first_deref_ = place.projections.findIndex((proj) => proj.kind.$ === "Deref");
   const first_deref = first_deref_ < 0 ? undefined : first_deref_;
 
   if (first_deref !== undefined) {
@@ -2319,7 +2313,7 @@ export function adjust_for_use_closure(place: Place, kind_: UpvarCapture): [Plac
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2439 adjust_for_non_move_closure
 export function adjust_for_non_move_closure(place: Place, kind_: UpvarCapture): [Place, UpvarCapture] {
   const kind: MutRef<UpvarCapture> = { value: kind_ };
-  const contains_deref_ = pv(place).projections.findIndex((proj) => proj.kind.$ === "Deref");
+  const contains_deref_ = place.projections.findIndex((proj) => proj.kind.$ === "Deref");
   const contains_deref = contains_deref_ < 0 ? undefined : contains_deref_;
 
   switch (kind.value.$) {
@@ -2350,7 +2344,7 @@ export function adjust_for_non_move_closure(place: Place, kind_: UpvarCapture): 
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2469 construct_place_string
 export function construct_place_string(tcx: TyCtxt, place: Place): string {
   let variable_name: string;
-  const base = pv(place).base;
+  const base = place.base;
   switch (base.$) {
     case "Upvar":
       variable_name = display_Symbol(var_name(tcx, base._0.var_path.hir_id));
@@ -2360,7 +2354,7 @@ export function construct_place_string(tcx: TyCtxt, place: Place): string {
   }
 
   let projections_str = "";
-  const projections = pv(place).projections;
+  const projections = place.projections;
   for (let i = 0; i < projections.length; i++) {
     const item = projections[i]!;
     let proj: string;
@@ -2551,7 +2545,7 @@ export function truncate_place_to_len_and_update_capture_kind(place: Place, curr
   // UniqueImmBorrow
   // Note that if the place contained Deref of a raw pointer it would've not been MutBorrow, so
   // we don't need to worry about that case here.
-  const p = pv(place);
+  const p = place;
   const mode = curr_mode.value;
   switch (mode.$) {
     case "ByRef":
@@ -2581,15 +2575,15 @@ export function truncate_place_to_len_and_update_capture_kind(place: Place, curr
 // rustc: compiler/rustc_hir_typeck/src/upvar.rs:2668 determine_place_ancestry_relation
 export function determine_place_ancestry_relation(place_a: Place, place_b: Place): PlaceAncestryRelation {
   // If Place A and Place B don't start off from the same root variable, they are divergent.
-  if (!PlaceBase_eq(pv(place_a).base, pv(place_b).base)) {
+  if (!PlaceBase_eq(place_a.base, place_b.base)) {
     return PlaceAncestryRelation.Divergent;
   }
 
   // Assume of length of projections_a = n
-  const projections_a = pv(place_a).projections;
+  const projections_a = place_a.projections;
 
   // Assume of length of projections_b = m
-  const projections_b = pv(place_b).projections;
+  const projections_b = place_b.projections;
 
   let same_initial_projections = true;
   const n = Math.min(projections_a.length, projections_b.length);
@@ -2655,11 +2649,11 @@ export function truncate_capture_for_optimization(place: Place, curr_mode_: Upva
   // Find the rightmost deref (if any). All the projections that come after this
   // are fields or other "in-place pointer adjustments"; these refer therefore to
   // data owned by whatever pointer is being dereferenced here.
-  const idx_ = pv(place).projections.findLastIndex((proj) => proj.kind.$ === "Deref");
+  const idx_ = place.projections.findLastIndex((proj) => proj.kind.$ === "Deref");
   const idx = idx_ < 0 ? undefined : idx_;
 
   // If that pointer is a shared reference, then we don't need those fields.
-  if (idx !== undefined && is_shared_ref(pv(place).ty_before_projection(idx))) {
+  if (idx !== undefined && is_shared_ref(place.ty_before_projection(idx))) {
     truncate_place_to_len_and_update_capture_kind(place, curr_mode, idx + 1);
   } else {
     // None | Some(_) => {}
@@ -2689,7 +2683,7 @@ function copy_CaptureInfo(v: CaptureInfo): CaptureInfo {
 
 /** `#[derive(Clone)]` of `ty::CapturedPlace` (rustc_middle ty/closure.rs). */
 function clone_CapturedPlace(v: CapturedPlace): CapturedPlace {
-  return new CapturedPlace(v.var_ident, as_HirPlace(clone_Place(v.place as unknown as Place)), copy_CaptureInfo(v.info), v.mutability);
+  return new CapturedPlace(v.var_ident, clone_Place(v.place), copy_CaptureInfo(v.info), v.mutability);
 }
 
 /** `UpvarMigrationInfo::clone` (`#[derive(Clone)]`, upvar.gen.ts). */
@@ -2782,94 +2776,11 @@ function debug_LocalDefId_str(v: LocalDefId): string {
   return format_debug(v, debug_LocalDefId, PLAIN);
 }
 
-// ---- PORT(decls): pending rustc_middle hir/place.rs (lane typeck-euv); root swaps these for the real items ----------
+// ---- PORT stand-ins (not markers) ----------------------------------------------------------------------------------
 
-/** `hir::place::ProjectionKind` (hir/place.rs:23): rustc_middle ty/closure.ts's view. */
-type ProjectionKind = HirProjectionKind;
-
-/** The members of `hir::place::Projection` (hir/place.rs:54) read here. */
-interface ProjectionView {
-  /// Type after the projection is applied.
-  readonly ty: Ty;
-  /// Defines the kind of access made by the projection.
-  readonly kind: ProjectionKind;
-}
-
-/** The members of `hir::place::Place` (hir/place.rs:69) used here (`projections` is mutated by `truncate`/`clear`). */
-interface PlaceView {
-  readonly base_ty: Ty;
-  readonly base: HirPlaceBase;
-  projections: ProjectionView[];
-  // hir/place.rs:111
-  deref_tys(): Iterable<Ty>;
-  // hir/place.rs:122
-  ty(): Ty;
-  // hir/place.rs:128
-  ty_before_projection(projection_index: number): Ty;
-}
-
-/** The members of `hir::place::PlaceWithHirId` (hir/place.rs:84) read here. */
-interface PlaceWithHirIdView {
-  readonly hir_id: HirId;
-  readonly place: Place;
-}
-
-function pv(p: Place): PlaceView {
-  return p as unknown as PlaceView;
-}
-function pv_proj(p: Projection): ProjectionView {
-  return p as unknown as ProjectionView;
-}
-function pvh(p: PlaceWithHirId): PlaceWithHirIdView {
-  return p as unknown as PlaceWithHirIdView;
-}
-/** decls.ts `Place` and rustc_middle ty/decls.ts `HirPlace` are both pending `hir::place::Place`. */
-function as_HirPlace(p: Place): HirPlace {
-  return p as unknown as HirPlace;
-}
-
-/** `#[derive(PartialEq)]` of `hir::place::PlaceBase` (hir/place.rs:10). */
-function PlaceBase_eq(a: HirPlaceBase, b: HirPlaceBase): boolean {
-  if (a.$ !== b.$) return false;
-  if (a.$ === "Local" && b.$ === "Local") return HirId_eq(a._0, b._0);
-  if (a.$ === "Upvar" && b.$ === "Upvar") return HirId_eq(a._0.var_path.hir_id, b._0.var_path.hir_id) && a._0.closure_expr_id === b._0.closure_expr_id;
-  return true;
-}
-
-/** `#[derive(PartialEq)]` of `hir::place::ProjectionKind` (hir/place.rs:23). */
-function ProjectionKind_eq(a: ProjectionKind, b: ProjectionKind): boolean {
-  if (a.$ !== b.$) return false;
-  if (a.$ === "Field" && b.$ === "Field") return a._0 === b._0 && a._1 === b._1;
-  return true;
-}
-
-/** `Place { base_ty, base, projections }` (hir/place.rs:69). */
-function Place_new(_base_ty: Ty, _base: PlaceBase, _projections: Projection[]): Place {
-  return unported("rustc_middle::hir::place::Place (hir/place.rs, lane typeck-euv)");
-}
-/** `PlaceWithHirId { hir_id, place }` (hir/place.rs:84). */
-function PlaceWithHirId_new(_hir_id: HirId, _place: Place): PlaceWithHirId {
-  return unported("rustc_middle::hir::place::PlaceWithHirId (hir/place.rs, lane typeck-euv)");
-}
-/** `#[derive(Clone)]` of `hir::place::Place`. */
-function clone_Place(_p: Place): Place {
-  return unported("rustc_middle::hir::place::Place Clone (hir/place.rs, lane typeck-euv)");
-}
-/** `#[derive(TypeFoldable)]` of `hir::place::Place` (D4 descriptor). */
+/** `#[derive(TypeFoldable, TypeVisitable)]` of `hir::place::Place` (D4 descriptor; not generated yet). */
 const fold_Place: TypeFoldable<Place> = {
-  visit_with: () => unported("rustc_middle::hir::place::Place TypeVisitable (hir/place.rs, lane typeck-euv)"),
-  try_fold_with: () => unported("rustc_middle::hir::place::Place TypeFoldable (hir/place.rs, lane typeck-euv)"),
-  fold_with: () => unported("rustc_middle::hir::place::Place TypeFoldable (hir/place.rs, lane typeck-euv)"),
+  visit_with: () => unported("rustc_middle::hir::place::Place TypeVisitable (hir/place.rs derive; tools/codegen)"),
+  try_fold_with: () => unported("rustc_middle::hir::place::Place TypeFoldable (hir/place.rs derive; tools/codegen)"),
+  fold_with: () => unported("rustc_middle::hir::place::Place TypeFoldable (hir/place.rs derive; tools/codegen)"),
 };
-/** `#[derive(Debug)]` of `hir::place::PlaceBase`. */
-function debug_PlaceBase(_v: HirPlaceBase): string {
-  return unported("rustc_middle::hir::place::PlaceBase Debug (hir/place.rs, lane typeck-euv)");
-}
-/** `#[derive(Debug)]` of `hir::place::ProjectionKind`. */
-function debug_ProjectionKind(_v: ProjectionKind): string {
-  return unported("rustc_middle::hir::place::ProjectionKind Debug (hir/place.rs, lane typeck-euv)");
-}
-/** `#[derive(Debug)]` of `Vec<hir::place::Projection>`. */
-function debug_Projections(_v: readonly ProjectionView[]): string {
-  return unported("rustc_middle::hir::place::Projection Debug (hir/place.rs, lane typeck-euv)");
-}

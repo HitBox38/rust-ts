@@ -20,13 +20,13 @@ import {
   BorrowKind,
   CapturedPlace,
   debug_CaptureInfo,
-  type HirProjectionKind,
   is_ancestor_or_same_capture,
   place_to_string_for_capture,
   UpvarCapture,
   UpvarId,
 } from "./closure.ts";
 import { CtxtInterners, TyCtxt } from "./context.ts";
+import { Place as HirPlaceClass, type ProjectionKind as HirProjectionKind } from "../hir/place.ts";
 import type { FieldIdx, HirPlace, ReprOptions, VariantDef, VariantIdx } from "./decls.ts";
 import type { SimplifiedType } from "./fast_reject.ts";
 import type { Ty } from "./mod.ts";
@@ -379,12 +379,11 @@ describe("closure", () => {
   // a tuple-typed base so the field projections print by index
   const tuple_ty = { kind: () => ({ $: "Tuple", _0: [] }) } as unknown as Ty;
   const mk_place = (root: HirId, projs: HirProjectionKind[]): HirPlace =>
-    ({
-      base_ty: tuple_ty,
-      base: { $: "Upvar", _0: UpvarId.new(root, 7 as LocalDefId) },
-      projections: projs.map((kind) => ({ ty: tuple_ty, kind })),
-      ty_before_projection: () => tuple_ty,
-    }) as unknown as HirPlace;
+    new HirPlaceClass(
+      tuple_ty,
+      { $: "Upvar", _0: UpvarId.new(root, 7 as LocalDefId) },
+      projs.map((kind) => ({ ty: tuple_ty, kind })),
+    );
   const field = (i: number): HirProjectionKind => ({ $: "Field", _0: i as FieldIdx, _1: 0 as VariantIdx });
 
   test("CapturedPlace::to_symbol / place_to_string_for_capture / roots", () => {
