@@ -25,11 +25,11 @@ import { MultiSpan } from "../rustc_error_messages/lib.ts";
 import * as hir from "../rustc_hir/lib.ts";
 import { is_range_literal } from "../rustc_hir/lib.ts";
 import { type HirId, HirId_eq } from "../rustc_hir_id/lib.ts";
-import type { ObligationCauseCode } from "../rustc_middle/traits/mod.ts";
+import { ObligationCauseCode } from "../rustc_middle/traits/mod.ts";
 import { EvaluationResult } from "../rustc_middle/traits/select.ts";
 import type { Const } from "../rustc_middle/ty/decls.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
-import type { GenericArg } from "../rustc_middle/ty/generic_args.ts";
+import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import { Ty } from "../rustc_middle/ty/mod.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import type { ParamEnv } from "../rustc_middle/ty/mod.ts";
@@ -41,7 +41,7 @@ import { sym } from "../rustc_span/symbol.ts";
 import { Binder, EarlyBinder } from "../rustc_type_ir/binder.ts";
 import type { TypeError } from "../rustc_type_ir/error.ts";
 import { fold_Const } from "../rustc_type_ir/sty/mod.ts";
-import { FnSig, PolyFnSig, UnsafeBinderInner } from "../rustc_type_ir/ty_kind.ts";
+import { FnSig, PolyFnSig as PolyFnSigC, UnsafeBinderInner } from "../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt, type TypeVisitable, visit_with_tuple2 } from "../rustc_type_ir/visit.ts";
 import { unported_methods } from "../rust_ts/stubs.ts";
@@ -627,11 +627,11 @@ FnCtxt.prototype.check_expr_path = function (this: FnCtxt, qpath: hir.QPath, exp
     const fn_sig = ty.fn_sig(tcx);
 
     if (tcx.is_intrinsic(did, sym.transmute)) {
-      const from = Binder.skip_binder(PolyFnSig.inputs(fn_sig))[0];
+      const from = Binder.skip_binder(PolyFnSigC.inputs(fn_sig))[0];
       if (from === undefined) {
         span_bug(tcx.def_span(did), "intrinsic fn `transmute` defined with no parameters");
       }
-      const to = Binder.skip_binder(PolyFnSig.output(fn_sig));
+      const to = Binder.skip_binder(PolyFnSigC.output(fn_sig));
       // We defer the transmute to the end of typeck, once all inference vars have
       // been resolved or we errored. This is important as we can only check transmute
       // on concrete types, but the output type may not be known yet (it would only
@@ -656,14 +656,14 @@ FnCtxt.prototype.check_expr_path = function (this: FnCtxt, qpath: hir.QPath, exp
       // ```
       //
       // to work in stable even if the Sized bound on `drop` is relaxed.
-      const n = Binder.skip_binder(PolyFnSig.inputs(fn_sig)).length;
+      const n = Binder.skip_binder(PolyFnSigC.inputs(fn_sig)).length;
       for (let i = 0; i < n; i++) {
         // We just want to check sizedness, so instead of introducing
         // placeholder lifetimes with probing, we just replace higher lifetimes
         // with fresh vars.
         const arg = call_expr_and_args === undefined ? undefined : call_expr_and_args[1][i];
         const span = arg === undefined ? expr.span : arg.span;
-        const input = this.instantiate_binder_with_fresh_vars(span, { $: "FnCall" }, PolyFnSig.input(fn_sig, i), fold_Ty);
+        const input = this.instantiate_binder_with_fresh_vars(span, { $: "FnCall" }, PolyFnSigC.input(fn_sig, i), fold_Ty);
         this.require_type_is_sized_deferred(input, span, { $: "SizedArgumentType", _0: undefined });
       }
     }
@@ -672,7 +672,7 @@ FnCtxt.prototype.check_expr_path = function (this: FnCtxt, qpath: hir.QPath, exp
     // Also, as we just want to check sizedness, instead of introducing
     // placeholder lifetimes with probing, we just replace higher lifetimes
     // with fresh vars.
-    const output = this.instantiate_binder_with_fresh_vars(expr.span, { $: "FnCall" }, PolyFnSig.output(fn_sig), fold_Ty);
+    const output = this.instantiate_binder_with_fresh_vars(expr.span, { $: "FnCall" }, PolyFnSigC.output(fn_sig), fold_Ty);
     this.require_type_is_sized_deferred(output, call_expr_and_args === undefined ? expr.span : call_expr_and_args[0].span, { $: "SizedCallReturnType", _0: expr.hir_id });
   }
 
