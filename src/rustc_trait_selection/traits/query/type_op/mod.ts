@@ -1,4 +1,4 @@
-// Port of compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs (lane old-query-typeops, wave 18b).
+// Port of compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs (lane old-query-typeops, wave 18c).
 //
 // Contract (lane selcx-contract). PORT (D4):
 // - `trait TypeOp<'tcx>` (implemented by `ParamEnvAnd<Q: QueryTypeOp>` and `CustomTypeOp<F>`) is the descriptor
@@ -10,21 +10,22 @@
 //   `fully_perform_into` is `QueryTypeOp_provided.fully_perform_into(d_Q, ..)`.
 // - `impl TypeOp for ParamEnvAnd<Q>` is `TypeOp_ParamEnvAnd(d_Q)`.
 // - `()` as a type argument is `null` (`QueryResponse = ()`).
-// Fill: replace each stub body with the port and put `// rustc: compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs:<line> <name>`
-// directly above it (signatures unchanged).
+// - `TypeOpOutput.constraints: Option<&'tcx QueryRegionConstraints>` is the value itself (`tcx.arena.alloc(x)` is `x`).
 // Init order: top-level code here touches only other crates.
 
 import type { InferCtxt } from "../../../../rustc_infer/decls.ts";
 import type { PredicateObligations } from "../../../../rustc_infer/traits/mod.ts";
-import type { CanonicalQueryInput, CanonicalQueryResponse, Certainty, QueryRegionConstraints } from "../../../../rustc_middle/infer/canonical.ts";
+import type { CanonicalQueryInput, CanonicalQueryResponse, Certainty } from "../../../../rustc_middle/infer/canonical.ts";
+import { clone_QueryRegionConstraint, OriginalQueryValues, QueryRegionConstraints } from "../../../../rustc_middle/infer/canonical.ts";
+import { ObligationCause } from "../../../../rustc_middle/traits/mod.ts";
 import type { TyCtxt } from "../../../../rustc_middle/ty/context.ts";
 import type { ParamEnvAnd } from "../../../../rustc_middle/ty/mod.ts";
 import type { LocalDefId } from "../../../../rustc_span/def_id.ts";
 import type { ErrorGuaranteed, Span } from "../../../../rustc_span/lib.ts";
 import type { TypeFoldable } from "../../../../rustc_type_ir/fold.ts";
 import type { NoSolution } from "../../../../rustc_type_ir/solve/mod.ts";
-import { unported } from "../../../../std/panic.ts";
-import type { Result } from "../../../../std/result.ts";
+import { Err, Ok, type Result } from "../../../../std/result.ts";
+import { scrape_region_constraints } from "./custom.ts";
 
 export * from "./mod.gen.ts";
 
@@ -57,7 +58,7 @@ export interface TypeOp<Op, Output, ErrorInfo> {
   /// Processes the operation and all resulting obligations,
   /// returning the final result along with any region constraints
   /// (they will be given over to the NLL region solver).
-  // (trait decl) type_op/mod.rs:37 fully_perform
+  // rustc: compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs:37 fully_perform
   fully_perform(self: Op, infcx: InferCtxt, root_def_id: LocalDefId, span: Span): Result<TypeOpOutput<Output, ErrorInfo>, ErrorGuaranteed>;
 }
 
@@ -91,7 +92,7 @@ export interface QueryTypeOp<Q, QR> {
   /// Give query the option for a simple fast path that never
   /// actually hits the tcx cache lookup etc. Return `Some(r)` with
   /// a final result or `None` to do the full path.
-  // (trait decl) type_op/mod.rs:70 try_fast_path
+  // rustc: compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs:70 try_fast_path
   try_fast_path(tcx: TyCtxt, key: ParamEnvAnd<Q>): QR | undefined;
 
   /// Performs the actual query with the canonicalized key -- the
@@ -100,30 +101,97 @@ export interface QueryTypeOp<Q, QR> {
   /// it might do things like invoke `sub_regions`, which would be
   /// bad, because it would create subregion relationships that are
   /// not captured in the return value.
-  // (trait decl) type_op/mod.rs:81 perform_query
+  // rustc: compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs:81 perform_query
   perform_query(tcx: TyCtxt, canonicalized: CanonicalQueryInput<ParamEnvAnd<Q>>): Result<CanonicalQueryResponse<QR>, NoSolution>;
 }
 
+/** The `Ok` value of `fully_perform_into`. */
+type FullyPerformIntoOutput<Q, QR> = [QR, CanonicalQueryInput<ParamEnvAnd<Q>> | undefined, PredicateObligations, Certainty];
+
 /** The provided methods of `QueryTypeOp` (`self` is the descriptor of `Self`). */
 export const QueryTypeOp_provided = {
-  // type_op/mod.rs:86 (stub)
+  // rustc: compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs:86 fully_perform_into
   fully_perform_into<Q, QR>(
-    _d_Q: QueryTypeOp<Q, QR>,
-    _query_key: ParamEnvAnd<Q>,
-    _infcx: InferCtxt,
-    _output_query_region_constraints: QueryRegionConstraints,
-    _span: Span,
-  ): Result<[QR, CanonicalQueryInput<ParamEnvAnd<Q>> | undefined, PredicateObligations, Certainty], NoSolution> {
-    return unported("rustc_trait_selection::traits::query::type_op::QueryTypeOp::fully_perform_into");
+    d_Q: QueryTypeOp<Q, QR>,
+    query_key: ParamEnvAnd<Q>,
+    infcx: InferCtxt,
+    output_query_region_constraints: QueryRegionConstraints,
+    span: Span,
+  ): Result<FullyPerformIntoOutput<Q, QR>, NoSolution> {
+    if (!infcx.disable_trait_solver_fast_paths()) {
+      const result = d_Q.try_fast_path(infcx.tcx, query_key);
+      if (result !== undefined) {
+        const out: FullyPerformIntoOutput<Q, QR> = [result, undefined, [], "Proven"];
+        return Ok(out);
+      }
+    }
+
+    const canonical_var_values = OriginalQueryValues.default_();
+    const old_param_env = query_key.param_env;
+    const canonical_self = infcx.canonicalize_query(query_key, canonical_var_values, d_Q.d_Self);
+    const r = d_Q.perform_query(infcx.tcx, canonical_self);
+    if (r.$ === "Err") return r;
+    const canonical_result = r._0;
+
+    const ok = infcx.instantiate_nll_query_response_and_region_obligations(
+      ObligationCause.dummy_with_span(span),
+      old_param_env,
+      canonical_var_values,
+      canonical_result,
+      output_query_region_constraints,
+      d_Q.d_QueryResponse,
+    );
+    // PORT: `?` converts the `TypeError` with `impl From<TypeError> for NoSolution`.
+    if (ok.$ === "Err") return Err(NO_SOLUTION);
+    const { value, obligations } = ok._0;
+
+    const out: FullyPerformIntoOutput<Q, QR> = [value, canonical_self, obligations, canonical_result.value.certainty];
+    return Ok(out);
   },
 };
 
 /** `impl<'tcx, Q: QueryTypeOp<'tcx>> TypeOp<'tcx> for ParamEnvAnd<'tcx, Q>` (type_op/mod.rs:124). */
-export function TypeOp_ParamEnvAnd<Q, QR>(_d_Q: QueryTypeOp<Q, QR>): TypeOp<ParamEnvAnd<Q>, QR, CanonicalQueryInput<ParamEnvAnd<Q>>> {
+export function TypeOp_ParamEnvAnd<Q, QR>(d_Q: QueryTypeOp<Q, QR>): TypeOp<ParamEnvAnd<Q>, QR, CanonicalQueryInput<ParamEnvAnd<Q>>> {
   return {
-    // type_op/mod.rs:131 (stub)
-    fully_perform(_self, _infcx, _root_def_id, _span) {
-      return unported("rustc_trait_selection::traits::query::type_op::<ParamEnvAnd<Q> as TypeOp>::fully_perform");
+    // rustc: compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs:131 fully_perform
+    fully_perform(self, infcx, root_def_id, span) {
+      let error_info: CanonicalQueryInput<ParamEnvAnd<Q>> | undefined = undefined;
+      const region_constraints = new QueryRegionConstraints([], []);
+
+      // HACK(type_alias_impl_trait): When moving an opaque type to hidden type mapping from the query to the current inferctxt,
+      // we sometimes end up with `Opaque<'a> = Opaque<'b>` instead of an actual hidden type. In that case we don't register a
+      // hidden type but just equate the lifetimes. Thus we need to scrape the region constraints even though we're also manually
+      // collecting region constraints via `region_constraints`.
+      const r = scrape_region_constraints<QR, CanonicalQueryInput<ParamEnvAnd<Q>>>(
+        infcx,
+        root_def_id,
+        "fully_perform",
+        span,
+        (ocx) => {
+          const rr = QueryTypeOp_provided.fully_perform_into(d_Q, self, infcx, region_constraints, span);
+          if (rr.$ === "Err") return rr;
+          const [output, ei, obligations] = rr._0;
+          error_info = ei;
+
+          ocx.register_obligations(obligations);
+          return Ok(output);
+        },
+        d_Q.d_QueryResponse,
+      );
+      if (r.$ === "Err") return r;
+      const [output] = r._0;
+      output.error_info = error_info;
+      if (output.constraints !== undefined) {
+        const { constraints, assumptions } = output.constraints;
+        region_constraints.constraints.push(...constraints.map(clone_QueryRegionConstraint));
+        region_constraints.assumptions.push(...assumptions);
+      }
+      // PORT: `infcx.tcx.arena.alloc(x)` is `x`.
+      output.constraints = region_constraints.is_empty() ? undefined : region_constraints;
+      return Ok(output);
     },
   };
 }
+
+/** `NoSolution` (a unit struct; every value compares equal). */
+const NO_SOLUTION: NoSolution = Object.freeze({}) as NoSolution;
