@@ -1377,7 +1377,7 @@
     "files": [
       "compiler/rustc_middle/src/mir/syntax.rs"
     ],
-    "files_note": "lane thir-pattern: only the mir/syntax.rs enums that THIR stores (thir.rs `ExprKind::{Binary,Unary,AssignOp}.op`, `Borrow.borrow_kind`, `ClosureExpr.fake_reads`) are generated, for their derived Debug in thir_flat; every other type is skipped until the MIR lane (M4) ports mir/syntax.rs and drops the skip list.",
+    "files_note": "lane thir-pattern: only the mir/syntax.rs enums that THIR stores (thir.rs `ExprKind::{Binary,Unary,AssignOp}.op`, `Borrow.borrow_kind`, `ClosureExpr.fake_reads`) are generated, for their derived Debug in thir_flat; `CastKind` / `CoercionSource` too (lane typeck-gaps: rustc_middle ty/cast.rs `mir_cast_kind` returns a CastKind); every other type is skipped until the MIR lane (M4) ports mir/syntax.rs and drops the skip list.",
     "class": [],
     "hand": [],
     "discriminant": [],
@@ -1406,8 +1406,6 @@
       "rustc_middle::mir::syntax::Operand",
       "rustc_middle::mir::syntax::ConstOperand",
       "rustc_middle::mir::syntax::Rvalue",
-      "rustc_middle::mir::syntax::CastKind",
-      "rustc_middle::mir::syntax::CoercionSource",
       "rustc_middle::mir::syntax::AggregateKind",
       "rustc_middle::mir::syntax::RuntimeChecks"
     ],
