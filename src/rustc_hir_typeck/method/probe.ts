@@ -40,7 +40,7 @@ import { type CandidateStep, type CanonicalMethodAutoderefStepsGoal, type Method
 import { AssocItem, AssocItems, type AssocKind } from "../../rustc_middle/ty/assoc.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { RawList } from "../../rustc_middle/ty/list.ts";
-import type { GenericArg, GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
+import { GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { fold_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { GenericClauses, type GenericClauses as GenericClausesT, type Generics } from "../../rustc_middle/ty/generics.ts";
 import { fold_with_Ty, try_fold_with_Ty, visit_with_Ty, fold_with_ParamEnv, HasAttrs_DefId, try_fold_with_ParamEnv, visit_with_ParamEnv, ProvisionalHiddenType, Ty, Visibility, type ParamEnvAnd } from "../../rustc_middle/ty/mod.ts";
@@ -1372,7 +1372,7 @@ ProbeContext.prototype.pick_by_value_method = function (
     };
   } else if (k.$ === "Adt" && this.tcx.features().pin_ergonomics() && this.tcx.is_lang_item(k._0.did(), LangItem.Pin)) {
     // make sure this is a pinned reference (and not a `Pin<Box>` or something)
-    const ak = (k._1[0] as Ty).kind();
+    const ak = GenericArg.expect_ty(k._1[0]!).kind();
     if (ak.$ === "Ref") {
       pick.autoref_or_ptr_adjustment = { $: "ReborrowPin", _0: ak._2 };
     }
@@ -1429,7 +1429,7 @@ ProbeContext.prototype.pick_reborrow_pin_method = function (
   let inner_ty: Ty;
   const k = self_ty.kind();
   if (k.$ === "Adt" && this.tcx.is_lang_item(k._0.did(), LangItem.Pin)) {
-    const ak = (k._1[0] as Ty).kind();
+    const ak = GenericArg.expect_ty(k._1[0]!).kind();
     if (ak.$ === "Ref" && ak._2 === "Mut") {
       inner_ty = ak._1;
     } else {
