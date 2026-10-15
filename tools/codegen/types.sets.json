@@ -1125,5 +1125,38 @@
       "compiler/rustc_infer/src/infer/mod.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "infer.typemap.json", "trait_selection.typemap.json"]
+  },
+  "rustc_codegen_ssa": {
+    "files": [
+      "compiler/rustc_codegen_ssa/src/codegen_attrs.rs",
+      "compiler/rustc_codegen_ssa/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [
+      "rustc_codegen_ssa::diagnostics::IncorrectCguReuseType",
+      "rustc_codegen_ssa::diagnostics::LinkingFailed",
+      "rustc_codegen_ssa::diagnostics::ProcessingDymutilFailed",
+      "rustc_codegen_ssa::diagnostics::StrippingDebugInfoFailed",
+      "rustc_codegen_ssa::diagnostics::InvalidMonomorphization",
+      "rustc_codegen_ssa::diagnostics::FailedToGetLayout",
+      "rustc_codegen_ssa::diagnostics::FeatureNotValid",
+      "rustc_codegen_ssa::diagnostics::CrossArchFeatureNote",
+      "rustc_codegen_ssa::diagnostics::FeatureNotValidHint"
+    ],
+    "skip_notes": {
+      "rustc_codegen_ssa::diagnostics::IncorrectCguReuseType": "field type `CguReuse` (assert_module_sources.rs, incremental; not ported)",
+      "rustc_codegen_ssa::diagnostics::LinkingFailed": "fields `ExitStatus` / `back::command::Command` (linker, not ported)",
+      "rustc_codegen_ssa::diagnostics::ProcessingDymutilFailed": "field `ExitStatus` (linker, not ported)",
+      "rustc_codegen_ssa::diagnostics::StrippingDebugInfoFailed": "field `ExitStatus` (linker, not ported)",
+      "rustc_codegen_ssa::diagnostics::InvalidMonomorphization": "field `rustc_abi::NumScalableVectors` (codegen intrinsics, not ported)",
+      "rustc_codegen_ssa::diagnostics::FailedToGetLayout": "field `LayoutError` (no IntoDiagArg in TS yet)",
+      "rustc_codegen_ssa::diagnostics::FeatureNotValid": "hand-written in src/rustc_codegen_ssa/diagnostics.ts (lane codegen-fn-attrs) with its two subdiagnostics below",
+      "rustc_codegen_ssa::diagnostics::CrossArchFeatureNote": "derive(Subdiagnostic) with a `DiagSymbolList<&str>` field: the generator emits `DiagSymbolList_into_diag_arg_with((x) => x)(..)`, whose `S` tsc cannot infer (TS2322); hand-written in src/rustc_codegen_ssa/diagnostics.ts until the generator types the `$display0` lambda",
+      "rustc_codegen_ssa::diagnostics::FeatureNotValidHint": "as CrossArchFeatureNote (`DiagSymbolList<&str>` field); hand-written in src/rustc_codegen_ssa/diagnostics.ts"
+    },
+    "derive_default": true,
+    "typemap_extra": ["tyir.typemap.json"]
   }
 }
