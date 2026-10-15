@@ -45,7 +45,8 @@ import { Ok, type Result } from "../../std/result.ts";
 import type { TyCtxt } from "./context.ts";
 import type { TraitDef } from "./trait_def.ts";
 import type { UpvarId } from "./closure.ts";
-import type { AdtDef, BinOp, BoundExistentialPredicates, CastKind, Consts, LocalDefIds, PatList, Pattern, PlaceElem, PredefinedOpaques, RegionAssumptions, UnOp } from "./decls.ts";
+import type { AdtDef, BoundExistentialPredicates, CastKind, Consts, LocalDefIds, PatList, Pattern, PlaceElem, PredefinedOpaques, RegionAssumptions } from "./decls.ts";
+import { debug_BinOp, debug_UnOp } from "../mir/syntax.ts";
 import type { ArgOutlivesClause, PolyExistentialPredicate } from "../../rustc_type_ir/decls.ts";
 import type { Adjustment, PatAdjustment } from "./adjustment.gen.ts";
 import type { GenericArg } from "./generic_args.ts";
@@ -128,14 +129,7 @@ function adjustment_gen(): typeof import("./adjustment.gen.ts") {
 function Pattern_deref(_self: Pattern): PatternKind {
   return unported("rustc_middle::ty::Pattern: Deref (ty/pattern.rs not ported yet)");
 }
-/** PORT: stand-ins for the derived `Debug` of `mir::BinOp` / `mir::UnOp` (mir/syntax.rs, M4) and
- *  `ty::abstract_const::CastKind` (pending in decls.ts). */
-function debug_BinOp(_v: BinOp): string {
-  return unported("rustc_middle::mir::BinOp: Debug (M4)");
-}
-function debug_UnOp(_v: UnOp): string {
-  return unported("rustc_middle::mir::UnOp: Debug (M4)");
-}
+/** PORT: stand-in for the derived `Debug` of `ty::abstract_const::CastKind` (pending in decls.ts). */
 function debug_CastKind(_v: CastKind): string {
   return unported("rustc_middle::ty::abstract_const::CastKind: Debug (pending)");
 }
@@ -246,12 +240,12 @@ export const debug_Expr: Debug<Expr> = (self, _f) => {
     case "Binop": {
       const op = k._0;
       const [lhs_ty, rhs_ty, lhs, rhs] = Expr.binop_args(self);
-      return `(${debug_BinOp(op)}: (${debug_Const(lhs, PLAIN)}: ${debug_Ty(lhs_ty, PLAIN)}), (${debug_Const(rhs, PLAIN)}: ${debug_Ty(rhs_ty, PLAIN)}))`;
+      return `(${debug_BinOp(op, PLAIN)}: (${debug_Const(lhs, PLAIN)}: ${debug_Ty(lhs_ty, PLAIN)}), (${debug_Const(rhs, PLAIN)}: ${debug_Ty(rhs_ty, PLAIN)}))`;
     }
     case "UnOp": {
       const op = k._0;
       const [rhs_ty, rhs] = Expr.unop_args(self);
-      return `(${debug_UnOp(op)}: (${debug_Const(rhs, PLAIN)}: ${debug_Ty(rhs_ty, PLAIN)}))`;
+      return `(${debug_UnOp(op, PLAIN)}: (${debug_Const(rhs, PLAIN)}: ${debug_Ty(rhs_ty, PLAIN)}))`;
     }
     case "FunctionCall": {
       const [func_ty, func, args_] = Expr.call_args(self);

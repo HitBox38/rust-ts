@@ -1878,7 +1878,7 @@ export abstract class PrettyPrinter extends Printer {
 
         // use crate::mir::UnOp;
         let formatted_op: string;
-        switch (op as unknown as UnOpT) {
+        switch (op) {
           case "Not":
             formatted_op = "!";
             break;
@@ -1891,11 +1891,11 @@ export abstract class PrettyPrinter extends Printer {
         }
         const ck = ct.kind();
         let parenthesized: boolean;
-        if ((op as unknown as UnOpT) === "PtrMetadata") {
+        if (op === "PtrMetadata") {
           parenthesized = true;
         } else if (ck.$ === "Expr" && ck._0.kind.$ === "UnOp") {
           const c_op = ck._0.kind._0;
-          parenthesized = (c_op as unknown as UnOpT) !== (op as unknown as UnOpT);
+          parenthesized = c_op !== op;
         } else if (ck.$ === "Expr") {
           parenthesized = true;
         } else {
@@ -1999,8 +1999,6 @@ function opt_def_id_eq(a: DefId | undefined, b: DefId): boolean {
 interface CodegenFnAttrsView {
   safe_target_features: boolean;
 }
-/** `mir::UnOp` (mir/syntax.rs; `Pending` in ty/decls.ts): fieldless. */
-type UnOpT = "Not" | "Neg" | "PtrMetadata";
 /** `ty::abstract_const::CastKind` (ty/abstract_const.rs; `Pending` in ty/decls.ts): fieldless. */
 type CastKindT = "As" | "Use";
 
@@ -2053,7 +2051,7 @@ const Expr_binop_args = (self: Expr): [Ty, Ty, Const, Const] => ExprC.binop_args
 const Expr_unop_args = (self: Expr): [Ty, Const] => ExprC.unop_args(self);
 const Expr_call_args = (self: Expr): [Ty, Const, Iterable<Const>] => ExprC.call_args(self);
 const Expr_cast_args = (self: Expr): [Ty, Const, Ty] => ExprC.cast_args(self);
-/** `mir::BinOp::to_hir_binop` (mir/syntax.rs; `BinOp` is `Pending`). */
+/** `mir::BinOp::to_hir_binop` (mir/statement.rs:953, not ported). */
 function BinOp_to_hir_binop(_self: BinOp): BinOpKind {
   return unported("rustc_middle::mir::BinOp::to_hir_binop (mir/mod.rs)");
 }

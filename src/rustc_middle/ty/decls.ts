@@ -219,10 +219,11 @@ export type BoundExistentialPredicates = List<PolyExistentialPredicate>;
 export type RegionAssumptions = List<ArgOutlivesClause>;
 // traits/solve.rs:23 `PredefinedOpaques<'tcx> = &'tcx ty::List<(ty::OpaqueTypeKey<'tcx>, Ty<'tcx>)>`
 export type PredefinedOpaques = List<[OpaqueTypeKey, Ty]>;
-// ty/abstract_const.rs `CastKind`, mir/syntax.rs `BinOp` / `UnOp` (fieldless enums of files not generated yet)
+// ty/abstract_const.rs `CastKind` (a fieldless enum of a file not generated yet)
 export type CastKind = Pending<"abstract_const::CastKind">;
-export type BinOp = Pending<"mir::BinOp">;
-export type UnOp = Pending<"mir::UnOp">;
+// mir/syntax.rs `BinOp` / `UnOp` (mir/syntax.ts, codegen set rustc_middle_mir_syntax; merge-w18)
+import type { BinOp, UnOp } from "../mir/syntax.ts";
+export type { BinOp, UnOp };
 // rustc_data_structures transitive_relation.rs (lane rds-graph)
 export type { TransitiveRelation } from "../../rustc_data_structures/transitive_relation.ts";
 
