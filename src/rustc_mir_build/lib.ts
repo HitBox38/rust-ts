@@ -1,0 +1,48 @@
+// Port of compiler/rustc_mir_build/src/lib.rs (lane thir-cx-print): the THIR half of the crate.
+//! Construction of MIR from HIR.
+//
+// Load order (PORTING §5 "Methods defined in another file"): the defining modules first (thir/cx/mod.ts defines
+// `ThirBuildCx`, thir/pattern/mod.ts defines `PatCtxt`), then the extension modules that put the methods of their
+// upstream files on those prototypes.
+import "./thir/cx/mod.ts";
+import "./thir/cx/block.ts";
+import "./thir/cx/expr.ts";
+import "./thir/pattern/mod.ts";
+import "./thir/pattern/const_to_pat.ts";
+import "./thir/pattern/migration.ts";
+import "./thir/pattern/check_match.ts";
+import type { Providers } from "../rustc_middle/util/mod.ts";
+import * as thir_ from "./thir/mod.ts";
+
+// tidy-alphabetical-start
+// #![feature(deref_patterns)]
+// #![feature(try_blocks)]
+// tidy-alphabetical-end
+
+// The `builder` module used to be named `build`, but that was causing GitHub's
+// "Go to file" feature to silently ignore all files in the module, probably
+// because it assumes that "build" is a build-output directory. See #134365.
+// mod builder;           (not ported: MIR building, M4)
+// mod check_tail_calls;  (not ported, M4)
+// mod check_unsafety;    (not ported, M4)
+// mod diagnostics;       (not ported: `#[derive(Diagnostic)]` structs, tools/codegen; see docs/handoff/thir-cx-print.md)
+// pub mod thir;
+export * as thir from "./thir/mod.ts";
+
+// rustc: compiler/rustc_mir_build/src/lib.rs:19 provide
+export function provide(providers: Providers): void {
+  // PORT: the query values of `check_match`, `lit_to_const` and `thir_body` are typed loosely by queries.gen.ts
+  // (`unknown` keys/values); the providers are the ported fns, cast to the generated provider types.
+  providers.queries.check_match = thir_.pattern.check_match;
+  providers.queries.lit_to_const = thir_.constant.lit_to_const as unknown as Providers["queries"]["lit_to_const"];
+  // PORT: `builder::closure_saved_names_of_captured_variables`, `check_unsafety::check_unsafety`,
+  // `check_tail_calls::check_tail_calls` and the `build_mir_inner_impl` hook (`builder::build_mir_inner_impl`) are in
+  // modules that are not ported (MIR building, M4): they keep the default `unported("<query> provider (not ported)")`
+  // providers of rustc_interface/passes.ts.
+  // providers.queries.closure_saved_names_of_captured_variables =
+  //     builder::closure_saved_names_of_captured_variables;
+  // providers.queries.check_unsafety = check_unsafety::check_unsafety;
+  // providers.queries.check_tail_calls = check_tail_calls::check_tail_calls;
+  providers.queries.thir_body = thir_.cx.thir_body as unknown as Providers["queries"]["thir_body"];
+  // providers.hooks.build_mir_inner_impl = builder::build_mir_inner_impl;
+}
