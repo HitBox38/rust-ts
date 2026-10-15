@@ -25,6 +25,8 @@ handoff.
 ## Checks
 - `bunx tsc --noEmit -p .` clean.
 - `bun test src/rustc_trait_selection src/rustc_infer --timeout=60000`: 140 pass, 0 fail.
+- `bun test src tools --timeout=300000`: 5234 pass, 8 fail; the 8 are the integ pins merge-w18 is fixing (privacy clean_pub,
+  collect generics/misc, lower_ty stubs, entry_test x4), none on the old-solver path.
 - Samples, lane vs base 60a45cf (same args; base = this worktree before the first commit):
   - tydump-minicore (46): 14 MATCH / 0 DIFF / 32 UNPORTED both (base run 20261015-090131-old-select-a-base-txhc, lane
     20261015-090957-old-select-a-z73g). Top stop moved: 24x `SelectionContext::poly_select` -> 24x
