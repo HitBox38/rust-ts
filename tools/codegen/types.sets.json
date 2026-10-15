@@ -1023,7 +1023,8 @@
       "compiler/rustc_hir_analysis/src/hir_ty_lowering/generics.rs",
       "compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs",
       "compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs",
-      "compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs"
+      "compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs",
+      "compiler/rustc_hir_analysis/src/check/wfcheck.rs"
     ],
     "files_note": "collect/resolve_bound_vars.rs is not in the set: the typedefs probe (syn) cannot parse its `gen { .. }` block (resolve_bound_vars.rs:2500, `#![feature(gen_blocks)]`); lane collect-rbv hand-writes its types or root extends the probe (hirtylowerer-contract)",
     "class": [],
@@ -1036,7 +1037,12 @@
       "rustc_hir_analysis::collect::generics_of::AnonConstInParamTyDetector",
       "rustc_hir_analysis::hir_ty_lowering::ForbidParamUsesFolder",
       "rustc_hir_analysis::hir_ty_lowering::bounds::GenericParamAndBoundVarCollector",
-      "rustc_hir_analysis::hir_ty_lowering::errors::GenericsArgsErrExtend"
+      "rustc_hir_analysis::hir_ty_lowering::errors::GenericsArgsErrExtend",
+      "rustc_hir_analysis::check::wfcheck::WfCheckingCtxt",
+      "rustc_hir_analysis::check::wfcheck::GATArgsCollector",
+      "rustc_hir_analysis::check::wfcheck::HasErrorDeep",
+      "rustc_hir_analysis::check::wfcheck::IsProbablyCyclical",
+      "rustc_hir_analysis::check::wfcheck::CollectUsageSpans"
     ],
     "hand_notes": {
       "rustc_hir_analysis::collect::ItemCtxt": "the shared contract (hirtylowerer-contract): class with all fields + every method declared in decls.ts; methods assigned by collect.ts / collect/clauses_of.ts",
@@ -1047,6 +1053,11 @@
       "rustc_hir_analysis::collect::generics_of::AnonConstInParamTyDetector": "intravisit Visitor impl: hand class extending rustc_hir intravisit Visitor (collect/generics_of.ts, lane collect-a)",
       "rustc_hir_analysis::hir_ty_lowering::ForbidParamUsesFolder": "TypeFolder impl: hand class (hir_ty_lowering/mod.ts, lane hir-ty-lowering-a)",
       "rustc_hir_analysis::hir_ty_lowering::bounds::GenericParamAndBoundVarCollector": "TypeVisitor impl with a `&dyn HirTyLowerer` field: hand class (hir_ty_lowering/bounds.ts, lane hir-ty-lowering-c)",
+      "rustc_hir_analysis::check::wfcheck::WfCheckingCtxt": "class with the `Deref` forwarders and the `impl WfCheckingCtxt` blocks (check/wfcheck.ts, lanes check-wf-a/-b)",
+      "rustc_hir_analysis::check::wfcheck::GATArgsCollector": "TypeVisitor impl: hand class (check/wfcheck.ts, lane check-wf-a)",
+      "rustc_hir_analysis::check::wfcheck::HasErrorDeep": "TypeVisitor impl: hand class (check/wfcheck.ts, lane check-wf-b)",
+      "rustc_hir_analysis::check::wfcheck::IsProbablyCyclical": "TypeVisitor impl: hand class (check/wfcheck.ts, lane check-wf-b)",
+      "rustc_hir_analysis::check::wfcheck::CollectUsageSpans": "intravisit Visitor impl: hand class (check/wfcheck.ts, lane check-wf-b)",
       "rustc_hir_analysis::hir_ty_lowering::errors::GenericsArgsErrExtend": "no derives; its variants name both `hir::Ty` and `ty::Ty`, which the generator would import under the same TS name `Ty`: hand-written in hir_ty_lowering/errors.ts"
     },
     "discriminant": [],
@@ -1058,7 +1069,7 @@
       "compiler/rustc_middle/src/ty/mod.rs",
       "compiler/rustc_hir/src/lib.rs"
     ],
-    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "hir_analysis.typemap.json"]
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "infer.typemap.json", "hir_analysis.typemap.json"]
   },
   "rustc_ty_utils": {
     "files": ["compiler/rustc_ty_utils/src/diagnostics.rs"],

@@ -87,6 +87,22 @@ import { type_allowed_to_implement_const_param_ty } from "../../rustc_trait_sele
 import { clause_obligations as wf_clause_obligations, trait_obligations as wf_trait_obligations, unnormalized_obligations as wf_unnormalized_obligations } from "../../rustc_trait_selection/traits/wf.ts";
 import { region_known_to_outlive, ty_known_to_outlive } from "../../rustc_trait_selection/regions.ts";
 import { check_item_type } from "./check.ts";
+import {
+  ArbitrarySelfTypesLevel,
+  fold_with_TestBinderBody,
+  fold_with_WithWhereClauses,
+  type ReceiverValidityError,
+  type RedundantLifetimeArgsLint,
+  RedundantLifetimeArgsLint_diagnostic,
+  type TestBinderBody,
+  type TestBinderExists,
+  type TestBinderForall,
+  try_fold_with_TestBinderBody,
+  try_fold_with_WithWhereClauses,
+  visit_with_TestBinderBody,
+  visit_with_WithWhereClauses,
+  type WithWhereClauses,
+} from "./wfcheck.gen.ts";
 import { solve } from "../../rustc_next_trait_solver/lib.ts";
 // check-wf-b imports
 import { ExternAbi } from "../../rustc_abi/extern_abi.ts";
@@ -781,7 +797,7 @@ function gather_gat_bounds<T>(
 /// the two vectors, `regions` and `types` (depending on their kind). For each
 /// parameter `Pi` also track the index `i`.
 // rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:701 GATArgsCollector
-class GATArgsCollector implements TypeVisitor<undefined> {
+export class GATArgsCollector implements TypeVisitor<undefined> {
   readonly Result: VisitorResult<undefined, unknown> = VisitorResultC.unit;
 
   constructor(
@@ -1841,13 +1857,6 @@ export function check_fn_or_method(wfcx: WfCheckingCtxt, sig_: PolyFnSig, hir_de
   }
 }
 
-/// The `arbitrary_self_types_pointers` feature implies `arbitrary_self_types`.
-// #[derive(Clone, Copy, PartialEq)]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:1716 ArbitrarySelfTypesLevel
-type ArbitrarySelfTypesLevel =
-  | "Basic" // just arbitrary_self_types
-  | "WithPointers"; // both arbitrary_self_types and arbitrary_self_types_pointers
-const ArbitrarySelfTypesLevel = { Basic: "Basic", WithPointers: "WithPointers" } as const;
 
 // #[instrument(level = "debug", skip(wfcx))]
 // rustc: compiler/rustc_hir_analysis/src/check/wfcheck.rs:1722 check_method_receiver
@@ -1959,16 +1968,6 @@ export function check_method_receiver(wfcx: WfCheckingCtxt, fn_sig: hir.FnSig, m
   return Ok(null);
 }
 
-/// Error cases which may be returned from `receiver_is_valid`. These error
-/// cases are generated in this function as they may be unearthed as we explore
-/// the `autoderef` chain, but they're converted to diagnostics in the caller.
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:1864 ReceiverValidityError
-type ReceiverValidityError =
-  /// The self type does not get to the receiver type by following the
-  /// autoderef chain.
-  | "DoesNotDeref"
-  /// A type was found which is a method type parameter, and that's not allowed.
-  | "MethodGenericParamUsed";
 
 /// Confirms that a type is not a type parameter referring to one of the
 /// method's type params.
@@ -2197,7 +2196,7 @@ export function check_variances_for_type_defn(tcx: TyCtxt, def_id: LocalDefId): 
 
 /// Look for `ErrorGuaranteed` deeply within structs' (unsubstituted) fields.
 // rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2106 HasErrorDeep
-class HasErrorDeep implements TypeVisitor<ControlFlow<ErrorGuaranteed>> {
+export class HasErrorDeep implements TypeVisitor<ControlFlow<ErrorGuaranteed>> {
   readonly Result: VisitorResult<ControlFlow<ErrorGuaranteed>, unknown> = VisitorResultC.ControlFlow<ErrorGuaranteed>();
 
   constructor(
@@ -2347,7 +2346,7 @@ function report_bivariance(tcx: TyCtxt, param: hir.GenericParam, has_explicit_bo
 ///
 /// Notably, we don't consider substitutions here, so this may have false positives.
 // rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2231 IsProbablyCyclical
-class IsProbablyCyclical implements TypeVisitor<ControlFlow<null, null>> {
+export class IsProbablyCyclical implements TypeVisitor<ControlFlow<null, null>> {
   readonly Result: VisitorResult<ControlFlow<null, null>, unknown> = VisitorResultC.ControlFlow<null>();
 
   constructor(
@@ -2419,7 +2418,7 @@ class IsProbablyCyclical implements TypeVisitor<ControlFlow<null, null>> {
 /// This is used to report places where the user has used parameters in a
 /// non-variance-constraining way for better bivariance errors.
 // rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2274 CollectUsageSpans
-class CollectUsageSpans extends Visitor {
+export class CollectUsageSpans extends Visitor {
   constructor(
     public spans: Span[],
     public param_def_id: DefId,
@@ -2885,53 +2884,6 @@ function lint_redundant_lifetimes(tcx: TyCtxt, owner_id: LocalDefId, outlives_en
   });
 }
 
-// #[derive(Diagnostic)]
-// #[diag("unnecessary lifetime parameter `{$victim}`")]
-// #[note("you can use the `{$candidate}` lifetime directly, in place of `{$victim}`")]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2768 RedundantLifetimeArgsLint
-interface RedundantLifetimeArgsLint {
-  /// The lifetime we have found to be redundant.
-  victim: Region;
-  // The lifetime we can replace the victim with.
-  candidate: Region;
-}
-
-// #[derive(Clone, Debug, TypeFoldable, TypeVisitable)]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2776 TestBinderBody
-export interface TestBinderBody {
-  foralls: TestBinderForall[];
-  exists: TestBinderExists[];
-  /// Constraints to be inserted directly into constraint storage to be proven
-  constraints: SolverRegionConstraint;
-  /// Constraints declared using `where` syntax, used via `register_obligation`
-  predicates: [Binder<ClauseKind>, Span][];
-}
-
-// #[derive(Clone, Debug, TypeFoldable, TypeVisitable)]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2786 TestBinderForall
-export interface TestBinderForall {
-  span: Span;
-  binder: Binder<WithWhereClauses<TestBinderBody>>;
-  assert_on_exit: SolverRegionConstraint | undefined;
-}
-
-// #[derive(Clone, Debug, TypeFoldable, TypeVisitable)]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2793 TestBinderExists
-export interface TestBinderExists {
-  span: Span;
-  binder: Binder<TestBinderBody>;
-}
-
-// #[derive(Clone, Debug, TypeFoldable, TypeVisitable)]
-// rustc-type: compiler/rustc_hir_analysis/src/check/wfcheck.rs:2799 WithWhereClauses
-export interface WithWhereClauses<T> {
-  value: T;
-
-  // The where clauses on the forall. These eventually will probably get stored inside
-  // `ty::Binder` but they're here for now.
-  type_outlives: PolyTypeOutlivesClause[];
-  region_outlives: RegionOutlivesClause[];
-}
 
 // ---- check-wf-b helpers (not ports) ----------------------------------------------------------------------------------
 
@@ -3051,21 +3003,18 @@ function display_PolyTypeOutlivesClause(_clause: PolyTypeOutlivesClause): string
   return unported("rustc_middle::ty::print::pretty: Display for Binder<TypeOutlivesClause>");
 }
 
-/** PORT(stand-in): `RedundantLifetimeArgsLint`'s `#[derive(Diagnostic)]` (codegen pending: wfcheck.rs is in no codegen set). */
-function RedundantLifetimeArgsLint_diagnostic(_self: RedundantLifetimeArgsLint): import("../../rustc_errors/lib.ts").Diagnostic {
-  return { into_diag: () => unported("rustc_hir_analysis::check::wfcheck::RedundantLifetimeArgsLint: derive(Diagnostic) (codegen pending)") };
-}
+// ---- D4 descriptors of this file's generated types (wfcheck.gen.ts) -------------------------------------------------
 
-/** PORT(stand-in): the derived `TypeFoldable` of `WithWhereClauses<TestBinderBody>` (codegen pending). */
-const fold_WithWhereClauses_TestBinderBody: TypeFoldable<WithWhereClauses<TestBinderBody>> = {
-  visit_with: () => unported("rustc_hir_analysis::check::wfcheck::WithWhereClauses: derive(TypeVisitable) (codegen pending)"),
-  try_fold_with: () => unported("rustc_hir_analysis::check::wfcheck::WithWhereClauses: derive(TypeFoldable) (codegen pending)"),
-  fold_with: () => unported("rustc_hir_analysis::check::wfcheck::WithWhereClauses: derive(TypeFoldable) (codegen pending)"),
+/** The derived `TypeFoldable` of `TestBinderBody`. */
+const fold_TestBinderBody: TypeFoldable<TestBinderBody> = {
+  visit_with: visit_with_TestBinderBody,
+  try_fold_with: try_fold_with_TestBinderBody,
+  fold_with: fold_with_TestBinderBody,
 };
 
-/** PORT(stand-in): the derived `TypeFoldable` of `TestBinderBody` (codegen pending). */
-const fold_TestBinderBody: TypeFoldable<TestBinderBody> = {
-  visit_with: () => unported("rustc_hir_analysis::check::wfcheck::TestBinderBody: derive(TypeVisitable) (codegen pending)"),
-  try_fold_with: () => unported("rustc_hir_analysis::check::wfcheck::TestBinderBody: derive(TypeFoldable) (codegen pending)"),
-  fold_with: () => unported("rustc_hir_analysis::check::wfcheck::TestBinderBody: derive(TypeFoldable) (codegen pending)"),
+/** The derived `TypeFoldable` of `WithWhereClauses<TestBinderBody>`. */
+const fold_WithWhereClauses_TestBinderBody: TypeFoldable<WithWhereClauses<TestBinderBody>> = {
+  visit_with: (v, visitor) => visit_with_WithWhereClauses(v, visitor, visit_with_TestBinderBody),
+  try_fold_with: (v, folder) => try_fold_with_WithWhereClauses(v, folder, try_fold_with_TestBinderBody),
+  fold_with: (v, folder) => fold_with_WithWhereClauses(v, folder, fold_with_TestBinderBody),
 };

@@ -20,10 +20,11 @@
 // in collect/clauses_of.ts), its `impl HirTyLowerer` is the vtable object `HirTyLowerer_ItemCtxt` below.
 // Init order: top-level code here may touch only ./decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
-// PORT: `InferCtxt`, `SolverRegionConstraint` (lane infcx-contract), `TestBinderBody` / `TestBinderForall` /
-// `TestBinderExists` (check/wfcheck.rs, wave 17) and rustc_trait_selection are pending: the code that builds or uses
-// them stops with `unported(..)` at the first use, after the upstream statements before it.
+// PORT: `TestBinderBody` / `TestBinderForall` / `TestBinderExists` / `WithWhereClauses` are check/wfcheck.rs's
+// generated types (check/wfcheck.gen.ts, types only here).
 import { ItemCtxt, type HirTyLowerer, type HirTyLowererImpl, type InferCtxt, type SolverRegionConstraint, type TestBinderBody, type TestBinderExists, type TestBinderForall } from "./decls.ts";
+import type { WithWhereClauses } from "./check/wfcheck.gen.ts";
+import type { ClauseKind } from "../rustc_middle/ty/predicate.gen.ts";
 import { Size } from "../rustc_abi/lib.ts";
 import type { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
@@ -327,10 +328,8 @@ ItemCtxt.prototype.lower_test_binder_body = function (this: ItemCtxt, item: hir.
   for (const predicate of predicates) {
     clauses_of.where_predicate_clauses(this, predicate, clauses);
   }
-  const predicates_ = [...clauses].map(([c, span]) => [c.kind(), span] as const);
-  void [foralls_, exists_, constraints_, predicates_];
-  // `TestBinderBody { foralls, exists, constraints, predicates }`
-  return unported("rustc_hir_analysis::check::wfcheck::TestBinderBody (pending, wave 17)");
+  const predicates_ = [...clauses].map(([c, span]): [Binder<ClauseKind>, Span] => [c.kind(), span]);
+  return { foralls: foralls_, exists: exists_, constraints: constraints_, predicates: predicates_ };
 };
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:344 lower_test_binder_forall
@@ -342,10 +341,10 @@ ItemCtxt.prototype.lower_test_binder_forall = function (this: ItemCtxt, forall: 
   for (const predicate of forall.generics.predicates) {
     this.lower_test_binder_assumptions(predicate, type_outlives, region_outlives);
   }
-  void [bound_vars, value];
-  // `crate::check::wfcheck::WithWhereClauses { value, type_outlives, region_outlives }`, then
-  // `TestBinderForall { span, binder: Binder::bind_with_vars(body, bound_vars), assert_on_exit }`
-  return unported("rustc_hir_analysis::check::wfcheck::WithWhereClauses / TestBinderForall (pending, wave 17)");
+  const body: WithWhereClauses<TestBinderBody> = { value, type_outlives, region_outlives };
+  const binder = Binder.bind_with_vars(body, bound_vars);
+  const assert_on_exit = forall.assert_on_exit !== undefined ? this.lower_test_binder_constraint(forall.assert_on_exit) : undefined;
+  return { span: forall.span, binder, assert_on_exit };
 };
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:365 lower_test_binder_exists
@@ -353,9 +352,7 @@ ItemCtxt.prototype.lower_test_binder_exists = function (this: ItemCtxt, exists: 
   const bound_vars = this.tcx.late_bound_vars(exists.hir_id);
   const body = this.lower_test_binder_body(exists.body);
   const binder = Binder.bind_with_vars(body, bound_vars);
-  void binder;
-  // `TestBinderExists { span: exists.span, binder }`
-  return unported("rustc_hir_analysis::check::wfcheck::TestBinderExists (pending, wave 17)");
+  return { span: exists.span, binder };
 };
 
 // rustc: compiler/rustc_hir_analysis/src/collect.rs:375 lower_test_binder_assumptions

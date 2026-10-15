@@ -70,9 +70,7 @@ a type parameter).
 // the stand-ins are at the end of this file ("Stand-ins"):
 // - check/always_applicable.rs, check/region.rs (lane check-region-intrinsic): `check_drop_impl`, `region_scope_tree`;
 // - check/compare_impl_item.rs (lane check-compare): `compare_impl_item`, `collect_return_position_impl_trait_in_trait_tys`;
-// - check/wfcheck.rs (lanes check-wf-a/-b): `check_type_wf`, `check_well_formed`;
-// - rustc_trait_selection (lanes trait-sel-*, error reporting wave 19): `ObligationCtxt`, `ReturnsVisitor`,
-//   `TypeErrCtxt::ty_kind_suggestion`.
+// - rustc_trait_selection error reporting (wave 19): `ReturnsVisitor`, `TypeErrCtxt::ty_kind_suggestion`.
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { type GateIssue } from "../../rustc_feature/lib.ts";
 import type { ErrorGuaranteed } from "../../rustc_errors/lib.ts";
@@ -122,6 +120,8 @@ import type { InferCtxt } from "../decls.ts";
 import * as diagnostics from "../diagnostics.ts";
 import type { MissingTraitItemLabel, MissingTraitItemSuggestion, MissingTraitItemSuggestionNone, MissingTraitItemSuggestionUnstable } from "../diagnostics.ts";
 import * as check from "./check.ts";
+import * as wfcheck from "./wfcheck.ts";
+import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
 
 // pub mod always_applicable;   (wave 17: check-region-intrinsic)
 // mod check;
@@ -130,7 +130,8 @@ import * as check from "./check.ts";
 // mod entry;                   (wave 17)
 // pub mod intrinsic;           (wave 17: check-region-intrinsic)
 // mod region;                  (wave 17: check-region-intrinsic)
-// pub mod wfcheck;             (wave 17: check-wf-a/-b)
+// pub mod wfcheck;
+export { wfcheck };
 
 // pub use check::check_abi;
 export { check_abi } from "./check.ts";
@@ -149,8 +150,8 @@ export function provide(providers: Providers): void {
   // providers.compare_impl_item = compare_impl_item::compare_impl_item;     (lane check-compare)
   providers.check_coroutine_obligations = check.check_coroutine_obligations;
   providers.check_potentially_region_dependent_goals = check.check_potentially_region_dependent_goals;
-  // providers.check_type_wf = wfcheck::check_type_wf;                       (check/wfcheck.rs, lanes check-wf-a/-b)
-  // providers.check_well_formed = wfcheck::check_well_formed;               (lanes check-wf-a/-b)
+  providers.check_type_wf = wfcheck.check_type_wf;
+  providers.check_well_formed = wfcheck.check_well_formed;
 }
 
 // rustc: compiler/rustc_hir_analysis/src/check/mod.rs:127 adt_destructor
@@ -666,7 +667,7 @@ export function check_function_signature(tcx: TyCtxt, cause_: ObligationCause, f
   const param_env = ParamEnv.empty();
 
   const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
 
   const actual_sig_ = EarlyBinder.instantiate_identity(tcx.fn_sig(fn_id) as EarlyBinder<PolyFnSig>);
 
@@ -723,18 +724,6 @@ interface CodegenFnAttrs {
 /** `TypeErrCtxt::ty_kind_suggestion` (rustc_trait_selection error_reporting, wave 19). */
 function TypeErrCtxt_ty_kind_suggestion(_err_ctxt: unknown, _param_env: ParamEnv, _ty: Ty): string | undefined {
   return unported("rustc_trait_selection::error_reporting::TypeErrCtxt::ty_kind_suggestion");
-}
-/** `traits::ObligationCtxt<'_, 'tcx, FulfillmentError<'tcx>>` (rustc_trait_selection traits/engine.rs, lanes trait-sel-*):
- * the methods this file uses. */
-interface ObligationCtxt_ {
-  normalize<T>(cause: ObligationCause, param_env: ParamEnv, value: Unnormalized<T>, d_T: TypeFoldable<T>): T;
-  eq<T>(cause: ObligationCause, param_env: ParamEnv, expected: T, actual: T, d_T: ToTrace<T>): Result<null, TypeError>;
-  evaluate_obligations_error_on_ambiguity(): TraitErrors<FulfillmentError>;
-  resolve_regions_and_report_errors(generic_param_scope: LocalDefId, param_env: ParamEnv, assumed_wf_tys: Iterable<Ty>): Result<null, ErrorGuaranteed>;
-}
-/** `ObligationCtxt::new_with_diagnostics` (rustc_trait_selection traits/engine.rs, lanes trait-sel-*). */
-function ObligationCtxt_new_with_diagnostics(_infcx: InferCtxt): ObligationCtxt_ {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics");
 }
 /** `TypeErrCtxt` (rustc_trait_selection error_reporting, wave 19): the methods this file uses. */
 interface TypeErrCtxt_ {

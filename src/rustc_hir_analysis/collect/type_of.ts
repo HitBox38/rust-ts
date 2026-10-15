@@ -2,6 +2,7 @@
 //
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
+import { check_static_item } from "../check/wfcheck.ts";
 import { ControlFlow, VisitorResult } from "../../rustc_ast_ir/visit.ts";
 import { into_MultiSpan } from "../../rustc_error_messages/lib.ts";
 import type { Diag } from "../../rustc_errors/lib.ts";
@@ -590,9 +591,3 @@ export function type_alias_is_checked(tcx: TyCtxt, def_id: LocalDefId): boolean 
   return new HasTait().visit_ty_unambig(tcx.hir_expect_item(def_id).expect_ty_alias()[2]).$ === "Break";
 }
 
-// ---- PORT(stand-in): upstream fns of files not ported yet (not markers; repoint when they land) ----
-
-/** `crate::check::wfcheck::check_static_item` (check/wfcheck.rs, wave 17). */
-function check_static_item(_tcx: TyCtxt, _item_id: LocalDefId, _ty: Ty, _should_check_for_sync: boolean): { $: "Ok" } | { $: "Err"; _0: ErrorGuaranteed } {
-  return unported("rustc_hir_analysis::check::wfcheck::check_static_item (wave 17)");
-}

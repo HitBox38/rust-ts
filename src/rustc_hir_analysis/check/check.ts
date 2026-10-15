@@ -6,12 +6,14 @@
 // PORT: the code that needs another wave-17 lane that is not in this lane's base stops with `unported(..)` at the first
 // use, after the upstream statements before it. The stand-ins are at the end of this file ("Stand-ins"), one per upstream
 // item, each naming the lane that ports it; the merge repoints them to the real ports:
-// - check/wfcheck.rs (lanes check-wf-a/-b): `enter_wf_checking_ctxt`, `WfCheckingCtxt`, `check_*`;
 // - check/compare_impl_item.rs (+ refine.rs) (lane check-compare): `check_type_bounds`, `compare_const_directness`,
 //   `check_refining_return_position_impl_trait_in_trait`;
 // - check/intrinsic.rs (lane check-region-intrinsic): `check_intrinsic_type`;
-// - rustc_trait_selection (lanes trait-sel-*): `ObligationCtxt`, `traits::impl_item_is_final`, `ReturnsVisitor`;
+// - rustc_trait_selection error reporting (wave 19): `TypeErrCtxt`, `ReturnsVisitor`;
 // - layout (M4): `TyAndLayout` / `LayoutError`, the values of `tcx.layout_of(..)`.
+import * as wfcheck from "./wfcheck.ts";
+import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
+import { impl_item_is_final } from "../../rustc_trait_selection/traits/util.ts";
 import { display_ExternAbi, ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import { Align_eq, type ScalableElt } from "../../rustc_abi/lib.ts";
 import { LitKind } from "../../rustc_ast/lib.ts";
@@ -188,7 +190,7 @@ function check_struct(tcx: TyCtxt, def_id: LocalDefId): Result<null, ErrorGuaran
 
   check_transparent(tcx, def);
   check_packed(tcx, span, def_id);
-  return check_type_defn(tcx, def_id, false);
+  return wfcheck.check_type_defn(tcx, def_id, false);
 }
 
 // rustc: compiler/rustc_hir_analysis/src/check/check.rs:116 check_union
@@ -199,7 +201,7 @@ function check_union(tcx: TyCtxt, def_id: LocalDefId): Result<null, ErrorGuarant
   check_transparent(tcx, def);
   check_union_fields(tcx, span, def_id);
   check_packed(tcx, span, def_id);
-  return check_type_defn(tcx, def_id, true);
+  return wfcheck.check_type_defn(tcx, def_id, true);
 }
 
 // rustc: compiler/rustc_hir_analysis/src/check/check.rs:126 allowed_union_or_unsafe_field
@@ -400,7 +402,7 @@ function check_opaque_meets_bounds(tcx: TyCtxt, def_id: LocalDefId, origin: hir.
         ? TypingMode.post_borrowck_analysis(as_interner(tcx), defining_use_anchor)
         : TypingMode.analysis_in_body(as_interner(tcx), defining_use_anchor),
     );
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
 
   const parent = origin.parent;
   const args = RawList.identity_for_item(tcx, LocalDefId.to_def_id(parent)).extend_to(tcx, LocalDefId.to_def_id(def_id), (param, _) =>
@@ -967,7 +969,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
       check_static_inhabited(tcx, def_id);
       check_static_linkage(tcx, def_id);
       const ty = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.type_of(def_id) as EarlyBinder<Ty>));
-      res = and(res, wfcheck_check_static_item(tcx, def_id, ty, /* should_check_for_sync */ true));
+      res = and(res, wfcheck.check_static_item(tcx, def_id, ty, /* should_check_for_sync */ true));
 
       // Only `Node::Item` and `Node::ForeignItem` still have HIR based
       // checks. Returning early here does not miss any checks and
@@ -980,8 +982,8 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
       tcx.ensure_ok().clauses_of(def_id);
       collect().check_enum_variant_types(tcx, def_id);
       check_enum(tcx, def_id);
-      check_variances_for_type_defn(tcx, def_id);
-      res = and(res, check_type_defn(tcx, def_id, true));
+      wfcheck.check_variances_for_type_defn(tcx, def_id);
+      res = and(res, wfcheck.check_type_defn(tcx, def_id, true));
       // enums are fully handled by the type based check and have no hir wfcheck logic
       return res;
     }
@@ -1041,8 +1043,8 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
             break;
         }
       }
-      res = and(res, wfcheck_check_trait(tcx, def_id));
-      wfcheck_check_gat_where_clauses(tcx, def_id);
+      res = and(res, wfcheck.check_trait(tcx, def_id));
+      wfcheck.check_gat_where_clauses(tcx, def_id);
       // Trait aliases do not have hir checks anymore
       return res;
     }
@@ -1051,7 +1053,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
       tcx.ensure_ok().explicit_implied_clauses_of(def_id);
       tcx.ensure_ok().explicit_super_clauses_of(def_id);
       tcx.ensure_ok().clauses_of(def_id);
-      res = and(res, wfcheck_check_trait(tcx, def_id));
+      res = and(res, wfcheck.check_trait(tcx, def_id));
       // Trait aliases do not have hir checks anymore
       return res;
     }
@@ -1072,7 +1074,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
         const [, ctor_def_id] = adt.ctor;
         collect().check_ctor(tcx, ctor_def_id.expect_local());
       }
-      check_variances_for_type_defn(tcx, def_id);
+      wfcheck.check_variances_for_type_defn(tcx, def_id);
       let r: Result<null, ErrorGuaranteed>;
       switch (def_kind.$) {
         case "Struct":
@@ -1128,7 +1130,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
 
       res = and(
         res,
-        enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
+        wfcheck.enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
           const ty = EarlyBinder.instantiate_identity(tcx.type_of(def_id) as EarlyBinder<Ty>);
           const ty_span = tcx.ty_span(def_id);
           const ty_ = wfcx.deeply_normalize(ty_span, { $: "Ty", _0: def_id }, ty, fold_Ty);
@@ -1139,8 +1141,8 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
             ty_,
             tcx.require_lang_item(LangItem.Sized, ty_span),
           );
-          wfcheck_check_where_clauses(wfcx, def_id);
-          return wfcheck_check_const_item(wfcx, def_id, ty_);
+          wfcheck.check_where_clauses(wfcx, def_id);
+          return wfcheck.check_const_item(wfcx, def_id, ty_);
         }),
       );
 
@@ -1158,10 +1160,10 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
       if (tcx.type_alias_is_checked(def_id)) {
         res = and(
           res,
-          enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
+          wfcheck.enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
             const item_ty = wfcx.deeply_normalize(span, { $: "Ty", _0: def_id }, ty, fold_Ty);
             wfcx.register_wf_obligation(span, { $: "Ty", _0: def_id }, item_ty);
-            wfcheck_check_where_clauses(wfcx, def_id);
+            wfcheck.check_where_clauses(wfcx, def_id);
             return Ok(null);
           }),
         );
@@ -1169,7 +1171,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
         check_type_alias_type_params_are_used(tcx, def_id);
         res = and(
           res,
-          enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
+          wfcheck.enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
             // HACK: We sometimes incidentally check that const arguments have the correct
             // type as a side effect of the anon const desugaring. To make this "consistent"
             // for users we explicitly check `ConstArgHasType` clauses so that const args
@@ -1290,14 +1292,14 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
       tcx.ensure_ok().type_of(def_id);
       tcx.ensure_ok().fn_sig(def_id);
       tcx.ensure_ok().clauses_of(def_id);
-      res = and(res, wfcheck_check_associated_item(tcx, def_id));
+      res = and(res, wfcheck.check_associated_item(tcx, def_id));
       const assoc_item = tcx.associated_item(def_id) as AssocItem;
       switch (assoc_item.container.$) {
         case "InherentImpl":
         case "TraitImpl":
           break;
         case "Trait": {
-          res = and(res, wfcheck_check_trait_item(tcx, def_id));
+          res = and(res, wfcheck.check_trait_item(tcx, def_id));
           break;
         }
       }
@@ -1310,14 +1312,14 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
     case "AssocConst": {
       tcx.ensure_ok().type_of(def_id);
       tcx.ensure_ok().clauses_of(def_id);
-      res = and(res, wfcheck_check_associated_item(tcx, def_id));
+      res = and(res, wfcheck.check_associated_item(tcx, def_id));
       const assoc_item = tcx.associated_item(def_id) as AssocItem;
       switch (assoc_item.container.$) {
         case "InherentImpl":
         case "TraitImpl":
           break;
         case "Trait": {
-          res = and(res, wfcheck_check_trait_item(tcx, def_id));
+          res = and(res, wfcheck.check_trait_item(tcx, def_id));
           break;
         }
       }
@@ -1329,7 +1331,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
     }
     case "AssocTy": {
       tcx.ensure_ok().clauses_of(def_id);
-      res = and(res, wfcheck_check_associated_item(tcx, def_id));
+      res = and(res, wfcheck.check_associated_item(tcx, def_id));
 
       const assoc_item = tcx.associated_item(def_id) as AssocItem;
       let has_type = false;
@@ -1345,7 +1347,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
             tcx.ensure_ok().explicit_implied_const_bounds(def_id);
             tcx.ensure_ok().const_conditions(def_id);
           }
-          res = and(res, wfcheck_check_trait_item(tcx, def_id));
+          res = and(res, wfcheck.check_trait_item(tcx, def_id));
           has_type = Defaultness.has_value(AssocItem.defaultness(assoc_item, tcx));
           break;
         }
@@ -1367,7 +1369,7 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
       const lowered = icx.lower_test_binder_body(body);
       res = and(
         res,
-        enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
+        wfcheck.enter_wf_checking_ctxt(tcx, def_id, (wfcx) => {
           wfcx.check_test_binder_body(lowered);
           return Ok(null);
         }),
@@ -1402,10 +1404,10 @@ export function check_item_type(tcx: TyCtxt, def_id: LocalDefId): Result<null, E
     case "Crate":
       return bug("check_well_formed cannot be applied to the crate root");
     case "Item":
-      r = wfcheck_check_item(tcx, node._0);
+      r = wfcheck.check_item(tcx, node._0);
       break;
     case "ForeignItem":
-      r = wfcheck_check_foreign_item(tcx, node._0);
+      r = wfcheck.check_foreign_item(tcx, node._0);
       break;
     default:
       return unreachable(`internal error: entered unreachable code: ${debug_Node(node, PLAIN)}`);
@@ -1428,7 +1430,7 @@ function check_specialization_validity(tcx: TyCtxt, trait_def: TraitDef, trait_i
     }
     const [parent_impl, parent_item] = [parent, Node_.item(parent, tcx, trait_item.def_id)];
     let r: Result<null, DefId> | undefined;
-    if (parent_item !== undefined && traits_impl_item_is_final(tcx, parent_item)) {
+    if (parent_item !== undefined && impl_item_is_final(tcx, parent_item)) {
       // Parent impl exists, and contains the parent item we're trying to specialize, but
       // doesn't mark it `default`.
       r = Err(Node_.def_id(parent_impl));
@@ -2511,7 +2513,7 @@ export function check_coroutine_obligations(tcx: TyCtxt, def_id: LocalDefId): Re
   // that all obligations already hold modulo regions.
   const infcx = tcx.infer_ctxt().ignoring_regions().build(mode);
 
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   for (const [predicate, cause] of typeck_results.coroutine_stalled_predicates) {
     ocx.register_obligation(Obligation.new(tcx, clone_ObligationCause(cause), param_env, predicate, upcast_from_self));
   }
@@ -2551,7 +2553,7 @@ export function check_potentially_region_dependent_goals(tcx: TyCtxt, def_id: Lo
   // We use `TypingMode::PostTypeckUntilBorrowck` as we want to use the opaque types computed by HIR typeck.
   const typing_mode = TypingMode.borrowck(as_interner(tcx), def_id);
   const infcx = tcx.infer_ctxt().ignoring_regions().build(typing_mode);
-  const ocx = ObligationCtxt_new_with_diagnostics(infcx);
+  const ocx = ObligationCtxt.new_with_diagnostics(infcx);
   for (const [predicate_, cause] of typeck_results.potentially_region_dependent_goals) {
     const predicate = fold_regions(tcx, predicate_, (_, __) => infcx.next_region_var({ $: "Misc", _0: cause.span }), fold_Predicate);
     ocx.register_obligation(Obligation.new(tcx, clone_ObligationCause(cause), param_env, predicate, upcast_from_self));
@@ -2582,64 +2584,6 @@ function collect(): typeof import("../collect.ts") {
   return require("../collect.ts") as typeof import("../collect.ts");
 }
 
-/** `wfcheck::WfCheckingCtxt<'_, 'tcx>` (check/wfcheck.rs:52, lanes check-wf-a/-b): the members check.rs uses. */
-interface WfCheckingCtxt {
-  ocx: { register_obligations(obligations: readonly PredicateObligation[]): void };
-  deeply_normalize<T>(span: Span, loc: WellFormedLoc, value: Unnormalized<T>, d_T: TypeFoldable<T>): T;
-  register_wf_obligation(span: Span, loc: WellFormedLoc, term: Term): void;
-  /** `Deref` to `ObligationCtxt`: `ObligationCtxt::register_bound`. */
-  register_bound(cause: ObligationCause, param_env: ParamEnv, ty: Ty, def_id: DefId): void;
-  unnormalized_obligations(span: Span, ty: Ty): PredicateObligation[] | undefined;
-  check_test_binder_body(body: TestBinderBody): void;
-}
-/** `wfcheck::enter_wf_checking_ctxt` (check/wfcheck.rs:151, lanes check-wf-a/-b). */
-function enter_wf_checking_ctxt(_tcx: TyCtxt, _body_def_id: LocalDefId, _f: (wfcx: WfCheckingCtxt) => Result<null, ErrorGuaranteed>): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::wfcheck::enter_wf_checking_ctxt (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_item` (check/wfcheck.rs:248). */
-function wfcheck_check_item(_tcx: TyCtxt, _item: hir.Item): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::wfcheck::check_item (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_foreign_item` (check/wfcheck.rs:325). */
-function wfcheck_check_foreign_item(_tcx: TyCtxt, _item: hir.ForeignItem): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::wfcheck::check_foreign_item (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_trait_item` (check/wfcheck.rs:342). */
-function wfcheck_check_trait_item(_tcx: TyCtxt, _def_id: LocalDefId): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::wfcheck::check_trait_item (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_gat_where_clauses` (check/wfcheck.rs:373). */
-function wfcheck_check_gat_where_clauses(_tcx: TyCtxt, _trait_def_id: LocalDefId): void {
-  return unported("rustc_hir_analysis::check::wfcheck::check_gat_where_clauses (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_associated_item` (check/wfcheck.rs:910). */
-function wfcheck_check_associated_item(_tcx: TyCtxt, _def_id: LocalDefId): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::wfcheck::check_associated_item (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_type_defn` (check/wfcheck.rs:972). */
-function check_type_defn(_tcx: TyCtxt, _item: LocalDefId, _all_sized: boolean): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::wfcheck::check_type_defn (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_trait` (check/wfcheck.rs:1088). */
-function wfcheck_check_trait(_tcx: TyCtxt, _def_id: LocalDefId): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::wfcheck::check_trait (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_static_item` (check/wfcheck.rs:1205). */
-function wfcheck_check_static_item(_tcx: TyCtxt, _item_id: LocalDefId, _ty: Ty, _should_check_for_sync: boolean): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::wfcheck::check_static_item (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_const_item` (check/wfcheck.rs:1272). */
-function wfcheck_check_const_item(_wfcx: WfCheckingCtxt, _def_id: LocalDefId, _item_ty: Ty): Result<null, ErrorGuaranteed> {
-  return unported("rustc_hir_analysis::check::wfcheck::check_const_item (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_where_clauses` (check/wfcheck.rs:1416). */
-function wfcheck_check_where_clauses(_wfcx: WfCheckingCtxt, _def_id: LocalDefId): void {
-  return unported("rustc_hir_analysis::check::wfcheck::check_where_clauses (lanes check-wf-a/-b)");
-}
-/** `wfcheck::check_variances_for_type_defn` (check/wfcheck.rs:2012). */
-function check_variances_for_type_defn(_tcx: TyCtxt, _def_id: LocalDefId): void {
-  return unported("rustc_hir_analysis::check::wfcheck::check_variances_for_type_defn (lanes check-wf-a/-b)");
-}
 /** `super::compare_impl_item::check_type_bounds` (check/compare_impl_item.rs, lane check-compare). */
 function compare_impl_item_check_type_bounds(_tcx: TyCtxt, _ty: AssocItem, _trait_ty: AssocItem, _impl_trait_ref: TraitRef): Result<null, ErrorGuaranteed> {
   return unported("rustc_hir_analysis::check::compare_impl_item::check_type_bounds (lane check-compare)");
@@ -2655,23 +2599,6 @@ function compare_impl_item_refine_check_refining_return_position_impl_trait_in_t
 /** `intrinsic::check_intrinsic_type` (check/intrinsic.rs, lane check-region-intrinsic). */
 function intrinsic_check_intrinsic_type(_tcx: TyCtxt, _intrinsic_id: LocalDefId, _span: Span, _intrinsic_name: Symbol): void {
   return unported("rustc_hir_analysis::check::intrinsic::check_intrinsic_type (lane check-region-intrinsic)");
-}
-/** `traits::impl_item_is_final` (rustc_trait_selection traits/mod.rs, lanes trait-sel-*). */
-function traits_impl_item_is_final(_tcx: TyCtxt, _assoc_item: AssocItem): boolean {
-  return unported("rustc_trait_selection::traits::impl_item_is_final");
-}
-/** `traits::ObligationCtxt<'_, 'tcx, FulfillmentError<'tcx>>` (rustc_trait_selection traits/engine.rs, lanes trait-sel-*):
- * the methods this file uses. */
-interface ObligationCtxt_ {
-  register_obligation(obligation: PredicateObligation): void;
-  eq<T>(cause: ObligationCause, param_env: ParamEnv, expected: T, actual: T, d_T: ToTrace<T>): Result<null, TypeError>;
-  evaluate_obligations_error_on_ambiguity(): TraitErrors<FulfillmentError>;
-  assumed_wf_types_and_report_errors(param_env: ParamEnv, def_id: LocalDefId): Result<Iterable<Ty>, ErrorGuaranteed>;
-  resolve_regions_and_report_errors(generic_param_scope: LocalDefId, param_env: ParamEnv, assumed_wf_tys: Iterable<Ty>): Result<null, ErrorGuaranteed>;
-}
-/** `ObligationCtxt::new_with_diagnostics` (rustc_trait_selection traits/engine.rs, lanes trait-sel-*). */
-function ObligationCtxt_new_with_diagnostics(_infcx: InferCtxt): ObligationCtxt_ {
-  return unported("rustc_trait_selection::traits::ObligationCtxt::new_with_diagnostics");
 }
 /** `TypeErrCtxt` (rustc_trait_selection error_reporting, wave 19): the method this file uses. */
 interface TypeErrCtxt_ {
