@@ -7,7 +7,7 @@
   "helpers": {},
   "types": [
     { "paths": ["rustc_passes::lang_items::Duplicate"], "ts": "Duplicate", "import": "src/rustc_passes/lang_items.ts", "types": ["Duplicate"], "debug": "$v", "clone": "copy", "note": "fieldless enum (string union) of the hand port; only read by the manual Diagnostic impl of DuplicateLangItem" },
-    { "paths": ["rustc_passes::check_attr::ProcMacroKind"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_passes::check_attr (lane passes-a)" },
+    { "paths": ["rustc_passes::check_attr::ProcMacroKind"], "ts": "ProcMacroKind", "import": "src/rustc_passes/check_attr.ts", "types": ["ProcMacroKind"], "debug": null, "clone": "copy", "note": "fieldless enum (string union) of check_attr.ts (no Debug upstream); small-gaps-19" },
     { "paths": ["rustc_middle::ty::Instance"], "ts": "unknown", "debug": null, "clone": "copy", "note": "PORT: pending rustc_middle::ty::instance (M4); only a field of rustc_middle diagnostics" }
   ]
 }
