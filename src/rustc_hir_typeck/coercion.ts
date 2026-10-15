@@ -1626,6 +1626,7 @@ export class CoerceMany {
 /// Creates a `CoerceMany` with a given capacity.
 // rustc: compiler/rustc_hir_typeck/src/coercion.rs:1580 with_capacity
 (CoerceMany as unknown as { with_capacity: typeof CoerceMany.with_capacity }).with_capacity = function (expected_ty: Ty, _capacity: number): CoerceMany {
+  // PORT: `Vec::with_capacity(capacity)` is an empty array (capacity is an allocation hint only).
   return new CoerceMany(expected_ty, undefined, []);
 };
 
@@ -2113,6 +2114,7 @@ export class CoerceVisitor implements ProofTreeVisitor<ControlFlowT<null>> {
   /** `type Result = ControlFlow<()>;` */
   readonly Result = VisitorResult.ControlFlow<null>();
 
+  // PORT: the field `span` is `span_` (the trait method `span()` has the same name; CoerceMany precedent).
   constructor(
     public fcx: FnCtxt,
     public span_: Span,
