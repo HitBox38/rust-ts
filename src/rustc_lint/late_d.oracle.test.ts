@@ -1,0 +1,108 @@
+// Oracle checks of the late lint passes of lane lint-late-d (internal.rs, transmute.rs, non_fmt_panic.rs, dangling.rs,
+// non_local_def.rs, reference_casting.rs, drop_forget_useless.rs) against the pinned nightly rustc.
+//
+// The full driver does not reach the late lints yet, so each case runs late_d_test/run.ts: the ported driver through
+// type checking (the tydump probe's analysis prefix), then the case's passes over every module (see run.ts). The oracle
+// compiles the same file (`--crate-type lib --emit=metadata`, target x86_64-unknown-linux-gnu, the oracle sysroot so
+// core/std load). The sources avoid everything else rustc would report (dead code, unused variables, ...), so the
+// complete stderr of both sides must be equal and contain the diagnostics under test.
+// Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
+import { expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { DATA, PIN, REPO } from "../../scripts/lib/common.ts";
+
+const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
+const RUSTC = ["rustc", `+${PIN.toolchain}`];
+function rustcAvailable(): boolean {
+  try {
+    return Bun.spawnSync([...RUSTC, "-vV"]).stdout.toString().includes(`commit-hash: ${PIN.commit}`);
+  } catch {
+    return false;
+  }
+}
+const HAVE = rustcAvailable();
+const SKIP = !HAVE && !REQUIRE;
+if (SKIP) console.log(`SKIP: pinned rustc (${PIN.toolchain}, ${PIN.commit.slice(0, 12)}) unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
+
+const WORK = join(DATA, "tmp", "late-d-oracle", process.env.RUST_TS_AGENT ?? "default");
+mkdirSync(WORK, { recursive: true });
+const RUNNER = join(REPO, "src/rustc_lint/late_d_test/run.ts");
+
+const ENV: Record<string, string> = { RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
+for (const [k, v] of Object.entries(process.env)) {
+  if (v !== undefined && !["MAKEFLAGS", "CARGO_MAKEFLAGS", "MFLAGS", "RUSTC_LOG", "RUSTC_BOOTSTRAP", "RUSTC_ICE", "RUST_BACKTRACE"].includes(k)) ENV[k] = v;
+}
+interface Out {
+  stderr: string;
+  code: number;
+}
+function run(cmd: string[], env: Record<string, string> = ENV): Out {
+  const r = Bun.spawnSync(cmd, { cwd: WORK, env, stdout: "pipe", stderr: "pipe" });
+  return { stderr: r.stderr.toString(), code: r.exitCode ?? -1 };
+}
+const sysroot = (): string => Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.toString().trim();
+const args = (edition: string): string[] => [
+  "--target",
+  "x86_64-unknown-linux-gnu",
+  "--sysroot",
+  sysroot(),
+  `--edition=${edition}`,
+  "--crate-type=lib",
+  "--emit=metadata",
+];
+
+interface Case {
+  name: string;
+  /** Pass names (late_d_test/walker.ts `PASSES`). */
+  passes: string[];
+  src: string;
+  edition?: string;
+  flags?: string[];
+  /** Text both outputs must contain (the diagnostics under test were really emitted). */
+  expect: string[];
+}
+
+const CASES: Case[] = [
+  {
+    name: "drop_forget_useless: dropping_references, forgetting_references, dropping_copy_types, forgetting_copy_types",
+    passes: ["DropForgetUseless"],
+    src: [
+      "pub fn f(s: &String, n: u32, v: Vec<u8>) {",
+      "    std::mem::drop(s);",
+      "    std::mem::forget(s);",
+      "    drop(n);",
+      "    core::mem::forget(n);",
+      "    let _ = match n { 0 => drop(n), _ => () };",
+      "    drop(v);",
+      "}",
+      "",
+    ].join("\n"),
+    expect: ["calls to `std::mem::drop` with a reference", "calls to `std::mem::forget` with a reference", "calls to `std::mem::drop` with a value that implements `Copy`", "calls to `std::mem::forget` with a value that implements `Copy`"],
+  },
+];
+
+for (const [i, c] of CASES.entries()) {
+  test.skipIf(SKIP)(
+    `late passes (lint-late-d): ${c.name}`,
+    () => {
+      const file = `case${i}.rs`;
+      writeFileSync(join(WORK, file), c.src);
+      const a = [...args(c.edition ?? "2021"), "-o", `case${i}.rmeta`, ...(c.flags ?? []), file];
+      const oracle = run([...RUSTC, ...a]);
+      const ours = run([process.execPath, RUNNER, ...a], { ...ENV, RUST_TS_LATE_D_PASSES: c.passes.join(",") });
+      expect(ours.stderr).not.toContain("UNPORTED: ");
+      if (ours.stderr !== oracle.stderr) {
+        // Show the first differing line.
+        const ol = oracle.stderr.split("\n");
+        const pl = ours.stderr.split("\n");
+        let k = 0;
+        while (k < pl.length && ol[k] === pl[k]) k++;
+        expect(`line ${k + 1}: ${pl[k]}`).toBe(`line ${k + 1}: ${ol[k]}`);
+      }
+      expect(ours.code).toBe(oracle.code);
+      for (const e of c.expect) expect(oracle.stderr).toContain(e);
+    },
+    120_000,
+  );
+}
