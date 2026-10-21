@@ -1442,6 +1442,8 @@ export class FindInferSourceVisitor extends hir.intravisit.Visitor {
           const tk = ty.kind;
           if (pk.$ === "Adt" && tk.$ === "Path" && tk._0.$ === "Resolved") {
             const def = pk._0;
+            // PORT: upstream's arm binds a new `args` (the ADT's) that shadows the outer one.
+            const args_ = pk._1;
             const path = tk._0._1;
             const rd = tcx.res_generics_def_id(path.res);
             if (!def_id_eq_opt(rd, def.did())) {
@@ -1468,7 +1470,7 @@ export class FindInferSourceVisitor extends hir.intravisit.Visitor {
                   break;
               }
             } else {
-              const first = this.resolved_path_inferred_arg_iter(path, args);
+              const first = this.resolved_path_inferred_arg_iter(path, args_);
               return (function* (): Generator<InsertableGenericArgs> {
                 yield* first;
                 if (segment !== undefined) yield segment;

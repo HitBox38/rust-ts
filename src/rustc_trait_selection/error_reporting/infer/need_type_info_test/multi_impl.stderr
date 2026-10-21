@@ -1,0 +1,43 @@
+error[E0283]: type annotations needed
+ --> multi_impl.rs:6:5
+  |
+6 |     need();
+  |     ^^^^ cannot infer type of the type parameter `T` declared on the function `need`
+  |
+  = note: the type must implement `Tr`
+help: the following types implement trait `Tr`
+ --> multi_impl.rs:2:1
+  |
+2 | impl Tr for u8 { fn go(&self) {} }
+  | ^^^^^^^^^^^^^^ `u8`
+3 | impl Tr for u16 { fn go(&self) {} }
+  | ^^^^^^^^^^^^^^^ `u16`
+note: required by a bound in `need`
+ --> multi_impl.rs:4:16
+  |
+4 | pub fn need<T: Tr>() {}
+  |                ^^ required by this bound in `need`
+help: consider specifying a concrete type for the type parameter `T`
+  |
+6 |     need::</* Type */>();
+  |         ++++++++++++++
+
+error[E0284]: type annotations needed
+ --> multi_impl.rs:9:9
+  |
+9 |     let x = "5".parse().unwrap();
+  |         ^       ----- type must be known at this point
+  |
+  = note: cannot satisfy `<_ as FromStr>::Err == _`
+  = note: the type must also implement `FromStr`
+note: required by a bound in `core::str::<impl str>::parse`
+ --> /rustc/6f5da406b56c2db6607202b63daee73aa8c61297/library/core/src/str/mod.rs:2776:4
+help: consider giving `x` an explicit type
+  |
+9 |     let x: /* Type */ = "5".parse().unwrap();
+  |          ++++++++++++
+
+error: aborting due to 2 previous errors
+
+Some errors have detailed explanations: E0283, E0284.
+For more information about an error, try `rustc --explain E0283`.

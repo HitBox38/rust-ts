@@ -50,7 +50,7 @@ import { DUMMY_SP, type ErrorGuaranteed, type PathBuf, Span } from "../../../rus
 import { display_Ident, display_Symbol } from "../../../rustc_span/symbol.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../../../rustc_type_ir/binder.ts";
 import { elaborate } from "../../../rustc_type_ir/elaborate.ts";
-import { type PredicateProxy, type TypeFoldable } from "../../../rustc_type_ir/fold.ts";
+import { type FallibleTypeFolder, type PredicateProxy, type TypeFoldable, type TypeFolder } from "../../../rustc_type_ir/fold.ts";
 import { as_interner, PolyTraitClause, TraitClause, TraitRef } from "../../../rustc_type_ir/predicate.ts";
 import { fold_with_TraitClause, fold_with_TraitRef, try_fold_with_TraitClause, try_fold_with_TraitRef, visit_with_TraitClause, visit_with_TraitRef } from "../../../rustc_type_ir/predicate.gen.ts";
 import type { TraitClause as TraitClauseT, TraitRef as TraitRefT } from "../../../rustc_type_ir/predicate.ts";
@@ -58,7 +58,8 @@ import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { type TypeVisitable, type TypeVisitor, TypeVisitableExt, TypeVisitor_provided } from "../../../rustc_type_ir/visit.ts";
 import { intern_key } from "../../../rust_ts/intern_key.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
-import { assert, unported, unwrap } from "../../../std/panic.ts";
+import { assert, unwrap } from "../../../std/panic.ts";
+import { Ok, type Result } from "../../../std/result.ts";
 import { TypeErrCtxt } from "../../decls.ts";
 import type { FulfillmentError } from "../../decls.ts";
 import type { CandidateSource } from "./ambiguity.gen.ts";
@@ -735,12 +736,16 @@ function print_PolyTraitClausePrintModifiersAndPath(self: Binder<TraitClausePrin
   return print_Binder(self, p, print_TraitClausePrintModifiersAndPath, fold_TraitClausePrintModifiersAndPath_);
 }
 
-// PORT: pending codegen (as rustc_hir_analysis hir_ty_lowering/errors.ts's `fold_TraitRefPrintOnlyTraitPath_`): pretty.rs's
-// `#[derive(TypeFoldable, TypeVisitable)]` of `TraitClausePrintModifiersAndPath` (pretty.rs:3056) has no generated descriptor yet.
+// PORT: pretty.rs:3056 `#[derive(TypeFoldable, TypeVisitable)]` of the newtype `TraitClausePrintModifiersAndPath(TraitClause)`,
+// written out as infer/mod.ts's `fold_TraitRefPrintSugared` (the derive forwards to the field; codegen has no descriptor yet).
 const fold_TraitClausePrintModifiersAndPath_: TypeFoldable<TraitClausePrintModifiersAndPath> = {
-  visit_with: () => unported("rustc_middle::ty::print::pretty::TraitClausePrintModifiersAndPath: TypeVisitable (derive, codegen pending)"),
-  try_fold_with: () => unported("rustc_middle::ty::print::pretty::TraitClausePrintModifiersAndPath: TypeFoldable (derive, codegen pending)"),
-  fold_with: () => unported("rustc_middle::ty::print::pretty::TraitClausePrintModifiersAndPath: TypeFoldable (derive, codegen pending)"),
+  visit_with: (self, visitor) => visit_with_TraitClause(self._0, visitor),
+  try_fold_with: <E>(self: TraitClausePrintModifiersAndPath, folder: FallibleTypeFolder<E>): Result<TraitClausePrintModifiersAndPath, E> => {
+    const r = try_fold_with_TraitClause(self._0, folder);
+    if (r.$ === "Err") return r;
+    return Ok({ _0: r._0 });
+  },
+  fold_with: (self, folder: TypeFolder) => ({ _0: fold_with_TraitClause(self._0, folder) }),
 };
 
 /** `TypeVisitable for SubtypePredicate` (generated), read lazily. */

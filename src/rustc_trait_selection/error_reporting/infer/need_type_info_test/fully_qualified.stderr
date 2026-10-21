@@ -1,0 +1,38 @@
+error[E0790]: cannot call associated function on trait without specifying the corresponding `impl` type
+ --> fully_qualified.rs:5:13
+  |
+1 | pub trait Make { fn make() -> Self; }
+  |                  ------------------ `Make::make` defined here
+...
+5 |     let x = Make::make();
+  |             ^^^^^^^^^^^^ cannot call associated function of trait
+  |
+help: use a fully-qualified path to one of the available implementations
+  |
+5 |     let x = <u8 as Make>::make();
+  |             ++++++     +
+5 |     let x = <u16 as Make>::make();
+  |             +++++++     +
+
+error[E0283]: type annotations needed
+  --> fully_qualified.rs:11:9
+   |
+11 |     let y = v.conv();
+   |         ^     ---- type must be known at this point
+   |
+note: multiple `impl`s satisfying `u32: Conv<_>` found
+  --> fully_qualified.rs:8:1
+   |
+ 8 | impl Conv<u8> for u32 { fn conv(&self) -> u8 { 0 } }
+   | ^^^^^^^^^^^^^^^^^^^^^
+ 9 | impl Conv<u16> for u32 { fn conv(&self) -> u16 { 0 } }
+   | ^^^^^^^^^^^^^^^^^^^^^^
+help: consider giving `y` an explicit type
+   |
+11 |     let y: /* Type */ = v.conv();
+   |          ++++++++++++
+
+error: aborting due to 2 previous errors
+
+Some errors have detailed explanations: E0283, E0790.
+For more information about an error, try `rustc --explain E0283`.

@@ -1,0 +1,25 @@
+error[E0282]: type annotations needed
+ --> closure_arg.rs:2:14
+  |
+2 |     let f = |x| ();
+  |              ^
+  |
+help: consider giving this closure parameter an explicit type
+  |
+2 |     let f = |x: /* Type */| ();
+  |               ++++++++++++
+
+error[E0282]: type annotations needed
+ --> closure_arg.rs:5:14
+  |
+5 |     let g = |x, y: u8| y;
+  |              ^
+  |
+help: consider giving this closure parameter an explicit type
+  |
+5 |     let g = |x: /* Type */, y: u8| y;
+  |               ++++++++++++
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0282`.

@@ -1,0 +1,40 @@
+error[E0282]: type annotations needed
+ --> method_turbofish.rs:7:7
+  |
+7 |     s.m();
+  |       ^ cannot infer type of the type parameter `T` declared on the method `m`
+  |
+help: consider specifying a concrete type for the type parameter `T`
+  |
+7 |     s.m::</* Type */>();
+  |        ++++++++++++++
+
+error[E0282]: type annotations needed
+  --> method_turbofish.rs:10:7
+   |
+10 |     s.n(1u8);
+   |       ^ cannot infer type of the type parameter `B` declared on the method `n`
+   |
+help: consider specifying the generic arguments
+   |
+10 |     s.n::<u8, B>(1u8);
+   |        +++++++++
+
+error[E0283]: type annotations needed
+  --> method_turbofish.rs:13:9
+   |
+13 |     let it = v.into_iter().map(|x| x).collect();
+   |         ^^                            ------- type must be known at this point
+   |
+   = note: the type must implement `FromIterator<u8>`
+note: required by a bound in `collect`
+  --> /rustc/6f5da406b56c2db6607202b63daee73aa8c61297/library/core/src/iter/traits/iterator.rs:2087:4
+help: consider giving `it` an explicit type, where the type for type parameter `B` is specified
+   |
+13 |     let it: Vec<_> = v.into_iter().map(|x| x).collect();
+   |           ++++++++
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0282, E0283.
+For more information about an error, try `rustc --explain E0282`.
