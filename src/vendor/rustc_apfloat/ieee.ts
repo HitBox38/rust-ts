@@ -113,7 +113,7 @@ function cmp_limb(a: Limb, b: Limb): Ordering {
 }
 /** `Ordering::reverse` */
 function reverse(o: Ordering): Ordering {
-  return -o as Ordering;
+  return o === 0 ? 0 : (-o as Ordering);
 }
 /** `i32` negation (`Neg for ExpInt`, wrapping). */
 function neg_i32(x: ExpInt): ExpInt {
