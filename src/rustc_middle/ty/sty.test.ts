@@ -391,7 +391,7 @@ describe("constructors", () => {
       expect(adt.is_enum()).toBe(false);
       // `Const::from_target_usize` (ty/consts.rs, lane ty-results) now asks the `layout_of` query (lane layout-contract),
       // which this mock `tcx` has no query system for: rustc_ty_utils/layout_contract.test.ts checks `Ty::new_array` with a
-      // real `tcx` (it stops at the `layout_of_uncached` stub).
+      // real `tcx` (its layout is `[u8; 3]`'s since merge-layout).
     }),
   );
 });
