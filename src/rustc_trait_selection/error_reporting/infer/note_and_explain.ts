@@ -53,10 +53,6 @@ const MaybeIncorrect = Applicability.MaybeIncorrect;
 /** `derive(Debug)` of `std::fmt::Error` (a unit struct): `Error`. */
 const debug_PrintError: Debug<PrintError> = () => "Error";
 
-/** PORT(decls): pending root. The `Symbol` of decls.ts's `point_at_methods_that_satisfy_associated_type` (the global JS
- * `Symbol`: decls.ts lacks the rustc_span import). */
-type DeclSymbol = Parameters<TypeErrCtxt["point_at_methods_that_satisfy_associated_type"]>[2];
-
 /** `Option<DefId> == Option<DefId>` */
 function DefId_opt_eq(a: DefId | undefined, b: DefId | undefined): boolean {
   return a === undefined || b === undefined ? a === b : DefId_eq(a, b);
@@ -738,7 +734,7 @@ TypeErrCtxt.prototype.expected_projection = function (
     let point_at_assoc_fn: boolean;
     if (
       callable_scope &&
-      this.point_at_methods_that_satisfy_associated_type(diag, tcx.parent(def_id), current_method_ident as unknown as DeclSymbol, def_id, values.expected)
+      this.point_at_methods_that_satisfy_associated_type(diag, tcx.parent(def_id), current_method_ident, def_id, values.expected)
     ) {
       // If we find a suitable associated function that returns the expected type, we
       // don't want the more general suggestion later in this method about "consider
@@ -828,8 +824,6 @@ TypeErrCtxt.prototype.suggest_constraining_opaque_associated_type = function (
   }
 };
 
-// PORT(decls): pending root. decls.ts does not import rustc_span's `Symbol`, so its `current_method_ident: Symbol` is the
-// global JS `Symbol`; the implementation takes rustc_span's `Symbol` and is assigned through a cast.
 // rustc: compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs:868 point_at_methods_that_satisfy_associated_type
 TypeErrCtxt.prototype.point_at_methods_that_satisfy_associated_type = function (
   this: TypeErrCtxt,
@@ -868,7 +862,7 @@ TypeErrCtxt.prototype.point_at_methods_that_satisfy_associated_type = function (
     return true;
   }
   return false;
-} as unknown as TypeErrCtxt["point_at_methods_that_satisfy_associated_type"];
+};
 
 // rustc: compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs:925 point_at_associated_type
 TypeErrCtxt.prototype.point_at_associated_type = function (this: TypeErrCtxt, diag: Diag, body_owner_def_id: DefId | undefined, found: Ty): boolean {

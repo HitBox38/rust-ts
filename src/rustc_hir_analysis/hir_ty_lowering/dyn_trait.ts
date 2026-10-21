@@ -4,9 +4,8 @@
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every other
 // rustc_hir_analysis export is read inside function bodies only.
 //
-// PORT: rustc_trait_selection's error reporting (wave 19) is not ported. Its items called here stop at `unported(..)`
-// where upstream calls them: `error_reporting::traits::report_dyn_incompatibility`, `diagnostics::AssocTypeWithSameName`
-// and `error_reporting::traits::suggestions::NextTypeParamName::next_type_param_name`.
+// rustc_trait_selection's error-reporting items called here (`error_reporting::traits::report_dyn_incompatibility`,
+// `diagnostics::AssocTypeWithSameName`, `NextTypeParamName::next_type_param_name`) are the ported ones (merge-w19).
 import { expand_trait_aliases } from "../../rustc_trait_selection/traits/util.ts";
 import { object_region_bounds } from "../../rustc_trait_selection/traits/wf.ts";
 import { HirTyLowerer } from "../decls.ts";
@@ -79,6 +78,8 @@ import {
 } from "../diagnostics.gen.ts";
 import type { ImpliedBoundsContext, OverlappingAsssocItemConstraints, PredicateFilter, RegionInferReason } from "./mod.gen.ts";
 import { report_dyn_incompatibility } from "../../rustc_trait_selection/error_reporting/traits/mod.ts";
+import { next_type_param_name } from "../../rustc_trait_selection/error_reporting/traits/suggestions.ts";
+import { AssocTypeWithSameName_subdiagnostic } from "../../rustc_trait_selection/diagnostics.gen.ts";
 
 /** PORT: D4 descriptors of the generated `TypeFoldable` impls used below. */
 const d_TraitClause: TypeFoldable<TraitClause> = { visit_with: visit_with_TraitClause, try_fold_with: try_fold_with_TraitClause, fold_with: fold_with_TraitClause };
@@ -686,8 +687,7 @@ HirTyLowerer.prototype.prohibit_or_lint_bare_trait_object_ty = function (
     this.maybe_suggest_typoed_method(hir_id, poly_trait_ref.trait_ref.trait_def_id(), diag);
     // If there is an associated type with the same name, add the suggestion to this error.
     if (this.tcx().resolutions(null).paths_matching_assoc_types.has(Span.with_parent(span, undefined))) {
-      // `diag.subdiagnostic(AssocTypeWithSameName { span: span.shrink_to_lo() })`
-      diag.subdiagnostic(unported("rustc_trait_selection::diagnostics::AssocTypeWithSameName"));
+      diag.subdiagnostic(AssocTypeWithSameName_subdiagnostic({ span: Span.shrink_to_lo(span) }));
     }
     return diag.emit_err();
   } else {
@@ -863,9 +863,7 @@ HirTyLowerer.prototype.add_generic_param_suggestion = function (
   impl_trait_name: string,
 ): [Span, string][] {
   // check if the trait has generics, to make a correct suggestion
-  const param_name: string = unported(
-    "rustc_trait_selection::error_reporting::traits::suggestions::NextTypeParamName::next_type_param_name",
-  );
+  const param_name = next_type_param_name(generics.params, undefined);
 
   let add_generic_sugg: [Span, string];
   const span = generics.span_for_param_suggestion();

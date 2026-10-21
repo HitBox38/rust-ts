@@ -165,11 +165,10 @@ export const SourceKindSubdiag = {
   },
 };
 
-/** PORT(decls): pending root. `impl IntoDiagArg for ObligationCauseAsDiagArg<'_>` (error_reporting/infer/mod.rs:2692) is
- * ported by lane errrep-infer-a; until the merge this stand-in names it (replace it by that lane's
- * `ObligationCauseAsDiagArg_into_diag_arg`). */
-function ObligationCauseAsDiagArg_into_diag_arg(_self: ObligationCauseAsDiagArg, _path: MutRef<PathBuf | undefined>): DiagArgValue {
-  return unported("rustc_trait_selection::error_reporting::infer::<ObligationCauseAsDiagArg as IntoDiagArg>::into_diag_arg");
+/** `impl IntoDiagArg for ObligationCauseAsDiagArg<'_>` (error_reporting/infer/mod.rs:2692, lane errrep-infer-a), read
+ * lazily from error_reporting/infer/mod.ts (same-crate module; init order). */
+function ObligationCauseAsDiagArg_into_diag_arg(self: ObligationCauseAsDiagArg, path: MutRef<PathBuf | undefined>): DiagArgValue {
+  return (require("./error_reporting/infer/mod.ts") as typeof import("./error_reporting/infer/mod.ts")).ObligationCauseAsDiagArg_into_diag_arg(self, path);
 }
 
 /** `impl Subdiagnostic for RegionOriginNote<'_>` */

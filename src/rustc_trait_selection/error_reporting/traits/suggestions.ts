@@ -1010,8 +1010,6 @@ TypeErrCtxt.prototype.suggest_dereferences = function (this: TypeErrCtxt, obliga
 /// Given a closure's `DefId`, return the given name of the closure.
 ///
 /// This doesn't account for reassignments, but it's only used for suggestions.
-// PORT(decls): pending root: decls.ts declares `get_closure_name(..): Symbol | undefined` without importing rustc_span's
-// `Symbol` (it resolves to the ES `Symbol`); the fn returns rustc_span's `Symbol` and is cast to the declared type.
 // rustc: compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs:984 get_closure_name
 TypeErrCtxt.prototype.get_closure_name = function (this: TypeErrCtxt, def_id: DefId, err: Diag, msg: string): Symbol | undefined {
   const get_name = (err: Diag, kind: hir.PatKind): Symbol | undefined => {
@@ -1040,7 +1038,7 @@ TypeErrCtxt.prototype.get_closure_name = function (this: TypeErrCtxt, def_id: De
     return get_name(err, local.pat.kind);
   }
   return undefined;
-} as unknown as TypeErrCtxt["get_closure_name"];
+};
 
 /// We tried to apply the bound to an `fn` or closure. Check whether calling it would
 /// evaluate to a type that *would* satisfy the trait bound. If it would, suggest calling
@@ -1211,8 +1209,7 @@ TypeErrCtxt.prototype.suggest_fn_call = function (this: TypeErrCtxt, obligation:
     if (node !== undefined && node.$ === "Expr" && node._0.kind.$ === "Closure") {
       const fn_decl_span = node._0.kind._0.fn_decl_span;
       err.span_label(fn_decl_span, "consider calling this closure");
-      // PORT(decls): pending root (see `get_closure_name`): the declared return type names the ES `Symbol`.
-      const name_ = this.get_closure_name(def_id, err, msg) as unknown as Symbol | undefined;
+      const name_ = this.get_closure_name(def_id, err, msg);
       if (name_ === undefined) {
         return false;
       }
@@ -3484,7 +3481,7 @@ TypeErrCtxt.prototype.maybe_note_obligation_cause_for_async_await = function (th
 
   let interior_or_upvar_span: CoroutineInteriorOrUpvar | undefined = undefined;
 
-  const from_awaited_ty = CoroutineData_get_from_await_ty(coroutine_data, visitor, this.tcx, ty_matches);
+  const from_awaited_ty = coroutine_data.get_from_await_ty(visitor, this.tcx, ty_matches);
   // debug!(?from_awaited_ty);
 
   // Avoid disclosing internal information to downstream crates.
@@ -3515,7 +3512,7 @@ TypeErrCtxt.prototype.maybe_note_obligation_cause_for_async_await = function (th
   }
 
   if (interior_or_upvar_span === undefined) {
-    interior_or_upvar_span = CoroutineData_try_get_upvar_span(coroutine_data, this.infcx, coroutine_did, ty_matches);
+    interior_or_upvar_span = coroutine_data.try_get_upvar_span(this.infcx, coroutine_did, ty_matches);
   }
 
   if (interior_or_upvar_span === undefined && !coroutine_did.is_local()) {
@@ -5041,36 +5038,6 @@ interface CoroutineLayoutView {
   /// The source that led to each variant being created (usually, a yield or
   /// await).
   variant_source_info: readonly { span: Span }[];
-}
-
-/**
- * `CoroutineData::get_from_await_ty` (suggestions.rs:95, lane errrep-sugg-a; its TS form is that lane's choice):
- * read from `CoroutineData.prototype` when installed, `unported` otherwise.
- */
-function CoroutineData_get_from_await_ty(self: CoroutineData, visitor: AwaitsVisitor, tcx: TyCtxt, ty_matches: (_0: Binder<Ty>) => boolean): Span | undefined {
-  const m = (self as unknown as { get_from_await_ty?: (visitor: AwaitsVisitor, tcx: TyCtxt, ty_matches: (_0: Binder<Ty>) => boolean) => Span | undefined })
-    .get_from_await_ty;
-  if (typeof m !== "function") return unported("rustc_trait_selection::error_reporting::traits::suggestions::CoroutineData::get_from_await_ty");
-  return m.call(self, visitor, tcx, ty_matches);
-}
-
-/**
- * `CoroutineData::try_get_upvar_span` (suggestions.rs:73, lane errrep-sugg-a; its TS form is that lane's choice):
- * read from `CoroutineData.prototype` when installed, `unported` otherwise.
- */
-function CoroutineData_try_get_upvar_span(
-  self: CoroutineData,
-  infer_context: InferCtxt,
-  coroutine_did: DefId,
-  ty_matches: (_0: Binder<Ty>) => boolean,
-): CoroutineInteriorOrUpvar | undefined {
-  const m = (
-    self as unknown as {
-      try_get_upvar_span?: (infer_context: InferCtxt, coroutine_did: DefId, ty_matches: (_0: Binder<Ty>) => boolean) => CoroutineInteriorOrUpvar | undefined;
-    }
-  ).try_get_upvar_span;
-  if (typeof m !== "function") return unported("rustc_trait_selection::error_reporting::traits::suggestions::CoroutineData::try_get_upvar_span");
-  return m.call(self, infer_context, coroutine_did, ty_matches);
 }
 
 /** `FxHashSet::insert`: `true` if the value was not present. */

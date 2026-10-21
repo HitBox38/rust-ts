@@ -31,7 +31,7 @@ import { IsSuggestable } from "../../../rustc_middle/ty/diagnostics.ts";
 import { fold_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
 import { GenericParamDef, type Generics } from "../../../rustc_middle/ty/generics.ts";
 import { fold_Term, Term } from "../../../rustc_middle/ty/mod.ts";
-import type { Printer, PrintResult } from "../../../rustc_middle/ty/print/mod.ts";
+import type { PrintResult } from "../../../rustc_middle/ty/print/mod.ts";
 import { print_Const, print_Ty } from "../../../rustc_middle/ty/print/mod.ts";
 import { FmtPrinter, print_Binder, print_FnSig, print_GenericArg, RegionHighlightMode } from "../../../rustc_middle/ty/print/pretty.ts";
 import { debug_Ty, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
@@ -39,7 +39,6 @@ import type { TypeckResults } from "../../../rustc_middle/ty/typeck_results.ts";
 import { debug_DefId, type DefId, LocalDefId } from "../../../rustc_span/def_id.ts";
 import { type BytePos, debug_BytePos, debug_Span, DUMMY_SP, type PathBuf, Span } from "../../../rustc_span/lib.ts";
 import { debug_Ident, display_Ident, display_Symbol, type Ident, sym } from "../../../rustc_span/symbol.ts";
-import { Limit } from "../../../rustc_structures/limit.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../../../rustc_type_ir/binder.ts";
 import { type TypeFolder, TypeFolder_provided, type PredicateProxy, type TypeFoldable } from "../../../rustc_type_ir/fold.ts";
 import type { Clauses } from "../../../rustc_middle/ty/list.ts";
@@ -53,7 +52,6 @@ import { type Debug, debug_list, debug_option, debug_str, debug_struct, debug_in
 import type { MutRef } from "../../../std/mut_ref.ts";
 import { panic, unwrap } from "../../../std/panic.ts";
 import { bug } from "../../../rustc_span/macros.ts";
-import { utf8_len } from "../../../std/str.ts";
 import {
   type AmbiguousImpl,
   AmbiguousImpl_diagnostic,
@@ -67,6 +65,7 @@ import {
 import type { SourceKindSubdiag } from "../../diagnostics.gen.ts";
 import { TypeErrCtxt } from "../../decls.ts";
 import { Highlighted } from "./nice_region_error/placeholder_error.gen.ts";
+import { Highlighted_to_string } from "./nice_region_error/placeholder_error.ts";
 
 // rustc-type: compiler/rustc_trait_selection/src/error_reporting/infer/need_type_info.rs:33 TypeAnnotationNeeded
 export type TypeAnnotationNeeded =
@@ -444,30 +443,6 @@ export function closure_as_fn_str(infcx: InferCtxt, ty: Ty): string {
     ? ""
     : ` -> ${ty_to_string(infcx, Binder.skip_binder(PolyFnSig.output(fn_sig)), undefined)}`;
   return `fn(${args})${ret}`;
-}
-
-// PORT(merge): `Highlighted { .. }.to_string()`: `impl fmt::Display for Highlighted` is placeholder_error.rs:50, ported by
-// lane errrep-nice-region in placeholder_error.ts. This is the same body (`T: Print<FmtPrinter>` is `print_T`), kept here
-// without a marker so the E0282 main path runs before that lane merges; root: replace it with that lane's export.
-function Highlighted_to_string<T>(self: Highlighted<T>, print_T: (t: T, p: Printer) => PrintResult): string {
-  const p = FmtPrinter.new(self.tcx, self.ns);
-  p._0.region_highlight_mode = self.highlight;
-
-  unwrap_print(print_T(self.value, p));
-  const b = p.into_buffer();
-  if (utf8_len(b) <= 40 || !self.highlight.keep_regions || self.tcx.sess.opts.verbose) {
-    // This is a short enough type that can be safely be printed to the user, or we aren't
-    // showing the type with a particular interest in its lifetimes.
-    return b;
-  } else {
-    // We are highlighting lifetimes in the output, we will print out the smallest possible
-    // portion of the type while keeping the lifetimes visible.
-    const p = FmtPrinter.new_with_limit(self.tcx, self.ns, Limit.new(0));
-    p._0.region_highlight_mode = self.highlight;
-    const r = print_T(self.value, p);
-    if (r.$ === "Err") panic("could not print type: Error");
-    return p.into_buffer();
-  }
 }
 
 // impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx>

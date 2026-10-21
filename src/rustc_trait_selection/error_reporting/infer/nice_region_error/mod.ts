@@ -31,11 +31,6 @@ import type { ErrorGuaranteed, Span } from "../../../../rustc_span/lib.ts";
 import { TypeErrCtxt } from "../../../decls.ts";
 
 
-/** The associated fns `new_from_span` (see the `PORT(decls)` note at its assignment). */
-export interface NiceRegionError_statics {
-  new_from_span(cx: TypeErrCtxt, generic_param_scope: LocalDefId, span: Span, sub: Region, sup: Region): NiceRegionError;
-}
-
 // rustc-type: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:34 NiceRegionError
 export class NiceRegionError {
   constructor(
@@ -69,9 +64,7 @@ TypeErrCtxt.prototype.try_report_nice_region_error = function (
 };
 
 // rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:52 new_from_span
-// PORT(decls): pending root: decls.ts's `namespace NiceRegionError` has an `export { new_ as new }`, so its other members
-// (`new_from_span`, `get_impl_ident_and_self_ty_from_trait`) are not exported; this view stands in until they are.
-(NiceRegionError as unknown as NiceRegionError_statics).new_from_span = function (
+(NiceRegionError as unknown as { new_from_span: typeof NiceRegionError.new_from_span }).new_from_span = function (
   cx: TypeErrCtxt,
   generic_param_scope: LocalDefId,
   span: Span,

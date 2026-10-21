@@ -102,24 +102,10 @@ export const debug_SelfSource: Debug<SelfSource> = (v, f) => {
 // Port notes (lane typeck-suggest-a):
 // - `#[instrument]` / `debug!` / `info!` are tracing only and stay as comments.
 // - `SortedMap<OrdSpan, Vec<String>>` is rustc_data_structures' `SortedMap` ordered by `OrdSpan::cmp`; `&mut bool`
-//   out-parameters are `MutRef<boolean>` cells (decls.ts declares them by value: see `FnCtxt_suggest_a` below).
+//   out-parameters are `MutRef<boolean>` cells.
 // - `FxIndexMap` / `FxIndexSet` are insertion-ordered `Map` / `Set` (`DefIdMap` / `DefIdSet` for `DefId` keys, `KeyedMap` /
 //   `KeyedSet` for tuple keys); `UnordSet` is a `Set` whose users only test membership or sort.
 // - `Vec<String>::sort()` / `dedup()` compare strings by `str_cmp` (UTF-8 byte order, as `String: Ord`).
-
-// PORT(decls): pending root. decls.ts declares the `&mut bool` parameters of these four private methods (only called from
-// this region) as `boolean` and `SortedMap<OrdSpan, Vec<String>>` as `Map<OrdSpan, string[]>`. `FnCtxt_suggest_a` is the
-// upstream signatures; the region calls and assigns the four methods through it (`suggest_a(fcx)`).
-interface FnCtxt_suggest_a {
-  suggest_unsatisfied_ty_or_trait(err: Diag, span: Span, rcvr_ty: Ty, item_ident: Ident, item_kind: string, source: SelfSource, unsatisfied_predicates: UnsatisfiedPredicates, static_candidates: readonly CandidateSource[]): Result<[boolean, boolean, boolean, boolean, SortedMap<OrdSpan, string[]>], null>;
-  suggest_method_not_found_because_of_unsatisfied_bounds(err: Diag, rcvr_ty: Ty, item_ident: Ident, item_kind: string, bound_spans: SortedMap<OrdSpan, string[]>, unsatisfied_predicates: UnsatisfiedPredicates): void;
-  set_not_found_span_label(err: Diag, rcvr_ty: Ty, item_ident: Ident, item_kind: string, mode: Mode, source: SelfSource, span: Span, unsatisfied_predicates: UnsatisfiedPredicates, find_candidate_for_method: MutRef<boolean>): void;
-  handle_unsatisfied_predicates(err: Diag, rcvr_ty: Ty, item_ident: Ident, item_kind: string, span: Span, unsatisfied_predicates: UnsatisfiedPredicates, restrict_type_params: MutRef<boolean>, suggested_derive: MutRef<boolean>, unsatisfied_bounds: MutRef<boolean>, custom_span_label: MutRef<boolean>, bound_spans: SortedMap<OrdSpan, string[]>): void;
-}
-function suggest_a(fcx: FnCtxt): FnCtxt_suggest_a {
-  return fcx as unknown as FnCtxt_suggest_a;
-}
-const FnCtxt_suggest_a_prototype = FnCtxt.prototype as unknown as { [K in keyof FnCtxt_suggest_a]: (this: FnCtxt, ...args: Parameters<FnCtxt_suggest_a[K]>) => ReturnType<FnCtxt_suggest_a[K]> };
 
 /** `String: Ord` (UTF-8 byte order). */
 function cmp_String(a: string, b: string): number {
@@ -844,7 +830,7 @@ FnCtxt.prototype.suggest_static_method_candidates = function (
 };
 
 // rustc: compiler/rustc_hir_typeck/src/method/suggest.rs:881 suggest_unsatisfied_ty_or_trait
-FnCtxt_suggest_a_prototype.suggest_unsatisfied_ty_or_trait = function (
+FnCtxt.prototype.suggest_unsatisfied_ty_or_trait = function (
   this: FnCtxt,
   err: Diag,
   span: Span,
@@ -925,7 +911,7 @@ FnCtxt_suggest_a_prototype.suggest_unsatisfied_ty_or_trait = function (
       // `self.suggest_traits_to_import`, so we ignore the `unsatisfied_predicates`
       // suggestions.
     } else {
-      suggest_a(this).handle_unsatisfied_predicates(
+      this.handle_unsatisfied_predicates(
         err,
         rcvr_ty,
         item_ident,
@@ -1000,7 +986,7 @@ FnCtxt.prototype.find_possible_candidates_for_method = function (
   const unsatisfied_predicates = no_match_data.unsatisfied_predicates;
 
   if (should_label_not_found && !custom_span_label) {
-    suggest_a(this).set_not_found_span_label(err, rcvr_ty, item_ident, item_kind, mode, source, span, unsatisfied_predicates, find_candidate_for_method);
+    this.set_not_found_span_label(err, rcvr_ty, item_ident, item_kind, mode, source, span, unsatisfied_predicates, find_candidate_for_method);
   }
   if (!find_candidate_for_method.value) {
     this.lookup_segments_chain_for_no_match_method(err, item_ident, item_kind, source, no_match_data);
@@ -1047,7 +1033,7 @@ FnCtxt.prototype.suggest_confusable_or_similarly_named_method = function (
 };
 
 // rustc: compiler/rustc_hir_typeck/src/method/suggest.rs:1132 suggest_method_not_found_because_of_unsatisfied_bounds
-FnCtxt_suggest_a_prototype.suggest_method_not_found_because_of_unsatisfied_bounds = function (
+FnCtxt.prototype.suggest_method_not_found_because_of_unsatisfied_bounds = function (
   this: FnCtxt,
   err: Diag,
   rcvr_ty: Ty,
@@ -1168,9 +1154,7 @@ FnCtxt.prototype.report_no_match_method_error = function (
     return range_end._0;
   }
 
-  // PORT: `let mut ty_file = None;`, passed as `&mut ty_file` below; decls.ts declares that parameter by value (the callee
-  // only writes it on its error path, which returns), so `ty_file` stays `None` here.
-  const ty_file: PathBuf | undefined = undefined;
+  const ty_file: MutRef<PathBuf | undefined> = { value: undefined };
   const mode = no_match_data.mode;
   const is_method = mode === "MethodCall";
   const item_kind = is_method ? "method" : rcvr_ty.is_enum() || rcvr_ty.is_fresh_ty() ? "variant, associated function, or constant" : "associated function or constant";
@@ -1188,7 +1172,7 @@ FnCtxt.prototype.report_no_match_method_error = function (
     item_ident.name === sym.write_fmt;
   const err =
     is_write && source.$ === "MethodCall"
-      ? this.create_missing_writer_err(rcvr_ty, source._0, ty_file)
+      ? this.create_missing_writer_err(rcvr_ty, source._0, ty_file.value)
       : this.create_no_assoc_err(rcvr_ty, item_ident, item_kind, trait_missing_method, source, is_method, sugg_span, unsatisfied_predicates);
   if (source.$ === "MethodCall") {
     const rcvr_expr = source._0;
@@ -1201,7 +1185,7 @@ FnCtxt.prototype.report_no_match_method_error = function (
 
   const static_candidates = this.suggest_static_method_candidates(err, item_ident.span, rcvr_ty, item_ident, source, args, sugg_span, no_match_data);
 
-  const r = suggest_a(this).suggest_unsatisfied_ty_or_trait(err, item_ident.span, rcvr_ty, item_ident, item_kind, source, unsatisfied_predicates, static_candidates);
+  const r = this.suggest_unsatisfied_ty_or_trait(err, item_ident.span, rcvr_ty, item_ident, item_kind, source, unsatisfied_predicates, static_candidates);
   if (r.$ !== "Ok") {
     return err.emit_err();
   }
@@ -1236,7 +1220,7 @@ FnCtxt.prototype.report_no_match_method_error = function (
 
   this.suggest_confusable_or_similarly_named_method(err, item_ident.span, rcvr_ty, item_ident, mode, args, unsatisfied_predicates, similar_candidate);
 
-  suggest_a(this).suggest_method_not_found_because_of_unsatisfied_bounds(err, rcvr_ty, item_ident, item_kind, bound_spans, unsatisfied_predicates);
+  this.suggest_method_not_found_because_of_unsatisfied_bounds(err, rcvr_ty, item_ident, item_kind, bound_spans, unsatisfied_predicates);
 
   this.note_derefed_ty_has_method(err, source, rcvr_ty, item_ident, expected);
   this.suggest_bounds_for_range_to_method(err, source, item_ident);
@@ -1244,7 +1228,7 @@ FnCtxt.prototype.report_no_match_method_error = function (
 };
 
 // rustc: compiler/rustc_hir_typeck/src/method/suggest.rs:1443 set_not_found_span_label
-FnCtxt_suggest_a_prototype.set_not_found_span_label = function (
+FnCtxt.prototype.set_not_found_span_label = function (
   this: FnCtxt,
   err: Diag,
   rcvr_ty: Ty,
@@ -1428,7 +1412,7 @@ FnCtxt.prototype.suggest_enum_variant_for_method_call = function (this: FnCtxt, 
 };
 
 // rustc: compiler/rustc_hir_typeck/src/method/suggest.rs:1705 handle_unsatisfied_predicates
-FnCtxt_suggest_a_prototype.handle_unsatisfied_predicates = function (
+FnCtxt.prototype.handle_unsatisfied_predicates = function (
   this: FnCtxt,
   err: Diag,
   rcvr_ty: Ty,
@@ -2575,11 +2559,8 @@ FnCtxt.prototype.report_failed_method_call_on_numerical_infer_var = function (
   span: Span,
   item_kind: string,
   item_name: Ident,
-  long_ty_path_: PathBuf | undefined,
+  long_ty_path: MutRef<PathBuf | undefined>,
 ): Result<undefined, ErrorGuaranteed> {
-  // PORT: `long_ty_path: &mut Option<PathBuf>` is passed by value (decls.ts); the caller's `ty_file` is only written on the
-  // `Err` path, after which it is never read, so a local cell is equivalent.
-  const long_ty_path: MutRef<PathBuf | undefined> = { value: long_ty_path_ };
   let found_candidate = all_traits(this.tcx).some((info) => this.associated_value(info.def_id, item_name) !== undefined);
   const found_assoc = (ty: Ty): boolean => {
     const simp = simplify_type(as_interner(tcx), ty, "InstantiateWithInfer");

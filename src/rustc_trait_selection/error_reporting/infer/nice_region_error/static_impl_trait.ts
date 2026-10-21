@@ -315,10 +315,8 @@ export function make_elided_region_spans_suggs(name: string, generic_params: Ite
 }
 
 // impl<'a, 'tcx> NiceRegionError<'a, 'tcx> {
-// PORT(decls): the decls.ts namespace augmentation's explicit `export { new_ as new }` leaves this declaration
-// unexported (an ambient namespace with an export statement exports nothing implicitly): typed here (handoff).
 // rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/static_impl_trait.rs:350 get_impl_ident_and_self_ty_from_trait
-(NiceRegionError as unknown as { get_impl_ident_and_self_ty_from_trait: (tcx: TyCtxt, def_id: DefId, trait_objects: DefIdSet) => [Ident, hir.Ty] | undefined }).get_impl_ident_and_self_ty_from_trait =
+(NiceRegionError as unknown as { get_impl_ident_and_self_ty_from_trait: typeof NiceRegionError.get_impl_ident_and_self_ty_from_trait }).get_impl_ident_and_self_ty_from_trait =
   function (tcx: TyCtxt, def_id: DefId, trait_objects: DefIdSet): [Ident, hir.Ty] | undefined {
     const node = tcx.hir_get_if_local(def_id);
     if (node === undefined) return undefined;

@@ -40,6 +40,7 @@ import { type DynCompatibilityViolation, ObligationCause } from "../rustc_middle
 import { EvaluationResult } from "../rustc_middle/traits/select.ts";
 import { TraitErrors } from "../rustc_infer/traits/engine.ts";
 import { ObligationCtxt } from "../rustc_trait_selection/traits/engine.ts";
+import { next_type_param_name } from "../rustc_trait_selection/error_reporting/traits/suggestions.ts";
 import type { AdtDef, AdtKind } from "../rustc_middle/ty/adt.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { Const, Region } from "../rustc_middle/ty/decls.ts";
@@ -171,9 +172,7 @@ export function placeholder_type_error_diag(cx: HirTyLowerer, generics: hir.Gene
   }
 
   const params = generics !== undefined ? generics.params : [];
-  void params;
-  // `params.next_type_param_name(None)`: rustc_trait_selection's `NextTypeParamName` (not ported).
-  const type_name: string = unported("rustc_trait_selection::error_reporting::traits::suggestions::NextTypeParamName::next_type_param_name");
+  const type_name = next_type_param_name(params, undefined);
   const sugg: [Span, string][] = placeholder_types.map((sp) => [sp, type_name]);
 
   if (generics !== undefined) {
