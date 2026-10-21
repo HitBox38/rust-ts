@@ -6,9 +6,8 @@
 // file as a lib with std (`--emit=metadata`); each case only has diagnostics the listed passes produce, so stderr and
 // the exit code must be identical.
 // PENDING cases pin where the subject stops today (exit 70, `rust-ts: unported: ..`) on code that is not this lane's:
-// `utils::std_or_core` (wide / fn pointer `==` suggestions), `Ty: StableHash` (`type_id_hash`, the `ImproperCTypesLint`
-// cache key of every `extern "C"` signature), `ImproperCTypes::into_diag` (diagnostics.ts) and rustc_apfloat (float
-// literals). When one of them is ported, the pin fails: turn the case into a normal one.
+// `Ty: StableHash` (`type_id_hash`, the `ImproperCTypesLint`
+// cache key of every `extern "C"` signature), and `ImproperCTypes::into_diag` (diagnostics.ts). When one of them is ported, the pin fails: turn the case into a normal one.
 // Not covered: `uses_power_alignment` (AIX only; the `powerpc64-ibm-aix` target spec is not ported).
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
@@ -126,25 +125,51 @@ const CASES: Case[] = [
     expect: ["function pointer comparisons do not produce meaningful results since their addresses are not guaranteed to be unique"],
   },
   {
-    name: "PENDING TypeLimits: fn pointer `==` suggestion stops at utils::std_or_core",
+    name: "TypeLimits: fn pointer `==` suggestion (`std::ptr::fn_addr_eq`)",
     passes: [TL],
     src: ["pub fn a(f: fn(), g: fn()) -> bool { f == g }"],
     expect: ["use `std::ptr::fn_addr_eq` to suppress the lint"],
-    pending: "rust-ts: unported: rustc_lint::utils::std_or_core (M3)\n",
   },
   {
-    name: "PENDING TypeLimits: ambiguous_wide_pointer_comparisons stops at utils::std_or_core",
+    name: "TypeLimits: ambiguous_wide_pointer_comparisons (`std::ptr::addr_eq` / `std::ptr::eq` suggestions)",
     passes: [TL],
     src: ["pub fn a(p: *const [u8], q: *const [u8]) -> bool { p == q }"],
     expect: ["ambiguous wide pointer comparison, the comparison includes metadata which may not be expected"],
-    pending: "rust-ts: unported: rustc_lint::utils::std_or_core (M3)\n",
   },
   {
-    name: "PENDING TypeLimits: float literals stop at rustc_apfloat",
+    // (vendor-apfloat-b) `float_is_infinite` parses with the vendored rustc_apfloat: literals that round to infinity
+    // (including just above the largest finite value), not those that round to `MAX` or underflow to zero.
+    name: "TypeLimits: overflowing float literals (f32 / f64, negated, suffixed, round to MAX vs infinity, underflow)",
     passes: [TL],
-    src: ["pub fn a() -> f32 { 1e40 }"],
-    expect: ["literal out of range for `f32`"],
-    pending: "rust-ts: unported: rustc_apfloat::ieee::IeeeFloat::from_str (rustc_apfloat is not ported)\n",
+    src: [
+      "pub fn a() -> f32 { 1e40 }",
+      "pub fn b() -> f64 { -1e400 }",
+      "pub fn c() -> f32 { 3.4028235e38 }",
+      "pub fn d() -> f32 { 3.4028236e38 }",
+      "pub fn e() -> f32 { 3.4028236e38_f32 }",
+      "pub fn g() -> f32 { 3.40282357e38 }",
+      "pub fn h() -> f64 { 1.7976931348623157e308 }",
+      "pub fn i() -> f64 { 1.7976931348623159e308 }",
+      "pub fn j() -> f32 { 1e-50 }",
+      "pub fn k(x: f64) -> bool { x == 1e309 }",
+      "pub fn l() -> f32 { 100_000_000_000_000_000_000_000_000_000_000_000_000_000.0 }",
+      "pub fn m() -> f64 { 0.0 }",
+    ],
+    expect: ["literal out of range for `f32`", "literal out of range for `f64`"],
+  },
+  {
+    name: "TypeLimits: overflowing f16 / f128 literals",
+    passes: [TL],
+    src: [
+      "#![feature(f16, f128)]",
+      "pub fn a() -> f16 { 65504.0 }",
+      "pub fn b() -> f16 { 65520.0 }",
+      "pub fn c() -> f16 { -1e5 }",
+      "pub fn d() -> f128 { 1.18973149535723176508575932662800702e4932 }",
+      "pub fn e() -> f128 { 1.2e4932 }",
+      "pub fn f() -> f128 { 1e-5000 }",
+    ],
+    expect: ["literal out of range for `f16`", "literal out of range for `f128`"],
   },
   {
     name: "VariantSizeDifferences: largest vs second largest variant, repr(u8), generic, #[allow], non-null niche",
