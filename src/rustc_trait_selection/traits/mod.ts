@@ -20,6 +20,7 @@
 
 import * as dyn_compatibility from "./dyn_compatibility.ts";
 import * as specialize from "./specialize/mod.ts";
+import * as vtable from "./vtable.ts";
 import { FulfillmentError } from "./mod.gen.ts";
 
 export * from "./mod.gen.ts";
@@ -1151,9 +1152,7 @@ class ReferencesOnlyParentGenerics implements TypeVisitor<ControlFlow<null>> {
 // rustc: compiler/rustc_trait_selection/src/traits/mod.rs:982 provide
 export function provide(providers: Providers): void {
   dyn_compatibility.provide(providers);
-  // PORT: `vtable::provide(providers)`: traits/vtable.rs is not ported yet (no lane); its queries keep the driver's
-  // `unported` placeholder providers.
-  // vtable::provide(providers);
+  vtable.provide(providers);
   providers.specialization_graph_of = specialize.specialization_graph_provider;
   providers.specializes = specialize.specializes;
   providers.specialization_enabled_in = specialize.specialization_enabled_in;
