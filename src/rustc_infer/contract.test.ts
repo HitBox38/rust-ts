@@ -326,8 +326,9 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
     // (`At::query_normalize` stopped here until lane old-query-typeops ported traits/query/normalize.rs.)
     // (`err_ctxt` stopped here until lane errctxt-contract ported error_reporting/mod.rs; its `TypeErrCtxt` methods are
     // the error-reporting lanes' placeholders.)
+    // (`report_fulfillment_errors` stopped here until lane errrep-traits-a ported error_reporting/traits/mod.rs.)
     const ecx = infcx.err_ctxt();
-    expect(() => ecx.report_fulfillment_errors([])).toThrow(/rustc_trait_selection::error_reporting::traits::TypeErrCtxt::report_fulfillment_errors/);
+    expect(() => ecx.describe_closure({ $: "Closure" })).toThrow(/rustc_trait_selection::error_reporting::traits::fulfillment_errors::TypeErrCtxt::describe_closure/);
   });
 
   test("rustc_middle infer/canonical.rs: CanonicalParamEnvCache and OriginalQueryValues defaults", () => {
