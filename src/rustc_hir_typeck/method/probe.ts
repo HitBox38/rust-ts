@@ -59,6 +59,7 @@ import { Symbol as Sym, type Ident, type Symbol } from "../../rustc_span/symbol.
 import { str_cmp } from "../../rustc_session/options.ts";
 import { expand_trait_aliases } from "../../rustc_trait_selection/traits/util.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
+import { SelectionContext } from "../../rustc_trait_selection/traits/select/mod.ts";
 import { predicates_for_generics } from "../../rustc_trait_selection/traits/mod.ts";
 import { debug_FulfillmentError, type FulfillmentError } from "../../rustc_trait_selection/traits/mod.gen.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../../rustc_type_ir/binder.ts";
@@ -1613,24 +1614,13 @@ Pick.prototype.maybe_emit_unstable_name_collision_hint = function (this: Pick, t
   tcx.emit_node_span_lint(UNSTABLE_NAME_COLLISIONS, scope_expr_id, span, ItemMaybeBeAddedToStd({ this: this, tcx, span }));
 };
 
-/**
- * PORT: `traits::SelectionContext::new(infcx).select(&obligation)`: the old solver's `SelectionContext`
- * (rustc_trait_selection traits/select/mod.rs, lane selcx-contract) is not ported yet.
- */
-function SelectionContext_select(infcx: InferCtxt, obligation: Obligation<TraitClauseT>): SelectionResult<Selection> {
-  void infcx;
-  void obligation;
-  return unported("rustc_trait_selection::traits::select::SelectionContext::select");
-}
-
 // ---- impl ProbeContext (2) -------------------------------------------------------------------------------------------
 
 // rustc: compiler/rustc_hir_typeck/src/method/probe.rs:1939 select_trait_candidate_for_diagnostics
 ProbeContext.prototype.select_trait_candidate_for_diagnostics = function (this: ProbeContext, trait_ref: TraitRefT): SelectionResult<Selection> {
   const obligation = Obligation.new(this.tcx, this.misc(this.span), this.param_env, trait_ref, TraitClause.upcast_from_TraitRef);
-  // PORT: `traits::SelectionContext::new(self).select(&obligation)`: the old solver's `SelectionContext`
-  // (rustc_trait_selection traits/select, lane selcx-contract) is not ported yet.
-  const candidate = SelectionContext_select(this.infcx, obligation);
+  // PORT: `SelectionContext::new(self)`: `&InferCtxt` is the deref coercion of `self`.
+  const candidate = SelectionContext.new(this.infcx).select(obligation);
   if (candidate.$ === "Ok" && candidate._0 !== undefined && candidate._0.$ === "UserDefined" && this.infcx.tcx.do_not_recommend_impl(candidate._0._0.impl_def_id)) {
     return Err(SelectionError.Unimplemented);
   }

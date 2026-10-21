@@ -5,8 +5,8 @@
 // lane evalctxt-contract). Extension module (docs/handoff/evalctxt-contract.md "Init order"): its top-level code touches
 // only other crates.
 //
-// PORT: `#[derive(TypeVisitable_Generic, TypeFoldable_Generic)]` on `AsyncCallableRelevantTypes` is codegen's
-// (PORTING §5): `fold_AsyncCallableRelevantTypes` below is a stand-in until root adds the type to a tools/codegen set.
+// `#[derive(TypeVisitable_Generic, TypeFoldable_Generic)]` on `AsyncCallableRelevantTypes` is generated (set
+// rustc_next_trait_solver_structural_traits) into ./structural_traits.gen.ts.
 // PORT: `impl From<RerunNonErased> for AmbiguousOrRerunNonErased` is `AmbiguousOrRerunNonErased.from_RerunNonErased`
 // (tyir-solve decision 7).
 // PORT: `ReplaceProjectionWith::mapping: &HashMap<I::TraitAssocTermId, Vec<..>>` is keyed by `DefId`: a `DefIdMap`
@@ -17,6 +17,7 @@
 // PORT: `#[instrument(.., ret)]` (tracing) produces no output in the oracle: kept as comments.
 // PORT: `EarlyBinder<impl IntoIterator>` values iterated with `iter_instantiated` (`AdtDef::all_field_tys`, the
 // `Interner::*bounds` / `explicit_super_clauses_of` queries) go through `iter_instantiated_iter` below.
+import * as gen from "./structural_traits.gen.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import type { BoundExistentialPredicates, Clause, Clauses, GenericArg, GenericArgs, ParamEnv, Predicate, Term, Ty } from "../../../rustc_middle/ty/decls.ts";
 import { fold_GenericArgs, GenericArg as GenericArgC } from "../../../rustc_middle/ty/generic_args.ts";
@@ -599,17 +600,11 @@ export const debug_AsyncCallableRelevantTypes: Debug<AsyncCallableRelevantTypes>
     ["output_coroutine_ty", debug_Ty(v.output_coroutine_ty, f)],
     ["coroutine_return_ty", debug_Ty(v.coroutine_return_ty, f)],
   ]);
-/** PORT: stand-in for the codegen'd `TypeVisitable_Generic` / `TypeFoldable_Generic` derive (header). */
+/** The derived `TypeVisitable_Generic` / `TypeFoldable_Generic` (generated: ./structural_traits.gen.ts). */
 export const fold_AsyncCallableRelevantTypes: TypeFoldable<AsyncCallableRelevantTypes> = {
-  visit_with<R>(): R {
-    return unported("rustc_next_trait_solver::solve::assembly::structural_traits::AsyncCallableRelevantTypes: TypeVisitable (derive, codegen)");
-  },
-  try_fold_with<E>(): Result<AsyncCallableRelevantTypes, E> {
-    return unported("rustc_next_trait_solver::solve::assembly::structural_traits::AsyncCallableRelevantTypes: TypeFoldable (derive, codegen)");
-  },
-  fold_with(): AsyncCallableRelevantTypes {
-    return unported("rustc_next_trait_solver::solve::assembly::structural_traits::AsyncCallableRelevantTypes: TypeFoldable (derive, codegen)");
-  },
+  visit_with: (self, visitor) => gen.visit_with_AsyncCallableRelevantTypes(self, visitor),
+  try_fold_with: (self, folder) => gen.try_fold_with_AsyncCallableRelevantTypes(self, folder),
+  fold_with: (self, folder) => gen.fold_with_AsyncCallableRelevantTypes(self, folder),
 };
 
 // Returns a binder of the tupled inputs types, output type, and coroutine type

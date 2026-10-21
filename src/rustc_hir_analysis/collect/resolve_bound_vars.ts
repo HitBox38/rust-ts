@@ -70,7 +70,7 @@ import { DefIdSet, DefId_eq, debug_DefId, debug_LocalDefId, LocalDefId, type Def
 import { MultiSpan } from "../../rustc_error_messages/lib.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { bug, span_bug } from "../../rustc_span/macros.ts";
-import { Ident, sym } from "../../rustc_span/symbol.ts";
+import { display_Symbol, Ident, sym } from "../../rustc_span/symbol.ts";
 import { Binder, type BoundVariableKind, debug_BoundVariableKind, EarlyBinder } from "../../rustc_type_ir/binder.ts";
 import { DebruijnIndex, INNERMOST } from "../../rustc_type_ir/lib.ts";
 import type { Const, Region } from "../../rustc_middle/ty/decls.ts";
@@ -84,10 +84,15 @@ import { assert, unported, unwrap } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import { Err, Ok } from "../../std/result.ts";
 import type * as diagnostics_mod from "../diagnostics.ts";
+import type * as precise_captures_mod from "../diagnostics/precise_captures.gen.ts";
 
 /** `crate::diagnostics`, read inside function bodies only (init order, header). */
 function diagnostics(): typeof diagnostics_mod {
   return require("../diagnostics.ts") as typeof diagnostics_mod;
+}
+/** `crate::diagnostics::precise_captures` (generated), read lazily like `diagnostics()` (init order). */
+function precise_captures(): typeof precise_captures_mod {
+  return require("../diagnostics/precise_captures.gen.ts") as typeof precise_captures_mod;
 }
 
 // #[extension(trait ResolvedArgExt)]
@@ -887,9 +892,14 @@ class BoundVarContext extends Visitor {
           case "ImplicitObjectLifetimeDefault":
           case "Infer":
           case "Static": {
-            // PORT: `diagnostics::BadPreciseCapture` is in diagnostics/precise_captures.rs, which is in no codegen set.
-            // `emit_err(BadPreciseCapture { span: lt.ident.span, kind: "lifetime", found: format!("`{}`", lt.ident.name) })`
-            return unported("rustc_hir_analysis::diagnostics::precise_captures::BadPreciseCapture");
+            this.tcx.dcx().emit_err(
+              precise_captures().BadPreciseCapture_diagnostic({
+                span: lt.ident.span,
+                kind: "lifetime",
+                found: `\`${display_Symbol(lt.ident.name)}\``,
+              }),
+            );
+            break;
           }
         }
         break;
@@ -904,9 +914,14 @@ class BoundVarContext extends Visitor {
           const def_id = res.trait_;
           this.resolve_type_ref(def_id.expect_local(), param.hir_id);
         } else if (res.$ === "SelfTyAlias") {
-          // PORT: `diagnostics::PreciseCaptureSelfAlias` is in diagnostics/precise_captures.rs, which is in no codegen
-          // set.
-          return unported("rustc_hir_analysis::diagnostics::precise_captures::PreciseCaptureSelfAlias");
+          const { alias_to } = res;
+          this.tcx.dcx().emit_err(
+            precise_captures().PreciseCaptureSelfAlias_diagnostic({
+              span: param.ident.span,
+              self_span: this.tcx.def_span(alias_to),
+              what: this.tcx.def_descr(alias_to),
+            }),
+          );
         } else {
           this.tcx.dcx().span_delayed_bug(param.ident.span, `expected type or const param, found ${debug_Res(res, PLAIN, debug_HirId)}`);
         }

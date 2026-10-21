@@ -1333,6 +1333,7 @@
   "rustc_hir_analysis": {
     "files": [
       "compiler/rustc_hir_analysis/src/diagnostics.rs",
+      "compiler/rustc_hir_analysis/src/diagnostics/precise_captures.rs",
       "compiler/rustc_hir_analysis/src/collect.rs",
       "compiler/rustc_hir_analysis/src/collect/generics_of.rs",
       "compiler/rustc_hir_analysis/src/collect/type_of.rs",
@@ -1779,5 +1780,25 @@
       "compiler/rustc_trait_selection/src/traits/mod.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "infer.typemap.json", "hir_analysis.typemap.json", "trait_selection.typemap.json", "old_solver.typemap.json", "hir_typeck.typemap.json", "error_reporting.typemap.json"]
+  },
+  "rustc_next_trait_solver_structural_traits": {
+    "files": ["compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs"],
+    "files_note": "lane small-gaps-21: only the derived TypeVisitable_Generic / TypeFoldable_Generic of `AsyncCallableRelevantTypes` (hand-written interface in solve/assembly/structural_traits.ts) are generated (`type_fold_hand`), into structural_traits.gen.ts; the other types of the file are skipped (hand-written)",
+    "class": [],
+    "hand": ["rustc_next_trait_solver::solve::assembly::structural_traits::AsyncCallableRelevantTypes"],
+    "hand_notes": "solve/assembly/structural_traits.ts (lane next-solver) hand-writes the types of the file, with their Debug",
+    "type_fold_hand": ["rustc_next_trait_solver::solve::assembly::structural_traits::AsyncCallableRelevantTypes"],
+    "discriminant": [],
+    "skip": [
+      "rustc_next_trait_solver::solve::assembly::structural_traits::ReplaceProjectionWith",
+      "rustc_next_trait_solver::solve::assembly::structural_traits::AmbiguousOrRerunNonErased"
+    ],
+    "skip_notes": {
+      "rustc_next_trait_solver::solve::assembly::structural_traits::ReplaceProjectionWith": "TypeFolder impl: hand class in solve/assembly/structural_traits.ts",
+      "rustc_next_trait_solver::solve::assembly::structural_traits::AmbiguousOrRerunNonErased": "hand-written in solve/assembly/structural_traits.ts"
+    },
+    "derive_type_fold": true,
+    "erase_params": ["I"],
+    "typemap_extra": ["tyir.typemap.json"]
   }
 }

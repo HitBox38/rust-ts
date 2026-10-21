@@ -126,9 +126,12 @@ function adjustment_gen(): typeof import("./adjustment.gen.ts") {
 
 // ---- PORT stand-ins for items of other lanes' files that are not ported yet ----------------------------------------
 
-/** PORT: stand-in for the derived `Debug` of `ty::abstract_const::CastKind` (pending in decls.ts). */
-function debug_CastKind(_v: CastKind): string {
-  return unported("rustc_middle::ty::abstract_const::CastKind: Debug (pending)");
+/**
+ * The derived `Debug` of `ty::abstract_const::CastKind` (a fieldless enum: the variant name). PORT: written here, not
+ * imported from ty/abstract_const.ts (an extension module; init order).
+ */
+function debug_CastKind(v: CastKind): string {
+  return v;
 }
 /** PORT: stand-in for the `TypeFoldable`/`TypeVisitable` impls of `mir::PlaceElem` (mir/syntax.rs, M4). */
 const fold_PlaceElem: TypeFoldable<PlaceElem> = {
