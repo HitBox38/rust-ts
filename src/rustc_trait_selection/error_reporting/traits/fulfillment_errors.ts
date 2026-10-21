@@ -132,7 +132,8 @@ import { panic, unported, unwrap } from "../../../std/panic.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
 import type { PathBuf } from "../../../rustc_span/lib.ts";
-import type { ArgKind as ArgKindT, CandidateSimilarity, GetSafeTransmuteErrorAndReason, ImplCandidate } from "./mod.gen.ts";
+import type { ArgKind as ArgKindT, CandidateSimilarity, ImplCandidate } from "./mod.gen.ts";
+import { GetSafeTransmuteErrorAndReason } from "./mod.gen.ts";
 import { clone_ImplCandidate } from "./mod.gen.ts";
 import type { FulfillmentError } from "../../traits/mod.gen.ts";
 import type { InferCtxt } from "../../../rustc_infer/decls.ts";
@@ -1868,7 +1869,7 @@ TypeErrCtxt.prototype.get_safe_transmute_error_and_reason = function (
     // We don't assemble a transmutability candidate for types that are generic
     // and we should have ambiguity for types that still have non-region infer.
     if (TypeVisitableExt.has_non_region_param(obligation.predicate, fold_Predicate) || TypeVisitableExt.has_non_region_infer(obligation, d_PredicateObligation())) {
-      return { $: "Default" };
+      return GetSafeTransmuteErrorAndReason.Default;
     }
 
     // Erase regions because layout code doesn't particularly care about regions.
@@ -1882,7 +1883,7 @@ TypeErrCtxt.prototype.get_safe_transmute_error_and_reason = function (
     const assume = unported("rustc_transmute::Assume::from_const") as TransmuteAssume | undefined;
     if (assume === undefined) {
       this.dcx().span_delayed_bug(span, "Unable to construct rustc_transmute::Assume where it was previously possible");
-      return { $: "Silent" };
+      return GetSafeTransmuteErrorAndReason.Silent;
     }
 
     const dst = trait_pred.trait_ref.args.type_at(0);
@@ -1934,7 +1935,7 @@ TypeErrCtxt.prototype.get_safe_transmute_error_and_reason = function (
             break;
           // Already reported by rustc
           case "TypeError":
-            return { $: "Silent" };
+            return GetSafeTransmuteErrorAndReason.Silent;
           case "SrcLayoutUnknown":
             safe_transmute_explanation = `\`${display_Ty(src)}\` has an unknown layout`;
             break;
