@@ -22,7 +22,7 @@ import type { DefId } from "../rustc_span/def_id.ts";
 import { DefId_eq, debug_DefId } from "../rustc_span/def_id.ts";
 import type { ErrorGuaranteed } from "../rustc_span/lib.ts";
 import { bug } from "../rustc_span/macros.ts";
-import { Symbol, sym } from "../rustc_span/symbol.ts";
+import { Symbol, debug_Symbol, sym } from "../rustc_span/symbol.ts";
 import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
 import { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
 import { CoroutineClosureArgs } from "../rustc_type_ir/ty_kind/closure.ts";
@@ -324,7 +324,7 @@ function resolve_associated_item(
 
             return Ok({ def: { $: "Shim", _0: { $: "Clone", _0: trait_item_id, _1: self_ty } }, args: rcvr_args });
           } else {
-            assert_eq(name, sym.clone_from, (s) => Symbol.as_str(s));
+            assert_eq(name, sym.clone_from, (s) => debug_Symbol(s, PLAIN));
 
             // Use the default `fn clone_from` from `trait Clone`.
             const args = tcx.erase_and_anonymize_regions(rcvr_args, fold_GenericArgs);
@@ -420,7 +420,7 @@ function resolve_associated_item(
           }
         } else if (tcx.is_lang_item(trait_ref.def_id, "TransmuteTrait")) {
           const name = tcx.item_name(trait_item_id);
-          assert_eq(name, sym.transmute, (s) => Symbol.as_str(s));
+          assert_eq(name, sym.transmute, (s) => debug_Symbol(s, PLAIN));
           const args = tcx.erase_and_anonymize_regions(rcvr_args, fold_GenericArgs);
           return Ok(Instance.new_raw(trait_item_id, args));
         } else if (tcx.is_lang_item(trait_ref.def_id, "Field")) {

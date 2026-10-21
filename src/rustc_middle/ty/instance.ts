@@ -198,8 +198,8 @@ export const Instance = {
         "assertion `left matches right` failed: `Instance::try_resolve` should only be used to resolve instances of " +
           "functions, statics, and consts; to resolve associated types, use `try_normalize_erasing_regions`.\n" +
           `  left: ${debug_DefKind(def_kind, PLAIN)}\n` +
-          " right: DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::AssocConst | DefKind::AnonConst |\n" +
-          "DefKind::Static { .. } | DefKind::Ctor(_, CtorKind::Fn) | DefKind::Closure |\nDefKind::SyntheticCoroutineBody",
+          " right: DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::AssocConst | DefKind::AnonConst | " +
+          "DefKind::Static { .. } | DefKind::Ctor(_, CtorKind::Fn) | DefKind::Closure | DefKind::SyntheticCoroutineBody",
       );
     }
 

@@ -1,0 +1,58 @@
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> vtable_dyn_alias.rs:3:12
+  |
+3 | #![feature(rustc_attrs)]
+  |            ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error: vtable entries: [
+           MetadataDropInPlace,
+           MetadataSize,
+           MetadataAlign,
+           Method(<S as T>::method - shim(reify)),
+       ]
+  --> vtable_dyn_alias.rs:17:1
+   |
+17 | impl T for S {
+   | ^^^^^^^^^^^^
+
+error: vtable entries: [
+           MetadataDropInPlace,
+           MetadataSize,
+           MetadataAlign,
+           Method(<dyn U as T>::method - shim(reify)),
+           Method(<dyn U as U>::other - shim(reify)),
+       ]
+  --> vtable_dyn_alias.rs:23:1
+   |
+23 | type DynU = dyn U;
+   | ^^^^^^^^^
+
+error: vtable entries: [
+           MetadataDropInPlace,
+           MetadataSize,
+           MetadataAlign,
+       ]
+  --> vtable_dyn_alias.rs:26:1
+   |
+26 | type DynSend = dyn Send;
+   | ^^^^^^^^^^^^
+
+error: vtable entries: [
+           MetadataDropInPlace,
+           MetadataSize,
+           MetadataAlign,
+           Method(<dyn Iterator<Item = u8> as Iterator>::next - shim(reify)),
+           Method(<dyn Iterator<Item = u8> as Iterator>::size_hint - shim(reify)),
+           Method(<dyn Iterator<Item = u8> as Iterator>::advance_by - shim(reify)),
+           Method(<dyn Iterator<Item = u8> as Iterator>::nth - shim(reify)),
+       ]
+  --> vtable_dyn_alias.rs:29:1
+   |
+29 | type DynIter = dyn Iterator<Item = u8>;
+   | ^^^^^^^^^^^^
+
+error: aborting due to 4 previous errors; 1 warning emitted
+

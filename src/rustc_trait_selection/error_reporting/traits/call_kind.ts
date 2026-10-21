@@ -6,7 +6,7 @@
 //
 // - `enum CallDesugaringKind` / `enum CallKind` are generated (call_kind.gen.ts); `impl CallDesugaringKind` is on the
 //   companion `CallDesugaringKind` (PORTING §8).
-// - `Instance::try_resolve` (rustc_middle ty/instance.rs) is not ported: the `DerefCoercion` arm stops there.
+// - The `DerefCoercion` arm's `if let` chain is a single condition; `specialization_graph` is read in that body only.
 // Init order: top-level code here may touch only this file's .gen.ts and other crates; other rustc_trait_selection
 // modules are read inside function bodies only.
 export * from "./call_kind.gen.ts";

@@ -49,7 +49,7 @@ import {
   type TraitClause,
 } from "../../rustc_type_ir/predicate.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { unwrap } from "../../std/panic.ts";
+import { panic, unwrap } from "../../std/panic.ts";
 import { is_vtable_safe_method } from "./dyn_compatibility.ts";
 import { VtblSegment } from "./vtable.gen.ts";
 
@@ -349,7 +349,7 @@ function vtable_entry(tcx: TyCtxt, trait_ref: TraitRef, def_id: DefId): VtblEntr
             return GenericArg.from_Region(tcx.lifetimes.re_erased);
           case "Type":
           case "Const":
-            return unwrap(trait_ref.args[param.index], "index out of bounds");
+            return trait_ref.args[param.index] ?? panic(`index out of bounds: the len is ${trait_ref.args.length} but the index is ${param.index}`);
         }
       }),
     ),
