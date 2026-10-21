@@ -15,7 +15,9 @@ import { KeyedMap } from "../../../rust_ts/keyed.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { Ty } from "../../../rustc_middle/ty/mod.ts";
 import { ParamTy, debug_ParamTy } from "../../../rustc_middle/ty/sty.ts";
-import { display_ParamTy } from "../../../rustc_middle/ty/print/pretty.ts";
+import { display_ParamTy, print_PlaceholderType } from "../../../rustc_middle/ty/print/pretty.ts";
+import { IrPrint_print, IrPrint_print_debug } from "../../../rustc_middle/ty/print/mod.ts";
+import { display_Placeholder } from "../../../rustc_type_ir/ir_print.ts";
 import { bug, span_bug } from "../../../rustc_span/macros.ts";
 import { debug_BoundTy, debug_Placeholder, type PlaceholderType } from "../../../rustc_type_ir/binder.ts";
 import { display_AliasTy } from "../../../rustc_type_ir/ir_print.ts";
@@ -582,12 +584,15 @@ export function display_GenericKind(v: gen.GenericKind): string {
 }
 
 /**
- * PORT: stand-in for `<ty::PlaceholderType as fmt::Display>::fmt` (rustc_type_ir ir_print.rs:98 through
- * `<TyCtxt as IrPrint<PlaceholderType>>`): rustc_type_ir's `IR_PRINT` registry has no `Placeholder` slot yet and
- * rustc_middle's `forward_display_to_print` is module-private.
+ * `<ty::PlaceholderType as fmt::Display>::fmt`: rustc_type_ir ir_print.rs:98 (`display_Placeholder`) with TyCtxt's
+ * blanket `impl<T: Lift + Print> IrPrint<T>` (ty/print/mod.rs:423) over `ty::PlaceholderType`'s `Print`
+ * (ty/print/pretty.rs `define_print!`), as fulfillment_errors.ts's `display_PolyTraitRefPrintSugared` does.
  */
-function display_PlaceholderType(_p: PlaceholderType): string {
-  return unported("<TyCtxt as IrPrint<ty::PlaceholderType>>::print (rustc_type_ir ir_print registry)");
+function display_PlaceholderType(p: PlaceholderType): string {
+  return display_Placeholder(p, {
+    print: (t, fmt) => IrPrint_print(t, fmt, print_PlaceholderType),
+    print_debug: (t, fmt) => IrPrint_print_debug(t, fmt, print_PlaceholderType),
+  });
 }
 
 // ---- impl GenericKind / VerifyBound (companions) ------------------------------------------------------------------------
