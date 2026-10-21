@@ -29,7 +29,12 @@ async function main(args: string[]): Promise<number> {
     },
     after_expansion(_compiler: Compiler, tcx: TyCtxt): "Stop" | "Continue" {
       run_required_analyses_prefix(tcx);
+      // `RUST_TS_LATE_D_QUERIES`: queries run as rustc_interface passes.rs's misc checking runs them
+      // (`tcx.ensure_ok().<query>(())`), after the module passes.
       run_late_passes(tcx, names);
+      for (const q of (process.env.RUST_TS_LATE_D_QUERIES ?? "").split(",").filter((s) => s !== "")) {
+        (tcx.ensure_ok() as unknown as Record<string, (k: null) => void>)[q]!(null);
+      }
       return "Stop" as const;
     },
   };
