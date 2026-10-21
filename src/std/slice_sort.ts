@@ -15,7 +15,7 @@
 //   64-bit host targets rustc runs on).
 // - `abort_immediate()` (impossible preconditions) is a `panic`; `panic_on_ord_violation` panics like rustc (an ICE).
 // - `T::IS_ZST` is `size_of === 0`.
-import { panic } from "./panic.ts";
+import { panic, unported } from "./panic.ts";
 
 /** `size_of::<T>()` and `T: Freeze` of the Rust element type (see the module comment). */
 export interface SortLayout {
@@ -26,13 +26,56 @@ export interface SortLayout {
 type IsLess<T> = (a: T, b: T) => boolean;
 
 /** `<[T]>::sort_by(compare)` (alloc slice.rs:192): `stable_sort(self, |a, b| compare(a, b) == Less)`. */
+// std: library/alloc/src/slice.rs:192 sort_by
 export function slice_sort_by<T>(v: T[], compare: (a: T, b: T) => number, layout: SortLayout): void {
   sort(v, (a, b) => compare(a, b) < 0, layout);
 }
 
 /** `<[T]>::sort_by_key(f)` (alloc slice.rs:247): `stable_sort(self, |a, b| f(a).lt(&f(b)))`. */
+// std: library/alloc/src/slice.rs:247 sort_by_key
 export function slice_sort_by_key<T, K>(v: T[], f: (x: T) => K, cmp_K: (a: K, b: K) => number, layout: SortLayout): void {
   sort(v, (a, b) => cmp_K(f(a), f(b)) < 0, layout);
+}
+
+/**
+ * `<[T]>::sort_unstable_by(compare)` (core slice/mod.rs:3201): `sort::unstable::sort(self, |a, b| compare(a, b) == Less)`.
+ * Only the insertion-sort path (`len <= 20`) is ported; longer slices stop at `unported` (ipnsort).
+ */
+// std: library/core/src/slice/mod.rs:3201 sort_unstable_by
+export function slice_sort_unstable_by<T>(v: T[], compare: (a: T, b: T) => number, layout: SortLayout): void {
+  unstable_sort(v, (a, b) => compare(a, b) < 0, layout);
+}
+
+// ---- unstable/mod.rs ----
+
+/// Unstable sort called ipnsort by Lukas Bergdoll and Orson Peters.
+// std: library/core/src/slice/sort/unstable/mod.rs:22 sort
+function unstable_sort<T>(v: T[], is_less: IsLess<T>, L: SortLayout): void {
+  // Arrays of zero-sized types are always all-equal, and thus sorted.
+  if (L.size_of === 0) {
+    return;
+  }
+
+  // Instrumenting the standard library showed that 90+% of the calls to sort
+  // by rustc are either of size 0 or 1.
+  const len = v.length;
+  if (len < 2) {
+    return;
+  }
+
+  // More advanced sorting methods than insertion sort are faster if called in
+  // a hot loop for small inputs, but for general-purpose code the small
+  // binary size of insertion sort is more important. The instruction cache in
+  // modern processors is very valuable, and for a single sort call in general
+  // purpose code any gains from an advanced method are cancelled by i-cache
+  // misses during the sort, and thrashing the i-cache for surrounding code.
+  const MAX_LEN_ALWAYS_INSERTION_SORT = 20;
+  if (len <= MAX_LEN_ALWAYS_INSERTION_SORT) {
+    insertion_sort_shift_left(v, 0, len, 1, is_less);
+    return;
+  }
+
+  unported("core::slice::sort::unstable::ipnsort (sort_unstable over more than 20 elements)");
 }
 
 // ---- stable/mod.rs ----

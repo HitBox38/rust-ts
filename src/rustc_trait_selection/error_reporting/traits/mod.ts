@@ -49,6 +49,8 @@ import { upcast_from_self } from "../../../rustc_type_ir/upcast.ts";
 import { type TypeVisitable, TypeVisitableExt } from "../../../rustc_type_ir/visit.ts";
 import { intern_key } from "../../../rust_ts/intern_key.ts";
 import { KeyedSet } from "../../../rust_ts/keyed.ts";
+import { FxHashSet, type KeyType, String_key } from "../../../rust_ts/hash_map.ts";
+import { type SortLayout, slice_sort_unstable_by } from "../../../std/slice_sort.ts";
 import { unreachable } from "../../../std/panic.ts";
 import { TypeErrCtxt } from "../../decls.ts";
 import type { FulfillmentError } from "../../traits/mod.gen.ts";
@@ -488,20 +490,25 @@ TypeErrCtxt.prototype.check_same_definition_different_crate = function (
 ): boolean {
   const krate = this.tcx.crate_name(expected_did.krate);
   const name = this.tcx.item_name(expected_did);
-  // PORT: `UnordSet<(String, DefId)>` keyed by the tuple; `into_sorted_stable_ord_by_key(|(p, _)| p)` sorts by the
-  // path (byte order).
-  const definitions_with_same_path_set = new KeyedSet<[string, DefId]>((x) => intern_key(x));
+  // PORT: `UnordSet<(String, DefId)>` is an `FxHashSet` (hashbrown order; `===` on canonical tuples, one per value), and
+  // `into_sorted_stable_ord_by_key(|(p, _)| p)` is `sort_unstable_by` (`String: StableCompare` has
+  // `CAN_USE_UNSTABLE_SORT`): ties (same path, different `DefId`) keep hashbrown's iteration order, as rustc's.
+  const tuples = new Map<string, [string, DefId]>();
+  const definitions_with_same_path_set = new FxHashSet<[string, DefId]>(String_DefId_key);
   for (const def_id of found_dids) {
     if (
       def_id.krate !== expected_did.krate &&
       (this.extern_crates_with_the_same_name(expected_did, def_id) || this.tcx.crate_name(def_id.krate) === krate) &&
       this.tcx.item_name(def_id) === name
     ) {
-      definitions_with_same_path_set.add([this.tcx.def_path_str(def_id), def_id]);
+      const t: [string, DefId] = [this.tcx.def_path_str(def_id), def_id];
+      const k = intern_key(t);
+      definitions_with_same_path_set.add(tuples.get(k) ?? (tuples.set(k, t), t));
     }
   }
 
-  const definitions_with_same_path = [...definitions_with_same_path_set].sort((x, y) => str_cmp(x[0], y[0]));
+  const definitions_with_same_path = [...definitions_with_same_path_set];
+  slice_sort_unstable_by(definitions_with_same_path, (x, y) => str_cmp(x[0], y[0]), LAYOUT_String_DefId);
   let suggested = false;
   let trait_is_impl = false;
 
@@ -909,3 +916,18 @@ const d_FulfillmentError: TypeVisitable<FulfillmentError> = {
 function traits_mod_gen(): typeof import("../../traits/mod.gen.ts") {
   return require("../../traits/mod.gen.ts") as typeof import("../../traits/mod.gen.ts");
 }
+
+/** `#[derive(Hash)]` of `(String, DefId)`: `write_str` of the path, then `DefId`'s `Hash` (def_id.rs:268: the `u64`
+ * `krate << 32 | index`); element size 32, align 8 (rustc_span `DefId` is two `u32`s). */
+const String_DefId_key: KeyType<[string, DefId]> = {
+  hash: ([p, d], state) => {
+    String_key.hash(p, state);
+    state.write_u64((BigInt(d.krate) << 32n) | BigInt(d.index));
+  },
+  size: 32,
+  align: 8,
+};
+
+/** `size_of::<(String, DefId)>()` = 32; no `UnsafeCell`. */
+const LAYOUT_String_DefId: SortLayout = { size_of: 32, freeze: true };
+

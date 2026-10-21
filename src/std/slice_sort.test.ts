@@ -2,14 +2,16 @@
 // sorts the same inputs with `<[T]>::sort_by` for element types of different layouts (`size_of` 24 / 16 / 8, `Freeze` or
 // not) and two comparators: a total order and the non-transitive "tuple arity" comparator of
 // rustc_trait_selection fulfillment_errors.rs `report_similar_impl_candidates` (`Equal` unless both are "tuples"). The
-// resulting orders (or std's "does not correctly implement a total order" panic) must be identical.
+// resulting orders (or std's "does not correctly implement a total order" panic) must be identical. The same inputs up to
+// 20 elements also go through `<[T]>::sort_unstable_by` (`slice_sort_unstable_by`: the insertion-sort path).
 //
 // Without the pinned toolchain this is a visible skip; RUST_TS_REQUIRE_PROBES=1 makes that a failure.
 import { beforeAll, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Panic } from "./panic.ts";
-import { type SortLayout, slice_sort_by } from "./slice_sort.ts";
+import { type SortLayout, slice_sort_by, slice_sort_unstable_by } from "./slice_sort.ts";
+import { PIN } from "../../scripts/lib/common.ts";
 import { test_scratch_dir } from "../rust_ts/test_scratch.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -30,10 +32,11 @@ fn main() {
     std::panic::set_hook(Box::new(|_| {}));
     for line in s.lines() {
         let f: Vec<u64> = line.split(' ').map(|x| x.parse().unwrap()).collect();
-        let (layout, arity, n) = (f[0], f[1] == 1, f[2] as usize);
+        let (layout, arity, unstable, n) = (f[0], f[1] % 2 == 1, f[1] >= 2, f[2] as usize);
         let el: Vec<(u64, u64, u64)> = (0..n).map(|i| (i as u64, f[3 + 2 * i], f[4 + 2 * i])).collect();
         let r = std::panic::catch_unwind(move || -> Vec<u64> {
             match layout {
+                24 if unstable => { let mut v = el.clone(); v.sort_unstable_by(|x, y| cmp_kk(x.1, x.2, y.1, y.2, arity)); v.iter().map(|x| x.0).collect() }
                 24 => { let mut v = el.clone(); v.sort_by(|x, y| cmp_kk(x.1, x.2, y.1, y.2, arity)); v.iter().map(|x| x.0).collect() }
                 16 => { let mut v: Vec<(u64, u64)> = el.iter().map(|x| (x.0, x.1 << 32 | x.2)).collect();
                         v.sort_by(|x, y| cmp_kk(x.1 >> 32, x.1 & 0xffff_ffff, y.1 >> 32, y.1 & 0xffff_ffff, arity)); v.iter().map(|x| x.0).collect() }
@@ -59,7 +62,7 @@ const LAYOUTS: Record<number, SortLayout> = {
 };
 
 /** Deterministic inputs: [layout, arity comparator, kinds, keys]. */
-function cases(): [number, boolean, number[], number[]][] {
+function cases(unstable = false): [number, boolean, number[], number[]][] {
   let seed = 0x2545f491;
   const rnd = (m: number): number => {
     seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
@@ -67,9 +70,9 @@ function cases(): [number, boolean, number[], number[]][] {
   };
   const lens = [0, 1, 2, 7, 8, 15, 16, 17, 20, 21, 22, 31, 32, 33, 40, 47, 48, 63, 64, 65, 100, 127, 128, 129, 170, 171, 200, 255, 300, 513, 1000, 4097, 5000];
   const out: [number, boolean, number[], number[]][] = [];
-  for (const layout of [24, 16, 8, 0]) {
+  for (const layout of unstable ? [24] : [24, 16, 8, 0]) {
     for (const arity of [false, true]) {
-      for (const n of lens) {
+      for (const n of unstable ? lens.filter((n) => n <= 20) : lens) {
         for (const shape of ["random", "few", "sorted", "reversed", "tuples_only"] as const) {
           const kinds: number[] = [];
           const keys: number[] = [];
@@ -86,13 +89,25 @@ function cases(): [number, boolean, number[], number[]][] {
 }
 
 let oracle: string[] | undefined;
+let oracle_unstable: string[] | undefined;
 const CASES = cases();
+const CASES_UNSTABLE = cases(true);
+
+function rustc_at_pin(): boolean {
+  try {
+    const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "-vV"], { stdout: "pipe", stderr: "pipe" });
+    return r.exitCode === 0 && r.stdout.toString().includes(`commit-hash: ${PIN.commit}`);
+  } catch {
+    return false;
+  }
+}
 
 beforeAll(() => {
   let cmd: string[];
   try {
     const { oracleRustcCmd } = require("../../scripts/lib/oracle.ts") as typeof import("../../scripts/lib/oracle.ts");
     cmd = oracleRustcCmd([]);
+    if (!rustc_at_pin()) throw new Error("not at the pin");
   } catch {
     if (REQUIRE) throw new Error("ERROR: pinned toolchain missing");
     return;
@@ -104,16 +119,20 @@ beforeAll(() => {
     if (REQUIRE) throw new Error(`ERROR: building the sort oracle failed: ${c.stderr.toString().split("\n")[0]}`);
     return;
   }
-  const input = CASES.map(([l, a, kinds, keys]) => [l, a ? 1 : 0, kinds.length, ...kinds.flatMap((k, i) => [k, keys[i]!])].join(" ")).join("\n") + "\n";
-  const r = Bun.spawnSync([join(dir, "sort")], { stdin: Buffer.from(input), stdout: "pipe", stderr: "pipe" });
-  if (r.exitCode !== 0) throw new Error(`ERROR: the sort oracle failed: ${r.stderr.toString().split("\n")[0]}`);
-  oracle = r.stdout.toString().split("\n").slice(0, CASES.length);
+  const sort = (cs: typeof CASES, mode: number): string[] => {
+    const input = cs.map(([l, a, kinds, keys]) => [l, mode + (a ? 1 : 0), kinds.length, ...kinds.flatMap((k, i) => [k, keys[i]!])].join(" ")).join("\n") + "\n";
+    const r = Bun.spawnSync([join(dir, "sort")], { stdin: Buffer.from(input), stdout: "pipe", stderr: "pipe" });
+    if (r.exitCode !== 0) throw new Error(`ERROR: the sort oracle failed: ${r.stderr.toString().split("\n")[0]}`);
+    return r.stdout.toString().split("\n").slice(0, cs.length);
+  };
+  oracle = sort(CASES, 0);
+  oracle_unstable = sort(CASES_UNSTABLE, 2);
 }, 120_000);
 
-function ours([layout, arity, kinds, keys]: [number, boolean, number[], number[]]): string {
+function ours([layout, arity, kinds, keys]: [number, boolean, number[], number[]], sort = slice_sort_by): string {
   const v = kinds.map((k, i) => ({ id: i, kind: k, key: keys[i]! }));
   try {
-    slice_sort_by(v, (a, b) => (!arity || (a.kind === 1 && b.kind === 1) ? (a.key < b.key ? -1 : a.key > b.key ? 1 : 0) : 0), LAYOUTS[layout]!);
+    sort(v, (a, b) => (!arity || (a.kind === 1 && b.kind === 1) ? (a.key < b.key ? -1 : a.key > b.key ? 1 : 0) : 0), LAYOUTS[layout]!);
   } catch (e) {
     if (e instanceof Panic && /does not correctly implement a total order/.test(e.message)) return "PANIC";
     throw e;
@@ -129,8 +148,24 @@ test("slice_sort_by equals the pinned std's sort_by (layouts x comparators x sha
     if (ours(c) !== oracle![i]) bad.push(`layout ${c[0]} arity ${c[1]} n ${c[2].length} (#${i})`);
   });
   expect(bad).toEqual([]);
-  // the non-transitive comparator does reorder differently from a total-order stable sort somewhere
-  expect(oracle.some((o) => o === "PANIC") || CASES.length > 0).toBe(true);
+  // the non-transitive comparator does reorder differently from a JS stable sort with the same comparator somewhere
+  const js = (c: (typeof CASES)[number]): string =>
+    c[2]
+      .map((k, i) => ({ id: i, kind: k, key: c[3][i]! }))
+      .sort((a, b) => (a.kind === 1 && b.kind === 1 ? a.key - b.key : 0))
+      .map((x) => x.id)
+      .join(" ");
+  expect(CASES.some((c, i) => c[1] && oracle![i] !== "PANIC" && oracle![i] !== js(c))).toBe(true);
+});
+
+test("slice_sort_unstable_by equals the pinned std's sort_unstable_by (up to 20 elements)", () => {
+  if (oracle_unstable === undefined) return;
+  expect(oracle_unstable.length).toBe(CASES_UNSTABLE.length);
+  const bad: string[] = [];
+  CASES_UNSTABLE.forEach((c, i) => {
+    if (ours(c, slice_sort_unstable_by) !== oracle_unstable![i]) bad.push(`arity ${c[1]} n ${c[2].length} (#${i})`);
+  });
+  expect(bad).toEqual([]);
 });
 
 test("slice_sort_by with a total order is a stable sort", () => {

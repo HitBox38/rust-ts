@@ -1450,7 +1450,8 @@ import type { HirId } from "../../../rustc_hir_id/lib.ts";
 import { ToTrace_AliasTerm, ToTrace_GenericArg, ToTrace_Term, ToTrace_TraitRef } from "../../../rustc_infer/infer/at.ts";
 import { BoundRegionConversionTime } from "../../../rustc_infer/infer/mod.gen.ts";
 import { TypeTrace, type ValuePairs } from "../../../rustc_infer/infer/mod.ts";
-import { type SortLayout, slice_sort_by } from "../../../std/slice_sort.ts";
+import { type SortLayout, slice_sort_by, slice_sort_unstable_by } from "../../../std/slice_sort.ts";
+import { FxHashSet, type KeyType, String_key } from "../../../rust_ts/hash_map.ts";
 import { TraitErrors } from "../../../rustc_infer/traits/engine.ts";
 import type { MismatchedProjectionTypes } from "../../../rustc_infer/traits/project.gen.ts";
 import { place_to_string_for_capture } from "../../../rustc_middle/ty/closure.ts";
@@ -2824,8 +2825,11 @@ TypeErrCtxt.prototype.note_adt_version_mismatch = function (this: TypeErrCtxt, e
 
   const impl_self_path = this.comparable_path(impl_self_did);
   const impl_self_crate_name = this.tcx.crate_name(impl_self_did.krate);
-  // PORT: the `UnordSet<(DefId, String)>` is an array of the distinct pairs (the items are distinct map keys).
-  const similar_items_: [DefId, string][] = [];
+  // PORT: `UnordSet<(DefId, String)>` is an `FxHashSet` (hashbrown order; the items are distinct `visible_parent_map`
+  // keys, so `===` on the fresh tuples is the tuple's `Eq`), and `into_sorted_stable_ord_by_key(|(_, path)| path)` is
+  // `sort_unstable_by` (`String` has `CAN_USE_UNSTABLE_SORT`): ties (same path, different `DefId`) keep hashbrown's
+  // iteration order, as rustc's.
+  const similar_items_ = new FxHashSet<[DefId, string]>(DefId_String_key);
   for (const [item, _] of this.tcx.visible_parent_map(null)) {
     // If we found ourselves, ignore.
     if (DefId_eq(impl_self_did, item)) {
@@ -2851,12 +2855,12 @@ TypeErrCtxt.prototype.note_adt_version_mismatch = function (this: TypeErrCtxt, e
     // Check both cases.
     const is_similar = path.endsWith(impl_self_path) || impl_self_path.endsWith(path);
     if (is_similar) {
-      similar_items_.push([item, path]);
+      similar_items_.add([item, path]);
     }
   }
 
-  const similar_items = similar_items_;
-  sort_by_key_stable(similar_items, ([_, path]) => path, str_cmp);
+  const similar_items = [...similar_items_];
+  slice_sort_unstable_by(similar_items, (a, b) => str_cmp(a[1], b[1]), LAYOUT_DefId_String);
   dedup_by(similar_items, ([a1, a2], [b1, b2]) => DefId_eq(a1, b1) && a2 === b2);
 
   for (const [similar_item, _] of similar_items) {
@@ -4148,3 +4152,18 @@ function lazy_infer_mod(): typeof import("../infer/mod.ts") {
 function lazy_diagnostics(): typeof import("../../diagnostics.gen.ts") {
   return require("../../diagnostics.gen.ts") as typeof import("../../diagnostics.gen.ts");
 }
+
+/** `#[derive(Hash)]` of `(DefId, String)`: `DefId`'s `Hash` (def_id.rs:268: the `u64` `krate << 32 | index`), then
+ * `write_str` of the path; element size 32, align 8. */
+const DefId_String_key: KeyType<[DefId, string]> = {
+  hash: ([d, p], state) => {
+    state.write_u64((BigInt(d.krate) << 32n) | BigInt(d.index));
+    String_key.hash(p, state);
+  },
+  size: 32,
+  align: 8,
+};
+
+/** `size_of::<(DefId, String)>()` = 32; no `UnsafeCell`. */
+const LAYOUT_DefId_String: SortLayout = { size_of: 32, freeze: true };
+
