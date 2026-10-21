@@ -26,13 +26,13 @@ import type { Providers } from "../rustc_middle/util/mod.ts";
 import type { Steal } from "../rustc_data_structures/steal.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import type { LocalDefId } from "../rustc_span/def_id.ts";
+import type { Body } from "../rustc_middle/mir/mod.ts";
 import { Panic, Unported, unported } from "../std/panic.ts";
 import { ensure_stack } from "./stack.ts";
 
 const EXIT_UNPORTED = 70;
 
 /** A `mir::Body` (not declared in the port yet: lane mir-contract). */
-type Body = unknown;
 /** `mir_promoted`'s value: the body and `IndexVec<Promoted, Body>`. */
 type MirPromoted = [Steal<Body>, Steal<Body[]>];
 
@@ -81,7 +81,7 @@ function override_queries(rec: Recorded, seams: MirSeams) {
       return r;
     };
     providers.queries.mir_promoted = (tcx, def) => {
-      const r = mir_promoted(tcx, def) as MirPromoted;
+      const r: MirPromoted = mir_promoted(tcx, def);
       rec.promoted.set(def, [seams.clone_body(r[0].borrow()), seams.clone_promoted(r[1].borrow())]);
       return r;
     };
