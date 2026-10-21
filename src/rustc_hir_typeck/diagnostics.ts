@@ -264,5 +264,6 @@ export function ExprParenthesesNeeded_surrounding(s: Span): ExprParenthesesNeede
 // PORT: `crate::op::contains_let_in_chain` is read through a lazy `require` (overflow.ts `traits_mod()` precedent): a static
 // import of ./op.ts closes a load cycle (-> rustc_middle traits/mod.ts TDZ) when this module is loaded as the entry point.
 function op_mod(): typeof import("./op.ts") {
-  return require("./op.ts") as typeof import("./op.ts");
+  return (op_mod__m ??= require("./op.ts") as typeof import("./op.ts"));
 }
+var op_mod__m: typeof import("./op.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

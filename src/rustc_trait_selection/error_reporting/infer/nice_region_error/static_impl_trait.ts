@@ -31,8 +31,9 @@ import { NiceRegionError } from "./mod.ts";
 
 /** The crate's diagnostics.gen.ts (read lazily, init order). */
 function diagnostics_gen(): typeof import("../../../diagnostics.gen.ts") {
-  return require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts");
+  return (diagnostics_gen__m ??= require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts"));
 }
+var diagnostics_gen__m: typeof import("../../../diagnostics.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** PORT: `[BytePos; 2] < [BytePos; 2]` / `>` (`Span::lo_hi` tuples compare lexicographically). */
 function cmp_lo_hi(a: Span, b: Span): number {

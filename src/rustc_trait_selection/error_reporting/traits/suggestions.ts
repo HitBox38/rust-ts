@@ -148,13 +148,15 @@ import type { DefIdOrName } from "./mod.gen.ts";
 
 /** `crate::error_reporting::traits` (./mod.ts), read lazily (init order). */
 function sugg_a_mod(): typeof import("./mod.ts") {
-  return require("./mod.ts") as typeof import("./mod.ts");
+  return (sugg_a_mod__m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
+var sugg_a_mod__m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `crate::traits::SelectionContext` (traits/select/mod.ts), read lazily (init order). */
 function sugg_a_select(): typeof import("../../traits/select/mod.ts") {
-  return require("../../traits/select/mod.ts") as typeof import("../../traits/select/mod.ts");
+  return (sugg_a_select__m ??= require("../../traits/select/mod.ts") as typeof import("../../traits/select/mod.ts"));
 }
+var sugg_a_select__m: typeof import("../../traits/select/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // D4 descriptors of the derived `TypeFoldable` impls this lane folds / visits through (read lazily: init order).
 function d_TraitClause(): TypeFoldable<TraitClause> {
@@ -5067,8 +5069,9 @@ const C_QUOTE = 0x27; // '\''
 
 /** The crate's error_reporting/traits/mod.ts (read inside function bodies: init order). */
 function traits_er_mod(): typeof import("./mod.ts") {
-  return require("./mod.ts") as typeof import("./mod.ts");
+  return (traits_er_mod__m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
+var traits_er_mod__m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 // ==== end lane errrep-sugg-b ====
 
 // =====================================================================================================================
@@ -7442,11 +7445,14 @@ const upcast_Binder_PredicateKind = Predicate_upcast_from_Binder_PredicateKind a
 
 /** Same-crate modules, read lazily (init order: see the header). */
 function traits_mod(): typeof import("./mod.ts") {
-  return require("./mod.ts") as typeof import("./mod.ts");
+  return (traits_mod__m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
+var traits_mod__m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function engine_mod(): typeof import("../../traits/engine.ts") {
-  return require("../../traits/engine.ts") as typeof import("../../traits/engine.ts");
+  return (engine_mod__m ??= require("../../traits/engine.ts") as typeof import("../../traits/engine.ts"));
 }
+var engine_mod__m: typeof import("../../traits/engine.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function diagnostics_mod(): typeof import("../../diagnostics.ts") {
-  return require("../../diagnostics.ts") as typeof import("../../diagnostics.ts");
+  return (diagnostics_mod__m ??= require("../../diagnostics.ts") as typeof import("../../diagnostics.ts"));
 }
+var diagnostics_mod__m: typeof import("../../diagnostics.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

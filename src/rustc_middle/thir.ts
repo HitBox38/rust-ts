@@ -541,14 +541,17 @@ function Size_sign_extend(self: Size, value: bigint): bigint {
   return self.sign_extend(value);
 }
 function layout_(): typeof import("./ty/layout.ts") {
-  return require("./ty/layout.ts") as typeof import("./ty/layout.ts");
+  return (layout___m ??= require("./ty/layout.ts") as typeof import("./ty/layout.ts"));
 }
+var layout___m: typeof import("./ty/layout.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** PORT (merge-w15b): `ValTreeKind`'s leaf accessors (rustc_type_ir const_kind.rs; `ValTree` derefs to it) and
  * `Display for ty::Value` (ty/consts/valtree.rs), reached lazily (init order). */
 function const_kind(): typeof import("../rustc_type_ir/const_kind.ts") {
-  return require("../rustc_type_ir/const_kind.ts") as typeof import("../rustc_type_ir/const_kind.ts");
+  return (const_kind__m ??= require("../rustc_type_ir/const_kind.ts") as typeof import("../rustc_type_ir/const_kind.ts"));
 }
+var const_kind__m: typeof import("../rustc_type_ir/const_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function valtree_(): typeof import("./ty/consts/valtree.ts") {
-  return require("./ty/consts/valtree.ts") as typeof import("./ty/consts/valtree.ts");
+  return (valtree___m ??= require("./ty/consts/valtree.ts") as typeof import("./ty/consts/valtree.ts"));
 }
+var valtree___m: typeof import("./ty/consts/valtree.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

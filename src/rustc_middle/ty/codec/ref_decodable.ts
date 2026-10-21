@@ -16,20 +16,25 @@ import type { Ty } from "../mod.ts";
 import type { Clause } from "../predicate.ts";
 
 function codec_(): typeof import("../codec.ts") {
-  return require("../codec.ts") as typeof import("../codec.ts");
+  return (codec___m ??= require("../codec.ts") as typeof import("../codec.ts"));
 }
+var codec___m: typeof import("../codec.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function serialize_ir_(): typeof import("../../../rustc_type_ir/serialize.ts") {
-  return require("../../../rustc_type_ir/serialize.ts") as typeof import("../../../rustc_type_ir/serialize.ts");
+  return (serialize_ir___m ??= require("../../../rustc_type_ir/serialize.ts") as typeof import("../../../rustc_type_ir/serialize.ts"));
 }
+var serialize_ir___m: typeof import("../../../rustc_type_ir/serialize.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function predicate_ir_(): typeof import("../../../rustc_type_ir/predicate.ts") {
-  return require("../../../rustc_type_ir/predicate.ts") as typeof import("../../../rustc_type_ir/predicate.ts");
+  return (predicate_ir___m ??= require("../../../rustc_type_ir/predicate.ts") as typeof import("../../../rustc_type_ir/predicate.ts"));
 }
+var predicate_ir___m: typeof import("../../../rustc_type_ir/predicate.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function binder_(): typeof import("../../../rustc_type_ir/binder.ts") {
-  return require("../../../rustc_type_ir/binder.ts") as typeof import("../../../rustc_type_ir/binder.ts");
+  return (binder___m ??= require("../../../rustc_type_ir/binder.ts") as typeof import("../../../rustc_type_ir/binder.ts"));
 }
+var binder___m: typeof import("../../../rustc_type_ir/binder.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function const_kind_(): typeof import("../../../rustc_type_ir/const_kind.ts") {
-  return require("../../../rustc_type_ir/const_kind.ts") as typeof import("../../../rustc_type_ir/const_kind.ts");
+  return (const_kind___m ??= require("../../../rustc_type_ir/const_kind.ts") as typeof import("../../../rustc_type_ir/const_kind.ts"));
 }
+var const_kind___m: typeof import("../../../rustc_type_ir/const_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /// Trait for decoding to a reference.
 ///

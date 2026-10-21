@@ -75,12 +75,14 @@ const d_TraitClause: TypeFoldable<TraitClauseT> = {
 
 /** traits/mod.ts (`ObligationCtxt`), read lazily (init order: same crate). */
 function traits_mod(): typeof import("../../traits/mod.ts") {
-  return require("../../traits/mod.ts") as typeof import("../../traits/mod.ts");
+  return (traits_mod__m ??= require("../../traits/mod.ts") as typeof import("../../traits/mod.ts"));
 }
+var traits_mod__m: typeof import("../../traits/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** error_reporting/traits/mod.ts (`FindExprBySpan`, `to_pretty_impl_header`), read lazily (init order: same crate). */
 function error_reporting_traits_mod(): typeof import("./mod.ts") {
-  return require("./mod.ts") as typeof import("./mod.ts");
+  return (error_reporting_traits_mod__m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
+var error_reporting_traits_mod__m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** traits/query/evaluate_obligation.ts (`InferCtxtExt::evaluate_obligation`), loaded lazily (init order: same crate). */
 function evaluate_obligation(): void {
   require("../../traits/query/evaluate_obligation.ts");

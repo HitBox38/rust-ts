@@ -69,8 +69,9 @@ export { debug_ParamTy } from "./structural_impls.ts";
 // rustc_type_ir modules reach sty.ts early for `debug_ParamTy`); `Display for Ty` is required at call time (same
 // precedent as rustc_type_ir sty/mod.ts).
 function pretty(): typeof import("./print/pretty.ts") {
-  return require("./print/pretty.ts") as typeof import("./print/pretty.ts");
+  return (pretty__m ??= require("./print/pretty.ts") as typeof import("./print/pretty.ts"));
 }
+var pretty__m: typeof import("./print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // ---- Article ------------------------------------------------------------------------------------------------------
 
@@ -2273,10 +2274,12 @@ function CoroutineLayout_field_ty(_self: CoroutineLayout, _field: CoroutineSaved
 
 /** PORT (merge-w15b): ty/util.ts is another extension module of `Ty` / `TyCtxt`: reached lazily. */
 function ty_util(): typeof import("./util.ts") {
-  return require("./util.ts") as typeof import("./util.ts");
+  return (ty_util__m ??= require("./util.ts") as typeof import("./util.ts"));
 }
+var ty_util__m: typeof import("./util.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** PORT (merge-w15b): rustc_middle traits/mod.ts reaches this module back through rustc_type_ir: loaded lazily. */
 function traits_mod(): typeof import("../traits/mod.ts") {
-  return require("../traits/mod.ts") as typeof import("../traits/mod.ts");
+  return (traits_mod__m ??= require("../traits/mod.ts") as typeof import("../traits/mod.ts"));
 }
+var traits_mod__m: typeof import("../traits/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

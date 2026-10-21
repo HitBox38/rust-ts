@@ -4539,5 +4539,6 @@ function Instance_args(instance: Instance): GenericArgs {
 
 /** PORT (merge-w15b): ty/assoc.ts is another extension module of `TyCtxt`: reached lazily. */
 function middle_assoc(): typeof import("../assoc.ts") {
-  return require("../assoc.ts") as typeof import("../assoc.ts");
+  return (middle_assoc__m ??= require("../assoc.ts") as typeof import("../assoc.ts"));
 }
+var middle_assoc__m: typeof import("../assoc.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

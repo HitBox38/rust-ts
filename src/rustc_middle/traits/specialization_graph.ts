@@ -248,10 +248,12 @@ export function ancestors(tcx: TyCtxt, trait_def_id: DefId, start_from_impl: Def
 
 // ---- merge-w15b: lazy loads of the ty modules (ty/mod.ts is a defining module; ty/assoc.ts an extension module) ----
 function ty_mod(): typeof import("../ty/mod.ts") {
-  return require("../ty/mod.ts") as typeof import("../ty/mod.ts");
+  return (ty_mod__m ??= require("../ty/mod.ts") as typeof import("../ty/mod.ts"));
 }
+var ty_mod__m: typeof import("../ty/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ty_assoc(): typeof import("../ty/assoc.ts") {
-  return require("../ty/assoc.ts") as typeof import("../ty/assoc.ts");
+  return (ty_assoc__m ??= require("../ty/assoc.ts") as typeof import("../ty/assoc.ts"));
 }
+var ty_assoc__m: typeof import("../ty/assoc.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 

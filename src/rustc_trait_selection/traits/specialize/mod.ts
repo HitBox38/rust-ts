@@ -643,10 +643,12 @@ function upcast_Clause_to_Predicate(): (from: Clause, tcx: unknown) => Predicate
 
 // ---- lazy loads (init order: ../coherence.ts imports this module's siblings) -----------------------------------------
 function coherence_mod(): typeof import("../coherence.ts") {
-  return require("../coherence.ts") as typeof import("../coherence.ts");
+  return (coherence_mod__m ??= require("../coherence.ts") as typeof import("../coherence.ts"));
 }
+var coherence_mod__m: typeof import("../coherence.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `crate::diagnostics` (lazy: init order). */
 function diagnostics_mod(): typeof import("../../diagnostics.ts") {
-  return require("../../diagnostics.ts") as typeof import("../../diagnostics.ts");
+  return (diagnostics_mod__m ??= require("../../diagnostics.ts") as typeof import("../../diagnostics.ts"));
 }
+var diagnostics_mod__m: typeof import("../../diagnostics.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

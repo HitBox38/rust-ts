@@ -50,8 +50,9 @@ import { StatementAsExpression, SuggestAsRefKind } from "./suggest.gen.ts";
 
 /** `crate::diagnostics` (read lazily: init order). */
 function diagnostics(): typeof import("../../diagnostics.ts") {
-  return require("../../diagnostics.ts") as typeof import("../../diagnostics.ts");
+  return (diagnostics__m ??= require("../../diagnostics.ts") as typeof import("../../diagnostics.ts"));
 }
+var diagnostics__m: typeof import("../../diagnostics.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `impl Display for ty::Binder<'tcx, ty::FnSig<'tcx>>` (rustc_type_ir ir_print.rs:89 through `IrPrint` for `TyCtxt`,
  * ty/print/mod.rs:423): `format!("{sig}")`. */

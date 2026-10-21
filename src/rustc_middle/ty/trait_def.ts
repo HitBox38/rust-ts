@@ -437,5 +437,6 @@ function entry_or_default(map: KeyedMap<SimplifiedType, DefId[]>, k: SimplifiedT
 
 /** PORT (merge-w15b): traits/specialization_graph.ts imports ty modules back: loaded lazily. */
 function specialization_graph(): typeof import("../traits/specialization_graph.ts") {
-  return require("../traits/specialization_graph.ts") as typeof import("../traits/specialization_graph.ts");
+  return (specialization_graph__m ??= require("../traits/specialization_graph.ts") as typeof import("../traits/specialization_graph.ts"));
 }
+var specialization_graph__m: typeof import("../traits/specialization_graph.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

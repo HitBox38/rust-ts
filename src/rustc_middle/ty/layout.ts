@@ -115,20 +115,24 @@ declare module "../query/calls.ts" {
 
 /** `ty::print::pretty` (an extension module: read lazily, header). */
 function pretty(): typeof import("./print/pretty.ts") {
-  return require("./print/pretty.ts") as typeof import("./print/pretty.ts");
+  return (pretty__m ??= require("./print/pretty.ts") as typeof import("./print/pretty.ts"));
 }
+var pretty__m: typeof import("./print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** `ty::sty` (an extension module: read lazily, header). */
 function sty(): typeof import("./sty.ts") {
-  return require("./sty.ts") as typeof import("./sty.ts");
+  return (sty__m ??= require("./sty.ts") as typeof import("./sty.ts"));
 }
+var sty__m: typeof import("./sty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** `rustc_target::spec` (its module graph has init cycles: read lazily). */
 function target_spec(): typeof import("../../rustc_target/spec/mod.ts") {
-  return require("../../rustc_target/spec/mod.ts") as typeof import("../../rustc_target/spec/mod.ts");
+  return (target_spec__m ??= require("../../rustc_target/spec/mod.ts") as typeof import("../../rustc_target/spec/mod.ts"));
 }
+var target_spec__m: typeof import("../../rustc_target/spec/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** `crate::traits` (reaches this module back through rustc_type_ir: read lazily, as ty/util.ts). */
 function traits_mod(): typeof import("../traits/mod.ts") {
-  return require("../traits/mod.ts") as typeof import("../traits/mod.ts");
+  return (traits_mod__m ??= require("../traits/mod.ts") as typeof import("../traits/mod.ts"));
 }
+var traits_mod__m: typeof import("../traits/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `{:?}` of a `Ty` / `TyAndLayout` / `LayoutError` (messages of `bug!` / `assert_eq!`; built only on failure). */
 const dbg_TyAndLayout = (v: TyAndLayout): string => format_debug(v, debug_TyAndLayout_Ty, PLAIN);

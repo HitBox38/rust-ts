@@ -18,18 +18,21 @@ import { NiceRegionError } from "./mod.ts";
 
 /** The crate's diagnostics.gen.ts (read lazily, init order). */
 function diagnostics_gen(): typeof import("../../../diagnostics.gen.ts") {
-  return require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts");
+  return (diagnostics_gen__m ??= require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts"));
 }
+var diagnostics_gen__m: typeof import("../../../diagnostics.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** The crate's diagnostics/note_and_explain.ts (read lazily, init order). */
 function note_and_explain(): typeof import("../../../diagnostics/note_and_explain.ts") {
-  return require("../../../diagnostics/note_and_explain.ts") as typeof import("../../../diagnostics/note_and_explain.ts");
+  return (note_and_explain__m ??= require("../../../diagnostics/note_and_explain.ts") as typeof import("../../../diagnostics/note_and_explain.ts"));
 }
+var note_and_explain__m: typeof import("../../../diagnostics/note_and_explain.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** ./static_impl_trait.ts (`super::static_impl_trait`, read lazily, init order). */
 function static_impl_trait(): typeof import("./static_impl_trait.ts") {
-  return require("./static_impl_trait.ts") as typeof import("./static_impl_trait.ts");
+  return (static_impl_trait__m ??= require("./static_impl_trait.ts") as typeof import("./static_impl_trait.ts"));
 }
+var static_impl_trait__m: typeof import("./static_impl_trait.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // impl<'a, 'tcx> NiceRegionError<'a, 'tcx> {
 // rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mismatched_static_lifetime.rs:21 try_report_mismatched_static_lifetime

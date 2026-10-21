@@ -140,12 +140,14 @@ export function GenericArg_into_diag_arg(self: GenericArg, _: MutRef<PathBuf | u
 
 /** PORT: lazy load of the extension module ty/print/pretty.ts (see `GenericArg_into_diag_arg`). */
 function pretty(): typeof import("./print/pretty.ts") {
-  return require("./print/pretty.ts") as typeof import("./print/pretty.ts");
+  return (pretty__m ??= require("./print/pretty.ts") as typeof import("./print/pretty.ts"));
 }
+var pretty__m: typeof import("./print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** PORT (init order): ty/util.ts is an extension module that imports this file; reached lazily. */
 function ty_util(): typeof import("./util.ts") {
-  return require("./util.ts") as typeof import("./util.ts");
+  return (ty_util__m ??= require("./util.ts") as typeof import("./util.ts"));
 }
+var ty_util__m: typeof import("./util.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 export const GenericArg = {
   // rustc: compiler/rustc_middle/src/ty/generic_args.rs:196 from

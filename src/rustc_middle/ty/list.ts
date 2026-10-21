@@ -275,8 +275,9 @@ export function debug_BoundVarKinds(v: BoundVarKinds, f: Fmt): string {
   return debug_RawList(v, f, tyir_binder_gen().debug_BoundVariableKind);
 }
 function tyir_binder_gen(): typeof import("../../rustc_type_ir/binder.gen.ts") {
-  return require("../../rustc_type_ir/binder.gen.ts") as typeof import("../../rustc_type_ir/binder.gen.ts");
+  return (tyir_binder_gen__m ??= require("../../rustc_type_ir/binder.gen.ts") as typeof import("../../rustc_type_ir/binder.gen.ts"));
 }
+var tyir_binder_gen__m: typeof import("../../rustc_type_ir/binder.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 
 /**
@@ -289,5 +290,6 @@ export function debug_CanonicalVarKinds(v: List<CanonicalVarKind>, f: Fmt): stri
   return debug_RawList(v, f, tyir_canonical_gen().debug_CanonicalVarKind);
 }
 function tyir_canonical_gen(): typeof import("../../rustc_type_ir/canonical.gen.ts") {
-  return require("../../rustc_type_ir/canonical.gen.ts") as typeof import("../../rustc_type_ir/canonical.gen.ts");
+  return (tyir_canonical_gen__m ??= require("../../rustc_type_ir/canonical.gen.ts") as typeof import("../../rustc_type_ir/canonical.gen.ts"));
 }
+var tyir_canonical_gen__m: typeof import("../../rustc_type_ir/canonical.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

@@ -906,8 +906,9 @@ const d_FulfillmentError: TypeVisitable<FulfillmentError> = {
 
 /** The crate's traits/mod.gen.ts (a static value import would close a load-time cycle). */
 function traits_mod_gen(): typeof import("../../traits/mod.gen.ts") {
-  return require("../../traits/mod.gen.ts") as typeof import("../../traits/mod.gen.ts");
+  return (traits_mod_gen__m ??= require("../../traits/mod.gen.ts") as typeof import("../../traits/mod.gen.ts"));
 }
+var traits_mod_gen__m: typeof import("../../traits/mod.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `#[derive(Hash)]` of `(String, DefId)`: `write_str` of the path, then `DefId`'s `Hash` (def_id.rs:268: the `u64`
  * `krate << 32 | index`); element size 32, align 8 (rustc_span `DefId` is two `u32`s). */

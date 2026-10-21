@@ -67,5 +67,6 @@ export function type_op_prove_predicate_with_cause(ocx: ObligationCtxt<ScrubbedT
 
 /** `crate::traits::util` (this crate), read lazily (init order). */
 function traits_util(): typeof import("../../util.ts") {
-  return require("../../util.ts") as typeof import("../../util.ts");
+  return (traits_util__m ??= require("../../util.ts") as typeof import("../../util.ts"));
 }
+var traits_util__m: typeof import("../../util.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
