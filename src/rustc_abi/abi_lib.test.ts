@@ -111,6 +111,8 @@ test("Size: exact up to 2^53 - 1, unported beyond, upstream's panics and None", 
   // align_to / is_aligned
   expect(Size.from_bytes(5).align_to(new Align(3)).bytes()).toBe(8);
   expect(Size.from_bytes(8).is_aligned(new Align(3))).toBe(true);
+  expect(Size.from_bytes(MAX - 7).align_to(new Align(3)).bytes()).toBe(MAX - 7); // 2^53 - 8 is 8-aligned
+  unported_(() => Size.from_bytes(MAX - 6).align_to(new Align(3))); // rounds up to 2^53
 });
 
 test("Step for Size", () => {
