@@ -103,6 +103,7 @@ import { format_debug, PLAIN } from "../../../std/fmt.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
 import type { Result } from "../../../std/result.ts";
 import type { Str } from "../../../std/str.ts";
+import { to_uppercase } from "../../../std/char.ts";
 import type { ImplCandidate } from "./mod.gen.ts";
 import { fold_with_Alias, try_fold_with_Alias, visit_with_Alias } from "../../../rustc_type_ir/ty/alias.ts";
 import { fold_with_AliasTermKind, try_fold_with_AliasTermKind, visit_with_AliasTermKind } from "../../../rustc_type_ir/term_kind.ts";
@@ -1448,13 +1449,15 @@ TypeErrCtxt.prototype.suggest_shadowed_inherent_method = function (
   if (rcvr_ty_ === undefined) return;
   const rcvr_ty = this.deeply_resolve_ignoring_regions(rcvr_ty_, fold_Ty);
   const autoderef = this.autoderef_steps(rcvr_ty);
-  const steps: [Ty, DefId][] = [];
-  for (const [ty, obligations] of autoderef) {
-    const tk = ty.kind();
-    if (tk.$ === "Adt" && ty !== rcvr_ty.peel_refs() && obligations.every((obligation) => this.predicate_may_hold(obligation))) {
-      steps.push([ty, tk._0.did()]);
+  // PORT: the lazy `autoderef.iter().filter_map(..)` is a generator, so the filter runs interleaved with the body.
+  const steps = function* (this: TypeErrCtxt): Generator<[Ty, DefId]> {
+    for (const [ty, obligations] of autoderef) {
+      const tk = ty.kind();
+      if (tk.$ === "Adt" && ty !== rcvr_ty.peel_refs() && obligations.every((obligation) => this.predicate_may_hold(obligation))) {
+        yield [ty, tk._0.did()];
+      }
     }
-  }
+  }.call(this);
   for (const [ty, def_id] of steps) {
     for (const impl_def_id of this.tcx.inherent_impls(def_id) as readonly DefId[]) {
       if (DefId_eq(impl_def_id, PolyTraitClauseC.def_id(trait_predicate))) {
@@ -2114,7 +2117,7 @@ export interface NextTypeParamName {
 export function next_type_param_name(self_: readonly hir.GenericParam[], name_: string | undefined): string {
   // Type names are usually single letters in uppercase. So convert the first letter of input string to uppercase.
   const first = name_ === undefined ? undefined : name_.codePointAt(0);
-  const name = first === undefined ? undefined : char_to_uppercase(first);
+  const name = first === undefined ? undefined : String.fromCodePoint(...to_uppercase(first));
 
   // This is the list of possible parameter names that we might suggest.
   const possible_names = [name ?? "T", "T", "U", "V", "X", "Y", "Z", "A", "B", "C"];
@@ -2133,12 +2136,6 @@ export function next_type_param_name(self_: readonly hir.GenericParam[], name_: 
 /** `impl NextTypeParamName for &[hir::GenericParam]` as a companion. */
 export const NextTypeParamName = { next_type_param_name };
 
-/** `char::to_uppercase(c).to_string()` (Unicode full case mapping; JS `toUpperCase` of one code point). */
-// PORT: Rust's `char::to_uppercase` and JS `String.prototype.toUpperCase` both apply the Unicode full (special-casing)
-// uppercase mapping of a single scalar without locale tailoring; the Unicode versions may differ for new characters.
-function char_to_uppercase(c: number): string {
-  return String.fromCodePoint(c).toUpperCase();
-}
 
 // rustc-type: compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs:6997 ReplaceImplTraitVisitor
 /// Collect the spans that we see the generic param `param_did`
