@@ -327,7 +327,7 @@ describe("InferCtxt construction (ported: builder, InferCtxtInner glue, ena tabl
     // (`err_ctxt` stopped here until lane errctxt-contract ported error_reporting/mod.rs; its `TypeErrCtxt` methods are
     // the error-reporting lanes' placeholders.)
     // (`report_fulfillment_errors` stopped here until lane errrep-traits-a ported error_reporting/traits/mod.rs.)
-    // (`describe_closure` stopped here until lane errrep-traits-a ported it (fulfillment_errors.rs:2077); every
+    // (`describe_closure` stopped here until lane errrep-traits-b ported it (fulfillment_errors.rs:2077); every
     // `TypeErrCtxt` placeholder is filled since wave 19 (merge-w19), see errctxt_contract.test.ts.)
     const ecx = infcx.err_ctxt();
     expect(ecx.describe_closure({ $: "Closure" })).toBe("a closure");

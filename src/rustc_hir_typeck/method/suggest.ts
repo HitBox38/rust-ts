@@ -135,6 +135,14 @@ function string_trim_end(s: string): string {
   return cps.slice(0, b).join("");
 }
 
+/** `str::trim` (Unicode `White_Space`, both ends). */
+function string_trim(s: string): string {
+  const cps = Array.from(string_trim_end(s));
+  let a = 0;
+  while (a < cps.length && is_whitespace(cps[a]!.codePointAt(0)!)) a++;
+  return cps.slice(a).join("");
+}
+
 /** `SortedMap::get_mut_or_insert_default` (rustc_data_structures sorted_map.rs) for a `Vec` value. */
 function get_mut_or_insert_default<K, V>(map: SortedMap<K, V[]>, key: K): V[] {
   let v = map.get(key);
@@ -3494,12 +3502,12 @@ FnCtxt.prototype.suggest_valid_traits = function (this: FnCtxt, err: Diag, item_
       };
       const suggest_for_privacy = (err: Diag, suggs: string[]): void => {
         const this_trait_is =
-          suggs.length === 1 ? `trait \`${suggs[0]!.trim()}\` which provides \`${display_Ident(item_name)}\` is` : `the following traits which provide \`${display_Ident(item_name)}\` are`;
+          suggs.length === 1 ? `trait \`${string_trim(suggs[0]!)}\` which provides \`${display_Ident(item_name)}\` is` : `the following traits which provide \`${display_Ident(item_name)}\` are`;
         const msg = `${this_trait_is} implemented but not reachable`;
         if (suggs.length === 1) {
           err.help(msg);
         } else {
-          err.help(`${msg}:\n${suggs.join("").trimEnd()}`);
+          err.help(`${msg}:\n${string_trim_end(suggs.join(""))}`);
         }
       };
       if (accessible_sugg.length === 0) {

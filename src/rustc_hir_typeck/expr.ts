@@ -11,8 +11,7 @@
 // - `self.diverges.get()` / `.set(x)` / `.replace(x)` (a `Cell`) is the plain field `this.diverges`; `a | b` / `a & b`
 //   on `Diverges` are `Diverges.bitor(a, b)` / `Diverges.bitand(a, b)`.
 // - `self.typeck_results.borrow()` / `self.deferred_*.borrow_mut()` are the fields themselves (PORTING §5).
-// - `self.err_ctxt()` (`TypeErrCtxt`, wave 19) is `Pending` in rustc_trait_selection decls.ts: its methods used here are
-//   reached through `err_ctxt_methods` (PORT(decls): pending root), after `err_ctxt()`'s own `unported` stop.
+// - `self.err_ctxt()` is rustc_trait_selection's `TypeErrCtxt` (ported in wave 19).
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
 import { str_cmp } from "../rustc_session/options.ts";

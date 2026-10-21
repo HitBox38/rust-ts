@@ -5100,7 +5100,9 @@ TypeErrCtxt.prototype.suggest_await_before_try = function (
     return;
   }
 
-  const item_def_id = this.tcx.associated_item_def_ids(future_trait)[0];
+  const future_items = this.tcx.associated_item_def_ids(future_trait);
+  if (future_items.length === 0) return panic("index out of bounds: the len is 0 but the index is 0");
+  const item_def_id = future_items[0]!;
   // `<T as Future>::Output`
   const projection_ty_ = Binder.map_bound(trait_pred, (trait_pred) =>
     Ty.new_projection(

@@ -2295,6 +2295,9 @@ FnCallDiagCtxt.prototype.check_wrap_args_in_tuple = function (this: FnCallDiagCt
     ) {
       const tys = k._0;
       // Wrap up the N provided arguments starting at this position in a tuple.
+      if (mismatch_idx > this.provided_arg_tys.length) {
+        panicA(`range start index ${mismatch_idx} out of range for slice of length ${this.provided_arg_tys.length}`);
+      }
       const provided_args_to_tuple_ = this.provided_arg_tys.slice(mismatch_idx);
       assert(tys.length <= provided_args_to_tuple_.length, "mid > len");
       const provided_args_to_tuple = provided_args_to_tuple_.slice(0, tys.length);

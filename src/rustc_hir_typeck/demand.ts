@@ -7,7 +7,7 @@
 // other rustc_hir_typeck export is read inside function bodies only.
 //
 // PORT notes (lane typeck-coerce):
-// - `self.err_ctxt()` is rustc_trait_selection's `TypeErrCtxt` (errctxt-contract; its methods are placeholders until wave 19).
+// - `self.err_ctxt()` is rustc_trait_selection's `TypeErrCtxt` (errctxt-contract; ported in wave 19).
 // - `#[instrument]` is tracing only and stays as a comment.
 // PORT notes (lane typeck-demand-adjust):
 // - `&mut &'tcx hir::Expr` / `&mut Option<&'tcx hir::Expr>` parameters are `MutRef` cells (PORTING §8).
@@ -760,7 +760,7 @@ FnCtxt.prototype.annotate_expected_due_to_let_ty = function (this: FnCtxt, err: 
     parent_ = parent;
     break;
   }
-  const parent = parent_ ?? bug("an expression must have a non-block ancestor");
+  const parent = unwrap(parent_, "an expression must have a non-block ancestor");
 
   let lk;
   if (

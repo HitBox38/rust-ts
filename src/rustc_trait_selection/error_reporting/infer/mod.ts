@@ -2225,7 +2225,10 @@ TypeErrCtxt.prototype.format_on_type_error_notes = function (
   found_ty: Ty,
 ): string[] {
   const item_name = display_Symbol(this.tcx.item_name(item_def.did()));
-  const generic_args: [Symbol, string][] = (this.tcx.generics_of(item_def.did()) as Generics).own_params.map((param): [Symbol, string] => [param.name, display_GenericArg(args[param.index]!)]);
+  const generic_args: [Symbol, string][] = (this.tcx.generics_of(item_def.did()) as Generics).own_params.map((param): [Symbol, string] => {
+    if (param.index >= args.length) return panic(`index out of bounds: the len is ${args.length} but the index is ${param.index}`);
+    return [param.name, display_GenericArg(args[param.index]!)];
+  });
 
   const format_args: FormatArgs = {
     this: item_name,

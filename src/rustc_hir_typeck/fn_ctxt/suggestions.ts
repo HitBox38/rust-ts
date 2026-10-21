@@ -1,5 +1,5 @@
 // Port of compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs. Lanes: typeck-gaps (`fn_sig`, `is_field_suggestable`:
-// success-path blockers), typeck-fnsugg-a (lines 1..2025), typeck-fnsugg-b (lines 2026..: still placeholders below).
+// success-path blockers), typeck-fnsugg-a (lines 1..2025), typeck-fnsugg-b (lines 2026..).
 //
 // Every fn of this file is declared in ../decls.ts under `// fn_ctxt/suggestions.rs:<line>`:
 // - methods of FnCtxt: assigned onto the prototype in upstream order with the marker
@@ -13,7 +13,6 @@
 // - `format!("{ty}")` of a `Ty` is `display_Ty`; of a `Symbol` `Symbol.as_str`.
 // Init order: top-level code here may touch only ../decls.ts (the classes), this file's .gen.ts and other crates; every
 // other rustc_hir_typeck export is read inside function bodies only.
-import { unported_methods } from "../../rust_ts/stubs.ts";
 import { ExprPrecedence, ExprPrecedence_discriminant } from "../../rustc_ast/util/parser.gen.ts";
 import { Mutability } from "../../rustc_ast_ir/lib.ts";
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
@@ -43,7 +42,7 @@ import type { FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { ToTrace_Ty } from "../../rustc_infer/infer/at.ts";
-import { unreachable, unwrap } from "../../std/panic.ts";
+import { panic, unreachable, unwrap } from "../../std/panic.ts";
 import { span_bug } from "../../rustc_span/macros.ts";
 import { str_is_char_boundary } from "../../std/str.ts";
 import { str_to_uppercase } from "../../std/unicode/str_case.ts";
@@ -419,7 +418,9 @@ FnCtxt.prototype.suggest_deref_ref_or_into = function (this: FnCtxt, err: Diag, 
             let index: number | undefined;
             while ((index = tuple_indexes.pop()) !== undefined) {
               if (ty.kind.$ === "Tup") {
-                ty = ty.kind._0[index]!;
+                const tys = ty.kind._0;
+                if (index >= tys.length) return panic(`index out of bounds: the len is ${tys.length} but the index is ${index}`);
+                ty = tys[index]!;
               } else {
                 return true;
               }

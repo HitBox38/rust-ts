@@ -26,6 +26,7 @@ import type { DefIdSet, LocalDefId } from "../rustc_span/def_id.ts";
 import { type BytePos, type PathBuf, Span } from "../rustc_span/lib.ts";
 import { display_Ident, kw, sym, Symbol } from "../rustc_span/symbol.ts";
 import type { MutRef } from "../std/mut_ref.ts";
+import { is_whitespace } from "../std/char.ts";
 
 import type * as gen from "./diagnostics.gen.ts";
 import type {
@@ -682,7 +683,7 @@ export function impl_trait_overcapture_suggestion(
       }
       let name_as_bounds = Symbol.as_str(name);
       while (name_as_bounds.startsWith("impl")) name_as_bounds = name_as_bounds.slice("impl".length); // `trim_start_matches("impl")`
-      name_as_bounds = name_as_bounds.trimStart(); // PORT: `str::trim_start` (Unicode White_Space; equal on type names)
+      name_as_bounds = str_trim_start_ws(name_as_bounds);
       new_params += Symbol.as_str(fresh_param);
       new_params += ": ";
       new_params += name_as_bounds;
@@ -771,4 +772,16 @@ export function AddPreciseCapturingForOvercapture_add_to_diag(self: AddPreciseCa
 /** `AddPreciseCapturingForOvercapture` as a `Subdiagnostic` trait object. */
 export function AddPreciseCapturingForOvercapture_subdiagnostic(self: AddPreciseCapturingForOvercapture): Subdiagnostic {
   return { add_to_diag: (diag) => AddPreciseCapturingForOvercapture_add_to_diag(self, diag) };
+}
+
+/** `str::trim_start` (Unicode `White_Space`). PORT: not JS `trimStart` (it strips U+FEFF and misses U+0085); as
+ * error_reporting/infer/region.ts's `trim_start`. */
+function str_trim_start_ws(s: string): string {
+  let i = 0;
+  for (;;) {
+    const c = s.codePointAt(i);
+    if (c === undefined || !is_whitespace(c)) break;
+    i += c > 0xffff ? 2 : 1;
+  }
+  return s.slice(i);
 }

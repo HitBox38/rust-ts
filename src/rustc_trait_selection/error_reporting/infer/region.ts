@@ -52,6 +52,7 @@ import type { TypeError } from "../../../rustc_type_ir/error.ts";
 import { Unnormalized, UnnormalizedClause } from "../../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../../../rustc_type_ir/visit.ts";
 import { assert, unreachable, unwrap } from "../../../std/panic.ts";
+import { print_Ty } from "../../../rustc_middle/ty/print/mod.ts";
 import { TypeErrCtxt } from "../../decls.ts";
 import type { WhereClauseSuggestions } from "../../diagnostics.gen.ts";
 import { type LifetimeSuggestion } from "./region.gen.ts";
@@ -1208,14 +1209,10 @@ export function unexpected_hidden_region_diagnostic(
   );
   const highlight = RegionHighlightMode.default();
   highlight.keep_regions = true;
-  const { Highlighted, Highlighted_into_diag_arg } = placeholder_error();
+  const { Highlighted, Highlighted_to_string } = placeholder_error();
   const hidden_ty = new Highlighted(tcx, highlight, hidden_ty_, Namespace.TypeNS);
-  // PORT: `format!("{hidden_ty}")` is `Highlighted`'s `Display` (placeholder_error.rs:50, lane errrep-nice-region); its
-  // `IntoDiagArg` (placeholder_error.rs:35) is `DiagArgValue::Str(self.to_string())`, so the string is read from it.
-  const display_hidden_ty = (): string => {
-    const v = Highlighted_into_diag_arg(hidden_ty, { value: undefined });
-    return v.$ === "Str" ? v._0 : unreachable();
-  };
+  // `format!("{hidden_ty}")`: `Highlighted`'s `Display` (placeholder_error.rs:50) with `T = Ty`.
+  const display_hidden_ty = (): string => Highlighted_to_string(hidden_ty, print_Ty);
 
   // Explain the region we are capturing.
   switch (hidden_region.kind().$) {
