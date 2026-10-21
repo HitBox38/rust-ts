@@ -5,7 +5,8 @@
 //!   tydump <rustc arguments...>
 //!
 //! The arguments are rustc's. The probe does what `rustc_driver_impl::main` does
-//! (`install_ice_hook(DEFAULT_BUG_REPORT_URL)`,
+//! (`init_rustc_env_logger` (`RUSTC_LOG`; unset: tracing WARN/ERROR events on stderr, as rustc prints them),
+//! `install_ice_hook(DEFAULT_BUG_REPORT_URL)`,
 //! `catch_with_exit_code(|| compiler_entrypoint(&raw_args(..), &mut callbacks))`) with callbacks
 //! that:
 //! - in `config`, do what rustc's `TimePassesCallbacks::config` does to the options
@@ -515,6 +516,8 @@ fn dump_typeck<'tcx>(out: &mut String, tcx: TyCtxt<'tcx>, r: &ty::TypeckResults<
 
 fn main() -> ExitCode {
     let early_dcx = EarlyDiagCtxt::new(ErrorOutputType::default());
+    // As rustc_driver_impl::main: tracing's default filter (`RUSTC_LOG` unset) prints WARN and ERROR events.
+    rustc_driver::init_rustc_env_logger(&early_dcx);
     rustc_driver::install_ice_hook(rustc_driver::DEFAULT_BUG_REPORT_URL, |_| ());
     let mut callbacks = TyDump;
     rustc_driver::catch_with_exit_code(|| rustc_driver::compiler_entrypoint(&rustc_driver::args::raw_args(&early_dcx), &mut callbacks))
