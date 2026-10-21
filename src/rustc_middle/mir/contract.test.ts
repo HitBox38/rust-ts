@@ -40,7 +40,7 @@ import {
   type PlaceElem,
 } from "./mod.ts";
 import { AllocId, CtfeProvenance, debug_AllocId, display_AllocId, InterpResult } from "./interpret/mod.ts";
-import { MirWriter, write_mir_pretty } from "./pretty.ts";
+import "./pretty.ts";
 import { MutVisitor, Visitor } from "./visit.ts";
 
 const MIR = "compiler/rustc_middle/src/mir/";
@@ -140,7 +140,6 @@ test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", ()
     "mir-body-b": 181,
     "mir-interp-a": 91,
     "mir-interp-b": 184,
-    "mir-pretty": 43,
     "mir-visit": 125,
   });
 });
@@ -189,8 +188,7 @@ test("stubs stop as UNPORTED with their own path", () => {
   stops(() => Local.arg(0), "rustc_middle::mir::Local::arg");
   stops(() => Operand.is_move(null as never), "rustc_middle::mir::statement::Operand::is_move");
   stops(() => TerminatorKind.successors(null as never), "rustc_middle::mir::terminator::TerminatorKind::successors");
-  stops(() => new MirWriter(null as never, () => null as never, null as never).write_mir_fn(null as never, null as never), "rustc_middle::mir::pretty::MirWriter::write_mir_fn");
-  stops(() => write_mir_pretty(null as never, null as never), "rustc_middle::mir::pretty::write_mir_pretty");
+  // (lane mir-pretty: `MirWriter::write_mir_fn` / `write_mir_pretty` are ported; pretty.test.ts covers them)
   stops(() => CtfeProvenance.alloc_id(1n as CtfeProvenance), "rustc_middle::mir::interpret::pointer::CtfeProvenance::alloc_id");
   stops(() => InterpResult.unwrap({ $: "Ok", _0: 1 }), "rustc_middle::mir::interpret::error::InterpResult::unwrap");
   class V extends Visitor {}
