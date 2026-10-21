@@ -139,7 +139,7 @@ test("stubs per fill lane (the split table of docs/handoff/mir-contract.md)", ()
     "mir-body-a": 103,
     "mir-body-b": 181,
     "mir-interp-a": 91,
-    "mir-interp-b": 184,
+    // mir-interp-b: 0 (lane mir-interp-b ported its 184)
     "mir-pretty": 43,
     "mir-visit": 125,
   });
@@ -191,8 +191,9 @@ test("stubs stop as UNPORTED with their own path", () => {
   stops(() => TerminatorKind.successors(null as never), "rustc_middle::mir::terminator::TerminatorKind::successors");
   stops(() => new MirWriter(null as never, () => null as never, null as never).write_mir_fn(null as never, null as never), "rustc_middle::mir::pretty::MirWriter::write_mir_fn");
   stops(() => write_mir_pretty(null as never, null as never), "rustc_middle::mir::pretty::write_mir_pretty");
-  stops(() => CtfeProvenance.alloc_id(1n as CtfeProvenance), "rustc_middle::mir::interpret::pointer::CtfeProvenance::alloc_id");
-  stops(() => InterpResult.unwrap({ $: "Ok", _0: 1 }), "rustc_middle::mir::interpret::error::InterpResult::unwrap");
+  // (lane mir-interp-b: interpret/{mod, value, pointer, error, queries}.rs are ported, no stubs left)
+  expect(CtfeProvenance.alloc_id(1n as CtfeProvenance)).toBe(1 as AllocId);
+  expect(InterpResult.unwrap({ $: "Ok", _0: 1 })).toBe(1);
   class V extends Visitor {}
   stops(() => new V().visit_body(null as never), "rustc_middle::mir::visit::Visitor::visit_body");
   class M extends MutVisitor {

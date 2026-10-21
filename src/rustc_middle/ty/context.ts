@@ -6,7 +6,8 @@
 // - `TyCtxt` is a class wrapping the `GlobalCtxt` (`gcx`); `impl Deref for TyCtxt` is the getters below
 //   (`sess`, `dep_graph`, `prof`, `hooks`, `query_system`). Private `GlobalCtxt` fields (`untracked`,
 //   `crate_types`, `stable_crate_id`) are read through `this.gcx`.
-// - Arenas are erased (`arena`, `hir_arena`); `GlobalCaches` and `alloc_map` are not ported.
+// - Arenas are erased (`arena`, `hir_arena`). `alloc_map` (`interpret::AllocMap::new()`, lane mir-interp-b) is built by
+//   `create_global_ctxt` through the lazy `mir()` (mir/ is in this module's import closure).
 // - Type interning (lane ty-contract, docs/plan-m3.md D2): `CtxtInterners` (eager, in `create_global_ctxt`), the
 //   `direct_interners!` / `slice_interners!` methods and the `mk_*` entry points that only intern. `CommonTypes`,
 //   `CommonLifetimes` and `CommonConsts` are built on the first read of `types` / `lifetimes` / `consts` instead of
@@ -204,6 +205,7 @@ export const inherent_Span = {
 // file reads. `Local` / `Place` are mir's (lane mir-contract; type-only: mir/ is read lazily, `mir()` below).
 type Thir = Pending<"thir::Thir">;
 type AllocId = import("../mir/interpret/mod.ts").AllocId;
+type AllocMap = import("../mir/interpret/mod.ts").AllocMap;
 type DepNode = Pending<"dep_graph::DepNode">;
 type Local = import("../mir/mod.ts").Local;
 import type { ResolvedArg } from "../middle/resolve_bound_vars.ts";
@@ -1090,7 +1092,7 @@ export class TyCtxt {
     // `CommonConsts::new(&interners, &common_types)` run on the first read of `types` / `lifetimes` / `consts`
     // (module comment).
     if (gcx_cell.value === undefined) {
-      gcx_cell.value = new GlobalCtxt(sess, crate_types, stable_crate_id, interners, incr_comp_session, dep_graph, sess.prof, hooks, untracked, query_system, current_gcx);
+      gcx_cell.value = new GlobalCtxt(sess, crate_types, stable_crate_id, interners, incr_comp_session, dep_graph, sess.prof, hooks, untracked, query_system, mir().interpret.AllocMap.new(), current_gcx);
     }
     const gcx = gcx_cell.value;
 
@@ -2891,6 +2893,9 @@ export class GlobalCtxt {
     public untracked: Untracked,
 
     public query_system: QuerySystem,
+
+    /// Stores memory for globals (statics/consts).
+    public alloc_map: AllocMap,
 
     public current_gcx: CurrentGcx,
   ) {}
