@@ -25,8 +25,11 @@ import {
   LayoutCalculator,
   LayoutData,
   Niche,
+  ReprFlags,
+  ReprOptions,
   Scalar,
   Size,
+  TargetDataLayout,
   TyAndLayout,
   VariantLayout,
   WrappingRange,
@@ -131,7 +134,7 @@ test("every fn of the layout files is ported or declared as a stub, never both",
   // stubs only for the scope files
   for (const d of stubs) expect(FILES.some(([f]) => f === d.path)).toBe(true);
   expect(total).toBe(320);
-  expect(stubs.length).toBe(74);
+  expect(stubs.length).toBe(55);
 });
 
 function stops(f: () => unknown, what: string): void {
@@ -213,12 +216,16 @@ test("the stubs stop as UNPORTED with their own path", () => {
   const l = option_bool();
   // ported by lane abi-lib (was a stub): `Option<bool>` is a 1-byte scalar, not a ZST
   expect(l.is_zst()).toBe(false);
-  stops(() => LayoutData.scalar({ data_layout: () => unreachable_dl() }, scalar(u8_, 0n, 1n)), "rustc_abi::layout::simple::LayoutData::scalar");
   // ported by lane abi-lib (were stubs)
   expect(BackendRepr.is_unsized(l.backend_repr)).toBe(false);
   expect(Scalar.primitive(scalar(u8_, 0n, 1n))).toBe(u8_);
   expect(new WrappingRange(0n, 1n).contains(0n)).toBe(true);
-  stops(() => LayoutCalculator.new({ data_layout: () => unreachable_dl() }).layout_of_union(null as never, []), "rustc_abi::layout::LayoutCalculator::layout_of_union");
+  // `LayoutData::scalar` (abi-layout-a) and `Niche::from_scalar` (abi-lib) are ported: scalar layouts are checked against the oracle in layout.test.ts
+  // `layout_of_union` (abi-layout-a) is ported: a union with no fields is `EmptyUnion`; `layout_of_enum` is still a stub
+  const dl = TargetDataLayout.default();
+  const repr = new ReprOptions(undefined, undefined, undefined, ReprFlags.empty(), undefined, Hash64.ZERO);
+  expect(LayoutCalculator.new(dl).layout_of_union(repr, [[]])).toEqual({ $: "Err", _0: { $: "EmptyUnion" } });
+  stops(() => LayoutCalculator.new(dl).layout_of_enum(repr, [], null as never, []), "rustc_abi::layout::LayoutCalculator::layout_of_enum");
   stops(() => coroutine_saved_local_eligibility(0, [], null as never), "rustc_abi::layout::coroutine::coroutine_saved_local_eligibility");
   stops(() => SizeSkeleton.compute(null as never, null as never, null as never, null as never), "rustc_middle::ty::layout::SizeSkeleton::compute");
   stops(() => IntegerExt.discr_range_of_repr(null as never, null as never, null as never, 0n, 0n), "rustc_middle::ty::layout::IntegerExt::discr_range_of_repr");

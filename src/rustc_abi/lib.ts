@@ -9,7 +9,7 @@
 // `// rustc:` marker and keeps the signature (docs/handoff/layout-contract.md "How to fill a stub").
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { is_alphabetic } from "../std/char.ts";
-import { debug_Hash64, type Hash64 } from "../rustc_hashes/lib.ts";
+import { debug_Hash64, Hash64 } from "../rustc_hashes/lib.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../std/fmt.ts";
 import { field_mut, type MutRef } from "../std/mut_ref.ts";
 import { assert, panic, unported, unreachable } from "../std/panic.ts";
@@ -21,7 +21,7 @@ import { into_diag_arg_using_display, number_into_diag_arg, str_into_diag_arg, S
 import { Diag, type DiagCtxtHandle, type Level, msg } from "../rustc_errors/lib.ts";
 import { intern_key } from "../rust_ts/intern_key.ts";
 import { RegKind } from "./callconv/reg.ts";
-import { FieldIdx, LayoutCalculatorError, type VariantIdx } from "./layout.ts";
+import { FieldIdx, LayoutCalculatorError, VariantIdx } from "./layout.ts";
 import { debug_WrappingRange, WrappingRange, WrappingRange_eq } from "./wrapping_range.ts";
 
 export * from "./canon_abi.ts";
@@ -3143,36 +3143,200 @@ export class LayoutData {
   }
 
   // ---- layout/simple.rs: impl LayoutData (PORTING §8: statics in the class body) ----
+  // "Simple" layout constructors that cannot fail.
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:13 unit (lane abi-layout-a)
-  static unit(_cx: HasDataLayout, _sized: boolean): LayoutData {
-    return unported("rustc_abi::layout::simple::LayoutData::unit");
+  // rustc: compiler/rustc_abi/src/layout/simple.rs:13 unit
+  static unit(cx: HasDataLayout, sized: boolean): LayoutData {
+    const dl = cx.data_layout();
+    return new LayoutData(
+      /* fields */ { $: "Arbitrary", offsets: [], in_memory_order: [] },
+      /* variants */ { $: "Single", index: VariantIdx.new(0) },
+      /* backend_repr */ { $: "Memory", sized },
+      /* largest_niche */ undefined,
+      /* uninhabited */ false,
+      /* align */ AbiAlign.new(dl.i8_align),
+      /* size */ Size.ZERO,
+      /* max_repr_align */ undefined,
+      /* unadjusted_abi_align */ dl.i8_align,
+      /* repr_c */ false,
+      /* randomization_seed */ Hash64.new(0n),
+    );
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:33 never_type (lane abi-layout-a)
-  static never_type(_cx: HasDataLayout): LayoutData {
-    return unported("rustc_abi::layout::simple::LayoutData::never_type");
+  // rustc: compiler/rustc_abi/src/layout/simple.rs:33 never_type
+  static never_type(cx: HasDataLayout): LayoutData {
+    const dl = cx.data_layout();
+    // This is also used for uninhabited enums, so we use `Variants::Empty`.
+    return new LayoutData(
+      /* fields */ FieldsShape.Primitive,
+      /* variants */ Variants.Empty,
+      /* backend_repr */ { $: "Memory", sized: true },
+      /* largest_niche */ undefined,
+      /* uninhabited */ true,
+      /* align */ AbiAlign.new(dl.i8_align),
+      /* size */ Size.ZERO,
+      /* max_repr_align */ undefined,
+      /* unadjusted_abi_align */ dl.i8_align,
+      /* repr_c */ false,
+      /* randomization_seed */ Hash64.ZERO,
+    );
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:51 scalar (lane abi-layout-a)
-  static scalar(_cx: HasDataLayout, _scalar: Scalar): LayoutData {
-    return unported("rustc_abi::layout::simple::LayoutData::scalar");
+  // rustc: compiler/rustc_abi/src/layout/simple.rs:51 scalar
+  static scalar(cx: HasDataLayout, scalar: Scalar): LayoutData {
+    const largest_niche = Niche.from_scalar(cx, Size.ZERO, scalar);
+    const size = Scalar.size(scalar, cx);
+    const align = Scalar.default_align(scalar, cx);
+
+    const range = Scalar.valid_range(scalar, cx);
+
+    // All primitive types for which we don't have subtype coercions should get a distinct seed,
+    // so that types wrapping them can use randomization to arrive at distinct layouts.
+    //
+    // Some type information is already lost at this point, so as an approximation we derive
+    // the seed from what remains. For example on 64-bit targets usize and u64 can no longer
+    // be distinguished.
+    // PORT: the `u64` wrapping arithmetic is done in `bigint` (`u64_wrapping_add`, `u64_rotate_right`).
+    const primitive = Scalar.primitive(scalar);
+    let tag: bigint;
+    switch (primitive.$) {
+      case "Int":
+        tag = primitive._1 ? 1n : 2n;
+        break;
+      case "Float":
+        tag = 3n;
+        break;
+      case "Pointer":
+        tag = 4n;
+        break;
+    }
+    const randomization_seed = u64_wrapping_add(
+      u64_wrapping_add(
+        u64_wrapping_add(BigInt(size.bytes()), tag << 32n),
+        // distinguishes references from pointers
+        u64_rotate_right(range.start & U64_MAX, 16n),
+      ),
+      // distinguishes char from u32 and bool from u8
+      u64_rotate_right(range.end & U64_MAX, 16n),
+    );
+
+    return new LayoutData(
+      /* fields */ FieldsShape.Primitive,
+      /* variants */ { $: "Single", index: VariantIdx.new(0) },
+      /* backend_repr */ { $: "Scalar", _0: scalar },
+      largest_niche,
+      /* uninhabited */ false,
+      align,
+      size,
+      /* max_repr_align */ undefined,
+      /* unadjusted_abi_align */ align.abi,
+      /* repr_c */ false,
+      /* randomization_seed */ Hash64.new(randomization_seed),
+    );
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:94 scalar_pair (lane abi-layout-a)
-  static scalar_pair(_cx: HasDataLayout, _a: Scalar, _b: Scalar): LayoutData {
-    return unported("rustc_abi::layout::simple::LayoutData::scalar_pair");
+  // rustc: compiler/rustc_abi/src/layout/simple.rs:94 scalar_pair
+  static scalar_pair(cx: HasDataLayout, a: Scalar, b: Scalar): LayoutData {
+    const dl = cx.data_layout();
+    const b_align = Scalar.default_align(b, dl).abi;
+    const align = Align_max(Align_max(Scalar.default_align(a, dl).abi, b_align), dl.aggregate_align);
+    const b_offset = Scalar.size(a, dl).align_to(b_align);
+    const size = b_offset.add(Scalar.size(b, dl)).align_to(align);
+
+    // HACK(nox): We iter on `b` and then `a` because `max_by_key`
+    // returns the last maximum.
+    // PORT: `Option::into_iter().chain(..).max_by_key(..)`: both `from_scalar` calls are evaluated first (the
+    // `chain` argument), then the keys in iteration order; ties keep the later element.
+    const niche_b = Niche.from_scalar(dl, b_offset, b);
+    const niche_a = Niche.from_scalar(dl, Size.ZERO, a);
+    let largest_niche: Niche | undefined = undefined;
+    let largest_key = 0n;
+    for (const niche of [niche_b, niche_a]) {
+      if (niche === undefined) continue;
+      const key = niche.available(dl);
+      if (largest_niche === undefined || key >= largest_key) {
+        largest_niche = niche;
+        largest_key = key;
+      }
+    }
+
+    const combined_seed = u64_wrapping_add(BigInt(Scalar.size(a, dl).bytes()), BigInt(Scalar.size(b, dl).bytes()));
+
+    return new LayoutData(
+      /* fields */ { $: "Arbitrary", offsets: [Size.ZERO, b_offset], in_memory_order: [FieldIdx.new(0), FieldIdx.new(1)] },
+      /* variants */ { $: "Single", index: VariantIdx.new(0) },
+      /* backend_repr */ { $: "ScalarPair", a, b, b_offset },
+      largest_niche,
+      /* uninhabited */ false,
+      /* align */ AbiAlign.new(align),
+      size,
+      /* max_repr_align */ undefined,
+      /* unadjusted_abi_align */ align,
+      /* repr_c */ false,
+      /* randomization_seed */ Hash64.new(combined_seed),
+    );
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:132 uninhabited_variant (lane abi-layout-a)
-  static uninhabited_variant(_cx: HasDataLayout, _index: VariantIdx, _fields: number): LayoutData {
-    return unported("rustc_abi::layout::simple::LayoutData::uninhabited_variant");
+  /// Returns a dummy layout for an uninhabited variant.
+  ///
+  /// Uninhabited variants get pruned as part of the layout calculation,
+  /// so this can be used after the fact to reconstitute a layout.
+  // rustc: compiler/rustc_abi/src/layout/simple.rs:132 uninhabited_variant
+  static uninhabited_variant(cx: HasDataLayout, index: VariantIdx, fields: number): LayoutData {
+    const dl = cx.data_layout();
+    return new LayoutData(
+      // `match NonZero::new(fields)`
+      /* fields */ fields !== 0 ? { $: "Union", _0: fields } : { $: "Arbitrary", offsets: [], in_memory_order: [] },
+      /* variants */ { $: "Single", index },
+      /* backend_repr */ { $: "Memory", sized: true },
+      /* largest_niche */ undefined,
+      /* uninhabited */ true,
+      /* align */ AbiAlign.new(dl.i8_align),
+      /* size */ Size.ZERO,
+      /* max_repr_align */ undefined,
+      /* unadjusted_abi_align */ dl.i8_align,
+      /* repr_c */ false,
+      // Variant layouts never flow back into actual layout computations,
+      // so dummy values are fine here.
+      /* randomization_seed */ Hash64.ZERO,
+    );
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:158 for_variant (lane abi-layout-a)
-  static for_variant(_parent: LayoutData, _index: VariantIdx): LayoutData {
-    return unported("rustc_abi::layout::simple::LayoutData::for_variant");
+  /// Returns a layout for an inhabited variant.
+  // rustc: compiler/rustc_abi/src/layout/simple.rs:158 for_variant
+  static for_variant(parent: LayoutData, index: VariantIdx): LayoutData {
+    let layout: VariantLayout;
+    switch (parent.variants.$) {
+      case "Multiple":
+        layout = parent.variants.variants[index];
+        break;
+      default:
+        return panic("Expected multi-variant layout in `Layout::for_variant`");
+    }
+
+    return new LayoutData(
+      /* fields */ { $: "Arbitrary", offsets: layout.field_offsets.slice(), in_memory_order: layout.fields_in_memory_order.slice() },
+      /* variants */ { $: "Single", index },
+      /* backend_repr */ layout.backend_repr,
+      /* largest_niche */ layout.largest_niche,
+      /* uninhabited */ layout.uninhabited,
+      /* align */ parent.align,
+      /* size */ layout.size,
+      /* max_repr_align */ parent.max_repr_align,
+      /* unadjusted_abi_align */ parent.unadjusted_abi_align,
+      /* repr_c */ parent.repr_c,
+      // Variant layouts never flow back into actual layout computations,
+      // so dummy values are fine here.
+      /* randomization_seed */ Hash64.ZERO,
+    );
   }
+}
+// PORT (abi-layout-a): `u64::wrapping_add` / `u64::rotate_right` for layout/simple.rs's seeds, in `bigint`.
+function u64_wrapping_add(a: bigint, b: bigint): bigint {
+  return (a + b) & U64_MAX;
+}
+function u64_rotate_right(x: bigint, n: bigint): bigint {
+  return ((x >> n) | (x << (64n - n))) & U64_MAX;
 }
 /** derive(PartialEq) (PORT (layout-contract): the derived equality is the intern key's, rust_ts/intern_key.ts) */
 export function LayoutData_eq(a: LayoutData, b: LayoutData): boolean {
