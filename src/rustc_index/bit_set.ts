@@ -33,7 +33,7 @@ const WORD_ALL_ONES: Word = (1n << 64n) - 1n;
 /// will panic if the bitsets have differing domain sizes.
 ///
 // rustc-type: compiler/rustc_index/src/bit_set.rs:79 DenseBitSet
-export class DenseBitSet<T extends number> {
+export class DenseBitSet<T extends number = number> {
   /** `marker: PhantomData<T>` (erased). */
   declare readonly __t?: T;
 

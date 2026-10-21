@@ -19,7 +19,6 @@ import { Constness, Defaultness, Safety } from "../../../rustc_hir/lib.ts";
 import type { DefId, LocalDefId } from "../../../rustc_span/def_id.ts";
 import { LocalDefId as LocalDefIdC } from "../../../rustc_span/def_id.ts";
 import { DUMMY_SP, type ErrorGuaranteed, type Span } from "../../../rustc_span/lib.ts";
-import { unported } from "../../../std/panic.ts";
 import { as_interner, TraitRef as TraitRef_ir } from "../../../rustc_type_ir/predicate.ts";
 import type {
   AliasConstKind,
@@ -275,9 +274,7 @@ TyCtxt.prototype.own_clauses_of = function (this: TyCtxt, def_id: DefId): EarlyB
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:418 supertrait_def_ids
 TyCtxt.prototype.supertrait_def_ids = function (this: TyCtxt, trait_def_id: DefId): Iterable<DefId> {
-  // rustc_type_ir::elaborate::supertrait_def_ids(self, trait_def_id)
-  void trait_def_id;
-  return unported("rustc_type_ir::elaborate::supertrait_def_ids (elaborate.rs)");
+  return tyir_elaborate().supertrait_def_ids(this, trait_def_id);
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:422 impl_is_const
@@ -315,11 +312,18 @@ TyCtxt.prototype.ir_const_conditions = function (this: TyCtxt, def_id: DefId): E
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:457 explicit_implied_const_bounds
-TyCtxt.prototype.ir_explicit_implied_const_bounds = function (this: TyCtxt, def_id: DefId): EarlyBinder<Iterable<never>> {
-  // ty::EarlyBinder::bind_iter(self.explicit_implied_const_bounds(def_id).iter_identity_copied()
-  //     .map(Unnormalized::skip_normalization).map(|(c, _)| c))
-  void def_id;
-  return unported("rustc_type_ir::binder::EarlyBinder::iter_identity_copied / bind_iter (binder.rs, lane tyir-binder)");
+TyCtxt.prototype.ir_explicit_implied_const_bounds = function (this: TyCtxt, def_id: DefId): EarlyBinder<Iterable<PolyTraitRef>> {
+  const { EarlyBinder } = tyir_binder();
+  const { Unnormalized } = tyir_unnormalized();
+  // PORT: the `explicit_implied_const_bounds` query value is `unknown` in queries.gen.ts: it is an
+  // `EarlyBinder<&[(PolyTraitRef, Span)]>`.
+  const bounds = this.explicit_implied_const_bounds(def_id) as EarlyBinder<readonly (readonly [PolyTraitRef, Span])[]>;
+  return EarlyBinder.bind_iter(
+    map_iter(
+      map_iter(EarlyBinder.iter_identity_copied(bounds), (u) => Unnormalized.skip_normalization(u)),
+      ([c, _]) => c,
+    ),
+  );
 };
 
 // rustc: compiler/rustc_middle/src/ty/context/impl_interner.rs:469 impl_self_is_guaranteed_unsized
@@ -717,6 +721,9 @@ function tyir_binder(): typeof import("../../../rustc_type_ir/binder.ts") {
 }
 function tyir_unnormalized(): typeof import("../../../rustc_type_ir/unnormalized.ts") {
   return require("../../../rustc_type_ir/unnormalized.ts") as typeof import("../../../rustc_type_ir/unnormalized.ts");
+}
+function tyir_elaborate(): typeof import("../../../rustc_type_ir/elaborate.ts") {
+  return require("../../../rustc_type_ir/elaborate.ts") as typeof import("../../../rustc_type_ir/elaborate.ts");
 }
 function middle_assoc(): typeof import("../assoc.ts") {
   return require("../assoc.ts") as typeof import("../assoc.ts");

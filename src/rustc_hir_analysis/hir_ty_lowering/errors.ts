@@ -60,6 +60,14 @@ import {
   type TraitRefPrintOnlyTraitPath,
   type TraitRefPrintSugared,
 } from "../../rustc_middle/ty/print/pretty.ts";
+import {
+  fold_with_TraitRefPrintOnlyTraitPath,
+  fold_with_TraitRefPrintSugared,
+  try_fold_with_TraitRefPrintOnlyTraitPath,
+  try_fold_with_TraitRefPrintSugared,
+  visit_with_TraitRefPrintOnlyTraitPath,
+  visit_with_TraitRefPrintSugared,
+} from "../../rustc_middle/ty/print/pretty.gen.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import type { TraitDef } from "../../rustc_middle/ty/trait_def.ts";
 import { feature_err } from "../../rustc_session/diagnostics.ts";
@@ -2100,16 +2108,16 @@ function as_decls_print<T>(d: Print<T>): import("../../rustc_middle/ty/decls.ts"
 // ==== stand-ins (PORT: pending other lanes). Root deletes each when its owner lands and points the uses at the real port. ====
 
 
-/** pretty.rs:2981 `#[derive(TypeFoldable, TypeVisitable)]` of `TraitRefPrintOnlyTraitPath` (codegen pending, ty-print-b "For root"). */
+/** pretty.rs:2981 `#[derive(TypeFoldable, TypeVisitable)]` of `TraitRefPrintOnlyTraitPath` (generated, ty/print/pretty.gen.ts). */
 const fold_TraitRefPrintOnlyTraitPath_: TypeFoldable<TraitRefPrintOnlyTraitPath> = {
-  visit_with: () => unported("rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitPath: TypeVisitable (derive, codegen pending)"),
-  try_fold_with: () => unported("rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitPath: TypeFoldable (derive, codegen pending)"),
-  fold_with: () => unported("rustc_middle::ty::print::pretty::TraitRefPrintOnlyTraitPath: TypeFoldable (derive, codegen pending)"),
+  visit_with: visit_with_TraitRefPrintOnlyTraitPath,
+  try_fold_with: try_fold_with_TraitRefPrintOnlyTraitPath,
+  fold_with: fold_with_TraitRefPrintOnlyTraitPath,
 };
 
-/** pretty.rs:3001 `#[derive(TypeFoldable, TypeVisitable)]` of `TraitRefPrintSugared` (codegen pending). */
+/** pretty.rs:3001 `#[derive(TypeFoldable, TypeVisitable)]` of `TraitRefPrintSugared` (generated, ty/print/pretty.gen.ts). */
 const fold_TraitRefPrintSugared_: TypeFoldable<TraitRefPrintSugared> = {
-  visit_with: () => unported("rustc_middle::ty::print::pretty::TraitRefPrintSugared: TypeVisitable (derive, codegen pending)"),
-  try_fold_with: () => unported("rustc_middle::ty::print::pretty::TraitRefPrintSugared: TypeFoldable (derive, codegen pending)"),
-  fold_with: () => unported("rustc_middle::ty::print::pretty::TraitRefPrintSugared: TypeFoldable (derive, codegen pending)"),
+  visit_with: visit_with_TraitRefPrintSugared,
+  try_fold_with: try_fold_with_TraitRefPrintSugared,
+  fold_with: fold_with_TraitRefPrintSugared,
 };

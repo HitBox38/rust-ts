@@ -49,7 +49,9 @@ import { Ok } from "../../../std/result.ts";
 import { decode_Clause, decode_List_BoundVariableKind, decode_Ty } from "../../../rustc_middle/ty/codec.ts";
 import { type CoerceUnsizedInfo, decode_CoerceUnsizedInfo } from "../../../rustc_middle/ty/adjustment.ts";
 import type { Clause } from "../../../rustc_middle/ty/predicate.ts";
-import { decode_tuple } from "../../../rustc_serialize/serialize.ts";
+import { decode_tuple, decode_usize } from "../../../rustc_serialize/serialize.ts";
+import { decode_DenseBitSet } from "../../../rustc_index/decodable.gen.ts";
+import { decode_CodegenFnAttrs } from "../../../rustc_middle/middle/codegen_fn_attrs.ts";
 import { type Binder, decode_EarlyBinder, EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { decode_AnonConstKind, decode_ConstKind } from "../../../rustc_type_ir/const_kind.ts";
 import { decode_Variance } from "../../../rustc_type_ir/lib.ts";
@@ -61,7 +63,7 @@ import { decode_FnSig, type FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
 import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
-import { decode_AsyncDestructor, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ImplTraitHeader, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
+import { decode_AsyncDestructor, decode_ConstConditions, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ImplTraitHeader, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
@@ -449,7 +451,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   type_alias_is_checked: [IntoArgs_DefId, table_direct(fse_bool, ProcessQueryValue_T)],
   variances_of: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("ty::Variance", decode_Variance), ProcessQueryValue_DecodeIterator_slice)],
   fn_sig: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, ty::PolyFnSig<'static>>", (d) => decode_EarlyBinder(d, decode_PolyFnSig)), ProcessQueryValue_Option_T)],
-  codegen_fn_attrs: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("CodegenFnAttrs", decode_unported("CodegenFnAttrs")), ProcessQueryValue_Option_T)],
+  codegen_fn_attrs: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("CodegenFnAttrs", decode_CodegenFnAttrs), ProcessQueryValue_Option_T)],
   impl_trait_header: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ImplTraitHeader<'static>", decode_ImplTraitHeader), ProcessQueryValue_Option_T)],
   impl_is_fully_generic_for_reflection: [IntoArgs_DefId, table_direct(fse_bool, ProcessQueryValue_T)],
   const_param_default: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, rustc_middle::ty::Const<'static>>", (d) => decode_EarlyBinder(d, decode_Const_)), ProcessQueryValue_Option_T)],
@@ -471,12 +473,12 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   lookup_const_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ConstStability", decode_ConstStability), ProcessQueryValue_T)],
   lookup_default_body_stability: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DefaultBodyStability", decode_DefaultBodyStability), ProcessQueryValue_T)],
   lookup_deprecation_entry: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Deprecation", decode_Deprecation), ProcessQueryValue_Deprecation)],
-  params_in_repr: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DenseBitSet<u32>", decode_unported("DenseBitSet<u32>")), ProcessQueryValue_Option_T)],
+  params_in_repr: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("DenseBitSet<u32>", decode_DenseBitSet), ProcessQueryValue_Option_T)],
   def_kind: [IntoArgs_DefId, (_tcx, def_id, _other, cdata) => cdata.def_kind(def_id.index)],
   impl_parent: [IntoArgs_DefId, table(fse_Option_RawDefId, raw_def_id, ProcessQueryValue_T)],
   defaultness: [IntoArgs_DefId, table_direct(fse_Defaultness, ProcessQueryValue_T)],
   constness: [IntoArgs_DefId, table_direct(fse_Constness, ProcessQueryValue_T)],
-  const_conditions: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ConstConditions<'static>", decode_unported("ty::ConstConditions<'static>")), ProcessQueryValue_Option_T)],
+  const_conditions: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ConstConditions<'static>", decode_ConstConditions), ProcessQueryValue_Option_T)],
   explicit_implied_const_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::PolyTraitRef<'static>, Span)", (d) => decode_tuple(d, (d) => decode_Binder(d, decode_TraitRef, decode_List_BoundVariableKind), decode_Span)), ProcessQueryValue_EarlyBinder)],
   coerce_unsized_info: [
     IntoArgs_DefId,
@@ -655,7 +657,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   doc_link_traits_in_scope: [IntoArgs_ModId, (tcx, def_id, _other, cdata) => [...cdata.get_doc_link_traits_in_scope(tcx, def_id.index)]],
   anon_const_kind: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::AnonConstKind", decode_AnonConstKind), ProcessQueryValue_Option_T)],
   const_of_item: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Option<ty::EarlyBinder<'static, ty::Const<'static>>>", (d) => decode_Option(d, (d) => decode_EarlyBinder(d, decode_Const_))), ProcessQueryValue_Option_T)],
-  args_known_to_outlive_alias_params: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Vec<(usize, DenseBitSet<u32>)>", decode_unported("Vec<(usize, DenseBitSet<u32>)>")), ProcessQueryValue_Option_T)],
+  args_known_to_outlive_alias_params: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("Vec<(usize, DenseBitSet<u32>)>", (d) => decode_Vec(d, (d) => decode_tuple(d, decode_usize, decode_DenseBitSet))), ProcessQueryValue_Option_T)],
 };
 
 // ---- provide -------------------------------------------------------------------------------------------------
