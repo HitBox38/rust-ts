@@ -3,13 +3,15 @@
 // one result line per input line.
 //
 // Input: `<fmt> <op> <args...>` (single spaces). Floats are hex bit patterns; `<fmt>` / `T` is one of
-// h s d q b x e5 e4 (Half Single Double Quad BFloat X87DoubleExtended Float8E5M2 Float8E4M3FN);
+// h s d q b x e5 e4 dd (Half Single Double Quad BFloat X87DoubleExtended Float8E5M2 Float8E4M3FN DoubleDouble;
+// `cvt` only between the IEEE formats: `DoubleDouble` implements no `FloatConvert`);
 // `R` a rounding mode E P N Z A; strings are hex of their UTF-8 bytes (`_` = empty).
 #![feature(rustc_private)]
 extern crate rustc_driver;
 extern crate rustc_apfloat;
 
 use rustc_apfloat::ieee::{BFloat, Double, Float8E4M3FN, Float8E5M2, Half, Quad, Single, X87DoubleExtended};
+use rustc_apfloat::ppc::DoubleDouble;
 use rustc_apfloat::{Float, FloatConvert, Round, Status, StatusAnd};
 use std::fmt::Write as _;
 use std::io::{BufRead, Write};
@@ -54,7 +56,8 @@ fn cvt<F: Float + FloatConvert<T>, T: Float>(a: F, r: Round) -> String {
     format!("{} {}", sa(x), b(loses))
 }
 
-fn run<F>(op: &str, a: &[&str]) -> String
+/// `cvt` (IEEE formats), else `run`.
+fn run_ieee<F>(op: &str, a: &[&str]) -> String
 where
     F: Float
         + FloatConvert<Half>
@@ -69,16 +72,6 @@ where
 {
     let f = |i: usize| F::from_bits(hx(a[i]));
     match op {
-        "add" => sa(f(1).add_r(f(2), rnd(a[0]))),
-        "sub" => sa(f(1).sub_r(f(2), rnd(a[0]))),
-        "mul" => sa(f(1).mul_r(f(2), rnd(a[0]))),
-        "div" => sa(f(1).div_r(f(2), rnd(a[0]))),
-        "fma" => sa(f(1).mul_add_r(f(2), f(3), rnd(a[0]))),
-        "rem" => sa(f(0).ieee_rem(f(1))),
-        "mod" => sa(f(0).c_fmod(f(1))),
-        "rti" => sa(f(1).round_to_integral(rnd(a[0]))),
-        "nu" => sa(f(0).next_up()),
-        "nd" => sa(f(0).next_down()),
         "cvt" => {
             let (x, r) = (f(2), rnd(a[1]));
             match a[0] {
@@ -93,6 +86,23 @@ where
                 t => panic!("fmt {t}"),
             }
         }
+        _ => run::<F>(op, a),
+    }
+}
+
+fn run<F: Float + std::fmt::Debug>(op: &str, a: &[&str]) -> String {
+    let f = |i: usize| F::from_bits(hx(a[i]));
+    match op {
+        "add" => sa(f(1).add_r(f(2), rnd(a[0]))),
+        "sub" => sa(f(1).sub_r(f(2), rnd(a[0]))),
+        "mul" => sa(f(1).mul_r(f(2), rnd(a[0]))),
+        "div" => sa(f(1).div_r(f(2), rnd(a[0]))),
+        "fma" => sa(f(1).mul_add_r(f(2), f(3), rnd(a[0]))),
+        "rem" => sa(f(0).ieee_rem(f(1))),
+        "mod" => sa(f(0).c_fmod(f(1))),
+        "rti" => sa(f(1).round_to_integral(rnd(a[0]))),
+        "nu" => sa(f(0).next_up()),
+        "nd" => sa(f(0).next_down()),
         "toi" => {
             let mut exact = false;
             let r = f(2).to_i128_r(a[0].parse().unwrap(), rnd(a[1]), &mut exact);
@@ -211,14 +221,15 @@ fn main() {
         let t: Vec<&str> = line.split(' ').collect();
         let (fmt, op, args) = (t[0], t[1], &t[2..]);
         let r = std::panic::catch_unwind(|| match fmt {
-            "h" => run::<Half>(op, args),
-            "s" => run::<Single>(op, args),
-            "d" => run::<Double>(op, args),
-            "q" => run::<Quad>(op, args),
-            "b" => run::<BFloat>(op, args),
-            "x" => run::<X87DoubleExtended>(op, args),
-            "e5" => run::<Float8E5M2>(op, args),
-            "e4" => run::<Float8E4M3FN>(op, args),
+            "h" => run_ieee::<Half>(op, args),
+            "s" => run_ieee::<Single>(op, args),
+            "d" => run_ieee::<Double>(op, args),
+            "q" => run_ieee::<Quad>(op, args),
+            "b" => run_ieee::<BFloat>(op, args),
+            "x" => run_ieee::<X87DoubleExtended>(op, args),
+            "e5" => run_ieee::<Float8E5M2>(op, args),
+            "e4" => run_ieee::<Float8E4M3FN>(op, args),
+            "dd" => run::<DoubleDouble>(op, args),
             _ => panic!("fmt {fmt}"),
         })
         .unwrap_or_else(|_| "PANIC".to_string());
