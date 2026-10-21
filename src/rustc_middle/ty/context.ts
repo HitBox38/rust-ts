@@ -52,7 +52,7 @@ import { Visibility } from "./mod.ts";
 import type { Ordering } from "./mod.ts";
 import { Interned } from "../../rustc_data_structures/intern.ts";
 import { type InternedSet as InternedSetImpl, ShardedHashMap } from "../../rustc_data_structures/sharded.ts";
-import { Layout as AbiLayout } from "../../rustc_abi/lib.ts";
+import { Layout as AbiLayout, TargetDataLayoutError_into_diag } from "../../rustc_abi/lib.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import type { ArgOutlivesClause, BoundVar, BoundVariableKind, CanonicalInputData, CanonicalVarKind, ConstKind, DebruijnIndex, ExternalConstraintsData, ImplPolarity, OpaqueTypeKey, PatternKind, PolyExistentialPredicate, PredicateKind, RegionKind, RegionVid, TraitRef, TyKind, TyVid, ValTreeKind } from "../../rustc_type_ir/decls.ts";
 import { FlagComputation } from "../../rustc_type_ir/flags.ts";
@@ -2936,7 +2936,8 @@ export class GlobalCtxt {
       //     sess.dcx().emit_fatal(err); })`, on first read (module comment).
       const r = this.sess.target.parse_data_layout();
       if (r.$ === "Err") {
-        return unported("rustc_errors::diagnostic_impls: Diagnostic for rustc_abi::TargetDataLayoutErrors (GlobalCtxt::data_layout: emit_fatal)");
+        const err = r._0;
+        return this.sess.dcx().emit_fatal({ into_diag: (dcx, level) => TargetDataLayoutError_into_diag(err, dcx, level) });
       }
       this.data_layout_ = r._0;
     }

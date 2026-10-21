@@ -58,8 +58,8 @@ const SIZE_RANGE_SET_OPS: RangeSetOps<Size> = {
   sub: (a, b) => a.sub(b),
 };
 
-/** PORT (abi-layout-b): a `u64` element count (`FieldsShape::Array.count`, a `bigint`) used as a `Size` multiplier
- * (`Size` is a `number`, root decision): beyond 2^53 the `number` would be wrong, so that path is unported. */
+/** PORT (abi-layout-b): a `u64` element count (`FieldsShape::Array.count`, a `bigint`) as the bound of a `0..count` loop:
+ * beyond 2^53 a `number` would be wrong, so that path is unported (`Size` multiplications take the `bigint`, merge-layout). */
 function array_count_as_number(count: bigint, site: string): number {
   if (count > BigInt(Number.MAX_SAFE_INTEGER)) return unported(`Size beyond 2^53 (${site})`);
   return Number(count);
@@ -631,7 +631,7 @@ export class TyAndLayout<Ty> {
         // For scalars we know there is no padding between the elements,
         // so the entire array is a single big data range.
         if (BackendRepr.is_scalar(elem.backend_repr)) {
-          out.add_range(base_offset, elem.size.mul(array_count_as_number(count, "TyAndLayout::add_data_ranges `elem.size * count`")));
+          out.add_range(base_offset, elem.size.mul(count));
         } else {
           // FIXME: this is really inefficient for large arrays.
           const n = array_count_as_number(count, "TyAndLayout::add_data_ranges `0..count`");

@@ -271,17 +271,10 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
     count_if_sized: bigint | undefined, // None for slices
   ): LayoutCalculatorResult<F> {
     const count = count_if_sized ?? 0n;
-    // PORT (abi-layout-a): `Size::checked_mul` takes a `number` count (`Size` is a `number`, root decision); a count
-    // past 2^53 is not converted: with a non-zero element size the product is past 2^53 too, so it is either at least
-    // `obj_size_bound` (`None`, as upstream) or a size rust-ts cannot represent (UNPORTED); `0 * count` is `0` for any
-    // count.
-    let size: Size | undefined;
-    if (count > MAX_SAFE_COUNT && element.size.bytes() !== 0) {
-      if (BigInt(element.size.bytes()) * count >= BigInt(this.cx.data_layout().obj_size_bound())) size = undefined;
-      else return unported("Size beyond 2^53 (rustc_abi::layout::LayoutCalculator::layout_of_array_like)");
-    } else {
-      size = element.size.checked_mul(Number(count), this.cx);
-    }
+    // (merge-layout) the `u64` count goes to `Size::checked_mul` as a `bigint`: its result is exact (`None` for every
+    // product at least `obj_size_bound`, `0 * count` is `0`), and a size below the bound but past 2^53 is
+    // `unported(SIZE_BEYOND_2_53)` there (abi-lib).
+    const size = element.size.checked_mul(count, this.cx);
     if (size === undefined) return Err(LayoutCalculatorError.SizeOverflow);
 
     return Ok(
@@ -1604,8 +1597,7 @@ export function vector_type_layout<F extends AsRefLayoutData>(kind: SimdVectorKi
   const element_ = elt.backend_repr._0;
 
   // Compute the size and alignment of the vector
-  // PORT: `count.as_u64()` is at most `MAX_SIMD_LANES` (`BackendLaneCount::new`), so it converts to a `number` exactly.
-  const size0 = elt.size.checked_mul(Number(BackendLaneCount.as_u64(count)), dl);
+  const size0 = elt.size.checked_mul(BackendLaneCount.as_u64(count), dl);
   if (size0 === undefined) return Err(LayoutCalculatorError.SizeOverflow);
   let repr: BackendRepr;
   let size: Size;
@@ -1649,7 +1641,6 @@ export function vector_type_layout<F extends AsRefLayoutData>(kind: SimdVectorKi
 }
 
 // PORT (abi-layout-a): local helpers for the integer ops of the fns above.
-const MAX_SAFE_COUNT = BigInt(Number.MAX_SAFE_INTEGER);
 const U64_MAX = (1n << 64n) - 1n;
 const U128_MAX = (1n << 128n) - 1n;
 /** `u64::trailing_zeros` of a value below 2^53 (64 for 0). */

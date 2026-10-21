@@ -296,7 +296,7 @@ export function layout_sanity_check(cx: LayoutCx, layout: TyAndLayout): void {
         assert(align_.pow2 >= element_align.pow2, "assertion failed: align >= element_align");
         // And the size has to be element * count plus alignment padding, of course
         // PORT: the lane count is a `NonZero<u16>`, so `as_u64()` is exact as a `number`.
-        assert(size_eq(size_, element_size.mul(Number(BackendLaneCount.as_u64(count))).align_to(align_)), "assertion failed: size == (element_size * count.as_u64()).align_to(align)");
+        assert(size_eq(size_, element_size.mul(BackendLaneCount.as_u64(count)).align_to(align_)), "assertion failed: size == (element_size * count.as_u64()).align_to(align)");
         break;
       }
       case "Memory":

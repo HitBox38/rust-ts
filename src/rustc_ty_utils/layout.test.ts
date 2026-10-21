@@ -11,7 +11,8 @@
 //
 // (lane ty-utils-layout wrote the first version with test-only scaffolds for the then-unported rustc_abi / rustc_middle
 // stubs; merge-layout removed them once every stub was filled and widened the cases: scalars, thin / wide pointers,
-// `Pointee::Metadata`, tuples with field reordering and niche bias, structs in every repr, unions, arrays, ZSTs, `!`,
+// `Pointee::Metadata`, tuples with field reordering and niche bias, structs in every repr, unions, arrays (incl. sizes
+// at the `obj_size_bound` / `usize::MAX` edges), ZSTs, `!`,
 // enums (niche-filling, tagged, repr(u8) / repr(i32) / repr(C), C-like with explicit discriminants), `Option<&T>`,
 // `UnsafeCell`. Coroutines are not reachable: their layout needs `mir::CoroutineLayout`, M4.)
 import { beforeAll, expect, test } from "bun:test";
@@ -152,26 +153,37 @@ const DISCRIMINANTS = [
   "#[rustc_dump_layout(debug)] enum D2 { A = -1, B = 1 }",
   "#[rustc_dump_layout(debug)] #[repr(i16)] enum D3 { A = -300, B, C = 7 }",
 ];
+/** array sizes at the edges: `usize::MAX` ZSTs, `obj_size_bound` overflows (`SizeOverflow`), a size just below 2^52 */
+const SIZES = [
+  ...PRELUDE,
+  ...aliases(["[(); 18446744073709551615]", "[u16; 1152921504606846976]", "[[u8; 4294967296]; 4294967296]", "[u8; 4503599627370495]"]),
+];
 const SOURCES: [string, string[]][] = [
   ["layout_scalars", SCALARS],
   ["layout_pointee", POINTEE],
   ["layout_aggregates", AGGREGATES],
   ["layout_discriminants", DISCRIMINANTS],
+  ["layout_sizes", SIZES],
 ];
 const text = (lines: string[]): string => [...lines, ""].join("\n");
 
 // ---- the oracle ----
 
 let have_oracle = false;
-/** per source: the `layout_of(<ty>) = Layout { .. }` messages in emission order, unindented */
+/** per source: the `layout_of(<ty>) = Layout { .. }` messages (or a layout error's Display) in emission order, unindented */
 const oracle_msgs = new Map<string, string[]>();
 
 function parse_msgs(stderr: string): string[] {
   const msgs: string[] = [];
   const lines = stderr.split("\n");
   for (let i = 0; i < lines.length; i++) {
-    const m = /^error: (layout_of\(.*\) = Layout \{)$/.exec(lines[i]!);
-    if (!m) continue;
+    const e = /^error: (.*)$/.exec(lines[i]!);
+    if (!e || e[1]!.startsWith("aborting due to")) continue;
+    const m = /^(layout_of\(.*\) = Layout \{)$/.exec(e[1]!);
+    if (!m) {
+      msgs.push(e[1]!);
+      continue;
+    }
     const out = [m[1]!];
     for (i++; i < lines.length && lines[i] !== "       }"; i++) out.push(lines[i]!.slice(7));
     out.push("}");
@@ -194,7 +206,7 @@ beforeAll(async () => {
     writeFileSync(join(WORK, `${name}.rs`), text(lines));
     const p = Bun.spawnSync(oracle.oracleRustcCmd(["--edition", "2024", "--crate-type", "lib", "-Ainternal_features", `${name}.rs`]), { cwd: WORK });
     const msgs = parse_msgs(p.stderr.toString());
-    // every `#[rustc_dump_layout(debug)]` item printed a layout (no layout error, no other error)
+    // every `#[rustc_dump_layout(debug)]` item printed one message (a layout or its layout error), and nothing else did
     const items = lines.filter((l) => l.startsWith("#[rustc_dump_layout(debug)]")).length;
     if (msgs.length !== items) throw new Error(`ERROR: oracle printed ${msgs.length} layouts for ${items} items of ${name}.rs`);
     oracle_msgs.set(name, msgs);
