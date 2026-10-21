@@ -146,7 +146,7 @@ import { type TypeVisitable, TypeVisitableExt, type TypeVisitor, TypeVisitor_pro
 import { intern_key } from "../../../rust_ts/intern_key.ts";
 import { KeyedMap } from "../../../rust_ts/keyed.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
-import { panic, unported, unwrap } from "../../../std/panic.ts";
+import { panic, unwrap } from "../../../std/panic.ts";
 import { Err, Ok, type Result } from "../../../std/result.ts";
 import { utf8_len } from "../../../std/str.ts";
 import type { ObligationCauseFailureCode, TypeErrorAdditionalDiags } from "../../diagnostics.gen.ts";
@@ -447,7 +447,6 @@ TypeErrCtxt.prototype.suggest_param_env_shadowing = function (this: TypeErrCtxt,
   }
 };
 
-
 // rustc: compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs:326 note_error_origin
 TypeErrCtxt.prototype.note_error_origin = function (
   this: TypeErrCtxt,
@@ -628,7 +627,6 @@ TypeErrCtxt.prototype.note_error_origin = function (
     }
   }
 };
-
 
 /// Determines whether deref_to == <deref_from as Deref>::Target, and if so,
 /// returns a prefix that should be added to deref_from as a suggestion.
@@ -1399,19 +1397,19 @@ TypeErrCtxt.prototype.cmp = function (this: TypeErrCtxt, t1: Ty, t2: Ty): [DiagS
     const args1 = unwrap(Binder.no_bound_vars(k1._1, fold_GenericArgs));
     const args2 = unwrap(Binder.no_bound_vars(k2._1, fold_GenericArgs));
 
-    const sig1 = this.fn_sig_instantiate(did1, args1);
-    const sig2 = this.fn_sig_instantiate(did2, args2);
+    const sig1 = fn_sig_instantiate(this.tcx, did1, args1);
+    const sig2 = fn_sig_instantiate(this.tcx, did2, args2);
     return this.cmp_fn_sig(sig1, [did1, args1], sig2, [did2, args2]);
   } else if (k1.$ === "FnDef" && k2.$ === "FnPtr") {
     const did1 = k1._0;
     const args1 = unwrap(Binder.no_bound_vars(k1._1, fold_GenericArgs));
-    const sig1 = this.fn_sig_instantiate(did1, args1);
+    const sig1 = fn_sig_instantiate(this.tcx, did1, args1);
     return this.cmp_fn_sig(sig1, [did1, args1], PolyFnSigTys.with(k2._0, k2._1), undefined);
   } else if (k1.$ === "FnPtr" && k2.$ === "FnDef") {
     const did2 = k2._0;
     const args2 = unwrap(Binder.no_bound_vars(k2._1, fold_GenericArgs));
 
-    const sig2 = this.fn_sig_instantiate(did2, args2);
+    const sig2 = fn_sig_instantiate(this.tcx, did2, args2);
     return this.cmp_fn_sig(PolyFnSigTys.with(k1._0, k1._1), undefined, sig2, [did2, args2]);
   } else if (k1.$ === "FnPtr" && k2.$ === "FnPtr") {
     return this.cmp_fn_sig(PolyFnSigTys.with(k1._0, k1._1), undefined, PolyFnSigTys.with(k2._0, k2._1), undefined);
@@ -1486,19 +1484,11 @@ TypeErrCtxt.prototype.cmp = function (this: TypeErrCtxt, t1: Ty, t2: Ty): [DiagS
   }
 };
 
-
-// PORT: `self.tcx.fn_sig(did).instantiate(self.tcx, args).skip_norm_wip()` (used four times in `cmp`); a local helper,
-// not a method of upstream's `TypeErrCtxt`.
-declare module "../../decls.ts" {
-  interface TypeErrCtxt {
-    /** PORT(local helper): `tcx.fn_sig(did).instantiate(tcx, args).skip_norm_wip()`. */
-    fn_sig_instantiate(did: DefId, args: GenericArgs): PolyFnSig;
-  }
+// PORT: `self.tcx.fn_sig(did).instantiate(self.tcx, args).skip_norm_wip()` (written four times in `cmp`) as a module-local
+// helper; queries.gen.ts types the `fn_sig` query's value `unknown`, it is `EarlyBinder<PolyFnSig>`.
+function fn_sig_instantiate(tcx: TyCtxt, did: DefId, args: GenericArgs): PolyFnSig {
+  return Unnormalized.skip_norm_wip(EarlyBinder.instantiate(tcx.fn_sig(did) as EarlyBinder<PolyFnSig>, tcx, args, fold_Binder(fold_FnSig)));
 }
-TypeErrCtxt.prototype.fn_sig_instantiate = function (this: TypeErrCtxt, did: DefId, args: GenericArgs): PolyFnSig {
-  // PORT: queries.gen.ts types the `fn_sig` query's value `unknown`; it is `EarlyBinder<PolyFnSig>`.
-  return Unnormalized.skip_norm_wip(EarlyBinder.instantiate(this.tcx.fn_sig(did) as EarlyBinder<PolyFnSig>, this.tcx, args, fold_Binder(fold_FnSig)));
-};
 
 // ---- note_type_err's local types (mod.rs:1479..1568, 1572..1575, 1767..1771) ----
 
@@ -2015,8 +2005,6 @@ TypeErrCtxt.prototype.note_type_err = function (
   // debug!(?diag);
 };
 
-
-
 /** `impl Display for ty::PolyFnSig<'tcx>` (`Binder<FnSig>`, printed by rustc_middle's `IrPrint`). */
 function display_PolyFnSig(sig: PolyFnSig): string {
   return display_Binder_with(sig, print_FnSig, fold_FnSig);
@@ -2398,7 +2386,6 @@ TypeErrCtxt.prototype.values_str = function (
   }
 };
 
-
 // rustc: compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs:2368 expected_found_str_term
 TypeErrCtxt.prototype.expected_found_str_term = function (
   this: TypeErrCtxt,
@@ -2763,6 +2750,3 @@ export function TyCategory_from_ty(tcx: TyCtxt, ty: Ty): [TyCategory, DefId] | u
       return undefined;
   }
 }
-
-/** Every `TypeErrCtxt` method of this file is assigned above; `unported` remains only where a callee is unported. */
-void unported;
