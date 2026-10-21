@@ -1,6 +1,5 @@
 // Port of compiler/rustc_abi/src/layout/ty.rs (lane layout-contract: `Layout`, `TyAndLayout`, `TyAbiInterface`, their
-// Debug / Deref glue, and a `// stub:` declaration of every other fn for lane abi-layout-b; conventions in
-// ../layout.ts's header).
+// Debug / Deref glue; lane abi-layout-b: the rest of `impl TyAndLayout`; conventions in ../layout.ts's header).
 //
 // PORT (layout-contract):
 // - `Layout(Interned<LayoutData>)` is the frozen class `Layout extends Interned` (PORTING §5 "Hash-consed values"), made
@@ -17,6 +16,7 @@
 // - `Ty: fmt::Display` (Debug of `TyAndLayout`) is a `display_Ty` parameter of `debug_TyAndLayout`.
 // Init order: lib.ts re-exports this module, so its top-level code must not touch lib.ts's values.
 import { INTERNED, Interned } from "../../rustc_data_structures/intern.ts";
+import { RangeSet, type RangeSetOps } from "../../rustc_data_structures/range_set.ts";
 import { type Debug, debug_struct, type Fmt, PLAIN } from "../../std/fmt.ts";
 import { assert, assert_eq, panic, unported, unreachable } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
@@ -25,7 +25,7 @@ import {
   type AbiAlign,
   type Align,
   type BackendLaneCount,
-  type BackendRepr,
+  BackendRepr,
   debug_LayoutData,
   debug_Size,
   FieldsShape,
@@ -40,7 +40,7 @@ import {
   type Variants,
 } from "../lib.ts";
 import type { Hash64 } from "../../rustc_hashes/lib.ts";
-import type { FieldIdx, VariantIdx } from "../layout.ts";
+import { FieldIdx, type VariantIdx } from "../layout.ts";
 
 // Explicitly import `Float` to avoid ambiguity with `Primitive::Float`.
 
@@ -49,8 +49,21 @@ export interface Range<Idx> {
   readonly start: Idx;
   readonly end: Idx;
 }
-/** rustc_data_structures range_set.rs `RangeSet<T>`: not ported yet (lane abi-layout-b ports what it needs). */
-export type RangeSet<_T> = unknown;
+/** PORT (abi-layout-b): the `T: Copy + Ord + Default + Add + Sub` table of `RangeSet<Size>` (rustc_data_structures
+ * range_set.ts module comment); `Size`'s derived `Ord` compares the byte count. */
+const SIZE_RANGE_SET_OPS: RangeSetOps<Size> = {
+  default_: () => Size.ZERO,
+  cmp: (a, b) => (a.bytes() < b.bytes() ? -1 : a.bytes() > b.bytes() ? 1 : 0),
+  add: (a, b) => a.add(b),
+  sub: (a, b) => a.sub(b),
+};
+
+/** PORT (abi-layout-b): a `u64` element count (`FieldsShape::Array.count`, a `bigint`) used as a `Size` multiplier
+ * (`Size` is a `number`, root decision): beyond 2^53 the `number` would be wrong, so that path is unported. */
+function array_count_as_number(count: bigint, site: string): number {
+  if (count > BigInt(Number.MAX_SAFE_INTEGER)) return unported(`Size beyond 2^53 (${site})`);
+  return Number(count);
+}
 
 /** PORT (layout-contract): freezes an interned `LayoutData` and every plain object / array inside it (module comment). */
 function deep_freeze<T>(v: T): T {
@@ -276,68 +289,80 @@ export class TyAndLayout<Ty> {
   ///
   /// If you don't need type information about the variant's fields, prefer using
   /// `self.layout.variants` directly.
-  // stub: compiler/rustc_abi/src/layout/ty.rs:138 for_variant (lane abi-layout-b)
-  for_variant<C>(_cx: C, _variant_index: VariantIdx): TyAndLayout<Ty> {
-    return unported("rustc_abi::layout::ty::TyAndLayout::for_variant");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:138 for_variant
+  for_variant<C>(cx: C, variant_index: VariantIdx): TyAndLayout<Ty> {
+    return ty_abi_interface<Ty, C>().ty_and_layout_for_variant(this, cx, variant_index);
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:145 field (lane abi-layout-b)
-  field<C>(_cx: C, _i: number): TyAndLayout<Ty> {
-    return unported("rustc_abi::layout::ty::TyAndLayout::field");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:145 field
+  field<C>(cx: C, i: number): TyAndLayout<Ty> {
+    return ty_abi_interface<Ty, C>().ty_and_layout_field(this, cx, i);
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:152 pointee_info_at (lane abi-layout-b)
-  pointee_info_at<C>(_cx: C, _offset: Size): PointeeInfo | undefined {
-    return unported("rustc_abi::layout::ty::TyAndLayout::pointee_info_at");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:152 pointee_info_at
+  pointee_info_at<C>(cx: C, offset: Size): PointeeInfo | undefined {
+    return ty_abi_interface<Ty, C>().ty_and_layout_pointee_info_at(this, cx, offset);
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:159 is_single_vector_element (lane abi-layout-b)
-  is_single_vector_element<C extends HasDataLayout>(_cx: C, _expected_size: Size): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::is_single_vector_element");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:159 is_single_vector_element
+  is_single_vector_element<C extends HasDataLayout>(cx: C, expected_size: Size): boolean {
+    switch (this.backend_repr.$) {
+      case "SimdVector":
+        return this.size.bytes() === expected_size.bytes();
+      case "Memory": {
+        if (FieldsShape.count(this.fields) === 1 && FieldsShape.offset(this.fields, 0).bytes() === 0) {
+          return this.field(cx, 0).is_single_vector_element(cx, expected_size);
+        } else {
+          return false;
+        }
+      }
+      default:
+        return false;
+    }
   }
 
   // PORT (layout-contract): `is_adt::<C>(self)` .. `is_scalable_vector::<C>(self)` take no `cx`; the table does not
   // depend on `C` (module comment).
-  // stub: compiler/rustc_abi/src/layout/ty.rs:177 is_adt (lane abi-layout-b)
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:177 is_adt
   is_adt(): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::is_adt");
+    return ty_abi_interface<Ty, unknown>().is_adt(this);
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:184 is_enum (lane abi-layout-b)
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:184 is_enum
   is_enum(): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::is_enum");
+    return ty_abi_interface<Ty, unknown>().is_enum(this);
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:191 is_never (lane abi-layout-b)
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:191 is_never
   is_never(): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::is_never");
+    return ty_abi_interface<Ty, unknown>().is_never(this);
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:198 is_tuple (lane abi-layout-b)
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:198 is_tuple
   is_tuple(): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::is_tuple");
+    return ty_abi_interface<Ty, unknown>().is_tuple(this);
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:205 is_unit (lane abi-layout-b)
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:205 is_unit
   is_unit(): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::is_unit");
+    return ty_abi_interface<Ty, unknown>().is_unit(this);
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:212 is_transparent (lane abi-layout-b)
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:212 is_transparent
   is_transparent(): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::is_transparent");
+    return ty_abi_interface<Ty, unknown>().is_transparent(this);
   }
 
   /// Returns `true` if this type needs to match the ABI of the C `_Complex` type. See
   /// [`TyAndLayout::complex_number`] for details.
-  // stub: compiler/rustc_abi/src/layout/ty.rs:221 is_complex_number (lane abi-layout-b)
-  is_complex_number<C>(_cx: C): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::is_complex_number");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:221 is_complex_number
+  is_complex_number<C>(cx: C): boolean {
+    return this.complex_number(cx) !== undefined;
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:228 is_scalable_vector (lane abi-layout-b)
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:228 is_scalable_vector
   is_scalable_vector(): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::is_scalable_vector");
+    return ty_abi_interface<Ty, unknown>().is_scalable_vector(this);
   }
 
   /// If this method returns `true`, then this type should always have a `PassMode` of
@@ -351,9 +376,18 @@ export class TyAndLayout<Ty> {
   /// function call isn't allowed (a.k.a. `va_list`).
   ///
   /// This function handles transparent types automatically.
-  // stub: compiler/rustc_abi/src/layout/ty.rs:246 pass_indirectly_in_non_rustic_abis (lane abi-layout-b)
-  pass_indirectly_in_non_rustic_abis<C>(_cx: C): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::pass_indirectly_in_non_rustic_abis");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:246 pass_indirectly_in_non_rustic_abis
+  pass_indirectly_in_non_rustic_abis<C>(cx: C): boolean {
+    // FIXME: Peeling the wrappers above would not work correctly if we are a 1-ZST. So we make
+    // `#[rustc_pass_indirectly_in_non_rustic_abis]` a NOP on 1-ZST. In the future,
+    // `non_1zst_field` should become `non_trivial_abi_field` and
+    // `#[rustc_pass_indirectly_in_non_rustic_abis]` should make a type have non-trivial ABI.
+    if (this.is_1zst()) {
+      return false;
+    }
+
+    const base = this.peel_transparent_wrappers_from_non_1zst(cx);
+    return ty_abi_interface<Ty, C>().is_pass_indirectly_in_non_rustic_abis_flag_set(base);
   }
 
   /// Recursively peel away transparent wrappers, returning the inner value.
@@ -362,25 +396,59 @@ export class TyAndLayout<Ty> {
   ///
   /// The return value is not `repr(transparent)` and/or does
   /// not have a non-1zst field.
-  // stub: compiler/rustc_abi/src/layout/ty.rs:268 peel_transparent_wrappers_from_non_1zst (lane abi-layout-b)
-  peel_transparent_wrappers_from_non_1zst<C>(_cx: C): TyAndLayout<Ty> {
-    return unported("rustc_abi::layout::ty::TyAndLayout::peel_transparent_wrappers_from_non_1zst");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:268 peel_transparent_wrappers_from_non_1zst
+  peel_transparent_wrappers_from_non_1zst<C>(cx: C): TyAndLayout<Ty> {
+    // PORT: `mut self` is the local `self_`.
+    let self_: TyAndLayout<Ty> = this;
+    for (;;) {
+      if (!self_.is_transparent()) break;
+      const found = self_.non_1zst_field(cx);
+      if (found === undefined) break;
+      const [, field] = found;
+      self_ = field;
+    }
+
+    return self_;
   }
 
   /// Finds the one field that is not a 1-ZST.
   /// Returns `None` if there are multiple non-1-ZST fields or only 1-ZST-fields.
-  // stub: compiler/rustc_abi/src/layout/ty.rs:283 non_1zst_field (lane abi-layout-b)
-  non_1zst_field<C>(_cx: C): [FieldIdx, TyAndLayout<Ty>] | undefined {
-    return unported("rustc_abi::layout::ty::TyAndLayout::non_1zst_field");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:283 non_1zst_field
+  non_1zst_field<C>(cx: C): [FieldIdx, TyAndLayout<Ty>] | undefined {
+    let found: [FieldIdx, TyAndLayout<Ty>] | undefined = undefined;
+    for (let field_idx = 0; field_idx < FieldsShape.count(this.fields); field_idx++) {
+      const field = this.field(cx, field_idx);
+      if (field.is_1zst()) {
+        continue;
+      }
+      if (found !== undefined) {
+        // More than one non-1-ZST field.
+        return undefined;
+      }
+      found = [FieldIdx.from_usize(field_idx), field];
+    }
+    return found;
   }
 
   /// Finds the one field that is not a ZST.
   /// Returns `None` if there are multiple non-ZST fields or only ZST-fields.
   ///
   /// Note that this function checks for ZSTs, not just 1-ZSTs.
-  // stub: compiler/rustc_abi/src/layout/ty.rs:306 non_zst_field_ignore_alignment (lane abi-layout-b)
-  non_zst_field_ignore_alignment<C>(_cx: C): [FieldIdx, TyAndLayout<Ty>] | undefined {
-    return unported("rustc_abi::layout::ty::TyAndLayout::non_zst_field_ignore_alignment");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:306 non_zst_field_ignore_alignment
+  non_zst_field_ignore_alignment<C>(cx: C): [FieldIdx, TyAndLayout<Ty>] | undefined {
+    let found: [FieldIdx, TyAndLayout<Ty>] | undefined = undefined;
+    for (let field_idx = 0; field_idx < FieldsShape.count(this.fields); field_idx++) {
+      const field = this.field(cx, field_idx);
+      if (field.is_zst()) {
+        continue;
+      }
+      if (found !== undefined) {
+        // More than one non-ZST field.
+        return undefined;
+      }
+      found = [FieldIdx.from_usize(field_idx), field];
+    }
+    return found;
   }
 
   /// If this type should match the ABI of the C `_Complex` type, returns the primitive that is
@@ -388,23 +456,80 @@ export class TyAndLayout<Ty> {
   ///
   /// This function only returns `Some(T)` for `core::num::Complex<T>` where `T` is
   /// either a float or an integer. `repr(transparent)` wrapper types are automatically handled.
-  // stub: compiler/rustc_abi/src/layout/ty.rs:330 complex_number (lane abi-layout-b)
-  complex_number<C>(_cx: C): Numeric | undefined {
-    return unported("rustc_abi::layout::ty::TyAndLayout::complex_number");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:330 complex_number
+  complex_number<C>(cx: C): Numeric | undefined {
+    // We're checking for scalar repr below which excludes 1-ZST.
+    const complex = this.peel_transparent_wrappers_from_non_1zst(cx);
+    if (!ty_abi_interface<Ty, C>().is_complex_number_lang_item(complex, cx)) {
+      return undefined;
+    }
+
+    const component = complex.field(cx, 0).peel_transparent_wrappers_from_non_1zst(cx);
+
+    const component_repr = component.backend_repr;
+    if (component_repr.$ !== "Scalar") {
+      return undefined;
+    }
+    const scalar = component_repr._0;
+
+    // Only Complex<{ float }> and Complex<{ integer }> have special layout.
+    //
+    // Explicitly spell out all the float types so that any new ones have to be added to
+    // one of the match branches.
+    const primitive = Scalar.primitive(scalar);
+    switch (primitive.$) {
+      case "Int":
+        return { $: "Int", _0: primitive._0, _1: primitive._1 };
+      case "Float": {
+        const float = primitive._0;
+        switch (float) {
+          case "F16":
+          case "F32":
+          case "F64":
+          case "F128":
+          case "PpcF128":
+            return { $: "Float", _0: float };
+          case "F16B":
+            return undefined;
+        }
+        break;
+      }
+      case "Pointer":
+        return undefined;
+    }
   }
 
   /// Returns `Some` if this type has the ABI of the C `_Complex` type with float components.
   /// See [`TyAndLayout::complex_number`] for details.
-  // stub: compiler/rustc_abi/src/layout/ty.rs:362 complex_float (lane abi-layout-b)
-  complex_float<C>(_cx: C): Float | undefined {
-    return unported("rustc_abi::layout::ty::TyAndLayout::complex_float");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:362 complex_float
+  complex_float<C>(cx: C): Float | undefined {
+    const n = this.complex_number(cx);
+    if (n !== undefined && n.$ === "Float") return n._0;
+    return undefined;
   }
 
   /// Whether this type/layout has any padding that is dependent on a variant, i.e. has bytes that
   /// are padding for some, but not all, valid values of this type.
-  // stub: compiler/rustc_abi/src/layout/ty.rs:374 has_variant_dependent_padding (lane abi-layout-b)
-  has_variant_dependent_padding<C>(_cx: C): boolean {
-    return unported("rustc_abi::layout::ty::TyAndLayout::has_variant_dependent_padding");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:374 has_variant_dependent_padding
+  has_variant_dependent_padding<C>(cx: C): boolean {
+    switch (this.variants.$) {
+      case "Multiple":
+        return true;
+      case "Empty":
+        return false;
+      case "Single": {
+        const fields = this.fields;
+        switch (fields.$) {
+          case "Primitive":
+          case "Union":
+            return false;
+          case "Array":
+            return fields.count > 0n && this.field(cx, 0).has_variant_dependent_padding(cx);
+          case "Arbitrary":
+            return fields.offsets.some((_, i) => this.field(cx, i).has_variant_dependent_padding(cx));
+        }
+      }
+    }
   }
 
   /// The ranges of bytes that are always ignored by the representation relation of this type.
@@ -414,19 +539,134 @@ export class TyAndLayout<Ty> {
   /// This is the "guaranteed" padding. There may be more bytes that are padding for some
   /// but not all variants of this type; those are not included.
   /// (E.g. `Option<i8>` has no guaranteed padding so the empty range set is returned, but its `None` value still has padding).
-  // stub: compiler/rustc_abi/src/layout/ty.rs:400 variant_independent_padding_ranges (lane abi-layout-b)
-  variant_independent_padding_ranges<C>(_cx: C): Range<Size>[] {
-    return unported("rustc_abi::layout::ty::TyAndLayout::variant_independent_padding_ranges");
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:400 variant_independent_padding_ranges
+  variant_independent_padding_ranges<C>(cx: C): Range<Size>[] {
+    const data = RangeSet.new(SIZE_RANGE_SET_OPS);
+    this.add_data_ranges(cx, Size.ZERO, data);
+
+    // Find gaps between the data ranges.
+    const uninit_ranges: Range<Size>[] = [];
+    let covered_until = Size.ZERO;
+    for (const [offset, size] of data._0) {
+      if (offset.bytes() > covered_until.bytes()) {
+        uninit_ranges.push({ start: covered_until, end: offset });
+      }
+      // `Ord::max` returns `other` on ties
+      const end = offset.add(size);
+      covered_until = end.bytes() >= covered_until.bytes() ? end : covered_until;
+    }
+
+    // Add trailing padding.
+    if (this.size.bytes() > covered_until.bytes()) {
+      uninit_ranges.push({ start: covered_until, end: this.size });
+    }
+
+    return uninit_ranges;
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:428 variant_dependent_padding_ranges (lane abi-layout-b)
-  variant_dependent_padding_ranges<C>(_cx: C, _variant_index: VariantIdx): Range<Size>[] {
-    return unported("rustc_abi::layout::ty::TyAndLayout::variant_dependent_padding_ranges");
+  /// The ranges of bytes that are ignored by the representation relation of this variant.
+  ///
+  /// The result does not include variant-independent padding.
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:428 variant_dependent_padding_ranges
+  variant_dependent_padding_ranges<C>(cx: C, variant_index: VariantIdx): Range<Size>[] {
+    if (this.variants.$ !== "Multiple") {
+      return [];
+    }
+
+    // Bytes that are data in some variant.
+    const any = RangeSet.new(SIZE_RANGE_SET_OPS);
+    this.add_data_ranges(cx, Size.ZERO, any);
+
+    // Bytes that are data in this variant.
+    const this_ = RangeSet.new(SIZE_RANGE_SET_OPS);
+
+    // The variants do not contain e.g. the discriminant or coroutine upvars.
+    const fields = this.fields;
+    if (fields.$ !== "Arbitrary") {
+      return unreachable("internal error: entered unreachable code: a multi-variant layout should have `Arbitrary` fields");
+    }
+    const { offsets } = fields;
+
+    // So add them explicitly.
+    for (let field = 0; field < offsets.length; field++) {
+      const offset = offsets[field]!;
+      const field_ = this.field(cx, field);
+      field_.add_data_ranges(cx, offset, this_);
+    }
+
+    this.for_variant(cx, variant_index).add_data_ranges(cx, Size.ZERO, this_);
+
+    // Padding specific to this variant: data in some variant, but not in this one.
+    return any.difference(this_)._0.map(([offset, size]) => ({ start: offset, end: offset.add(size) }));
   }
 
-  // stub: compiler/rustc_abi/src/layout/ty.rs:467 add_data_ranges (lane abi-layout-b)
-  add_data_ranges<C>(_cx: C, _base_offset: Size, _out: RangeSet<Size>): void {
-    return unported("rustc_abi::layout::ty::TyAndLayout::add_data_ranges");
+  /// Extend `out` with all ranges of bytes that *may* carry relevant data for values of this type.
+  /// For enums and unions there are offsets that are initialized for some
+  /// variants but not for others; those offset *will* get added to `out`.
+  // rustc: compiler/rustc_abi/src/layout/ty.rs:467 add_data_ranges
+  add_data_ranges<C>(cx: C, base_offset: Size, out: RangeSet<Size>): void {
+    if (this.is_zst()) {
+      return;
+    }
+
+    // Visit the fields of this value. For enum values the fields include the discriminant.
+    const fields = this.fields;
+    switch (fields.$) {
+      case "Primitive": {
+        out.add_range(base_offset, this.size);
+        break;
+      }
+      case "Union": {
+        const field_count = fields._0;
+        for (let field = 0; field < field_count; field++) {
+          const field_ = this.field(cx, field);
+          field_.add_data_ranges(cx, base_offset, out);
+        }
+        break;
+      }
+      case "Array": {
+        const { stride, count } = fields;
+        const elem = this.field(cx, 0);
+
+        // For scalars we know there is no padding between the elements,
+        // so the entire array is a single big data range.
+        if (BackendRepr.is_scalar(elem.backend_repr)) {
+          out.add_range(base_offset, elem.size.mul(array_count_as_number(count, "TyAndLayout::add_data_ranges `elem.size * count`")));
+        } else {
+          // FIXME: this is really inefficient for large arrays.
+          const n = array_count_as_number(count, "TyAndLayout::add_data_ranges `0..count`");
+          for (let idx = 0; idx < n; idx++) {
+            elem.add_data_ranges(cx, base_offset.add(Size.u64_mul(idx, stride)), out);
+          }
+        }
+        break;
+      }
+      case "Arbitrary": {
+        const { offsets } = fields;
+        for (let field = 0; field < offsets.length; field++) {
+          const offset = offsets[field]!;
+          const field_ = this.field(cx, field);
+          field_.add_data_ranges(cx, base_offset.add(offset), out);
+        }
+        break;
+      }
+    }
+
+    // Visit the fields of each variant.
+    const variants = this.variants;
+    switch (variants.$) {
+      case "Empty":
+      case "Single":
+        /* done */
+        break;
+      case "Multiple": {
+        for (let variant = 0; variant < variants.variants.length; variant++) {
+          const variant_ = this.for_variant(cx, variant as VariantIdx);
+          variant_.add_data_ranges(cx, base_offset, out);
+        }
+        break;
+      }
+    }
   }
 
   // ---- callconv.rs: impl TyAndLayout (PORTING §8: in the class body) ----

@@ -38,6 +38,7 @@ import {
   type VariantIdx,
 } from "../rustc_abi/lib.ts";
 import { coroutine_saved_local_eligibility } from "../rustc_abi/layout/coroutine.ts";
+import { BitMatrix } from "../rustc_index/bit_set.ts";
 import { ty_abi_interface } from "../rustc_abi/layout/ty.ts";
 import type { Crate } from "../rustc_ast/lib.ts";
 import { compiler_entrypoint } from "../rustc_driver_impl/lib.ts";
@@ -134,7 +135,7 @@ test("every fn of the layout files is ported or declared as a stub, never both",
   // stubs only for the scope files
   for (const d of stubs) expect(FILES.some(([f]) => f === d.path)).toBe(true);
   expect(total).toBe(320);
-  expect(stubs.length).toBe(55);
+  expect(stubs.length).toBe(29);
 });
 
 function stops(f: () => unknown, what: string): void {
@@ -221,18 +222,19 @@ test("the stubs stop as UNPORTED with their own path", () => {
   expect(Scalar.primitive(scalar(u8_, 0n, 1n))).toBe(u8_);
   expect(new WrappingRange(0n, 1n).contains(0n)).toBe(true);
   // `LayoutData::scalar` (abi-layout-a) and `Niche::from_scalar` (abi-lib) are ported: scalar layouts are checked against the oracle in layout.test.ts
-  // `layout_of_union` (abi-layout-a) is ported: a union with no fields is `EmptyUnion`; `layout_of_enum` is still a stub
   const dl = TargetDataLayout.default();
   const repr = new ReprOptions(undefined, undefined, undefined, ReprFlags.empty(), undefined, Hash64.ZERO);
   expect(LayoutCalculator.new(dl).layout_of_union(repr, [[]])).toEqual({ $: "Err", _0: { $: "EmptyUnion" } });
-  stops(() => LayoutCalculator.new(dl).layout_of_enum(repr, [], null as never, []), "rustc_abi::layout::LayoutCalculator::layout_of_enum");
-  stops(() => coroutine_saved_local_eligibility(0, [], null as never), "rustc_abi::layout::coroutine::coroutine_saved_local_eligibility");
+  // (abi-layout-b) `coroutine_saved_local_eligibility` is ported: no locals, no variants -> nothing assigned
+  const [ineligible, assignments] = coroutine_saved_local_eligibility(0, [], BitMatrix.new(0, 0));
+  expect([ineligible.count(), assignments.length]).toEqual([0, 0]);
   stops(() => SizeSkeleton.compute(null as never, null as never, null as never, null as never), "rustc_middle::ty::layout::SizeSkeleton::compute");
   stops(() => IntegerExt.discr_range_of_repr(null as never, null as never, null as never, 0n, 0n), "rustc_middle::ty::layout::IntegerExt::discr_range_of_repr");
   // `Ty: TyAbiInterface` is rustc_middle's table, registered at load
   expect(ty_abi_interface()).toBe(TyAbiInterface_Ty as never);
   const tl = new TyAndLayout(null as never, new Layout(option_bool()));
-  stops(() => tl.field(null, 0), "rustc_abi::layout::ty::TyAndLayout::field");
+  // (abi-layout-b) `TyAndLayout::field` is ported: it reaches rustc_middle's `ty_and_layout_field`
+  stops(() => tl.field(null, 0), "rustc_middle::ty::layout::TyAbiInterface::ty_and_layout_field");
   stops(() => TyAbiInterface_Ty.ty_and_layout_field(tl, null as never, 0), "rustc_middle::ty::layout::TyAbiInterface::ty_and_layout_field");
 });
 
