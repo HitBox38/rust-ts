@@ -61,13 +61,13 @@ exist at the pin. `coverage.ts --check`: markers ok.
 ## Checks
 
 - `bunx tsc --noEmit -p .`: clean.
-- `RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000`: SEE_TESTS
+- `RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000`: 5453 pass, 1 skip, 0 fail (368 files).
 - Samples (`RUST_TS_AGENT=index-ds`, run ids `idxds-{base,lane}-<suite>`), compared case by case (status + unported
   reason) with the same samples on base `970d2365`:
 
 | suite | sample | MATCH / DIFF / UNPORTED / TIMEOUT | differing cases vs base |
 |---|---|---|---|
-| tydump-ui | 300 | 255 / 0 / 47 / 1 (typeck+traits 241/0/39/1, rustc_dump 14/0/8) | 0 |
+| tydump-ui | 300 | 254 / 0 / 45 / 1 (subsets typeck+traits 241/0/39/1, rustc_dump 14/0/8) | 0 |
 | tydump-minicore | 46 (all) | 45 / 0 / 1 / 0 | 0 |
 | tydump-nocore | 300, `--seed m17` | 292 / 0 / 8 / 0 | 0 |
 | hir-tree | 300 | 299 / 0 / 1 / 0 | 0 |
