@@ -25,7 +25,10 @@ import { debug_TyKind } from "../../rustc_type_ir/ty_kind.ts";
 import type { Providers } from "../queries.gen.ts";
 import type { CanonicalPolyFnSig, CapturedPlace as PendingCapturedPlace, HirPlace, TypeckResults } from "./decls.ts";
 import type { List } from "./list.ts";
-import { debug_Place, debug_PlaceBase, debug_ProjectionKind, type ProjectionKind, ProjectionKind_eq } from "../hir/place.ts";
+import { debug_Place, debug_PlaceBase, debug_ProjectionKind, fold_with_Place, type ProjectionKind, ProjectionKind_eq, try_fold_with_Place, visit_with_Place } from "../hir/place.ts";
+import { try_visit } from "../../rustc_ast_ir/visit.ts";
+import type { FallibleTypeFolder, TypeFolder, TypeVisitor } from "../../rustc_type_ir/fold.ts";
+import { Ok, type Result } from "../../std/result.ts";
 import type { Ordering, Ty } from "./mod.ts";
 
 /** `mir::Local` (mir/mod.rs, M4). PORT(decls): pending (a `newtype_index!`: a branded number). */
@@ -261,6 +264,28 @@ export const debug_CapturedPlace: Debug<CapturedPlace> = (v, f) =>
     ["info", debug_CaptureInfo(v.info, f)],
     ["mutability", debug_Mutability(v.mutability, f)],
   ]);
+
+// PORT: `#[derive(TypeFoldable, TypeVisitable)]` of `CapturedPlace`, hand-written (root decision 2026-10-15: the typedefs
+// probe cannot parse ty/closure.rs). Written as tools/codegen writes a struct derive: `var_ident: Ident` and
+// `mutability: hir::Mutability` are trivially traversable (TrivialTypeTraversalImpls), and so is `info: CaptureInfo`
+// (its derive only reaches `Option<HirId>` and `UpvarCapture`, whose `BorrowKind` is trivial), so only `place` is
+// visited/folded and the other fields are carried over.
+// rustc-derive: compiler/rustc_middle/src/ty/closure.rs:96 TypeVisitable for CapturedPlace
+export function visit_with_CapturedPlace<R>(self: CapturedPlace, __visitor: TypeVisitor<R>): R {
+  let r: R | undefined;
+  if ((r = try_visit(__visitor.Result, visit_with_Place(self.place, __visitor))) !== undefined) return r;
+  return __visitor.Result.output();
+}
+// rustc-derive: compiler/rustc_middle/src/ty/closure.rs:96 TypeFoldable for CapturedPlace (try_fold_with)
+export function try_fold_with_CapturedPlace<E>(self: CapturedPlace, __folder: FallibleTypeFolder<E>): Result<CapturedPlace, E> {
+  const __1 = try_fold_with_Place(self.place, __folder);
+  if (__1.$ === "Err") return __1;
+  return Ok(new CapturedPlace(self.var_ident, __1._0, self.info, self.mutability));
+}
+// rustc-derive: compiler/rustc_middle/src/ty/closure.rs:96 TypeFoldable for CapturedPlace (fold_with)
+export function fold_with_CapturedPlace(self: CapturedPlace, __folder: TypeFolder): CapturedPlace {
+  return new CapturedPlace(self.var_ident, fold_with_Place(self.place, __folder), self.info, self.mutability);
+}
 
 /** `tcx.upvars_mentioned(closure).unwrap()[&root_variable].span` */
 function upvar_span(tcx: TyCtxt, closure: LocalDefId, root_variable: HirId): Span {
