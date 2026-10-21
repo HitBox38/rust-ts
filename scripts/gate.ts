@@ -7,11 +7,16 @@
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, or HEAD has moved since.
+//
+// Unstable cases (`Suite.unstable`, difftest's UNSTABLE status: oracle output that is not reproducible) are never
+// protected: a run fails if a baseline lists one, and accept refuses to add one. The upstream checkout must be clean
+// when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { suite as getSuite } from "../harness/suites.ts";
-import { difftest } from "./difftest.ts";
-import { REPO, RUNS, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
+import { difftest, unstableOf } from "./difftest.ts";
+import { REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
+import { upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { oracleTestProbes, probeBinary } from "./probes.ts";
 import { record } from "./state.ts";
 
@@ -37,6 +42,15 @@ interface SuiteGate {
   oracleTimeouts?: string[];
   /** Protected cases the suite does not generate on this host, with the suite's reason (`Suite.skipped`). */
   lostSkipped?: { id: string; reason: string }[];
+  /** Cases whose oracle output is not reproducible (UNSTABLE: listed in `Suite.unstable` or detected); never protected. */
+  unstable?: string[];
+  /** Paths of the upstream checkout this suite's run changed (scripts/lib/upstream.ts); any fails the run. */
+  upstreamChanges?: string[];
+}
+
+/** Protected ids of `suite` that its `Suite.unstable` lists: an unstable case can never be protected. */
+export function protectedUnstable(suite: string, base: Set<string> = readBaseline(suite)): string[] {
+  return [...unstableOf(getSuite(suite)).keys()].filter((id) => base.has(id)).sort();
 }
 
 /**
@@ -237,12 +251,25 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
   const prov = await provenance();
   if (prov.dirty.length) console.log(`note: tree is dirty (${prov.dirty.length} paths); this run cannot be accepted`);
   if (!checkProbes(suites, !skipStatic)) die("missing probes; build them and re-run the gate");
+  const dirtyUpstream = upstreamStatus(UPSTREAM);
+  if (dirtyUpstream.length) {
+    console.log(upstreamError("the upstream checkout is not clean", dirtyUpstream, UPSTREAM));
+    die("the gate runs only on a clean upstream checkout");
+  }
+  let unstableOk = true;
+  for (const suite of suites) {
+    const bad = protectedUnstable(suite);
+    if (bad.length) {
+      console.log(`ERROR: ${suite}: the baseline protects ${bad.length} case(s) the suite lists as unstable (e.g. ${bad[0]}); an unstable case can never be protected`);
+      unstableOk = false;
+    }
+  }
   const runDir = ensureDir(join(RUNS, runId));
   const st = skipStatic ? { ok: true, skips: undefined } : await staticChecks(runDir);
   const staticOk = st.ok;
   const out: SuiteGate[] = [];
   for (const suite of suites) {
-    const { results, stats } = await difftest({ suite, runId, quiet: true });
+    const { results, stats, upstreamChanges } = await difftest({ suite, runId, quiet: true });
     const base = readBaseline(suite);
     const match = new Set(results.filter((r) => r.status === "MATCH").map((r) => r.id));
     const lost = [...base].filter((id) => !match.has(id));
@@ -251,17 +278,20 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
     const oracleTimeouts = results.filter((r) => r.status === "ORACLE_TIMEOUT").map((r) => r.id);
     const skippedWhy = new Map((getSuite(suite).skipped?.() ?? []).map((k) => [k.id, k.reason]));
     const lostSkipped = lost.filter((id) => skippedWhy.has(id)).map((id) => ({ id, reason: skippedWhy.get(id)! }));
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped });
+    const unstable = results.filter((r) => r.status === "UNSTABLE").map((r) => r.id);
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, upstreamChanges });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
     const why = (id: string): string => {
       const r = byId.get(id);
       if (r?.status === "ORACLE_TIMEOUT") return ` (ORACLE_TIMEOUT; subject: ${r.subject})`;
+      if (r?.status === "UNSTABLE") return ` (UNSTABLE: ${r.unstable}; subject: ${r.subject})`;
       if (skippedWhy.has(id)) return ` (not applicable on this host: ${skippedWhy.get(id)})`;
       if (!r) return " (no longer a case of this suite)";
       return ` (${r.status})`;
     };
     for (const id of lost.slice(0, 20)) console.log(`  lost: ${id}${why(id)}`);
     if (oracleTimeouts.length) console.log(`note: ${suite}: ${oracleTimeouts.length} case(s) ORACLE_TIMEOUT (the oracle timed out twice; not compared)`);
+    if (unstable.length) console.log(`note: ${suite}: ${unstable.length} case(s) UNSTABLE (the oracle's output is not reproducible; not compared, never protected)`);
     if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
       console.log(`note: ${suite}: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s) (a batch process failed at a case that passes alone; see ${suite}.summary.json)`);
     }
@@ -270,8 +300,10 @@ async function gateRun(suites: string[], skipStatic: boolean): Promise<void> {
   const after = await provenance();
   const unchanged = after.head === prov.head && after.dirty.join("\n") === prov.dirty.join("\n");
   if (!unchanged) console.log("ERROR: the tree changed while the gate was running");
-  const pass = staticOk && unchanged && out.every((s) => s.lost.length === 0);
-  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, suites: out }, null, 1));
+  const upstreamOk = out.every((s) => !s.upstreamChanges?.length);
+  if (!upstreamOk) console.log("ERROR: a suite changed the upstream checkout (see `upstreamChanges` in gate.json)");
+  const pass = staticOk && unchanged && unstableOk && upstreamOk && out.every((s) => s.lost.length === 0);
+  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, suites: out }, null, 1));
   console.log(`gate ${pass ? "PASS" : "FAIL"} run=${runId}`);
   if (!pass) process.exit(1);
 }
@@ -305,6 +337,8 @@ async function gateAccept(runId: string): Promise<void> {
   const missing = protectedSuites().filter((name) => !g.suites.some((x) => x.suite === name));
   if (missing.length) die(`gate run ${runId} did not run protected suite(s) ${missing.join(", ")}; nothing accepted`);
   const summary: Record<string, { protected: number; total: number }> = {};
+  // Every suite is checked before any baseline is written, so a refusal leaves every baseline as it was.
+  const grown: { suite: string; base: Set<string>; before: number; total: number }[] = [];
   for (const s of g.suites) {
     getSuite(s.suite); // registered suite names only (also keeps the baseline path inside harness/baseline)
     const base = readBaseline(s.suite);
@@ -313,9 +347,14 @@ async function gateAccept(runId: string): Promise<void> {
     const lost = [...base].filter((id) => !match.has(id));
     if (lost.length) die(`gate run ${runId}: ${s.suite} results lose ${lost.length} protected case(s) (e.g. ${lost[0]})`);
     for (const id of match) base.add(id);
-    writeFileSync(join(BASELINE, `${s.suite}.txt`), [...base].sort().join("\n") + "\n");
-    summary[s.suite] = { protected: base.size, total: s.total };
-    console.log(`${s.suite}: protected set ${before} -> ${base.size}`);
+    const unstable = protectedUnstable(s.suite, base);
+    if (unstable.length) die(`gate run ${runId}: ${s.suite} would protect ${unstable.length} case(s) the suite lists as unstable (e.g. ${unstable[0]}); nothing accepted`);
+    grown.push({ suite: s.suite, base, before, total: s.total });
+  }
+  for (const { suite, base, before, total } of grown) {
+    writeFileSync(join(BASELINE, `${suite}.txt`), [...base].sort().join("\n") + "\n");
+    summary[suite] = { protected: base.size, total };
+    console.log(`${suite}: protected set ${before} -> ${base.size}`);
   }
   record("accept", `accepted gate run ${runId} (tested ${g.head})`, { runId, head: g.head, suites: summary });
 }

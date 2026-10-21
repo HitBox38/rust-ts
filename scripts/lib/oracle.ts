@@ -5,6 +5,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { PIN, UPSTREAM, die, hash, run } from "./common.ts";
+import { pinnedPathEnv } from "./env.ts";
 
 /**
  * An oracle process that times out is run once more with this many times its timeout (difftest's oracle
@@ -48,6 +49,14 @@ export function oraclePathEnv(): string {
   const dir = join(ch ? (isAbsolute(ch) ? ch : resolve(UPSTREAM, ch)) : join(homedir(), ".cargo"), "bin");
   if (!Bun.which("rustc", { PATH: dir })) die(`no rustc (rustup proxy) in ${dir}, the fixed PATH of pinned oracle processes`);
   return (pathEnv = dir);
+}
+
+/**
+ * `oraclePathEnv()` as the variables to pin (scripts/lib/env.ts `pinnedPathEnv`): `{ PATH }`, plus
+ * `RUSTUP_WINDOWS_PATH_ADD_BIN=0` on Windows, where rustup would otherwise add the toolchain's `bin` directory.
+ */
+export function oraclePinnedPathEnv(): Record<string, string> {
+  return pinnedPathEnv(oraclePathEnv());
 }
 
 let sysrootPath: string | undefined;
