@@ -2562,32 +2562,32 @@ export class LayoutData {
 
   // ---- layout/simple.rs: impl LayoutData (PORTING §8: statics in the class body) ----
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:13 unit (lane abi-layout-b)
+  // stub: compiler/rustc_abi/src/layout/simple.rs:13 unit (lane abi-layout-a)
   static unit(_cx: HasDataLayout, _sized: boolean): LayoutData {
     return unported("rustc_abi::layout::simple::LayoutData::unit");
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:33 never_type (lane abi-layout-b)
+  // stub: compiler/rustc_abi/src/layout/simple.rs:33 never_type (lane abi-layout-a)
   static never_type(_cx: HasDataLayout): LayoutData {
     return unported("rustc_abi::layout::simple::LayoutData::never_type");
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:51 scalar (lane abi-layout-b)
+  // stub: compiler/rustc_abi/src/layout/simple.rs:51 scalar (lane abi-layout-a)
   static scalar(_cx: HasDataLayout, _scalar: Scalar): LayoutData {
     return unported("rustc_abi::layout::simple::LayoutData::scalar");
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:94 scalar_pair (lane abi-layout-b)
+  // stub: compiler/rustc_abi/src/layout/simple.rs:94 scalar_pair (lane abi-layout-a)
   static scalar_pair(_cx: HasDataLayout, _a: Scalar, _b: Scalar): LayoutData {
     return unported("rustc_abi::layout::simple::LayoutData::scalar_pair");
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:132 uninhabited_variant (lane abi-layout-b)
+  // stub: compiler/rustc_abi/src/layout/simple.rs:132 uninhabited_variant (lane abi-layout-a)
   static uninhabited_variant(_cx: HasDataLayout, _index: VariantIdx, _fields: number): LayoutData {
     return unported("rustc_abi::layout::simple::LayoutData::uninhabited_variant");
   }
 
-  // stub: compiler/rustc_abi/src/layout/simple.rs:158 for_variant (lane abi-layout-b)
+  // stub: compiler/rustc_abi/src/layout/simple.rs:158 for_variant (lane abi-layout-a)
   static for_variant(_parent: LayoutData, _index: VariantIdx): LayoutData {
     return unported("rustc_abi::layout::simple::LayoutData::for_variant");
   }

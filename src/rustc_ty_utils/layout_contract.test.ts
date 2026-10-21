@@ -44,7 +44,7 @@ import { type Config, run_compiler } from "../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../rustc_interface/passes.ts";
 import "../rustc_middle/lib.ts";
 import { IntegerExt, LayoutCx, LayoutOf_provided, SizeSkeleton, TyAbiInterface_Ty } from "../rustc_middle/ty/layout.ts";
-import { TypingEnv } from "../rustc_middle/ty/mod.ts";
+import { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import { PLAIN, PRETTY } from "../std/fmt.ts";
 import { Unported } from "../std/panic.ts";
 import "./lib.ts";
@@ -297,6 +297,9 @@ test("mk_layout interns; tcx.layout_of reaches the provider and stops at layout_
       expect(cx.data_layout()).toBe(tcx.data_layout());
       stops(() => cx.layout_of(tcx.types.bool), "rustc_ty_utils::layout::layout_of_uncached");
       stops(() => LayoutOf_provided.spanned_layout_of(cx, tcx.types.i32, cx.layout_tcx_at_span()), "rustc_ty_utils::layout::layout_of_uncached");
+      // `Ty::new_array` -> `Const::from_target_usize` -> `Const::from_bits` asks `layout_of(usize)` (was a stand-in; moved here
+      // from rustc_middle ty/sty.test.ts, whose mock `tcx` has no query system)
+      stops(() => Ty.new_array(tcx, tcx.types.u8, 3), "rustc_ty_utils::layout::layout_of_uncached");
       ran = true;
     });
   });
