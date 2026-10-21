@@ -28,7 +28,15 @@
     "rustc_hir::definitions": "rustc_hir_id::definitions",
     "rustc_middle::ty::Instance": "rustc_middle::ty::instance::Instance",
     "rustc_middle::ty::InstanceKind": "rustc_middle::ty::instance::InstanceKind",
-    "rustc_middle::ty::VtblEntry": "rustc_middle::ty::vtable::VtblEntry"
+    "rustc_middle::ty::VtblEntry": "rustc_middle::ty::vtable::VtblEntry",
+    "rustc_middle::mir::ConstQualifs": "rustc_middle::mir::query::ConstQualifs",
+    "rustc_middle::mir::CoroutineLayout": "rustc_middle::mir::query::CoroutineLayout",
+    "rustc_middle::mir::ConstValue": "rustc_middle::mir::consts::ConstValue",
+    "rustc_middle::mir::ConstAlloc": "rustc_middle::mir::consts::ConstAlloc",
+    "rustc_middle::mir::interpret::EvalToAllocationRawResult": "rustc_middle::mir::interpret::error::EvalToAllocationRawResult",
+    "rustc_middle::mir::interpret::EvalStaticInitializerRawResult": "rustc_middle::mir::interpret::error::EvalStaticInitializerRawResult",
+    "rustc_middle::mir::interpret::EvalToConstValueResult": "rustc_middle::mir::interpret::error::EvalToConstValueResult",
+    "rustc_middle::mir::interpret::EvalToValTreeResult": "rustc_middle::mir::interpret::error::EvalToValTreeResult"
   },
   "keys": {
     "()": "unit",

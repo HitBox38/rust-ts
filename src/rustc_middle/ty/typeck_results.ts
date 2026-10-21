@@ -27,7 +27,7 @@ import { type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { debug_BoundVarIndexKind, BoundVarIndexKind } from "../../rustc_type_ir/binder.ts";
 import type { Canonical } from "../../rustc_type_ir/canonical.ts";
-import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
+import { type FallibleTypeFolder, fold_with_Vec, try_fold_with_Vec, type TypeFoldable, type TypeFolder, type TypeVisitor, visit_with_Vec } from "../../rustc_type_ir/fold.ts";
 import type { Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
 import { BoundVar } from "../../rustc_type_ir/lib.ts";
 import type { FnSig } from "../../rustc_type_ir/ty_kind.ts";
@@ -52,7 +52,7 @@ export * from "./typeck_results.gen.ts";
 
 // PORT: pending types of other files (not ported yet), as `decls.ts`-style aliases (ty-contract "Pending types"):
 /** `crate::mir::FakeReadCause` (mir/syntax.rs:509): mir/syntax.ts's (merge-w18). */
-import type { FakeReadCause } from "../mir/syntax.ts";
+import type { FakeReadCause } from "../mir/mod.ts";
 export type { FakeReadCause };
 /** `crate::thir::DerefPatBorrowMode` (thir.rs:886): `Borrow(Mutability) | Box`, built per PORTING §5. */
 export type DerefPatBorrowMode = PendingEnum<"thir::DerefPatBorrowMode">;
@@ -997,6 +997,17 @@ export const debug_UserTypeAnnotationIndex: Debug<UserTypeAnnotationIndex> = Use
 
 /// Mapping of type annotation indices to canonical user type annotations.
 export type CanonicalUserTypeAnnotations = CanonicalUserTypeAnnotation[];
+/** `IndexVec<UserTypeAnnotationIndex, CanonicalUserTypeAnnotation>`'s `TypeVisitable` / `TypeFoldable`: IndexVec's impl
+ *  (rustc_type_ir visit.rs:227 / fold.rs:382) over the element's derive (tools/codegen type_fold.json; lane mir-contract). */
+export function visit_with_CanonicalUserTypeAnnotations<R>(self: CanonicalUserTypeAnnotations, visitor: TypeVisitor<R>): R {
+  return visit_with_Vec(self, visitor, gen.visit_with_CanonicalUserTypeAnnotation);
+}
+export function try_fold_with_CanonicalUserTypeAnnotations<E>(self: CanonicalUserTypeAnnotations, folder: FallibleTypeFolder<E>): Result<CanonicalUserTypeAnnotations, E> {
+  return try_fold_with_Vec(self, folder, gen.try_fold_with_CanonicalUserTypeAnnotation);
+}
+export function fold_with_CanonicalUserTypeAnnotations(self: CanonicalUserTypeAnnotations, folder: TypeFolder): CanonicalUserTypeAnnotations {
+  return fold_with_Vec(self, folder, gen.fold_with_CanonicalUserTypeAnnotation);
+}
 
 /// Canonical user type annotation.
 export type CanonicalUserType = Canonical<UserType>;

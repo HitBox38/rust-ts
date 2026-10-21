@@ -201,11 +201,11 @@ export const inherent_Span = {
 
 // PORT: types of upstream modules that are not ported yet, used in signatures here (`Pending`, rustc_type_ir/decls.ts).
 // `CodegenFnAttrs` / `TargetFeature` (middle/codegen_fn_attrs.rs) and `Place` (mir/syntax.rs) list only the fields this
-// file reads.
+// file reads. `Local` / `Place` are mir's (lane mir-contract; type-only: mir/ is read lazily, `mir()` below).
 type Thir = Pending<"thir::Thir">;
-type AllocId = Pending<"mir::interpret::AllocId">;
+type AllocId = import("../mir/interpret/mod.ts").AllocId;
 type DepNode = Pending<"dep_graph::DepNode">;
-type Local = Pending<"mir::Local">;
+type Local = import("../mir/mod.ts").Local;
 import type { ResolvedArg } from "../middle/resolve_bound_vars.ts";
 interface TargetFeature {
   name: Symbol;
@@ -213,10 +213,7 @@ interface TargetFeature {
 interface CodegenFnAttrs {
   target_features: readonly TargetFeature[];
 }
-interface Place {
-  local: Local;
-  projection: List<PlaceElem>;
-}
+type Place = import("../mir/syntax.ts").Place;
 /** `std::env::VarError` */
 type VarError = { $: "NotPresent" } | { $: "NotUnicode"; _0: string };
 
@@ -2211,28 +2208,27 @@ export class TyCtxt {
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2380 mk_place_field
   mk_place_field(place: Place, f: FieldIdx, ty: Ty): Place {
-    return this.mk_place_elem(place, { $: "Field", _0: f, _1: ty } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Field", _0: f, _1: ty });
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2384 mk_place_deref
   mk_place_deref(place: Place): Place {
-    return this.mk_place_elem(place, { $: "Deref" } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Deref" });
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2388 mk_place_downcast
   mk_place_downcast(place: Place, adt_def: AdtDef, variant_index: VariantIdx): Place {
-    // PORT: `PlaceElem` (mir) is pending: its `Downcast` variant in PORTING §5 shape.
-    return this.mk_place_elem(place, { $: "Downcast", _0: adt_def.variant(variant_index).name, _1: variant_index } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Downcast", _0: adt_def.variant(variant_index).name, _1: variant_index });
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2400 mk_place_downcast_unnamed
   mk_place_downcast_unnamed(place: Place, variant_index: VariantIdx): Place {
-    return this.mk_place_elem(place, { $: "Downcast", _0: undefined, _1: variant_index } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Downcast", _0: undefined, _1: variant_index });
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2408 mk_place_index
   mk_place_index(place: Place, index: Local): Place {
-    return this.mk_place_elem(place, { $: "Index", _0: index } as unknown as PlaceElem);
+    return this.mk_place_elem(place, { $: "Index", _0: index });
   }
 
   /// This method copies `Place`'s projection, add an element and reintern it. Should not be used
@@ -2240,10 +2236,7 @@ export class TyCtxt {
   /// flight.
   // rustc: compiler/rustc_middle/src/ty/context.rs:2415 mk_place_elem
   mk_place_elem(place: Place, elem: PlaceElem): Place {
-    return {
-      local: place.local,
-      projection: this.mk_place_elems_from_iter([...place.projection, elem]),
-    };
+    return new (mir().Place)(place.local, this.mk_place_elems_from_iter([...place.projection, elem]));
   }
 
   // rustc: compiler/rustc_middle/src/ty/context.rs:2422 mk_poly_existential_predicates
@@ -3051,6 +3044,11 @@ function alias_term_def_id_and_is_self_args(kind: AliasTermKind): [DefId, boolea
  * module must not import it (docs/handoff/ty-contract.md "Init order"); `emit_node_span_lint` / `emit_node_lint`
  * require it when they run, after every module has loaded.
  */
+/** rustc_middle mir/mod.ts (`mir::Place`), read lazily (mir/ is in this module's import closure; lane mir-contract). */
+function mir(): typeof import("../mir/mod.ts") {
+  return (mir__m ??= require("../mir/mod.ts") as typeof import("../mir/mod.ts"));
+}
+var mir__m: typeof import("../mir/mod.ts") | undefined;
 function middle_lint(): typeof import("../lint.ts") {
   return (middle_lint__m ??= require("../lint.ts") as typeof import("../lint.ts"));
 }

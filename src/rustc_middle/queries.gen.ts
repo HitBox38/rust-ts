@@ -25,6 +25,12 @@ import { type EffectiveVisibilities, debug_EffectiveVisibilities, stable_hash_Ef
 import { type ScopeTree, debug_ScopeTree } from "./middle/region.ts";
 import { type AstOwner, type DocLinkResMap, type ModChild, type ResolverAstLowering, type ResolverGlobalCtxt, debug_DocLinkResMap, debug_ModChild, debug_ResolverAstLowering, debug_ResolverGlobalCtxt } from "./middle/resolve.ts";
 import { type DeprecationEntry, debug_DeprecationEntry } from "./middle/stability.ts";
+import { type ConstValue, debug_ConstValue } from "./mir/consts.ts";
+import { type CoverageCodegenInfo, debug_CoverageCodegenInfo } from "./mir/coverage.ts";
+import { type EvalStaticInitializerRawResult, type EvalToAllocationRawResult, type EvalToConstValueResult, type EvalToValTreeResult } from "./mir/interpret/error.ts";
+import { type AllocId, type GlobalId, debug_AllocId } from "./mir/interpret/mod.ts";
+import { type Body, type Promoted, debug_Body, debug_Promoted } from "./mir/mod.ts";
+import { type ConstQualifs, type CoroutineLayout, debug_ConstQualifs, debug_CoroutineLayout } from "./mir/query.ts";
 import { describe_as_module } from "./queries.ts";
 import { into_query_key_DefId, into_query_key_LocalDefId, into_query_key_identity } from "./query/into_query_key.ts";
 import { KEY_AliasTyKind, KEY_CanonicalAliasGoal, KEY_CanonicalDropckOutlivesGoal, KEY_CanonicalImpliedOutlivesBoundsGoal_bool, KEY_CanonicalInput_usize, KEY_CanonicalMethodAutoderefStepsGoal, KEY_CanonicalPredicateGoal, KEY_CanonicalTypeOpAscribeUserTypeGoal, KEY_CanonicalTypeOpNormalizeGoal_Clause, KEY_CanonicalTypeOpNormalizeGoal_FnSig, KEY_CanonicalTypeOpNormalizeGoal_PolyFnSig, KEY_CanonicalTypeOpNormalizeGoal_Ty, KEY_CanonicalTypeOpProvePredicateGoal, KEY_Clauses, KEY_CrateNum, KEY_CrateNum_DefId, KEY_CrateNum_SimplifiedType, KEY_DefId, KEY_DefId_DefId, KEY_DefId_GenericArgsRef, KEY_DefId_Ident, KEY_DefId_SizedTraitKind, KEY_GenericArgsRef, KEY_LitToConstInput, KEY_LocalDefId, KEY_LocalDefId_LocalDefId_Ident, KEY_LocalModId, KEY_ModId, KEY_Option_Symbol, KEY_OsStr, KEY_OwnerId, KEY_Predicate_WellFormedLoc, KEY_PseudoCanonicalInput_DefId_GenericArgsRef, KEY_PseudoCanonicalInput_GenericArg, KEY_PseudoCanonicalInput_TraitRef, KEY_PseudoCanonicalInput_Ty, KEY_SimplifiedType, KEY_Symbol, KEY_TraitRef, KEY_Ty, KEY_Ty_Option_ExistentialTraitRef, KEY_Ty_Ty, KEY_unit, type LocalQueryKeyOf, key_unported } from "./query/keys.ts";
@@ -378,8 +384,7 @@ export interface QueryTypes {
    * of the MIR const-checking pass. This is the set of qualifs in
    * the final value of a `const`.
    */
-  // PORT: value `mir::ConstQualifs` not ported (`unknown`)
-  mir_const_qualif: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  mir_const_qualif: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: ConstQualifs; ProvidedValue: ConstQualifs };
   /**
    * Build the MIR for a given `DefId` and prepare it for const qualification.
    *
@@ -387,19 +392,15 @@ export interface QueryTypes {
    *
    * [rustc dev guide]: https://rustc-dev-guide.rust-lang.org/mir/construction.html
    */
-  // PORT: value `&'tcx Steal<mir::Body<'tcx>>` not ported (`unknown`)
-  mir_built: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Steal<unknown>; ProvidedValue: Steal<unknown> };
+  mir_built: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Steal<Body>; ProvidedValue: Steal<Body> };
   /**
    * Try to build an abstract representation of the given constant.
    */
   // PORT: value `Result<Option<ty::EarlyBinder<'tcx, ty::Const<'tcx>>>, ErrorGuaranteed>` not ported (`unknown`)
   thir_abstract_const: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Result<unknown | undefined, ErrorGuaranteed>; ProvidedValue: Result<unknown | undefined, ErrorGuaranteed> };
-  // PORT: value `&'tcx Steal<mir::Body<'tcx>>` not ported (`unknown`)
-  mir_drops_elaborated_and_const_checked: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Steal<unknown>; ProvidedValue: Steal<unknown> };
-  // PORT: value `&'tcx mir::Body<'tcx>` not ported (`unknown`)
-  mir_for_ctfe: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
-  // PORT: value `(&'tcx Steal<mir::Body<'tcx>>, &'tcx Steal<IndexVec<mir::Promoted, mir::Body<'tcx>>>)` not ported (`unknown`)
-  mir_promoted: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: [Steal<unknown>, Steal<unknown[]>]; ProvidedValue: [Steal<unknown>, Steal<unknown[]>] };
+  mir_drops_elaborated_and_const_checked: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Steal<Body>; ProvidedValue: Steal<Body> };
+  mir_for_ctfe: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Body; ProvidedValue: Body };
+  mir_promoted: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: [Steal<Body>, Steal<Body[]>]; ProvidedValue: [Steal<Body>, Steal<Body[]>] };
   // PORT: value `ty::ClosureTypeInfo<'tcx>` not ported (`unknown`)
   closure_typeinfo: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: unknown; ProvidedValue: unknown };
   /**
@@ -413,8 +414,7 @@ export interface QueryTypes {
    */
   // PORT: value `&'tcx IndexVec<abi::FieldIdx, Symbol>` not ported (`unknown`)
   closure_saved_names_of_captured_variables: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Symbol[]; ProvidedValue: Symbol[] };
-  // PORT: value `Option<&'tcx mir::CoroutineLayout<'tcx>>` not ported (`unknown`)
-  mir_coroutine_witnesses: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  mir_coroutine_witnesses: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: CoroutineLayout | undefined; ProvidedValue: CoroutineLayout | undefined };
   check_coroutine_obligations: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
   /**
    * Used in case `mir_borrowck` fails to prove an obligation. We generally assume that
@@ -432,8 +432,7 @@ export interface QueryTypes {
    * MIR after our optimization passes have run. This is MIR that is ready
    * for codegen. This is also the only query that can fetch non-local MIR, at present.
    */
-  // PORT: value `&'tcx mir::Body<'tcx>` not ported (`unknown`)
-  optimized_mir: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  optimized_mir: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Body; ProvidedValue: Body };
   /**
    * Returns `true` if this def is a function-like thing that is eligible for
    * coverage instrumentation under `-Cinstrument-coverage`.
@@ -459,8 +458,7 @@ export interface QueryTypes {
    *
    * Returns `None` for functions that were not instrumented.
    */
-  // PORT: value `Option<&'tcx mir::coverage::CoverageCodegenInfo>` not ported (`unknown`)
-  coverage_codegen_info: { Key: InstanceKind; KeyArg: InstanceKind; LocalKey: InstanceKind; Value: unknown | undefined; ProvidedValue: unknown | undefined };
+  coverage_codegen_info: { Key: InstanceKind; KeyArg: InstanceKind; LocalKey: InstanceKind; Value: CoverageCodegenInfo | undefined; ProvidedValue: CoverageCodegenInfo | undefined };
   /**
    * The `DefId` is the `DefId` of the containing MIR body. Promoteds do not have their own
    * `DefId`. This function returns all promoteds in the specified body. The body references
@@ -468,8 +466,7 @@ export interface QueryTypes {
    * after inlining a body may refer to promoteds from other bodies. In that case you still
    * need to use the `DefId` of the original body.
    */
-  // PORT: value `&'tcx IndexVec<mir::Promoted, mir::Body<'tcx>>` not ported (`unknown`)
-  promoted_mir: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown[]; ProvidedValue: unknown[] };
+  promoted_mir: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: Body[]; ProvidedValue: Body[] };
   /**
    * Erases regions from `ty` to yield a new type.
    * Normally you would just use `tcx.erase_and_anonymize_regions(value)`,
@@ -880,13 +877,11 @@ export interface QueryTypes {
    *
    * </div>
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>` not ported; value `EvalToAllocationRawResult<'tcx>` not ported (`unknown`)
-  eval_to_allocation_raw: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: unknown; ProvidedValue: unknown };
+  eval_to_allocation_raw: { Key: PseudoCanonicalInput<GlobalId>; KeyArg: PseudoCanonicalInput<GlobalId>; LocalKey: PseudoCanonicalInput<GlobalId>; Value: EvalToAllocationRawResult; ProvidedValue: EvalToAllocationRawResult };
   /**
    * Evaluate a static's initializer, returning the allocation of the initializer's memory.
    */
-  // PORT: value `EvalStaticInitializerRawResult<'tcx>` not ported (`unknown`)
-  eval_static_initializer: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
+  eval_static_initializer: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: EvalStaticInitializerRawResult; ProvidedValue: EvalStaticInitializerRawResult };
   /**
    * Evaluates const items or anonymous constants[^1] into a representation
    * suitable for the type system and const generics.
@@ -901,19 +896,17 @@ export interface QueryTypes {
    *
    * [^1]: Such as enum variant explicit discriminants or array lengths.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>` not ported; value `EvalToConstValueResult<'tcx>` not ported (`unknown`)
-  eval_to_const_value_raw: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: unknown; ProvidedValue: unknown };
+  eval_to_const_value_raw: { Key: PseudoCanonicalInput<GlobalId>; KeyArg: PseudoCanonicalInput<GlobalId>; LocalKey: PseudoCanonicalInput<GlobalId>; Value: EvalToConstValueResult; ProvidedValue: EvalToConstValueResult };
   /**
    * Evaluate a constant and convert it to a type level constant or
    * return `None` if that is not possible.
    */
-  // PORT: key `ty::PseudoCanonicalInput<'tcx, GlobalId<'tcx>>` not ported; value `EvalToValTreeResult<'tcx>` not ported (`unknown`)
-  eval_to_valtree: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: unknown; ProvidedValue: unknown };
+  eval_to_valtree: { Key: PseudoCanonicalInput<GlobalId>; KeyArg: PseudoCanonicalInput<GlobalId>; LocalKey: PseudoCanonicalInput<GlobalId>; Value: EvalToValTreeResult; ProvidedValue: EvalToValTreeResult };
   /**
    * Converts a type-level constant value into a MIR constant value.
    */
-  // PORT: key `ty::Value<'tcx>` not ported; value `mir::ConstValue` not ported (`unknown`)
-  valtree_to_const_val: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  // PORT: key `ty::Value<'tcx>` not ported (`unknown`)
+  valtree_to_const_val: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: ConstValue; ProvidedValue: ConstValue };
   // PORT: value `Option<ty::Value<'tcx>>` not ported (`unknown`)
   lit_to_const: { Key: LitToConstInput; KeyArg: LitToConstInput; LocalKey: LitToConstInput; Value: unknown | undefined; ProvidedValue: unknown | undefined };
   check_match: { Key: LocalDefId; KeyArg: Parameters<typeof into_query_key_LocalDefId>[0]; LocalKey: LocalDefId; Value: Result<null, ErrorGuaranteed>; ProvidedValue: Result<null, ErrorGuaranteed> };
@@ -932,8 +925,8 @@ export interface QueryTypes {
   /**
    * Generates a MIR body for the shim.
    */
-  // PORT: key `ty::ShimKind<'tcx>` not ported; value `&'tcx mir::Body<'tcx>` not ported (`unknown`)
-  mir_shims: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: unknown; ProvidedValue: unknown };
+  // PORT: key `ty::ShimKind<'tcx>` not ported (`unknown`)
+  mir_shims: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: Body; ProvidedValue: Body };
   /**
    * The `symbol_name` query provides the symbol name for calling a
    * given instance from the local crate. In particular, it will also
@@ -1015,8 +1008,8 @@ export interface QueryTypes {
   // PORT: key `ty::TraitRef<'tcx>` not ported (`unknown`)
   first_method_vtable_slot: { Key: unknown; KeyArg: unknown; LocalKey: unknown; Value: number; ProvidedValue: number };
   supertrait_vtable_slot: { Key: [Ty, Ty]; KeyArg: [Ty, Ty]; LocalKey: [Ty, Ty]; Value: number | undefined; ProvidedValue: number | undefined };
-  // PORT: key `(Ty<'tcx>, Option<ty::ExistentialTraitRef<'tcx>>)` not ported; value `mir::interpret::AllocId` not ported (`unknown`)
-  vtable_allocation: { Key: [Ty, unknown | undefined]; KeyArg: [Ty, unknown | undefined]; LocalKey: [Ty, unknown | undefined]; Value: unknown; ProvidedValue: unknown };
+  // PORT: key `(Ty<'tcx>, Option<ty::ExistentialTraitRef<'tcx>>)` not ported (`unknown`)
+  vtable_allocation: { Key: [Ty, unknown | undefined]; KeyArg: [Ty, unknown | undefined]; LocalKey: [Ty, unknown | undefined]; Value: AllocId; ProvidedValue: AllocId };
   // PORT: key `PseudoCanonicalInput<'tcx, ty::TraitRef<'tcx>>` not ported; value `Result<&'tcx ImplSource<'tcx, ()>, CodegenObligationError>` not ported (`unknown`)
   codegen_select_candidate: { Key: PseudoCanonicalInput<unknown>; KeyArg: PseudoCanonicalInput<unknown>; LocalKey: PseudoCanonicalInput<unknown>; Value: Result<unknown, CodegenObligationError>; ProvidedValue: Result<unknown, CodegenObligationError> };
   /**
@@ -1771,8 +1764,7 @@ export interface QueryTypes {
   size_estimate: { Key: Instance; KeyArg: Instance; LocalKey: Instance; Value: number; ProvidedValue: number };
   // PORT: value `ty::AnonConstKind` not ported (`unknown`)
   anon_const_kind: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: unknown; ProvidedValue: unknown };
-  // PORT: value `Option<(mir::ConstValue, Ty<'tcx>)>` not ported (`unknown`)
-  trivial_const: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: [unknown, Ty] | undefined; ProvidedValue: [unknown, Ty] | undefined };
+  trivial_const: { Key: DefId; KeyArg: Parameters<typeof into_query_key_DefId>[0]; LocalKey: LocalQueryKeyOf<typeof KEY_DefId>; Value: [ConstValue, Ty] | undefined; ProvidedValue: [ConstValue, Ty] | undefined };
   /**
    * Checks for the nearest `#[sanitize(xyz = "off")]` or
    * `#[sanitize(xyz = "on")]` on this def and any enclosing defs, up to the
@@ -2699,7 +2691,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `const checking \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_ConstQualifs(v, f),
     stable_hash_value: undefined,
   },
   mir_built: {
@@ -2717,7 +2709,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `building MIR for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_Steal(v, f, ((x, f) => debug_Body(x, f))),
     stable_hash_value: undefined,
   },
   thir_abstract_const: {
@@ -2753,7 +2745,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `elaborating drops for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_Steal(v, f, ((x, f) => debug_Body(x, f))),
     stable_hash_value: undefined,
   },
   mir_for_ctfe: {
@@ -2771,7 +2763,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `caching mir of \`${__0}\` for CTFE`; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_Body(v, f),
     stable_hash_value: undefined,
   },
   mir_promoted: {
@@ -2789,7 +2781,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `promoting constants in MIR for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_tuple(f, "", [debug_Steal(v[0], f, ((x, f) => debug_Body(x, f))), debug_Steal(v[1], f, ((x, f) => debug_vec(x, f, ((x, f) => debug_Body(x, f)))))]),
     stable_hash_value: undefined,
   },
   closure_typeinfo: {
@@ -2843,7 +2835,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `coroutine witness types for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_CoroutineLayout(x, f))),
     stable_hash_value: undefined,
   },
   check_coroutine_obligations: {
@@ -2897,7 +2889,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `optimizing MIR for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_Body(v, f),
     stable_hash_value: undefined,
   },
   is_eligible_for_coverage: {
@@ -2951,7 +2943,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `coverage_codegen_info` (method `.def_id()` on a non-tcx receiver)"),
-    debug_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_CoverageCodegenInfo(x, f))),
     stable_hash_value: undefined,
   },
   promoted_mir: {
@@ -2969,7 +2961,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, key) => { const __0 = tcx.def_path_str(key); return `optimizing promoted MIR for \`${__0}\``; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_vec(v, f, ((x, f) => debug_Body(x, f))),
     stable_hash_value: undefined,
   },
   erase_and_anonymize_regions_ty: {
@@ -4229,7 +4221,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: (_tcx, _key) => `converting type-level constant value to MIR constant value`,
-    debug_value: undefined,
+    debug_value: (v, f) => debug_ConstValue(v, f),
     stable_hash_value: undefined,
   },
   lit_to_const: {
@@ -4355,7 +4347,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `mir_shims` (method `.def_id()` on a non-tcx receiver)"),
-    debug_value: undefined,
+    debug_value: (v, f) => debug_Body(v, f),
     stable_hash_value: undefined,
   },
   symbol_name: {
@@ -4823,7 +4815,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: false,
     returns_error_guaranteed: false,
     desc: () => unported("desc of query `vtable_allocation` (expression starting with `|`)"),
-    debug_value: undefined,
+    debug_value: (v, f) => debug_AllocId(v, f),
     stable_hash_value: undefined,
   },
   codegen_select_candidate: {
@@ -7631,7 +7623,7 @@ export const QUERY_DECLS: { readonly [N in QueryName]: QueryDecl<QueryTypes[N]["
     separate_provide_extern: true,
     returns_error_guaranteed: false,
     desc: (tcx, def_id) => { const __0 = tcx.def_path_str(def_id); return `checking if \`${__0}\` is a trivial const`; },
-    debug_value: undefined,
+    debug_value: (v, f) => debug_option(v, f, ((x, f) => debug_tuple(f, "", [debug_ConstValue(x[0], f), debug_Ty(x[1], f)]))),
     stable_hash_value: undefined,
   },
   sanitizer_settings_for: {
