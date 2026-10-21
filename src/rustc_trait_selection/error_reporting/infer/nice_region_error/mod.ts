@@ -21,13 +21,20 @@
 //   suggest_new_region_bound}; pub use util::find_param_with_region;`: PORT: not re-exported here (a re-export would
 //   evaluate those modules before this one defines `NiceRegionError`, which they extend); import them from their modules.
 export * from "./mod.gen.ts";
+import type { Diag } from "../../../../rustc_errors/lib.ts";
 import type { RegionResolutionError } from "../../../../rustc_infer/infer/lexical_region_resolve/mod.ts";
+import { SubregionOrigin } from "../../../../rustc_infer/infer/mod.ts";
+import type { TyCtxt } from "../../../../rustc_middle/ty/context.ts";
 import type { Region } from "../../../../rustc_middle/ty/decls.ts";
 import type { LocalDefId } from "../../../../rustc_span/def_id.ts";
-import type { Span } from "../../../../rustc_span/lib.ts";
-import { unported_methods } from "../../../../rust_ts/stubs.ts";
+import type { ErrorGuaranteed, Span } from "../../../../rustc_span/lib.ts";
 import { TypeErrCtxt } from "../../../decls.ts";
 
+
+/** The associated fns `new_from_span` (see the `PORT(decls)` note at its assignment). */
+export interface NiceRegionError_statics {
+  new_from_span(cx: TypeErrCtxt, generic_param_scope: LocalDefId, span: Span, sub: Region, sup: Region): NiceRegionError;
+}
 
 // rustc-type: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:34 NiceRegionError
 export class NiceRegionError {
@@ -42,12 +49,76 @@ export class NiceRegionError {
   ) {}
 }
 
-unported_methods(TypeErrCtxt.prototype, "rustc_trait_selection::error_reporting::infer::nice_region_error::TypeErrCtxt", [
-  "try_report_nice_region_error",
-]);
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:25 try_report_nice_region_error
+TypeErrCtxt.prototype.try_report_nice_region_error = function (
+  this: TypeErrCtxt,
+  generic_param_scope: LocalDefId,
+  error: RegionResolutionError,
+): ErrorGuaranteed | undefined {
+  // PORT: `error.clone()`: `RegionResolutionError` values are never mutated in place.
+  return NiceRegionError.new(this, generic_param_scope, error).try_report();
+};
 
-unported_methods(NiceRegionError.prototype, "rustc_trait_selection::error_reporting::infer::nice_region_error::NiceRegionError", [
-  "tcx", "try_report_from_nll", "try_report", "regions",
-]);
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:44 new
+(NiceRegionError as unknown as { new: typeof NiceRegionError.new }).new = function (
+  cx: TypeErrCtxt,
+  generic_param_scope: LocalDefId,
+  error: RegionResolutionError,
+): NiceRegionError {
+  return new NiceRegionError(cx, generic_param_scope, error, undefined);
+};
 
-unported_methods(NiceRegionError, "rustc_trait_selection::error_reporting::infer::nice_region_error::NiceRegionError", ["new", "new_from_span"]);
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:52 new_from_span
+// PORT(decls): pending root: decls.ts's `namespace NiceRegionError` has an `export { new_ as new }`, so its other members
+// (`new_from_span`, `get_impl_ident_and_self_ty_from_trait`) are not exported; this view stands in until they are.
+(NiceRegionError as unknown as NiceRegionError_statics).new_from_span = function (
+  cx: TypeErrCtxt,
+  generic_param_scope: LocalDefId,
+  span: Span,
+  sub: Region,
+  sup: Region,
+): NiceRegionError {
+  return new NiceRegionError(cx, generic_param_scope, undefined, [span, sub, sup]);
+};
+
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:62 tcx
+NiceRegionError.prototype.tcx = function (this: NiceRegionError): TyCtxt {
+  return this.cx.tcx;
+};
+
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:66 try_report_from_nll
+NiceRegionError.prototype.try_report_from_nll = function (this: NiceRegionError): Diag | undefined {
+  // Due to the improved diagnostics returned by the MIR borrow checker, only a subset of
+  // the nice region errors are required when running under the MIR borrow checker.
+  return this.try_report_named_anon_conflict() ?? this.try_report_placeholder_conflict() ?? this.try_report_placeholder_relation();
+};
+
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:74 try_report
+NiceRegionError.prototype.try_report = function (this: NiceRegionError): ErrorGuaranteed | undefined {
+  const diag = this.try_report_from_nll();
+  return (
+    (diag !== undefined ? diag.emit_err() : undefined) ??
+    this.try_report_impl_not_conforming_to_trait() ??
+    this.try_report_anon_anon_conflict() ??
+    this.try_report_static_impl_trait() ??
+    this.try_report_mismatched_static_lifetime()
+  );
+};
+
+// rustc: compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs:83 regions
+NiceRegionError.prototype.regions = function (this: NiceRegionError): [Span, Region, Region] | undefined {
+  const error = this.error;
+  const regions = this.regions_;
+  if (error !== undefined && error.$ === "ConcreteFailure" && regions === undefined) {
+    const [origin, sub, sup] = [error._0, error._1, error._2];
+    return [SubregionOrigin.span(origin), sub, sup];
+  } else if (error !== undefined && error.$ === "SubSupConflict" && regions === undefined) {
+    const [origin, sub, sup] = [error._2, error._3, error._5];
+    return [SubregionOrigin.span(origin), sub, sup];
+  } else if (error === undefined && regions !== undefined) {
+    const [span, sub, sup] = regions;
+    return [span, sub, sup];
+  } else {
+    return undefined;
+  }
+};
