@@ -2,8 +2,15 @@
 // pinned upstream sources, see tools/probes). Oracle results are deterministic, so
 // difftest caches them, keyed by the probe binary or the rustc build (see rustcDriverHash).
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { PIN, die, hash, run } from "./common.ts";
+import { homedir } from "node:os";
+import { isAbsolute, join, resolve } from "node:path";
+import { PIN, UPSTREAM, die, hash, run } from "./common.ts";
+
+/**
+ * An oracle process that times out is run once more with this many times its timeout (difftest's oracle
+ * runs, and the oracle builds of compiletest aux crates, harness/compiletest.ts).
+ */
+export const ORACLE_RETRY_FACTOR = 4;
 
 let verified = false;
 
@@ -20,6 +27,27 @@ export async function verifyOraclePin(): Promise<void> {
 
 export function oracleRustcCmd(args: string[]): string[] {
   return ["rustc", `+${PIN.toolchain}`, ...args];
+}
+
+let pathEnv: string | undefined;
+
+/**
+ * The fixed `PATH` of oracle processes whose environment must not depend on the caller's: the cases whose
+ * sources read session variables such as `PATH` (harness/suites.ts `pinSessionEnv`, both sides get it) and
+ * the oracle builds of compiletest aux crates (harness/compiletest.ts). It is rustup's proxy directory,
+ * `$CARGO_HOME/bin` (`home::cargo_home()`: `$CARGO_HOME`, relative to the upstream checkout, the oracle's
+ * cwd, if relative; else `~/.cargo`), and nothing else:
+ * - the oracle command `rustc +<toolchain>` is looked up there (Bun looks commands up in the PATH it passes);
+ * - rustup prepends exactly that directory to the PATH of the rustc it runs when the PATH lacks it, so with
+ *   any other value the oracle rustc would see a PATH the subject does not.
+ * Dies if there is no `rustc` there.
+ */
+export function oraclePathEnv(): string {
+  if (pathEnv) return pathEnv;
+  const ch = process.env.CARGO_HOME;
+  const dir = join(ch ? (isAbsolute(ch) ? ch : resolve(UPSTREAM, ch)) : join(homedir(), ".cargo"), "bin");
+  if (!Bun.which("rustc", { PATH: dir })) die(`no rustc (rustup proxy) in ${dir}, the fixed PATH of pinned oracle processes`);
+  return (pathEnv = dir);
 }
 
 let sysrootPath: string | undefined;

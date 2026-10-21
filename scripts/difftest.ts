@@ -30,14 +30,14 @@ import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/sui
 import type { Blessed } from "../harness/compiletest.ts";
 import { ORACLE_CACHE, PIN, RUNS, UPSTREAM, die, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run } from "./lib/common.ts";
 import { caseDeps, type Dep } from "./lib/deps.ts";
-import { rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
+import { ORACLE_RETRY_FACTOR, rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
 import { isRustcDevProbe } from "./probes.ts";
 
 export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT" | "ORACLE_TIMEOUT";
 export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT", "ORACLE_TIMEOUT"];
 
-/** An oracle process that times out is run once more with this many times its timeout. */
-export const ORACLE_RETRY_FACTOR = 4;
+/** An oracle process that times out is run once more with this many times its timeout (scripts/lib/oracle.ts). */
+export { ORACLE_RETRY_FACTOR };
 
 export interface CaseResult {
   id: string;
