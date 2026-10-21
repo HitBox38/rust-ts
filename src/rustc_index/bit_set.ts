@@ -104,6 +104,13 @@ export class DenseBitSet<T extends number = number> {
     return insert(this.words, value);
   }
 
+  /// Sets all bits to true.
+  // rustc: compiler/rustc_index/src/bit_set.rs:210 insert_all
+  insert_all(): void {
+    this.words.fill(WORD_ALL_ONES);
+    this.clear_excess_bits();
+  }
+
   /// Returns `true` if the set has changed.
   // rustc: compiler/rustc_index/src/bit_set.rs:243 remove
   remove(elem: T): boolean {

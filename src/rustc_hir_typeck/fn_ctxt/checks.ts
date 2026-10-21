@@ -141,6 +141,7 @@ import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import { format_debug } from "../../std/fmt.ts";
 import { assert, unreachable, unwrap } from "../../std/panic.ts";
+import { Scalar } from "../../rustc_abi/lib.ts";
 import type { Result } from "../../std/result.ts";
 import type { Str } from "../../std/str.ts";
 import type { SplatLoweringInfo } from "../callee.gen.ts";
@@ -1108,17 +1109,22 @@ FnCtxt.prototype.check_expr_lit = function (this: FnCtxt, lit: hirA.Lit, lint_id
                 break;
               case "Pat":
                 if (k._0.is_integral()) {
-                  // let layout = tcx
-                  //     .layout_of(self.typing_env(self.param_env).as_query_input(ty))
-                  //     .ok()?;
-                  // assert!(!layout.uninhabited);
-                  // match layout.backend_repr {
-                  //     rustc_abi::BackendRepr::Scalar(scalar) => {
-                  //         scalar.valid_range(&tcx).contains(u128::from(i.get())).then_some(ty)
-                  //     }
-                  //     _ => unreachable!(),
-                  // }
-                  return unported("rustc_hir_typeck::fn_ctxt::checks::FnCtxt::check_expr_lit: tcx.layout_of (rustc_middle ty/layout.rs, M4) for an integer literal expected to be a pattern type");
+                  const layout = tcx.layout_of(this.typing_env(this.param_env).as_query_input(ty));
+                  // `.ok()?` returns `None` from the `and_then` closure
+                  if (layout.$ === "Err") {
+                    opt_ty = undefined;
+                    break;
+                  }
+                  assert(!layout._0.uninhabited, "assertion failed: !layout.uninhabited");
+
+                  const repr = layout._0.backend_repr;
+                  if (repr.$ === "Scalar") {
+                    const scalar = repr._0;
+                    opt_ty = Scalar.valid_range(scalar, tcx).contains(node._0) ? ty : undefined;
+                  } else {
+                    unreachable();
+                  }
+                  break;
                 }
                 opt_ty = undefined;
                 break;

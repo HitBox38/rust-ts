@@ -38,6 +38,7 @@ import { type CoerceUnsizedInfo, debug_CoerceUnsizedInfo } from "./ty/adjustment
 import { type LitToConstInput } from "./ty/consts/lit.ts";
 import { type Limits, type TyCtxt } from "./ty/context.ts";
 import { type SimplifiedType, debug_SimplifiedType } from "./ty/fast_reject.ts";
+import { type FnAbiError, type LayoutError, type TyAndLayout, type ValidityRequirement } from "./ty/layout.ts";
 import { type PseudoCanonicalInput, type Ty, type Visibility, debug_Ty, debug_Visibility } from "./ty/mod.ts";
 import { type Predicate, debug_Predicate } from "./ty/predicate.ts";
 import { display_Ty } from "./ty/print/pretty.ts";
@@ -1149,8 +1150,7 @@ export interface QueryTypes {
    * Computes the layout of a type. Note that this implicitly
    * executes in `TypingMode::PostAnalysis`, and will normalize the input type.
    */
-  // PORT: value `Result<ty::layout::TyAndLayout<'tcx>, &'tcx ty::layout::LayoutError<'tcx>>` not ported (`unknown`)
-  layout_of: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  layout_of: { Key: PseudoCanonicalInput<Ty>; KeyArg: PseudoCanonicalInput<Ty>; LocalKey: PseudoCanonicalInput<Ty>; Value: Result<TyAndLayout, LayoutError>; ProvidedValue: Result<TyAndLayout, LayoutError> };
   /**
    * Compute a `FnAbi` suitable for indirect calls, i.e. to `fn` pointers.
    *
@@ -1158,7 +1158,7 @@ export interface QueryTypes {
    * instead, where the instance is an `InstanceKind::Virtual`.
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::PolyFnSig<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_fn_ptr: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  fn_abi_of_fn_ptr: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, FnAbiError>; ProvidedValue: Result<unknown, FnAbiError> };
   /**
    * Compute a `FnAbi` suitable for declaring/defining an `fn` instance, and for direct calls*
    * to an `fn`. Indirectly-passed parameters in the returned ABI might not include all possible
@@ -1173,7 +1173,7 @@ export interface QueryTypes {
    *   `InstanceKind::Virtual` instance (of `<dyn Trait as Trait>::fn`).
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::Instance<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_instance_no_deduced_attrs: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  fn_abi_of_instance_no_deduced_attrs: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, FnAbiError>; ProvidedValue: Result<unknown, FnAbiError> };
   /**
    * Compute a `FnAbi` suitable for declaring/defining an `fn` instance, and for direct calls*
    * to an `fn`. Indirectly-passed parameters in the returned ABI will include applicable
@@ -1191,7 +1191,7 @@ export interface QueryTypes {
    *   `InstanceKind::Virtual` instance (of `<dyn Trait as Trait>::fn`).
    */
   // PORT: key `ty::PseudoCanonicalInput<'tcx, (ty::Instance<'tcx>, &'tcx ty::List<Ty<'tcx>>)>` not ported; value `Result<&'tcx rustc_target::callconv::FnAbi<'tcx, Ty<'tcx>>, &'tcx ty::layout::FnAbiError<'tcx>>` not ported (`unknown`)
-  fn_abi_of_instance_raw: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, unknown>; ProvidedValue: Result<unknown, unknown> };
+  fn_abi_of_instance_raw: { Key: PseudoCanonicalInput<[unknown, unknown]>; KeyArg: PseudoCanonicalInput<[unknown, unknown]>; LocalKey: PseudoCanonicalInput<[unknown, unknown]>; Value: Result<unknown, FnAbiError>; ProvidedValue: Result<unknown, FnAbiError> };
   // PORT: value `&'tcx [(CrateNum, LinkagePreference)]` not ported (`unknown`)
   dylib_dependency_formats: { Key: CrateNum; KeyArg: CrateNum; LocalKey: LocalQueryKeyOf<typeof KEY_CrateNum>; Value: readonly [CrateNum, unknown][]; ProvidedValue: readonly [CrateNum, unknown][] };
   // PORT: value `&'tcx Arc<crate::middle::dependency_format::Dependencies>` not ported (`unknown`)
@@ -1737,8 +1737,7 @@ export interface QueryTypes {
    * because the `ty::Ty`-based wfcheck is always run.
    */
   diagnostic_hir_wf_check: { Key: [Predicate, WellFormedLoc]; KeyArg: [Predicate, WellFormedLoc]; LocalKey: [Predicate, WellFormedLoc]; Value: ObligationCause | undefined; ProvidedValue: ObligationCause | undefined };
-  // PORT: key `(ValidityRequirement, ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>)` not ported; value `Result<bool, &'tcx ty::layout::LayoutError<'tcx>>` not ported (`unknown`)
-  check_validity_requirement: { Key: [unknown, PseudoCanonicalInput<Ty>]; KeyArg: [unknown, PseudoCanonicalInput<Ty>]; LocalKey: [unknown, PseudoCanonicalInput<Ty>]; Value: Result<boolean, unknown>; ProvidedValue: Result<boolean, unknown> };
+  check_validity_requirement: { Key: [ValidityRequirement, PseudoCanonicalInput<Ty>]; KeyArg: [ValidityRequirement, PseudoCanonicalInput<Ty>]; LocalKey: [ValidityRequirement, PseudoCanonicalInput<Ty>]; Value: Result<boolean, LayoutError>; ProvidedValue: Result<boolean, LayoutError> };
   /**
    * This takes the def-id of an associated item from a impl of a trait,
    * and checks its validity against the trait item it corresponds to.

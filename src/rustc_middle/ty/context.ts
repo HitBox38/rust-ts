@@ -52,6 +52,7 @@ import { Visibility } from "./mod.ts";
 import type { Ordering } from "./mod.ts";
 import { Interned } from "../../rustc_data_structures/intern.ts";
 import { type InternedSet as InternedSetImpl, ShardedHashMap } from "../../rustc_data_structures/sharded.ts";
+import { Layout as AbiLayout, TargetDataLayoutError_into_diag } from "../../rustc_abi/lib.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import type { ArgOutlivesClause, BoundVar, BoundVariableKind, CanonicalInputData, CanonicalVarKind, ConstKind, DebruijnIndex, ExternalConstraintsData, ImplPolarity, OpaqueTypeKey, PatternKind, PolyExistentialPredicate, PredicateKind, RegionKind, RegionVid, TraitRef, TyKind, TyVid, ValTreeKind } from "../../rustc_type_ir/decls.ts";
 import { FlagComputation } from "../../rustc_type_ir/flags.ts";
@@ -246,7 +247,7 @@ export class CtxtInterners {
     public pat: InternedSet<Pattern>,
     public const_allocation: InternedSet<unknown>,
     public bound_variable_kinds: InternedSet<List<BoundVariableKind>>,
-    public layout: InternedSet<unknown>,
+    public layout: InternedSet<Layout>,
     public adt_def: InternedSet<AdtDef>,
     public external_constraints: InternedSet<ExternalConstraints>,
     public predefined_opaques_in_body: InternedSet<List<[OpaqueTypeKey, Ty]>>,
@@ -1870,9 +1871,10 @@ export class TyCtxt {
   mk_const_alloc(_v: Allocation): ConstAllocation {
     return unported("rustc_middle::ty::context::TyCtxt::mk_const_alloc (ConstAllocation, M4)");
   }
-  /** Stub (`direct_interners!` `mk_layout`, context.rs:2019): layouts (M4). */
-  mk_layout(_v: LayoutData): Layout {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_layout (Layout, M4)");
+  // PORT (layout-contract): the key is the derived `Hash` + `Eq` of `LayoutData` (`intern_key`); `Layout` deep-freezes it.
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2019 direct_interners! mk_layout
+  mk_layout(v: LayoutData): Layout {
+    return Interned.new_unchecked(this.interners.layout.intern(v, intern_key(v), (v) => new AbiLayout(v)));
   }
   // PORT: the key is `impl Hash for AdtDefData` (adt.rs:154: only `did`), not the derived key of every field.
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2020 direct_interners! mk_adt_def_from_data
@@ -2934,7 +2936,8 @@ export class GlobalCtxt {
       //     sess.dcx().emit_fatal(err); })`, on first read (module comment).
       const r = this.sess.target.parse_data_layout();
       if (r.$ === "Err") {
-        return unported("rustc_errors::diagnostic_impls: Diagnostic for rustc_abi::TargetDataLayoutErrors (GlobalCtxt::data_layout: emit_fatal)");
+        const err = r._0;
+        return this.sess.dcx().emit_fatal({ into_diag: (dcx, level) => TargetDataLayoutError_into_diag(err, dcx, level) });
       }
       this.data_layout_ = r._0;
     }

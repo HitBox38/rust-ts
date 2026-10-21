@@ -16,6 +16,7 @@ import { GenericArg } from "./generic_args.ts";
 import type { Ty } from "./mod.ts";
 import { ScalarInt } from "./consts/int.ts";
 import { ValTree, Value } from "./consts/valtree.ts";
+import { debug_Ty } from "./structural_impls.ts";
 
 // The types of this file with their derived Debug / TypeVisitable / TypeFoldable impls are generated into consts.gen.ts
 // (set rustc_ty of tools/codegen/types.ts, lane codegen-tyir); merged with the contract stub by merge-w13.
@@ -32,17 +33,21 @@ export * from "./consts/valtree.ts";
 
 // ---- PORT stand-ins for items of other lanes' files that are not ported yet ----------------------------------------
 
-/** PORT: stand-in for `tcx.layout_of(typing_env.as_query_input(ty))` (ty/mod.rs `TypingEnv::as_query_input`, ty/layout.rs;
- *  layouts are M4) with `.unwrap_or_else(|e| panic!("could not compute layout for {ty:?}: {e:?}")).size`. */
-function layout_of_size(_tcx: TyCtxt, _typing_env: TypingEnv, _ty: Ty): never {
-  return unported("rustc_middle::ty::layout::LayoutOf::layout_of (Const::from_bits; layouts are M4)");
+/** `ty::layout` (an extension module: read lazily, header). */
+function layout(): typeof import("./layout.ts") {
+  return require("./layout.ts") as typeof import("./layout.ts");
 }
 
 /// Creates a constant with the given integer value and interns it.
 // #[inline]
 // rustc: compiler/rustc_middle/src/ty/consts.rs:31 from_bits
 Const.from_bits = function (tcx: TyCtxt, bits: bigint, typing_env: TypingEnv, ty: Ty): Const {
-  const size = layout_of_size(tcx, typing_env, ty);
+  const layout_r = tcx.layout_of(typing_env.as_query_input(ty));
+  if (layout_r.$ === "Err") {
+    const e = layout_r._0;
+    return panic(`could not compute layout for ${debug_Ty(ty, PLAIN)}: ${layout().debug_LayoutError(e, PLAIN)}`);
+  }
+  const size = layout_r._0.size;
   const int = ScalarInt.try_from_uint(bits, size);
   if (int === undefined) panic("called `Option::unwrap()` on a `None` value");
   const valtree = ValTree.from_scalar_int(tcx, int);

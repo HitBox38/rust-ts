@@ -129,8 +129,9 @@ import type { TestBinderBody, TestBinderExists, TestBinderForall } from "./check
  */
 // Type-only re-exports of the real types (lane collect-rbv; adopted by merge-w16a).
 export type { ObjectLifetimeDefault, ResolveBoundVars, ResolvedArg };
-/** rustc_middle ty/layout.rs `LayoutCx<'tcx>` (hir_ty_lowering/cmse.rs; M4 layout). */
-export type LayoutCx = Pending<"rustc_middle::ty::layout::LayoutCx">;
+/** rustc_middle ty/layout.rs `LayoutCx<'tcx>` (hir_ty_lowering/cmse.rs; lane layout-contract: the real type). */
+import type { LayoutCx } from "../rustc_middle/ty/layout.ts";
+export type { LayoutCx };
 
 // ==== hir_ty_lowering/mod.rs:138 `pub trait HirTyLowerer<'tcx>` ====
 

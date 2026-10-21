@@ -25,7 +25,6 @@
 // The stub file of each upstream file installs `unported(..)` placeholders for its declared names
 // (rust_ts/stubs.ts `unported_methods`); docs/handoff/ty-contract.md "How to fill a stub".
 import type { Size, TargetDataLayout } from "../../rustc_abi/lib.ts";
-import { newtype_index } from "../../rustc_index/newtype_index.ts";
 import type { FloatTy, IntTy, Movability, Mutability, Pinnedness, UintTy } from "../../rustc_ast_ir/lib.ts";
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { DiagArgValue, MultiSpan } from "../../rustc_error_messages/lib.ts";
@@ -154,11 +153,9 @@ export type { ScalarInt, TypeckResults, ValTree, Value };
 export type { AsyncDestructor, Attribute, CheckRegions, Destructor, Discr, NotUniqueParam, ImplOverlapKind, ImplTraitInTraitData, ParamEnv, PseudoCanonicalInput, TypingEnv, VariantDef };
 
 // ---- 2. pending rustc_middle types (and other crates') ----
-// newtype indices (rustc_abi): final shapes
-export type FieldIdx = number & { readonly __brand: "FieldIdx" };
-export type VariantIdx = number & { readonly __brand: "VariantIdx" };
-/** `newtype_index!` helpers of rustc_abi `VariantIdx` (layout.rs:79). */
-export const VariantIdx = newtype_index<VariantIdx>((n) => `${n}`);
+// newtype indices (rustc_abi layout.rs:54, :79; lane layout-contract moved them to rustc_abi/layout.ts)
+import { FieldIdx, VariantIdx } from "../../rustc_abi/layout.ts";
+export { FieldIdx, VariantIdx };
 // lane repr-options: the real rustc_abi type
 export type { ReprOptions } from "../../rustc_abi/lib.ts";
 // ty/pattern.rs:16, ty/consts/valtree.rs:34, :103, ty/consts/int.rs:147 (D2: hash-consed)
@@ -166,7 +163,9 @@ import type { Pattern } from "./pattern.ts";
 export type { Pattern };
 export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
-export type NumScalableVectors = Pending<"NumScalableVectors">;
+// rustc_abi lib.rs:1803 (lane layout-contract)
+import type { NumScalableVectors } from "../../rustc_abi/lib.ts";
+export type { NumScalableVectors };
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
 import type { NormalizationError } from "./normalize_erasing_regions.ts";
 export type { NormalizationError };
@@ -188,14 +187,11 @@ export type Allocation = Pending<"Allocation">;
 export type ConstAllocation = Pending<"ConstAllocation">;
 export type Body = Pending<"mir::Body">;
 export type CoroutineLayout = Pending<"CoroutineLayout">;
-// rustc_abi / ty/layout.rs (M4)
-export type LayoutData = Pending<"LayoutData">;
-export type Layout = Pending<"Layout">;
-export type TyAndLayout = Pending<"TyAndLayout">;
-export type LayoutError = Pending<"LayoutError">;
-export type PointeeInfo = Pending<"PointeeInfo">;
+// rustc_abi / ty/layout.rs (lane layout-contract)
+export type { Layout, LayoutData, PointeeInfo } from "../../rustc_abi/lib.ts";
+export type { FnAbiError, LayoutError, TyAndLayout } from "./layout.ts";
+// rustc_target callconv (M4)
 export type FnAbi<T> = Pending1<"FnAbi", T>;
-export type FnAbiError = Pending<"FnAbiError">;
 // rustc_hir (lane hir-types)
 export type BodyId = Pending<"hir::BodyId">;
 // the arenas are erased (PORTING §5); `Arena` only appears as a parameter type
@@ -649,18 +645,18 @@ declare module "./mod.ts" {
     // ty/codec.rs:189 decode (impl Decodable: decode_<T> fn (TyDecodable codegen))
 
     // ---- ty/layout.rs ----
-    // ty/layout.rs:804 ty_and_layout_for_variant (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:848 ty_and_layout_field (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1050 ty_and_layout_pointee_info_at (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1229 is_adt (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1233 is_enum (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1237 is_never (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1241 is_tuple (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1245 is_unit (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1249 is_transparent (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1254 is_complex_number_lang_item (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1259 is_scalable_vector (impl TyAbiInterface: M4 (layout))
-    // ty/layout.rs:1264 is_pass_indirectly_in_non_rustic_abis_flag_set (impl TyAbiInterface: M4 (layout))
+    // ty/layout.rs:804 ty_and_layout_for_variant (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:848 ty_and_layout_field (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1050 ty_and_layout_pointee_info_at (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1229 is_adt (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1233 is_enum (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1237 is_never (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1241 is_tuple (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1245 is_unit (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1249 is_transparent (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1254 is_complex_number_lang_item (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1259 is_scalable_vector (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
+    // ty/layout.rs:1264 is_pass_indirectly_in_non_rustic_abis_flag_set (impl TyAbiInterface: the `TyAbiInterface_Ty` table, ty/layout.ts)
 
     // ---- ty/relate.rs ----
     // ty/relate.rs:12 relate (impl Relate: relate_<T> fn)
@@ -1213,10 +1209,10 @@ declare module "./context.ts" {
     is_intrinsic(def_id: DefId, name: Symbol): boolean;
 
     // ---- ty/layout.rs ----
-    // ty/layout.rs:622 data_layout (impl HasDataLayout: not a method)
-    // ty/layout.rs:628 target_spec (impl HasTargetSpec: not a method)
-    // ty/layout.rs:634 x86_abi_opt (impl HasX86AbiOpt: not a method)
-    // ty/layout.rs:644 tcx (impl HasTyCtxt: not a method)
+    // ty/layout.rs:622 data_layout (impl HasDataLayout: ported in ty/layout.ts, `TyCtxt.prototype.data_layout`)
+    // ty/layout.rs:628 target_spec (impl HasTargetSpec: ported in ty/layout.ts, `TyCtxt.prototype.target_spec`)
+    // ty/layout.rs:634 x86_abi_opt (impl HasX86AbiOpt: ported in ty/layout.ts, `TyCtxt.prototype.x86_abi_opt`)
+    // ty/layout.rs:644 tcx (impl HasTyCtxt: ported in ty/layout.ts, `TyCtxt.prototype.tcx_`)
 
     // ---- ty/normalize_erasing_regions.rs ----
     // ty/normalize_erasing_regions.rs:42

@@ -51,6 +51,7 @@ import { InlineConstArgs, ParamConst, UpvarArgs } from "../../../rustc_middle/ty
 import { fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import { IntTypeExt } from "../../../rustc_middle/ty/util.ts";
 import { Size } from "../../../rustc_abi/lib.ts";
+import { debug_LayoutError } from "../../../rustc_middle/ty/layout.ts";
 import { debug_DefId, type DefId, LocalDefId } from "../../../rustc_span/def_id.ts";
 import { Span } from "../../../rustc_span/lib.ts";
 import {
@@ -461,10 +462,9 @@ ThirBuildCx.prototype.mirror_expr_cast = function (this: ThirBuildCx, source: Hi
 
     const layout = tcx.layout_of(this.typing_env.as_query_input(discr_ty));
     if (layout.$ === "Err") {
-      return panic(`could not compute layout for ${debug_Ty(discr_ty, PLAIN)}: ${String(layout._0)}`);
+      return panic(`could not compute layout for ${debug_Ty(discr_ty, PLAIN)}: ${debug_LayoutError(layout._0, PLAIN)}`);
     }
-    // PORT: the `layout_of` query value is `unknown` in queries.gen.ts (`TyAndLayout`, M4); `.size` is its field.
-    const size = (layout._0 as { size: Size }).size;
+    const size = layout._0.size;
 
     const [lit, overflowing] = ScalarInt.truncate_from_uint(BigInt(discr_offset), size);
     if (overflowing) {
