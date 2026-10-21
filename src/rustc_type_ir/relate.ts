@@ -23,6 +23,7 @@ import { ExternAbi } from "../rustc_abi/extern_abi.ts";
 import { Mutability } from "../rustc_ast_ir/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { AdtDef, BoundExistentialPredicates, Pattern, Value } from "../rustc_middle/ty/decls.ts";
+import { Value as ValueC } from "../rustc_middle/ty/consts/valtree.ts";
 import type { Expr } from "../rustc_middle/ty/consts/kind.ts";
 import { fold_with_Expr, try_fold_with_Expr, visit_with_Expr } from "../rustc_middle/ty/consts/kind.ts";
 import { debug_GenericArg, fold_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
@@ -92,10 +93,10 @@ export * from "./relate.gen.ts";
 // Not markers. One-liners keep their upstream body; the rest call `unported`. Root repoints them at the real ports.
 
 
-/** PORT: stand-in for `inherent::ValueConst::valtree` + `ValTree::kind` (rustc_middle ty/consts/valtree.rs; `ty::Value`
- *  is pending). */
-function Value_valtree_kind(_self: Value): ValTreeKind {
-  return unported("rustc_middle::ty::Value: valtree().kind() (ty::Value is pending)");
+/** `inherent::ValueConst::valtree` + `ValTree::kind` (rustc_middle ty/consts/valtree.rs:235, `IntoKind for ValTree`;
+ *  lane ty-results). */
+function Value_valtree_kind(self: Value): ValTreeKind {
+  return ValueC.valtree(self).kind();
 }
 
 /** PORT: `I = TyCtxt` seen through its `impl Interner`. Every `Interner` method is real since ty-ctxt (merge-w15a), but

@@ -15,6 +15,7 @@
 // `unported`.
 import { intern_key } from "../rust_ts/intern_key.ts";
 import type { AdtDef, Value, ValTree } from "../rustc_middle/ty/decls.ts";
+import { Value as ValueC } from "../rustc_middle/ty/consts/valtree.ts";
 import { debug_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { type DefId, DefId_eq } from "../rustc_span/def_id.ts";
@@ -678,7 +679,7 @@ function Option_DefId_eq(a: DefId | undefined, b: DefId | undefined): boolean {
 // ---- PORT stand-ins for fns of other files that are not ported yet (module header) -----------------------------------
 
 
-/** PORT: stand-in for `impl inherent::ValueConst for ty::Value` `valtree` (rustc_middle ty/consts/valtree.rs). */
-function Value_valtree(_v: Value): ValTree {
-  return unported("rustc_middle::ty::consts::valtree: inherent::ValueConst::valtree");
+/** `impl inherent::ValueConst for ty::Value` `valtree` (rustc_middle ty/consts/valtree.rs:235, lane ty-results). */
+function Value_valtree(v: Value): ValTree {
+  return ValueC.valtree(v);
 }
