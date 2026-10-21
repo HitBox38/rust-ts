@@ -7,8 +7,7 @@
 // a lib with `--emit=metadata -A unused`; each case only has diagnostics from the selected passes, so stderr and the
 // exit code must be identical.
 //
-// Cases with `stop` reach code outside this lane that is still `unported` (the local `#[derive(Diagnostic)]` of a lint
-// file, a target spec, const eval). They are pinned: the run must end with exit 70 at that stop, and everything
+// Cases with `stop` reach code outside this lane that is still `unported` (a target spec, const eval). They are pinned: the run must end with exit 70 at that stop, and everything
 // printed before it must be a prefix of the oracle's stderr. Once the stop is no longer reached, the case fails with
 // "drop `stop` from this case" and must be moved to full equality.
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
@@ -106,7 +105,6 @@ const CASES: Case[] = [
     passes: ["AsyncClosureUsage"],
     ui: "async-await/async-closures/lint-closure-returning-async-block.rs",
     expect: ["closure returning async block can be made into an async closure"],
-    stop: ["rustc_lint::async_closures::ClosureReturningAsyncBlock"],
   },
   // async_fn_in_trait.rs
   {
@@ -195,9 +193,6 @@ const CASES: Case[] = [
     passes: ["DerefIntoDynSupertrait"],
     ui: "traits/trait-upcasting/deref-upcast-shadowing-lint.rs",
     expect: ["this `Deref` implementation is covered by an implicit supertrait coercion"],
-    // With context.rs ported (lane lint-late-a), the pass runs to the end and stops in the generated
-    // `SupertraitAsDerefTarget` diagnostic (`Binder<ExistentialTraitRef>: IntoDiagArg`).
-    stop: ["rustc_lint::context::LateContext::get_associated_type", "IntoDiagArg without a TS impl"],
   },
   {
     name: "deref_into_dyn_supertrait: tests/ui lint/issue-108155.rs (`Target` not a supertrait)",

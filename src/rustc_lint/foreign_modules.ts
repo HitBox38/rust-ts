@@ -11,7 +11,7 @@ import type { AdtDef } from "../rustc_middle/ty/adt.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
 import { Instance } from "../rustc_middle/ty/instance.ts";
-import { type FieldDef, HasAttrs_OwnerId, type Ty, TypingEnv, type VariantDef } from "../rustc_middle/ty/mod.ts";
+import { HasAttrs_OwnerId, type Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
 import { EarlyBinder } from "../rustc_type_ir/binder.ts";
@@ -19,9 +19,10 @@ import { FnSig, fold_FnSig } from "../rustc_type_ir/ty_kind.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { KeyedSet } from "../rust_ts/keyed.ts";
-import { unported, unreachable, unwrap } from "../std/panic.ts";
+import { unreachable, unwrap } from "../std/panic.ts";
 import { BuiltinClashingExtern_diagnostic, type BuiltinClashingExtern } from "./diagnostics.gen.ts";
 import { CLASHING_EXTERN_DECLARATIONS } from "./foreign_modules.lints.gen.ts";
+import * as types from "./types.ts";
 
 export * from "./foreign_modules.lints.gen.ts";
 
@@ -43,21 +44,6 @@ function clashing_extern_declarations(tcx: TyCtxt, _: null): null {
   }
   return null;
 }
-
-// PORT: cross-lane shims. `types::{nonnull_optimization_guaranteed, transparent_newtype_field, repr_nullable_ptr}`
-// (types.rs:724, :733, :883) are ported by lane lint-late-b in types.ts, which does not export them yet. At
-// integration, replace these three with imports from ./types.ts.
-const types = {
-  nonnull_optimization_guaranteed(_tcx: TyCtxt, _def: AdtDef): boolean {
-    return unported("rustc_lint::types::nonnull_optimization_guaranteed (lane lint-late-b)");
-  },
-  transparent_newtype_field(_tcx: TyCtxt, _variant: VariantDef): FieldDef | undefined {
-    return unported("rustc_lint::types::transparent_newtype_field (lane lint-late-b)");
-  },
-  repr_nullable_ptr(_tcx: TyCtxt, _typing_env: TypingEnv, _ty: Ty): Ty | undefined {
-    return unported("rustc_lint::types::repr_nullable_ptr (lane lint-late-b)");
-  },
-};
 
 // struct ClashingExternDeclarations
 class ClashingExternDeclarations {

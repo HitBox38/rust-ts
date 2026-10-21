@@ -256,6 +256,11 @@ export function PolyFnSig_into_diag_arg(self: Binder<FnSig>, path: MutRef<PathBu
   return Binder_into_diag_arg(self, path, FnSig_into_diag_arg);
 }
 
+/** `IntoDiagArg for Binder<I, ExistentialTraitRef<I>>`: the generic impl above (:140) with `T = ExistentialTraitRef` (:116). */
+export function PolyExistentialTraitRef_into_diag_arg(self: Binder<ExistentialTraitRef>, path: MutRef<PathBuf | undefined>): DiagArgValue {
+  return Binder_into_diag_arg(self, path, ExistentialTraitRef_into_diag_arg);
+}
+
 // rustc: compiler/rustc_type_ir/src/ir_print.rs:146 into_diag_arg
 export function ClosureKind_into_diag_arg(self: ClosureKind, _: MutRef<PathBuf | undefined>): DiagArgValue {
   return { $: "Str", _0: ClosureKind.as_str(self) };

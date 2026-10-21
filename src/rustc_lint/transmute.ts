@@ -1,10 +1,10 @@
 // Port of compiler/rustc_lint/src/transmute.rs. The lint statics and the `impl_lint_pass!` expansion are generated
-// (transmute.lints.gen.ts).
+// (transmute.lints.gen.ts); `#[derive(Diagnostic)] UndefinedTransmuteLint` is generated into transmute.gen.ts.
 // PORT: `cx.typeck_results()` is `cx.typeck_results_()`, and `LateContext::qpath_res` / `typing_env` return `unknown`
 // until context.rs's `LateContext` is ported: their results are cast here.
 import type { LintPass, LintVec } from "../rustc_lint_defs/lib.ts";
 import { Mutability } from "../rustc_ast_ir/lib.ts";
-import { Diag, type DiagCtxtHandle, DiagDecorator, type Diagnostic, type Level } from "../rustc_errors/lib.ts";
+import { DiagDecorator } from "../rustc_errors/lib.ts";
 import type { Res } from "../rustc_hir/def.ts";
 import type * as hir from "../rustc_hir/lib.ts";
 import type { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
@@ -16,6 +16,7 @@ import { sym } from "../rustc_span/symbol.ts";
 import type { LateContext } from "./context.ts";
 import { IntegerToPtrTransmutes_diagnostic, type IntegerToPtrTransmutesSuggestion } from "./diagnostics.gen.ts";
 import type { LateLintPass } from "./passes.ts";
+import { UndefinedTransmuteLint_diagnostic } from "./transmute.gen.ts";
 import {
   CheckTransmutes_impl_lint_pass,
   INTEGER_TO_PTR_TRANSMUTES,
@@ -24,6 +25,7 @@ import {
 } from "./transmute.lints.gen.ts";
 import { std_or_core } from "./utils.ts";
 
+export * from "./transmute.gen.ts";
 export * from "./transmute.lints.gen.ts";
 
 // pub(crate) struct CheckTransmutes;
@@ -326,31 +328,4 @@ function check_unnecessary_transmute(
       }
     }),
   );
-}
-
-// #[derive(Diagnostic)]
-// #[diag("pointers cannot be transmuted to integers during const eval")]
-// #[note("at compile-time, pointers do not have an integer value")]
-// #[note(
-//     "avoiding this restriction via `union` or raw pointers leads to compile-time undefined behavior"
-// )]
-// #[help("for more information, see https://doc.rust-lang.org/std/mem/fn.transmute.html")]
-// pub(crate) struct UndefinedTransmuteLint;
-// PORT: the only `#[derive(Diagnostic)]` outside diagnostics.rs in this lane's files; tools/codegen generates
-// rustc_lint's derives from diagnostics.rs only, so this one is written by hand in the generator's shape
-// (diagnostics.gen.ts `TykindDiag`).
-// rustc-type: compiler/rustc_lint/src/transmute.rs:390 UndefinedTransmuteLint
-interface UndefinedTransmuteLint {}
-/** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for UndefinedTransmuteLint` */
-// rustc-derive: compiler/rustc_lint/src/transmute.rs:383 Diagnostic UndefinedTransmuteLint
-function UndefinedTransmuteLint_into_diag(_self: UndefinedTransmuteLint, dcx: DiagCtxtHandle, level: Level): Diag {
-  const diag = Diag.new(dcx, level, { $: "Inline", _0: "pointers cannot be transmuted to integers during const eval" });
-  diag.note({ $: "Inline", _0: "at compile-time, pointers do not have an integer value" });
-  diag.note({ $: "Inline", _0: "avoiding this restriction via `union` or raw pointers leads to compile-time undefined behavior" });
-  diag.help({ $: "Inline", _0: "for more information, see https://doc.rust-lang.org/std/mem/fn.transmute.html" });
-  return diag;
-}
-/** `UndefinedTransmuteLint` as a `Diagnostic` trait object. */
-function UndefinedTransmuteLint_diagnostic(self: UndefinedTransmuteLint): Diagnostic {
-  return { into_diag: (dcx, level) => UndefinedTransmuteLint_into_diag(self, dcx, level) };
 }

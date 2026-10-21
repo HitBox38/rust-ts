@@ -257,11 +257,10 @@ const CASES: Case[] = [
     expect: ["types that do not implement `Drop` can still have drop glue"],
   },
   {
-    name: "drop_bounds (stop: the hand-written `DropTraitConstraintsDiag` into_diag in diagnostics.ts)",
+    name: "drop_bounds",
     passes: ["DropTraitConstraints"],
     src: ["pub fn foo<T: Drop>() {}"],
     expect: ["bounds on `T: Drop` are most likely incorrect"],
-    stop: "rustc_lint::diagnostics::DropTraitConstraintsDiag::into_diag",
   },
   {
     name: "unit_bindings: inferred unit binding vs annotated / `()` pattern / `()` init",

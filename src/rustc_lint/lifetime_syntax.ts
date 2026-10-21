@@ -7,7 +7,7 @@ import { type HirId, HirId_key } from "../rustc_hir_id/lib.ts";
 import type { LocalDefId } from "../rustc_span/def_id.ts";
 import { Span } from "../rustc_span/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
-import { type Debug, debug_struct } from "../std/fmt.ts";
+import { type Debug, debug_struct, type Fmt } from "../std/fmt.ts";
 import { panic, unwrap } from "../std/panic.ts";
 import type { LateContext } from "./context.ts";
 import { MismatchedLifetimeSyntaxes_diagnostic, type MismatchedLifetimeSyntaxesSuggestion } from "./diagnostics.ts";
@@ -178,13 +178,12 @@ export interface LifetimeSyntaxCategories<T> {
 }
 
 /** `#[derive(Debug)]` of `LifetimeSyntaxCategories<T>` */
-export function debug_LifetimeSyntaxCategories<T>(debug_T: Debug<T>): Debug<LifetimeSyntaxCategories<T>> {
-  return (v, f) =>
-    debug_struct(f, "LifetimeSyntaxCategories", [
-      ["hidden", debug_T(v.hidden, f)],
-      ["elided", debug_T(v.elided, f)],
-      ["named", debug_T(v.named, f)],
-    ]);
+export function debug_LifetimeSyntaxCategories<T>(v: LifetimeSyntaxCategories<T>, f: Fmt, debug_T: Debug<T>): string {
+  return debug_struct(f, "LifetimeSyntaxCategories", [
+    ["hidden", debug_T(v.hidden, f)],
+    ["elided", debug_T(v.elided, f)],
+    ["named", debug_T(v.named, f)],
+  ]);
 }
 
 export const LifetimeSyntaxCategories = {

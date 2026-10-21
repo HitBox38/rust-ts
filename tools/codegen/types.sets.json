@@ -699,10 +699,40 @@
   },
   "rustc_lint": {
     "files": [
-      "compiler/rustc_lint/src/diagnostics.rs"
+      "compiler/rustc_lint/src/diagnostics.rs",
+      "compiler/rustc_lint/src/async_closures.rs",
+      "compiler/rustc_lint/src/if_let_rescope.rs",
+      "compiler/rustc_lint/src/impl_trait_overcaptures.rs",
+      "compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs",
+      "compiler/rustc_lint/src/transmute.rs"
     ],
     "class": [],
-    "hand": [],
+    "hand": [
+      "rustc_lint::transmute::CheckTransmutes",
+      "rustc_lint::impl_trait_overcaptures::VisitOpaqueTypes",
+      "rustc_lint::impl_trait_overcaptures::ImplTraitOvercapturesLint",
+      "rustc_lint::impl_trait_overcaptures::FunctionalVariances",
+      "rustc_lint::if_let_rescope::IfLetRescope",
+      "rustc_lint::if_let_rescope::IfLetRescopeRewrite",
+      "rustc_lint::if_let_rescope::AltHead",
+      "rustc_lint::if_let_rescope::ConsequentRewrite",
+      "rustc_lint::if_let_rescope::ClosingBrackets",
+      "rustc_lint::if_let_rescope::SingleArmMatchBegin",
+      "rustc_lint::if_let_rescope::FindSignificantDropper"
+    ],
+    "hand_notes": {
+      "rustc_lint::transmute::CheckTransmutes": "impl_lint_pass! pass struct: a class in transmute.ts (lane lint-late-d)",
+      "rustc_lint::impl_trait_overcaptures::VisitOpaqueTypes": "TypeVisitor class with LazyCell fields (lane lint-late-c)",
+      "rustc_lint::impl_trait_overcaptures::ImplTraitOvercapturesLint": "manual `impl Diagnostic` (impl_trait_overcaptures.rs:456), hand-written with it (lane lint-late-c)",
+      "rustc_lint::impl_trait_overcaptures::FunctionalVariances": "TypeRelation class (lane lint-late-c)",
+      "rustc_lint::if_let_rescope::IfLetRescope": "impl_lint_pass! pass struct with fields: a class in if_let_rescope.ts (lane lint-late-c)",
+      "rustc_lint::if_let_rescope::IfLetRescopeRewrite": "manual `impl Subdiagnostic` (if_let_rescope.rs:326), hand-written with it (lane lint-late-c)",
+      "rustc_lint::if_let_rescope::AltHead": "`struct AltHead(Span)` is a `Span` (lane lint-late-c PORT decision)",
+      "rustc_lint::if_let_rescope::ConsequentRewrite": "data of the hand-written IfLetRescopeRewrite (lane lint-late-c)",
+      "rustc_lint::if_let_rescope::ClosingBrackets": "data of the hand-written IfLetRescopeRewrite (lane lint-late-c)",
+      "rustc_lint::if_let_rescope::SingleArmMatchBegin": "data of the hand-written IfLetRescopeRewrite (lane lint-late-c)",
+      "rustc_lint::if_let_rescope::FindSignificantDropper": "HIR Visitor class (lane lint-late-c)"
+    },
     "discriminant": [],
     "skip": []
   },

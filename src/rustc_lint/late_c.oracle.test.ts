@@ -196,15 +196,14 @@ const CASES: Case[] = [
     ],
     expect: [],
   },
-];
-
-const BLOCKED: BlockedCase[] = [
   {
     name: "mismatched_lifetime_syntaxes fires",
     src: ["pub struct W<'a>(pub &'a u8);", "pub fn a<'a>(x: &'a u8) -> &u8 { x }", "pub fn b(x: &u8) -> W { W(x) }"],
     expect: ["eliding a lifetime that's named elsewhere is confusing", "hiding a lifetime that's elided elsewhere is confusing"],
-    blocked_by: "rustc_lint::diagnostics::MismatchedLifetimeSyntaxes::into_diag",
   },
+];
+
+const BLOCKED: BlockedCase[] = [
   {
     name: "unused_must_use on a non-unit type",
     src: ["#[must_use]", "pub fn g() -> i32 { 1 }", "pub fn f() {", "    g();", "    1 + 2;", "}"],

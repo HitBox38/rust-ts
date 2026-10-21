@@ -2,8 +2,7 @@
 // and every `#[derive(Diagnostic)]` / `#[derive(Subdiagnostic)]` are generated into diagnostics.gen.ts
 // (tools/codegen/types.ts, set `rustc_lint`).
 //
-// PORT: `msg!("..")` → `msg("..")`. Impls that need `rustc_middle::ty` (`Ty` Display/IntoDiagArg, `def_path_str`,
-// `inhabited_predicate`, `fn_sig`) or the HIR stop there with `unported` (all of them are late lints, M3).
+// PORT: `msg!("..")` → `msg("..")`.
 import { DiagMessage_arg } from "../rustc_errors/formatting.ts";
 import {
   Diag,
@@ -21,10 +20,13 @@ import type { Applicability } from "../rustc_lint_defs/lib.ts";
 import { add_feature_diagnostics } from "../rustc_session/diagnostics.ts";
 import { Span } from "../rustc_span/lib.ts";
 import { display_Ident, Symbol, sym } from "../rustc_span/symbol.ts";
-import { unported } from "../std/panic.ts";
+import { panic } from "../std/panic.ts";
 import type * as hir from "../rustc_hir/hir.ts";
 import { WherePredicateKind } from "../rustc_hir/hir.ts";
 import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
+import { Clause_into_diag_arg } from "../rustc_middle/ty/predicate.ts";
+import { display_PolyFnSig } from "../rustc_middle/ty/print/pretty.ts";
+import { LifetimeSyntaxCategories } from "./lifetime_syntax.ts";
 import { type InitError, ShorthandAssocTyCollector, TypeAliasBounds } from "./builtin.ts";
 import type {
   AsyncFnInTraitDiag,
@@ -231,9 +233,10 @@ export function BuiltinUnpermittedTypeInitSub_subdiagnostic(self: BuiltinUnpermi
 // rustc: compiler/rustc_lint/src/diagnostics.rs:692 add_to_diag
 export function BuiltinClashingExternSub_add_to_diag(self: BuiltinClashingExternSub, diag: Diag): void {
   const expected_str = DiagStyledString.new();
-  void [self, diag, expected_str];
-  // `expected_str.push(self.expected.fn_sig(self.tcx).to_string(), false)`
-  unported("rustc_lint::diagnostics::BuiltinClashingExternSub::add_to_diag (Ty::fn_sig, M3)");
+  expected_str.push(display_PolyFnSig(self.expected.fn_sig(self.tcx)), false);
+  const found_str = DiagStyledString.new();
+  found_str.push(display_PolyFnSig(self.found.fn_sig(self.tcx)), true);
+  diag.note_expected_found("", expected_str, "", found_str);
 }
 export function BuiltinClashingExternSub_subdiagnostic(self: BuiltinClashingExternSub): Subdiagnostic {
   return { add_to_diag: (diag) => BuiltinClashingExternSub_add_to_diag(self, diag) };
@@ -430,9 +433,15 @@ export function NonLocalDefinitionsDiag_diagnostic(self: NonLocalDefinitionsDiag
 /** `impl<'a> Diagnostic<'a> for DropTraitConstraintsDiag<'_>` (needed for def_path_str) */
 // rustc: compiler/rustc_lint/src/diagnostics.rs:2054 into_diag
 export function DropTraitConstraintsDiag_into_diag(self: DropTraitConstraintsDiag, dcx: DiagCtxtHandle, level: Level): Diag {
-  void [self, dcx, level];
-  // `.with_arg("clause", self.clause)`
-  return unported("rustc_lint::diagnostics::DropTraitConstraintsDiag::into_diag (IntoDiagArg for ty::Clause, M3)");
+  return Diag.new(
+    dcx,
+    level,
+    msg(
+      "bounds on `{$clause}` are most likely incorrect, consider instead using `{$needs_drop}` to detect whether a type can be trivially dropped",
+    ),
+  )
+    .with_arg("clause", IntoDiagArg.of(self.clause, Clause_into_diag_arg))
+    .with_arg("needs_drop", IntoDiagArg.of(self.tcx.def_path_str(self.def_id), String_into_diag_arg));
 }
 export function DropTraitConstraintsDiag_diagnostic(self: DropTraitConstraintsDiag): Diagnostic {
   return { into_diag: (dcx, level) => DropTraitConstraintsDiag_into_diag(self, dcx, level) };
@@ -456,9 +465,20 @@ export function DropGlue_diagnostic(self: DropGlue): Diagnostic {
 /** `impl<'a> Diagnostic<'a> for ImproperCTypes<'_>` */
 // rustc: compiler/rustc_lint/src/diagnostics.rs:2539 into_diag
 export function ImproperCTypes_into_diag(self: ImproperCTypes, dcx: DiagCtxtHandle, level: Level): Diag {
-  void [self, dcx, level];
-  // `.with_arg("ty", self.ty)`
-  return unported("rustc_lint::diagnostics::ImproperCTypes::into_diag (IntoDiagArg for Ty, M3)");
+  const diag = Diag.new(dcx, level, msg("`extern` {$desc} uses type `{$ty}`, which is not FFI-safe"))
+    .with_arg("ty", IntoDiagArg.of(self.ty, Ty_into_diag_arg))
+    .with_arg("desc", IntoDiagArg.of(self.desc, str_into_diag_arg))
+    .with_span_label(self.label, msg("not FFI-safe"));
+  const help = self.help;
+  if (help !== undefined) {
+    diag.help(help);
+  }
+  diag.note(self.note);
+  const note = self.span_note;
+  if (note !== undefined) {
+    diag.span_note(note, msg("the type is defined here"));
+  }
+  return diag;
 }
 export function ImproperCTypes_diagnostic(self: ImproperCTypes): Diagnostic {
   return { into_diag: (dcx, level) => ImproperCTypes_into_diag(self, dcx, level) };
@@ -507,9 +527,66 @@ export function AsyncFnInTraitDiag_diagnostic(self: AsyncFnInTraitDiag): Diagnos
 /** `impl<'a> Diagnostic<'a> for MismatchedLifetimeSyntaxes` */
 // rustc: compiler/rustc_lint/src/diagnostics.rs:2970 into_diag
 export function MismatchedLifetimeSyntaxes_into_diag(self: MismatchedLifetimeSyntaxes, dcx: DiagCtxtHandle, level: Level): Diag {
-  void [self, dcx, level];
-  // `self.inputs.len() + self.outputs.len()` (`LifetimeSyntaxCategories`, lifetime_syntax.rs)
-  return unported("rustc_lint::diagnostics::MismatchedLifetimeSyntaxes::into_diag (lifetime_syntax::LifetimeSyntaxCategories, M3)");
+  const counts = LifetimeSyntaxCategories.add(LifetimeSyntaxCategories.len(self.inputs), LifetimeSyntaxCategories.len(self.outputs));
+  let message;
+  if (counts.hidden === 0 && counts.elided === 0 && counts.named === 0) {
+    return panic("No lifetime mismatch detected");
+  } else if (counts.named === 0) {
+    message = msg("hiding a lifetime that's elided elsewhere is confusing");
+  } else if (counts.elided === 0) {
+    message = msg("hiding a lifetime that's named elsewhere is confusing");
+  } else if (counts.hidden === 0) {
+    message = msg("eliding a lifetime that's named elsewhere is confusing");
+  } else {
+    message = msg("hiding or eliding a lifetime that's named elsewhere is confusing");
+  }
+  const diag = Diag.new(dcx, level, message);
+
+  for (const s of self.inputs.hidden) {
+    diag.span_label(s, msg("the lifetime is hidden here"));
+  }
+  for (const s of self.inputs.elided) {
+    diag.span_label(s, msg("the lifetime is elided here"));
+  }
+  for (const s of self.inputs.named) {
+    diag.span_label(s, msg("the lifetime is named here"));
+  }
+
+  // PORT: `FxIndexMap<Span, usize>` is an insertion-ordered `Map` (PORTING.md section 5).
+  const hidden_output_counts = new Map<Span, number>();
+  for (const s of self.outputs.hidden) {
+    hidden_output_counts.set(s, (hidden_output_counts.get(s) ?? 0) + 1);
+  }
+  for (const [span, count] of hidden_output_counts) {
+    const label = DiagMessage_arg(
+      msg(
+        "the same {$count ->\n                    [one] lifetime\n                    *[other] lifetimes\n                } {$count ->\n                    [one] is\n                    *[other] are\n                } hidden here",
+      ),
+      "count",
+      IntoDiagArg.of(count, number_into_diag_arg),
+    ).format();
+    diag.span_label(span, label);
+  }
+  for (const s of self.outputs.elided) {
+    diag.span_label(s, msg("the same lifetime is elided here"));
+  }
+  for (const s of self.outputs.named) {
+    diag.span_label(s, msg("the same lifetime is named here"));
+  }
+
+  diag.help(msg("the same lifetime is referred to in inconsistent ways, making the signature confusing"));
+
+  // `let mut suggestions = self.suggestions.into_iter(); if let Some(s) = suggestions.next() { .. }`
+  if (self.suggestions.length > 0) {
+    const s = self.suggestions[0]!;
+    diag.subdiagnostic(MismatchedLifetimeSyntaxesSuggestion_subdiagnostic(s));
+
+    for (const s of self.suggestions.slice(1)) {
+      MismatchedLifetimeSyntaxesSuggestion.make_optional_alternative(s);
+      diag.subdiagnostic(MismatchedLifetimeSyntaxesSuggestion_subdiagnostic(s));
+    }
+  }
+  return diag;
 }
 export function MismatchedLifetimeSyntaxes_diagnostic(self: MismatchedLifetimeSyntaxes): Diagnostic {
   return { into_diag: (dcx, level) => MismatchedLifetimeSyntaxes_into_diag(self, dcx, level) };

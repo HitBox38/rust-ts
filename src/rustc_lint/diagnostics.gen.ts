@@ -3,23 +3,24 @@
 import { bool_into_diag_arg, into_diag_arg_using_display, number_into_diag_arg, str_into_diag_arg, String_into_diag_arg, Symbol_into_diag_arg, Vec_char_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
 import { type DiagMessage } from "../rustc_error_messages/lib.ts";
 import { Diag, type DiagArgMap, type DiagCtxtHandle, type Diagnostic, E0452, E0453, E0602, E0710, E0783, format_diag_message, IntoDiagArg, type Level, LintLevel, type Subdiagnostic } from "../rustc_errors/lib.ts";
+import { type InitError } from "./builtin.ts";
 import { type LateContext } from "./context.ts";
 import { BuiltinClashingExternSub_add_to_diag, BuiltinClashingExternSub_subdiagnostic, NonBindingLetSub_add_to_diag, NonBindingLetSub_subdiagnostic, NonSnakeCaseDiagSub_add_to_diag, NonSnakeCaseDiagSub_subdiagnostic, OverruledAttributeSub_add_to_diag, OverruledAttributeSub_subdiagnostic } from "./diagnostics.ts";
+import { debug_LifetimeSyntaxCategories, type LifetimeSyntaxCategories } from "./lifetime_syntax.ts";
 import { type Applicability } from "../rustc_lint_defs/lib.ts";
 import { type TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
 import { type Ty } from "../rustc_middle/ty/mod.ts";
-import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
+import { type Clause, Clause_into_diag_arg } from "../rustc_middle/ty/predicate.ts";
+import { display_PolyFnSig, display_Ty } from "../rustc_middle/ty/print/pretty.ts";
 import { type Session } from "../rustc_session/session.ts";
 import { type DefId } from "../rustc_span/def_id.ts";
 import { display_Edition, type Edition } from "../rustc_span/edition.ts";
 import { debug_Span, type Span } from "../rustc_span/lib.ts";
 import { display_Ident, display_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
+import { type PolyExistentialTraitRef, type PolyFnSig } from "../rustc_type_ir/decls.ts";
+import { PolyExistentialTraitRef_into_diag_arg, PolyFnSig_into_diag_arg } from "../rustc_type_ir/ir_print.ts";
 import { type Debug, debug_bool, debug_str, debug_struct, debug_tuple, debug_vec } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
-const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported("IntoDiagArg without a TS impl (see types report)");
-const unported_display = (_v: unknown): string => unported("Display without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:27 OverruledAttribute
 export interface OverruledAttribute {
@@ -721,7 +722,7 @@ export interface BuiltinTypeAliasBounds {
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:494 BuiltinTrivialBounds
 export interface BuiltinTrivialBounds {
   clause_kind_name: string;
-  clause: unknown;
+  clause: Clause;
 }
 /** `#[derive(Diagnostic)]`: `impl<'_sess> Diagnostic<'_sess> for BuiltinTrivialBounds` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:494 Diagnostic BuiltinTrivialBounds
@@ -729,7 +730,7 @@ export function BuiltinTrivialBounds_into_diag(self: BuiltinTrivialBounds, dcx: 
   const { clause_kind_name: __binding_0, clause: __binding_1 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "{$clause_kind_name} bound {$clause} does not depend on any type or lifetime parameters" });
   diag.arg("clause_kind_name", IntoDiagArg.of(__binding_0, str_into_diag_arg));
-  diag.arg("clause", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
+  diag.arg("clause", IntoDiagArg.of(__binding_1, Clause_into_diag_arg));
   return diag;
 }
 /** `BuiltinTrivialBounds` as a `Diagnostic` trait object. */
@@ -963,7 +964,7 @@ export interface BuiltinUnpermittedTypeInit {
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:636 BuiltinUnpermittedTypeInitSub
 export interface BuiltinUnpermittedTypeInitSub {
-  err: unknown;
+  err: InitError;
 }
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:659 BuiltinClashingExtern
@@ -1094,8 +1095,8 @@ export function ExternCVoidReturn_diagnostic(self: ExternCVoidReturn): Diagnosti
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:749 SupertraitAsDerefTarget
 export interface SupertraitAsDerefTarget {
   self_ty: Ty;
-  supertrait_principal: unknown;
-  target_principal: unknown;
+  supertrait_principal: PolyExistentialTraitRef;
+  target_principal: PolyExistentialTraitRef;
   label: Span;
   label2: SupertraitAsDerefTargetLabel | undefined;
 }
@@ -1105,8 +1106,8 @@ export function SupertraitAsDerefTarget_into_diag(self: SupertraitAsDerefTarget,
   const { self_ty: __binding_0, supertrait_principal: __binding_1, target_principal: __binding_2, label: __binding_3, label2: __binding_4 } = self;
   const diag = Diag.new(dcx, level, { $: "Inline", _0: "this `Deref` implementation is covered by an implicit supertrait coercion" });
   diag.arg("self_ty", IntoDiagArg.of(__binding_0, Ty_into_diag_arg));
-  diag.arg("supertrait_principal", IntoDiagArg.of(__binding_1, unported_into_diag_arg));
-  diag.arg("target_principal", IntoDiagArg.of(__binding_2, unported_into_diag_arg));
+  diag.arg("supertrait_principal", IntoDiagArg.of(__binding_1, PolyExistentialTraitRef_into_diag_arg));
+  diag.arg("target_principal", IntoDiagArg.of(__binding_2, PolyExistentialTraitRef_into_diag_arg));
   diag.span_label(__binding_3, { $: "Inline", _0: "`{$self_ty}` implements `Deref<Target = dyn {$target_principal}>` which conflicts with supertrait `{$supertrait_principal}`" });
   if (__binding_4 !== undefined) {
     diag.subdiagnostic(SupertraitAsDerefTargetLabel_subdiagnostic(__binding_4));
@@ -3020,7 +3021,7 @@ export function RedundantSemicolonsSuggestion_subdiagnostic(self: RedundantSemic
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:2046 DropTraitConstraintsDiag
 export interface DropTraitConstraintsDiag {
-  clause: unknown;
+  clause: Clause;
   tcx: TyCtxt;
   def_id: DefId;
 }
@@ -3762,7 +3763,7 @@ export function UnpredictableFunctionPointerComparisons_diagnostic(self: Unpredi
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:2490 UnpredictableFunctionPointerComparisonsSuggestion
 export type UnpredictableFunctionPointerComparisonsSuggestion =
   | { readonly $: "FnAddrEq"; krate: string; ne: string; deref_left: string; deref_right: string; left: Span; middle: Span; right: Span }
-  | { readonly $: "FnAddrEqWithCast"; krate: string; ne: string; deref_left: string; deref_right: string; fn_sig: unknown; left: Span; middle: Span; right: Span };
+  | { readonly $: "FnAddrEqWithCast"; krate: string; ne: string; deref_left: string; deref_right: string; fn_sig: PolyFnSig; left: Span; middle: Span; right: Span };
 /** `#[derive(Subdiagnostic)]`: `impl Subdiagnostic for UnpredictableFunctionPointerComparisonsSuggestion` */
 // rustc-derive: compiler/rustc_lint/src/diagnostics.rs:2490 Subdiagnostic UnpredictableFunctionPointerComparisonsSuggestion
 export function UnpredictableFunctionPointerComparisonsSuggestion_add_to_diag(self: UnpredictableFunctionPointerComparisonsSuggestion, diag: Diag): void {
@@ -3787,7 +3788,7 @@ export function UnpredictableFunctionPointerComparisonsSuggestion_add_to_diag(se
       const suggestions: [Span, string][] = [];
       let __code_81 = __binding_1 + __binding_0 + "::ptr::fn_addr_eq(" + __binding_2;
       let __code_82 = ", " + __binding_3;
-      let __code_83 = " as " + unported_display(__binding_4) + ")";
+      let __code_83 = " as " + display_PolyFnSig(__binding_4) + ")";
       suggestions.push([__binding_5, __code_81]);
       suggestions.push([__binding_6, __code_82]);
       suggestions.push([__binding_7, __code_83]);
@@ -4485,14 +4486,14 @@ export function FunctionCastsAsIntegerSugg_subdiagnostic(self: FunctionCastsAsIn
 
 // rustc-type: compiler/rustc_lint/src/diagnostics.rs:2962 MismatchedLifetimeSyntaxes
 export interface MismatchedLifetimeSyntaxes {
-  inputs: unknown;
-  outputs: unknown;
+  inputs: LifetimeSyntaxCategories<Span[]>;
+  outputs: LifetimeSyntaxCategories<Span[]>;
   suggestions: MismatchedLifetimeSyntaxesSuggestion[];
 }
 export const debug_MismatchedLifetimeSyntaxes: Debug<MismatchedLifetimeSyntaxes> = (v, f) =>
   debug_struct(f, "MismatchedLifetimeSyntaxes", [
-    ["inputs", unported_debug(v.inputs)],
-    ["outputs", unported_debug(v.outputs)],
+    ["inputs", debug_LifetimeSyntaxCategories(v.inputs, f, ((x, f) => debug_vec(x, f, debug_Span)))],
+    ["outputs", debug_LifetimeSyntaxCategories(v.outputs, f, ((x, f) => debug_vec(x, f, debug_Span)))],
     ["suggestions", debug_vec(v.suggestions, f, debug_MismatchedLifetimeSyntaxesSuggestion)],
   ]);
 

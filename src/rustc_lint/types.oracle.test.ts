@@ -6,9 +6,8 @@
 // file as a lib with std (`--emit=metadata`); each case only has diagnostics the listed passes produce, so stderr and
 // the exit code must be identical.
 // PENDING cases pin where the subject stops today (exit 70, `rust-ts: unported: ..`) on code that is not this lane's:
-// `utils::std_or_core` (wide / fn pointer `==` suggestions), `Ty: StableHash` (`type_id_hash`, the `ImproperCTypesLint`
-// cache key of every `extern "C"` signature), `ImproperCTypes::into_diag` (diagnostics.ts) and rustc_apfloat (float
-// literals). When one of them is ported, the pin fails: turn the case into a normal one.
+// `Ty: StableHash` (`type_id_hash`, the `ImproperCTypesLint` cache key of every `extern "C"` signature) and
+// rustc_apfloat (float literals). When one of them is ported, the pin fails: turn the case into a normal one.
 // Not covered: `uses_power_alignment` (AIX only; the `powerpc64-ibm-aix` target spec is not ported).
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
@@ -126,18 +125,16 @@ const CASES: Case[] = [
     expect: ["function pointer comparisons do not produce meaningful results since their addresses are not guaranteed to be unique"],
   },
   {
-    name: "PENDING TypeLimits: fn pointer `==` suggestion stops at utils::std_or_core",
+    name: "TypeLimits: fn pointer `==` with the `fn_addr_eq` suggestion",
     passes: [TL],
     src: ["pub fn a(f: fn(), g: fn()) -> bool { f == g }"],
     expect: ["use `std::ptr::fn_addr_eq` to suppress the lint"],
-    pending: "rust-ts: unported: rustc_lint::utils::std_or_core (M3)\n",
   },
   {
-    name: "PENDING TypeLimits: ambiguous_wide_pointer_comparisons stops at utils::std_or_core",
+    name: "TypeLimits: ambiguous_wide_pointer_comparisons",
     passes: [TL],
     src: ["pub fn a(p: *const [u8], q: *const [u8]) -> bool { p == q }"],
     expect: ["ambiguous wide pointer comparison, the comparison includes metadata which may not be expected"],
-    pending: "rust-ts: unported: rustc_lint::utils::std_or_core (M3)\n",
   },
   {
     name: "PENDING TypeLimits: float literals stop at rustc_apfloat",
@@ -195,11 +192,10 @@ const CASES: Case[] = [
     expect: [],
   },
   {
-    name: "PENDING ImproperCTypesLint: an FFI-unsafe fn pointer stops at ImproperCTypes::into_diag",
+    name: "ImproperCTypesLint: an FFI-unsafe fn pointer",
     passes: [ICT],
     src: ['pub type A = extern "C" fn(&str);'],
     expect: ["`extern` fn uses type `str`, which is not FFI-safe"],
-    pending: "rust-ts: unported: rustc_lint::diagnostics::ImproperCTypes::into_diag (IntoDiagArg for Ty, M3)\n",
   },
   {
     name: "PENDING ImproperCTypesLint: an extern \"C\" signature stops at the cache key (Ty: StableHash)",

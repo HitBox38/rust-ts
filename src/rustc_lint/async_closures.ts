@@ -1,18 +1,15 @@
 // Port of compiler/rustc_lint/src/async_closures.rs. The lint static and the `declare_lint_pass!` expansion are
-// generated (async_closures.lints.gen.ts).
-//
-// PORT: `ClosureReturningAsyncBlock` / `AsyncClosureSugg` are `#[derive(Diagnostic)]` / `#[derive(Subdiagnostic)]`
-// structs local to this file; tools/codegen's `rustc_lint` set only reads diagnostics.rs, so their impls are not
-// generated yet. The data structs are kept (interfaces) and the `Diagnostic` impl is `unported` (handoff
-// lint-late-e1: add async_closures.rs to the set).
+// generated (async_closures.lints.gen.ts); the `#[derive(Diagnostic)]` / `#[derive(Subdiagnostic)]` structs
+// `ClosureReturningAsyncBlock` / `AsyncClosureSugg` are generated into async_closures.gen.ts (tools/codegen set
+// `rustc_lint`).
 import type * as hir from "../rustc_hir/hir.ts";
-import type { Diagnostic } from "../rustc_errors/lib.ts";
 import { Span } from "../rustc_span/lib.ts";
-import { unported } from "../std/panic.ts";
+import { ClosureReturningAsyncBlock_diagnostic } from "./async_closures.gen.ts";
 import { AsyncClosureUsage, CLOSURE_RETURNING_ASYNC_BLOCK } from "./async_closures.lints.gen.ts";
 import type { LateContext } from "./context.ts";
 import type { LateLintPass } from "./passes.ts";
 
+export * from "./async_closures.gen.ts";
 export * from "./async_closures.lints.gen.ts";
 
 declare module "./async_closures.lints.gen.ts" {
@@ -63,25 +60,3 @@ AsyncClosureUsage.prototype.check_expr = function (this: AsyncClosureUsage, cx: 
     }),
   );
 };
-
-/** `#[derive(Diagnostic)] struct ClosureReturningAsyncBlock` (async_closures.rs:111). */
-interface ClosureReturningAsyncBlock {
-  async_decl_span: Span;
-  sugg: AsyncClosureSugg;
-}
-
-/** `#[derive(Subdiagnostic)] struct AsyncClosureSugg` (async_closures.rs:121). */
-interface AsyncClosureSugg {
-  deletion_span: Span;
-  insertion_span: Span;
-}
-
-/** `ClosureReturningAsyncBlock` as a `Diagnostic` trait object. PORT: derive not generated (see header). */
-function ClosureReturningAsyncBlock_diagnostic(self: ClosureReturningAsyncBlock): Diagnostic {
-  return {
-    into_diag: () => {
-      void self;
-      return unported("rustc_lint::async_closures::ClosureReturningAsyncBlock (#[derive(Diagnostic)], tools/codegen set rustc_lint)");
-    },
-  };
-}
