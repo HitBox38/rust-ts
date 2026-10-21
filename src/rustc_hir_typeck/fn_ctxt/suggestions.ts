@@ -45,7 +45,7 @@ import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { ToTrace_Ty } from "../../rustc_infer/infer/at.ts";
 import { unreachable, unwrap } from "../../std/panic.ts";
 import { span_bug } from "../../rustc_span/macros.ts";
-import { str_is_char_boundary } from "../../std/str.ts";
+import { str_is_char_boundary, str_to_uppercase } from "../../std/str.ts";
 import { FnCtxt } from "../decls.ts";
 import {
   AddReturnTypeSuggestion_subdiagnostic,
@@ -1798,8 +1798,7 @@ FnCtxt.prototype.suggest_associated_const = function (this: FnCtxt, err: Diag, e
   }
   const old_def_id = tdd[1];
   const old_item_name = this.tcx.item_name(old_def_id);
-  // PORT: `str::to_uppercase` (Unicode full case mapping) is `String.prototype.toUpperCase`.
-  const capitalized_name = Symbol.intern(Symbol.as_str(old_item_name).toUpperCase());
+  const capitalized_name = Symbol.intern(str_to_uppercase(Symbol.as_str(old_item_name)));
   if (old_item_name === capitalized_name) {
     return false;
   }
