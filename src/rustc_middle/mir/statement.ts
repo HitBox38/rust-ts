@@ -8,23 +8,41 @@
 //! Functionality for statements, operands, places, and things that appear in them.
 import "./mod.ts";
 import type { BinOpKind } from "../../rustc_ast/lib.ts";
-import type { FieldIdx, VariantIdx } from "../../rustc_abi/lib.ts";
+import { FieldIdx, VariantIdx } from "../../rustc_abi/lib.ts";
 import type { Mutability } from "../../rustc_ast_ir/lib.ts";
 import type { DenseBitSet } from "../../rustc_index/bit_set.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
-import type { Span } from "../../rustc_span/lib.ts";
-import type { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import type { Debug } from "../../std/fmt.ts";
-import { unported } from "../../std/panic.ts";
+import { DUMMY_SP, type Span } from "../../rustc_span/lib.ts";
+import { bug } from "../../rustc_span/macros.ts";
+import { Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
+import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs } from "../../rustc_type_ir/ty_kind/closure.ts";
+import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
+import { type Debug, debug_option, PLAIN } from "../../std/fmt.ts";
+import { assert, assert_eq, panic, unreachable, unwrap } from "../../std/panic.ts";
 import type { TyCtxt } from "../ty/context.ts";
-import type { Ty } from "../ty/decls.ts";
-import type { GenericArg, GenericArgsRef } from "../ty/generic_args.ts";
+import { fold_GenericArgs, type GenericArg, type GenericArgsRef } from "../ty/generic_args.ts";
+import { RawList } from "../ty/list.ts";
+import { debug_Ty, Ty } from "../ty/mod.ts";
+import { fold_Ty } from "../ty/structural_impls.ts";
+import { Const, ConstValue, fold_Const as fold_mir_Const } from "./consts.ts";
+import { CtfeProvenance } from "./interpret/pointer.ts";
 import type { Scalar } from "./interpret/value.ts";
-import type { HasLocalDecls, Local, SourceInfo } from "./mod.ts";
-import { PlaceRef, PlaceTy, Statement, StmtDebugInfos, type ProjectionKind, type StmtDebugInfo } from "./statement.gen.ts";
+import { debug_Local, HasLocalDecls, type Local, RETURN_PLACE, type SourceInfo } from "./mod.ts";
+import {
+  clone_StmtDebugInfo,
+  debug_PlaceTy,
+  PlaceRef,
+  PlaceTy,
+  Statement,
+  StmtDebugInfos,
+  type ProjectionKind,
+  type StmtDebugInfo,
+} from "./statement.gen.ts";
 import {
   BinOp,
   BorrowKind,
+  clone_Operand,
+  clone_Place,
   ConstOperand,
   Operand,
   Place,
@@ -42,6 +60,16 @@ function mir_pretty(): typeof import("./pretty.ts") {
   return (mir_pretty__m ??= require("./pretty.ts") as typeof import("./pretty.ts"));
 }
 var mir_pretty__m: typeof import("./pretty.ts") | undefined;
+/** rustc_middle ty/sty.ts (`CoroutineArgsExt`), read lazily (init order: mir/ is in ty/context.ts's import closure). */
+function sty(): typeof import("../ty/sty.ts") {
+  return (sty__m ??= require("../ty/sty.ts") as typeof import("../ty/sty.ts"));
+}
+var sty__m: typeof import("../ty/sty.ts") | undefined;
+/** rustc_middle ty/print/pretty.ts (`Display for Ty`), read lazily (init order). */
+function print_pretty(): typeof import("../ty/print/pretty.ts") {
+  return (print_pretty__m ??= require("../ty/print/pretty.ts") as typeof import("../ty/print/pretty.ts"));
+}
+var print_pretty__m: typeof import("../ty/print/pretty.ts") | undefined;
 /** `impl Debug for Statement` (pretty.rs:905). */
 export const debug_Statement: Debug<Statement> = (v, f) => mir_pretty().debug_Statement(v, f);
 /** `impl Debug for StmtDebugInfo` (pretty.rs:911). */
@@ -295,499 +323,1279 @@ declare module "./statement.gen.ts" {
   }
 }
 
-// stub: compiler/rustc_middle/src/mir/statement.rs:32 make_nop (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:32 make_nop
 Statement.prototype.make_nop = function (this: Statement, drop_debuginfo: boolean): void {
-  return unported("rustc_middle::mir::statement::Statement::make_nop");
+  if (this.kind.$ === "Nop") {
+    return;
+  }
+  // std::mem::replace(&mut self.kind, StatementKind::Nop)
+  const replaced_stmt = this.kind;
+  this.kind = StatementKind.Nop;
+  if (!drop_debuginfo) {
+    const debuginfo = StatementKind.as_debuginfo(replaced_stmt);
+    if (debuginfo === undefined) {
+      bug("debuginfo is not yet supported.");
+    }
+    this.debuginfos.push(debuginfo);
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:45 new (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:45 new
 (Statement as unknown as { new: typeof Statement.new }).new = function (source_info: SourceInfo, kind: StatementKind): Statement {
-  return unported("rustc_middle::mir::statement::Statement::new");
+  return new Statement(source_info, kind, new StmtDebugInfos(undefined));
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:53 name (lane mir-body-b)
+/// Returns a simple string representation of a `StatementKind` variant, independent of any
+/// values it might hold (e.g. `StatementKind::Assign` always returns `"Assign"`).
+// rustc: compiler/rustc_middle/src/mir/statement.rs:53 name
 StatementKind.name = function (self: StatementKind): string {
-  return unported("rustc_middle::mir::statement::StatementKind::name");
+  switch (self.$) {
+    case "Assign":
+      return "Assign";
+    case "FakeRead":
+      return "FakeRead";
+    case "SetDiscriminant":
+      return "SetDiscriminant";
+    case "StorageLive":
+      return "StorageLive";
+    case "StorageDead":
+      return "StorageDead";
+    case "PlaceMention":
+      return "PlaceMention";
+    case "AscribeUserType":
+      return "AscribeUserType";
+    case "Coverage":
+      return "Coverage";
+    case "Intrinsic":
+      return "Intrinsic";
+    case "ConstEvalCounter":
+      return "ConstEvalCounter";
+    case "Nop":
+      return "Nop";
+    case "BackwardIncompatibleDropHint":
+      return "BackwardIncompatibleDropHint";
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:69 as_assign_mut (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:69 as_assign_mut
 StatementKind.as_assign_mut = function (self: StatementKind): [Place, Rvalue] | undefined {
-  return unported("rustc_middle::mir::statement::StatementKind::as_assign_mut");
+  switch (self.$) {
+    case "Assign":
+      return self._0;
+    default:
+      return undefined;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:76 as_assign (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:76 as_assign
 StatementKind.as_assign = function (self: StatementKind): [Place, Rvalue] | undefined {
-  return unported("rustc_middle::mir::statement::StatementKind::as_assign");
+  switch (self.$) {
+    case "Assign":
+      return self._0;
+    default:
+      return undefined;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:83 as_debuginfo (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:83 as_debuginfo
 StatementKind.as_debuginfo = function (self: StatementKind): StmtDebugInfo | undefined {
-  return unported("rustc_middle::mir::statement::StatementKind::as_debuginfo");
+  if (self.$ === "Assign" && self._0[1].$ === "Ref") {
+    const [place, rv] = self._0;
+    const local = place.as_local();
+    if (local !== undefined) {
+      return { $: "AssignRef", _0: local, _1: clone_Place(rv._2) };
+    }
+  }
+  return undefined;
 };
 
+///////////////////////////////////////////////////////////////////////////
+// Places
 
-// stub: compiler/rustc_middle/src/mir/statement.rs:111 from_ty (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:111 from_ty
 (PlaceTy as unknown as { from_ty: typeof PlaceTy.from_ty }).from_ty = function (ty: Ty): PlaceTy {
-  return unported("rustc_middle::mir::statement::PlaceTy::from_ty");
+  return new PlaceTy(ty, undefined);
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:123 field_ty (lane mir-body-b)
+/// `place_ty.field_ty(tcx, f)` computes the type of a given field.
+///
+/// Most clients of `PlaceTy` can instead just extract the relevant type
+/// directly from their `PlaceElem`, but some instances of `ProjectionElem<V, T>`
+/// do not carry a `Ty` for `T`.
+///
+/// Note that the resulting type has not been normalized.
+// #[instrument(level = "debug", skip(tcx), ret)]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:123 field_ty
 (PlaceTy as unknown as { field_ty: typeof PlaceTy.field_ty }).field_ty = function (tcx: TyCtxt, self_ty: Ty, variant_idx: VariantIdx | undefined, f: FieldIdx): Unnormalized<Ty> {
-  return unported("rustc_middle::mir::statement::PlaceTy::field_ty");
+  if (variant_idx !== undefined) {
+    const variant_index = variant_idx;
+    const k = self_ty.kind();
+    if (k.$ === "Adt" && k._0.is_enum()) {
+      const [adt_def, args] = [k._0, k._1];
+      return adt_def.variant(variant_index).fields[f]!.ty(tcx, args);
+    } else if (k.$ === "Coroutine") {
+      const [def_id, args] = [k._0, k._1];
+      const variants = sty().CoroutineArgsExt.state_tys(args.as_coroutine(), def_id, tcx);
+      const variant = iter_nth(variants, variant_index);
+      if (variant === undefined) {
+        bug(`variant ${VariantIdx.debug(variant_index, PLAIN)} of coroutine out of range: ${debug_Ty(self_ty, PLAIN)}`);
+      }
+
+      const t = iter_nth(variant, f);
+      return Unnormalized.new_wip(
+        t !== undefined
+          ? t
+          : bug(`field ${FieldIdx.debug(f, PLAIN)} out of range of variant: ${debug_Ty(self_ty, PLAIN)} ${debug_option(variant_idx, PLAIN, VariantIdx.debug)}`),
+      );
+    } else {
+      return bug(`can't downcast non-adt non-coroutine type: ${debug_Ty(self_ty, PLAIN)}`);
+    }
+  } else {
+    const k = self_ty.kind();
+    if (k.$ === "Adt" && !k._0.is_enum()) {
+      const [adt_def, args] = [k._0, k._1];
+      return adt_def.non_enum_variant().fields[f]!.ty(tcx, args);
+    } else if (k.$ === "Closure") {
+      const t = ClosureArgs.upvar_tys(k._1.as_closure())[f];
+      return Unnormalized.dummy(t !== undefined ? t : bug(`field ${FieldIdx.debug(f, PLAIN)} out of range: ${debug_Ty(self_ty, PLAIN)}`));
+    } else if (k.$ === "CoroutineClosure") {
+      const t = CoroutineClosureArgs.upvar_tys(k._1.as_coroutine_closure())[f];
+      return Unnormalized.dummy(t !== undefined ? t : bug(`field ${FieldIdx.debug(f, PLAIN)} out of range: ${debug_Ty(self_ty, PLAIN)}`));
+    } else if (k.$ === "Coroutine") {
+      // Only upvars are accessible without a variant index.
+      const t = CoroutineArgs.upvar_tys(k._1.as_coroutine())[f];
+      return Unnormalized.dummy(
+        t !== undefined ? t : bug(`field ${FieldIdx.debug(f, PLAIN)} out of range of prefixes for ${print_pretty().display_Ty(self_ty)}`),
+      );
+    } else if (k.$ === "Tuple") {
+      const t = k._0[f];
+      return Unnormalized.dummy(t !== undefined ? t : bug(`field ${FieldIdx.debug(f, PLAIN)} out of range: ${debug_Ty(self_ty, PLAIN)}`));
+    } else {
+      return bug(`can't project out of ${debug_Ty(self_ty, PLAIN)}`);
+    }
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:181 multi_projection_ty (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:181 multi_projection_ty
 PlaceTy.prototype.multi_projection_ty = function (this: PlaceTy, tcx: TyCtxt, elems: readonly PlaceElem[]): PlaceTy {
-  return unported("rustc_middle::mir::statement::PlaceTy::multi_projection_ty");
+  let place_ty: PlaceTy = this;
+  for (const elem of elems) place_ty = place_ty.projection_ty(tcx, elem, debug_Local);
+  return place_ty;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:192 projection_ty (lane mir-body-b)
+/// Convenience wrapper around `projection_ty_core` for `PlaceElem`,
+/// where we can just use the `Ty` that is already stored inline on
+/// field projection elems.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:192 projection_ty
 PlaceTy.prototype.projection_ty = function <V>(this: PlaceTy, tcx: TyCtxt, elem: ProjectionElem<V, Ty>, debug_V: Debug<V>): PlaceTy {
-  return unported("rustc_middle::mir::statement::PlaceTy::projection_ty");
+  void debug_V;
+  return this.projection_ty_core(
+    tcx,
+    elem,
+    (_a, _b, _c, ty) => ty,
+    (ty) => ty,
+  );
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:206 projection_ty_core (lane mir-body-b)
+/// `place_ty.projection_ty_core(tcx, elem, |...| { ... })`
+/// projects `place_ty` onto `elem`, returning the appropriate
+/// `Ty` or downcast variant corresponding to that projection.
+/// The `handle_field` callback must map a `FieldIdx` to its `Ty`,
+/// (which should be trivial when `T` = `Ty`).
+// #[instrument(level = "debug", skip(tcx, handle_field, handle_opaque_cast_and_subtype), ret)]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:206 projection_ty_core
 PlaceTy.prototype.projection_ty_core = function <V, T>(this: PlaceTy, tcx: TyCtxt, elem: ProjectionElem<V, T>, handle_field: (a0: Ty, a1: VariantIdx | undefined, a2: FieldIdx, a3: T) => Ty, handle_opaque_cast_and_subtype: (a0: T) => Ty): PlaceTy {
-  return unported("rustc_middle::mir::statement::PlaceTy::projection_ty_core");
+  if (this.variant_index !== undefined && !(elem.$ === "Field")) {
+    bug("cannot use non field projection on downcasted place");
+  }
+  switch (elem.$) {
+    case "Deref": {
+      const ty = this.ty.builtin_deref(true);
+      if (ty === undefined) {
+        bug(`deref projection of non-dereferenceable ty ${debug_PlaceTy(this, PLAIN)}`);
+      }
+      return PlaceTy.from_ty(ty);
+    }
+    case "PhantomDeref":
+      return PlaceTy.from_ty(this.ty);
+    case "Index":
+    case "ConstantIndex":
+      return PlaceTy.from_ty(unwrap(this.ty.builtin_index()));
+    case "Subslice": {
+      const { from, to, from_end } = elem;
+      const k = this.ty.kind();
+      let ty: Ty;
+      if (k.$ === "Slice") {
+        ty = this.ty;
+      } else if (k.$ === "Array" && !from_end) {
+        ty = Ty.new_array(tcx, k._0, to - from);
+      } else if (k.$ === "Array" && from_end) {
+        const size = unwrap(k._1.try_to_target_usize(tcx), "expected subslice projection on fixed-size array");
+        const len = size - from - to;
+        ty = Ty.new_array(tcx, k._0, len);
+      } else {
+        ty = bug(`cannot subslice non-array type: \`${debug_PlaceTy(this, PLAIN)}\``);
+      }
+      return PlaceTy.from_ty(ty);
+    }
+    case "Downcast": {
+      const index = elem._1;
+      return new PlaceTy(this.ty, index);
+    }
+    case "Field": {
+      const [f, fty] = [elem._0, elem._1];
+      return PlaceTy.from_ty(handle_field(this.ty, this.variant_index, f, fty));
+    }
+    case "OpaqueCast":
+      return PlaceTy.from_ty(handle_opaque_cast_and_subtype(elem._0));
+
+    // FIXME(unsafe_binders): Rename `handle_opaque_cast_and_subtype` to be more general.
+    case "UnwrapUnsafeBinder":
+      return PlaceTy.from_ty(handle_opaque_cast_and_subtype(elem._0));
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:264 is_indirect (lane mir-body-b)
+/// Returns `true` if the target of this projection may refer to a different region of memory
+/// than the base.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:264 is_indirect
 ProjectionElem.is_indirect = function <V, T>(self: ProjectionElem<V, T>): boolean {
-  return unported("rustc_middle::mir::statement::ProjectionElem::is_indirect");
+  switch (self.$) {
+    case "Deref":
+    case "PhantomDeref":
+      return true;
+
+    case "Field":
+    case "Index":
+    case "OpaqueCast":
+    case "ConstantIndex":
+    case "Subslice":
+    case "Downcast":
+    case "UnwrapUnsafeBinder":
+      return false;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:280 is_stable_offset (lane mir-body-b)
+/// Returns `true` if the target of this projection always refers to the same memory region
+/// whatever the state of the program.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:280 is_stable_offset
 ProjectionElem.is_stable_offset = function <V, T>(self: ProjectionElem<V, T>): boolean {
-  return unported("rustc_middle::mir::statement::ProjectionElem::is_stable_offset");
+  switch (self.$) {
+    case "Deref":
+    case "Index":
+      return false;
+    case "Field":
+    case "OpaqueCast":
+    case "ConstantIndex":
+    case "Subslice":
+    case "Downcast":
+    case "UnwrapUnsafeBinder":
+    case "PhantomDeref":
+      return true;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:294 is_downcast_to (lane mir-body-b)
+/// Returns `true` if this is a `Downcast` projection with the given `VariantIdx`.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:294 is_downcast_to
 ProjectionElem.is_downcast_to = function <V, T>(self: ProjectionElem<V, T>, v: VariantIdx): boolean {
-  return unported("rustc_middle::mir::statement::ProjectionElem::is_downcast_to");
+  return self.$ === "Downcast" && self._1 === v;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:299 is_field_to (lane mir-body-b)
+/// Returns `true` if this is a `Field` projection with the given index.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:299 is_field_to
 ProjectionElem.is_field_to = function <V, T>(self: ProjectionElem<V, T>, f: FieldIdx): boolean {
-  return unported("rustc_middle::mir::statement::ProjectionElem::is_field_to");
+  return self.$ === "Field" && self._0 === f;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:304 can_use_in_debuginfo (lane mir-body-b)
+/// Returns `true` if this is accepted inside `VarDebugInfoContents::Place`.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:304 can_use_in_debuginfo
 ProjectionElem.can_use_in_debuginfo = function <V, T>(self: ProjectionElem<V, T>): boolean {
-  return unported("rustc_middle::mir::statement::ProjectionElem::can_use_in_debuginfo");
+  switch (self.$) {
+    case "ConstantIndex":
+      return !self.from_end;
+    case "Deref":
+    case "Downcast":
+    case "Field":
+      return true;
+    case "Index":
+    case "OpaqueCast":
+    case "Subslice":
+    case "PhantomDeref":
+      return false;
+
+    // FIXME(unsafe_binders): Figure this out.
+    case "UnwrapUnsafeBinder":
+      return false;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:322 kind (lane mir-body-b)
+/// Returns the `ProjectionKind` associated to this projection.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:322 kind
 ProjectionElem.kind = function <V, T>(self: ProjectionElem<V, T>): ProjectionKind {
-  return unported("rustc_middle::mir::statement::ProjectionElem::kind");
+  return unwrap(
+    ProjectionElem.try_map<V, T, null, null>(
+      self,
+      (_) => null,
+      (_) => null,
+    ),
+  );
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:327 try_map (lane mir-body-b)
+/// Apply functions to types and values in this projection and return the result.
+// PORT: `V2 = ()` maps to `null`, so `v` returning `None` is `undefined` (never a valid `V2`).
+// rustc: compiler/rustc_middle/src/mir/statement.rs:327 try_map
 ProjectionElem.try_map = function <V, T, V2, T2>(self: ProjectionElem<V, T>, v: (a0: V) => V2 | undefined, t: (a0: T) => T2): ProjectionElem<V2, T2> | undefined {
-  return unported("rustc_middle::mir::statement::ProjectionElem::try_map");
+  switch (self.$) {
+    case "Deref":
+      return ProjectionElem.Deref;
+    case "PhantomDeref":
+      return bug("PhantomDeref shouldn't hopefully come here");
+    case "Downcast":
+      return { $: "Downcast", _0: self._0, _1: self._1 };
+    case "Field":
+      return { $: "Field", _0: self._0, _1: t(self._1) };
+    case "ConstantIndex":
+      return { $: "ConstantIndex", offset: self.offset, min_length: self.min_length, from_end: self.from_end };
+    case "Subslice":
+      return { $: "Subslice", from: self.from, to: self.to, from_end: self.from_end };
+    case "OpaqueCast":
+      return { $: "OpaqueCast", _0: t(self._0) };
+    case "UnwrapUnsafeBinder":
+      return { $: "UnwrapUnsafeBinder", _0: t(self._0) };
+    case "Index": {
+      const val = v(self._0);
+      if (val === undefined) return undefined;
+      return { $: "Index", _0: val };
+    }
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:370 return_place (lane mir-body-b)
+// FIXME change this to a const fn by also making List::empty a const fn.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:370 return_place
 (Place as unknown as { return_place: typeof Place.return_place }).return_place = function (): Place {
-  return unported("rustc_middle::mir::statement::Place::return_place");
+  return new Place(RETURN_PLACE, RawList.empty<PlaceElem>());
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:378 is_indirect (lane mir-body-b)
+/// Returns `true` if this `Place` contains a `Deref` projection.
+///
+/// If `Place::is_indirect` returns false, the caller knows that the `Place` refers to the
+/// same region of memory as its base.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:378 is_indirect
 Place.prototype.is_indirect = function (this: Place): boolean {
-  return unported("rustc_middle::mir::statement::Place::is_indirect");
+  return this.projection.some((elem) => ProjectionElem.is_indirect(elem));
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:384 is_stable_offset (lane mir-body-b)
+/// Returns `true` if the `Place` always refers to the same memory region
+/// whatever the state of the program.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:384 is_stable_offset
 Place.prototype.is_stable_offset = function (this: Place): boolean {
-  return unported("rustc_middle::mir::statement::Place::is_stable_offset");
+  return this.projection.every((elem) => ProjectionElem.is_stable_offset(elem));
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:393 is_indirect_first_projection (lane mir-body-b)
+/// Returns `true` if this `Place`'s first projection is `Deref`.
+///
+/// This is useful because for MIR phases `AnalysisPhase::PostCleanup` and later,
+/// `Deref` projections can only occur as the first projection. In that case this method
+/// is equivalent to `is_indirect`, but faster.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:393 is_indirect_first_projection
 Place.prototype.is_indirect_first_projection = function (this: Place): boolean {
-  return unported("rustc_middle::mir::statement::Place::is_indirect_first_projection");
+  return this.as_ref().is_indirect_first_projection();
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:400 local_or_deref_local (lane mir-body-b)
+/// Finds the innermost `Local` from this `Place`, *if* it is either a local itself or
+/// a single deref of a local.
+// #[inline(always)]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:400 local_or_deref_local
 Place.prototype.local_or_deref_local = function (this: Place): Local | undefined {
-  return unported("rustc_middle::mir::statement::Place::local_or_deref_local");
+  return this.as_ref().local_or_deref_local();
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:407 as_local (lane mir-body-b)
+/// If this place represents a local variable like `_X` with no
+/// projections, return `Some(_X)`.
+// #[inline(always)]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:407 as_local
 Place.prototype.as_local = function (this: Place): Local | undefined {
-  return unported("rustc_middle::mir::statement::Place::as_local");
+  return this.as_ref().as_local();
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:412 as_ref (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:412 as_ref
 Place.prototype.as_ref = function (this: Place): PlaceRef {
-  return unported("rustc_middle::mir::statement::Place::as_ref");
+  return new PlaceRef(this.local, this.projection);
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:424 iter_projections (lane mir-body-b)
+/// Iterate over the projections in evaluation order, i.e., the first element is the base with
+/// its projection and then subsequently more projections are added.
+/// As a concrete example, given the place a.b.c, this would yield:
+/// - (a, .b)
+/// - (a.b, .c)
+///
+/// Given a place without projections, the iterator is empty.
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:424 iter_projections
 Place.prototype.iter_projections = function (this: Place): readonly [PlaceRef, PlaceElem][] {
-  return unported("rustc_middle::mir::statement::Place::iter_projections");
+  return this.as_ref().iter_projections();
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:432 project_deeper (lane mir-body-b)
+/// Generates a new place by appending `more_projections` to the existing ones
+/// and interning the result.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:432 project_deeper
 Place.prototype.project_deeper = function (this: Place, more_projections: readonly PlaceElem[], tcx: TyCtxt): Place {
-  return unported("rustc_middle::mir::statement::Place::project_deeper");
+  if (more_projections.length === 0) {
+    return this;
+  }
+
+  return this.as_ref().project_deeper(more_projections, tcx);
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:443 project_to_field (lane mir-body-b)
+/// Return a place that projects to a field of the current place.
+///
+/// The type of the current place must be an ADT.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:443 project_to_field
 Place.prototype.project_to_field = function (this: Place, idx: FieldIdx, local_decls: HasLocalDecls, tcx: TyCtxt): Place {
-  return unported("rustc_middle::mir::statement::Place::project_to_field");
+  const ty = this.ty(local_decls, tcx).ty;
+  const k = ty.kind();
+  if (k.$ !== "Adt") return panic(`projecting to field of non-ADT ${print_pretty().display_Ty(ty)}`);
+  const [adt, args] = [k._0, k._1];
+  const field = adt.non_enum_variant().fields[idx]!;
+  const field_ty = Unnormalized.skip_norm_wip(field.ty(tcx, args));
+  return this.project_deeper([{ $: "Field", _0: idx, _1: field_ty }], tcx);
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:456 ty_from (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:456 ty_from
 (Place as unknown as { ty_from: typeof Place.ty_from }).ty_from = function (local: Local, projection: readonly PlaceElem[], local_decls: HasLocalDecls, tcx: TyCtxt): PlaceTy {
-  return unported("rustc_middle::mir::statement::Place::ty_from");
+  // If there's a field projection element in `projection`, we *could* skip everything
+  // before that, but on 2026-01-31 a perf experiment showed no benefit from doing so.
+  return PlaceTy.from_ty(HasLocalDecls.local_decls(local_decls)[local]!.ty).multi_projection_ty(tcx, projection);
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:470 ty (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:470 ty
 Place.prototype.ty = function (this: Place, local_decls: HasLocalDecls, tcx: TyCtxt): PlaceTy {
-  return unported("rustc_middle::mir::statement::Place::ty");
+  return Place.ty_from(this.local, this.projection, local_decls, tcx);
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:480 from (lane mir-body-b)
+// impl From<Local> for Place<'_>
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:480 from
 export function Place_from_Local(local: Local): Place {
-  return unported("rustc_middle::mir::statement::<Place as From<Local>>::from");
+  return new Place(local, RawList.empty<PlaceElem>());
 }
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:486 is_prefix_of (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:486 is_prefix_of
 PlaceRef.prototype.is_prefix_of = function (this: PlaceRef, other: PlaceRef): boolean {
-  return unported("rustc_middle::mir::statement::PlaceRef::is_prefix_of");
+  return (
+    this.local === other.local &&
+    this.projection.length <= other.projection.length &&
+    slice_eq_PlaceElem(this.projection, other.projection.slice(0, this.projection.length))
+  );
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:494 local_or_deref_local (lane mir-body-b)
+/// Finds the innermost `Local` from this `Place`, *if* it is either a local itself or
+/// a single deref of a local.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:494 local_or_deref_local
 PlaceRef.prototype.local_or_deref_local = function (this: PlaceRef): Local | undefined {
-  return unported("rustc_middle::mir::statement::PlaceRef::local_or_deref_local");
+  const projection = this.projection;
+  if (projection.length === 0 || (projection.length === 1 && (projection[0]!.$ === "Deref" || projection[0]!.$ === "PhantomDeref"))) {
+    return this.local;
+  }
+  return undefined;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:509 is_indirect (lane mir-body-b)
+/// Returns `true` if this `Place` contains a `Deref` projection.
+///
+/// If `Place::is_indirect` returns false, the caller knows that the `Place` refers to the
+/// same region of memory as its base.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:509 is_indirect
 PlaceRef.prototype.is_indirect = function (this: PlaceRef): boolean {
-  return unported("rustc_middle::mir::statement::PlaceRef::is_indirect");
+  return this.projection.some((elem) => ProjectionElem.is_indirect(elem));
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:518 is_indirect_first_projection (lane mir-body-b)
+/// Returns `true` if this `Place`'s first projection is `Deref`.
+///
+/// This is useful because for MIR phases `AnalysisPhase::PostCleanup` and later,
+/// `Deref` projections can only occur as the first projection. In that case this method
+/// is equivalent to `is_indirect`, but faster.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:518 is_indirect_first_projection
 PlaceRef.prototype.is_indirect_first_projection = function (this: PlaceRef): boolean {
-  return unported("rustc_middle::mir::statement::PlaceRef::is_indirect_first_projection");
+  // To make sure this is not accidentally used in wrong mir phase
+  // debug_assert!(
+  //     self.projection.is_empty() || !self.projection[1..].contains(&PlaceElem::Deref)
+  // );
+  return this.projection[0]?.$ === "Deref";
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:529 as_local (lane mir-body-b)
+/// If this place represents a local variable like `_X` with no
+/// projections, return `Some(_X)`.
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:529 as_local
 PlaceRef.prototype.as_local = function (this: PlaceRef): Local | undefined {
-  return unported("rustc_middle::mir::statement::PlaceRef::as_local");
+  if (this.projection.length === 0) return this.local;
+  return undefined;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:537 to_place (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:537 to_place
 PlaceRef.prototype.to_place = function (this: PlaceRef, tcx: TyCtxt): Place {
-  return unported("rustc_middle::mir::statement::PlaceRef::to_place");
+  return new Place(this.local, tcx.mk_place_elems(this.projection));
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:542 last_projection (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:542 last_projection
 PlaceRef.prototype.last_projection = function (this: PlaceRef): [PlaceRef, PlaceElem] | undefined {
-  return unported("rustc_middle::mir::statement::PlaceRef::last_projection");
+  const n = this.projection.length;
+  if (n > 0) {
+    const proj_base = this.projection.slice(0, n - 1);
+    const elem = this.projection[n - 1]!;
+    return [new PlaceRef(this.local, proj_base), elem];
+  } else {
+    return undefined;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:558 iter_projections (lane mir-body-b)
+/// Iterate over the projections in evaluation order, i.e., the first element is the base with
+/// its projection and then subsequently more projections are added.
+/// As a concrete example, given the place a.b.c, this would yield:
+/// - (a, .b)
+/// - (a.b, .c)
+///
+/// Given a place without projections, the iterator is empty.
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:558 iter_projections
 PlaceRef.prototype.iter_projections = function (this: PlaceRef): readonly [PlaceRef, PlaceElem][] {
-  return unported("rustc_middle::mir::statement::PlaceRef::iter_projections");
+  return this.projection.map((proj, i): [PlaceRef, PlaceElem] => {
+    const base = new PlaceRef(this.local, this.projection.slice(0, i));
+    return [base, proj];
+  });
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:568 accessed_locals (lane mir-body-b)
-PlaceRef.prototype.accessed_locals = function (this: PlaceRef): IterableIterator<Local> {
-  return unported("rustc_middle::mir::statement::PlaceRef::accessed_locals");
+/// Return the place accessed locals that include the base local.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:568 accessed_locals
+PlaceRef.prototype.accessed_locals = function* (this: PlaceRef): IterableIterator<Local> {
+  yield this.local;
+  for (const proj of this.projection) {
+    switch (proj.$) {
+      case "Index":
+        yield proj._0;
+        break;
+      case "Deref":
+      case "PhantomDeref":
+      case "Field":
+      case "ConstantIndex":
+      case "Subslice":
+      case "Downcast":
+      case "OpaqueCast":
+      case "UnwrapUnsafeBinder":
+        break;
+    }
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:584 project_deeper (lane mir-body-b)
+/// Generates a new place by appending `more_projections` to the existing ones
+/// and interning the result.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:584 project_deeper
 PlaceRef.prototype.project_deeper = function (this: PlaceRef, more_projections: readonly PlaceElem[], tcx: TyCtxt): Place {
-  return unported("rustc_middle::mir::statement::PlaceRef::project_deeper");
+  let new_projections: readonly PlaceElem[];
+  if (this.projection.length === 0) {
+    new_projections = more_projections;
+  } else {
+    const v: PlaceElem[] = [];
+    v.push(...this.projection);
+    v.push(...more_projections);
+    new_projections = v;
+  }
+
+  return new Place(this.local, tcx.mk_place_elems(new_projections));
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:603 ty (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:603 ty
 PlaceRef.prototype.ty = function (this: PlaceRef, local_decls: HasLocalDecls, tcx: TyCtxt): PlaceTy {
-  return unported("rustc_middle::mir::statement::PlaceRef::ty");
+  return Place.ty_from(this.local, this.projection, local_decls, tcx);
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:613 from (lane mir-body-b)
+// impl From<Local> for PlaceRef<'_>
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:613 from
 export function PlaceRef_from_Local(local: Local): PlaceRef {
-  return unported("rustc_middle::mir::statement::<PlaceRef as From<Local>>::from");
+  return new PlaceRef(local, []);
 }
 
+///////////////////////////////////////////////////////////////////////////
+// Operands
 
-// stub: compiler/rustc_middle/src/mir/statement.rs:625 function_handle (lane mir-body-b)
+/// Convenience helper to make a constant that refers to the fn
+/// with given `DefId` and args. Since this is used to synthesize
+/// MIR, assumes `user_ty` is None.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:625 function_handle
 Operand.function_handle = function (tcx: TyCtxt, def_id: DefId, args: Iterable<GenericArg>, span: Span): Operand {
-  return unported("rustc_middle::mir::statement::Operand::function_handle");
+  return Operand.zero_sized_constant(
+    Unnormalized.skip_norm_wip(EarlyBinder.instantiate(tcx.type_of(def_id) as EarlyBinder<Ty>, tcx, [...args], fold_Ty)),
+    span,
+  );
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:639 unevaluated_constant (lane mir-body-b)
+/// Convenience helper to make a constant that refers to the given `DefId` and args. Since this
+/// is used to synthesize MIR, assumes `user_ty` is None.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:639 unevaluated_constant
 Operand.unevaluated_constant = function (tcx: TyCtxt, def_id: DefId, args: Iterable<GenericArg>, span: Span): Operand {
-  return unported("rustc_middle::mir::statement::Operand::unevaluated_constant");
+  const const_ = Unnormalized.skip_norm_wip(EarlyBinder.instantiate(Const.from_unevaluated(tcx, def_id), tcx, [...args], fold_mir_Const));
+  return { $: "Constant", _0: new ConstOperand(span, undefined, const_) };
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:650 zero_sized_constant (lane mir-body-b)
+/// Convenience helper to make a constant that refers to a zero-sized type.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:650 zero_sized_constant
 Operand.zero_sized_constant = function (ty: Ty, span: Span): Operand {
-  return unported("rustc_middle::mir::statement::Operand::zero_sized_constant");
+  const const_: Const = { $: "Val", _0: ConstValue.ZeroSized, _1: ty };
+  return { $: "Constant", _0: new ConstOperand(span, undefined, const_) };
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:655 is_move (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:655 is_move
 Operand.is_move = function (self: Operand): boolean {
-  return unported("rustc_middle::mir::statement::Operand::is_move");
+  return self.$ === "Move";
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:661 const_from_scalar (lane mir-body-b)
+/// Convenience helper to make a literal-like constant from a given scalar value.
+/// Since this is used to synthesize MIR, assumes `user_ty` is None.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:661 const_from_scalar
 Operand.const_from_scalar = function (tcx: TyCtxt, ty: Ty, val: Scalar, span: Span): Operand {
-  return unported("rustc_middle::mir::statement::Operand::const_from_scalar");
+  void tcx;
+  // debug_assert!({
+  //     let typing_env = ty::TypingEnv::fully_monomorphized();
+  //     let type_size = tcx
+  //         .layout_of(typing_env.as_query_input(ty))
+  //         .unwrap_or_else(|e| panic!("could not compute layout for {ty:?}: {e:?}"))
+  //         .size;
+  //     let scalar_size = match val {
+  //         Scalar::Int(int) => int.size(),
+  //         _ => panic!("Invalid scalar type {val:?}"),
+  //     };
+  //     scalar_size == type_size
+  // });
+  return {
+    $: "Constant",
+    _0: new ConstOperand(span, undefined, { $: "Val", _0: { $: "Scalar", _0: val }, _1: ty }),
+  };
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:686 to_copy (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:686 to_copy
 Operand.to_copy = function (self: Operand): Operand {
-  return unported("rustc_middle::mir::statement::Operand::to_copy");
+  switch (self.$) {
+    case "Copy":
+    case "Constant":
+    case "RuntimeChecks":
+      return clone_Operand(self);
+    case "Move":
+      return { $: "Copy", _0: clone_Place(self._0) };
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:695 place (lane mir-body-b)
+/// Returns the `Place` that is the target of this `Operand`, or `None` if this `Operand` is a
+/// constant.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:695 place
 Operand.place = function (self: Operand): Place | undefined {
-  return unported("rustc_middle::mir::statement::Operand::place");
+  switch (self.$) {
+    case "Copy":
+    case "Move":
+      return clone_Place(self._0);
+    case "Constant":
+    case "RuntimeChecks":
+      return undefined;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:704 constant (lane mir-body-b)
+/// Returns the `ConstOperand` that is the target of this `Operand`, or `None` if this `Operand` is a
+/// place.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:704 constant
 Operand.constant = function (self: Operand): ConstOperand | undefined {
-  return unported("rustc_middle::mir::statement::Operand::constant");
+  switch (self.$) {
+    case "Constant":
+      return self._0;
+    case "Copy":
+    case "Move":
+    case "RuntimeChecks":
+      return undefined;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:715 const_fn_def (lane mir-body-b)
+/// Gets the `ty::FnDef` from an operand if it's a constant function item.
+///
+/// While this is unlikely in general, it's the normal case of what you'll
+/// find as the `func` in a [`TerminatorKind::Call`].
+// rustc: compiler/rustc_middle/src/mir/statement.rs:715 const_fn_def
 Operand.const_fn_def = function (self: Operand): [DefId, GenericArgsRef] | undefined {
-  return unported("rustc_middle::mir::statement::Operand::const_fn_def");
+  const c = Operand.constant(self);
+  if (c === undefined) return undefined;
+  const const_ty = Const.ty(c.const_);
+  const k = const_ty.kind();
+  if (k.$ === "FnDef") {
+    return [k._0, unwrap(Binder.no_bound_vars(k._1, fold_GenericArgs))];
+  } else {
+    return undefined;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:724 ty (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:724 ty
 Operand.ty = function (self: Operand, local_decls: HasLocalDecls, tcx: TyCtxt): Ty {
-  return unported("rustc_middle::mir::statement::Operand::ty");
+  switch (self.$) {
+    case "Copy":
+    case "Move":
+      return self._0.ty(local_decls, tcx).ty;
+    case "Constant":
+      return Const.ty(self._0.const_);
+    case "RuntimeChecks":
+      return tcx.types.bool;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:735 span (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:735 span
 Operand.span = function (self: Operand, local_decls: HasLocalDecls): Span {
-  return unported("rustc_middle::mir::statement::Operand::span");
+  switch (self.$) {
+    case "Copy":
+    case "Move":
+      return HasLocalDecls.local_decls(local_decls)[self._0.local]!.source_info.span;
+    case "Constant":
+      return self._0.span;
+    // User code should not contain this operand, so we should not need this span.
+    case "RuntimeChecks":
+      return DUMMY_SP;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:751 check_static_ptr (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:751 check_static_ptr
 ConstOperand.prototype.check_static_ptr = function (this: ConstOperand, tcx: TyCtxt): DefId | undefined {
-  return unported("rustc_middle::mir::statement::ConstOperand::check_static_ptr");
+  const s = Const.try_to_scalar(this.const_);
+  if (s !== undefined && s.$ === "Ptr") {
+    const ptr = s._0;
+    const ga = tcx.global_alloc(CtfeProvenance.alloc_id(ptr.provenance));
+    if (ga.$ === "Static") {
+      const def_id = ga._0;
+      assert(!tcx.is_thread_local_static(def_id), "assertion failed: !tcx.is_thread_local_static(def_id)");
+      return def_id;
+    }
+    return undefined;
+  }
+  return undefined;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:765 ty (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:765 ty
 ConstOperand.prototype.ty = function (this: ConstOperand): Ty {
-  return unported("rustc_middle::mir::statement::ConstOperand::ty");
+  return Const.ty(this.const_);
 };
 
+///////////////////////////////////////////////////////////////////////////
+// Rvalues
 
-// stub: compiler/rustc_middle/src/mir/statement.rs:776 is_safe_to_remove (lane mir-body-b)
+/// Returns true if rvalue can be safely removed when the result is unused.
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:776 is_safe_to_remove
 Rvalue.is_safe_to_remove = function (self: Rvalue): boolean {
-  return unported("rustc_middle::mir::statement::Rvalue::is_safe_to_remove");
+  switch (self.$) {
+    // Pointer to int casts may be side-effects due to exposing the provenance.
+    // While the model is undecided, we should be conservative. See
+    // <https://www.ralfj.de/blog/2022/04/11/provenance-exposed.html>
+    case "Cast":
+      switch (self._0.$) {
+        case "PointerExposeProvenance":
+          return false;
+        case "IntToInt":
+        case "FloatToInt":
+        case "FloatToFloat":
+        case "IntToFloat":
+        case "FnPtrToPtr":
+        case "PtrToPtr":
+        case "PointerCoercion":
+        case "PointerWithExposedProvenance":
+        case "Transmute":
+        case "BoxDerefTransmute":
+        case "Subtype":
+          return true;
+      }
+      break;
+
+    case "Use":
+    case "CopyForDeref":
+    case "Repeat":
+    case "Ref":
+    case "Reborrow":
+    case "ThreadLocalRef":
+    case "RawPtr":
+    case "BinaryOp":
+    case "UnaryOp":
+    case "Discriminant":
+    case "Aggregate":
+    case "WrapUnsafeBinder":
+      return true;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:815 is_generic_reborrow (lane mir-body-b)
+/// Returns true if rvalue is a generic Reborrow coercion (usage of Reborrow or CoerceShared
+/// trait).
+// rustc: compiler/rustc_middle/src/mir/statement.rs:815 is_generic_reborrow
 Rvalue.is_generic_reborrow = function (self: Rvalue): boolean {
-  return unported("rustc_middle::mir::statement::Rvalue::is_generic_reborrow");
+  return self.$ === "Reborrow";
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:819 ty (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:819 ty
 Rvalue.ty = function (self: Rvalue, local_decls: HasLocalDecls, tcx: TyCtxt): Ty {
-  return unported("rustc_middle::mir::statement::Rvalue::ty");
+  switch (self.$) {
+    case "Use":
+      return Operand.ty(self._0, local_decls, tcx);
+    case "Repeat": {
+      const [operand, count] = [self._0, self._1];
+      return Ty.new_array_with_const_len(tcx, Operand.ty(operand, local_decls, tcx), count);
+    }
+    case "ThreadLocalRef":
+      return tcx.thread_local_ptr_ty(self._0);
+    case "Ref": {
+      const [reg, bk, place] = [self._0, self._1, self._2];
+      const place_ty = place.ty(local_decls, tcx).ty;
+      return Ty.new_ref(tcx, reg, place_ty, BorrowKind.to_mutbl_lossy(bk));
+    }
+    case "Reborrow":
+      return self._0;
+    case "RawPtr": {
+      const [kind, place] = [self._0, self._1];
+      const place_ty = place.ty(local_decls, tcx).ty;
+      return Ty.new_ptr(tcx, place_ty, RawPtrKind.to_mutbl_lossy(kind));
+    }
+    case "Cast":
+      return self._2;
+    case "BinaryOp": {
+      const [op, [lhs, rhs]] = [self._0, self._1];
+      const lhs_ty = Operand.ty(lhs, local_decls, tcx);
+      const rhs_ty = Operand.ty(rhs, local_decls, tcx);
+      return BinOp.ty(op, tcx, lhs_ty, rhs_ty);
+    }
+    case "UnaryOp": {
+      const [op, operand] = [self._0, self._1];
+      const arg_ty = Operand.ty(operand, local_decls, tcx);
+      return UnOp.ty(op, tcx, arg_ty);
+    }
+    case "Discriminant":
+      return self._0.ty(local_decls, tcx).ty.discriminant_ty(tcx);
+    case "Aggregate": {
+      const [ak, ops] = [self._0, self._1];
+      switch (ak.$) {
+        case "Array":
+          return Ty.new_array(tcx, ak._0, ops.length);
+        case "Tuple":
+          return Ty.new_tup_from_iter(
+            tcx,
+            ops.map((op) => Operand.ty(op, local_decls, tcx)),
+          );
+        case "Adt": {
+          const [did, args] = [ak._0, ak._2];
+          return Unnormalized.skip_norm_wip(EarlyBinder.instantiate(tcx.type_of(did) as EarlyBinder<Ty>, tcx, args, fold_Ty));
+        }
+        case "Closure":
+          return Ty.new_closure(tcx, ak._0, ak._1);
+        case "Coroutine":
+          return Ty.new_coroutine(tcx, ak._0, ak._1);
+        case "CoroutineClosure":
+          return Ty.new_coroutine_closure(tcx, ak._0, ak._1);
+        case "RawPtr":
+          return Ty.new_ptr(tcx, ak._0, ak._1);
+      }
+      break;
+    }
+    case "CopyForDeref":
+      return self._0.ty(local_decls, tcx).ty;
+    case "WrapUnsafeBinder":
+      return self._1;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:871 mutability (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:871 mutability
 BorrowKind.mutability = function (self: BorrowKind): Mutability {
-  return unported("rustc_middle::mir::statement::BorrowKind::mutability");
+  switch (self.$) {
+    case "Shared":
+    case "Fake":
+      return "Not";
+    case "Mut":
+      return "Mut";
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:880 is_two_phase_borrow (lane mir-body-b)
+/// Returns whether borrows represented by this kind are allowed to be split into separate
+/// Reservation and Activation phases.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:880 is_two_phase_borrow
 BorrowKind.is_two_phase_borrow = function (self: BorrowKind): boolean {
-  return unported("rustc_middle::mir::statement::BorrowKind::is_two_phase_borrow");
+  switch (self.$) {
+    case "Shared":
+    case "Fake":
+      return false;
+    case "Mut":
+      switch (self.kind) {
+        case "Default":
+        case "ClosureCapture":
+          return false;
+        case "TwoPhaseBorrow":
+          return true;
+      }
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:891 to_mutbl_lossy (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:891 to_mutbl_lossy
 BorrowKind.to_mutbl_lossy = function (self: BorrowKind): Mutability {
-  return unported("rustc_middle::mir::statement::BorrowKind::to_mutbl_lossy");
+  switch (self.$) {
+    case "Mut":
+      return "Mut";
+    case "Shared":
+      return "Not";
+
+    // We have no type corresponding to a shallow borrow, so use
+    // `&` as an approximation.
+    case "Fake":
+      return "Not";
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:904 ty (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:904 ty
 UnOp.ty = function (self: UnOp, tcx: TyCtxt, arg_ty: Ty): Ty {
-  return unported("rustc_middle::mir::statement::UnOp::ty");
+  switch (self) {
+    case "Not":
+    case "Neg":
+      return arg_ty;
+    case "PtrMetadata":
+      return arg_ty.pointee_metadata_ty_or_projection(tcx);
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:913 ty (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:913 ty
 BinOp.ty = function (self: BinOp, tcx: TyCtxt, lhs_ty: Ty, rhs_ty: Ty): Ty {
-  return unported("rustc_middle::mir::statement::BinOp::ty");
+  // FIXME: handle SIMD correctly
+  switch (self) {
+    case "Add":
+    case "AddUnchecked":
+    case "Sub":
+    case "SubUnchecked":
+    case "Mul":
+    case "MulUnchecked":
+    case "Div":
+    case "Rem":
+    case "BitXor":
+    case "BitAnd":
+    case "BitOr":
+      // these should be integers or floats of the same size.
+      assert_eq(lhs_ty, rhs_ty, (t) => debug_Ty(t, PLAIN));
+      return lhs_ty;
+    case "AddWithOverflow":
+    case "SubWithOverflow":
+    case "MulWithOverflow":
+      // these should be integers of the same size.
+      assert_eq(lhs_ty, rhs_ty, (t) => debug_Ty(t, PLAIN));
+      return Ty.new_tup(tcx, [lhs_ty, tcx.types.bool]);
+    case "Shl":
+    case "ShlUnchecked":
+    case "Shr":
+    case "ShrUnchecked":
+    case "Offset":
+      return lhs_ty; // lhs_ty can be != rhs_ty
+    case "Eq":
+    case "Lt":
+    case "Le":
+    case "Ne":
+    case "Ge":
+    case "Gt":
+      return tcx.types.bool;
+    case "Cmp":
+      // these should be integer-like types of the same size.
+      assert_eq(lhs_ty, rhs_ty, (t) => debug_Ty(t, PLAIN));
+      return tcx.ty_ordering_enum(DUMMY_SP);
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:953 to_hir_binop (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:953 to_hir_binop
 BinOp.to_hir_binop = function (self: BinOp): BinOpKind {
-  return unported("rustc_middle::mir::statement::BinOp::to_hir_binop");
+  switch (self) {
+    // HIR `+`/`-`/`*` can map to either of these MIR BinOp, depending
+    // on whether overflow checks are enabled or not.
+    case "Add":
+    case "AddWithOverflow":
+      return "Add";
+    case "Sub":
+    case "SubWithOverflow":
+      return "Sub";
+    case "Mul":
+    case "MulWithOverflow":
+      return "Mul";
+    case "Div":
+      return "Div";
+    case "Rem":
+      return "Rem";
+    case "BitXor":
+      return "BitXor";
+    case "BitAnd":
+      return "BitAnd";
+    case "BitOr":
+      return "BitOr";
+    case "Shl":
+      return "Shl";
+    case "Shr":
+      return "Shr";
+    case "Eq":
+      return "Eq";
+    case "Ne":
+      return "Ne";
+    case "Lt":
+      return "Lt";
+    case "Gt":
+      return "Gt";
+    case "Le":
+      return "Le";
+    case "Ge":
+      return "Ge";
+    // We don't have HIR syntax for these.
+    case "Cmp":
+    case "AddUnchecked":
+    case "SubUnchecked":
+    case "MulUnchecked":
+    case "ShlUnchecked":
+    case "ShrUnchecked":
+    case "Offset":
+      return unreachable();
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:987 overflowing_to_wrapping (lane mir-body-b)
+/// If this is a `FooWithOverflow`, return `Some(Foo)`.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:987 overflowing_to_wrapping
 BinOp.overflowing_to_wrapping = function (self: BinOp): BinOp | undefined {
-  return unported("rustc_middle::mir::statement::BinOp::overflowing_to_wrapping");
+  switch (self) {
+    case "AddWithOverflow":
+      return "Add";
+    case "SubWithOverflow":
+      return "Sub";
+    case "MulWithOverflow":
+      return "Mul";
+    default:
+      return undefined;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:997 is_overflowing (lane mir-body-b)
+/// Returns whether this is a `FooWithOverflow`
+// rustc: compiler/rustc_middle/src/mir/statement.rs:997 is_overflowing
 BinOp.is_overflowing = function (self: BinOp): boolean {
-  return unported("rustc_middle::mir::statement::BinOp::is_overflowing");
+  return BinOp.overflowing_to_wrapping(self) !== undefined;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1002 wrapping_to_overflowing (lane mir-body-b)
+/// If this is a `Foo`, return `Some(FooWithOverflow)`.
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1002 wrapping_to_overflowing
 BinOp.wrapping_to_overflowing = function (self: BinOp): BinOp | undefined {
-  return unported("rustc_middle::mir::statement::BinOp::wrapping_to_overflowing");
+  switch (self) {
+    case "Add":
+      return "AddWithOverflow";
+    case "Sub":
+      return "SubWithOverflow";
+    case "Mul":
+      return "MulWithOverflow";
+    default:
+      return undefined;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1013 from (lane mir-body-b)
+// impl From<Mutability> for RawPtrKind
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1013 from
 export function RawPtrKind_from_Mutability(other: Mutability): RawPtrKind {
-  return unported("rustc_middle::mir::statement::<RawPtrKind as From<Mutability>>::from");
+  switch (other) {
+    case "Mut":
+      return "Mut";
+    case "Not":
+      return "Const";
+  }
 }
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1022 is_fake (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1022 is_fake
 RawPtrKind.is_fake = function (self: RawPtrKind): boolean {
-  return unported("rustc_middle::mir::statement::RawPtrKind::is_fake");
+  switch (self) {
+    case "Mut":
+    case "Const":
+      return false;
+    case "FakeForPtrMetadata":
+      return true;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1029 to_mutbl_lossy (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1029 to_mutbl_lossy
 RawPtrKind.to_mutbl_lossy = function (self: RawPtrKind): Mutability {
-  return unported("rustc_middle::mir::statement::RawPtrKind::to_mutbl_lossy");
+  switch (self) {
+    case "Mut":
+      return "Mut";
+    case "Const":
+      return "Not";
+
+    // We have no type corresponding to a fake borrow, so use
+    // `*const` as an approximation.
+    case "FakeForPtrMetadata":
+      return "Not";
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1040 ptr_str (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1040 ptr_str
 RawPtrKind.ptr_str = function (self: RawPtrKind): string {
-  return unported("rustc_middle::mir::statement::RawPtrKind::ptr_str");
+  switch (self) {
+    case "Mut":
+      return "mut";
+    case "Const":
+      return "const";
+    case "FakeForPtrMetadata":
+      return "const (fake)";
+  }
 };
 
+// This collection is almost always empty, so we
+// use thin representation and optimize all methods
+// for that by inlining the empty check
+// and outlining the rest. Note that Option is
+// technically not needed, because empty ThinVec
+// points to a static singleton, this version performed
+// better in our benchmarks
+// PORT: `outline(f)` is `f()` (a codegen hint).
 
-// stub: compiler/rustc_middle/src/mir/statement.rs:1060 push (lane mir-body-b)
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1060 push
 StmtDebugInfos.prototype.push = function (this: StmtDebugInfos, debuginfo: StmtDebugInfo): void {
-  return unported("rustc_middle::mir::statement::StmtDebugInfos::push");
+  (this._0 ??= []).push(debuginfo);
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1064 drop_debuginfo (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1064 drop_debuginfo
 StmtDebugInfos.prototype.drop_debuginfo = function (this: StmtDebugInfos): void {
-  return unported("rustc_middle::mir::statement::StmtDebugInfos::drop_debuginfo");
+  const v = this._0;
+  if (v === undefined) {
+  } else {
+    v.length = 0;
+  }
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1072 is_empty (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1072 is_empty
 StmtDebugInfos.prototype.is_empty = function (this: StmtDebugInfos): boolean {
-  return unported("rustc_middle::mir::statement::StmtDebugInfos::is_empty");
+  const v = this._0;
+  if (v === undefined) return true;
+  return v.length === 0;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1079 prepend (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1079 prepend
 StmtDebugInfos.prototype.prepend = function (this: StmtDebugInfos, debuginfos: StmtDebugInfos): void {
-  return unported("rustc_middle::mir::statement::StmtDebugInfos::prepend");
+  if (debuginfos.is_empty()) {
+    return;
+  }
+  debuginfos.append(this);
+  // std::mem::swap(debuginfos, self)
+  const tmp = debuginfos._0;
+  debuginfos._0 = this._0;
+  this._0 = tmp;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1089 append (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1089 append
 StmtDebugInfos.prototype.append = function (this: StmtDebugInfos, debuginfos: StmtDebugInfos): void {
-  return unported("rustc_middle::mir::statement::StmtDebugInfos::append");
+  if (debuginfos.is_empty()) {
+    return;
+  }
+  // `ThinVec::append` moves every element out of `other`, leaving it empty.
+  const other = unwrap(debuginfos._0);
+  (this._0 ??= []).push(...other);
+  other.length = 0;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1096 extend (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1096 extend
 StmtDebugInfos.prototype.extend = function (this: StmtDebugInfos, debuginfos: StmtDebugInfos): void {
-  return unported("rustc_middle::mir::statement::StmtDebugInfos::extend");
+  if (debuginfos.is_empty()) {
+    return;
+  }
+  (this._0 ??= []).push(...debuginfos.as_slice().map(clone_StmtDebugInfo));
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1104 as_slice (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1104 as_slice
 StmtDebugInfos.prototype.as_slice = function (this: StmtDebugInfos): readonly StmtDebugInfo[] {
-  return unported("rustc_middle::mir::statement::StmtDebugInfos::as_slice");
+  const items = this._0;
+  if (items === undefined) return [];
+  return items;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1112 as_mut_slice (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1112 as_mut_slice
 StmtDebugInfos.prototype.as_mut_slice = function (this: StmtDebugInfos): StmtDebugInfo[] {
-  return unported("rustc_middle::mir::statement::StmtDebugInfos::as_mut_slice");
+  const items = this._0;
+  if (items === undefined) return [];
+  return items;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1119 retain_locals (lane mir-body-b)
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1119 retain_locals
 StmtDebugInfos.prototype.retain_locals = function (this: StmtDebugInfos, locals: DenseBitSet<Local>): void {
-  return unported("rustc_middle::mir::statement::StmtDebugInfos::retain_locals");
+  const items = this._0;
+  if (items === undefined) return;
+  let w = 0;
+  for (const debuginfo of items) {
+    let keep: boolean;
+    switch (debuginfo.$) {
+      case "AssignRef":
+      case "InvalidAssign":
+        keep = locals.contains(debuginfo._0);
+        break;
+    }
+    if (keep) items[w++] = debuginfo;
+  }
+  items.length = w;
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1137 deref (lane mir-body-b)
+// impl<'tcx> ops::Deref for StmtDebugInfos<'tcx>
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1137 deref
 StmtDebugInfos.prototype.deref = function (this: StmtDebugInfos): readonly StmtDebugInfo[] {
-  return unported("rustc_middle::mir::statement::<StmtDebugInfos as Deref>::deref");
+  return this.as_slice();
 };
 
-
-// stub: compiler/rustc_middle/src/mir/statement.rs:1144 deref_mut (lane mir-body-b)
+// impl<'tcx> ops::DerefMut for StmtDebugInfos<'tcx>
+// #[inline]
+// rustc: compiler/rustc_middle/src/mir/statement.rs:1144 deref_mut
 StmtDebugInfos.prototype.deref_mut = function (this: StmtDebugInfos): StmtDebugInfo[] {
-  return unported("rustc_middle::mir::statement::<StmtDebugInfos as DerefMut>::deref_mut");
+  return this.as_mut_slice();
 };
+
+// ---- helpers (not upstream fns) ----
+
+/** `Iterator::nth` over a JS iterable. */
+function iter_nth<T>(it: Iterable<T>, n: number): T | undefined {
+  let i = 0;
+  for (const x of it) {
+    if (i++ === n) return x;
+  }
+  return undefined;
+}
+
+/** `PartialEq for PlaceElem` (derived: `ProjectionElem<Local, Ty>`), field by field. */
+function eq_PlaceElem(a: PlaceElem, b: PlaceElem): boolean {
+  if (a === b) return true;
+  switch (a.$) {
+    case "Deref":
+    case "PhantomDeref":
+      return b.$ === a.$;
+    case "Field":
+      return b.$ === "Field" && a._0 === b._0 && a._1 === b._1;
+    case "Index":
+      return b.$ === "Index" && a._0 === b._0;
+    case "ConstantIndex":
+      return b.$ === "ConstantIndex" && a.offset === b.offset && a.min_length === b.min_length && a.from_end === b.from_end;
+    case "Subslice":
+      return b.$ === "Subslice" && a.from === b.from && a.to === b.to && a.from_end === b.from_end;
+    case "Downcast":
+      return b.$ === "Downcast" && a._0 === b._0 && a._1 === b._1;
+    case "OpaqueCast":
+      return b.$ === "OpaqueCast" && a._0 === b._0;
+    case "UnwrapUnsafeBinder":
+      return b.$ === "UnwrapUnsafeBinder" && a._0 === b._0;
+  }
+}
+
+/** `&[PlaceElem] == &[PlaceElem]` */
+function slice_eq_PlaceElem(a: readonly PlaceElem[], b: readonly PlaceElem[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (!eq_PlaceElem(a[i]!, b[i]!)) return false;
+  return true;
+}
