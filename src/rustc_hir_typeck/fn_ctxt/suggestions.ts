@@ -108,29 +108,6 @@ FnCtxt.prototype.suggest_mismatched_types_on_tail = function (this: FnCtxt, err:
   return pointing_at_return_type;
 };
 
-/** `(sugg_call, applicability)` of `suggest_fn_call` / `suggest_two_fn_call` (the shared `match inputs.len()`). */
-function sugg_call_for_inputs(fcx: FnCtxt, inputs: readonly Ty[]): [string, Applicability] {
-  const n = inputs.length;
-  if (n === 0) {
-    return ["", Applicability.MachineApplicable];
-  } else if (n >= 1 && n <= 4) {
-    return [
-      inputs
-        .map((ty) => {
-          if (IsSuggestable.is_suggestable(ty, fcx.tcx, false, fold_Ty)) {
-            return `/* ${display_Ty(ty)} */`;
-          } else {
-            return "/* value */";
-          }
-        })
-        .join(", "),
-      Applicability.HasPlaceholders,
-    ];
-  } else {
-    return ["/* ... */", Applicability.HasPlaceholders];
-  }
-}
-
 /// When encountering an fn-like type, try accessing the output of the type
 /// and suggesting calling it if it satisfies a predicate (i.e. if the
 /// output has a method or a field):
@@ -146,8 +123,27 @@ FnCtxt.prototype.suggest_fn_call = function (this: FnCtxt, err: Diag, expr: hir.
   }
   const [def_id_or_name, output, inputs] = info;
   if (can_satisfy(output)) {
-    // PORT: the `match inputs.len()` is shared with `suggest_two_fn_call` (`sugg_call_for_inputs`).
-    let [sugg_call, applicability] = sugg_call_for_inputs(this, inputs);
+    let [sugg_call, applicability]: [string, Applicability] = (() => {
+      const n = inputs.length;
+      if (n === 0) {
+        return ["", Applicability.MachineApplicable] as [string, Applicability];
+      } else if (n >= 1 && n <= 4) {
+        return [
+          inputs
+            .map((ty) => {
+              if (IsSuggestable.is_suggestable(ty, this.tcx, false, fold_Ty)) {
+                return `/* ${display_Ty(ty)} */`;
+              } else {
+                return "/* value */";
+              }
+            })
+            .join(", "),
+          Applicability.HasPlaceholders,
+        ] as [string, Applicability];
+      } else {
+        return ["/* ... */", Applicability.HasPlaceholders] as [string, Applicability];
+      }
+    })();
 
     let msg_: string;
     switch (def_id_or_name.$) {
@@ -237,7 +233,27 @@ FnCtxt.prototype.suggest_two_fn_call = function (
       [lhs_expr, lhs_inputs],
       [rhs_expr, rhs_inputs],
     ] as [hir.Expr, Ty[]][]) {
-      const [sugg_call, this_applicability] = sugg_call_for_inputs(this, inputs);
+      const [sugg_call, this_applicability]: [string, Applicability] = (() => {
+        const n = inputs.length;
+        if (n === 0) {
+          return ["", Applicability.MachineApplicable] as [string, Applicability];
+        } else if (n >= 1 && n <= 4) {
+          return [
+            inputs
+              .map((ty) => {
+                if (IsSuggestable.is_suggestable(ty, this.tcx, false, fold_Ty)) {
+                  return `/* ${display_Ty(ty)} */`;
+                } else {
+                  return "/* value */";
+                }
+              })
+              .join(", "),
+            Applicability.HasPlaceholders,
+          ] as [string, Applicability];
+        } else {
+          return ["/* ... */", Applicability.HasPlaceholders] as [string, Applicability];
+        }
+      })();
 
       applicability = applicability_max(applicability, this_applicability);
 
@@ -748,22 +764,6 @@ FnCtxt.prototype.suggest_calling_boxed_future_when_appropriate = function (this:
   }
 };
 
-/** The `if let` chain shared by two arms of `suggest_missing_semicolon`: the `Stmt` of an `if .. else ..` followed by a binop lookalike. */
-function if_else_stmt_followed_by_continuation(fcx: FnCtxt, expression: hir.Expr): hir.Stmt | undefined {
-  const block = fcx.tcx.parent_hir_node(expression.hir_id);
-  if (block.$ !== "Block") return undefined;
-  const expr = fcx.tcx.parent_hir_node(block._0.hir_id);
-  if (expr.$ !== "Expr") return undefined;
-  const if_expr = fcx.tcx.parent_hir_node(expr._0.hir_id);
-  if (if_expr.$ !== "Expr") return undefined;
-  if (!(if_expr._0.kind.$ === "If" && if_expr._0.kind._2 !== undefined)) return undefined;
-  const stmt = fcx.tcx.parent_hir_node(if_expr._0.hir_id);
-  if (stmt.$ !== "Stmt") return undefined;
-  if (stmt._0.kind.$ !== "Expr") return undefined;
-  if (!fcx.is_next_stmt_expr_continuation(stmt._0.hir_id)) return undefined;
-  return stmt._0;
-}
-
 /// A common error is to forget to add a semicolon at the end of a block, e.g.,
 ///
 /// ```compile_fail,E0308
@@ -805,7 +805,20 @@ FnCtxt.prototype.suggest_missing_semicolon = function (this: FnCtxt, err: Diag, 
         ],
         Applicability.MachineApplicable,
       );
-    } else if ((stmt = if_else_stmt_followed_by_continuation(this, expression)) !== undefined) {
+    } else if ((stmt = (() => {
+      const block = this.tcx.parent_hir_node(expression.hir_id);
+      if (block.$ !== "Block") return undefined;
+      const expr = this.tcx.parent_hir_node(block._0.hir_id);
+      if (expr.$ !== "Expr") return undefined;
+      const if_expr = this.tcx.parent_hir_node(expr._0.hir_id);
+      if (if_expr.$ !== "Expr") return undefined;
+      if (!(if_expr._0.kind.$ === "If" && if_expr._0.kind._2 !== undefined)) return undefined;
+      const stmt = this.tcx.parent_hir_node(if_expr._0.hir_id);
+      if (stmt.$ !== "Stmt") return undefined;
+      if (stmt._0.kind.$ !== "Expr") return undefined;
+      if (!this.is_next_stmt_expr_continuation(stmt._0.hir_id)) return undefined;
+      return stmt._0;
+    })()) !== undefined) {
       err.subdiagnostic(ExprParenthesesNeeded_subdiagnostic(ExprParenthesesNeeded_surrounding(stmt.span)));
     } else {
       err.span_suggestion(Span.shrink_to_hi(expression.span), "consider using a semicolon here", ";", Applicability.MachineApplicable);
@@ -813,7 +826,20 @@ FnCtxt.prototype.suggest_missing_semicolon = function (this: FnCtxt, err: Diag, 
   } else if ((k === "Path" || k === "Lit") && parent_is_closure && !Span.in_external_macro(expression.span, this.tcx.sess.source_map())) {
     err.span_suggestion_verbose(Span.shrink_to_lo(expression.span), "consider ignoring the value", "_ = ", Applicability.MachineApplicable);
   } else {
-    if ((stmt = if_else_stmt_followed_by_continuation(this, expression)) !== undefined) {
+    if ((stmt = (() => {
+      const block = this.tcx.parent_hir_node(expression.hir_id);
+      if (block.$ !== "Block") return undefined;
+      const expr = this.tcx.parent_hir_node(block._0.hir_id);
+      if (expr.$ !== "Expr") return undefined;
+      const if_expr = this.tcx.parent_hir_node(expr._0.hir_id);
+      if (if_expr.$ !== "Expr") return undefined;
+      if (!(if_expr._0.kind.$ === "If" && if_expr._0.kind._2 !== undefined)) return undefined;
+      const stmt = this.tcx.parent_hir_node(if_expr._0.hir_id);
+      if (stmt.$ !== "Stmt") return undefined;
+      if (stmt._0.kind.$ !== "Expr") return undefined;
+      if (!this.is_next_stmt_expr_continuation(stmt._0.hir_id)) return undefined;
+      return stmt._0;
+    })()) !== undefined) {
       // The error is pointing at an arm of an if-expression, and we want to get the
       // `Span` of the whole if-expression for the suggestion. This only works for a
       // single level of nesting, which is fine.

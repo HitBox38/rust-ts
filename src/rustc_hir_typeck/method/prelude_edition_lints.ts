@@ -35,23 +35,7 @@ import { unreachable, unwrap } from "../../std/panic.ts";
 import { ok, unwrap_result } from "../../std/result.ts";
 import { FnCtxt } from "../decls.ts";
 import type { AmbiguousTraitMethod, AmbiguousTraitMethodCall } from "./prelude_edition_lints.gen.ts";
-import type { AutorefOrPtrAdjustment, Pick } from "./probe.gen.ts";
-
-/** The `match pick.autoref_or_ptr_adjustment { .. }` producing `autoref` (shared by :28 and :470). */
-function autoref_str(adj: AutorefOrPtrAdjustment | undefined): string {
-  if (adj !== undefined && adj.$ === "Autoref") {
-    return Mutability.ref_prefix_str(adj.mutbl);
-  } else if (adj === undefined || adj.$ === "ToConstPtr") {
-    return "";
-  } else {
-    switch (adj._0) {
-      case "Mut":
-        return "Pin<&mut ";
-      case "Not":
-        return "Pin<&";
-    }
-  }
-}
+import type { Pick } from "./probe.gen.ts";
 
 // impl<'a, 'b, 'tcx> Diagnostic<'a> for AmbiguousTraitMethodCall<'b, 'tcx> {
 // rustc: compiler/rustc_hir_typeck/src/method/prelude_edition_lints.rs:28 into_diag
@@ -60,7 +44,22 @@ export function AmbiguousTraitMethodCall_into_diag(self: AmbiguousTraitMethodCal
   const lint = Diag.new(dcx, level, `trait method \`${Symbol.as_str(segment_name)}\` will become ambiguous in Rust ${edition}`);
   const derefs = "*".repeat(pick.autoderefs);
 
-  const autoref = autoref_str(pick.autoref_or_ptr_adjustment);
+  let autoref: string;
+  const adj = pick.autoref_or_ptr_adjustment;
+  if (adj !== undefined && adj.$ === "Autoref") {
+    autoref = Mutability.ref_prefix_str(adj.mutbl);
+  } else if (adj === undefined || adj.$ === "ToConstPtr") {
+    autoref = "";
+  } else {
+    switch (adj._0) {
+      case "Mut":
+        autoref = "Pin<&mut ";
+        break;
+      case "Not":
+        autoref = "Pin<&";
+        break;
+    }
+  }
   const r = tcx.sess.source_map().span_to_snippet(self_expr_span);
   if (r.$ === "Ok") {
     const self_expr = r._0.toString();
@@ -408,7 +407,22 @@ FnCtxt.prototype.trait_path = function (this: FnCtxt, span: Span, expr_hir_id: H
 FnCtxt.prototype.adjust_expr = function (this: FnCtxt, pick: Pick, expr: hir.Expr, outer: Span): [string, boolean] {
   const derefs = "*".repeat(pick.autoderefs);
 
-  const autoref = autoref_str(pick.autoref_or_ptr_adjustment);
+  let autoref: string;
+  const adj = pick.autoref_or_ptr_adjustment;
+  if (adj !== undefined && adj.$ === "Autoref") {
+    autoref = Mutability.ref_prefix_str(adj.mutbl);
+  } else if (adj === undefined || adj.$ === "ToConstPtr") {
+    autoref = "";
+  } else {
+    switch (adj._0) {
+      case "Mut":
+        autoref = "Pin<&mut ";
+        break;
+      case "Not":
+        autoref = "Pin<&";
+        break;
+    }
+  }
 
   const inside = Span.find_ancestor_inside(expr.span, outer);
   const expr_text_ = inside === undefined ? undefined : ok(this.sess().source_map().span_to_snippet(inside));
