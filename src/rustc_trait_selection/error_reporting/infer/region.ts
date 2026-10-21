@@ -26,6 +26,7 @@ import { RawList } from "../../../rustc_middle/ty/list.ts";
 import { Clause_upcast_from_Binder_ClauseKind } from "../../../rustc_middle/ty/predicate.ts";
 import type { ClauseKind } from "../../../rustc_type_ir/predicate_kind.gen.ts";
 import type { OpaqueTypeKey } from "../../../rustc_type_ir/decls.ts";
+import { is_whitespace } from "../../../std/char.ts";
 import { PLAIN } from "../../../std/fmt.ts";
 import { ObligationCauseCode } from "../../../rustc_middle/traits/mod.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
@@ -1468,8 +1469,12 @@ function DiagStyledString_eq(a: DiagStyledString, b: DiagStyledString): boolean 
 
 /** `str::trim_start` (Unicode `White_Space`). */
 function trim_start(s: string): string {
-  // PORT: JS `trimStart` strips `White_Space` plus U+FEFF; Rust's does not strip U+FEFF.
+  // PORT: not JS `trimStart` / `\s` (they strip U+FEFF and miss U+0085); std char.ts `is_whitespace` is `White_Space`.
   let i = 0;
-  while (i < s.length && s.charCodeAt(i) !== 0xfeff && /\s/u.test(s[i]!)) i++;
+  for (;;) {
+    const c = s.codePointAt(i);
+    if (c === undefined || !is_whitespace(c)) break;
+    i += c > 0xffff ? 2 : 1;
+  }
   return s.slice(i);
 }
