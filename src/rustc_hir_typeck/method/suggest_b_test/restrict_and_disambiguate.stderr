@@ -1,0 +1,190 @@
+error[E0658]: auto traits are experimental and possibly buggy
+ --> restrict_and_disambiguate.rs:8:19
+  |
+8 | #[lang = "unpin"] pub auto trait Unpin {}
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: see issue #13231 <https://github.com/rust-lang/rust/issues/13231> for more information
+  = help: add `#![feature(auto_traits)]` to the crate attributes to enable
+  = note: this compiler was built on 2026-10-10; consider upgrading it if it is out of date
+
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> restrict_and_disambiguate.rs:1:12
+  |
+1 | #![feature(lang_items, no_core, rustc_attrs, negative_impls)]
+  |            ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> restrict_and_disambiguate.rs:1:33
+  |
+1 | #![feature(lang_items, no_core, rustc_attrs, negative_impls)]
+  |                                 ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+
+error[E0599]: no method named `bar` found for struct `S` in the current scope
+  --> restrict_and_disambiguate.rs:19:20
+   |
+11 | pub struct S;
+   | ------------ method `bar` not found for this struct
+...
+19 | pub fn f(s: S) { s.bar(); }
+   |                    ^^^ method not found in `S`
+   |
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following traits define an item `bar`, perhaps you need to implement one of them:
+           candidate #1: `Ab`
+           candidate #2: `Zb`
+   = note: the following traits define an item `bar`, but are explicitly unimplemented:
+           Neg
+           Neg2
+
+error[E0599]: no method named `bar` found for type parameter `T` in the current scope
+  --> restrict_and_disambiguate.rs:20:23
+   |
+20 | pub fn g<T>(t: T) { t.bar(); }
+   |          -            ^^^ method not found in `T`
+   |          |
+   |          method `bar` not found for this type parameter
+   |
+   = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following traits define an item `bar`, perhaps you need to restrict type parameter `T` with one of them:
+   |
+20 | pub fn g<T: Ab>(t: T) { t.bar(); }
+   |           ++++
+20 | pub fn g<T: Neg>(t: T) { t.bar(); }
+   |           +++++
+20 | pub fn g<T: Neg2>(t: T) { t.bar(); }
+   |           ++++++
+20 | pub fn g<T: Zb</* X */>>(t: T) { t.bar(); }
+   |           +++++++++++++
+
+error[E0034]: multiple applicable items in scope
+  --> restrict_and_disambiguate.rs:21:37
+   |
+21 | pub fn h<T: Ab + Zb<u8>>(t: &T) { t.bar(); }
+   |                                     ^^^ multiple `bar` found
+   |
+note: candidate #1 is defined in the trait `Ab`
+  --> restrict_and_disambiguate.rs:14:16
+   |
+14 | pub trait Ab { fn bar(&self); }
+   |                ^^^^^^^^^^^^^^
+note: candidate #2 is defined in the trait `Zb`
+  --> restrict_and_disambiguate.rs:13:19
+   |
+13 | pub trait Zb<X> { fn bar(&self); }
+   |                   ^^^^^^^^^^^^^^
+help: disambiguate the method for candidate #1
+   |
+21 - pub fn h<T: Ab + Zb<u8>>(t: &T) { t.bar(); }
+21 + pub fn h<T: Ab + Zb<u8>>(t: &T) { Ab::bar(&t); }
+   |
+help: disambiguate the method for candidate #2
+   |
+21 - pub fn h<T: Ab + Zb<u8>>(t: &T) { t.bar(); }
+21 + pub fn h<T: Ab + Zb<u8>>(t: &T) { Zb::bar(&t); }
+   |
+
+error[E0599]: no method named `bar` found for type parameter `impl Copy` in the current scope
+  --> restrict_and_disambiguate.rs:22:28
+   |
+22 | pub fn i(x: impl Copy) { x.bar(); }
+   |             ---------      ^^^ method not found in `impl Copy`
+   |             |
+   |             method `bar` not found for this type parameter
+   |
+   = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following traits define an item `bar`, perhaps you need to restrict type parameter `impl Copy` with one of them:
+   |
+22 | pub fn i(x: impl Copy + Ab) { x.bar(); }
+   |                       ++++
+22 | pub fn i(x: impl Copy + Neg) { x.bar(); }
+   |                       +++++
+22 | pub fn i(x: impl Copy + Neg2) { x.bar(); }
+   |                       ++++++
+22 | pub fn i(x: impl Copy + Zb</* X */>) { x.bar(); }
+   |                       +++++++++++++
+
+error[E0599]: no method named `bar` found for reference `&T` in the current scope
+  --> restrict_and_disambiguate.rs:23:30
+   |
+23 | pub fn j<T: Copy>(x: &T) { x.bar(); }
+   |                              ^^^ method not found in `&T`
+   |
+   = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following traits define an item `bar`, perhaps you need to restrict type parameter `T` with one of them:
+   |
+23 | pub fn j<T: Copy + Ab>(x: &T) { x.bar(); }
+   |                  ++++
+23 | pub fn j<T: Copy + Neg>(x: &T) { x.bar(); }
+   |                  +++++
+23 | pub fn j<T: Copy + Neg2>(x: &T) { x.bar(); }
+   |                  ++++++
+23 | pub fn j<T: Copy + Zb</* X */>>(x: &T) { x.bar(); }
+   |                  +++++++++++++
+
+error[E0599]: no method named `bar` found for reference `&Self` in the current scope
+  --> restrict_and_disambiguate.rs:24:36
+   |
+24 | pub trait Sup { fn m(&self) { self.bar(); } }
+   |                                    ^^^ method not found in `&Self`
+   |
+   = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following traits define an item `bar`, perhaps you need to add a supertrait for one of them:
+   |
+24 | pub trait Sup: Ab { fn m(&self) { self.bar(); } }
+   |              ++++
+24 | pub trait Sup: Neg { fn m(&self) { self.bar(); } }
+   |              +++++
+24 | pub trait Sup: Neg2 { fn m(&self) { self.bar(); } }
+   |              ++++++
+24 | pub trait Sup: Zb { fn m(&self) { self.bar(); } }
+   |              ++++
+
+error[E0599]: no method named `bar` found for reference `&Self` in the current scope
+  --> restrict_and_disambiguate.rs:25:44
+   |
+25 | pub trait Sup2: Copy { fn m2(&self) { self.bar(); } }
+   |                                            ^^^ method not found in `&Self`
+   |
+   = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following traits define an item `bar`, perhaps you need to add another supertrait for one of them:
+   |
+25 | pub trait Sup2: Copy + Ab { fn m2(&self) { self.bar(); } }
+   |                      ++++
+25 | pub trait Sup2: Copy + Neg { fn m2(&self) { self.bar(); } }
+   |                      +++++
+25 | pub trait Sup2: Copy + Neg2 { fn m2(&self) { self.bar(); } }
+   |                      ++++++
+25 | pub trait Sup2: Copy + Zb { fn m2(&self) { self.bar(); } }
+   |                      ++++
+
+error[E0599]: no method named `ar2` found for struct `S` in the current scope
+  --> restrict_and_disambiguate.rs:27:20
+   |
+11 | pub struct S;
+   | ------------ method `ar2` not found for this struct
+...
+27 | pub fn k(s: S) { s.ar2(); }
+   |                    ^^^ this is an associated function, not a method
+   |
+   = note: found the following associated functions; to be used as methods, functions must have a `self` parameter
+note: the candidate is defined in the trait `Arb`
+  --> restrict_and_disambiguate.rs:26:44
+   |
+26 | pub trait Arb { fn ar(self: &Self, x: u8); fn ar2(this: &Self); }
+   |                                            ^^^^^^^^^^^^^^^^^^^^
+help: use associated function syntax instead
+   |
+27 - pub fn k(s: S) { s.ar2(); }
+27 + pub fn k(s: S) { S::ar2(&s); }
+   |
+
+error: aborting due to 9 previous errors; 2 warnings emitted
+
+Some errors have detailed explanations: E0034, E0599, E0658.
+For more information about an error, try `rustc --explain E0034`.

@@ -1,0 +1,142 @@
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> unwrap_and_numeric.rs:1:12
+  |
+1 | #![feature(lang_items, no_core, rustc_attrs, auto_traits)]
+  |            ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> unwrap_and_numeric.rs:1:33
+  |
+1 | #![feature(lang_items, no_core, rustc_attrs, auto_traits)]
+  |                                 ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+
+error[E0599]: no method named `boxed` found for struct `S` in the current scope
+  --> unwrap_and_numeric.rs:21:52
+   |
+16 | pub struct S;
+   | ------------ method `boxed` not found for this struct
+17 | impl S { pub fn inner(&self) {} pub fn mm(&mut self) {} }
+18 | pub trait Tr { fn boxed(self: Box<Self>); }
+   |                   -----       --------- the method might not be found because of this arbitrary self type
+   |                   |
+   |                   the method is available for `Box<S>` here
+...
+21 | pub fn f(s: S, o: Option<S>, r: Result<S, u8>) { s.boxed(); o.inner(); r.inner(); }
+   |                                                    ^^^^^ method not found in `S`
+   |
+help: consider wrapping the receiver expression with the appropriate type
+   |
+21 | pub fn f(s: S, o: Option<S>, r: Result<S, u8>) { Box::new(s).boxed(); o.inner(); r.inner(); }
+   |                                                  +++++++++ +
+
+error[E0599]: no method named `inner` found for enum `Option<T>` in the current scope
+  --> unwrap_and_numeric.rs:21:63
+   |
+14 | #[rustc_diagnostic_item = "Option"] pub enum Option<T> { None, Some(T) }
+   |                                     ------------------ method `inner` not found for this enum
+...
+21 | pub fn f(s: S, o: Option<S>, r: Result<S, u8>) { s.boxed(); o.inner(); r.inner(); }
+   |                                                               ^^^^^ method not found in `Option<S>`
+   |
+note: the method `inner` exists on the type `S`
+  --> unwrap_and_numeric.rs:17:10
+   |
+17 | impl S { pub fn inner(&self) {} pub fn mm(&mut self) {} }
+   |          ^^^^^^^^^^^^^^^^^^^
+help: consider using `Option::expect` to unwrap the `S` value, panicking if the value is an `Option::None`
+   |
+21 | pub fn f(s: S, o: Option<S>, r: Result<S, u8>) { s.boxed(); o.expect("REASON").inner(); r.inner(); }
+   |                                                              +++++++++++++++++
+
+error[E0599]: no method named `inner` found for enum `Result<T, E>` in the current scope
+  --> unwrap_and_numeric.rs:21:74
+   |
+15 | #[rustc_diagnostic_item = "Result"] pub enum Result<T, E> { Ok(T), Err(E) }
+   |                                     --------------------- method `inner` not found for this enum
+...
+21 | pub fn f(s: S, o: Option<S>, r: Result<S, u8>) { s.boxed(); o.inner(); r.inner(); }
+   |                                                                          ^^^^^ method not found in `Result<S, u8>`
+   |
+note: the method `inner` exists on the type `S`
+  --> unwrap_and_numeric.rs:17:10
+   |
+17 | impl S { pub fn inner(&self) {} pub fn mm(&mut self) {} }
+   |          ^^^^^^^^^^^^^^^^^^^
+help: consider using `Result::expect` to unwrap the `S` value, panicking if the value is a `Result::Err`
+   |
+21 | pub fn f(s: S, o: Option<S>, r: Result<S, u8>) { s.boxed(); o.inner(); r.expect("REASON").inner(); }
+   |                                                                         +++++++++++++++++
+
+error[E0599]: no method named `inner` found for enum `Option<T>` in the current scope
+  --> unwrap_and_numeric.rs:22:63
+   |
+14 | #[rustc_diagnostic_item = "Option"] pub enum Option<T> { None, Some(T) }
+   |                                     ------------------ method `inner` not found for this enum
+...
+22 | pub fn g() -> Option<u8> { let o: Option<S> = Option::None; o.inner(); Option::None }
+   |                                                               ^^^^^ method not found in `Option<S>`
+   |
+note: the method `inner` exists on the type `S`
+  --> unwrap_and_numeric.rs:17:10
+   |
+17 | impl S { pub fn inner(&self) {} pub fn mm(&mut self) {} }
+   |          ^^^^^^^^^^^^^^^^^^^
+help: use the `?` operator to extract the `S` value, propagating an `Option::None` value to the caller
+   |
+22 | pub fn g() -> Option<u8> { let o: Option<S> = Option::None; o?.inner(); Option::None }
+   |                                                              +
+
+error[E0689]: can't call method `numfoo` on ambiguous numeric type `{integer}`
+  --> unwrap_and_numeric.rs:23:16
+   |
+23 | pub fn h() { 1.numfoo(); let x = 2.0; x.numfoo(); let y: _ = 3; y.numfoo(); }
+   |                ^^^^^^
+   |
+help: you must specify a concrete type for this numeric value, like `i32`
+   |
+23 | pub fn h() { 1_i32.numfoo(); let x = 2.0; x.numfoo(); let y: _ = 3; y.numfoo(); }
+   |               ++++
+
+error[E0689]: can't call method `numfoo` on ambiguous numeric type `{float}`
+  --> unwrap_and_numeric.rs:23:41
+   |
+23 | pub fn h() { 1.numfoo(); let x = 2.0; x.numfoo(); let y: _ = 3; y.numfoo(); }
+   |                                         ^^^^^^
+   |
+help: you must specify a type for this binding, like `f32`
+   |
+23 | pub fn h() { 1.numfoo(); let x: f32 = 2.0; x.numfoo(); let y: _ = 3; y.numfoo(); }
+   |                               +++++
+
+error[E0689]: can't call method `numfoo` on ambiguous numeric type `{integer}`
+  --> unwrap_and_numeric.rs:23:67
+   |
+23 | pub fn h() { 1.numfoo(); let x = 2.0; x.numfoo(); let y: _ = 3; y.numfoo(); }
+   |                                                                   ^^^^^^
+   |
+help: you must specify a type for this binding, like `i32`
+   |
+23 - pub fn h() { 1.numfoo(); let x = 2.0; x.numfoo(); let y: _ = 3; y.numfoo(); }
+23 + pub fn h() { 1.numfoo(); let x = 2.0; x.numfoo(); let y: i32 = 3; y.numfoo(); }
+   |
+
+error[E0282]: type annotations needed for `&_`
+  --> unwrap_and_numeric.rs:24:23
+   |
+24 | pub fn i() { let c = |&v| v.numfoo(); c(&1); }
+   |                       ^^  - type must be known at this point
+   |
+help: consider giving this closure parameter an explicit type, where the placeholder `_` is specified
+   |
+24 | pub fn i() { let c = |&v: &_| v.numfoo(); c(&1); }
+   |                         ++++
+
+error: aborting due to 8 previous errors; 2 warnings emitted
+
+Some errors have detailed explanations: E0282, E0599, E0689.
+For more information about an error, try `rustc --explain E0282`.

@@ -1,0 +1,33 @@
+error[E0369]: binary operation `==` cannot be applied to type `&S`
+  --> binop.rs:24:35
+   |
+24 | pub fn g(a: &S, b: S) -> bool { a == b }
+   |                                 - ^^ - S
+   |                                 |
+   |                                 &S
+
+error[E0308]: mismatched types
+  --> binop.rs:25:39
+   |
+25 | pub fn h(a: S, b: &&S) -> bool { a == b }
+   |                                  -    ^ expected `S`, found `&&S`
+   |                                  |
+   |                                  expected because this is `S`
+   |
+help: consider dereferencing the borrow
+   |
+25 | pub fn h(a: S, b: &&S) -> bool { a == **b }
+   |                                       ++
+
+error[E0369]: binary operation `==` cannot be applied to type `&&S`
+  --> binop.rs:26:37
+   |
+26 | pub fn k(a: &&S, b: &S) -> bool { a == b }
+   |                                   - ^^ - &S
+   |                                   |
+   |                                   &&S
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0308, E0369.
+For more information about an error, try `rustc --explain E0308`.

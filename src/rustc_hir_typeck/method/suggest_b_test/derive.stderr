@@ -1,0 +1,80 @@
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> derive.rs:1:12
+  |
+1 | #![feature(lang_items, no_core, rustc_attrs)]
+  |            ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> derive.rs:1:33
+  |
+1 | #![feature(lang_items, no_core, rustc_attrs)]
+  |                                 ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+
+error[E0599]: the method `m` exists for struct `W<Zs>`, but its trait bounds were not satisfied
+  --> derive.rs:22:34
+   |
+17 | pub struct W<T>(T);
+   | --------------- method `m` not found for this struct
+...
+20 | pub struct Zs;
+   | ------------- doesn't satisfy `Zs: Debug` or `Zs: Ord`
+21 | pub struct As;
+22 | pub fn f(w: W<Zs>, v: W<As>) { w.m(); v.n(); }
+   |                                  ^ method cannot be called on `W<Zs>` due to unsatisfied trait bounds
+   |
+note: the following trait bounds were not satisfied:
+      `Zs: Debug`
+      `Zs: Ord`
+  --> derive.rs:18:9
+   |
+18 | impl<T: Ord + Debug> W<T> { pub fn m(&self) {} }
+   |         ^^^   ^^^^^  ----
+   |         |     |
+   |         |     unsatisfied trait bound introduced here
+   |         unsatisfied trait bound introduced here
+help: consider annotating `Zs` with `#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]`
+   |
+20 + #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+21 | pub struct Zs;
+   |
+
+error[E0599]: the method `n` exists for struct `W<As>`, but its trait bounds were not satisfied
+  --> derive.rs:22:41
+   |
+17 | pub struct W<T>(T);
+   | --------------- method `n` not found for this struct
+...
+21 | pub struct As;
+   | ------------- doesn't satisfy `As: Custom` or `As: Hash`
+22 | pub fn f(w: W<Zs>, v: W<As>) { w.m(); v.n(); }
+   |                                         ^ method cannot be called on `W<As>` due to unsatisfied trait bounds
+   |
+note: the following trait bounds were not satisfied:
+      `As: Custom`
+      `As: Hash`
+  --> derive.rs:19:9
+   |
+19 | impl<T: Hash + Custom> W<T> { pub fn n(&self) {} }
+   |         ^^^^   ^^^^^^  ----
+   |         |      |
+   |         |      unsatisfied trait bound introduced here
+   |         unsatisfied trait bound introduced here
+note: the trait `Custom` must be implemented
+  --> derive.rs:16:1
+   |
+16 | pub trait Custom {}
+   | ^^^^^^^^^^^^^^^^
+help: consider annotating `As` with `#[derive(Hash)]`
+   |
+21 + #[derive(Hash)]
+22 | pub struct As;
+   |
+
+error: aborting due to 2 previous errors; 2 warnings emitted
+
+For more information about this error, try `rustc --explain E0599`.

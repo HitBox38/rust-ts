@@ -1,0 +1,63 @@
+error: requires `clone` lang_item
+  --> restrict_self.rs:21:53
+   |
+21 | pub trait Tr { fn m(&self) where Self: Sized { need(self); } }
+   |                                                     ^^^^
+
+error[E0277]: the trait bound `Self: A` is not satisfied
+  --> restrict_self.rs:22:60
+   |
+22 | pub trait Tr2: Copy { fn m2(self) where Self: Sized { need(self); } }
+   |                                                       ---- ^^^^ the trait `A` is not implemented for `Self`
+   |                                                       |
+   |                                                       required by a bound introduced by this call
+   |
+note: required by a bound in `need`
+  --> restrict_self.rs:17:16
+   |
+17 | pub fn need<T: A>(_t: T) {}
+   |                ^ required by this bound in `need`
+help: consider further restricting `Self`
+   |
+22 | pub trait Tr2: Copy { fn m2(self) where Self: Sized, Self: A { need(self); } }
+   |                                                    +++++++++
+
+error[E0277]: the trait bound `Self: A` is not satisfied
+  --> restrict_self.rs:23:50
+   |
+23 | pub trait Tr3: Copy + Sized { fn m3(self) { need(self); } }
+   |                                             ---- ^^^^ the trait `A` is not implemented for `Self`
+   |                                             |
+   |                                             required by a bound introduced by this call
+   |
+note: required by a bound in `need`
+  --> restrict_self.rs:17:16
+   |
+17 | pub fn need<T: A>(_t: T) {}
+   |                ^ required by this bound in `need`
+help: consider further restricting `Self`
+   |
+23 | pub trait Tr3: Copy + Sized { fn m3(self) where Self: A { need(self); } }
+   |                                           +++++++++++++
+
+error[E0277]: the trait bound `Self: A` is not satisfied
+  --> restrict_self.rs:24:54
+   |
+24 | pub trait Tr4 { fn m4(self) where Self: Sized { need(self); } }
+   |                                                 ---- ^^^^ the trait `A` is not implemented for `Self`
+   |                                                 |
+   |                                                 required by a bound introduced by this call
+   |
+note: required by a bound in `need`
+  --> restrict_self.rs:17:16
+   |
+17 | pub fn need<T: A>(_t: T) {}
+   |                ^ required by this bound in `need`
+help: consider further restricting `Self`
+   |
+24 | pub trait Tr4 { fn m4(self) where Self: Sized, Self: A { need(self); } }
+   |                                              +++++++++
+
+error: aborting due to 4 previous errors
+
+For more information about this error, try `rustc --explain E0277`.
