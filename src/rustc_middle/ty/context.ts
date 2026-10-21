@@ -1031,8 +1031,10 @@ export class TyCtxt {
   // rustc: compiler/rustc_middle/src/ty/context.rs:902 allocate_bytes_dedup
   allocate_bytes_dedup(bytes: Uint8Array, salt: number): AllocId {
     // Create an allocation that just contains these bytes.
-    void [bytes, salt];
-    return unported("rustc_middle::mir::interpret::Allocation::from_bytes_byte_aligned_immutable / reserve_and_set_memory_dedup (MIR interpret, M4)");
+    // PORT: `bytes: impl Into<Cow<[u8]>>` is the byte array.
+    const alloc = mir().interpret.Allocation.from_bytes_byte_aligned_immutable(bytes, null);
+    const alloc_ = this.mk_const_alloc(alloc);
+    return this.reserve_and_set_memory_dedup(alloc_, salt);
   }
 
   /// Traits added on all bounds by default, excluding `Sized` which is treated separately.
