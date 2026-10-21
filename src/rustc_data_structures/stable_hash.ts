@@ -21,6 +21,7 @@ import { Fingerprint as FingerprintC } from "./fingerprint.ts";
 export type { FromStableHash, SipHasher128Hash as StableHasherHash } from "../vendor/rustc_stable_hash/lib.ts";
 import type { Hasher } from "../vendor/rustc_stable_hash/lib.ts";
 import { StableSipHasher128 } from "../vendor/rustc_stable_hash/lib.ts";
+import { type BitMatrix, type DenseBitSet, hash_BitMatrix, hash_DenseBitSet } from "../rustc_index/bit_set.ts";
 /** `pub use rustc_stable_hash::StableSipHasher128 as StableHasher;` */
 export type StableHasher = StableSipHasher128;
 export const StableHasher = StableSipHasher128;
@@ -649,14 +650,14 @@ export function stable_hash_IndexVec<T>(self: readonly T[], hcx: StableHashCtxt,
 
 // rustc: compiler/rustc_data_structures/src/stable_hash.rs:565 stable_hash
 /** `impl<I: Idx> StableHash for DenseBitSet<I>`: `Hash::hash(self, hasher)`. */
-export function stable_hash_DenseBitSet(_self: unknown, _hcx: StableHashCtxt, _hasher: StableHasher): void {
-  unported("rustc_index::bit_set::DenseBitSet (Hash)");
+export function stable_hash_DenseBitSet<I extends number>(self: DenseBitSet<I>, _hcx: StableHashCtxt, hasher: StableHasher): void {
+  hash_DenseBitSet(self, hasher);
 }
 
 // rustc: compiler/rustc_data_structures/src/stable_hash.rs:571 stable_hash
 /** `impl<R: Idx, C: Idx> StableHash for bit_set::BitMatrix<R, C>`: `Hash::hash(self, hasher)`. */
-export function stable_hash_BitMatrix(_self: unknown, _hcx: StableHashCtxt, _hasher: StableHasher): void {
-  unported("rustc_index::bit_set::BitMatrix (Hash)");
+export function stable_hash_BitMatrix<R extends number, C extends number>(self: BitMatrix<R, C>, _hcx: StableHashCtxt, hasher: StableHasher): void {
+  hash_BitMatrix(self, hasher);
 }
 
 // `impl_stable_traits_for_trivial_type!(::std::ffi::OsStr)`: `impl Hash for OsStr` hashes

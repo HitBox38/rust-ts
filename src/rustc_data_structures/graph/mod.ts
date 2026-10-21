@@ -9,7 +9,7 @@
 // reference.ts as forwarding helpers.
 import * as iterate from "./iterate/mod.ts";
 
-// pub mod dominators; (not ported yet)
+export * as dominators from "./dominators/mod.ts";
 export * as iterate from "./iterate/mod.ts";
 // pub mod linked_graph; (not ported yet)
 // mod reference; (reference.ts: identity forwarding helpers, nothing to re-export)

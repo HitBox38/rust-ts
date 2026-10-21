@@ -1,6 +1,7 @@
 // Port of compiler/rustc_data_structures/src/stable_hash/tests.rs.
 import { expect, test } from "bun:test";
 import { panic } from "../../std/panic.ts";
+import { BitMatrix, BitMatrix_eq, DenseBitSet, DenseBitSet_eq } from "../../rustc_index/bit_set.ts";
 import { Hash128 } from "../../rustc_hashes/lib.ts";
 import type { Fingerprint } from "../fingerprint.ts";
 import {
@@ -10,6 +11,8 @@ import {
   type StableHashControls,
   type StableHashCtxt,
   StableHasher,
+  stable_hash_BitMatrix,
+  stable_hash_DenseBitSet,
   stable_hash_i128,
   stable_hash_i16,
   stable_hash_i32,
@@ -58,10 +61,22 @@ function hash<T>(t: T, stable_hash_T: StableHash<T>): Hash128 {
 }
 
 // Check that bit set hash includes the domain size.
-// rustc-skip: compiler/rustc_data_structures/src/stable_hash/tests.rs:34 test_hash_bit_set needs rustc_index::bit_set::DenseBitSet (not ported)
+// rustc: compiler/rustc_data_structures/src/stable_hash/tests.rs:34 test_hash_bit_set
+test("test_hash_bit_set", () => {
+  const a = DenseBitSet.new_empty<number>(1);
+  const b = DenseBitSet.new_empty<number>(2);
+  expect(DenseBitSet_eq(a, b)).toBe(false);
+  expect(String(hash(a, stable_hash_DenseBitSet))).not.toBe(String(hash(b, stable_hash_DenseBitSet)));
+});
 
 // Check that bit matrix hash includes the matrix dimensions.
-// rustc-skip: compiler/rustc_data_structures/src/stable_hash/tests.rs:44 test_hash_bit_matrix needs rustc_index::bit_set::BitMatrix (not ported)
+// rustc: compiler/rustc_data_structures/src/stable_hash/tests.rs:44 test_hash_bit_matrix
+test("test_hash_bit_matrix", () => {
+  const a = BitMatrix.new<number, number>(1, 1);
+  const b = BitMatrix.new<number, number>(1, 2);
+  expect(BitMatrix_eq(a, b)).toBe(false);
+  expect(String(hash(a, stable_hash_BitMatrix))).not.toBe(String(hash(b, stable_hash_BitMatrix)));
+});
 
 // Check that exchanging the value of two adjacent fields changes the hash.
 // rustc: compiler/rustc_data_structures/src/stable_hash/tests.rs:54 test_attribute_permutation
