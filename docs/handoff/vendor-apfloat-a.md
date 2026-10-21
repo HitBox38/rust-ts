@@ -52,7 +52,7 @@ errors.
 - `bun test src/vendor/rustc_apfloat`: all pass. The non-oracle tests take about 5 s.
 - `RUST_TS_REQUIRE_PROBES=1 bun test src/vendor/rustc_apfloat/apfloat.oracle.test.ts`: 202,277 lines, 0 mismatches.
   It takes about 25 s on the TS side, plus a one-time ~20 s rustc build of the oracle program.
-- `RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000`: see the final line of this file.
+- `RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000`: 5471 pass, 0 fail (5472 tests across 365 files; the other one is the existing skip).
 - No difftest sample was run. Nothing on a compiler path imports the module yet, so every suite's output is unchanged
   by construction.
 
