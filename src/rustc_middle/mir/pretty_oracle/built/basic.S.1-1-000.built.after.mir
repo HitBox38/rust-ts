@@ -1,0 +1,14 @@
+// MIR for `S` after built
+
+static S: &str = {
+    let mut _0: &str;
+
+    bb0: {
+        _0 = const "hello";
+        return;
+    }
+}
+
+alloc1 (size: 5, align: 1) {
+    68 65 6c 6c 6f                                  │ hello
+}

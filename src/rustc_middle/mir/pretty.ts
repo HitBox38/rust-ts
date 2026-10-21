@@ -191,8 +191,13 @@ declare module "./syntax.ts" {
   }
 }
 
-/** rustc_session/config.ts, read lazily (it is not in this module's load closure as a fresh entry; precedent ty/instance.ts). */
+/**
+ * rustc_session/config.ts, read lazily (precedent ty/instance.ts): it is not in this module's load closure, and it is
+ * entered through rustc_session/lib.ts (config.ts and options.gen.ts import each other; as the first module of the
+ * crate to load, config.ts stops in options.gen.ts's TDZ).
+ */
 function session_config(): typeof import("../../rustc_session/config.ts") {
+  require("../../rustc_session/lib.ts");
   return require("../../rustc_session/config.ts") as typeof import("../../rustc_session/config.ts");
 }
 
