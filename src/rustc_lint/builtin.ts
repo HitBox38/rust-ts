@@ -34,8 +34,12 @@ import {
   BuiltinUnsafe_diagnostic,
   BuiltinUnusedDocComment_diagnostic,
   BuiltinWhileTrue_diagnostic,
+  BuiltinNonShorthandFieldPatterns_diagnostic,
 } from "./diagnostics.gen.ts";
-import type { EarlyLintPass } from "./passes.ts";
+import type { EarlyLintPass, LateLintPass } from "./passes.ts";
+import type * as hir from "../rustc_hir/hir.ts";
+import type { LateContext } from "./context.ts";
+import { unwrap } from "../std/panic.ts";
 import { unported_methods } from "../rust_ts/stubs.ts";
 import {
   WhileTrue, NonShorthandFieldPatterns, UnsafeCode, MissingCopyImplementations, AnonymousParameters, InvalidNoMangleItems,
@@ -106,8 +110,6 @@ export class EllipsisInclusiveRangePatterns implements LintPass {
 }
 
 // Late passes (M3): `check_*` placeholders.
-// impl LateLintPass for NonShorthandFieldPatterns (builtin.rs:150)
-unported_methods(NonShorthandFieldPatterns.prototype, "rustc_lint::builtin::NonShorthandFieldPatterns", ["check_pat"]);
 // impl LateLintPass for MissingDoc (builtin.rs:351)
 unported_methods(MissingDoc.prototype, "rustc_lint::builtin::MissingDoc", ["check_crate", "check_item", "check_trait_item", "check_impl_item", "check_foreign_item", "check_field_def", "check_variant"]);
 // impl LateLintPass for MissingCopyImplementations (builtin.rs:459)
@@ -169,6 +171,50 @@ WhileTrue.prototype.check_expr = function (this: WhileTrue, cx: EarlyContext, e:
       const condition_span = Span.with_hi(e.span, Span.hi(cond.span));
       const replace = `${label === undefined ? "" : `${display_Ident(label.ident)}: `}loop`;
       cx.emit_span_lint(WHILE_TRUE, condition_span, BuiltinWhileTrue_diagnostic({ suggestion: condition_span, replace }));
+    }
+  }
+};
+
+// ---- NonShorthandFieldPatterns (builtin.rs:110-154) ----
+
+declare module "./builtin.lints.gen.ts" {
+  interface NonShorthandFieldPatterns extends LateLintPass {}
+}
+
+// impl<'tcx> LateLintPass<'tcx> for NonShorthandFieldPatterns
+// rustc: compiler/rustc_lint/src/builtin.rs:151 check_pat
+NonShorthandFieldPatterns.prototype.check_pat = function (this: NonShorthandFieldPatterns, cx: LateContext, pat: hir.Pat): void {
+  if (pat.kind.$ === "Struct") {
+    const qpath = pat.kind._0;
+    const field_pats = pat.kind._1;
+    const variant = unwrap(cx.typeck_results_().pat_ty(pat).ty_adt_def(), "struct pattern type is not an ADT").variant_of_res(
+      cx.qpath_res(qpath, pat.hir_id),
+    );
+    for (const fieldpat of field_pats) {
+      if (fieldpat.is_shorthand) {
+        continue;
+      }
+      if (Span.from_expansion(fieldpat.span)) {
+        // Don't lint if this is a macro expansion: macro authors
+        // shouldn't have to worry about this kind of style issue
+        // (Issue #49588)
+        continue;
+      }
+      if (fieldpat.pat.kind.$ === "Binding" && fieldpat.pat.kind._3 === undefined) {
+        const binding_annot = fieldpat.pat.kind._0;
+        const ident = fieldpat.pat.kind._2;
+        if (cx.tcx.find_field_index(ident, variant) === cx.typeck_results_().field_index(fieldpat.hir_id)) {
+          cx.emit_span_lint(
+            NON_SHORTHAND_FIELD_PATTERNS,
+            fieldpat.span,
+            BuiltinNonShorthandFieldPatterns_diagnostic({
+              ident,
+              suggestion: fieldpat.span,
+              prefix: binding_annot.prefix_str(),
+            }),
+          );
+        }
+      }
     }
   }
 };
