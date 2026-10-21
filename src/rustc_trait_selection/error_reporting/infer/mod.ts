@@ -75,7 +75,7 @@ import { TypeTrace, ValuePairs } from "../../../rustc_infer/infer/mod.ts";
 import { ToTrace_TraitRef, ToTrace_Ty } from "../../../rustc_infer/infer/at.ts";
 import { type Print, print_Ty } from "../../../rustc_middle/ty/print/mod.ts";
 import { HasAttrs_DefId } from "../../../rustc_middle/ty/mod.ts";
-import { fold_with_ValuePairs, try_fold_with_ValuePairs, visit_with_ValuePairs } from "../../../rustc_infer/infer/mod.gen.ts";
+import { clone_TypeTrace, fold_with_ValuePairs, try_fold_with_ValuePairs, visit_with_ValuePairs } from "../../../rustc_infer/infer/mod.gen.ts";
 import { Obligation } from "../../../rustc_infer/traits/mod.ts";
 import { TraitErrors } from "../../../rustc_infer/traits/engine.ts";
 import { ObligationCause, ObligationCauseCode, type PatternOriginExpr } from "../../../rustc_middle/traits/mod.ts";
@@ -1890,12 +1890,12 @@ TypeErrCtxt.prototype.note_type_err = function (
           const def_id = k._1.kind.def_id;
           const sm = this.tcx.sess.source_map();
           const pos = sm.lookup_char_pos(SpanC.lo(this.tcx.def_span(def_id)));
-          return DiagStyledString.normal(` (opaque type at <${sm.filename_for_diagnostics(pos.file.name).toString()}:${pos.line}:${pos.col + 1}>)`);
+          return DiagStyledString.normal(` (opaque type at <${sm.filename_for_diagnostics(pos.file.name).to_string()}:${pos.line}:${pos.col + 1}>)`);
         } else if (extra && k.$ === "Alias" && k._1.kind.$ === "Projection" && this.tcx.is_impl_trait_in_trait(k._1.kind.def_id)) {
           const def_id = k._1.kind.def_id;
           const sm = this.tcx.sess.source_map();
           const pos = sm.lookup_char_pos(SpanC.lo(this.tcx.def_span(def_id)));
-          return DiagStyledString.normal(` (trait associated opaque type at <${sm.filename_for_diagnostics(pos.file.name).toString()}:${pos.line}:${pos.col + 1}>)`);
+          return DiagStyledString.normal(` (trait associated opaque type at <${sm.filename_for_diagnostics(pos.file.name).to_string()}:${pos.line}:${pos.col + 1}>)`);
         } else if (extra) {
           const s = DiagStyledString.normal(" (");
           s.push_highlighted(ty.sort_string(this.tcx));
@@ -2243,7 +2243,9 @@ TypeErrCtxt.prototype.format_on_type_error_notes = function (
 };
 
 // rustc: compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs:2217 report_and_explain_type_error
-TypeErrCtxt.prototype.report_and_explain_type_error = function (this: TypeErrCtxt, trace: TypeTrace, param_env: ParamEnv, terr: TypeError): Diag {
+TypeErrCtxt.prototype.report_and_explain_type_error = function (this: TypeErrCtxt, trace_: TypeTrace, param_env: ParamEnv, terr: TypeError): Diag {
+  // PORT: upstream takes `mut trace: TypeTrace` by value; `simplify_pin_macro_arg_ty_mismatch` writes to it, so copy.
+  const trace = clone_TypeTrace(trace_);
   // debug!("report_and_explain_type_error(trace={:?}, terr={:?})", trace, terr);
 
   const span = trace.cause.span;
@@ -2293,9 +2295,10 @@ TypeErrCtxt.prototype.simplify_pin_macro_arg_ty_mismatch = function (this: TypeE
   const found_generics = fik._1;
   if (!this.tcx.is_diagnostic_item(sym.PinMacroHelper, found_adt.did())) return;
 
-  if (expected_generics.length !== 1) return panic("PinMacroHelper should only have one generic");
+  // `Result::expect` panics with `{msg}: {err:?}` (`TryFromSliceError(())`).
+  if (expected_generics.length !== 1) return panic("PinMacroHelper should only have one generic: TryFromSliceError(())");
   const expected_generic = expected_generics[0]!;
-  if (found_generics.length !== 1) return panic("PinMacroHelper should only have one generic");
+  if (found_generics.length !== 1) return panic("PinMacroHelper should only have one generic: TryFromSliceError(())");
   const found_generic = found_generics[0]!;
   const expected_ty_inner = unwrap(GenericArg.as_type(expected_generic), "PinMacroHelper should have a generic type");
   const found_ty_inner = unwrap(GenericArg.as_type(found_generic), "PinMacroHelper should have a generic type");
