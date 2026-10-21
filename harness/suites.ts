@@ -761,11 +761,12 @@ const M3_UI_DIRS = ["tests/ui/typeck", "tests/ui/traits"];
 const M3_UI_ORACLE_TIMEOUT_MS = 300_000;
 const inDirs = (dirs: string[]) => (c: Case) => dirs.some((d) => c.file.startsWith(d + "/"));
 const m3UiMemo = new Map<string, { cases: Case[]; skipped: SkippedCase[] }>();
-function m3UiCorpus(dirs: string[]): { cases: Case[]; skipped: SkippedCase[] } {
-  const key = dirs.join("|");
+/** The UI tests (and revisions) of `dirs`, plus (`dumpTests`, the M3 suites) every `#[rustc_dump_*]` test. */
+function m3UiCorpus(dirs: string[], dumpTests = true): { cases: Case[]; skipped: SkippedCase[] } {
+  const key = `${dirs.join("|")}${dumpTests ? "" : "\0nodump"}`;
   const m = m3UiMemo.get(key);
   if (m) return m;
-  const files = [...new Set([...dirs.flatMap((d) => collectUiTests(d)), ...uiDumpTests()])].sort();
+  const files = [...new Set([...dirs.flatMap((d) => collectUiTests(d)), ...(dumpTests ? uiDumpTests() : [])])].sort();
   const ui = uiFileCases(files, "human", { aux: true, auxTimeoutMs: M3_UI_ORACLE_TIMEOUT_MS });
   // Only the harness's own trailing `-Zparse-crate-root-only` is dropped: a test may pass it in its compile-flags
   // (tests/ui/traits/const-traits/parse-const-unsafe-trait.rs). (The minicore corpus filters every occurrence.)
@@ -836,6 +837,74 @@ SUITES.push(
     { "typeck+traits": inDirs(M3_UI_DIRS), rustc_dump: (c) => uiDumpTests().has(c.file), "thir-print": inDirs(["tests/ui/thir-print"]) },
     "tools/probes/thirdump (as thirdump-minicore) on the tydump-ui cases plus tests/ui/thir-print",
   ),
+);
+
+// M4a (plan-m4 D2, §4; lane harness-w21): MIR building through the rustc-dev probe tools/probes/mirdump. It runs the
+// tydump prefix (tools/probes/tydump/prefix.rs), then the `MIR_borrow_checking` loop of run_required_analyses without
+// mir_borrowck, check_transmutes, mir_drops_elaborated_and_const_checked and the coroutine layout_of, then prints, with
+// rustc's own `MirWriter::write_mir_fn`, every `mir_keys` item: `mir_built` (as computed, before any steal) and
+// `mir_promoted` with its promoted fragments; trivial consts as `write_mir_pretty`'s one-liner, constructors'
+// `mir_for_ctfe` (the probe's header has the details and the output layout). Diagnostics are those of MIR building
+// (check_match, unsafety, MIR lints, liveness, ...) on top of the tydump prefix's. AllocIds are compared as printed
+// (D13). Unprotected until root accepts a run.
+// - `mirdump-minicore`: the tydump-minicore cases (`minicoreCorpus`), same argv, env and skips.
+// - `mirdump-ui`: the UI tests (and revisions) of `M4A_UI_DIRS` (plan-m4 §4), with compiletest's argv, env, aux
+//   crates, directives and skips exactly as tydump-ui (`m3UiCorpus`, without the rustc_dump tests). Timeouts as the M3
+//   ui suites. Subsets per directory. Report only: `--report blessed`.
+const M4A_UI_DIRS = [
+  "tests/ui/borrowck",
+  "tests/ui/nll",
+  "tests/ui/mir",
+  "tests/ui/mir-dataflow",
+  "tests/ui/liveness",
+  "tests/ui/unsafe",
+  "tests/ui/pattern/usefulness",
+];
+// Unstable cases of mirdump-ui (lane harness-w21): the oracle (the same probe binary, argv, env and cwd) was run twice on
+// every case; these 4 differed, all in `thread 'rustc' (<tid>) panicked`. They are tests that ICE by design
+// (`failure-status: 101`: `-Zlint-mir` / `-Zvalidate-mir` reporting broken MIR, `-Ztreat-err-as-bug`), so the panic
+// message names the oracle's OS thread id (compiletest normalizes it to `$TID`). Every other case's two outputs were
+// identical; mirdump-minicore had none. difftest's detection (scripts/lib/unstable.ts) still applies.
+const M4A_UI_ICE_TID =
+  "ICE by design (`failure-status: 101`, broken-MIR lint/validation): the panic message names the oracle's OS thread id (`thread 'rustc' (<tid>) panicked`)";
+const M4A_UI_UNSTABLE: UnstableCase[] = [
+  { id: "tests/ui/mir/lint/no-storage.rs", reason: M4A_UI_ICE_TID },
+  { id: "tests/ui/mir/lint/storage-live.rs", reason: M4A_UI_ICE_TID },
+  { id: "tests/ui/mir/lint/storage-return.rs", reason: M4A_UI_ICE_TID },
+  { id: "tests/ui/mir/validate/call-move-arg.rs", reason: M4A_UI_ICE_TID },
+];
+SUITES.push(
+  {
+    name: "mirdump-minicore",
+    milestone: "M4a",
+    description:
+      "MIR building (rustc-dev probe tools/probes/mirdump: the tydump prefix, the MIR_borrow_checking loop without borrowck/drop elaboration, then mir_built and mir_promoted (+ promoteds) of every mir_keys item via MirWriter::write_mir_fn) on the tydump-minicore cases",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: 300_000,
+    probes: ["mirdump"],
+    cases: () => minicoreCorpus().cases,
+    skipped: () => minicoreCorpus().skipped,
+    oracle: ([c]) => [probePath("mirdump"), ...c!.args],
+    subject: ([c]) => [...bunCmd("src/rust_ts/mirdump.ts"), ...c!.args],
+  },
+  {
+    name: "mirdump-ui",
+    milestone: "M4a",
+    description:
+      "tools/probes/mirdump (as mirdump-minicore) on tests/ui/{borrowck,nll,mir,mir-dataflow,liveness,unsafe,pattern/usefulness}, with compiletest's UI-test argv as tydump-ui (human diagnostics, -Znext-solver=coherence, revisions, aux crates built by the oracle as rmeta)",
+    mode: "single",
+    timeoutMs: 60_000,
+    oracleTimeoutMs: M3_UI_ORACLE_TIMEOUT_MS,
+    probes: ["mirdump"],
+    cases: () => m3UiCorpus(M4A_UI_DIRS, false).cases,
+    skipped: () => m3UiCorpus(M4A_UI_DIRS, false).skipped,
+    oracle: ([c]) => [probePath("mirdump"), ...c!.args],
+    subject: ([c]) => [...bunCmd("src/rust_ts/mirdump.ts"), ...c!.args],
+    subsets: Object.fromEntries(M4A_UI_DIRS.map((d) => [d.slice("tests/ui/".length), inDirs([d])])),
+    blessed: (c) => uiBlessed(c.id, c.args),
+    unstable: () => M4A_UI_UNSTABLE,
+  },
 );
 
 export function suite(name: string): Suite {
