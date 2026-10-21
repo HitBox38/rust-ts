@@ -1,0 +1,67 @@
+error[E0053]: method `m` has an incompatible type for trait
+ --> fn_sigs.rs:8:20
+  |
+8 |     fn m(&self, x: u16) -> u16 {
+  |                    ^^^ expected `u8`, found `u16`
+  |
+note: type in trait
+ --> fn_sigs.rs:2:20
+  |
+2 |     fn m(&self, x: u8) -> u16;
+  |                    ^^
+  = note: expected signature `fn(&S, u8) -> _`
+             found signature `fn(&S, u16) -> _`
+help: change the parameter type to match the trait
+  |
+8 -     fn m(&self, x: u16) -> u16 {
+8 +     fn m(&self, x: u8) -> u16 {
+  |
+
+error[E0053]: method `n` has an incompatible type for trait
+  --> fn_sigs.rs:11:24
+   |
+11 |     fn n<'a>(&self, x: &'a u16) -> &'a u8 {
+   |                        ^^^^^^^ expected `u8`, found `u16`
+   |
+note: type in trait
+  --> fn_sigs.rs:3:24
+   |
+ 3 |     fn n<'a>(&self, x: &'a u8) -> &'a u8;
+   |                        ^^^^^^
+   = note: expected signature `fn(&S, &'a u8) -> &'a _`
+              found signature `fn(&S, &u16) -> &_`
+help: change the parameter type to match the trait
+   |
+11 -     fn n<'a>(&self, x: &'a u16) -> &'a u8 {
+11 +     fn n<'a>(&self, x: &'a u8) -> &'a u8 {
+   |
+
+error[E0053]: method `u` has an incompatible type for trait
+  --> fn_sigs.rs:14:5
+   |
+14 |     fn u(&self) {}
+   |     ^^^^^^^^^^^ expected unsafe fn, found safe fn
+   |
+note: type in trait
+  --> fn_sigs.rs:4:5
+   |
+ 4 |     unsafe fn u(&self);
+   |     ^^^^^^^^^^^^^^^^^^^
+   = note: expected signature `unsafe fn(&S)`
+              found signature `fn(&S)`
+
+error[E0308]: `if` and `else` have incompatible types
+  --> fn_sigs.rs:23:31
+   |
+23 |     let f = if c { a } else { b };
+   |                    -          ^ expected `u8`, found `u16`
+   |                    |
+   |                    expected because of this
+   |
+   = note: expected fn item `fn(u8) -> _ {a}`
+              found fn item `fn(u16) -> _ {b}`
+
+error: aborting due to 4 previous errors
+
+Some errors have detailed explanations: E0053, E0308.
+For more information about an error, try `rustc --explain E0053`.
