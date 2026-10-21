@@ -31,7 +31,7 @@ import type { AssocItem } from "../rustc_middle/ty/assoc.ts";
 import { AssocItem as AssocItemC } from "../rustc_middle/ty/assoc.ts";
 import { debug_CapturedPlace } from "../rustc_middle/ty/closure.ts";
 import { debug_Place, type Place } from "../rustc_middle/hir/place.ts";
-import { debug_FakeReadCause, type FakeReadCause } from "../rustc_middle/mir/syntax.ts";
+import { debug_FakeReadCause, type FakeReadCause } from "../rustc_middle/mir/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { debug_GenericClauses, debug_Generics, type GenericClauses, type Generics } from "../rustc_middle/ty/generics.ts";
 import { debug_RawList } from "../rustc_middle/ty/list.ts";

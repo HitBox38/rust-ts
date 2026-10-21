@@ -223,8 +223,8 @@ export type { CastKind };
 // ty/instance.rs `Instance` / `InstanceKind` (generated into ./instance.gen.ts, methods in ./instance.ts; lane instance-vtable)
 import type { Instance, InstanceKind } from "./instance.ts";
 export type { Instance, InstanceKind };
-// mir/syntax.rs `BinOp` / `UnOp` (mir/syntax.ts, codegen set rustc_middle_mir_syntax; merge-w18)
-import type { BinOp, UnOp } from "../mir/syntax.ts";
+// mir/syntax.rs `BinOp` / `UnOp` (mir/syntax.ts, codegen set rustc_middle_mir; merge-w18)
+import type { BinOp, UnOp } from "../mir/mod.ts";
 export type { BinOp, UnOp };
 // rustc_data_structures transitive_relation.rs (lane rds-graph)
 export type { TransitiveRelation } from "../../rustc_data_structures/transitive_relation.ts";

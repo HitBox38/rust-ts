@@ -52,7 +52,7 @@ export * from "./typeck_results.gen.ts";
 
 // PORT: pending types of other files (not ported yet), as `decls.ts`-style aliases (ty-contract "Pending types"):
 /** `crate::mir::FakeReadCause` (mir/syntax.rs:509): mir/syntax.ts's (merge-w18). */
-import type { FakeReadCause } from "../mir/syntax.ts";
+import type { FakeReadCause } from "../mir/mod.ts";
 export type { FakeReadCause };
 /** `crate::thir::DerefPatBorrowMode` (thir.rs:886): `Borrow(Mutability) | Box`, built per PORTING §5. */
 export type DerefPatBorrowMode = PendingEnum<"thir::DerefPatBorrowMode">;

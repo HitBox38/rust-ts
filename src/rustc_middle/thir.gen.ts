@@ -6,7 +6,7 @@ import { try_visit } from "../rustc_ast_ir/visit.ts";
 import { clone_ImplicitSelfKind, clone_MatchSource, clone_RangeEnd, debug_ImplicitSelfKind, debug_MatchSource, debug_RangeEnd, type ImplicitSelfKind, type Lit, type MatchSource, type RangeEnd } from "../rustc_hir/lib.ts";
 import { debug_HirId, debug_ItemLocalId, type HirId, type ItemLocalId } from "../rustc_hir_id/lib.ts";
 import { clone_Scope, debug_Scope, type Scope } from "./middle/region.ts";
-import { type AssignOp, type BinOp, type BorrowKind, debug_AssignOp, debug_BinOp, debug_BorrowKind, debug_FakeReadCause, debug_UnOp, type FakeReadCause, type UnOp } from "./mir/syntax.ts";
+import { type AssignOp, type BinOp, type BorrowKind, debug_AssignOp, debug_BinOp, debug_BorrowKind, debug_FakeReadCause, debug_UnOp, type FakeReadCause, type UnOp } from "./mir/mod.ts";
 import { type ArmId, type BlockId, debug_ArmId, debug_BlockId, debug_ExprId, debug_StmtId, type ExprId, type StmtId } from "./thir.ts";
 import { debug_PointerCoercion, type PointerCoercion } from "./ty/adjustment.gen.ts";
 import { debug_ScalarInt, type ScalarInt } from "./ty/consts/int.ts";

@@ -26,7 +26,7 @@ export * from "./allocation.ts";
 export * from "./error.ts";
 export * from "./pointer.ts";
 export * from "./value.ts";
-export * from "./queries.ts";
+import "./queries.ts"; // `mod queries;` (only `impl TyCtxt` methods: installed by rustc_middle/lib.ts)
 
 // rustc-type: compiler/rustc_middle/src/mir/interpret/mod.rs:77 AllocId
 /** `AllocId(NonZero<u64>)`: PORTING §5 interned handle (a branded number; ids are sequential from 1). */

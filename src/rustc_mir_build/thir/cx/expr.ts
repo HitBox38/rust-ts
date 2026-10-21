@@ -2,7 +2,7 @@
 // PORT: the `impl ThirBuildCx` block of this file is attached to the prototype (loaded by lib.ts after cx/mod.ts).
 //
 // The rustc_middle `mir/syntax.rs` enums THIR stores (`BorrowKind`, `MutBorrowKind`, `BinOp`, `UnOp`, `AssignOp`,
-// `FakeReadCause`) come from the partial rustc_middle mir/syntax.ts (codegen set rustc_middle_mir_syntax; lane
+// `FakeReadCause`) come from the partial rustc_middle mir/syntax.ts (codegen set rustc_middle_mir; lane
 // thir-pattern).
 import { find_attr, type UnrollAttr } from "../../../rustc_attr_ir/lib.ts";
 import { clone_UnrollAttr } from "../../../rustc_attr_ir/lib.ts";
@@ -41,7 +41,7 @@ import { type Adjustment, OverloadedDeref } from "../../../rustc_middle/ty/adjus
 import type { AutoBorrowMutability } from "../../../rustc_middle/ty/adjustment.gen.ts";
 import { ScalarInt } from "../../../rustc_middle/ty/consts/int.ts";
 import type { AdtDef, FieldIdx, HirPlace, VariantIdx } from "../../../rustc_middle/ty/decls.ts";
-import { type AssignOp, BinOp, type BorrowKind, type FakeReadCause, type MutBorrowKind, UnOp } from "../../../rustc_middle/mir/syntax.ts";
+import { type AssignOp, BinOp, type BorrowKind, type FakeReadCause, type MutBorrowKind, UnOp } from "../../../rustc_middle/mir/mod.ts";
 import type { CanonicalUserType } from "../../../rustc_middle/ty/typeck_results.ts";
 import { fold_GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
 import { RawList } from "../../../rustc_middle/ty/list.ts";

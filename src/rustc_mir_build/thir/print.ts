@@ -1,7 +1,7 @@
 // Port of compiler/rustc_mir_build/src/thir/print.rs (lane thir-cx-print).
 //
 // `{:?}` of the rustc_middle `mir/syntax.rs` enums THIR stores (`BinOp`, `UnOp`, `AssignOp`, `BorrowKind`,
-// `FakeReadCause`) is their derived Debug from the partial mir/syntax.ts (codegen set rustc_middle_mir_syntax).
+// `FakeReadCause`) is their derived Debug from the partial mir/syntax.ts (codegen set rustc_middle_mir).
 // PORT: `{:?}` of `mir::Const` and `AllocId` (never built by the ported lowering: asm `const` operands and statics stop
 // as UNPORTED there) is `unported`.
 import { debug_AsmMacro, debug_BindingMode, debug_InlineAsmOptions, debug_InlineAsmTemplatePiece, debug_LitKind } from "../../rustc_ast/lib.ts";
@@ -40,7 +40,7 @@ import { debug_PointerCoercion } from "../../rustc_middle/ty/adjustment.gen.ts";
 import { debug_ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
 import { display_Value } from "../../rustc_middle/ty/consts/valtree.ts";
 import type { AdtDef } from "../../rustc_middle/ty/decls.ts";
-import { debug_AssignOp, debug_BinOp, debug_BorrowKind, debug_FakeReadCause, debug_UnOp } from "../../rustc_middle/mir/syntax.ts";
+import { debug_AssignOp, debug_BinOp, debug_BorrowKind, debug_FakeReadCause, debug_UnOp } from "../../rustc_middle/mir/mod.ts";
 import { debug_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { debug_Ty, debug_VariantDef } from "../../rustc_middle/ty/mod.ts";
 import { debug_ParamConst } from "../../rustc_middle/ty/structural_impls.ts";

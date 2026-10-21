@@ -30,11 +30,20 @@ import "./ty/context/impl_interner.ts";
 import "./hir/mod.ts";
 // rustc_middle/src/middle extension modules (`impl TyCtxt` in middle/*.rs).
 import "./middle/lang_items.ts";
+// mir (lane mir-contract, docs/handoff/mir-contract.md "Init order"): entered through mir/mod.ts; mir/ is in
+// ty/context.ts's import closure, so its `impl TyCtxt` methods are installed here, after context.ts.
+import "./mir/mod.ts";
+import { install_TyCtxt_methods as install_TyCtxt_methods_mir_consts } from "./mir/consts.ts";
+import { install_TyCtxt_methods as install_TyCtxt_methods_mir_interpret } from "./mir/interpret/mod.ts";
+import { install_TyCtxt_methods as install_TyCtxt_methods_mir_interpret_queries } from "./mir/interpret/queries.ts";
 import { define_hooks } from "./hooks.ts";
 import { define_query_api } from "./query/query_api.ts";
 
 define_query_api();
 define_hooks();
+install_TyCtxt_methods_mir_consts();
+install_TyCtxt_methods_mir_interpret();
+install_TyCtxt_methods_mir_interpret_queries();
 
 export * as dep_graph from "./dep_graph/graph.ts";
 export * as hir from "./hir/mod.ts";
@@ -44,6 +53,7 @@ export * as queries from "./queries.ts";
 export * as query from "./query/mod.ts";
 export * as diagnostics from "./diagnostics.ts";
 export * as lang_items from "./middle/lang_items.ts";
+export * as mir from "./mir/mod.ts";
 export * as resolve from "./middle/resolve.ts";
 export * as privacy from "./middle/privacy.ts";
 export * as stability from "./middle/stability.ts";

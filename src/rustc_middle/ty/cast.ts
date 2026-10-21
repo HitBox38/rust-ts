@@ -4,13 +4,13 @@
 // - `CastTy` is a data enum (PORTING §5): unit variants are frozen singletons on the companion const, which also holds
 //   the inherent methods (`CastTy.from_ty(t)`, `CastTy.is_int_like(self)`, PORTING §8). Its derived `Debug` is written
 //   here (`debug_CastTy`); the derived `PartialEq` has no caller in the port yet.
-// - `mir::CastKind` is the generated type of mir/syntax.gen.ts (set rustc_middle_mir_syntax).
+// - `mir::CastKind` is the generated type of mir/syntax.gen.ts (set rustc_middle_mir).
 // Helpers for handling cast expressions.
 
 import { bug } from "../../rustc_span/macros.ts";
 import { debug_TypeAndMut } from "../../rustc_type_ir/ty_kind.gen.ts";
 import { type Debug, debug_tuple, PLAIN } from "../../std/fmt.ts";
-import { CastKind } from "../mir/syntax.ts";
+import { CastKind } from "../mir/mod.ts";
 import type { Ty } from "./mod.ts";
 import { debug_Ty } from "./structural_impls.ts";
 import type { TypeAndMut } from "./sty.ts";
