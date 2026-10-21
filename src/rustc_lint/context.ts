@@ -41,7 +41,7 @@ import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import type { List } from "../rustc_middle/ty/list.ts";
 import { type ParamEnv, Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import type { PolyExistentialPredicate } from "../rustc_middle/ty/predicate.ts";
-import { PRINT_OK, type PrintResult, Printer } from "../rustc_middle/ty/print/mod.ts";
+import { PRINT_OK, type PrintError, type PrintResult, Printer } from "../rustc_middle/ty/print/mod.ts";
 import {
   display_TraitRefPrintOnlyTraitPath,
   display_Ty,
@@ -702,7 +702,7 @@ export class LateContext implements LintContext<StableLintExpectationId> {
   // rustc: compiler/rustc_lint/src/context.rs:698 get_def_path
   get_def_path(def_id: DefId): Symbol[] {
     const p = new LintPathPrinter(this.tcx, []);
-    unwrap_result(p.print_def_path(def_id, []));
+    unwrap_result(p.print_def_path(def_id, []), debug_PrintError);
     return p.path;
   }
 
@@ -905,6 +905,9 @@ export class LateContext implements LintContext<StableLintExpectationId> {
     return LayoutOf_provided.spanned_layout_of(this, ty, span);
   }
 }
+
+/** `#[derive(Debug)]` of `PrintError` (as rustc_middle ty/error.ts). */
+const debug_PrintError: Debug<PrintError> = () => "Error";
 
 /** `struct LintPathPrinter` local to `LateContext::get_def_path` (`impl Printer`). */
 class LintPathPrinter extends Printer {
