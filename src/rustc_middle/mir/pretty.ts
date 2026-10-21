@@ -285,7 +285,9 @@ export class MirDumper {
       dump_enabled = false;
     }
 
-    return dump_enabled ? new MirDumper(false, pass_name, "0", MirWriter.new(tcx)) : undefined;
+    // `bool::then_some` evaluates its argument eagerly.
+    const dumper = new MirDumper(false, pass_name, "0", MirWriter.new(tcx));
+    return dump_enabled ? dumper : undefined;
   }
 
   // rustc: compiler/rustc_middle/src/mir/pretty.rs:108 tcx
