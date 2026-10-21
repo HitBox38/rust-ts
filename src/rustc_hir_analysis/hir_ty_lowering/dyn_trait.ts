@@ -79,6 +79,7 @@ import {
 } from "../diagnostics.gen.ts";
 import type { ImpliedBoundsContext, OverlappingAsssocItemConstraints, PredicateFilter, RegionInferReason } from "./mod.gen.ts";
 import { report_dyn_incompatibility } from "../../rustc_trait_selection/error_reporting/traits/mod.ts";
+import { next_type_param_name } from "../../rustc_trait_selection/error_reporting/traits/suggestions.ts";
 
 /** PORT: D4 descriptors of the generated `TypeFoldable` impls used below. */
 const d_TraitClause: TypeFoldable<TraitClause> = { visit_with: visit_with_TraitClause, try_fold_with: try_fold_with_TraitClause, fold_with: fold_with_TraitClause };
@@ -863,9 +864,7 @@ HirTyLowerer.prototype.add_generic_param_suggestion = function (
   impl_trait_name: string,
 ): [Span, string][] {
   // check if the trait has generics, to make a correct suggestion
-  const param_name: string = unported(
-    "rustc_trait_selection::error_reporting::traits::suggestions::NextTypeParamName::next_type_param_name",
-  );
+  const param_name: string = next_type_param_name(generics.params, undefined);
 
   let add_generic_sugg: [Span, string];
   const span = generics.span_for_param_suggestion();

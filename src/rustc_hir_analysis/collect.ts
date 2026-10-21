@@ -91,6 +91,7 @@ import * as type_of from "./collect/type_of.ts";
 import { type FieldDeclSpan, FieldUniquenessCheckContext, type NestedSpan } from "./collect.gen.ts";
 import * as diagnostics from "./diagnostics.ts";
 import { HirTyLowerer_provided, type InherentAssocCandidate, RegionInferReason } from "./hir_ty_lowering/mod.ts";
+import { next_type_param_name } from "../rustc_trait_selection/error_reporting/traits/suggestions.ts";
 
 export * from "./collect.gen.ts";
 export { ItemCtxt } from "./decls.ts";
@@ -171,9 +172,7 @@ export function placeholder_type_error_diag(cx: HirTyLowerer, generics: hir.Gene
   }
 
   const params = generics !== undefined ? generics.params : [];
-  void params;
-  // `params.next_type_param_name(None)`: rustc_trait_selection's `NextTypeParamName` (not ported).
-  const type_name: string = unported("rustc_trait_selection::error_reporting::traits::suggestions::NextTypeParamName::next_type_param_name");
+  const type_name: string = next_type_param_name(params, undefined);
   const sugg: [Span, string][] = placeholder_types.map((sp) => [sp, type_name]);
 
   if (generics !== undefined) {
