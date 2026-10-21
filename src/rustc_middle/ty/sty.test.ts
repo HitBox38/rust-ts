@@ -379,10 +379,9 @@ describe("constructors", () => {
   );
 
   test(
-    "new_adt interns an ADT type; value-const constructors stop UNPORTED at their pending dependencies",
+    "new_adt interns an ADT type",
     sg(() => {
       const tcx = mk_tcx();
-      const t = tcx.types;
       // merge-w15b: `AdtDef` is ported (lane ty-adt-assoc): `new_adt` interns `Adt(def, args)`.
       const def = adt_def(false);
       const adt = Ty.new_adt(tcx, def, tcx.mk_args([]));
@@ -390,8 +389,9 @@ describe("constructors", () => {
       expect(Ty.new_adt(tcx, def, tcx.mk_args([]))).toBe(adt);
       expect(adt.ty_adt_def()).toBe(def);
       expect(adt.is_enum()).toBe(false);
-      // `Const::from_target_usize` (ty/consts.rs, lane ty-results).
-      expect(() => Ty.new_array(tcx, t.u8, 3)).toThrow(Unported);
+      // `Const::from_target_usize` (ty/consts.rs, lane ty-results) now asks the `layout_of` query (lane layout-contract),
+      // which this mock `tcx` has no query system for: rustc_ty_utils/layout_contract.test.ts checks `Ty::new_array` with a
+      // real `tcx` (it stops at the `layout_of_uncached` stub).
     }),
   );
 });
