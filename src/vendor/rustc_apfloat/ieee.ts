@@ -850,24 +850,18 @@ export class IeeeFloat<S extends Semantics = Semantics> implements Float<IeeeFlo
     const required = Math.floor((precision * 196 + 58) / 59);
     let discard_digits = Math.floor((sat_sub_usize(sig.omsb(sig_), required) * 59) / 196);
     let in_trail = true;
-    while (sig_.length !== 0) {
+    // PORT: upstream divides the limbs by 10 in place, 32-bit chunk by 32-bit chunk (`sig::each_chunk`), pops the
+    // zero top limbs and stops when none is left. The successive remainders are the decimal digits of the
+    // significand from the least significant one, so they are read off its decimal string instead (one O(n log n)
+    // conversion instead of O(digits x limbs) closure calls; f128 extremes have ~11k digits).
+    let sig_n = 0n;
+    for (let i = sig_.length - 1; i >= 0; i--) sig_n = (sig_n << 128n) | sig_[i]!;
+    const decimal = sig_n === 0n ? "" : sig_n.toString();
+    for (let di = decimal.length - 1; di >= 0; di--) {
       // Perform short division by 10 to extract the rightmost digit.
       // rem <- sig % 10
       // sig <- sig / 10
-      let rem = 0;
-
-      // Use 64-bit division and remainder, with 32-bit chunks from sig.
-      sig.each_chunk(sig_, 32, (chunk) => {
-        const chunk_ = Number(chunk & 0xffffffffn);
-        const combined = rem * 2 ** 32 + chunk_;
-        rem = combined % 10;
-        return BigInt(Math.floor(combined / 10));
-      });
-
-      // Reduce the sigificand to avoid wasting time dividing 0's.
-      while (last_is_zero(sig_)) {
-        sig_.pop();
-      }
+      const rem = decimal.charCodeAt(di) - 0x30;
 
       const digit = rem;
 
@@ -3505,24 +3499,14 @@ function add_or_sub(
 ///
 /// which is less than n^2.
 function widening_mul(a: Limb, b: Limb): Limb[] {
-  const wide = [0n, 0n];
-
+  // PORT: upstream adds the four half-limb partial products (`select(a, i) * select(b, j)` shifted by
+  // `(i + j) * HALF_BITS`); with bigints the full product is one multiplication, split into its two limbs
+  // (the same value, hot in decimal conversions).
   if (a === 0n || b === 0n) {
-    return wide;
+    return [0n, 0n];
   }
-
-  const HALF_BITS = LIMB_BITS / 2;
-
-  const select = (limb: Limb, i: number) => shr(limb, i * HALF_BITS) & (shl(1n, HALF_BITS) - 1n);
-  for (let i = 0; i < 2; i++) {
-    for (let j = 0; j < 2; j++) {
-      const x = [select(a, i) * select(b, j), 0n];
-      shift_left(x, { value: 0 }, (i + j) * HALF_BITS);
-      assert(add(wide, x, 0n) === 0n);
-    }
-  }
-
-  return wide;
+  const p = a * b;
+  return [p & MAX, p >> 128n];
 }
 
 // crate: rustc_apfloat-0.2.3+llvm-462a31f5a5ab/src/ieee.rs:3172 mul
