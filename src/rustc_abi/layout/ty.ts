@@ -17,24 +17,26 @@
 // - `Ty: fmt::Display` (Debug of `TyAndLayout`) is a `display_Ty` parameter of `debug_TyAndLayout`.
 // Init order: lib.ts re-exports this module, so its top-level code must not touch lib.ts's values.
 import { INTERNED, Interned } from "../../rustc_data_structures/intern.ts";
-import { type Debug, debug_struct, type Fmt } from "../../std/fmt.ts";
-import { unported } from "../../std/panic.ts";
-import type { Result } from "../../std/result.ts";
-import type { Heterogeneous, HomogeneousAggregate } from "../callconv.ts";
+import { type Debug, debug_struct, type Fmt, PLAIN } from "../../std/fmt.ts";
+import { assert, assert_eq, panic, unported, unreachable } from "../../std/panic.ts";
+import { Err, Ok, type Result } from "../../std/result.ts";
+import { Heterogeneous, HomogeneousAggregate, Reg, RegKind } from "../callconv.ts";
 import {
   type AbiAlign,
   type Align,
   type BackendLaneCount,
   type BackendRepr,
   debug_LayoutData,
-  type FieldsShape,
+  debug_Size,
+  FieldsShape,
   type Float,
   type HasDataLayout,
   type LayoutData,
   type Niche,
   type Numeric,
   type PointeeInfo,
-  type Size,
+  Scalar,
+  Size,
   type Variants,
 } from "../lib.ts";
 import type { Hash64 } from "../../rustc_hashes/lib.ts";
@@ -443,15 +445,168 @@ export class TyAndLayout<Ty> {
   /// should generally only be relevant to the ABI details of
   /// specific targets.
   // #[tracing::instrument(skip(cx), level = "debug")]
-  // stub: compiler/rustc_abi/src/callconv.rs:69 homogeneous_aggregate (lane abi-lib)
-  homogeneous_aggregate<C>(_cx: C): Result<HomogeneousAggregate, Heterogeneous> {
-    return unported("rustc_abi::callconv::TyAndLayout::homogeneous_aggregate");
+  // rustc: compiler/rustc_abi/src/callconv.rs:69 homogeneous_aggregate
+  homogeneous_aggregate<C>(cx: C): Result<HomogeneousAggregate, Heterogeneous> {
+    const backend_repr = this.backend_repr;
+    switch (backend_repr.$) {
+      // The primitive for this algorithm.
+      case "Scalar": {
+        const scalar = backend_repr._0;
+        const kind = RegKind.from_primitive(Scalar.primitive(scalar));
+        return Ok({ $: "Homogeneous", _0: new Reg(kind, this.size) });
+      }
+
+      case "SimdVector": {
+        const element = backend_repr.element;
+        assert(!this.is_zst(), "assertion failed: !self.is_zst()");
+
+        return Ok({
+          $: "Homogeneous",
+          _0: new Reg({ $: "Vector", hint_vector_elem: Scalar.primitive(element) }, this.size),
+        });
+      }
+
+      case "SimdScalableVector": {
+        return unreachable("internal error: entered unreachable code: `homogeneous_aggregate` should not be called for scalable vectors");
+      }
+
+      case "ScalarPair":
+      case "Memory": {
+        if (backend_repr.$ === "Memory" && !backend_repr.sized) {
+          // BackendRepr::Memory { sized: false } => Err(Heterogeneous),
+          return Err(Heterogeneous);
+        }
+        // Helper for computing `homogeneous_aggregate`, allowing a custom
+        // starting offset (used below for handling variants).
+        const from_fields_at = (layout: TyAndLayout<Ty>, start: Size): Result<[HomogeneousAggregate, Size], Heterogeneous> => {
+          let is_union: boolean;
+          const fields = layout.fields;
+          switch (fields.$) {
+            case "Primitive": {
+              return unreachable("internal error: entered unreachable code: aggregates can't have `FieldsShape::Primitive`");
+            }
+            case "Array": {
+              const count = fields.count;
+              assert_eq(start, Size.ZERO, (v) => debug_Size(v, PLAIN), (a, b) => a.raw === b.raw);
+
+              let result: HomogeneousAggregate;
+              if (count > 0n) {
+                const r = layout.field(cx, 0).homogeneous_aggregate(cx);
+                if (r.$ === "Err") return r;
+                result = r._0;
+              } else {
+                result = HomogeneousAggregate.NoData;
+              }
+              return Ok([result, layout.size]);
+            }
+            case "Union":
+              is_union = true;
+              break;
+            case "Arbitrary":
+              is_union = false;
+              break;
+          }
+
+          let result: HomogeneousAggregate = HomogeneousAggregate.NoData;
+          let total = start;
+
+          for (let i = 0; i < FieldsShape.count(layout.fields); i++) {
+            const field = layout.field(cx, i);
+            if (field.is_1zst()) {
+              // No data here and no impact on layout, can be ignored.
+              // (We might be able to also ignore all aligned ZST but that's less clear.)
+              continue;
+            }
+
+            if (!is_union && total.raw !== FieldsShape.offset(layout.fields, i).raw) {
+              // This field isn't just after the previous one we considered, abort.
+              return Err(Heterogeneous);
+            }
+
+            const fr = field.homogeneous_aggregate(cx);
+            if (fr.$ === "Err") return fr;
+            const mr = HomogeneousAggregate.merge(result, fr._0);
+            if (mr.$ === "Err") return mr;
+            result = mr._0;
+
+            // Keep track of the offset (without padding).
+            const size = field.size;
+            if (is_union) {
+              total = size_max(total, size);
+            } else {
+              total = total.add_assign(size);
+            }
+          }
+
+          return Ok([result, total]);
+        };
+
+        const r0 = from_fields_at(this, Size.ZERO);
+        if (r0.$ === "Err") return r0;
+        let [result, total] = r0._0;
+
+        const variants = this.variants;
+        switch (variants.$) {
+          case "Single":
+          case "Empty":
+            break;
+          case "Multiple": {
+            // Treat enum variants like union members.
+            // HACK(eddyb) pretend the `enum` field (discriminant)
+            // is at the start of every variant (otherwise the gap
+            // at the start of all variants would disqualify them).
+            //
+            // NB: for all tagged `enum`s (which include all non-C-like
+            // `enum`s with defined FFI representation), this will
+            // match the homogeneous computation on the equivalent
+            // `struct { tag; union { variant1; ... } }` and/or
+            // `union { struct { tag; variant1; } ... }`
+            // (the offsets of variant fields should be identical
+            // between the two for either to be a homogeneous aggregate).
+            const variant_start = total;
+            for (let variant_idx = 0 as VariantIdx; variant_idx < variants.variants.length; variant_idx++) {
+              const vr = from_fields_at(this.for_variant(cx, variant_idx), variant_start);
+              if (vr.$ === "Err") return vr;
+              const [variant_result, variant_total] = vr._0;
+
+              const mr = HomogeneousAggregate.merge(result, variant_result);
+              if (mr.$ === "Err") return mr;
+              result = mr._0;
+              total = size_max(total, variant_total);
+            }
+            break;
+          }
+        }
+
+        // There needs to be no padding.
+        if (total.raw !== this.size.raw) {
+          return Err(Heterogeneous);
+        } else {
+          switch (result.$) {
+            case "Homogeneous":
+              if (total.raw === Size.ZERO.raw) {
+                return panic(`assertion \`left != right\` failed\n  left: ${debug_Size(total, PLAIN)}\n right: ${debug_Size(Size.ZERO, PLAIN)}`);
+              }
+              break;
+            case "NoData":
+              assert_eq(total, Size.ZERO, (v) => debug_Size(v, PLAIN), (a, b) => a.raw === b.raw);
+              break;
+          }
+          return Ok(result);
+        }
+      }
+    }
   }
 }
 
 /** derive(PartialEq): `ty` and `layout` are interned (identity). */
 export function TyAndLayout_eq<Ty>(a: TyAndLayout<Ty>, b: TyAndLayout<Ty>): boolean {
   return a.ty === b.ty && a.layout === b.layout;
+}
+
+/** PORT (abi-lib): `Ord::max` of two `Size`s (callconv.rs `homogeneous_aggregate`); the second on a tie, as `Ord::max`. */
+function size_max(a: Size, b: Size): Size {
+  return a.raw > b.raw ? a : b;
 }
 
 // impl<'a, Ty: fmt::Display> fmt::Debug for TyAndLayout<'a, Ty>

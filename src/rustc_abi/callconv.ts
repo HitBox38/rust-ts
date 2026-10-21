@@ -1,14 +1,12 @@
-// Port of compiler/rustc_abi/src/callconv.rs (lane layout-contract: the types with their Debug; the fns are
-// `// stub:` declarations for lane abi-lib, docs/handoff/layout-contract.md). `TyAndLayout::homogeneous_aggregate`
+// Port of compiler/rustc_abi/src/callconv.rs (lane layout-contract: the types with their Debug; lane abi-lib: the fns). `TyAndLayout::homogeneous_aggregate`
 // (callconv.rs:69) is declared in the `TyAndLayout` class body (layout/ty.ts, PORTING §8).
 // Init order: lib.ts re-exports this module, so its top-level code must not touch lib.ts's values.
 import { type Debug, debug_tuple } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
-import type { Result } from "../std/result.ts";
-import { debug_Reg, type Reg } from "./callconv/reg.ts";
+import { Err, Ok, type Result } from "../std/result.ts";
+import { debug_Reg, type Reg, Reg_eq } from "./callconv/reg.ts";
 
 // mod reg;
-export { Reg, RegKind, debug_Reg, debug_RegKind } from "./callconv/reg.ts";
+export { Reg, RegKind, Reg_eq, RegKind_eq, debug_Reg, debug_RegKind } from "./callconv/reg.ts";
 
 /// Return value from the `homogeneous_aggregate` test function.
 // #[derive(Copy, Clone, Debug)]
@@ -24,18 +22,32 @@ export const HomogeneousAggregate = {
 
   /// If this is a homogeneous aggregate, returns the homogeneous
   /// unit, else `None`.
-  // stub: compiler/rustc_abi/src/callconv.rs:28 unit (lane abi-lib)
-  unit(_self: HomogeneousAggregate): Reg | undefined {
-    return unported("rustc_abi::callconv::HomogeneousAggregate::unit");
+  // rustc: compiler/rustc_abi/src/callconv.rs:28 unit
+  unit(self: HomogeneousAggregate): Reg | undefined {
+    switch (self.$) {
+      case "Homogeneous":
+        return self._0;
+      case "NoData":
+        return undefined;
+    }
   },
 
   /// Try to combine two `HomogeneousAggregate`s, e.g. from two fields in
   /// the same `struct`. Only succeeds if only one of them has any data,
   /// or both units are identical.
   // #[cfg(feature = "nightly")]
-  // stub: compiler/rustc_abi/src/callconv.rs:39 merge (lane abi-lib)
-  merge(_self: HomogeneousAggregate, _other: HomogeneousAggregate): Result<HomogeneousAggregate, Heterogeneous> {
-    return unported("rustc_abi::callconv::HomogeneousAggregate::merge");
+  // rustc: compiler/rustc_abi/src/callconv.rs:39 merge
+  merge(self: HomogeneousAggregate, other: HomogeneousAggregate): Result<HomogeneousAggregate, Heterogeneous> {
+    // (x, HomogeneousAggregate::NoData) | (HomogeneousAggregate::NoData, x) => Ok(x),
+    if (other.$ === "NoData") return Ok(self);
+    if (self.$ === "NoData") return Ok(other);
+
+    // (HomogeneousAggregate::Homogeneous(a), HomogeneousAggregate::Homogeneous(b))
+    const [a, b] = [self._0, other._0];
+    if (!Reg_eq(a, b)) {
+      return Err(Heterogeneous);
+    }
+    return Ok(self);
   },
 } as const;
 // derive(Debug)
