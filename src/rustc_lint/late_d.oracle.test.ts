@@ -162,6 +162,49 @@ const CASES: Case[] = [
     ].join("\n"),
     expect: ["this creates a dangling pointer because temporary `CString` is dropped at end of statement"],
   },
+  {
+    name: "non_local_def: impls in fn bodies and named consts, #[macro_export] in bodies, local and anon-const exceptions",
+    passes: ["NonLocalDefinitions"],
+    src: [
+      "pub trait T {}",
+      "pub struct S<X>(pub X);",
+      "pub fn f() {",
+      "    impl T for S<u8> {}",
+      "    #[macro_export]",
+      "    macro_rules! m { () => {} }",
+      "    struct L;",
+      "    let _ = L;",
+      "    impl T for L {}",
+      "    fn inner() { impl T for S<u16> {} }",
+      "    inner();",
+      "}",
+      "pub const C: () = { impl T for S<u32> {} };",
+      "pub static D: () = { impl S<i8> { pub fn g() {} } };",
+      "const _: () = { impl T for S<i16> {} };",
+      "const _: () = { const _: () = { impl T for S<i32> {} }; };",
+      "pub fn h() { const _: () = { impl T for S<i64> {} }; }",
+      "",
+    ].join("\n"),
+    expect: ["non-local `impl` definition, `impl` blocks should be written at the same level as their item", "non-local `macro_rules!` definition"],
+  },
+  {
+    // PORT: the cases that lint go through `utils::peel_casts`, still `unported` in utils.ts (not this lane's file);
+    // this case only covers the paths that bail out before it (no diagnostics on either side).
+    name: "reference_casting: borrows, assignments and ptr::write through references (no raw-pointer casts)",
+    passes: ["InvalidReferenceCasting"],
+    src: [
+      "pub fn f(r: &mut i32, a: &mut [u8; 4]) {",
+      "    *r = 1;",
+      "    *r += 1;",
+      "    let x = &mut *r;",
+      "    *x = 3;",
+      "    let _y = &*a;",
+      "    unsafe { std::ptr::write(r, 2) };",
+      "}",
+      "",
+    ].join("\n"),
+    expect: [],
+  },
 ];
 
 for (const [i, c] of CASES.entries()) {
