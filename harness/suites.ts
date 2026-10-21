@@ -693,7 +693,12 @@ function m3UiCorpus(dirs: string[]): { cases: Case[]; skipped: SkippedCase[] } {
   if (m) return m;
   const files = [...new Set([...dirs.flatMap((d) => collectUiTests(d)), ...uiDumpTests()])].sort();
   const ui = uiFileCases(files, "human", { aux: true });
-  const cases = ui.cases.map((c) => ({ id: c.id, file: c.file, args: c.args.filter((a) => a !== "-Zparse-crate-root-only"), env: { ...NOCORE_ENV, ...c.env } }));
+  // Only the harness's own trailing `-Zparse-crate-root-only` is dropped: a test may pass it in its compile-flags
+  // (tests/ui/traits/const-traits/parse-const-unsafe-trait.rs). (The minicore corpus filters every occurrence.)
+  const cases = ui.cases.map((c) => {
+    if (c.args.at(-1) !== "-Zparse-crate-root-only") throw new Error(`ERROR: ${c.id}: argv does not end with -Zparse-crate-root-only`);
+    return { id: c.id, file: c.file, args: c.args.slice(0, -1), env: { ...NOCORE_ENV, ...c.env } };
+  });
   const r = { cases, skipped: ui.skipped };
   m3UiMemo.set(key, r);
   return r;
