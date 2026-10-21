@@ -1,16 +1,24 @@
 // Port of compiler/rustc_middle/src/middle/codegen_fn_attrs.rs.
 //
 // PORT: hand-written types (the typedefs probe cannot parse this file's `const impl Default for SanitizerFnAttrs`,
-// like middle/privacy.rs), so the derives (`Debug`, `Clone`, `PartialEq`) are written here next to each type.
+// like middle/privacy.rs), so the derives (`Debug`, `Clone`, `PartialEq`, and `TyDecodable` for crate metadata's
+// `codegen_fn_attrs`, as rustc_macros/src/serialize.rs `decodable_body` emits it: fields in declaration order, enum tag
+// `read_u8`) are written here next to each type. `mono::Visibility`'s `TyDecodable` too (declared here).
 // `CodegenFnAttrFlags` is a branded number with the `bitflags!` API on its companion, as tools/codegen emits for
 // `struct X(u32)` + `bitflags! { impl X: u32 { .. } }` (e.g. rustc_abi `ReprFlags`).
 // `Cow<'tcx, CodegenFnAttrs>` (`codegen_instance_attrs`) is the borrowed query value or an owned clone.
 // The `TyCtxt` method `codegen_instance_attrs` is the free function `TyCtxt_codegen_instance_attrs` (the `TyCtxt` class
 // lives in ty/context.ts, which is not this lane's file).
-import { type Align, Align_max, debug_Align } from "../../rustc_abi/lib.ts";
+import { Align, Align_max, debug_Align } from "../../rustc_abi/lib.ts";
 import {
   clone_InlineAttr,
   debug_InlineAttr,
+  decode_InlineAttr,
+  decode_InstructionSetAttr,
+  decode_InstrumentFnAttr,
+  decode_Linkage,
+  decode_OptimizeAttr,
+  decode_RtsanSetting,
   debug_InstructionSetAttr,
   debug_InstrumentFnAttr,
   debug_Linkage,
@@ -25,9 +33,11 @@ import {
 } from "../../rustc_attr_ir/data_structures.gen.ts";
 import { debug_DefId, type DefId } from "../../rustc_span/def_id.ts";
 import { debug_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
-import { debug_SanitizerSet, SanitizerSet } from "../../rustc_structures/sanitizer_set.ts";
+import { debug_SanitizerSet, decode_SanitizerSet, SanitizerSet } from "../../rustc_structures/sanitizer_set.ts";
+import { decode_bool, decode_Option, decode_tuple, decode_u16, decode_u32, decode_u8, decode_Vec } from "../../rustc_serialize/serialize.ts";
+import type { SpanDecoder } from "../../rustc_span/lib.ts";
 import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec } from "../../std/fmt.ts";
-import { unported } from "../../std/panic.ts";
+import { panic, unported } from "../../std/panic.ts";
 import { to_writer } from "../../vendor/bitflags/parser.ts";
 import { flags_companion } from "../../vendor/bitflags/traits.ts";
 import type { InstanceKind } from "../ty/decls.ts";
@@ -41,6 +51,22 @@ import type { TyCtxt } from "../ty/context.ts";
 export type Visibility = "Default" | "Hidden" | "Protected" | "Interposable";
 export const Visibility = { Default: "Default", Hidden: "Hidden", Protected: "Protected", Interposable: "Interposable" } as const;
 export const debug_Visibility: Debug<Visibility> = (v) => v;
+/** `#[derive(TyDecodable)]` (mono.rs:384) */
+export function decode_Visibility(__decoder: SpanDecoder): Visibility {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Default";
+    case 1:
+      return "Hidden";
+    case 2:
+      return "Protected";
+    case 3:
+      return "Interposable";
+    default:
+      return panic(`invalid enum variant tag while decoding \`Visibility\`, expected 0..4, actual ${__tag}`);
+  }
+}
 
 /** `ty::InstanceKind` (ty/instance.rs:62; `Pending` in ty/decls.ts): the shape `codegen_instance_attrs` matches on. */
 type InstanceKindView =
@@ -220,6 +246,47 @@ export function clone_CodegenFnAttrs(v: CodegenFnAttrs): CodegenFnAttrs {
     instrument_fn: v.instrument_fn,
   };
 }
+/** `#[derive(TyDecodable)]` */
+export function decode_CodegenFnAttrs(__decoder: SpanDecoder): CodegenFnAttrs {
+  const flags = decode_CodegenFnAttrFlags(__decoder);
+  const inline = decode_InlineAttr(__decoder);
+  const optimize = decode_OptimizeAttr(__decoder);
+  const symbol_name = decode_Option(__decoder, (d) => d.decode_symbol());
+  const foreign_item_symbol_aliases = decode_Vec(__decoder, (d) => decode_tuple(d, (d) => d.decode_def_id(), decode_Linkage, decode_Visibility));
+  const link_ordinal = decode_Option(__decoder, decode_u16);
+  const target_features = decode_Vec(__decoder, decode_TargetFeature);
+  const safe_target_features = decode_bool(__decoder);
+  const linkage = decode_Option(__decoder, decode_Linkage);
+  const import_linkage = decode_Option(__decoder, decode_Linkage);
+  const link_section = decode_Option(__decoder, (d) => d.decode_symbol());
+  const sanitizers = decode_SanitizerFnAttrs(__decoder);
+  const instruction_set = decode_Option(__decoder, decode_InstructionSetAttr);
+  const alignment = decode_Option(__decoder, (d) => new Align(decode_u8(d)));
+  const patchable_function_entry = decode_Option(__decoder, decode_PatchableFunctionEntry);
+  const objc_class = decode_Option(__decoder, (d) => d.decode_symbol());
+  const objc_selector = decode_Option(__decoder, (d) => d.decode_symbol());
+  const instrument_fn = decode_Option(__decoder, decode_InstrumentFnAttr);
+  return {
+    flags,
+    inline,
+    optimize,
+    symbol_name,
+    foreign_item_symbol_aliases,
+    link_ordinal,
+    target_features,
+    safe_target_features,
+    linkage,
+    import_linkage,
+    link_section,
+    sanitizers,
+    instruction_set,
+    alignment,
+    patchable_function_entry,
+    objc_class,
+    objc_selector,
+    instrument_fn,
+  };
+}
 
 // rustc-type: compiler/rustc_middle/src/middle/codegen_fn_attrs.rs:131 TargetFeatureKind
 // #[derive(Copy, Clone, Debug, TyEncodable, TyDecodable, StableHash, PartialEq, Eq)]
@@ -233,6 +300,20 @@ export type TargetFeatureKind =
   | "Forced";
 export const TargetFeatureKind = { Implied: "Implied", Enabled: "Enabled", Forced: "Forced" } as const;
 export const debug_TargetFeatureKind: Debug<TargetFeatureKind> = (v) => v;
+/** `#[derive(TyDecodable)]` */
+export function decode_TargetFeatureKind(__decoder: SpanDecoder): TargetFeatureKind {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return "Implied";
+    case 1:
+      return "Enabled";
+    case 2:
+      return "Forced";
+    default:
+      return panic(`invalid enum variant tag while decoding \`TargetFeatureKind\`, expected 0..3, actual ${__tag}`);
+  }
+}
 
 // rustc-type: compiler/rustc_middle/src/middle/codegen_fn_attrs.rs:143 TargetFeature
 // #[derive(Copy, Clone, Debug, Eq, PartialEq, TyEncodable, TyDecodable, StableHash)]
@@ -250,6 +331,12 @@ export const debug_TargetFeature: Debug<TargetFeature> = (v, f) =>
 /** `#[derive(PartialEq)]` */
 export function TargetFeature_eq(a: TargetFeature, b: TargetFeature): boolean {
   return a.name === b.name && a.kind === b.kind;
+}
+/** `#[derive(TyDecodable)]` */
+export function decode_TargetFeature(__decoder: SpanDecoder): TargetFeature {
+  const name = __decoder.decode_symbol();
+  const kind = decode_TargetFeatureKind(__decoder);
+  return { name, kind };
 }
 
 // rustc-type: compiler/rustc_middle/src/middle/codegen_fn_attrs.rs:150 PatchableFunctionEntry
@@ -269,6 +356,13 @@ export const debug_PatchableFunctionEntry: Debug<PatchableFunctionEntry> = (v, f
     ["entry", debug_option(v.entry, f, debug_int)],
     ["section", debug_option(v.section, f, debug_Symbol)],
   ]);
+/** `#[derive(TyDecodable)]` */
+export function decode_PatchableFunctionEntry(__decoder: SpanDecoder): PatchableFunctionEntry {
+  const prefix = decode_Option(__decoder, decode_u8);
+  const entry = decode_Option(__decoder, decode_u8);
+  const section = decode_Option(__decoder, (d) => d.decode_symbol());
+  return { prefix, entry, section };
+}
 
 export const PatchableFunctionEntry = {
   // rustc: compiler/rustc_middle/src/middle/codegen_fn_attrs.rs:159 from_prefix_entry_and_section
@@ -404,6 +498,10 @@ export const CodegenFnAttrFlags = flags_companion<
 // PORT: the macro expands to `impl Debug for CodegenFnAttrFlags { fn fmt(..) { bitflags::parser::to_writer(self, f) } }`
 // (compiler/rustc_data_structures/src/lib.rs; see rustc_structures sanitizer_set.ts).
 export const debug_CodegenFnAttrFlags: Debug<CodegenFnAttrFlags> = (v, _f) => to_writer(CodegenFnAttrFlags.FLAGS_DESC, v);
+/** `#[derive(TyDecodable)]` of `struct CodegenFnAttrFlags(u32)` */
+export function decode_CodegenFnAttrFlags(__decoder: SpanDecoder): CodegenFnAttrFlags {
+  return decode_u32(__decoder) as CodegenFnAttrFlags;
+}
 
 // impl CodegenFnAttrs
 export const CodegenFnAttrs = {
@@ -482,6 +580,12 @@ export const debug_SanitizerFnAttrs: Debug<SanitizerFnAttrs> = (v, f) =>
 /** `#[derive(PartialEq)]` */
 export function SanitizerFnAttrs_eq(a: SanitizerFnAttrs, b: SanitizerFnAttrs): boolean {
   return a.disabled === b.disabled && a.rtsan_setting === b.rtsan_setting;
+}
+/** `#[derive(TyDecodable)]` */
+export function decode_SanitizerFnAttrs(__decoder: SpanDecoder): SanitizerFnAttrs {
+  const disabled = decode_SanitizerSet(__decoder);
+  const rtsan_setting = decode_RtsanSetting(__decoder);
+  return { disabled, rtsan_setting };
 }
 
 // const impl Default for SanitizerFnAttrs

@@ -51,6 +51,7 @@ import { type CoerceUnsizedInfo, decode_CoerceUnsizedInfo } from "../../../rustc
 import type { Clause } from "../../../rustc_middle/ty/predicate.ts";
 import { decode_tuple, decode_usize } from "../../../rustc_serialize/serialize.ts";
 import { decode_DenseBitSet } from "../../../rustc_index/decodable.gen.ts";
+import { decode_CodegenFnAttrs } from "../../../rustc_middle/middle/codegen_fn_attrs.ts";
 import { type Binder, decode_EarlyBinder, EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { decode_AnonConstKind, decode_ConstKind } from "../../../rustc_type_ir/const_kind.ts";
 import { decode_Variance } from "../../../rustc_type_ir/lib.ts";
@@ -450,7 +451,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   type_alias_is_checked: [IntoArgs_DefId, table_direct(fse_bool, ProcessQueryValue_T)],
   variances_of: [IntoArgs_DefId, table(fse_Option_LazyArray, lazy_array("ty::Variance", decode_Variance), ProcessQueryValue_DecodeIterator_slice)],
   fn_sig: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, ty::PolyFnSig<'static>>", (d) => decode_EarlyBinder(d, decode_PolyFnSig)), ProcessQueryValue_Option_T)],
-  codegen_fn_attrs: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("CodegenFnAttrs", decode_unported("CodegenFnAttrs")), ProcessQueryValue_Option_T)],
+  codegen_fn_attrs: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("CodegenFnAttrs", decode_CodegenFnAttrs), ProcessQueryValue_Option_T)],
   impl_trait_header: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ImplTraitHeader<'static>", decode_ImplTraitHeader), ProcessQueryValue_Option_T)],
   impl_is_fully_generic_for_reflection: [IntoArgs_DefId, table_direct(fse_bool, ProcessQueryValue_T)],
   const_param_default: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::EarlyBinder<'static, rustc_middle::ty::Const<'static>>", (d) => decode_EarlyBinder(d, decode_Const_)), ProcessQueryValue_Option_T)],
