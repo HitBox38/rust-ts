@@ -22,6 +22,7 @@
     "wasmparser": "=0.247.0",
     "pulldown-cmark": "=0.11.3",
     "unicase": "=2.8.1",
+    "rustc_apfloat": "=0.2.3+llvm-462a31f5a5ab",
     "unicode-script": "=0.5.7",
     "unicode-security": "=0.1.2",
     "rustc-hash": "=2.1.1",
