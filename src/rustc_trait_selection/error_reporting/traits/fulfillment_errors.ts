@@ -1582,15 +1582,15 @@ TypeErrCtxt.prototype.can_match_projection = function (
 // #[instrument(level = "debug", skip(self), ret)]
 // rustc: compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs:1595 error_implies
 TypeErrCtxt.prototype.error_implies = function (this: TypeErrCtxt, cond: Goal<Predicate>, error: Goal<Predicate>): boolean {
-  // PORT: `Goal`'s derived `PartialEq` (interned `ParamEnv` / `Predicate`).
-  if (cond.param_env === error.param_env && cond.predicate === error.predicate) {
+  // PORT: `Goal`'s derived `PartialEq` (`ParamEnv_eq`, interned `Predicate`).
+  if (goal_eq(cond, error)) {
     return true;
   }
 
   // FIXME: We could be smarter about this, i.e. if cond's param-env is a
   // subset of error's param-env. This only matters when binders will carry
   // predicates though, and obviously only matters for error reporting.
-  if (cond.param_env !== error.param_env) {
+  if (!ParamEnv_eq(cond.param_env, error.param_env)) {
     return false;
   }
   const param_env = error.param_env;
@@ -1647,7 +1647,7 @@ TypeErrCtxt.prototype.error_implies = function (this: TypeErrCtxt, cond: Goal<Pr
 /// the latter says everything the former would.
 // rustc: compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs:1638 trait_error_implies_projection_error
 TypeErrCtxt.prototype.trait_error_implies_projection_error = function (this: TypeErrCtxt, cond: Goal<Predicate>, error_: Goal<Predicate>): boolean {
-  if (cond.param_env !== error_.param_env) {
+  if (!ParamEnv_eq(cond.param_env, error_.param_env)) {
     return false;
   }
   const error = error_.predicate.as_projection_clause();
