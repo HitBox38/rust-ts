@@ -49,7 +49,9 @@ identical). The two new suites start unprotected.
   - Per-subset counts (summary `subsets`, one line each) for suites with `subsets`.
   - Nothing changes for suites without these fields.
 - `harness/compiletest.test.ts` (new): aux-build, nested aux-crate with `priv:` modifier, proc-macro skip,
-  `uiBlessed` paths and normalization.
+  `uiBlessed` paths and normalization. compiletest.ts is loaded in a child process. deps.test.ts overrides
+  `RUST_TS_DATA` before its first import of common.ts, and `bun test scripts harness` shares one module
+  cache, so a static import here made deps.test.ts fail.
 - `docs/state/{history.jsonl,current.json}`: one decision recorded (host, aux, dump subset, report).
 
 ## Suite definitions
@@ -177,4 +179,4 @@ Can never MATCH as the harness stands (root decision):
   blessed` separately for the report. Subset counts are always in the summary.
 - Checks:
   - `bunx tsc --noEmit -p .` is clean.
-  - `bun test scripts harness`: 16 pass, 0 fail (12 deps + 4 new compiletest tests).
+  - `bun test scripts harness`: 16 pass, 0 fail (12 deps + 4 new compiletest tests), in either order.
