@@ -20,7 +20,7 @@ import { IsSuggestable } from "../../../rustc_middle/ty/diagnostics.ts";
 import type { ExpectedFound } from "../../../rustc_middle/ty/error.ts";
 import { fold_GenericArgs, GenericArg } from "../../../rustc_middle/ty/generic_args.ts";
 import type { Ty } from "../../../rustc_middle/ty/mod.ts";
-import { IrPrint_print } from "../../../rustc_middle/ty/print/mod.ts";
+import { IrPrint_print, IrPrint_print_debug } from "../../../rustc_middle/ty/print/mod.ts";
 import { print_Binder, print_FnSig, with_no_trimmed_paths } from "../../../rustc_middle/ty/print/pretty.ts";
 import { fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import { Visibility } from "../../../rustc_middle/ty/mod.ts";
@@ -59,7 +59,7 @@ function display_PolyFnSig(sig: PolyFnSig): string {
   const print_B = (v: PolyFnSig, p: Parameters<typeof print_FnSig>[1]) => print_Binder(v, p, print_FnSig, fold_FnSig);
   return display_Binder(sig, {
     print: (t, fmt) => IrPrint_print(t, fmt, print_B),
-    print_debug: (t, fmt) => IrPrint_print(t, fmt, print_B),
+    print_debug: (t, fmt) => IrPrint_print_debug(t, fmt, print_B),
   });
 }
 
