@@ -1,8 +1,9 @@
 // Oracle checks of the late lint passes of lane lint-late-d (internal.rs, transmute.rs, non_fmt_panic.rs, dangling.rs,
 // non_local_def.rs, reference_casting.rs, drop_forget_useless.rs) against the pinned nightly rustc.
 //
-// The full driver does not reach the late lints yet, so each case runs late_d_test/run.ts: the ported driver through
-// type checking (the tydump probe's analysis prefix), then the case's passes over every module (see run.ts). The oracle
+// The full driver does not reach the late lints yet, so each case runs lane lint-late-a's test driver
+// src/rustc_lint/late_oracle/run.ts (see its header): the ported driver through type checking (the tydump probe's
+// analysis prefix), then the case's passes (`--late-pass=<file>:<Pass>`) over every module. The oracle
 // compiles the same file (`--crate-type lib --emit=metadata`, target x86_64-unknown-linux-gnu, the oracle sysroot so
 // core/std load). The sources avoid everything else rustc would report (dead code, unused variables, ...), so the
 // complete stderr of both sides must be equal and contain the diagnostics under test.
@@ -27,7 +28,30 @@ if (SKIP) console.log(`SKIP: pinned rustc (${PIN.toolchain}, ${PIN.commit.slice(
 
 const WORK = join(DATA, "tmp", "late-d-oracle", process.env.RUST_TS_AGENT ?? "default");
 mkdirSync(WORK, { recursive: true });
-const RUNNER = join(REPO, "src/rustc_lint/late_d_test/run.ts");
+const RUNNER = join(REPO, "src/rustc_lint/late_oracle/run.ts");
+/** The file (relative to src/rustc_lint) exporting each pass. */
+const PASS_FILE: Record<string, string> = {
+  CheckTransmutes: "transmute.ts",
+  DanglingPointers: "dangling.ts",
+  DropForgetUseless: "drop_forget_useless.ts",
+  InvalidReferenceCasting: "reference_casting.ts",
+  NonLocalDefinitions: "non_local_def.ts",
+  NonPanicFmt: "non_fmt_panic.ts",
+  BadOptAccess: "internal.ts",
+  DefaultHashTypes: "internal.ts",
+  MissingGenericTypeVisitableDerive: "internal.ts",
+  QueryStability: "internal.ts",
+  RustcMustMatchExhaustively: "internal.ts",
+  SpanUseEqCtxt: "internal.ts",
+  SymbolInternStringLiteral: "internal.ts",
+  TyTyKind: "internal.ts",
+  TypeIr: "internal.ts",
+};
+const late_pass = (p: string): string => {
+  const f = PASS_FILE[p];
+  if (f === undefined) throw new Error(`unknown pass ${p}`);
+  return `--late-pass=${f}:${p}`;
+};
 
 const ENV: Record<string, string> = { RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 for (const [k, v] of Object.entries(process.env)) {
@@ -54,7 +78,7 @@ const args = (edition: string): string[] => [
 
 interface Case {
   name: string;
-  /** Pass names (late_d_test/walker.ts `PASSES`). */
+  /** Pass names (keys of `PASS_FILE`), in lib.rs order. */
   passes: string[];
   src: string;
   edition?: string;
@@ -298,8 +322,8 @@ for (const [i, c] of CASES.entries()) {
       writeFileSync(join(WORK, file), c.src);
       const a = [...args(c.edition ?? "2021"), "-o", `case${i}.rmeta`, ...(c.flags ?? []), file];
       const oracle = run([...RUSTC, ...a]);
-      const ours = run([process.execPath, RUNNER, ...a], { ...ENV, RUST_TS_LATE_D_PASSES: c.passes.join(",") });
-      expect(ours.stderr).not.toContain("UNPORTED: ");
+      const ours = run([process.execPath, RUNNER, ...c.passes.map(late_pass), ...a]);
+      expect(ours.stderr).not.toContain("rust-ts: unported: ");
       if (ours.stderr !== oracle.stderr) {
         // Show the first differing line.
         const ol = oracle.stderr.split("\n");

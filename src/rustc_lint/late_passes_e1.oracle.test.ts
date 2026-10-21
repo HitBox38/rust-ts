@@ -2,16 +2,15 @@
 // c_void_returns, default_could_be_derived, deref_into_dyn_supertrait, disallowed_pass_by_ref,
 // enum_intrinsics_non_enums, for_loops_over_fallibles, function_cast_as_integer, gpukernel_abi,
 // implicit_provenance_casts, interior_mutable_consts, invalid_from_utf8, let_underscore) against the pinned nightly.
-// The subject is src/rustc_lint/late_passes_e1_oracle/run.ts (see its header): the ported analysis prefix, then the
-// pass(es) under test (`$RUST_TS_E1_PASSES`) over the crate. Both sides compile the file as a lib with
-// `--emit=metadata -A unused`; each case only has diagnostics from the selected passes, so stderr and the exit code
-// must be identical.
+// The subject is lane lint-late-a's test driver src/rustc_lint/late_oracle/run.ts (see its header): the ported analysis
+// prefix, then the pass(es) under test (`--late-pass=<file>:<Pass>`) over every module. Both sides compile the file as
+// a lib with `--emit=metadata -A unused`; each case only has diagnostics from the selected passes, so stderr and the
+// exit code must be identical.
 //
-// Cases with `stop` reach code outside this lane that is still `unported` (context.rs's `LateContext::qpath_res` /
-// `typing_env` / `precedence` / `get_associated_type`, the local `#[derive(Diagnostic)]` of async_closures.rs, a
-// target spec, const eval). For them the run may end with exit 70 at exactly that stop, and everything printed before
-// it must be a prefix of the oracle's stderr. Once the stop is ported, the case is checked for full equality
-// automatically.
+// Cases with `stop` reach code outside this lane that is still `unported` (the local `#[derive(Diagnostic)]` of a lint
+// file, a target spec, const eval). They are pinned: the run must end with exit 70 at that stop, and everything
+// printed before it must be a prefix of the oracle's stderr. Once the stop is no longer reached, the case fails with
+// "drop `stop` from this case" and must be moved to full equality.
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -51,12 +50,36 @@ function run(cmd: string[], env: Record<string, string>): Out {
 }
 const sysroot = (): string => Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.toString().trim();
 
+/** The file (relative to src/rustc_lint) exporting each pass. */
+const PASS_FILE: Record<string, string> = {
+  AsyncClosureUsage: "async_closures.ts",
+  AsyncFnInTrait: "async_fn_in_trait.ts",
+  ImplicitAutorefs: "autorefs.ts",
+  CVoidReturns: "c_void_returns.ts",
+  DefaultCouldBeDerived: "default_could_be_derived.ts",
+  DerefIntoDynSupertrait: "deref_into_dyn_supertrait.ts",
+  DisallowedPassByRef: "disallowed_pass_by_ref.ts",
+  EnumIntrinsicsNonEnums: "enum_intrinsics_non_enums.ts",
+  ForLoopsOverFallibles: "for_loops_over_fallibles.ts",
+  FunctionCastsAsInteger: "function_cast_as_integer.ts",
+  ImproperGpuKernelLint: "gpukernel_abi.ts",
+  ImplicitProvenanceCasts: "implicit_provenance_casts.ts",
+  InteriorMutableConsts: "interior_mutable_consts.ts",
+  InvalidFromUtf8: "invalid_from_utf8.ts",
+  LetUnderscore: "let_underscore.ts",
+};
+const late_pass = (p: string): string => {
+  const f = PASS_FILE[p];
+  if (f === undefined) throw new Error(`unknown pass ${p}`);
+  return `--late-pass=${f}:${p}`;
+};
+
 const QPATH_RES = "rustc_lint::context::LateContext::qpath_res";
 const TYPING_ENV = "rustc_lint::context::LateContext::typing_env";
 
 interface Case {
   name: string;
-  /** The passes to run (names in walker.ts). */
+  /** The passes to run (keys of `PASS_FILE`), in lib.rs order. */
   passes: string[];
   /** Inline source, or a tests/ui path (`ui`). */
   src?: string[];
@@ -66,7 +89,7 @@ interface Case {
   flags?: string[];
   /** Text the oracle's stderr must contain (the diagnostics under test are really emitted). */
   expect: string[];
-  /** The known `unported(..)` stops outside this lane (see the header); the run may end at any of them. */
+  /** The pinned `unported(..)` stop outside this lane (see the header); the run must end at one of them. */
   stop?: string[];
 }
 
@@ -111,7 +134,6 @@ const CASES: Case[] = [
     passes: ["CVoidReturns"],
     ui: "lint/c-void-returns.rs",
     expect: ["`c_void` should not be used as a return type"],
-    stop: [QPATH_RES],
   },
   // default_could_be_derived.rs
   {
@@ -182,7 +204,6 @@ const CASES: Case[] = [
     passes: ["DerefIntoDynSupertrait"],
     ui: "lint/issue-108155.rs",
     expect: [],
-    stop: ["rustc_lint::context::LateContext::get_associated_type"],
   },
   // disallowed_pass_by_ref.rs
   {
@@ -197,7 +218,6 @@ const CASES: Case[] = [
     passes: ["EnumIntrinsicsNonEnums"],
     ui: "lint/lint-enum-intrinsics-non-enums.rs",
     expect: ["the return value of `mem::discriminant` is unspecified when called with a non-enum type"],
-    stop: [QPATH_RES],
   },
   // for_loops_over_fallibles.rs
   {
@@ -232,7 +252,6 @@ const CASES: Case[] = [
     passes: ["ForLoopsOverFallibles"],
     ui: "lint/for_loop_over_fallibles.rs",
     expect: ["for loop over a `Result`", "consider unwrapping the `Result` with `?` to iterate over its contents"],
-    stop: [TYPING_ENV],
   },
   // function_cast_as_integer.rs
   {
@@ -292,7 +311,6 @@ const CASES: Case[] = [
     passes: ["ImplicitProvenanceCasts"],
     ui: "lint/lint-strict-provenance-lossy-casts.rs",
     expect: ["cast from `*const u8` to `usize` implicitly exposes pointer provenance", "use `.addr()` to obtain the address of a pointer"],
-    stop: ["rustc_lint::context::LateContext::precedence"],
   },
   // interior_mutable_consts.rs
   {
@@ -320,7 +338,6 @@ const CASES: Case[] = [
     passes: ["InvalidFromUtf8"],
     ui: "lint/invalid_from_utf8.rs",
     expect: ["calls to `std::str::from_utf8_unchecked_mut` with an invalid literal are undefined behavior"],
-    stop: [QPATH_RES],
   },
   // let_underscore.rs
   {
@@ -334,14 +351,12 @@ const CASES: Case[] = [
     passes: ["LetUnderscore"],
     ui: "lint/let_underscore/let_underscore_drop.rs",
     expect: ["non-binding let on a type that has a destructor"],
-    stop: [TYPING_ENV],
   },
   {
     name: "let_underscore_lock: tests/ui lint/let_underscore/let_underscore_lock.rs",
     passes: ["LetUnderscore"],
     ui: "lint/let_underscore/let_underscore_lock.rs",
     expect: ["non-binding let on a synchronization lock"],
-    stop: [TYPING_ENV],
   },
 ];
 
@@ -389,12 +404,10 @@ for (const [i, c] of CASES.entries()) {
       file,
     ];
     const oracle = run([...RUSTC, ...args], BASE_ENV);
-    const ours = run([process.execPath, join(REPO, "src/rustc_lint/late_passes_e1_oracle/run.ts"), ...args], {
-      ...BASE_ENV,
-      RUST_TS_E1_PASSES: c.passes.join(","),
-    });
+    const ours = run([process.execPath, join(REPO, "src/rustc_lint/late_oracle/run.ts"), ...c.passes.map(late_pass), ...args], BASE_ENV);
     for (const e of c.expect) expect(oracle.stderr).toContain(e);
-    if (c.stop !== undefined && ours.code === 70) {
+    if (c.stop !== undefined) {
+      if (ours.code !== 70) throw new Error(`stop \`${c.stop.join("` / `")}\` is no longer reached (exit ${ours.code}): drop \`stop\` from this case`);
       const lines = ours.stderr.split("\n");
       const last = lines.findLastIndex((l) => l.startsWith("rust-ts: unported: "));
       expect(c.stop.some((stop) => lines[last]!.includes(stop))).toBe(true);
