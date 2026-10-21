@@ -9,21 +9,20 @@
 // - `check_ffi_type`'s `check: impl FnOnce() -> FfiResult` is a closure.
 // - `FnPtrFinder` implements two traits whose methods are both named `visit_ty` (`hir::intravisit::Visitor` and
 //   `ty::TypeVisitor`): the struct is a plain object, and each impl is a small class over it.
-// - `LateContext` still types `typing_env()` / `param_env` / `enclosing_body` as `unknown` (types.ts header): cast here.
 // - `debug!` (tracing) calls are comments.
 import { ControlFlow, type VisitorResult, VisitorResult as VisitorResultC } from "../../rustc_ast_ir/visit.ts";
 import { FIRST_VARIANT } from "../../rustc_abi/lib.ts";
 import { ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import type { DiagMessage } from "../../rustc_error_messages/lib.ts";
 import { msg } from "../../rustc_errors/lib.ts";
-import { type AmbigArg, type BodyId, type FieldDef as HirFieldDef, type FnDecl, type ForeignItem, type Item, type Ty as HirTy, VariantData } from "../../rustc_hir/hir.ts";
+import { type AmbigArg, type FieldDef as HirFieldDef, type FnDecl, type ForeignItem, type Item, type Ty as HirTy, VariantData } from "../../rustc_hir/hir.ts";
 import { type FnKind, Visitor, walk_ty } from "../../rustc_hir/intravisit.ts";
 import type { OwnerId } from "../../rustc_hir_id/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import type { AdtDef } from "../../rustc_middle/ty/decls.ts";
 import type { GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import type { Clauses } from "../../rustc_middle/ty/list.ts";
-import { type ParamEnv, type Ty, TypingEnv, type VariantDef } from "../../rustc_middle/ty/mod.ts";
+import { type Ty, TypingEnv, type VariantDef } from "../../rustc_middle/ty/mod.ts";
 import { debug_Ty, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { format_debug, PLAIN } from "../../std/fmt.ts";
 import { type Binder, EarlyBinder } from "../../rustc_type_ir/binder.ts";
@@ -43,7 +42,7 @@ import type { LateContext } from "../context.ts";
 import { ImproperCTypes_diagnostic, UsesPowerAlignment_diagnostic } from "../diagnostics.ts";
 import type { LintPass, LintVec } from "../../rustc_lint_defs/lib.ts";
 import type { LateLintPass } from "../passes.ts";
-import { late_typing_env, repr_nullable_ptr, transparent_newtype_field } from "../types.ts";
+import { repr_nullable_ptr, transparent_newtype_field } from "../types.ts";
 import {
   IMPROPER_CTYPES,
   IMPROPER_CTYPES_DEFINITIONS,
@@ -361,12 +360,12 @@ function maybe_normalize_erasing_regions(cx: LateContext, value: Unnormalized<Ty
   // past hir typeck. If we were to attempt to reveal more opaque types, dropping the
   // `InferCtxt` would ICE (see #156352).
   let typing_env: TypingEnv;
-  const body_id = cx.enclosing_body as BodyId | undefined;
+  const body_id = cx.enclosing_body;
   if (body_id !== undefined) {
     const body_def_id = cx.tcx.hir_enclosing_body_owner(body_id.hir_id);
-    typing_env = TypingEnv.new(cx.param_env as ParamEnv, TypingMode.borrowck(as_interner(cx.tcx), body_def_id));
+    typing_env = TypingEnv.new(cx.param_env, TypingMode.borrowck(as_interner(cx.tcx), body_def_id));
   } else {
-    typing_env = late_typing_env(cx);
+    typing_env = cx.typing_env();
   }
   const r = cx.tcx.try_normalize_erasing_regions(typing_env, value, fold_Ty);
   return r.$ === "Ok" ? r._0 : Unnormalized.skip_norm_wip(value);
@@ -716,7 +715,7 @@ class ImproperCTypesVisitor {
         // - otherwise, treat the box itself correctly, and follow pointee safety logic
         //   as described in the other `indirection_type` match branch.
         if (VisitorState.is_in_defined_function(state) || (VisitorState.is_in_fnptr(state) && this.base_fn_mode === "Definition")) {
-          if (inner_ty.is_sized(tcx, late_typing_env(this.cx))) {
+          if (inner_ty.is_sized(tcx, this.cx.typing_env())) {
             return FfiSafe;
           } else {
             return {
@@ -757,7 +756,7 @@ class ImproperCTypesVisitor {
         // It might be better to rething this, or even ignore pointee safety for a first
         // batch of behaviour changes. See the discussion that ends with
         // https://github.com/rust-lang/rust/pull/134697#issuecomment-2692610258
-        if ((VisitorState.is_in_defined_function(state) || VisitorState.is_in_fnptr(state)) && inner_ty.is_sized(this.cx.tcx, late_typing_env(this.cx))) {
+        if ((VisitorState.is_in_defined_function(state) || VisitorState.is_in_fnptr(state)) && inner_ty.is_sized(this.cx.tcx, this.cx.typing_env())) {
           return FfiSafe;
         } else {
           return this.visit_type(VisitorState.next(state, ty), inner_ty);
@@ -874,7 +873,7 @@ class ImproperCTypesVisitor {
     // discriminant.
     if (!def.repr().c() && !def.repr().transparent() && def.repr().int === undefined) {
       // Special-case types like `Option<extern fn()>` and `Result<extern fn(), ()>`
-      const inner_ty = repr_nullable_ptr(this.cx.tcx, late_typing_env(this.cx), ty);
+      const inner_ty = repr_nullable_ptr(this.cx.tcx, this.cx.typing_env(), ty);
       if (inner_ty !== undefined) {
         return this.visit_type(VisitorState.next(state, ty), inner_ty);
       }

@@ -2,7 +2,7 @@
 //
 // PORT (lint-late-b):
 // - `u128` / `i128` values are `bigint`s; `IntTy` / `UintTy` / `FloatTy` are rustc_ast_ir's string enums.
-// - `cx.typeck_results()` is `typeck_results_()` in TS, typed `unknown` there (types.ts header).
+// - `cx.typeck_results()` is `cx.typeck_results_()` (context.ts).
 // - `OVERFLOWING_LITERALS` is imported from types.lints.gen.ts (not `crate::types`), so this module and types.ts do
 //   not import each other.
 // - `float_is_infinite` needs rustc_apfloat (`IeeeFloat::from_str`), which is not ported: it stops with `unported`.
@@ -13,7 +13,6 @@ import type { Expr, ExprField, Lit } from "../../rustc_hir/hir.ts";
 import { type HirId, HirId_eq } from "../../rustc_hir_id/lib.ts";
 import { IntegerExt } from "../../rustc_middle/ty/layout.ts";
 import type { Ty } from "../../rustc_middle/ty/mod.ts";
-import type { TypeckResults } from "../../rustc_middle/ty/typeck_results.ts";
 import { Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { display_Symbol, type Symbol } from "../../rustc_span/symbol.ts";
@@ -35,11 +34,6 @@ import {
   type UseInclusiveRange,
 } from "../diagnostics.gen.ts";
 import { OVERFLOWING_LITERALS } from "../types.lints.gen.ts";
-
-/** `cx.typeck_results()` (PORT: header). */
-function typeck_results(cx: LateContext): TypeckResults {
-  return cx.typeck_results_() as TypeckResults;
-}
 
 /** `cx.sess().source_map().span_to_snippet(span).ok()` */
 function snippet(cx: LateContext, span: Span): string | undefined {
@@ -241,7 +235,7 @@ function report_bin_hex_error(cx: LateContext, hir_id: HirId, span: Span, ty: In
       ty: t,
     };
   }
-  const suggestion = get_type_suggestion(typeck_results(cx).node_type(hir_id), val, negative);
+  const suggestion = get_type_suggestion(cx.typeck_results_().node_type(hir_id), val, negative);
   let sub: OverflowingBinHexSub | undefined;
   if (suggestion !== undefined) {
     const suggestion_ty = suggestion;
@@ -255,7 +249,7 @@ function report_bin_hex_error(cx: LateContext, hir_id: HirId, span: Span, ty: In
   }
   const sign_bit_sub = ((): OverflowingBinHexSignBitSub | undefined => {
     if (negative) return undefined;
-    const k = typeck_results(cx).node_type(hir_id).kind();
+    const k = cx.typeck_results_().node_type(hir_id).kind();
     if (k.$ !== "Int") {
       return undefined;
     }
@@ -373,7 +367,7 @@ function lint_int_literal(cx: LateContext, hir_id: HirId, span: Span, lit: Lit, 
 
     span = surrounding_negation ?? span;
     const lit_s = snippet(cx, span) ?? (negative ? `-${v}` : v.toString());
-    const suggestion_ty = get_type_suggestion(typeck_results(cx).node_type(hir_id), v, negative);
+    const suggestion_ty = get_type_suggestion(cx.typeck_results_().node_type(hir_id), v, negative);
     const help: OverflowingIntHelp | undefined = suggestion_ty !== undefined ? { suggestion_ty } : undefined;
 
     cx.emit_span_lint(OVERFLOWING_LITERALS, span, OverflowingInt_diagnostic({ ty: IntTy.name_str(t), lit: lit_s, min, max, help }));
@@ -400,7 +394,7 @@ function lint_uint_literal(cx: LateContext, hir_id: HirId, span: Span, lit: Lit,
     if (par.$ === "Expr") {
       const par_e = par._0;
       if (par_e.kind.$ === "Cast") {
-        if (typeck_results(cx).expr_ty(par_e).kind().$ === "Char") {
+        if (cx.typeck_results_().expr_ty(par_e).kind().$ === "Char") {
           if (lit_val > 0x10ffffn) {
             cx.emit_span_lint(OVERFLOWING_LITERALS, par_e.span, TooLargeCharCast_diagnostic({ literal: lit_val }));
           } else if (lit_val >= 0xd800n && lit_val <= 0xdfffn) {
@@ -445,7 +439,7 @@ function float_is_infinite(_s: FloatTy, _v: Symbol): boolean | undefined {
 
 // rustc: compiler/rustc_lint/src/types/literal.rs:414 lint_literal
 export function lint_literal(cx: LateContext, hir_id: HirId, span: Span, lit: Lit, surrounding_negation: Span | undefined): void {
-  const k = typeck_results(cx).node_type(hir_id).kind();
+  const k = cx.typeck_results_().node_type(hir_id).kind();
   if (k.$ === "Int") {
     const t = k._0;
     const n = lit.node;

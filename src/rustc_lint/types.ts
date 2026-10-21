@@ -5,19 +5,17 @@
 // - The passes are standalone `LateLintPass` objects (lib.ts builds them: `TypeLimits.new()`,
 //   `new VariantSizeDifferences()`, `new InvalidAtomicOrdering()`): `TypeLimits` (it has state) is a class here, the two
 //   `declare_lint_pass!` unit structs are the generated classes, their `LateLintPass` methods assigned onto the prototype.
-// - `LateContext` (context.ts) still types `typeck_results()` (TS `typeck_results_()`), `typing_env()`, `qpath_res(..)`
-//   and `param_env` / `enclosing_body` as `unknown`; the calls here cast them to the upstream types. `cx.layout_of(ty)`
-//   (the blanket `LayoutOf` over `impl LayoutOfHelpers for LateContext`, context.rs:960) is `late_layout_of` below until
-//   `LateContext` gets the method.
+// - `cx.typeck_results()` is `cx.typeck_results_()` (context.ts). `cx.layout_of(ty)` (the blanket `LayoutOf` over
+//   `impl LayoutOfHelpers for LateContext`, context.rs:960) is `late_layout_of` below: `LateContext` has no `layout_of`.
 // - `mod improper_ctypes` / `pub(crate) use improper_ctypes::ImproperCTypesLint`: lib.ts imports
 //   ./types/improper_ctypes.ts itself (no re-export, which would make the two modules import each other).
 // - `debug!` (tracing) calls are comments.
 import { Scalar, type Variants } from "../rustc_abi/lib.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
 import { LangItem } from "../rustc_attr_ir/lang_items.ts";
-import type { BinOpKind } from "../rustc_ast/ast.ts";
-import { Res, type Res as ResT } from "../rustc_hir/def.ts";
-import type { EnumDef, Expr, Item, Lit, QPath } from "../rustc_hir/hir.ts";
+import type { ast } from "../rustc_ast/lib.ts";
+import { Res } from "../rustc_hir/def.ts";
+import type { EnumDef, Expr, Item, Lit } from "../rustc_hir/hir.ts";
 import { type HirId, HirId_eq } from "../rustc_hir_id/lib.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { AdtDef } from "../rustc_middle/ty/decls.ts";
@@ -26,7 +24,6 @@ import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
 import { type FieldDef, HasAttrs_DefId, Ty, TypingEnv, type VariantDef } from "../rustc_middle/ty/mod.ts";
 import type { Pattern } from "../rustc_middle/ty/pattern.ts";
 import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
-import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
 import { EarlyBinder } from "../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../rustc_type_ir/visit.ts";
@@ -74,28 +71,13 @@ import type { LintPass, LintVec } from "../rustc_lint_defs/lib.ts";
 
 export * from "./types.lints.gen.ts";
 
-/** `cx.typeck_results()` (PORT: header). */
-function typeck_results(cx: LateContext): TypeckResults {
-  return cx.typeck_results_() as TypeckResults;
-}
-
-/** `cx.typing_env()` (PORT: header). */
-export function late_typing_env(cx: LateContext): TypingEnv {
-  return cx.typing_env() as TypingEnv;
-}
-
-/** `cx.qpath_res(qpath, id)` (PORT: header). */
-function qpath_res(cx: LateContext, qpath: QPath, id: HirId): ResT {
-  return cx.qpath_res(qpath, id) as ResT;
-}
-
 /** `cx.layout_of(ty)`: `LayoutOf::spanned_layout_of(ty, DUMMY_SP)` (ty/layout.rs:773) with `LateContext`'s
  * `LayoutOfHelpers` (context.rs:960: `LayoutOfResult = Result<..>`, the default `layout_tcx_at_span`, and
- * `handle_layout_err` returning the error). PORT: header. */
+ * `handle_layout_err` returning the error). */
 function late_layout_of(cx: LateContext, ty: Ty): Result<TyAndLayout, LayoutError> {
   const span = DUMMY_SP;
   const tcx = cx.tcx.at(span);
-  const r = tcx.layout_of(late_typing_env(cx).as_query_input(ty)) as Result<TyAndLayout, LayoutError>;
+  const r = tcx.layout_of(cx.typing_env().as_query_input(ty)) as Result<TyAndLayout, LayoutError>;
   return r.$ === "Err" ? Err(cx.handle_layout_err(r._0, span, ty) as LayoutError) : r;
 }
 
@@ -160,7 +142,7 @@ export class TypeLimits implements LintPass, LateLintPass {
       k.$ === "Call" &&
       k._1.length === 2 &&
       k._0.kind.$ === "Path" &&
-      (def_id = Res.opt_def_id(qpath_res(cx, k._0.kind._0, k._0.hir_id))) !== undefined &&
+      (def_id = Res.opt_def_id(cx.qpath_res(k._0.kind._0, k._0.hir_id))) !== undefined &&
       (diag_item = cx.tcx.get_diagnostic_name(def_id)) !== undefined &&
       (cmpop = diag_item_cmpop(diag_item)) !== undefined
     ) {
@@ -170,7 +152,7 @@ export class TypeLimits implements LintPass, LateLintPass {
     } else if (
       k.$ === "MethodCall" &&
       k._2.length === 1 &&
-      (def_id = typeck_results(cx).type_dependent_def_id(e.hir_id)) !== undefined &&
+      (def_id = cx.typeck_results_().type_dependent_def_id(e.hir_id)) !== undefined &&
       (diag_item = cx.tcx.get_diagnostic_name(def_id)) !== undefined &&
       (cmpop = diag_item_cmpop(diag_item)) !== undefined
     ) {
@@ -190,14 +172,14 @@ interface NegationInfo {
 }
 
 // rustc: compiler/rustc_lint/src/types.rs:225 lint_nan
-function lint_nan(cx: LateContext, e: Expr, binop: BinOpKind, l: Expr, r: Expr): void {
+function lint_nan(cx: LateContext, e: Expr, binop: ast.BinOpKind, l: Expr, r: Expr): void {
   // rustc: compiler/rustc_lint/src/types.rs:232 is_nan
   function is_nan(cx: LateContext, expr: Expr): boolean {
     expr = expr.peel_blocks().peel_borrows();
     const k = expr.kind;
     if (k.$ === "Path") {
       const qpath = k._0;
-      const def_id = Res.opt_def_id(typeck_results(cx).qpath_res(qpath, expr.hir_id));
+      const def_id = Res.opt_def_id(cx.typeck_results_().qpath_res(qpath, expr.hir_id));
       if (def_id === undefined) {
         return false;
       }
@@ -248,10 +230,10 @@ function lint_nan(cx: LateContext, e: Expr, binop: BinOpKind, l: Expr, r: Expr):
 }
 
 // #[derive(Debug, PartialEq, Copy, Clone)]
-type ComparisonOp = { readonly $: "BinOp"; readonly _0: BinOpKind } | { readonly $: "Other" };
+type ComparisonOp = { readonly $: "BinOp"; readonly _0: ast.BinOpKind } | { readonly $: "Other" };
 
 /** `cmpop == ComparisonOp::BinOp(op)` */
-function cmpop_is(cmpop: ComparisonOp, op: BinOpKind): boolean {
+function cmpop_is(cmpop: ComparisonOp, op: ast.BinOpKind): boolean {
   return cmpop.$ === "BinOp" && cmpop._0 === op;
 }
 
@@ -278,18 +260,18 @@ function lint_wide_pointer(cx: LateContext, e: Expr, cmpop: ComparisonOp, l: Exp
       return undefined;
     }
 
-    return !ty.is_sized(cx.tcx, late_typing_env(cx)) ? [refs, modifiers, ty.kind().$ === "Dynamic"] : undefined;
+    return !ty.is_sized(cx.tcx, cx.typing_env()) ? [refs, modifiers, ty.kind().$ === "Dynamic"] : undefined;
   };
 
   // the left and right operands can have references, remove any explicit references
   l = l.peel_borrows();
   r = r.peel_borrows();
 
-  const l_ty = typeck_results(cx).expr_ty_opt(l);
+  const l_ty = cx.typeck_results_().expr_ty_opt(l);
   if (l_ty === undefined) {
     return;
   }
-  const r_ty = typeck_results(cx).expr_ty_opt(r);
+  const r_ty = cx.typeck_results_().expr_ty_opt(r);
   if (r_ty === undefined) {
     return;
   }
@@ -402,9 +384,9 @@ function lint_fn_pointer(cx: LateContext, e: Expr, cmpop: ComparisonOp, l: Expr,
   l = l.peel_borrows();
   r = r.peel_borrows();
 
-  const l_ty0 = typeck_results(cx).expr_ty_opt(l);
+  const l_ty0 = cx.typeck_results_().expr_ty_opt(l);
   if (l_ty0 === undefined) return;
-  const r_ty0 = typeck_results(cx).expr_ty_opt(r);
+  const r_ty0 = cx.typeck_results_().expr_ty_opt(r);
   if (r_ty0 === undefined) return;
 
   // Remove any references as `==` will deref through them (and count the
@@ -518,7 +500,7 @@ function lint_fn_pointer(cx: LateContext, e: Expr, cmpop: ComparisonOp, l: Expr,
 // (fn-local helpers of `<TypeLimits as LateLintPass>::check_expr`)
 
 // rustc: compiler/rustc_lint/src/types.rs:629 is_valid
-function is_valid(binop: BinOpKind, v: bigint, min: bigint, max: bigint): boolean {
+function is_valid(binop: ast.BinOpKind, v: bigint, min: bigint, max: bigint): boolean {
   switch (binop) {
     case "Lt":
       return v > min && v <= max;
@@ -537,7 +519,7 @@ function is_valid(binop: BinOpKind, v: bigint, min: bigint, max: bigint): boolea
 }
 
 // rustc: compiler/rustc_lint/src/types.rs:640 rev_binop
-function rev_binop(binop: BinOpKind): BinOpKind {
+function rev_binop(binop: ast.BinOpKind): ast.BinOpKind {
   switch (binop) {
     case "Lt":
       return "Gt";
@@ -553,7 +535,7 @@ function rev_binop(binop: BinOpKind): BinOpKind {
 }
 
 // rustc: compiler/rustc_lint/src/types.rs:650 check_limits
-function check_limits(cx: LateContext, binop: BinOpKind, l: Expr, r: Expr): boolean {
+function check_limits(cx: LateContext, binop: ast.BinOpKind, l: Expr, r: Expr): boolean {
   let lit: Expr;
   let expr: Expr;
   let swap: boolean;
@@ -567,7 +549,7 @@ function check_limits(cx: LateContext, binop: BinOpKind, l: Expr, r: Expr): bool
   // Normalize the binop so that the literal is always on the RHS in
   // the comparison
   const norm_binop = swap ? rev_binop(binop) : binop;
-  const k = typeck_results(cx).node_type(expr.hir_id).kind();
+  const k = cx.typeck_results_().node_type(expr.hir_id).kind();
   if (k.$ === "Int") {
     const [min, max] = int_ty_range(k._0);
     let lit_val: bigint;
@@ -603,7 +585,7 @@ function check_limits(cx: LateContext, binop: BinOpKind, l: Expr, r: Expr): bool
 }
 
 // rustc: compiler/rustc_lint/src/types.rs:694 is_comparison
-function is_comparison(binop: BinOpKind): boolean {
+function is_comparison(binop: ast.BinOpKind): boolean {
   return binop === "Eq" || binop === "Lt" || binop === "Le" || binop === "Ne" || binop === "Ge" || binop === "Gt";
 }
 
@@ -963,7 +945,7 @@ function inherent_atomic_method_call(
   if (
     k.$ === "MethodCall" &&
     recognized_names.includes(k._0.ident.name) &&
-    (m_def_id = typeck_results(cx).type_dependent_def_id(expr.hir_id)) !== undefined &&
+    (m_def_id = cx.typeck_results_().type_dependent_def_id(expr.hir_id)) !== undefined &&
     // skip extension traits, only lint functions from the standard library
     (impl_did = cx.tcx.inherent_impl_of_assoc(m_def_id)) !== undefined &&
     (adt = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(cx.tcx.type_of(impl_did) as EarlyBinder<Ty>)).ty_adt_def()) !== undefined &&
@@ -978,7 +960,7 @@ function inherent_atomic_method_call(
 function match_ordering(cx: LateContext, ord_arg: Expr): Symbol | undefined {
   if (ord_arg.kind.$ !== "Path") return undefined;
   const ord_qpath = ord_arg.kind._0;
-  const did = Res.opt_def_id(qpath_res(cx, ord_qpath, ord_arg.hir_id));
+  const did = Res.opt_def_id(cx.qpath_res(ord_qpath, ord_arg.hir_id));
   if (did === undefined) return undefined;
   const tcx = cx.tcx;
   const atomic_ordering = tcx.get_diagnostic_item(sym.Ordering);
@@ -1026,7 +1008,7 @@ function check_memory_fence(cx: LateContext, expr: Expr): void {
   if (
     k.$ === "Call" &&
     k._0.kind.$ === "Path" &&
-    (def_id = Res.opt_def_id(qpath_res(cx, k._0.kind._0, k._0.hir_id))) !== undefined &&
+    (def_id = Res.opt_def_id(cx.qpath_res(k._0.kind._0, k._0.hir_id))) !== undefined &&
     ((name = cx.tcx.get_diagnostic_name(def_id)) === sym.fence || name === sym.compiler_fence) &&
     match_ordering(cx, k._1[0]!) === sym.Relaxed
   ) {
