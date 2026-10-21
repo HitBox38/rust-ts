@@ -2,18 +2,34 @@
 // `default_configuration` need is ported here: the data layout (`TargetDataLayout` and its parser),
 // `Endian`, `Size`, `Align`/`AbiAlign`, `Integer` and `AddressSpace`; lane repr-options added `ReprFlags`,
 // `IntegerType`, `ScalableElt`, `ReprOptions` and the `Size` / `Align` / `Integer` / `TargetDataLayout` helpers
-// they and their users need. Everything else in the crate (layout, scalars, ...) is not ported yet
-// (`bun scripts/coverage.ts --missing`).
+// they and their users need. Lane layout-contract added the layout types (`Float`, `Primitive`, `Scalar`,
+// `FieldsShape`, `BackendRepr`, `Variants`, `TagEncoding`, `Niche`, `LayoutData`, `VariantLayout`, ...) with their
+// Debug impls, and a declaration of every other fn of the file: a `// stub: <path>:<line> <name> (lane <lane>)`
+// comment over a body that calls `unported(..)`. A fill lane replaces the body, turns the comment into the
+// `// rustc:` marker and keeps the signature (docs/handoff/layout-contract.md "How to fill a stub").
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { is_alphabetic } from "../std/char.ts";
 import { debug_Hash64, type Hash64 } from "../rustc_hashes/lib.ts";
-import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple } from "../std/fmt.ts";
+import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
+import type { MutRef } from "../std/mut_ref.ts";
 import { assert, panic, unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { to_writer } from "../vendor/bitflags/parser.ts";
 import { flags_companion } from "../vendor/bitflags/traits.ts";
+import type { DiagArgValue, PathBuf } from "../rustc_error_messages/lib.ts";
+import { intern_key } from "../rust_ts/intern_key.ts";
+import type { RegKind } from "./callconv/reg.ts";
+import type { FieldIdx, LayoutCalculatorError, VariantIdx } from "./layout.ts";
+import { debug_WrappingRange, type WrappingRange, WrappingRange_eq } from "./wrapping_range.ts";
 
 export * from "./canon_abi.ts";
+// mod callconv; mod layout; mod wrapping_range; (layout-contract)
+// PORT (layout-contract): these modules use lib.ts's values only inside function bodies (init order: lib.ts is both the
+// defining module of `LayoutData` & co. and the crate root, and the modules below import it).
+export { Heterogeneous, HomogeneousAggregate, Reg, RegKind, debug_Heterogeneous, debug_HomogeneousAggregate, debug_Reg, debug_RegKind } from "./callconv.ts";
+export { FIRST_VARIANT, FieldIdx, LayoutCalculator, LayoutCalculatorError, VariantIdx, debug_LayoutCalculator, debug_LayoutCalculatorError } from "./layout.ts";
+export { Layout, TyAndLayout, debug_Layout, debug_TyAndLayout, register_ty_abi_interface, type TyAbiInterface } from "./layout/ty.ts";
+export { WrappingRange, WrappingRange_eq, debug_WrappingRange } from "./wrapping_range.ts";
 
 /**
  * `core::num::ParseIntError` (the `kind` only). PORT: `str::parse::<u32>()`/`parse::<u64>()` below are
@@ -331,6 +347,46 @@ export function ReprOptions_eq(a: ReprOptions, b: ReprOptions): boolean {
 function option_eq<T>(a: T | undefined, b: T | undefined, eq: (a: T, b: T) => boolean): boolean {
   return a === undefined || b === undefined ? a === b : eq(a, b);
 }
+
+/// The maximum supported number of lanes in a SIMD vector.
+///
+/// This value is selected based on backend support:
+/// * LLVM does not appear to have a vector width limit.
+/// * Cranelift stores the base-2 log of the lane count in a 4 bit integer.
+export const MAX_SIMD_LANES: number = 1 << 0xf;
+
+/// The number of lanes in a [`BackendRepr::SimdVector`], `1..=`[`MAX_SIMD_LANES`].
+// #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+// #[cfg_attr(feature = "nightly", derive(Encodable_NoContext, Decodable_NoContext, StableHash))]
+// PORT (layout-contract): the `NonZero<u16>` newtype is a branded number (equality and order are `===` / `<`).
+export type BackendLaneCount = number & { readonly __brand: "BackendLaneCount" };
+export const BackendLaneCount = {
+  // PORT (layout-contract): `count: u64` is a `bigint` (an array length, layout-contract conventions).
+  // stub: compiler/rustc_abi/src/lib.rs:273 new (lane abi-lib)
+  new<N>(_count: bigint): Result<BackendLaneCount, LayoutCalculatorError<N>> {
+    return unported("rustc_abi::BackendLaneCount::new");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:287 is_power_of_two (lane abi-lib)
+  is_power_of_two(_self: BackendLaneCount): boolean {
+    return unported("rustc_abi::BackendLaneCount::is_power_of_two");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:292 as_u64 (lane abi-lib)
+  as_u64(_self: BackendLaneCount): bigint {
+    return unported("rustc_abi::BackendLaneCount::as_u64");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:297 as_u32 (lane abi-lib)
+  as_u32(_self: BackendLaneCount): number {
+    return unported("rustc_abi::BackendLaneCount::as_u32");
+  },
+} as const;
+// derive(Debug)
+export const debug_BackendLaneCount: Debug<BackendLaneCount> = (v, f) => debug_tuple(f, "BackendLaneCount", [debug_int(v, f)]);
 
 /// How pointers are represented in a given address space
 // #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -867,6 +923,9 @@ export class TargetDataLayout {
   // impl HasDataLayout for TargetDataLayout (PORTING §8: a later impl block's method in the class body)
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:807 data_layout
+  // impl HasDataLayout for &TargetDataLayout (used by rust-analyzer): PORT (layout-contract): `&TargetDataLayout` is
+  // `TargetDataLayout` (PORTING §5), so that impl is this one.
+  // rustc: compiler/rustc_abi/src/lib.rs:815 data_layout
   data_layout(): TargetDataLayout {
     return this;
   }
@@ -905,6 +964,7 @@ export type TargetDataLayoutError =
 // impl Diagnostic<'_> for TargetDataLayoutError<'_>
 // PORT: not ported (no marker): every built-in target's data layout parses; a target JSON (unported)
 // is the only way to reach these errors.
+// stub: compiler/rustc_abi/src/lib.rs:403 into_diag (lane abi-lib)
 export function TargetDataLayoutError_into_diag(_e: TargetDataLayoutError): never {
   return unported("rustc_abi::TargetDataLayoutError::into_diag");
 }
@@ -992,6 +1052,7 @@ export class Size {
   bits(): number {
     // PORT: `checked_mul(8)` cannot overflow for the sizes rust-ts handles (< 2^53 / 8), so the nested
     // `#[cold] fn overflow` (lib.rs:914) is never called and not ported.
+    // stub: compiler/rustc_abi/src/lib.rs:914 overflow (nested in `bits`; unreachable for sizes < 2^53, lane abi-lib)
     return this.bytes() * 8;
   }
 
@@ -1086,6 +1147,47 @@ export class Size {
   unsigned_int_max(): bigint {
     return U128_MAX >> BigInt(128 - this.bits());
   }
+
+  // Panicking addition, subtraction and multiplication for convenience.
+  // Avoid during layout computation, return `LayoutError` instead.
+
+  // impl Add for Size
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1006 add (lane abi-lib)
+  add(_other: Size): Size {
+    return unported("rustc_abi::Size::add");
+  }
+
+  // impl Sub for Size
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1016 sub (lane abi-lib)
+  sub(_other: Size): Size {
+    return unported("rustc_abi::Size::sub");
+  }
+
+  // impl Mul<Size> for u64
+  // #[inline]
+  // PORT (layout-contract): `count * size` is the static `Size.u64_mul(count, size)` (the `u64` side has no class).
+  // stub: compiler/rustc_abi/src/lib.rs:1026 mul (lane abi-lib)
+  static u64_mul(_count: number, _size: Size): Size {
+    return unported("rustc_abi::Size::mul (Mul<Size> for u64)");
+  }
+
+  // impl Mul<u64> for Size
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1034 mul (lane abi-lib)
+  mul(_count: number): Size {
+    return unported("rustc_abi::Size::mul");
+  }
+
+  // impl AddAssign for Size
+  // #[inline]
+  // PORT (layout-contract): `Size` is immutable (`raw` is readonly), so `a += b` is `a = a.add_assign(b)`, which
+  // returns the new value.
+  // stub: compiler/rustc_abi/src/lib.rs:1044 add_assign (lane abi-lib)
+  add_assign(_other: Size): Size {
+    return unported("rustc_abi::Size::add_assign");
+  }
 }
 const U64_MAX = (1n << 64n) - 1n;
 const U128_MAX = (1n << 128n) - 1n;
@@ -1094,6 +1196,65 @@ const I128_MAX = (1n << 127n) - 1n;
 // impl fmt::Debug for Size
 // rustc: compiler/rustc_abi/src/lib.rs:880 fmt
 export const debug_Size: Debug<Size> = (v) => `Size(${v.bytes()} bytes)`;
+
+// #[cfg(feature = "nightly")]
+// impl Step for Size
+// PORT (layout-contract): `core::iter::Step` (ranges of `Size`) is the companion `Step_Size`; `usize` counts are numbers.
+export const Step_Size = {
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1052 steps_between (lane abi-lib)
+  steps_between(_start: Size, _end: Size): [number, number | undefined] {
+    return unported("rustc_abi::Size::steps_between");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1057 forward_checked (lane abi-lib)
+  forward_checked(_start: Size, _count: number): Size | undefined {
+    return unported("rustc_abi::Size::forward_checked");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1062 forward_overflowing (lane abi-lib)
+  forward_overflowing(_start: Size, _count: number): [Size, boolean] {
+    return unported("rustc_abi::Size::forward_overflowing");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1068 forward (lane abi-lib)
+  forward(_start: Size, _count: number): Size {
+    return unported("rustc_abi::Size::forward");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1073 forward_unchecked (lane abi-lib)
+  forward_unchecked(_start: Size, _count: number): Size {
+    return unported("rustc_abi::Size::forward_unchecked");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1078 backward_checked (lane abi-lib)
+  backward_checked(_start: Size, _count: number): Size | undefined {
+    return unported("rustc_abi::Size::backward_checked");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1083 backward_overflowing (lane abi-lib)
+  backward_overflowing(_start: Size, _count: number): [Size, boolean] {
+    return unported("rustc_abi::Size::backward_overflowing");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1089 backward (lane abi-lib)
+  backward(_start: Size, _count: number): Size {
+    return unported("rustc_abi::Size::backward");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1094 backward_unchecked (lane abi-lib)
+  backward_unchecked(_start: Size, _count: number): Size {
+    return unported("rustc_abi::Size::backward_unchecked");
+  },
+} as const;
 
 /// Alignment of a type in bytes (always a power of two).
 // #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1264,6 +1425,14 @@ export class AbiAlign {
   // rustc: compiler/rustc_abi/src/lib.rs:1245 max
   max(other: AbiAlign): AbiAlign {
     return new AbiAlign(Align_max(this.abi, other.abi));
+  }
+
+  // impl Deref for AbiAlign (type Target = Align)
+  // PORT (layout-contract): the auto-deref `abi_align.bytes()` is written `abi_align.abi.bytes()`; `deref()` is the
+  // explicit `*abi_align`.
+  // rustc: compiler/rustc_abi/src/lib.rs:1253 deref
+  deref(): Align {
+    return this.abi;
   }
 }
 // derive(Debug)
@@ -1464,6 +1633,393 @@ export const Integer = {
 } as const;
 // derive(Debug)
 export const debug_Integer: Debug<Integer> = (v) => v;
+/// Floating-point types.
+// #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+export type Float =
+  | "F16"
+  /// `f16b`. This is not a builtin type in Rust (it is exposed as a lang item),
+  /// but it is a builtin type in LLVM so needs to be explicitly represented
+  /// in the backend.
+  | "F16B"
+  | "F32"
+  | "F64"
+  | "F128"
+  /// `ppcf128`. This is not a builtin type in Rust (it is exposed as a lang item),
+  /// but it is a builtin type in LLVM so needs to be explicitly represented
+  /// in the backend.
+  | "PpcF128";
+export const Float = {
+  F16: "F16",
+  F16B: "F16B",
+  F32: "F32",
+  F64: "F64",
+  F128: "F128",
+  PpcF128: "PpcF128",
+
+  // rustc: compiler/rustc_abi/src/lib.rs:1437 size
+  size(self: Float): Size {
+    // use Float::*;
+
+    switch (self) {
+      case "F16":
+        return Size.from_bits(16);
+      case "F16B":
+        return Size.from_bits(16);
+      case "F32":
+        return Size.from_bits(32);
+      case "F64":
+        return Size.from_bits(64);
+      case "F128":
+        return Size.from_bits(128);
+      case "PpcF128":
+        return Size.from_bits(128);
+    }
+  },
+
+  // stub: compiler/rustc_abi/src/lib.rs:1450 align (lane abi-lib)
+  align(_self: Float, _cx: HasDataLayout): AbiAlign {
+    return unported("rustc_abi::Float::align");
+  },
+
+  // rustc: compiler/rustc_abi/src/lib.rs:1463 ty_str
+  ty_str(self: Float): string {
+    // use Float::*;
+
+    switch (self) {
+      case "F16":
+        return "f16";
+      case "F16B":
+        return "f16b";
+      case "F32":
+        return "f32";
+      case "F64":
+        return "f64";
+      case "F128":
+        return "f128";
+      case "PpcF128":
+        return "ppcf128";
+    }
+  },
+} as const;
+// derive(Debug)
+export const debug_Float: Debug<Float> = (v) => v;
+/** `<Float as Ord>` (derived: declaration order). */
+export const Float_discriminant: Record<Float, number> = { F16: 0, F16B: 1, F32: 2, F64: 3, F128: 4, PpcF128: 5 };
+
+/// Numeric primitives.
+// #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+export type Numeric =
+  /// The `bool` is the signedness of the `Integer` type.
+  | { readonly $: "Int"; readonly _0: Integer; readonly _1: boolean }
+  | { readonly $: "Float"; readonly _0: Float };
+export const Numeric = {
+  // stub: compiler/rustc_abi/src/lib.rs:1487 size (lane abi-lib)
+  size(_self: Numeric): Size {
+    return unported("rustc_abi::Numeric::size");
+  },
+
+  // stub: compiler/rustc_abi/src/lib.rs:1494 reg_kind (lane abi-lib)
+  reg_kind(_self: Numeric): RegKind {
+    return unported("rustc_abi::Numeric::reg_kind");
+  },
+} as const;
+/** derive(PartialEq) */
+export function Numeric_eq(a: Numeric, b: Numeric): boolean {
+  return intern_key(a) === intern_key(b);
+}
+
+/// Fundamental unit of memory access and layout.
+// #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+export type Primitive =
+  /// The `bool` is the signedness of the `Integer` type.
+  ///
+  /// One would think we would not care about such details this low down,
+  /// but some ABIs are described in terms of C types and ISAs where the
+  /// integer arithmetic is done on {sign,zero}-extended registers, e.g.
+  /// a negative integer passed by zero-extension will appear positive in
+  /// the callee, and most operations on it will produce the wrong values.
+  | { readonly $: "Int"; readonly _0: Integer; readonly _1: boolean }
+  | { readonly $: "Float"; readonly _0: Float }
+  | { readonly $: "Pointer"; readonly _0: AddressSpace };
+export const Primitive = {
+  // stub: compiler/rustc_abi/src/lib.rs:1545 size (lane abi-lib)
+  size(_self: Primitive, _cx: HasDataLayout): Size {
+    return unported("rustc_abi::Primitive::size");
+  },
+
+  /// The *platform-specific* ABI alignment of this primitive.
+  ///
+  /// This is the type alignment for the corresponding built-in.
+  /// In other contexts it might have different alignment.
+  // stub: compiler/rustc_abi/src/lib.rs:1560 default_align (lane abi-lib)
+  default_align(_self: Primitive, _cx: HasDataLayout): AbiAlign {
+    return unported("rustc_abi::Primitive::default_align");
+  },
+} as const;
+/** derive(PartialEq) */
+export function Primitive_eq(a: Primitive, b: Primitive): boolean {
+  switch (a.$) {
+    case "Int":
+      return b.$ === "Int" && a._0 === b._0 && a._1 === b._1;
+    case "Float":
+      return b.$ === "Float" && a._0 === b._0;
+    case "Pointer":
+      return b.$ === "Pointer" && a._0 === b._0;
+  }
+}
+// impl fmt::Debug for Primitive
+// rustc: compiler/rustc_abi/src/lib.rs:1522 fmt
+export const debug_Primitive: Debug<Primitive> = (self, f) => {
+  let name: string;
+  switch (self.$) {
+    case "Int": {
+      const [integer, is_signed] = [self._0, self._1];
+      if (is_signed) {
+        name = Integer.int_ty_str(integer);
+      } else {
+        name = Integer.uint_ty_str(integer);
+      }
+      break;
+    }
+    case "Float":
+      name = Float.ty_str(self._0);
+      break;
+    case "Pointer": {
+      const addr_space = self._0;
+      if (addr_space === AddressSpace.ZERO) {
+        name = "pointer";
+      } else {
+        return `pointer(${debug_AddressSpace(addr_space, f)})`;
+      }
+      break;
+    }
+  }
+  return name;
+};
+
+/// Information about one scalar component of a Rust type.
+// #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+// PORT (layout-contract): `valid_range` of `Initialized` is mutable (`Scalar::valid_range_mut`); a `Scalar` is `Copy`,
+// so one that is mutated must be a fresh object (`{ ...scalar }`), never one shared with another layout
+// (layout-contract conventions; interned layouts are deep-frozen, so a stray write throws).
+export type Scalar =
+  | {
+      readonly $: "Initialized";
+      readonly value: Primitive;
+
+      // FIXME(eddyb) always use the shortest range, e.g., by finding
+      // the largest space between two consecutive valid values and
+      // taking everything else as the (shortest) valid range.
+      valid_range: WrappingRange;
+    }
+  | {
+      readonly $: "Union";
+      /// Even for unions, we need to use the correct registers for the kind of
+      /// values inside the union, so we keep the `Primitive` type around. We
+      /// also use it to compute the size of the scalar.
+      /// However, unions never have niches and even allow undef,
+      /// so there is no `valid_range`.
+      readonly value: Primitive;
+    };
+export const Scalar = {
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1614 is_bool (lane abi-lib)
+  is_bool(_self: Scalar): boolean {
+    return unported("rustc_abi::Scalar::is_bool");
+  },
+
+  /// Get the primitive representation of this type, ignoring the valid range and whether the
+  /// value is allowed to be undefined (due to being a union).
+  // stub: compiler/rustc_abi/src/lib.rs:1627 primitive (lane abi-lib)
+  primitive(_self: Scalar): Primitive {
+    return unported("rustc_abi::Scalar::primitive");
+  },
+
+  /// The *platform-specific* ABI alignment of this scalar.
+  ///
+  /// This is the type alignment for the corresponding built-in.
+  /// This is *not* necessarily the correct alignment for a type that has this `BackendRepr::Scalar`!
+  // stub: compiler/rustc_abi/src/lib.rs:1637 default_align (lane abi-lib)
+  default_align(_self: Scalar, _cx: HasDataLayout): AbiAlign {
+    return unported("rustc_abi::Scalar::default_align");
+  },
+
+  // stub: compiler/rustc_abi/src/lib.rs:1641 size (lane abi-lib)
+  size(_self: Scalar, _cx: HasDataLayout): Size {
+    return unported("rustc_abi::Scalar::size");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1646 to_union (lane abi-lib)
+  to_union(_self: Scalar): Scalar {
+    return unported("rustc_abi::Scalar::to_union");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1651 valid_range (lane abi-lib)
+  valid_range(_self: Scalar, _cx: HasDataLayout): WrappingRange {
+    return unported("rustc_abi::Scalar::valid_range");
+  },
+
+  // #[inline]
+  /// Allows the caller to mutate the valid range. This operation will panic if attempted on a
+  /// union.
+  // PORT (layout-contract): `&mut WrappingRange` is a `MutRef` over `self.valid_range` (PORTING §8); `WrappingRange`
+  // is immutable, so `*scalar.valid_range_mut() = r` / `.start = s` are `r_.value = r` / `r_.value = r_.value.with_start(s)`.
+  // stub: compiler/rustc_abi/src/lib.rs:1661 valid_range_mut (lane abi-lib)
+  valid_range_mut(_self: Scalar): MutRef<WrappingRange> {
+    return unported("rustc_abi::Scalar::valid_range_mut");
+  },
+
+  /// Returns `true` if all possible numbers are valid, i.e `valid_range` covers the whole
+  /// layout.
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1671 is_always_valid (lane abi-lib)
+  is_always_valid(_self: Scalar, _cx: HasDataLayout): boolean {
+    return unported("rustc_abi::Scalar::is_always_valid");
+  },
+
+  /// Returns `true` if this type can be left uninit.
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1680 is_uninit_valid (lane abi-lib)
+  is_uninit_valid(_self: Scalar): boolean {
+    return unported("rustc_abi::Scalar::is_uninit_valid");
+  },
+
+  /// Returns `true` if this is a signed integer scalar
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1689 is_signed (lane abi-lib)
+  is_signed(_self: Scalar): boolean {
+    return unported("rustc_abi::Scalar::is_signed");
+  },
+} as const;
+/** derive(PartialEq) */
+export function Scalar_eq(a: Scalar, b: Scalar): boolean {
+  switch (a.$) {
+    case "Initialized":
+      return b.$ === "Initialized" && Primitive_eq(a.value, b.value) && WrappingRange_eq(a.valid_range, b.valid_range);
+    case "Union":
+      return b.$ === "Union" && Primitive_eq(a.value, b.value);
+  }
+}
+// impl fmt::Debug for Scalar
+// rustc: compiler/rustc_abi/src/lib.rs:1595 fmt
+export const debug_Scalar: Debug<Scalar> = (self, f) => {
+  switch (self.$) {
+    case "Initialized": {
+      const { value, valid_range } = self;
+      let size: Size;
+      let is_signed: boolean;
+      switch (value.$) {
+        case "Int":
+          [size, is_signed] = [Integer.size(value._0), value._1];
+          break;
+        case "Float":
+          [size, is_signed] = [Float.size(value._0), false];
+          break;
+        case "Pointer":
+          [size, is_signed] = [Size.from_bits(128), false];
+          break;
+      }
+      return `${debug_Primitive(value, f)} is ${valid_range.debug_as(size, is_signed)(f)}`;
+    }
+    case "Union": {
+      const { value } = self;
+      return `union ${debug_Primitive(value, f)}`;
+    }
+  }
+};
+
+// NOTE: This struct is generic over the FieldIdx for rust-analyzer usage.
+/// Describes how the fields of a type are located in memory.
+// #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+// PORT (layout-contract): the `FieldIdx: Idx` parameter is erased (rustc instantiates it with `rustc_abi::FieldIdx`
+// only); `NonZero<usize>` is a `number`; `count: u64` is a `bigint` (an array length: `[(); usize::MAX]` has one).
+export type FieldsShape =
+  /// Scalar primitives and `!`, which never have fields.
+  | { readonly $: "Primitive" }
+
+  /// All fields start at no offset. The `usize` is the field count.
+  | { readonly $: "Union"; readonly _0: number }
+
+  /// Array/vector-like placement, with all fields of identical types.
+  | { readonly $: "Array"; readonly stride: Size; readonly count: bigint }
+
+  /// Struct-like placement, with precomputed offsets.
+  ///
+  /// Fields are guaranteed to not overlap, but note that gaps
+  /// before, between and after all the fields are NOT always
+  /// padding, and as such their contents may not be discarded.
+  /// For example, enum variants leave a gap at the start,
+  /// where the discriminant field in the enum layout goes.
+  | {
+      readonly $: "Arbitrary";
+      /// Offsets for the first byte of each field,
+      /// ordered to match the source definition order.
+      /// This vector does not go in increasing order.
+      // FIXME(eddyb) use small vector optimization for the common case.
+      readonly offsets: Size[];
+
+      /// Maps memory order field indices to source order indices,
+      /// depending on how the fields were reordered (if at all).
+      /// This is a permutation, with both the source order and the
+      /// memory order using the same (0..n) index ranges.
+      ///
+      // FIXME(eddyb) build a better abstraction for permutations, if possible.
+      // FIXME(camlorn) also consider small vector optimization here.
+      readonly in_memory_order: FieldIdx[];
+    };
+export const FieldsShape = {
+  Primitive: Object.freeze({ $: "Primitive" }) as FieldsShape,
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1738 count (lane abi-lib)
+  count(_self: FieldsShape): number {
+    return unported("rustc_abi::FieldsShape::count");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1748 offset (lane abi-lib)
+  offset(_self: FieldsShape, _i: number): Size {
+    return unported("rustc_abi::FieldsShape::offset");
+  },
+
+  /// Gets source indices of the fields by increasing offsets.
+  // #[inline]
+  // PORT (layout-contract): `impl ExactSizeIterator<Item = usize>` is an array.
+  // stub: compiler/rustc_abi/src/lib.rs:1768 index_by_increasing_offset (lane abi-lib)
+  index_by_increasing_offset(_self: FieldsShape): number[] {
+    return unported("rustc_abi::FieldsShape::index_by_increasing_offset");
+  },
+} as const;
+/** derive(PartialEq) (PORT (layout-contract): the derived equality is the intern key's, rust_ts/intern_key.ts) */
+export function FieldsShape_eq(a: FieldsShape, b: FieldsShape): boolean {
+  return intern_key(a) === intern_key(b);
+}
+// derive(Debug)
+export const debug_FieldsShape: Debug<FieldsShape> = (v, f) => {
+  switch (v.$) {
+    case "Primitive":
+      return "Primitive";
+    case "Union":
+      return debug_tuple(f, "Union", [debug_int(v._0, f)]);
+    case "Array":
+      return debug_struct(f, "Array", [
+        ["stride", debug_Size(v.stride, f)],
+        ["count", debug_int(v.count, f)],
+      ]);
+    case "Arbitrary":
+      return debug_struct(f, "Arbitrary", [
+        ["offsets", debug_vec(v.offsets, f, debug_Size)],
+        ["in_memory_order", debug_vec(v.in_memory_order, f, debug_int)],
+      ]);
+  }
+};
 
 /// An identifier that specifies the address space that some operation
 /// should operate on. Special address spaces have an effect on code generation,
@@ -1483,6 +2039,734 @@ export const AddressSpace = {
   GPU_WORKGROUP: 3 as AddressSpace,
 } as const;
 export const debug_AddressSpace: Debug<AddressSpace> = (v) => `AddressSpace(${v})`;
+
+/// How many scalable vectors are in a `BackendRepr::ScalableVector`?
+// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+// PORT (layout-contract): the `u8` newtype is a branded number (equality is `===`).
+export type NumScalableVectors = number & { readonly __brand: "NumScalableVectors" };
+export const NumScalableVectors = {
+  /// Returns a `NumScalableVector` for a non-tuple scalable vector (e.g. a single vector).
+  // stub: compiler/rustc_abi/src/lib.rs:1807 for_non_tuple (lane abi-lib)
+  for_non_tuple(): NumScalableVectors {
+    return unported("rustc_abi::NumScalableVectors::for_non_tuple");
+  },
+
+  // Returns `NumScalableVectors` for values of two through eight, which are a valid number of
+  // fields for a tuple of scalable vectors to have. `1` is a valid value of `NumScalableVectors`
+  // but not for a tuple which would have a field count.
+  // stub: compiler/rustc_abi/src/lib.rs:1814 from_field_count (lane abi-lib)
+  from_field_count(_count: number): NumScalableVectors | undefined {
+    return unported("rustc_abi::NumScalableVectors::from_field_count");
+  },
+} as const;
+// derive(Debug)
+export const debug_NumScalableVectors: Debug<NumScalableVectors> = (v, f) => debug_tuple(f, "NumScalableVectors", [debug_int(v, f)]);
+
+// #[cfg(feature = "nightly")]
+// impl IntoDiagArg for NumScalableVectors
+// stub: compiler/rustc_abi/src/lib.rs:1824 into_diag_arg (lane abi-lib)
+export function NumScalableVectors_into_diag_arg(_self: NumScalableVectors, _: MutRef<PathBuf | undefined>): DiagArgValue {
+  return unported("rustc_abi::NumScalableVectors::into_diag_arg");
+}
+
+/// The way we represent values to the backend
+///
+/// Previously this was conflated with the "ABI" a type is given, as in the platform-specific ABI.
+/// In reality, this implies little about that, but is mostly used to describe the syntactic form
+/// emitted for the backend, as most backends handle SSA values and blobs of memory differently.
+/// The psABI may need consideration in doing so, but this enum does not constitute a promise for
+/// how the value will be lowered to the calling convention, in itself.
+///
+/// Generally, a codegen backend will prefer to handle smaller values as a scalar or short vector,
+/// and larger values will usually prefer to be represented as memory.
+// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+export type BackendRepr =
+  | { readonly $: "Scalar"; readonly _0: Scalar }
+  /// The data contained in this type can be entirely represented by two scalars.
+  /// The two scalars are listed in *memory* order, so `a` is at offset zero
+  /// and `b` is at non-zero offset `b_offset`.
+  /// These need not be `FieldIdx(0)` and `FieldIdx(1)`.
+  ///
+  /// As of June 2026 the `b_offset` is always the size of the `a`
+  /// scalar rounded up to the platform alignment of the `b` scalar.
+  /// That may soon change, however; see MCP#1007.
+  | { readonly $: "ScalarPair"; readonly a: Scalar; readonly b: Scalar; readonly b_offset: Size }
+  | { readonly $: "SimdScalableVector"; readonly element: Scalar; readonly count: BackendLaneCount; readonly number_of_vectors: NumScalableVectors }
+  | { readonly $: "SimdVector"; readonly element: Scalar; readonly count: BackendLaneCount }
+  // FIXME: I sometimes use memory, sometimes use an IR aggregate!
+  | {
+      readonly $: "Memory";
+      /// If true, the size is exact, otherwise it's only a lower bound.
+      readonly sized: boolean;
+    };
+export const BackendRepr = {
+  /// Returns `true` if the layout corresponds to an unsized type.
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1886 is_unsized (lane abi-lib)
+  is_unsized(_self: BackendRepr): boolean {
+    return unported("rustc_abi::BackendRepr::is_unsized");
+  },
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1902 is_sized (lane abi-lib)
+  is_sized(_self: BackendRepr): boolean {
+    return unported("rustc_abi::BackendRepr::is_sized");
+  },
+
+  /// Returns `true` if this is a single signed integer scalar.
+  /// Sanity check: panics if this is not a scalar type (see PR #70189).
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1909 is_signed (lane abi-lib)
+  is_signed(_self: BackendRepr): boolean {
+    return unported("rustc_abi::BackendRepr::is_signed");
+  },
+
+  /// Returns `true` if this is specifically a [`Self::Scalar`] type.
+  ///
+  /// This excludes SIMD types.
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1920 is_scalar (lane abi-lib)
+  is_scalar(_self: BackendRepr): boolean {
+    return unported("rustc_abi::BackendRepr::is_scalar");
+  },
+
+  /// Returns `true` if this is a scalar type or SIMD type.
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1926 is_scalar_or_simd (lane abi-lib)
+  is_scalar_or_simd(_self: BackendRepr): boolean {
+    return unported("rustc_abi::BackendRepr::is_scalar_or_simd");
+  },
+
+  /// Returns `true` if this is a bool
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:1937 is_bool (lane abi-lib)
+  is_bool(_self: BackendRepr): boolean {
+    return unported("rustc_abi::BackendRepr::is_bool");
+  },
+
+  /// The psABI alignment for a `Scalar` or `ScalarPair`
+  ///
+  /// `None` for other variants.
+  ///
+  /// It's unclear whether this is a meaningful operation, and MCP#1007 proposes changes.
+  /// You should generally be using the alignment of the place or the type,
+  /// not calculating something from the `Scalar`s.
+  // stub: compiler/rustc_abi/src/lib.rs:1948 scalar_platform_align (lane abi-lib)
+  scalar_platform_align(_self: BackendRepr, _cx: HasDataLayout): Align | undefined {
+    return unported("rustc_abi::BackendRepr::scalar_platform_align");
+  },
+
+  /// The psABI size for a `Scalar` or `ScalarPair`
+  ///
+  /// `None` for other variants
+  // stub: compiler/rustc_abi/src/lib.rs:1964 scalar_size (lane abi-lib)
+  scalar_size(_self: BackendRepr, _cx: HasDataLayout): Size | undefined {
+    return unported("rustc_abi::BackendRepr::scalar_size");
+  },
+
+  /// Discard validity range information and allow undef.
+  // stub: compiler/rustc_abi/src/lib.rs:1985 to_union (lane abi-lib)
+  to_union(_self: BackendRepr): BackendRepr {
+    return unported("rustc_abi::BackendRepr::to_union");
+  },
+
+  // stub: compiler/rustc_abi/src/lib.rs:2005 eq_up_to_validity (lane abi-lib)
+  eq_up_to_validity(_self: BackendRepr, _other: BackendRepr): boolean {
+    return unported("rustc_abi::BackendRepr::eq_up_to_validity");
+  },
+} as const;
+/** derive(PartialEq) (PORT (layout-contract): the derived equality is the intern key's, rust_ts/intern_key.ts) */
+export function BackendRepr_eq(a: BackendRepr, b: BackendRepr): boolean {
+  return intern_key(a) === intern_key(b);
+}
+// derive(Debug)
+export const debug_BackendRepr: Debug<BackendRepr> = (v, f) => {
+  switch (v.$) {
+    case "Scalar":
+      return debug_tuple(f, "Scalar", [debug_Scalar(v._0, f)]);
+    case "ScalarPair":
+      return debug_struct(f, "ScalarPair", [
+        ["a", debug_Scalar(v.a, f)],
+        ["b", debug_Scalar(v.b, f)],
+        ["b_offset", debug_Size(v.b_offset, f)],
+      ]);
+    case "SimdScalableVector":
+      return debug_struct(f, "SimdScalableVector", [
+        ["element", debug_Scalar(v.element, f)],
+        ["count", debug_BackendLaneCount(v.count, f)],
+        ["number_of_vectors", debug_NumScalableVectors(v.number_of_vectors, f)],
+      ]);
+    case "SimdVector":
+      return debug_struct(f, "SimdVector", [
+        ["element", debug_Scalar(v.element, f)],
+        ["count", debug_BackendLaneCount(v.count, f)],
+      ]);
+    case "Memory":
+      return debug_struct(f, "Memory", [["sized", debug_bool(v.sized, f)]]);
+  }
+};
+
+/// `core::range::RangeInclusive<Idx>` (fields `start`, `last`).
+// PORT (layout-contract): local shape of the std type (src/std has no `core::range` yet); its `Debug` is
+// `{start:?}..={last:?}` (library/core/src/range.rs:262).
+export interface RangeInclusive<Idx> {
+  readonly start: Idx;
+  readonly last: Idx;
+}
+export function debug_RangeInclusive<Idx>(v: RangeInclusive<Idx>, f: Fmt, debug_Idx: Debug<Idx>): string {
+  return `${debug_Idx(v.start, f)}..=${debug_Idx(v.last, f)}`;
+}
+
+/// Describes the variants of a type.
+// NOTE: This struct is generic over the FieldIdx and VariantIdx for rust-analyzer usage.
+// #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+// PORT (layout-contract): `FieldIdx` / `VariantIdx` parameters erased (rustc's `rustc_abi::{FieldIdx, VariantIdx}`).
+export type Variants =
+  /// The type has no valid variants. Must be uninhabited.
+  ///
+  /// This is the case for:
+  /// 1. enums with no inhabited variants
+  /// 2. the never type
+  | { readonly $: "Empty" }
+
+  /// The type has a single valid variant. Such types are called "univariant".
+  ///
+  /// This is the case for:
+  /// 1. enums with a single inhabited variant, aka. "univariant enums"
+  /// 2. structs, unions, and non-ADTs (except coroutines; see below),
+  ///    as those can't have multiple variants
+  | {
+      readonly $: "Single";
+      /// - for case 1, this is the index of the inhabited variant
+      /// - for case 2, this is always `0` (a dummy value)
+      readonly index: VariantIdx;
+    }
+
+  /// The type has multiple valid variants.
+  ///
+  /// This is the case for:
+  /// 1. enums with multiple inhabited variants
+  /// 2. coroutines
+  ///
+  /// Each variant comes with a *discriminant* (usually the same as the
+  /// variant index but the user can assign explicit discriminant values).
+  /// That discriminant is encoded as a *tag* on the machine. The layout of
+  /// each variant is a struct, and they all have space reserved for the tag.
+  /// For enums, the tag is the sole field of the layout.
+  | {
+      readonly $: "Multiple";
+      readonly tag: Scalar;
+      readonly tag_encoding: TagEncoding;
+      readonly tag_field: FieldIdx;
+      readonly variants: VariantLayout[];
+    };
+export const Variants = {
+  Empty: Object.freeze({ $: "Empty" }) as Variants,
+} as const;
+/** derive(PartialEq) (PORT (layout-contract): the derived equality is the intern key's, rust_ts/intern_key.ts) */
+export function Variants_eq(a: Variants, b: Variants): boolean {
+  return intern_key(a) === intern_key(b);
+}
+// derive(Debug)
+export const debug_Variants: Debug<Variants> = (v, f) => {
+  switch (v.$) {
+    case "Empty":
+      return "Empty";
+    case "Single":
+      return debug_struct(f, "Single", [["index", debug_int(v.index, f)]]);
+    case "Multiple":
+      return debug_struct(f, "Multiple", [
+        ["tag", debug_Scalar(v.tag, f)],
+        ["tag_encoding", debug_TagEncoding(v.tag_encoding, f)],
+        ["tag_field", debug_int(v.tag_field, f)],
+        ["variants", debug_vec(v.variants, f, debug_VariantLayout)],
+      ]);
+  }
+};
+
+// NOTE: This struct is generic over the VariantIdx for rust-analyzer usage.
+// #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+export type TagEncoding =
+  /// The tag directly stores the discriminant, but possibly with a smaller layout
+  /// (so converting the tag to the discriminant can require sign extension).
+  | { readonly $: "Direct" }
+
+  /// Niche (values invalid for a type) encoding the discriminant.
+  /// Note that for this encoding, the discriminant and variant index of each variant coincide!
+  /// This invariant is codified as part of [`layout_sanity_check`](../rustc_ty_utils/layout/invariant/fn.layout_sanity_check.html).
+  ///
+  /// The variant `untagged_variant` contains a niche at an arbitrary
+  /// offset (field [`Variants::Multiple::tag_field`] of the enum).
+  /// For a variant with variant index `i`, such that `i != untagged_variant`,
+  /// the tag is set to `(i - niche_variants.start).wrapping_add(niche_start)`
+  /// (this is wrapping arithmetic using the type of the niche field, cf. the
+  /// [`tag_for_variant`](../rustc_const_eval/interpret/struct.InterpCx.html#method.tag_for_variant)
+  /// query implementation).
+  /// To recover the variant index `i` from a `tag`, the above formula has to be reversed,
+  /// i.e. `i = tag.wrapping_sub(niche_start) + niche_variants.start`. If `i` ends up outside
+  /// `niche_variants`, the tag must have encoded the `untagged_variant`.
+  ///
+  /// For example, `Option<(usize, &T)>`  is represented such that the tag for
+  /// `None` is the null pointer in the second tuple field, and
+  /// `Some` is the identity function (with a non-null reference)
+  /// and has no additional tag, i.e. the reference being non-null uniquely identifies this variant.
+  ///
+  /// Other variants that are not `untagged_variant` and that are outside the `niche_variants`
+  /// range cannot be represented; they must be uninhabited.
+  /// Nonetheless, uninhabited variants can also fall into the range of `niche_variants`.
+  | {
+      readonly $: "Niche";
+      readonly untagged_variant: VariantIdx;
+      /// This range *may* contain `untagged_variant` or uninhabited variants;
+      /// these are then just "dead values" and not used to encode anything.
+      readonly niche_variants: RangeInclusive<VariantIdx>;
+      /// This is inbounds of the type of the niche field
+      /// (not sign-extended, i.e., all bits beyond the niche field size are 0).
+      readonly niche_start: bigint;
+    };
+export const TagEncoding = {
+  Direct: Object.freeze({ $: "Direct" }) as TagEncoding,
+} as const;
+// derive(Debug)
+export const debug_TagEncoding: Debug<TagEncoding> = (v, f) => {
+  switch (v.$) {
+    case "Direct":
+      return "Direct";
+    case "Niche":
+      return debug_struct(f, "Niche", [
+        ["untagged_variant", debug_int(v.untagged_variant, f)],
+        ["niche_variants", debug_RangeInclusive(v.niche_variants, f, debug_int)],
+        ["niche_start", debug_int(v.niche_start, f)],
+      ]);
+  }
+};
+
+// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+// PORT (layout-contract): a struct with an inherent impl is a class (PORTING §5); its fields are immutable (`Copy`).
+export class Niche {
+  constructor(
+    readonly offset: Size,
+    readonly value: Primitive,
+    readonly valid_range: WrappingRange,
+  ) {}
+
+  // stub: compiler/rustc_abi/src/lib.rs:2122 from_scalar (lane abi-lib)
+  static from_scalar(_cx: HasDataLayout, _offset: Size, _scalar: Scalar): Niche | undefined {
+    return unported("rustc_abi::Niche::from_scalar");
+  }
+
+  // stub: compiler/rustc_abi/src/lib.rs:2128 available (lane abi-lib)
+  available(_cx: HasDataLayout): bigint {
+    return unported("rustc_abi::Niche::available");
+  }
+
+  // stub: compiler/rustc_abi/src/lib.rs:2139 reserve (lane abi-lib)
+  reserve(_cx: HasDataLayout, _count: bigint): [bigint, Scalar] | undefined {
+    return unported("rustc_abi::Niche::reserve");
+  }
+}
+/** derive(PartialEq) */
+export function Niche_eq(a: Niche, b: Niche): boolean {
+  return a.offset.raw === b.offset.raw && Primitive_eq(a.value, b.value) && WrappingRange_eq(a.valid_range, b.valid_range);
+}
+// derive(Debug)
+export const debug_Niche: Debug<Niche> = (v, f) =>
+  debug_struct(f, "Niche", [
+    ["offset", debug_Size(v.offset, f)],
+    ["value", debug_Primitive(v.value, f)],
+    ["valid_range", debug_WrappingRange(v.valid_range, f)],
+  ]);
+
+/// Whether niche optimizations should be performed during layout calculation.
+///
+/// [`UnsafeCell`] and [`UnsafePinned`] both disable niche optimizations.
+///
+/// [`UnsafeCell`]: std::cell::UnsafeCell
+/// [`UnsafePinned`]: std::pin::UnsafePinned
+// #[derive(PartialEq, Eq, Clone, Copy)]
+export type NicheOptimizations = "Enabled" | "Disabled";
+export const NicheOptimizations = { Enabled: "Enabled", Disabled: "Disabled" } as const;
+
+// NOTE: This struct is generic over the FieldIdx and VariantIdx for rust-analyzer usage.
+// #[derive(PartialEq, Eq, Hash, Clone)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+// PORT (layout-contract): the `FieldIdx` / `VariantIdx` parameters are erased (rustc's `rustc_abi::{FieldIdx,
+// VariantIdx}`). The constructor takes every field in declaration order (PORTING §5); upstream struct literals list
+// them in another order, so a fill lane writes `new LayoutData(fields, variants, backend_repr, largest_niche,
+// uninhabited, align, size, max_repr_align, unadjusted_abi_align, repr_c, randomization_seed)`. Fields are mutable
+// (`let mut st = ..; st.size = ..`); a `LayoutData` interned by `TyCtxt::mk_layout` is deep-frozen.
+// The fns of layout/simple.rs (`impl LayoutData` constructors) are statics here (PORTING §8): lib.ts is both the
+// defining module and the crate root, so no extension module can assign them.
+export class LayoutData {
+  constructor(
+    /// Says where the fields are located within the layout.
+    public fields: FieldsShape,
+
+    /// Encodes information about multi-variant layouts.
+    /// Even with `Multiple` variants, a layout still has its own fields! Those are then
+    /// shared between all variants. One of them will be the discriminant,
+    /// but e.g. coroutines can have more.
+    ///
+    /// To access all fields of this layout, both `fields` and the fields of the active variant
+    /// must be taken into account.
+    public variants: Variants,
+
+    /// The `backend_repr` defines how this data will be represented to the codegen backend,
+    /// and encodes value restrictions via `valid_range`.
+    ///
+    /// Note that this is entirely orthogonal to the recursive structure defined by
+    /// `variants` and `fields`; for example, `ManuallyDrop<Result<isize, isize>>` has
+    /// `IrForm::ScalarPair`! So, even with non-`Memory` `backend_repr`, `fields` and `variants`
+    /// have to be taken into account to find all fields of this layout.
+    public backend_repr: BackendRepr,
+
+    /// The leaf scalar with the largest number of invalid values
+    /// (i.e. outside of its `valid_range`), if it exists.
+    public largest_niche: Niche | undefined,
+    /// Is this type known to be uninhabted?
+    ///
+    /// This is separate from BackendRepr because uninhabited return types can affect ABI,
+    /// especially in the case of by-pointer struct returns, which allocate stack even when unused.
+    public uninhabited: boolean,
+
+    public align: AbiAlign,
+    public size: Size,
+
+    /// The largest alignment explicitly requested with `repr(align)` on this type or any field.
+    /// Only used on i686-windows, where the argument passing ABI is different when alignment is
+    /// requested, even if the requested alignment is equal to the natural alignment.
+    public max_repr_align: Align | undefined,
+
+    /// The alignment the type would have, ignoring any `repr(align)` but including `repr(packed)`.
+    /// Only used on aarch64-linux and arm, where the argument passing ABI ignores the requested
+    /// alignment in some cases.
+    public unadjusted_abi_align: Align,
+
+    /// Whether this type is `repr(C)`, or a `repr(transparent)` wrapper around such,
+    /// or an array of such.
+    /// This matters because we must follow the C ABI for these types.
+    /// Some C ABIs pass `repr(C)` ZSTs by pointer, but `repr(Rust)` ZSTs should always
+    /// be ignored.
+    public repr_c: boolean,
+
+    /// The randomization seed based on this type's own repr and its fields.
+    ///
+    /// Since randomization is toggled on a per-crate basis even crates that do not have randomization
+    /// enabled should still calculate a seed so that downstream uses can use it to distinguish different
+    /// types.
+    ///
+    /// For every T and U for which we do not guarantee that a repr(Rust) `Foo<T>` can be coerced or
+    /// transmuted to `Foo<U>` we aim to create probalistically distinct seeds so that Foo can choose
+    /// to reorder its fields based on that information. The current implementation is a conservative
+    /// approximation of this goal.
+    public randomization_seed: Hash64,
+  ) {}
+
+  // ---- impl LayoutData (lib.rs:2287) ----
+
+  /// Returns `true` if this is an aggregate type (including a ScalarPair!)
+  // stub: compiler/rustc_abi/src/lib.rs:2289 is_aggregate (lane abi-lib)
+  is_aggregate(): boolean {
+    return unported("rustc_abi::LayoutData::is_aggregate");
+  }
+
+  /// Returns `true` if this is an uninhabited type
+  // stub: compiler/rustc_abi/src/lib.rs:2299 is_uninhabited (lane abi-lib)
+  is_uninhabited(): boolean {
+    return unported("rustc_abi::LayoutData::is_uninhabited");
+  }
+
+  /// Returns `true` if the given variant is uninhabited.
+  // stub: compiler/rustc_abi/src/lib.rs:2304 is_variant_uninhabited (lane abi-lib)
+  is_variant_uninhabited(_variant: VariantIdx): boolean {
+    return unported("rustc_abi::LayoutData::is_variant_uninhabited");
+  }
+
+  /// Returns `true` if this is a `repr(C)` type,
+  /// or an array of such, or a `repr(transparent)` wrapper around such
+  // stub: compiler/rustc_abi/src/lib.rs:2316 is_repr_c (lane abi-lib)
+  is_repr_c(): boolean {
+    return unported("rustc_abi::LayoutData::is_repr_c");
+  }
+
+  // ---- impl LayoutData (lib.rs:2393) ----
+
+  /// Returns `true` if the layout corresponds to an unsized type.
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:2396 is_unsized (lane abi-lib)
+  is_unsized(): boolean {
+    return unported("rustc_abi::LayoutData::is_unsized");
+  }
+
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:2401 is_sized (lane abi-lib)
+  is_sized(): boolean {
+    return unported("rustc_abi::LayoutData::is_sized");
+  }
+
+  /// Returns `true` if the type is sized and a 1-ZST (meaning it has size 0 and alignment 1).
+  // stub: compiler/rustc_abi/src/lib.rs:2406 is_1zst (lane abi-lib)
+  is_1zst(): boolean {
+    return unported("rustc_abi::LayoutData::is_1zst");
+  }
+
+  /// Returns `true` if the size of the type is only known at runtime.
+  // stub: compiler/rustc_abi/src/lib.rs:2411 is_scalable_vector (lane abi-lib)
+  is_scalable_vector(): boolean {
+    return unported("rustc_abi::LayoutData::is_scalable_vector");
+  }
+
+  /// Returns the elements count of a scalable vector.
+  // stub: compiler/rustc_abi/src/lib.rs:2416 scalable_vector_element_count (lane abi-lib)
+  scalable_vector_element_count(): BackendLaneCount | undefined {
+    return unported("rustc_abi::LayoutData::scalable_vector_element_count");
+  }
+
+  /// Returns `true` if the type is a ZST and not unsized.
+  ///
+  /// Note that this does *not* imply that the type is irrelevant for layout! It can still have
+  /// non-trivial alignment constraints. You probably want to use `is_1zst` instead.
+  // stub: compiler/rustc_abi/src/lib.rs:2427 is_zst (lane abi-lib)
+  is_zst(): boolean {
+    return unported("rustc_abi::LayoutData::is_zst");
+  }
+
+  /// In the backend, a value with this type and layout is fully represented by
+  /// its SSA value(s), independent of the contents of memory.
+  ///
+  /// For example, you can swap by reading both then writing both without using
+  /// an alloca because the store of one cannot affect the value of the other.
+  ///
+  /// Any projection into a standalone type must also yield a standalone type,
+  /// since it might not be in memory at all.
+  // #[inline]
+  // stub: compiler/rustc_abi/src/lib.rs:2446 is_ssa_standalone (lane abi-lib)
+  is_ssa_standalone(): boolean {
+    return unported("rustc_abi::LayoutData::is_ssa_standalone");
+  }
+
+  /// Checks if these two `Layout` are equal enough to be considered "the same for all function
+  /// call ABIs". Note however that real ABIs depend on more details that are not reflected in the
+  /// `Layout`; the `PassMode` need to be compared as well. Also note that we assume
+  /// aggregates are passed via `PassMode::Indirect`, `PassMode::IndirectUnsized` or
+  /// `PassMode::Cast`; more strict checks would otherwise be required.
+  // stub: compiler/rustc_abi/src/lib.rs:2461 eq_abi (lane abi-lib)
+  eq_abi(_other: LayoutData): boolean {
+    return unported("rustc_abi::LayoutData::eq_abi");
+  }
+
+  // ---- layout/simple.rs: impl LayoutData (PORTING §8: statics in the class body) ----
+
+  // stub: compiler/rustc_abi/src/layout/simple.rs:13 unit (lane abi-layout-b)
+  static unit(_cx: HasDataLayout, _sized: boolean): LayoutData {
+    return unported("rustc_abi::layout::simple::LayoutData::unit");
+  }
+
+  // stub: compiler/rustc_abi/src/layout/simple.rs:33 never_type (lane abi-layout-b)
+  static never_type(_cx: HasDataLayout): LayoutData {
+    return unported("rustc_abi::layout::simple::LayoutData::never_type");
+  }
+
+  // stub: compiler/rustc_abi/src/layout/simple.rs:51 scalar (lane abi-layout-b)
+  static scalar(_cx: HasDataLayout, _scalar: Scalar): LayoutData {
+    return unported("rustc_abi::layout::simple::LayoutData::scalar");
+  }
+
+  // stub: compiler/rustc_abi/src/layout/simple.rs:94 scalar_pair (lane abi-layout-b)
+  static scalar_pair(_cx: HasDataLayout, _a: Scalar, _b: Scalar): LayoutData {
+    return unported("rustc_abi::layout::simple::LayoutData::scalar_pair");
+  }
+
+  // stub: compiler/rustc_abi/src/layout/simple.rs:132 uninhabited_variant (lane abi-layout-b)
+  static uninhabited_variant(_cx: HasDataLayout, _index: VariantIdx, _fields: number): LayoutData {
+    return unported("rustc_abi::layout::simple::LayoutData::uninhabited_variant");
+  }
+
+  // stub: compiler/rustc_abi/src/layout/simple.rs:158 for_variant (lane abi-layout-b)
+  static for_variant(_parent: LayoutData, _index: VariantIdx): LayoutData {
+    return unported("rustc_abi::layout::simple::LayoutData::for_variant");
+  }
+}
+/** derive(PartialEq) (PORT (layout-contract): the derived equality is the intern key's, rust_ts/intern_key.ts) */
+export function LayoutData_eq(a: LayoutData, b: LayoutData): boolean {
+  return intern_key(a) === intern_key(b);
+}
+// impl<FieldIdx: Idx, VariantIdx: Idx> fmt::Debug for LayoutData<FieldIdx, VariantIdx>
+// rustc: compiler/rustc_abi/src/lib.rs:2326 fmt
+export const debug_LayoutData: Debug<LayoutData> = (self, f) => {
+  // This is how `Layout` used to print before it become
+  // `Interned<LayoutData>`. We print it like this to avoid having to update
+  // expected output in a lot of tests.
+  const {
+    size,
+    align,
+    backend_repr,
+    fields,
+    largest_niche,
+    uninhabited,
+    variants,
+    max_repr_align,
+    unadjusted_abi_align,
+    repr_c,
+    randomization_seed,
+  } = self;
+  return debug_struct(f, "Layout", [
+    ["size", debug_Size(size, f)],
+    ["align", debug_AbiAlign(align, f)],
+    ["backend_repr", debug_BackendRepr(backend_repr, f)],
+    ["fields", debug_FieldsShape(fields, f)],
+    ["largest_niche", debug_option(largest_niche, f, debug_Niche)],
+    ["uninhabited", debug_bool(uninhabited, f)],
+    ["variants", debug_Variants(variants, f)],
+    ["max_repr_align", debug_option(max_repr_align, f, debug_Align)],
+    ["unadjusted_abi_align", debug_Align(unadjusted_abi_align, f)],
+    ["repr_c", debug_bool(repr_c, f)],
+    ["randomization_seed", debug_Hash64(randomization_seed, f)],
+  ]);
+};
+
+// #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+export type PointerKind =
+  /// Shared reference. `frozen` indicates the absence of any `UnsafeCell`.
+  | { readonly $: "SharedRef"; readonly frozen: boolean }
+  /// Mutable reference. `unpin` indicates the absence of any pinned data.
+  | { readonly $: "MutableRef"; readonly unpin: boolean }
+  /// Box. `unpin` indicates the absence of any pinned data. `global` indicates whether this box
+  /// uses the global allocator or a custom one.
+  | { readonly $: "Box"; readonly unpin: boolean; readonly global: boolean };
+// derive(Debug)
+export const debug_PointerKind: Debug<PointerKind> = (v, f) => {
+  switch (v.$) {
+    case "SharedRef":
+      return debug_struct(f, "SharedRef", [["frozen", debug_bool(v.frozen, f)]]);
+    case "MutableRef":
+      return debug_struct(f, "MutableRef", [["unpin", debug_bool(v.unpin, f)]]);
+    case "Box":
+      return debug_struct(f, "Box", [
+        ["unpin", debug_bool(v.unpin, f)],
+        ["global", debug_bool(v.global, f)],
+      ]);
+  }
+};
+
+/// Encodes extra information we have about a pointer.
+///
+/// Note that this information is advisory only, and backends are free to ignore it:
+/// if the information is wrong, that can cause UB, but if the information is absent,
+/// that must always be okay.
+// #[derive(Copy, Clone, Debug)]
+export interface PointeeInfo {
+  /// If this is `None`, then this is a raw pointer.
+  readonly safe: PointerKind | undefined;
+  /// If `size` is not zero, then the pointer is either null or dereferenceable for this many bytes
+  /// (independent of `safe`).
+  ///
+  /// "Dereferenceable" means that it's sound to add a speculative (spurious) read of the pointer.
+  /// The backend is free to add such reads at will. (This is useful to hoist pointer reads out of
+  /// loops without proving that the loop executes at least once, for example.)
+  ///
+  /// This can be used in both argument and return position, in both cases it means
+  /// "dereferenceable right now" (function entry/return) (but could be freed any time later).
+  readonly size: Size;
+  /// The pointer is guaranteed to be aligned this much (independent of `safe`).
+  readonly align: Align;
+}
+// derive(Debug)
+export const debug_PointeeInfo: Debug<PointeeInfo> = (v, f) =>
+  debug_struct(f, "PointeeInfo", [
+    ["safe", debug_option(v.safe, f, debug_PointerKind)],
+    ["size", debug_Size(v.size, f)],
+    ["align", debug_Align(v.align, f)],
+  ]);
+
+// #[derive(Copy, Clone, Debug)]
+export type StructKind =
+  /// A tuple, closure, or univariant which cannot be coerced to unsized.
+  | { readonly $: "AlwaysSized" }
+  /// A univariant, the last field of which may be coerced to unsized.
+  | { readonly $: "MaybeUnsized" }
+  /// A univariant, but with a prefix of an arbitrary size & alignment (e.g., enum tag).
+  | { readonly $: "Prefixed"; readonly _0: Size; readonly _1: Align };
+export const StructKind = {
+  AlwaysSized: Object.freeze({ $: "AlwaysSized" }) as StructKind,
+  MaybeUnsized: Object.freeze({ $: "MaybeUnsized" }) as StructKind,
+} as const;
+// derive(Debug)
+export const debug_StructKind: Debug<StructKind> = (v, f) => {
+  switch (v.$) {
+    case "AlwaysSized":
+      return "AlwaysSized";
+    case "MaybeUnsized":
+      return "MaybeUnsized";
+    case "Prefixed":
+      return debug_tuple(f, "Prefixed", [debug_Size(v._0, f), debug_Align(v._1, f)]);
+  }
+};
+
+// #[derive(Clone, Debug)]
+export type AbiFromStrErr =
+  /// not a known ABI
+  | "Unknown"
+  /// no "-unwind" variant can be used here
+  | "NoExplicitUnwind";
+// derive(Debug)
+export const debug_AbiFromStrErr: Debug<AbiFromStrErr> = (v) => v;
+
+/// The layout information for a variant.
+///
+/// For items with multiple variants ([`Variants::Multiple`]), the layout information of each
+/// variant largely matches that of the overall item. So, instead of giving each one a new [`LayoutData`],
+/// we use this struct, which stores only the information that differs between the variants.
+///
+/// See <https://github.com/rust-lang/rust/issues/113988> for more context.
+// NOTE: This struct is generic over the FieldIdx for rust-analyzer usage.
+// #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+// #[cfg_attr(feature = "nightly", derive(StableHash))]
+// PORT (layout-contract): the `FieldIdx` parameter is erased; the private fields are public (TS has no module privacy).
+export class VariantLayout {
+  constructor(
+    // FIXME: ideally we'd remove these as variants should not have their own
+    // size or backend_repr.
+    public size: Size,
+    public backend_repr: BackendRepr,
+
+    public field_offsets: Size[],
+    public fields_in_memory_order: FieldIdx[],
+    public largest_niche: Niche | undefined,
+    public uninhabited: boolean,
+  ) {}
+
+  // PORT (layout-contract): `layout: LayoutData<FieldIdx, impl Idx>` is a `LayoutData`.
+  // stub: compiler/rustc_abi/src/lib.rs:2516 from_layout (lane abi-lib)
+  static from_layout(_layout: LayoutData): VariantLayout {
+    return unported("rustc_abi::VariantLayout::from_layout");
+  }
+
+  // stub: compiler/rustc_abi/src/lib.rs:2531 is_uninhabited (lane abi-lib)
+  is_uninhabited(): boolean {
+    return unported("rustc_abi::VariantLayout::is_uninhabited");
+  }
+
+  // stub: compiler/rustc_abi/src/lib.rs:2535 has_fields (lane abi-lib)
+  has_fields(): boolean {
+    return unported("rustc_abi::VariantLayout::has_fields");
+  }
+}
+// derive(Debug)
+export const debug_VariantLayout: Debug<VariantLayout> = (v, f) =>
+  debug_struct(f, "VariantLayout", [
+    ["size", debug_Size(v.size, f)],
+    ["backend_repr", debug_BackendRepr(v.backend_repr, f)],
+    ["field_offsets", debug_vec(v.field_offsets, f, debug_Size)],
+    ["fields_in_memory_order", debug_vec(v.fields_in_memory_order, f, debug_int)],
+    ["largest_niche", debug_option(v.largest_niche, f, debug_Niche)],
+    ["uninhabited", debug_bool(v.uninhabited, f)],
+  ]);
 
 // compiler/rustc_abi/src/extern_abi.rs (subset)
 

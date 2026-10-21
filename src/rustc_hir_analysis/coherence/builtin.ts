@@ -478,7 +478,7 @@ function visit_implementation_of_dispatch_from_dyn(checker: Checker): Result<nul
         // Allowing type params here would allow us to possibly transmute
         // between ZSTs, which may be used to create library unsoundness.
         const layout = tcx.layout_of(infcx.typing_env(param_env).as_query_input(ty_a));
-        if (layout.$ === "Ok" && LayoutData_is_1zst(layout._0) && !TypeVisitableExt.has_non_region_param(ty_a, fold_Ty)) {
+        if (layout.$ === "Ok" && layout._0.is_1zst() && !TypeVisitableExt.has_non_region_param(ty_a, fold_Ty)) {
           // ignore 1-ZST fields
           continue;
         }
@@ -1113,14 +1113,5 @@ function cmp_String(a: string, b: string): number {
 // ---- stand-ins: pending types and other lanes' items -----------------------------------------------------------------
 
 
-/** PORT(stub): `rustc_abi::LayoutData::is_zst` (layout is M4). */
-export function LayoutData_is_zst(_layout: unknown): boolean {
-  return unported("rustc_abi::LayoutData::is_zst");
-}
-
-/** PORT(stub): `rustc_abi::LayoutData::is_1zst` (layout is M4). */
-export function LayoutData_is_1zst(_layout: unknown): boolean {
-  return unported("rustc_abi::LayoutData::is_1zst");
-}
 
 

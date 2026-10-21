@@ -42,11 +42,6 @@ function tls(): typeof import("../context/tls.ts") {
 
 /** PORT: `rustc_abi::FIRST_VARIANT` (`VariantIdx::ZERO`). */
 const FIRST_VARIANT = 0 as VariantIdx;
-/** PORT: stand-in for `TypingEnv::with_post_analysis_normalized(tcx).as_query_input(ty)` + `tcx.layout_of(..)` (ty/mod.rs,
- *  ty/layout.rs): layouts are M4. Returns the layout's `size` or `undefined` for `Err`. */
-function layout_size_of(_tcx: TyCtxt, _typing_env: TypingEnv, _ty: Ty): Size | undefined {
-  return unported("rustc_middle::ty::layout::LayoutOf::layout_of (TypingEnv::as_query_input; layouts are M4)");
-}
 /** PORT: `Scalar::Int(int)` (mir/interpret/value.rs:25, M4): the variant's PORTING §5 shape. */
 function Scalar_Int(int: ScalarInt): Scalar {
   return { $: "Int", _0: int } as unknown as Scalar;
@@ -184,8 +179,10 @@ export const Value = {
     }
     const scalar = Value.try_to_leaf(self);
     if (scalar === undefined) return undefined;
-    const size = layout_size_of(tcx, typing_env, self.ty);
-    if (size === undefined) return undefined;
+    const input = typing_env.with_post_analysis_normalized(tcx).as_query_input(self.ty);
+    const layout = tcx.layout_of(input);
+    if (layout.$ === "Err") return undefined;
+    const size = layout._0.size;
     return scalar.to_bits(size);
   },
 

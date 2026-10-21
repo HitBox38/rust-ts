@@ -1,0 +1,15 @@
+{
+  "//": [
+    "Type-map additions of lane layout-contract (read by tools/codegen/types.ts loadTypeMap and tools/codegen/queries.ts),",
+    "merged after typemap.json. rustc_middle ty/layout.ts is an extension module (docs/handoff/ty-contract.md \"Init order\"):",
+    "generated modules (queries.gen.ts) must not import it as a value, so these entries name only types (Debug: null)."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {},
+  "types": [
+    { "paths": ["rustc_middle::ty::layout::TyAndLayout"], "ts": "TyAndLayout", "import": "src/rustc_middle/ty/layout.ts", "types": ["TyAndLayout"], "debug": null, "clone": "copy", "note": "`rustc_abi::TyAndLayout<'tcx, Ty<'tcx>>` (Debug: ty/layout.ts `debug_TyAndLayout_Ty`, not importable here)" },
+    { "paths": ["rustc_middle::ty::layout::LayoutError"], "ts": "LayoutError", "import": "src/rustc_middle/ty/layout.ts", "types": ["LayoutError"], "debug": null, "clone": "copy", "note": "Debug: ty/layout.ts `debug_LayoutError` (not importable here)" },
+    { "paths": ["rustc_middle::ty::layout::FnAbiError"], "ts": "FnAbiError", "import": "src/rustc_middle/ty/layout.ts", "types": ["FnAbiError"], "debug": null, "clone": "copy", "note": "Debug: ty/layout.ts `debug_FnAbiError` (not importable here)" },
+    { "paths": ["rustc_middle::ty::layout::ValidityRequirement"], "ts": "ValidityRequirement", "import": "src/rustc_middle/ty/layout.ts", "types": ["ValidityRequirement"], "debug": null, "clone": "copy", "note": "Debug: ty/layout.ts `debug_ValidityRequirement` (not importable here)" }
+  ]
+}
