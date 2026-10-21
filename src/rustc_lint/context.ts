@@ -8,8 +8,9 @@
 // PORT: `LintContext` (a trait with an associated `LintExpectationId` type) is an interface; its provided methods
 // live in `LintContext_provided` (PORTING §8) and `EarlyContext` / `LateContext` forward to them. The
 // `Self::LintExpectationId: Into<LintExpectationId>` bound is the interface member `into_lint_expectation_id`.
-// PORT: the `LateContext` methods need the HIR and `rustc_middle::ty` (M3): their bodies stop at the first
-// missing piece with `unported(..)`.
+// PORT: `LateContext::typeck_results()` (the method) is `typeck_results_()`; the `HasTyCtxt` / `HasTypingEnv` impls
+// are `tcx_()` / `typing_env_()` (the field `tcx` and the inherent `typing_env` keep the upstream names).
+// `LintPathPrinter` extends rustc_middle's `Printer`; its `tcx` field is `tcx_` (the trait method is `tcx()`).
 import type { TargetDataLayout } from "../rustc_abi/lib.ts";
 import type { Features } from "../rustc_feature/unstable.ts";
 import { type Diagnostic, type IntoMultiSpan, LintBuffer, into_MultiSpan } from "../rustc_errors/lib.ts";
@@ -27,14 +28,49 @@ import {
 import type { LevelSpec, StableLevelSpec, UnstableLevelSpec } from "../rustc_middle/lint.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { CrateNum, DefId } from "../rustc_span/def_id.ts";
-import type { HirId } from "../rustc_hir_id/lib.ts";
+import { type HirId, OwnerId_eq } from "../rustc_hir_id/lib.ts";
+import { BindingMode, BindingMode_eq } from "../rustc_ast/lib.ts";
+import type { ExprPrecedence } from "../rustc_ast/util/parser.ts";
+import { Attribute } from "../rustc_attr_ir/attr.ts";
+import { Res } from "../rustc_hir/def.ts";
+import type * as hir from "../rustc_hir/hir.ts";
+import { DefPathData, type DisambiguatedDefPathData, display_DefPathData } from "../rustc_hir_id/definitions.ts";
+import type { EffectiveVisibilities } from "../rustc_middle/middle/privacy.ts";
+import { AssocItems, AssocTag } from "../rustc_middle/ty/assoc.ts";
+import { GenericArg } from "../rustc_middle/ty/generic_args.ts";
+import type { List } from "../rustc_middle/ty/list.ts";
+import { type ParamEnv, Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
+import type { PolyExistentialPredicate } from "../rustc_middle/ty/predicate.ts";
+import { PRINT_OK, type PrintError, type PrintResult, Printer } from "../rustc_middle/ty/print/mod.ts";
+import {
+  display_TraitRefPrintOnlyTraitPath,
+  display_Ty,
+  TraitRef_print_only_trait_path,
+  with_no_trimmed_paths,
+} from "../rustc_middle/ty/print/pretty.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
+import { TypingMode } from "../rustc_type_ir/infer_ctxt.ts";
+import { debug_TraitRef } from "../rustc_type_ir/ir_print.ts";
+import { as_interner, type TraitRef } from "../rustc_type_ir/predicate.ts";
+import type { Const, Region } from "../rustc_type_ir/sty/mod.ts";
+import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
+import { type Result, unwrap_result } from "../std/result.ts";
+import {
+  type LayoutError,
+  LayoutOf_provided,
+  LayoutOfHelpers_provided,
+  type MaybeResult,
+  MaybeResult_Result,
+  type TyAndLayout,
+} from "../rustc_middle/ty/layout.ts";
 import type { DynLintStore, LintGroup as SessionLintGroup, Session } from "../rustc_session/session.ts";
 import { find_best_match_for_names } from "../rustc_span/edit_distance.ts";
 import { Edition } from "../rustc_span/edition.ts";
 import { Ident, Symbol, debug_Symbol, sym } from "../rustc_span/symbol.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { is_uppercase } from "../std/char.ts";
-import { type Debug, debug_option, debug_str, debug_tuple, debug_vec } from "../std/fmt.ts";
+import { type Debug, debug_option, debug_str, debug_tuple, debug_vec, PLAIN } from "../std/fmt.ts";
 import { panic, unported, unreachable } from "../std/panic.ts";
 import { str_to_lowercase } from "../std/unicode/str_case.ts";
 import { LintLevelsBuilder, type TopDown } from "./levels.ts";
@@ -538,21 +574,21 @@ export class LateContext implements LintContext<StableLintExpectationId> {
     public tcx: TyCtxt,
 
     /// Current body, or `None` if outside a body.
-    public enclosing_body: unknown | undefined,
+    public enclosing_body: hir.BodyId | undefined,
 
     /// Type-checking results for the current body.
-    public typeck_results: unknown | undefined,
+    public typeck_results: TypeckResults | undefined,
 
     /// Parameter environment for the item we are in.
-    public param_env: unknown,
+    public param_env: ParamEnv,
 
     /// Items accessible from the crate being checked.
-    public effective_visibilities: unknown,
+    public effective_visibilities: EffectiveVisibilities,
 
     public last_node_with_lint_attrs: HirId,
 
     /// Generic type parameters in scope for the item we are in.
-    public generics: unknown | undefined,
+    public generics: hir.Generics | undefined,
 
     /// We are only looking at one module
     public only_module: boolean,
@@ -596,23 +632,29 @@ export class LateContext implements LintContext<StableLintExpectationId> {
   /// The typing mode of the currently visited node. Use this when
   /// building a new `InferCtxt`.
   // rustc: compiler/rustc_lint/src/context.rs:628 typing_mode
-  typing_mode(): unknown {
-    return unported("rustc_lint::context::LateContext::typing_mode (rustc_middle::ty::TypingMode, M3)");
+  typing_mode(): TypingMode {
+    const body_id = this.enclosing_body;
+    if (body_id !== undefined && this.tcx.use_typing_mode_post_typeck_until_borrowck()) {
+      const def_id = this.tcx.hir_enclosing_body_owner(body_id.hir_id);
+      return TypingMode.post_borrowck_analysis(as_interner(this.tcx), def_id);
+    } else {
+      return TypingMode.non_body_analysis();
+    }
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:639 typing_env
-  typing_env(): unknown {
-    return unported("rustc_lint::context::LateContext::typing_env (rustc_middle::ty::TypingEnv, M3)");
+  typing_env(): TypingEnv {
+    return TypingEnv.new(this.param_env, this.typing_mode());
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:643 type_is_copy_modulo_regions
-  type_is_copy_modulo_regions(_ty: unknown): boolean {
-    return unported("rustc_middle::ty::TyCtxt::type_is_copy_modulo_regions (M3)");
+  type_is_copy_modulo_regions(ty: Ty): boolean {
+    return this.tcx.type_is_copy_modulo_regions(this.typing_env(), ty);
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:647 type_is_use_cloned_modulo_regions
-  type_is_use_cloned_modulo_regions(_ty: unknown): boolean {
-    return unported("rustc_middle::ty::TyCtxt::type_is_use_cloned_modulo_regions (M3)");
+  type_is_use_cloned_modulo_regions(ty: Ty): boolean {
+    return this.tcx.type_is_use_cloned_modulo_regions(this.typing_env(), ty);
   }
 
   /// Gets the type-checking results for the current body.
@@ -620,9 +662,10 @@ export class LateContext implements LintContext<StableLintExpectationId> {
   /// `Expr` or `Pat` nodes (they are guaranteed to be found only in bodies).
   // #[inline]
   // #[track_caller]
+  // PORT: the method is `typeck_results_` (the field keeps the upstream name `typeck_results`).
   // rustc: compiler/rustc_lint/src/context.rs:656 typeck_results
-  typeck_results_(): unknown {
-    if (this.typeck_results === undefined) panic("`LateContext::typeck_results` called outside of body");
+  typeck_results_(): TypeckResults {
+    if (this.typeck_results === undefined) return panic("`LateContext::typeck_results` called outside of body");
     return this.typeck_results;
   }
 
@@ -630,8 +673,20 @@ export class LateContext implements LintContext<StableLintExpectationId> {
   /// Unlike `.typeck_results().qpath_res(qpath, id)`, this can be used even outside
   /// bodies (e.g. for paths in `hir::Ty`), without any risk of ICE-ing.
   // rustc: compiler/rustc_lint/src/context.rs:663 qpath_res
-  qpath_res(_qpath: unknown, _id: HirId): unknown {
-    return unported("rustc_lint::context::LateContext::qpath_res (hir::QPath, M3)");
+  qpath_res(qpath: hir.QPath, id: HirId): Res {
+    switch (qpath.$) {
+      case "Resolved":
+        return qpath._1.res;
+      case "TypeRelative": {
+        let typeck_results: TypeckResults | undefined =
+          this.typeck_results !== undefined && OwnerId_eq(this.typeck_results.hir_owner, id.owner) ? this.typeck_results : undefined;
+        if (typeck_results === undefined) {
+          typeck_results = this.tcx.has_typeck_results(id.owner.def_id) ? (this.tcx.typeck(id.owner.def_id) as TypeckResults) : undefined;
+        }
+        const r = typeck_results === undefined ? undefined : typeck_results.type_dependent_def(id);
+        return r === undefined ? Res.Err : { $: "Def", _0: r[0], _1: r[1] };
+      }
+    }
   }
 
   /// Gets the absolute path of `def_id` as a vector of `Symbol`.
@@ -647,23 +702,37 @@ export class LateContext implements LintContext<StableLintExpectationId> {
   // rustc: compiler/rustc_lint/src/context.rs:698 get_def_path
   get_def_path(def_id: DefId): Symbol[] {
     const p = new LintPathPrinter(this.tcx, []);
-    p.print_def_path(def_id, []);
+    unwrap_result(p.print_def_path(def_id, []), debug_PrintError);
     return p.path;
   }
 
   /// Returns the associated type `name` for `self_ty` as an implementation of `trait_id`.
   /// Do not invoke without first verifying that the type implements the trait.
   // rustc: compiler/rustc_lint/src/context.rs:814 get_associated_type
-  get_associated_type(_self_ty: unknown, _trait_id: DefId, _name: Symbol): unknown {
-    return unported("rustc_lint::context::LateContext::get_associated_type (tcx.associated_items, M3)");
+  get_associated_type(self_ty: Ty, trait_id: DefId, name: Symbol): Ty | undefined {
+    const tcx = this.tcx;
+    const assoc = AssocItems.find_by_ident_and_kind(
+      tcx.associated_items(trait_id) as AssocItems,
+      tcx,
+      Ident.with_dummy_span(name),
+      AssocTag.Type,
+      trait_id,
+    );
+    if (assoc === undefined) return undefined;
+    const proj = Ty.new_projection(tcx, "No", assoc.def_id, [GenericArg.from_Ty(self_ty)]);
+    const r = tcx.try_normalize_erasing_regions(this.typing_env(), Unnormalized.new_wip(proj), fold_Ty);
+    return r.$ === "Ok" ? r._0 : undefined;
   }
 
   /// Returns the effective precedence of an expression for the purpose of
   /// rendering diagnostic. This is not the same as the precedence that would
   /// be used for pretty-printing HIR by rustc_hir_pretty.
   // rustc: compiler/rustc_lint/src/context.rs:833 precedence
-  precedence(_expr: unknown): unknown {
-    return unported("rustc_lint::context::LateContext::precedence (hir::Expr::precedence, M3)");
+  precedence(expr: hir.Expr): ExprPrecedence {
+    const has_attr = (id: HirId): boolean => {
+      return this.tcx.hir_attrs(id).some((a) => Attribute.is_prefix_attr_for_suggestions(a));
+    };
+    return expr.precedence(has_attr);
   }
 
   /// If the given expression is a local binding, find the initializer expression.
@@ -671,9 +740,50 @@ export class LateContext implements LintContext<StableLintExpectationId> {
   ///
   /// This process repeats as long as possible (but usually no more than once).
   /// Type-check adjustments are not taken in account in this function.
+  ///
+  /// Examples:
+  /// ```
+  /// let abc = 1;
+  /// let def = abc + 2;
+  /// //        ^^^^^^^ output
+  /// let def = def;
+  /// dbg!(def);
+  /// //   ^^^ input
+  /// ```
   // rustc: compiler/rustc_lint/src/context.rs:858 expr_or_init
-  expr_or_init(_expr: unknown): unknown {
-    return unported("rustc_lint::context::LateContext::expr_or_init (hir::Expr::peel_blocks, M3)");
+  expr_or_init(expr: hir.Expr): hir.Expr {
+    expr = expr.peel_blocks();
+
+    for (;;) {
+      if (expr.kind.$ !== "Path") break;
+      const qpath = expr.kind._0;
+      const res = this.qpath_res(qpath, expr.hir_id);
+      let parent_node: hir.Node | undefined;
+      switch (res.$) {
+        case "Local":
+          parent_node = this.tcx.parent_hir_node(res._0);
+          break;
+        default:
+          parent_node = undefined;
+      }
+      if (parent_node === undefined) break;
+      let init: hir.Expr | undefined;
+      if (parent_node.$ === "Expr") {
+        init = parent_node._0;
+      } else if (
+        parent_node.$ === "LetStmt" &&
+        // Binding is immutable, init cannot be re-assigned
+        parent_node._0.pat.kind.$ === "Binding" &&
+        BindingMode_eq(parent_node._0.pat.kind._0, BindingMode.NONE)
+      ) {
+        init = parent_node._0.init;
+      } else {
+        init = undefined;
+      }
+      if (init === undefined) break;
+      expr = init.peel_blocks();
+    }
+    return expr;
   }
 
   /// If the given expression is a local binding, find the initializer expression.
@@ -682,9 +792,69 @@ export class LateContext implements LintContext<StableLintExpectationId> {
   ///
   /// This process repeats as long as possible (but usually no more than once).
   /// Type-check adjustments are not taken in account in this function.
+  ///
+  /// Examples:
+  /// ```
+  /// const ABC: i32 = 1;
+  /// //               ^ output
+  /// let def = ABC;
+  /// dbg!(def);
+  /// //   ^^^ input
+  ///
+  /// // or...
+  /// let abc = 1;
+  /// let def = abc + 2;
+  /// //        ^^^^^^^ output
+  /// dbg!(def);
+  /// //   ^^^ input
+  /// ```
   // rustc: compiler/rustc_lint/src/context.rs:904 expr_or_init_with_outside_body
-  expr_or_init_with_outside_body(_expr: unknown): unknown {
-    return unported("rustc_lint::context::LateContext::expr_or_init_with_outside_body (hir::Expr::peel_blocks, M3)");
+  expr_or_init_with_outside_body(expr: hir.Expr): hir.Expr {
+    expr = expr.peel_blocks();
+
+    for (;;) {
+      if (expr.kind.$ !== "Path") break;
+      const qpath = expr.kind._0;
+      const res = this.qpath_res(qpath, expr.hir_id);
+      let parent_node: hir.Node | undefined;
+      switch (res.$) {
+        case "Local":
+          parent_node = this.tcx.parent_hir_node(res._0);
+          break;
+        case "Def":
+          parent_node = this.tcx.hir_get_if_local(res._1);
+          break;
+        default:
+          parent_node = undefined;
+      }
+      if (parent_node === undefined) break;
+      let init: hir.Expr | undefined;
+      if (parent_node.$ === "Expr") {
+        init = parent_node._0;
+      } else if (
+        parent_node.$ === "LetStmt" &&
+        // Binding is immutable, init cannot be re-assigned
+        parent_node._0.pat.kind.$ === "Binding" &&
+        BindingMode_eq(parent_node._0.pat.kind._0, BindingMode.NONE)
+      ) {
+        init = parent_node._0.init;
+      } else if (parent_node.$ === "Item") {
+        const kind = parent_node._0.kind;
+        // FIXME(mgca): figure out how to handle ConstArgKind::Path (or don't but add warning in docs here)
+        if (kind.$ === "Const" && kind._3.$ === "Body") {
+          init = this.tcx.hir_body(kind._3._0).value;
+        } else if (kind.$ === "Static") {
+          init = this.tcx.hir_body(kind._3).value;
+        } else {
+          init = undefined;
+        }
+      } else {
+        init = undefined;
+      }
+      if (init === undefined) break;
+      expr = init.peel_blocks();
+    }
+    return expr;
   }
 
   /** `impl HasDataLayout for LateContext` */
@@ -704,81 +874,136 @@ export class LateContext implements LintContext<StableLintExpectationId> {
   /** `impl HasTypingEnv for LateContext` */
   // #[inline]
   // rustc: compiler/rustc_lint/src/context.rs:955 typing_env
-  typing_env_(): unknown {
+  typing_env_(): TypingEnv {
     return this.typing_env();
   }
 
-  /** `impl LayoutOfHelpers for LateContext` */
+  // ---- impl<'tcx> LayoutOfHelpers<'tcx> for LateContext<'tcx> ----
+  // type LayoutOfResult = Result<TyAndLayout<'tcx>, LayoutError<'tcx>>;
+  get LayoutOfResult(): MaybeResult<TyAndLayout, Result<TyAndLayout, LayoutError>, LayoutError> {
+    return MaybeResult_Result;
+  }
+
+  // (provided) ty/layout.rs:740 layout_tcx_at_span -> LayoutOfHelpers_provided.layout_tcx_at_span
+  layout_tcx_at_span(): Span {
+    return LayoutOfHelpers_provided.layout_tcx_at_span(this);
+  }
+
   // #[inline]
   // rustc: compiler/rustc_lint/src/context.rs:964 handle_layout_err
-  handle_layout_err(err: unknown, _: Span, __: unknown): unknown {
+  handle_layout_err(err: LayoutError, _: Span, __: Ty): LayoutError {
     return err;
+  }
+
+  // ---- impl<'tcx, C: LayoutOfHelpers<'tcx>> LayoutOf<'tcx> for C {} ----
+  // (provided) ty/layout.rs:764 layout_of -> LayoutOf_provided.layout_of
+  layout_of(ty: Ty): Result<TyAndLayout, LayoutError> {
+    return LayoutOf_provided.layout_of(this, ty);
+  }
+  // (provided) ty/layout.rs:773 spanned_layout_of -> LayoutOf_provided.spanned_layout_of
+  spanned_layout_of(ty: Ty, span: Span): Result<TyAndLayout, LayoutError> {
+    return LayoutOf_provided.spanned_layout_of(this, ty, span);
   }
 }
 
-/** `struct LintPathPrinter` local to `LateContext::get_def_path` (`impl Printer`). */
-// PORT: the `Printer` trait (rustc_middle::ty::print) is not ported (M3); `print_def_path` is unported.
-class LintPathPrinter {
-  constructor(
-    public tcx: TyCtxt,
-    public path: Symbol[],
-  ) {}
+/** `#[derive(Debug)]` of `PrintError` (as rustc_middle ty/error.ts). */
+const debug_PrintError: Debug<PrintError> = () => "Error";
 
-  /** `Printer::print_def_path` (provided; rustc_middle ty/print/mod.rs). */
-  print_def_path(_def_id: DefId, _args: readonly unknown[]): void {
-    unported("rustc_middle::ty::print::Printer::print_def_path (M3)");
+/** `struct LintPathPrinter` local to `LateContext::get_def_path` (`impl Printer`). */
+class LintPathPrinter extends Printer {
+  constructor(
+    public tcx_: TyCtxt,
+    public path: Symbol[],
+  ) {
+    super();
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:705 tcx
-  tcx_(): TyCtxt {
-    return this.tcx;
+  tcx(): TyCtxt {
+    return this.tcx_;
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:709 print_region
-  print_region(_region: unknown): void {
-    unreachable(); // because `print_path_with_generic_args` ignores the `GenericArgs`
+  print_region(_region: Region): PrintResult {
+    return unreachable(); // because `print_path_with_generic_args` ignores the `GenericArgs`
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:713 print_type
-  print_type(_ty: unknown): void {
-    unreachable(); // because `print_path_with_generic_args` ignores the `GenericArgs`
+  print_type(_ty: Ty): PrintResult {
+    return unreachable(); // because `print_path_with_generic_args` ignores the `GenericArgs`
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:717 print_dyn_existential
-  print_dyn_existential(_predicates: unknown): void {
-    unreachable(); // because `print_path_with_generic_args` ignores the `GenericArgs`
+  print_dyn_existential(_predicates: List<PolyExistentialPredicate>): PrintResult {
+    return unreachable(); // because `print_path_with_generic_args` ignores the `GenericArgs`
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:724 print_const
-  print_const(_ct: unknown): void {
-    unreachable(); // because `print_path_with_generic_args` ignores the `GenericArgs`
+  print_const(_ct: Const): PrintResult {
+    return unreachable(); // because `print_path_with_generic_args` ignores the `GenericArgs`
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:728 print_crate_name
-  print_crate_name(cnum: unknown): void {
-    this.path = [this.tcx.crate_name(cnum as CrateNum)];
+  print_crate_name(cnum: CrateNum): PrintResult {
+    this.path = [this.tcx_.crate_name(cnum)];
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:733 print_path_with_qualified
-  print_path_with_qualified(_self_ty: unknown, _trait_ref: unknown): void {
-    unported("rustc_lint::context::LintPathPrinter::print_path_with_qualified (ty::Adt, M3)");
+  print_path_with_qualified(self_ty: Ty, trait_ref: TraitRef | undefined): PrintResult {
+    if (trait_ref === undefined) {
+      const kind = self_ty.kind();
+      if (kind.$ === "Adt") {
+        return this.print_def_path(kind._0.did(), kind._1);
+      }
+    }
+
+    // This shouldn't ever be needed, but just in case:
+    return with_no_trimmed_paths(() => {
+      this.path = [
+        trait_ref !== undefined ? Symbol.intern(debug_TraitRef(trait_ref, PLAIN)) : Symbol.intern(`<${display_Ty(self_ty)}>`),
+      ];
+      return PRINT_OK;
+    });
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:754 print_path_with_impl
-  print_path_with_impl(print_prefix: (p: LintPathPrinter) => void, _self_ty: unknown, _trait_ref: unknown): void {
-    print_prefix(this);
-    unported("rustc_lint::context::LintPathPrinter::print_path_with_impl (trait_ref/self_ty printing, M3)");
+  print_path_with_impl(print_prefix: (p: this) => PrintResult, self_ty: Ty, trait_ref: TraitRef | undefined): PrintResult {
+    const r = print_prefix(this);
+    if (r.$ === "Err") return r;
+
+    // This shouldn't ever be needed, but just in case:
+    this.path.push(
+      trait_ref !== undefined
+        ? with_no_trimmed_paths(() =>
+            Symbol.intern(
+              `<impl ${display_TraitRefPrintOnlyTraitPath(TraitRef_print_only_trait_path(trait_ref))} for ${display_Ty(self_ty)}>`,
+            ),
+          )
+        : with_no_trimmed_paths(() => Symbol.intern(`<impl ${display_Ty(self_ty)}>`)),
+    );
+
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:779 print_path_with_simple
-  print_path_with_simple(print_prefix: (p: LintPathPrinter) => void, _disambiguated_data: unknown): void {
-    print_prefix(this);
-    unported("rustc_lint::context::LintPathPrinter::print_path_with_simple (DefPathData, M3)");
+  print_path_with_simple(print_prefix: (p: this) => PrintResult, disambiguated_data: DisambiguatedDefPathData): PrintResult {
+    const r = print_prefix(this);
+    if (r.$ === "Err") return r;
+
+    // Skip `::{{extern}}` blocks and `::{{constructor}}` on tuple/unit structs.
+    if (disambiguated_data.data.$ === "ForeignMod" || disambiguated_data.data.$ === "Ctor") {
+      return PRINT_OK;
+    }
+
+    const sym_ = DefPathData.get_opt_name(disambiguated_data.data);
+    this.path.push(sym_ !== undefined ? sym_ : Symbol.intern(display_DefPathData(disambiguated_data.data)));
+    return PRINT_OK;
   }
 
   // rustc: compiler/rustc_lint/src/context.rs:798 print_path_with_generic_args
-  print_path_with_generic_args(print_prefix: (p: LintPathPrinter) => void, _args: readonly unknown[]): void {
-    print_prefix(this);
+  print_path_with_generic_args(print_prefix: (p: this) => PrintResult, _args: readonly GenericArg[]): PrintResult {
+    return print_prefix(this);
   }
 }
 

@@ -22,6 +22,10 @@ import { add_feature_diagnostics } from "../rustc_session/diagnostics.ts";
 import { Span } from "../rustc_span/lib.ts";
 import { display_Ident, Symbol, sym } from "../rustc_span/symbol.ts";
 import { unported } from "../std/panic.ts";
+import type * as hir from "../rustc_hir/hir.ts";
+import { WherePredicateKind } from "../rustc_hir/hir.ts";
+import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
+import { type InitError, ShorthandAssocTyCollector, TypeAliasBounds } from "./builtin.ts";
 import type {
   AsyncFnInTraitDiag,
   BuiltinClashingExternSub,
@@ -127,8 +131,54 @@ export function BuiltinTypeAliasBounds_into_diag(self: BuiltinTypeAliasBounds, d
 
   // We perform the walk in here instead of in `<TypeAliasBounds as LateLintPass>` to
   // avoid doing throwaway work in case the lint ends up getting suppressed.
-  // `ShorthandAssocTyCollector` / `TypeAliasBounds::affects_object_lifetime_defaults` walk HIR types.
-  return unported("rustc_lint::diagnostics::BuiltinTypeAliasBounds::into_diag (ShorthandAssocTyCollector: hir intravisit, M3)");
+  const collector = new ShorthandAssocTyCollector([]);
+  // PORT: the generated struct types `preds` / `ty` as `unknown` (`&'hir [hir::WherePredicate]`, `Option<&hir::Ty>`).
+  const ty = self.ty as hir.Ty | undefined;
+  if (ty !== undefined) {
+    collector.visit_ty_unambig(ty);
+  }
+
+  const affect_object_lifetime_defaults = (self.preds as readonly hir.WherePredicate[])
+    .filter((pred) => WherePredicateKind.in_where_clause(pred.kind) === self.in_where_clause)
+    .some((pred) => TypeAliasBounds.affects_object_lifetime_defaults(pred));
+
+  // If there are any shorthand assoc tys, then the bounds can't be removed automatically.
+  // The user first needs to fully qualify the assoc tys.
+  const applicability: Applicability =
+    !(collector.qselves.length === 0) || affect_object_lifetime_defaults ? "MaybeIncorrect" : "MachineApplicable";
+
+  diag.arg("count", IntoDiagArg.of(self.suggestions.length, number_into_diag_arg));
+  diag.multipart_suggestion(
+    self.in_where_clause
+      ? msg("remove this where clause")
+      : msg(
+          "remove {$count ->\n                        [one] this bound\n                        *[other] these bounds\n                    }",
+        ),
+    self.suggestions,
+    applicability,
+  );
+
+  // Suggest fully qualifying paths of the form `T::Assoc` with `T` type param via
+  // `<T as /* Trait */>::Assoc` to remove their reliance on any type param bounds.
+  //
+  // Instead of attempting to figure out the necessary trait ref, just use a
+  // placeholder. Since we don't record type-dependent resolutions for non-body
+  // items like type aliases, we can't simply deduce the corresp. trait from
+  // the HIR path alone without rerunning parts of HIR ty lowering here
+  // (namely `probe_single_ty_param_bound_for_assoc_ty`) which is infeasible.
+  //
+  // (We could employ some simple heuristics but that's likely not worth it).
+  for (const qself of collector.qselves) {
+    diag.multipart_suggestion(
+      msg("fully qualify this associated type"),
+      [
+        [Span.shrink_to_lo(qself), "<"],
+        [Span.shrink_to_hi(qself), " as /* Trait */>"],
+      ],
+      "HasPlaceholders",
+    );
+  }
+  return diag;
 }
 export function BuiltinTypeAliasBounds_diagnostic(self: BuiltinTypeAliasBounds): Diagnostic {
   return { into_diag: (dcx, level) => BuiltinTypeAliasBounds_into_diag(self, dcx, level) };
@@ -137,9 +187,19 @@ export function BuiltinTypeAliasBounds_diagnostic(self: BuiltinTypeAliasBounds):
 /** `impl<'a> Diagnostic<'a> for BuiltinUnpermittedTypeInit<'_>` */
 // rustc: compiler/rustc_lint/src/diagnostics.rs:619 into_diag
 export function BuiltinUnpermittedTypeInit_into_diag(self: BuiltinUnpermittedTypeInit, dcx: DiagCtxtHandle, level: Level): Diag {
-  void [dcx, level, self];
-  // `.with_arg("ty", self.ty)` and `self.ty.inhabited_predicate(self.tcx)`
-  return unported("rustc_lint::diagnostics::BuiltinUnpermittedTypeInit::into_diag (IntoDiagArg for Ty, inhabited_predicate: M3)");
+  const diag = Diag.new(dcx, level, self.msg)
+    .with_arg("ty", IntoDiagArg.of(self.ty, Ty_into_diag_arg))
+    .with_span_label(self.label, msg("this code causes undefined behavior when executed"));
+  // PORT: `InhabitedPredicate` is a pending stand-in (rustc_middle ty/inhabitedness, not ported: the call stops there).
+  if ((self.ty.inhabited_predicate(self.tcx) as unknown as { $: string }).$ === "True") {
+    // Only suggest late `MaybeUninit::assume_init` initialization if the type is inhabited.
+    diag.span_label(
+      self.label,
+      msg("help: use `MaybeUninit<T>` instead, and only call `assume_init` after initialization is done"),
+    );
+  }
+  BuiltinUnpermittedTypeInitSub_add_to_diag(self.sub, diag);
+  return diag;
 }
 export function BuiltinUnpermittedTypeInit_diagnostic(self: BuiltinUnpermittedTypeInit): Diagnostic {
   return { into_diag: (dcx, level) => BuiltinUnpermittedTypeInit_into_diag(self, dcx, level) };
@@ -148,9 +208,20 @@ export function BuiltinUnpermittedTypeInit_diagnostic(self: BuiltinUnpermittedTy
 /** `impl Subdiagnostic for BuiltinUnpermittedTypeInitSub` */
 // rustc: compiler/rustc_lint/src/diagnostics.rs:641 add_to_diag
 export function BuiltinUnpermittedTypeInitSub_add_to_diag(self: BuiltinUnpermittedTypeInitSub, diag: Diag): void {
-  void [self, diag];
-  // `InitError { message, span, nested }` (builtin.rs, InvalidValue) is not ported (M3).
-  unported("rustc_lint::diagnostics::BuiltinUnpermittedTypeInitSub::add_to_diag (builtin::InitError, M3)");
+  // PORT: the generated struct types `err` as `unknown` (`builtin::InitError`).
+  let err = self.err as InitError;
+  for (;;) {
+    if (err.span !== undefined) {
+      diag.span_note(err.span, err.message);
+    } else {
+      diag.note(err.message);
+    }
+    if (err.nested !== undefined) {
+      err = err.nested;
+    } else {
+      break;
+    }
+  }
 }
 export function BuiltinUnpermittedTypeInitSub_subdiagnostic(self: BuiltinUnpermittedTypeInitSub): Subdiagnostic {
   return { add_to_diag: (diag) => BuiltinUnpermittedTypeInitSub_add_to_diag(self, diag) };
