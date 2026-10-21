@@ -25,6 +25,8 @@ import {
   LayoutCalculator,
   LayoutData,
   Niche,
+  ReprFlags,
+  ReprOptions,
   Scalar,
   Size,
   TyAndLayout,
@@ -43,8 +45,17 @@ import "../rustc_hir_analysis/lib.ts";
 import { type Config, run_compiler } from "../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../rustc_interface/passes.ts";
 import "../rustc_middle/lib.ts";
-import { IntegerExt, LayoutCx, LayoutOf_provided, SizeSkeleton, TyAbiInterface_Ty } from "../rustc_middle/ty/layout.ts";
+import {
+  display_ValidityRequirement,
+  FloatExt,
+  IntegerExt,
+  LayoutCx,
+  LayoutOf_provided,
+  SizeSkeleton,
+  TyAbiInterface_Ty,
+} from "../rustc_middle/ty/layout.ts";
 import { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
+import { DUMMY_SP } from "../rustc_span/lib.ts";
 import { PLAIN, PRETTY } from "../std/fmt.ts";
 import { Unported } from "../std/panic.ts";
 import "./lib.ts";
@@ -133,7 +144,7 @@ test("every fn of the layout files is ported or declared as a stub, never both",
   // stubs only for the scope files
   for (const d of stubs) expect(FILES.some(([f]) => f === d.path)).toBe(true);
   expect(total).toBe(320);
-  expect(stubs.length).toBe(168);
+  expect(stubs.length).toBe(139);
 });
 
 function stops(f: () => unknown, what: string): void {
@@ -222,13 +233,32 @@ test("the stubs stop as UNPORTED with their own path", () => {
   stops(() => coroutine_saved_local_eligibility(0, [], null as never), "rustc_abi::layout::coroutine::coroutine_saved_local_eligibility");
   stops(() => layout_of_uncached(null as never, null as never), "rustc_ty_utils::layout::layout_of_uncached");
   stops(() => layout_sanity_check(null as never, null as never), "rustc_ty_utils::layout::invariant::layout_sanity_check");
-  stops(() => SizeSkeleton.compute(null as never, null as never, null as never, null as never), "rustc_middle::ty::layout::SizeSkeleton::compute");
-  stops(() => IntegerExt.discr_range_of_repr(null as never, null as never, null as never, 0n, 0n), "rustc_middle::ty::layout::IntegerExt::discr_range_of_repr");
   // `Ty: TyAbiInterface` is rustc_middle's table, registered at load
   expect(ty_abi_interface()).toBe(TyAbiInterface_Ty as never);
   const tl = new TyAndLayout(null as never, new Layout(option_bool()));
   stops(() => tl.field(null, 0), "rustc_abi::layout::ty::TyAndLayout::field");
-  stops(() => TyAbiInterface_Ty.ty_and_layout_field(tl, null as never, 0), "rustc_middle::ty::layout::TyAbiInterface::ty_and_layout_field");
+  // (lane middle-layout) `SizeSkeleton::compute` / `ty_and_layout_field` are ported: their next stop is checked in-process
+  // below (`layout_of_uncached`).
+});
+
+test("(middle-layout) discr_range_of_repr picks the smallest fit, preferring unsigned; Display of ValidityRequirement", () => {
+  const tcx = { data_layout: () => ({ c_enum_min_size: "I32", ptr_sized_integer: () => "I64" }) } as never;
+  const repr = (flags: ReprFlags, int?: ReprOptions["int"]): ReprOptions => new ReprOptions(int, undefined, undefined, flags, undefined, Hash64.ZERO);
+  const rust = repr(ReprFlags.empty());
+  expect(IntegerExt.discr_range_of_repr(tcx, null as never, rust, 0n, 0n)).toEqual(["I8", false]);
+  expect(IntegerExt.discr_range_of_repr(tcx, null as never, rust, 0n, 255n)).toEqual(["I8", false]);
+  expect(IntegerExt.discr_range_of_repr(tcx, null as never, rust, 0n, 256n)).toEqual(["I16", false]);
+  expect(IntegerExt.discr_range_of_repr(tcx, null as never, rust, -1n, 0n)).toEqual(["I8", true]);
+  expect(IntegerExt.discr_range_of_repr(tcx, null as never, rust, -129n, 0n)).toEqual(["I16", true]);
+  // repr(C): at least `c_enum_min_size`
+  expect(IntegerExt.discr_range_of_repr(tcx, null as never, repr(ReprFlags.IS_C), 0n, 1n)).toEqual(["I32", false]);
+  // repr(isize)
+  expect(IntegerExt.discr_range_of_repr(tcx, null as never, repr(ReprFlags.empty(), { $: "Pointer", _0: true }), 0n, 1n)).toEqual(["I64", true]);
+  expect(() => IntegerExt.discr_range_of_repr(tcx, null as never, rust, -1n, 1n << 127n)).toThrow(
+    `No type can represent the full range of -1..=${1n << 127n}`,
+  );
+  expect(FloatExt.from_float_ty("F64")).toBe("F64");
+  expect(display_ValidityRequirement("UninitMitigated0x01Fill")).toBe("allows being filled with 0x01");
 });
 
 function unreachable_dl(): never {
@@ -300,6 +330,20 @@ test("mk_layout interns; tcx.layout_of reaches the provider and stops at layout_
       // `Ty::new_array` -> `Const::from_target_usize` -> `Const::from_bits` asks `layout_of(usize)` (was a stand-in; moved here
       // from rustc_middle ty/sty.test.ts, whose mock `tcx` has no query system)
       stops(() => Ty.new_array(tcx, tcx.types.u8, 3), "rustc_ty_utils::layout::layout_of_uncached");
+      // (lane middle-layout) ported rustc_middle fns reach `layout_of` and stop at the provider's first stub (each with a type
+      // not queried above: a query left unfinished by `Unported` is a cycle the next time)
+      stops(() => SizeSkeleton.compute(tcx.types.u16, tcx, env, DUMMY_SP), "rustc_ty_utils::layout::layout_of_uncached");
+      const tup = new TyAndLayout(Ty.new_tup(tcx, [tcx.types.u32]), new Layout(option_bool()));
+      stops(() => TyAbiInterface_Ty.ty_and_layout_field(tup, cx, 0), "rustc_ty_utils::layout::layout_of_uncached");
+      expect([TyAbiInterface_Ty.is_tuple(tup), TyAbiInterface_Ty.is_unit(tup), TyAbiInterface_Ty.is_adt(tup), TyAbiInterface_Ty.is_never(tup)]).toEqual([
+        true,
+        false,
+        false,
+        false,
+      ]);
+      expect(TyAbiInterface_Ty.is_unit(new TyAndLayout(tcx.types.unit, new Layout(option_bool())))).toBe(true);
+      expect(SizeSkeleton.same_size({ $: "Known", _0: Size.from_bytes(4), _1: undefined }, { $: "Known", _0: Size.from_bytes(4), _1: Align.ONE })).toBe(true);
+      expect(SizeSkeleton.same_size({ $: "Pointer", non_zero: true, tail: tcx.types.u8 }, { $: "Known", _0: Size.from_bytes(8), _1: undefined })).toBe(false);
       ran = true;
     });
   });
