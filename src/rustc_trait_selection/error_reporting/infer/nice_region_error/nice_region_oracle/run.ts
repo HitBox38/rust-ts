@@ -9,9 +9,9 @@
 //
 // Borrowck is not ported, so this driver stands in for `add_static_impl_trait_suggestion` up to that call, in
 // `after_expansion`: `fr` = the region of `x`'s reference type (liberated), `outlived_fr` = `'static`, `suitable_region.scope`
-// = `f`; `find_param_with_region` (util.rs, lane errrep-region) is reproduced for `x`: its type with that region replaced
-// by `'static`, and the span of its HIR type. The suggestions go onto a scaffold error at `f`'s span, emitted through
-// the session's emitter; the test compares the `help:` children with the oracle's (the parent diagnostic differs).
+// = `f`, and calls util.rs's `find_param_with_region` (lane errrep-region; reproduced here until merge-w19) as borrowck
+// does. The suggestions go onto a scaffold error at `f`'s span, emitted through the session's emitter; the test compares
+// the `help:` children with the oracle's (the parent diagnostic differs).
 //
 // Exit codes as src/rust_ts/main.ts: rustc's own, plus 70 = reached unported code, 101 = ICE.
 import "../../../../lib.ts";
@@ -28,13 +28,12 @@ async function main(args: string[]): Promise<number> {
   const { EarlyBinder } = await import("../../../../../rustc_type_ir/binder.ts");
   const { Unnormalized } = await import("../../../../../rustc_type_ir/unnormalized.ts");
   const { FnSig, fold_FnSig } = await import("../../../../../rustc_type_ir/ty_kind.ts");
-  const { fold_regions } = await import("../../../../../rustc_type_ir/fold.ts");
-  const { fold_Ty } = await import("../../../../../rustc_middle/ty/structural_impls.ts");
   const { display_Ty } = await import("../../../../../rustc_middle/ty/print/pretty.ts");
   const { display_Region } = await import("../../../../../rustc_type_ir/ir_print.ts");
   const { display_Ident } = await import("../../../../../rustc_span/symbol.ts");
   const { LocalDefId } = await import("../../../../../rustc_span/def_id.ts");
   const { suggest_new_region_bound } = await import("../static_impl_trait.ts");
+  const { find_param_with_region } = await import("../util.ts");
 
   function run(tcx: TyCtxt): void {
     for (const id of tcx.hir_free_items()) {
@@ -50,12 +49,9 @@ async function main(args: string[]): Promise<number> {
       const re_static = tcx.lifetimes.re_static;
 
       const fn_returns = tcx.return_type_impl_or_dyn_traits(scope);
-      // find_param_with_region(tcx, scope, f, 'static) for the first parameter
-      const body = tcx.hir_body_owned_by(scope);
-      const param = body.params[0]!;
-      const fn_decl = tcx.hir_fn_decl_by_hir_id(tcx.local_def_id_to_hir_id(scope))!;
-      const param_ty_span = tcx.hir_span(fn_decl.inputs[0]!.hir_id);
-      const param_ty = fold_regions(tcx, ty, (r) => (r === f ? re_static : r), fold_Ty);
+      const param_info = find_param_with_region(tcx, scope, f, re_static);
+      if (param_info === undefined) throw new Error("scaffold: find_param_with_region found no parameter");
+      const param = param_info.param;
 
       const lifetime = f.is_named(tcx) ? display_Region(f) : "'_";
       const simple_ident = param.pat.simple_ident();
@@ -64,7 +60,7 @@ async function main(args: string[]): Promise<number> {
 
       const diag = tcx.dcx().struct_span_err(tcx.def_span(did), "scaffold (borrowck's `lifetime may not live long enough`)");
       if (fn_returns.length !== 0) {
-        suggest_new_region_bound(tcx, diag, fn_returns, lifetime, arg, captures, [param_ty_span, display_Ty(param_ty)], scope);
+        suggest_new_region_bound(tcx, diag, fn_returns, lifetime, arg, captures, [param_info.param_ty_span, display_Ty(param_info.param_ty)], scope);
       }
       diag.emit();
     }

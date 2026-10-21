@@ -178,13 +178,12 @@ FnCtxt.prototype.lint_edition_dependent_dot_call = function (this: FnCtxt, self_
     // but `[T; N].into_iter()` doesn't resolve to IntoIterator::into_iter
     // before Rust 2021, which results in the same problem.
     // It is only a problem for arrays.
-    const boxed = self_ty.boxed_ty();
     if (self_ty.kind().$ === "Array" && !Span.at_least_rust_2021(span)) {
       // In this case, it wasn't really a prelude addition that was the problem.
       // Instead, the problem is that the array-into_iter hack will no longer
       // apply in Rust 2021.
       [prelude_or_array_lint, edition] = [ARRAY_INTO_ITER, "2021"];
-    } else if (boxed !== undefined && boxed.is_slice() && !Span.at_least_rust_2024(span)) {
+    } else if ((self_ty.boxed_ty()?.is_slice() ?? false) && !Span.at_least_rust_2024(span)) {
       // In this case, it wasn't really a prelude addition that was the problem.
       // Instead, the problem is that the boxed-slice-into_iter hack will no
       // longer apply in Rust 2024.
