@@ -311,7 +311,7 @@ function config_from_args(args: string[]): Config {
   return config;
 }
 
-test("mk_layout interns; tcx.layout_of reaches the provider and layout_of_uncached, then the rustc_abi stubs; LayoutCx::layout_of too", () => {
+test("mk_layout interns; tcx.layout_of computes layouts through the provider; LayoutCx::layout_of too", () => {
   mkdirSync(WORK, { recursive: true });
   const file = join(WORK, "layout_contract.rs");
   writeFileSync(file, "#![feature(no_core)]\n#![no_core]\npub fn f() {}\n");
@@ -326,23 +326,36 @@ test("mk_layout interns; tcx.layout_of reaches the provider and layout_of_uncach
       expect(Object.isFrozen(a.internee)).toBe(true);
 
       const env = TypingEnv.fully_monomorphized();
-      // (re-pinned by ty-utils-layout: `layout_of_uncached` is ported; integers stop at `Primitive::size` (`scalar_unit`),
-      // `bool` at `LayoutData::scalar` (layout/simple.rs))
-      stops(() => tcx.layout_of(env.as_query_input(tcx.types.u8)), "rustc_abi::Primitive::size");
+      // (merge-layout: every stub is filled, so the former stop checks (`Primitive::size`, `LayoutData::scalar`,
+      // `layout_of_uncached`) are value checks now; the full `{:#?}` of these and more layouts is compared with the oracle in
+      // layout.test.ts)
+      const size_align = (r: ReturnType<typeof tcx.layout_of>): [number, number] => {
+        if (r.$ !== "Ok") throw new Error(`ERROR: layout_of failed: ${r._0.$}`);
+        return [r._0.size.bytes(), r._0.align.abi.bytes()];
+      };
+      expect(size_align(tcx.layout_of(env.as_query_input(tcx.types.u8)))).toEqual([1, 1]);
       const cx = LayoutCx.new(tcx, env);
       expect(cx.tcx_()).toBe(tcx);
       expect(cx.typing_env_()).toBe(env);
       expect(cx.data_layout()).toBe(tcx.data_layout());
-      stops(() => cx.layout_of(tcx.types.bool), "rustc_abi::layout::simple::LayoutData::scalar");
-      stops(() => LayoutOf_provided.spanned_layout_of(cx, tcx.types.i32, cx.layout_tcx_at_span()), "rustc_abi::Primitive::size");
+      const bool_ = cx.layout_of(tcx.types.bool);
+      expect(bool_.$ === "Ok" && bool_._0.ty === tcx.types.bool).toBe(true);
+      expect(bool_.$ === "Ok" && debug_BackendRepr(bool_._0.backend_repr, PLAIN)).toBe("Scalar(u8 is 0..=1)");
+      expect(size_align(LayoutOf_provided.spanned_layout_of(cx, tcx.types.i32, cx.layout_tcx_at_span()))).toEqual([4, 4]);
       // `Ty::new_array` -> `Const::from_target_usize` -> `Const::from_bits` asks `layout_of(usize)` (was a stand-in; moved here
       // from rustc_middle ty/sty.test.ts, whose mock `tcx` has no query system)
-      stops(() => Ty.new_array(tcx, tcx.types.u8, 3), "rustc_ty_utils::layout::layout_of_uncached");
-      // (lane middle-layout) ported rustc_middle fns reach `layout_of` and stop at the provider's first stub (each with a type
-      // not queried above: a query left unfinished by `Unported` is a cycle the next time)
-      stops(() => SizeSkeleton.compute(tcx.types.u16, tcx, env, DUMMY_SP), "rustc_ty_utils::layout::layout_of_uncached");
-      const tup = new TyAndLayout(Ty.new_tup(tcx, [tcx.types.u32]), new Layout(option_bool()));
-      stops(() => TyAbiInterface_Ty.ty_and_layout_field(tup, cx, 0), "rustc_ty_utils::layout::layout_of_uncached");
+      const arr = Ty.new_array(tcx, tcx.types.u8, 3);
+      expect(size_align(tcx.layout_of(env.as_query_input(arr)))).toEqual([3, 1]);
+      // (lane middle-layout) ported rustc_middle fns reach `layout_of`
+      const sk = SizeSkeleton.compute(tcx.types.u16, tcx, env, DUMMY_SP);
+      expect(sk.$ === "Ok" && sk._0.$ === "Known" && [sk._0._0.bytes(), sk._0._1?.bytes()]).toEqual([2, 2]);
+      const tup_ty = Ty.new_tup(tcx, [tcx.types.u32]);
+      const tup_l = tcx.layout_of(env.as_query_input(tup_ty));
+      if (tup_l.$ !== "Ok") throw new Error("ERROR: layout_of((u32,)) failed");
+      const tup = tup_l._0;
+      const f0 = TyAbiInterface_Ty.ty_and_layout_field(tup, cx, 0);
+      expect(f0.ty).toBe(tcx.types.u32);
+      expect([f0.size.bytes(), f0.align.abi.bytes()]).toEqual([4, 4]);
       expect([TyAbiInterface_Ty.is_tuple(tup), TyAbiInterface_Ty.is_unit(tup), TyAbiInterface_Ty.is_adt(tup), TyAbiInterface_Ty.is_never(tup)]).toEqual([
         true,
         false,

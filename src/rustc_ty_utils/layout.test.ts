@@ -1,56 +1,43 @@
-// Lane ty-utils-layout: rustc_ty_utils layout.rs (`layout_of_uncached`, `map_error`) and layout/invariant.rs
-// (`layout_sanity_check`) against the oracle.
+// rustc_ty_utils layout.rs (`layout_of_uncached`, `map_error`), layout/invariant.rs (`layout_sanity_check`) and, through
+// them, rustc_abi's layout calculator (layout.rs, layout/simple.rs, layout/ty.rs, lib.rs) and rustc_middle ty/layout.rs,
+// end to end against the oracle.
 //
-// The oracle: the pinned rustc on a small no_core library whose type aliases carry `#[rustc_dump_layout(debug)]`;
-// rustc prints `layout_of(<ty>) = <LayoutData as {:#?}>` per alias. rust-ts computes the same types in-process with
-// `tcx.layout_of` (the real provider -> `layout_of_uncached` -> `layout_sanity_check`) and prints the same Debug.
+// The oracle: the pinned rustc on small no_core libraries whose items carry `#[rustc_dump_layout(debug)]`; rustc's
+// rustc_passes layout_test.rs prints `layout_of(<ty>) = <LayoutData as {:#?}>` per item, in `hir_crate_items` order.
+// rust-ts compiles the same source in-process and does what `dump_layout_of` (layout_test.rs:59) does for every such item
+// (`TypingEnv::codegen`, `type_of(..).instantiate_identity()`, `tcx.layout_of`, the `normalize_erasing_regions` Display);
+// `ensure_wf` is left out (every case is well-formed) and layout_test.rs itself is not ported. The two outputs must be
+// byte-identical, randomization seeds included.
 //
-// SCAFFOLDING (test-only, lanes abi-lib / abi-layout-a own the real ports): the scalar layouts cross a few rustc_abi
-// fns that are still `// stub:`s on this lane's base (`Primitive::size`, `Scalar::primitive`, `LayoutData::scalar`, ..;
-// also rustc_middle's `FloatExt::from_float_ty`, lane middle-layout).
-// For the duration of one test, each of them that still stops UNPORTED with its own stub path is replaced by a
-// test-local copy of its upstream body (rustc_abi lib.rs / wrapping_range.rs / layout/simple.rs at the pin); a fn that
-// is ported by then is used as is. The scaffolds are restored afterwards and never touch src.
-import { afterAll, beforeAll, expect, test } from "bun:test";
+// (lane ty-utils-layout wrote the first version with test-only scaffolds for the then-unported rustc_abi / rustc_middle
+// stubs; merge-layout removed them once every stub was filled and widened the cases: scalars, thin / wide pointers,
+// `Pointee::Metadata`, tuples with field reordering and niche bias, structs in every repr, unions, arrays, ZSTs, `!`,
+// enums (niche-filling, tagged, repr(u8) / repr(i32) / repr(C), C-like with explicit discriminants), `Option<&T>`,
+// `UnsafeCell`. Coroutines are not reachable: their layout needs `mir::CoroutineLayout`, M4.)
+import { beforeAll, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA } from "../../scripts/lib/common.ts";
-import {
-  AbiAlign,
-  Align,
-  Align_max,
-  BackendRepr,
-  debug_LayoutData,
-  FieldsShape,
-  Float,
-  type HasDataLayout,
-  Integer,
-  LayoutData,
-  Niche,
-  Primitive,
-  Scalar,
-  Size,
-  TyAndLayout,
-  Variants,
-  WrappingRange,
-  type FieldIdx,
-  type VariantIdx,
-} from "../rustc_abi/lib.ts";
+import { AbiAlign, Align, debug_LayoutData, LayoutData, Size, TyAndLayout, type VariantIdx } from "../rustc_abi/lib.ts";
 import type { Crate } from "../rustc_ast/lib.ts";
-import type { FloatTy } from "../rustc_ast_ir/lib.ts";
+import { find_attr } from "../rustc_attr_ir/lib.ts";
 import { compiler_entrypoint } from "../rustc_driver_impl/lib.ts";
 import { Hash64 } from "../rustc_hashes/lib.ts";
 import "../rustc_hir_analysis/lib.ts";
 import { type Config, run_compiler } from "../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../rustc_interface/passes.ts";
 import "../rustc_middle/lib.ts";
+import type { ModuleItems } from "../rustc_middle/hir/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { FloatExt, LayoutCx, type LayoutError, SimdLayoutError } from "../rustc_middle/ty/layout.ts";
-import { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
+import { display_LayoutError, LayoutCx, type LayoutError, SimdLayoutError } from "../rustc_middle/ty/layout.ts";
+import { HasAttrs_LocalDefId, Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
+import { EarlyBinder } from "../rustc_type_ir/binder.ts";
+import { display_Ty } from "../rustc_middle/ty/print/pretty.ts";
+import { fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
+import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
 import { PRETTY } from "../std/fmt.ts";
-import type { MutRef } from "../std/mut_ref.ts";
-import { Panic, unported, Unported } from "../std/panic.ts";
+import { Unported } from "../std/panic.ts";
 import "./lib.ts";
 import { layout_of_uncached, map_error } from "./layout.ts";
 import { layout_sanity_check } from "./layout/invariant.ts";
@@ -58,61 +45,139 @@ import { layout_sanity_check } from "./layout/invariant.ts";
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const WORK = join(DATA, "tmp", "ty-utils-layout", process.env.RUST_TS_AGENT ?? "default");
 
-// ---- the oracle ----
+// ---- the sources ----
 
 const PRELUDE = [
-  "#![feature(no_core, lang_items, rustc_attrs, never_type)]",
+  "#![feature(no_core, lang_items, rustc_attrs, transparent_unions)]",
   "#![no_core]",
+  "#![allow(dead_code)]",
   '#[lang = "pointee_sized"] pub trait PointeeSized {}',
   '#[lang = "meta_sized"] pub trait MetaSized: PointeeSized {}',
   '#[lang = "sized"] pub trait Sized: MetaSized {}',
 ];
-/** `[alias, how rust-ts builds the type]`; the oracle names each by its Display (`layout_of(<ty>)`). */
-const CASES: [string, (tcx: TyCtxt) => Ty][] = [
-  ["u8", (tcx) => tcx.types.u8],
-  ["bool", (tcx) => tcx.types.bool],
-  ["char", (tcx) => tcx.types.char],
-  ["usize", (tcx) => tcx.types.usize],
-  ["i32", (tcx) => tcx.types.i32],
-  ["f64", (tcx) => tcx.types.f64],
-  ["i128", (tcx) => tcx.types.i128],
-  ["&'static u8", (tcx) => Ty.new_imm_ref(tcx, tcx.lifetimes.re_static, tcx.types.u8)],
-  ["*const u8", (tcx) => Ty.new_imm_ptr(tcx, tcx.types.u8)],
-  ["!", (tcx) => tcx.types.never],
-  ["&'static str", (tcx) => Ty.new_imm_ref(tcx, tcx.lifetimes.re_static, tcx.types.str_)],
-  ["*mut [u16]", (tcx) => Ty.new_mut_ptr(tcx, Ty.new_slice(tcx, tcx.types.u16))],
+const aliases = (tys: string[]): string[] => tys.map((t, i) => `#[rustc_dump_layout(debug)] type T${i} = ${t};`);
+/** scalars, thin / wide pointers (no `Pointee` lang item: the struct-tail path of `layout_of_uncached`), `!` */
+const SCALARS = [
+  ...PRELUDE,
+  ...aliases(["u8", "bool", "char", "usize", "i32", "f64", "i128", "&'static u8", "*const u8", "!", "&'static str", "*mut [u16]"]),
 ];
-/** With `Pointee::Metadata` (mini_core's lang items): wide pointers take the `metadata_type` path of `layout_of_uncached`. */
-const PRELUDE_POINTEE = [
+/** with mini_core's `Pointee::Metadata` lang items: wide pointers take the `metadata_type` path */
+const POINTEE = [
   ...PRELUDE,
   '#[lang = "pointee_trait"] pub trait Pointee: PointeeSized { #[lang = "metadata_type"] type Metadata; }',
+  ...aliases(["&'static u8", "&'static str", "*const [u8]"]),
 ];
-const CASES_POINTEE: [string, (tcx: TyCtxt) => Ty][] = [
-  ["&'static u8", (tcx) => Ty.new_imm_ref(tcx, tcx.lifetimes.re_static, tcx.types.u8)],
-  ["&'static str", (tcx) => Ty.new_imm_ref(tcx, tcx.lifetimes.re_static, tcx.types.str_)],
-  ["*const [u8]", (tcx) => Ty.new_imm_ptr(tcx, Ty.new_slice(tcx, tcx.types.u8))],
+/** aggregates: tuples, structs (all reprs), ZSTs, unsized tails, unions, arrays, enums, `Option` / `Result`, `UnsafeCell` */
+const AGGREGATES = [
+  ...PRELUDE,
+  "#[lang = \"copy\"] pub trait Copy {}",
+  "impl Copy for u8 {}",
+  "impl Copy for u16 {}",
+  "impl Copy for u32 {}",
+  "impl Copy for bool {}",
+  "#[lang = \"unsafe_cell\"] #[repr(transparent)] pub struct UnsafeCell<T: ?Sized> { value: T }",
+  "#[lang = \"phantom_data\"] pub struct PhantomData<T: ?Sized>;",
+  "pub enum Option<T> { None, Some(T) }",
+  "pub enum Result<T, E> { Ok(T), Err(E) }",
+  "",
+  "#[rustc_dump_layout(debug)] type A0 = ();",
+  "#[rustc_dump_layout(debug)] type A1 = f32;",
+  "#[rustc_dump_layout(debug)] type A2 = u128;",
+  "#[rustc_dump_layout(debug)] type A3 = fn(u8) -> u8;",
+  "#[rustc_dump_layout(debug)] type A4 = &'static [u32];",
+  "#[rustc_dump_layout(debug)] type A5 = [u8];",
+  "#[rustc_dump_layout(debug)] type A6 = str;",
+  "#[rustc_dump_layout(debug)] type B0 = (u8, u32, u16);",
+  "#[rustc_dump_layout(debug)] type B1 = (bool, u32);",
+  "#[rustc_dump_layout(debug)] type B2 = (u8, bool, u16, char, u64);",
+  "#[rustc_dump_layout(debug)] type B3 = (u8, [u8; 16], bool);",
+  "#[rustc_dump_layout(debug)] type B4 = ((u8, u8, u8, bool), (u8, bool, u8));",
+  "#[rustc_dump_layout(debug)] type B5 = ((), u32, ());",
+  "#[rustc_dump_layout(debug)] type B6 = (char, u8, bool);",
+  "#[rustc_dump_layout(debug)] type B7 = (u8, !);",
+  "#[rustc_dump_layout(debug)] type B8 = (u64, u8);",
+  "#[rustc_dump_layout(debug)] struct S1 { a: u8, b: u32, c: u16 }",
+  "#[rustc_dump_layout(debug)] #[repr(C)] struct S2 { a: u8, b: u32, c: u16 }",
+  "#[rustc_dump_layout(debug)] #[repr(packed)] struct S3 { a: u8, b: u32, c: u16 }",
+  "#[rustc_dump_layout(debug)] #[repr(packed(2))] struct S4 { a: u8, b: u32, c: u16 }",
+  "#[rustc_dump_layout(debug)] #[repr(transparent)] struct S5((), u16);",
+  "#[rustc_dump_layout(debug)] #[repr(align(8))] struct S6(u8, bool);",
+  "#[rustc_dump_layout(debug)] #[repr(C)] struct S7 { a: bool, b: u16 }",
+  "#[rustc_dump_layout(debug)] struct Z;",
+  "#[rustc_dump_layout(debug)] struct Z2((), [u8; 0], PhantomData<u32>);",
+  "#[rustc_dump_layout(debug)] struct Unsized { a: u16, b: [u8] }",
+  "pub struct Wrap<T>(T, u8);",
+  "#[rustc_dump_layout(debug)] type W0 = Wrap<u16>;",
+  "#[rustc_dump_layout(debug)] union U1 { a: u32, b: u32 }",
+  "#[rustc_dump_layout(debug)] union U2 { a: u32, b: u8 }",
+  "#[rustc_dump_layout(debug)] #[repr(C)] union U3 { a: u16, b: bool }",
+  "#[rustc_dump_layout(debug)] #[repr(transparent)] union U4 { a: u32 }",
+  "#[rustc_dump_layout(debug)] type C0 = [bool; 3];",
+  "#[rustc_dump_layout(debug)] type C1 = [u32; 0];",
+  "#[rustc_dump_layout(debug)] type C2 = [(); 4];",
+  "#[rustc_dump_layout(debug)] type C3 = [[u8; 2]; 3];",
+  "#[rustc_dump_layout(debug)] enum E0 {}",
+  "#[rustc_dump_layout(debug)] enum E1 { A }",
+  "#[rustc_dump_layout(debug)] enum E2 { A, B, C }",
+  "#[rustc_dump_layout(debug)] #[repr(u8)] enum E3 { A, B }",
+  "#[rustc_dump_layout(debug)] #[repr(i32)] enum E4 { A, B(u8) }",
+  "#[rustc_dump_layout(debug)] #[repr(C)] enum E5 { A(u32), B(u8) }",
+  "#[rustc_dump_layout(debug)] enum E6 { A(bool), B }",
+  "#[rustc_dump_layout(debug)] enum E7 { A(u32), B(u64), C }",
+  "#[rustc_dump_layout(debug)] enum E8 { A(u32, bool), B(u16), C }",
+  "#[rustc_dump_layout(debug)] enum E9 { A(u8, !), B(u16) }",
+  "#[rustc_dump_layout(debug)] enum E10 { A(u32) }",
+  "#[rustc_dump_layout(debug)] type O0 = Option<&'static u8>;",
+  "#[rustc_dump_layout(debug)] type O1 = Option<bool>;",
+  "#[rustc_dump_layout(debug)] type O2 = Option<char>;",
+  "#[rustc_dump_layout(debug)] type O3 = Option<u32>;",
+  "#[rustc_dump_layout(debug)] type O4 = Option<Option<bool>>;",
+  "#[rustc_dump_layout(debug)] type O5 = Option<(bool, u8)>;",
+  "#[rustc_dump_layout(debug)] type O6 = Option<!>;",
+  "#[rustc_dump_layout(debug)] type O7 = Result<u32, ()>;",
+  "#[rustc_dump_layout(debug)] type O8 = Option<&'static str>;",
+  "#[rustc_dump_layout(debug)] type O9 = Result<[u32; 0], bool>;",
+  "#[rustc_dump_layout(debug)] type K0 = UnsafeCell<bool>;",
+  "#[rustc_dump_layout(debug)] type K1 = Option<UnsafeCell<bool>>;",
+  "#[rustc_dump_layout(debug)] type K2 = UnsafeCell<(bool, char)>;",
 ];
-const source = (prelude: string[], cases: [string, unknown][]): string =>
-  [...prelude, ...cases.map(([alias], i) => `#[rustc_dump_layout(debug)] type T${i} = ${alias};`), ""].join("\n");
-const SOURCE = source(PRELUDE, CASES);
-const SOURCE_POINTEE = source(PRELUDE_POINTEE, CASES_POINTEE);
+/** C-like enums with explicit (and negative) discriminants */
+const DISCRIMINANTS = [
+  ...PRELUDE,
+  "#[lang = \"neg\"] pub trait Neg { type Output; fn neg(self) -> Self::Output; }",
+  "impl Neg for isize { type Output = isize; fn neg(self) -> isize { loop {} } }",
+  "impl Neg for i16 { type Output = i16; fn neg(self) -> i16 { loop {} } }",
+  "#[rustc_dump_layout(debug)] enum D0 { A = 3, B = 10 }",
+  "#[rustc_dump_layout(debug)] #[repr(u8)] enum D1 { A = 1, B = 200 }",
+  "#[rustc_dump_layout(debug)] enum D2 { A = -1, B = 1 }",
+  "#[rustc_dump_layout(debug)] #[repr(i16)] enum D3 { A = -300, B, C = 7 }",
+];
+const SOURCES: [string, string[]][] = [
+  ["layout_scalars", SCALARS],
+  ["layout_pointee", POINTEE],
+  ["layout_aggregates", AGGREGATES],
+  ["layout_discriminants", DISCRIMINANTS],
+];
+const text = (lines: string[]): string => [...lines, ""].join("\n");
+
+// ---- the oracle ----
 
 let have_oracle = false;
-/** per source: `layout_of(<display>)` -> its `{:#?}` block, unindented */
-const oracle_blocks = new Map<string, Map<string, string>>();
+/** per source: the `layout_of(<ty>) = Layout { .. }` messages in emission order, unindented */
+const oracle_msgs = new Map<string, string[]>();
 
-function parse_blocks(stderr: string): Map<string, string> {
-  const blocks = new Map<string, string>();
+function parse_msgs(stderr: string): string[] {
+  const msgs: string[] = [];
   const lines = stderr.split("\n");
   for (let i = 0; i < lines.length; i++) {
-    const m = /^error: layout_of\((.*)\) = Layout \{$/.exec(lines[i]!);
+    const m = /^error: (layout_of\(.*\) = Layout \{)$/.exec(lines[i]!);
     if (!m) continue;
-    const out = ["Layout {"];
+    const out = [m[1]!];
     for (i++; i < lines.length && lines[i] !== "       }"; i++) out.push(lines[i]!.slice(7));
     out.push("}");
-    blocks.set(m[1]!, out.join("\n"));
+    msgs.push(out.join("\n"));
   }
-  return blocks;
+  return msgs;
 }
 
 beforeAll(async () => {
@@ -125,218 +190,17 @@ beforeAll(async () => {
     return;
   }
   await oracle.verifyOraclePin();
-  for (const [name, src] of [["layout_oracle", SOURCE], ["layout_oracle_pointee", SOURCE_POINTEE]] as const) {
-    writeFileSync(join(WORK, `${name}.rs`), src);
+  for (const [name, lines] of SOURCES) {
+    writeFileSync(join(WORK, `${name}.rs`), text(lines));
     const p = Bun.spawnSync(oracle.oracleRustcCmd(["--edition", "2024", "--crate-type", "lib", "-Ainternal_features", `${name}.rs`]), { cwd: WORK });
-    oracle_blocks.set(src, parse_blocks(p.stderr.toString()));
+    const msgs = parse_msgs(p.stderr.toString());
+    // every `#[rustc_dump_layout(debug)]` item printed a layout (no layout error, no other error)
+    const items = lines.filter((l) => l.startsWith("#[rustc_dump_layout(debug)]")).length;
+    if (msgs.length !== items) throw new Error(`ERROR: oracle printed ${msgs.length} layouts for ${items} items of ${name}.rs`);
+    oracle_msgs.set(name, msgs);
   }
   have_oracle = true;
 }, 120_000);
-
-// ---- scaffolding (module comment) ----
-
-type Patch = { obj: Record<string, unknown>; key: string; old: unknown };
-const patches: Patch[] = [];
-function stops_at(f: () => unknown, what: string): boolean {
-  try {
-    f();
-  } catch (e) {
-    return e instanceof Unported && e.what === what;
-  }
-  return false;
-}
-/** Install `impl_` as `obj[key]` if `probe()` still stops at the stub `what`. */
-function scaffold(obj: object, key: string, what: string, probe: () => unknown, impl_: unknown): void {
-  if (!stops_at(probe, what)) return;
-  const o = obj as Record<string, unknown>;
-  patches.push({ obj: o, key, old: o[key] });
-  o[key] = impl_;
-}
-function restore(): void {
-  for (const p of patches.reverse()) p.obj[p.key] = p.old;
-  patches.length = 0;
-}
-
-function install_scaffolds(cx: HasDataLayout): void {
-  const u8_: Primitive = { $: "Int", _0: "I8", _1: false };
-  const s = (): Scalar => ({ $: "Initialized", value: u8_, valid_range: new WrappingRange(0n, 1n) });
-  // lib.rs:1545 Primitive::size
-  scaffold(Primitive, "size", "rustc_abi::Primitive::size", () => Primitive.size(u8_, cx), (self: Primitive, cx: HasDataLayout): Size => {
-    const dl = cx.data_layout();
-    switch (self.$) {
-      case "Int":
-        return Integer.size(self._0);
-      case "Float":
-        return Float.size(self._0);
-      case "Pointer":
-        return dl.pointer_size_in(self._0);
-    }
-  });
-  // lib.rs:1450 Float::align
-  scaffold(Float, "align", "rustc_abi::Float::align", () => Float.align("F64", cx), (self: Float, cx: HasDataLayout): AbiAlign => {
-    const dl = cx.data_layout();
-    switch (self) {
-      case "F16":
-      case "F16B":
-        return AbiAlign.new(dl.f16_align);
-      case "F32":
-        return AbiAlign.new(dl.f32_align);
-      case "F64":
-        return AbiAlign.new(dl.f64_align);
-      case "F128":
-      case "PpcF128":
-        return AbiAlign.new(dl.f128_align);
-    }
-  });
-  // rustc_middle ty/layout.rs:157 FloatExt::from_float_ty
-  scaffold(FloatExt, "from_float_ty", "rustc_middle::ty::layout::FloatExt::from_float_ty", () => FloatExt.from_float_ty("F64"), (fty: FloatTy): Float => {
-    switch (fty) {
-      case "F16":
-        return "F16";
-      case "F32":
-        return "F32";
-      case "F64":
-        return "F64";
-      case "F128":
-        return "F128";
-    }
-  });
-  // lib.rs:1560 Primitive::default_align
-  scaffold(Primitive, "default_align", "rustc_abi::Primitive::default_align", () => Primitive.default_align(u8_, cx), (self: Primitive, cx: HasDataLayout): AbiAlign => {
-    const dl = cx.data_layout();
-    switch (self.$) {
-      case "Int":
-        return Integer.align(self._0, dl);
-      case "Float":
-        return Float.align(self._0, dl);
-      case "Pointer":
-        return dl.pointer_align_in(self._0);
-    }
-  });
-  // lib.rs:1627 Scalar::primitive, :1637 default_align, :1641 size, :1651 valid_range, :1661 valid_range_mut
-  scaffold(Scalar, "primitive", "rustc_abi::Scalar::primitive", () => Scalar.primitive(s()), (self: Scalar) => self.value);
-  scaffold(Scalar, "default_align", "rustc_abi::Scalar::default_align", () => Scalar.default_align(s(), cx), (self: Scalar, cx: HasDataLayout) =>
-    Primitive.default_align(Scalar.primitive(self), cx),
-  );
-  scaffold(Scalar, "size", "rustc_abi::Scalar::size", () => Scalar.size(s(), cx), (self: Scalar, cx: HasDataLayout) => Primitive.size(Scalar.primitive(self), cx));
-  scaffold(Scalar, "valid_range", "rustc_abi::Scalar::valid_range", () => Scalar.valid_range(s(), cx), (self: Scalar, cx: HasDataLayout) =>
-    self.$ === "Initialized" ? self.valid_range : WrappingRange.full(Primitive.size(self.value, cx)),
-  );
-  scaffold(Scalar, "valid_range_mut", "rustc_abi::Scalar::valid_range_mut", () => Scalar.valid_range_mut(s()), (self: Scalar): MutRef<WrappingRange> => {
-    if (self.$ !== "Initialized") throw new Panic("cannot change the valid range of a union");
-    return {
-      get value() {
-        return self.valid_range;
-      },
-      set value(v: WrappingRange) {
-        self.valid_range = v;
-      },
-    };
-  });
-  // wrapping_range.rs:89 with_start, :96 with_end
-  const wr = WrappingRange.prototype as unknown as object;
-  scaffold(wr, "with_start", "rustc_abi::wrapping_range::WrappingRange::with_start", () => new WrappingRange(0n, 1n).with_start(0n), function (this: WrappingRange, start: bigint) {
-    return new WrappingRange(start, this.end);
-  });
-  scaffold(wr, "with_end", "rustc_abi::wrapping_range::WrappingRange::with_end", () => new WrappingRange(0n, 1n).with_end(0n), function (this: WrappingRange, end: bigint) {
-    return new WrappingRange(this.start, end);
-  });
-  // lib.rs:2128 Niche::available, :2122 Niche::from_scalar
-  const np = Niche.prototype as unknown as object;
-  scaffold(np, "available", "rustc_abi::Niche::available", () => new Niche(Size.ZERO, u8_, new WrappingRange(0n, 1n)).available(cx), function (this: Niche, cx: HasDataLayout): bigint {
-    const size = Primitive.size(this.value, cx);
-    if (!(size.bits() <= 128)) throw new Panic("assertion failed: size.bits() <= 128");
-    const max_value = size.unsigned_int_max();
-    // Find out how many values are outside the valid range.
-    const start = BigInt.asUintN(128, this.valid_range.end + 1n);
-    const end = this.valid_range.start;
-    return BigInt.asUintN(128, end - start) & max_value;
-  });
-  scaffold(Niche, "from_scalar", "rustc_abi::Niche::from_scalar", () => Niche.from_scalar(cx, Size.ZERO, s()), (cx: HasDataLayout, offset: Size, scalar: Scalar): Niche | undefined => {
-    if (scalar.$ !== "Initialized") return undefined;
-    const niche = new Niche(offset, scalar.value, scalar.valid_range);
-    return niche.available(cx) > 0n ? niche : undefined;
-  });
-  // lib.rs:1006 `impl Add for Size`
-  scaffold(Size.prototype as unknown as object, "add", "rustc_abi::Size::add", () => Size.ZERO.add(Size.ZERO), function (this: Size, other: Size): Size {
-    const r = this.bytes() + other.bytes();
-    if (r > Number.MAX_SAFE_INTEGER) return unported("Size beyond 2^53 (test scaffold)");
-    return Size.from_bytes(r);
-  });
-  // lib.rs:1886 BackendRepr::is_unsized, :1902 is_sized; :2396 LayoutData::is_unsized, :2401 is_sized, :2406 is_1zst
-  scaffold(BackendRepr, "is_unsized", "rustc_abi::BackendRepr::is_unsized", () => BackendRepr.is_unsized({ $: "Memory", sized: true }), (self: BackendRepr): boolean => {
-    switch (self.$) {
-      case "Scalar":
-      case "ScalarPair":
-      case "SimdScalableVector":
-      case "SimdVector":
-        return false;
-      case "Memory":
-        return !self.sized;
-    }
-  });
-  scaffold(BackendRepr, "is_sized", "rustc_abi::BackendRepr::is_sized", () => BackendRepr.is_sized({ $: "Memory", sized: true }), (self: BackendRepr) => !BackendRepr.is_unsized(self));
-  const lp = LayoutData.prototype as unknown as object;
-  const probe_l = () => LayoutData.prototype;
-  scaffold(lp, "is_unsized", "rustc_abi::LayoutData::is_unsized", () => probe_l().is_unsized.call({ backend_repr: { $: "Memory", sized: true } } as never), function (this: LayoutData) {
-    return BackendRepr.is_unsized(this.backend_repr);
-  });
-  scaffold(lp, "is_sized", "rustc_abi::LayoutData::is_sized", () => probe_l().is_sized.call({ backend_repr: { $: "Memory", sized: true } } as never), function (this: LayoutData) {
-    return BackendRepr.is_sized(this.backend_repr);
-  });
-  scaffold(lp, "is_1zst", "rustc_abi::LayoutData::is_1zst", () => probe_l().is_1zst.call({ backend_repr: { $: "Memory", sized: true }, size: Size.ZERO, align: AbiAlign.new(new Align(0)) } as never), function (this: LayoutData) {
-    return this.is_sized() && this.size.bytes() === 0 && this.align.abi.bytes() === 1;
-  });
-  // layout/simple.rs:33 never_type, :51 scalar, :91 scalar_pair
-  const L = LayoutData as unknown as object;
-  scaffold(L, "never_type", "rustc_abi::layout::simple::LayoutData::never_type", () => LayoutData.never_type(cx), (cx: HasDataLayout): LayoutData => {
-    const dl = cx.data_layout();
-    // This is also used for uninhabited enums, so we use `Variants::Empty`.
-    return new LayoutData(FieldsShape.Primitive, Variants.Empty, { $: "Memory", sized: true }, undefined, true, AbiAlign.new(dl.i8_align), Size.ZERO, undefined, dl.i8_align, false, Hash64.ZERO);
-  });
-  scaffold(L, "scalar", "rustc_abi::layout::simple::LayoutData::scalar", () => LayoutData.scalar(cx, s()), (cx: HasDataLayout, scalar: Scalar): LayoutData => {
-    const largest_niche = Niche.from_scalar(cx, Size.ZERO, scalar);
-    const size = Scalar.size(scalar, cx);
-    const align = Scalar.default_align(scalar, cx);
-    const range = Scalar.valid_range(scalar, cx);
-    const p = Scalar.primitive(scalar);
-    const tag = p.$ === "Int" ? (p._1 ? 1n : 2n) : p.$ === "Float" ? 3n : 4n;
-    const rotr16 = (x: bigint): bigint => {
-      const v = BigInt.asUintN(64, x);
-      return BigInt.asUintN(64, (v >> 16n) | (v << 48n));
-    };
-    const seed = BigInt.asUintN(64, BigInt.asUintN(64, BigInt.asUintN(64, BigInt(size.bytes()) + BigInt.asUintN(64, tag << 32n)) + rotr16(range.start)) + rotr16(range.end));
-    return new LayoutData(FieldsShape.Primitive, { $: "Single", index: 0 as VariantIdx }, { $: "Scalar", _0: scalar }, largest_niche, false, align, size, undefined, align.abi, false, Hash64.new(seed));
-  });
-  scaffold(L, "scalar_pair", "rustc_abi::layout::simple::LayoutData::scalar_pair", () => LayoutData.scalar_pair(cx, s(), s()), (cx: HasDataLayout, a: Scalar, b: Scalar): LayoutData => {
-    const dl = cx.data_layout();
-    const b_align = Scalar.default_align(b, dl).abi;
-    const align = Align_max(Align_max(Scalar.default_align(a, dl).abi, b_align), dl.aggregate_align);
-    const b_offset = Scalar.size(a, dl).align_to(b_align);
-    const size = b_offset.add(Scalar.size(b, dl)).align_to(align);
-    // HACK(nox): We iter on `b` and then `a` because `max_by_key` returns the last maximum.
-    let largest_niche: Niche | undefined;
-    for (const n of [Niche.from_scalar(dl, b_offset, b), Niche.from_scalar(dl, Size.ZERO, a)]) {
-      if (n !== undefined && (largest_niche === undefined || n.available(dl) >= largest_niche.available(dl))) largest_niche = n;
-    }
-    const combined_seed = BigInt(Scalar.size(a, dl).bytes() + Scalar.size(b, dl).bytes());
-    return new LayoutData(
-      { $: "Arbitrary", offsets: [Size.ZERO, b_offset], in_memory_order: [0 as FieldIdx, 1 as FieldIdx] },
-      { $: "Single", index: 0 as VariantIdx },
-      { $: "ScalarPair", a, b, b_offset },
-      largest_niche,
-      false,
-      AbiAlign.new(align),
-      size,
-      undefined,
-      align,
-      false,
-      Hash64.new(combined_seed),
-    );
-  });
-}
-
-afterAll(restore);
 
 // ---- in-process ----
 
@@ -356,9 +220,13 @@ function config_from_args(args: string[]): Config {
   if (config === undefined) throw new Error("ERROR: no config");
   return config;
 }
-function with_tcx(src: string, f: (tcx: TyCtxt) => void): void {
-  const file = join(WORK, src === SOURCE ? "layout_inproc.rs" : "layout_inproc_pointee.rs");
-  writeFileSync(file, src);
+function with_tcx(name: string, lines: string[], f: (tcx: TyCtxt) => void): void {
+  // same file name as the oracle's (the crate name, hence the `StableCrateId` and the def-path hashes that seed ADT
+  // layouts, comes from it), in its own directory
+  const dir = join(WORK, "inproc");
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `${name}.rs`);
+  writeFileSync(file, text(lines));
   let ran = false;
   run_compiler(config_from_args(["--crate-type", "lib", "--edition", "2024", "-Ainternal_features", file]), (compiler) => {
     const krate: Crate = parse(compiler.sess);
@@ -370,37 +238,55 @@ function with_tcx(src: string, f: (tcx: TyCtxt) => void): void {
   expect(ran).toBe(true);
 }
 
-function check_against_oracle(src: string, cases: [string, (tcx: TyCtxt) => Ty][]): void {
-  if (!have_oracle) return;
-  const blocks = oracle_blocks.get(src)!;
-  expect(blocks.size).toBe(cases.length);
-  with_tcx(src, (tcx) => {
-    install_scaffolds(tcx);
+/** What layout_test.rs `test_layout` + `dump_layout_of` print for `RustcDumpLayoutKind::Debug` (minus `ensure_wf`). */
+function dump_layouts(tcx: TyCtxt): string[] {
+  const out: string[] = [];
+  for (const id of (tcx.hir_crate_items(null) as ModuleItems).definitions()) {
+    const kinds = find_attr(HasAttrs_LocalDefId.get_attrs(id, tcx), (k) => (k.$ === "RustcDumpLayout" ? k._0 : undefined));
+    if (kinds === undefined) continue;
+    const dk = tcx.def_kind(id).$;
+    if (!(dk === "TyAlias" || dk === "Enum" || dk === "Struct" || dk === "Union")) continue;
+    expect(kinds).toEqual(["Debug"]);
+    const typing_env = TypingEnv.codegen(tcx, id);
+    const ty = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.type_of(id) as EarlyBinder<Ty>));
     try {
-      const env = TypingEnv.fully_monomorphized();
-      for (const [alias, mk] of cases) {
-        const display = alias.replace("'static ", "");
-        const r = tcx.layout_of(env.as_query_input(mk(tcx)));
-        expect(r.$).toBe("Ok");
-        if (r.$ !== "Ok") continue;
-        expect([display, debug_LayoutData(r._0.deref(), PRETTY)]).toEqual([display, blocks.get(display)!]);
+      const r = tcx.layout_of(typing_env.as_query_input(ty));
+      if (r.$ === "Err") {
+        out.push(display_LayoutError(r._0));
+        continue;
       }
-    } finally {
-      restore();
+      const normalized_ty = tcx.normalize_erasing_regions(typing_env, Unnormalized.new_wip(ty), fold_Ty);
+      out.push(`layout_of(${display_Ty(normalized_ty)}) = ${debug_LayoutData(r._0.deref(), PRETTY)}`);
+    } catch (e) {
+      // keep going so that one stop shows up as one differing entry (a query left unfinished by `Unported` may
+      // report a cycle for a later item that needs the same type)
+      if (!(e instanceof Unported)) throw e;
+      out.push(`ERROR: unported: ${e.what}`);
     }
+  }
+  return out;
+}
+
+/** Sources whose every item still stops before its layout (the exact stop; promote to a match when it moves). */
+const PENDING: Record<string, string> = {
+  // explicit discriminants: `AdtDef::discriminants` -> `eval_explicit_discr` -> `const_eval_poly` (M4); the implicit ones
+  // (`E2`, `E3`, ... in layout_aggregates.rs) match
+  layout_discriminants: "rustc_middle::mir::interpret::TyCtxt::const_eval_poly (M4)",
+};
+
+for (const [name, lines] of SOURCES) {
+  const pending = PENDING[name];
+  test(`layout_of on ${name}.rs ${pending === undefined ? "equals rustc's #[rustc_dump_layout(debug)]" : "stops at its pinned stop"}`, () => {
+    if (!have_oracle) return;
+    const want = oracle_msgs.get(name)!;
+    with_tcx(name, lines, (tcx) => {
+      expect(dump_layouts(tcx)).toEqual(pending === undefined ? want : want.map(() => `ERROR: unported: ${pending}`));
+    });
   });
 }
 
-test("layout_of of scalars, pointers and `!` equals rustc's #[rustc_dump_layout(debug)] (scaffolded rustc_abi stubs)", () => {
-  check_against_oracle(SOURCE, CASES);
-});
-
-test("wide pointers through `<T as Pointee>::Metadata` equal rustc's #[rustc_dump_layout(debug)] (scaffolded rustc_abi stubs)", () => {
-  check_against_oracle(SOURCE_POINTEE, CASES_POINTEE);
-});
-
 test("layout_of_uncached: generic types are TooGeneric; map_error builds the upstream LayoutError", () => {
-  with_tcx(SOURCE, (tcx) => {
+  with_tcx("layout_scalars", SCALARS, (tcx) => {
     const env = TypingEnv.fully_monomorphized();
     const cx = LayoutCx.new(tcx, env);
     const t = Ty.new_param(tcx, 0, Symbol.intern("T"));
@@ -415,7 +301,7 @@ test("layout_of_uncached: generic types are TooGeneric; map_error builds the ups
 });
 
 test("layout_sanity_check: the release-mode size % align check", () => {
-  with_tcx(SOURCE, (tcx) => {
+  with_tcx("layout_scalars", SCALARS, (tcx) => {
     const cx = LayoutCx.new(tcx, TypingEnv.fully_monomorphized());
     const mk = (size: number, align_pow2: number) =>
       new TyAndLayout(
