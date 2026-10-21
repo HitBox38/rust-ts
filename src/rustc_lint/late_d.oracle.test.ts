@@ -140,6 +140,28 @@ const CASES: Case[] = [
     ].join("\n"),
     expect: ["panic message contains an unused formatting placeholder", "panic message contains braces", "panic message is not a string literal"],
   },
+  {
+    name: "dangling: dangling_pointers_from_temporaries (CString, Vec, String, Box<[_]>, arrays; not inside call args)",
+    passes: ["DanglingPointers"],
+    src: [
+      "use std::ffi::CString;",
+      "pub fn g(_: *const u8) {}",
+      "pub fn f(b: Box<[u8]>) -> usize {",
+      "    let p = CString::new(\"hello\").unwrap().as_ptr();",
+      "    let v = vec![1u8, 2].as_ptr();",
+      "    let mut s = String::from(\"x\");",
+      "    let m = String::from(\"x\").as_mut_ptr();",
+      "    let q = s.as_mut_ptr();",
+      "    g(Vec::<u8>::new().as_ptr());",
+      "    let w = { let w = Vec::<u8>::new().as_ptr(); w };",
+      "    let c = |x: u8| { let a = vec![x].as_ptr(); a as usize };",
+      "    let bb = std::convert::identity(b).as_ptr();",
+      "    (p as usize) + (v as usize) + (m as usize) + (q as usize) + (w as usize) + c(1) + (bb as usize)",
+      "}",
+      "",
+    ].join("\n"),
+    expect: ["this creates a dangling pointer because temporary `CString` is dropped at end of statement"],
+  },
 ];
 
 for (const [i, c] of CASES.entries()) {
