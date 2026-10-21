@@ -84,8 +84,9 @@ const d_PolyTraitClause = (): TypeFoldable<Binder<TraitClause>> => fold_Binder(d
 
 /** `crate::traits::util` (read lazily: init order). */
 function util(): typeof import("../util.ts") {
-  return require("../util.ts") as typeof import("../util.ts");
+  return (util__m ??= require("../util.ts") as typeof import("../util.ts"));
 }
+var util__m: typeof import("../util.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 
 // ---- impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> (candidate_assembly.rs:29) -----------------------------------------

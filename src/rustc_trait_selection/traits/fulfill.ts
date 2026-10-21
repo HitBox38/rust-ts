@@ -85,11 +85,13 @@ const fold_PredicateKind = {
 
 /** Lazily read modules of this crate (init order: module comment). */
 function select_mod(): typeof import("./select/mod.ts") {
-  return require("./select/mod.ts") as typeof import("./select/mod.ts");
+  return (select_mod__m ??= require("./select/mod.ts") as typeof import("./select/mod.ts"));
 }
+var select_mod__m: typeof import("./select/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function traits_mod(): typeof import("./mod.ts") {
-  return require("./mod.ts") as typeof import("./mod.ts");
+  return (traits_mod__m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
+var traits_mod__m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // ---- impl<'tcx> ForestObligation for PendingPredicateObligation<'tcx> (fulfill.rs:41) -----------------------------------
 

@@ -202,5 +202,6 @@ function d_PredicateObligations(): TypeFoldable<PredicateObligations> {
 
 /** The crate's traits/mod.ts (a static import would close a load-time cycle). */
 function traits_mod(): typeof import("../../traits/mod.ts") {
-  return require("../../traits/mod.ts") as typeof import("../../traits/mod.ts");
+  return (traits_mod__m ??= require("../../traits/mod.ts") as typeof import("../../traits/mod.ts"));
 }
+var traits_mod__m: typeof import("../../traits/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

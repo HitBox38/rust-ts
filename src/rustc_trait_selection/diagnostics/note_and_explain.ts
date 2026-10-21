@@ -27,8 +27,9 @@ import { DescriptionCtx, PrefixKind, RegionExplanation, SuffixKind } from "./not
 
 /** `crate::error_reporting::infer::nice_region_error::find_anon_type` (read lazily: init order). */
 function find_anon_type_mod(): typeof import("../error_reporting/infer/nice_region_error/find_anon_type.ts") {
-  return require("../error_reporting/infer/nice_region_error/find_anon_type.ts") as typeof import("../error_reporting/infer/nice_region_error/find_anon_type.ts");
+  return (find_anon_type_mod__m ??= require("../error_reporting/infer/nice_region_error/find_anon_type.ts") as typeof import("../error_reporting/infer/nice_region_error/find_anon_type.ts"));
 }
+var find_anon_type_mod__m: typeof import("../error_reporting/infer/nice_region_error/find_anon_type.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 declare module "./note_and_explain.gen.ts" {
   namespace DescriptionCtx {

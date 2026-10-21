@@ -2576,8 +2576,9 @@ function HirPlace_ty(_place: unknown): Ty {
 
 /** `crate::collect` (read at call time: init order). */
 function collect(): typeof import("../collect.ts") {
-  return require("../collect.ts") as typeof import("../collect.ts");
+  return (collect__m ??= require("../collect.ts") as typeof import("../collect.ts"));
 }
+var collect__m: typeof import("../collect.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `#[derive(TypeFoldable, TypeVisitable)] for OpaqueTypeKey` (rustc_type_ir opaque_ty.gen.ts). */
 const fold_OpaqueTypeKey: TypeFoldable<OpaqueTypeKey> = {

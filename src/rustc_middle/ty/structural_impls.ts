@@ -38,7 +38,7 @@ import type { TyKind } from "../../rustc_type_ir/ty_kind.gen.ts";
 import type { ValTreeKind } from "../../rustc_type_ir/const_kind.gen.ts";
 import type { PatternKind } from "../../rustc_type_ir/pattern.gen.ts";
 import type { OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.gen.ts";
-import { intern_key } from "../../rust_ts/intern_key.ts";
+import { intern_key, intern_key_eq } from "../../rust_ts/intern_key.ts";
 import { type Debug, type Fmt, PLAIN } from "../../std/fmt.ts";
 import { panic, unported } from "../../std/panic.ts";
 import { Ok, type Result } from "../../std/result.ts";
@@ -61,68 +61,89 @@ import type { ValTree } from "./consts/valtree.ts";
 
 // ---- lazy modules (init order, module comment) ----
 function binder(): typeof import("../../rustc_type_ir/binder.ts") {
-  return require("../../rustc_type_ir/binder.ts") as typeof import("../../rustc_type_ir/binder.ts");
+  return (binder__m ??= require("../../rustc_type_ir/binder.ts") as typeof import("../../rustc_type_ir/binder.ts"));
 }
+var binder__m: typeof import("../../rustc_type_ir/binder.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ty_kind_gen(): typeof import("../../rustc_type_ir/ty_kind.gen.ts") {
-  return require("../../rustc_type_ir/ty_kind.gen.ts") as typeof import("../../rustc_type_ir/ty_kind.gen.ts");
+  return (ty_kind_gen__m ??= require("../../rustc_type_ir/ty_kind.gen.ts") as typeof import("../../rustc_type_ir/ty_kind.gen.ts"));
 }
+var ty_kind_gen__m: typeof import("../../rustc_type_ir/ty_kind.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ty_kind(): typeof import("../../rustc_type_ir/ty_kind.ts") {
-  return require("../../rustc_type_ir/ty_kind.ts") as typeof import("../../rustc_type_ir/ty_kind.ts");
+  return (ty_kind__m ??= require("../../rustc_type_ir/ty_kind.ts") as typeof import("../../rustc_type_ir/ty_kind.ts"));
 }
+var ty_kind__m: typeof import("../../rustc_type_ir/ty_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function alias(): typeof import("../../rustc_type_ir/ty/alias.ts") {
-  return require("../../rustc_type_ir/ty/alias.ts") as typeof import("../../rustc_type_ir/ty/alias.ts");
+  return (alias__m ??= require("../../rustc_type_ir/ty/alias.ts") as typeof import("../../rustc_type_ir/ty/alias.ts"));
 }
+var alias__m: typeof import("../../rustc_type_ir/ty/alias.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function generic_args(): typeof import("./generic_args.ts") {
-  return require("./generic_args.ts") as typeof import("./generic_args.ts");
+  return (generic_args__m ??= require("./generic_args.ts") as typeof import("./generic_args.ts"));
 }
+var generic_args__m: typeof import("./generic_args.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function sty_mod(): typeof import("../../rustc_type_ir/sty/mod.ts") {
-  return require("../../rustc_type_ir/sty/mod.ts") as typeof import("../../rustc_type_ir/sty/mod.ts");
+  return (sty_mod__m ??= require("../../rustc_type_ir/sty/mod.ts") as typeof import("../../rustc_type_ir/sty/mod.ts"));
 }
+var sty_mod__m: typeof import("../../rustc_type_ir/sty/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function sty_consts(): typeof import("../../rustc_type_ir/sty/consts.ts") {
-  return require("../../rustc_type_ir/sty/consts.ts") as typeof import("../../rustc_type_ir/sty/consts.ts");
+  return (sty_consts__m ??= require("../../rustc_type_ir/sty/consts.ts") as typeof import("../../rustc_type_ir/sty/consts.ts"));
 }
+var sty_consts__m: typeof import("../../rustc_type_ir/sty/consts.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function predicate_kind(): typeof import("../../rustc_type_ir/predicate_kind.ts") {
-  return require("../../rustc_type_ir/predicate_kind.ts") as typeof import("../../rustc_type_ir/predicate_kind.ts");
+  return (predicate_kind__m ??= require("../../rustc_type_ir/predicate_kind.ts") as typeof import("../../rustc_type_ir/predicate_kind.ts"));
 }
+var predicate_kind__m: typeof import("../../rustc_type_ir/predicate_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function predicate_kind_gen(): typeof import("../../rustc_type_ir/predicate_kind.gen.ts") {
-  return require("../../rustc_type_ir/predicate_kind.gen.ts") as typeof import("../../rustc_type_ir/predicate_kind.gen.ts");
+  return (predicate_kind_gen__m ??= require("../../rustc_type_ir/predicate_kind.gen.ts") as typeof import("../../rustc_type_ir/predicate_kind.gen.ts"));
 }
+var predicate_kind_gen__m: typeof import("../../rustc_type_ir/predicate_kind.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function predicate_gen(): typeof import("../../rustc_type_ir/predicate.gen.ts") {
-  return require("../../rustc_type_ir/predicate.gen.ts") as typeof import("../../rustc_type_ir/predicate.gen.ts");
+  return (predicate_gen__m ??= require("../../rustc_type_ir/predicate.gen.ts") as typeof import("../../rustc_type_ir/predicate.gen.ts"));
 }
+var predicate_gen__m: typeof import("../../rustc_type_ir/predicate.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ir_predicate(): typeof import("../../rustc_type_ir/predicate.ts") {
-  return require("../../rustc_type_ir/predicate.ts") as typeof import("../../rustc_type_ir/predicate.ts");
+  return (ir_predicate__m ??= require("../../rustc_type_ir/predicate.ts") as typeof import("../../rustc_type_ir/predicate.ts"));
 }
+var ir_predicate__m: typeof import("../../rustc_type_ir/predicate.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function pattern_gen(): typeof import("../../rustc_type_ir/pattern.gen.ts") {
-  return require("../../rustc_type_ir/pattern.gen.ts") as typeof import("../../rustc_type_ir/pattern.gen.ts");
+  return (pattern_gen__m ??= require("../../rustc_type_ir/pattern.gen.ts") as typeof import("../../rustc_type_ir/pattern.gen.ts"));
 }
+var pattern_gen__m: typeof import("../../rustc_type_ir/pattern.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function opaque_ty_gen(): typeof import("../../rustc_type_ir/opaque_ty.gen.ts") {
-  return require("../../rustc_type_ir/opaque_ty.gen.ts") as typeof import("../../rustc_type_ir/opaque_ty.gen.ts");
+  return (opaque_ty_gen__m ??= require("../../rustc_type_ir/opaque_ty.gen.ts") as typeof import("../../rustc_type_ir/opaque_ty.gen.ts"));
 }
+var opaque_ty_gen__m: typeof import("../../rustc_type_ir/opaque_ty.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function const_kind_gen(): typeof import("../../rustc_type_ir/const_kind.gen.ts") {
-  return require("../../rustc_type_ir/const_kind.gen.ts") as typeof import("../../rustc_type_ir/const_kind.gen.ts");
+  return (const_kind_gen__m ??= require("../../rustc_type_ir/const_kind.gen.ts") as typeof import("../../rustc_type_ir/const_kind.gen.ts"));
 }
+var const_kind_gen__m: typeof import("../../rustc_type_ir/const_kind.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ir_fold(): typeof import("../../rustc_type_ir/fold.ts") {
-  return require("../../rustc_type_ir/fold.ts") as typeof import("../../rustc_type_ir/fold.ts");
+  return (ir_fold__m ??= require("../../rustc_type_ir/fold.ts") as typeof import("../../rustc_type_ir/fold.ts"));
 }
+var ir_fold__m: typeof import("../../rustc_type_ir/fold.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ir_visit(): typeof import("../../rustc_type_ir/visit.ts") {
-  return require("../../rustc_type_ir/visit.ts") as typeof import("../../rustc_type_ir/visit.ts");
+  return (ir_visit__m ??= require("../../rustc_type_ir/visit.ts") as typeof import("../../rustc_type_ir/visit.ts"));
 }
+var ir_visit__m: typeof import("../../rustc_type_ir/visit.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function pretty(): typeof import("./print/pretty.ts") {
-  return require("./print/pretty.ts") as typeof import("./print/pretty.ts");
+  return (pretty__m ??= require("./print/pretty.ts") as typeof import("./print/pretty.ts"));
 }
+var pretty__m: typeof import("./print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function tls(): typeof import("./context/tls.ts") {
-  return require("./context/tls.ts") as typeof import("./context/tls.ts");
+  return (tls__m ??= require("./context/tls.ts") as typeof import("./context/tls.ts"));
 }
+var tls__m: typeof import("./context/tls.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ty_util(): typeof import("./util.ts") {
-  return require("./util.ts") as typeof import("./util.ts");
+  return (ty_util__m ??= require("./util.ts") as typeof import("./util.ts"));
 }
+var ty_util__m: typeof import("./util.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function middle_predicate(): typeof import("./predicate.ts") {
-  return require("./predicate.ts") as typeof import("./predicate.ts");
+  return (middle_predicate__m ??= require("./predicate.ts") as typeof import("./predicate.ts"));
 }
+var middle_predicate__m: typeof import("./predicate.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function adjustment_gen(): typeof import("./adjustment.gen.ts") {
-  return require("./adjustment.gen.ts") as typeof import("./adjustment.gen.ts");
+  return (adjustment_gen__m ??= require("./adjustment.gen.ts") as typeof import("./adjustment.gen.ts"));
 }
+var adjustment_gen__m: typeof import("./adjustment.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // ---- PORT stand-ins for items of other lanes' files that are not ported yet ----------------------------------------
 
@@ -144,7 +165,7 @@ const fold_PlaceElem: TypeFoldable<PlaceElem> = {
 };
 /** `T: PartialEq` of a list element: interned values by identity, others by their derived `PartialEq` (intern key). */
 function T_eq<T>(a: T, b: T): boolean {
-  return a === b || intern_key(a) === intern_key(b);
+  return a === b || intern_key_eq(a, b);
 }
 
 // ---- Debug impls (structural_impls.rs:22-152) ----
@@ -328,7 +349,7 @@ export const fold_Pattern: TypeFoldable<Pattern> = {
 
 /** The derived `PartialEq` of `TyKind` (`*self.kind() == kind`): equal intern keys (interned children by identity). */
 function TyKind_eq(a: TyKind, b: TyKind): boolean {
-  return intern_key(a) === intern_key(b);
+  return intern_key_eq(a, b);
 }
 
 /** `TypeFoldable` of the `I::BoundExistentialPredicates` field (`list_fold!` below), as a descriptor. */

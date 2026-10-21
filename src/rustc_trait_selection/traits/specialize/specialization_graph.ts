@@ -446,5 +446,6 @@ export function assoc_def(tcx: TyCtxt, impl_def_id: DefId, assoc_def_id: DefId):
 
 // ---- lazy loads (init order: ../coherence.ts imports this module's siblings) -----------------------------------------
 function coherence_mod(): typeof import("../coherence.ts") {
-  return require("../coherence.ts") as typeof import("../coherence.ts");
+  return (coherence_mod__m ??= require("../coherence.ts") as typeof import("../coherence.ts"));
 }
+var coherence_mod__m: typeof import("../coherence.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

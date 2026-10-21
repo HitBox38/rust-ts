@@ -891,14 +891,17 @@ export function DataTypeKind_from_AdtKind(val: AdtKind): DataTypeKind {
 /** PORT (init order): ty/mod.ts imports modules that import this one back, and ty/util.ts is an extension module;
  * both are reached lazily (merge-w15b). */
 function ty_mod(): typeof import("./mod.ts") {
-  return require("./mod.ts") as typeof import("./mod.ts");
+  return (ty_mod__m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
+var ty_mod__m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function valtree_(): typeof import("./consts/valtree.ts") {
-  return require("./consts/valtree.ts") as typeof import("./consts/valtree.ts");
+  return (valtree___m ??= require("./consts/valtree.ts") as typeof import("./consts/valtree.ts"));
 }
+var valtree___m: typeof import("./consts/valtree.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function ty_util(): typeof import("./util.ts") {
-  return require("./util.ts") as typeof import("./util.ts");
+  return (ty_util__m ??= require("./util.ts") as typeof import("./util.ts"));
 }
+var ty_util__m: typeof import("./util.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `Option<DefId> == Some(cid)` */
 function eq_Option_DefId(a: DefId | undefined, b: DefId): boolean {

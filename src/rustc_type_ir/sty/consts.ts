@@ -42,8 +42,9 @@ export * from "./consts.gen.ts";
 // const_kind.ts reaches the extension module rustc_middle ty/sty.ts (through ty_kind.ts), so a static import throws a
 // TDZ `ReferenceError` (`Ty`) when rustc_middle/lib.ts loads. `debug_ConstKind` is required lazily, at call time.
 function const_kind(): typeof import("../const_kind.ts") {
-  return require("../const_kind.ts") as typeof import("../const_kind.ts");
+  return (const_kind__m ??= require("../const_kind.ts") as typeof import("../const_kind.ts"));
 }
+var const_kind__m: typeof import("../const_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // ---- PORT stand-ins for fns of other lanes' files that are not ported yet (convention 6) -------------------------
 
@@ -54,8 +55,9 @@ function display_Value(v: Value): string {
 // PORT (init order, merge-w15a): binder.ts reaches rustc_middle ty/sty.ts (see `const_kind()` above), so it is
 // required lazily.
 function binder(): typeof import("../binder.ts") {
-  return require("../binder.ts") as typeof import("../binder.ts");
+  return (binder__m ??= require("../binder.ts") as typeof import("../binder.ts"));
 }
+var binder__m: typeof import("../binder.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // rustc-type: compiler/rustc_type_ir/src/sty/consts.rs:22 Const
 export class Const extends Interned {

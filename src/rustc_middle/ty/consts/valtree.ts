@@ -28,14 +28,17 @@ export type { DestructuredAdtConst };
 
 // ---- lazy modules (init order, module comment) ----
 function structural_impls(): typeof import("../structural_impls.ts") {
-  return require("../structural_impls.ts") as typeof import("../structural_impls.ts");
+  return (structural_impls__m ??= require("../structural_impls.ts") as typeof import("../structural_impls.ts"));
 }
+var structural_impls__m: typeof import("../structural_impls.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function pretty(): typeof import("../print/pretty.ts") {
-  return require("../print/pretty.ts") as typeof import("../print/pretty.ts");
+  return (pretty__m ??= require("../print/pretty.ts") as typeof import("../print/pretty.ts"));
 }
+var pretty__m: typeof import("../print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function tls(): typeof import("../context/tls.ts") {
-  return require("../context/tls.ts") as typeof import("../context/tls.ts");
+  return (tls__m ??= require("../context/tls.ts") as typeof import("../context/tls.ts"));
 }
+var tls__m: typeof import("../context/tls.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 
 // ---- PORT stand-ins for items of other lanes' files that are not ported yet --------------------------------------

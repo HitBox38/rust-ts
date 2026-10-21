@@ -64,13 +64,15 @@ const d_TraitRef: TypeFoldable<TraitRefT> = { visit_with: visit_with_TraitRef, t
 
 /** The crate's diagnostics.gen.ts (read lazily: it imports this module). */
 function diagnostics_gen(): typeof import("../../../diagnostics.gen.ts") {
-  return require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts");
+  return (diagnostics_gen__m ??= require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts"));
 }
+var diagnostics_gen__m: typeof import("../../../diagnostics.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** The crate's diagnostics.ts (read lazily: diagnostics.gen.ts imports it and this module). */
 function diagnostics(): typeof import("../../../diagnostics.ts") {
-  return require("../../../diagnostics.ts") as typeof import("../../../diagnostics.ts");
+  return (diagnostics__m ??= require("../../../diagnostics.ts") as typeof import("../../../diagnostics.ts"));
 }
+var diagnostics__m: typeof import("../../../diagnostics.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** PORT: `T: for<'a> Print<FmtPrinter<'a, 'tcx>>` of the `Highlighted<T>` that reach the trait impls through the
  *  generated diagnostics (no printer parameter): the `T`s upstream instantiates (`TraitRefPrintOnlyTraitPath` in

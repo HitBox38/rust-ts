@@ -147,12 +147,14 @@ const Misc: BuiltinImplSource = { $: "Misc" };
 
 /** `crate::traits::normalize` (read lazily: init order). */
 function normalize_mod(): typeof import("../normalize.ts") {
-  return require("../normalize.ts") as typeof import("../normalize.ts");
+  return (normalize_mod__m ??= require("../normalize.ts") as typeof import("../normalize.ts"));
 }
+var normalize_mod__m: typeof import("../normalize.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** `crate::traits::util` (read lazily: init order). */
 function util(): typeof import("../util.ts") {
-  return require("../util.ts") as typeof import("../util.ts");
+  return (util__m ??= require("../util.ts") as typeof import("../util.ts"));
 }
+var util__m: typeof import("../util.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `{:?}` of a `PolyTraitObligation`. */
 function debug_PolyTraitObligation(o: PolyTraitObligation): string {

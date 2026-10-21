@@ -1417,8 +1417,9 @@ function display_PolyTraitRefPrintSugared(self: Binder<TraitRefPrintSugared>): s
 
 /** The crate's traits/select/mod.ts (`SelectionContext`), read lazily (init order). */
 function select_mod(): typeof import("../../traits/select/mod.ts") {
-  return require("../../traits/select/mod.ts") as typeof import("../../traits/select/mod.ts");
+  return (select_mod__m ??= require("../../traits/select/mod.ts") as typeof import("../../traits/select/mod.ts"));
 }
+var select_mod__m: typeof import("../../traits/select/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 
 // ==== lane errrep-traits-b: error_reporting/traits/fulfillment_errors.rs ====
@@ -4117,32 +4118,39 @@ type TransmuteAnswer = { readonly $: "Yes" } | { readonly $: "No"; _0: Transmute
 
 /** The crate's traits/engine.ts (`ObligationCtxt`), read lazily (init order). */
 function lazy_engine(): typeof import("../../traits/engine.ts") {
-  return require("../../traits/engine.ts") as typeof import("../../traits/engine.ts");
+  return (lazy_engine__m ??= require("../../traits/engine.ts") as typeof import("../../traits/engine.ts"));
 }
+var lazy_engine__m: typeof import("../../traits/engine.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** The crate's traits/select/mod.ts (`SelectionContext`), read lazily (init order). */
 function lazy_select(): typeof import("../../traits/select/mod.ts") {
-  return require("../../traits/select/mod.ts") as typeof import("../../traits/select/mod.ts");
+  return (lazy_select__m ??= require("../../traits/select/mod.ts") as typeof import("../../traits/select/mod.ts"));
 }
+var lazy_select__m: typeof import("../../traits/select/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** The crate's traits/specialize/specialization_graph.ts (`assoc_def`), read lazily (init order). */
 function lazy_specialization_graph(): typeof import("../../traits/specialize/specialization_graph.ts") {
-  return require("../../traits/specialize/specialization_graph.ts") as typeof import("../../traits/specialize/specialization_graph.ts");
+  return (lazy_specialization_graph__m ??= require("../../traits/specialize/specialization_graph.ts") as typeof import("../../traits/specialize/specialization_graph.ts"));
 }
+var lazy_specialization_graph__m: typeof import("../../traits/specialize/specialization_graph.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** The crate's traits/mod.ts, read lazily (init order). */
 function lazy_traits(): typeof import("../../traits/mod.ts") {
-  return require("../../traits/mod.ts") as typeof import("../../traits/mod.ts");
+  return (lazy_traits__m ??= require("../../traits/mod.ts") as typeof import("../../traits/mod.ts"));
 }
+var lazy_traits__m: typeof import("../../traits/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** This module's parent error_reporting/traits/mod.ts (`ArgKind`), read lazily (init order). */
 function lazy_traits_mod(): typeof import("./mod.ts") {
-  return require("./mod.ts") as typeof import("./mod.ts");
+  return (lazy_traits_mod__m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
+var lazy_traits_mod__m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** The sibling error_reporting/infer/mod.ts (`TyCategory::from_ty`), read lazily (init order). */
 function lazy_infer_mod(): typeof import("../infer/mod.ts") {
-  return require("../infer/mod.ts") as typeof import("../infer/mod.ts");
+  return (lazy_infer_mod__m ??= require("../infer/mod.ts") as typeof import("../infer/mod.ts"));
 }
+var lazy_infer_mod__m: typeof import("../infer/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** The crate's diagnostics.gen.ts (`ClosureKindMismatch`, `AssocTypeWithSameName`), read lazily (init order). */
 function lazy_diagnostics(): typeof import("../../diagnostics.gen.ts") {
-  return require("../../diagnostics.gen.ts") as typeof import("../../diagnostics.gen.ts");
+  return (lazy_diagnostics__m ??= require("../../diagnostics.gen.ts") as typeof import("../../diagnostics.gen.ts"));
 }
+var lazy_diagnostics__m: typeof import("../../diagnostics.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `#[derive(Hash)]` of `(DefId, String)`: `DefId`'s `Hash` (def_id.rs:268: the `u64` `krate << 32 | index`), then
  * `write_str` of the path; element size 32, align 8. */

@@ -35,8 +35,9 @@ export * from "./consts/valtree.ts";
 
 /** `ty::layout` (an extension module: read lazily, header). */
 function layout(): typeof import("./layout.ts") {
-  return require("./layout.ts") as typeof import("./layout.ts");
+  return (layout__m ??= require("./layout.ts") as typeof import("./layout.ts"));
 }
+var layout__m: typeof import("./layout.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /// Creates a constant with the given integer value and interns it.
 // #[inline]
@@ -195,5 +196,6 @@ Const.prototype.walk = function (this: Const): TypeWalker {
 
 /** PORT (merge-w15b): ty/mod.ts's `TypingEnv`, reached lazily (this is an extension module of `Const`). */
 function ty_mod(): typeof import("./mod.ts") {
-  return require("./mod.ts") as typeof import("./mod.ts");
+  return (ty_mod__m ??= require("./mod.ts") as typeof import("./mod.ts"));
 }
+var ty_mod__m: typeof import("./mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

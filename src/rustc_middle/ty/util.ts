@@ -2141,5 +2141,6 @@ export interface IntrinsicDefView {
 
 /** PORT (merge-w15b): rustc_middle traits/mod.ts reaches this module back through rustc_type_ir: loaded lazily. */
 function traits_mod(): typeof import("../traits/mod.ts") {
-  return require("../traits/mod.ts") as typeof import("../traits/mod.ts");
+  return (traits_mod__m ??= require("../traits/mod.ts") as typeof import("../traits/mod.ts"));
 }
+var traits_mod__m: typeof import("../traits/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

@@ -499,14 +499,18 @@ function debug_result(result: Canonical<QueryResponse<NormalizationResult>>): st
   return debug_Canonical(result, PLAIN, (v, f) => debug_QueryResponse(v, f, debug_NormalizationResult));
 }
 function traits_mod(): typeof import("../mod.ts") {
-  return require("../mod.ts") as typeof import("../mod.ts");
+  return (traits_mod__m ??= require("../mod.ts") as typeof import("../mod.ts"));
 }
+var traits_mod__m: typeof import("../mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function traits_normalize(): typeof import("../normalize.ts") {
-  return require("../normalize.ts") as typeof import("../normalize.ts");
+  return (traits_normalize__m ??= require("../normalize.ts") as typeof import("../normalize.ts"));
 }
+var traits_normalize__m: typeof import("../normalize.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function solve_normalize(): typeof import("../../solve/normalize.ts") {
-  return require("../../solve/normalize.ts") as typeof import("../../solve/normalize.ts");
+  return (solve_normalize__m ??= require("../../solve/normalize.ts") as typeof import("../../solve/normalize.ts"));
 }
+var solve_normalize__m: typeof import("../../solve/normalize.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 function solve_fulfill(): typeof import("../../solve/fulfill.ts") {
-  return require("../../solve/fulfill.ts") as typeof import("../../solve/fulfill.ts");
+  return (solve_fulfill__m ??= require("../../solve/fulfill.ts") as typeof import("../../solve/fulfill.ts"));
 }
+var solve_fulfill__m: typeof import("../../solve/fulfill.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)

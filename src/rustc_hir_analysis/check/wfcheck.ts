@@ -2932,18 +2932,21 @@ function set_insert<T>(set: Set<T>, v: T): boolean {
 
 /** `crate::diagnostics` (read at call time: init order). */
 function diagnostics(): typeof import("../diagnostics.ts") {
-  return require("../diagnostics.ts") as typeof import("../diagnostics.ts");
+  return (diagnostics__m ??= require("../diagnostics.ts") as typeof import("../diagnostics.ts"));
 }
+var diagnostics__m: typeof import("../diagnostics.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `crate::collect` (read at call time: init order). */
 function collect(): typeof import("../collect.ts") {
-  return require("../collect.ts") as typeof import("../collect.ts");
+  return (collect__m ??= require("../collect.ts") as typeof import("../collect.ts"));
 }
+var collect__m: typeof import("../collect.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `crate::constrained_generic_params` (read at call time: init order). */
 function cgp(): typeof import("../constrained_generic_params.ts") {
-  return require("../constrained_generic_params.ts") as typeof import("../constrained_generic_params.ts");
+  return (cgp__m ??= require("../constrained_generic_params.ts") as typeof import("../constrained_generic_params.ts"));
 }
+var cgp__m: typeof import("../constrained_generic_params.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // ---- check-wf-b stand-ins for items that are not ported yet (each stops as UNPORTED; not markers) --------------------
 

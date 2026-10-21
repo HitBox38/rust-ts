@@ -23,7 +23,7 @@ import {
   type QueryResult,
   RerunResultExt_for_Result,
 } from "../../rustc_type_ir/solve/mod.ts";
-import { intern_key } from "../../rust_ts/intern_key.ts";
+import { intern_key_eq } from "../../rust_ts/intern_key.ts";
 import { unreachable } from "../../std/panic.ts";
 import { Err, Ok } from "../../std/result.ts";
 import { response_no_constraints_raw } from "../canonical/mod.ts";
@@ -171,7 +171,7 @@ function SearchGraphDelegate_impl(D: SolverDelegate_static): Delegate<SearchGrap
 
 /** PORT: the derived `PartialEq` of `Certainty` (plain data: compared by intern key, contract rule 4). */
 function certainty_eq(a: Certainty, b: Certainty): boolean {
-  return intern_key(a) === intern_key(b);
+  return intern_key_eq(a, b);
 }
 
 // PORT: `input.canonical` reads through `CanonicalInput`'s `Deref` (`CanonicalInput_deref`).

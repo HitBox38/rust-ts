@@ -37,7 +37,7 @@ import {
   visit_with_BoundExistentialPredicates,
   visit_with_Pattern,
 } from "../rustc_middle/ty/structural_impls.ts";
-import { intern_key } from "../rust_ts/intern_key.ts";
+import { intern_key, intern_key_eq } from "../rust_ts/intern_key.ts";
 import { type DefId, DefId_eq } from "../rustc_span/def_id.ts";
 import { PLAIN } from "../std/fmt.ts";
 import { panic, unported, unwrap } from "../std/panic.ts";
@@ -102,7 +102,7 @@ export function interner(tcx: TyCtxt): Interner {
 
 /** PORT: derived `PartialEq` of a non-interned value (header). */
 function eq_by_key<T>(a: T, b: T): boolean {
-  return intern_key(a) === intern_key(b);
+  return intern_key_eq(a, b);
 }
 
 /** PORT: `PartialEq` of an interned value (pointer equality). */

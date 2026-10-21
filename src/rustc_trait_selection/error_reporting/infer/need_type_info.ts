@@ -1018,8 +1018,9 @@ export const InferSourceKind = {
 
 /** rustc_trait_selection diagnostics.ts (manual impls), read lazily (init order: same crate). */
 function diagnostics(): typeof import("../../diagnostics.ts") {
-  return require("../../diagnostics.ts") as typeof import("../../diagnostics.ts");
+  return (diagnostics__m ??= require("../../diagnostics.ts") as typeof import("../../diagnostics.ts"));
 }
+var diagnostics__m: typeof import("../../diagnostics.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /**
  * PORT: the `let`-chain of the `iterator_collect_fn` branch of `InferSourceKind::suggestion` (`GenericArg`), up to and

@@ -38,13 +38,15 @@ import { NiceRegionError } from "./mod.ts";
 
 /** The crate's diagnostics.gen.ts (read lazily, init order). */
 function diagnostics_gen(): typeof import("../../../diagnostics.gen.ts") {
-  return require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts");
+  return (diagnostics_gen__m ??= require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts"));
 }
+var diagnostics_gen__m: typeof import("../../../diagnostics.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** ./placeholder_error.ts (read lazily, init order). */
 function placeholder_error(): typeof import("./placeholder_error.ts") {
-  return require("./placeholder_error.ts") as typeof import("./placeholder_error.ts");
+  return (placeholder_error__m ??= require("./placeholder_error.ts") as typeof import("./placeholder_error.ts"));
 }
+var placeholder_error__m: typeof import("./placeholder_error.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** `Binder<FnSig>`'s `Print` (pretty.rs's generic `impl Print for Binder<T>` with `FnSig`). */
 function print_PolyFnSig(self: Binder<FnSig>, p: PrettyPrinter) {

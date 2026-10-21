@@ -8,6 +8,9 @@ import type { Fmt } from "../std/fmt.ts";
 /// for branded-number handles (PORTING §5). `debug_format` renders `write!(f, FMT, self.as_u32())`.
 /// `max_src` is the `#[max = ..]` literal as written upstream: `assert!` messages print it verbatim.
 export function newtype_index<I extends number>(debug_format: (n: number) => string, max: number = 0xffff_ff00, max_src: string = "0xFFFF_FF00") {
+  // PORT (perf-intern): the `assert!` messages, built once instead of on every call.
+  const msg_usize = `assertion failed: value <= (${max_src} as usize)`;
+  const msg_u32 = `assertion failed: value <= ${max_src}`;
   return {
     /// Maximum value the index can take, as a `u32`.
     MAX_AS_U32: max,
@@ -17,22 +20,22 @@ export function newtype_index<I extends number>(debug_format: (n: number) => str
     ZERO: 0 as I,
     /// Creates a new index from a given `usize`.
     from_usize(value: number): I {
-      assert(value <= max, `assertion failed: value <= (${max_src} as usize)`);
+      assert(value <= max, msg_usize);
       return value as I;
     },
     /// Creates a new index from a given `u32`.
     from_u32(value: number): I {
-      assert(value <= max, `assertion failed: value <= ${max_src}`);
+      assert(value <= max, msg_u32);
       return value as I;
     },
     /// Creates a new index from a given `u16`.
     from_u16(value: number): I {
-      assert(value <= max, `assertion failed: value <= ${max_src}`);
+      assert(value <= max, msg_u32);
       return value as I;
     },
     /// `Idx::new`
     new(idx: number): I {
-      assert(idx <= max, `assertion failed: value <= (${max_src} as usize)`);
+      assert(idx <= max, msg_usize);
       return idx as I;
     },
     /// Extracts the value of this index as a `usize`.

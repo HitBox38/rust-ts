@@ -200,13 +200,15 @@ export function Clause_into_diag_arg(self: Clause, path: MutRef<PathBuf | undefi
 
 /** PORT: lazy load of context/tls.ts, which imports context.ts (a defining module that imports this one). */
 function tls(): typeof import("./context/tls.ts") {
-  return require("./context/tls.ts") as typeof import("./context/tls.ts");
+  return (tls__m ??= require("./context/tls.ts") as typeof import("./context/tls.ts"));
 }
+var tls__m: typeof import("./context/tls.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /** PORT: lazy load of the extension module ty/print/pretty.ts (module comment of `Predicate_into_diag_arg`). */
 function pretty(): typeof import("./print/pretty.ts") {
-  return require("./print/pretty.ts") as typeof import("./print/pretty.ts");
+  return (pretty__m ??= require("./print/pretty.ts") as typeof import("./print/pretty.ts"));
 }
+var pretty__m: typeof import("./print/pretty.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // ---- impl Clause (predicate.rs:168) ----
 

@@ -49,12 +49,14 @@ export * from "./mod.gen.ts";
 // region_kind.ts reaches the extension module rustc_middle ty/sty.ts (through ty_kind.ts), so a static import throws a
 // TDZ `ReferenceError` (`Ty`) when rustc_middle/lib.ts loads. `debug_RegionKind` is required lazily, at call time.
 function region_kind(): typeof import("../region_kind.ts") {
-  return require("../region_kind.ts") as typeof import("../region_kind.ts");
+  return (region_kind__m ??= require("../region_kind.ts") as typeof import("../region_kind.ts"));
 }
+var region_kind__m: typeof import("../region_kind.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 // PORT (init order, merge-w15a): binder.ts reaches rustc_middle ty/sty.ts too, so it is required lazily as well.
 function binder(): typeof import("../binder.ts") {
-  return require("../binder.ts") as typeof import("../binder.ts");
+  return (binder__m ??= require("../binder.ts") as typeof import("../binder.ts"));
 }
+var binder__m: typeof import("../binder.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 /// Use this rather than `RegionKind`, whenever possible.
 // rustc-type: compiler/rustc_type_ir/src/sty/mod.rs:26 Region

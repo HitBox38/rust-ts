@@ -1173,8 +1173,9 @@ function fold_Term(): TypeFoldable<import("../../rustc_middle/ty/decls.ts").Term
   return middle_ty_mod().fold_Term;
 }
 function middle_ty_mod(): typeof import("../../rustc_middle/ty/mod.ts") {
-  return require("../../rustc_middle/ty/mod.ts") as typeof import("../../rustc_middle/ty/mod.ts");
+  return (middle_ty_mod__m ??= require("../../rustc_middle/ty/mod.ts") as typeof import("../../rustc_middle/ty/mod.ts"));
 }
+var middle_ty_mod__m: typeof import("../../rustc_middle/ty/mod.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 /** The derived `TypeFoldable` of `AliasConst` (= `Alias<AliasConstKind>`, rustc_type_ir ty/alias.rs), as a D4 descriptor. */
 function d_AliasConst(): TypeFoldable<import("../../rustc_type_ir/decls.ts").AliasConst> {
   return {

@@ -13,8 +13,9 @@ import { NiceRegionError } from "./mod.ts";
 
 /** The crate's diagnostics.gen.ts (read lazily, init order). */
 function diagnostics_gen(): typeof import("../../../diagnostics.gen.ts") {
-  return require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts");
+  return (diagnostics_gen__m ??= require("../../../diagnostics.gen.ts") as typeof import("../../../diagnostics.gen.ts"));
 }
+var diagnostics_gen__m: typeof import("../../../diagnostics.gen.ts") | undefined; // PORT (perf-intern): lazy-require memo (docs/handoff/perf-intern.md)
 
 // impl<'tcx> NiceRegionError<'_, 'tcx> {
 /// Emitted wwhen given a `ConcreteFailure` when relating two placeholders.

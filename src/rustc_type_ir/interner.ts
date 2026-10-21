@@ -44,7 +44,7 @@ import { Err, Ok, type Result } from "../std/result.ts";
 import { debug_result } from "../std/result.ts";
 import { debug_tuple, type Fmt } from "../std/fmt.ts";
 import { unported } from "../std/panic.ts";
-import { intern_key } from "../rust_ts/intern_key.ts";
+import { intern_key_eq } from "../rust_ts/intern_key.ts";
 import { debug_Canonical } from "./canonical.ts";
 import type { Cx, CxTypes, GlobalCache as GlobalCache_ } from "./search_graph/mod.ts";
 import type { AccessedOpaques, Certainty } from "./solve/mod.ts";
@@ -414,8 +414,8 @@ export const Cx_for_Interner: Cx<InternerCx> = {
       debug_AccessedOpaques(v[1], f),
     ]),
   Result_eq: (a: [QueryResult, AccessedOpaques], b: [QueryResult, AccessedOpaques]): boolean =>
-    intern_key(a) === intern_key(b),
-  AmbiguityKind_eq: (a: Certainty, b: Certainty): boolean => intern_key(a) === intern_key(b),
+    intern_key_eq(a, b),
+  AmbiguityKind_eq: (a: Certainty, b: Certainty): boolean => intern_key_eq(a, b),
 
   // PORT: `I::Tracked<T>` is erased to `Tracked<unknown>` in the table (no higher-kinded types); `get_tracked::<T>`
   // names the `T` back.
