@@ -129,8 +129,9 @@ import type { WritebackCx } from "./writeback.gen.ts";
 // rustc_middle hir/place.rs (lane typeck-euv): `PlaceWithHirId<'tcx>`, `Place<'tcx>` (`ty::closure`'s `HirPlace`),
 // `PlaceBase`, `Projection<'tcx>` (re-exported by expr_use_visitor.rs as `pub use`).
 export type { Place, PlaceBase, PlaceWithHirId, Projection };
-/** rustc_middle ty/layout.rs `SizeSkeleton<'tcx>` (intrinsicck.rs; M4 layout). */
-export type SizeSkeleton = Pending<"rustc_middle::ty::layout::SizeSkeleton">;
+/** rustc_middle ty/layout.rs `SizeSkeleton<'tcx>` (intrinsicck.rs; layout-contract / middle-layout). */
+export type { SizeSkeleton } from "../rustc_middle/ty/layout.ts";
+import type { SizeSkeleton } from "../rustc_middle/ty/layout.ts";
 /** rustc_trait_selection error_reporting/traits/mod.rs `DefIdOrName` (generated; errctxt-contract). */
 export type { DefIdOrName } from "../rustc_trait_selection/error_reporting/traits/mod.gen.ts";
 import type { DefIdOrName } from "../rustc_trait_selection/error_reporting/traits/mod.gen.ts";
