@@ -57,7 +57,8 @@ import { debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
 import { debug_FnSig, type FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import type { CanonicalQueryInput } from "../../rustc_type_ir/canonical.ts";
 import { debug_CanonicalQueryInput } from "../../rustc_type_ir/canonical.gen.ts";
-import type { Predicate } from "../ty/predicate.ts";
+import { debug_Predicate, type Predicate } from "../ty/predicate.ts";
+import type { WellFormedLoc } from "../traits/mod.gen.ts";
 import { debug_CanonicalInput } from "../traits/solve.gen.ts";
 import type { TyCtxt } from "../ty/context.ts";
 import { DefaultCache, DefId_hash_key, DefIdCache, type QueryCache, SingleCache, VecCache } from "./caches.ts";
@@ -679,7 +680,22 @@ export const KEY_CanonicalInput_usize: QueryKey<[CanonicalInput, number]> = {
   hash_key: intern_key,
 };
 
-// PORT: the other canonical inputs (keys.rs:355-366), `(Ty, VariantIdx)`, `(Predicate, WellFormedLoc)`,
+export const KEY_Predicate_WellFormedLoc: QueryKey<[Predicate, WellFormedLoc]> = {
+  make_cache: default_cache<[Predicate, WellFormedLoc]>(intern_key),
+  // rustc: compiler/rustc_middle/src/query/keys.rs:380 default_span
+  default_span(_self: [Predicate, WellFormedLoc], _tcx: TyCtxt): Span {
+    return DUMMY_SP;
+  },
+  key_as_def_id: QueryKey_provided.key_as_def_id,
+  as_local_key: QueryKey_provided.as_local_key,
+  // PORT: traits/mod.gen.ts is read at call time (init order: traits/mod.ts needs this module first).
+  debug: (v, f) =>
+    debug_tuple(f, "", [debug_Predicate(v[0], f), (require("../traits/mod.gen.ts") as typeof import("../traits/mod.gen.ts")).debug_WellFormedLoc(v[1], f)]),
+  debug_local: no_local_key,
+  hash_key: intern_key,
+};
+
+// PORT: the other canonical inputs (keys.rs:355-366), `(Ty, VariantIdx)`,
 // `(PolyFnSig, &List<Ty>)`, `(Instance, &List<Ty>)`, `ty::Value`, `(LocalExpnId, &TokenStream)`,
 // `(ValidityRequirement, PseudoCanonicalInput<Ty>)` and `(Instance, CollectionMode)` (:378-422) are not ported yet
 // (`key_unported`).
