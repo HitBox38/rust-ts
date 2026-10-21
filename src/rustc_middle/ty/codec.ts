@@ -34,7 +34,7 @@ import type { Pending } from "../../rustc_type_ir/decls.ts";
 import type { List } from "./list.ts";
 import { assert, unported } from "../../std/panic.ts";
 import type { TyCtxt } from "./context.ts";
-import type { AdtDef, AdtDefData, Allocation, CanonicalVarKinds, ConstAllocation, ParamEnv, Pattern, PlaceElem, ValTree } from "./decls.ts";
+import type { AdtDef, Allocation, CanonicalVarKinds, ConstAllocation, ParamEnv, Pattern, PlaceElem, ValTree, Value } from "./decls.ts";
 import type { GenericArg, GenericArgs } from "./generic_args.ts";
 import type { Term, Ty } from "./mod.ts";
 import type { Clause, Predicate } from "./predicate.ts";
@@ -73,6 +73,10 @@ function predicate_kind_(): typeof import("../../rustc_type_ir/predicate_kind.ts
 }
 function canonical_(): typeof import("../../rustc_type_ir/canonical.ts") {
   return require("../../rustc_type_ir/canonical.ts") as typeof import("../../rustc_type_ir/canonical.ts");
+}
+// PORT (init order): decodable.gen.ts imports the extension module ty/trait_def.ts, which must load after TyCtxt.
+function decodable_(): typeof import("../decodable.gen.ts") {
+  return require("../decodable.gen.ts") as typeof import("../decodable.gen.ts");
 }
 function pattern_(): typeof import("../../rustc_type_ir/pattern.ts") {
   return require("../../rustc_type_ir/pattern.ts") as typeof import("../../rustc_type_ir/pattern.ts");
@@ -306,6 +310,12 @@ export function decode_ValTree<D extends TyDecoder>(decoder: D): ValTree {
   return decoder.interner().intern_valtree(const_kind_().decode_ValTreeKind(decoder));
 }
 
+/** PORT: the generated `derive(TyDecodable)` of `ty::Value` (decodable.gen.ts), reached lazily (init order: decodable.gen.ts
+ *  imports the extension module ty/trait_def.ts; rustc_type_ir's const_kind.gen.ts decodes `ConstKind::Value` through here). */
+export function decode_Value(decoder: TyDecoder): Value {
+  return decodable_().decode_Value(decoder);
+}
+
 // impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for ConstAllocation<'tcx>
 // rustc: compiler/rustc_middle/src/ty/codec.rs:302 decode
 export function decode_ConstAllocation<D extends TyDecoder>(decoder: D): ConstAllocation {
@@ -315,7 +325,7 @@ export function decode_ConstAllocation<D extends TyDecoder>(decoder: D): ConstAl
 // impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for AdtDef<'tcx>
 // rustc: compiler/rustc_middle/src/ty/codec.rs:308 decode
 export function decode_AdtDef<D extends TyDecoder>(decoder: D): AdtDef {
-  return decoder.interner().mk_adt_def_from_data(decode_AdtDefData(decoder));
+  return decoder.interner().mk_adt_def_from_data(decodable_().decode_AdtDefData(decoder));
 }
 
 /// Declares implementations of all [`Decoder`](rustc_serialize::Decoder) methods,
@@ -417,11 +427,6 @@ function CtfeProvenance_from_parts(_parts: [AllocId, boolean]): CtfeProvenance {
 /** `Decodable for mir::interpret::Allocation` (allocation.rs:208, M4). */
 function decode_Allocation(_d: TyDecoder): Allocation {
   return unported("Decodable for rustc_middle::mir::interpret::Allocation (M4)");
-}
-/** `derive(TyDecodable)` of `ty::AdtDefData` (ty/adt.rs:109: `did`, `variants`, `flags`, `repr`). PORT: not generated
- *  yet (tools/codegen: needs the `VariantDef` / `FieldDef` derives and rustc_abi's `ReprOptions`, not ported). */
-function decode_AdtDefData(_d: TyDecoder): AdtDefData {
-  return unported("Decodable for rustc_middle::ty::AdtDefData (derive(TyDecodable) not generated; rustc_abi ReprOptions)");
 }
 
 export type { BoundVariableKind };

@@ -30,6 +30,8 @@ import { TyCtxt_typeck } from "../rustc_middle/query/calls.ts";
 import type { AssocItem } from "../rustc_middle/ty/assoc.ts";
 import { AssocItem as AssocItemC } from "../rustc_middle/ty/assoc.ts";
 import { debug_CapturedPlace } from "../rustc_middle/ty/closure.ts";
+import { debug_Place, type Place } from "../rustc_middle/hir/place.ts";
+import { debug_FakeReadCause, type FakeReadCause } from "../rustc_middle/mir/syntax.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { debug_GenericClauses, debug_Generics, type GenericClauses, type Generics } from "../rustc_middle/ty/generics.ts";
 import { debug_RawList } from "../rustc_middle/ty/list.ts";
@@ -539,7 +541,7 @@ function dump_typeck(out: string[], tcx: TyCtxt, r: TypeckResults): void {
       out.push(`    skipped_ref_pats ${dbg(i as ItemLocalId, debug_ItemLocalId)}\n`);
     }
   }
-  table(out, "closure_kind_origins", r.closure_kind_origins().items_in_stable_order(), unported_debug("(Span, rustc_middle::hir::place::Place)"));
+  table(out, "closure_kind_origins", r.closure_kind_origins().items_in_stable_order(), debug_tuple_of<[Span, Place]>(debug_Span, debug_Place));
   table(out, "liberated_fn_sigs", r.liberated_fn_sigs().items_in_stable_order(), debug_FnSig);
   table(out, "fru_field_types", r.fru_field_types().items_in_stable_order(), (v, f) => debug_vec(v, f, debug_Ty));
   for (const id of [...r.coercion_casts()].sort((a, b) => a - b)) {
@@ -549,7 +551,7 @@ function dump_typeck(out: string[], tcx: TyCtxt, r: TypeckResults): void {
     out.push(`    used_trait_imports ${dbg(id, debug_LocalDefId)}\n`);
   }
   for (const [id, h] of r.hidden_types) {
-    out.push(`    hidden_types ${dbg(id, debug_LocalDefId)} ${dbg(h as unknown as Parameters<typeof debug_DefinitionSiteHiddenType>[0], debug_DefinitionSiteHiddenType)}\n`);
+    out.push(`    hidden_types ${dbg(id, debug_LocalDefId)} ${dbg(h, debug_DefinitionSiteHiddenType)}\n`);
   }
   for (const [id, roots] of [...r.closure_min_captures].sort(([a], [b]) => di(a) - di(b))) {
     for (const [root, places] of roots) {
@@ -557,7 +559,7 @@ function dump_typeck(out: string[], tcx: TyCtxt, r: TypeckResults): void {
     }
   }
   for (const [id, reads] of [...r.closure_fake_reads].sort(([a], [b]) => di(a) - di(b))) {
-    out.push(`    closure_fake_reads ${dbg(id, debug_LocalDefId)} ${dbg(reads as unknown, unported_debug("[(rustc_middle::hir::place::Place, rustc_middle::mir::FakeReadCause, HirId)]"))}\n`);
+    out.push(`    closure_fake_reads ${dbg(id, debug_LocalDefId)} ${dbg(reads, (v, f) => debug_vec(v, f, debug_tuple_of<[Place, FakeReadCause, HirId]>(debug_Place, debug_FakeReadCause, debug_HirId)))}\n`);
   }
   for (const p of r.coroutine_stalled_predicates) {
     out.push(`    coroutine_stalled_predicates ${dbg(p, debug_tuple_of<typeof p>(debug_Predicate, debug_ObligationCause))}\n`);

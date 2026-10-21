@@ -5,12 +5,10 @@
 // `At.prototype` (rustc_trait_selection decls.ts). `AssocTypeNormalizer` (codegen `hand`) is the class below with its
 // `TypeFolder` impl.
 //
-// PORT (old solver, plan-m3 D9): `SelectionContext` (traits/select, wave 20) and the old solver's projection
-// (`project::{normalize_projection_term, opt_normalize_projection_term, normalize_inherent_projection,
-// const_of_item_or_delayed_bug}`, traits/project.rs, wave 20) are not ported. `SelectionContext` is the view
-// `SelectionContext` below (the members `AssocTypeNormalizer` reads); `SelectionContext::new` and the `project` fns are
-// `pending_*` stand-ins that stop as UNPORTED. With the next solver (the default outside the ui suites),
-// `normalize` / `deeply_normalize` go to `crate::solve::{normalize, deeply_normalize}` (solve/normalize.ts).
+// The old solver (plan-m3 D9): `SelectionContext` is traits/select/mod.ts's class and the `project` fns are
+// traits/project.ts's (lane selcx-contract; their bodies are filled by the wave-18b old-solver lanes). With the next solver
+// (the default outside the ui suites), `normalize` / `deeply_normalize` go to `crate::solve::{normalize, deeply_normalize}`
+// (solve/normalize.ts).
 //
 // Init order: top-level code here touches only rustc_infer (loaded first by ../lib.ts) and other crates.
 
@@ -59,24 +57,15 @@ import { span_bug } from "../../rustc_span/macros.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 import type { NextSolverError } from "../decls.ts";
 import { BoundVarReplacer, PlaceholderReplacer } from "./util.ts";
-import { err_ctxt, evaluate_const, with_replaced_escaping_bound_vars } from "./mod.ts";
+import { evaluate_const, with_replaced_escaping_bound_vars } from "./mod.ts";
 import { deeply_normalize as solve_deeply_normalize, normalize as solve_normalize } from "../solve/normalize.ts";
 import { GenericClauses } from "../../rustc_middle/ty/generics.ts";
 import { Clause_upcast_from_ClauseKind } from "../../rustc_middle/ty/predicate.ts";
 
-/**
- * `traits::select::SelectionContext<'cx, 'tcx>` (traits/select/mod.rs; the old solver, wave 20): the members
- * `AssocTypeNormalizer` uses.
- */
-export interface SelectionContext {
-  readonly __pending?: Pending<"rustc_trait_selection::traits::select::SelectionContext">;
-  /** `pub infcx: &'cx InferCtxt<'tcx>` */
-  readonly infcx: InferCtxt;
-  // select/mod.rs `fn tcx(&self) -> TyCtxt<'tcx>`
-  tcx(): TyCtxt;
-  // select/mod.rs `fn typing_mode(&self) -> TypingMode<'tcx>`
-  typing_mode(): TypingMode<CantBeErased>;
-}
+/** `traits::select::SelectionContext<'cx, 'tcx>` (traits/select/mod.rs, the old solver). */
+export type { SelectionContext } from "./select/mod.ts";
+import { SelectionContext } from "./select/mod.ts";
+import * as project from "./project.ts";
 
 // ---- #[extension(pub trait NormalizeExt<'tcx>)] impl<'tcx> At<'_, 'tcx> ---------------------------------------------
 
@@ -90,7 +79,7 @@ At.prototype.normalize = function <T>(this: At, value: Unnormalized<T>, d_T: Typ
     const { value: value_, obligations } = solve_normalize(this, value, d_T);
     return new InferOk(value_, obligations);
   } else {
-    const selcx = pending_SelectionContext_new(this.infcx);
+    const selcx = SelectionContext.new(this.infcx);
     const { value: value_, obligations } = normalize_with_depth(selcx, this.param_env, clone_ObligationCause(this.cause), 0, value, d_T);
     return new InferOk(value_, obligations);
   }
@@ -248,7 +237,7 @@ export class AssocTypeNormalizer implements TypeFolder {
       // Also, as an optimization: when we don't have escaping bound vars, we don't
       // need to replace them with placeholders (see branch below).
       const proj = d_AliasTerm().fold_with(proj_, this);
-      return pending_project_normalize_projection_term(this.selcx, this.param_env, proj, clone_ObligationCause(this.cause), this.depth, this.obligations);
+      return project.normalize_projection_term(this.selcx, this.param_env, proj, clone_ObligationCause(this.cause), this.depth, this.obligations);
     } else {
       // If there are escaping bound vars, we temporarily replace the
       // bound vars with placeholders. Note though, that in the case
@@ -264,7 +253,7 @@ export class AssocTypeNormalizer implements TypeFolder {
       const infcx = this.selcx.infcx;
       const [proj1, mapped_regions, mapped_types, mapped_consts] = BoundVarReplacer.replace_bound_vars(infcx, this.universes, proj_, d_AliasTerm());
       const proj = d_AliasTerm().fold_with(proj1, this);
-      const r = pending_project_opt_normalize_projection_term(this.selcx, this.param_env, proj, clone_ObligationCause(this.cause), this.depth, this.obligations);
+      const r = project.opt_normalize_projection_term(this.selcx, this.param_env, proj, clone_ObligationCause(this.cause), this.depth, this.obligations);
       const normalized_term = (r.$ === "Ok" ? r._0 : undefined) ?? AliasTermC.to_term(proj, infcx.tcx, "No");
 
       return PlaceholderReplacer.replace_placeholders(infcx, mapped_regions, mapped_types, mapped_consts, this.universes, normalized_term, fold_Term);
@@ -286,12 +275,12 @@ export class AssocTypeNormalizer implements TypeFolder {
       // need to replace them with placeholders (see branch below).
 
       const inherent = d_AliasTerm().fold_with(inherent_, this);
-      return pending_project_normalize_inherent_projection(this.selcx, this.param_env, inherent, clone_ObligationCause(this.cause), this.depth, this.obligations);
+      return project.normalize_inherent_projection(this.selcx, this.param_env, inherent, clone_ObligationCause(this.cause), this.depth, this.obligations);
     } else {
       const infcx = this.selcx.infcx;
       const [inherent1, mapped_regions, mapped_types, mapped_consts] = BoundVarReplacer.replace_bound_vars(infcx, this.universes, inherent_, d_AliasTerm());
       const inherent2 = d_AliasTerm().fold_with(inherent1, this);
-      const inherent = pending_project_normalize_inherent_projection(this.selcx, this.param_env, inherent2, clone_ObligationCause(this.cause), this.depth, this.obligations);
+      const inherent = project.normalize_inherent_projection(this.selcx, this.param_env, inherent2, clone_ObligationCause(this.cause), this.depth, this.obligations);
 
       return PlaceholderReplacer.replace_placeholders(infcx, mapped_regions, mapped_types, mapped_consts, this.universes, inherent, fold_Term);
     }
@@ -303,7 +292,7 @@ export class AssocTypeNormalizer implements TypeFolder {
   normalize_free_alias(free: AliasTerm): Term {
     const recursion_limit = this.cx().recursion_limit();
     if (!recursion_limit.value_within_limit(this.depth)) {
-      err_ctxt(this.selcx.infcx).report_overflow_error({ $: "DeeplyNormalize", _0: free }, this.cause.span, false, (diag) => {
+      this.selcx.infcx.err_ctxt().report_overflow_error({ $: "DeeplyNormalize", _0: free }, this.cause.span, false, (diag) => {
         diag.note("in case this is a recursive type alias, consider using a struct, enum, or union instead");
       });
     }
@@ -341,7 +330,7 @@ export class AssocTypeNormalizer implements TypeFolder {
       );
     } else {
       res = TermC.from_Const(
-        fold_Const.fold_with(Unnormalized.skip_norm_wip(EarlyBinder.instantiate(pending_project_const_of_item_or_delayed_bug(infcx.tcx, def_id), infcx.tcx, free.args, fold_Const)), this),
+        fold_Const.fold_with(Unnormalized.skip_norm_wip(EarlyBinder.instantiate(project.const_of_item_or_delayed_bug(infcx.tcx, def_id), infcx.tcx, free.args, fold_Const)), this),
       );
     }
     // When normalizing a free const alias, register a `ConstArgHasType`
@@ -426,7 +415,7 @@ export class AssocTypeNormalizer implements TypeFolder {
           case "Codegen": {
             const recursion_limit = this.cx().recursion_limit();
             if (!recursion_limit.value_within_limit(this.depth)) {
-              err_ctxt(this.selcx.infcx).report_overflow_error({ $: "DeeplyNormalize", _0: AliasTermC.from_AliasTy(data) }, this.cause.span, true, (_) => {});
+              this.selcx.infcx.err_ctxt().report_overflow_error({ $: "DeeplyNormalize", _0: AliasTermC.from_AliasTy(data) }, this.cause.span, true, (_) => {});
             }
 
             const args = d_GenericArgs().fold_with(data.args, this);
@@ -540,52 +529,4 @@ function d_AliasTerm(): TypeFoldable<AliasTerm> {
 /** The `TypeFoldable` of `GenericArgs` (rustc_middle generic_args.ts). */
 function d_GenericArgs(): TypeFoldable<import("../../rustc_middle/ty/decls.ts").GenericArgs> {
   return fold_GenericArgs;
-}
-
-// ---- stand-ins for the old solver (wave 20); each stops as UNPORTED ---------------------------------------------------
-
-/** `SelectionContext::new(infcx)` (traits/select/mod.rs; old solver, wave 20). */
-export function pending_SelectionContext_new(_infcx: InferCtxt): SelectionContext {
-  return unported("rustc_trait_selection::traits::select::SelectionContext::new (old solver, wave 20)");
-}
-
-/** `project::normalize_projection_term` (traits/project.rs; old solver, wave 20). */
-function pending_project_normalize_projection_term(
-  _selcx: SelectionContext,
-  _param_env: ParamEnv,
-  _alias_term: AliasTerm,
-  _cause: ObligationCause,
-  _depth: number,
-  _obligations: PredicateObligations,
-): Term {
-  return unported("rustc_trait_selection::traits::project::normalize_projection_term (old solver, wave 20)");
-}
-
-/** `project::opt_normalize_projection_term(..).ok().flatten()` (traits/project.rs; old solver, wave 20). */
-function pending_project_opt_normalize_projection_term(
-  _selcx: SelectionContext,
-  _param_env: ParamEnv,
-  _projection_term: AliasTerm,
-  _cause: ObligationCause,
-  _depth: number,
-  _obligations: PredicateObligations,
-): Result<Term | undefined, unknown> {
-  return unported("rustc_trait_selection::traits::project::opt_normalize_projection_term (old solver, wave 20)");
-}
-
-/** `project::normalize_inherent_projection` (traits/project.rs; old solver, wave 20). */
-function pending_project_normalize_inherent_projection(
-  _selcx: SelectionContext,
-  _param_env: ParamEnv,
-  _alias_term: AliasTerm,
-  _cause: ObligationCause,
-  _depth: number,
-  _obligations: PredicateObligations,
-): Term {
-  return unported("rustc_trait_selection::traits::project::normalize_inherent_projection (old solver, wave 20)");
-}
-
-/** `project::const_of_item_or_delayed_bug` (traits/project.rs, wave 20). */
-function pending_project_const_of_item_or_delayed_bug(_tcx: TyCtxt, _def_id: DefId): EarlyBinder<Const> {
-  return unported("rustc_trait_selection::traits::project::const_of_item_or_delayed_bug (traits/project.rs, wave 20)");
 }

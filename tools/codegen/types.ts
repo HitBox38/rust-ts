@@ -287,6 +287,12 @@ export interface SetConfig {
   /** derive(TypeVisitable/TypeFoldable): emit only these items (names or keys); absent = every derived item of the set. */
   type_fold_types?: string[];
   /**
+   * derive(TypeVisitable/TypeFoldable) of these `hand` items is generated too (next to the re-export of the hand type in the
+   * file's `.gen.ts`): for hand-written types whose derives are still codegen's (PORTING §5). A hand class (`class`) is
+   * rebuilt with `new` (its constructor takes every field in declaration order, as the generated classes'), imported as a value.
+   */
+  type_fold_hand?: string[];
+  /**
    * Upstream files probed for their `use` / `mod` declarations only (path resolution through their re-exports, e.g.
    * rustc_middle's ty/mod.rs `pub use self::sty::*;`): nothing is generated from them and their items do not resolve.
    */
@@ -2185,10 +2191,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     /** `Decodable::decode(__decoder)` of a field of type `ty` (serialize.rs `decode_field`). */
     const decExpr = (ty: PType, sc: Scope, at: string): string => {
       switch (ty.kind) {
-        case "ref":
-          // `::rustc_middle::ty::codec::RefDecodable::decode(__decoder)` for reference fields
+        case "ref": {
+          // `::rustc_middle::ty::codec::RefDecodable::decode(__decoder)` for reference fields. A serialize.json entry
+          // keyed `&<referent>` (the `renderKey` text, e.g. `&[(Clause, Span)]`) names the referent's `RefDecodable`
+          // impl (rustc_middle arena.rs `impl_ref_decodable_into_arena!`, ty/codec/ref_decodable.rs); for a slice
+          // referent its `$d0` is the element's Decodable fn.
+          const re = serIndex.get(`&${renderKey(ty.elem!)}`);
+          if (re !== undefined) return decTemplate(re, `RefDecodable for ${ty.text}`, ty.elem!.kind === "slice" ? [ty.elem!.elem!] : [ty.elem!], sc, at);
           push(report.missing_decodable, `RefDecodable (reference field ${ty.text})`, at);
           return `unported_decodable(${DEC})`;
+        }
         case "slice":
           // only reachable through `Box<[T]>` / `Rc<[T]>` / `Arc<[T]>`, which decode a `Vec<T>`
           return `${serUse("decode_Vec")}(${DEC}, ${decFn(ty.elem!, sc, at)})`;
@@ -2546,7 +2558,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     };
     const tfAliasOwner = new Map<string, string>();
     /** Whether this set generates the impl of `r` (hand types bring their own). */
-    const tfGenerated = (kind: TfKind, r: ItemRef): boolean => (kind === "visit" ? deriveVisit : deriveFold).has(r.key) && !matches(set.hand, r) && !r.mac;
+    const tfGenerated = (kind: TfKind, r: ItemRef): boolean =>
+      (kind === "visit" ? deriveVisit : deriveFold).has(r.key) && (!matches(set.hand, r) || matches(set.type_fold_hand ?? [], r)) && !r.mac;
     /** `visit_with_<T>` / `try_fold_with_<T>` / `fold_with_<T>` of an item as seen from this file; `null`: trivially traversable. */
     const tfItemName = (kind: TfKind, r: ItemRef, at: string): string | null => {
       const name = `${TF_PREFIX[kind]}_${r.item.name}`;
@@ -2674,6 +2687,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
             return `${fn}${targs}(${v}, ${tfHolder(kind)}${fns.map((f) => `, ${f}`).join("")})`;
           }
           if (r.keys.some((k) => tfTrivial.has(k))) return null;
+          // an impl of one instance of a generic type (`&List<Binder<ExistentialPredicate>>`: `list_fold!` impls differ per
+          // element type): the entry keyed `<path><<arg keys>>`, before the generic entry
+          const inst = args.length ? tfEntry(r.keys.map((k) => `${k}<${args.map((a) => tfTypeKey(a, sc)).join(", ")}>`)) : undefined;
+          if (inst) return tfExt(kind, inst, r.display, args, v, sc, at);
           const e = tfEntry(r.keys);
           if (!e) {
             push(report.missing_type_fold, r.display, at);
@@ -2688,6 +2705,16 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       }
       push(report.missing_type_fold, `${ty.kind}: ${ty.text}`, at);
       return `unported_type_fold(${v})`;
+    };
+    /** A type as an instance key of type_fold.json (`rustc_middle::ty::Binder<rustc_middle::ty::ExistentialPredicate>`):
+     *  paths by their first resolved key (items by item key), type arguments in `<..>`, references by their referent. */
+    const tfTypeKey = (ty: PType, sc: Scope): string => {
+      if (ty.kind === "ref") return tfTypeKey(ty.elem!, sc);
+      if (ty.kind !== "path" || ty.qself) return ty.text;
+      const r = resolvePath(ty.path!, sc);
+      const head = r.k === "param" ? r.name : r.k === "item" ? r.ref.key : (r.keys[0] ?? r.display);
+      const args = argsOf(r, ty.path!);
+      return args.length ? `${head}<${args.map((a) => tfTypeKey(a, sc)).join(", ")}>` : head;
     };
     /** The impl of a type as a value (`VisitWith<T>` / `TryFoldWith<T>` / `FoldWith<T>`). */
     const tfFn = (kind: TfKind, ty: PType, sc: Scope, at: string): string => {
@@ -2733,6 +2760,8 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
       }
       const sc = itemScope(r);
       const tname = refName(r);
+      // a hand class rebuilt by the fold (`type_fold_hand`): its constructor is a value of the hand module
+      if (wantF && isClass(r) && matches(set.hand, r)) imp(`src:${r.mf.hand}`, "values", it.name, tname);
       const ps = tsParams(it).map((p) => p.name);
       const self = `${tname}${ps.length ? `<${ps.join(", ")}>` : ""}`;
       type V = { name: string | undefined; style: string; fields: PField[] };

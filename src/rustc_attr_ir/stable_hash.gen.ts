@@ -4,7 +4,7 @@
 // skipping `#[stable_hash(ignore)]` and hashing `field.name` for `#[stable_hash(project(name))]`.
 // Only `export function` declarations: hand modules may import from here inside an import cycle.
 import { stable_hash_Path } from "../rustc_ast/lib.ts";
-import { stable_hash_AssocCtxt, stable_hash_AttrStyle, stable_hash_DelimArgs, stable_hash_DocFragmentKind, stable_hash_MetaItemLit, stable_hash_RustcVersion } from "../rustc_ast/stable_hash.gen.ts";
+import { stable_hash_AssocCtxt, stable_hash_AttrStyle, stable_hash_CfgEntry, stable_hash_DelimArgs, stable_hash_DocFragmentKind, stable_hash_MetaItemLit, stable_hash_RustcVersion } from "../rustc_ast/stable_hash.gen.ts";
 import { stable_hash_IntTy, stable_hash_UintTy } from "../rustc_ast_ir/stable_hash.gen.ts";
 import { type AttrArgs, type Attribute, type AttrItem, type AttrPath, stable_hash_HashIgnoredAttrId } from "./attr.ts";
 import { type CanonicalSymbol, type CanonicalSymbols } from "./canonical_symbols.ts";
@@ -298,7 +298,7 @@ export function stable_hash_MacroUseArgs(self: MacroUseArgs, __hcx: StableHashCt
 export function stable_hash_StrippedCfgItem<ScopeId>(self: StrippedCfgItem<ScopeId>, __hcx: StableHashCtxt, __hasher: StableHasher, stable_hash_ScopeId: StableHash<ScopeId>): void {
   stable_hash_ScopeId(self.parent_scope, __hcx, __hasher);
   stable_hash_Ident(self.ident, __hcx, __hasher);
-  stable_hash_tuple2(self.cfg, __hcx, __hasher, (__v, __hcx, __hasher) => unported_stable_hash(__v), stable_hash_Span);
+  stable_hash_tuple2(self.cfg, __hcx, __hasher, stable_hash_CfgEntry, stable_hash_Span);
 }
 
 // rustc-derive: compiler/rustc_attr_ir/src/data_structures.rs:284 StableHash for Linkage
@@ -341,7 +341,7 @@ export function stable_hash_LinkEntry(self: LinkEntry, __hcx: StableHashCtxt, __
   stable_hash_Span(self.span, __hcx, __hasher);
   stable_hash_NativeLibKind(self.kind, __hcx, __hasher);
   stable_hash_Symbol(self.name, __hcx, __hasher);
-  stable_hash_Option(self.cfg, __hcx, __hasher, (__v, __hcx, __hasher) => unported_stable_hash(__v));
+  stable_hash_Option(self.cfg, __hcx, __hasher, stable_hash_CfgEntry);
   stable_hash_Option(self.verbatim, __hcx, __hasher, stable_hash_bool);
   stable_hash_Option(self.import_name_type, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_PeImportNameType, stable_hash_Span));
 }
@@ -415,7 +415,7 @@ export function stable_hash_DocAttribute(self: DocAttribute, __hcx: StableHashCt
   stable_hash_IndexMap(self.aliases, __hcx, __hasher, stable_hash_Symbol, stable_hash_Span);
   stable_hash_Option(self.hidden, __hcx, __hasher, stable_hash_Span);
   stable_hash_Option(self.inline, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_DocInline, stable_hash_Span));
-  stable_hash_ThinVec(self.cfg, __hcx, __hasher, (__v, __hcx, __hasher) => unported_stable_hash(__v));
+  stable_hash_ThinVec(self.cfg, __hcx, __hasher, stable_hash_CfgEntry);
   stable_hash_ThinVec(self.auto_cfg, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_CfgHideShow, stable_hash_Span));
   stable_hash_ThinVec(self.auto_cfg_change, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_bool, stable_hash_Span));
   stable_hash_Option(self.fake_variadic, __hcx, __hasher, stable_hash_Span);
@@ -531,10 +531,10 @@ export function stable_hash_AttributeKind(self: AttributeKind, __hcx: StableHash
     case "AutomaticallyDerived":
       break;
     case "CfgAttrTrace":
-      stable_hash_ThinVec(self._0, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, (__v, __hcx, __hasher) => unported_stable_hash(__v), stable_hash_Span));
+      stable_hash_ThinVec(self._0, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_CfgEntry, stable_hash_Span));
       break;
     case "CfgTrace":
-      stable_hash_ThinVec(self._0, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, (__v, __hcx, __hasher) => unported_stable_hash(__v), stable_hash_Span));
+      stable_hash_ThinVec(self._0, __hcx, __hasher, (__v, __hcx, __hasher) => stable_hash_tuple2(__v, __hcx, __hasher, stable_hash_CfgEntry, stable_hash_Span));
       break;
     case "CfiEncoding":
       stable_hash_Symbol(self.encoding, __hcx, __hasher);

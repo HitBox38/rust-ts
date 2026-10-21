@@ -152,9 +152,7 @@ LoweringContext.prototype.try_inline_lit = function (this: LoweringContext, lit:
 LoweringContext.prototype.int_ty_max = function (this: LoweringContext, int_ty: IntTy): bigint {
   switch (int_ty) {
     case "Isize":
-      // PORT: `self.tcx.data_layout.pointer_size().signed_int_max() as u128`: `GlobalCtxt::data_layout` is unported
-      // (rustc_middle ty/context.ts) and so is `Size::signed_int_max` (rustc_abi lib.rs:990).
-      return unported("rustc_abi::Size::signed_int_max (format.rs int_ty_max: tcx.data_layout.pointer_size())");
+      return this.tcx.gcx.data_layout.pointer_size().signed_int_max();
     case "I8":
       return 127n;
     case "I16":
@@ -173,9 +171,7 @@ LoweringContext.prototype.int_ty_max = function (this: LoweringContext, int_ty: 
 LoweringContext.prototype.uint_ty_max = function (this: LoweringContext, uint_ty: UintTy): bigint {
   switch (uint_ty) {
     case "Usize":
-      // PORT: `self.tcx.data_layout.pointer_size().unsigned_int_max()`: `GlobalCtxt::data_layout` is unported
-      // (rustc_middle ty/context.ts) and so is `Size::unsigned_int_max` (rustc_abi lib.rs:995).
-      return unported("rustc_abi::Size::unsigned_int_max (format.rs uint_ty_max: tcx.data_layout.pointer_size())");
+      return this.tcx.gcx.data_layout.pointer_size().unsigned_int_max();
     case "U8":
       return 255n;
     case "U16":

@@ -1367,6 +1367,17 @@ export function fold_with_Term(self: Term, folder: TypeFolder): Term {
 
 /** `impl fmt::Debug for Ty` (structural_impls.rs:82, lane ty-results), re-exported for generated code. */
 export { debug_Ty };
+// The derived `TypeVisitable` / `TypeFoldable` of the hand-written `ClosureSizeProfileData` / `ProvisionalHiddenType`
+// (tools/codegen set rustc_middle_ty_mod, `type_fold_hand`; lane typeck-gaps). Only these: mod.gen.ts's Debug of the
+// hand types is not used.
+export {
+  fold_with_ClosureSizeProfileData,
+  fold_with_ProvisionalHiddenType,
+  try_fold_with_ClosureSizeProfileData,
+  try_fold_with_ProvisionalHiddenType,
+  visit_with_ClosureSizeProfileData,
+  visit_with_ProvisionalHiddenType,
+} from "./mod.gen.ts";
 export function visit_with_Ty<R>(self: Ty, visitor: TypeVisitor<R>): R {
   return fold_Ty.visit_with(self, visitor);
 }
@@ -2926,8 +2937,9 @@ function closure_provide(providers: Providers): void {
 }
 // PORT (merge-w15b): the sub-providers below whose files are not ported install nothing: their queries keep the
 // port-side placeholder providers (rustc_interface passes.rs `install_unported_providers`) and stop as UNPORTED there.
-function erase_regions_provide(_providers: Providers): void {
-  // rustc_middle::ty::erase_regions::provide (ty/erase_regions.rs, not ported)
+function erase_regions_provide(providers: Providers): void {
+  // PORT: ty/erase_regions.ts is an extension module: reached through `require` (like `print_provide`).
+  (require("./erase_regions.ts") as typeof import("./erase_regions.ts")).provide(providers);
 }
 function inhabitedness_provide(_providers: Providers): void {
   // rustc_middle::ty::inhabitedness::provide (ty/inhabitedness/mod.rs, not ported)

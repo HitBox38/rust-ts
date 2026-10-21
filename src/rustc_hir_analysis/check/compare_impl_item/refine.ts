@@ -7,10 +7,8 @@
 // - `FxIndexSet<GenericArg>` / `FxIndexSet<Clause>` of interned values are `Set`s; `FxIndexSet<ProjectionAliasTy>` is a
 //   `KeyedSet` on the derived `Eq` (`intern_key`).
 // - `iter().zip_eq(..)` panics on a length mismatch with itertools' message (precedent: variance/mod.ts).
-// - The items of other lanes this file calls are stand-ins at the end of this file ("Stand-ins"), stopping as UNPORTED at
-//   their first use: rustc_trait_selection's `ObligationCtxt` / `normalize_param_env_or_error` (lanes trait-sel-*),
-//   rustc_middle's `LateParamRegionKind::from_bound` (ty/region.rs) and `impl Elaboratable for (Clause, Span)`
-//   (ty/elaborate_impl.rs).
+// - (lane small-gaps-18) The former stand-ins for rustc_middle's `LateParamRegionKind::from_bound` and
+//   `impl Elaboratable for (Clause, Span)` are replaced by their ports (ty/region.ts, ty/elaborate_impl.ts).
 import { ObligationCtxt } from "../../../rustc_trait_selection/traits/engine.ts";
 import { normalize_param_env_or_error } from "../../../rustc_trait_selection/traits/mod.ts";
 import { type VisitorResult, VisitorResult as VisitorResultC } from "../../../rustc_ast_ir/visit.ts";
@@ -30,12 +28,14 @@ import { type Clauses, RawList } from "../../../rustc_middle/ty/list.ts";
 import { Asyncness, ParamEnv, Term, Ty, Visibility } from "../../../rustc_middle/ty/mod.ts";
 import { type Clause, visit_with_Clause } from "../../../rustc_middle/ty/predicate.ts";
 import { display_GenericArg, display_Ty, with_no_trimmed_paths, with_types_for_signature } from "../../../rustc_middle/ty/print/pretty.ts";
-import type { LateParamRegionKind } from "../../../rustc_middle/ty/region.gen.ts";
+import { Elaboratable_Clause_Span } from "../../../rustc_middle/ty/elaborate_impl.ts";
+import { LateParamRegionKind } from "../../../rustc_middle/ty/region.ts";
 import { fold_Clause, fold_Span, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import { type DefId, type DefIdMap, type LocalDefId, type ModId } from "../../../rustc_span/def_id.ts";
 import type { Span } from "../../../rustc_span/lib.ts";
 import { span_bug } from "../../../rustc_span/macros.ts";
-import { Binder, type BoundRegionKind, EarlyBinder } from "../../../rustc_type_ir/binder.ts";
+import { Binder, EarlyBinder } from "../../../rustc_type_ir/binder.ts";
+import { elaborate } from "../../../rustc_type_ir/elaborate.ts";
 import { fold_tuple2, fold_Vec, type PredicateProxy, type TypeFoldable, type TypeFolder, TypeFolder_provided } from "../../../rustc_type_ir/fold.ts";
 import { BoundVar } from "../../../rustc_type_ir/lib.ts";
 import type { TraitRef } from "../../../rustc_type_ir/predicate.ts";
@@ -50,7 +50,7 @@ import { TypeVisitableExt, type TypeVisitable, type TypeVisitor, TypeVisitor_pro
 import type { Variance } from "../../../rustc_type_ir/lib.gen.ts";
 import { KeyedSet } from "../../../rust_ts/keyed.ts";
 import { intern_key } from "../../../rust_ts/intern_key.ts";
-import { panic, unported, unwrap } from "../../../std/panic.ts";
+import { panic, unwrap } from "../../../std/panic.ts";
 import type { Result } from "../../../std/result.ts";
 import { ReturnPositionImplTraitInTraitRefined_diagnostic, ReturnPositionImplTraitInTraitRefinedLifetimes_diagnostic } from "../../diagnostics.ts";
 import * as super_ from "../compare_impl_item.ts";
@@ -153,7 +153,7 @@ export function check_refining_return_position_impl_trait_in_trait(tcx: TyCtxt, 
       trait_bounds.push(Unnormalized.skip_norm_wip(u));
     }
     impl_bounds.push(
-      ...elaborate_Clause_Span(
+      ...elaborate(
         tcx,
         [
           ...EarlyBinder.iter_instantiated_copied(
@@ -163,6 +163,7 @@ export function check_refining_return_position_impl_trait_in_trait(tcx: TyCtxt, 
             fold_tuple2(fold_Clause, fold_Span),
           ),
         ].map(Unnormalized.skip_norm_wip),
+        Elaboratable_Clause_Span,
       ),
     );
 
@@ -353,7 +354,7 @@ function report_mismatched_rpitit_signature(
       const trait_bv = b[idx]!;
       if (impl_bv.$ === "Region" && trait_bv.$ === "Region") {
         const var_ = BoundVar.from_usize(idx);
-        mapping.set(LateParamRegionKind_from_bound(var_, impl_bv._0), LateParamRegionKind_from_bound(var_, trait_bv._0));
+        mapping.set(LateParamRegionKind.from_bound(var_, impl_bv._0), LateParamRegionKind.from_bound(var_, trait_bv._0));
       }
     }
   }
@@ -619,15 +620,3 @@ const d_Bounds_1 = fold_Vec(fold_tuple2(fold_Clause, fold_Span)) as TypeFoldable
 const d_Bounds = fold_tuple2(d_Bounds_0, d_Bounds_1) as TypeFoldable<Bounds>;
 /** `TypeVisitable for ClauseKind` (generated) as a D4 descriptor (only `visit_with` is used by `no_bound_vars`). */
 const d_ClauseKind: TypeVisitable<import("../../../rustc_type_ir/predicate_kind.gen.ts").ClauseKind> = { visit_with: visit_with_ClauseKind };
-
-// ==== Stand-ins (PORT: other lanes; see the file header) ============================================================
-
-/** `elaborate(tcx, iter).collect()` over `(Clause, Span)` (`impl Elaboratable for (Clause, Span)`, rustc_middle ty/elaborate_impl.rs, not ported). */
-function elaborate_Clause_Span(_tcx: TyCtxt, _obligations: Iterable<[Clause, Span]>): [Clause, Span][] {
-  return unported("rustc_middle::ty::elaborate_impl: impl Elaboratable for (Clause, Span)");
-}
-
-/** `LateParamRegionKind::from_bound` (rustc_middle ty/region.rs, not ported; precedent: rustc_middle fold.ts). */
-function LateParamRegionKind_from_bound(_var: BoundVar, _br: BoundRegionKind): LateParamRegionKind {
-  return unported("rustc_middle::ty::region::LateParamRegionKind::from_bound");
-}

@@ -6,11 +6,15 @@
 //    equal the oracle's first diagnostic and stop after it.
 // 3. A lib crate has no entry fn: nothing is checked.
 // 4. The remaining signature errors (E0580 wrong arguments, E0131 generic `main`, E0646 `where` clause; and a clean
-//    `fn main() {}`) are not reachable yet: before the signature check, `check_main_fn_ty` reads
-//    `codegen_fn_attrs(main).target_features` (rustc_codegen_ssa's provider, not ported). The test checks the oracle's
-//    error and that ours stops at one of `PENDING` (exact `unported(..)` texts); when the provider lands, the next stops
-//    are this file's stand-ins (`ObligationCtxt` when a `termination` lang item exists, `check_function_signature`), and
-//    the cases turn into oracle matches once those lanes are integrated.
+//    `fn main() {}`) are not reachable yet. The test checks the oracle's error and that ours stops at one of `PENDING`
+//    (exact `unported(..)` texts). Re-pinned by lane codegen-fn-attrs: with `codegen_fn_attrs` ported, the std crate's
+//    metadata decode of `ty::TraitDef` (rustc_metadata, not ported) is the first stop; after it come this file's
+//    stand-ins (`ObligationCtxt` when a `termination` lang item exists, `check_function_signature`), and the cases turn
+//    into oracle matches once those lanes are integrated. Re-pinned by merge-w18: `ty::TraitDef` decodes (small-gaps-18);
+//    the next stop is the std crate's metadata decode of `ty::ImplTraitHeader` (impl_trait_header, not generated yet).
+//    Re-pinned by merge-w18d: `ty::ImplTraitHeader` decodes (merge-w18c); generic_main.rs, where_main.rs and plain_main.rs
+//    now print the oracle's stderr exactly (NOW_EXACT); args_main.rs's E0580 is a type-error report through
+//    `InferCtxt::err_ctxt` (rustc_trait_selection error_reporting, wave 19).
 import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,8 +26,12 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
 const PENDING = new Set([
-  "codegen_fn_attrs provider (not ported)",
+  // args_main.rs: E0580 report (wave 19); re-pinned by errctxt-contract (`err_ctxt` and `ObligationCauseExt` ported)
+  "rustc_trait_selection::error_reporting::infer::TypeErrCtxt::note_type_err",
 ]);
+
+/** Cases that print the oracle's stderr since merge-w18d: they must not stop. */
+const NOW_EXACT = new Set(["generic_main.rs", "where_main.rs", "plain_main.rs"]);
 
 function sysroot(): string | undefined {
   try {
@@ -92,6 +100,7 @@ for (const [file, code] of [
     if (code !== undefined) expect(r.oracle.stderr).toContain(code);
     else expect({ exit: r.oracle.exit, stderr: r.oracle.stderr }).toEqual({ exit: 0, stderr: "" });
     const m = /^UNPORTED: (.*)\n/m.exec(r.ours.stderr);
+    if (NOW_EXACT.has(file)) expect(m).toBeNull();
     if (m !== null) {
       expect(r.ours.exit).toBe(70);
       expect(PENDING).toContain(m[1]!);

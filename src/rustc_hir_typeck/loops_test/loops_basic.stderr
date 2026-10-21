@@ -1,0 +1,103 @@
+warning: unused label
+  --> loops_basic.rs:11:14
+   |
+LL | pub fn d() { 'b: { break; } }
+   |              ^^
+   |
+   = note: `#[warn(unused_labels)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused label
+  --> loops_basic.rs:17:25
+   |
+LL | pub fn j() { 'x: loop { 'y: { break 'x; } } }
+   |                         ^^
+
+error[E0268]: `break` outside of a loop or labeled block
+  --> loops_basic.rs:8:14
+   |
+LL | pub fn a() { break; }
+   |              ^^^^^ cannot `break` outside of a loop or labeled block
+
+error[E0268]: `continue` outside of a loop
+  --> loops_basic.rs:9:14
+   |
+LL | pub fn b() { continue; }
+   |              ^^^^^^^^ cannot `continue` outside of a loop
+
+error[E0696]: `continue` pointing to a labeled block
+  --> loops_basic.rs:10:27
+   |
+LL | pub fn c() { 'a: { loop { continue 'a; } } }
+   |              -------------^^^^^^^^^^^-----
+   |              |            |
+   |              |            labeled blocks cannot be `continue`'d
+   |              labeled block the `continue` points to
+
+error[E0695]: unlabeled `break` inside of a labeled block
+  --> loops_basic.rs:11:20
+   |
+LL | pub fn d() { 'b: { break; } }
+   |                    ^^^^^ `break` statements that would diverge to or through a labeled block need to bear a label
+
+error[E0268]: `break` outside of a loop or labeled block
+  --> loops_basic.rs:12:24
+   |
+LL | pub fn e() { if true { break } else { break } }
+   |                        ^^^^^ cannot `break` outside of a loop or labeled block
+
+error[E0268]: `break` outside of a loop or labeled block
+  --> loops_basic.rs:12:39
+   |
+LL | pub fn e() { if true { break } else { break } }
+   |                                       ^^^^^ cannot `break` outside of a loop or labeled block
+
+error[E0268]: `break` outside of a loop or labeled block
+  --> loops_basic.rs:13:16
+   |
+LL | pub fn f() { { break; } }
+   |                ^^^^^ cannot `break` outside of a loop or labeled block
+   |
+help: consider labeling this block to be able to break within it
+   |
+LL | pub fn f() { 'block: { break 'block; } }
+   |              +++++++         ++++++
+
+error[E0267]: `break` inside of a closure
+  --> loops_basic.rs:14:28
+   |
+LL | pub fn g() { let _c = || { break; }; }
+   |                       --   ^^^^^ cannot `break` inside of a closure
+   |                       |
+   |                       enclosing closure
+
+error[E0268]: `break` outside of a loop or labeled block
+  --> loops_basic.rs:15:16
+   |
+LL | pub fn h() { { break; break; } }
+   |                ^^^^^  ^^^^^ cannot `break` outside of a loop or labeled block
+   |                |
+   |                cannot `break` outside of a loop or labeled block
+   |
+help: consider labeling this block to be able to break within it
+   |
+LL | pub fn h() { 'block: { break 'block; break 'block; } }
+   |              +++++++         ++++++        ++++++
+
+error[E0267]: `continue` inside of a closure
+  --> loops_basic.rs:16:35
+   |
+LL | pub fn i() { loop { let _c = || { continue; }; } }
+   |                              --   ^^^^^^^^ cannot `continue` inside of a closure
+   |                              |
+   |                              enclosing closure
+
+error[E0268]: `break` outside of a loop or labeled block
+  --> loops_basic.rs:18:21
+   |
+LL | pub const K: () = { break; };
+   |                     ^^^^^ cannot `break` outside of a loop or labeled block
+
+error: aborting due to 11 previous errors; 2 warnings emitted
+
+Some errors have detailed explanations: E0267, E0268, E0695, E0696.
+For more information about an error, try `rustc --explain E0267`.

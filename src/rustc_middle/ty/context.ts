@@ -12,10 +12,10 @@
 //   `CommonLifetimes` and `CommonConsts` are built on the first read of `types` / `lifetimes` / `consts` instead of
 //   in `create_global_ctxt` (ty-contract decision 3); nothing observable depends on when they are built.
 // - No dep graph (D3): `dep_graph` is the disabled graph (dep_graph/graph.ts).
-// - `data_layout` (`sess.target.parse_data_layout()`) is computed on first read, pending rustc_target /
-//   rustc_abi (lane target-cfg); upstream computes it eagerly in `create_global_ctxt` and can only fail
-//   for custom target specs.
+// - `data_layout` (`sess.target.parse_data_layout()`) is computed on first read (lane typeck-gaps); upstream computes
+//   it eagerly in `create_global_ctxt` and can only fail for custom target specs (that error path stops `unported`).
 // - Query methods (`tcx.$query(..)`) are installed by query/query_api.ts and hook methods by hooks.ts.
+import type { TargetDataLayout } from "../../rustc_abi/lib.ts";
 import type { Crate } from "../../rustc_ast/ast.gen.ts";
 import type { LanguageItems } from "../../rustc_attr_ir/lang_items.ts";
 import type { Untracked, CrateStoreDyn } from "../../rustc_crate_store/cstore.ts";
@@ -58,8 +58,9 @@ import { FlagComputation } from "../../rustc_type_ir/flags.ts";
 import { CollectAndApply_Result, CollectAndApply_T } from "../../rustc_type_ir/interner.ts";
 import { Const, Region } from "../../rustc_type_ir/sty/mod.ts";
 import { kw } from "../../rustc_span/symbol.ts";
-import type { Allocation, AssocItem, Attribute, Body, BodyId, CapturedPlace, ConstAllocation, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, Pattern, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, VariantDef } from "./decls.ts";
+import type { Allocation, AssocItem, Attribute, Body, BodyId, CapturedPlace, ConstAllocation, CoroutineLayout, FieldIdx, FnAbi, FnAbiError, ImplOverlapKind, ImplTraitInTraitData, Instance, InstanceKind, Layout, LayoutData, LayoutError, PlaceElem, ProjectionKind, PseudoCanonicalInput, ReprOptions, TypeckResults, VariantDef } from "./decls.ts";
 import { ValTree } from "./consts/valtree.ts";
+import { Pattern } from "./pattern.ts";
 import { ScalarInt } from "./consts/int.ts";
 import { GenericArg, type GenericArgs } from "./generic_args.ts";
 import { type Clauses, type List, RawList, TypeInfo } from "./list.ts";
@@ -97,11 +98,13 @@ import { CanonicalParamEnvCache as InferCanonicalParamEnvCache } from "../infer/
 
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { AliasTermKind, CanonicalParamEnvCache, GlobalCache, Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
+import type { IntrinsicDef } from "./intrinsic.ts";
 import type { EarlyParamRegion, LateParamRegionKind, TypingEnv, VariantIdx } from "./decls.ts";
 import { debug_GenericArg, debug_GenericArgs } from "./generic_args.ts";
 import { GenericParamDef, type Generics } from "./generics.ts";
 import type { ListWithCachedTypeInfo } from "./list.ts";
 import { fold_Ty } from "./structural_impls.ts";
+import { CodegenFnAttrs as CodegenFnAttrsC } from "../middle/codegen_fn_attrs.ts";
 
 /**
  * PORT: `rustc_session::Limits` (session.rs:62; `#[derive(Copy, Clone, Debug, ..)]`) is not ported; this is its
@@ -200,7 +203,6 @@ export const inherent_Span = {
 // file reads.
 type Thir = Pending<"thir::Thir">;
 type AllocId = Pending<"mir::interpret::AllocId">;
-type IntrinsicDef = Pending<"ty::IntrinsicDef">;
 type DepNode = Pending<"dep_graph::DepNode">;
 type Local = Pending<"mir::Local">;
 import type { ResolvedArg } from "../middle/resolve_bound_vars.ts";
@@ -241,7 +243,7 @@ export class CtxtInterners {
     public projs: InternedSet<List<ProjectionKind>>,
     public place_elems: InternedSet<List<PlaceElem>>,
     public const_: InternedSet<Const>,
-    public pat: InternedSet<unknown>,
+    public pat: InternedSet<Pattern>,
     public const_allocation: InternedSet<unknown>,
     public bound_variable_kinds: InternedSet<List<BoundVariableKind>>,
     public layout: InternedSet<unknown>,
@@ -335,7 +337,8 @@ export class CtxtInterners {
     if (clauses.length === 0) {
       return RawList.empty_with_type_info();
     } else {
-      return this.clauses.intern_ref(clauses, intern_key(clauses), () => {
+      // PORT (lane small-gaps-18): element-wise key even for an interned list (as `slice_intern`).
+      return this.clauses.intern_ref(clauses, intern_key(clauses instanceof RawList ? Array.from(clauses) : clauses), () => {
         const flags = FlagComputation.for_clauses(clauses);
 
         return RawList.from_arena(undefined, TypeInfo.from(flags), clauses);
@@ -997,7 +1000,7 @@ export class TyCtxt {
     if (DefKind.has_codegen_attrs(def_kind)) {
       return this.codegen_fn_attrs(def_id) as CodegenFnAttrs;
     } else if (def_kind.$ === "AnonConst" || def_kind.$ === "AssocConst" || def_kind.$ === "Const" || def_kind.$ === "GlobalAsm") {
-      return unported("rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs::EMPTY (middle/codegen_fn_attrs.rs)");
+      return CodegenFnAttrsC.EMPTY;
     } else {
       return panic(`body_codegen_fn_attrs called on unexpected definition: ${debug_DefId(def_id, PLAIN)} ${debug_DefKind(def_kind, PLAIN)}`);
     }
@@ -1859,9 +1862,9 @@ export class TyCtxt {
   intern_valtree(v: ValTreeKind): ValTree {
     return Interned.new_unchecked(this.interners.valtree.intern(v, intern_key(v), (v) => new ValTree(v)));
   }
-  /** Stub (`direct_interners!` `mk_pat`, context.rs:2017): the `Pattern` class is lane ty-results'. */
-  mk_pat(_v: PatternKind): Pattern {
-    return unported("rustc_middle::ty::context::TyCtxt::mk_pat (Pattern class)");
+  // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2017 direct_interners! mk_pat
+  mk_pat(v: PatternKind): Pattern {
+    return Interned.new_unchecked(this.interners.pat.intern(v, intern_key(v), (v) => new Pattern(v)));
   }
   /** Stub (`direct_interners!` `mk_const_alloc`, context.rs:2018): MIR allocations (M4). */
   mk_const_alloc(_v: Allocation): ConstAllocation {
@@ -1898,7 +1901,9 @@ export class TyCtxt {
     if (v.length === 0) {
       return RawList.empty<T>();
     } else {
-      return set.intern_ref(v, intern_key(v), () => RawList.from_arena(undefined, null, v));
+      // PORT (lane small-gaps-18): the key is element-wise even when `v` is itself an interned `List` (`intern_key`
+      // keys an interned object by its id): `tcx.mk_args(args)` of an interned `args` must return that same list.
+      return set.intern_ref(v, intern_key(v instanceof RawList ? Array.from(v) : v), () => RawList.from_arena(undefined, null, v));
     }
   }
   // rustc-macro: compiler/rustc_middle/src/ty/context.rs:2045 slice_interners! mk_const_list
@@ -2859,7 +2864,7 @@ export function TyCtxtAt_create_def(
 
 /// See [TyCtxt] for details about this type.
 export class GlobalCtxt {
-  private data_layout_: unknown = undefined;
+  private data_layout_: TargetDataLayout | undefined = undefined;
   private types_: CommonTypes | undefined = undefined;
   private lifetimes_: CommonLifetimes | undefined = undefined;
   private consts_: CommonConsts | undefined = undefined;
@@ -2923,9 +2928,15 @@ export class GlobalCtxt {
   }
 
   /// Data layout specification for the current target.
-  get data_layout(): unknown {
+  get data_layout(): TargetDataLayout {
     if (this.data_layout_ === undefined) {
-      this.data_layout_ = unported("rustc_target::spec::Target::parse_data_layout (GlobalCtxt::data_layout; pending target-cfg / rustc_abi)");
+      // `create_global_ctxt` (context.rs:960): `sess.target.parse_data_layout().unwrap_or_else(|err| {
+      //     sess.dcx().emit_fatal(err); })`, on first read (module comment).
+      const r = this.sess.target.parse_data_layout();
+      if (r.$ === "Err") {
+        return unported("rustc_errors::diagnostic_impls: Diagnostic for rustc_abi::TargetDataLayoutErrors (GlobalCtxt::data_layout: emit_fatal)");
+      }
+      this.data_layout_ = r._0;
     }
     return this.data_layout_;
   }

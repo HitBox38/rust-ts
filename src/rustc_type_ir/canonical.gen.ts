@@ -5,6 +5,7 @@ import { try_visit } from "../rustc_ast_ir/visit.ts";
 import { decode_CanonicalVarKinds, decode_GenericArgs, type TyDecoder } from "../rustc_middle/ty/codec.ts";
 import { type CanonicalVarKinds } from "../rustc_middle/ty/decls.ts";
 import { debug_GenericArg, debug_GenericArgs, fold_with_GenericArgs, type GenericArg, type GenericArgs, try_fold_with_GenericArgs, visit_with_GenericArgs } from "../rustc_middle/ty/generic_args.ts";
+import { debug_CanonicalVarKinds } from "../rustc_middle/ty/list.ts";
 import { debug_ParamEnv, type ParamEnv } from "../rustc_middle/ty/mod.ts";
 import { type Decodable } from "../rustc_serialize/serialize.ts";
 import { type BoundConst, type BoundRegion, type BoundTy, debug_BoundConst, debug_BoundRegion, debug_BoundTy, debug_Placeholder, decode_BoundConst, decode_BoundRegion, decode_BoundTy, decode_Placeholder, type Placeholder, type PlaceholderConst, type PlaceholderRegion, type PlaceholderType } from "./binder.ts";
@@ -14,8 +15,6 @@ import { type BoundVar, debug_BoundVar, debug_UniverseIndex, decode_BoundVar, de
 import { type Debug, debug_int, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
 import { panic } from "../std/panic.ts";
 import { Ok, type Result } from "../std/result.ts";
-import { unported } from "../std/panic.ts";
-const unported_debug = (_v: unknown): string => unported("Debug without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_type_ir/src/canonical.rs:22 CanonicalQueryInput
 export interface CanonicalQueryInput<V> {
@@ -49,7 +48,7 @@ export function debug_Canonical<V>(v: Canonical<V>, f: Fmt, debug_V: Debug<V>): 
   return debug_struct(f, "Canonical", [
     ["value", debug_V(v.value, f)],
     ["max_universe", debug_UniverseIndex(v.max_universe, f)],
-    ["var_kinds", unported_debug(v.var_kinds)],
+    ["var_kinds", debug_CanonicalVarKinds(v.var_kinds, f)],
   ]);
 }
 // rustc-derive: compiler/rustc_type_ir/src/canonical.rs:38 Decodable_NoContext for Canonical

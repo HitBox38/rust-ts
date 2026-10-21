@@ -25,6 +25,7 @@
 // The stub file of each upstream file installs `unported(..)` placeholders for its declared names
 // (rust_ts/stubs.ts `unported_methods`); docs/handoff/ty-contract.md "How to fill a stub".
 import type { Size, TargetDataLayout } from "../../rustc_abi/lib.ts";
+import { newtype_index } from "../../rustc_index/newtype_index.ts";
 import type { FloatTy, IntTy, Movability, Mutability, Pinnedness, UintTy } from "../../rustc_ast_ir/lib.ts";
 import type { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import type { DiagArgValue, MultiSpan } from "../../rustc_error_messages/lib.ts";
@@ -156,15 +157,19 @@ export type { AsyncDestructor, Attribute, CheckRegions, Destructor, Discr, NotUn
 // newtype indices (rustc_abi): final shapes
 export type FieldIdx = number & { readonly __brand: "FieldIdx" };
 export type VariantIdx = number & { readonly __brand: "VariantIdx" };
+/** `newtype_index!` helpers of rustc_abi `VariantIdx` (layout.rs:79). */
+export const VariantIdx = newtype_index<VariantIdx>((n) => `${n}`);
 // lane repr-options: the real rustc_abi type
 export type { ReprOptions } from "../../rustc_abi/lib.ts";
 // ty/pattern.rs:16, ty/consts/valtree.rs:34, :103, ty/consts/int.rs:147 (D2: hash-consed)
-export type Pattern = Pending<"Pattern">;
+import type { Pattern } from "./pattern.ts";
+export type { Pattern };
 export type Scalar = Pending<"Scalar">;
 // ty/mod.rs (ParamEnv, TypingEnv, PseudoCanonicalInput), ty/assoc.rs, ty/closure.rs, ty/util.rs, ty/sty.rs
 export type NumScalableVectors = Pending<"NumScalableVectors">;
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
-export type NormalizationError = Pending<"NormalizationError">;
+import type { NormalizationError } from "./normalize_erasing_regions.ts";
+export type { NormalizationError };
 export type Instance = Pending<"Instance">;
 export type InstanceKind = Pending<"InstanceKind">;
 // traits/solve.rs:33, :44 (D2: hash-consed; lane middle-traits-thir)
@@ -173,8 +178,10 @@ export type { CanonicalInput, ExternalConstraints };
 // traits/mod.rs (lane middle-traits-thir)
 import type { ObligationCause } from "../traits/mod.ts";
 export type { ObligationCause };
-// hir/place.rs, mir/syntax.rs, mir/interpret/allocation.rs, mir/mod.rs
-export type HirPlace = Pending<"hir::place::Place">;
+// hir/place.rs (lane typeck-euv): `ty::closure`'s `HirPlace` is `hir::place::Place`
+import type { Place as HirPlace } from "../hir/place.ts";
+export type { HirPlace };
+// mir/statement.rs (`mir::ProjectionKind = ProjectionElem<(), ()>`), mir/syntax.rs, mir/interpret/allocation.rs, mir/mod.rs
 export type ProjectionKind = Pending<"ProjectionKind">;
 export type PlaceElem = Pending<"PlaceElem">;
 export type Allocation = Pending<"Allocation">;
@@ -216,10 +223,11 @@ export type BoundExistentialPredicates = List<PolyExistentialPredicate>;
 export type RegionAssumptions = List<ArgOutlivesClause>;
 // traits/solve.rs:23 `PredefinedOpaques<'tcx> = &'tcx ty::List<(ty::OpaqueTypeKey<'tcx>, Ty<'tcx>)>`
 export type PredefinedOpaques = List<[OpaqueTypeKey, Ty]>;
-// ty/abstract_const.rs `CastKind`, mir/syntax.rs `BinOp` / `UnOp` (fieldless enums of files not generated yet)
+// ty/abstract_const.rs `CastKind` (a fieldless enum of a file not generated yet)
 export type CastKind = Pending<"abstract_const::CastKind">;
-export type BinOp = Pending<"mir::BinOp">;
-export type UnOp = Pending<"mir::UnOp">;
+// mir/syntax.rs `BinOp` / `UnOp` (mir/syntax.ts, codegen set rustc_middle_mir_syntax; merge-w18)
+import type { BinOp, UnOp } from "../mir/syntax.ts";
+export type { BinOp, UnOp };
 // rustc_data_structures transitive_relation.rs (lane rds-graph)
 export type { TransitiveRelation } from "../../rustc_data_structures/transitive_relation.ts";
 

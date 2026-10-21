@@ -117,6 +117,7 @@
       "rustc_ast::tokenstream::Spacing",
       "rustc_ast::tokenstream::TokenTree",
       "rustc_ast::attr::version::RustcVersion",
+      "rustc_ast::attr::data_structures::CfgEntry",
       "rustc_ast::ast::MetaItemLit",
       "rustc_ast::token::DocFragmentKind",
       "rustc_ast::visit::AssocCtxt"
@@ -292,7 +293,8 @@
       "rustc_hir::def::Res",
       "rustc_hir::def::Namespace",
       "rustc_hir::hir::PrimTy",
-      "rustc_hir::hir::Safety"
+      "rustc_hir::hir::Safety",
+      "rustc_hir::hir::Constness"
     ],
     "hand_notes": {
       "decodable_types": "crate metadata's def_keys table (rmeta decoder.rs `CrateMetadata::def_key`, lane rmeta-decoder-b)",
@@ -391,11 +393,43 @@
       "decodable_construct": "branded newtypes are built with their `of` companion (LocalModId: new_unchecked); SourceFileHash is a class holding its `[u8; 32]` as a Uint8Array; ExpnData, ModId, RealFileName, Ident are classes (constructor takes every field in declaration order); StableSourceFileId.of wraps a decoded Hash128"
     }
   },
+  "rustc_abi": {
+    "files": [
+      "compiler/rustc_abi/src/lib.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_decodable": true,
+    "decodable_types": [
+      "rustc_abi::Integer",
+      "rustc_abi::IntegerType",
+      "rustc_abi::ScalableElt",
+      "rustc_abi::ReprFlags",
+      "rustc_abi::ReprOptions"
+    ],
+    "decodable_construct": {
+      "rustc_abi::ReprFlags": { "expr": "$0 as ReprFlags" },
+      "rustc_abi::ReprOptions": { "expr": "new ReprOptions($0, $1, $2, $3, $4, $5)", "import": ["ReprOptions"] }
+    },
+    "hand_notes": {
+      "*": "rustc_abi's types are hand-written (src/rustc_abi/lib.ts, a subset); this set only generates rustc_abi/decodable.gen.ts.",
+      "decodable_types": "`ReprOptions` and its field types: crate metadata's `AdtDefData.repr` (rustc_middle ty/codec.rs `Decodable for AdtDef`; lane small-gaps-18)"
+    }
+  },
   "rustc_middle": {
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs",
       "compiler/rustc_middle/src/ty/generics.rs",
-      "compiler/rustc_middle/src/middle/resolve.rs"
+      "compiler/rustc_middle/src/middle/resolve.rs",
+      "compiler/rustc_middle/src/ty/trait_def.rs",
+      "compiler/rustc_middle/src/ty/adt.rs",
+      "compiler/rustc_middle/src/middle/mod.rs",
+      "compiler/rustc_middle/src/middle/resolve_bound_vars.rs",
+      "compiler/rustc_middle/src/ty/consts/valtree.rs",
+      "compiler/rustc_middle/src/ty/intrinsic.rs"
     ],
     "class": [],
     "hand": [],
@@ -418,14 +452,35 @@
       "rustc_middle::middle::resolve::AmbigModChild",
       "rustc_middle::ty::generics::GenericParamDefKind",
       "rustc_middle::ty::generics::GenericParamDef",
-      "rustc_middle::ty::generics::Generics"
+      "rustc_middle::ty::generics::Generics",
+      "rustc_middle::ty::trait_def::TraitSpecializationKind",
+      "rustc_middle::ty::trait_def::TraitDef",
+      "rustc_middle::ty::generics::GenericClauses",
+      "rustc_middle::ty::VariantDiscr",
+      "rustc_middle::ty::VariantFlags",
+      "rustc_middle::ty::FieldDef",
+      "rustc_middle::ty::VariantDef",
+      "rustc_middle::ty::adt::AdtFlags",
+      "rustc_middle::ty::adt::AdtDefData",
+      "rustc_middle::middle::lib_features::FeatureStability",
+      "rustc_middle::middle::resolve_bound_vars::ObjectLifetimeDefault",
+      "rustc_middle::ty::ImplTraitHeader",
+      "rustc_middle::ty::consts::valtree::Value",
+      "rustc_middle::ty::intrinsic::IntrinsicDef"
     ],
     "decodable_construct": {
-      "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] }
+      "rustc_middle::ty::generics::Generics": { "expr": "Generics.from_decoded($0, $1, $2, $3, $4, $5)", "import": ["Generics"] },
+      "rustc_middle::ty::trait_def::TraitDef": { "expr": "new TraitDef($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)", "import": ["TraitDef"] },
+      "rustc_middle::ty::VariantFlags": { "expr": "$0 as VariantFlags" },
+      "rustc_middle::ty::FieldDef": { "expr": "new FieldDef($0, $1, $2, $3, $4, $5)", "import": ["FieldDef"] },
+      "rustc_middle::ty::VariantDef": { "expr": "new VariantDef($0, $1, $2, $3, $4, $5, $6)", "import": ["VariantDef"] },
+      "rustc_middle::ty::adt::AdtFlags": { "expr": "$0 as AdtFlags" },
+      "rustc_middle::ty::adt::AdtDefData": { "expr": "new AdtDefData($0, $1, $2, $3)", "import": ["AdtDefData"] },
+      "rustc_middle::ty::ImplTraitHeader": { "expr": "new ImplTraitHeader($0, $1, $2, $3)", "import": ["ImplTraitHeader"] }
     },
     "hand_notes": {
       "*": "rustc_middle's types are hand-written; this set only generates rustc_middle/stable_hash.gen.ts (derive(StableHash)) for the ported query value types listed in stable_hash_types (re-fed queries, calls.rs query_feed).",
-      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems); generates rustc_middle/decodable.gen.ts"
+      "decodable_types": "crate metadata's visibility and mut_restriction tables (rmeta decoder.rs `CrateMetadata::get_visibility` / `print_item`, lane rmeta-decoder-a; `get_mut_restriction`, merge-w15b), RPITIT data (`get_associated_item`) and the `adt_destructor` / `adt_async_destructor` tables (merge-w15b), module children (`CrateMetadata::get_module_children` reexports / `get_ambig_module_children`) and `ty::Generics` (the `generics_of` extern provider; lane decode-elems), `ty::ImplTraitHeader` (the `impl_trait_header` extern provider, old-solver candidate assembly over extern impls; merge-w18c); generates rustc_middle/decodable.gen.ts"
     }
   },
   "rustc_middle_stability": {
@@ -685,11 +740,12 @@
       "rustc_metadata::rmeta::CrateDep",
       "rustc_metadata::rmeta::TraitImpls",
       "rustc_metadata::rmeta::IncoherentImpls",
-      "rustc_metadata::rmeta::SpanTag"
+      "rustc_metadata::rmeta::SpanTag",
+      "rustc_metadata::rmeta::VariantData"
     ],
     "hand_notes": {
       "*": "rmeta/{mod,table,def_path_hash_map}.rs types are hand-written (src/rustc_metadata/rmeta/*.ts: classes whose fields clash with methods, e.g. CrateRoot.stable_crate_id_); this set only generates rustc_metadata/decodable.gen.ts (derive(LazyDecodable/BlobDecodable/Decodable)). The `impl Decodable for LazyValue/LazyArray/LazyTable` are in decoder.rs (syn cannot parse its `gen` blocks), exported by decoder.ts and re-exported by mod.ts: hence `hand`. LazyTables is defined by `define_tables!` (invisible to the probe): its decode is hand-expanded in mod.ts and reached through serialize.json.",
-      "decodable_types": "VariantData (TyDecodable) waits for rustc_middle's TyDecoder (M3)",
+      "decodable_types": "VariantData (TyDecodable; `get_variant` / `get_ctor`, lane small-gaps-19)",
       "class": "constructed with `new T(fields in declaration order)`"
     }
   },
@@ -872,6 +928,193 @@
       "compiler/rustc_middle/src/ty/mod.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
+  },
+  "rustc_middle_typeck_results": {
+    "files": [
+      "compiler/rustc_middle/src/ty/typeck_results.rs"
+    ],
+    "files_note": "lane typeck-gaps: generated for the derived TypeVisitable / TypeFoldable of UserType / UserTypeKind / CanonicalUserTypeAnnotation (and their types + Debug); every other type of the file is hand-written in typeck_results.ts",
+    "class": [],
+    "hand": [
+      "rustc_middle::ty::typeck_results::CanonicalUserType"
+    ],
+    "hand_notes": {"rustc_middle::ty::typeck_results::CanonicalUserType": "type alias `Canonical<UserType>` hand-written in typeck_results.ts"},
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::ty::typeck_results::TypeckResults",
+      "rustc_middle::ty::typeck_results::SplattedDef",
+      "rustc_middle::ty::typeck_results::LocalTableInContext",
+      "rustc_middle::ty::typeck_results::LocalTableInContextMut",
+      "rustc_middle::ty::typeck_results::LocalSetInContext",
+      "rustc_middle::ty::typeck_results::LocalSetInContextMut",
+      "rustc_middle::ty::typeck_results::UserTypeAnnotationIndex",
+      "rustc_middle::ty::typeck_results::CanonicalUserTypeAnnotations",
+      "rustc_middle::ty::typeck_results::Rust2024IncompatiblePatInfo"
+    ],
+    "skip_notes": {
+      "rustc_middle::ty::typeck_results::TypeckResults": "hand-written in typeck_results.ts (lane ty-results): a class over Map/Set tables, private fields renamed `<name>_`; derived Debug only for debug! logs",
+      "rustc_middle::ty::typeck_results::SplattedDef": "hand-written in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::LocalTableInContext": "hand-written class in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::LocalTableInContextMut": "hand-written class in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::LocalSetInContext": "hand-written class in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::LocalSetInContextMut": "hand-written class in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::UserTypeAnnotationIndex": "newtype_index! hand-written in typeck_results.ts (lane ty-results)",
+      "rustc_middle::ty::typeck_results::CanonicalUserTypeAnnotations": "type alias hand-written in typeck_results.ts",
+      "rustc_middle::ty::typeck_results::Rust2024IncompatiblePatInfo": "hand-written in typeck_results.ts (lane ty-results)"
+    },
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json",
+      "typeck_results.typemap.json"
+    ]
+  },
+  "rustc_middle_hir_place": {
+    "files": [
+      "compiler/rustc_middle/src/hir/place.rs"
+    ],
+    "files_note": "lane typeck-gaps: only the derived TypeVisitable / TypeFoldable of the hand-written types of hir/place.ts (lane typeck-euv) are generated (`type_fold_hand`), into hir/place.gen.ts",
+    "class": [
+      "rustc_middle::hir::place::Place",
+      "rustc_middle::hir::place::PlaceWithHirId"
+    ],
+    "hand": [
+      "rustc_middle::hir::place::PlaceBase",
+      "rustc_middle::hir::place::ProjectionKind",
+      "rustc_middle::hir::place::Projection",
+      "rustc_middle::hir::place::Place",
+      "rustc_middle::hir::place::PlaceWithHirId"
+    ],
+    "hand_notes": "hir/place.ts (lane typeck-euv) hand-writes every type of the file (Debug / PartialEq / Clone included)",
+    "type_fold_hand": [
+      "rustc_middle::hir::place::PlaceBase",
+      "rustc_middle::hir::place::ProjectionKind",
+      "rustc_middle::hir::place::Projection",
+      "rustc_middle::hir::place::Place",
+      "rustc_middle::hir::place::PlaceWithHirId"
+    ],
+    "discriminant": [],
+    "skip": [],
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json"
+    ]
+  },
+  "rustc_middle_ty_mod": {
+    "files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "files_note": "lane typeck-gaps: only the derived TypeVisitable / TypeFoldable of the hand-written `ProvisionalHiddenType` / `ClosureSizeProfileData` (ty/mod.ts) are generated (`type_fold_hand`), into ty/mod.gen.ts; every other type of the file is skipped (hand-written in ty/mod.ts)",
+    "class": [
+      "rustc_middle::ty::ProvisionalHiddenType"
+    ],
+    "hand": [
+      "rustc_middle::ty::ProvisionalHiddenType",
+      "rustc_middle::ty::ClosureSizeProfileData",
+      "rustc_middle::ty::Ty"
+    ],
+    "hand_notes": "ty/mod.ts hand-writes both (ProvisionalHiddenType a class with inherent methods, ClosureSizeProfileData an interface), with their Debug; `Ty` (D2: the hash-consed class) is hand so that its fields resolve to ty/mod.ts's `Ty` impls (visit_with_Ty, ..)",
+    "type_fold_hand": [
+      "rustc_middle::ty::ProvisionalHiddenType",
+      "rustc_middle::ty::ClosureSizeProfileData"
+    ],
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::ty::ImplTraitHeader",
+      "rustc_middle::ty::Asyncness",
+      "rustc_middle::ty::Visibility",
+      "rustc_middle::ty::RestrictionKind",
+      "rustc_middle::ty::CrateVariancesMap",
+      "rustc_middle::ty::CReaderCacheKey",
+      "rustc_middle::ty::CrateClausesMap",
+      "rustc_middle::ty::Term",
+      "rustc_middle::ty::InstantiatedClauses",
+      "rustc_middle::ty::DefiningScopeKind",
+      "rustc_middle::ty::DefinitionSiteHiddenType",
+      "rustc_middle::ty::Clauses",
+      "rustc_middle::ty::ParamEnv",
+      "rustc_middle::ty::ParamEnvAnd",
+      "rustc_middle::ty::TypingEnv",
+      "rustc_middle::ty::PseudoCanonicalInput",
+      "rustc_middle::ty::Destructor",
+      "rustc_middle::ty::AsyncDestructor",
+      "rustc_middle::ty::VariantFlags",
+      "rustc_middle::ty::VariantDef",
+      "rustc_middle::ty::VariantDiscr",
+      "rustc_middle::ty::FieldDef",
+      "rustc_middle::ty::ImplOverlapKind",
+      "rustc_middle::ty::ImplTraitInTraitData",
+      "rustc_middle::ty::CrateInherentImpls",
+      "rustc_middle::ty::SymbolName",
+      "rustc_middle::ty::DestructuredAdtConst"
+    ],
+    "skip_notes": {
+      "rustc_middle::ty::ImplTraitHeader": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Asyncness": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Visibility": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::RestrictionKind": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::CrateVariancesMap": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::CReaderCacheKey": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::CrateClausesMap": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Term": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::InstantiatedClauses": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::DefiningScopeKind": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::DefinitionSiteHiddenType": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Clauses": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::ParamEnv": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::ParamEnvAnd": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::TypingEnv": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::PseudoCanonicalInput": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::Destructor": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::AsyncDestructor": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::VariantFlags": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::VariantDef": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::VariantDiscr": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::FieldDef": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::ImplOverlapKind": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::ImplTraitInTraitData": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::CrateInherentImpls": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::SymbolName": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)",
+      "rustc_middle::ty::DestructuredAdtConst": "hand-written in ty/mod.ts (no codegen for this file beyond the two type_fold_hand types)"
+    },
+    "derive_type_fold": true,
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json"
+    ]
+  },
+  "rustc_middle_mir_query": {
+    "files": [
+      "compiler/rustc_middle/src/mir/query.rs"
+    ],
+    "files_note": "lane typeck-gaps: only `ConstraintCategory` / `ReturnConstraint` / `AnnotationSource` (region-constraint categories that typeck / regionck already produce: ObligationCause::to_constraint_category, SubregionOrigin::to_constraint_category, QueryRegionConstraint) are generated; the coroutine-layout / const-qualif types are skipped until the MIR lane (M4)",
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::mir::query::CoroutineSavedLocal",
+      "rustc_middle::mir::query::CoroutineSavedTy",
+      "rustc_middle::mir::query::CoroutineLayout",
+      "rustc_middle::mir::query::ConstQualifs",
+      "rustc_middle::mir::query::DestructuredConstant"
+    ],
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json",
+      "infer.typemap.json"
+    ]
   },
   "rustc_infer": {
     "files": [
@@ -1125,5 +1368,337 @@
       "compiler/rustc_infer/src/infer/mod.rs"
     ],
     "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "infer.typemap.json", "trait_selection.typemap.json"]
+  },
+  "rustc_codegen_ssa": {
+    "files": [
+      "compiler/rustc_codegen_ssa/src/codegen_attrs.rs",
+      "compiler/rustc_codegen_ssa/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [
+      "rustc_codegen_ssa::diagnostics::IncorrectCguReuseType",
+      "rustc_codegen_ssa::diagnostics::LinkingFailed",
+      "rustc_codegen_ssa::diagnostics::ProcessingDymutilFailed",
+      "rustc_codegen_ssa::diagnostics::StrippingDebugInfoFailed",
+      "rustc_codegen_ssa::diagnostics::InvalidMonomorphization",
+      "rustc_codegen_ssa::diagnostics::FailedToGetLayout",
+      "rustc_codegen_ssa::diagnostics::FeatureNotValid",
+      "rustc_codegen_ssa::diagnostics::CrossArchFeatureNote",
+      "rustc_codegen_ssa::diagnostics::FeatureNotValidHint"
+    ],
+    "skip_notes": {
+      "rustc_codegen_ssa::diagnostics::IncorrectCguReuseType": "field type `CguReuse` (assert_module_sources.rs, incremental; not ported)",
+      "rustc_codegen_ssa::diagnostics::LinkingFailed": "fields `ExitStatus` / `back::command::Command` (linker, not ported)",
+      "rustc_codegen_ssa::diagnostics::ProcessingDymutilFailed": "field `ExitStatus` (linker, not ported)",
+      "rustc_codegen_ssa::diagnostics::StrippingDebugInfoFailed": "field `ExitStatus` (linker, not ported)",
+      "rustc_codegen_ssa::diagnostics::InvalidMonomorphization": "field `rustc_abi::NumScalableVectors` (codegen intrinsics, not ported)",
+      "rustc_codegen_ssa::diagnostics::FailedToGetLayout": "field `LayoutError` (no IntoDiagArg in TS yet)",
+      "rustc_codegen_ssa::diagnostics::FeatureNotValid": "hand-written in src/rustc_codegen_ssa/diagnostics.ts (lane codegen-fn-attrs) with its two subdiagnostics below",
+      "rustc_codegen_ssa::diagnostics::CrossArchFeatureNote": "derive(Subdiagnostic) with a `DiagSymbolList<&str>` field: the generator emits `DiagSymbolList_into_diag_arg_with((x) => x)(..)`, whose `S` tsc cannot infer (TS2322); hand-written in src/rustc_codegen_ssa/diagnostics.ts until the generator types the `$display0` lambda",
+      "rustc_codegen_ssa::diagnostics::FeatureNotValidHint": "as CrossArchFeatureNote (`DiagSymbolList<&str>` field); hand-written in src/rustc_codegen_ssa/diagnostics.ts"
+    },
+    "derive_default": true,
+    "typemap_extra": ["tyir.typemap.json"]
+  },
+  "rustc_hir_typeck": {
+    "files": [
+      "compiler/rustc_hir_typeck/src/_match.rs",
+      "compiler/rustc_hir_typeck/src/autoderef.rs",
+      "compiler/rustc_hir_typeck/src/callee.rs",
+      "compiler/rustc_hir_typeck/src/cast.rs",
+      "compiler/rustc_hir_typeck/src/check.rs",
+      "compiler/rustc_hir_typeck/src/closure.rs",
+      "compiler/rustc_hir_typeck/src/coercion.rs",
+      "compiler/rustc_hir_typeck/src/demand.rs",
+      "compiler/rustc_hir_typeck/src/diagnostics.rs",
+      "compiler/rustc_hir_typeck/src/diverges.rs",
+      "compiler/rustc_hir_typeck/src/expectation.rs",
+      "compiler/rustc_hir_typeck/src/expr.rs",
+      "compiler/rustc_hir_typeck/src/expr_use_visitor.rs",
+      "compiler/rustc_hir_typeck/src/fallback.rs",
+      "compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs",
+      "compiler/rustc_hir_typeck/src/fn_ctxt/adjust_fulfillment_errors.rs",
+      "compiler/rustc_hir_typeck/src/fn_ctxt/arg_matrix.rs",
+      "compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs",
+      "compiler/rustc_hir_typeck/src/fn_ctxt/inspect_obligations.rs",
+      "compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs",
+      "compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs",
+      "compiler/rustc_hir_typeck/src/gather_locals.rs",
+      "compiler/rustc_hir_typeck/src/inline_asm.rs",
+      "compiler/rustc_hir_typeck/src/intrinsicck.rs",
+      "compiler/rustc_hir_typeck/src/lib.rs",
+      "compiler/rustc_hir_typeck/src/loops.rs",
+      "compiler/rustc_hir_typeck/src/method/confirm.rs",
+      "compiler/rustc_hir_typeck/src/method/mod.rs",
+      "compiler/rustc_hir_typeck/src/method/prelude_edition_lints.rs",
+      "compiler/rustc_hir_typeck/src/method/probe.rs",
+      "compiler/rustc_hir_typeck/src/method/suggest.rs",
+      "compiler/rustc_hir_typeck/src/naked_functions.rs",
+      "compiler/rustc_hir_typeck/src/op.rs",
+      "compiler/rustc_hir_typeck/src/opaque_types.rs",
+      "compiler/rustc_hir_typeck/src/pat.rs",
+      "compiler/rustc_hir_typeck/src/place_op.rs",
+      "compiler/rustc_hir_typeck/src/typeck_root_ctxt.rs",
+      "compiler/rustc_hir_typeck/src/upvar.rs",
+      "compiler/rustc_hir_typeck/src/writeback.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_hir_typeck::typeck_root_ctxt::TypeckRootCtxt",
+      "rustc_hir_typeck::fn_ctxt::FnCtxt",
+      "rustc_hir_typeck::gather_locals::GatherLocalsVisitor",
+      "rustc_hir_typeck::writeback::WritebackCx",
+      "rustc_hir_typeck::writeback::Resolver",
+      "rustc_hir_typeck::writeback::EagerlyNormalizeConsts",
+      "rustc_hir_typeck::writeback::HasRecursiveOpaque",
+      "rustc_hir_typeck::fallback::AnnotateUnitFallbackVisitor",
+      "rustc_hir_typeck::loops::CheckLoopVisitor",
+      "rustc_hir_typeck::naked_functions::CheckParameters",
+      "rustc_hir_typeck::naked_functions::CheckInlineAssembly",
+      "rustc_hir_typeck::fn_ctxt::checks::FindClosureArg",
+      "rustc_hir_typeck::fn_ctxt::inspect_obligations::NestedObligationsForSelfTy",
+      "rustc_hir_typeck::fn_ctxt::inspect_obligations::FindFromFloatForF32RootVids",
+      "rustc_hir_typeck::coercion::CoerceVisitor",
+      "rustc_hir_typeck::coercion::CoerceMany",
+      "rustc_hir_typeck::upvar::InferBorrowKindVisitor",
+      "rustc_hir_typeck::upvar::InferBorrowKind",
+      "rustc_hir_typeck::expr_use_visitor::ExprPlaceDelegate"
+    ],
+    "hand_notes": {
+      "rustc_hir_typeck::typeck_root_ctxt::TypeckRootCtxt": "the shared contract (fnctxt-contract): class with all fields in decls.ts, `Deref<Target = InferCtxt>` forwarders; methods assigned by typeck_root_ctxt.ts",
+      "rustc_hir_typeck::fn_ctxt::FnCtxt": "the shared contract (fnctxt-contract): class with all fields in decls.ts, `Deref<Target = TypeckRootCtxt>` forwarders; every method declared in decls.ts and assigned by its file",
+      "rustc_hir_typeck::gather_locals::GatherLocalsVisitor": "intravisit Visitor impl: hand class extending rustc_hir intravisit Visitor (gather_locals.ts)",
+      "rustc_hir_typeck::writeback::WritebackCx": "intravisit Visitor impl: hand class extending rustc_hir intravisit Visitor (writeback.ts, lane typeck-lib-wb)",
+      "rustc_hir_typeck::writeback::Resolver": "TypeFolder impl: hand class (writeback.ts, lane typeck-lib-wb)",
+      "rustc_hir_typeck::writeback::EagerlyNormalizeConsts": "TypeFolder impl: hand class (writeback.ts, lane typeck-lib-wb)",
+      "rustc_hir_typeck::writeback::HasRecursiveOpaque": "TypeVisitor impl: hand class (writeback.ts, lane typeck-lib-wb)",
+      "rustc_hir_typeck::fallback::AnnotateUnitFallbackVisitor": "intravisit Visitor impl: hand class (fallback.ts, lane typeck-lib-wb)",
+      "rustc_hir_typeck::loops::CheckLoopVisitor": "intravisit Visitor impl: hand class (loops.ts, lane typeck-lib-wb)",
+      "rustc_hir_typeck::naked_functions::CheckParameters": "intravisit Visitor impl: hand class (naked_functions.ts, lane typeck-euv)",
+      "rustc_hir_typeck::naked_functions::CheckInlineAssembly": "intravisit Visitor impl: hand class (naked_functions.ts, lane typeck-euv)",
+      "rustc_hir_typeck::fn_ctxt::checks::FindClosureArg": "intravisit Visitor impl: hand class (fn_ctxt/checks.ts, lane typeck-checks-b)",
+      "rustc_hir_typeck::fn_ctxt::inspect_obligations::NestedObligationsForSelfTy": "ProofTreeVisitor impl: hand class (fn_ctxt/inspect_obligations.ts, lane typeck-checks-a)",
+      "rustc_hir_typeck::fn_ctxt::inspect_obligations::FindFromFloatForF32RootVids": "ProofTreeVisitor impl: hand class (fn_ctxt/inspect_obligations.ts, lane typeck-checks-a)",
+      "rustc_hir_typeck::coercion::CoerceVisitor": "ProofTreeVisitor impl: hand class (coercion.ts, lane typeck-coerce)",
+      "rustc_hir_typeck::coercion::CoerceMany": "hand class (coercion.ts, lane typeck-coerce): field `expected_ty` is `expected_ty_` (the method `expected_ty()` has the same name); methods / associated fns declared in decls.ts",
+      "rustc_hir_typeck::upvar::InferBorrowKindVisitor": "intravisit Visitor impl: hand class (upvar.ts, lane typeck-upvar)",
+      "rustc_hir_typeck::upvar::InferBorrowKind": "expr_use_visitor `Delegate` implementor: hand class implementing decls.ts `Delegate` (upvar.ts, lane typeck-upvar)",
+      "rustc_hir_typeck::expr_use_visitor::ExprPlaceDelegate": "unit struct implementing `Delegate`: hand (expr_use_visitor.ts, lane typeck-euv)"
+    },
+    "discriminant": [],
+    "skip": [
+      "rustc_hir_typeck::method::suggest::SelfSource"
+    ],
+    "skip_notes": {
+      "rustc_hir_typeck::method::suggest::SelfSource": "derive(Debug) over `hir::Ty` / `hir::Expr`: the generator imports `hir::Ty`'s and `ty::Ty`'s Debug under one TS name (`debug_Ty`), so the type and its Debug are hand-written in method/suggest.ts (as hir_analysis's GenericsArgsErrExtend)"
+    },
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_hir/src/lib.rs"
+    ],
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json",
+      "ast_lowering.typemap.json",
+      "infer.typemap.json",
+      "hir_analysis.typemap.json",
+      "trait_selection.typemap.json",
+      "hir_typeck.typemap.json"
+    ]
+  },
+  "rustc_mir_build": {
+    "files": [
+      "compiler/rustc_mir_build/src/diagnostics.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [
+      "rustc_mir_build::diagnostics::PatternNotCovered"
+    ],
+    "skip_notes": {
+      "rustc_mir_build::diagnostics::PatternNotCovered": "its `#[subdiagnostic] uncovered: Uncovered` is rustc_pattern_analysis::diagnostics::Uncovered (crate not ported): generated with check_match (rustc_pattern_analysis lane)"
+    },
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "mir_build.typemap.json"]
+  },
+  "rustc_middle_mir_syntax": {
+    "files": [
+      "compiler/rustc_middle/src/mir/syntax.rs"
+    ],
+    "files_note": "lane thir-pattern: only the mir/syntax.rs enums that THIR stores (thir.rs `ExprKind::{Binary,Unary,AssignOp}.op`, `Borrow.borrow_kind`, `ClosureExpr.fake_reads`) are generated, for their derived Debug in thir_flat; `CastKind` / `CoercionSource` too (lane typeck-gaps: rustc_middle ty/cast.rs `mir_cast_kind` returns a CastKind); every other type is skipped until the MIR lane (M4) ports mir/syntax.rs and drops the skip list.",
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [
+      "rustc_middle::mir::syntax::MirPhase",
+      "rustc_middle::mir::syntax::AnalysisPhase",
+      "rustc_middle::mir::syntax::RuntimePhase",
+      "rustc_middle::mir::syntax::RawPtrKind",
+      "rustc_middle::mir::syntax::StatementKind",
+      "rustc_middle::mir::syntax::NonDivergingIntrinsic",
+      "rustc_middle::mir::syntax::WithRetag",
+      "rustc_middle::mir::syntax::CopyNonOverlapping",
+      "rustc_middle::mir::syntax::CallSource",
+      "rustc_middle::mir::syntax::InlineAsmMacro",
+      "rustc_middle::mir::syntax::TerminatorKind",
+      "rustc_middle::mir::syntax::BackwardIncompatibleDropReason",
+      "rustc_middle::mir::syntax::SwitchTargets",
+      "rustc_middle::mir::syntax::UnwindAction",
+      "rustc_middle::mir::syntax::UnwindTerminateReason",
+      "rustc_middle::mir::syntax::AssertKind",
+      "rustc_middle::mir::syntax::InlineAsmOperand",
+      "rustc_middle::mir::syntax::AssertMessage",
+      "rustc_middle::mir::syntax::Place",
+      "rustc_middle::mir::syntax::ProjectionElem",
+      "rustc_middle::mir::syntax::PlaceElem",
+      "rustc_middle::mir::syntax::Operand",
+      "rustc_middle::mir::syntax::ConstOperand",
+      "rustc_middle::mir::syntax::Rvalue",
+      "rustc_middle::mir::syntax::AggregateKind",
+      "rustc_middle::mir::syntax::RuntimeChecks"
+    ],
+    "derive_clone": true,
+    "typemap_extra": [
+      "tyir.typemap.json",
+      "middle_traits_thir.typemap.json"
+    ]
+  },
+  "rustc_trait_selection_old_solver": {
+    "files": [
+      "compiler/rustc_trait_selection/src/traits/select/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs",
+      "compiler/rustc_trait_selection/src/traits/select/confirmation.rs",
+      "compiler/rustc_trait_selection/src/traits/select/_match.rs",
+      "compiler/rustc_trait_selection/src/traits/project.rs",
+      "compiler/rustc_trait_selection/src/traits/fulfill.rs",
+      "compiler/rustc_trait_selection/src/traits/query/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/query/normalize.rs",
+      "compiler/rustc_trait_selection/src/traits/query/evaluate_obligation.rs",
+      "compiler/rustc_trait_selection/src/traits/query/dropck_outlives.rs",
+      "compiler/rustc_trait_selection/src/traits/query/type_op/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/query/type_op/custom.rs",
+      "compiler/rustc_trait_selection/src/traits/implied_outlives_bounds.rs",
+      "compiler/rustc_trait_selection/src/traits/vtable.rs",
+      "compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs",
+      "compiler/rustc_trait_selection/src/traits/auto_trait.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_trait_selection::traits::fulfill::FulfillmentContext",
+      "rustc_trait_selection::traits::fulfill::OldSolverError",
+      "rustc_trait_selection::traits::query::type_op::TypeOpOutput",
+      "rustc_trait_selection::traits::query::type_op::custom::CustomTypeOp",
+      "rustc_trait_selection::traits::select::TraitObligationStackList"
+    ],
+    "hand_notes": {
+      "rustc_trait_selection::traits::fulfill::FulfillmentContext": "`ObligationForest<PendingPredicateObligation>` + `PhantomData<E>`: hand class implementing `TraitEngine<E>` (traits/fulfill.ts), with its `FromSolverError<E, OldSolverError>` descriptor",
+      "rustc_trait_selection::traits::fulfill::OldSolverError": "newtype over obligation_forest's `Error<PendingPredicateObligation, FulfillmentErrorCode>` (traits/fulfill.ts)",
+      "rustc_trait_selection::traits::query::type_op::TypeOpOutput": "generic over `Op::Output` / `Op::ErrorInfo` (associated types): hand interface in traits/query/type_op/mod.ts",
+      "rustc_trait_selection::traits::query::type_op::custom::CustomTypeOp": "closure-carrying struct with a manual Debug: hand class in traits/query/type_op/custom.ts",
+      "rustc_trait_selection::traits::select::TraitObligationStackList": "field `head` collides with the method `head()`: hand class with field `head_` (traits/select/mod.ts)"
+    },
+    "discriminant": [],
+    "skip": [],
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "derive_default": true,
+    "resolve_files": [
+      "compiler/rustc_type_ir/src/ty/mod.rs",
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_middle/src/traits/solve.rs",
+      "compiler/rustc_type_ir/src/lib.rs",
+      "compiler/rustc_infer/src/traits/mod.rs",
+      "compiler/rustc_infer/src/infer/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/mod.rs"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "infer.typemap.json", "trait_selection.typemap.json", "old_solver.typemap.json"]
+  },
+  "rustc_trait_selection_error_reporting": {
+    "files": [
+      "compiler/rustc_trait_selection/src/error_reporting/mod.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/region.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mod.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/different_lifetimes.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/find_anon_type.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/mismatched_static_lifetime.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/named_anon_conflict.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_error.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_relation.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/static_impl_trait.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/trait_impl_difference.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/util.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/call_kind.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/on_unimplemented.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/overflow.rs",
+      "compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs",
+      "compiler/rustc_trait_selection/src/diagnostics.rs",
+      "compiler/rustc_trait_selection/src/diagnostics/note_and_explain.rs"
+    ],
+    "class": [],
+    "hand": [
+      "rustc_trait_selection::error_reporting::TypeErrCtxt",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::NiceRegionError",
+      "rustc_trait_selection::error_reporting::infer::SameTypeModuloInfer",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::find_anon_type::FindNestedTypeVisitor",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::find_anon_type::TyPathVisitor",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::static_impl_trait::TraitObjectVisitor",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::static_impl_trait::HirTraitObjectVisitor",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::trait_impl_difference::TypeParamSpanVisitor",
+      "rustc_trait_selection::error_reporting::traits::FindExprBySpan",
+      "rustc_trait_selection::error_reporting::traits::ambiguity::HasNumericInferVisitor",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReturnsVisitor",
+      "rustc_trait_selection::error_reporting::traits::suggestions::AwaitsVisitor",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReplaceImplTraitVisitor",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReplaceImplTraitFolder",
+      "rustc_trait_selection::error_reporting::traits::suggestions::FindTypeParam",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ParamFinder"
+    ],
+    "hand_notes": {
+      "rustc_trait_selection::error_reporting::TypeErrCtxt": "the shared contract (errctxt-contract): class with all fields in rustc_trait_selection decls.ts, `Deref<Target = InferCtxt>` forwarders; every method declared in decls.ts and assigned by its file",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::NiceRegionError": "field `regions` collides with the method `regions()`: hand class with field `regions_` (error_reporting/infer/nice_region_error/mod.ts); methods / associated fns declared in rustc_trait_selection decls.ts",
+      "rustc_trait_selection::error_reporting::infer::SameTypeModuloInfer": "`TypeRelation` impl over `&InferCtxt`: hand class (error_reporting/infer/mod.ts, lane errrep-infer-a)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::find_anon_type::FindNestedTypeVisitor": "intravisit Visitor impl: hand class (nice_region_error/find_anon_type.ts, lane errrep-region)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::find_anon_type::TyPathVisitor": "intravisit Visitor impl: hand class (nice_region_error/find_anon_type.ts, lane errrep-region)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::static_impl_trait::TraitObjectVisitor": "TypeVisitor impl (tuple struct over FxIndexSet<DefId>): hand class (nice_region_error/static_impl_trait.ts, lane errrep-nice-region)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::static_impl_trait::HirTraitObjectVisitor": "intravisit Visitor impl (tuple struct): hand class (nice_region_error/static_impl_trait.ts, lane errrep-nice-region)",
+      "rustc_trait_selection::error_reporting::infer::nice_region_error::trait_impl_difference::TypeParamSpanVisitor": "intravisit Visitor impl: hand class (nice_region_error/trait_impl_difference.ts, lane errrep-nice-region)",
+      "rustc_trait_selection::error_reporting::traits::FindExprBySpan": "intravisit Visitor impl with `new`: hand class in error_reporting/traits/mod.ts (ported by errctxt-contract)",
+      "rustc_trait_selection::error_reporting::traits::ambiguity::HasNumericInferVisitor": "TypeVisitor impl (unit struct): hand class (traits/ambiguity.ts, lane errrep-need-type-info)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReturnsVisitor": "intravisit Visitor impl, derive(Default): hand class in traits/suggestions.ts (ported by errctxt-contract; used by rustc_hir_analysis check)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::AwaitsVisitor": "intravisit Visitor impl, derive(Default): hand class in traits/suggestions.ts (ported by errctxt-contract)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReplaceImplTraitVisitor": "intravisit Visitor impl: hand class (traits/suggestions.ts, lane errrep-sugg-c)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ReplaceImplTraitFolder": "TypeFolder impl: hand class (traits/suggestions.ts, lane errrep-sugg-c)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::FindTypeParam": "intravisit Visitor impl: hand class (traits/suggestions.ts, lane errrep-sugg-c)",
+      "rustc_trait_selection::error_reporting::traits::suggestions::ParamFinder": "TypeVisitor impl with an inherent method, derive(Default): hand class (traits/suggestions.ts, lane errrep-sugg-c)"
+    },
+    "discriminant": [],
+    "skip": [
+      "rustc_trait_selection::error_reporting::traits::suggestions::SelfVisitor"
+    ],
+    "skip_notes": {
+      "rustc_trait_selection::error_reporting::traits::suggestions::SelfVisitor": "intravisit Visitor impl with derive(Debug) over `Vec<&hir::Ty>`: the generator imports `hir::Ty`'s and `ty::Ty`'s Debug under one TS name (`debug_Ty`), so the class and its Debug are hand-written in traits/suggestions.ts (precedent rustc_hir_typeck SelfSource)"
+    },
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_type_fold": true,
+    "resolve_files": [
+      "compiler/rustc_middle/src/ty/mod.rs",
+      "compiler/rustc_hir/src/lib.rs",
+      "compiler/rustc_infer/src/infer/mod.rs",
+      "compiler/rustc_trait_selection/src/traits/mod.rs"
+    ],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json", "ast_lowering.typemap.json", "infer.typemap.json", "hir_analysis.typemap.json", "trait_selection.typemap.json", "old_solver.typemap.json", "hir_typeck.typemap.json", "error_reporting.typemap.json"]
   }
 }

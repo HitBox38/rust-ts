@@ -709,12 +709,20 @@
     },
     {
       "paths": [
-        "rustc_middle::mir::ConstraintCategory"
+        "rustc_middle::mir::ConstraintCategory",
+        "rustc_middle::mir::query::ConstraintCategory"
       ],
-      "ts": "unknown",
-      "debug": null,
+      "ts": "ConstraintCategory",
+      "import": "src/rustc_middle/mir/query.ts",
+      "types": [
+        "ConstraintCategory"
+      ],
+      "values": [
+        "debug_ConstraintCategory"
+      ],
+      "debug": "debug_ConstraintCategory($v, $f)",
       "clone": "copy",
-      "note": "PORT: pending rustc_middle mir (M4)"
+      "note": "rustc_middle mir/query.rs (set rustc_middle_mir_query, lane typeck-gaps; Copy)"
     }
   ]
 }

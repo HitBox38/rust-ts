@@ -5,8 +5,8 @@
 // for each owner, makes the calls into wfcheck.rs:1-1139 that `check_well_formed` (wfcheck.rs:221) makes through
 // `check::check::check_item_type` (check.rs, lane check-check, not in this lane's base), then `check_param_wf` for every
 // own generic param. Not a port: `check_item_type`'s other checks are not made.
-// - `wf`: per `DefKind`, as check.rs's `check_item_type`: Struct `check_type_defn(.., false)`, Union / Enum
-//   `check_type_defn(.., true)`, Trait `check_trait` + `check_gat_where_clauses`, TraitAlias `check_trait`, Impl / Fn
+// - `wf`: per `DefKind`, as check.rs's `check_item_type`: Struct `check_variances_for_type_defn` + `check_type_defn(.., false)`,
+//   Union / Enum `check_variances_for_type_defn` + `check_type_defn(.., true)`, Trait `check_trait` + `check_gat_where_clauses`, TraitAlias `check_trait`, Impl / Fn
 //   `check_item`, associated items `check_associated_item` (+ `check_trait_item` in a trait), foreign items
 //   `check_foreign_item`.
 // - `lint`: only the calls that do not build an `ObligationCtxt`: `check_gat_where_clauses` for traits, `check_item` for
@@ -50,8 +50,15 @@ async function main(args: string[]): Promise<number> {
         const item = tcx.hir_item(id);
         const k = tcx.def_kind(def_id);
         if (mode === "wf") {
-          if (k.$ === "Struct") wfcheck.check_type_defn(tcx, def_id, false);
-          else if (k.$ === "Union" || k.$ === "Enum") wfcheck.check_type_defn(tcx, def_id, true);
+          // `check_item_type` calls `check_variances_for_type_defn` before `check_type_defn` (check.rs:828, :923;
+          // small-gaps-18: reachable since `EarlyParamRegion::is_named` is ported).
+          if (k.$ === "Struct") {
+            wfcheck.check_variances_for_type_defn(tcx, def_id);
+            wfcheck.check_type_defn(tcx, def_id, false);
+          } else if (k.$ === "Union" || k.$ === "Enum") {
+            wfcheck.check_variances_for_type_defn(tcx, def_id);
+            wfcheck.check_type_defn(tcx, def_id, true);
+          }
           else if (k.$ === "Trait") {
             wfcheck.check_trait(tcx, def_id);
             wfcheck.check_gat_where_clauses(tcx, def_id);

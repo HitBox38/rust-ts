@@ -1,0 +1,76 @@
+ms_plain#0: limit=false steps=1
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: S }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_refs#0: limit=false steps=3
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} &'{erased} S }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} S }, max_universe: U0, var_kinds: [] }
+  step 2: opaque=false autoderefs=2 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: S }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_refs#1: limit=false steps=3
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: ['^c_0], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'^c_0 mut &'{erased} mut S }, max_universe: U0, var_kinds: [Region(U0)] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: ['^c_0], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} mut S }, max_universe: U0, var_kinds: [Region(U0)] }
+  step 2: opaque=false autoderefs=2 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: ['^c_0], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: S }, max_universe: U0, var_kinds: [Region(U0)] }
+  bad: none
+ms_box#0: limit=false steps=4
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} Box<&'{erased} S> }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: Box<&'{erased} S> }, max_universe: U0, var_kinds: [] }
+  step 2: opaque=false autoderefs=2 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} S }, max_universe: U0, var_kinds: [] }
+  step 3: opaque=false autoderefs=3 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: S }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_box#1: limit=false steps=3
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: Box<Box<S>> }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: Box<S> }, max_universe: U0, var_kinds: [] }
+  step 2: opaque=false autoderefs=2 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: S }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_raw#0: limit=false steps=4
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} *const &'{erased} S }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: *const &'{erased} S }, max_universe: U0, var_kinds: [] }
+  step 2: opaque=false autoderefs=2 unsafe=true unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} S }, max_universe: U0, var_kinds: [] }
+  step 3: opaque=false autoderefs=3 unsafe=true unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: S }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_raw#1: limit=false steps=3
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: *mut *const S }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=true unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: *const S }, max_universe: U0, var_kinds: [] }
+  step 2: opaque=false autoderefs=2 unsafe=true unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: S }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_array#0: limit=false steps=3
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} [S; N/#0] }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: [S; N/#0] }, max_universe: U0, var_kinds: [] }
+  step 2: opaque=false autoderefs=1 unsafe=false unsize=true via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: [S] }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_array#1: limit=false steps=3
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: *const [&'{erased} S; M/#1] }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=true unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: [&'{erased} S; M/#1] }, max_universe: U0, var_kinds: [] }
+  step 2: opaque=false autoderefs=1 unsafe=true unsize=true via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: [&'{erased} S] }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_array#2: limit=false steps=2
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: [G<S>; N/#0] }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=0 unsafe=false unsize=true via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: [G<S>] }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_slice#0: limit=false steps=2
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} [&'{erased} S] }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: [&'{erased} S] }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_slice#1: limit=false steps=2
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} str }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: str }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_generic#0: limit=false steps=2
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} T/#0 }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: T/#0 }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_generic#1: limit=false steps=1
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: G<&'{erased} T/#0> }, max_universe: U0, var_kinds: [] }
+  bad: none
+ms_generic#2: limit=false steps=3
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'{erased} [T/#0; N/#1] }, max_universe: U0, var_kinds: [] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: [T/#0; N/#1] }, max_universe: U0, var_kinds: [] }
+  step 2: opaque=false autoderefs=1 unsafe=false unsize=true via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: [T/#0] }, max_universe: U0, var_kinds: [] }
+  bad: none
+infer: limit=false steps=1
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: [^c_0], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: ^c_0 }, max_universe: U0, var_kinds: [Ty { ui: U0, sub_root: 0 }] }
+  bad: reached_raw_pointer=false ty=Canonical { value: QueryResponse { var_values: [^c_0], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: ^c_0 }, max_universe: U0, var_kinds: [Ty { ui: U0, sub_root: 0 }] }
+ref_infer: limit=false steps=2
+  step 0: opaque=false autoderefs=0 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: ['^c_0, ^c_1], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: &'^c_0 ^c_1 }, max_universe: U0, var_kinds: [Region(U0), Ty { ui: U0, sub_root: 1 }] }
+  step 1: opaque=false autoderefs=1 unsafe=false unsize=false via_deref=true self_ty=Canonical { value: QueryResponse { var_values: ['^c_0, ^c_1], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: ^c_1 }, max_universe: U0, var_kinds: [Region(U0), Ty { ui: U0, sub_root: 1 }] }
+  bad: reached_raw_pointer=false ty=Canonical { value: QueryResponse { var_values: ['^c_0, ^c_1], region_constraints: QueryRegionConstraints { constraints: [], assumptions: [] }, certainty: Proven, opaque_types: [], value: ^c_1 }, max_universe: U0, var_kinds: [Region(U0), Ty { ui: U0, sub_root: 1 }] }

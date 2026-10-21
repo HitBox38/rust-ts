@@ -11,6 +11,7 @@ import { debug_TaggedRef, type TaggedRef } from "../rustc_data_structures/tagged
 import { clone_Res, debug_MacroKinds, debug_PerNS, debug_Res, type MacroKinds, type PerNS, type Res } from "./def.ts";
 import { debug_DotDotPos, debug_FnDeclFlags, debug_OwnerNodes } from "./hir.ts";
 import { clone_HirId, clone_OwnerId, debug_HirId, debug_ItemLocalId, debug_OwnerId, type HirId, type ItemLocalId, type OwnerId } from "../rustc_hir_id/lib.ts";
+import { decode_bool } from "../rustc_serialize/serialize.ts";
 import { debug_DefId, debug_LocalDefId, type DefId, type LocalDefId } from "../rustc_span/def_id.ts";
 import { debug_LocalExpnId, type LocalExpnId } from "../rustc_span/hygiene.ts";
 import { debug_ErrorGuaranteed, debug_Span, debug_Spanned, type ErrorGuaranteed, type Span, type SpanDecoder, type Spanned } from "../rustc_span/lib.ts";
@@ -4077,6 +4078,18 @@ export function clone_Constness(v: Constness): Constness {
       return { $: "Const", always: v.always };
     case "NotConst":
       return v;
+  }
+}
+// rustc-derive: compiler/rustc_hir/src/hir.rs:4433 Decodable for Constness
+export function decode_Constness(__decoder: SpanDecoder): Constness {
+  const __tag = __decoder.read_u8();
+  switch (__tag) {
+    case 0:
+      return { $: "Const", always: decode_bool(__decoder) };
+    case 1:
+      return Constness.NotConst;
+    default:
+      return panic(`invalid enum variant tag while decoding \`Constness\`, expected 0..2, actual ${__tag}`);
   }
 }
 

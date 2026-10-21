@@ -68,7 +68,6 @@ a type parameter).
 //
 // PORT: as check.ts, code that needs a wave-17 lane outside this lane's base stops with `unported(..)` at its first use;
 // the stand-ins are at the end of this file ("Stand-ins"):
-// - rustc_trait_selection error reporting (wave 19): `ReturnsVisitor`, `TypeErrCtxt::ty_kind_suggestion`.
 import { LangItem } from "../../rustc_attr_ir/lang_items.ts";
 import { type GateIssue } from "../../rustc_feature/lib.ts";
 import type { ErrorGuaranteed } from "../../rustc_errors/lib.ts";
@@ -126,6 +125,8 @@ import * as intrinsic from "./intrinsic.ts";
 import * as region from "./region.ts";
 import * as wfcheck from "./wfcheck.ts";
 import { ObligationCtxt } from "../../rustc_trait_selection/traits/engine.ts";
+import { ObligationCauseFailureCode_diagnostic } from "../../rustc_trait_selection/diagnostics.ts";
+import { ReturnsVisitor } from "../../rustc_trait_selection/error_reporting/traits/suggestions.ts";
 
 // pub mod always_applicable;
 export { always_applicable };
@@ -192,7 +193,7 @@ export function get_owner_return_paths(tcx: TyCtxt, def_id: LocalDefId): [LocalD
   const body_id = hir.Node.body_id(tcx.hir_node_by_def_id(parent_id));
   if (body_id === undefined) return undefined;
   const body = tcx.hir_body(body_id);
-  const visitor = ReturnsVisitor_default();
+  const visitor = ReturnsVisitor.default();
   visitor.visit_body(body);
   return [parent_id, visitor];
 }
@@ -609,7 +610,7 @@ function suggestion_signature(tcx: TyCtxt, assoc: AssocItem, impl_trait_ref: Tra
       const name = assoc.kind.name;
       const ty = Unnormalized.skip_norm_wip(EarlyBinder.instantiate_identity(tcx.type_of(assoc.def_id) as EarlyBinder<Ty>));
       const infcx = tcx.infer_ctxt().build(TypingMode.non_body_analysis());
-      const val = TypeErrCtxt_ty_kind_suggestion(infcx.err_ctxt(), tcx.param_env(assoc.def_id) as ParamEnv, ty) ?? "value";
+      const val = infcx.err_ctxt().ty_kind_suggestion(tcx.param_env(assoc.def_id) as ParamEnv, ty) ?? "value";
       return `const ${Symbol.as_str(name)}: ${display_Ty(ty)} = ${val};`;
     }
   }
@@ -683,16 +684,16 @@ export function check_function_signature(tcx: TyCtxt, cause_: ObligationCause, f
   if (eq.$ === "Ok") {
     const errors = ocx.evaluate_obligations_error_on_ambiguity();
     if (errors.$ === "HasErrors") {
-      return Err(TypeErrCtxt_(infcx).report_fulfillment_errors(errors._0));
+      return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
     }
   } else {
     const err = eq._0;
-    const err_ctxt = TypeErrCtxt_(infcx);
+    const err_ctxt = infcx.err_ctxt();
     if (fn_id.is_local()) {
       cause.span = extract_span_for_error_reporting(tcx, err, cause, local_id);
     }
-    const failure_code = ObligationCause_as_failure_code_diag(cause, err, cause.span, []);
-    const diag = tcx.dcx().create_err(failure_code);
+    const failure_code = cause.as_failure_code_diag(err, cause.span, []);
+    const diag = tcx.dcx().create_err(ObligationCauseFailureCode_diagnostic(failure_code));
     const values: ValuePairs = { $: "PolySigs", _0: { expected: expected_sig, found: actual_sig } };
     err_ctxt.note_type_err(diag, cause, undefined, param_env.and(values), err, false, undefined);
     return Err(diag.emit_err());
@@ -709,41 +710,7 @@ export function check_function_signature(tcx: TyCtxt, cause_: ObligationCause, f
 
 // ==== Stand-ins (PORT: other wave-17 lanes; see the file header) ====
 
-/** `rustc_trait_selection::error_reporting::traits::suggestions::ReturnsVisitor` (an `intravisit::Visitor`). */
-interface ReturnsVisitor {
-  returns: hir.Expr[];
-  visit_body(body: hir.Body): void;
-}
-/** `ReturnsVisitor::default()`. */
-function ReturnsVisitor_default(): ReturnsVisitor {
-  return unported("rustc_trait_selection::error_reporting::traits::suggestions::ReturnsVisitor");
-}
 /** `middle::codegen_fn_attrs::CodegenFnAttrs` (rustc_middle middle/codegen_fn_attrs.rs, not ported): the fields this file reads. */
 interface CodegenFnAttrs {
   link_section: Symbol | undefined;
-}
-/** `TypeErrCtxt::ty_kind_suggestion` (rustc_trait_selection error_reporting, wave 19). */
-function TypeErrCtxt_ty_kind_suggestion(_err_ctxt: unknown, _param_env: ParamEnv, _ty: Ty): string | undefined {
-  return unported("rustc_trait_selection::error_reporting::TypeErrCtxt::ty_kind_suggestion");
-}
-/** `TypeErrCtxt` (rustc_trait_selection error_reporting, wave 19): the methods this file uses. */
-interface TypeErrCtxt_ {
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-  note_type_err(
-    diag: Diag,
-    cause: ObligationCause,
-    secondary_span: unknown,
-    values: ParamEnvAnd<ValuePairs> | undefined,
-    terr: TypeError,
-    prefer_label: boolean,
-    override_span: Span | undefined,
-  ): void;
-}
-/** `infcx.err_ctxt()` (`InferCtxtErrorExt`, rustc_trait_selection error_reporting/mod.rs). */
-function TypeErrCtxt_(infcx: InferCtxt): TypeErrCtxt_ {
-  return infcx.err_ctxt() as unknown as TypeErrCtxt_;
-}
-/** `ObligationCauseExt::as_failure_code_diag` (rustc_trait_selection error_reporting/infer/mod.rs, wave 19). */
-function ObligationCause_as_failure_code_diag(_cause: ObligationCause, _terr: TypeError, _span: Span, _subdiags: unknown[]): Diagnostic {
-  return unported("rustc_trait_selection::error_reporting::infer::ObligationCauseExt::as_failure_code_diag");
 }

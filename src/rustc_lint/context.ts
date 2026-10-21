@@ -10,6 +10,7 @@
 // `Self::LintExpectationId: Into<LintExpectationId>` bound is the interface member `into_lint_expectation_id`.
 // PORT: the `LateContext` methods need the HIR and `rustc_middle::ty` (M3): their bodies stop at the first
 // missing piece with `unported(..)`.
+import type { TargetDataLayout } from "../rustc_abi/lib.ts";
 import type { Features } from "../rustc_feature/unstable.ts";
 import { type Diagnostic, type IntoMultiSpan, LintBuffer, into_MultiSpan } from "../rustc_errors/lib.ts";
 import {
@@ -689,8 +690,8 @@ export class LateContext implements LintContext<StableLintExpectationId> {
   /** `impl HasDataLayout for LateContext` */
   // #[inline]
   // rustc: compiler/rustc_lint/src/context.rs:941 data_layout
-  data_layout(): unknown {
-    return unported("rustc_middle::ty::TyCtxt::data_layout (rustc_abi, M3)");
+  data_layout(): TargetDataLayout {
+    return this.tcx.gcx.data_layout;
   }
 
   /** `impl HasTyCtxt for LateContext` */

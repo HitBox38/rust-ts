@@ -214,3 +214,24 @@ Follow-ups from review-w17 (LOW): stale PORT/header comments (wfcheck.ts, cohere
 diagnostics.ts:153); traits_a.test.ts solver-default comment + old-solver stop tests; bug!() text in analyse.ts:157;
 min_specialization.ts:393 has_infer assert; dropped assert messages (check.ts:762, normalize.ts:228); util.ts:157 index panic;
 compare_impl_item oracle should use --out-dir; collect.test.ts min facts 69->70; set-based PENDING tests -> per-case maps.
+Wave-18b follow-ups found by lanes (for a `typeck-gaps` lane after the 13 lanes merge):
+- checks.rs:3615 `same_type_modulo_vars` + `SameModuloVars` (:3620..3700) are on the success path (check_argument_types) — pull out of typeck-checks-b.
+- fn_ctxt/suggestions.rs `is_field_suggestable` reached for valid `Foo { a, .. }` patterns — pull forward.
+- rustc_middle ty/cast.rs (`CastTy`, 73 lines, no owner) — every non-coercion `as` cast stops there.
+- codegen: `PointerKind::VTable` TypeVisitable/TypeFoldable (map to BoundExistentialPredicates fold fns); `AliasTy` Debug.
+- decls.ts BinOp/UnOp -> rustc_middle/mir/syntax.ts; typeck_results.ts DerefPatBorrowMode/FakeReadCause real types.
+- rustc_passes upvars.rs (`upvars_mentioned` provider, ~100 lines, no owner): needed by closure analysis / typeck-euv.
+- decls.ts `Fns_upvar.truncate_place_to_len_and_update_capture_kind` curr_mode -> MutRef<UpvarCapture>; drop upvar.ts's PORT(decls) overload.
+- After typeck-euv merges: replace upvar.ts place stand-ins (Place_new, PlaceWithHirId_new, clone_Place, fold_Place, Debug helpers, as_HirPlace casts).
+- typeck-euv follow-ups: point rustc_middle/ty/decls.ts HirPlace/ProjectionKind at hir/place.ts (drop casts and stand-in views in ty/closure.ts, thir/cx/expr.ts, tydump_dump.ts); `pub mod place` in hir/mod.ts; codegen TypeFoldable/TypeVisitable for place types (writeback needs them).
+- decls.ts CoerceMany: import the hand class from ./coercion.ts (not coercion.gen.ts), stop codegen emitting it; drop expr.ts casts ret_coercion_of / as_gen_CoerceMany.
+- diagnostics.ts `ReturnLikeStatementKind` IntoDiagArg stub (return/become outside fn body).
+- QueryKey for `CanonicalMethodAutoderefStepsGoal` (method_autoderef_steps; first stop of every `x.method()` once typeck runs).
+- probe.ts: codegen the two probe_op lint diagnostics; move local fold_MethodAutoderefSteps / ParamEnvAnd fold descriptor into codegen; type CandidateStep.self_ty; debug_Canonical var_kinds.
+- QueryKeys for canonical old-solver queries (normalize_canonicalized_{projection,free_alias,inherent_projection}, type_op_ascribe_user_type, type_op_normalize_*, type_op_prove_predicate, dropck_outlives); their key label "(LocalExpnId, &TokenStream)" looks like a queries codegen bug.
+- traits/mod.ts TypeErrCtxtView.build_overflow_error (drop query/normalize.ts OverflowErrCtxtView).
+- fulfill.ts:209 unreachable("old solver coherence") must yield "internal error: entered unreachable code: old solver coherence".
+- AutoImplConstituents fold: ArgOutlivesClause unported_type_fold (CoroutineWitness assumptions).
+- rustc_lint/context.ts:693 LateContext::data_layout still unported (data_layout is ported).
+- probe_op's two fn-local lint diagnostics need the typedefs probe to look inside fn bodies.
+- CapturedPlace TypeFoldable (ty/closure.rs derive) still unported in writeback.ts.

@@ -33,16 +33,17 @@ const CASES = readdirSync(CASES_DIR)
 const PENDING: Record<string, string> = Object.fromEntries(CASES.map((c) => [c, "rustc_interface::passes::analysis (M3+)"]));
 
 /**
- * In-process stops (re-pinned by merge-w17; e0050 / e0185 / e0186 / e0643 now equal the oracle): E0053 (signature) and
- * E0326 stop at the type-error report (`err_ctxt`, wave 19), E0195 at `liberate_late_bound_regions` (rustc_middle
- * `LateParamRegionKind::from_bound`), refine_rpitit at rustc_traits' `implied_outlives_bounds` query (wave 20).
+ * In-process stops (re-pinned by merge-w17; e0050 / e0185 / e0186 / e0643 now equal the oracle, e0195 since small-gaps-18
+ * ported `LateParamRegionKind::from_bound`, refine_rpitit since typeck-gaps ported `ConstraintCategory`): E0053 (signature)
+ * and E0326 stop at the type-error report (`TypeErrCtxt::note_type_err`, wave 19; re-pinned by errctxt-contract, which
+ * ported `err_ctxt` / `ObligationCauseExt`).
  */
-const ERR_CTXT = "rustc_trait_selection::error_reporting::InferCtxt::err_ctxt";
+/** The lint case (`refining_impl_trait`, a warning; in process since lane typeck-gaps ported `ConstraintCategory`). */
+const LINT_CASES = new Set(["refine_rpitit"]);
+const ERR_CTXT = "rustc_trait_selection::error_reporting::infer::TypeErrCtxt::note_type_err";
 const IN_PROCESS_PENDING: Record<string, string> = {
   e0053_sig: ERR_CTXT,
-  e0195: "rustc_middle::ty::region::LateParamRegionKind::from_bound",
   e0326: ERR_CTXT,
-  refine_rpitit: "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
 };
 
 const ENV: Record<string, string> = {};
@@ -110,9 +111,14 @@ for (const c of CASES) {
     }
     if (oracle_cmd === undefined) return;
     const want = oracle_out.get(c)!;
-    // the oracle reported an error (guards against a case that tests nothing)
-    expect(want.code).toBe(1);
-    expect(want.stderr).toContain("error[E");
+    // the oracle reported an error, or the lint case its warning (guards against a case that tests nothing)
+    if (LINT_CASES.has(c)) {
+      expect(want.code).toBe(0);
+      expect(want.stderr).toMatch(/^warning: /m);
+    } else {
+      expect(want.code).toBe(1);
+      expect(want.stderr).toContain("error[E");
+    }
     expect(got.stderr).toBe(want.stderr);
     expect(got.code).toBe(want.code);
   }, 120_000);

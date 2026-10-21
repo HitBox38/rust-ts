@@ -2647,10 +2647,14 @@ LateResolutionVisitor.prototype.suggest_alternative_construction_methods = funct
       // FIXME: This doesn't include impls like `impl Default for String`.
       .flatMap(([_, crate_]) => this.r.tcx_.implementations_of_trait([crate_, default_trait]))
       .flatMap(([_, simplified_self_ty]) => (simplified_self_ty === undefined ? [] : [simplified_self_ty]))
-      .flatMap((_simplified_self_ty): DefId[] =>
-        // PORT: `SimplifiedType::Adt(did)` (rustc_type_ir::fast_reject) is not ported (M3); the query value is `unknown`.
-        unported("rustc_type_ir::fast_reject::SimplifiedType (implementations_of_trait value; M3)"),
-      )
+      .flatMap((simplified_self_ty): DefId[] => {
+        switch (simplified_self_ty.$) {
+          case "Adt":
+            return [simplified_self_ty._0];
+          default:
+            return [];
+        }
+      })
       .some((did) => DefId_eq(did, def_id))
   ) {
     err.multipart_suggestion(

@@ -10,6 +10,7 @@
 // `obligation.recursion_depth += 1` write to the `Obligation` object (the pair owns it).
 // `FulfillmentError` is traits/mod.gen.ts's generated type (re-exported by decls.ts).
 
+import { upcast_from_self } from "../../rustc_type_ir/upcast.ts";
 import type { InferCtxt } from "../../rustc_infer/decls.ts";
 import { clone_Obligation, visit_with_Obligation, type PredicateObligation, type PredicateObligations, ScrubbedTraitError, TraitEngine_provided, TraitErrors } from "../../rustc_infer/traits/mod.ts";
 import type { FromSolverError, TraitEngine } from "../../rustc_infer/traits/engine.ts";
@@ -185,12 +186,7 @@ export class FulfillmentCtxt<E> implements TraitEngine<E> {
         // a `recursion_depth` number of times. This mostly happens in bugs or with
         // `Subtype` obligations because we no longer use the `sub_unification_table`
         // in generalization.
-        // PORT(wave 19): `TypeErrCtxt::report_overflow_obligation` (error_reporting, wave 19 errctxt-contract):
-        // `TypeErrCtxt` is a `Pending` alias in decls.ts until then.
-        (infcx.err_ctxt() as unknown as { report_overflow_obligation(o: PredicateObligation, suggest_increasing_limit: boolean): never }).report_overflow_obligation(
-          obligation,
-          true,
-        );
+        infcx.err_ctxt().report_overflow_obligation(obligation, true, upcast_from_self);
       } else {
         // We increment the recursion depth here to track the number of times
         // this goal has resulted in inference progress. This doesn't precisely

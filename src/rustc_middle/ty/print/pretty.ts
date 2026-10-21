@@ -53,7 +53,9 @@ import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../../.
 import { Err, Ok, type Result, unwrap_result } from "../../../std/result.ts";
 import { type Str, utf8_len } from "../../../std/str.ts";
 import { TyCtxt } from "../context.ts";
-import type { AdtDef, Allocation, AssocItem, BinOp, ConstAllocation, Expr, Instance, Pattern, Scalar, ScalarInt, ValTree, Value, VariantIdx } from "../decls.ts";
+import type { AdtDef, Allocation, AssocItem, BinOp, ConstAllocation, Expr, Instance, Scalar, ScalarInt, ValTree, Value, VariantIdx } from "../decls.ts";
+import { debug_Pattern as debug_Pattern_ } from "../pattern.ts";
+import type { Pattern } from "../pattern.ts";
 import type { TraitDef } from "../trait_def.ts";
 import { fold_GenericArgs, fold_with_Tys, GenericArg, type GenericArgs, try_fold_with_Tys, visit_with_Tys } from "../generic_args.ts";
 import type { Generics } from "../generics.ts";
@@ -72,7 +74,7 @@ import { debug_RegionVid } from "../../../rustc_type_ir/region_kind.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
 import type { Providers } from "../../queries.gen.ts";
 import { with_ } from "../context/tls.ts";
-import type { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
+import { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
 import type { ParamConst, ParamTy } from "../sty.ts";
 import { into_query_key_DefId, type IntoQueryKey } from "../../query/into_query_key.ts";
 import { fold_Ty } from "../structural_impls.ts";
@@ -885,7 +887,7 @@ export abstract class PrettyPrinter extends Printer {
         const [ty, pat] = [kind._0, kind._1];
         if ((r = this.write_str("pattern_type!(")).$ === "Err") return r;
         if ((r = print_Ty(ty, this)).$ === "Err") return r;
-        if ((r = this.write_str(` is ${debug_Pattern(pat)})`)).$ === "Err") return r;
+        if ((r = this.write_str(` is ${debug_Pattern_(pat, PLAIN)})`)).$ === "Err") return r;
         break;
       }
       case "RawPtr": {
@@ -1878,7 +1880,7 @@ export abstract class PrettyPrinter extends Printer {
 
         // use crate::mir::UnOp;
         let formatted_op: string;
-        switch (op as unknown as UnOpT) {
+        switch (op) {
           case "Not":
             formatted_op = "!";
             break;
@@ -1891,11 +1893,11 @@ export abstract class PrettyPrinter extends Printer {
         }
         const ck = ct.kind();
         let parenthesized: boolean;
-        if ((op as unknown as UnOpT) === "PtrMetadata") {
+        if (op === "PtrMetadata") {
           parenthesized = true;
         } else if (ck.$ === "Expr" && ck._0.kind.$ === "UnOp") {
           const c_op = ck._0.kind._0;
-          parenthesized = (c_op as unknown as UnOpT) !== (op as unknown as UnOpT);
+          parenthesized = c_op !== op;
         } else if (ck.$ === "Expr") {
           parenthesized = true;
         } else {
@@ -1999,8 +2001,6 @@ function opt_def_id_eq(a: DefId | undefined, b: DefId): boolean {
 interface CodegenFnAttrsView {
   safe_target_features: boolean;
 }
-/** `mir::UnOp` (mir/syntax.rs; `Pending` in ty/decls.ts): fieldless. */
-type UnOpT = "Not" | "Neg" | "PtrMetadata";
 /** `ty::abstract_const::CastKind` (ty/abstract_const.rs; `Pending` in ty/decls.ts): fieldless. */
 type CastKindT = "As" | "Use";
 
@@ -2044,16 +2044,12 @@ const fold_ListTy_Ty_: TypeFoldable<[List<Ty>, Ty]> = descriptor<[List<Ty>, Ty]>
 );
 
 // -- rustc_middle ty/generics.rs, ty/assoc.rs, ty/adt.rs, ty/pattern.rs, ty/consts/kind.rs, mir --
-/** `impl Debug for Pattern` (ty/pattern.rs). */
-function debug_Pattern(_pat: Pattern): string {
-  return unported("rustc_middle::ty::pattern `impl Debug for Pattern` (ty/pattern.rs)");
-}
 /** `Expr::binop_args` / `unop_args` / `call_args` / `cast_args` (ty/consts/kind.rs, lane ty-results). */
 const Expr_binop_args = (self: Expr): [Ty, Ty, Const, Const] => ExprC.binop_args(self);
 const Expr_unop_args = (self: Expr): [Ty, Const] => ExprC.unop_args(self);
 const Expr_call_args = (self: Expr): [Ty, Const, Iterable<Const>] => ExprC.call_args(self);
 const Expr_cast_args = (self: Expr): [Ty, Const, Ty] => ExprC.cast_args(self);
-/** `mir::BinOp::to_hir_binop` (mir/syntax.rs; `BinOp` is `Pending`). */
+/** `mir::BinOp::to_hir_binop` (mir/statement.rs:953, not ported). */
 function BinOp_to_hir_binop(_self: BinOp): BinOpKind {
   return unported("rustc_middle::mir::BinOp::to_hir_binop (mir/mod.rs)");
 }
@@ -2260,7 +2256,7 @@ PrettyPrinter.prototype.pretty_print_const_scalar_int = function (this: PrettyPr
     const base_ty = k._0;
     const pat = k._1;
     if ((r = this.pretty_print_const_scalar_int(int, base_ty, print_ty)).$ === "Err") return r;
-    if ((r = this.write_str(` is ${debug_Pattern(pat)}`)).$ === "Err") return r;
+    if ((r = this.write_str(` is ${debug_Pattern_(pat, PLAIN)}`)).$ === "Err") return r;
   }
   // Nontrivial types with scalar bit representation
   else {
@@ -3010,10 +3006,10 @@ export class FmtPrinter extends PrettyPrinter {
     const k = region.kind();
     switch (k.$) {
       case "ReEarlyParam":
-        return EarlyParamRegion_is_named(k._0);
+        return EarlyParamRegion.is_named(k._0);
 
       case "ReLateParam":
-        return LateParamRegionKind_is_named(k._0.kind, this._0.tcx);
+        return LateParamRegionKind.is_named(k._0.kind, this._0.tcx);
       case "ReBound":
       case "RePlaceholder": {
         const br = k.$ === "ReBound" ? k._1.kind : k._0.bound.kind;
@@ -3090,7 +3086,7 @@ export class FmtPrinter extends PrettyPrinter {
       }
       case "ReLateParam": {
         const kind = k._0.kind;
-        const name = LateParamRegionKind_get_name(kind, this._0.tcx);
+        const name = LateParamRegionKind.get_name(kind, this._0.tcx);
         if (name !== undefined) {
           if ((r = this.write_str(display_Symbol(name))).$ === "Err") return r;
           return PRINT_OK;
@@ -4402,27 +4398,6 @@ function BoundRegionKind_eq(a: BoundRegionKind, b: BoundRegionKind): boolean {
 }
 
 // ---- pending ty-results / ty-adt-assoc (rustc_middle ty/*) ----
-/** PORT: pending ty-results: `EarlyParamRegion::is_named` (region.rs:31). */
-function EarlyParamRegion_is_named(self: EarlyParamRegion): boolean {
-  return self.name !== kw.UnderscoreLifetime;
-}
-/** PORT: pending ty-results: `LateParamRegionKind::is_named` (region.rs:103). */
-function LateParamRegionKind_is_named(self: LateParamRegionKind, tcx: TyCtxt): boolean {
-  return LateParamRegionKind_get_name(self, tcx) !== undefined;
-}
-/** PORT: pending ty-results: `LateParamRegionKind::get_name` (region.rs:107). */
-function LateParamRegionKind_get_name(self: LateParamRegionKind, tcx: TyCtxt): Symbol | undefined {
-  switch (self.$) {
-    case "Named": {
-      const name = tcx.item_name(self._0);
-      return name !== kw.UnderscoreLifetime ? name : undefined;
-    }
-    case "NamedAnon":
-      return self._1;
-    default:
-      return undefined;
-  }
-}
 // `ty::Value` (valtree.rs:103): its fields read here.
 interface ValueShape {
   valtree: ValTree;

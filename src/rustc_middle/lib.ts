@@ -18,6 +18,7 @@ import "./ty/error.ts";
 import "./ty/fold.ts";
 import "./ty/inhabitedness/mod.ts";
 import "./ty/intrinsic.ts";
+import "./ty/layout.ts";
 import "./ty/normalize_erasing_regions.ts";
 import "./ty/print/pretty.ts";
 import "./ty/sty.ts";

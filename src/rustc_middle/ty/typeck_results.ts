@@ -9,9 +9,11 @@
 //   `ItemLocalId` number (its `StableOrd`).
 // - std's `hash_map::Entry` (`LocalTableInContextMut::entry`) is `HashMapEntry` below (no std port exists).
 // - The derived `TyEncodable` / `TyDecodable` / `StableHash` / `TypeFoldable` / `TypeVisitable` impls of this file's
-//   types are tools/codegen's (not hand-written; this file has no `.gen.ts` yet). `Lift for UserTypeKind` is skipped
+//   types are tools/codegen's (not hand-written). `CanonicalUserTypeAnnotation`, `UserType` and `UserTypeKind` (with
+//   their Debug / TypeVisitable / TypeFoldable) are generated into typeck_results.gen.ts (set rustc_middle_typeck_results,
+//   lane typeck-gaps); every other type of the file is hand-written here. `Lift for UserTypeKind` is skipped
 //   (PORTING §3). The derived `Debug` impls written here are those a dump plausibly reaches (`UserTypeAnnotationIndex`,
-//   `CanonicalUserTypeAnnotation`, `UserType`, `UserTypeKind`, through MIR / THIR dumps); `TypeckResults`,
+//   through MIR / THIR dumps); `TypeckResults`,
 //   `SplattedDef`, `LocalSetInContext(Mut)` and `Rust2024IncompatiblePatInfo` derive `Debug` only for `debug!` logs and
 //   are not written (the `ItemLocalMap`/`ItemLocalSet` fields would print in FxHash order).
 import type { Mutability } from "../../rustc_ast_ir/lib.ts";
@@ -20,38 +22,43 @@ import type { Expr, Pat, QPath } from "../../rustc_hir/hir.ts";
 import { debug_HirId, debug_OwnerId, type HirId, type HirIdMap, type ItemLocalId, type OwnerId, OwnerId_eq } from "../../rustc_hir_id/lib.ts";
 import type { BindingMode } from "../../rustc_ast/lib.ts";
 import type { Session } from "../../rustc_session/session.ts";
-import { debug_DefId, type DefId, type LocalDefId } from "../../rustc_span/def_id.ts";
-import { debug_Span, type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
+import { type DefId, type LocalDefId } from "../../rustc_span/def_id.ts";
+import { type ErrorGuaranteed, type Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { debug_BoundVarIndexKind, BoundVarIndexKind } from "../../rustc_type_ir/binder.ts";
-import { type Canonical, debug_Canonical } from "../../rustc_type_ir/canonical.ts";
+import type { Canonical } from "../../rustc_type_ir/canonical.ts";
+import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import type { Pending, PendingEnum } from "../../rustc_type_ir/decls.ts";
 import { BoundVar } from "../../rustc_type_ir/lib.ts";
 import type { FnSig } from "../../rustc_type_ir/ty_kind.ts";
 import { KeyedSet } from "../../rust_ts/keyed.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
 import { newtype_index } from "../../rustc_index/newtype_index.ts";
-import { type Debug, debug_struct, debug_tuple, PLAIN } from "../../std/fmt.ts";
+import { type Debug, PLAIN } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { assert_eq, panic } from "../../std/panic.ts";
 import type { Result } from "../../std/result.ts";
 import { with_ } from "./context/tls.ts";
 import type { Adjustment, PatAdjustment } from "./adjustment.gen.ts";
 import type { CanonicalPolyFnSig, CapturedPlace, FieldIdx, HirPlace, ObligationCause, VariantIdx } from "./decls.ts";
-import { GenericArg, type GenericArgs, type GenericArgsRef, type UserArgs, debug_UserArgs } from "./generic_args.ts";
-import { type Clauses, debug_RawList, RawList } from "./list.ts";
-import { debug_Ty, type Ty } from "./mod.ts";
-import { type Clause, debug_Clause, type Predicate } from "./predicate.ts";
+import { GenericArg, type GenericArgs, type GenericArgsRef } from "./generic_args.ts";
+import { type Clauses, RawList } from "./list.ts";
+import { type Ty } from "./mod.ts";
+import { type Clause, type Predicate } from "./predicate.ts";
+import * as gen from "./typeck_results.gen.ts";
+import type { CanonicalUserTypeAnnotation, UserTypeKind } from "./typeck_results.gen.ts";
+
+export * from "./typeck_results.gen.ts";
 
 // PORT: pending types of other files (not ported yet), as `decls.ts`-style aliases (ty-contract "Pending types"):
-/** `crate::mir::FakeReadCause` (mir/syntax.rs:509) */
-export type FakeReadCause = PendingEnum<"mir::FakeReadCause">;
+/** `crate::mir::FakeReadCause` (mir/syntax.rs:509): mir/syntax.ts's (merge-w18). */
+import type { FakeReadCause } from "../mir/syntax.ts";
+export type { FakeReadCause };
 /** `crate::thir::DerefPatBorrowMode` (thir.rs:886): `Borrow(Mutability) | Box`, built per PORTING §5. */
 export type DerefPatBorrowMode = PendingEnum<"thir::DerefPatBorrowMode">;
-/** `ty::ClosureSizeProfileData` (ty/mod.rs:338) */
-export type ClosureSizeProfileData = Pending<"ClosureSizeProfileData">;
-/** `ty::DefinitionSiteHiddenType` (ty/mod.rs:949) */
-export type DefinitionSiteHiddenType = Pending<"DefinitionSiteHiddenType">;
+/** `ty::ClosureSizeProfileData` (ty/mod.rs:338), `ty::DefinitionSiteHiddenType` (ty/mod.rs:949): ty/mod.ts's (merge-w18). */
+import type { ClosureSizeProfileData, DefinitionSiteHiddenType } from "./mod.ts";
+export type { ClosureSizeProfileData, DefinitionSiteHiddenType };
 /** `ty::MinCaptureInformationMap` = `LocalDefIdMap<RootVariableMinCaptureList>`, `RootVariableMinCaptureList` =
  *  `FxIndexMap<HirId, MinCaptureList>`, `MinCaptureList` = `Vec<CapturedPlace>` (ty/closure.rs:80-91, type aliases). */
 export type MinCaptureInformationMap = Map<LocalDefId, HirIdMap<CapturedPlace[]>>;
@@ -991,36 +998,12 @@ export const debug_UserTypeAnnotationIndex: Debug<UserTypeAnnotationIndex> = Use
 /// Mapping of type annotation indices to canonical user type annotations.
 export type CanonicalUserTypeAnnotations = CanonicalUserTypeAnnotation[];
 
-export interface CanonicalUserTypeAnnotation {
-  // #[type_foldable(identity)]
-  // #[type_visitable(ignore)]
-  user_ty: CanonicalUserType;
-  span: Span;
-  inferred_ty: Ty;
-}
-/** `#[derive(Debug)]` */
-export const debug_CanonicalUserTypeAnnotation: Debug<CanonicalUserTypeAnnotation> = (v, f) =>
-  debug_struct(f, "CanonicalUserTypeAnnotation", [
-    ["user_ty", debug_Canonical(v.user_ty, f, debug_UserType)],
-    ["span", debug_Span(v.span, f)],
-    ["inferred_ty", debug_Ty(v.inferred_ty, f)],
-  ]);
-
 /// Canonical user type annotation.
 export type CanonicalUserType = Canonical<UserType>;
 
-// PORT: a data struct with derived traits, as codegen shapes such structs: an interface plus a same-named companion
-// holding its inherent methods (tyir-binder decision 5).
-export interface UserType {
-  kind: UserTypeKind;
-  bounds: Clauses;
-}
-/** `#[derive(Debug)]` */
-export const debug_UserType: Debug<UserType> = (v, f) =>
-  debug_struct(f, "UserType", [
-    ["kind", debug_UserTypeKind(v.kind, f)],
-    ["bounds", debug_RawList(v.bounds, f, debug_Clause)],
-  ]);
+// PORT: a data struct with derived traits, as codegen shapes such structs: the generated interface (typeck_results.gen.ts)
+// plus a same-named companion holding its inherent methods (tyir-binder decision 5).
+export type UserType = gen.UserType;
 
 export const UserType = {
   // rustc: compiler/rustc_middle/src/ty/typeck_results.rs:840 new
@@ -1036,23 +1019,11 @@ export const UserType = {
   },
 };
 
-/// A user-given type annotation attached to a constant. These arise
-/// from constants that are named via paths, like `Foo::<A>::new` and
-/// so forth.
-export type UserTypeKind =
-  | { readonly $: "Ty"; _0: Ty }
-
-  /// The canonical type is the result of `type_of(def_id)` with the
-  /// given generic parameters applied.
-  | { readonly $: "TypeOf"; _0: DefId; _1: UserArgs };
-/** `#[derive(Debug)]` */
-export const debug_UserTypeKind: Debug<UserTypeKind> = (v, f) => {
-  switch (v.$) {
-    case "Ty":
-      return debug_tuple(f, "Ty", [debug_Ty(v._0, f)]);
-    case "TypeOf":
-      return debug_tuple(f, "TypeOf", [debug_DefId(v._0, f), debug_UserArgs(v._1, f)]);
-  }
+/** D4 descriptor: the derived `TypeVisitable` / `TypeFoldable` of `UserType` (typeck_results.rs:833, generated). */
+export const fold_UserType: TypeFoldable<UserType> = {
+  visit_with: (self, visitor) => gen.visit_with_UserType(self, visitor),
+  try_fold_with: (self, folder) => gen.try_fold_with_UserType(self, folder),
+  fold_with: (self, folder) => gen.fold_with_UserType(self, folder),
 };
 
 // `#[derive(Lift)]` of `UserTypeKind`: skipped (PORTING §3).

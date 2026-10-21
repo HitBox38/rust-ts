@@ -10,8 +10,8 @@
 //   `unnameable_types` / `private_interfaces` lints, whose HIR lint levels (`shallow_lint_levels_on`) are not
 //   ported yet.
 // - `e0446_*`, `clean_pub`: `check_private_in_public` (E0446 hard errors; no lint fires).
-// - `--mod-privacy`: `check_mod_privacy` on a crate without bodies runs clean; with bodies it stops UNPORTED (exit 70)
-//   at the `typeck` query.
+// - `--mod-privacy`: `check_mod_privacy` runs clean on a crate without bodies and on `clean_pub` (bodies: it runs the
+//   `typeck` query).
 import { expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,6 +35,9 @@ const CASES: readonly (readonly [string, Mode])[] = [
   ["e0446_trait_default", "full"],
   ["clean_pub", "full"],
   ["mod_privacy_no_bodies", "--mod-privacy"],
+  // Locked by merge-w18 (was a stop at `typeck`): with the typeck lanes merged, `check_mod_privacy` type-checks the
+  // bodies and equals the oracle.
+  ["clean_pub", "--mod-privacy"],
 ];
 const ORACLE_CASES = [...new Set(CASES.map(([c]) => c))];
 
@@ -115,13 +118,3 @@ for (const [c, mode] of CASES) {
     expect(r).toEqual(expected(c));
   }, 120_000);
 }
-
-test("privacy_test/clean_pub.rs (--mod-privacy): check_mod_privacy stops UNPORTED at typeck", () => {
-  const s = sysroot();
-  if (s === undefined) {
-    if (REQUIRE) throw new Error("ERROR: oracle sysroot missing");
-    return;
-  }
-  const r = run(["bun", join(DIR, "run.ts"), "--mod-privacy", ...args(s, "clean_pub")]);
-  expect({ exit: r.exit, tail: r.stderr.trim().split("\n").at(-1) }).toEqual({ exit: 70, tail: "rust-ts: unported: typeck_root provider (not ported)" });
-}, 120_000);

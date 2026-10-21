@@ -100,7 +100,9 @@ import type { StrippedCfgItem } from "../../rustc_attr_ir/data_structures.ts";
 import type { DiagnosticItems } from "../../rustc_attr_ir/diagnostic_items.ts";
 import { debug_DefKind } from "../../rustc_hir/def.ts";
 import { DefPath as DefPath_, DefPathData } from "../../rustc_hir_id/definitions.ts";
-import { decode_ImplTraitInTraitData, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import { decode_FeatureStability, decode_ImplTraitInTraitData, decode_IntrinsicDef, decode_RestrictionKind, decode_Visibility } from "../../rustc_middle/decodable.gen.ts";
+import type { IntrinsicDef } from "../../rustc_middle/ty/intrinsic.ts";
+import type { FeatureStability } from "../../rustc_middle/middle/mod.ts";
 import type { RestrictionKind } from "../../rustc_middle/ty/mod.ts";
 import { debug_Visibility, Visibility as ty_Visibility } from "../../rustc_middle/ty/mod.ts";
 import { decode_u32 } from "../../rustc_serialize/serialize.ts";
@@ -112,7 +114,12 @@ import { debug_Symbol, Ident as Ident_, kw } from "../../rustc_span/symbol.ts";
 import { debug_str } from "../../std/fmt.ts";
 import { unwrap } from "../../std/panic.ts";
 import { CStore } from "../creader.ts";
-import { decode_SpanTag } from "../decodable.gen.ts";
+import { decode_SpanTag, decode_VariantData } from "../decodable.gen.ts";
+import type { AdtDef, AdtKind } from "../../rustc_middle/ty/adt.ts";
+import { FieldDef, VariantDef } from "../../rustc_middle/ty/mod.ts";
+import type { VariantIdx } from "../../rustc_middle/ty/decls.ts";
+import type { ReprOptions } from "../../rustc_abi/lib.ts";
+import { decode_ReprOptions } from "../../rustc_abi/decodable.gen.ts";
 import { SpanTag } from "./mod.ts";
 import { fse_Option_DefKind, fse_Option_LazyArray, fse_Option_LazyValue, fse_Safety } from "./table.ts";
 
@@ -410,10 +417,8 @@ export interface CrateMetadata {
   def_kind(item_id: DefIndex): DefKind;
   get_span(tcx: TyCtxt, index: DefIndex): Span;
   load_proc_macro(tcx: TyCtxt, id: DefIndex): SyntaxExtension;
-  /** `-> (VariantIdx, ty::VariantDef)` */
-  get_variant(tcx: TyCtxt, kind: DefKind, index: DefIndex, parent_did: DefId): [number, unknown];
-  /** `-> ty::AdtDef<'tcx>` (M3) */
-  get_adt_def(tcx: TyCtxt, item_id: DefIndex): unknown;
+  get_variant(tcx: TyCtxt, kind: DefKind, index: DefIndex, parent_did: DefId): [VariantIdx, VariantDef];
+  get_adt_def(tcx: TyCtxt, item_id: DefIndex): AdtDef;
   get_visibility(tcx: TyCtxt, id: DefIndex): Visibility<ModId>;
   get_mut_restriction(tcx: TyCtxt, id: DefIndex): RestrictionKind;
   get_safety(id: DefIndex): Safety;
@@ -470,8 +475,7 @@ export interface CrateMetadata {
   expn_hash_to_expn_id(tcx: TyCtxt, index_guess: number, hash: ExpnHash): ExpnId;
   imported_source_file(tcx: TyCtxt, source_file_index: number): ImportedSourceFile;
   get_attr_flags(index: DefIndex): AttrFlags;
-  /** `-> Option<ty::IntrinsicDef>` (M3) */
-  get_intrinsic(tcx: TyCtxt, index: DefIndex): unknown | undefined;
+  get_intrinsic(tcx: TyCtxt, index: DefIndex): IntrinsicDef | undefined;
   get_doc_link_resolutions(tcx: TyCtxt, index: DefIndex): DocLinkResMap;
   get_doc_link_traits_in_scope(tcx: TyCtxt, index: DefIndex): Iterable<DefId>;
 
@@ -1324,9 +1328,16 @@ MetadataBlob.prototype.list_crate_metadata = function (this: MetadataBlob, out: 
         // derive(BlobDecodable) is not generated yet (rustc_attr_ir lang_items.rs, `language_item_table!`).
         return unported("rustc_metadata::rmeta::decoder::MetadataBlob::list_crate_metadata (-Zls=lang_items: Decodable for LangItem)");
 
-      case "features":
-        // PORT: `root.lib_features` decodes `(Symbol, FeatureStability)`; rustc_middle lib_features is not ported.
-        return unported("rustc_metadata::rmeta::decoder::MetadataBlob::list_crate_metadata (-Zls=features: Decodable for FeatureStability)");
+      case "features": {
+        if ((r = w(out, "=Lib features=\n")).$ === "Err") return r;
+        for (const [feature, since] of (root.lib_features as LazyArray<[Symbol, FeatureStability]>).decode(this, (d) =>
+          decode_tuple_(d, (d) => d.decode_symbol(), decode_FeatureStability),
+        )) {
+          if ((r = w(out, `${Symbol.as_str(feature)}${since.$ === "AcceptedSince" ? ` since ${Symbol.as_str(since._0)}` : ""}\n`)).$ === "Err") return r;
+        }
+        if ((r = w(out, "\n")).$ === "Err") return r;
+        break;
+      }
 
       case "items": {
         if ((r = w(out, "=Items=\n")).$ === "Err") return r;
@@ -1575,9 +1586,8 @@ CrateMetadata.prototype.load_proc_macro = function (this: CrateMetadata, tcx: Ty
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1135 get_variant
-CrateMetadata.prototype.get_variant = function (this: CrateMetadata, _tcx: TyCtxt, kind: DefKind, _index: DefIndex, _parent_did: DefId): [number, unknown] {
-  // PORT: `ty::AdtKind` (M3) as its variant name.
-  let adt_kind: "Enum" | "Struct" | "Union";
+CrateMetadata.prototype.get_variant = function (this: CrateMetadata, tcx: TyCtxt, kind: DefKind, index: DefIndex, parent_did: DefId): [VariantIdx, VariantDef] {
+  let adt_kind: AdtKind;
   switch (kind.$) {
     case "Variant":
       adt_kind = "Enum";
@@ -1591,20 +1601,43 @@ CrateMetadata.prototype.get_variant = function (this: CrateMetadata, _tcx: TyCtx
     default:
       return bug();
   }
-  void adt_kind;
 
-  // let data = self.root.tables.variant_data.get(self, index).unwrap().decode((self, tcx));
-  // .. (data.idx, ty::VariantDef::new(..))
-  return unported("rustc_metadata::rmeta::decoder::CrateMetadata::get_variant (VariantData: TyDecodable; ty::VariantDef, M3)");
+  const data = unwrap(this.root.tables.variant_data.get(fse_Option_LazyValue, this, index) as LazyValue<VariantData> | undefined).decode([this, tcx], decode_VariantData);
+
+  const variant_did = adt_kind === "Enum" ? this.local_def_id(index) : undefined;
+  const ctor: [CtorKind, DefId] | undefined = data.ctor === undefined ? undefined : [data.ctor[0], this.local_def_id(LocalDefId.local_def_index(data.ctor[1]))];
+
+  return [
+    data.idx,
+    VariantDef.new(
+      this.item_name(index),
+      variant_did,
+      ctor,
+      data.discr,
+      [...this.get_associated_item_or_field_def_ids(tcx, index)].map(
+        (did): FieldDef =>
+          new FieldDef(
+            did,
+            this.item_name(did.index),
+            this.get_visibility(tcx, did.index),
+            this.get_mut_restriction(tcx, did.index),
+            this.get_safety(did.index),
+            this.get_default_field(tcx, did.index),
+          ),
+      ),
+      parent_did,
+      undefined,
+      data.is_non_exhaustive,
+    ),
+  ];
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1179 get_adt_def
-CrateMetadata.prototype.get_adt_def = function (this: CrateMetadata, _tcx: TyCtxt, item_id: DefIndex): unknown {
+CrateMetadata.prototype.get_adt_def = function (this: CrateMetadata, tcx: TyCtxt, item_id: DefIndex): AdtDef {
   const kind = this.def_kind(item_id);
   const did = this.local_def_id(item_id);
 
-  // PORT: `ty::AdtKind` (M3) as its variant name.
-  let adt_kind: "Enum" | "Struct" | "Union";
+  let adt_kind: AdtKind;
   switch (kind.$) {
     case "Enum":
       adt_kind = "Enum";
@@ -1618,10 +1651,34 @@ CrateMetadata.prototype.get_adt_def = function (this: CrateMetadata, _tcx: TyCtx
     default:
       return bug(`get_adt_def called on a non-ADT ${debug_DefId(did, PLAIN)}`);
   }
-  void adt_kind;
-  // let repr = self.root.tables.repr_options.get(self, item_id).unwrap().decode((self, tcx));
-  // .. variants (get_variant) .. tcx.mk_adt_def(did, adt_kind, variants, repr)
-  return unported("rustc_metadata::rmeta::decoder::CrateMetadata::get_adt_def (ReprOptions decode, ty::AdtDef, M3)");
+  const repr = unwrap(this.root.tables.repr_options.get(fse_Option_LazyValue, this, item_id) as LazyValue<ReprOptions> | undefined).decode([this, tcx], decode_ReprOptions);
+
+  const variants: [VariantIdx, VariantDef][] = [];
+  if (adt_kind === "Enum") {
+    const children = unwrap(this.root.tables.module_children_non_reexports.get(fse_Option_LazyArray, this, item_id) as LazyArray<LocalDefId> | undefined, "variants are not encoded for an enum");
+    for (const id of children.decode([this, tcx], (d) => d.decode_local_def_id())) {
+      const index = LocalDefId.local_def_index(id);
+      const kind = this.def_kind(index);
+      switch (kind.$) {
+        case "Ctor":
+          break;
+        default:
+          variants.push(this.get_variant(tcx, kind, index, did));
+      }
+    }
+  } else {
+    variants.push(this.get_variant(tcx, kind, item_id, did));
+  }
+
+  // PORT: `sort_by_key` is stable, as `Array.prototype.sort`.
+  variants.sort(([a], [b]) => a - b);
+
+  return tcx.mk_adt_def(
+    did,
+    adt_kind,
+    variants.map(([_, variant]) => variant),
+    repr,
+  );
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1221 get_visibility
@@ -1670,7 +1727,7 @@ CrateMetadata.prototype.get_lib_features = function (this: CrateMetadata, tcx: T
   // ported): a record with that field.
   return {
     stability: new Map(
-      [...this.root.lib_features.decode([this, tcx], (d) => decode_tuple_(d, (d) => d.decode_symbol(), decode_unported("rustc_middle::middle::lib_features::FeatureStability")))].map(
+      [...this.root.lib_features.decode([this, tcx], (d) => decode_tuple_(d, (d) => d.decode_symbol(), decode_FeatureStability))].map(
         ([sym, stab]): [Symbol, [unknown, Span]] => [sym, [stab, DUMMY_SP]],
       ),
     ),
@@ -1752,10 +1809,6 @@ CrateMetadata.prototype.get_fake_doc_items = function (this: CrateMetadata, tcx:
 // PORT: element types whose `Decodable` impl has no TS port yet. Each is the `T::decode` a `LazyValue<T>` /
 // `LazyArray<T>` / `LazyTable` element of this region needs; it stops as UNPORTED naming the impl, so a crate
 // load reaching it stops there (no guessed values). They become imports once their crates generate them.
-/** `#[derive(MetadataEncodable, LazyDecodable)]` of `rmeta::VariantData` (its `discr: ty::VariantDiscr` is M3). */
-function decode_VariantData(_d: MetadataDecodeContext): VariantData {
-  return unported("Decodable for rustc_metadata::rmeta::VariantData (ty::VariantDiscr, M3)");
-}
 /** `<SimplifiedType<DefId> as Decodable<DecodeContext>>::decode`: the generated derive(Decodable_NoContext) at `DefId`. */
 function decode_SimplifiedType(d: MetadataDecodeContext): SimplifiedType {
   return decode_SimplifiedType_(d, decode_DefId);
@@ -1775,10 +1828,6 @@ function decode_EiiMapEncodedKeyValue(_d: MetadataDecodeContext): unknown {
 /** `Decodable` of `(ExportedSymbol<'tcx>, SymbolExportInfo)` (rustc_middle middle/exported_symbols.rs, M3). */
 function decode_ExportedSymbol_SymbolExportInfo(_d: MetadataDecodeContext): unknown {
   return unported("Decodable for (rustc_middle::middle::exported_symbols::ExportedSymbol, SymbolExportInfo) (M3)");
-}
-/** `Decodable` of `rustc_middle::ty::IntrinsicDef` (M3). */
-function decode_IntrinsicDef(_d: MetadataDecodeContext): unknown {
-  return unported("Decodable for rustc_middle::ty::IntrinsicDef (M3)");
 }
 /** `Decodable` of `DocLinkResMap` (`UnordMap<(Symbol, Namespace), Option<Res<NodeId>>>`). */
 function decode_DocLinkResMap(_d: MetadataDecodeContext): DocLinkResMap {
@@ -2430,7 +2479,7 @@ CrateMetadata.prototype.get_attr_flags = function (this: CrateMetadata, index: D
 };
 
 // rustc: compiler/rustc_metadata/src/rmeta/decoder.rs:1949 get_intrinsic
-CrateMetadata.prototype.get_intrinsic = function (this: CrateMetadata, tcx: TyCtxt, index: DefIndex): unknown | undefined {
+CrateMetadata.prototype.get_intrinsic = function (this: CrateMetadata, tcx: TyCtxt, index: DefIndex): IntrinsicDef | undefined {
   const d = this.root.tables.intrinsic.get(fse_Option_LazyValue, this, index);
   return d === undefined ? undefined : d.decode([this, tcx], decode_IntrinsicDef);
 };

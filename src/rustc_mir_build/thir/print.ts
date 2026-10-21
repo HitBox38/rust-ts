@@ -1,9 +1,9 @@
 // Port of compiler/rustc_mir_build/src/thir/print.rs (lane thir-cx-print).
 //
-// PORT: `{:?}` of the rustc_middle `mir/syntax.rs` enums THIR stores (`BinOp`, `UnOp`, `AssignOp`, `BorrowKind`; not
-// ported, see cx/expr.ts's module comment) is their derived Debug over PORTING §5's representation (`debug_mir_*`
-// below, not markers); `{:?}` of `mir::Const`, `AllocId` and `FakeReadCause` (never built by the ported lowering:
-// asm `const` operands, statics and closure fake reads stop as UNPORTED there) is `unported`.
+// `{:?}` of the rustc_middle `mir/syntax.rs` enums THIR stores (`BinOp`, `UnOp`, `AssignOp`, `BorrowKind`,
+// `FakeReadCause`) is their derived Debug from the partial mir/syntax.ts (codegen set rustc_middle_mir_syntax).
+// PORT: `{:?}` of `mir::Const` and `AllocId` (never built by the ported lowering: asm `const` operands and statics stop
+// as UNPORTED there) is `unported`.
 import { debug_AsmMacro, debug_BindingMode, debug_InlineAsmOptions, debug_InlineAsmTemplatePiece, debug_LitKind } from "../../rustc_ast/lib.ts";
 import { debug_Movability, debug_Mutability, debug_Pinnedness } from "../../rustc_ast_ir/lib.ts";
 import { debug_ImplicitSelfKind, debug_MatchSource } from "../../rustc_hir/hir.ts";
@@ -39,7 +39,8 @@ import { debug_AdtFlags } from "../../rustc_middle/ty/adt.ts";
 import { debug_PointerCoercion } from "../../rustc_middle/ty/adjustment.gen.ts";
 import { debug_ScalarInt } from "../../rustc_middle/ty/consts/int.ts";
 import { display_Value } from "../../rustc_middle/ty/consts/valtree.ts";
-import type { AdtDef, BinOp, UnOp } from "../../rustc_middle/ty/decls.ts";
+import type { AdtDef } from "../../rustc_middle/ty/decls.ts";
+import { debug_AssignOp, debug_BinOp, debug_BorrowKind, debug_FakeReadCause, debug_UnOp } from "../../rustc_middle/mir/syntax.ts";
 import { debug_GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import { debug_Ty, debug_VariantDef } from "../../rustc_middle/ty/mod.ts";
 import { debug_ParamConst } from "../../rustc_middle/ty/structural_impls.ts";
@@ -344,7 +345,7 @@ export class ThirPrinter {
       case "Binary": {
         const { op, lhs, rhs } = expr_kind;
         print_indented(this, "Binary {", depth_lvl);
-        print_indented(this, `op: ${debug_mir_BinOp(op)}`, depth_lvl + 1);
+        print_indented(this, `op: ${debug_BinOp(op, PLAIN)}`, depth_lvl + 1);
         print_indented(this, "lhs:", depth_lvl + 1);
         this.print_expr(lhs, depth_lvl + 2);
         print_indented(this, "rhs:", depth_lvl + 1);
@@ -366,7 +367,7 @@ export class ThirPrinter {
       case "Unary": {
         const { op, arg } = expr_kind;
         print_indented(this, "Unary {", depth_lvl);
-        print_indented(this, `op: ${debug_mir_UnOp(op)}`, depth_lvl + 1);
+        print_indented(this, `op: ${debug_UnOp(op, PLAIN)}`, depth_lvl + 1);
         print_indented(this, "arg:", depth_lvl + 1);
         this.print_expr(arg, depth_lvl + 2);
         print_indented(this, "}", depth_lvl);
@@ -477,7 +478,7 @@ export class ThirPrinter {
       case "AssignOp": {
         const { op, lhs, rhs } = expr_kind;
         print_indented(this, "AssignOp {", depth_lvl);
-        print_indented(this, `op: ${debug_mir_AssignOp(op)}`, depth_lvl + 1);
+        print_indented(this, `op: ${debug_AssignOp(op, PLAIN)}`, depth_lvl + 1);
         print_indented(this, "lhs:", depth_lvl + 1);
         this.print_expr(lhs, depth_lvl + 2);
         print_indented(this, "rhs:", depth_lvl + 1);
@@ -523,7 +524,7 @@ export class ThirPrinter {
       case "Borrow": {
         const { borrow_kind, arg } = expr_kind;
         print_indented(this, "Borrow (", depth_lvl);
-        print_indented(this, `borrow_kind: ${debug_mir_BorrowKind(borrow_kind)}`, depth_lvl + 1);
+        print_indented(this, `borrow_kind: ${debug_BorrowKind(borrow_kind, PLAIN)}`, depth_lvl + 1);
         print_indented(this, "arg:", depth_lvl + 1);
         this.print_expr(arg, depth_lvl + 2);
         print_indented(this, ")", depth_lvl);
@@ -1070,7 +1071,7 @@ export class ThirPrinter {
         print_indented(this, "(", depth_lvl + 2);
         this.print_expr(fake_read_expr, depth_lvl + 3);
         print_indented(this, ",", depth_lvl + 2);
-        print_indented(this, `cause: ${debug_FakeReadCause(cause)}`, depth_lvl + 3);
+        print_indented(this, `cause: ${debug_FakeReadCause(cause, PLAIN)}`, depth_lvl + 3);
         print_indented(this, ",", depth_lvl + 2);
         print_indented(this, `hir_id: ${debug_HirId(hir_id, PLAIN)}`, depth_lvl + 3);
         print_indented(this, "),", depth_lvl + 2);
@@ -1214,30 +1215,6 @@ function debug_Pat(v: Pat): string {
   return debug_Pat_(v, PLAIN);
 }
 
-/** `#[derive(Debug)]` of `mir::BinOp` (fieldless: the variant name). */
-function debug_mir_BinOp(v: BinOp): string {
-  return v as unknown as string;
-}
-/** `#[derive(Debug)]` of `mir::UnOp` (fieldless: the variant name). */
-function debug_mir_UnOp(v: UnOp): string {
-  return v as unknown as string;
-}
-/** `#[derive(Debug)]` of `mir::AssignOp` (fieldless: the variant name). */
-function debug_mir_AssignOp(v: unknown): string {
-  return v as string;
-}
-/** `#[derive(Debug)]` of `mir::BorrowKind` (`Shared | Fake(FakeBorrowKind) | Mut { kind: MutBorrowKind }`). */
-function debug_mir_BorrowKind(v: unknown): string {
-  const bk = v as { $: "Shared" } | { $: "Fake"; _0: string } | { $: "Mut"; kind: string };
-  switch (bk.$) {
-    case "Shared":
-      return "Shared";
-    case "Fake":
-      return `Fake(${bk._0})`;
-    case "Mut":
-      return `Mut { kind: ${bk.kind} }`;
-  }
-}
 /** `{:?}` of `mir::Const` (mir/consts.rs, not ported). */
 function debug_mir_Const(_v: unknown): string {
   return unported("Debug for rustc_middle::mir::Const (mir/consts.rs not ported)");
@@ -1245,8 +1222,4 @@ function debug_mir_Const(_v: unknown): string {
 /** `{:?}` of `mir::interpret::AllocId` (not ported). */
 function debug_AllocId(_v: unknown): string {
   return unported("Debug for rustc_middle::mir::interpret::AllocId (not ported)");
-}
-/** `{:?}` of `mir::FakeReadCause` (mir/syntax.rs, not ported). */
-function debug_FakeReadCause(_v: unknown): string {
-  return unported("Debug for rustc_middle::mir::FakeReadCause (mir/syntax.rs not ported)");
 }

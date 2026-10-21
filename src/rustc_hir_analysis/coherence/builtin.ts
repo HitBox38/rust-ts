@@ -33,10 +33,12 @@ import { ObligationCause, clone_ObligationCause } from "../../rustc_middle/trait
 import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
 import type { CoerceUnsizedInfo, CustomCoerceUnsized } from "../../rustc_middle/ty/adjustment.gen.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
-import type { FieldIdx, Pattern } from "../../rustc_middle/ty/decls.ts";
+import type { FieldIdx } from "../../rustc_middle/ty/decls.ts";
+import { display_Pattern } from "../../rustc_middle/ty/pattern.ts";
 import { suggest_constraining_type_params } from "../../rustc_middle/ty/diagnostics.ts";
 import { GenericArg, type GenericArgs } from "../../rustc_middle/ty/generic_args.ts";
 import type { Generics } from "../../rustc_middle/ty/generics.ts";
+import { EarlyParamRegion } from "../../rustc_middle/ty/region.ts";
 import { type FieldDef, type ImplTraitHeader, type ParamEnv, Ty, TypingEnv, Visibility } from "../../rustc_middle/ty/mod.ts";
 import { display_Predicate, display_TraitRefPrintSugared, display_Ty, TraitRef_print_trait_sugared } from "../../rustc_middle/ty/print/pretty.ts";
 import { type Predicate, Predicate_upcast_from_TraitRef } from "../../rustc_middle/ty/predicate.ts";
@@ -528,7 +530,7 @@ function visit_implementation_of_dispatch_from_dyn(checker: Checker): Result<nul
             ),
           );
         } else {
-          return Err(err_ctxt(infcx).report_fulfillment_errors(errs));
+          return Err(infcx.err_ctxt().report_fulfillment_errors(errs));
         }
       }
 
@@ -602,7 +604,7 @@ export function reborrow_info(tcx: TyCtxt, impl_did: LocalDefId): Result<null, E
   // We've found some data fields. They must all be either be Copy or Reborrow.
   for (const field of data_fields) {
     const n = ocx.deeply_normalize(ObligationCause.misc(field.span, impl_did), param_env, Unnormalized.new_wip(field.ty), fold_Ty);
-    if (n.$ === "Err") return Err(err_ctxt(infcx).report_fulfillment_errors(n._0));
+    if (n.$ === "Err") return Err(infcx.err_ctxt().report_fulfillment_errors(n._0));
     field.ty = n._0;
     if (field_type_is_reborrow(tcx, infcx, reborrow_trait, impl_did, param_env, field.ty, field.span)) {
       // Field implements Reborrow, check remaining fields.
@@ -700,7 +702,7 @@ export function assert_field_type_is_copy(tcx: TyCtxt, infcx: InferCtxt, impl_di
   const errors = ocx.evaluate_obligations_error_on_ambiguity();
 
   if (errors.$ === "HasErrors") {
-    return Err(err_ctxt(infcx).report_fulfillment_errors(errors._0));
+    return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
   } else {
     return Ok(null);
   }
@@ -731,7 +733,7 @@ export function coerce_unsized_info(tcx: TyCtxt, impl_did: LocalDefId): Result<C
   const cause = ObligationCause.misc(span, impl_did);
   const check_mutbl = (mt_a: TypeAndMut, mt_b: TypeAndMut, mk_ptr: (ty: Ty) => Ty): [Ty, Ty, DefId, CustomCoerceUnsized | undefined, Span] => {
     if (Mutability_lt(mt_a.mutbl, mt_b.mutbl)) {
-      err_ctxt(infcx).report_mismatched_types(cause, param_env, mk_ptr(mt_b.ty), target0, TypeError.Mutability).emit();
+      infcx.err_ctxt().report_mismatched_types(cause, param_env, mk_ptr(mt_b.ty), target0, TypeError.Mutability).emit();
     }
     return [mt_a.ty, mt_b.ty, unsize_trait, undefined, span];
   };
@@ -914,7 +916,7 @@ export function coerce_unsized_info(tcx: TyCtxt, impl_did: LocalDefId): Result<C
         ),
       );
     } else {
-      return Err(err_ctxt(infcx).report_fulfillment_errors(errors._0));
+      return Err(infcx.err_ctxt().report_fulfillment_errors(errors._0));
     }
   }
 
@@ -998,7 +1000,7 @@ function infringing_fields_error(
             const predicate = `${display_Region(b)}: ${display_Region(a)}`;
             entry([ty_s, predicate]).push(SubregionOrigin.span(origin));
             const bk = b.kind();
-            if (bk.$ === "ReEarlyParam" && EarlyParamRegion_is_named(bk._0)) {
+            if (bk.$ === "ReEarlyParam" && EarlyParamRegion.is_named(bk._0)) {
               bounds.push([display_Region(b), display_Region(a), undefined]);
             }
           } else if (error.$ === "GenericBoundFailure") {
@@ -1107,17 +1109,9 @@ function cmp_String(a: string, b: string): number {
   return x.length - y.length;
 }
 
-/** PORT: as rustc_middle print/pretty.ts (pending ty-results): `EarlyParamRegion::is_named` (region.rs:31). */
-function EarlyParamRegion_is_named(self: { name: Symbol }): boolean {
-  return self.name !== kw.UnderscoreLifetime;
-}
 
 // ---- stand-ins: pending types and other lanes' items -----------------------------------------------------------------
 
-/** PORT(stub): `<ty::Pattern as Display>::fmt` (`ty::Pattern` is pending in rustc_middle ty/decls.ts). */
-function display_Pattern(_p: Pattern): string {
-  return unported("rustc_middle::ty::pattern::Pattern: Display");
-}
 
 /** PORT(stub): `rustc_abi::LayoutData::is_zst` (layout is M4). */
 export function LayoutData_is_zst(_layout: unknown): boolean {
@@ -1129,13 +1123,4 @@ export function LayoutData_is_1zst(_layout: unknown): boolean {
   return unported("rustc_abi::LayoutData::is_1zst");
 }
 
-/** PORT(stub): `error_reporting::TypeErrCtxt` (wave 19): the methods called here and in coerce_shared.ts. */
-interface TypeErrCtxtView {
-  report_fulfillment_errors(errors: FulfillmentError[]): ErrorGuaranteed;
-  report_mismatched_types(cause: ObligationCause, param_env: ParamEnv, expected: Ty, actual: Ty, err: TypeError): Diag;
-}
 
-/** `infcx.err_ctxt()` (`InferCtxtErrorExt`, error_reporting/mod.rs:42): its placeholder stops as UNPORTED today. */
-export function err_ctxt(infcx: InferCtxt): TypeErrCtxtView {
-  return infcx.err_ctxt() as unknown as TypeErrCtxtView;
-}

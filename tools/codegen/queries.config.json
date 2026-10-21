@@ -53,7 +53,22 @@
     "(rustc_middle::ty::Ty, rustc_middle::ty::Ty)": "Ty_Ty",
     "rustc_middle::ty::Clauses": "Clauses",
     "rustc_middle::ty::AliasTyKind": "AliasTyKind",
-    "(rustc_middle::traits::solve::CanonicalInput, usize)": "CanonicalInput_usize"
+    "(rustc_middle::traits::solve::CanonicalInput, usize)": "CanonicalInput_usize",
+    "rustc_middle::ty::LitToConstInput": "LitToConstInput",
+    "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::Ty>": "PseudoCanonicalInput_Ty",
+    "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::GenericArg>": "PseudoCanonicalInput_GenericArg",
+    "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::TraitRef>": "PseudoCanonicalInput_TraitRef",
+    "rustc_middle::traits::query::CanonicalPredicateGoal": "CanonicalPredicateGoal",
+    "(rustc_middle::traits::query::CanonicalImpliedOutlivesBoundsGoal, bool)": "CanonicalImpliedOutlivesBoundsGoal_bool",
+    "rustc_middle::traits::query::CanonicalMethodAutoderefStepsGoal": "CanonicalMethodAutoderefStepsGoal",
+    "rustc_middle::traits::query::CanonicalAliasGoal": "CanonicalAliasGoal",
+    "rustc_middle::traits::query::CanonicalDropckOutlivesGoal": "CanonicalDropckOutlivesGoal",
+    "rustc_middle::traits::query::CanonicalTypeOpAscribeUserTypeGoal": "CanonicalTypeOpAscribeUserTypeGoal",
+    "rustc_middle::traits::query::CanonicalTypeOpProvePredicateGoal": "CanonicalTypeOpProvePredicateGoal",
+    "rustc_middle::traits::query::CanonicalTypeOpNormalizeGoal<rustc_middle::ty::Ty>": "CanonicalTypeOpNormalizeGoal_Ty",
+    "rustc_middle::traits::query::CanonicalTypeOpNormalizeGoal<rustc_middle::ty::Clause>": "CanonicalTypeOpNormalizeGoal_Clause",
+    "rustc_middle::traits::query::CanonicalTypeOpNormalizeGoal<rustc_middle::ty::PolyFnSig>": "CanonicalTypeOpNormalizeGoal_PolyFnSig",
+    "rustc_middle::traits::query::CanonicalTypeOpNormalizeGoal<rustc_middle::ty::FnSig>": "CanonicalTypeOpNormalizeGoal_FnSig"
   },
   "into_key": {
     "rustc_span::def_id::DefId": "into_query_key_DefId",

@@ -1,13 +1,9 @@
 // Port of compiler/rustc_mir_build/src/thir/cx/expr.rs (lane thir-cx-print).
 // PORT: the `impl ThirBuildCx` block of this file is attached to the prototype (loaded by lib.ts after cx/mod.ts).
 //
-// PORT: rustc_middle `mir/syntax.rs` is not ported, so its `BorrowKind`, `MutBorrowKind`, `BinOp`, `UnOp` and
-// `AssignOp` (the operator / borrow kinds THIR stores) have no TS types yet: `ExprKind` types those fields as
-// `Pending<"mir::BinOp">` / `unknown` (thir.gen.ts). The values built here use PORTING §5's representation of those
-// enums (fieldless -> the variant name string; `BorrowKind` -> `{ $: "Shared" }` / `{ $: "Mut", kind }`) through the
-// local `Mir*` aliases below, so repointing them to the real types when mir/syntax.rs lands is mechanical.
-// Likewise rustc_middle `hir/place.rs` is pending (`HirPlace = Pending<..>`): `HirPlaceView` reads its fields with the
-// shapes ty/closure.ts already uses (`HirPlaceBase`, `HirProjectionKind`).
+// The rustc_middle `mir/syntax.rs` enums THIR stores (`BorrowKind`, `MutBorrowKind`, `BinOp`, `UnOp`, `AssignOp`,
+// `FakeReadCause`) come from the partial rustc_middle mir/syntax.ts (codegen set rustc_middle_mir_syntax; lane
+// thir-pattern).
 import { find_attr, type UnrollAttr } from "../../../rustc_attr_ir/lib.ts";
 import { clone_UnrollAttr } from "../../../rustc_attr_ir/lib.ts";
 import type { AssignOpKind, BinOpKind } from "../../../rustc_ast/lib.ts";
@@ -39,12 +35,13 @@ import type {
   InlineAsmOperand,
   UserTy,
 } from "../../../rustc_middle/thir.ts";
-import type { HirPlaceBase, HirProjectionKind } from "../../../rustc_middle/ty/closure.ts";
+import { debug_PlaceBase } from "../../../rustc_middle/hir/place.ts";
 import type { CapturedPlace } from "../../../rustc_middle/ty/closure.ts";
 import { type Adjustment, OverloadedDeref } from "../../../rustc_middle/ty/adjustment.ts";
 import type { AutoBorrowMutability } from "../../../rustc_middle/ty/adjustment.gen.ts";
 import { ScalarInt } from "../../../rustc_middle/ty/consts/int.ts";
-import type { AdtDef, BinOp, FieldIdx, HirPlace, UnOp, VariantIdx } from "../../../rustc_middle/ty/decls.ts";
+import type { AdtDef, FieldIdx, HirPlace, VariantIdx } from "../../../rustc_middle/ty/decls.ts";
+import { type AssignOp, BinOp, type BorrowKind, type FakeReadCause, type MutBorrowKind, UnOp } from "../../../rustc_middle/mir/syntax.ts";
 import type { CanonicalUserType } from "../../../rustc_middle/ty/typeck_results.ts";
 import { fold_GenericArgs } from "../../../rustc_middle/ty/generic_args.ts";
 import { RawList } from "../../../rustc_middle/ty/list.ts";
@@ -56,33 +53,23 @@ import { IntTypeExt } from "../../../rustc_middle/ty/util.ts";
 import { Size } from "../../../rustc_abi/lib.ts";
 import { debug_DefId, type DefId, LocalDefId } from "../../../rustc_span/def_id.ts";
 import { Span } from "../../../rustc_span/lib.ts";
+import {
+  ConstContinueMissingLabelOrValue_diagnostic,
+  LoopMatchBadRhs_diagnostic,
+  LoopMatchBadStatements_diagnostic,
+  LoopMatchInvalidMatch_diagnostic,
+  LoopMatchInvalidUpdate_diagnostic,
+  LoopMatchMissingAssignment_diagnostic,
+} from "../../diagnostics.ts";
 import { bug, span_bug } from "../../../rustc_span/macros.ts";
 import { EarlyBinder } from "../../../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
 import { SplattedDef } from "../../../rustc_middle/ty/typeck_results.ts";
-import { debug_int, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
+import { debug_int, debug_struct, debug_vec, type Fmt, PLAIN } from "../../../std/fmt.ts";
 import { assert, assert_matches, panic, unported } from "../../../std/panic.ts";
 import { push_idx, ThirBuildCx } from "./mod.ts";
 
 // ---- PORT stand-ins for pending upstream types (see the module comment; not markers) -------------------------------
-
-/** `mir::MutBorrowKind` (mir/syntax.rs), fieldless. */
-type MirMutBorrowKind = "Default" | "TwoPhaseBorrow" | "ClosureCapture";
-/** `mir::BorrowKind` (mir/syntax.rs); `Fake(FakeBorrowKind)` is never built by THIR. */
-type MirBorrowKind = { readonly $: "Shared" } | { readonly $: "Mut"; kind: MirMutBorrowKind };
-/** `mir::BinOp` (mir/syntax.rs), fieldless: the variants `bin_op` produces. */
-type MirBinOp = "Add" | "Sub" | "Mul" | "Div" | "Rem" | "BitXor" | "BitAnd" | "BitOr" | "Shl" | "Shr" | "Eq" | "Lt" | "Le" | "Ne" | "Ge" | "Gt";
-/** `mir::AssignOp` (mir/syntax.rs), fieldless. */
-type MirAssignOp = "AddAssign" | "SubAssign" | "MulAssign" | "DivAssign" | "RemAssign" | "BitXorAssign" | "BitAndAssign" | "BitOrAssign" | "ShlAssign" | "ShrAssign";
-const as_bin_op = (op: MirBinOp): BinOp => op as unknown as BinOp;
-const as_un_op = (op: "Not" | "Neg"): UnOp => op as unknown as UnOp;
-
-/** The members of `hir::place::Place` (hir/place.rs:69) read here (pending; see the module comment). */
-interface HirPlaceView {
-  readonly base_ty: Ty;
-  readonly base: HirPlaceBase;
-  readonly projections: readonly { readonly ty: Ty; readonly kind: HirProjectionKind }[];
-}
 
 // rustc_abi `FIRST_VARIANT` (`VariantIdx::ZERO`) and `FieldIdx::ZERO`
 const FIRST_VARIANT = 0 as VariantIdx;
@@ -365,7 +352,7 @@ ThirBuildCx.prototype.apply_adjustment = function (this: ThirBuildCx, hir_expr: 
         case "Pin": {
           const mutbl = ab._0;
           // expr = &pin (mut|const|) arget
-          let borrow_kind: MirBorrowKind;
+          let borrow_kind: BorrowKind;
           switch (mutbl) {
             case "Mut":
               borrow_kind = { $: "Mut", kind: "Default" };
@@ -496,7 +483,7 @@ ThirBuildCx.prototype.mirror_expr_cast = function (this: ThirBuildCx, source: Hi
       this.tcx.debug_assert_args_compatible(did, args);
       const kind: ExprKind = { $: "NamedConst", def_id: did, args, user_ty: undefined };
       const lhs = push_idx<ExprId, Expr>(this.thir.exprs, { temp_scope_id, ty: discr_ty, span, kind });
-      const bin: ExprKind = { $: "Binary", op: as_bin_op("Add"), lhs, rhs: offset };
+      const bin: ExprKind = { $: "Binary", op: BinOp.Add, lhs, rhs: offset };
       source_ = push_idx<ExprId, Expr>(this.thir.exprs, { temp_scope_id, ty: discr_ty, span, kind: bin });
     } else {
       source_ = offset;
@@ -809,7 +796,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
             const arg_ = this.mirror_expr(arg);
             kind = this.overloaded_operator(expr, [arg_]);
           } else {
-            kind = { $: "Unary", op: as_un_op("Not"), arg: this.mirror_expr(arg) };
+            kind = { $: "Unary", op: UnOp.Not, arg: this.mirror_expr(arg) };
           }
           break;
         case "Neg":
@@ -819,7 +806,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
           } else if (arg.kind.$ === "Lit") {
             kind = { $: "Literal", lit: arg.kind._0, neg: true };
           } else {
-            kind = { $: "Unary", op: as_un_op("Neg"), arg: this.mirror_expr(arg) };
+            kind = { $: "Unary", op: UnOp.Neg, arg: this.mirror_expr(arg) };
           }
           break;
       }
@@ -955,11 +942,12 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
 
       // Convert the closure fake reads, if any, from hir `Place` to ExprRef
       const fake_reads_ = this.typeck_results.closure_fake_reads.get(def_id);
-      const fake_reads: [ExprId, unknown, HirId][] = [];
+      const fake_reads: [ExprId, FakeReadCause, HirId][] = [];
       if (fake_reads_ !== undefined) {
         for (const [place, cause, hir_id] of fake_reads_) {
           const expr_ = this.convert_captured_hir_place(expr, place);
-          fake_reads.push([push_idx<ExprId, Expr>(this.thir.exprs, expr_), cause, hir_id]);
+          // PORT: typeck_results.ts types the cause `mir::FakeReadCause` as pending (`unknown`); it is mir/syntax.ts's.
+          fake_reads.push([push_idx<ExprId, Expr>(this.thir.exprs, expr_), cause as FakeReadCause, hir_id]);
         }
       }
 
@@ -1099,7 +1087,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
         } else {
           const last_: ExprId = push_idx<ExprId, Expr>(this.thir.exprs, mk_expr(last, tcx.types.usize));
           const next_: ExprId = push_idx<ExprId, Expr>(this.thir.exprs, mk_expr(next, tcx.types.usize));
-          expr_ = { $: "Binary", op: as_bin_op("Add"), lhs: last_, rhs: next_ };
+          expr_ = { $: "Binary", op: BinOp.Add, lhs: last_, rhs: next_ };
         }
       }
 
@@ -1148,9 +1136,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
         if (target_id.$ === "Ok") {
           if (!(value !== undefined && dest.label !== undefined)) {
             const span = expr.span;
-            void span;
-            // `self.tcx.dcx().emit_fatal(ConstContinueMissingLabelOrValue { span })`
-            return unported("rustc_mir_build::errors::ConstContinueMissingLabelOrValue (diagnostics.rs not ported)");
+            return this.tcx.dcx().emit_fatal(ConstContinueMissingLabelOrValue_diagnostic({ span }));
           }
 
           kind = {
@@ -1219,9 +1205,7 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
     case "Loop": {
       const body = ek._0;
       if (find_attr(HasAttrs_HirId.get_attrs(expr.hir_id, this.tcx), (k) => (k.$ === "LoopMatch" ? true : undefined)) !== undefined) {
-        // PORT: `dcx.emit_fatal(LoopMatch* { .. })`: the diagnostic structs are in diagnostics.rs (`#[derive(Diagnostic)]`,
-        // not generated yet), so each fatal error stops as UNPORTED (`emit_loop_match_fatal` below).
-        // const dcx = this.tcx.dcx();
+        const dcx = this.tcx.dcx();
 
         // Accept either `state = expr` or `state = expr;`.
         let loop_body_expr: HirExpr;
@@ -1229,27 +1213,29 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
           if (body.expr !== undefined) {
             loop_body_expr = body.expr;
           } else {
-            return emit_loop_match_fatal("LoopMatchMissingAssignment");
+            return dcx.emit_fatal(LoopMatchMissingAssignment_diagnostic({ span: body.span }));
           }
         } else if (body.stmts.length === 1 && body.expr === undefined) {
           const single = body.stmts[0]!;
           if (single.kind.$ === "Expr" || single.kind.$ === "Semi") {
             loop_body_expr = single.kind._0;
           } else {
-            return emit_loop_match_fatal("LoopMatchMissingAssignment");
+            return dcx.emit_fatal(LoopMatchMissingAssignment_diagnostic({ span: body.span }));
           }
         } else {
-          // `[first @ last] | [first, .., last]`: `LoopMatchBadStatements { span: first.span.to(last.span) }`
-          return emit_loop_match_fatal("LoopMatchBadStatements");
+          // `[first @ last] | [first, .., last]`
+          const first = body.stmts[0]!;
+          const last = body.stmts[body.stmts.length - 1]!;
+          return dcx.emit_fatal(LoopMatchBadStatements_diagnostic({ span: Span.to(first.span, last.span) }));
         }
 
         if (loop_body_expr.kind.$ !== "Assign") {
-          return emit_loop_match_fatal("LoopMatchMissingAssignment");
+          return dcx.emit_fatal(LoopMatchMissingAssignment_diagnostic({ span: loop_body_expr.span }));
         }
         const [state, rhs_expr] = [loop_body_expr.kind._0, loop_body_expr.kind._1];
 
         if (rhs_expr.kind.$ !== "Block") {
-          return emit_loop_match_fatal("LoopMatchBadRhs");
+          return dcx.emit_fatal(LoopMatchBadRhs_diagnostic({ span: rhs_expr.span }));
         }
         const block_body = rhs_expr.kind._0;
 
@@ -1257,28 +1243,33 @@ ThirBuildCx.prototype.make_mirror_unadjusted = function (this: ThirBuildCx, expr
         // allowed.
         for (const stmt of block_body.stmts) {
           if (!(stmt.kind.$ === "Item")) {
-            return emit_loop_match_fatal("LoopMatchBadStatements");
+            dcx.emit_fatal(LoopMatchBadStatements_diagnostic({ span: stmt.span }));
           }
         }
 
         const block_body_expr = block_body.expr;
         if (block_body_expr === undefined) {
-          return emit_loop_match_fatal("LoopMatchBadRhs");
+          return dcx.emit_fatal(LoopMatchBadRhs_diagnostic({ span: block_body.span }));
         }
 
         if (block_body_expr.kind.$ !== "Match") {
-          return emit_loop_match_fatal("LoopMatchBadRhs");
+          return dcx.emit_fatal(LoopMatchBadRhs_diagnostic({ span: block_body_expr.span }));
         }
         const [scrutinee, arms] = [block_body_expr.kind._0, block_body_expr.kind._1];
 
         const scrutinee_hir_id = local(this, scrutinee);
         if (scrutinee_hir_id === undefined) {
-          return emit_loop_match_fatal("LoopMatchInvalidMatch");
+          return dcx.emit_fatal(LoopMatchInvalidMatch_diagnostic({ span: scrutinee.span }));
         }
 
         const state_local = local(this, state);
         if (!(state_local !== undefined && HirId_eq(state_local, scrutinee_hir_id))) {
-          return emit_loop_match_fatal("LoopMatchInvalidUpdate");
+          dcx.emit_fatal(
+            LoopMatchInvalidUpdate_diagnostic({
+              scrutinee: scrutinee.span,
+              lhs: state.span,
+            }),
+          );
         }
 
         const state_ = this.mirror_expr(state);
@@ -1436,11 +1427,6 @@ function local(cx: ThirBuildCx, expr: HirExpr): HirId | undefined {
   }
 
   return undefined;
-}
-
-/** `self.tcx.dcx().emit_fatal(<name> { .. })` for the `LoopMatch*` diagnostics of diagnostics.rs (not ported). */
-function emit_loop_match_fatal(name: string): never {
-  return unported(`rustc_mir_build::errors::${name} (diagnostics.rs not ported)`);
 }
 
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1203 user_args_applied_to_res
@@ -1802,8 +1788,7 @@ ThirBuildCx.prototype.overloaded_place = function (
 };
 
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1582 convert_captured_hir_place
-ThirBuildCx.prototype.convert_captured_hir_place = function (this: ThirBuildCx, closure_expr: HirExpr, place_: HirPlace): Expr {
-  const place = place_ as unknown as HirPlaceView;
+ThirBuildCx.prototype.convert_captured_hir_place = function (this: ThirBuildCx, closure_expr: HirExpr, place: HirPlace): Expr {
   const temp_scope_id = closure_expr.hir_id.local_id;
   const var_ty = place.base_ty;
 
@@ -1816,7 +1801,7 @@ ThirBuildCx.prototype.convert_captured_hir_place = function (this: ThirBuildCx, 
   if (place.base.$ === "Upvar") {
     var_hir_id = place.base._0.var_path.hir_id;
   } else {
-    return bug(`Expected an upvar, found ${debug_HirPlaceBase(place.base, PLAIN)}`);
+    return bug(`Expected an upvar, found ${debug_PlaceBase(place.base, PLAIN)}`);
   }
 
   let captured_place_expr: Expr = {
@@ -1885,7 +1870,7 @@ ThirBuildCx.prototype.capture_upvar = function (this: ThirBuildCx, closure_expr:
     }
     case "ByRef": {
       const upvar_borrow = upvar_capture._0;
-      let borrow_kind: MirBorrowKind;
+      let borrow_kind: BorrowKind;
       switch (upvar_borrow) {
         case "Immutable":
           borrow_kind = { $: "Shared" };
@@ -1933,17 +1918,17 @@ ThirBuildCx.prototype.field_refs = function (this: ThirBuildCx, fields: readonly
 // rustc-trait: compiler/rustc_mir_build/src/thir/cx/expr.rs:1701 ToBorrowKind
 interface ToBorrowKind {
   // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1702 to_borrow_kind
-  to_borrow_kind(): MirBorrowKind;
+  to_borrow_kind(): BorrowKind;
 }
 export type { ToBorrowKind };
 
 // `impl ToBorrowKind for AutoBorrowMutability`
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1706 to_borrow_kind
-function AutoBorrowMutability_to_borrow_kind(self: AutoBorrowMutability): MirBorrowKind {
+function AutoBorrowMutability_to_borrow_kind(self: AutoBorrowMutability): BorrowKind {
   // use rustc_middle::ty::adjustment::AllowTwoPhase;
   switch (self.$) {
     case "Mut": {
-      let kind: MirMutBorrowKind;
+      let kind: MutBorrowKind;
       switch (self.allow_two_phase_borrow) {
         case "Yes":
           kind = "TwoPhaseBorrow";
@@ -1961,7 +1946,7 @@ function AutoBorrowMutability_to_borrow_kind(self: AutoBorrowMutability): MirBor
 
 // `impl ToBorrowKind for hir::Mutability`
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1721 to_borrow_kind
-function Mutability_to_borrow_kind(self: Mutability): MirBorrowKind {
+function Mutability_to_borrow_kind(self: Mutability): BorrowKind {
   switch (self) {
     case "Mut":
       return { $: "Mut", kind: "Default" };
@@ -1974,44 +1959,44 @@ function Mutability_to_borrow_kind(self: Mutability): MirBorrowKind {
 function bin_op(op: BinOpKind): BinOp {
   switch (op) {
     case "Add":
-      return as_bin_op("Add");
+      return BinOp.Add;
     case "Sub":
-      return as_bin_op("Sub");
+      return BinOp.Sub;
     case "Mul":
-      return as_bin_op("Mul");
+      return BinOp.Mul;
     case "Div":
-      return as_bin_op("Div");
+      return BinOp.Div;
     case "Rem":
-      return as_bin_op("Rem");
+      return BinOp.Rem;
     case "BitXor":
-      return as_bin_op("BitXor");
+      return BinOp.BitXor;
     case "BitAnd":
-      return as_bin_op("BitAnd");
+      return BinOp.BitAnd;
     case "BitOr":
-      return as_bin_op("BitOr");
+      return BinOp.BitOr;
     case "Shl":
-      return as_bin_op("Shl");
+      return BinOp.Shl;
     case "Shr":
-      return as_bin_op("Shr");
+      return BinOp.Shr;
     case "Eq":
-      return as_bin_op("Eq");
+      return BinOp.Eq;
     case "Lt":
-      return as_bin_op("Lt");
+      return BinOp.Lt;
     case "Le":
-      return as_bin_op("Le");
+      return BinOp.Le;
     case "Ne":
-      return as_bin_op("Ne");
+      return BinOp.Ne;
     case "Ge":
-      return as_bin_op("Ge");
+      return BinOp.Ge;
     case "Gt":
-      return as_bin_op("Gt");
+      return BinOp.Gt;
     default:
       return bug(`no equivalent for ast binop ${op}`);
   }
 }
 
 // rustc: compiler/rustc_mir_build/src/thir/cx/expr.rs:1751 assign_op
-function assign_op(op: AssignOpKind): MirAssignOp {
+function assign_op(op: AssignOpKind): AssignOp {
   switch (op) {
     case "AddAssign":
       return "AddAssign";
@@ -2046,20 +2031,6 @@ function with_type_of_did(u_ty: CanonicalUserType, did: DefId): CanonicalUserTyp
     return { ...u_ty, value: { ...u_ty.value, kind: { $: "TypeOf", _0: did, _1: k._1 } } };
   }
   return u_ty;
-}
-
-/** `#[derive(Debug)]` of `hir::place::PlaceBase` (hir/place.rs:9; pending, see the module comment). */
-function debug_HirPlaceBase(v: HirPlaceBase, f: Fmt): string {
-  switch (v.$) {
-    case "Rvalue":
-    case "StaticItem":
-      return v.$;
-    case "Local":
-      return debug_tuple(f, "Local", [debug_HirId(v._0, f)]);
-    case "Upvar":
-      // PORT: `UpvarId` has a manual Debug impl (ty/structural_impls.rs, reads the tcx) that is not ported.
-      return unported("Debug for ty::UpvarId (manual impl, not ported)");
-  }
 }
 
 /** `#[derive(Debug)]` of `ty::SplattedDef` (ty/typeck_results.rs:602). */

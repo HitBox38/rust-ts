@@ -14,6 +14,7 @@ import * as entry from "./entry.ts";
 import * as lang_items from "./lang_items.ts";
 import * as lib_features from "./lib_features.ts";
 import * as stability from "./stability.ts";
+import * as upvars from "./upvars.ts";
 
 // pub mod abi_test;            (not ported)
 // mod canonical_symbols;       (not ported)
@@ -35,7 +36,7 @@ export * as lang_items from "./lang_items.ts";
 // mod lib_features;           (private: imported above for `provide`)
 // mod reachable;               (not ported, M4)
 export * as stability from "./stability.ts";
-// mod upvars;                  (not ported)
+// mod upvars;                 (private: imported above for `provide`)
 export * as weak_lang_items from "./weak_lang_items.ts";
 
 // rustc: compiler/rustc_passes/src/lib.rs:36 provide
@@ -51,7 +52,7 @@ export function provide(providers: Providers): void {
   lib_features.provide(providers);
   // reachable::provide(providers);
   stability.provide(providers);
-  // upvars::provide(providers);
+  upvars.provide(providers);
   check_export.provide(providers);
   // fake_doc_items::provide(providers);
   providers.check_externally_implementable_items = eii.check_externally_implementable_items;

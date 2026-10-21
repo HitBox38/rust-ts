@@ -18,9 +18,8 @@ const DIR = join(import.meta.dir, "compare_eii_test");
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
-const PENDING = new Set([
-  // same_count.rs: `assumed_wf_types_and_report_errors` -> rustc_traits' `implied_outlives_bounds` query (wave 20)
-  "rustc_middle::query::keys: QueryKey for `(CanonicalImpliedOutlivesBoundsGoal<'tcx>, bool)` (cache)",
+const PENDING = new Set<string>([
+  // (none since lane typeck-gaps ported `ConstraintCategory`: same_count.rs ran past `assumed_wf_types_and_report_errors`)
 ]);
 /** Cases that equal the oracle since merge-w17: they must not stop. */
 const NOW_EXACT = new Set(["static_wrong_ty.rs"]);

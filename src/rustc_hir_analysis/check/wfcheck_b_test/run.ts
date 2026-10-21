@@ -5,8 +5,9 @@
 //   among the free items, in `hir_crate_items` order, as check/check.rs:828 / :923 do from `check_well_formed`. On a
 //   crate whose only errors are E0392, stderr equals the oracle rustc's;
 // - `wf <rustc arguments...>`: calls the wfcheck entry points of this lane on every free item, as check/check.rs and
-//   wfcheck.rs `check_item` do: `check_static_item` (statics), `check_item_fn` (fns), `check_impl` (impls). They stop
-//   at the stand-ins of other lanes today; the test checks the stop text.
+//   wfcheck.rs `check_item` do: `check_static_item` (statics), `check_item_fn` (fns), `check_impl` (impls), then
+//   `check_associated_item` on every impl item (check/check.rs:1124, merge-w18c). A run that stops at another lane's
+//   stand-in prints its text; the test checks it against PENDING_WF.
 //
 //   bun run.ts variances|wf <rustc arguments...>
 import type { Compiler } from "../../../rustc_interface/interface.ts";
@@ -62,6 +63,11 @@ async function main(args: string[]): Promise<number> {
             default:
               break;
           }
+        }
+        // Then the impl items, as `check_type_wf` (wfcheck.rs:2620) does after the items: check/check.rs:1124
+        // (`DefKind::AssocFn` / `AssocConst` / `AssocTy` -> `check_associated_item`, e.g. the method receiver check).
+        for (const id of (tcx.hir_crate_items(null) as ModuleItems).impl_items()) {
+          wfcheck.check_associated_item(tcx, id.owner_id.def_id);
         }
         return "Stop" as const;
       },

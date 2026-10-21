@@ -1,0 +1,36 @@
+{
+  "//": [
+    "Set-local type map of set rustc_trait_selection_old_solver (lane selcx-contract; types.sets.json `typemap_extra`, after",
+    "tyir/middle_traits_thir/infer/trait_selection.typemap.json): the paths through which the old solver's files reach",
+    "rustc_infer / rustc_middle / rustc_next_trait_solver types (mostly the `crate::infer::*` / `crate::traits::*` re-exports and the",
+    "`pub use rustc_middle::traits::select::*` glob of select/mod.rs, which the generator does not resolve)."
+  ],
+  "cfg": { "true": [], "false": [] },
+  "helpers": {
+    "src/rustc_middle/ty/predicate.ts": ["debug_Predicate"],
+    "src/rustc_type_ir/binder.ts": ["debug_Binder"],
+    "src/rustc_type_ir/predicate.ts": ["debug_TraitClause", "debug_ProjectionClause"],
+    "src/rustc_middle/traits/mod.ts": ["debug_ImplSource"],
+    "src/rustc_infer/traits/mod.ts": ["debug_Obligation", "clone_Obligation"]
+  },
+  "types": [
+    {"paths": ["rustc_trait_selection::infer::InferCtxt", "rustc_infer::infer::InferCtxt"], "ts": "InferCtxt", "import": "src/rustc_infer/decls.ts", "types": ["InferCtxt"], "debug": null, "clone": "share", "note": "`&'cx InferCtxt<'tcx>` (contract class, rustc_infer decls.ts)"},
+    {"paths": ["rustc_trait_selection::infer::TypeFreshener", "rustc_infer::infer::TypeFreshener"], "ts": "TypeFreshener", "import": "src/rustc_infer/infer/freshen.ts", "types": ["TypeFreshener"], "debug": null, "clone": null},
+    {"paths": ["rustc_trait_selection::traits::TraitQueryMode"], "ts": "TraitQueryMode", "import": "src/rustc_trait_selection/traits/mod.ts", "types": ["TraitQueryMode"], "values": ["debug_TraitQueryMode"], "debug": "debug_TraitQueryMode($v, $f)", "clone": "copy"},
+    {"paths": ["rustc_trait_selection::traits::PolyTraitObligation", "rustc_infer::traits::PolyTraitObligation"], "ts": "PolyTraitObligation", "import": "src/rustc_infer/traits/mod.ts", "types": ["PolyTraitObligation"], "debug": "debug_Obligation($v, $f, (p, f) => debug_Binder(p, f, debug_TraitClause))", "clone": "clone_Obligation($v, (p) => p)", "note": "`Obligation<'tcx, ty::PolyTraitClause<'tcx>>`"},
+    {"paths": ["SelectionCandidate", "rustc_middle::traits::select::SelectionCandidate"], "ts": "SelectionCandidate", "import": "src/rustc_middle/traits/select.ts", "types": ["SelectionCandidate"], "values": ["debug_SelectionCandidate", "clone_SelectionCandidate"], "debug": "debug_SelectionCandidate($v, $f)", "clone": "clone_SelectionCandidate($v)", "note": "`pub use rustc_middle::traits::select::*` (select/mod.rs:23)"},
+    {"paths": ["rustc_trait_selection::traits::Obligation", "rustc_infer::traits::Obligation"], "ts": "Obligation<$0>", "import": "src/rustc_infer/traits/mod.ts", "types": ["Obligation"], "debug": "debug_Obligation($v, $f, $d0)", "clone": "clone_Obligation($v, $c0)"},
+    {"paths": ["rustc_trait_selection::traits::SelectionError"], "ts": "SelectionError", "import": "src/rustc_middle/traits/mod.ts", "types": ["SelectionError"], "values": ["debug_SelectionError", "clone_SelectionError"], "debug": "debug_SelectionError($v, $f)", "clone": "clone_SelectionError($v)"},
+    {"paths": ["rustc_middle::ty::predicate::PolyProjectionClause", "rustc_middle::ty::PolyProjectionClause"], "ts": "PolyProjectionClause", "import": "src/rustc_middle/ty/predicate.ts", "types": ["PolyProjectionClause"], "debug": "debug_Binder($v, $f, debug_ProjectionClause)", "clone": "copy", "note": "`Binder<'tcx, ProjectionClause<'tcx>>` (Copy)"},
+    {"paths": ["rustc_middle::ty::predicate::ProjectionClause", "rustc_middle::ty::ProjectionClause"], "ts": "ProjectionClause", "import": "src/rustc_middle/ty/predicate.ts", "types": ["ProjectionClause"], "debug": "debug_ProjectionClause($v, $f)", "clone": "copy"},
+    {"paths": ["rustc_data_structures::obligation_forest::Error"], "ts": "Error<$0, $1>", "import": "src/rustc_data_structures/obligation_forest/mod.ts", "types": ["Error"], "values": ["debug_Error"], "debug": "debug_Error($v, $f, $d0, $d1)", "clone": null, "note": "obligation_forest's `Error<O, E>` (lane selcx-contract)"},
+    {"paths": ["rustc_trait_selection::traits::FulfillmentErrorCode", "FulfillmentErrorCode"], "ts": "FulfillmentErrorCode", "import": "src/rustc_trait_selection/traits/mod.ts", "types": ["FulfillmentErrorCode"], "values": ["debug_FulfillmentErrorCode"], "debug": "debug_FulfillmentErrorCode($v, $f)", "clone": null, "note": "generated in set rustc_trait_selection_traits_a (traits/mod.gen.ts); manual Debug in traits/mod.ts"},
+    {"paths": ["rustc_trait_selection::traits::Selection", "rustc_infer::traits::Selection"], "ts": "Selection", "import": "src/rustc_infer/traits/mod.ts", "types": ["Selection"], "debug": "debug_ImplSource($v, $f, (o, f) => debug_Obligation(o, f, debug_Predicate))", "clone": null, "note": "`ImplSource<'tcx, PredicateObligation<'tcx>>`"},
+    {"paths": ["rustc_trait_selection::traits::MismatchedProjectionTypes"], "ts": "MismatchedProjectionTypes", "import": "src/rustc_infer/traits/project.ts", "types": ["MismatchedProjectionTypes"], "values": ["debug_MismatchedProjectionTypes", "clone_MismatchedProjectionTypes"], "debug": "debug_MismatchedProjectionTypes($v, $f)", "clone": "clone_MismatchedProjectionTypes($v)"},
+    {"paths": ["rustc_trait_selection::traits::PredicateObligation"], "ts": "PredicateObligation", "import": "src/rustc_infer/traits/mod.ts", "types": ["PredicateObligation"], "debug": "debug_Obligation($v, $f, debug_Predicate)", "clone": "clone_Obligation($v, (p) => p)"},
+    {"paths": ["rustc_next_trait_solver::solve::TyOrConstInferVar"], "ts": "TyOrConstInferVar", "import": "src/rustc_type_ir/solve/mod.ts", "types": ["TyOrConstInferVar"], "values": ["debug_TyOrConstInferVar"], "debug": "debug_TyOrConstInferVar($v, $f)", "clone": "copy"},
+    {"paths": ["rustc_trait_selection::traits::ObligationCause"], "ts": "ObligationCause", "import": "src/rustc_middle/traits/mod.ts", "types": ["ObligationCause"], "values": ["debug_ObligationCause", "clone_ObligationCause"], "debug": "debug_ObligationCause($v, $f)", "clone": "clone_ObligationCause($v)"},
+    {"paths": ["rustc_trait_selection::infer::canonical::QueryRegionConstraints"], "ts": "QueryRegionConstraints", "import": "src/rustc_middle/infer/canonical.ts", "types": ["QueryRegionConstraints"], "values": ["debug_QueryRegionConstraints"], "debug": "debug_QueryRegionConstraints($v, $f)", "clone": null},
+    {"paths": ["rustc_trait_selection::infer::region_constraints::RegionConstraintData"], "ts": "RegionConstraintData", "import": "src/rustc_infer/infer/region_constraints/mod.ts", "types": ["RegionConstraintData"], "values": ["debug_RegionConstraintData"], "debug": "debug_RegionConstraintData($v, $f)", "clone": null}
+  ]
+}

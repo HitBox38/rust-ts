@@ -59,7 +59,8 @@ import * as map from "./map.ts";
 export * as map from "./map.ts";
 // pub mod nested_filter;
 export * as nested_filter from "./nested_filter.ts";
-// pub mod place;  (not ported: lane of the typeck/THIR places)
+// pub mod place;
+export * as place from "./place.ts";
 
 
 // rustc-type: compiler/rustc_middle/src/hir/mod.rs:29 ModuleItems

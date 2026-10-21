@@ -26,7 +26,9 @@ import type { ClauseKind, DebruijnIndex, ExistentialPredicate, ExistentialProjec
 import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
 import { Predicate_provided } from "../../rustc_type_ir/inherent.ts";
 import { fold_with_ClauseKind, try_fold_with_ClauseKind, visit_with_ClauseKind, visit_with_PredicateKind } from "../../rustc_type_ir/predicate_kind.gen.ts";
-import { visit_with_TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
+import { fold_with_OutlivesClause, try_fold_with_OutlivesClause, visit_with_OutlivesClause, visit_with_TraitRef } from "../../rustc_type_ir/predicate.gen.ts";
+import { fold_with_GenericArg, try_fold_with_GenericArg, visit_with_GenericArg } from "./generic_args.ts";
+import type { ArgOutlivesClause } from "./predicate.gen.ts";
 import { ClausePolarity, PolyTraitClause } from "../../rustc_type_ir/predicate.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import type { TypeVisitable } from "../../rustc_type_ir/visit.ts";
@@ -770,4 +772,17 @@ export function try_fold_with_Clause<E>(self: Clause, folder: FallibleTypeFolder
 }
 export function fold_with_Clause(self: Clause, folder: TypeFolder): Clause {
   return fold_Clause.fold_with(self, folder);
+}
+
+// PORT: `ty::ArgOutlivesClause<'tcx> = OutlivesClause<'tcx, GenericArg<'tcx>>` (predicate.rs:28) is a type alias: its
+// `TypeVisitable` / `TypeFoldable` are rustc_type_ir's derived `OutlivesClause<A>` impls at `A = GenericArg`, named here
+// for the generated code that folds a field of this type (tools/codegen/type_fold.json; merge-w18c).
+export function visit_with_ArgOutlivesClause<R>(self: ArgOutlivesClause, visitor: TypeVisitor<R>): R {
+  return visit_with_OutlivesClause(self, visitor, visit_with_GenericArg);
+}
+export function try_fold_with_ArgOutlivesClause<E>(self: ArgOutlivesClause, folder: FallibleTypeFolder<E>): Result<ArgOutlivesClause, E> {
+  return try_fold_with_OutlivesClause(self, folder, try_fold_with_GenericArg);
+}
+export function fold_with_ArgOutlivesClause(self: ArgOutlivesClause, folder: TypeFolder): ArgOutlivesClause {
+  return fold_with_OutlivesClause(self, folder, fold_with_GenericArg);
 }

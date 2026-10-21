@@ -11,7 +11,8 @@
 // them from here.
 import { KeyedMap, KeyedSet } from "../../rust_ts/keyed.ts";
 import { intern_key } from "../../rust_ts/intern_key.ts";
-import { type Integer, Size } from "../../rustc_abi/lib.ts";
+import { Integer as IntegerC, type Integer, Size } from "../../rustc_abi/lib.ts";
+import { IntegerExt } from "./layout.ts";
 import type { FloatTy, IntTy, Mutability, UintTy } from "../../rustc_ast_ir/lib.ts";
 import { find_attr, type Attribute } from "../../rustc_attr_ir/lib.ts";
 import type { ExternCrate } from "../../rustc_crate_store/cstore.ts";
@@ -63,6 +64,7 @@ import { Asyncness, debug_Ty, HasAttrs_DefId, HasAttrs_LocalDefId, Ty, TypingEnv
 import type { EarlyParamRegion } from "./region.ts";
 import type { ParamConst, ParamTy } from "./sty.ts";
 import { fold_Clauses, fold_Ty } from "./structural_impls.ts";
+import { CodegenFnAttrFlags, type CodegenFnAttrs } from "../middle/codegen_fn_attrs.ts";
 
 // rustc-type: compiler/rustc_middle/src/ty/util.rs:37 Discr
 // #[derive(Copy, Clone, Debug)]
@@ -2073,17 +2075,16 @@ const fold_Ty_Ty: TypeFoldable<[Ty, Ty]> = {
 // lane repr-options: `IntegerType` is the real rustc_abi type (abi/lib.rs:123).
 import type { IntegerType } from "../../rustc_abi/lib.ts";
 export type { IntegerType };
-/** PORT: pending ty/layout.rs (M4): `IntegerExt::from_int_ty` (layout.rs:47). */
-function IntegerExt_from_int_ty(_cx: TyCtxt, _ity: IntTy): Integer {
-  return unported("rustc_middle::ty::layout::IntegerExt::from_int_ty (ty/layout.rs, M4)");
+// `IntegerExt::{from_int_ty, from_uint_ty, to_ty}` (layout.rs:47/:58/:31): ty/layout.ts (lane typeck-gaps); read inside
+// function bodies (layout.ts is an extension module).
+function IntegerExt_from_int_ty(cx: TyCtxt, ity: IntTy): Integer {
+  return IntegerExt.from_int_ty(cx, ity);
 }
-/** PORT: pending ty/layout.rs (M4): `IntegerExt::from_uint_ty` (layout.rs:58). */
-function IntegerExt_from_uint_ty(_cx: TyCtxt, _ity: UintTy): Integer {
-  return unported("rustc_middle::ty::layout::IntegerExt::from_uint_ty (ty/layout.rs, M4)");
+function IntegerExt_from_uint_ty(cx: TyCtxt, ity: UintTy): Integer {
+  return IntegerExt.from_uint_ty(cx, ity);
 }
-/** PORT: pending ty/layout.rs (M4): `IntegerExt::to_ty` (layout.rs:31). */
-function IntegerExt_to_ty(_self: Integer, _tcx: TyCtxt, _signed: boolean): Ty {
-  return unported("rustc_middle::ty::layout::IntegerExt::to_ty (ty/layout.rs, M4)");
+function IntegerExt_to_ty(self: Integer, tcx: TyCtxt, signed: boolean): Ty {
+  return IntegerExt.to_ty(self, tcx, signed);
 }
 /** PORT: pending ty/layout.rs (M4): `FloatExt::from_float_ty` (layout.rs:157). */
 function FloatExt_from_float_ty(_fty: FloatTy): FloatT {
@@ -2095,29 +2096,25 @@ type FloatT = { readonly __pending: "rustc_abi::Float" };
 function Float_size(_self: FloatT): Size {
   return unported("rustc_abi::Float::size (rustc_abi is partly ported)");
 }
-/** PORT: pending rustc_abi: `Integer::size`. */
-function Integer_size(_self: Integer): Size {
-  return unported("rustc_abi::Integer::size (rustc_abi is partly ported)");
+// rustc_abi's `Integer::size` / `Size::{sign_extend, truncate, signed_int_min, signed_int_max, unsigned_int_max}`
+// (abi/lib.rs:1293, :958-995) are ported (rustc_abi lib.ts); these names stay as thin forwarders (lane typeck-gaps).
+function Integer_size(self: Integer): Size {
+  return IntegerC.size(self);
 }
-/** PORT: pending rustc_abi: `Size::sign_extend` (abi/lib.rs:958). */
-function Size_sign_extend(_self: Size, _value: bigint): bigint {
-  return unported("rustc_abi::Size::sign_extend (rustc_abi is partly ported)");
+function Size_sign_extend(self: Size, value: bigint): bigint {
+  return self.sign_extend(value);
 }
-/** PORT: pending rustc_abi: `Size::truncate` (abi/lib.rs:973). */
-function Size_truncate(_self: Size, _value: bigint): bigint {
-  return unported("rustc_abi::Size::truncate (rustc_abi is partly ported)");
+function Size_truncate(self: Size, value: bigint): bigint {
+  return self.truncate(value);
 }
-/** PORT: pending rustc_abi: `Size::signed_int_min` (abi/lib.rs:985). */
-function Size_signed_int_min(_self: Size): bigint {
-  return unported("rustc_abi::Size::signed_int_min (rustc_abi is partly ported)");
+function Size_signed_int_min(self: Size): bigint {
+  return self.signed_int_min();
 }
-/** PORT: pending rustc_abi: `Size::signed_int_max` (abi/lib.rs:990). */
-function Size_signed_int_max(_self: Size): bigint {
-  return unported("rustc_abi::Size::signed_int_max (rustc_abi is partly ported)");
+function Size_signed_int_max(self: Size): bigint {
+  return self.signed_int_max();
 }
-/** PORT: pending rustc_abi: `Size::unsigned_int_max` (abi/lib.rs:995). */
-function Size_unsigned_int_max(_self: Size): bigint {
-  return unported("rustc_abi::Size::unsigned_int_max (rustc_abi is partly ported)");
+function Size_unsigned_int_max(self: Size): bigint {
+  return self.unsigned_int_max();
 }
 
 // ---- rustc_middle mir (M4) ----
@@ -2127,9 +2124,9 @@ function mir_Const_from_bits(_tcx: TyCtxt, _bits: bigint, _typing_env: TypingEnv
 }
 
 // ---- rustc_middle middle/codegen_fn_attrs.rs ----
-/** PORT: pending middle/codegen_fn_attrs.rs: `codegen_fn_attrs(def_id).flags.contains(CodegenFnAttrFlags::THREAD_LOCAL)`. */
-function CodegenFnAttrs_flags_contains_THREAD_LOCAL(_attrs: unknown): boolean {
-  return unported("rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrFlags::THREAD_LOCAL (middle/codegen_fn_attrs.rs)");
+/** `codegen_fn_attrs(def_id).flags.contains(CodegenFnAttrFlags::THREAD_LOCAL)` (the query value is `unknown` in queries.gen.ts). */
+function CodegenFnAttrs_flags_contains_THREAD_LOCAL(attrs: unknown): boolean {
+  return CodegenFnAttrFlags.contains((attrs as CodegenFnAttrs).flags, CodegenFnAttrFlags.THREAD_LOCAL);
 }
 
 // ---- lane ty-mod (ty/mod.rs) ----

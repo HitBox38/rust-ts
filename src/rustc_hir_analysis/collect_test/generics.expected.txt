@@ -80,14 +80,14 @@ DefId(0:30 ~ generics[21d0]::Alias2::Y) TyParam
   type_of EarlyBinder { value: Unit, .. }
 DefId(0:31 ~ generics[21d0]::Al) TyAlias
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "T", def_id: DefId(0:32 ~ generics[21d0]::Al::T), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:32 ~ generics[21d0]::Al::T), 0)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::query::keys: QueryKey for `LitToConstInput<'tcx>` (cache)
+  type_of EarlyBinder { value: S<T/#0, 3_usize>, .. }
 DefId(0:32 ~ generics[21d0]::Al::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:33 ~ generics[21d0]::Al::{constant#0}) AnonConst
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:34 ~ generics[21d0]::{impl#0}) Impl { of_trait: true }
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "T", def_id: DefId(0:35 ~ generics[21d0]::{impl#0}::T), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:35 ~ generics[21d0]::{impl#0}::T), 0)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::query::keys: QueryKey for `LitToConstInput<'tcx>` (cache)
+  type_of EarlyBinder { value: S<T/#0, 1_usize>, .. }
 DefId(0:35 ~ generics[21d0]::{impl#0}::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:36 ~ generics[21d0]::{impl#0}::{constant#0}) AnonConst
@@ -105,7 +105,7 @@ DefId(0:40 ~ generics[21d0]::{impl#0}::f::U) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:41 ~ generics[21d0]::{impl#1}) Impl { of_trait: false }
   generics_of Generics { parent: None, parent_count: 0, own_params: [GenericParamDef { name: "T", def_id: DefId(0:42 ~ generics[21d0]::{impl#1}::T), index: 0, pure_wrt_drop: false, kind: Type { has_default: false, synthetic: false } }], param_def_id_to_index: [(DefId(0:42 ~ generics[21d0]::{impl#1}::T), 0)], has_self: false, has_late_bound_regions: None }
-  type_of STOP UNPORTED: rustc_middle::query::keys: QueryKey for `LitToConstInput<'tcx>` (cache)
+  type_of EarlyBinder { value: S<T/#0, 2_usize>, .. }
 DefId(0:42 ~ generics[21d0]::{impl#1}::T) TyParam
   generics_of Generics { parent: None, parent_count: 0, own_params: [], param_def_id_to_index: [], has_self: false, has_late_bound_regions: None }
 DefId(0:43 ~ generics[21d0]::{impl#1}::{constant#0}) AnonConst
