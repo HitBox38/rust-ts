@@ -51,6 +51,7 @@ import {
   debug_TyAndLayout,
   debug_Variants,
   IntegerType,
+  Integer_discriminant,
 } from "../../rustc_abi/lib.ts";
 import type { ExternAbi } from "../../rustc_abi/extern_abi.ts";
 import type { FloatTy, IntTy, UintTy } from "../../rustc_ast_ir/lib.ts";
@@ -123,13 +124,8 @@ const dbg_TyAndLayout = (v: TyAndLayout): string => format_debug(v, debug_TyAndL
 const dbg_Variants = (v: Variants): string => format_debug(v, debug_Variants, PLAIN);
 const dbg_int = (v: number): string => format_debug(v, debug_int, PLAIN);
 
-/**
-PORT: `abi::Integer` derives `PartialOrd`/`Ord` (declaration order `I8 < I16 < I32 < I64 < I128`); rustc_abi has no
-`Integer_discriminant` yet, so `discr_range_of_repr`'s `cmp::max` / `<` / `<=` use this local rank (handoff: move it to
-rustc_abi lib.ts as `Integer_discriminant`).
-*/
-const Integer_discriminant: Record<Integer, number> = { I8: 0, I16: 1, I32: 2, I64: 3, I128: 4 };
-/** `cmp::max` of two `abi::Integer`s (returns the second argument when equal, as `Ord::max`). */
+/** `cmp::max` of two `abi::Integer`s (returns the second argument when equal, as `Ord::max`; the derived `Ord` is
+ *  rustc_abi's `Integer_discriminant`). */
 function Integer_max(a: Integer, b: Integer): Integer {
   return Integer_discriminant[b] >= Integer_discriminant[a] ? b : a;
 }

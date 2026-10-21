@@ -35,6 +35,7 @@ import {
   FieldsShape,
   type HasDataLayout,
   Integer,
+  Integer_discriminant,
   IntegerType,
   LayoutData,
   Niche,
@@ -646,11 +647,9 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
       return Err(LayoutCalculatorError.ReprConflict);
     }
 
-    // PORT (abi-layout-b): `Ord` of `Option<Align>` (`None < Some`) and of `Integer` (declaration order), and
-    // `Ord::max` (`other` on ties) / `Ord::cmp` of `Size`; lib.ts has no helpers for them.
+    // PORT (abi-layout-b): `Ord` of `Option<Align>` (`None < Some`) and `Ord::max` (`other` on ties) / `Ord::cmp` of
+    // `Size`; lib.ts has no helpers for them. `Ord` of `Integer` is lib.ts's `Integer_discriminant`.
     const option_align_max = (a: Align | undefined, b: Align | undefined): Align | undefined => (a === undefined ? b : b === undefined ? a : Align_max(a, b));
-    const INTEGER_ORDER: readonly Integer[] = ["I8", "I16", "I32", "I64", "I128"];
-    const integer_ord = (i: Integer): number => INTEGER_ORDER.indexOf(i);
     const size_max = (a: Size, b: Size): Size => (b.bytes() >= a.bytes() ? b : a);
     const size_cmp = (a: Size, b: Size): number => (a.bytes() < b.bytes() ? -1 : a.bytes() > b.bytes() ? 1 : 0);
 
@@ -929,7 +928,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
     }
 
     const typeck_ity = Integer.from_attr(dl, repr.discr_type());
-    if (integer_ord(typeck_ity) < integer_ord(min_ity)) {
+    if (Integer_discriminant[typeck_ity] < Integer_discriminant[min_ity]) {
       // It is a bug if Layout decided on a greater discriminant size than typeck for
       // some reason at this point (based on values discriminant can take on). Mostly
       // because this discriminant will be loaded, and then stored into variable of
@@ -958,7 +957,7 @@ export class LayoutCalculator<Cx extends HasDataLayout> {
 
     // If the alignment is not larger than the chosen discriminant size,
     // don't use the alignment as the final size.
-    if (integer_ord(ity) <= integer_ord(min_ity)) {
+    if (Integer_discriminant[ity] <= Integer_discriminant[min_ity]) {
       ity = min_ity;
     } else {
       // Patch up the variants' first few fields.

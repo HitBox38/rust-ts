@@ -226,6 +226,12 @@ export class ReprOptions {
     public field_shuffle_seed: Hash64,
   ) {}
 
+  /** The derived `Default` (`ReprOptions::default()`; was a local copy in rustc_ty_utils layout.ts and rustc_abi
+   *  layout/coroutine.ts, merge-layout). */
+  static default(): ReprOptions {
+    return new ReprOptions(undefined, undefined, undefined, ReprFlags.empty(), undefined, Hash64.ZERO);
+  }
+
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:173 simd
   simd(): boolean {
@@ -1799,6 +1805,9 @@ export const Integer = {
 } as const;
 // derive(Debug)
 export const debug_Integer: Debug<Integer> = (v) => v;
+/** `<Integer as Ord>` (derived: declaration order `I8 < I16 < I32 < I64 < I128`; shared by rustc_abi layout.rs and
+ *  rustc_middle ty/layout.rs, merge-layout). */
+export const Integer_discriminant: Record<Integer, number> = { I8: 0, I16: 1, I32: 2, I64: 3, I128: 4 };
 /// Floating-point types.
 // #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 // #[cfg_attr(feature = "nightly", derive(StableHash))]

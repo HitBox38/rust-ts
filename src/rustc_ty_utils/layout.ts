@@ -30,7 +30,6 @@ import {
   Niche,
   NicheOptimizations,
   Primitive,
-  ReprFlags,
   ReprOptions,
   Scalar,
   Size,
@@ -316,11 +315,6 @@ function u64_as_usize(x: bigint): number {
   return Number(x);
 }
 
-/** PORT: the derived `Default` of `ReprOptions` (`ReprOptions::default()`; rustc_abi lib.rs has no TS `default`). */
-function ReprOptions_default(): ReprOptions {
-  return new ReprOptions(undefined, undefined, undefined, ReprFlags.empty(), undefined, Hash64.ZERO);
-}
-
 /** PORT: `cfg!(debug_assertions)`: rustc ships without debug assertions (a function, so the guarded code type-checks). */
 function cfg_debug_assertions(): boolean {
   return false;
@@ -366,7 +360,7 @@ export function layout_of_uncached(cx: LayoutCxT, ty: Ty): Result<Layout, Layout
       if (r.$ === "Err") return r;
       fields.push(r._0);
     }
-    const repr = ReprOptions_default();
+    const repr = ReprOptions.default();
     return map_layout(cx.calc.layout_of_univariant(fields, repr, kind));
   };
   // debug_assert!(!ty.has_non_region_infer());

@@ -23,6 +23,7 @@
 // Init order: lib.ts's values are read inside function bodies only.
 import { Hash64 } from "../../rustc_hashes/lib.ts";
 import { type BitMatrix, DenseBitSet } from "../../rustc_index/bit_set.ts";
+import { invert_bijective_mapping } from "../../rustc_index/slice.ts";
 import { type Debug, debug_int, debug_option, debug_tuple, type Fmt } from "../../std/fmt.ts";
 import { unreachable, unwrap } from "../../std/panic.ts";
 import { Ok } from "../../std/result.ts";
@@ -32,7 +33,6 @@ import {
   type HasDataLayout,
   Integer,
   LayoutData,
-  ReprFlags,
   ReprOptions,
   type Scalar,
   type Size,
@@ -159,10 +159,7 @@ export function coroutine_saved_local_eligibility<LocalIdx extends number>(
       for (let i = 0; i < assignments.length; i++) {
         assignments[i] = { $: "Ineligible", _0: undefined };
       }
-      // PORT (abi-layout-b): `DenseBitSet::insert_all` (rustc_index bit_set.rs:210, not ported in rustc_index
-      // bit_set.ts, which this lane does not own) written out: `self.words.fill(!0); self.clear_excess_bits();`.
-      ineligible_locals.words.fill((1n << 64n) - 1n);
-      ineligible_locals.clear_excess_bits();
+      ineligible_locals.insert_all();
     }
   }
 
@@ -177,22 +174,6 @@ export function coroutine_saved_local_eligibility<LocalIdx extends number>(
   // debug!("coroutine saved local assignments: {:?}", assignments);
 
   return [ineligible_locals, assignments];
-}
-
-/** PORT (abi-layout-b): `IndexSlice::invert_bijective_mapping` (rustc_index slice.rs:185, not ported: rustc_index has
- * no slice.ts and this lane does not own it), written out; its two `debug_assert_eq!`s are off in rustc. */
-function invert_bijective_mapping(self: readonly number[]): number[] {
-  const inverse: number[] = new Array<number>(self.length).fill(0);
-  for (let i1 = 0; i1 < self.length; i1++) {
-    const i2 = self[i1]!;
-    inverse[i2] = i1;
-  }
-  return inverse;
-}
-
-/** PORT (abi-layout-b): `ReprOptions::default()` (`#[derive(Default)]`, lib.rs:152; lib.ts has no `default`). */
-function repr_options_default(): ReprOptions {
-  return new ReprOptions(undefined, undefined, undefined, ReprFlags.empty(), undefined, Hash64.default());
 }
 
 /// Compute the full coroutine layout.
@@ -227,7 +208,7 @@ export function layout<F extends DerefLayoutData, LocalIdx extends number>(
   // PORT: the lazy `promoted_layouts` iterator is consumed by `extend` right after the `push`.
   prefix_layouts.push(tag_to_layout(tag));
   for (const local of ineligible_locals.iter()) prefix_layouts.push(local_layouts[local]!);
-  const prefix_r = calc.layout_of_univariant(prefix_layouts, repr_options_default(), StructKind.AlwaysSized);
+  const prefix_r = calc.layout_of_univariant(prefix_layouts, ReprOptions.default(), StructKind.AlwaysSized);
   if (prefix_r.$ === "Err") return prefix_r;
   const prefix = prefix_r._0;
 
@@ -294,7 +275,7 @@ export function layout<F extends DerefLayoutData, LocalIdx extends number>(
       })
       .map((local) => local_layouts[local]!);
 
-    const variant_r = calc.layout_of_univariant(variant_only_tys, repr_options_default(), { $: "Prefixed", _0: prefix_size, _1: prefix_align.abi });
+    const variant_r = calc.layout_of_univariant(variant_only_tys, ReprOptions.default(), { $: "Prefixed", _0: prefix_size, _1: prefix_align.abi });
     if (variant_r.$ === "Err") return variant_r;
     const variant = variant_r._0;
 
