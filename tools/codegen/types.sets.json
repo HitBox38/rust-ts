@@ -419,6 +419,29 @@
       "decodable_types": "`ReprOptions` and its field types: crate metadata's `AdtDefData.repr` (rustc_middle ty/codec.rs `Decodable for AdtDef`; lane small-gaps-18)"
     }
   },
+  "rustc_index": {
+    "files": [
+      "compiler/rustc_index/src/bit_set.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_only": true,
+    "derive_decodable": true,
+    "decodable_types": [
+      "rustc_index::bit_set::DenseBitSet"
+    ],
+    "decodable_construct": {
+      "rustc_index::bit_set::DenseBitSet": { "expr": "new DenseBitSet($0, $1)", "import": ["DenseBitSet"] }
+    },
+    "erase_params": ["T"],
+    "hand_notes": {
+      "erase_params": "`DenseBitSet<T>`'s `T: Idx` is a number-like index in bit_set.ts (`T extends number = number`); the decoded set is a `DenseBitSet<number>` (metadata only holds `DenseBitSet<u32>`)",
+      "*": "rustc_index's types are hand-written (src/rustc_index/bit_set.ts, a subset); this set only generates rustc_index/decodable.gen.ts.",
+      "decodable_types": "`DenseBitSet`: crate metadata's `params_in_repr` / `args_known_to_outlive_alias_params` (rustc_metadata cstore_impl.rs; lane small-gaps-20)"
+    }
+  },
   "rustc_middle": {
     "files": [
       "compiler/rustc_middle/src/ty/mod.rs",
