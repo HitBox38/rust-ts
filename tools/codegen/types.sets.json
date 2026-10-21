@@ -452,7 +452,8 @@
       "compiler/rustc_middle/src/middle/mod.rs",
       "compiler/rustc_middle/src/middle/resolve_bound_vars.rs",
       "compiler/rustc_middle/src/ty/consts/valtree.rs",
-      "compiler/rustc_middle/src/ty/intrinsic.rs"
+      "compiler/rustc_middle/src/ty/intrinsic.rs",
+      "compiler/rustc_middle/src/ty/predicate.rs"
     ],
     "class": [],
     "hand": [],
@@ -479,6 +480,7 @@
       "rustc_middle::ty::trait_def::TraitSpecializationKind",
       "rustc_middle::ty::trait_def::TraitDef",
       "rustc_middle::ty::generics::GenericClauses",
+      "rustc_middle::ty::generics::ConstConditions",
       "rustc_middle::ty::VariantDiscr",
       "rustc_middle::ty::VariantFlags",
       "rustc_middle::ty::FieldDef",

@@ -63,7 +63,7 @@ import { decode_FnSig, type FnSig } from "../../../rustc_type_ir/ty_kind.ts";
 import { CStore, type LoadedMacro } from "../../creader.ts";
 import type { CrateMetadata, DecodeIterator, MetadataDecodeContext, SimplifiedType } from "../decoder.ts";
 import { decode_Deprecation } from "../../../rustc_attr_ir/data_structures.ts";
-import { decode_AsyncDestructor, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ImplTraitHeader, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
+import { decode_AsyncDestructor, decode_ConstConditions, decode_Destructor, decode_GenericClauses, decode_Generics, decode_ImplTraitHeader, decode_ObjectLifetimeDefault, decode_TraitDef } from "../../../rustc_middle/decodable.gen.ts";
 import { decode_ConstStability, decode_DefaultBodyStability, decode_Stability } from "../../../rustc_attr_ir/stability.ts";
 import { AttrFlags, type LazyArray, type LazyTable, type LazyTables, type LazyValue, type RawDefId } from "../mod.ts";
 import {
@@ -478,7 +478,7 @@ export const PROVIDE_EXTERN: { readonly [N in ExternQuery]?: ProvideEntry<N> } =
   impl_parent: [IntoArgs_DefId, table(fse_Option_RawDefId, raw_def_id, ProcessQueryValue_T)],
   defaultness: [IntoArgs_DefId, table_direct(fse_Defaultness, ProcessQueryValue_T)],
   constness: [IntoArgs_DefId, table_direct(fse_Constness, ProcessQueryValue_T)],
-  const_conditions: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ConstConditions<'static>", decode_unported("ty::ConstConditions<'static>")), ProcessQueryValue_Option_T)],
+  const_conditions: [IntoArgs_DefId, table(fse_Option_LazyValue, lazy_value("ty::ConstConditions<'static>", decode_ConstConditions), ProcessQueryValue_Option_T)],
   explicit_implied_const_bounds: [IntoArgs_DefId, table_defaulted_array(lazy_array("(ty::PolyTraitRef<'static>, Span)", (d) => decode_tuple(d, (d) => decode_Binder(d, decode_TraitRef, decode_List_BoundVariableKind), decode_Span)), ProcessQueryValue_EarlyBinder)],
   coerce_unsized_info: [
     IntoArgs_DefId,
