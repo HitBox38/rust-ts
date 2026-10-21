@@ -62,7 +62,18 @@ import { Diag, type DiagCtxtHandle, type Level } from "../../rustc_errors/lib.ts
 import { Spanned_into_diag } from "../../rustc_errors/diagnostic.ts";
 import type { DefId } from "../../rustc_span/def_id.ts";
 import { DUMMY_SP, type ErrorGuaranteed, Span, debug_ErrorGuaranteed } from "../../rustc_span/lib.ts";
-import { bug } from "../../rustc_span/macros.ts";
+import { bug, span_bug } from "../../rustc_span/macros.ts";
+import { type Binder, debug_Binder } from "../../rustc_type_ir/binder.gen.ts";
+import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
+import { debug_FnSig } from "../../rustc_type_ir/ty_kind.ts";
+import { Instance as InstanceC, debug_Instance, display_Instance } from "./instance.ts";
+import { vtable_min_entries } from "./vtable.ts";
+import {
+  type ExistentialTraitRef,
+  fold_with_ExistentialTraitRef,
+  try_fold_with_ExistentialTraitRef,
+  visit_with_ExistentialTraitRef,
+} from "../../rustc_type_ir/predicate.ts";
 import { type Symbol, sym } from "../../rustc_span/symbol.ts";
 import { debug_Limit, display_Limit, Limit, Limit_mul } from "../../rustc_structures/limit.ts";
 import type { Target, X86Abi } from "../../rustc_target/spec/mod.ts";
@@ -70,7 +81,7 @@ import { IsRigid, UnsafeBinderInner } from "../../rustc_type_ir/ty_kind.ts";
 import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs } from "../../rustc_type_ir/ty_kind/closure.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
-import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, type Fmt, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
+import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { assert, assert_eq, panic, unported, unreachable } from "../../std/panic.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
@@ -1173,10 +1184,10 @@ export const TyAbiInterface_Ty: TyAbiInterface<Ty, LayoutCxLike> = {
             };
           }
 
-          const mk_dyn_vtable = (_principal: unknown): Ty => {
-            // PORT: `ty::vtable_min_entries` (ty/vtable.rs) is not ported yet.
-            const min_count: number = unported(
-              "rustc_middle::ty::vtable::vtable_min_entries (TyAndLayout::field of a `dyn Trait` pointer's metadata)",
+          const mk_dyn_vtable = (principal: Binder<ExistentialTraitRef> | undefined): Ty => {
+            const min_count = vtable_min_entries(
+              tcx,
+              principal === undefined ? undefined : tcx.instantiate_bound_regions_with_erased(principal, d_ExistentialTraitRef),
             );
             return Ty.new_imm_ref(
               tcx,
@@ -1721,9 +1732,20 @@ export type FnAbiRequest =
   | { readonly $: "OfFnPtr"; readonly sig: PolyFnSig; readonly extra_args: List<Ty> }
   | { readonly $: "OfInstance"; readonly instance: Instance; readonly extra_args: List<Ty> };
 // derive(Debug)
-// PORT (layout-contract): `ty::Instance` / `PolyFnSig` Debug are not reachable yet (`Instance` is pending, M4).
-export const debug_FnAbiRequest: Debug<FnAbiRequest> = (v: FnAbiRequest, _f: Fmt) =>
-  unported(`rustc_middle::ty::layout::FnAbiRequest Debug (${v.$}: ty::Instance / PolyFnSig Debug, M4)`);
+export const debug_FnAbiRequest: Debug<FnAbiRequest> = (v: FnAbiRequest, f: Fmt) => {
+  switch (v.$) {
+    case "OfFnPtr":
+      return debug_struct(f, "OfFnPtr", [
+        ["sig", debug_Binder(v.sig, f, debug_FnSig)],
+        ["extra_args", debug_vec(v.extra_args, f, debug_Ty)],
+      ]);
+    case "OfInstance":
+      return debug_struct(f, "OfInstance", [
+        ["instance", debug_Instance(v.instance, f)],
+        ["extra_args", debug_vec(v.extra_args, f, debug_Ty)],
+      ]);
+  }
+};
 
 /// Trait for contexts that want to be able to compute `FnAbi`s.
 /// This automatically gives access to `FnAbiOf`, through a blanket `impl`.
@@ -1761,10 +1783,10 @@ export function codegen_handle_fn_abi_err(tcx: TyCtxt, err: FnAbiError, span: Sp
       // span_bug!(span, "`fn_abi_of_fn_ptr({sig}, {extra_args:?})` failed: {err:?}",);
       // PORT: the message needs `PolyFnSig` Display (not ported); stops before formatting.
       return unported("rustc_middle::ty::layout::codegen_handle_fn_abi_err (span_bug message: PolyFnSig Display, M4)");
-    case "OfInstance":
-      // span_bug!(span, "`fn_abi_of_instance({instance}, {extra_args:?})` failed: {err:?}",);
-      // PORT: the message needs `ty::Instance` Display (`Instance` is pending, M4); stops before formatting.
-      return unported("rustc_middle::ty::layout::codegen_handle_fn_abi_err (span_bug message: ty::Instance Display, M4)");
+    case "OfInstance": {
+      const { instance, extra_args } = fn_abi_request;
+      return span_bug(span, `\`fn_abi_of_instance(${display_Instance(instance)}, ${debug_vec(extra_args, PLAIN, debug_Ty)})\` failed: ${debug_FnAbiError(err, PLAIN)}`);
+    }
   }
 }
 
@@ -1868,7 +1890,14 @@ export const FnAbiOf_provided = {
   },
 };
 
-/** `ty::Instance::def_id` (PORT: `Instance` is pending (ty/decls.ts, M4)). */
-function Instance_def_id(_instance: Instance): DefId {
-  return unported("rustc_middle::ty::instance::Instance::def_id (Instance is pending, M4)");
+/** The `TypeFoldable` impl fns of `ExistentialTraitRef` (generated) as a D4 descriptor (`mk_dyn_vtable`). */
+const d_ExistentialTraitRef: TypeFoldable<ExistentialTraitRef> = {
+  visit_with: visit_with_ExistentialTraitRef,
+  try_fold_with: try_fold_with_ExistentialTraitRef,
+  fold_with: fold_with_ExistentialTraitRef,
+};
+
+/** `ty::Instance::def_id` (ty/instance.rs). */
+function Instance_def_id(instance: Instance): DefId {
+  return InstanceC.def_id(instance);
 }

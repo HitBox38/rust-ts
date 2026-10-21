@@ -33,8 +33,8 @@ import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
 import { visit_with_Unnormalized } from "../../rustc_type_ir/unnormalized.gen.ts";
 import { type TypeVisitable, TypeVisitableExt } from "../../rustc_type_ir/visit.ts";
 import type { TypeFoldable } from "../../rustc_type_ir/fold.ts";
-import { format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
-import { unported } from "../../std/panic.ts";
+import { debug_vec, format_debug, PLAIN, PRETTY } from "../../std/fmt.ts";
+import { COMMON_VTABLE_ENTRIES, debug_VtblEntry, type VtblEntry } from "../../rustc_middle/ty/vtable.ts";
 import { TypeOf_diagnostic } from "../diagnostics.ts";
 import { fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import type { AnonConst } from "../../rustc_hir/hir.gen.ts";
@@ -228,7 +228,7 @@ export function vtables(tcx: TyCtxt): void {
       continue;
     }
 
-    let vtable_entries: unknown;
+    let vtable_entries: readonly VtblEntry[];
     const kind = tcx.hir_item(id).kind;
     if (kind.$ === "Impl" && kind._0.of_trait !== undefined) {
       const trait_ref = EarlyBinder.instantiate_identity(tcx.impl_trait_ref(def_id) as EarlyBinder<TraitRef>);
@@ -268,16 +268,13 @@ export function vtables(tcx: TyCtxt): void {
       if (principal !== undefined) {
         vtable_entries = tcx.vtable_entries(ExistentialTraitRef.with_self_ty(tcx.instantiate_bound_regions_with_erased(principal, d_ExistentialTraitRef), as_interner(tcx), ty));
       } else {
-        // PORT: rustc_middle ty/vtable.rs is not ported (M4/M6).
-        vtable_entries = unported("rustc_middle::ty::vtable::TyCtxt::COMMON_VTABLE_ENTRIES");
+        vtable_entries = COMMON_VTABLE_ENTRIES;
       }
     } else {
       tcx.dcx().span_err(attr_span, "`rustc_dump_vtable` only applies to impl, or type alias of dyn type");
       continue;
     }
 
-    // PORT: rustc_middle ty/vtable.rs `VtblEntry` (and its `Debug`) is not ported (M4/M6).
-    void vtable_entries;
-    tcx.dcx().span_err(tcx.def_span(def_id), `vtable entries: ${unported("rustc_middle::ty::vtable::<VtblEntry as Debug>::fmt")}`);
+    tcx.dcx().span_err(tcx.def_span(def_id), `vtable entries: ${format_debug(vtable_entries, (v, f) => debug_vec(v, f, debug_VtblEntry), PRETTY)}`);
   }
 }

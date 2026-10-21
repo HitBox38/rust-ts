@@ -16,7 +16,7 @@ import type { Namespace } from "../../../rustc_hir/def.ts";
 import { DisambiguatedDefPathData, type DefKey } from "../../../rustc_hir_id/definitions.ts";
 import { type CoroutineKind } from "../../../rustc_hir/hir.ts";
 import { type CrateNum, DefId, DefId_eq } from "../../../rustc_span/def_id.ts";
-import { assert, panic, unported, unwrap } from "../../../std/panic.ts";
+import { assert, panic, unwrap } from "../../../std/panic.ts";
 import { Ok, type Result } from "../../../std/result.ts";
 import { type Fmt } from "../../../std/fmt.ts";
 import type { PolyExistentialPredicate } from "../../../rustc_type_ir/decls.ts";
@@ -30,7 +30,8 @@ import { with_ } from "../context/tls.ts";
 import { GenericArg } from "../generic_args.ts";
 import type { Generics } from "../generics.ts";
 import type { List } from "../list.ts";
-import type { Instance, InstanceKind, Ty } from "../decls.ts";
+import type { Ty } from "../decls.ts";
+import { Instance as InstanceC, type Instance, type ShimKind } from "../instance.ts";
 import { display_Ty, FmtPrinter, type PrettyPrinter, with_no_trimmed_paths } from "./pretty.ts";
 import {
   print_AliasTerm as pretty_print_AliasTerm,
@@ -389,10 +390,9 @@ export function print_Ty(self: Ty, p: Printer): PrintResult {
 // impl<'tcx, P: Printer<'tcx> + std::fmt::Write> Print<P> for ty::Instance<'tcx>
 // rustc: compiler/rustc_middle/src/ty/print/mod.rs:366 print
 export function print_Instance(self: Instance, cx: PrinterWrite): PrintResult {
-  const self_ = self as unknown as InstanceView;
-  let r = cx.print_def_path(Instance_def_id(self), self_.args);
+  let r = cx.print_def_path(InstanceC.def_id(self), self.args);
   if (r.$ === "Err") return r;
-  const def = self_.def as unknown as InstanceKindView;
+  const def = self.def;
   switch (def.$) {
     case "Item":
       break;
@@ -424,7 +424,7 @@ export function print_Instance(self: Instance, cx: PrinterWrite): PrintResult {
 
 // impl<'tcx, P: Printer<'tcx> + std::fmt::Write> Print<P> for ty::ShimKind<'tcx>
 // rustc: compiler/rustc_middle/src/ty/print/mod.rs:383 print
-export function print_ShimKind(self: ShimKindView, cx: PrinterWrite): PrintResult {
+export function print_ShimKind(self: ShimKind, cx: PrinterWrite): PrintResult {
   switch (self.$) {
     case "VTable":
       return cx.write_str("shim(vtable)");
@@ -518,39 +518,3 @@ IR_PRINT.Const = ir_print_impl(() => print_Const);
 
 /** PORT: the `TypeFoldable` impl fns of `TraitRef` (generated) as a D4 descriptor (merge-w15a). */
 const d_TraitRef: TypeFoldable<TraitRef> = { visit_with: visit_with_TraitRef, try_fold_with: try_fold_with_TraitRef, fold_with: fold_with_TraitRef };
-
-// ---- PORT(stand-in): upstream fns and types of files not ported yet that this file calls. ----
-// Each is replaced by a call to the real port when its file lands (docs/handoff/ty-print-a.md).
-
-/** `ty::Instance` (ty/instance.rs:33; `Pending` in ty/decls.ts): the fields `print` reads. */
-interface InstanceView {
-  def: InstanceKind;
-  args: GenericArg[];
-}
-/** `ty::InstanceKind` (ty/instance.rs:62) in its PORTING §5 shape. */
-type InstanceKindView =
-  | { readonly $: "Item"; _0: DefId }
-  | { readonly $: "Intrinsic"; _0: DefId }
-  | { readonly $: "LlvmIntrinsic"; _0: DefId }
-  | { readonly $: "Virtual"; _0: DefId; _1: number }
-  | { readonly $: "Shim"; _0: ShimKindView };
-/** `ty::ShimKind` (ty/instance.rs:100) in its PORTING §5 shape (`ReifyReason` is fieldless). */
-export type ShimKindView =
-  | { readonly $: "VTable"; _0: DefId }
-  | { readonly $: "Reify"; _0: DefId; _1: "FnPtr" | "Vtable" | undefined }
-  | { readonly $: "FnPtr"; _0: DefId; _1: Ty }
-  | { readonly $: "ClosureOnce"; call_once: DefId; closure: DefId; track_caller: boolean }
-  | { readonly $: "ConstructCoroutineInClosure"; coroutine_closure_def_id: DefId; receiver_by_ref: boolean }
-  | { readonly $: "ThreadLocal"; _0: DefId }
-  | { readonly $: "DropGlue"; _0: DefId; _1: Ty | undefined }
-  | { readonly $: "Clone"; _0: DefId; _1: Ty }
-  | { readonly $: "FnPtrAsPtr"; _0: DefId; _1: Ty }
-  | { readonly $: "FnPtrFromPtr"; _0: DefId; _1: Ty }
-  | { readonly $: "FutureDropPoll"; _0: DefId; _1: Ty; _2: Ty }
-  | { readonly $: "AsyncDropGlue"; _0: DefId; _1: Ty }
-  | { readonly $: "AsyncDropGlueCtor"; _0: DefId; _1: Ty };
-
-/** `Instance::def_id` (ty/instance.rs; not ported). */
-function Instance_def_id(_self: Instance): DefId {
-  return unported("rustc_middle::ty::instance::Instance::def_id (ty/instance.rs)");
-}
