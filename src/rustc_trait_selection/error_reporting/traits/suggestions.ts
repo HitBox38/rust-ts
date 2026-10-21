@@ -160,7 +160,7 @@ function sugg_a_select(): typeof import("../../traits/select/mod.ts") {
 function d_TraitClause(): TypeFoldable<TraitClause> {
   return { visit_with: visit_with_TraitClause, try_fold_with: try_fold_with_TraitClause, fold_with: fold_with_TraitClause };
 }
-function d_PolyTraitClause(): TypeFoldable<PolyTraitClauseT> {
+function d_PolyTraitClause(): TypeSuperFoldable<PolyTraitClauseT> & TypeSuperVisitable<PolyTraitClauseT> {
   return fold_Binder(d_TraitClause());
 }
 function d_FnSig(): TypeFoldable<FnSig> {
@@ -2560,8 +2560,8 @@ TypeErrCtxt.prototype.suggest_change_mut = function (this: TypeErrCtxt, obligati
       // Do not suggest removal of borrow from type arguments.
       return;
     }
-    const trait_pred = this.deeply_resolve_ignoring_regions(trait_pred_, d_PolyTraitClause_b());
-    if (TypeVisitableExt.has_non_region_infer(trait_pred, d_PolyTraitClause_b())) {
+    const trait_pred = this.deeply_resolve_ignoring_regions(trait_pred_, d_PolyTraitClause());
+    if (TypeVisitableExt.has_non_region_infer(trait_pred, d_PolyTraitClause())) {
       // Do not ICE while trying to find if a reborrow would succeed on a trait with
       // unresolved bindings.
       return;
@@ -2606,7 +2606,7 @@ TypeErrCtxt.prototype.suggest_change_mut = function (this: TypeErrCtxt, obligati
           err.span_suggestion_verbose(sp, "consider changing this borrow's mutability", "&mut ", "MachineApplicable");
         } else {
           err.note(
-            `\`${display_PolyTraitClausePrintModifiersAndPath_b(PolyTraitClause_print_modifiers_and_trait_path(trait_pred))}\` is implemented for \`${display_Ty(suggested_ty)}\`, but not for \`${display_Ty(TraitClause.self_ty(Binder.skip_binder(trait_pred)))}\``,
+            `\`${display_Binder_TraitClausePrintModifiersAndPath(PolyTraitClause_print_modifiers_and_trait_path(trait_pred))}\` is implemented for \`${display_Ty(suggested_ty)}\`, but not for \`${display_Ty(TraitClause.self_ty(Binder.skip_binder(trait_pred)))}\``,
           );
         }
       }
@@ -2694,7 +2694,7 @@ TypeErrCtxt.prototype.emit_semicolon_removal_suggestion = function (
 ): void {
   err.span_label(
     expr.span,
-    `this expression has type \`${display_Ty(ty)}\`, which implements \`${display_PolyTraitClausePrintModifiersAndPath_b(PolyTraitClause_print_modifiers_and_trait_path(trait_pred))}\``,
+    `this expression has type \`${display_Ty(ty)}\`, which implements \`${display_Binder_TraitClausePrintModifiersAndPath(PolyTraitClause_print_modifiers_and_trait_path(trait_pred))}\``,
   );
   err.span_suggestion(this.tcx.sess.source_map().end_point(stmt.span), "remove this semicolon", "", applicability);
 };
@@ -4387,9 +4387,9 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
     }
     case "BuiltinDerived": {
       const data = cause_code._0;
-      const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause_b());
+      const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause());
       const ty = TraitClause.self_ty(Binder.skip_binder(parent_trait_ref));
-      if (TypeVisitableExt.references_error(parent_trait_ref, d_PolyTraitClause_b())) {
+      if (TypeVisitableExt.references_error(parent_trait_ref, d_PolyTraitClause())) {
         // NOTE(eddyb) this was `.cancel()`, but `err`
         // is borrowed, so we can't fully defuse it.
         err.downgrade_to_delayed_bug();
@@ -4404,7 +4404,7 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
         is_upvar_tys_infer_tuple = false;
       } else if (parent_code.$ === "BuiltinDerived") {
         const data = parent_code._0;
-        const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause_b());
+        const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause());
         const nested_ty = TraitClause.self_ty(Binder.skip_binder(parent_trait_ref));
         const nk = nested_ty.kind().$;
         is_upvar_tys_infer_tuple = nk === "Coroutine" || nk === "Closure" || nk === "CoroutineClosure";
@@ -4555,7 +4555,7 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
     }
     case "ImplDerived": {
       const data_ = cause_code._0;
-      let parent_trait_pred = this.deeply_resolve_ignoring_regions(data_.derived.parent_trait_pred, d_PolyTraitClause_b());
+      let parent_trait_pred = this.deeply_resolve_ignoring_regions(data_.derived.parent_trait_pred, d_PolyTraitClause());
       const parent_def_id = PolyTraitClause_.def_id(parent_trait_pred);
       if (tcx.is_diagnostic_item(sym.FromResidual, parent_def_id) && !tcx.features().enabled(sym.try_trait_v2)) {
         // If `#![feature(try_trait_v2)]` is not enabled, then there's no point on
@@ -4564,7 +4564,7 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
         return;
       }
       if (tcx.is_diagnostic_item(sym.PinDerefMutHelper, parent_def_id)) {
-        const parent_predicate = this.deeply_resolve_ignoring_regions(data_.derived.parent_trait_pred, d_PolyTraitClause_b());
+        const parent_predicate = this.deeply_resolve_ignoring_regions(data_.derived.parent_trait_pred, d_PolyTraitClause());
 
         // Skip PinDerefMutHelper in suggestions, but still show downstream suggestions.
 
@@ -4586,7 +4586,7 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
       const trait_name = tcx.short_string(
         PolyTraitClause_print_modifiers_and_trait_path(parent_trait_pred),
         err.long_ty_path(),
-        print_PolyTraitClausePrintModifiersAndPath_b,
+        print_Binder_TraitClausePrintModifiersAndPath,
       );
       const msg = `required for \`${self_ty_str}\` to implement \`${trait_name}\``;
       let is_auto_trait = false;
@@ -4655,7 +4655,7 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
         let pc: ObligationCauseCode;
         while ((pc = ObligationCauseCodeHandle.deref(data.parent_code)).$ === "BuiltinDerived") {
           const derived = pc._0;
-          const child_trait_ref = this.deeply_resolve_ignoring_regions(derived.parent_trait_pred, d_PolyTraitClause_b());
+          const child_trait_ref = this.deeply_resolve_ignoring_regions(derived.parent_trait_pred, d_PolyTraitClause());
           const child_def_id = PolyTraitClause_.def_id(child_trait_ref);
           if (set_insert(seen_requirements, child_def_id)) {
             break;
@@ -4669,7 +4669,7 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
       while ((pc = ObligationCauseCodeHandle.deref(data.parent_code)).$ === "ImplDerived") {
         const child = pc._0;
         // Skip redundant recursive obligation notes. See `ui/issue-20413.rs`.
-        const child_trait_pred = this.deeply_resolve_ignoring_regions(child.derived.parent_trait_pred, d_PolyTraitClause_b());
+        const child_trait_pred = this.deeply_resolve_ignoring_regions(child.derived.parent_trait_pred, d_PolyTraitClause());
         const child_def_id = PolyTraitClause_.def_id(child_trait_pred);
         if (set_insert(seen_requirements, child_def_id)) {
           break;
@@ -4685,7 +4685,7 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
         const trait_path = tcx.short_string(
           PolyTraitClause_print_modifiers_and_trait_path(parent_trait_pred),
           err.long_ty_path(),
-          print_PolyTraitClausePrintModifiersAndPath_b,
+          print_Binder_TraitClausePrintModifiersAndPath,
         );
         err.note(`required for \`${self_ty}\` to implement \`${trait_path}\``);
       }
@@ -4758,7 +4758,7 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
     }
     case "WellFormedDerived": {
       const data = cause_code._0;
-      const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause_b());
+      const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause());
       const parent_predicate = parent_trait_ref;
 
       closure_capture_ty.value = TraitClause.self_ty(Binder.skip_binder(parent_trait_ref));
@@ -4885,7 +4885,7 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
           if (pred_ === undefined) return undefined;
           const pred = pred_.as_trait_clause();
           if (pred === undefined) return undefined;
-          if (!this.infcx.enter_forall(pred, (pred) => this.can_eq(param_env, TraitClause.self_ty(pred), expr_ty, ToTrace_Ty), d_TraitClause_b)) {
+          if (!this.infcx.enter_forall(pred, (pred) => this.can_eq(param_env, TraitClause.self_ty(pred), expr_ty, ToTrace_Ty), d_TraitClause())) {
             return undefined;
           }
           return [expr_ty, expr];
@@ -4928,18 +4928,6 @@ TypeErrCtxt.prototype.note_obligation_cause_code_inner = function <T>(
 /** The reflexive `impl<I, T> UpcastFrom<I, T> for T` (rustc_type_ir upcast.rs) at `Predicate`. */
 const upcast_from_Predicate: (from: Predicate, tcx: Interner) => Predicate = upcast_from_self;
 
-/** `impl<'tcx> rustc_type_ir::visit::TypeVisitable/TypeFoldable for TraitClause` (generated fns) as a descriptor. */
-const d_TraitClause_b: TypeFoldable<TraitClause> = {
-  visit_with: visit_with_TraitClause,
-  try_fold_with: try_fold_with_TraitClause,
-  fold_with: fold_with_TraitClause,
-};
-
-/** `ty::PolyTraitClauseT`'s `TypeFoldable` (`Binder<TraitClause>`). */
-function d_PolyTraitClause_b(): TypeSuperFoldable<PolyTraitClauseT> & TypeSuperVisitable<PolyTraitClauseT> {
-  return fold_Binder(d_TraitClause_b);
-}
-
 /** `ty::Binder<Ty>`'s `TypeFoldable`. */
 function d_Binder_Ty(): TypeSuperFoldable<Binder<Ty>> & TypeSuperVisitable<Binder<Ty>> {
   return fold_Binder(fold_Ty);
@@ -4973,13 +4961,13 @@ const d_TraitRefPrintOnlyTraitPath: TypeFoldable<TraitRefPrintOnlyTraitPath> = {
 };
 
 /** `Print for ty::Binder<'tcx, TraitClausePrintModifiersAndPath>` (pretty.rs:2960). */
-function print_PolyTraitClausePrintModifiersAndPath_b(self: Binder<TraitClausePrintModifiersAndPath>, p: PrettyPrinter): PrintResult {
+function print_Binder_TraitClausePrintModifiersAndPath(self: Binder<TraitClausePrintModifiersAndPath>, p: PrettyPrinter): PrintResult {
   return print_Binder(self, p, print_TraitClausePrintModifiersAndPath, d_TraitClausePrintModifiersAndPath);
 }
 
 /** `Display for ty::Binder<'tcx, TraitClausePrintModifiersAndPath>` (rustc_type_ir ir_print.rs through `IrPrint` for `TyCtxt`). */
-function display_PolyTraitClausePrintModifiersAndPath_b(self: Binder<TraitClausePrintModifiersAndPath>): string {
-  return IrPrint_print(self, PLAIN, print_PolyTraitClausePrintModifiersAndPath_b);
+function display_Binder_TraitClausePrintModifiersAndPath(self: Binder<TraitClausePrintModifiersAndPath>): string {
+  return IrPrint_print(self, PLAIN, print_Binder_TraitClausePrintModifiersAndPath);
 }
 
 /** `Print for ty::Binder<'tcx, TraitRefPrintOnlyTraitPath>` (pretty.rs:2960). */
@@ -5102,7 +5090,7 @@ TypeErrCtxt.prototype.suggest_await_before_try = function (
 ): void {
   const future_trait = this.tcx.require_lang_item("Future", span);
 
-  const self_ty = this.deeply_resolve_ignoring_regions(PolyTraitClauseC.self_ty(trait_pred), d_Binder_Ty_c());
+  const self_ty = this.deeply_resolve_ignoring_regions(PolyTraitClauseC.self_ty(trait_pred), d_Binder_Ty());
   const impls_future = this.type_implements_trait(
     future_trait,
     [this.tcx.instantiate_bound_regions_with_erased(self_ty, fold_Ty)],
@@ -5123,7 +5111,7 @@ TypeErrCtxt.prototype.suggest_await_before_try = function (
       [TraitClause.self_ty(trait_pred)],
     ),
   );
-  const projection_ty = this.at(obligation.cause, obligation.param_env).normalize(Unnormalized.new_wip(projection_ty_), d_Binder_Ty_c()).value;
+  const projection_ty = this.at(obligation.cause, obligation.param_env).normalize(Unnormalized.new_wip(projection_ty_), d_Binder_Ty()).value;
 
   // debug!(normalized_projection_type = ?self.deeply_resolve_ignoring_regions(projection_ty));
   const try_obligation = this.mk_trait_obligation_with_new_self_ty(
@@ -5452,7 +5440,7 @@ TypeErrCtxt.prototype.note_function_argument_obligation = function (
         this.enter_forall(
           where_pred_t,
           (where_pred) => {
-            const failed_pred = this.instantiate_binder_with_fresh_vars(expr.span, BoundRegionConversionTime.FnCall, failed_pred_t_, d_TraitClause_c);
+            const failed_pred = this.instantiate_binder_with_fresh_vars(expr.span, BoundRegionConversionTime.FnCall, failed_pred_t_, d_TraitClause());
 
             const zipped_a = where_pred.trait_ref.args;
             const zipped_b = failed_pred.trait_ref.args;
@@ -5471,7 +5459,7 @@ TypeErrCtxt.prototype.note_function_argument_obligation = function (
               });
             }
           },
-          d_TraitClause_c,
+          d_TraitClause(),
         );
       } else if (
         (where_pred_p = where_pred.as_projection_clause()) !== undefined &&
@@ -5765,7 +5753,7 @@ TypeErrCtxt.prototype.look_for_iterator_item_mistakes = function (
               trait_ref: TraitRef.new(as_interner(tcx), tcx.require_lang_item("Clone", span!), [ty]),
               polarity: "Positive",
             },
-            d_TraitClause_c,
+            d_TraitClause(),
           );
           const generics = hir.Node.generics(node);
           if (generics === undefined) {
@@ -6330,8 +6318,8 @@ TypeErrCtxt.prototype.explain_hrtb_projection = function (
   cause: ObligationCause,
 ): void {
   if (
-    TypeVisitableExt.has_escaping_bound_vars(Binder.skip_binder(pred), d_TraitClause_c) &&
-    TypeVisitableExt.has_non_region_infer(Binder.skip_binder(pred), d_TraitClause_c)
+    TypeVisitableExt.has_escaping_bound_vars(Binder.skip_binder(pred), d_TraitClause()) &&
+    TypeVisitableExt.has_non_region_infer(Binder.skip_binder(pred), d_TraitClause())
   ) {
     this.probe((_) => {
       const ocx = engine_mod().ObligationCtxt.new(this.infcx);
@@ -7423,23 +7411,9 @@ export class ParamFinder implements TypeVisitor<undefined> {
 
 /** `impl Display for ty::Binder<'tcx, TraitClause>` (rustc_type_ir ir_print.rs:89 through `IrPrint` for `TyCtxt`). */
 function display_PolyTraitClause(self: PolyTraitClauseT): string {
-  return IrPrint_print(self, { alternate: false }, (v, p) => print_Binder(v, p, print_TraitClause, d_TraitClause_c));
+  return IrPrint_print(self, PLAIN, print_PolyTraitClause);
 }
 
-/** `impl Display for ty::Binder<'tcx, TraitClausePrintModifiersAndPath>` (ir_print.rs:89 through `IrPrint` for `TyCtxt`). */
-function display_Binder_TraitClausePrintModifiersAndPath(self: Binder<TraitClausePrintModifiersAndPath>): string {
-  return IrPrint_print(self, { alternate: false }, (v, p) =>
-    print_Binder(v, p, print_TraitClausePrintModifiersAndPath, d_TraitClausePrintModifiersAndPath_c),
-  );
-}
-
-/** The generated `TypeFoldable` impl fns of `TraitClause` as a descriptor. */
-const d_TraitClause_c: TypeFoldable<TraitClause> = {
-  visit_with: visit_with_TraitClause,
-  try_fold_with: try_fold_with_TraitClause,
-  fold_with: fold_with_TraitClause,
-};
-const d_Binder_Ty_c = (): TypeFoldable<Binder<Ty>> => fold_Binder(fold_Ty);
 /** The derived `TypeFoldable` of `ProjectionClause`. */
 const d_ProjectionClause: TypeFoldable<ProjectionClause> = {
   visit_with: visit_with_ProjectionClause,
@@ -7457,19 +7431,6 @@ const d_FnSigTys: TypeFoldable<FnSigTysT> = {
   visit_with: visit_with_FnSigTys,
   try_fold_with: try_fold_with_FnSigTys,
   fold_with: fold_with_FnSigTys,
-};
-/**
- * pretty.rs:3057 `#[derive(TypeFoldable, TypeVisitable, Lift)] struct TraitClausePrintModifiersAndPath(ty::TraitClause)`:
- * the derive forwards to the single field.
- */
-// PORT: hand-written derive (the struct is hand-written in pretty.ts; no generated impls yet).
-const d_TraitClausePrintModifiersAndPath_c: TypeFoldable<TraitClausePrintModifiersAndPath> = {
-  visit_with: (v, visitor) => visit_with_TraitClause(v._0, visitor),
-  try_fold_with: (v, folder) => {
-    const r = try_fold_with_TraitClause(v._0, folder);
-    return r.$ === "Ok" ? Ok({ _0: r._0 }) : r;
-  },
-  fold_with: (v, folder) => ({ _0: fold_with_TraitClause(v._0, folder) }),
 };
 /** `T: Upcast<TyCtxt, Predicate>` descriptors (the `Interner` parameter is the `TyCtxt`). */
 const upcast_PolyTraitClause = Predicate_upcast_from_PolyTraitClause as unknown as (from: PolyTraitClauseT, tcx: Interner) => Predicate;

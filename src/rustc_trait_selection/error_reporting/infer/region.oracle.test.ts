@@ -12,10 +12,9 @@
 //
 // Every case first goes through `TypeErrCtxt::try_report_nice_region_error`, whose other `NiceRegionError` reports
 // (`try_report_placeholder_conflict`, ...) belong to lane errrep-nice-region, and its plain report notes the origin with
-// `RegionOriginNote`'s manual `Subdiagnostic` impl (diagnostics.rs:440, lane errrep-infer-b). Until those lanes are
-// merged a case stops at exactly one line of PENDING (exit 70); once none applies, stderr and the exit code must equal the
-// oracle's byte for byte. (With local stand-ins for those two items, all six cases equal the oracle: lane errrep-region
-// handoff.)
+// `RegionOriginNote`'s manual `Subdiagnostic` impl (diagnostics.rs:440, lane errrep-infer-b). Until those lanes were
+// merged a case stopped at exactly one line of PENDING (exit 70); since merge-w19 PENDING is empty and stderr and the
+// exit code must equal the oracle's byte for byte.
 //
 // Without the pinned toolchain this is a visible skip; RUST_TS_REQUIRE_PROBES=1 makes that a failure.
 import { beforeAll, expect, test } from "bun:test";
@@ -41,13 +40,10 @@ const CASES: Record<string, [keyof typeof RUNNERS, string]> = {
   e0309_bounded_param: ["wf", "E0309"],
 };
 
-/** The other wave-19 lanes' placeholders a case may stop at (exact `unported(..)` texts). */
-const PENDING = new Set([
-  // nice_region_error/placeholder_error.rs:76 (lane errrep-nice-region), first in `NiceRegionError::try_report_from_nll`
-  "rustc_trait_selection::error_reporting::infer::nice_region_error::placeholder_error::NiceRegionError::try_report_placeholder_conflict",
-  // diagnostics.rs:440 (lane errrep-infer-b), from `TypeErrCtxt::note_region_origin`
-  "rustc_trait_selection::diagnostics::<RegionOriginNote as Subdiagnostic>::add_to_diag",
-]);
+/** The other wave-19 lanes' placeholders a case may stop at (exact `unported(..)` texts): none since merge-w19
+ * (`NiceRegionError::try_report_placeholder_conflict`, lane errrep-nice-region, and `<RegionOriginNote as
+ * Subdiagnostic>::add_to_diag`, lane errrep-infer-b, are ported). */
+const PENDING = new Set<string>([]);
 
 const ENV: Record<string, string> = {};
 for (const [k, v] of Object.entries(process.env)) {

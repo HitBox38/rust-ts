@@ -1531,7 +1531,7 @@ TypeErrCtxt.prototype.can_match_trait = function (this: TypeErrCtxt, param_env: 
     return false;
   }
 
-  const trait_assumption = this.instantiate_binder_with_fresh_vars(DUMMY_SP, BoundRegionConversionTime.HigherRankedType, assumption, d_TraitClause_b);
+  const trait_assumption = this.instantiate_binder_with_fresh_vars(DUMMY_SP, BoundRegionConversionTime.HigherRankedType, assumption, d_TraitClause);
 
   return this.can_eq(param_env, goal.trait_ref, trait_assumption.trait_ref, ToTrace_TraitRef);
 };
@@ -1608,7 +1608,7 @@ TypeErrCtxt.prototype.error_implies = function (this: TypeErrCtxt, cond: Goal<Pr
         }
         return false;
       },
-      d_TraitClause_b,
+      d_TraitClause,
     );
   } else if ((host_error = TypeErrCtxt.as_host_effect_clause(error.predicate)) !== undefined) {
     return this.enter_forall(
@@ -2425,7 +2425,7 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
             }
             return true;
           },
-          d_TraitClause_b,
+          d_TraitClause,
         );
       })
     ) {
@@ -2494,7 +2494,7 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
               );
               return ocx.try_evaluate_obligations();
             },
-            d_TraitClause_b,
+            d_TraitClause,
           );
         };
         const failing_obligations: TraitErrors<FulfillmentError> =
@@ -2762,7 +2762,7 @@ TypeErrCtxt.prototype.get_parent_trait_ref = function (this: TypeErrCtxt, code: 
   switch (code.$) {
     case "BuiltinDerived": {
       const data = code._0;
-      const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause_b);
+      const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause);
       const t = this.get_parent_trait_ref(ObligationCauseCodeHandle.deref(data.parent_code));
       if (t !== undefined) {
         return t;
@@ -3153,7 +3153,7 @@ TypeErrCtxt.prototype.note_obligation_cause = function (this: TypeErrCtxt, err: 
 TypeErrCtxt.prototype.is_recursive_obligation = function (this: TypeErrCtxt, obligated_types: Ty[], cause_code: ObligationCauseCode): boolean {
   if (cause_code.$ === "BuiltinDerived") {
     const data = cause_code._0;
-    const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause_b);
+    const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause);
     const self_ty = TraitClause.self_ty(Binder.skip_binder(parent_trait_ref));
     if (obligated_types.some((ot) => ot === self_ty)) {
       return true;
@@ -3199,7 +3199,7 @@ TypeErrCtxt.prototype.select_transmute_obligation_for_reporting = function (
   }
 
   const ocx = lazy_engine().ObligationCtxt.new(this.infcx);
-  const normalized_predicate = this.tcx.erase_and_anonymize_regions(this.tcx.instantiate_bound_regions_with_erased(trait_predicate, d_TraitClause_b), d_TraitClause_b);
+  const normalized_predicate = this.tcx.erase_and_anonymize_regions(this.tcx.instantiate_bound_regions_with_erased(trait_predicate, d_TraitClause), d_TraitClause);
   const trait_ref = normalized_predicate.trait_ref;
 
   const assume_ct = ocx.normalize(obligation.cause, obligation.param_env, Unnormalized.new_wip(trait_ref.args.const_at(2)), fold_Const);
@@ -3246,7 +3246,7 @@ TypeErrCtxt.prototype.get_safe_transmute_error_and_reason = function (
     }
 
     // Erase regions because layout code doesn't particularly care about regions.
-    const trait_pred = this.tcx.erase_and_anonymize_regions(this.tcx.instantiate_bound_regions_with_erased(trait_pred_, d_TraitClause_b), d_TraitClause_b);
+    const trait_pred = this.tcx.erase_and_anonymize_regions(this.tcx.instantiate_bound_regions_with_erased(trait_pred_, d_TraitClause), d_TraitClause);
 
     const ocx = lazy_engine().ObligationCtxt.new(this.infcx);
     const assume_ct = ocx.normalize(obligation.cause, obligation.param_env, Unnormalized.new_wip(trait_pred.trait_ref.args.const_at(2)), fold_Const);
@@ -3410,8 +3410,8 @@ TypeErrCtxt.prototype.try_to_add_help_message = function (
     const [implemented_kind, params] = fn_trait._0;
     this.add_help_message_for_fn_trait(trait_predicate, err, implemented_kind, params);
   } else if (
-    !TypeVisitableExt.has_non_region_infer(trait_predicate, d_PolyTraitClause_b) &&
-    this.predicate_can_apply(obligation.param_env, trait_predicate, Predicate_upcast_from_PolyTraitClause_, d_PolyTraitClause_b)
+    !TypeVisitableExt.has_non_region_infer(trait_predicate, d_PolyTraitClause) &&
+    this.predicate_can_apply(obligation.param_env, trait_predicate, Predicate_upcast_from_PolyTraitClause_, d_PolyTraitClause)
   ) {
     // If a where-clause may be useful, remind the
     // user that they can add it.
@@ -3935,14 +3935,6 @@ TypeErrCtxt.prototype.report_not_const_evaluatable_error = function (
 
 // ---- helpers (lane errrep-traits-b) -----------------------------------------------------------------------------------
 
-/** The generated `TypeFoldable` impl fns of `TraitClause` as a D4 descriptor. */
-const d_TraitClause_b: TypeFoldable<TraitClause> = {
-  visit_with: visit_with_TraitClause,
-  try_fold_with: try_fold_with_TraitClause,
-  fold_with: fold_with_TraitClause,
-};
-/** `Binder<TraitClause>`'s `TypeFoldable`. */
-const d_PolyTraitClause_b: TypeFoldable<PolyTraitClauseT> = fold_Binder(d_TraitClause_b);
 /** The generated `TypeFoldable` impl fns of `ProjectionClause` as a D4 descriptor. */
 const d_ProjectionClause: TypeFoldable<ProjectionClause> = {
   visit_with: visit_with_ProjectionClause,

@@ -1,0 +1,258 @@
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:32:34
+   |
+32 | pub fn turbofish_call() { need::<Bad>(Bad); }
+   |                                  ^^^ unsatisfied trait bound
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `need`
+  --> adjust_paths.rs:16:16
+   |
+16 | pub fn need<T: Tr>(_t: T) {}
+   |                ^^ required by this bound in `need`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:34:41
+   |
+34 | pub fn path_expr() { let _f = need_ty::<Bad>; }
+   |                                         ^^^ unsatisfied trait bound
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `need_ty`
+  --> adjust_paths.rs:17:19
+   |
+17 | pub fn need_ty<T: Tr>() {}
+   |                   ^^ required by this bound in `need_ty`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:36:29
+   |
+36 | pub fn no_arg() { need_ty::<Bad>(); }
+   |                             ^^^ unsatisfied trait bound
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `need_ty`
+  --> adjust_paths.rs:17:19
+   |
+17 | pub fn need_ty<T: Tr>() {}
+   |                   ^^ required by this bound in `need_ty`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:38:46
+   |
+38 | pub fn lifetimes(a: &Good, b: &Bad) { two(a, b); }
+   |                                       ---    ^ unsatisfied trait bound
+   |                                       |
+   |                                       required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `two`
+  --> adjust_paths.rs:18:26
+   |
+18 | pub fn two<'a, A: Tr, B: Tr>(_a: &'a A, _b: &'a B) {}
+   |                          ^^ required by this bound in `two`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:39:61
+   |
+39 | pub fn lifetimes_turbofish(a: &Good, b: &Bad) { two::<Good, Bad>(a, b); }
+   |                                                             ^^^ unsatisfied trait bound
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `two`
+  --> adjust_paths.rs:18:26
+   |
+18 | pub fn two<'a, A: Tr, B: Tr>(_a: &'a A, _b: &'a B) {}
+   |                          ^^ required by this bound in `two`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:41:40
+   |
+41 | pub fn struct_expr() { let _q = Q { x: Bad }; }
+   |                                        ^^^ unsatisfied trait bound
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `Q`
+  --> adjust_paths.rs:19:17
+   |
+19 | pub struct Q<T: Tr> { pub x: T }
+   |                 ^^ required by this bound in `Q`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:43:31
+   |
+43 | pub fn method_arg(s: S) { s.m(Bad); }
+   |                             - ^^^ unsatisfied trait bound
+   |                             |
+   |                             required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `S::m`
+  --> adjust_paths.rs:22:17
+   |
+21 | impl S {
+22 |     pub fn m<T: Tr>(&self, _t: T) {}
+   |                 ^^ required by this bound in `S::m`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:45:39
+   |
+45 | pub fn method_turbofish(s: S) { s.g::<Bad>(); }
+   |                                   -   ^^^ unsatisfied trait bound
+   |                                   |
+   |                                   required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `S::g`
+  --> adjust_paths.rs:23:17
+   |
+21 | impl S {
+22 |     pub fn m<T: Tr>(&self, _t: T) {}
+23 |     pub fn g<T: Tr>(&self) {}
+   |                 ^^ required by this bound in `S::g`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:47:34
+   |
+47 | pub fn assoc_path() { S::assoc::<Bad>(); }
+   |                                  ^^^ unsatisfied trait bound
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `S::assoc`
+  --> adjust_paths.rs:24:21
+   |
+21 | impl S {
+...
+24 |     pub fn assoc<T: Tr>() {}
+   |                     ^^ required by this bound in `S::assoc`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:49:31
+   |
+49 | pub fn self_param(b: Bad) { b.me(); }
+   |                               ^^ unsatisfied trait bound
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `Me::me`
+  --> adjust_paths.rs:26:41
+   |
+26 | pub trait Me { fn me(&self) where Self: Tr {} }
+   |                                         ^^ required by this bound in `Me::me`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_paths.rs:51:40
+   |
+51 | pub fn ty_relative() { let _g = G::new(Bad); }
+   |                                 ------ ^^^ unsatisfied trait bound
+   |                                 |
+   |                                 required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_paths.rs:13:1
+   |
+13 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+help: the trait `Tr` is implemented for `Good`
+  --> adjust_paths.rs:14:1
+   |
+14 | impl Tr for Good {}
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `G::<T>::new`
+  --> adjust_paths.rs:29:50
+   |
+29 | impl<T> G<T> { pub fn new(t: T) -> G<T> where T: Tr { G(t) } }
+   |                                                  ^^ required by this bound in `G::<T>::new`
+
+error: aborting due to 11 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

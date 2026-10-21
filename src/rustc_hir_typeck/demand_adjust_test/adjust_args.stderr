@@ -1,0 +1,255 @@
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_args.rs:27:21
+   |
+27 | pub fn arg() { need(Bad); }
+   |                ---- ^^^ unsatisfied trait bound
+   |                |
+   |                required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_args.rs:11:1
+   |
+11 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+   = help: the following other types implement trait `Tr`:
+             &'a T
+             (A, B)
+             E<T>
+             Good
+             TupW<T>
+             W<T>
+note: required by a bound in `need`
+  --> adjust_args.rs:23:16
+   |
+23 | pub fn need<T: Tr>(_t: T) {}
+   |                ^^ required by this bound in `need`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_args.rs:29:26
+   |
+29 | pub fn arg2() { need2(0, Bad); }
+   |                 -----    ^^^ unsatisfied trait bound
+   |                 |
+   |                 required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_args.rs:11:1
+   |
+11 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+   = help: the following other types implement trait `Tr`:
+             &'a T
+             (A, B)
+             E<T>
+             Good
+             TupW<T>
+             W<T>
+note: required by a bound in `need2`
+  --> adjust_args.rs:24:17
+   |
+24 | pub fn need2<T: Tr>(_a: u8, _t: T) {}
+   |                 ^^ required by this bound in `need2`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_args.rs:31:28
+   |
+31 | pub fn tup() { need((Good, Bad)); }
+   |                ----        ^^^ unsatisfied trait bound
+   |                |
+   |                required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_args.rs:11:1
+   |
+11 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+   = help: the following other types implement trait `Tr`:
+             &'a T
+             (A, B)
+             E<T>
+             Good
+             TupW<T>
+             W<T>
+note: required for `(Good, Bad)` to implement `Tr`
+  --> adjust_args.rs:13:20
+   |
+13 | impl<A: Tr, B: Tr> Tr for (A, B) {}
+   |                --  ^^     ^^^^^^
+   |                |
+   |                unsatisfied trait bound introduced here
+note: required by a bound in `need`
+  --> adjust_args.rs:23:16
+   |
+23 | pub fn need<T: Tr>(_t: T) {}
+   |                ^^ required by this bound in `need`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_args.rs:33:28
+   |
+33 | pub fn reference() { need(&Bad); }
+   |                      ----  ^^^ unsatisfied trait bound
+   |                      |
+   |                      required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_args.rs:11:1
+   |
+11 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+   = help: the following other types implement trait `Tr`:
+             &'a T
+             (A, B)
+             E<T>
+             Good
+             TupW<T>
+             W<T>
+note: required for `&Bad` to implement `Tr`
+  --> adjust_args.rs:14:17
+   |
+14 | impl<'a, T: Tr> Tr for &'a T {}
+   |             --  ^^     ^^^^^
+   |             |
+   |             unsatisfied trait bound introduced here
+note: required by a bound in `need`
+  --> adjust_args.rs:23:16
+   |
+23 | pub fn need<T: Tr>(_t: T) {}
+   |                ^^ required by this bound in `need`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_args.rs:35:31
+   |
+35 | pub fn strukt() { need(W { x: Bad, y: 0 }); }
+   |                   ----        ^^^ unsatisfied trait bound
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_args.rs:11:1
+   |
+11 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+   = help: the following other types implement trait `Tr`:
+             &'a T
+             (A, B)
+             E<T>
+             Good
+             TupW<T>
+             W<T>
+note: required for `W<Bad>` to implement `Tr`
+  --> adjust_args.rs:17:13
+   |
+17 | impl<T: Tr> Tr for W<T> {}
+   |         --  ^^     ^^^^
+   |         |
+   |         unsatisfied trait bound introduced here
+note: required by a bound in `need`
+  --> adjust_args.rs:23:16
+   |
+23 | pub fn need<T: Tr>(_t: T) {}
+   |                ^^ required by this bound in `need`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_args.rs:37:30
+   |
+37 | pub fn ctor() { need(TupW(0, Bad)); }
+   |                 ----         ^^^ unsatisfied trait bound
+   |                 |
+   |                 required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_args.rs:11:1
+   |
+11 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+   = help: the following other types implement trait `Tr`:
+             &'a T
+             (A, B)
+             E<T>
+             Good
+             TupW<T>
+             W<T>
+note: required for `TupW<Bad>` to implement `Tr`
+  --> adjust_args.rs:19:13
+   |
+19 | impl<T: Tr> Tr for TupW<T> {}
+   |         --  ^^     ^^^^^^^
+   |         |
+   |         unsatisfied trait bound introduced here
+note: required by a bound in `need`
+  --> adjust_args.rs:23:16
+   |
+23 | pub fn need<T: Tr>(_t: T) {}
+   |                ^^ required by this bound in `need`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_args.rs:39:30
+   |
+39 | pub fn variant() { need(E::V(Bad)); }
+   |                    ----      ^^^ unsatisfied trait bound
+   |                    |
+   |                    required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_args.rs:11:1
+   |
+11 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+   = help: the following other types implement trait `Tr`:
+             &'a T
+             (A, B)
+             E<T>
+             Good
+             TupW<T>
+             W<T>
+note: required for `E<Bad>` to implement `Tr`
+  --> adjust_args.rs:21:13
+   |
+21 | impl<T: Tr> Tr for E<T> {}
+   |         --  ^^     ^^^^
+   |         |
+   |         unsatisfied trait bound introduced here
+note: required by a bound in `need`
+  --> adjust_args.rs:23:16
+   |
+23 | pub fn need<T: Tr>(_t: T) {}
+   |                ^^ required by this bound in `need`
+
+error[E0277]: the trait bound `Bad: Tr` is not satisfied
+  --> adjust_args.rs:41:39
+   |
+41 | pub fn nested() { need((Good, W { x: (Bad, Good), y: 1 })); }
+   |                   ----                ^^^ unsatisfied trait bound
+   |                   |
+   |                   required by a bound introduced by this call
+   |
+help: the trait `Tr` is not implemented for `Bad`
+  --> adjust_args.rs:11:1
+   |
+11 | pub struct Bad;
+   | ^^^^^^^^^^^^^^
+   = help: the following other types implement trait `Tr`:
+             &'a T
+             (A, B)
+             E<T>
+             Good
+             TupW<T>
+             W<T>
+note: required for `(Bad, Good)` to implement `Tr`
+  --> adjust_args.rs:13:20
+   |
+13 | impl<A: Tr, B: Tr> Tr for (A, B) {}
+   |         --         ^^     ^^^^^^
+   |         |
+   |         unsatisfied trait bound introduced here
+   = note: 2 redundant requirements hidden
+   = note: required for `(Good, W<(Bad, Good)>)` to implement `Tr`
+note: required by a bound in `need`
+  --> adjust_args.rs:23:16
+   |
+23 | pub fn need<T: Tr>(_t: T) {}
+   |                ^^ required by this bound in `need`
+
+error: aborting due to 8 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

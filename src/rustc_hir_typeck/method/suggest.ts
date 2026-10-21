@@ -2021,7 +2021,7 @@ import {
   with_crate_prefix,
   with_no_visible_paths_if_doc_hidden,
 } from "../../rustc_middle/ty/print/pretty.ts";
-import { type BytePos, DUMMY_SP } from "../../rustc_span/lib.ts";
+import { type BytePos, debug_SpanSnippetError, DUMMY_SP } from "../../rustc_span/lib.ts";
 import { display_Symbol, kw } from "../../rustc_span/symbol.ts";
 import { supertraits } from "../../rustc_type_ir/elaborate.ts";
 import { DeepRejectCtxt, simplify_type } from "../../rustc_type_ir/fast_reject.ts";
@@ -2722,7 +2722,7 @@ FnCtxt.prototype.suggest_assoc_method_call = function (this: FnCtxt, segs: reado
           if (probe.$ === "Ok") {
             const sm = this.infcx.tcx.sess.source_map();
             err.span_suggestion_verbose(
-              unwrap_result(sm.span_extend_while(Span.shrink_to_hi(seg1.ident.span), (c) => c === 0x3a /* ':' */)),
+              unwrap_result(sm.span_extend_while(Span.shrink_to_hi(seg1.ident.span), (c) => c === 0x3a /* ':' */), debug_SpanSnippetError),
               "you may have meant to call an instance method",
               ".",
               "MaybeIncorrect",

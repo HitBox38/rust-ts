@@ -3,10 +3,8 @@
 // 1. `TraitBoundDuplicateTracker` (suggest.rs:56) directly.
 // 2. Small `#![no_core]` crates (suggest_a_test/*.rs) through src/rust_ts/tydump.ts against the pinned rustc-dev probe
 //    tools/probes/tydump (the tydump-* suites' oracle): stdout, stderr and exit must be equal, or ours stops at one of
-//    `PENDING` (other lanes' placeholders, reached before or inside this region). Every E0599 case first stops at
-//    probe.rs's `assemble_extension_candidates_for_all_traits` -> `all_traits` (lane typeck-suggest-b). With the
-//    lanes listed in docs/handoff/typeck-suggest-a.md merged (scratch merge, not committed), all cases but
-//    ambiguity.rs printed exactly the oracle's output; once those lanes land, add the cases to `NOW_EXACT`.
+//    `PENDING` (other lanes' placeholders, reached before or inside this region). Since merge-w19 (the lanes listed in
+//    docs/handoff/typeck-suggest-a.md landed) every case but ambiguity.rs prints exactly the oracle's output (`NOW_EXACT`).
 //    - not_found: E0599 on a local struct (`create_no_assoc_err`, `set_not_found_span_label`).
 //    - assoc_not_found / path_missing: `Mode::Path` misses (a type, a type parameter, no similar names).
 //    - enum_variant: `suggest_enum_variant_for_method_call` (unit, tuple and struct variants).
@@ -30,23 +28,28 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 const TYDUMP = join(import.meta.dir, "../../rust_ts/tydump.ts");
 
-/** The exact `unported(..)` texts the cases stop at today, or after a partial merge of the lanes they need. */
+/** The exact `unported(..)` texts the cases stop at today (pruned by merge-w19: the lanes typeck-suggest-b,
+ *  typeck-fnsugg-a/-b and errrep-sugg-a landed). */
 const PENDING = new Set([
-  // method/suggest.rs:4962 (lane typeck-suggest-b): every E0599 case, from probe.rs
-  "rustc_hir_typeck::method::suggest::all_traits",
-  // method/suggest.rs:2433.. (lane typeck-suggest-b), called from this region
-  "rustc_hir_typeck::method::suggest::FnCtxt::report_failed_method_call_on_range_end",
-  "rustc_hir_typeck::method::suggest::FnCtxt::suggest_valid_traits",
-  // fn_ctxt/suggestions.rs (lanes typeck-fnsugg-a / -b)
-  "rustc_hir_typeck::fn_ctxt::suggestions::FnCtxt::extract_callable_info",
-  // error_reporting/traits/suggestions.rs (lane errrep-sugg-a)
-  "rustc_trait_selection::error_reporting::traits::suggestions::TypeErrCtxt::note_field_shadowed_by_private_candidate",
   // ambiguity.rs: method probing, before this region
   "rustc_trait_selection::traits::select::SelectionContext::select",
 ]);
 
-/** Cases that must print the oracle's output (no stop). */
-const NOW_EXACT = new Set<string>([]);
+/** Cases that must print the oracle's output (no stop): every case but ambiguity.rs since merge-w19. */
+const NOW_EXACT = new Set<string>([
+  "assoc_not_found.rs",
+  "chain.rs",
+  "confusable.rs",
+  "enum_variant.rs",
+  "not_found.rs",
+  "path_missing.rs",
+  "private.rs",
+  "shadowed.rs",
+  "similar_name.rs",
+  "static_fn.rs",
+  "trait_unsatisfied.rs",
+  "unsatisfied.rs",
+]);
 
 test("TraitBoundDuplicateTracker: ref / non-ref duplicates, insertion order", () => {
   const a = new DefId(0 as never, 1 as never);
