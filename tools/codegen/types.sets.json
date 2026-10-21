@@ -433,12 +433,13 @@
       "rustc_index::bit_set::DenseBitSet"
     ],
     "decodable_construct": {
-      "rustc_index::bit_set::DenseBitSet": { "expr": "new DenseBitSet($0, $1)", "import": ["DenseBitSet"] }
+      "rustc_index::bit_set::DenseBitSet": { "expr": "DenseBitSet.from_u64_words($0, $1)", "import": ["DenseBitSet"] }
     },
     "erase_params": ["T"],
     "hand_notes": {
       "erase_params": "`DenseBitSet<T>`'s `T: Idx` is a number-like index in bit_set.ts (`T extends number = number`); the decoded set is a `DenseBitSet<number>` (metadata only holds `DenseBitSet<u32>`)",
-      "*": "rustc_index's types are hand-written (src/rustc_index/bit_set.ts, a subset); this set only generates rustc_index/decodable.gen.ts.",
+      "*": "rustc_index's types are hand-written (src/rustc_index/bit_set.ts); this set only generates rustc_index/decodable.gen.ts.",
+      "decodable_construct": "plan-m4 D6 (lane index-ds): bit set words are u32 in bit_set.ts; `DenseBitSet::from_u64_words` splits the decoded u64 words (`rustc_index::bit_set::Word` still decodes as `decode_u64`, serialize.json)",
       "decodable_types": "`DenseBitSet`: crate metadata's `params_in_repr` / `args_known_to_outlive_alias_params` (rustc_metadata cstore_impl.rs; lane small-gaps-20)"
     }
   },

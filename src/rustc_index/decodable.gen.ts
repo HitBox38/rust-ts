@@ -10,5 +10,5 @@ export function decode_DenseBitSet(__decoder: Decoder): DenseBitSet {
   const __0 = decode_usize(__decoder);
   const __1 = decode_Vec(__decoder, decode_u64);
   const __2 = decode_PhantomData(__decoder);
-  return new DenseBitSet(__0, __1);
+  return DenseBitSet.from_u64_words(__0, __1);
 }

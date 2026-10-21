@@ -24,19 +24,9 @@ export { SortedIndexMultiMap } from "./sorted_map/index_map.ts";
 /** `Ord::cmp` as a number (< 0, 0, > 0). */
 export type Cmp<K> = (a: K, b: K) => number;
 
-/** PORT: `std::ops::Bound<K>`. */
-export type Bound<K> = { readonly $: "Included"; readonly _0: K } | { readonly $: "Excluded"; readonly _0: K } | { readonly $: "Unbounded" };
-
-/** PORT: an `impl RangeBounds<K>`: its `start_bound()` / `end_bound()`. */
-export interface RangeBounds<K> {
-  readonly start_bound: Bound<K>;
-  readonly end_bound: Bound<K>;
-}
-
-/** `start..end` as a `RangeBounds<K>`. */
-export function range<K>(start: K, end: K): RangeBounds<K> {
-  return { start_bound: { $: "Included", _0: start }, end_bound: { $: "Excluded", _0: end } };
-}
+// PORT: `std::ops::Bound` / `RangeBounds` live in rustc_index/idx.ts (with the range constructors).
+export { type Bound, type RangeBounds, range } from "../rustc_index/idx.ts";
+import type { Bound, RangeBounds } from "../rustc_index/idx.ts";
 
 /// `SortedMap` is a data structure similar to `BTreeMap` but backed by
 /// a sorted `Vec`. Its `insert` and `remove` methods are O(n), so it should
