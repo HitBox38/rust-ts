@@ -158,4 +158,21 @@ rustc_middle `lib.ts` (mir imports, `install_TyCtxt_methods` calls, `mir` namesp
   1/74 (`tcx`), interpret/mod 3/29, allocation 7/51 (6 trait decls + `inner`; Encodable skips count), init_mask 1/26,
   provenance_map 1/23, pointer 2/39; the rest 0 (stubs).
 - `src/rustc_middle/mir/contract.test.ts`: 6 tests pass.
-- Full unit tests and samples: see "Samples".
+- Every mir module that may be imported from outside loads as a fresh entry point (contract test); `rustc_middle/lib.ts`,
+  `ty/context.ts`, `rustc_interface/passes.ts` load.
+- Regenerating every codegen set: only thir.gen.ts changes (its import path, `./mir/mod.ts`); queries.gen.ts regenerated
+  (MIR query types above). (The `rustc_lexer` set writes an untracked `src/rustc_lexer/lib.gen.ts`, as at base: deleted.)
+- Full unit tests: see "Unit tests".
+
+## Samples (lane vs base; base = the detached worktree `lanes/index-ds-base` at `970d2365`; both `RUST_TS_AGENT=mir-contract`, same samples)
+| suite | lane run | M / D / U / C | base run | M / D / U / C |
+|---|---|---|---|---|
+| tydump-minicore (46) | `20261021-184611-mir-contract-e5gy` | 45 / 0 / 1 / 0 | `20261021-183356-mir-contract-35wa` | 45 / 0 / 1 / 0 |
+| thirdump-minicore (46) | `20261021-184639-mir-contract-08tu` | 45 / 0 / 1 / 0 | `20261021-183417-mir-contract-goig` | 45 / 0 / 1 / 0 |
+| tydump-nocore `--sample 300 --seed m17` | `20261021-184714-mir-contract-vknz` | 292 / 0 / 8 / 0 | `20261021-183441-mir-contract-52wj` | 292 / 0 / 8 / 0 |
+| tydump-ui `--sample 300` | `20261021-184933-mir-contract-j0yh` | 263 / 0 / 36 / 0 (+1 unstable) | `20261021-183637-mir-contract-6qq8` | 263 / 0 / 36 / 0 (+1 unstable) |
+| hir-tree `--sample 300` | `20261021-185206-mir-contract-hltb` | 299 / 0 / 1 / 0 | `20261021-183907-mir-contract-448x` | 299 / 0 / 1 / 0 |
+| resdump `--sample 300` | `20261021-185416-mir-contract-blgn` | 299 / 0 / 1 / 0 | `20261021-184107-mir-contract-rsn9` | 299 / 0 / 1 / 0 |
+
+No new DIFF; every case has the same status **and the same stop** as on base (compared per case). THIR printing is
+unchanged (thirdump-minicore identical). No current suite reaches a mir stub yet (MIR building is wave 22).
