@@ -103,6 +103,7 @@ import type { TypeError } from "../../rustc_type_ir/error.ts";
 import { type PredicateKind, visit_with_PredicateKind } from "../../rustc_type_ir/predicate_kind.gen.ts";
 import { fold_with_OpaqueTypeKey, try_fold_with_OpaqueTypeKey, visit_with_OpaqueTypeKey } from "../../rustc_type_ir/opaque_ty.gen.ts";
 import * as diagnostics from "../diagnostics.ts";
+import * as precise_captures from "../diagnostics/precise_captures.gen.ts";
 import { check_c_variadic_abi } from "../lib.ts";
 import { bad_variant_count, default_body_is_unstable, get_owner_return_paths, missing_items_err, missing_items_must_implement_one_of_err } from "./mod.ts";
 
@@ -701,13 +702,13 @@ function check_opaque_precise_captures(tcx: TyCtxt, opaque_def_id: LocalDefId): 
       case "Lifetime": {
         ({ hir_id, ident: ident_ } = arg._0);
         if (prev_non_lifetime_param !== undefined) {
-          // tcx.dcx().emit_err(diagnostics::LifetimesMustBeFirst {
-          //     lifetime_span: ident.span,
-          //     name: ident.name,
-          //     other_span: prev_non_lifetime_param.span,
-          // });
-          // PORT: `LifetimesMustBeFirst` is in diagnostics/precise_captures.rs, which is in no codegen set.
-          return unported("rustc_hir_analysis::diagnostics::precise_captures::LifetimesMustBeFirst");
+          tcx.dcx().emit_err(
+            precise_captures.LifetimesMustBeFirst_diagnostic({
+              lifetime_span: ident_.span,
+              name: ident_.name,
+              other_span: prev_non_lifetime_param.span,
+            }),
+          );
         }
         break;
       }
@@ -717,13 +718,14 @@ function check_opaque_precise_captures(tcx: TyCtxt, opaque_def_id: LocalDefId): 
     const prev = seen_params.get(ident);
     seen_params.set(ident, ident.span);
     if (prev !== undefined) {
-      // tcx.dcx().emit_err(diagnostics::DuplicatePreciseCapture {
-      //     name: ident.name,
-      //     first_span: span,
-      //     second_span: ident.span,
-      // });
-      // PORT: `DuplicatePreciseCapture` is in diagnostics/precise_captures.rs, which is in no codegen set.
-      return unported("rustc_hir_analysis::diagnostics::precise_captures::DuplicatePreciseCapture");
+      const span = prev;
+      tcx.dcx().emit_err(
+        precise_captures.DuplicatePreciseCapture_diagnostic({
+          name: ident.name,
+          first_span: span,
+          second_span: ident.span,
+        }),
+      );
     }
 
     const resolved = tcx.named_bound_var(hir_id);
@@ -778,36 +780,33 @@ function check_opaque_precise_captures(tcx: TyCtxt, opaque_def_id: LocalDefId): 
                 .map_opaque_lifetime_to_parent_lifetime(param.def_id.expect_local())
                 .opt_param_def_id(tcx, tcx.parent(LocalDefId.to_def_id(opaque_def_id)))) !== undefined
             ) {
-              // tcx.dcx().emit_err(diagnostics::LifetimeNotCaptured {
-              //     opaque_span,
-              //     use_span,
-              //     param_span: tcx.def_span(def_id),
-              // });
-              void def_id3;
-              void use_span;
-              // PORT: `LifetimeNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-              return unported("rustc_hir_analysis::diagnostics::precise_captures::LifetimeNotCaptured");
+              tcx.dcx().emit_err(
+                precise_captures.LifetimeNotCaptured_diagnostic({
+                  opaque_span,
+                  use_span,
+                  param_span: tcx.def_span(def_id3),
+                }),
+              );
             } else {
               if (tcx.def_kind(tcx.parent(param.def_id)).$ === "Trait") {
-                // tcx.dcx().emit_err(diagnostics::LifetimeImplicitlyCaptured {
-                //     opaque_span,
-                //     param_span: tcx.def_span(param.def_id),
-                // });
-                // PORT: `LifetimeImplicitlyCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-                return unported("rustc_hir_analysis::diagnostics::precise_captures::LifetimeImplicitlyCaptured");
+                tcx.dcx().emit_err(
+                  precise_captures.LifetimeImplicitlyCaptured_diagnostic({
+                    opaque_span,
+                    param_span: tcx.def_span(param.def_id),
+                  }),
+                );
               } else {
                 // If the `use_span` is actually just the param itself, then we must
                 // have not duplicated the lifetime but captured the original.
                 // The "effective" `use_span` will be the span of the opaque itself,
                 // and the param span will be the def span of the param.
-                // tcx.dcx().emit_err(diagnostics::LifetimeNotCaptured {
-                //     opaque_span,
-                //     use_span: opaque_span,
-                //     param_span: use_span,
-                // });
-                void opaque_span;
-                // PORT: `LifetimeNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-                return unported("rustc_hir_analysis::diagnostics::precise_captures::LifetimeNotCaptured");
+                tcx.dcx().emit_err(
+                  precise_captures.LifetimeNotCaptured_diagnostic({
+                    opaque_span,
+                    use_span: opaque_span,
+                    param_span: use_span,
+                  }),
+                );
               }
             }
             continue;
@@ -818,33 +817,33 @@ function check_opaque_precise_captures(tcx: TyCtxt, opaque_def_id: LocalDefId): 
           const dk = tcx.def_kind(param.def_id);
           if (dk.$ === "Trait" || dk.$ === "TraitAlias") {
             // FIXME(precise_capturing): Structured suggestion for this would be useful
-            // tcx.dcx().emit_err(diagnostics::SelfTyNotCaptured {
-            //     trait_span: tcx.def_span(param.def_id),
-            //     opaque_span: tcx.def_span(opaque_def_id),
-            // });
-            // PORT: `SelfTyNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-            return unported("rustc_hir_analysis::diagnostics::precise_captures::SelfTyNotCaptured");
+            tcx.dcx().emit_err(
+              precise_captures.SelfTyNotCaptured_diagnostic({
+                trait_span: tcx.def_span(param.def_id),
+                opaque_span: tcx.def_span(opaque_def_id),
+              }),
+            );
           } else {
             // FIXME(precise_capturing): Structured suggestion for this would be useful
-            // tcx.dcx().emit_err(diagnostics::ParamNotCaptured {
-            //     param_span: tcx.def_span(param.def_id),
-            //     opaque_span: tcx.def_span(opaque_def_id),
-            //     kind: "type",
-            // });
-            // PORT: `ParamNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-            return unported("rustc_hir_analysis::diagnostics::precise_captures::ParamNotCaptured");
+            tcx.dcx().emit_err(
+              precise_captures.ParamNotCaptured_diagnostic({
+                param_span: tcx.def_span(param.def_id),
+                opaque_span: tcx.def_span(opaque_def_id),
+                kind: "type",
+              }),
+            );
           }
           break;
         }
         case "Const": {
           // FIXME(precise_capturing): Structured suggestion for this would be useful
-          // tcx.dcx().emit_err(diagnostics::ParamNotCaptured {
-          //     param_span: tcx.def_span(param.def_id),
-          //     opaque_span: tcx.def_span(opaque_def_id),
-          //     kind: "const",
-          // });
-          // PORT: `ParamNotCaptured` is in diagnostics/precise_captures.rs, which is in no codegen set.
-          return unported("rustc_hir_analysis::diagnostics::precise_captures::ParamNotCaptured");
+          tcx.dcx().emit_err(
+            precise_captures.ParamNotCaptured_diagnostic({
+              param_span: tcx.def_span(param.def_id),
+              opaque_span: tcx.def_span(opaque_def_id),
+              kind: "const",
+            }),
+          );
           break;
         }
       }

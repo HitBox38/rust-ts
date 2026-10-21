@@ -1333,6 +1333,7 @@
   "rustc_hir_analysis": {
     "files": [
       "compiler/rustc_hir_analysis/src/diagnostics.rs",
+      "compiler/rustc_hir_analysis/src/diagnostics/precise_captures.rs",
       "compiler/rustc_hir_analysis/src/collect.rs",
       "compiler/rustc_hir_analysis/src/collect/generics_of.rs",
       "compiler/rustc_hir_analysis/src/collect/type_of.rs",
