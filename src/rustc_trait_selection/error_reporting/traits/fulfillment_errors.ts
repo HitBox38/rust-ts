@@ -1450,6 +1450,7 @@ import type { HirId } from "../../../rustc_hir_id/lib.ts";
 import { ToTrace_AliasTerm, ToTrace_GenericArg, ToTrace_Term, ToTrace_TraitRef } from "../../../rustc_infer/infer/at.ts";
 import { BoundRegionConversionTime } from "../../../rustc_infer/infer/mod.gen.ts";
 import { TypeTrace, type ValuePairs } from "../../../rustc_infer/infer/mod.ts";
+import { type SortLayout, slice_sort_by } from "../../../std/slice_sort.ts";
 import { TraitErrors } from "../../../rustc_infer/traits/engine.ts";
 import type { MismatchedProjectionTypes } from "../../../rustc_infer/traits/project.gen.ts";
 import { place_to_string_for_capture } from "../../../rustc_middle/ty/closure.ts";
@@ -2578,7 +2579,7 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
         } else {
           return 0;
         }
-      });
+      }, LAYOUT_TraitRef_DefId);
       let candidate_names: string[] = candidates.map(([c]) => {
         if (all_traits_equal) {
           const k = TraitRef.self_ty(c).kind();
@@ -4045,29 +4046,25 @@ function CandidateSimilarity_cmp(a: CandidateSimilarity, b: CandidateSimilarity)
 }
 
 /**
- * `<[T]>::sort_by` (stable). PORT: for `len <= 20` Rust's stable sort is the insertion sort below (core
- * slice/sort/stable/mod.rs `sort`: `insertion_sort_shift_left`), which also matches upstream for comparators that are not
- * a total order (report_similar_impl_candidates' tuple-arity comparator); longer slices use JS's stable sort.
+ * `<[T]>::sort_by` (stable): core's driftsort (std/slice_sort.ts). `layout` is the Rust element type's `size_of` / `Freeze`:
+ * driftsort's sequence of comparisons depends on them, which matters for comparators that are not a consistent total
+ * preorder (report_similar_impl_candidates' tuple-arity comparator says `Equal` unless both self types are tuples).
  */
-function sort_by_stable<T>(v: T[], cmp: (a: T, b: T) => number): void {
-  if (v.length <= 20) {
-    for (let i = 1; i < v.length; i++) {
-      const tmp = v[i]!;
-      let j = i;
-      while (j > 0 && cmp(tmp, v[j - 1]!) < 0) {
-        v[j] = v[j - 1]!;
-        j--;
-      }
-      v[j] = tmp;
-    }
-  } else {
-    v.sort(cmp);
-  }
+function sort_by_stable<T>(v: T[], cmp: (a: T, b: T) => number, layout: SortLayout): void {
+  slice_sort_by(v, cmp, layout);
 }
-/** `<[T]>::sort_by_key` (stable). */
+/**
+ * PORT: the layout of `(TraitRef<'tcx>, DefId)` at the pin (64-bit hosts): `TraitRef { def_id: DefId (8 bytes), args:
+ * GenericArgsRef (a thin reference, 8), () }` is 16 bytes, the tuple 24; nothing in it has an `UnsafeCell`, so `Freeze`.
+ */
+const LAYOUT_TraitRef_DefId: SortLayout = { size_of: 24, freeze: true };
+/**
+ * `<[T]>::sort_by_key` (stable). PORT: every caller's key is under a total order (`String`, tuple `Ord`), so any two stable
+ * sorts agree and the result does not depend on driftsort's comparisons: JS's stable `Array.prototype.sort` is used.
+ */
 function sort_by_key_stable<T, K>(v: T[], key: (x: T) => K, cmp: (a: K, b: K) => number): void {
   const keyed = v.map((x): [K, T] => [key(x), x]);
-  sort_by_stable(keyed, (a, b) => cmp(a[0], b[0]));
+  keyed.sort((a, b) => cmp(a[0], b[0]));
   for (let i = 0; i < v.length; i++) v[i] = keyed[i]![1];
 }
 /** `Vec::dedup_by` with `PartialEq` (removes consecutive equal elements, keeps the first). */
