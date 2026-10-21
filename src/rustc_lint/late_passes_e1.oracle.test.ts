@@ -66,8 +66,8 @@ interface Case {
   flags?: string[];
   /** Text the oracle's stderr must contain (the diagnostics under test are really emitted). */
   expect: string[];
-  /** The known `unported(..)` stop outside this lane (see the header). */
-  stop?: string;
+  /** The known `unported(..)` stops outside this lane (see the header); the run may end at any of them. */
+  stop?: string[];
 }
 
 const CASES: Case[] = [
@@ -83,7 +83,7 @@ const CASES: Case[] = [
     passes: ["AsyncClosureUsage"],
     ui: "async-await/async-closures/lint-closure-returning-async-block.rs",
     expect: ["closure returning async block can be made into an async closure"],
-    stop: "rustc_lint::async_closures::ClosureReturningAsyncBlock",
+    stop: ["rustc_lint::async_closures::ClosureReturningAsyncBlock"],
   },
   // async_fn_in_trait.rs
   {
@@ -111,7 +111,7 @@ const CASES: Case[] = [
     passes: ["CVoidReturns"],
     ui: "lint/c-void-returns.rs",
     expect: ["`c_void` should not be used as a return type"],
-    stop: QPATH_RES,
+    stop: [QPATH_RES],
   },
   // default_could_be_derived.rs
   {
@@ -152,7 +152,7 @@ const CASES: Case[] = [
     ],
     expect: ["`Default` impl doesn't use the declared default field values", "derive the `Default`"],
     // Default field values are const-evaluated in the analysis prefix, before the lint runs.
-    stop: "rustc_middle::mir::interpret::TyCtxt::const_eval_poly",
+    stop: ["rustc_middle::mir::interpret::TyCtxt::const_eval_poly"],
   },
   // deref_into_dyn_supertrait.rs
   {
@@ -173,7 +173,16 @@ const CASES: Case[] = [
     passes: ["DerefIntoDynSupertrait"],
     ui: "traits/trait-upcasting/deref-upcast-shadowing-lint.rs",
     expect: ["this `Deref` implementation is covered by an implicit supertrait coercion"],
-    stop: "rustc_lint::context::LateContext::get_associated_type",
+    // With context.rs ported (lane lint-late-a), the pass runs to the end and stops in the generated
+    // `SupertraitAsDerefTarget` diagnostic (`Binder<ExistentialTraitRef>: IntoDiagArg`).
+    stop: ["rustc_lint::context::LateContext::get_associated_type", "IntoDiagArg without a TS impl"],
+  },
+  {
+    name: "deref_into_dyn_supertrait: tests/ui lint/issue-108155.rs (`Target` not a supertrait)",
+    passes: ["DerefIntoDynSupertrait"],
+    ui: "lint/issue-108155.rs",
+    expect: [],
+    stop: ["rustc_lint::context::LateContext::get_associated_type"],
   },
   // disallowed_pass_by_ref.rs
   {
@@ -188,7 +197,7 @@ const CASES: Case[] = [
     passes: ["EnumIntrinsicsNonEnums"],
     ui: "lint/lint-enum-intrinsics-non-enums.rs",
     expect: ["the return value of `mem::discriminant` is unspecified when called with a non-enum type"],
-    stop: QPATH_RES,
+    stop: [QPATH_RES],
   },
   // for_loops_over_fallibles.rs
   {
@@ -223,7 +232,7 @@ const CASES: Case[] = [
     passes: ["ForLoopsOverFallibles"],
     ui: "lint/for_loop_over_fallibles.rs",
     expect: ["for loop over a `Result`", "consider unwrapping the `Result` with `?` to iterate over its contents"],
-    stop: TYPING_ENV,
+    stop: [TYPING_ENV],
   },
   // function_cast_as_integer.rs
   {
@@ -269,7 +278,7 @@ const CASES: Case[] = [
       "}",
     ],
     expect: ['passing type `*mut [u8]` to a function with "gpu-kernel" ABI may have unexpected behavior', 'function with the "gpu-kernel" ABI has a mangled name'],
-    stop: "rustc_target::spec::targets::nvptx64_nvidia_cuda",
+    stop: ["rustc_target::spec::targets::nvptx64_nvidia_cuda"],
   },
   // implicit_provenance_casts.rs
   {
@@ -283,7 +292,7 @@ const CASES: Case[] = [
     passes: ["ImplicitProvenanceCasts"],
     ui: "lint/lint-strict-provenance-lossy-casts.rs",
     expect: ["cast from `*const u8` to `usize` implicitly exposes pointer provenance", "use `.addr()` to obtain the address of a pointer"],
-    stop: "rustc_lint::context::LateContext::precedence",
+    stop: ["rustc_lint::context::LateContext::precedence"],
   },
   // interior_mutable_consts.rs
   {
@@ -311,7 +320,7 @@ const CASES: Case[] = [
     passes: ["InvalidFromUtf8"],
     ui: "lint/invalid_from_utf8.rs",
     expect: ["calls to `std::str::from_utf8_unchecked_mut` with an invalid literal are undefined behavior"],
-    stop: QPATH_RES,
+    stop: [QPATH_RES],
   },
   // let_underscore.rs
   {
@@ -325,14 +334,14 @@ const CASES: Case[] = [
     passes: ["LetUnderscore"],
     ui: "lint/let_underscore/let_underscore_drop.rs",
     expect: ["non-binding let on a type that has a destructor"],
-    stop: TYPING_ENV,
+    stop: [TYPING_ENV],
   },
   {
     name: "let_underscore_lock: tests/ui lint/let_underscore/let_underscore_lock.rs",
     passes: ["LetUnderscore"],
     ui: "lint/let_underscore/let_underscore_lock.rs",
     expect: ["non-binding let on a synchronization lock"],
-    stop: TYPING_ENV,
+    stop: [TYPING_ENV],
   },
 ];
 
@@ -388,7 +397,7 @@ for (const [i, c] of CASES.entries()) {
     if (c.stop !== undefined && ours.code === 70) {
       const lines = ours.stderr.split("\n");
       const last = lines.findLastIndex((l) => l.startsWith("rust-ts: unported: "));
-      expect(lines[last]).toContain(c.stop);
+      expect(c.stop.some((stop) => lines[last]!.includes(stop))).toBe(true);
       const before = lines.slice(0, last).join("\n");
       expect(oracle.stderr.startsWith(before)).toBe(true);
     } else {

@@ -98,7 +98,7 @@ class LateWalker extends hir_visit.Visitor {
 
   with_param_env(id: OwnerId, f: () => void): void {
     const old_param_env = this.context.param_env;
-    this.context.param_env = this.context.tcx.param_env(id.to_def_id());
+    this.context.param_env = this.context.tcx.param_env(id.to_def_id()) as ParamEnv;
     f();
     this.context.param_env = old_param_env;
   }
