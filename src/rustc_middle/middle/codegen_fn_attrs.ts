@@ -40,7 +40,7 @@ import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tu
 import { panic, unported } from "../../std/panic.ts";
 import { to_writer } from "../../vendor/bitflags/parser.ts";
 import { flags_companion } from "../../vendor/bitflags/traits.ts";
-import type { InstanceKind } from "../ty/decls.ts";
+import { InstanceKind as InstanceKindC, type InstanceKind } from "../ty/instance.ts";
 import type { TyCtxt } from "../ty/context.ts";
 
 /**
@@ -68,33 +68,17 @@ export function decode_Visibility(__decoder: SpanDecoder): Visibility {
   }
 }
 
-/** `ty::InstanceKind` (ty/instance.rs:62; `Pending` in ty/decls.ts): the shape `codegen_instance_attrs` matches on. */
-type InstanceKindView =
-  | { readonly $: "Item"; _0: DefId }
-  | { readonly $: "Shim"; _0: ShimKindView }
-  | { readonly $: "Intrinsic" | "LlvmIntrinsic" | "Virtual" };
-/** `ty::ShimKind` (ty/instance.rs:100): the variants `codegen_instance_attrs` matches on. */
-type ShimKindView =
-  | { readonly $: "Reify"; _0: DefId; _1: unknown }
-  | { readonly $: "ClosureOnce"; call_once: DefId; closure: DefId; track_caller: boolean }
-  | { readonly $: "Other" };
-
-/** `InstanceKind::def_id` (ty/instance.rs; not ported). */
-function InstanceKind_def_id(_self: InstanceKind): DefId {
-  return unported("rustc_middle::ty::instance::InstanceKind::def_id (ty/instance.rs)");
-}
-
 // impl<'tcx> TyCtxt<'tcx>
 // rustc: compiler/rustc_middle/src/middle/codegen_fn_attrs.rs:16 codegen_instance_attrs
 export function TyCtxt_codegen_instance_attrs(self: TyCtxt, instance_kind: InstanceKind): CodegenFnAttrs {
   // NOTE: we try to not clone the `CodegenFnAttrs` when that is not needed.
   // The `to_mut` method used below clones the inner value.
   // PORT: `Cow::Borrowed` / `to_mut`: `owned` is the clone once one was made.
-  const borrowed = self.codegen_fn_attrs(InstanceKind_def_id(instance_kind)) as CodegenFnAttrs;
+  const borrowed = self.codegen_fn_attrs(InstanceKindC.def_id(instance_kind)) as CodegenFnAttrs;
   let owned: CodegenFnAttrs | undefined = undefined;
   const attrs = (): CodegenFnAttrs => owned ?? borrowed;
   const to_mut = (): CodegenFnAttrs => (owned ??= clone_CodegenFnAttrs(borrowed));
-  const kind = instance_kind as unknown as InstanceKindView;
+  const kind = instance_kind;
 
   // Drop the `#[naked]` attribute on non-item `InstanceKind`s, like the shims that
   // are generated for indirect function calls.

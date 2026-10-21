@@ -63,7 +63,8 @@
     "rustc_middle::traits::IsConstable", "rustc_middle::traits::select::OverflowError", "rustc_middle::ty::AdtKind", "rustc_middle::ty::AssocKind",
     "rustc_middle::ty::AssocItem", "rustc_middle::ty::abstract_const::NotConstEvaluatable", "rustc_middle::traits::solve::BuiltinImplSource",
     "rustc_middle::ty::Variance", "rustc_middle::mir::BorrowKind", "rustc_middle::mir::FakeReadCause", "rustc_hir::MatchSource", "rustc_hir::RangeEnd",
-    "rustc_ast::InlineAsmOptions", "rustc_ast::InlineAsmTemplatePiece", "rustc_attr_ir::UnrollAttr", "rustc_target::asm::InlineAsmRegOrRegClass"
+    "rustc_ast::InlineAsmOptions", "rustc_ast::InlineAsmTemplatePiece", "rustc_attr_ir::UnrollAttr", "rustc_target::asm::InlineAsmRegOrRegClass",
+    "rustc_middle::ty::instance::ReifyReason"
   ],
   "types": [
     { "paths": ["Option"], "visit": "visit_with_Option($0)", "try_fold": "try_fold_with_Option($0)", "fold": "fold_with_Option($0)", "note": "visit.rs:153 / fold.rs:261" },

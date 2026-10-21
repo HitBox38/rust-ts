@@ -33,6 +33,7 @@ import { DefId_hash_key } from "../../../rustc_middle/query/caches.ts";
 import type { LocalCrate } from "../../../rustc_middle/query/keys.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
 import { Visibility } from "../../../rustc_middle/ty/mod.ts";
+import { InstanceKind as InstanceKindC, type InstanceKind } from "../../../rustc_middle/ty/instance.ts";
 import type { Providers } from "../../../rustc_middle/util/mod.ts";
 import { type Decodable, decode_HashMap, decode_Option, decode_String, decode_Vec } from "../../../rustc_serialize/serialize.ts";
 import { CrateNum, DefId, DefId_eq, DefIdMap, LOCAL_CRATE, type ModId, type StableCrateId, debug_CrateNum, debug_DefId, debug_StableCrateId } from "../../../rustc_span/def_id.ts";
@@ -417,11 +418,10 @@ export const IntoArgs_CrateNum_DefId: IntoArgs<[CrateNum, DefId], DefId> = {
 };
 
 /** `impl<'tcx> IntoArgs for ty::InstanceKind<'tcx>` (no `provide!` entry has this key). */
-export const IntoArgs_InstanceKind: IntoArgs<unknown, null> = {
+export const IntoArgs_InstanceKind: IntoArgs<InstanceKind, null> = {
   // rustc: compiler/rustc_metadata/src/rmeta/decoder/cstore_impl.rs:218 into_args
-  into_args(_self: unknown): [DefId, null] {
-    // (self.def_id(), ())
-    return unported("rustc_middle::ty::InstanceKind::def_id (M3)");
+  into_args(self: InstanceKind): [DefId, null] {
+    return [InstanceKindC.def_id(self), null];
   },
 };
 

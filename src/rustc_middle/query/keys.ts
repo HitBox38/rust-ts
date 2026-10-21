@@ -522,6 +522,8 @@ export const KEY_PseudoCanonicalInput_Ty: QueryKey<PseudoCanonicalInput<Ty>> = p
 export const KEY_PseudoCanonicalInput_GenericArg: QueryKey<PseudoCanonicalInput<GenericArg>> = pseudo_canonical_input_key(KEY_GenericArg);
 /** `PseudoCanonicalInput<TraitRef>` (`codegen_select_candidate`). */
 export const KEY_PseudoCanonicalInput_TraitRef: QueryKey<PseudoCanonicalInput<TraitRef>> = pseudo_canonical_input_key(KEY_TraitRef);
+/** `PseudoCanonicalInput<(DefId, GenericArgsRef)>` (`resolve_instance_raw`). */
+export const KEY_PseudoCanonicalInput_DefId_GenericArgsRef: QueryKey<PseudoCanonicalInput<[DefId, GenericArgsRef]>> = pseudo_canonical_input_key(KEY_DefId_GenericArgsRef);
 
 // PORT: `(AdtDef, GenericArgsRef)` (keys.rs:311) is not ported yet (`key_unported`).
 

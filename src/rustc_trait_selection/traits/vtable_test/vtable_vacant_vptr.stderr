@@ -1,0 +1,39 @@
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> vtable_vacant_vptr.rs:3:12
+  |
+3 | #![feature(rustc_attrs)]
+  |            ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error: vtable entries: [
+           MetadataDropInPlace,
+           MetadataSize,
+           MetadataAlign,
+           Method(<S as A>::foo_a1),
+           Vacant,
+       ]
+  --> vtable_vacant_vptr.rs:24:1
+   |
+24 | impl A for S {}
+   | ^^^^^^^^^^^^
+
+error: vtable entries: [
+           MetadataDropInPlace,
+           MetadataSize,
+           MetadataAlign,
+           Method(<S as A>::foo_a1),
+           Vacant,
+           Method(<S as B>::foo_b),
+           TraitVPtr(<S as B>),
+           Method(<S as C>::foo_c),
+           Method(<S as C>::consume - shim(vtable)),
+       ]
+  --> vtable_vacant_vptr.rs:29:1
+   |
+29 | impl C for S {
+   | ^^^^^^^^^^^^
+
+error: aborting due to 2 previous errors; 1 warning emitted
+

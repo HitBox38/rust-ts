@@ -6,7 +6,7 @@
 //
 // - `enum CallDesugaringKind` / `enum CallKind` are generated (call_kind.gen.ts); `impl CallDesugaringKind` is on the
 //   companion `CallDesugaringKind` (PORTING §8).
-// - `Instance::try_resolve` (rustc_middle ty/instance.rs) is not ported: the `DerefCoercion` arm stops there.
+// - The `DerefCoercion` arm's `if let` chain is a single condition; `specialization_graph` is read in that body only.
 // Init order: top-level code here may touch only this file's .gen.ts and other crates; other rustc_trait_selection
 // modules are read inside function bodies only.
 export * from "./call_kind.gen.ts";
@@ -22,7 +22,9 @@ import { DesugaringKind, DesugaringKind_eq } from "../../../rustc_span/hygiene.t
 import { DUMMY_SP, Span } from "../../../rustc_span/lib.ts";
 import { type Ident, sym } from "../../../rustc_span/symbol.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
-import { panic, unported } from "../../../std/panic.ts";
+import { panic } from "../../../std/panic.ts";
+import { Instance } from "../../../rustc_middle/ty/instance.ts";
+import * as specialization_graph from "../../traits/specialize/specialization_graph.ts";
 import * as gen from "./call_kind.gen.ts";
 import type { CallKind } from "./call_kind.gen.ts";
 
@@ -132,10 +134,21 @@ export function call_kind(
       Unnormalized.new(Ty.new_projection(tcx, "No", deref_target_def_id, method_args)),
       fold_Ty,
     );
-    // PORT: `Instance::try_resolve(tcx, typing_env, method_did, method_args)` (rustc_middle ty/instance.rs) is not ported;
-    // the rest of the `if let` chain (`tcx.parent(instance.def_id())` is an impl, `specialization_graph::assoc_def(..)`
-    // is final -> `Some(tcx.def_span(instance.item.def_id))`) follows it.
-    const deref_target_span: Span | undefined = unported("rustc_middle::ty::instance::Instance::try_resolve (call_kind DerefCoercion)");
+    let deref_target_span: Span | undefined;
+    const r = Instance.try_resolve(tcx, typing_env, method_did, method_args);
+    let instance_parent_def_id: DefId;
+    let leaf;
+    if (
+      r.$ === "Ok" &&
+      r._0 !== undefined &&
+      ((instance_parent_def_id = tcx.parent(Instance.def_id(r._0))), tcx.def_kind(instance_parent_def_id).$ === "Impl") &&
+      (leaf = specialization_graph.assoc_def(tcx, instance_parent_def_id, deref_target_def_id)).$ === "Ok" &&
+      leaf._0.is_final()
+    ) {
+      deref_target_span = tcx.def_span(leaf._0.item.def_id);
+    } else {
+      deref_target_span = undefined;
+    }
     return { $: "DerefCoercion", deref_target_ty, deref_target_span, self_ty: method_args.type_at(0) };
   }
 

@@ -9,6 +9,7 @@ import * as assoc from "./assoc.ts";
 import * as common_traits from "./common_traits.ts";
 import * as consts from "./consts.ts";
 import * as implied_bounds from "./implied_bounds.ts";
+import * as instance from "./instance.ts";
 import * as layout from "./layout.ts";
 import * as needs_drop from "./needs_drop.ts";
 import * as nested_bodies from "./nested_bodies.ts";
@@ -23,7 +24,7 @@ import * as ty from "./ty.ts";
 // mod consts;
 // mod diagnostics;         (generated: diagnostics.gen.ts, re-exported by diagnostics.ts)
 // mod implied_bounds;
-// mod instance;            (not ported: codegen-era, M4+)
+// mod instance;
 // mod layout;              (lane layout-contract: `provide` and the `layout_of` provider; the rest are stubs)
 // mod needs_drop;
 // mod nested_bodies;
@@ -45,7 +46,7 @@ export function provide(providers: Providers): void {
   opaque_types.provide(providers);
   representability.provide(providers);
   ty.provide(providers);
-  // instance::provide(providers);
+  instance.provide(providers);
   structural_match.provide(providers);
   nested_bodies.provide(providers);
 }

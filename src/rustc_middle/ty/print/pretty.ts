@@ -74,6 +74,7 @@ import { debug_RegionVid } from "../../../rustc_type_ir/region_kind.ts";
 import type { MutRef } from "../../../std/mut_ref.ts";
 import type { Providers } from "../../queries.gen.ts";
 import { with_ } from "../context/tls.ts";
+import { Instance as InstanceC } from "../instance.ts";
 import { EarlyParamRegion, LateParamRegionKind } from "../region.ts";
 import type { ParamConst, ParamTy } from "../sty.ts";
 import { into_query_key_DefId, type IntoQueryKey } from "../../query/into_query_key.ts";
@@ -4528,12 +4529,12 @@ function ConstAllocation_inner(_alloc: ConstAllocation): Allocation {
 function Allocation_get_bytes_strip_provenance(_alloc: Allocation, _tcx: TyCtxt, _range: AllocRange): Uint8Array | undefined {
   return unported("rustc_middle::mir::interpret::Allocation::get_bytes_strip_provenance (M4)");
 }
-/** PORT: pending (ty/instance.rs, not ported; lane ty-print-a's mod.ts has the same module-local stand-in). */
-function Instance_def_id(_self: Instance): DefId {
-  return unported("rustc_middle::ty::instance::Instance::def_id (ty/instance.rs)");
+/** `Instance::def_id` / the field `instance.args` (ty/instance.rs). */
+function Instance_def_id(self: Instance): DefId {
+  return InstanceC.def_id(self);
 }
-function Instance_args(_instance: Instance): GenericArgs {
-  return unported("rustc_middle::ty::instance::Instance::args (M4)");
+function Instance_args(instance: Instance): GenericArgs {
+  return instance.args;
 }
 
 /** PORT (merge-w15b): ty/assoc.ts is another extension module of `TyCtxt`: reached lazily. */
