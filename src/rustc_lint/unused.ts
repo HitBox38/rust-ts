@@ -1,7 +1,6 @@
 // compiler/rustc_lint/src/unused.rs. The lint statics and `declare_lint_pass!` / `impl_lint_pass!` expansions are
 // generated (unused.lints.gen.ts). The early passes (the `UnusedDelimLint` machinery, UnusedParens, UnusedBraces,
-// UnusedImportBraces) are ported; the late passes (PathStatements, UnusedAllocation, M3) are still `unported`
-// placeholders (rust_ts/stubs.ts).
+// UnusedImportBraces) and the late passes (PathStatements, UnusedAllocation) are ported.
 import { type ast, HasAttrs, LocalKind, type NodeId } from "../rustc_ast/lib.ts";
 import * as classify from "../rustc_ast/util/classify.ts";
 import * as parser from "../rustc_ast/util/parser.ts";
@@ -12,12 +11,27 @@ import { SyntaxContext } from "../rustc_span/hygiene.ts";
 import { kw, Symbol, sym } from "../rustc_span/symbol.ts";
 import { is_alphanumeric } from "../std/char.ts";
 import { assert, panic } from "../std/panic.ts";
-import { unported_methods } from "../rust_ts/stubs.ts";
-import type { EarlyContext } from "./context.ts";
-import { UnusedDelim_diagnostic, type UnusedDelimSuggestion, UnusedImportBracesDiag_diagnostic } from "./diagnostics.gen.ts";
-import type { EarlyLintPass } from "./passes.ts";
+import { Res } from "../rustc_hir/def.ts";
+import type * as hir from "../rustc_hir/lib.ts";
+import type { TypingEnv } from "../rustc_middle/ty/mod.ts";
+import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
+import type { DefId } from "../rustc_span/def_id.ts";
+import type { EarlyContext, LateContext } from "./context.ts";
 import {
+  PathStatementDrop_diagnostic,
+  type PathStatementDropSub,
+  PathStatementNoEffect_diagnostic,
+  UnusedAllocationDiag_diagnostic,
+  UnusedAllocationMutDiag_diagnostic,
+  UnusedDelim_diagnostic,
+  type UnusedDelimSuggestion,
+  UnusedImportBracesDiag_diagnostic,
+} from "./diagnostics.gen.ts";
+import type { EarlyLintPass, LateLintPass } from "./passes.ts";
+import {
+  PATH_STATEMENTS,
   PathStatements,
+  UNUSED_ALLOCATION,
   UNUSED_BRACES,
   UNUSED_IMPORT_BRACES,
   UNUSED_PARENS,
@@ -29,8 +43,31 @@ import {
 
 export * from "./unused.lints.gen.ts";
 
-// impl LateLintPass for PathStatements (unused.rs:42)
-unported_methods(PathStatements.prototype, "rustc_lint::unused::PathStatements", ["check_stmt"]);
+declare module "./unused.lints.gen.ts" {
+  interface PathStatements extends LateLintPass {}
+  interface UnusedAllocation extends LateLintPass {}
+}
+
+// impl LateLintPass for PathStatements
+// rustc: compiler/rustc_lint/src/unused.rs:43 check_stmt
+PathStatements.prototype.check_stmt = function (this: PathStatements, cx: LateContext, s: hir.Stmt): void {
+  if (s.kind.$ === "Semi" && s.kind._0.kind.$ === "Path") {
+    const expr = s.kind._0;
+    const ty = (cx.typeck_results_() as TypeckResults).expr_ty(expr);
+    if (ty.needs_drop(cx.tcx, cx.typing_env() as TypingEnv)) {
+      const snippet = cx.sess().source_map().span_to_snippet(expr.span);
+      let sub: PathStatementDropSub;
+      if (snippet.$ === "Ok") {
+        sub = { $: "Suggestion", span: s.span, snippet: snippet._0.toString() };
+      } else {
+        sub = { $: "Help", span: s.span };
+      }
+      cx.emit_span_lint(PATH_STATEMENTS, s.span, PathStatementDrop_diagnostic({ sub }));
+    } else {
+      cx.emit_span_lint(PATH_STATEMENTS, s.span, PathStatementNoEffect_diagnostic({}));
+    }
+  }
+};
 
 // #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 type UnusedDelimsCtx =
@@ -1310,5 +1347,38 @@ UnusedImportBraces.prototype.check_item = function (this: UnusedImportBraces, cx
   }
 };
 
-// impl LateLintPass for UnusedAllocation (unused.rs:1396)
-unported_methods(UnusedAllocation.prototype, "rustc_lint::unused::UnusedAllocation", ["check_expr"]);
+// impl LateLintPass for UnusedAllocation
+// rustc: compiler/rustc_lint/src/unused.rs:1397 check_expr
+UnusedAllocation.prototype.check_expr = function (this: UnusedAllocation, cx: LateContext, e: hir.Expr): void {
+  let did: DefId | undefined;
+  if (
+    e.kind.$ === "Call" &&
+    e.kind._1.length === 1 &&
+    e.kind._0.kind.$ === "Path" &&
+    (did = Res.opt_def_id(cx.qpath_res(e.kind._0.kind._0, e.kind._0.hir_id) as Res)) !== undefined &&
+    cx.tcx.is_diagnostic_item(sym.box_new, did)
+  ) {
+    // {}
+  } else {
+    return;
+  }
+
+  for (const adj of (cx.typeck_results_() as TypeckResults).expr_adjustments(e)) {
+    if (adj.kind.$ === "Borrow" && adj.kind._0.$ === "Ref") {
+      const m = adj.kind._0._0;
+      const target_kind = adj.target.kind();
+      if (target_kind.$ === "Ref" && target_kind._1.is_box()) {
+        // If the target type is `&Box<T>` or `&mut Box<T>`, the allocation is necessary
+        continue;
+      }
+      switch (m.$) {
+        case "Not":
+          cx.emit_span_lint(UNUSED_ALLOCATION, e.span, UnusedAllocationDiag_diagnostic({}));
+          break;
+        case "Mut":
+          cx.emit_span_lint(UNUSED_ALLOCATION, e.span, UnusedAllocationMutDiag_diagnostic({}));
+          break;
+      }
+    }
+  }
+};
