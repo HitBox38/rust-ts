@@ -162,7 +162,13 @@ rustc_middle `lib.ts` (mir imports, `install_TyCtxt_methods` calls, `mir` namesp
   `ty/context.ts`, `rustc_interface/passes.ts` load.
 - Regenerating every codegen set: only thir.gen.ts changes (its import path, `./mir/mod.ts`); queries.gen.ts regenerated
   (MIR query types above). (The `rustc_lexer` set writes an untracked `src/rustc_lexer/lib.gen.ts`, as at base: deleted.)
-- Full unit tests: see "Unit tests".
+- `RUST_TS_REQUIRE_PROBES=1 bun test src --timeout=120000` (run before contract.test.ts existed): 5395 pass, 1 skip, 1 fail:
+  rustc_ty_utils `layout_contract.test.ts` "every fn of the layout files ..." collected every `// stub:` of src/ and
+  required them to be layout stubs (and 0): re-pinned below; then `layout_contract.test.ts` + `src/rustc_middle/mir`: 12 pass.
+
+## Re-pinned tests (no assertion weakened)
+- `src/rustc_ty_utils/layout_contract.test.ts`: its stub scan now keeps only stubs of its own scope files (the mir contract's
+  `// stub:` lines are not layout stubs); "0 layout stubs left" is checked as before.
 
 ## Samples (lane vs base; base = the detached worktree `lanes/index-ds-base` at `970d2365`; both `RUST_TS_AGENT=mir-contract`, same samples)
 | suite | lane run | M / D / U / C | base run | M / D / U / C |
