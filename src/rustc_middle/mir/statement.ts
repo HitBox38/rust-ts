@@ -742,7 +742,8 @@ Place.prototype.iter_projections = function (this: Place): readonly [PlaceRef, P
 // rustc: compiler/rustc_middle/src/mir/statement.rs:432 project_deeper
 Place.prototype.project_deeper = function (this: Place, more_projections: readonly PlaceElem[], tcx: TyCtxt): Place {
   if (more_projections.length === 0) {
-    return this;
+    // PORT: `self` is a copy of the caller's place (PORTING §8 clone rule).
+    return clone_Place(this);
   }
 
   return this.as_ref().project_deeper(more_projections, tcx);
