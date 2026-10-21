@@ -28,13 +28,18 @@
 // against the machine it runs on. To make the case set (and argv shape) the same on every machine,
 // this module runs compiletest as it runs on rust-lang CI's primary `x86_64-unknown-linux-gnu`
 // host (host = target = COMPILETEST_TARGET, so not a cross-compile), per decision D1 for M2 suites
-// (`docs/plan-m2.md`). The oracle and the subject still run on this machine (stopping after parsing
-// needs no target std). Only absolute paths in argv (sysroot, cargo home, upstream checkout) vary.
+// (`docs/plan-m2.md`). The oracle and the subject still run on this machine: the parse-ui suites stop
+// after parsing and need no target std; the M3 suites (tydump-ui, thirdump-ui, and the minicore corpus)
+// type-check against the oracle sysroot's installed rust-std for COMPILETEST_TARGET (plan-m2 D1(1)).
+// Only absolute paths in argv (sysroot, cargo home, upstream checkout, aux directory) vary.
 //
 // Paths: the input file is passed relative to the upstream checkout (the cwd of both sides), so
 // diagnostics show `tests/ui/...` where compiletest would show an absolute path and then
 // normalize it to `$DIR`. The output directory mirrors compiletest's layout relative to the cwd
-// (`build/<target>/test/ui/<dir>/<stem>[.<rev>]`); nothing is written there when stopping after parsing.
+// (`build/<target>/test/ui/<dir>/<stem>[.<rev>]`). Stopping after parsing (parse-ui) or in the M3 probes'
+// prefix (before `write_dep_info`) writes nothing there, but a test that asks for more in its own
+// compile-flags creates it: e.g. the thir-print cases' `-Zunpretty=thir-*` run rustc's own path, which
+// writes dep-info. Test collection and the dependency scan (scripts/lib/deps.ts) never look under `build/`.
 //
 // Auxiliary crates (`uiCases(.., { aux: true })`, lane harness-w20, for the M3 suites; plan-m2 D5: aux
 // crates are built by the oracle until rust-ts has a metadata encoder). `aux-build`, `aux-crate` and
@@ -48,16 +53,20 @@
 //   linker for COMPILETEST_TARGET on most hosts (a dylib would need one);
 // - so the main compile's `--extern <name>=<aux dir>/lib<name>.{so,rlib}` names `lib<name>.rmeta`.
 // The aux directory is `$RUST_TS_DATA/aux/ui/<key>` instead of `<output base>/auxiliary`, keyed by the
-// oracle build, the case id and every aux command, env and source file, so the case argv (and so the
-// oracle cache key) changes whenever any of them does. A failing aux build (compiletest: a fatal test
-// failure) skips the case with the oracle's message. `proc-macro` aux crates (and aux crates that are
-// proc-macro crates) are skipped: M6 (plan-m2 D6); `aux-codegen-backend` and `add-minicore` are not
-// reproduced.
+// oracle build, the case id and every aux command, environment, source file and file the source may pull
+// in (`mod`, `#[path]`, `include!`: scripts/lib/deps.ts `caseDeps`), so the case argv (and so the oracle
+// cache key) changes whenever any of them does. Aux builds run with a fixed environment (`auxEnv`: only
+// what rustup needs is inherited, `PATH` is pinned) and the suite's oracle timeout, retried once as
+// difftest's oracle processes. A failing aux build (compiletest: a fatal test failure) is never a skip:
+// it prints an `ERROR:` line and stops the run (`buildAux`), whether the oracle reported an error, was
+// killed or timed out twice. `proc-macro` aux crates (and aux crates that are proc-macro crates) are
+// skipped before any build: M6 (plan-m2 D6); `aux-codegen-backend` and `add-minicore` are not reproduced.
 import { existsSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { DATA, PIN, UPSTREAM, hash } from "../scripts/lib/common.ts";
-import { oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
+import { caseDeps } from "../scripts/lib/deps.ts";
+import { ORACLE_RETRY_FACTOR, oraclePathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
 
 /** The host and target compiletest is run as (see "Host independence" above). */
 export const COMPILETEST_TARGET = "x86_64-unknown-linux-gnu";
@@ -639,38 +648,114 @@ function planAux(root: string, rev: string | undefined, source: string, auxDir: 
 }
 
 /**
- * Runs the planned aux builds of case `id` with the oracle (once: the directory is keyed by the oracle
- * build, the case id and every command, env and source) and returns the aux directory.
+ * Inherited variables the oracle's rustup proxy needs to find its toolchain. They are the only inherited part of
+ * an aux build's environment, and part of the aux key (see `auxEnv`).
  */
-function buildAux(id: string, steps: AuxStep[]): string {
-  const key = hash(JSON.stringify([rustcDriverHash(), id, steps.map((s) => [s.file, s.args, s.env, hash(readFileSync(join(UPSTREAM, s.file)))])])).slice(0, 16);
-  const dir = join(DATA, "aux", "ui", key);
+const AUX_INHERITED_ENV = ["HOME", "USERPROFILE", "SYSTEMROOT", "RUSTUP_HOME", "CARGO_HOME"];
+
+/**
+ * The whole environment of an aux build: `AUX_INHERITED_ENV` from the harness's own environment, the fixed
+ * `PATH` (`oraclePathEnv`), `RUSTC_ICE=0` and `RUST_BACKTRACE=0` as every M2/M3 case gets them (harness/suites.ts
+ * `NOCORE_ENV`: no ICE report file in the upstream checkout, no backtrace), then the aux file's own `rustc-env` /
+ * `unset-rustc-env` (`compose_and_run_compiler`). Nothing else from the caller's environment reaches it.
+ */
+function auxEnv(step: AuxStep): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const k of AUX_INHERITED_ENV) {
+    const v = process.env[k];
+    if (v !== undefined) env[k] = v;
+  }
+  env.PATH = oraclePathEnv();
+  env.RUSTC_ICE = "0";
+  env.RUST_BACKTRACE = "0";
+  for (const [k, v] of Object.entries(step.env)) {
+    if (v === null) delete env[k];
+    else env[k] = v;
+  }
+  return env;
+}
+
+/** The aux root holds temp dirs of builds in progress (`<key>.tmp-<pid>`); those of dead processes are removed once per process. */
+let staleTmpsCleaned = false;
+function cleanStaleAuxTmps(root: string): void {
+  if (staleTmpsCleaned) return;
+  staleTmpsCleaned = true;
+  let names: string[];
+  try {
+    names = readdirSync(root);
+  } catch {
+    return;
+  }
+  for (const n of names) {
+    const m = /\.tmp-(\d+)$/.exec(n);
+    if (!m) continue;
+    const pid = Number(m[1]);
+    let alive = pid === process.pid;
+    if (!alive) {
+      try {
+        process.kill(pid, 0);
+        alive = true;
+      } catch (e) {
+        // EPERM: the process exists (another user's).
+        alive = (e as NodeJS.ErrnoException).code === "EPERM";
+      }
+    }
+    if (!alive) rmSync(join(root, n), { recursive: true, force: true });
+  }
+}
+
+/** A failed aux build: one `ERROR:` line, then the harness stops (never a skip, see the header). */
+function auxBuildError(id: string, msg: string): never {
+  const line = `ERROR: ${id}: the oracle's build of an auxiliary crate failed: ${msg}`;
+  console.log(line);
+  throw new Error(line);
+}
+
+/**
+ * Runs the planned aux builds of case `id` with the oracle (once: the directory is keyed by the oracle build,
+ * the case id and every command, environment (`auxEnv`), source and file the source may pull in) and returns
+ * the aux directory. Each build gets `timeoutMs` and, if it times out, one retry with `ORACLE_RETRY_FACTOR` times
+ * that, as difftest's oracle processes. Any failure (a timeout of the retry, a signal, any non-zero exit) prints
+ * an `ERROR:` line and throws: the case list cannot be made, so the run stops instead of skipping the case.
+ */
+function buildAux(id: string, steps: AuxStep[], timeoutMs: number): string {
+  const key = hash(
+    JSON.stringify([
+      rustcDriverHash(),
+      id,
+      steps.map((s) => [s.file, s.args, auxEnv(s), hash(readFileSync(join(UPSTREAM, s.file))), caseDeps(UPSTREAM, s.file, s.env)]),
+    ]),
+  ).slice(0, 16);
+  const root = join(DATA, "aux", "ui");
+  cleanStaleAuxTmps(root);
+  const dir = join(root, key);
   if (existsSync(join(dir, ".ok"))) return dir;
   const tmp = `${dir}.tmp-${process.pid}`;
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
-  for (const s of steps) {
-    const env: Record<string, string> = {};
-    for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-    for (const [k, v] of Object.entries(s.env)) {
-      if (v === null) delete env[k];
-      else env[k] = v;
-    }
-    // Built in `tmp` and renamed: nothing in an rmeta refers to its output directory.
-    const r = Bun.spawnSync(oracleRustcCmd(s.args.map((a) => a.replaceAll(AUX_DIR, tmp))), { cwd: UPSTREAM, env });
-    if (r.exitCode !== 0) {
-      rmSync(tmp, { recursive: true, force: true });
-      const first = r.stderr.toString().split("\n").find((l) => l.startsWith("error")) ?? `exit ${r.exitCode}`;
-      throw new Reject(`compiletest fails the test: the oracle's build of auxiliary crate \`${s.file}\` failed: ${first.slice(0, 300)}`);
-    }
-  }
-  writeFileSync(join(tmp, ".ok"), "");
   try {
-    renameSync(tmp, dir);
-  } catch {
-    // Another process built the same directory first.
+    for (const s of steps) {
+      // Built in `tmp` and renamed: nothing in an rmeta refers to its output directory.
+      const cmd = oracleRustcCmd(s.args.map((a) => a.replaceAll(AUX_DIR, tmp)));
+      const spawn = (ms: number) => Bun.spawnSync(cmd, { cwd: UPSTREAM, env: auxEnv(s), timeout: ms });
+      let r = spawn(timeoutMs);
+      if (r.exitedDueToTimeout) r = spawn(timeoutMs * ORACLE_RETRY_FACTOR);
+      if (r.exitedDueToTimeout) auxBuildError(id, `\`${s.file}\` timed out (${timeoutMs} ms, then ${timeoutMs * ORACLE_RETRY_FACTOR} ms)`);
+      if (r.exitCode !== 0) {
+        const how = r.exitCode === null ? `signal ${r.signalCode}` : `exit ${r.exitCode}`;
+        const first = r.stderr.toString().split("\n").find((l) => l.startsWith("error")) ?? "";
+        auxBuildError(id, `\`${s.file}\` (${how})${first ? `: ${first.slice(0, 300)}` : ""}`);
+      }
+    }
+    writeFileSync(join(tmp, ".ok"), "");
+    try {
+      renameSync(tmp, dir);
+    } catch {
+      // Another process built the same directory first.
+      if (!existsSync(join(dir, ".ok"))) throw new Error(`ERROR: cannot create aux directory ${dir}`);
+    }
+  } finally {
     rmSync(tmp, { recursive: true, force: true });
-    if (!existsSync(join(dir, ".ok"))) throw new Error(`ERROR: cannot create aux directory ${dir}`);
   }
   return dir;
 }
@@ -707,9 +792,16 @@ export function uiCases(dirs: string[], format: ErrorFormat): { cases: UiCase[];
 /**
  * `uiCases` for an explicit list of test files (as `collectUiTests` finds them). With `aux`, tests with
  * `aux-build`/`aux-crate`/`aux-bin` crates are cases too (their aux crates built by the oracle, see the
- * header) instead of being skipped, and the directives the blessed-output report needs are read.
+ * header, each build with `auxTimeoutMs`, the suite's oracle timeout) instead of being skipped, the
+ * directives the blessed-output report needs are read, and `auxFiles` lists the cases' aux sources.
  */
-export function uiFileCases(files: string[], format: ErrorFormat, opts: { aux?: boolean }): { cases: UiCase[]; skipped: Skip[] } {
+export function uiFileCases(
+  files: string[],
+  format: ErrorFormat,
+  opts: { aux?: boolean; auxTimeoutMs?: number },
+): { cases: UiCase[]; skipped: Skip[]; auxFiles: Map<string, string[]> } {
+  if (opts.aux && opts.auxTimeoutMs === undefined) throw new Error("ERROR: uiFileCases: `aux` needs `auxTimeoutMs`");
+  const auxFiles = new Map<string, string[]>();
   const cases: UiCase[] = [];
   const skipped: Skip[] = [];
   for (const file of files) {
@@ -758,8 +850,9 @@ export function uiFileCases(files: string[], format: ErrorFormat, opts: { aux?: 
           const steps: AuxStep[] = [];
           planAllAux(file, rev, p, AUX_DIR, args, steps, format);
           if (steps.length > 0) {
-            const dir = buildAux(id, steps);
+            const dir = buildAux(id, steps, opts.auxTimeoutMs!);
             args = args.map((a) => a.replaceAll(AUX_DIR, dir));
+            auxFiles.set(id, [...new Set(steps.map((s) => s.file))]);
           }
         }
         args.push("-Zparse-crate-root-only");
@@ -770,7 +863,7 @@ export function uiFileCases(files: string[], format: ErrorFormat, opts: { aux?: 
       }
     }
   }
-  return { cases, skipped };
+  return { cases, skipped, auxFiles };
 }
 
 // ---- expected output (the blessed-output report of the M3 suites) ----
