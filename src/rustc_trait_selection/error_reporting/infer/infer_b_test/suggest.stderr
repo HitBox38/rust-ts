@@ -1,0 +1,166 @@
+warning: the feature `lang_items` is internal to the compiler or standard library
+ --> suggest.rs:1:21
+  |
+1 | #![feature(no_core, lang_items, unboxed_closures, fundamental)]
+  |                     ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error[E0308]: mismatched types
+  --> suggest.rs:38:30
+   |
+38 | pub fn uf() { let _p: fn() = us; }
+   |                       ----   ^^ expected safe fn, found unsafe fn
+   |                       |
+   |                       expected due to this
+   |
+   = note: expected fn pointer `fn()`
+                 found fn item `unsafe fn() {us}`
+   = note: unsafe functions cannot be coerced into safe function pointers
+
+error[E0308]: mismatched types
+  --> suggest.rs:41:29
+   |
+41 | pub fn tp(x: E) { match x { 5u32 => {} } }
+   |                         -   ^^^^ expected `E`, found `u32`
+   |                         |
+   |                         this expression has type `E`
+   |
+help: try wrapping the pattern in `E::V`
+   |
+41 | pub fn tp(x: E) { match x { E::V(5u32) => {} } }
+   |                             +++++    +
+
+error[E0308]: mismatched types
+  --> suggest.rs:42:31
+   |
+42 | pub fn tp2(x: E2) { match x { 5u32 => {} } }
+   |                           -   ^^^^ expected `E2`, found `u32`
+   |                           |
+   |                           this expression has type `E2`
+   |
+help: try wrapping the pattern in a variant of `E2`
+   |
+42 | pub fn tp2(x: E2) { match x { E2::A(5u32) => {} } }
+   |                               ++++++    +
+42 | pub fn tp2(x: E2) { match x { E2::B(5u32) => {} } }
+   |                               ++++++    +
+
+error[E0308]: mismatched types
+  --> suggest.rs:44:29
+   |
+44 | pub fn af(w: W) { match w { 5u32 => {} } }
+   |                         -   ^^^^ expected `W`, found `u32`
+   |                         |
+   |                         this expression has type `W`
+   |
+help: you might have meant to use field `f` whose type is `u32`
+   |
+44 | pub fn af(w: W) { match w.f { 5u32 => {} } }
+   |                          ++
+
+error[E0308]: mismatched types
+  --> suggest.rs:45:16
+   |
+45 | pub fn rs() -> u32 { 1u32; }
+   |        --      ^^^       - help: remove this semicolon to return this value
+   |        |       |
+   |        |       expected `u32`, found `()`
+   |        implicitly returns `()` as its body has no tail or `return` expression
+
+error[E0308]: mismatched types
+  --> suggest.rs:46:16
+   |
+46 | pub fn rb() -> u32 { let x = 1u32; }
+   |        --      ^^^ expected `u32`, found `()`
+   |        |
+   |        implicitly returns `()` as its body has no tail or `return` expression
+   |
+help: consider returning the local binding `x`
+   |
+46 | pub fn rb() -> u32 { let x = 1u32; x }
+   |                                    +
+
+error[E0308]: mismatched types
+  --> suggest.rs:47:17
+   |
+47 | pub fn rb2() -> u32 {
+   |        ---      ^^^ expected `u32`, found `()`
+   |        |
+   |        implicitly returns `()` as its body has no tail or `return` expression
+   |
+note: consider returning one of these bindings
+  --> suggest.rs:48:9
+   |
+48 |     let x = 1u32;
+   |         ^
+49 |     let y = 2u32;
+   |         ^
+
+error[E0308]: mismatched types
+  --> suggest.rs:53:35
+   |
+53 | pub fn fp() { let mut f = a1; f = a2; }
+   |                           --      ^^ expected fn item, found a different fn item
+   |                           |
+   |                           expected due to this value
+   |
+   = note: expected fn item `fn(_) {a1}`
+              found fn item `fn(_) {a2}`
+   = note: different fn items have unique types, even if their signatures are the same
+   = help: consider casting both fn items to fn pointers using `as fn(u32)`
+
+error[E0308]: mismatched types
+  --> suggest.rs:54:35
+   |
+54 | pub fn fp2() { let _g: &fn(u32) = &a1; }
+   |                        --------   ^^^ expected `&fn(u32)`, found `&fn(u32) {a1}`
+   |                        |
+   |                        expected due to this
+   |
+   = note: expected reference `&fn(_)`
+              found reference `&fn(_) {a1}`
+   = note: fn items are distinct from fn pointers
+help: consider casting to a fn pointer
+   |
+54 - pub fn fp2() { let _g: &fn(u32) = &a1; }
+54 + pub fn fp2() { let _g: &fn(u32) = &(a1 as fn(u32)); }
+   |
+
+error[E0308]: mismatched types
+  --> suggest.rs:55:34
+   |
+55 | pub fn fp3() { let _g: fn(u32) = &a1; }
+   |                        -------   ^^^ expected fn pointer, found `&fn(u32) {a1}`
+   |                        |
+   |                        expected due to this
+   |
+   = note: expected fn pointer `fn(_)`
+               found reference `&fn(_) {a1}`
+help: consider removing the reference
+   |
+55 - pub fn fp3() { let _g: fn(u32) = &a1; }
+55 + pub fn fp3() { let _g: fn(u32) = a1; }
+   |
+
+error[E0308]: mismatched types
+  --> suggest.rs:56:69
+   |
+56 | pub fn ife(c: bool) -> u32 { let r = if c { 1u32; } else { 2u32; }; r }
+   |                        --- expected `u32` because of return type    ^ expected `u32`, found `()`
+   |
+help: remove this semicolon to return this value
+   |
+56 - pub fn ife(c: bool) -> u32 { let r = if c { 1u32; } else { 2u32; }; r }
+56 + pub fn ife(c: bool) -> u32 { let r = if c { 1u32 } else { 2u32; }; r }
+   |
+help: remove this semicolon to return this value
+   |
+56 - pub fn ife(c: bool) -> u32 { let r = if c { 1u32; } else { 2u32; }; r }
+56 + pub fn ife(c: bool) -> u32 { let r = if c { 1u32; } else { 2u32 }; r }
+   |
+
+error: aborting due to 11 previous errors; 1 warning emitted
+
+For more information about this error, try `rustc --explain E0308`.

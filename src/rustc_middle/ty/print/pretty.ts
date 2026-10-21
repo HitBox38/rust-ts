@@ -4160,6 +4160,15 @@ export function display_GenericArg(self: GenericArg): string {
   return forward_display_to_print(self, print_GenericArg);
 }
 
+/**
+ * `impl Display for ty::Binder<'tcx, ty::FnSig<'tcx>>`: rustc_type_ir ir_print.rs:89 through the blanket
+ * `IrPrint<T> for TyCtxt` (ty/print/mod.rs:423) over `Print for ty::Binder<'tcx, T>` (`print_Binder`). That impl
+ * prints into a fresh `FmtPrinter` like `forward_display_to_print` (`lift` is the identity), so it is reused.
+ */
+export function display_PolyFnSig(self: Binder<FnSig>): string {
+  return forward_display_to_print(self, (v: Binder<FnSig>, p: FmtPrinter) => print_Binder(v, p, print_FnSig, fold_FnSig_));
+}
+
 // rustc: compiler/rustc_middle/src/ty/print/pretty.rs:3448 for_each_def
 function for_each_def(tcx: TyCtxt, collect_fn: (ident: Ident, ns: Namespace, def_id: DefId) => void): void {
   // Iterate all (non-anonymous) local crate items no matter where they are defined.

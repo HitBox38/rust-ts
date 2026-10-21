@@ -8,7 +8,7 @@ import { type TyCtxt } from "../rustc_middle/ty/context.ts";
 import { Ty_into_diag_arg } from "../rustc_middle/ty/diagnostics.ts";
 import { type GenericArg, GenericArg_into_diag_arg } from "../rustc_middle/ty/generic_args.ts";
 import { type Ty } from "../rustc_middle/ty/mod.ts";
-import { display_Ty, type TraitRefPrintOnlyTraitPath } from "../rustc_middle/ty/print/pretty.ts";
+import { display_PolyFnSig, display_Ty, type TraitRefPrintOnlyTraitPath } from "../rustc_middle/ty/print/pretty.ts";
 import { type LocalDefId } from "../rustc_span/def_id.ts";
 import { type Span } from "../rustc_span/lib.ts";
 import { display_Ident, display_Symbol, type Ident, type Symbol } from "../rustc_span/symbol.ts";
@@ -18,15 +18,12 @@ import { type ObligationCauseAsDiagArg } from "./error_reporting/infer/mod.ts";
 import { type UnderspecifiedArgKind, UnderspecifiedArgKind_into_diag_arg } from "./error_reporting/infer/need_type_info.ts";
 import { type Highlighted, Highlighted_into_diag_arg } from "./error_reporting/infer/nice_region_error/placeholder_error.ts";
 import { type Binder } from "../rustc_type_ir/binder.ts";
-import { AliasConst_into_diag_arg, ClosureKind_into_diag_arg } from "../rustc_type_ir/ir_print.ts";
+import { AliasConst_into_diag_arg, ClosureKind_into_diag_arg, PolyFnSig_into_diag_arg } from "../rustc_type_ir/ir_print.ts";
 import { type ClosureKind, display_ClosureKind } from "../rustc_type_ir/lib.ts";
 import { type TraitRef } from "../rustc_type_ir/predicate.ts";
 import { type Region } from "../rustc_type_ir/sty/mod.ts";
 import { type FnSig } from "../rustc_type_ir/ty_kind.ts";
 import { type Result } from "../std/result.ts";
-import { unported } from "../std/panic.ts";
-const unported_into_diag_arg = (_v: unknown, _path: unknown): never => unported("IntoDiagArg without a TS impl (see types report)");
-const unported_display = (_v: unknown): string => unported("Display without a TS impl (see types report)");
 
 // rustc-type: compiler/rustc_trait_selection/src/diagnostics.rs:25 UnableToConstructConstantValue
 export interface UnableToConstructConstantValue {
@@ -1336,7 +1333,7 @@ export function FunctionPointerSuggestion_add_to_diag(self: FunctionPointerSugge
     }
     case "CastRef": {
       const { span: __binding_0, fn_name: __binding_1, sig: __binding_2 } = self;
-      let __code_28 = ["&(" + __binding_1 + " as " + unported_display(__binding_2) + ")"];
+      let __code_28 = ["&(" + __binding_1 + " as " + display_PolyFnSig(__binding_2) + ")"];
       const sub_args: DiagArgMap = new Map();
       let __message = format_diag_message({ $: "Inline", _0: "consider casting to a fn pointer" }, sub_args);
       diag.span_suggestions_with_style(__binding_0, __message, __code_28, "MaybeIncorrect", "ShowAlways");
@@ -1344,7 +1341,7 @@ export function FunctionPointerSuggestion_add_to_diag(self: FunctionPointerSugge
     }
     case "Cast": {
       const { span: __binding_0, sig: __binding_1 } = self;
-      let __code_29 = [" as " + unported_display(__binding_1)];
+      let __code_29 = [" as " + display_PolyFnSig(__binding_1)];
       const sub_args: DiagArgMap = new Map();
       let __message = format_diag_message({ $: "Inline", _0: "consider casting to a fn pointer" }, sub_args);
       diag.span_suggestions_with_style(__binding_0, __message, __code_29, "MaybeIncorrect", "ShowAlways");
@@ -1352,18 +1349,18 @@ export function FunctionPointerSuggestion_add_to_diag(self: FunctionPointerSugge
     }
     case "CastBoth": {
       const { span: __binding_0, found_sig: __binding_1, expected_sig: __binding_2 } = self;
-      let __code_30 = [" as " + unported_display(__binding_1)];
+      let __code_30 = [" as " + display_PolyFnSig(__binding_1)];
       const sub_args: DiagArgMap = new Map();
-      sub_args.set("expected_sig", unported_into_diag_arg(__binding_2, diag.long_ty_path()));
+      sub_args.set("expected_sig", PolyFnSig_into_diag_arg(__binding_2, diag.long_ty_path()));
       let __message = format_diag_message({ $: "Inline", _0: "consider casting both fn items to fn pointers using `as {$expected_sig}`" }, sub_args);
       diag.span_suggestions_with_style(__binding_0, __message, __code_30, "MaybeIncorrect", "HideCodeAlways");
       return;
     }
     case "CastBothRef": {
       const { span: __binding_0, fn_name: __binding_1, found_sig: __binding_2, expected_sig: __binding_3 } = self;
-      let __code_31 = ["&(" + __binding_1 + " as " + unported_display(__binding_2) + ")"];
+      let __code_31 = ["&(" + __binding_1 + " as " + display_PolyFnSig(__binding_2) + ")"];
       const sub_args: DiagArgMap = new Map();
-      sub_args.set("expected_sig", unported_into_diag_arg(__binding_3, diag.long_ty_path()));
+      sub_args.set("expected_sig", PolyFnSig_into_diag_arg(__binding_3, diag.long_ty_path()));
       let __message = format_diag_message({ $: "Inline", _0: "consider casting both fn items to fn pointers using `as {$expected_sig}`" }, sub_args);
       diag.span_suggestions_with_style(__binding_0, __message, __code_31, "MaybeIncorrect", "HideCodeAlways");
       return;
@@ -1432,7 +1429,7 @@ export interface FnConsiderCastingBoth {
 export function FnConsiderCastingBoth_add_to_diag(self: FnConsiderCastingBoth, diag: Diag): void {
   const { sig: __binding_0 } = self;
   const sub_args: DiagArgMap = new Map();
-  sub_args.set("sig", unported_into_diag_arg(__binding_0, diag.long_ty_path()));
+  sub_args.set("sig", PolyFnSig_into_diag_arg(__binding_0, diag.long_ty_path()));
   let __message = format_diag_message({ $: "Inline", _0: "consider casting both fn items to fn pointers using `as {$sig}`" }, sub_args);
   diag.help(__message);
 }
