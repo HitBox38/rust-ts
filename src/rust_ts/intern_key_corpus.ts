@@ -179,20 +179,6 @@ async function main(argv: string[]): Promise<void> {
     time(intern_key);
     s.ns_reference = Math.round(time(intern_key_reference));
     s.ns_new = Math.round(time(intern_key));
-    if (process.env.IK_DUMP) {
-      // scratch: the values, for benchmarks outside the compiler (interned objects as their id)
-      const enc = (v: unknown): unknown => {
-        if (typeof v === "number") return Object.is(v, -0) || !Number.isFinite(v) ? { $n: String(v) } : v;
-        if (typeof v === "bigint") return { $b: String(v) };
-        if (v === undefined) return { $u: 1 };
-        if (typeof v !== "object" || v === null) return v;
-        if ((v as { [INTERNED]?: true })[INTERNED] === true) return { $i: (v as { id: number }).id };
-        if (Array.isArray(v)) return v.map(enc);
-        return { $o: Object.keys(v).map((k) => [k, enc((v as Record<string, unknown>)[k])]) };
-      };
-      const { writeFileSync } = await import("node:fs");
-      writeFileSync(process.env.IK_DUMP, JSON.stringify(kept.slice(0, 400_000).map(enc)));
-    }
     let len = 0;
     for (const v of kept) len += intern_key(v).length;
     s.avg_key_len = Math.round(len / kept.length);
