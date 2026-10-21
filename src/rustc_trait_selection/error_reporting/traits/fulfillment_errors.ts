@@ -81,7 +81,7 @@ import type { TypeFoldable } from "../../../rustc_type_ir/fold.ts";
 import type { Interner } from "../../../rustc_type_ir/interner.ts";
 import { display_Binder } from "../../../rustc_type_ir/ir_print.ts";
 import { ClosureKind as ClosureKind_ } from "../../../rustc_type_ir/lib.ts";
-import type { ClosureKind } from "../../../rustc_type_ir/lib.ts";
+import { ClosureKind } from "../../../rustc_type_ir/lib.ts";
 import {
   type HostEffectClause,
   PolyHostEffectClause,
@@ -1442,116 +1442,81 @@ function select_mod(): typeof import("../../traits/select/mod.ts") {
 // - The `TypeFoldable` derives of rustc_middle's printing wrappers (`TraitClausePrintWithBoundConstness`,
 //   `TraitClausePrintModifiersAndPath`), needed to print them inside a `Binder`, are local descriptors (pretty.ts has
 //   none yet).
-import { Applicability, DiagMessage, E0059, E0271, E0593, MultiSpan, msg, pluralize, StringPart, struct_span_code_err, type Diag } from "../../../rustc_errors/lib.ts";
+import { Applicability, DiagMessage, E0059, E0271, E0593, MultiSpan, msg, pluralize, StringPart } from "../../../rustc_errors/lib.ts";
 import { LangItem } from "../../../rustc_attr_ir/lang_items.ts";
-import * as hir from "../../../rustc_hir/lib.ts";
+import { PolyTraitClause as PolyTraitClauseV } from "../../../rustc_type_ir/predicate.ts";
 import { expr_needs_parens } from "../../../rustc_hir/hir.ts";
 import { debug_Node } from "../../../rustc_hir/hir.gen.ts";
 import type { HirId } from "../../../rustc_hir_id/lib.ts";
-import { ToTrace_AliasTerm, ToTrace_GenericArg, ToTrace_Term, ToTrace_TraitRef, ToTrace_Ty } from "../../../rustc_infer/infer/at.ts";
+import { ToTrace_AliasTerm, ToTrace_GenericArg, ToTrace_Term, ToTrace_TraitRef } from "../../../rustc_infer/infer/at.ts";
 import { BoundRegionConversionTime } from "../../../rustc_infer/infer/mod.gen.ts";
 import { TypeTrace, type ValuePairs } from "../../../rustc_infer/infer/mod.ts";
 import { TraitErrors } from "../../../rustc_infer/traits/engine.ts";
-import { clone_Obligation, Obligation, type PredicateObligation } from "../../../rustc_infer/traits/mod.ts";
 import type { MismatchedProjectionTypes } from "../../../rustc_infer/traits/project.gen.ts";
-import type { Place } from "../../../rustc_middle/hir/place.ts";
-import { clone_ObligationCause, ObligationCause, ObligationCauseCode, ObligationCauseCodeHandle } from "../../../rustc_middle/traits/mod.ts";
 import { place_to_string_for_capture } from "../../../rustc_middle/ty/closure.ts";
 import type { TyCtxt } from "../../../rustc_middle/ty/context.ts";
-import type { Clause, Predicate } from "../../../rustc_middle/ty/decls.ts";
+import type { Clause } from "../../../rustc_middle/ty/decls.ts";
 import type { PolyProjectionClause, PolyTraitClause as PolyTraitClauseT } from "../../../rustc_type_ir/decls.ts";
 import { Elaboratable_Predicate } from "../../../rustc_middle/ty/elaborate_impl.ts";
-import { GenericArg } from "../../../rustc_middle/ty/generic_args.ts";
 import { GenericClauses } from "../../../rustc_middle/ty/generics.ts";
-import { fold_Term, type ImplTraitHeader, type ParamEnv, type Term as TermT, Term, Ty, TypingEnv, Visibility } from "../../../rustc_middle/ty/mod.ts";
-import { Predicate_upcast_from_Clause, Predicate_upcast_from_PolyTraitClause, Predicate_upcast_from_TraitClause } from "../../../rustc_middle/ty/predicate.ts";
-import { IrPrint_print, type Print } from "../../../rustc_middle/ty/print/mod.ts";
+import { type ImplTraitHeader, type ParamEnv, type Term as TermT, Term, TypingEnv, Visibility } from "../../../rustc_middle/ty/mod.ts";
+import { Predicate_upcast_from_Clause, Predicate_upcast_from_TraitClause } from "../../../rustc_middle/ty/predicate.ts";
+import type { Print } from "../../../rustc_middle/ty/print/mod.ts";
 import {
   display_TraitRefPrintOnlyTraitPath,
   display_TraitRefPrintSugared,
-  display_Ty,
   PolyTraitClause_print_modifiers_and_trait_path,
   PolyTraitClause_print_with_bound_constness,
-  print_Binder,
   print_Predicate,
   print_Term,
-  print_TraitClausePrintModifiersAndPath,
   print_TraitClausePrintWithBoundConstness,
-  print_TraitRefPrintOnlyTraitPath,
-  print_TraitRefPrintSugared,
   type TraitClausePrintModifiersAndPath,
   type TraitClausePrintWithBoundConstness,
-  TraitRef_print_only_trait_path,
   TraitRef_print_trait_sugared,
   with_forced_trimmed_paths,
 } from "../../../rustc_middle/ty/print/pretty.ts";
-import { fold_Predicate, fold_Ty } from "../../../rustc_middle/ty/structural_impls.ts";
 import { debug_Const, fold_Const } from "../../../rustc_type_ir/sty/consts.ts";
 import { display_Const } from "../../../rustc_type_ir/ir_print.ts";
-import { print_Ty } from "../../../rustc_middle/ty/print/mod.ts";
 import { TraitImpls } from "../../../rustc_middle/ty/trait_def.ts";
-import { sym, display_Symbol } from "../../../rustc_span/symbol.ts";
-import { type CrateNum, DefId_eq, DefIdSet, type DefId, LOCAL_CRATE, type LocalDefId } from "../../../rustc_span/def_id.ts";
-import { DUMMY_SP, Span, type ErrorGuaranteed } from "../../../rustc_span/lib.ts";
-import { bug, span_bug } from "../../../rustc_span/macros.ts";
+import { type CrateNum, DefIdSet, LOCAL_CRATE } from "../../../rustc_span/def_id.ts";
 import { str_cmp } from "../../../rustc_session/options.ts";
-import { Binder, EarlyBinder, fold_Binder } from "../../../rustc_type_ir/binder.ts";
+import { EarlyBinder, fold_Binder } from "../../../rustc_type_ir/binder.ts";
 import type { AliasConst } from "../../../rustc_type_ir/ty/alias.gen.ts";
 import { AliasConstKind } from "../../../rustc_type_ir/const_kind.ts";
 import { elaborate } from "../../../rustc_type_ir/elaborate.ts";
-import { ExpectedFound, type TypeError } from "../../../rustc_type_ir/error.ts";
+import type { TypeError } from "../../../rustc_type_ir/error.ts";
 import { fold_with_ExpectedFound, try_fold_with_ExpectedFound, visit_with_ExpectedFound } from "../../../rustc_type_ir/error.gen.ts";
-import type { TypeFoldable, TypeFolder, PredicateProxy } from "../../../rustc_type_ir/fold.ts";
+import type { TypeFolder, PredicateProxy } from "../../../rustc_type_ir/fold.ts";
 import { TypeFolder_provided } from "../../../rustc_type_ir/fold.ts";
 import { TypeFlags } from "../../../rustc_type_ir/flags.ts";
-import type { Interner } from "../../../rustc_type_ir/interner.ts";
-import { ClosureKind, display_ClosureKind } from "../../../rustc_type_ir/lib.ts";
+import { display_ClosureKind } from "../../../rustc_type_ir/lib.ts";
 import {
   as_interner,
   BoundConstness,
   type ClausePolarity,
   fold_with_HostEffectClause,
   fold_with_ProjectionClause,
-  fold_with_TraitClause,
-  fold_with_TraitRef,
-  type HostEffectClause,
-  PolyTraitClause,
   ProjectionClause,
-  TraitClause,
   TraitRef,
   try_fold_with_HostEffectClause,
   try_fold_with_ProjectionClause,
-  try_fold_with_TraitClause,
-  try_fold_with_TraitRef,
   visit_with_HostEffectClause,
   visit_with_ProjectionClause,
-  visit_with_TraitClause,
-  visit_with_TraitRef,
 } from "../../../rustc_type_ir/predicate.ts";
 import { AliasTerm, AliasTermKind, fold_with_AliasTermKind, try_fold_with_AliasTermKind, visit_with_AliasTermKind } from "../../../rustc_type_ir/term_kind.ts";
 import { fold_with_Alias, try_fold_with_Alias, visit_with_Alias, type AliasTerm as AliasTermT } from "../../../rustc_type_ir/ty/alias.ts";
 import { fold_with_AliasTyKind } from "../../../rustc_type_ir/ty_kind.gen.ts";
 import { IsRigid } from "../../../rustc_type_ir/ty_kind.gen.ts";
 import { Unnormalized } from "../../../rustc_type_ir/unnormalized.ts";
-import { TypeVisitableExt } from "../../../rustc_type_ir/visit.ts";
-import { VisitorResult } from "../../../rustc_ast_ir/visit.ts";
-import type { Goal } from "../../../rustc_type_ir/solve/mod.ts";
-import type { MutRef } from "../../../std/mut_ref.ts";
-import { panic, unported, unwrap } from "../../../std/panic.ts";
-import { PLAIN } from "../../../std/fmt.ts";
-import { Err, Ok, type Result } from "../../../std/result.ts";
-import type { PathBuf } from "../../../rustc_span/lib.ts";
+import { panic, unported } from "../../../std/panic.ts";
 import type { ArgKind as ArgKindT, CandidateSimilarity, ImplCandidate } from "./mod.gen.ts";
 import { GetSafeTransmuteErrorAndReason } from "./mod.gen.ts";
 import { clone_ImplCandidate } from "./mod.gen.ts";
 import type { FulfillmentError } from "../../traits/mod.gen.ts";
 import type { InferCtxt } from "../../../rustc_infer/decls.ts";
 import type { Clauses, Const, Region } from "../../../rustc_middle/ty/decls.ts";
-import type { PrettyPrinter } from "../../../rustc_middle/ty/print/pretty.ts";
-import type { PrintResult } from "../../../rustc_middle/ty/print/mod.ts";
 import { print_TraitRef } from "../../../rustc_middle/ty/print/pretty.ts";
 import { fold_GenericArg } from "../../../rustc_middle/ty/generic_args.ts";
-import type { Generics } from "../../../rustc_middle/ty/generics.ts";
 import type { IntoMultiSpan } from "../../../rustc_errors/lib.ts";
 import { DefKind } from "../../../rustc_hir/def.ts";
 import { AliasConst as AliasConstC } from "../../../rustc_type_ir/const_kind.ts";
@@ -1563,11 +1528,11 @@ import { unreachable } from "../../../std/panic.ts";
 // rustc: compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs:1531 can_match_trait
 TypeErrCtxt.prototype.can_match_trait = function (this: TypeErrCtxt, param_env: ParamEnv, goal: TraitClause, assumption: PolyTraitClauseT): boolean {
   // Fast path
-  if (goal.polarity !== PolyTraitClause.polarity(assumption)) {
+  if (goal.polarity !== PolyTraitClauseV.polarity(assumption)) {
     return false;
   }
 
-  const trait_assumption = this.instantiate_binder_with_fresh_vars(DUMMY_SP, BoundRegionConversionTime.HigherRankedType, assumption, d_TraitClause);
+  const trait_assumption = this.instantiate_binder_with_fresh_vars(DUMMY_SP, BoundRegionConversionTime.HigherRankedType, assumption, d_TraitClause_b);
 
   return this.can_eq(param_env, goal.trait_ref, trait_assumption.trait_ref, ToTrace_TraitRef);
 };
@@ -1644,7 +1609,7 @@ TypeErrCtxt.prototype.error_implies = function (this: TypeErrCtxt, cond: Goal<Pr
         }
         return false;
       },
-      d_TraitClause,
+      d_TraitClause_b,
     );
   } else if ((host_error = TypeErrCtxt.as_host_effect_clause(error.predicate)) !== undefined) {
     return this.enter_forall(
@@ -2311,7 +2276,7 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
     const single = impl_candidates_[0]!;
     const self_ty_ = TraitClause.self_ty(Binder.skip_binder(trait_pred));
     if (!TypeVisitableExt.has_escaping_bound_vars(self_ty_, fold_Ty)) {
-      const self_ty = this.tcx.instantiate_bound_regions_with_erased(PolyTraitClause.self_ty(trait_pred), fold_Ty);
+      const self_ty = this.tcx.instantiate_bound_regions_with_erased(PolyTraitClauseV.self_ty(trait_pred), fold_Ty);
       const sk = self_ty.kind();
       if (
         sk.$ === "Ref" &&
@@ -2451,7 +2416,7 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
               this.suggest_function_pointers_impl(undefined, exp_found, err);
             }
 
-            const pk = Binder.skip_binder(PolyTraitClause.self_ty(trait_pred)).peel_refs().kind();
+            const pk = Binder.skip_binder(PolyTraitClauseV.self_ty(trait_pred)).peel_refs().kind();
             if (pk.$ === "Adt") {
               const crates = this.tcx.duplicate_crate_names(pk._0.did().krate);
               if (crates.length !== 0) {
@@ -2461,7 +2426,7 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
             }
             return true;
           },
-          d_TraitClause,
+          d_TraitClause_b,
         );
       })
     ) {
@@ -2530,7 +2495,7 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
               );
               return ocx.try_evaluate_obligations();
             },
-            d_TraitClause,
+            d_TraitClause_b,
           );
         };
         const failing_obligations: TraitErrors<FulfillmentError> =
@@ -2668,7 +2633,7 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
       );
     }
 
-    const pk = Binder.skip_binder(PolyTraitClause.self_ty(trait_pred)).peel_refs().kind();
+    const pk = Binder.skip_binder(PolyTraitClauseV.self_ty(trait_pred)).peel_refs().kind();
     if (pk.$ === "Adt") {
       const crates = this.tcx.duplicate_crate_names(pk._0.did().krate);
       if (crates.length !== 0) {
@@ -2683,7 +2648,7 @@ TypeErrCtxt.prototype.report_similar_impl_candidates = function (
   // to get the fallback solution if we filtered out any impls
   const impl_candidates = impl_candidates_.map(clone_ImplCandidate).filter((cand) => !this.tcx.do_not_recommend_impl(cand.impl_def_id));
 
-  const def_id = PolyTraitClause.def_id(trait_pred);
+  const def_id = PolyTraitClauseV.def_id(trait_pred);
   if (impl_candidates.length === 0) {
     let is_lang_item = false;
     if (!this.tcx.trait_is_auto(def_id)) {
@@ -2780,14 +2745,14 @@ TypeErrCtxt.prototype.report_similar_impl_candidates_for_root_obligation = funct
       peeled = true;
     }
   }
-  const def_id = PolyTraitClause.def_id(trait_pred);
+  const def_id = PolyTraitClauseV.def_id(trait_pred);
   // Mention *all* the `impl`s for the *top most* obligation, the
   // user might have meant to use one of them, if any found. We skip
   // auto-traits or fundamental traits that might not be exactly what
   // the user might expect to be presented with. Instead this is
   // useful for less general traits.
   if (peeled && !this.tcx.trait_is_auto(def_id) && this.tcx.as_lang_item(def_id) === undefined) {
-    const impl_candidates = this.find_similar_impl_candidates(PolyTraitClause.def_id(trait_pred), Binder.skip_binder(PolyTraitClause.self_ty(trait_pred)));
+    const impl_candidates = this.find_similar_impl_candidates(PolyTraitClauseV.def_id(trait_pred), Binder.skip_binder(PolyTraitClauseV.self_ty(trait_pred)));
     this.report_similar_impl_candidates(impl_candidates, obligation, trait_pred, body_def_id, err, true, obligation.param_env);
   }
 };
@@ -2798,7 +2763,7 @@ TypeErrCtxt.prototype.get_parent_trait_ref = function (this: TypeErrCtxt, code: 
   switch (code.$) {
     case "BuiltinDerived": {
       const data = code._0;
-      const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause);
+      const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause_b);
       const t = this.get_parent_trait_ref(ObligationCauseCodeHandle.deref(data.parent_code));
       if (t !== undefined) {
         return t;
@@ -2831,7 +2796,7 @@ TypeErrCtxt.prototype.check_same_trait_different_version = function (this: TypeE
     );
     return trait_impls;
   };
-  return this.check_same_definition_different_crate(err, PolyTraitClause.def_id(trait_pred), this.tcx.visible_traits(), get_trait_impls, "trait");
+  return this.check_same_definition_different_crate(err, PolyTraitClauseV.def_id(trait_pred), this.tcx.visible_traits(), get_trait_impls, "trait");
 };
 
 // rustc: compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs:2847 note_two_crate_versions
@@ -2843,7 +2808,7 @@ TypeErrCtxt.prototype.note_two_crate_versions = function (this: TypeErrCtxt, kra
 
 // rustc: compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs:2860 note_adt_version_mismatch
 TypeErrCtxt.prototype.note_adt_version_mismatch = function (this: TypeErrCtxt, err: Diag, trait_pred: PolyTraitClauseT): void {
-  const pk = Binder.skip_binder(PolyTraitClause.self_ty(trait_pred)).peel_refs().kind();
+  const pk = Binder.skip_binder(PolyTraitClauseV.self_ty(trait_pred)).peel_refs().kind();
   if (pk.$ !== "Adt") {
     return;
   }
@@ -2908,7 +2873,7 @@ TypeErrCtxt.prototype.check_same_name_different_path = function (
   trait_pred: PolyTraitClauseT,
 ): boolean {
   let suggested = false;
-  const trait_def_id = PolyTraitClause.def_id(trait_pred);
+  const trait_def_id = PolyTraitClauseV.def_id(trait_pred);
   const trait_has_same_params = (other_trait_def_id: DefId): boolean => {
     const trait_generics = this.tcx.generics_of(trait_def_id) as Generics;
     const other_trait_generics = this.tcx.generics_of(other_trait_def_id) as Generics;
@@ -2953,7 +2918,7 @@ TypeErrCtxt.prototype.check_same_name_different_path = function (
   }
   if (other_trait_def_id !== undefined) {
     err.note(
-      `\`${display_PolyTy(PolyTraitClause.self_ty(trait_pred))}\` implements similarly named trait \`${this.tcx.def_path_str(other_trait_def_id)}\`, but not \`${display_Poly_TraitClausePrintModifiersAndPath(PolyTraitClause_print_modifiers_and_trait_path(trait_pred))}\``,
+      `\`${display_PolyTy(PolyTraitClauseV.self_ty(trait_pred))}\` implements similarly named trait \`${this.tcx.def_path_str(other_trait_def_id)}\`, but not \`${display_Poly_TraitClausePrintModifiersAndPath(PolyTraitClause_print_modifiers_and_trait_path(trait_pred))}\``,
     );
     suggested = true;
   }
@@ -3189,7 +3154,7 @@ TypeErrCtxt.prototype.note_obligation_cause = function (this: TypeErrCtxt, err: 
 TypeErrCtxt.prototype.is_recursive_obligation = function (this: TypeErrCtxt, obligated_types: Ty[], cause_code: ObligationCauseCode): boolean {
   if (cause_code.$ === "BuiltinDerived") {
     const data = cause_code._0;
-    const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause);
+    const parent_trait_ref = this.deeply_resolve_ignoring_regions(data.parent_trait_pred, d_PolyTraitClause_b);
     const self_ty = TraitClause.self_ty(Binder.skip_binder(parent_trait_ref));
     if (obligated_types.some((ot) => ot === self_ty)) {
       return true;
@@ -3235,7 +3200,7 @@ TypeErrCtxt.prototype.select_transmute_obligation_for_reporting = function (
   }
 
   const ocx = lazy_engine().ObligationCtxt.new(this.infcx);
-  const normalized_predicate = this.tcx.erase_and_anonymize_regions(this.tcx.instantiate_bound_regions_with_erased(trait_predicate, d_TraitClause), d_TraitClause);
+  const normalized_predicate = this.tcx.erase_and_anonymize_regions(this.tcx.instantiate_bound_regions_with_erased(trait_predicate, d_TraitClause_b), d_TraitClause_b);
   const trait_ref = normalized_predicate.trait_ref;
 
   const assume_ct = ocx.normalize(obligation.cause, obligation.param_env, Unnormalized.new_wip(trait_ref.args.const_at(2)), fold_Const);
@@ -3257,7 +3222,7 @@ TypeErrCtxt.prototype.select_transmute_obligation_for_reporting = function (
     const rk = Binder.skip_binder(root_obligation.predicate.kind());
     if (rk.$ === "Clause" && rk._0.$ === "Trait") {
       const root_pred = rk._0._0;
-      if (DefId_eq(TraitClause.def_id(root_pred), PolyTraitClause.def_id(trait_predicate))) {
+      if (DefId_eq(TraitClause.def_id(root_pred), PolyTraitClauseV.def_id(trait_predicate))) {
         return [clone_Obligation(root_obligation, (p) => p), Binder.rebind(root_obligation.predicate.kind(), root_pred)];
       }
     }
@@ -3282,7 +3247,7 @@ TypeErrCtxt.prototype.get_safe_transmute_error_and_reason = function (
     }
 
     // Erase regions because layout code doesn't particularly care about regions.
-    const trait_pred = this.tcx.erase_and_anonymize_regions(this.tcx.instantiate_bound_regions_with_erased(trait_pred_, d_TraitClause), d_TraitClause);
+    const trait_pred = this.tcx.erase_and_anonymize_regions(this.tcx.instantiate_bound_regions_with_erased(trait_pred_, d_TraitClause_b), d_TraitClause_b);
 
     const ocx = lazy_engine().ObligationCtxt.new(this.infcx);
     const assume_ct = ocx.normalize(obligation.cause, obligation.param_env, Unnormalized.new_wip(trait_pred.trait_ref.args.const_at(2)), fold_Const);
@@ -3377,7 +3342,7 @@ TypeErrCtxt.prototype.find_explicit_cast_type = function (this: TypeErrCtxt, par
   }
   const [region, inner_ty, mutbl] = [fk._0, fk._1, fk._2];
 
-  const derefs = this.autoderef_steps(inner_ty)[Symbol.iterator]();
+  const derefs = this.autoderef_steps(inner_ty)[globalThis.Symbol.iterator]();
   derefs.next(); // skip the first one, which is inner_ty itself
   const next = derefs.next();
   if (next.done) return undefined;
@@ -3436,18 +3401,18 @@ TypeErrCtxt.prototype.try_to_add_help_message = function (
   const span = code.$ === "BinOp" ? code.rhs_span : span_;
 
   // Try to report a help message
-  const trait_def_id = PolyTraitClause.def_id(trait_predicate);
+  const trait_def_id = PolyTraitClauseV.def_id(trait_predicate);
   let fn_trait: Result<[ClosureKind, Binder<Ty>], undefined> | undefined;
   if (
     is_fn_trait &&
-    (fn_trait = this.type_implements_fn_trait(obligation.param_env, PolyTraitClause.self_ty(trait_predicate), Binder.skip_binder(trait_predicate).polarity))
+    (fn_trait = this.type_implements_fn_trait(obligation.param_env, PolyTraitClauseV.self_ty(trait_predicate), Binder.skip_binder(trait_predicate).polarity))
       .$ === "Ok"
   ) {
     const [implemented_kind, params] = fn_trait._0;
     this.add_help_message_for_fn_trait(trait_predicate, err, implemented_kind, params);
   } else if (
-    !TypeVisitableExt.has_non_region_infer(trait_predicate, d_PolyTraitClause) &&
-    this.predicate_can_apply(obligation.param_env, trait_predicate, Predicate_upcast_from_PolyTraitClause_, d_PolyTraitClause)
+    !TypeVisitableExt.has_non_region_infer(trait_predicate, d_PolyTraitClause_b) &&
+    this.predicate_can_apply(obligation.param_env, trait_predicate, Predicate_upcast_from_PolyTraitClause_, d_PolyTraitClause_b)
   ) {
     // If a where-clause may be useful, remind the
     // user that they can add it.
@@ -3462,12 +3427,12 @@ TypeErrCtxt.prototype.try_to_add_help_message = function (
     TraitImpls.is_empty(this.tcx.trait_impls_of(trait_def_id) as TraitImpls) &&
     !this.tcx.trait_is_auto(trait_def_id) &&
     !this.tcx.trait_is_alias(trait_def_id) &&
-    PolyTraitClause.polarity(trait_predicate) === "Positive"
+    PolyTraitClauseV.polarity(trait_predicate) === "Positive"
   ) {
     err.span_help(this.tcx.def_span(trait_def_id), msg("this trait has no implementations, consider adding one"));
-  } else if (!suggested && PolyTraitClause.polarity(trait_predicate) === "Positive") {
+  } else if (!suggested && PolyTraitClauseV.polarity(trait_predicate) === "Positive") {
     // Can't show anything else useful, try to find similar impls.
-    const impl_candidates = this.find_similar_impl_candidates(PolyTraitClause.def_id(trait_predicate), Binder.skip_binder(PolyTraitClause.self_ty(trait_predicate)));
+    const impl_candidates = this.find_similar_impl_candidates(PolyTraitClauseV.def_id(trait_predicate), Binder.skip_binder(PolyTraitClauseV.self_ty(trait_predicate)));
     if (!this.report_similar_impl_candidates(impl_candidates, obligation, trait_predicate, body_def_id, err, true, obligation.param_env)) {
       this.report_similar_impl_candidates_for_root_obligation(obligation, trait_predicate, body_def_id, err);
     }
@@ -3493,7 +3458,7 @@ TypeErrCtxt.prototype.add_help_message_for_fn_trait = function (
 
   // Note if the `FnMut` or `FnOnce` is less general than the trait we're trying
   // to implement.
-  const selected_kind = unwrap(this.tcx.fn_trait_kind_from_def_id(PolyTraitClause.def_id(trait_pred)), "expected to map DefId to ClosureKind");
+  const selected_kind = unwrap(this.tcx.fn_trait_kind_from_def_id(PolyTraitClauseV.def_id(trait_pred)), "expected to map DefId to ClosureKind");
   if (!ClosureKind.extends(implemented_kind, selected_kind)) {
     err.note(
       `\`${display_Ty(TraitClause.self_ty(Binder.skip_binder(trait_pred)))}\` implements \`${display_ClosureKind(implemented_kind)}\`, but it must implement \`${display_ClosureKind(selected_kind)}\`, which is more general`,
@@ -3972,13 +3937,13 @@ TypeErrCtxt.prototype.report_not_const_evaluatable_error = function (
 // ---- helpers (lane errrep-traits-b) -----------------------------------------------------------------------------------
 
 /** The generated `TypeFoldable` impl fns of `TraitClause` as a D4 descriptor. */
-const d_TraitClause: TypeFoldable<TraitClause> = {
+const d_TraitClause_b: TypeFoldable<TraitClause> = {
   visit_with: visit_with_TraitClause,
   try_fold_with: try_fold_with_TraitClause,
   fold_with: fold_with_TraitClause,
 };
 /** `Binder<TraitClause>`'s `TypeFoldable`. */
-const d_PolyTraitClause: TypeFoldable<PolyTraitClauseT> = fold_Binder(d_TraitClause);
+const d_PolyTraitClause_b: TypeFoldable<PolyTraitClauseT> = fold_Binder(d_TraitClause_b);
 /** The generated `TypeFoldable` impl fns of `ProjectionClause` as a D4 descriptor. */
 const d_ProjectionClause: TypeFoldable<ProjectionClause> = {
   visit_with: visit_with_ProjectionClause,
@@ -4053,7 +4018,7 @@ function display_TraitRef(v: TraitRef): string {
 const upcast_from_self: (from: Predicate, tcx: Interner) => Predicate = (from) => from;
 /** `impl UpcastFrom<TyCtxt, TraitClause> for Predicate` (rustc_middle predicate.rs). */
 const Predicate_upcast_from_TraitClause_ = (from: TraitClause, tcx: Interner): Predicate => Predicate_upcast_from_TraitClause(from, tcx as unknown as TyCtxt);
-/** `impl UpcastFrom<TyCtxt, PolyTraitClause> for Predicate` (rustc_middle predicate.rs). */
+/** `impl UpcastFrom<TyCtxt, PolyTraitClauseV> for Predicate` (rustc_middle predicate.rs). */
 const Predicate_upcast_from_PolyTraitClause_ = (from: PolyTraitClauseT, tcx: Interner): Predicate =>
   Predicate_upcast_from_PolyTraitClause(from, tcx as unknown as TyCtxt);
 /** `impl UpcastFrom<TyCtxt, Clause> for Predicate` (rustc_middle predicate.rs). */
