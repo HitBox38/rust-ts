@@ -3,8 +3,7 @@
 // PORT:
 // - The fn-local `struct HirWfCheck` (with default field values) and its `impl Visitor` are a class declared inside
 //   `diagnostic_hir_wf_check`, extending rustc_hir's `Visitor` (wfcheck.ts's `CollectUsageSpans` precedent).
-// - The query key `(ty::Predicate<'tcx>, WellFormedLoc)` has no TS `QueryKey` yet (`key_unported` in queries.gen.ts),
-//   so callers of the query still stop there; the provider is complete.
+// - The query key `(ty::Predicate<'tcx>, WellFormedLoc)` is `KEY_Predicate_WellFormedLoc` (query/keys.ts, merge-w19).
 // - `debug!` is tracing only and stays as a comment.
 import { DefKind } from "../rustc_hir/def.ts";
 import * as hir from "../rustc_hir/hir.ts";

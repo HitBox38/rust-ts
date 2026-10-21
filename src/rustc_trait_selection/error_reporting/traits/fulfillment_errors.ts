@@ -1437,8 +1437,7 @@ function select_mod(): typeof import("../../traits/select/mod.ts") {
 //   error_reporting/traits/mod.ts, diagnostics.gen.ts) are read lazily (`lazy_*()` at the end): init order.
 // - `rustc_transmute` is not ported (no lane yet): `Assume::from_const` / `TransmuteTypeEnv` are `unported(..)` with
 //   local structural stand-ins (precedent traits/select/confirmation.ts).
-// - `TyCategory::from_ty` (error_reporting/infer/mod.rs:2738, lane errrep-infer-a) is a local stand-in until that lane
-//   lands (root points the use at the real port).
+// - `TyCategory::from_ty` (error_reporting/infer/mod.rs:2738, lane errrep-infer-a) is read lazily from infer/mod.ts.
 // - The `TypeFoldable` derives of rustc_middle's printing wrappers (`TraitClausePrintWithBoundConstness`,
 //   `TraitClausePrintModifiersAndPath`), needed to print them inside a `Binder`, are local descriptors (pretty.ts has
 //   none yet).
@@ -2769,7 +2768,7 @@ TypeErrCtxt.prototype.get_parent_trait_ref = function (this: TypeErrCtxt, code: 
         return t;
       } else {
         const ty = TraitClause.self_ty(Binder.skip_binder(parent_trait_ref));
-        const r = TyCategory_from_ty(this.tcx, ty);
+        const r = lazy_infer_mod().TyCategory_from_ty(this.tcx, ty);
         const span = r !== undefined ? this.tcx.def_span(r[1]) : undefined;
         return [ty, span];
       }
@@ -4106,14 +4105,6 @@ function hir_id_map_entry_or_default(map: Map<HirId, Set<Predicate>>, hir_id: Hi
   return v;
 }
 
-/**
- * PORT: stand-in for `TyCategory::from_ty` (error_reporting/infer/mod.rs:2738, lane errrep-infer-a). Root points the use
- * at the real port when that lane lands.
- */
-function TyCategory_from_ty(_tcx: TyCtxt, _ty: Ty): [unknown, DefId] | undefined {
-  return unported("rustc_trait_selection::error_reporting::infer::TyCategory::from_ty");
-}
-
 /** PORT: stand-in for `rustc_transmute::Assume` (crate not ported; as traits/select/confirmation.ts). */
 interface TransmuteAssume {
   alignment: boolean;
@@ -4159,6 +4150,10 @@ function lazy_traits(): typeof import("../../traits/mod.ts") {
 /** This module's parent error_reporting/traits/mod.ts (`ArgKind`), read lazily (init order). */
 function lazy_traits_mod(): typeof import("./mod.ts") {
   return require("./mod.ts") as typeof import("./mod.ts");
+}
+/** The sibling error_reporting/infer/mod.ts (`TyCategory::from_ty`), read lazily (init order). */
+function lazy_infer_mod(): typeof import("../infer/mod.ts") {
+  return require("../infer/mod.ts") as typeof import("../infer/mod.ts");
 }
 /** The crate's diagnostics.gen.ts (`ClosureKindMismatch`, `AssocTypeWithSameName`), read lazily (init order). */
 function lazy_diagnostics(): typeof import("../../diagnostics.gen.ts") {

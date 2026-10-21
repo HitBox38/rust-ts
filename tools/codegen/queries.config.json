@@ -51,6 +51,7 @@
     "(rustc_span::def_id::DefId, rustc_middle::ty::GenericArgsRef)": "DefId_GenericArgsRef",
     "rustc_middle::ty::TraitRef": "TraitRef",
     "(rustc_middle::ty::Ty, rustc_middle::ty::Ty)": "Ty_Ty",
+    "(rustc_middle::ty::Predicate, rustc_middle::traits::WellFormedLoc)": "Predicate_WellFormedLoc",
     "rustc_middle::ty::Clauses": "Clauses",
     "rustc_middle::ty::AliasTyKind": "AliasTyKind",
     "(rustc_middle::traits::solve::CanonicalInput, usize)": "CanonicalInput_usize",

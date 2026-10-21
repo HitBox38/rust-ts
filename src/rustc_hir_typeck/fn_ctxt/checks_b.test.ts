@@ -15,6 +15,7 @@
 //     (`implementation defined here`, the `SelectionContext::select` probe).
 // - STOP cases: the diagnostic reaches another wave-19 lane's placeholder; rust-ts exits 70 at exactly that stop and
 //   its stderr before the stop is a prefix of the oracle's. When the owning lane lands, the stop moves: re-pin it.
+//   (None since merge-w19: `stop_method` / `stop_single` / `stop_note` are MATCH cases now.)
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -25,15 +26,22 @@ const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const REGEN = process.env.REGEN === "1";
 const ENV = { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" };
 
-const MATCH = ["arity", "generics", "closures", "tuples"] as const;
-const STOP: [string, string][] = [
-  // `ArgMatchingCtxt::suggest_confusable` -> method/suggest.rs (lane typeck-suggest-a)
-  ["stop_method", "rustc_hir_typeck::method::suggest::FnCtxt::confusable_method_name"],
-  // `FnCallDiagCtxt::check_single_incompatible` -> error_reporting/infer/mod.rs (lane errrep-infer-a)
-  ["stop_single", "rustc_trait_selection::error_reporting::infer::TypeErrCtxt::report_and_explain_type_error"],
-  // `FnCallDiagCtxt::labels_and_suggestion_text`, `Error::Invalid` -> error_reporting/infer/mod.rs (lane errrep-infer-a)
-  ["stop_note", "rustc_trait_selection::error_reporting::infer::TypeErrCtxt::note_type_err"],
-];
+const MATCH = [
+  "arity",
+  "generics",
+  "closures",
+  "tuples",
+  // The former STOP cases (MATCH since merge-w19; their names keep the stop they pinned until wave 19 landed):
+  // `ArgMatchingCtxt::suggest_confusable` -> method/suggest.rs `confusable_method_name` (lane typeck-suggest-a)
+  "stop_method",
+  // `FnCallDiagCtxt::check_single_incompatible` -> error_reporting/infer/mod.rs `report_and_explain_type_error`
+  // (lane errrep-infer-a)
+  "stop_single",
+  // `FnCallDiagCtxt::labels_and_suggestion_text`, `Error::Invalid` -> error_reporting/infer/mod.rs `note_type_err`
+  // (lane errrep-infer-a)
+  "stop_note",
+] as const;
+const STOP: [string, string][] = [];
 const ALL = [...MATCH, ...STOP.map(([c]) => c)];
 
 function sysroot(): string | undefined {

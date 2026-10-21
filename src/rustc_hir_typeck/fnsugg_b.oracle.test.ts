@@ -86,16 +86,14 @@ const CASES: Case[] = [
         "pub fn g(c: bool) {\n    let _x = if c { unsafe { mem_zeroed() } } else { return };\n}\n",
     ),
   },
-  // ---- PENDING (see below) ----
   // `maybe_emit_plus_equals_diagnostic` (op.rs's `check_overloaded_binop` error path calls it first); the diagnostic is
-  // emitted after `suggest_deref_or_call_for_binop_error` -> `suggest_fn_call` (lane typeck-fnsugg-a).
+  // emitted after `suggest_deref_or_call_for_binop_error` -> `suggest_fn_call` (lane typeck-fnsugg-a; PENDING at
+  // `suggest_fn_call` until merge-w19).
   { name: "plus_eq", edition: "2024", src: lib([], "pub fn f(x: u32, y: bool) {\n    if let _ = x && y += 1 {}\n}\n") },
 ];
 
-/** Cases that stop at a piece another lane ports, with the `unported(..)` text they must reach. */
-const PENDING: Record<string, string> = {
-  plus_eq: "rustc_hir_typeck::fn_ctxt::suggestions::FnCtxt::suggest_fn_call",
-};
+/** Cases that stop at a piece another lane ports, with the `unported(..)` text they must reach (none since merge-w19). */
+const PENDING: Record<string, string> = {};
 
 beforeAll(() => {
   for (const c of CASES) writeFileSync(join(WORK, `${c.name}.rs`), c.src);

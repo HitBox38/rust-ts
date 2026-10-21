@@ -32,11 +32,11 @@ function run(cmd: string[]): { exit: number; stdout: string; stderr: string } {
 
 const args = (s: string, file: string): string[] => ["--sysroot", s, "--edition=2021", "--crate-type", "lib", "--emit=metadata", "-o", "/dev/null", file];
 
-/** The exact `unported(..)` texts the `wf` mode stops at today (re-pinned by merge-w17, codegen-fn-attrs). */
-const PENDING_WF = new Set([
-  // static_wf.rs: `check_static_item` -> the `Sync` obligation's E0277 report (rustc_trait_selection error_reporting,
-  // wave 19); re-pinned by errctxt-contract (`err_ctxt` ported), errrep-traits-a (`report_fulfillment_errors` ported)
-  "rustc_trait_selection::error_reporting::traits::fulfillment_errors::TypeErrCtxt::error_implies",
+/** The exact `unported(..)` texts the `wf` mode stops at today (none since merge-w19). */
+const PENDING_WF = new Set<string>([
+  // (static_wf.rs prints the oracle's E0277 since merge-w19: the error-reporting lanes of wave 19 landed. Its crate
+  // declares the `freeze` lang item so the oracle has no later-phase "requires `freeze` lang_item" error (MIR const
+  // checking), which the `wf` mode never reaches.)
   // (receiver.rs prints the oracle's E0307 since merge-w18c: `mir::ConstraintCategory` is generated and the harness runs
   // `check_associated_item` on impl items)
 ]);
@@ -59,8 +59,8 @@ for (const [file, n] of [
   }, 120_000);
 }
 
-/** `wf` cases that print the oracle's stderr since merge-w18c: they must not stop. */
-const NOW_EXACT = new Set(["receiver.rs"]);
+/** `wf` cases that print the oracle's stderr since merge-w18c (receiver.rs) / merge-w19 (static_wf.rs): they must not stop. */
+const NOW_EXACT = new Set(["receiver.rs", "static_wf.rs"]);
 
 for (const [file, code] of [
   ["static_wf.rs", "error[E0277]"],
