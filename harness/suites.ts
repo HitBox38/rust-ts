@@ -4,7 +4,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node
 import { join } from "node:path";
 import { DATA, REPO, UPSTREAM, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
-import { oraclePathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
+import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
+import { oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, type Blessed, type ErrorFormat } from "./compiletest.ts";
 
@@ -27,6 +28,12 @@ export interface Case {
 
 /** A test a suite does not run, with the reason (written next to each run's results). */
 export interface SkippedCase {
+  id: string;
+  reason: string;
+}
+
+/** A case whose oracle output is not reproducible, with the reason (`Suite.unstable`). */
+export interface UnstableCase {
   id: string;
   reason: string;
 }
@@ -72,6 +79,15 @@ export interface Suite {
    * (UI-test suites; never part of a case's status).
    */
   blessed?(c: Case): Blessed;
+  /**
+   * Cases whose oracle output differs between two runs of the same oracle binary on the same input and environment
+   * (lane harness-w20c), each with the reason. Only truly nondeterministic oracle output belongs here; a difference
+   * the harness causes (a run-specific path, env or temp dir) is fixed in the case definition instead. difftest
+   * reports these cases as UNSTABLE (never MATCH), never reads or writes their oracle cache entry, and the gate
+   * refuses to protect them and fails if a baseline lists one. difftest also reports a case outside the list as
+   * UNSTABLE when its oracle stderr shows a known nondeterministic pattern (difftest `UNSTABLE_ORACLE_PATTERNS`).
+   */
+  unstable?(): UnstableCase[];
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -341,8 +357,9 @@ const NOCORE_ENV: Record<string, string> = { RUSTC_ICE: "0", RUST_BACKTRACE: "0"
 // values differ between sessions) gets a fixed value for it in its `Case.env`, the same on both sides and part
 // of its oracle cache key: `PATH` is `oraclePathEnv()` (`$CARGO_HOME/bin`: the oracle's `rustc +<toolchain>` is
 // found there, and rustup, which prepends that directory to its rustc's PATH when it is missing, leaves it
-// alone; the subject and the probes are run by absolute path), every other one is unset. A case's own env
-// (compiletest's `rustc-env` / `unset-rustc-env`) wins. Other cases are untouched.
+// alone; the subject and the probes are run by absolute path; on Windows also `RUSTUP_WINDOWS_PATH_ADD_BIN=0`, so that
+// rustup does not add the toolchain's `bin` directory either: scripts/lib/env.ts `pinnedPathEnv`), every other one is
+// unset. A case's own env (compiletest's `rustc-env` / `unset-rustc-env`) wins. Other cases are untouched.
 // "May read" is a static scan of the case file, every file it may pull in (scripts/lib/deps.ts `caseDeps`) and
 // its aux crates' sources (with theirs): a variable is read if its name is the string-literal first argument of
 // any macro call (`env!("PATH")`, `option_env!("PATH")`, and aliases: `use env as env_imported;` ..
@@ -377,7 +394,13 @@ function pinSessionEnv(c: Case, auxFiles: readonly string[] = []): Case {
   const read = new Set([c.file, ...auxFiles].flatMap((f) => sessionVarsRead(UPSTREAM, f, c.env)));
   if (read.size === 0) return c;
   const env: Record<string, string | null> = { ...c.env };
-  for (const v of SESSION_ENV_VARS) if (read.has(v) && !Object.hasOwn(env, v)) env[v] = v === "PATH" ? oraclePathEnv() : null;
+  for (const v of SESSION_ENV_VARS) {
+    if (!read.has(v) || Object.hasOwn(env, v)) continue;
+    if (v !== "PATH") env[v] = null;
+    // `{ PATH }`, and on Windows also `RUSTUP_WINDOWS_PATH_ADD_BIN=0` (scripts/lib/env.ts `pinnedPathEnv`), unless the
+    // case sets that itself.
+    else for (const [k, x] of Object.entries(oraclePinnedPathEnv())) if (k === "PATH" || !Object.hasOwn(env, k)) env[k] = x;
+  }
   return { ...c, env };
 }
 const nocoreArgs = (f: string): string[] => [
@@ -562,7 +585,7 @@ function oracleAuxRmeta(file: string, crate: string, args: string[]): string {
     mkdirSync(dir, { recursive: true });
     const r = Bun.spawnSync(oracleRustcCmd([...args, file, "--crate-type", "lib", "--emit=metadata", "--out-dir", dir]), {
       cwd: UPSTREAM,
-      env: { ...process.env, ...NOCORE_ENV },
+      env: mergeEnv(process.env, caseEnv(NOCORE_ENV)),
     });
     if (r.exitCode !== 0 || !existsSync(out)) throw new Error(`ERROR: oracle build of aux crate ${file} failed: ${r.stderr.toString().trim()}`);
   }
@@ -754,6 +777,32 @@ function m3UiCorpus(dirs: string[]): { cases: Case[]; skipped: SkippedCase[] } {
   m3UiMemo.set(key, r);
   return r;
 }
+// Unstable cases of tydump-ui and thirdump-ui (lane harness-w20c; review harness-w20b §5): each oracle output differed
+// between two runs of the same probe binary with the same argv, env and cwd (both probes, measured twice), and the
+// difference is not caused by the harness:
+// - an ICE under compiletest's `RUST_BACKTRACE=short`: std's panic message names the OS thread id,
+//   `thread 'rustc' (<tid>) panicked at ...` (compiletest normalizes it to `$TID`). For five of the six, the port ICEs
+//   at the same point too (root decision, lane ui-diffs-20), so they could only ever differ in the ICE report;
+//   old-solver-caching-bug-151069.rs#old is listed for the thread id alone;
+// - `-Zwrite-long-types-to-disk=yes` (the test's own compile-flags, after compiletest's `=no`): the note
+//   `the full name for the type has been written to '<out dir>/<stem>.long-type-<hash>.txt'` names a hash of the type
+//   (rustc_middle ty/error.rs `short_string_namespace`: `DefaultHasher` over `Hash` of an interned value, which hashes
+//   its address). The note is printed whether or not the out dir exists, and the address varies from run to run
+//   (ASLR), so no out dir or temp dir makes it reproducible (compiletest normalizes it to `$LONG_TYPE_HASH`).
+const M3_UI_TID = "ICE: the panic message names the oracle's OS thread id (`thread 'rustc' (<tid>) panicked`)";
+// Root decision (lane ui-diffs-20): the port reaches the same assert!/bug! as rustc, after identical earlier errors.
+const M3_UI_SAME_ICE = "both sides ICE at the same point; rustc's ICE report (thread id, backtrace) is not reproducible";
+const M3_UI_LONG_TYPE = "the long-type note names `<stem>.long-type-<hash>.txt`, a hash of an interned type's address";
+const M3_UI_UNSTABLE: UnstableCase[] = [
+  { id: "tests/ui/traits/error-reporting/conditionally-implemented-trait-long-type.rs", reason: M3_UI_LONG_TYPE },
+  { id: "tests/ui/traits/next-solver/cycles/use-impl-to-normalize-own-self-ty-ice.rs#old", reason: M3_UI_SAME_ICE },
+  { id: "tests/ui/traits/next-solver/normalize/old-solver-caching-bug-151069.rs#old", reason: M3_UI_TID },
+  { id: "tests/ui/traits/next-solver/normalize/success-results-in-unconstrained-infer.rs#old", reason: M3_UI_SAME_ICE },
+  { id: "tests/ui/traits/next-solver/overflow/incorrect-old-solver-caching-ice-148095.rs#old", reason: M3_UI_SAME_ICE },
+  { id: "tests/ui/traits/on_unimplemented_long_types.rs", reason: M3_UI_LONG_TYPE },
+  { id: "tests/ui/traits/projection-cache-rematch-impl-122529.rs#old", reason: M3_UI_SAME_ICE },
+  { id: "tests/ui/traits/projection-cache-rematch-impl-141124.rs#old", reason: M3_UI_SAME_ICE },
+];
 const m3UiSuite = (name: string, probe: string, subject: string, dirs: string[], subsets: Suite["subsets"], description: string): Suite => ({
   name,
   milestone: "M3",
@@ -768,6 +817,7 @@ const m3UiSuite = (name: string, probe: string, subject: string, dirs: string[],
   subject: ([c]) => [...bunCmd(subject), ...c!.args],
   subsets,
   blessed: (c) => uiBlessed(c.id, c.args),
+  unstable: () => M3_UI_UNSTABLE,
 });
 SUITES.push(
   m3UiSuite(

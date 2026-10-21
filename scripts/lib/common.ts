@@ -3,6 +3,7 @@
 //   - failures print a single line starting with "ERROR:" so they can be grepped
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { mergeEnv } from "./env.ts";
 
 export const REPO = resolve(import.meta.dir, "..", "..");
 
@@ -60,15 +61,12 @@ export interface ProcResult {
 
 /**
  * Run a command. `env` is merged over the inherited environment; a `null` value removes the
- * variable (e.g. compiletest's `unset-rustc-env`).
+ * variable (e.g. compiletest's `unset-rustc-env`). On Windows names match case-insensitively
+ * (scripts/lib/env.ts `mergeEnv`).
  */
 export async function run(cmd: string[], opts: { cwd?: string; timeoutMs?: number; env?: Record<string, string | null> } = {}): Promise<ProcResult> {
   const start = performance.now();
-  const env: Record<string, string | undefined> = { ...process.env };
-  for (const [k, v] of Object.entries(opts.env ?? {})) {
-    if (v === null) delete env[k];
-    else env[k] = v;
-  }
+  const env = mergeEnv(process.env, opts.env);
   const proc = Bun.spawn(cmd, {
     cwd: opts.cwd ?? REPO,
     stdout: "pipe",

@@ -66,7 +66,8 @@ import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { DATA, PIN, UPSTREAM, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
-import { ORACLE_RETRY_FACTOR, oraclePathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
+import { getEnv } from "../scripts/lib/env.ts";
+import { ORACLE_RETRY_FACTOR, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
 
 /** The host and target compiletest is run as (see "Host independence" above). */
 export const COMPILETEST_TARGET = "x86_64-unknown-linux-gnu";
@@ -655,17 +656,17 @@ const AUX_INHERITED_ENV = ["HOME", "USERPROFILE", "SYSTEMROOT", "RUSTUP_HOME", "
 
 /**
  * The whole environment of an aux build: `AUX_INHERITED_ENV` from the harness's own environment, the fixed
- * `PATH` (`oraclePathEnv`), `RUSTC_ICE=0` and `RUST_BACKTRACE=0` as every M2/M3 case gets them (harness/suites.ts
+ * `PATH` (`oraclePinnedPathEnv`: on Windows also `RUSTUP_WINDOWS_PATH_ADD_BIN=0`), `RUSTC_ICE=0` and `RUST_BACKTRACE=0` as every M2/M3 case gets them (harness/suites.ts
  * `NOCORE_ENV`: no ICE report file in the upstream checkout, no backtrace), then the aux file's own `rustc-env` /
  * `unset-rustc-env` (`compose_and_run_compiler`). Nothing else from the caller's environment reaches it.
  */
 function auxEnv(step: AuxStep): Record<string, string> {
   const env: Record<string, string> = {};
   for (const k of AUX_INHERITED_ENV) {
-    const v = process.env[k];
+    const v = getEnv(process.env, k);
     if (v !== undefined) env[k] = v;
   }
-  env.PATH = oraclePathEnv();
+  Object.assign(env, oraclePinnedPathEnv());
   env.RUSTC_ICE = "0";
   env.RUST_BACKTRACE = "0";
   for (const [k, v] of Object.entries(step.env)) {
