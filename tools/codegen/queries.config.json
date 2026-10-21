@@ -25,7 +25,10 @@
     "rustc_hir::OwnerId": "rustc_hir_id::OwnerId",
     "rustc_hir::ItemLocalId": "rustc_hir_id::ItemLocalId",
     "rustc_middle::lint::LintExpectation": "rustc_middle::lint::LintExpectation",
-    "rustc_hir::definitions": "rustc_hir_id::definitions"
+    "rustc_hir::definitions": "rustc_hir_id::definitions",
+    "rustc_middle::ty::Instance": "rustc_middle::ty::instance::Instance",
+    "rustc_middle::ty::InstanceKind": "rustc_middle::ty::instance::InstanceKind",
+    "rustc_middle::ty::VtblEntry": "rustc_middle::ty::vtable::VtblEntry"
   },
   "keys": {
     "()": "unit",
@@ -59,6 +62,7 @@
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::Ty>": "PseudoCanonicalInput_Ty",
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::GenericArg>": "PseudoCanonicalInput_GenericArg",
     "rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::TraitRef>": "PseudoCanonicalInput_TraitRef",
+    "rustc_middle::ty::PseudoCanonicalInput<(rustc_span::def_id::DefId, rustc_middle::ty::GenericArgsRef)>": "PseudoCanonicalInput_DefId_GenericArgsRef",
     "rustc_middle::traits::query::CanonicalPredicateGoal": "CanonicalPredicateGoal",
     "(rustc_middle::traits::query::CanonicalImpliedOutlivesBoundsGoal, bool)": "CanonicalImpliedOutlivesBoundsGoal_bool",
     "rustc_middle::traits::query::CanonicalMethodAutoderefStepsGoal": "CanonicalMethodAutoderefStepsGoal",
@@ -81,7 +85,8 @@
     "rustc_span::Symbol": { "ts": "display_Symbol($v)", "imports": { "src/rustc_span/symbol.ts": ["display_Symbol"] } },
     "rustc_span::Ident": { "ts": "display_Ident($v)", "imports": { "src/rustc_span/symbol.ts": ["display_Ident"] } },
     "rustc_span::def_id::CrateNum": { "ts": "display_CrateNum($v)", "imports": { "src/rustc_span/def_id.ts": ["display_CrateNum"] } },
-    "rustc_middle::ty::Ty": { "ts": "display_Ty($v)", "imports": { "src/rustc_middle/ty/print/pretty.ts": ["display_Ty"] } }
+    "rustc_middle::ty::Ty": { "ts": "display_Ty($v)", "imports": { "src/rustc_middle/ty/print/pretty.ts": ["display_Ty"] } },
+    "rustc_middle::ty::instance::Instance": { "ts": "display_Instance($v)", "imports": { "src/rustc_middle/ty/instance.ts": ["display_Instance"] } }
   },
   "methods": {
     "def_path_str": "String",

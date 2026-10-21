@@ -1349,6 +1349,26 @@ export const debug_TypingEnv: Debug<TypingEnv> = (v, f) =>
     ["param_env", debug_ParamEnv(v.param_env, f)],
   ]);
 
+// PORT: `#[derive(TypeVisitable, TypeFoldable)]` of `TypingEnv` (mod.rs:1103), hand-written in tools/codegen's struct
+// shape (lane instance-vtable): the generator would read the field as `typing_mode`, which is `typing_mode_` here (the
+// method `typing_mode()` has the field's name). `typing_mode` is `#[type_visitable(ignore)]` / `#[type_foldable(identity)]`.
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1103 TypeVisitable for TypingEnv
+export function visit_with_TypingEnv<R>(self: TypingEnv, __visitor: TypeVisitor<R>): R {
+  let r: R | undefined;
+  if ((r = try_visit(__visitor.Result, visit_with_ParamEnv(self.param_env, __visitor))) !== undefined) return r;
+  return __visitor.Result.output();
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1103 TypeFoldable for TypingEnv (try_fold_with)
+export function try_fold_with_TypingEnv<E>(self: TypingEnv, __folder: FallibleTypeFolder<E>): Result<TypingEnv, E> {
+  const __1 = try_fold_with_ParamEnv(self.param_env, __folder);
+  if (__1.$ === "Err") return __1;
+  return Ok(new TypingEnv(self.typing_mode_, __1._0));
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1103 TypeFoldable for TypingEnv (fold_with)
+export function fold_with_TypingEnv(self: TypingEnv, __folder: TypeFolder): TypingEnv {
+  return new TypingEnv(self.typing_mode_, fold_with_ParamEnv(self.param_env, __folder));
+}
+
 // ---- tools/codegen's view of the traversal / Debug impls (merge-w13) ----
 // PORT: generated code calls `visit_with_<T>` / `try_fold_with_<T>` / `fold_with_<T>` free fns and `debug_<T>`
 // (tools/codegen type_fold.json / tyir.typemap.json). For `Term` they are the methods of the D4 descriptor above;
@@ -1508,6 +1528,40 @@ export function debug_PseudoCanonicalInput<T>(v: PseudoCanonicalInput<T>, f: Fmt
     ["typing_env", debug_TypingEnv(v.typing_env, f)],
     ["value", debug_T(v.value, f)],
   ]);
+}
+
+// PORT: `#[derive(TypeVisitable, TypeFoldable)]` of `PseudoCanonicalInput<T>` (mod.rs:1246), hand-written in
+// tools/codegen's struct shape next to the hand-written type (lane instance-vtable), with its D4 descriptor.
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1246 TypeVisitable for PseudoCanonicalInput
+export function visit_with_PseudoCanonicalInput<T, R>(self: PseudoCanonicalInput<T>, __visitor: TypeVisitor<R>, visit_with_T: TypeFoldable<T>["visit_with"]): R {
+  let r: R | undefined;
+  if ((r = try_visit(__visitor.Result, visit_with_TypingEnv(self.typing_env, __visitor))) !== undefined) return r;
+  if ((r = try_visit(__visitor.Result, visit_with_T(self.value, __visitor))) !== undefined) return r;
+  return __visitor.Result.output();
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1246 TypeFoldable for PseudoCanonicalInput (try_fold_with)
+export function try_fold_with_PseudoCanonicalInput<T, E>(
+  self: PseudoCanonicalInput<T>,
+  __folder: FallibleTypeFolder<E>,
+  try_fold_with_T: TypeFoldable<T>["try_fold_with"],
+): Result<PseudoCanonicalInput<T>, E> {
+  const __0 = try_fold_with_TypingEnv(self.typing_env, __folder);
+  if (__0.$ === "Err") return __0;
+  const __1 = try_fold_with_T(self.value, __folder);
+  if (__1.$ === "Err") return __1;
+  return Ok({ typing_env: __0._0, value: __1._0 });
+}
+// rustc-derive: compiler/rustc_middle/src/ty/mod.rs:1246 TypeFoldable for PseudoCanonicalInput (fold_with)
+export function fold_with_PseudoCanonicalInput<T>(self: PseudoCanonicalInput<T>, __folder: TypeFolder, fold_with_T: TypeFoldable<T>["fold_with"]): PseudoCanonicalInput<T> {
+  return { typing_env: fold_with_TypingEnv(self.typing_env, __folder), value: fold_with_T(self.value, __folder) };
+}
+/** The D4 descriptor of `PseudoCanonicalInput<T>` over `T`'s. */
+export function fold_PseudoCanonicalInput<T>(d_T: TypeFoldable<T>): TypeFoldable<PseudoCanonicalInput<T>> {
+  return {
+    visit_with: (self, visitor) => visit_with_PseudoCanonicalInput(self, visitor, d_T.visit_with),
+    try_fold_with: (self, folder) => try_fold_with_PseudoCanonicalInput(self, folder, d_T.try_fold_with),
+    fold_with: (self, folder) => fold_with_PseudoCanonicalInput(self, folder, d_T.fold_with),
+  };
 }
 
 // rustc-type: compiler/rustc_middle/src/ty/mod.rs:1253 Destructor
@@ -2960,7 +3014,9 @@ const trait_def_trait_impls_of_provider: Providers["trait_impls_of"] = (tcx, k) 
 const trait_def_incoherent_impls_provider: Providers["incoherent_impls"] = (tcx, k) => trait_def().incoherent_impls_provider(tcx, k as SimplifiedType<DefIdT>);
 const trait_def_trait_impls_in_crate_provider: Providers["trait_impls_in_crate"] = (tcx, k) => trait_def().trait_impls_in_crate_provider(tcx, k);
 const trait_def_traits_provider: Providers["traits"] = (tcx, k) => trait_def().traits_provider(tcx, k);
-const vtable_vtable_allocation_provider: Providers["vtable_allocation"] = () => unported("rustc_middle::ty::vtable::vtable_allocation_provider (M4)");
+// PORT: ty/vtable.ts is reached through `require` (init order: it imports this module back).
+const vtable_vtable_allocation_provider: Providers["vtable_allocation"] = (tcx, k) =>
+  (require("./vtable.ts") as typeof import("./vtable.ts")).vtable_allocation_provider(tcx, k as Parameters<typeof import("./vtable.ts").vtable_allocation_provider>[1]);
 
 /** PORT (init order): ty/assoc.ts and ty/trait_def.ts import this defining module back (assoc.ts is an extension
  * module of `TyCtxt`); they are reached lazily, as `binder()` / `visit()` above. */

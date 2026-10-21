@@ -169,8 +169,6 @@ export type { NumScalableVectors };
 export type InhabitedPredicate = Pending<"InhabitedPredicate">;
 import type { NormalizationError } from "./normalize_erasing_regions.ts";
 export type { NormalizationError };
-export type Instance = Pending<"Instance">;
-export type InstanceKind = Pending<"InstanceKind">;
 // traits/solve.rs:33, :44 (D2: hash-consed; lane middle-traits-thir)
 import type { CanonicalInput, ExternalConstraints } from "../traits/solve.ts";
 export type { CanonicalInput, ExternalConstraints };
@@ -222,6 +220,9 @@ export type PredefinedOpaques = List<[OpaqueTypeKey, Ty]>;
 // ty/abstract_const.rs `CastKind` (hand-written in ./abstract_const.ts, lane small-gaps-21)
 import type { CastKind } from "./abstract_const.ts";
 export type { CastKind };
+// ty/instance.rs `Instance` / `InstanceKind` (generated into ./instance.gen.ts, methods in ./instance.ts; lane instance-vtable)
+import type { Instance, InstanceKind } from "./instance.ts";
+export type { Instance, InstanceKind };
 // mir/syntax.rs `BinOp` / `UnOp` (mir/syntax.ts, codegen set rustc_middle_mir_syntax; merge-w18)
 import type { BinOp, UnOp } from "../mir/syntax.ts";
 export type { BinOp, UnOp };

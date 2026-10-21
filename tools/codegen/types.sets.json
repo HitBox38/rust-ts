@@ -1800,5 +1800,16 @@
     "derive_type_fold": true,
     "erase_params": ["I"],
     "typemap_extra": ["tyir.typemap.json"]
+  },
+  "rustc_middle_ty_instance": {
+    "files": ["compiler/rustc_middle/src/ty/instance.rs", "compiler/rustc_middle/src/ty/vtable.rs"],
+    "files_note": "lane instance-vtable: the types of ty/instance.rs (Instance, ReifyReason, InstanceKind, ShimKind) and ty/vtable.rs (VtblEntry) with their derived Debug / TypeVisitable / TypeFoldable; the inherent methods (instance.ts) and VtblEntry's manual Debug (vtable.ts) are hand-written",
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [],
+    "derive_type_fold": true,
+    "resolve_files": ["compiler/rustc_middle/src/ty/mod.rs"],
+    "typemap_extra": ["tyir.typemap.json", "middle_traits_thir.typemap.json"]
   }
 }
