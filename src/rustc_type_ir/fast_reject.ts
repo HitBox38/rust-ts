@@ -14,7 +14,8 @@
 // PORT: fns of other files that are not ported yet are module-local stand-ins at the end of this file; they call
 // `unported`.
 import { intern_key } from "../rust_ts/intern_key.ts";
-import type { AdtDef, Value, ValTree } from "../rustc_middle/ty/decls.ts";
+import type { AdtDef } from "../rustc_middle/ty/decls.ts";
+import { Value as ValueC } from "../rustc_middle/ty/consts/valtree.ts";
 import { debug_GenericArg, fold_GenericArgs, GenericArg, type GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import type { Ty } from "../rustc_middle/ty/mod.ts";
 import { type DefId, DefId_eq } from "../rustc_span/def_id.ts";
@@ -611,7 +612,7 @@ export class DeepRejectCtxt {
         const k = rhs.kind();
         switch (k.$) {
           case "Value":
-            return Value_valtree(lhs_kind._0) === Value_valtree(k._0);
+            return ValueC.valtree(lhs_kind._0) === ValueC.valtree(k._0);
           default:
             return false;
         }
@@ -678,7 +679,3 @@ function Option_DefId_eq(a: DefId | undefined, b: DefId | undefined): boolean {
 // ---- PORT stand-ins for fns of other files that are not ported yet (module header) -----------------------------------
 
 
-/** PORT: stand-in for `impl inherent::ValueConst for ty::Value` `valtree` (rustc_middle ty/consts/valtree.rs). */
-function Value_valtree(_v: Value): ValTree {
-  return unported("rustc_middle::ty::consts::valtree: inherent::ValueConst::valtree");
-}
