@@ -2,7 +2,7 @@
 // (ptr_nulls.lints.gen.ts).
 import { find_attr } from "../rustc_attr_ir/lib.ts";
 import { Res } from "../rustc_hir/def.ts";
-import type { Expr } from "../rustc_hir/hir.ts";
+import type { Expr, QPath } from "../rustc_hir/hir.ts";
 import { HasAttrs_DefId, type TypingEnv } from "../rustc_middle/ty/mod.ts";
 import type { TypeckResults } from "../rustc_middle/ty/typeck_results.ts";
 import type { DefId } from "../rustc_span/def_id.ts";
@@ -23,7 +23,7 @@ declare module "./ptr_nulls.lints.gen.ts" {
 // PORT: `LateContext::typeck_results` / `qpath_res` / `typing_env` are typed `unknown` in context.ts (lane
 // lint-late-a types them); these casts go away then.
 const typeck_results = (cx: LateContext): TypeckResults => cx.typeck_results_() as TypeckResults;
-const qpath_res = (cx: LateContext, qpath: unknown, id: Expr["hir_id"]): Res => cx.qpath_res(qpath, id) as Res;
+const qpath_res = (cx: LateContext, qpath: QPath, id: Expr["hir_id"]): Res => cx.qpath_res(qpath, id) as Res;
 /** `find_attr!(cx.tcx, def_id, RustcNeverReturnsNullPtr)` */
 const never_returns_null_ptr = (cx: LateContext, def_id: DefId): boolean =>
   find_attr(HasAttrs_DefId.get_attrs(def_id, cx.tcx), (k) => (k.$ === "RustcNeverReturnsNullPtr" ? null : undefined)) !== undefined;

@@ -2,15 +2,17 @@
 // noop_method_call.rs, opaque_hidden_inferred_bound.rs, ptr_nulls.rs, raw_borrows_via_references.rs,
 // runtime_symbols.rs, shadowed_into_iter.rs, static_mut_refs.rs, traits.rs, unit_bindings.rs,
 // unqualified_local_imports.rs, utils.rs) against the pinned nightly rustc.
-// The subject is src/rustc_lint/late_e2_oracle/run.ts (see its header): the ported driver, the typeck prefix of
-// `analysis`, then the named late passes over every module the way late.rs `late_lint_mod` runs them. The oracle
+// The subject is lane lint-late-a's shared driver src/rustc_lint/late_oracle/run.ts (`--late-pass=<file>:<Pass>`) when
+// it is present, else this lane's stand-in src/rustc_lint/late_e2_oracle/run.ts (see its header; written before
+// lint-late-a landed): the ported driver, the typeck prefix of `analysis`, then the named late passes over every
+// module the way late.rs `late_lint_mod` runs them. The oracle
 // compiles the same file as a lib with std (`--emit=metadata`); each case only has diagnostics those passes produce
 // (other lints are allowed in the source), so stderr and the exit code must be identical.
 // Cases whose path reaches unported code are pinned to the `unported` stop they reach (`stop`), with the oracle
 // output still checked for the diagnostic they will produce once it is ported.
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO } from "../../scripts/lib/common.ts";
 
@@ -41,6 +43,26 @@ interface Out {
 function run(cmd: string[], env: Record<string, string>): Out {
   const r = Bun.spawnSync(cmd, { cwd: WORK, env, stdout: "pipe", stderr: "pipe" });
   return { stderr: r.stderr.toString(), code: r.exitCode ?? -1 };
+}
+/** The file (relative to src/rustc_lint) of each pass, for lint-late-a's `--late-pass=<file>:<Pass>`. */
+const PASS_FILES: Record<string, string> = {
+  MapUnitFn: "map_unit_fn.ts",
+  MultipleSupertraitUpcastable: "multiple_supertrait_upcastable.ts",
+  NoopMethodCall: "noop_method_call.ts",
+  OpaqueHiddenInferredBound: "opaque_hidden_inferred_bound.ts",
+  PtrNullChecks: "ptr_nulls.ts",
+  RawBorrowsViaReferences: "raw_borrows_via_references.ts",
+  RuntimeSymbols: "runtime_symbols.ts",
+  ShadowedIntoIter: "shadowed_into_iter.ts",
+  StaticMutRefs: "static_mut_refs.ts",
+  DropTraitConstraints: "traits.ts",
+  UnitBindings: "unit_bindings.ts",
+  UnqualifiedLocalImports: "unqualified_local_imports.ts",
+};
+const SHARED_DRIVER = join(REPO, "src/rustc_lint/late_oracle/run.ts");
+function subject(passes: readonly string[], args: readonly string[]): [string[], Record<string, string>] {
+  if (existsSync(SHARED_DRIVER)) return [[process.execPath, SHARED_DRIVER, ...passes.map((p) => `--late-pass=${PASS_FILES[p]}:${p}`), ...args], ENV];
+  return [[process.execPath, join(REPO, "src/rustc_lint/late_e2_oracle/run.ts"), ...args], { ...ENV, LATE_E2_PASSES: passes.join(",") }];
 }
 const sysroot = (): string => Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.toString().trim();
 
@@ -330,7 +352,7 @@ for (const [i, c] of CASES.entries()) {
       file,
     ];
     const oracle = run([...RUSTC, ...args], ENV);
-    const ours = run([process.execPath, join(REPO, "src/rustc_lint/late_e2_oracle/run.ts"), ...args], { ...ENV, LATE_E2_PASSES: c.passes.join(",") });
+    const ours = run(...subject(c.passes, args));
     for (const e of c.expect) expect(oracle.stderr).toContain(e);
     if (c.stop !== undefined) {
       expect(ours.stderr).toContain(`rust-ts: unported: `);

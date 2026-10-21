@@ -53,7 +53,9 @@ const PASSES: Record<string, () => LateLintPass> = {
 
 /** `LateContext` with the context.rs methods the lane's passes call (upstream bodies). */
 class TestLateContext extends LateContext {
-  override typing_mode(): unknown {
+  // PORT: no return type annotations: they are `unknown` in context.ts until lane lint-late-a's typed
+  // `LateContext` lands, and this file must compile against both.
+  override typing_mode() {
     const body_id = this.enclosing_body as hir.BodyId | undefined;
     if (body_id !== undefined && this.tcx.use_typing_mode_post_typeck_until_borrowck()) {
       const def_id = this.tcx.hir_enclosing_body_owner(body_id.hir_id);
@@ -63,12 +65,11 @@ class TestLateContext extends LateContext {
     }
   }
 
-  override typing_env(): unknown {
-    return TypingEnv.new(this.param_env as ParamEnv, this.typing_mode() as TypingMode);
+  override typing_env() {
+    return TypingEnv.new(this.param_env as ParamEnv, this.typing_mode());
   }
 
-  override qpath_res(qpath_: unknown, id: HirId): unknown {
-    const qpath = qpath_ as hir.QPath;
+  override qpath_res(qpath: hir.QPath, id: HirId): Res {
     switch (qpath.$) {
       case "Resolved":
         return qpath._1.res;
@@ -82,11 +83,11 @@ class TestLateContext extends LateContext {
     }
   }
 
-  override expr_or_init(expr_: unknown): unknown {
-    let expr = (expr_ as hir.Expr).peel_blocks();
+  override expr_or_init(expr_: hir.Expr): hir.Expr {
+    let expr = expr_.peel_blocks();
     for (;;) {
       if (expr.kind.$ !== "Path") break;
-      const res = this.qpath_res(expr.kind._0, expr.hir_id) as Res;
+      const res = this.qpath_res(expr.kind._0, expr.hir_id);
       if (res.$ !== "Local") break;
       const parent_node = this.tcx.parent_hir_node(res._0);
       let init: hir.Expr | undefined;
@@ -120,7 +121,7 @@ class LateWalker extends Visitor {
   }
   with_param_env(id: OwnerId, f: () => void): void {
     const old_param_env = this.context.param_env;
-    this.context.param_env = this.context.tcx.param_env(id.def_id);
+    this.context.param_env = this.context.tcx.param_env(id.def_id) as ParamEnv;
     f();
     this.context.param_env = old_param_env;
   }
@@ -264,7 +265,7 @@ class LateWalker extends Visitor {
 export function run_late_passes(tcx: TyCtxt, names: readonly string[]): void {
   tcx.par_hir_for_each_module((mod_id) => {
     const passes = names.map((n) => (PASSES[n] ?? panic(`unknown pass ${n}`))());
-    const context = new TestLateContext(tcx, undefined, undefined, ParamEnv.empty(), tcx.effective_visibilities(null), HirId_from_LocalModId(mod_id), undefined, true);
+    const context = new TestLateContext(tcx, undefined, undefined, ParamEnv.empty(), tcx.effective_visibilities(null) as never, HirId_from_LocalModId(mod_id), undefined, true);
     const cx = new LateWalker(context, passes);
     const [module] = tcx.hir_get_module(mod_id);
     cx.with_lint_attrs(HirId_from_LocalModId(mod_id), () => {
