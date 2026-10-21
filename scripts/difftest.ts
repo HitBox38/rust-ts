@@ -7,17 +7,27 @@
 //     --jobs N          parallel processes (default: cores)
 //     --batch-size N    files per process in batch suites (default 100)
 //     --run-id ID       output dir name under $RUST_TS_DATA/runs (default: timestamp)
+//     --report blessed  also write the blessed-output report (suites with `Suite.blessed`; never a status)
 //     --list            list suites
 //
 // Statuses: MATCH | DIFF | UNPORTED (exit 70) | CRASH (subject ICE/exit mismatch with no output) |
 // TIMEOUT (the subject timed out) | ORACLE_TIMEOUT (the oracle timed out twice, the second time with
 // ORACLE_RETRY_FACTOR x its timeout; never cached, never compared, never MATCH)
 // Prints one summary line; details go to $RUST_TS_DATA/runs/<run-id>/ (`<suite>.skipped.jsonl` lists
-// the tests a suite leaves out, with reasons).
+// the tests a suite leaves out, with reasons). Suites with `Suite.subsets` also get per-subset counts
+// (summary `subsets`, one line each).
+//
+// `--report blessed` (report only; it never changes a status): for every case of a suite with
+// `Suite.blessed` (the UI-test suites of M3), the oracle's stderr is normalized as compiletest would
+// and compared with the test's blessed `.stderr`. Where they are equal ("covered": the probe's
+// diagnostics are all the test expects), the subject's normalized stderr is compared too: PASS or FAIL.
+// Other cases are NOT_COVERED (with the first oracle/blessed difference), N/A (no blessed comparison,
+// with why) or ORACLE_TIMEOUT. Written to `<suite>.blessed.jsonl` and summary `blessed`.
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { SUITES, suite as getSuite, type Case, type Suite } from "../harness/suites.ts";
+import type { Blessed } from "../harness/compiletest.ts";
 import { ORACLE_CACHE, PIN, RUNS, UPSTREAM, die, ensureDir, hash, nowId, parseArgs, pool, requireUpstream, run } from "./lib/common.ts";
 import { caseDeps, type Dep } from "./lib/deps.ts";
 import { rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
@@ -404,6 +414,31 @@ export function sample<T extends { id: string }>(items: T[], n: number, seed: st
     .sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 
+/** The blessed-output report of one case (see the header). */
+export interface BlessedResult {
+  id: string;
+  blessed: "PASS" | "FAIL" | "NOT_COVERED" | "N/A" | "ORACLE_TIMEOUT";
+  /** N/A: why; NOT_COVERED: first difference oracle | blessed; FAIL: first difference subject | blessed. */
+  why?: string;
+}
+export const BLESSED_STATUSES: BlessedResult["blessed"][] = ["PASS", "FAIL", "NOT_COVERED", "N/A", "ORACLE_TIMEOUT"];
+
+/** The stderr part of a single-mode output (`render`). */
+function stderrOf(o: Output): string {
+  const start = o.text.indexOf("\n--- stderr ---\n");
+  const end = o.text.lastIndexOf("\n--- exit: ");
+  return start < 0 || end < start ? "" : o.text.slice(start + "\n--- stderr ---\n".length, end);
+}
+
+function blessedResult(id: string, b: Blessed, o: Output, sub: Output): BlessedResult {
+  if ("na" in b) return { id, blessed: "N/A", why: b.na };
+  if (o.timedOut) return { id, blessed: "ORACLE_TIMEOUT" };
+  const on = b.normalize(stderrOf(o));
+  if (on !== b.expected) return { id, blessed: "NOT_COVERED", why: firstDiffLine(on, b.expected) };
+  const sn = b.normalize(stderrOf(sub));
+  return sn === b.expected ? { id, blessed: "PASS" } : { id, blessed: "FAIL", why: firstDiffLine(sn, b.expected) };
+}
+
 export interface RunOptions {
   suite: string;
   sample?: number;
@@ -414,11 +449,22 @@ export interface RunOptions {
   batchSize?: number;
   runId?: string;
   quiet?: boolean;
+  /** `blessed`: also write the blessed-output report (see the header). */
+  report?: string;
 }
 
 export async function difftest(
   opts: RunOptions,
-): Promise<{ results: CaseResult[]; dir: string; counts: Record<Status, number>; stats: SubjectStats; skipped?: number; oracleTimeoutSubjects: OracleTimeoutSubjects }> {
+): Promise<{
+  results: CaseResult[];
+  dir: string;
+  counts: Record<Status, number>;
+  stats: SubjectStats;
+  skipped?: number;
+  oracleTimeoutSubjects: OracleTimeoutSubjects;
+  subsets?: Record<string, Record<Status | "total", number>>;
+  blessed?: Record<BlessedResult["blessed"], number>;
+}> {
   requireUpstream();
   await verifyOraclePin();
   const s = getSuite(opts.suite);
@@ -427,6 +473,10 @@ export async function difftest(
   if (opts.filter) cases = cases.filter((c) => c.id.includes(opts.filter!));
   const skipped = (s.skipped?.() ?? []).filter((k) => !opts.filter || k.id.includes(opts.filter));
   if (opts.sample) cases = sample(cases, opts.sample, opts.seed ?? process.env.RUST_TS_AGENT ?? "0");
+  if (opts.report !== undefined && opts.report !== "blessed") die(`unknown report '${opts.report}' (have: blessed)`);
+  const blessedFor = opts.report === "blessed" ? s.blessed : undefined;
+  if (opts.report === "blessed" && !blessedFor) die(`suite ${s.name} has no blessed-output report`);
+  const blessedResults: BlessedResult[] = [];
   const impl = opts.impl ?? "port";
   const dir = ensureDir(join(RUNS, opts.runId ?? nowId()));
   const diffDir = ensureDir(join(dir, "diffs", s.name));
@@ -461,6 +511,7 @@ export async function difftest(
           oracleTimeoutSubjects[k]++;
         }
         results.push(r);
+        if (blessedFor) blessedResults.push(blessedResult(c.id, blessedFor(c), oc, sc));
         if (status !== "MATCH" && status !== "UNPORTED" && diffsWritten < 500) {
           diffsWritten++;
           const name = c.id.replace(/[\\/:]/g, "__");
@@ -482,6 +533,27 @@ export async function difftest(
   const counts = Object.fromEntries(STATUSES.map((st) => [st, 0])) as Record<Status, number>;
   for (const r of results) counts[r.status]++;
   writeFileSync(join(dir, `${s.name}.jsonl`), results.map((r) => JSON.stringify(r)).join("\n") + "\n");
+  let subsets: Record<string, Record<Status | "total", number>> | undefined;
+  if (s.subsets) {
+    subsets = {};
+    const byId = new Map(cases.map((c) => [c.id, c]));
+    for (const [name, has] of Object.entries(s.subsets)) {
+      const sc = Object.fromEntries(["total", ...STATUSES].map((st) => [st, 0])) as Record<Status | "total", number>;
+      for (const r of results) {
+        if (!has(byId.get(r.id)!)) continue;
+        sc.total++;
+        sc[r.status]++;
+      }
+      subsets[name] = sc;
+    }
+  }
+  let blessed: Record<BlessedResult["blessed"], number> | undefined;
+  if (blessedFor) {
+    blessedResults.sort((a, b) => (a.id < b.id ? -1 : 1));
+    blessed = Object.fromEntries(BLESSED_STATUSES.map((st) => [st, 0])) as Record<BlessedResult["blessed"], number>;
+    for (const r of blessedResults) blessed[r.blessed]++;
+    writeFileSync(join(dir, `${s.name}.blessed.jsonl`), blessedResults.map((r) => JSON.stringify(r) + "\n").join(""));
+  }
   if (s.skipped) writeFileSync(join(dir, `${s.name}.skipped.jsonl`), skipped.map((k) => JSON.stringify(k) + "\n").join(""));
   const summary = {
     suite: s.name,
@@ -494,9 +566,11 @@ export async function difftest(
     ...stats,
     ...(s.skipped ? { skipped: skipped.length } : {}),
     ...(counts.ORACLE_TIMEOUT ? { oracleTimeoutSubjects } : {}),
+    ...(subsets ? { subsets } : {}),
+    ...(blessed ? { blessed } : {}),
   };
   writeFileSync(join(dir, `${s.name}.summary.json`), JSON.stringify(summary, null, 2));
-  return { results, dir, counts, stats, skipped: s.skipped ? skipped.length : undefined, oracleTimeoutSubjects };
+  return { results, dir, counts, stats, skipped: s.skipped ? skipped.length : undefined, oracleTimeoutSubjects, subsets, blessed };
 }
 
 if (import.meta.main) {
@@ -507,7 +581,7 @@ if (import.meta.main) {
     process.exit(0);
   }
   const num = (k: string) => (typeof a[k] === "string" ? Number(a[k]) : undefined);
-  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots } = await difftest({
+  const { dir, counts, results, stats, skipped, oracleTimeoutSubjects: ots, subsets, blessed } = await difftest({
     suite: String(a.suite),
     sample: num("sample"),
     seed: typeof a.seed === "string" ? a.seed : undefined,
@@ -516,9 +590,14 @@ if (import.meta.main) {
     jobs: num("jobs"),
     batchSize: num("batch-size"),
     runId: typeof a["run-id"] === "string" ? a["run-id"] : undefined,
+    report: typeof a.report === "string" ? a.report : undefined,
   });
   const pct = results.length ? ((100 * counts.MATCH) / results.length).toFixed(2) : "0";
   console.log(`suite=${a.suite} total=${results.length} ${STATUSES.map((s) => `${s}=${counts[s]}`).join(" ")} match%=${pct}${skipped !== undefined ? ` skipped=${skipped}` : ""}`);
+  for (const [name, sc] of Object.entries(subsets ?? {})) {
+    console.log(`subset ${name}: total=${sc.total} ${STATUSES.map((st) => `${st}=${sc[st]}`).join(" ")} match%=${sc.total ? ((100 * sc.MATCH) / sc.total).toFixed(2) : "0"}`);
+  }
+  if (blessed) console.log(`blessed (report only): ${BLESSED_STATUSES.map((st) => `${st}=${blessed[st]}`).join(" ")} (per case: ${a.suite}.blessed.jsonl)`);
   if (stats.batchOnlyFailures || stats.batchOnlyTimeouts) {
     console.log(`note: ${stats.batchOnlyFailures} batch-only failure(s), ${stats.batchOnlyTimeouts} batch-only timeout(s): a batch process failed at a case that passes alone (see ${a.suite}.summary.json)`);
   }

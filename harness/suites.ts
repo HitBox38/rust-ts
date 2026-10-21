@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { DATA, REPO, UPSTREAM, hash } from "../scripts/lib/common.ts";
 import { oracleRustcCmd, oracleSysroot, rustcDriverHash } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
-import { COMPILETEST_TARGET, uiCases, type ErrorFormat } from "./compiletest.ts";
+import { COMPILETEST_TARGET, collectUiTests, uiBlessed, uiCases, uiFileCases, type Blessed, type ErrorFormat } from "./compiletest.ts";
 
 export interface Case {
   /** Stable id; the protected set (harness/baseline) is a list of these. */
@@ -61,6 +61,16 @@ export interface Suite {
    * covers every other file a case may make rustc read (scripts/lib/deps.ts).
    */
   readsOnlyCaseFile?: boolean;
+  /**
+   * Named subsets of the cases (e.g. the parts a milestone gate is defined on); difftest reports their
+   * counts besides the suite's.
+   */
+  subsets?: Record<string, (c: Case) => boolean>;
+  /**
+   * The case's blessed compiletest output and normalization, for difftest's report-only `--report blessed`
+   * (UI-test suites; never part of a case's status).
+   */
+  blessed?(c: Case): Blessed;
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -650,6 +660,75 @@ SUITES.push(
     "hir",
     [],
     "hir-tree with -Zunpretty=hir (rustc_hir_pretty::print_crate, the pretty-printed HIR, instead of the HIR tree); no skips",
+  ),
+);
+
+// M3 (plan-m3 §4, lane harness-w20): the M3 gate suites, type checking of whole UI-test directories with
+// compiletest's own argv. Cases: every UI test (and revision) of tests/ui/typeck and tests/ui/traits,
+// plus every tests/ui test with a `#[rustc_dump_*]` attribute (`UI_DUMP_ATTR`; the dumps of
+// rustc_hir_analysis check_crate and typeck writeback run in the probes' prefix, the others, e.g.
+// rustc_dump_layout or rustc_dump_symbol_name, belong to later phases and leave just a type-checked test),
+// for thirdump-ui also tests/ui/thir-print. Argv, env, directives, revisions, ignores and skips are
+// harness/compiletest.ts's (`human` format, as tydump-minicore; `-Zparse-crate-root-only` dropped), so
+// `-Znext-solver=coherence` (decision 2026-10-15: the old solver in typeck, the new one in coherence;
+// `//@[next] compile-flags: -Znext-solver` revisions switch to the new solver everywhere), with
+// `aux-build`/`aux-crate`/`aux-bin` crates built by the oracle as rmeta (compiletest.ts header; plan-m2
+// D5). compiletest is run as on x86_64-unknown-linux-gnu (decision D1 of plan-m2, as every ui suite),
+// so the case set does not depend on the machine. Env, timeouts and one process per case as
+// tydump-minicore. Subsets (difftest prints their counts): the M3 gate is on `typeck+traits` and
+// `rustc_dump`. Report only (`difftest --report blessed`): the blessed `.stderr` comparison (plan-m3 §4).
+// Unprotected until root accepts a run.
+const UI_DUMP_ATTR = /#!?\[[^\]\n]*\brustc_dump_\w+/;
+let uiDumpMemo: Set<string> | undefined;
+/** Every UI test (as compiletest collects them) with a `#[rustc_dump_*]` attribute. */
+function uiDumpTests(): Set<string> {
+  return (uiDumpMemo ??= new Set(collectUiTests("tests/ui").filter((f) => UI_DUMP_ATTR.test(readFileSync(join(UPSTREAM, f), "utf8")))));
+}
+const M3_UI_DIRS = ["tests/ui/typeck", "tests/ui/traits"];
+const inDirs = (dirs: string[]) => (c: Case) => dirs.some((d) => c.file.startsWith(d + "/"));
+const m3UiMemo = new Map<string, { cases: Case[]; skipped: SkippedCase[] }>();
+function m3UiCorpus(dirs: string[]): { cases: Case[]; skipped: SkippedCase[] } {
+  const key = dirs.join("|");
+  const m = m3UiMemo.get(key);
+  if (m) return m;
+  const files = [...new Set([...dirs.flatMap((d) => collectUiTests(d)), ...uiDumpTests()])].sort();
+  const ui = uiFileCases(files, "human", { aux: true });
+  const cases = ui.cases.map((c) => ({ id: c.id, file: c.file, args: c.args.filter((a) => a !== "-Zparse-crate-root-only"), env: { ...NOCORE_ENV, ...c.env } }));
+  const r = { cases, skipped: ui.skipped };
+  m3UiMemo.set(key, r);
+  return r;
+}
+const m3UiSuite = (name: string, probe: string, subject: string, dirs: string[], subsets: Suite["subsets"], description: string): Suite => ({
+  name,
+  milestone: "M3",
+  description,
+  mode: "single",
+  timeoutMs: 60_000,
+  oracleTimeoutMs: 300_000,
+  probes: [probe],
+  cases: () => m3UiCorpus(dirs).cases,
+  skipped: () => m3UiCorpus(dirs).skipped,
+  oracle: ([c]) => [probePath(probe), ...c!.args],
+  subject: ([c]) => [...bunCmd(subject), ...c!.args],
+  subsets,
+  blessed: (c) => uiBlessed(c.id, c.args),
+});
+SUITES.push(
+  m3UiSuite(
+    "tydump-ui",
+    "tydump",
+    "src/rust_ts/tydump.ts",
+    M3_UI_DIRS,
+    { "typeck+traits": inDirs(M3_UI_DIRS), rustc_dump: (c) => uiDumpTests().has(c.file) },
+    "tools/probes/tydump (as tydump-nocore) on tests/ui/typeck, tests/ui/traits and every tests/ui test with a #[rustc_dump_*] attribute, with compiletest's UI-test argv (human diagnostics, -Znext-solver=coherence, revisions, aux crates built by the oracle as rmeta)",
+  ),
+  m3UiSuite(
+    "thirdump-ui",
+    "thirdump",
+    "src/rust_ts/thirdump.ts",
+    [...M3_UI_DIRS, "tests/ui/thir-print"],
+    { "typeck+traits": inDirs(M3_UI_DIRS), rustc_dump: (c) => uiDumpTests().has(c.file), "thir-print": inDirs(["tests/ui/thir-print"]) },
+    "tools/probes/thirdump (as thirdump-minicore) on the tydump-ui cases plus tests/ui/thir-print",
   ),
 );
 
