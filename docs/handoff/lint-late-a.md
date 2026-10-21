@@ -37,8 +37,8 @@ Methods: `typeck_results_()` (the upstream `typeck_results()` method; ICEs outsi
 `typing_env()`, `type_is_copy_modulo_regions(ty)`, `type_is_use_cloned_modulo_regions(ty)`, `qpath_res(qpath, id)`,
 `get_def_path(def_id)`, `get_associated_type(self_ty, trait_id, name)`, `precedence(expr)`, `expr_or_init(expr)`,
 `expr_or_init_with_outside_body(expr)`, `data_layout()`, `tcx_()` (`HasTyCtxt`), `typing_env_()` (`HasTypingEnv`),
-`handle_layout_err`. For `cx.layout_of(ty)` use `cx.tcx.layout_of(cx.typing_env().as_query_input(ty))` as upstream's
-`LayoutOf` provided method does (`LayoutOf` for `LateContext` is not a separate port).
+`handle_layout_err`, and the `LayoutOf` glue: `cx.layout_of(ty)` / `cx.spanned_layout_of(ty, span)` (`Result<TyAndLayout,
+LayoutError>`), `cx.LayoutOfResult`, `layout_tcx_at_span()`, as rustc_middle's `LayoutCx`.
 
 late.ts is fully ported (`LateContextAndPass` visitor with `nested_filter::All`, `RuntimeCombinedLateLintPass`,
 `late_lint_mod`, `late_lint_crate`, `check_crate`). `lint_mod` (lib.ts) runs `BuiltinCombinedLateLintModPass` per module.

@@ -55,7 +55,15 @@ import { debug_TraitRef } from "../rustc_type_ir/ir_print.ts";
 import { as_interner, type TraitRef } from "../rustc_type_ir/predicate.ts";
 import type { Const, Region } from "../rustc_type_ir/sty/mod.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
-import { unwrap_result } from "../std/result.ts";
+import { type Result, unwrap_result } from "../std/result.ts";
+import {
+  type LayoutError,
+  LayoutOf_provided,
+  LayoutOfHelpers_provided,
+  type MaybeResult,
+  MaybeResult_Result,
+  type TyAndLayout,
+} from "../rustc_middle/ty/layout.ts";
 import type { DynLintStore, LintGroup as SessionLintGroup, Session } from "../rustc_session/session.ts";
 import { find_best_match_for_names } from "../rustc_span/edit_distance.ts";
 import { Edition } from "../rustc_span/edition.ts";
@@ -870,11 +878,31 @@ export class LateContext implements LintContext<StableLintExpectationId> {
     return this.typing_env();
   }
 
-  /** `impl LayoutOfHelpers for LateContext` */
+  // ---- impl<'tcx> LayoutOfHelpers<'tcx> for LateContext<'tcx> ----
+  // type LayoutOfResult = Result<TyAndLayout<'tcx>, LayoutError<'tcx>>;
+  get LayoutOfResult(): MaybeResult<TyAndLayout, Result<TyAndLayout, LayoutError>, LayoutError> {
+    return MaybeResult_Result;
+  }
+
+  // (provided) ty/layout.rs:740 layout_tcx_at_span -> LayoutOfHelpers_provided.layout_tcx_at_span
+  layout_tcx_at_span(): Span {
+    return LayoutOfHelpers_provided.layout_tcx_at_span(this);
+  }
+
   // #[inline]
   // rustc: compiler/rustc_lint/src/context.rs:964 handle_layout_err
-  handle_layout_err<E>(err: E, _: Span, __: Ty): E {
+  handle_layout_err(err: LayoutError, _: Span, __: Ty): LayoutError {
     return err;
+  }
+
+  // ---- impl<'tcx, C: LayoutOfHelpers<'tcx>> LayoutOf<'tcx> for C {} ----
+  // (provided) ty/layout.rs:764 layout_of -> LayoutOf_provided.layout_of
+  layout_of(ty: Ty): Result<TyAndLayout, LayoutError> {
+    return LayoutOf_provided.layout_of(this, ty);
+  }
+  // (provided) ty/layout.rs:773 spanned_layout_of -> LayoutOf_provided.spanned_layout_of
+  spanned_layout_of(ty: Ty, span: Span): Result<TyAndLayout, LayoutError> {
+    return LayoutOf_provided.spanned_layout_of(this, ty, span);
   }
 }
 
