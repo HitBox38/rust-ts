@@ -4,7 +4,7 @@
 //   ported (a `// rustc:` marker) or declared (a `// stub: <path>:<line> <name> (lane <lane>)` comment over a declaration
 //   whose body calls `unported(..)` with a path in the fn's own crate module), never both;
 // - the stubs stop as UNPORTED at runtime (representative calls), and a `layout_of` query reaches the real provider and
-//   then its `layout_of_uncached` stub;
+//   `layout_of_uncached` (ported by lane ty-utils-layout), then the first rustc_abi stub on its path;
 // - the Debug impls print what rustc prints (tests/ui/layout/debug.stderr), `TyCtxt::mk_layout` interns (one object per
 //   value, deep-frozen) and `TyAndLayout` derefs to its `LayoutData`.
 import { expect, test } from "bun:test";
@@ -48,8 +48,6 @@ import { Ty, TypingEnv } from "../rustc_middle/ty/mod.ts";
 import { PLAIN, PRETTY } from "../std/fmt.ts";
 import { Unported } from "../std/panic.ts";
 import "./lib.ts";
-import { layout_of_uncached } from "./layout.ts";
-import { layout_sanity_check } from "./layout/invariant.ts";
 
 const FILES: [string, string][] = [
   ["compiler/rustc_abi/src/lib.rs", "rustc_abi::"],
@@ -133,7 +131,7 @@ test("every fn of the layout files is ported or declared as a stub, never both",
   // stubs only for the scope files
   for (const d of stubs) expect(FILES.some(([f]) => f === d.path)).toBe(true);
   expect(total).toBe(320);
-  expect(stubs.length).toBe(168);
+  expect(stubs.length).toBe(158);
 });
 
 function stops(f: () => unknown, what: string): void {
@@ -220,8 +218,6 @@ test("the stubs stop as UNPORTED with their own path", () => {
   stops(() => new WrappingRange(0n, 1n).contains(0n), "rustc_abi::wrapping_range::WrappingRange::contains");
   stops(() => LayoutCalculator.new({ data_layout: () => unreachable_dl() }).layout_of_union(null as never, []), "rustc_abi::layout::LayoutCalculator::layout_of_union");
   stops(() => coroutine_saved_local_eligibility(0, [], null as never), "rustc_abi::layout::coroutine::coroutine_saved_local_eligibility");
-  stops(() => layout_of_uncached(null as never, null as never), "rustc_ty_utils::layout::layout_of_uncached");
-  stops(() => layout_sanity_check(null as never, null as never), "rustc_ty_utils::layout::invariant::layout_sanity_check");
   stops(() => SizeSkeleton.compute(null as never, null as never, null as never, null as never), "rustc_middle::ty::layout::SizeSkeleton::compute");
   stops(() => IntegerExt.discr_range_of_repr(null as never, null as never, null as never, 0n, 0n), "rustc_middle::ty::layout::IntegerExt::discr_range_of_repr");
   // `Ty: TyAbiInterface` is rustc_middle's table, registered at load
@@ -275,7 +271,7 @@ function config_from_args(args: string[]): Config {
   return config;
 }
 
-test("mk_layout interns; tcx.layout_of reaches the provider and stops at layout_of_uncached; LayoutCx::layout_of too", () => {
+test("mk_layout interns; tcx.layout_of reaches the provider and layout_of_uncached, then the rustc_abi stubs; LayoutCx::layout_of too", () => {
   mkdirSync(WORK, { recursive: true });
   const file = join(WORK, "layout_contract.rs");
   writeFileSync(file, "#![feature(no_core)]\n#![no_core]\npub fn f() {}\n");
@@ -290,16 +286,18 @@ test("mk_layout interns; tcx.layout_of reaches the provider and stops at layout_
       expect(Object.isFrozen(a.internee)).toBe(true);
 
       const env = TypingEnv.fully_monomorphized();
-      stops(() => tcx.layout_of(env.as_query_input(tcx.types.u8)), "rustc_ty_utils::layout::layout_of_uncached");
+      // (re-pinned by ty-utils-layout: `layout_of_uncached` is ported; integers stop at `Primitive::size` (`scalar_unit`),
+      // `bool` at `LayoutData::scalar` (layout/simple.rs))
+      stops(() => tcx.layout_of(env.as_query_input(tcx.types.u8)), "rustc_abi::Primitive::size");
       const cx = LayoutCx.new(tcx, env);
       expect(cx.tcx_()).toBe(tcx);
       expect(cx.typing_env_()).toBe(env);
       expect(cx.data_layout()).toBe(tcx.data_layout());
-      stops(() => cx.layout_of(tcx.types.bool), "rustc_ty_utils::layout::layout_of_uncached");
-      stops(() => LayoutOf_provided.spanned_layout_of(cx, tcx.types.i32, cx.layout_tcx_at_span()), "rustc_ty_utils::layout::layout_of_uncached");
+      stops(() => cx.layout_of(tcx.types.bool), "rustc_abi::layout::simple::LayoutData::scalar");
+      stops(() => LayoutOf_provided.spanned_layout_of(cx, tcx.types.i32, cx.layout_tcx_at_span()), "rustc_abi::Primitive::size");
       // `Ty::new_array` -> `Const::from_target_usize` -> `Const::from_bits` asks `layout_of(usize)` (was a stand-in; moved here
       // from rustc_middle ty/sty.test.ts, whose mock `tcx` has no query system)
-      stops(() => Ty.new_array(tcx, tcx.types.u8, 3), "rustc_ty_utils::layout::layout_of_uncached");
+      stops(() => Ty.new_array(tcx, tcx.types.u8, 3), "rustc_abi::Primitive::size");
       ran = true;
     });
   });
