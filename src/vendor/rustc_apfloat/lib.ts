@@ -483,8 +483,6 @@ export interface FloatType<Self extends Float<Self>> {
   from_str(s: string): Result<Self, ParseError>;
 }
 
-const I128_MIN = -(1n << 127n);
-const U128_MASK = (1n << 128n) - 1n;
 /** `x as i128` for a `u128` / an `i128` result of wrapping arithmetic. */
 function as_i128(x: bigint): bigint {
   return BigInt.asIntN(128, x);
@@ -914,11 +912,6 @@ export const FLOAT_COMMON_METHODS = [
   "div_assign",
   "rem_assign",
 ] as const;
-
-/** `u128` all-ones (`!0`). */
-export const U128_MAX = U128_MASK;
-/** `i128::MIN` */
-export const I128_MIN_VALUE = I128_MIN;
 
 // pub mod ieee;
 // pub mod ppc;
