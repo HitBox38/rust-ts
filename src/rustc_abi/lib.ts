@@ -10,17 +10,19 @@
 import { type Symbol, sym } from "../rustc_span/symbol.ts";
 import { is_alphabetic } from "../std/char.ts";
 import { debug_Hash64, type Hash64 } from "../rustc_hashes/lib.ts";
-import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt } from "../std/fmt.ts";
-import type { MutRef } from "../std/mut_ref.ts";
-import { assert, panic, unported } from "../std/panic.ts";
+import { type Debug, debug_bool, debug_int, debug_option, debug_struct, debug_tuple, debug_vec, type Fmt, PLAIN } from "../std/fmt.ts";
+import { field_mut, type MutRef } from "../std/mut_ref.ts";
+import { assert, panic, unported, unreachable } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 import { to_writer } from "../vendor/bitflags/parser.ts";
 import { flags_companion } from "../vendor/bitflags/traits.ts";
-import type { DiagArgValue, PathBuf } from "../rustc_error_messages/lib.ts";
+import { IntoDiagArg, type DiagArgValue, type PathBuf } from "../rustc_error_messages/lib.ts";
+import { into_diag_arg_using_display, number_into_diag_arg, str_into_diag_arg, String_into_diag_arg } from "../rustc_error_messages/diagnostic_impls.ts";
+import { Diag, type DiagCtxtHandle, type Level, msg } from "../rustc_errors/lib.ts";
 import { intern_key } from "../rust_ts/intern_key.ts";
-import type { RegKind } from "./callconv/reg.ts";
-import type { FieldIdx, LayoutCalculatorError, VariantIdx } from "./layout.ts";
-import { debug_WrappingRange, type WrappingRange, WrappingRange_eq } from "./wrapping_range.ts";
+import { RegKind } from "./callconv/reg.ts";
+import { FieldIdx, LayoutCalculatorError, type VariantIdx } from "./layout.ts";
+import { debug_WrappingRange, WrappingRange, WrappingRange_eq } from "./wrapping_range.ts";
 
 export * from "./canon_abi.ts";
 // mod callconv; mod layout; mod wrapping_range; (layout-contract)
@@ -362,27 +364,42 @@ export const MAX_SIMD_LANES: number = 1 << 0xf;
 export type BackendLaneCount = number & { readonly __brand: "BackendLaneCount" };
 export const BackendLaneCount = {
   // PORT (layout-contract): `count: u64` is a `bigint` (an array length, layout-contract conventions).
-  // stub: compiler/rustc_abi/src/lib.rs:273 new (lane abi-lib)
-  new<N>(_count: bigint): Result<BackendLaneCount, LayoutCalculatorError<N>> {
-    return unported("rustc_abi::BackendLaneCount::new");
+  // rustc: compiler/rustc_abi/src/lib.rs:273 new
+  new<N>(count: bigint): Result<BackendLaneCount, LayoutCalculatorError<N>> {
+    // PORT: `let Ok(count @ ..=MAX_SIMD_LANES) = u16::try_from(count) else { .. }`: `count` (a `u64`) is in
+    // `0..=MAX_SIMD_LANES` (which is within `u16`).
+    if (!(count >= 0n && count <= BigInt(MAX_SIMD_LANES))) {
+      return Err({
+        $: "OversizedSimdType",
+        max_lanes: MAX_SIMD_LANES,
+      });
+    }
+    const count_ = Number(count);
+    // `NonZero::new(count)`
+    if (count_ !== 0) {
+      return Ok(count_ as BackendLaneCount);
+    } else {
+      return Err(LayoutCalculatorError.ZeroLengthSimdType);
+    }
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:287 is_power_of_two (lane abi-lib)
-  is_power_of_two(_self: BackendLaneCount): boolean {
-    return unported("rustc_abi::BackendLaneCount::is_power_of_two");
+  // rustc: compiler/rustc_abi/src/lib.rs:287 is_power_of_two
+  is_power_of_two(self: BackendLaneCount): boolean {
+    // `NonZero<u16>::is_power_of_two` (`self` is in `1..=MAX_SIMD_LANES`)
+    return (self & (self - 1)) === 0;
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:292 as_u64 (lane abi-lib)
-  as_u64(_self: BackendLaneCount): bigint {
-    return unported("rustc_abi::BackendLaneCount::as_u64");
+  // rustc: compiler/rustc_abi/src/lib.rs:292 as_u64
+  as_u64(self: BackendLaneCount): bigint {
+    return BigInt(self);
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:297 as_u32 (lane abi-lib)
-  as_u32(_self: BackendLaneCount): number {
-    return unported("rustc_abi::BackendLaneCount::as_u32");
+  // rustc: compiler/rustc_abi/src/lib.rs:297 as_u32
+  as_u32(self: BackendLaneCount): number {
+    return self;
   },
 } as const;
 // derive(Debug)
@@ -962,11 +979,64 @@ export type TargetDataLayoutError =
 
 // #[cfg(feature = "nightly")]
 // impl Diagnostic<'_> for TargetDataLayoutError<'_>
-// PORT: not ported (no marker): every built-in target's data layout parses; a target JSON (unported)
-// is the only way to reach these errors.
-// stub: compiler/rustc_abi/src/lib.rs:403 into_diag (lane abi-lib)
-export function TargetDataLayoutError_into_diag(_e: TargetDataLayoutError): never {
-  return unported("rustc_abi::TargetDataLayoutError::into_diag");
+// PORT (abi-lib): the stub's signature (`(e) => never`) became the trait method's `(self, dcx, level) -> Diag`.
+// rustc: compiler/rustc_abi/src/lib.rs:403 into_diag
+export function TargetDataLayoutError_into_diag(self: TargetDataLayoutError, dcx: DiagCtxtHandle, level: Level): Diag {
+  switch (self.$) {
+    case "InvalidAddressSpace": {
+      const { addr_space, err, cause } = self;
+      return Diag.new(dcx, level, msg('invalid address space `{$addr_space}` for `{$cause}` in "data-layout": {$err}'))
+        .with_arg("addr_space", IntoDiagArg.of(addr_space, str_into_diag_arg))
+        .with_arg("cause", IntoDiagArg.of(cause, str_into_diag_arg))
+        .with_arg("err", IntoDiagArg.of(err, into_diag_arg_using_display(display_ParseIntError)));
+    }
+    case "InvalidBits": {
+      const { kind, bit, cause, err } = self;
+      return Diag.new(dcx, level, msg('invalid {$kind} `{$bit}` for `{$cause}` in "data-layout": {$err}'))
+        .with_arg("kind", IntoDiagArg.of(kind, str_into_diag_arg))
+        .with_arg("bit", IntoDiagArg.of(bit, str_into_diag_arg))
+        .with_arg("cause", IntoDiagArg.of(cause, str_into_diag_arg))
+        .with_arg("err", IntoDiagArg.of(err, into_diag_arg_using_display(display_ParseIntError)));
+    }
+    case "MissingAlignment": {
+      const { cause } = self;
+      return Diag.new(dcx, level, msg('missing alignment for `{$cause}` in "data-layout"')).with_arg("cause", IntoDiagArg.of(cause, str_into_diag_arg));
+    }
+    case "InvalidAlignment": {
+      const { cause, err } = self;
+      return Diag.new(dcx, level, msg('invalid alignment for `{$cause}` in "data-layout": {$err}'))
+        .with_arg("cause", IntoDiagArg.of(cause, str_into_diag_arg))
+        .with_arg("err", IntoDiagArg.of(display_AlignFromBytesError(err), String_into_diag_arg));
+    }
+    case "InconsistentTargetArchitecture": {
+      const { dl, target } = self;
+      return Diag.new(
+        dcx,
+        level,
+        msg('inconsistent target specification: "data-layout" claims architecture is {$dl}-endian, while "target-endian" is `{$target}`'),
+      )
+        .with_arg("dl", IntoDiagArg.of(dl, str_into_diag_arg))
+        .with_arg("target", IntoDiagArg.of(target, str_into_diag_arg));
+    }
+    case "InconsistentTargetPointerWidth": {
+      const { pointer_size, target } = self;
+      return Diag.new(
+        dcx,
+        level,
+        msg('inconsistent target specification: "data-layout" claims pointers are {$pointer_size}-bit, while "target-pointer-width" is `{$target}`'),
+      )
+        .with_arg("pointer_size", IntoDiagArg.of(pointer_size, number_into_diag_arg))
+        .with_arg("target", IntoDiagArg.of(target, number_into_diag_arg));
+    }
+    case "InvalidBitsSize": {
+      const { err } = self;
+      return Diag.new(dcx, level, msg("{$err}")).with_arg("err", IntoDiagArg.of(err, String_into_diag_arg));
+    }
+    case "UnknownPointerSpecification": {
+      const { err } = self;
+      return Diag.new(dcx, level, msg("unknown pointer specification `{$err}` in datalayout string")).with_arg("err", IntoDiagArg.of(err, String_into_diag_arg));
+    }
+  }
 }
 
 /// Endianness of the target, which must match cfg(target-endian).
@@ -1016,7 +1086,11 @@ export const debug_Endian: Debug<Endian> = (v) => Endian.as_str(v);
 
 /// Size of a type in bytes.
 // #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-// PORT: `raw: u64` is a `number` (byte sizes stay far below 2^53).
+// PORT: `raw: u64` is a `number`. PORT (abi-lib, root decision): `Size` stays a plain `number`; every value that enters
+// or leaves a `Size` goes through the helpers below (`size_raw`, `u64_arg`), so a byte count (or a bit count from
+// `bits()`) beyond `Number.MAX_SAFE_INTEGER` (2^53 - 1) stops with `unported(SIZE_BEYOND_2_53)` instead of being
+// rounded. The arithmetic itself is exact (`bigint`): `checked_add` / `checked_mul` keep upstream's `None` for every
+// result at or above `obj_size_bound` (a power of two, exact), and the panicking ops keep their `u64` overflow panics.
 export class Size {
   constructor(readonly raw: number) {}
 
@@ -1024,15 +1098,24 @@ export class Size {
 
   /// Rounds `bits` up to the next-higher byte boundary, if `bits` is
   /// not a multiple of 8.
+  // PORT (abi-lib): `bits: impl TryInto<u64>` is a `number` or a `bigint` (`u64_arg`).
   // rustc: compiler/rustc_abi/src/lib.rs:890 from_bits
-  static from_bits(bits: number): Size {
-    return new Size(Math.ceil(bits / 8));
+  static from_bits(bits: number | bigint): Size {
+    const bits_ = u64_arg(bits);
+    // `u64::div_ceil(8)`
+    return new Size(size_raw((bits_ + 7n) / 8n));
   }
 
   // #[inline]
+  // PORT (abi-lib): `bytes: impl TryInto<u64>` is a `number` or a `bigint` (`u64_arg`).
   // rustc: compiler/rustc_abi/src/lib.rs:896 from_bytes
-  static from_bytes(bytes: number): Size {
-    return new Size(bytes);
+  static from_bytes(bytes: number | bigint): Size {
+    if (typeof bytes === "number" && Number.isSafeInteger(bytes) && bytes >= 0) {
+      // PORT (abi-lib): fast path, the common case (a safe non-negative integer is a valid `raw`).
+      return new Size(bytes);
+    }
+    const bytes_: bigint = u64_arg(bytes);
+    return new Size(size_raw(bytes_));
   }
 
   // #[inline]
@@ -1050,10 +1133,17 @@ export class Size {
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:912 bits
   bits(): number {
-    // PORT: `checked_mul(8)` cannot overflow for the sizes rust-ts handles (< 2^53 / 8), so the nested
-    // `#[cold] fn overflow` (lib.rs:914) is never called and not ported.
-    // stub: compiler/rustc_abi/src/lib.rs:914 overflow (nested in `bits`; unreachable for sizes < 2^53, lane abi-lib)
-    return this.bytes() * 8;
+    // #[cold]
+    // rustc: compiler/rustc_abi/src/lib.rs:914 overflow
+    function overflow(bytes: number): never {
+      return panic(`Size::bits: ${bytes} bytes in bits doesn't fit in u64`);
+    }
+
+    // `self.bytes().checked_mul(8).unwrap_or_else(|| overflow(self.bytes()))`
+    const bits = BigInt(this.bytes()) * 8n;
+    if (bits > U64_MAX) overflow(this.bytes());
+    // PORT (abi-lib): the bit count is a `number` too (`size_raw`'s bound).
+    return size_raw(bits);
   }
 
   // #[inline]
@@ -1065,9 +1155,10 @@ export class Size {
   // #[inline]
   // rustc: compiler/rustc_abi/src/lib.rs:927 align_to
   align_to(align: Align): Size {
-    // PORT: the mask arithmetic in `bigint` (JS bitwise operators are 32-bit).
+    // PORT: the mask arithmetic in `bigint` (JS bitwise operators are 32-bit). `self.bytes() + mask` cannot overflow
+    // `u64` (bytes < 2^53, mask < 2^29).
     const mask = BigInt(align.bytes()) - 1n;
-    return Size.from_bytes(Number((BigInt(this.bytes()) + mask) & ~mask));
+    return Size.from_bytes((BigInt(this.bytes()) + mask) & ~mask);
   }
 
   // #[inline]
@@ -1082,21 +1173,25 @@ export class Size {
   checked_add(offset: Size, cx: HasDataLayout): Size | undefined {
     const dl = cx.data_layout();
 
-    // PORT: `u64::checked_add` cannot overflow for byte counts below 2^53.
-    const bytes = this.bytes() + offset.bytes();
+    // PORT (abi-lib): `u64::checked_add` in `bigint`.
+    const bytes = BigInt(this.bytes()) + BigInt(offset.bytes());
+    if (bytes > U64_MAX) return undefined;
 
-    return bytes < dl.obj_size_bound() ? Size.from_bytes(bytes) : undefined;
+    // PORT (abi-lib): the comparison is exact (`obj_size_bound` is a power of two); a result below it but beyond 2^53
+    // is `unported` in `from_bytes`.
+    return bytes < BigInt(dl.obj_size_bound()) ? Size.from_bytes(bytes) : undefined;
   }
 
   // #[inline]
+  // PORT (abi-lib): `count: u64` is a `number` or a `bigint` (`u64_arg`; an array length is a `bigint`).
   // rustc: compiler/rustc_abi/src/lib.rs:948 checked_mul
-  checked_mul(count: number, cx: HasDataLayout): Size | undefined {
+  checked_mul(count: number | bigint, cx: HasDataLayout): Size | undefined {
     const dl = cx.data_layout();
 
     // PORT: `u64::checked_mul` in `bigint`; a product of 2^64 or more is `None` as upstream.
-    const bytes = BigInt(this.bytes()) * BigInt(count);
+    const bytes = BigInt(this.bytes()) * u64_arg(count);
     if (bytes > U64_MAX) return undefined;
-    return bytes < BigInt(dl.obj_size_bound()) ? Size.from_bytes(Number(bytes)) : undefined;
+    return bytes < BigInt(dl.obj_size_bound()) ? Size.from_bytes(bytes) : undefined;
   }
 
   /// Truncates `value` to `self` bits and then sign-extends it to 128 bits
@@ -1153,45 +1248,94 @@ export class Size {
 
   // impl Add for Size
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1006 add (lane abi-lib)
-  add(_other: Size): Size {
-    return unported("rustc_abi::Size::add");
+  // rustc: compiler/rustc_abi/src/lib.rs:1006 add
+  add(other: Size): Size {
+    // `self.bytes().checked_add(other.bytes())` (in `bigint`)
+    const bytes = BigInt(this.bytes()) + BigInt(other.bytes());
+    if (bytes > U64_MAX) {
+      return panic(`Size::add: ${this.bytes()} + ${other.bytes()} doesn't fit in u64`);
+    }
+    return Size.from_bytes(bytes);
   }
 
   // impl Sub for Size
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1016 sub (lane abi-lib)
-  sub(_other: Size): Size {
-    return unported("rustc_abi::Size::sub");
+  // rustc: compiler/rustc_abi/src/lib.rs:1016 sub
+  sub(other: Size): Size {
+    // `self.bytes().checked_sub(other.bytes())` (exact: both are safe integers)
+    const bytes = this.bytes() - other.bytes();
+    if (bytes < 0) {
+      return panic(`Size::sub: ${this.bytes()} - ${other.bytes()} would result in negative size`);
+    }
+    return Size.from_bytes(bytes);
   }
 
   // impl Mul<Size> for u64
   // #[inline]
   // PORT (layout-contract): `count * size` is the static `Size.u64_mul(count, size)` (the `u64` side has no class).
-  // stub: compiler/rustc_abi/src/lib.rs:1026 mul (lane abi-lib)
-  static u64_mul(_count: number, _size: Size): Size {
-    return unported("rustc_abi::Size::mul (Mul<Size> for u64)");
+  // PORT (abi-lib): `count: u64` is a `number` or a `bigint` (`u64_arg`).
+  // rustc: compiler/rustc_abi/src/lib.rs:1026 mul
+  static u64_mul(count: number | bigint, size: Size): Size {
+    return size.mul(count);
   }
 
   // impl Mul<u64> for Size
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1034 mul (lane abi-lib)
-  mul(_count: number): Size {
-    return unported("rustc_abi::Size::mul");
+  // PORT (abi-lib): `count: u64` is a `number` or a `bigint` (`u64_arg`).
+  // rustc: compiler/rustc_abi/src/lib.rs:1034 mul
+  mul(count: number | bigint): Size {
+    const count_ = u64_arg(count);
+    // `self.bytes().checked_mul(count)` (in `bigint`)
+    const bytes = BigInt(this.bytes()) * count_;
+    if (bytes <= U64_MAX) {
+      return Size.from_bytes(bytes);
+    } else {
+      return panic(`Size::mul: ${this.bytes()} * ${count_} doesn't fit in u64`);
+    }
   }
 
   // impl AddAssign for Size
   // #[inline]
   // PORT (layout-contract): `Size` is immutable (`raw` is readonly), so `a += b` is `a = a.add_assign(b)`, which
   // returns the new value.
-  // stub: compiler/rustc_abi/src/lib.rs:1044 add_assign (lane abi-lib)
-  add_assign(_other: Size): Size {
-    return unported("rustc_abi::Size::add_assign");
+  // rustc: compiler/rustc_abi/src/lib.rs:1044 add_assign
+  add_assign(other: Size): Size {
+    // `*self = *self + other;`
+    return this.add(other);
   }
 }
 const U64_MAX = (1n << 64n) - 1n;
 const U128_MAX = (1n << 128n) - 1n;
 const I128_MAX = (1n << 127n) - 1n;
+const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+/** The `unported(..)` path of a `Size` (or `Size::bits`) value beyond 2^53 - 1 (root decision, see `Size`). */
+export const SIZE_BEYOND_2_53 = "rustc_abi::Size beyond 2^53 (Size.raw is a JS number)";
+/**
+ * PORT (abi-lib): a `u64` byte (or bit) count as a `number`, exact: beyond `Number.MAX_SAFE_INTEGER` it stops with
+ * `unported(SIZE_BEYOND_2_53)` (rustc would compute it; rust-ts must not round it).
+ */
+function size_raw(v: bigint): number {
+  if (v > MAX_SAFE) return unported(SIZE_BEYOND_2_53);
+  return Number(v);
+}
+/**
+ * PORT (abi-lib): an `impl TryInto<u64>` / `u64` argument as an exact `bigint`. Upstream's `try_into().ok().unwrap()`
+ * panics for a value outside `u64` (a negative count); a `number` that is not a safe integer may already have been
+ * rounded by the caller, so it stops with `unported(SIZE_BEYOND_2_53)` (pass a `bigint` for such values).
+ */
+function u64_arg(v: number | bigint): bigint {
+  if (typeof v === "number") {
+    if (!Number.isSafeInteger(v)) return unported(SIZE_BEYOND_2_53);
+    v = BigInt(v);
+  }
+  if (v < 0n || v > U64_MAX) return panic("called `Option::unwrap()` on a `None` value");
+  return v;
+}
+/** PORT (abi-lib): `<u64 as Step>`'s `usize` count (`n as u64` is exact: a safe integer). */
+function usize_arg(n: number): bigint {
+  if (!Number.isSafeInteger(n) || n < 0) return unported(SIZE_BEYOND_2_53);
+  return BigInt(n);
+}
 // This is debug-printed a lot in larger structs, don't waste too much space there
 // impl fmt::Debug for Size
 // rustc: compiler/rustc_abi/src/lib.rs:880 fmt
@@ -1200,59 +1344,81 @@ export const debug_Size: Debug<Size> = (v) => `Size(${v.bytes()} bytes)`;
 // #[cfg(feature = "nightly")]
 // impl Step for Size
 // PORT (layout-contract): `core::iter::Step` (ranges of `Size`) is the companion `Step_Size`; `usize` counts are numbers.
+// PORT (abi-lib): `<u64 as Step>` (library/core/src/iter/range.rs, `step_integer_impls!` for a type no wider than
+// `usize` on a 64-bit host) is inlined in `bigint`; `usize` results are exact (`size_raw`).
 export const Step_Size = {
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1052 steps_between (lane abi-lib)
-  steps_between(_start: Size, _end: Size): [number, number | undefined] {
-    return unported("rustc_abi::Size::steps_between");
+  // rustc: compiler/rustc_abi/src/lib.rs:1052 steps_between
+  steps_between(start: Size, end: Size): [number, number | undefined] {
+    // `u64::steps_between(&start.bytes(), &end.bytes())`
+    if (start.bytes() <= end.bytes()) {
+      const steps = end.bytes() - start.bytes();
+      return [steps, steps];
+    } else {
+      return [0, undefined];
+    }
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1057 forward_checked (lane abi-lib)
-  forward_checked(_start: Size, _count: number): Size | undefined {
-    return unported("rustc_abi::Size::forward_checked");
+  // rustc: compiler/rustc_abi/src/lib.rs:1057 forward_checked
+  forward_checked(start: Size, count: number): Size | undefined {
+    // `u64::forward_checked(start.bytes(), count)`: `start.checked_add(n)`
+    const r = BigInt(start.bytes()) + usize_arg(count);
+    return r > U64_MAX ? undefined : Size.from_bytes(r);
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1062 forward_overflowing (lane abi-lib)
-  forward_overflowing(_start: Size, _count: number): [Size, boolean] {
-    return unported("rustc_abi::Size::forward_overflowing");
+  // rustc: compiler/rustc_abi/src/lib.rs:1062 forward_overflowing
+  forward_overflowing(start: Size, count: number): [Size, boolean] {
+    // `u64::forward_overflowing(start.bytes(), count)`: `start.overflowing_add(n)`
+    const r = BigInt(start.bytes()) + usize_arg(count);
+    const [s, o] = [r & U64_MAX, r > U64_MAX];
+    return [Size.from_bytes(s), o];
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1068 forward (lane abi-lib)
-  forward(_start: Size, _count: number): Size {
-    return unported("rustc_abi::Size::forward");
+  // PORT (abi-lib): `u64::forward` wraps (`#[rustc_inherit_overflow_checks]`; rustc is built without overflow checks).
+  // rustc: compiler/rustc_abi/src/lib.rs:1068 forward
+  forward(start: Size, count: number): Size {
+    return Size.from_bytes((BigInt(start.bytes()) + usize_arg(count)) & U64_MAX);
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1073 forward_unchecked (lane abi-lib)
-  forward_unchecked(_start: Size, _count: number): Size {
-    return unported("rustc_abi::Size::forward_unchecked");
+  // rustc: compiler/rustc_abi/src/lib.rs:1073 forward_unchecked
+  forward_unchecked(start: Size, count: number): Size {
+    // SAFETY (upstream): the caller guarantees that `start + n` doesn't overflow.
+    return Size.from_bytes(BigInt(start.bytes()) + usize_arg(count));
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1078 backward_checked (lane abi-lib)
-  backward_checked(_start: Size, _count: number): Size | undefined {
-    return unported("rustc_abi::Size::backward_checked");
+  // rustc: compiler/rustc_abi/src/lib.rs:1078 backward_checked
+  backward_checked(start: Size, count: number): Size | undefined {
+    // `u64::backward_checked(start.bytes(), count)`: `start.checked_sub(n)`
+    const r = BigInt(start.bytes()) - usize_arg(count);
+    return r < 0n ? undefined : Size.from_bytes(r);
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1083 backward_overflowing (lane abi-lib)
-  backward_overflowing(_start: Size, _count: number): [Size, boolean] {
-    return unported("rustc_abi::Size::backward_overflowing");
+  // rustc: compiler/rustc_abi/src/lib.rs:1083 backward_overflowing
+  backward_overflowing(start: Size, count: number): [Size, boolean] {
+    // `u64::backward_overflowing(start.bytes(), count)`: `start.overflowing_sub(n)`
+    const r = BigInt(start.bytes()) - usize_arg(count);
+    const [s, o] = [r & U64_MAX, r < 0n];
+    return [Size.from_bytes(s), o];
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1089 backward (lane abi-lib)
-  backward(_start: Size, _count: number): Size {
-    return unported("rustc_abi::Size::backward");
+  // PORT (abi-lib): `u64::backward` wraps (as `forward`).
+  // rustc: compiler/rustc_abi/src/lib.rs:1089 backward
+  backward(start: Size, count: number): Size {
+    return Size.from_bytes((BigInt(start.bytes()) - usize_arg(count)) & U64_MAX);
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1094 backward_unchecked (lane abi-lib)
-  backward_unchecked(_start: Size, _count: number): Size {
-    return unported("rustc_abi::Size::backward_unchecked");
+  // rustc: compiler/rustc_abi/src/lib.rs:1094 backward_unchecked
+  backward_unchecked(start: Size, count: number): Size {
+    // SAFETY (upstream): the caller guarantees that `start - n` doesn't overflow.
+    return Size.from_bytes(BigInt(start.bytes()) - usize_arg(count));
   },
 } as const;
 
@@ -1677,9 +1843,31 @@ export const Float = {
     }
   },
 
-  // stub: compiler/rustc_abi/src/lib.rs:1450 align (lane abi-lib)
-  align(_self: Float, _cx: HasDataLayout): AbiAlign {
-    return unported("rustc_abi::Float::align");
+  // rustc: compiler/rustc_abi/src/lib.rs:1450 align
+  align(self: Float, cx: HasDataLayout): AbiAlign {
+    // use Float::*;
+    const dl = cx.data_layout();
+
+    let align: Align;
+    switch (self) {
+      case "F16":
+      case "F16B":
+        align = dl.f16_align;
+        break;
+      case "F32":
+        align = dl.f32_align;
+        break;
+      case "F64":
+        align = dl.f64_align;
+        break;
+      case "F128":
+        align = dl.f128_align;
+        break;
+      case "PpcF128":
+        align = dl.f128_align;
+        break;
+    }
+    return AbiAlign.new(align);
   },
 
   // rustc: compiler/rustc_abi/src/lib.rs:1463 ty_str
@@ -1715,14 +1903,26 @@ export type Numeric =
   | { readonly $: "Int"; readonly _0: Integer; readonly _1: boolean }
   | { readonly $: "Float"; readonly _0: Float };
 export const Numeric = {
-  // stub: compiler/rustc_abi/src/lib.rs:1487 size (lane abi-lib)
-  size(_self: Numeric): Size {
-    return unported("rustc_abi::Numeric::size");
+  // rustc: compiler/rustc_abi/src/lib.rs:1487 size
+  size(self: Numeric): Size {
+    switch (self.$) {
+      case "Int":
+        return Integer.size(self._0);
+      case "Float":
+        return Float.size(self._0);
+    }
   },
 
-  // stub: compiler/rustc_abi/src/lib.rs:1494 reg_kind (lane abi-lib)
-  reg_kind(_self: Numeric): RegKind {
-    return unported("rustc_abi::Numeric::reg_kind");
+  // rustc: compiler/rustc_abi/src/lib.rs:1494 reg_kind
+  reg_kind(self: Numeric): RegKind {
+    switch (self.$) {
+      case "Int":
+        return RegKind.Integer;
+      case "Float":
+        if (self._0 === "PpcF128") return RegKind.PpcF128;
+        // Numeric::Float(Float::F16 | Float::F16B | Float::F32 | Float::F64 | Float::F128)
+        return RegKind.Float;
+    }
   },
 } as const;
 /** derive(PartialEq) */
@@ -1745,18 +1945,38 @@ export type Primitive =
   | { readonly $: "Float"; readonly _0: Float }
   | { readonly $: "Pointer"; readonly _0: AddressSpace };
 export const Primitive = {
-  // stub: compiler/rustc_abi/src/lib.rs:1545 size (lane abi-lib)
-  size(_self: Primitive, _cx: HasDataLayout): Size {
-    return unported("rustc_abi::Primitive::size");
+  // rustc: compiler/rustc_abi/src/lib.rs:1545 size
+  size(self: Primitive, cx: HasDataLayout): Size {
+    // use Primitive::*;
+    const dl = cx.data_layout();
+
+    switch (self.$) {
+      case "Int":
+        return Integer.size(self._0);
+      case "Float":
+        return Float.size(self._0);
+      case "Pointer":
+        return dl.pointer_size_in(self._0);
+    }
   },
 
   /// The *platform-specific* ABI alignment of this primitive.
   ///
   /// This is the type alignment for the corresponding built-in.
   /// In other contexts it might have different alignment.
-  // stub: compiler/rustc_abi/src/lib.rs:1560 default_align (lane abi-lib)
-  default_align(_self: Primitive, _cx: HasDataLayout): AbiAlign {
-    return unported("rustc_abi::Primitive::default_align");
+  // rustc: compiler/rustc_abi/src/lib.rs:1560 default_align
+  default_align(self: Primitive, cx: HasDataLayout): AbiAlign {
+    // use Primitive::*;
+    const dl = cx.data_layout();
+
+    switch (self.$) {
+      case "Int":
+        return Integer.align(self._0, dl);
+      case "Float":
+        return Float.align(self._0, dl);
+      case "Pointer":
+        return dl.pointer_align_in(self._0);
+    }
   },
 } as const;
 /** derive(PartialEq) */
@@ -1827,42 +2047,56 @@ export type Scalar =
     };
 export const Scalar = {
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1614 is_bool (lane abi-lib)
-  is_bool(_self: Scalar): boolean {
-    return unported("rustc_abi::Scalar::is_bool");
+  // rustc: compiler/rustc_abi/src/lib.rs:1614 is_bool
+  is_bool(self: Scalar): boolean {
+    // use Integer::*;
+    return (
+      self.$ === "Initialized" &&
+      self.value.$ === "Int" &&
+      self.value._0 === "I8" &&
+      self.value._1 === false &&
+      self.valid_range.start === 0n &&
+      self.valid_range.end === 1n
+    );
   },
 
   /// Get the primitive representation of this type, ignoring the valid range and whether the
   /// value is allowed to be undefined (due to being a union).
-  // stub: compiler/rustc_abi/src/lib.rs:1627 primitive (lane abi-lib)
-  primitive(_self: Scalar): Primitive {
-    return unported("rustc_abi::Scalar::primitive");
+  // rustc: compiler/rustc_abi/src/lib.rs:1627 primitive
+  primitive(self: Scalar): Primitive {
+    // Scalar::Initialized { value, .. } | Scalar::Union { value } => value
+    return self.value;
   },
 
   /// The *platform-specific* ABI alignment of this scalar.
   ///
   /// This is the type alignment for the corresponding built-in.
   /// This is *not* necessarily the correct alignment for a type that has this `BackendRepr::Scalar`!
-  // stub: compiler/rustc_abi/src/lib.rs:1637 default_align (lane abi-lib)
-  default_align(_self: Scalar, _cx: HasDataLayout): AbiAlign {
-    return unported("rustc_abi::Scalar::default_align");
+  // rustc: compiler/rustc_abi/src/lib.rs:1637 default_align
+  default_align(self: Scalar, cx: HasDataLayout): AbiAlign {
+    return Primitive.default_align(Scalar.primitive(self), cx);
   },
 
-  // stub: compiler/rustc_abi/src/lib.rs:1641 size (lane abi-lib)
-  size(_self: Scalar, _cx: HasDataLayout): Size {
-    return unported("rustc_abi::Scalar::size");
-  },
-
-  // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1646 to_union (lane abi-lib)
-  to_union(_self: Scalar): Scalar {
-    return unported("rustc_abi::Scalar::to_union");
+  // rustc: compiler/rustc_abi/src/lib.rs:1641 size
+  size(self: Scalar, cx: HasDataLayout): Size {
+    return Primitive.size(Scalar.primitive(self), cx);
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1651 valid_range (lane abi-lib)
-  valid_range(_self: Scalar, _cx: HasDataLayout): WrappingRange {
-    return unported("rustc_abi::Scalar::valid_range");
+  // rustc: compiler/rustc_abi/src/lib.rs:1646 to_union
+  to_union(self: Scalar): Scalar {
+    return { $: "Union", value: Scalar.primitive(self) };
+  },
+
+  // #[inline]
+  // rustc: compiler/rustc_abi/src/lib.rs:1651 valid_range
+  valid_range(self: Scalar, cx: HasDataLayout): WrappingRange {
+    switch (self.$) {
+      case "Initialized":
+        return self.valid_range;
+      case "Union":
+        return WrappingRange.full(Primitive.size(self.value, cx));
+    }
   },
 
   // #[inline]
@@ -1870,31 +2104,52 @@ export const Scalar = {
   /// union.
   // PORT (layout-contract): `&mut WrappingRange` is a `MutRef` over `self.valid_range` (PORTING §8); `WrappingRange`
   // is immutable, so `*scalar.valid_range_mut() = r` / `.start = s` are `r_.value = r` / `r_.value = r_.value.with_start(s)`.
-  // stub: compiler/rustc_abi/src/lib.rs:1661 valid_range_mut (lane abi-lib)
-  valid_range_mut(_self: Scalar): MutRef<WrappingRange> {
-    return unported("rustc_abi::Scalar::valid_range_mut");
+  // rustc: compiler/rustc_abi/src/lib.rs:1661 valid_range_mut
+  valid_range_mut(self: Scalar): MutRef<WrappingRange> {
+    switch (self.$) {
+      case "Initialized":
+        return field_mut(self, "valid_range");
+      case "Union":
+        return panic("cannot change the valid range of a union");
+    }
   },
 
   /// Returns `true` if all possible numbers are valid, i.e `valid_range` covers the whole
   /// layout.
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1671 is_always_valid (lane abi-lib)
-  is_always_valid(_self: Scalar, _cx: HasDataLayout): boolean {
-    return unported("rustc_abi::Scalar::is_always_valid");
+  // rustc: compiler/rustc_abi/src/lib.rs:1671 is_always_valid
+  is_always_valid(self: Scalar, cx: HasDataLayout): boolean {
+    switch (self.$) {
+      case "Initialized":
+        return self.valid_range.is_full_for(Scalar.size(self, cx));
+      case "Union":
+        return true;
+    }
   },
 
   /// Returns `true` if this type can be left uninit.
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1680 is_uninit_valid (lane abi-lib)
-  is_uninit_valid(_self: Scalar): boolean {
-    return unported("rustc_abi::Scalar::is_uninit_valid");
+  // rustc: compiler/rustc_abi/src/lib.rs:1680 is_uninit_valid
+  is_uninit_valid(self: Scalar): boolean {
+    switch (self.$) {
+      case "Initialized":
+        return false;
+      case "Union":
+        return true;
+    }
   },
 
   /// Returns `true` if this is a signed integer scalar
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1689 is_signed (lane abi-lib)
-  is_signed(_self: Scalar): boolean {
-    return unported("rustc_abi::Scalar::is_signed");
+  // rustc: compiler/rustc_abi/src/lib.rs:1689 is_signed
+  is_signed(self: Scalar): boolean {
+    const p = Scalar.primitive(self);
+    switch (p.$) {
+      case "Int":
+        return p._1;
+      default:
+        return false;
+    }
   },
 } as const;
 /** derive(PartialEq) */
@@ -1978,23 +2233,78 @@ export const FieldsShape = {
   Primitive: Object.freeze({ $: "Primitive" }) as FieldsShape,
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1738 count (lane abi-lib)
-  count(_self: FieldsShape): number {
-    return unported("rustc_abi::FieldsShape::count");
+  // rustc: compiler/rustc_abi/src/lib.rs:1738 count
+  count(self: FieldsShape): number {
+    switch (self.$) {
+      case "Primitive":
+        return 0;
+      case "Union":
+        return self._0;
+      case "Array":
+        // PORT (abi-lib): `count.try_into().unwrap()` (`u64` -> `usize`, infallible on a 64-bit host); the `usize` is a
+        // `number`, so a count beyond 2^53 stops as `unported` instead of rounding.
+        if (self.count > MAX_SAFE) return unported("rustc_abi::FieldsShape::count (array length beyond 2^53)");
+        return Number(self.count);
+      case "Arbitrary":
+        return self.offsets.length;
+    }
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1748 offset (lane abi-lib)
-  offset(_self: FieldsShape, _i: number): Size {
-    return unported("rustc_abi::FieldsShape::offset");
+  // rustc: compiler/rustc_abi/src/lib.rs:1748 offset
+  offset(self: FieldsShape, i: number): Size {
+    switch (self.$) {
+      case "Primitive":
+        return unreachable("internal error: entered unreachable code: FieldsShape::offset: `Primitive`s have no fields");
+      case "Union": {
+        const count = self._0;
+        assert(i < count, `tried to access field ${i} of union with ${count} fields`);
+        return Size.ZERO;
+      }
+      case "Array": {
+        const { stride, count } = self;
+        const i_ = BigInt(i);
+        assert(i_ < count, `tried to access field ${i} of array with ${count} fields`);
+        return stride.mul(i_);
+      }
+      case "Arbitrary": {
+        const offsets = self.offsets;
+        const idx = FieldIdx.new(i);
+        // PORT (abi-lib): `IndexVec` indexing panics out of bounds.
+        if (idx >= offsets.length) return panic(`index out of bounds: the len is ${offsets.length} but the index is ${idx}`);
+        return offsets[idx]!;
+      }
+    }
   },
 
   /// Gets source indices of the fields by increasing offsets.
   // #[inline]
   // PORT (layout-contract): `impl ExactSizeIterator<Item = usize>` is an array.
-  // stub: compiler/rustc_abi/src/lib.rs:1768 index_by_increasing_offset (lane abi-lib)
-  index_by_increasing_offset(_self: FieldsShape): number[] {
-    return unported("rustc_abi::FieldsShape::index_by_increasing_offset");
+  // rustc: compiler/rustc_abi/src/lib.rs:1768 index_by_increasing_offset
+  index_by_increasing_offset(self: FieldsShape): number[] {
+    // Primitives don't really have fields in the way that structs do,
+    // but having this return an empty iterator for them is unhelpful
+    // since that makes them look kinda like ZSTs, which they're not.
+    const pseudofield_count = self.$ === "Primitive" ? 1 : FieldsShape.count(self);
+
+    const out: number[] = [];
+    for (let i = 0; i < pseudofield_count; i++) {
+      switch (self.$) {
+        case "Primitive":
+        case "Union":
+        case "Array":
+          out.push(i);
+          break;
+        case "Arbitrary": {
+          // PORT (abi-lib): `IndexVec` indexing panics out of bounds.
+          const f = self.in_memory_order[i];
+          if (f === undefined) return panic(`index out of bounds: the len is ${self.in_memory_order.length} but the index is ${i}`);
+          out.push(FieldIdx.index(f));
+          break;
+        }
+      }
+    }
+    return out;
   },
 } as const;
 /** derive(PartialEq) (PORT (layout-contract): the derived equality is the intern key's, rust_ts/intern_key.ts) */
@@ -2047,17 +2357,22 @@ export const debug_AddressSpace: Debug<AddressSpace> = (v) => `AddressSpace(${v}
 export type NumScalableVectors = number & { readonly __brand: "NumScalableVectors" };
 export const NumScalableVectors = {
   /// Returns a `NumScalableVector` for a non-tuple scalable vector (e.g. a single vector).
-  // stub: compiler/rustc_abi/src/lib.rs:1807 for_non_tuple (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:1807 for_non_tuple
   for_non_tuple(): NumScalableVectors {
-    return unported("rustc_abi::NumScalableVectors::for_non_tuple");
+    return 1 as NumScalableVectors;
   },
 
   // Returns `NumScalableVectors` for values of two through eight, which are a valid number of
   // fields for a tuple of scalable vectors to have. `1` is a valid value of `NumScalableVectors`
   // but not for a tuple which would have a field count.
-  // stub: compiler/rustc_abi/src/lib.rs:1814 from_field_count (lane abi-lib)
-  from_field_count(_count: number): NumScalableVectors | undefined {
-    return unported("rustc_abi::NumScalableVectors::from_field_count");
+  // rustc: compiler/rustc_abi/src/lib.rs:1814 from_field_count
+  from_field_count(count: number): NumScalableVectors | undefined {
+    // `2..8` (exclusive, as upstream)
+    if (count >= 2 && count < 8) {
+      return count as NumScalableVectors;
+    } else {
+      return undefined;
+    }
   },
 } as const;
 // derive(Debug)
@@ -2065,9 +2380,40 @@ export const debug_NumScalableVectors: Debug<NumScalableVectors> = (v, f) => deb
 
 // #[cfg(feature = "nightly")]
 // impl IntoDiagArg for NumScalableVectors
-// stub: compiler/rustc_abi/src/lib.rs:1824 into_diag_arg (lane abi-lib)
-export function NumScalableVectors_into_diag_arg(_self: NumScalableVectors, _: MutRef<PathBuf | undefined>): DiagArgValue {
-  return unported("rustc_abi::NumScalableVectors::into_diag_arg");
+// rustc: compiler/rustc_abi/src/lib.rs:1824 into_diag_arg
+export function NumScalableVectors_into_diag_arg(self: NumScalableVectors, _: MutRef<PathBuf | undefined>): DiagArgValue {
+  let s: string;
+  switch (self as number) {
+    case 0:
+      return panic("`NumScalableVectors(0)` is illformed");
+    case 1:
+      s = "one";
+      break;
+    case 2:
+      s = "two";
+      break;
+    case 3:
+      s = "three";
+      break;
+    case 4:
+      s = "four";
+      break;
+    case 5:
+      s = "five";
+      break;
+    case 6:
+      s = "six";
+      break;
+    case 7:
+      s = "seven";
+      break;
+    case 8:
+      s = "eight";
+      break;
+    default:
+      return panic("`NumScalableVectors(N)` for N>8 is illformed");
+  }
+  return { $: "Str", _0: s };
 }
 
 /// The way we represent values to the backend
@@ -2104,46 +2450,64 @@ export type BackendRepr =
 export const BackendRepr = {
   /// Returns `true` if the layout corresponds to an unsized type.
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1886 is_unsized (lane abi-lib)
-  is_unsized(_self: BackendRepr): boolean {
-    return unported("rustc_abi::BackendRepr::is_unsized");
+  // rustc: compiler/rustc_abi/src/lib.rs:1886 is_unsized
+  is_unsized(self: BackendRepr): boolean {
+    switch (self.$) {
+      case "Scalar":
+      case "ScalarPair":
+      // FIXME(rustc_scalable_vector): Scalable vectors are `Sized` while the
+      // `sized_hierarchy` feature is not yet fully implemented. After `sized_hierarchy` is
+      // fully implemented, scalable vectors will remain `Sized`, they just won't be
+      // `const Sized` - whether `is_unsized` continues to return `false` at that point will
+      // need to be revisited and will depend on what `is_unsized` is used for.
+      case "SimdScalableVector":
+      case "SimdVector":
+        return false;
+      case "Memory":
+        return !self.sized;
+    }
   },
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1902 is_sized (lane abi-lib)
-  is_sized(_self: BackendRepr): boolean {
-    return unported("rustc_abi::BackendRepr::is_sized");
+  // rustc: compiler/rustc_abi/src/lib.rs:1902 is_sized
+  is_sized(self: BackendRepr): boolean {
+    return !BackendRepr.is_unsized(self);
   },
 
   /// Returns `true` if this is a single signed integer scalar.
   /// Sanity check: panics if this is not a scalar type (see PR #70189).
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1909 is_signed (lane abi-lib)
-  is_signed(_self: BackendRepr): boolean {
-    return unported("rustc_abi::BackendRepr::is_signed");
+  // rustc: compiler/rustc_abi/src/lib.rs:1909 is_signed
+  is_signed(self: BackendRepr): boolean {
+    switch (self.$) {
+      case "Scalar":
+        return Scalar.is_signed(self._0);
+      default:
+        return panic(`\`is_signed\` on non-scalar ABI ${debug_BackendRepr(self, PLAIN)}`);
+    }
   },
 
   /// Returns `true` if this is specifically a [`Self::Scalar`] type.
   ///
   /// This excludes SIMD types.
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1920 is_scalar (lane abi-lib)
-  is_scalar(_self: BackendRepr): boolean {
-    return unported("rustc_abi::BackendRepr::is_scalar");
+  // rustc: compiler/rustc_abi/src/lib.rs:1920 is_scalar
+  is_scalar(self: BackendRepr): boolean {
+    return self.$ === "Scalar";
   },
 
   /// Returns `true` if this is a scalar type or SIMD type.
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1926 is_scalar_or_simd (lane abi-lib)
-  is_scalar_or_simd(_self: BackendRepr): boolean {
-    return unported("rustc_abi::BackendRepr::is_scalar_or_simd");
+  // rustc: compiler/rustc_abi/src/lib.rs:1926 is_scalar_or_simd
+  is_scalar_or_simd(self: BackendRepr): boolean {
+    return self.$ === "Scalar" || self.$ === "SimdVector" || self.$ === "SimdScalableVector";
   },
 
   /// Returns `true` if this is a bool
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:1937 is_bool (lane abi-lib)
-  is_bool(_self: BackendRepr): boolean {
-    return unported("rustc_abi::BackendRepr::is_bool");
+  // rustc: compiler/rustc_abi/src/lib.rs:1937 is_bool
+  is_bool(self: BackendRepr): boolean {
+    return self.$ === "Scalar" && Scalar.is_bool(self._0);
   },
 
   /// The psABI alignment for a `Scalar` or `ScalarPair`
@@ -2153,28 +2517,101 @@ export const BackendRepr = {
   /// It's unclear whether this is a meaningful operation, and MCP#1007 proposes changes.
   /// You should generally be using the alignment of the place or the type,
   /// not calculating something from the `Scalar`s.
-  // stub: compiler/rustc_abi/src/lib.rs:1948 scalar_platform_align (lane abi-lib)
-  scalar_platform_align(_self: BackendRepr, _cx: HasDataLayout): Align | undefined {
-    return unported("rustc_abi::BackendRepr::scalar_platform_align");
+  // rustc: compiler/rustc_abi/src/lib.rs:1948 scalar_platform_align
+  scalar_platform_align(self: BackendRepr, cx: HasDataLayout): Align | undefined {
+    switch (self.$) {
+      case "Scalar":
+        return Scalar.default_align(self._0, cx).abi;
+      case "ScalarPair": {
+        const { a: s1, b: s2 } = self;
+        return Scalar.default_align(s1, cx).max(Scalar.default_align(s2, cx)).abi;
+      }
+      // The align of a Vector can vary in surprising ways
+      case "SimdVector":
+      case "Memory":
+      case "SimdScalableVector":
+        return undefined;
+    }
   },
 
   /// The psABI size for a `Scalar` or `ScalarPair`
   ///
   /// `None` for other variants
-  // stub: compiler/rustc_abi/src/lib.rs:1964 scalar_size (lane abi-lib)
-  scalar_size(_self: BackendRepr, _cx: HasDataLayout): Size | undefined {
-    return unported("rustc_abi::BackendRepr::scalar_size");
+  // rustc: compiler/rustc_abi/src/lib.rs:1964 scalar_size
+  scalar_size(self: BackendRepr, cx: HasDataLayout): Size | undefined {
+    switch (self.$) {
+      // No padding in scalars.
+      case "Scalar":
+        return Scalar.size(self._0, cx);
+      // May have some padding between the pair.
+      case "ScalarPair": {
+        const { b: s2, b_offset: field2_offset } = self;
+        const align = BackendRepr.scalar_platform_align(self, cx);
+        // We absolutely must have an answer here or everything is FUBAR.
+        if (align === undefined) return panic("called `Option::unwrap()` on a `None` value");
+        const size = field2_offset.add(Scalar.size(s2, cx)).align_to(align);
+        return size;
+      }
+      // The size of a Vector can vary in surprising ways
+      case "SimdVector":
+      case "Memory":
+      case "SimdScalableVector":
+        return undefined;
+    }
   },
 
   /// Discard validity range information and allow undef.
-  // stub: compiler/rustc_abi/src/lib.rs:1985 to_union (lane abi-lib)
-  to_union(_self: BackendRepr): BackendRepr {
-    return unported("rustc_abi::BackendRepr::to_union");
+  // rustc: compiler/rustc_abi/src/lib.rs:1985 to_union
+  to_union(self: BackendRepr): BackendRepr {
+    switch (self.$) {
+      case "Scalar":
+        return { $: "Scalar", _0: Scalar.to_union(self._0) };
+      case "ScalarPair": {
+        const { a: s1, b: s2, b_offset } = self;
+        return { $: "ScalarPair", a: Scalar.to_union(s1), b: Scalar.to_union(s2), b_offset };
+      }
+      case "SimdVector": {
+        const { element, count } = self;
+        return { $: "SimdVector", element: Scalar.to_union(element), count };
+      }
+      case "Memory":
+        return { $: "Memory", sized: true };
+      case "SimdScalableVector": {
+        const { element, count, number_of_vectors } = self;
+        return {
+          $: "SimdScalableVector",
+          element: Scalar.to_union(element),
+          count,
+          number_of_vectors,
+        };
+      }
+    }
   },
 
-  // stub: compiler/rustc_abi/src/lib.rs:2005 eq_up_to_validity (lane abi-lib)
-  eq_up_to_validity(_self: BackendRepr, _other: BackendRepr): boolean {
-    return unported("rustc_abi::BackendRepr::eq_up_to_validity");
+  // rustc: compiler/rustc_abi/src/lib.rs:2005 eq_up_to_validity
+  eq_up_to_validity(self: BackendRepr, other: BackendRepr): boolean {
+    // Scalar, Vector, ScalarPair have `Scalar` in them where we ignore validity ranges.
+    // We do *not* ignore the sign since it matters for some ABIs (e.g. s390x).
+    if (self.$ === "Scalar" && other.$ === "Scalar") {
+      const [l, r] = [self._0, other._0];
+      return Primitive_eq(Scalar.primitive(l), Scalar.primitive(r));
+    } else if (self.$ === "SimdVector" && other.$ === "SimdVector") {
+      const { element: element_l, count: count_l } = self;
+      const { element: element_r, count: count_r } = other;
+      return Primitive_eq(Scalar.primitive(element_l), Scalar.primitive(element_r)) && count_l === count_r;
+    } else if (self.$ === "ScalarPair" && other.$ === "ScalarPair") {
+      const { a: l1, b: l2, b_offset: l_offset } = self;
+      const { a: r1, b: r2, b_offset: r_offset } = other;
+      return (
+        Primitive_eq(Scalar.primitive(l1), Scalar.primitive(r1)) &&
+        Primitive_eq(Scalar.primitive(l2), Scalar.primitive(r2)) &&
+        l_offset.raw === r_offset.raw
+      );
+    }
+    // Everything else must be strictly identical.
+    else {
+      return BackendRepr_eq(self, other);
+    }
   },
 } as const;
 /** derive(PartialEq) (PORT (layout-contract): the derived equality is the intern key's, rust_ts/intern_key.ts) */
@@ -2355,20 +2792,114 @@ export class Niche {
     readonly valid_range: WrappingRange,
   ) {}
 
-  // stub: compiler/rustc_abi/src/lib.rs:2122 from_scalar (lane abi-lib)
-  static from_scalar(_cx: HasDataLayout, _offset: Size, _scalar: Scalar): Niche | undefined {
-    return unported("rustc_abi::Niche::from_scalar");
+  // rustc: compiler/rustc_abi/src/lib.rs:2122 from_scalar
+  static from_scalar(cx: HasDataLayout, offset: Size, scalar: Scalar): Niche | undefined {
+    if (scalar.$ !== "Initialized") return undefined;
+    const { value, valid_range } = scalar;
+    const niche = new Niche(offset, value, valid_range);
+    if (niche.available(cx) > 0n) {
+      return niche;
+    } else {
+      return undefined;
+    }
   }
 
-  // stub: compiler/rustc_abi/src/lib.rs:2128 available (lane abi-lib)
-  available(_cx: HasDataLayout): bigint {
-    return unported("rustc_abi::Niche::available");
+  // rustc: compiler/rustc_abi/src/lib.rs:2128 available
+  available(cx: HasDataLayout): bigint {
+    const { value, valid_range: v } = this;
+    const size = Primitive.size(value, cx);
+    assert(size.bits() <= 128, "assertion failed: size.bits() <= 128");
+    const max_value = size.unsigned_int_max();
+
+    // Find out how many values are outside the valid range.
+    const niche = { start: u128_wrapping_add(v.end, 1n), end: v.start };
+    return u128_wrapping_sub(niche.end, niche.start) & max_value;
   }
 
-  // stub: compiler/rustc_abi/src/lib.rs:2139 reserve (lane abi-lib)
-  reserve(_cx: HasDataLayout, _count: bigint): [bigint, Scalar] | undefined {
-    return unported("rustc_abi::Niche::reserve");
+  // rustc: compiler/rustc_abi/src/lib.rs:2139 reserve
+  reserve(cx: HasDataLayout, count: bigint): [bigint, Scalar] | undefined {
+    assert(count > 0n, "assertion failed: count > 0");
+
+    const { value, valid_range: v } = this;
+    const size = Primitive.size(value, cx);
+    assert(size.bits() <= 128, "assertion failed: size.bits() <= 128");
+    const max_value = size.unsigned_int_max();
+
+    const available = u128_wrapping_sub(u128_wrapping_sub(v.start, v.end), 1n) & max_value;
+    if (count > available) {
+      return undefined;
+    }
+
+    // Extend the range of valid values being reserved by moving either `v.start` or `v.end`
+    // bound. Given an eventual `Option<T>`, we try to maximize the chance for `None` to occupy
+    // the niche of zero. This is accomplished by preferring enums with 2 variants(`count==1`)
+    // and always taking the shortest path to niche zero. Having `None` in niche zero can
+    // enable some special optimizations.
+    //
+    // Bound selection criteria:
+    // 1. Select closest to zero given wrapping semantics.
+    // 2. Avoid moving past zero if possible.
+    //
+    // In practice this means that enums with `count > 1` are unlikely to claim niche zero,
+    // since they have to fit perfectly. If niche zero is already reserved, the selection of
+    // bounds are of little interest.
+    const move_start = (v: WrappingRange): [bigint, Scalar] | undefined => {
+      const start = u128_wrapping_sub(v.start, count) & max_value;
+      return [start, { $: "Initialized", value, valid_range: v.with_start(start) }];
+    };
+    const move_end = (v: WrappingRange): [bigint, Scalar] | undefined => {
+      const start = u128_wrapping_add(v.end, 1n) & max_value;
+      const end = u128_wrapping_add(v.end, count) & max_value;
+      return [start, { $: "Initialized", value, valid_range: v.with_end(end) }];
+    };
+    const distance_end_zero = max_value - v.end;
+    // FIXME: this ought to work for `bool` too, but that seems to be hitting a miscompilation
+    // <https://github.com/rust-lang/rust/pull/155473#issuecomment-4302036343>
+    if (count === 1n && !WrappingRange_eq(v, new WrappingRange(0n, 1n))) {
+      // We only need one, so just pick the one closest to zero.
+      // Not only does that obviously use zero if it's possible, but it also
+      // simplifies testing things like `Option<char>`, since looking for `-1`
+      // is easier than looking for `1114112` (and matches clang's `WEOF`).
+      const next_up = i128_unsigned_abs(size.sign_extend(u128_wrapping_add(v.end, 1n)));
+      const next_down = i128_unsigned_abs(size.sign_extend(u128_wrapping_sub(v.start, 1n)));
+      if (next_down <= next_up) {
+        return move_start(v);
+      } else {
+        return move_end(v);
+      }
+    } else if (v.start > v.end) {
+      // zero is unavailable because wrapping occurs
+      return move_end(v);
+    } else if (v.start <= distance_end_zero) {
+      if (count <= v.start) {
+        return move_start(v);
+      } else {
+        // moved past zero, use other bound
+        return move_end(v);
+      }
+    } else {
+      const end = u128_wrapping_add(v.end, count) & max_value;
+      const overshot_zero = 1n <= end && end <= v.end;
+      if (overshot_zero) {
+        // moved past zero, use other bound
+        return move_start(v);
+      } else {
+        return move_end(v);
+      }
+    }
   }
+}
+/** `u128::wrapping_add` */
+function u128_wrapping_add(a: bigint, b: bigint): bigint {
+  return (a + b) & U128_MAX;
+}
+/** `u128::wrapping_sub` */
+function u128_wrapping_sub(a: bigint, b: bigint): bigint {
+  return (a - b) & U128_MAX;
+}
+/** `i128::unsigned_abs` */
+function i128_unsigned_abs(a: bigint): bigint {
+  return a < 0n ? -a : a;
 }
 /** derive(PartialEq) */
 export function Niche_eq(a: Niche, b: Niche): boolean {
@@ -2470,70 +3001,102 @@ export class LayoutData {
   // ---- impl LayoutData (lib.rs:2287) ----
 
   /// Returns `true` if this is an aggregate type (including a ScalarPair!)
-  // stub: compiler/rustc_abi/src/lib.rs:2289 is_aggregate (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2289 is_aggregate
   is_aggregate(): boolean {
-    return unported("rustc_abi::LayoutData::is_aggregate");
+    switch (this.backend_repr.$) {
+      case "Scalar":
+      case "SimdVector":
+      case "SimdScalableVector":
+        return false;
+      case "ScalarPair":
+      case "Memory":
+        return true;
+    }
   }
 
   /// Returns `true` if this is an uninhabited type
-  // stub: compiler/rustc_abi/src/lib.rs:2299 is_uninhabited (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2299 is_uninhabited
   is_uninhabited(): boolean {
-    return unported("rustc_abi::LayoutData::is_uninhabited");
+    return this.uninhabited;
   }
 
   /// Returns `true` if the given variant is uninhabited.
-  // stub: compiler/rustc_abi/src/lib.rs:2304 is_variant_uninhabited (lane abi-lib)
-  is_variant_uninhabited(_variant: VariantIdx): boolean {
-    return unported("rustc_abi::LayoutData::is_variant_uninhabited");
+  // rustc: compiler/rustc_abi/src/lib.rs:2304 is_variant_uninhabited
+  is_variant_uninhabited(variant: VariantIdx): boolean {
+    const variants = this.variants;
+    switch (variants.$) {
+      case "Empty":
+        return true;
+      case "Single":
+        return variant !== variants.index || this.uninhabited;
+      case "Multiple": {
+        // `variants.get(variant).map(|v| v.uninhabited).unwrap_or(true)`
+        const v = variants.variants[variant];
+        return v !== undefined ? v.uninhabited : true;
+      }
+    }
   }
 
   /// Returns `true` if this is a `repr(C)` type,
   /// or an array of such, or a `repr(transparent)` wrapper around such
-  // stub: compiler/rustc_abi/src/lib.rs:2316 is_repr_c (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2316 is_repr_c
   is_repr_c(): boolean {
-    return unported("rustc_abi::LayoutData::is_repr_c");
+    return this.repr_c;
   }
 
   // ---- impl LayoutData (lib.rs:2393) ----
 
   /// Returns `true` if the layout corresponds to an unsized type.
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:2396 is_unsized (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2396 is_unsized
   is_unsized(): boolean {
-    return unported("rustc_abi::LayoutData::is_unsized");
+    return BackendRepr.is_unsized(this.backend_repr);
   }
 
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:2401 is_sized (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2401 is_sized
   is_sized(): boolean {
-    return unported("rustc_abi::LayoutData::is_sized");
+    return BackendRepr.is_sized(this.backend_repr);
   }
 
   /// Returns `true` if the type is sized and a 1-ZST (meaning it has size 0 and alignment 1).
-  // stub: compiler/rustc_abi/src/lib.rs:2406 is_1zst (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2406 is_1zst
   is_1zst(): boolean {
-    return unported("rustc_abi::LayoutData::is_1zst");
+    return this.is_sized() && this.size.bytes() === 0 && this.align.abi.bytes() === 1;
   }
 
   /// Returns `true` if the size of the type is only known at runtime.
-  // stub: compiler/rustc_abi/src/lib.rs:2411 is_scalable_vector (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2411 is_scalable_vector
   is_scalable_vector(): boolean {
-    return unported("rustc_abi::LayoutData::is_scalable_vector");
+    return this.backend_repr.$ === "SimdScalableVector";
   }
 
   /// Returns the elements count of a scalable vector.
-  // stub: compiler/rustc_abi/src/lib.rs:2416 scalable_vector_element_count (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2416 scalable_vector_element_count
   scalable_vector_element_count(): BackendLaneCount | undefined {
-    return unported("rustc_abi::LayoutData::scalable_vector_element_count");
+    switch (this.backend_repr.$) {
+      case "SimdScalableVector":
+        return this.backend_repr.count;
+      default:
+        return undefined;
+    }
   }
 
   /// Returns `true` if the type is a ZST and not unsized.
   ///
   /// Note that this does *not* imply that the type is irrelevant for layout! It can still have
   /// non-trivial alignment constraints. You probably want to use `is_1zst` instead.
-  // stub: compiler/rustc_abi/src/lib.rs:2427 is_zst (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2427 is_zst
   is_zst(): boolean {
-    return unported("rustc_abi::LayoutData::is_zst");
+    switch (this.backend_repr.$) {
+      case "Scalar":
+      case "ScalarPair":
+      case "SimdScalableVector":
+      case "SimdVector":
+        return false;
+      case "Memory":
+        return this.backend_repr.sized && this.size.bytes() === 0;
+    }
   }
 
   /// In the backend, a value with this type and layout is fully represented by
@@ -2545,9 +3108,17 @@ export class LayoutData {
   /// Any projection into a standalone type must also yield a standalone type,
   /// since it might not be in memory at all.
   // #[inline]
-  // stub: compiler/rustc_abi/src/lib.rs:2446 is_ssa_standalone (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2446 is_ssa_standalone
   is_ssa_standalone(): boolean {
-    return unported("rustc_abi::LayoutData::is_ssa_standalone");
+    switch (this.backend_repr.$) {
+      case "Memory":
+        return this.is_zst();
+      case "Scalar":
+      case "ScalarPair":
+      case "SimdVector":
+      case "SimdScalableVector":
+        return true;
+    }
   }
 
   /// Checks if these two `Layout` are equal enough to be considered "the same for all function
@@ -2555,9 +3126,20 @@ export class LayoutData {
   /// `Layout`; the `PassMode` need to be compared as well. Also note that we assume
   /// aggregates are passed via `PassMode::Indirect`, `PassMode::IndirectUnsized` or
   /// `PassMode::Cast`; more strict checks would otherwise be required.
-  // stub: compiler/rustc_abi/src/lib.rs:2461 eq_abi (lane abi-lib)
-  eq_abi(_other: LayoutData): boolean {
-    return unported("rustc_abi::LayoutData::eq_abi");
+  // rustc: compiler/rustc_abi/src/lib.rs:2461 eq_abi
+  eq_abi(other: LayoutData): boolean {
+    // The one thing that we are not capturing here is that for unsized types, the metadata must
+    // also have the same ABI, and moreover that the same metadata leads to the same size. The
+    // 2nd point is quite hard to check though.
+    return (
+      this.size.raw === other.size.raw &&
+      this.is_sized() === other.is_sized() &&
+      BackendRepr.eq_up_to_validity(this.backend_repr, other.backend_repr) &&
+      BackendRepr.is_bool(this.backend_repr) === BackendRepr.is_bool(other.backend_repr) &&
+      Align_eq(this.align.abi, other.align.abi) &&
+      option_eq(this.max_repr_align, other.max_repr_align, Align_eq) &&
+      Align_eq(this.unadjusted_abi_align, other.unadjusted_abi_align)
+    );
   }
 
   // ---- layout/simple.rs: impl LayoutData (PORTING §8: statics in the class body) ----
@@ -2742,19 +3324,24 @@ export class VariantLayout {
   ) {}
 
   // PORT (layout-contract): `layout: LayoutData<FieldIdx, impl Idx>` is a `LayoutData`.
-  // stub: compiler/rustc_abi/src/lib.rs:2516 from_layout (lane abi-lib)
-  static from_layout(_layout: LayoutData): VariantLayout {
-    return unported("rustc_abi::VariantLayout::from_layout");
+  // rustc: compiler/rustc_abi/src/lib.rs:2516 from_layout
+  static from_layout(layout: LayoutData): VariantLayout {
+    if (layout.fields.$ !== "Arbitrary") {
+      return panic("Layout of fields should be Arbitrary for variants");
+    }
+    const { offsets, in_memory_order } = layout.fields;
+
+    return new VariantLayout(layout.size, layout.backend_repr, offsets, in_memory_order, layout.largest_niche, layout.uninhabited);
   }
 
-  // stub: compiler/rustc_abi/src/lib.rs:2531 is_uninhabited (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2531 is_uninhabited
   is_uninhabited(): boolean {
-    return unported("rustc_abi::VariantLayout::is_uninhabited");
+    return this.uninhabited;
   }
 
-  // stub: compiler/rustc_abi/src/lib.rs:2535 has_fields (lane abi-lib)
+  // rustc: compiler/rustc_abi/src/lib.rs:2535 has_fields
   has_fields(): boolean {
-    return unported("rustc_abi::VariantLayout::has_fields");
+    return this.field_offsets.length > 0;
   }
 }
 // derive(Debug)

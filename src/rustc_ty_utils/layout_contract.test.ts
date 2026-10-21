@@ -131,7 +131,7 @@ test("every fn of the layout files is ported or declared as a stub, never both",
   // stubs only for the scope files
   for (const d of stubs) expect(FILES.some(([f]) => f === d.path)).toBe(true);
   expect(total).toBe(320);
-  expect(stubs.length).toBe(158);
+  expect(stubs.length).toBe(74);
 });
 
 function stops(f: () => unknown, what: string): void {
@@ -211,11 +211,13 @@ test("Debug of LayoutData / Layout / Scalar / BackendRepr is rustc's (tests/ui/l
 
 test("the stubs stop as UNPORTED with their own path", () => {
   const l = option_bool();
-  stops(() => l.is_zst(), "rustc_abi::LayoutData::is_zst");
+  // ported by lane abi-lib (was a stub): `Option<bool>` is a 1-byte scalar, not a ZST
+  expect(l.is_zst()).toBe(false);
   stops(() => LayoutData.scalar({ data_layout: () => unreachable_dl() }, scalar(u8_, 0n, 1n)), "rustc_abi::layout::simple::LayoutData::scalar");
-  stops(() => BackendRepr.is_unsized(l.backend_repr), "rustc_abi::BackendRepr::is_unsized");
-  stops(() => Scalar.primitive(scalar(u8_, 0n, 1n)), "rustc_abi::Scalar::primitive");
-  stops(() => new WrappingRange(0n, 1n).contains(0n), "rustc_abi::wrapping_range::WrappingRange::contains");
+  // ported by lane abi-lib (were stubs)
+  expect(BackendRepr.is_unsized(l.backend_repr)).toBe(false);
+  expect(Scalar.primitive(scalar(u8_, 0n, 1n))).toBe(u8_);
+  expect(new WrappingRange(0n, 1n).contains(0n)).toBe(true);
   stops(() => LayoutCalculator.new({ data_layout: () => unreachable_dl() }).layout_of_union(null as never, []), "rustc_abi::layout::LayoutCalculator::layout_of_union");
   stops(() => coroutine_saved_local_eligibility(0, [], null as never), "rustc_abi::layout::coroutine::coroutine_saved_local_eligibility");
   stops(() => SizeSkeleton.compute(null as never, null as never, null as never, null as never), "rustc_middle::ty::layout::SizeSkeleton::compute");
@@ -247,8 +249,10 @@ test("TyAndLayout derefs to its LayoutData; Layout deep-freezes it", () => {
   expect(() => {
     (data as { size: Size }).size = sz(2);
   }).toThrow();
-  // forwarded methods reach the LayoutData's (stub) method
-  stops(() => tl.is_1zst(), "rustc_abi::LayoutData::is_1zst");
+  // forwarded methods reach the LayoutData's method (ported by lane abi-lib; was a stub)
+  expect(tl.is_1zst()).toBe(false);
+  expect(tl.is_zst()).toBe(false);
+  expect(tl.is_sized()).toBe(true);
 });
 
 // ---- in-process: TyCtxt::mk_layout, the layout_of provider, LayoutCx ----
