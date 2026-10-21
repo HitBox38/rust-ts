@@ -36,11 +36,12 @@ const PENDING: Record<string, string> = Object.fromEntries(CASES.map((c) => [c, 
  * In-process stops (re-pinned by merge-w17; e0050 / e0185 / e0186 / e0643 now equal the oracle, e0195 since small-gaps-18
  * ported `LateParamRegionKind::from_bound`, refine_rpitit since typeck-gaps ported `ConstraintCategory`): E0053 (signature)
  * and E0326 stop at the type-error report (`TypeErrCtxt::note_type_err`, wave 19; re-pinned by errctxt-contract, which
- * ported `err_ctxt` / `ObligationCauseExt`).
+ * ported `err_ctxt` / `ObligationCauseExt`). Re-pinned by errrep-infer-a: `note_type_err` is ported; the stop is its call of
+ * `note_field_shadowed_by_private_candidate_in_cause` (traits/suggestions.rs, lane errrep-sugg-a).
  */
 /** The lint case (`refining_impl_trait`, a warning; in process since lane typeck-gaps ported `ConstraintCategory`). */
 const LINT_CASES = new Set(["refine_rpitit"]);
-const ERR_CTXT = "rustc_trait_selection::error_reporting::infer::TypeErrCtxt::note_type_err";
+const ERR_CTXT = "rustc_trait_selection::error_reporting::traits::suggestions::TypeErrCtxt::note_field_shadowed_by_private_candidate_in_cause";
 const IN_PROCESS_PENDING: Record<string, string> = {
   e0053_sig: ERR_CTXT,
   e0326: ERR_CTXT,
